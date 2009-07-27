@@ -2414,8 +2414,6 @@
         'renderer/loadtimes_extension_bindings.cc',
         'renderer/media/audio_renderer_impl.cc',
         'renderer/media/audio_renderer_impl.h',
-        'renderer/media/buffered_data_source.cc',
-        'renderer/media/buffered_data_source.h',
         'renderer/net/render_dns_master.cc',
         'renderer/net/render_dns_master.h',
         'renderer/net/render_dns_queue.cc',
