@@ -3540,6 +3540,9 @@
         'utility',
         '../app/app.gyp:app_resources',
         '../ipc/ipc.gyp:ipc',
+        # TODO(jamesr): this is required for the release builders to build
+        # ipc_tests.exe. However, it's probably not what we really want.
+        '../ipc/ipc.gyp:ipc_tests',
         '../net/net.gyp:net_resources',
         '../net/net.gyp:net_test_support',
         '../printing/printing.gyp:printing',
@@ -5019,6 +5022,7 @@
           # E.g. build/{linux|mac}/chrome_linux.croc
           'dependencies': [
             '../base/base.gyp:base_unittests',
+            '../ipc/ipc.gyp:ipc_tests',
             '../media/media.gyp:media_unittests',
             '../net/net.gyp:net_unittests',
             '../printing/printing.gyp:printing_unittests',
