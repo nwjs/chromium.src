@@ -74,8 +74,6 @@ const char* Extension::kExtensionRegistryPath =
 // first 16 bytes of SHA256 hashed public key.
 const size_t Extension::kIdSize = 16;
 
-const char Extension::kMimeType[] = "application/x-chrome-extension";
-
 const int Extension::kKnownIconSizes[] = { 128 };
 
 Extension::~Extension() {
