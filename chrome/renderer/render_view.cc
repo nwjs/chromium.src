@@ -59,6 +59,7 @@
 #include "webkit/api/public/WebDragData.h"
 #include "webkit/api/public/WebForm.h"
 #include "webkit/api/public/WebHistoryItem.h"
+#include "webkit/api/public/WebNode.h"
 #include "webkit/api/public/WebPoint.h"
 #include "webkit/api/public/WebRect.h"
 #include "webkit/api/public/WebScriptSource.h"
@@ -423,6 +424,7 @@ void RenderView::OnMessageReceived(const IPC::Message& message) {
     IPC_MESSAGE_HANDLER(ViewMsg_EnableIntrinsicWidthChangedMode,
                         OnEnableIntrinsicWidthChangedMode)
     IPC_MESSAGE_HANDLER(ViewMsg_SetRendererPrefs, OnSetRendererPrefs)
+    IPC_MESSAGE_HANDLER(ViewMsg_MediaPlayerActionAt, OnMediaPlayerActionAt)
 
     // Have the super handle all other messages.
     IPC_MESSAGE_UNHANDLED(RenderWidget::OnMessageReceived(message))
@@ -1976,7 +1978,7 @@ void RenderView::SyncNavigationState() {
 }
 
 void RenderView::ShowContextMenu(WebView* webview,
-                                 ContextNode node,
+                                 ContextNodeType node_type,
                                  int x,
                                  int y,
                                  const GURL& link_url,
@@ -1990,7 +1992,7 @@ void RenderView::ShowContextMenu(WebView* webview,
                                  const std::string& security_info,
                                  const std::string& frame_charset) {
   ContextMenuParams params;
-  params.node = node;
+  params.node_type = node_type;
   params.x = x;
   params.y = y;
   params.src_url = src_url;
@@ -2629,6 +2631,15 @@ void RenderView::OnEnableIntrinsicWidthChangedMode() {
 
 void RenderView::OnSetRendererPrefs(const RendererPreferences& renderer_prefs) {
   renderer_preferences_ = renderer_prefs;
+}
+
+void RenderView::OnMediaPlayerActionAt(int x,
+                                       int y,
+                                       const MediaPlayerAction& action) {
+  if (!webview())
+    return;
+
+  webview()->MediaPlayerActionAt(x, y, action);
 }
 
 void RenderView::OnUpdateBackForwardListCount(int back_list_count,

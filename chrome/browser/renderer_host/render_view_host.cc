@@ -1241,6 +1241,13 @@ void RenderViewHost::OnMsgShowModalHTMLDialog(
   delegate_->ShowModalHTMLDialog(url, width, height, json_arguments, reply_msg);
 }
 
+void RenderViewHost::MediaPlayerActionAt(int x,
+                                         int y,
+                                         const MediaPlayerAction& action) {
+  // TODO(ajwong): Which thread should run this?  Does it matter?
+  Send(new ViewMsg_MediaPlayerActionAt(routing_id(), x, y, action));
+}
+
 void RenderViewHost::OnMsgPasswordFormsSeen(
     const std::vector<webkit_glue::PasswordForm>& forms) {
   delegate_->PasswordFormsSeen(forms);

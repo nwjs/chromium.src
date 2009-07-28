@@ -131,6 +131,10 @@ class WebViewImpl : public WebView, public base::RefCounted<WebViewImpl> {
   virtual void SetIsTransparent(bool is_transparent);
   virtual bool GetIsTransparent() const;
 
+  virtual void MediaPlayerActionAt(int x,
+                                   int y,
+                                   const MediaPlayerAction& action);
+
   // WebViewImpl
 
   const WebKit::WebPoint& last_mouse_down_point() const {
