@@ -56,6 +56,7 @@
 #include "chrome/renderer/render_process.h"
 #include "chrome/installer/util/google_update_settings.h"
 #include "grit/generated_resources.h"
+#include "ipc/ipc_switches.h"
 
 #if defined(OS_WIN)
 #include "app/win_util.h"
