@@ -108,6 +108,7 @@ class DownloadItem {
                const FilePath& path,
                int path_uniquifier,
                const GURL& url,
+               const std::string& mime_type,
                const FilePath& original_name,
                const base::Time start_time,
                int64 download_size,
@@ -184,6 +185,7 @@ class DownloadItem {
   int path_uniquifier() const { return path_uniquifier_; }
   void set_path_uniquifier(int uniquifier) { path_uniquifier_ = uniquifier; }
   GURL url() const { return url_; }
+  std::string mime_type() const { return mime_type_; }
   int64 total_bytes() const { return total_bytes_; }
   void set_total_bytes(int64 total_bytes) { total_bytes_ = total_bytes; }
   int64 received_bytes() const { return received_bytes_; }
@@ -232,6 +234,9 @@ class DownloadItem {
 
   // The URL from whence we came.
   GURL url_;
+
+  // The mimetype of the download
+  std::string mime_type_;
 
   // Total bytes expected
   int64 total_bytes_;

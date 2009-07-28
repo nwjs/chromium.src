@@ -117,6 +117,8 @@ DownloadItem::DownloadItem(const DownloadCreateInfo& info)
     : id_(-1),
       full_path_(info.path),
       url_(info.url),
+      referrer_url_(info.referrer_url),
+      mime_type_(info.mime_type),
       total_bytes_(info.total_bytes),
       received_bytes_(info.received_bytes),
       start_tick_(base::TimeTicks()),
@@ -141,6 +143,7 @@ DownloadItem::DownloadItem(int32 download_id,
                            const FilePath& path,
                            int path_uniquifier,
                            const GURL& url,
+                           const std::string& mime_type,
                            const FilePath& original_name,
                            const base::Time start_time,
                            int64 download_size,
@@ -151,6 +154,7 @@ DownloadItem::DownloadItem(int32 download_id,
       full_path_(path),
       path_uniquifier_(path_uniquifier),
       url_(url),
+      mime_type_(mime_type),
       total_bytes_(download_size),
       received_bytes_(0),
       start_tick_(base::TimeTicks::Now()),
@@ -674,6 +678,7 @@ void DownloadManager::ContinueStartDownload(DownloadCreateInfo* info,
                                 info->path,
                                 info->path_uniquifier,
                                 info->url,
+                                info->mime_type,
                                 info->original_name,
                                 info->start_time,
                                 info->total_bytes,
@@ -838,7 +843,7 @@ void DownloadManager::ContinueDownloadFinished(DownloadItem* download) {
     extension = extension.substr(1);
 
   // Handle chrome extensions explicitly and skip the shell execute.
-  if (Extension::IsExtension(download->full_path())) {
+  if (download->mime_type() == Extension::kMimeType) {
     OpenChromeExtension(download->full_path());
     download->set_auto_opened(true);
   } else if (download->open_when_complete() ||
@@ -1207,7 +1212,7 @@ void DownloadManager::OpenDownload(const DownloadItem* download,
                                    gfx::NativeView parent_window) {
   // Open Chrome extensions with ExtensionsService. For everything else do shell
   // execute.
-  if (Extension::IsExtension(download->full_path())) {
+  if (download->mime_type() == Extension::kMimeType) {
     OpenChromeExtension(download->full_path());
   } else {
     OpenDownloadInShell(download, parent_window);
