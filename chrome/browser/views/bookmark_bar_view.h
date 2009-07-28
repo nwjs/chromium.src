@@ -340,6 +340,9 @@ class BookmarkBarView : public views::View,
                        const NotificationSource& source,
                        const NotificationDetails& details);
 
+  // Overridden from views::View.
+  virtual void ThemeChanged();
+
   // If the ModelChangedListener is non-null, ModelChanged is invoked on it.
   void NotifyModelChanged();
 
@@ -373,6 +376,9 @@ class BookmarkBarView : public views::View,
   // the throb stops immediately, otherwise it stops after a couple more
   // throbs.
   void StopThrobbing(bool immediate);
+
+  // Updates the colors for all the buttons in the bookmarks bar.
+  void UpdateButtonColors();
 
   NotificationRegistrar registrar_;
 
