@@ -844,7 +844,7 @@ void DownloadManager::ContinueDownloadFinished(DownloadItem* download) {
 
   // Handle chrome extensions explicitly and skip the shell execute.
   if (download->mime_type() == Extension::kMimeType) {
-    OpenChromeExtension(download->full_path());
+    OpenChromeExtension(download->full_path(), download->url());
     download->set_auto_opened(true);
   } else if (download->open_when_complete() ||
              ShouldOpenFileExtension(extension)) {
@@ -1213,15 +1213,16 @@ void DownloadManager::OpenDownload(const DownloadItem* download,
   // Open Chrome extensions with ExtensionsService. For everything else do shell
   // execute.
   if (download->mime_type() == Extension::kMimeType) {
-    OpenChromeExtension(download->full_path());
+    OpenChromeExtension(download->full_path(), download->url());
   } else {
     OpenDownloadInShell(download, parent_window);
   }
 }
 
-void DownloadManager::OpenChromeExtension(const FilePath& full_path) {
+void DownloadManager::OpenChromeExtension(const FilePath& full_path,
+                                          const GURL& download_url) {
   profile_->GetOriginalProfile()->GetExtensionsService()->
-      InstallExtension(full_path);
+      InstallExtension(full_path, download_url);
 }
 
 void DownloadManager::OpenDownloadInShell(const DownloadItem* download,
