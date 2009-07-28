@@ -548,6 +548,11 @@
       <message name="IDS_LINUX_CERTIFICATES_CONFIG_URL" translateable="false">
         http://code.google.com/p/chromium/wiki/LinuxCertManagement
       </message>
+      
+      <!-- The URL for the themes gallery. -->
+      <message name="IDS_THEMES_GALLERY_URL" translateable="false">
+        https://tools.google.com/chrome/intl/en/themes/index.html
+      </message>
     </messages>
   </release>
 </grit>
