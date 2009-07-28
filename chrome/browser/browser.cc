@@ -348,6 +348,12 @@ void Browser::OpenApplicationWindow(Profile* profile, const GURL& url) {
   Browser* browser = Browser::CreateForApp(app_name, profile, false);
   browser->AddTabWithURL(url, GURL(), PageTransition::START_PAGE, true, -1,
                          false, NULL);
+#if defined(OS_WIN)
+  // Set the app user model id for this application to that of the application
+  // name.  See http://crbug.com/7028.
+  win_util::SetAppIdForWindow(app_name, browser->window()->GetNativeHandle());
+#endif
+
   browser->GetSelectedTabContents()->render_view_host()->SetRendererPrefs(
       browser->GetSelectedTabContents()->delegate()->GetRendererPrefs());
   browser->window()->Show();
