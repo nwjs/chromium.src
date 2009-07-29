@@ -5,6 +5,7 @@
 #ifndef NET_HTTP_HTTP_NETWORK_SESSION_H_
 #define NET_HTTP_HTTP_NETWORK_SESSION_H_
 
+#include "base/logging.h"
 #include "base/ref_counted.h"
 #include "net/base/ssl_client_auth_cache.h"
 #include "net/base/ssl_config_service.h"
@@ -21,7 +22,13 @@ class ProxyService;
 class HttpNetworkSession : public base::RefCounted<HttpNetworkSession> {
  public:
   HttpNetworkSession(HostResolver* host_resolver, ProxyService* proxy_service,
-                     ClientSocketFactory* client_socket_factory);
+                     ClientSocketFactory* client_socket_factory)
+      : connection_pool_(new TCPClientSocketPool(
+            max_sockets_per_group_, host_resolver, client_socket_factory)),
+        host_resolver_(host_resolver),
+        proxy_service_(proxy_service) {
+    DCHECK(proxy_service);
+  }
 
   HttpAuthCache* auth_cache() { return &auth_cache_; }
   SSLClientAuthCache* ssl_client_auth_cache() {
@@ -38,9 +45,6 @@ class HttpNetworkSession : public base::RefCounted<HttpNetworkSession> {
 
  private:
   FRIEND_TEST(HttpNetworkTransactionTest, GroupNameForProxyConnections);
-
-  // Total limit of sockets. Not a constant to allow experiments.
-  static int max_sockets_;
 
   // Default to allow up to 6 connections per host. Experiment and tuning may
   // try other values (greater than 0).  Too large may cause many problems, such

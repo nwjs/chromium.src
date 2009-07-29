@@ -18,7 +18,6 @@ namespace net {
 
 namespace {
 
-const int kMaxSockets = 32;
 const int kMaxSocketsPerGroup = 6;
 
 // Note that the first and the last are the same, the first should be handled
@@ -226,8 +225,7 @@ class TCPClientSocketPoolTest : public testing::Test {
  protected:
   TCPClientSocketPoolTest()
       : host_resolver_(new MockHostResolver),
-        pool_(new TCPClientSocketPool(kMaxSockets,
-                                      kMaxSocketsPerGroup,
+        pool_(new TCPClientSocketPool(kMaxSocketsPerGroup,
                                       host_resolver_,
                                       &client_socket_factory_)) {
   }
@@ -620,7 +618,6 @@ TEST_F(TCPClientSocketPoolTest, FailingActiveRequestWithPendingRequests) {
       MockClientSocketFactory::MOCK_PENDING_FAILING_CLIENT_SOCKET);
 
   scoped_ptr<TestSocketRequest> reqs[kMaxSocketsPerGroup * 2 + 1];
-  ASSERT_LE(static_cast<int>(arraysize(reqs)), kMaxSockets);
 
   // Queue up all the requests
 
