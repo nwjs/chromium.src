@@ -619,16 +619,6 @@ int BrowserMain(const MainFunctionParams& parameters) {
   // Initialize and maintain DNS prefetcher module.
   chrome_browser_net::DnsPrefetcherInit dns_prefetch(user_prefs, local_state);
 
-  scoped_refptr<FieldTrial> http_prioritization_trial =
-      new FieldTrial("HttpPrioritization", 100);
-  // Put 10% of people in the fallback experiment with the http prioritization
-  // code disabled.
-  const int holdback_group =
-      http_prioritization_trial->AppendGroup("_no_http_prioritization", 10);
-  if (http_prioritization_trial->group() == holdback_group) {
-    ResourceDispatcherHost::DisableHttpPrioritization();
-  }
-
 #if defined(OS_WIN)
   // Init common control sex.
   INITCOMMONCONTROLSEX config;
@@ -677,8 +667,8 @@ int BrowserMain(const MainFunctionParams& parameters) {
   // Perform A/B test to measure global impact of SDCH support.
   // Set up a field trial to see what disabling SDCH does to latency of page
   // layout globally.
-  FieldTrial::Probability kSDCH_DIVISOR = 100;
-  FieldTrial::Probability kSDCH_PROBABILITY_PER_GROUP = 50;  // 50% probability.
+  FieldTrial::Probability kSDCH_DIVISOR = 1000;
+  FieldTrial::Probability kSDCH_PROBABILITY_PER_GROUP = 5;  // .5% probability.
   scoped_refptr<FieldTrial> sdch_trial =
       new FieldTrial("GlobalSdch", kSDCH_DIVISOR);
 

@@ -564,9 +564,9 @@ DnsPrefetcherInit::DnsPrefetcherInit(PrefService* user_prefs,
                                      PrefService* local_state) {
   // Set up a field trial to see what disabling DNS pre-resolution does to
   // latency of page loads.
-  FieldTrial::Probability kDivisor = 100;
+  FieldTrial::Probability kDivisor = 1000;
   // For each option (i.e., non-default), we have a fixed probability.
-  FieldTrial::Probability kProbabilityPerGroup = 10;  // 10% probability.
+  FieldTrial::Probability kProbabilityPerGroup = 5;  // .5% probability.
 
   trial_ = new FieldTrial("DnsImpact", kDivisor);
 
