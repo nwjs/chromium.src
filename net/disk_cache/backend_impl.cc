@@ -146,15 +146,29 @@ bool InitExperiment(int* current_group) {
     return false;
   }
 
-  *current_group = 9;
-  
+  if (*current_group <= 5) {
 #if defined(UNIT_TEST)
     // The unit test controls directly what to test.
     *current_group = 0;
     return true;
 #endif
 
+    // Re-load the two groups.
+    int option = base::RandInt(0, 9);
 
+    if (option > 1) {
+      // 80% will be out of the experiment.
+      *current_group = 9;
+    } else {
+      *current_group = option + 6;
+    }
+  }
+
+  // The current groups should be:
+  // 6 control. (~10%)
+  // 7 new eviction, upgraded data. (~10%)
+  // 8 new eviction, from new files.
+  // 9 out. (~80%)
 
   UMA_HISTOGRAM_CACHE_ERROR("DiskCache.Experiment", *current_group);
 
