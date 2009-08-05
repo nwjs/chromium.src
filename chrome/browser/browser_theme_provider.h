@@ -152,6 +152,7 @@ class BrowserThemeProvider : public base::RefCounted<BrowserThemeProvider>,
   virtual bool GetDisplayProperty(int id, int* result);
   virtual bool ShouldUseNativeFrame();
   virtual bool HasCustomImage(int id);
+  virtual bool GetRawData(int id, std::vector<unsigned char>* raw_data);
 #if defined(OS_LINUX) && !defined(TOOLKIT_VIEWS)
   virtual GdkPixbuf* GetPixbufNamed(int id);
   virtual GdkPixbuf* GetRTLEnabledPixbufNamed(int id);
@@ -169,6 +170,10 @@ class BrowserThemeProvider : public base::RefCounted<BrowserThemeProvider>,
   // Set the current theme to the native theme. On some platforms, the native
   // theme is the default theme.
   virtual void SetNativeTheme() { UseDefaultTheme(); }
+
+  // Reads the image data from the theme file into the specified vector. Returns
+  // true on success.
+  bool ReadThemeFileData(int id, std::vector<unsigned char>* raw_data);
 
   // Convert a bitfield alignment into a string like "top left". Public so that
   // it can be used to generate CSS values. Takes a bitfield of AlignmentMasks.
@@ -223,10 +228,7 @@ class BrowserThemeProvider : public base::RefCounted<BrowserThemeProvider>,
   typedef std::map<const std::string, SkColor> ColorMap;
   typedef std::map<const std::string, skia::HSL> TintMap;
   typedef std::map<const std::string, int> DisplayPropertyMap;
-
-  // Reads the image data from the theme file into the specified vector. Returns
-  // true on success.
-  bool ReadThemeFileData(int id, std::vector<unsigned char>* raw_data);
+  typedef std::map<const int, std::vector<unsigned char> > RawDataMap;
 
   // Returns the string key for the given tint |id| TINT_* enum value.
   const std::string GetTintKey(int id);
@@ -307,6 +309,7 @@ class BrowserThemeProvider : public base::RefCounted<BrowserThemeProvider>,
   ImageMap images_;
   ColorMap colors_;
   TintMap tints_;
+  RawDataMap raw_data_;
   DisplayPropertyMap display_properties_;
 
   DISALLOW_COPY_AND_ASSIGN(BrowserThemeProvider);
