@@ -44,13 +44,13 @@ deps = {
     "http://skia.googlecode.com/svn/trunk@250",
 
   "src/third_party/WebKit/LayoutTests":
-    Var("webkit_trunk") + "/LayoutTests@" + Var("webkit_revision"),
+    "svn://chrome-svn/chrome/branches/WebKit/195/LayoutTests@22623",
 
   "src/third_party/WebKit/JavaScriptCore":
-    Var("webkit_trunk") + "/JavaScriptCore@" + Var("webkit_revision"),
+    "svn://chrome-svn/chrome/branches/WebKit/195/JavaScriptCore@22621",
 
   "src/third_party/WebKit/WebCore":
-    Var("webkit_trunk") + "/WebCore@" + Var("webkit_revision"),
+    "svn://chrome-svn/chrome/branches/WebKit/195/WebCore@22620",
 
   "src/third_party/tcmalloc/tcmalloc":
     "http://google-perftools.googlecode.com/svn/trunk@74",
@@ -61,13 +61,13 @@ deps = {
   # TODO(jianli): Remove this once we do not need to run worker's layout tests
   # in ui test.
   "src/chrome/test/data/workers/LayoutTests/fast/workers":
-    Var("webkit_trunk") + "/LayoutTests/fast/workers@" + Var("webkit_revision"),
+    "svn://chrome-svn/chrome/branches/WebKit/195/LayoutTests/fast/workers@22623",
   "src/chrome/test/data/workers/LayoutTests/http/tests/resources":
-    Var("webkit_trunk") + "/LayoutTests/http/tests/resources@" + Var("webkit_revision"),
+    "svn://chrome-svn/chrome/branches/WebKit/195/LayoutTests/http/tests/resources@22623",
   "src/chrome/test/data/workers/LayoutTests/http/tests/workers":
-    Var("webkit_trunk") + "/LayoutTests/http/tests/workers@" + Var("webkit_revision"),
+    "svn://chrome-svn/chrome/branches/WebKit/195/LayoutTests/http/tests/workers@22623",
   "src/chrome/test/data/workers/LayoutTests/http/tests/xmlhttprequest":
-    Var("webkit_trunk") + "/LayoutTests/http/tests/xmlhttprequest@" + Var("webkit_revision"),
+    "svn://chrome-svn/chrome/branches/WebKit/195/LayoutTests/http/tests/xmlhttprequest@22623",
 }
 
 
