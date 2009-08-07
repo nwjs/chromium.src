@@ -130,9 +130,8 @@ int ClientSocketPoolBase::RequestSocket(
       connect_job_map_[handle] = job;
     }
     group.jobs.insert(job);
-  } else {
-    if (group.IsEmpty())
-      group_map_.erase(group_name);
+  } else if (group.IsEmpty()) {
+    group_map_.erase(group_name);
   }
 
   return rv;
@@ -265,7 +264,6 @@ void ClientSocketPoolBase::CleanupIdleSockets(bool force) {
 
     // Delete group if no longer needed.
     if (group.IsEmpty()) {
-      CHECK(group.pending_requests.empty());
       group_map_.erase(i++);
     } else {
       ++i;
@@ -457,7 +455,6 @@ void ClientSocketPoolBase::CancelAllConnectJobs() {
 
     // Delete group if no longer needed.
     if (group.IsEmpty()) {
-      CHECK(group.pending_requests.empty());
       group_map_.erase(i++);
     } else {
       ++i;
