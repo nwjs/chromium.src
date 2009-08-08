@@ -75,8 +75,6 @@ void ExtensionsDOMHandler::RegisterMessages() {
       NewCallback(this, &ExtensionsDOMHandler::HandleRequestExtensionsData));
   dom_ui_->RegisterMessageCallback("inspect",
       NewCallback(this, &ExtensionsDOMHandler::HandleInspectMessage));
-  dom_ui_->RegisterMessageCallback("reload",
-      NewCallback(this, &ExtensionsDOMHandler::HandleReloadMessage));
   dom_ui_->RegisterMessageCallback("uninstall",
       NewCallback(this, &ExtensionsDOMHandler::HandleUninstallMessage));
 }
@@ -127,15 +125,6 @@ void ExtensionsDOMHandler::HandleInspectMessage(const Value* value) {
   }
 
   DevToolsManager::GetInstance()->OpenDevToolsWindow(host);
-}
-
-void ExtensionsDOMHandler::HandleReloadMessage(const Value* value) {
-  CHECK(value->IsType(Value::TYPE_LIST));
-  const ListValue* list = static_cast<const ListValue*>(value);
-  CHECK(list->GetSize() == 1);
-  std::string extension_id;
-  CHECK(list->GetString(0, &extension_id));
-  extensions_service_->ReloadExtension(extension_id);
 }
 
 void ExtensionsDOMHandler::HandleUninstallMessage(const Value* value) {

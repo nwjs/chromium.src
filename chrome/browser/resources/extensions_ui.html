@@ -125,14 +125,6 @@ function sendInspectMessage(viewData) {
 }
 
 /**
- * Handles a 'reload' button getting clicked.
- */
-function handleReloadExtension(node) {
-  // Tell the C++ ExtensionDOMHandler to reload the extension.
-  chrome.send('reload', [node.extensionId]);
-}
-
-/**
  * Handles an 'uninstall' button getting clicked.
  */
 function handleUninstallExtension(node) {
@@ -178,8 +170,8 @@ div.extension-name {
   text-align: left;
 }
 
-div.extension-actions {
-  margin: 1em;
+div.extension-uninstall {
+  margin-bottom: 1em;
 }
 
 dl {
@@ -258,11 +250,7 @@ th.desc {
         <div jsdisplay="extensions.length > 0">
           <div class="extension" jsselect="extensions">
             <div class="extension-name" jscontent="name">Extension Name</div>
-            <div class="extension-actions">
-              <button
-                jsvalues=".extensionId:id"
-                onclick="handleReloadExtension(this)"
-                >Reload</button>
+            <div class="extension-uninstall">
               <button
                 jsvalues=".extensionId:id"
                 onclick="handleUninstallExtension(this)"
