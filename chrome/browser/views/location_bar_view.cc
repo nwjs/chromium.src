@@ -1153,6 +1153,8 @@ class LocationBarView::PageActionImageView::ImageLoadingTracker
   }
 
   void OnImageLoaded(SkBitmap* image, int index) {
+    if (image == NULL)
+      image = new SkBitmap();
     if (view_)
       view_->OnImageLoaded(image, index);
     delete image;
