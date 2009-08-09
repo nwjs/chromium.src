@@ -196,8 +196,7 @@ class ClientSocketPoolBase
     Group() : active_socket_count(0) {}
 
     bool IsEmpty() const {
-      return active_socket_count == 0 && idle_sockets.empty() && jobs.empty() &&
-          pending_requests.empty() && connecting_requests.empty();
+      return active_socket_count == 0 && idle_sockets.empty() && jobs.empty();
     }
 
     bool HasAvailableSocketSlot(int max_sockets_per_group) const {
