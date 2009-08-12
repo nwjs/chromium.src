@@ -195,6 +195,10 @@ class NonClientView : public View {
   virtual gfx::Size GetMinimumSize();
   virtual void Layout();
 
+  // Call if the nonclientview is in an app or popup and we are in Vista, to
+  // force usage of glass frame.
+  void ForceAeroGlassFrame();
+
  protected:
   // NonClientView, View overrides:
   virtual void ViewHierarchyChanged(bool is_add, View* parent, View* child);
@@ -213,6 +217,10 @@ class NonClientView : public View {
   // This object is not owned by the view hierarchy because it can be replaced
   // dynamically as the system settings change.
   scoped_ptr<NonClientFrameView> frame_view_;
+
+  // True if the nonclientview is in an app or popup and we are in Vista. Used
+  // to force usage of glass frame.
+  bool force_aero_glass_frame_;
 
   DISALLOW_COPY_AND_ASSIGN(NonClientView);
 };

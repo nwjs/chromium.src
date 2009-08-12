@@ -32,7 +32,8 @@ static const int kClientViewIndex = 1;
 
 NonClientView::NonClientView(Window* frame)
     : frame_(frame),
-      client_view_(NULL) {
+      client_view_(NULL),
+      force_aero_glass_frame_(false) {
 }
 
 NonClientView::~NonClientView() {
@@ -68,6 +69,8 @@ void NonClientView::UpdateFrame() {
 }
 
 bool NonClientView::UseNativeFrame() const {
+  if (force_aero_glass_frame_)
+    return true;
   // The frame view may always require a custom frame, e.g. Constrained Windows.
   if (frame_view_.get() && frame_view_->AlwaysUseCustomFrame())
     return false;
@@ -182,6 +185,10 @@ views::View* NonClientView::GetViewForPoint(const gfx::Point& point) {
     return frame_view_->GetViewForPoint(point);
 
   return View::GetViewForPoint(point);
+}
+
+void NonClientView::ForceAeroGlassFrame() {
+  force_aero_glass_frame_ = true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
