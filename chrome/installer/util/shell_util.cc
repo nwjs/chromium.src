@@ -27,6 +27,7 @@
 #include "chrome/installer/util/browser_distribution.h"
 #include "chrome/installer/util/create_reg_key_work_item.h"
 #include "chrome/installer/util/install_util.h"
+#include "chrome/installer/util/master_preferences.h"
 #include "chrome/installer/util/l10n_string_util.h"
 #include "chrome/installer/util/set_reg_value_work_item.h"
 #include "chrome/installer/util/util_constants.h"
@@ -691,14 +692,23 @@ bool ShellUtil::UpdateChromeShortcut(const std::wstring& chrome_exe,
                                      const std::wstring& description,
                                      bool create_new) {
   std::wstring chrome_path = file_util::GetDirectoryFromPath(chrome_exe);
+
   if (create_new) {
+    FilePath prefs_path(chrome_path);
+    prefs_path = prefs_path.Append(installer_util::kDefaultMasterPrefs);
+    scoped_ptr<DictionaryValue> prefs(
+        installer_util::ParseDistributionPreferences(prefs_path));
+    int icon_index = 0;
+    installer_util::GetDistroIntegerPreference(prefs.get(),
+        installer_util::master_preferences::kChromeShortcutIconIndex,
+        &icon_index);
     return file_util::CreateShortcutLink(chrome_exe.c_str(),      // target
                                          shortcut.c_str(),        // shortcut
                                          chrome_path.c_str(),     // working dir
                                          NULL,                    // arguments
                                          description.c_str(),     // description
                                          chrome_exe.c_str(),      // icon file
-                                         0);                      // icon index
+                                         icon_index);             // icon index
   } else {
     return file_util::UpdateShortcutLink(chrome_exe.c_str(),      // target
                                          shortcut.c_str(),        // shortcut
