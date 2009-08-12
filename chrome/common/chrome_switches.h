@@ -212,7 +212,7 @@ extern const wchar_t kEnableLocalStorage[];
 
 extern const wchar_t kEnableSessionStorage[];
 
-extern const wchar_t kEnableCustomJumpList[];
+extern const wchar_t kDisableCustomJumpList[];
 
 }  // namespace switches
 
