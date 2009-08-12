@@ -627,16 +627,6 @@
         'browser/automation/extension_port_container.h',
         'browser/automation/ui_controls.cc',
         'browser/automation/ui_controls.h',
-        'browser/automation/url_request_failed_dns_job.cc',
-        'browser/automation/url_request_failed_dns_job.h',
-        # TODO:  These should be moved to test_support (see below), but
-        # are currently used by production code in automation_provider.cc.
-        'browser/automation/url_request_mock_http_job.cc',
-        'browser/automation/url_request_mock_http_job.h',
-        'browser/automation/url_request_slow_download_job.cc',
-        'browser/automation/url_request_slow_download_job.h',
-        'browser/automation/url_request_slow_http_job.cc',
-        'browser/automation/url_request_slow_http_job.h',
         'browser/back_forward_menu_model.cc',
         'browser/back_forward_menu_model.h',
         'browser/back_forward_menu_model_views.cc',
@@ -1276,6 +1266,18 @@
         'browser/net/url_fetcher_protect.h',
         'browser/net/url_fixer_upper.cc',
         'browser/net/url_fixer_upper.h',
+        'browser/net/url_request_failed_dns_job.cc',
+        'browser/net/url_request_failed_dns_job.h',
+        # TODO:  These should be moved to test_support (see below), but
+        # are currently used by production code in automation_provider.cc.
+        'browser/net/url_request_mock_http_job.cc',
+        'browser/net/url_request_mock_http_job.h',
+        'browser/net/url_request_mock_util.cc',
+        'browser/net/url_request_mock_util.h',
+        'browser/net/url_request_slow_download_job.cc',
+        'browser/net/url_request_slow_download_job.h',
+        'browser/net/url_request_slow_http_job.cc',
+        'browser/net/url_request_slow_http_job.h',
         'browser/options_page_base.cc',
         'browser/options_page_base.h',
         'browser/options_util.cc',
@@ -3256,10 +3258,10 @@
       'sources': [
         # TODO:  these should live here but are currently used by
         # production code code in libbrowser (above).
-        #'browser/automation/url_request_mock_http_job.cc',
-        #'browser/automation/url_request_mock_http_job.h',
-        'browser/automation/url_request_mock_net_error_job.cc',
-        'browser/automation/url_request_mock_net_error_job.h',
+        #'browser/net/url_request_mock_http_job.cc',
+        #'browser/net/url_request_mock_http_job.h',
+        'browser/net/url_request_mock_net_error_job.cc',
+        'browser/net/url_request_mock_net_error_job.h',
         'browser/renderer_host/mock_render_process_host.cc',
         'browser/renderer_host/mock_render_process_host.h',
         'browser/renderer_host/test/test_render_view_host.cc',
