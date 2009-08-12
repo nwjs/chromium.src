@@ -126,6 +126,9 @@ const skia::HSL BrowserThemeProvider::kDefaultTintFrameIncognitoInactive =
 const skia::HSL BrowserThemeProvider::kDefaultTintBackgroundTab =
     { -1, 0.5, 0.75 };
 
+// Saved default values.
+const char* BrowserThemeProvider::kDefaultThemeID = "";
+
 // Default display properties.
 static const int kDefaultDisplayPropertyNTPAlignment =
     BrowserThemeProvider::ALIGN_BOTTOM;
@@ -386,6 +389,7 @@ void BrowserThemeProvider::SetTheme(Extension* extension) {
   SaveColorData();
   SaveTintData();
   SaveDisplayPropertyData();
+  SaveThemeID(extension->id());
 
   NotifyThemeChanged();
   UserMetrics::RecordAction(L"Themes_Installed", profile_);
@@ -395,6 +399,11 @@ void BrowserThemeProvider::UseDefaultTheme() {
   ClearAllThemeData();
   NotifyThemeChanged();
   UserMetrics::RecordAction(L"Themes_Reset", profile_);
+}
+
+std::string BrowserThemeProvider::GetThemeID() {
+  std::wstring id = profile_->GetPrefs()->GetString(prefs::kCurrentThemeID);
+  return WideToUTF8(id);
 }
 
 bool BrowserThemeProvider::ReadThemeFileData(
@@ -794,6 +803,7 @@ void BrowserThemeProvider::ClearAllThemeData() {
   SaveColorData();
   SaveTintData();
   SaveDisplayPropertyData();
+  SaveThemeID(kDefaultThemeID);
 }
 
 SkBitmap* BrowserThemeProvider::GenerateBitmap(int id) {
@@ -921,6 +931,10 @@ void BrowserThemeProvider::SaveDisplayPropertyData() {
       ++iter;
     }
   }
+}
+
+void BrowserThemeProvider::SaveThemeID(const std::string& id) {
+  profile_->GetPrefs()->SetString(prefs::kCurrentThemeID, UTF8ToWide(id));
 }
 
 void BrowserThemeProvider::NotifyThemeChanged() {

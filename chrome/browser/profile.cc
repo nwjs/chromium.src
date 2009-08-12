@@ -125,7 +125,8 @@ void Profile::RegisterUserPrefs(PrefService* prefs) {
 #if defined(OS_LINUX)
   prefs->RegisterBooleanPref(prefs::kUsesSystemTheme, false);
 #endif
-  prefs->RegisterStringPref(prefs::kCurrentThemeID, L"");
+  prefs->RegisterStringPref(prefs::kCurrentThemeID,
+                            UTF8ToWide(BrowserThemeProvider::kDefaultThemeID));
   prefs->RegisterDictionaryPref(prefs::kCurrentThemeImages);
   prefs->RegisterDictionaryPref(prefs::kCurrentThemeColors);
   prefs->RegisterDictionaryPref(prefs::kCurrentThemeTints);
@@ -306,6 +307,10 @@ class OffTheRecordProfileImpl : public Profile,
 
   virtual void ClearTheme() {
     GetOriginalProfile()->ClearTheme();
+  }
+
+  virtual Extension* GetTheme() {
+    return GetOriginalProfile()->GetTheme();
   }
 
   virtual ThemeProvider* GetThemeProvider() {
@@ -967,6 +972,16 @@ void ProfileImpl::SetNativeTheme() {
 void ProfileImpl::ClearTheme() {
   InitThemes();
   theme_provider_.get()->UseDefaultTheme();
+}
+
+Extension* ProfileImpl::GetTheme() {
+  InitThemes();
+
+  std::string id = theme_provider_.get()->GetThemeID();
+  if (id == BrowserThemeProvider::kDefaultThemeID)
+    return NULL;
+
+  return extensions_service_->GetExtensionById(id);
 }
 
 ThemeProvider* ProfileImpl::GetThemeProvider() {
