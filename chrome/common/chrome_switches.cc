@@ -548,4 +548,7 @@ const wchar_t kEnableLocalStorage[] = L"enable-local-storage";
 // Enable session storage.  Still buggy.
 const wchar_t kEnableSessionStorage[] = L"enable-session-storage";
 
+// Enables the custom JumpList on Windows 7.
+const wchar_t kEnableCustomJumpList[] = L"enable-custom-jumplist";
+
 }  // namespace switches
