@@ -861,12 +861,10 @@ struct ParamTraits<ContextMenuMediaParams> {
   typedef ContextMenuMediaParams param_type;
   static void Write(Message* m, const param_type& p) {
     WriteParam(m, p.player_state);
-    WriteParam(m, p.playback_rate);
   }
   static bool Read(const Message* m, void** iter, param_type* p) {
     return
-      ReadParam(m, iter, &p->player_state) &&
-      ReadParam(m, iter, &p->playback_rate);
+      ReadParam(m, iter, &p->player_state);
   }
 };
 
@@ -920,12 +918,10 @@ struct ParamTraits<MediaPlayerAction> {
   typedef MediaPlayerAction param_type;
   static void Write(Message* m, const param_type& p) {
     WriteParam(m, p.command);
-    WriteParam(m, p.playback_rate);
   }
   static bool Read(const Message* m, void** iter, param_type* p) {
     return
-      ReadParam(m, iter, &p->command) &&
-      ReadParam(m, iter, &p->playback_rate);
+      ReadParam(m, iter, &p->command);
   }
   static void Log(const param_type& p, std::wstring* l) {
     std::wstring event = L"";
@@ -945,11 +941,6 @@ struct ParamTraits<MediaPlayerAction> {
         l->append(L"LOOP|");
       if (p.command & MediaPlayerAction::NO_LOOP)
         l->append(L"NO_LOOP|");
-      if (p.command & MediaPlayerAction::SET_PLAYBACK_RATE) {
-        l->append(L"SET_PLAYBACK_RATE [");
-        LogParam(p.playback_rate, l);
-        l->append(L"]|");
-      }
       l->append(L")");
     }
   }
