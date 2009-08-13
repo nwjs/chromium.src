@@ -2820,9 +2820,6 @@ BUG16240 MAC WIN SLOW : LayoutTests/http/tests/cache/subresource-expiration.html
 // Failing due to r20652.
 BUG16779 BUG16742 : LayoutTests/media/video-error-abort.html = FAIL CRASH
 
-// Failing approximately starting from 20629
-BUG16754 : LayoutTests/fast/loader/empty-embed-src-attribute.html = CRASH
-
 // HTML5 DataGrid bindings have not been implemented for V8 yet.
 BUG16730 : LayoutTests/fast/dom/HTMLDataGridElement/DataGridColumns-basic.html = TIMEOUT
 BUG16730 : LayoutTests/fast/dom/HTMLDataGridElement/DataGridColumns-dom.html = TIMEOUT
