@@ -16,12 +16,12 @@ class WebDragData;
 struct WebPoint;
 }
 
-struct MediaPlayerAction;
 struct WebPreferences;
 class GURL;
 class WebDevToolsAgent;
 class WebFrame;
 class WebViewDelegate;
+struct MediaPlayerAction;
 
 //
 //  @class WebView
