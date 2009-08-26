@@ -86,10 +86,6 @@ class RenderWidget : public IPC::Channel::Listener,
   // the next paint or scroll message to the host.
   void SchedulePluginMove(const WebPluginGeometry& move);
 
-  // Called when a plugin window has been destroyed, to make sure the currently
-  // pending moves don't try to reference it.
-  void CleanupWindowInPluginMoves(gfx::PluginWindowHandle window);
-
   // Invalidates entire widget rect to generate a full repaint.
   void GenerateFullRepaint();
 
@@ -287,8 +283,7 @@ class RenderWidget : public IPC::Channel::Listener,
   bool activatable_;
 
   // Holds all the needed plugin window moves for a scroll.
-  typedef std::vector<WebPluginGeometry> WebPluginGeometryVector;
-  WebPluginGeometryVector plugin_window_moves_;
+  std::vector<WebPluginGeometry> plugin_window_moves_;
 
   // A custom background for the widget.
   SkBitmap background_;
