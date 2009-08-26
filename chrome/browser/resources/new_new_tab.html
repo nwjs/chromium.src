@@ -35,10 +35,12 @@ function registerCallback(name) {
 chrome.send('getShownSections');
 chrome.send('getMostVisited');
 chrome.send('getRecentlyClosedTabs');
+chrome.send('getTips');
 
 registerCallback('onShownSections');
 registerCallback('mostVisitedPages');
 registerCallback('recentlyClosedTabs');
+registerCallback('tips');
 logEvent('log start');
 
 </script>
@@ -213,6 +215,9 @@ document.write('<link id="themecss" rel="stylesheet" ' +
       <a href="chrome://history/" class="item"
           i18n-content="viewfullhistory"></a>
     </span>
+  </div>
+
+  <div id="tip-line">
   </div>
 
   <div id="attribution" class="attribution">
