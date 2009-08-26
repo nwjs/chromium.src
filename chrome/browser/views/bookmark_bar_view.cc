@@ -623,7 +623,7 @@ void BookmarkBarView::Paint(gfx::Canvas* canvas) {
     // Draw border
     SkPaint border_paint;
     border_paint.setColor(
-        GetThemeProvider()->GetColor(BrowserThemeProvider::COLOR_NTP_SECTION));
+        GetThemeProvider()->GetColor(BrowserThemeProvider::COLOR_NTP_HEADER));
     border_paint.setStyle(SkPaint::kStroke_Style);
     border_paint.setAlpha(96);
     border_paint.setAntiAlias(true);
@@ -633,6 +633,10 @@ void BookmarkBarView::Paint(gfx::Canvas* canvas) {
                           SkDoubleToScalar(roundness), border_paint);
   } else {
     gfx::Rect bounds = GetBounds(views::View::APPLY_MIRRORING_TRANSFORMATION);
+
+    SkColor theme_toolbar_color =
+        GetThemeProvider()->GetColor(BrowserThemeProvider::COLOR_TOOLBAR);
+    canvas->FillRectInt(theme_toolbar_color, 0, 0, width(), height());
 
     canvas->TileImageInt(*GetThemeProvider()->
         GetBitmapNamed(IDR_THEME_TOOLBAR),
