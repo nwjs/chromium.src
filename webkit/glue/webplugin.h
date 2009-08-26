@@ -131,10 +131,6 @@ class WebPlugin {
   virtual void ResourceClientDeleted(
       WebPluginResourceClient* resource_client) {}
 
-  // Defers the loading of the resource identified by resource_id. This is
-  // controlled by the defer parameter.
-  virtual void SetDeferResourceLoading(int resource_id, bool defer) = 0;
-
  private:
   DISALLOW_EVIL_CONSTRUCTORS(WebPlugin);
 };
@@ -150,7 +146,8 @@ class WebPluginResourceClient {
                                   const std::string& headers,
                                   uint32 expected_length,
                                   uint32 last_modified,
-                                  bool request_is_seekable) = 0;
+                                  bool request_is_seekable,
+                                  bool* cancel) = 0;
   virtual void DidReceiveData(const char* buffer, int length,
                               int data_offset) = 0;
   virtual void DidFinishLoading() = 0;
