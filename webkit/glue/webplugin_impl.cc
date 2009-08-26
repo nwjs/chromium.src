@@ -1070,11 +1070,10 @@ void WebPluginImpl::didFinishLoading(WebURLLoader* loader) {
       web_view->GetDelegate()->DidStopLoading(web_view);
     }
     loader->setDefersLoading(true);
-    WebPluginResourceClient* resource_client = client_info->client;
-    // The ClientInfo can get deleted in the call to DidFinishLoading below.
-    // It is not safe to access this structure after that.
+    client_info->client->DidFinishLoading();
+    // The WebPluginResourceClient pointer gets deleted soon after a call to
+    // DidFinishLoading.
     client_info->client = NULL;
-    resource_client->DidFinishLoading();
   }
 }
 
@@ -1083,11 +1082,10 @@ void WebPluginImpl::didFail(WebURLLoader* loader,
   ClientInfo* client_info = GetClientInfoFromLoader(loader);
   if (client_info && client_info->client) {
     loader->setDefersLoading(true);
-    WebPluginResourceClient* resource_client = client_info->client;
-    // The ClientInfo can get deleted in the call to DidFail below.
-    // It is not safe to access this structure after that.
+    client_info->client->DidFail();
+    // The WebPluginResourceClient pointer gets deleted soon after a call to
+    // DidFinishLoading.
     client_info->client = NULL;
-    resource_client->DidFail();
   }
 }
 
