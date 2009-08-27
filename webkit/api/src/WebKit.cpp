@@ -38,6 +38,7 @@
 #include "DOMTimer.h"
 #include "FrameLoader.h"
 #include "Page.h"
+#include "V8Binding.h"
 #include "V8Proxy.h"
 #include "WorkerContextExecutionProxy.h"
 #include <wtf/Assertions.h>
@@ -118,4 +119,8 @@ void resetPluginCache()
     WebCore::Page::refreshPlugins(false);
 }
 
+void enableV8SingleThreadMode()
+{
+    WebCore::enableStringImplCache();
+}
 } // namespace WebKit
