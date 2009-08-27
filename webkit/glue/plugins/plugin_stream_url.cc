@@ -47,18 +47,16 @@ void PluginStreamUrl::DidReceiveResponse(const std::string& mime_type,
                                          const std::string& headers,
                                          uint32 expected_length,
                                          uint32 last_modified,
-                                         bool request_is_seekable) {
+                                         bool request_is_seekable,
+                                         bool* cancel) {
   bool opened = Open(mime_type,
                      headers,
                      expected_length,
                      last_modified,
                      request_is_seekable);
   if (!opened) {
-    CancelRequest();
     instance()->RemoveStream(this);
-  } else {
-    if (id_ > 0)
-      instance()->webplugin()->SetDeferResourceLoading(id_, false);
+    *cancel = true;
   }
 }
 
@@ -67,11 +65,8 @@ void PluginStreamUrl::DidReceiveData(const char* buffer, int length,
   if (!open())
     return;
 
-  if (length > 0) {
+  if (length > 0)
     Write(const_cast<char*>(buffer), length, data_offset);
-    if (id_ > 0)
-      instance()->webplugin()->SetDeferResourceLoading(id_, false);
-  }
 }
 
 void PluginStreamUrl::DidFinishLoading() {

@@ -3059,10 +3059,6 @@ void RenderView::DidMovePlugin(const WebPluginGeometry& move) {
   SchedulePluginMove(move);
 }
 
-void RenderView::WillDestroyPluginWindow(gfx::PluginWindowHandle window) {
-  CleanupWindowInPluginMoves(window);
-}
-
 void RenderView::SendPasswordForms(WebFrame* frame) {
   std::vector<WebForm> forms;
   frame->GetForms(&forms);
