@@ -1728,6 +1728,7 @@ HttpCache::ActiveEntry* HttpCache::ActivateEntry(
 
 #if defined(OS_WIN)
 #pragma optimize("", off)
+#pragma warning(disable:4748)
 #endif
 // Avoid optimizing local_entry out of the code.
 void HttpCache::DeactivateEntry(ActiveEntry* entry) {
