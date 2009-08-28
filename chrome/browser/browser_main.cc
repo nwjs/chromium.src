@@ -601,11 +601,14 @@ int BrowserMain(const MainFunctionParams& parameters) {
   // Note that this be done _after_ the PrefService is initialized and all
   // preferences are registered, since some of the code that the importer
   // touches reads preferences.
-  if (is_first_run && !first_run_ui_bypass) {
-    if (!OpenFirstRunDialog(profile, &process_singleton)) {
-      // The user cancelled the first run dialog box, we should exit Chrome.
-      return ResultCodes::NORMAL_EXIT;
+  if (is_first_run) {
+    if (!first_run_ui_bypass) {
+      if (!OpenFirstRunDialog(profile, &process_singleton)) {
+        // The user cancelled the first run dialog box, we should exit Chrome.
+        return ResultCodes::NORMAL_EXIT;
+      }
     }
+    Browser::SetNewHomePagePrefs(user_prefs);
   }
 
   // Sets things up so that if we crash from this point on, a dialog will

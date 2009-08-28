@@ -25,6 +25,7 @@
 #include "chrome/browser/download/download_started_animation.h"
 #include "chrome/browser/find_bar.h"
 #include "chrome/browser/find_bar_controller.h"
+#include "chrome/browser/google_url_tracker.h"
 #include "chrome/browser/location_bar.h"
 #include "chrome/browser/metrics/user_metrics.h"
 #include "chrome/browser/net/url_fixer_upper.h"
@@ -1178,6 +1179,14 @@ void Browser::ShowControlPanel() {
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////
+
+// static
+void Browser::SetNewHomePagePrefs(PrefService* prefs) {
+  prefs->SetString(prefs::kHomePage,
+      ASCIIToWide(GoogleURLTracker::kDefaultGoogleHomepage));
+  prefs->SetBoolean(prefs::kHomePageIsNewTabPage, false);
+  prefs->SetBoolean(prefs::kShowHomeButton, true);
+}
 
 // static
 void Browser::RegisterPrefs(PrefService* prefs) {
