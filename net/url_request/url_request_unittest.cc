@@ -1300,7 +1300,7 @@ TEST_F(URLRequestTest, DoNotSendCookies) {
   scoped_refptr<HTTPTestServer> server =
       HTTPTestServer::CreateServer(L"", NULL);
   ASSERT_TRUE(NULL != server.get());
-  scoped_refptr<URLRequestContext> context = new URLRequestTestContext();
+  scoped_refptr<URLRequestContext> context = new URLRequestHttpCacheContext();
 
   // Set up a cookie.
   {
@@ -1341,7 +1341,7 @@ TEST_F(URLRequestTest, DoNotSaveCookies) {
   scoped_refptr<HTTPTestServer> server =
       HTTPTestServer::CreateServer(L"", NULL);
   ASSERT_TRUE(NULL != server.get());
-  scoped_refptr<URLRequestContext> context = new URLRequestTestContext();
+  scoped_refptr<URLRequestContext> context = new URLRequestHttpCacheContext();
 
   // Set up a cookie.
   {
@@ -1355,7 +1355,7 @@ TEST_F(URLRequestTest, DoNotSaveCookies) {
 
   // Try to set-up another cookie and update the previous cookie.
   {
-    scoped_refptr<URLRequestContext> context = new URLRequestTestContext();
+    scoped_refptr<URLRequestContext> context = new URLRequestHttpCacheContext();
     TestDelegate d;
     URLRequest req(server->TestServerPage(
         "set-cookie?CookieToNotSave=1&CookieToNotUpdate=1"), &d);

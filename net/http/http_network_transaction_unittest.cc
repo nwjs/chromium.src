@@ -753,7 +753,7 @@ TEST_F(HttpNetworkTransactionTest, DoNotSendAuth) {
   session_deps.socket_factory.AddMockSocket(&data);
   TestCompletionCallback callback;
 
-  int rv = trans->Start(&request, &callback, NULL);
+  int rv = trans->Start(&request, &callback);
   EXPECT_EQ(ERR_IO_PENDING, rv);
 
   rv = callback.WaitForResult();
