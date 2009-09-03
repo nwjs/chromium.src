@@ -586,6 +586,12 @@ class NotificationType {
     // Sent when new extensions are loaded. The details are an ExtensionList*.
     EXTENSIONS_LOADED,
 
+    // Sent when a theme is ready to be installed, so we can alert the user.
+    EXTENSION_READY_FOR_INSTALL,
+
+    // Sent on ExtensionOverinstallAttempted when no theme is detected.
+    NO_THEME_DETECTED,
+
     // Sent when a new theme is installed. The details are an Extension.
     THEME_INSTALLED,
 
