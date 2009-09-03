@@ -745,11 +745,11 @@ function updateAttribution() {
 }
 
 function bookmarkBarAttached() {
-  document.documentElement.setAttribute("bookmarkbarattached", "true");
+  document.documentElement.setAttribute('bookmarkbarattached', 'true');
 }
 
 function bookmarkBarDetached() {
-  document.documentElement.setAttribute("bookmarkbarattached", "false");
+  document.documentElement.setAttribute('bookmarkbarattached', 'false');
 }
 
 function viewLog() {
@@ -1545,3 +1545,5 @@ function parseHtmlSubset(s) {
   });
   return df;
 }
+
+updateAttribution();
