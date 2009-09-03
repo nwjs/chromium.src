@@ -77,12 +77,6 @@ namespace WebKit {
     WEBKIT_API void registerExtension(v8::Extension*,
                                       const WebString& schemeRestriction);
 
-    // Enables special settings which are only applicable if V8 is executed
-    // in the single thread which must be the main thread.
-    // FIXME: make a try to dynamically detect when this condition is broken
-    // and automatically switch off single thread mode.
-    WEBKIT_API void enableV8SingleThreadMode();
-
     // Enables HTML5 media support.
     WEBKIT_API void enableMediaPlayer();
 
