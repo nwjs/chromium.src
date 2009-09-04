@@ -51,7 +51,6 @@ SkColor GetColor(ResultViewState state, ColorKind kind) {
     colors[SELECTED][BACKGROUND] = color_utils::GetSysSkColor(COLOR_HIGHLIGHT);
     colors[NORMAL][TEXT] = color_utils::GetSysSkColor(COLOR_WINDOWTEXT);
     colors[SELECTED][TEXT] = color_utils::GetSysSkColor(COLOR_HIGHLIGHTTEXT);
-
     colors[HOVERED][BACKGROUND] =
         color_utils::AlphaBlend(colors[SELECTED][BACKGROUND],
                                 colors[NORMAL][BACKGROUND], 64);
@@ -420,7 +419,7 @@ bool AutocompleteResultView::OnMouseDragged(const views::MouseEvent& event) {
 ResultViewState AutocompleteResultView::GetState() const {
   if (model_->IsSelectedIndex(model_index_))
     return SELECTED;
-  return model_->IsHoveredIndex(model_index_) ? HOVERED : NORMAL;
+  return hot_ ? HOVERED : NORMAL;
 }
 
 SkBitmap* AutocompleteResultView::GetIcon() const {
