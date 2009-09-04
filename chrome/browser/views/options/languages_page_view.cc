@@ -88,6 +88,7 @@ static const char* const accept_language_list[] = {
   "gl",     // Galician
   "gn",     // Guarani
   "gu",     // Gujarati
+  "haw",    // Hawaiian
   "he",     // Hebrew
   "hi",     // Hindi
   "hr",     // Croatian
