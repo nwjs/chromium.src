@@ -189,7 +189,7 @@ function onShownSections(mask) {
     }
 
     mostVisited.updateDisplayMode();
-    layoutRecentlyClosed();
+    renderRecentlyClosed();
     updateOptionMenu();
   }
 
@@ -299,7 +299,7 @@ function handleWindowResize() {
   if (layoutMode != oldLayoutMode){
     mostVisited.invalidate();
     mostVisited.layout();
-    layoutRecentlyClosed();
+    renderRecentlyClosed();
   }
 }
 
@@ -330,7 +330,7 @@ function showSection(section) {
       shownSections &= ~Section.THUMB;
       mostVisited.invalidate();
     } else {
-      layoutRecentlyClosed();
+      renderRecentlyClosed();
     }
 
     updateOptionMenu();
@@ -348,7 +348,7 @@ function hideSection(section) {
     }
 
     if (section & Section.RECENT) {
-      layoutRecentlyClosed();
+      renderRecentlyClosed();
     }
 
     updateOptionMenu();
@@ -680,11 +680,6 @@ function layoutRecentlyClosed() {
   } else {
     style.opacity = style.height = '';
 
-    // Show all items.
-    for (var i = 0, child; child = recentElement.children[i]; i++) {
-      child.style.display = '';
-    }
-
     // We cannot use clientWidth here since the width has a transition.
     var spacing = 20;
     var headerEl = recentElement.firstElementChild;
@@ -703,7 +698,7 @@ function layoutRecentlyClosed() {
     }
 
     elementsToHide.forEach(function(el) {
-      el.style.display = 'none';
+      el.parentNode.removeChild(el);
     });
   }
 }
@@ -847,6 +842,8 @@ function showNotification(text, actionText, opt_f, opt_delay) {
   notificationElement.onmouseout = delayedHide;
   actionLink.onfocus = show;
   actionLink.onblur = delayedHide;
+  // Enable tabbing to the link now that it is shown.
+  actionLink.tabIndex = 0;
 
   show();
   delayedHide();
@@ -855,6 +852,9 @@ function showNotification(text, actionText, opt_f, opt_delay) {
 function hideNotification() {
   var notificationElement = $('notification');
   removeClass(notificationElement, 'show');
+  var actionLink = notificationElement.querySelector('.link');
+  // Prevent tabbing to the hidden link.
+  actionLink.tabIndex = -1;
 }
 
 function showFirstRunNotification() {
