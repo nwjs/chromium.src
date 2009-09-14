@@ -147,7 +147,8 @@ WidgetWin::WidgetWin()
       is_mouse_down_(false),
       is_window_(false),
       class_style_(CS_DBLCLKS),
-      hwnd_(NULL) {
+      hwnd_(NULL),
+      restore_focus_when_enabled_(false) {
 }
 
 WidgetWin::~WidgetWin() {
@@ -1070,6 +1071,10 @@ LRESULT CALLBACK WidgetWin::WndProc(HWND window, UINT message,
     widget->OnFinalMessage(window);
   if (message == WM_ACTIVATE)
     PostProcessActivateMessage(widget, LOWORD(w_param));
+  if (message == WM_ENABLE && restore_focus_when_enabled_) {
+    restore_focus_when_enabled_ = false;
+    focus_manager_->RestoreFocusedView();
+  }
   return result;
 }
 
@@ -1085,6 +1090,17 @@ void WidgetWin::PostProcessActivateMessage(WidgetWin* widget,
   } else {
     // We must restore the focus after the message has been DefProc'ed as it
     // does set the focus to the last focused HWND.
+    // Note that if the window is not enabled, we cannot restore the focus as
+    // calling ::SetFocus on a child of the non-enabled top-window would fail.
+    // This is the case when showing a modal dialog (such as 'open file',
+    // 'print'...) from a different thread.
+    // In that case we delay the focus restoration to when the window is enabled
+    // again.
+    if (!IsWindowEnabled(widget->GetNativeView())) {
+      DCHECK(!widget->restore_focus_when_enabled_);
+      widget->restore_focus_when_enabled_ = true;
+      return;
+    }
     widget->focus_manager_->RestoreFocusedView();
   }
 }
