@@ -684,7 +684,7 @@ int BrowserMain(const MainFunctionParams& parameters) {
     sdch_trial->AppendGroup("_global_disable_sdch",
                             kSDCH_PROBABILITY_PER_GROUP);
     int sdch_enabled = sdch_trial->AppendGroup("_global_enable_sdch",
-                                               kSDCH_PROBABILITY_PER_GROUP);
+        FieldTrial::kAllRemainingProbability);
     if (sdch_enabled != sdch_trial->group())
       sdch_supported_domain = "never_enabled_sdch_for_any_domain";
   }
