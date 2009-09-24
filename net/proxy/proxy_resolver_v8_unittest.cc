@@ -376,6 +376,22 @@ TEST(ProxyResolverV8Test, V8Bindings) {
   EXPECT_EQ(2, bindings->my_ip_address_count);
 }
 
+// Try loading a PAC script which ends with a trailing comment (no terminal
+// newline). This should not cause problems with the PAC utility functions
+// that we add to the script.
+// http://crbug.com/22864
+TEST(ProxyResolverV8Test, TrailingComment) {
+  ProxyResolverV8WithMockBindings resolver;
+  resolver.SetPacScriptFromDisk("ends_with_comment.js");
+
+  net::ProxyInfo proxy_info;
+  int result = resolver.GetProxyForURL(kQueryUrl, kPacUrl, &proxy_info);
+
+  EXPECT_EQ(net::OK, result);
+  EXPECT_FALSE(proxy_info.is_direct());
+  EXPECT_EQ("success:80", proxy_info.proxy_server().ToURI());
+}
+
 TEST(ProxyResolverV8DefaultBindingsTest, DnsResolve) {
   // Get a hold of a DefaultJSBindings* (it is a hidden impl class).
   scoped_ptr<net::ProxyResolverV8::JSBindings> bindings(
