@@ -268,6 +268,11 @@ const wchar_t kCheckDefaultBrowser[] = L"browser.check_default_browser";
 // true, we draw a custom chrome frame (thicker title bar and blue border).
 const wchar_t kUseCustomChromeFrame[] = L"browser.custom_chrome_frame";
 
+// Integer that counts the number of times the theme promo has left to be
+// shown; this decrements each time the NTP is shown for the first time
+// in a session.
+const wchar_t kNTPThemePromoRemaining[] = L"browser.ntp.theme_promo_remaining";
+
 // *************** LOCAL STATE ***************
 // These are attached to the machine/installation
 
