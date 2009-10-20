@@ -342,7 +342,9 @@ void WidgetWin::SetUseLayeredBuffer(bool use_layered_buffer) {
 
   if (use_layered_buffer_) {
     // Force creation of the buffer at the right size.
-    LayoutRootView();
+    RECT wr;
+    GetWindowRect(&wr);
+    ChangeSize(0, CSize(wr.right - wr.left, wr.bottom - wr.top));
   } else {
     contents_.reset(NULL);
   }
@@ -806,7 +808,7 @@ void WidgetWin::OnSettingChange(UINT flags, const wchar_t* section) {
 }
 
 void WidgetWin::OnSize(UINT param, const CSize& size) {
-  LayoutRootView();
+  ChangeSize(param, size);
 }
 
 void WidgetWin::OnSysCommand(UINT notification_code, CPoint click) {
@@ -949,16 +951,14 @@ void WidgetWin::ProcessMouseExited() {
   active_mouse_tracking_flags_ = 0;
 }
 
-void WidgetWin::LayoutRootView() {
+void WidgetWin::ChangeSize(UINT size_param, const CSize& size) {
   CRect rect;
-  if (SizeRootViewToWindowRect() || use_layered_buffer_) {
+  if (use_layered_buffer_) {
     GetWindowRect(&rect);
+    SizeContents(rect);
   } else {
     GetClientRect(&rect);
   }
-
-  if (use_layered_buffer_)
-    SizeContents(rect);
 
   // Resizing changes the size of the view hierarchy and thus forces a
   // complete relayout.
