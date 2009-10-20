@@ -130,7 +130,7 @@ gfx::Size BlockedPopupContainerViewWidget::GetParentSize() {
 void BlockedPopupContainerViewWidget::OnSize(UINT param, const CSize& size) {
   container_->UpdateWidgetShape(this, gfx::Size(size.cx, size.cy));
 
-  LayoutRootView();
+  ChangeSize(param, size);
 }
 
 #elif defined(OS_LINUX)
