@@ -33,8 +33,10 @@ std::wstring AddBullet(const std::wstring& text) {
 
 }  // namespace
 
-FirstRunView::FirstRunView(Profile* profile)
-    : FirstRunViewBase(profile),
+FirstRunView::FirstRunView(Profile* profile,
+                           int import_items,
+                           int dont_import_items)
+    : FirstRunViewBase(profile, import_items, dont_import_items),
       welcome_label_(NULL),
       actions_label_(NULL),
       actions_import_(NULL),
@@ -153,7 +155,9 @@ void FirstRunView::OpenCustomizeDialog() {
       new FirstRunCustomizeView(profile_,
                                 importer_host_,
                                 this,
-                                default_browser_->checked()))->Show();
+                                default_browser_->checked(),
+                                import_items_,
+                                dont_import_items_))->Show();
 }
 
 void FirstRunView::LinkActivated(views::Link* source, int event_flags) {
@@ -181,7 +185,7 @@ bool FirstRunView::Accept() {
   // Index 0 is the default browser.
   FirstRun::ImportSettings(profile_,
       importer_host_->GetSourceProfileInfoAt(0).browser_type,
-      GetDefaultImportItems(), window()->GetNativeWindow());
+      GetImportItems(), window()->GetNativeWindow());
   UserMetrics::RecordAction(L"FirstRunDef_Accept", profile_);
   if (default_browser_->checked())
     SetDefaultBrowser();

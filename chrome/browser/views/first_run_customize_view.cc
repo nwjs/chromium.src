@@ -24,8 +24,10 @@
 FirstRunCustomizeView::FirstRunCustomizeView(Profile* profile,
                                              ImporterHost* importer_host,
                                              CustomizeViewObserver* observer,
-                                             bool default_browser_checked)
-    : FirstRunViewBase(profile),
+                                             bool default_browser_checked,
+                                             int import_items,
+                                             int dont_import_items)
+    : FirstRunViewBase(profile, import_items, dont_import_items),
       main_label_(NULL),
       import_cbox_(NULL),
       import_from_combo_(NULL),
@@ -203,7 +205,7 @@ bool FirstRunCustomizeView::Accept() {
     int browser_selected = import_from_combo_->selected_item();
     FirstRun::ImportSettings(profile_,
         importer_host_->GetSourceProfileInfoAt(browser_selected).browser_type,
-        GetDefaultImportItems(), window()->GetNativeWindow());
+        GetImportItems(), window()->GetNativeWindow());
   }
   if (default_browser_->checked())
     SetDefaultBrowser();

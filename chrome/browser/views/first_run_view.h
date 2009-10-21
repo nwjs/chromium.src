@@ -25,7 +25,9 @@ class FirstRunView : public FirstRunViewBase,
                      public views::LinkController,
                      public FirstRunCustomizeView::CustomizeViewObserver {
  public:
-  explicit FirstRunView(Profile* profile);
+  explicit FirstRunView(Profile* profile,
+                        int import_items,
+                        int dont_import_items);
   virtual ~FirstRunView();
 
   bool accepted() const { return accepted_;}

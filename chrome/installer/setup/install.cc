@@ -448,7 +448,7 @@ bool InstallNewVersion(const std::wstring& exe_path,
   install_list->AddCreateDirWorkItem(install_path);
 
   // If it is system level install copy the version folder (since we want to
-  // take the permissions of %ProgramFiles% folder) otherwise just move it. 
+  // take the permissions of %ProgramFiles% folder) otherwise just move it.
   if (reg_root == HKEY_LOCAL_MACHINE) {
     install_list->AddCopyTreeWorkItem(
         AppendPath(src_path, new_version.GetString()),
@@ -546,8 +546,9 @@ installer_util::InstallStatus installer::InstallOrUpdateChrome(
     const std::wstring& install_temp_path, const std::wstring& prefs_path,
     const DictionaryValue* prefs, const Version& new_version,
     const Version* installed_version) {
-  bool system_install = installer_util::GetDistroBooleanPreference(prefs,
-      installer_util::master_preferences::kSystemLevel);
+  bool system_install = false;
+  installer_util::GetDistroBooleanPreference(prefs,
+      installer_util::master_preferences::kSystemLevel, &system_install);
   std::wstring install_path(GetChromeInstallPath(system_install));
   if (install_path.empty()) {
     LOG(ERROR) << "Could not get installation destination path.";
@@ -590,10 +591,14 @@ installer_util::InstallStatus installer::InstallOrUpdateChrome(
       result = installer_util::NEW_VERSION_UPDATED;
     }
 
-    bool create_all_shortcut = installer_util::GetDistroBooleanPreference(prefs,
-        installer_util::master_preferences::kCreateAllShortcuts);
-    bool alt_shortcut = installer_util::GetDistroBooleanPreference(prefs,
-        installer_util::master_preferences::kAltShortcutText);
+    bool create_all_shortcut = false;
+    installer_util::GetDistroBooleanPreference(prefs,
+        installer_util::master_preferences::kCreateAllShortcuts,
+        &create_all_shortcut);
+    bool alt_shortcut = false;
+    installer_util::GetDistroBooleanPreference(prefs,
+        installer_util::master_preferences::kAltShortcutText,
+        &alt_shortcut);
     if (!CreateOrUpdateChromeShortcuts(exe_path, install_path,
                                        new_version.GetString(), result,
                                        system_install, create_all_shortcut,
@@ -605,8 +610,10 @@ installer_util::InstallStatus installer::InstallOrUpdateChrome(
       latest_version_to_keep.assign(current_version);
     RemoveOldVersionDirs(install_path, latest_version_to_keep);
 
-    bool make_chrome_default = installer_util::GetDistroBooleanPreference(prefs,
-        installer_util::master_preferences::kMakeChromeDefault);
+    bool make_chrome_default = false;
+    installer_util::GetDistroBooleanPreference(prefs,
+        installer_util::master_preferences::kMakeChromeDefault,
+        &make_chrome_default);
     RegisterChromeOnMachine(install_path, system_install, make_chrome_default);
   }
 

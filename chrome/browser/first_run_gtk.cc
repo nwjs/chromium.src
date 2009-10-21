@@ -7,7 +7,10 @@
 
 #include "chrome/browser/gtk/first_run_dialog.h"
 
-bool OpenFirstRunDialog(Profile* profile, ProcessSingleton* process_singleton) {
+bool OpenFirstRunDialog(Profile* profile,
+                        int import_items,
+                        int dont_import_items,
+                        ProcessSingleton* process_singleton) {
   // TODO(port): Use process_singleton to make sure Chrome can not be started
   // while this process is active.
   return FirstRunDialog::Show(profile);

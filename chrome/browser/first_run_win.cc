@@ -168,7 +168,9 @@ bool FirstRun::CreateChromeQuickLaunchShortcut() {
 bool FirstRun::ProcessMasterPreferences(const FilePath& user_data_dir,
                                         const FilePath& master_prefs_path,
                                         std::vector<std::wstring>* new_tabs,
-                                        int* ping_delay) {
+                                        int* ping_delay,
+                                        int* import_items,
+                                        int* dont_import_items) {
   DCHECK(!user_data_dir.empty());
   FilePath master_prefs = master_prefs_path;
   if (master_prefs.empty()) {
@@ -195,8 +197,9 @@ bool FirstRun::ProcessMasterPreferences(const FilePath& user_data_dir,
     }
   }
 
+  bool value = false;
   if (installer_util::GetDistroBooleanPreference(prefs.get(),
-      installer_util::master_preferences::kRequireEula)) {
+      installer_util::master_preferences::kRequireEula, &value) && value) {
     // Show the post-installation EULA. This is done by setup.exe and the
     // result determines if we continue or not. We wait here until the user
     // dismisses the dialog.
@@ -223,7 +226,7 @@ bool FirstRun::ProcessMasterPreferences(const FilePath& user_data_dir,
   }
 
   if (installer_util::GetDistroBooleanPreference(prefs.get(),
-      installer_util::master_preferences::kAltFirstRunBubble))
+      installer_util::master_preferences::kAltFirstRunBubble, &value) && value)
     FirstRun::SetOEMFirstRunBubblePref();
 
   FilePath user_prefs = GetDefaultPrefFilePath(true, user_data_dir);
@@ -235,8 +238,27 @@ bool FirstRun::ProcessMasterPreferences(const FilePath& user_data_dir,
   if (!file_util::CopyFile(master_prefs, user_prefs))
     return true;
 
+  // Add a special exception for import_search_engine preference.
+  // Even though we skip all other import_* preferences below, if
+  // skip-first-run-ui is not specified, we make exception for this one
+  // preference.
+  int items_to_import = 0;
+  if (installer_util::GetDistroBooleanPreference(prefs.get(),
+      installer_util::master_preferences::kDistroImportSearchPref, &value)) {
+    if (value) {
+      items_to_import += SEARCH_ENGINES;
+      if (import_items)
+        *import_items += SEARCH_ENGINES;
+    } else if (dont_import_items) {
+        *dont_import_items += SEARCH_ENGINES;
+    }
+  }
+
+  // Note we are skipping all other master preferences if skip-first-run-ui
+  // is *not* specified.
   if (!installer_util::GetDistroBooleanPreference(prefs.get(),
-      installer_util::master_preferences::kDistroSkipFirstRunPref))
+      installer_util::master_preferences::kDistroSkipFirstRunPref, &value) ||
+      !value)
     return true;
 
   // From here on we won't show first run so we need to do the work to set the
@@ -250,36 +272,37 @@ bool FirstRun::ProcessMasterPreferences(const FilePath& user_data_dir,
     return false;
 
   if (installer_util::GetDistroBooleanPreference(prefs.get(),
-      installer_util::master_preferences::kDistroShowWelcomePage))
+      installer_util::master_preferences::kDistroShowWelcomePage, &value) &&
+      value)
     FirstRun::SetShowWelcomePagePref();
 
-  int import_items = 0;
   if (installer_util::GetDistroBooleanPreference(prefs.get(),
-      installer_util::master_preferences::kDistroImportSearchPref))
-    import_items += SEARCH_ENGINES;
+      installer_util::master_preferences::kDistroImportHistoryPref, &value) &&
+      value)
+    items_to_import += HISTORY;
   if (installer_util::GetDistroBooleanPreference(prefs.get(),
-      installer_util::master_preferences::kDistroImportHistoryPref))
-    import_items += HISTORY;
+      installer_util::master_preferences::kDistroImportBookmarksPref, &value) &&
+      value)
+    items_to_import += FAVORITES;
   if (installer_util::GetDistroBooleanPreference(prefs.get(),
-      installer_util::master_preferences::kDistroImportBookmarksPref))
-    import_items += FAVORITES;
-  if (installer_util::GetDistroBooleanPreference(prefs.get(),
-      installer_util::master_preferences::kDistroImportHomePagePref))
-    import_items += HOME_PAGE;
+      installer_util::master_preferences::kDistroImportHomePagePref, &value) &&
+      value)
+    items_to_import += HOME_PAGE;
 
-  if (import_items) {
+  if (items_to_import) {
     // There is something to import from the default browser. This launches
     // the importer process and blocks until done or until it fails.
     scoped_refptr<ImporterHost> importer_host = new ImporterHost();
     if (!FirstRun::ImportSettings(NULL,
           importer_host->GetSourceProfileInfoAt(0).browser_type,
-          import_items, NULL)) {
+          items_to_import, NULL)) {
       LOG(WARNING) << "silent import failed";
     }
   }
 
   if (installer_util::GetDistroBooleanPreference(prefs.get(),
-      installer_util::master_preferences::kMakeChromeDefaultForUser))
+      installer_util::master_preferences::kMakeChromeDefaultForUser, &value) &&
+      value)
     ShellIntegration::SetAsDefaultBrowser();
 
   return false;
@@ -351,13 +374,16 @@ bool Upgrade::SwapNewChromeExeIfPresent() {
 }
 
 bool OpenFirstRunDialog(Profile* profile,
+                        int import_items,
+                        int dont_import_items,
                         ProcessSingleton* process_singleton) {
   DCHECK(profile);
   DCHECK(process_singleton);
 
   // We need the FirstRunView to outlive its parent, as we retrieve the accept
   // state from it after the dialog has been closed.
-  scoped_ptr<FirstRunView> first_run_view(new FirstRunView(profile));
+  scoped_ptr<FirstRunView> first_run_view(new FirstRunView(profile,
+      import_items, dont_import_items));
   first_run_view->SetParentOwned(false);
   views::Window* first_run_ui = views::Window::CreateChromeWindow(
       NULL, gfx::Rect(), first_run_view.get());
