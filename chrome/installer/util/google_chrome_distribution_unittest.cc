@@ -286,37 +286,52 @@ TEST(MasterPreferences, ParseDistroParams) {
       installer_util::ParseDistributionPreferences(
       FilePath::FromWStringHack(prefs_file)));
   EXPECT_TRUE(prefs.get() != NULL);
+  bool value = true;
   EXPECT_TRUE(installer_util::GetDistroBooleanPreference(prefs.get(),
-      installer_util::master_preferences::kDistroSkipFirstRunPref));
+      installer_util::master_preferences::kDistroSkipFirstRunPref, &value) &&
+      value);
   EXPECT_TRUE(installer_util::GetDistroBooleanPreference(prefs.get(),
-      installer_util::master_preferences::kDistroShowWelcomePage));
+      installer_util::master_preferences::kDistroShowWelcomePage, &value) &&
+      value);
 
   EXPECT_TRUE(installer_util::GetDistroBooleanPreference(prefs.get(),
-      installer_util::master_preferences::kDistroImportSearchPref));
+      installer_util::master_preferences::kDistroImportSearchPref, &value) &&
+      value);
   EXPECT_TRUE(installer_util::GetDistroBooleanPreference(prefs.get(),
-      installer_util::master_preferences::kDistroImportHistoryPref));
+      installer_util::master_preferences::kDistroImportHistoryPref, &value) &&
+      value);
   EXPECT_TRUE(installer_util::GetDistroBooleanPreference(prefs.get(),
-      installer_util::master_preferences::kDistroImportBookmarksPref));
+      installer_util::master_preferences::kDistroImportBookmarksPref, &value) &&
+      value);
   EXPECT_TRUE(installer_util::GetDistroBooleanPreference(prefs.get(),
-      installer_util::master_preferences::kDistroImportHomePagePref));
+      installer_util::master_preferences::kDistroImportHomePagePref, &value) &&
+      value);
 
   EXPECT_TRUE(installer_util::GetDistroBooleanPreference(prefs.get(),
-      installer_util::master_preferences::kCreateAllShortcuts));
+      installer_util::master_preferences::kCreateAllShortcuts, &value) &&
+      value);
   EXPECT_TRUE(installer_util::GetDistroBooleanPreference(prefs.get(),
-      installer_util::master_preferences::kDoNotLaunchChrome));
+      installer_util::master_preferences::kDoNotLaunchChrome, &value) &&
+      value);
   EXPECT_TRUE(installer_util::GetDistroBooleanPreference(prefs.get(),
-      installer_util::master_preferences::kMakeChromeDefault));
+      installer_util::master_preferences::kMakeChromeDefault, &value) &&
+      value);
   EXPECT_TRUE(installer_util::GetDistroBooleanPreference(prefs.get(),
-      installer_util::master_preferences::kMakeChromeDefaultForUser));
+      installer_util::master_preferences::kMakeChromeDefaultForUser, &value) &&
+      value);
 
   EXPECT_TRUE(installer_util::GetDistroBooleanPreference(prefs.get(),
-      installer_util::master_preferences::kSystemLevel));
+      installer_util::master_preferences::kSystemLevel, &value) &&
+      value);
   EXPECT_TRUE(installer_util::GetDistroBooleanPreference(prefs.get(),
-      installer_util::master_preferences::kVerboseLogging));
+      installer_util::master_preferences::kVerboseLogging, &value) &&
+      value);
   EXPECT_TRUE(installer_util::GetDistroBooleanPreference(prefs.get(),
-      installer_util::master_preferences::kRequireEula));
+      installer_util::master_preferences::kRequireEula, &value) &&
+      value);
   EXPECT_TRUE(installer_util::GetDistroBooleanPreference(prefs.get(),
-      installer_util::master_preferences::kAltShortcutText));
+      installer_util::master_preferences::kAltShortcutText, &value) &&
+      value);
 
   EXPECT_TRUE(file_util::Delete(prefs_file, false));
 }
