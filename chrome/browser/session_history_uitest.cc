@@ -22,10 +22,6 @@ const wchar_t kDocRoot[] = L"chrome/test/data";
 class SessionHistoryTest : public UITest {
  protected:
   SessionHistoryTest() : UITest() {
-    FilePath path(test_data_directory_);
-    path = path.AppendASCII("session_history");
-
-    url_prefix_ = UTF8ToWide(net::FilePathToFileURL(path).spec());
   }
 
   virtual void SetUp() {
@@ -97,7 +93,6 @@ class SessionHistoryTest : public UITest {
   }
 
  protected:
-  wstring url_prefix_;
   scoped_refptr<BrowserProxy> window_;
   scoped_refptr<TabProxy> tab_;
 };
@@ -499,6 +494,23 @@ TEST_F(SessionHistoryTest, DISABLED_LocationReplace) {
   ASSERT_TRUE(tab_->NavigateToURL(server->TestServerPage(
       "files/session_history/replace.html?no-title.html")));
   EXPECT_EQ(L"", GetTabTitle());
+}
+
+TEST_F(SessionHistoryTest, LocationChangeInSubframe) {
+  scoped_refptr<HTTPTestServer> server =
+      HTTPTestServer::CreateServer(kDocRoot, NULL);
+  ASSERT_TRUE(server.get());
+
+  ASSERT_TRUE(tab_->NavigateToURL(server->TestServerPage(
+      "files/session_history/location_redirect.html")));
+  EXPECT_EQ(L"Default Title", GetTabTitle());
+
+  ASSERT_TRUE(tab_->NavigateToURL(GURL(
+      "javascript:void(frames[0].navigate())")));
+  EXPECT_EQ(L"foo", GetTabTitle());
+
+  ASSERT_TRUE(tab_->GoBack());
+  EXPECT_EQ(L"Default Title", GetTabTitle());
 }
 
 }  // namespace
