@@ -628,8 +628,13 @@ void WebFrameLoaderClient::dispatchDidChangeLocationWithinPage() {
   DCHECK(ds) << "DataSource NULL when navigating to reference fragment";
   if (ds) {
     GURL url = ds->request().url();
-    GURL chain_end = ds->GetEndOfRedirectChain();
-    ds->ClearRedirectChain();
+    GURL chain_end;
+
+    if (ds->HasRedirectChain()){
+      chain_end = ds->GetEndOfRedirectChain();
+      ds->ClearRedirectChain();
+    }
+
 
     // Figure out if this location change is because of a JS-initiated client
     // redirect (e.g onload/setTimeout document.location.href=).
