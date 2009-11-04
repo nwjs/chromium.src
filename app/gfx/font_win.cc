@@ -111,8 +111,10 @@ Font::HFontRef* Font::GetBaseFontRef() {
   return base_font_ref_;
 }
 
-const std::wstring& Font::FontName() const {
-  return font_ref_->font_name();
+std::wstring Font::FontName() {
+  LOGFONT font_info;
+  GetObject(hfont(), sizeof(LOGFONT), &font_info);
+  return (std::wstring(font_info.lfFaceName));
 }
 
 int Font::FontSize() {
@@ -143,10 +145,6 @@ Font::HFontRef::HFontRef(HFONT hfont,
       style_(style),
       dlu_base_x_(dlu_base_x) {
   DLOG_ASSERT(hfont);
-
-  LOGFONT font_info;
-  GetObject(hfont_, sizeof(LOGFONT), &font_info);
-  font_name_ = std::wstring(font_info.lfFaceName);
 }
 
 Font::HFontRef::~HFontRef() {

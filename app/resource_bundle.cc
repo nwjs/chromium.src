@@ -176,7 +176,7 @@ void ResourceBundle::LoadFontsIfNecessary() {
   }
 }
 
-const gfx::Font& ResourceBundle::GetFont(FontStyle style) {
+gfx::Font ResourceBundle::GetFont(FontStyle style) {
   LoadFontsIfNecessary();
   switch (style) {
     case SmallFont:
