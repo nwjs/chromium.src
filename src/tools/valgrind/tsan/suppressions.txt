@@ -1,0 +1,250 @@
+############################
+# Chromium
+
+{
+  bug_21259
+  ThreadSanitizer:Race
+  ...
+  fun:*tracked_objects*ThreadData*StartTracking*
+}
+
+{
+  bug_21468
+  ThreadSanitizer:Race
+  ...
+  fun:*net*DirectoryLister*
+}
+
+{
+  bug_22520
+  ThreadSanitizer:Race
+  fun:*CancelableRequestBase*
+  fun:*CancelableRequest*
+}
+
+{
+  bug_23245, bug_25385
+  ThreadSanitizer:Race
+  fun:*base*Thread*ThreadMain*
+}
+
+{
+  bug_23423
+  ThreadSanitizer:Race
+  fun:*IPC*SyncMessageC*E*
+}
+
+{
+  bug_23433
+  ThreadSanitizer:Race
+  fun:*logging*SetMinLogLevel*
+}
+
+{
+  bug_24419
+  ThreadSanitizer:Race
+  fun:*BrowserProcessImpl*nspector*iles*
+}
+
+{
+  bug_24715 (1)
+  ThreadSanitizer:Race
+  fun:*base*internal*WeakReference*
+  ...
+  fun:*AppCacheUpdateJobTest*
+}
+
+{
+  bug_24715 (2)
+  ThreadSanitizer:Race
+  fun:*base*internal*WeakReference*
+  ...
+  fun:*AppCacheResponseTest*
+}
+
+{
+  bug_25385
+  ThreadSanitizer:Race
+  ...
+  fun:*base*ThreadD*E*
+}
+
+{
+  bug_25915
+  ThreadSanitizer:Race
+  fun:*browser_sync*BookmarkModelWorker*
+}
+
+############################
+# Real races in third_party
+{
+  bug_23244 (libevent)
+  ThreadSanitizer:Race
+  fun:event_*
+  fun:event_*
+}
+
+{
+  bug_24724 (WebKit)
+  ThreadSanitizer:Race
+  fun:*WTF*RefCountedBase*ref*
+  ...
+  fun:*WebCore*WorkerRunLoop*Task*
+}
+
+{
+  bug_25645 (WebKit)
+  ThreadSanitizer:Race
+  fun:*WTF*RefCountedBase*ref*
+  ...
+  fun:*WebCore*StringImpl*
+}
+
+{
+  bug_25913 (libjingle) (1)
+  ThreadSanitizer:Race
+  fun:*talk_base*MessageQueue*Stop*
+}
+
+{
+  bug_25913 (libjingle) (2)
+  ThreadSanitizer:Race
+  fun:*talk_base*MessageQueue*Get*
+}
+
+############################
+# Data races in tests
+
+# TODO(timurrrr): bug item
+{
+  Data race on bool in base/thread_unittest
+  ThreadSanitizer:Race
+  ...
+  fun:*ToggleValue*Run*
+}
+
+# TODO(timurrrr): bug item
+{
+  Data race on bool in AssertReporter [test-only]
+  ThreadSanitizer:Race
+  ...
+  fun:*AssertReporter*warn*
+}
+
+# TODO(timurrrr): bug item
+{
+  Data race on WatchdogCounter [test-only]
+  ThreadSanitizer:Race
+  ...
+  fun:*WatchdogCounter*larm*
+}
+
+# TODO(timurrrr): bug item
+{
+  Data race on counter in WorkQueue [test-only]
+  ThreadSanitizer:Race
+  ...
+  fun:*WorkQueue*
+}
+
+# TODO(timurrrr): bug item
+{
+  Data race on vfptr in base/watchdog_unittest
+  ThreadSanitizer:Race
+  ...
+  fun:*WatchdogTest_*arm*Test_Test*TestBody*
+}
+
+# TODO(timurrrr): bug item
+{
+  Data race on vfptr in base/thread_unittest
+  ThreadSanitizer:Race
+  ...
+  fun:*ThreadTest_SleepInsideInit*TestBody*
+}
+
+# TODO(timurrrr): bug item
+{
+  Data race on bool in chrome/browser/net/url_fetcher_unittest (1)
+  ThreadSanitizer:Race
+  fun:*URLFetcherCancelTest*TestContextReleased*
+}
+{
+  Data race on bool in chrome/browser/net/url_fetcher_unittest (2)
+  ThreadSanitizer:Race
+  fun:*CancelTestURLRequestContext*CancelTestURLRequestContext*
+}
+
+############################
+# Benign races in ICU
+{
+  Two writes, same value (ICU gGlobalMutex, gMutexesInUse)
+  ThreadSanitizer:Race
+  ...
+  fun:umtx_init_4_2
+}
+
+{
+  Two writes, same value (ICU gHeapInUse)
+  ThreadSanitizer:Race
+  fun:uprv_malloc_4_2
+}
+
+# Reading a pointer to a mutex being initialized in a concurrent thread.
+{
+  A benign race in umtx_lock_4_2
+  ThreadSanitizer:Race
+  fun:umtx_lock_4_2
+}
+
+############################
+# Benign race in SQLLite
+{
+  Two writes, same value (SQLLite pthreadMutexAlloc)
+  ThreadSanitizer:Race
+  ...
+  fun:pthreadMutexAlloc
+  fun:sqlite3MutexAlloc
+}
+
+############################
+# Benign races in libc
+
+# A benign race inside the implementation of internal libc mutex
+{
+  Benign races in __lll_*lock_*_private
+  ThreadSanitizer:Race
+  fun:__lll_*lock_*_private
+}
+
+# Benign race below thread-safe time-conversion functions
+{
+  fun:__tz*
+  ThreadSanitizer:Race
+  fun:__tz*
+}
+
+# Benign race below thread-safe time-conversion functions
+{
+  fun:tzset*
+  ThreadSanitizer:Race
+  ...
+  fun:tzset*
+}
+
+# Benign race in thread-safe function
+{
+  fun:mkstemp*
+  ThreadSanitizer:Race
+  ...
+  fun:mkstemp*
+}
+
+# We already ignore memory accesses inside ld
+# but we also need to ignore accesses below it.
+{
+  fun:_dl_close
+  ThreadSanitizer:Race
+  ...
+  fun:_dl_close
+}

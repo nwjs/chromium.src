@@ -1,0 +1,38 @@
+<div id="pageData-title" class="pageData">i18n</div>
+
+<!-- BEGIN AUTHORED CONTENT -->
+<p id="classSummary">
+Use the <code>chrome.i18n</code> module to manipulate the i18n related browser
+settings, such as the accept languages, or to get localized messages for current
+locale.
+</p>
+
+<h3 id="overview-examples">Examples</h3>
+
+<p>
+The following code gets accept-languages from the browser and display them as a
+string by separating each accept-language with ','.
+</p>
+
+<pre>
+function getAcceptLanguages() {
+  chrome.i18n.getAcceptLanguages(function(languageList) {
+    var languages = languageList.join(",");
+    document.getElementById("languageSpan").innerHTML = languages;
+  })
+}
+</pre>
+
+<p>
+The following code gets localized message from the browser and displays it as a
+string. It replaces two placeholders within the message with values arg1 and
+arg2.
+</p>
+
+<pre>
+function getMessage() {
+  var message = chrome.i18n.getMessage("click_here", ["arg1", "arg2"]);
+  document.getElementById("languageSpan").innerHTML = message;
+}
+</pre>
+<!-- END AUTHORED CONTENT -->

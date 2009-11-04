@@ -1,0 +1,242 @@
+.todo, .comment { /* while we're working on doc, comment out display */
+  color: rgb(255, 0, 0);
+  display: none;
+}
+
+.tbd { /* style for comments that should be visible to all devs */
+  color: rgb(125, 125, 125);
+}
+
+.pageData {
+  display: none;
+}
+
+body {
+  font-family:Arial, Helvetica, sans-serif;
+  font-size: 13px;
+}
+
+h2,h3 {
+  margin-top: 2em;
+}
+
+div.summary .subdued {
+  color: rgb(147, 180, 217);
+}
+
+.optional {
+  color: rgb(125, 125, 125);
+}
+
+.apiGroup div.description {
+  margin-left: 2em;
+}
+
+.apiGroup div.summary {
+  border: 1px solid rgb(147, 180, 217);
+  font-family: "Courier New", courier, monospace;
+  padding: 0.5em;
+  background-color: rgb(202, 222, 244);
+}
+
+div.summary div {
+  margin-bottom: 0.5em;
+}
+
+pre b {
+  background-color: rgb(255, 255, 0);
+}
+
+pre {
+  border: 1px solid rgb(187, 187, 187);
+  padding: 0.5em;
+  background-color: rgb(250, 250, 250);
+}
+
+div#toc {
+  background-color: rgb(232, 237, 235);
+  border: 1px solid rgb(176, 189, 204);
+  display: inline;
+  float: right;
+  margin: 5px 0px 5px 20px;
+  padding: 5px;
+  width: 250px;
+}
+
+#toc p {
+  font-weight: bold;
+  margin: 0px;
+}
+
+#toc ol {
+  list-style-image: none;
+  list-style-type: none;
+  padding-left: 1em;
+}
+
+#toc li {
+  margin-top: 0;
+}
+
+div#breadcrumbs {
+  display: inline;
+  font-size: 80%;
+}
+
+div#searchbox {
+  display: inline;
+  float: right;
+  /*
+  margin: 5px 0px 5px 20px;
+  padding: 5px;
+  width: 250px; */
+}
+
+.exampleLink {
+  font-size: 80%;
+}
+
+dd {
+  margin-bottom: 0.75em;
+}
+
+ol li {
+  margin-top: 1em;
+}
+
+.example {
+}
+
+p#classSummary {
+}
+
+.apiItem {
+}
+
+div.note {
+  background-color: rgb(202, 222, 244);
+  border: 1px solid rgb(147, 180, 217);
+  padding: 0.5em;
+  margin: 1em 0px;
+}
+img {
+  border-width: 0px;
+}
+
+.hidden {
+  display: none;
+}
+
+#container {
+  height:auto !important;
+  margin:0;
+  max-width:1160px;
+  min-height:100%;
+  padding:0;
+  position:relative;
+}
+
+#pageHeader {
+  margin:9px 0 12px;
+  padding:7px 0 0;
+}
+
+#pageTitle {
+}
+
+#pageContent {
+}
+
+#leftNav {
+  clear:left;
+  padding:0.5em 0 140px !important;
+  display:block;
+  float:left;
+  margin:0;
+  width:171px;
+}
+
+#leftNav ul {
+  line-height:120%;
+  margin:0;
+  padding:0;
+}
+
+#leftNav ul li {
+  list-style-image:none;
+  list-style-position:outside;
+  list-style-type:none;
+  margin:0;
+  padding:0.2em 0 0.2em 1em;
+}
+
+.leftNavSelected {
+  background-color: rgb(229, 236, 249);
+}
+
+div.leftNavSelected {
+  padding-top: 1px;
+  padding-bottom: 1px;
+  margin-left: -12px;
+  padding-left: 12px;
+}
+#mainColumn {
+  border-left:3px solid #E5ECF9;
+  padding-left:24px;
+  display:block;
+  float:none;
+  margin:0 0 0 171px;
+  position:relative;
+  width:auto;
+}
+
+#pageFooter {
+  margin-top:5em;
+  padding:0 10em;
+  text-align:center;
+  color: rgb(125, 125, 125);
+  font-size: 80%;
+}
+
+#pageFooter a:link { color: rgb(125,125,125) }
+
+#mainColumn table {
+  border-collapse:collapse;
+}
+
+#mainColumn th {
+  background:#ccc;
+  border:1px solid #999;
+}
+
+#mainColumn td {
+  text-align:left;
+  vertical-align:top;
+  border:1px solid #999;
+  padding:6px;
+}
+
+#mainColumn table.imagelayout {
+  border:none;
+}
+#mainColumn table.imagelayout td {
+  border:none;
+  padding:0px 6px 6px;
+  text-align:center;
+}
+#mainColumn table.imagelayout tr.images td {
+  vertical-align:bottom;
+}
+
+#mainColumn .columns {
+        border: none;
+        margin-top:0;
+        margin-bottom:0;
+        margin-left:0;
+        /* margin-right omitted to avoid IE6 bug */
+        }
+
+#mainColumn .columns td{
+        border: none;
+        padding:0 10px 0 0px;
+        }

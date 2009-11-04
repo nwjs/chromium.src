@@ -1,0 +1,7 @@
+{
+  "name": "BookmarksAPI",
+  "description": "Bookmarks API test",
+  "version": "0.1",
+  "toolstrips": ["bookmark_api.html"],
+  "permissions": ["bookmarks"]
+}

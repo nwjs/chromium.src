@@ -1,0 +1,9 @@
+HOWDIE!!!
+
+<script type="text/javascript">
+  function getSelectedCallback(tab) {
+    chrome.tabs.remove(tab.id);
+  }
+
+  chrome.tabs.getSelected(undefined, getSelectedCallback);
+</script>
