@@ -71,7 +71,7 @@ int Font::style() const {
   return style_;
 }
 
-std::wstring Font::FontName() {
+const std::wstring& Font::FontName() const {
   return font_name_;
 }
 
