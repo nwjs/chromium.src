@@ -12,24 +12,16 @@ class AutocompletePopupContentsView;
 
 class AutocompletePopupWin : public views::WidgetWin {
  public:
-  explicit AutocompletePopupWin(AutocompletePopupContentsView* contents);
+  // Creates the popup and shows it. |edit_view| is the edit that created us.
+  AutocompletePopupWin(AutocompleteEditView* edit_view,
+                       AutocompletePopupContentsView* contents);
   virtual ~AutocompletePopupWin();
 
-  // Creates the popup and shows it for the first time. |edit_view| is the edit
-  // that created us.
-  void Init(AutocompleteEditViewWin* edit_view, views::View* contents);
-
-  // Shows the popup and moves it to the right position.
-  void Show();
-
- protected:
+ private:
   // Overridden from WidgetWin:
   virtual LRESULT OnMouseActivate(HWND window,
                                   UINT hit_test,
                                   UINT mouse_message);
-
- private:
-  AutocompletePopupContentsView* contents_;
 
   DISALLOW_COPY_AND_ASSIGN(AutocompletePopupWin);
 };

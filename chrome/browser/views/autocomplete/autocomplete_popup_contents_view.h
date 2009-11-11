@@ -81,6 +81,10 @@ class AutocompletePopupContentsView : public views::View,
   virtual void Layout();
 
  private:
+#if defined(OS_WIN)
+  typedef AutocompletePopupWin AutocompletePopupClass;
+#endif
+
   // Returns true if the model has a match at the specified index.
   bool HasMatchAt(size_t index) const;
 
@@ -97,10 +101,8 @@ class AutocompletePopupContentsView : public views::View,
   // Makes the contents of the canvas slightly transparent.
   void MakeCanvasTransparent(gfx::Canvas* canvas);
 
-#if defined(OS_WIN)
   // The popup that contains this view.
-  scoped_ptr<AutocompletePopupWin> popup_;
-#endif
+  scoped_ptr<AutocompletePopupClass> popup_;
 
   // The provider of our result set.
   scoped_ptr<AutocompletePopupModel> model_;

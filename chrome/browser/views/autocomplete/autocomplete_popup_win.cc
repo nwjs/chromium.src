@@ -14,24 +14,17 @@
 // AutocompletePopupWin, public:
 
 AutocompletePopupWin::AutocompletePopupWin(
-    AutocompletePopupContentsView* contents)
-    : contents_(contents) {
-  set_delete_on_destroy(false);
+    AutocompleteEditView* edit_view,
+    AutocompletePopupContentsView* contents) {
+  // Create the popup.
+  set_delete_on_destroy(false);  // Owned by |contents|.
   set_window_style(WS_POPUP | WS_CLIPCHILDREN);
   set_window_ex_style(WS_EX_TOOLWINDOW | WS_EX_LAYERED);
-}
-
-AutocompletePopupWin::~AutocompletePopupWin() {
-}
-
-void AutocompletePopupWin::Init(AutocompleteEditViewWin* edit_view,
-                                views::View* contents) {
-  // Create the popup
   WidgetWin::Init(edit_view->parent_view()->GetWidget()->GetNativeView(),
-                  contents_->GetPopupBounds());
+                  contents->GetPopupBounds());
   // The contents is owned by the LocationBarView.
   contents_->SetParentOwned(false);
-  SetContentsView(contents_);
+  SetContentsView(contents);
 
   // When an IME is attached to the rich-edit control, retrieve its window
   // handle and show this popup window under the IME windows.
@@ -43,12 +36,7 @@ void AutocompletePopupWin::Init(AutocompleteEditViewWin* edit_view,
                SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
 }
 
-void AutocompletePopupWin::Show() {
-  // Move the popup to the place appropriate for the window's current position -
-  // it may have been moved since it was last shown.
-  SetBounds(contents_->GetPopupBounds());
-  if (!IsVisible())
-    WidgetWin::Show();
+AutocompletePopupWin::~AutocompletePopupWin() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
