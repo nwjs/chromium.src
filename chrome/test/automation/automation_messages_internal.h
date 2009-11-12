@@ -1171,12 +1171,6 @@ IPC_BEGIN_MESSAGES(Automation)
                              int   /* Type (Browser::Type) */,
                              bool  /* show */ )
 
-  // This message requests that the mouse be moved to this location, in
-  // window coordinate space.
-  // Request:
-  //   int - the handle of the window that's the context for this click
-  //   gfx::Point - the location to move to
-  IPC_MESSAGE_ROUTED2(AutomationMsg_WindowMouseMove, int, gfx::Point)
 
   // Called when requests should be downloaded using a host browser's
   // download mechanism when chrome is being embedded.
