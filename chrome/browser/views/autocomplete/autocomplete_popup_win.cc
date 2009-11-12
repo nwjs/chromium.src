@@ -14,7 +14,7 @@
 // AutocompletePopupWin, public:
 
 AutocompletePopupWin::AutocompletePopupWin(
-    AutocompleteEditView* edit_view,
+    AutocompleteEditViewWin* edit_view,
     AutocompletePopupContentsView* contents) {
   // Create the popup.
   set_delete_on_destroy(false);  // Owned by |contents|.
@@ -23,7 +23,7 @@ AutocompletePopupWin::AutocompletePopupWin(
   WidgetWin::Init(edit_view->parent_view()->GetWidget()->GetNativeView(),
                   contents->GetPopupBounds());
   // The contents is owned by the LocationBarView.
-  contents_->SetParentOwned(false);
+  contents->SetParentOwned(false);
   SetContentsView(contents);
 
   // When an IME is attached to the rich-edit control, retrieve its window

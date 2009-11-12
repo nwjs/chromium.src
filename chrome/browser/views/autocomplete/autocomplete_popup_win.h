@@ -13,7 +13,7 @@ class AutocompletePopupContentsView;
 class AutocompletePopupWin : public views::WidgetWin {
  public:
   // Creates the popup and shows it. |edit_view| is the edit that created us.
-  AutocompletePopupWin(AutocompleteEditView* edit_view,
+  AutocompletePopupWin(AutocompleteEditViewWin* edit_view,
                        AutocompletePopupContentsView* contents);
   virtual ~AutocompletePopupWin();
 
