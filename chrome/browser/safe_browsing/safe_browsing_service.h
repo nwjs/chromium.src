@@ -139,6 +139,14 @@ class SafeBrowsingService
   // Preference handling.
   static void RegisterPrefs(PrefService* prefs);
 
+  // Called on the IO thread to try to close the database, freeing the memory
+  // associated with it.  The database will be automatically reopened as needed.
+  //
+  // NOTE: Actual database closure is asynchronous, and until it happens, the IO
+  // thread is not allowed to access it; may not actually trigger a close if one
+  // is already pending or doing so would cause problems.
+  void CloseDatabase();
+
   // Called on the IO thread to reset the database.
   void ResetDatabase();
 
@@ -177,11 +185,20 @@ class SafeBrowsingService
                       const std::string& wrapped_key,
                       URLRequestContextGetter* request_context_getter);
 
-  // Called to initialize objects that are used on the db_thread.
-  void OnDBInitialize();
-
   // Called to shutdown operations on the io_thread.
   void OnIOShutdown();
+
+  // Returns whether |database_| exists and is accessible.
+  bool database_available() const {
+    return !closing_database_ && (database_ != NULL);
+  }
+
+  // Called on the IO thread.  If the database does not exist, queues up a call
+  // on the db thread to create it.  Returns whether the database is available.
+  //
+  // Note that this is only needed outside the db thread, since functions on the
+  // db thread can call GetDatabase() directly.
+  bool MakeDatabaseAvailable();
 
   // Should only be called on db thread as SafeBrowsingDatabase is not
   // threadsafe.
@@ -203,7 +220,9 @@ class SafeBrowsingService
   // Called on the IO thread after the database reports that it added a chunk.
   void OnChunkInserted();
 
-  // Notification that the database is done loading its bloom filter.
+  // Notification that the database is done loading its bloom filter.  We may
+  // have had to queue checks until the database is ready, and if so, this
+  // checks them.
   void DatabaseLoadComplete();
 
   // Called on the database thread to add/remove chunks and host keys.
@@ -223,6 +242,9 @@ class SafeBrowsingService
   // the user checks the "Enable SafeBrowsing" option in the Advanced options
   // UI.
   void Start();
+
+  // Called on the db thread to close the database.  See CloseDatabase().
+  void OnCloseDatabase();
 
   // Runs on the db thread to reset the database. We assume that resetting the
   // database is a synchronous operation.
@@ -248,11 +270,6 @@ class SafeBrowsingService
                      const GURL& page_url,
                      const GURL& referrer_url);
 
-  // During a reset or the initial load we may have to queue checks until the
-  // database is ready. This method is run once the database has loaded (or if
-  // we shut down SafeBrowsing before the database has finished loading).
-  void RunQueuedClients();
-
   CurrentChecks checks_;
 
   // Used for issuing only one GetHash request for a given prefix.
@@ -272,10 +289,18 @@ class SafeBrowsingService
   bool enabled_;
 
   // The SafeBrowsing thread that runs database operations.
+  //
+  // Note: Functions that run on this thread should run synchronously and return
+  // to the IO thread, not post additional tasks back to this thread, lest we
+  // cause a race condition at shutdown time that leads to a database leak.
   scoped_ptr<base::Thread> safe_browsing_thread_;
 
   // Indicates if we're currently in an update cycle.
   bool update_in_progress_;
+
+  // Indicates if we're in the midst of trying to close the database.  If this
+  // is true, nothing on the IO thread should access the database.
+  bool closing_database_;
 
   std::deque<QueuedCheck> queued_checks_;
 

@@ -39,7 +39,8 @@ SafeBrowsingService::SafeBrowsingService()
     : database_(NULL),
       protocol_manager_(NULL),
       enabled_(false),
-      update_in_progress_(false) {
+      update_in_progress_(false),
+      closing_database_(false) {
 }
 
 void SafeBrowsingService::Initialize() {
@@ -65,7 +66,7 @@ bool SafeBrowsingService::CheckUrl(const GURL& url, Client* client) {
   if (!enabled_)
     return true;
 
-  if (!database_) {
+  if (!MakeDatabaseAvailable()) {
     QueuedCheck check;
     check.client = client;
     check.url = url;
@@ -106,8 +107,10 @@ bool SafeBrowsingService::CheckUrl(const GURL& url, Client* client) {
 
 void SafeBrowsingService::CancelCheck(Client* client) {
   DCHECK(ChromeThread::CurrentlyOn(ChromeThread::IO));
-
   for (CurrentChecks::iterator i = checks_.begin(); i != checks_.end(); ++i) {
+    // We can't delete matching checks here because the db thread has a copy of
+    // the pointer.  Instead, we simply NULL out the client, and when the db
+    // thread calls us back, we'll clean up the check.
     if ((*i)->client == client)
       (*i)->client = NULL;
   }
@@ -115,9 +118,13 @@ void SafeBrowsingService::CancelCheck(Client* client) {
   // Scan the queued clients store. Clients may be here if they requested a URL
   // check before the database has finished loading.
   for (std::deque<QueuedCheck>::iterator it(queued_checks_.begin());
-       it != queued_checks_.end(); ++it) {
+       it != queued_checks_.end(); ) {
+    // In this case it's safe to delete matches entirely since nothing has a
+    // pointer to them.
     if (it->client == client)
-      it->client = NULL;
+      it = queued_checks_.erase(it);
+    else
+      ++it;
   }
 }
 
@@ -127,6 +134,8 @@ void SafeBrowsingService::DisplayBlockingPage(const GURL& url,
                                               Client* client,
                                               int render_process_host_id,
                                               int render_view_id) {
+  DCHECK(ChromeThread::CurrentlyOn(ChromeThread::IO));
+
   // Check if the user has already ignored our warning for this render_view
   // and domain.
   for (size_t i = 0; i < white_listed_entries_.size(); ++i) {
@@ -162,6 +171,7 @@ void SafeBrowsingService::HandleGetHashResults(
     SafeBrowsingCheck* check,
     const std::vector<SBFullHashResult>& full_hashes,
     bool can_cache) {
+  DCHECK(ChromeThread::CurrentlyOn(ChromeThread::IO));
   if (checks_.find(check) == checks_.end())
     return;
 
@@ -172,7 +182,7 @@ void SafeBrowsingService::HandleGetHashResults(
   std::vector<SBPrefix> prefixes = check->prefix_hits;
   OnHandleGetHashResults(check, full_hashes);  // 'check' is deleted here.
 
-  if (can_cache && database_) {
+  if (can_cache && MakeDatabaseAvailable()) {
     // Cache the GetHash results in memory:
     database_->CacheHashResults(prefixes, full_hashes);
   }
@@ -258,8 +268,40 @@ void SafeBrowsingService::RegisterPrefs(PrefService* prefs) {
   prefs->RegisterStringPref(prefs::kSafeBrowsingWrappedKey, L"");
 }
 
+void SafeBrowsingService::CloseDatabase() {
+  DCHECK(ChromeThread::CurrentlyOn(ChromeThread::IO));
+
+  // Cases to avoid:
+  //  * If |closing_database_| is true, continuing will queue up a second
+  //    request, |closing_database_| will be reset after handling the first
+  //    request, and if any functions on the db thread recreate the database, we
+  //    could start using it on the IO thread and then have the second request
+  //    handler delete it out from under us.
+  //  * If |database_| is NULL, then either no creation request is in flight, in
+  //    which case we don't need to do anything, or one is in flight, in which
+  //    case the database will be recreated before our deletion request is
+  //    handled, and could be used on the IO thread in that time period, leading
+  //    to the same problem as above.
+  //  * If |queued_checks_| is non-empty and |database_| is non-NULL, we're
+  //    about to be called back (in DatabaseLoadComplete()).  This will call
+  //    CheckUrl(), which will want the database.  Closing the database here
+  //    would lead to an infinite loop in DatabaseLoadComplete(), and even if it
+  //    didn't, it would be pointless since we'd just want to recreate.
+  //
+  // The first two cases above are handled by checking database_available().
+  if (!database_available() || !queued_checks_.empty())
+    return;
+
+  closing_database_ = true;
+  if (safe_browsing_thread_.get()) {
+    safe_browsing_thread_->message_loop()->PostTask(FROM_HERE,
+        NewRunnableMethod(this, &SafeBrowsingService::OnCloseDatabase));
+  }
+}
+
 void SafeBrowsingService::ResetDatabase() {
   DCHECK(ChromeThread::CurrentlyOn(ChromeThread::IO));
+  DCHECK(enabled_);
   safe_browsing_thread_->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(
       this, &SafeBrowsingService::OnResetDatabase));
 }
@@ -269,6 +311,9 @@ void SafeBrowsingService::LogPauseDelay(TimeDelta time) {
 }
 
 SafeBrowsingService::~SafeBrowsingService() {
+  // We should have already been shut down.  If we're still enabled, then the
+  // database isn't going to be closed properly, which could lead to corruption.
+  DCHECK(!enabled_);
 }
 
 void SafeBrowsingService::OnIOInitialize(
@@ -277,6 +322,7 @@ void SafeBrowsingService::OnIOInitialize(
     URLRequestContextGetter* request_context_getter) {
   DCHECK(ChromeThread::CurrentlyOn(ChromeThread::IO));
   enabled_ = true;
+  MakeDatabaseAvailable();
 
   // On Windows, get the safe browsing client name from the browser
   // distribution classes in installer util. These classes don't yet have
@@ -304,11 +350,6 @@ void SafeBrowsingService::OnIOInitialize(
   protocol_manager_->Initialize();
 }
 
-void SafeBrowsingService::OnDBInitialize() {
-  DCHECK(MessageLoop::current() == safe_browsing_thread_->message_loop());
-  GetDatabase();
-}
-
 void SafeBrowsingService::OnIOShutdown() {
   DCHECK(ChromeThread::CurrentlyOn(ChromeThread::IO));
   if (!enabled_)
@@ -320,17 +361,8 @@ void SafeBrowsingService::OnIOShutdown() {
   delete protocol_manager_;
   protocol_manager_ = NULL;
 
-  if (safe_browsing_thread_.get())
-    safe_browsing_thread_->message_loop()->DeleteSoon(FROM_HERE, database_);
-
-  // Flush the database thread. Any in-progress database check results will be
-  // ignored and cleaned up below.
-  safe_browsing_thread_.reset(NULL);
-
-  database_ = NULL;
-
-  // Delete queued and pending checks once the database thread is done, calling
-  // back any clients with 'URL_SAFE'.
+  // Delete queued checks, calling back any clients with 'URL_SAFE'.
+  // If we don't do this here we may fail to close the database below.
   while (!queued_checks_.empty()) {
     QueuedCheck check = queued_checks_.front();
     if (check.client)
@@ -338,6 +370,23 @@ void SafeBrowsingService::OnIOShutdown() {
     queued_checks_.pop_front();
   }
 
+  // Close the database.  We don't simply DeleteSoon() because if a close is
+  // already pending, we'll double-free, and we don't set |database_| to NULL
+  // because if there is still anything running on the db thread, it could
+  // create a new database object (via GetDatabase()) that would then leak.
+  CloseDatabase();
+
+  // Flush the database thread. Any in-progress database check results will be
+  // ignored and cleaned up below.
+  //
+  // Note that to avoid leaking the database, we rely on the fact that no new
+  // tasks will be added to the db thread between the call above and this one.
+  // See comments on the declaration of |safe_browsing_thread_|.
+  safe_browsing_thread_.reset();
+
+  // Delete pending checks, calling back any clients with 'URL_SAFE'.  We have
+  // to do this after the db thread returns because methods on it can have
+  // copies of these pointers, so deleting them might lead to accessing garbage.
   for (CurrentChecks::iterator it = checks_.begin();
        it != checks_.end(); ++it) {
     if ((*it)->client)
@@ -347,6 +396,17 @@ void SafeBrowsingService::OnIOShutdown() {
   checks_.clear();
 
   gethash_requests_.clear();
+}
+
+bool SafeBrowsingService::MakeDatabaseAvailable() {
+  DCHECK(ChromeThread::CurrentlyOn(ChromeThread::IO));
+  DCHECK(enabled_);
+  if (!database_) {
+    DCHECK(!closing_database_);
+    safe_browsing_thread_->message_loop()->PostTask(FROM_HERE,
+        NewRunnableMethod(this, &SafeBrowsingService::GetDatabase));
+  }
+  return database_available();
 }
 
 SafeBrowsingDatabase* SafeBrowsingService::GetDatabase() {
@@ -370,9 +430,7 @@ SafeBrowsingDatabase* SafeBrowsingService::GetDatabase() {
       ChromeThread::IO, FROM_HERE,
       NewRunnableMethod(this, &SafeBrowsingService::DatabaseLoadComplete));
 
-  TimeDelta open_time = Time::Now() - before;
-  SB_DLOG(INFO) << "SafeBrowsing database open took " <<
-      open_time.InMilliseconds() << " ms.";
+  UMA_HISTOGRAM_TIMES("SB2.DatabaseOpen", Time::Now() - before);
   return database_;
 }
 
@@ -422,13 +480,12 @@ void SafeBrowsingService::GetAllChunksFromDatabase() {
   DCHECK(MessageLoop::current() == safe_browsing_thread_->message_loop());
   bool database_error = true;
   std::vector<SBListChunkRanges> lists;
-  if (GetDatabase()) {
-    if (GetDatabase()->UpdateStarted()) {
-      GetDatabase()->GetListsInfo(&lists);
-      database_error = false;
-    } else {
-      GetDatabase()->UpdateFinished(false);
-    }
+  GetDatabase();  // This guarantees that |database_| is non-NULL.
+  if (database_->UpdateStarted()) {
+    database_->GetListsInfo(&lists);
+    database_error = false;
+  } else {
+    database_->UpdateFinished(false);
   }
 
   ChromeThread::PostTask(
@@ -463,22 +520,35 @@ void SafeBrowsingService::DatabaseLoadComplete() {
   if (!enabled_)
     return;
 
-  // If we have any queued requests, we can now check them.
-  RunQueuedClients();
+  HISTOGRAM_COUNTS("SB.QueueDepth", queued_checks_.size());
+  if (queued_checks_.empty())
+    return;
+
+  // If the database isn't already available, calling CheckUrl() in the loop
+  // below will add the check back to the queue, and we'll infinite-loop.
+  DCHECK(database_available());
+  while (!queued_checks_.empty()) {
+    QueuedCheck check = queued_checks_.front();
+    HISTOGRAM_TIMES("SB.QueueDelay", Time::Now() - check.start);
+    // If CheckUrl() determines the URL is safe immediately, it doesn't call the
+    // client's handler function (because normally it's being directly called by
+    // the client).  Since we're not the client, we have to convey this result.
+    if (check.client && CheckUrl(check.url, check.client))
+      check.client->OnUrlCheckResult(check.url, URL_SAFE);
+    queued_checks_.pop_front();
+  }
 }
 
 void SafeBrowsingService::HandleChunkForDatabase(
     const std::string& list_name,
     std::deque<SBChunk>* chunks) {
   DCHECK(MessageLoop::current() == safe_browsing_thread_->message_loop());
-
   GetDatabase()->InsertChunks(list_name, chunks);
 }
 
 void SafeBrowsingService::DeleteChunks(
     std::vector<SBChunkDelete>* chunk_deletes) {
   DCHECK(MessageLoop::current() == safe_browsing_thread_->message_loop());
-
   GetDatabase()->DeleteChunks(chunk_deletes);
 }
 
@@ -503,8 +573,7 @@ void SafeBrowsingService::NotifyClientBlockingComplete(Client* client,
 
 void SafeBrowsingService::DatabaseUpdateFinished(bool update_succeeded) {
   DCHECK(MessageLoop::current() == safe_browsing_thread_->message_loop());
-  if (GetDatabase())
-    GetDatabase()->UpdateFinished(update_succeeded);
+  GetDatabase()->UpdateFinished(update_succeeded);
 }
 
 void SafeBrowsingService::Start() {
@@ -533,17 +602,22 @@ void SafeBrowsingService::Start() {
       NewRunnableMethod(
           this, &SafeBrowsingService::OnIOInitialize, client_key, wrapped_key,
           request_context_getter));
+}
 
-  safe_browsing_thread_->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(
-      this, &SafeBrowsingService::OnDBInitialize));
+void SafeBrowsingService::OnCloseDatabase() {
+  DCHECK(MessageLoop::current() == safe_browsing_thread_->message_loop());
+  DCHECK(closing_database_);
+
+  // Because |closing_database_| is true, nothing on the IO thread will be
+  // accessing the database, so it's safe to delete and then NULL the pointer.
+  delete database_;
+  database_ = NULL;
+  closing_database_ = false;
 }
 
 void SafeBrowsingService::OnResetDatabase() {
   DCHECK(MessageLoop::current() == safe_browsing_thread_->message_loop());
   GetDatabase()->ResetDatabase();
-  ChromeThread::PostTask(
-      ChromeThread::IO, FROM_HERE,
-      NewRunnableMethod(this, &SafeBrowsingService::DatabaseLoadComplete));
 }
 
 void SafeBrowsingService::CacheHashResults(
@@ -556,6 +630,7 @@ void SafeBrowsingService::CacheHashResults(
 void SafeBrowsingService::OnHandleGetHashResults(
     SafeBrowsingCheck* check,
     const std::vector<SBFullHashResult>& full_hashes) {
+  DCHECK(ChromeThread::CurrentlyOn(ChromeThread::IO));
   SBPrefix prefix = check->prefix_hits[0];
   GetHashRequests::iterator it = gethash_requests_.find(prefix);
   if (check->prefix_hits.size() > 1 || it == gethash_requests_.end()) {
@@ -576,6 +651,7 @@ void SafeBrowsingService::OnHandleGetHashResults(
 void SafeBrowsingService::HandleOneCheck(
     SafeBrowsingCheck* check,
     const std::vector<SBFullHashResult>& full_hashes) {
+  DCHECK(ChromeThread::CurrentlyOn(ChromeThread::IO));
   if (check->client) {
     UrlCheckResult result = URL_SAFE;
     int index = safe_browsing_util::CompareFullHashes(check->url, full_hashes);
@@ -662,15 +738,4 @@ void SafeBrowsingService::ReportMalware(const GURL& malware_url,
   }
 
   protocol_manager_->ReportMalware(malware_url, page_url, referrer_url);
-}
-
-void SafeBrowsingService::RunQueuedClients() {
-  DCHECK(ChromeThread::CurrentlyOn(ChromeThread::IO));
-  HISTOGRAM_COUNTS("SB.QueueDepth", queued_checks_.size());
-  while (!queued_checks_.empty()) {
-    QueuedCheck check = queued_checks_.front();
-    HISTOGRAM_TIMES("SB.QueueDelay", Time::Now() - check.start);
-    CheckUrl(check.url, check.client);
-    queued_checks_.pop_front();
-  }
 }
