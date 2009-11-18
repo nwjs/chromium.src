@@ -73,7 +73,6 @@ std::string ConvertLanguageCodeFromMac(NSString* lang_code) {
 } // namespace
 
 namespace SpellCheckerPlatform {
-
 void GetAvailableLanguages(std::vector<std::string>* spellcheck_languages) {
   NSArray* availableLanguages = [[NSSpellChecker sharedSpellChecker]
                         availableLanguages];
@@ -208,3 +207,4 @@ void CloseDocumentWithTag(int tag) {
 }
 
 }  // namespace SpellCheckerPlatform
+

@@ -24,14 +24,9 @@
 
 #include "base/basictypes.h"
 #include "base/file_path.h"
-#include "base/platform_file.h"
 #include "base/scoped_ptr.h"
 #include "base/string16.h"
 #include "base/time.h"
-
-#if defined(OS_POSIX)
-#include "base/file_descriptor_posix.h"
-#endif
 
 namespace base {
 class Time;
@@ -491,9 +486,6 @@ class MemoryMappedFile {
   // the file does not exist, or the memory mapping fails, it will return false.
   // Later we may want to allow the user to specify access.
   bool Initialize(const FilePath& file_name);
-  // As above, but works with an already-opened file. MemoryMappedFile will take
-  // ownership of |file| and close it when done.
-  bool Initialize(base::PlatformFile file);
 
   const uint8* data() const { return data_; }
   size_t length() const { return length_; }
@@ -502,19 +494,19 @@ class MemoryMappedFile {
   bool IsValid();
 
  private:
-  // Open the given file and pass it to MapFileToMemoryInternal().
-  bool MapFileToMemory(const FilePath& file_name);
-
   // Map the file to memory, set data_ to that memory address. Return true on
   // success, false on any kind of failure. This is a helper for Initialize().
-  bool MapFileToMemoryInternal();
+  bool MapFileToMemory(const FilePath& file_name);
 
   // Closes all open handles. Later we may want to make this public.
   void CloseHandles();
 
-  base::PlatformFile file_;
 #if defined(OS_WIN)
+  HANDLE file_;
   HANDLE file_mapping_;
+#elif defined(OS_POSIX)
+  // The file descriptor.
+  int file_;
 #endif
   uint8* data_;
   size_t length_;

@@ -2127,8 +2127,6 @@
         'browser/shell_integration_mac.mm',
         'browser/shell_integration_linux.cc',
         'browser/shell_integration_win.cc',
-        'browser/spellcheck_host.cc',
-        'browser/spellcheck_host.h',
         'browser/spellcheck_worditerator.cc',
         'browser/spellcheck_worditerator.h',
         'browser/spellchecker.cc',
@@ -3276,7 +3274,6 @@
         'chrome_strings',
         '../printing/printing.gyp:printing',
         '../skia/skia.gyp:skia',
-        '../third_party/hunspell/hunspell.gyp:hunspell',
         '../third_party/icu/icu.gyp:icui18n',
         '../third_party/icu/icu.gyp:icuuc',
         '../third_party/npapi/npapi.gyp:npapi',
@@ -3381,10 +3378,6 @@
         'renderer/renderer_web_database_observer.h',
         'renderer/socket_stream_dispatcher.cc',
         'renderer/socket_stream_dispatcher.h',
-        'renderer/spellchecker/spellcheck.cc',
-        'renderer/spellchecker/spellcheck.h',
-        'renderer/spellchecker/spellcheck_worditerator.cc',
-        'renderer/spellchecker/spellcheck_worditerator.h',
         'renderer/user_script_idle_scheduler.cc',
         'renderer/user_script_idle_scheduler.h',
         'renderer/user_script_slave.cc',
@@ -3432,15 +3425,6 @@
           ],
           'export_dependent_settings': [
             '../third_party/tcmalloc/tcmalloc.gyp:tcmalloc',
-          ],
-        },],
-        # Mac-specific rules.
-        ['OS=="mac"', {
-          'sources!': [
-            'renderer/spellchecker/spellcheck.cc',
-            'renderer/spellchecker/spellcheck.h',
-            'renderer/spellchecker/spellcheck_worditerator.cc',
-            'renderer/spellchecker/spellcheck_worditerator.h',
           ],
         },],
       ],

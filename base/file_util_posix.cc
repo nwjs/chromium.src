@@ -667,15 +667,22 @@ bool FileEnumerator::ReadDirectory(std::vector<DirectoryEntryInfo>* entries,
 // MemoryMappedFile
 
 MemoryMappedFile::MemoryMappedFile()
-    : file_(base::kInvalidPlatformFileValue),
+    : file_(-1),
       data_(NULL),
       length_(0) {
 }
 
-bool MemoryMappedFile::MapFileToMemoryInternal() {
+bool MemoryMappedFile::MapFileToMemory(const FilePath& file_name) {
+  file_ = open(file_name.value().c_str(), O_RDONLY);
+
+  if (file_ == -1) {
+    LOG(ERROR) << "Couldn't open " << file_name.value();
+    return false;
+  }
+
   struct stat file_stat;
-  if (fstat(file_, &file_stat) == base::kInvalidPlatformFileValue) {
-    LOG(ERROR) << "Couldn't fstat " << file_ << ", errno " << errno;
+  if (fstat(file_, &file_stat) == -1) {
+    LOG(ERROR) << "Couldn't fstat " << file_name.value() << ", errno " << errno;
     return false;
   }
   length_ = file_stat.st_size;
@@ -683,7 +690,7 @@ bool MemoryMappedFile::MapFileToMemoryInternal() {
   data_ = static_cast<uint8*>(
       mmap(NULL, length_, PROT_READ, MAP_SHARED, file_, 0));
   if (data_ == MAP_FAILED)
-    LOG(ERROR) << "Couldn't mmap " << file_ << ", errno " << errno;
+    LOG(ERROR) << "Couldn't mmap " << file_name.value() << ", errno " << errno;
 
   return data_ != MAP_FAILED;
 }
@@ -691,12 +698,12 @@ bool MemoryMappedFile::MapFileToMemoryInternal() {
 void MemoryMappedFile::CloseHandles() {
   if (data_ != NULL)
     munmap(data_, length_);
-  if (file_ != base::kInvalidPlatformFileValue)
+  if (file_ != -1)
     close(file_);
 
   data_ = NULL;
   length_ = 0;
-  file_ = base::kInvalidPlatformFileValue;
+  file_ = -1;
 }
 
 } // namespace file_util

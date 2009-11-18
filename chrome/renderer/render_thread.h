@@ -10,7 +10,6 @@
 
 #include "app/gfx/native_widget_types.h"
 #include "base/shared_memory.h"
-#include "base/string16.h"
 #include "base/task.h"
 #include "build/build_config.h"
 #include "chrome/common/child_thread.h"
@@ -18,7 +17,6 @@
 #include "chrome/common/dom_storage_type.h"
 #include "chrome/renderer/renderer_histogram_snapshots.h"
 #include "chrome/renderer/visitedlink_slave.h"
-#include "ipc/ipc_platform_file.h"
 
 class AppCacheDispatcher;
 class DBMessageFilter;
@@ -30,7 +28,6 @@ class RenderDnsMaster;
 class RendererHistogram;
 class RendererWebDatabaseObserver;
 class RendererWebKitClientImpl;
-class SpellCheck;
 class SkBitmap;
 class SocketStreamDispatcher;
 class UserScriptSlave;
@@ -124,12 +121,6 @@ class RenderThread : public RenderThreadBase,
     return socket_stream_dispatcher_.get();
   }
 
-#if defined(SPELLCHECKER_IN_RENDERER)
-  SpellCheck* spellchecker() const {
-    return spellchecker_.get();
-  }
-#endif
-
   bool plugin_refresh_allowed() const { return plugin_refresh_allowed_; }
 
   // Do DNS prefetch resolution of a hostname.
@@ -147,11 +138,6 @@ class RenderThread : public RenderThreadBase,
 
   // Sends a message to the browser to enable or disable the disk cache.
   void SetCacheMode(bool enabled);
-
-#if defined(SPELLCHECKER_IN_RENDERER)
-  // Send a message to the browser to request a spellcheck dictionary.
-  void RequestSpellCheckDictionary();
-#endif
 
  private:
   virtual void OnControlMessageReceived(const IPC::Message& msg);
@@ -200,15 +186,6 @@ class RenderThread : public RenderThreadBase,
   void OnPurgeMemory();
   void OnPurgePluginListCache(bool reload_pages);
 
-#if defined(SPELLCHECKER_IN_RENDERER)
-  void OnInitSpellChecker(IPC::PlatformFileForTransit bdict_file,
-                          const std::vector<std::string>& custom_words,
-                          const std::string& language,
-                          bool auto_spell_correct);
-  void OnSpellCheckWordAdded(const std::string& word);
-  void OnSpellCheckEnableAutoSpellCorrect(bool enable);
-#endif
-
   // Gather usage statistics from the in-memory cache and inform our host.
   // These functions should be call periodically so that the host can make
   // decisions about how to allocation resources using current information.
@@ -232,9 +209,6 @@ class RenderThread : public RenderThreadBase,
   scoped_ptr<WebKit::WebStorageEventDispatcher> dom_storage_event_dispatcher_;
   scoped_ptr<SocketStreamDispatcher> socket_stream_dispatcher_;
   scoped_ptr<RendererWebDatabaseObserver> renderer_web_database_observer_;
-#if defined(SPELLCHECKER_IN_RENDERER)
-  scoped_ptr<SpellCheck> spellchecker_;
-#endif
 
   // Used on the renderer and IPC threads.
   scoped_refptr<DBMessageFilter> db_message_filter_;

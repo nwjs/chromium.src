@@ -178,10 +178,6 @@ class TestingProfile : public Profile {
   virtual void ReinitializeSpellChecker() {}
   virtual SpellChecker* GetSpellChecker() { return NULL; }
   virtual void DeleteSpellChecker() {}
-#if defined(SPELLCHECKER_IN_RENDERER)
-  virtual SpellCheckHost* GetSpellCheckHost() { return NULL; }
-  virtual void ReinitializeSpellCheckHost(bool force) { }
-#endif
   virtual WebKitContext* GetWebKitContext() { return NULL; }
   virtual WebKitContext* GetOffTheRecordWebKitContext() { return NULL; }
   virtual void MarkAsCleanShutdown() {}
