@@ -136,6 +136,11 @@ ExtensionHost::ExtensionHost(Extension* extension, SiteInstance* site_instance,
   registrar_.Add(this, NotificationType::EXTENSION_HOST_VIEW_SHOULD_CLOSE,
                  Source<Profile>(profile_));
 #endif
+
+  // Listen for when the render process' handle is available so we can add it
+  // to the task manager then.
+  registrar_.Add(this, NotificationType::RENDERER_PROCESS_CREATED,
+                 Source<RenderProcessHost>(render_process_host()));
 }
 
 ExtensionHost::~ExtensionHost() {
@@ -188,11 +193,6 @@ void ExtensionHost::CreateRenderViewNow() {
   render_view_host_->CreateRenderView();
   NavigateToURL(url_);
   DCHECK(IsRenderViewLive());
-  LOG(INFO) << "Sending EXTENSION_PROCESS_CREATED";
-  NotificationService::current()->Notify(
-      NotificationType::EXTENSION_PROCESS_CREATED,
-      Source<Profile>(profile_),
-      Details<ExtensionHost>(this));
 }
 
 void ExtensionHost::NavigateToURL(const GURL& url) {
@@ -238,6 +238,12 @@ void ExtensionHost::Observe(NotificationType type,
 
     DismissPopup();
 #endif
+  } else if (type == NotificationType::RENDERER_PROCESS_CREATED) {
+    LOG(INFO) << "Sending EXTENSION_PROCESS_CREATED";
+    NotificationService::current()->Notify(
+        NotificationType::EXTENSION_PROCESS_CREATED,
+        Source<Profile>(profile_),
+        Details<ExtensionHost>(this));
   } else {
     NOTREACHED();
   }
