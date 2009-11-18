@@ -209,9 +209,9 @@ const char kEnableNativeWebWorkers[]        = "enable-native-web-workers";
 // Enable AutoFill++.
 const char kEnableNewAutoFill[]             = "enable-new-autofill";
 
-// Enable remote web font support. SVG font should always work whether
+// Disable remote web font support. SVG font should always work whether
 // this option is specified or not.
-const char kEnableRemoteFonts[]             = "enable-remote-fonts";
+const char kDisableRemoteFonts[]            = "disable-remote-fonts";
 
 // Turns on the accessibility in the renderer.  Off by default until
 // http://b/issue?id=1432077 is fixed.

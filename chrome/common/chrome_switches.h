@@ -75,7 +75,7 @@ extern const char kEnableLogging[];
 extern const char kEnableMonitorProfile[];
 extern const char kEnableNativeWebWorkers[];
 extern const char kEnableNewAutoFill[];
-extern const char kEnableRemoteFonts[];
+extern const char kDisableRemoteFonts[];
 extern const char kEnableRendererAccessibility[];
 extern const char kEnableSeccompSandbox[];
 extern const char kEnableSessionStorage[];
