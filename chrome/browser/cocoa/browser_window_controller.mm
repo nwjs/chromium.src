@@ -395,7 +395,7 @@ willPositionSheet:(NSWindow*)sheet
   TabContents* contents = browser_->tabstrip_model()->GetSelectedTabContents();
   if (contents) {
     // If the intrinsic width is bigger, then make it the zoomed width.
-    const int kScrollbarWidth = 16;  // FIXME(viettrungluu@gmail.com): ugh.
+    const int kScrollbarWidth = 16;  // TODO(viettrungluu): ugh.
     CGFloat intrinsicWidth = static_cast<CGFloat>(
         contents->view()->preferred_width() + kScrollbarWidth);
     zoomedWidth = std::max(zoomedWidth,
@@ -1212,9 +1212,8 @@ willPositionSheet:(NSWindow*)sheet
             toState:(bookmarks::VisualState)newState {
   [toolbarController_
       setHeightCompression:[controller getDesiredToolbarHeightCompression]];
-  [toolbarController_ setShowsDivider:[controller shouldToolbarShowDivider]];
-
-  // TODO(viettrungluu): anything else?
+  [toolbarController_
+      setDividerOpacity:[bookmarkBarController_ toolbarDividerOpacity]];
 }
 
 // (Needed for |BookmarkBarControllerDelegate| protocol.)
@@ -1223,9 +1222,8 @@ willAnimateFromState:(bookmarks::VisualState)oldState
             toState:(bookmarks::VisualState)newState {
   [toolbarController_
       setHeightCompression:[controller getDesiredToolbarHeightCompression]];
-  [toolbarController_ setShowsDivider:[controller shouldToolbarShowDivider]];
-
-  // TODO(viettrungluu): anything else?
+  [toolbarController_
+      setDividerOpacity:[bookmarkBarController_ toolbarDividerOpacity]];
 }
 
 @end
@@ -1334,8 +1332,8 @@ willPositionSheet:(NSWindow*)sheet
       defaultSheetRect.origin.y = toolbarFrame.origin.y;
       break;
     }
-    default:
     case bookmarks::kInvalidState:
+    default:
       NOTREACHED();
   }
   return defaultSheetRect;
@@ -1418,18 +1416,17 @@ willPositionSheet:(NSWindow*)sheet
   }
   [toolbarView setFrame:toolbarFrame];
 
-  bookmarks::VisualState bookmarkBarState =
-      [bookmarkBarController_ visualState];
-  bookmarks::VisualState lastBookmarkBarState =
-      [bookmarkBarController_ lastVisualState];
+  // If we are currently displaying the NTP detached bookmark bar or animating
+  // to/from it (from/to anything else), we display the bookmark bar below the
+  // infobar.
+  BOOL placeBookmarkBarBelowInfobar =
+      [bookmarkBarController_ isInState:bookmarks::kDetachedState] ||
+      [bookmarkBarController_ isAnimatingToState:bookmarks::kDetachedState] ||
+      [bookmarkBarController_ isAnimatingFromState:bookmarks::kDetachedState];
 
-  // If the bookmark bar is showing, or animating between showing and hidden,
-  // place the bookmark bar immediately below the toolbar.
-  // TODO(viettrungluu): Improve/abstract this when I implement other
-  // animations.
-  if ((bookmarkBarState == bookmarks::kShowingState) ||
-      (bookmarkBarState == bookmarks::kHiddenState &&
-       lastBookmarkBarState == bookmarks::kShowingState)) {
+  // If we're not displaying the bookmark bar below the infobar, then it goes
+  // immediately below the toolbar.
+  if (!placeBookmarkBarBelowInfobar) {
     NSView* bookmarkBarView = [bookmarkBarController_ view];
     [bookmarkBarView setHidden:NO];
     NSRect bookmarkBarFrame = [bookmarkBarView frame];
@@ -1448,7 +1445,7 @@ willPositionSheet:(NSWindow*)sheet
   maxY -= NSHeight(infoBarFrame);
 
   // If the bookmark bar is detached, place it at the bottom of the stack.
-  if (bookmarkBarState == bookmarks::kDetachedState) {
+  if (placeBookmarkBarBelowInfobar) {
     NSView* bookmarkBarView = [bookmarkBarController_ view];
     [bookmarkBarView setHidden:NO];
     NSRect bookmarkBarFrame = [bookmarkBarView frame];
@@ -1456,6 +1453,9 @@ willPositionSheet:(NSWindow*)sheet
     bookmarkBarFrame.size.width = NSWidth(contentFrame);
     [bookmarkBarView setFrame:bookmarkBarFrame];
     maxY -= NSHeight(bookmarkBarFrame);
+
+    // TODO(viettrungluu): this really doesn't belong here.
+    [bookmarkBarController_ layoutSubviews];
   }
 
   // Place the extension shelf at the bottom of the view, if it exists.
@@ -1495,7 +1495,7 @@ willPositionSheet:(NSWindow*)sheet
   // Normally, we don't need to tell the toolbar whether or not to show the
   // divider, but things break down during animation.
   [toolbarController_
-      setShowsDivider:[bookmarkBarController_ shouldToolbarShowDivider]];
+      setDividerOpacity:[bookmarkBarController_ toolbarDividerOpacity]];
 }
 
 - (BOOL)shouldShowBookmarkBar {
