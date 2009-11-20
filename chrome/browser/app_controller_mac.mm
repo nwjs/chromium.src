@@ -21,9 +21,10 @@
 #import "chrome/browser/cocoa/browser_window_cocoa.h"
 #import "chrome/browser/cocoa/browser_window_controller.h"
 #import "chrome/browser/cocoa/bug_report_window_controller.h"
-#import "chrome/browser/cocoa/history_menu_bridge.h"
 #import "chrome/browser/cocoa/clear_browsing_data_controller.h"
 #import "chrome/browser/cocoa/encoding_menu_controller_delegate_mac.h"
+#import "chrome/browser/cocoa/history_menu_bridge.h"
+#import "chrome/browser/cocoa/import_settings_dialog.h"
 #import "chrome/browser/cocoa/preferences_window_controller.h"
 #import "chrome/browser/cocoa/tab_strip_controller.h"
 #import "chrome/browser/cocoa/tab_window_controller.h"
@@ -529,6 +530,13 @@ static bool g_is_opening_new_window = false;
       [controller runModalDialog];
       break;
     }
+    case IDC_IMPORT_SETTINGS: {
+      // Note that this dialog controller cleans itself up when closed
+      // so auto-scoping it here is not necessary.
+      [[[ImportSettingsDialogController alloc]
+          initWithProfile:defaultProfile parentWindow:nil] runModalDialog];
+      break;
+    }
     case IDC_SHOW_HISTORY:
       Browser::OpenHistoryWindow(defaultProfile);
       break;
@@ -584,6 +592,7 @@ static bool g_is_opening_new_window = false;
   menuState_->UpdateCommandEnabled(IDC_SHOW_HISTORY, true);
   menuState_->UpdateCommandEnabled(IDC_SHOW_DOWNLOADS, true);
   menuState_->UpdateCommandEnabled(IDC_HELP_PAGE, true);
+  menuState_->UpdateCommandEnabled(IDC_IMPORT_SETTINGS, true);
   menuState_->UpdateCommandEnabled(IDC_REPORT_BUG, true);
   // TODO(pinkerton): ...more to come...
 }
