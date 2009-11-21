@@ -109,7 +109,7 @@ class UtilityProcessHost : public ChildProcessHost {
   void OnMessageReceived(const IPC::Message& message);
 
   // ChildProcessHost:
-  virtual void OnChannelError();
+  virtual void OnProcessCrashed();
   virtual bool CanShutdown() { return true; }
   virtual URLRequestContext* GetRequestContext(
       uint32 request_id,
