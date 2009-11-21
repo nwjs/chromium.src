@@ -912,10 +912,9 @@ void NewTabUI::NewTabHTMLSource::InitFullHTML(Profile* profile) {
   localized_strings.SetString(L"promonew",
       l10n_util::GetString(IDS_NTP_PROMOTION_NEW));
   localized_strings.SetString(L"promomessage",
-      l10n_util::GetStringF(IDS_NTP_PROMOTION_MESSAGE,
+      l10n_util::GetStringF(IDS_NTP_PROMO_MESSAGE,
           l10n_util::GetString(IDS_PRODUCT_NAME),
-          ASCIIToWide(Extension::kGalleryBrowseUrl),
-          l10n_util::GetString(IDS_SYNC_SERVICE_HELP_URL)));
+          ASCIIToWide(Extension::kGalleryBrowseUrl)));
   localized_strings.SetString(L"extensionslink",
       ASCIIToWide(Extension::kGalleryBrowseUrl));
 
