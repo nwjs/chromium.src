@@ -541,7 +541,7 @@ void RenderThread::EnsureWebKitInitialized() {
       !command_line.HasSwitch(switches::kDisableWebSockets));
 
   WebRuntimeFeatures::enableDatabase(
-      command_line.HasSwitch(switches::kEnableDatabases));
+      !command_line.HasSwitch(switches::kDisableDatabases));
 
   WebRuntimeFeatures::enableApplicationCache(
       command_line.HasSwitch(switches::kEnableApplicationCache));
