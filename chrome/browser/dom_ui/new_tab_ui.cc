@@ -25,6 +25,7 @@
 #include "chrome/browser/dom_ui/new_tab_page_sync_handler.h"
 #include "chrome/browser/dom_ui/shown_sections_handler.h"
 #include "chrome/browser/dom_ui/tips_handler.h"
+#include "chrome/browser/google_util.h"
 #include "chrome/browser/metrics/user_metrics.h"
 #include "chrome/browser/profile.h"
 #include "chrome/browser/renderer_host/render_view_host.h"
@@ -912,12 +913,13 @@ void NewTabUI::NewTabHTMLSource::InitFullHTML(Profile* profile) {
       l10n_util::GetString(IDS_NEW_TAB_SHOW_HIDE_BOOKMARK_SYNC));
   localized_strings.SetString(L"promonew",
       l10n_util::GetString(IDS_NTP_PROMOTION_NEW));
+  std::wstring extensionLink = ASCIIToWide(
+      google_util::AppendGoogleLocaleParam(
+          GURL(extension_urls::kGalleryBrowsePrefix)).spec());
   localized_strings.SetString(L"promomessage",
       l10n_util::GetStringF(IDS_NTP_PROMO_MESSAGE,
-          l10n_util::GetString(IDS_PRODUCT_NAME),
-          ASCIIToWide(extension_urls::kGalleryBrowsePrefix)));
-  localized_strings.SetString(L"extensionslink",
-      ASCIIToWide(extension_urls::kGalleryBrowsePrefix));
+          l10n_util::GetString(IDS_PRODUCT_NAME), extensionLink));
+  localized_strings.SetString(L"extensionslink", extensionLink);
 
   // Don't initiate the sync related message passing with the page if the sync
   // code is not present.
