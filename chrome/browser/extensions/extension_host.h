@@ -186,6 +186,7 @@ class ExtensionHost :  // NOLINT
                                   const std::wstring& prompt);
   virtual void SetSuppressMessageBoxes(bool suppress_message_boxes) {}
   virtual TabContents* AsTabContents() { return NULL; }
+  virtual ExtensionHost* AsExtensionHost() { return this; }
 
  private:
   friend class ProcessCreationQueue;
