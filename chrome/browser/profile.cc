@@ -490,11 +490,11 @@ class OffTheRecordProfileImpl : public Profile,
   }
 
   virtual WebKitContext* GetWebKitContext() {
-  if (!webkit_context_.get())
-    webkit_context_ = new WebKitContext(GetPath(), true);
-  DCHECK(webkit_context_.get());
-  return webkit_context_.get();
-}
+    if (!webkit_context_.get())
+      webkit_context_ = new WebKitContext(FilePath(), true);
+    DCHECK(webkit_context_.get());
+    return webkit_context_.get();
+  }
 
   virtual ThumbnailStore* GetThumbnailStore() {
     return NULL;
