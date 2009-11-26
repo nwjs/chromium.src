@@ -3070,3 +3070,8 @@ BUG27679 WIN LINUX MAC : LayoutTests/fast/events/ime-composition-events-001.html
 
 // Failure from merge 50947:50972
 BUG27683 : LayoutTests/svg/custom/viewport-update2.svg = IMAGE+TEXT
+
+// Ignore tests timing out so that we don't miss new failures on the official 
+// bot.
+BUG28845 WIN : LayoutTests/fast/dom/object-embed-plugin-scripting.html = TIMEOUT
+BUG28845 WIN : LayoutTests/fast/dom/object-plugin-hides-properties.html = TIMEOUT
