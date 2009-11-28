@@ -747,9 +747,6 @@ static bool g_is_opening_new_window = false;
              object:aboutController_.get()];
   }
 
-  if (![[aboutController_ window] isVisible])
-    [[aboutController_ window] center];
-
   [aboutController_ showWindow:self];
 }
 
