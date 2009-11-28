@@ -72,8 +72,15 @@ void AttributedStringAppendHyperlink(NSMutableAttributedString* attr_str,
 
 @end  // @interface AboutWindowController(Private)
 
-const NSString* const kUserClosedAboutNotification =
-    @"UserClosedAboutNotification";
+@implementation AboutLegalTextView
+
+// Never draw the insertion point (otherwise, it shows up without any user
+// action if full keyboard accessibility is enabled).
+- (BOOL)shouldDrawInsertionPoint {
+  return NO;
+}
+
+@end
 
 @implementation AboutWindowController
 
