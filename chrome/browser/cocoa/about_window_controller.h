@@ -10,6 +10,10 @@
 @class BackgroundTileView;
 class Profile;
 
+// kUserClosedAboutNotification is the name of the notification posted when
+// the About window is closed.
+extern const NSString* const kUserClosedAboutNotification;
+
 // This simple subclass of |NSTextView| just doesn't show the (text) cursor
 // (|NSTextView| displays the cursor with full keyboard accessibility enabled).
 @interface AboutLegalTextView : NSTextView
