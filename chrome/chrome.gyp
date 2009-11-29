@@ -6523,8 +6523,6 @@
             ['OS=="mac"', {
               'sources': [
                 'app/breakpad_mac_stubs.mm',
-                'app/keystone_glue.h',
-                'app/keystone_glue.mm',
               ],
               'sources!': [
                 '<@(browser_tests_sources_exclude_on_mac)',
