@@ -597,7 +597,6 @@ void EnableTerminationOnOutOfMemory() {
   // For tcmalloc, we just need to tell it to behave like new.
   tc_set_new_mode(1);
 #endif
-  NOTIMPLEMENTED();
 }
 
 }  // namespace base
