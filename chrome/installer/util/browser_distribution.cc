@@ -92,5 +92,5 @@ void BrowserDistribution::LaunchUserExperiment(
 }
 
 
-void BrowserDistribution::InactiveUserToastExperiment(int flavor) {
+void BrowserDistribution::InactiveUserToastExperiment() {
 }
