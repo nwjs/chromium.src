@@ -5,6 +5,7 @@
 <translation id="6676384891291319759">Internetzugriff</translation>
 <translation id="698670068493841342">Google Chrome wurde bereits für diesen Nutzer installiert. Falls die Software nicht funktioniert, deinstallieren Sie Google Chrome und laden Sie es erneut herunter.</translation>
 <translation id="7400722733683201933">Info zu Google Chrome</translation>
+<translation id="7781002470561365167">Eine neue Version von Google Chrome ist verfügbar.</translation>
 <translation id="7101265395643981223">Google Chrome starten</translation>
 <translation id="1549918799472947005">Google Chrome verwendet Ihre Standardsuchmaschine, für die zurzeit <ph name="PAGE_TITLE"/> festgelegt ist. Möchten Sie die Standardsuchmaschine beibehalten?</translation>
 <translation id="2370289711218562573">Google Chrome importiert gerade Favoriten/Lesezeichen.</translation>
@@ -44,6 +45,7 @@
 <translation id="2874156562296220396">Google Chrome wurde ermöglicht durch das Open Source-Projekt <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> und andere <ph name="BEGIN_LINK_OSS"/>Open Source-Software<ph name="END_LINK_OSS"/>.</translation>
 <translation id="6921913858457830952">Google Chrome kann die Installation nun abschließen.</translation>
 <translation id="7100330187273168372">Google Chrome kann im folgenden Datenverzeichnis weder lesen noch schreiben:\n\n<ph name="USER_DATA_DIRECTORY"/></translation>
+<translation id="6757767188268205357">Keine Anfragen mehr</translation>
 <translation id="2290095356545025170">Möchten Sie Google Chrome wirklich deinstallieren?</translation>
 <translation id="5941830788786076944">Google Chrome als Standardbrowser festlegen</translation>
 <translation id="4127951844153999091">In diesem Fall stimmt die im Zertifikat aufgeführte Adresse nicht mit der Adresse der Website ein, zu der Ihr Browser wechseln wollte. Ein möglicher Grund hierfür ist, dass Ihre Kommunikation von einem Hacker abgefangen wird, der sich mit einem Zertifikat für eine andere Website ausweist, was eine Abweichung verursachen könnte. Ein weiterer möglicher Grund ist, dass der Server so eingerichtet ist, dass er dasselbe Zertifikat für mehrere Websites zurückgibt, auch für diejenige, die Sie gerade besuchen möchten, obwohl dieses Zertifikat nicht für alle diese Websites gültig ist. Google Chrome garantiert, dass Sie auf &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; zugegriffen haben, kann aber nicht bestätigen, dass es sich um dieselbe Website wie &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; handelt, die Sie aufrufen möchten. Wenn Sie fortfahren, wird Chrome keine weiteren Namensabweichungen überprüfen. Im Allgemeinen ist es am besten, hier nicht fortzufahren.</translation>
@@ -55,6 +57,7 @@
 <translation id="582763753075639530">Schließen Sie alle Google Chrome-Fenster und starten Sie Chrome neu, damit diese Änderung wirksam wird.</translation>
 <translation id="6525535905286676482">Google Chrome beenden</translation>
 <translation id="8776515774046280928">Google Chrome ist bereits installiert und für alle Nutzer dieses Computers verfügbar. Falls Sie Google Chrome auf Nutzerebene installieren möchten, muss erst die von einem Administrator installierte Version auf Systemebene deinstalliert werden.</translation>
+<translation id="7196020411877309443">Warum wird diese Meldung angezeigt?</translation>
 <translation id="2769762047821873045">Google Chrome ist nicht als Ihr Standardbrowser festgelegt.</translation>
 <translation id="7825851276765848807">Die Installation ist aufgrund eines unbekannten Fehlers fehlgeschlagen. Laden Sie Google Chrome erneut herunter.</translation>
 <translation id="3335672657969596251">Google Chrome unterstützt <ph name="OS_NAME"/> nicht.</translation>
@@ -67,6 +70,7 @@
 <translation id="6626317981028933585">Leider sind Ihre Mozilla Firefox-Einstellungen nicht verfügbar, wenn dieser Browser ausgeführt wird. Um diese Einstellungen in Google Chrome zu importieren, speichern Sie Ihre Arbeit und schließen Sie alle Firefox-Fenster. Klicken Sie anschließend auf &quot;Weiter&quot;.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="6049075767726609708">Ein Administrator hat Google Chrome auf diesem System installiert. Es ist für alle Nutzer verfügbar. Durch die Installation von Google Chrome auf Systemebene wird Ihre Installation auf Nutzerebene jetzt ersetzt.</translation>
+<translation id="7123348595797445166">Testen (bereits installiert)</translation>
 <translation id="3870154837782082782">Google Inc.</translation>
 <translation id="1446473746922165495">Ändern Sie die Sprache der Google Chrome-Menüs, Dialogfelder und Kurzinfos.</translation>
 <translation id="9189723490960700326">Sie haben versucht, auf &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; zuzugreifen. Der Server hat sich jedoch mit einem abgelaufenen Zertifikat ausgewiesen. Es sind keine Informationen verfügbar, um eine Manipulation des Zertifikats seit seinem Ablauf auszuschließen. Google Chrome kann deshalb nicht garantieren, dass Sie mit &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; und nicht mit einem Hacker kommunizieren. Fahren Sie nicht fort.</translation>

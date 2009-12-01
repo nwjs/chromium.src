@@ -5,6 +5,7 @@
 <translation id="6676384891291319759">Skorzystaj z internetu</translation>
 <translation id="698670068493841342">Przeglądarka Google Chrome jest już zainstalowana dla tego użytkownika. Jeśli oprogramowanie nie działa, odinstaluj Google Chrome i pobierz go ponownie.</translation>
 <translation id="7400722733683201933">Google Chrome – informacje</translation>
+<translation id="7781002470561365167">Dostępna jest nowa wersja przeglądarki Google Chrome.</translation>
 <translation id="7101265395643981223">Uruchom Google Chrome</translation>
 <translation id="1549918799472947005">Aplikacja Chrome używa domyślnej wyszukiwarki, którą aktualnie jest <ph name="PAGE_TITLE"/>. Czy chcesz zachować wyszukiwarkę domyślną?</translation>
 <translation id="2370289711218562573">Google Chrome rozpoczął importowanie Ulubionych/Zakładek.</translation>
@@ -44,6 +45,7 @@
 <translation id="2874156562296220396">Stworzenie przeglądarki Google Chrome było możliwe dzięki projektowi open source <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> i innym <ph name="BEGIN_LINK_OSS"/>programom o otwartym kodzie źródłowym<ph name="END_LINK_OSS"/>.</translation>
 <translation id="6921913858457830952">Przeglądarka Chrome jest gotowa do ukończenia instalacji.</translation>
 <translation id="7100330187273168372">Google Chrome nie może odczytać ani zapisać danych w katalogu:\n\n <ph name="USER_DATA_DIRECTORY"/></translation>
+<translation id="6757767188268205357">Nie proponuj więcej</translation>
 <translation id="2290095356545025170">Czy na pewno chcesz odinstalować przeglądarkę Google Chrome?</translation>
 <translation id="5941830788786076944">Ustaw Google Chrome jako domyślną przeglądarkę</translation>
 <translation id="4127951844153999091">W tym przypadku adres zawarty w certyfikacie nie jest zgodny z adresem witryny wpisanym w przeglądarce. Jednym z powodów takiej sytuacji może być przechwycenie komunikacji przez intruza, który przedstawia certyfikat innej witryny, co powoduje niezgodność. Inną przyczyną może być konfiguracja serwera zwracająca ten sam certyfikat dla wielu witryn (w tym witryny, którą chcesz wyświetlić) nawet w przypadku, gdy certyfikat nie jest ważny dla wszystkich witryn. Google Chrome może potwierdzić, że otwarty został adres &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, ale nie może zweryfikować, że jest to witryna &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, która miała zostać wyświetlona. Jeśli przejdziesz dalej, aplikacja Chrome nie będzie sprawdzać kolejnych niezgodności nazw. Ogólnie nie zalecamy kontynuowania pracy na tej stronie.</translation>
@@ -55,6 +57,7 @@
 <translation id="582763753075639530">Zamknij wszystkie okna aplikacji Chrome i uruchom ją ponownie, aby zmiany zostały wprowadzone.</translation>
 <translation id="6525535905286676482">Zamknij Google Chrome</translation>
 <translation id="8776515774046280928">Google Chrome jest już zainstalowany i dostępny dla wszystkich użytkowników tego komputera. Aby odinstalować Google Chrome na poziomie użytkownika, należy najpierw odinstalować wersję na poziomie systemowym zainstalowaną przez administratora.</translation>
+<translation id="7196020411877309443">Dlaczego wyświetla mi się to okienko?</translation>
 <translation id="2769762047821873045">Google Chrome nie jest domyślną przeglądarką.</translation>
 <translation id="7825851276765848807">Instalacja nie powiodła się z powodu nieokreślonego błędu. Pobierz Google Chrome ponownie.</translation>
 <translation id="3335672657969596251">Google Chrome nie obsługuje systemu <ph name="OS_NAME"/>.</translation>
@@ -67,6 +70,7 @@
 <translation id="6626317981028933585">Niestety ustawienia przeglądarki Firefox są niedostępne, gdy aplikacja jest uruchomiona. Aby importować ustawienia do Google Chrome, zapisz bieżącą pracę i zamknij wszystkie okna Firefoxa. Następnie kliknij przycisk Kontynuj.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="6049075767726609708">Administrator zainstalował w tym systemie przeglądarkę Google Chrome i jest ona dostępna dla wszystkich użytkowników. Przeglądarka Google Chrome zainstalowana na poziomie użytkownika zostanie teraz zastąpiona przez instalację systemową.</translation>
+<translation id="7123348595797445166">Wypróbuj (już zainstalowano)</translation>
 <translation id="3870154837782082782">Google Inc.</translation>
 <translation id="1446473746922165495">Zmień język używany w menu, komunikatach i wskazówkach przeglądarki Chrome.</translation>
 <translation id="9189723490960700326">Podjęto próbę przejścia do witryny &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, ale certyfikat wyświetlony przez serwer utracił ważność. Nie można uzyskać informacji wskazujących, że certyfikat został naruszony od momentu wygaśnięcia ważności. Oznacza to, że przeglądarka Google Chrome nie może  zagwarantować, że komunikujesz się z witryną &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, a nie intruzem. Nie należy wykonywać dalszych czynności.</translation>

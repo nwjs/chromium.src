@@ -5,6 +5,7 @@
 <translation id="6676384891291319759">Pristup Internetu</translation>
 <translation id="698670068493841342">Google Chrome je već instaliran za ovog korisnika. Ako softver ne radi, deinstalirajte Google Chrome i ponovno ga preuzmite.</translation>
 <translation id="7400722733683201933">O programu Google Chrome</translation>
+<translation id="7781002470561365167">Dostupna je nova verzija preglednika Google Chrome.</translation>
 <translation id="7101265395643981223">Pokreni Google Chrome</translation>
 <translation id="1549918799472947005">Chrome koristi Vašu zadanu tražilicu, a to je trenutačno <ph name="PAGE_TITLE"/>. Želite li zadržati Vašu zadanu tražilicu?</translation>
 <translation id="2370289711218562573">Google Chrome trenutno uvozi favorite/oznake.</translation>
@@ -44,6 +45,7 @@
 <translation id="2874156562296220396">Google Chrome omogućili su <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/>, projekt utemeljen na otvorenom kôdu i drugi <ph name="BEGIN_LINK_OSS"/>softveri utemeljeni na otvorenom kôdu <ph name="END_LINK_OSS"/>.</translation>
 <translation id="6921913858457830952">Google Chrome se sprema dovršiti Vašu instalaciju.</translation>
 <translation id="7100330187273168372">Google Chrome ne može čitati iz svojeg podatkovnog direktorija niti u njega pisati:\n\n<ph name="USER_DATA_DIRECTORY"/></translation>
+<translation id="6757767188268205357">Ne ometaj me</translation>
 <translation id="2290095356545025170">Jeste li sigurni da želite deinstalirati Google Chrome?</translation>
 <translation id="5941830788786076944">Neka Google Chrome bude zadani preglednik.</translation>
 <translation id="4127951844153999091">U tom slučaju adresa navedena u potvrdi ne odgovara adresi web lokacije na koju je pokušao otići Vaš preglednik. Jedan od mogućih razloga je taj da Vaše komunikacije presreće napadač koji prikazuje potvrdu za drugu web lokaciju, zbog čega dolazi do nepodudaranja. Drugi je mogući razlog taj što je poslužitelj postavljen tako da vraća istu potvrdu za više web lokacija, uključujući i za onu koju pokušavate posjetiti, iako ta potvrda nije valjana za sve te web lokacije. Google Chrome može sa sigurnošću reći da ste pristupili domeni &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, ali ne može provjeriti da je ta web lokacija ista kao &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; kojoj ste htjeli pristupiti. Ako nastavite, Chrome neće provjeravati dodatna nepodudaranja naziva. Općenito govoreći, najbolje je da ne nastavite.</translation>
@@ -55,6 +57,7 @@
 <translation id="582763753075639530">Zatvorite sve Chrome prozore i ponovno pokrenite Chrome kako bi ova promjena stupila na snagu.</translation>
 <translation id="6525535905286676482">Prekini Google Chrome</translation>
 <translation id="8776515774046280928">Google Chrome je već instaliran i dostupan svim korisnicima ovog računala. Ako želite instalirati Google Chrome na razini korisnika, prvo deinstalirajte verziju na razini sustava koju je instalirao administrator.</translation>
+<translation id="7196020411877309443">Zašto vidim ovo?</translation>
 <translation id="2769762047821873045">Google Chrome nije vaš zadani preglednik.</translation>
 <translation id="7825851276765848807">Instalacija nije uspjela zbog neodređene pogreške. Ponovo preuzmite Google Chrome.</translation>
 <translation id="3335672657969596251">Google Chrome ne podržava sustav <ph name="OS_NAME"/>.</translation>
@@ -67,6 +70,7 @@
 <translation id="6626317981028933585">Na žalost postavke vašeg preglednika Mozilla Firefox nisu dostupne dok je preglednik otvoren. Da biste te postavke unijeli u Google Chrome, spremite svoj posao i zatvorite sve prozore preglednika Firefox. Zatim kliknite &quot;Nastavak&quot;.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="6049075767726609708">Administrator je na ovaj sustav instalirao program Google Chrome koji je dostupan svim korisnicima. Google Chrome na razini sustava će sada zamijeniti Vašu instalaciju na razini korisnika.</translation>
+<translation id="7123348595797445166">Isprobaj (već je instalirano)</translation>
 <translation id="3870154837782082782">Google Inc.</translation>
 <translation id="1446473746922165495">Promijenite jezik koji se koristi u izbornicima, dijaloškim okvirima i opisima alata Google Chromea.</translation>
 <translation id="9189723490960700326">Pokušali ste pristupiti domeni &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, ali poslužitelj je prikazao isteklu potvrdu. Nema dostupnih podataka koji bi pokazali je li potvrda bila ugrožena od trenutka isteka. To znači da Google Chrome ne može jamčiti da komunicirate s domenom &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, a ne s napadačem. Ne biste trebali nastaviti.</translation>

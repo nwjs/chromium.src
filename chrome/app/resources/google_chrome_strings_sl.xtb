@@ -5,6 +5,7 @@
 <translation id="6676384891291319759">Dostop do interneta</translation>
 <translation id="698670068493841342">Google Chrome je že bil nameščen za tega uporabnika. Če programska oprema ne deluje, odstranite program Google Chrome in ga ponovno prenesite.</translation>
 <translation id="7400722733683201933">O brskalniku Google Chrome</translation>
+<translation id="7781002470561365167">Na voljo je nova različica brskalnika Google Chrome.</translation>
 <translation id="7101265395643981223">Zaženi Google Chrome</translation>
 <translation id="1549918799472947005">Chrome uporablja vaš privzeti iskalnik, ki je trenutno <ph name="PAGE_TITLE"/>. Ali želite obdržati privzeti iskalnik?</translation>
 <translation id="2370289711218562573">Google Chrome zdaj uvaža Priljubljene/Zaznamke.</translation>
@@ -44,6 +45,7 @@
 <translation id="2874156562296220396">Brskalnik Google Chrome omogoča odprtokodni projekt <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> in druga <ph name="BEGIN_LINK_OSS"/>odprtokodna programska oprema<ph name="END_LINK_OSS"/>.</translation>
 <translation id="6921913858457830952">Google Chrome je pripravljen, da dokonča namestitev.</translation>
 <translation id="7100330187273168372">Google Chrome ne more prebrati ali pisati v imenik s podatki:\n\n<ph name="USER_DATA_DIRECTORY"/></translation>
+<translation id="6757767188268205357">Ne nadleguj me</translation>
 <translation id="2290095356545025170">Ali ste prepričani, da želite odstraniti Google Chrome?</translation>
 <translation id="5941830788786076944">Nastavi Google Chrome kot privzeti brskalnik</translation>
 <translation id="4127951844153999091">V tem primeru se naslov, ki je naveden na certifikatu, ne ujema z naslovom spletnega mesta, na katero je poskušal priti vaš brskalnik. Eden od možnih razlogov za to je, da je vašo komunikacijo prestregel napadalec, ki je predložil certifikat za drugo spletno mesto, zaradi česar je prišlo do neskladja. Drugi razlog je lahko ta, da je strežnik nastavljen tako, da vrne isti certifikat za več različnih spletnih mest, vključno s tem, ki ga želite obiskati, čeprav certifikat za vsa ta spletna mesta ni veljaven. Google Chrome lahko potrdi, da ste prišli na &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, vendar pa ne more preveriti, ali gre za isto spletno mesto kot &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, na katero ste želeli priti. Če nadaljujete, Chrome ne bo preveril nadaljnjih neskladij glede imen. Na splošno vam priporočamo, da ne nadaljujete.</translation>
@@ -55,6 +57,7 @@
 <translation id="582763753075639530">Za uveljavitev spremembe vas prosimo, da zaprete vsa okna Chrome in ponovno zaženete Chrome.</translation>
 <translation id="6525535905286676482">Zapri Google Chrome</translation>
 <translation id="8776515774046280928">Google Chrome je že nameščen in na voljo vsem uporabnikom tega računalnika. Če želite namestiti Google Chrome na uporabniški ravni, morate najprej odstraniti sistemsko različico, ki jo je namestil skrbnik.</translation>
+<translation id="7196020411877309443">Zakaj je to prikazano?</translation>
 <translation id="2769762047821873045">Google Chrome ni privzeti brskalnik.</translation>
 <translation id="7825851276765848807">Namestitev ni uspela zaradi nenavedene napake. Znova prenesite Google Chrome.</translation>
 <translation id="3335672657969596251">Google Chrome ne podpira OS <ph name="OS_NAME"/>.</translation>
@@ -67,6 +70,7 @@
 <translation id="6626317981028933585">Žal vaše nastavitve brskalnika Mozilla Firefox niso na voljo, medtem ko se izvaja ta brskalnik. Če želite te nastavitve uvoziti v Google Chrome, shranite svoje delo in zaprite vsa okna Firefox. Nato kliknite »Naprej«.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="6049075767726609708">Skrbnik je namestil Google Chrome v ta sistem in je na voljo vsem uporabnikom. Sistemska različica programa Google Chrome bo zdaj nadomestila vašo uporabniško namestitev.</translation>
+<translation id="7123348595797445166">Preskusite (že nameščeno)</translation>
 <translation id="3870154837782082782">Google Inc.</translation>
 <translation id="1446473746922165495">Spremenite jezik, ki je uporabljen v menijih, pogovornih oknih in opisih orodja za Google Chrome.</translation>
 <translation id="9189723490960700326">Poskušali ste priti do &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, vendar pa je strežnik predložil certifikat, ki je potekel. Na voljo niso nobene informacije o tem, ali je bil certifikat po preteku ogrožen. To pomeni, da Google Chrome ne more zagotoviti, da komunicirate z &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; in ne z napadalcem. Priporočamo vam, da ne nadaljujete.</translation>

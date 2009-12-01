@@ -5,6 +5,7 @@
 <translation id="6676384891291319759">Приступите Интернету</translation>
 <translation id="698670068493841342">Google Chrome је већ инсталиран за овог корисника. Уколико софтвер не ради, деинсталирајте Google Chrome и поново га преузмите.</translation>
 <translation id="7400722733683201933">О програму Google Chrome</translation>
+<translation id="7781002470561365167">Доступна је нова верзија Google Chrome прегледача.</translation>
 <translation id="7101265395643981223">Покрените Google Chrome</translation>
 <translation id="1549918799472947005">Chrome користи ваш подразумевани претраживач, који је тренутно постављен на <ph name="PAGE_TITLE"/>. Желите ли да задржите свој подразумевани претраживач?</translation>
 <translation id="2370289711218562573">Google Chrome тренутно увози ставке „Омиљено/обележивачи“.</translation>
@@ -15,7 +16,8 @@
 <translation id="4149882025268051530">Програм за инсталацију није успео да декомпримује архиву. Преузмите Google Chrome поново.</translation>
 <translation id="4343226815564935778">Изгледа да се инсталациони директоријум Google Chrome-а тренутно користи. Поново покрените рачунар и покушајте поново.</translation>
 <translation id="4506896920521131223">Copyright © 2006–2009. Google Inc. Сва права задржана.</translation>
-<translation id="6817660909204164466">Помозите нам да побољшамо Google Chrome атуматски шаљући корисничку статистику и извештаје о отказивању</translation>
+<translation id="6817660909204164466">Помози унапређивање Google Chrome прегледача шаљући аутоматски корисничку статистику и извештаје о отказивању Google-у 
+</translation>
 <translation id="8227755444512189073">Google Chrome мора да покрене спољну апликацију за управљање <ph name="SCHEME"/> везама. Тражена веза је <ph name="PROTOLINK"/>.</translation>
 <translation id="1281036569101707544">Google Chrome <ph name="TERMS_OF_SERVICE_LINK"/></translation>
 <translation id="8815061062167142136">Ха! Google Chrome је престао да ради. Желите ли да га одмах поново покренете?</translation>
@@ -25,7 +27,7 @@
 <translation id="3889417619312448367">Деинсталирај Google Chrome</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE"/> – Google Chrome</translation>
 <translation id="8810218179782551669">Језик програма Google Chrome:</translation>
-<translation id="3940866277504106378">Google Chrome може да користи веб услуге да би побољшао прегледање – ако желите, можете да онемогућите ове услуге.</translation>
+<translation id="3940866277504106378">Google Chrome може да користи веб услуге да би побољшао прегледање. Ако желите, можете да онемогућите ове услуге.</translation>
 <translation id="7001386529596391893">Направите пречице за Google Chrome на овим местима:</translation>
 <translation id="6134282421960734039">Желите ли да Chrome сачува вашу лозинку?</translation>
 <translation id="4561681684759837226"><ph name="PAGE_TITLE"/></translation>
@@ -44,6 +46,7 @@
 <translation id="2874156562296220396"><ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> пројекат софтвера отвореног кода и други типови <ph name="BEGIN_LINK_OSS"/>софтвера отвореног кода<ph name="END_LINK_OSS"/> су омогућили настанак програма Google Chrome.</translation>
 <translation id="6921913858457830952">Google Chrome може да доврши инсталацију.</translation>
 <translation id="7100330187273168372">Google Chrome не може да прочита нити да упише податке у свој директоријум са подацима:\n\n<ph name="USER_DATA_DIRECTORY"/></translation>
+<translation id="6757767188268205357">Не досађуј</translation>
 <translation id="2290095356545025170">Да ли заиста желите да деинсталирате Google Chrome?</translation>
 <translation id="5941830788786076944">Подесите Google Chrome као подразумевани прегледач</translation>
 <translation id="4127951844153999091">У овом случају, адреса наведена у сертификату не подудара се са адресом веб сајта на коју је ваш прегледач покушао да оде. Један од могућих разлога је тај да је ваше комуникације пресрео нападач који представља сертификат за неки други веб сајт, што доводи до неподударања. Други могући разлог је тај да је сервер конфигурисан тако да врати исти сертификат за више веб сајтова, укључујући онај који покушавате да посетите, иако тај сертификат није важећи за све те веб сајтове. Google Chrome може поуздано да утврди да сте дошли до &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, али не може да верификује да је у питању исти сајт као &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; који сте намеравали да посетите. Ако наставите, Chrome више неће проверавати да ли постоје неподударања. У принципу, најбоље је да не настављате даље.</translation>
@@ -55,6 +58,7 @@
 <translation id="582763753075639530">Затворите све прозоре Chrome прегледача и поново покрените Chrome да би ова промена ступила на снагу.</translation>
 <translation id="6525535905286676482">Затвори Google Chrome</translation>
 <translation id="8776515774046280928">Google Chrome је већ инсталиран и доступан свим корисницима овог рачунара. Ако желите да инсталирате Google Chrome са приступом на нивоу корисника, прво морате да деинсталирате верзију са приступом на нивоу система коју је инсталирао администратор.</translation>
+<translation id="7196020411877309443">Зашто видим ово?</translation>
 <translation id="2769762047821873045">Google Chrome није ваш подразумевани прегледач.</translation>
 <translation id="7825851276765848807">Инсталација није успела услед неутврђене грешке. Преузмите Google Chrome поново.</translation>
 <translation id="3335672657969596251">Google Chrome не подржава <ph name="OS_NAME"/>.</translation>
@@ -67,6 +71,7 @@
 <translation id="6626317981028933585">Нажалост, није могуће приступити подешавањима за Mozilla Firefox док се тај прегледач користи. Да бисте увезли ова подешавања у Google Chrome, сачувајте оно што се урадили и затворите све прозоре Firefox прегледача. Затим кликните на „Настави“.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="6049075767726609708">Администратор је инсталирао Google Chrome на овај систем и програм је доступан свим корисницима. Google Chrome са приступом на нивоу система ће сада заменити вашу инсталацију са приступом на нивоу корисника.</translation>
+<translation id="7123348595797445166">Дај да пробам (већ је инсталиран)</translation>
 <translation id="3870154837782082782">Google Inc.</translation>
 <translation id="1446473746922165495">Промените језик Google Chrome менија, оквира за дијалоге и описа алатки.</translation>
 <translation id="9189723490960700326">Покушали сте да дођете до домена &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, али сервер је представио сертификат који је истекао. Нема расположивих информација које би указале на то да ли је сертификат угрожен након његовог истека. Ово значи да Google Chrome не може да гарантује да комуницирате са сајтом &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; а не са нападачем. Не би требало да наставите.</translation>

@@ -5,6 +5,7 @@
 <translation id="6676384891291319759">Verbinding maken met internet</translation>
 <translation id="698670068493841342">Google Chrome is al geïnstalleerd voor deze gebruiker. Als de software niet werkt, verwijdert u Google Chrome en downloadt u het programma opnieuw.</translation>
 <translation id="7400722733683201933">Over Google Chrome</translation>
+<translation id="7781002470561365167">Er is een nieuwe versie van Google Chrome beschikbaar.</translation>
 <translation id="7101265395643981223">Start Google Chrome</translation>
 <translation id="1549918799472947005">Chrome gebruikt uw standaardzoekmachine, die momenteel is ingesteld op <ph name="PAGE_TITLE"/>. Wilt u uw standaardzoekmachine houden?</translation>
 <translation id="2370289711218562573">Google Chrome importeert momenteel favorieten/bladwijzers.</translation>
@@ -44,6 +45,7 @@
 <translation id="2874156562296220396">Google Chrome wordt mogelijk gemaakt door het open-source project <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> en andere <ph name="BEGIN_LINK_OSS"/>open-source software<ph name="END_LINK_OSS"/>.</translation>
 <translation id="6921913858457830952">U kunt nu uw installatie van Google Chrome voltooien.</translation>
 <translation id="7100330187273168372">Google Chrome kan deze datadirectory niet lezen of beschrijven:\n\n<ph name="USER_DATA_DIRECTORY"/></translation>
+<translation id="6757767188268205357">Vraag me niet meer</translation>
 <translation id="2290095356545025170">Weet u zeker dat u Google Chrome wilt verwijderen?</translation>
 <translation id="5941830788786076944">Google Chrome instellen als mijn standaardbrowser</translation>
 <translation id="4127951844153999091">In dit geval komt het adres in het certificaat niet overeen met het adres van de website dat uw browser probeerde te bezoeken. Dit kan komen omdat uw communicatie wordt onderschept door een hacker die een certificaat voor een andere website retourneert, waardoor de adressen niet overeenkomen. Een andere mogelijkheid is dat de server is ingesteld op het retourneren van hetzelfde certificaat voor meerdere websites, inclusief de site die u probeert te bezoeken, hoewel dat certificaat niet geldig is voor al deze websites. Google Chrome kan garanderen dat u &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; heeft bereikt, maar kan niet verifiëren of dat dezelfde site is als &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, die u wilde bezoeken. Als u doorgaat, controleert Chrome niet verder op verschillen tussen namen. Over het algemeen is het beter hier niet verder te gaan.</translation>
@@ -55,6 +57,7 @@
 <translation id="582763753075639530">Deze wijziging wordt doorgevoerd als u alle Google Chrome-vensters sluit en Google Chrome opnieuw start.</translation>
 <translation id="6525535905286676482">Google Chrome sluiten</translation>
 <translation id="8776515774046280928">Google Chrome is al geïnstalleerd en beschikbaar voor alle gebruikers van deze computer. Als u Google Chrome wilt installeren op gebruikersniveau, moet u eerst de versie op systeemniveau verwijderen die door een beheerder is geïnstalleerd.</translation>
+<translation id="7196020411877309443">Waarom zie ik dit venster?</translation>
 <translation id="2769762047821873045">Google Chrome is niet uw standaardbrowser.</translation>
 <translation id="7825851276765848807">De installatie is mislukt vanwege een onbekende fout. Download Google Chrome opnieuw.</translation>
 <translation id="3335672657969596251">Google Chrome ondersteunt <ph name="OS_NAME"/> niet.</translation>
@@ -67,6 +70,7 @@
 <translation id="6626317981028933585">Uw instellingen voor Mozilla Firefox zijn helaas niet beschikbaar als deze browser is geopend. Sla uw werk op en sluit alle Firefox-vensters om de instellingen te kunnen importeren naar Google Chrome. Klik hierna op 'Doorgaan'.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="6049075767726609708">Een beheerder heeft Google Chrome al geïnstalleerd op deze computer en het programma is beschikbaar voor alle gebruikers. De Google Chrome-installatie op systeemniveau vervangt de installatie op gebruikersniveau.</translation>
+<translation id="7123348595797445166">Nu proberen (al geïnstalleerd)</translation>
 <translation id="3870154837782082782">Google Inc.</translation>
 <translation id="1446473746922165495">Wijzig de taal die wordt gebruikt in de menu's, dialogen en tooltips van Google Chrome.</translation>
 <translation id="9189723490960700326">U probeert &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; te bereiken, maar de server heeft een verlopen certificaat geretourneerd. Er is nog geen informatie beschikbaar waaruit blijkt of het certificaat is geschonden sinds de vervaldatum. Dat betekent dat Google Chrome niet met zekerheid kan garanderen dat u met &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; communiceert en niet met een hacker. U kunt beter niet verder gaan.</translation>

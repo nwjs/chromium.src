@@ -5,6 +5,7 @@
 <translation id="6676384891291319759">Přístup k internetu</translation>
 <translation id="698670068493841342">Tomuto uživateli byl Google Chrome již nainstalován. Jestliže software nefunguje, odinstalujte prosím Google Chrome a znovu jej stáhněte.</translation>
 <translation id="7400722733683201933">O aplikaci Google Chrome</translation>
+<translation id="7781002470561365167">K dispozici je nová verze prohlížeče Google Chrome.</translation>
 <translation id="7101265395643981223">Spustit Google Chrome</translation>
 <translation id="1549918799472947005">Chrome využívá váš výchozí vyhledávač, kterým je v současnosti <ph name="PAGE_TITLE"/>. Přejete si zachovat svůj výchozí vyhledávač?</translation>
 <translation id="2370289711218562573">Google Chrome právě importuje Oblíbené položky nebo záložky:</translation>
@@ -44,6 +45,7 @@
 <translation id="2874156562296220396">Google Chrome staví na projektu s otevřeným zdrojovým kódem <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> a využívá i další <ph name="BEGIN_LINK_OSS"/>otevřený software<ph name="END_LINK_OSS"/>.</translation>
 <translation id="6921913858457830952">Aplikace Chrome je připravena dokončit instalaci.</translation>
 <translation id="7100330187273168372">Aplikace Google Chrome nemůže číst ani zapisovat do svého datového adresáře:\n\n<ph name="USER_DATA_DIRECTORY"/></translation>
+<translation id="6757767188268205357">Již se neptat</translation>
 <translation id="2290095356545025170">Opravdu chcete odinstalovat Google Chrome?</translation>
 <translation id="5941830788786076944">Nastavit Google Chrome jako výchozí prohlížeč</translation>
 <translation id="4127951844153999091">V tomto případě adresa uvedená v certifikátu neodpovídá adrese webových stránek, na které se váš prohlížeč pokoušel přejít. Jedním z možných důvodů je, že vaše komunikace zachycuje útočník, který předkládá certifikát pro jiné webové stránky, a způsobuje tak neshodu. Dalším možným důvodem je, že server je nastaven tak, aby překládal stejný certifikát pro více různých webů, včetně toho, který se pokoušíte navštívit, byť takový certifikát není pro všechny takové weby platný. Aplikace Google Chrome může potvrdit, že jste se dostali na server &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, ale nemůže potvrdit, že se jedná o stránku &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, které jste chtěli dosáhnout. Pokud budete pokračovat, nebude aplikace Chrome žádné další neshody jmen kontrolovat. Obecně by bylo nejlepší nepostupovat dále za tento bod.</translation>
@@ -55,6 +57,7 @@
 <translation id="582763753075639530">Zavřete, prosím, všechna okna aplikace Chrome a restartujte ji, tak se změny projeví.</translation>
 <translation id="6525535905286676482">Ukončit aplikaci Google Chrome</translation>
 <translation id="8776515774046280928">Google Chrome je již nainstalován a přístupný pro všechny uživatele tohoto počítače. Chcete-li nainstalovat Google Chrome na úrovni uživatele, musíte nejprve odinstalovat správcem nainstalovanou verzi na úrovni systému.</translation>
+<translation id="7196020411877309443">Proč je zobrazeno toto dialogové okno?</translation>
 <translation id="2769762047821873045">Google Chrome není vaším výchozím prohlížečem.</translation>
 <translation id="7825851276765848807">Instalace se z neznámého důvodu nezdařila. Stáhněte prosím aplikaci Google Chrome znovu.</translation>
 <translation id="3335672657969596251">Aplikace Chrome nepodporuje systém <ph name="OS_NAME"/>.</translation>
@@ -67,6 +70,7 @@
 <translation id="6626317981028933585">Vaše nastavení prohlížeče Mozilla Firefox je bohužel nedostupné, je-li tento prohlížeč spuštěný. Chcete-li toto nastavení importovat do Google Chrome, uložte si práci a zavřete všechna okna prohlížeče Firefox. Poté klikněte na tlačítko Pokračovat.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="6049075767726609708">Správce již na tomto počítači na systémové úrovni nainstaloval Google Chrome, který je přístupný všem uživatelům. Instalaci prohlížeče Google Chrome na úrovni uživatele nahradí instalace na systémové úrovni.</translation>
+<translation id="7123348595797445166">Vyzkoušet (již nainstalováno)</translation>
 <translation id="3870154837782082782">Google Inc.</translation>
 <translation id="1446473746922165495">Změnit jazyk používaný v nabídkách, dialogových oknech a tipech v aplikaci Google Chrome.</translation>
 <translation id="9189723490960700326">Pokusili jste se přejít na server &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, ale server předložil certifikát, jehož platnost vypršela. Nejsou k dispozici žádné informace, které by naznačovaly, zda byl certifikát od vypršení jeho platnosti zkompromitován. Znamená to, že aplikace Google Chrome nemůže spolehlivě zaručit, že komunikujete se serverem &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; a nikoli s útočníkem. Neměli byste pokračovat.</translation>

@@ -5,6 +5,7 @@
 <translation id="6676384891291319759">連線到網際網路</translation>
 <translation id="698670068493841342">已安裝「Google 瀏覽器」供此使用者使用。如果軟體無法順利運作，請移除「Google 瀏覽器」，然後重新下載一次。</translation>
 <translation id="7400722733683201933">關於 Google 瀏覽器</translation>
+<translation id="7781002470561365167">目前有新版的「Google 瀏覽器」可供使用。</translation>
 <translation id="7101265395643981223">開啟 Google 瀏覽器</translation>
 <translation id="1549918799472947005">Google 瀏覽器使用您的預設搜尋引擎，而目前的設定為 <ph name="PAGE_TITLE"/>。您想要保留您的預設搜尋引擎嗎?</translation>
 <translation id="2370289711218562573">「Google 瀏覽器」現正匯入 [我的最愛/書籤]。</translation>
@@ -44,6 +45,7 @@
 <translation id="2874156562296220396">「Google 瀏覽器」的開發仰賴 <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> 開放原始碼計畫與其他<ph name="BEGIN_LINK_OSS"/>開放原始碼軟體<ph name="END_LINK_OSS"/>的協助才得以完成。</translation>
 <translation id="6921913858457830952">Google 瀏覽器已準備好完成您的安裝。</translation>
 <translation id="7100330187273168372">Google 瀏覽器無法讀取或寫入資料目錄:\n\n<ph name="USER_DATA_DIRECTORY"/></translation>
+<translation id="6757767188268205357">不要再問我</translation>
 <translation id="2290095356545025170">您是否確定要解除安裝「Google 瀏覽器」？</translation>
 <translation id="5941830788786076944">將 Google 瀏覽器設為我的預設瀏覽器</translation>
 <translation id="4127951844153999091">在這個情況下，憑證所列的網址與瀏覽器嘗試前往的網址不符。憑證不符的其中一個可能原因是，攻擊者欄截了您的通訊，並且出示另一個網站的憑證。另一個可能的原因是，伺服器已設定為不同的網站傳回相同的憑證 (其中包括您嘗試造訪的網站)，而這個憑證可能對其中一些網站無效。Google 瀏覽器可以確定您已經到達 &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;，但是無法驗證這與您嘗試前往的 &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; 是同一個網站。如果您繼續，瀏覽器將不再檢查任何名稱不符的情況。一般而言，建議您就此停住。</translation>
@@ -55,6 +57,7 @@
 <translation id="582763753075639530">請關閉所有 Google 瀏覽器的視窗然後重新啟動 Google 瀏覽器，以使變更生效。</translation>
 <translation id="6525535905286676482">結束 Google 瀏覽器</translation>
 <translation id="8776515774046280928">「Google 瀏覽器」已經安裝並提供此電腦的所有使用者使用。如果您想要於使用者層級安裝「Google 瀏覽器」，必須先移除由管理員安裝的系統層級版本。</translation>
+<translation id="7196020411877309443">為何出現這個對話框？</translation>
 <translation id="2769762047821873045">「Google 瀏覽器」並非您的預設瀏覽器。</translation>
 <translation id="7825851276765848807">不明錯誤導致安裝失敗，請再次下載「Google 瀏覽器」。</translation>
 <translation id="3335672657969596251">Google 瀏覽器不支援 <ph name="OS_NAME"/>。</translation>
@@ -67,6 +70,7 @@
 <translation id="6626317981028933585">抱歉，我們無法在 Mozilla Firefox 執行時取得其設定。如果要匯入這些設定至 Google 瀏覽器，請儲存您的工作，並關閉所有 Firefox 視窗。然後按一下 [繼續]。</translation>
 <translation id="8540666473246803645">Google 瀏覽器</translation>
 <translation id="6049075767726609708">管理員已經在此系統安裝「Google 瀏覽器」，且供所有使用者使用。系統層級的「Google 瀏覽器」現在將取代使用者層級的版本。</translation>
+<translation id="7123348595797445166">立即使用 (已安裝)</translation>
 <translation id="3870154837782082782">Google Inc.</translation>
 <translation id="1446473746922165495">為 Google 瀏覽器功能表、對話方塊及工具提示等變更語言選項。</translation>
 <translation id="9189723490960700326">您嘗試到達 &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;，但伺服器提供逾期的憑證。由於憑證逾期所以沒有足夠資訊供我們辨別其可靠性。因此 Google 瀏覽器無法保證您的聯絡對象是 &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; 而非攻擊者。您必須就止停住。</translation>
