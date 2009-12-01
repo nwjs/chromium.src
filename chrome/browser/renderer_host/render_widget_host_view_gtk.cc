@@ -424,12 +424,12 @@ void RenderWidgetHostViewGtk::SetSize(const gfx::Size& size) {
     // children.
     gtk_widget_set_size_request(view_.get(), width, height);
 #endif
-
-    if (requested_size_.width() != width ||
-        requested_size_.height() != height) {
-      requested_size_ = gfx::Size(width, height);
-      host_->WasResized();
-    }
+  }
+  // Update the size of the RWH.
+  if (requested_size_.width() != width ||
+      requested_size_.height() != height) {
+    requested_size_ = gfx::Size(width, height);
+    host_->WasResized();
   }
 }
 
