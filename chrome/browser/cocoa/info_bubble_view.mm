@@ -7,21 +7,21 @@
 #include "base/logging.h"
 #import "third_party/GTM/AppKit/GTMTheme.h"
 
-// TODO(andybons): confirm constants with UI dudes.
-extern const CGFloat kBubbleArrowHeight = 8.0;
-extern const CGFloat kBubbleArrowWidth = 15.0;
-extern const CGFloat kBubbleArrowXOffset = 10.0;
-extern const CGFloat kBubbleCornerRadius = 8.0;
+namespace {
+// TODO(andybons): confirm constants with UI dudes
+const CGFloat kBubbleCornerRadius = 8.0;
+const CGFloat kBubbleArrowXOffset = 10.0;
+const CGFloat kBubbleArrowWidth = 15.0;
+const CGFloat kBubbleArrowHeight = 8.0;
+}
 
 @implementation InfoBubbleView
 
 @synthesize arrowLocation = arrowLocation_;
-@synthesize bubbleType = bubbleType_;
 
 - (id)initWithFrame:(NSRect)frameRect {
   if ((self = [super initWithFrame:frameRect])) {
     arrowLocation_ = kTopLeft;
-    bubbleType_ = kGradientInfoBubble;
   }
 
   return self;
@@ -61,16 +61,11 @@ extern const CGFloat kBubbleCornerRadius = 8.0;
                                   arrowStart.y)];
   [bezier closePath];
 
-  // Then fill the inside depending on the type of bubble.
-  if (bubbleType_ == kGradientInfoBubble) {
-    GTMTheme *theme = [GTMTheme defaultTheme];
-    NSGradient *gradient = [theme gradientForStyle:GTMThemeStyleToolBar
-                                             state:NO];
-    [gradient drawInBezierPath:bezier angle:0.0];
-  } else if (bubbleType_ == kWhiteInfoBubble) {
-    [[NSColor whiteColor] set];
-    [bezier fill];
-  }
+  // Then fill the inside.
+  GTMTheme *theme = [GTMTheme defaultTheme];
+  NSGradient *gradient = [theme gradientForStyle:GTMThemeStyleToolBar
+                                           state:NO];
+  [gradient drawInBezierPath:bezier angle:0.0];
 }
 
 @end

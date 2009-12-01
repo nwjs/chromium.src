@@ -608,8 +608,7 @@ Browser* ExtensionHost::GetBrowser() {
 
 void ExtensionHost::SetRenderViewType(ViewType::Type type) {
   DCHECK(type == ViewType::EXTENSION_MOLE ||
-         type == ViewType::EXTENSION_TOOLSTRIP ||
-         type == ViewType::EXTENSION_POPUP);
+         type == ViewType::EXTENSION_TOOLSTRIP);
   extension_host_type_ = type;
   render_view_host()->ViewTypeChanged(extension_host_type_);
 }
