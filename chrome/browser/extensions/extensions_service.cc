@@ -100,11 +100,17 @@ ExtensionsService::ExtensionsService(Profile* profile,
       show_extensions_prompts_(true),
       ready_(false) {
   // Figure out if extension installation should be enabled.
+#if defined(OS_MACOSX)
+  // For the 249 release, extensions are always disabled for Mac.
+  // See http://bugs.chromium.org/29086
+  extensions_enabled_ = false;
+#else
   if (command_line->HasSwitch(switches::kDisableExtensions)) {
     extensions_enabled_ = false;
   } else if (profile->GetPrefs()->GetBoolean(prefs::kDisableExtensions)) {
     extensions_enabled_ = false;
   }
+#endif
 
   registrar_.Add(this, NotificationType::EXTENSION_HOST_DID_STOP_LOADING,
                  NotificationService::AllSources());

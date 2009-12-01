@@ -1569,7 +1569,11 @@ TEST(ExtensionsServiceTestSimple, Enabledness) {
   command_line.reset(new CommandLine(CommandLine::ARGUMENTS_ONLY));
   service = new ExtensionsService(&profile, command_line.get(),
       profile.GetPrefs(), install_dir, false);
+#if defined(OS_MACOSX)
+  EXPECT_FALSE(service->extensions_enabled());
+#else
   EXPECT_TRUE(service->extensions_enabled());
+#endif
   service->Init();
   loop.RunAllPending();
   EXPECT_TRUE(recorder.ready());
