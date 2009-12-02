@@ -109,7 +109,6 @@
 <translation id="2994458892329442723">Включить плагины</translation>
 <translation id="1674989413181946727">Настройки SSL компьютера:</translation>
 <translation id="8703575177326907206">Соединение с <ph name="DOMAIN"/> не зашифровано.</translation>
-<translation id="7345141778157460052">Синхронизация закладок:</translation>
 <translation id="1644574205037202324">История</translation>
 <translation id="2518917559152314023">Д&amp;обавить...</translation>
 <translation id="6583406242234752719">Синхронизация закладок с другими компьютерами не настроена.</translation>
@@ -712,7 +711,7 @@
 <translation id="4756388243121344051">&amp;История</translation>
 <translation id="3789841737615482174">Установить</translation>
 <translation id="4789872672210757069">О браузере &amp;<ph name="PRODUCT_NAME"/></translation>
-<translation id="4056561919922437609">Число вкладок: <ph name="TAB_COUNT"/></translation>
+<translation id="4056561919922437609">Вкладок: <ph name="TAB_COUNT"/></translation>
 <translation id="4373894838514502496"><ph name="NUMBER_FEW"/> мин. назад</translation>
 <translation id="6264365405983206840">Выделить все</translation>
 <translation id="2533050964672183510">пред.</translation>

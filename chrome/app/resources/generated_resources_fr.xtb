@@ -109,7 +109,6 @@
 <translation id="2994458892329442723">Activer les plug-ins</translation>
 <translation id="1674989413181946727">Paramètres SSL sur tout l'ordinateur :</translation>
 <translation id="8703575177326907206">Votre connexion à <ph name="DOMAIN"/> n'est pas cryptée.</translation>
-<translation id="7345141778157460052">Synchronisation des favoris :</translation>
 <translation id="1644574205037202324">Historique</translation>
 <translation id="2518917559152314023">A&amp;jouter...</translation>
 <translation id="6583406242234752719">Vous n'avez pas configuré la synchronisation des favoris sur les autres ordinateurs.</translation>
@@ -468,6 +467,7 @@
 <translation id="8942948210663084792">Effacer les données :</translation>
 <translation id="208047771235602537">Voulez-vous vraiment quitter <ph name="PRODUCT_NAME"/> alors qu'un téléchargement est en cours ?</translation>
 <translation id="6710213216561001401">Précédent</translation>
+<translation id="1567993339577891801">Console JavaScript</translation>
 <translation id="583281660410589416">Inconnu</translation>
 <translation id="7635303043999550515">La page Web à l'adresse &lt;strong jscontent=&quot;failedUrl&quot;&gt;&lt;/strong&gt; a déclenché trop de redirections. Pour résoudre le problème, effacez les cookies de ce site ou autorisez les cookies de tiers. Si le problème persiste, il peut être dû à une mauvaise configuration du serveur et n'être aucunement lié à votre ordinateur.</translation>
 <translation id="2485422356828889247">Désinstaller</translation>
@@ -488,6 +488,7 @@
 <translation id="2674170444375937751">Voulez-vous vraiment supprimer ces pages de votre historique ?</translation>
 <translation id="4203689580933736628">Éléments bloqués : <ph name="COUNT"/></translation>
 <translation id="7629827748548208700">Onglet : <ph name="TAB_NAME"/></translation>
+<translation id="8449008133205184768">Collage sans mise en forme</translation>
 <translation id="8028993641010258682">Taille</translation>
 <translation id="1383876407941801731">Recherche</translation>
 <translation id="8398877366907290961">Poursuivre quand même</translation>
@@ -901,7 +902,7 @@
 <translation id="6358975074282722691"><ph name="NUMBER_TWO"/> secs ago</translation>
 <translation id="3009731429620355204">Sessions</translation>
 <translation id="7658590191988721853">Activer le défilement vertical</translation>
-<translation id="6460601847208524483">Rechercher suivant</translation>
+<translation id="6460601847208524483">Rechercher le suivant</translation>
 <translation id="3473034187222004855">Co&amp;pier le chemin du fichier</translation>
 <translation id="6325525973963619867">Échec</translation>
 <translation id="1676388805288306495">Modifier la police et la langue par défaut des pages Web</translation>
@@ -946,7 +947,7 @@
 <translation id="3715099868207290855">Synchronisation avec <ph name="USER_EMAIL_ADDRESS"/> effectuée</translation>
 <translation id="19901320010520290">Le site Web à l'adresse &lt;strong&gt;<ph name="HOST_NAME"/>&lt;/strong&gt; contient des éléments provenant de sites semblant héberger des logiciels malveillants. Ces derniers peuvent nuire à votre ordinateur ou agir à votre insu. Votre ordinateur peut être infecté lors d'une simple visite d'un site hébergeant des logiciels de ce type. Ce site héberge également des informations provenant de sites signalés comme étant des sites de phishing. Les sites de phishing incitent les internautes à divulguer leurs informations personnelles en se faisant passer pour des institutions de confiance, telles que des banques.</translation>
 <translation id="2679312662830811292">il y a <ph name="NUMBER_ONE"/> minute</translation>
-<translation id="9065203028668620118">Modifier</translation>
+<translation id="9065203028668620118">Édition</translation>
 <translation id="8788572795284305350"><ph name="NUMBER_ZERO"/> hours ago</translation>
 <translation id="8236028464988198644">Rechercher à partir de la barre d'adresse</translation>
 <translation id="4867297348137739678">La dernière semaine</translation>

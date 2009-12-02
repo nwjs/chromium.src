@@ -6,6 +6,7 @@
 <translation id="2770231113462710648">Skift standardbrowser til:</translation>
 <translation id="698670068493841342">Google Chrome er allerede installeret for denne bruger. Hvis programmet ikke fungerer, skal du afinstallere Google Chrome og downloade det igen.</translation>
 <translation id="7400722733683201933">Om Google Chrome</translation>
+<translation id="7781002470561365167">Der er en ny version af Google Chrome til rådighed.</translation>
 <translation id="7101265395643981223">Start Google Chrome</translation>
 <translation id="2370289711218562573">Google Chrome importerer nu Foretrukne/Bogmærker.</translation>
 <translation id="8970027151245482499">Google Chrome er ikke installeret, eller programmet kunne ikke finde en installationsmappe. Download Google Chrome igen.</translation>
@@ -48,6 +49,7 @@
 <translation id="2874156562296220396">Google Chrome er blevet en realitet på grund af <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> open source-projektet og anden <ph name="BEGIN_LINK_OSS"/>open source-software<ph name="END_LINK_OSS"/>.</translation>
 <translation id="6921913858457830952">Google Chrome er klar til at færdiggøre din installation.</translation>
 <translation id="7100330187273168372">Google Chrome kan ikke læse og skrive til dets datamappe:\n\n<ph name="USER_DATA_DIRECTORY"/></translation>
+<translation id="6757767188268205357">Spørg mig ikke igen</translation>
 <translation id="2290095356545025170">Er du sikker på, at du vil afinstallere Google Chrome?</translation>
 <translation id="5941830788786076944">Gør Google Chrome til din standardbrowser</translation>
 <translation id="4127951844153999091">I dette tilfælde passer adressen, som indgår i certifikatet, ikke med adressen for det websted, din browser forsøger at nå. En af de mulige årsager til dette er, at din kommunikation bliver opsnappet af en ondsindet part, som viser et certifikat for et andet websted, og det giver uoverensstemmelsen. En anden mulig årsag er, at serveren er indstillet til at returnere det samme certifikat for flere websteder inklusive det websted, du forsøger at besøge, på trods af, at certifikatet ikke er gyldigt for alle disse websteder. Chrome kan med sikkerhed bekræfte, at du er kommet til &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; men kan ikke bekræfte, at det er samme websted som &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, som du forsøgte at nå. Fortsætter du, vil Chrome ikke kontrollere for yderligere navneuoverensstemmelser. Almindeligvis anbefales det ikke at fortsætte herfra.</translation>
@@ -60,6 +62,7 @@
 <translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="8865765905101981392">Internetbrowser</translation>
 <translation id="8776515774046280928">Google Chrome er allerede installeret og tilgængeligt for alle brugere af denne computer. Hvis du vil installere Google Chrome på brugerniveau, skal du først afinstallere den version på systemniveau, der er installeret af en administrator.</translation>
+<translation id="7196020411877309443">Hvorfor får jeg vist dette?</translation>
 <translation id="2769762047821873045">Google Chrome er ikke din standardbrowser.</translation>
 <translation id="7825851276765848807">Installationen mislykkedes på grund af en uspecificeret fejl. Download Google Chrome igen.</translation>
 <translation id="3335672657969596251">Google Chrome understøtter ikke <ph name="OS_NAME"/>.</translation>
@@ -74,6 +77,7 @@
 <translation id="6626317981028933585">Desværre er dine Mozilla Firefox-indstillinger ikke tilgængelige, mens browseren kører. Gem dit arbejde og luk alle Firefox-vinduer for at importere disse indstillinger til Google Chrome. Klik derefter på Fortsæt.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="6049075767726609708">En administrator har allerede installeret Google Chrome på dette system, og det er tilgængeligt for alle brugere. Google Chrome-programmet på systemniveau vil nu erstatte din installation på brugerniveau.</translation>
+<translation id="7123348595797445166">Prøv den (allerede installeret)</translation>
 <translation id="3870154837782082782">Google Inc.</translation>
 <translation id="1446473746922165495">Skift det sprog, der anvendes til menuer, dialogbokse og værktøjstip i Google Chrome.</translation>
 <translation id="9189723490960700326">Du forsøgte at kontakte &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, men serveren viste et certifikat, der er udløbet. Der er ingen tilgængelige oplysninger, som kan indikere, om certifikatet er lækket til uautoriserede brugere efter dets udløb. Dette betyder, at Google Chrome ikke kan garantere, at du kommunikerer med &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; og ikke med en ondsindet part. Du bør ikke fortsætte herfra.</translation>

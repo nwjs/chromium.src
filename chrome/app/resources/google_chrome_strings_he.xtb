@@ -6,6 +6,7 @@
 <translation id="2770231113462710648">שנה את דפדפן ברירת המחדל ל:</translation>
 <translation id="698670068493841342">Google Chrome הותקן כבר עבור משתמש זה. אם התוכנה אינה פועלת, הסר את Google Chrome שמותקן והורד אותו שוב.</translation>
 <translation id="7400722733683201933">אודות Google Chrome</translation>
+<translation id="7781002470561365167">גרסה חדשה של Google Chrome זמינה כעת.</translation>
 <translation id="7101265395643981223">התחל את Google Chrome</translation>
 <translation id="2370289711218562573">Google Chrome מייבא כעת מועדפים/סימניות.</translation>
 <translation id="8970027151245482499">Google Chrome אינו מותקן או שהוא נכשל במציאת ספריה להתקנה. הורד שוב את Google Chrome.</translation>
@@ -48,6 +49,7 @@
 <translation id="2874156562296220396">Google Chrome התאפשר תודות לפרוייקט המקור הפתוח <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> ו<ph name="BEGIN_LINK_OSS"/>תוכנות מקור פתוח אחרות<ph name="END_LINK_OSS"/>.</translation>
 <translation id="6921913858457830952">Google Chrome מוכן להשלים את ההתקנה.</translation>
 <translation id="7100330187273168372">Google Chrome אינו יכול לקרוא ולכתוב אל ספריית המידע שלו:\n\n<ph name="USER_DATA_DIRECTORY"/></translation>
+<translation id="6757767188268205357">אל תנדנד לי</translation>
 <translation id="2290095356545025170">האם אתה בטוח שאתה רוצה להסיר את Google Chrome?</translation>
 <translation id="5941830788786076944">הפוך את Google Chrome לדפדפן ברירת המחדל</translation>
 <translation id="4127951844153999091">במקרה כזה, הכתובת שמופיעה באישור אינה תואמת לכתובת של האתר שאליו הדפדפן שלך ניסה להגיע. סיבה אפשרית לכך היא שהתכתובות שלך נלכדות על ידי גורם פוגע שמציג אישור עבור אתר שונה, ובעקבות זאת נוצרה אי ההתאמה. סיבה אפשרית נוספת היא שהשרת מוגדר להצגת אותו אישור עבור אתרים מרובים, לרבות האתר שבו אתה מנסה לבקר, גם אם האישור אינו תקף לכל אותם אתרים. Google Chrome יכול לקבוע בוודאות שהגעת ל&lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, אך אינו יכול לאמת כי הוא זהה ל-&lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, שאליו ניסית להגיע. אם תמשיך, Chrome לא יחפש אי התאמות שמיות נוספות. ככלל, מומלץ לא להמשיך מעבר לנקודה זו.</translation>
@@ -60,6 +62,7 @@
 <translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="8865765905101981392">דפדפן אינטרנט</translation>
 <translation id="8776515774046280928">Google Chrome כבר מותקן וזמין לכל המשתמשים במחשב זה. אם אתה מעוניין להתקין את Google Chrome ברמת המשתמש, עליך ראשית להסיר את הגרסה המותקנת ברמת המערכת אשר הותקנה על ידי המנהל.</translation>
+<translation id="7196020411877309443">למה אני רואה את הדף הזה?</translation>
 <translation id="2769762047821873045">Google Chrome‏ אינו דפדפן ברירת המחדל שלך.</translation>
 <translation id="7825851276765848807">ההתקנה נכשלה בשל שגיאה לא מזוהה. הורד שוב את Google Chrome.</translation>
 <translation id="3335672657969596251">Google Chrome אינו תומך ב <ph name="OS_NAME"/></translation>
@@ -73,6 +76,7 @@
 <translation id="6626317981028933585">למרבה הצער, הגדרות Mozilla Firefox שלך אינן זמינות בשעה שהדפדפן פועל. על מנת לייבא הגדרות אלו ל-Google Chrome, שמור את עבודתך וסגור את כל חלונות Firefox. לאחר מכן, לחץ על 'המשך'.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="6049075767726609708">במערכת זו הותקן דפדפן Google Chrome על ידי מנהל והוא זמין עבור כל המשתמשים. Google Chrome ברמת המערכת יחליף כעת את ההתקנה שלך ברמת המשתמש.</translation>
+<translation id="7123348595797445166">נסה את זה (מותקן כבר)</translation>
 <translation id="3870154837782082782">Google Inc.</translation>
 <translation id="1446473746922165495">שנה את השפה המשמשת בתפריטים, בתיבות הדיאלוג ובטיפים של Google Chrome.</translation>
 <translation id="9189723490960700326">ניסית להגיע אל &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, אך השרת הציג אישור שתוקפו פג. אין מידע זמין שיכול לרמוז על כך שהאישור נפגע מאז פג תוקפו. משמעות הדבר היא ש-Google Chrome אינו יכול להבטיח כי אתה מתקשר עם &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; ולא עם תוקף. מומלץ לא להמשיך.</translation>

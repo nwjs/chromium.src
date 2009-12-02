@@ -6,6 +6,7 @@
 <translation id="2770231113462710648">Canvia el navegador predeterminat a:</translation>
 <translation id="698670068493841342">Ja s'ha instal·lat Google Chrome per a aquest usuari. Si el programari no funciona, desinstal·la Google Chrome i baixa'l de nou.</translation>
 <translation id="7400722733683201933">Quant a Google Chrome</translation>
+<translation id="7781002470561365167">Hi ha disponible una versió nova de Google Chrome.</translation>
 <translation id="7101265395643981223">Inicieu Google Chrome</translation>
 <translation id="2370289711218562573">En aquests moments, Google Chrome està important els preferits o les adreces d'interès.</translation>
 <translation id="8970027151245482499">Google Chrome no s'ha instal·lat o bé no ha pogut trobar el directori d'instal·lació. Torna a baixar Google Chrome.</translation>
@@ -48,6 +49,7 @@
 <translation id="2874156562296220396">Google Chrome ha estat possible gràcies al projecte de codi obert <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> i altres <ph name="BEGIN_LINK_OSS"/>programes de codi obert<ph name="END_LINK_OSS"/>.</translation>
 <translation id="6921913858457830952">Google Chrome està a punt per dur a terme la instal·lació.</translation>
 <translation id="7100330187273168372">Google Chrome no pot llegir ni escriure al seu directori de dades:\n\n<ph name="USER_DATA_DIRECTORY"/></translation>
+<translation id="6757767188268205357">No em molestis</translation>
 <translation id="2290095356545025170">Esteu segur que voleu desinstal·lar Google Chrome?</translation>
 <translation id="5941830788786076944">Estableix Google Chrome com el navegador per defecte</translation>
 <translation id="4127951844153999091">En aquest cas, l'adreça que s'indica al certificat no coincideix amb l'adreça del lloc web al qual heu intentat accedir el navegador. Un possible motiu és que les vostres comunicacions les està interceptant un atacant que presenta un certificat per a un lloc web diferent, cosa que podria provocar un error de concordança. Un altre motiu possible és que el servidor estigui configurat per tornar el mateix certificat per a diversos llocs web, inclòs aquest que intenteu visitar, encara que el certificat no sigui vàlid per a tots aquests llocs web. Google Chrome pot garantir que heu accedit a &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, però no pot verificar que sigui el mateix lloc que &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; , que volíeu visitar. Si continueu, Chrome no comprovarà cap altre error de nom. En general, és millor no continuar més enllà d'aquest punt.</translation>
@@ -60,6 +62,7 @@
 <translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="8865765905101981392">Navegador d'Internet</translation>
 <translation id="8776515774046280928">Google Chrome ja s'ha instal·lat i està disponible per a tots els usuaris d'aquest equip. Si vols instal·lar Google Chrome per als usuaris, primer hauràs de desinstal·lar la versió del sistema que va instal·lar un administrador.</translation>
+<translation id="7196020411877309443">Per què veig aquest missatge?</translation>
 <translation id="2769762047821873045">Google Chrome no és el navegador predeterminat.</translation>
 <translation id="7825851276765848807">La instal·lació ha fallat a causa d'un error no especificat. Torneu a baixar Google Chrome.</translation>
 <translation id="3335672657969596251">Google Chrome no és compatible amb <ph name="OS_NAME"/>.</translation>
@@ -73,6 +76,7 @@
 <translation id="6626317981028933585">Lamentablement, la vostra configuració de Mozilla Firefox no estarà disponible mentre aquest navegador s'estigui executant. Per importar aquesta configuració a Google Chrome, deseu la feina que hagueu fet i tanqueu totes les finestres de Firefox. Seguidament, feu clic a &quot;Continua&quot;.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="6049075767726609708">Un administrador ha instal·lat Google Chrome en aquest sistema i ja està disponible per a tots els usuaris. Ara substituirem la instal·lació de Google Chrome en l'àmbit del sistema per la instal·lació en l'àmbit dels usuaris.</translation>
+<translation id="7123348595797445166">Prova-la (ja instal·lada)</translation>
 <translation id="3870154837782082782">Google Inc.</translation>
 <translation id="1446473746922165495">Canvieu l'idioma utilitzat als menús, quadres de diàleg i indicadors de funció de Google Chrome.</translation>
 <translation id="9189723490960700326">Heu intentat accedir a &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, però el servidor ha presentat un certificat caducat. No hi ha informació disponible que indiqui si aquest certificat ha estat interceptat des que va caducar. Això significa que Google Chrome no pot garantir que us esteu comunicant amb &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; i no amb un atacant. No hauríeu de continuar.</translation>

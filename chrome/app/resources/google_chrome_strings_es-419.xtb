@@ -6,6 +6,7 @@
 <translation id="2770231113462710648">Cambiar el navegador predeterminado a:</translation>
 <translation id="698670068493841342">Google Chrome ya se instaló para este usuario. Si el software no funciona, desinstale Google Chrome y descárguelo nuevamente.</translation>
 <translation id="7400722733683201933">Acerca de Google Chrome</translation>
+<translation id="7781002470561365167">Hay una nueva versión disponible de Google Chrome.</translation>
 <translation id="7101265395643981223">Iniciar Google Chrome</translation>
 <translation id="2370289711218562573">Google Chrome está importando favoritos y marcadores:</translation>
 <translation id="8970027151245482499">Google Chrome no está instalado o no se pudo encontrar el directorio de instalación. Descargue Google Chrome nuevamente.</translation>
@@ -48,6 +49,7 @@
 <translation id="2874156562296220396">Google Chrome es una realidad gracias al proyecto de código fuente abierto <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> y a otros <ph name="BEGIN_LINK_OSS"/>programas de código abierto<ph name="END_LINK_OSS"/>.</translation>
 <translation id="6921913858457830952">Google Chrome está listo para completar la instalación.</translation>
 <translation id="7100330187273168372">Google Chrome no puede leer y escribir a su directorio de datos:\n\n<ph name="USER_DATA_DIRECTORY"/></translation>
+<translation id="6757767188268205357">No mostrar el error</translation>
 <translation id="2290095356545025170">¿Estás seguro de que deseas desinstalar Google Chrome?</translation>
 <translation id="5941830788786076944">Haga de Google Chrome su navegador predeterminado</translation>
 <translation id="4127951844153999091">En este caso, la dirección que figura en este certificado no coincide con la del sitio web a la que el navegador intentó ir. Es posible que esto ocurra debido a que un usuario malintencionado que presenta un certificado para otro sitio web está interceptando sus comunicaciones. Esto puede ser la causa de esa diferencia. O bien puede ocurrir que el servidor esté configurado para devolver el mismo certificado a varios sitios web, incluido el que está intentando visitar, aunque el certificado no sea válido para todos esos sitios web. Google Chrome puede asegurar que se conectó con &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, pero no puede comprobar que es el mismo sitio que &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; al que intentó conectarse. Si continúa, Chrome no comprobará si hay otros nombres que no coinciden. Generalmente, no recomendamos continuar.</translation>
@@ -60,6 +62,7 @@
 <translation id="9039578207253536065">Trabajador de Google Chrome</translation>
 <translation id="8865765905101981392">Navegador de Internet</translation>
 <translation id="8776515774046280928">Google Chrome ya está instalado en este equipo y está disponible para todos los usuarios. Si desea instalar Google Chrome a nivel de usuario, primero debe desinstalar la versión que un administrador instaló a nivel del sistema.</translation>
+<translation id="7196020411877309443">¿Por qué estoy viendo esto?</translation>
 <translation id="2769762047821873045">Google Chrome no es tu navegador predeterminado.</translation>
 <translation id="7825851276765848807">La instalación falló debido a un error no especificado. Descarga Google Chrome otra vez.</translation>
 <translation id="3335672657969596251">Google Chrome no es compatible con <ph name="OS_NAME"/>.</translation>
@@ -73,6 +76,7 @@
 <translation id="6626317981028933585">Lamentablemente, las opciones de su Mozilla Firefox no están disponibles si el navegador se encuentra activado. Para importar esas opciones a Google Chrome, guarde su trabajo y cierre todas las ventanas de Firefox. Luego, haga clic en Continuar.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="6049075767726609708">Un administrador instaló Google Chrome en este equipo, que está disponible para todos los usuarios, y la versión de Google Chrome instalada a nivel del sistema reemplazará la versión instalada a nivel de usuario en este momento.</translation>
+<translation id="7123348595797445166">Probar (ya instalado)</translation>
 <translation id="3870154837782082782">Google Inc.</translation>
 <translation id="1446473746922165495">Cambiar el idioma utilizado en los menúes, cuadros de diálogo y sugerencias de ayuda de Google Chrome.</translation>
 <translation id="9189723490960700326">Intentó ponerse en contacto con &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, pero el servidor presentó un certificado vencido. No hay información que indique si ese certificado fue interceptado desde su caducidad. Esto significa que Google Chrome no puede garantizar que está comunicándose con &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; y no con un usuario malintencionado. No continúe.</translation>

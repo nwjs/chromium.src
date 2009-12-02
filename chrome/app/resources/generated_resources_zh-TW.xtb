@@ -109,7 +109,6 @@
 <translation id="2994458892329442723">啟用外掛程式</translation>
 <translation id="1674989413181946727">此電腦通用的 SSL 設定:</translation>
 <translation id="8703575177326907206">您到 <ph name="DOMAIN"/> 的連線未加密。</translation>
-<translation id="7345141778157460052">書籤同步化：</translation>
 <translation id="1644574205037202324">記錄</translation>
 <translation id="2518917559152314023">新增(&amp;D)...</translation>
 <translation id="6583406242234752719">您尚未設定將書籤與其他電腦同步化。</translation>
@@ -1125,7 +1124,7 @@
 <translation id="3218306954729745977">顯示最近關閉的分頁</translation>
 <translation id="3737554291183722650">網頁標題:</translation>
 <translation id="1581962803218266616">在 Finder 中顯示</translation>
-<translation id="4726901538158498735">預設搜尋</translation>
+<translation id="4726901538158498735">預設搜尋:</translation>
 <translation id="923467487918828349">全部顯示</translation>
 <translation id="5101042277149003567">開啟所有書籤</translation>
 <translation id="6349678711452810642">設為預設</translation>

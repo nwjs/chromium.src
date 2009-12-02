@@ -109,7 +109,6 @@
 <translation id="2994458892329442723">Plug-ins inschakelen</translation>
 <translation id="1674989413181946727">SSL-instellingen voor hele computer:</translation>
 <translation id="8703575177326907206">Uw verbinding met <ph name="DOMAIN"/> is niet gecodeerd.</translation>
-<translation id="7345141778157460052">Bladwijzersynchronisatie:</translation>
 <translation id="1644574205037202324">Geschiedenis</translation>
 <translation id="2518917559152314023">&amp;Toevoegen...</translation>
 <translation id="6583406242234752719">U heeft het synchroniseren van uw bladwijzers met uw andere computers niet ingesteld.</translation>
@@ -794,7 +793,7 @@
 <translation id="2864069933652346933"><ph name="NUMBER_ZERO"/> days left</translation>
 <translation id="8015746205953933323">Deze webpagina is niet beschikbaar.</translation>
 <translation id="8520668773617044689">Firefox</translation>
-<translation id="8434177709403049435">Cod&amp;eren</translation>
+<translation id="8434177709403049435">Te&amp;kenset</translation>
 <translation id="7895330511272068835">Over plug-ins</translation>
 <translation id="9012607008263791152">Ik begrijp dat het bezoeken van deze site mijn computer kan beschadigen.</translation>
 <translation id="1441458099223378239">Ik heb geen toegang tot mijn account</translation>
@@ -1125,7 +1124,7 @@
 <translation id="3218306954729745977">Onlangs gesloten tabbladen weergeven</translation>
 <translation id="3737554291183722650">Paginatitel:</translation>
 <translation id="1581962803218266616">Toon in Finder</translation>
-<translation id="4726901538158498735">Standaardzoekmachine</translation>
+<translation id="4726901538158498735">Standaardzoekmachine:</translation>
 <translation id="923467487918828349">Toon alles</translation>
 <translation id="5101042277149003567">Alle bladwijzers openen</translation>
 <translation id="6349678711452810642">Instellen als standaard</translation>

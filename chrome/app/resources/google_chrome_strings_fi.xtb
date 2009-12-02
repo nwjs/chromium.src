@@ -6,6 +6,7 @@
 <translation id="2770231113462710648">Vaihda oletusselaimeksi:</translation>
 <translation id="698670068493841342">Google Chrome on jo asennettu tällä käyttäjälle. Jos ohjelma ei toimi, poista Google Chromen asennus ja lataa se uudelleen.</translation>
 <translation id="7400722733683201933">Tietoja Google Chromesta</translation>
+<translation id="7781002470561365167">Google Chromen uusi versio on saatavilla.</translation>
 <translation id="7101265395643981223">Käynnistä Google Chrome</translation>
 <translation id="2370289711218562573">Google Chrome tuo suosikkeja/kirjanmerkkejä.</translation>
 <translation id="8970027151245482499">Google Chromea ei ole asennettu tai asennushakemistoa ei löytynyt. Lataa Google Chrome uudelleen.</translation>
@@ -48,6 +49,7 @@
 <translation id="2874156562296220396">Google Chromen mahdollistivat avoimen lähdekoodin projekti <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> ja muut <ph name="BEGIN_LINK_OSS"/>avoimen lähdekoodin ohjelmistot<ph name="END_LINK_OSS"/>.</translation>
 <translation id="6921913858457830952">Google Chrome on valmis suorittamaan asennuksen loppuun.</translation>
 <translation id="7100330187273168372">Google Chrome ei voi lukea datahakemistoa :\n\n<ph name="USER_DATA_DIRECTORY"/>, eikä kirjoittaa siihen</translation>
+<translation id="6757767188268205357">Älä häiritse</translation>
 <translation id="2290095356545025170">Haluatko varmasti poistaa Google Chromen?</translation>
 <translation id="5941830788786076944">Tee Google Chromesta oletusselain</translation>
 <translation id="4127951844153999091">Tällöin varmenteessa mainittu osoite ei vastaa sen sivuston osoitetta, johon selaimesi yritti siirtyä. Yksi mahdollinen syy on, että hyökkääjä on siepannut yhteytesi ja esittää eri sivuston varmenteen. Toinen syy voi olla se, että palvelin on määritetty palauttamaan sama varmenne useille sivustoille, myös sille, johon yrität päästä, vaikka varmenne ei kelpaa kaikissa kyseessä olevissa sivustoissa. <ph name="DOMAIN2"/><ph name="DOMAIN"/> Jos jatkat, Chrome ei tarkista enää muita vastaamattomia nimiä. Yleensä on parempi olla jatkamatta tästä eteenpäin.</translation>
@@ -60,6 +62,7 @@
 <translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="8865765905101981392">Internetselain</translation>
 <translation id="8776515774046280928">Google Chrome on jo asennettu ja kaikkien tietokoneen käyttäjien käytettävissä. Jos haluat asentaa Google Chrome käyttäjätasolla, poista ensin järjestelmänvalvojan asentama järjestelmätason versio.</translation>
+<translation id="7196020411877309443">Miksi minulle näytetään tämä ilmoitus?</translation>
 <translation id="2769762047821873045">Google Chrome ei ole oletusselain.</translation>
 <translation id="7825851276765848807">Asennus epäonnistui tuntemattoman virheen vuoksi. Lataa Google Chrome uudelleen.</translation>
 <translation id="3335672657969596251">Google Chrome ei tue <ph name="OS_NAME"/>-käyttöjärjestelmää</translation>
@@ -73,6 +76,7 @@
 <translation id="6626317981028933585">Valitettavasti Mozilla Firefox-asetuksesi eivät ole käytettävissä kun kyseinen selain on toiminnassa. Tuodaksesi asetukset Google Chromeen, tallenna mahdolliset keskeneräiset työt ja sulje kaikki Firefox-ikkunat. Napsauta sitten Jatka.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="6049075767726609708">Järjestelmänvalvoja on asentanut Google Chromen tähän järjestelmään ja selain on kaikkien käyttäjien käytettävissä. Järjestelmätason Google Chrome korvaa käyttäjätason asennuksen.</translation>
+<translation id="7123348595797445166">Kokeile (valmiiksi asennettu)</translation>
 <translation id="3870154837782082782">Google Inc.</translation>
 <translation id="1446473746922165495">Muuta Google Chromen valikkojen, viesti-ikkunoiden ja vihjetekstien kieli.</translation>
 <translation id="9189723490960700326">Yritit päästä verkkotunnukseen &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, mutta palvelin esitti vanhentuneen varmenteen. Ei ole saatavissa tietoja siitä, onko varmenne vaarantunut vanhentumisensa jälkeen. <ph name="DOMAIN2"/> Sinun ei pidä jatkaa.</translation>

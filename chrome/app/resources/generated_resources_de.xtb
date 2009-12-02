@@ -109,7 +109,6 @@
 <translation id="2994458892329442723">Plug-ins aktivieren</translation>
 <translation id="1674989413181946727">SSL-Einstellungen für den ganzen Computer:</translation>
 <translation id="8703575177326907206">Die Verbindung zu <ph name="DOMAIN"/> ist nicht verschlüsselt.</translation>
-<translation id="7345141778157460052">Lesezeichen-Synchronisierung:</translation>
 <translation id="1644574205037202324">Verlauf</translation>
 <translation id="2518917559152314023">Hinz&amp;ufügen...</translation>
 <translation id="6583406242234752719">Die Synchronisierung Ihrer Lesezeichen mit mehreren Computern ist nicht eingerichtet.</translation>
@@ -151,7 +150,7 @@
 <translation id="3280237271814976245">Speichern &amp;unter...</translation>
 <translation id="5300471193642408424">Seiten anzeigen</translation>
 <translation id="7658239707568436148">Abbrechen</translation>
-<translation id="6996264303975215450">Webseite, Beenden</translation>
+<translation id="6996264303975215450">Webseite, komplett</translation>
 <translation id="2154710561487035718">URL kopieren</translation>
 <translation id="4244236525807044920">Schriftart- und Spracheinstellungen ändern</translation>
 <translation id="3241680850019875542">Wählen Sie das Stammverzeichnis der Erweiterung, die gepackt werden soll. Zur Aktualisierung einer Erweiterung wählen Sie eine private Schlüsseldatei zur Wiederverwendung.</translation>
@@ -1179,7 +1178,7 @@ Sie können Ihre Webclips <ph name="BEGIN_LINK"/>anpassen<ph name="END_LINK"/> u
 <translation id="7909652923456235549">Cookies nicht gesendet</translation>
 <translation id="4508765956121923607">Q&amp;uelle anzeigen</translation>
 <translation id="8080048886850452639">Audio-URL k&amp;opieren</translation>
-<translation id="7339785458027436441">Rechtschreibung während Eingabe prüfen</translation>
+<translation id="7339785458027436441">Rechtschreibung während der Eingabe prüfen</translation>
 <translation id="1384721974622518101">Wussten Sie, dass Sie Ihre Suche direkt vom obigen Feld aus durchführen können?</translation>
 <translation id="8203365863660628138">Installation bestätigen</translation>
 <translation id="406259880812417922">(Suchkürzel: <ph name="KEYWORD"/>)</translation>

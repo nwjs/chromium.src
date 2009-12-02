@@ -109,7 +109,6 @@
 <translation id="2994458892329442723">Ativar plug-ins</translation>
 <translation id="1674989413181946727">Configurações SSL do computador inteiro:</translation>
 <translation id="8703575177326907206">Sua conexão com <ph name="DOMAIN"/> não está criptografada.</translation>
-<translation id="7345141778157460052">Sincronização de favoritos:</translation>
 <translation id="1644574205037202324">Histórico</translation>
 <translation id="2518917559152314023">&amp;Adicionar...</translation>
 <translation id="6583406242234752719">Você não está configurado para sincronizar os seus favoritos com os seus outros computadores.</translation>
@@ -985,7 +984,7 @@
 <translation id="1753905327828125965">Mais visitados</translation>
 <translation id="170407012880898501">Salvar texto dos formulários para facilitar o preenchimento</translation>
 <translation id="8116972784401310538">&amp;Gerenciador de favoritos</translation>
-<translation id="4927301649992043040">Empacotar extensão</translation>
+<translation id="4927301649992043040">Compactar extensão</translation>
 <translation id="6040143037577758943">Fechar</translation>
 <translation id="1101671447232096497"><ph name="NUMBER_MANY"/> mins ago</translation>
 <translation id="5116628073786783676">Sal&amp;var áudio como...</translation>
@@ -1126,7 +1125,7 @@
 <translation id="3737554291183722650">Título da página:</translation>
 <translation id="1581962803218266616">Mostrar no Finder</translation>
 <translation id="4726901538158498735">Pesquisa padrão:</translation>
-<translation id="923467487918828349">Mostrar tudo</translation>
+<translation id="923467487918828349">Mostrar todas</translation>
 <translation id="5101042277149003567">Abrir todos os favoritos</translation>
 <translation id="6349678711452810642">Tornar padrão</translation>
 <translation id="3741375896128849698">O certificado do servidor ainda não é válido</translation>
