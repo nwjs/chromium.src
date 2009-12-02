@@ -24,6 +24,7 @@
 #include "chrome/browser/extensions/external_pref_extension_provider.h"
 #include "chrome/browser/profile.h"
 #include "chrome/browser/net/chrome_url_request_context.h"
+#include "chrome/common/child_process_logging.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_constants.h"
@@ -261,6 +262,7 @@ void ExtensionsService::EnableExtension(const std::string& extension_id) {
       extension->GetChromeURLOverrides());
 
   NotifyExtensionLoaded(extension);
+  UpdateActiveExtensionsInCrashReporter();
 }
 
 void ExtensionsService::DisableExtension(const std::string& extension_id) {
@@ -285,6 +287,7 @@ void ExtensionsService::DisableExtension(const std::string& extension_id) {
       extension->GetChromeURLOverrides());
 
   NotifyExtensionUnloaded(extension);
+  UpdateActiveExtensionsInCrashReporter();
 }
 
 void ExtensionsService::LoadExtension(const FilePath& extension_path) {
@@ -503,6 +506,7 @@ void ExtensionsService::UnloadExtension(const std::string& extension_id) {
   extensions_.erase(iter);
 
   NotifyExtensionUnloaded(extension.get());
+  UpdateActiveExtensionsInCrashReporter();
 }
 
 void ExtensionsService::UnloadAllExtensions() {
@@ -622,6 +626,18 @@ void ExtensionsService::OnExtensionLoaded(Extension* extension,
         break;
     }
   }
+
+  UpdateActiveExtensionsInCrashReporter();
+}
+
+void ExtensionsService::UpdateActiveExtensionsInCrashReporter() {
+  std::vector<std::string> extension_ids;
+  for (size_t i = 0; i < extensions_.size(); ++i) {
+    if (!extensions_[i]->IsTheme())
+      extension_ids.push_back(extensions_[i]->id());
+  }
+
+  child_process_logging::SetActiveExtensions(extension_ids);
 }
 
 void ExtensionsService::OnExtensionInstalled(Extension* extension,
