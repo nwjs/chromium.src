@@ -185,20 +185,26 @@ void DOMUIThemeSource::InitNewTabCSS(Profile* profile) {
   subst2.push_back(SkColorToRGBAString(color_section_link_underline));  // $$7
 
 #if defined(OS_MACOSX)
-  // No extensions available on Mac yet.
+  // No extensions available on Mac yet.
   subst2.push_back("none");  // $$8: display of lower right promo image
-  subst2.push_back("none");  // $$9: display of butterbar footer promo line
 #else
-  if (profile->GetPrefs()->GetInteger(prefs::kNTPPromoImageRemaining) > 0) {
+  // Extensions available on both Linux and Windows.
+  if (profile_->GetPrefs()->GetInteger(prefs::kNTPPromoImageRemaining) > 0) {
     subst2.push_back("block");  // $$8
   } else {
     subst2.push_back("none");  // $$8
   }
-  if (profile->GetPrefs()->GetInteger(prefs::kNTPPromoLineRemaining) > 0) {
-    subst2.push_back("inline-block");  // $$9
+#endif
+
+#if defined(OS_WIN)
+  // Sync only available on Windows for now.
+  if (profile_->GetPrefs()->GetInteger(prefs::kNTPPromoLineRemaining) > 0) {
+    subst2.push_back("inline-block");  // $$9: display of footer promo line
   } else {
     subst2.push_back("none");  // $$9
   }
+#else
+  subst2.push_back("none");  // $$9
 #endif
 
   // Get our template.
