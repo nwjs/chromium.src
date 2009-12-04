@@ -3,6 +3,7 @@
 <translationbundle lang="pl">
 <translation id="8000275528373650868">Google Chrome wymaga systemu Windows Vista bądź Windows XP z dodatkiem SP2 lub nowszym.</translation>
 <translation id="6676384891291319759">Skorzystaj z internetu</translation>
+<translation id="4517682492677349713">Czy chcesz, aby przeglądarka Google Chrome zapisała tę informację?</translation>
 <translation id="2770231113462710648">Zmień przeglądarkę domyślną na:</translation>
 <translation id="698670068493841342">Przeglądarka Google Chrome jest już zainstalowana dla tego użytkownika. Jeśli oprogramowanie nie działa, odinstaluj Google Chrome i pobierz go ponownie.</translation>
 <translation id="7400722733683201933">Google Chrome – informacje</translation>
@@ -13,6 +14,8 @@
 <translation id="2040709530900803995">Moduł renderowania Google Chrome</translation>
 <translation id="4281844954008187215">Warunki korzystania z usługi</translation>
 <translation id="1137776625614346046">Obszar Najczęściej odwiedzane zawiera najczęściej używane witryny. Po pewnym okresie używania przeglądarki Chrome, kiedy otworzysz nową kartę, wyświetlą się Twoje najczęściej odwiedzane witryny. Bardziej szczegółowe informacje na temat tych i pozostałych funkcji znajdują się na stronie <ph name="BEGIN_LINK"/>Pierwsze kroki<ph name="END_LINK"/>.</translation>
+<translation id="3555616473548901994">Zakończono odinstalowywanie.</translation>
+<translation id="1826297811907343327">Jeśli anulujesz teraz operację, nie wszystkie elementy zostaną zaimportowane. Elementy możesz później zaimportować ponownie za pomocą menu przeglądarki Google Chrome.</translation>
 <translation id="4728575227883772061">Instalacja nie powiodła się z powodu nieokreślonego błędu. Jeśli Google Chrome jest aktualnie uruchomiony, zamknij aplikację i spróbuj ponownie.</translation>
 <translation id="4149882025268051530">Instalator nie może prawidłowo rozpakować archiwum. Pobierz Google Chrome ponownie.</translation>
 <translation id="5744005218040929396">Program Google Chrome</translation>
@@ -37,7 +40,9 @@
 <translation id="7747138024166251722">Instalator nie mógł utworzyć katalogu tymczasowego. Sprawdź, czy na dysku jest dość wolnego miejsca oraz sprawdź, czy posiadasz uprawnienia do instalowania programów.</translation>
 <translation id="6009537148180854585">Podjęto próbę przejścia do witryny &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, ale certyfikat wyświetlony przez serwer zawiera błędy. Google Chrome nie może użyć certyfikatu z błędami ani zweryfikować tożsamości witryny, z którą miało nastąpić połączenie. Połączenie nie jest bezpieczne i nie należy wykonywać dalszych czynności.</translation>
 <translation id="2485422356828889247">Odinstaluj</translation>
+<translation id="8899050679030089927">Zamknij wszystkie okna przeglądarki Google Chrome i uruchom ją ponownie, aby zmiany zostały wprowadzone.</translation>
 <translation id="3324235665723428530">Twój profil nie może zostać użyty ponieważ został utworzony w nowszej wersji przeglądarki Chrome.\n\nNiektóre funkcje mogą być niedostępne. Podaj inny katalog z profilem lub użyj nowszej wersji przeglądarki Chrome.</translation>
+<translation id="7214670531148488183">Przeglądarka Google Chrome może korzystać z usług sieciowych w celu poprawy wygody użytkowania. Usługi te można opcjonalnie wyłączyć.</translation>
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="911206726377975832">Czy usunąć także dane przeglądarki?</translation>
 <translation id="2044287590254833138">Pasek narzędzi Google Chrome</translation>
@@ -54,10 +59,12 @@
 <translation id="5941830788786076944">Ustaw Google Chrome jako domyślną przeglądarkę</translation>
 <translation id="4127951844153999091">W tym przypadku adres zawarty w certyfikacie nie jest zgodny z adresem witryny wpisanym w przeglądarce. Jednym z powodów takiej sytuacji może być przechwycenie komunikacji przez intruza, który przedstawia certyfikat innej witryny, co powoduje niezgodność. Inną przyczyną może być konfiguracja serwera zwracająca ten sam certyfikat dla wielu witryn (w tym witryny, którą chcesz wyświetlić) nawet w przypadku, gdy certyfikat nie jest ważny dla wszystkich witryn. Google Chrome może potwierdzić, że otwarty został adres &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, ale nie może zweryfikować, że jest to witryna &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, która miała zostać wyświetlona. Jeśli przejdziesz dalej, aplikacja Chrome nie będzie sprawdzać kolejnych niezgodności nazw. Ogólnie nie zalecamy kontynuowania pracy na tej stronie.</translation>
 <translation id="2712549016134575851">Wykryto konflikt z inną zainstalowaną aplikacją.</translation>
+<translation id="7018032895891496381">Przeglądarka Google Chrome korzysta z domyślnej wyszukiwarki, którą jest obecnie <ph name="PAGE_TITLE"/>. Czy chcesz zachować tę domyślną wyszukiwarkę?</translation>
 <translation id="7161904924553537242">Google Chrome – witamy!</translation>
 <translation id="8669527147644353129">Pomoc Google Chrome</translation>
 <translation id="8236873504073475138">Google Chrome nie obsługuje systemu Windows 2000. Niektóre funkcje mogą nie działać prawidłowo.</translation>
 <translation id="5318056482164160049">Serwer wtyczek przeglądarki Google Chrome</translation>
+<translation id="6126631249883707068">Czy chcesz, aby przeglądarka Google Chrome zapisała hasło?</translation>
 <translation id="5046764976540625289">Zakończ Chrome</translation>
 <translation id="9039578207253536065">Moduł roboczy Google Chrome</translation>
 <translation id="8865765905101981392">Przeglądarka internetowa</translation>

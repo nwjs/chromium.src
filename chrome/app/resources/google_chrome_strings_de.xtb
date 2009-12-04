@@ -3,6 +3,7 @@
 <translationbundle lang="de">
 <translation id="8000275528373650868">Für Google Chrome ist Windows Vista oder Windows XP SP2 oder höher erforderlich.</translation>
 <translation id="6676384891291319759">Internetzugriff</translation>
+<translation id="4517682492677349713">Sollen diese Angaben von Google Chrome gespeichert werden?</translation>
 <translation id="2770231113462710648">Standardbrowser ändern in:</translation>
 <translation id="698670068493841342">Google Chrome wurde bereits für diesen Nutzer installiert. Falls die Software nicht funktioniert, deinstallieren Sie Google Chrome und laden Sie es erneut herunter.</translation>
 <translation id="7400722733683201933">Info zu Google Chrome</translation>
@@ -13,6 +14,8 @@
 <translation id="2040709530900803995">Google Chrome Renderer</translation>
 <translation id="4281844954008187215">Nutzungsbedingungen</translation>
 <translation id="1137776625614346046">Im Bereich &quot;Am häufigsten besucht&quot; werden die am häufigsten aufgerufenen Websites angezeigt. Nachdem Sie Google Chrome einige Zeit verwendet haben, werden Ihnen die am häufigsten besuchten Websites beim Öffnen eines neuen Tabs angezeigt. Weitere Informationen hierzu und zu anderen Funktionen erhalten Sie auf der Seite <ph name="BEGIN_LINK"/>Erste Schritte<ph name="END_LINK"/>.</translation>
+<translation id="3555616473548901994">Deinstallation ist abgeschlossen.</translation>
+<translation id="1826297811907343327">Wenn Sie den Vorgang jetzt abbrechen, werden nicht alle Elemente importiert. Sie können den Import später über das Google Chrome-Menü wiederholen.</translation>
 <translation id="4728575227883772061">Installation aufgrund von unbekanntem Fehler fehlgeschlagen. Falls Google Chrome bereits ausgeführt wird, schließen Sie es und versuchen Sie es erneut.</translation>
 <translation id="4149882025268051530">Das Installationsprogramm konnte das Archiv nicht dekomprimieren. Laden Sie Google Chrome erneut herunter.</translation>
 <translation id="5744005218040929396">Google Chrome-Dienstprogramm</translation>
@@ -37,7 +40,9 @@
 <translation id="7747138024166251722">Das Installationsprogramm konnte kein temporäres Verzeichnis erstellen. Überprüfen Sie, ob freier Speicherplatz und die Rechte zum Installieren von Software vorhanden sind.</translation>
 <translation id="6009537148180854585">Sie haben versucht, auf &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; zuzugreifen. Der Server hat sich jedoch mit einem fehlerhaften Zertifikat ausgewiesen. Google Chrome kann kein Zertifikat mit Fehlern verwenden und die Identität dieser Website nicht überprüfen, zu der Sie eine Verbindung herstellen wollten. Ihre Verbindung ist nicht sicher. Fahren Sie nicht fort.</translation>
 <translation id="2485422356828889247">Deinstallieren</translation>
+<translation id="8899050679030089927">Schließen Sie alle Google Chrome-Fenster und starten Sie die Anwendung neu, damit diese Änderung wirksam wird.</translation>
 <translation id="3324235665723428530">Ihr Profil kann nicht verwendet werden, da es aus einer neueren Google Chrome-Version stammt.\n\nEinige Funktionen sind möglicherweise nicht verfügbar. Geben Sie ein anderes Profilverzeichnis an oder verwenden Sie eine neuere Chrome-Version.</translation>
+<translation id="7214670531148488183">Google Chrome nutzt möglicherweise Web-Services, um Ihnen das Surfen im Internet zu erleichtern. Sie können diese Services auch deaktivieren.</translation>
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="911206726377975832">Auch die Internetdaten löschen?</translation>
 <translation id="2044287590254833138">Google Chrome-Toolbar</translation>
@@ -54,10 +59,12 @@
 <translation id="5941830788786076944">Google Chrome als Standardbrowser festlegen</translation>
 <translation id="4127951844153999091">In diesem Fall stimmt die im Zertifikat aufgeführte Adresse nicht mit der Adresse der Website ein, zu der Ihr Browser wechseln wollte. Ein möglicher Grund hierfür ist, dass Ihre Kommunikation von einem Hacker abgefangen wird, der sich mit einem Zertifikat für eine andere Website ausweist, was eine Abweichung verursachen könnte. Ein weiterer möglicher Grund ist, dass der Server so eingerichtet ist, dass er dasselbe Zertifikat für mehrere Websites zurückgibt, auch für diejenige, die Sie gerade besuchen möchten, obwohl dieses Zertifikat nicht für alle diese Websites gültig ist. Google Chrome garantiert, dass Sie auf &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; zugegriffen haben, kann aber nicht bestätigen, dass es sich um dieselbe Website wie &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; handelt, die Sie aufrufen möchten. Wenn Sie fortfahren, wird Chrome keine weiteren Namensabweichungen überprüfen. Im Allgemeinen ist es am besten, hier nicht fortzufahren.</translation>
 <translation id="2712549016134575851">Ein Konflikt mit einer anderen installierten Anwendung wurde erkannt.</translation>
+<translation id="7018032895891496381">Google Chrome nutzt Ihre Standard-Suchmaschine. Dies ist derzeit <ph name="PAGE_TITLE"/>. Soll dies weiterhin Ihre Standard-Suchmaschine bleiben?</translation>
 <translation id="7161904924553537242">Willkommen bei Google Chrome</translation>
 <translation id="8669527147644353129">Google Chrome Helper</translation>
 <translation id="8236873504073475138">Google Chrome unterstützt Windows 2000 nicht. Einige Funktionen sind möglicherweise nicht verfügbar.</translation>
 <translation id="5318056482164160049">Google Chrome-Plug-in-Host</translation>
+<translation id="6126631249883707068">Möchten Sie, dass Google Chrome Ihr Passwort speichert?</translation>
 <translation id="5046764976540625289">Google Chrome beenden</translation>
 <translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="8865765905101981392">Internetbrowser</translation>

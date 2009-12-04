@@ -3,6 +3,7 @@
 <translationbundle lang="da">
 <translation id="8000275528373650868">Google Chrome kræver Windows Vista eller Windows XP med SP2 eller nyere.</translation>
 <translation id="6676384891291319759">Få adgang til internettet</translation>
+<translation id="4517682492677349713">Er du sikker på, at Google Chrome skal gemme disse oplysninger?</translation>
 <translation id="2770231113462710648">Skift standardbrowser til:</translation>
 <translation id="698670068493841342">Google Chrome er allerede installeret for denne bruger. Hvis programmet ikke fungerer, skal du afinstallere Google Chrome og downloade det igen.</translation>
 <translation id="7400722733683201933">Om Google Chrome</translation>
@@ -13,6 +14,8 @@
 <translation id="2040709530900803995">Google Chrome Renderer</translation>
 <translation id="4281844954008187215">Servicevilkår</translation>
 <translation id="1137776625614346046">Området &quot;Mest besøgte&quot; viser de websteder, du oftest bruger. Når du har brugt Google Chrome i et stykke tid, vil du kunne se dine mest besøgte websteder, hver gang du åbner en ny fane. Du kan lære mere om det og om andre funktioner på siden <ph name="BEGIN_LINK"/>Sådan kommer du i gang<ph name="END_LINK"/>.</translation>
+<translation id="3555616473548901994">Afinstallationen blev fuldført.</translation>
+<translation id="1826297811907343327">Hvis du annullerer nu, er der enheder, som ikke bliver importeret. Du kan importere dem igen senere via menuen i Google Chrome.</translation>
 <translation id="4728575227883772061">Installationen mislykkedes på grund af en ikke-specificeret fejl. Hvis Google Chrome kører, bedes du lukke programmet og prøve igen.</translation>
 <translation id="4149882025268051530">Installationsprogrammet kunne ikke pakke arkivet ud. Download Google Chrome igen.</translation>
 <translation id="5744005218040929396">Google Chrome-værktøj</translation>
@@ -37,7 +40,9 @@
 <translation id="7747138024166251722">Installationsprogrammet kunne ikke oprette en midlertidig mappe. Kontroller, om der er tilstrækkelig diskplads, og om der er tilladelse til at installere software.</translation>
 <translation id="6009537148180854585">Du forsøgte at kontakte &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, men det certifikat, denne server viste, indeholder fejl. Google Chrome kan ikke bruge et certifikat med fejl og kan ikke bekræfte identiteten af det websted, du forsøger at skabe forbindelse til. Din forbindelse er ikke sikker, og du bør ikke fortsætte.</translation>
 <translation id="2485422356828889247">Afinstallation</translation>
+<translation id="8899050679030089927">Luk alle Google Chrome-vinduer, og genstart, så denne ændring kan træde i kraft.</translation>
 <translation id="3324235665723428530">Din profil kan ikke bruges, da den stammer fra en nyere version af Google Chrome.\n\nNogle funktioner er måske utilgængelige. Angiv en anden profilmappe, eller anvend en nyere version af Chrome.</translation>
+<translation id="7214670531148488183">Google Chrome kan bruge webtjenester for at forbedre din browseroplevelse. Du kan deaktivere disse tjenester.</translation>
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="911206726377975832">Slet også dine browsingdata?</translation>
 <translation id="2044287590254833138">Google Chrome-værktøjslinje</translation>
@@ -54,10 +59,12 @@
 <translation id="5941830788786076944">Gør Google Chrome til din standardbrowser</translation>
 <translation id="4127951844153999091">I dette tilfælde passer adressen, som indgår i certifikatet, ikke med adressen for det websted, din browser forsøger at nå. En af de mulige årsager til dette er, at din kommunikation bliver opsnappet af en ondsindet part, som viser et certifikat for et andet websted, og det giver uoverensstemmelsen. En anden mulig årsag er, at serveren er indstillet til at returnere det samme certifikat for flere websteder inklusive det websted, du forsøger at besøge, på trods af, at certifikatet ikke er gyldigt for alle disse websteder. Chrome kan med sikkerhed bekræfte, at du er kommet til &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; men kan ikke bekræfte, at det er samme websted som &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, som du forsøgte at nå. Fortsætter du, vil Chrome ikke kontrollere for yderligere navneuoverensstemmelser. Almindeligvis anbefales det ikke at fortsætte herfra.</translation>
 <translation id="2712549016134575851">Der er opstået en konflikt med et andet installeret program.</translation>
+<translation id="7018032895891496381">Google Chrome bruger dit standardvalg for søgemaskiner, som i øjeblikket er <ph name="PAGE_TITLE"/>. Vil du beholde din standardsøgemaskine?</translation>
 <translation id="7161904924553537242">Velkommen til Google Chrome</translation>
 <translation id="8669527147644353129">Hjælp til Google Chrome</translation>
 <translation id="8236873504073475138">Google Chrome understøtter ikke Windows 2000. Nogle funktioner virker måske ikke.</translation>
 <translation id="5318056482164160049">Plugin-host til Google Chrome</translation>
+<translation id="6126631249883707068">Er du sikker på, at du vil have Google Chrome til at gemme din adgangskode?</translation>
 <translation id="5046764976540625289">Afslut Chrome</translation>
 <translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="8865765905101981392">Internetbrowser</translation>
