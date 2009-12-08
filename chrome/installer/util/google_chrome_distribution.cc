@@ -455,7 +455,7 @@ void GoogleChromeDistribution::LaunchUserExperiment(
     int dir_age_hours = GetDirectoryWriteAgeInHours(user_data_dir.c_str());
     if (dir_age_hours < kSixtyDays)
       return;
-    }
+
     // 1% are in the control group that qualifies but does not get drafted.
     if (base::RandDouble() > 0.99) {
       GoogleUpdateSettings::SetClient(
