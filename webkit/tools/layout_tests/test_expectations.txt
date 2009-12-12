@@ -74,7 +74,8 @@ BUG24182 SLOW WIN RELEASE : LayoutTests/fast/dom/Window/webkitConvertPoint.html 
 
 BUG24182 WIN RELEASE SLOW : LayoutTests/http/tests/loading/redirect-methods.html = PASS
 BUG24182 WIN SLOW : LayoutTests/svg/hixie/perf/007.xml = PASS
-BUG24182 WIN LINUX DEBUG : LayoutTests/fast/backgrounds/size/contain-and-cover.html = PASS
+// SENORBLANCO -- uncomment me after rebaseline
+// BUG24182 WIN LINUX DEBUG : LayoutTests/fast/backgrounds/size/contain-and-cover.html = PASS
 BUG24182 SLOW MAC RELEASE : LayoutTests/dom/html/level2/html/HTMLImageElement01.html = PASS
 BUG24182 SLOW WIN RELEASE : LayoutTests/http/tests/local/file-url-sent-as-referer.html = PASS
 BUG24182 SLOW WIN DEBUG : LayoutTests/svg/carto.net/window.svg = PASS
@@ -90,7 +91,8 @@ BUG24182 WIN RELEASE SLOW : LayoutTests/http/tests/xmlhttprequest/XMLHttpRequest
 BUG24182 WIN RELEASE SLOW : LayoutTests/http/tests/xmlhttprequest/connection-error-sync.html = PASS
 BUG24182 WIN RELEASE SLOW : LayoutTests/http/tests/loading/onload-vs-immediate-refresh.pl = PASS
 BUG24182 SLOW DEBUG : LayoutTests/editing/selection/extend-selection.html = PASS
-BUG24182 SLOW WIN : LayoutTests/fast/backgrounds/svg-as-background-5.html = PASS
+// SENORBLANCO -- uncomment me after rebaseline
+// BUG24182 SLOW WIN : LayoutTests/fast/backgrounds/svg-as-background-5.html = PASS
 
 // --- collecting results for supported-xml-content-types.html ---
 BUG24182 SLOW WIN RELEASE : LayoutTests/http/tests/xmlhttprequest/supported-xml-content-types.html = PASS
@@ -1357,7 +1359,8 @@ BUG10666 LINUX : chrome/fast/forms/basic-selects.html = FAIL
 // These tests are marked as failing on Linux because they depend on QuickTime.
 // See the bug for more discussion.
 BUG15797 LINUX : LayoutTests/fast/dom/object-embed-plugin-scripting.html = FAIL
-BUG15797 LINUX : LayoutTests/plugins/embed-attributes-setting.html = FAIL
+// SENORBLANCO -- uncomment me after rebaseline
+// BUG15797 LINUX : LayoutTests/plugins/embed-attributes-setting.html = FAIL CRASH
 
 // Depends on plugin support.
 BUG10351 MAC : LayoutTests/fast/dom/object-embed-plugin-scripting.html = FAIL
