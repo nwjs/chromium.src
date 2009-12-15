@@ -4064,6 +4064,7 @@
         '..',
       ],
       'sources': [
+        'app/breakpad_mac_stubs.mm',
         # The only thing used from browser is Browser::Type.
         'browser/browser.h',
         # TODO:  these should live here but are currently used by
@@ -4335,9 +4336,6 @@
           ],
         }],
         ['OS=="mac"', {
-          'sources': [
-            'app/breakpad_mac_stubs.mm',
-          ],
           'sources!': [
             # TODO(port)
             'app/chrome_main_uitest.cc',
@@ -4498,7 +4496,6 @@
         ],
       },
       'sources': [
-        'app/breakpad_mac_stubs.mm',
         # All unittests in browser, common, and renderer.
         'browser/app_controller_mac_unittest.mm',
         'browser/autocomplete/autocomplete_edit_view_mac_unittest.mm',
@@ -5378,7 +5375,6 @@
       'target_name': 'sync_unit_tests',
       'type': 'executable',
       'sources': [
-        'app/breakpad_mac_stubs.mm',
         'browser/sync/engine/all_status_unittest.cc',
         'browser/sync/engine/apply_updates_command_unittest.cc',
         'browser/sync/engine/auth_watcher_unittest.cc',
