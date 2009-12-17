@@ -77,11 +77,7 @@ bool IsVisible(gfx::NativeView view) {
 
 /* Warning: this may be either Linux or ChromeOS */
 string16 GetVersionStringModifier() {
-#if defined(GOOGLE_CHROME_BUILD)
-  return EmptyString16();  /* TODO(jrg,mmoss) */
-#else
-  return EmptyString16();
-#endif
+  return ASCIIToUTF16(getenv("CHROME_VERSION_EXTRA"));
 }
 
 }  // namespace platform_util
