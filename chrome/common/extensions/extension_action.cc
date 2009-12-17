@@ -139,7 +139,7 @@ void ExtensionAction::PaintBadge(gfx::Canvas* canvas,
     rect.fLeft = SkIntToScalar(
                      SkScalarFloor(SkIntToScalar(bounds.x()) +
                                    SkIntToScalar(bounds.width() / 2.0) -
-                                   SkIntToScalar(badge_width / 2.0);
+                                   SkIntToScalar(badge_width / 2.0)));
     rect.fRight = rect.fLeft + SkIntToScalar(badge_width);
   } else {
     rect.fRight = SkIntToScalar(bounds.right());
