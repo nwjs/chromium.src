@@ -14,6 +14,7 @@
 #include "chrome/browser/browser_list.h"
 #include "chrome/browser/metrics/user_metrics.h"
 #include "chrome/common/chrome_constants.h"
+#include "chrome/common/platform_util.h"
 #include "chrome/common/url_constants.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
@@ -60,7 +61,6 @@ std::wstring StringSubRange(const std::wstring& text, size_t start,
   DCHECK(end > start);
   return text.substr(start, end - start);
 }
-
 }  // namespace
 
 namespace browser {
@@ -127,12 +127,15 @@ void AboutChromeView::Init() {
     return;
   }
 
+  string16 version_modifier = platform_util::GetVersionStringModifier();
+  if (version_modifier.length()) {
+    current_version_ += L" ";
+    current_version_ += UTF16ToWide(version_modifier);
+  }
   current_version_ = version_info->file_version();
-#if !defined(GOOGLE_CHROME_BUILD)
   current_version_ += L" (";
   current_version_ += version_info->last_change();
   current_version_ += L")";
-#endif
 
   // Views we will add to the *parent* of this dialog, since it will display
   // next to the buttons which we don't draw ourselves.

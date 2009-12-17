@@ -75,4 +75,13 @@ bool IsVisible(gfx::NativeView view) {
   return GTK_WIDGET_VISIBLE(view);
 }
 
+/* Warning: this may be either Linux or ChromeOS */
+string16 GetVersionStringModifier() {
+#if defined(GOOGLE_CHROME_BUILD)
+  return EmptyString16();  /* TODO(jrg,mmoss) */
+#else
+  return EmptyString16();
+#endif
+}
+
 }  // namespace platform_util

@@ -37,6 +37,11 @@ bool IsWindowActive(gfx::NativeWindow window);
 // whether the view has the visible attribute set.
 bool IsVisible(gfx::NativeView view);
 
+// Return a human readable modifier for the version string.  For a
+// branded Chrome (not Chromium), this modifier is the channel (dev,
+// beta, stable).
+string16 GetVersionStringModifier();
+
 }
 
 #endif  // CHROME_COMMON_PLATFORM_UTIL_H_

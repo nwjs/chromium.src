@@ -9,6 +9,7 @@
 #include "app/l10n_util.h"
 #include "base/file_path.h"
 #include "base/logging.h"
+#include "base/mac_util.h"
 #include "base/sys_string_conversions.h"
 #include "chrome/browser/cocoa/tab_window_controller.h"
 #include "googleurl/src/gurl.h"
@@ -67,6 +68,18 @@ bool IsVisible(gfx::NativeView view) {
           ![view isHiddenOrHasHiddenAncestor] &&
           [view window] &&
           [[view window] isVisible]);
+}
+
+string16 GetVersionStringModifier() {
+#if defined(GOOGLE_CHROME_BUILD)
+  NSBundle* bundle = mac_util::MainAppBundle();
+  NSString* channel = [bundle objectForInfoDictionaryKey:@"KSChannelID"];
+  if (!channel)
+    channel = @"stable";
+  return base::SysNSStringToUTF16(channel);
+#else
+  return EmptyString16();
+#endif
 }
 
 }  // namespace platform_util
