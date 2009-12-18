@@ -6,7 +6,7 @@
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_ACTION_CONTEXT_MENU_MODEL_H_
 
 #include "app/menus/simple_menu_model.h"
-#include "views/controls/menu/simple_menu_model.h"
+#include "chrome/browser/extensions/extension_install_ui.h"
 
 class Extension;
 
