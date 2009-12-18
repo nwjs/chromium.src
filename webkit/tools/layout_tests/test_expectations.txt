@@ -2937,12 +2937,6 @@ BUG_JORLOW LINUX : LayoutTests/fast/multicol/column-rules-stacking.html = FAIL
 // WebKit 50158:50171
 BUG_JORLOW : LayoutTests/fast/dom/error-to-string-stack-overflow.html = FAIL
 
-// WebKit roll 50218:50235
-BUG_JORLOW : LayoutTests/http/tests/ssl/referer-301.html = FAIL
-BUG_JORLOW DEBUG : LayoutTests/http/tests/ssl/referer-303.html = FAIL
-BUG_JORLOW LINUX MAC RELEASE : LayoutTests/http/tests/ssl/referer-303.html = FAIL
-BUG_JORLOW SLOW WIN RELEASE : LayoutTests/http/tests/ssl/referer-303.html = FAIL
-
 // WebKit roll 50248:50258
 BUG26195 : LayoutTests/accessibility/aria-option-role.html = TEXT
 
