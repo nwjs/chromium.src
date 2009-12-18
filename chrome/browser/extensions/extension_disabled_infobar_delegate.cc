@@ -6,6 +6,7 @@
 
 #include "app/l10n_util.h"
 #include "chrome/browser/chrome_thread.h"
+#include "chrome/browser/extensions/crx_installer.h"
 #include "chrome/browser/extensions/extension_file_util.h"
 #include "chrome/browser/extensions/extension_install_ui.h"
 #include "chrome/browser/extensions/extensions_service.h"
@@ -54,8 +55,7 @@ class ExtensionDisabledDialogDelegate
   void Start() {
     // We start on the file thread so we can decode the install icon.
     FilePath install_icon_path = install_icon_resource_.GetFilePath();
-    Extension::DecodeIconFromPath(
-        install_icon_path, Extension::EXTENSION_ICON_LARGE, &install_icon_);
+    CrxInstaller::DecodeInstallIcon(install_icon_path, &install_icon_);
     // Then we display the UI on the UI thread.
     ChromeThread::PostTask(
         ChromeThread::UI, FROM_HERE,

@@ -403,9 +403,10 @@ void ExtensionsDOMHandler::HandleUninstallMessage(const Value* value) {
   if (!extension)
     return;
 
+  FilePath icon_path =
+      extension->GetIconPath(Extension::EXTENSION_ICON_LARGE).GetFilePath();
   scoped_ptr<SkBitmap> uninstall_icon;
-  Extension::DecodeIcon(extension, Extension::EXTENSION_ICON_LARGE,
-                        &uninstall_icon);
+  CrxInstaller::DecodeInstallIcon(icon_path, &uninstall_icon);
 
   extension_id_uninstalling_ = extension_id;
   ExtensionInstallUI client(dom_ui_->GetProfile());
