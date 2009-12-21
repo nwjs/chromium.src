@@ -110,7 +110,7 @@ ExtensionInstallUI::ExtensionInstallUI(Profile* profile)
 // static
 void ExtensionInstallUI::ShowExtensionInstallPrompt(
     Profile* profile, Delegate* delegate, Extension* extension, SkBitmap* icon,
-    const std::wstring& warning_text) {
+    const string16& warning_text) {
   ShowExtensionInstallUIPromptImpl(profile, delegate, extension, icon,
                                    warning_text, false);  // uninstall == false.
 }
@@ -118,7 +118,7 @@ void ExtensionInstallUI::ShowExtensionInstallPrompt(
 // static
 void ExtensionInstallUI::ShowExtensionUninstallPrompt(
     Profile* profile, Delegate* delegate, Extension* extension, SkBitmap* icon,
-    const std::wstring& warning_text) {
+    const string16& warning_text) {
   ShowExtensionInstallUIPromptImpl(profile, delegate, extension, icon,
                                    warning_text, true);  // uninstall == true.
 }
@@ -160,7 +160,7 @@ void ExtensionInstallUI::ConfirmInstall(Delegate* delegate,
                   NotificationService::NoDetails());
 
   ShowExtensionInstallPrompt(profile_, delegate, extension, &icon_,
-                             GetInstallWarning(extension));
+                             WideToUTF16Hack(GetInstallWarning(extension)));
 }
 
 void ExtensionInstallUI::ConfirmUninstall(Delegate* delegate,
@@ -173,8 +173,8 @@ void ExtensionInstallUI::ConfirmUninstall(Delegate* delegate,
         IDR_EXTENSION_DEFAULT_ICON);
   }
 
-  std::wstring message =
-      l10n_util::GetString(IDS_EXTENSION_UNINSTALL_CONFIRMATION);
+  string16 message =
+      l10n_util::GetStringUTF16(IDS_EXTENSION_UNINSTALL_CONFIRMATION);
   ShowExtensionUninstallPrompt(profile_, delegate, extension, icon, message);
 }
 
