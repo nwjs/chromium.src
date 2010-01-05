@@ -139,7 +139,7 @@ Browser::Browser(Type type, Profile* profile)
                  NotificationService::AllSources());
   registrar_.Add(this, NotificationType::EXTENSION_UNLOADED_DISABLED,
                  NotificationService::AllSources());
-  registrar_.Add(this, NotificationType::EXTENSION_PROCESS_CRASHED,
+  registrar_.Add(this, NotificationType::EXTENSION_PROCESS_TERMINATED,
                  NotificationService::AllSources());
   registrar_.Add(this, NotificationType::BROWSER_THEME_CHANGED,
                  NotificationService::AllSources());
@@ -2281,7 +2281,7 @@ void Browser::Observe(NotificationType type,
       break;
     }
 
-    case NotificationType::EXTENSION_PROCESS_CRASHED: {
+    case NotificationType::EXTENSION_PROCESS_TERMINATED: {
       window()->GetLocationBar()->InvalidatePageActions();
 
       TabContents* tab_contents = GetSelectedTabContents();
