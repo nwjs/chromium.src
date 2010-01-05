@@ -756,7 +756,7 @@ ExtensionsUI::ExtensionsUI(TabContents* contents) : DOMUI(contents) {
 // static
 RefCountedMemory* ExtensionsUI::GetFaviconResourceBytes() {
   return ResourceBundle::GetSharedInstance().
-      LoadImageResourceBytes(IDR_PLUGIN);
+      LoadDataResourceBytes(IDR_PLUGIN);
 }
 
 // static
