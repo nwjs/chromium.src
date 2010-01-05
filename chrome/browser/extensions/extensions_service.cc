@@ -589,6 +589,8 @@ void ExtensionsService::OnExtensionLoaded(Extension* extension,
           // Extension has changed permissions significantly. Disable it and
           // notify the user.
           extension_prefs_->SetExtensionState(extension, Extension::DISABLED);
+          extension_prefs_->SetShowInstallWarningOnEnable(extension, true);
+
           NotificationService::current()->Notify(
               NotificationType::EXTENSION_UPDATE_DISABLED,
               Source<Profile>(profile_),
