@@ -80,8 +80,7 @@ bool UtilityProcessHost::StartProcess(const FilePath& exposed_dir) {
                                   switches::kUtilityProcess);
   cmd_line->AppendSwitchWithValue(switches::kProcessChannelID,
                                   ASCIIToWide(channel_id()));
-  // Pass on the browser locale.
-  std::string locale = l10n_util::GetApplicationLocale(L"");
+  std::string locale = g_browser_process->GetApplicationLocale();
   cmd_line->AppendSwitchWithValue(switches::kLang, ASCIIToWide(locale));
 
   SetCrashReporterCommandLine(cmd_line);
