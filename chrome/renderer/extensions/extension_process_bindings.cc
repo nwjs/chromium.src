@@ -12,7 +12,6 @@
 #include "base/command_line.h"
 #include "base/json/json_reader.h"
 #include "base/singleton.h"
-#include "chrome/common/child_process_logging.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/url_pattern.h"
@@ -22,6 +21,7 @@
 #include "chrome/renderer/extensions/event_bindings.h"
 #include "chrome/renderer/extensions/js_only_v8_extensions.h"
 #include "chrome/renderer/extensions/renderer_extension_bindings.h"
+#include "chrome/renderer/user_script_slave.h"
 #include "chrome/renderer/render_view.h"
 #include "grit/common_resources.h"
 #include "grit/renderer_resources.h"
@@ -82,17 +82,14 @@ static PermissionsMap* GetPermissionsMap(const std::string& extension_id) {
   return &Singleton<SingletonData>()->permissions_[extension_id];
 }
 
-static std::vector<std::string> GetActiveExtensionIDs() {
-  std::vector<std::string> extension_ids;
+static void GetActiveExtensionIDs(std::set<std::string>* extension_ids) {
   ExtensionPermissionsMap& permissions =
       Singleton<SingletonData>()->permissions_;
 
   for (ExtensionPermissionsMap::iterator iter = permissions.begin();
        iter != permissions.end(); ++iter) {
-    extension_ids.push_back(iter->first);
+    extension_ids->insert(iter->first);
   }
-
-  return extension_ids;
 }
 
 // A RenderViewVisitor class that iterates through the set of available
@@ -502,6 +499,11 @@ v8::Extension* ExtensionProcessBindings::Get() {
   return extension;
 }
 
+void ExtensionProcessBindings::GetActiveExtensions(
+    std::set<std::string>* extension_ids) {
+  GetActiveExtensionIDs(extension_ids);
+}
+
 void ExtensionProcessBindings::SetFunctionNames(
     const std::vector<std::string>& names) {
   ExtensionImpl::SetFunctionNames(names);
@@ -563,12 +565,6 @@ void ExtensionProcessBindings::SetAPIPermissions(
     permissions_map[Extension::kPermissionNames[i]] = false;
   for (size_t i = 0; i < permissions.size(); ++i)
     permissions_map[permissions[i]] = true;
-
-  // Ugly hack. We also update our list of active extensions here. This always
-  // gets called, even if the extension has no api permissions. In single
-  // process, this has already been done in the browser code.
-  if (!CommandLine::ForCurrentProcess()->HasSwitch(switches::kSingleProcess))
-    child_process_logging::SetActiveExtensions(GetActiveExtensionIDs());
 }
 
 // static
