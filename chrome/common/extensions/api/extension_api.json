@@ -1652,7 +1652,6 @@
         "name": "show",
         "type": "function",
         "description": "Displays a pop-up window hosting an extension view.",
-        "customHandler": "true",
         "parameters": [
           {
             "type": "string",
@@ -1668,7 +1667,7 @@
                 "properties": {},
                 "additionalProperties": { "type": "any" },
                 "isInstanceOf": "HTMLElement",
-                "description": "The HTMLElement whose position which serve as the anchor position of the popup."
+                "description": "A HTML DOM object to which the pop-up's position will be made relative."
               }
             }
           },
@@ -1680,7 +1679,7 @@
         ]
       },
       {
-        "name": "getAnchorWindow",
+        "name": "getParentWindow",
         "type": "function",
         "description": "Returns a reference to the window object of the extension view that launched the popup.",
         "parameters": [],
