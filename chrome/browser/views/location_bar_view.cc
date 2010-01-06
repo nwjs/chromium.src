@@ -1479,7 +1479,8 @@ void LocationBarView::PageActionImageView::BubbleBrowserWindowClosing(
 }
 
 void LocationBarView::PageActionImageView::BubbleLostFocus(
-    BrowserBubble* bubble) {
+    BrowserBubble* bubble,
+    gfx::NativeView focused_view) {
   if (!popup_)
     return;
 
