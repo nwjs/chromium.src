@@ -431,8 +431,7 @@ ExtensionPrefs::ExtensionsInfo* ExtensionPrefs::CollectExtensionsInfo(
            extension_data->begin_keys());
        extension_id != extension_data->end_keys(); ++extension_id) {
     DictionaryValue* ext;
-    if (!extension_data->GetDictionaryWithoutPathExpansion(*extension_id,
-                                                            &ext)) {
+    if (!extension_data->GetDictionary(*extension_id, &ext)) {
       LOG(WARNING) << "Invalid pref for extension " << *extension_id;
       NOTREACHED();
       continue;
