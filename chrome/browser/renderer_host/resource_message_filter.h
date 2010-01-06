@@ -300,6 +300,13 @@ class ResourceMessageFilter : public IPC::ChannelProxy::MessageFilter,
                 const GURL& url, std::string* signed_public_key);
   void OnOpenFileForPlugin(const FilePath& file_path,
                            ViewMsg_OpenFileForPluginResponse_Params* result);
+  void OnGetExtensionMessageBundle(const std::string& extension_id,
+                                   IPC::Message* reply_msg);
+  void OnGetExtensionMessageBundleOnFileThread(
+      const FilePath& extension_path,
+      const std::string& default_locale,
+      IPC::Message* reply_msg);
+
 #if defined(OS_LINUX)
   void SendDelayedReply(IPC::Message* reply_msg);
   void DoOnGetScreenInfo(gfx::NativeViewId view, IPC::Message* reply_msg);

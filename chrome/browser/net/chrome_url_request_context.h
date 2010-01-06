@@ -86,9 +86,11 @@ class ChromeURLRequestContextGetter : public URLRequestContextGetter,
   // thread before the instance is deleted on the IO thread.
   void CleanupOnUIThread();
 
-  // These methods simply forward to the corresponding method on
+  // These methods simply forward to the corresponding methods on
   // ChromeURLRequestContext.
-  void OnNewExtensions(const std::string& id, const FilePath& path);
+  void OnNewExtensions(const std::string& id,
+                       const FilePath& path,
+                       const std::string default_locale);
   void OnUnloadedExtension(const std::string& id);
 
   // NotificationObserver implementation.
@@ -144,11 +146,16 @@ class ChromeURLRequestContextGetter : public URLRequestContextGetter,
 class ChromeURLRequestContext : public URLRequestContext {
  public:
   typedef std::map<std::string, FilePath> ExtensionPaths;
+  typedef std::map<std::string, std::string> ExtensionDefaultLocales;
 
   ChromeURLRequestContext();
 
   // Gets the path to the directory for the specified extension.
   FilePath GetPathForExtension(const std::string& id);
+
+  // Returns an empty string if the extension with |id| doesn't have a default
+  // locale.
+  std::string GetDefaultLocaleForExtension(const std::string& id);
 
   // Gets the path to the directory user scripts are stored in.
   FilePath user_script_dir_path() const {
@@ -171,6 +178,10 @@ class ChromeURLRequestContext : public URLRequestContext {
     return extension_paths_;
   }
 
+  const ExtensionDefaultLocales& extension_default_locales() const {
+    return extension_default_locales_;
+  }
+
   virtual const std::string& GetUserAgent(const GURL& url) const;
 
   virtual bool InterceptCookie(const URLRequest* request, std::string* cookie);
@@ -181,7 +192,9 @@ class ChromeURLRequestContext : public URLRequestContext {
   const Blacklist* blacklist() const { return blacklist_; }
 
   // Callback for when new extensions are loaded.
-  void OnNewExtensions(const std::string& id, const FilePath& path);
+  void OnNewExtensions(const std::string& id,
+                       const FilePath& path,
+                       const std::string& default_locale);
 
   // Callback for when an extension is unloaded.
   void OnUnloadedExtension(const std::string& id);
@@ -245,6 +258,9 @@ class ChromeURLRequestContext : public URLRequestContext {
   void set_blacklist(const Blacklist* blacklist) {
     blacklist_ = blacklist;
   }
+  void set_extension_default_locales(const ExtensionDefaultLocales& locales) {
+    extension_default_locales_ = locales;
+  }
   void set_appcache_service(ChromeAppCacheService* service) {
     appcache_service_ = service;
   }
@@ -260,8 +276,13 @@ class ChromeURLRequestContext : public URLRequestContext {
 
  protected:
   // Maps extension IDs to paths on disk. This is initialized in the
-  // construtor and updated when extensions changed.
+  // constructor and updated when extensions changed.
   ExtensionPaths extension_paths_;
+
+  // Maps extension IDs to default locales. This is initialized in the
+  // constructor and updated when extensions change. Only extensions that
+  // have default_locale set are inserted.
+  ExtensionDefaultLocales extension_default_locales_;
 
   // Path to the directory user scripts are stored in.
   FilePath user_script_dir_path_;
@@ -308,6 +329,7 @@ class ChromeURLRequestContextFactory {
   std::string referrer_charset_;
   net::CookiePolicy::Type cookie_policy_type_;
   ChromeURLRequestContext::ExtensionPaths extension_paths_;
+  ChromeURLRequestContext::ExtensionDefaultLocales extension_default_locales_;
   FilePath user_script_dir_path_;
   Blacklist* blacklist_;
   net::StrictTransportSecurityState* strict_transport_security_state_;
