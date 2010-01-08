@@ -128,15 +128,16 @@ void AboutChromeView::Init() {
   }
 
   current_version_ = version_info->file_version();
-  current_version_ += L" (";
-  current_version_ += version_info->last_change();
-  current_version_ += L")";
 
   string16 version_modifier = platform_util::GetVersionStringModifier();
   if (version_modifier.length()) {
-    current_version_ += L" ";
-    current_version_ += UTF16ToWide(version_modifier);
+    version_details_ += L" ";
+    version_details_ += UTF16ToWide(version_modifier);
   }
+
+  version_details_ += L" (";
+  version_details_ += version_info->last_change();
+  version_details_ += L")";
 
   // Views we will add to the *parent* of this dialog, since it will display
   // next to the buttons which we don't draw ourselves.
@@ -183,7 +184,7 @@ void AboutChromeView::Init() {
 
   // This is a text field so people can copy the version number from the dialog.
   version_label_ = new views::Textfield();
-  version_label_->SetText(WideToUTF16Hack(current_version_));
+  version_label_->SetText(WideToUTF16Hack(current_version_ + version_details_));
   version_label_->SetReadOnly(true);
   version_label_->RemoveBorder();
   version_label_->SetTextColor(SK_ColorBLACK);
