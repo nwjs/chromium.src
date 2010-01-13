@@ -2761,7 +2761,6 @@
           'dependencies': [
             '../gears/gears.gyp:gears',
             '../google_update/google_update.gyp:google_update',
-            '../third_party/cld/cld.gyp:cld',
             '../third_party/tcmalloc/tcmalloc.gyp:tcmalloc',
             '../views/views.gyp:views',
             'installer/installer.gyp:installer_util',
@@ -3444,9 +3443,11 @@
         ['OS=="win"', {
           'include_dirs': [
             'third_party/wtl/include',
+            '../third_party/cld',
           ],
           'dependencies': [
             '../third_party/tcmalloc/tcmalloc.gyp:tcmalloc',
+            '../third_party/cld/cld.gyp:cld',
           ],
           'export_dependent_settings': [
             '../third_party/tcmalloc/tcmalloc.gyp:tcmalloc',
@@ -5647,7 +5648,6 @@
                 '../printing/printing.gyp:printing',
                 '../net/net.gyp:net_resources',
                 '../build/util/support/support.gyp:*',
-                '../third_party/cld/cld.gyp:cld',
                 '../views/views.gyp:views',
                 '../webkit/webkit.gyp:webkit_resources',
                 '../gears/gears.gyp:gears',
@@ -6578,7 +6578,6 @@
             '../third_party/bsdiff/bsdiff.gyp:*',
             '../third_party/bspatch/bspatch.gyp:*',
             '../third_party/bzip2/bzip2.gyp:*',
-            '../third_party/cld/cld.gyp:cld',
             '../third_party/codesighs/codesighs.gyp:*',
             '../third_party/icu/icu.gyp:*',
             '../third_party/libjpeg/libjpeg.gyp:*',

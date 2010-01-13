@@ -66,6 +66,10 @@
 #include "net/base/net_errors.h"
 #include "skia/ext/bitmap_platform_device.h"
 #include "skia/ext/image_operations.h"
+#if defined(OS_WIN)
+// TODO(port): The compact language detection library works only for Windows.
+#include "third_party/cld/bar/toolbar/cld/i18n/encodings/compact_lang_det/win/cld_unicodetext.h"
+#endif
 #include "third_party/WebKit/WebKit/chromium/public/WebAccessibilityCache.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebAccessibilityObject.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebDataSource.h"
@@ -209,6 +213,9 @@ static const char* const kUnreachableWebDataURL =
     "chrome://chromewebdata/";
 
 static const char* const kBackForwardNavigationScheme = "history";
+
+// The string returned in DetectLanguage if we failed to detect the language.
+static const char* const kUnknownLanguageCode = "unknown";
 
 static void GetRedirectChain(WebDataSource* ds, std::vector<GURL>* result) {
   WebVector<WebURL> urls;
@@ -444,7 +451,7 @@ void RenderView::OnMessageReceived(const IPC::Message& message) {
     IPC_MESSAGE_HANDLER(ViewMsg_CopyImageAt, OnCopyImageAt)
     IPC_MESSAGE_HANDLER(ViewMsg_ExecuteEditCommand, OnExecuteEditCommand)
     IPC_MESSAGE_HANDLER(ViewMsg_Find, OnFind)
-    IPC_MESSAGE_HANDLER(ViewMsg_DeterminePageText, OnDeterminePageText)
+    IPC_MESSAGE_HANDLER(ViewMsg_DeterminePageLanguage, OnDeterminePageLanguage)
     IPC_MESSAGE_HANDLER(ViewMsg_Zoom, OnZoom)
     IPC_MESSAGE_HANDLER(ViewMsg_SetPageEncoding, OnSetPageEncoding)
     IPC_MESSAGE_HANDLER(ViewMsg_ResetPageEncodingToDefault,
@@ -605,10 +612,11 @@ void RenderView::CapturePageInfo(int load_id, bool preliminary_capture) {
     Send(new ViewHostMsg_PageContents(url, load_id, contents));
   }
 
-  // Send over text content of this page to the browser.
+  // Now that we have the contents, we can determine the language if necessary.
   if (determine_page_text_after_loading_stops_) {
     determine_page_text_after_loading_stops_ = false;
-    Send(new ViewMsg_DeterminePageText_Reply(routing_id_, contents));
+    Send(new ViewHostMsg_PageLanguageDetermined(
+        routing_id_, DetermineTextLanguage(contents)));
   }
 
   // thumbnail
@@ -2927,21 +2935,47 @@ void RenderView::OnFind(int request_id, const string16& search_text,
   }
 }
 
-void RenderView::OnDeterminePageText() {
-  if (!is_loading_) {
-    if (!webview())
-      return;
-    WebFrame* main_frame = webview()->mainFrame();
-    std::wstring contents;
-    CaptureText(main_frame, &contents);
-    Send(new ViewMsg_DeterminePageText_Reply(routing_id_, contents));
-    determine_page_text_after_loading_stops_ = false;
+void RenderView::OnDeterminePageLanguage() {
+  if (is_loading_) {
+    // Wait for the page to finish loading before trying to determine the
+    // language.
+    determine_page_text_after_loading_stops_ = true;
     return;
   }
 
-  // We set |determine_page_text_after_loading_stops_| true here so that,
-  // after page has been loaded completely, the text in the page is captured.
-  determine_page_text_after_loading_stops_ = true;
+  Send(new ViewHostMsg_PageLanguageDetermined(routing_id_, DetectLanguage()));
+}
+
+std::string RenderView::DetectLanguage() {
+  if (!webview() || is_loading_)
+    return kUnknownLanguageCode;
+
+  std::string language = kUnknownLanguageCode;
+#if defined(OS_WIN)  // CLD is only available on Windows at this time.
+  WebFrame* main_frame = webview()->mainFrame();
+  std::wstring contents;
+  CaptureText(main_frame, &contents);
+  language = DetermineTextLanguage(contents);
+#endif
+
+  return language;
+}
+
+// static
+std::string RenderView::DetermineTextLanguage(const std::wstring& text) {
+  std::string language = kUnknownLanguageCode;
+#if defined(OS_WIN)  // CLD is only available on Windows at this time.
+  int num_languages = 0;
+  bool is_reliable = false;
+  Language cld_language =
+      DetectLanguageOfUnicodeText(text.c_str(), true, &is_reliable,
+                                  &num_languages, NULL);
+  if (cld_language != NUM_LANGUAGES && cld_language != UNKNOWN_LANGUAGE &&
+      cld_language != TG_UNKNOWN_LANGUAGE) {
+    language = LanguageCodeISO639_1(cld_language);
+  }
+#endif
+  return language;
 }
 
 void RenderView::DnsPrefetch(const std::vector<std::string>& host_names) {

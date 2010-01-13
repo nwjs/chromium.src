@@ -428,6 +428,11 @@ class RenderView : public RenderWidget,
   // UserScript::DOCUMENT_IDLE.
   void OnUserScriptIdleTriggered(WebKit::WebFrame* frame);
 
+  // Returns the ISO 639_1 language code of the current page
+  // (ex: en, fr, zh...).  Returns 'unknown' if the language could not be
+  // determined.
+  std::string DetectLanguage();
+
  protected:
   // RenderWidget overrides:
   virtual void Close();
@@ -553,7 +558,7 @@ class RenderView : public RenderWidget,
   void OnSetupDevToolsClient();
   void OnCancelDownload(int32 download_id);
   void OnFind(int request_id, const string16&, const WebKit::WebFindOptions&);
-  void OnDeterminePageText();
+  void OnDeterminePageLanguage();
   void OnZoom(int function);
   void OnSetPageEncoding(const std::string& encoding_name);
   void OnResetPageEncodingToDefault();
@@ -741,6 +746,12 @@ class RenderView : public RenderWidget,
 
   // Starts nav_state_sync_timer_ if it isn't already running.
   void StartNavStateSyncTimerIfNecessary();
+
+  // Returns the ISO 639_1 language code of the specified |text|, or 'unknown'
+  // if it failed.
+  // Note this only works on Windows at this time.  It always returns 'unknown'
+  // on other platforms.
+  static std::string DetermineTextLanguage(const std::wstring& text);
 
   // Bitwise-ORed set of extra bindings that have been enabled.  See
   // BindingsPolicy for details.
