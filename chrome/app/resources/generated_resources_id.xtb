@@ -213,7 +213,7 @@
 <translation id="4022426551683927403">T&amp;ambahkan ke Kamus</translation>
 <translation id="2897878306272793870">Anda yakin ingin membuka <ph name="TAB_COUNT"/> tab?</translation>
 <translation id="362276910939193118">Tampilkan Riwayat Lengkap</translation>
-<translation id="7879113706359663444"><ph name="HOUR"/>.<ph name="MIUTE"/>p</translation>
+<translation id="7879113706359663444"><ph name="HOUR"/>:<ph name="MIUTE"/>p</translation>
 <translation id="1073286447082909762">Buka Bingkai di &amp;Jendela Baru</translation>
 <translation id="692135145298539227">hapus, delete</translation>
 <translation id="8343477974731263456">Menyiapkan Sinkronisasi Bookmark</translation>
@@ -234,7 +234,7 @@
 <translation id="6686490380836145850">Tutup tab di sisi kanan</translation>
 <translation id="5608669887400696928"><ph name="NUMBER_DEFAULT"/> jam</translation>
 <translation id="2790948358747073186">Masih banyak lagi</translation>
-<translation id="5774515636230743468">Manifes:</translation>
+<translation id="5774515636230743468">Menunjukkan:</translation>
 <translation id="2423578206845792524">Sim&amp;pan gambar sebagai...</translation>
 <translation id="1095038624419434542">Terjadi galat saat memuat sumber daya program. Coba menginstal ulang.</translation>
 <translation id="9068931793451030927">Jalur:</translation>
@@ -305,7 +305,7 @@
 <translation id="5097982659374947325">Hanya Terima Kuki dari Situs yang Saya Kunjungi</translation>
 <translation id="14171126816530869">Identitas <ph name="ORGANIZATION"/> di <ph name="LOCALITY"/> telah diverifikasi oleh <ph name="ISSUER"/>.</translation>
 <translation id="1587275751631642843">Konsol &amp;JavaScript</translation>
-<translation id="5821894118254011366">Cekal seluruh kuki pihak ketiga</translation>
+<translation id="5821894118254011366">Blokir seluruh cookie pihak ketiga</translation>
 <translation id="3511307672085573050">Salin Ala&amp;mat Tautan</translation>
 <translation id="1134009406053225289">Buka di jendela penyamaran</translation>
 <translation id="6655190889273724601">Mode pengembang</translation>
@@ -405,7 +405,7 @@
 <translation id="994771890067000105">Ekstra unggulan</translation>
 <translation id="5155632014218747366">Untuk informasi lengkap mengenai masalah pada situs ini kunjungi <ph name="DIAGNOSTIC_PAGE"/> Google untuk <ph name="DOMAIN"/>.</translation>
 <translation id="1120026268649657149">Kata kunci harus diisi atau unik</translation>
-<translation id="7954187762705269222"><ph name="HOUR"/>.<ph name="MIUTE"/>a</translation>
+<translation id="7954187762705269222"><ph name="HOUR"/>:<ph name="MIUTE"/>a</translation>
 <translation id="5317780077021120954">Simpan</translation>
 <translation id="9027459031423301635">Buka Tautan di &amp;Tab Baru</translation>
 <translation id="358344266898797651">Celtik</translation>
@@ -854,7 +854,7 @@
 <translation id="4195643157523330669">Buka di tab baru</translation>
 <translation id="8030169304546394654">Diputuskan</translation>
 <translation id="3683878911947678690">Anda dapat menyinkronisasi bookmark Anda melintasi komputer menggunakan akun Google</translation>
-<translation id="4178055285485194276">Saat memulai:</translation>
+<translation id="4178055285485194276">Saat pengaktifan:</translation>
 <translation id="1154228249304313899">Buka halaman ini:</translation>
 <translation id="9074348188580488499">Anda yakin ingin menghapus semua sandi?</translation>
 <translation id="3627588569887975815">Buka tautan di jendela penya&amp;maran</translation>
