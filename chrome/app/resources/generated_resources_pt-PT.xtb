@@ -451,7 +451,7 @@
 <translation id="6719684875142564568"><ph name="NUMBER_ZERO"/> hours</translation>
 <translation id="7616581516194661584">Duplicado</translation>
 <translation id="8730621377337864115">Concluído</translation>
-<translation id="245834195813628985">Falta(m) <ph name="HOUR"/>:<ph name="MIUTE"/></translation>
+<translation id="245834195813628985">Restam <ph name="HOUR"/>:<ph name="MIUTE"/></translation>
 <translation id="6267166720438879315">Seleccione um certificado para se autenticar perante <ph name="HOST_NAME"/></translation>
 <translation id="7198134478421755850">Extensão</translation>
 <translation id="4713481510227594233">A Sincronização de marcadores foi desactivada neste computador. Se desinstalar a extensão <ph name="NAME_OF_EXTENSION"/>, pode voltar a activar a Sincronização de marcadores, seleccionando &quot;Sincronizar os meus marcadores...&quot; no menu Ferramentas.</translation>
@@ -576,7 +576,7 @@
 <translation id="7985242821674907985"><ph name="PRODUCT_NAME"/></translation>
 <translation id="4474155171896946103">Adicionar todos os separadores aos marcadores...</translation>
 <translation id="5646376287012673985">Localização</translation>
-<translation id="1110155001042129815">Kuwait</translation>
+<translation id="1110155001042129815">Esperar</translation>
 <translation id="7071586181848220801">Plug-in desconhecido</translation>
 <translation id="5956247558487200429">&amp;Reportar Erro ou Web Site Inoperacional...</translation>
 <translation id="6459488832681039634">Utilizar selecção para localizar</translation>
@@ -1014,7 +1014,7 @@
 <translation id="3009731429620355204">Sessões</translation>
 <translation id="7658590191988721853">Activar deslocamento na margem vertical</translation>
 <translation id="5190835502935405962">Barra de marcadores</translation>
-<translation id="5438430601586617544">(Desempacotada)</translation>
+<translation id="5438430601586617544">(não compilada)</translation>
 <translation id="6460601847208524483">Localizar seguinte</translation>
 <translation id="3473034187222004855">Co&amp;piar caminho do ficheiro</translation>
 <translation id="3038131737570201586">Esta extensão terá acesso ao seu histórico de navegação e aos seus dados privados em vários Web sites.</translation>
@@ -1208,7 +1208,7 @@
 <translation id="176587472219019965">&amp;Nova Janela</translation>
 <translation id="8689341121182997459">Expira:</translation>
 <translation id="1857842694030005096">Mais informações sobre este erro</translation>
-<translation id="4880827082731008257">Histórico de pesquisas</translation>
+<translation id="4880827082731008257">Pesquisa do histórico</translation>
 <translation id="8661290697478713397">Abrir Link numa Janela de Nave&amp;gação Anónima</translation>
 <translation id="4197700912384709145"><ph name="NUMBER_ZERO"/> seg.</translation>
 <translation id="8609465669617005112">Mover para cima</translation>
@@ -1289,7 +1289,7 @@
 <translation id="1918141783557917887">Mai&amp;s pequeno</translation>
 <translation id="4065006016613364460">C&amp;opiar URL de imagem</translation>
 <translation id="6965382102122355670">OK</translation>
-<translation id="4481249487722541506">Carregar extensão desempacotada...</translation>
+<translation id="4481249487722541506">Carregar extensão não compilada...</translation>
 <translation id="8542113417382134668">Tipo de letra Serif:</translation>
 <translation id="2149973817440762519">Editar marcador</translation>
 <translation id="430831869130657585">Sufixos</translation>

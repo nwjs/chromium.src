@@ -627,6 +627,7 @@
 <translation id="5110450810124758964"><ph name="NUMBER_ONE"/> dag geleden</translation>
 <translation id="5256138355144269748">Pop-up geblokkeerd</translation>
 <translation id="2820806154655529776"><ph name="NUMBER_ONE"/> sec</translation>
+<translation id="1077946062898560804">Automatische updates instellen voor alle gebruikers</translation>
 <translation id="3122496702278727796">Kan gegevensdirectory niet maken</translation>
 <translation id="8888930795132369495">Bestand en &amp;pad kopiëren</translation>
 <translation id="4517036173149081027">Sluiten en download annuleren</translation>
@@ -879,7 +880,7 @@
 <translation id="1166212789817575481">Tabbladen aan de rechterkant sluiten</translation>
 <translation id="6472893788822429178">Knop 'Startpagina' weergeven</translation>
 <translation id="5685236799358487266">Toevoe&amp;gen als zoekmachine...</translation>
-<translation id="3437016096396740659">De accu is opgeladen</translation>
+<translation id="3437016096396740659">De batterij is opgeladen</translation>
 <translation id="7907591526440419938">Bestand openen</translation>
 <translation id="21133533946938348">Tabblad vastzetten</translation>
 <translation id="2864069933652346933"><ph name="NUMBER_ZERO"/> days left</translation>
@@ -952,7 +953,7 @@
 <translation id="6181769708911894002">Waarschuwing: het bezoeken van deze site kan uw computer beschadigen.</translation>
 <translation id="3412265149091626468">Ga naar selectie</translation>
 <translation id="3785852283863272759">Verstuur paginalocatie</translation>
-<translation id="7326526699920221209">Accu: <ph name="PRECENTAGE"/>%</translation>
+<translation id="7326526699920221209">Batterij: <ph name="PRECENTAGE"/>%</translation>
 <translation id="601778514741867265">Alleen cookies accepteren van sites die ik bezoek</translation>
 <translation id="8299269255470343364">Japans</translation>
 <translation id="5204993535447683655">&lt;a jsvalues=&quot;href:reloadUrl&quot;&gt;Laad&lt;/a&gt; deze webpagina later opnieuw.</translation>

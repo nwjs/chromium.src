@@ -102,6 +102,7 @@
 <translation id="443008484043213881">கருவிகள்</translation>
 <translation id="314605055819837597">பயனர் தரவு</translation>
 <translation id="8534801226027872331">இந்த சமயத்தில், உங்கள் உலாவிக்கு அளிக்கப்பட்ட சான்றிதழில் பிழைகள் உள்ளன மேலும் அதைப் புரிந்து கொள்ள முடியவில்லை. அதாவது சான்றிதழில் உள்ள அடையாளம் அல்லது இணைப்பைப் பாதுகாக்கப் பயன்படுத்தப்பட்ட சான்றிதழில் உள்ள வேறு குறிப்பிட்ட தகவலை எங்களால் புரிந்து கொள்ள முடியவில்லை. நீங்கள் தொடரக்கூடாது.</translation>
+<translation id="1486408090387743835"><ph name="PRODUCT_NAME"/> இல் இப்போது <ph name="BEGIN_LINK"/>நீட்டிப்புகள்<ph name="END_LINK"/> மற்றும் <ph name="BEGIN_BUTTON"/>புக்மார்க் ஒத்திசைவு<ph name="END_BUTTON"/>ம் இருக்கின்றது.</translation>
 <translation id="3147949335879360642">உங்கள் புக்மார்க்குகள் ஒன்றிணைக்கப்படும்.</translation>
 <translation id="4422347585044846479">இந்தப் பக்கத்திற்கான புக்மார்க்ஸைத் திருத்து</translation>
 <translation id="7367545749698325833">பிற உலாவிகளிலிருந்து உங்கள் புக்மார்க்குகள் அல்லது அமைப்புகளை இறக்குமதி செய்யலாம் அல்லது இந்த கணினியிலுள்ள உங்கள் உலாவல் தரவுகளை அழிக்கலாம்.</translation>
@@ -149,6 +150,7 @@
 <translation id="7511635910912978956">இன்னும் <ph name="NUMBER_FEW"/> மணிநேரம் உள்ளது</translation>
 <translation id="1720675772864601791">பாதுகாப்பற்ற படங்களை அனுமதி</translation>
 <translation id="471372654970523967"><ph name="NETWORKDEVICE"/> ஐ இயக்கு</translation>
+<translation id="6431347207794742960">இந்த கணினியில் எல்லா பயனர்களுக்கும் <ph name="PRODUCT_NAME"/> தானாக புதுப்பித்தலை அமைப்பார்</translation>
 <translation id="4001299999465067131">மேலே உள்ள படத்தில் காண்பிக்கப்படும் எழுத்துகளை அதில் உள்ளவாறு உள்ளிடுக.</translation>
 <translation id="2167276631610992935">Javascript</translation>
 <translation id="5233638681132016545">புதிய தாவல்</translation>
@@ -224,6 +226,7 @@
 <translation id="2678063897982469759">மீண்டும் இயக்கு</translation>
 <translation id="4850886885716139402">காட்சி</translation>
 <translation id="1965338962645102116">Chrome இல் கருவிப்பட்டி புக்மார்க்குகளை இறக்குமதி செய்ய, உங்கள் Google கணக்கிலிருந்து வெளியேறி இருக்கவேண்டும். தயவுசெய்து உள்நுழைந்து மீண்டும் இறக்குமதி செய்ய முயற்சி செய்க.</translation>
+<translation id="5035846689029228055">புக்மார்க் ஒத்திசைவு:</translation>
 <translation id="5922220455727404691">SSL 3.0 ஐப் பயன்படுத்துக</translation>
 <translation id="5903264686717710770">தலைப்பு:</translation>
 <translation id="8899851313684471736">இணைப்பை புதிய &amp;சாளரத்தில் திற</translation>
@@ -621,6 +624,7 @@
 <translation id="2819994928625218237">&amp;எழுத்து சரிபார்ப்பு பரிந்துரைகள் எதுவும் இல்லை</translation>
 <translation id="4316305410440790958">சட்டகத்தை புதிய &amp;தாவலில் திற</translation>
 <translation id="9142623379911037913">டெஸ்க்டாப் அறிவித்தல்களைக் காண்பிக்க  <ph name="SITE"/> ஐ அனுமதிக்கவா?</translation>
+<translation id="4196320913210960460">கருவிகள் மெனுவில் நீட்டிப்புகள் என்பதைக் கிளிக் செய்வதன் மூலம் நிறுவப்பட்ட நீட்டிப்புகளை நீங்கள் நிரிவகிக்கலாம்.</translation>
 <translation id="9118804773997839291">பக்கத்திற்கானப் பாதுகாப்பற்ற அனைத்து கூறுகளின் பட்டியலைக் கீழே காணலாம். வரிசையிலுள்ள குறிப்பிட்ட ஆதாரம் குறித்த மேலும் தகவலுக்கு, பகுப்பாய்வு என்ற இணைப்பினைக் கிளிக் செய்க.</translation>
 <translation id="3664021239099029884">எல்லா பதிவிறக்கங்களையும் காண்க</translation>
 <translation id="2207746515960750386"><ph name="MINUTE"/> நிமிடம்/நிமிடங்கள் முன்பு</translation>
@@ -634,6 +638,7 @@
 <translation id="5110450810124758964"><ph name="NUMBER_ONE"/> day ago</translation>
 <translation id="5256138355144269748">தடுக்கப்பட்ட பாப்-அப்</translation>
 <translation id="2820806154655529776"><ph name="NUMBER_ONE"/> நொடி</translation>
+<translation id="1077946062898560804">எல்லா பயனர்களுக்கும் தானாக புதுப்பித்தலை அமைக்கவும்</translation>
 <translation id="3122496702278727796">ஒரு தரவு கோப்பகத்தை உருவாக்குவதில் தோல்வியடைந்தது</translation>
 <translation id="8888930795132369495">கோப்பின் &amp;பாதையை நகலெடு</translation>
 <translation id="4517036173149081027">மூடு மற்றும் பதிவிறக்கத்தை ரத்து செய்</translation>
@@ -826,6 +831,7 @@
 <translation id="8755376271068075440">&amp;பெரியது</translation>
 <translation id="8187473050234053012">சர்வரின் பாதுகாப்பு சான்றிதழ் திரும்பப் பெறப்பட்டது!</translation>
 <translation id="4273720809906836559">புக்மார்க் ஒத்திசைவு</translation>
+<translation id="6003177993629630467"><ph name="PRODUCT_NAME"/> தன்னையே புதுப்பிக்க இயலாது போகலாம்.</translation>
 <translation id="152482086482215392">இன்னும் <ph name="NUMBER_ONE"/> நொடிகள் உள்ளன</translation>
 <translation id="8447116497070723931">PgUp</translation>
 <translation id="1970746430676306437">பக்கத்தின் &amp;தகவலைக் காட்டு</translation>
@@ -918,6 +924,7 @@
         ஒன்றிணைக்கப்படும். இந்த ஒன்றிணைவுக்கு பின்னர்
         புக்மார்க் நிர்வாகியின் மூலம்  புக்மார்க்குகளை நீங்கள் நிர்வகிக்கலாம்.</translation>
 <translation id="8502249598105294518"><ph name="PRODUCT_NAME"/> ஐ தனிப்பயனாக்கி கட்டுப்படுத்துக</translation>
+<translation id="8590375307970699841">தானாக புதுப்பித்தலை அமைக்கவும்</translation>
 <translation id="2797524280730715045"><ph name="NUMBER_DEFAULT"/> hours ago</translation>
 <translation id="768570155019561996">பல வலைத்தளங்களிலும் உள்ள உங்கள் தனிப்பட்ட தரவுகளுக்கான அணுகலை இந்த நீட்டிப்பு பெறும். </translation>
 <translation id="7180865173735832675">தனிப்பயனாக்கு</translation>
@@ -1024,6 +1031,7 @@
 <translation id="3009731429620355204">அமர்வுகள்</translation>
 <translation id="7658590191988721853">செங்குத்துநிலை உருட்டுதலை இயக்கு</translation>
 <translation id="5190835502935405962">புக்மார்க்குகள் பட்டி</translation>
+<translation id="5438430601586617544">(தொகுக்கப்படாதது)</translation>
 <translation id="6460601847208524483">அடுத்ததைக் கண்டுபிடி</translation>
 <translation id="3473034187222004855">கோப்பின் &amp;பாதையை நகலெடு</translation>
 <translation id="3038131737570201586">பல வலைத்தளங்களிலும் உள்ள உங்கள் உலாவல் வரலாற்றுக்கும் தனிப்பட்ட தரவுகளுக்குமான அணுகலை இந்த நீட்டிப்பு பெறும். </translation>
@@ -1298,6 +1306,7 @@
 <translation id="1918141783557917887">&amp;சிறியது</translation>
 <translation id="4065006016613364460">பட URL  ஐ நக&amp;லெடு</translation>
 <translation id="6965382102122355670">சரி</translation>
+<translation id="4481249487722541506">தொகுக்கப்படாத நீட்டிப்பை ஏற்றவும்...</translation>
 <translation id="8542113417382134668">Serif எழுத்துரு:</translation>
 <translation id="2149973817440762519">புக்மார்க்கை மாற்றுக</translation>
 <translation id="430831869130657585">பின்னொட்டுகள்</translation>

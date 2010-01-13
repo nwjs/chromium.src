@@ -102,6 +102,7 @@
 <translation id="443008484043213881">साधने</translation>
 <translation id="314605055819837597">वापरकर्ता डेटा</translation>
 <translation id="8534801226027872331">या प्रकरणात, आपल्या ब्राउझरला सादर केलेल्या प्रमाणपत्रात त्रुटी आहेत आणि ते समजू शकत नाही. याचा अर्थ असा होऊ शकतो की आम्ही प्रमाणपत्रातील ओळख माहिती किंवा कनेक्शन सुरक्षित करण्यासाठी प्रमाणपत्रात वापरलेली इतर विशिष्ट माहिती समजू शकत नाही. आपण पुढे जाऊ नये.</translation>
+<translation id="1486408090387743835"><ph name="PRODUCT_NAME"/> मध्ये आता <ph name="BEGIN_LINK"/>विस्तार<ph name="END_LINK"/> आणि <ph name="BEGIN_BUTTON"/>बुकमार्क समक्रमण<ph name="END_BUTTON"/> आहे. </translation>
 <translation id="3147949335879360642">आपले बुकमार्क विलीन केले जातील.</translation>
 <translation id="4422347585044846479">या पृष्ठासाठी बुकमार्क संपादित करा</translation>
 <translation id="7367545749698325833">आपण इतर ब्राउझरवरुन आपले बुकमार्क आणि सेटिंग्ज आयात करू शकता किंवा या संगणकावरील आपला ब्राउझिंग डेटा साफ करू शकता.</translation>
@@ -149,6 +150,7 @@
 <translation id="7511635910912978956"><ph name="NUMBER_FEW"/> तास बाकी</translation>
 <translation id="1720675772864601791">असुरक्षित प्रतिमांना परवानगी द्या</translation>
 <translation id="471372654970523967"><ph name="NETWORKDEVICE"/> चालू करा</translation>
+<translation id="6431347207794742960">या संगणकाच्या सर्व वापरकर्त्यांसाठी <ph name="PRODUCT_NAME"/> स्वयंचलित अद्यतने सेट करतील.</translation>
 <translation id="4001299999465067131">उपरोक्त प्रतिमेत दिसत आहेत ती अक्षरे प्रविष्ट करा.</translation>
 <translation id="2167276631610992935">Javascript</translation>
 <translation id="5233638681132016545">नवीन टॅब</translation>
@@ -224,6 +226,7 @@
 <translation id="2678063897982469759">पुन्हा-सक्षम करा</translation>
 <translation id="4850886885716139402">पहा</translation>
 <translation id="1965338962645102116">Chrome मध्ये टूलबार बुकमार्क आयात करण्यासाठी, आपण आपल्‍या Google खात्यात लॉग इन असणे आवश्यक आहे.  कृपया लॉग इन करा आणि पुन्हा आयात करण्याचा प्रयत्न करा.</translation>
+<translation id="5035846689029228055">बुकमार्क  समक्रमणः</translation>
 <translation id="5922220455727404691">SSL 3.0 वापरा</translation>
 <translation id="5903264686717710770">शीर्षक:</translation>
 <translation id="8899851313684471736">दुवा नवीन &amp;विंडोमध्ये उघडा</translation>
@@ -618,6 +621,7 @@
 <translation id="2819994928625218237">शब्दलेखन सूचना &amp;नाहीत</translation>
 <translation id="4316305410440790958">फ्रेम नवीन &amp;टॅबमध्ये उघडा</translation>
 <translation id="9142623379911037913"><ph name="SITE"/> ना डेस्कटॉप सूचना दर्शविण्यास अनुमती द्यायची?</translation>
+<translation id="4196320913210960460">साधने मेनुमध्ये विस्तार वर क्लिक करुन आपण आपले स्थापित केलेले विस्तार व्यवस्थापित करू शकता. </translation>
 <translation id="9118804773997839291">खाली पृष्ठासाठी सर्व असुरक्षित घटकांची सूची आहे. थ्रेडच्या अधिक विशिष्ट घटकांच्या माहितीसाठी निदान दुव्यावर क्लिक करा.</translation>
 <translation id="3664021239099029884">सर्व डाउनलोड पहा</translation>
 <translation id="2207746515960750386"><ph name="MINUTE"/> मिनिटा/मिनिटां पूर्वी</translation>
@@ -631,6 +635,7 @@
 <translation id="5110450810124758964"><ph name="NUMBER_ONE"/> day ago</translation>
 <translation id="5256138355144269748">अवरोधित पॉप-अप</translation>
 <translation id="2820806154655529776"><ph name="NUMBER_ONE"/> से</translation>
+<translation id="1077946062898560804">सर्व वापरकर्त्यांसाठी स्वयंचलित अद्यतने सेट करा</translation>
 <translation id="3122496702278727796">डेटा निर्देशिका तयार करण्यात अयशस्वी</translation>
 <translation id="8888930795132369495">फाइल &amp;पथ कॉपी करा</translation>
 <translation id="4517036173149081027">बंद करा आणि डाउनलोड रद्द करा</translation>
@@ -821,6 +826,7 @@
 <translation id="8755376271068075440">&amp;विशाल</translation>
 <translation id="8187473050234053012">सर्व्हरचे सुरक्षितता प्रमाणपत्र निरस्त केले आहे!</translation>
 <translation id="4273720809906836559">बुकमार्क समक्रमण</translation>
+<translation id="6003177993629630467"><ph name="PRODUCT_NAME"/> कदाचित त्यास अद्यतनित ठेवण्यास सक्षम नाही. </translation>
 <translation id="152482086482215392"><ph name="NUMBER_ONE"/> से बाकी</translation>
 <translation id="8447116497070723931">PgUp</translation>
 <translation id="1970746430676306437">पृष्ठ &amp;माहिती पहा</translation>
@@ -912,6 +918,7 @@
         बुकमार्कसह विलीन केले जातील. विलीन केल्यानंतर आपले बुकमार्क व्यवस्थापित करण्यासाठी
         आपण बुकमार्क व्यवस्थापक वापरू शकता.</translation>
 <translation id="8502249598105294518"><ph name="PRODUCT_NAME"/> सानुकूलित आणि नियंत्रित करा</translation>
+<translation id="8590375307970699841">स्वयंचलित अद्यतने सेट करा</translation>
 <translation id="2797524280730715045"><ph name="NUMBER_DEFAULT"/> hours ago</translation>
 <translation id="768570155019561996">या विस्तारास एकाधिक वेबसाइटवर आपल्या खासगी डेटामध्ये प्रवेश असेल.</translation>
 <translation id="7180865173735832675">सानुकूल करा</translation>
@@ -1018,6 +1025,7 @@
 <translation id="3009731429620355204">सत्रे</translation>
 <translation id="7658590191988721853">अनुलंब किनारा स्क्रोलिंग सक्षम करा</translation>
 <translation id="5190835502935405962">बुकमार्क बार</translation>
+<translation id="5438430601586617544">(अनपॅक केलेले)</translation>
 <translation id="6460601847208524483">पुढील शोधा</translation>
 <translation id="3473034187222004855">फाइल &amp;पथ कॉपी करा</translation>
 <translation id="3038131737570201586">या विस्तारास आपल्या ब्राउझिंग इतिहास आणि एकाधिक वेबसाइट्सवर खासगी डेटामध्ये प्रवेश असेल.</translation>
@@ -1292,6 +1300,7 @@
 <translation id="1918141783557917887">&amp;जरा लहान</translation>
 <translation id="4065006016613364460">प्रतिमा URL कॉ&amp;पी करा</translation>
 <translation id="6965382102122355670">ओके</translation>
+<translation id="4481249487722541506">अनपॅक केलेला विस्तार लोड करा...</translation>
 <translation id="8542113417382134668">Serif फॉन्ट:</translation>
 <translation id="2149973817440762519">बुकमार्क संपादित करा</translation>
 <translation id="430831869130657585">प्रत्यय</translation>

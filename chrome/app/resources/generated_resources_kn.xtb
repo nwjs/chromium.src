@@ -100,6 +100,7 @@
 <translation id="443008484043213881">ಸಾಧನಗಳು</translation>
 <translation id="314605055819837597">ಬಳಕೆದಾರ ಡೇಟಾ</translation>
 <translation id="8534801226027872331">ಈ ಸಂದರ್ಭದಲ್ಲಿ, ನಿಮ್ಮ ಬ್ರೌಸರ್‌ಗೆ ಒದಗಿಸಿದ ಪ್ರಮಾಣಪತ್ರವು ದೋಷವನ್ನು ಹೊಂದಿದೆ ಮತ್ತು ಅರ್ಥವಾಗಲಿಲ್ಲ. ಇದರರ್ಥ ಸಂಪರ್ಕವನ್ನು ಸುರಕ್ಷಿತವಾಗಿಸಲು ಬಳಸಿದ ಪ್ರಮಾಣಪತ್ರದಲ್ಲಿರುವ ಗುರುತಿನ ಮಾಹಿತಿ, ಅಥವಾ ಪ್ರಮಾಣಪತ್ರದಲ್ಲಿರುವ ಕೆಲವು ಇತರ ಮಾಹಿತಿಗಳನ್ನು ನಾವು ಅರ್ಥಮಾಡಿಕೊಂಡಿಲ್ಲ ಎಂದು ಆಗಿರಬಹುದು. ನೀವು ಮುಂದುವರಿಯಬಾರದು.</translation>
+<translation id="1486408090387743835"><ph name="PRODUCT_NAME"/> ಈಗ <ph name="BEGIN_LINK"/>ವಿಸ್ತರಣೆಗೆಳನ್ನು<ph name="END_LINK"/> ಮತ್ತು <ph name="BEGIN_BUTTON"/>ಬುಕ್‌ಮಾರ್ಕ್ ಸಿಂಕ್<ph name="END_BUTTON"/> ನ್ನು ಹೊಂದಿದೆ.</translation>
 <translation id="3147949335879360642">ನಿಮ್ಮ ಬುಕ್‌ಮಾರ್ಕ್‌ಗಳನ್ನು ವಿಲೀನಗೊಳಿಸಲಾಗುವುದು.</translation>
 <translation id="4422347585044846479">ಈ ಪುಟಕ್ಕಾಗಿ ಬುಕ್‌ಮಾರ್ಕ್ ಅನ್ನು ಸಂಪಾದಿಸಿ</translation>
 <translation id="7367545749698325833">ಇತರ ಬ್ರೌಸರ್‌ಗಳಿಂದ ನೀವು ನಿಮ್ಮ ಬುಕ್‌ಮಾರ್ಕ್‌ಗಳು ಮತ್ತು ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ಆಮದು ಮಾಡಿಕೊಳ್ಳಬಹುದು ಅಥವಾ ಈ ಕಂಪ್ಯೂಟರ್‌ನಿಂದ ಬ್ರೌಸಿಂಗ್ ಡೇಟಾವನ್ನು ತೆರವುಗೊಳಿಸಬಹುದು.</translation>
@@ -147,6 +148,7 @@
 <translation id="7511635910912978956"><ph name="NUMBER_FEW"/> ಗಂಟೆಗಳು ಉಳಿದಿವೆ</translation>
 <translation id="1720675772864601791">ಅಸುರಕ್ಷಿತ ಇಮೇಜ್‌ಗಳನ್ನು ಅನುಮತಿಸಿ</translation>
 <translation id="471372654970523967"><ph name="NETWORKDEVICE"/> ಆನ್ ಮಾಡಿ</translation>
+<translation id="6431347207794742960">ಈ ಕಂಪ್ಯೂಟರ್‌ನ ಎಲ್ಲ ಬಳಕೆದಾರರಿಗಾಗಿ <ph name="PRODUCT_NAME"/> ಸ್ವಯಂಚಾಲಿತ ನವೀಕರಣಗಳನ್ನು ಹೊಂದಿಸುತ್ತದೆ.</translation>
 <translation id="4001299999465067131">ಈ ಮೇಲಿನ ಇಮೇಜ್‌ನಲ್ಲಿ ತೋರಿಸಿದಂತೆಯೇ ಅಕ್ಷರಗಳನ್ನು ನಮೂದಿಸಿ.</translation>
 <translation id="2167276631610992935">Javascript</translation>
 <translation id="5233638681132016545">ಹೊಸ ಟ್ಯಾಬ್</translation>
@@ -222,6 +224,7 @@
 <translation id="2678063897982469759">ಮರು-ಸಕ್ರಿಯಗೊಳಿಸಿ</translation>
 <translation id="4850886885716139402">ವೀಕ್ಷಣೆ</translation>
 <translation id="1965338962645102116">ಟೂಲ್‌ಬಾರ್ ಬುಕ್‌ಮಾರ್ಕ್‌ಗಳನ್ನು Chrome ಗೆ ಆಮದು ಮಾಡಲು, ನಿಮ್ಮ Google ಖಾತೆಗೆ ನೀವು ಲಾಗ್‌ಇನ್ ಆಗಬೇಕು. ದಯವಿಟ್ಟು ಲಾಗಿನ್ ಮಾಡಿ ಹಾಗೂ ಮತ್ತೆ ಆಮದು ಮಾಡಲು ಪ್ರಯತ್ನಿಸಿ.</translation>
+<translation id="5035846689029228055">ಬುಕ್‌ಮಾರ್ಕ್ ಸಿಂಕ್:</translation>
 <translation id="5922220455727404691">SSL 3.0 ಬಳಸಿ</translation>
 <translation id="5903264686717710770">ಶೀರ್ಷಿಕೆ:</translation>
 <translation id="8899851313684471736">ಹೊಸ &amp;ವಿಂಡೋದಲ್ಲಿ ಲಿಂಕ್ ತೆರೆಯಿರಿ</translation>
@@ -618,6 +621,7 @@
 <translation id="2819994928625218237">ಯಾವುದೇ ಕಾಗುಣಿತ ಸಲಹೆಗಳು &amp;ಇಲ್ಲ</translation>
 <translation id="4316305410440790958">ಹೊಸ &amp;ಟ್ಯಾಬ್‌ನಲ್ಲಿ ಫ್ರೇಮ್ ತೆರೆಯಿರಿ</translation>
 <translation id="9142623379911037913">ಡೆಸ್ಕ್‌ಟಾಪ್ ಪ್ರಕಟಣೆಗಳನ್ನು ತೋರಿಸಲು<ph name="SITE"/> ಅನ್ನು ಅನುಮತಿಸಬೇಕೇ?</translation>
+<translation id="4196320913210960460">ನೀವು ಟೂಲ್‌ಗಳ ಮೆನುವಿನಲ್ಲಿರುವ ವಿಸ್ತರಣೆಗಳು ಅನ್ನು ಕ್ಲಿಕ್ ಮಾಡುವ ಮೂಲಕ ನಿಮ್ಮ ಸ್ಥಾಪಿಸಲ್ಪಟ್ಟ ವಿಸ್ತರಣೆಗಳನ್ನು ನಿರ್ವಹಿಸಬಹುದು.</translation>
 <translation id="9118804773997839291">ಪುಟಕ್ಕೆ ಎಲ್ಲಾ ಸುರಕ್ಷಿತವಲ್ಲದ ಅಂಶಗಳ ಪಟ್ಟಿ ಕೆಳಗಿದೆ. ನಿರ್ದಿಷ್ಟ ಸಂಪನ್ಮೂಲಕ್ಕೆ ಥ್ರೆಡ್‌ನಲ್ಲಿ ಹೆಚ್ಚಿನ ಮಾಹಿತಿಗಾಗಿ ಡಯಗ್ನೋಸ್ಟಿಕ್ ಲಿಂಕ್‌ನಲ್ಲಿ ಕ್ಲಿಕ್ ಮಾಡಿ.</translation>
 <translation id="3664021239099029884">ಎಲ್ಲಾ ಡೌನ್‌ಲೋಡ್‌ಗಳನ್ನು ನೋಡಿ</translation>
 <translation id="2207746515960750386"><ph name="MINUTE"/> ನಿಮಿಷ/ನಿಮಿಷಗಳ ಹಿಂದೆ</translation>
@@ -631,6 +635,7 @@
 <translation id="5110450810124758964"><ph name="NUMBER_ONE"/> day ago</translation>
 <translation id="5256138355144269748">ನಿರ್ಬಂಧಿಸಿದ Pop-up</translation>
 <translation id="2820806154655529776"><ph name="NUMBER_ONE"/> ಸೆಕೆಂಡು</translation>
+<translation id="1077946062898560804">ಎಲ್ಲ ಬಳಕೆದಾರರಿಗೆ ಸ್ವಯಂಚಾಲಿತ ನವೀಕರಣಗಳನ್ನು ಹೊಂದಿಸಿ </translation>
 <translation id="3122496702278727796">ಡೇಟಾ ಡೈರೆಕ್ಟರಿ ರಚಿಸಲು ವಿಫಲವಾಗಿದೆ</translation>
 <translation id="8888930795132369495">ಫೈಲ್ &amp;ಪಾಥ್ ನಕಲು ಮಾಡಿ</translation>
 <translation id="4517036173149081027">ಮುಚ್ಚಿ ಮತ್ತು ಡೌನ್‌ಲೋಡ್ ರದ್ದುಮಾಡಿ</translation>
@@ -823,6 +828,7 @@
 <translation id="8755376271068075440">&amp;ದೊಡ್ಡದು</translation>
 <translation id="8187473050234053012">ಸರ್ವರ್‌ನ ಭದ್ರತಾ ಪ್ರಮಾಣಪತ್ರ ಹಿಂತೆಗೆದುಕೊಂಡಿದೆ!</translation>
 <translation id="4273720809906836559">ಬುಕ್‌ಮಾರ್ಕ್ ಸಿಂಕ್</translation>
+<translation id="6003177993629630467"><ph name="PRODUCT_NAME"/> ತಾನಾಗಿಯೇ ನವೀಕರಣ ಹೊಂದಲು ಸಾಧ್ಯವಿಲ್ಲ.</translation>
 <translation id="152482086482215392"><ph name="NUMBER_ONE"/> ಸೆಕೆಂಡುಗಳು ಉಳಿದಿದೆ</translation>
 <translation id="8447116497070723931">PgUp</translation>
 <translation id="1970746430676306437">ಪುಟ &amp;ಮಾಹಿತಿಯನ್ನು ವೀಕ್ಷಿಸಿ</translation>
@@ -913,6 +919,7 @@
 <translation id="4478664379124702289">ಇದರಂತೆ ಲಿಂ&amp;ಕ್ ಅನ್ನು ಉಳಿಸಿ...</translation>
 <translation id="1044231968500257587">ನಿಮ್ಮ ಪ್ರಸ್ತುತ ಆನ್‌ಲೈನ್ ಬುಕ್‌ಮಾರ್ಕ್‌ಗಳನ್ನು ಈ ಯಂತ್ರದಲ್ಲಿರುವ ಬುಕ್‌ಮಾರ್ಕ್‌ಗಳೊಂದಿಗೆ ವಿಲೀನಗೊಳಿಸಲಾಗುವುದು. ವಿಲೀನಗೊಳಿಸಿದ ನಂತರ ನಿಮ್ಮ ಬುಕ್‌ಮಾರ್ಕ್‌ಗಳನ್ನು ಸಂಯೋಜಿಸಲು ನೀವು ಬುಕ್‌ಮಾರ್ಕ್ ನಿರ್ವಾಹಕವನ್ನು ಬಳಸಬಹುದು.</translation>
 <translation id="8502249598105294518"><ph name="PRODUCT_NAME"/> ಅನ್ನು ಕಸ್ಟಮೈಸ್ ಮಾಡಿ ಮತ್ತು ನಿಯಂತ್ರಿಸಿ</translation>
+<translation id="8590375307970699841">ಸ್ವಯಂಚಾಲಿತ ನವೀಕರಣಗಳನ್ನು ಹೊಂದಿಸಿ</translation>
 <translation id="2797524280730715045"><ph name="NUMBER_DEFAULT"/> hours ago</translation>
 <translation id="768570155019561996">ಅನೇಕ ವೆಬ್‌ಸೈಟ್‌ಗಳಲ್ಲಿ ನಿಮ್ಮ ಖಾಸಗಿ ಡೇಟಾಗೆ ಈ ವಿಸ್ತರಣೆಯು ಪ್ರವೇಶವನ್ನು ಹೊಂದಿರುತ್ತದೆ.</translation>
 <translation id="7180865173735832675">ಕಸ್ಟಮೈಸ್</translation>
@@ -1019,6 +1026,7 @@
 <translation id="3009731429620355204">ಅವಧಿಗಳು</translation>
 <translation id="7658590191988721853">ಲಂಬ ತುದಿ ಸ್ಕ್ರೋಲಿಂಗ್ ಸಕ್ರಿಯಗೊಳಿಸಿ</translation>
 <translation id="5190835502935405962">ಬುಕ್‌ಮಾರ್ಕ್‌ಗಳ ಬಾರ್</translation>
+<translation id="5438430601586617544">(ಬಿಚ್ಚಿರುವುದು)</translation>
 <translation id="6460601847208524483">ಮುಂದಿನದು ಕಂಡುಹಿಡಿಯಿರಿ</translation>
 <translation id="3473034187222004855">ಫೈಲ್ &amp;ಪಾಥ್ ನಕಲು ಮಾಡಿ</translation>
 <translation id="3038131737570201586">ಅನೇಕ ವೆಬ್‌ಸೈಟ್‌ಗಳಲ್ಲಿ ನಿಮ್ಮ ಬ್ರೌಸಿಂಗ್ ಇತಿಹಾಸ ಮತ್ತು ನಿಮ್ಮ ಖಾಸಗಿ ಡೇಟಾಗೆ ಈ ವಿಸ್ತರಣೆಯು ಪ್ರವೇಶವನ್ನು ಹೊಂದಿರುತ್ತದೆ.</translation>
@@ -1293,6 +1301,7 @@
 <translation id="1918141783557917887">&amp;ಚಿಕ್ಕದು</translation>
 <translation id="4065006016613364460">URL ಇಮೇಜ್ ಅನ್ನು ನ&amp;ಕಲಿಸಿ</translation>
 <translation id="6965382102122355670">ಸರಿ</translation>
+<translation id="4481249487722541506">ಬಿಚ್ಚಿದ ವಿಸ್ತರಣೆಯನ್ನು ಲೋಡ್ ಮಾಡು...</translation>
 <translation id="8542113417382134668">Serif ಫಾಂಟ್:</translation>
 <translation id="2149973817440762519">ಬುಕ್‌ಮಾರ್ಕ್ ಅನ್ನು ಸಂಪಾದಿಸಿ</translation>
 <translation id="430831869130657585">ಪ್ರತ್ಯಯಗಳು</translation>

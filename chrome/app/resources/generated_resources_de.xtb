@@ -472,7 +472,7 @@
 <translation id="5048040498971143039">Suchergebnisse für &quot;<ph name="SEARCH_STRING"/>&quot;</translation>
 <translation id="7772127298218883077">Über <ph name="PRODUCT_NAME"/></translation>
 <translation id="5453632173748266363">Kyrillisch</translation>
-<translation id="8415351664471761088">Warten Sie, bis der Download abgeschlossen ist.</translation>
+<translation id="8415351664471761088">Warten, bis der Download abgeschlossen ist.</translation>
 <translation id="1545775234664667895">Design &quot;<ph name="THEME_NAME"/>&quot; installiert</translation>
 <translation id="5329858601952122676">&amp;Löschen</translation>
 <translation id="6100736666660498114">Startmenü</translation>
@@ -567,7 +567,7 @@
 <translation id="1099979722614954862"><ph name="PRODUCT_NAME"/> jetzt mit <ph name="BEGIN_LINK"/>Erweiterungen<ph name="END_LINK"/> und <ph name="BEGIN2_LINK"/>Lesezeichen-Synchronisierung<ph name="END2_LINK"/></translation>
 <translation id="5966654788342289517">Privates</translation>
 <translation id="2576802705154232609">Webclips</translation>
-<translation id="8664389313780386848">Seitenquelle &amp;anzeigen</translation>
+<translation id="8664389313780386848">Seiten-Quelltext &amp;anzeigen</translation>
 <translation id="3089982169226026948">Profil auswählen</translation>
 <translation id="57646104491463491">Änderungsdatum</translation>
 <translation id="6402372417119601621">Der eingegebene Feed konnte nicht geladen werden.</translation>
@@ -627,7 +627,7 @@
 <translation id="2820806154655529776"><ph name="NUMBER_ONE"/> Sekunde</translation>
 <translation id="3122496702278727796">Erstellen eines Datenverzeichnisses fehlgeschlagen</translation>
 <translation id="8888930795132369495">Datei&amp;pfad kopieren</translation>
-<translation id="4517036173149081027">Download schließen und abbrechen</translation>
+<translation id="4517036173149081027">Download abbrechen und schließen.</translation>
 <translation id="8446970197849314122">Sie können Lesezeichen und Einstellungen von anderen Browsern und Nutzerkonten auf diesem Computer importieren.</translation>
 <translation id="6281636957902664775">Zu <ph name="URL"/> wechseln</translation>
 <translation id="9148058034647219655">Beenden</translation>
@@ -704,7 +704,7 @@
 <translation id="1715941336038158809">Ungültiger Nutzername oder ungültiges Passwort</translation>
 <translation id="1901303067676059328">&amp;Alles auswählen</translation>
 <translation id="1559333154119355392"><ph name="DOWNLOAD_SIZE"/> abgeschlossen</translation>
-<translation id="2435457462613246316">Neues Passwort</translation>
+<translation id="2435457462613246316">Passwort anzeigen</translation>
 <translation id="394984172568887996">Aus IE importiert</translation>
 <translation id="5311260548612583999">Private Schlüsseldatei (optional):</translation>
 <translation id="7363290921156020669"><ph name="NUMBER_ZERO"/> mins</translation>
@@ -1023,7 +1023,7 @@ Sie können Ihre Webclips <ph name="BEGIN_LINK"/>anpassen<ph name="END_LINK"/> u
 <translation id="6325525973963619867">Fehlgeschlagen</translation>
 <translation id="1676388805288306495">Standardschriftart/-sprache für Webseiten ändern</translation>
 <translation id="4701488924964507374"><ph name="SENTENCE1"/> <ph name="SENTENCE2"/></translation>
-<translation id="1163931534039071049">Frame-Quelle &amp;anzeigen</translation>
+<translation id="1163931534039071049">Frame-Quelltext &amp;anzeigen</translation>
 <translation id="7564847347806291057">Vorgang beenden</translation>
 <translation id="7851589172948533362">Überprüft von <ph name="ISSUER"/></translation>
 <translation id="7063412606254013905">Weitere Informationen zum Phishing-Betrug.</translation>

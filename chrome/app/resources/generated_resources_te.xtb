@@ -102,6 +102,7 @@
 <translation id="443008484043213881">ఉపకరణాలు</translation>
 <translation id="314605055819837597">యూజర్ డేటా</translation>
 <translation id="8534801226027872331">ఈ సందర్భంలో, మీ బ్రౌజర్‌కు అందించిన సర్టిఫికెట్‌లో లోపాలు ఉన్నాయి కాబట్టి అవి అర్థం కావడం లేదు. దీని అర్థం సర్టిఫికెట్‌లోని గుర్తింపు సమాచారాన్ని మేము అర్థం చేసుకోలేము లేదా కనెక్షన్‌ను సురక్షితం చెయ్యడానికి సర్టిఫికెట్‌లోని ప్రత్యేకమైన సమాచారం ఉపయోగించబడిందని కావచ్చు. మీరు ముందుకు సాగకూడదు.</translation>
+<translation id="1486408090387743835"><ph name="PRODUCT_NAME"/>కి ఇప్పుడు<ph name="BEGIN_LINK"/>పొడిగింపులు<ph name="END_LINK"/>మరియు<ph name="BEGIN_BUTTON"/>బుక్‌మార్క్ సమకాలీకరణ<ph name="END_BUTTON"/>ఉన్నాయి.</translation>
 <translation id="3147949335879360642">మీ బుక్‌మార్క్‌లు విలీనం చెయ్యబడతాయి.</translation>
 <translation id="4422347585044846479">ఈ పేజీకి బుక్‌మార్క్‌ను సవరించు</translation>
 <translation id="7367545749698325833">ఇతర బ్రౌజర్ల నుండి మీ బుక్మార్క్లు మరియు సెట్టింగ్లను మీరు దిగుమతి చేసుకోవచ్చు లేదా ఈ కంప్యూటర్ నుండి మీ బ్రౌజింగ్ డేటాను క్లియర్ చెయ్యవచ్చు.</translation>
@@ -149,6 +150,7 @@
 <translation id="7511635910912978956"><ph name="NUMBER_FEW"/> గంటలు మిగిలి ఉన్నాయి</translation>
 <translation id="1720675772864601791">అసురక్షిత చిత్రాలను అనుమతించు</translation>
 <translation id="471372654970523967"><ph name="NETWORKDEVICE"/>ను ఆన్ చెయ్యి</translation>
+<translation id="6431347207794742960"><ph name="PRODUCT_NAME"/>ఈ కంప్యూటర్ యొక్క్ అందరు వినియోగదారులకి ఆటోమేటిక్ అప్డేట్లను సెట్ చేస్తుంది.</translation>
 <translation id="4001299999465067131">పై చిత్రంలో కనిపించే విధంగా అక్షరాలను ఎంటర్ చెయ్యండి.</translation>
 <translation id="2167276631610992935">Javascript</translation>
 <translation id="5233638681132016545">క్రొత్త టాబ్</translation>
@@ -224,6 +226,7 @@
 <translation id="2678063897982469759">మళ్ళీ-ప్రారంభించు</translation>
 <translation id="4850886885716139402">వీక్షణ</translation>
 <translation id="1965338962645102116">ఉపకరణపట్టీ బుక్‌మార్క్‌లను Chromeలోకి దిగుమతి చెయ్యడానికి, మీరు Google ఖాతాలోకి లాగిన్ అయి ఉండాలి.  దయచేసి లాగిన్ అయి, దిగుమతి చెయ్యడానికి మళ్ళీ ప్రయత్నించండి.</translation>
+<translation id="5035846689029228055">బుక్‌మార్క్ సమకాలీకరణ:</translation>
 <translation id="5922220455727404691">SSL 3.0ను ఉపయోగించు</translation>
 <translation id="5903264686717710770">శీర్షిక:</translation>
 <translation id="8899851313684471736">లింక్‌ను క్రొత్త &amp;విండోలో తెరువు</translation>
@@ -621,6 +624,7 @@
 <translation id="2819994928625218237">&amp;అక్షరక్రమ సూచనలు లేవు</translation>
 <translation id="4316305410440790958">ఫ్రేమ్‌ను క్రొత్త &amp;టాబ్‌లో తెరువు</translation>
 <translation id="9142623379911037913"><ph name="SITE"/>ను డెస్క్‌టాప్ ప్రకటనలను చూపించడానికి అనుమతించాలా?</translation>
+<translation id="4196320913210960460">మీరు మీ  అభివృధ్ధిలో ఉన్న పొడిగింపులని టూల్స్ మెనూ క్లిక్ చేసి నిర్వహించవచ్చు.</translation>
 <translation id="9118804773997839291">ఈ  క్రింద పేజీకి సురక్షితం కాని అన్ని ఎలిమెంట్ల జాబితా  ఉంది. ఒక ప్రత్యేక ఎలిమెంట్ యొక్క  మాల్వేర్ థ్రెడ్ గురించి మరింత సమాచారం కోసం విశ్లేషణ లింక్‌పై క్లిక్ చెయ్యండి.</translation>
 <translation id="3664021239099029884">అన్ని డౌన్లోడ్లను వీక్షించండి</translation>
 <translation id="2207746515960750386"><ph name="MINUTE"/> నిమిషం/నిమిషాల క్రితం</translation>
@@ -634,6 +638,7 @@
 <translation id="5110450810124758964"><ph name="NUMBER_ONE"/> day ago</translation>
 <translation id="5256138355144269748">పాప్-అప్‌బ్లాక్ చెయ్యబడింది</translation>
 <translation id="2820806154655529776"><ph name="NUMBER_ONE"/> సెకను</translation>
+<translation id="1077946062898560804">అందరు వినియోగదారులకి ఆటోమేటిక్ అప్డేట్లను సెట్ చెయ్యి</translation>
 <translation id="3122496702278727796">డేటా డైరెక్టరీని సృష్టించడంలో విఫలమైంది</translation>
 <translation id="8888930795132369495">ఫైల్ &amp;మార్గాన్ని కాపీ చెయ్యి</translation>
 <translation id="4517036173149081027">మూసివెయ్యి మరియు డౌన్‌లోడ్ రద్దు చెయ్యి</translation>
@@ -826,6 +831,7 @@
 <translation id="8755376271068075440">&amp;పెద్దగా</translation>
 <translation id="8187473050234053012">సర్వర్ యొక్క భద్రతా సర్టిఫికెట్ ఉపసంహరించబడింది!</translation>
 <translation id="4273720809906836559">బుక్‌మార్క్ సమకాలీకరణ</translation>
+<translation id="6003177993629630467"><ph name="PRODUCT_NAME"/>దానిని అది అప్డేట్ చేసుకోలేకపోవచ్చు. </translation>
 <translation id="152482086482215392"><ph name="NUMBER_ONE"/> సెకన్లు మిగిలి ఉన్నాయి</translation>
 <translation id="8447116497070723931">PgUp</translation>
 <translation id="1970746430676306437">పేజీ యొక్క &amp;సమాచారాన్ని చూడండి</translation>
@@ -918,6 +924,7 @@
         విలీనం చెయ్యబడతాయి. విలీనం తర్వాత మీ బుక్‌మార్క్‌లను నిర్వహించడానికి
         బుక్‌మార్క్ సంచాలకులను ఉపయోగించండి.</translation>
 <translation id="8502249598105294518"><ph name="PRODUCT_NAME"/>ను వ్యక్తీకరించి  మరియు నియంత్రించండి</translation>
+<translation id="8590375307970699841">ఆటోమేటిక్ అప్డేట్లను సెట్ అప్ చేయండి</translation>
 <translation id="2797524280730715045"><ph name="NUMBER_DEFAULT"/> hours ago</translation>
 <translation id="768570155019561996">ఈ పొడిగింపు మీ వ్యక్తిగత డేటాకు బహుళ వెబ్‌సైట్‌లలో ప్రాప్తిని కలిగి ఉంటుంది.</translation>
 <translation id="7180865173735832675">అనుకూలీకరించు</translation>
@@ -1024,6 +1031,7 @@
 <translation id="3009731429620355204">సెషన్‌లు</translation>
 <translation id="7658590191988721853">నిలువు అంచు స్క్రోలింగ్‌ను ప్రారంభించు</translation>
 <translation id="5190835502935405962">బుక్‌మార్క్‌ల బార్</translation>
+<translation id="5438430601586617544">(ఇంకా అభివృధ్ధిలో ఉంది)</translation>
 <translation id="6460601847208524483">తదుపరిది కనుగొను</translation>
 <translation id="3473034187222004855">ఫైల్ &amp;మార్గాన్ని కాపీ చెయ్యి</translation>
 <translation id="3038131737570201586">ఈ పొడిగింపు బహుళ వెబ్‌సైట్‌లలో మీ బ్రౌజింగ్ చరిత్ర మరియు వ్యక్తిగత డేటాకు ప్రాప్తిని కలిగి ఉంటుంది.
@@ -1299,6 +1307,7 @@
 <translation id="1918141783557917887">&amp;చిన్నగా</translation>
 <translation id="4065006016613364460">చిత్రం URLను కా&amp;పీ చెయ్యి</translation>
 <translation id="6965382102122355670">సరే</translation>
+<translation id="4481249487722541506">ఇంకా అభివృధ్ధిలో ఉన్న పొడిగింపుని లోడ్ చెయ్యి...</translation>
 <translation id="8542113417382134668">Serif ఫాంట్:</translation>
 <translation id="2149973817440762519">బుక్‌మార్క్‌ను సవరించు</translation>
 <translation id="430831869130657585">సఫిక్స్‌లు</translation>
