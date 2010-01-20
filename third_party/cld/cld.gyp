@@ -11,6 +11,7 @@
           'type': '<(library)',
           'dependencies': [
             '../../base/base.gyp:base',
+            '../icu/icu.gyp:icuuc',
           ],
           'msvs_disabled_warnings': [4005, 4006, 4018, 4244, 4309, 4800],
           'defines': [
