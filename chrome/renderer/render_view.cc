@@ -215,7 +215,7 @@ static const char* const kUnreachableWebDataURL =
 static const char* const kBackForwardNavigationScheme = "history";
 
 // The string returned in DetectLanguage if we failed to detect the language.
-static const char* const kUnknownLanguageCode = "unknown";
+static const char* const kUnknownLanguageCode = "und";
 
 static void GetRedirectChain(WebDataSource* ds, std::vector<GURL>* result) {
   WebVector<WebURL> urls;
@@ -2972,7 +2972,11 @@ std::string RenderView::DetermineTextLanguage(const std::wstring& text) {
                                   &num_languages, NULL);
   if (cld_language != NUM_LANGUAGES && cld_language != UNKNOWN_LANGUAGE &&
       cld_language != TG_UNKNOWN_LANGUAGE) {
-    language = LanguageCodeISO639_1(cld_language);
+    // We should not use LanguageCode_ISO_639_1 because it does not cover all
+    // the languages CLD can detect. As a result, it'll return the invalid
+    // language code for traditional Chinese among others. |LanguageCode| will
+    // go through ISO 639-1, ISO 639-2 and 'other' tables to do the right thing.
+    language = LanguageCode(cld_language);
   }
 #endif
   return language;
