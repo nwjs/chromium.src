@@ -11,6 +11,7 @@
 #include "base/scoped_ptr.h"
 #include "base/string_util.h"
 #include "base/sys_info.h"
+#include "base/third_party/nspr/prtime.h"
 #include "chrome/browser/autocomplete/autocomplete.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/common/logging_chrome.h"
@@ -33,6 +34,8 @@ extern "C" IMAGE_DOS_HEADER __ImageBase;
 inline const unsigned char* UnsignedChar(const char* input) {
   return reinterpret_cast<const unsigned char*>(input);
 }
+
+static int64 GetBuildTime();
 
 // static
 void MetricsLog::RegisterPrefs(PrefService* local_state) {
@@ -59,6 +62,7 @@ MetricsLog::MetricsLog(const std::string& client_id, int session_id)
 
   StartElement("log");
   WriteAttribute("clientid", client_id_);
+  WriteInt64Attribute("buildtime", GetBuildTime());
 
   DCHECK_GE(result, 0);
 }
@@ -702,4 +706,12 @@ void MetricsLog::RecordHistogramDelta(const Histogram& histogram,
       WriteIntAttribute("count", snapshot.counts(i));
     }
   }
+}
+
+static int64 GetBuildTime() {
+  Time parsed_time;
+  const char* kDateTime = __DATE__ " " __TIME__;
+  bool result = Time::FromString(ASCIIToWide(kDateTime).c_str(), &parsed_time);
+  DCHECK(result);
+  return static_cast<int64>(parsed_time.ToTimeT());
 }
