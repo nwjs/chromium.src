@@ -1,14 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<archive type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="7.03">
+<archive type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="7.10">
 	<data>
 		<int key="IBDocument.SystemTarget">1050</int>
-		<string key="IBDocument.SystemVersion">9L31a</string>
-		<string key="IBDocument.InterfaceBuilderVersion">677</string>
-		<string key="IBDocument.AppKitVersion">949.54</string>
-		<string key="IBDocument.HIToolboxVersion">353.00</string>
+		<string key="IBDocument.SystemVersion">10C540</string>
+		<string key="IBDocument.InterfaceBuilderVersion">740</string>
+		<string key="IBDocument.AppKitVersion">1038.25</string>
+		<string key="IBDocument.HIToolboxVersion">458.00</string>
+		<object class="NSMutableDictionary" key="IBDocument.PluginVersions">
+			<string key="NS.key.0">com.apple.InterfaceBuilder.CocoaPlugin</string>
+			<string key="NS.object.0">740</string>
+		</object>
 		<object class="NSMutableArray" key="IBDocument.EditedObjectIDs">
 			<bool key="EncodedWithXMLCoder">YES</bool>
-			<integer value="13"/>
+			<integer value="2"/>
 		</object>
 		<object class="NSArray" key="IBDocument.PluginDependencies">
 			<bool key="EncodedWithXMLCoder">YES</bool>
@@ -16,7 +20,7 @@
 		</object>
 		<object class="NSMutableDictionary" key="IBDocument.Metadata">
 			<bool key="EncodedWithXMLCoder">YES</bool>
-			<object class="NSArray" key="dict.sortedKeys">
+			<object class="NSArray" key="dict.sortedKeys" id="0">
 				<bool key="EncodedWithXMLCoder">YES</bool>
 			</object>
 			<object class="NSMutableArray" key="dict.values">
@@ -42,7 +46,7 @@
 				<string key="NSWindowTitle">Cookies and Website Permissions</string>
 				<string key="NSWindowClass">NSWindow</string>
 				<nil key="NSViewClass"/>
-				<string key="NSWindowContentMaxSize">{3.40282e+38, 3.40282e+38}</string>
+				<string key="NSWindowContentMaxSize">{1.79769e+308, 1.79769e+308}</string>
 				<string key="NSWindowContentMinSize">{499, 513}</string>
 				<object class="NSView" key="NSWindowView" id="1006">
 					<reference key="NSNextResponder"/>
@@ -61,7 +65,7 @@
 								<string key="NSContents">The following cookies are stored on your computer:</string>
 								<object class="NSFont" key="NSSupport" id="743256162">
 									<string key="NSName">LucidaGrande</string>
-									<double key="NSSize">1.300000e+01</double>
+									<double key="NSSize">13</double>
 									<int key="NSfFlags">1044</int>
 								</object>
 								<reference key="NSControlView" ref="91932637"/>
@@ -71,7 +75,7 @@
 									<string key="NSColorName">controlColor</string>
 									<object class="NSColor" key="NSColor" id="848879610">
 										<int key="NSColorSpace">3</int>
-										<bytes key="NSWhite">MC42NjY2NjY2OQA</bytes>
+										<bytes key="NSWhite">MC42NjY2NjY2NjY3AA</bytes>
 									</object>
 								</object>
 								<object class="NSColor" key="NSTextColor" id="593135112">
@@ -109,16 +113,16 @@
 											<object class="NSMutableArray" key="NSTableColumns">
 												<bool key="EncodedWithXMLCoder">YES</bool>
 												<object class="NSTableColumn" id="936123567">
-													<double key="NSWidth">4.550000e+02</double>
-													<double key="NSMinWidth">1.600000e+01</double>
-													<double key="NSMaxWidth">1.000000e+03</double>
+													<double key="NSWidth">455</double>
+													<double key="NSMinWidth">16</double>
+													<double key="NSMaxWidth">1000</double>
 													<object class="NSTableHeaderCell" key="NSHeaderCell">
 														<int key="NSCellFlags">75628096</int>
 														<int key="NSCellFlags2">2048</int>
 														<string key="NSContents"/>
 														<object class="NSFont" key="NSSupport" id="26">
 															<string key="NSName">LucidaGrande</string>
-															<double key="NSSize">1.100000e+01</double>
+															<double key="NSSize">11</double>
 															<int key="NSfFlags">3100</int>
 														</object>
 														<object class="NSColor" key="NSBackgroundColor">
@@ -151,8 +155,8 @@
 													<reference key="NSTableView" ref="120560"/>
 												</object>
 											</object>
-											<double key="NSIntercellSpacingWidth">2.000000e+00</double>
-											<double key="NSIntercellSpacingHeight">3.000000e+00</double>
+											<double key="NSIntercellSpacingWidth">2</double>
+											<double key="NSIntercellSpacingHeight">3</double>
 											<object class="NSColor" key="NSBackgroundColor" id="28636642">
 												<int key="NSColorSpace">3</int>
 												<bytes key="NSWhite">MQA</bytes>
@@ -166,12 +170,15 @@
 													<bytes key="NSWhite">MC41AA</bytes>
 												</object>
 											</object>
-											<double key="NSRowHeight">1.700000e+01</double>
+											<double key="NSRowHeight">17</double>
 											<int key="NSTvFlags">-767557632</int>
+											<reference key="NSDelegate"/>
+											<reference key="NSDataSource"/>
 											<int key="NSColumnAutoresizingStyle">4</int>
 											<int key="NSDraggingSourceMaskForLocal">15</int>
 											<int key="NSDraggingSourceMaskForNonLocal">0</int>
 											<bool key="NSAllowsTypeSelect">YES</bool>
+											<int key="NSTableViewDraggingDestinationStyle">0</int>
 										</object>
 									</object>
 									<string key="NSFrame">{{1, 1}, {457, 237}}</string>
@@ -189,7 +196,7 @@
 									<int key="NSsFlags">512</int>
 									<reference key="NSTarget" ref="1002552068"/>
 									<string key="NSAction">_doScroller:</string>
-									<double key="NSPercent">1.000000e+00</double>
+									<double key="NSPercent">1</double>
 								</object>
 								<object class="NSScroller" id="33257460">
 									<reference key="NSNextResponder" ref="1002552068"/>
@@ -199,8 +206,8 @@
 									<int key="NSsFlags">513</int>
 									<reference key="NSTarget" ref="1002552068"/>
 									<string key="NSAction">_doScroller:</string>
-									<double key="NSCurValue">2.188184e-03</double>
-									<double key="NSPercent">1.000000e+00</double>
+									<double key="NSCurValue">0.0021881840000000001</double>
+									<double key="NSPercent">1</double>
 								</object>
 							</object>
 							<string key="NSFrame">{{20, 252}, {459, 239}}</string>
@@ -234,7 +241,7 @@
 												<string key="NSContents">Name:</string>
 												<object class="NSFont" key="NSSupport" id="1029389782">
 													<string key="NSName">LucidaGrande-Bold</string>
-													<double key="NSSize">1.300000e+01</double>
+													<double key="NSSize">13</double>
 													<int key="NSfFlags">16</int>
 												</object>
 												<reference key="NSControlView" ref="963894543"/>
@@ -495,7 +502,7 @@
 								<int key="NSButtonFlags">-2038284033</int>
 								<int key="NSButtonFlags2">129</int>
 								<string key="NSAlternateContents"/>
-								<string type="base64-UTF8" key="NSKeyEquivalent">fw</string>
+								<string key="NSKeyEquivalent"></string>
 								<int key="NSPeriodicDelay">200</int>
 								<int key="NSPeriodicInterval">25</int>
 							</object>
@@ -546,7 +553,7 @@
 				</object>
 				<string key="NSScreenRect">{{0, 0}, {1440, 878}}</string>
 				<string key="NSMinSize">{499, 535}</string>
-				<string key="NSMaxSize">{3.40282e+38, 3.40282e+38}</string>
+				<string key="NSMaxSize">{1.79769e+308, 1.79769e+308}</string>
 			</object>
 			<object class="NSTreeController" id="317796902">
 				<object class="NSMutableArray" key="NSDeclaredKeys">
@@ -641,7 +648,7 @@
 							<string key="NSKeyPath">selection.name</string>
 							<object class="NSDictionary" key="NSOptions">
 								<bool key="EncodedWithXMLCoder">YES</bool>
-								<object class="NSMutableArray" key="dict.sortedKeys">
+								<object class="NSArray" key="dict.sortedKeys">
 									<bool key="EncodedWithXMLCoder">YES</bool>
 									<string>NSNoSelectionPlaceholder</string>
 									<string>NSNotApplicablePlaceholder</string>
@@ -650,10 +657,10 @@
 								</object>
 								<object class="NSMutableArray" key="dict.values">
 									<bool key="EncodedWithXMLCoder">YES</bool>
-									<string type="base64-UTF8">PCBubyBjb29raWUgc2VsZWN0ZWQgPg</string>
-									<string type="base64-UTF8">PCBubyBjb29raWUgc2VsZWN0ZWQgPg</string>
-									<string type="base64-UTF8">PCBubyBjb29raWUgc2VsZWN0ZWQgPg</string>
-									<boolean value="NO" id="6"/>
+									<string>&lt; no cookie selected &gt;</string>
+									<string>&lt; no cookie selected &gt;</string>
+									<string>&lt; no cookie selected &gt;</string>
+									<boolean value="NO"/>
 								</object>
 							</object>
 							<int key="NSNibBindingConnectorVersion">2</int>
@@ -674,7 +681,7 @@
 							<string key="NSKeyPath">selection.content</string>
 							<object class="NSDictionary" key="NSOptions">
 								<bool key="EncodedWithXMLCoder">YES</bool>
-								<object class="NSMutableArray" key="dict.sortedKeys">
+								<object class="NSArray" key="dict.sortedKeys">
 									<bool key="EncodedWithXMLCoder">YES</bool>
 									<string>NSNoSelectionPlaceholder</string>
 									<string>NSNotApplicablePlaceholder</string>
@@ -683,10 +690,10 @@
 								</object>
 								<object class="NSMutableArray" key="dict.values">
 									<bool key="EncodedWithXMLCoder">YES</bool>
-									<string type="base64-UTF8">PCBubyBjb29raWUgc2VsZWN0ZWQgPg</string>
-									<string type="base64-UTF8">PCBubyBjb29raWUgc2VsZWN0ZWQgPg</string>
-									<string type="base64-UTF8">PCBubyBjb29raWUgc2VsZWN0ZWQgPg</string>
-									<reference ref="6"/>
+									<string>&lt; no cookie selected &gt;</string>
+									<string>&lt; no cookie selected &gt;</string>
+									<string>&lt; no cookie selected &gt;</string>
+									<boolean value="NO"/>
 								</object>
 							</object>
 							<int key="NSNibBindingConnectorVersion">2</int>
@@ -707,7 +714,7 @@
 							<string key="NSKeyPath">selection.domain</string>
 							<object class="NSDictionary" key="NSOptions">
 								<bool key="EncodedWithXMLCoder">YES</bool>
-								<object class="NSMutableArray" key="dict.sortedKeys">
+								<object class="NSArray" key="dict.sortedKeys">
 									<bool key="EncodedWithXMLCoder">YES</bool>
 									<string>NSNoSelectionPlaceholder</string>
 									<string>NSNotApplicablePlaceholder</string>
@@ -716,10 +723,10 @@
 								</object>
 								<object class="NSMutableArray" key="dict.values">
 									<bool key="EncodedWithXMLCoder">YES</bool>
-									<string type="base64-UTF8">PCBubyBjb29raWUgc2VsZWN0ZWQgPg</string>
-									<string type="base64-UTF8">PCBubyBjb29raWUgc2VsZWN0ZWQgPg</string>
-									<string type="base64-UTF8">PCBubyBjb29raWUgc2VsZWN0ZWQgPg</string>
-									<reference ref="6"/>
+									<string>&lt; no cookie selected &gt;</string>
+									<string>&lt; no cookie selected &gt;</string>
+									<string>&lt; no cookie selected &gt;</string>
+									<boolean value="NO"/>
 								</object>
 							</object>
 							<int key="NSNibBindingConnectorVersion">2</int>
@@ -740,7 +747,7 @@
 							<string key="NSKeyPath">selection.path</string>
 							<object class="NSDictionary" key="NSOptions">
 								<bool key="EncodedWithXMLCoder">YES</bool>
-								<object class="NSMutableArray" key="dict.sortedKeys">
+								<object class="NSArray" key="dict.sortedKeys">
 									<bool key="EncodedWithXMLCoder">YES</bool>
 									<string>NSNoSelectionPlaceholder</string>
 									<string>NSNotApplicablePlaceholder</string>
@@ -749,10 +756,10 @@
 								</object>
 								<object class="NSMutableArray" key="dict.values">
 									<bool key="EncodedWithXMLCoder">YES</bool>
-									<string type="base64-UTF8">PCBubyBjb29raWUgc2VsZWN0ZWQgPg</string>
-									<string type="base64-UTF8">PCBubyBjb29raWUgc2VsZWN0ZWQgPg</string>
-									<string type="base64-UTF8">PCBubyBjb29raWUgc2VsZWN0ZWQgPg</string>
-									<reference ref="6"/>
+									<string>&lt; no cookie selected &gt;</string>
+									<string>&lt; no cookie selected &gt;</string>
+									<string>&lt; no cookie selected &gt;</string>
+									<boolean value="NO"/>
 								</object>
 							</object>
 							<int key="NSNibBindingConnectorVersion">2</int>
@@ -773,7 +780,7 @@
 							<string key="NSKeyPath">selection.sendFor</string>
 							<object class="NSDictionary" key="NSOptions">
 								<bool key="EncodedWithXMLCoder">YES</bool>
-								<object class="NSMutableArray" key="dict.sortedKeys">
+								<object class="NSArray" key="dict.sortedKeys">
 									<bool key="EncodedWithXMLCoder">YES</bool>
 									<string>NSNoSelectionPlaceholder</string>
 									<string>NSNotApplicablePlaceholder</string>
@@ -782,10 +789,10 @@
 								</object>
 								<object class="NSMutableArray" key="dict.values">
 									<bool key="EncodedWithXMLCoder">YES</bool>
-									<string type="base64-UTF8">PCBubyBjb29raWUgc2VsZWN0ZWQgPg</string>
-									<string type="base64-UTF8">PCBubyBjb29raWUgc2VsZWN0ZWQgPg</string>
-									<string type="base64-UTF8">PCBubyBjb29raWUgc2VsZWN0ZWQgPg</string>
-									<reference ref="6"/>
+									<string>&lt; no cookie selected &gt;</string>
+									<string>&lt; no cookie selected &gt;</string>
+									<string>&lt; no cookie selected &gt;</string>
+									<boolean value="NO"/>
 								</object>
 							</object>
 							<int key="NSNibBindingConnectorVersion">2</int>
@@ -806,7 +813,7 @@
 							<string key="NSKeyPath">selection.created</string>
 							<object class="NSDictionary" key="NSOptions">
 								<bool key="EncodedWithXMLCoder">YES</bool>
-								<object class="NSMutableArray" key="dict.sortedKeys">
+								<object class="NSArray" key="dict.sortedKeys">
 									<bool key="EncodedWithXMLCoder">YES</bool>
 									<string>NSNoSelectionPlaceholder</string>
 									<string>NSNotApplicablePlaceholder</string>
@@ -815,10 +822,10 @@
 								</object>
 								<object class="NSMutableArray" key="dict.values">
 									<bool key="EncodedWithXMLCoder">YES</bool>
-									<string type="base64-UTF8">PCBubyBjb29raWUgc2VsZWN0ZWQgPg</string>
-									<string type="base64-UTF8">PCBubyBjb29raWUgc2VsZWN0ZWQgPg</string>
-									<string type="base64-UTF8">PCBubyBjb29raWUgc2VsZWN0ZWQgPg</string>
-									<reference ref="6"/>
+									<string>&lt; no cookie selected &gt;</string>
+									<string>&lt; no cookie selected &gt;</string>
+									<string>&lt; no cookie selected &gt;</string>
+									<boolean value="NO"/>
 								</object>
 							</object>
 							<int key="NSNibBindingConnectorVersion">2</int>
@@ -839,7 +846,7 @@
 							<string key="NSKeyPath">selection.expires</string>
 							<object class="NSDictionary" key="NSOptions">
 								<bool key="EncodedWithXMLCoder">YES</bool>
-								<object class="NSMutableArray" key="dict.sortedKeys">
+								<object class="NSArray" key="dict.sortedKeys">
 									<bool key="EncodedWithXMLCoder">YES</bool>
 									<string>NSNoSelectionPlaceholder</string>
 									<string>NSNotApplicablePlaceholder</string>
@@ -848,10 +855,10 @@
 								</object>
 								<object class="NSMutableArray" key="dict.values">
 									<bool key="EncodedWithXMLCoder">YES</bool>
-									<string type="base64-UTF8">PCBubyBjb29raWUgc2VsZWN0ZWQgPg</string>
-									<string type="base64-UTF8">PCBubyBjb29raWUgc2VsZWN0ZWQgPg</string>
-									<string type="base64-UTF8">PCBubyBjb29raWUgc2VsZWN0ZWQgPg</string>
-									<reference ref="6"/>
+									<string>&lt; no cookie selected &gt;</string>
+									<string>&lt; no cookie selected &gt;</string>
+									<string>&lt; no cookie selected &gt;</string>
+									<boolean value="NO"/>
 								</object>
 							</object>
 							<int key="NSNibBindingConnectorVersion">2</int>
@@ -893,26 +900,6 @@
 				</object>
 				<object class="IBConnectionRecord">
 					<object class="IBBindingConnection" key="connection">
-						<string key="label">enabled: selectionIndexPath</string>
-						<reference key="source" ref="328853880"/>
-						<reference key="destination" ref="317796902"/>
-						<object class="NSNibBindingConnector" key="connector">
-							<reference key="NSSource" ref="328853880"/>
-							<reference key="NSDestination" ref="317796902"/>
-							<string key="NSLabel">enabled: selectionIndexPath</string>
-							<string key="NSBinding">enabled</string>
-							<string key="NSKeyPath">selectionIndexPath</string>
-							<object class="NSDictionary" key="NSOptions">
-								<string key="NS.key.0">NSValueTransformerName</string>
-								<string key="NS.object.0">NSIsNotNil</string>
-							</object>
-							<int key="NSNibBindingConnectorVersion">2</int>
-						</object>
-					</object>
-					<int key="connectionID">126</int>
-				</object>
-				<object class="IBConnectionRecord">
-					<object class="IBBindingConnection" key="connection">
 						<string key="label">enabled: arrangedObjects.count</string>
 						<reference key="source" ref="153456657"/>
 						<reference key="destination" ref="317796902"/>
@@ -927,34 +914,48 @@
 					</object>
 					<int key="connectionID">128</int>
 				</object>
+				<object class="IBConnectionRecord">
+					<object class="IBBindingConnection" key="connection">
+						<string key="label">enabled: removeButtonEnabled</string>
+						<reference key="source" ref="328853880"/>
+						<reference key="destination" ref="1001"/>
+						<object class="NSNibBindingConnector" key="connector">
+							<reference key="NSSource" ref="328853880"/>
+							<reference key="NSDestination" ref="1001"/>
+							<string key="NSLabel">enabled: removeButtonEnabled</string>
+							<string key="NSBinding">enabled</string>
+							<string key="NSKeyPath">removeButtonEnabled</string>
+							<int key="NSNibBindingConnectorVersion">2</int>
+						</object>
+					</object>
+					<int key="connectionID">132</int>
+				</object>
 			</object>
 			<object class="IBMutableOrderedSet" key="objectRecords">
 				<object class="NSArray" key="orderedObjects">
 					<bool key="EncodedWithXMLCoder">YES</bool>
 					<object class="IBObjectRecord">
 						<int key="objectID">0</int>
-						<object class="NSArray" key="object" id="125745273">
-							<bool key="EncodedWithXMLCoder">YES</bool>
-						</object>
+						<reference key="object" ref="0"/>
 						<reference key="children" ref="1000"/>
 						<nil key="parent"/>
 					</object>
 					<object class="IBObjectRecord">
 						<int key="objectID">-2</int>
 						<reference key="object" ref="1001"/>
-						<reference key="parent" ref="125745273"/>
-						<string type="base64-UTF8" key="objectName">RmlsZSdzIE93bmVyA</string>
+						<reference key="parent" ref="0"/>
+						<string key="objectName">File's Owner</string>
 					</object>
 					<object class="IBObjectRecord">
 						<int key="objectID">-1</int>
 						<reference key="object" ref="1003"/>
-						<reference key="parent" ref="125745273"/>
+						<reference key="parent" ref="0"/>
 						<string key="objectName">First Responder</string>
 					</object>
 					<object class="IBObjectRecord">
 						<int key="objectID">-3</int>
 						<reference key="object" ref="1004"/>
-						<reference key="parent" ref="125745273"/>
+						<reference key="parent" ref="0"/>
 						<string key="objectName">Application</string>
 					</object>
 					<object class="IBObjectRecord">
@@ -964,7 +965,7 @@
 							<bool key="EncodedWithXMLCoder">YES</bool>
 							<reference ref="1006"/>
 						</object>
-						<reference key="parent" ref="125745273"/>
+						<reference key="parent" ref="0"/>
 					</object>
 					<object class="IBObjectRecord">
 						<int key="objectID">2</int>
@@ -1301,13 +1302,13 @@
 					<object class="IBObjectRecord">
 						<int key="objectID">51</int>
 						<reference key="object" ref="317796902"/>
-						<reference key="parent" ref="125745273"/>
+						<reference key="parent" ref="0"/>
 					</object>
 				</object>
 			</object>
 			<object class="NSMutableDictionary" key="flattenedProperties">
 				<bool key="EncodedWithXMLCoder">YES</bool>
-				<object class="NSMutableArray" key="dict.sortedKeys">
+				<object class="NSArray" key="dict.sortedKeys">
 					<bool key="EncodedWithXMLCoder">YES</bool>
 					<string>-1.IBPluginDependency</string>
 					<string>-2.IBPluginDependency</string>
@@ -1375,7 +1376,7 @@
 					<string>{{498, 183}, {499, 524}}</string>
 					<string>com.apple.InterfaceBuilder.CocoaPlugin</string>
 					<string>{{498, 183}, {499, 524}}</string>
-					<reference ref="6"/>
+					<boolean value="NO"/>
 					<string>{196, 240}</string>
 					<string>{{357, 418}, {480, 270}}</string>
 					<boolean value="YES"/>
@@ -1430,9 +1431,7 @@
 			</object>
 			<object class="NSMutableDictionary" key="unlocalizedProperties">
 				<bool key="EncodedWithXMLCoder">YES</bool>
-				<object class="NSArray" key="dict.sortedKeys">
-					<bool key="EncodedWithXMLCoder">YES</bool>
-				</object>
+				<reference key="dict.sortedKeys" ref="0"/>
 				<object class="NSMutableArray" key="dict.values">
 					<bool key="EncodedWithXMLCoder">YES</bool>
 				</object>
@@ -1440,15 +1439,13 @@
 			<nil key="activeLocalization"/>
 			<object class="NSMutableDictionary" key="localizations">
 				<bool key="EncodedWithXMLCoder">YES</bool>
-				<object class="NSArray" key="dict.sortedKeys">
-					<bool key="EncodedWithXMLCoder">YES</bool>
-				</object>
+				<reference key="dict.sortedKeys" ref="0"/>
 				<object class="NSMutableArray" key="dict.values">
 					<bool key="EncodedWithXMLCoder">YES</bool>
 				</object>
 			</object>
 			<nil key="sourceID"/>
-			<int key="maxID">129</int>
+			<int key="maxID">132</int>
 		</object>
 		<object class="IBClassDescriber" key="IBDocument.Classes">
 			<object class="NSMutableArray" key="referencedPartialClassDescriptions">
@@ -1458,7 +1455,7 @@
 					<string key="superclassName">NSWindowController</string>
 					<object class="NSMutableDictionary" key="actions">
 						<bool key="EncodedWithXMLCoder">YES</bool>
-						<object class="NSMutableArray" key="dict.sortedKeys">
+						<object class="NSArray" key="dict.sortedKeys">
 							<bool key="EncodedWithXMLCoder">YES</bool>
 							<string>closeSheet:</string>
 							<string>deleteAllCookies:</string>
@@ -1505,6 +1502,15 @@
 			</object>
 		</object>
 		<int key="IBDocument.localizationMode">0</int>
+		<object class="NSMutableDictionary" key="IBDocument.PluginDeclaredDependencies">
+			<string key="NS.key.0">com.apple.InterfaceBuilder.CocoaPlugin.macosx</string>
+			<integer value="1050" key="NS.object.0"/>
+		</object>
+		<object class="NSMutableDictionary" key="IBDocument.PluginDeclaredDevelopmentDependencies">
+			<string key="NS.key.0">com.apple.InterfaceBuilder.CocoaPlugin.InterfaceBuilder3</string>
+			<integer value="3000" key="NS.object.0"/>
+		</object>
+		<bool key="IBDocument.PluginDeclaredDependenciesTrackSystemTargetVersion">YES</bool>
 		<string key="IBDocument.LastKnownRelativeProjectPath">../../chrome.xcodeproj</string>
 		<int key="IBDocument.defaultPropertyAccessControl">3</int>
 	</data>
