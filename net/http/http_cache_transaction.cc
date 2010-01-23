@@ -465,6 +465,11 @@ bool HttpCache::Transaction::AddTruncatedFlag() {
   if (!entry_->disk_entry->GetDataSize(kResponseContentIndex))
     return false;
 
+  if (response_.headers->GetContentLength() <= 0 ||
+      response_.headers->HasHeaderValue("Accept-Ranges", "none") ||
+      !response_.headers->HasStrongValidators())
+    return false;
+
   truncated_ = true;
   WriteResponseInfoToEntry(true);
   return true;
@@ -914,7 +919,7 @@ bool HttpCache::Transaction::ConditionalizeRequest() {
     custom_request_->extra_headers.append("\r\n");
     // For byte-range requests, make sure that we use only one way to validate
     // the request.
-    if (partial_.get())
+    if (partial_.get() && !partial_->IsCurrentRangeCached())
       return true;
   }
 
@@ -996,7 +1001,10 @@ bool HttpCache::Transaction::ValidatePartialResponse(
       return true;
     }
 
-    // 304 is not expected here, but we'll spare the entry.
+    // 304 is not expected here, but we'll spare the entry (unless it was
+    // truncated).
+    if (truncated_)
+      failure = true;
   }
 
   if (failure) {
