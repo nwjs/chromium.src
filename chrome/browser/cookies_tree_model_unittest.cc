@@ -164,7 +164,7 @@ class CookiesTreeModelTest : public testing::Test {
  protected:
   MessageLoopForUI message_loop_;
   scoped_ptr<CookieTestingProfile> profile_;
-  MockBrowsingDataLocalStorageHelper* mock_browsing_data_helper_;
+  scoped_refptr<MockBrowsingDataLocalStorageHelper> mock_browsing_data_helper_;
 };
 
 
