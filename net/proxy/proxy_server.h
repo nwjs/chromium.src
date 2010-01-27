@@ -101,6 +101,11 @@ class ProxyServer {
   static ProxyServer FromPacString(std::string::const_iterator pac_string_begin,
                                    std::string::const_iterator pac_string_end);
 
+  // Returns a ProxyServer representing DIRECT connections.
+  static ProxyServer Direct() {
+    return ProxyServer(SCHEME_DIRECT, std::string(), -1);
+  }
+
   // Format as a PAC result entry. This does the reverse of FromPacString().
   std::string ToPacString() const;
 

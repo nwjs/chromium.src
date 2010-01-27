@@ -513,24 +513,60 @@ int HttpNetworkTransaction::DoResolveProxy() {
 }
 
 int HttpNetworkTransaction::DoResolveProxyComplete(int result) {
-  next_state_ = STATE_INIT_CONNECTION;
+
+  pac_request_ = NULL;
 
   // Remove unsupported proxies from the list.
   proxy_info_.RemoveProxiesWithoutScheme(
       ProxyServer::SCHEME_DIRECT | ProxyServer::SCHEME_HTTP |
       ProxyServer::SCHEME_SOCKS4 | ProxyServer::SCHEME_SOCKS5);
 
-  pac_request_ = NULL;
+  // There are four possible outcomes of having run the ProxyService:
+  //   (1) The ProxyService decided we should connect through a proxy.
+  //   (2) The ProxyService decided we should direct-connect.
+  //   (3) The ProxyService decided we should give up, as there are no more
+  //       proxies to try (this is more likely to happen during
+  //       ReconsiderProxyAfterError()).
+  //   (4) The ProxyService failed (which can happen if the PAC script
+  //       we were configured with threw a runtime exception).
+  //
+  // It is important that we fail the connection in case (3) rather than
+  // falling-back to a direct connection, since sending traffic through
+  // a proxy may be integral to the user's privacy/security model.
+  //
+  // For example if a user had configured traffic to go through the TOR
+  // anonymizing proxy to protect their privacy, it would be bad if we
+  // silently fell-back to direct connect if the proxy server were to
+  // become unreachable.
+  //
+  // In case (4) it is less obvious what the right thing to do is. On the
+  // one hand, for consistency it would be natural to hard-fail as well.
+  // However, both Firefox 3.5 and Internet Explorer 8 will silently fall-back
+  // to DIRECT in this case, so we will do the same for compatibility.
+  //
+  // For more information, see:
+  // http://www.chromium.org/developers/design-documents/proxy-settings-fallback
+
+  if (proxy_info_.is_empty()) {
+    // No proxies/direct to choose from. This happens when we don't support any
+    // of the proxies in the returned list.
+    return ERR_NO_SUPPORTED_PROXIES;
+  }
 
   if (result != OK) {
     DLOG(ERROR) << "Failed to resolve proxy: " << result;
+    // Fall-back to direct when there were runtime errors in the PAC script,
+    // or some other failure with the settings.
     proxy_info_.UseDirect();
   }
+
+  next_state_ = STATE_INIT_CONNECTION;
   return OK;
 }
 
 int HttpNetworkTransaction::DoInitConnection() {
   DCHECK(!connection_.is_initialized());
+  DCHECK(proxy_info_.proxy_server().is_valid());
 
   next_state_ = STATE_INIT_CONNECTION_COMPLETE;
 
@@ -644,7 +680,7 @@ int HttpNetworkTransaction::DoSOCKSConnect() {
   req_info.set_referrer(request_->referrer);
 
   if (proxy_info_.proxy_server().scheme() == ProxyServer::SCHEME_SOCKS5)
-    s = new SOCKS5ClientSocket(s, req_info, session_->host_resolver());
+    s = new SOCKS5ClientSocket(s, req_info);
   else
     s = new SOCKSClientSocket(s, req_info, session_->host_resolver());
   connection_.set_socket(s);
@@ -1414,6 +1450,10 @@ int HttpNetworkTransaction::ReconsiderProxyAfterError(int error) {
     connection_.Reset();
     next_state_ = STATE_RESOLVE_PROXY_COMPLETE;
   } else {
+    // If ReconsiderProxyAfterError() failed synchronously, it means
+    // there was nothing left to fall-back to, so fail the transaction
+    // with the last connection error we got.
+    // TODO(eroman): This is a confusing contract, make it more obvious.
     rv = error;
   }
 

@@ -3423,8 +3423,16 @@ TEST_F(HttpNetworkTransactionTest, SOCKS5_HTTP_GET) {
 
   const char kSOCKS5GreetRequest[] = { 0x05, 0x01, 0x00 };
   const char kSOCKS5GreetResponse[] = { 0x05, 0x00 };
-  const char kSOCKS5OkRequest[] =
-      { 0x05, 0x01, 0x00, 0x01, 127, 0, 0, 1, 0x00, 0x50 };
+  const char kSOCKS5OkRequest[] = {
+    0x05,  // Version
+    0x01,  // Command (CONNECT)
+    0x00,  // Reserved.
+    0x03,  // Address type (DOMAINNAME).
+    0x0E,  // Length of domain (14)
+    // Domain string:
+    'w', 'w', 'w', '.', 'g', 'o', 'o', 'g', 'l', 'e', '.', 'c', 'o', 'm',
+    0x00, 0x50,  // 16-bit port (80)
+  };
   const char kSOCKS5OkResponse[] =
       { 0x05, 0x00, 0x00, 0x01, 127, 0, 0, 1, 0x00, 0x50 };
 
@@ -3479,8 +3487,17 @@ TEST_F(HttpNetworkTransactionTest, SOCKS5_SSL_GET) {
 
   const char kSOCKS5GreetRequest[] = { 0x05, 0x01, 0x00 };
   const char kSOCKS5GreetResponse[] = { 0x05, 0x00 };
-  const unsigned char kSOCKS5OkRequest[] =
-      { 0x05, 0x01, 0x00, 0x01, 127, 0, 0, 1, 0x01, 0xBB };
+  const unsigned char kSOCKS5OkRequest[] = {
+    0x05,  // Version
+    0x01,  // Command (CONNECT)
+    0x00,  // Reserved.
+    0x03,  // Address type (DOMAINNAME).
+    0x0E,  // Length of domain (14)
+    // Domain string:
+    'w', 'w', 'w', '.', 'g', 'o', 'o', 'g', 'l', 'e', '.', 'c', 'o', 'm',
+    0x01, 0xBB,  // 16-bit port (443)
+  };
+
   const char kSOCKS5OkResponse[] =
       { 0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0x00, 0x00 };
 
@@ -3596,6 +3613,8 @@ TEST_F(HttpNetworkTransactionTest, ReconsiderProxyAfterFailedConnection) {
   SessionDependencies session_deps(
       CreateFixedProxyService("myproxy:70;foobar:80"));
 
+  // This simulates failure resolving all hostnames; that means we will fail
+  // connecting to both proxies (myproxy:70 and foobar:80).
   session_deps.host_resolver->rules()->AddSimulatedFailure("*");
 
   scoped_ptr<HttpTransaction> trans(
