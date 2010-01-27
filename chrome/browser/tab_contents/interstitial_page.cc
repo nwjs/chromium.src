@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2008 The Chromium Authors. All rights reserved.
+// Copyright (c) 2010 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -87,8 +87,7 @@ class InterstitialPage::InterstitialPageRVHViewDelegate
   virtual void ShowCreatedWindow(int route_id,
                                  WindowOpenDisposition disposition,
                                  const gfx::Rect& initial_pos,
-                                 bool user_gesture,
-                                 const GURL& creator_url);
+                                 bool user_gesture);
   virtual void ShowCreatedWidget(int route_id,
                                  const gfx::Rect& initial_pos);
   virtual void ShowContextMenu(const ContextMenuParams& params);
@@ -542,7 +541,7 @@ void InterstitialPage::InterstitialPageRVHViewDelegate::CreateNewWidget(
 
 void InterstitialPage::InterstitialPageRVHViewDelegate::ShowCreatedWindow(
     int route_id, WindowOpenDisposition disposition,
-    const gfx::Rect& initial_pos, bool user_gesture, const GURL& creator_url) {
+    const gfx::Rect& initial_pos, bool user_gesture) {
   NOTREACHED() << "InterstitialPage does not support showing popups yet.";
 }
 
