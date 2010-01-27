@@ -10,6 +10,7 @@
 #include <gtk/gtk.h>
 
 #include "base/string_util.h"
+#include "chrome/browser/mock_browsing_data_local_storage_helper.h"
 #include "chrome/browser/net/url_request_context_getter.h"
 #include "chrome/test/testing_profile.h"
 #include "net/url_request/url_request_context.h"
@@ -63,24 +64,37 @@ class CookiesViewTest : public testing::Test {
  public:
   virtual void SetUp() {
     profile_.reset(new CookieTestingProfile());
+    mock_browsing_data_helper_ = new MockBrowsingDataLocalStorageHelper(
+        profile_.get());
   }
 
-  void CheckDetailsSensitivity(gboolean expected,
+  void CheckDetailsSensitivity(gboolean expected_cookies,
+                               gboolean expected_local_storage,
                                const CookiesView& cookies_view) {
-    EXPECT_EQ(expected,
+    // Cookies
+    EXPECT_EQ(expected_cookies,
               GTK_WIDGET_SENSITIVE(cookies_view.cookie_name_entry_));
-    EXPECT_EQ(expected,
+    EXPECT_EQ(expected_cookies,
               GTK_WIDGET_SENSITIVE(cookies_view.cookie_content_entry_));
-    EXPECT_EQ(expected,
+    EXPECT_EQ(expected_cookies,
               GTK_WIDGET_SENSITIVE(cookies_view.cookie_domain_entry_));
-    EXPECT_EQ(expected,
+    EXPECT_EQ(expected_cookies,
               GTK_WIDGET_SENSITIVE(cookies_view.cookie_path_entry_));
-    EXPECT_EQ(expected,
+    EXPECT_EQ(expected_cookies,
               GTK_WIDGET_SENSITIVE(cookies_view.cookie_send_for_entry_));
-    EXPECT_EQ(expected,
+    EXPECT_EQ(expected_cookies,
               GTK_WIDGET_SENSITIVE(cookies_view.cookie_created_entry_));
-    EXPECT_EQ(expected,
+    EXPECT_EQ(expected_cookies,
               GTK_WIDGET_SENSITIVE(cookies_view.cookie_expires_entry_));
+    // Local Storage
+    EXPECT_EQ(expected_local_storage,
+              GTK_WIDGET_SENSITIVE(cookies_view.local_storage_origin_entry_));
+    EXPECT_EQ(expected_local_storage,
+              GTK_WIDGET_SENSITIVE(cookies_view.local_storage_size_entry_));
+    EXPECT_EQ(expected_local_storage,
+              GTK_WIDGET_SENSITIVE(
+                  cookies_view.local_storage_last_modified_entry_));
+
   }
 
   // Get the cookie names in the cookie list, as a comma seperated string.
@@ -155,13 +169,14 @@ class CookiesViewTest : public testing::Test {
  protected:
   MessageLoopForUI message_loop_;
   scoped_ptr<CookieTestingProfile> profile_;
+  scoped_refptr<MockBrowsingDataLocalStorageHelper> mock_browsing_data_helper_;
 };
 
 TEST_F(CookiesViewTest, Empty) {
-  CookiesView cookies_view(profile_.get());
+  CookiesView cookies_view(profile_.get(), mock_browsing_data_helper_);
   EXPECT_EQ(FALSE, GTK_WIDGET_SENSITIVE(cookies_view.remove_all_button_));
   EXPECT_EQ(FALSE, GTK_WIDGET_SENSITIVE(cookies_view.remove_button_));
-  CheckDetailsSensitivity(FALSE, cookies_view);
+  CheckDetailsSensitivity(FALSE, FALSE, cookies_view);
   EXPECT_STREQ("", GetDisplayedCookies(cookies_view).c_str());
 }
 
@@ -174,21 +189,27 @@ TEST_F(CookiesViewTest, Noop) {
   monster->SetCookie(GURL("http://foo1"), "E=1");
   monster->SetCookie(GURL("http://foo2"), "G=1");
   monster->SetCookie(GURL("http://foo2"), "X=1");
-  CookiesView cookies_view(profile_.get());
+  CookiesView cookies_view(profile_.get(), mock_browsing_data_helper_);
+  mock_browsing_data_helper_->AddLocalStorageSamples();
+  mock_browsing_data_helper_->Notify();
   EXPECT_STREQ("foo0,_Cookies,__C,__D,"
                "foo1,_Cookies,__A,__B,__E,"
-               "foo2,_Cookies,__G,__X",
+               "foo2,_Cookies,__G,__X,"
+               "host1,_Local Storage,__origin1,"
+               "host2,_Local Storage,__origin2",
                GetDisplayedCookies(cookies_view).c_str());
   EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_all_button_));
   EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_button_));
-  CheckDetailsSensitivity(FALSE, cookies_view);
+  CheckDetailsSensitivity(FALSE, FALSE, cookies_view);
 }
 
 TEST_F(CookiesViewTest, RemoveAll) {
   net::CookieMonster* monster = profile_->GetCookieMonster();
   monster->SetCookie(GURL("http://foo"), "A=1");
   monster->SetCookie(GURL("http://foo2"), "B=1");
-  CookiesView cookies_view(profile_.get());
+  CookiesView cookies_view(profile_.get(), mock_browsing_data_helper_);
+  mock_browsing_data_helper_->AddLocalStorageSamples();
+  mock_browsing_data_helper_->Notify();
 
   // Reset the selection of the first row.
   gtk_tree_selection_unselect_all(cookies_view.selection_);
@@ -197,8 +218,10 @@ TEST_F(CookiesViewTest, RemoveAll) {
     SCOPED_TRACE("Before removing");
     EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_all_button_));
     EXPECT_EQ(FALSE, GTK_WIDGET_SENSITIVE(cookies_view.remove_button_));
-    CheckDetailsSensitivity(FALSE, cookies_view);
-    EXPECT_STREQ("foo,_Cookies,__A,foo2,_Cookies,__B",
+    CheckDetailsSensitivity(FALSE, FALSE, cookies_view);
+    EXPECT_STREQ("foo,_Cookies,__A,foo2,_Cookies,__B,"
+                 "host1,_Local Storage,__origin1,"
+                 "host2,_Local Storage,__origin2",
                  GetDisplayedCookies(cookies_view).c_str());
   }
 
@@ -208,8 +231,9 @@ TEST_F(CookiesViewTest, RemoveAll) {
     EXPECT_EQ(0u, monster->GetAllCookies().size());
     EXPECT_EQ(FALSE, GTK_WIDGET_SENSITIVE(cookies_view.remove_all_button_));
     EXPECT_EQ(FALSE, GTK_WIDGET_SENSITIVE(cookies_view.remove_button_));
-    CheckDetailsSensitivity(FALSE, cookies_view);
+    CheckDetailsSensitivity(FALSE, FALSE, cookies_view);
     EXPECT_STREQ("", GetDisplayedCookies(cookies_view).c_str());
+    EXPECT_TRUE(mock_browsing_data_helper_->delete_all_files_called_);
   }
 }
 
@@ -217,7 +241,9 @@ TEST_F(CookiesViewTest, RemoveAllWithDefaultSelected) {
   net::CookieMonster* monster = profile_->GetCookieMonster();
   monster->SetCookie(GURL("http://foo"), "A=1");
   monster->SetCookie(GURL("http://foo2"), "B=1");
-  CookiesView cookies_view(profile_.get());
+  CookiesView cookies_view(profile_.get(), mock_browsing_data_helper_);
+  mock_browsing_data_helper_->AddLocalStorageSamples();
+  mock_browsing_data_helper_->Notify();
 
   EXPECT_STREQ("0", GetSelectedPath(cookies_view).c_str());
   EXPECT_EQ(1, gtk_tree_selection_count_selected_rows(cookies_view.selection_));
@@ -225,8 +251,10 @@ TEST_F(CookiesViewTest, RemoveAllWithDefaultSelected) {
     SCOPED_TRACE("Before removing");
     EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_all_button_));
     EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_button_));
-    CheckDetailsSensitivity(FALSE, cookies_view);
-    EXPECT_STREQ("foo,_Cookies,__A,foo2,_Cookies,__B",
+    CheckDetailsSensitivity(FALSE, FALSE, cookies_view);
+    EXPECT_STREQ("foo,_Cookies,__A,foo2,_Cookies,__B,"
+                 "host1,_Local Storage,__origin1,"
+                 "host2,_Local Storage,__origin2",
                  GetDisplayedCookies(cookies_view).c_str());
   }
 
@@ -236,10 +264,11 @@ TEST_F(CookiesViewTest, RemoveAllWithDefaultSelected) {
     EXPECT_EQ(0u, monster->GetAllCookies().size());
     EXPECT_EQ(FALSE, GTK_WIDGET_SENSITIVE(cookies_view.remove_all_button_));
     EXPECT_EQ(FALSE, GTK_WIDGET_SENSITIVE(cookies_view.remove_button_));
-    CheckDetailsSensitivity(FALSE, cookies_view);
+    CheckDetailsSensitivity(FALSE, FALSE, cookies_view);
     EXPECT_STREQ("", GetDisplayedCookies(cookies_view).c_str());
     EXPECT_EQ(0,
               gtk_tree_selection_count_selected_rows(cookies_view.selection_));
+    EXPECT_TRUE(mock_browsing_data_helper_->delete_all_files_called_);
   }
 }
 
@@ -248,7 +277,9 @@ TEST_F(CookiesViewTest, Remove) {
   monster->SetCookie(GURL("http://foo1"), "A=1");
   monster->SetCookie(GURL("http://foo2"), "B=1");
   monster->SetCookie(GURL("http://foo2"), "C=1");
-  CookiesView cookies_view(profile_.get());
+  CookiesView cookies_view(profile_.get(), mock_browsing_data_helper_);
+  mock_browsing_data_helper_->AddLocalStorageSamples();
+  mock_browsing_data_helper_->Notify();
 
   ASSERT_TRUE(SelectByPath(cookies_view, "1:0:0"));
 
@@ -256,8 +287,10 @@ TEST_F(CookiesViewTest, Remove) {
     SCOPED_TRACE("First selection");
     EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_all_button_));
     EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_button_));
-    CheckDetailsSensitivity(TRUE, cookies_view);
-    EXPECT_STREQ("foo1,_Cookies,__A,foo2,_Cookies,__B,__C",
+    CheckDetailsSensitivity(TRUE, FALSE, cookies_view);
+    EXPECT_STREQ("foo1,_Cookies,__A,foo2,_Cookies,__B,__C,"
+                 "host1,_Local Storage,__origin1,"
+                 "host2,_Local Storage,__origin2",
                  GetDisplayedCookies(cookies_view).c_str());
   }
 
@@ -266,12 +299,14 @@ TEST_F(CookiesViewTest, Remove) {
   {
     SCOPED_TRACE("First selection removed");
     EXPECT_STREQ("A,C", GetMonsterCookies(monster).c_str());
-    EXPECT_STREQ("foo1,_Cookies,__A,foo2,_Cookies,__C",
+    EXPECT_STREQ("foo1,_Cookies,__A,foo2,_Cookies,__C,"
+                 "host1,_Local Storage,__origin1,"
+                 "host2,_Local Storage,__origin2",
                  GetDisplayedCookies(cookies_view).c_str());
     EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_all_button_));
     EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_button_));
     EXPECT_STREQ("1:0:0", GetSelectedPath(cookies_view).c_str());
-    CheckDetailsSensitivity(TRUE, cookies_view);
+    CheckDetailsSensitivity(TRUE, FALSE, cookies_view);
   }
 
   EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_button_));
@@ -280,12 +315,14 @@ TEST_F(CookiesViewTest, Remove) {
   {
     SCOPED_TRACE("Second selection");
     EXPECT_STREQ("A", GetMonsterCookies(monster).c_str());
-    EXPECT_STREQ("foo1,_Cookies,__A,foo2,_Cookies",
+    EXPECT_STREQ("foo1,_Cookies,__A,foo2,_Cookies,"
+                 "host1,_Local Storage,__origin1,"
+                 "host2,_Local Storage,__origin2",
                  GetDisplayedCookies(cookies_view).c_str());
     EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_all_button_));
     EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_button_));
     EXPECT_STREQ("1:0", GetSelectedPath(cookies_view).c_str());
-    CheckDetailsSensitivity(FALSE, cookies_view);
+    CheckDetailsSensitivity(FALSE, FALSE, cookies_view);
   }
 
   ASSERT_TRUE(SelectByPath(cookies_view, "0:0:0"));
@@ -298,9 +335,35 @@ TEST_F(CookiesViewTest, Remove) {
     EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_all_button_));
     EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_button_));
     EXPECT_STREQ("0:0", GetSelectedPath(cookies_view).c_str());
-    CheckDetailsSensitivity(FALSE, cookies_view);
-    EXPECT_STREQ("foo1,_Cookies,foo2,_Cookies",
+    CheckDetailsSensitivity(FALSE, FALSE, cookies_view);
+    EXPECT_STREQ("foo1,_Cookies,foo2,_Cookies,"
+                 "host1,_Local Storage,__origin1,"
+                 "host2,_Local Storage,__origin2",
                  GetDisplayedCookies(cookies_view).c_str());
+  }
+
+  ASSERT_TRUE(ExpandByPath(cookies_view, "2"));
+  EXPECT_STREQ("foo1,+Cookies,foo2,+Cookies,"
+               "host1,+Local Storage,++origin1,"
+               "host2,_Local Storage,__origin2",
+               GetDisplayedCookies(cookies_view).c_str());
+  ASSERT_TRUE(SelectByPath(cookies_view, "2:0:0"));
+  EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_button_));
+  gtk_button_clicked(GTK_BUTTON(cookies_view.remove_button_));
+
+  {
+    SCOPED_TRACE("Third selection removed");
+    EXPECT_EQ(0u, monster->GetAllCookies().size());
+    EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_all_button_));
+    EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_button_));
+    EXPECT_STREQ("2:0", GetSelectedPath(cookies_view).c_str());
+    CheckDetailsSensitivity(FALSE, FALSE, cookies_view);
+    EXPECT_STREQ("foo1,+Cookies,foo2,+Cookies,"
+                 "host1,+Local Storage,"
+                 "host2,_Local Storage,__origin2",
+                 GetDisplayedCookies(cookies_view).c_str());
+    EXPECT_TRUE(mock_browsing_data_helper_->last_deleted_file_ ==
+                FilePath(FILE_PATH_LITERAL("file1")));
   }
 }
 
@@ -313,10 +376,15 @@ TEST_F(CookiesViewTest, RemoveCookiesByDomain) {
   monster->SetCookie(GURL("http://foo1"), "E=1");
   monster->SetCookie(GURL("http://foo2"), "G=1");
   monster->SetCookie(GURL("http://foo2"), "X=1");
-  CookiesView cookies_view(profile_.get());
+  CookiesView cookies_view(profile_.get(), mock_browsing_data_helper_);
+  mock_browsing_data_helper_->AddLocalStorageSamples();
+  mock_browsing_data_helper_->Notify();
+
   EXPECT_STREQ("foo0,_Cookies,__C,__D,"
                "foo1,_Cookies,__A,__B,__E,"
-               "foo2,_Cookies,__G,__X",
+               "foo2,_Cookies,__G,__X,"
+               "host1,_Local Storage,__origin1,"
+               "host2,_Local Storage,__origin2",
                GetDisplayedCookies(cookies_view).c_str());
 
   ASSERT_TRUE(SelectByPath(cookies_view, "1:0"));
@@ -329,7 +397,9 @@ TEST_F(CookiesViewTest, RemoveCookiesByDomain) {
   EXPECT_STREQ("C,D,G,X", GetMonsterCookies(monster).c_str());
   EXPECT_STREQ("foo0,_Cookies,__C,__D,"
                "foo1,"
-               "foo2,_Cookies,__G,__X",
+               "foo2,_Cookies,__G,__X,"
+               "host1,_Local Storage,__origin1,"
+               "host2,_Local Storage,__origin2",
                GetDisplayedCookies(cookies_view).c_str());
   EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_all_button_));
   EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_button_));
@@ -341,7 +411,9 @@ TEST_F(CookiesViewTest, RemoveCookiesByDomain) {
   EXPECT_STREQ("G,X", GetMonsterCookies(monster).c_str());
   EXPECT_STREQ("foo0,"
                "foo1,"
-               "foo2,_Cookies,__G,__X",
+               "foo2,_Cookies,__G,__X,"
+               "host1,_Local Storage,__origin1,"
+               "host2,_Local Storage,__origin2",
                GetDisplayedCookies(cookies_view).c_str());
   EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_all_button_));
   EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_button_));
@@ -353,11 +425,36 @@ TEST_F(CookiesViewTest, RemoveCookiesByDomain) {
   EXPECT_STREQ("", GetMonsterCookies(monster).c_str());
   EXPECT_STREQ("foo0,"
                "foo1,"
-               "foo2",
+               "foo2,"
+               "host1,_Local Storage,__origin1,"
+               "host2,_Local Storage,__origin2",
                GetDisplayedCookies(cookies_view).c_str());
   EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_all_button_));
   EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_button_));
   EXPECT_STREQ("2", GetSelectedPath(cookies_view).c_str());
+
+  ASSERT_TRUE(ExpandByPath(cookies_view, "3"));
+  EXPECT_STREQ("foo0,"
+               "foo1,"
+               "foo2,"
+               "host1,+Local Storage,++origin1,"
+               "host2,_Local Storage,__origin2",
+               GetDisplayedCookies(cookies_view).c_str());
+  ASSERT_TRUE(SelectByPath(cookies_view, "3:0"));
+  gtk_button_clicked(GTK_BUTTON(cookies_view.remove_button_));
+
+  EXPECT_STREQ("", GetMonsterCookies(monster).c_str());
+  EXPECT_STREQ("foo0,"
+               "foo1,"
+               "foo2,"
+               "host1,"
+               "host2,_Local Storage,__origin2",
+               GetDisplayedCookies(cookies_view).c_str());
+  EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_all_button_));
+  EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_button_));
+  EXPECT_STREQ("3", GetSelectedPath(cookies_view).c_str());
+  EXPECT_TRUE(mock_browsing_data_helper_->last_deleted_file_ ==
+              FilePath(FILE_PATH_LITERAL("file1")));
 }
 
 TEST_F(CookiesViewTest, RemoveByDomain) {
@@ -369,10 +466,15 @@ TEST_F(CookiesViewTest, RemoveByDomain) {
   monster->SetCookie(GURL("http://foo1"), "E=1");
   monster->SetCookie(GURL("http://foo2"), "G=1");
   monster->SetCookie(GURL("http://foo2"), "X=1");
-  CookiesView cookies_view(profile_.get());
+  CookiesView cookies_view(profile_.get(), mock_browsing_data_helper_);
+  mock_browsing_data_helper_->AddLocalStorageSamples();
+  mock_browsing_data_helper_->Notify();
+
   EXPECT_STREQ("foo0,_Cookies,__C,__D,"
                "foo1,_Cookies,__A,__B,__E,"
-               "foo2,_Cookies,__G,__X",
+               "foo2,_Cookies,__G,__X,"
+               "host1,_Local Storage,__origin1,"
+               "host2,_Local Storage,__origin2",
                GetDisplayedCookies(cookies_view).c_str());
 
   ASSERT_TRUE(SelectByPath(cookies_view, "1"));
@@ -384,7 +486,9 @@ TEST_F(CookiesViewTest, RemoveByDomain) {
 
   EXPECT_STREQ("C,D,G,X", GetMonsterCookies(monster).c_str());
   EXPECT_STREQ("foo0,_Cookies,__C,__D,"
-               "foo2,_Cookies,__G,__X",
+               "foo2,_Cookies,__G,__X,"
+               "host1,_Local Storage,__origin1,"
+               "host2,_Local Storage,__origin2",
                GetDisplayedCookies(cookies_view).c_str());
   EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_all_button_));
   EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_button_));
@@ -394,7 +498,9 @@ TEST_F(CookiesViewTest, RemoveByDomain) {
   gtk_button_clicked(GTK_BUTTON(cookies_view.remove_button_));
 
   EXPECT_STREQ("G,X", GetMonsterCookies(monster).c_str());
-  EXPECT_STREQ("foo2,_Cookies,__G,__X",
+  EXPECT_STREQ("foo2,_Cookies,__G,__X,"
+               "host1,_Local Storage,__origin1,"
+               "host2,_Local Storage,__origin2",
                GetDisplayedCookies(cookies_view).c_str());
   EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_all_button_));
   EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_button_));
@@ -403,9 +509,33 @@ TEST_F(CookiesViewTest, RemoveByDomain) {
   gtk_button_clicked(GTK_BUTTON(cookies_view.remove_button_));
 
   EXPECT_STREQ("", GetMonsterCookies(monster).c_str());
-  EXPECT_STREQ("", GetDisplayedCookies(cookies_view).c_str());
+  EXPECT_STREQ("host1,_Local Storage,__origin1,"
+               "host2,_Local Storage,__origin2",
+               GetDisplayedCookies(cookies_view).c_str());
+  EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_all_button_));
+  EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_button_));
+  EXPECT_STREQ("0", GetSelectedPath(cookies_view).c_str());
+
+  gtk_button_clicked(GTK_BUTTON(cookies_view.remove_button_));
+
+  EXPECT_STREQ("", GetMonsterCookies(monster).c_str());
+  EXPECT_STREQ("host2,_Local Storage,__origin2",
+               GetDisplayedCookies(cookies_view).c_str());
+  EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_all_button_));
+  EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_button_));
+  EXPECT_TRUE(mock_browsing_data_helper_->last_deleted_file_ ==
+        FilePath(FILE_PATH_LITERAL("file1")));
+  EXPECT_STREQ("0", GetSelectedPath(cookies_view).c_str());
+
+  gtk_button_clicked(GTK_BUTTON(cookies_view.remove_button_));
+  EXPECT_STREQ("", GetMonsterCookies(monster).c_str());
+  EXPECT_STREQ("",
+               GetDisplayedCookies(cookies_view).c_str());
   EXPECT_EQ(FALSE, GTK_WIDGET_SENSITIVE(cookies_view.remove_all_button_));
   EXPECT_EQ(FALSE, GTK_WIDGET_SENSITIVE(cookies_view.remove_button_));
+  EXPECT_TRUE(mock_browsing_data_helper_->last_deleted_file_ ==
+        FilePath(FILE_PATH_LITERAL("file2")));
+
   EXPECT_EQ(0, gtk_tree_selection_count_selected_rows(cookies_view.selection_));
 }
 
@@ -418,10 +548,15 @@ TEST_F(CookiesViewTest, RemoveDefaultSelection) {
   monster->SetCookie(GURL("http://foo1"), "E=1");
   monster->SetCookie(GURL("http://foo2"), "G=1");
   monster->SetCookie(GURL("http://foo2"), "X=1");
-  CookiesView cookies_view(profile_.get());
+  CookiesView cookies_view(profile_.get(), mock_browsing_data_helper_);
+  mock_browsing_data_helper_->AddLocalStorageSamples();
+  mock_browsing_data_helper_->Notify();
+
   EXPECT_STREQ("foo0,_Cookies,__C,__D,"
                "foo1,_Cookies,__A,__B,__E,"
-               "foo2,_Cookies,__G,__X",
+               "foo2,_Cookies,__G,__X,"
+               "host1,_Local Storage,__origin1,"
+               "host2,_Local Storage,__origin2",
                GetDisplayedCookies(cookies_view).c_str());
 
 
@@ -432,7 +567,9 @@ TEST_F(CookiesViewTest, RemoveDefaultSelection) {
 
   EXPECT_STREQ("B,A,E,G,X", GetMonsterCookies(monster).c_str());
   EXPECT_STREQ("foo1,_Cookies,__A,__B,__E,"
-               "foo2,_Cookies,__G,__X",
+               "foo2,_Cookies,__G,__X,"
+               "host1,_Local Storage,__origin1,"
+               "host2,_Local Storage,__origin2",
                GetDisplayedCookies(cookies_view).c_str());
 
   EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_all_button_));
@@ -441,7 +578,28 @@ TEST_F(CookiesViewTest, RemoveDefaultSelection) {
   gtk_button_clicked(GTK_BUTTON(cookies_view.remove_button_));
 
   EXPECT_STREQ("G,X", GetMonsterCookies(monster).c_str());
-  EXPECT_STREQ("foo2,_Cookies,__G,__X",
+  EXPECT_STREQ("foo2,_Cookies,__G,__X,"
+               "host1,_Local Storage,__origin1,"
+               "host2,_Local Storage,__origin2",
+               GetDisplayedCookies(cookies_view).c_str());
+
+  EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_all_button_));
+  EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_button_));
+
+  gtk_button_clicked(GTK_BUTTON(cookies_view.remove_button_));
+
+  EXPECT_STREQ("", GetMonsterCookies(monster).c_str());
+  EXPECT_STREQ("host1,_Local Storage,__origin1,"
+               "host2,_Local Storage,__origin2",
+               GetDisplayedCookies(cookies_view).c_str());
+
+  EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_all_button_));
+  EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_button_));
+
+  gtk_button_clicked(GTK_BUTTON(cookies_view.remove_button_));
+
+  EXPECT_STREQ("", GetMonsterCookies(monster).c_str());
+  EXPECT_STREQ("host2,_Local Storage,__origin2",
                GetDisplayedCookies(cookies_view).c_str());
 
   EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_all_button_));
@@ -454,4 +612,116 @@ TEST_F(CookiesViewTest, RemoveDefaultSelection) {
 
   EXPECT_EQ(FALSE, GTK_WIDGET_SENSITIVE(cookies_view.remove_all_button_));
   EXPECT_EQ(FALSE, GTK_WIDGET_SENSITIVE(cookies_view.remove_button_));
+}
+<<<<<<< .working
+=======
+
+TEST_F(CookiesViewTest, Filter) {
+  net::CookieMonster* monster = profile_->GetCookieMonster();
+  monster->SetCookie(GURL("http://foo0"), "C=1");
+  monster->SetCookie(GURL("http://bar0"), "D=1");
+  monster->SetCookie(GURL("http://foo1"), "B=1");
+  monster->SetCookie(GURL("http://bar1"), "A=1");
+  CookiesView cookies_view(profile_.get(), mock_browsing_data_helper_);
+  mock_browsing_data_helper_->AddLocalStorageSamples();
+  mock_browsing_data_helper_->Notify();
+
+  EXPECT_STREQ("bar0,_Cookies,__D,"
+               "bar1,_Cookies,__A,"
+               "foo0,_Cookies,__C,"
+               "foo1,_Cookies,__B,"
+               "host1,_Local Storage,__origin1,"
+               "host2,_Local Storage,__origin2",
+               GetDisplayedCookies(cookies_view).c_str());
+
+  EXPECT_EQ(FALSE, GTK_WIDGET_SENSITIVE(cookies_view.filter_clear_button_));
+
+  gtk_entry_set_text(GTK_ENTRY(cookies_view.filter_entry_), "bar");
+  EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.filter_clear_button_));
+  // Entering text doesn't immediately filter the results.
+  EXPECT_STREQ("bar0,_Cookies,__D,"
+               "bar1,_Cookies,__A,"
+               "foo0,_Cookies,__C,"
+               "foo1,_Cookies,__B,"
+               "host1,_Local Storage,__origin1,"
+               "host2,_Local Storage,__origin2",
+               GetDisplayedCookies(cookies_view).c_str());
+
+  // Results are filtered immediately if you activate (hit enter in the entry).
+  gtk_widget_activate(cookies_view.filter_entry_);
+  EXPECT_STREQ("bar0,_Cookies,__D,"
+               "bar1,_Cookies,__A",
+               GetDisplayedCookies(cookies_view).c_str());
+
+  gtk_button_clicked(GTK_BUTTON(cookies_view.filter_clear_button_));
+  EXPECT_EQ(FALSE, GTK_WIDGET_SENSITIVE(cookies_view.filter_clear_button_));
+  EXPECT_STREQ("", gtk_entry_get_text(GTK_ENTRY(cookies_view.filter_entry_)));
+  EXPECT_STREQ("bar0,_Cookies,__D,"
+               "bar1,_Cookies,__A,"
+               "foo0,_Cookies,__C,"
+               "foo1,_Cookies,__B,"
+               "host1,_Local Storage,__origin1,"
+               "host2,_Local Storage,__origin2",
+               GetDisplayedCookies(cookies_view).c_str());
+
+  gtk_entry_set_text(GTK_ENTRY(cookies_view.filter_entry_), "hos");
+  gtk_widget_activate(cookies_view.filter_entry_);
+  EXPECT_STREQ("host1,_Local Storage,__origin1,"
+               "host2,_Local Storage,__origin2",
+               GetDisplayedCookies(cookies_view).c_str());
+}
+
+TEST_F(CookiesViewTest, FilterRemoveAll) {
+  net::CookieMonster* monster = profile_->GetCookieMonster();
+  monster->SetCookie(GURL("http://foo0"), "C=1");
+  monster->SetCookie(GURL("http://bar0"), "D=1");
+  monster->SetCookie(GURL("http://foo1"), "B=1");
+  monster->SetCookie(GURL("http://bar1"), "A=1");
+  CookiesView cookies_view(profile_.get(), mock_browsing_data_helper_);
+  mock_browsing_data_helper_->AddLocalStorageSamples();
+  mock_browsing_data_helper_->Notify();
+
+  EXPECT_STREQ("bar0,_Cookies,__D,"
+               "bar1,_Cookies,__A,"
+               "foo0,_Cookies,__C,"
+               "foo1,_Cookies,__B,"
+               "host1,_Local Storage,__origin1,"
+               "host2,_Local Storage,__origin2",
+               GetDisplayedCookies(cookies_view).c_str());
+
+  EXPECT_EQ(FALSE, GTK_WIDGET_SENSITIVE(cookies_view.filter_clear_button_));
+
+  gtk_entry_set_text(GTK_ENTRY(cookies_view.filter_entry_), "bar");
+  EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.filter_clear_button_));
+  // Entering text doesn't immediately filter the results.
+  EXPECT_STREQ("bar0,_Cookies,__D,"
+               "bar1,_Cookies,__A,"
+               "foo0,_Cookies,__C,"
+               "foo1,_Cookies,__B,"
+               "host1,_Local Storage,__origin1,"
+               "host2,_Local Storage,__origin2",
+               GetDisplayedCookies(cookies_view).c_str());
+
+  // Results are filtered immediately if you activate (hit enter in the entry).
+  gtk_widget_activate(cookies_view.filter_entry_);
+  EXPECT_STREQ("bar0,_Cookies,__D,"
+               "bar1,_Cookies,__A",
+               GetDisplayedCookies(cookies_view).c_str());
+  EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.remove_all_button_));
+
+  gtk_button_clicked(GTK_BUTTON(cookies_view.remove_all_button_));
+
+  EXPECT_EQ(FALSE, GTK_WIDGET_SENSITIVE(cookies_view.remove_all_button_));
+  EXPECT_STREQ("",
+               GetDisplayedCookies(cookies_view).c_str());
+  EXPECT_EQ(TRUE, GTK_WIDGET_SENSITIVE(cookies_view.filter_clear_button_));
+
+  gtk_button_clicked(GTK_BUTTON(cookies_view.filter_clear_button_));
+  EXPECT_EQ(FALSE, GTK_WIDGET_SENSITIVE(cookies_view.filter_clear_button_));
+  EXPECT_STREQ("", gtk_entry_get_text(GTK_ENTRY(cookies_view.filter_entry_)));
+  EXPECT_STREQ("foo0,_Cookies,__C,"
+               "foo1,_Cookies,__B,"
+               "host1,_Local Storage,__origin1,"
+               "host2,_Local Storage,__origin2",
+               GetDisplayedCookies(cookies_view).c_str());
 }

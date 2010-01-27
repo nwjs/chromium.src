@@ -68,6 +68,18 @@ class DOMStorageContext {
   // The special ID used for local storage.
   static const int64 kLocalStorageNamespaceId = 0;
 
+// Deletes a single local storage file.
+  void DeleteLocalStorageFile(const FilePath& file_path);
+
+  // Deletes all local storage files.
+  void DeleteAllLocalStorageFiles();
+
+  // The local storage directory.
+  static const FilePath::CharType kLocalStorageDirectory[];
+
+  // The local storage file extension.
+  static const FilePath::CharType kLocalStorageExtension[];
+
  private:
   // The last used storage_area_id and storage_namespace_id's.
   static const int64 kFirstStorageAreaId = 1;

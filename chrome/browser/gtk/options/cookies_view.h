@@ -12,6 +12,7 @@
 #include "base/basictypes.h"
 #include "base/scoped_ptr.h"
 #include "base/task.h"
+#include "chrome/browser/browsing_data_local_storage_helper.h"
 #include "chrome/common/gtk_tree.h"
 #include "net/base/cookie_monster.h"
 #include "testing/gtest/include/gtest/gtest_prod.h"
@@ -31,14 +32,18 @@ class CookiesView : public gtk_tree::TreeAdapter::Delegate {
   virtual ~CookiesView();
 
   // Create (if necessary) and show the cookie manager window.
-  static void Show(Profile* profile);
+  static void Show(
+      Profile* profile,
+      BrowsingDataLocalStorageHelper* browsing_data_local_storage_helper);
 
   // gtk_tree::TreeAdapter::Delegate implementation.
   virtual void OnAnyModelUpdateStart();
   virtual void OnAnyModelUpdate();
 
  private:
-  explicit CookiesView(Profile* profile);
+  CookiesView(
+      Profile* profile,
+      BrowsingDataLocalStorageHelper* browsing_data_local_storage_helper);
 
   // Initialize the dialog contents and layout.
   void Init();
@@ -46,8 +51,9 @@ class CookiesView : public gtk_tree::TreeAdapter::Delegate {
   // Initialize the widget styles and display the dialog.
   void InitStylesAndShow();
 
-  // Helper for initializing cookie details table.
-  void InitCookieDetailRow(int row, int label_id, GtkWidget** display_label);
+  // Helper for initializing cookie / local storage details table.
+  void InitDetailRow(int row, int label_id,
+                     GtkWidget* details_table, GtkWidget** display_label);
 
   // Set sensitivity of buttons based on selection and filter state.
   void EnableControls();
@@ -55,9 +61,17 @@ class CookiesView : public gtk_tree::TreeAdapter::Delegate {
   // Set sensitivity of cookie details.
   void SetCookieDetailsSensitivity(gboolean enabled);
 
+  // Set sensitivity of local storage details.
+  void SetLocalStorageDetailsSensitivity(gboolean enabled);
+
   // Show the details of the currently selected cookie.
   void PopulateCookieDetails(const std::string& domain,
                              const net::CookieMonster::CanonicalCookie& cookie);
+
+  // Show the details of the currently selected local storage.
+  void PopulateLocalStorageDetails(
+      const BrowsingDataLocalStorageHelper::LocalStorageInfo&
+      local_storage_info);
 
   // Reset the cookie details display.
   void ClearCookieDetails();
@@ -79,6 +93,9 @@ class CookiesView : public gtk_tree::TreeAdapter::Delegate {
   // Callback for when user presses a key with the table focused.
   static gboolean OnTreeViewKeyPress(GtkWidget* tree_view, GdkEventKey* key,
                                      CookiesView* window);
+
+  // Sets which of the detailed info table is visible.
+  void UpdateVisibleDetailedInfo(GtkWidget* table);
 
   // The parent widget.
   GtkWidget* dialog_;
@@ -102,8 +119,18 @@ class CookiesView : public gtk_tree::TreeAdapter::Delegate {
   GtkWidget* cookie_created_entry_;
   GtkWidget* cookie_expires_entry_;
 
+  // The local storage details widgets.
+  GtkWidget* local_storage_details_table_;
+  GtkWidget* local_storage_origin_entry_;
+  GtkWidget* local_storage_size_entry_;
+  GtkWidget* local_storage_last_modified_entry_;
+
   // The profile.
   Profile* profile_;
+
+  // Local Storage Helper.
+  scoped_refptr<BrowsingDataLocalStorageHelper>
+      browsing_data_local_storage_helper_;
 
   // The Cookies Table model.
   scoped_ptr<CookiesTreeModel> cookies_tree_model_;

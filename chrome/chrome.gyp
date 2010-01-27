@@ -56,6 +56,7 @@
       'browser/autocomplete/autocomplete_browsertest.cc',
       'browser/browser_browsertest.cc',
       'browser/browser_init_browsertest.cc',
+      'browser/browsing_data_local_storage_helper_unittest.cc',
       'browser/crash_recovery_browsertest.cc',
       'browser/download/save_page_browsertest.cc',
       'browser/extensions/autoupdate_interceptor.cc',
@@ -965,6 +966,8 @@
         'browser/browser_url_handler.cc',
         'browser/browser_url_handler.h',
         'browser/browser_window.h',
+        'browser/browsing_data_local_storage_helper.cc',
+        'browser/browsing_data_local_storage_helper.h',
         'browser/browsing_data_remover.cc',
         'browser/browsing_data_remover.h',
         'browser/browsing_instance.cc',
@@ -4082,6 +4085,8 @@
         'app/breakpad_mac_stubs.mm',
         # The only thing used from browser is Browser::Type.
         'browser/browser.h',
+        'browser/mock_browsing_data_local_storage_helper.h',
+                'browser/mock_browsing_data_local_storage_helper.cc',
         # TODO:  these should live here but are currently used by
         # production code code in libbrowser (above).
         #'browser/net/url_request_mock_http_job.cc',
