@@ -31,8 +31,14 @@ void ProxyList::SetSingleProxyServer(const ProxyServer& proxy_server) {
     proxies_.push_back(proxy_server);
 }
 
-void ProxyList::RemoveBadProxies(const ProxyRetryInfoMap& proxy_retry_info) {
-  std::vector<ProxyServer> new_proxy_list;
+void ProxyList::DeprioritizeBadProxies(
+    const ProxyRetryInfoMap& proxy_retry_info) {
+  // Partition the proxy list in two:
+  //   (1) the known bad proxies
+  //   (2) everything else
+  std::vector<ProxyServer> good_proxies;
+  std::vector<ProxyServer> bad_proxies;
+
   std::vector<ProxyServer>::const_iterator iter = proxies_.begin();
   for (; iter != proxies_.end(); ++iter) {
     ProxyRetryInfoMap::const_iterator bad_proxy =
@@ -41,13 +47,16 @@ void ProxyList::RemoveBadProxies(const ProxyRetryInfoMap& proxy_retry_info) {
       // This proxy is bad. Check if it's time to retry.
       if (bad_proxy->second.bad_until >= TimeTicks::Now()) {
         // still invalid.
+        bad_proxies.push_back(*iter);
         continue;
       }
     }
-    new_proxy_list.push_back(*iter);
+    good_proxies.push_back(*iter);
   }
 
-  proxies_ = new_proxy_list;
+  // "proxies_ = good_proxies + bad_proxies"
+  proxies_.swap(good_proxies);
+  proxies_.insert(proxies_.end(), bad_proxies.begin(), bad_proxies.end());
 }
 
 void ProxyList::RemoveProxiesWithoutScheme(int scheme_bit_field) {
@@ -61,10 +70,13 @@ void ProxyList::RemoveProxiesWithoutScheme(int scheme_bit_field) {
   }
 }
 
-ProxyServer ProxyList::Get() const {
-  if (!proxies_.empty())
-    return proxies_[0];
-  return ProxyServer(ProxyServer::SCHEME_DIRECT, std::string(), -1);
+bool ProxyList::IsEmpty() const {
+  return proxies_.empty();
+}
+
+const ProxyServer& ProxyList::Get() const {
+  DCHECK(!proxies_.empty());
+  return proxies_[0];
 }
 
 std::string ProxyList::ToPacString() const {
@@ -75,7 +87,7 @@ std::string ProxyList::ToPacString() const {
       proxy_list += ";";
     proxy_list += iter->ToPacString();
   }
-  return proxy_list.empty() ? "DIRECT" : proxy_list;
+  return proxy_list.empty() ? std::string() : proxy_list;
 }
 
 void ProxyList::SetFromPacString(const std::string& pac_string) {
@@ -88,30 +100,51 @@ void ProxyList::SetFromPacString(const std::string& pac_string) {
     if (uri.is_valid())
       proxies_.push_back(uri);
   }
+
+  // If we failed to parse anything from the PAC results list, fallback to
+  // DIRECT (this basically means an error in the PAC script).
+  if (proxies_.empty()) {
+    proxies_.push_back(ProxyServer::Direct());
+  }
 }
 
 bool ProxyList::Fallback(ProxyRetryInfoMap* proxy_retry_info) {
   // Number of minutes to wait before retrying a bad proxy server.
   const TimeDelta kProxyRetryDelay = TimeDelta::FromMinutes(5);
 
+  // TODO(eroman): It would be good if instead of removing failed proxies
+  // from the list, we simply annotated them with the error code they failed
+  // with. Of course, ProxyService::ReconsiderProxyAfterError() would need to
+  // be given this information by the network transaction.
+  //
+  // The advantage of this approach is when the network transaction
+  // fails, we could output the full list of proxies that were attempted, and
+  // why each one of those failed (as opposed to just the last failure).
+  //
+  // And also, before failing the transaction wholesale, we could go back and
+  // retry the "bad proxies" which we never tried to begin with.
+  // (RemoveBadProxies would annotate them as 'expected bad' rather then delete
+  // them from the list, so we would know what they were).
+
   if (proxies_.empty()) {
     NOTREACHED();
     return false;
   }
 
-  std::string key = proxies_[0].ToURI();
-
-  // Mark this proxy as bad.
-  ProxyRetryInfoMap::iterator iter = proxy_retry_info->find(key);
-  if (iter != proxy_retry_info->end()) {
-    // TODO(nsylvain): This is not the first time we get this. We should
-    // double the retry time. Bug 997660.
-    iter->second.bad_until = TimeTicks::Now() + iter->second.current_delay;
-  } else {
-    ProxyRetryInfo retry_info;
-    retry_info.current_delay = kProxyRetryDelay;
-    retry_info.bad_until = TimeTicks().Now() + retry_info.current_delay;
-    (*proxy_retry_info)[key] = retry_info;
+  if (!proxies_[0].is_direct()) {
+    std::string key = proxies_[0].ToURI();
+    // Mark this proxy as bad.
+    ProxyRetryInfoMap::iterator iter = proxy_retry_info->find(key);
+    if (iter != proxy_retry_info->end()) {
+      // TODO(nsylvain): This is not the first time we get this. We should
+      // double the retry time. Bug 997660.
+      iter->second.bad_until = TimeTicks::Now() + iter->second.current_delay;
+    } else {
+      ProxyRetryInfo retry_info;
+      retry_info.current_delay = kProxyRetryDelay;
+      retry_info.bad_until = TimeTicks().Now() + retry_info.current_delay;
+      (*proxy_retry_info)[key] = retry_info;
+    }
   }
 
   // Remove this proxy from our list.

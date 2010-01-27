@@ -157,16 +157,7 @@ class ProxyService::PacRequest
     resolve_job_ = NULL;
     config_id_ = ProxyConfig::INVALID_ID;
 
-    // Notify the service of the completion.
-    service_->DidCompletePacRequest(results_->config_id_, result_code);
-
-    // Clean up the results list.
-    if (result_code == OK)
-      results_->RemoveBadProxies(service_->proxy_retry_info_);
-
-    LoadLog::EndEvent(load_log_, LoadLog::TYPE_PROXY_SERVICE);
-
-    return result_code;
+    return service_->DidFinishResolvingProxy(results_, result_code, load_log_);
   }
 
   LoadLog* load_log() const { return load_log_; }
@@ -210,7 +201,6 @@ ProxyService::ProxyService(ProxyConfigService* config_service,
     : config_service_(config_service),
       resolver_(resolver),
       next_config_id_(1),
-      config_is_bad_(false),
       should_use_proxy_resolver_(false),
       ALLOW_THIS_IN_INITIALIZER_LIST(init_proxy_resolver_callback_(
           this, &ProxyService::OnInitProxyResolverComplete)) {
@@ -280,10 +270,8 @@ int ProxyService::ResolveProxy(const GURL& raw_url,
   // using a direct connection, or when the config is bad.
   UpdateConfigIfOld();
   int rv = TryToCompleteSynchronously(url, result);
-  if (rv != ERR_IO_PENDING) {
-    LoadLog::EndEvent(load_log, LoadLog::TYPE_PROXY_SERVICE);
-    return rv;
-  }
+  if (rv != ERR_IO_PENDING)
+    return DidFinishResolvingProxy(result, rv, load_log);
 
   scoped_refptr<PacRequest> req =
       new PacRequest(this, url, result, callback, load_log);
@@ -317,25 +305,14 @@ int ProxyService::TryToCompleteSynchronously(const GURL& url,
 
   DCHECK(config_.id() != ProxyConfig::INVALID_ID);
 
-  // Fallback to a "direct" (no proxy) connection if the current configuration
-  // is known to be bad.
-  if (config_is_bad_) {
-    // Reset this flag to false in case the ProxyInfo object is being
-    // re-used by the caller.
-    result->config_was_tried_ = false;
-  } else {
-    // Remember that we are trying to use the current proxy configuration.
-    result->config_was_tried_ = true;
+  if (should_use_proxy_resolver_ || IsInitializingProxyResolver()) {
+    // May need to go through ProxyResolver for this.
+    return ERR_IO_PENDING;
+  }
 
-    if (should_use_proxy_resolver_ || IsInitializingProxyResolver()) {
-      // May need to go through ProxyResolver for this.
-      return ERR_IO_PENDING;
-    }
-
-    if (!config_.proxy_rules.empty()) {
-      ApplyProxyRules(url, config_.proxy_rules, result);
-      return OK;
-    }
+  if (!config_.proxy_rules.empty()) {
+    ApplyProxyRules(url, config_.proxy_rules, result);
+    return OK;
   }
 
   // otherwise, we have no proxy config
@@ -454,12 +431,6 @@ int ProxyService::ReconsiderProxyAfterError(const GURL& url,
     if (result->config_id_ != config_.id()) {
       // A new configuration!
       re_resolve = true;
-    } else if (!result->config_was_tried_) {
-      // We never tried the proxy configuration since we thought it was bad,
-      // but because we failed to establish a connection, let's try the proxy
-      // configuration again to see if it will work now.
-      config_is_bad_ = false;
-      re_resolve = true;
     }
   }
   if (re_resolve) {
@@ -469,27 +440,13 @@ int ProxyService::ReconsiderProxyAfterError(const GURL& url,
     return ResolveProxy(url, result, callback, pac_request, load_log);
   }
 
-  // We don't have new proxy settings to try, fallback to the next proxy
+  // We don't have new proxy settings to try, try to fallback to the next proxy
   // in the list.
-  bool was_direct = result->is_direct();
-  if (!was_direct && result->Fallback(&proxy_retry_info_))
-    return OK;
+  bool did_fallback = result->Fallback(&proxy_retry_info_);
 
-  // TODO(eroman): Hmm, this doesn't seem right. For starters just because
-  // auto_detect is true doesn't mean we are actually using it.
-  if (!config_.auto_detect && !config_.proxy_rules.empty()) {
-    // If auto detect is on, then we should try a DIRECT connection
-    // as the attempt to reach the proxy failed.
-    return ERR_FAILED;
-  }
-
-  // If we already tried a direct connection, then just give up.
-  if (was_direct)
-    return ERR_FAILED;
-
-  // Try going direct.
-  result->UseDirect();
-  return OK;
+  // Return synchronous failure if there is nothing left to fall-back to.
+  // TODO(eroman): This is a yucky API, clean it up.
+  return did_fallback ? OK : ERR_FAILED;
 }
 
 void ProxyService::CancelPacRequest(PacRequest* req) {
@@ -511,6 +468,17 @@ void ProxyService::RemovePendingRequest(PacRequest* req) {
   pending_requests_.erase(it);
 }
 
+int ProxyService::DidFinishResolvingProxy(ProxyInfo* result,
+                                          int result_code,
+                                          LoadLog* load_log) {
+  // Clean up the results list.
+  if (result_code == OK)
+    result->DeprioritizeBadProxies(proxy_retry_info_);
+
+  LoadLog::EndEvent(load_log, LoadLog::TYPE_PROXY_SERVICE);
+  return result_code;
+}
+
 void ProxyService::SetProxyScriptFetcher(
     ProxyScriptFetcher* proxy_script_fetcher) {
   proxy_script_fetcher_.reset(proxy_script_fetcher);
@@ -525,18 +493,6 @@ void ProxyService::ResetConfigService(
 void ProxyService::PurgeMemory() {
   if (resolver_.get())
     resolver_->PurgeMemory();
-}
-
-void ProxyService::DidCompletePacRequest(int config_id, int result_code) {
-  // If we get an error that indicates a bad PAC config, then we should
-  // remember that, and not try the PAC config again for a while.
-
-  // Our config may have already changed.
-  if (result_code == OK || config_id != config_.id())
-    return;
-
-  // Remember that this configuration doesn't work.
-  config_is_bad_ = true;
 }
 
 // static
@@ -613,7 +569,6 @@ void ProxyService::SetConfig(const ProxyConfig& config) {
   config_.set_id(next_config_id_++);
 
   // Reset state associated with latest config.
-  config_is_bad_ = false;
   proxy_retry_info_.clear();
 
   // Cancel any PAC fetching / ProxyResolver::SetPacScript() which was

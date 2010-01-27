@@ -31,9 +31,12 @@ class SOCKS5ClientSocket : public ClientSocket {
   //
   // |req_info| contains the hostname and port to which the socket above will
   // communicate to via the SOCKS layer.
+  //
+  // Although SOCKS 5 supports 3 different modes of addressing, we will
+  // always pass it a hostname. This means the DNS resolving is done
+  // proxy side.
   SOCKS5ClientSocket(ClientSocket* transport_socket,
-                     const HostResolver::RequestInfo& req_info,
-                     HostResolver* host_resolver);
+                     const HostResolver::RequestInfo& req_info);
 
   // On destruction Disconnect() is called.
   virtual ~SOCKS5ClientSocket();
@@ -58,13 +61,7 @@ class SOCKS5ClientSocket : public ClientSocket {
 #endif
 
  private:
-  FRIEND_TEST(SOCKS5ClientSocketTest, IPv6Domain);
-  FRIEND_TEST(SOCKS5ClientSocketTest, FailedDNS);
-  FRIEND_TEST(SOCKS5ClientSocketTest, CompleteHandshake);
-
   enum State {
-    STATE_RESOLVE_HOST,
-    STATE_RESOLVE_HOST_COMPLETE,
     STATE_GREET_WRITE,
     STATE_GREET_WRITE_COMPLETE,
     STATE_GREET_READ,
@@ -76,12 +73,9 @@ class SOCKS5ClientSocket : public ClientSocket {
     STATE_NONE,
   };
 
-  // State of the SOCKSv5 handshake. Before host resolution all connections
-  // are kEndPointFailedDomain. If DNS lookup fails, we move to
-  // kEndPointFailedDomain, otherwise the IPv4/IPv6 address as resolved.
+  // Addressing type that can be specified in requests or responses.
   enum SocksEndPointAddressType {
-    kEndPointUnresolved,
-    kEndPointFailedDomain = 0x03,
+    kEndPointDomain = 0x03,
     kEndPointResolvedIPv4 = 0x01,
     kEndPointResolvedIPv6 = 0x04,
   };
@@ -97,8 +91,6 @@ class SOCKS5ClientSocket : public ClientSocket {
   void OnIOComplete(int result);
 
   int DoLoop(int last_io_result);
-  int DoResolveHost();
-  int DoResolveHostComplete(int result);
   int DoHandshakeRead();
   int DoHandshakeReadComplete(int result);
   int DoHandshakeWrite();
@@ -118,7 +110,6 @@ class SOCKS5ClientSocket : public ClientSocket {
   scoped_ptr<ClientSocket> transport_;
 
   State next_state_;
-  SocksEndPointAddressType address_type_;
 
   // Stores the callback to the layer above, called on completing Connect().
   CompletionCallback* user_callback_;
@@ -142,9 +133,6 @@ class SOCKS5ClientSocket : public ClientSocket {
 
   size_t read_header_size;
 
-  // Used to resolve the hostname to which the SOCKS proxy will connect.
-  SingleRequestHostResolver host_resolver_;
-  AddressList addresses_;
   HostResolver::RequestInfo host_request_info_;
 
   scoped_refptr<LoadLog> load_log_;

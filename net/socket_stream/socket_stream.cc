@@ -688,7 +688,7 @@ int SocketStream::DoSOCKSConnect() {
                                      url_.EffectiveIntPort());
 
   if (proxy_info_.proxy_server().scheme() == ProxyServer::SCHEME_SOCKS5)
-    s = new SOCKS5ClientSocket(s, req_info, host_resolver_.get());
+    s = new SOCKS5ClientSocket(s, req_info);
   else
     s = new SOCKSClientSocket(s, req_info, host_resolver_.get());
   socket_.reset(s);

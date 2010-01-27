@@ -25,15 +25,20 @@ class ProxyList {
   // Set the proxy list to a single entry, |proxy_server|.
   void SetSingleProxyServer(const ProxyServer& proxy_server);
 
-  // Remove all proxies known to be bad from the proxy list.
-  void RemoveBadProxies(const ProxyRetryInfoMap& proxy_retry_info);
+  // De-prioritizes the proxies that we have cached as not working, by moving
+  // them to the end of the fallback list.
+  void DeprioritizeBadProxies(const ProxyRetryInfoMap& proxy_retry_info);
 
   // Delete any entry which doesn't have one of the specified proxy schemes.
   // |scheme_bit_field| is a bunch of ProxyServer::Scheme bitwise ORed together.
   void RemoveProxiesWithoutScheme(int scheme_bit_field);
 
-  // Returns the first valid proxy server in the list.
-  ProxyServer Get() const;
+  // Returns true if there is nothing left in the ProxyList.
+  bool IsEmpty() const;
+
+  // Returns the first proxy server in the list. It is only valid to call
+  // this if !IsEmpty().
+  const ProxyServer& Get() const;
 
   // Set the list by parsing the pac result |pac_string|.
   // Some examples for |pac_string|:
