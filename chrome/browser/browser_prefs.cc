@@ -31,6 +31,7 @@
 
 #if defined(TOOLKIT_VIEWS)  // TODO(port): whittle this down as we port
 #include "chrome/browser/views/frame/browser_view.h"
+#include "chrome/browser/views/options/content_settings_window_view.h"
 #endif
 
 #if defined(OS_WIN) || defined(OS_LINUX)
@@ -84,6 +85,11 @@ void RegisterAllPrefs(PrefService* user_prefs, PrefService* local_state) {
   NewTabUI::RegisterUserPrefs(user_prefs);
   BlockedPopupContainer::RegisterUserPrefs(user_prefs);
   DevToolsManager::RegisterUserPrefs(user_prefs);
+#if defined(TOOLKIT_VIEWS)  // TODO(port): whittle this down as we port.
+#if defined(OS_WIN)
+  ContentSettingsWindowView::RegisterUserPrefs(user_prefs);
+#endif
+#endif
 #if defined(TOOLKIT_GTK)
   BrowserWindowGtk::RegisterUserPrefs(user_prefs);
 #endif
