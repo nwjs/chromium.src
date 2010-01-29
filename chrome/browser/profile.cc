@@ -1,4 +1,4 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2010 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -25,6 +25,7 @@
 #include "chrome/browser/favicon_service.h"
 #include "chrome/browser/strict_transport_security_persister.h"
 #include "chrome/browser/history/history.h"
+#include "chrome/browser/host_content_settings_map.h"
 #include "chrome/browser/in_process_webkit/webkit_context.h"
 #include "chrome/browser/net/chrome_url_request_context.h"
 #include "chrome/browser/net/ssl_config_service_manager.h"
@@ -414,6 +415,14 @@ class OffTheRecordProfileImpl : public Profile,
     return GetOriginalProfile()->GetBlacklist();
   }
 
+  virtual HostContentSettingsMap* GetHostContentSettingsMap() {
+    // Need to use a separate map from the normal one to avoid persisting
+    // content setting changes in OTR mode.
+    if (!host_content_settings_map_.get())
+      host_content_settings_map_.reset(new HostContentSettingsMap(this));
+    return host_content_settings_map_.get();
+  }
+
   virtual SessionService* GetSessionService() {
     // Don't save any sessions when off the record.
     return NULL;
@@ -543,6 +552,8 @@ class OffTheRecordProfileImpl : public Profile,
 
   ChromeURLRequestContextGetter* extensions_request_context_;
 
+  scoped_ptr<HostContentSettingsMap> host_content_settings_map_;
+
   // The download manager that only stores downloaded items in memory.
   scoped_refptr<DownloadManager> download_manager_;
 
@@ -576,6 +587,7 @@ ProfileImpl::ProfileImpl(const FilePath& path)
       media_request_context_(NULL),
       extensions_request_context_(NULL),
       blacklist_(NULL),
+      host_content_settings_map_(NULL),
       history_service_created_(false),
       favicon_service_created_(false),
       created_web_data_service_(false),
@@ -975,6 +987,12 @@ net::SSLConfigService* ProfileImpl::GetSSLConfigService() {
 
 Blacklist* ProfileImpl::GetBlacklist() {
   return blacklist_.get();
+}
+
+HostContentSettingsMap* ProfileImpl::GetHostContentSettingsMap() {
+  if (!host_content_settings_map_.get())
+    host_content_settings_map_.reset(new HostContentSettingsMap(this));
+  return host_content_settings_map_.get();
 }
 
 HistoryService* ProfileImpl::GetHistoryService(ServiceAccessType sat) {

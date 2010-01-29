@@ -16,6 +16,7 @@
 #include "chrome/browser/external_protocol_handler.h"
 #include "chrome/browser/form_field_history_manager.h"
 #include "chrome/browser/google_url_tracker.h"
+#include "chrome/browser/host_content_settings_map.h"
 #include "chrome/browser/metrics/metrics_service.h"
 #include "chrome/browser/net/dns_global.h"
 #include "chrome/browser/page_info_model.h"
@@ -84,6 +85,7 @@ void RegisterAllPrefs(PrefService* user_prefs, PrefService* local_state) {
   ExtensionsUI::RegisterUserPrefs(user_prefs);
   NewTabUI::RegisterUserPrefs(user_prefs);
   BlockedPopupContainer::RegisterUserPrefs(user_prefs);
+  HostContentSettingsMap::RegisterUserPrefs(user_prefs);
   DevToolsManager::RegisterUserPrefs(user_prefs);
 #if defined(TOOLKIT_VIEWS)  // TODO(port): whittle this down as we port.
 #if defined(OS_WIN)

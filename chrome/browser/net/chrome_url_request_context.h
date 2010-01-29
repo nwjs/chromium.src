@@ -1,4 +1,4 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2010 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_NET_CHROME_URL_REQUEST_CONTEXT_H_
 
 #include "base/file_path.h"
+#include "chrome/browser/host_content_settings_map.h"
 #include "chrome/browser/net/url_request_context_getter.h"
 #include "chrome/common/appcache/chrome_appcache_service.h"
 #include "chrome/common/notification_registrar.h"
@@ -188,6 +189,10 @@ class ChromeURLRequestContext : public URLRequestContext {
 
   virtual bool AllowSendingCookies(const URLRequest* request) const;
 
+  const HostContentSettingsMap* host_content_settings_map() const {
+    return host_content_settings_map_;
+  }
+
   // Gets the Privacy Blacklist, if any for this context.
   const Blacklist* blacklist() const { return blacklist_; }
 
@@ -255,6 +260,10 @@ class ChromeURLRequestContext : public URLRequestContext {
   void set_extension_paths(const ExtensionPaths& paths) {
     extension_paths_ = paths;
   }
+  void set_host_content_settings_map(
+      HostContentSettingsMap* host_content_settings_map) {
+    host_content_settings_map_ = host_content_settings_map;
+  }
   void set_blacklist(const Blacklist* blacklist) {
     blacklist_ = blacklist;
   }
@@ -288,6 +297,7 @@ class ChromeURLRequestContext : public URLRequestContext {
   FilePath user_script_dir_path_;
 
   scoped_refptr<ChromeAppCacheService> appcache_service_;
+  HostContentSettingsMap* host_content_settings_map_;
 
   const Blacklist* blacklist_;
   bool is_media_;
@@ -333,6 +343,7 @@ class ChromeURLRequestContextFactory {
   FilePath user_script_dir_path_;
   Blacklist* blacklist_;
   net::StrictTransportSecurityState* strict_transport_security_state_;
+  HostContentSettingsMap* host_content_settings_map_;
   scoped_refptr<net::SSLConfigService> ssl_config_service_;
 
   FilePath profile_dir_path_;
