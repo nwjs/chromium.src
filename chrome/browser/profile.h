@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2009 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -43,7 +43,6 @@ class ExtensionMessageService;
 class ExtensionsService;
 class FaviconService;
 class HistoryService;
-class HostContentSettingsMap;
 class NavigationController;
 class PasswordStore;
 class PersonalDataManager;
@@ -294,9 +293,6 @@ class Profile {
 
   // Returns the Privacy Blaclist for this profile.
   virtual Blacklist* GetBlacklist() = 0;
-  //
-  // Returns the Hostname <-> Content settings map for this profile.
-  virtual HostContentSettingsMap* GetHostContentSettingsMap() = 0;
 
   // Returns the session service for this profile. This may return NULL. If
   // this profile supports a session service (it isn't off the record), and
@@ -450,7 +446,6 @@ class ProfileImpl : public Profile,
   virtual URLRequestContextGetter* GetRequestContextForExtensions();
   virtual net::SSLConfigService* GetSSLConfigService();
   virtual Blacklist* GetBlacklist();
-  virtual HostContentSettingsMap* GetHostContentSettingsMap();
   virtual SessionService* GetSessionService();
   virtual void ShutdownSessionService();
   virtual bool HasSessionService() const;
@@ -537,8 +532,6 @@ class ProfileImpl : public Profile,
   scoped_ptr<SSLConfigServiceManager> ssl_config_service_manager_;
 
   scoped_ptr<Blacklist> blacklist_;
-
-  scoped_ptr<HostContentSettingsMap> host_content_settings_map_;
 
   scoped_refptr<DownloadManager> download_manager_;
   scoped_refptr<HistoryService> history_service_;

@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2009 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -101,7 +101,7 @@ bool AsyncResourceHandler::OnResponseStarted(int request_id,
   // level before the request actually commits.  This way the renderer will be
   // able to set the zoom level precisely at the time the request commits,
   // avoiding the possibility of zooming the old content or of having to layout
-  // the new content twice. Also send the per host content settings.
+  // the new content twice.
   URLRequest* request = rdh_->GetURLRequest(
       GlobalRequestID(process_id_, request_id));
   ResourceDispatcherHostRequestInfo* info = rdh_->InfoForRequest(request);
@@ -110,10 +110,6 @@ bool AsyncResourceHandler::OnResponseStarted(int request_id,
     ChromeURLRequestContext* context =
         static_cast<ChromeURLRequestContext*>(request->context());
     if (!host.empty() && context) {
-      receiver_->Send(new ViewMsg_SetContentSettingsForLoadingHost(
-          info->route_id(), host, ContentPermissions::ToInteger(
-          context->host_content_settings_map()->GetPerHostContentSettings(
-          host))));
     }
   }
 

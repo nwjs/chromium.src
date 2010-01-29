@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2009 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -560,8 +560,6 @@ class RenderView : public RenderWidget,
   void OnFind(int request_id, const string16&, const WebKit::WebFindOptions&);
   void OnDeterminePageLanguage();
   void OnZoom(int function);
-  void OnSetContentSettingsForLoadingHost(std::string host,
-      int content_settings);
   void OnSetPageEncoding(const std::string& encoding_name);
   void OnResetPageEncodingToDefault();
   void OnGetAllSavableResourceLinksForCurrentPage(const GURL& page_url);

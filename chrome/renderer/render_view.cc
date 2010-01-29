@@ -453,8 +453,6 @@ void RenderView::OnMessageReceived(const IPC::Message& message) {
     IPC_MESSAGE_HANDLER(ViewMsg_Find, OnFind)
     IPC_MESSAGE_HANDLER(ViewMsg_DeterminePageLanguage, OnDeterminePageLanguage)
     IPC_MESSAGE_HANDLER(ViewMsg_Zoom, OnZoom)
-    IPC_MESSAGE_HANDLER(ViewMsg_SetContentSettingsForLoadingHost,
-                        OnSetContentSettingsForLoadingHost)
     IPC_MESSAGE_HANDLER(ViewMsg_SetPageEncoding, OnSetPageEncoding)
     IPC_MESSAGE_HANDLER(ViewMsg_ResetPageEncodingToDefault,
                         OnResetPageEncodingToDefault)
@@ -3003,18 +3001,6 @@ void RenderView::OnZoom(int function) {
     default:
       NOTREACHED();
   }
-}
-
-void RenderView::OnSetContentSettingsForLoadingHost(std::string host,
-                                                    int content_settings) {
-  WebFrame* main_frame = webview()->mainFrame();
-  DCHECK(main_frame);
-  WebDataSource* ds = main_frame->provisionalDataSource();
-  DCHECK(ds);
-  NavigationState* navigation_state = NavigationState::FromDataSource(ds);
-  DCHECK(navigation_state);
-  navigation_state->set_content_permissions(
-      ContentPermissions::FromInteger(content_settings));
 }
 
 void RenderView::OnSetPageEncoding(const std::string& encoding_name) {

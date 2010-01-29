@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2009-2010 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,7 +12,6 @@
 #include "chrome/browser/browser_prefs.h"
 #include "chrome/browser/browser_theme_provider.h"
 #include "chrome/browser/favicon_service.h"
-#include "chrome/browser/host_content_settings_map.h"
 #include "chrome/browser/history/history.h"
 #include "chrome/browser/profile.h"
 #include "chrome/browser/search_engines/template_url_model.h"
@@ -147,11 +146,6 @@ class TestingProfile : public Profile {
   }
   virtual net::SSLConfigService* GetSSLConfigService() { return NULL; }
   virtual Blacklist* GetBlacklist() { return NULL; }
-  virtual HostContentSettingsMap* GetHostContentSettingsMap() {
-    if (!host_content_settings_map_.get())
-      host_content_settings_map_.reset(new HostContentSettingsMap(this));
-    return host_content_settings_map_.get();
-  }
   virtual HostZoomMap* GetHostZoomMap() { return NULL; }
   void set_session_service(SessionService* session_service) {
     session_service_ = session_service;
@@ -248,8 +242,6 @@ class TestingProfile : public Profile {
   // The main database tracker for this profile.
   // Should be used only on the file thread.
   scoped_refptr<webkit_database::DatabaseTracker> db_tracker_;
-
-  scoped_ptr<HostContentSettingsMap> host_content_settings_map_;
 };
 
 // A profile that derives from another profile.  This does not actually

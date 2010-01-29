@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2009 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -765,7 +765,6 @@ ChromeURLRequestContext::ChromeURLRequestContext(
   extension_paths_ = other->extension_paths_;
   user_script_dir_path_ = other->user_script_dir_path_;
   blacklist_ = other->blacklist_;
-  host_content_settings_map_ = other->host_content_settings_map_;
   is_media_ = other->is_media_;
   is_off_the_record_ = other->is_off_the_record_;
 }
@@ -833,8 +832,6 @@ ChromeURLRequestContextFactory::ChromeURLRequestContextFactory(Profile* profile)
   // TODO(eroman): this doesn't look safe; sharing between IO and UI threads!
   blacklist_ = profile->GetBlacklist();
 
-  host_content_settings_map_ = profile->GetHostContentSettingsMap();
-
   // TODO(eroman): this doesn't look safe; sharing between IO and UI threads!
   strict_transport_security_state_ = profile->GetStrictTransportSecurityState();
 
@@ -878,7 +875,6 @@ void ChromeURLRequestContextFactory::ApplyProfileParametersToContext(
   context->set_blacklist(blacklist_);
   context->set_strict_transport_security_state(
       strict_transport_security_state_);
-  context->set_host_content_settings_map(host_content_settings_map_);
   context->set_ssl_config_service(ssl_config_service_);
 }
 

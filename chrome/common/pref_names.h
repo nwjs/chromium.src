@@ -120,8 +120,6 @@ extern const wchar_t kNTPPromoLineRemaining[];
 extern const wchar_t kNTPPromoImageRemaining[];
 extern const wchar_t kDesktopNotificationAllowedOrigins[];
 extern const wchar_t kDesktopNotificationDeniedOrigins[];
-extern const wchar_t kDefaultContentSettings[];
-extern const wchar_t kPerHostContentSettings[];
 
 // Local state
 extern const wchar_t kMetricsClientID[];

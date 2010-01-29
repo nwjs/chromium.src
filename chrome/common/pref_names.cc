@@ -304,13 +304,6 @@ const wchar_t kDesktopNotificationAllowedOrigins[] =
 const wchar_t kDesktopNotificationDeniedOrigins[] =
     L"profile.notification_denied_sites";
 
-// Bitmask of content settings applied to hosts per default.
-const wchar_t kDefaultContentSettings[] = L"profile.default_content_settings";
-
-// Dictionary that maps hostnames to content related settings.  Default
-// settings will be applied to hosts not in this pref.
-const wchar_t kPerHostContentSettings[] = L"profile.per_host_content_settings";
-
 // *************** LOCAL STATE ***************
 // These are attached to the machine/installation
 
