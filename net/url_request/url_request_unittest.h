@@ -50,6 +50,7 @@ class TestURLRequestContext : public URLRequestContext {
     http_transaction_factory_ =
         net::HttpNetworkLayer::CreateFactory(host_resolver_,
             proxy_service_, ssl_config_service_);
+    cookie_policy_ = new net::CookiePolicy();
   }
 
   explicit TestURLRequestContext(const std::string& proxy) {
@@ -61,11 +62,13 @@ class TestURLRequestContext : public URLRequestContext {
     http_transaction_factory_ =
         net::HttpNetworkLayer::CreateFactory(host_resolver_,
             proxy_service_, ssl_config_service_);
+    cookie_policy_ = new net::CookiePolicy();
   }
 
  protected:
   ~TestURLRequestContext() {
     delete http_transaction_factory_;
+    delete cookie_policy_;
   }
 };
 

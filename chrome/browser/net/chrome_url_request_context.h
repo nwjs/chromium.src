@@ -7,6 +7,7 @@
 
 #include "base/file_path.h"
 #include "chrome/browser/host_content_settings_map.h"
+#include "chrome/browser/net/chrome_cookie_policy.h"
 #include "chrome/browser/net/url_request_context_getter.h"
 #include "chrome/common/appcache/chrome_appcache_service.h"
 #include "chrome/common/notification_registrar.h"
@@ -223,8 +224,8 @@ class ChromeURLRequestContext : public URLRequestContext {
   void set_referrer_charset(const std::string& referrer_charset) {
     referrer_charset_ = referrer_charset;
   }
-  void set_cookie_policy_type(net::CookiePolicy::Type type) {
-    cookie_policy_.set_type(type);
+  void set_cookie_policy(ChromeCookiePolicy* policy) {
+    cookie_policy_ = policy;
   }
   void set_strict_transport_security_state(
       net::StrictTransportSecurityState* state) {
@@ -276,9 +277,6 @@ class ChromeURLRequestContext : public URLRequestContext {
 
   // Callback for when the accept language changes.
   void OnAcceptLanguageChange(const std::string& accept_language);
-
-  // Callback for when the cookie policy changes.
-  void OnCookiePolicyChange(net::CookiePolicy::Type type);
 
   // Callback for when the default charset changes.
   void OnDefaultCharsetChange(const std::string& default_charset);
@@ -337,7 +335,7 @@ class ChromeURLRequestContextFactory {
   std::string accept_language_;
   std::string accept_charset_;
   std::string referrer_charset_;
-  net::CookiePolicy::Type cookie_policy_type_;
+  ChromeCookiePolicy* cookie_policy_;
   ChromeURLRequestContext::ExtensionPaths extension_paths_;
   ChromeURLRequestContext::ExtensionDefaultLocales extension_default_locales_;
   FilePath user_script_dir_path_;

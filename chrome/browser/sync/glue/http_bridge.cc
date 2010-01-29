@@ -75,6 +75,8 @@ HttpBridge::RequestContext::RequestContext(URLRequestContext* baseline_context)
   // Create empty, in-memory cookie store.
   cookie_store_ = new net::CookieMonster();
 
+  cookie_policy_ = new net::CookiePolicy();
+
   // We don't use a cache for bridged loads, but we do want to share proxy info.
   host_resolver_ = baseline_context->host_resolver();
   proxy_service_ = baseline_context->proxy_service();
@@ -105,6 +107,7 @@ HttpBridge::RequestContext::RequestContext(URLRequestContext* baseline_context)
 }
 
 HttpBridge::RequestContext::~RequestContext() {
+  delete cookie_policy_;
   delete http_transaction_factory_;
 }
 
