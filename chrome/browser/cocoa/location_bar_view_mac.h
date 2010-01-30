@@ -1,4 +1,4 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2010 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -44,6 +44,7 @@ class LocationBarViewMac : public AutocompleteEditController,
   virtual void AcceptInputWithDisposition(WindowOpenDisposition disposition);
   virtual void FocusLocation();
   virtual void FocusSearch();
+  virtual void UpdateContentBlockedIcons();
   virtual void UpdatePageActions() { /* http://crbug.com/12281 */ }
   virtual void InvalidatePageActions() { /* TODO(port): implement this */ }
   virtual void SaveStateToContents(TabContents* contents);

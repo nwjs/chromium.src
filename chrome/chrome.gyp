@@ -2322,6 +2322,8 @@
         'browser/views/confirm_message_box_dialog.h',
         'browser/views/constrained_window_win.cc',
         'browser/views/constrained_window_win.h',
+        'browser/views/content_blocked_bubble_contents.cc',
+        'browser/views/content_blocked_bubble_contents.h',
         'browser/views/cookie_info_view.cc',
         'browser/views/cookie_info_view.h',
         'browser/views/cookie_prompt_view.cc',
