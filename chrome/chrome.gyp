@@ -2874,6 +2874,8 @@
                 ['include', '^browser/views/chrome_views_delegate.cc'],
                 ['include', '^browser/views/clear_browsing_data.cc'],
                 ['include', '^browser/views/clear_browsing_data.h'],
+                ['include', '^browser/views/content_blocked_bubble_contents.cc'],
+                ['include', '^browser/views/content_blocked_bubble_contents.h'],
                 ['include', '^browser/views/detachable_toolbar_view.h'],
                 ['include', '^browser/views/detachable_toolbar_view.cc'],
                 ['include', '^browser/views/dialog_stubs_gtk.cc'],
