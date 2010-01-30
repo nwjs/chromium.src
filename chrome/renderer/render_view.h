@@ -253,9 +253,9 @@ class RenderView : public RenderWidget,
     return notification_provider_.get();
   }
 
-  // Shortcut for calling allowImages(), allowScripts(), allowPlugins().
-  void ApplyContentSettings(WebKit::WebFrame* frame,
-                            const ContentSettings& settings);
+  // Sets the content settings that back allowScripts(), allowImages(), and
+  // allowPlugins().
+  void SetContentSettings(const ContentSettings& settings);
 
   // WebKit::WebWidgetClient
   // Most methods are handled by RenderWidget.
@@ -996,6 +996,8 @@ class RenderView : public RenderWidget,
   typedef std::map<WebKit::WebView*, RenderView*> ViewMap;
 
   HostContentSettings host_content_settings_;
+
+  ContentSettings current_content_settings_;
 
   DISALLOW_COPY_AND_ASSIGN(RenderView);
 };

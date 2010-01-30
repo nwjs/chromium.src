@@ -1010,16 +1010,8 @@ void RenderView::OnSetInitialFocus(bool reverse) {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void RenderView::ApplyContentSettings(
-    WebKit::WebFrame* frame,
-    const ContentSettings& settings) {
-  // CONTENT_SETTING_ASK is only valid for cookies.
-  allowImages(frame, settings.settings[CONTENT_SETTINGS_TYPE_IMAGES] ==
-      CONTENT_SETTING_ALLOW);
-  allowScript(frame, settings.settings[CONTENT_SETTINGS_TYPE_JAVASCRIPT] ==
-      CONTENT_SETTING_ALLOW);
-  allowPlugins(frame, settings.settings[CONTENT_SETTINGS_TYPE_PLUGINS] ==
-      CONTENT_SETTING_ALLOW);
+void RenderView::SetContentSettings(const ContentSettings& settings) {
+  current_content_settings_ = settings;
 }
 
 // Tell the embedding application that the URL of the active page has changed
@@ -1079,7 +1071,7 @@ void RenderView::UpdateURL(WebFrame* frame) {
     HostContentSettings::iterator host_content_settings =
         host_content_settings_.find(GURL(request.url()).host());
     if (host_content_settings != host_content_settings_.end()) {
-      ApplyContentSettings(frame, host_content_settings->second);
+      SetContentSettings(host_content_settings->second);
 
       // These content settings were merely recorded transiently for this load.
       // We can erase them now.  If at some point we reload this page, the
@@ -1900,6 +1892,22 @@ void RenderView::willClose(WebFrame* frame) {
   navigation_state->user_script_idle_scheduler()->Cancel();
 }
 
+bool RenderView::allowPlugins(WebFrame* frame, bool enabled_per_settings) {
+  if (!enabled_per_settings)
+    return false;
+  // CONTENT_SETTING_ASK is only valid for cookies.
+  return current_content_settings_.settings[CONTENT_SETTINGS_TYPE_PLUGINS] !=
+      CONTENT_SETTING_BLOCK;
+}
+
+bool RenderView::allowImages(WebFrame* frame, bool enabled_per_settings) {
+  if (!enabled_per_settings)
+    return false;
+  // CONTENT_SETTING_ASK is only valid for cookies.
+  return current_content_settings_.settings[CONTENT_SETTINGS_TYPE_IMAGES] !=
+      CONTENT_SETTING_BLOCK;
+}
+
 void RenderView::loadURLExternally(
     WebFrame* frame, const WebURLRequest& request,
     WebNavigationPolicy policy) {
@@ -2516,8 +2524,12 @@ void RenderView::didRunInsecureContent(
 }
 
 bool RenderView::allowScript(WebFrame* frame, bool enabled_per_settings) {
-  if (enabled_per_settings)
-    return true;
+  if (enabled_per_settings) {
+    // CONTENT_SETTING_ASK is only valid for cookies.
+    return
+      current_content_settings_.settings[CONTENT_SETTINGS_TYPE_JAVASCRIPT] !=
+      CONTENT_SETTING_BLOCK;
+  }
 
   WebSecurityOrigin origin = frame->securityOrigin();
   if (origin.isEmpty())
