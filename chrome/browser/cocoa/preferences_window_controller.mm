@@ -42,7 +42,6 @@
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
 #include "grit/locale_settings.h"
-#include "net/base/cookie_policy.h"
 #import "third_party/GTM/AppKit/GTMUILocalizerAndLayoutTweaker.h"
 #import "third_party/GTM/AppKit/GTMNSAnimation+Duration.h"
 
@@ -1525,17 +1524,7 @@ const int kDisabledIndex = 1;
 
 // Sets the backend pref for whether or not to accept cookies based on |index|.
 - (void)setCookieBehavior:(NSInteger)index {
-  net::CookiePolicy::Type policy = net::CookiePolicy::ALLOW_ALL_COOKIES;
-  if (net::CookiePolicy::ValidType(index))
-    policy = net::CookiePolicy::FromInt(index);
-  const wchar_t* kUserMetrics[] = {
-      L"Options_AllowAllCookies",
-      L"Options_BlockThirdPartyCookies",
-      L"Options_BlockAllCookies"
-  };
-  DCHECK(policy >= 0 && (unsigned int)policy < arraysize(kUserMetrics));
-  [self recordUserAction:kUserMetrics[policy]];
-  cookieBehavior_.SetValue(policy);
+  // TODO(darin): Remove everything else related to this setter.
 }
 
 - (NSURL*)defaultDownloadLocation {

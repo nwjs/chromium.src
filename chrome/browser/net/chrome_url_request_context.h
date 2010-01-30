@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_NET_CHROME_URL_REQUEST_CONTEXT_H_
 
 #include "base/file_path.h"
+#include "net/base/cookie_policy.h"
 #include "chrome/browser/host_content_settings_map.h"
 #include "chrome/browser/net/url_request_context_getter.h"
 #include "chrome/common/appcache/chrome_appcache_service.h"
@@ -144,7 +145,8 @@ class ChromeURLRequestContextGetter : public URLRequestContextGetter,
 //
 // All methods of this class must be called from the IO thread,
 // including the constructor and destructor.
-class ChromeURLRequestContext : public URLRequestContext {
+class ChromeURLRequestContext : public URLRequestContext,
+                                public net::CookiePolicy {
  public:
   typedef std::map<std::string, FilePath> ExtensionPaths;
   typedef std::map<std::string, std::string> ExtensionDefaultLocales;
@@ -204,6 +206,13 @@ class ChromeURLRequestContext : public URLRequestContext {
   // Callback for when an extension is unloaded.
   void OnUnloadedExtension(const std::string& id);
 
+  // False only if cookies are globally blocked without exception.
+  bool AreCookiesEnabled() const;
+
+  // CookiePolicy methods:
+  virtual bool CanGetCookies(const GURL& url, const GURL& first_party);
+  virtual bool CanSetCookie(const GURL& url, const GURL& first_party);
+
  protected:
   // Copies the dependencies from |other| into |this|. If you use this
   // constructor, then you should hold a reference to |other|, as we
@@ -222,9 +231,6 @@ class ChromeURLRequestContext : public URLRequestContext {
   }
   void set_referrer_charset(const std::string& referrer_charset) {
     referrer_charset_ = referrer_charset;
-  }
-  void set_cookie_policy_type(net::CookiePolicy::Type type) {
-    cookie_policy_.set_type(type);
   }
   void set_strict_transport_security_state(
       net::StrictTransportSecurityState* state) {
@@ -276,9 +282,6 @@ class ChromeURLRequestContext : public URLRequestContext {
 
   // Callback for when the accept language changes.
   void OnAcceptLanguageChange(const std::string& accept_language);
-
-  // Callback for when the cookie policy changes.
-  void OnCookiePolicyChange(net::CookiePolicy::Type type);
 
   // Callback for when the default charset changes.
   void OnDefaultCharsetChange(const std::string& default_charset);
@@ -337,7 +340,6 @@ class ChromeURLRequestContextFactory {
   std::string accept_language_;
   std::string accept_charset_;
   std::string referrer_charset_;
-  net::CookiePolicy::Type cookie_policy_type_;
   ChromeURLRequestContext::ExtensionPaths extension_paths_;
   ChromeURLRequestContext::ExtensionDefaultLocales extension_default_locales_;
   FilePath user_script_dir_path_;

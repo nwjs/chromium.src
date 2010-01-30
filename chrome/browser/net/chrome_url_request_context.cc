@@ -20,6 +20,7 @@
 #include "chrome/common/notification_service.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
+#include "net/base/static_cookie_policy.h"
 #include "net/ftp/ftp_network_layer.h"
 #include "net/http/http_cache.h"
 #include "net/http/http_network_layer.h"
@@ -565,15 +566,6 @@ void ChromeURLRequestContextGetter::Observe(
               this,
               &ChromeURLRequestContextGetter::OnAcceptLanguageChange,
               accept_language));
-    } else if (*pref_name_in == prefs::kCookieBehavior) {
-      net::CookiePolicy::Type policy_type = net::CookiePolicy::FromInt(
-          prefs_->GetInteger(prefs::kCookieBehavior));
-      ChromeThread::PostTask(
-          ChromeThread::IO, FROM_HERE,
-          NewRunnableMethod(
-              this,
-              &ChromeURLRequestContextGetter::OnCookiePolicyChange,
-              policy_type));
     } else if (*pref_name_in == prefs::kDefaultCharset) {
       std::string default_charset =
           WideToASCII(prefs->GetString(prefs::kDefaultCharset));
@@ -617,11 +609,6 @@ void ChromeURLRequestContextGetter::OnAcceptLanguageChange(
   GetIOContext()->OnAcceptLanguageChange(accept_language);
 }
 
-void ChromeURLRequestContextGetter::OnCookiePolicyChange(
-    net::CookiePolicy::Type type) {
-  GetIOContext()->OnCookiePolicyChange(type);
-}
-
 void ChromeURLRequestContextGetter::OnDefaultCharsetChange(
     const std::string& default_charset) {
   GetIOContext()->OnDefaultCharsetChange(default_charset);
@@ -641,10 +628,13 @@ void ChromeURLRequestContextGetter::GetCookieStoreAsyncHelper(
 
 ChromeURLRequestContext::ChromeURLRequestContext() {
   CheckCurrentlyOnIOThread();
+
+  cookie_policy_ = this;  // We implement CookiePolicy
 }
 
 ChromeURLRequestContext::~ChromeURLRequestContext() {
   CheckCurrentlyOnIOThread();
+
   if (appcache_service_.get() && appcache_service_->request_context() == this)
     appcache_service_->set_request_context(NULL);
 
@@ -655,6 +645,8 @@ ChromeURLRequestContext::~ChromeURLRequestContext() {
 
   delete ftp_transaction_factory_;
   delete http_transaction_factory_;
+
+  cookie_policy_ = NULL;
 }
 
 FilePath ChromeURLRequestContext::GetPathForExtension(const std::string& id) {
@@ -743,9 +735,54 @@ void ChromeURLRequestContext::OnUnloadedExtension(const std::string& id) {
   extension_default_locales_.erase(id);
 }
 
+bool ChromeURLRequestContext::AreCookiesEnabled() const {
+  ContentSetting setting =
+      host_content_settings_map_->GetDefaultContentSetting(
+          CONTENT_SETTINGS_TYPE_COOKIES);
+  return setting != CONTENT_SETTING_BLOCK;
+}
+
+bool ChromeURLRequestContext::CanGetCookies(const GURL& url,
+                                            const GURL& first_party) {
+  if (host_content_settings_map_->BlockThirdPartyCookies()) {
+    net::StaticCookiePolicy policy(
+        net::StaticCookiePolicy::BLOCK_THIRD_PARTY_COOKIES);
+    if (!policy.CanGetCookies(url, first_party))
+      return false;
+  }
+
+  ContentSetting setting = host_content_settings_map_->GetContentSetting(
+      url.host(), CONTENT_SETTINGS_TYPE_COOKIES);
+  if (setting == CONTENT_SETTING_BLOCK)
+    return false;
+
+  // TODO(darin): Implement CONTENT_SETTING_ASK
+  return true;
+}
+
+bool ChromeURLRequestContext::CanSetCookie(const GURL& url,
+                                           const GURL& first_party) {
+  if (host_content_settings_map_->BlockThirdPartyCookies()) {
+    net::StaticCookiePolicy policy(
+        net::StaticCookiePolicy::BLOCK_THIRD_PARTY_COOKIES);
+    if (!policy.CanSetCookie(url, first_party))
+      return false;
+  }
+
+  ContentSetting setting = host_content_settings_map_->GetContentSetting(
+      url.host(), CONTENT_SETTINGS_TYPE_COOKIES);
+  if (setting == CONTENT_SETTING_BLOCK)
+    return false;
+
+  // TODO(darin): Implement CONTENT_SETTING_ASK
+  return true;
+}
+
 ChromeURLRequestContext::ChromeURLRequestContext(
     ChromeURLRequestContext* other) {
   CheckCurrentlyOnIOThread();
+
+  cookie_policy_ = this;  // We implement CookiePolicy
 
   // Set URLRequestContext members
   host_resolver_ = other->host_resolver_;
@@ -754,7 +791,6 @@ ChromeURLRequestContext::ChromeURLRequestContext(
   http_transaction_factory_ = other->http_transaction_factory_;
   ftp_transaction_factory_ = other->ftp_transaction_factory_;
   cookie_store_ = other->cookie_store_;
-  cookie_policy_.set_type(other->cookie_policy_.type());
   strict_transport_security_state_ = other->strict_transport_security_state_;
   accept_language_ = other->accept_language_;
   accept_charset_ = other->accept_charset_;
@@ -775,12 +811,6 @@ void ChromeURLRequestContext::OnAcceptLanguageChange(
   CheckCurrentlyOnIOThread();
   accept_language_ =
       net::HttpUtil::GenerateAcceptLanguageHeader(accept_language);
-}
-
-void ChromeURLRequestContext::OnCookiePolicyChange(
-    net::CookiePolicy::Type type) {
-  CheckCurrentlyOnIOThread();
-  cookie_policy_.set_type(type);
 }
 
 void ChromeURLRequestContext::OnDefaultCharsetChange(
@@ -827,9 +857,6 @@ ChromeURLRequestContextFactory::ChromeURLRequestContextFactory(Profile* profile)
   // net_util::GetSuggestedFilename is unlikely to be taken.
   referrer_charset_ = default_charset;
 
-  cookie_policy_type_ = net::CookiePolicy::FromInt(
-      prefs->GetInteger(prefs::kCookieBehavior));
-
   host_content_settings_map_ = profile->GetHostContentSettingsMap();
 
   // TODO(eroman): this doesn't look safe; sharing between IO and UI threads!
@@ -871,7 +898,6 @@ void ChromeURLRequestContextFactory::ApplyProfileParametersToContext(
   context->set_accept_language(accept_language_);
   context->set_accept_charset(accept_charset_);
   context->set_referrer_charset(referrer_charset_);
-  context->set_cookie_policy_type(cookie_policy_type_);
   context->set_extension_paths(extension_paths_);
   context->set_extension_default_locales(extension_default_locales_);
   context->set_user_script_dir_path(user_script_dir_path_);
