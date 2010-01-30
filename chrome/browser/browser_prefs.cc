@@ -18,7 +18,6 @@
 #include "chrome/browser/google_url_tracker.h"
 #include "chrome/browser/host_content_settings_map.h"
 #include "chrome/browser/metrics/metrics_service.h"
-#include "chrome/browser/net/chrome_cookie_policy.h"
 #include "chrome/browser/net/dns_global.h"
 #include "chrome/browser/page_info_model.h"
 #include "chrome/browser/password_manager/password_manager.h"
@@ -88,7 +87,6 @@ void RegisterAllPrefs(PrefService* user_prefs, PrefService* local_state) {
   BlockedPopupContainer::RegisterUserPrefs(user_prefs);
   HostContentSettingsMap::RegisterUserPrefs(user_prefs);
   DevToolsManager::RegisterUserPrefs(user_prefs);
-  ChromeCookiePolicy::RegisterUserPrefs(user_prefs);
 #if defined(TOOLKIT_VIEWS)  // TODO(port): whittle this down as we port.
 #if defined(OS_WIN)
   ContentSettingsWindowView::RegisterUserPrefs(user_prefs);

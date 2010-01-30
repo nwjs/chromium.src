@@ -68,7 +68,6 @@ class TestURLRequestContext : public URLRequestContext {
  protected:
   ~TestURLRequestContext() {
     delete http_transaction_factory_;
-    delete cookie_policy_;
   }
 };
 
