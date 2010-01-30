@@ -122,6 +122,7 @@ extern const wchar_t kDesktopNotificationAllowedOrigins[];
 extern const wchar_t kDesktopNotificationDeniedOrigins[];
 extern const wchar_t kDefaultContentSettings[];
 extern const wchar_t kPerHostContentSettings[];
+extern const wchar_t kBlockThirdPartyCookies[];
 
 // Local state
 extern const wchar_t kMetricsClientID[];
