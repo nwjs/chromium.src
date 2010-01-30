@@ -1,4 +1,4 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2010 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -85,6 +85,7 @@
 using WebKit::WebCache;
 using WebKit::WebCrossOriginPreflightResultCache;
 using WebKit::WebFontCache;
+using WebKit::WebFrame;
 using WebKit::WebRuntimeFeatures;
 using WebKit::WebSecurityPolicy;
 using WebKit::WebScriptController;
@@ -133,6 +134,31 @@ class SuicideOnChannelErrorFilter : public IPC::ChannelProxy::MessageFilter {
   }
 };
 #endif
+
+class RenderViewContentSettingsSetter : public RenderViewVisitor {
+ public:
+  RenderViewContentSettingsSetter(const std::string& host,
+                                  const ContentSettings& content_settings)
+      : host_(host),
+        content_settings_(content_settings) {
+  }
+
+  virtual bool Visit(RenderView* render_view) {
+    // |render_view->webview()| is guaranteed non-NULL.
+    WebFrame* frame = render_view->webview()->mainFrame();
+    if (GURL(frame->url()).host() == host_) {
+      render_view->ApplyContentSettings(frame, content_settings_);
+    }
+    return true;
+  }
+
+ private:
+  std::string host_;
+  ContentSettings content_settings_;
+
+  DISALLOW_COPY_AND_ASSIGN(RenderViewContentSettingsSetter);
+};
+
 }  // namespace
 
 // When we run plugins in process, we actually run them on the render thread,
@@ -258,6 +284,13 @@ void RenderThread::OnResetVisitedLinks() {
   WebView::resetVisitedLinkState();
 }
 
+void RenderThread::OnSetContentSettingsForCurrentHost(
+    const std::string& host,
+    const ContentSettings& content_settings) {
+  RenderViewContentSettingsSetter setter(host, content_settings);
+  RenderView::ForEach(&setter);
+}
+
 void RenderThread::OnUpdateUserScripts(
     base::SharedMemoryHandle scripts) {
   DCHECK(base::SharedMemory::IsHandleValid(scripts)) << "Bad scripts handle";
@@ -308,6 +341,8 @@ void RenderThread::OnControlMessageReceived(const IPC::Message& msg) {
     IPC_MESSAGE_HANDLER(ViewMsg_VisitedLink_NewTable, OnUpdateVisitedLinks)
     IPC_MESSAGE_HANDLER(ViewMsg_VisitedLink_Add, OnAddVisitedLinks)
     IPC_MESSAGE_HANDLER(ViewMsg_VisitedLink_Reset, OnResetVisitedLinks)
+    IPC_MESSAGE_HANDLER(ViewMsg_SetContentSettingsForCurrentHost,
+                        OnSetContentSettingsForCurrentHost)
     IPC_MESSAGE_HANDLER(ViewMsg_SetNextPageID, OnSetNextPageID)
     IPC_MESSAGE_HANDLER(ViewMsg_SetCSSColors, OnSetCSSColors)
     // TODO(port): removed from render_messages_internal.h;

@@ -1,4 +1,4 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2010 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -22,6 +22,7 @@
 #include "base/values.h"
 #include "base/weak_ptr.h"
 #include "build/build_config.h"
+#include "chrome/common/content_settings.h"
 #include "chrome/common/edit_command.h"
 #include "chrome/common/navigation_gesture.h"
 #include "chrome/common/notification_type.h"
@@ -252,6 +253,10 @@ class RenderView : public RenderWidget,
     return notification_provider_.get();
   }
 
+  // Shortcut for calling allowImages(), allowScripts(), allowPlugins().
+  void ApplyContentSettings(WebKit::WebFrame* frame,
+                            const ContentSettings& settings);
+
   // WebKit::WebWidgetClient
   // Most methods are handled by RenderWidget.
   virtual void show(WebKit::WebNavigationPolicy policy);
@@ -458,6 +463,8 @@ class RenderView : public RenderWidget,
   FRIEND_TEST(RenderViewTest, MacTestCmdUp);
 #endif
 
+  typedef std::map<std::string, ContentSettings> HostContentSettings;
+
   explicit RenderView(RenderThreadBase* render_thread,
                       const WebPreferences& webkit_preferences);
 
@@ -560,6 +567,8 @@ class RenderView : public RenderWidget,
   void OnFind(int request_id, const string16&, const WebKit::WebFindOptions&);
   void OnDeterminePageLanguage();
   void OnZoom(int function);
+  void OnSetContentSettingsForLoadingHost(
+      std::string host, const ContentSettings& content_settings);
   void OnSetPageEncoding(const std::string& encoding_name);
   void OnResetPageEncodingToDefault();
   void OnGetAllSavableResourceLinksForCurrentPage(const GURL& page_url);
@@ -985,6 +994,8 @@ class RenderView : public RenderWidget,
   ImageResourceFetcherSet image_fetchers_;
 
   typedef std::map<WebKit::WebView*, RenderView*> ViewMap;
+
+  HostContentSettings host_content_settings_;
 
   DISALLOW_COPY_AND_ASSIGN(RenderView);
 };

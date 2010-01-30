@@ -20,6 +20,7 @@
 #include "base/gfx/rect.h"
 #include "base/shared_memory.h"
 #include "base/values.h"
+#include "chrome/common/content_settings.h"
 #include "chrome/common/css_colors.h"
 #include "chrome/common/extensions/update_manifest.h"
 #include "chrome/common/nacl_types.h"
@@ -344,6 +345,19 @@ IPC_BEGIN_MESSAGES(View)
   // Change the zoom level in the renderer.
   IPC_MESSAGE_ROUTED1(ViewMsg_Zoom,
                       int /* One of PageZoom::Function */)
+
+  // Set the content settings for a particular hostname that the renderer is in
+  // the process of loading.  This will be stored, to be used if the load
+  // commits and ignored otherwise.
+  IPC_MESSAGE_ROUTED2(ViewMsg_SetContentSettingsForLoadingHost,
+                      std::string /* host */,
+                      ContentSettings /* content_settings */)
+
+  // Set the content settings for a particular hostname, so all render views
+  // displaying this host can update their content settings to match.
+  IPC_MESSAGE_CONTROL2(ViewMsg_SetContentSettingsForCurrentHost,
+                       std::string /* host */,
+                       ContentSettings /* content_settings */)  
 
   // Change encoding of page in the renderer.
   IPC_MESSAGE_ROUTED1(ViewMsg_SetPageEncoding,

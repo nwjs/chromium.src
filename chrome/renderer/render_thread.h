@@ -1,4 +1,4 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2010 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -34,6 +34,7 @@ class SocketStreamDispatcher;
 class UserScriptSlave;
 class URLPattern;
 
+struct ContentSettings;
 struct RendererPreferences;
 struct ViewMsg_DOMStorageEvent_Params;
 struct WebPreferences;
@@ -152,6 +153,8 @@ class RenderThread : public RenderThreadBase,
   void OnAddVisitedLinks(const VisitedLinkSlave::Fingerprints& fingerprints);
   void OnResetVisitedLinks();
 
+  void OnSetContentSettingsForCurrentHost(
+      const std::string& host, const ContentSettings& content_settings);
   void OnUpdateUserScripts(base::SharedMemoryHandle table);
   void OnSetExtensionFunctionNames(const std::vector<std::string>& names);
   void OnPageActionsUpdated(const std::string& extension_id,

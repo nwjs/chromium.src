@@ -453,6 +453,8 @@ void RenderView::OnMessageReceived(const IPC::Message& message) {
     IPC_MESSAGE_HANDLER(ViewMsg_Find, OnFind)
     IPC_MESSAGE_HANDLER(ViewMsg_DeterminePageLanguage, OnDeterminePageLanguage)
     IPC_MESSAGE_HANDLER(ViewMsg_Zoom, OnZoom)
+    IPC_MESSAGE_HANDLER(ViewMsg_SetContentSettingsForLoadingHost,
+                        OnSetContentSettingsForLoadingHost)
     IPC_MESSAGE_HANDLER(ViewMsg_SetPageEncoding, OnSetPageEncoding)
     IPC_MESSAGE_HANDLER(ViewMsg_ResetPageEncodingToDefault,
                         OnResetPageEncodingToDefault)
@@ -1008,6 +1010,18 @@ void RenderView::OnSetInitialFocus(bool reverse) {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+void RenderView::ApplyContentSettings(
+    WebKit::WebFrame* frame,
+    const ContentSettings& settings) {
+  // CONTENT_SETTING_ASK is only valid for cookies.
+  allowImages(frame, settings.settings[CONTENT_SETTINGS_TYPE_IMAGES] ==
+      CONTENT_SETTING_ALLOW);
+  allowScript(frame, settings.settings[CONTENT_SETTINGS_TYPE_JAVASCRIPT] ==
+      CONTENT_SETTING_ALLOW);
+  allowPlugins(frame, settings.settings[CONTENT_SETTINGS_TYPE_PLUGINS] ==
+      CONTENT_SETTING_ALLOW);
+}
+
 // Tell the embedding application that the URL of the active page has changed
 void RenderView::UpdateURL(WebFrame* frame) {
   WebDataSource* ds = frame->dataSource();
@@ -1060,6 +1074,18 @@ void RenderView::UpdateURL(WebFrame* frame) {
 
   if (!frame->parent()) {
     // Top-level navigation.
+
+    // Set content settings.
+    HostContentSettings::iterator host_content_settings =
+        host_content_settings_.find(GURL(request.url()).host());
+    if (host_content_settings != host_content_settings_.end()) {
+      ApplyContentSettings(frame, host_content_settings->second);
+
+      // These content settings were merely recorded transiently for this load.
+      // We can erase them now.  If at some point we reload this page, the
+      // browser will send us new, up-to-date content settings.
+      host_content_settings_.erase(host_content_settings);
+    }
 
     // Update contents MIME type for main frame.
     params.contents_mime_type = ds->response().mimeType().utf8();
@@ -3001,6 +3027,12 @@ void RenderView::OnZoom(int function) {
     default:
       NOTREACHED();
   }
+}
+
+void RenderView::OnSetContentSettingsForLoadingHost(
+    std::string host,
+    const ContentSettings& content_settings) {
+  host_content_settings_[host] = content_settings;
 }
 
 void RenderView::OnSetPageEncoding(const std::string& encoding_name) {
