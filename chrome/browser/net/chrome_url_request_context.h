@@ -295,7 +295,7 @@ class ChromeURLRequestContext : public URLRequestContext {
   FilePath user_script_dir_path_;
 
   scoped_refptr<ChromeAppCacheService> appcache_service_;
-  HostContentSettingsMap* host_content_settings_map_;
+  scoped_refptr<HostContentSettingsMap> host_content_settings_map_;
 
   const Blacklist* blacklist_;
   bool is_media_;
@@ -339,9 +339,9 @@ class ChromeURLRequestContextFactory {
   ChromeURLRequestContext::ExtensionPaths extension_paths_;
   ChromeURLRequestContext::ExtensionDefaultLocales extension_default_locales_;
   FilePath user_script_dir_path_;
+  scoped_refptr<HostContentSettingsMap> host_content_settings_map_;
   Blacklist* blacklist_;
   net::StrictTransportSecurityState* strict_transport_security_state_;
-  HostContentSettingsMap* host_content_settings_map_;
   scoped_refptr<net::SSLConfigService> ssl_config_service_;
 
   FilePath profile_dir_path_;

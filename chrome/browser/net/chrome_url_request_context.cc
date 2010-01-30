@@ -749,8 +749,8 @@ ChromeURLRequestContext::ChromeURLRequestContext(
   appcache_service_ = other->appcache_service_;
   extension_paths_ = other->extension_paths_;
   user_script_dir_path_ = other->user_script_dir_path_;
-  blacklist_ = other->blacklist_;
   host_content_settings_map_ = other->host_content_settings_map_;
+  blacklist_ = other->blacklist_;
   is_media_ = other->is_media_;
   is_off_the_record_ = other->is_off_the_record_;
 }
@@ -808,10 +808,10 @@ ChromeURLRequestContextFactory::ChromeURLRequestContextFactory(Profile* profile)
 
   cookie_policy_ = profile->GetCookiePolicy();
 
+  host_content_settings_map_ = profile->GetHostContentSettingsMap();
+
   // TODO(eroman): this doesn't look safe; sharing between IO and UI threads!
   blacklist_ = profile->GetBlacklist();
-
-  host_content_settings_map_ = profile->GetHostContentSettingsMap();
 
   // TODO(eroman): this doesn't look safe; sharing between IO and UI threads!
   strict_transport_security_state_ = profile->GetStrictTransportSecurityState();
@@ -853,10 +853,10 @@ void ChromeURLRequestContextFactory::ApplyProfileParametersToContext(
   context->set_extension_paths(extension_paths_);
   context->set_extension_default_locales(extension_default_locales_);
   context->set_user_script_dir_path(user_script_dir_path_);
+  context->set_host_content_settings_map(host_content_settings_map_);
   context->set_blacklist(blacklist_);
   context->set_strict_transport_security_state(
       strict_transport_security_state_);
-  context->set_host_content_settings_map(host_content_settings_map_);
   context->set_ssl_config_service(ssl_config_service_);
 }
 

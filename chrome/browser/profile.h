@@ -293,11 +293,11 @@ class Profile {
   // Returns the SSLConfigService for this profile.
   virtual net::SSLConfigService* GetSSLConfigService() = 0;
 
-  // Returns the Privacy Blaclist for this profile.
-  virtual Blacklist* GetBlacklist() = 0;
-  //
   // Returns the Hostname <-> Content settings map for this profile.
   virtual HostContentSettingsMap* GetHostContentSettingsMap() = 0;
+
+  // Returns the Privacy Blaclist for this profile.
+  virtual Blacklist* GetBlacklist() = 0;
 
   // Returns the session service for this profile. This may return NULL. If
   // this profile supports a session service (it isn't off the record), and
@@ -453,8 +453,8 @@ class ProfileImpl : public Profile,
   virtual URLRequestContextGetter* GetRequestContextForMedia();
   virtual URLRequestContextGetter* GetRequestContextForExtensions();
   virtual net::SSLConfigService* GetSSLConfigService();
-  virtual Blacklist* GetBlacklist();
   virtual HostContentSettingsMap* GetHostContentSettingsMap();
+  virtual Blacklist* GetBlacklist();
   virtual SessionService* GetSessionService();
   virtual ChromeCookiePolicy* GetCookiePolicy();
   virtual void ShutdownSessionService();
@@ -541,9 +541,8 @@ class ProfileImpl : public Profile,
 
   scoped_ptr<SSLConfigServiceManager> ssl_config_service_manager_;
 
+  scoped_refptr<HostContentSettingsMap> host_content_settings_map_;
   scoped_ptr<Blacklist> blacklist_;
-
-  scoped_ptr<HostContentSettingsMap> host_content_settings_map_;
 
   scoped_ptr<ChromeCookiePolicy> cookie_policy_;
   scoped_refptr<DownloadManager> download_manager_;

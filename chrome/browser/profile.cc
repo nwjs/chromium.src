@@ -412,16 +412,12 @@ class OffTheRecordProfileImpl : public Profile,
     return GetOriginalProfile()->GetSSLConfigService();
   }
 
-  virtual Blacklist* GetBlacklist() {
-    return GetOriginalProfile()->GetBlacklist();
+  virtual HostContentSettingsMap* GetHostContentSettingsMap() {
+    return profile_->GetHostContentSettingsMap();
   }
 
-  virtual HostContentSettingsMap* GetHostContentSettingsMap() {
-    // Need to use a separate map from the normal one to avoid persisting
-    // content setting changes in OTR mode.
-    if (!host_content_settings_map_.get())
-      host_content_settings_map_.reset(new HostContentSettingsMap(this));
-    return host_content_settings_map_.get();
+  virtual Blacklist* GetBlacklist() {
+    return GetOriginalProfile()->GetBlacklist();
   }
 
   virtual SessionService* GetSessionService() {
@@ -556,8 +552,6 @@ class OffTheRecordProfileImpl : public Profile,
   ChromeURLRequestContextGetter* request_context_;
 
   ChromeURLRequestContextGetter* extensions_request_context_;
-
-  scoped_ptr<HostContentSettingsMap> host_content_settings_map_;
 
   // The download manager that only stores downloaded items in memory.
   scoped_refptr<DownloadManager> download_manager_;
@@ -990,14 +984,14 @@ net::SSLConfigService* ProfileImpl::GetSSLConfigService() {
   return ssl_config_service_manager_->Get();
 }
 
-Blacklist* ProfileImpl::GetBlacklist() {
-  return blacklist_.get();
-}
-
 HostContentSettingsMap* ProfileImpl::GetHostContentSettingsMap() {
   if (!host_content_settings_map_.get())
-    host_content_settings_map_.reset(new HostContentSettingsMap(this));
+    host_content_settings_map_ = new HostContentSettingsMap(this);
   return host_content_settings_map_.get();
+}
+
+Blacklist* ProfileImpl::GetBlacklist() {
+  return blacklist_.get();
 }
 
 HistoryService* ProfileImpl::GetHistoryService(ServiceAccessType sat) {
