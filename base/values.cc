@@ -314,6 +314,18 @@ bool DictionaryValue::SetString(const std::wstring& path,
   return Set(path, CreateStringValue(in_value));
 }
 
+void DictionaryValue::SetWithoutPathExpansion(const std::wstring& key,
+                                              Value* in_value) {
+  // If there's an existing value here, we need to delete it, because
+  // we own all our children.
+  if (HasKey(key)) {
+    DCHECK(dictionary_[key] != in_value);  // This would be bogus
+    delete dictionary_[key];
+  }
+
+  dictionary_[key] = in_value;
+}
+
 bool DictionaryValue::Get(const std::wstring& path, Value** out_value) const {
   std::wstring key = path;
 
@@ -425,6 +437,74 @@ bool DictionaryValue::GetList(const std::wstring& path,
   return true;
 }
 
+bool DictionaryValue::GetWithoutPathExpansion(const std::wstring& key,
+                                              Value** out_value) const {
+  ValueMap::const_iterator entry_iterator = dictionary_.find(key);
+  if (entry_iterator == dictionary_.end())
+    return false;
+
+  Value* entry = entry_iterator->second;
+  if (out_value)
+    *out_value = entry;
+  return true;
+}
+
+bool DictionaryValue::GetIntegerWithoutPathExpansion(const std::wstring& path,
+                                                     int* out_value) const {
+  Value* value;
+  if (!GetWithoutPathExpansion(path, &value))
+    return false;
+
+  return value->GetAsInteger(out_value);
+}
+
+bool DictionaryValue::GetStringWithoutPathExpansion(
+    const std::wstring& path,
+    std::string* out_value) const {
+  Value* value;
+  if (!GetWithoutPathExpansion(path, &value))
+    return false;
+
+  return value->GetAsString(out_value);
+}
+
+bool DictionaryValue::GetStringWithoutPathExpansion(
+    const std::wstring& path,
+    std::wstring* out_value) const {
+  Value* value;
+  if (!GetWithoutPathExpansion(path, &value))
+    return false;
+
+  return value->GetAsString(out_value);
+}
+
+bool DictionaryValue::GetDictionaryWithoutPathExpansion(
+    const std::wstring& path,
+    DictionaryValue** out_value) const {
+  Value* value;
+  bool result = GetWithoutPathExpansion(path, &value);
+  if (!result || !value->IsType(TYPE_DICTIONARY))
+    return false;
+
+  if (out_value)
+    *out_value = static_cast<DictionaryValue*>(value);
+
+  return true;
+}
+
+bool DictionaryValue::GetListWithoutPathExpansion(const std::wstring& path,
+                                                  ListValue** out_value) const {
+  Value* value;
+  bool result = GetWithoutPathExpansion(path, &value);
+  if (!result || !value->IsType(TYPE_LIST))
+    return false;
+
+  if (out_value)
+    *out_value = static_cast<ListValue*>(value);
+
+  return true;
+}
+
 bool DictionaryValue::Remove(const std::wstring& path, Value** out_value) {
   std::wstring key = path;
 
@@ -454,6 +534,21 @@ bool DictionaryValue::Remove(const std::wstring& path, Value** out_value) {
   }
 
   return false;
+}
+
+bool DictionaryValue::RemoveWithoutPathExpansion(const std::wstring& key,
+                                                 Value** out_value) {
+  ValueMap::iterator entry_iterator = dictionary_.find(key);
+  if (entry_iterator == dictionary_.end())
+    return false;
+
+  Value* entry = entry_iterator->second;
+  if (out_value)
+    *out_value = entry;
+  else
+    delete entry;
+  dictionary_.erase(entry_iterator);
+  return true;
 }
 
 Value* DictionaryValue::DeepCopy() const {

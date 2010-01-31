@@ -231,6 +231,10 @@ class DictionaryValue : public Value {
   bool SetString(const std::wstring& path, const std::string& in_value);
   bool SetString(const std::wstring& path, const std::wstring& in_value);
 
+  // Like Set(), but without special treatment of '.'.  This allows e.g. URLs to
+  // be used as paths.
+  void SetWithoutPathExpansion(const std::wstring& key, Value* in_value);
+
   // Gets the Value associated with the given path starting from this object.
   // A path has the form "<key>" or "<key>.<key>.[...]", where "." indexes
   // into the next DictionaryValue down.  If the path can be resolved
@@ -253,6 +257,21 @@ class DictionaryValue : public Value {
                      DictionaryValue** out_value) const;
   bool GetList(const std::wstring& path, ListValue** out_value) const;
 
+  // Like Get(), but without special treatment of '.'.  This allows e.g. URLs to
+  // be used as paths.
+  bool GetWithoutPathExpansion(const std::wstring& key,
+                               Value** out_value) const;
+  bool GetIntegerWithoutPathExpansion(const std::wstring& path,
+                                      int* out_value) const;
+  bool GetStringWithoutPathExpansion(const std::wstring& path,
+                                     std::string* out_value) const;
+  bool GetStringWithoutPathExpansion(const std::wstring& path,
+                                     std::wstring* out_value) const;
+  bool GetDictionaryWithoutPathExpansion(const std::wstring& path,
+                                         DictionaryValue** out_value) const;
+  bool GetListWithoutPathExpansion(const std::wstring& path,
+                                   ListValue** out_value) const;
+
   // Removes the Value with the specified path from this dictionary (or one
   // of its child dictionaries, if the path is more than just a local key).
   // If |out_value| is non-NULL, the removed Value AND ITS OWNERSHIP will be
@@ -260,6 +279,10 @@ class DictionaryValue : public Value {
   // be deleted.  This method returns true if |path| is a valid path; otherwise
   // it will return false and the DictionaryValue object will be unchanged.
   bool Remove(const std::wstring& path, Value** out_value);
+
+  // Like Remove(), but without special treatment of '.'.  This allows e.g. URLs
+  // to be used as paths.
+  bool RemoveWithoutPathExpansion(const std::wstring& key, Value** out_value);
 
   // This class provides an iterator for the keys in the dictionary.
   // It can't be used to modify the dictionary.
