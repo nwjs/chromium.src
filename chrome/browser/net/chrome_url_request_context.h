@@ -118,7 +118,6 @@ class ChromeURLRequestContextGetter : public URLRequestContextGetter,
   // These methods simply forward to the corresponding method on
   // ChromeURLRequestContext.
   void OnAcceptLanguageChange(const std::string& accept_language);
-  void OnCookiePolicyChange(net::CookiePolicy::Type type);
   void OnDefaultCharsetChange(const std::string& default_charset);
 
   // Saves the cookie store to |result| and signals |completion|.
