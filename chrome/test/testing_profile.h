@@ -152,7 +152,6 @@ class TestingProfile : public Profile {
       host_content_settings_map_ = new HostContentSettingsMap(this);
     return host_content_settings_map_.get();
   }
-  virtual HostZoomMap* GetHostZoomMap() { return NULL; }
   void set_session_service(SessionService* session_service) {
     session_service_ = session_service;
   }
