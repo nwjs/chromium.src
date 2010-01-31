@@ -7,6 +7,8 @@
 #include "base/logging.h"
 #include "base/process.h"
 #include "base/shared_memory.h"
+#include "chrome/browser/net/chrome_url_request_context.h"
+#include "chrome/browser/renderer_host/resource_dispatcher_host_request_info.h"
 #include "chrome/common/render_messages.h"
 #include "net/base/io_buffer.h"
 
@@ -103,7 +105,7 @@ bool AsyncResourceHandler::OnResponseStarted(int request_id,
   // request commits, avoiding the possibility of e.g. zooming the old content
   // or of having to layout the new content twice.
   URLRequest* request = rdh_->GetURLRequest(
-      GlobalRequestID(process_id_, request_id));
+      ResourceDispatcherHost::GlobalRequestID(process_id_, request_id));
   ResourceDispatcherHostRequestInfo* info = rdh_->InfoForRequest(request);
   if (info->resource_type() == ResourceType::MAIN_FRAME) {
     std::string host(request->url().host());
