@@ -173,7 +173,7 @@ void CookieFilterPageView::ButtonPressed(
     // TODO(pkasting): Set clear-on-close setting.
   } else {
     DCHECK_EQ(sender, show_cookies_button_);
-    UserMetricsRecordAction("Options_ShowCookies", NULL);
+    UserMetricsRecordAction(L"Options_ShowCookies", NULL);
     CookiesView::ShowCookiesWindow(profile());
   }
 }
