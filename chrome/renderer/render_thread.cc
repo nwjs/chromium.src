@@ -62,6 +62,7 @@
 #include "third_party/WebKit/WebKit/chromium/public/WebCrossOriginPreflightResultCache.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebDatabase.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebFontCache.h"
+#include "third_party/WebKit/WebKit/chromium/public/WebFrame.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebKit.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebRuntimeFeatures.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebScriptController.h"
