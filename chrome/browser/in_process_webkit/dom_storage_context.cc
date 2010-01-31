@@ -12,20 +12,19 @@
 #include "chrome/browser/in_process_webkit/webkit_context.h"
 #include "webkit/glue/glue_util.h"
 
-const FilePath::CharType DOMStorageContext::kLocalStorageDirectory[] =
-    FILE_PATH_LITERAL("Local Storage");
+const char* DOMStorageContext::kLocalStorageDirectory =
+    "Local Storage";
 
 const FilePath::CharType DOMStorageContext::kLocalStorageExtension[] =
     FILE_PATH_LITERAL(".localstorage");
 
-static const FilePath::CharType kLocalStorageOldPath[] =
-    FILE_PATH_LITERAL("localStorage");
+static const char* kLocalStorageOldPath = "localStorage";
 
 // TODO(jorlow): Remove after Chrome 4 ships.
 static void MigrateLocalStorageDirectory(const FilePath& data_path) {
-  FilePath new_path = data_path.Append(
+  FilePath new_path = data_path.AppendASCII(
       DOMStorageContext::kLocalStorageDirectory);
-  FilePath old_path = data_path.Append(kLocalStorageOldPath);
+  FilePath old_path = data_path.AppendASCII(kLocalStorageOldPath);
   if (!file_util::DirectoryExists(new_path) &&
       file_util::DirectoryExists(old_path)) {
     file_util::Move(old_path, new_path);
@@ -161,7 +160,7 @@ void DOMStorageContext::DeleteDataModifiedSince(const base::Time& cutoff) {
   PurgeMemory();
 
   file_util::FileEnumerator file_enumerator(
-      webkit_context_->data_path().Append(kLocalStorageDirectory), false,
+      webkit_context_->data_path().AppendASCII(kLocalStorageDirectory), false,
       file_util::FileEnumerator::FILES);
   for (FilePath path = file_enumerator.Next(); !path.value().empty();
        path = file_enumerator.Next()) {
@@ -192,7 +191,7 @@ void DOMStorageContext::DeleteAllLocalStorageFiles() {
   PurgeMemory();
 
   file_util::FileEnumerator file_enumerator(
-      webkit_context_->data_path().Append(kLocalStorageDirectory), false,
+      webkit_context_->data_path().AppendASCII(kLocalStorageDirectory), false,
       file_util::FileEnumerator::FILES);
   for (FilePath file_path = file_enumerator.Next(); !file_path.empty();
        file_path = file_enumerator.Next()) {

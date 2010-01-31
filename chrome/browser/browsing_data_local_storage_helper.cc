@@ -70,7 +70,7 @@ void BrowsingDataLocalStorageHelper::DeleteAllLocalStorageFiles() {
 void BrowsingDataLocalStorageHelper::FetchLocalStorageInfoInWebKitThread() {
   DCHECK(ChromeThread::CurrentlyOn(ChromeThread::WEBKIT));
   file_util::FileEnumerator file_enumerator(
-      profile_->GetWebKitContext()->data_path().Append(
+      profile_->GetWebKitContext()->data_path().AppendASCII(
           DOMStorageContext::kLocalStorageDirectory),
       false, file_util::FileEnumerator::FILES);
   for (FilePath file_path = file_enumerator.Next(); !file_path.empty();

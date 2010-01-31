@@ -75,7 +75,7 @@ class DOMStorageContext {
   void DeleteAllLocalStorageFiles();
 
   // The local storage directory.
-  static const FilePath::CharType kLocalStorageDirectory[];
+  static const char* kLocalStorageDirectory;
 
   // The local storage file extension.
   static const FilePath::CharType kLocalStorageExtension[];
