@@ -150,6 +150,9 @@ class AutomationProfileImpl : public Profile {
   virtual net::SSLConfigService* GetSSLConfigService() {
     return original_profile_->GetSSLConfigService();
   }
+  virtual HostContentSettingsMap* GetHostContentSettingsMap() {
+    return original_profile_->GetHostContentSettingsMap();
+  }
   virtual Blacklist* GetBlacklist() {
     return original_profile_->GetBlacklist();
   }

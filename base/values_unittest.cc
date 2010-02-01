@@ -297,7 +297,7 @@ TEST(ValuesTest, DictionaryWithoutPathExpansion) {
   DictionaryValue* value2;
   ASSERT_TRUE(dict.GetDictionaryWithoutPathExpansion(L"this", &value2));
   EXPECT_EQ(value1, value2);
-  EXPECT_EQ(1U, value2->size());
+  EXPECT_EQ(1U, value2->GetSize());
 
   EXPECT_TRUE(dict.HasKey(L"this.isnt.expanded"));
   Value* value3;

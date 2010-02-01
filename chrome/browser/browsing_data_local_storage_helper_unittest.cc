@@ -40,7 +40,7 @@ class BrowsingDataLocalStorageHelperTest : public InProcessBrowserTest {
 
   FilePath GetLocalStoragePathForTestingProfile() {
     FilePath storage_path(testing_profile_.GetPath());
-    storage_path = storage_path.Append(
+    storage_path = storage_path.AppendASCII(
         DOMStorageContext::kLocalStorageDirectory);
     return storage_path;
   }
