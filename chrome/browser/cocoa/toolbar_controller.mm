@@ -622,8 +622,7 @@ class PrefObserverBridge : public NotificationObserver {
   // subtract the threshold width, which represents the space that the
   // (optional) home button, omnibar, go button and page/wrench buttons take up
   // when no Browser Actions are displayed. This is to prevent the Browser
-  // Action buttons from pushing the elements to the left of them too much to
-  // the left.
+  // Action buttons from pushing the elements to the left of them too far over.
   CGFloat availableWidth = std::max(0.0f,
       curWidth - reloadFrame.origin.x + NSWidth(reloadFrame) -
           kHideBrowserActionThresholdWidth);
@@ -640,7 +639,7 @@ class PrefObserverBridge : public NotificationObserver {
     delta *= -1;
   } else if (visibleCount == buttonCount) {
     // The number of available slots is greater than the number of displayed
-    // buttons and all buttons are already displayed.
+    // buttons then all buttons are already displayed.
     return;
   }
   int arrayOffset = hide ? -1 : 0;
