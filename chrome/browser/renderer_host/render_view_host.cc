@@ -1747,6 +1747,11 @@ void RenderViewHost::ViewTypeChanged(ViewType::Type type) {
   Send(new ViewMsg_NotifyRenderViewType(routing_id(), type));
 }
 
+void RenderViewHost::SendContentSettings(const std::string& host,
+                                         const ContentSettings& settings) {
+  Send(new ViewMsg_SetContentSettingsForCurrentHost(host, settings));
+}
+
 void RenderViewHost::OnExtensionPostMessage(
     int port_id, const std::string& message) {
   if (process()->profile()->GetExtensionMessageService()) {

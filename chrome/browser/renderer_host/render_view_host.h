@@ -27,6 +27,7 @@ class RenderViewHostDelegate;
 class SiteInstance;
 class SkBitmap;
 class ViewMsg_Navigate;
+struct ContentSettings;
 struct ContextMenuParams;
 struct MediaPlayerAction;
 struct ThumbnailScore;
@@ -436,6 +437,10 @@ class RenderViewHost : public RenderWidgetHost,
 
   // Tell renderer which browser window it is being attached to.
   void UpdateBrowserWindowId(int window_id);
+
+  // Informs renderer of updated content settings.
+  void SendContentSettings(const std::string& host,
+                           const ContentSettings& settings);
 
  protected:
   // RenderWidgetHost protected overrides.

@@ -767,6 +767,12 @@ class NotificationType {
     // (the pointer is usable). No details are expected.
     NOTIFY_BALLOON_DISCONNECTED,
 
+    // Content Settings --------------------------------------------------------
+
+    // Sent when content settings change. The source is a HostContentSettings
+    // object, the details are ContentSettingsNotificationsDetails.
+    CONTENT_SETTINGS_CHANGED,
+
     // Count (must be last) ----------------------------------------------------
     // Used to determine the number of notification types.  Not valid as
     // a type parameter when registering for or posting notifications.
