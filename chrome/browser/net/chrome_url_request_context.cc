@@ -528,7 +528,6 @@ void ChromeURLRequestContextGetter::CleanupOnUIThread() {
   if (prefs_) {
     // Unregister for pref notifications.
     prefs_->RemovePrefObserver(prefs::kAcceptLanguages, this);
-    prefs_->RemovePrefObserver(prefs::kCookieBehavior, this);
     prefs_->RemovePrefObserver(prefs::kDefaultCharset, this);
     prefs_ = NULL;
   }
@@ -587,7 +586,6 @@ void ChromeURLRequestContextGetter::RegisterPrefsObserver(Profile* profile) {
   prefs_ = profile->GetPrefs();
 
   prefs_->AddPrefObserver(prefs::kAcceptLanguages, this);
-  prefs_->AddPrefObserver(prefs::kCookieBehavior, this);
   prefs_->AddPrefObserver(prefs::kDefaultCharset, this);
 }
 
