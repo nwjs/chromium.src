@@ -190,7 +190,7 @@ class ChromeURLRequestContext : public URLRequestContext,
 
   virtual bool AllowSendingCookies(const URLRequest* request) const;
 
-  const HostContentSettingsMap* host_content_settings_map() const {
+  HostContentSettingsMap* host_content_settings_map() {
     return host_content_settings_map_;
   }
 
