@@ -480,7 +480,7 @@ else
 var orig = accessor.getCompletions;
 accessor.getCompletions = function(expressionString,
     includeInspectorCommandLineAPI, callFrameId, reportCompletions) {
-  if (goog.isDef(callFrameId)) {
+  if (typeof callFrameId === "number") {
     devtools.tools.getDebuggerAgent().resolveCompletionsOnFrame(
         expressionString, callFrameId, reportCompletions);
   } else {
