@@ -5,7 +5,6 @@
 #include "chrome/browser/browser_prefs.h"
 
 #include "chrome/browser/bookmarks/bookmark_utils.h"
-#include "chrome/browser/blocked_popup_container.h"
 #include "chrome/browser/browser.h"
 #include "chrome/browser/browser_shutdown.h"
 #include "chrome/browser/debugger/devtools_manager.h"
@@ -84,7 +83,6 @@ void RegisterAllPrefs(PrefService* user_prefs, PrefService* local_state) {
   ExtensionDOMUI::RegisterUserPrefs(user_prefs);
   ExtensionsUI::RegisterUserPrefs(user_prefs);
   NewTabUI::RegisterUserPrefs(user_prefs);
-  BlockedPopupContainer::RegisterUserPrefs(user_prefs);
   HostContentSettingsMap::RegisterUserPrefs(user_prefs);
   DevToolsManager::RegisterUserPrefs(user_prefs);
 #if defined(TOOLKIT_VIEWS)  // TODO(port): whittle this down as we port.

@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2010 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -1013,13 +1013,6 @@ bool Browser::SupportsWindowFeature(WindowFeature feature) const {
   return !!(features & feature);
 }
 
-#if defined(OS_WIN)
-void Browser::ClosePopups() {
-  UserMetrics::RecordAction(L"CloseAllSuppressedPopups", profile_);
-  GetSelectedTabContents()->CloseAllSuppressedPopups();
-}
-#endif
-
 void Browser::Print() {
   UserMetrics::RecordAction(L"PrintPreview", profile_);
   GetSelectedTabContents()->PrintPreview();
@@ -1438,9 +1431,6 @@ void Browser::ExecuteCommandWithDisposition(
     case IDC_BOOKMARK_PAGE:         BookmarkCurrentPage();         break;
     case IDC_BOOKMARK_ALL_TABS:     BookmarkAllTabs();             break;
     case IDC_VIEW_SOURCE:           ViewSource();                  break;
-#if defined(OS_WIN)
-    case IDC_CLOSE_POPUPS:          ClosePopups();                 break;
-#endif
     case IDC_PRINT:                 Print();                       break;
     case IDC_ENCODING_AUTO_DETECT:  ToggleEncodingAutoDetect();    break;
     case IDC_ENCODING_UTF8:
@@ -2054,6 +2044,11 @@ void Browser::ContentsZoomChange(bool zoom_in) {
   ExecuteCommand(zoom_in ? IDC_ZOOM_PLUS : IDC_ZOOM_MINUS);
 }
 
+void Browser::OnBlockedContentChange(TabContents* source) {
+  if (source == GetSelectedTabContents())
+    window_->GetLocationBar()->UpdateContentBlockedIcons();
+}
+
 void Browser::TabContentsFocused(TabContents* tab_content) {
   window_->TabContentsFocused(tab_content);
 }
@@ -2191,7 +2186,6 @@ bool Browser::IsReservedAccelerator(const NativeWebKeyboardEvent& event) {
 
   int command_id = window()->GetCommandId(event);
   return command_id == IDC_CLOSE_TAB ||
-         command_id == IDC_CLOSE_POPUPS ||
          command_id == IDC_CLOSE_WINDOW ||
          command_id == IDC_NEW_INCOGNITO_WINDOW ||
          command_id == IDC_NEW_TAB ||
@@ -2361,7 +2355,6 @@ void Browser::InitCommandState() {
 #endif
 
   // Page-related commands
-  command_updater_.UpdateCommandEnabled(IDC_CLOSE_POPUPS, true);
   command_updater_.UpdateCommandEnabled(IDC_PRINT, true);
   command_updater_.UpdateCommandEnabled(IDC_ENCODING_AUTO_DETECT, true);
   command_updater_.UpdateCommandEnabled(IDC_ENCODING_UTF8, true);

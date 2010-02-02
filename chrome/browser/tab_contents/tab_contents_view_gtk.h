@@ -1,4 +1,4 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2010 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,7 +16,6 @@
 #include "chrome/common/notification_registrar.h"
 #include "chrome/common/owned_widget_gtk.h"
 
-class BlockedPopupContainerViewGtk;
 class ConstrainedWindowGtk;
 class GtkThemeProperties;
 class RenderViewContextMenuGtk;
@@ -33,11 +32,6 @@ class TabContentsViewGtk : public TabContentsView,
   // because that's what was easiest when they were split.
   explicit TabContentsViewGtk(TabContents* tab_contents);
   virtual ~TabContentsViewGtk();
-
-  // Unlike Windows, the BlockedPopupContainerView needs to collaborate with
-  // the TabContentsViewGtk to position the notification.
-  void AttachBlockedPopupView(BlockedPopupContainerViewGtk* popup_view);
-  void RemoveBlockedPopupView(BlockedPopupContainerViewGtk* popup_view);
 
   // Unlike Windows, ConstrainedWindows need to collaborate with the
   // TabContentsViewGtk to position the dialogs.
@@ -100,8 +94,7 @@ class TabContentsViewGtk : public TabContentsView,
       GtkFloatingContainer* floating_container, GtkAllocation* allocation,
       TabContentsViewGtk* tab_contents_view);
 
-  // Contains |fixed_| as its GtkBin member and a possible floating widget from
-  // |popup_view_|.
+  // Contains |fixed_| as its GtkBin member.
   OwnedWidgetGtk floating_;
 
   // This container holds the tab's web page views. It is a GtkFixed so that we
@@ -122,10 +115,6 @@ class TabContentsViewGtk : public TabContentsView,
   scoped_ptr<SadTabGtk> sad_tab_;
 
   FocusStoreGtk focus_store_;
-
-  // Our UI for controlling popups (or NULL if no popup windows have been
-  // opened). |popup_view_| is owned by the TabContents, not the view.
-  BlockedPopupContainerViewGtk* popup_view_;
 
   // Each individual UI for constrained dialogs currently displayed. The
   // objects in this vector are owned by the TabContents, not the view.

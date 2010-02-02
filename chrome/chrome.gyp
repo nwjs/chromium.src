@@ -1,4 +1,4 @@
-# Copyright (c) 2009 The Chromium Authors. All rights reserved.
+# Copyright (c) 2010 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -1079,8 +1079,6 @@
         'browser/cocoa/base_view.h',
         'browser/cocoa/base_view.mm',
         'browser/cocoa/browser_window_factory.mm',
-        'browser/cocoa/blocked_popup_container_controller.h',
-        'browser/cocoa/blocked_popup_container_controller.mm',
         'browser/cocoa/bookmark_all_tabs_controller.h',
         'browser/cocoa/bookmark_all_tabs_controller.mm',
         'browser/cocoa/bookmark_bar_bridge.h',
@@ -1524,8 +1522,6 @@
         'browser/gtk/back_forward_button_gtk.h',
         'browser/gtk/back_forward_menu_model_gtk.cc',
         'browser/gtk/back_forward_menu_model_gtk.h',
-        'browser/gtk/blocked_popup_container_view_gtk.cc',
-        'browser/gtk/blocked_popup_container_view_gtk.h',
         'browser/gtk/bookmark_bar_gtk.cc',
         'browser/gtk/bookmark_bar_gtk.h',
         'browser/gtk/bookmark_bubble_gtk.cc',
@@ -2283,8 +2279,6 @@
         'browser/views/autocomplete/autocomplete_popup_win.h',
         'browser/views/autocomplete/autocomplete_popup_gtk.cc',
         'browser/views/autocomplete/autocomplete_popup_gtk.h',
-        'browser/views/blocked_popup_container_view_views.cc',
-        'browser/views/blocked_popup_container_view_views.h',
         'browser/views/bookmark_bar_view.cc',
         'browser/views/bookmark_bar_view.h',
         'browser/views/bookmark_bubble_view.cc',
@@ -2859,8 +2853,6 @@
                 ['include', '^browser/views/autocomplete/autocomplete_popup_contents_view.h'],
                 ['include', '^browser/views/autocomplete/autocomplete_popup_gtk.cc'],
                 ['include', '^browser/views/autocomplete/autocomplete_popup_gtk.h'],
-                ['include', '^browser/views/blocked_popup_container_view_views.cc'],
-                ['include', '^browser/views/blocked_popup_container_view_views.h'],
                 ['include', '^browser/views/bookmark_bar_view.cc'],
                 ['include', '^browser/views/bookmark_bar_view.h'],
                 ['include', '^browser/views/bookmark_bubble_view.cc'],
@@ -4550,7 +4542,6 @@
         'browser/autocomplete/keyword_provider_unittest.cc',
         'browser/autocomplete/search_provider_unittest.cc',
         'browser/back_forward_menu_model_unittest.cc',
-        'browser/blocked_popup_container_unittest.cc',
         'browser/bookmarks/bookmark_codec_unittest.cc',
         'browser/bookmarks/bookmark_drag_data_unittest.cc',
         'browser/bookmarks/bookmark_folder_tree_model_unittest.cc',
@@ -4588,7 +4579,6 @@
         'browser/cocoa/base_view_unittest.mm',
         'browser/cocoa/background_gradient_view_unittest.mm',
         'browser/cocoa/background_tile_view_unittest.mm',
-        'browser/cocoa/blocked_popup_container_controller_unittest.mm',
         'browser/cocoa/bookmark_all_tabs_controller_unittest.mm',
         'browser/cocoa/bookmark_bar_bridge_unittest.mm',
         'browser/cocoa/bookmark_bar_controller_unittest.mm',
