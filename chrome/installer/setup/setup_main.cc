@@ -301,10 +301,7 @@ installer_util::InstallStatus InstallChrome(const CommandLine& cmd_line,
     // There might be an experiment (for upgrade usually) that needs to happen.
     // An experiment's outcome can include chrome's uninstallation. If that is
     // the case we would not do that directly at this point but in another
-    // instance of setup.exe
-    //
-    // There is another way to reach this same function if this is a system
-    // level install. See HandleNonInstallCmdLineOptions().
+    //  instance of setup.exe
     dist->LaunchUserExperiment(install_status, *installer_version,
                                system_level);
   }
@@ -468,14 +465,6 @@ bool HandleNonInstallCmdLineOptions(const CommandLine& cmd_line,
   } else if (cmd_line.HasSwitch(installer_util::switches::kInactiveUserToast)) {
     // Launch the inactive user toast experiment.
     dist->InactiveUserToastExperiment();
-    return true;
-  } else if (cmd_line.HasSwitch(installer_util::switches::kSystemLevelToast)) {
-    // We started as system-level and have been re-launched as user level
-    // to continue with the toast experiment.
-    scoped_ptr<installer::Version>
-        installed_version(InstallUtil::GetChromeVersion(system_install));
-    dist->LaunchUserExperiment(installer_util::REENTRY_SYS_UPDATE,
-                               *installed_version, false);
     return true;
   }
   return false;
