@@ -69,7 +69,7 @@ void DOMStorageArea::SetItem(const string16& key, const string16& value,
                              bool* quota_exception) {
   if (!CheckContentSetting()) {
     *quota_exception = true;
-    return NullableString16(true);  // Ignored if exception is true.
+    return;
   }
 
   CreateWebStorageAreaIfNecessary();
@@ -78,7 +78,7 @@ void DOMStorageArea::SetItem(const string16& key, const string16& value,
 
 void DOMStorageArea::RemoveItem(const string16& key) {
   if (!CheckContentSetting())
-    return NullableString16(true);  // Indicates nothing removed.
+    return;
 
   CreateWebStorageAreaIfNecessary();
   storage_area_->removeItem(key, WebURL());
@@ -86,7 +86,7 @@ void DOMStorageArea::RemoveItem(const string16& key) {
 
 void DOMStorageArea::Clear() {
   if (!CheckContentSetting())
-    return false;  // Nothing cleared.
+    return;
 
   CreateWebStorageAreaIfNecessary();
   storage_area_->clear(WebURL());

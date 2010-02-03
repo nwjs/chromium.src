@@ -207,7 +207,7 @@ void DOMStorageContext::DeleteAllLocalStorageFiles() {
 // static
 void DOMStorageContext::ClearLocalState(const FilePath& profile_path,
                                         const char* url_scheme_to_be_skip) {
-  file_util::FileEnumerator file_enumerator(profile_path.Append(
+  file_util::FileEnumerator file_enumerator(profile_path.AppendASCII(
       kLocalStorageDirectory), false, file_util::FileEnumerator::FILES);
   for (FilePath file_path = file_enumerator.Next(); !file_path.empty();
        file_path = file_enumerator.Next()) {
