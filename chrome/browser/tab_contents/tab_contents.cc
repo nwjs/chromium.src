@@ -288,6 +288,7 @@ TabContents::TabContents(Profile* profile,
       opener_dom_ui_type_(DOMUIFactory::kNoDOMUI) {
   pending_install_.page_id = 0;
   pending_install_.callback_functor = NULL;
+  ClearBlockedContentSettings();
 
 #if defined(OS_CHROMEOS)
   // Make sure the thumbnailer is started before starting the render manager.
@@ -589,7 +590,12 @@ bool TabContents::IsContentBlocked(ContentSettingsType content_type) const {
   if (content_type == CONTENT_SETTINGS_TYPE_POPUPS)
     return blocked_popups_ != NULL;
 
-  // TODO(pkasting): Return meaningful values here.
+  if (content_type == CONTENT_SETTINGS_TYPE_IMAGES ||
+      content_type == CONTENT_SETTINGS_TYPE_JAVASCRIPT ||
+      content_type == CONTENT_SETTINGS_TYPE_PLUGINS)
+    return content_blocked_[content_type];
+
+  // TODO(pkasting): Return a meaningful values for cookies.
   return false;
 }
 
@@ -897,7 +903,8 @@ void TabContents::PopupNotificationVisibilityChanged(bool visible) {
     return;
   if (!dont_notify_render_view_)
     render_view_host()->PopupNotificationVisibilityChanged(visible);
-  delegate_->OnBlockedContentChange(this);
+  if (delegate_)
+    delegate_->OnBlockedContentChange(this);
 }
 
 gfx::NativeView TabContents::GetContentNativeView() const {
@@ -1234,6 +1241,14 @@ void TabContents::OnCloseStarted() {
     tab_close_start_time_ = base::TimeTicks::Now();
 }
 
+// Resets the |content_blocked_| array.
+void TabContents::ClearBlockedContentSettings() {
+  DCHECK_EQ(static_cast<size_t>(CONTENT_SETTINGS_NUM_TYPES),
+            arraysize(content_blocked_));
+  for (int i = 0; i < CONTENT_SETTINGS_NUM_TYPES; ++i)
+    content_blocked_[i] = false;
+}
+
 // Notifies the RenderWidgetHost instance about the fact that the page is
 // loading, or done loading and calls the base implementation.
 void TabContents::SetIsLoading(bool is_loading,
@@ -1405,8 +1420,8 @@ void TabContents::DidNavigateMainFramePostCommit(
   // Get the favicon, either from history or request it from the net.
   fav_icon_helper_.FetchFavIcon(details.entry->url());
 
-  // Clear all page and browser action state for this tab, unless this is an
-  // in-page navigation.
+  // Clear all page actions, blocked content notifications and browser actions
+  // for this tab, unless this is an in-page navigation.
   url_canon::Replacements<char> replacements;
   replacements.ClearRef();
   if (params.url.ReplaceComponents(replacements) !=
@@ -1432,18 +1447,23 @@ void TabContents::DidNavigateMainFramePostCommit(
         }
       }
     }
+
+    // Close blocked popups.
+    if (blocked_popups_) {
+      AutoReset auto_reset(&dont_notify_render_view_, true);
+      blocked_popups_->Destroy();
+    }
+
+    // Clear "blocked" flags.
+    ClearBlockedContentSettings();
+    if (delegate_)
+      delegate_->OnBlockedContentChange(this);
   }
 
   // Close constrained windows if necessary.
   if (!net::RegistryControlledDomainService::SameDomainOrHost(
       details.previous_url, details.entry->url()))
     CloseConstrainedWindows();
-
-  // Close blocked popups.
-  if (blocked_popups_) {
-    AutoReset auto_reset(&dont_notify_render_view_, true);
-    blocked_popups_->Destroy();
-  }
 
   // Update the starred state.
   UpdateStarredStateForCurrentURL();
@@ -1916,6 +1936,12 @@ void TabContents::DidFailProvisionalLoadWithError(
 
 void TabContents::DocumentLoadedInFrame() {
   controller_.DocumentLoadedInFrame();
+}
+
+void TabContents::OnContentBlocked(ContentSettingsType type) {
+  content_blocked_[type] = true;
+  if (delegate_)
+    delegate_->OnBlockedContentChange(this);
 }
 
 RenderViewHostDelegate::View* TabContents::GetViewDelegate() {

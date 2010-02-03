@@ -764,6 +764,15 @@ class RenderView : public RenderWidget,
   // on other platforms.
   static std::string DetermineTextLanguage(const std::wstring& text);
 
+  // Helper method that returns if the user wants to block content of type
+  // |content_type| and sends an IPC message to the browser if content will be
+  // blocked.
+  bool allowContentType(ContentSettingsType settings_type,
+                        bool enabled_per_settings);
+
+  // Resets the |content_blocked_| array.
+  void ClearBlockedContentSettings();
+
   // Bitwise-ORed set of extra bindings that have been enabled.  See
   // BindingsPolicy for details.
   int enabled_bindings_;
@@ -999,7 +1008,11 @@ class RenderView : public RenderWidget,
 
   HostContentSettings host_content_settings_;
 
+  // Stores if loading of images, scripts, and plugins is allowed.
   ContentSettings current_content_settings_;
+
+  // Stores if images, scripts, and plugins have actually been blocked.
+  bool content_blocked_[CONTENT_SETTINGS_NUM_TYPES];
 
   DISALLOW_COPY_AND_ASSIGN(RenderView);
 };

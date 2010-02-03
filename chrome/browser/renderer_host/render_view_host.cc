@@ -843,6 +843,7 @@ void RenderViewHost::OnMessageReceived(const IPC::Message& msg) {
     IPC_MESSAGE_HANDLER(ViewHostMsg_AccessibilityFocusChange,
                         OnAccessibilityFocusChange)
     IPC_MESSAGE_HANDLER(ViewHostMsg_OnCSSInserted, OnCSSInserted)
+    IPC_MESSAGE_HANDLER(ViewHostMsg_ContentBlocked, OnContentBlocked)
     // Have the super handle all other messages.
     IPC_MESSAGE_UNHANDLED(RenderWidgetHost::OnMessageReceived(msg))
   IPC_END_MESSAGE_MAP_EX()
@@ -1775,4 +1776,11 @@ void RenderViewHost::OnCSSInserted() {
 
 void RenderViewHost::UpdateBrowserWindowId(int window_id) {
   Send(new ViewMsg_UpdateBrowserWindowId(routing_id(), window_id));
+}
+
+void RenderViewHost::OnContentBlocked(ContentSettingsType type) {
+  RenderViewHostDelegate::Resource* resource_delegate =
+      delegate_->GetResourceDelegate();
+  if (resource_delegate)
+    resource_delegate->OnContentBlocked(type);
 }

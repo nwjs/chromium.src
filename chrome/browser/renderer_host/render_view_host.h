@@ -10,6 +10,7 @@
 
 #include "base/scoped_ptr.h"
 #include "chrome/browser/renderer_host/render_widget_host.h"
+#include "chrome/common/content_settings_types.h"
 #include "chrome/common/notification_registrar.h"
 #include "chrome/common/page_zoom.h"
 #include "chrome/common/view_types.h"
@@ -592,7 +593,7 @@ class RenderViewHost : public RenderWidgetHost,
   void OnExtensionPostMessage(int port_id, const std::string& message);
   void OnAccessibilityFocusChange(int acc_obj_id);
   void OnCSSInserted();
-
+  void OnContentBlocked(ContentSettingsType type);
  private:
   friend class TestRenderViewHost;
 
