@@ -318,6 +318,10 @@ const wchar_t kPerHostContentSettings[] = L"profile.per_host_content_settings";
 // regardless of other content settings.
 const wchar_t kBlockThirdPartyCookies[] = L"profile.block_third_party_cookies";
 
+// Boolean that is true when all locally stored site data (e.g. cookies, local
+// storage, etc..) should be deleted on exit.
+const wchar_t kClearSiteDataOnExit[] = L"profile.clear_site_data_on_exit";
+
 // *************** LOCAL STATE ***************
 // These are attached to the machine/installation
 

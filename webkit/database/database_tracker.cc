@@ -1,4 +1,4 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2010 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,7 +13,10 @@
 #include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/string_util.h"
+#include "third_party/WebKit/WebKit/chromium/public/WebSecurityOrigin.h"
+#include "third_party/WebKit/WebKit/chromium/public/WebString.h"
 #include "webkit/database/databases_table.h"
+#include "webkit/glue/webkit_glue.h"
 
 namespace webkit_database {
 
@@ -244,6 +247,47 @@ int64 DatabaseTracker::GetOriginSpaceAvailable(
   int64 space_available = GetOriginQuota(origin_identifier) -
       GetOriginUsage(origin_identifier);
   return (space_available < 0 ? 0 : space_available);
+}
+
+// static
+void DatabaseTracker::ClearLocalState(const FilePath& profile_path,
+                                      const char* url_scheme_to_be_skipped) {
+  FilePath db_dir = profile_path.Append(FilePath(kDatabaseDirectoryName));
+  FilePath db_tracker = db_dir.Append(FilePath(kTrackerDatabaseFileName));
+  if (file_util::DirectoryExists(db_dir) &&
+      file_util::PathExists(db_tracker)) {
+    scoped_ptr<sql::Connection> db_(new sql::Connection);
+    if (!db_->Open(db_tracker) ||
+        !db_->DoesTableExist("Databases")) {
+      db_->Close();
+      file_util::Delete(db_dir, true);
+      return;
+    } else {
+      sql::Statement delete_statement(db_->GetCachedStatement(
+            SQL_FROM_HERE, "DELETE FROM Databases WHERE origin NOT LIKE ?"));
+      std::string filter(url_scheme_to_be_skipped);
+      filter += "_%";
+      delete_statement.BindString(0, filter);
+      if (!delete_statement.Run()) {
+        db_->Close();
+        file_util::Delete(db_dir, true);
+        return;
+      }
+    }
+  }
+  file_util::FileEnumerator file_enumerator(db_dir, false,
+      file_util::FileEnumerator::DIRECTORIES);
+  for (FilePath file_path = file_enumerator.Next(); !file_path.empty();
+       file_path = file_enumerator.Next()) {
+    if (file_path.BaseName() != FilePath(kTrackerDatabaseFileName)) {
+      scoped_ptr<WebKit::WebSecurityOrigin> web_security_origin(
+          WebKit::WebSecurityOrigin::createFromDatabaseIdentifier(
+              webkit_glue::FilePathToWebString(file_path.BaseName())));
+      if (!EqualsASCII(web_security_origin->protocol(),
+                       url_scheme_to_be_skipped))
+        file_util::Delete(file_path, true);
+    }
+  }
 }
 
 }  // namespace webkit_database

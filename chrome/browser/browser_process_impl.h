@@ -28,6 +28,7 @@
 #endif
 
 class CommandLine;
+class FilePath;
 class NotificationService;
 
 // Real implementation of BrowserProcess that creates and returns the services.
@@ -219,6 +220,9 @@ class BrowserProcessImpl : public BrowserProcess, public NonThreadSafe {
 #endif
 
  private:
+  void ClearLocalState(const FilePath& profile_path);
+  bool ShouldClearLocalState(FilePath* profile_path);
+
   void CreateResourceDispatcherHost();
   void CreatePrefService();
   void CreateMetricsService();

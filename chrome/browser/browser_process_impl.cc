@@ -19,21 +19,26 @@
 #include "chrome/browser/download/save_file_manager.h"
 #include "chrome/browser/google_url_tracker.h"
 #include "chrome/browser/icon_manager.h"
+#include "chrome/browser/in_process_webkit/dom_storage_context.h"
 #include "chrome/browser/metrics/metrics_service.h"
 #include "chrome/browser/net/dns_global.h"
 #include "chrome/browser/net/sdch_dictionary_fetcher.h"
+#include "chrome/browser/net/sqlite_persistent_cookie_store.h"
 #include "chrome/browser/notifications/notification_ui_manager.h"
 #include "chrome/browser/plugin_service.h"
 #include "chrome/browser/profile_manager.h"
 #include "chrome/browser/renderer_host/render_process_host.h"
 #include "chrome/browser/renderer_host/resource_dispatcher_host.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
+#include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/notification_service.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/pref_service.h"
+#include "chrome/common/url_constants.h"
 #include "ipc/ipc_logging.h"
+#include "webkit/database/database_tracker.h"
 
 #if defined(OS_WIN)
 #include "chrome/browser/automation/automation_provider_list.h"
@@ -165,6 +170,12 @@ BrowserProcessImpl::BrowserProcessImpl(const CommandLine& command_line)
 }
 
 BrowserProcessImpl::~BrowserProcessImpl() {
+  FilePath profile_path;
+  bool clear_local_state_on_exit;
+
+  // Store the profile path for clearing local state data on exit.
+  clear_local_state_on_exit = ShouldClearLocalState(&profile_path);
+
   // Delete the AutomationProviderList before NotificationService,
   // since it may try to unregister notifications
   // Both NotificationService and AutomationProvider are singleton instances in
@@ -228,6 +239,11 @@ BrowserProcessImpl::~BrowserProcessImpl() {
   // SaveFileManager and SessionService.
   file_thread_.reset();
 
+  // At this point, no render process exist, so it's safe to access local
+  // state data such as cookies, database, or local storage.
+  if (clear_local_state_on_exit)
+    ClearLocalState(profile_path);
+
   // With the file_thread_ flushed, we can release any icon resources.
   icon_manager_.reset();
 
@@ -287,6 +303,25 @@ printing::PrintJobManager* BrowserProcessImpl::print_job_manager() {
   // destructor, so it should always be valid.
   DCHECK(print_job_manager_.get());
   return print_job_manager_.get();
+}
+
+void BrowserProcessImpl::ClearLocalState(const FilePath& profile_path) {
+  SQLitePersistentCookieStore::ClearLocalState(profile_path.Append(
+      chrome::kCookieFilename));
+  DOMStorageContext::ClearLocalState(profile_path, chrome::kExtensionScheme);
+  webkit_database::DatabaseTracker::ClearLocalState(profile_path,
+      chrome::kExtensionScheme);
+  // TODO(jochen): clear app cache local state.
+}
+
+bool BrowserProcessImpl::ShouldClearLocalState(FilePath* profile_path) {
+  FilePath user_data_dir;
+  Profile* profile;
+
+  PathService::Get(chrome::DIR_USER_DATA, &user_data_dir);
+  profile = profile_manager_->GetDefaultProfile(user_data_dir);
+  *profile_path = profile->GetPath();
+  return profile->GetPrefs()->GetBoolean(prefs::kClearSiteDataOnExit);
 }
 
 void BrowserProcessImpl::CreateResourceDispatcherHost() {

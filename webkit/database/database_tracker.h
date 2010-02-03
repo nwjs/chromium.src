@@ -68,6 +68,9 @@ class DatabaseTracker
   FilePath GetFullDBFilePath(const string16& origin_identifier,
                              const string16& database_name) const;
 
+  static void ClearLocalState(const FilePath& profile_path,
+                              const char* url_scheme_to_be_skipped);
+
  private:
   friend class base::RefCountedThreadSafe<DatabaseTracker>;
 
