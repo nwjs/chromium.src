@@ -1,7 +1,7 @@
-// Copyright (c) 2006-2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2009 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-
+//
 // Unit test compact language detector
 //
 // Small version, covering these languages only:
@@ -17,19 +17,17 @@
 //
 
 #include <string>
-
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/cld/bar/toolbar/cld/i18n/encodings/compact_lang_det/compact_lang_det.h"
-#include "third_party/cld/bar/toolbar/cld/i18n/encodings/compact_lang_det/ext_lang_enc.h"
-#include "third_party/cld/bar/toolbar/cld/i18n/encodings/compact_lang_det/unittest_data.h"
+#include "bar/toolbar/cld/i18n/encodings/compact_lang_det/compact_lang_det.h"
+#include "bar/toolbar/cld/i18n/encodings/compact_lang_det/ext_lang_enc.h"
+#include "bar/toolbar/cld/i18n/encodings/compact_lang_det/unittest_data.h"
 
-#include "third_party/cld/bar/toolbar/cld/i18n/encodings/compact_lang_det/win/cld_commandlineflags.h"
-#include "third_party/cld/bar/toolbar/cld/i18n/encodings/compact_lang_det/win/cld_unicodetext.h"
-#include "third_party/cld/bar/toolbar/cld/i18n/encodings/compact_lang_det/win/cld_google.h"
+#include "bar/toolbar/cld/i18n/encodings/compact_lang_det/win/cld_commandlineflags.h"
+#include "bar/toolbar/cld/i18n/encodings/compact_lang_det/win/cld_google.h"
 
-//DEFINE_bool(html, false, "Print language spans in HTML on stderr");
-//DEFINE_bool(detail, false, "Print incoming text to stderr");
-//DEFINE_bool(skipbig, false, "Skip BigInputTests");
+DEFINE_bool(html, false, "Print language spans in HTML on stderr");
+DEFINE_bool(detail, false, "Print incoming text to stderr");
+DEFINE_bool(skipbig, false, "Skip BigInputTests");
 
 // Test strings.
 // These are all included here to make the unit test self-contained.
@@ -39,10 +37,6 @@ const char* kTeststr_en =
   "jury of members two courts combine for the purpose the most important cases "
   "of all are brought jurors or";
 
-const char* kTeststr_en_fr_de =
-    " a backup credit card by visiting your billing preferences page or visit the adwords help centre for more details https adwords google com support bin answer py answer hl en we were unable to process the payment of for your outstanding google adwords"  // ENGLISH
-    " a accès aux collections et aux frontaux qui lui ont été attribués il peut consulter et modifier ses collections et exporter des configurations de collection toutefois il ne peut pas créer ni supprimer des collections enfin il a accès aux fonctions"  // FRENCH
-    " abschnitt ordner aktivieren werden die ordnereinstellungen im farbabschnitt deaktiviert öchten sie wirklich fortfahren eldtypen angeben optional n diesem schritt geben sie für jedesfeld aus dem datenset den typ an ieser schritt ist optional eldtypen";  // GERMAN
 
 // UTF8 constants. Use a UTF-8 aware editor for this file
 const char* kTeststr_ks =
@@ -117,7 +111,7 @@ class CompactLangDetTest : public testing::Test {
     bool is_plain_text = true;
     bool is_reliable;
 
-    Language lang = CompactLangDet::DetectLanguage(src, strlen(src),
+    Language lang = CompactLangDet::DetectLanguage(NULL, src, strlen(src),
                                                    is_plain_text,
                                                    &is_reliable);
     return lang;
@@ -132,7 +126,8 @@ class CompactLangDetTest : public testing::Test {
     int text_bytes;
     bool is_reliable;
 
-    Language lang =  CompactLangDet::ExtDetectLanguageSummary(src, strlen(src),
+    Language lang =  CompactLangDet::ExtDetectLanguageSummary(NULL,
+                            src, strlen(src),
                             is_plain_text,
                             language3,
                             percent3,
@@ -140,21 +135,8 @@ class CompactLangDetTest : public testing::Test {
                             &is_reliable);
     return lang;
   }
+};    // end class CompactLangDetTest
 
-  // Detect the top three languages using DetectLanguageSummary.
-  void TestDetectLanguageSummary(const char* src, Language* language3) {
-    bool is_plain_text = true;
-    int percent3[3];
-    int text_bytes;
-    bool is_reliable;
-
-    CompactLangDet::DetectLanguageSummary(src, strlen(src), is_plain_text,
-                                          language3, percent3, &text_bytes,
-                                          &is_reliable);
-  }
-};  // End class CompactLangDetTest.
-
-}  // End namespace.
 
 TEST_F(CompactLangDetTest, EasyTests) {
   EXPECT_EQ(ENGLISH, TestCompactLangDetPlain(kTeststr_en));
@@ -166,7 +148,7 @@ TEST_F(CompactLangDetTest, FullTests) {
   // Do all the languages in all their scripts
   //// EXPECT_EQ(AFAR, TestCompactLangDetPlain(kTeststr_aa_Latn));
   //// EXPECT_EQ(ABKHAZIAN, TestCompactLangDetPlain(kTeststr_ab_Cyrl));
-  //// EXPECT_EQ(AFRIKAANS, TestCompactLangDetPlain(kTeststr_af_Latn));
+  EXPECT_EQ(AFRIKAANS, TestCompactLangDetPlain(kTeststr_af_Latn));
   //// EXPECT_EQ(AMHARIC, TestCompactLangDetPlain(kTeststr_am_Ethi));
   EXPECT_EQ(ARABIC, TestCompactLangDetPlain(kTeststr_ar_Arab));
   //// EXPECT_EQ(ASSAMESE, TestCompactLangDetPlain(kTeststr_as_Beng));
@@ -177,11 +159,12 @@ TEST_F(CompactLangDetTest, FullTests) {
   //// EXPECT_EQ(AZERBAIJANI, TestCompactLangDetPlain(kTeststr_az_Latn));
 
   //// EXPECT_EQ(BASHKIR, TestCompactLangDetPlain(kTeststr_ba_Cyrl));
-  //// EXPECT_EQ(BELARUSIAN, TestCompactLangDetPlain(kTeststr_be_Cyrl));
+  EXPECT_EQ(BELARUSIAN, TestCompactLangDetPlain(kTeststr_be_Cyrl));
   EXPECT_EQ(BULGARIAN, TestCompactLangDetPlain(kTeststr_bg_Cyrl));
   //// EXPECT_EQ(BIHARI, TestCompactLangDetPlain(kTeststr_bh_Deva));
   //// EXPECT_EQ(BISLAMA, TestCompactLangDetPlain(kTeststr_bi_Latn));
   //// EXPECT_EQ(BENGALI, TestCompactLangDetPlain(kTeststr_bn_Beng));
+  
   //// EXPECT_EQ(TIBETAN, TestCompactLangDetPlain(kTeststr_bo_Tibt));
   //// EXPECT_EQ(BRETON, TestCompactLangDetPlain(kTeststr_br_Latn));
   EXPECT_EQ(SERBIAN, TestCompactLangDetPlain(kTeststr_bs_Cyrl));    // NOTE: Not BOSNIAN
@@ -195,7 +178,7 @@ TEST_F(CompactLangDetTest, FullTests) {
     // No CREOLES_AND_PIDGINS_OTHER
     // No CREOLES_AND_PIDGINS_PORTUGUESE_BASED
   EXPECT_EQ(CZECH, TestCompactLangDetPlain(kTeststr_cs_Latn));
-  //// EXPECT_EQ(WELSH, TestCompactLangDetPlain(kTeststr_cy_Latn));
+  EXPECT_EQ(WELSH, TestCompactLangDetPlain(kTeststr_cy_Latn));
 
   EXPECT_EQ(DANISH, TestCompactLangDetPlain(kTeststr_da_Latn));
   EXPECT_EQ(GERMAN, TestCompactLangDetPlain(kTeststr_de_Latn));
@@ -209,14 +192,14 @@ TEST_F(CompactLangDetTest, FullTests) {
   EXPECT_EQ(ESTONIAN, TestCompactLangDetPlain(kTeststr_et_Latn));
   //// EXPECT_EQ(BASQUE, TestCompactLangDetPlain(kTeststr_eu_Latn));
 
-  //// EXPECT_EQ(PERSIAN, TestCompactLangDetPlain(kTeststr_fa_Arab));
+  EXPECT_EQ(PERSIAN, TestCompactLangDetPlain(kTeststr_fa_Arab));
   EXPECT_EQ(FINNISH, TestCompactLangDetPlain(kTeststr_fi_Latn));
   //// EXPECT_EQ(FIJIAN, TestCompactLangDetPlain(kTeststr_fj_Latn));
   //// EXPECT_EQ(FAROESE, TestCompactLangDetPlain(kTeststr_fo_Latn));
   EXPECT_EQ(FRENCH, TestCompactLangDetPlain(kTeststr_fr_Latn));
   //// EXPECT_EQ(FRISIAN, TestCompactLangDetPlain(kTeststr_fy_Latn));
 
-  //// EXPECT_EQ(IRISH, TestCompactLangDetPlain(kTeststr_ga_Latn));
+  EXPECT_EQ(IRISH, TestCompactLangDetPlain(kTeststr_ga_Latn));
   //// EXPECT_EQ(SCOTS_GAELIC, TestCompactLangDetPlain(kTeststr_gd_Latn));
   //// EXPECT_EQ(GALICIAN, TestCompactLangDetPlain(kTeststr_gl_Latn));
   //// EXPECT_EQ(GUARANI, TestCompactLangDetPlain(kTeststr_gn_Latn));
@@ -268,14 +251,14 @@ TEST_F(CompactLangDetTest, FullTests) {
 
   //// EXPECT_EQ(MALAGASY, TestCompactLangDetPlain(kTeststr_mg_Latn));
   //// EXPECT_EQ(MAORI, TestCompactLangDetPlain(kTeststr_mi_Latn));
-  //// EXPECT_EQ(MACEDONIAN, TestCompactLangDetPlain(kTeststr_mk_Cyrl));
+  EXPECT_EQ(MACEDONIAN, TestCompactLangDetPlain(kTeststr_mk_Cyrl));
   EXPECT_EQ(MALAYALAM, TestCompactLangDetPlain(kTeststr_ml_Mlym));
   //// EXPECT_EQ(MONGOLIAN, TestCompactLangDetPlain(kTeststr_mn_Cyrl));
   //// EXPECT_EQ(MOLDAVIAN, TestCompactLangDetPlain(kTeststr_mo_Cyrl));
   //// EXPECT_EQ(MARATHI, TestCompactLangDetPlain(kTeststr_mr_Deva));
-  //// EXPECT_EQ(MALAY, TestCompactLangDetPlain(kTeststr_ms_Latn));
-  //// EXPECT_EQ(MALAY, TestCompactLangDetPlain(kTeststr_ms_Latn2));
-  //// EXPECT_EQ(MALAY, TestCompactLangDetPlain(kTeststr_ms_Latn3));
+  EXPECT_EQ(MALAY, TestCompactLangDetPlain(kTeststr_ms_Latn));
+  EXPECT_EQ(MALAY, TestCompactLangDetPlain(kTeststr_ms_Latn2));
+  EXPECT_EQ(MALAY, TestCompactLangDetPlain(kTeststr_ms_Latn3));
   //// EXPECT_EQ(MALTESE, TestCompactLangDetPlain(kTeststr_mt_Latn));
   //// EXPECT_EQ(BURMESE, TestCompactLangDetPlain(kTeststr_my_Latn));
   //// EXPECT_EQ(BURMESE, TestCompactLangDetPlain(kTeststr_my_Mymr));
@@ -325,7 +308,7 @@ TEST_F(CompactLangDetTest, FullTests) {
   //// EXPECT_EQ(SESOTHO, TestCompactLangDetPlain(kTeststr_st_Latn));
   //// EXPECT_EQ(SUNDANESE, TestCompactLangDetPlain(kTeststr_su_Latn));
   EXPECT_EQ(SWEDISH, TestCompactLangDetPlain(kTeststr_sv_Latn));
-  //// EXPECT_EQ(SWAHILI, TestCompactLangDetPlain(kTeststr_sw_Latn));
+  EXPECT_EQ(SWAHILI, TestCompactLangDetPlain(kTeststr_sw_Latn));
   EXPECT_EQ(SYRIAC, TestCompactLangDetPlain(kTeststr_syr_Syrc));
 
   EXPECT_EQ(TAMIL, TestCompactLangDetPlain(kTeststr_ta_Taml));
@@ -362,7 +345,7 @@ TEST_F(CompactLangDetTest, FullTests) {
 
   //// EXPECT_EQ(XHOSA, TestCompactLangDetPlain(kTeststr_xh_Latn));
 
-  //// EXPECT_EQ(YIDDISH, TestCompactLangDetPlain(kTeststr_yi_Hebr));
+  EXPECT_EQ(YIDDISH, TestCompactLangDetPlain(kTeststr_yi_Hebr));
   //// EXPECT_EQ(YORUBA, TestCompactLangDetPlain(kTeststr_yo_Latn));
 
   // Zhuang Hani removed 2008.05.13. Just Zhuang Latn left
@@ -403,16 +386,19 @@ TEST_F(CompactLangDetTest, ExtendedTests) {
   EXPECT_EQ(ENGLISH, TestCompactLangDetPlain(kTeststr_zze_Latn));
   EXPECT_EQ(ENGLISH, TestExtCompactLangDetPlain(kTeststr_zze_Latn));
 
-  EXPECT_EQ(ENGLISH, TestCompactLangDetPlain(kTeststr_zzh_Latn));
-  EXPECT_EQ(ENGLISH, TestExtCompactLangDetPlain(kTeststr_zzh_Latn));
+  //// EXPECT_EQ(ENGLISH, TestCompactLangDetPlain(kTeststr_zzh_Latn));
+  //// EXPECT_EQ(ENGLISH, TestExtCompactLangDetPlain(kTeststr_zzh_Latn));
 }
 
 
-TEST_F(CompactLangDetTest, DetectLanguageSummaryTests) {
-  Language language3[3];
-  TestDetectLanguageSummary(kTeststr_en_fr_de, language3);
-  EXPECT_EQ(FRENCH, language3[0]);
-  EXPECT_EQ(GERMAN, language3[1]);
-  EXPECT_EQ(ENGLISH, language3[2]);
+}  // End namespace
+
+#if !defined(CLD_WINDOWS)
+int main(int argc, char** argv) {
+  FLAGS_logtostderr = true;
+  InitGoogle("Unit test for CLD small", &argc, &argv, false);
+  return RUN_ALL_TESTS();
 }
+#endif
+
 

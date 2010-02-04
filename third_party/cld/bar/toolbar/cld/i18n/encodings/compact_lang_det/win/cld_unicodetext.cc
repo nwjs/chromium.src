@@ -1,19 +1,15 @@
-// Copyright (c) 2006-2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2009 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "third_party/cld/bar/toolbar/cld/i18n/encodings/compact_lang_det/win/cld_unicodetext.h"
+#include "bar/toolbar/cld/i18n/encodings/compact_lang_det/win/cld_unicodetext.h"
 
-#include <tchar.h>
-#include <windows.h>
-
+#include <string>
 #include <string>
 #include <vector>  // to compile bar/common/component.h
 
-#include "third_party/cld/bar/toolbar/cld/i18n/encodings/compact_lang_det/compact_lang_det.h"
-#include "third_party/cld/bar/toolbar/cld/i18n/encodings/compact_lang_det/win/cld_scopedptr.h"
-#include "third_party/cld/bar/toolbar/cld/i18n/encodings/compact_lang_det/win/normalizedunicodetext.h"
-
+#include "bar/toolbar/cld/i18n/encodings/compact_lang_det/compact_lang_det.h"
+#include "base/string_util.h"
 #include "unicode/normlzr.h"
 #include "unicode/unistr.h"
 #include "unicode/ustring.h"
@@ -42,12 +38,13 @@ std::string NormalizeText(const UChar* text) {
 // alternate their use for every Windows API call.
 // Let's leave it as it is, simple and working and optimize it as the next step
 // if it will consume too much resources (after careful measuring, indeed).
-Language DetectLanguageOfUnicodeText(const WCHAR* text, bool is_plain_text,
-                                     bool* is_reliable, int* num_languages,
-                                     DWORD* error_code) {
+Language DetectLanguageOfUnicodeText(
+    const CompactLangDet::DetectionTables* detection_tables,
+    const UChar* text, bool is_plain_text,
+    bool* is_reliable, int* num_languages,
+    int* error_code) {
   if (!text || !num_languages)
     return NUM_LANGUAGES;
-
   // Normalize text to NFC, lowercase and convert to UTF-8.
   std::string utf8_encoded = NormalizeText(text);
   if (utf8_encoded.empty())
@@ -66,7 +63,8 @@ Language DetectLanguageOfUnicodeText(const WCHAR* text, bool is_plain_text,
   // See the actual code in compact_lang_det_impl.cc, CalcSummaryLang function.
   // language3 array is always set according to the detection results and
   // is not affected by this heuristic.
-  CompactLangDet::DetectLanguageSummary(utf8_encoded.c_str(),
+  CompactLangDet::DetectLanguageSummary(detection_tables,
+                                        utf8_encoded.c_str(),
                                         utf8_encoded.length(),
                                         is_plain_text, language3, percent3,
                                         &text_bytes, is_reliable);
@@ -74,9 +72,9 @@ Language DetectLanguageOfUnicodeText(const WCHAR* text, bool is_plain_text,
   // Calcualte a number of languages detected in more than 20% of the text.
   const int kMinTextPercentToCountLanguage = 20;
   *num_languages = 0;
-  COMPILE_ASSERT(ARRAYSIZE(language3) == ARRAYSIZE(percent3),
+  COMPILE_ASSERT(arraysize(language3) == arraysize(percent3),
                  language3_and_percent3_should_be_of_the_same_size);
-  for (int i = 0; i < ARRAYSIZE(language3); ++i) {
+  for (int i = 0; i < arraysize(language3); ++i) {
     if (IsValidLanguage(language3[i]) && !IS_LANGUAGE_UNKNOWN(language3[i]) &&
         percent3[i] >= kMinTextPercentToCountLanguage) {
       ++*num_languages;
@@ -85,4 +83,3 @@ Language DetectLanguageOfUnicodeText(const WCHAR* text, bool is_plain_text,
 
   return language3[0];
 }
-

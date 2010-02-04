@@ -1,16 +1,20 @@
-// Copyright (c) 2006-2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2009 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef BAR_TOOLBAR_CLD_I18N_ENCODINGS_COMPACT_LANG_DET_WIN_CLD_UNICODETEXT_H_
 #define BAR_TOOLBAR_CLD_I18N_ENCODINGS_COMPACT_LANG_DET_WIN_CLD_UNICODETEXT_H_
 
-#include <windows.h>
+#include "bar/toolbar/cld/i18n/languages/public/languages.h"
+#include "unicode/utypes.h"
 
-#include "third_party/cld/bar/toolbar/cld/i18n/languages/public/languages.h"
-
+namespace CompactLangDet {
+  struct DetectionTables;
+}  // namespace CompactLangDet
 
 // Detects a language of the UTF-16 encoded zero-terminated text.
+// [in] detection_tables - internal CLD data tables (see compact_lang_det.h).
+//     Can be NULL, in this case CLD will fall back to builtin static tables.
 // [in] text - UTF-16 encoded text to detect a language of.
 // [in] is_plain_text - true if plain text, false otherwise (e.g. HTML).
 // [out] is_reliable - true, if returned language was detected reliably.
@@ -26,8 +30,10 @@
 //     Returns NUM_LANGUAGES in case of any error.
 //     See googleclient/bar/toolbar/cld/i18n/languages/internal/languages.cc
 //     for details.
-Language DetectLanguageOfUnicodeText(const WCHAR* text, bool is_plain_text,
-                                     bool* is_reliable, int* num_languages,
-                                     DWORD* error_code);
+Language DetectLanguageOfUnicodeText(
+    const CompactLangDet::DetectionTables* detection_tables,
+    const UChar* text, bool is_plain_text,
+    bool* is_reliable, int* num_languages,
+    int* error_code);
 
 #endif  // BAR_TOOLBAR_CLD_I18N_ENCODINGS_COMPACT_LANG_DET_WIN_CLD_UNICODETEXT_H_

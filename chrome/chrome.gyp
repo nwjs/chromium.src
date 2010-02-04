@@ -4516,6 +4516,7 @@
         '../testing/gmock.gyp:gmock',
         '../testing/gtest.gyp:gtest',
         '../third_party/bzip2/bzip2.gyp:bzip2',
+        '../third_party/cld/cld.gyp:cld',
         '../third_party/icu/icu.gyp:icui18n',
         '../third_party/icu/icu.gyp:icuuc',
         '../third_party/libxml/libxml.gyp:libxml',
@@ -4524,6 +4525,7 @@
       ],
       'include_dirs': [
         '..',
+        '../third_party/cld',
       ],
       'defines': [
         'CLD_WINDOWS',
