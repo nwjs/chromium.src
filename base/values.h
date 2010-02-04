@@ -209,6 +209,9 @@ class DictionaryValue : public Value {
   // Returns the number of Values in this dictionary.
   size_t GetSize() const { return dictionary_.size(); }
 
+  // Returns whether the dictionary is empty.
+  bool empty() const { return dictionary_.empty(); }
+
   // Clears any current contents of this dictionary.
   void Clear();
 
@@ -328,6 +331,9 @@ class ListValue : public Value {
 
   // Returns the number of Values in this list.
   size_t GetSize() const { return list_.size(); }
+
+  // Returns whether the list is empty.
+  bool empty() const { return list_.empty(); }
 
   // Sets the list item at the given index to be the Value specified by
   // the value given.  If the index beyond the current end of the list, null
