@@ -357,7 +357,7 @@ IPC_BEGIN_MESSAGES(View)
   // displaying this host can update their content settings to match.
   IPC_MESSAGE_CONTROL2(ViewMsg_SetContentSettingsForCurrentHost,
                        std::string /* host */,
-                       ContentSettings /* content_settings */)  
+                       ContentSettings /* content_settings */)
 
   // Change encoding of page in the renderer.
   IPC_MESSAGE_ROUTED1(ViewMsg_SetPageEncoding,
@@ -830,6 +830,13 @@ IPC_BEGIN_MESSAGES(View)
   // The Socket Stream is closed.
   IPC_MESSAGE_CONTROL1(ViewMsg_SocketStream_Closed,
                        int /* socket_id */)
+
+  // Reply to the ViewHostMsg_TranslateText message with the actual translated
+  // text chunks.
+  IPC_MESSAGE_ROUTED3(ViewMsg_TranslateTextReponse,
+                      int /* id of translation work */,
+                      int /* error id of translation work */,
+                      std::vector<string16> /* the translated text chunks */)
 
 IPC_END_MESSAGES(View)
 
@@ -1979,6 +1986,11 @@ IPC_BEGIN_MESSAGES(ViewHost)
   // en, zh...) of the current page.
   IPC_MESSAGE_ROUTED1(ViewHostMsg_PageLanguageDetermined,
                       std::string /* the language */)
+
+  // Request for text translation.
+  // Used when translating a page from one language to another.
+  IPC_MESSAGE_CONTROL1(ViewHostMsg_TranslateText,
+                       ViewHostMsg_TranslateTextParam)
 
   //---------------------------------------------------------------------------
   // Socket Stream messages:

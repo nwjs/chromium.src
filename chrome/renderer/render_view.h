@@ -36,6 +36,8 @@
 #include "chrome/renderer/notification_provider.h"
 #include "chrome/renderer/render_widget.h"
 #include "chrome/renderer/render_view_visitor.h"
+#include "chrome/renderer/translate/page_translator.h"
+#include "chrome/renderer/translate/text_translator_impl.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "testing/gtest/include/gtest/gtest_prod.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebConsoleMessage.h"
@@ -435,6 +437,8 @@ class RenderView : public RenderWidget,
   // UserScript::DOCUMENT_IDLE.
   void OnUserScriptIdleTriggered(WebKit::WebFrame* frame);
 
+  PageTranslator* page_translator() const { return page_translator_.get(); }
+
   // Returns the ISO 639 language code of the current page (e.g. en, fr, zh).
   // If ISO 639-1 code is not available for the language, ISO 639-2 3-letter code
   // will be returned (e.g. kha for Khasi and und for undtermined). For traditional
@@ -685,6 +689,11 @@ class RenderView : public RenderWidget,
   // Activate/deactivate the RenderView (i.e., set its controls' tint
   // accordingly, etc.).
   void OnSetActive(bool active);
+
+  // Message that provides the translated text for a request.
+  void OnTranslateTextResponse(int work_id,
+                               int error_id,
+                               const std::vector<string16>& text_chunks);
 
   // Exposes the DOMAutomationController object that allows JS to send
   // information to the browser process.
@@ -1019,6 +1028,10 @@ class RenderView : public RenderWidget,
 
   // Stores if images, scripts, and plugins have actually been blocked.
   bool content_blocked_[CONTENT_SETTINGS_NUM_TYPES];
+
+  // Page translation related objects.
+  TextTranslatorImpl text_translator_;
+  scoped_ptr<PageTranslator> page_translator_;
 
   DISALLOW_COPY_AND_ASSIGN(RenderView);
 };
