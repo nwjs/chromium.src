@@ -123,7 +123,6 @@
 <translation id="1644574205037202324">Historique</translation>
 <translation id="2518917559152314023">A&amp;jouter...</translation>
 <translation id="6583406242234752719">Vous n'avez pas configuré la synchronisation des favoris sur les autres ordinateurs.</translation>
-<translation id="923693997520853947"><ph name="URL"/> - <ph name="REASON"/></translation>
 <translation id="4510290974676570902">Type MIME</translation>
 <translation id="5565725983873655007">Lorsqu'il y a un contenu mixte sur des pages sécurisées (SSL) :</translation>
 <translation id="5155055381903895958">Importation du profil :</translation>
@@ -133,7 +132,6 @@
 <translation id="7767960058630128695">Mots de passe :</translation>
 <translation id="6518014396551869914">Cop&amp;ier l'image</translation>
 <translation id="542155483965056918"><ph name="NUMBER_ZERO"/> mins ago</translation>
-<translation id="6363850194751762580">Gérer les fenêtres pop-up</translation>
 <translation id="3118319026408854581">Aide <ph name="PRODUCT_NAME"/></translation>
 <translation id="4120898696391891645">La page ne se charge pas</translation>
 <translation id="5584537427775243893">Importation</translation>
@@ -370,7 +368,6 @@
 <translation id="5494362494988149300">Ouvrir une fois le téléchargement &amp;terminé</translation>
 <translation id="3234408098842461169">Bas</translation>
 <translation id="825608351287166772">Les certificats ont une période de validité, comme tous les documents relatifs à votre identité (tel qu'un passeport). Le certificat présenté à votre navigateur n'est pas encore valide ! Lorsqu'un certificat est en dehors de sa période de validité, il n'est pas nécessaire d'assurer la maintenance de certaines informations relatives à son état (s'il a été révoqué ou s'il n'est plus approuvé). Par conséquent, il est impossible de vérifier que le certificat est fiable. Ne poursuivez pas.</translation>
-<translation id="2742457360514408037">Fenêtres pop-up bloquées : <ph name="COUNT"/></translation>
 <translation id="7154150278819212687">Cette extension aura accès à votre historique de navigation.</translation>
 <translation id="1516602185768225813">Rouvrir les dernières pages ouvertes</translation>
 <translation id="4874539263382920044">Le titre doit comporter au moins un caractère.</translation>
@@ -425,7 +422,6 @@
 <translation id="4378551569595875038">Connexion...</translation>
 <translation id="7029809446516969842">Mots de passe</translation>
 <translation id="3513979718339724672">Afficher les vignettes</translation>
-<translation id="7300965843904003671">Toujours afficher les fenêtres pop-up de <ph name="URL"/></translation>
 <translation id="8211437954284917092">Entrez votre requête dans la zone de texte ci-dessus pour lancer une recherche dans les favoris.</translation>
 <translation id="5958418293370246440"><ph name="SAVED_FILES"/> / <ph name="TOTAL_FILES"/> fichiers</translation>
 <translation id="1291121346508216435">Corriger l'orthographe automatiquement :</translation>
@@ -549,7 +545,6 @@
 <translation id="4870177177395420201"><ph name="PRODUCT_NAME"/> ne parvient pas à déterminer ou à définir le navigateur par défaut.</translation>
 <translation id="8898786835233784856">Sélectionner l'onglet suivant</translation>
 <translation id="2674170444375937751">Voulez-vous vraiment supprimer ces pages de votre historique ?</translation>
-<translation id="4203689580933736628">Éléments bloqués : <ph name="COUNT"/></translation>
 <translation id="2653166165688724436">Base de données Web</translation>
 <translation id="7629827748548208700">Onglet : <ph name="TAB_NAME"/></translation>
 <translation id="8449008133205184768">Coller en adaptant le style</translation>
@@ -618,11 +613,9 @@
 <translation id="2838167480523328393">Voulez-vous installer &quot;<ph name="EXTENSION_NAME"/>&quot; ?</translation>
 <translation id="2497284189126895209">Tous les fichiers</translation>
 <translation id="5360606537916580043">Le dernier jour</translation>
-<translation id="6589689504565594563">Supprimer les cookies</translation>
 <translation id="1682548588986054654">Nouvelle fenêtre de navigation privée</translation>
 <translation id="6833901631330113163">Europe du Sud</translation>
 <translation id="5110450810124758964">il y a <ph name="NUMBER_ONE"/> jour</translation>
-<translation id="5256138355144269748">Fenêtre pop-up bloquée</translation>
 <translation id="2820806154655529776"><ph name="NUMBER_ONE"/> seconde</translation>
 <translation id="3122496702278727796">Échec de la création du répertoire des données</translation>
 <translation id="8888930795132369495">Co&amp;pier le chemin du fichier</translation>
@@ -1030,7 +1023,6 @@
 <translation id="6847541693235449912">Accéder</translation>
 <translation id="5546865291508181392">Rechercher</translation>
 <translation id="5333374927882515515">Importer les favoris, les mots de passe et d'autres paramètres depuis <ph name="DEF_BROWSER"/></translation>
-<translation id="4239831617079978238">Fin de la session</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE"/> - <ph name="FULL_DATE"/></translation>
 <translation id="5960889226412209189">Activer la barre de navigation compacte</translation>
 <translation id="8954894007019320973">(suite)</translation>
@@ -1050,16 +1042,13 @@
 <translation id="8562413501751825163">Quitter Firefox avant l'importation</translation>
 <translation id="4309420042698375243"><ph name="NUM_KILOBYTES"/> Ko (<ph name="NUM_KILOBYTES_LIVE"/> Ko effectifs)</translation>
 <translation id="5034259512732355072">Choisir un autre répertoire...</translation>
-<translation id="5074322878757699801">Importer des données...</translation>
 <translation id="7505152414826719222">Stockage local</translation>
 <translation id="5706242308519462060">Codage par défaut :</translation>
 <translation id="5280833172404792470">Quitter le mode plein écran (<ph name="ACCELERATOR"/>)</translation>
-<translation id="4000986992587584088">Toujours afficher les fenêtres pop-up de <ph name="URL"/></translation>
 <translation id="129553762522093515">Récemment fermés</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> jours</translation>
 <translation id="3891357445869647828">Activer JavaScript</translation>
 <translation id="6451458296329894277">Confirmer le nouvel envoi du formulaire</translation>
-<translation id="3218545474413654570"><ph name="URL"/> - <ph name="WINDOW_TITLE"/></translation>
 <translation id="5116333507878097773"><ph name="NUMBER_ONE"/> heure</translation>
 <translation id="1851266746056575977">Mettre à jour maintenant</translation>
 <translation id="3715099868207290855">Synchronisation avec <ph name="USER_EMAIL_ADDRESS"/> effectuée</translation>
@@ -1313,7 +1302,6 @@
 <translation id="6053401458108962351">&amp;Effacer les données de navigation…</translation>
 <translation id="2339641773402824483">Vérification des mises à jour...</translation>
 <translation id="8600200086690278232">Extraits du Web disponibles</translation>
-<translation id="8582728318425382804">Cookies et autorisations associées aux sites Web</translation>
 <translation id="2766006623206032690">Coller l'URL et y a&amp;ccéder</translation>
 <translation id="9071050381089585305">Script ne répondant pas</translation>
 <translation id="4394049700291259645">Désactiver</translation>

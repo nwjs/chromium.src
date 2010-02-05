@@ -123,7 +123,6 @@
 <translation id="1644574205037202324">History</translation>
 <translation id="2518917559152314023">A&amp;dd...</translation>
 <translation id="6583406242234752719">You are not set up to sync your bookmarks with your other computers.</translation>
-<translation id="923693997520853947"><ph name="URL"/> - <ph name="REASON"/></translation>
 <translation id="4510290974676570902">MIME Type</translation>
 <translation id="5565725983873655007">When there is mixed content on secure (SSL) pages:</translation>
 <translation id="5155055381903895958">Profile Import:</translation>
@@ -133,7 +132,6 @@
 <translation id="7767960058630128695">Passwords:</translation>
 <translation id="6518014396551869914">Cop&amp;y image</translation>
 <translation id="542155483965056918"><ph name="NUMBER_ZERO"/> mins ago</translation>
-<translation id="6363850194751762580">Manage pop-ups</translation>
 <translation id="3118319026408854581"><ph name="PRODUCT_NAME"/> Help</translation>
 <translation id="4120898696391891645">Page won't load</translation>
 <translation id="5584537427775243893">Importing</translation>
@@ -371,7 +369,6 @@
 <translation id="5494362494988149300">Open When &amp;Finished</translation>
 <translation id="3234408098842461169">Down Arrow</translation>
 <translation id="825608351287166772">Certificates have a validity period, much like any identity document (such as a passport) that you may have. The certificate presented to your browser is not yet valid. When a certificate is outside of its validity period, certain information about the status of the certificate (whether it has been revoked and should no longer be trusted) is not required to be maintained. As such, it is not possible to verify that this certificate is trustworthy. You should not proceed.</translation>
-<translation id="2742457360514408037">Pop-ups Blocked: <ph name="COUNT"/></translation>
 <translation id="7154150278819212687">This extension will have access to your browsing history.</translation>
 <translation id="1516602185768225813">Reopen the pages that were opened last</translation>
 <translation id="4874539263382920044">Title must contain at least one character</translation>
@@ -426,7 +423,6 @@
 <translation id="4378551569595875038">Connecting...</translation>
 <translation id="7029809446516969842">Passwords</translation>
 <translation id="3513979718339724672">Show thumbnails</translation>
-<translation id="7300965843904003671">Always show pop-ups from <ph name="URL"/></translation>
 <translation id="8211437954284917092">Enter a query in the text field above to search your bookmarks.</translation>
 <translation id="5958418293370246440"><ph name="SAVED_FILES"/> / <ph name="TOTAL_FILES"/> files</translation>
 <translation id="1291121346508216435">Correct spelling automatically:</translation>
@@ -553,7 +549,6 @@
 <translation id="4870177177395420201"><ph name="PRODUCT_NAME"/> cannot determine or set the default browser.</translation>
 <translation id="8898786835233784856">Select Next Tab</translation>
 <translation id="2674170444375937751">Are you sure that you want to delete these pages from your history?</translation>
-<translation id="4203689580933736628">Blocked Items: <ph name="COUNT"/></translation>
 <translation id="2653166165688724436">Web Database</translation>
 <translation id="7629827748548208700">Tab: <ph name="TAB_NAME"/></translation>
 <translation id="8449008133205184768">Paste and Match Style</translation>
@@ -622,11 +617,9 @@
 <translation id="2838167480523328393">Install &quot;<ph name="EXTENSION_NAME"/>&quot;?</translation>
 <translation id="2497284189126895209">All Files</translation>
 <translation id="5360606537916580043">Last day</translation>
-<translation id="6589689504565594563">Delete cookies</translation>
 <translation id="1682548588986054654">New Incognito Window</translation>
 <translation id="6833901631330113163">South European</translation>
 <translation id="5110450810124758964"><ph name="NUMBER_ONE"/> day ago</translation>
-<translation id="5256138355144269748">Blocked Pop-up</translation>
 <translation id="2820806154655529776"><ph name="NUMBER_ONE"/> sec</translation>
 <translation id="3122496702278727796">Failed To Create Data Directory</translation>
 <translation id="8888930795132369495">Copy File &amp;Path</translation>
@@ -1034,7 +1027,6 @@
 <translation id="6847541693235449912">Go</translation>
 <translation id="5546865291508181392">Find</translation>
 <translation id="5333374927882515515">Import bookmarks, passwords and other settings from <ph name="DEF_BROWSER"/></translation>
-<translation id="4239831617079978238">End of the session</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE"/> - <ph name="FULL_DATE"/></translation>
 <translation id="5960889226412209189">Toggle Compact Navigation Bar</translation>
 <translation id="8954894007019320973">(Cont.)</translation>
@@ -1054,16 +1046,13 @@
 <translation id="8562413501751825163">Close Firefox Before Importing</translation>
 <translation id="4309420042698375243"><ph name="NUM_KILOBYTES"/>K (<ph name="NUM_KILOBYTES_LIVE"/>K live)</translation>
 <translation id="5034259512732355072">Choose Another Directory...</translation>
-<translation id="5074322878757699801">Import data...</translation>
 <translation id="7505152414826719222">Local Storage</translation>
 <translation id="5706242308519462060">Default Encoding:</translation>
 <translation id="5280833172404792470">Exit full screen (<ph name="ACCELERATOR"/>)</translation>
-<translation id="4000986992587584088">Always Show Pop-ups From <ph name="URL"/></translation>
 <translation id="129553762522093515">Recently closed</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> days</translation>
 <translation id="3891357445869647828">Enable JavaScript</translation>
 <translation id="6451458296329894277">Confirm Form Resubmission</translation>
-<translation id="3218545474413654570"><ph name="URL"/> - <ph name="WINDOW_TITLE"/></translation>
 <translation id="5116333507878097773"><ph name="NUMBER_ONE"/> hour</translation>
 <translation id="1851266746056575977">Update Now</translation>
 <translation id="3715099868207290855">Synced to <ph name="USER_EMAIL_ADDRESS"/></translation>
@@ -1317,7 +1306,6 @@
 <translation id="6053401458108962351">&amp;Clear browsing data...</translation>
 <translation id="2339641773402824483">Checking for updates...</translation>
 <translation id="8600200086690278232">Featured web clips</translation>
-<translation id="8582728318425382804">Cookies and Website Permissions</translation>
 <translation id="2766006623206032690">Pa&amp;ste and go</translation>
 <translation id="9071050381089585305">Unresponsive Script</translation>
 <translation id="4394049700291259645">Disable</translation>

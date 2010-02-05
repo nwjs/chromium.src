@@ -123,7 +123,6 @@
 <translation id="1644574205037202324">ചരിത്രം</translation>
 <translation id="2518917559152314023">ചേ&amp;ര്‍ക്കൂ....</translation>
 <translation id="6583406242234752719">നിങ്ങളുടെ മറ്റ് കമ്പ്യൂട്ടറുകള്‍‌ക്കൊപ്പം നിങ്ങളുടെ ബുക്ക്‌മാര്‍‌ക്കുകള്‍‌ സമന്വയിപ്പിക്കുന്നതിന് സജ്ജമാക്കിയിട്ടില്ല.</translation>
-<translation id="923693997520853947"><ph name="URL"/> - <ph name="REASON"/></translation>
 <translation id="4510290974676570902">MIME തരം</translation>
 <translation id="5565725983873655007">സുരക്ഷിതമായ (SSL) പേജുകളില്‍ മിശ്രിതമായ ഉള്ളടക്കം ഉണ്ടാകുമ്പോള്‍:</translation>
 <translation id="5155055381903895958">പ്രൊഫൈല്‍ ഇറക്കുമതിചെയ്യുക:‍</translation>
@@ -133,7 +132,6 @@
 <translation id="7767960058630128695">പാസ്‌വേഡുകള്‍:</translation>
 <translation id="6518014396551869914">ഇമേജ് പകര്‍ത്തൂ&amp;</translation>
 <translation id="542155483965056918"><ph name="NUMBER_ZERO"/> mins ago</translation>
-<translation id="6363850194751762580">പോപ്പ്‌-അപ്പുകള്‍ മാനേജുചെയ്യുക</translation>
 <translation id="3118319026408854581"><ph name="PRODUCT_NAME"/> സഹായം</translation>
 <translation id="4120898696391891645">പേജ് ലോഡ് ചെയ്യരുത്</translation>
 <translation id="5584537427775243893">ഇറക്കുമതി ചെയ്യുന്നു</translation>
@@ -371,7 +369,6 @@
 <translation id="5494362494988149300">&amp;പൂര്‍ത്തിയാക്കുമ്പോള്‍ തുറക്കുക</translation>
 <translation id="3234408098842461169">താഴേക്കുള്ള ആരോ അടയാളം</translation>
 <translation id="825608351287166772">നിങ്ങള്‍ക്കുണ്ടായിരിക്കാവുന്ന ഏതൊരു തിരിച്ചറിയല്‍ പ്രമാണങ്ങള്‍ പോലെയും (ഒരു പാസ്പോര്‍ട്ട് പോലെ) സര്‍ട്ടിഫിക്കറ്റുകള്‍ക്ക് ഒരു സാധുത കാലയളവ് ഉണ്ടായിരിക്കും. നിങ്ങളുടെ ബ്രൌസറില്‍ ഹാജരാക്കിയിരിക്കുന്ന സര്‍ട്ടിഫിക്കറ്റ് ഇപ്പോഴും സാധുവല്ല. ഒരു സര്‍ട്ടിഫിക്കറ്റിന്റെ സാധുതാ കാലയളവ് കഴിഞ്ഞാല്‍, അതിന്റെ അവസ്ഥയെക്കുറിച്ചുള്ള ചില വിവരങ്ങള്‍ (അത് അസാധുവാക്കപ്പെട്ടുവെങ്കിലോ വിശ്വസനീയമല്ലെങ്കിലോ മാത്രം) സൂക്ഷിക്കേണ്ട ആവശ്യമില്ല. അത് പോലെ, ഈ സര്‍ട്ടിഫിക്കറ്റ് വിശ്വാസയോഗ്യത പരിശോധിക്കാന്‍ സാദ്ധ്യമല്ല. നിങ്ങള്‍ മുന്നോട്ട് പോകേണ്ടതില്ല</translation>
-<translation id="2742457360514408037">പോപ്പ്-അപ്പുകള്‍ തടഞ്ഞു: <ph name="COUNT"/></translation>
 <translation id="7154150278819212687">ഈ വിപുലീ‍കരണത്തിന് നിങ്ങളുടെ ബ്രൌസിംഗ് ചരിത്രത്തിലേക്ക് ആക്‌സസ് ഉണ്ടായിരിക്കും.</translation>
 <translation id="1516602185768225813">അവസാനം തുറന്ന പേജുകള്‍‌ വീണ്ടും തുറക്കുക</translation>
 <translation id="4874539263382920044">ശീര്‍ഷകത്തില്‍ കുറഞ്ഞത് ഒരു അക്ഷരമെങ്കിലും ഉണ്ടായിരിക്കണം</translation>
@@ -426,7 +423,6 @@
 <translation id="4378551569595875038">കണക്ടുചെയ്യുന്നു...</translation>
 <translation id="7029809446516969842">പാസ്‌വേഡുകള്‍</translation>
 <translation id="3513979718339724672">ലഘുചിത്രങ്ങള്‍‍ കാണിക്കുക</translation>
-<translation id="7300965843904003671"><ph name="URL"/> ലില്‍ നിന്നുള്ള പോപ്പ്‌- അപ്പുകള്‍ എല്ലായ്‌പ്പോഴും കാണിക്കുക</translation>
 <translation id="8211437954284917092">ബുക്മാര്‍ക്കുകള്‍ തിരയാനായി മുകളിലെ പാഠ മേഖലയില്‍ ഒരു ചോദ്യം രേഖപ്പെടുത്തുക.</translation>
 <translation id="5958418293370246440"><ph name="SAVED_FILES"/> / <ph name="TOTAL_FILES"/> ഫയലുകള്‍</translation>
 <translation id="1291121346508216435">അക്ഷര പിശക് സ്വപ്രേരിതമായി ശരിയാക്കുക:</translation>
@@ -563,7 +559,6 @@
 <translation id="4870177177395420201"><ph name="PRODUCT_NAME"/> നിര്‍‌ണ്ണയിക്കാന്‍‌ അല്ലെങ്കില്‍‌ സ്ഥിരസ്ഥിതി ബ്രൌസര്‍‌ സജ്ജമാക്കാന്‍‌ കഴിയില്ല.</translation>
 <translation id="8898786835233784856">അടുത്ത ടാബ് തിരഞ്ഞെടുക്കുക</translation>
 <translation id="2674170444375937751">നിങ്ങളുടെ ചരിത്രത്തില്‍ നിന്നും ഈ പേജുകള്‍ മായ്ക്കുന്നതിന് നിങ്ങള്‍ താല്പര്യമുണ്ടോ?</translation>
-<translation id="4203689580933736628">തടഞ്ഞ ഇനങ്ങള്‍‌: <ph name="COUNT"/></translation>
 <translation id="2653166165688724436">വെബ് ഡാറ്റാബേസ്</translation>
 <translation id="7629827748548208700">ടാബ്: <ph name="TAB_NAME"/></translation>
 <translation id="8449008133205184768">ശൈലി ഒട്ടിക്കുകയും പൊരുത്തപ്പെടുത്തുകയും ചെയ്യുക</translation>
@@ -632,11 +627,9 @@
 <translation id="2838167480523328393">&quot;<ph name="EXTENSION_NAME"/>&quot;? ഇന്‍‌സ്റ്റാള്‍‌ ചെയ്യുക</translation>
 <translation id="2497284189126895209">എല്ലാ ഫയലുകളും</translation>
 <translation id="5360606537916580043">കഴിഞ്ഞ ദിവസം</translation>
-<translation id="6589689504565594563">കുക്കികള്‍ ഇല്ലാതാക്കൂ</translation>
 <translation id="1682548588986054654">പുതിയ വേഷ പ്രച്ഛന്ന വിന്‍ഡോ</translation>
 <translation id="6833901631330113163">സൌത്ത് യൂറോപ്യന്‍</translation>
 <translation id="5110450810124758964"><ph name="NUMBER_ONE"/> day ago</translation>
-<translation id="5256138355144269748">തടഞ്ഞ പോപ്പ്-അപ്പ്</translation>
 <translation id="2820806154655529776"><ph name="NUMBER_ONE"/> സെക്കന്റ്</translation>
 <translation id="1077946062898560804">എല്ലാ ഉപയോക്താക്കള്‍ക്കും ഓട്ടോമാറ്റിക്ക് അപ്ഡേറ്റുകള്‍ ക്രമീകരിക്കുക</translation>
 <translation id="3122496702278727796">ഡാറ്റാ ഡയറക്ടറി സൃഷ്ടിക്കുന്നതില്‍ പരാജയപ്പെട്ടു</translation>
@@ -973,6 +966,7 @@
 <translation id="7280343984261969618">സാന്‍ഡ്ബോക്സിലെ പ്ലഗ്-ഇന്നുകള്‍ യാതൊരു വിശേഷാധികാരവുമില്ലാതെ പ്രവര്‍ത്തിക്കുന്നു. ചില പ്ലഗ്-ഇന്നുകള്‍ ശരിയായി പ്രവര്‍ത്തിക്കാതിരിക്കുന്നതിന് കാരണമാകുന്നു.</translation>
 <translation id="50030952220075532"><ph name="NUMBER_ONE"/> ദിവസം അവശേഷിക്കുന്നു</translation>
 <translation id="2885378588091291677">ടാസ്‌ക് മാനേജര്‍</translation>
+<translation id="5792852254658380406">വിപുലീകരണങ്ങള്‍ മാനേജുചെയ്യുക...</translation>
 <translation id="1215711112676250731">ക്വാട്ട:</translation>
 <translation id="2359808026110333948">തുടരൂ</translation>
 <translation id="1618661679583408047">സെര്‍വറിന്റെ സുരക്ഷാ സര്‍ട്ടിഫിക്കറ്റ് ഇതുവരെ സാധൂകരിച്ചിട്ടില്ല!</translation>
@@ -1046,7 +1040,6 @@
 <translation id="6847541693235449912">പോകൂ</translation>
 <translation id="5546865291508181392">കണ്ടെത്തുക</translation>
 <translation id="5333374927882515515"><ph name="DEF_BROWSER"/> ല്‍ നിന്ന് ബുക്‌മാര്‍ക്കുകള്‍, പാസ്‌വേഡുകള്‍, മറ്റ് സജ്ജീകരണങ്ങള്‍ എന്നിവ ഇറക്കുമതി ചെയ്യുക</translation>
-<translation id="4239831617079978238">സെഷന്റെ അവസാനം</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE"/> - <ph name="FULL_DATE"/></translation>
 <translation id="5960889226412209189">കോം‌പാക്റ്റ് നാവിഗേഷന്‍‌ ബാര്‍‌ ടോഗിള്‍‌ ചെയ്യുക</translation>
 <translation id="8954894007019320973">(തുടര്‍.)</translation>
@@ -1066,16 +1059,13 @@
 <translation id="8562413501751825163">ഇറക്കുമതി ചെയ്യുന്നതിന് മുമ്പായി Firefox അടയ്ക്കുക</translation>
 <translation id="4309420042698375243"><ph name="NUM_KILOBYTES"/>K (<ph name="NUM_KILOBYTES_LIVE"/>K ലൈവ്)</translation>
 <translation id="5034259512732355072">മറ്റൊരു ഡയറക്ടറി തിരഞ്ഞെടുക്കൂ...</translation>
-<translation id="5074322878757699801">ഡാറ്റാ ഇറക്കുമതി ചെയ്യുക...</translation>
 <translation id="7505152414826719222">പ്രാദേശിക സംഭരണം</translation>
 <translation id="5706242308519462060">സ്ഥിരസ്ഥിതി എന്‍കോഡിംഗ്:</translation>
 <translation id="5280833172404792470">പൂര്‍ണ്ണ സ്‌ക്രീനില്‍ നിന്നും നിര്‍ഗമിക്കുക (<ph name="ACCELERATOR"/>)</translation>
-<translation id="4000986992587584088">എല്ലായ്‌പ്പോഴും <ph name="URL"/> ല്‍‌ നിന്നുമുള്ള പോപ്പ്‌‌‌അപ്പ് കാണിക്കുക</translation>
 <translation id="129553762522093515">സമീപകാലത്ത് അടച്ചു</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> ദിവസം</translation>
 <translation id="3891357445869647828">JavaScript പ്രാപ്തമാക്കുക</translation>
 <translation id="6451458296329894277">വീണ്ടും സമര്‍പ്പിക്കല്‍ അപേക്ഷ ഉറപ്പാക്കുക</translation>
-<translation id="3218545474413654570"><ph name="URL"/> - <ph name="WINDOW_TITLE"/></translation>
 <translation id="5116333507878097773"><ph name="NUMBER_ONE"/> മണിക്കൂര്‍</translation>
 <translation id="1851266746056575977">ഇപ്പോള്‍ അപ്‌ഡേറ്റുചെയ്യുക</translation>
 <translation id="3715099868207290855"><ph name="USER_EMAIL_ADDRESS"/> ലേക്ക് സമന്വയിപ്പിച്ചു</translation>
@@ -1329,7 +1319,6 @@
 <translation id="6053401458108962351">&amp;ബ്രൌസിംഗ് ഡാറ്റാ മായ്ക്കുക...</translation>
 <translation id="2339641773402824483">അപ്ഡേറ്റുകള്‍ക്കായി പരിശോധിക്കൂ...</translation>
 <translation id="8600200086690278232">അവതരിപ്പിക്കുന്ന വെബ്‌ക്ലിപ്പുകള്‍</translation>
-<translation id="8582728318425382804">കുക്കികളും വെബ്‌സൈറ്റ് അനുമതികളും</translation>
 <translation id="2766006623206032690">ഒട്ടി&amp;ക്കൂ കൂടാതെ പോകൂ</translation>
 <translation id="9071050381089585305">പ്രതികരണമില്ലാത്ത സ്ക്രിപ്റ്റ്</translation>
 <translation id="4394049700291259645">അപ്രാപ്‌തമാക്കുക</translation>

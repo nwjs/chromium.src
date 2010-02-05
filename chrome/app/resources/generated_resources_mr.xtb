@@ -123,7 +123,6 @@
 <translation id="1644574205037202324">इतिहास</translation>
 <translation id="2518917559152314023">जो&amp;डा...</translation>
 <translation id="6583406242234752719">आपण आपले बुकमार्क आपल्या अन्य संगणाकांसह समक्रमित करण्यासाठी सेट केलेले नाहीत.</translation>
-<translation id="923693997520853947"><ph name="URL"/> - <ph name="REASON"/></translation>
 <translation id="4510290974676570902">MIME प्रकार</translation>
 <translation id="5565725983873655007">सुरक्षित (SSL) पृष्ठांवर मिश्र सामग्री असते तेव्हा:</translation>
 <translation id="5155055381903895958">प्रोफाइल आयात करा:</translation>
@@ -133,7 +132,6 @@
 <translation id="7767960058630128695">संकेतशब्द:</translation>
 <translation id="6518014396551869914">प्रतिमा कॉ&amp;पी करा</translation>
 <translation id="542155483965056918"><ph name="NUMBER_ZERO"/> mins ago</translation>
-<translation id="6363850194751762580">पॉप-अप्स व्यवस्थापित करा</translation>
 <translation id="3118319026408854581"><ph name="PRODUCT_NAME"/> मदत</translation>
 <translation id="4120898696391891645">पृष्ठ लोड होऊ शकले नाही</translation>
 <translation id="5584537427775243893">आयात करीत आहे</translation>
@@ -371,7 +369,6 @@
 <translation id="5494362494988149300">&amp;पूर्ण झाल्यानंतर उघडा</translation>
 <translation id="3234408098842461169">Down Arrow</translation>
 <translation id="825608351287166772">आपल्याकडे असलेल्या कोणत्याही ओळख दस्तऐवजाप्रमाणेच (जसे, पासपोर्ट) प्रमाणपत्रांचा वैधता अवधी असतो. आपल्या ब्राउझर समक्ष सादर केलेले प्रमाणपत्र अद्याप वैध नाही. जेव्हा प्रमाणपत्र त्याच्या वैधता अवधी बाहेर असते, तेव्हा प्रमाणपत्राच्या स्थितीची निश्चित माहितीची (ते निरस्त झालेले असेल आणि यापुढे विश्वासनीय नसले तरीही) देखभाल करणे आवश्यक नाही. त्याचप्रमाणे हे प्रमाणपत्र विश्वासानीय असल्याचे सत्यापित करणे शक्य नाही. आपण पुढे जाऊ नये.</translation>
-<translation id="2742457360514408037">अवरोधित पॉप-अप्स: <ph name="COUNT"/></translation>
 <translation id="7154150278819212687">या विस्तारास आपल्या ब्राउझिंग इतिहासामध्ये प्रवेश असेल.</translation>
 <translation id="1516602185768225813">शेवटी जी पृष्ठे उघडली होते ती पुन्हा उघडा</translation>
 <translation id="4874539263382920044">शीर्षकात किमान एक वर्ण असावा</translation>
@@ -426,7 +423,6 @@
 <translation id="4378551569595875038">कनेक्ट करीत आहे...</translation>
 <translation id="7029809446516969842">संकेतशब्द</translation>
 <translation id="3513979718339724672">लघुप्रतिमा दर्शवा</translation>
-<translation id="7300965843904003671">नेहमी <ph name="URL"/> कडील पॉप-अप्स दर्शवा</translation>
 <translation id="8211437954284917092">आपले बुकमार्क शोधण्यासाठी उपरोक्त मजकूर फील्डमध्ये क्वेरी प्रविष्ट करा.</translation>
 <translation id="5958418293370246440"><ph name="SAVED_FILES"/> / <ph name="TOTAL_FILES"/> फाइल्स</translation>
 <translation id="1291121346508216435">स्वयंचलितरित्या शब्दलेखन सुधारा:</translation>
@@ -560,7 +556,6 @@
 <translation id="4870177177395420201"><ph name="PRODUCT_NAME"/> डीफॉल्ट ब्राउझर निर्धारित किंवा सेट करू शकत नाही.</translation>
 <translation id="8898786835233784856">पुढील टॅब निवडा</translation>
 <translation id="2674170444375937751">आपली खात्री आहे की आपण ही पृष्ठे आपल्‍या इतिहासातून हटवू इच्छिता?</translation>
-<translation id="4203689580933736628">अवरोधित आयटम: <ph name="COUNT"/></translation>
 <translation id="2653166165688724436">वेब डेटाबेस</translation>
 <translation id="7629827748548208700">टॅब: <ph name="TAB_NAME"/></translation>
 <translation id="8449008133205184768">पेस्ट करा आणि शैली जुळवा</translation>
@@ -629,11 +624,9 @@
 <translation id="2838167480523328393">&quot;<ph name="EXTENSION_NAME"/>&quot; स्थापित करायचे?</translation>
 <translation id="2497284189126895209">सर्व फाइल</translation>
 <translation id="5360606537916580043">शेवटचा दिवस</translation>
-<translation id="6589689504565594563">कुकीज हटवा</translation>
 <translation id="1682548588986054654">नवीन गुप्त विंडो</translation>
 <translation id="6833901631330113163">दक्षिण युरोपीय</translation>
 <translation id="5110450810124758964"><ph name="NUMBER_ONE"/> day ago</translation>
-<translation id="5256138355144269748">अवरोधित पॉप-अप</translation>
 <translation id="2820806154655529776"><ph name="NUMBER_ONE"/> से</translation>
 <translation id="1077946062898560804">सर्व वापरकर्त्यांसाठी स्वयंचलित अद्यतने सेट करा</translation>
 <translation id="3122496702278727796">डेटा निर्देशिका तयार करण्यात अयशस्वी</translation>
@@ -968,6 +961,7 @@
 <translation id="7280343984261969618">विशेषाधिकारांशिवाय Sandbox मध्ये प्लग-इन चालविते. यामुळे काही प्लग-इन योग्यपणे कार्य करणार नाहीत.</translation>
 <translation id="50030952220075532"><ph name="NUMBER_ONE"/> दिवस बाकी</translation>
 <translation id="2885378588091291677">कार्य व्यवस्थापक</translation>
+<translation id="5792852254658380406">विस्तार व्यवस्थापित करा...</translation>
 <translation id="1215711112676250731">कोटा:</translation>
 <translation id="2359808026110333948">सुरू ठेवा</translation>
 <translation id="1618661679583408047">सर्व्हरचे सुरक्षितता प्रमाणपत्र अद्याप वैध नाही!</translation>
@@ -1041,7 +1035,6 @@
 <translation id="6847541693235449912">जा</translation>
 <translation id="5546865291508181392">शोधा</translation>
 <translation id="5333374927882515515"><ph name="DEF_BROWSER"/> कडून बुकमार्क, संकेतशब्द आणि इतर सेटिंग्ज आयात करा</translation>
-<translation id="4239831617079978238">सत्राचा शेवट</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE"/> - <ph name="FULL_DATE"/></translation>
 <translation id="5960889226412209189">संक्षिप्त नॅव्हिगेशन बार टॉगल करा</translation>
 <translation id="8954894007019320973">(सुरू)</translation>
@@ -1061,16 +1054,13 @@
 <translation id="8562413501751825163">आयात करण्यापूर्वी Firefox बंद करा</translation>
 <translation id="4309420042698375243"><ph name="NUM_KILOBYTES"/>K (<ph name="NUM_KILOBYTES_LIVE"/>K लाइव्ह)</translation>
 <translation id="5034259512732355072">दुसरी निर्देशिका निवडा...</translation>
-<translation id="5074322878757699801">डेटा आयात करा...</translation>
 <translation id="7505152414826719222">स्थानिक संग्रह</translation>
 <translation id="5706242308519462060">डीफॉल्ट एन्कोडिंग:</translation>
 <translation id="5280833172404792470">पूर्ण स्क्रीनमधून निर्गमन करा (<ph name="ACCELERATOR"/>)</translation>
-<translation id="4000986992587584088">नेहमी <ph name="URL"/> कडील पॉप-अप दर्शवा</translation>
 <translation id="129553762522093515">अलीकडे बंद केलेले</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> दिवस</translation>
 <translation id="3891357445869647828">JavaScript सक्षम करा</translation>
 <translation id="6451458296329894277">फॉर्म रीसबमिशनची पुष्टी करा</translation>
-<translation id="3218545474413654570"><ph name="URL"/> - <ph name="WINDOW_TITLE"/></translation>
 <translation id="5116333507878097773"><ph name="NUMBER_ONE"/> तास</translation>
 <translation id="1851266746056575977">त्वरित अद्यतनित करा</translation>
 <translation id="3715099868207290855"><ph name="USER_EMAIL_ADDRESS"/> वर समक्रमित</translation>
@@ -1323,7 +1313,6 @@
 <translation id="6053401458108962351">&amp;ब्राउझिंग डेटा साफ करा...</translation>
 <translation id="2339641773402824483">अद्यतनांसाठी तपासत आहे...</translation>
 <translation id="8600200086690278232">वैशिष्ट्यीकृत वेब क्लिपा</translation>
-<translation id="8582728318425382804">कुकीज आणि वेबसाइट परवानग्या</translation>
 <translation id="2766006623206032690">पे&amp;स्ट करा आणि जा</translation>
 <translation id="9071050381089585305">असंवादी स्क्रिप्ट</translation>
 <translation id="4394049700291259645">अक्षम करा</translation>

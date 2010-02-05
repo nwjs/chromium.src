@@ -123,7 +123,6 @@
 <translation id="1644574205037202324">చరిత్ర</translation>
 <translation id="2518917559152314023">జో&amp;డించు...</translation>
 <translation id="6583406242234752719">మీ ఇతర కంప్యూటర్లతో మీ బుక్‌మార్క్‌ల సమకాలీకరణను మీరు సెట్ చేయలేదు.</translation>
-<translation id="923693997520853947"><ph name="URL"/> - <ph name="REASON"/></translation>
 <translation id="4510290974676570902">MIME రకం</translation>
 <translation id="5565725983873655007">సురక్షిత (SSL) పేజీల్లో మిశ్రిత కంటెంట్ ఉంటే:</translation>
 <translation id="5155055381903895958">ప్రొఫైల్ దిగుమతి:</translation>
@@ -133,7 +132,6 @@
 <translation id="7767960058630128695">పాస్‌వర్డ్‌లు:</translation>
 <translation id="6518014396551869914">చిత్రాన్ని కా&amp;పీ చెయ్యి</translation>
 <translation id="542155483965056918"><ph name="NUMBER_ZERO"/> mins ago</translation>
-<translation id="6363850194751762580">పాప్-అప్‌లను నిర్వహించు</translation>
 <translation id="3118319026408854581"><ph name="PRODUCT_NAME"/> సహాయం</translation>
 <translation id="4120898696391891645">పేజీ లోడ్ అవ్వడం లేదు</translation>
 <translation id="5584537427775243893">దిగుమతి అవుతోంది</translation>
@@ -371,7 +369,6 @@
 <translation id="5494362494988149300">&amp;పూర్తవగానే తెరువు</translation>
 <translation id="3234408098842461169">క్రింది బాణం</translation>
 <translation id="825608351287166772">సర్టిఫికెట్‌లకి మీ దగ్గర  న్న ఏవైనా గుర్తింపు పత్రాలకు  (పాస్‌పోర్ట్ వంటివి) ఉన్నట్లు ఒక ధ్రువీకరణ వ్యవధిని కలిగి ఉంటాయి. మీ బ్రౌజర్‌కు అందించిన సర్టిఫికెట్ ఇంకా ధ్రువీకరించబడలేదు. ఒక సర్టిఫికెట్ దాని ధ్రువీకరణ వ్యవథి ముగిసిన తర్వాత, సర్టిఫికెట్ (అది రద్దు చెయ్యబడిందా మరియు ఇకపై నమ్మకూడనదా)  అనేదాని    గురించి నిర్దిష్ట సమాచారాన్ని నిర్వహించాల్సిన అవసరం లేదు. అలాగే, ఈ సర్టిఫికెట్ నమ్మదగినదని ధ్రువీకరించడం సాధ్యం కాదు. మీరు ముందుకు కొనసాగకూడదు.</translation>
-<translation id="2742457360514408037">బ్లాక్ చేసిన పాప-అప్‌లు: <ph name="COUNT"/></translation>
 <translation id="7154150278819212687">ఈ పొడిగింపు మీ బ్రౌజింగ్ చరిత్రకు ప్రాప్యత కలిగి ఉంటుంది.</translation>
 <translation id="1516602185768225813">ఇంతకు ముందు తెరిచిన పేజీలని మళ్ళీ తెరువు</translation>
 <translation id="4874539263382920044">శీర్షికలో తప్పకుండా ఒక అక్షరమైనా  ఉండాలి</translation>
@@ -426,7 +423,6 @@
 <translation id="4378551569595875038">కనెక్ట్ అవుతోంది...</translation>
 <translation id="7029809446516969842">పాస్‌వర్డ్‌లు</translation>
 <translation id="3513979718339724672">సూక్ష్మచిత్రాలను చూపించు</translation>
-<translation id="7300965843904003671">ఎల్లప్పుడూ <ph name="URL"/> నుండి పాప్-అప్‌లను చూపించు</translation>
 <translation id="8211437954284917092">మీ బుక్‌మార్క్‌లను శోధించడానికి పైన ఉన్న టెక్స్ట్ ఫీల్డ్‌లో ఒక ప్రశ్నను ఎంటర్ చెయ్యండి.</translation>
 <translation id="5958418293370246440"><ph name="SAVED_FILES"/> / <ph name="TOTAL_FILES"/> ఫైళ్ళు</translation>
 <translation id="1291121346508216435">స్పెల్లింగ్‌ని స్వయంచాలకంగా సరిచెయ్యి:</translation>
@@ -563,7 +559,6 @@
 <translation id="4870177177395420201"><ph name="PRODUCT_NAME"/> డిఫాల్ట్ బ్రౌజర్‌ను నిశ్చయించలేదు లేదా సెట్ చేయలేదు.</translation>
 <translation id="8898786835233784856">తదుపరి టాబ్‌ను ఎంచుకో</translation>
 <translation id="2674170444375937751">మీ చరిత్ర నుండి ఈ పేజీలను తొలగించదలిచారా?</translation>
-<translation id="4203689580933736628">బ్లాక్ చేసిన అంశాలు: <ph name="COUNT"/></translation>
 <translation id="2653166165688724436">వెబ్ డేటాబేస్</translation>
 <translation id="7629827748548208700">టాబ్: <ph name="TAB_NAME"/></translation>
 <translation id="8449008133205184768">శైలిని పేస్ట్ చేసి, సరిపోల్చు</translation>
@@ -632,11 +627,9 @@
 <translation id="2838167480523328393">&quot;<ph name="EXTENSION_NAME"/>&quot;ను వ్యవస్థాపించాలా?</translation>
 <translation id="2497284189126895209">మొత్తం ఫైళ్లు</translation>
 <translation id="5360606537916580043">చివరి రోజు</translation>
-<translation id="6589689504565594563">కుక్కీలను తొలగించు</translation>
 <translation id="1682548588986054654">క్రొత్త అజ్ఞాత విండో</translation>
 <translation id="6833901631330113163">దక్షిణ యూరోపియన్</translation>
 <translation id="5110450810124758964"><ph name="NUMBER_ONE"/> day ago</translation>
-<translation id="5256138355144269748">పాప్-అప్‌బ్లాక్ చెయ్యబడింది</translation>
 <translation id="2820806154655529776"><ph name="NUMBER_ONE"/> సెకను</translation>
 <translation id="1077946062898560804">అందరు వినియోగదారులకి ఆటోమేటిక్ అప్డేట్లను సెట్ చెయ్యి</translation>
 <translation id="3122496702278727796">డేటా డైరెక్టరీని సృష్టించడంలో విఫలమైంది</translation>
@@ -974,6 +967,7 @@
 <translation id="7280343984261969618">హక్కులు లేని sandboxలో ప్లగ్-ఇన్‌లను అమలు చేస్తుంది. సరిగ్గా పనిచెయ్యక పోవడానికి కొన్ని ప్లగ్-ఇన్‌లు కారణం కావచ్చు.</translation>
 <translation id="50030952220075532"><ph name="NUMBER_ONE"/> రోజులు మిగిలి ఉన్నాయి</translation>
 <translation id="2885378588091291677">విధి సంచాలకులు</translation>
+<translation id="5792852254658380406">పొడిగింపులను నిర్వహించండి...</translation>
 <translation id="1215711112676250731">కోటా:</translation>
 <translation id="2359808026110333948">కొనసాగు</translation>
 <translation id="1618661679583408047">సర్వర్ యొక్క భద్రతా సర్టిఫికెట్ ఇంతవరకు చెల్లుబాటులో లేదు!</translation>
@@ -1048,7 +1042,6 @@
 <translation id="6847541693235449912">వెళ్ళు</translation>
 <translation id="5546865291508181392">కనుగొను</translation>
 <translation id="5333374927882515515"><ph name="DEF_BROWSER"/> నుండి బుక్‌మార్క్‌లు, పాస్‌‌వర్డ్‌లు మరియు ఇతర సెట్టింగులను దిగుమతి చెయ్యండి</translation>
-<translation id="4239831617079978238">సెషన్ ముగింపు</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE"/> - <ph name="FULL_DATE"/></translation>
 <translation id="5960889226412209189">కంపాక్ట్ నావిగేషన్ బార్‌ను టోగుల్ చెయ్యి</translation>
 <translation id="8954894007019320973">(కొనసాగు .)</translation>
@@ -1068,16 +1061,13 @@
 <translation id="8562413501751825163">దిగుమతి చేసే ముందు Firefoxను మూసివెయ్యండి</translation>
 <translation id="4309420042698375243"><ph name="NUM_KILOBYTES"/>K (<ph name="NUM_KILOBYTES_LIVE"/>K ప్రత్యక్షంగా)</translation>
 <translation id="5034259512732355072">మరొక డైరెక్టరీని ఎంచుకోండి...</translation>
-<translation id="5074322878757699801">డేటాను దిగుమతి చెయ్యి...</translation>
 <translation id="7505152414826719222">స్థానిక నిల్వ</translation>
 <translation id="5706242308519462060">డిఫాల్ట్ ఎన్‌కోడింగ్:</translation>
 <translation id="5280833172404792470">పూర్తి స్క్రీన్ నుండి నిష్క్రమించు (<ph name="ACCELERATOR"/>)</translation>
-<translation id="4000986992587584088">ఎల్లప్పుడూ <ph name="URL"/> నుండి పాప్-అప్‌లను చూపించు</translation>
 <translation id="129553762522093515">ఇటీవల మూసివెయ్యబడినవి</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> రోజులు</translation>
 <translation id="3891357445869647828">JavaScriptను  ఎనేబుల్ చెయ్యి</translation>
 <translation id="6451458296329894277">ఫారమ్ పునఃసమర్పణను నిర్థారించండి</translation>
-<translation id="3218545474413654570"><ph name="URL"/> - <ph name="WINDOW_TITLE"/></translation>
 <translation id="5116333507878097773"><ph name="NUMBER_ONE"/> గంట</translation>
 <translation id="1851266746056575977">ఇప్పుడు అప్‌డేట్ చెయ్యి</translation>
 <translation id="3715099868207290855"><ph name="USER_EMAIL_ADDRESS"/>కు సమకాలీకరించబడ్డాయి</translation>
@@ -1331,7 +1321,6 @@
 <translation id="6053401458108962351">&amp;బ్రౌజింగ్‌ డేటాను క్లియర్ చెయ్యి...</translation>
 <translation id="2339641773402824483">అప్‌డేట్‌ల కోసం తనిఖీ చేస్తోంది...</translation>
 <translation id="8600200086690278232">ఫీచర్ అయిన వెబ్ క్లిప్లు</translation>
-<translation id="8582728318425382804">కుక్కీలు మరియు వెబ్‌సైట్ అనుమతులు</translation>
 <translation id="2766006623206032690">పే&amp;స్ట్ చేసి ముందుకు వెళ్ళండి</translation>
 <translation id="9071050381089585305">స్పందన లేని స్క్రిప్ట్</translation>
 <translation id="4394049700291259645">ఆపివెయ్యి</translation>

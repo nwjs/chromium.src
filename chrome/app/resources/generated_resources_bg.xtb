@@ -123,7 +123,6 @@
 <translation id="1644574205037202324">История</translation>
 <translation id="2518917559152314023">Д&amp;обавяне...</translation>
 <translation id="6583406242234752719">Не сте настроили синхронизирането на отметките си с другите си компютри.</translation>
-<translation id="923693997520853947"><ph name="URL"/> – <ph name="REASON"/></translation>
 <translation id="4510290974676570902">Тип MIME кодиране</translation>
 <translation id="5565725983873655007">Когато има смесено съдържание в сигурни (SSL) страници:</translation>
 <translation id="5155055381903895958">Импортиране на потребителски профил:</translation>
@@ -133,7 +132,6 @@
 <translation id="7767960058630128695">Пароли:</translation>
 <translation id="6518014396551869914">Копиране на изобра&amp;жението</translation>
 <translation id="542155483965056918"><ph name="NUMBER_ZERO"/> mins ago</translation>
-<translation id="6363850194751762580">Управление на изскачащите прозорци</translation>
 <translation id="3118319026408854581">Помощ за <ph name="PRODUCT_NAME"/></translation>
 <translation id="4120898696391891645">Страницата не се зарежда</translation>
 <translation id="5584537427775243893">Импортирането се извършва</translation>
@@ -370,7 +368,6 @@
 <translation id="5494362494988149300">Отваряне &amp;след изтегляне</translation>
 <translation id="3234408098842461169">Стрелка надолу</translation>
 <translation id="825608351287166772">Сертификатите имат срок на валидност, също както обикновените документи за самоличност, които имате (напр. паспорт). Представеният на браузъра ви сертификат още не е валиден. Когато срокът на валидност на сертификата не е започнал, не се изисква да се поддържа определена информация за състоянието му (като например дали е анулиран и съответно ненадежден). Поради това не е възможно да се потвърди дали сертификатът е надежден или не. Не продължавайте нататък.</translation>
-<translation id="2742457360514408037">Блокирани изскачащи прозорци: <ph name="COUNT"/></translation>
 <translation id="7154150278819212687">Това разширение ще има достъп до историята на сърфирането ви.</translation>
 <translation id="1516602185768225813">Повторно отваряне на последно отворените страници</translation>
 <translation id="4874539263382920044">Заглавието трябва да съдържа поне един знак</translation>
@@ -425,7 +422,6 @@
 <translation id="4378551569595875038">Установява се връзка...</translation>
 <translation id="7029809446516969842">Пароли</translation>
 <translation id="3513979718339724672">Показване на миниизображенията</translation>
-<translation id="7300965843904003671">Изскачащите прозорци от <ph name="URL"/> да се показват винаги</translation>
 <translation id="8211437954284917092">Въведете заявка в текстовото поле по-горе, за да търсите в отметките си.</translation>
 <translation id="5958418293370246440"><ph name="SAVED_FILES"/> / <ph name="TOTAL_FILES"/> файла</translation>
 <translation id="1291121346508216435">Правописът да се поправя автоматично:</translation>
@@ -552,7 +548,6 @@
 <translation id="4870177177395420201"><ph name="PRODUCT_NAME"/> не може да определи или зададе браузъра по подразбиране.</translation>
 <translation id="8898786835233784856">Избор на следващия раздел</translation>
 <translation id="2674170444375937751">Наистина ли искате да изтриете тези страници от историята си?</translation>
-<translation id="4203689580933736628">Блокирани елементи: <ph name="COUNT"/></translation>
 <translation id="2653166165688724436">Уеб база от данни</translation>
 <translation id="7629827748548208700">Раздел: <ph name="TAB_NAME"/></translation>
 <translation id="8449008133205184768">Поставяне и съобразяване със стила</translation>
@@ -621,11 +616,9 @@
 <translation id="2838167480523328393">Да се инсталира ли <ph name="EXTENSION_NAME"/>?</translation>
 <translation id="2497284189126895209">Всички файлове</translation>
 <translation id="5360606537916580043">Последният ден</translation>
-<translation id="6589689504565594563">Изтриване на „бисквитките“</translation>
 <translation id="1682548588986054654">Нов прозорец при използване на функцията „инкогнито“</translation>
 <translation id="6833901631330113163">Южна Европа</translation>
 <translation id="5110450810124758964">преди <ph name="NUMBER_ONE"/> ден/дни</translation>
-<translation id="5256138355144269748">Блокиран изскачащ прозорец</translation>
 <translation id="2820806154655529776"><ph name="NUMBER_ONE"/> сек</translation>
 <translation id="3122496702278727796">Неуспешно създаване на директория за данни</translation>
 <translation id="8888930795132369495">Копиране на &amp;пътя до файла</translation>
@@ -1033,7 +1026,6 @@
 <translation id="6847541693235449912">Старт</translation>
 <translation id="5546865291508181392">Търсене</translation>
 <translation id="5333374927882515515">Импортирайте отметки, пароли и други настройки от <ph name="DEF_BROWSER"/></translation>
-<translation id="4239831617079978238">Край на сесията</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE"/> - <ph name="FULL_DATE"/></translation>
 <translation id="5960889226412209189">Превключване на компактната навигационна лента</translation>
 <translation id="8954894007019320973">(Прод.)</translation>
@@ -1053,16 +1045,13 @@
 <translation id="8562413501751825163">Затворете Firefox преди импортиране</translation>
 <translation id="4309420042698375243"><ph name="NUM_KILOBYTES"/> КБ (<ph name="NUM_KILOBYTES_LIVE"/> КБ активни)</translation>
 <translation id="5034259512732355072">Избор на друга директория...</translation>
-<translation id="5074322878757699801">Импортиране на данни...</translation>
 <translation id="7505152414826719222">Локално хранилище</translation>
 <translation id="5706242308519462060">Шифроване по подразбиране:</translation>
 <translation id="5280833172404792470">Изход от цял екран (<ph name="ACCELERATOR"/>)</translation>
-<translation id="4000986992587584088">Изскачащите прозорци от <ph name="URL"/> да се показват винаги</translation>
 <translation id="129553762522093515">Наскоро затворени</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> дни</translation>
 <translation id="3891357445869647828">Активиране на JavaScript</translation>
 <translation id="6451458296329894277">Потвърдете повторното изпращане на формуляра</translation>
-<translation id="3218545474413654570"><ph name="URL"/> – <ph name="WINDOW_TITLE"/></translation>
 <translation id="5116333507878097773"><ph name="NUMBER_ONE"/> час</translation>
 <translation id="1851266746056575977">Актуализиране сега</translation>
 <translation id="3715099868207290855">Синхронизиран с/ъс <ph name="USER_EMAIL_ADDRESS"/></translation>
@@ -1316,7 +1305,6 @@
 <translation id="6053401458108962351">Из&amp;чистване на данните за сърфирането...</translation>
 <translation id="2339641773402824483">Извършва се проверка за актуализации...</translation>
 <translation id="8600200086690278232">Представени уеб изрезки</translation>
-<translation id="8582728318425382804">„Бисквитки“ и разрешения за уебсайтовете</translation>
 <translation id="2766006623206032690">&amp;Поставяне и старт</translation>
 <translation id="9071050381089585305">Блокирал скрипт</translation>
 <translation id="4394049700291259645">Деактивиране</translation>

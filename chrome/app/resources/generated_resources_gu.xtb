@@ -122,7 +122,6 @@
 <translation id="1644574205037202324">ઇતિહાસ</translation>
 <translation id="2518917559152314023">ઉ&amp;મેરો...</translation>
 <translation id="6583406242234752719">તમે તમારા બુકમાર્ક્સને અન્ય કમ્પ્યુટર સાથે સમન્વય કરવા માટે સેટ નથી.</translation>
-<translation id="923693997520853947"><ph name="URL"/> - <ph name="REASON"/></translation>
 <translation id="4510290974676570902">MIME પ્રકાર</translation>
 <translation id="5565725983873655007">જ્યારે કોઈ મિશ્રિત સામગ્રી સુરક્ષિત (SSL) પૃષ્ઠો પર હોય:</translation>
 <translation id="5155055381903895958">પ્રોફાઇલ આયાત:</translation>
@@ -132,7 +131,6 @@
 <translation id="7767960058630128695">પાસવર્ડ્સ:</translation>
 <translation id="6518014396551869914">છબીની કૉ&amp;પિ બનાવો</translation>
 <translation id="542155483965056918"><ph name="NUMBER_ZERO"/> મિનિટ પહેલા</translation>
-<translation id="6363850194751762580">પૉપ-અપ્સ વ્યવસ્થિત કરો</translation>
 <translation id="3118319026408854581"><ph name="PRODUCT_NAME"/> સહાય</translation>
 <translation id="4120898696391891645">પૃષ્ઠ લોડ થશે નહીં</translation>
 <translation id="5584537427775243893">આયાત કરી રહ્યું છે</translation>
@@ -370,7 +368,6 @@
 <translation id="5494362494988149300">&amp;પૂર્ણ થાય ત્યારે ખોલો</translation>
 <translation id="3234408098842461169">નીચલો એરો</translation>
 <translation id="825608351287166772">તમારી પાસેનાં ઓળખ દસ્તાવેજ (જેવા કે પાસપોર્ટ)ની જેમ પ્રમાણપત્રની માન્યતા અવધિ હોય છે.  તમારા બ્રાઉઝરને બતાવાયેલું પ્રમાણપત્ર હજી સુધી માન્ય નથી. જ્યારે કોઈ પ્રમાણપત્રની માન્યતા અવધિ સમાપ્ત થઈ જાય છે, ત્યારે પ્રમાણપત્રની સ્થિતિ વિષેની કેટલીક માહિતી (ભલે તે રદ કરવામાં આવ્યું હોય અને પછીથી વિશ્વનીય ન રહ્યું હોય) જાળવવાની જરૂર હોતી નથી. આથી, આ ચકાસવું પણ સંભવ નથી કે આ પ્રમાણપત્ર વિશ્વાસપાત્ર છે. તમારે આગળ વધવું ન જોઈએ.</translation>
-<translation id="2742457360514408037">પોપ-અપ્સ અવરોધિત: <ph name="COUNT"/></translation>
 <translation id="7154150278819212687">આ એક્સટેન્શન પાસે તમારા બ્રાઉઝિંગ ઇતિહાસની ઍક્સેસ હશે.</translation>
 <translation id="1516602185768225813">છેલ્લે ખોલેલા પૃષ્ઠોને ફરીથી ખોલો</translation>
 <translation id="4874539263382920044">શીર્ષકમાં ઓછામાં ઓછો એક અક્ષર હોવો જરૂરી છે</translation>
@@ -425,7 +422,6 @@
 <translation id="4378551569595875038">કનેક્ટિંગ...</translation>
 <translation id="7029809446516969842">પાસવર્ડ્સ</translation>
 <translation id="3513979718339724672">થંબનેલ્સ બતાવો</translation>
-<translation id="7300965843904003671"><ph name="URL"/> થી હંમેશા પૉપ-અપ્સ બતાવો</translation>
 <translation id="8211437954284917092">તમારા બુકમાર્ક્સને શોધવા માટે ઉપરનાં ટેક્સ્ટ ફીલ્ડમાં એક ક્વેરી દાખલ કરો.</translation>
 <translation id="5958418293370246440"><ph name="SAVED_FILES"/> / <ph name="TOTAL_FILES"/> ફાઇલ્સ</translation>
 <translation id="1291121346508216435">જોડણી આપમેળે સુધારો:</translation>
@@ -562,7 +558,6 @@
 <translation id="4870177177395420201"><ph name="PRODUCT_NAME"/>  ડિફૉલ્ટ બ્રાઉઝરને નિર્ધારિત અથવા સેટ કરી શક્તું નથી.</translation>
 <translation id="8898786835233784856">આગલું ટૅબ પસંદ કરો</translation>
 <translation id="2674170444375937751">શું તમે ખરેખર તમારા ઇતિહાસમાંથી આ પૃષ્ઠોને કાઢી નાખવા માંગો છો?</translation>
-<translation id="4203689580933736628">અવરોધિત આઇટમ્સ: <ph name="COUNT"/></translation>
 <translation id="2653166165688724436">વેબ ડેટાબેસ</translation>
 <translation id="7629827748548208700">ટૅબ: <ph name="TAB_NAME"/></translation>
 <translation id="8449008133205184768">શૈલી પેસ્ટ કરો અને મેળ બેસાડો</translation>
@@ -631,11 +626,9 @@
 <translation id="2838167480523328393">&quot;<ph name="EXTENSION_NAME"/>&quot; ઇન્સ્ટોલ કરીએ?</translation>
 <translation id="2497284189126895209">બધી ફાઇલો</translation>
 <translation id="5360606537916580043">છેલ્લો દિવસ</translation>
-<translation id="6589689504565594563">કૂકીઝ કાઢી નાખો</translation>
 <translation id="1682548588986054654">નવી છુપી વિંડો</translation>
 <translation id="6833901631330113163">દક્ષિણ યુરોપિયન</translation>
 <translation id="5110450810124758964"><ph name="NUMBER_ONE"/> day ago</translation>
-<translation id="5256138355144269748">અવરોધિત પોપ-અપ</translation>
 <translation id="2820806154655529776"><ph name="NUMBER_ONE"/> સેકન્ડ</translation>
 <translation id="1077946062898560804">બધા વપરાશકર્તા માટે સ્વચાલિત અપડેટ્સ સેટ કરો</translation>
 <translation id="3122496702278727796">ડેટા ડાયરેક્ટરી બનાવવામાટે નિષ્ફળ</translation>
@@ -1044,7 +1037,6 @@
 <translation id="6847541693235449912">જાઓ</translation>
 <translation id="5546865291508181392">શોધો</translation>
 <translation id="5333374927882515515">બુકમાર્કસ, પાસવર્ડ્સ અને સેટિંગ્સને <ph name="DEF_BROWSER"/> માંથી આયાત કરો</translation>
-<translation id="4239831617079978238">સત્ર સમાપ્ત</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE"/> - <ph name="FULL_DATE"/></translation>
 <translation id="5960889226412209189">કૉમ્પેક્ટ નેવિગેશન બારને ટૉગલ કરો</translation>
 <translation id="8954894007019320973">(ચાલુ.)</translation>
@@ -1065,16 +1057,13 @@
 <translation id="8562413501751825163">આયાત કરતાં પહેલા Firefox બંધ કરો</translation>
 <translation id="4309420042698375243"><ph name="NUM_KILOBYTES"/>K (<ph name="NUM_KILOBYTES_LIVE"/>K લાઇવ)</translation>
 <translation id="5034259512732355072">બીજી ડાયરેક્ટરી પસંદ કરો...</translation>
-<translation id="5074322878757699801">ડેટા આયાત કરો...</translation>
 <translation id="7505152414826719222">સ્થાનિક સ્ટોરેજ</translation>
 <translation id="5706242308519462060">ડિફૉલ્ટ એન્કોડિંગ</translation>
 <translation id="5280833172404792470">પૂર્ણ સ્ક્રીનથી બહાર નીકળો (<ph name="ACCELERATOR"/>)</translation>
-<translation id="4000986992587584088"><ph name="URL"/> થી હંમેશા પૉપ-અપ્સ બતાવો</translation>
 <translation id="129553762522093515">તાજેતરમાં બંધ કરેલા</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> દિવસ</translation>
 <translation id="3891357445869647828">JavaScript સક્ષમ કરો</translation>
 <translation id="6451458296329894277">ફોર્મનાં ફરી સબમિશનની પુષ્ટિ કરો</translation>
-<translation id="3218545474413654570"><ph name="URL"/> - <ph name="WINDOW_TITLE"/></translation>
 <translation id="5116333507878097773"><ph name="NUMBER_ONE"/> કલાક</translation>
 <translation id="1851266746056575977">હવે અપડેટ કરો</translation>
 <translation id="3715099868207290855"><ph name="USER_EMAIL_ADDRESS"/> પર સમન્વય કરેલું</translation>
@@ -1327,7 +1316,6 @@
 <translation id="6053401458108962351">&amp;બ્રાઉઝિંગ ડેટા સાફ કરો...</translation>
 <translation id="2339641773402824483">અપડેટ્સ માટે તપાસી રહ્યું છે...</translation>
 <translation id="8600200086690278232">ફીચર્ડ વેબ ક્લિપ્સ</translation>
-<translation id="8582728318425382804">કૂકીઝ અને વેબસાઇટ અનુમતિઓ</translation>
 <translation id="2766006623206032690">પે&amp;સ્ટ કરો અને જાઓ</translation>
 <translation id="9071050381089585305">પ્રતિભાવવિહીન સ્ક્રિપ્ટ</translation>
 <translation id="4394049700291259645">અક્ષમ કરો</translation>

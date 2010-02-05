@@ -121,7 +121,6 @@
 <translation id="1644574205037202324">Historia</translation>
 <translation id="2518917559152314023">&amp;Ongeza</translation>
 <translation id="6583406242234752719">Hujasanidi kusawazisha alamisho zako na kompyuta zako zinginezo.</translation>
-<translation id="923693997520853947"><ph name="URL"/> - <ph name="REASON"/></translation>
 <translation id="4510290974676570902">Aina ya MME</translation>
 <translation id="5565725983873655007">Wakati kuna mchanganyiko wa maudhui kwenye kurasa salama (SSL):</translation>
 <translation id="5155055381903895958">Uingizaji wa Maelezo Mafupi:</translation>
@@ -131,7 +130,6 @@
 <translation id="7767960058630128695">manenosiri</translation>
 <translation id="6518014396551869914">&amp;Nakili picha</translation>
 <translation id="542155483965056918">dakika <ph name="NUMBER_ZERO"/> zilizopita</translation>
-<translation id="6363850194751762580">Dhibiti viibukizi</translation>
 <translation id="3118319026408854581">Msaada wa <ph name="PRODUCT_NAME"/></translation>
 <translation id="4120898696391891645">Ukurasa haupakii</translation>
 <translation id="5584537427775243893">Inaingiza...</translation>
@@ -368,7 +366,6 @@
 <translation id="5494362494988149300">Funga &amp;Utakapomalizika</translation>
 <translation id="3234408098842461169">Mshale Chini</translation>
 <translation id="825608351287166772">Vyeti huwa na kipindi cha usahihi, kama stakabadhi yoyote ile ya utambulisho uliyo nayo (kama vile pasipoti). Cheti kilichowasilishwa kwa kivinjari chako bado si sahihi.Wakati cheti kiko nje ya wakati wake wa usahihi, maelezo fulani kuhusu hadhi ya cheti (kama kimebatilishwa na hakistahili kuaminiwa tena) hayahitaji kudumishwa. Kwa hivyo, haiwezekani kuthibitisha ikiwa cheti hiki ni cha kuaminika. Hufai kuendelea.</translation>
-<translation id="2742457360514408037">Ibukizi zilizozuiliwa: <ph name="COUNT"/></translation>
 <translation id="7154150278819212687">Kiendelezi hiki kitaweza kufikia historia yako ya kuvinjari.</translation>
 <translation id="1516602185768225813">Fungua kurasa zilizokuwa zimefunguliwa mara ya mwisho</translation>
 <translation id="4874539263382920044">Kichwa sharti kiwe na angalua kibambo kimoja</translation>
@@ -423,7 +420,6 @@
 <translation id="4378551569595875038">Inaunganisha...</translation>
 <translation id="7029809446516969842">Manenosiri</translation>
 <translation id="3513979718339724672">Onyesha vijipicha</translation>
-<translation id="7300965843904003671">Onyesha ibukizi kutoka <ph name="URL"/> kila wakati</translation>
 <translation id="8211437954284917092">Weka hoja katika nafasi ya maandishi hapo juu ili kutafuta katika alamisho zako.</translation>
 <translation id="5958418293370246440">faili <ph name="SAVED_FILES"/> / <ph name="TOTAL_FILES"/></translation>
 <translation id="1291121346508216435">Kosoa tahajia atomatiki</translation>
@@ -547,7 +543,6 @@
 <translation id="4870177177395420201"><ph name="PRODUCT_NAME"/> haiwezi kubainisha wala kuweka kivinjari chaguo msingi.</translation>
 <translation id="8898786835233784856">Chagua Kichupo Kinachofuata</translation>
 <translation id="2674170444375937751">Je, una hakika kuwa ungependa kufuta kurasa hizi kutoka historia yako?</translation>
-<translation id="4203689580933736628">Vipengee Vilivyozuiwa: <ph name="COUNT"/></translation>
 <translation id="2653166165688724436">Hifadhidata ya Wavuti</translation>
 <translation id="7629827748548208700">Kichupo: <ph name="TAB_NAME"/></translation>
 <translation id="8449008133205184768">Bandika na Ulinganishe Mtindo</translation>
@@ -616,11 +611,9 @@
 <translation id="2838167480523328393">Sanidi &quot;<ph name="EXTENSION_NAME"/>&quot;?</translation>
 <translation id="2497284189126895209">Faili zote</translation>
 <translation id="5360606537916580043">Siku ya mwisho</translation>
-<translation id="6589689504565594563">Futa kuki</translation>
 <translation id="1682548588986054654">Dirisha Fiche Jipya</translation>
 <translation id="6833901631330113163">Wa Kusini mwa Bara Ulaya</translation>
 <translation id="5110450810124758964">siku <ph name="NUMBER_ONE"/> iliyopita</translation>
-<translation id="5256138355144269748">Ibukizi Iliyozuiliwa</translation>
 <translation id="2820806154655529776">sekunde <ph name="NUMBER_ONE"/></translation>
 <translation id="1077946062898560804">Weka Sasisho Atomatiki kwa Watumiaji Wote</translation>
 <translation id="3122496702278727796">Imeshindwa Kuunda Saraka ya Data</translation>
@@ -1025,7 +1018,6 @@
 <translation id="6847541693235449912">Nenda</translation>
 <translation id="5546865291508181392">Pata</translation>
 <translation id="5333374927882515515">Ingiza alamisho, maneno siri na mipangilio mingineyo kutoka <ph name="DEF_BROWSER"/></translation>
-<translation id="4239831617079978238">Mwisho wa kipindi</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE"/> - <ph name="FULL_DATE"/></translation>
 <translation id="5960889226412209189">Geuza Upau Thabiti wa Uabiri</translation>
 <translation id="8954894007019320973">(Kuendelea)</translation>
@@ -1045,16 +1037,13 @@
 <translation id="8562413501751825163">Funga Firefox Kabla ya Kuhamisha</translation>
 <translation id="4309420042698375243"><ph name="NUM_KILOBYTES"/>K (<ph name="NUM_KILOBYTES_LIVE"/>K live)</translation>
 <translation id="5034259512732355072">Chagua Saraka Nyingine...</translation>
-<translation id="5074322878757699801">Ingiza data...</translation>
 <translation id="7505152414826719222">Hifadhi Kwenye Kompyuta Yako</translation>
 <translation id="5706242308519462060">Usimbaji Chaguo-msingi:</translation>
 <translation id="5280833172404792470">Ondoka skrini kamili (<ph name="ACCELERATOR"/>)</translation>
-<translation id="4000986992587584088">Onyesha Viibukizi kutoka <ph name="URL"/> kila wakati</translation>
 <translation id="129553762522093515">Zilizofungwa hivi karibuni</translation>
 <translation id="8355915647418390920">siku <ph name="NUMBER_FEW"/></translation>
 <translation id="3891357445869647828">Wezesha HatiJava</translation>
 <translation id="6451458296329894277">Thibitisha Kuwasilishwa Tena kwa Fomu</translation>
-<translation id="3218545474413654570"><ph name="URL"/> - <ph name="WINDOW_TITLE"/></translation>
 <translation id="5116333507878097773">saa <ph name="NUMBER_ONE"/></translation>
 <translation id="1851266746056575977">Sasisha Sasa</translation>
 <translation id="3715099868207290855">Imelinganishwa kwa <ph name="USER_EMAIL_ADDRESS"/></translation>
@@ -1307,7 +1296,6 @@
 <translation id="6053401458108962351">&amp;Futa data ya kuvinjari...</translation>
 <translation id="2339641773402824483">Inatafuta visasishi...</translation>
 <translation id="8600200086690278232">Klipu wavuti zilizoangaziwa</translation>
-<translation id="8582728318425382804">Vidakuzi na Idhini za Tovuti</translation>
 <translation id="2766006623206032690">&amp;Bandika na uende</translation>
 <translation id="9071050381089585305">Hati imekwama</translation>
 <translation id="4394049700291259645">Lemaza</translation>

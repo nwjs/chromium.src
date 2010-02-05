@@ -123,7 +123,6 @@
 <translation id="1644574205037202324">السجل</translation>
 <translation id="2518917559152314023">إ&amp;ضافة...</translation>
 <translation id="6583406242234752719">لم يتم الإعداد لمزامنة إشاراتك مع أجهزة الكمبيوتر الأخرى.</translation>
-<translation id="923693997520853947"><ph name="URL"/> - <ph name="REASON"/></translation>
 <translation id="4510290974676570902">نوع MIME</translation>
 <translation id="5565725983873655007">عندما يكون في الصفحات الآمنة (المحمية بموجب بروتوكول SSL) محتوىً مختلط:</translation>
 <translation id="5155055381903895958">استيراد الملف الشخصي:</translation>
@@ -133,7 +132,6 @@
 <translation id="7767960058630128695">كلمات المرور:</translation>
 <translation id="6518014396551869914">نس&amp;خ الصورة</translation>
 <translation id="542155483965056918">قبل <ph name="NUMBER_ZERO"/> دقيقة</translation>
-<translation id="6363850194751762580">إدارة النوافذ المنبثقة</translation>
 <translation id="3118319026408854581">تعليمات <ph name="PRODUCT_NAME"/></translation>
 <translation id="4120898696391891645">تعذّر تحميل الصفحة</translation>
 <translation id="5584537427775243893">استيراد</translation>
@@ -370,7 +368,6 @@
 <translation id="5494362494988149300">فتح عند &amp;اكتمال التنزيل</translation>
 <translation id="3234408098842461169">مفتاح سهم  إلى أسفل</translation>
 <translation id="825608351287166772">للشهادات مدّة صلاحية تمامًا كأي مستند هوية (مثل جواز السفر). وبما أنّ الشهادة المقدّمة للمتصفّح لا تزال غير صالحة، أي خارج مدّة صلاحيتها، لا تتوفّر معلومات عن حالتها (أي إذا كانت باطلة وتاليًا غير موثوق بها). يجب عدم المتابعة.</translation>
-<translation id="2742457360514408037">النوافذ التطفلية الممنوعة: <ph name="COUNT"/></translation>
 <translation id="7154150278819212687">ستتمكن هذه الإضافة من الدخول إلى سِجل التصفُّح.</translation>
 <translation id="1516602185768225813">إعادة فتح آخر صفحات تم فتحها</translation>
 <translation id="4874539263382920044">يجب أن يحتوي العنوان على حرف واحد على الأقل</translation>
@@ -425,7 +422,6 @@
 <translation id="4378551569595875038">اتّصال...</translation>
 <translation id="7029809446516969842">كلمات المرور</translation>
 <translation id="3513979718339724672">عرض الصور المصغرة</translation>
-<translation id="7300965843904003671">عرض النوافذ المنبثقة من عنوان <ph name="URL"/> دائمًا</translation>
 <translation id="8211437954284917092">أدخل طلب البحث في حقل النص أعلاه للبحث عن إشاراتك.</translation>
 <translation id="5958418293370246440">عدد الملفّات المحفوظة/ إجماليّ الملفّات: <ph name="SAVED_FILES"/> / <ph name="TOTAL_FILES"/></translation>
 <translation id="1291121346508216435">التصحيح الإملائي تلقائيًا:</translation>
@@ -559,7 +555,6 @@
 <translation id="4870177177395420201">لا يستطيع <ph name="PRODUCT_NAME"/> تحديد المتصفح الافتراضي أو تعيينه.</translation>
 <translation id="8898786835233784856">تحديد علامة التبويب التالية</translation>
 <translation id="2674170444375937751">هل تريد بالتأكيد حذف هذه الصفحات من السجل؟</translation>
-<translation id="4203689580933736628">عدد العناصر المحظورة: <ph name="COUNT"/></translation>
 <translation id="2653166165688724436">قاعدة بيانات الويب</translation>
 <translation id="7629827748548208700">علامة التبويب: <ph name="TAB_NAME"/></translation>
 <translation id="8449008133205184768">لصق النمط ومطابقته</translation>
@@ -628,11 +623,9 @@
 <translation id="2838167480523328393">هل تريد تثبيت &quot;<ph name="EXTENSION_NAME"/>&quot;؟</translation>
 <translation id="2497284189126895209">الملفّات كلّها</translation>
 <translation id="5360606537916580043">آخر يوم</translation>
-<translation id="6589689504565594563">حذف ملفّات تعريف الارتباط</translation>
 <translation id="1682548588986054654">نافذة جديدة للتصفح المتخفي</translation>
 <translation id="6833901631330113163">جنوب أوروبا</translation>
 <translation id="5110450810124758964">قبل <ph name="NUMBER_ONE"/> يوم</translation>
-<translation id="5256138355144269748">نافذة تطفّلية محجوبة</translation>
 <translation id="2820806154655529776"><ph name="NUMBER_ONE"/> ثانية</translation>
 <translation id="3122496702278727796">إخفاق محاولة إنشاء دليل  البيانات</translation>
 <translation id="8888930795132369495">&amp;نسخ مسار ملف</translation>
@@ -1040,7 +1033,6 @@
 <translation id="6847541693235449912">الانتقال</translation>
 <translation id="5546865291508181392">بحث</translation>
 <translation id="5333374927882515515">استيراد الإشارات وكلمات المرور وإعدادات أخرى من المتصفّح <ph name="DEF_BROWSER"/></translation>
-<translation id="4239831617079978238">نهاية جلسة العمل</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE"/>‏ - <ph name="FULL_DATE"/></translation>
 <translation id="5960889226412209189">التبديل إلى شريط التنقل المضغوط</translation>
 <translation id="8954894007019320973">(يتبع)</translation>
@@ -1060,16 +1052,13 @@
 <translation id="8562413501751825163">إغلاق متصفّح فايرفوكس قبل بدء عملية الاستيراد</translation>
 <translation id="4309420042698375243"><ph name="NUM_KILOBYTES"/>كيلوبايت (<ph name="NUM_KILOBYTES_LIVE"/>كيلوبايت مباشرة)</translation>
 <translation id="5034259512732355072">اختيار دليل آخر...</translation>
-<translation id="5074322878757699801">استيراد البيانات...</translation>
 <translation id="7505152414826719222">تخزين محلي</translation>
 <translation id="5706242308519462060">التشفير الافتراضي:</translation>
 <translation id="5280833172404792470">إنهاء وضع ملء الشاشة (<ph name="ACCELERATOR"/>)</translation>
-<translation id="4000986992587584088">عرض النوافذ المنبثقة من العنوان <ph name="URL"/> دومًا</translation>
 <translation id="129553762522093515">المغلقة حديثًا</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> أيام</translation>
 <translation id="3891357445869647828">تمكين جافا سكريبت</translation>
 <translation id="6451458296329894277">تأكيد إعادة إرسال النموذج</translation>
-<translation id="3218545474413654570"><ph name="URL"/> - <ph name="WINDOW_TITLE"/></translation>
 <translation id="5116333507878097773"><ph name="NUMBER_ONE"/> ساعة</translation>
 <translation id="1851266746056575977">التحديث الآن</translation>
 <translation id="3715099868207290855">تمت المزامنة مع <ph name="USER_EMAIL_ADDRESS"/></translation>
@@ -1323,7 +1312,6 @@
 <translation id="6053401458108962351">&amp;محو بيانات التصفح...</translation>
 <translation id="2339641773402824483">التحقّق من التحديثات...</translation>
 <translation id="8600200086690278232">مقتطفات الويب المميزة</translation>
-<translation id="8582728318425382804">ملفات تعريف الارتباط وأذونات موقع الويب</translation>
 <translation id="2766006623206032690">&amp;لصق عنوان URL والدخول إليه</translation>
 <translation id="9071050381089585305">سكريبت غير مستجيب</translation>
 <translation id="4394049700291259645">تعطيل</translation>

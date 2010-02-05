@@ -123,7 +123,6 @@
 <translation id="1644574205037202324">היסטוריה</translation>
 <translation id="2518917559152314023">ה&amp;וסף...</translation>
 <translation id="6583406242234752719">אינך יכול להגדיר את הסימניות שלך באמצעות המחשבים האחרים שלך.</translation>
-<translation id="923693997520853947"><ph name="URL"/> - <ph name="REASON"/></translation>
 <translation id="4510290974676570902">סוג MIME</translation>
 <translation id="5565725983873655007">כאשר יש עירוב של תוכן בדפים מאובטחים (SSL):</translation>
 <translation id="5155055381903895958">ייבוא פרופיל:</translation>
@@ -133,7 +132,6 @@
 <translation id="7767960058630128695">סיסמאות:</translation>
 <translation id="6518014396551869914">הע&amp;תק תמונה</translation>
 <translation id="542155483965056918"><ph name="NUMBER_ZERO"/> mins ago</translation>
-<translation id="6363850194751762580">נהל רכיבים מוקפצים</translation>
 <translation id="3118319026408854581">עזרה של <ph name="PRODUCT_NAME"/></translation>
 <translation id="4120898696391891645">הדף לא נטען</translation>
 <translation id="5584537427775243893">מייבא</translation>
@@ -370,7 +368,6 @@
 <translation id="5494362494988149300">פתח &amp;בסיום</translation>
 <translation id="3234408098842461169">חץ למטה</translation>
 <translation id="825608351287166772">לאישורים יש פרק זמן מסוים שבו הם בתוקף, כמו כל מסמך מזהה (כדוגמת דרכון). האישור שהוצג לדפדפן שלך עדיין אינו תקף. כאשר אישור אינו בתוקף, מידע מסוים אודות מצב האישור (האם הוא בוטל וכבר לא אמין) אינו נדרש. לפיכך, לא ניתן לוודא שאישור זה מהימן. מומלץ לא להמשיך.</translation>
-<translation id="2742457360514408037">חלונות קופצים חסומים: <ph name="COUNT"/></translation>
 <translation id="7154150278819212687">הרחבה זו תקבל גישה להיסטוריית הגלישה שלך.</translation>
 <translation id="1516602185768225813">פתח מחדש את הדפים שנפתחו אחרונים</translation>
 <translation id="4874539263382920044">על הכותרת להכיל תו אחד לפחות</translation>
@@ -425,7 +422,6 @@
 <translation id="4378551569595875038">מתחבר...</translation>
 <translation id="7029809446516969842">סיסמאות</translation>
 <translation id="3513979718339724672">הצג תמונות ממוזערות</translation>
-<translation id="7300965843904003671">הצג תמיד רכיבים מוקפצים מ-<ph name="URL"/></translation>
 <translation id="8211437954284917092">הזן שאילתה בשדה הטקסט שלמעלה, כדי לחפש את הסימניות שלך.</translation>
 <translation id="5958418293370246440"><ph name="SAVED_FILES"/> / קבצי <ph name="TOTAL_FILES"/></translation>
 <translation id="1291121346508216435">תקן איות באופן אוטומטי:</translation>
@@ -551,7 +547,6 @@
 <translation id="4870177177395420201"><ph name="PRODUCT_NAME"/> אינו יכול לקבוע או להגדיר את דפדפן ברירת המחדל.</translation>
 <translation id="8898786835233784856">בחר את הכרטיסייה הבאה</translation>
 <translation id="2674170444375937751">האם אתה בטוח שברצונך להסיר דפים אלו מההיסטוריה שלך?</translation>
-<translation id="4203689580933736628">פריטים שנחסמו: <ph name="COUNT"/></translation>
 <translation id="2653166165688724436">מסד נתונים באינטרנט</translation>
 <translation id="7629827748548208700">כרטיסייה: <ph name="TAB_NAME"/></translation>
 <translation id="8449008133205184768">הדבק והתאם סגנון</translation>
@@ -620,11 +615,9 @@
 <translation id="2838167480523328393">להתקין את &quot;<ph name="EXTENSION_NAME"/>&quot;?</translation>
 <translation id="2497284189126895209">כל הקבצים</translation>
 <translation id="5360606537916580043">מהיום האחרון</translation>
-<translation id="6589689504565594563">מחק קבצי cookie</translation>
 <translation id="1682548588986054654">חלון נסתר חדש</translation>
 <translation id="6833901631330113163">דרום אירופאית</translation>
 <translation id="5110450810124758964">לפני <ph name="NUMBER_ONE"/> ימים</translation>
-<translation id="5256138355144269748">חלונות קופצים חסומים</translation>
 <translation id="2820806154655529776"><ph name="NUMBER_ONE"/> שניה</translation>
 <translation id="3122496702278727796">יצירת ספריית נתונים נכשלה</translation>
 <translation id="8888930795132369495">העתק נתיב &amp;קובץ</translation>
@@ -1033,7 +1026,6 @@
 <translation id="6847541693235449912">המשך</translation>
 <translation id="5546865291508181392">מצא</translation>
 <translation id="5333374927882515515">ייבא סימניות, סיסמאות והגדרות אחרות מ-<ph name="DEF_BROWSER"/></translation>
-<translation id="4239831617079978238">סוף ההפעלה</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE"/> - <ph name="FULL_DATE"/></translation>
 <translation id="5960889226412209189">החלף סרגל ניווט קומפקטי </translation>
 <translation id="8954894007019320973">(המשך)</translation>
@@ -1056,16 +1048,13 @@
 <translation id="8562413501751825163">סגור את Firefox לפני הייבוא.</translation>
 <translation id="4309420042698375243">‎<ph name="NUM_KILOBYTES"/>K ‏‎(<ph name="NUM_KILOBYTES_LIVE"/>K בשימוש)‎‎</translation>
 <translation id="5034259512732355072">בחר ספרייה אחרת...</translation>
-<translation id="5074322878757699801">ייבא נתונים...</translation>
 <translation id="7505152414826719222">אחסון מקומי</translation>
 <translation id="5706242308519462060">קידוד ברירת מחדל:</translation>
 <translation id="5280833172404792470">צא ממסך מלא (<ph name="ACCELERATOR"/>)</translation>
-<translation id="4000986992587584088">הצג תמיד רכיבים מוקפצים מ-<ph name="URL"/></translation>
 <translation id="129553762522093515">נסגר לאחרונה</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> ימים</translation>
 <translation id="3891357445869647828">הפעל JavaScript</translation>
 <translation id="6451458296329894277">אשר שליחה-מחדש של הטופס</translation>
-<translation id="3218545474413654570"><ph name="URL"/> - <ph name="WINDOW_TITLE"/></translation>
 <translation id="5116333507878097773"><ph name="NUMBER_ONE"/> שעה</translation>
 <translation id="1851266746056575977">עדכן כעת</translation>
 <translation id="3715099868207290855">סונכרן ל-<ph name="USER_EMAIL_ADDRESS"/></translation>
@@ -1324,7 +1313,6 @@ Del</translation>
 <translation id="6053401458108962351">&amp;נקה נתוני גלישה...</translation>
 <translation id="2339641773402824483">מחפש עדכונים...</translation>
 <translation id="8600200086690278232">קטעי אינטרנט מוצגים</translation>
-<translation id="8582728318425382804">קובצי Cookie והרשאות אתר אינטרנט</translation>
 <translation id="2766006623206032690">הדבק והמשך</translation>
 <translation id="9071050381089585305">אין תגובה מהסקריפט</translation>
 <translation id="4394049700291259645">השבת</translation>

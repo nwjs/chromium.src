@@ -69,6 +69,7 @@
 <translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="8865765905101981392">Internetböngésző</translation>
 <translation id="8776515774046280928">A Google Chrome szoftver már telepítve van, és elérhető a számítógép minden felhasználója számára. Ha felhasználói szinten szeretné telepíteni a Google Chrome böngészőt, először el kell távolíttatnia a rendszerszintű verziót a rendszergazdájával.</translation>
+<translation id="2189123953385179981">A Google ChromeOS nem támogatja külső alkalmazás indítását a(z) <ph name="SCHEME"/> linkek kezelésére. A kért link: <ph name="PROTOLINK"/>.</translation>
 <translation id="7196020411877309443">Miért jelenik meg ez az üzenet?</translation>
 <translation id="2769762047821873045">Nem a Google Chrome az alapértelmezett böngésző.</translation>
 <translation id="7825851276765848807">A telepítés egy meg nem határozott hiba miatt nem sikerült. Kérjük, töltse le újra a Google Chrome-ot.</translation>

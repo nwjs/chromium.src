@@ -123,7 +123,6 @@
 <translation id="1644574205037202324">ইতিহাস</translation>
 <translation id="2518917559152314023">যু&amp;ক্ত...</translation>
 <translation id="6583406242234752719">আপনি নিজের অন্য কম্পিউটারগুলির সাথে নিজের বুকমার্কগুলিকে সিঙ্ক করার জন্য সেট আপ করেন নি৷</translation>
-<translation id="923693997520853947"><ph name="URL"/> - <ph name="REASON"/></translation>
 <translation id="4510290974676570902">MIME প্রকার</translation>
 <translation id="5565725983873655007">যখন উত্স (SSL) পৃষ্ঠাতে মিশ্রিত সামগ্রী থাকে:</translation>
 <translation id="5155055381903895958">প্রোফাইল আমদানি:</translation>
@@ -133,7 +132,6 @@
 <translation id="7767960058630128695">পাসওয়ার্ড:</translation>
 <translation id="6518014396551869914">ছবি অনুলি&amp;পি করুন</translation>
 <translation id="542155483965056918"><ph name="NUMBER_ZERO"/> mins ago</translation>
-<translation id="6363850194751762580">পপ-আপগুলি পরিচালনা করুন</translation>
 <translation id="3118319026408854581"><ph name="PRODUCT_NAME"/> সহায়তা</translation>
 <translation id="4120898696391891645">পৃষ্ঠা লোড হবে না</translation>
 <translation id="5584537427775243893">আমদানি হচ্ছে</translation>
@@ -371,7 +369,6 @@
 <translation id="5494362494988149300">&amp;সম্পন্ন হলে খুলুন</translation>
 <translation id="3234408098842461169">Down Arrow</translation>
 <translation id="825608351287166772">শংসাপত্রের একটি কার্যকারিতা সময় থাকে, যা অনেকটা আপনার কোনও পরিচয় দস্তাবেজের মত (যেমন কোনো পাসপোর্ট) হয়৷ আপনার ব্রাউজারে উপস্থাপিত শংসাপত্রটি এখনও কার্যকর নয়৷ কোনো শংসাপত্র সেটির কার্যকারিতা সময়ের বাইরে থাকলে, শংসাপত্রটির স্থিতি (সেটি প্রত্যাহার করা হলে এবং আর বিশ্বস্ত না থাকলে) সম্পর্কীয় নির্দিষ্ট তথ্য রক্ষণাবেক্ষণের প্রয়োজন নেই৷ যেমন, এই শংসাপত্রটি বিশ্বাসযোগ্য তা যাচাই করা সম্ভব নয়৷ আপনার এগিয়ে যাওয়া উচিত নয়৷</translation>
-<translation id="2742457360514408037">অবরুদ্ধ পপ-আপ: <ph name="COUNT"/></translation>
 <translation id="7154150278819212687">এই এক্সটেনশানটির আপনার ব্রাউজিং ইতিহাসে অ্যাক্সেস থাকবে৷</translation>
 <translation id="1516602185768225813">শেষ বার খোলা পৃষ্ঠাগুলি পুনরায় খুলুন</translation>
 <translation id="4874539263382920044">শিরোনামে কমপক্ষে একটি অক্ষর থাকা আবশ্যক</translation>
@@ -426,7 +423,6 @@
 <translation id="4378551569595875038">সংযুক্ত হচ্ছে...</translation>
 <translation id="7029809446516969842">পাসওয়ার্ড</translation>
 <translation id="3513979718339724672">থাম্বনেইলগুলি দেখান</translation>
-<translation id="7300965843904003671">সর্বদা <ph name="URL"/> থেকে পপ-আপগুলি দেখান</translation>
 <translation id="8211437954284917092">আপনার বুকমার্কস অনুসন্ধানের জন্য উপরের পাঠ ক্ষেত্রে একটি ক্যোয়ারী লিখুন৷</translation>
 <translation id="5958418293370246440"><ph name="SAVED_FILES"/>টি / <ph name="TOTAL_FILES"/>টি ফাইল</translation>
 <translation id="1291121346508216435">স্বয়ংক্রিয়ভাবে বানান ঠিক করুন:</translation>
@@ -563,7 +559,6 @@
 <translation id="4870177177395420201"><ph name="PRODUCT_NAME"/> ডিফল্ট ব্রাউজারকে নির্ধারণ বা সেট করতে পারে না৷</translation>
 <translation id="8898786835233784856">পরবর্তী ট্যাব নির্বাচন করুন</translation>
 <translation id="2674170444375937751">আপনি কি আপনার ইতিহাস থেকে এই পৃষ্ঠাগুলি মোছার বিষয়ে নিশ্চিত?</translation>
-<translation id="4203689580933736628">ব্লক করা আইটেম: <ph name="COUNT"/>টি</translation>
 <translation id="2653166165688724436">ওয়েব ডেটাবেস</translation>
 <translation id="7629827748548208700">ট্যাব: <ph name="TAB_NAME"/></translation>
 <translation id="8449008133205184768">আটকানো ও মানান শৈলী</translation>
@@ -632,11 +627,9 @@
 <translation id="2838167480523328393">&quot;<ph name="EXTENSION_NAME"/>&quot; ইনস্টল করবেন?</translation>
 <translation id="2497284189126895209">সকল ফাইল</translation>
 <translation id="5360606537916580043">অন্তিম দিন</translation>
-<translation id="6589689504565594563">কুকিজ মুছুন</translation>
 <translation id="1682548588986054654">নতুন ছদ্মবেশী উইন্ডো</translation>
 <translation id="6833901631330113163">দক্ষিণ ইউরোপীয়</translation>
 <translation id="5110450810124758964"><ph name="NUMBER_ONE"/> day ago</translation>
-<translation id="5256138355144269748">অবরুদ্ধ পপ-আপ</translation>
 <translation id="2820806154655529776"><ph name="NUMBER_ONE"/> সেকেন্ড</translation>
 <translation id="1077946062898560804">সকল ব্যবহারকারীর জন্য স্বয়ংক্রিয় আপডেটগুলো সেটআপ করুন</translation>
 <translation id="3122496702278727796">ডেটা ডিরেক্টরি তৈরি করতে ব্যর্থ</translation>
@@ -1047,7 +1040,6 @@
 <translation id="6847541693235449912">যান</translation>
 <translation id="5546865291508181392">খুঁজুন</translation>
 <translation id="5333374927882515515"><ph name="DEF_BROWSER"/> থেকে বুকমার্কস, পাসওয়ার্ড এবং অন্যান্য সেটিংস আমদানি করুন</translation>
-<translation id="4239831617079978238">অধিবেশন সমাপ্তি</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE"/> - <ph name="FULL_DATE"/></translation>
 <translation id="5960889226412209189">কমপ্যাক্ট নেভিগেশন বার টগল করুন</translation>
 <translation id="8954894007019320973">(চলছে)</translation>
@@ -1067,16 +1059,13 @@
 <translation id="8562413501751825163">আমদানি করার আগে Firefox বন্ধ করুন</translation>
 <translation id="4309420042698375243"><ph name="NUM_KILOBYTES"/>K (<ph name="NUM_KILOBYTES_LIVE"/>K লাইভ)</translation>
 <translation id="5034259512732355072">অন্য ডাইরেক্টরি চয়ন করুন...</translation>
-<translation id="5074322878757699801">ডেটা আমদানি হচ্ছে...</translation>
 <translation id="7505152414826719222">স্থানীয় সঞ্চয়</translation>
 <translation id="5706242308519462060">ডিফল্ট এনকোডিং:</translation>
 <translation id="5280833172404792470">পূর্ণ স্ক্রীন থেকে প্রস্থান করুন (<ph name="ACCELERATOR"/>)</translation>
-<translation id="4000986992587584088">সর্বদা <ph name="URL"/>-এর পপ-আপগুলি দেখান</translation>
 <translation id="129553762522093515">সম্প্রতি বন্ধ হয়েছে</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> দিন</translation>
 <translation id="3891357445869647828">JavaScript সক্ষম করুন</translation>
 <translation id="6451458296329894277">ফর্ম পুনঃজমা নিশ্চিত করুন</translation>
-<translation id="3218545474413654570"><ph name="URL"/> - <ph name="WINDOW_TITLE"/></translation>
 <translation id="5116333507878097773"><ph name="NUMBER_ONE"/> ঘন্টা</translation>
 <translation id="1851266746056575977">এখনই আপডেট করুন</translation>
 <translation id="3715099868207290855"><ph name="USER_EMAIL_ADDRESS"/>-এ সিঙ্ক করা হয়েছে</translation>
@@ -1330,7 +1319,6 @@
 <translation id="6053401458108962351">&amp;ব্রাউজিং ডেটা সাফ করুন...</translation>
 <translation id="2339641773402824483">আপডেটের জন্য চেক করা হচ্ছে...</translation>
 <translation id="8600200086690278232">বৈশিষ্ট্যযুক্ত ওয়েব ক্লিপস</translation>
-<translation id="8582728318425382804">কুকিজ এবং ওয়েবসাইট অনুমতিসমূহ</translation>
 <translation id="2766006623206032690">প্র&amp;তিলেপন করুন ও যান</translation>
 <translation id="9071050381089585305">প্রতিক্রিয়াবিহীন স্ক্রিপ্ট</translation>
 <translation id="4394049700291259645">অক্ষম</translation>

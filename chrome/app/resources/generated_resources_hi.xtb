@@ -123,7 +123,6 @@
 <translation id="1644574205037202324">इतिहास</translation>
 <translation id="2518917559152314023">&amp;जोड़ें ...</translation>
 <translation id="6583406242234752719">आपने अपने बुकमार्क को अपने अन्य कंप्यूटर के साथ सिंक करने के लिए सेट अप नहीं किया है.</translation>
-<translation id="923693997520853947"><ph name="URL"/> - <ph name="REASON"/></translation>
 <translation id="4510290974676570902">MIME प्रकार</translation>
 <translation id="5565725983873655007">सुरक्षित (SSL) पृष्ठों पर मिश्रित सामग्री होने मौजूद पर :</translation>
 <translation id="5155055381903895958">प्रोफ़ाइल आयात:</translation>
@@ -133,7 +132,6 @@
 <translation id="7767960058630128695">पासवर्ड :</translation>
 <translation id="6518014396551869914">चित्र की प्रतिलिपि बनाएँ</translation>
 <translation id="542155483965056918"><ph name="NUMBER_ZERO"/> mins ago</translation>
-<translation id="6363850194751762580">पॉप-अप प्रबंधित करें</translation>
 <translation id="3118319026408854581"><ph name="PRODUCT_NAME"/> सहायता</translation>
 <translation id="4120898696391891645">पृष्ठ लोड नहीं होगा</translation>
 <translation id="5584537427775243893">आयात कर रहा है</translation>
@@ -370,7 +368,6 @@
 <translation id="5494362494988149300">&amp;पू्र्ण होने पर खोलें</translation>
 <translation id="3234408098842461169">नीचे तीर</translation>
 <translation id="825608351287166772">आपके पास मौजूद पहचान संबंधी किसी भी दस्तावेज़ (जैसे पासपोर्ट) की तरह, प्रमाणपत्रों की एक मान्यता अवधि होती है. आपके ब्राउज़र को प्रस्तुत किया गया प्रमाणपत्र अभी मान्य नहीं है. कोई प्रमाणपत्र मान्यता अवधि से बाहर होने पर, उस प्रमाणपत्र की स्थिति के बारे में कुछ निश्चित जानकारी (क्‍या वह निरस्त किया गया है और अब विश्वस्नीय नहीं है) बनाए रखने की आवश्यकता नहीं होती. सामान्यत:, यह सत्यापित करना संभव नहीं है कि यह प्रमाणपत्र विश्वस्नीय है. आपको आगे नहीं जाना चाहिए.</translation>
-<translation id="2742457360514408037">पॉप-अप्स ब्लॉक्ड: <ph name="COUNT"/></translation>
 <translation id="7154150278819212687">इस विस्तार के पास सभी वेबसाइट पर आपके ब्राउज़िंग इतिहास तक पहुंच होगी.</translation>
 <translation id="1516602185768225813">अंत में खोले गए पृष्ठ पुनः खोलें</translation>
 <translation id="4874539263382920044">शीर्षक में कम से कम एक वर्ण होना चाहिए</translation>
@@ -425,7 +422,6 @@
 <translation id="4378551569595875038">कनेक्ट हो रहा है...</translation>
 <translation id="7029809446516969842">पासवर्ड</translation>
 <translation id="3513979718339724672">थंबनेल दिखाएं</translation>
-<translation id="7300965843904003671"><ph name="URL"/> से हमेशा पॉप-अप दिखाएं</translation>
 <translation id="8211437954284917092">अपने बुकमार्क खोजने के लिए उपरोक्त पाठ फ़ील्ड में कोई क्वेरी दर्ज करें.</translation>
 <translation id="5958418293370246440"><ph name="SAVED_FILES"/><ph name="TOTAL_FILES"/> फ़ाइलें</translation>
 <translation id="1291121346508216435">स्वचालित रूप से वर्तनी सुधारें:</translation>
@@ -551,7 +547,6 @@
 <translation id="4870177177395420201"><ph name="PRODUCT_NAME"/> डिफ़ॉल्ट ब्राउज़र को निर्धारित या सेट नहीं कर सकता.</translation>
 <translation id="8898786835233784856">अगला टैब चयनित करें</translation>
 <translation id="2674170444375937751">क्या आप वाकई अपने इतिहास से इन पृष्ठों को मिटाना चाहते हैं ?</translation>
-<translation id="4203689580933736628">अवरोधित आइटम: <ph name="COUNT"/></translation>
 <translation id="2653166165688724436">वेब डेटाबेस</translation>
 <translation id="7629827748548208700">टैब : <ph name="TAB_NAME"/></translation>
 <translation id="8449008133205184768">चिपकाएं और शैली का मिलान करें</translation>
@@ -620,11 +615,9 @@
 <translation id="2838167480523328393">&quot;<ph name="EXTENSION_NAME"/>&quot; स्थापित करें?</translation>
 <translation id="2497284189126895209">सभी फ़ाइलें</translation>
 <translation id="5360606537916580043">अंतिम दिन</translation>
-<translation id="6589689504565594563">कुकीज़ हटाएँ</translation>
 <translation id="1682548588986054654">नई &amp;गुप्त विंडो</translation>
 <translation id="6833901631330113163">दक्षिण यूरोपीय</translation>
 <translation id="5110450810124758964"><ph name="NUMBER_ONE"/> दिन पहले</translation>
-<translation id="5256138355144269748">ब्लॉक किए गए पॉप-अप</translation>
 <translation id="2820806154655529776"><ph name="NUMBER_ONE"/> सेकंड</translation>
 <translation id="3122496702278727796">डाटा निर्देशिका बनाने में असफ़ल रहा</translation>
 <translation id="8888930795132369495">फ़ाइल &amp;पथ की प्रतिलिपि करें</translation>
@@ -1031,7 +1024,6 @@
 <translation id="6847541693235449912">जाएँ</translation>
 <translation id="5546865291508181392">ढूंढें</translation>
 <translation id="5333374927882515515"><ph name="DEF_BROWSER"/> से बुकमार्क, पासवर्ड, और अन्य सेटिंग्स आयात करें</translation>
-<translation id="4239831617079978238">सत्र का अंत</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE"/> - <ph name="FULL_DATE"/></translation>
 <translation id="5960889226412209189">कॉम्पैक्ट नेविगेशन बार टॉगल करें</translation>
 <translation id="8954894007019320973">(जारी.)</translation>
@@ -1051,16 +1043,13 @@
 <translation id="8562413501751825163">इम्पोर्ट करने से पहले फायरबॉक्स बंद करें</translation>
 <translation id="4309420042698375243"><ph name="NUM_KILOBYTES"/>K (<ph name="NUM_KILOBYTES_LIVE"/>K लाइव)</translation>
 <translation id="5034259512732355072">कोई अन्य निर्देशिका चुनें ...</translation>
-<translation id="5074322878757699801">डेटा आयात करें...</translation>
 <translation id="7505152414826719222">स्थानीय संग्रह</translation>
 <translation id="5706242308519462060">डिफॉल्ट एन्कोडिंग :</translation>
 <translation id="5280833172404792470">संपूर्ण स्क्रीन से बाहर निकलें (<ph name="ACCELERATOR"/>)</translation>
-<translation id="4000986992587584088">हमेशा <ph name="URL"/> से पॉप-अप दिखाएं</translation>
 <translation id="129553762522093515">हाल में बंद किया गया</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/>दिन</translation>
 <translation id="3891357445869647828">JavaScript सक्षम करें</translation>
 <translation id="6451458296329894277">फ़ार्म पुन: जमा करने की पुष्टि करें</translation>
-<translation id="3218545474413654570"><ph name="URL"/> - <ph name="WINDOW_TITLE"/></translation>
 <translation id="5116333507878097773"><ph name="NUMBER_ONE"/> घंटे</translation>
 <translation id="1851266746056575977">अभी अद्यतन न करें</translation>
 <translation id="3715099868207290855"><ph name="USER_EMAIL_ADDRESS"/> में सिंक किया गया</translation>
@@ -1313,7 +1302,6 @@
 <translation id="6053401458108962351">ब्राउज़िंग डेटा &amp;साफ़ करें...</translation>
 <translation id="2339641773402824483">अद्यतनों के लिए जाँच रहा है ...</translation>
 <translation id="8600200086690278232">फ़ीचर की गईं वेब क्लिप</translation>
-<translation id="8582728318425382804">कुकी और वेबसाइट अनुमतियां</translation>
 <translation id="2766006623206032690">&amp;चिपकाएँ और जाएँ</translation>
 <translation id="9071050381089585305">अप्रतिसादी स्क्रिप्ट</translation>
 <translation id="4394049700291259645">अक्षम करें</translation>

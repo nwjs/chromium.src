@@ -70,6 +70,7 @@
 <translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="8865765905101981392">Веб-браузер</translation>
 <translation id="8776515774046280928">Браузер Google Chrome уже установлен и доступен для всех пользователей этого компьютера. Если необходимо установить Google Chrome на уровне пользователя, сначала необходимо удалить версию на уровне системы, установленную администратором.</translation>
+<translation id="2189123953385179981">Google Chrome OS не поддерживает запуск внешних приложений для обработки ссылок типа <ph name="SCHEME"/>. Запрошенная ссылка: <ph name="PROTOLINK"/>.</translation>
 <translation id="7196020411877309443">Что это?</translation>
 <translation id="2769762047821873045">Google Chrome не является браузером по умолчанию.</translation>
 <translation id="7825851276765848807">Не удалось выполнить установку из-за неизвестной ошибки. Загрузите Google Chrome еще раз.</translation>

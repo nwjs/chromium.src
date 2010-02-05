@@ -121,7 +121,6 @@
 <translation id="1644574205037202324">ಇತಿಹಾಸ</translation>
 <translation id="2518917559152314023">ಸೇ&amp;ರಿಸಿ...</translation>
 <translation id="6583406242234752719">ನಿಮ್ಮ ಇತರ ಕಂಪ್ಯೂಟರ್‌ಗಳೊಂದಿಗೆ ನಿಮ್ಮ ಬುಕ್‌ಮಾರ್ಕ್‌ಗಳನ್ನು ಸಿಂಕ್ ಮಾಡಲು ನಿಮ್ಮನ್ನು ಹೊಂದಿಸಲಾಗಿಲ್ಲ.</translation>
-<translation id="923693997520853947"><ph name="URL"/> - <ph name="REASON"/></translation>
 <translation id="4510290974676570902">MIME ಪ್ರಕಾರ</translation>
 <translation id="5565725983873655007">ಸುರಕ್ಷಿತ (SSL) ಪುಟಗಳಲ್ಲಿ ಮಿಶ್ರಿತ ವಿಷಯಗಳಿದ್ದಾಗ:</translation>
 <translation id="5155055381903895958">ಪ್ರೊಫೈಲ್ ಆಮದು:</translation>
@@ -131,7 +130,6 @@
 <translation id="7767960058630128695">ಪಾಸ್‌ವರ್ಡ್‌ಗಳು:</translation>
 <translation id="6518014396551869914">ಇಮೇಜ್ ಅನ್ನು ನಕ&amp;ಲಿಸಿ</translation>
 <translation id="542155483965056918"><ph name="NUMBER_ZERO"/> mins ago</translation>
-<translation id="6363850194751762580">ಪಾಪ್ ಅಪ್‌ಗಳನ್ನು ನಿರ್ವಹಿಸಿ</translation>
 <translation id="3118319026408854581"><ph name="PRODUCT_NAME"/> ಸಹಾಯ</translation>
 <translation id="4120898696391891645">ಪುಟವು ಲೋಡ್ ಆಗುವುದಿಲ್ಲ</translation>
 <translation id="5584537427775243893">ಆಮದು ಮಾಡುತ್ತಿದೆ</translation>
@@ -369,7 +367,6 @@
 <translation id="5494362494988149300">&amp;ಮುಗಿಸಿದಾಗ ತೆರೆಯಿರಿ</translation>
 <translation id="3234408098842461169">ಕೆಳಗಿನ ಬಾಣದ ಗುರುತು</translation>
 <translation id="825608351287166772">ನೀವು ಹೊಂದಿರುವಂತಹ ಯಾವುದೇ ಗುರುತು ದಾಖಲೆಯಂತೆ (ಪಾಸ್‌ಪೋರ್ಟ್‌ನಂತೆ), ಪ್ರಮಾಣಪತ್ರಗಳು ಅಂಗೀಕಾರಾರ್ಹತೆಯ ಅವಧಿಯನ್ನು ಹೊಂದಿರುತ್ತವೆ. ನಿಮ್ಮ ಬ್ರೌಸರ್‌ಗೆ ಒದಗಿಸಿದ ಪ್ರಮಾಣಪತ್ರವು ಇನ್ನೂ ಮಾನ್ಯವಾಗಿಲ್ಲ. ಪ್ರಮಾಣಪತ್ರವು ಅವಧಿ ಮೀರಿದರೆ, ಪ್ರಮಾಣಪತ್ರದ ಸ್ಥಾನಮಾನದ ಬಗ್ಗೆ ಕೆಲವು ಮಾಹಿತಿವನ್ನು (ಅದು ಹಿಂಪಡೆದಿರಲಿ ಮತ್ತು ಇನ್ನು ಮುಂದೆ ಅದು ವಿಶ್ವಾಸರ್ಹವಾಗಿರುವುದಿಲ್ಲವಾಗಿರಲಿ) ನಿರ್ವಹಿಸುವ ಅಗತ್ಯವಿಲ್ಲ. ಅದರಂತೆ, ಈ ಪ್ರಮಾಣಪತ್ರ ವಿಶ್ವಾಸಾರ್ಹವಾಗಿದೆಯೇ ಎಂಬುದನ್ನು ಪರಿಶೀಲಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ. ನೀವು ಮುಂದುವರಿಯಬಾರದು.</translation>
-<translation id="2742457360514408037">ಪಾಪ್-ಅಪ್ ನಿರ್ಬಂಧಿಸಿದೆ: <ph name="COUNT"/></translation>
 <translation id="7154150278819212687">ನಿಮ್ಮ ಬ್ರೌಸಿಂಗ್ ಇತಿಹಾಸಕ್ಕೆ ಈ ವಿಸ್ತರಣೆಯು ಪ್ರವೇಶವನ್ನು ಹೊಂದಿರುತ್ತದೆ.</translation>
 <translation id="1516602185768225813">ಈ ಹಿಂದೆ ತೆರೆದ ಪುಟಗಳನ್ನು ಪುನಃತೆರೆಯಿರಿ</translation>
 <translation id="4874539263382920044">ಶೀರ್ಷಿಕೆಯು ಕನಿಷ್ಠ ಪಕ್ಷ ಒಂದು ಅಕ್ಷರವನ್ನಾದರೂ ಒಳಗೊಂಡಿರಬೇಕು</translation>
@@ -424,7 +421,6 @@
 <translation id="4378551569595875038">ಸಂಪರ್ಕಿಸಲಾಗುತ್ತಿದೆ...</translation>
 <translation id="7029809446516969842">ಪಾಸ್‌ವರ್ಡ್‌ಗಳು</translation>
 <translation id="3513979718339724672">ಚಿಕ್ಕಚಿತ್ರಗಳನ್ನು ತೋರಿಸಿ</translation>
-<translation id="7300965843904003671"><ph name="URL"/> ನಿಂದ ಯಾವಾಗಲೂ ಪಾಪ್ ಅಪ್‌ಗಳನ್ನು ಪ್ರದರ್ಶಿಸು</translation>
 <translation id="8211437954284917092">ನಿಮ್ಮ ಬುಕ್‌ಮಾರ್ಕ್‌ಗಳನ್ನು ಹುಡುಕಲು ಮೇಲಿನ ಪಠ್ಯ ಕ್ಷೇತ್ರದಲ್ಲಿ ಪ್ರಶ್ನೆಯನ್ನು ನಮೂದಿಸಿ.</translation>
 <translation id="5958418293370246440"><ph name="SAVED_FILES"/> / <ph name="TOTAL_FILES"/> ಫೈಲ್‌ಗಳು</translation>
 <translation id="1291121346508216435">ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಕಾಗುಣಿತವನ್ನು ಪರೀಕ್ಷಿಸಿ:</translation>
@@ -560,7 +556,6 @@
 <translation id="4870177177395420201"><ph name="PRODUCT_NAME"/> ಸಮರ್ಥಿಸುವುದಿಲ್ಲ ಅಥವಾ ಡೀಫಾಲ್ಟ್ ಬ್ರೌಸರ್ ಅನ್ನು ಹೊಂದಿಸುವುದಿಲ್ಲ.</translation>
 <translation id="8898786835233784856">ಮುಂದೆ ಟ್ಯಾಬ್ ಆಯ್ಕೆಮಾಡಿ</translation>
 <translation id="2674170444375937751">ನಿಮ್ಮ ಇತಿಹಾಸದಿಂದ ನೀವು ಈ ಪುಟಗಳನ್ನು ಖಚಿತವಾಗಿ ಅಳಿಸಲು ಬಯಸುತ್ತಿದ್ದೀರಾ?</translation>
-<translation id="4203689580933736628">ನಿರ್ಬಂಧಿಸಿದ ಐಟಂಗಳು: <ph name="COUNT"/></translation>
 <translation id="2653166165688724436">ವೆಬ್  ಡೇಟಾಬೇಸ್</translation>
 <translation id="7629827748548208700">ಟ್ಯಾಬ್: <ph name="TAB_NAME"/></translation>
 <translation id="8449008133205184768">ಅಂಟಿಸು  ಮತ್ತು  ಶೈಲಿ ಹೊಂದಿಸು</translation>
@@ -629,11 +624,9 @@
 <translation id="2838167480523328393">&quot;<ph name="EXTENSION_NAME"/>&quot; ಸ್ಥಾಪಿಸುವುದೇ?</translation>
 <translation id="2497284189126895209">ಎಲ್ಲ ಫೈಲ್‌ಗಳು</translation>
 <translation id="5360606537916580043">ಹಿಂದಿನ ದಿನ</translation>
-<translation id="6589689504565594563">ಕುಕೀಸ್‌ಅನ್ನು ಅಳಿಸಿ</translation>
 <translation id="1682548588986054654">ಹೊಸ ಅಜ್ಞಾತ ವಿಂಡೋ</translation>
 <translation id="6833901631330113163">ದಕ್ಷಿಣ ಯುರೋಪಿಯನ್</translation>
 <translation id="5110450810124758964"><ph name="NUMBER_ONE"/> day ago</translation>
-<translation id="5256138355144269748">ನಿರ್ಬಂಧಿಸಿದ Pop-up</translation>
 <translation id="2820806154655529776"><ph name="NUMBER_ONE"/> ಸೆಕೆಂಡು</translation>
 <translation id="1077946062898560804">ಎಲ್ಲ ಬಳಕೆದಾರರಿಗೆ ಸ್ವಯಂಚಾಲಿತ ನವೀಕರಣಗಳನ್ನು ಹೊಂದಿಸಿ </translation>
 <translation id="3122496702278727796">ಡೇಟಾ ಡೈರೆಕ್ಟರಿ ರಚಿಸಲು ವಿಫಲವಾಗಿದೆ</translation>
@@ -969,6 +962,7 @@
 <translation id="7280343984261969618">ಯಾವುದೇ ಸೌಲಭ್ಯಗಳಿಲ್ಲದೆ sandbox ಅಲ್ಲಿರುವ ಪ್ಲಗ್-ಇನ್ಸ್ ಅನ್ನು ರನ್ ಮಾಡುತ್ತದೆ. ಕೆಲವು ಪ್ಲಗ್-ಇನ್ಸ್ ಅನ್ನು ಸರಿಯಾಗಿ ಕೆಲಸ ಮಾಡದಿರುವಂತೆ ಮಾಡುತ್ತದೆ.</translation>
 <translation id="50030952220075532"><ph name="NUMBER_ONE"/> ದಿನಗಳು ಉಳಿದಿವೆ</translation>
 <translation id="2885378588091291677">ಕಾರ್ಯ ನಿರ್ವಾಹಕ</translation>
+<translation id="5792852254658380406">ವಿಸ್ತರಣೆಗಳನ್ನು ನಿರ್ವಹಣೆ ಮಾಡಿ... </translation>
 <translation id="1215711112676250731">ಕೋಟಾ:</translation>
 <translation id="2359808026110333948">ಮುಂದುವರಿಸು</translation>
 <translation id="1618661679583408047">ಸರ್ವರ್‌ನ ಭದ್ರತಾ ಪ್ರಮಾಣಪತ್ರ ಈಗಲೂ ಮಾನ್ಯವಾಗಿಲ್ಲವೇ!</translation>
@@ -1042,7 +1036,6 @@
 <translation id="6847541693235449912">ಹೋಗು</translation>
 <translation id="5546865291508181392">ಹುಡುಕು</translation>
 <translation id="5333374927882515515"><ph name="DEF_BROWSER"/> ನಿಂದ ಬುಕ್‌ಮಾರ್ಕ್‌ಗಳು, ಪಾಸ್‌ವರ್ಡ್‌ಗಳು. ಮತ್ತು ಇತರ ಸೆಟ್ಟಿಂಗ್ಸ್‌ಅನ್ನು ಆಮದು ಮಾಡಿ.</translation>
-<translation id="4239831617079978238">ಅವಧಿಯ ಕೊನೆ</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE"/> - <ph name="FULL_DATE"/></translation>
 <translation id="5960889226412209189">ಕಿರು ನ್ಯಾವಿಗೇಶನ್ ಪಟ್ಟಿಯನ್ನು ಬದಲಿಸಿ</translation>
 <translation id="8954894007019320973">(ಮುಂದು.)</translation>
@@ -1062,16 +1055,13 @@
 <translation id="8562413501751825163">ಆಮದು ಮಾಡುವ ಮೊದಲು Firefox ಅನ್ನು ಮುಚ್ಚಿ</translation>
 <translation id="4309420042698375243"><ph name="NUM_KILOBYTES"/>K (<ph name="NUM_KILOBYTES_LIVE"/>K ಲೈವ್)</translation>
 <translation id="5034259512732355072">ಮತ್ತೊಂದು ಡೈರೆಕ್ಟರಿ ಆನ್ನು ಆಯ್ಕೆ ಮಾಡಿ...</translation>
-<translation id="5074322878757699801">ಡೇಟಾ ಆಮದು ಮಾಡಿ...</translation>
 <translation id="7505152414826719222">ಸ್ಥಳೀಯ ಸಂಗ್ರಹಣೆ</translation>
 <translation id="5706242308519462060">ಡೀಫಾಲ್ಟ್ ಎನ್‌ಕೋಡಿಂಗ್</translation>
 <translation id="5280833172404792470">ಪೂರ್ಣ ಪರದೆಯನ್ನು ನಿರ್ಗಮಿಸಿ (<ph name="ACCELERATOR"/>)</translation>
-<translation id="4000986992587584088"><ph name="URL"/> ನಿಂದ ಯಾವಾಗಲೂ ಪಾಪ್ ಅಪ್‌ಗಳನ್ನು ಪ್ರದರ್ಶಿಸಿ</translation>
 <translation id="129553762522093515">ಇತ್ತೀಚೆಗೆ ಮುಚ್ಚಲಾಗಿರುವುದು</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> ದಿನಗಳು</translation>
 <translation id="3891357445869647828">JavaScript ಸಕ್ರಿಯಗೊಳಿಸಿ.</translation>
 <translation id="6451458296329894277">ಮರುಸಲ್ಲಿಕೆ ಫಾರ್ಮ್ ಅನ್ನು ಖಚಿತಪಡಿಸಿಕೊಳ್ಳಿ</translation>
-<translation id="3218545474413654570"><ph name="URL"/> - <ph name="WINDOW_TITLE"/></translation>
 <translation id="5116333507878097773"><ph name="NUMBER_ONE"/> ಗಂಟೆ</translation>
 <translation id="1851266746056575977">ಈಗ ನವೀಕರಿಸಿ</translation>
 <translation id="3715099868207290855"><ph name="USER_EMAIL_ADDRESS"/> ಗೆ ಸಿಂಕ್ ಗೊಳಿಸಲಾಗಿದೆ</translation>
@@ -1325,7 +1315,6 @@
 <translation id="6053401458108962351">&amp;ಬ್ರೌಸಿಂಗ್ &amp;ಡೇಟಾವನ್ನು ತೆರವುಗೊಳಿಸಿ...</translation>
 <translation id="2339641773402824483">ಅಪ್‌ಡೇಟ್‌ಗಳಿಗಾಗಿ ಪರಿಶೀಲಿಸಲಾಗುತ್ತಿದೆ ...</translation>
 <translation id="8600200086690278232">ವೈಶಿಷ್ಟ್ಯಹೊಂದಿರುವ ವೆಬ್ ಕ್ಲಿಪ್‌ಗಳು</translation>
-<translation id="8582728318425382804">ಕುಕೀಸ್ ಮತ್ತು  ವೆಬ್‌ಸೈಟ್ ಅನುಮತಿಗಳು</translation>
 <translation id="2766006623206032690">ಅಂ&amp;ಟಿಸಿ ಮತ್ತು ಹೋಗಿ</translation>
 <translation id="9071050381089585305">ಪ್ರತಿಕ್ರಿಯಿಸದ ಸ್ಕ್ರಿಪ್ಟ್</translation>
 <translation id="4394049700291259645">ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಿ</translation>

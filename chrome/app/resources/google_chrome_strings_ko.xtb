@@ -69,6 +69,7 @@
 <translation id="9039578207253536065">Google 크롬 작업자</translation>
 <translation id="8865765905101981392">인터넷 브라우저</translation>
 <translation id="8776515774046280928">Google 크롬이 설치되어 컴퓨터의 모든 사용자가 사용할 수 있습니다. 사용자 수준에서 Google 크롬을 설치하려면 관리자가 설치한 시스템 수준 버전을 제거하세요.</translation>
+<translation id="2189123953385179981">Google 크롬 OS는 외부 응용프로그램 실행을 통한 <ph name="SCHEME"/> 링크 처리를 지원하지 않습니다. 요청된 링크는 <ph name="PROTOLINK"/>입니다.</translation>
 <translation id="7196020411877309443">이 메시지가 표시되는 이유</translation>
 <translation id="2769762047821873045">Google 크롬이 기본 브라우저로 설정되어 있지 않습니다.</translation>
 <translation id="7825851276765848807">알 수 없는 오류로 인해 설치에 실패했습니다. Google 크롬을 다시 다운로드하세요.</translation>

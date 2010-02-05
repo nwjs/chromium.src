@@ -123,7 +123,6 @@
 <translation id="1644574205037202324">Verlauf</translation>
 <translation id="2518917559152314023">Hinz&amp;ufügen...</translation>
 <translation id="6583406242234752719">Die Synchronisierung Ihrer Lesezeichen mit mehreren Computern ist nicht eingerichtet.</translation>
-<translation id="923693997520853947"><ph name="URL"/> - <ph name="REASON"/></translation>
 <translation id="4510290974676570902">MIME-Typ</translation>
 <translation id="5565725983873655007">Bei gemischtem Content auf sicheren (SSL) Seiten:</translation>
 <translation id="5155055381903895958">Profil-Import:</translation>
@@ -133,7 +132,6 @@
 <translation id="7767960058630128695">Passwörter:</translation>
 <translation id="6518014396551869914">Bild kop&amp;ieren</translation>
 <translation id="542155483965056918"><ph name="NUMBER_ZERO"/> mins ago</translation>
-<translation id="6363850194751762580">Pop-ups verwalten</translation>
 <translation id="3118319026408854581"><ph name="PRODUCT_NAME"/>-Hilfe</translation>
 <translation id="4120898696391891645">Seite kann nicht geladen werden</translation>
 <translation id="5584537427775243893">Importieren</translation>
@@ -371,7 +369,6 @@
 <translation id="5494362494988149300">Nach &amp;Fertigstellung öffnen</translation>
 <translation id="3234408098842461169">Abwärtspfeil</translation>
 <translation id="825608351287166772">Zertifikate haben (ähnlich wie Reisepässe) einen beschränkten Gültigkeitszeitraum. Das dem Browser präsentierte Zertifikat ist noch nicht gültig. Bestimmte Informationen über den Status (ob zurückgerufen oder nicht mehr vertrauenswürdig) von außerhalb des Gültigkeitszeitraums liegenden Zertifikaten müssen nicht protokolliert werden. Es ist daher nicht möglich, die Vertrauenswürdigkeit dieses Zertifikats zu bestätigen. Fahren Sie nicht fort.</translation>
-<translation id="2742457360514408037">Anzahl blockierter Pop-ups: <ph name="COUNT"/></translation>
 <translation id="7154150278819212687">Dieser Erweiterung wird Zugriff auf Ihren Suchverlauf gewährt.</translation>
 <translation id="1516602185768225813">Zuletzt geöffnete Seiten erneut öffnen</translation>
 <translation id="4874539263382920044">Titel muss mindestens ein Zeichen enthalten</translation>
@@ -426,7 +423,6 @@
 <translation id="4378551569595875038">Verbindung wird aufgebaut...</translation>
 <translation id="7029809446516969842">Passwörter</translation>
 <translation id="3513979718339724672">Miniaturbilder anzeigen</translation>
-<translation id="7300965843904003671">Pop-ups von <ph name="URL"/> immer anzeigen</translation>
 <translation id="8211437954284917092">Geben Sie in das obige Textfeld eine Suchanfrage ein, um Lesezeichen zu suchen.</translation>
 <translation id="5958418293370246440"><ph name="SAVED_FILES"/> / <ph name="TOTAL_FILES"/> Dateien</translation>
 <translation id="1291121346508216435">Rechtschreibung automatisch korrigieren:</translation>
@@ -550,7 +546,6 @@
 <translation id="4870177177395420201"><ph name="PRODUCT_NAME"/> kann den Standardbrowser nicht bestimmen oder einstellen.</translation>
 <translation id="8898786835233784856">Nächsten Tab auswählen</translation>
 <translation id="2674170444375937751">Möchten Sie diese Seiten wirklich aus dem Verlauf löschen?</translation>
-<translation id="4203689580933736628">Blockierte Elemente: <ph name="COUNT"/></translation>
 <translation id="2653166165688724436">Web-Datenbank</translation>
 <translation id="7629827748548208700">Tab: <ph name="TAB_NAME"/></translation>
 <translation id="8449008133205184768">Einfügen und Formatvorlage anpassen</translation>
@@ -619,11 +614,9 @@
 <translation id="2838167480523328393">&quot;<ph name="EXTENSION_NAME"/>&quot; installieren?</translation>
 <translation id="2497284189126895209">Alle Dateien</translation>
 <translation id="5360606537916580043">Letzter Tag</translation>
-<translation id="6589689504565594563">Cookies löschen</translation>
 <translation id="1682548588986054654">Neues &amp;Inkognito-Fenster</translation>
 <translation id="6833901631330113163">Südeuropäisch</translation>
 <translation id="5110450810124758964">Vor <ph name="NUMBER_ONE"/> Tag</translation>
-<translation id="5256138355144269748">Blockiertes Pop-up-Fenster</translation>
 <translation id="2820806154655529776"><ph name="NUMBER_ONE"/> Sekunde</translation>
 <translation id="3122496702278727796">Erstellen eines Datenverzeichnisses fehlgeschlagen</translation>
 <translation id="8888930795132369495">Datei&amp;pfad kopieren</translation>
@@ -1032,7 +1025,6 @@ Sie können Ihre Webclips <ph name="BEGIN_LINK"/>anpassen<ph name="END_LINK"/> u
 <translation id="6847541693235449912">Los geht's</translation>
 <translation id="5546865291508181392">Suchen</translation>
 <translation id="5333374927882515515">Lesezeichen, Passwörter und andere Einstellungen von <ph name="DEF_BROWSER"/> importieren</translation>
-<translation id="4239831617079978238">Sitzungsende</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE"/> - <ph name="FULL_DATE"/></translation>
 <translation id="5960889226412209189">Kompakte Navigationsleiste ein-/ausblenden</translation>
 <translation id="8954894007019320973">(Forts.)</translation>
@@ -1052,17 +1044,13 @@ Sie können Ihre Webclips <ph name="BEGIN_LINK"/>anpassen<ph name="END_LINK"/> u
 <translation id="8562413501751825163">Firefox vor dem Import schließen</translation>
 <translation id="4309420042698375243"><ph name="NUM_KILOBYTES"/> KB (<ph name="NUM_KILOBYTES_LIVE"/> KB live)</translation>
 <translation id="5034259512732355072">Anderes Verzeichnis wählen...</translation>
-<translation id="5074322878757699801">Daten importieren...</translation>
 <translation id="7505152414826719222">Lokaler Speicher</translation>
 <translation id="5706242308519462060">Standard-Codierung:</translation>
 <translation id="5280833172404792470">Vollbildmodus beenden (<ph name="ACCELERATOR"/>)</translation>
-<translation id="4000986992587584088">Pop-ups von <ph name="URL"/> immer anzeigen
-</translation>
 <translation id="129553762522093515">Kürzlich geschlossen</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> Tage</translation>
 <translation id="3891357445869647828">JavaScript aktivieren</translation>
 <translation id="6451458296329894277">Erneute Übermittlung des Formulars bestätigen</translation>
-<translation id="3218545474413654570"><ph name="URL"/> - <ph name="WINDOW_TITLE"/></translation>
 <translation id="5116333507878097773"><ph name="NUMBER_ONE"/> Stunde</translation>
 <translation id="1851266746056575977">Jetzt aktualisieren</translation>
 <translation id="3715099868207290855">Mit <ph name="USER_EMAIL_ADDRESS"/> synchronisiert</translation>
@@ -1315,7 +1303,6 @@ Sie können Ihre Webclips <ph name="BEGIN_LINK"/>anpassen<ph name="END_LINK"/> u
 <translation id="6053401458108962351">&amp;Private Daten löschen...</translation>
 <translation id="2339641773402824483">Sucht nach Updates...</translation>
 <translation id="8600200086690278232">Vorgestellte Webclips</translation>
-<translation id="8582728318425382804">Cookies und Website-Berechtigungen</translation>
 <translation id="2766006623206032690">Einfügen und &amp;fortfahren</translation>
 <translation id="9071050381089585305">Skript reagiert nicht</translation>
 <translation id="4394049700291259645">Deaktivieren

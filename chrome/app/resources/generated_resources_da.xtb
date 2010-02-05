@@ -123,7 +123,6 @@
 <translation id="1644574205037202324">Historik</translation>
 <translation id="2518917559152314023">T&amp;ilføj ...</translation>
 <translation id="6583406242234752719">Du er ikke konfigureret til at synkronisere dine bogmærker med dine andre computere.</translation>
-<translation id="923693997520853947"><ph name="URL"/> - <ph name="REASON"/></translation>
 <translation id="4510290974676570902">MIME-type</translation>
 <translation id="5565725983873655007">Når der findes blandet indhold på sikre (SSL) sider:</translation>
 <translation id="5155055381903895958">Import af profil:</translation>
@@ -133,7 +132,6 @@
 <translation id="7767960058630128695">Adgangskoder:</translation>
 <translation id="6518014396551869914">Ko&amp;pier billede</translation>
 <translation id="542155483965056918"><ph name="NUMBER_ZERO"/> mins ago</translation>
-<translation id="6363850194751762580">Administrer popups</translation>
 <translation id="3118319026408854581"><ph name="PRODUCT_NAME"/> Hjælp</translation>
 <translation id="4120898696391891645">Siden vil ikke indlæses</translation>
 <translation id="5584537427775243893">Importerer</translation>
@@ -370,7 +368,6 @@
 <translation id="5494362494988149300">Åbn når &amp;færdigt</translation>
 <translation id="3234408098842461169">Pil nedad</translation>
 <translation id="825608351287166772">Certifikater har en gyldighedsperiode ganske som de andre former for identifikation (eksempelvis et pas), du har. Sikkerhedscertifikatet, som blev vist for browseren, er endnu ikke gyldigt! Når et certifikat har overskredet sin gyldighedsperiode, er der visse oplysninger om certifikatets status (om det er blevet tilbagetrukket og dermed ikke længere er troværdigt) som ikke længere skal vedligeholdes. Derfor er det ikke muligt at bekræfte, om dette certifikat er troværdigt. Du bør ikke fortsætte herfra.</translation>
-<translation id="2742457360514408037">Blokerede popupvinduer: <ph name="COUNT"/></translation>
 <translation id="7154150278819212687">Denne udvidelse vil få adgang til din browserhistorik.</translation>
 <translation id="1516602185768225813">Genåbner de sider, der sidst var åbne</translation>
 <translation id="4874539263382920044">Titlen skal bestå af mindst et tegn</translation>
@@ -425,7 +422,6 @@
 <translation id="4378551569595875038">Opretter forbindelse ...</translation>
 <translation id="7029809446516969842">Adgangskoder</translation>
 <translation id="3513979718339724672">Vis miniaturer</translation>
-<translation id="7300965843904003671">Vis altid popups fra <ph name="URL"/></translation>
 <translation id="8211437954284917092">Angiv en forespørgsel i tekstfeltet ovenfor for at søge i dine bogmærker.</translation>
 <translation id="5958418293370246440"><ph name="SAVED_FILES"/> / <ph name="TOTAL_FILES"/> filer</translation>
 <translation id="1291121346508216435">Ret stavefejl automatisk:</translation>
@@ -552,7 +548,6 @@
 <translation id="4870177177395420201"><ph name="PRODUCT_NAME"/> kan ikke fastlægge eller angive standardbrowseren.</translation>
 <translation id="8898786835233784856">Vælg næste fane</translation>
 <translation id="2674170444375937751">Er du sikker på, at du vil slette disse sider fra din historik?</translation>
-<translation id="4203689580933736628">Blokerede elementer: <ph name="COUNT"/></translation>
 <translation id="2653166165688724436">Webdatabase</translation>
 <translation id="7629827748548208700">Fane: <ph name="TAB_NAME"/></translation>
 <translation id="8449008133205184768">Sæt ind og match stil</translation>
@@ -621,11 +616,9 @@
 <translation id="2838167480523328393">Installer &quot;<ph name="EXTENSION_NAME"/>&quot;?</translation>
 <translation id="2497284189126895209">Alle filer</translation>
 <translation id="5360606537916580043">Seneste døgn</translation>
-<translation id="6589689504565594563">Slet cookies</translation>
 <translation id="1682548588986054654">Nyt inkognitovindue</translation>
 <translation id="6833901631330113163">Sydeuropæisk</translation>
 <translation id="5110450810124758964"><ph name="NUMBER_ONE"/> dag siden</translation>
-<translation id="5256138355144269748">Blokeret popup</translation>
 <translation id="2820806154655529776"><ph name="NUMBER_ONE"/> sek.</translation>
 <translation id="3122496702278727796">Oprettelsen af datamappe mislykkedes</translation>
 <translation id="8888930795132369495">Kopier fil&amp;sti</translation>
@@ -1032,7 +1025,6 @@
 <translation id="6847541693235449912">Start</translation>
 <translation id="5546865291508181392">Find</translation>
 <translation id="5333374927882515515">Import af bogmærker, adgangskoder og andre indstillinger fra <ph name="DEF_BROWSER"/></translation>
-<translation id="4239831617079978238">Udløb af session</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE"/> - <ph name="FULL_DATE"/></translation>
 <translation id="5960889226412209189">Slå kompakt navigationslinje til/fra</translation>
 <translation id="8954894007019320973">(Forts.)</translation>
@@ -1052,16 +1044,13 @@
 <translation id="8562413501751825163">Luk Firefox inden import</translation>
 <translation id="4309420042698375243"><ph name="NUM_KILOBYTES"/>K (<ph name="NUM_KILOBYTES_LIVE"/>K live)</translation>
 <translation id="5034259512732355072">Vælg en anden mappe ...</translation>
-<translation id="5074322878757699801">Importer data ...</translation>
 <translation id="7505152414826719222">Lokalt lager</translation>
 <translation id="5706242308519462060">Standardkodning:</translation>
 <translation id="5280833172404792470">Afslut fuld skærm (<ph name="ACCELERATOR"/>)</translation>
-<translation id="4000986992587584088">Vis altid popups fra <ph name="URL"/></translation>
 <translation id="129553762522093515">Senest lukkede</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> dage</translation>
 <translation id="3891357445869647828">Aktiver JavaScript</translation>
 <translation id="6451458296329894277">Bekræft genindsendelse af formular</translation>
-<translation id="3218545474413654570"><ph name="URL"/> - <ph name="WINDOW_TITLE"/></translation>
 <translation id="5116333507878097773"><ph name="NUMBER_ONE"/> time</translation>
 <translation id="1851266746056575977">Opdater nu</translation>
 <translation id="3715099868207290855">Synkroniserede til <ph name="USER_EMAIL_ADDRESS"/></translation>
@@ -1315,7 +1304,6 @@
 <translation id="6053401458108962351">&amp;Slet browsingdata ...</translation>
 <translation id="2339641773402824483">Kontrollerer for opdateringer ...</translation>
 <translation id="8600200086690278232">Fremhævede webudklip</translation>
-<translation id="8582728318425382804">Cookies og tilladelser for websted </translation>
 <translation id="2766006623206032690">Indsæt og fortsæt</translation>
 <translation id="9071050381089585305">Scriptet svarer ikke</translation>
 <translation id="4394049700291259645">Deaktiver</translation>

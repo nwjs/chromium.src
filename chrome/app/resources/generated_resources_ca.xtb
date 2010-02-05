@@ -123,7 +123,6 @@
 <translation id="1644574205037202324">Historial</translation>
 <translation id="2518917559152314023">A&amp;fegeix...</translation>
 <translation id="6583406242234752719">No disposeu de la configuració per sincronitzar les adreces d'interès amb la resta d'equips.</translation>
-<translation id="923693997520853947"><ph name="URL"/> - <ph name="REASON"/></translation>
 <translation id="4510290974676570902">Tipus de MIME</translation>
 <translation id="5565725983873655007">Quan hi ha contingut mixt a pàgines segures (SSL):</translation>
 <translation id="5155055381903895958">Importació del perfil:</translation>
@@ -133,7 +132,6 @@
 <translation id="7767960058630128695">Contrasenyes:</translation>
 <translation id="6518014396551869914">Copia&amp; la imatge</translation>
 <translation id="542155483965056918"><ph name="NUMBER_ZERO"/> mins ago</translation>
-<translation id="6363850194751762580">Gestiona les finestres emergents</translation>
 <translation id="3118319026408854581">Ajuda de <ph name="PRODUCT_NAME"/></translation>
 <translation id="4120898696391891645">No es carrega la pàgina</translation>
 <translation id="5584537427775243893">Important</translation>
@@ -370,7 +368,6 @@
 <translation id="5494362494988149300">Obre quan &amp;acabi</translation>
 <translation id="3234408098842461169">Fletxa avall</translation>
 <translation id="825608351287166772">Els certificats tenen un període de validesa, com qualsevol altre document d'identitat (com ara, un passaport). El certificat que s'ha presentat al teu navegador encara no és vàlid. Quan un certificat està fora del període de validesa, no és necessari mantenir algunes de les dades sobre l'estat del certificat (si s'ha revocat i ja no és de confiança). Per tant, no és possible verificar que aquest certificat sigui fiable. No hauries de continuar.</translation>
-<translation id="2742457360514408037">Finestres emergents bloquejades: <ph name="COUNT"/></translation>
 <translation id="7154150278819212687">Aquesta extensió tindrà accés al vostre historial de navegació.</translation>
 <translation id="1516602185768225813">Torna a obrir les pàgines que es van obrir la darrera vegada</translation>
 <translation id="4874539263382920044">El títol ha de contenir com a mínim un caràcter</translation>
@@ -425,7 +422,6 @@
 <translation id="4378551569595875038">Connectant...</translation>
 <translation id="7029809446516969842">Contrasenyes</translation>
 <translation id="3513979718339724672">Mostra'n les miniatures</translation>
-<translation id="7300965843904003671">Mostra sempre les finestres emergents de <ph name="URL"/></translation>
 <translation id="8211437954284917092">Introduïu una consulta al camp de text anterior per cercar els preferits.</translation>
 <translation id="5958418293370246440"><ph name="SAVED_FILES"/> / <ph name="TOTAL_FILES"/> fitxers</translation>
 <translation id="1291121346508216435">Corregeix l'ortografia automàticament:</translation>
@@ -549,7 +545,6 @@
 <translation id="4870177177395420201"><ph name="PRODUCT_NAME"/> no pot determinar ni definir el navegador predeterminat.</translation>
 <translation id="8898786835233784856">Selecciona la pestanya següent</translation>
 <translation id="2674170444375937751">Estàs segur que vols suprimir aquestes pàgines de l'historial?</translation>
-<translation id="4203689580933736628">Elements bloquejats: <ph name="COUNT"/></translation>
 <translation id="2653166165688724436">Base de dades web</translation>
 <translation id="7629827748548208700">Pestanya: <ph name="TAB_NAME"/></translation>
 <translation id="8449008133205184768">Enganxa i ajusta l'estil</translation>
@@ -618,11 +613,9 @@
 <translation id="2838167480523328393">Instal·la &quot;<ph name="EXTENSION_NAME"/>&quot;?</translation>
 <translation id="2497284189126895209">Tots els fitxers</translation>
 <translation id="5360606537916580043">Darrer dia</translation>
-<translation id="6589689504565594563">Suprimeix les galetes</translation>
 <translation id="1682548588986054654">Finestra d'incògnit nova</translation>
 <translation id="6833901631330113163">Europa meridional</translation>
 <translation id="5110450810124758964">Fa <ph name="NUMBER_ONE"/> dia</translation>
-<translation id="5256138355144269748">Finestra emergent bloquejada</translation>
 <translation id="2820806154655529776"><ph name="NUMBER_ONE"/> segon</translation>
 <translation id="3122496702278727796">Error en crear un directori de dades</translation>
 <translation id="8888930795132369495">&amp;Copia el camí del fitxer</translation>
@@ -1032,7 +1025,6 @@
 <translation id="6847541693235449912">Vés</translation>
 <translation id="5546865291508181392">Cerca</translation>
 <translation id="5333374927882515515">Importa les adreces d'interès, les contrasenyes i altres configuracions de <ph name="DEF_BROWSER"/></translation>
-<translation id="4239831617079978238">Fi de la sessió</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE"/> - <ph name="FULL_DATE"/></translation>
 <translation id="5960889226412209189">Commuta la barra de navegació compacta</translation>
 <translation id="8954894007019320973">(Cont.)</translation>
@@ -1052,17 +1044,13 @@
 <translation id="8562413501751825163">Tanca Firefox abans d'importar</translation>
 <translation id="4309420042698375243"><ph name="NUM_KILOBYTES"/> K (<ph name="NUM_KILOBYTES_LIVE"/> K actius)</translation>
 <translation id="5034259512732355072">Selecciona un altre directori...</translation>
-<translation id="5074322878757699801">Importa les dades...</translation>
 <translation id="7505152414826719222">Emmagatzematge local </translation>
 <translation id="5706242308519462060">Codificació predeterminada:</translation>
 <translation id="5280833172404792470">Surt de la pantalla completa (<ph name="ACCELERATOR"/>)</translation>
-<translation id="4000986992587584088">Mostra sempre les finestres emergents de <ph name="URL"/>
-</translation>
 <translation id="129553762522093515">Tancats recentment</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> dies</translation>
 <translation id="3891357445869647828">Habilita JavaScript</translation>
 <translation id="6451458296329894277">Confirma el reenviament del formulari</translation>
-<translation id="3218545474413654570"><ph name="URL"/> - <ph name="WINDOW_TITLE"/></translation>
 <translation id="5116333507878097773"><ph name="NUMBER_ONE"/> hora</translation>
 <translation id="1851266746056575977">Actualitza ara</translation>
 <translation id="3715099868207290855">S'ha sincronitzat amb <ph name="USER_EMAIL_ADDRESS"/></translation>
@@ -1316,7 +1304,6 @@
 <translation id="6053401458108962351">&amp;Elimina les dades de navegació...</translation>
 <translation id="2339641773402824483">Cerca actualitzacions...</translation>
 <translation id="8600200086690278232">Clips web destacats</translation>
-<translation id="8582728318425382804">Galetes i permisos de llocs web</translation>
 <translation id="2766006623206032690">En&amp;ganxa i vés</translation>
 <translation id="9071050381089585305">La seqüència no respon</translation>
 <translation id="4394049700291259645">Desactiva</translation>

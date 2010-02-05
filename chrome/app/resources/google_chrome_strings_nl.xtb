@@ -24,7 +24,7 @@
 <translation id="6817660909204164466">Help Google Chrome beter te maken door automatisch gebruiksstatistieken en crashmeldingen naar Google te verzenden</translation>
 <translation id="8227755444512189073"><ph name="SCHEME"/> De opgevraagde link is <ph name="PROTOLINK"/>.</translation>
 <translation id="1281036569101707544"><ph name="TERMS_OF_SERVICE_LINK"/> van Google Chrome</translation>
-<translation id="8815061062167142136">O jee! Google Chrome is vastgelopen. Nu herstarten?</translation>
+<translation id="8815061062167142136">Oeps! Google Chrome is vastgelopen. Nu herstarten?</translation>
 <translation id="126024305903398738">Google Chrome Profile Importer</translation>
 <translation id="2653935705142821164">Chrome Renderer</translation>
 <translation id="7241541963706135274">Google Chrome voert deze taken uit:</translation>
@@ -69,6 +69,7 @@
 <translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="8865765905101981392">Internetbrowser</translation>
 <translation id="8776515774046280928">Google Chrome is al geïnstalleerd en beschikbaar voor alle gebruikers van deze computer. Als u Google Chrome wilt installeren op gebruikersniveau, moet u eerst de versie op systeemniveau verwijderen die door een beheerder is geïnstalleerd.</translation>
+<translation id="2189123953385179981">Google Chrome OS biedt geen ondersteuning voor het starten van een externe toepassing om links van <ph name="SCHEME"/> te verwerken. De opgevraagde link is <ph name="PROTOLINK"/>.</translation>
 <translation id="7196020411877309443">Waarom zie ik dit venster?</translation>
 <translation id="2769762047821873045">Google Chrome is niet uw standaardbrowser.</translation>
 <translation id="7825851276765848807">De installatie is mislukt vanwege een onbekende fout. Download Google Chrome opnieuw.</translation>

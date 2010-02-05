@@ -69,6 +69,7 @@
 <translation id="9039578207253536065">Moduł roboczy Google Chrome</translation>
 <translation id="8865765905101981392">Przeglądarka internetowa</translation>
 <translation id="8776515774046280928">Google Chrome jest już zainstalowany i dostępny dla wszystkich użytkowników tego komputera. Aby odinstalować Google Chrome na poziomie użytkownika, należy najpierw odinstalować wersję na poziomie systemowym zainstalowaną przez administratora.</translation>
+<translation id="2189123953385179981">System operacyjny Google ChromeOS nie umożliwia uruchamiania zewnętrznej aplikacji w celu obsługi linków typu <ph name="SCHEME"/>. Żądany link to <ph name="PROTOLINK"/>.</translation>
 <translation id="7196020411877309443">Dlaczego wyświetla mi się to okienko?</translation>
 <translation id="2769762047821873045">Google Chrome nie jest domyślną przeglądarką.</translation>
 <translation id="7825851276765848807">Instalacja nie powiodła się z powodu nieokreślonego błędu. Pobierz Google Chrome ponownie.</translation>

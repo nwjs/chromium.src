@@ -70,6 +70,7 @@ Se continuar, o Chrome não procurará nenhuma outra correspondência incorreta 
 <translation id="9039578207253536065">Operador do Google Chrome</translation>
 <translation id="8865765905101981392">Navegador da internet</translation>
 <translation id="8776515774046280928">O Google Chrome já está instalado e disponível para todos os usuários deste computador. Se você desejar instalar o Google Chrome para um usuário específico, primeiro desinstale a versão para sistema instalada pelo administrador.</translation>
+<translation id="2189123953385179981">O Google ChromeOS não suporta a inicialização de um aplicativo externo para manipular links de <ph name="SCHEME"/>. O link solicitado é <ph name="PROTOLINK"/>.</translation>
 <translation id="7196020411877309443">Por que estou vendo este aviso?</translation>
 <translation id="2769762047821873045">O Google Chrome não é o seu navegador padrão.</translation>
 <translation id="7825851276765848807">Houve uma falha na instalação devido a um erro não-especificado. Faça o download do Google Chrome novamente.</translation>

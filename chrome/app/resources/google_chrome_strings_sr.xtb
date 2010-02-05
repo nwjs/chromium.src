@@ -70,6 +70,7 @@
 <translation id="9039578207253536065">Google Chrome радник</translation>
 <translation id="8865765905101981392">Интернет прегледач</translation>
 <translation id="8776515774046280928">Google Chrome је већ инсталиран и доступан свим корисницима овог рачунара. Ако желите да инсталирате Google Chrome са приступом на нивоу корисника, прво морате да деинсталирате верзију са приступом на нивоу система коју је инсталирао администратор.</translation>
+<translation id="2189123953385179981">Google ChromeOS не подржава покретање спољних апликација ради обраде <ph name="SCHEME"/> веза. Потребна веза је <ph name="PROTOLINK"/>.</translation>
 <translation id="7196020411877309443">Зашто видим ово?</translation>
 <translation id="2769762047821873045">Google Chrome није ваш подразумевани прегледач.</translation>
 <translation id="7825851276765848807">Инсталација није успела услед неутврђене грешке. Преузмите Google Chrome поново.</translation>
