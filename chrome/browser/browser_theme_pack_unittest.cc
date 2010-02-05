@@ -118,6 +118,11 @@ class BrowserThemePackTest : public ::testing::Test {
     theme_pack_->ParseImageNamesFromJSON(value, FilePath(), out_file_paths);
   }
 
+  bool LoadRawBitmapsTo(const std::map<int, FilePath>& out_file_paths) {
+    return theme_pack_->LoadRawBitmapsTo(out_file_paths,
+                                         &theme_pack_->prepared_images_);
+  }
+
   FilePath GetStarGazingPath() {
     FilePath test_path;
     if (!PathService::Get(chrome::DIR_TEST_DATA, &test_path)) {
@@ -350,6 +355,14 @@ TEST_F(BrowserThemePackTest, NullColors) {
 
 TEST_F(BrowserThemePackTest, NullDisplayProperties) {
   LoadDisplayPropertiesDictionary(NULL);
+}
+
+TEST_F(BrowserThemePackTest, TestNonExistantImages) {
+  std::string images = "{ \"theme_frame\": \"does_not_exist\" }";
+  std::map<int, FilePath> out_file_paths;
+  ParseImageNamesJSON(images, &out_file_paths);
+
+  EXPECT_FALSE(LoadRawBitmapsTo(out_file_paths));
 }
 
 // TODO(erg): This test should actually test more of the built resources from
