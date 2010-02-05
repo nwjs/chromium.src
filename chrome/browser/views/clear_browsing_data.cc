@@ -328,7 +328,7 @@ views::ClientView* ClearBrowsingDataView::CreateClientView(
 
   views::View* settings_view = new views::View();
   GridLayout* layout = new GridLayout(settings_view);
-  layout->SetInsets(gfx::Insets(0, kPanelHorizMargin, 0, kButtonHEdgeMargin));
+  layout->SetInsets(0, kPanelHorizMargin, 0, kButtonHEdgeMargin);
   settings_view->SetLayoutManager(layout);
   views::ColumnSet* column_set = layout->AddColumnSet(0);
   column_set->AddColumn(GridLayout::FILL, GridLayout::CENTER, 1,
