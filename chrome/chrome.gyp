@@ -4787,7 +4787,6 @@
         'browser/renderer_host/resource_dispatcher_host_unittest.cc',
         'browser/renderer_host/test/render_view_host_unittest.cc',
         'browser/renderer_host/test/site_instance_unittest.cc',
-        'browser/renderer_host/translate/page_translator_unittest.cc',
         'browser/renderer_host/web_cache_manager_unittest.cc',
         'browser/rlz/rlz_unittest.cc',
         'browser/safe_browsing/bloom_filter_unittest.cc',
@@ -4866,6 +4865,9 @@
         'renderer/render_view_unittest_mac.mm',
         'renderer/render_widget_unittest.cc',
         'renderer/renderer_main_unittest.cc',
+        # The test is disabled and does not currently build in the 249 branch.
+        # If it gets reenabled at some point, it would be worth porting it to 249.
+        # 'renderer/translate/page_translator_unittest.cc',
         'test/browser_with_test_window_test.cc',
         'test/browser_with_test_window_test.h',
         'test/file_test_utils.cc',
