@@ -106,6 +106,11 @@ LocationBarViewMac::LocationBarViewMac(
 }
 
 LocationBarViewMac::~LocationBarViewMac() {
+  // Disconnect from cell in case it outlives us.
+  AutocompleteTextFieldCell* cell = [field_ autocompleteTextFieldCell];
+  [cell setPageActionViewList:NULL];
+  [cell setSecurityImageView:NULL];
+
   // TODO(shess): Placeholder for omnibox changes.
   delete page_action_views_;
 }
