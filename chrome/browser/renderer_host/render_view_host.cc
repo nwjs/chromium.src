@@ -1740,6 +1740,13 @@ void RenderViewHost::SendContentSettings(const std::string& host,
   Send(new ViewMsg_SetContentSettingsForCurrentHost(host, settings));
 }
 
+void RenderViewHost::TranslatePage(int page_id,
+                                   const std::string& source_lang,
+                                   const std::string& target_lang) {
+  Send(new ViewMsg_TranslatePage(routing_id(), page_id,
+                                 source_lang, target_lang));
+}
+
 void RenderViewHost::OnExtensionPostMessage(
     int port_id, const std::string& message) {
   if (process()->profile()->GetExtensionMessageService()) {

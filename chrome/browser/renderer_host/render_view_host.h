@@ -437,6 +437,12 @@ class RenderViewHost : public RenderWidgetHost,
   void SendContentSettings(const std::string& host,
                            const ContentSettings& settings);
 
+  // Tells the renderer to translate the current page from one language to
+  // another.  If the current page id is not |page_id|, the request is ignored.
+  void TranslatePage(int page_id,
+                     const std::string& source_lang,
+                     const std::string& target_lang);
+
  protected:
   // RenderWidgetHost protected overrides.
   virtual bool ShouldSendToRenderer(const NativeWebKeyboardEvent& event);

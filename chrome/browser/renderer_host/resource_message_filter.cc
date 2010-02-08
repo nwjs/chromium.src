@@ -1225,7 +1225,7 @@ void ResourceMessageFilter::OnOpenFileForPlugin(
 
 void ResourceMessageFilter::OnTranslateText(
     ViewHostMsg_TranslateTextParam param) {
-  translation_service_.Translate(param.routing_id, param.work_id,
+  translation_service_.Translate(param.routing_id, param.page_id, param.work_id,
                                  param.text_chunks, param.from_language,
                                  param.to_language, param.secure);
 }

@@ -568,6 +568,9 @@ struct ViewHostMsg_TranslateTextParam {
   // An id used to identify that specific translation.
   int work_id;
 
+  // The id of the page this translation originated from.
+  int page_id;
+
   // The text chunks that need to be translated.
   std::vector<string16> text_chunks;
 
@@ -2403,6 +2406,7 @@ struct ParamTraits<ViewHostMsg_TranslateTextParam> {
   static void Write(Message* m, const param_type& p) {
     WriteParam(m, p.routing_id);
     WriteParam(m, p.work_id);
+    WriteParam(m, p.page_id);
     WriteParam(m, p.text_chunks);
     WriteParam(m, p.from_language);
     WriteParam(m, p.to_language);
@@ -2413,6 +2417,7 @@ struct ParamTraits<ViewHostMsg_TranslateTextParam> {
     return
       ReadParam(m, iter, &p->routing_id) &&
       ReadParam(m, iter, &p->work_id) &&
+      ReadParam(m, iter, &p->page_id) &&
       ReadParam(m, iter, &p->text_chunks) &&
       ReadParam(m, iter, &p->from_language) &&
       ReadParam(m, iter, &p->to_language) &&
@@ -2423,6 +2428,8 @@ struct ParamTraits<ViewHostMsg_TranslateTextParam> {
     LogParam(p.routing_id, l);
     l->append(L", ");
     LogParam(p.work_id, l);
+    l->append(L", ");
+    LogParam(p.page_id, l);
     l->append(L", ");
     LogParam(p.text_chunks, l);
     l->append(L", ");

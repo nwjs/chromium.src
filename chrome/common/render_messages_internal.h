@@ -828,6 +828,15 @@ IPC_BEGIN_MESSAGES(View)
   IPC_MESSAGE_CONTROL1(ViewMsg_SocketStream_Closed,
                        int /* socket_id */)
 
+  // Tells the renderer to translate the page contents from one language to
+  // another.
+  IPC_MESSAGE_ROUTED3(ViewMsg_TranslatePage,
+                      int /* page id */,
+                      std::string, /* BCP 47/RFC 5646 language code the page
+                                      is in */
+                      std::string /* BCP 47/RFC 5646 language code to translate
+                                     to */)
+
   // Reply to the ViewHostMsg_TranslateText message with the actual translated
   // text chunks.
   IPC_MESSAGE_ROUTED3(ViewMsg_TranslateTextReponse,

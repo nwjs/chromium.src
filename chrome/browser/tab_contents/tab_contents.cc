@@ -47,6 +47,7 @@
 #include "chrome/browser/renderer_host/render_widget_host_view.h"
 #include "chrome/browser/renderer_host/resource_request_details.h"
 #include "chrome/browser/renderer_host/site_instance.h"
+#include "chrome/browser/renderer_host/translation_service.h"
 #include "chrome/browser/renderer_host/web_cache_manager.h"
 #include "chrome/browser/tab_contents/infobar_delegate.h"
 #include "chrome/browser/tab_contents/interstitial_page.h"
@@ -1843,6 +1844,19 @@ void TabContents::OnPageContents(const GURL& url,
   if (process()->id() == renderer_process_id &&
       entry && entry->page_id() == page_id) {
     entry->set_language(language);
+  }
+
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kAutoPageTranslate) &&
+      TranslationService::IsTranslationEnabled()) {
+    std::string locale = g_browser_process->GetApplicationLocale();
+    if (!locale.empty() && locale != language) {
+      // Don't translate the NTP, download page, history...
+      if (entry && !entry->url().SchemeIs("chrome") &&
+          TranslationService::ShouldTranslatePage(language, locale)) {
+        render_view_host()->TranslatePage(entry->page_id(), language, locale);
+      }
+    }
   }
 
   std::string lang = language;
