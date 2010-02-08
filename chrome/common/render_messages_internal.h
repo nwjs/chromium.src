@@ -2005,6 +2005,12 @@ IPC_BEGIN_MESSAGES(ViewHost)
   IPC_MESSAGE_CONTROL1(ViewHostMsg_TranslateText,
                        ViewHostMsg_TranslateTextParam)
 
+  // Notifies the browser that a page has been translated.
+  IPC_MESSAGE_ROUTED3(ViewHostMsg_PageTranslated,
+                      int,        /* page id */
+                      std::string /* the original language */,
+                      std::string /* the translated language */)
+
   //---------------------------------------------------------------------------
   // Socket Stream messages:
   // These are messages from the SocketStreamHandle to the browser.

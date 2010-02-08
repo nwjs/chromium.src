@@ -33,8 +33,8 @@ const char kFormatParam[] = "format";
 const char kSSLParam[] = "ssl";
 const char kTranslationCountParam[] = "tc";
 
-// Describes languages deemed equivalent from a translation point of view.
-// This is used to detect unnecessary translations.
+// Mapping from a locale name to a language code name.
+// Locale names not included are translated as is.
 struct LocaleToCLDLanguage {
   const char* locale_language;  // Language Chrome locale is in.
   const char* cld_language;     // Language the CLD reports.
@@ -43,6 +43,64 @@ LocaleToCLDLanguage kLocaleToCLDLanguages[] = {
     { "en-GB", "en" },
     { "en-US", "en" },
     { "es-419", "es" },
+    { "pt-PT", "pt" },
+    { "pt-BR", "pt" },
+};
+
+// The list of languages the Google translation server supports.
+const char* kSupportedLanguages[] = {
+    "af",     // Afrikaans
+    "sq",     // Albanian
+    "ar",     // Arabic
+    "be",     // Belarusian
+    "bg",     // Bulgarian
+    "ca",     // Catalan
+    "zh-CN",  // Chinese (Simplified)
+    "zh-TW",  // Chinese (Traditional)
+    "hr",     // Croatian
+    "cs",     // Czech
+    "da",     // Danish
+    "nl",     // Dutch
+    "en",     // English
+    "et",     // Estonian
+    "tl",     // Tagalog (Filipino)
+    "fi",     // Finnish
+    "fr",     // French
+    "gl",     // Galician
+    "de",     // German
+    "el",     // Greek
+    "he",     // Hebrew
+    "hi",     // Hindi
+    "hu",     // Hungarian
+    "is",     // Icelandic
+    "id",     // Indonesian
+    "it",     // Italian
+    "ga",     // Irish
+    "ja",     // Japanese
+    "ko",     // Korean
+    "lv",     // Latvian
+    "lt",     // Lithuanian
+    "mk",     // Macedonian
+    "ms",     // Malay
+    "mt",     // Maltese
+    "no",     // Norwegian
+    "fa",     // Persian
+    "pl",     // Polish
+    "pt",     // Portuguese
+    "ro",     // Romanian
+    "ru",     // Russian
+    "sr",     // Serbian
+    "sk",     // Slovak
+    "sl",     // Slovenian
+    "es",     // Spanish
+    "sw",     // Swahili
+    "sv",     // Swedish
+    "th",     // Thai
+    "tr",     // Turkish
+    "uk",     // Ukrainian
+    "vi",     // Vietnamese
+    "cy",     // Welsh
+    "yi",     // Yiddish
 };
 
 // The maximum size in bytes after which the server will refuse the request.
@@ -328,23 +386,26 @@ void TranslationService::OnURLFetchComplete(const URLFetcher* source,
 }
 
 // static
-bool TranslationService::ShouldTranslatePage(
-    const std::string& page_language, const std::string& chrome_language) {
-  // Most locale names are the actual ISO 639 codes that the Google translate
-  // API uses, but for the ones longer than 2 chars.
-  // See l10n_util.cc for the list.
-  for (size_t i = 0; i < arraysize(kLocaleToCLDLanguages); ++i) {
-    if (chrome_language == kLocaleToCLDLanguages[i].locale_language &&
-        page_language == kLocaleToCLDLanguages[i].cld_language) {
-      return false;
-    }
-  }
-  return true;
+bool TranslationService::IsTranslationEnabled() {
+  return GURL(kServiceURL).host() != "disabled";
 }
 
 // static
-bool TranslationService::IsTranslationEnabled() {
-  return GURL(kServiceURL).host() != "disabled";
+std::string TranslationService::GetLanguageCode(
+    const std::string& chrome_locale) {
+  for (size_t i = 0; i < arraysize(kLocaleToCLDLanguages); ++i) {
+    if (chrome_locale == kLocaleToCLDLanguages[i].locale_language)
+      return kLocaleToCLDLanguages[i].cld_language;
+  }
+  return chrome_locale;
+}
+
+// static
+void TranslationService::GetSupportedLanguages(
+    std::vector<std::string>* languages) {
+  DCHECK(languages && languages->empty());
+  for (size_t i = 0; i < arraysize(kSupportedLanguages); ++i)
+    languages->push_back(kSupportedLanguages[i]);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

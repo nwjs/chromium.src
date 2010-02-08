@@ -274,7 +274,7 @@ RenderView::RenderView(RenderThreadBase* render_thread,
       document_tag_(0),
       webkit_preferences_(webkit_preferences),
       ALLOW_THIS_IN_INITIALIZER_LIST(text_translator_(this)) {
-  page_translator_.reset(new PageTranslator(&text_translator_));
+  page_translator_.reset(new PageTranslator(&text_translator_, this));
   ClearBlockedContentSettings();
 }
 
@@ -2703,6 +2703,13 @@ void RenderView::DidStopLoadingForPlugin() {
   didStopLoading();
 }
 
+void RenderView::PageTranslated(int page_id,
+                                const std::string& original_lang,
+                                const std::string& target_lang) {
+  Send(new ViewHostMsg_PageTranslated(routing_id_, page_id_,
+                                      original_lang, target_lang));
+}
+
 void RenderView::ShowModalHTMLDialogForPlugin(
     const GURL& url,
     const gfx::Size& size,
@@ -3221,7 +3228,7 @@ void RenderView::OnTranslatePage(int page_id,
   WebFrame* main_frame = webview()->mainFrame();
   if (!main_frame)
     return;
-  page_translator_->Translate(main_frame, source_lang, target_lang);
+  page_translator_->Translate(page_id, main_frame, source_lang, target_lang);
 }
 
 void RenderView::OnTranslateTextResponse(

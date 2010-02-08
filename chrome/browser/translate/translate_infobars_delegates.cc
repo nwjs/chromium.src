@@ -7,8 +7,7 @@
 #include "app/l10n_util.h"
 #include "app/resource_bundle.h"
 #include "chrome/browser/browser_process.h"
-// TODO(jcampan): unblock when backend is merged in.
-// #include "chrome/browser/renderer_host/translation_service.h"
+#include "chrome/browser/renderer_host/translation_service.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
@@ -45,8 +44,7 @@ void TranslateInfoBarDelegate::ModifyTargetLanguage(int lang_index) {
 
 void TranslateInfoBarDelegate::GetAvailableOriginalLanguages(
     std::vector<std::string>* languages) {
-  // TODO(jcampan): unblock when backend is merged in.
-  // TranslationService::GetSupportedLanguages(languages);
+  TranslationService::GetSupportedLanguages(languages);
 }
 
 void TranslateInfoBarDelegate::GetAvailableTargetLanguages(
@@ -55,11 +53,8 @@ void TranslateInfoBarDelegate::GetAvailableTargetLanguages(
 }
 
 void TranslateInfoBarDelegate::Translate() {
-  // TODO(jcampan): unblock when backend is merged in.
-  /*
   if (original_lang_index_ != target_lang_index_)
     tab_contents_->TranslatePage(original_lang_code(), target_lang_code());
-  */
 }
 
 bool TranslateInfoBarDelegate::IsLanguageBlacklisted() {
@@ -107,8 +102,7 @@ TranslateInfoBarDelegate::TranslateInfoBarDelegate(TabContents* tab_contents,
       original_lang_index_(0),
       target_lang_index_(0),
       prefs_(user_prefs) {
-  // TODO(jcampan): unblock when backend is merged in.
-  // TranslationService::GetSupportedLanguages(&supported_languages_);
+  TranslationService::GetSupportedLanguages(&supported_languages_);
   for (size_t i = 0; i < supported_languages_.size(); ++i) {
     if (original_lang_code == supported_languages_[i]) {
       original_lang_index_ = i;
@@ -181,8 +175,7 @@ AfterTranslateInfoBarDelegate::AfterTranslateInfoBarDelegate(
 
 void AfterTranslateInfoBarDelegate::GetAvailableTargetLanguages(
     std::vector<std::string>* languages) {
-  // TODO(jcampan): unblock when backend is merged in.
-  // TranslationService::GetSupportedLanguages(languages);
+  TranslationService::GetSupportedLanguages(languages);
 }
 
 void AfterTranslateInfoBarDelegate::ModifyTargetLanguage(int lang_index) {
