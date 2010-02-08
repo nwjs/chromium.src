@@ -6,9 +6,11 @@
 #define CHROME_BROWSER_RENDERER_HOST_TRANSLATION_SERVICE_H_
 
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
+#include "base/lazy_instance.h"
 #include "base/scoped_ptr.h"
 #include "base/string16.h"
 #include "chrome/browser/net/url_fetcher.h"
@@ -21,7 +23,7 @@ class TranslateURLFetcherDelegate;
 class URLFetcher;
 
 // The TranslationService class is used to translate text.
-// There is one TranslationService is per renderer process.
+// There is one TranslationService per renderer process.
 // It receives requests to translate text from the different render views of the
 // render process, provided in lists (text chunks), where the words should be
 // translated without changing the chunks order.
@@ -70,6 +72,9 @@ class TranslationService : public URLFetcher::Delegate {
   // translate to and from.
   static void GetSupportedLanguages(std::vector<std::string>* languages);
 
+  // Returns true if |page_language| is supported by the translation server.
+  static bool IsSupportedLanguage(const std::string& page_language);
+
  protected:
   // The amount of time in ms after which a pending request is sent if no other
   // translation request has been received.
@@ -80,7 +85,7 @@ class TranslationService : public URLFetcher::Delegate {
   friend class TranslationServiceTest;
   friend class TranslateURLFetcherDelegate;
   FRIEND_TEST(TranslationServiceTest, MergeTestChunks);
-  FRIEND_TEST(TranslationServiceTest, SplitTestChunks);
+  FRIEND_TEST(TranslationServiceTest, SplitIntoTextChunks);
   FRIEND_TEST(TranslationServiceTest, RemoveTag);
 
   struct TranslationRequest;
@@ -108,7 +113,7 @@ class TranslationService : public URLFetcher::Delegate {
       RendererRequestInfoMap;
 
   // Sends the passed request to the translations server.
-  // Warning the request is deleted when this call returns.
+  // Warning: the request is deleted when this call returns.
   void SendRequestToTranslationServer(TranslationRequest* request);
 
   // Called by the URLFetcherDelegate when the translation associated with
@@ -129,8 +134,8 @@ class TranslationService : public URLFetcher::Delegate {
 
   // Splits the translated text into its original text chunks, removing the
   // anchor tags wrapper that were added to preserve order.
-  static void SplitTextChunks(const string16& translated_text,
-                              TextChunks* text_chunks);
+  static void SplitIntoTextChunks(const string16& translated_text,
+                                  TextChunks* text_chunks);
 
   // Removes the HTML anchor tag surrounding |text| and returns the resulting
   // string.
@@ -154,6 +159,9 @@ class TranslationService : public URLFetcher::Delegate {
 
   TranslationRequestMap pending_translation_requests_;
   TranslationRequestMap pending_secure_translation_requests_;
+
+  // The language supported by the translation server.
+  static base::LazyInstance<std::set<std::string> > supported_languages_;
 
   DISALLOW_COPY_AND_ASSIGN(TranslationService);
 };
