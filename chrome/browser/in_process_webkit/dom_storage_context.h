@@ -63,7 +63,8 @@ class DOMStorageContext {
 
   // Delete any local storage files that have been touched since the cutoff
   // date that's supplied.
-  void DeleteDataModifiedSince(const base::Time& cutoff);
+  void DeleteDataModifiedSince(const base::Time& cutoff,
+                               const char* url_scheme_to_be_skipped);
 
   // The special ID used for local storage.
   static const int64 kLocalStorageNamespaceId = 0;
