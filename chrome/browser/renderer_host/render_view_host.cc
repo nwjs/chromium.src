@@ -1747,6 +1747,10 @@ void RenderViewHost::TranslatePage(int page_id,
                                  source_lang, target_lang));
 }
 
+void RenderViewHost::UndoTranslatePage(int page_id) {
+  Send(new ViewMsg_UndoTranslate(routing_id(), page_id));
+}
+
 void RenderViewHost::OnExtensionPostMessage(
     int port_id, const std::string& message) {
   if (process()->profile()->GetExtensionMessageService()) {

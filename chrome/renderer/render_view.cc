@@ -527,6 +527,7 @@ void RenderView::OnMessageReceived(const IPC::Message& message) {
                         OnExecuteCode)
     IPC_MESSAGE_HANDLER(ViewMsg_TranslatePage, OnTranslatePage)
     IPC_MESSAGE_HANDLER(ViewMsg_TranslateTextReponse, OnTranslateTextResponse)
+    IPC_MESSAGE_HANDLER(ViewMsg_UndoTranslate, OnUndoTranslate)
 
     // Have the super handle all other messages.
     IPC_MESSAGE_UNHANDLED(RenderWidget::OnMessageReceived(message))
@@ -1071,6 +1072,9 @@ void RenderView::UpdateURL(WebFrame* frame) {
       // browser will send us new, up-to-date content settings.
       host_content_settings_.erase(host_content_settings);
     }
+
+    // Drop the translated nodes.
+    page_translator_->NavigatedToNewPage();
 
     // Update contents MIME type for main frame.
     params.contents_mime_type = ds->response().mimeType().utf8();
@@ -3223,6 +3227,13 @@ void RenderView::OnTranslatePage(int page_id,
 void RenderView::OnTranslateTextResponse(
     int work_id, int error_id, const std::vector<string16>& text_chunks) {
   text_translator_.OnTranslationResponse(work_id, error_id, text_chunks);
+}
+
+void RenderView::OnUndoTranslate(int page_id) {
+  if (page_id != page_id_)
+    return;  // Not the page we expected, nothing to do.
+
+  page_translator_->UndoTranslation();
 }
 
 void RenderView::OnInstallMissingPlugin() {
