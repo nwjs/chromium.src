@@ -2202,6 +2202,27 @@ struct ParamTraits<UpdateManifest::Result> {
   }
 };
 
+// Traits for UpdateManifest::Results.
+template<>
+struct ParamTraits<UpdateManifest::Results> {
+  typedef UpdateManifest::Results param_type;
+  static void Write(Message* m, const param_type& p) {
+    WriteParam(m, p.list);
+    WriteParam(m, p.daystart_elapsed_seconds);
+  }
+  static bool Read(const Message* m, void** iter, param_type* p) {
+    return ReadParam(m, iter, &p->list) &&
+           ReadParam(m, iter, &p->daystart_elapsed_seconds);
+  }
+  static void Log(const param_type& p, std::wstring* l) {
+    l->append(L"(");
+    LogParam(p.list, l);
+    l->append(L", ");
+    LogParam(p.daystart_elapsed_seconds, l);
+    l->append(L")");
+  }
+};
+
 // Traits for URLPattern.
 template <>
 struct ParamTraits<URLPattern> {
