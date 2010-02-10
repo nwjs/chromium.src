@@ -102,12 +102,11 @@ bool ManifestFetchData::AddExtension(std::string id, std::string version,
   parts.push_back("uc");
 
   if (ShouldPing(days)) {
-    parts.push_back("ping=" + EscapeQueryParamValue("r=" + IntToString(days),
-                                                    true));
+    parts.push_back("ping=" + EscapeQueryParamValue("r=" + IntToString(days)));
   }
 
   std::string extra = full_url_.has_query() ? "&" : "?";
-  extra += "x=" + EscapeQueryParamValue(JoinString(parts, '&'), true);
+  extra += "x=" + EscapeQueryParamValue(JoinString(parts, '&'));
 
   // Check against our max url size, exempting the first extension added.
   int new_size = full_url_.possibly_invalid_spec().size() + extra.size();
