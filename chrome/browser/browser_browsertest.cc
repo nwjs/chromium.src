@@ -9,6 +9,7 @@
 #include "chrome/browser/app_modal_dialog.h"
 #include "chrome/browser/browser.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/js_modal_dialog.h"
 #include "chrome/browser/renderer_host/render_process_host.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/common/page_transition_types.h"
@@ -178,7 +179,8 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, FLAKY_SingleBeforeUnloadAfterWindowClose) {
   alert->AcceptWindow();
 
   alert = ui_test_utils::WaitForAppModalDialog();
-  EXPECT_FALSE(alert->is_before_unload_dialog());
+  EXPECT_FALSE(static_cast<JavaScriptAppModalDialog*>(alert)->
+                   is_before_unload_dialog());
   alert->AcceptWindow();
 }
 
