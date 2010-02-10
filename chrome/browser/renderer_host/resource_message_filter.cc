@@ -221,7 +221,7 @@ class GetRawCookiesCompletion : public net::CompletionCallback {
       // We need a different API on CookieMonster to provide the domain info.
       // See http://crbug.com/34315.
       cookies.push_back(
-          webkit_glue::WebCookie(url_.host(), cookie_list[i].second));
+          webkit_glue::WebCookie(url_.host(), cookie_list[i]));
     }
 
     ViewHostMsg_GetRawCookies::WriteReplyParams(reply_msg_, cookies);

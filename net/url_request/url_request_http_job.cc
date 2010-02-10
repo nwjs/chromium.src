@@ -434,7 +434,7 @@ void URLRequestHttpJob::OnCanGetCookiesCompleted(int policy) {
       std::string cookies =
           request_->context()->cookie_store()->GetCookiesWithOptions(
               request_->url(), options);
-      if (request_->context()->InterceptRequestCookies(request_, cookies) &&
+      if (request_->context()->AllowSendingCookies(request_) &&
           !cookies.empty())
         request_info_.extra_headers += "Cookie: " + cookies + "\r\n";
     }
