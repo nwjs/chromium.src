@@ -65,6 +65,10 @@ class URLRequestTestContext : public URLRequestContext {
     accept_language_ = "en-us,fr";
     accept_charset_ = "iso-8859-1,*,utf-8";
   }
+  
+  void set_cookie_policy(net::CookiePolicy* policy) {
+    cookie_policy_ = policy;
+  }
 
  private:
   virtual ~URLRequestTestContext() {

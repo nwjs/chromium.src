@@ -21,6 +21,7 @@
 #include "base/thread.h"
 #include "base/time.h"
 #include "base/waitable_event.h"
+#include "net/base/cookie_policy.h"
 #include "net/base/host_resolver.h"
 #include "net/base/io_buffer.h"
 #include "net/base/net_errors.h"
