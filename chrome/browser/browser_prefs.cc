@@ -46,6 +46,11 @@
 #include "chrome/browser/gtk/browser_window_gtk.h"
 #endif
 
+#if defined(OS_WIN)
+// TODO: port me.
+#include "chrome/browser/cookie_modal_dialog.h"
+#endif
+
 namespace browser {
 
 void RegisterAllPrefs(PrefService* user_prefs, PrefService* local_state) {
@@ -67,7 +72,10 @@ void RegisterAllPrefs(PrefService* user_prefs, PrefService* local_state) {
 #endif
 #if defined(OS_WIN) || defined(OS_LINUX)
   TaskManager::RegisterPrefs(local_state);
+#if defined(OS_WIN)
+  CookiePromptModalDialog::RegisterPrefs(local_state);
 #endif
+}
 
   // User prefs
   SessionStartupPref::RegisterUserPrefs(user_prefs);
