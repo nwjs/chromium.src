@@ -72,10 +72,10 @@ void RegisterAllPrefs(PrefService* user_prefs, PrefService* local_state) {
 #endif
 #if defined(OS_WIN) || defined(OS_LINUX)
   TaskManager::RegisterPrefs(local_state);
+#endif
 #if defined(OS_WIN)
   CookiePromptModalDialog::RegisterPrefs(local_state);
 #endif
-}
 
   // User prefs
   SessionStartupPref::RegisterUserPrefs(user_prefs);
