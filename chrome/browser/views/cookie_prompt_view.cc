@@ -13,7 +13,6 @@
 #include "base/message_loop.h"
 #include "base/string_util.h"
 #include "chrome/browser/profile.h"
-#include "chrome/browser/views/browser_dialogs.h"
 #include "chrome/browser/views/cookie_info_view.h"
 #include "chrome/browser/views/local_storage_info_view.h"
 #include "chrome/browser/views/options/content_settings_window_view.h"
@@ -143,14 +142,12 @@ void CookiesPromptView::ButtonPressed(views::Button* sender,
 ///////////////////////////////////////////////////////////////////////////////
 // CookiesPromptView, views::LinkController implementation:
 void CookiesPromptView::LinkActivated(views::Link* source, int event_flags) {
-  if (source == show_cookie_link_) {
+  if (source == show_cookie_link_)
     ToggleDetailsViewExpand();
-    return;
-  }
-
-  DCHECK_EQ(source, manage_cookies_link_);
-  browser::ShowContentSettingsWindow(root_window_,
-                                     CONTENT_SETTINGS_TYPE_COOKIES, profile_);
+  else if (source == manage_cookies_link_)
+    ContentSettingsWindowView::Show(CONTENT_SETTINGS_TYPE_COOKIES, profile_);
+  else
+    NOTREACHED();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
