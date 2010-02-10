@@ -143,6 +143,99 @@ void RenderParamsFromPrintSettings(const printing::PrintSettings& settings,
 #endif
 }
 
+class SetCookieCompletion : public net::CompletionCallback {
+ public:
+  SetCookieCompletion(const GURL& url, const std::string& cookie_line,
+                      URLRequestContext* context)
+      : url_(url),
+        cookie_line_(cookie_line),
+        context_(context) {
+  }
+
+  virtual void RunWithParams(const Tuple1<int>& params) {
+    int result = params.a;
+    if (result == net::OK)
+      context_->cookie_store()->SetCookie(url_, cookie_line_);
+    delete this;
+  }
+
+ private:
+  GURL url_;
+  std::string cookie_line_;
+  scoped_refptr<URLRequestContext> context_;
+};
+
+class GetCookiesCompletion : public net::CompletionCallback {
+ public:
+  GetCookiesCompletion(const GURL& url, IPC::Message* reply_msg,
+                       ResourceMessageFilter* filter,
+                       URLRequestContext* context)
+      : url_(url),
+        reply_msg_(reply_msg),
+        filter_(filter),
+        context_(context) {
+  }
+
+  virtual void RunWithParams(const Tuple1<int>& params) {
+    int result = params.a;
+    std::string cookies;
+    if (result == net::OK)
+      cookies = context_->cookie_store()->GetCookies(url_);
+    ViewHostMsg_GetCookies::WriteReplyParams(reply_msg_, cookies);
+    filter_->Send(reply_msg_);
+    delete this;
+  }
+
+ private:
+  GURL url_;
+  IPC::Message* reply_msg_;
+  scoped_refptr<ResourceMessageFilter> filter_;
+  scoped_refptr<URLRequestContext> context_;
+};
+
+class GetRawCookiesCompletion : public net::CompletionCallback {
+ public:
+  GetRawCookiesCompletion(const GURL& url, IPC::Message* reply_msg,
+                          ResourceMessageFilter* filter,
+                          URLRequestContext* context)
+      : url_(url),
+        reply_msg_(reply_msg),
+        filter_(filter),
+        context_(context) {
+  }
+
+  virtual void RunWithParams(const Tuple1<int>& params) {
+    // Ignore the policy result.  We only waited on the policy result so that
+    // any pending 'set-cookie' requests could be flushed.  The intent of
+    // querying the raw cookies is to reveal the contents of the cookie DB, so
+    // it important that we don't read the cookie db ahead of pending writes.
+
+    net::CookieMonster* cookie_monster =
+        context_->cookie_store()->GetCookieMonster();
+    std::vector<net::CookieMonster::CanonicalCookie> cookie_list;
+    cookie_monster->GetRawCookies(url_, &cookie_list);
+
+    std::vector<webkit_glue::WebCookie> cookies;
+    for (size_t i = 0; i < cookie_list.size(); ++i) {
+      // TODO(darin): url.host() is not necessarily the domain of the cookie.
+      // We need a different API on CookieMonster to provide the domain info.
+      // See http://crbug.com/34315.
+      cookies.push_back(
+          webkit_glue::WebCookie(url_.host(), cookie_list[i].second));
+    }
+
+    ViewHostMsg_GetRawCookies::WriteReplyParams(reply_msg_, cookies);
+    filter_->Send(reply_msg_);
+    delete this;
+  }
+
+ private:
+  GURL url_;
+  IPC::Message* reply_msg_;
+  scoped_refptr<ResourceMessageFilter> filter_;
+  scoped_refptr<URLRequestContext> context_;
+};
+
 }  // namespace
 
 ResourceMessageFilter::ResourceMessageFilter(
@@ -299,8 +392,8 @@ bool ResourceMessageFilter::OnMessageReceived(const IPC::Message& msg) {
       IPC_MESSAGE_HANDLER(ViewHostMsg_CreateWindow, OnMsgCreateWindow)
       IPC_MESSAGE_HANDLER(ViewHostMsg_CreateWidget, OnMsgCreateWidget)
       IPC_MESSAGE_HANDLER(ViewHostMsg_SetCookie, OnSetCookie)
-      IPC_MESSAGE_HANDLER(ViewHostMsg_GetCookies, OnGetCookies)
-      IPC_MESSAGE_HANDLER(ViewHostMsg_GetRawCookies, OnGetRawCookies)
+      IPC_MESSAGE_HANDLER_DELAY_REPLY(ViewHostMsg_GetCookies, OnGetCookies)
+      IPC_MESSAGE_HANDLER_DELAY_REPLY(ViewHostMsg_GetRawCookies, OnGetRawCookies)
       IPC_MESSAGE_HANDLER(ViewHostMsg_DeleteCookie, OnDeleteCookie)
 #if defined(OS_WIN)  // This hack is Windows-specific.
       IPC_MESSAGE_HANDLER(ViewHostMsg_LoadFont, OnLoadFont)
@@ -485,70 +578,65 @@ void ResourceMessageFilter::OnMsgCreateWidget(int opener_id,
 
 void ResourceMessageFilter::OnSetCookie(const GURL& url,
                                         const GURL& first_party_for_cookies,
-                                        const std::string& cookie) {
+                                        const std::string& const_cookie) {
   ChromeURLRequestContext* context = GetRequestContextForURL(url);
 
-  DCHECK(context->cookie_policy());
-  if (context->cookie_policy()->CanSetCookie(url, first_party_for_cookies)) {
-    if (context->blacklist()) {
-      Blacklist::Match* match = context->blacklist()->findMatch(url);
-      if (match) {
-        if (match->attributes() & Blacklist::kDontPersistCookies) {
-          context->cookie_store()->SetCookie(url,
-              Blacklist::StripCookieExpiry(cookie));
-        } else if (!(match->attributes() & Blacklist::kDontStoreCookies)) {
-          context->cookie_store()->SetCookie(url, cookie);
-        }
-        delete match;
+  std::string cookie(const_cookie);
+  if (context->blacklist()) {
+    scoped_ptr<Blacklist::Match> match(context->blacklist()->findMatch(url));
+    if (match.get()) {
+      if (match->attributes() & Blacklist::kDontPersistCookies) {
+        cookie = Blacklist::StripCookieExpiry(cookie);
+      } else if (match->attributes() & Blacklist::kDontStoreCookies) {
         return;
       }
     }
-    context->cookie_store()->SetCookie(url, cookie);
-  }
+  } 
+
+  SetCookieCompletion* callback = new SetCookieCompletion(url, cookie, context);
+
+  DCHECK(context->cookie_policy());
+  int policy = context->cookie_policy()->CanSetCookie(
+      url, first_party_for_cookies, cookie, callback);
+  if (policy == net::ERR_IO_PENDING)
+    return;
+  callback->Run(policy);
 }
 
 void ResourceMessageFilter::OnGetCookies(const GURL& url,
                                          const GURL& first_party_for_cookies,
-                                         std::string* cookies) {
+                                         IPC::Message* reply_msg) {
   URLRequestContext* context = GetRequestContextForURL(url);
+
+  GetCookiesCompletion* callback =
+      new GetCookiesCompletion(url, reply_msg, this, context);
+
   DCHECK(context->cookie_policy());
-  if (context->cookie_policy()->CanGetCookies(url, first_party_for_cookies))
-    *cookies = context->cookie_store()->GetCookies(url);
+  int policy = context->cookie_policy()->CanGetCookies(
+      url, first_party_for_cookies, callback);
+  if (policy == net::ERR_IO_PENDING)
+    return;
+  callback->Run(policy);
 }
 
 void ResourceMessageFilter::OnGetRawCookies(
     const GURL& url,
     const GURL& first_party_for_cookies,
-    std::vector<webkit_glue::WebCookie>* raw_cookies) {
-  raw_cookies->clear();
-
+    IPC::Message* reply_msg) {
   URLRequestContext* context = GetRequestContextForURL(url);
-  net::CookieMonster* cookie_monster = context->cookie_store()->
-      GetCookieMonster();
-  if (!cookie_monster) {
-    NOTREACHED();
-    return;
-  }
 
-  if (!context->cookie_policy()->CanGetCookies(url, first_party_for_cookies))
-    return;
+  GetRawCookiesCompletion* callback =
+      new GetRawCookiesCompletion(url, reply_msg, this, context);
 
-  typedef std::vector<net::CookieMonster::CanonicalCookie> CanonicalCookieList;
-  CanonicalCookieList cookies;
-  cookie_monster->GetRawCookies(url, &cookies);
-  for (CanonicalCookieList::iterator it = cookies.begin();
-       it != cookies.end(); ++it) {
-     raw_cookies->push_back(
-         webkit_glue::WebCookie(
-             it->Name(),
-             it->Value(),
-             url.host(),
-             it->Path(),
-             it->ExpiryDate().ToDoubleT() * 1000,
-             it->IsHttpOnly(),
-             it->IsSecure(),
-             !it->IsPersistent()));
-  }
+  // We check policy here to avoid sending back cookies that would not normally
+  // be applied to outbound requests for the given URL.  Since this cookie info
+  // is visible in the developer tools, it is helpful to make it match reality.
+  DCHECK(context->cookie_policy());
+  int policy = context->cookie_policy()->CanGetCookies(
+      url, first_party_for_cookies, callback);
+  if (policy == net::ERR_IO_PENDING)
+    return;
+  callback->Run(policy);
 }
 
 void ResourceMessageFilter::OnDeleteCookie(const GURL& url,

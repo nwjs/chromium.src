@@ -73,32 +73,27 @@ class CookieMonster : public CookieStore {
   static base::Time ParseCookieTime(const std::string& time_string);
 
   // CookieStore implementation.
-  virtual bool SetCookie(const GURL& url, const std::string& cookie_line);
   virtual bool SetCookieWithOptions(const GURL& url,
                                     const std::string& cookie_line,
                                     const CookieOptions& options);
-  virtual bool SetCookieWithCreationTime(const GURL& url,
-                                         const std::string& cookie_line,
-                                         const base::Time& creation_time);
-  virtual bool SetCookieWithCreationTimeWithOptions(
-                                         const GURL& url,
-                                         const std::string& cookie_line,
-                                         const base::Time& creation_time,
-                                         const CookieOptions& options);
-  virtual void SetCookies(const GURL& url,
-                          const std::vector<std::string>& cookies);
-  virtual void SetCookiesWithOptions(const GURL& url,
-                                     const std::vector<std::string>& cookies,
-                                     const CookieOptions& options);
-  virtual std::string GetCookies(const GURL& url);
   virtual std::string GetCookiesWithOptions(const GURL& url,
                                             const CookieOptions& options);
   virtual void GetRawCookies(const GURL& url,
                              std::vector<CanonicalCookie>* raw_cookies);
   virtual void DeleteCookie(const GURL& url, const std::string& cookie_name);
+  virtual CookieMonster* GetCookieMonster() { return this; }
 
-  virtual CookieMonster* GetCookieMonster() {
-    return this;
+
+  // Exposed for unit testing.
+  bool SetCookieWithCreationTimeAndOptions(const GURL& url,
+                                           const std::string& cookie_line,
+                                           const base::Time& creation_time,
+                                           const CookieOptions& options);
+  bool SetCookieWithCreationTime(const GURL& url,
+                                 const std::string& cookie_line,
+                                 const base::Time& creation_time) {
+    return SetCookieWithCreationTimeAndOptions(url, cookie_line, creation_time,
+                                               CookieOptions());
   }
 
   // Returns all the cookies, for use in management UI, etc.  This does not mark

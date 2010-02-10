@@ -12,7 +12,6 @@
 #include "chrome/browser/renderer_host/resource_dispatcher_host.h"
 #include "chrome/browser/renderer_host/resource_dispatcher_host_request_info.h"
 #include "chrome/test/automation/automation_messages.h"
-#include "net/base/cookie_policy.h"
 #include "net/base/io_buffer.h"
 #include "net/base/net_errors.h"
 #include "net/http/http_util.h"
@@ -260,6 +259,9 @@ void URLRequestAutomationJob::OnRequestStarted(int tab, int id,
 
   URLRequestContext* ctx = request_->context();
 
+  // NOTE: We ignore Chrome's cookie policy to allow the automation to
+  // decide what cookies should be set.
+
   if (!response.headers.empty()) {
     headers_ = new net::HttpResponseHeaders(
         net::HttpUtil::AssembleRawHeaders(response.headers.data(),
@@ -275,22 +277,16 @@ void URLRequestAutomationJob::OnRequestStarted(int tab, int id,
         response_cookies.push_back(value);
     }
 
-    if (response_cookies.size()) {
-      if (ctx && ctx->cookie_store() && (!ctx->cookie_policy() ||
-          ctx->cookie_policy()->CanSetCookie(
-              url_for_cookies, request_->first_party_for_cookies()))) {
-        net::CookieOptions options;
-        options.set_include_httponly();
-        ctx->cookie_store()->SetCookiesWithOptions(url_for_cookies,
-                                                   response_cookies,
-                                                   options);
-      }
+    if (response_cookies.size() && ctx && ctx->cookie_store()) {
+      net::CookieOptions options;
+      options.set_include_httponly();
+      ctx->cookie_store()->SetCookiesWithOptions(url_for_cookies,
+                                                 response_cookies,
+                                                 options);
     }
   }
 
-  if (!response.persistent_cookies.empty() && ctx && ctx->cookie_store() &&
-      (!ctx->cookie_policy() || ctx->cookie_policy()->CanSetCookie(
-          url_for_cookies, request_->first_party_for_cookies()))) {
+  if (!response.persistent_cookies.empty() && ctx && ctx->cookie_store()) {
     StringTokenizer cookie_parser(response.persistent_cookies, ";");
 
     while (cookie_parser.GetNext()) {
