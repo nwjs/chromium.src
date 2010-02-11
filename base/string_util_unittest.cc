@@ -1366,4 +1366,17 @@ TEST(StringUtilTest, HexEncode) {
   EXPECT_EQ(hex.compare("01FF02FE038081"), 0);
 }
 
+TEST(StringUtilTest, ContainsOnlyChars) {
+  // Providing an empty list of characters should return false but for the empty
+  // string.
+  EXPECT_TRUE(ContainsOnlyChars("", ""));
+  EXPECT_FALSE(ContainsOnlyChars("Hello", ""));
+
+  EXPECT_TRUE(ContainsOnlyChars("", "1234"));
+  EXPECT_TRUE(ContainsOnlyChars("1", "1234"));
+  EXPECT_TRUE(ContainsOnlyChars("1", "4321"));
+  EXPECT_TRUE(ContainsOnlyChars("123", "4321"));
+  EXPECT_FALSE(ContainsOnlyChars("123a", "4321"));
+}
+
 }  // namaspace base
