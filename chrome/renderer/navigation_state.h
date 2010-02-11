@@ -190,6 +190,10 @@ class NavigationState : public WebKit::WebDataSource::ExtraData {
     return cache_policy_override_set_;
   }
 
+  // Whether the frame text contents was translated to a different language.
+  void set_was_translated(bool value) { was_translated_ = value; }
+  bool was_translated() const { return was_translated_; }
+
  private:
   NavigationState(PageTransition::Type transition_type,
                   const base::Time& request_time,
@@ -204,7 +208,8 @@ class NavigationState : public WebKit::WebDataSource::ExtraData {
         postpone_loading_data_(false),
         cache_policy_override_set_(false),
         cache_policy_override_(WebKit::WebURLRequest::UseProtocolCachePolicy),
-        user_script_idle_scheduler_(NULL) {
+        user_script_idle_scheduler_(NULL),
+        was_translated_(false) {
   }
 
   PageTransition::Type transition_type_;
@@ -231,6 +236,8 @@ class NavigationState : public WebKit::WebDataSource::ExtraData {
   WebKit::WebURLRequest::CachePolicy cache_policy_override_;
 
   scoped_ptr<UserScriptIdleScheduler> user_script_idle_scheduler_;
+
+  bool was_translated_;
 
   DISALLOW_COPY_AND_ASSIGN(NavigationState);
 };
