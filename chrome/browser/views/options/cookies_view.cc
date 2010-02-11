@@ -83,6 +83,16 @@ CookiesView::~CookiesView() {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// CookiesView, TreeModelObserver overrides:
+
+void CookiesView::TreeNodesAdded(TreeModel* model,
+                                 TreeModelNode* parent,
+                                 int start,
+                                 int count) {
+  UpdateRemoveButtonsState();
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // CookiesView, views::Buttonlistener implementation:
 
 void CookiesView::ButtonPressed(
@@ -198,6 +208,17 @@ void CookiesView::OnTreeViewKeyDown(base::KeyboardCode keycode) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// CookiesView, public:
+
+void CookiesView::UpdateSearchResults() {
+  cookies_tree_model_->UpdateSearchResults(search_field_->text());
+  remove_button_->SetEnabled(cookies_tree_model_->GetRoot()->
+      GetTotalNodeCount() > 1);
+  remove_all_button_->SetEnabled(cookies_tree_model_->GetRoot()->
+      GetTotalNodeCount() > 1);
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // CookiesView, private:
 
 CookiesView::CookiesView(Profile* profile)
@@ -215,13 +236,6 @@ CookiesView::CookiesView(Profile* profile)
       ALLOW_THIS_IN_INITIALIZER_LIST(search_update_factory_(this)) {
 }
 
-
-void CookiesView::UpdateSearchResults() {
-  cookies_tree_model_->UpdateSearchResults(search_field_->text());
-  remove_all_button_->SetEnabled(cookies_tree_model_->GetRoot()->
-      GetTotalNodeCount() > 1);
-}
-
 void CookiesView::Init() {
   search_label_ = new views::Label(
       l10n_util::GetString(IDS_COOKIES_SEARCH_LABEL));
@@ -235,6 +249,7 @@ void CookiesView::Init() {
   description_label_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
   cookies_tree_model_.reset(new CookiesTreeModel(
       profile_, new BrowsingDataLocalStorageHelper(profile_)));
+  cookies_tree_model_->AddObserver(this);
   cookie_info_view_ = new CookieInfoView(false);
   local_storage_info_view_ = new LocalStorageInfoView;
   cookies_tree_ = new CookiesTreeView(cookies_tree_model_.get());
@@ -310,6 +325,13 @@ void CookiesView::UpdateForEmptyState() {
   remove_button_->SetEnabled(false);
   remove_all_button_->SetEnabled(false);
   UpdateVisibleDetailedInfo(cookie_info_view_);
+}
+
+void CookiesView::UpdateRemoveButtonsState() {
+  remove_button_->SetEnabled(cookies_tree_model_->GetRoot()->
+      GetTotalNodeCount() > 1);
+  remove_all_button_->SetEnabled(cookies_tree_model_->GetRoot()->
+      GetTotalNodeCount() > 1);
 }
 
 void CookiesView::UpdateVisibleDetailedInfo(views::View* view) {
