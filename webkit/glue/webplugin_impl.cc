@@ -479,7 +479,8 @@ WebPluginImpl::RoutingStatus WebPluginImpl::RouteToFrame(
     bool is_file_data,
     bool notify_needed,
     intptr_t notify_data,
-    const char* url) {
+    const char* url,
+    Referrer referrer_flag) {
   // If there is no target, there is nothing to do
   if (!target)
     return NOT_ROUTED;
@@ -522,6 +523,8 @@ WebPluginImpl::RoutingStatus WebPluginImpl::RouteToFrame(
   }
 
   WebURLRequest request(complete_url);
+  SetReferrer(&request, referrer_flag);
+
   request.setHTTPMethod(WebString::fromUTF8(method));
   if (len > 0) {
     if (!is_file_data) {
@@ -595,7 +598,7 @@ void WebPluginImpl::InvalidateRect(const gfx::Rect& rect) {
 void WebPluginImpl::OnDownloadPluginSrcUrl() {
   HandleURLRequestInternal("GET", false, NULL, 0, NULL, false, false,
                            plugin_url_.spec().c_str(), NULL, false,
-                           false);
+                           DOCUMENT_URL);
 }
 
 WebPluginResourceClient* WebPluginImpl::GetClientFromLoader(
@@ -793,16 +796,18 @@ void WebPluginImpl::HandleURLRequest(const char *method,
                                      const char* buf, bool is_file_data,
                                      bool notify, const char* url,
                                      intptr_t notify_data, bool popups_allowed) {
+  // GetURL/PostURL requests initiated explicitly by plugins should specify the
+  // plugin SRC url as the referrer if it is available.
   HandleURLRequestInternal(method, is_javascript_url, target, len, buf,
                            is_file_data, notify, url, notify_data,
-                           popups_allowed, true);
+                           popups_allowed, PLUGIN_SRC);
 }
 
 void WebPluginImpl::HandleURLRequestInternal(
     const char *method, bool is_javascript_url, const char* target,
     unsigned int len, const char* buf, bool is_file_data, bool notify,
     const char* url, intptr_t notify_data, bool popups_allowed,
-    bool use_plugin_src_as_referrer) {
+    Referrer referrer_flag) {
   // For this request, we either route the output to a frame
   // because a target has been specified, or we handle the request
   // here, i.e. by executing the script if it is a javascript url
@@ -812,7 +817,7 @@ void WebPluginImpl::HandleURLRequestInternal(
   // to the plugin's frame.
   RoutingStatus routing_status =
       RouteToFrame(method, is_javascript_url, target, len, buf, is_file_data,
-                   notify, notify_data, url);
+                   notify, notify_data, url, referrer_flag);
   if (routing_status == ROUTED)
     return;
 
@@ -844,7 +849,7 @@ void WebPluginImpl::HandleURLRequestInternal(
     }
 
     InitiateHTTPRequest(resource_id, resource_client, method, buf, len,
-                        complete_url, NULL, use_plugin_src_as_referrer);
+                        complete_url, NULL, referrer_flag);
   }
 }
 
@@ -859,7 +864,7 @@ bool WebPluginImpl::InitiateHTTPRequest(int resource_id,
                                         int buf_len,
                                         const GURL& url,
                                         const char* range_info,
-                                        bool use_plugin_src_as_referrer) {
+                                        Referrer referrer_flag) {
   if (!client) {
     NOTREACHED();
     return false;
@@ -886,12 +891,7 @@ bool WebPluginImpl::InitiateHTTPRequest(int resource_id,
     SetPostData(&info.request, buf, buf_len);
   }
 
-  // GetURL/PostURL requests initiated explicitly by plugins should specify the
-  // plugin SRC url as the referrer if it is available.
-  GURL referrer_url;
-  if (use_plugin_src_as_referrer && !plugin_url_.spec().empty())
-    referrer_url = plugin_url_;
-  webframe_->setReferrerForRequest(info.request, referrer_url);
+  SetReferrer(&info.request, referrer_flag);
 
   // Sets the routing id to associate the ResourceRequest with the RenderView.
   webframe_->dispatchWillSendRequest(info.request);
@@ -924,7 +924,7 @@ void WebPluginImpl::InitiateHTTPRangeRequest(const char* url,
       resource_id, complete_url, notify_needed, notify_data, existing_stream);
   InitiateHTTPRequest(
       resource_id, resource_client, "GET", NULL, 0, complete_url, range_info,
-      true);
+      load_manually_ ? NO_REFERRER : PLUGIN_SRC);
 }
 
 void WebPluginImpl::SetDeferResourceLoading(int resource_id, bool defer) {
@@ -1057,6 +1057,22 @@ void WebPluginImpl::TearDownPluginInstance(
   // webframe_ might not be valid anymore.
   webframe_ = NULL;
   method_factory_.RevokeAll();
+}
+
+void WebPluginImpl::SetReferrer(WebKit::WebURLRequest* request,
+                                Referrer referrer_flag) {
+  switch (referrer_flag) {
+    case DOCUMENT_URL:
+      webframe_->setReferrerForRequest(*request, GURL());
+      break;
+
+    case PLUGIN_SRC:
+      webframe_->setReferrerForRequest(*request, plugin_url_);
+      break;
+
+    default:
+      break;
+  }
 }
 
 }  // namespace webkit_glue
