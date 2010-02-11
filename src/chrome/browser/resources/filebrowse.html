@@ -1,0 +1,1211 @@
+<!DOCTYPE HTML>
+<html i18n-values="dir:textdirection;">
+<head>
+<meta charset="utf-8">
+<title>Content Browser</title>
+<style type="text/css">
+div.header {
+  border-bottom: 1px solid #006;
+  border-left: 1px solid #006;
+  border-right: 1px solid #006;
+  padding: 8px;
+  margin: 0;
+  width: 100%;
+  left: 0;
+  top: 0;
+  height: 30px;
+  position: absolute;
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
+  background-image: -webkit-gradient(linear,
+                                     0% 0%,
+                                     0% 90%,
+                                     from(rgb(239, 242, 249)),
+                                     to(rgba(201, 212, 245, 1)));
+  border-bottom-color: #999;
+  border-bottom-width: 1px;
+  border-left-color: #999;
+  border-left-width: 1px;
+  border-right-color: #999;
+  border-right-width: 1px;
+  color: black;
+}
+
+.rowlink {
+  height: 100%;
+  width: 90%;
+  cursor: pointer;
+}
+
+a.iconlink {
+  display: block;
+/*  font-family: helvetica; */
+  font-weight: bold;
+  font-size: 11px;
+  color: white;
+  text-decoration: none;
+}
+
+a.iconlink img {
+  margin-bottom: 5px;
+}
+
+ul.filebrowselist {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+
+.playbackelement {
+  width: 600px;
+  height: 600px;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index:99999;
+  background:black;
+}
+
+.fullscreenplayback {
+  width: 100%;
+  height: 100%;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index:99999;
+  background:black;
+}
+
+.imagepreview {
+  width: 600px;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index:99999;
+  background:black;
+}
+
+.fullscreentoggle {
+  top: 0;
+  right: 0;
+  width: 50px;
+  height: 50px;
+  z-index: 999999;
+  cursor: pointer;
+  background:  url('../../app/theme/filebrowse_fullscreen.png');
+  position:absolute;
+  background-repeat: no-repeat;
+}
+
+li.filebrowserow div.icon {
+  float: left;
+  margin-left: -44px;
+  margin-top: -3px;
+  display: inline
+  position: relative;
+  width: 17px;
+  height: 17px;
+  background-repeat: no-repeat;
+}
+
+.rightarrow {
+  margin-top: 2px;
+  position: absolute;
+  right: 0;
+  top: 5px;
+  height: 100%;
+  width: 10px;
+}
+
+.uploaicon {
+  background: url('../../app/theme/filebrowse_upload.png');
+  position: absolute;
+  right: 0;
+  top: 5px;
+  height: 100%;
+  width: 12px;
+  margin-left: 5px;
+  margin-top: 5px;
+  background-repeat: no-repeat;
+  cursor:pointer;
+}
+
+.uploadcomplete {
+  height: 100%;
+  position: absolute;
+  right: 0;
+  top: 5px;
+  height: 100%;
+  width: 70px;
+  margin-left: 5px;
+  margin-top: 5px;
+}
+
+.uploadprogress {
+  position: absolute;
+  right: 0;
+  top: 5px;
+  height: 100%;
+  width: 12px;
+  margin-left: 5px;
+  margin-top: 5px;
+  background-repeat: no-repeat;
+}
+
+li.filebrowserow {
+  border-bottom: 1px solid #f7f7f7;
+  padding: 8px 5px 5px 54px;
+/*  overflow: hidden; */
+  font-size:.8em;
+/*  font-family: helvetica; */
+  position: relative;
+}
+
+.downloadstatus {
+  width: 100%;
+  font-size:.6em;
+}
+
+li.filebrowserow:hover {
+  background: #ebeff9;
+}
+
+li.filebrowserow span.name {
+  margin-top: 10px;
+  margin-left: -22px;
+  position: relative;
+}
+
+li.filebrowserow span.namelink {
+  margin-top: 10px;
+  margin-left: -22px;
+  position: relative;
+  text-decoration:underline;
+}
+
+.selected {
+  background-color: #b1c8f2;
+}
+
+div.title {
+  text-align: right;
+  position: relative;
+  font-size: .8em;
+  font-weight: bold;
+  padding-top: 2px;
+}
+
+div.controlbutton {
+  width: 20px;
+  display:inline;
+  position: absolute;
+  z-index:999;
+  border:1px solid #abb6ce;
+  background-color: #f5f7fc;
+  padding-left: 7px;
+  padding-top: 2px;
+  padding-bottom: 4px;
+  padding-right: 7px;
+  height: 15px;
+  cursor: pointer;
+}
+
+div.column {
+  width:250px;
+  height: 100%;
+  float:left;
+  position: relative;
+}
+
+div.columnlist {
+  width: 100%;
+  bottom: 0;
+  top:30px;
+  position:absolute;
+  overflow-y:scroll;
+  overflow-x:hidden;
+}
+
+div.iconmedia {
+  background: url('../../app/theme/icon_media.png');
+}
+
+div.iconfolder {
+  background: url('../../app/theme/icon_folder.png');
+}
+
+div.iconfile {
+  background: url('../../app/theme/icon_file.png');
+}
+
+div.iconphoto {
+  background: url('../../app/theme/icon_photo.png');
+}
+
+div.iconmusic {
+  background: url('../../app/theme/icon_media.png');
+}
+
+div.backbutton {
+  -webkit-border-top-left-radius: 5px;
+  -webkit-border-bottom-left-radius: 5px;
+  left: 10px;
+  top: 5px
+}
+
+div.fwdbutton {
+  -webkit-border-top-right-radius: 5px;
+  -webkit-border-bottom-right-radius: 5px;
+  left: 45px;
+  top: 5px;
+}
+
+div.playbackcontainer {
+  top: 0;
+  left: 0;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: black;
+}
+
+div.scanningcontainer {
+  top: 0;
+  left: 0;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+
+div.filebutton {
+  width: 70px;
+  height: 20px;
+  cursor: pointer;
+  padding-top:2px;
+  border:1px solid #abb6ce;
+  background-color: #f5f7fc;
+  -webkit-border-radius: 5px;
+  text-align: center;
+  font-size:.8em;
+}
+
+.filenameprompt {
+  top: 10px;
+  left: 13px;
+  font-size:.8em;
+  position: absolute;
+}
+
+.filename {
+  left: 80px;
+  top:5px;
+  right:10px;
+  font-size:.8em;
+  position: absolute;
+}
+
+div.openbutton {
+  bottom: 5px;
+  left: 10px;
+  position: absolute;
+}
+
+div.cancelbutton {
+  bottom: 5px;
+  left: 90px;
+  position: absolute;
+}
+
+div.newfolderbutton {
+  bottom: 5px;
+  right: 10px;
+  position: absolute;
+}
+
+div.disabled {
+  color: gray;
+  cursor:default;
+}
+
+div.opencontainer {
+  width: 100%;
+  bottom: 0;
+  left:0;
+  height: 30px;
+  position: absolute;
+  background-image: -webkit-gradient(linear,
+                                     0% 0%,
+                                     0% 90%,
+                                     from(rgb(239, 242, 249)),
+                                     to(rgba(201, 212, 245, 1)));
+}
+
+div.savecontainer {
+  width: 100%;
+  bottom: 0;
+  left:0;
+  height: 60px;
+  position: absolute;
+  background-image: -webkit-gradient(linear,
+                                     0% 0%,
+                                     0% 90%,
+                                     from(rgb(239, 242, 249)),
+                                     to(rgba(201, 212, 245, 1)));
+}
+
+div.container {
+  top: 0;
+  position: absolute;
+  width: 100%;
+  left: 0;
+  bottom: 0;
+}
+
+div.containerwithopenbuttons {
+  top: 0;
+  position: absolute;
+  width: 100%;
+  left: 0;
+  bottom: 30px;
+}
+
+div.containerwithsavebuttons {
+  top: 0;
+  position: absolute;
+  width: 100%;
+  left: 0;
+  bottom: 60px;
+}
+
+div.fullcontainer {
+  top: 0px;
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  right: 600px;
+  overflow-y: hidden;
+  overflow-x: scroll;
+}
+
+.popout {
+  right: 10px;
+  top: 10px;
+  width: 15px;
+  text-align: center;
+  height: 10px;
+  font-size: .4em;
+  background: rgb(239, 242, 249);
+  cursor: pointer;
+  z-index:99999;
+  padding-top: 1px;
+  border: 1px solid #999;
+  position: absolute;
+  -webkit-border-radius: 5px;
+}
+
+.mediacontainer {
+  top: 0;
+  left: 0;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+
+.uploadmenu {
+  top: 0;
+  right: 0;
+  width: 100px;
+  height: 70px;
+  position: absolute;
+  display: none;
+  z-index: 999;
+  background: white;
+  border: 1px solid black;
+  padding: 5px;
+}
+
+.uploadmenuitem {
+  width: 100%;
+  height: 20px;
+  text-align: left;
+  cursor: pointer;
+  left: 0;
+  color: blue;
+  text-decoration: underline;
+}
+
+.uploadmenuitemdisabled {
+  width: 100%;
+  height: 20px;
+  text-align: left;
+  color: gray;
+  left: 0;
+}
+
+a:hover {
+  color: #3874be;
+  text-decoration: underline;
+  display: block;
+}
+
+</style>
+<script src='local_strings.js'></script>
+<script>
+
+
+
+function $(o) {
+  return document.getElementById(o);
+}
+
+var pathArray = [];
+var currentNode = -1;
+var foundImages = [];
+var currentImageMenu = '';
+var inFullMode = false;
+var inSelectMode = false;
+var videoPlaybackElement = null;
+var photoPreviewElement = null;
+var numColumns = 0;
+var divArray = [];
+var rootsDiv = null;
+var currentlySelectedItems = new Array();
+var currentlySelectedPaths = new Array();
+var multiSelect = false;
+var inSaveMode = false;
+
+function goBackInList() {
+  if (currentNode > 0) {
+    currentNode--;
+    getDataForPath(pathArray[currentNode]);
+  }
+};
+
+function toggleFullscreen() {
+  if (videoPlaybackElement != null) {
+    if (videoPlaybackElement.className == 'fullscreenplayback') {
+      videoPlaybackElement.className = 'playbackelement';
+    } else {
+      videoPlaybackElement.className = 'fullscreenplayback';
+    }
+  }
+};
+
+function goForwardInList() {
+  if (currentNode < (pathArray.length - 1)) {
+    currentNode++;
+    getDataForPath(pathArray[currentNode]);
+  }
+};
+var lastScrollLeft = 0;
+function animateScrollRight() {
+
+  var main = $('main');
+  main.scrollLeft += 20;
+  // since if its larger than a size, we know we reached the leftmost part when
+  // it stops growing, so clear it out and no more timeouts.
+  if (lastScrollLeft != main.scrollLeft) {
+    lastScrollLeft = main.scrollLeft;
+    setTimeout('animateScrollRight()', 15);
+  } else {
+    lastScrollLeft = 0;
+  }
+
+};
+
+function getCurrentContainer() {
+  if (inFullMode) {
+    var newContainer = document.createElement('div');
+    var main = $('inner');
+    numColumns++;
+    main.style.width = (numColumns * 250) + 'px';
+    newContainer.className = 'column';
+    main.appendChild(newContainer);
+    animateScrollRight();
+    return newContainer;
+  } else {
+    return $('main');
+  }
+};
+
+function clearList(list) {
+  if (list.hasChildNodes()) {
+    while (list.childNodes.length >=1) {
+      list.removeChild(list.firstChild);
+    }
+  }
+};
+
+function rootsChanged() {
+  if (inFullMode) {
+    chrome.send('getRoots', []);
+  }
+};
+
+function browseFileResult(info, results) {
+   var lastDirArray = info.path.split('/');
+   var lastDir = lastDirArray[lastDirArray.length - 1];
+   if (info.functionCall == 'getRoots') {
+     if (rootsDiv) {
+       clearList(rootsDiv);
+       createNewList(lastDir, results, rootsDiv, info.path);
+     } else {
+       var main = getCurrentContainer();
+       rootsDiv = main;
+       divArray.push(main);
+
+       createNewList(lastDir, results, main, info.path);
+     }
+   } else if (info.functionCall == 'getChildren') {
+     var main = getCurrentContainer();
+     divArray.push(main);
+
+     createNewList(lastDir, results, main, info.path);
+   }
+};
+
+function pathIsVideoFile(path) {
+  return /\.(mp4|ogg|mpg|avi)$/i.test(path);
+};
+
+function pathIsAudioFile(path) {
+  return /\.(mp3|m4a)$/i.test(path);
+};
+
+function pathIsImageFile(path) {
+  return /\.(jpg|png|gif)$/i.test(path);
+};
+
+function moveScrollLeft() {
+  var main = $('main');
+  main.scrollLeft += 10;
+}
+
+function setUpForPlayback(path) {
+   var mediapath = 'file://' + path;
+   var header = $('header');
+   document.body.removeChild(header);
+   var main = $('main');
+   main.className = 'playbackcontainer';
+   var elementType;
+   if (pathIsVideoFile(path)) {
+     elementType = 'video';
+   } else if (pathIsAudioFile(path)) {
+     elementType = 'audio';
+   } else {
+     // close because we can't deal with this.
+     return;
+   }
+   var element = document.createElement(elementType);
+   element.className = 'mediacontainer';
+   element.autoplay = true;
+   element.controls = true;
+   element.src = mediapath;
+   main.appendChild(element);
+};
+
+function getClassForPath(path, isDirectory) {
+  if (isDirectory) {
+    return 'icon iconfolder';
+  } else if (pathIsImageFile(path)) {
+    return 'icon iconphoto';
+  } else if (pathIsVideoFile(path)) {
+    return 'icon iconmedia';
+  } else if (pathIsAudioFile(path)) {
+    return 'icon iconmusic';
+  }
+  return 'icon iconfile';
+};
+
+function getDataForPath(path) {
+  if (path == 'roots' ) {
+    if (inSaveMode) {
+      var newfolderbutton = $('newfolderbutton');
+      newfolderbutton.className = 'filebutton newfolderbutton disabled';
+      var savebutton = $('savebutton');
+      savebutton.className = 'filebutton openbutton disabled';
+    }
+    chrome.send('getRoots', []);
+  } else {
+    if (inSaveMode) {
+      var newfolderbutton = $('newfolderbutton');
+      newfolderbutton.className = 'filebutton newfolderbutton';
+      var savebutton = $('savebutton');
+      savebutton.className = 'filebutton openbutton';
+    }
+    chrome.send('getChildren', [path]);
+  }
+};
+
+function setUpForScanning() {
+  var header = $('header');
+  document.body.removeChild(header);
+  var main = $('main');
+  main.className = 'scanningcontainer';
+  main.textContent = 'Scanning Device...';
+};
+
+
+function dialogOkClick() {
+   if (currentlySelectedPaths.length == 0) {
+     return;
+   }
+   if (!multiSelect) {
+     chrome.send('DialogClose', [JSON.stringify({'path' : currentlySelectedPaths[0]})]);
+   } else {
+     chrome.send('DialogClose', [JSON.stringify({'path' : currentlySelectedPaths})]);
+   }
+};
+
+function dialogCancelClick() {
+   chrome.send('DialogClose', ['']);
+};
+
+function dialogSaveClick() {
+  var filenameInput = $('filename');
+  var filename = filenameInput.value;
+  var currentPath = pathArray[pathArray.length - 1];
+  if (currentPath == 'roots') {
+    return;
+  }
+  currentPath += '/';
+  currentPath += filename;
+  chrome.send('DialogClose', [JSON.stringify({'path' : currentPath})]);
+};
+
+
+function createNewFormItem(initialName, isDirectory, id, blurcallback, keypresscallback) {
+  var element = document.createElement('li');
+  element.className = 'filebrowserow';
+  element.id = 'listItem' + elementIdCounter;
+  elementIdCounter++;
+
+  var link;
+  link = document.createElement('div');
+  link.className = 'rowlink';
+
+  var icon = document.createElement('div');
+  icon.className = getClassForPath('', isDirectory);
+  link.appendChild(icon);
+  var input = document.createElement('input');
+  input.className = 'name';
+  input.id = 'newfoldername';
+  input.onblur = blurcallback;
+  input.onkeypress = keypresscallback;
+  input.focus();
+
+  input.value = initialName;
+  link.appendChild(input);
+
+  element.appendChild(link);
+  if (isDirectory) {
+    var rightarrow = document.createElement('div');
+    rightarrow.align = 'right';
+    rightarrow.innerHTML = '&raquo;';
+    rightarrow.className = 'rightarrow';
+    element.appendChild(rightarrow);
+  }
+
+  return element;
+};
+
+function createFolder(elementId) {
+  var currentPath = pathArray[pathArray.length - 1];
+  var element = $('newfoldername');
+  if (element) {
+    element.id = '';
+    var filename = element.value;
+    currentPath += '/';
+    currentPath += filename;
+    var parent = element.parentNode;
+    parent.removeChild(element);
+    listitem = parent.parentNode;
+
+    parent.onclick = new Function(getFunctionForItem(currentPath, listitem.id, true));
+
+    var span = document.createElement('span');
+    if (inSelectMode) {
+      span.className = 'name';
+    } else {
+      span.className = 'namelink';
+    }
+    span.textContent = filename;
+    parent.appendChild(span);
+
+    chrome.send('createNewFolder', [currentPath]);
+  }
+  return false;
+};
+
+function createFolderTyping(elementId) {
+   if (window.event.keyCode == 13) {
+     createFolder(elementId);
+   }
+};
+
+function getDirectoryForPath(path) {
+  var index = path.lastIndexOf('/');
+  if (index == -1) {
+    return path;
+  }
+  return path.substr(path, index);
+};
+
+function downloadsList(results) {
+//  alert(JSON.stringify(results));
+//  We might want to do something with this... For now assume that the update will get the necessary info
+};
+
+function downloadUpdated(results) {
+  for (var x = 0; x < results.length; x++) {
+    var element = $(results[x].file_path);
+    if (element) {
+      if (results[x].percent < 100) {
+        var progressDiv = null;
+        for (var y = 0; y < element.children.length; y++) {
+           if (element.children[y].className == 'downloadstatus') {
+             progressDiv = element.children[y];
+             break;
+           }
+        }
+        if (progressDiv == null) {
+          element.className = 'filebrowserow downloading';
+          var progressDiv = document.createElement('div');
+          progressDiv.className = 'downloadstatus';
+          element.appendChild(progressDiv);
+        }
+        progressDiv.textContent = results[x].progress_status_text;
+
+      } else {
+        for (var x = 0; x < element.children.length; x++) {
+           if (element.children[x].className == 'downloadstatus') {
+              var child = element.children[x];
+              element.removeChild(child);
+           }
+        }
+        element.className = 'filebrowserow';
+      }
+    } else {
+      // TODO(dhg):Get the new file
+    }
+  }
+};
+
+function dialogNewFolderClick() {
+  var newfolderbutton = $('newfolderbutton');
+  if (newfolderbutton.className.indexOf('disabled') != -1) {
+    return;
+  }
+
+  var main = divArray[divArray.length - 1];
+  var list;
+  for (var x = 0; x < main.childNodes.length; x++ ) {
+    if (main.childNodes[x].className == 'columnlist') {
+      list = main.childNodes[x].firstChild;
+      break;
+    }
+  }
+  var id = 'listItem' + elementIdCounter;
+  elementIdCounter++;
+  var element = createNewFormItem('',
+                                  true,
+                                  id,
+                                  new Function('createFolder("' + id + '")'),
+                                  new Function('createFolderTyping("' + id + '")'));
+  list.appendChild(element);
+  element.scrollIntoView();
+};
+
+///////////////////////////////////////////////////////////////////////////////
+// Document Functions:
+/**
+ * Window onload handler, sets up the page.
+ */
+function load() {
+  if(document.documentElement.clientWidth <= 600) {
+    inFullMode = false;
+
+    if (chrome.dialogArguments) {
+      var args = JSON.parse(chrome.dialogArguments);
+      if (args.type == 'open') {
+        multiSelect = false;
+      } else if (args.type == 'save') {
+        inSaveMode = true;
+      } else if (args.type == 'open_multiple') {
+        multiSelect = true;
+      } else {
+        alert ('got unknown type');
+      }
+      inSelectMode = true;
+      if (inSaveMode) {
+        var main = $('main');
+        main.className = 'containerwithsavebuttons';
+        var savemenu = document.createElement('div');
+        savemenu.className = 'savecontainer';
+
+        var savebutton = document.createElement('div');
+        savebutton.id = 'savebutton';
+        savebutton.className = 'filebutton openbutton disabled';
+        savebutton.onclick = dialogSaveClick;
+        savebutton.textContent = 'Save';
+        savemenu.appendChild(savebutton);
+
+        var cancelbutton = document.createElement('div');
+        cancelbutton.className = 'filebutton cancelbutton';
+        savemenu.appendChild(cancelbutton);
+        cancelbutton.textContent = 'Cancel';
+        cancelbutton.onclick = dialogCancelClick;
+
+        var filenameprompt = document.createElement('div');
+        filenameprompt.className = 'filenameprompt';
+        filenameprompt.textContent = 'File name:';
+        savemenu.appendChild(filenameprompt);
+
+        var filename = document.createElement('input');
+        filename.className = 'filename';
+        filename.id = 'filename';
+        filename.value = args.current_file;
+        savemenu.appendChild(filename);
+
+        var newfolderbutton = document.createElement('div');
+        newfolderbutton.id = 'newfolderbutton';
+        newfolderbutton.className = 'filebutton newfolderbutton disabled';
+        newfolderbutton.textContent = 'New Folder';
+        newfolderbutton.onclick = dialogNewFolderClick;
+        savemenu.appendChild(newfolderbutton);
+
+        document.body.appendChild(savemenu);
+
+      } else {
+        var main = $('main');
+        main.className = 'containerwithopenbuttons';
+        var openmenu = document.createElement('div');
+        openmenu.className = 'opencontainer';
+        var openbutton = document.createElement('div');
+        openbutton.className = 'filebutton openbutton disabled';
+        var cancelbutton = document.createElement('div');
+        cancelbutton.className = 'filebutton cancelbutton';
+        openmenu.appendChild(openbutton);
+        openbutton.onclick = dialogOkClick;
+        openmenu.appendChild(cancelbutton);
+        cancelbutton.onclick = dialogCancelClick;
+        openbutton.textContent = 'Open';
+        cancelbutton.textContent = 'Cancel';
+        document.body.appendChild(openmenu);
+      }
+    }
+  } else {
+    var main = $('main');
+    main.className = 'fullcontainer';
+    var innerContainer = document.createElement('div');
+    innerContainer.className = 'container';
+    innerContainer.id = 'inner';
+    main.appendChild(innerContainer);
+    inFullMode = true;
+    $('back').style.display = 'none';
+    $('fwd').style.display = 'none';
+  }
+
+  if (document.location.href.indexOf('#') != -1) {
+    var currentpathArray = document.location.href.split('#');
+    var path = currentpathArray[1];
+    if (path == 'scanningdevice') {
+      setUpForScanning();
+    } else if (pathIsVideoFile(path) || pathIsAudioFile(path)) {
+      setUpForPlayback(path);
+    } else {
+      currentNode++;
+      pathArray.push(path);
+      getDataForPath(path);
+    }
+  } else {
+    currentNode++;
+    pathArray.push('roots');
+    getDataForPath('roots');
+  }
+  chrome.send("getDownloads", []);
+};
+
+function jumpToNode(nodeNumber) {
+  if (currentNode == nodeNumber) {
+    return;
+  }
+  if (inFullMode) {
+    var main = $('inner');
+    for (var x = (nodeNumber+1); x < divArray.length ; x++ ) {
+      main.removeChild(divArray[x]);
+      numColumns--;
+    }
+    divArray = divArray.slice(0,nodeNumber+1);
+  }
+  currentNode = nodeNumber;
+}
+
+function descend(path, nodeNumber) {
+  if (pathArray.length <currentNode) {
+    pathArray = pathArray.slice(0, currentNode);
+  }
+  jumpToNode(nodeNumber);
+  currentNode++;
+  pathArray.push(path);
+  getDataForPath(path);
+};
+
+function clearPreviewPane() {
+  if (videoPlaybackElement != null) {
+    document.body.removeChild($('fullscreentoggle'));
+    document.body.removeChild(videoPlaybackElement);
+    videoPlaybackElement = null;
+  }
+  if (photoPreviewElement != null) {
+    document.body.removeChild(photoPreviewElement);
+    photoPreviewElement = null;
+  }
+};
+
+function playMediaFile(path) {
+  if (inFullMode) {
+    if (videoPlaybackElement == null) {
+      videoPlaybackElement = document.createElement('video');
+      videoPlaybackElement.className = 'playbackelement';
+      videoPlaybackElement.autoplay = true;
+      videoPlaybackElement.controls = true;
+      videoPlaybackElement.src = 'file://' + path;
+      var toggleButton = document.createElement('div');
+      toggleButton.className = 'fullscreentoggle';
+      toggleButton.id = 'fullscreentoggle';
+      toggleButton.onclick = toggleFullscreen;
+      document.body.appendChild(toggleButton);
+      document.body.appendChild(videoPlaybackElement);
+    } else {
+      videoPlaybackElement.src = 'file://' + path;
+    }
+  } else {
+    var newPath = 'chrome://filebrowse#' + path;
+    chrome.send('openNewPopupWindow', [newPath]);
+  }
+};
+
+function showImage(path) {
+  if (inFullMode) {
+    if (photoPreviewElement == null) {
+      photoPreviewElement = document.createElement('img');
+      photoPreviewElement.className = 'imagepreview';
+      photoPreviewElement.src = 'file://' + path;
+      document.body.appendChild(photoPreviewElement);
+    } else {
+      photoPreviewElement.src = 'file://' + path;
+    }
+  } else {
+    chrome.send('openNewFullWindow', ['file://' + path]);
+  }
+};
+
+function clearImageMenus() {
+  if (foundImages[currentImageMenu]) {
+    var element = foundImages[currentImageMenu];
+    element.firstChild.style.display = 'none';
+    currentImageMenu = '';
+  }
+};
+
+function uploadImage(path) {
+  if (foundImages[path]) {
+    var element = foundImages[path];
+    element.onclick = undefined;
+    element.className = 'uploadprogress';
+  }
+  chrome.send('uploadToPicasaweb', [path]);
+};
+
+function showMenu(path) {
+  if (foundImages[path]) {
+    clearImageMenus();
+    var element = foundImages[path];
+    element.firstChild.style.display = 'block';
+    currentImageMenu = path;
+  }
+  window.event.stopPropagation();
+}
+
+function uploadComplete(result) {
+  if (foundImages[result.path]) {
+    var element = foundImages[result.path];
+    element.className = 'uploadcomplete';
+    if (result.status_code == 201) {
+      element.innerHTML = '<a href=' + result.url + '>Uploaded</a>';
+    } else {
+      element.textContent = 'Error';
+    }
+  }
+};
+
+function findInArray(arr, element) {
+  for (var x = 0; x < arr.length; x++) {
+    if (arr[x] == element) {
+      return x;
+    }
+  }
+  return -1;
+};
+
+function selectItem(elementid, path) {
+  var element = $(elementid);
+  var index;
+  if ((index = findInArray(currentlySelectedItems, element)) != -1) {
+    // the user must want to toggle
+    currentlySelectedItems.splice(index, 1);
+    element.classname = 'filebrowserow';
+    index = findInArray(currentlySelectedPaths, path);
+    currentlySelectedPaths.splice(index, 1);
+  } else {
+    if (!multiSelect) {
+      // clear out previous selected elements
+      for (var x = 0; x < currentlySelectedItems.length; x++) {
+        currentlySelectedItems[x].className = 'filebrowserow';
+      }
+    }
+    element.className = 'selected filebrowserow';
+    currentlySelectedItems.push(element);
+    currentlySelectedPaths.push(path);
+  }
+};
+
+// TODO(dhg): Do not use javascript: href, use onclick instead
+function getFunctionForItem(path, id, isDirectory) {
+  if (isDirectory) {
+    return 'descend("' + path + '", ' + currentNode + ')';
+  } if(inSelectMode) {
+    return 'selectItem("' + id + '", "' + path + '")';
+  } if (pathIsAudioFile(path)) {
+    return 'playMediaFile("' + path + '")';
+  } if (pathIsVideoFile(path)) {
+    return 'playMediaFile("' + path + '")';
+  } if (pathIsImageFile(path)) {
+    return 'showImage("' + path + '")';
+  } else {
+    return '';
+  }
+};
+
+var elementIdCounter = 0;
+
+function createNewItem(title, path, isDirectory) {
+  var element = document.createElement('li');
+  element.className = 'filebrowserow';
+  /*element.id = 'listItem' + elementIdCounter;*/
+  element.id = path;
+  elementIdCounter++;
+  var link;
+  link = document.createElement('div');
+  link.onclick = new Function(getFunctionForItem(path, element.id, isDirectory));
+  link.className = 'rowlink';
+
+  var icon = document.createElement('div');
+  icon.className = getClassForPath(path, isDirectory);
+  link.appendChild(icon);
+
+  var span = document.createElement('span');
+  if (inSelectMode) {
+    span.className = 'name';
+  } else {
+    span.className = 'namelink';
+  }
+  span.textContent = title;
+  link.appendChild(span);
+
+  element.appendChild(link);
+  if (isDirectory) {
+    var rightarrow = document.createElement('div');
+    rightarrow.align = 'right';
+    rightarrow.innerHTML = '&raquo;';
+    rightarrow.className = 'rightarrow';
+    element.appendChild(rightarrow);
+  } else if (pathIsImageFile(path)) {
+    var uploadicon = document.createElement('div');
+    var uploadmenu = document.createElement('div');
+    uploadmenu.className = 'uploadmenu';
+    var picasaitem = document.createElement('div');
+    var flikritem = document.createElement('div');
+    var emailitem = document.createElement('div');
+    picasaitem.textContent = 'Picasa Web';
+    flikritem.textContent = 'Flikr';
+    emailitem.textContent = 'Email';
+    picasaitem.className = 'uploadmenuitem';
+    flikritem.className = 'uploadmenuitemdisabled';
+    emailitem.className = 'uploadmenuitemdisabled';
+    picasaitem.onclick = new Function('uploadImage("' + path + '")');
+    uploadmenu.appendChild(picasaitem);
+    uploadmenu.appendChild(flikritem);
+    uploadmenu.appendChild(emailitem);
+    uploadicon.align = 'right';
+    uploadicon.className = 'uploadicon';
+    uploadicon.onclick = new Function('showMenu("' + path + '")');
+    uploadicon.appendChild(uploadmenu);
+    element.appendChild(uploadicon);
+    // Doing this so that we can change it when we get events
+    foundImages[path] = uploadicon;
+  }
+
+  return element;
+};
+
+function clearChildren(element) {
+  element.innerHTML = '';
+};
+
+function popout(path) {
+ var newPath = 'chrome://filebrowse#' + path;
+ chrome.send('openNewPopupWindow', [newPath]);
+};
+
+function createNewList(title, results, main, path) {
+  clearChildren(main);
+
+  var mainList = document.createElement('div');
+  mainList.className = 'columnlist';
+  var list = document.createElement('ul');
+  list.className = 'filebrowselist';
+
+  var header = document.createElement('div');
+  header.className = 'header';
+  var divTitle = document.createElement('div');
+  divTitle.className = 'title';
+  if (inFullMode) {
+    divTitle.style['text-align'] = 'center';
+  }
+  divTitle.innerHTML = title;
+  if (inFullMode && (path.length != 0)) {
+    var popOutButton = document.createElement('div');
+    popOutButton.innerHTML = '&prod;';
+    popOutButton.className = 'popout';
+    popOutButton.onclick = new Function('popout("' + path + '");');
+    header.appendChild(popOutButton);
+  }
+  header.appendChild(divTitle);
+  main.appendChild(header);
+  main.appendChild(mainList);
+  for (var x=0; x < results.length; x++) {
+    var element = createNewItem(results[x].title,
+                                results[x].path,
+                                results[x].isDirectory);
+    list.appendChild(element);
+  }
+  mainList.appendChild(list);
+};
+
+</script>
+<body onload='load();' onclick='clearImageMenus()' onselectstart='return false'>
+<div id='header' class=''>
+  <div id='back' class='backbutton controlbutton' onclick='goBackInList();return false;'>
+    <img src="../../app/theme/filebrowse_back.png" width='100%' height='100%'>
+  </div>
+  <div id='fwd' class='fwdbutton controlbutton' onclick='goForwardInList();return false;'>
+    <img src="../../app/theme/filebrowse_forward.png" width='100%' height='100%'>
+  </div>
+  <div id='currenttitle' class=''></div>
+</div><br>
+<div id='main' class='container'></div>
+</body>
+</html>

@@ -1,0 +1,302 @@
+<div id="pageData-name" class="pageData">Content Scripts</div>
+<div id="pageData-showTOC" class="pageData">true</div>
+
+<p>
+Content scripts are JavaScript files that run in the context of web pages.
+By using the standard
+<a href="http://www.w3.org/TR/DOM-Level-2-HTML/">Document
+Object Model</a> (DOM),
+they can read details of the web pages the browser visits,
+or make changes to them.
+</p>
+
+<p>
+Here are some examples of what content scripts can do:
+</p>
+
+<ul>
+  <li>Find unlinked URLs in web pages and convert them into hyperlinks
+  <li>Increase the font size to make text more legible
+  <li>Find and process <a href="http://microformats.org/">microformat</a> data in the DOM
+</ul>
+
+<p>
+However, content scripts have some limitations.
+They <b>cannot</b>:
+</p>
+
+<ul>
+  <li>
+    Use chrome.* APIs
+    (except for parts of
+    <a href="extension.html"><code>chrome.extension</code></a>)
+  </li>
+  <li>
+    Use variables or functions defined by their extension's pages
+  </li>
+  <li>
+    Use variables or functions defined by web pages or by other content scripts
+  </li>
+  <li>
+    Make cross-site XMLHttpRequests
+  </li>
+</ul>
+
+<p>
+These limitations aren't as bad as they sound.
+Content scripts can <em>indirectly</em> use the chrome.* APIs,
+get access to extension data,
+and request extension actions
+by exchanging <a href="messaging.html">messages</a>
+with their parent extension.
+Content scripts can also
+<a href="#host-page-communication">communicate with web pages</a>
+using the shared DOM.
+For more insight into what content scripts can and can't do,
+learn about the
+<a href="#execution-environment">execution environment</a>.
+</p>
+
+<h2 id="registration">Manifest</h2>
+
+<p>Content scripts are registered in an extension's <a href="manifest.html">manifest.json</a> file, like so:
+
+<pre>{
+  "name": "My extension",
+  ...
+  <b>"content_scripts": [
+    {
+      "matches": ["http://www.google.com/*"],
+      "css": ["mystyles.css"],
+      "js": ["jquery.js", "myscript.js"]
+    }
+  ]</b>,
+  ...
+}</pre>
+
+<p>An extension can contain any number of content scripts, and a content script can consist of any number of JavaScript or CSS files. The value of the <code>matches</code> property controls when the content script will run.
+
+<p>Each content script registered in the manifest can specify the following properties:</p>
+
+<table>
+  <tr>
+    <th>Name</th>
+    <th>Type</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td>matches</td>
+    <td>array of strings</td>
+    <td><em>Required.</em>
+    Controls the pages this content script will be injected into.
+    See <a href="match_patterns.html">Match Patterns</a>
+    for more details on the syntax of these strings.</td>
+  </tr>
+  <tr>
+    <td>js</td>
+    <td><nobr>array of strings</nobr></td>
+    <td><em>Optional.</em>
+    The list of JavaScript files to be injected into matching pages. These are injected in the order they appear in this array.</td>
+  </tr>
+  <tr>
+    <td>css</td>
+    <td>array of strings</td>
+    <td><em>Optional.</em>
+    The list of CSS files to be injected into matching pages. These are injected in the order they appear in this array, before any DOM is constructed or displayed for the page.</td>
+  </tr>
+  <tr>
+    <td>run_at</td>
+    <td>string</td>
+    <td><em>Optional.</em>
+    Controls when the files in <code>js</code> are injected. Can be <code>"document_start"</code>, <code>"document_end"</code>, or <code>"document_idle"</code>. Defaults to <code>"document_idle"</code>.
+
+    <br><br>
+
+    In the case of <code>"document_start"</code>, the files are injected after any files from <code>"css"</code>, but before any other DOM is constructed or any other script is run.
+
+    <br><br>
+
+    In the case of <code>"document_end"</code>, the files are injected immediately after the DOM is complete, but before subresources like images and frames have loaded.
+
+    <br><br>
+
+    In the case of <code>"document_idle"</code>, the browser chooses a time to inject scripts between <code>"document_end"</code> and immediately after the <code><a href="http://www.whatwg.org/specs/web-apps/current-work/#handler-onload">window.onload</a></code> event fires. The exact moment of injection depends on how complex the document is and how long it is taking to load, and is optimized for page load speed.
+
+    <br><br>
+
+    <b>NOTE:</b> In <code>document_idle</code>, content scripts may not necessarily receive the window.onload event, because they may run after it has
+    already fired. In most cases, listening for the onload event is unnecessary for content scripts running at <code>document_idle</code> because they are guaranteed to run after the DOM is complete. If your script definitely needs to run after <code>window.onload</code> you can check if it has already fired by using the <code><a href="http://www.whatwg.org/specs/web-apps/current-work/#dom-document-readystate">document.readyState</a></code> property.</td>
+  </tr>
+  <tr>
+    <td>all_frames</td>
+    <td>boolean</td>
+    <td><em>Optional.</em>
+    Controls whether the content script runs in all frames of the matching page, or only the top frame.
+    <br><br>
+    Defaults to <code>false</code>, meaning that only the top frame is matched.</td>
+  </tr>
+</table>
+
+
+<h2 id="execution-environment">Execution environment</h2>
+
+<p>Content scripts execute in a special environment called an <em>isolated world</em>. They have access to the DOM of the page they are injected into, but not to any JavaScript variables or functions created by the page. It looks to each content script as if there is no other JavaScript executing on the page it is running on. The same is true in reverse: JavaScript running on the page cannot call any functions or access any variables defined by content scripts.
+
+<p>For example, consider this simple page:
+
+<pre>hello.html
+==========
+&lt;html&gt;
+  &lt;button id="mybutton"&gt;click me&lt;/button&gt;
+  &lt;script&gt;
+    var greeting = "hello, ";
+    var button = document.getElementById("mybutton");
+    button.person_name = "Bob";
+    button.addEventListener("click", function() {
+      alert(greeting + button.person_name + ".");
+    }, false);
+  &lt;/script&gt;
+&lt;/html&gt;</pre>
+
+<p>Now, suppose this content script was injected into hello.html:
+
+<pre>contentscript.js
+================
+var greeting = "hola, ";
+var button = document.getElementById("mybutton");
+button.person_name = "Roberto";
+button.addEventListener("click", function() {
+  alert(greeting + button.person_name + ".");
+}, false);
+</pre>
+
+<p>Now, if the button is pressed, you will see both greetings.
+
+<p>Isolated worlds allow each content script to make changes to its JavaScript environment without worrying about conflicting with the page or with other content scripts. For example, a content script could include JQuery v1 and the page could include JQuery v2, and they wouldn't conflict with each other.
+
+<p>Another important benefit of isolated worlds is that they completely separate the JavaScript on the page from the JavaScript in extensions. This allows us to offer extra functionality to content scripts that should not be accessible from web pages without worrying about web pages accessing it.
+
+
+<h2 id="host-page-communication">Communication with the embedding page</h2>
+
+<p>Although the execution environments of content scripts and the pages that host them are isolated from each other, they share access to the page's DOM. If the page wishes to communicate with the content script (or with the extension via the content script), it must do so through the shared DOM.</p>
+
+<p>An example can be accomplished using custom DOM events and storing data in a known location. Consider: </p>
+
+<pre>http://foo.com/example.html
+===========================
+var customEvent = document.createEvent('Event');
+customEvent.initEvent('myCustomEvent', true, true);
+
+function fireCustomEvent(data) {
+  hiddenDiv = document.getElementById('myCustomEventDiv');
+  hiddenDiv.innerText = data
+  hiddenDiv.dispatchEvent(customEvent);
+}</pre>
+
+<pre>contentscript.js
+================
+var port = chrome.extension.connect();
+
+document.getElementById('myCustomEventDiv').addEventListener('myCustomEvent', function() {
+  var eventData = document.getElementById('myCustomEventDiv').innerText;
+  port.postMessage({message: "myCustomEvent", values: eventData});
+});</pre>
+
+<p>In the above example, example.html (which is not a part of the extension) creates a custom event and then can decide to fire the event by setting the event data to a known location in the DOM and then dispatching the custom event. The content script listens for the name of the custom event on the known element and handles the event by inspecting the data of the element, and turning around to post the message to the extension process. In this way the page establishes a line of communication to the extension. The reverse is possible through similar means.</p>
+
+<h2 id="security-considerations">Security considerations</h2>
+
+<p>When writing a content script, you should be aware of two security issues.
+First, be careful not to introduce security vulnerabilities into the web site
+your content script is injected into.  For example, if your content script
+receives content from another web site (e.g., by <a
+href="messaging.html">asking your background page to make an
+XMLHttpRequest</a>), be careful to filter that content for <a
+href="http://en.wikipedia.org/wiki/Cross-site_scripting">cross-site
+scripting</a> attacks before injecting the content into the current page.
+For example, prefer to inject content via innerText rather than innerHTML.
+Be especially careful when retrieving HTTP content on an HTTPS page because
+the HTTP content might have been corrupted by a network <a
+href="http://en.wikipedia.org/wiki/Man-in-the-middle_attack">"man-in-the-middle"</a>
+if the user is on a hostile network.</p>
+
+<p>Second, although running your content script in an isolated world provides
+some protection from the web page, a malicious web page might still be able
+to attack your content script if you use content from the web page
+indiscriminately.  For example, the following patterns are dangerous:
+<pre>contentscript.js
+================
+var data = document.getElementById("json-data")
+// WARNING! Might be evaluating an evil script!
+var parsed = eval("(" + data + ")")
+
+contentscript.js
+================
+var elmt_id = ...
+// WARNING! elmt_id might be "); ... evil script ... //"!
+window.setTimeout("animate(" + elmt_id + ")", 200);
+</pre>
+<p>Instead, prefer safer APIs that do not run scripts:</p>
+<pre>contentscript.js
+================
+var data = document.getElementById("json-data")
+// JSON.parse does not evaluate the attacker's scripts.
+var parsed = JSON.parse(data)
+
+contentscript.js
+================
+var elmt_id = ...
+// The closure form of setTimeout does not evaluate scripts.
+window.setTimeout(function() {
+  animate(elmt_id);
+}, 200);
+</pre>
+
+<h2 id="extension-files">Referring to extension files</h2>
+
+<p>
+Get the URL of an extension's file using
+<code>chrome.extension.getURL()</code>.
+You can use the result
+just like you would any other URL,
+as the following code shows.
+</p>
+
+
+<pre>
+<em>//Code for displaying &lt;extensionDir>/images/myimage.png:</em>
+var imgURL = <b>chrome.extension.getURL("images/myimage.png")</b>;
+document.getElementById("someImage").src = imgURL;
+</pre>
+
+<h2 id="examples"> Examples </h2>
+
+<p>
+You can find simple examples of communication via messages in the
+<a href="http://src.chromium.org/viewvc/chrome/trunk/src/chrome/common/extensions/docs/examples/api/messaging/">examples/api/messaging</a>
+directory.
+For other examples and for help in viewing the source code, see
+<a href="samples.html">Samples</a>.
+</p>
+
+<h2 id="videos"> Videos </h2>
+
+<p>
+The following videos discuss concepts that are important for content scripts.
+The first video describes content scripts and isolated worlds.
+</p>
+
+<p>
+<object width="560" height="340"><param name="movie" value="http://www.youtube.com/v/laLudeUmXHM&hl=en_US&fs=1&"></param><param name="allowFullScreen" value="true"></param><param name="allowscriptaccess" value="always"></param><embed src="http://www.youtube.com/v/laLudeUmXHM&hl=en_US&fs=1&" type="application/x-shockwave-flash" allowscriptaccess="always" allowfullscreen="true" width="560" height="340"></embed></object>
+</p>
+
+<p>
+The next video describes message passing,
+featuring an example of a content script
+sending a request to its parent extension.
+</p>
+
+<p>
+<object width="560" height="340"><param name="movie" value="http://www.youtube.com/v/B4M_a7xejYI&hl=en_US&fs=1&"></param><param name="allowFullScreen" value="true"></param><param name="allowscriptaccess" value="always"></param><embed src="http://www.youtube.com/v/B4M_a7xejYI&hl=en_US&fs=1&" type="application/x-shockwave-flash" allowscriptaccess="always" allowfullscreen="true" width="560" height="340"></embed></object>
+</p>

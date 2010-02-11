@@ -1,0 +1,65 @@
+<div id="pageData-name" class="pageData">Other APIs</div>
+
+<p>
+In addition to the
+<a href="api_index.html">chrome.* APIs</a>,
+extensions can use all the APIs
+that the browser provides
+to web pages and apps.
+If the browser doesn't support an API you want to use,
+you can bundle additional API libraries into your extension.
+</p>
+
+<p>Here's a sampling of the APIs that extensions can use:</p>
+
+<dl>
+<dt><strong> Standard JavaScript APIs </strong></dt>
+<dd> These are the same core JavaScript and
+  <a href="http://www.w3.org/TR/DOM-Level-2-HTML/">Document Object Model</a>
+  (DOM) APIs
+  that you can use in ordinary web apps.
+  <!-- [PENDING: check! should link to complete list] -->
+<!-- Use onclick in your toolbar div to add click behavior.
+E.g. window.open(someUrl). --></dd>
+<dt><strong> XMLHttpRequest </strong></dt>
+<dd>
+  Use <a href="xhr.html">XMLHttpRequest</a>
+  to request data from one or more servers.
+  The <a href="manifest.html#permissions">permissions</a> field
+  of the manifest specifies
+  which hosts the extension can send requests to.
+  </dd>
+<dt><strong> WebKit APIs </strong></dt>
+<dd>
+  Because Google Chrome is built upon WebKit,
+  your extensions can use WebKit APIs.
+  Especially useful are the experimental CSS features
+  such as filters, animations, and transformations.
+  Here's an example of using WebKit styles
+  to make the UI spin:
+  <pre>&lt;style>
+  div:hover {
+    -webkit-transform: rotate(360deg);
+    -webkit-transition: all 1s ease-out;
+  }
+&lt;/style>
+</pre>
+  <!-- [PENDING: link to complete list of webkit apis] -->
+</dd>
+<dt><strong> V8 APIs</strong>, such as<strong> JSON </strong></dt>
+<dd> Because JSON is in V8, you don't need to include a JSON library to use JSON functions. <!-- [PENDING: what other APIs are in v8? link to complete list] --></dd>
+<dt> <strong>HTML5</strong> <strong>APIs</strong>, such as <strong>localStorage</strong></dt>
+<dd> HTML5 is still being defined and implemented,
+  but Google Chrome already supports local storage,
+  which extensions can use to store data.
+<!--
+localStorage.setItem(&quot;foo&quot;, &quot;bar&quot;); ... localStorage.getItem(&quot;foo&quot;); --> <!-- [PENDING: Other important API? link to complete list] --></dd>
+<dt><strong>APIs in bundled libraries</strong></dt>
+<dd> If you want to use a library that the browser doesn't provide
+(for example, jQuery),
+you can bundle that library's JavaScript files with your extension.
+Bundled libraries work in extensions
+just as they would in any other web pages.
+</dd>
+</dl>
+
