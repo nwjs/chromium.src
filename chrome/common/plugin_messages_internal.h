@@ -232,22 +232,22 @@ IPC_BEGIN_MESSAGES(Plugin)
                              WebCursor /* cursor type*/)
 
   IPC_SYNC_MESSAGE_ROUTED2_0(PluginMsg_WillSendRequest,
-                             unsigned long /* id */,
+                             int /* id */,
                              GURL /* url */)
 
   IPC_MESSAGE_ROUTED1(PluginMsg_DidReceiveResponse,
                       PluginMsg_DidReceiveResponseParams)
 
   IPC_MESSAGE_ROUTED3(PluginMsg_DidReceiveData,
-                      unsigned long /* id */,
+                      int /* id */,
                       std::vector<char> /* buffer */,
                       int /* data_offset */)
 
   IPC_MESSAGE_ROUTED1(PluginMsg_DidFinishLoading,
-                      unsigned long /* id */)
+                      int /* id */)
 
   IPC_MESSAGE_ROUTED1(PluginMsg_DidFail,
-                      unsigned long /* id */)
+                      int /* id */)
 
   IPC_MESSAGE_ROUTED5(PluginMsg_SendJavaScriptStream,
                       GURL /* url */,
@@ -366,7 +366,7 @@ IPC_BEGIN_MESSAGES(PluginHost)
                       intptr_t    /* notify_data */)
 
   IPC_MESSAGE_ROUTED2(PluginHostMsg_DeferResourceLoading,
-                      unsigned long /* resource_id */,
+                      int  /* resource_id */,
                       bool /* defer */)
 
   IPC_SYNC_MESSAGE_CONTROL1_0(PluginHostMsg_SetException,

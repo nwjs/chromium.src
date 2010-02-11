@@ -68,9 +68,8 @@ class ResourceClientProxy : public webkit_glue::WebPluginResourceClient {
   ~ResourceClientProxy() {
   }
 
-  void Initialize(unsigned long resource_id, const GURL& url,
-                  bool notify_needed, intptr_t notify_data,
-                  intptr_t existing_stream) {
+  void Initialize(int resource_id, const GURL& url, bool notify_needed,
+                  intptr_t notify_data, intptr_t existing_stream) {
     resource_id_ = resource_id;
     url_ = url;
     notify_needed_ = notify_needed;
@@ -148,7 +147,7 @@ class ResourceClientProxy : public webkit_glue::WebPluginResourceClient {
  private:
   scoped_refptr<PluginChannelHost> channel_;
   int instance_id_;
-  unsigned long resource_id_;
+  int resource_id_;
   GURL url_;
   bool notify_needed_;
   intptr_t notify_data_;
@@ -1149,7 +1148,7 @@ void WebPluginDelegateProxy::OnHandleURLRequest(
 
 webkit_glue::WebPluginResourceClient*
 WebPluginDelegateProxy::CreateResourceClient(
-    unsigned long resource_id, const GURL& url, bool notify_needed,
+    int resource_id, const GURL& url, bool notify_needed,
     intptr_t notify_data, intptr_t npstream) {
   if (!channel_host_)
     return NULL;
@@ -1172,7 +1171,7 @@ void WebPluginDelegateProxy::OnInitiateHTTPRangeRequest(
                                     notify_data);
 }
 
-void WebPluginDelegateProxy::OnDeferResourceLoading(unsigned long resource_id,
+void WebPluginDelegateProxy::OnDeferResourceLoading(int resource_id,
                                                     bool defer) {
   plugin_->SetDeferResourceLoading(resource_id, defer);
 }

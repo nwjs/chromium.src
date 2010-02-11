@@ -13,7 +13,6 @@
 #include "third_party/WebKit/WebKit/chromium/public/WebConsoleMessage.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebCString.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebCursorInfo.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDevToolsAgent.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebData.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebFrame.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebHTTPBody.h"
@@ -44,7 +43,6 @@ using WebKit::WebCString;
 using WebKit::WebCursorInfo;
 using WebKit::WebData;
 using WebKit::WebDataSource;
-using WebKit::WebDevToolsAgent;
 using WebKit::WebFrame;
 using WebKit::WebHTTPBody;
 using WebKit::WebHTTPHeaderVisitor;
@@ -427,7 +425,7 @@ GURL WebPluginImpl::CompleteURL(const char* url) {
   return webframe_->completeURL(WebString::fromUTF8(url));
 }
 
-void WebPluginImpl::CancelResource(unsigned long id) {
+void WebPluginImpl::CancelResource(int id) {
   for (size_t i = 0; i < clients_.size(); ++i) {
     if (clients_[i].id == id) {
       if (clients_[i].loader.get()) {
@@ -703,12 +701,6 @@ void WebPluginImpl::didReceiveResponse(WebURLLoader* loader,
       response_info.last_modified,
       request_is_seekable);
 
-  if (WebDevToolsAgent* devtools_agent = webframe_->view()->devToolsAgent()) {
-    ClientInfo* client_info = GetClientInfoFromLoader(loader);
-    if (client_info)
-      devtools_agent->didReceiveResponse(client_info->id, response);
-  }
-
   // Bug http://b/issue?id=925559. The flash plugin would not handle the HTTP
   // error codes in the stream header and as a result, was unaware of the
   // fate of the HTTP requests issued via NPN_GetURLNotify. Webkit and FF
@@ -744,12 +736,6 @@ void WebPluginImpl::didReceiveData(WebURLLoader* loader,
     loader->setDefersLoading(true);
     client->DidReceiveData(buffer, length, 0);
   }
-
-  if (WebDevToolsAgent* devtools_agent = webframe_->view()->devToolsAgent()) {
-    ClientInfo* client_info = GetClientInfoFromLoader(loader);
-    if (client_info)
-      devtools_agent->didReceiveData(client_info->id, length);
-  }
 }
 
 void WebPluginImpl::didFinishLoading(WebURLLoader* loader) {
@@ -769,14 +755,11 @@ void WebPluginImpl::didFinishLoading(WebURLLoader* loader) {
     // It is not safe to access this structure after that.
     client_info->client = NULL;
     resource_client->DidFinishLoading();
-
-    if (WebDevToolsAgent* devtools_agent = webframe_->view()->devToolsAgent())
-      devtools_agent->didFinishLoading(client_info->id);
   }
 }
 
 void WebPluginImpl::didFail(WebURLLoader* loader,
-                            const WebURLError& error) {
+                            const WebURLError&) {
   ClientInfo* client_info = GetClientInfoFromLoader(loader);
   if (client_info && client_info->client) {
     loader->setDefersLoading(true);
@@ -785,9 +768,6 @@ void WebPluginImpl::didFail(WebURLLoader* loader,
     // It is not safe to access this structure after that.
     client_info->client = NULL;
     resource_client->DidFail();
-
-    if (WebDevToolsAgent* devtools_agent = webframe_->view()->devToolsAgent())
-      devtools_agent->didFailLoading(client_info->id, error);
   }
 }
 
@@ -854,10 +834,7 @@ void WebPluginImpl::HandleURLRequestInternal(
   } else {
     GURL complete_url = CompleteURL(url);
 
-    unsigned long resource_id = GetNextResourceId();
-    if (!resource_id)
-      return;
-
+    int resource_id = GetNextResourceId();
     WebPluginResourceClient* resource_client = delegate_->CreateResourceClient(
         resource_id, complete_url, notify, notify_data, NULL);
     if (!resource_client)
@@ -876,16 +853,12 @@ void WebPluginImpl::HandleURLRequestInternal(
   }
 }
 
-unsigned long WebPluginImpl::GetNextResourceId() {
-  if (!webframe_)
-    return 0;
-  WebView* view = webframe_->view();
-  if (!view)
-    return 0;
-  return view->createUniqueIdentifierForRequest();
+int WebPluginImpl::GetNextResourceId() {
+  static int next_id = 0;
+  return ++next_id;
 }
 
-bool WebPluginImpl::InitiateHTTPRequest(unsigned long resource_id,
+bool WebPluginImpl::InitiateHTTPRequest(int resource_id,
                                         WebPluginResourceClient* client,
                                         const char* method, const char* buf,
                                         int buf_len,
@@ -922,11 +895,6 @@ bool WebPluginImpl::InitiateHTTPRequest(unsigned long resource_id,
 
   // Sets the routing id to associate the ResourceRequest with the RenderView.
   webframe_->dispatchWillSendRequest(info.request);
-  if (WebDevToolsAgent* devtools_agent = webframe_->view()->devToolsAgent()) {
-    devtools_agent->identifierForInitialRequest(resource_id, webframe_,
-                                                info.request);
-    devtools_agent->willSendRequest(resource_id, info.request);
-  }
 
   info.loader.reset(WebKit::webKitClient()->createURLLoader());
   if (!info.loader.get())
@@ -949,10 +917,7 @@ void WebPluginImpl::InitiateHTTPRangeRequest(const char* url,
                                              intptr_t existing_stream,
                                              bool notify_needed,
                                              intptr_t notify_data) {
-  unsigned long resource_id = GetNextResourceId();
-  if (!resource_id)
-    return;
-
+  int resource_id = GetNextResourceId();
   GURL complete_url = CompleteURL(url);
 
   WebPluginResourceClient* resource_client = delegate_->CreateResourceClient(
@@ -962,8 +927,7 @@ void WebPluginImpl::InitiateHTTPRangeRequest(const char* url,
       load_manually_ ? NO_REFERRER : PLUGIN_SRC);
 }
 
-void WebPluginImpl::SetDeferResourceLoading(unsigned long resource_id,
-                                            bool defer) {
+void WebPluginImpl::SetDeferResourceLoading(int resource_id, bool defer) {
   std::vector<ClientInfo>::iterator client_index = clients_.begin();
   while (client_index != clients_.end()) {
     ClientInfo& client_info = *client_index;
@@ -983,11 +947,6 @@ void WebPluginImpl::SetDeferResourceLoading(unsigned long resource_id,
         client_info.loader->cancel();
         clients_.erase(client_index++);
         resource_client->DidFail();
-
-        // Report that resource loading finished.
-        WebDevToolsAgent* devtools_agent = webframe_->view()->devToolsAgent();
-        if (devtools_agent)
-          devtools_agent->didFinishLoading(resource_id);
       }
       break;
     }

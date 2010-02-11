@@ -22,7 +22,7 @@ class PluginStreamUrl : public PluginStream,
   // a URL. If notifyNeeded is set, then the plugin will be notified
   // when the stream has been fully sent to the plugin.  Initialize
   // must be called before the object is used.
-  PluginStreamUrl(unsigned long resource_id,
+  PluginStreamUrl(int resource_id,
                   const GURL &url,
                   PluginInstance *instance,
                   bool notify_needed,
@@ -59,7 +59,7 @@ class PluginStreamUrl : public PluginStream,
 
  private:
   GURL url_;
-  unsigned long id_;
+  int id_;
 
   DISALLOW_EVIL_CONSTRUCTORS(PluginStreamUrl);
 };
