@@ -1,6 +1,0 @@
-include_rules = [
-  "+app",
-  "+chrome/test",
-  "+sandbox/src",
-  "+native_client/src",
-]
