@@ -800,9 +800,6 @@ class RenderView : public RenderWidget,
   bool AllowContentType(ContentSettingsType settings_type,
                         bool enabled_per_settings);
 
-  // Resets the |content_blocked_| array.
-  void ClearBlockedContentSettings();
-
   // Bitwise-ORed set of extra bindings that have been enabled.  See
   // BindingsPolicy for details.
   int enabled_bindings_;
@@ -984,7 +981,7 @@ class RenderView : public RenderWidget,
   // The text selection the last time DidChangeSelection got called.
   std::string last_selection_;
 
-  // Hopds a reference to the service which provides desktop notifications.
+  // Holds a reference to the service which provides desktop notifications.
   scoped_ptr<NotificationProvider> notification_provider_;
 
   // Holds state pertaining to a navigation that we initiated.  This is held by
@@ -1037,9 +1034,6 @@ class RenderView : public RenderWidget,
 
   // Stores if loading of images, scripts, and plugins is allowed.
   ContentSettings current_content_settings_;
-
-  // Stores if images, scripts, and plugins have actually been blocked.
-  bool content_blocked_[CONTENT_SETTINGS_NUM_TYPES];
 
   // Page translation related objects.
   TextTranslatorImpl text_translator_;
