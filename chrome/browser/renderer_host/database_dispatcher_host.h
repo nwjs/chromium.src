@@ -11,6 +11,7 @@
 #include "base/string16.h"
 #include "chrome/common/content_settings.h"
 #include "ipc/ipc_message.h"
+#include "webkit/database/database_connections.h"
 #include "webkit/database/database_tracker.h"
 
 class ResourceMessageFilter;
@@ -84,9 +85,6 @@ class DatabaseDispatcherHost
   void DatabaseClosed(const string16& origin_identifier,
                       const string16& database_name);
 
-  void AddAccessedOrigin(const string16& origin_identifier);
-  bool HasAccessedOrigin(const string16& origin_identifier);
-
   // Called once we decide whether to allow or block an open file request.
   void OnDatabaseOpenFileAllowed(const string16& vfs_file_name,
                                  int desired_flags,
@@ -114,7 +112,8 @@ class DatabaseDispatcherHost
   // only when the corresponding renderer process is about to go away.
   bool shutdown_;
 
-  base::hash_set<string16> accessed_origins_;
+  // Keeps track of all DB connections opened by this renderer
+  webkit_database::DatabaseConnections database_connections_;
 };
 
 #endif  // CHROME_BROWSER_RENDERER_HOST_DATABASE_DISPATCHER_HOST_H_
