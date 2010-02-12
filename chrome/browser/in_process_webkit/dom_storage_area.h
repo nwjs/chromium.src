@@ -38,13 +38,15 @@ class DOMStorageArea {
   void RemoveItem(const string16& key);
   void Clear();
   void PurgeMemory();
-  bool CheckContentSetting();
 
   int64 id() const { return id_; }
 
  private:
   // Creates the underlying WebStorageArea on demand.
   void CreateWebStorageAreaIfNecessary();
+
+  // Used to see if setItem has permission to do its thing.
+  bool CheckContentSetting(const string16& key, const string16& value);
 
   // The origin this storage area represents.
   string16 origin_;
