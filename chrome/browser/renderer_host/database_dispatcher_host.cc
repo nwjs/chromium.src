@@ -435,18 +435,6 @@ void DatabaseDispatcherHost::OnDatabaseSizeChanged(
   }
 }
 
-void DatabaseDispatcherHost::AddAccessedOrigin(
-    const string16& origin_identifier) {
-  DCHECK(ChromeThread::CurrentlyOn(ChromeThread::FILE));
-  accessed_origins_.insert(origin_identifier);
-}
-
-bool DatabaseDispatcherHost::HasAccessedOrigin(
-    const string16& origin_identifier) {
-  DCHECK(ChromeThread::CurrentlyOn(ChromeThread::FILE));
-  return (accessed_origins_.find(origin_identifier) != accessed_origins_.end());
-}
-
 void DatabaseDispatcherHost::OnDatabaseScheduledForDeletion(
     const string16& origin_identifier,
     const string16& database_name) {
