@@ -6880,6 +6880,7 @@
             'debugger',
             'renderer',
             'syncapi',
+            'test_support_common',
             '../base/base.gyp:test_support_base',
             '../skia/skia.gyp:skia',
             '../testing/gtest.gyp:gtest',
