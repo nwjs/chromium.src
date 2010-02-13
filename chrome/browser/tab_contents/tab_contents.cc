@@ -286,7 +286,8 @@ TabContents::TabContents(Profile* profile,
       last_javascript_message_dismissal_(),
       suppress_javascript_messages_(false),
       is_showing_before_unload_dialog_(false),
-      opener_dom_ui_type_(DOMUIFactory::kNoDOMUI) {
+      opener_dom_ui_type_(DOMUIFactory::kNoDOMUI),
+      language_state_(&controller_) {
   pending_install_.page_id = 0;
   pending_install_.callback_functor = NULL;
   ClearBlockedContentSettings();
@@ -847,6 +848,7 @@ void TabContents::TranslatePage(const std::string& source_lang,
     NOTREACHED();
     return;
   }
+  language_state_.set_translation_pending(true);
   render_view_host()->TranslatePage(entry->page_id(), source_lang, target_lang);
 }
 
@@ -1489,6 +1491,9 @@ void TabContents::DidNavigateAnyFramePostCommit(
   // cleaned up and covered by tests.
   if (params.password_form.origin.is_valid())
     GetPasswordManager()->ProvisionallySavePassword(params.password_form);
+
+  // Let the LanguageState clear its state.
+  language_state_.DidNavigate();
 }
 
 void TabContents::CloseConstrainedWindows() {
@@ -1849,11 +1854,7 @@ void TabContents::OnPageContents(const GURL& url,
     }
   }
 
-  NavigationEntry* entry = controller_.GetActiveEntry();
-  if (process()->id() == renderer_process_id &&
-      entry && entry->page_id() == page_id) {
-    entry->set_language(language);
-  }
+  language_state_.LanguageDetermined(language);
 
   std::string lang = language;
   NotificationService::current()->Notify(
@@ -1865,6 +1866,8 @@ void TabContents::OnPageContents(const GURL& url,
 void TabContents::OnPageTranslated(int32 page_id,
                                    const std::string& original_lang,
                                    const std::string& translated_lang) {
+  language_state_.set_current_language(translated_lang);
+  language_state_.set_translation_pending(false);
   std::pair<std::string, std::string> lang_pair =
       std::make_pair(original_lang, translated_lang);
   NotificationService::current()->Notify(

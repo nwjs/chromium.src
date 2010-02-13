@@ -27,6 +27,7 @@
 #include "chrome/browser/renderer_host/render_view_host_delegate.h"
 #include "chrome/browser/tab_contents/constrained_window.h"
 #include "chrome/browser/tab_contents/infobar_delegate.h"
+#include "chrome/browser/tab_contents/language_state.h"
 #include "chrome/browser/tab_contents/navigation_controller.h"
 #include "chrome/browser/tab_contents/navigation_entry.h"
 #include "chrome/browser/tab_contents/page_navigator.h"
@@ -624,6 +625,10 @@ class TabContents : public PageNavigator,
   // times, subsequent calls are ignored.
   void OnCloseStarted();
 
+  LanguageState& language_state() {
+    return language_state_;
+  }
+
   // JavaScriptMessageBoxClient ------------------------------------------------
   virtual std::wstring GetMessageBoxTitle(const GURL& frame_url,
                                           bool is_alert);
@@ -1170,6 +1175,9 @@ class TabContents : public PageNavigator,
 
   // The time that we started to close the tab.
   base::TimeTicks tab_close_start_time_;
+
+  // Information about the language the page is in and has been translated to.
+  LanguageState language_state_;
 
   // ---------------------------------------------------------------------------
 
