@@ -15,6 +15,12 @@ namespace sql {
 static const char kVersionKey[] = "version";
 static const char kCompatibleVersionKey[] = "last_compatible_version";
 
+// static
+bool MetaTable::DoesTableExist(sql::Connection* db) {
+  DCHECK(db);
+  return db->DoesTableExist("meta");
+}
+
 MetaTable::MetaTable() : db_(NULL) {
 }
 
@@ -24,7 +30,7 @@ MetaTable::~MetaTable() {
 bool MetaTable::Init(Connection* db, int version, int compatible_version) {
   DCHECK(!db_ && db);
   db_ = db;
-  if (!db_->DoesTableExist("meta")) {
+  if (!DoesTableExist(db)) {
     if (!db_->Execute("CREATE TABLE meta"
         "(key LONGVARCHAR NOT NULL UNIQUE PRIMARY KEY,"
          "value LONGVARCHAR)"))

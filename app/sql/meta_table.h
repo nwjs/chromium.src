@@ -16,6 +16,8 @@ class Statement;
 
 class MetaTable {
  public:
+  // Returns true if the 'meta' table exists.
+  static bool DoesTableExist(Connection* db);
   MetaTable();
   ~MetaTable();
 
