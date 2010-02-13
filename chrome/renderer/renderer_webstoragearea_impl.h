@@ -22,7 +22,7 @@ class RendererWebStorageAreaImpl : public WebKit::WebStorageArea {
   virtual WebKit::WebString getItem(const WebKit::WebString& key);
   virtual void setItem(
       const WebKit::WebString& key, const WebKit::WebString& value,
-      const WebKit::WebURL& url, bool& quota_exception);
+      const WebKit::WebURL& url, WebStorageArea::Result& result);
   virtual void removeItem(const WebKit::WebString& key,
                           const WebKit::WebURL& url);
   virtual void clear(const WebKit::WebURL& url);

@@ -56,14 +56,14 @@ NullableString16 DOMStorageArea::GetItem(const string16& key) {
 }
 
 void DOMStorageArea::SetItem(const string16& key, const string16& value,
-                             bool* quota_exception) {
+                             WebStorageArea::Result* result) {
   if (!CheckContentSetting(key, value)) {
-    *quota_exception = true;
+    *result = WebStorageArea::ResultBlockedByPolicy;
     return;
   }
 
   CreateWebStorageAreaIfNecessary();
-  storage_area_->setItem(key, value, WebURL(), *quota_exception);
+  storage_area_->setItem(key, value, WebURL(), *result);
 }
 
 void DOMStorageArea::RemoveItem(const string16& key) {

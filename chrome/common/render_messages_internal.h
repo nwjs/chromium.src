@@ -1895,7 +1895,7 @@ IPC_BEGIN_MESSAGES(ViewHost)
                               string16 /* key */,
                               string16 /* value */,
                               GURL /* url */,
-                              bool /* quota_exception */)
+                              WebKit::WebStorageArea::Result /* result */)
 
   // Remove the value associated with a key in a storage area.
   IPC_MESSAGE_CONTROL3(ViewHostMsg_DOMStorageRemoveItem,

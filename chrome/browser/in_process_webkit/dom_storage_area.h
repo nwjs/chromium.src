@@ -11,14 +11,12 @@
 #include "base/nullable_string16.h"
 #include "base/ref_counted.h"
 #include "base/scoped_ptr.h"
+#include "chrome/common/dom_storage_common.h"
 #include "googleurl/src/gurl.h"
+#include "third_party/WebKit/WebKit/chromium/public/WebStorageArea.h"
 
 class DOMStorageNamespace;
 class HostContentSettingsMap;
-
-namespace WebKit {
-class WebStorageArea;
-}
 
 // Only use on the WebKit thread.  DOMStorageNamespace manages our registration
 // with DOMStorageContext.
@@ -34,9 +32,9 @@ class DOMStorageArea {
   NullableString16 Key(unsigned index);
   NullableString16 GetItem(const string16& key);
   void SetItem(const string16& key, const string16& value,
-               bool* quota_xception);
-  void RemoveItem(const string16& key);
-  void Clear();
+               WebKit::WebStorageArea::Result* result);
+  NullableString16 RemoveItem(const string16& key);
+  bool Clear();
   void PurgeMemory();
 
   int64 id() const { return id_; }
