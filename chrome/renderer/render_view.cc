@@ -275,7 +275,6 @@ RenderView::RenderView(RenderThreadBase* render_thread,
       webkit_preferences_(webkit_preferences),
       ALLOW_THIS_IN_INITIALIZER_LIST(text_translator_(this)) {
   page_translator_.reset(new PageTranslator(&text_translator_, this));
-  ClearBlockedContentSettings();
 }
 
 RenderView::~RenderView() {
