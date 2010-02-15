@@ -74,6 +74,9 @@ void InspectorBackendWeakReferenceCallback(v8::Persistent<v8::Value> object,
 
 void SetApuAgentEnabledInUtilityContext(v8::Handle<v8::Context> context,
                                         bool enabled) {
+  if (context.IsEmpty())
+    return;
+
   v8::HandleScope handle_scope;
   v8::Context::Scope context_scope(context);
   v8::Handle<v8::Object> dispatcher = v8::Local<v8::Object>::Cast(
@@ -196,6 +199,9 @@ void WebDevToolsAgentImpl::DispatchOnInspectorController(
       int call_id,
       const String& function_name,
       const String& json_args) {
+  if (utility_context_.IsEmpty())
+    return;
+
   String result;
   String exception;
   result = debugger_agent_impl_->ExecuteUtilityFunction(utility_context_,
@@ -209,6 +215,9 @@ void WebDevToolsAgentImpl::DispatchOnInjectedScript(
       int call_id,
       const String& function_name,
       const String& json_args) {
+  if (utility_context_.IsEmpty())
+    return;
+
   String result;
   String exception;
   String fname = function_name;
@@ -225,6 +234,8 @@ void WebDevToolsAgentImpl::DispatchOnInjectedScript(
 }
 
 void WebDevToolsAgentImpl::ExecuteVoidJavaScript() {
+  if (utility_context_.IsEmpty())
+    return;
   debugger_agent_impl_->ExecuteVoidJavaScript(utility_context_);
 }
 
@@ -314,6 +325,9 @@ void WebDevToolsAgentImpl::SendRpcMessage(
 }
 
 void WebDevToolsAgentImpl::InitDevToolsAgentHost() {
+  if (utility_context_.IsEmpty())
+    return;
+
   devtools_agent_host_.set(
       new BoundObject(utility_context_, this, "DevToolsAgentHost"));
   devtools_agent_host_->AddProtoFunction(
@@ -369,6 +383,9 @@ v8::Local<v8::Object> WebDevToolsAgentImpl::CreateInspectorBackendV8Wrapper() {
 
 void WebDevToolsAgentImpl::ResetInspectorFrontendProxy() {
   DisposeUtilityContext();
+  if (!web_view_impl_->page()->mainFrame()->script()->isEnabled())
+    return;
+
   debugger_agent_impl_->CreateUtilityContext(
       web_view_impl_->page()->mainFrame(),
       &utility_context_);
