@@ -484,6 +484,7 @@ class RenderView : public RenderWidget,
 #if defined(OS_MACOSX)
   FRIEND_TEST(RenderViewTest, MacTestCmdUp);
 #endif
+  FRIEND_TEST(RenderViewTest, JSBlockSentAfterPageLoad);
 
   typedef std::map<std::string, ContentSettings> HostContentSettings;
 
@@ -800,6 +801,9 @@ class RenderView : public RenderWidget,
   bool AllowContentType(ContentSettingsType settings_type,
                         bool enabled_per_settings);
 
+  // Resets the |content_blocked_| array.	
+  void ClearBlockedContentSettings();
+
   // Bitwise-ORed set of extra bindings that have been enabled.  See
   // BindingsPolicy for details.
   int enabled_bindings_;
@@ -1034,6 +1038,9 @@ class RenderView : public RenderWidget,
 
   // Stores if loading of images, scripts, and plugins is allowed.
   ContentSettings current_content_settings_;
+
+  // Stores if images, scripts, and plugins have actually been blocked.
+  bool content_blocked_[CONTENT_SETTINGS_NUM_TYPES];
 
   // Page translation related objects.
   TextTranslatorImpl text_translator_;
