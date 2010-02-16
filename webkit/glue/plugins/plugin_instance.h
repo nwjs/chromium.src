@@ -27,6 +27,7 @@ class MessageLoop;
 
 namespace webkit_glue {
 class WebPlugin;
+class WebPluginResourceClient;
 }
 
 namespace NPAPI
@@ -109,17 +110,15 @@ class PluginInstance : public base::RefCountedThreadSafe<PluginInstance> {
   void set_event_model(int value) { event_model_ = value; }
 #endif
 
-  // Creates a stream for sending an URL.  If notify_needed
-  // is true, it will send a notification to the plugin
-  // when the stream is complete; otherwise it will not.
-  // Set object_url to true if the load is for the object tag's
-  // url, or false if it's for a url that the plugin
-  // fetched through NPN_GetUrl[Notify].
+  // Creates a stream for sending an URL.  If notify_id is non-zero, it will
+  // send a notification to the plugin when the stream is complete; otherwise it
+  // will not.  Set object_url to true if the load is for the object tag's url,
+  // or false if it's for a url that the plugin fetched through
+  // NPN_GetUrl[Notify].
   PluginStreamUrl* CreateStream(int resource_id,
                                 const GURL& url,
                                 const std::string& mime_type,
-                                bool notify_needed,
-                                void* notify_data);
+                                int notify_id);
 
   // For each instance, we track all streams.  When the
   // instance closes, all remaining streams are also
@@ -135,13 +134,16 @@ class PluginInstance : public base::RefCountedThreadSafe<PluginInstance> {
   // Closes all open streams on this instance.
   void CloseStreams();
 
+  // Returns the WebPluginResourceClient object for a stream that has become
+  // seekable.
+  webkit_glue::WebPluginResourceClient* GetRangeRequest(int id);
+
   // Have the plugin create it's script object.
   NPObject *GetPluginScriptableObject();
 
   // WebViewDelegate methods that we implement. This is for handling
   // callbacks during getURLNotify.
-  virtual void DidFinishLoadWithReason(const GURL& url, NPReason reason,
-                                       void* notify_data);
+  void DidFinishLoadWithReason(const GURL& url, NPReason reason, int notify_id);
 
   // If true, send the Mozilla user agent instead of Chrome's to the plugin.
   bool use_mozilla_user_agent() { return use_mozilla_user_agent_; }
@@ -174,9 +176,10 @@ class PluginInstance : public base::RefCountedThreadSafe<PluginInstance> {
   void NPP_Destroy();
   bool NPP_Print(NPPrint* platform_print);
 
-  void SendJavaScriptStream(const GURL& url, const std::string& result,
-                            bool success, bool notify_needed,
-                            intptr_t notify_data);
+  void SendJavaScriptStream(const GURL& url,
+                            const std::string& result,
+                            bool success,
+                            int notify_id);
 
   void DidReceiveManualResponse(const GURL& url,
                                 const std::string& mime_type,
@@ -197,18 +200,25 @@ class PluginInstance : public base::RefCountedThreadSafe<PluginInstance> {
   // Initiates byte range reads for plugins.
   void RequestRead(NPStream* stream, NPByteRange* range_list);
 
+  // Handles GetURL/GetURLNotify/PostURL/PostURLNotify requests initiated
+  // by plugins.
+  void RequestURL(const char* url,
+                  const char* method,
+                  const char* target,
+                  const char* buf,
+                  unsigned int len,
+                  bool notify,
+                  void* notify_data);
+
  private:
   friend class base::RefCountedThreadSafe<PluginInstance>;
 
-  virtual ~PluginInstance();
-
-  void OnPluginThreadAsyncCall(void (*func)(void *),
-                               void *userData);
+  ~PluginInstance();
+  void OnPluginThreadAsyncCall(void (*func)(void *), void *userData);
   void OnTimerCall(void (*func)(NPP id, uint32 timer_id),
-                   NPP id,
-                   uint32 timer_id);
-
+                   NPP id, uint32 timer_id);
   bool IsValidStream(const NPStream* stream);
+  void GetNotifyData(int notify_id, bool* notify, void** notify_data);
 
   // This is a hack to get the real player plugin to work with chrome
   // The real player plugin dll(nppl3260) when loaded by firefox is loaded via
@@ -276,6 +286,18 @@ class PluginInstance : public base::RefCountedThreadSafe<PluginInstance> {
   };
   typedef std::map<uint32, TimerInfo> TimerMap;
   TimerMap timers_;
+
+  // Tracks pending GET/POST requests so that the plugin-given data doesn't
+  // cross process boundaries to an untrusted process.
+  typedef std::map<int, void*> PendingRequestMap;
+  PendingRequestMap pending_requests_;
+  int next_notify_id_;
+
+  // Used to track pending range requests so that when WebPlugin replies to us
+  // we can match the reply to the stream.
+  typedef std::map<int, scoped_refptr<PluginStream> > PendingRangeRequestMap;
+  PendingRangeRequestMap pending_range_requests_;
+  int next_range_request_id_;
 
   DISALLOW_EVIL_CONSTRUCTORS(PluginInstance);
 };

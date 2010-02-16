@@ -23,7 +23,7 @@
     # dict that operate on these variables.
     'variables': {
       # Override branding to select the desired branding flavor.
-      'branding%': 'Chromium',
+      'branding%': 'Chrome',
 
       # Override buildtype to select the desired build flavor.
       # Dev - everyday build for development/testing

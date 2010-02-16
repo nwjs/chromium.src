@@ -320,12 +320,7 @@ NPError  NPN_RequestRead(NPStream* stream, NPByteRange* range_list) {
   return NPERR_NO_ERROR;
 }
 
-static bool IsJavaScriptUrl(const std::string& url) {
-  return StartsWithASCII(url, "javascript:", false);
-}
-
-// Generic form of GetURL for common code between
-// GetURL() and GetURLNotify().
+// Generic form of GetURL for common code between GetURL and GetURLNotify.
 static NPError GetURLNotify(NPP id,
                             const char* url,
                             const char* target,
@@ -334,18 +329,13 @@ static NPError GetURLNotify(NPP id,
   if (!url)
     return NPERR_INVALID_URL;
 
-  bool is_javascript_url = IsJavaScriptUrl(url);
-
   scoped_refptr<NPAPI::PluginInstance> plugin = FindInstance(id);
-  if (plugin.get()) {
-    plugin->webplugin()->HandleURLRequest(
-        "GET", is_javascript_url, target, 0, 0, false,
-        notify, url, reinterpret_cast<intptr_t>(notify_data),
-        plugin->popups_allowed());
-  } else {
+  if (!plugin.get()) {
     NOTREACHED();
     return NPERR_GENERIC_ERROR;
   }
+
+  plugin->RequestURL(url, "GET", target, NULL, 0, notify, notify_data);
   return NPERR_NO_ERROR;
 }
 
@@ -392,8 +382,7 @@ NPError  NPN_GetURL(NPP id, const char* url, const char* target) {
   return GetURLNotify(id, url, target, false, 0);
 }
 
-// Generic form of PostURL for common code between
-// PostURL() and PostURLNotify().
+// Generic form of PostURL for common code between PostURL and PostURLNotify.
 static NPError PostURLNotify(NPP id,
                              const char* url,
                              const char* target,
@@ -467,8 +456,6 @@ static NPError PostURLNotify(NPP id,
     len = post_file_contents.size();
   }
 
-  bool is_javascript_url = IsJavaScriptUrl(url);
-
   // The post data sent by a plugin contains both headers
   // and post data.  Example:
   //      Content-type: text/html
@@ -479,9 +466,7 @@ static NPError PostURLNotify(NPP id,
   // Unfortunately, our stream needs these broken apart,
   // so we need to parse the data and set headers and data
   // separately.
-  plugin->webplugin()->HandleURLRequest(
-      "POST", is_javascript_url, target, len, buf, false, notify, url,
-      reinterpret_cast<intptr_t>(notify_data), plugin->popups_allowed());
+  plugin->RequestURL(url, "POST", target, buf, len, notify, notify_data);
   return NPERR_NO_ERROR;
 }
 

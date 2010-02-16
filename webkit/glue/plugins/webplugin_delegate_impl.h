@@ -80,13 +80,13 @@ class WebPluginDelegateImpl : public webkit_glue::WebPluginDelegate {
   virtual bool HandleInputEvent(const WebKit::WebInputEvent& event,
                                 WebKit::WebCursorInfo* cursor);
   virtual NPObject* GetPluginScriptableObject();
-  virtual void DidFinishLoadWithReason(const GURL& url, NPReason reason,
-                                       intptr_t notify_data);
+  virtual void DidFinishLoadWithReason(
+      const GURL& url, NPReason reason, int notify_id);
   virtual int GetProcessId();
   virtual void SendJavaScriptStream(const GURL& url,
                                     const std::string& result,
-                                    bool success, bool notify_needed,
-                                    intptr_t notify_data);
+                                    bool success,
+                                    int notify_id);
   virtual void DidReceiveManualResponse(const GURL& url,
                                         const std::string& mime_type,
                                         const std::string& headers,
@@ -97,11 +97,9 @@ class WebPluginDelegateImpl : public webkit_glue::WebPluginDelegate {
   virtual void DidManualLoadFail();
   virtual void InstallMissingPlugin();
   virtual webkit_glue::WebPluginResourceClient* CreateResourceClient(
-      int resource_id,
-      const GURL& url,
-      bool notify_needed,
-      intptr_t notify_data,
-      intptr_t stream);
+      int resource_id, const GURL& url, int notify_id);
+  virtual webkit_glue::WebPluginResourceClient* CreateSeekableResourceClient(
+      int resource_id, int range_request_id);
   // End of WebPluginDelegate implementation.
 
   bool IsWindowless() const { return windowless_ ; }
@@ -332,7 +330,7 @@ class WebPluginDelegateImpl : public webkit_glue::WebPluginDelegate {
   // we've shut down the plugin, but can't delete ourselves until the last
   // idle event comes in.
   bool waiting_to_die_;
-  
+
   // The most recently seen offset between global and browser-window-local
   // coordinates. We use this to keep the placeholder Carbon WindowRef's origin
   // in sync with the actual browser window, without having to pass that

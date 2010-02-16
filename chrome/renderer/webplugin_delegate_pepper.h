@@ -59,12 +59,12 @@ class WebPluginDelegatePepper : public webkit_glue::WebPluginDelegate {
                                 WebKit::WebCursorInfo* cursor);
   virtual NPObject* GetPluginScriptableObject();
   virtual void DidFinishLoadWithReason(const GURL& url, NPReason reason,
-                                       intptr_t notify_data);
+                                       int notify_id);
   virtual int GetProcessId();
   virtual void SendJavaScriptStream(const GURL& url,
                                     const std::string& result,
-                                    bool success, bool notify_needed,
-                                    intptr_t notify_data);
+                                    bool success,
+                                    int notify_id);
   virtual void DidReceiveManualResponse(const GURL& url,
                                         const std::string& mime_type,
                                         const std::string& headers,
@@ -75,11 +75,9 @@ class WebPluginDelegatePepper : public webkit_glue::WebPluginDelegate {
   virtual void DidManualLoadFail();
   virtual void InstallMissingPlugin();
   virtual webkit_glue::WebPluginResourceClient* CreateResourceClient(
-      int resource_id,
-      const GURL& url,
-      bool notify_needed,
-      intptr_t notify_data,
-      intptr_t stream);
+      int resource_id,const GURL& url, int notify_id);
+  virtual webkit_glue::WebPluginResourceClient* CreateSeekableResourceClient(
+      int resource_id, int range_request_id);
   // End of WebPluginDelegate implementation.
 
   bool IsWindowless() const { return true; }
