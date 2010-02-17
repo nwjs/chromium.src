@@ -3079,3 +3079,6 @@ WIN : LayoutTests/fast/text/international/bidi-layout-across-linebreak.html = PA
 
 // Failures introduced by USE_NEW_BUILDER in Skia.
 BUG33287 WIN LINUX : fast/canvas/set-colors.html = TEXT
+
+// WebKit Roll to r51915
+BUG29930 : fast/loader/input-element-page-cache-crash.html = TIMEOUT PASS
