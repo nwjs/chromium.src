@@ -3072,3 +3072,7 @@ BUG27683 : LayoutTests/svg/custom/viewport-update2.svg = IMAGE+TEXT
 // bot.
 BUG28845 WIN : LayoutTests/fast/dom/object-embed-plugin-scripting.html = TIMEOUT
 BUG28845 WIN : LayoutTests/fast/dom/object-plugin-hides-properties.html = TIMEOUT
+
+// Found to be flaky post-249 branching
+WIN : LayoutTests/fast/loader/input-element-page-cache-crash.html = PASS FAIL
+WIN : LayoutTests/fast/text/international/bidi-layout-across-linebreak.html = PASS FAIL
