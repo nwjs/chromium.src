@@ -31,6 +31,7 @@ class TranslateInfoBarDelegate : public InfoBarDelegate {
   void ModifyOriginalLanguage(int lang_index);
   void ModifyTargetLanguage(int lang_index);
   void Translate();
+  void TranslationDeclined();
   bool IsLanguageBlacklisted();
   void ToggleLanguageBlacklist();
   bool IsSiteBlacklisted();
@@ -69,6 +70,7 @@ class TranslateInfoBarDelegate : public InfoBarDelegate {
     return this;
   }
   virtual bool EqualsDelegate(InfoBarDelegate* delegate) const;
+  virtual void InfoBarDismissed();
   virtual void InfoBarClosed();
 
   // Returns the printable version of the language code |language_code|.
