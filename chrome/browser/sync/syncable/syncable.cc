@@ -1105,6 +1105,7 @@ bool MutableEntry::Put(IdField field, const Id& value) {
 
 void MutableEntry::PutParentIdPropertyOnly(const Id& parent_id) {
   dir()->ReindexParentId(kernel_, parent_id);
+  kernel_->mark_dirty();
 }
 
 bool MutableEntry::Put(BaseVersion field, int64 value) {
