@@ -1528,6 +1528,14 @@ void RenderView::didStopLoading() {
       kDelayForCaptureMs);
 }
 
+bool RenderView::isSmartInsertDeleteEnabled() {
+#if defined(OS_MACOSX)
+  return true;
+#else
+  return false;
+#endif
+}
+
 bool RenderView::isSelectTrailingWhitespaceEnabled() {
 #if defined(OS_WIN)
   return true;
