@@ -3076,3 +3076,6 @@ BUG28845 WIN : LayoutTests/fast/dom/object-plugin-hides-properties.html = TIMEOU
 // Found to be flaky post-249 branching
 WIN : LayoutTests/fast/loader/input-element-page-cache-crash.html = PASS FAIL
 WIN : LayoutTests/fast/text/international/bidi-layout-across-linebreak.html = PASS FAIL
+
+// Failures introduced by USE_NEW_BUILDER in Skia.
+BUG33287 WIN LINUX : fast/canvas/set-colors.html = TEXT
