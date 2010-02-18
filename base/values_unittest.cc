@@ -22,9 +22,9 @@ TEST(ValuesTest, Basic) {
   ASSERT_EQ(std::wstring(L"http://google.com"), homepage);
 
   ASSERT_FALSE(settings.Get(L"global", NULL));
-  ASSERT_TRUE(settings.Set(L"global", Value::CreateBooleanValue(true)));
+  settings.Set(L"global", Value::CreateBooleanValue(true));
   ASSERT_TRUE(settings.Get(L"global", NULL));
-  ASSERT_TRUE(settings.SetString(L"global.homepage", L"http://scurvy.com"));
+  settings.SetString(L"global.homepage", L"http://scurvy.com");
   ASSERT_TRUE(settings.Get(L"global", NULL));
   homepage = L"http://google.com";
   ASSERT_TRUE(settings.GetString(L"global.homepage", &homepage));
@@ -316,7 +316,7 @@ TEST(ValuesTest, DictionaryWithoutPathExpansion) {
   DictionaryValue* value2;
   ASSERT_TRUE(dict.GetDictionaryWithoutPathExpansion(L"this", &value2));
   EXPECT_EQ(value1, value2);
-  EXPECT_EQ(1U, value2->GetSize());
+  EXPECT_EQ(1U, value2->size());
 
   EXPECT_TRUE(dict.HasKey(L"this.isnt.expanded"));
   Value* value3;
