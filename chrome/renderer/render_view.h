@@ -442,17 +442,6 @@ class RenderView : public RenderWidget,
 
   PageTranslator* page_translator() const { return page_translator_.get(); }
 
-  // Returns the ISO 639 language code of the current page (e.g. en, fr, zh).
-  // If ISO 639-1 code is not available for the language, ISO 639-2 3-letter code
-  // will be returned (e.g. kha for Khasi and und for undtermined). For traditional
-  // Chinse, 'zh-TW' will be returned while for simplified Chinse, 'zh' will be
-  // returned.
-  // TODO(jungshik): Make it return 'he' (the correct ISO 639 code for Hebrew)
-  // instead of the obsolete 'iw'. Perhaps, it's also better to return 'zh-Hans'
-  // (or 'zh-CN') for Simplified Chinese instead of 'zh' to be aligned with
-  // 'zh-TW' for Traditional Chinse.
-  std::string DetectLanguage();
-
  protected:
   // RenderWidget overrides:
   virtual void Close();
@@ -797,7 +786,7 @@ class RenderView : public RenderWidget,
   bool AllowContentType(ContentSettingsType settings_type,
                         bool enabled_per_settings);
 
-  // Resets the |content_blocked_| array.	
+  // Resets the |content_blocked_| array.
   void ClearBlockedContentSettings();
 
   // Bitwise-ORed set of extra bindings that have been enabled.  See
