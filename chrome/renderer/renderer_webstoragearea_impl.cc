@@ -1,6 +1,6 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.  Use of this
-// source code is governed by a BSD-style license that can be found in the
-// LICENSE file.
+// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
 
 #include "chrome/renderer/renderer_webstoragearea_impl.h"
 
@@ -9,10 +9,12 @@
 #include "chrome/renderer/render_view.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebFrame.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebURL.h"
+#include "third_party/WebKit/WebKit/chromium/public/WebView.h"
 
 using WebKit::WebFrame;
 using WebKit::WebString;
 using WebKit::WebURL;
+using WebKit::WebView;
 
 RendererWebStorageAreaImpl::RendererWebStorageAreaImpl(
     int64 namespace_id, const WebString& origin) {
@@ -48,16 +50,16 @@ WebString RendererWebStorageAreaImpl::getItem(const WebString& key) {
 void RendererWebStorageAreaImpl::setItem(
     const WebString& key, const WebString& value, const WebURL& url,
     WebStorageArea::Result& result) {
-  RenderThread::current()->Send(
-      new ViewHostMsg_DOMStorageSetItem(storage_area_id_, key, value, url,
-                                        &result));
+  int32 routing_id = RenderThread::RoutingIDForCurrentContext();
+  CHECK(routing_id != MSG_ROUTING_CONTROL);
+
+  RenderThread::current()->SendAndRunNestedMessageLoop(
+      new ViewHostMsg_DOMStorageSetItem(routing_id, storage_area_id_, key,
+                                        value, url, &result));
 
   if (result == WebStorageArea::ResultBlockedByPolicy) {
-    RenderView* view =
-        RenderView::FromWebView(WebFrame::frameForCurrentContext()->view());
-    DCHECK(view);
     RenderThread::current()->Send(new ViewHostMsg_ContentBlocked(
-        view->routing_id(), CONTENT_SETTINGS_TYPE_COOKIES));
+        routing_id, CONTENT_SETTINGS_TYPE_COOKIES));
   }
 }
 

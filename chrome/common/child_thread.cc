@@ -93,6 +93,12 @@ void ChildThread::RemoveRoute(int32 routing_id) {
   router_.RemoveRoute(routing_id);
 }
 
+IPC::Channel::Listener* ChildThread::ResolveRoute(int32 routing_id) {
+  DCHECK(MessageLoop::current() == message_loop());
+
+  return router_.ResolveRoute(routing_id);
+}
+
 void ChildThread::OnMessageReceived(const IPC::Message& msg) {
   // Resource responses are sent to the resource dispatcher.
   if (resource_dispatcher_->OnMessageReceived(msg))

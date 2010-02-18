@@ -31,6 +31,8 @@ class ChildThread : public IPC::Channel::Listener,
   void AddRoute(int32 routing_id, IPC::Channel::Listener* listener);
   void RemoveRoute(int32 routing_id);
 
+  IPC::Channel::Listener* ResolveRoute(int32 routing_id);
+
   ResourceDispatcher* resource_dispatcher() {
     return resource_dispatcher_.get();
   }
