@@ -968,6 +968,8 @@
         'browser/browser_url_handler.cc',
         'browser/browser_url_handler.h',
         'browser/browser_window.h',
+        'browser/browsing_data_database_helper.cc',
+        'browser/browsing_data_database_helper.h',
         'browser/browsing_data_local_storage_helper.cc',
         'browser/browsing_data_local_storage_helper.h',
         'browser/browsing_data_remover.cc',
@@ -2351,6 +2353,8 @@
         'browser/views/cookie_info_view.h',
         'browser/views/cookie_prompt_view.cc',
         'browser/views/cookie_prompt_view.h',
+        'browser/views/database_info_view.cc',
+        'browser/views/database_info_view.h',
         'browser/views/detachable_toolbar_view.cc',
         'browser/views/detachable_toolbar_view.h',
         'browser/views/dialog_stubs_gtk.cc',
@@ -4148,8 +4152,10 @@
         'app/breakpad_mac_stubs.mm',
         # The only thing used from browser is Browser::Type.
         'browser/browser.h',
+        'browser/mock_browsing_data_database_helper.h',
+        'browser/mock_browsing_data_database_helper.cc',
         'browser/mock_browsing_data_local_storage_helper.h',
-                'browser/mock_browsing_data_local_storage_helper.cc',
+        'browser/mock_browsing_data_local_storage_helper.cc',
         # TODO:  these should live here but are currently used by
         # production code code in libbrowser (above).
         #'browser/net/url_request_mock_http_job.cc',

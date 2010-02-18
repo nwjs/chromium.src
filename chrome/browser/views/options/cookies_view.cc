@@ -15,6 +15,7 @@
 #include "chrome/browser/cookies_tree_model.h"
 #include "chrome/browser/profile.h"
 #include "chrome/browser/views/cookie_info_view.h"
+#include "chrome/browser/views/database_info_view.h"
 #include "chrome/browser/views/local_storage_info_view.h"
 #include "grit/generated_resources.h"
 #include "grit/locale_settings.h"
@@ -100,7 +101,7 @@ void CookiesView::ButtonPressed(
   if (sender == remove_button_) {
     cookies_tree_->RemoveSelectedItems();
   } else if (sender == remove_all_button_) {
-    cookies_tree_model_->DeleteAllCookies();
+    cookies_tree_model_->DeleteAllStoredObjects();
     UpdateForEmptyState();
   } else if (sender == clear_search_button_) {
     ResetSearchQuery();
@@ -192,6 +193,10 @@ void CookiesView::OnTreeViewSelectionChanged(views::TreeView* tree_view) {
     cookie_info_view_->SetCookie(detailed_info.cookie->first,
                                  detailed_info.cookie->second);
   } else if (detailed_info.node_type ==
+             CookieTreeNode::DetailedInfo::TYPE_DATABASE) {
+    UpdateVisibleDetailedInfo(database_info_view_);
+    database_info_view_->SetDatabaseInfo(*detailed_info.database_info);
+  } else if (detailed_info.node_type ==
              CookieTreeNode::DetailedInfo::TYPE_LOCAL_STORAGE) {
     UpdateVisibleDetailedInfo(local_storage_info_view_);
     local_storage_info_view_->SetLocalStorageInfo(
@@ -229,6 +234,7 @@ CookiesView::CookiesView(Profile* profile)
       description_label_(NULL),
       cookies_tree_(NULL),
       cookie_info_view_(NULL),
+      database_info_view_(NULL),
       local_storage_info_view_(NULL),
       remove_button_(NULL),
       remove_all_button_(NULL),
@@ -247,10 +253,12 @@ void CookiesView::Init() {
   description_label_ = new views::Label(
       l10n_util::GetString(IDS_COOKIES_INFO_LABEL));
   description_label_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
-  cookies_tree_model_.reset(new CookiesTreeModel(
-      profile_, new BrowsingDataLocalStorageHelper(profile_)));
+  cookies_tree_model_.reset(new CookiesTreeModel(profile_,
+      new BrowsingDataDatabaseHelper(profile_),
+      new BrowsingDataLocalStorageHelper(profile_)));
   cookies_tree_model_->AddObserver(this);
   cookie_info_view_ = new CookieInfoView(false);
+  database_info_view_ = new DatabaseInfoView;
   local_storage_info_view_ = new LocalStorageInfoView;
   cookies_tree_ = new CookiesTreeView(cookies_tree_model_.get());
   remove_button_ = new views::NativeButton(
@@ -302,6 +310,9 @@ void CookiesView::Init() {
   layout->AddView(cookie_info_view_, 1, 2);
 
   layout->StartRow(0, single_column_layout_id);
+  layout->AddView(database_info_view_);
+
+  layout->StartRow(0, single_column_layout_id);
   layout->AddView(local_storage_info_view_);
 
   // Add the Remove/Remove All buttons to the ClientView
@@ -336,7 +347,10 @@ void CookiesView::UpdateRemoveButtonsState() {
 
 void CookiesView::UpdateVisibleDetailedInfo(views::View* view) {
   view->SetVisible(true);
-  views::View* other = local_storage_info_view_;
-  if (view == local_storage_info_view_) other = cookie_info_view_;
-  other->SetVisible(false);
+  if (view != cookie_info_view_)
+    cookie_info_view_->SetVisible(false);
+  if (view != database_info_view_)
+    database_info_view_->SetVisible(false);
+  if (view != local_storage_info_view_)
+    local_storage_info_view_->SetVisible(false);
 }
