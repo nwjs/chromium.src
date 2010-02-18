@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2008 The Chromium Authors. All rights reserved.
+// Copyright (c) 2010 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -172,6 +172,14 @@ TimeTicks TimeTicks::Now() {
 // static
 TimeTicks TimeTicks::HighResNow() {
   return Now();
+}
+
+struct timeval Time::ToTimeVal() const {
+  struct timeval result;
+  int64 us = us_ - kTimeTToMicrosecondsOffset;
+  result.tv_sec = us / Time::kMicrosecondsPerSecond;
+  result.tv_usec = us % Time::kMicrosecondsPerSecond;
+  return result;
 }
 
 }  // namespace base
