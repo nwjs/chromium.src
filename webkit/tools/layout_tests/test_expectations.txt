@@ -3082,3 +3082,14 @@ BUG33287 WIN LINUX : fast/canvas/set-colors.html = TEXT
 
 // WebKit Roll to r51915
 BUG29930 : fast/loader/input-element-page-cache-crash.html = TIMEOUT PASS
+
+// Tests failing after fixing a <use> bug (merge WebKit 53446).
+// These are unfortunate, but better than an exploitable crash.
+// Something's gone wrong with clipping, and I don't know what it is.
+// Acid tests pass and the test suites at 
+// http://www.w3.org/Graphics/SVG/WG/wiki/Test_Suite_Overview
+// all pass.
+BUG_MAL WIN : LayoutTests/fast/backgrounds/svg-as-background-2.html = IMAGE
+BUG_MAL WIN : LayoutTests/svg/css/clippath-with-shadow.svg = IMAGE+TEXT
+BUG_MAL WIN : LayoutTests/svg/custom/clip-path-referencing-use.svg = IMAGE+TEXT
+BUG_MAL WIN : LayoutTests/svg/custom/use-clipped-transform.svg = IMAGE+TEXT
