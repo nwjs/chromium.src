@@ -1093,8 +1093,8 @@ bool MutableEntry::Put(IdField field, const Id& value) {
       if (!dir()->ReindexId(kernel_, value))
         return false;
     } else if (PARENT_ID == field) {
-      PutParentIdPropertyOnly(value);  // Makes sibling order inconsistent.
-      PutPredecessor(Id());  // Fixes up the sibling order inconsistency.
+      dir()->ReindexParentId(kernel_, value);
+      PutPredecessor(Id());
     } else {
       kernel_->put(field, value);
     }
@@ -1218,7 +1218,6 @@ bool MutableEntry::PutPredecessor(const Id& predecessor_id) {
   Put(NEXT_ID, successor_id);
   return true;
 }
-
 
 ///////////////////////////////////////////////////////////////////////////
 // High-level functions
