@@ -417,7 +417,6 @@ struct ViewMsg_DatabaseOpenFileResponse_Params {
   base::FileDescriptor file_handle;   // DB file handle
   base::FileDescriptor dir_handle;    // DB directory handle
 #endif
-  bool blocked;    // DB access was blocked.
 };
 
 struct ViewMsg_OpenFileForPluginResponse_Params {
