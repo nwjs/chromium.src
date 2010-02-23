@@ -27,6 +27,12 @@ namespace net {
 class StrictTransportSecurityState :
     public base::RefCountedThreadSafe<StrictTransportSecurityState> {
  public:
+  struct State {
+    base::Time created;  // when this host entry was first created
+    base::Time expiry;  // the absolute time (UTC) when this record expires
+    bool include_subdomains;  // subdomains included?
+  };
+
   StrictTransportSecurityState();
 
   // Called when we see an X-Force-TLS header that we should process.  Modifies
@@ -38,7 +44,10 @@ class StrictTransportSecurityState :
                   bool include_subdomains);
 
   // Returns whether |host| has had StrictTransportSecurity enabled.
-  bool IsEnabledForHost(const std::string& host);
+  bool IsEnabledForHost(const std::string& host, State* result = NULL);
+
+  // Deletes all records created since a given time.
+  void DeleteSince(const base::Time& time);
 
   // Returns |true| if |value| parses as a valid X-Force-TLS header value.
   // The values of max-age and and includeSubDomains are returned in |max_age|
@@ -47,11 +56,6 @@ class StrictTransportSecurityState :
   static bool ParseHeader(const std::string& value,
                           int* max_age,
                           bool* include_subdomains);
-
-  struct State {
-    base::Time expiry;  // the absolute time (UTC) when this record expires
-    bool include_subdomains;  // subdomains included?
-  };
 
   class Delegate {
    public:
@@ -63,7 +67,7 @@ class StrictTransportSecurityState :
   void SetDelegate(Delegate*);
 
   bool Serialise(std::string* output);
-  bool Deserialise(const std::string& state);
+  bool Deserialise(const std::string& state, bool* dirty);
 
  private:
   friend class base::RefCountedThreadSafe<StrictTransportSecurityState>;

@@ -180,8 +180,10 @@ TEST_F(StrictTransportSecurityStateTest, Serialise1) {
   scoped_refptr<net::StrictTransportSecurityState> state(
       new net::StrictTransportSecurityState);
   std::string output;
+  bool dirty;
   state->Serialise(&output);
-  EXPECT_TRUE(state->Deserialise(output));
+  EXPECT_TRUE(state->Deserialise(output, &dirty));
+  EXPECT_FALSE(dirty);
 }
 
 TEST_F(StrictTransportSecurityStateTest, Serialise2) {
@@ -195,8 +197,9 @@ TEST_F(StrictTransportSecurityStateTest, Serialise2) {
   state->EnableHost("google.com", expiry, true);
 
   std::string output;
+  bool dirty;
   state->Serialise(&output);
-  EXPECT_TRUE(state->Deserialise(output));
+  EXPECT_TRUE(state->Deserialise(output, &dirty));
 
   EXPECT_TRUE(state->IsEnabledForHost("google.com"));
   EXPECT_TRUE(state->IsEnabledForHost("foo.google.com"));
@@ -204,3 +207,39 @@ TEST_F(StrictTransportSecurityStateTest, Serialise2) {
   EXPECT_TRUE(state->IsEnabledForHost("foo.bar.baz.google.com"));
   EXPECT_FALSE(state->IsEnabledForHost("com"));
 }
+
+TEST_F(StrictTransportSecurityStateTest, DeleteSince) {
+  scoped_refptr<net::StrictTransportSecurityState> state(
+      new net::StrictTransportSecurityState);
+
+  const base::Time current_time(base::Time::Now());
+  const base::Time expiry = current_time + base::TimeDelta::FromSeconds(1000);
+  const base::Time older = current_time - base::TimeDelta::FromSeconds(1000);
+
+  EXPECT_FALSE(state->IsEnabledForHost("google.com"));
+  state->EnableHost("google.com", expiry, true);
+
+  state->DeleteSince(expiry);
+  EXPECT_TRUE(state->IsEnabledForHost("google.com"));
+  state->DeleteSince(older);
+  EXPECT_FALSE(state->IsEnabledForHost("google.com"));
+}
+
+TEST_F(StrictTransportSecurityStateTest, SerialiseOld) {
+  scoped_refptr<net::StrictTransportSecurityState> state(
+      new net::StrictTransportSecurityState);
+  // This is an old-style piece of transport state JSON, which has no creation
+  // date.
+  std::string output =
+  "{ "
+    "\"NiyD+3J1r6z1wjl2n1ALBu94Zj9OsEAMo0kCN8js0Uk=\": {"
+      "\"expiry\": 1266815027.983453, "
+      "\"include_subdomains\": false, "
+      "\"mode\": \"strict\" "
+    "}"
+  "}";
+  bool dirty;
+  EXPECT_TRUE(state->Deserialise(output, &dirty));
+  EXPECT_TRUE(dirty);
+}
+

@@ -31,14 +31,22 @@ StrictTransportSecurityPersister::~StrictTransportSecurityPersister() {
 }
 
 void StrictTransportSecurityPersister::LoadState() {
-  AutoLock locked_(lock_);
   DCHECK(ChromeThread::CurrentlyOn(ChromeThread::FILE));
+  bool dirty = false;
+  {
+    AutoLock locked_(lock_);
 
-  std::string state;
-  if (!file_util::ReadFileToString(state_file_, &state))
-    return;
+    std::string state;
+    if (!file_util::ReadFileToString(state_file_, &state))
+      return;
 
-  strict_transport_security_state_->Deserialise(state);
+    if (!strict_transport_security_state_->Deserialise(state, &dirty)) {
+      LOG(ERROR) << "Failed to deserialize state: " << state;
+      return;
+    }
+  }
+  if (dirty)
+    StateIsDirty(strict_transport_security_state_);
 }
 
 void StrictTransportSecurityPersister::StateIsDirty(

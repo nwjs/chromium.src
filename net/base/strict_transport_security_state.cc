@@ -46,14 +46,22 @@ void StrictTransportSecurityState::EnableHost(const std::string& host,
   char hashed[base::SHA256_LENGTH];
   base::SHA256HashString(canonicalised_host, hashed, sizeof(hashed));
 
-  AutoLock lock(lock_);
+  // Use the original creation date if we already have this host.
+  base::Time created;
+  State old_state;
+  if (IsEnabledForHost(host, &old_state))
+    created = old_state.created;
+  else
+    created = base::Time::Now();
+  State state = {created, expiry, include_subdomains};
 
-  State state = {expiry, include_subdomains};
+  AutoLock lock(lock_);
   enabled_hosts_[std::string(hashed, sizeof(hashed))] = state;
   DirtyNotify();
 }
 
-bool StrictTransportSecurityState::IsEnabledForHost(const std::string& host) {
+bool StrictTransportSecurityState::IsEnabledForHost(const std::string& host,
+                                                    State* result) {
   const std::string canonicalised_host = CanonicaliseHost(host);
   if (canonicalised_host.empty())
     return false;
@@ -77,6 +85,9 @@ bool StrictTransportSecurityState::IsEnabledForHost(const std::string& host) {
       continue;
     }
 
+    if (result)
+      *result = j->second;
+
     // If we matched the domain exactly, it doesn't matter what the value of
     // include_subdomains is.
     if (i == 0)
@@ -86,6 +97,25 @@ bool StrictTransportSecurityState::IsEnabledForHost(const std::string& host) {
   }
 
   return false;
+}
+
+void StrictTransportSecurityState::DeleteSince(const base::Time& time) {
+  bool dirtied = false;
+
+  AutoLock lock(lock_);
+
+  std::map<std::string, State>::iterator i = enabled_hosts_.begin();
+  while (i != enabled_hosts_.end()) {
+    if (i->second.created >= time) {
+      dirtied = true;
+      enabled_hosts_.erase(i++);
+    } else {
+      i++;
+    }
+  }
+
+  if (dirtied)
+    DirtyNotify();
 }
 
 // "Strict-Transport-Security" ":"
@@ -223,6 +253,7 @@ bool StrictTransportSecurityState::Serialise(std::string* output) {
        i = enabled_hosts_.begin(); i != enabled_hosts_.end(); ++i) {
     DictionaryValue* state = new DictionaryValue;
     state->SetBoolean(L"include_subdomains", i->second.include_subdomains);
+    state->SetReal(L"created", i->second.created.ToDoubleT());
     state->SetReal(L"expiry", i->second.expiry.ToDoubleT());
 
     toplevel.Set(HashedDomainToExternalString(i->first), state);
@@ -232,7 +263,8 @@ bool StrictTransportSecurityState::Serialise(std::string* output) {
   return true;
 }
 
-bool StrictTransportSecurityState::Deserialise(const std::string& input) {
+bool StrictTransportSecurityState::Deserialise(const std::string& input,
+                                               bool* dirty) {
   AutoLock lock(lock_);
 
   enabled_hosts_.clear();
@@ -244,6 +276,7 @@ bool StrictTransportSecurityState::Deserialise(const std::string& input) {
 
   DictionaryValue* dict_value = reinterpret_cast<DictionaryValue*>(value.get());
   const base::Time current_time(base::Time::Now());
+  bool dirtied = false;
 
   for (DictionaryValue::key_iterator i = dict_value->begin_keys();
        i != dict_value->end_keys(); ++i) {
@@ -252,6 +285,7 @@ bool StrictTransportSecurityState::Deserialise(const std::string& input) {
       continue;
 
     bool include_subdomains;
+    double created;
     double expiry;
 
     if (!state->GetBoolean(L"include_subdomains", &include_subdomains) ||
@@ -260,17 +294,31 @@ bool StrictTransportSecurityState::Deserialise(const std::string& input) {
     }
 
     base::Time expiry_time = base::Time::FromDoubleT(expiry);
-    if (expiry_time <= current_time)
+    base::Time created_time;
+    if (state->GetReal(L"created", &created)) {
+      created_time = base::Time::FromDoubleT(created);
+    } else {
+      // We're migrating an old entry with no creation date. Make sure we
+      // write the new date back in a reasonable time frame.
+      dirtied = true;
+      created_time = base::Time::Now();
+    }
+
+    if (expiry_time <= current_time) {
+      // Make sure we dirty the state if we drop an entry.
+      dirtied = true;
       continue;
+    }
 
     std::string hashed = ExternalStringToHashedDomain(*i);
     if (hashed.empty())
       continue;
 
-    State new_state = { expiry_time, include_subdomains };
+    State new_state = { created_time, expiry_time, include_subdomains };
     enabled_hosts_[hashed] = new_state;
   }
 
+  *dirty = dirtied;
   return true;
 }
 
