@@ -14,6 +14,7 @@
 #include "chrome/browser/favicon_service.h"
 #include "chrome/browser/host_content_settings_map.h"
 #include "chrome/browser/history/history.h"
+#include "chrome/browser/in_process_webkit/webkit_context.h"
 #include "chrome/browser/profile.h"
 #include "chrome/browser/search_engines/template_url_model.h"
 #include "chrome/browser/sessions/session_service.h"
@@ -184,7 +185,11 @@ class TestingProfile : public Profile {
   virtual void ReinitializeSpellChecker() {}
   virtual SpellChecker* GetSpellChecker() { return NULL; }
   virtual void DeleteSpellChecker() {}
-  virtual WebKitContext* GetWebKitContext() { return NULL; }
+  virtual WebKitContext* GetWebKitContext() {
+    if (webkit_context_ == NULL)
+      webkit_context_ = new WebKitContext(GetPath(), false);
+    return webkit_context_;
+  }
   virtual WebKitContext* GetOffTheRecordWebKitContext() { return NULL; }
   virtual void MarkAsCleanShutdown() {}
   virtual void InitExtensions() {}
@@ -247,6 +252,9 @@ class TestingProfile : public Profile {
   // The main database tracker for this profile.
   // Should be used only on the file thread.
   scoped_refptr<webkit_database::DatabaseTracker> db_tracker_;
+
+  // WebKitContext, lazily intialized by GetWebKitContext().
+  scoped_refptr<WebKitContext> webkit_context_;
 
   scoped_refptr<HostContentSettingsMap> host_content_settings_map_;
 };
