@@ -161,14 +161,17 @@ IN_PROC_BROWSER_TEST_F(TaskManagerBrowserTest, ReloadExtension) {
   // Reload the extension a few times and make sure our resource count
   // doesn't increase.
   ReloadExtension(extension->id());
+  WaitForResourceChange(3);
   EXPECT_EQ(3, model()->ResourceCount());
   extension = model()->GetResourceExtension(2);
 
   ReloadExtension(extension->id());
+  WaitForResourceChange(3);
   EXPECT_EQ(3, model()->ResourceCount());
   extension = model()->GetResourceExtension(2);
 
   ReloadExtension(extension->id());
+  WaitForResourceChange(3);
   EXPECT_EQ(3, model()->ResourceCount());
 }
 
