@@ -116,7 +116,7 @@
             <a href="samples.html" title="Sample extensions (with source code)">Samples</a>
           </li>
           <li id="group_link">
-            <a href="http://groups.google.com/group/chromium-extensions" title="Google Chrome Extensions developer forum">Group</a>
+            <a href="http://groups.google.com/a/chromium.org/group/chromium-extensions" title="Google Chrome Extensions developer forum">Group</a>
           </li>
         </ul>
       </div> <!-- end gc-topnav -->
@@ -191,18 +191,32 @@
         <h1 class="page_title">chrome.* APIs</h1>
       </div>
         <!-- TABLE OF CONTENTS -->
-        <div id="toc" style="display: none; ">
+        <div id="toc">
           <h2>Contents</h2>
           <ol>
             <li>
-              <a>h2Name</a>
+              <a href="#supported">Supported APIs</a>
               <ol>
-                <li>
+                <li style="display: none; ">
+                  <a>h3Name</a>
+                </li>
+              </ol>
+            </li><li>
+              <a href="#experimental">Experimental APIs</a>
+              <ol>
+                <li style="display: none; ">
+                  <a>h3Name</a>
+                </li>
+              </ol>
+            </li><li>
+              <a href="#conventions">API conventions</a>
+              <ol>
+                <li style="display: none; ">
                   <a>h3Name</a>
                 </li>
               </ol>
             </li>
-              <li>
+              <li style="display: none; ">
                 <a href="#apiReference">API reference</a>
                 <ol>
                   <li>
@@ -245,11 +259,17 @@
 
         <!-- STATIC CONTENT PLACEHOLDER -->
         <div id="static"><div id="pageData-name" class="pageData">chrome.* APIs</div>
+<div id="pageData-showTOC" class="pageData">true</div>
 
 <p>
 Google Chrome provides APIs such as
 <code>chrome.bookmarks</code> and <code>chrome.tab</code>
 so that extensions can interact with the browser.
+</p>
+
+<h2 id="supported">Supported APIs</h2>
+
+<p>
 Here are the supported chrome.* APIs:
 </p>
 
@@ -262,6 +282,17 @@ Here are the supported chrome.* APIs:
   <li><a href="tabs.html">tabs</a></li>
   <li><a href="windows.html">windows</a></li>
 </ul>
+
+<h2 id="experimental">Experimental APIs</h2>
+
+<p>
+Google Chrome also has some
+<a href="http://code.google.com/chrome/extensions/dev/experimental.html">experimental APIs</a>,
+which give you access to
+functionality such as process information and history.
+</p>
+
+<h2 id="conventions">API conventions</h2>
 
 <p>
 Unless the doc says otherwise,
