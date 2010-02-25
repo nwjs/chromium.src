@@ -917,21 +917,9 @@ void NewTabUI::NewTabHTMLSource::InitFullHTML(Profile* profile) {
   std::wstring extensionLink = ASCIIToWide(
       google_util::AppendGoogleLocaleParam(
           GURL(extension_urls::kGalleryBrowsePrefix)).spec());
-
-  if (StartsWithASCII(g_browser_process->GetApplicationLocale(),
-                      "en", false)) {  // false = compare not case-sensitive.
-    // In en locales, promote sync and extensions.
-    localized_strings.SetString(L"promomessage",
-        l10n_util::GetStringF(IDS_NTP_PROMO_MESSAGE,
-            l10n_util::GetString(IDS_PRODUCT_NAME), extensionLink));
-  } else {
-    // In non-en locales, only promote sync. This message is a hack, using an
-    // available translated string to promote bookmark sync without extensions.
-    localized_strings.SetString(L"promomessage",
-      L"<button>" +
-      l10n_util::GetString(IDS_SYNC_START_SYNC_BUTTON_LABEL) +
-      L"</button>");
-  }
+  localized_strings.SetString(L"promomessage",
+      l10n_util::GetStringF(IDS_NTP_PROMO_MESSAGE,
+          l10n_util::GetString(IDS_PRODUCT_NAME), extensionLink));
   localized_strings.SetString(L"extensionslink", extensionLink);
   localized_strings.SetString(L"close", l10n_util::GetString(IDS_CLOSE));
 
