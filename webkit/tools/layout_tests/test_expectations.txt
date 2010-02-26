@@ -2426,7 +2426,7 @@ BUG9798 LINUX DEBUG : chrome/fast/dom/extensions/interval.html = FAIL PASS
 BUG9798 MAC DEBUG : chrome/fast/dom/extensions/interval.html = FAIL
 BUG9798 WIN : chrome/fast/dom/extensions/interval.html = FAIL PASS
 BUG9798 LINUX WIN : LayoutTests/editing/pasteboard/subframe-dragndrop-1.html = FAIL
-BUG9798 SLOW WIN DEBUG : LayoutTests/fast/dom/Window/slow_unload_handler.html = PASS
+BUG9798 SLOW WIN DEBUG : LayoutTests/fast/dom/Window/slow-unload-handler.html = PASS
 BUG9798 WIN DEBUG : LayoutTests/fast/encoding/char-encoding.html = FAIL PASS
 BUG9798 LINUX DEBUG SLOW : LayoutTests/fast/frames/calculate-round.html = CRASH PASS
 BUG9798 RELEASE : LayoutTests/fast/frames/frame-limit.html = CRASH PASS
@@ -2596,7 +2596,7 @@ BUG12310 SKIP : LayoutTests/fast/wcss/marquee-speed.xhtml = FAIL
 BUG12310 SKIP : LayoutTests/fast/wcss/marquee-style.xhtml = FAIL
 
 // Details for all of these are in the bugs.
-BUG12361 WIN SLOW : LayoutTests/http/tests/cookies/double-quoted-value-with-semi-colon.html = FAIL
+BUG12361 WIN : LayoutTests/http/tests/cookies/double-quoted-value-with-semi-colon.html = FAIL TIMEOUT
 BUG12361 LINUX MAC DEBUG : LayoutTests/http/tests/cookies/double-quoted-value-with-semi-colon.html = FAIL
 BUG12361 LINUX RELEASE : LayoutTests/http/tests/cookies/double-quoted-value-with-semi-colon.html = FAIL
 BUG12361 SLOW MAC RELEASE : LayoutTests/http/tests/cookies/double-quoted-value-with-semi-colon.html = FAIL
@@ -3074,14 +3074,11 @@ BUG28845 WIN : LayoutTests/fast/dom/object-embed-plugin-scripting.html = TIMEOUT
 BUG28845 WIN : LayoutTests/fast/dom/object-plugin-hides-properties.html = TIMEOUT
 
 // Found to be flaky post-249 branching
-WIN : LayoutTests/fast/loader/input-element-page-cache-crash.html = PASS FAIL
-WIN : LayoutTests/fast/text/international/bidi-layout-across-linebreak.html = PASS FAIL
+BUG_MAL WIN : LayoutTests/fast/loader/input-element-page-cache-crash.html = PASS TIMEOUT
+BUG_MAL WIN : LayoutTests/fast/text/international/bidi-layout-across-linebreak.html = PASS FAIL
 
 // Failures introduced by USE_NEW_BUILDER in Skia.
-BUG33287 WIN LINUX : fast/canvas/set-colors.html = TEXT
-
-// WebKit Roll to r51915
-BUG29930 : fast/loader/input-element-page-cache-crash.html = TIMEOUT PASS
+BUG33287 WIN LINUX : LayoutTests/fast/canvas/set-colors.html = TEXT
 
 // Tests failing after fixing a <use> bug (merge WebKit 53446).
 // These are unfortunate, but better than an exploitable crash.
@@ -3093,3 +3090,13 @@ BUG_MAL WIN : LayoutTests/fast/backgrounds/svg-as-background-2.html = IMAGE
 BUG_MAL WIN : LayoutTests/svg/css/clippath-with-shadow.svg = IMAGE+TEXT
 BUG_MAL WIN : LayoutTests/svg/custom/clip-path-referencing-use.svg = IMAGE+TEXT
 BUG_MAL WIN : LayoutTests/svg/custom/use-clipped-transform.svg = IMAGE+TEXT
+
+// There are a few tests that timeout sometimes on the official bot.
+BUG_MAL WIN : LayoutTests/http/tests/cache/subresource-failover-to-network.html = TIMEOUT PASS
+BUG_MAL WIN : LayoutTests/http/tests/cookies/simple-cookies-expired.html = TIMEOUT PASS
+BUG_MAL WIN : LayoutTests/http/tests/navigation/redirect-cycle.html = TIMEOUT PASS
+BUG_MAL WIN : LayoutTests/http/tests/navigation/success200-reload.html = TIMEOUT PASS
+BUG_MAL WIN : LayoutTests/http/tests/plugins/interrupted-get-url.html = TIMEOUT PASS
+BUG_MAL WIN : chrome/http/tests/misc/set-window-opener-to-null.html = TIMEOUT PASS
+BUG_MAL WIN : chrome/http/tests/security/listener/xss-inactive-closure.html = TIMEOUT PASS
+BUG_MAL WIN : chrome/http/tests/security/xss-DENIED-assign-location-href-javascript.html = TIMEOUT PASS
