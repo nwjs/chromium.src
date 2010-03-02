@@ -383,7 +383,7 @@ v8::Local<v8::Object> WebDevToolsAgentImpl::CreateInspectorBackendV8Wrapper() {
 
 void WebDevToolsAgentImpl::ResetInspectorFrontendProxy() {
   DisposeUtilityContext();
-  if (!web_view_impl_->page()->mainFrame()->script()->isEnabled())
+  if (!web_view_impl_->page()->mainFrame()->script()->isEnabled(WebCore::NotAboutToExecuteScript))
     return;
 
   debugger_agent_impl_->CreateUtilityContext(
