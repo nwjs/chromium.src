@@ -189,11 +189,8 @@ void DOMUIThemeSource::InitNewTabCSS(Profile* profile) {
   // No extensions available on Mac yet.
   subst2.push_back("none");  // $$8: display of lower right promo image
 #else
-  // Extensions available on both Linux and Windows, but for now only in
-  // en locales.
-  if ((StartsWithASCII(g_browser_process->GetApplicationLocale(),
-                      "en", false)) &&  // false = compare not case-sensitive.
-      (profile_->GetPrefs()->GetInteger(prefs::kNTPPromoImageRemaining) > 0)) {
+  // Extensions available on both Linux and Windows.
+  if (profile_->GetPrefs()->GetInteger(prefs::kNTPPromoImageRemaining) > 0) {
     subst2.push_back("block");  // $$8
   } else {
     subst2.push_back("none");  // $$8
