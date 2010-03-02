@@ -12,6 +12,7 @@
 <translation id="2370289711218562573">O Google Chrome está neste momento a importar Favoritos/Marcadores.</translation>
 <translation id="8970027151245482499">O Google Chrome não está instalado ou não foi possível localizar o directório de instalação. Transfira de novo o Google Chrome.</translation>
 <translation id="2040709530900803995">Processador do Google Chrome</translation>
+<translation id="3044696659294460858">Existe uma nova versão do Google Chrome disponível que inclui extensões.</translation>
 <translation id="4281844954008187215">Termos de utilização</translation>
 <translation id="1137776625614346046">A área &quot;Mais visitados&quot; mostra os Web sites utilizados mais frequentemente. Depois de utilizar o Google Chrome durante algum tempo, verá os sites visitados com maior frequência sempre que abrir um novo separador. Saiba mais sobre esta e outras funcionalidades na <ph name="BEGIN_LINK"/>página Introdução<ph name="END_LINK"/>.</translation>
 <translation id="3555616473548901994">Desinstalação concluída.</translation>
@@ -20,6 +21,7 @@
 <translation id="4149882025268051530">Houve uma falha no programa de instalação ao descompactar o arquivo. Transfira de novo o Google Chrome.</translation>
 <translation id="5744005218040929396">Utilitário do Google Chrome</translation>
 <translation id="4343226815564935778">O directório para instalação do Google Chrome parece estar a ser utilizado. Reinicie o computador e tente de novo.</translation>
+<translation id="4506896920521131223">Copyright © 2006-2009 Google Inc. Todos os direitos reservados.</translation>
 <translation id="6817660909204164466">Ajude a melhorar o Google Chrome enviando automaticamente estatísticas de utilização e relatórios de falhas para a Google</translation>
 <translation id="8227755444512189073">O Google Chrome precisa de executar uma aplicação externa para processar links <ph name="SCHEME"/>. O link solicitado é <ph name="PROTOLINK"/>.</translation>
 <translation id="1281036569101707544">Google Chrome <ph name="TERMS_OF_SERVICE_LINK"/></translation>
@@ -46,6 +48,7 @@
 <translation id="911206726377975832">Eliminar também os seus dados de navegação?</translation>
 <translation id="2044287590254833138">Barra de ferramentas do Google Chrome</translation>
 <translation id="5074344184765391290">Anfitrião do plug-in do Chrome</translation>
+<translation id="1473088902761932034">Viva, está de volta! Mas o Google Chrome não é o seu browser predefinido.</translation>
 <translation id="6481075104394517441">Tentou aceder a &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, mas o servidor apresentou um certificado que ainda não é válido. Não há informações disponíveis que indiquem se esse certificado pode ser considerado fidedigno. O Google Chrome não pode garantir com segurança que está a comunicar com &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; e não com um utilizador mal intencionado. Deverá certificar-se de que o seu relógio e fuso horário estão correctamente definidos no seu computador. Se não estiverem, deverá corrigir quaisquer problemas existentes e actualizar esta página. Se estiverem correctos, não deverá prosseguir.</translation>
 <translation id="8862326446509486874">Não tem os direitos adequados para uma instalação ao nível do sistema. Tente executar o programa de instalação novamente como Administrador.</translation>
 <translation id="595871952790078940">Utilitário do Chrome</translation>
@@ -77,6 +80,7 @@
 <translation id="4407807842708586359">SO do Google Chrome</translation>
 <translation id="3396666154568987767">Google Chrome para <ph name="PROFILE_NAME"/></translation>
 <translation id="3360895254066713204">Ajudante do Chrome</translation>
+<translation id="1964682833763362793">Feche todas as janelas do Chrome e tente novamente.</translation>
 <translation id="1001534784610492198">O arquivo do programa de instalação está corrompido ou é inválido. Transfira de novo o Google Chrome.</translation>
 <translation id="6626317981028933585">Infelizmente, as suas definições do Mozilla Firefox não estão disponíveis enquanto esse browser estiver aberto. Para importar essas definições para o Google Chrome, guarde o seu trabalho e feche todas as janelas do Firefox. De seguida clique em Continuar.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>

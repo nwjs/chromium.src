@@ -27,7 +27,7 @@
 <translation id="8595062045771121608">Dalam kasus ini, sertifikat server atau sertifikat CA menengah yang ditampilkan ke peramban Anda ditandatangani menggunakan algoritme tanda tangan lemah seperti RSA-MD2. Penelitian terkini oleh ilmuwan komputer menunjukkan algoritme tanda tangan lebih lemah dibandingkan yang dipercayai sebelumnya, dan algoritme tanda tangan jarang digunakan oleh situs web tepercaya saat ini. Sertifikat ini mungkin telah dipalsukan. Anda seharusnya tidak melanjutkan sesudah tahap ini.</translation>
 <translation id="7567293639574541773">Periksa eleme&amp;n</translation>
 <translation id="36224234498066874">Hapus Data Perambanan...</translation>
-<translation id="7600965453749440009">Jangan pernah diterjemahkan <ph name="LANGUAGE"/></translation>
+<translation id="7600965453749440009">Jangan pernah terjemahkan bahasa <ph name="LANGUAGE"/></translation>
 <translation id="8571213806525832805">4 minggu terakhir</translation>
 <translation id="6021004449668343960">Font Sans-Serif:</translation>
 <translation id="5341849548509163798"><ph name="NUMBER_MANY"/> jam yang lalu</translation>
@@ -48,10 +48,12 @@
 <translation id="3496213124478423963">Zoom Out</translation>
 <translation id="8608043773967779744">Daftar Hitam Privasi berikut mencegah konten ini dari menampilkan:</translation>
 <translation id="8133676275609324831">&amp;Tampilkan dalam map</translation>
-<translation id="645705751491738698">Lanjutkan memblokir JavaScript</translation>
+<translation id="645705751491738698">Lanjutkan mencekal JavaScript</translation>
 <translation id="4780321648949301421">Simpan Laman Sebagai...</translation>
 <translation id="9154072353677278078">Server <ph name="DOMAIN"/> di <ph name="REALM"/> memerlukan nama pengguna dan sandi.</translation>
+<translation id="2193841602817119749">Situs Web di &lt;strong&gt;<ph name="HOST_NAME"/>&lt;/strong&gt; dilaporkan sebagai situs “phishing”.  Situs phishing menipu pengguna untuk mengungkapkan informasi pribadi atau keuangan, biasanya dengan menyamar sebagai institusi terpercaya, misalnya bank.</translation>
 <translation id="8178665534778830238">Konten:</translation>
+<translation id="1379170046778889619">Informasi keamanan</translation>
 <translation id="4771019161370731727">Aktivitas terkini</translation>
 <translation id="8974161578568356045">Deteksi Otomatis</translation>
 <translation id="1818606096021558659">Laman</translation>
@@ -104,7 +106,7 @@
 <translation id="5111692334209731439">Pengelola &amp;Bookmark</translation>
 <translation id="443008484043213881">Alat</translation>
 <translation id="314605055819837597">Data Pengguna</translation>
-<translation id="7957054228628133943">Kelola blokir munculan...</translation>
+<translation id="7957054228628133943">Kelola pencekalan munculan...</translation>
 <translation id="8534801226027872331">Jika demikian, sertifikat yang diberikan ke browser salah dan tidak dapat dipahami. Artinya, kami tidak dapat memahami informasi identitas maupun informasi tertentu lainnya dalam sertifikat yang digunakan untuk mengamankan sambungan. Anda tidak boleh melanjutkan.</translation>
 <translation id="1486408090387743835"><ph name="PRODUCT_NAME"/> sekarang memiliki <ph name="BEGIN_LINK"/>ekstensi<ph name="END_LINK"/> dan <ph name="BEGIN_BUTTON"/>sinkronisasi bookmark<ph name="END_BUTTON"/>.</translation>
 <translation id="3147949335879360642">Bookmark Anda akan digabungkan.</translation>
@@ -114,7 +116,7 @@
 <translation id="801357260673640054">Bookmark disinkronkan...</translation>
 <translation id="1399076603473531278">Detail info masuk usang.</translation>
 <translation id="3391060940042023865">Pengaya berikut ngadat: <ph name="PLUGIN_NAME"/></translation>
-<translation id="4755860829306298968">Kelola pemblokiran pengaya...</translation>
+<translation id="4755860829306298968">Kelola pencekalan pengaya...</translation>
 <translation id="8879284080359814990">Tampilkan &amp;Sebagai Tab</translation>
 <translation id="3873139305050062481">Periksa Eleme&amp;n</translation>
 <translation id="6370820475163108109"><ph name="ORGANIZATION_NAME"/> (<ph name="DOMAIN_NAME"/>)</translation>
@@ -225,6 +227,7 @@
 <translation id="1073286447082909762">Buka Bingkai di &amp;Jendela Baru</translation>
 <translation id="692135145298539227">hapus, delete</translation>
 <translation id="8343477974731263456">Menyiapkan Sinkronisasi Bookmark</translation>
+<translation id="398967089780480076">Tindakan:</translation>
 <translation id="5999606216064768721">Gunakan Bilah Judul dan Batas Sistem</translation>
 <translation id="1635247229519770914">Lanjutkan Penginstalan</translation>
 <translation id="8945419807169257367">Sertifikat server tidak dapat diperiksa</translation>
@@ -253,7 +256,7 @@
 <translation id="2011110593081822050">Web Worker: <ph name="WORKER_NAME"/></translation>
 <translation id="350069200438440499">Nama berkas:</translation>
 <translation id="8494979374722910010">Upaya tersambung ke server gagal.</translation>
-<translation id="7810202088502699111">Munculan diblokir di laman ini.</translation>
+<translation id="7810202088502699111">Munculan dicekal di laman ini.</translation>
 <translation id="8795916974678578410">Jendela Baru</translation>
 <translation id="3400618317772401692">Tambahkan sumber favorit Anda untuk mendapatkan berita utama, entri blog, RSS dan umpan Atom di kotak ini.
         <ph name="BEGIN_LINK"/>Pelajari lebih lanjut<ph name="END_LINK"/></translation>
@@ -266,6 +269,7 @@
 <translation id="3165657440747518774">&amp;Cari pada Laman</translation>
 <translation id="939736085109172342">Map baru</translation>
 <translation id="862750493060684461">Tembolok CSS</translation>
+<translation id="5722599785390787673">Klik untuk membuka pencekalan</translation>
 <translation id="2009541932026160416">Klik <ph name="CROSS_IMAGE"/> untuk menghapus thumbnail</translation>
 <translation id="5641560969478423183">Sertifikat server tidak cocok dengan URL</translation>
 <translation id="6474422710030751464">Beberapa konten di laman ini didapat melalui sambungan dengan galat SSL.</translation>
@@ -297,7 +301,7 @@
 <translation id="1608306110678187802">C&amp;etak bingkai...</translation>
 <translation id="323509738684635129">Pengecualian Kuki
 </translation>
-<translation id="6622980291894852883">Lanjutkan memblokir gambar</translation>
+<translation id="6622980291894852883">Lanjutkan mencekal gambar</translation>
 <translation id="4948468046837535074">Buka laman-laman berikut:</translation>
 <translation id="6978121630131642226">Mesin Telusur</translation>
 <translation id="6745994589677103306">Jangan Melakukan Apa Pun</translation>
@@ -324,6 +328,7 @@
 <translation id="6655190889273724601">Mode pengembang</translation>
 <translation id="3473105180351527598">Aktifkan perlindungan phishing dan malware</translation>
 <translation id="6151323131516309312">Tekan <ph name="SEARCH_KEY"/> untuk mencari <ph name="SITE_NAME"/></translation>
+<translation id="8774154763730062725">Pengecualian Baru</translation>
 <translation id="2342959293776168129">Hapus riwayat unduhan</translation>
 <translation id="2503522102815150840">Browser rusak...</translation>
 <translation id="425878420164891689">Menghitung waktu hingga penuh</translation>
@@ -357,6 +362,7 @@
 <translation id="6178664161104547336">Pilih sertifikat</translation>
 <translation id="5702898740348134351">&amp;Edit Mesin Telusur...</translation>
 <translation id="2365740070488517695">Kiat</translation>
+<translation id="772440777491435074">Informasi sertifikat...</translation>
 <translation id="2869459179306435079">Impor setelan dari:</translation>
 <translation id="732677191631732447">Salin URL Audi&amp;o</translation>
 <translation id="4999762576397546063">Ctrl+<ph name="KEY_COMBO_NAME"/></translation>
@@ -385,12 +391,12 @@
 </translation>
 <translation id="5650551054760837876">Tak ada hasil penelusuran yang ditemukan.</translation>
 <translation id="5494362494988149300">Buka Setelah &amp;Selesai</translation>
-<translation id="9187787570099877815">Lanjutkan memblokir pengaya</translation>
+<translation id="9187787570099877815">Lanjutkan mencekal pengaya</translation>
 <translation id="3234408098842461169">Panah Bawah</translation>
 <translation id="825608351287166772">Sertifikat memiliki masa berlaku, sama seperti dokumen identitas apapun (misalnya paspor) yang Anda miliki. Sertifikat yang diberikan ke browser tidak valid. Bila masa berlaku sertifikat berakhir, informasi tertentu tentang status sertifikat (baik telah dibatalkan dan tidak dapat dipercaya lagi) tidak perlu disimpan. Dengan demikian, verifikasi bahwa sertifikat tersebut terpercaya tidak dapat dilakukan. Anda tidak boleh melanjutkan.</translation>
 <translation id="7154150278819212687">Ekstensi ini akan memiliki akses ke riwayat perambanan.</translation>
 <translation id="1516602185768225813">Buka lagi laman-laman barusan</translation>
-<translation id="1538486363863290963">Blokir semua kuki pihak ketiga tanpa terkecuali</translation>
+<translation id="1538486363863290963">Cekal semua kuki pihak ketiga tanpa terkecuali</translation>
 <translation id="4874539263382920044">Judul minimal harus berisi 1 karakter</translation>
 <translation id="3549657413697417275">Telusuri riwayat penggunaan</translation>
 <translation id="7344633671344536647">Meramban data:</translation>
@@ -399,6 +405,7 @@
 <translation id="7905536804357499080">Pakai yang Aktif</translation>
 <translation id="8933960630081805351">&amp;Tampilkan dalam Penemu</translation>
 <translation id="7378810950367401542">/</translation>
+<translation id="1871540228654219948">Situs web di &lt;strong&gt;<ph name="HOST_NAME"/>&lt;/strong&gt; berisi elemen dari situs yang tampaknya menginangi program jahat, yakni perangkat lunak yang dapat membahayakan komputer atau beroperasi tanpa izin Anda. Mengunjungi situs yang berisi program jahat dapat menginfeksi komputer Anda.</translation>
 <translation id="4435256380245822831">Setelan Gambar:</translation>
 <translation id="8899388739470541164">Vietnam</translation>
 <translation id="6631671511957507878">Lihat riwayat keseluruhan</translation>
@@ -428,7 +435,7 @@
 <translation id="9027459031423301635">Buka Tautan di &amp;Tab Baru</translation>
 <translation id="358344266898797651">Celtik</translation>
 <translation id="5055518462594137986">Ingat pilihan saya untuk semua link jenis ini.</translation>
-<translation id="246059062092993255">Pengaya diblokir di laman ini.</translation>
+<translation id="246059062092993255">Pengaya dicekal di laman ini.</translation>
 <translation id="2870560284913253234">Situs</translation>
 <translation id="7724603315864178912">Potong</translation>
 <translation id="4164507027399414915">Perbaiki kembali semua thumbnail yang terhapus</translation>
@@ -440,6 +447,7 @@
 <translation id="6434309073475700221">Singkirkan</translation>
 <translation id="1425127764082410430">&amp;Telusuri dengan <ph name="SEARCH_ENGINE"/>: '<ph name="SEARCH_TERMS"/>'</translation>
 <translation id="4551297183924943154">Profil tersebut tampaknya sedang digunakan oleh proses <ph name="PROCESS_ID"/> pada inang <ph name="HOST_NAME"/>. Jika Anda yakin tidak ada proses yang sedang menggunakan profil ini, hapus berkas <ph name="LOCK_FILE"/> dan mulai ulang <ph name="PRODUCT_NAME"/>.</translation>
+<translation id="877010697526426622">Laman web di &lt;strong jscontent=&quot;failedUrl&quot;&gt;&lt;/strong&gt; mungkin sedang tidak aktif untuk sementara atau dipindahkan ke alamat web baru secara permanen.</translation>
 <translation id="4378551569595875038">Menyambung...</translation>
 <translation id="7029809446516969842">Sandi</translation>
 <translation id="3513979718339724672">Tampilkan thumbnails</translation>
@@ -460,7 +468,7 @@
 <translation id="7762841930144642410"><ph name="BEGIN_BOLD"/>Anda menggunakan penyamaran<ph name="END_BOLD"/>. Halaman yang Anda lihat di jendela ini tidak akan ditampilkan dalam riwayat browser atau riwayat pencarian dan tidak akan meninggalkan jejak, seperti cookie, di komputer setelah jendela penyamaran ditutup. Namun, file yang di-download atau bookmark yang dibuat akan disimpan.        <ph name="LINE_BREAK"/>        <ph name="BEGIN_BOLD"/>Menggunakan penyamaran tidak akan mempengaruhi aktivitas pengguna, server, atau perangkat lunak lainnya. Waspadai:<ph name="END_BOLD"/>        <ph name="BEGIN_LIST"/>          <ph name="BEGIN_LIST_ITEM"/>Situs Web yang mengumpulkan atau berbagi informasi tentang Anda<ph name="END_LIST_ITEM"/>          <ph name="BEGIN_LIST_ITEM"/>Penyedia layanan Internet atau perusahaan yang melacak halaman yang Anda kunjungi<ph name="END_LIST_ITEM"/>          <ph name="BEGIN_LIST_ITEM"/>Perangkat lunak berbahaya yang melacak penekanan tombol dengan imbalan smiley gratis<ph name="END_LIST_ITEM"/>          <ph name="BEGIN_LIST_ITEM"/>Pemantauan agen rahasia<ph name="END_LIST_ITEM"/>          <ph name="BEGIN_LIST_ITEM"/>Orang yang berdiri di belakang Anda<ph name="END_LIST_ITEM"/>        <ph name="END_LIST"/>        <ph name="BEGIN_LINK"/>Selengkapnya<ph name="END_LINK"/> tentang cara melakukan penelusuran menggunakan penyamaran.</translation>
 <translation id="4439241094464540230">&lt;Profil Baru&gt;...</translation>
 <translation id="2135787500304447609">&amp;Lanjutkan</translation>
-<translation id="1813414402673211292">Hapus Data Jelajah</translation>
+<translation id="1813414402673211292">Hapus Data Perambanan</translation>
 <translation id="2356762928523809690">Server pembaruan tidak tersedia (kesalahan: <ph name="ERROR_NUMBER"/>)</translation>
 <translation id="6356865038429301391">Tema unggulan</translation>
 <translation id="219008588003277019">Modul Klien Asli: <ph name="NEXE_NAME"/></translation>
@@ -483,7 +491,7 @@
 <translation id="1572103024875503863"><ph name="NUMBER_MANY"/> hari</translation>
 <translation id="8453184121293348016">Tidak ditemukan mekanisme pembatalan</translation>
 <translation id="1199429765931693651">Sembunyikan daftar</translation>
-<translation id="3481915276125965083">Munculan berikut diblokir di laman ini:</translation>
+<translation id="3481915276125965083">Munculan berikut dicekal di laman ini:</translation>
 <translation id="7163503212501929773">Tersisa <ph name="NUMBER_MANY"/> jam</translation>
 <translation id="5586329397967040209">Jadikan ini beranda saya</translation>
 <translation id="3283719377675052581">tidak diketahui</translation>
@@ -500,11 +508,12 @@
 <translation id="3994878504415702912">&amp;Zum</translation>
 <translation id="9009369504041480176">Mengunggah (<ph name="PROGRESS_PERCENT"/>%)...</translation>
 <translation id="5602600725402519729">Muat-U&amp;lang</translation>
+<translation id="4755559386248249812">Anda berusaha untuk menjangkau &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, tapi server menyajikan sertifikat yang ditandatangani menggunakan algoritme tanda tangan yang lemah. Ini berarti informasi rahasia keamanan yang disajikan mungkin telah dipalsukan, dan server tersebut mungkin bukan yang diharapkan (Anda mungkin sedang berkomunikasi dengan penyerang). Anda seharusnya tidak melanjutkan.</translation>
 <translation id="9010612682952491200">Tab Baru [<ph name="PROFILE_NAME"/>]</translation>
 <translation id="7965010376480416255">Memori Bersama</translation>
 <translation id="6248988683584659830">Menelusuri setelan</translation>
 <translation id="2242457451044347345">Sinkronisasi bookmark</translation>
-<translation id="7053983685419859001">Blokir</translation>
+<translation id="7053983685419859001">Cekal</translation>
 <translation id="2727712005121231835">Ukuran Sebenarnya</translation>
 <translation id="8887733174653581061">Selalu di atas</translation>
 <translation id="610886263749567451">Peringatan Javascript</translation>
@@ -545,6 +554,7 @@
 <translation id="7910768399700579500">&amp;Map baru</translation>
 <translation id="6295535972717341389">Pengaya</translation>
 <translation id="6883611015375728278">Blokir semua cookie</translation>
+<translation id="3819791248093819058">Tidak ada laman Web yang ditemukan untuk alamat Web: &lt;strong jscontent=&quot;failedUrl&quot;&gt;&lt;/strong&gt;</translation>
 <translation id="7842346819602959665">Versi ekstensi &quot;<ph name="EXTENSION_NAME"/>&quot; teranyar memerlukan izin lebih lanjut, jadi ekstensi belum diaktifkan.</translation>
 <translation id="6979448128170032817">Pengecualian...
 </translation>
@@ -552,9 +562,13 @@
 <translation id="6710213216561001401">Sebelumnya</translation>
 <translation id="1567993339577891801">Konsol Javascript</translation>
 <translation id="583281660410589416">Tidak diketahui</translation>
+<translation id="7635303043999550515">Laman web pada &lt;strong jscontent=&quot;failedUrl&quot;&gt;&lt;/strong&gt; menghasilkan
+        terlalu banyak pengalihan.  Menghapus kuki dari situs ini atau mengizinkan kuki pihak-ketiga mungkin dapat memperbaiki masalah.  Jika
+        tidak, mungkin saja merupakan masalah konfigurasi server dan bukan masalah dari komputer
+        Anda.</translation>
 <translation id="2485422356828889247">Copot instalasi</translation>
 <translation id="2621889926470140926">Apakah Anda ingin keluar <ph name="PRODUCT_NAME"/> dengan <ph name="DOWNLOAD_COUNT"/> unduhan yang sedang berlangsung?</translation>
-<translation id="7279701417129455881">Kelola blokir kuki...</translation>
+<translation id="7279701417129455881">Kelola pencekalan kuki...</translation>
 <translation id="5528368756083817449">Pengelola Bookmark</translation>
 <translation id="7275974018215686543"><ph name="NUMBER_MANY"/> dtk. yang lalu</translation>
 <translation id="7849264908733290972">Buka Gambar d&amp;i Tab Baru</translation>
@@ -642,6 +656,7 @@
 <translation id="3664021239099029884">Lihat semua unduhan</translation>
 <translation id="2207746515960750386"><ph name="MINUTE"/> menit yang lalu</translation>
 <translation id="7754704193130578113">Tanyakan lokasi penyimpanan setiap berkas sebelum mengunduh</translation>
+<translation id="2838167480523328393">Instal &quot;<ph name="EXTENSION_NAME"/>&quot;?</translation>
 <translation id="2497284189126895209">Semua Jenis Berkas</translation>
 <translation id="5360606537916580043">Hari terakhir</translation>
 <translation id="1682548588986054654">Jendela Penyamaran Baru</translation>
@@ -684,7 +699,7 @@
 <translation id="2840798130349147766">Basis Data Web</translation>
 <translation id="1628736721748648976">Pengkodean</translation>
 <translation id="6521850982405273806">Laporkan galat</translation>
-<translation id="8026334261755873520">Menghapus data perambanan</translation>
+<translation id="8026334261755873520">Hapus data perambanan</translation>
 <translation id="1769104665586091481">Buka Tautan di &amp;Jendela Baru</translation>
 <translation id="8503813439785031346">Nama Pengguna</translation>
 <translation id="290555789621781773"><ph name="NUMBER_TWO"/> menit</translation>
@@ -705,6 +720,7 @@
 <translation id="7893393459573308604"><ph name="ENGINE_NAME"/> (Default)</translation>
 <translation id="6543631358510643997">Ekstensi ini akan memiliki akses penuh ke komputer dan data pribadi.</translation>
 <translation id="111844081046043029">Yakin ingin meninggalkan laman ini?</translation>
+<translation id="4497415007571823067">Anda berupaya membuka &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, namun sebenarnya membuka server yang diidentifikasi sebagai &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;. Hal ini mungkin disebabkan oleh kesalahan konfigurasi pada server atau penyebab lain yang lebih serius. Pengganggu di jaringan mungkin berupaya membuat Anda mengunjungi versi palsu &lt;strong&gt;<ph name="DOMAIN3"/>&lt;/strong&gt; (yang berpotensi membahayakan). Anda tidak boleh melanjutkan.</translation>
 <translation id="3202578601642193415">Teranyar</translation>
 <translation id="8112886015144590373"><ph name="NUMBER_FEW"/> jam</translation>
 <translation id="8739589585766515812">Hapus riwayat hari ini</translation>
@@ -766,6 +782,7 @@
 <translation id="5384051050210890146">Pilih sertifikat SSL yang terpercaya</translation>
 <translation id="6865323153634004209">Sesuaikan setelan ini</translation>
 <translation id="7487067081878637334">Teknologi</translation>
+<translation id="4176463684765177261">Dinonaktifkan</translation>
 <translation id="154603084978752493">Tambahkan seba&amp;gai mesin penelusur...</translation>
 <translation id="2079545284768500474">Batalkan</translation>
 <translation id="340640192402082412">Ubah cara kuki dan data situs lainnya disimpan di komputer Anda</translation>
@@ -889,10 +906,12 @@
 <translation id="3127919023693423797">Autentikasi...</translation>
 <translation id="4195643157523330669">Buka di tab baru</translation>
 <translation id="8030169304546394654">Diputuskan</translation>
+<translation id="3683878911947678690">Anda dapat menyinkronisasi bookmark Anda melintasi komputer menggunakan akun Google</translation>
 <translation id="4178055285485194276">Saat memulai:</translation>
 <translation id="1154228249304313899">Buka halaman ini:</translation>
 <translation id="9074348188580488499">Anda yakin ingin menghapus semua sandi?</translation>
 <translation id="3627588569887975815">Buka tautan di jendela penya&amp;maran</translation>
+<translation id="5918363047783857623">Edit Pengecualian</translation>
 <translation id="5578327870501192725">Sambungan ke <ph name="DOMAIN"/> dienkripsi dengan enkripsi <ph name="BIT_COUNT"/> bit.</translation>
 <translation id="7079333361293827276">Sertifikat server tidak terpercaya</translation>
 <translation id="869884720829132584">Menu aplikasi</translation>
@@ -996,6 +1015,8 @@
 <translation id="7326526699920221209">Baterai: <ph name="PRECENTAGE"/>%</translation>
 <translation id="601778514741867265">Terima kuki hanya dari situs yang saya kunjungi</translation>
 <translation id="8299269255470343364">Jepang</translation>
+<translation id="5204993535447683655">&lt;a jsvalues=&quot;href:reloadUrl&quot;&gt;Muat ulang&lt;/a&gt; laman Web ini nanti.</translation>
+<translation id="3635774677705394651">Situs Web di &lt;strong&gt;<ph name="HOST_NAME"/>&lt;/strong&gt; tampaknya meng-host malware, yakni perangkat lunak yang dapat merusak komputer atau berjalan tanpa izin.  Mengunjungi situs yang meng-host malware dapat menginfeksi komputer.</translation>
 <translation id="7280343984261969618">Menjalankan plug-in di sandbox tanpa hak istimewa. Akan menyebabkan beberapa plug-in tidak berfungsi dengan baik.</translation>
 <translation id="50030952220075532">Tersisa <ph name="NUMBER_ONE"/> hari</translation>
 <translation id="2885378588091291677">Pengelola Tugas</translation>
@@ -1019,6 +1040,7 @@
 <translation id="8261506727792406068">Hapus</translation>
 <translation id="345693547134384690">Buka gambar d&amp;i tab baru</translation>
 <translation id="7422192691352527311">Preferensi...</translation>
+<translation id="7220379225958650049">Mulai sekarang</translation>
 <translation id="1375198122581997741">Tentang Versi</translation>
 <translation id="1474307029659222435">Buka bingkai di &amp;jendela baru</translation>
 <translation id="7133850061938542637">Disinkronisasi ke <ph name="USER_EMAIL_ADDRESS"/>\nTerakhir disinkronisasi: <ph name="LAST_SYNC_TIME"/></translation>
@@ -1052,6 +1074,7 @@
 <translation id="816095449251911490"><ph name="SPEED"/> - <ph name="RECEIVED_AMOUNT"/>, <ph name="TIME_REMAINING"/></translation>
 <translation id="8200772114523450471">Lanjutkan</translation>
 <translation id="6358975074282722691"><ph name="NUMBER_TWO"/> dtk. yang lalu</translation>
+<translation id="5663016964925996918"><ph name="EXTENSION_NAME"/> telah dipasang</translation>
 <translation id="3009731429620355204">Sesi</translation>
 <translation id="7658590191988721853">Aktifkan gulir pinggir vertikal</translation>
 <translation id="5190835502935405962">Bilah Bookmark</translation>
@@ -1081,6 +1104,8 @@
 <translation id="2812989263793994277">Jangan tampilkan gambar apa pun</translation>
 <translation id="6845383723252244143">Pilih Map</translation>
 <translation id="8948393169621400698">Selalu izinkan pengaya di <ph name="HOST"/></translation>
+<translation id="4745142959976410383">Jika Anda tidak mengajukan permintaan, mungkin ini menunjukkan upaya gangguan pada sistem. Kecuali jika Anda melakukan tindakan nyata untuk mengajukan permintaan, Anda harus menekan Batal.</translation>
+<translation id="1897258631034940238">Situs web di &lt;strong&gt;<ph name="HOST_NAME"/>&lt;/strong&gt; berisi elemen dari situs yang dilaporkan sebagai situs “phishing”. Situs phishing menipu pengguna agar mengungkapkan informasi pribadi atau keuangan, biasanya dengan menyamar sebagai lembaga terpercaya, misalnya bank.</translation>
 <translation id="8288345061925649502">Ubah mesin telusur</translation>
 <translation id="1095623615273566396"><ph name="NUMBER_FEW"/> detik</translation>
 <translation id="7006788746334555276">Setelan Konten</translation>
@@ -1101,6 +1126,7 @@
 <translation id="5116333507878097773"><ph name="NUMBER_ONE"/> jam</translation>
 <translation id="1851266746056575977">Perbarui Sekarang</translation>
 <translation id="3715099868207290855">Disinkronisasi ke <ph name="USER_EMAIL_ADDRESS"/></translation>
+<translation id="19901320010520290">Situs web di &lt;strong&gt;<ph name="HOST_NAME"/>&lt;/strong&gt; berisi elemen dari situs yang tampaknya menginangi program jahat, yakni perangkat lunak yang dapat membahayakan komputer atau beroperasi tanpa izin Anda. Mengunjungi situs yang menginangi program jahat dapat menginfeksi komputer Anda. Situs web tersebut juga menginangi konten dari situs yang dilaporkan sebagai situs &quot;phishing&quot;. Situs phishing menipu pengguna agar mengungkapkan informasi pribadi atau keuangan, biasanya dengan menyamar sebagai lembaga terpercaya, misalnya bank.</translation>
 <translation id="2679312662830811292"><ph name="NUMBER_ONE"/> mnt. yang lalu</translation>
 <translation id="9065203028668620118">Edit</translation>
 <translation id="8788572795284305350"><ph name="NUMBER_ZERO"/> hours ago</translation>
@@ -1145,13 +1171,14 @@
 <translation id="8116972784401310538">&amp;Pengelola bookmark</translation>
 <translation id="1849632043866553433">Tembolok Aplikasi</translation>
 <translation id="4927301649992043040">Kemas Ekstensi</translation>
-<translation id="6458308652667395253">Kelola pemblokiran JavaScript...</translation>
+<translation id="6458308652667395253">Kelola pencekalan JavaScript...</translation>
 <translation id="6040143037577758943">Tutup</translation>
 <translation id="1101671447232096497"><ph name="NUMBER_MANY"/> mnt. yang lalu</translation>
 <translation id="5116628073786783676">Sim&amp;pan Audio Sebagai...</translation>
 <translation id="2749881179542288782">Periksa Grammar Dengan Ejaaan</translation>
 <translation id="4943872375798546930">Tidak ada hasil</translation>
 <translation id="4910619056351738551">Berikut adalah saran kami:</translation>
+<translation id="7451556917824271099">Situs Web di &lt;strong&gt;<ph name="HOST_NAME"/>&lt;/strong&gt; berisi elemen dari situs &lt;strong&gt;<ph name="ELEMENTS_HOST_NAME"/>&lt;/strong&gt; yang tampaknya meng-host malware, yakni perangkat lunak yang dapat membahayakan komputer atau berjalan tanpa izin.  Mengunjungi situs yang berisi malware dapat menginfeksi komputer.</translation>
 <translation id="5489059749897101717">&amp;Tampilkan Panel Ejaan</translation>
 <translation id="1232569758102978740">Tanpa Judul</translation>
 <translation id="9149866541089851383">Edit...</translation>
@@ -1174,7 +1201,7 @@
 <translation id="3021678814754966447">&amp;Lihat Sumber Bingkai</translation>
 <translation id="5271549068863921519">Simpan sandi</translation>
 <translation id="3251855518428926750">Tambah...</translation>
-<translation id="6929555043669117778">Lanjutkan memblokir munculan</translation>
+<translation id="6929555043669117778">Lanjutkan mencekal munculan</translation>
 <translation id="3508920295779105875">Pilih Map Lain...</translation>
 <translation id="2987775926667433828">Cina Tradisional</translation>
 <translation id="3954582159466790312">Ber&amp;suara</translation>
@@ -1183,6 +1210,7 @@
 <translation id="6227291405321948850">Gambar Web Tanpa Judul</translation>
 <translation id="862542460444371744">&amp;Ekstensi</translation>
 <translation id="212019304961722056">Detail info masuk akun belum dimasukkan.</translation>
+<translation id="1684248949164455892">Dalam hal ini, sertifikat belum diverifikasi oleh pihak ketiga yang dipercaya komputer. Siapapun dapat membuat sertifikat situs Web yang diinginkan, sehingga sertifikat tersebut harus diverifikasi oleh pihak ketiga yang terpercaya. Tanpa verifikasi, informasi identitas dalam sertifikat tidak berarti. Karenanya, tidak dapat dilakukan verifikasi bahwa Anda berkomunikasi dengan &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, bukan pengganggu yang membuat sertifikat sendiri dan mengaku sebagai &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;. Anda tidak boleh melanjutkan.</translation>
 <translation id="8045462269890919536">Rumania</translation>
 <translation id="2927657246008729253">Ubah...</translation>
 <translation id="7978412674231730200">Kunci pribadi</translation>
@@ -1199,11 +1227,10 @@
 <translation id="6996505290426962909">&amp;Impor bookmark &amp;&amp; setelan...</translation>
 <translation id="6165508094623778733">Selengkapnya</translation>
 <translation id="822618367988303761"><ph name="NUMBER_TWO"/> hari yang lalu</translation>
-<translation id="7568593326407688803">Laman ini dalam bahasa<ph name="ORIGINAL_LANGUAGE"/>Apakah Anda ingin menerjemahkannya?</translation>
+<translation id="7568593326407688803">Laman ini dalam bahasa <ph name="ORIGINAL_LANGUAGE"/> Apakah Anda ingin menerjemahkannya?</translation>
 <translation id="8629974950076222828">Buka Semua Bookmark di Jendela Penyamaran</translation>
 <translation id="4745438305783437565"><ph name="NUMBER_FEW"/> menit</translation>
 <translation id="2649911884196340328">Sertifikat keamanan server salah!</translation>
-<translation id="3828029223314399057">Cari bookmark</translation>
 <translation id="8906421963862390172">Opsi Peme&amp;riksa ejaan</translation>
 <translation id="1963692530539281474">Tersisa <ph name="NUMBER_DEFAULT"/> hari</translation>
 <translation id="668171684555832681">Lainnya...</translation>
@@ -1224,7 +1251,7 @@
 <translation id="6886871292305414135">Buka tautan di &amp;tab baru</translation>
 <translation id="7961015016161918242">Tidak pernah</translation>
 <translation id="6308937455967653460">Simpan tau&amp;tan sebagai...</translation>
-<translation id="5421136146218899937">Menghapus data perambanan...</translation>
+<translation id="5421136146218899937">Hapus data perambanan...</translation>
 <translation id="3285322247471302225">&amp;Tab Baru</translation>
 <translation id="3943582379552582368">&amp;Mundur</translation>
 <translation id="7607002721634913082">Dijeda</translation>
@@ -1299,6 +1326,7 @@
 <translation id="715468010956678290">Buka bingkai di jendela penya&amp;maran</translation>
 <translation id="7755167023778553803">Namun, laman ini mencakup sumber dari situs web lain yang identitasnya tidak dapat diverifikasi.</translation>
 <translation id="1273291576878293349">Buka semua bookmark di jendela penyamaran</translation>
+<translation id="3455546154539383562">Anda berupaya membuka &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, namun sertifikat yang diberikan server telah dibatalkan oleh pengguna. Artinya, kredensial keamanan yang diberikan server tidak boleh dipercaya. Anda mungkin berkomunikasi dengan pengganggu. Anda tidak boleh melanjutkan.</translation>
 <translation id="1177437665183591855">Galat sertifikat server tidak diketahui</translation>
 <translation id="3819800052061700452">Layar penuh</translation>
 <translation id="3533943170037501541">Selamat datang di beranda Anda!</translation>
@@ -1320,8 +1348,8 @@
 <translation id="3943857333388298514">Sisipkan</translation>
 <translation id="385051799172605136">Mundur</translation>
 <translation id="1208126399996836490">Jangan atur ulang</translation>
-<translation id="4085298594534903246">JavaScript diblokir di laman ini.</translation>
-<translation id="4341977339441987045">Blokir situs agar tidak menyetel data apa pun</translation>
+<translation id="4085298594534903246">JavaScript dicekal di laman ini.</translation>
+<translation id="4341977339441987045">Cekal situs agar tidak menyetel data apa pun</translation>
 <translation id="806812017500012252">Susun ulang menurut judul</translation>
 <translation id="2960316970329790041">Berhenti mengimpor</translation>
 <translation id="5361734574074701223">Menghitung sisa waktu</translation>
@@ -1350,6 +1378,7 @@
 <translation id="6492313032770352219">Ukuran pada diska:</translation>
 <translation id="5233231016133573565">ID proses</translation>
 <translation id="5941711191222866238">Perkecil</translation>
+<translation id="539297715553881262">Inang:</translation>
 <translation id="253434972992662860">&amp;Jeda</translation>
 <translation id="335985608243443814">Jelajah...</translation>
 <translation id="6653385924798556138"><ph name="HOST"/> ingin membuat kuki di komputer Anda.</translation>
@@ -1379,7 +1408,9 @@ Ekstensi: <ph name="EXTENSION_FILE"/>
 Berkas Kunci: <ph name="KEY_FILE"/>
 
 Simpan berkas kunci Anda di tempat yang aman. Anda akan membutuhkannya untuk membuat versi baru ekstensi.</translation>
+<translation id="4477534650265381513">Untuk akses cepat, tempatkan bookmark Anda ke bilah bookmark.</translation>
 <translation id="3036649622769666520">Buka Berkas</translation>
+<translation id="7909652923456235549">Kuki tidak terkirim</translation>
 <translation id="7685049629764448582">Memori JavaScript</translation>
 <translation id="4508765956121923607">Lihat S&amp;umber</translation>
 <translation id="8080048886850452639">Salin URL audi&amp;o</translation>

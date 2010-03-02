@@ -12,6 +12,7 @@
 <translation id="2370289711218562573">Google Chrome právě importuje Oblíbené položky nebo záložky:</translation>
 <translation id="8970027151245482499">Google Chrome není nainstalován nebo se nepodařilo nalézt instalační adresář. Stáhněte prosím Google Chrome ještě jednou.</translation>
 <translation id="2040709530900803995">Google Chrome Renderer</translation>
+<translation id="3044696659294460858">Je k dispozici nová verze Google Chrome, která zahrnuje rozšíření.</translation>
 <translation id="4281844954008187215">Smluvní podmínky</translation>
 <translation id="1137776625614346046">Oblast Nejnavštěvovanější zobrazuje webové stránky, které navštěvujete nejčastěji. Až budete aplikaci Google Chrome nějakou dobu používat, zobrazí se vám nejčastěji navštěvované weby, kdykoli otevřete novou kartu. Další informace o této a ostatních funkcích se dozvíte na stránce <ph name="BEGIN_LINK"/>Začínáme<ph name="END_LINK"/>.</translation>
 <translation id="3555616473548901994">Odinstalace byla dokončena.</translation>
@@ -20,6 +21,7 @@
 <translation id="4149882025268051530">Instalačnímu programu se nepodařilo rozbalit archiv. Stáhněte prosím Google Chrome ještě jednou.</translation>
 <translation id="5744005218040929396">Google Chrome Utility</translation>
 <translation id="4343226815564935778">Instalační adresář aplikace Google Chrome je zřejmě používán. Restartujte počítač a zkuste to znovu.</translation>
+<translation id="4506896920521131223">Copyright © 2006 – 2009 Google Inc. Všechna práva vyhrazena.</translation>
 <translation id="6817660909204164466">Pomozte aplikaci Google Chrome zlepšovat tím, že budete společnosti Google automaticky zasílat statistiky využití a zprávy o selhání aplikace.</translation>
 <translation id="8227755444512189073">Aplikace Chrome potřebuje spustit externí aplikaci pro práci s odkazy <ph name="SCHEME"/>. Požadovaný odkaz je <ph name="PROTOLINK"/>.</translation>
 <translation id="1281036569101707544"><ph name="TERMS_OF_SERVICE_LINK"/> prohlížeče Google Chrome</translation>
@@ -46,6 +48,7 @@
 <translation id="911206726377975832">Vymazat také všechna data procházení?</translation>
 <translation id="2044287590254833138">Lišta nástrojů aplikace Google Chrome</translation>
 <translation id="5074344184765391290">Hostitel pluginu aplikace Chrome</translation>
+<translation id="1473088902761932034">Skvělé, jste zpátky! Ale Google Chrome není vaším výchozím prohlížečem.</translation>
 <translation id="6481075104394517441">Pokusili jste se přejít na server &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, ale server předložil certifikát, který není ještě platný. Nejsou k dispozici žádné informace, které by naznačovaly, zda je možné certifikátu důvěřovat. Aplikace Google Chrome nemůže spolehlivě zaručit, že komunikujete se serverem &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; a nikoli s útočníkem. Měli byste zajistit, aby byly na vašem počítače řádně nastaveny hodiny a časové pásmo. Pokud tomu tak není, měli byste provést nápravu a tuto stránku obnovit. Pokud jsou nastaveny správně, neměli byste postupovat dále.</translation>
 <translation id="8862326446509486874">Nemáte práva nutná k provádění instalací na úrovni systému. Zkuste spustit instalační program jako správce.</translation>
 <translation id="595871952790078940">Chrome Utility</translation>
@@ -77,6 +80,7 @@
 <translation id="4407807842708586359">Google Chrome</translation>
 <translation id="3396666154568987767">Google Chrome pro profil <ph name="PROFILE_NAME"/></translation>
 <translation id="3360895254066713204">Chrome Helper</translation>
+<translation id="1964682833763362793">Zavřete prosím všechna okna Chrome a zkuste to znovu.</translation>
 <translation id="1001534784610492198">Archiv instalačního programu je poškozený nebo neplatný. Stáhněte prosím Google Chrome ještě jednou.</translation>
 <translation id="6626317981028933585">Vaše nastavení prohlížeče Mozilla Firefox je bohužel nedostupné, je-li tento prohlížeč spuštěný. Chcete-li toto nastavení importovat do Google Chrome, uložte si práci a zavřete všechna okna prohlížeče Firefox. Poté klikněte na tlačítko Pokračovat.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>

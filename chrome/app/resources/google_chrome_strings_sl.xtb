@@ -12,6 +12,7 @@
 <translation id="2370289711218562573">Google Chrome zdaj uvaža Priljubljene/Zaznamke.</translation>
 <translation id="8970027151245482499">Google Chrome ni nameščen ali pa mu ni uspelo najti namestitvenega imenika. Ponovno prenesite program Google Chrome.</translation>
 <translation id="2040709530900803995">Upodabljalnik za Google Chrome</translation>
+<translation id="3044696659294460858">Na voljo je nova različica brskalnika Google Chrome z razširitvami.</translation>
 <translation id="4281844954008187215">Pogoji storitve</translation>
 <translation id="1137776625614346046">V področju »Najpogosteje obiskane« so prikazane spletne strani, ki jih najpogosteje uporabljate. Ko boste Google Chrome uporabljali nekaj časa, boste najpogosteje obiskane spletne strani videli vedno, ko boste odpri nov zavihek. Več o tej in drugih funkcijah si lahko preberete na <ph name="BEGIN_LINK"/>strani Kako začeti<ph name="END_LINK"/>.</translation>
 <translation id="3555616473548901994">Odstranitev je končana.</translation>
@@ -20,6 +21,7 @@
 <translation id="4149882025268051530">Namestitvenemu programu ni uspelo razširiti arhiva. Ponovno prenesite program Google Chrome.</translation>
 <translation id="5744005218040929396">Orodje za Google Chrome</translation>
 <translation id="4343226815564935778">Videti je, da je namestitveni imenik za Google Chrome že v uporabi. Ponovno zaženite računalnik in poskusite znova.</translation>
+<translation id="4506896920521131223">Copyright © 2006–2009 Google Inc. Vse pravice pridržane.</translation>
 <translation id="6817660909204164466">Pomagajte izboljšati Chrome s samodejnim pošiljanjem statistike uporabe in poročil o zrušitvah Googlu</translation>
 <translation id="8227755444512189073">Google Chrome mora zagnati zunanjo aplikacijo, da bo lahko obravnaval povezave <ph name="SCHEME"/>. Zahtevana povezava je <ph name="PROTOLINK"/>.</translation>
 <translation id="1281036569101707544">Google Chrome <ph name="TERMS_OF_SERVICE_LINK"/></translation>
@@ -46,6 +48,7 @@
 <translation id="911206726377975832">Ali želite izbrisati tudi podatke brskanja?</translation>
 <translation id="2044287590254833138">Orodna vrstica za Google Chrome</translation>
 <translation id="5074344184765391290">Gostitelj za vtičnike za Chrome</translation>
+<translation id="1473088902761932034">Hura, vrnili ste se! Ampak Google Chrome ni vaš privzeti brskalnik.</translation>
 <translation id="6481075104394517441">Poskušali ste priti do &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, vendar pa je strežnik predložil certifikat, ki še ni veljaven. Na voljo niso nobene informacije o tem, ali je certifikat vreden zaupanja. Google Chrome ne more zagotoviti, da komunicirate z &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; in ne z napadalcem. Prepričajte se, ali sta ura in časovni pas v vašem računalniku pravilno nastavljena. Če nista, popravite nastavitve in osvežite to stran. Če sta nastavitvi pravilni, vam priporočamo, da ne nadaljujete.</translation>
 <translation id="8862326446509486874">Nimate ustreznih pravic za namestitev na ravni sistema. Poskusite znova zagnati namestitveni program kot skrbnik.</translation>
 <translation id="595871952790078940">Orodje za Chrome</translation>
@@ -77,6 +80,7 @@
 <translation id="4407807842708586359">Google Chrome OS</translation>
 <translation id="3396666154568987767">Google Chrome za <ph name="PROFILE_NAME"/></translation>
 <translation id="3360895254066713204">Pomočnik za Chrome</translation>
+<translation id="1964682833763362793">Prosimo vas, da zaprete vsa okna za Chrome in poskusite ponovno.</translation>
 <translation id="1001534784610492198">Arhiv namestitvenega programa je poškodovan ali neveljaven. Ponovno prenesite program Google Chrome.</translation>
 <translation id="6626317981028933585">Žal vaše nastavitve brskalnika Mozilla Firefox niso na voljo, medtem ko se izvaja ta brskalnik. Če želite te nastavitve uvoziti v Google Chrome, shranite svoje delo in zaprite vsa okna Firefox. Nato kliknite »Naprej«.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>

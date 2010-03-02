@@ -12,6 +12,7 @@
 <translation id="2370289711218562573">Ini-import ngayon ng Google Chrome ang Mga Paborito/Bookmark.</translation>
 <translation id="8970027151245482499">Hindi na-install o nabigong makahanap ng direktoryo sa pag-install ang Google Chrome. Paki-download muli ang Google Chrome.</translation>
 <translation id="2040709530900803995">Google Chrome Renderer</translation>
+<translation id="3044696659294460858">Meron nang bagong bersyon ng Google Chrome na kasama ang mga extension.</translation>
 <translation id="4281844954008187215">Mga Tuntunin ng Serbisyo</translation>
 <translation id="1137776625614346046">Ang lugar na &quot;Pinakamadalas bisitahin&quot; ay ipinapakita ang mga website na pinakamadalas mong gamitin. Pagkatapos gamitin ang Google Chrome nang matagal-tagal, makikita mo ang iyong mga pinakamadalas-bisitahing mga site tuwing magbubukas ka ng isang bagong tab. Maaari mong madagdagan ang iyong nalalaman tungkol dito at iba pang mga tampok sa pahina ng <ph name="BEGIN_LINK"/>Makapagsimula<ph name="END_LINK"/>.</translation>
 <translation id="3555616473548901994">Kumpleto na ang pag-uninstall.</translation>
@@ -20,6 +21,7 @@
 <translation id="4149882025268051530">Nabigo ang installer sa pag-uncompress ng archive. Paki-download muli ang Google Chrome.</translation>
 <translation id="5744005218040929396">Google Chrome Utility</translation>
 <translation id="4343226815564935778">Tila ginagamit ang direktoryo sa pag-install ng Google Chrome. Paki-reboot ang iyong computer at subukan ulit.</translation>
+<translation id="4506896920521131223">Copyright © 2006-2009 Google Inc. Nakalaan ang Lahat ng Karapatan.</translation>
 <translation id="6817660909204164466">Tumulong na mapagbuti ang Google Chrome sa pamamagitan ng awtomatikong pagpapadala sa Google ng mga istatistika sa paggamit at mga ulat ng pag-crash</translation>
 <translation id="8227755444512189073">Kailangan ng Chrome na maglunsad ng isang panlabas na application upang mahawakan ang mga link <ph name="SCHEME"/>. Ang hiling ng link ay <ph name="PROTOLINK"/>.</translation>
 <translation id="1281036569101707544">Google Chrome <ph name="TERMS_OF_SERVICE_LINK"/></translation>
@@ -46,6 +48,7 @@
 <translation id="911206726377975832">Tatanggalin din ang iyong data sa pag-browse?</translation>
 <translation id="2044287590254833138">Toolbar ng Google Chrome</translation>
 <translation id="5074344184765391290">Plug-In Host ng Chrome</translation>
+<translation id="1473088902761932034">Yehey, nagbalik ka! Ngunit hindi ang Google Chrome ang iyong default na browser.</translation>
 <translation id="6481075104394517441">Tinangka mong maabot ang &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, ngunit ang server ay nagpakita ng isang sertipiko na wala pang bisa. Walang impormasyong magagamit upang ipahiwatig kung ang sertipiko ay maaaring pagkatiwalaan. Ang Google Chrome ay hindi maasahang magagarantiya na makipag-kumunika ka sa &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; at hindi sa isang attacker. Dapat mong tiyakin na ang iyong orasan at time zone at wastong nakatakda sa iyong computer. Kung hindi, dapat mong iwasto ang anumang mga isyu at i-refresh ang pahinang ito. Kung tama ang mga ito, hindi ka dapat magpatuloy.</translation>
 <translation id="8862326446509486874">Wala kang naaangkop na mga karapatan para sa pag-install sa antas ng system. Subukan muling patakbuhin ang installer bilang Administrator.</translation>
 <translation id="595871952790078940">Chrome Utility</translation>
@@ -77,6 +80,7 @@
 <translation id="4407807842708586359">Google Chrome OS</translation>
 <translation id="3396666154568987767">Google Chrome para sa <ph name="PROFILE_NAME"/></translation>
 <translation id="3360895254066713204">Chrome Helper</translation>
+<translation id="1964682833763362793">Mangyaring isara lahat ng Chrome windows at muling subukan.</translation>
 <translation id="1001534784610492198">Na-corrupt o hindi wasto ang installer archive. Paki-download muli ang Google Chrome.</translation>
 <translation id="6626317981028933585">Nakalulungkot, ang iyong mga setting ng Mozilla Firefox ay hindi magagamit habang tumatakbo ang browser. Upang mai-import ang mga setting sa Google Chrome, i-save ang iyong ginagawa at isara ang lahat ng mga window ng Firefox. Pagkatapos i-click ang Ipagpatuloy.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>

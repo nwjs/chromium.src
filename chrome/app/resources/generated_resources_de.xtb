@@ -9,7 +9,7 @@
 <translation id="8418445294933751433">Al&amp;s Tab anzeigen</translation>
 <translation id="6985276906761169321">ID:</translation>
 <translation id="2160383474450212653">Schriftarten und Sprachen</translation>
-<translation id="1497897566809397301">Festlegung lokaler Daten zulassen (empfohlen)</translation>
+<translation id="1497897566809397301">Speicherung lokaler Daten zulassen (empfohlen)</translation>
 <translation id="4405141258442788789">Zeitüberschreitung beim Ladevorgang.</translation>
 <translation id="5048179823246820836">Nordisch</translation>
 <translation id="1763046204212875858">Anwendungsverknüpfungen erstellen</translation>
@@ -51,7 +51,9 @@
 <translation id="645705751491738698">JavaScript weiterhin blockieren</translation>
 <translation id="4780321648949301421">Seite speichern unter...</translation>
 <translation id="9154072353677278078">Für den Server <ph name="DOMAIN"/> unter <ph name="REALM"/> sind ein Nutzername und ein Passwort erforderlich.</translation>
+<translation id="2193841602817119749">Die Website unter &lt;strong&gt;<ph name="HOST_NAME"/>&lt;/strong&gt; wurde als &quot;Phishing&quot;-Website gemeldet.Phishing-Websites täuschen Nutzer, damit diese ihre privaten oder finanziellen Daten freigeben, oft durch Vortäuschen, dass sie vertrauenswürdige Einrichtungen wie z. B. Banken seien.</translation>
 <translation id="8178665534778830238">Content:</translation>
+<translation id="1379170046778889619">Sicherheitsinformationen</translation>
 <translation id="4771019161370731727">Letzte Aktivitäten</translation>
 <translation id="8974161578568356045">Automatisch erkennen</translation>
 <translation id="1818606096021558659">Seite</translation>
@@ -162,7 +164,7 @@
 <translation id="8806796506533854282">Neuen Profilnamen eingeben</translation>
 <translation id="2551763528995812091">Passwörter und Ausnahmen</translation>
 <translation id="3314070176311241517">Ausführung von JavaScript für alle Websites zulassen (empfohlen)</translation>
-<translation id="5710740561465385694">Bestätigung anzeigen, wenn eine Website versucht, Daten festzulegen</translation>
+<translation id="5710740561465385694">Bestätigung anzeigen, wenn eine Website versucht, Daten zu speichern</translation>
 <translation id="5948410903763073882">Alt+<ph name="KEY_COMBO_NAME"/></translation>
 <translation id="2263497240924215535">(Deaktiviert)</translation>
 <translation id="6360709384096878403">Fehler oder defekte Website melden...</translation>
@@ -225,6 +227,7 @@
 <translation id="1073286447082909762">Frame in neuem &amp;Fenster öffnen</translation>
 <translation id="692135145298539227">löschen</translation>
 <translation id="8343477974731263456">Einrichtung der Lesezeichen-Synchronisierung</translation>
+<translation id="398967089780480076">Aktion:</translation>
 <translation id="5999606216064768721">Titelleiste und Ränder des Systems verwenden</translation>
 <translation id="1635247229519770914">Installation fortsetzen</translation>
 <translation id="8945419807169257367">Serverzertifikat kann nicht überprüft werden</translation>
@@ -266,6 +269,7 @@
 <translation id="3165657440747518774">&amp;Auf Seite suchen</translation>
 <translation id="939736085109172342">Neuer Ordner</translation>
 <translation id="862750493060684461">CSS-Cache</translation>
+<translation id="5722599785390787673">Zum Aufheben der Blockierung hier klicken</translation>
 <translation id="2009541932026160416">Klicken Sie auf <ph name="CROSS_IMAGE"/>, um die Miniaturansicht zu entfernen.</translation>
 <translation id="5641560969478423183">Das Serverzertifikat stimmt nicht mit der URL überein.</translation>
 <translation id="6474422710030751464">Einige Elemente auf dieser Seite wurden über eine Verbindung mit SSL-Fehlern abgerufen.</translation>
@@ -324,6 +328,7 @@
 <translation id="6655190889273724601">Entwicklermodus</translation>
 <translation id="3473105180351527598">Phishing- und Malware-Schutz aktivieren</translation>
 <translation id="6151323131516309312">Drücken Sie <ph name="SEARCH_KEY"/>, um <ph name="SITE_NAME"/> zu durchsuchen.</translation>
+<translation id="8774154763730062725">Neue Ausnahme</translation>
 <translation id="2342959293776168129">Download-Verlauf löschen</translation>
 <translation id="2503522102815150840">Browser-Absturz</translation>
 <translation id="425878420164891689">Zeit bis zur vollständigen Aufladung wird berechnet.</translation>
@@ -357,6 +362,7 @@
 <translation id="6178664161104547336">Zertifikat auswählen</translation>
 <translation id="5702898740348134351">Suchmaschin&amp;en bearbeiten...</translation>
 <translation id="2365740070488517695">Tipps</translation>
+<translation id="772440777491435074">Zertifikatinformationen...</translation>
 <translation id="2869459179306435079">Einstellungen importieren von:</translation>
 <translation id="732677191631732447">Audio-URL k&amp;opieren</translation>
 <translation id="4999762576397546063">Strg+<ph name="KEY_COMBO_NAME"/></translation>
@@ -399,6 +405,7 @@
 <translation id="7905536804357499080">Aktuelle Seite</translation>
 <translation id="8933960630081805351">Im Finder &amp;anzeigen</translation>
 <translation id="7378810950367401542">/</translation>
+<translation id="1871540228654219948">Die Website unter &lt;strong&gt;<ph name="HOST_NAME"/>&lt;/strong&gt; enthält Elemente von Websites, die anscheinend Malware hosten – Software, die den Computer beschädigen oder anderweitig ohne Ihre Zustimmung agieren kann. Schon der Zugriff auf eine Website, die Malware enthält, kann den Computer infizieren.</translation>
 <translation id="4435256380245822831">Bildeinstellungen:</translation>
 <translation id="8899388739470541164">Vietnamesisch</translation>
 <translation id="6631671511957507878">Vollständigen Verlauf anzeigen</translation>
@@ -440,6 +447,7 @@
 <translation id="6434309073475700221">Verwerfen</translation>
 <translation id="1425127764082410430"><ph name="SEARCH_ENGINE"/> nach &quot;<ph name="SEARCH_TERMS"/>&quot; durch&amp;suchen</translation>
 <translation id="4551297183924943154">Das Profil wird wahrscheinlich vom Vorgang <ph name="PROCESS_ID"/> auf dem Host <ph name="HOST_NAME"/> genutzt. Wenn Sie sicher sind, dass kein anderer Vorgang dieses Profil verwendet, löschen Sie die Datei <ph name="LOCK_FILE"/> und starten Sie <ph name="PRODUCT_NAME"/> neu.</translation>
+<translation id="877010697526426622">Die Webseite unter &lt;strong jscontent=&quot;failedUrl&quot;&gt;&lt;/strong&gt; ist möglicherweise vorübergehend nicht verfügbar oder ist jetzt unter einer neuen Webadresse aufrufbar.</translation>
 <translation id="4378551569595875038">Verbindung wird aufgebaut...</translation>
 <translation id="7029809446516969842">Passwörter</translation>
 <translation id="3513979718339724672">Miniaturbilder anzeigen</translation>
@@ -500,6 +508,7 @@
 <translation id="3994878504415702912">&amp;Zoom</translation>
 <translation id="9009369504041480176">Hochgeladen (<ph name="PROGRESS_PERCENT"/>%)...</translation>
 <translation id="5602600725402519729">Neu &amp;laden</translation>
+<translation id="4755559386248249812">Sie haben versucht &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; zu erreichen, aber der Server hat ein Zertifikat übermittelt, das einen schwachen Signaturalgorithmus verwendet. Das bedeutet, dass die vom Server übermittelten Sicherheitsinformationen gefälscht sein können und es sich möglicherweise gar nicht um den erwarteten Server handelt, sondern um Kommunikation mit einem Angreifer. Sie sollten den Vorgang abbrechen.</translation>
 <translation id="9010612682952491200">Neuer Tab [<ph name="PROFILE_NAME"/>]</translation>
 <translation id="7965010376480416255">Freigegebener Arbeitsspeicher</translation>
 <translation id="6248988683584659830">Sucheinstellungen</translation>
@@ -545,6 +554,7 @@
 <translation id="7910768399700579500">&amp;Neuer Ordner</translation>
 <translation id="6295535972717341389">Plug-ins</translation>
 <translation id="6883611015375728278">Alle Cookies blockieren</translation>
+<translation id="3819791248093819058">Für die Webadresse wurde keine Webseite gefunden: &lt;strong jscontent=&quot;failedUrl&quot;&gt;&lt;/strong&gt;</translation>
 <translation id="7842346819602959665">Die neueste Version der Erweiterung &quot;<ph name="EXTENSION_NAME"/>&quot; benötigt mehr Berechtigungen und wurde daher deaktiviert.</translation>
 <translation id="6979448128170032817">Ausnahmen...
 </translation>
@@ -552,6 +562,7 @@
 <translation id="6710213216561001401">Zurück</translation>
 <translation id="1567993339577891801">JavaScript-Konsole</translation>
 <translation id="583281660410589416">Unbekannt</translation>
+<translation id="7635303043999550515">Die Webseite unter &lt;strong jscontent=&quot;failedUrl&quot;&gt;&lt;/strong&gt; hat zu viele Umleitungen erzeugt. Das Löschen Ihrer Cookies für diese Website oder das Zulassen von Drittanbieter-Cookies könnte das Problem möglicherweise beheben. Sollte das Problem damit nicht behoben sein, liegt möglicherweise ein Serverkonfigurationsfehler und kein Problem mit Ihrem Computer vor.</translation>
 <translation id="2485422356828889247">Deinstallieren</translation>
 <translation id="2621889926470140926">Sind Sie sicher, dass Sie <ph name="PRODUCT_NAME"/> beenden wollen, während <ph name="DOWNLOAD_COUNT"/> Downloads laufen?</translation>
 <translation id="7279701417129455881">Cookie-Blockierung verwalten...</translation>
@@ -642,6 +653,7 @@
 <translation id="3664021239099029884">Alle Downloads anzeigen</translation>
 <translation id="2207746515960750386">Vor <ph name="MINUTE"/> Minute(n)</translation>
 <translation id="7754704193130578113">Vor dem Download von Dateien nach dem Speicherort fragen</translation>
+<translation id="2838167480523328393">&quot;<ph name="EXTENSION_NAME"/>&quot; installieren?</translation>
 <translation id="2497284189126895209">Alle Dateien</translation>
 <translation id="5360606537916580043">Letzter Tag</translation>
 <translation id="1682548588986054654">Neues &amp;Inkognito-Fenster</translation>
@@ -707,6 +719,7 @@
 <translation id="7893393459573308604"><ph name="ENGINE_NAME"/> (Standardeinstellung)</translation>
 <translation id="6543631358510643997">Dieser Erweiterung wird Zugriff auf Ihren Computer und Ihre privaten Daten gewährt.</translation>
 <translation id="111844081046043029">Möchten Sie diese Seite wirklich verlassen?</translation>
+<translation id="4497415007571823067">Sie haben versucht, auf &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; zuzugreifen, stattdessen jedoch einen Server erreicht, der sich selbst als &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; ausgegeben hat. Dies wurde möglicherweise durch eine fehlerhafte Konfiguration auf dem Server oder etwas noch schwerwiegenderes verursacht. Ein Hacker in Ihrem Netzwerk könnte versuchen, Sie dazu zu bringen, eine gefälschte (und möglicherweise schädliche) Version von &lt;strong&gt;<ph name="DOMAIN3"/>&lt;/strong&gt; aufzurufen. Fahren Sie nicht fort.</translation>
 <translation id="3202578601642193415">Neueste</translation>
 <translation id="8112886015144590373"><ph name="NUMBER_FEW"/> Stunden</translation>
 <translation id="8739589585766515812">Tagesverlauf löschen</translation>
@@ -768,9 +781,10 @@
 <translation id="5384051050210890146">Wählen Sie vertrauenswürdige SSL-Zertifikate aus.</translation>
 <translation id="6865323153634004209">Diese Einstellungen anpassen</translation>
 <translation id="7487067081878637334">Technik</translation>
+<translation id="4176463684765177261">Deaktiviert</translation>
 <translation id="154603084978752493">Als Suc&amp;hmaschine hinzufügen...</translation>
 <translation id="2079545284768500474">Rückgängig</translation>
-<translation id="340640192402082412">Speicherverfahren von Cookies und anderen Websitedaten auf Ihrem Computer ändern</translation>
+<translation id="340640192402082412">Speichereinstellungen für Cookies und andere Websitedaten auf meinem Computer ändern</translation>
 <translation id="114140604515785785">Stammverzeichnis der Erweiterung:</translation>
 <translation id="3254409185687681395">Diese Seite als Lesezeichen hinzufügen</translation>
 <translation id="1384616079544830839">Die Identität dieser Website wurde von <ph name="ISSUER"/> bestätigt.</translation>
@@ -853,7 +867,7 @@
 <translation id="4273720809906836559">Lesezeichen-Synchronisierung</translation>
 <translation id="6003177993629630467"><ph name="PRODUCT_NAME"/> kann sich möglicherweise nicht selbst aktualisieren.</translation>
 <translation id="152482086482215392"><ph name="NUMBER_ONE"/> Sekunde übrig</translation>
-<translation id="3308116878371095290">Diese Seite konnte keine Cookies festlegen.</translation>
+<translation id="3308116878371095290">Diese Seite konnte keine Cookies setzen.</translation>
 <translation id="8447116497070723931">BildAuf</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="1970746430676306437">Seiten&amp;info anzeigen</translation>
@@ -893,10 +907,12 @@
 <translation id="3127919023693423797">Authentifizierung wird durchgeführt...</translation>
 <translation id="4195643157523330669">In neuem Tab öffnen</translation>
 <translation id="8030169304546394654">Verbindung getrennt</translation>
+<translation id="3683878911947678690">Sie können Ihre Lesezeichen mithilfe Ihres Google-Kontos auf mehreren Computern synchronisieren.</translation>
 <translation id="4178055285485194276">Beim Start:</translation>
 <translation id="1154228249304313899">Diese Seite öffnen:</translation>
 <translation id="9074348188580488499">Möchten Sie wirklich alle Passwörter entfernen?</translation>
 <translation id="3627588569887975815">Link in Inko&amp;gnito-Fenster öffnen</translation>
+<translation id="5918363047783857623">Ausnahme bearbeiten:</translation>
 <translation id="5578327870501192725">Die Verbindung zu <ph name="DOMAIN"/> ist mit einer <ph name="BIT_COUNT"/>-Bit-Verschlüsselung verschlüsselt.</translation>
 <translation id="7079333361293827276">Serverzertifikat nicht vertrauenswürdig</translation>
 <translation id="869884720829132584">Menü &quot;Anwendungen&quot;</translation>
@@ -954,7 +970,7 @@ Sie können Ihre Webclips <ph name="BEGIN_LINK"/>anpassen<ph name="END_LINK"/> u
 <translation id="8502249598105294518"><ph name="PRODUCT_NAME"/> anpassen</translation>
 <translation id="8590375307970699841">Automatische Updates einrichten</translation>
 <translation id="2797524280730715045">Vor <ph name="NUMBER_DEFAULT"/> Stunden</translation>
-<translation id="5419599333397336257"><ph name="HOST"/> möchte Daten auf Ihrem Computer festlegen.</translation>
+<translation id="5419599333397336257"><ph name="HOST"/> möchte Daten auf Ihrem Computer speichern.</translation>
 <translation id="768570155019561996">Dieser Erweiterung wird Zugriff auf Ihre privaten Daten auf verschiedenen Websites gewährt.</translation>
 <translation id="7180865173735832675">Anpassen</translation>
 <translation id="1430594899542257414">Tipps &amp; Tricks</translation>
@@ -1002,6 +1018,8 @@ Sie können Ihre Webclips <ph name="BEGIN_LINK"/>anpassen<ph name="END_LINK"/> u
 <translation id="7326526699920221209">Akku: <ph name="PRECENTAGE"/> %</translation>
 <translation id="601778514741867265">Nur Cookies von besuchten Seiten akzeptieren</translation>
 <translation id="8299269255470343364">Japanisch</translation>
+<translation id="5204993535447683655">Diese Webseite später &lt;a jsvalues=&quot;href:reloadUrl&quot;&gt;neu laden&lt;/a&gt;.</translation>
+<translation id="3635774677705394651">Die Website unter &lt;strong&gt;<ph name="HOST_NAME"/>&lt;/strong&gt; hostet anscheinend Malware - Software, die den Computer beschädigen oder anderweitig ohne Ihre Zustimmung agieren kann. Schon der Zugriff auf eine Website, die Malware hostet, kann den Computer infizieren.</translation>
 <translation id="7280343984261969618">Plug-ins in einem &quot;Sandkasten&quot; ohne Rechte ausführen. Dadurch werden einige Plug-ins nicht richtig funktionieren.</translation>
 <translation id="50030952220075532"><ph name="NUMBER_ONE"/> Tag übrig</translation>
 <translation id="2885378588091291677">Task-Manager</translation>
@@ -1025,6 +1043,7 @@ Sie können Ihre Webclips <ph name="BEGIN_LINK"/>anpassen<ph name="END_LINK"/> u
 <translation id="8261506727792406068">Löschen</translation>
 <translation id="345693547134384690">B&amp;ild in neuem Tab öffnen</translation>
 <translation id="7422192691352527311">Einstellungen...</translation>
+<translation id="7220379225958650049">Jetzt starten</translation>
 <translation id="1375198122581997741">Informationen zur Version</translation>
 <translation id="1474307029659222435">Frame in neuem &amp;Fenster öffnen</translation>
 <translation id="7133850061938542637">Mit <ph name="USER_EMAIL_ADDRESS"/> synchronisiert\nLetzte Synchronisierung: <ph name="LAST_SYNC_TIME"/></translation>
@@ -1059,6 +1078,7 @@ Sie können Ihre Webclips <ph name="BEGIN_LINK"/>anpassen<ph name="END_LINK"/> u
 <translation id="816095449251911490"><ph name="SPEED"/> - <ph name="RECEIVED_AMOUNT"/>, <ph name="TIME_REMAINING"/></translation>
 <translation id="8200772114523450471">Fortsetzen</translation>
 <translation id="6358975074282722691"><ph name="NUMBER_TWO"/> secs ago</translation>
+<translation id="5663016964925996918"><ph name="EXTENSION_NAME"/> ist nun installiert.</translation>
 <translation id="3009731429620355204">Sitzungen</translation>
 <translation id="7658590191988721853">Vertikales lineares Blättern aktivieren</translation>
 <translation id="5190835502935405962">Lesezeichenleiste</translation>
@@ -1089,6 +1109,8 @@ Sie können Ihre Webclips <ph name="BEGIN_LINK"/>anpassen<ph name="END_LINK"/> u
 <translation id="6845383723252244143">Ordner auswählen</translation>
 <translation id="8948393169621400698">Plug-ins auf <ph name="HOST"/> immer zulassen
 </translation>
+<translation id="4745142959976410383">Falls Sie diese Anforderung nicht initiiert haben, stellt sie möglicherweise einen versuchten Angriff auf Ihr System dar. Falls Sie keine ausdrückliche Aktion zum Starten dieser Anforderung ausgeführt haben, sollten Sie &quot;Abbrechen&quot; drücken.</translation>
+<translation id="1897258631034940238">Die Website unter &lt;strong&gt;<ph name="HOST_NAME"/>&lt;/strong&gt; enthält Elemente von Websites, die als &quot;Phishing&quot;-Websites gemeldet wurden. Solche Websites täuschen Nutzer, damit diese ihre privaten oder finanziellen Daten freigeben. Dies geschieht oft dadurch, dass sich Phishing-Websites als vertrauenswürdige Einrichtungen wie z. B. Banken ausgeben.</translation>
 <translation id="8288345061925649502">Suchmaschine ändern</translation>
 <translation id="1095623615273566396"><ph name="NUMBER_FEW"/> Sekunden</translation>
 <translation id="7006788746334555276">Content-Einstellungen</translation>
@@ -1109,6 +1131,7 @@ Sie können Ihre Webclips <ph name="BEGIN_LINK"/>anpassen<ph name="END_LINK"/> u
 <translation id="5116333507878097773"><ph name="NUMBER_ONE"/> Stunde</translation>
 <translation id="1851266746056575977">Jetzt aktualisieren</translation>
 <translation id="3715099868207290855">Mit <ph name="USER_EMAIL_ADDRESS"/> synchronisiert</translation>
+<translation id="19901320010520290">Die Website unter &lt;strong&gt;<ph name="HOST_NAME"/>&lt;/strong&gt; enthält Elemente von Websites, die anscheinend Malware hosten – Software, die den Computer beschädigen oder anderweitig ohne Ihre Zustimmung agieren kann. Schon der Zugriff auf eine Website, die Malware hostet, kann den Computer infizieren. Die Website hostet außerdem Content von Websites, die als &quot;Phishing&quot;-Websites gemeldet wurden. Solche Websites täuschen Nutzer, damit diese ihre privaten oder finanziellen Daten freigeben. Dies geschieht oft dadurch, dass sich Phishing-Websites als vertrauenswürdige Einrichtungen wie z. B. Banken ausgeben.</translation>
 <translation id="2679312662830811292">Vor <ph name="NUMBER_ONE"/> Minute</translation>
 <translation id="9065203028668620118">Bearbeiten</translation>
 <translation id="8788572795284305350"><ph name="NUMBER_ZERO"/> hours ago</translation>
@@ -1160,6 +1183,7 @@ Sie können Ihre Webclips <ph name="BEGIN_LINK"/>anpassen<ph name="END_LINK"/> u
 <translation id="2749881179542288782">Grammatik zusammen mit Rechtschreibung prüfen</translation>
 <translation id="4943872375798546930">Keine Ergebnisse</translation>
 <translation id="4910619056351738551">Vorschläge:</translation>
+<translation id="7451556917824271099">Die Website unter &lt;strong&gt;<ph name="HOST_NAME"/>&lt;/strong&gt; enthält Elemente von der Website &lt;strong&gt;<ph name="ELEMENTS_HOST_NAME"/>&lt;/strong&gt;, die anscheinend Malware hostet - Software, die den Computer beschädigen oder anderweitig ohne Ihre Zustimmung agieren kann. Schon der Zugriff auf eine Website, die Malware enthält, kann den Computer infizieren.</translation>
 <translation id="5489059749897101717">Rechtschreibung &amp;einblenden</translation>
 <translation id="1232569758102978740">Unbenannt</translation>
 <translation id="9149866541089851383">Bearbeiten...</translation>
@@ -1191,6 +1215,7 @@ Sie können Ihre Webclips <ph name="BEGIN_LINK"/>anpassen<ph name="END_LINK"/> u
 <translation id="6227291405321948850">Unbenanntes Webbild</translation>
 <translation id="862542460444371744">&amp;Erweiterungen</translation>
 <translation id="212019304961722056">Konto-Anmeldedaten wurden noch nicht eingegeben.</translation>
+<translation id="1684248949164455892">In diesem Fall wurde das Zertifikat von einem Drittanbieter, dem Ihr Computer vertraut, nicht bestätigt. Jeder Anwender kann ein Zertifikat erstellen und sich für eine beliebige Website ausgeben. Deshalb muss er von einem vertrauenswürdigen Drittanbieter bestätigt werden. Ohne diese Bestätigung sind die Identitätsinformationen im Zertifikat ohne Bedeutung. Daher ist keine Überprüfung möglich, ob Sie mit &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; oder einem Hacker kommunizieren, der sein eigenes Zertifikat erstellt hat und behauptet, dass er &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; sei. In diesem Fall sollten Sie nicht fortfahren.</translation>
 <translation id="8045462269890919536">Rumänisch</translation>
 <translation id="2927657246008729253">Ändern...</translation>
 <translation id="7978412674231730200">Privater Schlüssel</translation>
@@ -1211,7 +1236,6 @@ Sie können Ihre Webclips <ph name="BEGIN_LINK"/>anpassen<ph name="END_LINK"/> u
 <translation id="8629974950076222828">Alle Lesezeichen in Inkognito-Fenster öffnen</translation>
 <translation id="4745438305783437565"><ph name="NUMBER_FEW"/> Minuten</translation>
 <translation id="2649911884196340328">Das Sicherheitszertifikat des Servers weist Fehler auf!</translation>
-<translation id="3828029223314399057">Lesezeichen durchsuchen</translation>
 <translation id="8906421963862390172">&amp;Optionen der Rechtschreibprüfung</translation>
 <translation id="1963692530539281474"><ph name="NUMBER_DEFAULT"/> Tage übrig</translation>
 <translation id="668171684555832681">Andere...</translation>
@@ -1307,6 +1331,7 @@ Sie können Ihre Webclips <ph name="BEGIN_LINK"/>anpassen<ph name="END_LINK"/> u
 <translation id="715468010956678290">Frame in Inko&amp;gnito-Fenster öffnen</translation>
 <translation id="7755167023778553803">Diese Seite enthält jedoch Ressourcen von anderen Websites, deren Identität nicht überprüft werden kann.</translation>
 <translation id="1273291576878293349">Alle Lesezeichen in Inkognito-Fenster öffnen</translation>
+<translation id="3455546154539383562">Sie haben versucht, auf &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; zuzugreifen. Der Server hat sich jedoch mit einem Zertifikat ausgewiesen, das von seinem Aussteller widerrufen wurde. Das bedeutet, dass die vom Server bereitgestellten Sicherheits-Berechtigungsnachweise (Security Credentials) absolut nicht vertrauenswürdig sind. Sie kommunizieren möglicherweise mit einem Hacker. Fahren Sie nicht fort.</translation>
 <translation id="1177437665183591855">Fehler wegen unbekanntem Serverzertifikat</translation>
 <translation id="3819800052061700452">&amp;Vollbildmodus</translation>
 <translation id="3533943170037501541">Willkommen auf Ihrer Homepage!</translation>
@@ -1329,7 +1354,7 @@ Sie können Ihre Webclips <ph name="BEGIN_LINK"/>anpassen<ph name="END_LINK"/> u
 <translation id="385051799172605136">Zurück</translation>
 <translation id="1208126399996836490">Nicht zurücksetzen</translation>
 <translation id="4085298594534903246">JavaScript wurde auf dieser Seite blockiert.</translation>
-<translation id="4341977339441987045">Festlegung von Daten für Websites blockieren</translation>
+<translation id="4341977339441987045">Speicherung von Daten für alle Websites blockieren</translation>
 <translation id="806812017500012252">Neu sortieren nach Titel</translation>
 <translation id="2960316970329790041">Import anhalten</translation>
 <translation id="5361734574074701223">Verbleibende Zeit wird berechnet.</translation>
@@ -1358,6 +1383,7 @@ Sie können Ihre Webclips <ph name="BEGIN_LINK"/>anpassen<ph name="END_LINK"/> u
 <translation id="6492313032770352219">Größe auf Datenträger:</translation>
 <translation id="5233231016133573565">Vorgangs-ID</translation>
 <translation id="5941711191222866238">Verkleinern</translation>
+<translation id="539297715553881262">Host:</translation>
 <translation id="253434972992662860">&amp;Pause</translation>
 <translation id="335985608243443814">Durchsuchen...</translation>
 <translation id="6653385924798556138"><ph name="HOST"/> möchte ein Cookie auf Ihrem Computer erstellen.</translation>
@@ -1375,7 +1401,7 @@ Sie können Ihre Webclips <ph name="BEGIN_LINK"/>anpassen<ph name="END_LINK"/> u
 </translation>
 <translation id="969892804517981540">Offizieller Build</translation>
 <translation id="724208122063442954">Sie möchten bestimmte Dateitypen nach dem Herunterladen automatisch öffnen. Sie können diese Einstellungen löschen, sodass heruntergeladene Dateien nicht automatisch geöffnet werden.</translation>
-<translation id="9087725134750123268">Cookies und andere Websitedaten löschen...</translation>
+<translation id="9087725134750123268">Cookies und andere Websitedaten löschen</translation>
 <translation id="5765491088802881382">Keine Netzwerke verfügbar</translation>
 <translation id="21381969153622804">Aktion</translation>
 <translation id="5183088099396036950">Verbindung zum Server konnte nicht hergestellt werden.</translation>
@@ -1386,7 +1412,9 @@ Erweiterung: <ph name="EXTENSION_FILE"/>
 Schlüsseldatei: <ph name="KEY_FILE"/>
 
 Speichern Sie Ihre Schlüsseldatei an einem sicheren Ort. Sie benötigen die Datei, um neue Versionen Ihrer Erweiterung zu erstellen.</translation>
+<translation id="4477534650265381513">Platzieren Sie Ihre Lesezeichen hier in der Lesezeichenleiste, um schneller auf sie zugreifen zu können.</translation>
 <translation id="3036649622769666520">Dateien öffnen</translation>
+<translation id="7909652923456235549">Cookies nicht gesendet</translation>
 <translation id="7685049629764448582">JavaScript-Speicher</translation>
 <translation id="4508765956121923607">Q&amp;uelle anzeigen</translation>
 <translation id="8080048886850452639">Audio-URL k&amp;opieren</translation>

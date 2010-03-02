@@ -51,7 +51,9 @@
 <translation id="645705751491738698">Continuar con el bloqueo de JavaScript</translation>
 <translation id="4780321648949301421">Guardar página como...</translation>
 <translation id="9154072353677278078">El servidor <ph name="DOMAIN"/> en <ph name="REALM"/> requiere un nombre de usuario y una contraseña.</translation>
+<translation id="2193841602817119749">Se ha comunicado que el sitio web de &lt;strong&gt;<ph name="HOST_NAME"/>&lt;/strong&gt; es un sitio de “phishing”. Este tipo de sitios engañan a los usuarios para que desvelen información personal o financiera, a menudo fingiendo ser instituciones de confianza, como bancos.</translation>
 <translation id="8178665534778830238">Contenido:</translation>
+<translation id="1379170046778889619">Información de seguridad</translation>
 <translation id="4771019161370731727">Actividades recientes</translation>
 <translation id="8974161578568356045">Auto detección</translation>
 <translation id="1818606096021558659">Página</translation>
@@ -225,6 +227,7 @@
 <translation id="1073286447082909762">Abrir marco en una nueva &amp;ventana</translation>
 <translation id="692135145298539227">suprimir</translation>
 <translation id="8343477974731263456">Configuración de la sincronización de marcadores</translation>
+<translation id="398967089780480076">Acción:</translation>
 <translation id="5999606216064768721">Usar la barra de título y los bordes del sistema</translation>
 <translation id="1635247229519770914">Continuar con la instalación</translation>
 <translation id="8945419807169257367">No se puede comprobar el certificado del servidor</translation>
@@ -266,6 +269,7 @@
 <translation id="3165657440747518774">B&amp;uscar en la página</translation>
 <translation id="939736085109172342">Nueva carpeta</translation>
 <translation id="862750493060684461">Caché CSS</translation>
+<translation id="5722599785390787673">Hacer clic para desbloquear</translation>
 <translation id="2009541932026160416">Haz clic en <ph name="CROSS_IMAGE"/> para eliminar la miniatura</translation>
 <translation id="5641560969478423183">El certificado del servidor no coincide con la URL</translation>
 <translation id="6474422710030751464">Algunos contenidos de esta página se obtuvieron sobre una conexión con errores de SSL.</translation>
@@ -323,6 +327,7 @@
 <translation id="6655190889273724601">Modo de programador</translation>
 <translation id="3473105180351527598">Habilitar protección contra phishing y software malintencionado</translation>
 <translation id="6151323131516309312">Haz clic en <ph name="SEARCH_KEY"/> para buscar <ph name="SITE_NAME"/></translation>
+<translation id="8774154763730062725">Nueva excepción</translation>
 <translation id="2342959293776168129">Borrar el historial de descargas</translation>
 <translation id="2503522102815150840">Fallo del navegador...</translation>
 <translation id="425878420164891689">Calculando el tiempo hasta completarse</translation>
@@ -356,6 +361,7 @@
 <translation id="6178664161104547336">Seleccionar un certificado</translation>
 <translation id="5702898740348134351">&amp;Modificar los motores de búsqueda...</translation>
 <translation id="2365740070488517695">Consejos</translation>
+<translation id="772440777491435074">Datos del certificado...</translation>
 <translation id="2869459179306435079">Importar configuración desde:</translation>
 <translation id="732677191631732447">C&amp;opiar URL de audio</translation>
 <translation id="4999762576397546063">Ctrl+<ph name="KEY_COMBO_NAME"/></translation>
@@ -397,6 +403,7 @@
 <translation id="7905536804357499080">Página actual</translation>
 <translation id="8933960630081805351">Mo&amp;strar en Buscador</translation>
 <translation id="7378810950367401542">/</translation>
+<translation id="1871540228654219948">El sitio web en &quot;<ph name="HOST_NAME"/>&quot; contiene elementos de sitios que parecen alojar software malicioso (software que puede dañar tu computadora u operar sin tu consentimiento). Tu computadora puede resultar infectada con sólo visitar un sitio que aloje software malicioso.</translation>
 <translation id="4435256380245822831">Configuración de imagen:</translation>
 <translation id="8899388739470541164">Vietnamita</translation>
 <translation id="6631671511957507878">Ver historial completo</translation>
@@ -438,6 +445,7 @@
 <translation id="6434309073475700221">Rechazar</translation>
 <translation id="1425127764082410430">Bu&amp;scar '<ph name="SEARCH_TERMS"/>' con <ph name="SEARCH_ENGINE"/></translation>
 <translation id="4551297183924943154">Parece que el perfil está siendo utilizado por el proceso <ph name="PROCESS_ID"/> en el host <ph name="HOST_NAME"/>. Si está seguro de que ningún otro proceso está usando este perfil, elimine el archivo <ph name="LOCK_FILE"/> y reinicie <ph name="PRODUCT_NAME"/>.</translation>
+<translation id="877010697526426622">La página web de &lt;strong jscontent=&quot;failedUrl&quot;&gt;&lt;/strong&gt; puede estar temporalmente inactiva o tal vez se haya trasladado definitivamente a una nueva dirección web.</translation>
 <translation id="4378551569595875038">Conectando...</translation>
 <translation id="7029809446516969842">Contraseñas</translation>
 <translation id="3513979718339724672">Mostrar miniaturas</translation>
@@ -498,6 +506,7 @@
 <translation id="3994878504415702912">&amp;Tamaño</translation>
 <translation id="9009369504041480176">Cargando (<ph name="PROGRESS_PERCENT"/>%)...</translation>
 <translation id="5602600725402519729">Car&amp;gar nuevamente</translation>
+<translation id="4755559386248249812">Has intentado alcanzar &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, pero el servidor presentó un certificado firmado con un algoritmo de firma débil. Esto significa que las credenciales de seguridad que presentó el servidor pueden haberse olvidado, y el servidor puede no ser el servidor que esperas (tal vez te estés comunicando con un atacante). No deberías proceder.</translation>
 <translation id="9010612682952491200">Nueva pestaña en [<ph name="PROFILE_NAME"/>]</translation>
 <translation id="7965010376480416255">Memoria compartida</translation>
 <translation id="6248988683584659830">Configuración de búsqueda</translation>
@@ -543,12 +552,17 @@
 <translation id="7910768399700579500">&amp;Nueva carpeta</translation>
 <translation id="6295535972717341389">Complementos</translation>
 <translation id="6883611015375728278">Bloquear todas las cookies</translation>
+<translation id="3819791248093819058">No se ha encontrado ninguna página web para la dirección: &lt;strong jscontent=&quot;failedUrl&quot;&gt;&lt;/strong&gt;</translation>
 <translation id="7842346819602959665">La versión más reciente de la extensión &quot;<ph name="EXTENSION_NAME"/>&quot; requiere más permisos, por lo cual fue desactivada.</translation>
 <translation id="6979448128170032817">Excepciones...</translation>
 <translation id="208047771235602537">¿Desea salir <ph name="PRODUCT_NAME"/> con una descarga en progreso?</translation>
 <translation id="6710213216561001401">Anterior</translation>
 <translation id="1567993339577891801">Consola de JavaScript</translation>
 <translation id="583281660410589416">Desconocido</translation>
+<translation id="7635303043999550515">La página web en &lt;strong jscontent=&quot;failedUrl&quot;&gt;&lt;/strong&gt; ha ocasionado
+        demasiados redireccionamientos. Borrar tus cookies de este sitio o permitir las cookies de terceros puede solucionar el problema. Si
+        no, es posiblemente un problema de la configuración del servidor y no un problema de tu
+        computadora.</translation>
 <translation id="2485422356828889247">Desinstalación</translation>
 <translation id="2621889926470140926">¿Desea salir <ph name="PRODUCT_NAME"/> con <ph name="DOWNLOAD_COUNT"/> descargas en progreso?</translation>
 <translation id="7279701417129455881">Administrar el bloqueo de cookies...</translation>
@@ -639,6 +653,7 @@
 <translation id="3664021239099029884">Ver todas las descargas</translation>
 <translation id="2207746515960750386">hace <ph name="MINUTE"/> minuto/minutos</translation>
 <translation id="7754704193130578113">Pedir ubicación antes de la descarga</translation>
+<translation id="2838167480523328393">¿Instalar &quot;<ph name="EXTENSION_NAME"/>&quot;?</translation>
 <translation id="2497284189126895209">Todos los archivos</translation>
 <translation id="5360606537916580043">Último día</translation>
 <translation id="1682548588986054654">Nueva ventana de incógnito</translation>
@@ -702,6 +717,7 @@
 <translation id="7893393459573308604"><ph name="ENGINE_NAME"/> (predeterminado)</translation>
 <translation id="6543631358510643997">Esta extensión tendrá acceso total a tu equipo y a tus datos privados.</translation>
 <translation id="111844081046043029">¿Estás seguro de que deseas abandonar esta página?</translation>
+<translation id="4497415007571823067">Has intentado acceder a &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, pero en su lugar has llegado a un servidor que se identifica como &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;. Esto puede deberse a un error de configuración del servidor o a algún otro motivo más grave. Es posible que un atacante esté intentando obligarte a visitar una versión falsa (y potencialmente peligrosa) de &lt;strong&gt;<ph name="DOMAIN3"/>&lt;/strong&gt;. No deberías seguir adelante.</translation>
 <translation id="3202578601642193415">Más reciente</translation>
 <translation id="8112886015144590373"><ph name="NUMBER_FEW"/> horas</translation>
 <translation id="8739589585766515812">Eliminar historial de este día</translation>
@@ -763,6 +779,7 @@
 <translation id="5384051050210890146">Selecciona certificados SSL fiables.</translation>
 <translation id="6865323153634004209">Personalizar esta configuración</translation>
 <translation id="7487067081878637334">Tecnología</translation>
+<translation id="4176463684765177261">Deshabilitado</translation>
 <translation id="154603084978752493">Agregar como mo&amp;tor de búsqueda...</translation>
 <translation id="2079545284768500474">Deshacer</translation>
 <translation id="340640192402082412">Modificar la forma en que las cookies y otros datos de sitio se guardan en la computadora</translation>
@@ -886,10 +903,12 @@
 <translation id="3127919023693423797">Autenticando...</translation>
 <translation id="4195643157523330669">Abrir en una pestaña nueva</translation>
 <translation id="8030169304546394654">Desconectado</translation>
+<translation id="3683878911947678690">Puedes sincronizar tus marcadores en varias computadoras con tu cuenta de Google.</translation>
 <translation id="4178055285485194276">Al inicio:</translation>
 <translation id="1154228249304313899">Abrir esta página:</translation>
 <translation id="9074348188580488499">¿Estás seguro de que deseas eliminar todas las contraseñas?</translation>
 <translation id="3627588569887975815">Abrir el enlace en una ventana de navegación de incó&amp;gnito</translation>
+<translation id="5918363047783857623">Modificar excepción</translation>
 <translation id="5578327870501192725">Tu conexión a <ph name="DOMAIN"/> está cifrada con codificación de <ph name="BIT_COUNT"/> bits.</translation>
 <translation id="7079333361293827276">El certificado del servidor no es fiable</translation>
 <translation id="869884720829132584">Menú Aplicaciones</translation>
@@ -991,6 +1010,8 @@
 <translation id="7326526699920221209">Batería: <ph name="PRECENTAGE"/>%</translation>
 <translation id="601778514741867265">Aceptar sólo las cookies de los sitios que visito</translation>
 <translation id="8299269255470343364">Japonés</translation>
+<translation id="5204993535447683655">&lt;a jsvalues=&quot;href:reloadUrl&quot;&gt;Carga&lt;/a&gt; esta página web de nuevo más tarde.</translation>
+<translation id="3635774677705394651">El sitio web de &lt;strong&gt;<ph name="HOST_NAME"/>&lt;/strong&gt; parece alojar software malintencionado, es decir, software que puede dañar tu equipo u operar sin tu consentimiento. Tu equipo puede resultar infectado con solo visitar un sitio que aloje software malintencionado.</translation>
 <translation id="7280343984261969618">Ejecuta plug-ins en un área sin privilegios, por lo que algunos de los plug-in no funcionarán correctamente.</translation>
 <translation id="50030952220075532">Falta <ph name="NUMBER_ONE"/> día</translation>
 <translation id="2885378588091291677">Administrador de tareas</translation>
@@ -1014,6 +1035,7 @@
 <translation id="8261506727792406068">Eliminar</translation>
 <translation id="345693547134384690">Abrir &amp;imagen en una pestaña nueva</translation>
 <translation id="7422192691352527311">Preferencias...</translation>
+<translation id="7220379225958650049">Iniciar ahora</translation>
 <translation id="1375198122581997741">Acerca de la versión</translation>
 <translation id="1474307029659222435">Abrir el marco en una &amp;ventana nueva</translation>
 <translation id="7133850061938542637">Sincronizado con <ph name="USER_EMAIL_ADDRESS"/>\nÚltima sincronización: <ph name="LAST_SYNC_TIME"/></translation>
@@ -1047,6 +1069,7 @@
 <translation id="816095449251911490"><ph name="SPEED"/> - <ph name="RECEIVED_AMOUNT"/>, <ph name="TIME_REMAINING"/></translation>
 <translation id="8200772114523450471">Reanudar</translation>
 <translation id="6358975074282722691">Hace <ph name="NUMBER_TWO"/> segundos</translation>
+<translation id="5663016964925996918"><ph name="EXTENSION_NAME"/> ahora está instalado.</translation>
 <translation id="3009731429620355204">Sesiones</translation>
 <translation id="7658590191988721853">Habilitar el desplazamiento por el borde vertical</translation>
 <translation id="5190835502935405962">Barra de marcadores</translation>
@@ -1076,6 +1099,8 @@
 <translation id="2812989263793994277">No mostrar imágenes</translation>
 <translation id="6845383723252244143">Seleccionar carpeta</translation>
 <translation id="8948393169621400698">Siempre permitir ventanas emergentes en <ph name="HOST"/></translation>
+<translation id="4745142959976410383">Si no has iniciado esta solicitud, puede tratarse de un intento de ataque a tu sistema. A menos que hayas tomado acciones concretas para iniciar esta solicitud, deberías hacer clic en &quot;Cancelar&quot;.</translation>
+<translation id="1897258631034940238">El sitio web en &quot;<ph name="HOST_NAME"/>&quot; contiene elementos de sitios que han sido denunciados como sitios de &quot;suplantación de identidad&quot; (phishing). Este tipo de sitios engañan a los usuarios para que revelen información personal o financiera, a menudo fingiendo ser instituciones de confianza, como los bancos.</translation>
 <translation id="8288345061925649502">Cambiar motor de búsqueda</translation>
 <translation id="1095623615273566396"><ph name="NUMBER_FEW"/> seg.</translation>
 <translation id="7006788746334555276">Configuración de contenido</translation>
@@ -1096,6 +1121,7 @@
 <translation id="5116333507878097773"><ph name="NUMBER_ONE"/> hora</translation>
 <translation id="1851266746056575977">Actualizar ahora</translation>
 <translation id="3715099868207290855">Sincronizado a <ph name="USER_EMAIL_ADDRESS"/></translation>
+<translation id="19901320010520290">El sitio web en &quot;<ph name="HOST_NAME"/>&quot; contiene elementos de sitios que parecen alojar software malicioso (software que puede dañar tu computadora u operar sin tu consentimiento). Tu computadora puede resultar infectada con sólo visitar un sitio que aloje software malicioso. El sitio web también aloja contenido de sitios que han sido denunciados como sitios de &quot;suplantación de identidad&quot; (phishing). Este tipo de sitios engañan a los usuarios para que revelen información personal o financiera, a menudo fingiendo ser instituciones de confianza, como los bancos.</translation>
 <translation id="2679312662830811292">Hace <ph name="NUMBER_ONE"/> minuto</translation>
 <translation id="9065203028668620118">Editar</translation>
 <translation id="8788572795284305350"><ph name="NUMBER_ZERO"/> hours ago</translation>
@@ -1147,6 +1173,7 @@
 <translation id="2749881179542288782">Controlar la gramática con la ortografía</translation>
 <translation id="4943872375798546930">Sin resultados</translation>
 <translation id="4910619056351738551">A continuación se detallan algunas sugerencias:</translation>
+<translation id="7451556917824271099">El sitio web de &lt;strong&gt;<ph name="HOST_NAME"/>&lt;/strong&gt; contiene elementos del sitio &lt;strong&gt;<ph name="ELEMENTS_HOST_NAME"/>&lt;/strong&gt;, que parece alojar software malintencionado, es decir, software que puede dañar tu equipo o puede operar sin tu consentimiento. Tu equipo puede resultar infectado con solo visitar un sitio que aloje software malintencionado.</translation>
 <translation id="5489059749897101717">Mo&amp;strar el panel de ortografía</translation>
 <translation id="1232569758102978740">Sin título</translation>
 <translation id="9149866541089851383">Edición...</translation>
@@ -1178,6 +1205,7 @@
 <translation id="6227291405321948850">Imagen web sin título</translation>
 <translation id="862542460444371744">&amp;Extensiones</translation>
 <translation id="212019304961722056">Todavía no se ingresaron los detalles de acceso a la cuenta.</translation>
+<translation id="1684248949164455892">En este caso, el certificado no ha sido verificado por un tercero de confianza para tu equipo. Cualquier usuario puede crear un certificado que afirma ser un sitio web determinado, motivo por el cual debe ser verificado por un tercero de confianza. Sin esta verificación, la información de identidad del certificado no tiene ningún sentido. Por tanto, no es posible verificar que te comunicas con &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; en lugar de comunicarte con un atacante que ha generado su propio certificado que afirma ser &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;. A partir de este momento no debes proceder en modo alguno.</translation>
 <translation id="8045462269890919536">Rumano</translation>
 <translation id="2927657246008729253">Cambiar...</translation>
 <translation id="7978412674231730200">Clave privada</translation>
@@ -1198,7 +1226,6 @@
 <translation id="8629974950076222828">Abrir todos los marcadores en una ventana de incógnito</translation>
 <translation id="4745438305783437565"><ph name="NUMBER_FEW"/> minutos</translation>
 <translation id="2649911884196340328">El certificado de seguridad del servidor contiene errores.</translation>
-<translation id="3828029223314399057">Buscar marcadores</translation>
 <translation id="8906421963862390172">Opciones &amp;del corrector ortográfico</translation>
 <translation id="1963692530539281474">Faltan <ph name="NUMBER_DEFAULT"/> días</translation>
 <translation id="668171684555832681">Otro...</translation>
@@ -1294,6 +1321,7 @@
 <translation id="715468010956678290">Abrir marco en una ventana de navegación de incó&amp;gnito</translation>
 <translation id="7755167023778553803">Sin embargo, esta página incluye recursos de otros sitios web cuya identidad no puede ser verificada.</translation>
 <translation id="1273291576878293349">Abrir todos los marcadores en una ventana de incógnito</translation>
+<translation id="3455546154539383562">Has intentado acceder a &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, pero el certificado que el servidor ha presentado ha sido revocado por su emisor. Esto significa que las credenciales de seguridad que presentó el servidor no son de confianza. Es posible que te estés comunicando con un atacante. No debes seguir adelante.</translation>
 <translation id="1177437665183591855">Error de certificado de servidor desconocido</translation>
 <translation id="3819800052061700452">&amp;Pantalla completa</translation>
 <translation id="3533943170037501541">¡Bienvenido a tu página principal!</translation>
@@ -1345,6 +1373,7 @@
 <translation id="6492313032770352219">Tamaño en disco:</translation>
 <translation id="5233231016133573565">ID de proceso</translation>
 <translation id="5941711191222866238">Minimizar</translation>
+<translation id="539297715553881262">Host:</translation>
 <translation id="253434972992662860">Pausa</translation>
 <translation id="335985608243443814">Navegar...</translation>
 <translation id="6653385924798556138"><ph name="HOST"/> desea crear una cookie en su computadora.</translation>
@@ -1373,7 +1402,9 @@ Extensión: <ph name="EXTENSION_FILE"/>
 Archivo de clave: <ph name="KEY_FILE"/>
 
 Mantén el archivo de clave en un lugar seguro. Debes crear las nuevas versiones de tu extensión.</translation>
+<translation id="4477534650265381513">Para acceder con rapidez, coloca los marcadores en este lugar de la barra de marcadores.</translation>
 <translation id="3036649622769666520">Abrir archivos</translation>
+<translation id="7909652923456235549">No se enviaron las cookies</translation>
 <translation id="7685049629764448582">Memoria de JavaScript</translation>
 <translation id="4508765956121923607">Ver códig&amp;o fuente</translation>
 <translation id="8080048886850452639">Copiar URL de audio</translation>

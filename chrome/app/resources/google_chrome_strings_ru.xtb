@@ -12,6 +12,7 @@
 <translation id="2370289711218562573">Google Chrome выполняет импорт элементов &quot;Избранное/Закладки&quot;.</translation>
 <translation id="8970027151245482499">Не удалось найти каталог установки или браузер Google Chrome не установлен. Загрузите Google Chrome снова.</translation>
 <translation id="2040709530900803995">Google Chrome Renderer</translation>
+<translation id="3044696659294460858">Доступна новая версия Google Chrome с возможностью подключения расширений.</translation>
 <translation id="4281844954008187215">Условия предоставления услуг</translation>
 <translation id="1137776625614346046">В области &quot;Наиболее посещаемые&quot; показываются веб-сайты, на которые вы заходите чаще всего. Поработав некоторое время в Google Chrome, вы будете каждый раз при открытии новой вкладки видеть наиболее посещаемые вами сайты. Подробнее об этой и других функциях можно узнать на странице <ph name="BEGIN_LINK"/>Начало работы<ph name="END_LINK"/>.</translation>
 <translation id="3555616473548901994">Удаление завершено.</translation>
@@ -20,6 +21,7 @@
 <translation id="4149882025268051530">Программе установки не удалось выполнить извлечение файлов из архива. Загрузите Google Chrome снова.</translation>
 <translation id="5744005218040929396">Google Chrome Utility</translation>
 <translation id="4343226815564935778">Похоже, что каталог для установки Google Chrome сейчас используется. Перезагрузите компьютер и повторите попытку.</translation>
+<translation id="4506896920521131223">© Google Inc., 2006–2009. Все права защищены.</translation>
 <translation id="6817660909204164466">Помочь улучшить Google Chrome, автоматически отправляя в Google статистику использования и отчеты о сбоях</translation>
 <translation id="8227755444512189073">Браузеру Google Chrome требуется запустить внешнее приложение для обработки ссылок <ph name="SCHEME"/>. Запрошенная ссылка: <ph name="PROTOLINK"/>.</translation>
 <translation id="1281036569101707544"><ph name="TERMS_OF_SERVICE_LINK"/> для Google Chrome</translation>
@@ -47,6 +49,7 @@
 <translation id="911206726377975832">Также удалить данные о работе в браузере?</translation>
 <translation id="2044287590254833138">Панель инструментов Google Chrome</translation>
 <translation id="5074344184765391290">Chrome Plug-In Host</translation>
+<translation id="1473088902761932034">С возвращением! Обратите внимание: Google Chrome не является браузером по умолчанию.</translation>
 <translation id="6481075104394517441">Вы попытались открыть &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, однако представленный сервером сертификат пока недействителен. Информация о том, можно ли доверять этому сертификату, недоступна. Google Chrome не может гарантировать, что вы соединились с &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, а не злоумышленником. Убедитесь, что на вашем компьютере установлено правильное время и часовой пояс. Если это не так, устраните неточности и обновите эту страницу. Если на компьютере установлено правильное время и часовой пояс, продолжать далее не рекомендуется.</translation>
 <translation id="8862326446509486874">У вас нет прав, необходимых для установки на системном уровне. Запустите программу установки еще раз в качестве администратора.</translation>
 <translation id="595871952790078940">Chrome Utility</translation>
@@ -78,6 +81,7 @@
 <translation id="4407807842708586359">Google Chrome OS</translation>
 <translation id="3396666154568987767">Google Chrome для профиля &quot;<ph name="PROFILE_NAME"/>&quot;</translation>
 <translation id="3360895254066713204">Chrome Helper</translation>
+<translation id="1964682833763362793">Закройте все окна Chrome и повторите попытку снова.</translation>
 <translation id="1001534784610492198">Архив программы установки поврежден или имеет неправильный формат. Загрузите Google Chrome снова.</translation>
 <translation id="6626317981028933585">К сожалению, настройки Mozilla Firefox недоступны при открытом браузере. Чтобы импортировать настройки в Google Chrome, сохраните работу и закройте все окна Firefox. Затем нажмите Продолжить.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>

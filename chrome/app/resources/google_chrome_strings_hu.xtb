@@ -12,6 +12,7 @@
 <translation id="2370289711218562573">A kedvencek és könyvjelzők importálása folyamatban van.</translation>
 <translation id="8970027151245482499">A Google Chrome nincs telepítve, vagy nem sikerült megtalálnia a telepítés könyvtárát. Kérjük, töltse le újra a Google Chrome böngészőt.</translation>
 <translation id="2040709530900803995">Google Chrome renderelő</translation>
+<translation id="3044696659294460858">Megjelent a Google Chrome egy újabb verziója, amelyik tartalmazza a bővítményeket</translation>
 <translation id="4281844954008187215">Általános Szerződési Feltételek</translation>
 <translation id="1137776625614346046">A &quot;Leggyakrabban látogatott webhelyek&quot; rész alatt a leggyakrabban használt webhelyek láthatók. Amikor már egy ideje használja a Google Chrome-ot, a legtöbbször látogatott oldalak meg fognak jelenni minden újonnan megnyitott lapon. További információ erről és a többi funkcióról a <ph name="BEGIN_LINK"/>Kezdő lépések oldalán<ph name="END_LINK"/> található.</translation>
 <translation id="3555616473548901994">Az eltávolítás befejeződött.</translation>
@@ -20,6 +21,7 @@
 <translation id="4149882025268051530">Nem sikerült a telepítőnek kibontani a tömörített állományt. Kérjük, töltse le újra a Google Chrome böngészőt.</translation>
 <translation id="5744005218040929396">Google Chrome segédprogram</translation>
 <translation id="4343226815564935778">A Google Chrome telepítési mappa használatban van. Kérjük, indítsa újra a számítógépet és próbálja újra.</translation>
+<translation id="4506896920521131223">Copyright © 2006-2009 Google Inc. Minden jog fenntartva.</translation>
 <translation id="6817660909204164466">Segítsen a Chrome fejlesztésében: engedélyezze, hogy a program automatikusan elküldje a használati statisztikákat és a hibajelentéseket a Google részére</translation>
 <translation id="8227755444512189073">A Google Chrome-nak el kell indítania egy külső alkalmazást a(z) <ph name="SCHEME"/> linkekhez. A kért link: <ph name="PROTOLINK"/>.</translation>
 <translation id="1281036569101707544">Google Chrome - <ph name="TERMS_OF_SERVICE_LINK"/></translation>
@@ -46,6 +48,7 @@
 <translation id="911206726377975832">Törli a böngészési adatait is?</translation>
 <translation id="2044287590254833138">Google Chrome Eszköztár</translation>
 <translation id="5074344184765391290">Chrome plug-in tárhely</translation>
+<translation id="1473088902761932034">Hurrá, újra itt! Viszont nem a Google Chrome az alapértelmezett böngészője.</translation>
 <translation id="6481075104394517441">Megpróbálta elérni a(z) &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; domaint, de a szerver tanúsítványa még nem érvényes. Nincs elérhető információ annak jelzésére, hogy a tanúsítvány lejárta óta használható-e a domain. A Google Chrome nem tudja garantálni, hogy akivel kommunikál ténylegesen &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; és nem pedig egy támadó. Bizonyosodjon meg róla, hogy az óra és az időzóna megfelelően lett beállítva számítógépén. Ha nincsenek meg ezek a beállítások, akkor ki kell javítani a pontatlan adatokat, majd frissíteni kell az oldalt. Ha az adatok helyesek, nem kell további lépéseket tennie.</translation>
 <translation id="8862326446509486874">Nincsenek meg a megfelelő jogai a rendszerszintű telepítéshez. Indítsa újra a telepítőt rendszergazdaként.</translation>
 <translation id="595871952790078940">Chrome segédprogram</translation>
@@ -77,6 +80,7 @@
 <translation id="4407807842708586359">Google Chrome OS</translation>
 <translation id="3396666154568987767">Google Chrome profil: <ph name="PROFILE_NAME"/></translation>
 <translation id="3360895254066713204">Chrome segéd</translation>
+<translation id="1964682833763362793">Zárjon be minden Chrome ablakot, és próbálkozzon újra.</translation>
 <translation id="1001534784610492198">A telepítő tömörített állománya megsérült vagy érvénytelen. Kérjük, töltse le újra a Google Chrome böngészőt.</translation>
 <translation id="6626317981028933585">Sajnos a Mozilla Firefox beállításai nem érhetők el, amikor a böngésző fut. Ahhoz, hogy importálhassa ezeket a beállításokat a Google Chrome-ba, mentse el, amin dolgozik, majd zárja be az összes Firefox ablakot. Ezután kattintson a &quot;Folytatás&quot; gombra.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
