@@ -476,9 +476,7 @@ void TranslateInfoBar::RunMenu(views::View* source, const gfx::Point& pt) {
         options_menu_model_.reset(new OptionsMenuModel(this, GetDelegate()));
         options_menu_menu_.reset(new views::Menu2(options_menu_model_.get()));
       }
-      options_menu_menu_->RunMenuAt(pt,
-          (UILayoutIsRightToLeft() ? views::Menu2::ALIGN_TOPLEFT :
-               views::Menu2::ALIGN_TOPRIGHT));
+      options_menu_menu_->RunMenuAt(pt, views::Menu2::ALIGN_TOPRIGHT);
       break;
     }
 
@@ -694,18 +692,15 @@ gfx::Point TranslateInfoBar::DetermineMenuPositionAndAlignment(
   gfx::Rect lb = menu_button->GetLocalBounds(true);
   gfx::Point menu_position(lb.origin());
   menu_position.Offset(2, lb.height() - 3);
-  if (UILayoutIsRightToLeft()) {
+  if (UILayoutIsRightToLeft())
     menu_position.Offset(lb.width() - 4, 0);
-    *alignment = views::Menu2::ALIGN_TOPRIGHT;
-  } else {
-    *alignment = views::Menu2::ALIGN_TOPLEFT;
-  }
   View::ConvertPointToScreen(menu_button, &menu_position);
 #if defined(OS_WIN)
   int left_bound = GetSystemMetrics(SM_XVIRTUALSCREEN);
   if (menu_position.x() < left_bound)
     menu_position.set_x(left_bound);
 #endif
+  *alignment = views::Menu2::ALIGN_TOPLEFT;
   return menu_position;
 }
 
