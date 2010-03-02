@@ -121,6 +121,10 @@ NET_ERROR(BAD_SSL_CLIENT_AUTH_CERT, -117)
 // A connection attempt timed out.
 NET_ERROR(CONNECTION_TIMED_OUT, -118)
 
+// Winsock sometimes reports more data written than passed.  This is probably
+// due to a broken LSP.
+NET_ERROR(WINSOCK_UNEXPECTED_WRITTEN_BYTES, -124)
+
 // Certificate error codes
 //
 // The values of certificate error codes must be consecutive.

@@ -198,7 +198,8 @@ int HttpStreamParser::DoSendHeaders(int result) {
 }
 
 int HttpStreamParser::DoSendBody(int result) {
-  request_body_->DidConsume(result);
+  if (result > 0)
+    request_body_->DidConsume(result);
 
   if (request_body_->position() < request_body_->size()) {
     int buf_len = static_cast<int>(request_body_->buf_len());
