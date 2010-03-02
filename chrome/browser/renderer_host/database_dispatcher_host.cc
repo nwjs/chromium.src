@@ -142,7 +142,7 @@ void DatabaseDispatcherHost::OnDatabaseOpenFile(const string16& vfs_file_name,
                                            NULL);
   DCHECK(ok);  // Should we assume this is an attack and kill the renderer?
   if (!ok) {
-    OnDatabaseOpenFileBlocked(message_id);
+    OnDatabaseOpenFileBlocked(message_id, false);
     return;
   }
 
@@ -163,7 +163,8 @@ void DatabaseDispatcherHost::OnDatabaseOpenFile(const string16& vfs_file_name,
         this, &DatabaseDispatcherHost::OnDatabaseOpenFileAllowed,
         vfs_file_name, desired_flags, message_id));
     scoped_ptr<Task> on_block(NewRunnableMethod(
-        this, &DatabaseDispatcherHost::OnDatabaseOpenFileBlocked, message_id));
+        this, &DatabaseDispatcherHost::OnDatabaseOpenFileBlocked, message_id,
+        true));
     // And then let the permission request object do the rest.
     scoped_refptr<DatabasePermissionRequest> request(
         new DatabasePermissionRequest(url, database_name, on_allow.release(),
@@ -174,20 +175,22 @@ void DatabaseDispatcherHost::OnDatabaseOpenFile(const string16& vfs_file_name,
     OnDatabaseOpenFileAllowed(vfs_file_name, desired_flags, message_id);
   } else {
     DCHECK(content_setting == CONTENT_SETTING_BLOCK);
-    OnDatabaseOpenFileBlocked(message_id);
+    OnDatabaseOpenFileBlocked(message_id, true);
   }
 }
 
 static void SetOpenFileResponseParams(
     ViewMsg_DatabaseOpenFileResponse_Params* params,
     base::PlatformFile file_handle,
-    base::PlatformFile dir_handle) {
+    base::PlatformFile dir_handle,
+    bool blocked_by_user) {
 #if defined(OS_WIN)
   params->file_handle = file_handle;
 #elif defined(OS_POSIX)
   params->file_handle = base::FileDescriptor(file_handle, true);
   params->dir_handle = base::FileDescriptor(dir_handle, true);
 #endif
+  params->blocked = blocked_by_user;
 }
 
 // Scheduled by the IO thread on the file thread.
@@ -219,7 +222,8 @@ void DatabaseDispatcherHost::DatabaseOpenFile(const string16& vfs_file_name,
   }
 
   ViewMsg_DatabaseOpenFileResponse_Params response_params;
-  SetOpenFileResponseParams(&response_params, target_handle, target_dir_handle);
+  SetOpenFileResponseParams(&response_params, target_handle, target_dir_handle,
+      false);
   ChromeThread::PostTask(
       ChromeThread::IO, FROM_HERE,
       NewRunnableMethod(this,
@@ -466,7 +470,8 @@ void DatabaseDispatcherHost::OnDatabaseOpenFileAllowed(
                         message_id));
 }
 
-void DatabaseDispatcherHost::OnDatabaseOpenFileBlocked(int32 message_id) {
+void DatabaseDispatcherHost::OnDatabaseOpenFileBlocked(
+    int32 message_id, bool blocked_by_user) {
   DCHECK(ChromeThread::CurrentlyOn(ChromeThread::IO));
   if (shutdown_)
     return;
@@ -476,7 +481,8 @@ void DatabaseDispatcherHost::OnDatabaseOpenFileBlocked(int32 message_id) {
   ViewMsg_DatabaseOpenFileResponse_Params response_params;
   SetOpenFileResponseParams(&response_params,
                             base::kInvalidPlatformFileValue,
-                            base::kInvalidPlatformFileValue);
+                            base::kInvalidPlatformFileValue,
+                            blocked_by_user);
   SendMessage(new ViewMsg_DatabaseOpenFileResponse(message_id,
                                                    response_params));
 }
