@@ -79,6 +79,8 @@
         'simple_resource_loader_bridge.h',
         'simple_socket_stream_bridge.cc',
         'simple_socket_stream_bridge.h',
+        'simple_webcookiejar_impl.cc',
+        'simple_webcookiejar_impl.h',
         'test_navigation_controller.cc',
         'test_navigation_controller.h',
         'test_shell.cc',

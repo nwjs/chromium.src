@@ -11,6 +11,7 @@
 #include "net/base/net_errors.h"
 #include "skia/ext/platform_canvas.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebConsoleMessage.h"
+#include "third_party/WebKit/WebKit/chromium/public/WebCookieJar.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebCString.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebCursorInfo.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebData.h"
@@ -39,6 +40,7 @@
 
 using WebKit::WebCanvas;
 using WebKit::WebConsoleMessage;
+using WebKit::WebCookieJar;
 using WebKit::WebCString;
 using WebKit::WebCursorInfo;
 using WebKit::WebData;
@@ -559,14 +561,31 @@ NPObject* WebPluginImpl::GetPluginElement() {
 void WebPluginImpl::SetCookie(const GURL& url,
                               const GURL& first_party_for_cookies,
                               const std::string& cookie) {
-  WebKit::webKitClient()->setCookies(
+  if (!page_delegate_)
+    return;
+
+  WebCookieJar* cookie_jar = page_delegate_->GetCookieJar();
+  if (!cookie_jar) {
+    DLOG(WARNING) << "No cookie jar!";
+    return;
+  }
+
+  cookie_jar->setCookie(
       url, first_party_for_cookies, WebString::fromUTF8(cookie));
 }
 
 std::string WebPluginImpl::GetCookies(const GURL& url,
                                       const GURL& first_party_for_cookies) {
-  return UTF16ToUTF8(WebKit::webKitClient()->cookies(url,
-                                                     first_party_for_cookies));
+  if (!page_delegate_)
+    return std::string();
+
+  WebCookieJar* cookie_jar = page_delegate_->GetCookieJar();
+  if (!cookie_jar) {
+    DLOG(WARNING) << "No cookie jar!";
+    return std::string();
+  }
+
+  return UTF16ToUTF8(cookie_jar->cookies(url, first_party_for_cookies));
 }
 
 void WebPluginImpl::ShowModalHTMLDialog(const GURL& url, int width, int height,

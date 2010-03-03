@@ -36,6 +36,7 @@
 #include "chrome/renderer/notification_provider.h"
 #include "chrome/renderer/render_widget.h"
 #include "chrome/renderer/render_view_visitor.h"
+#include "chrome/renderer/renderer_webcookiejar_impl.h"
 #include "chrome/renderer/translate/page_translator.h"
 #include "chrome/renderer/translate/text_translator_impl.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -276,6 +277,7 @@ class RenderView : public RenderWidget,
       const WebKit::WebString& name, unsigned long long documentId);
   virtual WebKit::WebMediaPlayer* createMediaPlayer(
       WebKit::WebFrame* frame, WebKit::WebMediaPlayerClient* client);
+  virtual WebKit::WebCookieJar* cookieJar();
   virtual void willClose(WebKit::WebFrame* frame);
   virtual bool allowPlugins(WebKit::WebFrame* frame, bool enabled_per_settings);
   virtual bool allowImages(WebKit::WebFrame* frame, bool enabled_per_settings);
@@ -376,6 +378,7 @@ class RenderView : public RenderWidget,
       const gfx::Size& size,
       const std::string& json_arguments,
       std::string* json_retval);
+  virtual WebKit::WebCookieJar* GetCookieJar();
 
   // DomSerializerDelegate
   virtual void DidSerializeDataForFrame(const GURL& frame_url,
@@ -1032,6 +1035,8 @@ class RenderView : public RenderWidget,
   // Page translation related objects.
   TextTranslatorImpl text_translator_;
   scoped_ptr<PageTranslator> page_translator_;
+
+  RendererWebCookieJarImpl cookie_jar_;
 
   DISALLOW_COPY_AND_ASSIGN(RenderView);
 };
