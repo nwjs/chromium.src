@@ -10,7 +10,7 @@
 #include "chrome/common/render_messages.h"
 #include "net/base/escape.h"
 
-#if defined(GOOGLE_CHROME_BUILD)
+#if defined(GOOGLE_CHROME_BUILD) || 1
 #include "chrome/browser/renderer_host/translate/translate_internal.h"
 #else
 // Defining dummy URLs for unit-tests to pass.
@@ -48,6 +48,17 @@ LocaleToCLDLanguage kLocaleToCLDLanguages[] = {
 };
 
 // The list of languages the Google translation server supports.
+// For information, here is the list of languages that Chrome can be run into
+// but that the translation server does not support:
+// am Amharic
+// bn Bengali
+// gu Gujarati
+// kn Kannada
+// ml Malayalam
+// mr Marathi
+// or Oriya
+// ta Tamil
+// te Telugu
 const char* kSupportedLanguages[] = {
     "af",     // Afrikaans
     "sq",     // Albanian
@@ -63,8 +74,8 @@ const char* kSupportedLanguages[] = {
     "nl",     // Dutch
     "en",     // English
     "et",     // Estonian
-    "tl",     // Tagalog (Filipino)
     "fi",     // Finnish
+    "fil",    // Filipino
     "fr",     // French
     "gl",     // Galician
     "de",     // German
@@ -83,7 +94,7 @@ const char* kSupportedLanguages[] = {
     "mk",     // Macedonian
     "ms",     // Malay
     "mt",     // Maltese
-    "no",     // Norwegian
+    "nb",     // Norwegian
     "fa",     // Persian
     "pl",     // Polish
     "pt",     // Portuguese

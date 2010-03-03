@@ -11,6 +11,7 @@
 #include "chrome/common/notification_registrar.h"
 #include "chrome/common/notification_service.h"
 #include "chrome/common/render_messages.h"
+#include "chrome/test/testing_browser_process.h"
 
 class TestTranslateManager : public TranslateManager {
  public:
@@ -22,7 +23,7 @@ class TranslateManagerTest : public RenderViewHostTestHarness,
  public:
   TranslateManagerTest() {}
 
-  // Simluates navigating to a page and getting teh page contents and language
+  // Simluates navigating to a page and getting the page contents and language
   // for that navigation.
   void SimulateNavigation(const GURL& url, int page_id,
                           const std::wstring& contents,
@@ -206,7 +207,7 @@ TEST_F(TranslateManagerTest, NormalTranslate) {
 
 // Tests auto-translate on page.
 TEST_F(TranslateManagerTest, AutoTranslateOnNavigate) {
-  // Simulate navigating to a page and gettings its language.
+  // Simulate navigating to a page and getting its language.
   SimulateNavigation(GURL("http://www.google.fr"), 0, L"Le Google", "fr");
 
   // Simulate the user translating.
@@ -237,7 +238,7 @@ TEST_F(TranslateManagerTest, AutoTranslateOnNavigate) {
 
 // Tests that multiple OnPageContents do not cause multiple infobars.
 TEST_F(TranslateManagerTest, MultipleOnPageContents) {
-  // Simulate navigating to a page and gettings its language.
+  // Simulate navigating to a page and getting its language.
   SimulateNavigation(GURL("http://www.google.fr"), 0, L"Le Google", "fr");
 
   // Simulate clicking 'Nope' (don't translate).
@@ -258,7 +259,7 @@ TEST_F(TranslateManagerTest, MultipleOnPageContents) {
 
 // Test that reloading the page brings back the infobar.
 TEST_F(TranslateManagerTest, Reload) {
-  // Simulate navigating to a page and gettings its language.
+  // Simulate navigating to a page and getting its language.
   SimulateNavigation(GURL("http://www.google.fr"), 0, L"Le Google", "fr");
 
   // Close the infobar.
@@ -275,7 +276,7 @@ TEST_F(TranslateManagerTest, Reload) {
 // Tests that a close translate infobar does not reappear when navigating
 // in-page.
 TEST_F(TranslateManagerTest, CloseInfoBarInPageNavigation) {
-  // Simulate navigating to a page and gettings its language.
+  // Simulate navigating to a page and getting its language.
   SimulateNavigation(GURL("http://www.google.fr"), 0, L"Le Google", "fr");
 
   // Close the infobar.
@@ -292,7 +293,7 @@ TEST_F(TranslateManagerTest, CloseInfoBarInPageNavigation) {
 
 // Tests that denying translation is sticky when navigating in page.
 TEST_F(TranslateManagerTest, DenyTranslateInPageNavigation) {
-  // Simulate navigating to a page and gettings its language.
+  // Simulate navigating to a page and getting its language.
   SimulateNavigation(GURL("http://www.google.fr"), 0, L"Le Google", "fr");
 
   // Simulate clicking 'Nope' (don't translate).
@@ -310,7 +311,7 @@ TEST_F(TranslateManagerTest, DenyTranslateInPageNavigation) {
 // Tests that after translating and closing the infobar, the infobar does not
 // return when navigating in page.
 TEST_F(TranslateManagerTest, TranslateCloseInfoBarInPageNavigation) {
-  // Simulate navigating to a page and gettings its language.
+  // Simulate navigating to a page and getting its language.
   SimulateNavigation(GURL("http://www.google.fr"), 0, L"Le Google", "fr");
 
   // Simulate the user translating.
@@ -337,7 +338,7 @@ TEST_F(TranslateManagerTest, TranslateCloseInfoBarInPageNavigation) {
 // Tests that the after translate the infobar still shows when navigating
 // in-page.
 TEST_F(TranslateManagerTest, TranslateInPageNavigation) {
-  // Simulate navigating to a page and gettings its language.
+  // Simulate navigating to a page and getting its language.
   SimulateNavigation(GURL("http://www.google.fr"), 0, L"Le Google", "fr");
 
   // Simulate the user translating.
@@ -359,4 +360,32 @@ TEST_F(TranslateManagerTest, TranslateInPageNavigation) {
   EXPECT_TRUE(CheckInfoBarRemovedAndReset(infobar));
   // And there is a new one.
   EXPECT_TRUE(GetTranslateInfoBar() != NULL);
+}
+
+// Tests that no translate infobar is shown when navigating to a page in an
+// unsupported language.
+TEST_F(TranslateManagerTest, UnsupportedPageLanguage) {
+  // Simulate navigating to a page and getting an unsupported language.
+  SimulateNavigation(GURL("http://www.google.com"), 0, L"Google", "qbz");
+
+  // No info-bar should be shown.
+  EXPECT_TRUE(GetTranslateInfoBar() == NULL);
+}
+
+// Tests that no translate infobar is shown when Chrome is in a language that
+// the translate server does not support.
+TEST_F(TranslateManagerTest, UnsupportedUILanguage) {
+  TestingBrowserProcess* browser_process =
+      static_cast<TestingBrowserProcess*>(g_browser_process);
+  std::string original_lang = browser_process->GetApplicationLocale();
+  browser_process->set_application_locale("qbz");
+
+  // Simulate navigating to a page in a language supported by the translate
+  // server.
+  SimulateNavigation(GURL("http://www.google.com"), 0, L"Google", "en");
+
+  // No info-bar should be shown.
+  EXPECT_TRUE(GetTranslateInfoBar() == NULL);
+
+  browser_process->set_application_locale(original_lang);
 }
