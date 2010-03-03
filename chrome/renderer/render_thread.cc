@@ -41,6 +41,7 @@
 #include "base/scoped_handle.h"
 #include "chrome/plugin/plugin_channel_base.h"
 #endif
+#include "chrome/renderer/cookie_message_filter.h"
 #include "chrome/renderer/devtools_agent_filter.h"
 #include "chrome/renderer/extension_groups.h"
 #include "chrome/renderer/extensions/event_bindings.h"
@@ -197,10 +198,15 @@ void RenderThread::Init() {
   histogram_snapshots_.reset(new RendererHistogramSnapshots());
   appcache_dispatcher_.reset(new AppCacheDispatcher(this));
   socket_stream_dispatcher_.reset(new SocketStreamDispatcher());
+
   devtools_agent_filter_ = new DevToolsAgentFilter();
   AddFilter(devtools_agent_filter_.get());
+
   db_message_filter_ = new DBMessageFilter();
   AddFilter(db_message_filter_.get());
+
+  cookie_message_filter_ = new CookieMessageFilter();
+  AddFilter(cookie_message_filter_.get());
 
 #if defined(OS_POSIX)
   suicide_on_channel_error_filter_ = new SuicideOnChannelErrorFilter;
@@ -346,11 +352,6 @@ void RenderThread::WidgetRestored() {
   // WidgetHidden() code).  But we don't bother to cancel it as it is
   // benign and won't do anything if the tab is un-hidden when it is
   // called.
-}
-
-bool RenderThread::SendAndRunNestedMessageLoop(IPC::SyncMessage* message) {
-  message->EnableMessagePumping();
-  return Send(message);
 }
 
 void RenderThread::DoNotSuspendWebKitSharedTimer() {

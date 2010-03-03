@@ -53,9 +53,12 @@ void RendererWebStorageAreaImpl::setItem(
   int32 routing_id = RenderThread::RoutingIDForCurrentContext();
   CHECK(routing_id != MSG_ROUTING_CONTROL);
 
-  RenderThread::current()->SendAndRunNestedMessageLoop(
+  IPC::SyncMessage* message =
       new ViewHostMsg_DOMStorageSetItem(routing_id, storage_area_id_, key,
-                                        value, url, &result));
+                                        value, url, &result);
+  // TODO(darin): Response to ViewMsg_SignalCookiePromptEvent instead.
+  message->EnableMessagePumping();
+  RenderThread::current()->Send(message);
 
   if (result == WebStorageArea::ResultBlockedByPolicy) {
     RenderThread::current()->Send(new ViewHostMsg_ContentBlocked(

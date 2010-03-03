@@ -19,6 +19,7 @@
 #include "chrome/common/render_messages.h"
 #include "chrome/common/webmessageportchannel_impl.h"
 #include "chrome/plugin/npobject_util.h"
+#include "chrome/renderer/cookie_message_filter.h"
 #include "chrome/renderer/net/render_dns_master.h"
 #include "chrome/renderer/render_thread.h"
 #include "chrome/renderer/render_view.h"
@@ -133,7 +134,7 @@ WebString RendererWebKitClientImpl::cookies(
   int32 routing_id = RenderThread::RoutingIDForCurrentContext();
 
   std::string value_utf8;
-  RenderThread::current()->SendAndRunNestedMessageLoop(
+  SendCookieMessage(
       new ViewHostMsg_GetCookies(routing_id, url, first_party_for_cookies,
                                  &value_utf8));
 
@@ -149,10 +150,9 @@ bool RendererWebKitClientImpl::rawCookies(
   int32 routing_id = RenderThread::RoutingIDForCurrentContext();
 
   std::vector<webkit_glue::WebCookie> cookies;
-  RenderThread::current()->SendAndRunNestedMessageLoop(
+  SendCookieMessage(
       new ViewHostMsg_GetRawCookies(routing_id, url, first_party_for_cookies,
                                     &cookies));
-
 
   WebVector<WebKit::WebCookie> result(cookies.size());
   int i = 0;
@@ -418,4 +418,22 @@ WebKit::WebString RendererWebKitClientImpl::signedPublicKeyAndChallengeString(
       GURL(url),
       &signed_public_key));
   return webkit_glue::StdStringToWebString(signed_public_key);
+}
+
+//------------------------------------------------------------------------------
+
+void RendererWebKitClientImpl::SendCookieMessage(IPC::SyncMessage* message) {
+  RenderThread* render_thread = RenderThread::current();
+
+  CookieMessageFilter* filter = render_thread->cookie_message_filter();
+  message->set_pump_messages_event(filter->pump_messages_event());
+  render_thread->Send(message);
+
+  // We may end up nesting calls to SendCookieMessage, so we defer the reset
+  // until we return to the top-most message loop.
+  if (filter->pump_messages_event()->IsSignaled()) {
+    MessageLoop::current()->PostNonNestableTask(FROM_HERE,
+        NewRunnableMethod(filter,
+                          &CookieMessageFilter::ResetPumpMessagesEvent));
+  }
 }
