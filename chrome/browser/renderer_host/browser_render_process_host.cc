@@ -485,6 +485,7 @@ void BrowserRenderProcessHost::PropogateBrowserCommandLineToRenderer(
 #endif
     switches::kDomAutomationController,
     switches::kUserAgent,
+    switches::kNoReferrers,
     switches::kJavaScriptFlags,
     switches::kRecordMode,
     switches::kPlaybackMode,
