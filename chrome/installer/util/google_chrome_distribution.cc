@@ -340,6 +340,7 @@ int GoogleChromeDistribution::GetInstallReturnCode(
     case installer_util::FIRST_INSTALL_SUCCESS:
     case installer_util::INSTALL_REPAIRED:
     case installer_util::NEW_VERSION_UPDATED:
+    case installer_util::EXISTING_VERSION_LAUNCHED:
     case installer_util::HIGHER_VERSION_EXISTS:
       return 0;  // For Google Update's benefit we need to return 0 for success
     default:
@@ -513,7 +514,8 @@ void GoogleChromeDistribution::LaunchUserExperiment(
     // Check browser usage inactivity by the age of the last-write time of the
     // chrome user data directory.
     std::wstring user_data_dir = installer::GetChromeUserDataPath();
-    const int kThirtyDays = 30 * 24;
+    // TODO(cpu): re-enable experiment.
+    const int kThirtyDays = 3000 * 24;
     int dir_age_hours = GetDirectoryWriteAgeInHours(user_data_dir.c_str());
     if (dir_age_hours < 0) {
       // This means that we failed to find the user data dir. The most likey
