@@ -5,6 +5,7 @@
 #include "chrome/renderer/renderer_webstoragearea_impl.h"
 
 #include "chrome/common/render_messages.h"
+#include "chrome/renderer/cookie_message_filter.h"
 #include "chrome/renderer/render_thread.h"
 #include "chrome/renderer/render_view.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebFrame.h"
@@ -57,7 +58,6 @@ void RendererWebStorageAreaImpl::setItem(
   IPC::SyncMessage* message =
       new ViewHostMsg_DOMStorageSetItem(routing_id, storage_area_id_, key,
                                         value, url, &result, &old_value);
-  // NOTE: This may pump events (see RenderThread::Send).
   RenderThread::current()->Send(message);
   old_value_webkit = old_value;
 
