@@ -315,7 +315,7 @@ void DOMStorageDispatcherHost::OnSetItem(
 
   ScopedStorageEventContext scope(this, &url);
   WebStorageArea::Result result;
-  storage_area->SetItem(key, value, &result);
+  storage_area->SetItem(key, value, &result, this);
 
   // If content was blocked, tell the UI to display the blocked content icon.
   if (reply_msg->routing_id() == MSG_ROUTING_CONTROL) {

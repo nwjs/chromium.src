@@ -5,6 +5,7 @@
 #include "chrome/renderer/renderer_webstoragearea_impl.h"
 
 #include "chrome/common/render_messages.h"
+#include "chrome/renderer/cookie_message_filter.h"
 #include "chrome/renderer/render_thread.h"
 #include "chrome/renderer/render_view.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebFrame.h"
@@ -49,29 +50,37 @@ WebString RendererWebStorageAreaImpl::getItem(const WebString& key) {
 
 void RendererWebStorageAreaImpl::setItem(
     const WebString& key, const WebString& value, const WebURL& url,
-    WebStorageArea::Result& result, WebFrame* web_frame) {
-  int32 routing_id = MSG_ROUTING_CONTROL;
-  if (web_frame) {
-    RenderView* render_view = RenderView::FromWebView(web_frame->view());
-    if (render_view)
-      routing_id = render_view->routing_id();
-  }
-  DCHECK(routing_id != MSG_ROUTING_CONTROL);
+    WebStorageArea::Result& result, WebString& old_value_webkit) {
+  int32 routing_id = RenderThread::RoutingIDForCurrentContext();
+  CHECK(routing_id != MSG_ROUTING_CONTROL);
 
+  NullableString16 old_value;
   IPC::SyncMessage* message =
       new ViewHostMsg_DOMStorageSetItem(routing_id, storage_area_id_, key,
-                                        value, url, &result);
-  // NOTE: This may pump events (see RenderThread::Send).
+                                        value, url, &result, &old_value);
+  message->set_pump_messages_event(
+      RenderThread::current()->cookie_message_filter()->pump_messages_event());
   RenderThread::current()->Send(message);
+  old_value_webkit = old_value;
+
+  if (result == WebStorageArea::ResultBlockedByPolicy) {
+    RenderThread::current()->Send(new ViewHostMsg_ContentBlocked(
+        routing_id, CONTENT_SETTINGS_TYPE_COOKIES));
+  }
 }
 
-void RendererWebStorageAreaImpl::removeItem(const WebString& key,
-                                            const WebURL& url) {
+void RendererWebStorageAreaImpl::removeItem(
+    const WebString& key, const WebURL& url, WebString& old_value_webkit) {
+  NullableString16 old_value;
   RenderThread::current()->Send(
-      new ViewHostMsg_DOMStorageRemoveItem(storage_area_id_, key, url));
+      new ViewHostMsg_DOMStorageRemoveItem(storage_area_id_, key,
+                                           url, &old_value));
+  old_value_webkit = old_value;
 }
 
-void RendererWebStorageAreaImpl::clear(const WebURL& url) {
+void RendererWebStorageAreaImpl::clear(
+    const WebURL& url, bool& cleared_something) {
   RenderThread::current()->Send(
-      new ViewHostMsg_DOMStorageClear(storage_area_id_, url));
+      new ViewHostMsg_DOMStorageClear(storage_area_id_, url,
+                                      &cleared_something));
 }
