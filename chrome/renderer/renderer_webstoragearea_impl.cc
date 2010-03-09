@@ -57,8 +57,7 @@ void RendererWebStorageAreaImpl::setItem(
   IPC::SyncMessage* message =
       new ViewHostMsg_DOMStorageSetItem(routing_id, storage_area_id_, key,
                                         value, url, &result, &old_value);
-  // TODO(darin): Response to ViewMsg_SignalCookiePromptEvent instead.
-  message->EnableMessagePumping();
+  // NOTE: This may pump events (see RenderThread::Send).
   RenderThread::current()->Send(message);
   old_value_webkit = old_value;
 
