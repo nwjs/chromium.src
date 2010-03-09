@@ -14,7 +14,6 @@
 #include "googleurl/src/gurl.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebStorageArea.h"
 
-class DOMStorageDispatcherHost;
 class DOMStorageNamespace;
 class HostContentSettingsMap;
 
@@ -31,14 +30,8 @@ class DOMStorageArea {
   unsigned Length();
   NullableString16 Key(unsigned index);
   NullableString16 GetItem(const string16& key);
-  // The DOMStorageDispatcherHost parameter is required in case we get a
-  // CONTENT_SETTING_ASK response from the HostContentettingsMap.  If we do,
-  // we'll need to let the renderer know that it'll need to run a nested message
-  // loop.
-  void SetItem(
-      const string16& key, const string16& value,
-      WebKit::WebStorageArea::Result* result,
-      DOMStorageDispatcherHost* sender);
+  void SetItem(const string16& key, const string16& value,
+               WebKit::WebStorageArea::Result* result);
   void RemoveItem(const string16& key);
   void Clear();
   void PurgeMemory();
@@ -50,8 +43,7 @@ class DOMStorageArea {
   void CreateWebStorageAreaIfNecessary();
 
   // Used to see if setItem has permission to do its thing.
-  bool CheckContentSetting(const string16& key, const string16& value,
-                           DOMStorageDispatcherHost* sender);
+  bool CheckContentSetting(const string16& key, const string16& value);
 
   // The origin this storage area represents.
   string16 origin_;

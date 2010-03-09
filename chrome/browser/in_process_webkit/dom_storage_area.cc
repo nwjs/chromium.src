@@ -13,7 +13,6 @@
 #include "chrome/browser/in_process_webkit/dom_storage_namespace.h"
 #include "chrome/browser/in_process_webkit/dom_storage_permission_request.h"
 #include "chrome/browser/host_content_settings_map.h"
-#include "chrome/common/render_messages.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebSecurityOrigin.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebStorageArea.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebString.h"
@@ -56,10 +55,9 @@ NullableString16 DOMStorageArea::GetItem(const string16& key) {
   return storage_area_->getItem(key);
 }
 
-void DOMStorageArea::SetItem(
-    const string16& key, const string16& value,
-    WebStorageArea::Result* result, DOMStorageDispatcherHost* sender) {
-  if (!CheckContentSetting(key, value, sender)) {
+void DOMStorageArea::SetItem(const string16& key, const string16& value,
+                             WebStorageArea::Result* result) {
+  if (!CheckContentSetting(key, value)) {
     *result = WebStorageArea::ResultBlockedByPolicy;
     return;
   }
@@ -87,9 +85,8 @@ void DOMStorageArea::CreateWebStorageAreaIfNecessary() {
     storage_area_.reset(owner_->CreateWebStorageArea(origin_));
 }
 
-bool DOMStorageArea::CheckContentSetting(
-    const string16& key, const string16& value,
-    DOMStorageDispatcherHost* sender) {
+bool DOMStorageArea::CheckContentSetting(const string16& key,
+                                         const string16& value) {
   ContentSetting content_setting =
       host_content_settings_map_->GetContentSetting(
           origin_url_, CONTENT_SETTINGS_TYPE_COOKIES);
@@ -101,8 +98,6 @@ bool DOMStorageArea::CheckContentSetting(
         ChromeThread::UI, FROM_HERE,
         NewRunnableFunction(&DOMStoragePermissionRequest::PromptUser,
                             &request));
-    // Tell the renderer that it needs to run a nested message loop.
-    sender->Send(new ViewMsg_SignalCookiePromptEvent());
     content_setting = request.WaitOnResponse();
   }
 
