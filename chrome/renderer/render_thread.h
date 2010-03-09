@@ -125,10 +125,6 @@ class RenderThread : public RenderThreadBase,
     return socket_stream_dispatcher_.get();
   }
 
-  CookieMessageFilter* cookie_message_filter() const {
-    return cookie_message_filter_.get();
-  }
-
   bool plugin_refresh_allowed() const { return plugin_refresh_allowed_; }
 
   // Do DNS prefetch resolution of a hostname.
@@ -244,8 +240,8 @@ class RenderThread : public RenderThreadBase,
   // The current value of the idle notification timer delay.
   double idle_notification_delay_in_s_;
 
-  bool do_not_suspend_webkit_shared_timer_;
-  bool do_not_notify_webkit_of_modal_loop_;
+  bool suspend_webkit_shared_timer_;
+  bool notify_webkit_of_modal_loop_;
   bool did_notify_webkit_of_modal_loop_;
 
   DISALLOW_COPY_AND_ASSIGN(RenderThread);
