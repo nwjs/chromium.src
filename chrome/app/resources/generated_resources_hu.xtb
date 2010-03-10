@@ -394,7 +394,7 @@
 <translation id="825608351287166772">A tanúsítványoknak van egy érvényességi időszaka, ugyanúgy, ahogy minden más azonosításra szolgáló dokumentumnak (pl. útlevél) A böngészőnek felmutatott tanúsítvány még nem érvényes Amikor egy tanúsítvány kívül van az érvényességi időn, akkor a tanúsítvány állapotának bizonyos adatait (visszavonták-e már, és ezért nem szabad elfogadni) már nem szükséges karbantartani. Ezért ilyenkor már nem lehet ellenőrizni, hogy egy tanúsítvány megbízható-e. Nem javasoljuk, hogy folytassa.</translation>
 <translation id="7154150278819212687">Ez a bővítmény hozzá fog férni az Ön böngészési előzményeihez.</translation>
 <translation id="1516602185768225813">Az utoljára megnyitott oldalak újbóli megnyitása</translation>
-<translation id="1538486363863290963">Harmadik felek cookie-jainak letiltása kivétel nélkül</translation>
+<translation id="1538486363863290963">Az összes harmadik féltől származó cookie letiltása, kivétel nélkül</translation>
 <translation id="4874539263382920044">A címnek legalább egy karaktert kell tartalmaznia</translation>
 <translation id="3549657413697417275">Keresés az előzményekben</translation>
 <translation id="7344633671344536647">Böngészési adatok:</translation>
