@@ -80,6 +80,12 @@ class ThemeProvider;
 // Return the theme provider associated with this browser window.
 - (ThemeProvider*)themeProvider;
 
+// Called just before a child folder puts itself on screen.
+- (void)childFolderWillShow:(id<BookmarkButtonControllerProtocol>)child;
+
+// Called just before a child folder closes.
+- (void)childFolderWillClose:(id<BookmarkButtonControllerProtocol>)child;
+
 @end  // @protocol BookmarkButtonControllerProtocol
 
 
