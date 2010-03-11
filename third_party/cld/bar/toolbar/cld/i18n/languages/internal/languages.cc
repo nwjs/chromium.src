@@ -27,12 +27,11 @@ static const LanguageInfo kLanguageInfoTable[] = {
   { "FINNISH",             "fi", "fin", NULL},
   { "FRENCH",              "fr", "fre", NULL},
   { "GERMAN",              "de", "ger", NULL},
-  // NB: we use "iw" for Hebrew instead of the more recent "he"
-  { "HEBREW",              "iw", "heb", NULL},
+  { "HEBREW",              "he", "heb", NULL},
   { "ITALIAN",             "it", "ita", NULL},
   { "Japanese",            "ja", "jpn", NULL},
   { "Korean",              "ko", "kor", NULL},
-  { "NORWEGIAN",           "no", "nor", NULL},
+  { "NORWEGIAN",           "nb", "nor", NULL},
   { "POLISH",              "pl", "pol", NULL},
   { "PORTUGUESE",          "pt", "por", NULL},
   { "RUSSIAN",             "ru", "rus", NULL},
@@ -58,7 +57,9 @@ static const LanguageInfo kLanguageInfoTable[] = {
   { "SERBIAN",             "sr", "scc", NULL},
   { "IRISH",               "ga", "gle", NULL},
   { "GALICIAN",            "gl", "glg", NULL},
-  { "TAGALOG",             "tl", "tgl", NULL},
+  // Impossible to tell Tagalog from Filipino at the moment.
+  // Use ISO 6392 code for Filipino here.
+  { "TAGALOG",             NULL, "fil", NULL},
   { "TURKISH",             "tr", "tur", NULL},
   { "UKRAINIAN",           "uk", "ukr", NULL},
   { "HINDI",               "hi", "hin", NULL},
