@@ -3100,3 +3100,5 @@ BUG_MAL WIN : LayoutTests/http/tests/plugins/interrupted-get-url.html = TIMEOUT 
 BUG_MAL WIN : chrome/http/tests/misc/set-window-opener-to-null.html = TIMEOUT PASS
 BUG_MAL WIN : chrome/http/tests/security/listener/xss-inactive-closure.html = TIMEOUT PASS
 BUG_MAL WIN : chrome/http/tests/security/xss-DENIED-assign-location-href-javascript.html = TIMEOUT PASS
+
+BUG_MAL WIN : LayoutTests/http/tests/security/xss-DENIED-window-open-javascript-url-leading-format-char.html = FAIL
