@@ -176,6 +176,7 @@ class AutocompleteEditViewWin
     MSG_WM_RBUTTONDOWN(OnNonLButtonDown)
     MSG_WM_RBUTTONUP(OnNonLButtonUp)
     MSG_WM_SETFOCUS(OnSetFocus)
+    MSG_WM_SETTEXT(OnSetText)
     MSG_WM_SYSCHAR(OnSysChar)  // WM_SYSxxx == WM_xxx with ALT down
     MSG_WM_SYSKEYDOWN(OnKeyDown)
     MSG_WM_SYSKEYUP(OnKeyUp)
@@ -259,6 +260,7 @@ class AutocompleteEditViewWin
   void OnPaint(HDC bogus_hdc);
   void OnPaste();
   void OnSetFocus(HWND focus_wnd);
+  LRESULT OnSetText(const wchar_t* text);
   void OnSysChar(TCHAR ch, UINT repeat_count, UINT flags);
   void OnWindowPosChanging(WINDOWPOS* window_pos);
 
