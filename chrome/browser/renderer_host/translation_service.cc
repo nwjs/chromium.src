@@ -10,7 +10,7 @@
 #include "chrome/common/render_messages.h"
 #include "net/base/escape.h"
 
-#if defined(GOOGLE_CHROME_BUILD) || 1
+#if defined(GOOGLE_CHROME_BUILD)
 #include "chrome/browser/renderer_host/translate/translate_internal.h"
 #else
 // Defining dummy URLs for unit-tests to pass.
