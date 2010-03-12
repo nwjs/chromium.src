@@ -1361,7 +1361,9 @@ TEST_F(URLRequestTest, DoNotSendCookies) {
 
     EXPECT_TRUE(d.data_received().find("Cookie: CookieToNotSend=1")
                 == std::string::npos);
-    EXPECT_EQ(1, d.blocked_get_cookies_count());
+
+    // LOAD_DO_NOT_SEND_COOKIES does not trigger OnGetCookiesBlocked.
+    EXPECT_EQ(0, d.blocked_get_cookies_count());
     EXPECT_EQ(0, d.blocked_set_cookie_count());
   }
 }
@@ -1397,8 +1399,9 @@ TEST_F(URLRequestTest, DoNotSaveCookies) {
 
     MessageLoop::current()->Run();
 
+    // LOAD_DO_NOT_SAVE_COOKIES does not trigger OnSetCookieBlocked.
     EXPECT_EQ(0, d.blocked_get_cookies_count());
-    EXPECT_EQ(2, d.blocked_set_cookie_count());
+    EXPECT_EQ(0, d.blocked_set_cookie_count());
   }
 
   // Verify the cookies weren't saved or updated.
