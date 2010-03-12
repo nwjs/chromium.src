@@ -259,7 +259,7 @@
   width += (2 * bookmarks::kBookmarkVerticalPadding);
   windowFrame.size.width = width;
 
-  // Make the window fit on screen, with a distance of at least |padding| to
+  // Make the window fit on screen, with a distance of at least |padding| from
   // the sides.
   const CGFloat padding = 8;
   NSRect screenFrame = [[[self window] screen] frame];
