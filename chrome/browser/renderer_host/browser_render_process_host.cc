@@ -460,10 +460,12 @@ void BrowserRenderProcessHost::AppendRendererCommandLine(
 
   ChildProcessHost::SetCrashReporterCommandLine(command_line);
 
-  const std::string& profile_path =
-      browser_command_line.GetSwitchValueASCII(switches::kUserDataDir);
-  if (!profile_path.empty())
-    command_line->AppendSwitchWithValue(switches::kUserDataDir, profile_path);
+  FilePath user_data_dir =
+      browser_command_line.GetSwitchValuePath(switches::kUserDataDir);
+
+  if (!user_data_dir.empty())
+    command_line->AppendSwitchWithValue(switches::kUserDataDir,
+                                        user_data_dir.value());
 }
 
 void BrowserRenderProcessHost::PropogateBrowserCommandLineToRenderer(
