@@ -7,6 +7,7 @@
 
 #include "base/basictypes.h"
 #include "base/string16.h"
+#include "third_party/WebKit/WebKit/chromium/public/WebFrame.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebStorageArea.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebString.h"
 
