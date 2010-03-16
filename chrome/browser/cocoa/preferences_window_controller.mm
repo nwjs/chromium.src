@@ -430,8 +430,10 @@ class PrefObserverBridge : public NotificationObserver,
 class PersonalDataManagerObserver : public PersonalDataManager::Observer {
  public:
   explicit PersonalDataManagerObserver(
-      PersonalDataManager* personal_data_manager)
-      : personal_data_manager_(personal_data_manager) {
+      PersonalDataManager* personal_data_manager,
+      Profile* profile)
+      : personal_data_manager_(personal_data_manager),
+        profile_(profile) {
   }
 
   virtual ~PersonalDataManagerObserver();
@@ -442,7 +444,8 @@ class PersonalDataManagerObserver : public PersonalDataManager::Observer {
   // Static method to dispatch to |ShowAutoFillDialog| method in autofill
   // module.  This is public to facilitate direct external call when the
   // data manager has already loaded its data.
-  static void ShowAutoFillDialog(PersonalDataManager* personal_data_manager);
+  static void ShowAutoFillDialog(PersonalDataManager* personal_data_manager,
+                                 Profile* profile);
 
  private:
   // Utility method to remove |this| from |personal_data_manager_| as an
@@ -454,6 +457,9 @@ class PersonalDataManagerObserver : public PersonalDataManager::Observer {
   // |OnPersonalDataLoaded| method.  This may be NULL.
   // Weak reference.
   PersonalDataManager* personal_data_manager_;
+
+  // Profile of caller.  Held as weak reference.  May not be NULL.
+  Profile* profile_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(PersonalDataManagerObserver);
@@ -477,24 +483,26 @@ void PersonalDataManagerObserver::RemoveObserver() {
 // (deleting |this| in the process).
 void PersonalDataManagerObserver::OnPersonalDataLoaded() {
   RemoveObserver();
-  PersonalDataManagerObserver::ShowAutoFillDialog(personal_data_manager_);
+  PersonalDataManagerObserver::ShowAutoFillDialog(personal_data_manager_,
+                                                  profile_);
 }
 
 // Dispatches request to show the autofill dialog.  If there are no profiles
 // in the |personal_data_manager| the we create a new one here.  Similary with
 // credit card info.
 void PersonalDataManagerObserver::ShowAutoFillDialog(
-    PersonalDataManager* personal_data_manager) {
+    PersonalDataManager* personal_data_manager, Profile* profile) {
+  DCHECK(profile);
   if (!personal_data_manager)
     return;
 
   std::vector<AutoFillProfile*> profiles = personal_data_manager->profiles();
-  AutoFillProfile profile(ASCIIToUTF16(""), 0);
+  AutoFillProfile autofill_profile(ASCIIToUTF16(""), 0);
   if (profiles.size() == 0) {
     string16 new_profile_name =
         l10n_util::GetStringUTF16(IDS_AUTOFILL_NEW_ADDRESS);
-    profile.set_label(new_profile_name);
-    profiles.push_back(&profile);
+    autofill_profile.set_label(new_profile_name);
+    profiles.push_back(&autofill_profile);
   }
 
   std::vector<CreditCard*> credit_cards = personal_data_manager->credit_cards();
@@ -506,7 +514,7 @@ void PersonalDataManagerObserver::ShowAutoFillDialog(
     credit_cards.push_back(&credit_card);
   }
 
-  ::ShowAutoFillDialog(personal_data_manager, profiles, credit_cards);
+  ::ShowAutoFillDialog(personal_data_manager, profiles, credit_cards, profile);
 }
 
 }  // namespace PreferencesWindowControllerInternal
@@ -1274,13 +1282,14 @@ const int kDisabledIndex = 1;
   if (personalDataManager->IsDataLoaded()) {
     // |personalDataManager| data is loaded, we can proceed with the dialog.
     PreferencesWindowControllerInternal::
-        PersonalDataManagerObserver::ShowAutoFillDialog(personalDataManager);
+        PersonalDataManagerObserver::ShowAutoFillDialog(personalDataManager,
+                                                        profile_);
   } else {
     // |personalDataManager| data is NOT loaded, so we load it here, installing
     // our observer.
     personalDataManagerObserver_.reset(
         new PreferencesWindowControllerInternal::PersonalDataManagerObserver(
-          personalDataManager));
+          personalDataManager, profile_));
     personalDataManager->SetObserver(personalDataManagerObserver_.get());
   }
 }
