@@ -9,6 +9,7 @@
 #include "app/gfx/gtk_util.h"
 #include "app/l10n_util.h"
 #include "app/resource_bundle.h"
+#include "base/command_line.h"
 #include "chrome/browser/browser.h"
 #include "chrome/browser/browser_list.h"
 #include "chrome/browser/browser_window.h"
@@ -20,6 +21,7 @@
 #include "chrome/browser/gtk/options/passwords_exceptions_window_gtk.h"
 #include "chrome/browser/pref_service.h"
 #include "chrome/browser/sync/sync_ui_util.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/common/gtk_util.h"
 #include "chrome/common/notification_service.h"
 #include "chrome/common/pref_names.h"
@@ -74,8 +76,15 @@ ContentPageGtk::ContentPageGtk(Profile* profile)
   // Add preferences observers.
   ask_to_save_passwords_.Init(prefs::kPasswordManagerEnabled,
                               profile->GetPrefs(), this);
-  enable_form_autofill_.Init(prefs::kAutoFillEnabled,
-                             profile->GetPrefs(), this);
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableAutoFill)) {
+    enable_form_autofill_.Init(prefs::kAutoFillEnabled,
+                               profile->GetPrefs(), this);
+  } else {
+    enable_form_autofill_.Init(prefs::kFormAutofillEnabled,
+                               profile->GetPrefs(), this);
+  }
+
   if (browser_defaults::kCanToggleSystemTitleBar) {
     use_custom_chrome_frame_.Init(prefs::kUseCustomChromeFrame,
                                   profile->GetPrefs(), this);
@@ -126,7 +135,15 @@ void ContentPageGtk::NotifyPrefChanged(const std::wstring* pref_name) {
           GTK_TOGGLE_BUTTON(passwords_neversave_radio_), TRUE);
     }
   }
-  if (!pref_name || *pref_name == prefs::kAutoFillEnabled) {
+  std::wstring autofill_pref;
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableAutoFill)) {
+        autofill_pref = prefs::kAutoFillEnabled;
+  } else {
+    autofill_pref = prefs::kFormAutofillEnabled;
+  }
+
+  if (!pref_name || *pref_name == autofill_pref) {
     if (enable_form_autofill_.GetValue()) {
       gtk_toggle_button_set_active(
           GTK_TOGGLE_BUTTON(form_autofill_enable_radio_), TRUE);
@@ -241,14 +258,17 @@ GtkWidget* ContentPageGtk::InitFormAutofillGroup() {
   gtk_container_add(GTK_CONTAINER(vbox), button_hbox);
 
   // Autofill button.
-  GtkWidget* autofill_button = gtk_button_new_with_label(
-      l10n_util::GetStringUTF8(IDS_OPTIONS_AUTOFILL_SETTINGS).c_str());
-  if (!personal_data_)
-    gtk_widget_set_sensitive(autofill_button, FALSE);
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableAutoFill)) {
+    GtkWidget* autofill_button = gtk_button_new_with_label(
+        l10n_util::GetStringUTF8(IDS_OPTIONS_AUTOFILL_SETTINGS).c_str());
+    if (!personal_data_)
+      gtk_widget_set_sensitive(autofill_button, FALSE);
 
-  g_signal_connect(G_OBJECT(autofill_button), "clicked",
-                   G_CALLBACK(OnAutoFillButtonClicked), this);
-  gtk_box_pack_start(GTK_BOX(button_hbox), autofill_button, FALSE, FALSE, 0);
+    g_signal_connect(G_OBJECT(autofill_button), "clicked",
+                     G_CALLBACK(OnAutoFillButtonClicked), this);
+    gtk_box_pack_start(GTK_BOX(button_hbox), autofill_button, FALSE, FALSE, 0);
+  }
 
   return vbox;
 }

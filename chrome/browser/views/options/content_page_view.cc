@@ -13,6 +13,7 @@
 #include "app/gfx/native_theme_win.h"
 #include "app/l10n_util.h"
 #include "app/resource_bundle.h"
+#include "base/command_line.h"
 #include "chrome/browser/autofill/autofill_dialog.h"
 #include "chrome/browser/autofill/personal_data_manager.h"
 #include "chrome/browser/browser.h"
@@ -24,6 +25,7 @@
 #include "chrome/browser/views/importer_view.h"
 #include "chrome/browser/views/options/options_group_view.h"
 #include "chrome/browser/views/options/passwords_exceptions_window_view.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "grit/generated_resources.h"
 #include "grit/locale_settings.h"
@@ -208,8 +210,16 @@ void ContentPageView::InitControlLayout() {
   // Init member prefs so we can update the controls if prefs change.
   ask_to_save_passwords_.Init(prefs::kPasswordManagerEnabled,
                               profile()->GetPrefs(), this);
-  ask_to_save_form_autofill_.Init(prefs::kAutoFillEnabled,
-                                  profile()->GetPrefs(), this);
+
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableAutoFill)) {
+    ask_to_save_form_autofill_.Init(prefs::kAutoFillEnabled,
+                                    profile()->GetPrefs(), this);
+  } else {
+    ask_to_save_form_autofill_.Init(prefs::kFormAutofillEnabled,
+                                    profile()->GetPrefs(), this);
+  }
+
   is_using_default_theme_.Init(prefs::kCurrentThemeID,
                                profile()->GetPrefs(), this);
 }
@@ -221,6 +231,13 @@ void ContentPageView::NotifyPrefChanged(const std::wstring* pref_name) {
     } else {
       passwords_neversave_radio_->SetChecked(true);
     }
+  }
+  std::wstring autofill_pref;
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableAutoFill)) {
+    autofill_pref = prefs::kAutoFillEnabled;
+  } else {
+    autofill_pref = prefs::kFormAutofillEnabled;
   }
   if (!pref_name || *pref_name == prefs::kAutoFillEnabled) {
     if (ask_to_save_form_autofill_.GetValue()) {
@@ -327,7 +344,6 @@ void ContentPageView::InitFormAutofillGroup() {
   if (!profile()->GetPersonalDataManager())
     change_autofill_settings_button_->SetEnabled(false);
 
-
   using views::GridLayout;
   using views::ColumnSet;
 
@@ -351,7 +367,11 @@ void ContentPageView::InitFormAutofillGroup() {
   layout->AddView(form_autofill_disable_radio_);
   layout->AddPaddingRow(0, kRelatedControlVerticalSpacing);
   layout->StartRow(0, leading_column_view_set_id);
-  layout->AddView(change_autofill_settings_button_);
+
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableAutoFill)) {
+    layout->AddView(change_autofill_settings_button_);
+  }
 
   form_autofill_group_ = new OptionsGroupView(
       contents, l10n_util::GetString(IDS_AUTOFILL_SETTING_WINDOWS_GROUP_NAME),

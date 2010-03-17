@@ -40,9 +40,16 @@ void AutoFillManager::RegisterBrowserPrefs(PrefService* prefs) {
 
 // static
 void AutoFillManager::RegisterUserPrefs(PrefService* prefs) {
-  prefs->RegisterBooleanPref(prefs::kAutoFillInfoBarShown, false);
-  prefs->RegisterBooleanPref(prefs::kAutoFillEnabled, true);
-  prefs->RegisterBooleanPref(prefs::kAutoFillAuxiliaryProfilesEnabled, false);
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableAutoFill)) {
+    prefs->RegisterBooleanPref(prefs::kAutoFillInfoBarShown, false);
+    prefs->RegisterBooleanPref(prefs::kAutoFillEnabled, true);
+    prefs->RegisterBooleanPref(prefs::kAutoFillAuxiliaryProfilesEnabled, false);
+  } else {
+    prefs->RegisterBooleanPref(prefs::kAutoFillInfoBarShown, true);
+    prefs->RegisterBooleanPref(prefs::kAutoFillEnabled, false);
+    prefs->RegisterBooleanPref(prefs::kAutoFillAuxiliaryProfilesEnabled, false);
+  }
 }
 
 void AutoFillManager::FormFieldValuesSubmitted(
@@ -291,6 +298,10 @@ void AutoFillManager::Reset() {
 }
 
 bool AutoFillManager::IsAutoFillEnabled() {
+  if (!CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableAutoFill))
+    return false;
+
   // The PersonalDataManager is NULL in OTR.
   if (!personal_data_)
     return false;

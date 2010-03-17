@@ -272,6 +272,9 @@ const char kEnableNaClOnMac[]                    = "enable-nacl-on-mac";
 // Enable Native Web Worker support.
 const char kEnableNativeWebWorkers[]        = "enable-native-web-workers";
 
+// Enable AutoFill++.
+const char kEnableAutoFill[]                = "enable-autofill";
+
 // Enable Privacy Blacklists.
 const char kEnablePrivacyBlacklists[]       = "enable-privacy-blacklists";
 
