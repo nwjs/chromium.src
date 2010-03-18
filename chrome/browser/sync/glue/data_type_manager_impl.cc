@@ -58,7 +58,7 @@ void DataTypeManagerImpl::Start(StartCallback* start_callback) {
   if (!backend_->RequestPause()) {
     RemoveObserver(NotificationType::SYNC_PAUSED);
     state_ = STOPPED;
-    start_callback_->Run(UNRECOVERABLE_ERROR);
+    start_callback_->Run(ABORTED);
     start_callback_.reset();
   }
 }
@@ -90,7 +90,7 @@ void DataTypeManagerImpl::StartNextType() {
   if (!backend_->RequestResume()) {
     RemoveObserver(NotificationType::SYNC_RESUMED);
     FinishStop();
-    start_callback_->Run(UNRECOVERABLE_ERROR);
+    start_callback_->Run(ABORTED);
     start_callback_.reset();
   }
 }
@@ -185,7 +185,7 @@ bool DataTypeManagerImpl::IsEnabled(syncable::ModelType type) {
 void DataTypeManagerImpl::Observe(NotificationType type,
                                   const NotificationSource& source,
                                   const NotificationDetails& details) {
-  switch(type.value) {
+  switch (type.value) {
     case NotificationType::SYNC_PAUSED:
       DCHECK_EQ(state_, PAUSE_PENDING);
       state_ = STARTING;
