@@ -213,11 +213,4 @@ string16 TranslateInfoBarDelegate::GetDisplayNameForLocale(
       language_code, g_browser_process->GetApplicationLocale(), true);
 }
 
-#if !defined(TOOLKIT_VIEWS) && !defined(OS_MACOSX)
-// TranslateInfoBarDelegate: InfoBarDelegate overrides: ------------------------
 
-InfoBar* TranslateInfoBarDelegate::CreateInfoBar() {
-  NOTIMPLEMENTED();
-  return NULL;
-}
-#endif  // !TOOLKIT_VIEWS

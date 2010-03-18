@@ -1217,6 +1217,8 @@
         'browser/gtk/throb_controller_gtk.h',
         'browser/gtk/toolbar_star_toggle_gtk.cc',
         'browser/gtk/toolbar_star_toggle_gtk.h',
+        'browser/gtk/translate_infobars.cc',
+        'browser/gtk/translate_infobars.h',
         'browser/gtk/view_id_util.cc',
         'browser/gtk/view_id_util.h',
         'browser/hang_monitor/hung_plugin_action.cc',
