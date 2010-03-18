@@ -448,7 +448,7 @@ TEST_F(ProfileSyncServiceTest, AbortedByShutdown) {
   service_.reset(new TestProfileSyncService(&factory_, profile_.get(), false));
   EXPECT_CALL(factory_, CreateDataTypeManager(_, _)).
       WillOnce(MakeDataTypeManager(&backend_mock_));
-  EXPECT_CALL(factory_, CreateBookmarkSyncComponents(_, _)).Times(0);
+  EXPECT_CALL(factory_, CreateBookmarkSyncComponents(_)).Times(0);
   service_->RegisterDataTypeController(
       new browser_sync::BookmarkDataTypeController(&factory_,
                                                    profile_.get(),
