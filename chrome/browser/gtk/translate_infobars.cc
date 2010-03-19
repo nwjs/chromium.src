@@ -6,11 +6,11 @@
 
 #include "app/l10n_util.h"
 #include "chrome/app/chrome_dll_resource.h"
-#include "chrome/browser/gtk/gtk_util.h"
 #include "chrome/browser/gtk/menu_gtk.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/browser/translate/translate_infobars_delegates.h"
 #include "chrome/browser/translate/options_menu_model.h"
+#include "chrome/common/gtk_util.h"
 #include "chrome/common/notification_service.h"
 #include "grit/app_resources.h"
 #include "grit/generated_resources.h"
