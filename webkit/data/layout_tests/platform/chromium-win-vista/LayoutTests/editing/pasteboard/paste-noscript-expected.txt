@@ -1,0 +1,12 @@
+CONSOLE MESSAGE: line 1: Uncaught ReferenceError: sayHello is not defined
+CONSOLE MESSAGE: line 35: Uncaught TypeError: Property 'childNodes' of object #<an HTMLDivElement> is not a function
+This test copies all the elements containing event handlers and javascript urls, pastes them in an editable area and verifies that no script, handlers or javascript urls are copied.
+Hello 
+CNN Hello 
+This is a form
+
+Hello 
+CNN Hello 
+This is a form
+
+<button id="button1" onclick="sayHello()" ondblclick="sayHello()" style="width: 100px;">Hello</button>
