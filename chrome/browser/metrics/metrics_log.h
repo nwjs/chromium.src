@@ -106,6 +106,10 @@ class MetricsLog {
   // Get the current version of the application as a string.
   static std::string GetVersionString();
 
+  // Get the amount of uptime in seconds since this function was last called.
+  // This updates the cumulative uptime metric for uninstall as a side effect.
+  static int64 GetIncrementalUptime(PrefService* pref);
+
  protected:
   // Returns a string containing the current time.
   // Virtual so that it can be overridden for testing.

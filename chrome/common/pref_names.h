@@ -148,7 +148,6 @@ extern const wchar_t kStabilityRendererCrashCount[];
 extern const wchar_t kStabilityExtensionRendererCrashCount[];
 extern const wchar_t kStabilityLaunchTimeSec[];
 extern const wchar_t kStabilityLastTimestampSec[];
-extern const wchar_t kStabilityUptimeSec[];
 extern const wchar_t kStabilityRendererHangCount[];
 extern const wchar_t kStabilityChildProcessCrashCount[];
 
