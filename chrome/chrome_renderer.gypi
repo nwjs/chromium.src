@@ -187,14 +187,6 @@
         }],
         # Linux-specific rules.
         ['OS=="linux"', {
-          'conditions': [
-            [ 'linux_use_tcmalloc==1', {
-                'dependencies': [
-                  '../base/allocator/allocator.gyp:allocator',
-                ],
-	      },
-	    ],
-	  ],
           'dependencies': [
             '../build/linux/system.gyp:gtk',
             '../sandbox/sandbox.gyp:sandbox',
