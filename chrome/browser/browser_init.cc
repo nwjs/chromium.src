@@ -500,7 +500,7 @@ bool BrowserInit::LaunchWithProfile::Launch(Profile* profile,
       // pref is registered by the plugin service.)
       if (!prefs->GetBoolean(prefs::kPluginsFlashAuthorized)) {
         urls_to_open.push_back(
-            GURL(chrome::kChromeUIPluginsAuthorizeFlashPathURL));
+            GURL(chrome::kChromeUIEulaAuthorizeFlashURL));
       }
     }
 
