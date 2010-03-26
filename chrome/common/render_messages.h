@@ -1921,12 +1921,14 @@ struct ParamTraits<ViewMsg_DatabaseOpenFileResponse_Params> {
 #if defined(OS_POSIX)
     WriteParam(m, p.dir_handle);
 #endif
+    WriteParam(m, p.blocked);
   }
   static bool Read(const Message* m, void** iter, param_type* p) {
     return ReadParam(m, iter, &p->file_handle)
 #if defined(OS_POSIX)
         && ReadParam(m, iter, &p->dir_handle)
 #endif
+        && ReadParam(m, iter, &p->blocked)
       ;
   }
   static void Log(const param_type& p, std::wstring* l) {
