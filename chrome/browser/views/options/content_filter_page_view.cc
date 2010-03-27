@@ -13,6 +13,7 @@
 #include "chrome/browser/profile.h"
 #include "chrome/browser/views/options/exceptions_view.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/common/url_constants.h"
 #include "gfx/native_theme_win.h"
 #include "grit/generated_resources.h"
 #include "grit/locale_settings.h"
