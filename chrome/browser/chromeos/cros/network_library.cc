@@ -266,9 +266,9 @@ void NetworkLibrary::Init() {
                                               this);
 }
 
-void NetworkLibraryImpl::EnableNetworkDeviceType(ConnectionType device,
-                                                 bool enable) {
-  if (!CrosLibrary::Get()->EnsureLoaded())
+void NetworkLibrary::EnableNetworkDeviceType(ConnectionType device,
+                                             bool enable) {
+  if (!CrosLibrary::EnsureLoaded())
     return;
 
   // If network device is already enabled/disabled, then don't do anything.
