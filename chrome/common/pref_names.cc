@@ -325,6 +325,9 @@ const wchar_t kBlockThirdPartyCookies[] = L"profile.block_third_party_cookies";
 // storage, etc..) should be deleted on exit.
 const wchar_t kClearSiteDataOnExit[] = L"profile.clear_site_data_on_exit";
 
+// Boolean that is true when the translate feature is enabled.
+const wchar_t kEnableTranslate[] = L"translate.enabled";
+
 // *************** LOCAL STATE ***************
 // These are attached to the machine/installation
 

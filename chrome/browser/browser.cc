@@ -1342,6 +1342,7 @@ void Browser::RegisterUserPrefs(PrefService* prefs) {
   prefs->RegisterIntegerPref(prefs::kNTPPromoLineRemaining, 5);
   prefs->RegisterIntegerPref(prefs::kNTPPromoImageRemaining, 5);
   prefs->RegisterBooleanPref(prefs::kShowExtensionShelf, true);
+  prefs->RegisterBooleanPref(prefs::kEnableTranslate, true);
 }
 
 // static

@@ -10,6 +10,7 @@
 #include "chrome/common/ipc_test_sink.h"
 #include "chrome/common/notification_registrar.h"
 #include "chrome/common/notification_service.h"
+#include "chrome/common/pref_names.h"
 #include "chrome/common/render_messages.h"
 #include "chrome/test/testing_browser_process.h"
 #include "third_party/cld/bar/toolbar/cld/i18n/languages/public/languages.h"
@@ -433,30 +434,31 @@ TEST_F(TranslateManagerTest, TranslateInPageNavigation) {
   EXPECT_TRUE(GetTranslateInfoBar() != NULL);
 }
 
-// Tests that no translate infobar is shown when navigating to a page in an
-// unsupported language.
-TEST_F(TranslateManagerTest, UnsupportedPageLanguage) {
-  // Simulate navigating to a page and getting an unsupported language.
-  SimulateNavigation(GURL("http://www.google.com"), 0, L"Google", "qbz");
+// Tests that the translate preference is honored.
+TEST_F(TranslateManagerTest, TranslatePref) {
+  // Make sure the pref allows translate.
+  PrefService* prefs = contents()->profile()->GetPrefs();
+  prefs->SetBoolean(prefs::kEnableTranslate, true);
 
-  // No info-bar should be shown.
-  EXPECT_TRUE(GetTranslateInfoBar() == NULL);
-}
+  // Simulate navigating to a page and gettings its language.
+  SimulateNavigation(GURL("http://www.google.fr"), 0, L"Le Google", "fr");
 
-// Tests that no translate infobar is shown when Chrome is in a language that
-// the translate server does not support.
-TEST_F(TranslateManagerTest, UnsupportedUILanguage) {
-  TestingBrowserProcess* browser_process =
-      static_cast<TestingBrowserProcess*>(g_browser_process);
-  std::string original_lang = browser_process->GetApplicationLocale();
-  browser_process->set_application_locale("qbz");
+  // An infobar should be shown.
+  TranslateInfoBarDelegate* infobar = GetTranslateInfoBar();
+  EXPECT_TRUE(infobar != NULL);
 
-  // Simulate navigating to a page in a language supported by the translate
-  // server.
-  SimulateNavigation(GURL("http://www.google.com"), 0, L"Google", "en");
+  // Disable translate.
+  prefs->SetBoolean(prefs::kEnableTranslate, false);
 
-  // No info-bar should be shown.
-  EXPECT_TRUE(GetTranslateInfoBar() == NULL);
+  // Navigate to a new page, that should close the previous infobar.
+  GURL url("http://www.youtube.fr");
+  NavigateAndCommit(url);
+  infobar = GetTranslateInfoBar();
+  EXPECT_TRUE(infobar == NULL);
 
-  browser_process->set_application_locale(original_lang);
+  // Simulate getting the page contents and language, that should not trigger
+  // a translate infobar.
+  SimulateOnPageContents(url, 1, L"Le YouTube", "fr");
+  infobar = GetTranslateInfoBar();
+  EXPECT_TRUE(infobar == NULL);
 }
