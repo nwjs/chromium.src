@@ -715,7 +715,7 @@
 <translation id="6543631358510643997">Esta extensão terá acesso total ao seu computador e aos seus dados privados.</translation>
 <translation id="111844081046043029">Tem a certeza de que pretende sair desta página?</translation>
 <translation id="4497415007571823067">Tentou aceder a &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, mas, em vez disso, acedeu a um servidor que se identifica como &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;. Isto poderá dever-se a uma configuração incorrecta no servidor ou a algo mais sério. Um utilizador mal intencionado na sua rede poderá estar a tentar levá-lo a visitar uma versão falsa (e potencialmente maliciosa) de &lt;strong&gt;<ph name="DOMAIN3"/>&lt;/strong&gt;. Não deverá prosseguir.</translation>
-<translation id="3202578601642193415">Mais recente</translation>
+<translation id="3202578601642193415">O mais recente</translation>
 <translation id="8112886015144590373"><ph name="NUMBER_FEW"/> horas</translation>
 <translation id="8739589585766515812">Eliminar histórico deste dia</translation>
 <translation id="1398853756734560583">Maximizar</translation>
@@ -1113,6 +1113,7 @@
 <translation id="7505152414826719222">Armazenamento local</translation>
 <translation id="5706242308519462060">Codificação predefinida:</translation>
 <translation id="5280833172404792470">Sair do modo de ecrã inteiro (<ph name="ACCELERATOR"/>)</translation>
+<translation id="6193618946302416945">Sugerir a tradução de páginas que não estejam num idioma que eu saiba ler</translation>
 <translation id="129553762522093515">Fechadas recentemente</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> dias</translation>
 <translation id="3891357445869647828">Activar JavaScript</translation>

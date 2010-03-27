@@ -555,8 +555,7 @@
 <translation id="6883611015375728278">Αποκλεισμός όλων των cookies</translation>
 <translation id="3819791248093819058">Δεν βρέθηκε καμία ιστοσελίδα για τη διεύθυνση ιστού: &lt;strong jscontent=&quot;failedUrl&quot;&gt;&lt;/strong&gt;</translation>
 <translation id="7842346819602959665">Η πιο πρόσφατη έκδοση της επέκτασης &quot;<ph name="EXTENSION_NAME"/>&quot; απαιτεί περισσότερα δικαιώματα, οπότε απενεργοποιήθηκε.</translation>
-<translation id="6979448128170032817">Εξαιρέσεις...
-</translation>
+<translation id="6979448128170032817">Εξαιρέσεις...</translation>
 <translation id="208047771235602537">Θέλετε να κλείσετε το <ph name="PRODUCT_NAME"/> ενώ έχετε μια λήψη σε εξέλιξη;</translation>
 <translation id="6710213216561001401">Προηγούμενο</translation>
 <translation id="1567993339577891801">Κονσόλα JavaScript</translation>
@@ -1122,6 +1121,7 @@
 <translation id="7505152414826719222">Αποθήκευση τοπικά</translation>
 <translation id="5706242308519462060">Προεπιλεγμένη κωδικοποίηση:</translation>
 <translation id="5280833172404792470">Έξοδος από πλήρη οθόνη (<ph name="ACCELERATOR"/>)</translation>
+<translation id="6193618946302416945">Να προτείνεται η μετάφραση σελίδων που είναι σε γλώσσα που δεν μπορώ να διαβάσω</translation>
 <translation id="129553762522093515">Έκλεισαν πρόσφατα</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> ημέρες</translation>
 <translation id="3891357445869647828">Ενεργοποίηση JavaScript</translation>

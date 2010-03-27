@@ -556,8 +556,7 @@
 <translation id="6883611015375728278">Alle Cookies blockieren</translation>
 <translation id="3819791248093819058">Für die Webadresse wurde keine Webseite gefunden: &lt;strong jscontent=&quot;failedUrl&quot;&gt;&lt;/strong&gt;</translation>
 <translation id="7842346819602959665">Die neueste Version der Erweiterung &quot;<ph name="EXTENSION_NAME"/>&quot; benötigt mehr Berechtigungen und wurde daher deaktiviert.</translation>
-<translation id="6979448128170032817">Ausnahmen...
-</translation>
+<translation id="6979448128170032817">Ausnahmen...</translation>
 <translation id="208047771235602537">Sind Sie sicher, dass Sie <ph name="PRODUCT_NAME"/> beenden wollen, während ein Download läuft?</translation>
 <translation id="6710213216561001401">Zurück</translation>
 <translation id="1567993339577891801">JavaScript-Konsole</translation>
@@ -1124,6 +1123,7 @@ Sie können Ihre Webclips <ph name="BEGIN_LINK"/>anpassen<ph name="END_LINK"/> u
 <translation id="7505152414826719222">Lokaler Speicher</translation>
 <translation id="5706242308519462060">Standard-Codierung:</translation>
 <translation id="5280833172404792470">Vollbildmodus beenden (<ph name="ACCELERATOR"/>)</translation>
+<translation id="6193618946302416945">Übersetzung für fremdsprachige Seiten anbieten</translation>
 <translation id="129553762522093515">Kürzlich geschlossen</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> Tage</translation>
 <translation id="3891357445869647828">JavaScript aktivieren</translation>

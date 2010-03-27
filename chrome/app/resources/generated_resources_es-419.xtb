@@ -1114,6 +1114,7 @@
 <translation id="7505152414826719222">Almacenaje local</translation>
 <translation id="5706242308519462060">Codificación predeterminada:</translation>
 <translation id="5280833172404792470">Salir de pantalla completa (<ph name="ACCELERATOR"/>)</translation>
+<translation id="6193618946302416945">Ofrecimiento para traducir páginas que no están en un idioma que puedo leer</translation>
 <translation id="129553762522093515">Cerrado recientemente</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> días</translation>
 <translation id="3891357445869647828">Habilitar JavaScript</translation>
@@ -1237,7 +1238,7 @@
 <translation id="8709969075297564489">Comprobar la revocación del certificado del servidor</translation>
 <translation id="8698171900303917290">¿Tiene problemas con la instalación?</translation>
 <translation id="4861833787540810454">Reproducir</translation>
-<translation id="2552545117464357659">Más reciente</translation>
+<translation id="2552545117464357659">Reciente</translation>
 <translation id="5869522115854928033">Contraseñas almacenadas</translation>
 <translation id="1709220265083931213">Avanzadas</translation>
 <translation id="4771973620359291008">Se ha producido un error desconocido.</translation>

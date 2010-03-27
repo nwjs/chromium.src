@@ -555,8 +555,7 @@
 <translation id="6883611015375728278">Blocaţi toate cookie-urile</translation>
 <translation id="3819791248093819058">Nu a fost găsită nicio pagină Web pentru adresa: &lt;strong jscontent=&quot;failedUrl&quot;&gt;&lt;/strong&gt;</translation>
 <translation id="7842346819602959665">Cea mai recentă versiune a extensiei „<ph name="EXTENSION_NAME"/>” necesită permisiuni suplimentare, astfel că a fost dezactivată.</translation>
-<translation id="6979448128170032817">Excepţii...
-</translation>
+<translation id="6979448128170032817">Excepţii...</translation>
 <translation id="208047771235602537">O descărcare este în curs. Ieşiţi totuşi din <ph name="PRODUCT_NAME"/>?</translation>
 <translation id="6710213216561001401">Înapoi</translation>
 <translation id="1567993339577891801">Consolă JavaScript</translation>
@@ -1116,6 +1115,7 @@
 <translation id="7505152414826719222">Stocare locală</translation>
 <translation id="5706242308519462060">Codificare prestabilită:</translation>
 <translation id="5280833172404792470">Ieşiţi din ecran complet (<ph name="ACCELERATOR"/>)</translation>
+<translation id="6193618946302416945">Doresc să mi se ofere posibilitatea traducerii paginilor care nu sunt în limba în care citesc</translation>
 <translation id="129553762522093515">Închise recent</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> zile</translation>
 <translation id="3891357445869647828">Activaţi JavaScript</translation>

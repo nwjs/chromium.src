@@ -365,7 +365,7 @@
 <translation id="2869459179306435079">से सेटिंग्स आयात करें :</translation>
 <translation id="732677191631732447">ऑडियो URL की प्र&amp;तिलिपि करें</translation>
 <translation id="4999762576397546063">Ctrl+<ph name="KEY_COMBO_NAME"/></translation>
-<translation id="3369624026883419694">होस्ट हल हो रहा है...</translation>
+<translation id="3369624026883419694">होस्ट को विभाजित करना...</translation>
 <translation id="8870413625673593573">हाल ही में बंद किया गया</translation>
 <translation id="9145357542626308749">साइट के सुरक्षा प्रमाणपत्र को एक कमजोर हस्ताक्षर एल्गोरिथ्म का उपयोग करके हस्ताक्षरित किया गया है!</translation>
 <translation id="8800574954100068740">डिफ़ॉल्ट खोज</translation>
@@ -484,7 +484,7 @@
 <translation id="2953767478223974804"><ph name="NUMBER_ONE"/> मिनट</translation>
 <translation id="6315493146179903667">सभी सामने लाएं</translation>
 <translation id="5095777643592758820">बुकमार्क सिंक त्रुटि...</translation>
-<translation id="5015344424288992913">प्रॉक्सी हल हो रहा है...</translation>
+<translation id="5015344424288992913">प्रॉक्सी को विभाजित करना...</translation>
 <translation id="3675321783533846350">नेटवर्क से कनेक्ट करने के लिए प्रॉक्सी सेट करें.</translation>
 <translation id="1572103024875503863"><ph name="NUMBER_MANY"/> दिन</translation>
 <translation id="8453184121293348016">कोई निरस्तीकरण प्रक्रिया प्राप्त नहीं हुई</translation>
@@ -1114,6 +1114,7 @@
 <translation id="7505152414826719222">स्थानीय संग्रह</translation>
 <translation id="5706242308519462060">डिफॉल्ट एन्कोडिंग :</translation>
 <translation id="5280833172404792470">संपूर्ण स्क्रीन से बाहर निकलें (<ph name="ACCELERATOR"/>)</translation>
+<translation id="6193618946302416945">उन पृष्ठों का अनुवाद करना प्रस्तावित करें जो मेरे द्वारा पढ़ी जाने वाली भाषा में नहीं है</translation>
 <translation id="129553762522093515">हाल में बंद किया गया</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/>दिन</translation>
 <translation id="3891357445869647828">JavaScript सक्षम करें</translation>

@@ -554,8 +554,7 @@
 <translation id="6883611015375728278">Tüm çerezleri engelle</translation>
 <translation id="3819791248093819058">Şu web adresi için web sayfası bulunamadı: &lt;strong jscontent=&quot;failedUrl&quot;&gt;&lt;/strong&gt;</translation>
 <translation id="7842346819602959665">&quot;<ph name="EXTENSION_NAME"/>&quot; uzantısının en yeni sürümü daha fazla izin gerektirir. Bu nedenle devre dışı bırakılmış.</translation>
-<translation id="6979448128170032817">İstisnalar...
-</translation>
+<translation id="6979448128170032817">İstisnalar...</translation>
 <translation id="208047771235602537">Devam eden bir indirme işlemi varken <ph name="PRODUCT_NAME"/> uygulamasından çıkmak istiyor musunuz?</translation>
 <translation id="6710213216561001401">Önceki</translation>
 <translation id="1567993339577891801">JavaScript Konsolu</translation>
@@ -1116,6 +1115,7 @@
 <translation id="7505152414826719222">Yerel Saklama</translation>
 <translation id="5706242308519462060">Varsayılan Kodlama:</translation>
 <translation id="5280833172404792470">Tam ekrandan çık (<ph name="ACCELERATOR"/>)</translation>
+<translation id="6193618946302416945">Okuduğumdan farklı dillerdeki sayfaları çevirmeyi öner</translation>
 <translation id="129553762522093515">Yeni kapatılan</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> gün</translation>
 <translation id="3891357445869647828">JavaScript'i etkinleştir</translation>

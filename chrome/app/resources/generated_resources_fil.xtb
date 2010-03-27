@@ -554,8 +554,7 @@
 <translation id="6883611015375728278">Harangan ang lahat ng cookies</translation>
 <translation id="3819791248093819058">Walang webpage na nahanap para sa web address: &lt;strong jscontent=&quot;failedUrl&quot;&gt;&lt;/strong&gt;</translation>
 <translation id="7842346819602959665">Ang pinakabagong bersyon ng extension na &quot;<ph name="EXTENSION_NAME"/>&quot; ay nangangailangan ng marami pang mga pahintulot, kaya hindi ito pinagana.</translation>
-<translation id="6979448128170032817">Mga Pagbubukod...
-</translation>
+<translation id="6979448128170032817">Mga Pagbubukod...</translation>
 <translation id="208047771235602537">Gusto mo bang lumabas sa <ph name="PRODUCT_NAME"/> habang kasalukuyang may dina-download?</translation>
 <translation id="6710213216561001401">Nakaraan</translation>
 <translation id="1567993339577891801">Console ng JavaScript</translation>
@@ -1117,6 +1116,7 @@
 <translation id="7505152414826719222">Lokal na Imbakan</translation>
 <translation id="5706242308519462060">Default Encoding:</translation>
 <translation id="5280833172404792470">Umalis sa full screen<ph name="ACCELERATOR"/></translation>
+<translation id="6193618946302416945">Magboluntaryong isalin ang mga pahina na wala sa isang wikang binabasa ko</translation>
 <translation id="129553762522093515">Kamakailang isinara</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> mga araw</translation>
 <translation id="3891357445869647828">Pinaganang JavaScript</translation>

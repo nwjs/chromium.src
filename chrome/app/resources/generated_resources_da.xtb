@@ -1115,6 +1115,7 @@
 <translation id="7505152414826719222">Lokalt lager</translation>
 <translation id="5706242308519462060">Standardkodning:</translation>
 <translation id="5280833172404792470">Afslut fuld skærm (<ph name="ACCELERATOR"/>)</translation>
+<translation id="6193618946302416945">Tilbyd at oversætte sider, der ikke er på et sprog, jeg læser</translation>
 <translation id="129553762522093515">Senest lukkede</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> dage</translation>
 <translation id="3891357445869647828">Aktiver JavaScript</translation>
@@ -1233,7 +1234,7 @@
 <translation id="3108416241300843963">En anmodning mislykkedes, da serverens certifikat var ugyldigt.</translation>
 <translation id="7887455386323777409">Afslut plugin</translation>
 <translation id="3098216267279303060">Adgangskode til netværk</translation>
-<translation id="3761000923495507277">Vis knap til startsiden på værktøjslinien</translation>
+<translation id="3761000923495507277">Vis knap til startsiden på værktøjslinjen</translation>
 <translation id="6708242697268981054">Oprindelse:</translation>
 <translation id="8709969075297564489">Kontroller for tilbagekaldt servercertifikat</translation>
 <translation id="8698171900303917290">Har du problemer med at installere?</translation>

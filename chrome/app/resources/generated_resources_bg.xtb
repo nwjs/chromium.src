@@ -554,8 +554,7 @@
 <translation id="6883611015375728278">Блокиране на всички „бисквитки“</translation>
 <translation id="3819791248093819058">Не бе намерена уеб страница за уеб адреса: &lt;strong jscontent=&quot;failedUrl&quot;&gt;&lt;/strong&gt;</translation>
 <translation id="7842346819602959665">Най-новата версия на разширението „<ph name="EXTENSION_NAME"/>“ изисква още разрешения, така че бе деактивирана.</translation>
-<translation id="6979448128170032817">Изключения...
-</translation>
+<translation id="6979448128170032817">Изключения...</translation>
 <translation id="208047771235602537">Искате ли да излезете от <ph name="PRODUCT_NAME"/>, докато се извършва изтегляне?</translation>
 <translation id="6710213216561001401">Предишна</translation>
 <translation id="1567993339577891801">Конзола на JavaScript</translation>
@@ -1117,6 +1116,7 @@
 <translation id="7505152414826719222">Локално хранилище</translation>
 <translation id="5706242308519462060">Шифроване по подразбиране:</translation>
 <translation id="5280833172404792470">Изход от цял екран (<ph name="ACCELERATOR"/>)</translation>
+<translation id="6193618946302416945">Предложение за превод на страниците, които не са на четим от мен език</translation>
 <translation id="129553762522093515">Наскоро затворени</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> дни</translation>
 <translation id="3891357445869647828">Активиране на JavaScript</translation>

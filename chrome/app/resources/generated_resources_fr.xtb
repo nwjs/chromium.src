@@ -554,8 +554,7 @@
 <translation id="6883611015375728278">Bloquer tous les cookies</translation>
 <translation id="3819791248093819058">Aucune page Web trouvée à l'adresse Web : &lt;strong jscontent=&quot;failedUrl&quot;&gt;&lt;/strong&gt;</translation>
 <translation id="7842346819602959665">La dernière version de l'extension &quot;<ph name="EXTENSION_NAME"/>&quot; requiert d'autres permissions. Elle a donc été désactivée.</translation>
-<translation id="6979448128170032817">Exceptions...
-</translation>
+<translation id="6979448128170032817">Exceptions...</translation>
 <translation id="208047771235602537">Voulez-vous vraiment quitter <ph name="PRODUCT_NAME"/> alors qu'un téléchargement est en cours ?</translation>
 <translation id="6710213216561001401">Précédent</translation>
 <translation id="1567993339577891801">Console JavaScript</translation>
@@ -1114,6 +1113,7 @@
 <translation id="7505152414826719222">Stockage local</translation>
 <translation id="5706242308519462060">Codage par défaut :</translation>
 <translation id="5280833172404792470">Quitter le mode plein écran (<ph name="ACCELERATOR"/>)</translation>
+<translation id="6193618946302416945">Me proposer de traduire les pages qui sont écrites dans une langue que je ne peux pas lire</translation>
 <translation id="129553762522093515">Récemment fermés</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> jours</translation>
 <translation id="3891357445869647828">Activer JavaScript</translation>
@@ -1165,7 +1165,7 @@
 <translation id="170407012880898501">Enregistrer le texte des formulaires pour faciliter leur remplissage</translation>
 <translation id="8116972784401310538">&amp;Gestionnaire de favoris</translation>
 <translation id="1849632043866553433">Caches des applications</translation>
-<translation id="4927301649992043040">Extension du pack</translation>
+<translation id="4927301649992043040">Empaqueter l'extension</translation>
 <translation id="6458308652667395253">Configurer le blocage de JavaScript...</translation>
 <translation id="6040143037577758943">Fermer</translation>
 <translation id="1101671447232096497"><ph name="NUMBER_MANY"/> mins ago</translation>

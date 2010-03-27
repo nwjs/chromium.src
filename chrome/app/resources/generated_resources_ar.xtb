@@ -564,8 +564,7 @@
 <translation id="6883611015375728278">حجب ملفّات تعريف الارتباط كلّها</translation>
 <translation id="3819791248093819058">لم يتمّ العثور على أيّ صفحة ويب على العنوان: &lt;strong jscontent=&quot;failedUrl&quot;&gt;&lt;/strong&gt;</translation>
 <translation id="7842346819602959665">يتطلب أحدث إصدار من الإضافة &quot;<ph name="EXTENSION_NAME"/>&quot; مزيدًا من الأذونات، لذا فقد تم تعطيله.</translation>
-<translation id="6979448128170032817">الاستثناءات...
-</translation>
+<translation id="6979448128170032817">الاستثناءات...</translation>
 <translation id="208047771235602537">هل تريد إنهاء <ph name="PRODUCT_NAME"/> بينما التنزيل قيد التقدم؟</translation>
 <translation id="6710213216561001401">السابق</translation>
 <translation id="1567993339577891801">وحدة تحكم جافا سكريبت</translation>
@@ -1126,6 +1125,7 @@
 <translation id="7505152414826719222">تخزين محلي</translation>
 <translation id="5706242308519462060">التشفير الافتراضي:</translation>
 <translation id="5280833172404792470">إنهاء وضع ملء الشاشة (<ph name="ACCELERATOR"/>)</translation>
+<translation id="6193618946302416945">عرض ترجمة للصفحات المكتوبة بغير لغتي</translation>
 <translation id="129553762522093515">المغلقة حديثًا</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> أيام</translation>
 <translation id="3891357445869647828">تمكين جافا سكريبت</translation>

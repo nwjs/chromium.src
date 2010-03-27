@@ -476,7 +476,7 @@
 <translation id="6719684875142564568"><ph name="NUMBER_ZERO"/> hours</translation>
 <translation id="7616581516194661584">Повторяющиеся</translation>
 <translation id="8730621377337864115">Готово</translation>
-<translation id="245834195813628985">Осталось: <ph name="HOUR"/>:<ph name="MIUTE"/></translation>
+<translation id="245834195813628985"><ph name="HOUR"/>:<ph name="MIUTE"/></translation>
 <translation id="6267166720438879315">Выберите сертификат для аутентификации на <ph name="HOST_NAME"/></translation>
 <translation id="7198134478421755850">Расширение</translation>
 <translation id="4713481510227594233">Синхронизация закладок была отключена на этом компьютере. Если вы удалите <ph name="NAME_OF_EXTENSION"/>, вы сможете повторно включить синхронизацию закладок, установив флажок &quot;Синхронизировать закладки...&quot; в меню &quot;Инструменты&quot;.</translation>
@@ -496,7 +496,7 @@
 <translation id="374530189620960299">Сертификат безопасности сайта не является доверенным!</translation>
 <translation id="5048040498971143039">Результаты поиска для '<ph name="SEARCH_STRING"/>'</translation>
 <translation id="7772127298218883077">О <ph name="PRODUCT_NAME"/></translation>
-<translation id="9219103736887031265">Изображения</translation>
+<translation id="9219103736887031265">Картинки</translation>
 <translation id="5453632173748266363">Кириллица</translation>
 <translation id="8415351664471761088">Дождаться завершения загрузки</translation>
 <translation id="1545775234664667895">Установлена тема &quot;<ph name="THEME_NAME"/>&quot;</translation>
@@ -717,7 +717,7 @@
 <translation id="7893393459573308604"><ph name="ENGINE_NAME"/> (по умолчанию)</translation>
 <translation id="6543631358510643997">Это расширение будет иметь полный доступ к вашему компьютеру и личным данным.</translation>
 <translation id="111844081046043029">Вы действительно хотите покинуть эту страницу?</translation>
-<translation id="4497415007571823067">Вы попытались открыть &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, однако фактически обратились к серверу, который указывает о себе следующие данные: &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;. Это может быть вызвано ошибками кофигурации сервера или более серьезными ошибками. Возможно, атакующий в сети пытается заставить вас посетить фальсифицированныую (и возможно вредоносную) версию &lt;strong&gt;<ph name="DOMAIN3"/>&lt;/strong&gt;. Мы не рекомендуем продолжать далее.</translation>
+<translation id="4497415007571823067">Вы попытались открыть &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, однако фактически были направлены на сервер &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;. Переадресации подобного рода происходят либо из-за ошибок конфигурации сервера, либо если кто-то пытается намеренно заставить вас посетить фальсифицированную копию страницы &lt;strong&gt;<ph name="DOMAIN3"/>&lt;/strong&gt;. Возможно, страница на которую вы перейдете, содержит вирусное или вредоносное ПО. Мы рекомендуем воздержаться от перехода.</translation>
 <translation id="3202578601642193415">Последние</translation>
 <translation id="8112886015144590373"><ph name="NUMBER_FEW"/> час.</translation>
 <translation id="8739589585766515812">Удалить историю за этот день</translation>
@@ -1115,6 +1115,7 @@
 <translation id="7505152414826719222">Локальное хранилище</translation>
 <translation id="5706242308519462060">Кодировка, используемая по умолчанию:</translation>
 <translation id="5280833172404792470">Обычный режим (<ph name="ACCELERATOR"/>)</translation>
+<translation id="6193618946302416945">Предлагать перевод страниц, если я не владею языком, на котором они написаны </translation>
 <translation id="129553762522093515">Недавно закрытые</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> дн.</translation>
 <translation id="3891357445869647828">Включить JavaScript</translation>

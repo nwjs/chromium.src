@@ -25,7 +25,7 @@
 <translation id="1589055389569595240">Mostrar ortografia e gramática</translation>
 <translation id="4364779374839574930">Nenhuma impressora encontrada. Instale uma impressora.</translation>
 <translation id="8595062045771121608">Nesse caso, o certificado do servidor ou um certificado CA intermediário apresentado ao seu navegador é assinado usando um algoritmo de assinatura fraco como RSA-MD2. Pesquisas recentes realizadas por cientistas da computação mostraram que o algoritmo de assinatura é mais fraco do que acreditado anteriormente, e o algoritmo de assinatura é raramente usado por sites confiáveis atualmente. Este certificado pode ter sido forjado. Não continue além deste ponto.</translation>
-<translation id="7567293639574541773">&amp;Inspecionar elemento</translation>
+<translation id="7567293639574541773">I&amp;nspecionar elemento</translation>
 <translation id="36224234498066874">Limpar dados de navegação...</translation>
 <translation id="7600965453749440009">Nunca traduzir do <ph name="LANGUAGE"/></translation>
 <translation id="8571213806525832805">Últimas quatro semanas</translation>
@@ -554,8 +554,7 @@
 <translation id="6883611015375728278">Bloquear todos os cookies</translation>
 <translation id="3819791248093819058">Nenhuma página da web foi encontrada para o endereço da web: &lt;strong jscontent=&quot;failedUrl&quot;&gt;&lt;/strong&gt;</translation>
 <translation id="7842346819602959665">A versão mais recente da extensão &quot;<ph name="EXTENSION_NAME"/>&quot; exige mais permissões, e por isso foi desativada.</translation>
-<translation id="6979448128170032817">Exceções...
-</translation>
+<translation id="6979448128170032817">Exceções...</translation>
 <translation id="208047771235602537">Deseja sair do <ph name="PRODUCT_NAME"/> com um download em andamento?</translation>
 <translation id="6710213216561001401">Anterior</translation>
 <translation id="1567993339577891801">Console JavaScript</translation>
@@ -672,7 +671,7 @@
 <translation id="5738216285593517904">Mostrar recomendações</translation>
 <translation id="5264618369089706215">Pesquisas</translation>
 <translation id="1168020859489941584">Abrindo em <ph name="TIME_REMAINING"/>...</translation>
-<translation id="7814458197256864873">&amp;Copiar</translation>
+<translation id="7814458197256864873">Co&amp;piar</translation>
 <translation id="4692623383562244444">Mecanismos de pesquisa</translation>
 <translation id="2233040275795129413">Estilo de vida</translation>
 <translation id="2526590354069164005">Área de trabalho</translation>
@@ -1118,6 +1117,7 @@
 <translation id="7505152414826719222">Armazenamento local</translation>
 <translation id="5706242308519462060">Codificação padrão:</translation>
 <translation id="5280833172404792470">Sair do modo tela cheia (<ph name="ACCELERATOR"/>)</translation>
+<translation id="6193618946302416945">Sugerir a tradução das páginas que não estão em um idioma que eu conheça</translation>
 <translation id="129553762522093515">Recentemente fechadas</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> dias</translation>
 <translation id="3891357445869647828">Ativar JavaScript</translation>
@@ -1189,7 +1189,7 @@
 <translation id="281133045296806353">Foi criada uma nova janela em uma sessão existente do navegador.</translation>
 <translation id="6314007596429871800">Cache de aplicativo</translation>
 <translation id="6537746030088321027">example.com</translation>
-<translation id="9002707937526687073">&amp;Imprimir...</translation>
+<translation id="9002707937526687073">Im&amp;primir...</translation>
 <translation id="5556459405103347317">Recarregar</translation>
 <translation id="8326395326942127023">Nome do banco de dados:</translation>
 <translation id="7727721885715384408">Renomear...</translation>
@@ -1241,7 +1241,7 @@
 <translation id="8709969075297564489">Verificar revogação do certificado do servidor</translation>
 <translation id="8698171900303917290">Problemas de instalação?</translation>
 <translation id="4861833787540810454">&amp;Reproduzir</translation>
-<translation id="2552545117464357659">Mais recente</translation>
+<translation id="2552545117464357659">Recente</translation>
 <translation id="5869522115854928033">Senhas salvas</translation>
 <translation id="1709220265083931213">Configurações avançadas</translation>
 <translation id="4771973620359291008">Ocorreu um erro desconhecido.</translation>
@@ -1390,7 +1390,7 @@
 <translation id="6053401458108962351">&amp;Limpar dados de navegação...</translation>
 <translation id="2339641773402824483">Verificando atualizações...</translation>
 <translation id="8600200086690278232">Clipes da web em destaque</translation>
-<translation id="2766006623206032690">&amp;Colar e ir</translation>
+<translation id="2766006623206032690">Co&amp;lar e ir</translation>
 <translation id="9071050381089585305">O script não responde</translation>
 <translation id="4394049700291259645">Desativar</translation>
 <translation id="969892804517981540">Versão oficial</translation>
