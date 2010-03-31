@@ -18,7 +18,7 @@
 	/>
 	<Tool
 		Name="VCLibrarianTool"
-		AdditionalOptions="/ltcg"
+		AdditionalOptions="/ltcg /expectedoutputsize:120000000"
 	/>
 	<Tool
 		Name="VCLinkerTool"
