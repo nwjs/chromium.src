@@ -1,0 +1,187 @@
+#!/bin/bash
+
+# Copyright (c) 2009 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+set -e
+
+# Pull off the optional args
+USE_BREAKPAD=0
+USE_KEYSTONE=0
+USE_SVN=1
+OPTERR=0
+while getopts ":b:k:s:" an_opt ; do
+  case $an_opt in
+    b)
+      USE_BREAKPAD=$OPTARG
+      ;;
+    k)
+      USE_KEYSTONE=$OPTARG
+      ;;
+    s)
+      USE_SVN=$OPTARG
+      ;;
+    \?)
+      echo "Unknown option $OPTARG"
+      exit 1
+      ;;
+    :)
+      echo "Option $OPTARG missing it's value"
+      exit 1
+      ;;
+    *)
+      echo "Not recognized argument $an_opt"
+      exit 1
+      ;;
+  esac
+done
+shift $(($OPTIND - 1))
+
+# Make sure the branding argument was supplied.
+if [ $# -ne 2 ]; then
+  echo "usage: $0 [-b 1] [-k 1] [-s 1] BRANDING IDENTIFIER" >&2
+  exit 1
+fi
+
+#
+# Xcode supports build variable substitutions and CPP; sadly, that doesn't work
+# because:
+#
+# 1. Xcode wants to do the Info.plist work before it runs any build phases,
+#    this means if we were to generate a .h file for INFOPLIST_PREFIX_HEADER
+#    we'd have to put it in another target so it runs in time.
+# 2. Xcode also doesn't check to see if the header being used as a prefix for
+#    the Info.plist has changed.  So even if we updated it, it's only looking
+#    at the modtime of the info.plist to see if that's changed.
+#
+# So, we work around all of this by making a script build phase that will run
+# during the app build, and simply update the info.plist in place.  This way
+# by the time the app target is done, the info.plist is correct.
+#
+
+TOP="${SRCROOT}/.."
+BUILD_BRANDING=$1
+IDENTIFIER=$2
+
+if [ "${USE_SVN}" = "1" ] ; then
+  # Visible in the about:version page.
+  SVN_INFO=$(svn info "${TOP}" 2>/dev/null || true)
+  SVN_REVISION=$(echo "${SVN_INFO}" | sed -Ene 's/^Revision: (.*)$/\1/p')
+  if [ -z "${SVN_REVISION}" ] ; then
+    GIT_INFO=$(git log -1 --grep=git-svn-id --format=%b 2>/dev/null || true)
+    SVN_REVISION=$(echo "${GIT_INFO}" | \
+                   sed -Ene 's/^git-svn-id: .*@([0-9]+).*$/\1/p')
+    # Finding the revision for git and svn has failed.
+    if [ -z "${SVN_REVISION}" ] ; then
+      echo "Could not determine svn revision.  This may be OK." >&2
+    else
+      SVN_PATH=$(echo "${GIT_INFO}" | \
+                 sed -Ene 's%^git-svn-id: .*/chrome/(.*)@.*$%/\1%p')
+    fi
+  else
+    # Grab the path to the source root in the Subversion repository by taking
+    # the URL to the source root directory and the repository root, and
+    # removing the latter from the former.  This ensures that SVN_PATH will
+    # contain a useful path regardless of the Subversion server, mirror, and
+    # authentication scheme in use.
+    SVN_URL=$(echo "${SVN_INFO}" | sed -Ene 's/^URL: (.*)$/\1/p')
+    SVN_ROOT=$(echo "${SVN_INFO}" | sed -Ene 's/^Repository Root: (.*)$/\1/p')
+    if [ -n "${SVN_ROOT}" ] && \
+       [ "${SVN_URL:0:${#SVN_ROOT}}" = "${SVN_ROOT}" ] ; then
+      SVN_PATH="${SVN_URL:${#SVN_ROOT}}"
+    fi
+  fi
+fi
+
+# Pull in the Chrome version number.
+. "${TOP}/chrome/VERSION"
+FULL_VERSION="${MAJOR}.${MINOR}.${BUILD}.${PATCH}"
+
+# I really hate how "defaults" doesn't take a real pathname but instead insists
+# on appending ".plist" to everything.
+TMP_INFO_PLIST_DEFAULTS="${TEMP_DIR}/Info"
+TMP_INFO_PLIST="${TMP_INFO_PLIST_DEFAULTS}.plist"
+cp "${TARGET_BUILD_DIR}/${INFOPLIST_PATH}" "${TMP_INFO_PLIST}"
+
+# Save off the Subversion revision number and source root path in case they're
+# needed.
+if [ ! -z "${SVN_REVISION}" ] ; then
+  defaults write "${TMP_INFO_PLIST_DEFAULTS}" \
+      SVNRevision -string "${SVN_REVISION}"
+else
+  defaults delete "${TMP_INFO_PLIST_DEFAULTS}" SVNRevision 2> /dev/null || true
+fi
+if [ ! -z "${SVN_PATH}" ] ; then
+  defaults write "${TMP_INFO_PLIST_DEFAULTS}" SVNPath -string "${SVN_PATH}"
+else
+  defaults delete "${TMP_INFO_PLIST_DEFAULTS}" SVNPath 2> /dev/null || true
+fi
+
+# Add public version info so "Get Info" works
+defaults write "${TMP_INFO_PLIST_DEFAULTS}" \
+    CFBundleShortVersionString -string "${FULL_VERSION}"
+# Honor the 429496.72.95 limit.  The maximum comes from splitting 2^32 - 1 into
+# 6, 2, 2 digits.  The limitation was present in Tiger, but it could have been
+# fixed in later OS release, but hasn't been tested (it's easy enough to find
+# out with "lsregister -dump).
+# http://lists.apple.com/archives/carbon-dev/2006/Jun/msg00139.html
+# BUILD will always be an increasing value, so BUILD_PATH gives us something
+# unique that meetings what LS wants.
+defaults write "${TMP_INFO_PLIST_DEFAULTS}" \
+    CFBundleVersion -string "${BUILD}.${PATCH}"
+
+# Add or remove the Breakpad keys.
+if [ "${USE_BREAKPAD}" = "1" ] ; then
+  defaults write "${TMP_INFO_PLIST_DEFAULTS}" \
+      BreakpadURL "https://clients2.google.com/cr/report"
+  defaults write "${TMP_INFO_PLIST_DEFAULTS}" BreakpadReportInterval "3600"
+  defaults write "${TMP_INFO_PLIST_DEFAULTS}" \
+      BreakpadProduct "${BUILD_BRANDING}_Mac"
+  defaults write "${TMP_INFO_PLIST_DEFAULTS}" \
+      BreakpadProductDisplay "${BUILD_BRANDING}"
+  defaults write "${TMP_INFO_PLIST_DEFAULTS}" \
+      BreakpadVersion -string "${FULL_VERSION}"
+  defaults write "${TMP_INFO_PLIST_DEFAULTS}" BreakpadSendAndExit "YES"
+  defaults write "${TMP_INFO_PLIST_DEFAULTS}" BreakpadSkipConfirm "YES"
+else
+  # Make sure the keys aren't there, || true to avoid errors if they aren't.
+  defaults delete "${TMP_INFO_PLIST_DEFAULTS}" BreakpadURL \
+      2> /dev/null || true
+  defaults delete "${TMP_INFO_PLIST_DEFAULTS}" BreakpadReportInterval \
+      2> /dev/null || true
+  defaults delete "${TMP_INFO_PLIST_DEFAULTS}" BreakpadProduct \
+      2> /dev/null || true
+  defaults delete "${TMP_INFO_PLIST_DEFAULTS}" BreakpadProductDisplay \
+      2> /dev/null || true
+  defaults delete "${TMP_INFO_PLIST_DEFAULTS}" BreakpadVersion \
+      2> /dev/null || true
+  defaults delete "${TMP_INFO_PLIST_DEFAULTS}" BreakpadSendAndExit \
+      2> /dev/null || true
+  defaults delete "${TMP_INFO_PLIST_DEFAULTS}" BreakpadSkipConfirm \
+      2> /dev/null || true
+fi
+
+# Add or remove the Keystone keys (only supported in release builds).
+if [ "${USE_KEYSTONE}" = "1" ] && [ "${CONFIGURATION}" = "Release" ] ; then
+  KEYSTONE_URL="https://tools.google.com/service/update2"
+  KEYSTONE_APP_ID="${IDENTIFIER}"
+  defaults write "${TMP_INFO_PLIST_DEFAULTS}" \
+      KSVersion -string "${FULL_VERSION}"
+  defaults write "${TMP_INFO_PLIST_DEFAULTS}" KSProductID "${KEYSTONE_APP_ID}"
+  defaults write "${TMP_INFO_PLIST_DEFAULTS}" KSUpdateURL "${KEYSTONE_URL}"
+else
+  # Make sure the keys aren't there, || true to avoid errors if they aren't.
+  defaults delete "${TMP_INFO_PLIST_DEFAULTS}" KSVersion 2> /dev/null || true
+  defaults delete "${TMP_INFO_PLIST_DEFAULTS}" KSProductID 2> /dev/null || true
+  defaults delete "${TMP_INFO_PLIST_DEFAULTS}" KSUpdateURL 2> /dev/null || true
+fi
+
+# Info.plist will work perfectly well in any plist format, but traditionally
+# applications use xml1 for this, so convert it back after whatever defaults
+# might have done.
+plutil -convert xml1 "${TMP_INFO_PLIST}"
+cp "${TMP_INFO_PLIST}" "${TARGET_BUILD_DIR}/${INFOPLIST_PATH}"
+
+# Clean up.
+rm -f "${TMP_INFO_PLIST}"

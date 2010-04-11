@@ -1,0 +1,25 @@
+{
+  "id": "hpiknbiabeeppbpihjehijgoemciehgk",
+  "version": "2",
+  "name": "My extension 2",
+  "enabled": true,
+  "description": "",
+  "permissions": [],
+  "allow_reload": false,
+  "order": 2,
+  "enabledIncognito": false,
+  "content_scripts": [],
+  "views": [
+    {
+      "path": "bar.html",
+      "render_proess_id": 42,
+      "render_view_id": 88
+    },
+    {
+      "path": "bar.html",
+      "render_proess_id": 0,
+      "render_view_id": 0
+    }
+  ],
+  "hasPopupAction": false
+}

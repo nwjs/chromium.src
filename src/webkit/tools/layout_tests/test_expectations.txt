@@ -1,0 +1,33 @@
+// This file should almost always be empty. Normally Chromium test expectations
+// are found in
+// src/third_party/WebKit/LayoutTests/platform/chromium/test_expectations.txt
+//
+// Only add expectations here to temporarily suppress messages on the bots
+// until the changes can be landed upstream.
+
+// We are occasionally hitting a JS stack overflow exception on Linux in
+// release mode.  This test already fails on Mac and in debug
+// mode on Windows with a JS stack overflow exception.
+//
+//   http://code.google.com/p/v8/issues/detail?id=277
+BUG10457 RELEASE LINUX : fast/js/large-expressions.html = FAIL PASS
+
+// We changed our video scaling algorithm and need new baselines.
+BUG19113 : media/video-aspect-ratio.html = PASS FAIL
+BUG19113 : media/video-zoom.html = PASS FAIL
+BUG19113 : media/video-layer-crash.html = PASS FAIL
+BUG19113 : media/video-transformed.html = PASS FAIL
+BUG19113 : media/video-controls-rendering.html = PASS FAIL
+BUG19113 : media/video-display-toggle.html = PASS FAIL
+BUG19113 : media/video-no-audio.html = PASS FAIL
+BUG19113 : media/video-volume-slider.html = PASS FAIL
+BUG19113 : media/controls-after-reload.html = PASS FAIL
+BUG19113 : media/controls-strict.html = PASS FAIL
+
+BUG39855 SLOW DEBUG : editing/selection/extend-selection.html = PASS
+
+// We reintroduced the ogg seek patch 12_vp3_key_frame_after_flush and need
+// new baselines.
+BUG40619 MAC : media/video-played-collapse.html = PASS FAIL
+BUG40619 : media/video-seek-past-end-playing.html = PASS FAIL TIMEOUT
+BUG40619 : media/video-seeking.html = PASS FAIL TIMEOUT

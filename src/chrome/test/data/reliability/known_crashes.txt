@@ -1,0 +1,180 @@
+# This file contains known patterns of crash signatures. One pattern per line.
+#
+# A crash signature is the concatenation of the top N functions, delimited by
+# '___', in chrome.dll on the crash stack. All characters are lower case.
+#
+# We use crash signature patterns as our list of known crashes. A crash
+# signature pattern is a string that can be used to identify a known crash. We
+# use the notion of patterns because crashes with the same root cause can often
+# differ somewhat in their crash stacks. A pattern is intended to be a
+# generalized, yet still identifying, form of a particular crash. Usually a
+# pattern will contain part of a crash signature, for example a prefix, but it
+# can be more sophisticated, such as a regular expression. See below for more
+# details.
+#
+# The format of known crashes in this file is as follows:
+#   TYPE : PATTERN
+#
+# PATTERN: A crash signature pattern is a potentially identifying string that
+#          can be used to match a crash signature.
+# TYPE: The type of the pattern, indicates how the pattern should be matched
+#       against crash signatures. Possible options are:
+#           PREFIX: Match any signature beginning with this pattern.
+#           SUBSTRING: Match any signature containing this pattern.
+#           REGEX: Use this pattern as a regex to match against signatures.
+#       If the type is not listed, it defaults to PREFIX.
+
+# about:crash is a test page.
+PREFIX : abouthandler::aboutcrash
+
+# Any crash due to out of memory is ignored.
+PREFIX : `anonymous namespace'::onnomemory
+
+# Mysterious crashes. Leave them for now.
+
+# It is too broad to exclude all purecall related crashes. Thus here we filter
+# any purecall crash immediately after runtask.
+SUBSTRING : purecall___messageloop::runtask
+REGEX : purecall___[^_]*___messageloop::runtask
+REGEX : `anonymous namespace'::purecall$
+
+# Ditto for InvalidParameter.  Unfortunately, we see a crash where that call
+# is the only one on the stack, so ignore that instance
+REGEX : `anonymous namespace'::invalidparameter$
+
+# 5359. Random memory corruption?
+PREFIX : v8::internal::sweepspace___v8::internal::markcompactcollector::sweepspaces___v8::internal::markcompactcollector::collectgarbage
+
+# Flash crash?
+REGEX : ^webplugindelegateimpl::nativewndproc$
+
+PREFIX : webplugindelegateimpl::nativewndproc___webplugindelegateimpl::nativewndproc___base::messagepumpforui::dorunloop
+
+PREFIX : base::subtle::refcountedthreadsafebase::release___messageloop::posttask_helper____tls_end
+
+# End mysterious crash section.
+
+# 15620
+PREFIX : browser::processpendingtabs___browser::clearunloadstate
+
+# 9615
+SUBSTRING : history::historybackend::~historybackend
+
+# 7701
+PREFIX : iat_patch::getiatfunction___iat_patch::restoreimportedfunction___iat_patch::iatpatchfunction::unpatch
+
+# 17043
+PREFIX : npapi::pluginstream::trywritetoplugin___npapi::pluginstream::writetoplugin
+
+# 10978
+PREFIX : webcore::renderobject::localtoabsolute___webcore::layoutstate::layoutstate___webcore::renderview::pushlayoutstate___webcore::frameview::layout
+
+# 17366
+SUBSTRING : operator=___webcore::frameview::scrolltoanchor___webcore::frameview::maintainscrollpositionatanchor___webcore::frameloader::gotoanchor
+
+# 18743
+SUBSTRING : spellchecker::dictionarydownloadcontroller::onurlfetchcomplete
+
+# 18793
+SUBSTRING : webcore::renderlayer::paintlayer___webcore::renderlayer::paintlayer___webcore::renderlayer::paintlayer___webcore::renderlayer::paint___webcore::frameview::paintcontents
+
+#10791
+SUBSTRING : webplugindelegateimpl::destroyinstance___webplugindelegateimpl::~webplugindelegateimpl
+
+# 18799
+PREFIX : webplugindelegatestub::onmessagereceived___webplugindelegateimpl::nativewndproc___base::messagepumpforui::dorunloop___base::messagepumpwin::run___messageloop::runinternal___messageloop::runhandler___messageloop::run___pluginmain___chromemain___wwinmain_____tmaincrtstartup
+
+# 19813
+PREFIX : npobjectgetproperty___npobjectgetnamedproperty___webcore::v8custom::v8htmlpluginelementnamedpropertygetter
+
+# 20063
+PREFIX :
+npapi::plugininstance::npp_newstream___npapi::pluginstream::open___npapi::pluginstreamurl::didreceiveresponse___webplugindelegatestub::ondidreceiveresponse___ipc::messagewithtuple<tuple1<pluginmsg_didreceiveresponseparams> >::dispatch<webplugindelegatestub,void (__thiscall webplugindelegatestub::*)(pluginmsg_didreceiveresponseparams const &)>
+
+# 20200
+SUBSTRING : wtf::fastrealloc___webcore::htmltokenizer::enlargescriptbuffer___webcore::htmltokenizer::parsecomment___webcore::htmltokenizer::parsetag
+
+# 20291
+PREFIX : webplugindelegateimpl::flashwindowlesswndproc___webplugindelegateimpl::nativewndproc___base::messagepumpforui::dorunloop___base::messagepumpwin::run
+
+# 20494
+# likely to be related with flash. The top few frames are all in NPSWF.
+REGEX : npapi::plugininstance::npp_newstream___[^_]*___ipc::syncchannel::sendwithtimeout
+
+# 20915
+REGEX : ^base::messagepumpforio::schedulework___ucase_props_trieindex___canonicalize_map$
+PREFIX : base::messagepumpforio::schedulework___propsvectors___propsvectorstrie_index
+SUBSTRING : npn_invalidaterect___webplugindelegateimpl
+PREFIX : runnablemethod<ipc::channelproxy::context,void (__thiscall ipc::channelproxy::context::*)(ipc::message const &),tuple1<ipc::message> >::run___base::messagepumpforui::dorunloop
+
+# 21295
+PREFIX : renderwidgethost::getbackingstore
+
+# bug 23411
+PREFIX : renderviewhost::setnavigationssuspended___renderviewhostmanager::shouldclosepage___renderviewhost::onmsgshouldcloseack
+SUBSTRING : renderwidgethost::~renderwidgethost___renderviewhost::`scalar deleting destructor'___renderwidgethost::destroy___renderwidgethost::shutdown___renderviewhostmanager::cancelpending
+
+# 21862
+PREFIX : urlrequesthttpjob::factory___urlrequestjobmanager::createjob___urlrequest::start
+
+# 23278
+SUBSTRING : webcore::xmlhttprequest::callreadystatechangelistener___webcore::xmlhttprequest::networkerror
+
+# 23280
+SUBSTRING : webframeloaderclient::dispatchdidchangelocationwithinpage___webcore::frameloader::continuefragmentscrollafternavigationpolicy___webcore::frameloader::callcontinuefragmentscrollafternavigationpolicy___webcore::policycheck::call
+
+# 23281
+REGEX : tabcontents::washidden___.*___tabcontents::~tabcontents
+
+# 29081
+REGEX : ^malloc$
+
+# 29149
+PREFIX : malloc___webplugindelegateimpl::flashwindowlesswndproc___npapi::plugininstance::npp_write
+
+# 29758
+PREFIX : webplugindelegateimpl::nativewndproc___webplugindelegateimpl::nativewndproc___base::messagepumpforui::processmessagehelper
+PREFIX : malloc___webplugindelegateimpl::flashwindowlesswndproc___npapi::plugininstance::npp_write___npapi::pluginstream::trywritetoplugin___
+
+# 29759
+PREFIX : webcore::imageeventsender::dispatchpendingevents
+
+# 31731
+PREFIX : webcore::scriptcontroller::isenabled___webcore::v8proxy::mainworldcontext___webcore::tov8context
+
+# 33067
+# This one is probably fixed by the WebKit 53704:53787 roll.  If so, it can be
+# removed after that roll lands.
+PREFIX : webcore::renderobject::containingblock___webcore::frameview::scrollcontentsfastpath___webcore::scrollview::scrollcontents___webcore::scrollview::valuechanged___webcore::frameview::valuechanged___webcore::scrollbar::setcurrentpos___webcore::scrollbar::scroll___webcore::scrollview::scroll
+
+# 35003
+prefix : modaldialogdelegate::activatemodaldialog___browserview::activateappmodaldialog___browserframewin::onncactivate___views::widgetwin::_processwindowmessage___views::widgetwin::processwindowmessage
+
+# 35027
+PREFIX : v8::internal::hashtable<v8::internal::stringdictionaryshape,v8::internal::string *>::findentry___v8::internal::jsobject::setnormalizedproperty___v8::internal::jsobject::definegettersetter___v8::internal::jsobject::defineaccessor___v8::internal::runtime_defineaccessor___v8::internal::invoke___v8::internal::execution::call___v8::script::run___webcore::v8proxy::runscript___webcore::v8proxy::evaluate
+
+# 35176
+PREFIX : std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t> >::assign___addressfield::parsezipcode___addressfield::parse___formfieldset::formfieldset___formstructure::getheuristicfieldinfo
+
+# 35467
+SUBSTRING : webcore::scriptcontroller::processingusergesture___webcore::frameloader::requestframe___webcore::htmlframeelementbase::openurl___webcore::htmlframeelementbase::setlocation
+
+# 38525
+SUBSTRING : webkit_glue::webpluginimpl::updategeometry___webkit::webplugincontainerimpl::reportgeometry___webcore::scrollview::framerectschanged
+
+# 39356
+SUBSTRING :
+renderwidgethost::onmsgupdaterect___ipc::messagewithtuple<tuple1<viewhostmsg_updaterect_params> >::dispatch<renderwidgethost,void (__thiscall renderwidgethost::*)(viewhostmsg_updaterect_params const &)>___renderwidgethost::onmessagereceived___
+renderviewhost::onmessagereceived___browserrenderprocesshost::onmessagereceived
+
+# 39529
+SUBSTRING :
+wtf::hashtable<webcore::atomicstring,std::pair<webcore::atomicstring,webcore::string>,wtf::pairfirstextractor<std::pair<webcore::atomicstring,webcore::string> >,webcore::casefoldinghash,wtf::pairhashtraits<wtf::hashtraits<webcore::atomicstring>,wtf::hashtraits<webcore::string> >,wtf::hashtraits<webcore::atomicstring> >::add<webcore::atomicstring,webcore::string,wtf::hashmaptranslator<std::pair<webcore::atomicstring,webcore::string>,wtf::pairhashtraits<wtf::hashtraits<webcore::atomicstring>,wtf::hashtraits<webcore::string> >,webcore::casefoldinghash> >___webkit::weburlresponse::addhttpheaderfield___webkit_glue::`anonymous namespace'::populateurlresponse___webkit_glue::weburlloaderimpl::context::onreceivedresponse___resourcedispatcher::onreceivedresponse
+
+# 39734
+SUBSTRING :
+v8::internal::setproperty___v8::internal::runtime::setobjectproperty___v8::internal::setproperty___v8::object::sethiddenvalue___webcore::v8domwindowshell::installhiddenobjectprototype
+
+# 40736
+SUBSTRING :
+v8::internal::LargeObjectSpace::IterateRSet___v8::internal::Heap::Scavenge___v8::internal::Heap::PerformGarbageCollection___v8::internal::Heap::CollectGarbage___v8::internal::NormalizeProperties

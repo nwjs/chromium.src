@@ -1,0 +1,35 @@
+{
+  "id": "behllobkkfkfnphdnhnkndlbkcpglgmj",
+  "version": "1.0.0.0",
+  "name": "__MSG_chrome_extension_name__",
+  "enabled": true,
+  "description": "__MSG_chrome_extension_description__",
+  "permissions": ["http://*.google.com/*", "https://*.google.com/*"],
+  "allow_reload": false,
+  "order": 2,
+  "enabledIncognito": false,
+  "content_scripts": [
+    {
+      "matches": ["file://*", "http://*.google.com/*", "https://*.google.com/*"],
+      "js": ["script1.js", "script2.js"],
+      "css": ["style1.css", "style2.css", "style2.css"]
+    },
+    {
+      "matches": ["http://*.news.com/*"],
+      "js": ["js_files/script3.js"]
+    }
+  ],
+  "views": [
+    {
+      "path": "bar.html",
+      "render_proess_id": 42,
+      "render_view_id": 88
+    },
+    {
+      "path": "dog.html",
+      "render_proess_id": 0,
+      "render_view_id": 0
+    }
+  ],
+  "hasPopupAction": false
+}

@@ -1,0 +1,82 @@
+// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef CHROME_COMMON_THUMBNAIL_SCORE_H_
+#define CHROME_COMMON_THUMBNAIL_SCORE_H_
+
+#include "base/time.h"
+
+// A set of metadata about a Thumbnail.
+struct ThumbnailScore {
+  // Initializes the ThumbnailScore to the absolute worst possible values
+  // except for time, which is set to Now(), and redirect_hops_from_dest which
+  // is set to 0.
+  ThumbnailScore();
+
+  // Builds a ThumbnailScore with the passed in values, and sets the
+  // thumbnail generation time to Now().
+  ThumbnailScore(double score, bool clipping, bool top);
+
+  // Builds a ThumbnailScore with the passed in values.
+  ThumbnailScore(double score, bool clipping, bool top,
+                 const base::Time& time);
+  ~ThumbnailScore();
+
+  // Tests for equivalence between two ThumbnailScore objects.
+  bool Equals(const ThumbnailScore& rhs) const;
+
+  // How "boring" a thumbnail is. The boring score is the 0,1 ranged
+  // percentage of pixels that are the most common luma. Higher boring
+  // scores indicate that a higher percentage of a bitmap are all the
+  // same brightness (most likely the same color).
+  double boring_score;
+
+  // Whether the thumbnail was taken with height greater then
+  // width. In cases where we don't have |good_clipping|, the
+  // thumbnails are either clipped from the horizontal center of the
+  // window, or are otherwise weirdly stretched.
+  bool good_clipping;
+
+  // Whether this thumbnail was taken while the renderer was
+  // displaying the top of the page. Most pages are more recognizable
+  // by their headers then by a set of random text half way down the
+  // page; i.e. most MediaWiki sites would be indistinguishable by
+  // thumbnails with |at_top| set to false.
+  bool at_top;
+
+  // Record the time when a thumbnail was taken. This is used to make
+  // sure thumbnails are kept fresh.
+  base::Time time_at_snapshot;
+
+  // The number of hops from the final destination page that this thumbnail was
+  // taken at. When a thumbnail is taken, this will always be the redirect
+  // destination (value of 0).
+  //
+  // For the most visited view, we'll sometimes get thumbnails for URLs in the
+  // middle of a redirect chain. In this case, the top sites component will set
+  // this value so the distance from the destination can be taken into account
+  // by the comparison function.
+  //
+  // If "http://google.com/" redirected to "http://www.google.com/", then
+  // a thumbnail for the first would have a redirect hop of 1, and the second
+  // would have a redirect hop of 0.
+  int redirect_hops_from_dest;
+
+  // How bad a thumbnail needs to be before we completely ignore it.
+  static const double kThumbnailMaximumBoringness;
+
+  // Time before we take a worse thumbnail (subject to
+  // kThumbnailMaximumBoringness) over what's currently in the database
+  // for freshness.
+  static const base::TimeDelta kUpdateThumbnailTime;
+
+  // Penalty of how much more boring a thumbnail should be per hour.
+  static const double kThumbnailDegradePerHour;
+};
+
+// Checks whether we should replace one thumbnail with another.
+bool ShouldReplaceThumbnailWith(const ThumbnailScore& current,
+                                const ThumbnailScore& replacement);
+
+#endif  // CHROME_COMMON_THUMBNAIL_SCORE_H_

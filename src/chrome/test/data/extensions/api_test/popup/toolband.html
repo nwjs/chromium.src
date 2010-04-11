@@ -1,0 +1,122 @@
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<script>
+var globalValue = "I am not 42.";
+
+// Some helper functions that track the focus state of a form on the toolbar.
+var formFocused = false;
+function onFormFocused() {
+  formFocused = true;
+}
+
+function onFormBlurred() {
+  formFocused = false;
+}
+
+window.onload = function() {
+  chrome.test.runTests([
+    function showNoFocusShift() {
+      var entryForm = document.getElementById("entryForm").focus();
+      chrome.test.assertTrue(formFocused);
+
+      // Validate that displaying a pop-up with the giveFocus parameter assigned
+      // to false does not touch the focus setting of the input field.
+      var showDetails = {
+        "relativeTo": document.getElementById("anchorHere"),
+        "giveFocus": false
+      };
+
+      // The focus should also remain untouched during closing of the popup.
+      chrome.test.listenOnce(chrome.experimental.popup.onClosed, function(){
+        chrome.test.assertTrue(formFocused);
+      });
+
+      chrome.experimental.popup.show("toolband_popup.html",
+                                     showDetails,
+                                     chrome.test.callbackPass(function() {
+        chrome.test.assertTrue(formFocused);
+        chrome.experimental.extension.getPopupView().close();
+      }));
+    },
+    function noPopup() {
+      chrome.test.assertTrue(
+          undefined === chrome.experimental.extension.getPopupView(),
+          "Popup view is defined when no popup shown.");
+      chrome.test.succeed();
+    },
+    function noParentWindow() {
+      chrome.test.assertTrue(
+          undefined === chrome.experimental.popup.getParentWindow(),
+          "Parent window accessible outside of popup view.");
+      chrome.test.succeed();
+    },
+    function show() {
+      var showDetails = {
+        "relativeTo": document.getElementById("anchorHere")
+      };
+      chrome.experimental.popup.show("toolband_popup.html",
+                                     showDetails,
+                                     chrome.test.callbackPass(function() {
+        chrome.test.assertTrue(
+            chrome.experimental.extension.getPopupView() != undefined);
+      }));
+    },
+    function accessPopup() {
+      var popupView = chrome.experimental.extension.getPopupView();
+      chrome.test.assertTrue(popupView != undefined,
+                             "Unable to access popup view.");
+
+      chrome.test.assertTrue(popupView.theAnswer != undefined,
+                             "Unable to access popup contents.");
+
+      chrome.test.assertEq(42, popupView.theAnswer());
+      chrome.test.succeed();
+    },
+    function accessHost() {
+      var popupView = chrome.experimental.extension.getPopupView();
+      chrome.test.assertTrue(popupView != undefined,
+                             "Unable to access popup view.");
+
+      chrome.test.assertTrue(popupView.manipulateHost != undefined,
+                             "Unable to access popup contents.");
+
+      popupView.manipulateHost();
+      chrome.test.assertEq(42, globalValue);
+      chrome.test.succeed();
+    },
+    function closePopup() {
+      chrome.test.listenOnce(chrome.experimental.popup.onClosed, function(){
+        // TODO(twiz):  getPopupView() should return undefined, but, due to
+        // shut-down races, it is sometimes still defined.  See BUG 27658.
+        // chrome.test.assertTrue(
+        //     chrome.experimental.extension.getPopupView() == undefined);
+      });
+      chrome.experimental.extension.getPopupView().close();
+    },
+    function popupBlackBorder() {
+      // Validate that displaying a pop-up with a black border still invokes
+      // the callback successfully.  Note that this test does not validate
+      // the actual style of the border displayed.
+      var showDetails = {
+        "relativeTo": document.getElementById("anchorHere"),
+        "borderStyle": "rectangle"
+      };
+      chrome.experimental.popup.show("toolband_popup.html",
+                                     showDetails,
+                                     chrome.test.callbackPass(function() {
+        chrome.experimental.extension.getPopupView().close();
+      }));
+    }
+  ]);
+}
+</script>
+</head>
+<body>
+<div>
+<span id="anchorHere">TEST</span>
+</div>
+<form>
+<input id="entryForm" onfocus="onFormFocused();" onblur="onFormBlurred();"/>
+</form>
+</body>
+</html>
