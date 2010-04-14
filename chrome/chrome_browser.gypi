@@ -2226,6 +2226,8 @@
         'browser/views/first_run_bubble.h',
         'browser/views/first_run_customize_view.cc',
         'browser/views/first_run_customize_view.h',
+        'browser/views/first_run_search_engine_view.cc',
+        'browser/views/first_run_search_engine_view.h',
         'browser/views/first_run_view.cc',
         'browser/views/first_run_view.h',
         'browser/views/first_run_view_base.cc',
@@ -2945,6 +2947,8 @@
                 ['include', '^browser/views/toolbar_view.h'],
                 ['include', '^browser/views/unhandled_keyboard_event_handler.cc'],
                 ['include', '^browser/views/unhandled_keyboard_event_handler.h'],
+                ['include', '^browser/views/view_text_utils.cc'],
+                ['include', '^browser/views/view_text_utils.h'],
                 ['include', '^browser/window_sizer.cc'],
                 ['include', '^browser/window_sizer.h'],
                 # Exclude all of browser/gtk, then include the things we want.
