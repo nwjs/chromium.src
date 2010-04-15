@@ -56,7 +56,7 @@ class AutocompletePopupContentsView : public views::View,
                                 AutocompleteEditModel* edit_model,
                                 Profile* profile,
                                 const BubblePositioner* bubble_positioner);
-  virtual ~AutocompletePopupContentsView() {}
+  virtual ~AutocompletePopupContentsView();
 
   // Returns the bounds the popup should be shown at. This is the display bounds
   // and includes offsets for the dropshadow which this view's border renders.
@@ -109,8 +109,11 @@ class AutocompletePopupContentsView : public views::View,
   // Makes the contents of the canvas slightly transparent.
   void MakeCanvasTransparent(gfx::Canvas* canvas);
 
-  // The popup that contains this view.
-  scoped_ptr<AutocompletePopupClass> popup_;
+  // The popup that contains this view.  We create this, but it deletes itself
+  // when its window is destroyed.  This is a WeakPtr because it's possible for
+  // the OS to destroy the window and thus delete this object before we're
+  // deleted, or without our knowledge.
+  base::WeakPtr<AutocompletePopupClass> popup_;
 
   // The provider of our result set.
   scoped_ptr<AutocompletePopupModel> model_;
