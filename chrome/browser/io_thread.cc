@@ -144,7 +144,7 @@ void IOThread::Init() {
   globals_->http_auth_handler_factory.reset(CreateDefaultAuthHandlerFactory());
 }
 
-void IOThread::CleanUp() {
+void IOThread::CleanUpAfterMessageLoopDestruction() {
   // Not initialized in Init().  May not be initialized.
   if (dns_master_) {
     DCHECK(prefetch_observer_);
@@ -186,7 +186,7 @@ void IOThread::CleanUp() {
   base::LeakTracker<URLFetcher>::CheckForLeaks();
   base::LeakTracker<URLRequest>::CheckForLeaks();
 
-  BrowserProcessSubThread::CleanUp();
+  BrowserProcessSubThread::CleanUpAfterMessageLoopDestruction();
 }
 
 net::HttpAuthHandlerFactory* IOThread::CreateDefaultAuthHandlerFactory() {
