@@ -1223,8 +1223,8 @@ SECStatus SSLClientSocketNSS::ClientAuthHandler(
         continue;
       // Only check unexpired certs.
       if (CERT_CheckCertValidTimes(cert, PR_Now(), PR_TRUE) ==
-          secCertTimeValid &&
-          NSS_CmpCertChainWCANames(cert, ca_names) == SECSuccess) {
+          secCertTimeValid && (!ca_names->nnames ||
+          NSS_CmpCertChainWCANames(cert, ca_names) == SECSuccess)) {
         privkey = PK11_FindKeyByAnyCert(cert, wincx);
         if (privkey) {
           X509Certificate* x509_cert = X509Certificate::CreateFromHandle(
