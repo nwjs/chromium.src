@@ -93,9 +93,6 @@ class ThemeProvider;
 - (CGFloat)indicatorPosForDragOfButton:(BookmarkButton*)sourceButton
                                toPoint:(NSPoint)point;
 
-// Return the parent window for all BookmarkBarFolderController windows.
-- (NSWindow*)parentWindow;
-
 // Return the theme provider associated with this browser window.
 - (ThemeProvider*)themeProvider;
 
