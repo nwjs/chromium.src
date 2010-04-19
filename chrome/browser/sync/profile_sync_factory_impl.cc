@@ -60,12 +60,6 @@ ProfileSyncService* ProfileSyncFactoryImpl::CreateProfileSyncService() {
                              profile_,
                              browser_defaults::kBootstrapSyncAuthentication);
 
-  // Autofill sync is enabled by default.  Register unless explicitly disabled.
-  if (!command_line_->HasSwitch(switches::kDisableSyncAutofill)) {
-    pss->RegisterDataTypeController(
-        new AutofillDataTypeController(this, profile_, pss));
-  }
-
   // Bookmark sync is enabled by default.  Register unless explicitly
   // disabled.
   if (!command_line_->HasSwitch(switches::kDisableSyncBookmarks)) {
@@ -84,13 +78,6 @@ ProfileSyncService* ProfileSyncFactoryImpl::CreateProfileSyncService() {
   if (!command_line_->HasSwitch(switches::kDisableSyncThemes)) {
     pss->RegisterDataTypeController(
         new ThemeDataTypeController(this, profile_, pss));
-  }
-
-  // TypedUrl sync is disabled by default.  Register only if
-  // explicitly enabled.
-  if (command_line_->HasSwitch(switches::kEnableSyncTypedUrls)) {
-    pss->RegisterDataTypeController(
-        new TypedUrlDataTypeController(this, profile_, pss));
   }
 
   return pss;
