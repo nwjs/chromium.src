@@ -23,7 +23,6 @@ class ClientSocketFactory;
 class HttpAuthHandlerFactory;
 class SpdySessionPool;
 class NetworkChangeNotifier;
-class URLSecurityManager;
 
 // This class holds session objects used by HttpNetworkTransaction objects.
 class HttpNetworkSession : public base::RefCounted<HttpNetworkSession> {
@@ -76,9 +75,6 @@ class HttpNetworkSession : public base::RefCounted<HttpNetworkSession> {
     return http_auth_handler_factory_;
   }
 
-  // Returns a pointer to the URL security manager.
-  URLSecurityManager* GetURLSecurityManager();
-
   // Replace the current socket pool with a new one.  This effectively
   // abandons the current pool.  This is only used for debugging.
   void ReplaceTCPSocketPool();
@@ -120,7 +116,6 @@ class HttpNetworkSession : public base::RefCounted<HttpNetworkSession> {
   scoped_refptr<SSLConfigService> ssl_config_service_;
   scoped_refptr<SpdySessionPool> spdy_session_pool_;
   HttpAuthHandlerFactory* http_auth_handler_factory_;
-  scoped_ptr<URLSecurityManager> url_security_manager_;
   SpdySettingsStorage spdy_settings_;
 };
 
