@@ -41,6 +41,8 @@ class AutocompleteHistoryManager
   virtual void OnWebDataServiceRequestDone(WebDataService::Handle h,
                                            const WDTypedResult* result);
 
+  static void RegisterUserPrefs(PrefService* prefs);
+
  private:
   void CancelPendingQuery();
   void StoreFormEntriesInWebDatabase(const webkit_glue::FormData& form);

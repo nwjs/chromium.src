@@ -4,6 +4,7 @@
 
 #include "chrome/browser/browser_prefs.h"
 
+#include "chrome/browser/autocomplete_history_manager.h"
 #include "chrome/browser/autofill/autofill_manager.h"
 #include "chrome/browser/bookmarks/bookmark_utils.h"
 #include "chrome/browser/browser.h"
@@ -116,6 +117,7 @@ void RegisterUserPrefs(PrefService* user_prefs) {
 #if defined(OS_CHROMEOS)
   chromeos::Preferences::RegisterUserPrefs(user_prefs);
 #endif
+  AutocompleteHistoryManager::RegisterUserPrefs(user_prefs);
 }
 
 }  // namespace browser

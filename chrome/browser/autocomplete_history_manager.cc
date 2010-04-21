@@ -6,11 +6,13 @@
 
 #include <vector>
 
+#include "base/command_line.h"
 #include "base/string_util.h"
 #include "chrome/browser/pref_service.h"
 #include "chrome/browser/profile.h"
 #include "chrome/browser/renderer_host/render_view_host.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "webkit/glue/form_data.h"
 
@@ -24,8 +26,14 @@ AutocompleteHistoryManager::AutocompleteHistoryManager(
     TabContents* tab_contents) : tab_contents_(tab_contents),
                                  pending_query_handle_(0),
                                  query_id_(0) {
-  form_autofill_enabled_.Init(prefs::kAutoFillEnabled,
-      profile()->GetPrefs(), NULL);
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableAutoFill)) {
+    form_autofill_enabled_.Init(prefs::kAutoFillEnabled,
+        profile()->GetPrefs(), NULL);
+  } else {
+    form_autofill_enabled_.Init(prefs::kFormAutofillEnabled,
+        profile()->GetPrefs(), NULL);
+  }
 }
 
 AutocompleteHistoryManager::~AutocompleteHistoryManager() {
@@ -99,6 +107,13 @@ void AutocompleteHistoryManager::OnWebDataServiceRequestDone(
   } else {
     SendSuggestions(NULL);
   }
+}
+
+// static
+void AutocompleteHistoryManager::RegisterUserPrefs(PrefService* prefs) {
+  if (!CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableAutoFill))
+    prefs->RegisterBooleanPref(prefs::kFormAutofillEnabled, true);
 }
 
 void AutocompleteHistoryManager::StoreFormEntriesInWebDatabase(

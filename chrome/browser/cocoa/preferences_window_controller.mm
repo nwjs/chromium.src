@@ -8,6 +8,7 @@
 
 #include "app/l10n_util.h"
 #include "app/l10n_util_mac.h"
+#include "base/command_line.h"
 #include "base/logging.h"
 #include "base/mac_util.h"
 #include "base/string16.h"
@@ -42,6 +43,7 @@
 #include "chrome/browser/sync/profile_sync_service.h"
 #include "chrome/browser/sync/sync_ui_util.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/common/notification_details.h"
 #include "chrome/common/notification_observer.h"
 #include "chrome/common/notification_type.h"
@@ -543,12 +545,6 @@ void PersonalDataManagerObserver::ShowAutoFillDialog(
                                green:0x9a/255.0
                                 blue:0x9a/255.0
                                alpha:1.0] retain]);
-
-    // Disable the |autoFillSettingsButton_| if we have no
-    // |personalDataManager|.
-    PersonalDataManager* personalDataManager =
-        profile_->GetPersonalDataManager();
-    [autoFillSettingsButton_ setHidden:(personalDataManager == NULL)];
   }
   return self;
 }
@@ -731,6 +727,15 @@ void PersonalDataManagerObserver::ShowAutoFillDialog(
   [underTheHoodContentView_ scrollPoint:
       NSMakePoint(0, underTheHoodContentSize.height)];
 
+  // Disable the |autoFillSettingsButton_| if we have no
+  // |personalDataManager|.
+  bool autofillEnabled = CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableAutoFill);
+  PersonalDataManager* personalDataManager =
+      profile_->GetPersonalDataManager();
+  [autoFillSettingsButton_ setHidden:
+      (personalDataManager == NULL || !autofillEnabled)];
+
   [self switchToPage:initialPage_ animate:NO];
 
   // TODO(pinkerton): save/restore position based on prefs.
@@ -775,7 +780,14 @@ void PersonalDataManagerObserver::ShowAutoFillDialog(
   // Personal Stuff panel
   askSavePasswords_.Init(prefs::kPasswordManagerEnabled,
                          prefs_, observer_.get());
-  formAutofill_.Init(prefs::kAutoFillEnabled, prefs_, observer_.get());
+
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableAutoFill)) {
+    formAutofill_.Init(prefs::kAutoFillEnabled, prefs_, observer_.get());
+  } else {
+    formAutofill_.Init(prefs::kFormAutofillEnabled, prefs_, observer_.get());
+  }
+
   currentTheme_.Init(prefs::kCurrentThemeID, prefs_, observer_.get());
 
   // Under the hood panel
@@ -1217,6 +1229,13 @@ const int kDisabledIndex = 1;
   if (*prefName == prefs::kPasswordManagerEnabled) {
     [self setPasswordManagerEnabledIndex:askSavePasswords_.GetValue() ?
         kEnabledIndex : kDisabledIndex];
+  }
+  std::wstring autofill_pref;
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableAutoFill)) {
+    autofill_pref = prefs::kAutoFillEnabled;
+  } else {
+    autofill_pref = prefs::kFormAutofillEnabled;
   }
   if (*prefName == prefs::kAutoFillEnabled) {
     [self setFormAutofillEnabledIndex:formAutofill_.GetValue() ?

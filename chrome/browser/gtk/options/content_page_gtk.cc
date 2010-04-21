@@ -106,8 +106,14 @@ ContentPageGtk::ContentPageGtk(Profile* profile)
   // Add preferences observers.
   ask_to_save_passwords_.Init(prefs::kPasswordManagerEnabled,
                               profile->GetPrefs(), this);
-  enable_form_autofill_.Init(prefs::kAutoFillEnabled,
-                             profile->GetPrefs(), this);
+
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableAutoFill)) {
+    enable_form_autofill_.Init(prefs::kAutoFillEnabled,
+                               profile->GetPrefs(), this);
+  } else {
+    enable_form_autofill_.Init(prefs::kFormAutofillEnabled,
+                               profile->GetPrefs(), this);
+  }
 
   if (browser_defaults::kCanToggleSystemTitleBar) {
     use_custom_chrome_frame_.Init(prefs::kUseCustomChromeFrame,
@@ -274,14 +280,16 @@ GtkWidget* ContentPageGtk::InitFormAutoFillGroup() {
   gtk_container_add(GTK_CONTAINER(vbox), button_hbox);
 
   // AutoFill button.
-  autofill_button_ = gtk_button_new_with_label(
-      l10n_util::GetStringUTF8(IDS_OPTIONS_AUTOFILL_SETTINGS).c_str());
-  if (!profile()->GetPrefs()->GetBoolean(prefs::kAutoFillEnabled))
-    gtk_widget_set_sensitive(autofill_button_, FALSE);
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableAutoFill)) {
+    GtkWidget* autofill_button = gtk_button_new_with_label(
+        l10n_util::GetStringUTF8(IDS_OPTIONS_AUTOFILL_SETTINGS).c_str());
+    if (!personal_data_)
+      gtk_widget_set_sensitive(autofill_button, FALSE);
 
-  g_signal_connect(G_OBJECT(autofill_button_), "clicked",
-                   G_CALLBACK(OnAutoFillButtonClickedThunk), this);
-  gtk_box_pack_start(GTK_BOX(button_hbox), autofill_button_, FALSE, FALSE, 0);
+    g_signal_connect(G_OBJECT(autofill_button), "clicked",
+                     G_CALLBACK(OnAutoFillButtonClicked), this);
+    gtk_box_pack_start(GTK_BOX(button_hbox), autofill_button, FALSE, FALSE, 0);
+  }
 
   return vbox;
 }

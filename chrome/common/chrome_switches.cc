@@ -238,6 +238,9 @@ const char kEnableAeroPeekTabs[]            = "enable-aero-peek-tabs";
 // for more background.
 extern const char kEnableAuthNegotiatePort[] = "enable-auth-negotiate-port";
 
+// Enable AutoFill++.
+const char kEnableAutoFill[]                = "enable-autofill";
+
 // Enables the benchmarking extensions.
 const char kEnableBenchmarking[]            = "enable-benchmarking";
 

@@ -62,9 +62,15 @@ void AutoFillManager::RegisterBrowserPrefs(PrefService* prefs) {
 
 // static
 void AutoFillManager::RegisterUserPrefs(PrefService* prefs) {
-  prefs->RegisterBooleanPref(prefs::kAutoFillInfoBarShown, false);
-  prefs->RegisterBooleanPref(prefs::kAutoFillEnabled, true);
-  prefs->RegisterBooleanPref(prefs::kAutoFillAuxiliaryProfilesEnabled, false);
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableAutoFill)) {
+    prefs->RegisterBooleanPref(prefs::kAutoFillInfoBarShown, false);
+    prefs->RegisterBooleanPref(prefs::kAutoFillEnabled, true);
+    prefs->RegisterBooleanPref(prefs::kAutoFillAuxiliaryProfilesEnabled, false);
+  } else {
+    prefs->RegisterBooleanPref(prefs::kAutoFillInfoBarShown, true);
+    prefs->RegisterBooleanPref(prefs::kAutoFillEnabled, false);
+    prefs->RegisterBooleanPref(prefs::kAutoFillAuxiliaryProfilesEnabled, false);
+  }
   prefs->RegisterStringPref(prefs::kAutoFillDefaultProfile, std::wstring());
   prefs->RegisterStringPref(prefs::kAutoFillDefaultCreditCard, std::wstring());
 
@@ -436,6 +442,9 @@ void AutoFillManager::UploadFormData() {
 }
 
 bool AutoFillManager::IsAutoFillEnabled() {
+  if (!CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableAutoFill))
+    return false;
+
   PrefService* prefs = tab_contents_->profile()->GetPrefs();
 
   // Migrate obsolete AutoFill pref.
