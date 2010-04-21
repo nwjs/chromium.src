@@ -1168,11 +1168,12 @@ int BrowserMain(const MainFunctionParams& parameters) {
     }
   }
 
+#if defined(OS_WIN)
   // If it's the first run, log the search engine chosen.  We wait until
   // shutdown because otherwise we can't be sure the user has finished
   // selecting a search engine through the dialog reached from the first run
   // bubble link.
-  if (is_first_run) {
+  if (FirstRun::InSearchExperimentLocale() && is_first_run) {
     const TemplateURL* default_search_engine =
         profile->GetTemplateURLModel()->GetDefaultSearchProvider();
     if (master_prefs.run_search_engine_experiment) {
@@ -1189,6 +1190,7 @@ int BrowserMain(const MainFunctionParams& parameters) {
           TemplateURLPrepopulateData::SEARCH_ENGINE_MAX);
     }
   }
+#endif
 
   chrome_browser_net_websocket_experiment::WebSocketExperimentRunner::Stop();
 
