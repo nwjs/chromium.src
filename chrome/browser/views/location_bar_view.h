@@ -38,6 +38,7 @@
 #endif
 
 class Browser;
+class BubblePositioner;
 class CommandUpdater;
 class ContentSettingImageModel;
 class ExtensionAction;
@@ -56,7 +57,6 @@ class Profile;
 class LocationBarView : public LocationBar,
                         public LocationBarTesting,
                         public views::View,
-                        public views::DragController,
                         public AutocompleteEditController {
  public:
   class Delegate {
@@ -76,13 +76,17 @@ class LocationBarView : public LocationBar,
     SELECTED_TEXT,
     DEEMPHASIZED_TEXT,
     SECURITY_TEXT,
+    SECURITY_INFO_BUBBLE_TEXT,
+    SCHEME_STRIKEOUT,
+    NUM_KINDS
   };
 
   LocationBarView(Profile* profile,
                   CommandUpdater* command_updater,
                   ToolbarModel* model,
                   Delegate* delegate,
-                  bool popup_window_mode);
+                  bool popup_window_mode,
+                  const BubblePositioner* bubble_positioner);
   virtual ~LocationBarView();
 
   void Init();
@@ -93,8 +97,7 @@ class LocationBarView : public LocationBar,
 
   // Returns the appropriate color for the desired kind, based on the user's
   // system theme.
-  static SkColor GetColor(ToolbarModel::SecurityLevel security_level,
-                          ColorKind kind);
+  static SkColor GetColor(bool is_secure, ColorKind kind);
 
   // Updates the location bar.  We also reset the bar's permanent text and
   // security style, and, if |tab_for_state_restoring| is non-NULL, also restore
@@ -117,12 +120,6 @@ class LocationBarView : public LocationBar,
 
   // Retrieves the PageAction View which is associated with |page_action|.
   views::View* GetPageActionView(ExtensionAction* page_action);
-
-  // Toggles the star on or off.
-  void SetStarToggled(bool on);
-
-  // Shows the bookmark bubble.
-  void ShowStarBubble(const GURL& url, bool newly_bookmarked);
 
   // Sizing functions
   virtual gfx::Size GetPreferredSize();
@@ -161,15 +158,6 @@ class LocationBarView : public LocationBar,
   virtual bool SkipDefaultKeyEventProcessing(const views::KeyEvent& e);
   virtual bool GetAccessibleRole(AccessibilityTypes::Role* role);
 
-  // Overridden from views::DragController:
-  virtual void WriteDragData(View* sender,
-                             const gfx::Point& press_pt,
-                             OSExchangeData* data);
-  virtual int GetDragOperations(View* sender, const gfx::Point& p);
-  virtual bool CanStartDrag(View* sender,
-                            const gfx::Point& press_pt,
-                            const gfx::Point& p);
-
   // Overridden from LocationBar:
   virtual void ShowFirstRunBubble(FirstRun::BubbleType bubble_type);
   virtual std::wstring GetInputString() const;
@@ -184,9 +172,6 @@ class LocationBarView : public LocationBar,
   virtual void InvalidatePageActions();
   virtual void SaveStateToContents(TabContents* contents);
   virtual void Revert();
-  virtual const AutocompleteEditView* location_entry() const {
-    return location_entry_.get();
-  }
   virtual AutocompleteEditView* location_entry() {
     return location_entry_.get();
   }
@@ -205,25 +190,6 @@ class LocationBarView : public LocationBar,
   void Focus();
 
  private:
-  // LocationIconView is used to display an icon to the left of the edit field.
-  // This shows the user's current action while editing, the page security
-  // status on https pages, or a globe for other URLs.
-  class LocationIconView : public views::ImageView {
-   public:
-    explicit LocationIconView(const LocationBarView* parent);
-    virtual ~LocationIconView();
-
-    // Overridden from view.
-    virtual bool OnMousePressed(const views::MouseEvent& event);
-    virtual void OnMouseReleased(const views::MouseEvent& event, bool canceled);
-
-   private:
-    // The owning LocationBarView.
-    const LocationBarView* parent_;
-
-    DISALLOW_COPY_AND_ASSIGN(LocationIconView);
-  };
-
   // View used when the user has selected a keyword.
   //
   // SelectedKeywordView maintains two labels. One label contains the
@@ -312,12 +278,102 @@ class LocationBarView : public LocationBar,
     DISALLOW_COPY_AND_ASSIGN(KeywordHintView);
   };
 
+  class ShowInfoBubbleTask;
+  class ShowFirstRunBubbleTask;
+
+  class LocationBarImageView : public views::ImageView,
+                               public InfoBubbleDelegate {
+   public:
+    explicit LocationBarImageView(const BubblePositioner* bubble_positioner);
+    virtual ~LocationBarImageView();
+
+    // Overridden from view for the mouse hovering.
+    virtual void OnMouseMoved(const views::MouseEvent& event);
+    virtual void OnMouseExited(const views::MouseEvent& event);
+    virtual bool OnMousePressed(const views::MouseEvent& event) = 0;
+
+    // InfoBubbleDelegate
+    void InfoBubbleClosing(InfoBubble* info_bubble, bool closed_by_escape);
+    bool CloseOnEscape() { return true; }
+
+    virtual void ShowInfoBubble() = 0;
+
+   protected:
+    void ShowInfoBubbleImpl(const std::wstring& text, SkColor text_color);
+
+   private:
+    friend class ShowInfoBubbleTask;
+
+    // The currently shown info bubble if any.
+    InfoBubble* info_bubble_;
+
+    // A task used to display the info bubble when the mouse hovers on the
+    // image.
+    ShowInfoBubbleTask* show_info_bubble_task_;
+
+    // A positioner used to give the info bubble the correct target bounds.  The
+    // caller maintains ownership of this and must ensure it's kept alive.
+    const BubblePositioner* bubble_positioner_;
+
+    DISALLOW_COPY_AND_ASSIGN(LocationBarImageView);
+  };
+
+  // SecurityImageView is used to display the lock or warning icon when the
+  // current URL's scheme is https.
+  //
+  // If a message has been set with SetInfoBubbleText, it displays an info
+  // bubble when the mouse hovers on the image.
+  class SecurityImageView : public LocationBarImageView {
+   public:
+    enum Image {
+      LOCK = 0,
+      WARNING
+    };
+
+    SecurityImageView(const LocationBarView* parent,
+                      Profile* profile,
+                      ToolbarModel* model_,
+                      const BubblePositioner* bubble_positioner);
+    virtual ~SecurityImageView();
+
+    // Sets the image that should be displayed.
+    void SetImageShown(Image image);
+
+    // Overridden from view for the mouse hovering.
+    virtual bool OnMousePressed(const views::MouseEvent& event);
+
+    void set_profile(Profile* profile) { profile_ = profile; }
+
+    virtual void ShowInfoBubble();
+
+   private:
+    // The lock icon shown when using HTTPS.
+    static SkBitmap* lock_icon_;
+
+    // The warning icon shown when HTTPS is broken.
+    static SkBitmap* warning_icon_;
+
+    // A task used to display the info bubble when the mouse hovers on the
+    // image.
+    ShowInfoBubbleTask* show_info_bubble_task_;
+
+    // The owning LocationBarView.
+    const LocationBarView* parent_;
+
+    Profile* profile_;
+
+    ToolbarModel* model_;
+
+    DISALLOW_COPY_AND_ASSIGN(SecurityImageView);
+  };
+
   class ContentSettingImageView : public views::ImageView,
                                   public InfoBubbleDelegate {
    public:
     ContentSettingImageView(ContentSettingsType content_type,
                             const LocationBarView* parent,
-                            Profile* profile);
+                            Profile* profile,
+                            const BubblePositioner* bubble_positioner);
     virtual ~ContentSettingImageView();
 
     void set_profile(Profile* profile) { profile_ = profile; }
@@ -326,7 +382,6 @@ class LocationBarView : public LocationBar,
    private:
     // views::ImageView overrides:
     virtual bool OnMousePressed(const views::MouseEvent& event);
-    virtual void OnMouseReleased(const views::MouseEvent& event, bool canceled);
     virtual void VisibilityChanged(View* starting_from, bool is_visible);
 
     // InfoBubbleDelegate overrides:
@@ -345,20 +400,25 @@ class LocationBarView : public LocationBar,
     // The currently shown info bubble if any.
     InfoBubble* info_bubble_;
 
+    // A positioner used to give the info bubble the correct target bounds.  The
+    // caller maintains ownership of this and must ensure it's kept alive.
+    const BubblePositioner* bubble_positioner_;
+
     DISALLOW_IMPLICIT_CONSTRUCTORS(ContentSettingImageView);
   };
   typedef std::vector<ContentSettingImageView*> ContentSettingViews;
 
   // PageActionImageView is used to display the icon for a given PageAction
   // and notify the extension when the icon is clicked.
-  class PageActionImageView : public views::ImageView,
+  class PageActionImageView : public LocationBarImageView,
       public ImageLoadingTracker::Observer,
       public ExtensionContextMenuModel::PopupDelegate,
       public ExtensionPopup::Observer {
    public:
     PageActionImageView(LocationBarView* owner,
                         Profile* profile,
-                        ExtensionAction* page_action);
+                        ExtensionAction* page_action,
+                        const BubblePositioner* bubble_positioner);
     virtual ~PageActionImageView();
 
     ExtensionAction* page_action() { return page_action_; }
@@ -370,8 +430,12 @@ class LocationBarView : public LocationBar,
     }
 
     // Overridden from view.
+    virtual void OnMouseMoved(const views::MouseEvent& event);
     virtual bool OnMousePressed(const views::MouseEvent& event);
     virtual void OnMouseReleased(const views::MouseEvent& event, bool canceled);
+
+    // Overridden from LocationBarImageView.
+    virtual void ShowInfoBubble();
 
     // Overridden from ImageLoadingTracker.
     virtual void OnImageLoaded(
@@ -441,30 +505,11 @@ class LocationBarView : public LocationBar,
   friend class PageActionWithBadgeView;
   typedef std::vector<PageActionWithBadgeView*> PageActionViews;
 
-  class StarView : public views::ImageView, public InfoBubbleDelegate {
-   public:
-    explicit StarView(CommandUpdater* command_updater);
-    virtual ~StarView();
-
-    // Toggles the star on or off.
-    void SetToggled(bool on);
-
-   private:
-    // views::ImageView overrides:
-    virtual bool GetAccessibleRole(AccessibilityTypes::Role* role);
-    virtual bool OnMousePressed(const views::MouseEvent& event);
-    virtual void OnMouseReleased(const views::MouseEvent& event, bool canceled);
-
-    // InfoBubbleDelegate overrides:
-    virtual void InfoBubbleClosing(InfoBubble* info_bubble,
-                                   bool closed_by_escape);
-    virtual bool CloseOnEscape();
-
-    // The CommandUpdater for the Browser object that owns the location bar.
-    CommandUpdater* command_updater_;
-
-    DISALLOW_IMPLICIT_CONSTRUCTORS(StarView);
-  };
+  // Both Layout and OnChanged call into this. This updates the contents
+  // of the 3 views: selected_keyword, keyword_hint and type_search_view. If
+  // force_layout is true, or one of these views has changed in such a way as
+  // to necessitate a layout, layout occurs as well.
+  void DoLayout(bool force_layout);
 
   // Returns the height in pixels of the margin at the top of the bar.
   int TopMargin() const;
@@ -480,11 +525,24 @@ class LocationBarView : public LocationBar,
   // minimum size of the view should be used.
   bool UsePref(int pref_width, int available_width);
 
+  // Returns true if the view needs to be resized. This determines whether the
+  // min or pref should be used, and returns true if the view is not at that
+  // size.
+  bool NeedsResize(View* view, int available_width);
+
+  // Adjusts the keyword hint, selected keyword and type to search views
+  // based on the contents of the edit. Returns true if something changed that
+  // necessitates a layout.
+  bool AdjustHints(int available_width);
+
   // If View fits in the specified region, it is made visible and the
   // bounds are adjusted appropriately. If the View does not fit, it is
   // made invisible.
   void LayoutView(bool leading, views::View* view, int available_width,
                   gfx::Rect* bounds);
+
+  // Sets the security icon to display.  Note that no repaint is done.
+  void SetSecurityIcon(ToolbarModel::Icon icon);
 
   // Update the visibility state of the Content Blocked icons to reflect what is
   // actually blocked on the current page.
@@ -497,8 +555,16 @@ class LocationBarView : public LocationBar,
   // PageActions.
   void RefreshPageActionViews();
 
-  // Sets the visibility of view to new_vis.
-  void ToggleVisibility(bool new_vis, views::View* view);
+  // Sets the text that should be displayed in the info label and its associated
+  // tooltip text.  Call with an empty string if the info label should be
+  // hidden.
+  void SetInfoText(const std::wstring& text,
+                   ToolbarModel::InfoTextType text_type,
+                   const std::wstring& tooltip_text);
+
+  // Sets the visibility of view to new_vis. Returns whether the visibility
+  // changed.
+  bool ToggleVisibility(bool new_vis, views::View* view);
 
 #if defined(OS_WIN)
   // Helper for the Mouse event handlers that does all the real work.
@@ -543,9 +609,6 @@ class LocationBarView : public LocationBar,
   // Font used by edit and some of the hints.
   gfx::Font font_;
 
-  // An icon to the left of the edit field.
-  LocationIconView location_icon_view_;
-
   // Location_entry view wrapper
   views::NativeViewHost* location_entry_view_;
 
@@ -553,8 +616,6 @@ class LocationBarView : public LocationBar,
   // what is going in the edit. They are all added a children of the
   // LocationBarView. At most one is visible at a time. Preference is
   // given to the keyword_view_, then hint_view_, then type_to_search_view_.
-  // These, as well as |security_info_label_|, autocollapse when the edit needs
-  // the room.
 
   // Shown if the user has selected a keyword.
   SelectedKeywordView selected_keyword_view_;
@@ -565,9 +626,8 @@ class LocationBarView : public LocationBar,
   // Shown if the text is not a keyword or url.
   views::Label type_to_search_view_;
 
-  // A label displayed on the right side of the box to show more information
-  // about certain security states.
-  views::Label security_info_label_;
+  // The view that shows the lock/warning when in HTTPS mode.
+  SecurityImageView security_image_view_;
 
   // The content setting views.
   ContentSettingViews content_setting_views_;
@@ -575,8 +635,8 @@ class LocationBarView : public LocationBar,
   // The page action icon views.
   PageActionViews page_action_views_;
 
-  // The star.
-  StarView star_view_;
+  // A label displayed after the lock icon to show some extra information.
+  views::Label info_label_;
 
   // When true, the location bar view is read only and also is has a slightly
   // different presentation (font size / color). This is used for popups.
@@ -584,6 +644,9 @@ class LocationBarView : public LocationBar,
 
   // Used schedule a task for the first run info bubble.
   ScopedRunnableMethodFactory<LocationBarView> first_run_bubble_;
+
+  // The positioner that places the omnibox and info bubbles.
+  const BubblePositioner* bubble_positioner_;
 
   // Storage of string needed for accessibility.
   std::wstring accessible_name_;

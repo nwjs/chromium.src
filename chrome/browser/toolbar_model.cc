@@ -17,7 +17,6 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "grit/generated_resources.h"
-#include "grit/theme_resources.h"
 #include "net/base/cert_status_flags.h"
 #include "net/base/net_util.h"
 
@@ -39,6 +38,7 @@ std::wstring ToolbarModel::GetText() const {
     languages = navigation_controller->profile()->GetPrefs()->GetString(
                     prefs::kAcceptLanguages);
     NavigationEntry* entry = navigation_controller->GetActiveEntry();
+    // We may not have a navigation entry yet
     if (!navigation_controller->tab_contents()->ShouldDisplayURL()) {
       // Explicitly hide the URL for this tab.
       url = GURL();
@@ -53,119 +53,144 @@ std::wstring ToolbarModel::GetText() const {
       url = GURL(url.scheme() + ":");
     }
   }
-  return net::FormatUrl(url, languages, net::kFormatUrlOmitAll,
-                        UnescapeRule::NORMAL, NULL, NULL, NULL);
+  return net::FormatUrl(url, languages, true, UnescapeRule::NORMAL, NULL, NULL,
+                        NULL);
 }
 
 ToolbarModel::SecurityLevel ToolbarModel::GetSecurityLevel() const {
   if (input_in_progress_)  // When editing, assume no security style.
-    return NONE;
+    return ToolbarModel::NORMAL;
 
   NavigationController* navigation_controller = GetNavigationController();
   if (!navigation_controller)  // We might not have a controller on init.
-    return NONE;
+    return ToolbarModel::NORMAL;
 
   NavigationEntry* entry = navigation_controller->GetActiveEntry();
   if (!entry)
-    return NONE;
+    return ToolbarModel::NORMAL;
 
-  const NavigationEntry::SSLStatus& ssl = entry->ssl();
-  switch (ssl.security_style()) {
+  switch (entry->ssl().security_style()) {
+    case SECURITY_STYLE_AUTHENTICATED:
+      if (entry->ssl().has_mixed_content())
+        return ToolbarModel::NORMAL;
+      return ToolbarModel::SECURE;
+    case SECURITY_STYLE_AUTHENTICATION_BROKEN:
+      return ToolbarModel::INSECURE;
     case SECURITY_STYLE_UNKNOWN:
     case SECURITY_STYLE_UNAUTHENTICATED:
-      return NONE;
-
-    case SECURITY_STYLE_AUTHENTICATION_BROKEN:
-      return SECURITY_ERROR;
-
-    case SECURITY_STYLE_AUTHENTICATED:
-      if (ssl.has_mixed_content())
-        return SECURITY_WARNING;
-      if ((ssl.cert_status() & net::CERT_STATUS_IS_EV) &&
-          CertStore::GetSharedInstance()->RetrieveCert(ssl.cert_id(), NULL))
-        return EV_SECURE;
-      return SECURE;
-
+      return ToolbarModel::NORMAL;
     default:
       NOTREACHED();
-      return NONE;
+      return ToolbarModel::NORMAL;
   }
 }
 
-int ToolbarModel::GetIcon() const {
-  static int icon_ids[NUM_SECURITY_LEVELS] = {
-    IDR_OMNIBOX_HTTP,
-    IDR_OMNIBOX_HTTPS_GREEN,
-    IDR_OMNIBOX_HTTPS_VALID,
-    IDR_OMNIBOX_HTTPS_WARNING,
-    IDR_OMNIBOX_HTTPS_INVALID,
-  };
-  DCHECK(arraysize(icon_ids) == NUM_SECURITY_LEVELS);
-  return icon_ids[GetSecurityLevel()];
+ToolbarModel::SecurityLevel ToolbarModel::GetSchemeSecurityLevel() const {
+  // For now, in sync with the security level.
+  return GetSecurityLevel();
+}
+
+ToolbarModel::Icon ToolbarModel::GetIcon() const {
+  if (input_in_progress_)
+    return ToolbarModel::NO_ICON;
+
+  NavigationController* navigation_controller = GetNavigationController();
+  if (!navigation_controller)  // We might not have a controller on init.
+    return ToolbarModel::NO_ICON;
+
+  NavigationEntry* entry = navigation_controller->GetActiveEntry();
+  if (!entry)
+    return ToolbarModel::NO_ICON;
+
+  const NavigationEntry::SSLStatus& ssl = entry->ssl();
+  switch (ssl.security_style()) {
+    case SECURITY_STYLE_AUTHENTICATED:
+      if (ssl.has_mixed_content())
+        return ToolbarModel::WARNING_ICON;
+      return ToolbarModel::LOCK_ICON;
+    case SECURITY_STYLE_AUTHENTICATION_BROKEN:
+      return ToolbarModel::WARNING_ICON;
+    case SECURITY_STYLE_UNKNOWN:
+    case SECURITY_STYLE_UNAUTHENTICATED:
+      return ToolbarModel::NO_ICON;
+    default:
+      NOTREACHED();
+      return ToolbarModel::NO_ICON;
+  }
 }
 
 void ToolbarModel::GetIconHoverText(std::wstring* text) const {
   DCHECK(text);
-  text->clear();
 
-  switch (GetSecurityLevel()) {
-    case NONE:
-      // There's no security icon, and thus no hover text.
-      return;
+  NavigationController* navigation_controller = GetNavigationController();
+  // We don't expect to be called during initialization, so the controller
+  // should never be NULL.
+  DCHECK(navigation_controller);
+  NavigationEntry* entry = navigation_controller->GetActiveEntry();
+  DCHECK(entry);
 
-    case EV_SECURE:
-    case SECURE: {
-      // Note: Navigation controller and active entry are guaranteed non-NULL or
-      // the security level would be NONE.
-      GURL url(GetNavigationController()->GetActiveEntry()->url());
-      DCHECK(url.has_host());
-      *text = l10n_util::GetStringF(IDS_SECURE_CONNECTION,
-                                    UTF8ToWide(url.host()));
-      return;
+
+  const NavigationEntry::SSLStatus& ssl = entry->ssl();
+  switch (ssl.security_style()) {
+    case SECURITY_STYLE_AUTHENTICATED: {
+      if (ssl.has_mixed_content()) {
+        SSLErrorInfo error_info = SSLErrorInfo::CreateError(
+            SSLErrorInfo::MIXED_CONTENTS, NULL, GURL());
+        text->assign(error_info.short_description());
+      } else {
+        DCHECK(entry->url().has_host());
+        text->assign(l10n_util::GetStringF(IDS_SECURE_CONNECTION,
+                                           UTF8ToWide(entry->url().host())));
+      }
+      break;
     }
-
-    case SECURITY_WARNING:
-      *text = SSLErrorInfo::CreateError(SSLErrorInfo::MIXED_CONTENTS, NULL,
-                                        GURL()).short_description();
-      return;
-
-    case SECURITY_ERROR:
-      // See note above.
-      CreateErrorText(GetNavigationController()->GetActiveEntry(), text);
-      // If the authentication is broken, we should always have at least one
-      // error.
-      DCHECK(!text->empty());
-      return;
-
+    case SECURITY_STYLE_AUTHENTICATION_BROKEN: {
+      CreateErrorText(entry, text);
+      if (text->empty()) {
+        // If the authentication is broken, we should always have at least one
+        // error.
+        NOTREACHED();
+        return;
+      }
+      break;
+    }
     default:
-      NOTREACHED();
-      return;
+      // Don't show the info bubble in any other cases.
+      text->clear();
+      break;
   }
 }
 
-std::wstring ToolbarModel::GetSecurityInfoText() const {
-  switch (GetSecurityLevel()) {
-    case NONE:
-    case SECURE:
-    case SECURITY_WARNING:
-      return std::wstring();
+ToolbarModel::InfoTextType ToolbarModel::GetInfoText(
+    std::wstring* text,
+    std::wstring* tooltip) const {
+  DCHECK(text && tooltip);
+  text->clear();
+  tooltip->clear();
 
-    case EV_SECURE: {
-      scoped_refptr<net::X509Certificate> cert;
-      // See note in GetIconHoverText().
-      CertStore::GetSharedInstance()->RetrieveCert(
-          GetNavigationController()->GetActiveEntry()->ssl().cert_id(),
-          &cert);
-      return SSLManager::GetEVCertName(*cert);
-    }
+  if (input_in_progress_)
+    return INFO_NO_INFO;
 
-    case SECURITY_ERROR:
-      return l10n_util::GetString(IDS_SECURITY_BROKEN);
+  NavigationController* navigation_controller = GetNavigationController();
+  if (!navigation_controller)  // We might not have a controller on init.
+    return INFO_NO_INFO;
 
-    default:
-      NOTREACHED();
-      return std::wstring();
+  NavigationEntry* entry = navigation_controller->GetActiveEntry();
+  const NavigationEntry::SSLStatus& ssl = entry->ssl();
+  if (!entry || ssl.has_mixed_content() ||
+      net::IsCertStatusError(ssl.cert_status()) ||
+      ((ssl.cert_status() & net::CERT_STATUS_IS_EV) == 0))
+    return INFO_NO_INFO;
+
+  scoped_refptr<net::X509Certificate> cert;
+  CertStore::GetSharedInstance()->RetrieveCert(ssl.cert_id(), &cert);
+  if (!cert.get()) {
+    NOTREACHED();
+    return INFO_NO_INFO;
   }
+
+  SSLManager::GetEVCertNames(*cert, text, tooltip);
+  return INFO_EV_TEXT;
 }
 
 NavigationController* ToolbarModel::GetNavigationController() const {
@@ -180,8 +205,10 @@ void ToolbarModel::CreateErrorText(NavigationEntry* entry,
                                    std::wstring* text) const {
   const NavigationEntry::SSLStatus& ssl = entry->ssl();
   std::vector<SSLErrorInfo> errors;
-  SSLErrorInfo::GetErrorsForCertStatus(ssl.cert_id(), ssl.cert_status(),
-                                       entry->url(), &errors);
+  SSLErrorInfo::GetErrorsForCertStatus(ssl.cert_id(),
+                                       ssl.cert_status(),
+                                       entry->url(),
+                                       &errors);
   if (ssl.has_mixed_content()) {
     errors.push_back(SSLErrorInfo::CreateError(SSLErrorInfo::MIXED_CONTENTS,
                                                NULL, GURL()));
@@ -191,16 +218,19 @@ void ToolbarModel::CreateErrorText(NavigationEntry* entry,
                                                NULL, GURL()));
   }
 
-  if (errors.empty()) {
-    text->clear();
-  } else if (errors.size() == 1) {
-    *text = errors[0].short_description();
+  int error_count = static_cast<int>(errors.size());
+  if (error_count == 0) {
+    text->assign(L"");
+  } else if (error_count == 1) {
+    text->assign(errors[0].short_description());
   } else {
     // Multiple errors.
-    *text = l10n_util::GetString(IDS_SEVERAL_SSL_ERRORS);
-    for (size_t i = 0; i < errors.size(); ++i) {
-      text->append(L"\n");
+    text->assign(l10n_util::GetString(IDS_SEVERAL_SSL_ERRORS));
+    text->append(L"\n");
+    for (int i = 0; i < error_count; ++i) {
       text->append(errors[i].short_description());
+      if (i != error_count - 1)
+        text->append(L"\n");
     }
   }
 }
