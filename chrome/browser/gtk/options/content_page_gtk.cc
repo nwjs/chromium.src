@@ -156,7 +156,8 @@ void ContentPageGtk::OnStateChanged() {
 // state of the widget for the given preference name, as it has changed.
 void ContentPageGtk::NotifyPrefChanged(const std::wstring* pref_name) {
   initializing_ = true;
-  if (!pref_name || *pref_name == prefs::kPasswordManagerEnabled) {
+  if (!pref_name || *pref_name == prefs::kPasswordManagerEnabled &&
+      autofill_button_ != NULL) {
     if (ask_to_save_passwords_.GetValue()) {
       gtk_toggle_button_set_active(
           GTK_TOGGLE_BUTTON(passwords_asktosave_radio_), TRUE);
@@ -280,6 +281,7 @@ GtkWidget* ContentPageGtk::InitFormAutoFillGroup() {
   gtk_container_add(GTK_CONTAINER(vbox), button_hbox);
 
   // AutoFill button.
+  autofill_button_ = NULL;
   if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableAutoFill)) {
     autofill_button_ = gtk_button_new_with_label(
         l10n_util::GetStringUTF8(IDS_OPTIONS_AUTOFILL_SETTINGS).c_str());
