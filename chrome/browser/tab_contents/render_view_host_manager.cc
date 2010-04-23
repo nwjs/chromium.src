@@ -466,7 +466,7 @@ void RenderViewHostManager::CommitPending() {
   // committing above and we're done.
   if (!pending_render_view_host_) {
     if (will_focus_location_bar)
-      delegate_->SetFocusToLocationBar();
+      delegate_->SetFocusToLocationBar(false);
     return;
   }
 
@@ -498,7 +498,7 @@ void RenderViewHostManager::CommitPending() {
   delegate_->UpdateRenderViewSizeForRenderManager();
 
   if (will_focus_location_bar)
-    delegate_->SetFocusToLocationBar();
+    delegate_->SetFocusToLocationBar(false);
   else if (focus_render_view && render_view_host_->view())
     render_view_host_->view()->Focus();
 
