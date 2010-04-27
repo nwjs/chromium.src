@@ -111,7 +111,7 @@ NSString* const kWebURLsWithTitlesPboardType  = @"WebURLsWithTitlesPboardType"; 
   if (!inTitles) {
     NSMutableArray* tmpTitleArray = [NSMutableArray arrayWithCapacity:urlCount];
     for (unsigned int i = 0; i < urlCount; ++i)
-      [tmpTitleArray addObject:@""];
+      [tmpTitleArray addObject:[inUrls objectAtIndex:i]];
     inTitles = tmpTitleArray;
   }
 
@@ -133,11 +133,8 @@ NSString* const kWebURLsWithTitlesPboardType  = @"WebURLsWithTitlesPboardType"; 
   [self setPropertyList:clipboardData forType:kWebURLsWithTitlesPboardType];
 
   if (urlCount == 1) {
-    NSString* title = @"";
-    if (inTitles)
-      title = [inTitles objectAtIndex:0];
-
     NSString* url = [inUrls objectAtIndex:0];
+    NSString* title = [inTitles objectAtIndex:0];
 
     [[NSURL URLWithString:url] writeToPasteboard:self];
     [self setString:url forType:NSStringPboardType];
@@ -159,7 +156,7 @@ NSString* const kWebURLsWithTitlesPboardType  = @"WebURLsWithTitlesPboardType"; 
     // there is data there, but get nothing
 
     NSString* firstURL   = [inUrls objectAtIndex:0];
-    NSString* firstTitle = ([inTitles count] > 0) ? [inTitles objectAtIndex:0] : @"";
+    NSString* firstTitle = [inTitles objectAtIndex:0];
 
     const char* tempCString = [firstURL UTF8String];
     [self setData:[NSData dataWithBytes:tempCString length:strlen(tempCString)] forType:kCorePasteboardFlavorType_url];
@@ -178,6 +175,7 @@ NSString* const kWebURLsWithTitlesPboardType  = @"WebURLsWithTitlesPboardType"; 
 - (void) getURLs:(NSArray**)outUrls andTitles:(NSArray**)outTitles
 {
   NSArray* types = [self types];
+  NSURL* urlFromNSURL = nil;  // Used below in getting an URL from the NSURLPboardType.
   if ([types containsObject:kWebURLsWithTitlesPboardType]) {
     NSArray* urlAndTitleContainer = [self propertyListForType:kWebURLsWithTitlesPboardType];
     *outUrls = [urlAndTitleContainer objectAtIndex:0];
@@ -218,8 +216,8 @@ NSString* const kWebURLsWithTitlesPboardType  = @"WebURLsWithTitlesPboardType"; 
       [(NSMutableArray*) *outUrls addObject:urlString];
       [(NSMutableArray*) *outTitles addObject:title];
     }
-  } else if ([types containsObject:NSURLPboardType]) {
-    *outUrls = [NSArray arrayWithObject:[[NSURL URLFromPasteboard:self] absoluteString]];
+  } else if ([types containsObject:NSURLPboardType] && (urlFromNSURL = [NSURL URLFromPasteboard:self])) {
+    *outUrls = [NSArray arrayWithObject:[urlFromNSURL absoluteString]];
     NSString* title = nil;
     if ([types containsObject:kCorePasteboardFlavorType_urld])
       title = [self stringForType:kCorePasteboardFlavorType_urld];
