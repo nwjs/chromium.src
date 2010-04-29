@@ -455,9 +455,8 @@ TEST_F(SSLClientSocketTest, PrematureApplicationData) {
   net::StaticSocketDataProvider data(data_reads, arraysize(data_reads),
                                      NULL, 0);
 
-  net::ClientSocket* transport =
-      new net::MockTCPClientSocket(addr, NULL, &data);
-  int rv = transport->Connect(&callback);
+  net::ClientSocket* transport = new net::MockTCPClientSocket(addr, &data);
+  int rv = transport->Connect(&callback, NULL);
   if (rv == net::ERR_IO_PENDING)
     rv = callback.WaitForResult();
   EXPECT_EQ(net::OK, rv);
@@ -466,7 +465,7 @@ TEST_F(SSLClientSocketTest, PrematureApplicationData) {
       socket_factory_->CreateSSLClientSocket(
           transport, server_.kHostName, kDefaultSSLConfig));
 
-  rv = sock->Connect(&callback);
+  rv = sock->Connect(&callback, NULL);
   EXPECT_EQ(net::ERR_SSL_PROTOCOL_ERROR, rv);
 }
 #endif  // !defined(OS_WIN)
