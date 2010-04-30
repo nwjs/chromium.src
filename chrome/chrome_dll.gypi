@@ -292,6 +292,13 @@
                 },
               ],
               'variables': {
+                'conditions': [
+                  ['branding=="Chrome"', {
+                    'theme_dir_name': 'google_chrome',
+                  }, {  # else: 'branding!="Chrome"
+                    'theme_dir_name': 'chromium',
+                  }],
+                ],
                 'repack_path': '../tools/data_pack/repack.py',
               },
               'actions': [
@@ -444,15 +451,6 @@
                   ],
                 }],  # mac_breakpad
                 ['mac_keystone==1', {
-                  'variables': {
-                    'conditions': [
-                      ['branding=="Chrome"', {
-                        'theme_dir_name': 'google_chrome',
-                      }, {  # else: 'branding!="Chrome"
-                        'theme_dir_name': 'chromium',
-                      }],
-                    ],
-                  },
                   'mac_bundle_resources': [
                     'browser/cocoa/keystone_promote_preflight.sh',
                     'browser/cocoa/keystone_promote_postflight.sh',
