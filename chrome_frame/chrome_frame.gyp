@@ -140,6 +140,7 @@
         'chrome_launcher_unittest.cc',
         'function_stub_unittest.cc',
         'test/com_message_event_unittest.cc',
+        'test/exception_barrier_unittest.cc',
         'test/html_util_unittests.cc',
         'test/http_negotiate_unittest.cc',
         'test/urlmon_moniker_tests.h',
