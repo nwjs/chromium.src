@@ -165,16 +165,19 @@ void ContentPageGtk::NotifyPrefChanged(const std::wstring* pref_name) {
           GTK_TOGGLE_BUTTON(passwords_neversave_radio_), TRUE);
     }
   }
-  if ((!pref_name || *pref_name == prefs::kAutoFillEnabled) &&
-      autofill_button_ != NULL) {
+  if (!pref_name ||
+      *pref_name == prefs::kAutoFillEnabled ||
+      *pref_name == prefs::kFormAutofillEnabled) {
     if (enable_form_autofill_.GetValue()) {
       gtk_toggle_button_set_active(
           GTK_TOGGLE_BUTTON(form_autofill_enable_radio_), TRUE);
-      gtk_widget_set_sensitive(autofill_button_, TRUE);
+      if (autofill_button_)
+        gtk_widget_set_sensitive(autofill_button_, TRUE);
     } else {
       gtk_toggle_button_set_active(
           GTK_TOGGLE_BUTTON(form_autofill_disable_radio_), TRUE);
-      gtk_widget_set_sensitive(autofill_button_, FALSE);
+      if (autofill_button_)
+        gtk_widget_set_sensitive(autofill_button_, FALSE);
     }
   }
   if (browser_defaults::kCanToggleSystemTitleBar &&
@@ -555,11 +558,13 @@ void ContentPageGtk::OnAutoFillRadioToggled(GtkWidget* widget) {
   if (enabled) {
     UserMetricsRecordAction(UserMetricsAction("Options_FormAutofill_Enable"),
                             profile()->GetPrefs());
-    gtk_widget_set_sensitive(autofill_button_, TRUE);
+    if (autofill_button_)
+      gtk_widget_set_sensitive(autofill_button_, TRUE);
   } else {
     UserMetricsRecordAction(UserMetricsAction("Options_FormAutofill_Disable"),
                             profile()->GetPrefs());
-    gtk_widget_set_sensitive(autofill_button_, FALSE);
+    if (autofill_button_)
+      gtk_widget_set_sensitive(autofill_button_, FALSE);
   }
   enable_form_autofill_.SetValue(enabled);
 }
