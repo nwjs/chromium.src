@@ -2603,7 +2603,7 @@
             '../third_party/mozilla/include/NSScreen+Utils.h',
             '../third_party/mozilla/include/NSScreen+Utils.m',
             '../third_party/mozilla/include/NSString+Utils.h',
-            '../third_party/mozilla/include/NSString+Utils.m',
+            '../third_party/mozilla/include/NSString+Utils.mm',
             '../third_party/mozilla/include/NSURL+Utils.h',
             '../third_party/mozilla/include/NSURL+Utils.m',
             '../third_party/mozilla/include/NSWorkspace+Utils.h',
