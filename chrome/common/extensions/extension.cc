@@ -101,22 +101,20 @@ const int Extension::kIconSizes[] = {
 const int Extension::kPageActionIconMaxSize = 19;
 const int Extension::kBrowserActionIconMaxSize = 19;
 
-const char* Extension::kBookmarkPermission = "bookmarks";
-const char* Extension::kExperimentalPermission = "experimental";
-const char* Extension::kGeolocationPermission = "geolocation";
-const char* Extension::kHistoryPermission = "history";
-const char* Extension::kNotificationPermission = "notifications";
 const char* Extension::kTabPermission = "tabs";
+const char* Extension::kBookmarkPermission = "bookmarks";
+const char* Extension::kNotificationPermission = "notifications";
+const char* Extension::kExperimentalPermission = "experimental";
 const char* Extension::kUnlimitedStoragePermission = "unlimited_storage";
+const char* Extension::kHistoryPermission = "history";
 
 const char* Extension::kPermissionNames[] = {
-  Extension::kBookmarkPermission,
-  Extension::kExperimentalPermission,
-  Extension::kGeolocationPermission,
-  Extension::kHistoryPermission,
-  Extension::kNotificationPermission,
   Extension::kTabPermission,
+  Extension::kBookmarkPermission,
+  Extension::kNotificationPermission,
+  Extension::kExperimentalPermission,
   Extension::kUnlimitedStoragePermission,
+  Extension::kHistoryPermission
 };
 const size_t Extension::kNumPermissions =
     arraysize(Extension::kPermissionNames);
