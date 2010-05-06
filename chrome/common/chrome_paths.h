@@ -30,6 +30,7 @@ enum {
   DIR_DEFAULT_DOWNLOADS_SAFE,   // Directory for a user's
                                 // "My Documents/Downloads".
   DIR_DEFAULT_DOWNLOADS,        // Directory for a user's downloads.
+  DIR_INTERNAL_PLUGINS,         // Directory where internal plugins reside.
   FILE_RESOURCE_MODULE,         // Full path and filename of the module that
                                 // contains embedded resources (version,
                                 // strings, images, etc.).
