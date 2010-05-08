@@ -45,12 +45,12 @@
         'l10n_util_unittest.cc',
         'os_exchange_data_win_unittest.cc',
         'run_all_unittests.cc',
-        'system_monitor_unittest.cc',
-        'test_suite.h',
-        'text_elider_unittest.cc',
         'sql/connection_unittest.cc',
         'sql/statement_unittest.cc',
         'sql/transaction_unittest.cc',
+        'system_monitor_unittest.cc',
+        'test_suite.h',
+        'text_elider_unittest.cc',
         'tree_node_iterator_unittest.cc',
         'win_util_unittest.cc',
       ],
@@ -59,6 +59,9 @@
       ],
       'conditions': [
         ['OS=="linux" or OS=="freebsd" or OS=="openbsd"', {
+          'sources': [
+            'gtk_dnd_util_unittest.cc',
+          ],
           'dependencies': [
             '../build/linux/system.gyp:gtk',
             '../tools/xdisplaycheck/xdisplaycheck.gyp:xdisplaycheck',
