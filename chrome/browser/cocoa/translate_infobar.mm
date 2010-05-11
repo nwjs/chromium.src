@@ -657,9 +657,6 @@ class TranslateNotificationObserverBridge :
     // "About Translate" can open a new tab).
     // Do not access member variables after this line!
     menu_model_->ExecuteCommand(cmd);
-
-    // The command many change the state of the options menu items.
-    [self rebuildOptionsMenu];
   } else {
     NOTREACHED();
   }
