@@ -214,6 +214,11 @@ STDMETHODIMP UrlmonUrlRequest::OnProgress(ULONG progress, ULONG max_progress,
   if (pending_ && status_code != BINDSTATUS_REDIRECTING)
     return S_OK;
 
+  if (!delegate_) {
+    DLOG(INFO) << "Invalid delegate";
+    return S_OK;
+  }
+
   switch (status_code) {
     case BINDSTATUS_REDIRECTING: {
       // If we receive a redirect for the initial pending request initiated
@@ -542,7 +547,7 @@ STDMETHODIMP UrlmonUrlRequest::OnResponse(DWORD dwResponseCode,
 
   if (!delegate_) {
     DLOG(WARNING) << "Invalid delegate";
-    return E_FAIL;
+    return S_OK;
   }
 
   std::string raw_headers = WideToUTF8(response_headers);
