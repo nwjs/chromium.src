@@ -540,6 +540,11 @@ STDMETHODIMP UrlmonUrlRequest::OnResponse(DWORD dwResponseCode,
       << StringPrintf(" this=0x%08X, tid=%i", this, ::GetCurrentThreadId());
   DCHECK_EQ(thread_, PlatformThread::CurrentId());
 
+  if (!delegate_) {
+    DLOG(WARNING) << "Invalid delegate";
+    return E_FAIL;
+  }
+
   std::string raw_headers = WideToUTF8(response_headers);
 
   delegate_->AddPrivacyDataForUrl(url(), "", 0);
