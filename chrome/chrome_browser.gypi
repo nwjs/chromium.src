@@ -43,7 +43,6 @@
       'include_dirs': [
         '..',
         '<(INTERMEDIATE_DIR)',
-        '<(protoc_out_dir)',
       ],
       'defines': [
         '<@(nacl_defines)',
@@ -3488,9 +3487,6 @@
         ]
       },
       'export_dependent_settings': [
-        '../third_party/protobuf2/protobuf.gyp:protobuf',
-      ],
-     'dependencies': [
         '../third_party/protobuf2/protobuf.gyp:protobuf',
       ],
     },
