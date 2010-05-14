@@ -628,6 +628,7 @@
 <translation id="149347756975725155">无法载入扩展程序图标“<ph name="ICON"/>”。</translation>
 <translation id="3675321783533846350">设置用于连接网络的代理服务器。</translation>
 <translation id="1572103024875503863"><ph name="NUMBER_MANY"/> days</translation>
+<translation id="181952314179848438">此扩展程序需要获得以下内容的访问权限：</translation>
 <translation id="8453184121293348016">未找到任何吊销机制</translation>
 <translation id="3481915276125965083">已拦截此网页上的下列弹出式窗口：</translation>
 <translation id="3468298837301810372">标签</translation>
@@ -669,7 +670,7 @@
 <translation id="9157595877708044936">正在设置...</translation>
 <translation id="1823768272150895732">字体</translation>
 <translation id="4475552974751346499">搜索下载内容</translation>
-<translation id="3021256392995617989">网站尝试跟踪我的实际位置时询问我（推荐）</translation>
+<translation id="3021256392995617989">网站尝试跟踪我的地理位置时询问我（推荐）</translation>
 <translation id="7497564420220535101">保存屏幕截图(&amp;S)...</translation>
 <translation id="918334529602927716">离线工作</translation>
 <translation id="2320435940785160168">此服务器要求提供用于身份验证的证书，且没有接受由
@@ -794,7 +795,7 @@
 <translation id="7734729626860583526"><ph name="HOST"/> 的 Cookie</translation>
 <translation id="6584878029876017575">Microsoft 生存时间签名</translation>
 <translation id="1084824384139382525">复制链接地址(&amp;E)</translation>
-<translation id="5042992464904238023">网络内容</translation>
+<translation id="5042992464904238023">网页内容</translation>
 <translation id="6254503684448816922">密钥泄漏</translation>
 <translation id="1181037720776840403">删除</translation>
 <translation id="4006726980536015530">如果现在关闭<ph name="PRODUCT_NAME"/>，将会取消这些下载。</translation>

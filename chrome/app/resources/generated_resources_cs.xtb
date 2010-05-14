@@ -617,6 +617,7 @@
 <translation id="149347756975725155">Nelze načíst ikonu rozšíření <ph name="ICON"/>.</translation>
 <translation id="3675321783533846350">Nastavit proxy pro připojení k síti.</translation>
 <translation id="1572103024875503863"><ph name="NUMBER_MANY"/> dnů</translation>
+<translation id="181952314179848438">Toto rozšíření potřebuje přístup k:</translation>
 <translation id="8453184121293348016">Nebyl nalezen žádný mechanismus zamítnutí</translation>
 <translation id="3481915276125965083">Na této stránce byla zablokována následující vyskakovací okna:</translation>
 <translation id="3468298837301810372">Štítek</translation>
@@ -765,7 +766,7 @@
 <translation id="4474155171896946103">Přidat do záložek všechny karty...</translation>
 <translation id="5895187275912066135">Datum vydání</translation>
 <translation id="1190844492833803334">Při zavření prohlížeče</translation>
-<translation id="5646376287012673985">Místo</translation>
+<translation id="5646376287012673985">Poloha</translation>
 <translation id="1110155001042129815">Počkat</translation>
 <translation id="2607101320794533334">Informace o veřejném klíči subjektu</translation>
 <translation id="7071586181848220801">Neznámý plugin</translation>
@@ -1714,7 +1715,7 @@
 <translation id="2301382460326681002">Kořenový adresář rozšíření je neplatný.</translation>
 <translation id="7839192898639727867">ID klíče subjektu certifikátu</translation>
 <translation id="4759238208242260848">Stahování</translation>
-<translation id="1178581264944972037">Pauza</translation>
+<translation id="1178581264944972037">Pozastavit</translation>
 <translation id="6314919950468685344">Písmo s pevnou šířkou:</translation>
 <translation id="6492313032770352219">Velikost na disku:</translation>
 <translation id="5233231016133573565">ID procesu</translation>

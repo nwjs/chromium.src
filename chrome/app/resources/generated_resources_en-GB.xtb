@@ -617,6 +617,7 @@
 <translation id="149347756975725155">Could not load extension icon '<ph name="ICON"/>'.</translation>
 <translation id="3675321783533846350">Set up a proxy to connect to the network.</translation>
 <translation id="1572103024875503863"><ph name="NUMBER_MANY"/> days</translation>
+<translation id="181952314179848438">This extension needs access to:</translation>
 <translation id="8453184121293348016">No revocation mechanism found</translation>
 <translation id="3481915276125965083">The following pop-ups were blocked on this page:</translation>
 <translation id="3468298837301810372">Label</translation>

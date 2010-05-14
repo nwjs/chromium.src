@@ -234,7 +234,7 @@
 <translation id="4244236525807044920">Vaihda kirjasin- ja kieliasetukset</translation>
 <translation id="3241680850019875542">Voit pakata laajennuksen valitsemalla sen juurihakemiston. Jos haluat päivittää laajennuksen, valitse myös yksityinen avaintiedosto, jotta laajennusta voidaan käyttää uudelleen.</translation>
 <translation id="2679629658858164554">Sivun URL-osoite:</translation>
-<translation id="6746124502594467657">Siirry alas</translation>
+<translation id="6746124502594467657">Siirrä alas</translation>
 <translation id="2806486418181903201">Virheellinen kirjautuminen</translation>
 <translation id="4657169630710541069">Resurssivirhe</translation>
 <translation id="3383487468758466563">Kirjasimet ja kielet:</translation>
@@ -616,6 +616,7 @@
 <translation id="149347756975725155">Laajennuskuvakkeen <ph name="ICON"/> lataaminen ei onnistunut.</translation>
 <translation id="3675321783533846350">Määritä välityspalvelin verkkoon yhdistämistä varten.</translation>
 <translation id="1572103024875503863"><ph name="NUMBER_MANY"/> päivää</translation>
+<translation id="181952314179848438">Tämä laajennus tarvitsee käyttöoikeudet kohteeseen:</translation>
 <translation id="8453184121293348016">Kumoamisjärjestelmää ei löytynyt</translation>
 <translation id="3481915276125965083">Seuraavat ponnahdusikkunat estettiin tällä sivulla:</translation>
 <translation id="3468298837301810372">Tunniste</translation>

@@ -617,6 +617,7 @@
 <translation id="149347756975725155">Не удается загрузить значок расширения &quot;<ph name="ICON"/>&quot;.</translation>
 <translation id="3675321783533846350">Настроить прокси-сервер для подключения к сети</translation>
 <translation id="1572103024875503863"><ph name="NUMBER_MANY"/> дн.</translation>
+<translation id="181952314179848438">Для этого расширения необходим доступ к:</translation>
 <translation id="8453184121293348016">Не обнаружен механизм отзыва</translation>
 <translation id="3481915276125965083">Заблокированы следующие всплывающие окна:</translation>
 <translation id="3468298837301810372">Ярлык:</translation>
