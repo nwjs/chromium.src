@@ -43,6 +43,7 @@
       'include_dirs': [
         '..',
         '<(INTERMEDIATE_DIR)',
+        '<(protoc_out_dir)',
       ],
       'defines': [
         '<@(nacl_defines)',
