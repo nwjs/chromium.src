@@ -4,7 +4,10 @@
 
 #include "chrome/browser/autocomplete/autocomplete_edit_view_win.h"
 
+#include <algorithm>
 #include <locale>
+#include <string>
+
 #include <richedit.h>
 #include <textserv.h>
 
@@ -1189,7 +1192,7 @@ void AutocompleteEditViewWin::OnCopy() {
       else
         scw.WriteText(text);
       scw.WriteBookmark(text, url.spec());
-      scw.WriteHyperlink(EscapeForHTML(UTF16ToUTF8(text)), url.spec());
+      scw.WriteHyperlink(EscapeForHTML(text), url.spec());
       return;
     }
   }

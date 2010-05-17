@@ -34,7 +34,6 @@
 
 #if defined(TOOLKIT_VIEWS)
 #include "chrome/browser/views/location_bar_view.h"
-#include "gfx/skia_utils_gtk.h"
 #else
 #include "chrome/browser/gtk/gtk_theme_provider.h"
 #include "chrome/browser/gtk/location_bar_view_gtk.h"
@@ -1158,7 +1157,7 @@ void AutocompleteEditViewGtk::HandleCopyOrCutClipboard(GtkWidget* sender) {
       scw.WriteText(text16);
     }
 
-    scw.WriteHyperlink(UTF16ToUTF8(EscapeForHTML(text16)), url.spec());
+    scw.WriteHyperlink(EscapeForHTML(text16), url.spec());
 
     // Update PRIMARY selection if it is not owned by the text_buffer.
     if (gtk_clipboard_get_owner(clipboard) != G_OBJECT(text_buffer_)) {
