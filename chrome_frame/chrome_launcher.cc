@@ -12,6 +12,7 @@
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome_frame/chrome_frame_automation.h"
+#include "chrome_frame/chrome_frame_reporting.h"
 
 namespace chrome_launcher {
 
@@ -114,11 +115,17 @@ FilePath GetChromeExecutablePath() {
 
 // Entrypoint that implements the logic of chrome_launcher.exe.
 int CALLBACK CfLaunchChrome() {
+  int result = ERROR_OPEN_FAILED;
+
   if (chrome_launcher::SanitizeAndLaunchChrome(::GetCommandLine())) {
-    return ERROR_SUCCESS;
-  } else {
-    return ERROR_OPEN_FAILED;
+    result = ERROR_SUCCESS;
   }
+
+  // Regardless of what just happened, shut down crash reporting now to avoid a
+  // hang when we are unloaded.
+  ShutdownCrashReporting();
+
+  return result;
 }
 
 // Compile-time check to see that the type CfLaunchChromeProc is correct.
