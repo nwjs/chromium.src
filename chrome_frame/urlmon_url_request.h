@@ -70,6 +70,10 @@ class UrlmonUrlRequestManager
     privileged_mode_ = privileged_mode;
   }
 
+  void set_container(IUnknown* container) {
+    container_ = container;
+  }
+
  private:
   friend class MessageLoop;
   friend struct RunnableMethodTraits<UrlmonUrlRequestManager>;
@@ -119,6 +123,9 @@ class UrlmonUrlRequestManager
   HWND notification_window_;
   // Set to true if the ChromeFrame instance is running in privileged mode.
   bool privileged_mode_;
+  // A pointer to the containing object. We maintain a weak reference to avoid
+  // lifetime issues.
+  IUnknown* container_;
 };
 
 #endif  // CHROME_FRAME_URLMON_URL_REQUEST_H_

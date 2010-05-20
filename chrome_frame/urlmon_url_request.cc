@@ -1110,12 +1110,24 @@ void UrlmonUrlRequestManager::GetCookiesForUrl(const GURL& url, int cookie_id) {
 
 void UrlmonUrlRequestManager::SetCookiesForUrl(const GURL& url,
                                                const std::string& cookie) {
+  DCHECK(container_);
+  // Grab a reference on the container to ensure that we don't get destroyed in
+  // case the InternetSetCookie call below puts up a dialog box, which can
+  // happen if the cookie policy is set to prompt.
+  if (container_) {
+    container_->AddRef();
+  }
+
   InternetCookieState cookie_state = static_cast<InternetCookieState>(
       InternetSetCookieExA(url.spec().c_str(), NULL, cookie.c_str(),
                            INTERNET_COOKIE_EVALUATE_P3P, NULL));
 
   int32 cookie_action = MapCookieStateToCookieAction(cookie_state);
   AddPrivacyDataForUrl(url.spec(), "", cookie_action);
+
+  if (container_) {
+    container_->Release();
+  }
 }
 
 void UrlmonUrlRequestManager::EndRequest(int request_id) {
@@ -1190,7 +1202,8 @@ scoped_refptr<UrlmonUrlRequest> UrlmonUrlRequestManager::LookupRequest(
 
 UrlmonUrlRequestManager::UrlmonUrlRequestManager()
     : stopping_(false), calling_delegate_(0), notification_window_(NULL),
-      privileged_mode_(false) {
+      privileged_mode_(false),
+      container_(NULL) {
 }
 
 UrlmonUrlRequestManager::~UrlmonUrlRequestManager() {
@@ -1200,6 +1213,8 @@ UrlmonUrlRequestManager::~UrlmonUrlRequestManager() {
 void UrlmonUrlRequestManager::AddPrivacyDataForUrl(
     const std::string& url, const std::string& policy_ref,
     int32 flags) {
+  DCHECK(!url.empty());
+
   bool fire_privacy_event = false;
 
   if (privacy_info_.privacy_records.size() == 0)
