@@ -2157,6 +2157,10 @@ static BOOL ValueInRangeInclusive(CGFloat low, CGFloat value, CGFloat high) {
 - (void)removeButton:(NSInteger)buttonIndex animate:(BOOL)animate {
   if (buttonIndex < (NSInteger)[buttons_ count]) {
     BookmarkButton* oldButton = [buttons_ objectAtIndex:buttonIndex];
+    if (oldButton == [folderController_ parentButton]) {
+      // If we are deleting a button whose folder is currently open, close it!
+      [self closeAllBookmarkFolders];
+    }
     NSRect poofFrame = [oldButton bounds];
     NSPoint poofPoint = NSMakePoint(NSMidX(poofFrame), NSMidY(poofFrame));
     poofPoint = [oldButton convertPoint:poofPoint toView:nil];
