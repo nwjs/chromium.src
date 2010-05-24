@@ -132,7 +132,7 @@ void ExistingUserController::Login(UserController* source,
   index_of_view_logging_in_ = i - controllers_.begin();
 
   authenticator_ = LoginUtils::Get()->CreateAuthenticator(this);
-  Profile* profile = g_browser_process->profile_manager()->GetWizardProfile();
+  Profile* profile = g_browser_process->profile_manager()->GetDefaultProfile();
   ChromeThread::PostTask(
       ChromeThread::FILE, FROM_HERE,
       NewRunnableMethod(authenticator_.get(),

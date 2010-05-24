@@ -657,14 +657,6 @@ ProfileImpl::ProfileImpl(const FilePath& path)
       TimeDelta::FromMilliseconds(kCreateSessionServiceDelayMS), this,
       &ProfileImpl::EnsureSessionServiceCreated);
 
-  if (CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kEnableExtensionTimelineApi)) {
-    extension_devtools_manager_ = new ExtensionDevToolsManager(this);
-  }
-
-  extension_process_manager_.reset(new ExtensionProcessManager(this));
-  extension_message_service_ = new ExtensionMessageService(this);
-
   PrefService* prefs = GetPrefs();
   prefs->AddPrefObserver(prefs::kSpellCheckDictionary, this);
   prefs->AddPrefObserver(prefs::kEnableSpellCheck, this);
@@ -730,6 +722,14 @@ void ProfileImpl::InitExtensions() {
     return;  // Already initialized.
 
   const CommandLine* command_line = CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(
+      switches::kEnableExtensionTimelineApi)) {
+    extension_devtools_manager_ = new ExtensionDevToolsManager(this);
+  }
+
+  extension_process_manager_.reset(new ExtensionProcessManager(this));
+  extension_message_service_ = new ExtensionMessageService(this);
+
   ExtensionErrorReporter::Init(true);  // allow noisy errors.
 
   FilePath script_dir;  // Don't look for user scripts in any directory.
@@ -883,7 +883,8 @@ ProfileImpl::~ProfileImpl() {
   // HistoryService first.
   favicon_service_ = NULL;
 
-  extension_message_service_->ProfileDestroyed();
+  if (extension_message_service_)
+    extension_message_service_->ProfileDestroyed();
 
   if (extensions_service_)
     extensions_service_->ProfileDestroyed();
