@@ -317,7 +317,7 @@
         85
       </message>
       <message name="IDS_BUGREPORT_DIALOG_HEIGHT_LINES" use_name_for_id="true">
-        17
+        20
       </message>
       <if expr="pp_ifdef('chromeos')">
         <message name="IDS_CHROMEOS_BUGREPORT_DIALOG_HEIGHT_LINES" use_name_for_id="true">
