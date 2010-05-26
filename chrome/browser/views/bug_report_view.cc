@@ -289,14 +289,9 @@ void BugReportView::SetupControl() {
 }
 
 gfx::Size BugReportView::GetPreferredSize() {
-  gfx::Size size = views::Window::GetLocalizedContentsSize(
+  return gfx::Size(views::Window::GetLocalizedContentsSize(
       IDS_BUGREPORT_DIALOG_WIDTH_CHARS,
-#if defined(OS_CHROMEOS)
-      IDS_CHROMEOS_BUGREPORT_DIALOG_HEIGHT_LINES);
-#else
-      IDS_BUGREPORT_DIALOG_HEIGHT_LINES);
-#endif
- return size;
+      IDS_BUGREPORT_DIALOG_HEIGHT_LINES));
 }
 
 
