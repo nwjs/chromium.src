@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2009 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,11 +16,6 @@
 #include "views/view.h"
 #include "views/window/dialog_delegate.h"
 
-#if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/cros/syslogs_library.h"
-#include "chrome/browser/chromeos/cros/cros_library.h"
-#endif
-
 namespace views {
 class Checkbox;
 class Label;
@@ -37,13 +32,12 @@ class BugReportComboBoxModel;
 // BugReportView draws the dialog that allows the user to report a
 // bug in rendering a particular page (note: this is not a crash
 // report, which are handled separately by Breakpad).  It packages
-// up the URL, a text description, system information and optionally
-// a screenshot; then it submits the info through https to the google
-// feedback chrome end-point.
+// up the URL, a text description, and optionally a screenshot and/or
+// the HTML page source, and submits them as an HTTP POST to the
+// URL stored in the string resource IDS_BUGREPORT_POST_URL.
 //
-// Note: This UI is being used for the Chrome OS dogfood release only
-//       In the very next iteration, this will be replaced by a HTML
-//       based UI, which will be common for all platforms
+// Note: The UI team hasn't defined yet how the bug report UI will look like.
+//       So now use dialog as a placeholder.
 class BugReportView : public views::View,
                       public views::DialogDelegate,
                       public views::Combobox::Listener,
@@ -52,18 +46,16 @@ class BugReportView : public views::View,
 #endif
                       public views::Textfield::Controller {
  public:
-  BugReportView(Profile* profile, TabContents* tab);
+  explicit BugReportView(Profile* profile, TabContents* tab);
   virtual ~BugReportView();
 
-  // NOTE: set_captured_image takes ownership of the vector
-  void set_captured_image(std::vector<unsigned char>* png_data) {
-    captured_image_.reset(png_data);
-  }
-
-  void set_screen_size(const gfx::Rect& screen_size) {
-    screen_size_ = screen_size;
-  }
-
+  // NOTE: set_png_data takes ownership of the vector
+  void set_png_data(std::vector<unsigned char> *png_data) {
+    png_data_.reset(png_data);
+  };
+  void set_screenshot_size(const gfx::Rect& screenshot_size) {
+    screenshot_size_ = screenshot_size;
+  };
   // Set all additional reporting controls to disabled
   // if phishing report
   void UpdateReportingControls(bool is_phishing_report);
@@ -84,21 +76,6 @@ class BugReportView : public views::View,
 #if defined(OS_CHROMEOS)
   // Overridden from views::LinkController:
   virtual void LinkActivated(views::Link* source, int event_flags);
-
-  // Disable the include last image radio control
-  void DisableLastImageRadio() {
-    include_last_screen_image_radio_->SetEnabled(false);
-  }
-
-  // Disable the include system information checkbox
-  void DisableSystemInformationCheckbox() {
-    include_system_information_checkbox_->SetEnabled(false);
-  }
-
-  // NOTE: set_last_image takes ownership of the vector
-  void set_last_image(std::vector<unsigned char>* png_data) {
-    last_image_.reset(png_data);
-  }
 #endif
 
   // Overridden from views::DialogDelegate:
@@ -140,18 +117,13 @@ class BugReportView : public views::View,
   views::Textfield* description_text_;
   views::Checkbox* include_page_source_checkbox_;
 #if defined(OS_CHROMEOS)
-  views::Label* user_email_label_;
-  views::Textfield* user_email_text_;
-  views::RadioButton* include_new_screen_image_radio_;
   views::RadioButton* include_last_screen_image_radio_;
-  views::RadioButton* include_no_screen_image_radio_;
+  views::ImageView* last_screenshot_iv_;
+  views::RadioButton* include_new_screen_image_radio_;
   views::Checkbox* include_system_information_checkbox_;
-  views::Link* system_information_url_control_;
-
-  std::string system_information_url_;
-  scoped_ptr<chromeos::LogDictionaryType> sys_info_;
-  scoped_ptr< std::vector<unsigned char> > last_image_;
+  views::Link* system_information_url_;
 #endif
+  // TODO: #else this once the BugReport function is fixed up
   views::Checkbox* include_page_image_checkbox_;
 
 
@@ -160,8 +132,8 @@ class BugReportView : public views::View,
   Profile* profile_;
 
   std::wstring version_;
-  gfx::Rect screen_size_;
-  scoped_ptr< std::vector<unsigned char> > captured_image_;
+  gfx::Rect screenshot_size_;
+  scoped_ptr< std::vector<unsigned char> > png_data_;
 
   TabContents* tab_;
 

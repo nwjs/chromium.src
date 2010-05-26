@@ -5,7 +5,6 @@
       'sources': [
         '../../../../third_party/cros/chromeos_power.h',
         '../../../../third_party/cros/chromeos_network.h',
-        '../../../../third_party/cros/chromeos_syslogs.h',
         '../../../../third_party/cros/load.cc',
       ],
       'include_dirs': [

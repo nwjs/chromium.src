@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2009 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -15,7 +15,6 @@
 #include "chrome/common/net/url_fetcher.h"
 #include "googleurl/src/gurl.h"
 #include "grit/locale_settings.h"
-#include "net/url_request/url_request_status.h"
 #include "unicode/locid.h"
 
 #include <string>
@@ -29,7 +28,7 @@ const char kReportPhishingUrl[] =
 
 // URL to post bug reports to.
 const char* const kBugReportPostUrl =
-    "https://feedback2-test.corp.google.com/tools/feedback/chrome/__submit";
+    "http://feedback2-dev.corp.google.com/tools/feedback/chrome/__submit";
 
 const char* const kProtBufMimeType = "application/x-protobuf";
 const char* const kPngMimeType = "image/png";
@@ -69,10 +68,6 @@ void BugReportUtil::PostCleanup::OnURLFetchComplete(
     int response_code,
     const ResponseCookies& cookies,
     const std::string& data) {
-  // if not 204, something went wrong
-  if (response_code != 204)
-    LOG(WARNING) << "Submission to feedback server failed. Response code: " <<
-                 response_code << std::endl;
   // Delete the URLFetcher.
   delete source;
   // And then delete ourselves.
@@ -123,17 +118,11 @@ void BugReportUtil::SendReport(Profile* profile,
     const std::string& page_title_text,
     int problem_type,
     const std::string& page_url_text,
-    const std::string& user_email_text,
     const std::string& description,
     const char* png_data,
     int png_data_length,
     int png_width,
-#if defined(OS_CHROMEOS)
-    int png_height,
-    const chromeos::LogDictionaryType* const sys_info) {
-#else
     int png_height) {
-#endif
   GURL post_url(kBugReportPostUrl);
 
   // Create google feedback protocol buffer objects
@@ -144,10 +133,7 @@ void BugReportUtil::SendReport(Profile* profile,
   userfeedback::CommonData* common_data = feedback_data.mutable_common_data();
   userfeedback::WebData* web_data = feedback_data.mutable_web_data();
 
-  // Set GAIA id to 0. We're not using gaia id's for recording
-  // use feedback - we're using the e-mail field, allows users to
-  // submit feedback from incognito mode and specify any mail id
-  // they wish
+  // set GAIA id to 0 to indicate no username available
   common_data->set_gaia_id(0);
 
   // Add the page title.
@@ -156,9 +142,6 @@ void BugReportUtil::SendReport(Profile* profile,
 
   AddFeedbackData(&feedback_data, std::string(kProblemTypeTag),
                   StringPrintf("%d\r\n", problem_type));
-
-  // Add the user e-mail to the feedback object
-  common_data->set_user_email(user_email_text);
 
   // Add the description to the feedback object
   common_data->set_description(description);
@@ -189,16 +172,12 @@ void BugReportUtil::SendReport(Profile* profile,
   SetOSVersion(&os_version);
   AddFeedbackData(&feedback_data, std::string(kOsVersionTag), os_version);
 
-#if defined(OS_CHROMEOS)
-  for (chromeos::LogDictionaryType::const_iterator i = sys_info->begin();
-       i != sys_info->end(); ++i)
-    AddFeedbackData(&feedback_data, i->first, i->second);
-#endif
 
   // Include the page image if we have one.
   if (png_data) {
     userfeedback::PostedScreenshot screenshot;
     screenshot.set_mime_type(kPngMimeType);
+
     // Set the dimensions of the screenshot
     userfeedback::Dimensions dimensions;
     dimensions.set_width(static_cast<float>(png_width));
@@ -209,6 +188,10 @@ void BugReportUtil::SendReport(Profile* profile,
     // Set the screenshot object in feedback
     *(feedback_data.mutable_screenshot()) = screenshot;
   }
+
+  // TODO(awalker): include the page source if we can get it.
+  // if (include_page_source_checkbox_->checked()) {
+  // }
 
   // We have the body of our POST, so send it off to the server.
   URLFetcher* fetcher = new URLFetcher(post_url, URLFetcher::POST,
