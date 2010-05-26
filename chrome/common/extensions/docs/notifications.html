@@ -15,7 +15,7 @@
     </script>
     <script type="text/javascript" src="js/api_page_generator.js"></script>
     <script type="text/javascript" src="js/bootstrap.js"></script>
-  <title>Other APIs - Google Chrome Extensions - Google Code</title></head><body>  <div id="gc-container" class="labs">
+  <title>Desktop Notifications - Google Chrome Extensions - Google Code</title></head><body>  <div id="gc-container" class="labs">
       <div id="devModeWarning">
         You are viewing extension docs in chrome via the 'file:' scheme: are you expecting to see local changes when you refresh? You'll need run chrome with --allow-file-access-from-files.
       </div>
@@ -135,7 +135,7 @@
               <li>Browser UI
                 <ul>
                   <li><a href="browserAction.html">Browser Actions</a></li>
-                  <li><a href="notifications.html">Desktop Notifications</a></li>
+                  <li class="leftNavSelected">Desktop Notifications</li>
                   <li><a href="options.html">Options Pages</a></li>
                   <li><a href="override.html">Override Pages</a></li>
                   <li><a href="pageAction.html">Page Actions</a></li>
@@ -187,7 +187,7 @@
                 </ul>
               </li>
               <li><a href="api_index.html">chrome.* APIs</a></li>
-              <li class="leftNavSelected">Other APIs</li>
+              <li><a href="api_other.html">Other APIs</a></li>
             </ul>
           </li>
          <li><h2><a href="samples.html">Samples</a></h2></li>
@@ -196,7 +196,7 @@
 
     <div class="g-unit" id="gc-pagecontent">
       <div id="pageTitle">
-        <h1 class="page_title">Other APIs</h1>
+        <h1 class="page_title">Desktop Notifications</h1>
       </div>
         <!-- TABLE OF CONTENTS -->
         <div id="toc" style="display: none; ">
@@ -252,71 +252,118 @@
         <!-- /TABLE OF CONTENTS -->
 
         <!-- STATIC CONTENT PLACEHOLDER -->
-        <div id="static"><div id="pageData-name" class="pageData">Other APIs</div>
+        <div id="static"><div id="pageData-name" class="pageData">Desktop Notifications</div>
 
+<!-- BEGIN AUTHORED CONTENT -->
 <p>
-In addition to the
-<a href="api_index.html">chrome.* APIs</a>,
-extensions can use all the APIs
-that the browser provides
-to web pages and apps.
-If the browser doesn't support an API you want to use,
-you can bundle additional API libraries into your extension.
+Use desktop notifications to notify users that something
+important has happened.
+Notifications appear outside the browser window.
+As the following snapshots show,
+the details of how notifications look
+and where they're shown depend on the platform.
 </p>
 
-<p>Here's a sampling of the APIs that extensions can use:</p>
+<img src="images/notification-windows.png" width="28%" style="margin:2em 0.5em 1em; border:1px solid black;" alt="Notifications on Microsoft Windows">
+<img src="images/notification-mac.png" width="28%" style="margin:2em 0.5em 1em; border:1px solid black;" alt="Notifications on Mac OS X">
+<img src="images/notification-linux.png" width="28%" style="margin:2em 0.5em 1em; border:1px solid black;" alt="Notifications on Ubuntu Linux">
 
-<dl>
-<dt><strong> Standard JavaScript APIs </strong></dt>
-<dd> These are the same core JavaScript and
-  <a href="http://www.w3.org/TR/DOM-Level-2-HTML/">Document Object Model</a>
-  (DOM) APIs
-  that you can use in ordinary web apps.
-  <!-- [PENDING: check! should link to complete list] -->
-<!-- Use onclick in your toolbar div to add click behavior.
-E.g. window.open(someUrl). --></dd>
-<dt><strong> XMLHttpRequest </strong></dt>
-<dd>
-  Use <a href="xhr.html">XMLHttpRequest</a>
-  to request data from one or more servers.
-  The <a href="manifest.html#permissions">permissions</a> field
-  of the manifest specifies
-  which hosts the extension can send requests to.
-  </dd>
-<dt><strong> WebKit APIs </strong></dt>
-<dd>
-  Because Google Chrome is built upon WebKit,
-  your extensions can use WebKit APIs.
-  Especially useful are the experimental CSS features
-  such as filters, animations, and transformations.
-  Here's an example of using WebKit styles
-  to make the UI spin:
-  <pre>&lt;style&gt;
-  div:hover {
-    -webkit-transform: rotate(360deg);
-    -webkit-transition: all 1s ease-out;
-  }
-&lt;/style&gt;
+<p>
+You create the notification window
+using a bit of JavaScript and, optionally,
+an HTML page packaged inside your extension.
+</p>
+
+
+<h2 id="manifest">Manifest</h2>
+
+<p>
+You can request the notification permission
+in the <a href="manifest.html">extension manifest</a>,
+like this:
+</p>
+
+<pre>{
+  "name": "My extension",
+  ...
+<b>  "permissions": [
+    "notifications"
+  ]</b>,
+  ...
+}</pre>
+
+<p class="note">
+<b>Note:</b> Extensions that declare
+the <code>notifications</code> permission
+are always allowed to create notifications.
+There is no need to call
+<code>webkitNotifications.checkPermission()</code>.
+</p>
+
+<h2 id="api">API</h2>
+
+<p>
+The desktop notification API for extensions
+is the same one that
+is available to normal web pages.
+As the following code shows,
+you first create either a simple text notification
+or an HTML notification,
+and then you show the notification.
+</p>
+
+<pre>// Create a simple text notification:
+var notification = webkitNotifications.createNotification(
+  '48.png',  // icon url - can be relative
+  'Hello!',  // notification title
+  'Lorem ipsum...'  // notification body text
+);
+
+// Or create an HTML notification:
+var notification = webkitNotifications.createHTMLNotification(
+  'notification.html'  // html url - can be relative
+);
+
+// Then show the notification.
+notification.show();
 </pre>
-  <!-- [PENDING: link to complete list of webkit apis] -->
-</dd>
-<dt><strong> V8 APIs</strong>, such as<strong> JSON </strong></dt>
-<dd> Because JSON is in V8, you don't need to include a JSON library to use JSON functions. <!-- [PENDING: what other APIs are in v8? link to complete list] --></dd>
-<dt> <strong>HTML5</strong> <strong>APIs</strong>, such as <strong>localStorage</strong></dt>
-<dd> HTML5 is still being defined and implemented,
-  but Google Chrome already supports local storage,
-  which extensions can use to store data.
-<!--
-localStorage.setItem(&quot;foo&quot;, &quot;bar&quot;); ... localStorage.getItem(&quot;foo&quot;); --> <!-- [PENDING: Other important API? link to complete list] --></dd>
-<dt><strong>APIs in bundled libraries</strong></dt>
-<dd> If you want to use a library that the browser doesn't provide
-(for example, jQuery),
-you can bundle that library's JavaScript files with your extension.
-Bundled libraries work in extensions
-just as they would in any other web pages.
-</dd>
-</dl>
 
+<p>For complete API details,
+see the <a href="http://dev.chromium.org/developers/design-documents/desktop-notifications/api-specification">Desktop notifications draft specification</a>.</p>.
+
+
+<h2 id="communication">Communicating with other views</h2>
+
+<p>
+You can communicate between a notification
+and other views in your extension using
+<a href="extension.html#method-getBackgroundPage">getBackgroundPage()</a> and
+<a href="extension.html#method-getViews">getViews()</a>. For example:
+</p>
+
+<pre>// Inside a notification...
+chrome.extension.getBackgroundPage().doThing();
+
+// From the background page...
+chrome.extension.getViews({type:"notification"}).forEach(function(win) {
+  win.doOtherThing();
+});
+</pre>
+
+
+<h2 id="examples"> Examples </h2>
+
+<p>
+You can find a simple example
+of using notifications in the
+<a href="http://src.chromium.org/viewvc/chrome/trunk/src/chrome/common/extensions/docs/examples/api/notifications/">examples/api/notifications</a>
+directory.
+For other examples
+and for help in viewing the source code,
+see <a href="samples.html">Samples</a>.
+</p>
+
+<!-- END AUTHORED CONTENT -->
 </div>
 
         <!-- API PAGE -->
