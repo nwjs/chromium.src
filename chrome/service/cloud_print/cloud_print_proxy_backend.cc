@@ -222,13 +222,13 @@ void CloudPrintProxyBackend::Core::DoInitialize(const std::string& lsid,
   gaia_auth_for_talk->set_message_loop(MessageLoop::current());
   // TODO(sanjeevr): Handle auth failure case. We basically need to disable
   // cloud print and shutdown.
-  if (gaia_auth_for_talk->AuthenticateWithLsid(lsid, true)) {
+  if (gaia_auth_for_talk->AuthenticateWithLsid(lsid)) {
     scoped_refptr<ServiceGaiaAuthenticator> gaia_auth_for_print =
         new ServiceGaiaAuthenticator(
             user_agent, kCloudPrintGaiaServiceId, kGaiaUrl,
             g_service_process->io_thread()->message_loop_proxy());
     gaia_auth_for_print->set_message_loop(MessageLoop::current());
-    if (gaia_auth_for_print->AuthenticateWithLsid(lsid, true)) {
+    if (gaia_auth_for_print->AuthenticateWithLsid(lsid)) {
       auth_token_ = gaia_auth_for_print->auth_token();
       talk_mediator_.reset(
           new notifier::TalkMediatorImpl(false));

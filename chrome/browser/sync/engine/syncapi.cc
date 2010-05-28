@@ -1593,7 +1593,7 @@ void SyncManager::SyncInternal::Authenticate(const std::string& username,
     RaiseAuthNeededEvent();
   }
   auth_watcher()->Authenticate(username, password, std::string(),
-                               captcha, true);
+                               captcha);
 }
 
 void SyncManager::SyncInternal::AuthenticateWithLsid(const string& lsid) {
