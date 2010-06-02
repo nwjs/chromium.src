@@ -203,6 +203,13 @@
           <h2>Contents</h2>
           <ol>
             <li>
+              <a href="#manifest">Manifest</a>
+              <ol>
+                <li style="display: none; ">
+                  <a>h3Name</a>
+                </li>
+              </ol>
+            </li><li>
               <a href="#transition_types">Transition types</a>
               <ol>
                 <li style="display: none; ">
@@ -278,11 +285,24 @@
 Use the <code>chrome.history</code> module to interact with the 
 browser's record of visited pages.  You can add, remove, and query
 for URLs in the browser's history.
-
 To override the history page with your own version, see 
 <a href="override.html">Override Pages</a>.
-
 </p>
+
+<h2 id="manifest">Manifest</h2>
+
+<p>You must declare the "history" permission
+in the <a href="manifest.html">extension manifest</a>
+to use the history API.
+For example:</p>
+<pre>{
+  "name": "My extension",
+  ...
+  <b>"permissions": [
+    "history"
+  ]</b>,
+  ...
+}</pre>
 
 <h2 id="transition_types">Transition types</h2>
 
@@ -408,8 +428,11 @@ The following table describes each transition type.
 <h2 id="examples">Examples</h2>
 
 <p>
-For an example of using this API, see the
+For examples of using this API, see the
+<a href="http://src.chromium.org/viewvc/chrome/trunk/src/chrome/common/extensions/docs/examples/api/history/">history sample directory</a> and the
 <a href="http://src.chromium.org/viewvc/chrome/trunk/src/chrome/test/data/extensions/api_test/history/">history API test directory</a>.
+For other examples and for help in viewing the source code, see
+<a href="samples.html">Samples</a>.
 </p>
 
 <!-- END AUTHORED CONTENT -->
@@ -2403,7 +2426,7 @@ For an example of using this API, see the
   <a rel="license" href="http://code.google.com/google_bsd_license.html">BSD License</a>.
   </p>
   <p>
-  ©2009 Google
+  ©2010 Google
   </p>
 
 <!-- begin analytics -->
