@@ -102,7 +102,8 @@ class WizardController : public chromeos::ScreenObserver,
   void OnAccountCreated();
   void OnConnectionFailed();
   void OnUpdateCompleted();
-  void OnUpdateNetworkError();
+  void OnUpdateErrorCheckingForUpdate();
+  void OnUpdateErrorUpdating();
 
   // Switches from one screen to another.
   void SetCurrentScreen(WizardScreen* screen);
