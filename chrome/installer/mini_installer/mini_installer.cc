@@ -265,8 +265,11 @@ BOOL CALLBACK OnResourceFound(HMODULE module, const wchar_t* type,
     if (!SafeStrCopy(ctx->setup_resource_path,
                      ctx->setup_resource_path_size, full_path))
       return FALSE;
+  } else if (StrStartsWith(name, L"blob")) {
+    // Padded installers for size experiments include a BLOB_xMB.TXT payload.
+    return TRUE;
   } else {
-    // Resources should either start with 'chrome' or 'setup'. We dont handle
+    // Resources should start with 'chrome', 'setup', or 'blob'. We dont handle
     // anything else.
     return FALSE;
   }
