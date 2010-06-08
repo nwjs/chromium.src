@@ -53,3 +53,4 @@ av*.dll: %(VersionDir)s\
 [GOOGLE_CHROME]
 rlz.dll: %(VersionDir)s\
 gcswf32.dll: %(VersionDir)s\
+plugin.vch: %(VersionDir)s\
