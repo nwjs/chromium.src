@@ -425,8 +425,7 @@ void ResourceDispatcherHost::BeginRequest(
 
   // Insert safe browsing at the front of the chain, so it gets to decide
   // on policies first.
-  if (safe_browsing_->enabled() &&
-      safe_browsing_->CanCheckUrl(request_data.url)) {
+  if (safe_browsing_->enabled()) {
     handler = new SafeBrowsingResourceHandler(handler,
                                               child_id,
                                               route_id,
@@ -588,7 +587,7 @@ void ResourceDispatcherHost::BeginDownload(
                                   save_info);
 
 
-  if (safe_browsing_->enabled() && safe_browsing_->CanCheckUrl(url)) {
+  if (safe_browsing_->enabled()) {
     handler = new SafeBrowsingResourceHandler(handler,
                                               child_id,
                                               route_id,
