@@ -901,7 +901,7 @@ void WidgetGtk::OnSizeAllocate(GtkWidget* widget, GtkAllocation* allocation) {
 }
 
 gboolean WidgetGtk::OnPaint(GtkWidget* widget, GdkEventExpose* event) {
-  if (transparent_) {
+  if (transparent_ && type_ == TYPE_CHILD) {
     // Clear the background before drawing any view and native components.
     DrawTransparentBackground(widget, event);
   }
