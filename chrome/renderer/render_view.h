@@ -654,9 +654,9 @@ class RenderView : public RenderWidget,
   // meantime.
   void CapturePageInfo(int load_id, bool preliminary_capture);
 
-  // Retrieves the text from the given frame contents, the page text up to the
-  // maximum amount kMaxIndexChars will be placed into the given buffer.
-  void CaptureText(WebKit::WebFrame* frame, string16* contents);
+  // Called to retrieve the text from the given frame contents, the page text
+  // up to the maximum amount will be placed into the given buffer
+  void CaptureText(WebKit::WebFrame* frame, std::wstring* contents);
 
   // Creates a thumbnail of |frame|'s contents resized to (|w|, |h|)
   // and puts that in |thumbnail|. Thumbnail metadata goes in |score|.

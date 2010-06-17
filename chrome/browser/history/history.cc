@@ -385,7 +385,7 @@ void HistoryService::AddPagesWithDetails(
 }
 
 void HistoryService::SetPageContents(const GURL& url,
-                                     const string16& contents) {
+                                     const std::wstring& contents) {
   if (!CanAddURL(url))
     return;
 

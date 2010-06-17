@@ -355,7 +355,7 @@ static bool CrossesExtensionExtents(WebFrame* frame, const GURL& new_url) {
 //
 // Note this only works on Windows at this time.  It always returns 'unknown'
 // on other platforms.
-static std::string DetermineTextLanguage(const string16& text) {
+static std::string DetermineTextLanguage(const std::wstring& text) {
   // Text with less than 100 bytes will probably not provide good results.
   // Report it as unknown language.
   if (text.length() < 100)
@@ -364,8 +364,9 @@ static std::string DetermineTextLanguage(const string16& text) {
   std::string language = RenderView::kUnknownLanguageCode;
   int num_languages = 0;
   bool is_reliable = false;
+  string16 input = WideToUTF16(text);
   Language cld_language =
-      DetectLanguageOfUnicodeText(NULL, text.c_str(), true, &is_reliable,
+      DetectLanguageOfUnicodeText(NULL, input.c_str(), true, &is_reliable,
                                   &num_languages, NULL);
   if (is_reliable && cld_language != NUM_LANGUAGES &&
       cld_language != UNKNOWN_LANGUAGE && cld_language != TG_UNKNOWN_LANGUAGE) {
@@ -827,7 +828,7 @@ void RenderView::CapturePageInfo(int load_id, bool preliminary_capture) {
     return;
 
   // Retrieve the frame's full text.
-  string16 contents;
+  std::wstring contents;
   CaptureText(main_frame, &contents);
   if (contents.size()) {
     base::TimeTicks begin_time = base::TimeTicks::Now();
@@ -844,7 +845,7 @@ void RenderView::CapturePageInfo(int load_id, bool preliminary_capture) {
   OnCaptureThumbnail();
 }
 
-void RenderView::CaptureText(WebFrame* frame, string16* contents) {
+void RenderView::CaptureText(WebFrame* frame, std::wstring* contents) {
   contents->clear();
   if (!frame)
     return;
@@ -854,7 +855,7 @@ void RenderView::CaptureText(WebFrame* frame, string16* contents) {
 #endif
 
   // get the contents of the frame
-  *contents = frame->contentAsText(kMaxIndexChars);
+  *contents = UTF16ToWideHack(frame->contentAsText(kMaxIndexChars));
 
 #ifdef TIME_TEXT_RETRIEVAL
   double end = time_util::GetHighResolutionTimeNow();
@@ -868,7 +869,7 @@ void RenderView::CaptureText(WebFrame* frame, string16* contents) {
   // partial word indexed at the end that might have been clipped. Therefore,
   // terminate the string at the last space to ensure no words are clipped.
   if (contents->size() == kMaxIndexChars) {
-    size_t last_space_index = contents->find_last_of(kWhitespaceUTF16);
+    size_t last_space_index = contents->find_last_of(kWhitespaceWide);
     if (last_space_index == std::wstring::npos)
       return;  // don't index if we got a huge block of text with no spaces
     contents->resize(last_space_index);

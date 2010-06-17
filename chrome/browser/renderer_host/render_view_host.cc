@@ -1875,7 +1875,7 @@ void RenderViewHost::OnCSSInserted() {
 
 void RenderViewHost::OnPageContents(const GURL& url,
                                     int32 page_id,
-                                    const string16& contents,
+                                    const std::wstring& contents,
                                     const std::string& language) {
   RenderViewHostDelegate::BrowserIntegration* integration_delegate =
       delegate_->GetBrowserIntegrationDelegate();

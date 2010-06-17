@@ -1296,7 +1296,7 @@ IPC_BEGIN_MESSAGES(ViewHost)
   IPC_MESSAGE_ROUTED4(ViewHostMsg_PageContents,
                       GURL         /* URL of the page */,
                       int32        /* page id */,
-                      string16     /* page contents */,
+                      std::wstring /* page contents */,
                       std::string  /* page ISO639_1 language code */)
 
   // Used to get the extension message bundle.
