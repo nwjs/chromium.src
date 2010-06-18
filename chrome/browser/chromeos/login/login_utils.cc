@@ -89,6 +89,8 @@ class LoginUtilsImpl : public LoginUtils,
                        const NotificationDetails& details);
 
  private:
+  void ConnectToPreferredNetwork();
+
   NotificationRegistrar registrar_;
   bool wifi_connecting_;
   bool wifi_connection_started_;
