@@ -294,13 +294,16 @@ void BalloonViewImpl::Show(Balloon* balloon) {
   //
   // We carefully keep these two windows in sync to present the illusion of
   // one window to the user.
+  //
+  // We don't let the OS manage the RTL layout of these widgets, because
+  // this code is already taking care of correctly reversing the layout.
   gfx::Rect contents_rect = GetContentsRectangle();
   html_contents_.reset(new BalloonViewHost(balloon));
   html_contents_->SetPreferredSize(gfx::Size(10000, 10000));
-
   html_container_ = Widget::CreatePopupWidget(Widget::NotTransparent,
                                               Widget::AcceptEvents,
-                                              Widget::DeleteOnDestroy);
+                                              Widget::DeleteOnDestroy,
+                                              Widget::DontMirrorOriginInRTL);
   html_container_->SetAlwaysOnTop(true);
   html_container_->Init(NULL, contents_rect);
   html_container_->SetContentsView(html_contents_->view());
@@ -308,7 +311,8 @@ void BalloonViewImpl::Show(Balloon* balloon) {
   gfx::Rect balloon_rect(x(), y(), width(), height());
   frame_container_ = Widget::CreatePopupWidget(Widget::Transparent,
                                                Widget::AcceptEvents,
-                                               Widget::DeleteOnDestroy);
+                                               Widget::DeleteOnDestroy,
+                                               Widget::DontMirrorOriginInRTL);
   frame_container_->SetWidgetDelegate(this);
   frame_container_->SetAlwaysOnTop(true);
   frame_container_->Init(NULL, balloon_rect);

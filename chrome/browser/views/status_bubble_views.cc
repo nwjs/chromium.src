@@ -468,7 +468,8 @@ void StatusBubbleViews::Init() {
   if (!popup_.get()) {
     popup_.reset(Widget::CreatePopupWidget(Widget::Transparent,
                                            Widget::NotAcceptEvents,
-                                           Widget::NotDeleteOnDestroy));
+                                           Widget::NotDeleteOnDestroy,
+                                           Widget::MirrorOriginInRTL));
     if (!view_)
       view_ = new StatusView(this, popup_.get(), frame_->GetThemeProvider());
     popup_->SetOpacity(0x00);

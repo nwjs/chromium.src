@@ -48,7 +48,8 @@ class WidgetExample : public ExampleBase, public views::ButtonListener {
       popup_widget_ = views::Widget::CreatePopupWidget(
         views::Widget::NotTransparent,
         views::Widget::AcceptEvents,
-        views::Widget::DeleteOnDestroy);
+        views::Widget::DeleteOnDestroy,
+        views::Widget::MirrorOriginInRTL);
 
       // Compute where to place the popup widget.
       // We'll place it right below the create_button_.
@@ -95,4 +96,3 @@ class WidgetExample : public ExampleBase, public views::ButtonListener {
 }  // namespace examples
 
 #endif  // VIEWS_EXAMPLES_WIDGET_EXAMPLE_H_
-
