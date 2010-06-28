@@ -413,10 +413,6 @@ bool BrowserInit::LaunchBrowser(
   if (process_startup) {
     // TODO(dhg): Try to make this just USBMountObserver::Get()->set_profile
     // and have the constructor take care of everything else.
-    chromeos::MountLibrary* lib =
-        chromeos::CrosLibrary::Get()->GetMountLibrary();
-    chromeos::USBMountObserver* observe = chromeos::USBMountObserver::Get();
-    lib->AddObserver(observe);
 
     // Connect the chromeos notifications
 
