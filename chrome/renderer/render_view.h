@@ -326,6 +326,7 @@ class RenderView : public RenderWidget,
   virtual void didStopLoading();
   virtual bool isSmartInsertDeleteEnabled();
   virtual bool isSelectTrailingWhitespaceEnabled();
+  virtual void setInputMethodEnabled(bool enabled);
   virtual void didChangeSelection(bool is_selection_empty);
   virtual void didExecuteCommand(const WebKit::WebString& command_name);
   virtual bool handleCurrentKeyboardEvent();
