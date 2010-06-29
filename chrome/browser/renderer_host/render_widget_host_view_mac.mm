@@ -999,8 +999,7 @@ void RenderWidgetHostViewMac::SetTextInputActive(bool active) {
 
   // Sends key down events to input method first, then we can decide what should
   // be done according to input method's feedback.
-  if (renderWidgetHostView_->text_input_type_ == WebKit::WebTextInputTypeText)
-    [self interpretKeyEvents:[NSArray arrayWithObject:theEvent]];
+  [self interpretKeyEvents:[NSArray arrayWithObject:theEvent]];
 
   handlingKeyDown_ = NO;
 
