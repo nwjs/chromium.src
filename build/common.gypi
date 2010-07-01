@@ -121,7 +121,7 @@
       'disable_sse2%': 0,
 
       # Remoting compilation is enabled by default. Set to 0 to disable.
-      'remoting%': 1,
+      'remoting%': 0,
 
       'library%': '<(library)',
 
