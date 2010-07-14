@@ -72,7 +72,7 @@ deps = {
     Var("webkit_trunk") + "/WebKitTools/Scripts@" + Var("webkit_revision"),
 
   "src/third_party/ots":
-    "http://ots.googlecode.com/svn/trunk@26",
+    "http://ots.googlecode.com/svn/trunk@31",
 
   "src/tools/page_cycler/acid3":
     "/trunk/deps/page_cycler/acid3@19546",
