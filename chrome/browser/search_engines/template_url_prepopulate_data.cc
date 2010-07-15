@@ -2818,11 +2818,11 @@ TemplateURL* MakePrepopulatedTemplateURL(const wchar_t* name,
                                          const char* encoding,
                                          int id) {
   TemplateURL* new_turl = new TemplateURL();
-  new_turl->SetURL(WideToUTF8(search_url), 0, 0);
+  new_turl->SetURL(search_url, 0, 0);
   if (favicon_url)
     new_turl->SetFavIconURL(GURL(favicon_url));
   if (suggest_url)
-    new_turl->SetSuggestionsURL(WideToUTF8(suggest_url), 0, 0);
+    new_turl->SetSuggestionsURL(suggest_url, 0, 0);
   new_turl->set_short_name(name);
   if (keyword == NULL)
     new_turl->set_autogenerate_keyword(true);
