@@ -348,6 +348,9 @@ class ExtensionsService
                        const NotificationSource& source,
                        const NotificationDetails& details);
 
+  // Whether there are any apps installed.
+  bool HasApps();
+
  private:
   virtual ~ExtensionsService();
   friend class ChromeThread;
