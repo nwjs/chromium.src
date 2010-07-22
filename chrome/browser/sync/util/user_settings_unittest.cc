@@ -256,11 +256,18 @@ TEST_F(UserSettingsTest, PersistNonEmptyToken) {
     // blocking UI.  |SetAuthTokenForService| uses Encryptor.
     Encryptor::UseMockKeychain(true);
 #endif
-  settings.SetAuthTokenForService("username", "service", "012345beefbeef");
+  settings.SetAuthTokenForService("username", "service",
+      "oonetuhasonteuhasonetuhasonetuhasonetuhasouhasonetuhasonetuhasonetuhah"
+      "oonetuhasonteuhasonetuhasonetuhasonetuhasouhasonetuhasonetuhasonetuhah"
+      "oonetuhasonteuhasonetuhasonetuhasonetuhasouhasonetuhasonetuhasonetuhah");
   std::string username;
   std::string token;
   ASSERT_TRUE(settings.GetLastUserAndServiceToken("service", &username,
       &token));
-  EXPECT_EQ("012345beefbeef", token);
+  EXPECT_EQ(
+      "oonetuhasonteuhasonetuhasonetuhasonetuhasouhasonetuhasonetuhasonetuhah"
+      "oonetuhasonteuhasonetuhasonetuhasonetuhasouhasonetuhasonetuhasonetuhah"
+      "oonetuhasonteuhasonetuhasonetuhasonetuhasouhasonetuhasonetuhasonetuhah",
+      token);
   EXPECT_EQ("username", username);
 }
