@@ -152,3 +152,5 @@ BUG_KERZ WIN : tables/mozilla/bugs/bug113424.html = IMAGE+TEXT PASS
 BUG_KERZ WIN : tables/mozilla/bugs/bug28341.html = IMAGE PASS
 BUG_KERZ WIN : tables/mozilla/other/slashlogo.html = PASS
 BUG_KERZ WIN : websocket/tests/websocket-event-target.html = CRASH
+
+BUG50438 : media/controls-drag-timebar.html = PASS FAIL
