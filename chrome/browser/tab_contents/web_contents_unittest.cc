@@ -206,7 +206,8 @@ class TabContentsTest : public RenderViewHostTestHarness {
   // Supply our own profile so we use the correct profile data. The test harness
   // is not supposed to overwrite a profile if it's already created.
   virtual void SetUp() {
-    profile_.reset(new TabContentsTestingProfile());
+    TestingProfile* profile = new TestingProfile();
+    profile_.reset(profile);
 
     RenderViewHostTestHarness::SetUp();
   }
