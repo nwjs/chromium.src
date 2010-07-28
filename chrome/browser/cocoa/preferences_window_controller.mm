@@ -877,9 +877,7 @@ class ManagedPrefsBannerState : public ManagedPrefsBannerBase {
   }
 
   if (*prefName == prefs::kURLsToRestoreOnStartup) {
-    const SessionStartupPref startupPref =
-        SessionStartupPref::GetStartupPref(prefs_);
-    [customPagesSource_ setURLs:startupPref.urls];
+    [customPagesSource_ reloadURLs];
   }
 
   if (*prefName == prefs::kHomePageIsNewTabPage) {
