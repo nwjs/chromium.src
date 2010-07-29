@@ -411,9 +411,6 @@ class Profile {
 
   virtual void InitExtensions() = 0;
 
-  // Start up service that gathers data from web resource feeds.
-  virtual void InitWebResources() = 0;
-
   // Returns the new tab page resource cache.
   virtual NTPResourceCache* GetNTPResourceCache() = 0;
 
@@ -543,7 +540,6 @@ class ProfileImpl : public Profile,
   virtual BackgroundContentsService* GetBackgroundContentsService();
   virtual void MarkAsCleanShutdown();
   virtual void InitExtensions();
-  virtual void InitWebResources();
   virtual NTPResourceCache* GetNTPResourceCache();
   virtual FilePath last_selected_directory();
   virtual void set_last_selected_directory(const FilePath& path);
