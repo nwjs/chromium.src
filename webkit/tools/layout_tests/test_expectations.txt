@@ -150,7 +150,6 @@ BUG_KERZ LINUX : plugins/window-open.html = TIMEOUT
 BUG_KERZ LINUX : printing/setPrinting.html = FAIL TIMEOUT
 BUG_KERZ LINUX : storage/change-version-handle-reuse.html = TIMEOUT PASS
 BUG_KERZ LINUX : storage/change-version.html = TIMEOUT PASS
-BUG_KERZ LINUX : svg/W3C-SVG-1.1/paths-data-12-t.svg = IMAGE+TEXT
 BUG_KERZ LINUX : svg/W3C-SVG-1.1/paths-data-12-t.svg = IMAGE+TEXT TIMEOUT PASS
 BUG_KERZ LINUX : svg/W3C-SVG-1.1/pservers-grad-13-b.svg = IMAGE
 BUG_KERZ LINUX : svg/css/circle-in-mask-with-shadow.svg = IMAGE TIMEOUT
