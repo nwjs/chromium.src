@@ -388,6 +388,7 @@ const CGFloat kScrollWindowVerticalMargin = 0.0;
                                     bookmarks::kScrollViewContentWidthMargin,
                                     NSHeight(windowFrame));
   [mainView_ setFrame:mainViewFrame];
+
   // Make sure the window fits on the screen.  If not, constrain.
   // We'll scroll to allow the user to see all the content.
   NSRect screenFrame = [[[self window] screen] frame];
@@ -399,28 +400,15 @@ const CGFloat kScrollWindowVerticalMargin = 0.0;
   } else {
     scrollable_ = NO;
   }
-  [window setFrame:windowFrame display:NO];
+  NSWindow* window = [self window];
+  [window setFrame:windowFrame display:YES];
+  // If scrollable then offset the view and show the arrows.
   if (wasScrollable != scrollable_) {
     [mainView_ scrollPoint:NSMakePoint(0, (NSHeight(mainViewFrame) -
                                            NSHeight(windowFrame)))];
     [self showOrHideScrollArrows];
     [self addOrUpdateScrollTracking];
-  } else if (scrollable_ && windowAlreadyShowing) {
-    // If the window was already showing and is still scrollable then make
-    // sure the main view moves upward, not downward so that the content
-    // at the bottom of the menu, not the top, appears to move.
-    // The edge case is when the menu is scrolled all the way to top (hence
-    // the test of scrollDownArrowShown_) - don't scroll then.
-    NSView* superView = [mainView_ superview];
-    DCHECK([superView isKindOfClass:[NSClipView class]]);
-    NSClipView* clipView = static_cast<NSClipView*>(superView);
-    CGFloat scrollPointY = [clipView bounds].origin.y +
-        bookmarks::kBookmarkVerticalPadding;
-    if (scrollDownArrowShown_ || deltaY > 0.0)
-      scrollPointY += deltaY;
-    [mainView_ scrollPoint:NSMakePoint(0, scrollPointY)];
   }
-  [window display];
 }
 
 // Determine window size and position.
@@ -435,8 +423,7 @@ const CGFloat kScrollWindowVerticalMargin = 0.0;
   int buttons = std::max(node->GetChildCount() - startingIndex, 1);
 
   // Prelim height of the window.  We'll trim later as needed.
-  int height = buttons * bookmarks::kBookmarkButtonHeight +
-      bookmarks::kBookmarkVerticalPadding;
+  int height = buttons * bookmarks::kBookmarkButtonHeight;
   // We'll need this soon...
   [self window];
 
@@ -1244,8 +1231,7 @@ static BOOL ValueInRangeInclusive(CGFloat low, CGFloat value, CGFloat high) {
   [self closeBookmarkFolder:self];
 
   // Prelim height of the window.  We'll trim later as needed.
-  int height = [buttons_ count] * bookmarks::kBookmarkButtonHeight +
-      bookmarks::kBookmarkVerticalPadding;
+  int height = [buttons_ count] * bookmarks::kBookmarkButtonHeight;
   [self adjustWindowForHeight:height];
 }
 
@@ -1378,8 +1364,7 @@ static BOOL ValueInRangeInclusive(CGFloat low, CGFloat value, CGFloat high) {
   }
 
   // Propose a height for the window.  We'll trim later as needed.
-  int height = buttonCount * bookmarks::kBookmarkButtonHeight +
-      bookmarks::kBookmarkVerticalPadding;
+  int height = buttonCount * bookmarks::kBookmarkButtonHeight;
   [self adjustWindowForHeight:height];
 }
 
