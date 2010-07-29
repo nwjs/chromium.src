@@ -43,9 +43,7 @@ static void InitNavigateParams(ViewHostMsg_FrameNavigate_Params* params,
 // Subclass the TestingProfile so that it can return certain services we need.
 class TabContentsTestingProfile : public TestingProfile {
  public:
-  TabContentsTestingProfile() : TestingProfile() {
-    CreateBookmarkModel(false);
-  }
+  TabContentsTestingProfile() : TestingProfile() { }
 
   virtual PrefService* GetPrefs() {
     if (!prefs_.get()) {
@@ -206,8 +204,7 @@ class TabContentsTest : public RenderViewHostTestHarness {
   // Supply our own profile so we use the correct profile data. The test harness
   // is not supposed to overwrite a profile if it's already created.
   virtual void SetUp() {
-    TestingProfile* profile = new TestingProfile();
-    profile_.reset(profile);
+    profile_.reset(new TabContentsTestingProfile());
 
     RenderViewHostTestHarness::SetUp();
   }
