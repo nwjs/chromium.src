@@ -40,7 +40,6 @@ BUG_KERZ LINUX : http/tests/appcache/auth.html = TIMEOUT PASS
 BUG_KERZ LINUX : http/tests/appcache/crash-when-navigating-away-then-back.html = TIMEOUT PASS
 BUG_KERZ LINUX : http/tests/appcache/credential-url.html = TIMEOUT PASS
 BUG_KERZ LINUX : http/tests/appcache/cyrillic-uri.html = TIMEOUT PASS
-BUG_KERZ LINUX : http/tests/media/remove-while-loading.html
 BUG_KERZ LINUX : http/tests/media/remove-while-loading.html = PASS
 BUG_KERZ LINUX : http/tests/media/video-play-stall.html = TEXT
 BUG_KERZ LINUX : http/tests/navigation/javascriptlink-frames.html = FAIL TIMEOUT
@@ -65,79 +64,42 @@ BUG_KERZ LINUX : http/tests/security/xssAuditor/object-tag-javascript-url.html =
 BUG_KERZ LINUX : http/tests/security/xssAuditor/object-tag.html = TEXT
 BUG_KERZ LINUX : http/tests/xmlhttprequest/small-chunks-response-text.html = TIMEOUT PASS
 BUG_KERZ LINUX : http/tests/xmlhttprequest/xmlhttprequest-onProgress-open-should-zero-length.html = TIMEOUT PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-0-1.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-0-1.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-0-2.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-0-2.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-1.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-1.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-1.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-1.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-10.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-10.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-11.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-11.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-12.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-12.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-13.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-13.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-14.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-14.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-15.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-15.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-16.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-16.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-17.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-17.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-18.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-18.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-19.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-19.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-2.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-2.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-20.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-20.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-21.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-21.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-22.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-22.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-23.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-23.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-24.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-24.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-25.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-25.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-26.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-26.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-27.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-27.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-3.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-3.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-4.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-4.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-5.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-5.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-6.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-6.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-7.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-7.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-8.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-8.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-9.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-9.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.14-2-5.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.14-2-5.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.3-4-20.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.3-4-20.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.3-4-23.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.3-4-23.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.4-4-2.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.4-4-2.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.8-0-1.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.8-0-1.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.8-0-2.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.8-0-2.html = PASS
-BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.8-1.html
 BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.8-1.html = PASS
 BUG_KERZ LINUX : platform/chromium/plugins/call-as-function.html = TEXT
 BUG_KERZ LINUX : platform/chromium/plugins/get-url-with-blank-target.html = TIMEOUT
@@ -161,7 +123,6 @@ BUG_KERZ LINUX : plugins/geturlnotify-during-document-teardown.html = TEXT
 BUG_KERZ LINUX : plugins/inner-html-display-none.html = TEXT
 BUG_KERZ LINUX : plugins/instance-available-before-stylesheets-loaded-object.html = TEXT
 BUG_KERZ LINUX : plugins/instance-available-before-stylesheets-loaded.html = TEXT
-BUG_KERZ LINUX : plugins/mouse-events-fixedpos.html
 BUG_KERZ LINUX : plugins/mouse-events-fixedpos.html = PASS
 BUG_KERZ LINUX : plugins/mouse-events.html = TEXT
 BUG_KERZ LINUX : plugins/netscape-destroy-plugin-script-objects.html = TEXT
