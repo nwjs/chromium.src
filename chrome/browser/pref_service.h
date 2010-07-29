@@ -262,6 +262,7 @@ class PrefService : public NonThreadSafe {
   PrefObserverMap pref_observers_;
 
   friend class ScopedPrefUpdate;
+  friend class TestingPrefService;
 
   DISALLOW_COPY_AND_ASSIGN(PrefService);
 };
