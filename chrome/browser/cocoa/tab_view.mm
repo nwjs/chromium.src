@@ -849,10 +849,6 @@ const CGFloat kRapidCloseDist = 2.5;
   return [super accessibilityAttributeValue:attribute];
 }
 
-- (ViewID)viewID {
-  return VIEW_ID_TAB;
-}
-
 @end  // @implementation TabView
 
 @implementation TabView (TabControllerInterface)
