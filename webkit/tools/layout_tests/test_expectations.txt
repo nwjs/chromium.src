@@ -7,6 +7,202 @@
 
 // TODO(johnnyg): remove after upstream expectations are rolled
 BUG_JOHNNYG WIN : fast/forms/input-file-directory-upload.html = TEXT
+
+BUG50438 : media/controls-drag-timebar.html = PASS FAIL
+
+BUG_KERZ LINUX : css2.1/t1605-c545-txttrans-00-b-ag.html = FAIL TIMEOUT
+BUG_KERZ LINUX : editing/pasteboard/19644-1.html = TEXT PASS
+BUG_KERZ LINUX : fast/borders/borderRadiusGroove01.html = IMAGE
+BUG_KERZ LINUX : fast/borders/borderRadiusGroove02.html = IMAGE
+BUG_KERZ LINUX : fast/borders/borderRadiusRidge01.html = IMAGE
+BUG_KERZ LINUX : fast/css/color-correction-on-backgrounds.html = FAIL TIMEOUT
+BUG_KERZ LINUX : fast/css/font-smoothing.html = FAIL TIMEOUT
+BUG_KERZ LINUX : fast/dom/undetectable-document-all.html = TEXT
+BUG_KERZ LINUX : fast/dynamic/containing-block-change.html = FAIL TIMEOUT
+BUG_KERZ LINUX : fast/encoding/utf-16-big-endian.html = TEXT
+BUG_KERZ LINUX : fast/encoding/utf-16-little-endian.html = TEXT
+BUG_KERZ LINUX : fast/forms/input-appearance-speechbutton.html = IMAGE+TEXT TIMEOUT
+BUG_KERZ LINUX : fast/forms/listbox-clip.html = IMAGE+TEXT TIMEOUT
+BUG_KERZ LINUX : fast/frames/onlyCommentInIFrame.html = IMAGE TIMEOUT
+BUG_KERZ LINUX : fast/frames/sandboxed-iframe-about-blank.html = TEXT
+BUG_KERZ LINUX : fast/frames/sandboxed-iframe-navigation-allowed.html = TEXT
+BUG_KERZ LINUX : fast/frames/sandboxed-iframe-storage.html = TIMEOUT PASS
+BUG_KERZ LINUX : fast/js/exceptions-thrown-in-callbacks.html = TIMEOUT PASS
+BUG_KERZ LINUX : fast/js/parse-backslash-before-newline.html = TEXT
+BUG_KERZ LINUX : fast/loader/loadInProgress.html = TIMEOUT PASS
+BUG_KERZ LINUX : fast/multicol/column-rules-stacking.html = FAIL TIMEOUT
+BUG_KERZ LINUX : fast/repaint/list-marker.html = IMAGE TIMEOUT
+BUG_KERZ LINUX : fast/repaint/subtree-root-clip-3.html = FAIL TIMEOUT
+BUG_KERZ LINUX : fast/replaced/border-radius-clip.html = IMAGE
+BUG_KERZ LINUX : fast/text/international/thai-line-breaks.html = IMAGE TIMEOUT
+BUG_KERZ LINUX : http/tests/appcache/access-via-redirect.php = TIMEOUT PASS
+BUG_KERZ LINUX : http/tests/appcache/auth.html = TIMEOUT PASS
+BUG_KERZ LINUX : http/tests/appcache/crash-when-navigating-away-then-back.html = TIMEOUT PASS
+BUG_KERZ LINUX : http/tests/appcache/credential-url.html = TIMEOUT PASS
+BUG_KERZ LINUX : http/tests/appcache/cyrillic-uri.html = TIMEOUT PASS
+BUG_KERZ LINUX : http/tests/media/remove-while-loading.html
+BUG_KERZ LINUX : http/tests/media/remove-while-loading.html = PASS
+BUG_KERZ LINUX : http/tests/media/video-play-stall.html = TEXT
+BUG_KERZ LINUX : http/tests/navigation/javascriptlink-frames.html = FAIL TIMEOUT
+BUG_KERZ LINUX : http/tests/navigation/relativeanchor-frames.html = TIMEOUT PASS
+BUG_KERZ LINUX : http/tests/plugins/cross-frame-object-access.html = TEXT
+BUG_KERZ LINUX : http/tests/plugins/get-url.html = TIMEOUT
+BUG_KERZ LINUX : http/tests/plugins/geturlnotify-from-npp-destroystream.html = MISSING
+BUG_KERZ LINUX : http/tests/plugins/interrupted-get-url.html = TIMEOUT
+BUG_KERZ LINUX : http/tests/plugins/npapi-response-headers.html = TIMEOUT
+BUG_KERZ LINUX : http/tests/plugins/post-url-file.html = TIMEOUT
+BUG_KERZ LINUX : http/tests/plugins/third-party-cookie-accept-policy.html = TIMEOUT
+BUG_KERZ LINUX : http/tests/security/frameNavigation/xss-DENIED-plugin-navigation.html = TIMEOUT
+BUG_KERZ LINUX : http/tests/security/mixedContent/insecure-plugin-in-iframe.html = TEXT TIMEOUT PASS
+BUG_KERZ LINUX : http/tests/security/xssAuditor/embed-tag-control-char.html = TEXT
+BUG_KERZ LINUX : http/tests/security/xssAuditor/embed-tag-null-char.html = TEXT
+BUG_KERZ LINUX : http/tests/security/xssAuditor/embed-tag.html = TEXT
+BUG_KERZ LINUX : http/tests/security/xssAuditor/object-embed-tag-control-char.html = TEXT
+BUG_KERZ LINUX : http/tests/security/xssAuditor/object-embed-tag-null-char.html = TEXT
+BUG_KERZ LINUX : http/tests/security/xssAuditor/object-embed-tag.html = TEXT
+BUG_KERZ LINUX : http/tests/security/xssAuditor/object-src-inject.html = TIMEOUT PASS
+BUG_KERZ LINUX : http/tests/security/xssAuditor/object-tag-javascript-url.html = TIMEOUT PASS
+BUG_KERZ LINUX : http/tests/security/xssAuditor/object-tag.html = TEXT
+BUG_KERZ LINUX : http/tests/xmlhttprequest/small-chunks-response-text.html = TIMEOUT PASS
+BUG_KERZ LINUX : http/tests/xmlhttprequest/xmlhttprequest-onProgress-open-should-zero-length.html = TIMEOUT PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-0-1.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-0-1.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-0-2.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-0-2.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-1.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-1.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-1.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-1.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-10.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-10.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-11.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-11.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-12.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-12.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-13.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-13.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-14.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-14.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-15.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-15.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-16.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-16.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-17.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-17.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-18.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-18.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-19.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-19.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-2.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-2.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-20.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-20.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-21.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-21.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-22.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-22.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-23.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-23.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-24.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-24.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-25.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-25.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-26.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-26.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-27.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-27.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-3.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-3.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-4.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-4.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-5.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-5.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-6.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-6.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-7.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-7.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-8.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-8.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-9.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.11-4-9.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.14-2-5.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.14-2-5.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.3-4-20.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.3-4-20.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.3-4-23.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.3-4-23.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.4-4-2.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.4-4-2.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.8-0-1.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.8-0-1.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.8-0-2.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.8-0-2.html = PASS
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.8-1.html
+BUG_KERZ LINUX : ietestcenter/Javascript/15.2.3.8-1.html = PASS
+BUG_KERZ LINUX : platform/chromium/plugins/call-as-function.html = TEXT
+BUG_KERZ LINUX : platform/chromium/plugins/get-url-with-blank-target.html = TIMEOUT
+BUG_KERZ LINUX : platform/chromium/plugins/get-url-with-iframe-target-no-crash.html = TIMEOUT
+BUG_KERZ LINUX : platform/chromium/plugins/multiple-plugins.html = TEXT
+BUG_KERZ LINUX : platform/chromium/plugins/nested-plugin-objects.html = TEXT
+BUG_KERZ LINUX : platform/chromium/plugins/refcount-leaks.html = TEXT
+BUG_KERZ LINUX : platform/chromium/plugins/return-npobject.html = TEXT
+BUG_KERZ LINUX : platform/chromium/plugins/script-object-invoke.html = TEXT
+BUG_KERZ LINUX : plugins/destroy-during-npp-new.html = TEXT
+BUG_KERZ LINUX : plugins/destroy-plugin-from-callback.html = TEXT
+BUG_KERZ LINUX : plugins/destroy-stream-twice.html = TIMEOUT
+BUG_KERZ LINUX : plugins/document-open.html = TIMEOUT
+BUG_KERZ LINUX : plugins/embed-inside-object.html = TIMEOUT
+BUG_KERZ LINUX : plugins/get-empty-url.html = TEXT
+BUG_KERZ LINUX : plugins/get-file-url.html = TIMEOUT
+BUG_KERZ LINUX : plugins/get-url-that-the-resource-load-delegate-will-disallow.html = TEXT
+BUG_KERZ LINUX : plugins/get-url-with-iframe-target.html = TIMEOUT
+BUG_KERZ LINUX : plugins/geturl-replace-query.html = TIMEOUT
+BUG_KERZ LINUX : plugins/geturlnotify-during-document-teardown.html = TEXT
+BUG_KERZ LINUX : plugins/inner-html-display-none.html = TEXT
+BUG_KERZ LINUX : plugins/instance-available-before-stylesheets-loaded-object.html = TEXT
+BUG_KERZ LINUX : plugins/instance-available-before-stylesheets-loaded.html = TEXT
+BUG_KERZ LINUX : plugins/mouse-events-fixedpos.html
+BUG_KERZ LINUX : plugins/mouse-events-fixedpos.html = PASS
+BUG_KERZ LINUX : plugins/mouse-events.html = TEXT
+BUG_KERZ LINUX : plugins/netscape-destroy-plugin-script-objects.html = TEXT
+BUG_KERZ LINUX : plugins/netscape-dom-access.html = IMAGE+TEXT
+BUG_KERZ LINUX : plugins/netscape-plugin-map-data-to-src.html = TEXT
+BUG_KERZ LINUX : plugins/netscape-plugin-property-access-exception.html = TEXT
+BUG_KERZ LINUX : plugins/netscape-plugin-setwindow-size-2.html = TEXT
+BUG_KERZ LINUX : plugins/netscape-plugin-setwindow-size.html = TEXT
+BUG_KERZ LINUX : plugins/npruntime/construct.html = TEXT
+BUG_KERZ LINUX : plugins/npruntime/embed-property.html = TEXT
+BUG_KERZ LINUX : plugins/npruntime/get-int-identifier-special-values.html = TEXT
+BUG_KERZ LINUX : plugins/npruntime/get-property-return-value.html = TEXT
+BUG_KERZ LINUX : plugins/npruntime/identifier-conversion.html = TEXT
+BUG_KERZ LINUX : plugins/npruntime/invoke-browserfuncs.html = TEXT
+BUG_KERZ LINUX : plugins/npruntime/invoke-default.html = TEXT
+BUG_KERZ LINUX : plugins/npruntime/invoke-failure.html = TEXT
+BUG_KERZ LINUX : plugins/npruntime/invoke.html = TEXT
+BUG_KERZ LINUX : plugins/npruntime/npruntime.html = TIMEOUT
+BUG_KERZ LINUX : plugins/npruntime/throw-exception.html = TEXT
+BUG_KERZ LINUX : plugins/open-and-close-window-with-plugin.html = TEXT
+BUG_KERZ LINUX : plugins/plugin-javascript-access.html = TEXT
+BUG_KERZ LINUX : plugins/plugin-remove-subframe.html = TEXT
+BUG_KERZ LINUX : plugins/return-error-from-new-stream-doesnt-invoke-destroy-stream.html = TIMEOUT
+BUG_KERZ LINUX : plugins/window-open.html = TIMEOUT
+BUG_KERZ LINUX : printing/setPrinting.html = FAIL TIMEOUT
+BUG_KERZ LINUX : storage/change-version-handle-reuse.html = TIMEOUT PASS
+BUG_KERZ LINUX : storage/change-version.html = TIMEOUT PASS
+BUG_KERZ LINUX : svg/W3C-SVG-1.1/paths-data-12-t.svg = IMAGE+TEXT
+BUG_KERZ LINUX : svg/W3C-SVG-1.1/paths-data-12-t.svg = IMAGE+TEXT TIMEOUT PASS
+BUG_KERZ LINUX : svg/W3C-SVG-1.1/pservers-grad-13-b.svg = IMAGE
+BUG_KERZ LINUX : svg/css/circle-in-mask-with-shadow.svg = IMAGE TIMEOUT
+BUG_KERZ LINUX : svg/custom/js-update-transform-changes.svg = FAIL TIMEOUT
+BUG_KERZ LINUX : svg/custom/radial-gradient-with-outstanding-focalPoint.svg = IMAGE
+BUG_KERZ LINUX : svg/custom/use-invalid-html.xhtml = TEXT
+BUG_KERZ LINUX : svg/filters/shadow-on-rect-with-filter.svg = IMAGE TIMEOUT
+BUG_KERZ LINUX : svg/hixie/perf/001.xml = TEXT
+BUG_KERZ LINUX : svg/hixie/perf/002.xml = TEXT
+BUG_KERZ LINUX : svg/zoom/page/zoom-coords-viewattr-01-b.svg = IMAGE
+BUG_KERZ LINUX : tables/mozilla_expected_failures/bugs/bug80762-2.html = IMAGE TIMEOUT
+BUG_KERZ LINUX : tables/mozilla_expected_failures/marvin/backgr_position-table-cell.html = IMAGE TIMEOUT
+BUG_KERZ LINUX : transitions/shorthand-border-transitions.html = TEXT PASS
 BUG_KERZ WIN : css2.1/t0805-c5519-brdr-r-01-e.html = IMAGE+TEXT
 BUG_KERZ WIN : css2.1/t0905-c414-flt-fit-01-d-g.html = IMAGE+TEXT
 BUG_KERZ WIN : css2.1/t0905-c5525-fltblck-00-d-ag.html = IMAGE+TEXT
@@ -14,6 +210,8 @@ BUG_KERZ WIN : css2.1/t0905-c5525-flthw-00-c-g.html = IMAGE+TEXT
 BUG_KERZ WIN : css2.1/t0905-c5526-flthw-00-c-g.html = IMAGE+TEXT
 BUG_KERZ WIN : css2.1/t1202-counter-04-b.html = IMAGE
 BUG_KERZ WIN : css2.1/t1202-counters-04-b.html = IMAGE
+BUG_KERZ WIN : editing/execCommand/6355786.html = TIMEOUT PASS
+BUG_KERZ WIN : fast/dom/Window/window-screen-properties.html = PASS
 BUG_KERZ WIN : fast/dom/Window/window-screen-properties.html = TEXT
 BUG_KERZ WIN : fast/dom/object-embed-plugin-scripting.html = TIMEOUT PASS
 BUG_KERZ WIN : fast/dom/object-plugin-hides-properties.html = TIMEOUT PASS
@@ -38,6 +236,8 @@ BUG_KERZ WIN : fast/text/international/hindi-spacing.html = IMAGE
 BUG_KERZ WIN : fast/text/international/hindi-whitespace.html = IMAGE
 BUG_KERZ WIN : fast/text/international/plane2.html = IMAGE+TEXT
 BUG_KERZ WIN : fast/text/stripNullFromText.html = IMAGE+TEXT
+BUG_KERZ WIN : http/tests/appcache/access-via-redirect.php = TIMEOUT PASS
+BUG_KERZ WIN : http/tests/appcache/online-whitelist.html = PASS
 BUG_KERZ WIN : http/tests/appcache/online-whitelist.html = TEXT
 BUG_KERZ WIN : http/tests/local/send-sliced-dragged-file.html = TEXT
 BUG_KERZ WIN : http/tests/media/remove-while-loading.html = PASS
@@ -152,5 +352,3 @@ BUG_KERZ WIN : tables/mozilla/bugs/bug113424.html = IMAGE+TEXT PASS
 BUG_KERZ WIN : tables/mozilla/bugs/bug28341.html = IMAGE PASS
 BUG_KERZ WIN : tables/mozilla/other/slashlogo.html = PASS
 BUG_KERZ WIN : websocket/tests/websocket-event-target.html = CRASH
-
-BUG50438 : media/controls-drag-timebar.html = PASS FAIL
