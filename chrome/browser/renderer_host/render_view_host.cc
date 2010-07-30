@@ -1609,6 +1609,7 @@ void RenderViewHost::OnQueryFormFieldAutoFill(
     AutoFillSuggestionsReturned(query_id,
                                 std::vector<string16>(),
                                 std::vector<string16>(),
+                                std::vector<string16>(),
                                 std::vector<int>());
   }
 
@@ -1658,10 +1659,12 @@ void RenderViewHost::AutoFillSuggestionsReturned(
     int query_id,
     const std::vector<string16>& names,
     const std::vector<string16>& labels,
+    const std::vector<string16>& icons,
     const std::vector<int>& unique_ids) {
   autofill_query_id_ = query_id;
   autofill_values_.assign(names.begin(), names.end());
   autofill_labels_.assign(labels.begin(), labels.end());
+  autofill_icons_.assign(icons.begin(), icons.end());
   autofill_unique_ids_.assign(unique_ids.begin(), unique_ids.end());
 }
 
@@ -1675,6 +1678,7 @@ void RenderViewHost::AutocompleteSuggestionsReturned(
     // Autocomplete is canceling.
     autofill_values_.clear();
     autofill_labels_.clear();
+    autofill_icons_.clear();
     autofill_unique_ids_.clear();
   }
 
@@ -1694,6 +1698,7 @@ void RenderViewHost::AutocompleteSuggestionsReturned(
     if (unique) {
       autofill_values_.push_back(suggestions[i]);
       autofill_labels_.push_back(string16());
+      autofill_icons_.push_back(string16());
       autofill_unique_ids_.push_back(0);  // 0 means no profile.
     }
   }
@@ -1702,6 +1707,7 @@ void RenderViewHost::AutocompleteSuggestionsReturned(
                                                query_id,
                                                autofill_values_,
                                                autofill_labels_,
+                                               autofill_icons_,
                                                autofill_unique_ids_));
 }
 
