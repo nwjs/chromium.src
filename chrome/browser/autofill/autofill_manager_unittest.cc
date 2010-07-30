@@ -967,6 +967,7 @@ TEST_F(AutoFillManagerTest, SKIP_BRANDED(FillPhoneNumber)) {
   form.method = ASCIIToUTF16("POST");
   form.origin = GURL("http://myform.com/phone_form.html");
   form.action = GURL("http://myform.com/phone_submit.html");
+  form.user_submitted = true;
 
   webkit_glue::FormField field;
 
@@ -1038,6 +1039,7 @@ TEST_F(AutoFillManagerTest, SKIP_BRANDED(FormChangesRemoveField)) {
   form.method = ASCIIToUTF16("POST");
   form.origin = GURL("http://myform.com/form.html");
   form.action = GURL("http://myform.com/submit.html");
+  form.user_submitted = true;
 
   webkit_glue::FormField field;
   autofill_unittest::CreateTestFormField(
@@ -1081,6 +1083,7 @@ TEST_F(AutoFillManagerTest, SKIP_BRANDED(FormChangesRemoveField)) {
   EXPECT_EQ(ASCIIToUTF16("POST"), results.method);
   EXPECT_EQ(GURL("http://myform.com/form.html"), results.origin);
   EXPECT_EQ(GURL("http://myform.com/submit.html"), results.action);
+  EXPECT_TRUE(results.user_submitted);
   ASSERT_EQ(4U, results.fields.size());
 
   autofill_unittest::CreateTestFormField(
@@ -1103,6 +1106,7 @@ TEST_F(AutoFillManagerTest, SKIP_BRANDED(FormChangesAddField)) {
   form.method = ASCIIToUTF16("POST");
   form.origin = GURL("http://myform.com/form.html");
   form.action = GURL("http://myform.com/submit.html");
+  form.user_submitted = true;
 
   webkit_glue::FormField field;
   autofill_unittest::CreateTestFormField(
@@ -1146,6 +1150,7 @@ TEST_F(AutoFillManagerTest, SKIP_BRANDED(FormChangesAddField)) {
   EXPECT_EQ(ASCIIToUTF16("POST"), results.method);
   EXPECT_EQ(GURL("http://myform.com/form.html"), results.origin);
   EXPECT_EQ(GURL("http://myform.com/submit.html"), results.action);
+  EXPECT_TRUE(results.user_submitted);
   ASSERT_EQ(5U, results.fields.size());
 
   autofill_unittest::CreateTestFormField(
