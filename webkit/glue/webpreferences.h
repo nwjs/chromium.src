@@ -110,7 +110,7 @@ struct WebPreferences {
         experimental_webgl_enabled(false),
         show_composited_layer_borders(false),
         accelerated_compositing_enabled(false),
-        enable_html5_parser(true),
+        enable_html5_parser(false),
         memory_info_enabled(false) {
   }
 
