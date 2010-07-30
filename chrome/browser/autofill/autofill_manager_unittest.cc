@@ -28,8 +28,6 @@
 
 using webkit_glue::FormData;
 
-namespace {
-
 typedef Tuple4<int,
                std::vector<string16>,
                std::vector<string16>,
@@ -743,7 +741,7 @@ TEST_F(AutoFillManagerTest, SKIP_BRANDED(FillCreditCardForm)) {
                                               form,
                                               string16(),
                                               ASCIIToUTF16("Home; *3456"),
-                                              1));
+                                              AutoFillManager::PackIDs(4, 1)));
 
   int page_id = 0;
   FormData results;
@@ -811,7 +809,7 @@ TEST_F(AutoFillManagerTest, SKIP_BRANDED(FillNonBillingFormSemicolon)) {
                                     "916 16th St.", "Apt. 6", "Lubbock",
                                     "Texas", "79401", "USA",
                                     "12345678901", "");
-  profile->set_unique_id(6);
+  profile->set_unique_id(7);
   autofill_manager_->AddProfile(profile);
 
   FormData form;
@@ -830,7 +828,7 @@ TEST_F(AutoFillManagerTest, SKIP_BRANDED(FillNonBillingFormSemicolon)) {
                                               form,
                                               string16(),
                                               ASCIIToUTF16("Home; 8765"),
-                                              6));
+                                              AutoFillManager::PackIDs(4, 7)));
 
   int page_id = 0;
   FormData results;
@@ -885,7 +883,7 @@ TEST_F(AutoFillManagerTest, SKIP_BRANDED(FillBillFormSemicolon)) {
                                     "916 16th St.", "Apt. 6", "Lubbock",
                                     "Texas", "79401", "USA",
                                     "12345678901", "");
-  profile->set_unique_id(6);
+  profile->set_unique_id(7);
   autofill_manager_->AddProfile(profile);
 
   FormData form;
@@ -900,7 +898,8 @@ TEST_F(AutoFillManagerTest, SKIP_BRANDED(FillBillFormSemicolon)) {
   // an IPC message back to the renderer.
   const int kPageID = 1;
   EXPECT_TRUE(autofill_manager_->FillAutoFillFormData(
-      kPageID, form, string16(), ASCIIToUTF16("Home; 8765; *3456"), 6));
+      kPageID, form, string16(), ASCIIToUTF16("Home; 8765; *3456"),
+      AutoFillManager::PackIDs(4, 7)));
 
   int page_id = 0;
   FormData results;
@@ -1224,5 +1223,3 @@ TEST_F(AutoFillManagerTest, AuxiliaryProfilesReset) {
       prefs::kAutoFillAuxiliaryProfilesEnabled));
 #endif
 }
-
-}  // namespace
