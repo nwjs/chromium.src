@@ -92,7 +92,7 @@ class AutoFillProfilesView : public views::View,
   // Returns warning bitmap to set on warning indicator. If |good| is true it
   // returns the bitmap idicating validity, if false - indicating error.
   // Caller owns the bitmap after the call.
-  SkBitmap* GetWarningBimap(bool good);
+  SkBitmap* GetWarningBitmap(bool good);
 
   // views::View methods:
   virtual void Layout();
@@ -377,7 +377,7 @@ class AutoFillProfilesView : public views::View,
 
    private:
     std::list<views::Combobox *> combo_boxes_;
-    const std::vector<EditableSetInfo>* address_labels_;
+    std::vector<EditableSetInfo> address_labels_;
     bool is_billing_;
 
     DISALLOW_COPY_AND_ASSIGN(AddressComboBoxModel);
