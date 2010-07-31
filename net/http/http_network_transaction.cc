@@ -159,9 +159,14 @@ void ProcessAlternateProtocol(const HttpResponseHeaders& headers,
     return;
   }
 
-  if (port_protocol_vector[1] !=
-      HttpAlternateProtocols::kProtocolStrings[
-          HttpAlternateProtocols::NPN_SPDY_1]) {
+  HttpAlternateProtocols::Protocol protocol = HttpAlternateProtocols::BROKEN;
+  for (int i = HttpAlternateProtocols::NPN_SPDY_1;
+       i < HttpAlternateProtocols::NUM_ALTERNATE_PROTOCOLS; ++i) {
+    if (port_protocol_vector[1] == HttpAlternateProtocols::kProtocolStrings[i])
+      protocol = static_cast<HttpAlternateProtocols::Protocol>(i);
+  }
+
+  if (protocol == HttpAlternateProtocols::BROKEN) {
     // Currently, we only recognize the npn-spdy protocol.
     DLOG(WARNING) << HttpAlternateProtocols::kHeader
                   << " header has unrecognized protocol: "
@@ -181,8 +186,7 @@ void ProcessAlternateProtocol(const HttpResponseHeaders& headers,
       return;
   }
 
-  alternate_protocols->SetAlternateProtocolFor(
-      host_port, port, HttpAlternateProtocols::NPN_SPDY_1);
+  alternate_protocols->SetAlternateProtocolFor(host_port, port, protocol);
 }
 
 }  // namespace
@@ -647,9 +651,11 @@ int HttpNetworkTransaction::DoResolveProxy() {
       HttpAlternateProtocols::PortProtocolPair alternate =
           alternate_protocols.GetAlternateProtocolFor(endpoint_);
       if (alternate.protocol != HttpAlternateProtocols::BROKEN) {
-        DCHECK_EQ(HttpAlternateProtocols::NPN_SPDY_1, alternate.protocol);
+        DCHECK_LE(HttpAlternateProtocols::NPN_SPDY_1, alternate.protocol);
+        DCHECK_GT(HttpAlternateProtocols::NUM_ALTERNATE_PROTOCOLS,
+                  alternate.protocol);
         endpoint_.port = alternate.port;
-        alternate_protocol_ = HttpAlternateProtocols::NPN_SPDY_1;
+        alternate_protocol_ = alternate.protocol;
         alternate_protocol_mode_ = kUsingAlternateProtocol;
 
         url_canon::Replacements<char> replacements;
@@ -710,7 +716,7 @@ int HttpNetworkTransaction::DoInitConnection() {
   }
 
   bool want_spdy = alternate_protocol_mode_ == kUsingAlternateProtocol
-      && alternate_protocol_ == HttpAlternateProtocols::NPN_SPDY_1;
+      && alternate_protocol_ == HttpAlternateProtocols::NPN_SPDY_2;
   using_ssl_ = request_->url.SchemeIs("https") || want_spdy;
   using_spdy_ = false;
   response_.was_fetched_via_proxy = !proxy_info_.is_direct();
@@ -864,7 +870,7 @@ int HttpNetworkTransaction::DoInitConnectionComplete(int result) {
       std::string proto;
       ssl_socket->GetNextProto(&proto);
       if (SSLClientSocket::NextProtoFromString(proto) ==
-          SSLClientSocket::kProtoSPDY1)
+          SSLClientSocket::kProtoSPDY2)
         using_spdy_ = true;
     }
   }

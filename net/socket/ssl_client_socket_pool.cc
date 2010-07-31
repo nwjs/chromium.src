@@ -285,7 +285,7 @@ int SSLConnectJob::DoSSLConnectComplete(int result) {
   if (status == SSLClientSocket::kNextProtoNegotiated) {
     ssl_socket_->setWasNpnNegotiated(true);
     if (SSLClientSocket::NextProtoFromString(proto) ==
-        SSLClientSocket::kProtoSPDY1) {
+        SSLClientSocket::kProtoSPDY2) {
           using_spdy = true;
     }
   }

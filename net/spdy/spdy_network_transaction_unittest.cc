@@ -29,6 +29,10 @@
 
 namespace net {
 
+// This is the expected list of advertised protocols from the browser's NPN
+// list.
+static const char kExpectedNPNString[] = "\x08http/1.1\x06spdy/2";
+
 class SpdyNetworkTransactionTest : public PlatformTest {
  protected:
   virtual void SetUp() {
@@ -36,8 +40,7 @@ class SpdyNetworkTransactionTest : public PlatformTest {
     EnableCompression(false);
     google_get_request_initialized_ = false;
     HttpNetworkTransaction::SetUseAlternateProtocols(true);
-    HttpNetworkTransaction::SetNextProtos(
-        "\x08http/1.1\x07http1.1\x06spdy/1\x04spdy");
+    HttpNetworkTransaction::SetNextProtos(kExpectedNPNString);
   }
 
   virtual void TearDown() {
@@ -124,7 +127,7 @@ class SpdyNetworkTransactionTest : public PlatformTest {
       // Set up http data.
       MockRead data_reads[] = {
         MockRead("HTTP/1.1 200 OK\r\n"),
-        MockRead("Alternate-Protocol: 443:npn-spdy/1\r\n\r\n"),
+        MockRead("Alternate-Protocol: 443:npn-spdy/2\r\n\r\n"),
         MockRead("hello world"),
         MockRead(true, OK),
       };
@@ -141,7 +144,7 @@ class SpdyNetworkTransactionTest : public PlatformTest {
         linked_ptr<SSLSocketDataProvider> ssl_(
             new SSLSocketDataProvider(true, OK));
         ssl_->next_proto_status = SSLClientSocket::kNextProtoNegotiated;
-        ssl_->next_proto = "spdy/1";
+        ssl_->next_proto = "spdy/2";
         ssl_->was_npn_negotiated = true;
         ssl_vector_.push_back(ssl_);
         session_deps_.socket_factory.AddSSLSocketDataProvider(ssl_.get());

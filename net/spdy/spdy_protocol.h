@@ -118,8 +118,8 @@
 
 namespace spdy {
 
-// This implementation of Spdy is version 1.
-const int kSpdyProtocolVersion = 1;
+// The SPDY version of this implementation.
+const int kSpdyProtocolVersion = 2;
 
 // Note: all protocol data structures are on-the-wire format.  That means that
 //       data is stored in network-normalized order.  Readers must use the
