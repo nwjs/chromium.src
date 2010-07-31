@@ -102,8 +102,6 @@ class SpdyHttpStream : public SpdyStream::Delegate {
   // ReadResponseHeaders or ReadResponseBody.
   virtual void OnClose(int status);
 
-  bool ShouldResendFailedRequest(int error) const;
-
  private:
   // Call the user callback.
   void DoCallback(int rv);
