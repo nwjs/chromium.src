@@ -516,7 +516,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest, ParseFeedValidFeed3) {
                             "No error");
 }
 
-IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest, ParseFeedValidFeed4) {
+// This test is disabled in the 472 branch. See bug 50872.
+IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest, DISABLED_ParseFeedValidFeed4) {
   HTTPTestServer* server = StartHTTPServer();
 
   ASSERT_TRUE(LoadExtension(
