@@ -12,6 +12,16 @@
 // The opacity of the bookmark button drag image.
 static const CGFloat kDragImageOpacity = 0.7;
 
+
+namespace bookmark_button {
+
+const NSString* kPulseBookmarkButtonNotification =
+    @"PulseBookmarkButtonNotification";
+const NSString* kBookmarkKey = @"BookmarkKey";
+const NSString* kBookmarkPulseFlagKey = @"BookmarkPulseFlagKey";
+
+};
+
 @interface BookmarkButton(Private)
 
 // Make a drag image for the button.
@@ -24,6 +34,25 @@ static const CGFloat kDragImageOpacity = 0.7;
 
 @synthesize delegate = delegate_;
 
+- (id)initWithFrame:(NSRect)frameRect {
+  // BookmarkButton's ViewID may be changed to VIEW_ID_OTHER_BOOKMARKS in
+  // BookmarkBarController, so we can't just override -viewID method to return
+  // it.
+  if ((self = [super initWithFrame:frameRect])) {
+    // commented out only on 472 branch
+    // view_id_util::SetID(self, VIEW_ID_BOOKMARK_BAR_ELEMENT);
+  }
+  return self;
+}
+
+- (void)dealloc {
+  if ([[self cell] respondsToSelector:@selector(safelyStopPulsing)])
+    [[self cell] safelyStopPulsing];
+  // commented out only on 472 branch
+  // view_id_util::UnsetID(self);
+  [super dealloc];
+}
+
 - (const BookmarkNode*)bookmarkNode {
   return [[self cell] bookmarkNode];
 }
@@ -35,6 +64,14 @@ static const CGFloat kDragImageOpacity = 0.7;
 
 - (BOOL)isEmpty {
   return [self bookmarkNode] ? NO : YES;
+}
+
+- (void)setIsContinuousPulsing:(BOOL)flag {
+  [[self cell] setIsContinuousPulsing:flag];
+}
+
+- (BOOL)isContinuousPulsing {
+  return [[self cell] isContinuousPulsing];
 }
 
 // By default, NSButton ignores middle-clicks.
