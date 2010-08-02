@@ -228,7 +228,7 @@ int main(int argc, const char** argv) {
   avcodec_init();
   av_log_set_level(verbose_level);
   av_register_all();
-  av_register_protocol(&kFFmpegFileProtocol);
+  av_register_protocol2(&kFFmpegFileProtocol, sizeof(kFFmpegFileProtocol));
   AVFormatContext* format_context = NULL;
   int result = av_open_input_file(&format_context, in_path.c_str(),
                                   NULL, 0, NULL);
