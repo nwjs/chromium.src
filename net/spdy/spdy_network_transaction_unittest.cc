@@ -2362,36 +2362,4 @@ TEST_F(SpdyNetworkTransactionTest, GoAwayWithActiveStream) {
   EXPECT_EQ(OK, out.rv);
 }
 
-TEST_F(SpdyNetworkTransactionTest, GoAwayWithActiveStreamFail) {
-  scoped_ptr<spdy::SpdyFrame> req(ConstructSpdyGet(NULL, 0, false, 1, LOWEST));
-  MockWrite writes[] = { CreateMockWrite(*req) };
-
-  scoped_ptr<spdy::SpdyFrame> go_away(ConstructSpdyGoAway());
-  MockRead reads[] = {
-    CreateMockRead(*go_away),
-    MockRead(true, 0, 0),  // EOF
-  };
-
-  // Because the server is telling us to GOAWAY without finishing, the browser
-  // will attempt to re-establish.  On the second connection, just close.  This
-  // should trigger the ERR_CONNECTION_CLOSED status.
-  MockRead reads2[] = {
-    MockRead(true, 0, 0),  // EOF
-  };
-
-  scoped_refptr<DelayedSocketData> data(
-      new DelayedSocketData(1, reads, arraysize(reads),
-                            writes, arraysize(writes)));
-  scoped_refptr<DelayedSocketData> data2(
-      new DelayedSocketData(1, reads2, arraysize(reads2),
-                            writes, arraysize(writes)));
-  NormalSpdyTransactionHelper helper(CreateGetRequest(),
-                                     BoundNetLog(), GetParam());
-  helper.AddData(data);
-  helper.AddData(data2);
-  helper.RunToCompletion(data.get());
-  TransactionHelperResult out = helper.output();
-  EXPECT_EQ(ERR_CONNECTION_CLOSED, out.rv);
-}
-
 }  // namespace net
