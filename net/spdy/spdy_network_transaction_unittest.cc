@@ -832,7 +832,14 @@ TEST_F(SpdyNetworkTransactionTest, Post) {
   request.upload_data = new UploadData();
   request.upload_data->AppendBytes(upload, strlen(upload));
 
-  scoped_ptr<spdy::SpdyFrame> req(ConstructSpdyPost(NULL, 0));
+  // Http POST Content-Length is using UploadDataStream::size().
+  // It is the same as request.upload_data->GetContentLength().
+  scoped_ptr<UploadDataStream> stream(UploadDataStream::Create(
+      request.upload_data, NULL));
+  ASSERT_EQ(request.upload_data->GetContentLength(), stream->size());
+
+  scoped_ptr<spdy::SpdyFrame>
+      req(ConstructSpdyPost(request.upload_data->GetContentLength(), NULL, 0));
   scoped_ptr<spdy::SpdyFrame> body(ConstructSpdyBodyFrame(1, true));
   MockWrite writes[] = {
     CreateMockWrite(*req),
@@ -858,6 +865,45 @@ TEST_F(SpdyNetworkTransactionTest, Post) {
   EXPECT_EQ("hello!", out.response_data);
 }
 
+// Test that a NULL POST works.
+TEST_F(SpdyNetworkTransactionTest, NullPost) {
+  // Setup the request
+  HttpRequestInfo request;
+  request.method = "POST";
+  request.url = GURL("http://www.google.com/");
+  // Create an NULL UploadData.
+  request.upload_data = NULL;
+
+  // When request.upload_data is NULL for post, content-length is
+  // expected to be 0.
+  scoped_ptr<spdy::SpdyFrame> req(ConstructSpdyPost(0, NULL, 0));
+  // Set the FIN bit since there will be no body.
+  req->set_flags(spdy::CONTROL_FLAG_FIN);
+  MockWrite writes[] = {
+    CreateMockWrite(*req),
+  };
+
+  scoped_ptr<spdy::SpdyFrame> resp(ConstructSpdyPostSynReply(NULL, 0));
+  scoped_ptr<spdy::SpdyFrame> body(ConstructSpdyBodyFrame(1, true));
+  MockRead reads[] = {
+    CreateMockRead(*resp),
+    CreateMockRead(*body),
+    MockRead(true, 0, 0)  // EOF
+  };
+
+  scoped_refptr<DelayedSocketData> data(
+      new DelayedSocketData(1, reads, arraysize(reads),
+                            writes, arraysize(writes)));
+
+  NormalSpdyTransactionHelper helper(request,
+                                     BoundNetLog());
+  helper.RunToCompletion(data.get());
+  TransactionHelperResult out = helper.output();
+  EXPECT_EQ(OK, out.rv);
+  EXPECT_EQ("HTTP/1.1 200 OK", out.status_line);
+  EXPECT_EQ("hello!", out.response_data);
+}
+
 // Test that a simple POST works.
 TEST_F(SpdyNetworkTransactionTest, EmptyPost) {
   // Setup the request
@@ -867,7 +913,14 @@ TEST_F(SpdyNetworkTransactionTest, EmptyPost) {
   // Create an empty UploadData.
   request.upload_data = new UploadData();
 
-  scoped_ptr<spdy::SpdyFrame> req(ConstructSpdyPost(NULL, 0));
+  // Http POST Content-Length is using UploadDataStream::size().
+  // It is the same as request.upload_data->GetContentLength().
+  scoped_ptr<UploadDataStream> stream(UploadDataStream::Create(
+      request.upload_data, NULL));
+  ASSERT_EQ(request.upload_data->GetContentLength(), stream->size());
+
+  scoped_ptr<spdy::SpdyFrame>
+      req(ConstructSpdyPost(request.upload_data->GetContentLength(), NULL, 0));
   // Set the FIN bit since there will be no body.
   req->set_flags(spdy::CONTROL_FLAG_FIN);
   MockWrite writes[] = {
@@ -906,7 +959,14 @@ TEST_F(SpdyNetworkTransactionTest, PostWithEarlySynReply) {
   request.upload_data = new UploadData();
   request.upload_data->AppendBytes(upload, sizeof(upload));
 
-  scoped_ptr<spdy::SpdyFrame> req(ConstructSpdyPost(NULL, 0));
+  // Http POST Content-Length is using UploadDataStream::size().
+  // It is the same as request.upload_data->GetContentLength().
+  scoped_ptr<UploadDataStream> stream(UploadDataStream::Create(
+      request.upload_data, NULL));
+  ASSERT_EQ(request.upload_data->GetContentLength(), stream->size());
+
+  scoped_ptr<spdy::SpdyFrame>
+      req(ConstructSpdyPost(request.upload_data->GetContentLength(), NULL, 0));
   scoped_ptr<spdy::SpdyFrame> body(ConstructSpdyBodyFrame(1, true));
   MockWrite writes[] = {
     CreateMockWrite(*req.get(), 2),
