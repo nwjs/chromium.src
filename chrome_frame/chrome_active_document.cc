@@ -1210,7 +1210,8 @@ LRESULT ChromeActiveDocument::OnShowWindow(UINT message, WPARAM wparam,
 LRESULT ChromeActiveDocument::OnSetFocus(UINT message, WPARAM wparam,
                                          LPARAM lparam,
                                          BOOL& handled) {  // NO_LINT
-  GiveFocusToChrome(false);
+  if (!ignore_setfocus_)
+    GiveFocusToChrome(false);
   return 0;
 }
 
