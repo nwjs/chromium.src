@@ -179,7 +179,7 @@ void EulaView::UpdateLocalizedStrings() {
 ////////////////////////////////////////////////////////////////////////////////
 // views::View: implementation:
 
-void EulaView::LocaleChanged() {
+void EulaView::OnLocaleChanged() {
   UpdateLocalizedStrings();
   Layout();
 }

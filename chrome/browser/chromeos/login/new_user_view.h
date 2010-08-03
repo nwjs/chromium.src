@@ -109,7 +109,7 @@ class NewUserView : public views::View,
   virtual void NativeViewHierarchyChanged(bool attached,
                                           gfx::NativeView native_view,
                                           views::RootView* root_view);
-  virtual void LocaleChanged();
+  virtual void OnLocaleChanged();
 
  private:
   // Enables/disables input controls (textfields, buttons).

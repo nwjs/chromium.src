@@ -77,7 +77,7 @@ class LanguageMenuButton : public views::MenuButton,
 
  protected:
   // views::View implementation.
-  virtual void LocaleChanged();
+  virtual void OnLocaleChanged();
 
  private:
   // views::ViewMenuDelegate implementation.

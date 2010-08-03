@@ -454,7 +454,7 @@ views::View* TabStrip::GetViewForPoint(const gfx::Point& point) {
   return this;
 }
 
-void TabStrip::ThemeChanged() {
+void TabStrip::OnThemeChanged() {
   LoadNewTabButtonImage();
 }
 

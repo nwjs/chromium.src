@@ -152,7 +152,7 @@ bool BackgroundView::IsScreenLockerMode() const {
   return false;
 }
 
-void BackgroundView::LocaleChanged() {
+void BackgroundView::OnLocaleChanged() {
   Layout();
   SchedulePaint();
 }

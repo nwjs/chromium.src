@@ -525,7 +525,7 @@ void ToolbarView::Paint(gfx::Canvas* canvas) {
     canvas->FillRectInt(SK_ColorBLACK, 0, height() - 1, width(), 1);
 }
 
-void ToolbarView::ThemeChanged() {
+void ToolbarView::OnThemeChanged() {
   LoadImages();
 }
 
