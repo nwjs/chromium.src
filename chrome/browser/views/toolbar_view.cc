@@ -182,6 +182,7 @@ void ToolbarView::Init(Profile* profile) {
 
   location_bar_->Init();
   show_home_button_.Init(prefs::kShowHomeButton, profile->GetPrefs(), this);
+  browser_actions_->Init();
 
   SetProfile(profile);
 }
