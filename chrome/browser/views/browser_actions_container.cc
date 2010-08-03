@@ -76,8 +76,8 @@ static const int kChevronTopMargin = 9;
 // The margin to the right of the chevron.
 static const int kChevronRightMargin = 4;
 
-// Extra hit-area for the resize gripper.
-static const int kExtraResizeArea = 4;
+// Width for the resize area.
+static const int kResizeAreaWidth = 4;
 
 // Width of the drop indicator.
 static const int kDropIndicatorWidth = 2;
@@ -368,7 +368,6 @@ BrowserActionsContainer::BrowserActionsContainer(
       popup_(NULL),
       popup_button_(NULL),
       model_(NULL),
-      resize_gripper_(NULL),
       chevron_(NULL),
       overflow_menu_(NULL),
       suppress_chevron_(false),
@@ -384,11 +383,9 @@ BrowserActionsContainer::BrowserActionsContainer(
     model_->AddObserver(this);
   }
   resize_animation_.reset(new SlideAnimation(this));
-  resize_gripper_ = new views::ResizeGripper(this);
-  resize_gripper_->SetAccessibleName(
-      l10n_util::GetString(IDS_ACCNAME_SEPARATOR));
-  resize_gripper_->SetVisible(false);
-  AddChildView(resize_gripper_);
+  resize_area_ = new views::ResizeArea(this);
+  resize_area_->SetAccessibleName(l10n_util::GetString(IDS_ACCNAME_SEPARATOR));
+  AddChildView(resize_area_);
 
   // TODO(glen): Come up with a new bitmap for the chevron.
   ResourceBundle& rb = ResourceBundle::GetSharedInstance();
@@ -521,8 +518,6 @@ void BrowserActionsContainer::DeleteBrowserActionViews() {
 
 void BrowserActionsContainer::OnBrowserActionVisibilityChanged() {
   SetVisible(browser_action_views_.size() > 0);
-  resize_gripper_->SetVisible(browser_action_views_.size() > 0);
-
   owner_view_->Layout();
   owner_view_->SchedulePaint();
 }
@@ -618,23 +613,14 @@ void BrowserActionsContainer::Layout() {
 
   if (browser_action_views_.size() == 0 || parent->collapsed()) {
     SetVisible(false);
-    resize_gripper_->SetVisible(false);
     chevron_->SetVisible(false);
     return;
   } else {
     SetVisible(true);
-    resize_gripper_->SetVisible(true);
   }
 
-  int x = 0;
-  if (resize_gripper_->IsVisible()) {
-    // We'll draw the resize gripper a little wider, to add some invisible hit
-    // target area - but we don't account for it anywhere.
-    gfx::Size sz = resize_gripper_->GetPreferredSize();
-    resize_gripper_->SetBounds(x, (height() - sz.height()) / 2 + 1,
-                               sz.width() + kExtraResizeArea, sz.height());
-    x += sz.width();
-  }
+  resize_area_->SetBounds(0, 0, kResizeAreaWidth, height());
+  int x = kResizeAreaWidth;
 
   x += base::i18n::IsRTL() ? kHorizontalPaddingRtl : kHorizontalPadding;
 
@@ -903,7 +889,7 @@ int BrowserActionsContainer::ClampToNearestIconCount(
   size_t icon_count = 0u;
   if (pixelWidth >= 0) {
     // Caller wants to know how many icons fit within a given space so we start
-    // by subtracting the padding, gripper and dividers.
+    // by subtracting the padding, resize area and dividers.
     int icon_area = pixelWidth - extras;
     icon_area = std::max(0, icon_area);
 
@@ -1052,8 +1038,8 @@ int BrowserActionsContainer::WidthOfNonIconArea() const {
                      chevron_->GetPreferredSize().width() : 0;
   int padding = base::i18n::IsRTL() ?
       kHorizontalPaddingRtl : kHorizontalPadding;
-  return resize_gripper_->GetPreferredSize().width() + padding +
-         chevron_size + kChevronRightMargin + kDividerHorizontalMargin;
+  return kResizeAreaWidth + padding + chevron_size + kChevronRightMargin +
+      kDividerHorizontalMargin;
 }
 
 int BrowserActionsContainer::IconCountToWidth(int icons) const {
@@ -1067,7 +1053,7 @@ int BrowserActionsContainer::IconCountToWidth(int icons) const {
 }
 
 int BrowserActionsContainer::ContainerMinSize() const {
-  return resize_gripper_->width() + chevron_->width() + kChevronRightMargin;
+  return kResizeAreaWidth + chevron_->width() + kChevronRightMargin;
 }
 
 void BrowserActionsContainer::Animate(Tween::Type tween_type, int target_size) {
