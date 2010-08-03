@@ -6377,7 +6377,7 @@ TEST_F(HttpNetworkTransactionTest, SpdyAlternateProtocolThroughProxy) {
 
   // Restart with auth. Tunnel should work and response received.
   TestCompletionCallback callback_3;
-  rv = trans_2->RestartWithAuth(kFoo, kBar, &callback_3);
+  rv = trans_2->RestartWithAuth(L"foo", L"bar", &callback_3);
   EXPECT_EQ(ERR_IO_PENDING, rv);
   EXPECT_EQ(OK, callback_3.WaitForResult());
 
