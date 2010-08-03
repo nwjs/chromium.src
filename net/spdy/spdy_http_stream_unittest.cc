@@ -92,9 +92,10 @@ class SpdyHttpStreamTest : public testing::Test {
 
   scoped_refptr<SpdySession> CreateSpdySession() {
     HostPortPair host_port_pair("www.google.com", 80);
+    HostPortProxyPair pair(host_port_pair, "");
     scoped_refptr<SpdySession> session(
         session_->spdy_session_pool()->Get(
-            host_port_pair, session_, BoundNetLog()));
+            pair, session_, BoundNetLog()));
     return session;
   }
 
