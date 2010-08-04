@@ -398,7 +398,7 @@ bool FirstRun::ProcessMasterPreferences(const FilePath& user_data_dir,
     scoped_refptr<ImporterHost> importer_host = new ImporterHost();
     if (!FirstRun::ImportSettings(NULL,
           importer_host->GetSourceProfileInfoAt(0).browser_type,
-          import_items, import_bookmarks_path, NULL)) {
+              import_items, import_bookmarks_path, true, NULL)) {
       LOG(WARNING) << "silent import failed";
     }
   }
@@ -580,15 +580,17 @@ class HungImporterMonitor : public WorkerThreadTicker::Callback {
   DISALLOW_COPY_AND_ASSIGN(HungImporterMonitor);
 };
 
-std::wstring EncodeImportParams(int browser_type, int options, HWND window) {
-  return StringPrintf(L"%d@%d@%d", browser_type, options, window);
+std::wstring EncodeImportParams(int browser_type, int options,
+                                int skip_first_run_ui, HWND window) {
+  return StringPrintf(L"%d@%d@%d@%d", browser_type, options, skip_first_run_ui,
+                      window);
 }
 
-bool DecodeImportParams(const std::wstring& encoded,
-                        int* browser_type, int* options, HWND* window) {
+bool DecodeImportParams(const std::wstring& encoded, int* browser_type,
+                        int* options, int* skip_first_run_ui, HWND* window) {
   std::vector<std::wstring> v;
   SplitString(encoded, L'@', &v);
-  if (v.size() != 3)
+  if (v.size() != 4)
     return false;
 
   if (!StringToInt(v[0], browser_type))
@@ -597,7 +599,10 @@ bool DecodeImportParams(const std::wstring& encoded,
   if (!StringToInt(v[1], options))
     return false;
 
-  *window = reinterpret_cast<HWND>(StringToInt64(v[2]));
+  if (!StringToInt(v[2], skip_first_run_ui))
+    return false;
+
+  *window = reinterpret_cast<HWND>(StringToInt64(v[3]));
   return true;
 }
 
@@ -679,6 +684,7 @@ void FirstRun::AutoImport(Profile* profile,
 bool FirstRun::ImportSettings(Profile* profile, int browser_type,
                               int items_to_import,
                               const std::wstring& import_bookmarks_path,
+                              bool skip_first_run_ui,
                               HWND parent_window) {
   const CommandLine& cmdline = *CommandLine::ForCurrentProcess();
   CommandLine import_cmd(cmdline.GetProgram());
@@ -698,7 +704,8 @@ bool FirstRun::ImportSettings(Profile* profile, int browser_type,
 
   if (items_to_import) {
     import_cmd.CommandLine::AppendSwitchWithValue(switches::kImport,
-        EncodeImportParams(browser_type, items_to_import, parent_window));
+        EncodeImportParams(browser_type, items_to_import,
+                           skip_first_run_ui ? 1 : 0, parent_window));
   }
 
   if (!import_bookmarks_path.empty()) {
@@ -742,7 +749,7 @@ bool FirstRun::ImportSettings(Profile* profile, int browser_type,
                               int items_to_import,
                               HWND parent_window) {
   return ImportSettings(profile, browser_type, items_to_import,
-                        std::wstring(), parent_window);
+                        std::wstring(), false, parent_window);
 }
 
 int FirstRun::ImportFromBrowser(Profile* profile,
@@ -754,19 +761,19 @@ int FirstRun::ImportFromBrowser(Profile* profile,
   }
   int browser_type = 0;
   int items_to_import = 0;
+  int skip_first_run_ui = 0;
   HWND parent_window = NULL;
   if (!DecodeImportParams(import_info, &browser_type, &items_to_import,
-                          &parent_window)) {
+                          &skip_first_run_ui, &parent_window)) {
     NOTREACHED();
     return false;
   }
   scoped_refptr<ImporterHost> importer_host = new ImporterHost();
   FirstRunImportObserver observer;
 
-  // If there is no parent window, we run in headless mode which amounts
-  // to having the windows hidden and if there is user action required the
-  // import is automatically canceled.
-  if (!parent_window)
+  // If |skip_first_run_ui|, we run in headless mode.  This means that if
+  // there is user action required the import is automatically canceled.
+  if (skip_first_run_ui > 0)
     importer_host->set_headless();
 
   StartImportingWithUI(
