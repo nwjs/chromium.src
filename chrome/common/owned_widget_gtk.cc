@@ -13,7 +13,7 @@ OwnedWidgetGtk::~OwnedWidgetGtk() {
 }
 
 void OwnedWidgetGtk::Own(GtkWidget* widget) {
-  if (!widget_)
+  if (!widget)
     return;
 
   DCHECK(!widget_);
