@@ -37,15 +37,21 @@ NPAPITesterBase::NPAPITesterBase(const std::string& test_plugin_name)
 void NPAPITesterBase::SetUp() {
   // We need to copy our test-plugin into the plugins directory so that
   // the browser can load it.
+  // TODO(tc): We should copy the plugins as a build step, not during
+  // the tests.  Then we don't have to clean up after the copy in the test.
   FilePath plugins_directory = GetPluginsDirectory();
   FilePath plugin_src = browser_directory_.AppendASCII(test_plugin_name_);
   ASSERT_TRUE(file_util::PathExists(plugin_src));
   test_plugin_path_ = plugins_directory.AppendASCII(test_plugin_name_);
 
   file_util::CreateDirectory(plugins_directory);
+#if defined(OS_WIN)
+  file_util::DieFileDie(test_plugin_path_, false);
+#endif
   ASSERT_TRUE(file_util::CopyDirectory(plugin_src, test_plugin_path_, true))
       << "Copy failed from " << plugin_src.value()
       << " to " << test_plugin_path_.value();
+
 #if defined(OS_MACOSX)
   // The plugins directory isn't read by default on the Mac, so it needs to be
   // explicitly registered.
@@ -60,7 +66,6 @@ void NPAPITesterBase::TearDown() {
   // Tear down the UI test first so that the browser stops using the plugin
   // files.
   UITest::TearDown();
-  EXPECT_TRUE(file_util::DieFileDie(test_plugin_path_, true));
 }
 
 FilePath NPAPITesterBase::GetPluginsDirectory() {
@@ -91,9 +96,6 @@ void NPAPITester::TearDown() {
   // Tear down the base class first so that the browser stops using the plugin
   // files.
   NPAPITesterBase::TearDown();
-#if defined(OS_MACOSX)
-  EXPECT_TRUE(file_util::DieFileDie(layout_plugin_path_, true));
-#endif  // OS_MACOSX
 }
 
 // NPAPIVisiblePluginTester members.
