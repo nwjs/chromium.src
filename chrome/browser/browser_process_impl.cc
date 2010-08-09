@@ -123,6 +123,10 @@ BrowserProcessImpl::~BrowserProcessImpl() {
   // Need to clear profiles (download managers) before the io_thread_.
   profile_manager_.reset();
 
+  // Need to clear the desktop notification balloons before the io_thread_,
+  // since if there are any left showing we will post tasks.
+  notification_ui_manager_.reset();
+
   // Debugger must be cleaned up before IO thread and NotificationService.
   debugger_wrapper_ = NULL;
 
@@ -172,9 +176,6 @@ BrowserProcessImpl::~BrowserProcessImpl() {
   // Wait for the pending print jobs to finish.
   print_job_manager_->OnQuit();
   print_job_manager_.reset();
-
-  // Destroy NotificationUIManager before NotificationService is shut down.
-  notification_ui_manager_.reset();
 
   // Now OK to destroy NotificationService.
   main_notification_service_.reset();
