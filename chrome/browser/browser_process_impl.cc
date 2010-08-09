@@ -173,6 +173,9 @@ BrowserProcessImpl::~BrowserProcessImpl() {
   print_job_manager_->OnQuit();
   print_job_manager_.reset();
 
+  // Destroy NotificationUIManager before NotificationService is shut down.
+  notification_ui_manager_.reset();
+
   // Now OK to destroy NotificationService.
   main_notification_service_.reset();
 
