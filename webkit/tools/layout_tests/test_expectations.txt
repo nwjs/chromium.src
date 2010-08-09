@@ -2811,3 +2811,15 @@ BUG_MAC106 MAC : fast/canvas/toDataURL-alpha.html = MISSING
 BUG_MAC106 MAC : fast/forms/disabled-select-change-index.html = MISSING
 BUG_MAC106 MAC : fast/text/international/thai-baht-space.html = MISSING
 BUG_MAC106 MAC : svg/W3C-SVG-1.1/text-intro-05-t.svg = MISSING
+
+// These tests are failing due to rounding differences caused by having
+// different compile time flags for Google Chrome vs Chromium.
+BUG_TONY LINUX : svg/hixie/perf/001.xml = TEXT
+BUG_TONY LINUX : svg/hixie/perf/002.xml = TEXT
+BUG_TONY LINUX : fast/borders/borderRadiusGroove01.html = IMAGE
+BUG_TONY LINUX : fast/borders/borderRadiusGroove02.html = IMAGE
+BUG_TONY LINUX : fast/borders/borderRadiusRidge01.html = IMAGE
+BUG_TONY LINUX : svg/W3C-SVG-1.1/pservers-grad-13-b.svg = IMAGE
+BUG_TONY LINUX : svg/custom/radial-gradient-with-outstanding-focalPoint.svg = IMAGE
+BUG_TONY LINUX : svg/zoom/page/zoom-coords-viewattr-01-b.svg = IMAGE
+BUG_TONY LINUX : svg/W3C-SVG-1.1/paths-data-12-t.svg = IMAGE+TEXT
