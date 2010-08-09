@@ -59,15 +59,13 @@ class StoppableHTTPServer(BaseHTTPServer.HTTPServer):
 class HTTPSServer(tlslite.api.TLSSocketServerMixIn, StoppableHTTPServer):
   """This is a specialization of StoppableHTTPerver that add https support."""
 
-  def __init__(self, server_address, request_hander_class, cert_path,
-               ssl_client_auth):
+  def __init__(self, server_address, request_hander_class, cert_path):
     s = open(cert_path).read()
     x509 = tlslite.api.X509()
     x509.parse(s)
     self.cert_chain = tlslite.api.X509CertChain([x509])
     s = open(cert_path).read()
     self.private_key = tlslite.api.parsePEMKey(s, private=True)
-    self.ssl_client_auth = ssl_client_auth
 
     self.session_cache = tlslite.api.SessionCache()
     StoppableHTTPServer.__init__(self, server_address, request_hander_class)
@@ -77,8 +75,7 @@ class HTTPSServer(tlslite.api.TLSSocketServerMixIn, StoppableHTTPServer):
     try:
       tlsConnection.handshakeServer(certChain=self.cert_chain,
                                     privateKey=self.private_key,
-                                    sessionCache=self.session_cache,
-                                    reqCert=self.ssl_client_auth)
+                                    sessionCache=self.session_cache)
       tlsConnection.ignoreAbruptClose = True
       return True
     except tlslite.api.TLSError, error:
@@ -1207,8 +1204,7 @@ def main(options, args):
         server_class = ForkingHTTPSServer
       else:
         server_class = HTTPSServer
-      server = server_class(('127.0.0.1', port), TestPageHandler, options.cert,
-                            options.ssl_client_auth)
+      server = server_class(('127.0.0.1', port), TestPageHandler, options.cert)
       print 'HTTPS server started on port %d...' % port
     else:
       if options.forking:
@@ -1278,8 +1274,6 @@ if __name__ == '__main__':
                            help='Specify that https should be used, specify '
                            'the path to the cert containing the private key '
                            'the server should use.')
-  option_parser.add_option('', '--ssl-client-auth', action='store_true',
-                           help='Require SSL client auth on every connection.')
   option_parser.add_option('', '--file-root-url', default='/files/',
                            help='Specify a root URL for files served.')
   option_parser.add_option('', '--never-die', default=False,
