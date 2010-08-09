@@ -2811,4 +2811,3 @@ BUG_MAC106 MAC : fast/canvas/toDataURL-alpha.html = MISSING
 BUG_MAC106 MAC : fast/forms/disabled-select-change-index.html = MISSING
 BUG_MAC106 MAC : fast/text/international/thai-baht-space.html = MISSING
 BUG_MAC106 MAC : svg/W3C-SVG-1.1/text-intro-05-t.svg = MISSING
-
