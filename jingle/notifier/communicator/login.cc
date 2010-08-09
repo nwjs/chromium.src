@@ -314,8 +314,10 @@ void Login::CheckConnection() {
     LOG(INFO) << "Checking connection";
     talk_base::PhysicalSocketServer physical;
     scoped_ptr<talk_base::Socket> socket(physical.CreateSocket(SOCK_STREAM));
-    bool alive =
-        !socket->Connect(talk_base::SocketAddress("talk.google.com", 5222));
+    talk_base::SocketAddress addr("talk.google.com", 5222);
+    // Resolve synchronously to avoid weirdness with libjingle's async
+    // DNS resolver.
+    bool alive = addr.ResolveIP() && (socket->Connect(addr) == 0);
     LOG(INFO) << "Network is " << (alive ? "alive" : "not alive");
     if (alive) {
       // Our connection is up. If we have a disconnect timer going,
