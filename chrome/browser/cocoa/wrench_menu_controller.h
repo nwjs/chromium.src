@@ -41,6 +41,9 @@ class WrenchMenuModel;
 // NSCarbonMenuWindow; this screws up the typical |-commandDispatch:| system.
 - (IBAction)dispatchWrenchMenuCommand:(id)sender;
 
+// Inserts the update available notification menu item.
+- (void)insertUpdateAvailableItem;
+
 @end
 
 #endif  // CHROME_BROWSER_COCOA_WRENCH_MENU_CONTROLLER_H_
