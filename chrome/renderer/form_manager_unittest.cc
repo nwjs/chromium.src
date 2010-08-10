@@ -2303,7 +2303,7 @@ TEST_F(FormManagerTest, ClearFormWithNode) {
                 0)));
 }
 
-TEST_F(FormManagerTest, ClearPreviewedForm) {
+TEST_F(FormManagerTest, ClearPreviewedFormWithNode) {
   LoadHTML("<FORM name=\"TestForm\" action=\"http://buh.com\" method=\"post\">"
            "  <INPUT type=\"text\" id=\"firstname\" value=\"Wyatt\"/>"
            "  <INPUT type=\"text\" id=\"lastname\"/>"
@@ -2338,7 +2338,7 @@ TEST_F(FormManagerTest, ClearPreviewedForm) {
   email.setSuggestedValue(ASCIIToUTF16("wyatt@earp.com"));
 
   // Clear the previewed fields.
-  EXPECT_TRUE(form_manager.ClearPreviewedForm(forms[0]));
+  EXPECT_TRUE(form_manager.ClearPreviewedFormWithNode(firstname));
 
   // Fields with non-empty values are not modified.
   EXPECT_EQ(ASCIIToUTF16("Wyatt"), firstname.value());
