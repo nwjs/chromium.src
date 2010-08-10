@@ -141,6 +141,7 @@ static const char* const g_executables[] = {
   "wsc",
   "wsf",
   "wsh",
+  "xbap",
   "xht",
   "xhtm",
   "xhtml",
