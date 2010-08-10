@@ -285,9 +285,9 @@ DictionaryValue* PluginGroup::GetDataForUI() const {
     bool plugin_disabled_by_policy = group_disabled_by_policy ||
         IsPluginNameDisabledByPolicy(web_plugin.name);
     if (plugin_disabled_by_policy) {
-      result->SetString(L"enabledMode", L"disabledByPolicy");
+      plugin_file->SetString(L"enabledMode", L"disabledByPolicy");
     } else {
-      result->SetString(L"enabledMode",
+      plugin_file->SetString(L"enabledMode",
                         web_plugin.enabled ? L"enabled" : L"disabledByUser");
     }
     plugin_file->SetInteger(L"priority", priority);
