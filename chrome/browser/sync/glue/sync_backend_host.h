@@ -178,8 +178,41 @@ class SyncBackendHost : public browser_sync::ModelSafeWorkerRegistrar {
   virtual void GetWorkers(std::vector<browser_sync::ModelSafeWorker*>* out);
   virtual void GetModelSafeRoutingInfo(ModelSafeRoutingInfo* out);
 
-  // ONLY CALL THIS IF OnInitializationComplete was called!
+#if defined(UNIT_TEST)
+  // Called from unit test to bypass authentication and initialize the syncapi
+  // to a state suitable for testing but not production.
+  void InitializeForTestMode(const std::wstring& test_user,
+                             sync_api::HttpPostProviderFactory* factory,
+                             sync_api::HttpPostProviderFactory* auth_factory,
+                             bool delete_sync_data_folder,
+                             NotificationMethod notification_method) {
+    if (!core_thread_.Start())
+      return;
+    registrar_.workers[GROUP_UI] = new UIModelWorker(frontend_loop_);
+    registrar_.routing_info[syncable::BOOKMARKS] = GROUP_PASSIVE;
+    registrar_.routing_info[syncable::PREFERENCES] = GROUP_PASSIVE;
+    registrar_.routing_info[syncable::AUTOFILL] = GROUP_PASSIVE;
+    registrar_.routing_info[syncable::THEMES] = GROUP_PASSIVE;
+    registrar_.routing_info[syncable::TYPED_URLS] = GROUP_PASSIVE;
+    registrar_.routing_info[syncable::NIGORI] = GROUP_PASSIVE;
+    registrar_.routing_info[syncable::PASSWORDS] = GROUP_PASSIVE;
+
+    core_thread_.message_loop()->PostTask(FROM_HERE,
+        NewRunnableMethod(core_.get(),
+        &SyncBackendHost::Core::DoInitializeForTest,
+        test_user,
+        factory,
+        auth_factory,
+        delete_sync_data_folder,
+        notification_method));
+  }
+#endif
  protected:
+  // InitializationComplete passes through the SyncBackendHost to forward
+  // on to |frontend_|, and so that tests can intercept here if they need to
+  // set up initial conditions.
+  virtual void HandleInitializationCompletedOnFrontendLoop();
+
   // The real guts of SyncBackendHost, to keep the public client API clean.
   class Core : public base::RefCountedThreadSafe<SyncBackendHost::Core>,
                public sync_api::SyncManager::Observer {
@@ -310,7 +343,6 @@ class SyncBackendHost : public browser_sync::ModelSafeWorkerRegistrar {
 
    private:
     friend class base::RefCountedThreadSafe<SyncBackendHost::Core>;
-    friend class SyncBackendHostForProfileSyncTest;
 
     ~Core() {}
 
@@ -372,25 +404,6 @@ class SyncBackendHost : public browser_sync::ModelSafeWorkerRegistrar {
 
     DISALLOW_COPY_AND_ASSIGN(Core);
   };
-
-  // InitializationComplete passes through the SyncBackendHost to forward
-  // on to |frontend_|, and so that tests can intercept here if they need to
-  // set up initial conditions.
-  virtual void HandleInitializationCompletedOnFrontendLoop();
-
-  // Posts a nudge request on the core thread.
-  virtual void RequestNudge();
-
-  // Allows tests to perform alternate core initialization work.
-  virtual void InitCore(const Core::DoInitializeOptions& options);
-
-  // Factory method for HttpPostProviderFactories.
-  virtual sync_api::HttpPostProviderFactory* MakeHttpBridgeFactory(
-      URLRequestContextGetter* getter);
-
-  MessageLoop* core_loop() { return core_thread_.message_loop(); }
-
-  void set_syncapi_initialized() { syncapi_initialized_ = true; }
 
   // Our core, which communicates directly to the syncapi.
   scoped_refptr<Core> core_;
@@ -461,9 +474,6 @@ class SyncBackendHost : public browser_sync::ModelSafeWorkerRegistrar {
 
   // UI-thread cache of the last SyncSessionSnapshot received from syncapi.
   scoped_ptr<sessions::SyncSessionSnapshot> last_snapshot_;
-
-  // Whether we've processed the initialization complete callback.
-  bool syncapi_initialized_;
 
   DISALLOW_COPY_AND_ASSIGN(SyncBackendHost);
 };

@@ -288,12 +288,6 @@ void ProfileSyncService::InitializeBackend(bool delete_sync_data_folder) {
                        notification_method_);
 }
 
-void ProfileSyncService::CreateBackend() {
-  backend_.reset(
-      new SyncBackendHost(this, profile_, profile_->GetPath(),
-                          data_type_controllers_));
-}
-
 void ProfileSyncService::StartUp() {
   // Don't start up multiple times.
   if (backend_.get()) {
@@ -306,7 +300,10 @@ void ProfileSyncService::StartUp() {
   last_synced_time_ = base::Time::FromInternalValue(
       profile_->GetPrefs()->GetInt64(prefs::kSyncLastSyncedTime));
 
-  CreateBackend();
+  backend_.reset(
+      new SyncBackendHost(this, profile_, profile_->GetPath(),
+                          data_type_controllers_));
+
   // Initialize the backend.  Every time we start up a new SyncBackendHost,
   // we'll want to start from a fresh SyncDB, so delete any old one that might
   // be there.
@@ -537,14 +534,14 @@ void ProfileSyncService::ShowChooseDataTypes(gfx::NativeWindow parent_window) {
 }
 
 SyncBackendHost::StatusSummary ProfileSyncService::QuerySyncStatusSummary() {
-  if (backend_.get() && backend_initialized_)
+  if (backend_.get())
     return backend_->GetStatusSummary();
   else
     return SyncBackendHost::Status::OFFLINE_UNUSABLE;
 }
 
 SyncBackendHost::Status ProfileSyncService::QueryDetailedSyncStatus() {
-  if (backend_.get() && backend_initialized_) {
+  if (backend_.get()) {
     return backend_->GetDetailedStatus();
   } else {
     SyncBackendHost::Status status =
@@ -591,7 +588,7 @@ std::wstring ProfileSyncService::GetLastSyncedTimeString() const {
 }
 
 string16 ProfileSyncService::GetAuthenticatedUsername() const {
-  if (backend_.get() && backend_initialized_)
+  if (backend_.get())
     return backend_->GetAuthenticatedUsername();
   else
     return string16();
@@ -704,12 +701,11 @@ void ProfileSyncService::GetRegisteredDataTypes(
 }
 
 bool ProfileSyncService::IsCryptographerReady() const {
-  return backend_.get() && backend_initialized_ &&
-      backend_->GetUserShareHandle()->dir_manager->cryptographer()->is_ready();
+  return backend_->GetUserShareHandle()->
+      dir_manager->cryptographer()->is_ready();
 }
 
 void ProfileSyncService::SetPassphrase(const std::string& passphrase) {
-  DCHECK(backend_.get());
   backend_->SetPassphrase(passphrase);
 }
 
@@ -732,7 +728,6 @@ void ProfileSyncService::ActivateDataType(
     NOTREACHED();
     return;
   }
-  DCHECK(backend_initialized_);
   change_processor->Start(profile(), backend_->GetUserShareHandle());
   backend_->ActivateDataType(data_type_controller, change_processor);
 }

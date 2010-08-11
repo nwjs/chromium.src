@@ -238,15 +238,10 @@ class ProfileSyncServiceTest : public testing::Test {
   }
 
   void StartSyncService() {
-    StartSyncServiceAndSetInitialSyncEnded(true);
-  }
-  void StartSyncServiceAndSetInitialSyncEnded(bool set_initial_sync_ended) {
     if (!service_.get()) {
       service_.reset(new TestProfileSyncService(&factory_,
                                                 profile_.get(),
                                                 false, false, NULL));
-      if (!set_initial_sync_ended)
-        service_->dont_set_initial_sync_ended_on_init();
 
       // Register the bookmark data type.
       model_associator_ = new TestBookmarkModelAssociator(service_.get(),
@@ -1308,9 +1303,8 @@ TEST_F(ProfileSyncServiceTestWithData, RecoverAfterDeletingSyncDataDirectory) {
   // Now pretend that the user has deleted this directory from the disk.
   file_util::Delete(sync_data_directory, true);
 
-  // Restart the sync service.  Don't fake out setting initial sync ended; lets
-  // make sure the system does in fact nudge and wait for this to happen.
-  StartSyncServiceAndSetInitialSyncEnded(false);
+  // Restart the sync service.
+  StartSyncService();
 
   // Make sure we're back in sync.  In real life, the user would need
   // to reauthenticate before this happens, but in the test, authentication
@@ -1340,8 +1334,6 @@ TEST_F(ProfileSyncServiceTestWithData, TestStartupWithOldSyncData) {
     service_.reset(
         new TestProfileSyncService(&factory_, profile_.get(),
                                    false, true, NULL));
-
-    service_->dont_set_initial_sync_ended_on_init();
     profile_->GetPrefs()->SetBoolean(prefs::kSyncHasSetupCompleted, false);
 
     model_associator_ = new TestBookmarkModelAssociator(service_.get(),
