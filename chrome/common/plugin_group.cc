@@ -19,7 +19,7 @@
 static const PluginGroupDefinition kGroupDefinitions[] = {
   { "Quicktime", "QuickTime Plug-in", "", "", "7.6.6",
     "http://www.apple.com/quicktime/download/" },
-  { "Flash", "Shockwave Flash", "", "", "10.1.53",
+  { "Flash", "Shockwave Flash", "", "", "10.1.82",
     "http://get.adobe.com/flashplayer/" },
   { "Silverlight 3", "Silverlight", "0", "4", "3.0.50106.0",
     "http://go.microsoft.com/fwlink/?LinkID=185927" },
@@ -43,7 +43,7 @@ static const PluginGroupDefinition kGroupDefinitions[] = {
     "http://get.adobe.com/reader/" },
   { "Adobe Reader 8", "Adobe Acrobat", "0", "9",  "8.2.3",
     "http://get.adobe.com/reader/" },
-  { "Flash", "Shockwave Flash", "", "", "10.1.53",
+  { "Flash", "Shockwave Flash", "", "", "10.1.82",
     "http://get.adobe.com/flashplayer/" },
   { "Silverlight 3", "Silverlight", "0", "4", "3.0.50106.0",
     "http://go.microsoft.com/fwlink/?LinkID=185927" },
