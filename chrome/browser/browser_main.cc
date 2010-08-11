@@ -1119,7 +1119,7 @@ int BrowserMain(const MainFunctionParams& parameters) {
   chrome_browser_net::PredictorInit dns_prefetch(
       user_prefs,
       local_state,
-      parsed_command_line.HasSwitch(switches::kEnablePreconnect),
+      false,  // Preconnect is disabled.
       parsed_command_line.HasSwitch(switches::kPreconnectDespiteProxy));
 
 #if defined(OS_WIN)
