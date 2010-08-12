@@ -269,8 +269,8 @@ void FastConvertYUVToRGB32Row(const uint8* y_buf,
                               const uint8* v_buf,
                               uint8* rgb_buf,
                               int width);
-
   asm(
+  ".text\n"
   ".global FastConvertYUVToRGB32Row\n"
 "FastConvertYUVToRGB32Row:\n"
   "pusha\n"
@@ -329,8 +329,8 @@ void ScaleYUVToRGB32Row(const uint8* y_buf,
                         uint8* rgb_buf,
                         int width,
                         int source_dx);
-
   asm(
+  ".text\n"
   ".global ScaleYUVToRGB32Row\n"
 "ScaleYUVToRGB32Row:\n"
   "pusha\n"
@@ -403,8 +403,8 @@ void LinearScaleYUVToRGB32Row(const uint8* y_buf,
                               uint8* rgb_buf,
                               int width,
                               int source_dx);
-
   asm(
+  ".text\n"
   ".global LinearScaleYUVToRGB32Row\n"
 "LinearScaleYUVToRGB32Row:\n"
   "pusha\n"
@@ -516,8 +516,13 @@ extern void PICConvertYUVToRGB32Row(const uint8* y_buf,
                                     uint8* rgb_buf,
                                     int width,
                                     int16 *kCoefficientsRgbY);
-  __asm__(
+  asm(
+  ".text\n"
+#if defined(OS_MACOSX)
 "_PICConvertYUVToRGB32Row:\n"
+#else
+"PICConvertYUVToRGB32Row:\n"
+#endif
   "pusha\n"
   "mov    0x24(%esp),%edx\n"
   "mov    0x28(%esp),%edi\n"
@@ -585,8 +590,13 @@ extern void PICScaleYUVToRGB32Row(const uint8* y_buf,
                                int source_dx,
                                int16 *kCoefficientsRgbY);
 
-  __asm__(
+  asm(
+  ".text\n"
+#if defined(OS_MACOSX)
 "_PICScaleYUVToRGB32Row:\n"
+#else
+"PICScaleYUVToRGB32Row:\n"
+#endif
   "pusha\n"
   "mov    0x24(%esp),%edx\n"
   "mov    0x28(%esp),%edi\n"
@@ -669,9 +679,13 @@ void PICLinearScaleYUVToRGB32Row(const uint8* y_buf,
                                  int width,
                                  int source_dx,
                                  int16 *kCoefficientsRgbY);
-
   asm(
+  ".text\n"
+#if defined(OS_MACOSX)
 "_PICLinearScaleYUVToRGB32Row:\n"
+#else
+"PICLinearScaleYUVToRGB32Row:\n"
+#endif
   "pusha\n"
   "mov    0x24(%esp),%edx\n"
   "mov    0x30(%esp),%ebp\n"
@@ -823,29 +837,6 @@ static inline void YuvPixel(uint8 y,
                                         (packuswb(r) << 16) |
                                         (packuswb(a) << 24);
 }
-
-#if TEST_MMX_YUV
-static inline void YuvPixel(uint8 y,
-                            uint8 u,
-                            uint8 v,
-                            uint8* rgb_buf) {
-
-  __asm {
-    movzx     eax, u
-    movq      mm0, [kCoefficientsRgbY+2048 + 8 * eax]
-    movzx     eax, v
-    paddsw    mm0, [kCoefficientsRgbY+4096 + 8 * eax]
-    movzx     eax, y
-    movq      mm1, [kCoefficientsRgbY + 8 * eax]
-    paddsw    mm1, mm0
-    psraw     mm1, 6
-    packuswb  mm1, mm1
-    mov       eax, rgb_buf
-    movd      [eax], mm1
-    emms
-  }
-}
-#endif
 
 void FastConvertYUVToRGB32Row(const uint8* y_buf,
                               const uint8* u_buf,
