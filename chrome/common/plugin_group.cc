@@ -268,11 +268,11 @@ DictionaryValue* PluginGroup::GetSummary() const {
 
 DictionaryValue* PluginGroup::GetDataForUI() const {
   DictionaryValue* result = new DictionaryValue();
-  result->SetString("name", group_name_);
-  result->SetString("description", description_);
-  result->SetString("version", version_->GetString());
-  result->SetString("update_url", update_url_);
-  result->SetBoolean("critical", IsVulnerable());
+  result->SetStringFromUTF16(L"name", group_name_);
+  result->SetStringFromUTF16(L"description", description_);
+  result->SetString(L"version", version_->GetString());
+  result->SetString(L"update_url", update_url_);
+  result->SetBoolean(L"critical", IsVulnerable());
 
   bool group_disabled_by_policy = IsPluginNameDisabledByPolicy(group_name_);
   if (group_disabled_by_policy) {
