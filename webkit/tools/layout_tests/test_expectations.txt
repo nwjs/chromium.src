@@ -2811,6 +2811,27 @@ BUG_MAC106 MAC : fast/canvas/toDataURL-alpha.html = MISSING
 BUG_MAC106 MAC : fast/forms/disabled-select-change-index.html = MISSING
 BUG_MAC106 MAC : fast/text/international/thai-baht-space.html = MISSING
 BUG_MAC106 MAC : svg/W3C-SVG-1.1/text-intro-05-t.svg = MISSING
+BUG_MAC106 MAC : css1/box_properties/float_elements_in_series.html = IMAGE+TEXT
+BUG_MAC106 MAC : fast/text/capitalize-boundaries.html = IMAGE+TEXT
+BUG_MAC106 MAC : fast/text/international/bidi-linebreak-001.html = IMAGE+TEXT
+BUG_MAC106 MAC : fast/text/international/bidi-linebreak-002.html = IMAGE+TEXT
+BUG_MAC106 MAC : fast/text/international/bidi-linebreak-003.html = IMAGE+TEXT
+BUG_MAC106 MAC : fast/text/international/hindi-whitespace.html = IMAGE+TEXT
+BUG_MAC106 MAC : editing/execCommand/create-list-from-range-selection.html = IMAGE
+BUG_MAC106 MAC : editing/execCommand/hilitecolor.html = IMAGE
+BUG_MAC106 MAC : editing/execCommand/insert-list-empty-div.html = IMAGE
+BUG_MAC106 MAC : fast/forms/search-transformed.html = IMAGE
+BUG_MAC106 MAC : fast/lists/alpha-boundary-values.html = IMAGE
+BUG_MAC106 MAC : fast/lists/decimal-leading-zero.html = IMAGE
+BUG_MAC106 MAC : fast/lists/li-values.html = IMAGE
+BUG_MAC106 MAC : fast/lists/list-style-type-dynamic-change.html = IMAGE
+BUG_MAC106 MAC : fast/lists/w3-css3-list-styles-alphabetic.html = IMAGE
+BUG_MAC106 MAC : fast/lists/w3-css3-list-styles-numeric.html = IMAGE
+BUG_MAC106 MAC : fast/text/international/bidi-AN-after-empty-run.html = IMAGE
+BUG_MAC106 MAC : svg/W3C-SVG-1.1/filters-diffuse-01-f.svg = IMAGE
+BUG_MAC106 MAC : svg/W3C-SVG-1.1/filters-image-01-b.svg = IMAGE
+BUG_MAC106 MAC : svg/W3C-SVG-1.1/filters-specular-01-f.svg = IMAGE
+
 
 // These tests are failing due to rounding differences caused by having
 // different compile time flags for Google Chrome vs Chromium.
