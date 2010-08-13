@@ -4,7 +4,6 @@
 #ifndef CHROME_COMMON_EXTENSIONS_URL_PATTERN_H_
 #define CHROME_COMMON_EXTENSIONS_URL_PATTERN_H_
 
-#include <functional>
 #include <string>
 #include <vector>
 
@@ -163,21 +162,6 @@ class URLPattern {
   // wildcard scheme, then the returned set will contain one element that is
   // equivalent to this instance.
   std::vector<URLPattern> ConvertToExplicitSchemes() const;
-
-  static bool EffectiveHostCompare(const URLPattern& a, const URLPattern& b) {
-    if (a.match_all_urls_ && b.match_all_urls_)
-      return false;
-    return a.host_.compare(b.host_) < 0;
-  };
-
-  // Used for origin comparisons in a std::set.
-  class EffectiveHostCompareFunctor :
-      public std::binary_function<URLPattern, URLPattern, bool> {
-  public:
-    bool operator()(const URLPattern& a, const URLPattern& b) const {
-      return EffectiveHostCompare(a, b);
-    };
-  };
 
  private:
   // A bitmask containing the schemes which are considered valid for this

@@ -850,18 +850,17 @@ bool Extension::IsPrivilegeIncrease(Extension* old_extension,
     if (new_extension->HasAccessToAllHosts())
       return true;
 
-    ExtensionExtent::PatternList old_hosts =
-        old_extension->GetEffectiveHostPermissions().patterns();
-    ExtensionExtent::PatternList new_hosts =
-        new_extension->GetEffectiveHostPermissions().patterns();
+    std::set<std::string> old_hosts =
+        old_extension->GetEffectiveHostPermissions();
+    std::set<std::string> new_hosts =
+        new_extension->GetEffectiveHostPermissions();
 
-    std::set<URLPattern, URLPattern::EffectiveHostCompareFunctor> diff;
+    std::set<std::string> difference;
     std::set_difference(new_hosts.begin(), new_hosts.end(),
-        old_hosts.begin(), old_hosts.end(),
-        std::insert_iterator<std::set<URLPattern,
-            URLPattern::EffectiveHostCompareFunctor> >(diff, diff.end()),
-        URLPattern::EffectiveHostCompare);
-    if (diff.size() > 0)
+                        old_hosts.begin(), old_hosts.end(),
+                        std::insert_iterator<std::set<std::string> >(
+                            difference, difference.end()));
+    if (difference.size() > 0)
       return true;
   }
 
@@ -1679,19 +1678,19 @@ bool Extension::HasHostPermission(const GURL& url) const {
   return false;
 }
 
-const ExtensionExtent Extension::GetEffectiveHostPermissions() const {
-  ExtensionExtent effective_hosts;
+const std::set<std::string> Extension::GetEffectiveHostPermissions() const {
+  std::set<std::string> effective_hosts;
 
   for (URLPatternList::const_iterator host = host_permissions_.begin();
        host != host_permissions_.end(); ++host)
-    effective_hosts.AddPattern(*host);
+    effective_hosts.insert(host->host());
 
   for (UserScriptList::const_iterator content_script = content_scripts_.begin();
        content_script != content_scripts_.end(); ++content_script) {
     UserScript::PatternList::const_iterator pattern =
         content_script->url_patterns().begin();
     for (; pattern != content_script->url_patterns().end(); ++pattern)
-      effective_hosts.AddPattern(*pattern);
+      effective_hosts.insert(pattern->host());
   }
 
   return effective_hosts;

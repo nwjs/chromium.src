@@ -29,7 +29,6 @@
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_action.h"
 #include "chrome/common/extensions/extension_resource.h"
-#include "chrome/common/extensions/url_pattern.h"
 #include "chrome/common/notification_service.h"
 #include "chrome/common/url_constants.h"
 #include "grit/browser_resources.h"
@@ -78,29 +77,28 @@ static void GetV2Warnings(Extension* extension,
     warnings->push_back(
         l10n_util::GetStringUTF16(IDS_EXTENSION_PROMPT2_WARNING_ALL_HOSTS));
   } else {
-    std::vector<URLPattern> hosts =
-        extension->GetEffectiveHostPermissions().patterns();
+    std::set<std::string> hosts = extension->GetEffectiveHostPermissions();
     if (hosts.size() == 1) {
       warnings->push_back(
           l10n_util::GetStringFUTF16(IDS_EXTENSION_PROMPT2_WARNING_1_HOST,
-                                     UTF8ToUTF16(hosts.begin()->host())));
+                                     UTF8ToUTF16(*hosts.begin())));
     } else if (hosts.size() == 2) {
       warnings->push_back(
           l10n_util::GetStringFUTF16(IDS_EXTENSION_PROMPT2_WARNING_2_HOSTS,
-                                     UTF8ToUTF16(hosts.begin()->host()),
-                                     UTF8ToUTF16((++hosts.begin())->host())));
+                                     UTF8ToUTF16(*hosts.begin()),
+                                     UTF8ToUTF16(*(++hosts.begin()))));
     } else if (hosts.size() == 3) {
       warnings->push_back(
           l10n_util::GetStringFUTF16(IDS_EXTENSION_PROMPT2_WARNING_3_HOSTS,
-                                     UTF8ToUTF16(hosts.begin()->host()),
-                                     UTF8ToUTF16((++hosts.begin())->host()),
-                                     UTF8ToUTF16((++++hosts.begin())->host())));
+                                     UTF8ToUTF16(*hosts.begin()),
+                                     UTF8ToUTF16(*(++hosts.begin())),
+                                     UTF8ToUTF16(*(++++hosts.begin()))));
     } else if (hosts.size() >= 4) {
       warnings->push_back(
           l10n_util::GetStringFUTF16(
               IDS_EXTENSION_PROMPT2_WARNING_4_OR_MORE_HOSTS,
-              UTF8ToUTF16(hosts.begin()->host()),
-              UTF8ToUTF16((++hosts.begin())->host()),
+              UTF8ToUTF16(*hosts.begin()),
+              UTF8ToUTF16(*(++hosts.begin())),
               IntToString16(hosts.size() - 2)));
     }
   }
