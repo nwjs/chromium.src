@@ -1,0 +1,143 @@
+html {
+  background-image: url(chrome://theme/IDR_THEME_NTP_BACKGROUND?$1);
+  background-color: $2; /* COLOR_NTP_BACKGROUND */
+  background-position: $3;
+  background-repeat: $5;
+  overflow: hidden;
+}
+
+html[bookmarkbarattached='true'] {
+  background-position: $4;
+}
+
+body {
+  color: $8; /* COLOR_NTP_TEXT */
+  height: 100%;
+  overflow: auto;
+}
+
+#main {
+  background: url(chrome://theme/IDR_PRODUCT_LOGO?$1) no-repeat 0 8px;
+}
+
+#notification.first-run {
+  background-color: $$1; /* COLOR_NTP_SECTION */
+  border-color: $$2; /* COLOR_NTP_SECTION_BORDER */
+}
+
+#notification.first-run .link {
+   color: $$6; /* COLOR_NTP_LINK_UNDERLINE */
+}
+
+#notification.first-run .link-color {
+  color: $9; /* COLOR_NTP_LINK */
+}
+
+.thumbnail {
+  border-color: $$1; /* COLOR_NTP_SECTION */
+}
+
+.thumbnail-container,
+.thumbnail-container > .title {
+  color: $8; /* COLOR_NTP_TEXT */
+}
+
+.thumbnail-container:focus .thumbnail,
+.thumbnail-container:hover .thumbnail {
+  border-color: $6; /* COLOR_NTP_HEADER */
+}
+
+.thumbnail-container:focus .edit-bar,
+.thumbnail-container:hover .edit-bar {
+  background-color: $6; /* COLOR_NTP_HEADER */
+  background-image: -webkit-gradient(linear, left top, left bottom,
+                                     from($7), /* color_header_gradient_light */
+                                     to($6)); /* COLOR_NTP_HEADER */
+}
+.thumbnail-container:hover > .edit-mode-border {
+  background-color: $6; /* COLOR_NTP_HEADER */
+}
+
+.filler .thumbnail-wrapper {
+  border: 3px solid $$1; /* COLOR_NTP_SECTION */
+  background-color: $2; /* COLOR_NTP_BACKGROUND */
+}
+
+.filler .thumbnail {
+  border: 1px solid $2; /* COLOR_NTP_BACKGROUND */
+  background-color: $$1; /* COLOR_NTP_SECTION */
+}
+
+#option-button {
+  background-color: $7; /* color_header_gradient_light */
+  -webkit-mask-image: url(chrome://theme/IDR_NEWTAB_MENU_MASK);
+}
+
+#recently-closed {
+  color: $8; /* COLOR_NTP_TEXT */
+}
+
+#recently-closed > span > span {
+  color: $$6; /* COLOR_NTP_LINK_UNDERLINE */
+  text-decoration: underline;
+}
+
+#recently-closed > span > span > .item {
+  color: $9; /* COLOR_NTP_LINK */
+  text-decoration: none;
+}
+
+#attribution {
+  display: $$5;
+  color: $9; /* COLOR_NTP_LINK */
+  text-align: end;
+}
+
+#tip-line {
+  color: $8; /* COLOR_NTP_TEXT */
+}
+
+.link-color {
+  color: $9; /* COLOR_NTP_LINK */
+}
+
+:link,
+:visited,
+.link {
+  color: $$6; /* COLOR_NTP_LINK_UNDERLINE */
+}
+
+#top-bar {
+  border-bottom: 1px solid $$2; /* COLOR_NTP_SECTION_BORDER */
+}
+
+.section {
+  border-top: 1px solid $$2; /* COLOR_NTP_SECTION_BORDER */
+  border-bottom: 1px solid $$2; /* COLOR_NTP_SECTION_BORDER */
+}
+
+.section.hidden + :not(.hidden) {
+  border-top: 1px solid $$2; /* COLOR_NTP_SECTION_BORDER */;
+}
+
+.section.hidden + .hidden > h2 {
+  border-left: 1px solid $$2; /* COLOR_NTP_SECTION_BORDER */
+}
+
+.section > h2 {
+  color: $8; /* COLOR_NTP_TEXT */
+}
+
+#apps-section a {
+  color: $8; /* COLOR_NTP_TEXT */
+}
+
+#apps-section .app:hover > .front > a,
+#apps-section .app > .back {
+  color: $$3; /* COLOR_NTP_SECTION_TEXT */
+  background-color: $$1; /* COLOR_NTP_SECTION */;
+}
+
+#footer hr {
+  color: $$2; /* COLOR_NTP_SECTION_BORDER */
+}

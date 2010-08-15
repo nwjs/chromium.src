@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<!--
+
+Copyright (c) 2010 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+
+Extension purpose: route all Google Talk chats through the central roster
+hosted in this extension. The included logic is paired with logic in Gmail
+to route both incoming and outgoing chats through this central roster.
+
+-->
+<body>
+  <iframe
+    id='centralRoster'
+    src='central_roster.html'>Central Roster</iframe>
+<script src="js/chatbridgeeventtypes.js"></script>
+<script>
+  var centralRosterJid;
+  var centralRosterPort;
+  var centralJidListenerPorts = [];
+
+  // Notify all port listeners of updated central roster jid.
+  function forwardCentralRosterJidToPortListeners() {
+    for (var listenerPort in centralJidListenerPorts) {
+      listenerPort.postMessage({jid: centralRosterJid});
+    }
+  }
+
+  // Central roster jid changed. Notify all listeners.
+  function centralJidUpdate(msg) {
+    if (centralRosterJid != msg.jid) {
+      centralRosterJid = msg.jid;
+      forwardCentralRosterJidToPortListeners();
+    }
+  }
+
+  // Listen for content script connections.
+  chrome.extension.onConnect.addListener(function(port) {
+    // New central jid listener.
+    // Update with current central roster jid, and add to tracking array.
+    if (port.name == 'centralJidListener') {
+      centralJidListenerPorts.push(port);
+
+      // Clear tracking array entry when content script closes.
+      port.onDisconnect.addListener(function(port) {
+        for (var index = 0; index < centralJidListenerPorts.length; ++index) {
+          var listenerPort = centralJidListenerPorts[index];
+          if (listenerPort == port) {
+            centralJidListenerPorts.splice(index, 1);
+            break;
+          }
+        }
+      });
+      if (centralRosterJid) {
+        port.postMessage({jid: centralRosterJid});
+      }
+    // New central jid broadcaster.
+    // Add listener for jid changes, and track port for forwarding chats.
+    } else if (port.name == 'centralJidBroadcaster') {
+      if (centralRosterPort != port) {
+        if (centralRosterPort) {
+          centralRosterPort.onMessage.removeListener(centralJidUpdate);
+        }
+        centralRosterPort = port;
+        centralRosterPort.onMessage.addListener(centralJidUpdate);
+
+        // Clear listener and central roster jid when content script closes
+        centralRosterPort.onDisconnect.addListener(function(port) {
+          if (centralRosterPort) {
+            centralRosterPort.onMessage.removeListener(centralJidUpdate);
+            centralRosterPort = null;
+            centralJidUpdate({jid: null});
+          }
+        });
+      }
+    }
+  });
+
+  // Listen for requests from our content scripts.
+  chrome.extension.onRequest.addListener(function(request, sender) {
+    switch (request.msg) {
+      // For new initiated chats, forward to the central roster port.
+      case ChatBridgeEventTypes.SHOW_CHAT:
+      case ChatBridgeEventTypes.START_VIDEO:
+      case ChatBridgeEventTypes.START_VOICE:
+        if (centralRosterPort) {
+          centralRosterPort.postMessage(
+              {chatType: request.msg, jid: request.jid});
+        } else {
+          // We should not have been forwarded this message. Make sure our
+          // listeners are updated with the current central roster jid.
+          forwardCentralRosterJidToPortListeners();
+        }
+        break;
+    }
+  });
+</script>
+</body>
+</html>

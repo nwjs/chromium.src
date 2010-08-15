@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html i18n-values="
+  dir:textdirection;
+  bookmarkbarattached:bookmarkbarattached;
+  hasattribution:hasattribution;
+  anim:anim;
+  syncispresent:syncispresent;
+  has_3d:has_3d">
+<head>
+<meta charset="utf-8">
+<title i18n-content="title"></title>
+<script>
+// Logging info for benchmarking purposes.
+var log = [];
+function logEvent(name, shouldLogTime) {
+  if (shouldLogTime) {
+    chrome.send('logEventTime', [name]);
+  }
+  log.push([name, Date.now()]);
+}
+logEvent('Tab.NewTabScriptStart', true);
+
+var global = this;
+
+/**
+ * Registers a callback function so that if the backend calls it too early it
+ * will get delayed until DOMContentLoaded is fired.
+ * @param {string} name The name of the global function that the backend calls.
+ */
+function registerCallback(name) {
+  var f = function(var_args) {
+    var args = Array.prototype.slice.call(arguments);
+    // If we still have the temporary function we delay until the dom is ready.
+    if (global[name] == f) {
+      logEvent(name + ' is not yet ready. Waiting for DOMContentLoaded');
+      document.addEventListener('DOMContentLoaded', function() {
+        logEvent('Calling the new ' + name);
+        global[name].apply(null, args);
+      });
+    }
+  };
+  global[name] = f;
+}
+
+chrome.send('getMostVisited');
+chrome.send('getRecentlyClosedTabs');
+chrome.send('getApps');
+
+registerCallback('mostVisitedPages');
+registerCallback('recentlyClosedTabs');
+registerCallback('syncMessageChanged');
+registerCallback('getAppsCallback');
+registerCallback('setShownSections');
+
+</script>
+<!-- template data placeholder -->
+<link rel="stylesheet" href="new_new_tab.css">
+<link rel="stylesheet" href="ntp/most_visited.css">
+<link rel="stylesheet" href="ntp/apps.css">
+<link rel="stylesheet" href="shared/css/menu.css">
+<script>
+
+/**
+ * Bitmask for the different UI sections.
+ * This matches the Section enum in ../dom_ui/shown_sections_handler.h
+ * @enum {number}
+ */
+var Section = {
+  THUMB: 1,
+  // LIST is no longer used
+  RECENT: 4,
+  // TIPS is no longer used
+  SYNC: 16,
+  DEBUG: 32
+};
+
+var shownSections = templateData['shown_sections'];
+
+// Until themes can clear the cache, force-reload the theme stylesheet.
+document.write('<link id="themecss" rel="stylesheet" ' +
+               'href="chrome://theme/css/newtab.css?' +
+               Date.now() + '">');
+
+function useSmallGrid() {
+  return window.innerWidth <= 940;
+}
+
+function isRtl() {
+  return templateData['textdirection'] == 'rtl';
+}
+
+// This will get overridden in new_new_tab.js
+function updateSimpleSection(id, section) {
+  // All sections start off shown.
+  if (!(shownSections & section))
+    document.getElementById(id).className += ' hidden';
+}
+
+// Parse any name value pairs passed through the URL hash.
+var hashParams = (function() {
+  var result = {};
+  if (location.hash.length) {
+    location.hash.substr(1).split('&').forEach(function(pair) {
+      pair = pair.split('=');
+      if (pair.length != 2) {
+        throw new Error('Unexpected hash value: ' + location.hash);
+      }
+
+      result[pair[0]] = pair[1];
+    });
+  }
+  return result;
+})();
+
+// Reflect the mode param as an attribute so we can use CSS attribute selectors
+// on it.
+if ('mode' in hashParams) {
+  document.documentElement.setAttribute('mode', hashParams['mode']);
+}
+
+</script>
+</head>
+<body class="loading"
+      i18n-values=".style.fontFamily:fontfamily;.style.fontSize:fontsize">
+
+<div id="main">
+
+  <div id=top-bar>
+    <input type="button" id="option-button"
+        i18n-values="title:pagedisplaytooltip">
+  </div>
+
+  <menu id="option-menu">
+    <div command="hide" section="THUMB" i18n-content="mostvisited"></div>
+    <div command="hide" section="RECENT" i18n-content="recentlyclosed"></div>
+    <hr>
+    <div command="clear-all-blacklisted"
+         i18n-content="restorethumbnails"></div>
+  </menu>
+
+  <div id="notification">
+    <span>&nbsp;</span>
+    <span class="link"><span class="link-color"></span></span>
+  </div>
+
+  <div class="sections">
+    <div class="section disabled" id="apps-section"></div>
+
+    <div id="most-visited-section" class="section" section="THUMB">
+      <h2 i18n-content="mostvisited"></h2>
+      <div id="most-visited"></div>
+    </div>
+
+    <div id="recently-closed" class="section" section="RECENT">
+      <h2 i18n-content="recentlyclosed"></h2>
+      <span class="nav"></span>
+    </div>
+
+    <div id="debug" class="section disabled" section="DEBUG">
+      <h2>Debug</h2>
+      <div id="apps-launch-control">
+        Open apps in:<label
+        ><input type="radio" name="launch-container-type" value=""
+            checked="true">Default</label
+        ><input type="radio" name="launch-container-type" value="tab"
+            >Tab</label
+        ><label><input type="radio" name="launch-container-type" value="window"
+            >Window</label
+        ><label><input type="radio" name="launch-container-type" value="panel"
+            >Panel</label>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    updateSimpleSection('recently-closed', Section.RECENT);
+    updateSimpleSection('most-visited-section', Section.THUMB);
+    updateSimpleSection('debug', Section.DEBUG);
+  </script>
+
+  <div id="sync-status">
+    <h2></h2>
+    <span></span>
+  </div>
+
+  <div id="attribution" class="attribution">
+    <div i18n-content="attributionintro"></div>
+    <img id="attribution-img">
+  </div>
+
+  <div id="footer">
+    <a href="chrome://history"><span class="link-color"
+                                     i18n-content="history"></span></a>
+    <hr>
+    <a href="chrome://downloads"><span class="link-color"
+                                       i18n-content="downloads"></span></a>
+    <hr>
+    <a i18n-values="href:helpurl"><span class="link-color"
+                                        i18n-content="help"></span></a>
+  </div>
+
+</div>  <!-- main -->
+
+<div class="window-menu" id="window-tooltip"></div>
+
+</body>
+
+<script src="shared/js/i18n_template.js"></script>
+<script>
+i18nTemplate.process(document, templateData);
+</script>
+<script src="shared/js/local_strings.js"></script>
+<script src="shared/js/class_list.js"></script>
+<script src="shared/js/parse_html_subset.js"></script>
+<script src="ntp/util.js"></script>
+<script src="ntp/most_visited.js"></script>
+<script src="new_new_tab.js"></script>
+<script src="ntp/apps.js"></script>
+</html>

@@ -1,0 +1,942 @@
+<!DOCTYPE HTML>
+<html i18n-values="dir:textdirection;">
+<head>
+<meta charset="utf-8">
+<title i18n-content="title"></title>
+<style>
+body {
+  margin: 10px;
+  min-width: 47em;
+}
+
+a {
+  color: blue;
+  font-size: 103%;
+}
+
+#header {
+  margin-bottom: 1.05em;
+  overflow: hidden;
+  padding-bottom: 1.5em;
+  padding-left: 0;
+  padding-top: 1.5em;
+  position: relative;
+}
+
+html[dir=rtl] #header {
+  padding-right: 0;
+}
+
+#header h1 {
+  background: url('../../app/theme/extensions_section.png') 0px 20px no-repeat;
+  display: inline;
+  margin: 0;
+  padding-bottom: 43px;
+  padding-left: 75px;
+  padding-top: 40px;
+}
+html[dir=rtl] #header h1 {
+  background: url('../../app/theme/extensions_section.png') right no-repeat;
+  padding-right: 95px;
+  padding-left: 0;
+}
+
+h1 {
+  font-size: 156%;
+  font-weight: bold;
+  padding: 0;
+  margin: 0;
+}
+
+div.content {
+  font-size: 88%;
+  margin-top: 5px;
+}
+
+.section-header {
+  background: #ebeff9;
+  border-top: 1px solid #b5c7de;
+  font-size: 99%;
+  padding-bottom: 2px;
+  padding-left: 5px;
+  padding-top: 3px;
+  width: 100%;
+}
+
+html[dir=rtl] .section-header {
+  padding-right: 5px;
+  padding-left: 0;
+}
+
+.section-header-title {
+  font-weight: bold;
+}
+
+.vbox-container {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+}
+
+.wbox {
+  display: -webkit-box;
+  -webkit-box-align: stretch;
+  -webkit-box-flex: 1;
+}
+
+.showInDevMode {
+  overflow: hidden;
+}
+
+body.hideDevModeInitial .showInDevMode {
+  height: 0 !important;
+  opacity: 0;
+}
+
+body.hideDevMode .showInDevMode {
+  height: 0 !important;
+  opacity: 0;
+  -webkit-transition: all .1s ease-out;
+}
+
+body.showDevModeInitial .showInDevMode {
+  opacity: 1;
+}
+
+body.showDevMode .showInDevMode {
+  opacity: 1;
+  -webkit-transition: all .1s ease-in;
+}
+
+.wbox-dev-mode {
+  -webkit-box-align: stretch;
+  -webkit-box-flex: 1;
+}
+
+.developer-mode-image {
+  margin-top: 2px;
+}
+
+.developer-mode-link {
+  margin-right: 3px;
+  white-space: nowrap;
+}
+
+.developer-mode-link a {
+  font-size: 97%;
+}
+
+.developer-mode {
+  background: #f4f6fc;
+  border-bottom: 1px solid #edeff5;
+  font-size: 89%;
+  padding-bottom: 0.8em;
+  padding-left: 10px;
+  padding-top: 0.8em;
+  width: 100%;
+}
+html[dir=rtl] .developer-mode {
+  padding-right: 10px;
+  padding-left: 0;
+}
+
+.extension_disabled td {
+  background-color: #f0f0f0;
+  color: #a0a0a0;
+  padding-bottom: 4px;
+  padding-top: 5px;
+}
+
+.extension_enabled td {
+  padding-bottom: 4px;
+  padding-top: 5px;
+}
+
+.extension {
+  border-bottom: 1px solid #cdcdcd;
+}
+
+.extension-name {
+  font-weight: bold;
+}
+
+.no-extensions {
+  margin: 6em 0 0;
+  text-align: center;
+  font-size: 1.2em;
+}
+
+#try-gallery {
+  margin-top: 1em;
+  font-weight: normal;
+}
+
+#get-moar-extensions {
+  margin-top: 1em;
+  text-align: right;
+  font-weight: bold;
+}
+
+html[dir=rtl] #get-moar-extensions {
+   text-align: left;
+}
+
+.extension-description {
+  margin-top: 0.4em;
+}
+
+.extension-details {
+  margin-top: 0.5em;
+}
+
+.extension-actions {
+}
+
+.extension-actions-div {
+  margin-top: 0.4em;
+}
+
+.extension-actions input {
+  margin: 0 3px 0 10px;
+  vertical-align: text-bottom;
+}
+
+.extension-views {
+  margin: 0 0 0;
+  margin-left: 2ex;
+  padding: 0;
+  list-style-type: none;
+}
+
+html[dir=rtl] .extension-views {
+  margin: 0 2ex 0 0;
+}
+
+button {
+  font-size: 104%;
+}
+
+#dialogBackground, #dialogBackground div {
+  display: -webkit-box;
+  -webkit-box-align: center;
+}
+
+#dialog input[type=button] {
+  font-size: 12px;
+  height: 25px;
+  width: 100px;
+}
+
+#dialog input[type=text] {
+  font-size: 12px;
+  font-family: Helvetica, Arial, sans-serif;
+  width: 220px;
+}
+
+#dialogBackground {
+  background-color: rgba(0, 0, 0, .2);
+  display: none;
+  height: 100%;
+  left: 0;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 1;
+  -webkit-box-orient: vertical;
+  -webkit-user-select: none;
+}
+
+html[dir=rtl] #dialogBackground {
+  right: 0;
+  left: auto;
+}
+
+#dialogHBackground {
+  height: 100%;
+  -webkit-box-orient: horizontal;
+}
+
+
+#dialog {
+  background-color: #5296DE;
+  border: 1px solid #3A75BD;
+  border-radius: 6px 6px;
+  font-size: 12px;
+  width: 500px;
+  -webkit-box-orient: vertical;
+}
+
+html[dir=rtl] #dialog {
+  font-size: 13px;
+}
+
+#dialogHeader {
+  background-color: rgba(0,0,0,0);
+  color: white;
+  margin: 4px;
+  width: 100%;
+}
+
+html[dir=rtl] #dialogHeader {
+  margin-left: -20px;
+}
+
+#dialogBody {
+  background-color: rgb(240, 240, 240);
+  border: 1px solid #3A75BD;
+  border-bottom-left-radius: 4px 4px;
+  border-bottom-right-radius: 4px 4px;
+  margin: 0px 2px 2px 2px;
+  -webkit-box-orient: vertical;
+}
+
+#dialogContentHeader {
+  margin: 16px;
+}
+
+.dialogBrowseRow {
+  margin-left: -24px;
+  width: 100%;
+  -webkit-box-orient: horizontal;
+  -webkit-box-pack: end;
+}
+
+html[dir=rtl] .dialogBrowseRow {
+  margin-right: -24px;
+  /* margin-left: 0px; */
+}
+
+.dialogBrowseRow>* {
+  margin: 2px
+}
+
+#dialogContentFooter {
+  margin-bottom: 6px;
+  margin-left: -12px;
+  margin-top: 20px;
+}
+
+html[dir=rtl] #dialogContentFooter {
+  margin-right: -12px;
+  margin-left: 0px;
+}
+
+.inspectPopupNote {
+  color: grey;
+}
+
+.incognitoWarning {
+  margin: 0.75em 0;
+  display: none;
+  opacity: 0;
+  -webkit-transition: opacity .2s ease-out;
+}
+
+.incognitoWarning .yellow {
+  background:#fff299;
+  padding:2px 5px;
+  border-radius:3px;
+}
+</style>
+<script>
+/**
+ * This variable structure is here to document the structure that the template
+ * expects to correctly populate the page.
+ */
+var extensionDataFormat = {
+  'developerMode': false,
+  'extensions': [
+    {
+      'id': '0000000000000000000000000000000000000000',
+      'name': 'Google Chrome',
+      'description': 'Extension long format description',
+      'version': '1.0.231',
+      'enabled': 'true',
+      'enabledIncognito': 'false',
+      'wantsFileAccess': 'false',
+      'allowFileAccess': 'false',
+      'allow_reload': true,
+      'order': 1,
+      'options_url': 'options.html',
+      'icon': 'relative-path-to-icon.png',
+      'content_scripts': [
+        {
+          'js': ['script1_file1.js', 'script1_file2.js'],
+          'css': ['script1_file1.css', 'script1_file2.css'],
+          'matches': ['http://*/*', 'http://other.com/*']
+        },
+        {
+          'js': ['script2_file1.js', 'script2_file2.js'],
+          'css': ['script2_file1.css', 'script2_file2.css'],
+          'matches': ['http://*/*', 'http://other.com/*']
+        }
+      ],
+      // TODO(aa): It would be nice to also render what type of view each one
+      // is, like 'toolstrip', 'background', etc. Eventually, if we can also
+      // debug and inspect content scripts, maybe we don't need to list the
+      // components, just the views.
+      'views': [
+        {
+          'path': 'toolstrip.html',
+          'renderViewId': 1,
+          'renderProcessId': 1
+        },
+        {
+          'path': 'background.html',
+          'renderViewId': 2,
+          'renderProcessId': 1
+        }
+      ]
+    },
+    {
+      'id': '0000000000000000000000000000000000000001',
+      'name': 'RSS Subscriber',
+      'description': 'Extension long format description',
+      'version': '1.0.231',
+      'enabled': 'true',
+      'enabledIncognito': 'false',
+      'wantsFileAccess': 'false',
+      'allowFileAccess': 'false',
+      'allow_reload': false,
+      'order': 2,
+      'icon': '',
+      'content_scripts': [
+        {
+          'js': ['script1_file1.js', 'script1_file2.js'],
+          'css': ['script1_file1.css', 'script1_file2.css'],
+          'matches': ['http://*/*', 'http://other.com/*']
+        },
+        {
+          'js': ['script2_file1.js', 'script2_file2.js'],
+          'css': ['script2_file1.css', 'script2_file2.css'],
+          'matches': ['http://*/*', 'http://other.com/*']
+        }
+      ],
+      'views': [
+        {
+          'path': 'foo/bar/toolstrip.html',
+          'renderViewId': 3,
+          'renderProcessId': 1
+        }
+      ],
+      "hasPopupAction": false
+    }
+  ]
+};
+
+// Keeps track of whether the developer mode subsection has been made visible
+// (expanded) or not.
+var devModeExpanded = false;
+
+/**
+ * Toggles the devModeExpanded, and notifies the c++ dom_ui to toggle the
+ * extensions.ui.developer_mode which saved in the preferences.
+ */
+function toggleDevModeExpanded() {
+  devModeExpanded = !devModeExpanded;
+  chrome.send('toggleDeveloperMode', []);
+}
+
+/**
+ * Takes the |extensionsData| input argument which represents data about the
+ * currently installed/running extensions and populates the html jstemplate with
+ * that data. It expects an object structure like the above.
+ * @param {Object} extensionsData Detailed info about installed extensions
+ */
+function renderTemplate(extensionsData) {
+  // Sort by order specified in the data or (if equal) then sort by
+  // extension name (case-insensitive).
+  extensionsData.extensions.sort(function(a, b) {
+    if (a.order == b.order) {
+      a = a.name.toLowerCase();
+      b = b.name.toLowerCase();
+      return a < b ? -1 : (a > b ? 1 : 0);
+    } else {
+      return a.order < b.order ? -1 : 1;
+    }
+  });
+
+  // This is the javascript code that processes the template:
+  var input = new JsEvalContext(extensionsData);
+  var output = document.getElementById('extensionTemplate');
+  jstProcess(input, output);
+}
+
+/**
+ * Asks the C++ ExtensionDOMHandler to get details about the installed
+ * extensions and return detailed data about the configuration. The
+ * ExtensionDOMHandler should reply to returnExtensionsData() (below).
+ */
+function requestExtensionsData() {
+  chrome.send('requestExtensionsData', []);
+}
+
+// Used for observing function of the backend datasource for this page by
+// tests.
+var domui_responded_ = false;
+
+// Used to only do some work the first time we render.
+var rendered_once_ = false;
+
+/**
+ * Called by the dom_ui_ to re-populate the page with data representing
+ * the current state of installed extensions.
+ */
+function returnExtensionsData(extensionsData){
+  domui_responded_ = true;
+  devModeExpanded = extensionsData.developerMode;
+
+  var bodyContainer = document.getElementById('body-container');
+  var body = document.body;
+
+  // Set all page content to be visible so we can measure heights.
+  bodyContainer.style.visibility = 'hidden';
+  body.className = '';
+  var slidables = document.getElementsByClassName('showInDevMode');
+  for (var i = 0; i < slidables.length; i++)
+    slidables[i].style.height = 'auto';
+
+  renderTemplate(extensionsData);
+
+  // Explicitly set the height for each element that wants to be 'slid' in and
+  // out when the devModeExpanded is toggled.
+  var slidables = document.getElementsByClassName('showInDevMode');
+  for (var i = 0; i < slidables.length; i++)
+    slidables[i].style.height = slidables[i].offsetHeight + 'px';
+
+  // Hide all the incognito warnings that are attached to the wrong extension
+  // ID, which can happen when an extension is added or removed.
+  var warnings = document.getElementsByClassName('incognitoWarning');
+  for (var i = 0; i < warnings.length; i++) {
+    var extension = warnings[i];
+    while (extension.className != "extension")
+      extension = extension.parentNode;
+
+    if (extension.extensionId != warnings[i].attachedExtensionId) {
+      warnings[i].style.display = "none";
+      warnings[i].style.opacity = "0";
+    }
+  }
+
+  // Reset visibility of page based on the current dev mode.
+  document.getElementById('collapse').style.display =
+     devModeExpanded ? 'inline' : 'none';
+  document.getElementById('expand').style.display =
+     devModeExpanded ? 'none' : 'inline';
+  bodyContainer.style.visibility = 'visible';
+  body.className = devModeExpanded ?
+     'showDevModeInitial' : 'hideDevModeInitial';
+
+  if (rendered_once_)
+    return;
+
+  // Blech, JSTemplate always inserts the strings as text, which is usually a
+  // feature, but in this case it contains HTML that we want to be rendered.
+  var elm = document.getElementById('try-gallery');
+  if (elm)
+    elm.innerHTML = elm.textContent;
+
+  elm = document.getElementById('get-moar-extensions');
+  if (elm)
+    elm.innerHTML = elm.textContent;
+
+  rendered_once_ = true;
+}
+
+/**
+ * Tell the C++ ExtensionDOMHandler to inspect the page detailed in |viewData|.
+ */
+function sendInspectMessage(viewData) {
+  // TODO(aa): This is ghetto, but DOMUIBindings doesn't support sending
+  // anything other than arrays of strings, and this is all going to get
+  // replaced with V8 extensions soon anyway.
+  chrome.send('inspect', [
+    String(viewData.renderProcessId), String(viewData.renderViewId)
+  ]);
+}
+
+/**
+ * Handles a 'reload' button getting clicked.
+ */
+function handleReloadExtension(node) {
+  // Tell the C++ ExtensionDOMHandler to reload the extension.
+  chrome.send('reload', [node.extensionId]);
+}
+
+/**
+ * Handles a 'enable' or 'disable' button getting clicked.
+ */
+function handleEnableExtension(node, enable) {
+  // Tell the C++ ExtensionDOMHandler to reload the extension.
+  chrome.send('enable', [node.extensionId, String(enable)]);
+  requestExtensionsData();
+}
+
+/**
+ * Handles the 'enableIncognito' checkbox getting changed.
+ */
+function handleToggleExtensionIncognito(node) {
+  var warning = node;
+
+  while (warning.className != "extension")
+    warning = warning.parentNode;
+
+  warning = warning.getElementsByClassName("incognitoWarning")[0];
+  if (!node.checked) {
+    warning.style.display = "none";
+    warning.style.opacity = "0";
+  } else {
+    warning.attachedExtensionId = node.extensionId;
+    warning.style.display = "block";
+
+    // Must set the opacity later. Otherwise, the fact that the display is
+    // changing causes the animation to not happen.
+    window.setTimeout(function() {
+      warning.style.opacity = "1";
+    }, 0);
+  }
+
+  chrome.send('enableIncognito', [node.extensionId, String(node.checked)]);
+}
+
+/**
+ * Handles the 'allowFileAccess' checkbox getting changed.
+ */
+function handleToggleAllowFileAccess(node) {
+  chrome.send('allowFileAccess', [node.extensionId, String(node.checked)]);
+}
+
+/**
+ * Handles an 'uninstall' button getting clicked.
+ */
+function handleUninstallExtension(node) {
+  chrome.send('uninstall', [node.extensionId]);
+}
+
+/**
+ * Handles an 'options' button getting clicked.
+ */
+function handleOptions(node) {
+  chrome.send('options', [node.extensionId]);
+}
+
+/**
+* Utility function which asks the C++ to show a platform-specific file select
+* dialog, and fire |callback| with the |filePath| that resulted. |selectType|
+* can be either 'file' or 'folder'. |operation| can be 'load', 'packRoot',
+* or 'pem' which are signals to the C++ to do some operation-specific
+* configuration.
+*/
+function showFileDialog(selectType, operation, callback) {
+  handleFilePathSelected = function(filePath) {
+    callback(filePath);
+    handleFilePathSelected = function() {};
+  };
+
+  chrome.send('selectFilePath', [selectType, operation]);
+}
+
+/**
+ * Handles the "Load extension..." button being pressed.
+ */
+function loadExtension() {
+  showFileDialog('folder', 'load', function(filePath) {
+    chrome.send('load', [String(filePath)]);
+  });
+}
+
+/**
+ * Handles the "Pack extension..." button being pressed.
+ */
+function packExtension() {
+  var extensionPath = document.getElementById('extensionPathText').value;
+  var privateKeyPath = document.getElementById('privateKeyPath').value;
+  chrome.send('pack', [extensionPath, privateKeyPath]);
+}
+
+/**
+ * Shows to modal HTML pack dialog.
+ */
+function showPackDialog() {
+  document.getElementById('dialogBackground').style.display = '-webkit-box';
+}
+
+/**
+ * Hides the pack dialog.
+ */
+function hidePackDialog() {
+  document.getElementById('dialogBackground').style.display = 'none'
+}
+
+/*
+ * Toggles visibility of the developer mode.
+ */
+function toggleDeveloperMode() {
+  toggleDevModeExpanded();
+
+  document.getElementById('collapse').style.display =
+      devModeExpanded ? 'inline' : 'none';
+  document.getElementById('expand').style.display =
+      devModeExpanded ? 'none' : 'inline';
+
+  document.body.className =
+      devModeExpanded ? 'showDevMode' : 'hideDevMode';
+}
+
+/**
+ * Pop up a select dialog to capture the extension path.
+ */
+function selectExtensionPath() {
+  showFileDialog('folder', 'packRoot', function(filePath) {
+    document.getElementById('extensionPathText').value = filePath;
+  });
+}
+
+/**
+ * Pop up a select dialog to capture the private key path.
+ */
+function selectPrivateKeyPath() {
+  showFileDialog('file', 'pem', function(filePath) {
+    document.getElementById('privateKeyPath').value = filePath;
+  });
+}
+
+/**
+ * Handles the "Update extensions now" button being pressed.
+ */
+function autoUpdate() {
+  chrome.send('autoupdate', []);
+}
+
+document.addEventListener('DOMContentLoaded', requestExtensionsData);
+
+</script>
+</head>
+<body i18n-values=".style.fontFamily:fontfamily;.style.fontSize:fontsize">
+  <div id="dialogBackground">
+    <div id="dialogHBackground">
+      <div id="dialog">
+        <div id="dialogHeader" i18n-content="packDialogTitle">
+          PACK EXTENSION
+        </div>
+        <div id="dialogBody">
+          <div id="dialogContentHeader" i18n-content="packDialogHeading">
+            HEADING
+          </div>
+          <div class="dialogBrowseRow">
+            <div i18n-content="rootDirectoryLabel">
+              ROOT_DIR
+            </div>
+            <div>
+              <input type="text" id="extensionPathText">
+            </div>
+            <div>
+              <input type="button" value="BROWSE"
+                     i18n-values="value:packDialogBrowse"
+                     onclick="selectExtensionPath();">
+            </div>
+          </div>
+          <div class="dialogBrowseRow">
+            <div i18n-content="privateKeyLabel">
+              PRIVATE_KEY
+            </div>
+            <div>
+              <input type="text" id="privateKeyPath">
+            </div>
+            <div>
+              <input type="button" value="BROWSE"
+                     i18n-values="value:packDialogBrowse"
+                     onclick="selectPrivateKeyPath();">
+            </div>
+          </div>
+          <div class="dialogBrowseRow" id="dialogContentFooter">
+            <div>
+              <input type="button" value="OK"
+                  i18n-values="value:okButton" onclick="packExtension();">
+            </div>
+            <div>
+              <input type="button" value="CANCEL"
+                  i18n-values="value:cancelButton" onclick="hidePackDialog();">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="body-container" style="visibility:hidden">
+
+    <div id="header"><h1 i18n-content="title">TITLE</h1></div>
+
+    <div id="extensionTemplate">
+
+      <div id="container" class="vbox-container">
+      <div id="top" class="wbox" style="padding-right: 5px">
+
+        <div class="section-header">
+          <table cellpadding="0" cellspacing="0" width="100%">
+          <tr valign="center">
+            <td>
+              <span class="section-header-title" i18n-content="title"
+                >TITLE</span>
+              <span class="section-header-title"
+                    jsdisplay="extensions.length > 0">(<span
+                    jscontent="extensions.length"></span>)</span>
+            </td>
+            <td width="18" padding="">
+              <img id="collapse" class="developer-mode-image"
+                   style="display:none" onclick="toggleDeveloperMode();"
+                   src="shared/images/minus.png">
+              <img id="expand" class="developer-mode-image"
+                   onclick="toggleDeveloperMode();" src="shared/images/plus.png">
+            </td>
+            <td width="50" align="right">
+              <div class="developer-mode-link">
+                <a onclick="toggleDeveloperMode();" style="cursor: default"
+                   i18n-content="devModeLink">DEVMODE</a>
+              </div>
+            </td>
+          </tr>
+          </table>
+        </div>
+
+      </div>
+      <div id="developer_tools" class="wbox-dev-mode showInDevMode">
+        <div class="developer-mode">
+          <span i18n-content="devModePrefix">DEVELOPER_MODE:</span>
+          <button onclick="loadExtension()"
+                  i18n-content="loadUnpackedButton">LOAD</button>
+          <button onclick="showPackDialog()"
+                  i18n-content="packButton">PACK</button>
+          <button onclick="autoUpdate()"
+                  i18n-content="updateButton">UPDATE</button>
+        </div>
+      </div>
+      </div>
+
+      <div class="content">
+        <div class="extension-name no-extensions" jsdisplay="extensions.length === 0">
+          <div i18n-content="noExtensions">NO_EXTENSIONS_ARE_INSTALLED</div>
+          <div i18n-content="suggestGallery" id="try-gallery">TRY_GALLERY</div>
+        </div>
+
+        <div jsdisplay="extensions.length > 0">
+        <div class="extension" jsselect="extensions" jsvalues=".extensionId:id">
+          <table width="100%" cellpadding="2" cellspacing="0">
+          <tr jsvalues=".className:enabled ? 'extension_enabled' : 'extension_disabled'">
+          <td width="62" height="50" align="center" valign="top">
+            <span jsdisplay="icon"><img jsvalues=".src:icon" width="48"
+                height="48">
+          </td>
+          <td valign="top">
+            <div>
+              <a jsdisplay="galleryUrl.length > 0"
+                 jsvalues=".href:galleryUrl">
+              <span class="extension-name"
+                    jscontent="name">EXTENSION NAME</span></a>
+              <span class="extension-name"
+                    jsdisplay="galleryUrl.length == 0"
+                    jscontent="name">EXTENSION NAME</span>
+              - <span i18n-content="extensionVersion">VERSION</span>
+              <span jscontent="version">x.x.x.x</span>
+              <span jsdisplay="!enabled"
+                    i18n-content="extensionDisabled">(DISABLED)</span>
+              <span jsdisplay="order == 1"
+                    i18n-content="inDevelopment">(IN DEVELOPMENT)</span>
+            </div>
+
+            <div class="extension-description" jscontent="description"></div>
+            <div class="showInDevMode">
+              <div class="extension-details">
+                <span i18n-content="extensionId">ID_LABEL: </span>
+                <span jscontent="id"></span>
+              </div>
+              <div class="extension-details">
+                <span jsdisplay="views.length > 0 || hasPopupAction" i18n-content="inspectViews">
+                  INSPECT ACTIVE VIEWS:
+                </span>
+                <ul class="extension-views">
+                  <li jsselect="views">
+                    <a jsvalues=".extensionView:$this" href="#"
+                       onclick="sendInspectMessage(this.extensionView); return false;">
+                       <span jscontent="path"></span>
+                    </a>
+                  </li>
+                  <li i18n-content="inspectPopupsInstructions" 
+                      class="inspectPopupNote" jsdisplay="hasPopupAction">
+                    INSPECT POPUP INSRUCTIONS
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div class="extension-actions-div">
+              <span class="extension-actions">
+                <a
+                  jsvalues=".extensionId:id"
+                  jsdisplay="enabled && allow_reload"
+                  onclick="handleReloadExtension(this)"
+                  href="javascript:void 0;"
+                  i18n-content="reload"
+                  >RELOAD</a>
+                <span jsdisplay="enabled && allow_reload">-</span>
+                <a
+                  jsvalues=".extensionId:id"
+                  jsdisplay="enabled"
+                  onclick="handleEnableExtension(this, false)"
+                  href="javascript:void 0;"
+                  i18n-content="disable"
+                  >DISABLE</a>
+                <a
+                  jsvalues=".extensionId:id"
+                  jsdisplay="!enabled"
+                  onclick="handleEnableExtension(this, true)"
+                  href="javascript:void 0;"
+                  i18n-content="enable"
+                  >ENABLE</a> -
+                <a
+                  jsvalues=".extensionId:id"
+                  onclick="handleUninstallExtension(this)"
+                  href="javascript:void 0;"
+                  i18n-content="uninstall"
+                  >UNINSTALL</a>
+                <span jsdisplay="options_url && enabled">-</span>
+                <a
+                  jsdisplay="options_url && enabled"
+                  jsvalues=".extensionId:id"
+                  onclick="handleOptions(this)"
+                  href="javascript:void 0;"
+                  i18n-content="options"
+                  >OPTIONS</a>
+                <label
+                  jsdisplay="enabled">
+                <input type="checkbox"
+                  jsvalues=".extensionId:id;.enabled:enabled"
+                  jsdisplay="enabled"
+                  jseval="this.checked = enabledIncognito"
+                  onchange="handleToggleExtensionIncognito(this)">
+                <span i18n-content="enableIncognito">ALLOW THIS EXTENSION TO RUN IN INCOGNITO</span></label>
+                <label
+                  jsdisplay="enabled && wantsFileAccess">
+                <input type="checkbox"
+                  jsvalues=".extensionId:id;.enabled:enabled;.wantsFileAccess:wantsFileAccess"
+                  jsdisplay="enabled && wantsFileAccess"
+                  jseval="this.checked = allowFileAccess"
+                  onchange="handleToggleAllowFileAccess(this)">
+                <span i18n-content="allowFileAccess">ALLOW THIS EXTENSION ACCESS TO FILE URLS</span></label>
+              </span>
+            </div>
+            <div class="incognitoWarning">
+              <span class="yellow" i18n-values=".innerHTML:incognitoWarning">WARNING - CHROME CANNOT PREVENT THIS EXTENSION FROM RECORDING YOUR BROWSING HISTORY</span>
+            </div>
+          </td>
+          </tr>
+          </table>
+        </div>
+        </div>
+
+        <div id="get-moar-extensions" jsdisplay="extensions.length > 0"
+            i18n-content="getMoreExtensions"></div>
+      </div>
+    </div>
+  </div>
+  </body>
+</html>

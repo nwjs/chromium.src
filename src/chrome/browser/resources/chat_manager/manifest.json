@@ -1,0 +1,47 @@
+{
+  "key": "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDDrlwvcbUtVrbQvI7EPV1BTa63N8YkbBToHzxlMl0IzSBwOV+TUOsHE8vRq0HZWuwMAGeH8WdWVC3HRNdES8lScjlzxb1TsTQJAsF+hLXgcjgCUSSSGCfFzypvuvKsRQTx0d02yfWKJa47o0Ws5wL72NVtc7c51HujwWYg+Mz01wIDAQAB",
+  "name": "Google Chat Manager",
+  "version": "1.0.3",
+  "icons": {
+    "128": "128.png",
+    "24": "24.png",
+    "32": "32.png",
+    "48": "48.png"
+  },
+  "description": "Google Chat Manager",
+  "background_page": "background.html",
+  "content_scripts": [ {
+    "js": [
+      "js/chatbridgeeventtypes.js",
+      "js/chatbridgehook.js"
+    ],
+    "matches": [
+      "*://talkgadget.google.com/*"
+    ],
+    "run_at": "document_end",
+    "all_frames": true
+  },{
+    "js": [
+      "js/chatbridgeeventtypes.js",
+      "js/gmailbridgehook.js"
+    ],
+    "matches": [
+      "*://mail.google.com/*"
+    ],
+    "run_at": "document_end"
+  }],
+  "permissions": [
+    "tabs",
+    "*://talkgadget.google.com/*"
+  ],
+  "launch": {
+    "local_path": "central_roster_viewer.html",
+    "container": "panel"
+  },
+  "app": {
+    "launch": {
+      "local_path": "central_roster_viewer.html",
+      "container": "panel"
+    }
+  }
+}

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<!--
+
+Copyright (c) 2010 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+
+Central roster: hosting all Google Talk chats in ChromeOS.
+
+-->
+<head>
+<style>
+  .talk_roster {
+    position: fixed;
+    left: 0px;
+    top: 0px;
+  }
+  .talk_iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    overflow: hidden;
+  }
+  body {
+    text-align: center;
+  }
+</style>
+<script>
+  var MIN_RETRY_MILLISECONDS = 15 * 1000;
+  var MAX_RETRY_MILLISECONDS = 4 * 60 * 1000;
+  var retryStartTime = 0;
+  var retryTime;
+  var retryTimer;
+  var chatClient = null;
+
+  var args = {
+    'protocol': 'https',
+    'host': 'talkgadget.google.com',
+    'jsmode': 'pre',
+    'hl': 'en',
+  };
+  // Read args.
+  var urlParts = window.location.href.split(/[?&#]/);
+  for (var i = 1; i < urlParts.length; i++) {
+    var argParts = urlParts[i].split('=');
+    if (argParts.length == 2) {
+      args[argParts[0]] = argParts[1];
+    }
+  }
+  var notifierScriptUrl =
+      args['protocol'] + '://' + args['host'] +
+      '/talkgadget/notifier-js?silent=true&host=' +
+      args['protocol'] + '://' + args['host'] +
+      '/talkgadget/notifier-js' +
+      (args['jsmode'] != '' ? ('&jsmode=' + args['jsmode']) : '');
+
+  function runGTalkScript() {
+    var script = document.createElement('script');
+    script.src = notifierScriptUrl;
+    script.onload = loadGTalk;
+    script.onerror = loadGTalk;
+    document.body.appendChild(script);
+  }
+  function retryConnection() {
+    if (retryTimer) {
+      clearTimeout(retryTimer);
+      retryTimer = null;
+    }
+    runGTalkScript();
+  }
+  function retryConnectionCountdown() {
+    var seconds = retryTime / 1000;
+    var minutes = Math.floor(seconds / 60);
+    seconds -= minutes * 60;
+
+    document.getElementById('retryStatus').textContent =
+        'Retrying in ' + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+    if (retryTime <= 0) {
+      retryConnection();
+    } else {
+      retryTimer = setTimeout(retryConnectionCountdown, 1000);
+      retryTime -= 1000;
+    }
+  }
+  function loadGTalk() {
+    if (window.GTalkNotifier) {
+      document.getElementById('retryInfo').style.display = 'none';
+      chatClient = new window.GTalkNotifier(
+          args['protocol'] + '://' + args['host'] + '/talkgadget/',
+          'notifierclient' +
+              (args['jsmode'] != '' ? ('?jsmode=' + args['jsmode']) : ''),
+          'ifpc_relay',
+          'ifpc.js',
+          'ChromeOS',
+          {
+            hostCallback: function(){},
+            xpcRelay: 'xpc_relay',
+            xpcBlank: 'xpc_blank',
+            locale: args['hl'],
+            isCentralRoster: true,
+            hideProfileCard: true,
+            isFullFrame: true
+         }
+      );
+    } else {
+      if (retryStartTime == 0) {
+        retryStartTime = MIN_RETRY_MILLISECONDS;
+      } else if (retryStartTime < MAX_RETRY_MILLISECONDS) {
+        retryStartTime = Math.min(retryStartTime * 2, MAX_RETRY_MILLISECONDS);
+      }
+      retryTime = retryStartTime;
+      document.getElementById('retryInfo').style.display = 'inline';
+      retryConnectionCountdown();
+    }
+  }
+</script>
+</head>
+<body onload='runGTalkScript()'>
+  <div id='retryInfo' style='display:none'>
+    <p>Could not connect to Google Talk</p>
+    <p id='retryStatus'></p>
+    <input type='button' value='Retry Now' onclick='retryConnection()'/>
+  </div>
+</body>
+</html>

@@ -1,0 +1,40 @@
+Name: MesaLib
+Current version: 7.7
+URL: http://www.mesa3d.org/
+
+This directory contains a copy of these MesaLib components:
+
+Main Mesa code    src/mesa/
+Device drivers    src/mesa/drivers/*
+Ext headers       include/GL/glext.h
+                  include/GL/glxext.h
+SGI GLU library   src/glu/sgi/
+
+The license is in MesaLib/docs/license.html.
+ 
+Modifications made with initial commit:
+- Added the file README.chromium (this file)
+
+Later modifications:
+- Added OSMesaGetProcAddress to MesaLib/src/mesa/drivers/osmesa/osmesa.def
+
+- Added #pragma optimize('', off) to MesaLib\src\mesa\swrast\s_textcombine.c
+
+- Deleted MesaLib/include/EGL/ - it was conflicting with angle
+
+- Changed these typedefs in glext.h to be the same as khrplatform.h
+    typedef signed long int GLintptr;
+    typedef signed long int GLsizeiptr;
+
+- Commented out this in gl.h:
+#if (defined(__BEOS__) && defined(__POWERPC__)) || defined(__QUICKDRAW__)
+#  define PRAGMA_EXPORT_SUPPORTED		1
+#endif
+
+- Commented out this in osmesa.h:
+#if defined(__BEOS__) || defined(__QUICKDRAW__)
+#pragma export on
+#endif
+
+- Commented out this in gl.h:
+#    define GLAPI __declspec(dllimport)

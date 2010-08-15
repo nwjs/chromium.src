@@ -1,0 +1,8 @@
+include_rules = [
+  "+app",
+  "+gfx",
+  "+grit/app_strings.h",
+  "+grit/app_resources.h",
+  "+skia/ext",
+  "+net",
+]

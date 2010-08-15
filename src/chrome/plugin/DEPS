@@ -1,0 +1,11 @@
+include_rules = [
+  "+chrome/app",
+  "+chrome/renderer",
+  "+sandbox/src",
+  "+skia/ext",
+  "+third_party/npapi",
+  "+webkit/glue",
+  "+webkit/glue/plugins",
+  "+grit",  # For generated headers
+]
+

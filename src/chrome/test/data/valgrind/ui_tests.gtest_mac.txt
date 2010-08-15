@@ -1,0 +1,83 @@
+# Hangs on mac at exit, during final valgrind leak checking? (valgrind bug?)
+ErrorPageTest.DNSError_GoBack2Forward2
+# Flakily hangs on Mac
+ErrorPageTest.IFrameDNSError_GoBack
+# Hung several times locally on mac
+ErrorPageTest.DNSError_GoBack1
+# Hung one each on the mac bots
+AutomatedUITestBase.CloseBrowserWindow
+AutomatedUITestBase.OpenBrowserWindow
+ErrorPageTest.DNSError_GoBack2
+ResourceDispatcherTest.CrossSiteNavigationErrorPage
+TabRestoreUITest.RestoreCrossSiteWithExistingSiteInstance
+# Hung 7 times on the mac bots!
+ResourceDispatcherTest.SyncXMLHttpRequest_DuringUnload
+# Hung 4 times on the mac bots!
+TabRestoreUITest.BasicRestoreFromClosedWindow
+# All these hung multiple times on the mac bots:
+BrowserTest.OtherRedirectsDontForkProcess
+DownloadTest.ContentDisposition
+DownloadTest.DownloadMimeType
+DownloadTest.IncognitoDownload
+DownloadTest.NoDownload
+DownloadTest.PerWindowShelf
+ErrorPageTest.IFrameDNSError_GoBackAndForward
+
+# Following tests fail on valgrind.
+# See http://crbug.com/30366.
+BrowserEncodingTest.TestEncodingAutoDetect
+# See http://crbug.com/29598.
+DOMStorageTest.LocalStorageLayoutTests
+ErrorPageTest.DNSError_Basic
+ErrorPageTest.DNSError_GoBack1
+ErrorPageTest.DNSError_GoBack2
+ErrorPageTest.DNSError_GoBack2AndForward
+ErrorPageTest.DNSError_GoBack2Forward2
+# See http://crbug.com/30367.
+NewTabUITest.NTPHasThumbnails
+NewTabUITest.UpdateUserPrefsVersion
+
+# Appears to time out on valgrind.
+# http://crbug.com/32818
+VisibleBrowserTest.WindowOpenClose
+
+# See http://crbug.com/30661 and http://crbug.com/27447.
+NPAPITesterBase.GetURL
+NPAPITesterBase.SelfDeletePluginGetUrl
+NPAPITesterBase.PluginThreadAsyncCall
+NPAPITesterBase.GetJavaScriptURL
+NPAPITesterBase.SelfDeletePluginInvoke
+NPAPITesterBase.Arguments
+NPAPITesterBase.GetJavaScriptURL2
+NPAPITesterBase.PrivateDisabled
+NPAPIVisiblePluginTester.PluginReferrerTest
+NPAPIVisiblePluginTester.GetURLRequestFailWrite
+NPAPIIncognitoTester.PrivateEnabled
+NPAPITesterBase.ManyPlugins
+NPAPITesterBase.NPObjectProxy
+NPAPITesterBase.ScheduleTimer
+NPAPIVisiblePluginTester.SelfDeletePluginInNewStream
+NPAPIVisiblePluginTester.MultipleInstancesSyncCalls
+NPAPIVisiblePluginTester.PluginConvertPointTest
+NPAPIVisiblePluginTester.SelfDeletePluginInvokeInSynchronousPaint
+LayoutPluginTester.UnloadNoCrash
+
+# Possible timing related failure triggered only on mac valgrind bots.
+# http://crbug.com/39401
+BookmarksUITest.BookmarksLoaded
+BookmarksUITest.ShouldRedirectToExtension
+
+# See http://crbug.com/40587
+BookmarksUITest.CommandAgainGoesBackToBookmarksTab
+
+# See http://crbug.com/45564
+ChromeMainTest.AppLaunch
+
+# See http://crbug.com/46783
+SessionHistoryTest.FrameBackForward
+SessionHistoryTest.JavascriptHistory
+SessionHistoryTest.LocationReplace
+
+# UNIMPLEMENTED reached, see http://crbug.com/51387
+OptionsUITest.LoadOptionsByURL
+AutomatedUITestBase.CloseTab

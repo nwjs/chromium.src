@@ -1,0 +1,31 @@
+# -*- python -*-
+# Crocodile config file for Chromium mac
+
+{
+  # List of rules, applied in order
+  'rules' : [
+    # Specify inclusions before exclusions, since rules are in order.
+
+    # Don't include linux or windows specific files
+    {
+      'regexp' : '.*(_|/)(linux|win|views)(\\.|_)',
+      'include' : 0,
+    },
+
+    # Groups
+    {
+      'regexp' : '.*_test_mac\\.',
+      'group' : 'test',
+    },
+
+    # Languages
+    {
+      'regexp' : '.*\\.m$',
+      'language' : 'ObjC',
+    },
+    {
+      'regexp' : '.*\\.mm$',
+      'language' : 'ObjC++',
+    },
+  ],
+}
