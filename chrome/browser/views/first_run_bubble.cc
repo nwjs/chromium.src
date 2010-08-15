@@ -495,9 +495,8 @@ FirstRunBubble::FirstRunBubble()
 }
 
 FirstRunBubble::~FirstRunBubble() {
-  // We should have called RevokeAll on the method factory already.
-  DCHECK(enable_window_method_factory_.empty());
   enable_window_method_factory_.RevokeAll();
+  GetFocusManager()->RemoveFocusChangeListener(view_);
 }
 
 void FirstRunBubble::EnableParent() {
@@ -537,6 +536,4 @@ void FirstRunBubble::InfoBubbleClosing(InfoBubble* info_bubble,
   // Make sure our parent window is re-enabled.
   if (!IsWindowEnabled(GetParent()))
     ::EnableWindow(GetParent(), true);
-  enable_window_method_factory_.RevokeAll();
-  GetFocusManager()->RemoveFocusChangeListener(view_);
 }
