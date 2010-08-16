@@ -85,6 +85,8 @@ namespace extension_manifest_errors {
 const char* kAppsNotEnabled = "Apps are not enabled.";
 const char* kChromeVersionTooLow =
     "This extension requires * version * or greater.";
+const char* kHostedAppsCannotIncludeExtensionFeatures =
+    "Hosted apps cannot use extension features.";
 const char* kInvalidAllFrames =
     "Invalid value for 'content_scripts[*].all_frames'.";
 const char* kInvalidBrowseURL =

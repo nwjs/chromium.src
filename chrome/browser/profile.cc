@@ -152,6 +152,7 @@ void PostExtensionLoadedToContextGetter(ChromeURLRequestContextGetter* getter,
                         extension->path(),
                         extension->default_locale(),
                         extension->web_extent(),
+                        extension->GetEffectiveHostPermissions(),
                         extension->api_permissions())));
 }
 

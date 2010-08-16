@@ -69,6 +69,28 @@ static void ConvertHexadecimalToIDAlphabet(std::string* id) {
 const int kValidWebExtentSchemes =
     URLPattern::SCHEME_HTTP | URLPattern::SCHEME_HTTPS;
 
+// A list of all the keys allowed by themes.
+static const wchar_t* kBaseCrxKeys[] = {
+  keys::kCurrentLocale,
+  keys::kDefaultLocale,
+  keys::kDescription,
+  keys::kIcons,
+  keys::kName,
+  keys::kPublicKey,
+  keys::kSignature,
+  keys::kVersion,
+  keys::kUpdateURL
+};
+
+bool IsBaseCrxKey(const std::wstring& key) {
+  for (size_t i = 0; i < arraysize(kBaseCrxKeys); ++i) {
+    if (key == kBaseCrxKeys[i])
+      return true;
+  }
+
+  return false;
+}
+
 }  // namespace
 
 const FilePath::CharType Extension::kManifestFilename[] =
@@ -77,19 +99,6 @@ const FilePath::CharType Extension::kLocaleFolder[] =
     FILE_PATH_LITERAL("_locales");
 const FilePath::CharType Extension::kMessagesFilename[] =
     FILE_PATH_LITERAL("messages.json");
-
-// A list of all the keys allowed by themes.
-static const wchar_t* kValidThemeKeys[] = {
-  keys::kCurrentLocale,
-  keys::kDefaultLocale,
-  keys::kDescription,
-  keys::kName,
-  keys::kPublicKey,
-  keys::kSignature,
-  keys::kTheme,
-  keys::kVersion,
-  keys::kUpdateURL
-};
 
 #if defined(OS_WIN)
 const char* Extension::kExtensionRegistryPath =
@@ -504,22 +513,9 @@ ExtensionAction* Extension::LoadExtensionActionHelper(
 }
 
 bool Extension::ContainsNonThemeKeys(const DictionaryValue& source) {
-  // Generate a map of allowable keys
-  static std::map<std::wstring, bool> theme_keys;
-  static bool theme_key_mapped = false;
-  if (!theme_key_mapped) {
-    for (size_t i = 0; i < arraysize(kValidThemeKeys); ++i) {
-      theme_keys[kValidThemeKeys[i]] = true;
-    }
-    theme_key_mapped = true;
-  }
-
-  // Go through all the root level keys and verify that they're in the map
-  // of keys allowable by themes. If they're not, then make a not of it for
-  // later.
-  for (DictionaryValue::key_iterator iter = source.begin_keys();
-       iter != source.end_keys(); ++iter) {
-    if (theme_keys.find(*iter) == theme_keys.end())
+  for (DictionaryValue::key_iterator key = source.begin_keys();
+       key != source.end_keys(); ++key) {
+    if (!IsBaseCrxKey(*key) && *key != keys::kTheme)
       return true;
   }
   return false;
@@ -714,6 +710,23 @@ bool Extension::LoadLaunchFullscreen(const DictionaryValue* manifest,
   return true;
 }
 
+bool Extension::EnsureNotHybridApp(const DictionaryValue* manifest,
+                                   std::string* error) {
+  if (web_extent().is_empty())
+    return true;
+
+  for (DictionaryValue::key_iterator key = manifest->begin_keys();
+       key != manifest->end_keys(); ++key) {
+    if (!IsBaseCrxKey(*key) && *key != keys::kApp &&
+        *key != keys::kPermissions) {
+      *error = errors::kHostedAppsCannotIncludeExtensionFeatures;
+      return false;
+    }
+  }
+
+  return true;
+}
+
 Extension::Extension(const FilePath& path)
     : converted_from_user_script_(false),
       is_theme_(false),
@@ -850,17 +863,18 @@ bool Extension::IsPrivilegeIncrease(Extension* old_extension,
     if (new_extension->HasAccessToAllHosts())
       return true;
 
-    std::set<std::string> old_hosts =
-        old_extension->GetEffectiveHostPermissions();
-    std::set<std::string> new_hosts =
-        new_extension->GetEffectiveHostPermissions();
+    ExtensionExtent::PatternList old_hosts =
+        old_extension->GetEffectiveHostPermissions().patterns();
+    ExtensionExtent::PatternList new_hosts =
+        new_extension->GetEffectiveHostPermissions().patterns();
 
-    std::set<std::string> difference;
+    std::set<URLPattern, URLPattern::EffectiveHostCompareFunctor> diff;
     std::set_difference(new_hosts.begin(), new_hosts.end(),
-                        old_hosts.begin(), old_hosts.end(),
-                        std::insert_iterator<std::set<std::string> >(
-                            difference, difference.end()));
-    if (difference.size() > 0)
+        old_hosts.begin(), old_hosts.end(),
+        std::insert_iterator<std::set<URLPattern,
+            URLPattern::EffectiveHostCompareFunctor> >(diff, diff.end()),
+        URLPattern::EffectiveHostCompare);
+    if (diff.size() > 0)
       return true;
   }
 
@@ -1484,6 +1498,7 @@ bool Extension::InitFromValue(const DictionaryValue& source, bool require_key,
       !LoadExtent(manifest_value_.get(), keys::kBrowseURLs, &browse_extent_,
                   errors::kInvalidBrowseURLs, errors::kInvalidBrowseURL,
                   error) ||
+      !EnsureNotHybridApp(manifest_value_.get(), error) ||
       !LoadLaunchURL(manifest_value_.get(), error) ||
       !LoadLaunchContainer(manifest_value_.get(), error) ||
       !LoadLaunchFullscreen(manifest_value_.get(), error)) {
@@ -1678,19 +1693,19 @@ bool Extension::HasHostPermission(const GURL& url) const {
   return false;
 }
 
-const std::set<std::string> Extension::GetEffectiveHostPermissions() const {
-  std::set<std::string> effective_hosts;
+const ExtensionExtent Extension::GetEffectiveHostPermissions() const {
+  ExtensionExtent effective_hosts;
 
   for (URLPatternList::const_iterator host = host_permissions_.begin();
        host != host_permissions_.end(); ++host)
-    effective_hosts.insert(host->host());
+    effective_hosts.AddPattern(*host);
 
   for (UserScriptList::const_iterator content_script = content_scripts_.begin();
        content_script != content_scripts_.end(); ++content_script) {
     UserScript::PatternList::const_iterator pattern =
         content_script->url_patterns().begin();
     for (; pattern != content_script->url_patterns().end(); ++pattern)
-      effective_hosts.insert(pattern->host());
+      effective_hosts.AddPattern(*pattern);
   }
 
   return effective_hosts;

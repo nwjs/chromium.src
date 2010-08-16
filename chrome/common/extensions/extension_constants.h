@@ -84,6 +84,7 @@ namespace extension_manifest_values {
 namespace extension_manifest_errors {
   extern const char* kAppsNotEnabled;
   extern const char* kChromeVersionTooLow;
+  extern const char* kHostedAppsCannotIncludeExtensionFeatures;
   extern const char* kInvalidAllFrames;
   extern const char* kInvalidBackground;
   extern const char* kInvalidBrowseURL;

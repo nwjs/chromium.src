@@ -244,3 +244,10 @@ TEST_F(ManifestTest, ChromeURLContentScriptInvalid) {
   LoadAndExpectError("content_script_chrome_url_invalid.json",
       errors::kInvalidMatch);
 }
+
+TEST_F(ManifestTest, DisallowHybridApps) {
+  LoadAndExpectError("disallow_hybrid_1.json",
+                     errors::kHostedAppsCannotIncludeExtensionFeatures);
+  LoadAndExpectError("disallow_hybrid_2.json",
+                     errors::kHostedAppsCannotIncludeExtensionFeatures);
+}

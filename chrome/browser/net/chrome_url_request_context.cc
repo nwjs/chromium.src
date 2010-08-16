@@ -788,12 +788,28 @@ FilePath ChromeURLRequestContext::GetPathForExtension(const std::string& id) {
     return FilePath();
 }
 
+bool ChromeURLRequestContext::ExtensionHasWebExtent(const std::string& id) {
+  ExtensionInfoMap::iterator iter = extension_info_.find(id);
+  return iter != extension_info_.end() && !iter->second->extent.is_empty();
+}
+
 std::string ChromeURLRequestContext::GetDefaultLocaleForExtension(
     const std::string& id) {
   ExtensionInfoMap::iterator iter = extension_info_.find(id);
   std::string result;
   if (iter != extension_info_.end())
     result = iter->second->default_locale;
+
+  return result;
+}
+
+ExtensionExtent
+    ChromeURLRequestContext::GetEffectiveHostPermissionsForExtension(
+        const std::string& id) {
+  ExtensionInfoMap::iterator iter = extension_info_.find(id);
+  ExtensionExtent result;
+  if (iter != extension_info_.end())
+    result = iter->second->effective_host_permissions;
 
   return result;
 }
@@ -962,6 +978,7 @@ ChromeURLRequestContextFactory::ChromeURLRequestContextFactory(Profile* profile)
                   (*iter)->path(),
                   (*iter)->default_locale(),
                   (*iter)->web_extent(),
+                  (*iter)->GetEffectiveHostPermissions(),
                   (*iter)->api_permissions()));
     }
   }
