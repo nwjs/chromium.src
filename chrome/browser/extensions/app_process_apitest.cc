@@ -58,7 +58,7 @@ static void NavigateTabHelper(TabContents* contents, const GURL& url) {
   EXPECT_EQ(url, contents->controller().GetLastCommittedEntry()->url());
 }
 
-IN_PROC_BROWSER_TEST_F(AppApiTest, AppProcess) {
+IN_PROC_BROWSER_TEST_F(AppApiTest, DISABLED_AppProcess) {
   host_resolver()->AddRule("*", "127.0.0.1");
   ASSERT_TRUE(StartHTTPServer());
 
