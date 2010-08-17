@@ -43,6 +43,7 @@ class ExtensionShelf : public DetachableToolbarView,
   virtual double GetAnimationValue() const {
     return size_animation_->GetCurrentValue();
   }
+  virtual int GetToolbarOverlap() const { return 0; }
 
   // View methods:
   virtual void PaintChildren(gfx::Canvas* canvas);
