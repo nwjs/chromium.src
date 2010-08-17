@@ -1038,7 +1038,7 @@ TEST_F(ExtensionsServiceTest, InstallLocalizedTheme) {
   EXPECT_EQ("description", service_->extensions()->at(0)->description());
 }
 
-TEST_F(ExtensionsServiceTest, InstallApps) {
+TEST_F(ExtensionsServiceTest, DISABLED_InstallApps) {
   InitializeEmptyExtensionsService();
   FilePath extensions_path;
   ASSERT_TRUE(PathService::Get(chrome::DIR_TEST_DATA, &extensions_path));

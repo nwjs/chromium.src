@@ -451,7 +451,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, RevivePhantomTab) {
 
 // Makes sure TabClosing is sent when uninstalling an extension that is an app
 // tab.
-IN_PROC_BROWSER_TEST_F(BrowserTest, TabClosingWhenRemovingExtension) {
+IN_PROC_BROWSER_TEST_F(BrowserTest, DISABLED_TabClosingWhenRemovingExtension) {
   HTTPTestServer* server = StartHTTPServer();
   ASSERT_TRUE(server);
   host_resolver()->AddRule("www.example.com", "127.0.0.1");
@@ -552,7 +552,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, MAYBE_PageLanguageDetection) {
 #define RestorePinnedTabs DISABLED_RestorePinnedTabs
 #endif
 // Makes sure pinned tabs are restored correctly on start.
-IN_PROC_BROWSER_TEST_F(BrowserTest, RestorePinnedTabs) {
+IN_PROC_BROWSER_TEST_F(BrowserTest, DISABLED_RestorePinnedTabs) {
   HTTPTestServer* server = StartHTTPServer();
   ASSERT_TRUE(server);
 
@@ -699,7 +699,7 @@ class BrowserAppRefocusTest : public ExtensionBrowserTest {
 #endif
 
 // Test that launching an app refocuses a tab already hosting the app.
-IN_PROC_BROWSER_TEST_F(BrowserAppRefocusTest, MAYBE_OpenTab) {
+IN_PROC_BROWSER_TEST_F(BrowserAppRefocusTest, DISABLED_OpenTab) {
   SetUpExtensionApp();
 
   ASSERT_EQ(1, browser()->tab_count());
@@ -755,7 +755,7 @@ IN_PROC_BROWSER_TEST_F(BrowserAppRefocusTest, MAYBE_OpenTab) {
 }
 
 // Test that launching an app refocuses a panel running the app.
-IN_PROC_BROWSER_TEST_F(BrowserAppRefocusTest, MAYBE_OpenPanel) {
+IN_PROC_BROWSER_TEST_F(BrowserAppRefocusTest, DISABLED_OpenPanel) {
   SetUpExtensionApp();
 
   ASSERT_EQ(1, browser()->tab_count());
@@ -788,7 +788,7 @@ IN_PROC_BROWSER_TEST_F(BrowserAppRefocusTest, MAYBE_OpenPanel) {
 }
 
 // Test that launching an app refocuses a window running the app.
-IN_PROC_BROWSER_TEST_F(BrowserAppRefocusTest, MAYBE_OpenWindow) {
+IN_PROC_BROWSER_TEST_F(BrowserAppRefocusTest, DISABLED_OpenWindow) {
   SetUpExtensionApp();
 
   ASSERT_EQ(1, browser()->tab_count());
@@ -818,7 +818,7 @@ IN_PROC_BROWSER_TEST_F(BrowserAppRefocusTest, MAYBE_OpenWindow) {
 
 // Test that if an app is opened while running in a window and a tab,
 // the window is focused.
-IN_PROC_BROWSER_TEST_F(BrowserAppRefocusTest, MAYBE_WindowBeforeTab) {
+IN_PROC_BROWSER_TEST_F(BrowserAppRefocusTest, DISABLED_WindowBeforeTab) {
   SetUpExtensionApp();
 
   ASSERT_EQ(1, browser()->tab_count());
@@ -847,7 +847,7 @@ IN_PROC_BROWSER_TEST_F(BrowserAppRefocusTest, MAYBE_WindowBeforeTab) {
 
 // Test that if an app is opened while running in a panel and a tab,
 // the panel is focused.
-IN_PROC_BROWSER_TEST_F(BrowserAppRefocusTest, MAYBE_PanelBeforeTab) {
+IN_PROC_BROWSER_TEST_F(BrowserAppRefocusTest, DISABLED_PanelBeforeTab) {
   SetUpExtensionApp();
 
   ASSERT_EQ(1, browser()->tab_count());
@@ -876,7 +876,7 @@ IN_PROC_BROWSER_TEST_F(BrowserAppRefocusTest, MAYBE_PanelBeforeTab) {
 
 // Test that if multiple tabs host an app, and that app is opened,
 // the tab in the current window gets focus.
-IN_PROC_BROWSER_TEST_F(BrowserAppRefocusTest, MAYBE_TabInFocusedWindow) {
+IN_PROC_BROWSER_TEST_F(BrowserAppRefocusTest, DISABLED_TabInFocusedWindow) {
   SetUpExtensionApp();
 
   ASSERT_EQ(1, browser()->tab_count());
