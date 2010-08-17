@@ -131,7 +131,7 @@ const char* Extension::kHistoryPermission = "history";
 const char* Extension::kIdlePermission = "idle";
 const char* Extension::kNotificationPermission = "notifications";
 const char* Extension::kTabPermission = "tabs";
-const char* Extension::kUnlimitedStoragePermission = "unlimited_storage";
+const char* Extension::kUnlimitedStoragePermission = "unlimitedStorage";
 
 const char* Extension::kPermissionNames[] = {
   Extension::kBackgroundPermission,
@@ -148,6 +148,9 @@ const char* Extension::kPermissionNames[] = {
 };
 const size_t Extension::kNumPermissions =
     arraysize(Extension::kPermissionNames);
+
+// We purposefully don't put this into kPermissionNames.
+const char* Extension::kOldUnlimitedStoragePermission = "unlimited_storage";
 
 const Extension::SimplePermissions& Extension::GetSimplePermissions() {
   static SimplePermissions permissions;
@@ -1405,6 +1408,10 @@ bool Extension::InitFromValue(const DictionaryValue& source, bool require_key,
             errors::kInvalidPermission, IntToString(i));
         return false;
       }
+
+      // Remap the old unlimited storage permission name.
+      if (permission_str == kOldUnlimitedStoragePermission)
+        permission_str = kUnlimitedStoragePermission;
 
       // Check if it's a module permission.  If so, enable that permission.
       if (IsAPIPermission(permission_str)) {
