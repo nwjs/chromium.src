@@ -233,7 +233,6 @@ class Sample(dict):
     # The following properties will be serialized when converting this object
     # to JSON.
 
-    self['id'] = hashlib.sha1(manifest_path).hexdigest()
     self['api_calls'] = self._parse_api_calls(api_methods)
     self['name'] = self._parse_name()
     self['description'] = self._parse_description()
@@ -243,6 +242,7 @@ class Sample(dict):
     self['path'] = self._get_relative_path()
     self['search_string'] = self._get_search_string()
     self['source_files'] = self._parse_source_files()
+    self['id'] = hashlib.sha1(self['path']).hexdigest()
 
   _FEATURE_ATTRIBUTES = (
     'browser_action',
@@ -416,7 +416,7 @@ class Sample(dict):
           path = os.path.realpath(os.path.join(root, file_name))
           path = path.replace(base_path, '')[1:]
           source_paths.append(path)
-    return source_paths
+    return sorted(source_paths)
 
   def _parse_description(self):
     """ Returns a localized description of the extension.
