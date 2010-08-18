@@ -27,6 +27,10 @@ NotificationProvider::NotificationProvider(RenderView* view)
     : view_(view) {
 }
 
+NotificationProvider::~NotificationProvider() {
+  manager_.DetachAll();
+}
+
 bool NotificationProvider::show(const WebNotification& notification) {
   int notification_id = manager_.RegisterNotification(notification);
   if (notification.isHTML())
