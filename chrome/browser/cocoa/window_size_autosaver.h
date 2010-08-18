@@ -27,7 +27,7 @@ class PrefService;
 
 - (id)initWithWindow:(NSWindow*)window
          prefService:(PrefService*)prefs
-                path:(const wchar_t*)path
+                path:(const wchar_t*)path;
 @end
 
 #endif  // CHROME_BROWSER_COCOA_WINDOW_SIZE_AUTOSAVER_H_
