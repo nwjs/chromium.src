@@ -307,15 +307,13 @@ bool FirstRun::ProcessMasterPreferences(const FilePath& user_data_dir,
     new FirstRunDelayedTasks(FirstRunDelayedTasks::INSTALL_EXTENSIONS);
   }
 
-  // If the search engine dialog is not shown, the search engine is set to
-  // Google unless master_preferences specifically turns on search engine
-  // import.
-  int import_items = 0;
   if (installer_util::GetDistroBooleanPreference(prefs.get(),
-      installer_util::master_preferences::kDistroImportSearchPref, &value)
-      && value) {
-    import_items |= importer::SEARCH_ENGINES;
-    out_prefs->do_import_items |= importer::SEARCH_ENGINES;
+      installer_util::master_preferences::kDistroImportSearchPref, &value)) {
+    if (value) {
+      out_prefs->do_import_items |= importer::SEARCH_ENGINES;
+    } else {
+      out_prefs->dont_import_items |= importer::SEARCH_ENGINES;
+    }
   }
 
   // Check to see if search engine logos should be randomized.
@@ -337,9 +335,8 @@ bool FirstRun::ProcessMasterPreferences(const FilePath& user_data_dir,
   if (installer_util::GetDistroBooleanPreference(prefs.get(),
       installer_util::master_preferences::kDistroImportHistoryPref, &value)) {
     if (value) {
-      import_items |= importer::HISTORY;
+      out_prefs->do_import_items |= importer::HISTORY;
     } else {
-      // Automatic history import can be turned off in master_prefs.
       out_prefs->dont_import_items |= importer::HISTORY;
     }
   }
@@ -347,9 +344,8 @@ bool FirstRun::ProcessMasterPreferences(const FilePath& user_data_dir,
   if (installer_util::GetDistroBooleanPreference(prefs.get(),
       installer_util::master_preferences::kDistroImportHomePagePref, &value)) {
     if (value) {
-      import_items |= importer::HOME_PAGE;
+      out_prefs->do_import_items |= importer::HOME_PAGE;
     } else {
-      // Automatic home page import can be turned off in master_prefs.
       out_prefs->dont_import_items |= importer::HOME_PAGE;
     }
   }
@@ -358,7 +354,6 @@ bool FirstRun::ProcessMasterPreferences(const FilePath& user_data_dir,
   if (installer_util::GetDistroBooleanPreference(prefs.get(),
       installer_util::master_preferences::kDistroImportBookmarksPref, &value)
       && value) {
-    import_items |= importer::FAVORITES;
     out_prefs->do_import_items |= importer::FAVORITES;
   }
 
@@ -389,16 +384,35 @@ bool FirstRun::ProcessMasterPreferences(const FilePath& user_data_dir,
 
   std::wstring import_bookmarks_path;
   installer_util::GetDistroStringPreference(prefs.get(),
-      installer_util::master_preferences::kDistroImportBookmarksFromFilePref,
-      &import_bookmarks_path);
+    installer_util::master_preferences::kDistroImportBookmarksFromFilePref,
+    &import_bookmarks_path);
 
-  if (import_items || !import_bookmarks_path.empty()) {
+  std::wstring brand;
+  GoogleUpdateSettings::GetBrand(&brand);
+  // This should generally be true, as skip-first-run-ui is a setting used only
+  // for non-organic builds.
+  if (GoogleUpdateSettings::IsOrganic(brand)) {
+    // If search engines aren't explicitly imported, don't import.
+    if (!(out_prefs->do_import_items & importer::SEARCH_ENGINES)) {
+      out_prefs->dont_import_items |= importer::SEARCH_ENGINES;
+    }
+    // If home page isn't explicitly imported, don't import.
+    if (!(out_prefs->do_import_items & importer::HOME_PAGE)) {
+      out_prefs->dont_import_items |= importer::HOME_PAGE;
+    }
+    // If history isn't explicitly forbidden, do import.
+    if (!(out_prefs->dont_import_items & importer::HISTORY)) {
+      out_prefs->do_import_items |= importer::HISTORY;
+    }
+  }
+
+  if (out_prefs->do_import_items || !import_bookmarks_path.empty()) {
     // There is something to import from the default browser. This launches
     // the importer process and blocks until done or until it fails.
     scoped_refptr<ImporterHost> importer_host = new ImporterHost();
     if (!FirstRun::ImportSettings(NULL,
           importer_host->GetSourceProfileInfoAt(0).browser_type,
-              import_items, import_bookmarks_path, true, NULL)) {
+              out_prefs->do_import_items, import_bookmarks_path, true, NULL)) {
       LOG(WARNING) << "silent import failed";
     }
   }
@@ -623,19 +637,38 @@ void FirstRun::AutoImport(Profile* profile,
   scoped_refptr<ImporterHost> importer_host;
   importer_host = new ImporterHost();
   int items = 0;
-  // History and home page are always imported unless turned off in
-  // master_preferences.
+
+  // History is always imported unless turned off in master_preferences.
   if (!(dont_import_items & importer::HISTORY))
     items = items | importer::HISTORY;
-  if (!((dont_import_items & importer::HOME_PAGE) || homepage_defined))
-    items = items | importer::HOME_PAGE;
-
-  // Search engine and bookmarks are never imported unless turned on
+  // Home page is imported in organic builds only unless turned off or defined
   // in master_preferences.
-  if (import_items & importer::SEARCH_ENGINES)
-    items = items | importer::SEARCH_ENGINES;
+  std::wstring brand;
+  GoogleUpdateSettings::GetBrand(&brand);
+  if (GoogleUpdateSettings::IsOrganic(brand)) {
+    if (!(dont_import_items & importer::HOME_PAGE) && !homepage_defined) {
+      items = items | importer::HOME_PAGE;
+    }
+  } else {
+    if (import_items & importer::HOME_PAGE) {
+      items = items | importer::HOME_PAGE;
+    }
+  }
+  // Search engines are imported in organic builds only, unless turned on
+  // in master_preferences.
+  if (GoogleUpdateSettings::IsOrganic(brand)) {
+    if (!(dont_import_items & importer::SEARCH_ENGINES)) {
+      items = items | importer::SEARCH_ENGINES;
+    }
+  } else {
+    if (import_items & importer::SEARCH_ENGINES) {
+      items = items | importer::SEARCH_ENGINES;
+    }
+  }
+  // Bookmarks are never imported unless turned on in master_preferences.
   if (import_items & importer::FAVORITES)
     items = items | importer::FAVORITES;
+
   // We need to avoid dispatching new tabs when we are importing because
   // that will lead to data corruption or a crash. Because there is no UI for
   // the import process, we pass NULL as the window to bring to the foreground
@@ -649,28 +682,22 @@ void FirstRun::AutoImport(Profile* profile,
   UserMetrics::RecordAction(UserMetricsAction("FirstRunDef_Accept"));
 
   // Launch the search engine dialog only if build is organic.
-  std::wstring brand;
-  GoogleUpdateSettings::GetBrand(&brand);
   if (GoogleUpdateSettings::IsOrganic(brand)) {
     // The home page string may be set in the preferences, but the user should
     // initially use Chrome with the NTP as home page in organic builds.
     profile->GetPrefs()->SetBoolean(prefs::kHomePageIsNewTabPage, true);
 
-    // Search engine dialog is shown in organic builds unless overridden by
-    // master_preferences.
-    if (!(import_items & importer::SEARCH_ENGINES)) {
-      views::Window* search_engine_dialog = views::Window::CreateChromeWindow(
-          NULL,
-          gfx::Rect(),
-          new FirstRunSearchEngineView(profile,
-          randomize_search_engine_experiment));
-      DCHECK(search_engine_dialog);
+    views::Window* search_engine_dialog = views::Window::CreateChromeWindow(
+        NULL,
+        gfx::Rect(),
+        new FirstRunSearchEngineView(profile,
+        randomize_search_engine_experiment));
+    DCHECK(search_engine_dialog);
 
-      search_engine_dialog->Show();
-      views::AcceleratorHandler accelerator_handler;
-      MessageLoopForUI::current()->Run(&accelerator_handler);
-      search_engine_dialog->Close();
-    }
+    search_engine_dialog->Show();
+    views::AcceleratorHandler accelerator_handler;
+    MessageLoopForUI::current()->Run(&accelerator_handler);
+    search_engine_dialog->Close();
   }
 
   FirstRun::SetShowFirstRunBubblePref(true);
