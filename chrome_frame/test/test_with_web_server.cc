@@ -773,9 +773,9 @@ const wchar_t kPersistentCookieTest[] =
     L"files/persistent_cookie_test_page.html";
 TEST_F(ChromeFrameTestWithWebServer, FullTabModeIE_PersistentCookieTest) {
   // Temporarily enable  gcf: protocol for this test.
-  SetConfigBool(kEnableGCFProtocol, true);
+  SetConfigBool(kAllowUnsafeURLs, true);
   SimpleBrowserTest(IE, kPersistentCookieTest, L"PersistentCookieTest");
-  SetConfigBool(kEnableGCFProtocol, false);
+  SetConfigBool(kAllowUnsafeURLs, false);
 }
 
 const wchar_t kNavigateOutPage[] = L"files/navigate_out.html";
