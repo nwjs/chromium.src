@@ -25,7 +25,7 @@ const int kMinWindowHeight = 17;
 
 - (id)initWithWindow:(NSWindow*)window
          prefService:(PrefService*)prefs
-                path:(const wchar_t*)path
+                path:(const wchar_t*)path {
   if ((self = [super init])) {
     window_ = window;
     prefService_ = prefs;
