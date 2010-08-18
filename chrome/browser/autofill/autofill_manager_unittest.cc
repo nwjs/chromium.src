@@ -43,6 +43,7 @@ class TestPersonalDataManager : public PersonalDataManager {
 
   virtual void InitializeIfNeeded() {}
   virtual void SaveImportedFormData() {}
+  virtual bool IsDataLoaded() const { return true; }
 
   AutoFillProfile* GetLabeledProfile(const char* label) {
     for (std::vector<AutoFillProfile *>::iterator it = web_profiles_.begin();
@@ -107,10 +108,14 @@ class TestPersonalDataManager : public PersonalDataManager {
 
 class TestAutoFillManager : public AutoFillManager {
  public:
-  explicit TestAutoFillManager(TabContents* tab_contents)
+  TestAutoFillManager(TabContents* tab_contents,
+                      TestPersonalDataManager* personal_manager)
       : AutoFillManager(tab_contents, NULL) {
-    test_personal_data_ = new TestPersonalDataManager();
-    set_personal_data_manager(test_personal_data_.get());
+    test_personal_data_ = personal_manager;
+    set_personal_data_manager(personal_manager);
+    // Download manager requests are disabled for purposes of this unit-test.
+    // These request are tested in autofill_download_unittest.cc.
+    set_disable_download_manager_requests(true);
   }
 
   virtual bool IsAutoFillEnabled() const { return true; }
@@ -124,7 +129,7 @@ class TestAutoFillManager : public AutoFillManager {
   }
 
  private:
-  scoped_refptr<TestPersonalDataManager> test_personal_data_;
+  TestPersonalDataManager* test_personal_data_;
 
   DISALLOW_COPY_AND_ASSIGN(TestAutoFillManager);
 };
@@ -230,10 +235,18 @@ void CreateTestFormDataBilling(FormData* form) {
 class AutoFillManagerTest : public RenderViewHostTestHarness {
  public:
   AutoFillManagerTest() {}
+  virtual ~AutoFillManagerTest() {
+    // Order of destruction is important as AutoFillManager relies on
+    // PersonalDataManager to be around when it gets destroyed.
+    autofill_manager_.reset(NULL);
+    test_personal_data_ = NULL;
+  }
 
   virtual void SetUp() {
     RenderViewHostTestHarness::SetUp();
-    autofill_manager_.reset(new TestAutoFillManager(contents()));
+    test_personal_data_ = new TestPersonalDataManager();
+    autofill_manager_.reset(new TestAutoFillManager(contents(),
+                                                    test_personal_data_.get()));
   }
 
   Profile* profile() { return contents()->profile(); }
@@ -275,20 +288,13 @@ class AutoFillManagerTest : public RenderViewHostTestHarness {
 
  protected:
   scoped_ptr<TestAutoFillManager> autofill_manager_;
+  scoped_refptr<TestPersonalDataManager> test_personal_data_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(AutoFillManagerTest);
 };
 
-// TODO(georgey): All of these tests crash in official
-// builds. http://crbug.com/50537
-#if defined(GOOGLE_CHROME_BUILD)
-#define SKIP_BRANDED(test) DISABLED_##test
-#else
-#define SKIP_BRANDED(test) test
-#endif
-
-TEST_F(AutoFillManagerTest, SKIP_BRANDED(GetProfileSuggestionsEmptyValue)) {
+TEST_F(AutoFillManagerTest, GetProfileSuggestionsEmptyValue) {
   FormData form;
   CreateTestFormData(&form);
 
@@ -326,7 +332,7 @@ TEST_F(AutoFillManagerTest, SKIP_BRANDED(GetProfileSuggestionsEmptyValue)) {
   EXPECT_EQ(ASCIIToUTF16("123 Apple St."), labels[1]);
 }
 
-TEST_F(AutoFillManagerTest, SKIP_BRANDED(GetProfileSuggestionsMatchCharacter)) {
+TEST_F(AutoFillManagerTest, GetProfileSuggestionsMatchCharacter) {
   FormData form;
   CreateTestFormData(&form);
 
@@ -360,7 +366,7 @@ TEST_F(AutoFillManagerTest, SKIP_BRANDED(GetProfileSuggestionsMatchCharacter)) {
   EXPECT_EQ(ASCIIToUTF16("3734 Elvis Presley Blvd."), labels[0]);
 }
 
-TEST_F(AutoFillManagerTest, SKIP_BRANDED(GetCreditCardSuggestionsEmptyValue)) {
+TEST_F(AutoFillManagerTest, GetCreditCardSuggestionsEmptyValue) {
   FormData form;
   CreateTestFormDataBilling(&form);
 
@@ -404,8 +410,7 @@ TEST_F(AutoFillManagerTest, SKIP_BRANDED(GetCreditCardSuggestionsEmptyValue)) {
   EXPECT_EQ(ASCIIToUTF16("*8765"), labels[5]);
 }
 
-TEST_F(AutoFillManagerTest,
-       SKIP_BRANDED(GetCreditCardSuggestionsMatchCharacter)) {
+TEST_F(AutoFillManagerTest, GetCreditCardSuggestionsMatchCharacter) {
   FormData form;
   CreateTestFormDataBilling(&form);
 
@@ -443,7 +448,7 @@ TEST_F(AutoFillManagerTest,
   EXPECT_EQ(ASCIIToUTF16("*3456"), labels[2]);
 }
 
-TEST_F(AutoFillManagerTest, SKIP_BRANDED(GetCreditCardSuggestionsNonCCNumber)) {
+TEST_F(AutoFillManagerTest, GetCreditCardSuggestionsNonCCNumber) {
   FormData form;
   CreateTestFormDataBilling(&form);
 
@@ -487,7 +492,7 @@ TEST_F(AutoFillManagerTest, SKIP_BRANDED(GetCreditCardSuggestionsNonCCNumber)) {
   EXPECT_EQ(ASCIIToUTF16("*8765"), labels[5]);
 }
 
-TEST_F(AutoFillManagerTest, SKIP_BRANDED(GetCreditCardSuggestionsSemicolon)) {
+TEST_F(AutoFillManagerTest, GetCreditCardSuggestionsSemicolon) {
   // |profile| will be owned by the mock PersonalDataManager.
   AutoFillProfile* profile = new AutoFillProfile;
   autofill_unittest::SetProfileInfo(profile, "Home; 8765", "Joe", "", "Ely",
@@ -544,7 +549,7 @@ TEST_F(AutoFillManagerTest, SKIP_BRANDED(GetCreditCardSuggestionsSemicolon)) {
   EXPECT_EQ(ASCIIToUTF16("Joe Ely; *8765"), labels[7]);
 }
 
-TEST_F(AutoFillManagerTest, SKIP_BRANDED(GetCreditCardSuggestionsNonHTTPS)) {
+TEST_F(AutoFillManagerTest, GetCreditCardSuggestionsNonHTTPS) {
   FormData form;
   CreateTestFormDataBilling(&form);
   form.origin = GURL("http://myform.com/form.html");
@@ -565,8 +570,7 @@ TEST_F(AutoFillManagerTest, SKIP_BRANDED(GetCreditCardSuggestionsNonHTTPS)) {
       autofill_manager_->GetAutoFillSuggestions(kPageID, false, field));
 }
 
-TEST_F(AutoFillManagerTest,
-       SKIP_BRANDED(GetCombinedAutoFillAndAutocompleteSuggestions)) {
+TEST_F(AutoFillManagerTest, GetCombinedAutoFillAndAutocompleteSuggestions) {
   FormData form;
   CreateTestFormData(&form);
 
@@ -609,7 +613,7 @@ TEST_F(AutoFillManagerTest,
   EXPECT_EQ(string16(), labels[3]);
 }
 
-TEST_F(AutoFillManagerTest, SKIP_BRANDED(GetFieldSuggestionsFormIsAutoFilled)) {
+TEST_F(AutoFillManagerTest, GetFieldSuggestionsFormIsAutoFilled) {
   FormData form;
   CreateTestFormData(&form);
 
@@ -645,8 +649,7 @@ TEST_F(AutoFillManagerTest, SKIP_BRANDED(GetFieldSuggestionsFormIsAutoFilled)) {
   EXPECT_EQ(string16(), labels[1]);
 }
 
-TEST_F(AutoFillManagerTest,
-       SKIP_BRANDED(GetFieldSuggestionsForAutocompleteOnly)) {
+TEST_F(AutoFillManagerTest, GetFieldSuggestionsForAutocompleteOnly) {
   FormData form;
   CreateTestFormData(&form);
 
@@ -682,8 +685,7 @@ TEST_F(AutoFillManagerTest,
   ASSERT_EQ(0U, labels.size());
 }
 
-TEST_F(AutoFillManagerTest,
-       SKIP_BRANDED(GetFieldSuggestionsWithDuplicateValues)) {
+TEST_F(AutoFillManagerTest, GetFieldSuggestionsWithDuplicateValues) {
   FormData form;
   CreateTestFormData(&form);
 
@@ -725,7 +727,7 @@ TEST_F(AutoFillManagerTest,
   EXPECT_EQ(string16(), labels[1]);
 }
 
-TEST_F(AutoFillManagerTest, SKIP_BRANDED(GetBillingSuggestionsAddress1)) {
+TEST_F(AutoFillManagerTest, GetBillingSuggestionsAddress1) {
   FormData form;
   CreateTestFormDataBilling(&form);
 
@@ -761,7 +763,7 @@ TEST_F(AutoFillManagerTest, SKIP_BRANDED(GetBillingSuggestionsAddress1)) {
   EXPECT_EQ(ASCIIToUTF16("Charles Hardin Holley; *8765"), labels[1]);
 }
 
-TEST_F(AutoFillManagerTest, SKIP_BRANDED(FillCreditCardForm)) {
+TEST_F(AutoFillManagerTest, FillCreditCardForm) {
   FormData form;
   CreateTestFormDataBilling(&form);
 
@@ -835,7 +837,7 @@ TEST_F(AutoFillManagerTest, SKIP_BRANDED(FillCreditCardForm)) {
   EXPECT_TRUE(field.StrictlyEqualsHack(results.fields[14]));
 }
 
-TEST_F(AutoFillManagerTest, SKIP_BRANDED(FillNonBillingFormSemicolon)) {
+TEST_F(AutoFillManagerTest, FillNonBillingFormSemicolon) {
   // |profile| will be owned by the mock PersonalDataManager.
   AutoFillProfile* profile = new AutoFillProfile;
   autofill_unittest::SetProfileInfo(profile, "Home; 8765", "Joe", "", "Ely",
@@ -906,7 +908,7 @@ TEST_F(AutoFillManagerTest, SKIP_BRANDED(FillNonBillingFormSemicolon)) {
   EXPECT_TRUE(field.StrictlyEqualsHack(results.fields[10]));
 }
 
-TEST_F(AutoFillManagerTest, SKIP_BRANDED(FillBillFormSemicolon)) {
+TEST_F(AutoFillManagerTest, FillBillFormSemicolon) {
   // |profile| will be owned by the mock PersonalDataManager.
   AutoFillProfile* profile = new AutoFillProfile;
   autofill_unittest::SetProfileInfo(profile, "Home; 8765", "Joe", "", "Ely",
@@ -990,7 +992,7 @@ TEST_F(AutoFillManagerTest, SKIP_BRANDED(FillBillFormSemicolon)) {
   EXPECT_TRUE(field.StrictlyEqualsHack(results.fields[14]));
 }
 
-TEST_F(AutoFillManagerTest, SKIP_BRANDED(FillPhoneNumber)) {
+TEST_F(AutoFillManagerTest, FillPhoneNumber) {
   FormData form;
 
   form.name = ASCIIToUTF16("MyPhoneForm");
@@ -1063,7 +1065,7 @@ TEST_F(AutoFillManagerTest, SKIP_BRANDED(FillPhoneNumber)) {
   work_profile->SetInfo(phone_type, saved_phone);
 }
 
-TEST_F(AutoFillManagerTest, SKIP_BRANDED(FormChangesRemoveField)) {
+TEST_F(AutoFillManagerTest, FormChangesRemoveField) {
   FormData form;
   form.name = ASCIIToUTF16("MyForm");
   form.method = ASCIIToUTF16("POST");
@@ -1128,7 +1130,7 @@ TEST_F(AutoFillManagerTest, SKIP_BRANDED(FormChangesRemoveField)) {
   EXPECT_TRUE(field.StrictlyEqualsHack(results.fields[3]));
 }
 
-TEST_F(AutoFillManagerTest, SKIP_BRANDED(FormChangesAddField)) {
+TEST_F(AutoFillManagerTest, FormChangesAddField) {
   FormData form;
   form.name = ASCIIToUTF16("MyForm");
   form.method = ASCIIToUTF16("POST");
@@ -1196,7 +1198,7 @@ TEST_F(AutoFillManagerTest, SKIP_BRANDED(FormChangesAddField)) {
   EXPECT_TRUE(field.StrictlyEqualsHack(results.fields[4]));
 }
 
-TEST_F(AutoFillManagerTest, SKIP_BRANDED(HiddenFields)) {
+TEST_F(AutoFillManagerTest, HiddenFields) {
   FormData form;
   form.name = ASCIIToUTF16("MyForm");
   form.method = ASCIIToUTF16("POST");
