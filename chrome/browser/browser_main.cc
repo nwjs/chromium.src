@@ -168,6 +168,9 @@ void BrowserMainParts::EarlyInitialization() {
   SpdyFieldTrial();
   InitializeSSL();  // TODO(viettrungluu): move to platform-specific method(s)
 
+  if (parsed_command_line().HasSwitch(switches::kDisableSSLFalseStart))
+    net::SSLConfigService::DisableFalseStart();
+
   PostEarlyInitialization();
 }
 

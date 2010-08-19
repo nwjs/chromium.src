@@ -55,4 +55,34 @@ bool SSLConfigService::IsKnownStrictTLSServer(const std::string& hostname) {
   return false;
 }
 
+// static
+bool SSLConfigService::IsKnownFalseStartIncompatibleServer(
+    const std::string& hostname) {
+  // If this list starts growing, it'll need to be something more efficient
+  // than a linear list.
+  static const char kFalseStartIncompatibleServers[][15] = {
+      "www.picnik.com",
+  };
+
+  for (size_t i = 0; i < arraysize(kFalseStartIncompatibleServers); i++) {
+    // Note that the hostname is normalised to lower-case by this point.
+    if (strcmp(hostname.c_str(), kFalseStartIncompatibleServers[i]) == 0)
+      return true;
+  }
+
+  return false;
+}
+
+static bool g_false_start_enabled = true;
+
+// static
+void SSLConfigService::DisableFalseStart() {
+  g_false_start_enabled = false;
+}
+
+// static
+bool SSLConfigService::false_start_enabled() {
+  return g_false_start_enabled;
+}
+
 }  // namespace net
