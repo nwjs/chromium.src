@@ -120,7 +120,10 @@ class BrowserView : public BrowserBubbleHost,
   // initiated.
   void WindowMoveOrResizeStarted();
 
-  // Returns the bounds of the toolbar, in BrowserView coordinates.
+  // Returns the apparent bounds of the toolbar, in BrowserView coordinates.
+  // These differ from |toolbar_.bounds()| in that they match where the toolbar
+  // background image is drawn -- slightly outside the "true" bounds
+  // horizontally, and, when using vertical tabs, behind the tab column.
   gfx::Rect GetToolbarBounds() const;
 
   // Returns the bounds of the content area, in the coordinates of the
@@ -144,9 +147,11 @@ class BrowserView : public BrowserBubbleHost,
   // avatar icon.
   int GetTabStripHeight() const;
 
-  // Returns the bounds of the TabStrip. Used by themed views to determine the
-  // offset of IDR_THEME_TOOLBAR.
-  gfx::Rect GetTabStripBounds() const;
+  // Takes some view's origin (relative to this BrowserView) and offsets it such
+  // that it can be used as the source origin for seamlessly tiling the toolbar
+  // background image over that view.
+  gfx::Point OffsetPointForToolbarBackgroundImage(
+      const gfx::Point& point) const;
 
   // Accessor for the big icon used with TYPE_EXTENSION_APP, or NULL if this
   // browser isn't TYPE_EXTENSION_APP.
