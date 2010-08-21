@@ -827,6 +827,9 @@ int HttpNetworkTransaction::DoInitConnection() {
     if (request_->load_flags & LOAD_VERIFY_EV_CERT)
       ssl_config_.verify_ev_cert = true;
 
+    if (proxy_info_.proxy_server().scheme() == ProxyServer::SCHEME_HTTP)
+      ssl_config_.mitm_proxies_allowed = true;
+
     scoped_refptr<SSLSocketParams> ssl_params =
         new SSLSocketParams(tcp_params, http_proxy_params, socks_params,
                             proxy_info_.proxy_server().scheme(),
