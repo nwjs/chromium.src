@@ -468,8 +468,7 @@ int SSLClientSocketNSS::InitializeSSLOptions() {
 #endif
 
 #ifdef SSL_ENABLE_RENEGOTIATION
-  if (SSLConfigService::IsKnownStrictTLSServer(hostname_) &&
-      !ssl_config_.mitm_proxies_allowed) {
+  if (SSLConfigService::IsKnownStrictTLSServer(hostname_)) {
     rv = SSL_OptionSet(nss_fd_, SSL_REQUIRE_SAFE_NEGOTIATION, PR_TRUE);
     if (rv != SECSuccess)
        LOG(INFO) << "SSL_REQUIRE_SAFE_NEGOTIATION failed.";

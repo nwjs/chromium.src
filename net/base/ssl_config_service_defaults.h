@@ -19,7 +19,7 @@ class SSLConfigServiceDefaults : public SSLConfigService {
   // Store default SSL config settings in |config|.
   virtual void GetSSLConfig(SSLConfig* config) {
     *config = default_config_;
-    SetSSLConfigFlags(config);
+    config->false_start_enabled = SSLConfigService::false_start_enabled();
   }
 
  private:
