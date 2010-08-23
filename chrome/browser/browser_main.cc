@@ -170,6 +170,8 @@ void BrowserMainParts::EarlyInitialization() {
 
   if (parsed_command_line().HasSwitch(switches::kDisableSSLFalseStart))
     net::SSLConfigService::DisableFalseStart();
+  if (parsed_command_line().HasSwitch(switches::kAllowSSLMITMProxies))
+    net::SSLConfigService::AllowMITMProxies();
 
   PostEarlyInitialization();
 }
