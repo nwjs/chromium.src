@@ -62,10 +62,11 @@ HttpCache::ActiveEntry::~ActiveEntry() {
 // This structure keeps track of work items that are attempting to create or
 // open cache entries or the backend itself.
 struct HttpCache::PendingOp {
-  PendingOp() : disk_entry(NULL), writer(NULL), callback(NULL) {}
+  PendingOp() : disk_entry(NULL), backend(NULL), writer(NULL), callback(NULL) {}
   ~PendingOp() {}
 
   disk_cache::Entry* disk_entry;
+  disk_cache::Backend* backend;
   WorkItem* writer;
   CompletionCallback* callback;  // BackendCallback.
   WorkItemList pending_queue;
@@ -142,8 +143,13 @@ class HttpCache::BackendCallback : public CallbackRunner<Tuple1<int> > {
   ~BackendCallback() {}
 
   virtual void RunWithParams(const Tuple1<int>& params) {
-    if (cache_)
+    if (cache_) {
       cache_->OnIOComplete(params.a, pending_op_);
+    } else {
+      // The callback was cancelled so we should delete the pending_op that
+      // was used with this callback.
+      delete pending_op_;
+    }
     delete this;
   }
 
@@ -242,7 +248,6 @@ HttpCache::HttpCache(HostResolver* host_resolver, ProxyService* proxy_service,
                      NetLog* net_log,
                      BackendFactory* backend_factory)
     : backend_factory_(backend_factory),
-      temp_backend_(NULL),
       building_backend_(false),
       mode_(NORMAL),
       network_layer_(HttpNetworkLayer::CreateFactory(host_resolver,
@@ -255,7 +260,6 @@ HttpCache::HttpCache(HostResolver* host_resolver, ProxyService* proxy_service,
 HttpCache::HttpCache(HttpNetworkSession* session,
                      BackendFactory* backend_factory)
     : backend_factory_(backend_factory),
-      temp_backend_(NULL),
       building_backend_(false),
       mode_(NORMAL),
       network_layer_(HttpNetworkLayer::CreateFactory(session)),
@@ -266,7 +270,6 @@ HttpCache::HttpCache(HttpNetworkSession* session,
 HttpCache::HttpCache(HttpTransactionFactory* network_layer,
                      BackendFactory* backend_factory)
     : backend_factory_(backend_factory),
-      temp_backend_(NULL),
       building_backend_(false),
       mode_(NORMAL),
       network_layer_(network_layer),
@@ -296,19 +299,24 @@ HttpCache::~HttpCache() {
     // though they are waiting for a callback that will never fire.
     PendingOp* pending_op = pending_it->second;
     delete pending_op->writer;
+    bool delete_pending_op = true;
     if (building_backend_) {
       // If we don't have a backend, when its construction finishes it will
       // deliver the callbacks.
       BackendCallback* callback =
           static_cast<BackendCallback*>(pending_op->callback);
-      if (callback)
+      if (callback) {
+        // The callback will delete the pending operation.
         callback->Cancel();
+        delete_pending_op = false;
+      }
     } else {
       delete pending_op->callback;
     }
 
     STLDeleteElements(&pending_op->pending_queue);
-    delete pending_op;
+    if (delete_pending_op)
+      delete pending_op;
   }
 }
 
@@ -415,7 +423,7 @@ int HttpCache::CreateBackend(disk_cache::Backend** backend,
   BackendCallback* my_callback = new BackendCallback(this, pending_op);
   pending_op->callback = my_callback;
 
-  int rv = backend_factory_->CreateBackend(&temp_backend_, my_callback);
+  int rv = backend_factory_->CreateBackend(&pending_op->backend, my_callback);
   if (rv != ERR_IO_PENDING) {
     pending_op->writer->ClearCallback();
     my_callback->Run(rv);
@@ -1014,6 +1022,7 @@ void HttpCache::OnBackendCreated(int result, PendingOp* pending_op) {
 
   // We don't need the callback anymore.
   pending_op->callback = NULL;
+  disk_cache::Backend* backend = pending_op->backend;
 
   if (backend_factory_.get()) {
     // We may end up calling OnBackendCreated multiple times if we have pending
@@ -1021,7 +1030,7 @@ void HttpCache::OnBackendCreated(int result, PendingOp* pending_op) {
     // and the last call clears building_backend_.
     backend_factory_.reset();  // Reclaim memory.
     if (result == OK)
-      disk_cache_.reset(temp_backend_);
+      disk_cache_.reset(backend);
   }
 
   if (!pending_op->pending_queue.empty()) {
@@ -1043,7 +1052,7 @@ void HttpCache::OnBackendCreated(int result, PendingOp* pending_op) {
   }
 
   // The cache may be gone when we return from the callback.
-  if (!item->DoCallback(result, temp_backend_))
+  if (!item->DoCallback(result, backend))
     item->NotifyTransaction(result, NULL);
 }
 
