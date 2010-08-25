@@ -185,6 +185,7 @@
           'safe_strerror_posix.h',
           'scoped_bstr_win.cc',
           'scoped_bstr_win.h',
+          'scoped_callback_factory.h',
           'scoped_cftyperef.h',
           'scoped_comptr_win.h',
           'scoped_handle.h',
