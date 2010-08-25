@@ -8,6 +8,7 @@
 
 #include "base/base64.h"
 #include "base/callback.h"
+#include "base/compiler_specific.h"
 #include "base/logging.h"
 #include "base/rand_util.h"
 #include "base/string_util.h"
@@ -196,7 +197,8 @@ std::string MakeSid() {
 CacheInvalidationPacketHandler::CacheInvalidationPacketHandler(
     buzz::XmppClient* xmpp_client,
     invalidation::InvalidationClient* invalidation_client)
-    : xmpp_client_(xmpp_client),
+    : scoped_callback_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)),
+      xmpp_client_(xmpp_client),
       invalidation_client_(invalidation_client),
       seq_(0),
       sid_(MakeSid()) {
@@ -206,14 +208,13 @@ CacheInvalidationPacketHandler::CacheInvalidationPacketHandler(
       invalidation_client_->network_endpoint();
   CHECK(network_endpoint);
   network_endpoint->RegisterOutboundListener(
-      invalidation::NewPermanentCallback(
-          this,
+      scoped_callback_factory_.NewCallback(
           &CacheInvalidationPacketHandler::HandleOutboundPacket));
   // Owned by xmpp_client.
   CacheInvalidationListenTask* listen_task =
       new CacheInvalidationListenTask(
-          xmpp_client, NewCallback(
-              this, &CacheInvalidationPacketHandler::HandleInboundPacket));
+          xmpp_client, scoped_callback_factory_.NewCallback(
+              &CacheInvalidationPacketHandler::HandleInboundPacket));
   listen_task->Start();
 }
 
