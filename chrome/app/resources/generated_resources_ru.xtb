@@ -224,7 +224,7 @@
 <translation id="8584280235376696778">&amp;Открыть видео на новой вкладке</translation>
 <translation id="2845382757467349449">Всегда показывать панель закладок</translation>
 <translation id="3053013834507634016">Использование ключа сертификата</translation>
-<translation id="7511635910912978956">Осталось <ph name="NUMBER_FEW"/> час.</translation>
+<translation id="7511635910912978956">Осталось <ph name="NUMBER_FEW"/> ч.</translation>
 <translation id="2152580633399033274">Показать все (рекомендуется)</translation>
 <translation id="3993316092918049419">DNS-сервер:</translation>
 <translation id="6431347207794742960"><ph name="PRODUCT_NAME"/> настроит автоматические обновления для всех пользователей на этом компьютере.</translation>
@@ -350,7 +350,7 @@
 <translation id="7465778193084373987">URL отзыва сертификатов Netscape</translation>
 <translation id="7421925624202799674">Просмотр кода страницы</translation>
 <translation id="6686490380836145850">Закрыть вкладки справа</translation>
-<translation id="5608669887400696928"><ph name="NUMBER_DEFAULT"/> час.</translation>
+<translation id="5608669887400696928"><ph name="NUMBER_DEFAULT"/> ч.</translation>
 <translation id="609978099044725181">Включение/отключение режима ханджа</translation>
 <translation id="2738771556149464852">Не позже</translation>
 <translation id="5774515636230743468">Манифест:</translation>
@@ -698,11 +698,12 @@
 <translation id="149347756975725155">Не удается загрузить значок расширения &quot;<ph name="ICON"/>&quot;.</translation>
 <translation id="3675321783533846350">Настроить прокси-сервер для подключения к сети</translation>
 <translation id="1572103024875503863"><ph name="NUMBER_MANY"/> дн.</translation>
+<translation id="2216635035432852024">Настройки автозаполнения</translation>
 <translation id="8453184121293348016">Не обнаружен механизм отзыва</translation>
 <translation id="2084978867795361905">MS-IME</translation>
 <translation id="3481915276125965083">Заблокированы следующие всплывающие окна:</translation>
 <translation id="3468298837301810372">Ярлык:</translation>
-<translation id="7163503212501929773">Осталось <ph name="NUMBER_MANY"/> час.</translation>
+<translation id="7163503212501929773">Осталось <ph name="NUMBER_MANY"/> ч.</translation>
 <translation id="1196338895211115272">Не удалось экспортировать закрытый ключ.</translation>
 <translation id="5586329397967040209">Сделать эту страницу главной</translation>
 <translation id="9054208318010838">Разрешить всем сайтам отслеживать мое физическое местоположение</translation>
@@ -751,6 +752,7 @@
 <translation id="5730024427101675733">Ярлык:</translation>
 <translation id="3021256392995617989">Спрашивать, если сайт пытается отследить мое физическое местоположение (рекомендуется)</translation>
 <translation id="7497564420220535101">Сохранить &amp;снимок экрана...</translation>
+<translation id="3034556148956616333"><ph name="PRODUCT_NAME"/> синхронизирует данные вашего аккаунта Google в безопасном режиме. Можно синхронизировать с компьютером все или только некоторые данные.</translation>
 <translation id="918334529602927716">Работать в автономном режиме</translation>
 <translation id="2320435940785160168">Этот сервер требует сертификат для аутентификации и не принял сертификат, отправленный браузером. Срок действия вашего сертификата, возможно, истек, или сервер не доверяет издателю. 
 Можно повторить попытку, используя другой сертификат (при его наличии), или получить допустимый сертификат.</translation>
@@ -856,7 +858,7 @@
 <translation id="2072548674191912082">Эстонский метод ввода</translation>
 <translation id="2022540532491530427">Копировать файл</translation>
 <translation id="748138892655239008">Базовые ограничения сертификата</translation>
-<translation id="457386861538956877">Еще...</translation>
+<translation id="457386861538956877">Ещё...</translation>
 <translation id="5966654788342289517">Личные материалы</translation>
 <translation id="9137013805542155359">Показать оригинал</translation>
 <translation id="4792385443586519711">Название организации</translation>
@@ -1045,12 +1047,12 @@
 <translation id="111844081046043029">Вы действительно хотите покинуть эту страницу?</translation>
 <translation id="4154664944169082762">Отпечатки</translation>
 <translation id="3202578601642193415">Последние</translation>
-<translation id="8112886015144590373"><ph name="NUMBER_FEW"/> час.</translation>
+<translation id="8112886015144590373"><ph name="NUMBER_FEW"/> ч.</translation>
 <translation id="1398853756734560583">Развернуть</translation>
 <translation id="3340262871848042885">Срок действия сертификата сервера истек</translation>
 <translation id="335723660568011799">Норвежская раскладка клавиатуры</translation>
 <translation id="8978540966440585844">Об&amp;зор...</translation>
-<translation id="6690744523875189208"><ph name="NUMBER_TWO"/> час.</translation>
+<translation id="6690744523875189208"><ph name="NUMBER_TWO"/> ч.</translation>
 <translation id="8053390638574070785">Обновить страницу</translation>
 <translation id="5507756662695126555">Без отказа</translation>
 <translation id="3678156199662914018">Расширение: <ph name="EXTENSION_NAME"/></translation>
@@ -1187,7 +1189,7 @@
 <translation id="7466861475611330213">Стиль пунктуации</translation>
 <translation id="2496180316473517155">История просмотров</translation>
 <translation id="602251597322198729">Этот сайт пытается загрузить несколько файлов. Разрешить загрузку?</translation>
-<translation id="2052389551707911401"><ph name="NUMBER_MANY"/> час.</translation>
+<translation id="2052389551707911401"><ph name="NUMBER_MANY"/> ч.</translation>
 <translation id="4216566161390797869">Турецкая раскладка клавиатуры</translation>
 <translation id="6691936601825168937">&amp;Вперед</translation>
 <translation id="6566142449942033617">Не удается загрузить &quot;<ph name="PLUGIN_PATH"/>&quot; для подключаемого модуля.</translation>
@@ -1233,7 +1235,7 @@
 <translation id="5818003990515275822">Корейская</translation>
 <translation id="4182252350869425879">Внимание! Возможно, этот сайт создан с целью фишинга!</translation>
 <translation id="5458214261780477893">Дворак</translation>
-<translation id="1164369517022005061">Осталось <ph name="NUMBER_DEFAULT"/> час.</translation>
+<translation id="1164369517022005061">Осталось <ph name="NUMBER_DEFAULT"/> ч.</translation>
 <translation id="2214283295778284209"><ph name="SITE"/> недоступен</translation>
 <translation id="7552620667503495646">Открыть фрейм в новой &amp;вкладке</translation>
 <translation id="8755376271068075440">&amp;Крупнее</translation>
@@ -1818,7 +1820,7 @@
 <translation id="5757539081890243754">Главная страница</translation>
 <translation id="5182416634220048715">Платежный адрес:</translation>
 <translation id="8007030362289124303">Низкий заряд батареи</translation>
-<translation id="5906719743126878045">Осталось <ph name="NUMBER_TWO"/> час.</translation>
+<translation id="5906719743126878045">Осталось <ph name="NUMBER_TWO"/> ч.</translation>
 <translation id="1753682364559456262">Настройка блокирования изображений...</translation>
 <translation id="6550675742724504774">Настройки</translation>
 <translation id="8959208747503200525"><ph name="NUMBER_TWO"/> hours ago</translation>
@@ -1970,6 +1972,7 @@
 <translation id="3679848754951088761"><ph name="SOURCE_ORIGIN"/></translation>
 <translation id="4057041477816018958"><ph name="SPEED"/> - <ph name="RECEIVED_AMOUNT"/></translation>
 <translation id="6978839998405419496"><ph name="NUMBER_ZERO"/> days ago</translation>
+<translation id="3142479704509213342">Параметры автозаполнения</translation>
 <translation id="5112577000029535889">Инструменты разработчика</translation>
 <translation id="4175856446173854785">Чешская раскладка клавиатуры</translation>
 <translation id="2301382460326681002">Недействительный корневой каталог расширения.</translation>

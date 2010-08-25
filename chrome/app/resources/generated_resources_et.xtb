@@ -701,6 +701,7 @@
 <translation id="149347756975725155">Laienduse ikooni <ph name="ICON"/> ei õnnestunud laadida.</translation>
 <translation id="3675321783533846350">Seadistage võrku ühendamiseks puhverserver.</translation>
 <translation id="1572103024875503863"><ph name="NUMBER_MANY"/> päeva</translation>
+<translation id="2216635035432852024">Automaatse täitmise eelistused</translation>
 <translation id="8453184121293348016">Tühistusmehhanismi ei leitud</translation>
 <translation id="2084978867795361905">MS-IME</translation>
 <translation id="3481915276125965083">Sellel lehel blokeeriti järgmised hüpikaknad:</translation>
@@ -754,6 +755,7 @@
 <translation id="5730024427101675733">Silt:</translation>
 <translation id="3021256392995617989">Küsi, kui sait proovib jälgida mu füüsilist asukohta (soovitatav)</translation>
 <translation id="7497564420220535101">&amp;Salvestamine ja kuvatõmmis...</translation>
+<translation id="3034556148956616333"><ph name="PRODUCT_NAME"/> sünkroonib teie andmed Google'i kontoga turvaliselt. Hoidke kõik andmed sünkroonituna või valige, milliseid andmeid selles arvutis sünkroonida.</translation>
 <translation id="918334529602927716">Tööta võrguühenduseta</translation>
 <translation id="2320435940785160168">See server nõuab autentimiseks sertifikaati ega aktsepteerinud seda sertifikaati, mille brauser edastas. Sertifikaat võib olla aegunud või ei usalda server sertifikaadi väljastajat.
 Proovige uuesti mõne muu sertifikaadiga (kui teil on teisi sertifikaate). Kui teil pole rohkem serte, siis on võimalik, et peate hankima kehtiva sertifikaadi mõnest muust allikast.</translation>
@@ -1975,6 +1977,7 @@ Proovige uuesti mõne muu sertifikaadiga (kui teil on teisi sertifikaate). Kui t
 <translation id="3679848754951088761"><ph name="SOURCE_ORIGIN"/></translation>
 <translation id="4057041477816018958"><ph name="SPEED"/> - <ph name="RECEIVED_AMOUNT"/></translation>
 <translation id="6978839998405419496"><ph name="NUMBER_ZERO"/> days ago</translation>
+<translation id="3142479704509213342">Automaatse täitmise valikud</translation>
 <translation id="5112577000029535889">Arenda&amp;ja tööriistad</translation>
 <translation id="4175856446173854785">Tšehhi klaviatuuripaigutus</translation>
 <translation id="2301382460326681002">Laiendi juurkataloog on kehtetu.</translation>

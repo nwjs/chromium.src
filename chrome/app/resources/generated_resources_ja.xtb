@@ -707,6 +707,7 @@
 <translation id="149347756975725155">拡張機能アイコン「<ph name="ICON"/>」を読み込むことができませんでした。</translation>
 <translation id="3675321783533846350">ネットワークに接続するプロキシを設定します。</translation>
 <translation id="1572103024875503863"><ph name="NUMBER_MANY"/> 日</translation>
+<translation id="2216635035432852024">自動入力の設定</translation>
 <translation id="8453184121293348016">取り消し機構が見つかりません</translation>
 <translation id="2084978867795361905">MS-IME</translation>
 <translation id="3481915276125965083">このページの次のポップアップがブロックされました:</translation>
@@ -760,6 +761,7 @@
 <translation id="5730024427101675733">ラベル:</translation>
 <translation id="3021256392995617989">サイトがあなたの物理的な現在地を追跡しようとしたときに確認する（推奨）</translation>
 <translation id="7497564420220535101">スクリーンショットを保存(&amp;S)...</translation>
+<translation id="3034556148956616333"><ph name="PRODUCT_NAME"/> では、ユーザー データを安全に Google アカウントと同期させることができます。すべてのデータを常に同期させるか、同期させるデータをこのコンピュータから選択してください。</translation>
 <translation id="918334529602927716">オフラインで作業</translation>
 <translation id="2320435940785160168">このサーバーでは認証用の証明書が必要ですが、ブラウザから送信された証明書は承認されませんでした。証明書の有効期限が切れているか、サーバーがその発行元を信頼していない可能性があります。別の証明書がある場合はそちらをお試しください。ない場合は、別の発行元から有効な証明書を入手しなければならない可能性があります。</translation>
 <translation id="6295228342562451544">保護されたウェブサイトに接続すると、そのサイトをホストしているサーバーは、サイト ID の正当性を証明するためのいわゆる「証明書」をブラウザに提示します。証明書には、ウェブサイトの URL などの ID 情報が含まれ、コンピュータが信頼する認証機関によりその正当性が検証されます。証明書の URL とウェブサイトの URL が一致しているかどうかを確認することによって、第三者 (ネットワーク上の悪意のあるユーザーなど) ではなく意図したウェブサイトと安全な通信を行っているかどうかを確認することができます。</translation>
@@ -1978,6 +1980,7 @@
 <translation id="3679848754951088761"><ph name="SOURCE_ORIGIN"/></translation>
 <translation id="4057041477816018958"><ph name="SPEED"/> - <ph name="RECEIVED_AMOUNT"/></translation>
 <translation id="6978839998405419496"><ph name="NUMBER_ZERO"/> days ago</translation>
+<translation id="3142479704509213342">自動入力のオプション</translation>
 <translation id="5112577000029535889">デベロッパー ツール(&amp;D)</translation>
 <translation id="4175856446173854785">チェコ語のキーボード レイアウト</translation>
 <translation id="2301382460326681002">拡張機能のルート ディレクトリが無効です。</translation>

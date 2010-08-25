@@ -699,6 +699,7 @@
 <translation id="149347756975725155">Nepavyko įkelti „<ph name="ICON"/>“ plėtinio piktogramos.</translation>
 <translation id="3675321783533846350">Nustatyti tarpinį serverį ryšiui su tinklu.</translation>
 <translation id="1572103024875503863"><ph name="NUMBER_MANY"/> dienos</translation>
+<translation id="2216635035432852024">Automatinio pildymo nuostatos</translation>
 <translation id="8453184121293348016">Nerastas atšaukimo mechanizmas</translation>
 <translation id="2084978867795361905">MS-IME</translation>
 <translation id="3481915276125965083">Šiame puslapyje šie iššokantieji langai buvo užblokuoti:</translation>
@@ -752,6 +753,7 @@
 <translation id="5730024427101675733">Etiketė:</translation>
 <translation id="3021256392995617989">Paklausti, kai svetainėje bandoma stebėti mano fizinę vietovę (rekomenduojama)</translation>
 <translation id="7497564420220535101">Išsaugoti &amp;ekrano kopiją...</translation>
+<translation id="3034556148956616333">„<ph name="PRODUCT_NAME"/>“ patikimai sinchronizuoja duomenis su „Google“ paskyra. Sinchronizuokite viską arba pasirinkite, kokius šio kompiuterio duomenis sinchronizuoti.</translation>
 <translation id="918334529602927716">Dirbti neprisijungus</translation>
 <translation id="2320435940785160168">Šiam serveriui reikalingas sertifikatas tapatybei nustatyti ir nebuvo priimtas naršyklės siųstas
         sertifikatas. Gali būti pasibaigęs sertifikato galiojimo laikas arba serveris gali nepasitikėti jo išdavėju.
@@ -1978,6 +1980,7 @@
 <translation id="3679848754951088761"><ph name="SOURCE_ORIGIN"/></translation>
 <translation id="4057041477816018958"><ph name="SPEED"/> - <ph name="RECEIVED_AMOUNT"/></translation>
 <translation id="6978839998405419496"><ph name="NUMBER_ZERO"/> days ago</translation>
+<translation id="3142479704509213342">Automatinio pildymo parinktys</translation>
 <translation id="5112577000029535889">&amp;Kūrėjo įrankiai</translation>
 <translation id="4175856446173854785">Čekiškos klaviatūros išdėstymas</translation>
 <translation id="2301382460326681002">Plėtinio šakninis katalogas neteisingas.</translation>

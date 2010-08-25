@@ -700,6 +700,7 @@
 <translation id="149347756975725155">Maaaring hindi mai-load ang icon ng extension '<ph name="ICON"/>'.</translation>
 <translation id="3675321783533846350">Mag-set up ng proxy para kumunekta sa network</translation>
 <translation id="1572103024875503863"><ph name="NUMBER_MANY"/> mga araw</translation>
+<translation id="2216635035432852024">Mga Kagustuhan sa AutoFill</translation>
 <translation id="8453184121293348016">Walang pagbawi ng pondo sa mekanismo</translation>
 <translation id="2084978867795361905">MS-IME</translation>
 <translation id="3481915276125965083">Hinarang ang mga sumusunod na pop-up sa pahinang ito:</translation>
@@ -753,6 +754,7 @@
 <translation id="5730024427101675733">Label:</translation>
 <translation id="3021256392995617989">Sabihin sa akin kapag ang isang site ay sinusubukang subaybayan ang aking pisikal na lokasyon (inirerekomenda)</translation>
 <translation id="7497564420220535101">I-save ng &amp;Screenshot...</translation>
+<translation id="3034556148956616333">Ligtas na isi-sync ng <ph name="PRODUCT_NAME"/> ang iyong data sa iyong Google account. Pinapanatiling naka-sync ang lahat o pumili kung anong data ang isi-sync mula sa computer na ito.</translation>
 <translation id="918334529602927716">Gumawa nang offline</translation>
 <translation id="2320435940785160168">Nangangailangan ang server na ito ng certificate para sa pagpapatotoo, at hindi tinanggap ang ipinadala ng browser. Maaaring nag-expire na ang iyong  certificate, o hindi pinagkakatiwalaan ng server ang nagbigay. Maaari mong subukang muli gamit ang ibang certificate, kung mayroon ka na, o maaaring kailangan mong kumuha ng isang may-bisang certificate mula sa ibang lugar.</translation>
 <translation id="6295228342562451544">Kapag kumunekta ka sa isang secure website, ang server ay nag-host na ang site ay ipapakita sa iyong browser na tinatawag na &quot;sertipiko&quot; upang matukoy ang pagkakakilala nito. Ang sertipikong ito ay naglalaman ng impormasyon ng pagkakakilanlan, kagaya nang address ng website, na tinukoy sa pamamagitan ng isang third party na pinagkakatiwalaan ng iyong computer. Sa pamamagitan ng pagsuri ng address sa sertipiko na tumutugma sa address ng website, posible itong patotohanan na secure na pagkumunika sa website na nilalayon mo, at hindi isang third party (kagaya ng isang paglusod sa iyong network).</translation>
@@ -1975,6 +1977,7 @@
 <translation id="3679848754951088761"><ph name="SOURCE_ORIGIN"/></translation>
 <translation id="4057041477816018958"><ph name="SPEED"/> - <ph name="RECEIVED_AMOUNT"/></translation>
 <translation id="6978839998405419496"><ph name="NUMBER_ZERO"/> days ago</translation>
+<translation id="3142479704509213342">Mga Pagpipilian sa AutoFill</translation>
 <translation id="5112577000029535889">&amp;Mga Tool ng Nag-develop</translation>
 <translation id="4175856446173854785">Layout ng Czechian na keyboard</translation>
 <translation id="2301382460326681002">Hindi wasto ang pinagmulang direktoryo ng extension.</translation>

@@ -701,6 +701,7 @@
 <translation id="149347756975725155">A(z) '<ph name="ICON"/>' bővítményikon betöltése nem sikerült.</translation>
 <translation id="3675321783533846350">Proxy beállítása a hálózathoz való kapcsolódáshoz.</translation>
 <translation id="1572103024875503863"><ph name="NUMBER_MANY"/> nap</translation>
+<translation id="2216635035432852024">Automatikus kitöltési preferenciák</translation>
 <translation id="8453184121293348016">Nem található visszavonási mechanizmus</translation>
 <translation id="2084978867795361905">MS-IME</translation>
 <translation id="3481915276125965083">A következő pop-upokat letiltottuk ezen az oldalon:</translation>
@@ -754,6 +755,7 @@
 <translation id="5730024427101675733">Címke:</translation>
 <translation id="3021256392995617989">Kérdezzen meg, ha egy webhely megpróbálja figyelni a tartózkodási helyemet (ajánlott)</translation>
 <translation id="7497564420220535101">&amp;Képernyőkép mentése...</translation>
+<translation id="3034556148956616333">A <ph name="PRODUCT_NAME"/> biztonságos módon szinkronizálja adatait Google Fiókjával. Szinkronizáljon mindent, vagy válassza ki, mely adatokat szeretné szinkronizálni erről a számítógépről.</translation>
 <translation id="918334529602927716">Kapcsolat nélküli munka</translation>
 <translation id="2320435940785160168">A szerver tanúsítványt kér a hitelesítéshez, és nem fogadta el a
         böngésző által küldöttet. Lehet, hogy a tanúsítvány lejárt, vagy a szerver nem bízik meg a kiállítójában.
@@ -1981,6 +1983,7 @@
 <translation id="3679848754951088761"><ph name="SOURCE_ORIGIN"/></translation>
 <translation id="4057041477816018958"><ph name="SPEED"/> - <ph name="RECEIVED_AMOUNT"/></translation>
 <translation id="6978839998405419496"><ph name="NUMBER_ZERO"/> days ago</translation>
+<translation id="3142479704509213342">Automatikus kitöltés beállításai</translation>
 <translation id="5112577000029535889">Fejlesz&amp;tői eszközök</translation>
 <translation id="4175856446173854785">Cseh billentyűzetkiosztás</translation>
 <translation id="2301382460326681002">A bővítmény gyökérkönyvtára érvénytelen.</translation>

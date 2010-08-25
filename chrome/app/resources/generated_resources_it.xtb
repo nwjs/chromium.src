@@ -701,6 +701,7 @@
 <translation id="149347756975725155">Impossibile caricare l'icona estensione &quot;<ph name="ICON"/>&quot;.</translation>
 <translation id="3675321783533846350">Imposta proxy per connessione alla rete.</translation>
 <translation id="1572103024875503863"><ph name="NUMBER_MANY"/> giorni</translation>
+<translation id="2216635035432852024">Preferenze di Compilazione automatica</translation>
 <translation id="8453184121293348016">Nessun sistema di revoca trovato</translation>
 <translation id="2084978867795361905">MS-IME</translation>
 <translation id="3481915276125965083">I seguenti popup sono stati bloccati in questa pagina:</translation>
@@ -754,6 +755,7 @@
 <translation id="5730024427101675733">Etichetta:</translation>
 <translation id="3021256392995617989">Chiedi quando un sito tenta di monitorare la mia posizione fisica (consigliato)</translation>
 <translation id="7497564420220535101">Salva &amp;screenshot...</translation>
+<translation id="3034556148956616333"><ph name="PRODUCT_NAME"/> sincronizza i tuoi dati con il tuo account Google in modo sicuro. Tieni tutti i contenuti sincronizzati o scegli i dati da sincronizzare dal computer in uso.</translation>
 <translation id="918334529602927716">Lavora offline</translation>
 <translation id="2320435940785160168">Questo server richiede un certificato per l'autenticazione e non ha accettato quello inviato dal
         browser. Il certificato potrebbe essere scaduto o il server potrebbe ritenere l'autorità emittente non attendibile.
@@ -1980,6 +1982,7 @@
 <translation id="3679848754951088761"><ph name="SOURCE_ORIGIN"/></translation>
 <translation id="4057041477816018958"><ph name="SPEED"/> - <ph name="RECEIVED_AMOUNT"/></translation>
 <translation id="6978839998405419496"><ph name="NUMBER_ZERO"/> days ago</translation>
+<translation id="3142479704509213342">Opzioni di Compilazione automatica</translation>
 <translation id="5112577000029535889">&amp;Strumenti per sviluppatori</translation>
 <translation id="4175856446173854785">Layout tastiera ceca</translation>
 <translation id="2301382460326681002">Directory principale dell'estensione non valida.</translation>

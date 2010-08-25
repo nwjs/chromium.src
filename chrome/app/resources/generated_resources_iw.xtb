@@ -700,6 +700,7 @@
 <translation id="149347756975725155">לא היתה אפשרות לטעון את אייקון התוסף '<ph name="ICON"/>'.</translation>
 <translation id="3675321783533846350">הגדר פרוקסי כדי להתחבר לרשת.</translation>
 <translation id="1572103024875503863"><ph name="NUMBER_MANY"/> ימים</translation>
+<translation id="2216635035432852024">העדפות 'מילוי אוטומטי'</translation>
 <translation id="8453184121293348016">לא נמצא מנגנון ביטול</translation>
 <translation id="2084978867795361905">MS-IME</translation>
 <translation id="3481915276125965083">ההודעות הקופצות הבאות נחסמו בדף זה:</translation>
@@ -753,6 +754,7 @@
 <translation id="5730024427101675733">תווית:</translation>
 <translation id="3021256392995617989">שאל אותי כאשר אתר מנסה לעקוב אחר המיקום הפיזי שלי (מומלץ)</translation>
 <translation id="7497564420220535101">שמור &amp;צילום מסך...</translation>
+<translation id="3034556148956616333"><ph name="PRODUCT_NAME"/> מסנכרן בצורה בטוחה את המידע שלך עם חשבון Google שלך. סנכרן את הכל או בחר איזה מידע לסנכרן ממחשב זה.</translation>
 <translation id="918334529602927716">עבוד באופן לא מקוון</translation>
 <translation id="2320435940785160168">שרת זה דורש אישור לאימות ולא קיבל את האישור שנשלח על ידי          הדפדפן. ייתכן שפג תוקפו של האישור, או שהשרת לא בוטח במנפיק שלו.
         תוכל לנסות שוב עם אישור אחר, אם יש לך, או שיהיה עליך 
@@ -1985,6 +1987,7 @@ Del</translation>
 <translation id="3679848754951088761"><ph name="SOURCE_ORIGIN"/></translation>
 <translation id="4057041477816018958"><ph name="SPEED"/> - <ph name="RECEIVED_AMOUNT"/></translation>
 <translation id="6978839998405419496"><ph name="NUMBER_ZERO"/> days ago</translation>
+<translation id="3142479704509213342">אפשרויות 'מילוי אוטומטי'</translation>
 <translation id="5112577000029535889">&amp;כלים עבור מפתחים</translation>
 <translation id="4175856446173854785">פריסת מקלדת צ'צ'נית</translation>
 <translation id="2301382460326681002">ספריית הבסיס של ההרחבה אינה חוקית.</translation>

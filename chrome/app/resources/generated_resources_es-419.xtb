@@ -699,6 +699,7 @@
 <translation id="149347756975725155">No se pudo cargar el icono de extensión '<ph name="ICON"/>'.</translation>
 <translation id="3675321783533846350">Establece un proxy para la conexión a la red.</translation>
 <translation id="1572103024875503863"><ph name="NUMBER_MANY"/> días</translation>
+<translation id="2216635035432852024">Preferencias de autocompletar</translation>
 <translation id="8453184121293348016">No se ha encontrado ningún mecanismo de revocación.</translation>
 <translation id="2084978867795361905">MS-IME</translation>
 <translation id="3481915276125965083">Se bloquearon las siguientes ventanas emergentes en esta página:</translation>
@@ -752,6 +753,7 @@
 <translation id="5730024427101675733">Etiqueta:</translation>
 <translation id="3021256392995617989">Preguntarme cuando un sitio intente rastrear mi ubicación física (recomendado)</translation>
 <translation id="7497564420220535101">Guardar captura de pantalla...</translation>
+<translation id="3034556148956616333"><ph name="PRODUCT_NAME"/> Sincroniza tus datos con tu cuenta de Google de manera segura. Mantén todo sincronizado o elige qué datos sincronizar desde esta computadora.</translation>
 <translation id="918334529602927716">Trabajar sin conexión</translation>
 <translation id="2320435940785160168">Este servidor necesita un certificado para la autenticación y no aceptó el que envió el
         navegador. Es posible que tu certificado haya caducado o que el servidor no confíe en su emisor.
@@ -1975,6 +1977,7 @@
 <translation id="3679848754951088761"><ph name="SOURCE_ORIGIN"/></translation>
 <translation id="4057041477816018958"><ph name="SPEED"/> - <ph name="RECEIVED_AMOUNT"/></translation>
 <translation id="6978839998405419496"><ph name="NUMBER_ZERO"/> days ago</translation>
+<translation id="3142479704509213342">Opciones de autocompletar</translation>
 <translation id="5112577000029535889">Herramientas del &amp;desarrollador</translation>
 <translation id="4175856446173854785">Diseño de teclado checo</translation>
 <translation id="2301382460326681002">El directorio de raíz de la extensión no es válido.</translation>

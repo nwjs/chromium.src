@@ -699,6 +699,7 @@
 <translation id="149347756975725155">Não foi possível carregar o ícone de extensão &quot;<ph name="ICON"/>&quot;.</translation>
 <translation id="3675321783533846350">Configure um proxy para conectar-se à rede.</translation>
 <translation id="1572103024875503863"><ph name="NUMBER_MANY"/> dias</translation>
+<translation id="2216635035432852024">Preferências de Preenchimento automático</translation>
 <translation id="8453184121293348016">Nenhum mecanismo de revogação encontrado</translation>
 <translation id="2084978867795361905">MS-IME</translation>
 <translation id="3481915276125965083">Os seguintes pop-ups foram bloqueados nesta página:</translation>
@@ -752,6 +753,7 @@
 <translation id="5730024427101675733">Marcador:</translation>
 <translation id="3021256392995617989">Perguntar quando um site tentar rastrear o meu local físico (recomendado)</translation>
 <translation id="7497564420220535101">Salvar &amp;captura de tela...</translation>
+<translation id="3034556148956616333">O <ph name="PRODUCT_NAME"/> sincroniza com segurança seus dados com a sua Conta do Google. Mantenha tudo sincronizado ou escolha quais dados sincronizar deste computador.</translation>
 <translation id="918334529602927716">Trabalhar off-line</translation>
 <translation id="2320435940785160168">Este servidor exige um certificado de autenticação e não aceitou o que foi enviado pelo
         navegador. O seu certificado pode ter expirado ou o servidor não confia no emissor dele.
@@ -1977,6 +1979,7 @@
 <translation id="3679848754951088761"><ph name="SOURCE_ORIGIN"/></translation>
 <translation id="4057041477816018958"><ph name="SPEED"/> - <ph name="RECEIVED_AMOUNT"/></translation>
 <translation id="6978839998405419496"><ph name="NUMBER_ZERO"/> days ago</translation>
+<translation id="3142479704509213342">Opções de Preenchimento automático</translation>
 <translation id="5112577000029535889">Ferramentas do &amp;desenvolvedor</translation>
 <translation id="4175856446173854785">Layout do teclado tcheco</translation>
 <translation id="2301382460326681002">O diretório raiz da extensão é inválido.</translation>

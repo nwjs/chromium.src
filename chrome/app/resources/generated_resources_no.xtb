@@ -698,6 +698,7 @@
 <translation id="149347756975725155">Kan ikke laste inn utvidelsesikonet «<ph name="ICON"/>».</translation>
 <translation id="3675321783533846350">Konfigurer en proxy for å koble til nettverket.</translation>
 <translation id="1572103024875503863"><ph name="NUMBER_MANY"/> dager</translation>
+<translation id="2216635035432852024">Innstillinger for autofyll</translation>
 <translation id="8453184121293348016">Finner ingen tilbakekallingsmekanisme</translation>
 <translation id="2084978867795361905">MS-IME</translation>
 <translation id="3481915276125965083">Følgende forgrunnsvinduer er blokkert på siden:</translation>
@@ -751,6 +752,7 @@
 <translation id="5730024427101675733">Etikett:</translation>
 <translation id="3021256392995617989">Spør meg når et nettsted forsøker å spore min fysiske posisjon (anbefales)</translation>
 <translation id="7497564420220535101">Lagre skjermbilde</translation>
+<translation id="3034556148956616333"><ph name="PRODUCT_NAME"/> synkroniserer dataene med Google-kontoen på en sikker måte. Synkroniser alle data eller velg hvilke data som skal synkroniseres på denne datamaskinen.</translation>
 <translation id="918334529602927716">Arbeid i frakoblet modus</translation>
 <translation id="2320435940785160168">Tjeneren krever et autentiseringssertifikat og godkjente ikke sertifikatet som ble sendt av         nettleseren.
 Det kan være at sertifikatet ditt er utløpt, eller at tjeneren ikke stoler på utstederen.         Hvis du har et
@@ -1977,6 +1979,7 @@ tillate tredjeparts informasjonskapsler. Hvis dette        ikke løser problemet
 <translation id="3679848754951088761"><ph name="SOURCE_ORIGIN"/></translation>
 <translation id="4057041477816018958"><ph name="SPEED"/> – <ph name="RECEIVED_AMOUNT"/></translation>
 <translation id="6978839998405419496"><ph name="NUMBER_ZERO"/> days ago</translation>
+<translation id="3142479704509213342">Alternativer for autofyll</translation>
 <translation id="5112577000029535889">&amp;Utviklerverktøy</translation>
 <translation id="4175856446173854785">Tsjekkisk tastaturoppsett</translation>
 <translation id="2301382460326681002">Utvidelsens rotkatalog er ugyldig.</translation>

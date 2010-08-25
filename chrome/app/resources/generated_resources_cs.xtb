@@ -698,6 +698,7 @@
 <translation id="149347756975725155">Nelze načíst ikonu rozšíření <ph name="ICON"/>.</translation>
 <translation id="3675321783533846350">Nastavit proxy pro připojení k síti.</translation>
 <translation id="1572103024875503863"><ph name="NUMBER_MANY"/> dnů</translation>
+<translation id="2216635035432852024">Nastavení Automatického vyplňování</translation>
 <translation id="8453184121293348016">Nebyl nalezen žádný mechanismus zamítnutí</translation>
 <translation id="2084978867795361905">MS-IME</translation>
 <translation id="3481915276125965083">Na této stránce byla zablokována následující vyskakovací okna:</translation>
@@ -751,6 +752,7 @@
 <translation id="5730024427101675733">Štítek:</translation>
 <translation id="3021256392995617989">Zeptat se, když se web pokouší sledovat moji fyzickou polohu (doporučeno)</translation>
 <translation id="7497564420220535101">Uložit &amp;snímek obrazovky...</translation>
+<translation id="3034556148956616333"><ph name="PRODUCT_NAME"/> bezpečně synchronizuje data s účtem Google. Můžete synchronizovat vše nebo vybrat, která data z počítače chcete synchronizovat.</translation>
 <translation id="918334529602927716">Pracovat v režimu offline</translation>
 <translation id="2320435940785160168">Tento server vyžaduje pro ověření certifikát a nepřijal certifikát odeslaný prohlížečem. Buď vypršela platnost vašeho certifikátu, nebo server nedůvěřuje jeho vydavateli. Můžete zkusit akci opakovat s jiným certifikátem, máte-li jej. Jinak musíte získat platný certifikát od jiného vydavatele.</translation>
 <translation id="6295228342562451544">Když se připojíte k zabezpečeným webovým stránkám, server, na kterém jsou takové stránky hostovány, předloží vašemu prohlížeči takzvaný „certifikát“, kterým se ověřuje identita takového serveru. Certifikát obsahuje informace o identitě, například adresu webových stránek, které ověřuje třetí strana, které váš počítač důvěřuje. Kontrolou, zda adresa v certifikátu odpovídá adrese webových stránek, je možné ověřit, že bezpečně komunikujete s požadovanými webovými stránkami a ne s třetí stranou (například s útočníkem na vaši síť).</translation>
@@ -1969,6 +1971,7 @@
 <translation id="3679848754951088761"><ph name="SOURCE_ORIGIN"/></translation>
 <translation id="4057041477816018958"><ph name="SPEED"/> - <ph name="RECEIVED_AMOUNT"/></translation>
 <translation id="6978839998405419496"><ph name="NUMBER_ZERO"/> days ago</translation>
+<translation id="3142479704509213342">Možnosti Automatického vyplňování</translation>
 <translation id="5112577000029535889">&amp;Nástroje pro vývojáře</translation>
 <translation id="4175856446173854785">České rozložení klávesnice</translation>
 <translation id="2301382460326681002">Kořenový adresář rozšíření je neplatný.</translation>

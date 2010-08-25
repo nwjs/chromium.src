@@ -124,7 +124,7 @@
 <translation id="5234764350956374838">Schließen</translation>
 <translation id="8568737011716664845">(Durch zentral verwaltete Richtlinie deaktiviert)</translation>
 <translation id="5463275305984126951">Index von <ph name="LOCATION"/></translation>
-<translation id="5154917547274118687">Arbeitsspeicher</translation>
+<translation id="5154917547274118687">Speicher</translation>
 <translation id="3375489410203161416"><ph name="PRODUCT_NAME"/> wird aktualisiert.</translation>
 <translation id="6628463337424475685"><ph name="ENGINE"/>-Suche</translation>
 <translation id="6726379128203862332"><ph name="SIZE_TAKEN"/> MB</translation>
@@ -291,7 +291,7 @@
 <translation id="3173397526570909331">Synchronisierung anhalten</translation>
 <translation id="5538092967727216836">Frame neu laden</translation>
 <translation id="4813345808229079766">Verbindung</translation>
-<translation id="411666854932687641">Privater Arbeitsspeicher</translation>
+<translation id="411666854932687641">Privater Speicher</translation>
 <translation id="119944043368869598">Alle löschen</translation>
 <translation id="1336254985736398701">Seiten&amp;info anzeigen</translation>
 <translation id="5678480951567683474">Menüs &quot;Seite&quot; und &quot;Tools&quot; anzeigen</translation>
@@ -697,6 +697,7 @@
 <translation id="149347756975725155">Erweiterungssymbol &quot;<ph name="ICON"/>&quot; kann nicht geladen werden.</translation>
 <translation id="3675321783533846350">Richten Sie einen Proxy ein, um eine Verbindung zum Netzwerk herzustellen.</translation>
 <translation id="1572103024875503863"><ph name="NUMBER_MANY"/> Tage</translation>
+<translation id="2216635035432852024">AutoFill-Einstellungen</translation>
 <translation id="8453184121293348016">Kein Sperrmechanismus gefunden</translation>
 <translation id="2084978867795361905">MS-IME</translation>
 <translation id="3481915276125965083">Die folgenden Pop-ups wurden auf dieser Seite blockiert:</translation>
@@ -730,7 +731,7 @@
 <translation id="9009369504041480176">Hochgeladen (<ph name="PROGRESS_PERCENT"/>%)...</translation>
 <translation id="7934747241843938882"><ph name="PRODUCT_NAME"/> konnte die Installation nicht abschließen, wird jedoch weiterhin über das Datenträgerabbild ausgeführt.</translation>
 <translation id="5602600725402519729">Neu &amp;laden</translation>
-<translation id="7965010376480416255">Freigegebener Arbeitsspeicher</translation>
+<translation id="7965010376480416255">Gemeinsamer Speicher</translation>
 <translation id="6248988683584659830">Sucheinstellungen</translation>
 <translation id="7053983685419859001">Blockieren</translation>
 <translation id="2727712005121231835">Originalgröße</translation>
@@ -750,6 +751,7 @@
 <translation id="5730024427101675733">Label:</translation>
 <translation id="3021256392995617989">Bestätigung anzeigen, wenn eine Website meinen physischen Standort verfolgen möchte (empfohlen)</translation>
 <translation id="7497564420220535101">&amp;Screenshot speichern...</translation>
+<translation id="3034556148956616333"><ph name="PRODUCT_NAME"/> synchronisiert Ihre Daten auf sichere Weise mit Ihrem Google-Konto. Synchronisieren Sie alle Daten oder wählen Sie aus, welche Daten von diesem Computer synchronisiert werden sollen.</translation>
 <translation id="918334529602927716">Offline arbeiten</translation>
 <translation id="2320435940785160168">Dieser Server benötigt ein Zertifikat zur Authentifizierung und hat das vom Browser gesendete Zertifikat nicht akzeptiert. Möglicherweise ist Ihr Zertifikat abgelaufen oder der Server vertraut dem Aussteller nicht. Versuchen Sie es noch einmal mit einem anderen Zertifikat, falls Sie eines haben. Fordern Sie ansonsten ein gültiges Zertifikat von einer anderen Quelle an.</translation>
 <translation id="6295228342562451544">Wenn Sie eine Verbindung zu einer sicheren Website herstellen, weist sich der Server, auf dem diese Website gehostet wird, mit einem so genannten &quot;Zertifikat&quot; aus, um seine Identität zu bestätigen. Dieses Zertifikat enthält Identitätsinformationen, wie z. B. die Adresse der Website, die durch einen Drittanbieter bestätigt wird, dem der Computer vertraut. Durch Überprüfen, dass die Adresse im Zertifikat mit der Adresse der Website übereinstimmt, ist es möglich, sicher mit der gewünschten Website und nicht mit Dritten (wie z. B. einem Hacker in Ihrem Netzwerk) zu kommunizieren.</translation>
@@ -1970,6 +1972,7 @@
 <translation id="3679848754951088761"><ph name="SOURCE_ORIGIN"/></translation>
 <translation id="4057041477816018958"><ph name="SPEED"/> - <ph name="RECEIVED_AMOUNT"/></translation>
 <translation id="6978839998405419496"><ph name="NUMBER_ZERO"/> days ago</translation>
+<translation id="3142479704509213342">AutoFill-Optionen</translation>
 <translation id="5112577000029535889">&amp;Entwicklertools</translation>
 <translation id="4175856446173854785">Tschechisches Tastaturlayout</translation>
 <translation id="2301382460326681002">Stammverzeichnis der Erweiterung ist ungültig.</translation>

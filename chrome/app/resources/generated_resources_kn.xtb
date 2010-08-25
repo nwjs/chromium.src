@@ -709,6 +709,7 @@
 <translation id="149347756975725155">'<ph name="ICON"/>' ಎಕ್ಸ್‌ಟೆನ್ಷನ್ ಐಕಾನ್  ಲೋಡ್ ಮಾಡಲಾಗಲಿಲ್ಲ.</translation>
 <translation id="3675321783533846350">ನೆಟ್‌ವರ್ಕ್‌ಗೆ ಸಂಪರ್ಕಿಸಲು ಪ್ರಾಕ್ಸಿಯನ್ನು ಸರಿಹೊಂದಿಸಿ.</translation>
 <translation id="1572103024875503863"><ph name="NUMBER_MANY"/> ದಿನಗಳು</translation>
+<translation id="2216635035432852024">AutoFill ಆದ್ಯತೆಗಳು</translation>
 <translation id="8453184121293348016">ಯಾವುದೇ ಹಿಂದಕ್ಕೆ ತೆಗೆದುಕೊಳ್ಳುವ ಯಾಂತ್ರಿಕ ವ್ಯವಸ್ಥೆ ಕಂಡುಬಂದಿಲ್ಲ</translation>
 <translation id="2084978867795361905">ಎಮ್‌ಎಸ್‌-ಐಎಮ್‌ಇ </translation>
 <translation id="3481915276125965083">ಕೆಳಗಿನ ಪಾಪ್-ಅಪ್‌ಗಳನ್ನು ಈ ಪುಟದಲ್ಲಿ ನಿರ್ಬಂಧಿಸಲಾಗಿದೆ:</translation>
@@ -762,6 +763,7 @@
 <translation id="5730024427101675733">ಲೇಬಲ್:</translation>
 <translation id="3021256392995617989">ನನ್ನ ಭೌತಿಕ ಸ್ಥಾನವನ್ನು ನಿಗಾ ಇರಿಸಲು ಒಂದು ಸೈಟ್ ಪ್ರಯತ್ನಿಸಿದಾಗ ನನಗೆ ಕೇಳಿ (ಶಿಫಾರಸು ಮಾಡಿದೆ)</translation>
 <translation id="7497564420220535101">&amp;ಸ್ಕ್ರೀನ್‌ಶಾಟ್ ಉಳಿಸಿ...</translation>
+<translation id="3034556148956616333">ನಿಮ್ಮ Google ಖಾತೆಯೊಂದಿಗೆ ಸುರಕ್ಷಿತವಾಗಿ <ph name="PRODUCT_NAME"/> ಸಿಂಕ್ ಮಾಡುತ್ತದೆ. ಎಲ್ಲವನ್ನೂ ಸಿಂಕ್ ಮಾಡಿ ಅಥವಾ ಈ ಕಂಪ್ಯೂಟರ್‌ನಿಂದ ಯಾವ ಡೇಟಾವನ್ನು ಸಿಂಕ್ ಮಾಡಬೇಕೆಂದು ಆರಿಸಿ.</translation>
 <translation id="918334529602927716">ಆಫ್‌ಲೈನ್‌ನಲ್ಲಿ ಕಾರ್ಯನಿರ್ವಹಿಸಿ</translation>
 <translation id="2320435940785160168">ಪ್ರಮಾಣೀಕರಣಕ್ಕೆ ಈ ಸರ್ವರ್‌ಗೆ ಪ್ರಮಾಣಪತ್ರದ ಅಗತ್ಯವಿರುತ್ತದೆ, ಮತ್ತು ಬ್ರೌಸರ್ ಕಳುಹಿಸಿದ ಒಂದನ್ನು
         ಸ್ವೀಕರಿಸುವುದಿಲ್ಲ. ನಿಮ್ಮ ಪ್ರಮಾಣಪತ್ರವು ಅವಧಿ ಮೀರಿರಬಹುದು, ಅಥವಾ ಈ ನೀಡುಗರನ್ನು ಸರ್ವರ್ ನಂಬದೇ ಇರಬಹುದು.
@@ -1030,6 +1032,7 @@
 <translation id="290555789621781773"><ph name="NUMBER_TWO"/> ನಿಮಿಷಗಳು</translation>
 <translation id="5434065355175441495">PKCS #1 RSA ಎನ್‌ಕ್ರಿಪ್ಶನ್</translation>
 <translation id="7073704676847768330">ನಿಮ್ಮ ನೋಟಕ್ಕಾಗಿ ಬಹುಶಃ ಈ ಸೈಟ್ ಅಲ್ಲವೇ!</translation>
+<translation id="8447521054593217212">ಇದು ಮರುಪ್ರಾರಂಭಗೊಳ್ಳಲು ಸಾಕಷ್ಟು ಸಮಯ ತೆಗೆದುಕೊಂಡಿದೆಯಾದ ಕಾರಣ <ph name="PRODUCT_NAME"/> ಹಳತಾದಂತಿದೆ. ನವೀಕರಣವು ಲಭ್ಯವಿದ್ದು ನೀವು ಮರುಪ್ರಾರಂಭಗೊಳಿಸಿದ ತಕ್ಷಣವೆ ಅದು ಅನ್ವಯವಾಗುತ್ತದೆ. </translation>
 <translation id="8477384620836102176">&amp;ಸಾಮಾನ್ಯ</translation>
 <translation id="1074663319790387896">ಸಿಂಕ್ ಅನ್ನು ಕಾನ್ಫಿಗರ್ ಮಾಡಿ</translation>
 <translation id="7642109201157405070">ಆಮದು ಮಾಡುತ್ತಿರುವುದನ್ನು ಮುಂದುವರೆಸು</translation>
@@ -1985,6 +1988,7 @@
 <translation id="3679848754951088761"><ph name="SOURCE_ORIGIN"/></translation>
 <translation id="4057041477816018958"><ph name="SPEED"/> - <ph name="RECEIVED_AMOUNT"/></translation>
 <translation id="6978839998405419496"><ph name="NUMBER_ZERO"/> days ago</translation>
+<translation id="3142479704509213342">AutoFill ಆಯ್ಕೆಗಳು</translation>
 <translation id="5112577000029535889">&amp;ಡೆವಲಪರ್ ಟೂಲ್ಸ್</translation>
 <translation id="4175856446173854785">ಚೆಕಿಯನ್ ಕೀಬೋರ್ಡ್ ಲೇಔಟ್</translation>
 <translation id="2301382460326681002">ವಿಸ್ತರಣೆ ಮೂಲ ಡೈರೆಕ್ಟರಿ ಅಮಾನ್ಯವಾಗಿದೆ.</translation>

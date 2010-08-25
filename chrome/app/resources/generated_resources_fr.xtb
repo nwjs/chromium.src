@@ -697,6 +697,7 @@
 <translation id="149347756975725155">Impossible de charger l'icône de l'extension &quot;<ph name="ICON"/>&quot;.</translation>
 <translation id="3675321783533846350">Définir un proxy pour se connecter au réseau</translation>
 <translation id="1572103024875503863"><ph name="NUMBER_MANY"/> jours</translation>
+<translation id="2216635035432852024">Préférences de saisie automatique</translation>
 <translation id="8453184121293348016">Aucun système de révocation trouvé</translation>
 <translation id="2084978867795361905">MS-IME</translation>
 <translation id="3481915276125965083">Les fenêtres pop-up suivantes ont été bloquées sur cette page :</translation>
@@ -750,6 +751,7 @@
 <translation id="5730024427101675733">Libellé :</translation>
 <translation id="3021256392995617989">Me demander lorsqu'un site tente de suivre ma position géographique (recommandé)</translation>
 <translation id="7497564420220535101">Enregistrer la &amp;capture d'écran...</translation>
+<translation id="3034556148956616333"><ph name="PRODUCT_NAME"/> synchronise de manière sécurisée vos données avec votre compte Google. Synchronisez toutes les données ou faites une sélection parmi celles de l'ordinateur.</translation>
 <translation id="918334529602927716">Travailler hors connexion</translation>
 <translation id="2320435940785160168">Ce serveur exige un certificat d'authentification et n'a pas accepté celui envoyé par le navigateur. 
 Votre certificat a peut-être expiré ou le serveur n'a pas approuvé l'émetteur. 
@@ -1973,6 +1975,7 @@ Pour fusionner et synchroniser vos favoris dans <ph name="PRODUCT_NAME"/> sur un
 <translation id="3679848754951088761"><ph name="SOURCE_ORIGIN"/></translation>
 <translation id="4057041477816018958"><ph name="SPEED"/> - <ph name="RECEIVED_AMOUNT"/></translation>
 <translation id="6978839998405419496"><ph name="NUMBER_ZERO"/> days ago</translation>
+<translation id="3142479704509213342">Options de saisie automatique</translation>
 <translation id="5112577000029535889">Outils de &amp;développement</translation>
 <translation id="4175856446173854785">Clavier tchèque</translation>
 <translation id="2301382460326681002">Le répertoire racine de l'extension est incorrect.</translation>
