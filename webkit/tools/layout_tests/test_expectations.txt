@@ -2847,3 +2847,6 @@ BUG_TONY LINUX : svg/W3C-SVG-1.1/paths-data-12-t.svg = IMAGE+TEXT
 
 // This test is failing due to codec differences between Google Chrome vs Chromium.
 BUG_SCHERKUS : http/tests/media/video-play-stall.html = TIMEOUT TEXT
+
+// This test is failing since it is flaky (depends on stored settings).
+BUG_PFELDMAN : inspector/elements-panel-structure.html = TEXT
