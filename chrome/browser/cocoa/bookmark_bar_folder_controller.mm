@@ -145,6 +145,14 @@ const CGFloat kScrollWindowVerticalMargin = 0.0;
   [self removeScrollTracking];
   [self endScroll];
   [hoverState_ draggingExited];
+
+  // Delegate pattern does not retain; make sure pointers to us are removed.
+  for (BookmarkButton* button in buttons_.get()) {
+    [button setDelegate:nil];
+    [button setTarget:nil];
+    [button setAction:nil];
+  }
+
   // Note: we don't need to
   //   [NSObject cancelPreviousPerformRequestsWithTarget:self];
   // Because all of our performSelector: calls use withDelay: which
@@ -174,8 +182,10 @@ const CGFloat kScrollWindowVerticalMargin = 0.0;
 
 - (void)reconfigureMenu {
   [NSObject cancelPreviousPerformRequestsWithTarget:self];
-  for (BookmarkButton* button in buttons_.get())
+  for (BookmarkButton* button in buttons_.get()) {
+    [button setDelegate:nil];
     [button removeFromSuperview];
+  }
   [buttons_ removeAllObjects];
   [self configureWindow];
 }
@@ -1224,6 +1234,7 @@ static BOOL ValueInRangeInclusive(CGFloat low, CGFloat value, CGFloat high) {
   const BookmarkNode* parentNode = node->GetParent();
   if (parentNode->GetChildCount() == 1) {
     BookmarkButton* emptyButton = [buttons_ lastObject];
+    [emptyButton setDelegate:nil];
     [emptyButton removeFromSuperview];
     [buttons_ removeLastObject];
   } else {
@@ -1350,6 +1361,7 @@ static BOOL ValueInRangeInclusive(CGFloat low, CGFloat value, CGFloat high) {
     buttonThatMouseIsIn_ = nil;
   }
 
+  [oldButton setDelegate:nil];
   [oldButton removeFromSuperview];
   if (animate && !ignoreAnimations_)
     NSShowAnimationEffect(NSAnimationEffectDisappearingItemDefault, poofPoint,
