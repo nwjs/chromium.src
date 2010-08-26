@@ -2844,3 +2844,6 @@ BUG_TONY LINUX : svg/W3C-SVG-1.1/pservers-grad-13-b.svg = IMAGE
 BUG_TONY LINUX : svg/custom/radial-gradient-with-outstanding-focalPoint.svg = IMAGE
 BUG_TONY LINUX : svg/zoom/page/zoom-coords-viewattr-01-b.svg = IMAGE
 BUG_TONY LINUX : svg/W3C-SVG-1.1/paths-data-12-t.svg = IMAGE+TEXT
+
+// This test is failing due to codec differences between Google Chrome vs Chromium.
+BUG_SCHERKUS : http/tests/media/video-play-stall.html = TIMEOUT TEXT
