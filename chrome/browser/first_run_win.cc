@@ -681,8 +681,14 @@ void FirstRun::AutoImport(Profile* profile,
       importer_host->GetSourceProfileInfoAt(0).browser_type, items, NULL);
   UserMetrics::RecordAction(UserMetricsAction("FirstRunDef_Accept"));
 
-  // Launch the search engine dialog only if build is organic.
-  if (GoogleUpdateSettings::IsOrganic(brand)) {
+
+  // Launch the search engine dialog only if build is organic, and user has not
+  // already set search preferences.
+  FilePath local_state_path;
+  PathService::Get(chrome::FILE_LOCAL_STATE, &local_state_path);
+  bool local_state_file_exists = file_util::PathExists(local_state_path);
+
+  if (GoogleUpdateSettings::IsOrganic(brand) && !local_state_file_exists) {
     // The home page string may be set in the preferences, but the user should
     // initially use Chrome with the NTP as home page in organic builds.
     profile->GetPrefs()->SetBoolean(prefs::kHomePageIsNewTabPage, true);
