@@ -2836,4 +2836,4 @@ BUG_MAC106 MAC : svg/W3C-SVG-1.1/filters-specular-01-f.svg = IMAGE
 BUG_SCHERKUS : http/tests/media/video-play-stall.html = TIMEOUT TEXT
 
 // This test is failing since it is flaky (depends on stored settings).
-BUG_PFELDMAN : inspector/elements-panel-structure.html = TEXT
+BUG_PFELDMAN WIN : inspector/elements-panel-structure.html = TEXT
