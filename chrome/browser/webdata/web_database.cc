@@ -444,16 +444,17 @@ sql::InitStatus WebDatabase::Init(const FilePath& db_name) {
   }
 
   // Initialize the tables.
+  bool credit_card_table_created = false;
   if (!InitKeywordsTable() || !InitLoginsTable() || !InitWebAppIconsTable() ||
       !InitWebAppsTable() || !InitAutofillTable() ||
       !InitAutofillDatesTable() || !InitAutoFillProfilesTable() ||
-      !InitCreditCardsTable()) {
+      !InitCreditCardsTable(&credit_card_table_created)) {
     LOG(WARNING) << "Unable to initialize the web database.";
     return sql::INIT_FAILURE;
   }
 
   // If the file on disk is an older database version, bring it up to date.
-  MigrateOldVersionsAsNeeded();
+  MigrateOldVersionsAsNeeded(credit_card_table_created);
 
   return transaction.Commit() ? sql::INIT_OK : sql::INIT_FAILURE;
 }
@@ -695,7 +696,7 @@ bool WebDatabase::InitAutoFillProfilesTable() {
   return true;
 }
 
-bool WebDatabase::InitCreditCardsTable() {
+bool WebDatabase::InitCreditCardsTable(bool* table_was_created) {
   if (!db_.DoesTableExist("credit_cards")) {
     if (!db_.Execute("CREATE TABLE credit_cards ( "
                      "label VARCHAR, "
@@ -713,6 +714,7 @@ bool WebDatabase::InitCreditCardsTable() {
       NOTREACHED();
       return false;
     }
+    *table_was_created = true;
     if (!db_.Execute("CREATE INDEX credit_cards_label_index "
                      "ON credit_cards (label)")) {
       NOTREACHED();
@@ -1794,7 +1796,7 @@ bool WebDatabase::RemoveFormElementForID(int64 pair_id) {
   return false;
 }
 
-void WebDatabase::MigrateOldVersionsAsNeeded() {
+void WebDatabase::MigrateOldVersionsAsNeeded(bool credit_card_table_created) {
   // Migrate if necessary.
   int current_version = meta_table_.GetVersionNumber();
   switch (current_version) {
@@ -1831,18 +1833,21 @@ void WebDatabase::MigrateOldVersionsAsNeeded() {
       // FALL THROUGH
 
     case 22:
-      // Add the card_number_encrypted column.
-      if (!db_.Execute("ALTER TABLE credit_cards ADD COLUMN "
-                       "card_number_encrypted BLOB DEFAULT NULL")) {
-          NOTREACHED();
-          LOG(WARNING) << "Unable to update web database to version 23.";
-          return;
-      }
-      if (!db_.Execute("ALTER TABLE credit_cards ADD COLUMN "
-                       "verification_code_encrypted BLOB DEFAULT NULL")) {
-          NOTREACHED();
-          LOG(WARNING) << "Unable to update web database to version 23.";
-          return;
+      // Add the card_number_encrypted column if credit card table was not
+      // created in this build (otherwise the column already exists).
+      if (!credit_card_table_created) {
+        if (!db_.Execute("ALTER TABLE credit_cards ADD COLUMN "
+                         "card_number_encrypted BLOB DEFAULT NULL")) {
+            NOTREACHED();
+            LOG(WARNING) << "Unable to update web database to version 23.";
+            return;
+        }
+        if (!db_.Execute("ALTER TABLE credit_cards ADD COLUMN "
+                         "verification_code_encrypted BLOB DEFAULT NULL")) {
+            NOTREACHED();
+            LOG(WARNING) << "Unable to update web database to version 23.";
+            return;
+        }
       }
       meta_table_.SetVersionNumber(23);
 
