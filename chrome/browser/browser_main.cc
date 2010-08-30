@@ -168,8 +168,8 @@ void BrowserMainParts::EarlyInitialization() {
   SpdyFieldTrial();
   InitializeSSL();  // TODO(viettrungluu): move to platform-specific method(s)
 
-  if (parsed_command_line().HasSwitch(switches::kDisableSSLFalseStart))
-    net::SSLConfigService::DisableFalseStart();
+  // Disable SSL False Start in Chrome 6.0.
+  net::SSLConfigService::DisableFalseStart();
   if (parsed_command_line().HasSwitch(switches::kAllowSSLMITMProxies))
     net::SSLConfigService::AllowMITMProxies();
 
