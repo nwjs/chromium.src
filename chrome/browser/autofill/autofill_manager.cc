@@ -138,9 +138,10 @@ void AutoFillManager::FormSubmitted(const FormData& form) {
   if (tab_contents_->profile()->IsOffTheRecord())
     return;
 
+  // FIXME(dhollowa, aarya): crbug.com/48225.
   // Don't save data that was submitted through JavaScript.
-  if (!form.user_submitted)
-    return;
+  // if (!form.user_submitted)
+  //   return;
 
   // Grab a copy of the form data.
   upload_form_structure_.reset(new FormStructure(form));
