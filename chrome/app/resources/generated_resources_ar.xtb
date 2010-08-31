@@ -334,7 +334,7 @@
 <translation id="1073286447082909762">&amp;فتح إطار في نافذة جديدة</translation>
 <translation id="1864111464094315414">تسجيل الدخول</translation>
 <translation id="692135145298539227">حذف</translation>
-<translation id="5515810278159179124">عدم السماح لأي موقع بتتبع موقعي الفعلي</translation>
+<translation id="5515810278159179124">عدم السماح لأي موقع ويب بتتبع موقعي الفعلي</translation>
 <translation id="398967089780480076">الإجراء:</translation>
 <translation id="2411296794256528119">أخفقت المصادقة استنادًا إلى الشهادة.</translation>
 <translation id="5999606216064768721">استخدام شريط عناوين النظام والحدود</translation>
@@ -716,7 +716,7 @@
 <translation id="7163503212501929773">عدد الساعات المتبقية: <ph name="NUMBER_MANY"/></translation>
 <translation id="1196338895211115272">أخفق تصدير المفتاح الخاص.</translation>
 <translation id="5586329397967040209">جعل هذه الصفحة صفحتي الرئيسية</translation>
-<translation id="9054208318010838">السماح لكل المواقع بتتبع موقعي الفعلي</translation>
+<translation id="9054208318010838">السماح لكل مواقع الويب بتتبع موقعي الفعلي</translation>
 <translation id="3283719377675052581">غير معروف</translation>
 <translation id="2815382244540487333">تم منع ملفات تعريف الارتباط التالية</translation>
 <translation id="8882395288517865445">تضمين العناوين من بطاقة دفتر العناوين</translation>
@@ -760,7 +760,7 @@
 <translation id="1823768272150895732">الخطّ</translation>
 <translation id="4475552974751346499">البحث في التنزيلات</translation>
 <translation id="5730024427101675733">التصنيف:</translation>
-<translation id="3021256392995617989">الرجوع إليّ عند محاولة موقع تتبع موقعي الفعلي (موصى به)</translation>
+<translation id="3021256392995617989">الرجوع إليّ عند محاولة موقع ويب تتبع موقعي الفعلي (موصى به)</translation>
 <translation id="7497564420220535101">حفظ &amp;لقطة شاشة...</translation>
 <translation id="3034556148956616333">يزامن <ph name="PRODUCT_NAME"/> بياناتك مع حساب Google بأمان. يمكنك الحفاظ على مزامنة العناصر جميعها أو اختيار البيانات التي تريد مزامنتها من هذا الكمبيوتر.</translation>
 <translation id="918334529602927716">العمل بلا اتصال</translation>
@@ -887,7 +887,7 @@
 <translation id="4474155171896946103">وضع إشارات على كل علامات التبويب...</translation>
 <translation id="5895187275912066135">تاريخ الإصدار</translation>
 <translation id="1190844492833803334">عندما أُغلق المتصفح</translation>
-<translation id="5646376287012673985">المكان</translation>
+<translation id="5646376287012673985">الموقع</translation>
 <translation id="1110155001042129815">انتظار</translation>
 <translation id="2607101320794533334">معلومات المفتاح العام لصاحب الشهادة</translation>
 <translation id="7071586181848220801">مكوّن إضافي غير محدّد</translation>
