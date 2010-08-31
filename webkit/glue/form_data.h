@@ -23,6 +23,8 @@ struct FormData {
   GURL origin;
   // The action target of the form.
   GURL action;
+  // true if this form was submitted by a user gesture and not javascript.
+  bool user_submitted;
   // A vector of all the input fields in the form.
   std::vector<FormField> fields;
 
@@ -34,6 +36,7 @@ struct FormData {
             StringToLowerASCII(method) == StringToLowerASCII(form.method) &&
             origin == form.origin &&
             action == form.action &&
+            user_submitted == form.user_submitted &&
             fields == form.fields);
   }
 };
