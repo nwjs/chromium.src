@@ -147,10 +147,6 @@ void AutocompleteHistoryManager::StoreFormEntriesInWebDatabase(
   if (profile_->IsOffTheRecord())
     return;
 
-  // Don't save data that was submitted through JavaScript.
-  if (!form.user_submitted)
-    return;
-
   // We put the following restriction on stored FormFields:
   //  - non-empty name
   //  - non-empty value
