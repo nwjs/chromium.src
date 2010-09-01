@@ -360,7 +360,7 @@ bool FirstRun::ProcessMasterPreferences(const FilePath& user_data_dir,
   if (installer_util::GetDistroBooleanPreference(prefs.get(),
       installer_util::master_preferences::kMakeChromeDefaultForUser, &value) &&
       value)
-    ShellIntegration::SetAsDefaultBrowser();
+    out_prefs->make_chrome_default = true;
 
   // TODO(mirandac): Refactor skip-first-run-ui process into regular first run
   // import process.  http://crbug.com/49647
@@ -416,6 +416,11 @@ bool FirstRun::ProcessMasterPreferences(const FilePath& user_data_dir,
       LOG(WARNING) << "silent import failed";
     }
   }
+
+  if (installer_util::GetDistroBooleanPreference(prefs.get(),
+    installer_util::master_preferences::kMakeChromeDefaultForUser, &value) &&
+    value)
+    ShellIntegration::SetAsDefaultBrowser();
 
   return false;
 }
@@ -628,6 +633,7 @@ void FirstRun::AutoImport(Profile* profile,
     int dont_import_items,
     bool search_engine_experiment,
     bool randomize_search_engine_experiment,
+    bool make_chrome_default,
     ProcessSingleton* process_singleton) {
   FirstRun::CreateChromeDesktopShortcut();
   // Windows 7 has deprecated the quick launch bar.
@@ -705,6 +711,9 @@ void FirstRun::AutoImport(Profile* profile,
     MessageLoopForUI::current()->Run(&accelerator_handler);
     search_engine_dialog->Close();
   }
+
+  if (make_chrome_default)
+    ShellIntegration::SetAsDefaultBrowser();
 
   FirstRun::SetShowFirstRunBubblePref(true);
   // Set the first run bubble to minimal.
