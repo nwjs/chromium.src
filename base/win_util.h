@@ -6,12 +6,14 @@
 #define BASE_WIN_UTIL_H__
 
 #include <windows.h>
-#include <aclapi.h>
-#include <shlobj.h>
 
 #include <string>
 
 #include "base/keyboard_codes.h"
+
+struct IPropertyStore;
+struct _tagpropertykey;
+typedef _tagpropertykey PROPERTYKEY;
 
 namespace win_util {
 
