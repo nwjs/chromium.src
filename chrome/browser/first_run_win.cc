@@ -640,6 +640,10 @@ void FirstRun::AutoImport(Profile* profile,
   if (win_util::GetWinVersion() < win_util::WINVERSION_WIN7)
     CreateChromeQuickLaunchShortcut();
 
+  FilePath local_state_path;
+  PathService::Get(chrome::FILE_LOCAL_STATE, &local_state_path);
+  bool local_state_file_exists = file_util::PathExists(local_state_path);
+
   scoped_refptr<ImporterHost> importer_host;
   importer_host = new ImporterHost();
   int items = 0;
@@ -660,10 +664,12 @@ void FirstRun::AutoImport(Profile* profile,
       items = items | importer::HOME_PAGE;
     }
   }
-  // Search engines are imported in organic builds only, unless turned on
-  // in master_preferences.
+  // Search engines are only imported in organic builds, unless overridden
+  // in master_preferences. Search engines are not imported automatically
+  // if the user already has a user preferences directory.
   if (GoogleUpdateSettings::IsOrganic(brand)) {
-    if (!(dont_import_items & importer::SEARCH_ENGINES)) {
+    if (!(dont_import_items & importer::SEARCH_ENGINES) &&
+        !local_state_file_exists) {
       items = items | importer::SEARCH_ENGINES;
     }
   } else {
@@ -690,9 +696,6 @@ void FirstRun::AutoImport(Profile* profile,
 
   // Launch the search engine dialog only if build is organic, and user has not
   // already set search preferences.
-  FilePath local_state_path;
-  PathService::Get(chrome::FILE_LOCAL_STATE, &local_state_path);
-  bool local_state_file_exists = file_util::PathExists(local_state_path);
 
   if (GoogleUpdateSettings::IsOrganic(brand) && !local_state_file_exists) {
     // The home page string may be set in the preferences, but the user should
