@@ -1,0 +1,30 @@
+#startupPages {
+  border: solid 1px #999999;
+  height: 100px;
+}
+
+#homepageURL {
+  width: 100%;
+}
+
+#defaultSearchEngineGroup {
+  display: -webkit-box;
+}
+
+#defaultSearchEngine {
+  display: block;
+  -webkit-box-flex: 1;
+}
+
+#defaultSearchManageEnginesButton {
+  margin-top: 0px;
+  -webkit-margin-start: 10px;
+}
+
+#defaultBrowserState {
+  color: #880000;
+}
+
+#defaultBrowserState.current {
+  color: #008800;
+}

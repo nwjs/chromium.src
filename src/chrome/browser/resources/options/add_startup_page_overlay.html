@@ -1,0 +1,24 @@
+<div class="page hidden" id="addStartupPageOverlay">
+  <h1 i18n-content="addStartupPageTitle"></h1>
+
+  <form id="addStartupPageForm">
+    <label id="addURLBlock"><span
+        i18n-content="addStartupPageURLLabel"></span>
+      <input type="url" id="addStartupPageURL"></label>
+
+    <list id="addStartupRecentPageList"></list>
+
+    <div class="button-strip">
+      <if expr="os == 'win32'">
+        <button type="submit" id="addStartupPageAddButton" disabled
+            i18n-content="addStartupPageAddButton"></button>
+      </if>
+      <button type="reset"
+          i18n-content="addStartupPageCancelButton"></button>
+      <if expr="os != 'win32'">
+        <button type="submit" id="addStartupPageAddButton" disabled
+            i18n-content="addStartupPageAddButton"></button>
+      </if>
+    </div>
+  </form>
+</div>

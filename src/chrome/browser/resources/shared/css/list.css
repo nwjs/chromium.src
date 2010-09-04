@@ -1,0 +1,74 @@
+
+list {
+  display: block;
+  outline: none;
+  overflow: auto;
+  position: relative; /* Make sure that item offsets are relative to the
+                         list. */
+  height: 200px;
+}
+
+list > * {
+  -webkit-user-select: none;
+  background-color: rgba(255,255,255,0);
+  border: 1px solid rgba(255,255,255,0); /* transparent white */
+  border-radius: 2px;
+  cursor: default;
+  display: block;
+  line-height: 20px;
+  margin: -1px 0;
+  overflow: hidden;
+  padding: 0px 3px;
+  position: relative; /* to allow overlap */
+  text-overflow: ellipsis;
+  white-space: pre;
+}
+
+list > [lead] {
+  border-color: transparent;
+}
+
+list:focus > [lead] {
+  border-color: hsl(214, 91%, 65%);
+  z-index: 2;
+}
+
+list > [anchor] {
+
+}
+
+list > :hover {
+  border-color: hsl(214, 91%, 85%);
+  z-index: 1;
+  background-color: hsl(214, 91%, 97%);
+}
+
+list > [selected] {
+  background-image: -webkit-gradient(linear, left top, left bottom,
+      from(rgba(255,255,255,0.8)), to(rgba(255,255,255,0)));
+}
+
+list > [selected] {
+  border-color: hsl(0, 0%, 85%);
+  background-color: hsl(0,0%,90%);
+  z-index: 2;
+}
+
+list:focus > [selected] {
+  background-color: hsl(214,91%,89%);
+  border-color: hsl(214, 91%, 65%);
+}
+
+list:focus > [lead][selected],
+list > [selected]:hover {
+  background-color: hsl(214, 91%, 87%);
+  border-color: hsl(214, 91%, 65%);
+}
+
+list > .spacer {
+  border: 0;
+  -webkit-box-sizing: border-box;
+  overflow: hidden;
+  visibility: hidden;
+  margin: 0;
+}

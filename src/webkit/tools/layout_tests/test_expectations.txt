@@ -1,0 +1,41 @@
+// This file should almost always be empty. Normally Chromium test expectations
+// are found in
+// src/third_party/WebKit/LayoutTests/platform/chromium/test_expectations.txt
+//
+// Only add expectations here to temporarily suppress messages on the bots
+// until the changes can be landed upstream.
+
+BUG52841 MAC : fast/dom/Geolocation/callback-exception.html = TEXT PASS
+BUG52841 MAC : fast/dom/Geolocation/no-page-cache.html = TEXT PASS
+BUG52841 MAC : fast/dom/HTMLAnchorElement/set-href-attribute-hash.html = TEXT PASS
+BUG52841 MAC : editing/selection/drag-in-iframe.html = IMAGE
+
+// New in WK r65880, some probably just need rebaselining, others have real diffs
+BUGWK44514 : svg/clip-path/clip-in-mask-objectBoundingBox.svg = IMAGE
+BUGWK44514 : svg/clip-path/clip-in-mask-userSpaceOnUse.svg = IMAGE
+BUGWK44514 : svg/clip-path/clip-in-mask.svg = IMAGE
+BUGWK44514 : svg/clip-path/deep-nested-clip-in-mask-different-unitTypes.svg = IMAGE+TEXT
+BUGWK44514 : svg/clip-path/deep-nested-clip-in-mask-panning.svg = IMAGE+TEXT
+BUGWK44514 : svg/clip-path/deep-nested-clip-in-mask.svg = IMAGE+TEXT
+BUGWK44514 : svg/clip-path/nested-clip-in-mask-image-based-clipping.svg = IMAGE
+BUGWK44514 : svg/clip-path/nested-clip-in-mask-path-and-image-based-clipping.svg = IMAGE
+BUGWK44514 : svg/clip-path/nested-clip-in-mask-path-based-clipping.svg = IMAGE
+// Rebaselined in WK r65874, Linux has missing lines
+BUGWK44514 LINUX WIN : svg/custom/missing-xlink.svg = TEXT
+// Also fail since WK roll 65859:65885
+BUGWK44514 MAC : fast/backgrounds/svg-as-background-6.html = IMAGE
+BUGWK44514 MAC : svg/zoom/page/zoom-mask-with-percentages.svg = IMAGE
+
+// Still failing, should be moved upstream.
+BUGWK44945 MAC : fast/files/apply-blob-url-to-img.html = IMAGE
+
+// Newly added test apparently misbehaves.  
+BUGWK45102 : media/media-can-play-mpeg4-video.html = TEXT
+
+// Temporary disable test.  Will investigate (antonm@chromium.org).
+BUGANTONM : fast/js/reserved-words-as-property.html = CRASH TEXT
+
+// Temporarily marked as pass + fail until the fix for
+// https://bugs.webkit.org/show_bug.cgi?id=45155 lands and rolls in, at which
+// point this can be removed.
+BUGPKASTING : fast/events/continuous-platform-wheelevent-in-scrolling-div.html = TEXT PASS

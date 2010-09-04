@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html i18n-values="
+  dir:textdirection;
+  bookmarkbarattached:bookmarkbarattached;
+  hasattribution:hasattribution;
+  anim:anim;
+  syncispresent:syncispresent;
+  has_3d:has_3d">
+<head>
+<meta charset="utf-8">
+<title i18n-content="title"></title>
+<script>
+// Logging info for benchmarking purposes.
+var log = [];
+function logEvent(name, shouldLogTime) {
+  if (shouldLogTime) {
+    chrome.send('logEventTime', [name]);
+  }
+  log.push([name, Date.now()]);
+}
+logEvent('Tab.NewTabScriptStart', true);
+
+var global = this;
+
+/**
+ * Registers a callback function so that if the backend calls it too early it
+ * will get delayed until DOMContentLoaded is fired.
+ * @param {string} name The name of the global function that the backend calls.
+ */
+function registerCallback(name) {
+  var f = function(var_args) {
+    var args = Array.prototype.slice.call(arguments);
+    // If we still have the temporary function we delay until the dom is ready.
+    if (global[name] == f) {
+      logEvent(name + ' is not yet ready. Waiting for DOMContentLoaded');
+      document.addEventListener('DOMContentLoaded', function() {
+        logEvent('Calling the new ' + name);
+        global[name].apply(null, args);
+      });
+    }
+  };
+  global[name] = f;
+}
+
+chrome.send('getMostVisited');
+chrome.send('getRecentlyClosedTabs');
+chrome.send('getApps');
+
+registerCallback('mostVisitedPages');
+registerCallback('recentlyClosedTabs');
+registerCallback('syncMessageChanged');
+registerCallback('getAppsCallback');
+registerCallback('setShownSections');
+
+</script>
+<!-- template data placeholder -->
+<link rel="stylesheet" href="new_new_tab.css">
+<link rel="stylesheet" href="ntp/most_visited.css">
+<link rel="stylesheet" href="ntp/apps.css">
+<link rel="stylesheet" href="shared/css/menu.css">
+<script>
+
+/**
+ * Bitmask for the different UI sections.
+ * This matches the Section enum in ../dom_ui/shown_sections_handler.h
+ * @enum {number}
+ */
+var Section = {
+  THUMB: 1,
+  // LIST is no longer used
+  RECENT: 4,
+  // TIPS is no longer used
+  SYNC: 16,
+  DEBUG: 32,
+  APPS: 64
+};
+
+var shownSections = templateData['shown_sections'];
+
+// Until themes can clear the cache, force-reload the theme stylesheet.
+document.write('<link id="themecss" rel="stylesheet" ' +
+               'href="chrome://theme/css/newtab.css?' +
+               Date.now() + '">');
+
+function useSmallGrid() {
+  return window.innerWidth <= 940;
+}
+
+function isRtl() {
+  return templateData['textdirection'] == 'rtl';
+}
+
+// Parse any name value pairs passed through the URL hash.
+var hashParams = (function() {
+  var result = {};
+  if (location.hash.length) {
+    location.hash.substr(1).split('&').forEach(function(pair) {
+      pair = pair.split('=');
+      if (pair.length != 2) {
+        throw new Error('Unexpected hash value: ' + location.hash);
+      }
+
+      result[pair[0]] = pair[1];
+    });
+  }
+  return result;
+})();
+
+// Reflect the mode param as an attribute so we can use CSS attribute selectors
+// on it.
+if ('mode' in hashParams) {
+  document.documentElement.setAttribute('mode', hashParams['mode']);
+}
+
+</script>
+</head>
+<body class="loading"
+      i18n-values=".style.fontFamily:fontfamily;.style.fontSize:fontsize">
+
+<div id="attribution" class="attribution">
+  <div i18n-content="attributionintro"></div>
+  <img id="attribution-img">
+</div>
+
+<div id="main">
+  <menu id="option-menu">
+    <div command="clear-all-blacklisted"
+         i18n-content="restorethumbnails"></div>
+  </menu>
+
+  <div id="notification">
+    <span>&nbsp;</span>
+    <span class="link"><span class="link-color"></span></span>
+  </div>
+
+  <div class="maxiview" id="apps-maxiview"></div>
+  <div class="maxiview" id="most-visited-maxiview"></div>
+
+  <div class="sections">
+    <!-- Start disabled. We only enable if we have at least one app. -->
+    <div id="apps" class="section disabled" section="APPS">
+      <h2>
+        <img class="disclosure" img src="ntp/ntp_disclosure_triangle.png">
+        <div class="back"></div>
+        <span i18n-content="apps"></span>
+      </h2>
+      <div class="miniview"></div>
+    </div>
+
+    <div id="most-visited" class="section" section="THUMB">
+      <h2>
+        <img class="disclosure" src="ntp/ntp_disclosure_triangle.png">
+        <div class="back"></div>
+        <span i18n-content="mostvisited"></span>
+        <div class="settings-wrapper"><div class="settings"></div></div>
+      </h2>
+      <div class="miniview"></div>
+    </div>
+
+    <!-- Start this section disabled because it might not have data, and looks
+         silly without any. -->
+    <div id="recently-closed" class="section hidden disabled" section="RECENT"
+        noexpand="true">
+      <h2>
+        <div class="back"></div>
+        <span i18n-content="recentlyclosed"></span>
+      </h2>
+      <div class="miniview"></div>
+    </div>
+
+    <div id="sync-status" class="section disabled">
+      <div>
+        <h3></h3>
+        <span></span>
+      </div>
+    </div>
+  </div>
+</div>  <!-- main -->
+
+<div class="window-menu" id="window-tooltip"></div>
+
+</body>
+
+<script src="shared/js/i18n_template.js"></script>
+<script>
+i18nTemplate.process(document, templateData);
+</script>
+<script src="shared/js/local_strings.js"></script>
+<script src="shared/js/class_list.js"></script>
+<script src="shared/js/parse_html_subset.js"></script>
+<script src="ntp/util.js"></script>
+<script src="ntp/most_visited.js"></script>
+<script src="new_new_tab.js"></script>
+<script src="ntp/apps.js"></script>
+
+<script>
+  updateSimpleSection('apps', Section.APPS);
+  updateSimpleSection('most-visited', Section.THUMB);
+  updateSimpleSection('recently-closed', Section.RECENT);
+  layoutSections();
+</script>
+</html>

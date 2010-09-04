@@ -1,0 +1,30 @@
+# This file lists the functions, object files and source files
+# which should be ignored (i.e. not instrumented) by ThreadSanitizer on Mac OS.
+# At the moment the Chromium binaries' debug info is not available to
+# ThreadSanitizer, so we have to define fun:* rules for Mac OS complementing
+# the src:* rules defined for Linux.
+
+# Don't instrument code dealing with atomics (base::subtle)
+fun:*base*subtle*NoBarrier_Load*
+fun:*base*subtle*Release_Store*
+fun:*base*subtle*NoBarrier_Store*
+fun:*base*subtle*NoBarrier_CompareAndSwap*
+
+# we ignore the Security libraries for now since
+# their instrumentation is very slow.
+# TODO(timurrrr): investigate whether we need to instrument them
+obj:*/Security*
+obj:*/libcrypto*
+# SensitiveAllocator::free is a part of the Security framework.
+# It calls bzero (0xffff0633) which can't be resolved and thus should be
+# ignored recursively.
+fun_r:*SensitiveAllocator*free*
+
+# The CFBag and CFDictionary operators should be thread-safe, but they are not
+# annotated properly.
+# TODO(glider): replace all the CoreFoundation suppressions with ignores.
+fun_r:CFBag*
+fun_r:CFDictionary*
+
+# see crbug.com/46138
+fun_r:__CFRunLoopDeallocate

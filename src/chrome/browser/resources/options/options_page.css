@@ -1,0 +1,325 @@
+body {
+  font-size: 100%;
+  -webkit-user-select: none;
+}
+
+#settings-title {
+  -webkit-padding-end: 24px;
+  padding-top: 1em;
+  padding-bottom: 1em;
+  text-align: end;
+  font-size: 125%;
+  font-weight: normal;
+  color: #53627d;
+  margin: 0;
+}
+
+#main-content {
+  display: -webkit-box;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+}
+
+.overlay {
+  position: fixed;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, .2);
+  top: 0;
+  bottom: 0;
+  z-index: 10;
+  padding: 20px;
+  display: -webkit-box;
+  -webkit-box-align: center;
+  -webkit-box-pack: center;
+}
+
+#close-overlay {
+  position: relative;
+  top: -20px;
+  width: 20px;
+  height: 20px;
+}
+
+html[dir='ltr'] #close-overlay {
+  float: right;
+  right: -20px;
+}
+
+html[dir='rtl'] #close-overlay {
+  float: left;
+  left: -20px;
+}
+
+.overlay .button-strip {
+  text-align: end;
+}
+
+.overlay > div {
+  background: white;
+  border-radius: 5px;
+  padding: 15px;
+  border: 1px solid #666;
+  -webkit-box-shadow: 3px 3px 3px #666;
+}
+
+#navbar {
+  margin: 0;
+}
+
+#navbar-container {
+  background: -webkit-gradient(linear,
+                               left top,
+                               left bottom,
+                               from(rgba(234, 238, 243, 0)),
+                               to(#eaeef3)),
+              -webkit-gradient(linear,
+                               left top,
+                               right top,
+                               from(#eaeef3),
+                               color-stop(0.97, #eaeef3),
+                               to(#d3d7db));
+  -webkit-border-end: 1px solid #c6c9ce;
+  cursor: pointer;
+  position: relative;
+  width: 250px;
+  z-index: 2;
+}
+
+html[dir='rtl'] #navbar-container {
+  background: -webkit-gradient(linear,
+                               left top,
+                               left bottom,
+                               from(rgba(255, 255, 255, 0)),
+                               color-stop(0.7, rgba(255, 255, 255, 0)),
+                               to(white)),
+              -webkit-gradient(linear,
+                               right top,
+                               left top,
+                               from(white),
+                               color-stop(0.8, white),
+                               to(#f3f3f3));
+}
+
+#navbar-container > hr {
+  -webkit-margin-start: 35%;
+  background-color: #dbdbdb;
+  border: 0;
+  height: 1px;
+  width: 65%;
+}
+
+.navbar-item, .navbar-item2 {
+  padding: 0.5em 0;
+  -webkit-padding-end: 24px;
+  text-align: end;
+  display: block;
+  color: #426dc9;
+  outline:none;
+}
+
+.navbar-item-selected {
+  background: -webkit-gradient(linear,
+                               left top,
+                               right top,
+                               from(#eaeef3),
+                               color-stop(0.97, #b4c8ea),
+                               to(#a2b5b4));
+  font-weight: bold;
+  color: black;
+}
+
+html[dir='rtl'] .navbar-item-selected {
+  background: -webkit-gradient(linear,
+                               right top,
+                               left top,
+                               from(white),
+                               to(#d6def3));
+}
+
+.navbar-item-normal {
+  background-color: #dfdfdf;
+}
+
+#mainview {
+  -webkit-box-align: stretch;
+  -webkit-padding-start: 251px;
+  margin: 0;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+}
+
+#mainview-content {
+  width: 550px;
+  padding: 0 24px;
+}
+
+#managed-prefs-banner {
+  background: -webkit-gradient(linear,
+                               left top,
+                               left bottom,
+                               from(#fff2b7),
+                               color-stop(0.97, #fae691),
+                               to(#878787));
+  height: 31px;
+  width: 100%;
+}
+
+#managed-prefs-banner, span {
+  margin: 0;
+  padding: 0;
+  vertical-align: middle;
+}
+
+#managed-prefs-icon {
+  background-image: url("chrome://theme/IDR_WARNING");
+  background-repeat: no-repeat;
+  background-position:center;
+  padding: 5px;
+  width: 24px;
+  height: 21px;
+  display: inline-block;
+}
+
+.page > h1 {
+  -webkit-padding-end: 24px;
+  padding-top: 1em;
+  padding-bottom: 1em;
+  border-bottom: 1px solid #eeeeee;
+  -webkit-padding-start: 0;
+  font-size: 125%;
+  color: #54637f;
+  margin: 0;
+}
+
+section {
+  display: -webkit-box;
+  -webkit-box-orient: horizontal;
+  border-bottom: 1px solid #eeeeee;
+  margin-top: 1em;
+  margin-bottom: 1em;
+  padding-bottom: 0.5em;
+}
+
+section > h3 {
+  width: 100px;
+  font-weight: normal;
+  -webkit-padding-start: 0;
+  vertical-align: middle;
+  margin: 0;
+  font-size: 100%;
+  padding-top: 2px;
+}
+
+section > div:only-of-type {
+  -webkit-box-flex: 1;
+}
+
+.option {
+  margin-top: 0;
+}
+
+.option-control-table, section > div:only-of-type {
+  -webkit-padding-start: 10px;
+  border-spacing: 0 0;
+}
+
+.suboption {
+  -webkit-margin-start: 18px;
+}
+
+/* TODO(stuartmorgan): make this less specific once all pages
+ * are converted to the non-table style.
+ */
+section > div:only-of-type label {
+  display: block;
+  margin-bottom: 3px;
+}
+
+.hidden {
+  display: none;
+}
+
+.touch-slider {
+  -webkit-appearance: slider-horizontal;
+}
+
+input[type="checkbox"] {
+  margin-top: 0;
+  vertical-align: middle;
+}
+
+input[type="radio"] {
+  vertical-align: top;
+  padding-top: 2px;
+}
+
+select {
+  margin: 0px;
+}
+
+.link-button {
+  background-color: transparent;
+  border: none;
+  color: blue;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.text-button {
+  background-color: transparent;
+  border-color: transparent;
+}
+
+#contentSettingsPage :invalid {
+  background-color: pink;
+}
+
+#languageChewingPage :invalid {
+  background-color: pink;
+}
+
+#languageMozcPage :invalid {
+  background-color: pink;
+}
+
+list > .heading {
+  color: #666666;
+}
+
+list > .heading:hover {
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.left-side-table {
+  display: -webkit-box;
+}
+
+.left-side-table > div:first-child {
+  -webkit-box-flex: 1;
+}
+
+.left-side-table > :last-child {
+  -webkit-padding-start: 20px;
+}
+
+.left-side-table > :last-child button {
+  width: 100%;
+}
+
+.favicon-cell {
+  background-position: left;
+  background-repeat: no-repeat;
+  -webkit-padding-start: 20px;
+}
+html[dir=rtl] .favicon-cell {
+  background-position: right;
+}

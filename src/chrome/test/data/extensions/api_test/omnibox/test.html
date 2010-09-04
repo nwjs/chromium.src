@@ -1,0 +1,37 @@
+<script>
+if (!chrome.omnibox) {
+  chrome.omnibox = chrome.experimental.omnibox;
+}
+
+chrome.omnibox.onInputChanged.addListener(
+  function(text, suggest) {
+    chrome.test.log("onInputChanged: " + text);
+    if (text != "suggestio")
+      return;
+
+    var desc = 'Description with style: <match> [dim], none';  
+    suggest([
+      {
+        content: text + "n1",
+        description: desc,
+        descriptionStyles: [
+          chrome.omnibox.styleMatch(desc.indexOf('<')),
+          chrome.omnibox.styleNone(desc.indexOf('>')),
+          chrome.omnibox.styleDim(desc.indexOf('[')),
+          chrome.omnibox.styleNone(desc.indexOf(']')),
+        ]
+      },
+      {content: text + "n2", description: "description2"},
+      {content: text + "n3", description: "description3"},
+    ]);
+  });
+
+chrome.omnibox.onInputEntered.addListener(
+  function(text) {
+    chrome.test.assertEq("command", text);
+    chrome.test.notifyPass();
+  });
+
+// Now we wait for the input events to fire.
+chrome.test.notifyPass();
+</script>

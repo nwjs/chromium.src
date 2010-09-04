@@ -1,0 +1,59 @@
+############################
+# Chromium
+
+{
+  bug_25385 (2)
+  ThreadSanitizer:Race
+  ...
+  fun:*base*Thread*~*
+}
+
+{
+  Benign race durung InitializeClock
+  ThreadSanitizer:Race
+  ...
+  fun:*InitializeClock*
+}
+
+############################
+# Reports on the guts of Windows
+{
+  UuidCreate
+  ThreadSanitizer:Race
+  ...
+  fun:UuidCreate
+}
+
+{
+  ILFindLastID
+  ThreadSanitizer:Race
+  ...
+  fun:ILFindLastID
+}
+
+{
+  RpcServerUnregisterIf
+  ThreadSanitizer:Race
+  ...
+  fun:RpcServerUnregisterIf
+}
+
+# http://code.google.com/p/data-race-test/issues/detail?id=45
+{
+  accessing an invalid lock in unnamedImageEntryPoint
+  ThreadSanitizer:InvalidLock
+  fun:unnamedImageEntryPoint
+}
+{
+  accessing an invalid lock in CoFreeAllLibraries
+  ThreadSanitizer:InvalidLock
+  fun:CoFreeAllLibraries
+}
+{
+  accessing an invalid lock under exit/doexit
+  ThreadSanitizer:InvalidLock
+  fun:*~Lock*
+  ...
+  fun:doexit
+  fun:exit
+}

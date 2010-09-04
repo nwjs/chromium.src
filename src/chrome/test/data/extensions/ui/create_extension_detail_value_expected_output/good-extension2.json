@@ -1,0 +1,30 @@
+{
+  "id": "hpiknbiabeeppbpihjehijgoemciehgk",
+  "version": "2",
+  "name": "My extension 2",
+  "enabled": true,
+  "description": "",
+  "permissions": [],
+  "allow_reload": false,
+  "order": 2,
+  "enabledIncognito": false,
+  "wantsFileAccess": false,
+  "allowFileAccess": false,
+  "content_scripts": [],
+  "views": [
+    {
+      "path": "bar.html",
+      "renderProcessId": 42,
+      "renderViewId": 88,
+      "incognito": false
+    },
+    {
+      "path": "bar.html",
+      "renderProcessId": 0,
+      "renderViewId": 0,
+      "incognito": false
+    }
+  ],
+  "hasPopupAction": false,
+  "galleryUrl": ""
+}

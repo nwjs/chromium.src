@@ -1,0 +1,212 @@
+// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef CHROME_TEST_LIVE_SYNC_LIVE_SYNC_TEST_H_
+#define CHROME_TEST_LIVE_SYNC_LIVE_SYNC_TEST_H_
+#pragma once
+
+#include "chrome/test/in_process_browser_test.h"
+
+#include "base/basictypes.h"
+#include "base/file_util.h"
+#include "base/scoped_ptr.h"
+#include "base/scoped_vector.h"
+#include "chrome/test/live_sync/profile_sync_service_test_harness.h"
+#include "net/base/mock_host_resolver.h"
+#include "net/test/test_server.h"
+
+#include <string>
+#include <vector>
+
+class CommandLine;
+class Profile;
+class URLRequestContextGetter;
+
+namespace net {
+class ProxyConfig;
+class ScopedDefaultHostResolverProc;
+}
+
+// Live sync tests are allowed to run for up to 5 minutes.
+const int kTestTimeoutInMS = 300000;
+
+// This is the base class for integration tests for all sync data types. Derived
+// classes must be defined for each sync data type. Individual tests are defined
+// using the IN_PROC_BROWSER_TEST_F macro.
+class LiveSyncTest : public InProcessBrowserTest {
+ public:
+  // The different types of live sync tests that can be implemented.
+  enum TestType {
+    // Tests where only one client profile is synced with the server. Typically
+    // sanity level tests.
+    SINGLE_CLIENT,
+
+    // Tests where two client profiles are synced with the server. Typically
+    // functionality level tests.
+    TWO_CLIENT,
+
+    // Tests where three or more client profiles are synced with the server.
+    // Typically, these tests create client side races and verify that sync
+    // works.
+    MULTIPLE_CLIENT,
+
+    // Tests where several client profiles are synced with the server. Only used
+    // by stress tests.
+    MANY_CLIENT
+  };
+
+  // A LiveSyncTest must be associated with a particular test type.
+  explicit LiveSyncTest(TestType test_type)
+      : test_type_(test_type),
+        num_clients_(-1),
+        test_server_(net::TestServer::TYPE_HTTP, FilePath()),
+        started_local_test_server_(false) {
+    InProcessBrowserTest::set_show_window(true);
+    InProcessBrowserTest::SetInitialTimeoutInMS(kTestTimeoutInMS);
+    switch (test_type_) {
+      case SINGLE_CLIENT: {
+        num_clients_ = 1;
+        break;
+      }
+      case TWO_CLIENT: {
+        num_clients_ = 2;
+        break;
+      }
+      case MULTIPLE_CLIENT: {
+        num_clients_ = 3;
+        break;
+      }
+      case MANY_CLIENT: {
+        num_clients_ = 10;
+        break;
+      }
+    }
+  }
+
+  virtual ~LiveSyncTest() {}
+
+  // Validates command line parameters and creates a local python test server if
+  // specified.
+  virtual void SetUp();
+
+  // Brings down local python test server if one was created.
+  virtual void TearDown();
+
+  // Appends command line flag to enable sync.
+  virtual void SetUpCommandLine(CommandLine* command_line) {}
+
+  // Used to get the number of sync clients used by a test.
+  int num_clients() { return num_clients_; }
+
+  // Returns a pointer to a particular sync profile. Callee owns the object
+  // and manages its lifetime.
+  Profile* GetProfile(int index);
+
+  // Returns a pointer to a particular sync client. Callee owns the object
+  // and manages its lifetime.
+  ProfileSyncServiceTestHarness* GetClient(int index);
+
+  // Returns a reference to the collection of sync clients. Callee owns the
+  // object and manages its lifetime.
+  std::vector<ProfileSyncServiceTestHarness*>& clients() {
+    return clients_.get();
+  }
+
+  // Returns a pointer to the sync profile that is used to verify changes to
+  // individual sync profiles. Callee owns the object and manages its lifetime.
+  Profile* verifier();
+
+  // Initializes sync clients and profiles but does not sync any of them.
+  virtual bool SetupClients();
+
+  // Initializes sync clients and profiles if required and syncs each of them.
+  virtual bool SetupSync();
+
+  // Disable outgoing network connections for the given profile.
+  virtual void DisableNetwork(Profile* profile);
+
+  // Enable outgoing network connections for the given profile.
+  virtual void EnableNetwork(Profile* profile);
+
+  // Configure mock server with test's options.
+  virtual bool EnsureSyncServerConfiguration();
+
+ protected:
+  // InProcessBrowserTest override. Destroys all the sync clients and sync
+  // profiles created by a test.
+  virtual void CleanUpOnMainThread();
+
+  // InProcessBrowserTest override. Changes behavior of the default host
+  // resolver to avoid DNS lookup errors.
+  virtual void SetUpInProcessBrowserTestFixture();
+
+  // InProcessBrowserTest override. Resets the host resolver its default
+  // behavior.
+  virtual void TearDownInProcessBrowserTestFixture();
+
+  // GAIA account used by the test case.
+  std::string username_;
+
+  // GAIA password used by the test case.
+  std::string password_;
+
+  // Locally available plain text file in which GAIA credentials are stored.
+  FilePath password_file_;
+
+ private:
+  // Helper to ProfileManager::CreateProfile that handles path creation.
+  static Profile* MakeProfile(const FilePath::StringType name);
+
+  // Helper method used to create a local python test server.
+  virtual void SetUpLocalTestServer();
+
+  // Helper method used to destroy the local python test server if one was
+  // created.
+  virtual void TearDownLocalTestServer();
+
+  // Used to disable and enable network connectivity by providing and
+  // clearing an invalid proxy configuration.
+  void SetProxyConfig(URLRequestContextGetter* context,
+                      const net::ProxyConfig& proxy_config);
+
+  // Sends configuration options to the mock sync server.
+  bool ConfigureSyncServer(const std::string& name, const std::string& value);
+
+  // Used to differentiate between single-client, two-client, multi-client and
+  // many-client tests.
+  TestType test_type_;
+
+  // Number of sync clients that will be created by a test.
+  int num_clients_;
+
+  // Collection of sync profiles used by a test. A sync profile maintains sync
+  // data contained within its own subdirectory under the chrome user data
+  // directory.
+  ScopedVector<Profile> profiles_;
+
+  // Collection of sync clients used by a test. A sync client is associated with
+  // a sync profile, and implements methods that sync the contents of the
+  // profile with the server.
+  ScopedVector<ProfileSyncServiceTestHarness> clients_;
+
+  // Sync profile against which changes to individual profiles are verified. We
+  // don't need a corresponding verifier sync client because the contents of the
+  // verifier profile are strictly local, and are not meant to be synced.
+  scoped_ptr<Profile> verifier_;
+
+  // Local instance of python sync server.
+  net::TestServer test_server_;
+
+  // Keeps track of whether a local python sync server was used for a test.
+  bool started_local_test_server_;
+
+  // Sync integration tests need to make live DNS requests for access to
+  // GAIA and sync server URLs under google.com. We use a scoped version
+  // to override the default resolver while the test is active.
+  scoped_ptr<net::ScopedDefaultHostResolverProc> mock_host_resolver_override_;
+
+  DISALLOW_COPY_AND_ASSIGN(LiveSyncTest);
+};
+
+#endif  // CHROME_TEST_LIVE_SYNC_LIVE_SYNC_TEST_H_

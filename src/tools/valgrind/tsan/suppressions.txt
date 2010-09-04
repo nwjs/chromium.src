@@ -1,0 +1,313 @@
+############################
+# Chromium
+
+{
+  bug_23433
+  ThreadSanitizer:Race
+  fun:*logging*SetMinLogLevel*
+}
+
+{
+  bug_24419
+  ThreadSanitizer:Race
+  fun:*BrowserProcessImpl*nspector*iles*
+}
+
+{
+  bug_37496
+  ThreadSanitizer:Race
+  ...
+  fun:*browser_sync*SyncShareIntercept*Observe*
+}
+
+{
+  bug_41314
+  ThreadSanitizer:Race
+  fun:base::LaunchApp*
+  fun:ChildProcessLauncher::Context::LaunchInternal*
+}
+
+{
+  bug_46642a
+  ThreadSanitizer:Race
+  fun:*media*PipelineImpl*InitializeTask*
+}
+
+{
+  bug_46642b
+  ThreadSanitizer:Race
+  fun:*media*PipelineImpl*GetCurrentTime*
+}
+
+############################
+# Real races in third_party
+{
+  bug_23244 (libevent)
+  ThreadSanitizer:Race
+  fun:event_*
+  fun:event_*
+}
+
+{
+  bug_28396 (libevent) (1)
+  ThreadSanitizer:Race
+  fun:detect_monotonic
+  fun:event_base_new
+}
+
+{
+  bug_28396 (libevent) (2)
+  ThreadSanitizer:Race
+  fun:gettime
+  fun:event_base_loop
+}
+
+{
+  bug_25913 (libjingle) (1)
+  ThreadSanitizer:Race
+  fun:*talk_base*MessageQueue*Stop*
+}
+
+{
+  bug_25913 (libjingle) (2)
+  ThreadSanitizer:Race
+  fun:*talk_base*MessageQueue*Get*
+}
+
+{
+  bug_25913 (libjingle) (3)
+  ThreadSanitizer:Race
+  fun:*talk_base*MessageQueue*Quit*
+}
+
+{
+  bug_25913 (libjingle) (4)
+  ThreadSanitizer:Race
+  fun:*talk_base*MessageQueue*Post*
+}
+
+{
+  bug_44168 (benign race in libjingle)
+  ThreadSanitizer:Race
+  fun:notifier::MediatorThreadImpl::~MediatorThreadImpl*
+}
+
+{
+  bug_28765 (tcmalloc)
+  ThreadSanitizer:Race
+  ...
+  fun:*tcmalloc*ThreadCache*DeleteCache*
+}
+
+{
+  bug_40244
+  ThreadSanitizer:Race
+  fun:*WebDataService*WebDataRequest*Cancel*
+  fun:*WebDataService*
+}
+
+{
+  bug_53192
+  ThreadSanitizer:UnlockNonLocked
+  fun:pthread_mutex_unlock
+  fun:talk_base::CriticalSection::Leave()
+  fun:talk_base::CritScope::~CritScope()
+  fun:talk_base::PosixSignalDeliveryDispatcher::ClearOwner(talk_base::PhysicalSocketServer*)
+  fun:talk_base::PhysicalSocketServer::~PhysicalSocketServer()
+  fun:scoped_ptr<talk_base::SocketServer>::~scoped_ptr()
+  fun:talk_base::MessageQueue::~MessageQueue()
+  fun:talk_base::Thread::~Thread()
+  fun:talk_base::ThreadManager::UnwrapCurrentThread()
+  fun:talk_base::ThreadManager::~ThreadManager()
+  fun:__tcf_0
+  fun:exit
+}
+############################
+# Data races in tests
+
+{
+  bug_30582
+  ThreadSanitizer:Race
+  fun:*LongCallbackD*
+  fun:*WorkerThreadTickerTest_LongCallback_Test*TestBody*
+}
+
+# TODO(timurrrr): bug item
+{
+  Data race on bool in AssertReporter [test-only]
+  ThreadSanitizer:Race
+  ...
+  fun:*AssertReporter*warn*
+}
+
+# TODO(timurrrr): bug item
+{
+  Data race on WatchdogCounter [test-only]
+  ThreadSanitizer:Race
+  ...
+  fun:*WatchdogCounter*larm*
+}
+
+# TODO(timurrrr): bug item
+{
+  Data race on counter in WorkQueue [test-only]
+  ThreadSanitizer:Race
+  ...
+  fun:*WorkQueue*
+}
+
+# TODO(timurrrr): bug item
+{
+  Data race on vfptr in base/watchdog_unittest
+  ThreadSanitizer:Race
+  ...
+  fun:*WatchdogTest_*arm*Test_Test*TestBody*
+}
+
+# TODO(timurrrr): bug item
+{
+  Data race on vfptr in base/thread_unittest
+  ThreadSanitizer:Race
+  ...
+  fun:*ThreadTest_SleepInsideInit*TestBody*
+}
+
+# TODO(timurrrr): bug item
+{
+  Data race on bool in chrome/browser/net/url_fetcher_unittest (1)
+  ThreadSanitizer:Race
+  fun:*URLFetcherCancelTest*TestContextReleased*
+}
+{
+  Data race on bool in chrome/browser/net/url_fetcher_unittest (2)
+  ThreadSanitizer:Race
+  fun:*CancelTestURLRequestContext*CancelTestURLRequestContext*
+}
+
+{
+   ThreadSanitizer sanity test (ToolsSanityTest.DataRace).
+   ThreadSanitizer:Race
+   fun:*TOOLS_SANITY_TEST_CONCURRENT_THREAD*ThreadMain*
+}
+
+############################
+# Benign races in ICU
+{
+  Two writes, same value (ICU gGlobalMutex, gMutexesInUse)
+  ThreadSanitizer:Race
+  ...
+  fun:umtx_init_4_2
+}
+
+{
+  Two writes, same value (ICU gHeapInUse)
+  ThreadSanitizer:Race
+  fun:uprv_malloc_4_2
+}
+
+# Reading a pointer to a mutex being initialized in a concurrent thread.
+{
+  A benign race in umtx_lock_4_2
+  ThreadSanitizer:Race
+  fun:umtx_lock_4_2
+}
+
+############################
+# Benign race in SQLLite
+{
+  Two writes, same value (SQLLite pthreadMutexAlloc)
+  ThreadSanitizer:Race
+  ...
+  fun:pthreadMutexAlloc
+  fun:sqlite3MutexAlloc
+}
+
+{
+  Two writes, same value (under sqlite3Malloc)
+  ThreadSanitizer:Race
+  ...
+  fun:sqlite3Malloc*
+}
+
+{
+  Two writes, same value (sqlite3_initialize)
+  ThreadSanitizer:Race
+  fun:sqlite3_initialize
+  fun:openDatabase
+}
+
+############################
+# Benign races in libc
+
+# A benign race inside the implementation of internal libc mutex
+{
+  Benign races in __lll_*lock_*_private
+  ThreadSanitizer:Race
+  fun:__lll_*lock_*_private
+}
+
+# Benign race below thread-safe time-conversion functions
+{
+  fun:__tz*
+  ThreadSanitizer:Race
+  fun:__tz*
+}
+
+# Benign race below thread-safe time-conversion functions
+{
+  fun:tzset*
+  ThreadSanitizer:Race
+  ...
+  fun:tzset*
+}
+
+# Benign race in thread-safe function
+{
+  fun:mkstemp*
+  ThreadSanitizer:Race
+  ...
+  fun:mkstemp*
+}
+
+# We already ignore memory accesses inside ld
+# but we also need to ignore accesses below it.
+{
+  fun:_dl_close
+  ThreadSanitizer:Race
+  ...
+  fun:_dl_close
+}
+
+# fprintf is thread-safe. The benign races happen on the internal lock.
+{
+  Benign race below fprintf (1)
+  ThreadSanitizer:Race
+  ...
+  fun:buffered_vfprintf
+  ...
+  fun:fprintf
+}
+
+{
+  Benign race below fprintf (2)
+  ThreadSanitizer:Race
+  fun:new_do_write
+  fun:vfprintf
+}
+
+# gethostbyname2_r is thread-safe, however ThreadSanitizer reports races inside it and
+# (sometimes) in __nss_* functions below it.
+# This may be related to
+# https://bugs.launchpad.net/ubuntu/+source/glibc/+bug/59449
+{
+  Race reports below thread-safe gethostbyname2_r
+  ThreadSanitizer:Race
+  ...
+  fun:gethostbyname2_r*
+}
+
+{
+  Benign race in nss (PR_EnterMonitor)
+  ThreadSanitizer:Race
+  fun:PR_EnterMonitor
+}

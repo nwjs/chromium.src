@@ -1,0 +1,28 @@
+# These tests fail due to unknown reasons
+# TODO(timurrrr): investigate
+CookieMonsterTest.TestLastAccess
+SpdyNetwork*Error*
+SpdyNetwork*Get*
+SpdyNetworkTransactionTest.SynReplyHeadersVary
+X509CertificateTest.UnoSoftCertParsing
+URLRequestTest.DoNotSaveCookies
+URLRequestTest.QuitTest
+
+# See http://crbug.com/46647
+DiskCacheBackendTest.*
+
+# See http://crbug.com/53304
+URLRequestTest.*
+
+# See http://crbug.com/47836
+ClientSocketPoolBaseTest.CancelPendingSocketAtSocketLimit
+
+#########################################
+# These tests fail if you don't have our SSL certificate installed.
+# Please see http://dev.chromium.org/developers/testing#TOC-SSL-tests
+# if you think you want to un-comment one of the following lines.
+#SSLClientSocketTest.*
+#URLRequestTest*
+#HTTPSRequestTest.*
+#X509CertificateTest.*
+#ProxyScriptFetcherTest.*

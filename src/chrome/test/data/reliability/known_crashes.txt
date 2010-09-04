@@ -1,0 +1,72 @@
+# This file contains known patterns of crash signatures. One pattern per line.
+#
+# A crash signature is the concatenation of the top N functions, delimited by
+# '___', in chrome.dll on the crash stack. All characters are lower case.
+#
+# We use crash signature patterns as our list of known crashes. A crash
+# signature pattern is a string that can be used to identify a known crash. We
+# use the notion of patterns because crashes with the same root cause can often
+# differ somewhat in their crash stacks. A pattern is intended to be a
+# generalized, yet still identifying, form of a particular crash. Usually a
+# pattern will contain part of a crash signature, for example a prefix, but it
+# can be more sophisticated, such as a regular expression. See below for more
+# details.
+#
+# The format of known crashes in this file is as follows:
+#   TYPE : PATTERN
+#
+# PATTERN: A crash signature pattern is a potentially identifying string that
+#          can be used to match a crash signature.
+# TYPE: The type of the pattern, indicates how the pattern should be matched
+#       against crash signatures. Possible options are:
+#           PREFIX: Match any signature beginning with this pattern.
+#           SUBSTRING: Match any signature containing this pattern.
+#           REGEX: Use this pattern as a regex to match against signatures.
+#       If the type is not listed, it defaults to PREFIX.
+
+# about:crash is a test page.
+PREFIX : abouthandler::aboutcrash
+
+# Any crash due to out of memory is ignored.
+PREFIX : `anonymous namespace'::onnomemory
+
+# It is too broad to exclude all purecall related crashes. Thus here we filter
+# any purecall crash immediately after runtask.
+SUBSTRING : purecall___messageloop::runtask
+REGEX : purecall___[^_]*___messageloop::runtask
+REGEX : `anonymous namespace'::purecall$
+
+# Ditto for InvalidParameter.  Unfortunately, we see a crash where that call
+# is the only one on the stack, so ignore that instance
+REGEX : `anonymous namespace'::invalidparameter$
+
+# 15620
+PREFIX : browser::processpendingtabs___browser::clearunloadstate
+
+# 47207
+PREFIX : messageloop::runtask___messageloop::deferorrunpendingtask___messageloop::dodelayedwork___base::messagepumpforio::dorunloop___base::messagepumpwin::run___messageloop::runinternal___messageloop::run___base::thread::run___base::thread::threadmain___`anonymous namespace'::threadfunc
+
+# 48712
+PREFIX : npapi::plugininstance::npp_newstream
+
+# 49271
+PREFIX : messageloop::posttask_helper___messageloop::posttask___disk_cache::inflightio::oniocomplete___disk_cache::backendio::executebackendoperation___messageloop::runtask___messageloop::dowork___base::messagepumpforio::dorunloop___base::messagepumpwin::run___messageloop::runinternal___messageloop::run___base::thread::run___base::thread::threadmain___`anonymous namespace'::threadfunc
+
+# 49384
+PREFIX : anonymous namespace'::cachecreator::docallback___`anonymous namespace'::cachecreator::oniocomplete___disk_cache::inflightbackendio::onoperationcomplete___disk_cache::inflightio::invokecallback___disk_cache::backgroundio::oniosignalled___messageloop::runtask___messageloop::dowork___base::messagepumpforio::dorunloop___base::messagepumpwin::run___messageloop::runinternal___messageloop::run___base::thread::run___base::thread::threadmain___`anonymous namespace'::threadfunc
+
+# 49409
+PREFIX : std::basic_string<char,std::char_traits<char>,std::allocator<char> >::assign___fieldtriallist::statestostring___browserrenderprocesshost::appendrenderercommandline___browserrenderprocesshost::init___renderviewhost::createrenderview___tabcontents::createrenderviewforrendermanager___renderviewhostmanager::initrenderview___renderviewhostmanager::creatependingrenderview___renderviewhostmanager::updaterendererstatefornavigate___renderviewhostmanager::navigate___tabcontents::navigatetopendingentry___navigationcontroller::navigatetopendingentry___navigationcontroller::loadentry___navigationcontroller::loadurl___browser::openurlatindex___browser::openurlfromtab___browser::openurl___automationprovider::navigatetourlblockuntilnavigationscomplete___automationprovider::navigatetourl___ipc
+
+# 39356
+PREFIX: renderwidgethost::onmsgupdaterect___ipc::messagewithtuple<tuple1<viewhostmsg_updaterect_params> >::dispatch<renderwidgethost,void (__thiscall renderwidgethost::*)(viewhostmsg_updaterect_params const &)>___renderwidgethost::onmessagereceived___renderviewhost::onmessagereceived___browserrenderprocesshost::onmessagereceived___renderwidgethelper::updatemsgproxy::run___messageloop::runtask___messageloop::dowork___base::messagepumpforui::dorunloop___base::messagepumpwin::runwithdispatcher___messageloop::runinternal___messageloopforui::run___`anonymous namespace'::runuimessageloop___browsermain___chromemain___maindllloader::launch___wwinmain_____tmaincrtstartup
+
+# 52346
+PREFIX : tabcontentsview::deactivate___renderwidgethost::onmessagereceived___renderviewhost::onmessagereceived___browserrenderprocesshost::onmessagereceived
+
+# 53076
+PREFIX : tabcontentsview::activate___renderwidgethost::onmessagereceived___renderviewhost::onmessagereceived___browserrenderprocesshost::onmessagereceived
+
+# 54115
+PREFIX : ipc::sendtask::run___messageloop::runtask___messageloop::dowork___base::messagepumpforio::dorunloop___base::messagepumpwin::run___messageloop::runinternal___messageloop::run___base::thread::run___base::thread::threadmain___`anonymous namespace'::threadfunc
+

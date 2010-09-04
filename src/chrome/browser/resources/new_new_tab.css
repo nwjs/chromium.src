@@ -1,0 +1,469 @@
+html {
+  /* This is needed because of chrome://theme/css/new_tab.css */
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  height: 100%;
+  overflow: auto;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+html[mode=app-launcher] {
+  height: auto;
+}
+
+#main {
+  -webkit-box-sizing: border-box;
+  -webkit-transition: width .15s;
+  margin: 0 auto;
+  min-height: 100%;
+}
+
+#main,
+.section,
+.maxiview {
+  width: 920px;
+}
+
+html[dir=rtl] #main {
+  background-position-x: 100%;
+}
+
+html[mode=app-launcher] #main {
+  min-height: 50px;
+}
+
+html[anim=false] *,
+.no-anim, .no-anim *,
+.loading * {
+  -webkit-transition: none !important;
+  -webkit-animation: none !important;
+}
+
+:link,
+:visited,
+.link {
+  cursor: pointer;
+  text-decoration: underline;
+  color: hsla(213, 90%, 24%, 0.33333);
+  -webkit-appearance: none;
+  border: 0;
+  background: none;
+}
+
+.link-color {
+  color: hsl(213, 90%, 24%);
+  text-decoration: none;
+}
+
+.hide {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none;
+}
+
+/* Notification */
+
+#notification {
+  position: relative;
+  background-color: hsl(52, 100%, 80%);
+  border: 1px solid rgb(211, 211, 211);
+  border-radius: 6px;
+  padding: 7px 15px;
+  white-space: nowrap;
+  display: table;
+  /* Set the height and margin so that the element does not use any vertical
+    space */
+  height: 16px;
+  margin: -44px auto 12px auto;
+  font-weight: bold;
+  opacity: 0;
+  pointer-events: none;
+  -webkit-transition: opacity .15s;
+  z-index: 1;
+  color: black;
+}
+
+#notification.first-run {
+  padding: 5px 13px; /* subtract the border witdh */
+  border: 2px solid hsl(213, 55%, 75%);
+  background-color: hsl(213, 63%, 93%);
+  -webkit-box-shadow: 2px 2px 3px hsla(0, 0%, 0%, .3);
+  font-weight: normal;
+}
+
+#notification > * {
+  display: table-cell;
+  max-width: 500px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#notification.show {
+  opacity: 1;
+  pointer-events: all;
+  -webkit-transition: opacity 1s;
+}
+
+#notification .link {
+  color: rgba(0, 102, 204, 0.3);
+  -webkit-padding-start: 20px;
+}
+
+#notification .link-color {
+  color: rgb(0, 102, 204);
+}
+
+#notification > span > .blacklist-title {
+  display: inline-block;
+  max-width: 30ex;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item {
+  background: no-repeat 0% 50%;
+  padding: 2px;
+  padding-left: 18px;
+  background-size: 16px;
+  background-color: hsla(213, 63%, 93%, 0);
+  display: block;
+  line-height: 20px;
+  -webkit-box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 100%;
+}
+
+.item:visited,
+.item:link {
+  color: hsl(213, 90%, 24%);
+}
+
+html[dir=rtl] .item {
+  background-position-x: 100%;
+  padding-right: 18px;
+  padding-left: 2px;
+  text-align: right;
+}
+
+.window {
+  overflow: visible; /* We use visible so that the menu can be a child and shown
+                        on :hover. To get this to work we have to set visibility
+                        to visible which unfortunately breaks the ellipsis for t
+                        he window items */
+  background-image: url('ntp/closed_window.png');
+}
+
+.window-menu {
+  position: absolute;
+  display: none;
+  border: 1px solid #999;
+  -webkit-box-shadow: 2px 2px 3px hsla(0, 0%, 0%, .3);
+  color: black;
+  background-color: white;
+  left: 0;
+  white-space: nowrap;
+  z-index: 2;
+  padding: 2px;
+  cursor: default;
+  border-radius: 4px;
+}
+
+/* Made to look like a tooltip using vista/win7 look and feel.
+   TODO(arv): Replace with -webkit-appearance once issue 17371 is fixed
+ */
+#window-tooltip {
+  color: #555;
+  pointer-events: none;
+  border: 1px solid rgb(118, 118, 118);
+  border-radius: 3px;
+  padding: 0 3px;
+  background: -webkit-gradient(linear, left top, left bottom,
+                               from(white),
+                               to(rgb(228, 229, 240)));
+  width: auto;
+  max-width: 300px;
+}
+
+.hbox {
+  display: -webkit-box;
+  -webkit-box-orient: horizontal;
+}
+
+#sync-status > div {
+  border-radius: 6px;
+  padding: 5px 0;
+  margin: 10px 0 20px;
+  white-space: nowrap;
+  overflow-x: hidden;
+}
+
+#sync-status > div > * {
+  display: inline-block;
+  max-width: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 100%;
+  margin: 0 10px;
+}
+
+.notification.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#option-menu {
+  right: 0;
+  left: auto;
+  min-width: 175px;
+  z-index: 3;
+}
+
+html[dir=rtl] #option-button,
+html[dir=rtl] #option-menu {
+  right: auto;
+  left: 0;
+}
+
+#option-menu > * {
+  /* Work around rendering bug. */
+  outline: 1px solid transparent;
+}
+
+#option-menu > [command=show]:before,
+#option-menu > [command=hide]:before {
+  -webkit-margin-start: -14px;
+  content: '\00a0'; /* non breaking space */
+  display: inline-block;
+  background-position: 0 50%;
+  background-repeat: no-repeat;
+  width: 14px;
+}
+
+html[dir=rtl] #option-menu > [command=show]:before,
+html[dir=rtl] #option-menu > [command=hide]:before {
+  background-position-x: 100%;
+}
+
+#option-menu > [command=hide]:before {
+  background-image: url('ntp/checkbox_black.png');
+}
+
+#option-menu > [selected][command=hide]:active:before {
+  background-image: url('ntp/checkbox_white.png');
+}
+
+#attribution {
+  position: fixed;
+  right: 5px;
+  bottom: 5px;
+  text-align: end;
+}
+
+html[dir=rtl] #attribution {
+  left: 5px;
+  right: auto;
+}
+
+#attribution.obscured {
+  opacity: 0.3;
+}
+
+html[hasattribution=false] #attribution > div {
+  display: none;
+}
+
+.sync-button {
+  font-size: inherit;
+  padding: 0;
+  margin: 0;
+  -webkit-appearance: none;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-decoration: underline;
+  font-family: inherit;
+}
+
+.section {
+  position: fixed;
+  font-size: 12px;
+}
+
+html[anim=true][enable-section-animations=true] .section {
+  -webkit-transition: top .15s;
+}
+
+.section.disabled {
+  display: none !important;
+}
+
+.section > h2 {
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  font-weight: normal;
+  margin: 0;
+  position: relative;
+}
+
+.section:not([noexpand]) > h2 {
+  cursor: pointer;
+}
+
+.section > h2 > .disclosure {
+  position: absolute;
+  left: -15px;
+  top: 4px;
+}
+
+html[dir=rtl] .section > h2 > .disclosure {
+  left: auto;
+  right: -15px;
+  -webkit-transform: rotate(180deg);
+}
+
+html[anim=true] .section > h2 > .disclosure {
+  -webkit-transition: -webkit-transform .15s;
+}
+
+.section:not(.hidden) > h2 > .disclosure {
+  -webkit-transform:rotate(90deg);
+}
+
+.section > h2 .back {
+  position: absolute;
+  left: 0;
+  top: 9px;
+  width: 100%;
+  height: 24px;
+  z-index: 1;
+}
+
+.section > h2 span {
+  -webkit-padding-end: 5px;
+  position: relative;
+  z-index: 2;
+}
+
+.section > h2 .settings-wrapper {
+  position: absolute;
+  top: -1px;
+  right: 0;
+  width: 21px;
+  height: 21px;
+  z-index: 3;
+}
+
+html[dir=rtl] .section > h2 .settings-wrapper {
+  left: 0;
+  right: auto;
+}
+
+.section > h2 .settings {
+  position: absolute;
+  left: 5px;
+  top: 5px;
+  width: 11px;
+  height: 11px;
+  /* TODO(aa): Need a better image. This one is semi-transparent. Also, I think
+  a gear would be better. */
+  background-image: url(chrome://theme/IDR_BALLOON_WRENCH);
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: 100%;
+}
+
+.section.hidden > h2 .settings-wrapper {
+  display: none;
+}
+
+.maxiview {
+  padding: 5px 0 30px;
+  position: absolute;
+  -webkit-mask-attachment: fixed;
+  opacity: 1;
+}
+
+.maxiview.hiding {
+  opacity: 0;
+}
+
+.maxiview.hidden {
+  display: none;
+}
+
+html[anim=true] .maxiview {
+  -webkit-transition: opacity .15s;
+}
+
+.section > .miniview {
+  display: none;
+  margin: 10px 0 30px;
+  white-space: nowrap;
+  overflow-x: hidden;
+}
+
+.section.hidden > * {
+  display: none;
+}
+
+.section.hidden > h2,
+.section.hidden > .miniview {
+  display: block;
+}
+
+.section.hidden > h2 {
+  margin-right: 0;
+}
+
+.miniview > span  {
+  display: inline-block;
+  max-width: 114px; /* Selected so that we can fit 5 items in EN-US */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 100%;
+  margin: 0 10px;
+}
+
+.miniview > span:first-child {
+  margin-left: 0;
+}
+
+.miniview > span:last-child {
+  margin-right: 0;
+}
+
+/* small */
+
+@media (max-width: 940px) {
+
+  #main,
+  .section,
+  .maxiview {
+    width: 692px;
+  }
+
+  #notification > * {
+    max-width: 300px;
+  }
+
+  #notification > span > .blacklist-title {
+    max-width: 15ex;
+  }
+}
+
+/* Ensure we have at least 10px horizontal marging. */
+@media (max-width: 712px) {
+  #main {
+    margin-left: 10px;
+    margin-right: 10px;
+  }
+}
