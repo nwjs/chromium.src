@@ -1,5 +1,0 @@
-include_rules = [
-  # For Chromoting Host Process
-  "+remoting/base",
-  "+remoting/host",
-]
