@@ -1,0 +1,385 @@
+<style>
+#options {
+  position: absolute;
+  background-color: #FFFFCC;
+  display: none;
+  font-family: "Courier New";
+  font-size: 9pt;
+  padding: 5px;
+  border: 1px solid #CCCC88;
+  z-index: 3;
+}
+</style>
+
+<script>
+// Round a number to the 1's place.
+function formatNumber(str) {
+  str += '';
+  if (str == '0') {
+    return 'N/A ';
+  }
+  var x = str.split('.');
+  var x1 = x[0];
+  var x2 = x.length > 1 ? '.' + x[1] : '';
+  var regex = /(\d+)(\d{3})/;
+  while (regex.test(x1)) {
+    x1 = x1.replace(regex, '$1' + ',' + '$2');
+  }
+  return x1;
+}
+
+// Configuration and results are stored globally.
+window.iterations = 10;
+window.clearConnections = true;
+window.clearCache = true;
+window.enableSpdy = false;
+window.results = {};
+window.results.data = new Array();
+window.testUrl = "";
+window.windowId = 0;
+
+// Constant StatCounter Names
+var kTCPReadBytes = "tcp.read_bytes";
+var kTCPWriteBytes = "tcp.write_bytes";
+var kRequestCount = "HttpNetworkTransaction.Count";
+var kConnectCount = "tcp.connect";
+var kSpdySessionCount = "spdy.sessions";
+
+// The list of currently running benchmarks
+var benchmarks = new Array();
+var benchmarkIndex = 0;
+var benchmarkWindow = 0;
+
+function addBenchmark(benchmark) {
+  benchmarks.push(benchmark);
+  benchmarkIndex = 0;  // Reset the counter when adding benchmarks.
+}
+
+// Array Remove - By John Resig (MIT Licensed)
+Array.prototype.remove = function(from, to) {
+  var rest = this.slice((to || from) + 1 || this.length);
+  this.length = from < 0 ? this.length + from : from;
+  return this.push.apply(this, rest);
+};
+
+function removeBenchmark(benchmark) {
+  var index;
+  for (var index = 0; index < benchmarks.length; ++index) {
+    if (benchmarks[index] == benchmark) {
+      break;
+    }
+  }
+  benchmarks.remove(index);
+
+  // Preserve index ordering when removing from the list.
+  if (index <= benchmarkIndex) {
+    benchmarkIndex--;  // Note:  it is okay to drop to -1 here.
+  }
+}
+
+function findBenchmark(url) {
+  for (var index = 0; index < benchmarks.length; ++index) {
+    if (benchmarks[index].url() == url) {
+      return benchmarks[index];
+    }
+  }
+  return undefined;
+}
+
+function nextBenchmark() {
+  benchmarkIndex = (benchmarkIndex + 1) % benchmarks.length;
+  return benchmarks[benchmarkIndex];
+}
+
+function show_options() {
+  chrome.tabs.getSelected(null, function(tab) {
+  if (window.testUrl == "") {
+    window.testUrl = tab.url;
+  }
+    var tabs = chrome.extension.getExtensionTabs();
+    if (tabs && tabs.length) {
+      tabs[0].setUrl(testUrl);
+      var optionsUrl = chrome.extension.getURL("options.html");
+      chrome.tabs.getAllInWindow(null, function(all) {
+        for (var i = 0; i < all.length; i++) {
+          if (all[i].url == optionsUrl) {
+            chrome.tabs.update(all[i].id, {selected: true });
+            return;
+          }
+        }
+      });
+    } else {
+      chrome.tabs.create({"url":"options.html"});
+    }
+  });
+}
+
+chrome.browserAction.onClicked.addListener(show_options);
+
+function Benchmark() {
+  var runCount_ = 0;
+  var count_;
+  var totalTime_;
+  var me_ = this;
+  var current_;
+  var initialRequestCount_;
+  var initialReadBytes_;
+  var initialWriteBytes_;
+
+  // Start a test run
+  this.start = function(url) {
+    // Check if a run is already in progress.
+    if (me_.isRunning()) {
+      return;
+    }
+
+    console.log("Benchmark testing url: " + url);
+
+    // Add this benchmark to the list of benchmarks running.
+    addBenchmark(this);
+
+    runCount_ = window.iterations;
+    count_ = 0;
+    totalTime_ = 0;
+
+    current_ = {};
+    current_.url = url;
+    current_.viaSpdy = false;
+    current_.startLoadResults = new Array();  // times to start
+    current_.commitLoadResults = new Array();  // times to commit
+    current_.docLoadResults = new Array();  // times to docload
+    current_.paintResults = new Array();    // times to paint
+    current_.totalResults = new Array();    // times to complete load
+    current_.bytesRead = 0;
+    current_.bytesWritten = 0;
+    current_.totalTime = 0;
+    current_.iterations = 0;
+    current_.requests = 0;
+    current_.connects = 0;
+    current_.spdySessions = 0;
+  }
+
+  // Is the benchmark currently in progress.
+  this.isRunning = function() {
+    return runCount_ > 0;
+  }
+
+  // The url which this benchmark is running.
+  this.url = function() { return current_.url; }
+
+  // Called when the test run completes.
+  this.finish = function() {
+    removeBenchmark(this);
+
+    // Push the result.
+    window.results.data.push(current_);
+
+    // If we're the last benchmark, close the window.
+    if (benchmarks.length == 0) {
+      chrome.tabs.remove(benchmarkWindow.id);
+      benchmarkWindow = 0;
+      show_options();
+    }
+  }
+
+  // Update the UI after a test run.
+  this.displayResults = function() {
+    var score = 0;
+    if (count_ > 0) {
+      score = totalTime_ / count_;
+      var text = score.toFixed(1) + "ms avg";
+      chrome.browserAction.setTitle({"title": text});
+    }
+    if (runCount_) {
+      chrome.browserAction.setBadgeText({"text": "" + runCount_});
+      chrome.browserAction.setBadgeBackgroundColor({"color": [255, 0, 0, 255]});
+    } else {
+      chrome.browserAction.setBadgeText({"text": "" + score.toFixed()});
+      chrome.browserAction.setBadgeBackgroundColor({"color": [0, 255, 0, 255]});
+      var tabs = chrome.extension.getExtensionTabs();
+      if (tabs && tabs.length) {
+        tabs[0].location.reload(true);
+      }
+    }
+  }
+
+  // Called before starting a page load.
+  this.pageStart = function() {
+    initialReadBytes_ = chrome.benchmarking.counter(kTCPReadBytes);
+    initialWriteBytes_ = chrome.benchmarking.counter(kTCPWriteBytes);
+    initialRequestCount_ = chrome.benchmarking.counter(kRequestCount);
+    initialConnectCount_ = chrome.benchmarking.counter(kConnectCount);
+    initialSpdySessionCount_ = chrome.benchmarking.counter(kSpdySessionCount);
+  }
+
+  this.openNextPage = function() {
+    var benchmark = nextBenchmark();
+    benchmark.pageStart();
+    chrome.tabs.create({"url": benchmark.url() },
+                       function(tab) { benchmarkWindow = tab; });
+  }
+
+  this.prepareToOpenPage = function() {
+    // After the previous page is closed, this function will apply
+    // any settings needed to prepare for opening a new page.
+    // Note: the previous page must be closed, otherwie, the cache
+    // clearing and connection clearing may not be thorough.
+
+    if (window.clearCache) {
+      chrome.benchmarking.clearCache();
+    }
+
+    if (window.clearConnections) {
+      chrome.benchmarking.closeConnections();
+    }
+
+    if (window.enableSpdy) {
+      chrome.benchmarking.enableSpdy(true);
+    } else {
+      chrome.benchmarking.enableSpdy(false);
+    }
+
+    // Go back to the browser so that tasks can run.
+    setTimeout(me_.openNextPage, 250);
+  }
+
+  this.closePage = function() {
+    chrome.tabs.remove(benchmarkWindow.id, function() {
+      me_.prepareToOpenPage();
+    });
+  }
+
+  // Run a single page in the benchmark
+  this.runPage = function() {
+    if (benchmarkWindow) {
+      me_.closePage();
+    } else {
+      me_.prepareToOpenPage();
+    }
+  }
+
+  // Called when a page finishes loading.
+  this.pageFinished = function(load_times) {
+    var requested = load_times.requestTime;
+    var started = load_times.startLoadTime;
+    var startLoadTime =
+        Math.round((load_times.startLoadTime - requested) * 1000.0);
+    var commitLoadTime =
+        Math.round((load_times.commitLoadTime - started) * 1000.0);
+    var docLoadTime =
+        Math.round((load_times.finishDocumentLoadTime - started) * 1000.0);
+    var paintTime =
+        Math.round((load_times.firstPaintTime - started) * 1000.0);
+    var totalTime =
+        Math.round((load_times.finishLoadTime - started) * 1000.0);
+    var firstPaintAfterLoadTime =
+        Math.round((load_times.firstPaintAfterLoadTime - started) * 1000.0);
+
+    if (paintTime < 0) {
+      // If the user navigates away from the test while it is running,
+      // paint may not occur.  Also, some lightweight pages, such as the
+      // google home page, never trigger a paint measurement via the chrome
+      // page load timer.
+      // In this case, the time-to-first paint is effectively the same as the
+      // time to onLoad().
+      paintTime = totalTime;
+    }
+
+    // For our toolbar counters
+    totalTime_ += totalTime;
+    count_++;
+
+    // Make sure the content can be fetched via spdy if it is enabled.
+    if (window.enableSpdy && !load_times.wasFetchedViaSpdy) {
+      alert("Can not fetch current url via spdy.\n" +
+            "Ending current test.");
+      runCount_ = 1;
+    }
+
+    // If last fetch was via spdy, current fetch should use spdy too. Same
+    // for vise versa.
+    if (current_.iterations > 0 &&
+        current_.viaSpdy != load_times.wasFetchedViaSpdy) {
+      alert("Error: viaSpdy for current fetch is different from last fetch!\n" +
+            "Ending current test.");
+      runCount_ = 1;
+    }
+
+    // Record the result
+    current_.viaSpdy = load_times.wasFetchedViaSpdy;
+    current_.iterations++;
+    current_.startLoadResults.push(startLoadTime);
+    current_.commitLoadResults.push(commitLoadTime);
+    current_.docLoadResults.push(docLoadTime);
+    current_.paintResults.push(paintTime);
+    current_.totalResults.push(totalTime);
+    current_.bytesRead += chrome.benchmarking.counter(kTCPReadBytes) -
+                          initialReadBytes_;
+    current_.bytesWritten += chrome.benchmarking.counter(kTCPWriteBytes) -
+                             initialWriteBytes_;
+    current_.requests += chrome.benchmarking.counter(kRequestCount) -
+                         initialRequestCount_;
+    current_.connects += chrome.benchmarking.counter(kConnectCount) -
+                         initialConnectCount_;
+    current_.spdySessions += chrome.benchmarking.counter(kSpdySessionCount) -
+                         initialSpdySessionCount_;
+    current_.totalTime += totalTime;
+
+    if (--runCount_ == 0) {
+      me_.finish();
+    }
+
+    // If there are more tests, schedule them
+    if (runCount_ > 0 || benchmarks.length > 0) {
+      if (window.clearConnections) {
+        chrome.benchmarking.closeConnections();
+      }
+
+      setTimeout(me_.runPage, 100);
+    }
+
+    // Update the UI
+    me_.displayResults();
+
+  }
+}
+
+chrome.extension.onConnect.addListener(function(port) {
+  port.onMessage.addListener(function(data) {
+    if (data.message == "load") {
+      if (data.url == "about:blank") {
+        alert("blank page loaded!");
+      }
+      var benchmark = findBenchmark(data.url);
+      if (benchmark != undefined && benchmark.isRunning()) {
+        benchmark.pageFinished(data.values);
+      }
+    }
+  });
+});
+
+function run() {
+  if (window.clearCache) {
+    // Show a warning if we will try to clear the cache between runs
+    // but will also be reusing the same WebKit instance (i.e. Chrome
+    // is in single-process mode) because the WebKit cache might not get
+    // completely cleared between runs.
+    if (chrome.benchmarking.isSingleProcess()) {
+      alert("Warning: the WebKit cache may not be cleared correctly " +
+            "between runs because Chrome is running in single-process mode.");
+    }
+  }
+
+  var urls = testUrl.split(",");
+  for (var i = 0; i < urls.length; i++) {
+    var benchmark = new Benchmark();
+    benchmark.start(urls[i]);  // XXXMB - move to constructor
+  }
+  benchmarks[0].runPage();
+}
+
+// Run at startup
+chrome.windows.getCurrent(function(currentWindow) {
+  window.windowId = currentWindow.id;
+});
+</script>

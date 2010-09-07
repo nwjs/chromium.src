@@ -1,0 +1,99 @@
+/* Apps */
+
+.app,
+.app[new=installed] {
+  -webkit-box-sizing: border-box;
+  -webkit-perspective: 400;
+  border-radius: 10px;
+  color: black;
+  display: inline-block;
+  margin: 5px 3px;
+  position: relative;
+  height: 136px;
+  width: 124px; /* 920 / 7 - margin * 2 */
+}
+
+.app a {
+  border-radius: 10px;
+  bottom: 0;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.app a {
+  -webkit-transition: background-color .5s;
+  background: rgba(255, 255, 255, 0) /* transparent white */
+              no-repeat center 10px;
+  background-size: 96px 96px;
+  font-family: Helvetica, Arial;
+  font-size: 14px;
+  overflow: hidden;
+  padding: 111px 10px 10px;  /* 10 + 96 + 5 */
+  text-align: center;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app .app-settings {
+  background-color: transparent;
+  background-position: center center;
+  border: 0;
+  height: 14px;
+  padding: 0;
+  position: absolute;
+  right: 5px;
+  top: 5px;
+  width: 14px;
+}
+
+.app > .app-settings {
+  -webkit-transition: opacity .3s;
+  -webkit-transition-delay: 0;
+  background-image: url(chrome://theme/IDR_BALLOON_WRENCH);
+  opacity: 0;
+}
+
+.app > .app-settings:hover {
+  -webkit-transition: none;
+  background-image: url(chrome://theme/IDR_BALLOON_WRENCH_H);
+}
+
+.app:hover > .app-settings,
+.app > .app-settings:focus {
+  -webkit-transition-delay: .5s;
+  opacity: .9;
+}
+
+@-webkit-keyframes bounce {
+  0% {
+    -webkit-transform: scale(0, 0);
+  }
+
+  60% {
+    -webkit-transform: scale(1.2, 1.2);
+  }
+
+  100% {
+    -webkit-transform: scale(1, 1);
+  }
+}
+
+.app[new=new] {
+  opacity: 0;
+}
+
+.app[new=installed] {
+  -webkit-animation: bounce .5s ease-in-out;
+  -webkit-transition: opacity .5s;
+}
+
+a[app-id=web-store-entry] {
+  background-image: url("web_store_icon.png");
+}
+
+menu > button.default {
+  font-weight: bold;
+}

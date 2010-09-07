@@ -1,0 +1,263 @@
+<html>
+<!--
+Copyright (c) 2010 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+  <head>
+    <link rel="stylesheet" href="main.css">
+    <script src="util.js"></script>
+    <script src="view.js"></script>
+    <script src="tabswitcherview.js"></script>
+    <script src="dataview.js"></script>
+    <script src="httpcacheview.js"></script>
+    <script src="testview.js"></script>
+    <script src="main.js"></script>
+    <script src="dnsview.js"></script>
+    <script src="requestsview.js"></script>
+    <script src="detailsview.js"></script>
+    <script src="sourceentry.js"></script>
+    <script src="resizableverticalsplitview.js"></script>
+    <script src="topmidbottomview.js"></script>
+    <script src="timelineviewpainter.js"></script>
+    <script src="logviewpainter.js"></script>
+    <script src="loggrouper.js"></script>
+    <script src="proxyview.js"></script>
+    <script src="socketsview.js"></script>
+  </head>
+  <body onload="onLoaded()">
+    <!-- Tab switcher for main categories. -->
+    <div id=categoryTabHandles>
+      <ul>
+        <li><a href="#data" id=dataTab>Data</a></li>
+        <li><a href="#proxy" id=proxyTab>Proxy</a></li>
+        <li><a href="#requests" id=requestsTab>Requests</a></li>
+        <li><a href="#dns" id=dnsTab>DNS</a></li>
+        <li><a href="#sockets" id=socketsTab>Sockets</a></li>
+        <li><a href="#httpCache" id=httpCacheTab>HTTP Cache</a></li>
+        <li><a href="#tests" id=testTab>Tests</a></li>
+      </ul>
+      <div style="clear: both;"></div>
+    </div>
+    <!-- Proxy info -->
+    <div id=proxyTabContent>
+      <h4>
+        Current proxy settings
+        <input type=button value="Re-apply settings" id=proxyReloadSettings />
+      </h4>
+
+      <table><tr>
+
+      <td valign=top>
+      <h3>Effective settings</h3>
+      <pre id=proxyEffectiveSettings></pre>
+      </pre>
+      </td>
+
+      <td style='width: 30px'>&nbsp;</td>
+
+      <td valign=top>
+      <h3>Original settings</h3>
+      <pre id=proxyOriginalSettings></pre>
+      </td>
+
+      </tr></table>
+
+      <h4>
+        Proxies which have failed recently, and are marked as bad
+        <input type=button value="Clear bad proxies" id=clearBadProxies />
+      </h4>
+      <table class="styledTable">
+        <thead>
+          <tr>
+            <th>Bad proxy server</th>
+            <th>Time for next retry</th>
+          </tr>
+        </thead>
+        <tbody id=badProxiesTableBody></tbody>
+      </table>
+    </div>
+    <!-- Host resolver info -->
+    <div id=dnsTabContent>
+      <h4>
+        Host resolver cache
+        <input type=button value="Clear host cache" id=clearHostResolverCache />
+      </h4>
+      <ul>
+        <li>Capacity: <span id=hostResolverCacheCapacity></span></li>
+        <li>Time to live (ms) for success entries:
+            <span id=hostResolverCacheTTLSuccess></span></li>
+        <li>Time to live (ms) for failure entries:
+            <span id=hostResolverCacheTTLFailure></span></li>
+      </ul>
+
+      <table class="styledTable">
+        <thead>
+          <tr>
+            <th>Hostname</th>
+            <th>Family</th>
+            <th>Addresses</th>
+            <th>Expires</th>
+          </tr>
+        </thead>
+        <tbody id=hostResolverCacheTbody>
+        </tbody>
+      </table>
+    </div>
+    <div id=socketsTabContent>
+      <h4>Socket pools</h4>
+      <table class="styledTable">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Handed Out</th>
+            <th>Connecting</th>
+            <th>Idle</th>
+            <th>Max</th>
+            <th>Max Per Group</th>
+            <th>Generation Number</th>
+          </tr>
+        </thead>
+        <tbody id=socketTabTbody>
+        </tbody>
+      </table>
+      <div id=socketPoolGroupsDiv>
+      </div>
+    </div>
+    <div id=httpCacheTabContent>
+      <h4>Entries</h4>
+      <a href="chrome://view-http-cache" target=_blank>Explore cache entries</a>
+
+      <h4>Statistics</h4>
+      <div id=httpCacheStats>Nothing loaded yet.</div>
+    </div>
+    <!-- Import/Export data -->
+    <div id=dataTabContent>
+
+<h2>How to get data for bug reports</h2>
+
+<ol>
+<li>Reproduce the network problem.</li>
+<li>Click this button:
+  <button id=exportToText style="font-size: 110%"><b>Dump to text</b> </button><br>
+  (<input id=stripCookiesCheckbox type=checkbox checked=yes> Remove cookies)
+</li>
+
+<li>Copy-paste the data on this page to a text file.</li>
+
+<li>Email the text file to the bug investigator,
+  <b>along with an explanation of what went wrong.</b>
+</li>
+
+</ol>
+
+<script>
+function toggleMoreExplanation() {
+  var div = document.getElementById('moreExplanation');
+  var isToggled = div.style.display == '';
+  document.getElementById('moreExplanationIcon').innerText =
+      isToggled ? 'Show' : 'Hide';
+  setNodeDisplay(div, !isToggled);
+}
+</script>
+
+<a href="javascript:toggleMoreExplanation()">
+  <span id=moreExplanationIcon>Show</span> more explanation</a>
+
+<div style="display:none; margin-left: 15px;" id=moreExplanation>
+
+<ul>
+<li>The network log <b>may contain personally identifying information</b> like
+  IP addresses, URLs, and cookies.</li>
+<ul>
+<li>You can edit the log to obscure information if you like, but sometimes it
+  is relevant to the bug.</li>
+<li>If you choose not to have cookies removed from the log, you must toggle
+  the checkbox before clicking the button.</li>
+</ul>
+<li>Ideally you would have this tool running <b>before</b> you reproduce the 
+  bug.
+  If that isn't possible (perhaps the bug happens unpredictably), then the
+  next best thing is to load chrome://net-internals/ <b>as soon as you can
+  after</b> the problem has occurred.</li>
+</ul>
+
+<h2>How it works</h2>
+
+<ul>
+<li>While this page is open, it will capture the network events that are
+  happening in Chrome. You can view that in real-time by going to the
+  <a href='#requests'>Requests</a> tab.</li>
+<li>Once you close this window, the data it had captured is discarded.</li>
+<li>Chrome keeps around a small buffer of network events for the
+  <b>most recent</b> requests. That way if you open chrome://net-internals/
+  <b>shortly after</b> encountering a problem, you can still find the relevant
+  data.
+  These <b>passively captured</b> events are less accurate however, and will
+  be prefixed in the log with <span style="font-family: monospace;">(P)</span>.
+</li>
+</ul>
+</div>
+
+       <pre id=exportedDataText></pre>
+    </div>
+    <!-- Connection tests -->
+    <div id=testTabContent>
+      <p>Input a URL which failed to load, and then click the button to run some
+         tests for why it failed.</p>
+      <form id=connectionTestsForm>
+        URL: <input type=text id=testUrlInput />
+        <input type=submit value="Start tests" />
+      </form>
+      <div id=testSummary></div>
+    </div>
+
+    <!-- ================= Requests view =================== -->
+
+    <!-- Filter Box: This the top bar which contains the search box.  -->
+    <div id=filterBox>
+      <table width=100%>
+        <tr>
+          <td width=1%>Filter:</td>
+          <td width=98%><input type="search" incremental id=filterInput /></td>
+          <td width=1% id=filterCount>(1 of 34)</td>
+        </tr>
+      </table>
+    </div>
+    <!-- Requests Box: This the panel on the left which lists the requests -->
+    <div id=requestsBox>
+      <table id=requestsListTable cellspacing=0 cellpadding=0 width=100%>
+        <thead>
+          <tr>
+            <td><input type=checkbox id=selectAll /></td>
+            <td id=sortById>ID</td>
+            <td id=sortBySource>Source</td>
+            <td id=sortByDescription width=99%>Description</td>
+          </tr>
+        </thead>
+        <!-- Requests table body: This is where request rows go into -->
+        <tbody id=requestsListTableBody></tbody>
+      </table>
+    </div>
+    <!-- Action Box: This is a button bar along the bottom -->
+    <div id=actionBox>
+      <input type=button value="Stop capturing" onclick="alert('TODO')" />
+      <input type=button value="Delete selected" id=deleteSelected />
+    </div>
+    <!-- Splitter Box: This is a handle to resize the vertical divider -->
+    <div id=splitterBox></div>
+    <!-- Details box: This is the panel on the right which shows information -->
+    <div id=detailsTabHandles>
+      <table class=tabSwitcher cellspacing=0>
+        <tr>
+          <th id=detailsLogTab>Log</th>
+          <td class=tabSwitcherSpacer>&nbsp;</td>
+          <th id=detailsTimelineTab>Timeline</th>
+        </tr>
+      </table>
+      <div class=tabSwitcherLine></div>
+    </div>
+    <div id=detailsLogBox></div>
+    <div id=detailsTimelineBox></div>
+  </body>
+</html>

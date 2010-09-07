@@ -1,0 +1,163 @@
+.language-options {
+  display: -webkit-box;
+  margin: 15px;
+}
+
+.language-options button {
+  min-width: 70px;
+}
+
+.language-options h3 {
+  -webkit-margin-start: 12px;
+  font-size: 75%;
+  font-weight: bold;
+  margin-top: 12px;
+}
+
+.language-options label {
+  display: block;
+}
+
+.language-options-contents  {
+  -webkit-padding-start: 12px;
+  -webkit-padding-end: 12px;
+  padding-bottom: 10px;
+}
+
+.language-options-header, .language-options-footer {
+  margin: 15px;
+}
+
+.language-options-left, .language-options-right {
+  border: 1px solid #cccccc;
+  vertical-align: top;
+  padding: 0;
+  height: 400px;
+}
+
+.language-options-left {
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+  background-color: #ebeff9;
+  min-width: 200px;
+}
+
+.language-options-lower-left {
+  -webkit-box-flex: 0;
+  -webkit-padding-start: 12px;
+  padding-bottom: 10px;
+}
+
+.language-options-right {
+  /* To share the center line with the left pane. */
+  -webkit-margin-start: -1px;
+  width: 360px;
+}
+
+.language-options-notification {
+  display: none;
+  background-color: #fff29e;
+  border-top: 1px solid #ccc;
+  border-bottom: 1px solid #ccc;
+  padding: 12px 30px 12px 12px;
+}
+
+#language-options-input-method-list button {
+  display: block;
+  -webkit-margin-start: 20px;
+}
+
+#language-options-input-method-list label {
+  margin: 4px 0;
+}
+
+#language-options-list {
+  -webkit-box-flex: 1;
+  padding: 0;
+  width: 100%;
+}
+
+#language-options-list li {
+  -webkit-padding-start: 12px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+#language-options-ui-restart-button {
+  margin-top: 12px;
+}
+
+#add-language-overlay-language-list {
+  -webkit-column-count: 2;
+  -webkit-column-gap: 20px;
+}
+
+#add-language-overlay-cancel-button {
+  /* Place the button in the center. */
+  display: block;
+  margin: auto;
+  margin-top: 15px;
+}
+
+#add-language-overlay-page {
+  width: 800px;
+}
+
+#add-language-overlay-page button {
+  padding: 0;
+  text-align: left;
+}
+
+#add-language-overlay-page ul {
+  padding: 0;
+  margin: 0;
+}
+/* TODO(kochi): This is temporary copy from new_new_tab.css */
+/* Notification */
+
+#notification {
+  position: relative;
+  background-color: hsl(52, 100%, 80%);
+  border: 1px solid rgb(211, 211, 211);
+  border-radius: 6px;
+  padding: 7px 15px;
+  white-space: nowrap;
+  display: table;
+  /* Set the height and margin so that the element does not use any vertical
+    space */
+  height: 16px;
+  margin: -44px auto 12px auto;
+  font-weight: bold;
+  opacity: 0;
+  pointer-events: none;
+  -webkit-transition: opacity .15s;
+  z-index: 1;
+  color: black;
+}
+
+#notification > * {
+  display: table-cell;
+  max-width: 500px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#notification.show {
+  opacity: 1;
+  pointer-events: all;
+  -webkit-transition: opacity 1s;
+}
+
+#notification .link {
+  cursor: pointer;
+  text-decoration: underline;
+  -webkit-appearance: none;
+  border: 0;
+  background: none;
+  color: rgba(0, 102, 204, 0.3);
+  -webkit-padding-start: 20px;
+}
+
+#notification .link-color {
+  color: rgb(0, 102, 204);
+}

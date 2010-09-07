@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html i18n-values="dir:textdirection">
+<head>
+<title i18n-content="title">
+</title>
+<style>
+body {
+  background-color: #fff;
+  color: #000;
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 83%;
+  line-height: 120%;
+  max-width: 35em;
+  padding: 0.5em 1em;
+}
+li {
+  padding-bottom: .3em;
+}
+ul {
+  margin: .5em 0 0;
+  padding-bottom: 0;
+}
+h1 {
+  font-size: 1.5em;
+  margin-bottom: 1.5em;
+}
+h2 {
+  font-size: 1em;
+  font-weight: bold;
+  margin: 0 0 .5em;
+  padding: 0;
+}
+a {
+  color: #00c;
+}
+a:active {
+  color: #f00;
+}
+a:visited {
+  color: #551a8b;
+}
+#errorSummary, #suggestions, #search {
+  margin-bottom: 2.5em;
+}
+#zipInfo {
+  padding-left: 16px;
+  overflow: hidden;
+  -webkit-transition: height .1s ease-out;
+}
+#plus {
+  border: 0;
+  cursor: pointer;
+  vertical-align: baseline;
+}
+#details {
+  background-color: #e0e0e0;
+  max-width: 30em;
+  padding: 1em;
+}
+#errorDetails.hide-details #plus {
+  display: inline;
+}
+#errorDetails.show-details #plus {
+  display: none;
+}
+#errorDetails.hide-details #minus {
+  display: none;
+}
+#errorDetails.show-details #minus {
+  display: inline;
+}
+#errorDetails.hide-details #zipInfo {
+  height: 0 !important;
+}
+</style>
+<script>
+function toggleDiv() {
+  var elt = document.getElementById('errorDetails');
+  elt.className = (elt.className == 'show-details') ? 'hide-details'
+                                                    : 'show-details';
+
+  if (elt.className == 'show-details') {
+    zipInfo.style.height = zipInfo.offsetHeight + 'px';
+  } else {
+    zipInfo.style.height = 'auto';
+  }
+}
+</script>
+</head>
+
+<body id="t">
+
+<h1 i18n-content="heading"></h1>
+
+<div id="errorSummary" jsselect="summary">
+ <p jsvalues=".innerHTML:msg"></p>
+</div>
+
+<div id="suggestions">
+ <h2 i18n-content="suggestionsHeading"></h2>
+ <ul>
+  <li jsselect="suggestionsReload">
+    <span jsvalues=".innerHTML:msg"></span>
+  </li>
+  <li jsselect="suggestionsHomepage">
+    <span jscontent="suggestionsHomepageMsg"></span>
+    <a jscontent="hostName" jsvalues="href:homePage"></a>
+  </li>
+  <li jsselect="suggestionsLearnMore">
+    <span jsvalues=".innerHTML:msg"></span>
+  </li>
+ </ul>
+</div>
+
+<div id="errorDetails" class="hide-details">
+ <a href="javascript:void(0);" style="text-decoration:none" onclick="toggleDiv()">
+  <img id="plus" src="../../browser/resources/shared/images/plus.png">
+  <img id="minus" src="../../browser/resources/shared/images/minus.png">
+  <span id="errorExpander" i18n-content="detailsLink" style="text-decoration:underline"></span>
+ </a>
+ <div id="zipInfo">
+  <p i18n-content="detailsHeading"></p>
+  <div id="details" i18n-content="details"></div>
+ </div>
+</div>
+</body>
+</html>

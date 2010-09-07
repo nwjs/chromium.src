@@ -1,0 +1,35 @@
+#addStartupPageOverlay {
+  width: 500px;
+}
+
+#addURLBlock {
+  display: -webkit-box;
+  margin: 1ex 0 2ex 0;
+}
+
+#addURLBlock > * {
+  display: block;
+}
+
+#addURLBlock > span {
+  padding-top: 4px;
+}
+
+#addStartupPageURL {
+  -webkit-box-flex: 1;
+}
+
+#addStartupRecentPageList .url {
+  display: none;
+  color: hsl(0, 0%, 70%);
+  -webkit-padding-start: 3ex;
+}
+
+#addStartupRecentPageList > :hover > .url,
+#addStartupRecentPageList > [selected] > .url {
+  display: inline;
+}
+
+#addStartupPageOverlay .button-strip {
+  margin-top: 2ex;
+}

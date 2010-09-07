@@ -1,0 +1,184 @@
+// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef NET_HTTP_HTTP_AUTH_HANDLER_H_
+#define NET_HTTP_HTTP_AUTH_HANDLER_H_
+#pragma once
+
+#include <string>
+
+#include "base/string16.h"
+#include "base/time.h"
+#include "net/base/completion_callback.h"
+#include "net/base/net_log.h"
+#include "net/http/http_auth.h"
+
+class Histogram;
+
+namespace net {
+
+struct HttpRequestInfo;
+
+// HttpAuthHandler is the interface for the authentication schemes
+// (basic, digest, NTLM, Negotiate).
+// HttpAuthHandler objects are typically created by an HttpAuthHandlerFactory.
+class HttpAuthHandler {
+ public:
+  HttpAuthHandler();
+  virtual ~HttpAuthHandler();
+
+  // Initializes the handler using a challenge issued by a server.
+  // |challenge| must be non-NULL and have already tokenized the
+  // authentication scheme, but none of the tokens occuring after the
+  // authentication scheme. |target| and |origin| are both stored
+  // for later use, and are not part of the initial challenge.
+  bool InitFromChallenge(HttpAuth::ChallengeTokenizer* challenge,
+                         HttpAuth::Target target,
+                         const GURL& origin,
+                         const BoundNetLog& net_log);
+
+  // Generates an authentication token, potentially asynchronously.
+  //
+  // When |username| and |password| are NULL, the default credentials for
+  // the currently logged in user are used. |AllowsDefaultCredentials()| MUST be
+  // true in this case.
+  //
+  // |request|, |callback|, and |auth_token| must be non-NULL.
+  //
+  // The return value is a net error code.
+  // If |OK| is returned, |*auth_token| is filled in with an authentication
+  // token which can be inserted in the HTTP request.
+  // If |ERR_IO_PENDING| is returned, |*auth_token| will be filled in
+  // asynchronously and |callback| will be invoked. The lifetime of
+  // |request|, |callback|, and |auth_token| must last until |callback| is
+  // invoked, but |username| and |password| are only used during the initial
+  // call.
+  // Otherwise, there was a problem generating a token synchronously, and the
+  // value of |*auth_token| is unspecified.
+  int GenerateAuthToken(const string16* username,
+                        const string16* password,
+                        const HttpRequestInfo* request,
+                        CompletionCallback* callback,
+                        std::string* auth_token);
+
+  // Lowercase name of the auth scheme
+  const std::string& scheme() const {
+    return scheme_;
+  }
+
+  // The realm value that was parsed during Init().
+  const std::string& realm() const {
+    return realm_;
+  }
+
+  // The challenge which was issued when creating the handler.
+  const std::string challenge() const {
+    return auth_challenge_;
+  }
+
+  // Numeric rank based on the challenge's security level. Higher
+  // numbers are better. Used by HttpAuth::ChooseBestChallenge().
+  int score() const {
+    return score_;
+  }
+
+  HttpAuth::Target target() const {
+    return target_;
+  }
+
+  // Returns true if the authentication scheme does not send the username and
+  // password in the clear.
+  bool encrypts_identity() const {
+    return (properties_ & ENCRYPTS_IDENTITY) != 0;
+  }
+
+  // Returns true if the authentication scheme is connection-based, for
+  // example, NTLM.  A connection-based authentication scheme does not support
+  // preemptive authentication, and must use the same handler object
+  // throughout the life of an HTTP transaction.
+  bool is_connection_based() const {
+    return (properties_ & IS_CONNECTION_BASED) != 0;
+  }
+
+  // Returns true if the response to the current authentication challenge
+  // requires an identity.
+  // TODO(wtc): Find a better way to handle a multi-round challenge-response
+  // sequence used by a connection-based authentication scheme.
+  virtual bool NeedsIdentity() { return true; }
+
+  // Returns true if this is the final round of the authentication sequence.
+  // For Basic and Digest, the method always returns true because they are
+  // single-round schemes.
+  virtual bool IsFinalRound() { return true; }
+
+  // Returns whether the default credentials may be used for the |origin| passed
+  // into |InitFromChallenge|. If true, the user does not need to be prompted
+  // for username and password to establish credentials.
+  // NOTE: SSO is a potential security risk.
+  // TODO(cbentzel): Add a pointer to Firefox documentation about risk.
+  virtual bool AllowsDefaultCredentials() { return false; }
+
+ protected:
+  enum Property {
+    ENCRYPTS_IDENTITY = 1 << 0,
+    IS_CONNECTION_BASED = 1 << 1,
+  };
+
+  // Initializes the handler using a challenge issued by a server.
+  // |challenge| must be non-NULL and have already tokenized the
+  // authentication scheme, but none of the tokens occuring after the
+  // authentication scheme.
+  // Implementations are expcted to initialize the following members:
+  // scheme_, realm_, score_, properties_
+  virtual bool Init(HttpAuth::ChallengeTokenizer* challenge) = 0;
+
+  // |GenerateAuthTokenImpl()} is the auth-scheme specific implementation
+  // of generating the next auth token. Callers sohuld use |GenerateAuthToken()|
+  // which will in turn call |GenerateAuthTokenImpl()|
+  virtual int GenerateAuthTokenImpl(const string16* username,
+                                    const string16* password,
+                                    const HttpRequestInfo* request,
+                                    CompletionCallback* callback,
+                                    std::string* auth_token) = 0;
+
+  // The lowercase auth-scheme {"basic", "digest", "ntlm", "negotiate"}
+  std::string scheme_;
+
+  // The realm.  Used by "basic" and "digest".
+  std::string realm_;
+
+  // The auth challenge.
+  std::string auth_challenge_;
+
+  // The {scheme, host, port} for the authentication target.  Used by "ntlm"
+  // and "negotiate" to construct the service principal name.
+  GURL origin_;
+
+  // The score for this challenge. Higher numbers are better.
+  int score_;
+
+  // Whether this authentication request is for a proxy server, or an
+  // origin server.
+  HttpAuth::Target target_;
+
+  // A bitmask of the properties of the authentication scheme.
+  int properties_;
+
+  BoundNetLog net_log_;
+
+ private:
+  void OnGenerateAuthTokenComplete(int rv);
+  void FinishGenerateAuthToken();
+  static std::string GenerateHistogramNameFromScheme(const std::string& scheme);
+
+  CompletionCallback* original_callback_;
+  CompletionCallbackImpl<HttpAuthHandler> wrapper_callback_;
+  // When GenerateAuthToken was called.
+  base::TimeTicks generate_auth_token_start_;
+  scoped_refptr<Histogram> histogram_;
+};
+
+}  // namespace net
+
+#endif  // NET_HTTP_HTTP_AUTH_HANDLER_H_

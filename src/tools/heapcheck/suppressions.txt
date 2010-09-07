@@ -1,0 +1,979 @@
+# There are three kinds of suppressions in this file.
+# 1. third party stuff we have no control over
+#
+# 2. intentional unit test errors, or stuff that is somehow a false positive
+# in our own code, or stuff that is so trivial it's not worth fixing
+#
+# 3. Suppressions for real chromium bugs that are not yet fixed.
+# These should all be in chromium's bug tracking system (but a few aren't yet).
+# Periodically we should sweep this file and the bug tracker clean by
+# running overnight and removing outdated bugs/suppressions.
+#-----------------------------------------------------------------------
+
+# 1. third party stuff we have no control over
+{
+  bug_39050_a
+  Heapcheck:Leak
+  fun:FcPatternObjectAddWithBinding
+}
+{
+  bug_39050_b
+  Heapcheck:Leak
+  fun:FcPatternObjectInsertElt
+}
+{
+  bug_39050_c
+  Heapcheck:Leak
+  fun:FcConfigValues
+}
+{
+  bug_39050_d
+  Heapcheck:Leak
+  fun:IA__FcLangSetCreate
+}
+{
+  bug_39050_d2
+  Heapcheck:Leak
+  fun:FcLangSetCreate
+}
+{
+  bug_39050_e
+  Heapcheck:Leak
+  fun:IA__FcStrCopy
+}
+{
+  bug_39050_e2
+  Heapcheck:Leak
+  fun:FcStrCopy
+}
+{
+  bug_39050_f
+  Heapcheck:Leak
+  fun:FcValueSave
+}
+{
+  bug_39050_g
+  Heapcheck:Leak
+  fun:FcPatternHash
+}
+{
+  bug_39050_h
+  Heapcheck:Leak
+  fun:FcConfigFilename
+}
+{
+  bug_39050_i
+  Heapcheck:Leak
+  fun:FcCharSetFindLeafCreate
+}
+{
+  bug_39050_j
+  Heapcheck:Leak
+  fun:FcCharSetPutLeaf
+}
+{
+  bug_39050_k
+  Heapcheck:Leak
+  fun:IA__FcCharSetCreate
+}
+
+{
+   bug_51988_a
+   Heapcheck:Leak
+   ...
+   fun:mozilla_security_manager::::nsPKCS12Blob_ImportHelper
+   fun:mozilla_security_manager::nsPKCS12Blob_Import
+   fun:net::CertDatabase::ImportFromPKCS12
+}
+{
+   bug_51988_b
+   Heapcheck:Leak
+   ...
+   fun:mozilla_security_manager::nsPKCS12Blob_Export
+   fun:net::CertDatabase::ExportToPKCS12
+}
+{
+   bug_51988_c
+   Heapcheck:Leak
+   ...
+   fun:base::::NSSInitSingleton::OpenUserDB
+   fun:base::::NSSInitSingleton::OpenTestNSSDB
+   fun:base::OpenTestNSSDB
+   fun:net::CertDatabaseNSSTest::SetUp
+}
+
+#-----------------------------------------------------------------------
+# 2. intentional unit test errors, or stuff that is somehow a false positive
+# in our own code, or stuff that is so trivial it's not worth fixing
+{
+   Heapcheck sanity test (ToolsSanityTest.MemoryLeak).
+   Heapcheck:Leak
+   fun:ToolsSanityTest_MemoryLeak_Test::TestBody
+}
+{
+   Intentional leak in ChromeThreadTest.NotReleasedIfTargetThreadNonExistent
+   Heapcheck:Leak
+   fun:ChromeThreadTest_NotReleasedIfTargetThreadNonExistent_Test::TestBody
+   fun:testing::Test::Run
+}
+#-----------------------------------------------------------------------
+# 3. Suppressions for real chromium bugs that are not yet fixed.
+# These should all be in chromium's bug tracking system (but a few aren't yet).
+# Periodically we should sweep this file and the bug tracker clean by
+# running overnight and removing outdated bugs/suppressions.
+{
+   bug_30547_a
+   Heapcheck:Leak
+   ...
+   fun:std::string::_Rep::_S_create
+   ...
+   fun:base::JSONWriter::Write
+   fun:JSONStringValueSerializer::Serialize
+   fun:BookmarkStorage::SerializeData
+   fun:BookmarkStorage::SaveNow
+   fun:BookmarkStorage::BookmarkModelDeleted
+   fun:*~BookmarkModel
+}
+{
+   bug_30547_b
+   Heapcheck:Leak
+   ...
+   fun:ImportantFileWriter::WriteNow
+   fun:BookmarkStorage::SaveNow
+   fun:BookmarkStorage::BookmarkModelDeleted
+}
+# IPCChannelTest.ChannelProxyTest leaks memory.
+{
+   bug_26920_a
+   Heapcheck:Leak
+   fun:*ChannelProxy
+   fun:IPCChannelTest_ChannelProxyTest_Test::TestBody
+}
+# TODO(glider): deal with asterisks in stack traces
+# (like "CancelableTask* NewRunnableMethod" here)
+{
+   bug_26920_b
+   Heapcheck:Leak
+   ...
+   fun:IPC::ChannelProxy::Context::OnChannelError
+   fun:IPC::Channel::ChannelImpl::OnFileCanReadWithoutBlocking
+   ...
+   fun:base::MessagePumpLibevent::OnLibeventNotification
+   fun:event_process_active
+   fun:event_base_loop
+}
+{
+   bug_26920_c
+   Heapcheck:Leak
+   fun:__gnu_cxx::new_allocator::allocate
+   fun:std::string::_Rep::_S_create
+   ...
+   fun:*basic_string
+   fun:IPCChannelTest_ChannelProxyTest_Test::TestBody
+}
+{
+   bug_31643
+   Heapcheck:Leak
+   fun:browser_sync::BookmarkModelWorker::CallDoWorkFromModelSafeThreadAndWait
+   fun:Syncer::SyncShare
+}
+{
+   bug_17540
+   Heapcheck:Leak
+   fun:base::MessagePumpLibevent::WatchFileDescriptor
+   fun:MessageLoopForIO::WatchFileDescriptor
+   fun:IPC::Channel::ChannelImpl::Connect
+   fun:IPC::Channel::Connect
+   fun:IPC::ChannelProxy::Context::OnChannelOpened
+}
+{
+  bug_39014
+  Heapcheck:Leak
+  fun:__gnu_cxx::new_allocator::allocate
+  fun:std::_Vector_base::_M_allocate
+  fun:std::vector::_M_insert_aux
+  fun:std::vector::push_back
+  fun:IPC::ChannelProxy::Context::OnAddFilter
+  fun:void DispatchToMethod
+  fun:RunnableMethod::Run
+}
+{
+   bug_34570
+   Heapcheck:Leak
+   fun:URLRequestHttpJob::Factory
+   fun:URLRequestJobManager::CreateJob
+   fun:URLRequest::Start
+   fun:URLRequestTest_CancelTest_DuringCookiePolicy_Test::TestBody
+   fun:testing::Test::Run
+   fun:testing::internal::TestInfoImpl::Run
+   fun:testing::TestCase::Run
+   fun:testing::internal::UnitTestImpl::RunAllTests
+   fun:testing::UnitTest::Run
+   fun:TestSuite::Run
+   fun:main
+}
+{
+   bug_34994_a
+   Heapcheck:Leak
+   ...
+   fun:v8::internal::Invoke
+   fun:v8::internal::Execution::Call
+   fun:v8::Script::Run
+}
+{
+   bug_34994_b
+   Heapcheck:Leak
+   ...
+   fun:v8::internal::Invoke
+   fun:v8::internal::Execution::Call
+   fun:v8::Function::Call
+}
+{
+  bug_39021
+  Heapcheck:Leak
+  ...
+  fun:RenderViewTest::ExecuteJavaScript
+  fun:ExtensionAPIClientTest_CallbackDispatching_Test::TestBody
+}
+{
+  bug_39016
+  Heapcheck:Leak
+  ...
+  fun:::RenderThreadTest::SetUp
+  fun:testing::Test::Run
+}
+# TODO(glider): sometimes the stacks differ between the bot and the local run,
+# e.g. "base::subtle::RefCountedBase::RefCountedBase" vs. "RefCountedBase".
+{
+  bug_38293
+  Heapcheck:Leak
+  ...
+  fun:ScopedRunnableMethodFactory::NewRunnableMethod
+  fun:BookmarkBarGtk::BookmarkNodeAdded
+  fun:BookmarkModel::AddNode
+  fun:BookmarkModel::AddURLWithCreationTime
+  fun:BookmarkModel::AddURL
+  fun:BookmarkBarGtkUnittest_*
+}
+{
+  bug_38305
+  Heapcheck:Leak
+  fun:browser_sync::UIModelWorker::DoWorkAndWaitUntilDone
+  fun:Syncer::SyncShare
+  fun:FakeSyncShareTask::Run
+  fun:MessageLoop::RunTask
+}
+{
+  bug_38402
+  Heapcheck:Leak
+  fun:ProfileSyncFactoryImpl::CreateProfileSyncService
+  fun:TestingProfile::CreateProfileSyncService
+}
+{
+  bug_39007
+  Heapcheck:Leak
+  ...
+  fun:RenderViewTest::TearDown
+}
+{
+  bug_39009
+  Heapcheck:Leak
+  ...
+  fun:BookmarkModel::Load
+  fun:TestingProfile::CreateBookmarkModel
+}
+{
+  bug_38487
+  Heapcheck:Leak
+  fun:browser_sync::TypedUrlDataTypeController::Stop
+  fun:browser_sync::DataTypeManagerImpl::FinishStop
+  fun:browser_sync::DataTypeManagerImpl::Stop
+  fun:ProfileSyncService::Shutdown
+  fun:~ProfileSyncService
+  fun:~TestingProfileSyncService
+  fun:scoped_ptr::reset
+  fun:ProfileSyncServiceTypedUrlTest::TearDown
+}
+{
+  bug_38490
+  Heapcheck:Leak
+  ...
+  fun:browser_sync::SyncBackendHost::Core::NotifyFrontend
+}
+{
+  bug_40499
+  Heapcheck:Leak
+  fun:UserScriptSlaveTest::Serialize
+  ...
+  fun:testing::Test::Run
+  fun:testing::internal::TestInfoImpl::Run
+  fun:testing::TestCase::Run
+  fun:testing::internal::UnitTestImpl::RunAllTests
+  fun:testing::UnitTest::Run
+  fun:TestSuite::Run
+}
+{
+  bug_42153
+  Heapcheck:Leak
+  fun:::InitPersonalInfo
+  fun:AutoFillProfile
+  fun:AutoFillProfile::Clone
+  fun:browser_sync::AutofillChangeProcessor::ObserveAutofillProfileChanged
+}
+# ExpectJs*Internal = ExpectJs{Pass,Fail}Internal
+# ExtensionAPIClientTest_*_Test =
+#   ExtensionAPIClientTest_{CollapseToolstrip_Test,GetAcceptLanguages}_Test
+{
+  bug_43775_a
+  Heapcheck:Leak
+  fun:WebCore::makeExternalString
+  fun:WebCore::v8ExternalString
+  fun:WebCore::V8Proxy::evaluate
+  fun:WebCore::ScriptController::evaluate
+  fun:WebCore::ScriptController::executeScript
+  fun:WebKit::WebFrameImpl::executeScript
+  fun:RenderViewTest::ExecuteJavaScript
+  fun:ExtensionAPIClientTest::ExpectJs*Internal
+  fun:ExtensionAPIClientTest_*_Test::TestBody
+}
+{
+  bug_43775_b
+  Heapcheck:Leak
+  fun:WTF::fastMalloc
+  fun:WebCore::StringImpl::createUninitialized
+  fun:WebCore::String::fromUTF8
+  fun:WebCore::String::fromUTF8
+  fun:WebKit::WebString::fromUTF8
+  fun:RenderViewTest::ExecuteJavaScript
+  fun:ExtensionAPIClientTest::ExpectJs*Internal
+  fun:ExtensionAPIClientTest_*_Test::TestBody
+}
+{
+  bug_43779
+  Heapcheck:Leak
+  fun:ActiveNotificationTracker::RegisterNotification
+  fun:ActiveNotificationTrackerTest_TestLookupAndClear_Test::TestBody
+}
+{
+  bug_43387
+  Heapcheck:Leak
+  ...
+  fun:net::SpdyNetworkTransactionTest_PostWithEarlySynReply_Test::TestBody
+}
+{
+   bug_44354
+   Heapcheck:Leak
+   ...
+   fun:NetTestSuite::InitializeTestThread
+   fun:NetTestSuite::Initialize
+}
+{
+   bug_44667
+   Heapcheck:Leak
+   fun:Callback1::Type* NewCallback
+   fun:media::VideoDecoderImpl::DoInitialize
+}
+{
+   bug_45072
+   Heapcheck:Leak
+   fun:::RunTest_EnsureTaskDeletion*
+   fun:MessageLoopTest_*EnsureTaskDeletion_*::TestBody
+}
+{
+   bug_46571_a
+   Heapcheck:Leak
+   fun:WTF::fastMalloc
+   fun:WebCore::StringImpl::createUninitialized
+   fun:WebCore::String::createUninitialized
+   fun:WebCore::StringTraits::fromV8String
+   fun:WebCore::v8StringToWebCoreString
+   fun:WebCore::v8StringToWebCoreString
+   fun:WebCore::v8ValueToWebCoreString
+   fun:WebCore::toWebCoreString
+   fun:WebCore::ScriptValue::getString
+   fun:WebKit::WebFrameImpl::loadJavaScriptURL
+   fun:WebKit::WebFrameImpl::loadRequest
+   fun:TestShell::Navigate
+}
+{
+   bug_46571_b
+   Heapcheck:Leak
+   fun:WebCore::makeExternalString
+   fun:WebCore::v8ExternalString
+   fun:WebCore::V8Proxy::evaluate
+   fun:WebCore::ScriptController::evaluate
+   fun:WebCore::ScriptController::executeScript
+   fun:WebCore::ScriptController::executeScript
+   fun:WebKit::WebFrameImpl::loadJavaScriptURL
+   fun:WebKit::WebFrameImpl::loadRequest
+   fun:TestShell::Navigate
+}
+{
+   bug_46571_c
+   Heapcheck:Leak
+   fun:WebCore::makeExternalString
+   fun:WebCore::v8ExternalString
+   fun:WebCore::v8String
+   fun:WebCore::ScriptController::bindToWindowObject
+   fun:WebKit::WebFrameImpl::bindToWindowObject
+   fun:CppBoundClass::BindToJavascript
+   fun:TestShell::BindJSObjectsToWindow
+   fun:TestWebViewDelegate::didClearWindowObject
+   fun:WebKit::FrameLoaderClientImpl::dispatchDidClearWindowObjectInWorld
+   fun:WebCore::FrameLoader::dispatchDidClearWindowObjectInWorld
+   fun:WebCore::V8DOMWindowShell::initContextIfNeeded
+   fun:WebCore::V8Proxy::mainWorldContext
+   fun:WebCore::V8Proxy::mainWorldContext
+   fun:WebCore::ScriptController::bindToWindowObject
+   fun:WebKit::WebFrameImpl::bindToWindowObject
+   fun:CppBoundClass::BindToJavascript
+   fun:AccessibilityController::BindToJavascript
+   fun:TestShell::BindJSObjectsToWindow
+}
+{
+   bug_46571_d
+   Heapcheck:Leak
+   fun:WebCore::makeExternalString
+   fun:WebCore::v8ExternalString
+   fun:WebCore::v8String
+   fun:WebCore::ScriptController::bindToWindowObject
+   fun:WebKit::WebFrameImpl::bindToWindowObject
+   fun:CppBoundClass::BindToJavascript
+   fun:AccessibilityController::BindToJavascript
+   fun:TestShell::BindJSObjectsToWindow
+   fun:TestWebViewDelegate::didClearWindowObject
+   fun:WebKit::FrameLoaderClientImpl::dispatchDidClearWindowObjectInWorld
+   fun:WebCore::FrameLoader::dispatchDidClearWindowObjectInWorld
+   fun:WebCore::V8DOMWindowShell::initContextIfNeeded
+   fun:WebCore::V8Proxy::mainWorldContext
+   fun:WebCore::V8Proxy::mainWorldContext
+   fun:WebCore::ScriptController::bindToWindowObject
+   fun:WebKit::WebFrameImpl::bindToWindowObject
+   fun:CppBoundClass::BindToJavascript
+   fun:AccessibilityController::BindToJavascript
+   fun:TestShell::BindJSObjectsToWindow
+}
+{
+   bug_46571_e
+   Heapcheck:Leak
+   fun:WebCore::v8StringToWebCoreString
+   fun:WebCore::v8StringToWebCoreString
+   fun:WebCore::v8ValueToWebCoreString
+   fun:WebCore::toWebCoreString
+   fun:WebCore::ScriptValue::getString
+   fun:WebKit::WebFrameImpl::loadJavaScriptURL
+   fun:WebKit::WebFrameImpl::loadRequest
+   fun:TestShell::Navigate
+   fun:TestNavigationController::NavigateToPendingEntry
+   fun:TestNavigationController::LoadEntry
+   fun:TestShell::LoadURLForFrame
+   fun:TestShell::LoadURL
+   fun:::BookmarkletTest_NonEmptyResult_Test::TestBody
+   fun:testing::Test::Run
+   fun:testing::internal::TestInfoImpl::Run
+   fun:testing::TestCase::Run
+   fun:testing::internal::UnitTestImpl::RunAllTests
+   fun:testing::UnitTest::Run
+   fun:main
+   fun:__libc_start_main
+}
+# "*~TestShell" means "~TestShell" and "TestShell::~TestShell".
+{
+   bug_46571_f
+   Heapcheck:Leak
+   fun:WebCore::makeExternalString
+   fun:WebCore::v8ExternalString
+   fun:WebCore::V8Proxy::evaluate
+   fun:WebCore::ScriptController::collectGarbage
+   fun:WebKit::WebFrameImpl::collectGarbage
+   fun:TestShell::CallJSGC
+   fun:*~TestShell
+   fun:::MainWindowDestroyed
+   fun:g_closure_invoke
+}
+# This is a variation from bug_46571_e.
+{
+   bug_46571_g
+   Heapcheck:Leak
+   fun:WTF::fastMalloc
+   fun:WTF::StringImpl::createUninitialized
+   fun:WTF::String::createUninitialized
+   fun:WebCore::StringTraits::fromV8String
+   fun:WebCore::v8StringToWebCoreString
+   fun:WebCore::v8StringToWebCoreString
+   fun:WebCore::v8ValueToWebCoreString
+   fun:WebCore::toWebCoreString
+   fun:WebCore::ScriptValue::getString
+   fun:WebKit::WebFrameImpl::loadJavaScriptURL
+   fun:WebKit::WebFrameImpl::loadRequest
+   fun:TestShell::Navigate
+   fun:TestNavigationController::NavigateToPendingEntry
+   fun:TestNavigationController::LoadEntry
+   fun:TestShell::LoadURLForFrame
+   fun:TestShell::LoadURL
+   fun:::BookmarkletTest_NonEmptyResult_Test::TestBody
+   fun:testing::Test::Run
+   fun:testing::internal::TestInfoImpl::Run
+   fun:testing::TestCase::Run
+   fun:testing::internal::UnitTestImpl::RunAllTests
+   fun:testing::UnitTest::Run
+   fun:main
+   fun:__libc_start_main
+}
+{
+   bug_32366
+   Heapcheck:Leak
+   fun:CallbackRunner* NewCallback
+   fun:media::PipelineImpl::FilterStateTransitionTask
+   fun:void DispatchToMethod
+   fun:RunnableMethod::Run
+   fun:MessageLoop::RunTask
+}
+{
+   bug_46649_a
+   Heapcheck:Leak
+   fun:__gnu_cxx::new_allocator::allocate
+   fun:std::_Vector_base::_M_allocate
+   fun:std::vector::_M_allocate_and_copy
+   fun:std::vector::reserve
+   fun:courgette::ReadVector
+   fun:courgette::EncodedProgram::ReadFrom
+}
+{
+   bug_46649_b
+   Heapcheck:Leak
+   fun:__gnu_cxx::new_allocator::allocate
+   fun:std::_Vector_base::_M_allocate
+   fun:std::vector::_M_insert_aux
+   fun:std::vector::push_back
+   fun:courgette::EncodedProgram::AddRel32
+}
+{
+   bug_46649_c
+   Heapcheck:Leak
+   fun:__gnu_cxx::new_allocator::allocate
+   fun:std::_Vector_base::_M_allocate
+   fun:std::vector::_M_insert_aux
+   fun:std::vector::push_back
+   fun:courgette::EncodedProgram::AssembleTo
+}
+{
+   bug_46649_d
+   Heapcheck:Leak
+   fun:EncodedProgramTest_Test_Test::TestBody
+}
+{
+   bug_46649_e
+   Heapcheck:Leak
+   fun:__gnu_cxx::new_allocator::allocate
+   fun:std::_Vector_base::_M_allocate
+   fun:std::vector::_M_fill_insert
+   fun:std::vector::insert
+   fun:std::vector::resize
+   fun:courgette::EncodedProgram::DefineLabelCommon
+   fun:courgette::EncodedProgram::DefineRel32Label
+}
+{
+   bug_46649_f
+   Heapcheck:Leak
+   fun:__gnu_cxx::new_allocator::allocate
+   fun:std::_Vector_base::_M_allocate
+   fun:std::vector::_M_fill_insert
+   fun:std::vector::insert
+   fun:std::vector::resize
+   fun:courgette::EncodedProgram::DefineLabelCommon
+   fun:courgette::EncodedProgram::DefineAbs32Label
+}
+{
+   bug_46649_g
+   Heapcheck:Leak
+   fun:__gnu_cxx::new_allocator::allocate
+   fun:std::_Vector_base::_M_allocate
+   fun:std::vector::_M_allocate_and_copy
+   fun:std::vector::reserve
+   fun:courgette::ReadU32Delta
+   fun:courgette::EncodedProgram::ReadFrom
+}
+{
+   bug_46649_h
+   Heapcheck:Leak
+   fun:__gnu_cxx::new_allocator::allocate
+   fun:std::_Vector_base::_M_allocate
+   fun:std::vector::_M_insert_aux
+   fun:std::vector::push_back
+   fun:courgette::EncodedProgram::AddAbs32
+}
+{
+   bug_46649_i
+   Heapcheck:Leak
+   fun:__gnu_cxx::new_allocator::allocate
+   fun:std::_Vector_base::_M_allocate
+   fun:std::vector::_M_insert_aux
+   fun:std::vector::push_back
+   fun:courgette::EncodedProgram::AddOrigin
+}
+{
+   bug_46658_a
+   Heapcheck:Leak
+   fun:WebCore::makeExternalString
+   fun:WebCore::v8ExternalString
+   fun:WebCore::v8String
+   fun:WebCore::V8DOMWindowShell::namedItemAdded
+   fun:WebCore::ScriptController::namedItemAdded
+   fun:WebCore::HTMLDocument::addItemToMap
+   fun:WebCore::HTMLDocument::addNamedItem
+   fun:WebCore::HTMLFormElement::insertedIntoDocument
+   fun:WebCore::ContainerNode::addChild
+   fun:WebCore::LegacyHTMLTreeConstructor::insertNode
+   fun:WebCore::LegacyHTMLTreeConstructor::handleError
+   fun:WebCore::LegacyHTMLTreeConstructor::insertNode
+   fun:WebCore::LegacyHTMLTreeConstructor::handleError
+   fun:WebCore::LegacyHTMLTreeConstructor::insertNode
+   fun:WebCore::LegacyHTMLTreeConstructor::insertNodeAfterLimitDepth
+   fun:WebCore::LegacyHTMLTreeConstructor::parseToken
+   fun:WebCore::HTMLDocumentParser::processToken
+   fun:WebCore::HTMLDocumentParser::parseTag
+   fun:WebCore::HTMLDocumentParser::advance
+   fun:WebCore::HTMLDocumentParser::write
+   fun:WebCore::DocumentWriter::addData
+   fun:WebCore::FrameLoader::addData
+   fun:WebKit::WebFrameImpl::commitDocumentData
+   fun:WebKit::FrameLoaderClientImpl::committedLoad
+   fun:WebCore::FrameLoader::committedLoad
+   fun:WebCore::DocumentLoader::commitLoad
+   fun:WebCore::DocumentLoader::receivedData
+   fun:WebCore::FrameLoader::receivedData
+   fun:WebCore::MainResourceLoader::addData
+   fun:WebCore::ResourceLoader::didReceiveData
+}
+{
+   bug_46658_b
+   Heapcheck:Leak
+   fun:WebCore::makeExternalString
+   fun:WebCore::v8ExternalString
+   fun:WebCore::v8String
+   fun:WebCore::V8DOMWindowShell::namedItemAdded
+   fun:WebCore::ScriptController::namedItemAdded
+   fun:WebCore::HTMLDocument::addItemToMap
+   fun:WebCore::HTMLDocument::addNamedItem
+   fun:WebCore::HTMLFormElement::insertedIntoDocument
+   fun:WebCore::ContainerNode::addChild
+   fun:WebCore::LegacyHTMLTreeConstructor::insertNode
+   fun:WebCore::LegacyHTMLTreeConstructor::handleError
+   fun:WebCore::LegacyHTMLTreeConstructor::insertNode
+   fun:WebCore::LegacyHTMLTreeConstructor::handleError
+   fun:WebCore::LegacyHTMLTreeConstructor::insertNode
+   fun:WebCore::LegacyHTMLTreeConstructor::insertNodeAfterLimitDepth
+   fun:WebCore::LegacyHTMLTreeConstructor::parseToken
+   fun:WebCore::HTML5TreeBuilder::passTokenToLegacyParser
+   fun:WebCore::HTML5TreeBuilder::constructTreeFromToken
+   fun:WebCore::HTML5DocumentParser::pumpLexer
+   fun:WebCore::HTML5DocumentParser::pumpLexerIfPossible
+   fun:WebCore::HTML5DocumentParser::write
+   fun:WebCore::DocumentWriter::addData
+   fun:WebCore::FrameLoader::addData
+   fun:WebKit::WebFrameImpl::commitDocumentData
+   fun:WebKit::FrameLoaderClientImpl::committedLoad
+   fun:WebCore::FrameLoader::committedLoad
+   fun:WebCore::DocumentLoader::commitLoad
+   fun:WebCore::DocumentLoader::receivedData
+   fun:WebCore::FrameLoader::receivedData
+   fun:WebCore::MainResourceLoader::addData
+}
+{
+   bug_46678_a
+   Heapcheck:Leak
+   fun:__gnu_cxx::new_allocator::allocate
+   fun:std::_Vector_base::_M_allocate
+   fun:std::vector::_M_insert_aux
+   fun:std::vector::push_back
+   fun:remoting::Differ::MergeBlocks
+}
+{
+   bug_46678_b
+   Heapcheck:Leak
+   fun:remoting::DifferTest::MarkBlocksAndCheckMerge
+}
+{
+   bug_46678_c
+   Heapcheck:Leak
+   fun:remoting::DifferTest_*_Test::TestBody
+   fun:testing::Test::Run
+}
+# '*ChromotingPlugin' stands for 'ChromotingPlugin' and
+# 'remoting::ChromotingPlugin::ChromotingPlugin'.
+{
+   bug_46678_d
+   Heapcheck:Leak
+   ...
+   fun:*ChromotingPlugin
+   fun:CreatePlugin
+}
+{
+   bug_46678_e
+   Heapcheck:Leak
+   fun:Callback*::Type* NewCallback
+   fun:remoting::SessionManager::DoEncode
+   fun:void DispatchToMethod
+   fun:RunnableMethod::Run
+}
+{
+   bug_46715
+   Heapcheck:Leak
+   fun:WebCore::makeExternalString
+   fun:WebCore::v8ExternalStringSlow
+}
+{
+   bug_46886
+   Heapcheck:Leak
+   ...
+   fun:*SpdyHttpStreamTest_SendRequest_Test*
+}
+{
+   bug_19775_a
+   Heapcheck:Leak
+   ...
+   fun:history::InMemoryHistoryBackend::Init
+   fun:history::HistoryBackend::InitImpl
+}
+{
+   bug_19775_b
+   Heapcheck:Leak
+   ...
+   fun:history::HistoryBackend::InitImpl
+   fun:history::HistoryBackend::Init
+}
+{
+   bug_19775_c
+   Heapcheck:Leak
+   fun:CancelableTask* NewRunnableMethod
+   fun:HistoryService::BackendDelegate::DBLoaded
+   fun:history::HistoryBackend::Init
+}
+{
+   bug_19775_d
+   Heapcheck:Leak
+   ...
+   fun:ProfileManagerTest_CreateAndUseTwoProfiles_Test::TestBody
+}
+{
+   bug_47188_a
+   Heapcheck:Leak
+   fun:net::SingleThreadedProxyResolver::GetProxyForURL
+   fun:net::::IOThread::Init
+   fun:base::Thread::ThreadMain
+   fun:ThreadFunc
+   fun:start_thread
+}
+{
+   bug_47188_b
+   Heapcheck:Leak
+   fun:__gnu_cxx::new_allocator::allocate
+   fun:std::string::_Rep::_S_create
+   fun:std::string::_Rep::_M_clone
+   fun:std::string::reserve
+   fun:bool ::InitCanonical
+   fun:GURL
+   fun:net::::IOThread::Init
+   fun:base::Thread::ThreadMain
+   fun:ThreadFunc
+   fun:start_thread
+}
+{
+   bug_47188_c
+   Heapcheck:Leak
+   ...
+   fun:net::SingleThreadedProxyResolver::Job::DoQuery
+   fun:void DispatchToMethod
+   fun:RunnableMethod::Run
+   fun:MessageLoop::RunTask
+   fun:MessageLoop::DeferOrRunPendingTask
+   fun:MessageLoop::DoWork
+   fun:base::MessagePumpDefault::Run
+   fun:MessageLoop::RunInternal
+   fun:MessageLoop::RunHandler
+   fun:MessageLoop::Run
+   fun:base::Thread::Run
+   fun:base::Thread::ThreadMain
+   fun:ThreadFunc
+   fun:start_thread
+}
+{
+   bug_49300_a
+   Heapcheck:Leak
+   fun:disk_cache::StorageBlock::AllocateData
+   fun:disk_cache::StorageBlock::Data
+}
+{
+   bug_49300_b
+   Heapcheck:Leak
+   ...
+   fun:disk_cache::BackendImpl::CreateEntryImpl
+   fun:disk_cache::BackendImpl::SyncCreateEntry
+   fun:disk_cache::BackendIO::ExecuteBackendOperation
+}
+{
+   bug_49300_c
+   Heapcheck:Leak
+   ...
+   fun:disk_cache::BackendImpl::NewEntry
+   fun:disk_cache::BackendImpl::MatchEntry
+}
+{
+   bug_49310_a
+   Heapcheck:Leak
+   ...
+   fun:TemplateURLPrepopulateData::MakePrepopulatedTemplateURL
+   fun:TemplateURLPrepopulateData::GetPrepopulatedTemplatefromPrefs
+   fun:TemplateURLPrepopulateData::GetPrepopulatedEngines
+   fun:TemplateURLPrepopulateDataTest_ProvidersFromPrefs_Test::TestBody
+}
+{
+   bug_49310_b
+   Heapcheck:Leak
+   ...
+   fun:TemplateURLRef::ParseHostAndSearchTermKey
+   fun:TemplateURLRef::ParseIfNecessary
+   fun:TemplateURLRef::GetHost
+   fun:TemplateURLPrepopulateDataTest_ProvidersFromPrefs_Test::TestBody
+}
+# "Schedule*" stands for {ScheduleImmediately,ScheduleWithDelay}.
+{
+   bug_50345
+   Heapcheck:Leak
+   ...
+   fun:ScopedRunnableMethodFactory::NewRunnableMethod
+   fun:sync_notifier::ChromeSystemResources::MakeTaskToPost
+   fun:sync_notifier::ChromeSystemResources::Schedule*
+   fun:sync_notifier::::ChromeSystemResourcesTest::ScheduleShouldNotRun
+}
+{
+   bug_50598_a
+   Heapcheck:Leak
+   ...
+   fun:RenderThread
+   fun:safe_browsing::PhishingDOMFeatureExtractorTest::SetUp
+}
+{
+   bug_50598_b
+   Heapcheck:Leak
+   fun:WaitableEvent
+   fun:ChildProcess
+   fun:RenderProcess
+   fun:MockRenderProcess
+   fun:safe_browsing::PhishingDOMFeatureExtractorTest::SetUp
+}
+{
+   bug_50598_c
+   Heapcheck:Leak
+   ...
+   fun:safe_browsing::PhishingDOMFeatureExtractorTest::GetNextThreadName
+}
+{
+   bug_51176_a
+   Heapcheck:Leak
+   fun:Callback1::Type* NewCallback
+   fun:PrefValueStoreTest_TestPolicyRefresh_Test::TestBody
+}
+{
+   bug_51176_b
+   Heapcheck:Leak
+   fun:Callback1::Type* NewCallback
+   fun:PrefValueStoreTest_TestRefreshPolicyPrefsCompletion_Test::TestBody
+}
+{
+   bug_51176_c
+   Heapcheck:Leak
+   fun:Callback1::Type* NewCallback
+   fun:PrefValueStoreTest_TestConcurrentPolicyRefresh_Test::TestBody
+}
+{
+   bug_52826
+   Heapcheck:Leak
+   fun:TestingProfile::CreateRequestContext
+   fun:GoogleURLTrackerTest::CreateRequestContext
+   fun:GoogleURLTrackerTest*_Test::TestBody
+}
+{
+   bug_52900_a
+   Heapcheck:Leak
+   ...
+   fun:MockRenderProcessHostFactory::CreateRenderProcessHost
+   fun:SiteInstance::GetProcess
+   fun:RenderViewHost
+   fun:TestRenderViewHost
+   fun:TestRenderViewHostFactory::CreateRenderViewHost
+   fun:RenderViewHostFactory::Create
+   fun:RenderViewHostManager::Init
+   fun:TabContents
+   fun:TestTabContents
+   fun:RenderViewHostTestHarness::CreateTestTabContents
+   fun:RenderViewHostTestHarness::SetUp
+}
+{
+   bug_52900_b
+   Heapcheck:Leak
+   ...
+   fun:RenderViewHostDelegateViewHelper::CreateNewFullscreenWidget
+   fun:TabContentsView::CreateNewFullscreenWidgetInternal
+   fun:TabContentsView::CreateNewFullscreenWidget
+   fun:RenderViewHost::CreateNewFullscreenWidget
+   fun:RenderViewHostTest_CreateFullscreenWidget_Test::TestBody
+}
+{
+   bug_52900_c
+   Heapcheck:Leak
+   ...
+   fun:IPC::TestSink::OnMessageReceived
+   fun:MockRenderProcessHost::Send
+   fun:PurgePluginListCache
+   fun:PluginService::Observe
+   fun:NotificationService::Notify
+   fun:ExtensionsService::NotifyExtensionLoaded
+   fun:ExtensionsService::OnExtensionLoaded
+   fun:ExtensionsService::LoadInstalledExtension
+   fun:ExtensionsService::ContinueLoadAllExtensions
+   fun:ExtensionsService::LoadAllExtensions
+   fun:ExtensionsService::Init
+   fun:ExtensionsServiceTest_CleanupOnStartup_Test::TestBody
+}
+{
+   bug_53184
+   Heapcheck:Leak
+   fun:base::WaitableEventWatcher::StartWatching
+   fun:IPC::SyncChannel::SyncContext::OnChannelOpened
+   fun:void DispatchToMethod
+   fun:RunnableMethod::Run
+   fun:MessageLoop::RunTask
+}
+{
+   bug_53936_a
+   Heapcheck:Leak
+   fun:__gnu_cxx::new_allocator::allocate
+   fun:std::string::_Rep::_S_create
+   fun:std::string::_Rep::_M_clone
+   fun:std::string::reserve
+   fun:std::string::append
+   fun:FilePath::Append
+   fun:chrome::GetUserDownloadsDirectory
+   fun:chrome::PathProvider
+   fun:PathService::Get
+   fun:DefaultDownloadDirectory
+   fun:DefaultSingletonTraits::New
+   fun:Singleton::get
+   fun:download_util::GetDefaultDownloadDirectory
+   fun:DownloadPrefs::RegisterUserPrefs
+   fun:browser::RegisterUserPrefs
+   fun:browser::RegisterAllPrefs
+}
+{
+   bug_53936_b
+   Heapcheck:Leak
+   fun:CancelableTask* NewRunnableFunction
+   fun:DownloadPrefs::RegisterUserPrefs
+   fun:browser::RegisterUserPrefs
+   fun:browser::RegisterAllPrefs
+   fun:TestingProfile::GetPrefs
+   fun:Browser
+   fun:BookmarkBarGtkUnittest
+}

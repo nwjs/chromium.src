@@ -1,0 +1,32 @@
+#searchEngineList > div, #searchEngineHeading {
+  display: -webkit-box;
+}
+
+#searchEngineManagerPage .name {
+  -webkit-box-sizing: border-box;
+  width: 50%;
+}
+
+#searchEngineManagerPage .keyword {
+  -webkit-box-flex: 1;
+}
+
+#searchEngineList .keyword {
+  color: #666666;
+}
+
+#searchEngineList .default {
+  font-weight: bold;
+}
+
+#searchEngineList .name, #searchEngineList .keyword {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#searchEngineHeading {
+  font-weight: bold;
+  padding: 4px;
+  border-bottom: solid 1px black;
+  border-top: 1px solid black;
+}

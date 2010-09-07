@@ -1,0 +1,12 @@
+include_rules = [
+  "+app",
+  "+gfx",
+  "+google/protobuf",
+  "+media/base",
+
+  "+jingle",
+
+  "+talk",
+  "+third_party/npapi",
+  "+third_party/zlib",
+]

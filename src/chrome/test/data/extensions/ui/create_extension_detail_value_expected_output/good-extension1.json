@@ -1,0 +1,40 @@
+{
+  "id": "behllobkkfkfnphdnhnkndlbkcpglgmj",
+  "version": "1.0.0.0",
+  "name": "__MSG_chrome_extension_name__",
+  "enabled": true,
+  "description": "__MSG_chrome_extension_description__",
+  "permissions": ["http://*.google.com/*", "https://*.google.com/*"],
+  "allow_reload": false,
+  "order": 2,
+  "enabledIncognito": false,
+  "wantsFileAccess": true,
+  "allowFileAccess": false,
+  "content_scripts": [
+    {
+      "matches": ["file://*", "http://*.google.com/*", "https://*.google.com/*"],
+      "js": ["script1.js", "script2.js"],
+      "css": ["style1.css", "style2.css", "style2.css"]
+    },
+    {
+      "matches": ["http://*.news.com/*"],
+      "js": ["js_files/script3.js"]
+    }
+  ],
+  "views": [
+    {
+      "path": "bar.html",
+      "renderProcessId": 42,
+      "renderViewId": 88,
+      "incognito": false
+    },
+    {
+      "path": "dog.html",
+      "renderProcessId": 0,
+      "renderViewId": 0,
+      "incognito": false
+    }
+  ],
+  "hasPopupAction": false,
+  "galleryUrl": ""
+}

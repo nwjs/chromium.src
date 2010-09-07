@@ -1,0 +1,37 @@
+/*
+Copyright (c) 2010 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+*/
+
+.subpages-nav-tabs .inactive-tab {
+  background: -webkit-gradient(linear,
+                               left top,
+                               left bottom,
+                               from(white),
+                               to(#f3f3f3));
+  border-bottom: 1px solid #a0a0a0;
+  padding: 4px 8px;
+}
+
+.subpages-nav-tabs .active-tab {
+  background: white;
+  border: 1px solid #a0a0a0;
+  border-bottom: 0;
+  -webkit-border-top-left-radius: 3px;
+  -webkit-border-top-right-radius: 3px;
+  font-weight: bold;
+}
+
+.subpages-nav-tabs {
+  margin-bottom: 15px;
+}
+
+.subpages-tab-contents {
+  display: none;
+   -webkit-padding-start: 10px;
+}
+
+.active-tab-contents {
+  display: block;
+}

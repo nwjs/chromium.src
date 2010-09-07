@@ -1,0 +1,45 @@
+<link rel="stylesheet" href="chrome://resources/css/list.css">
+
+<div class="page hidden" id="languagePage">
+  <h1 i18n-content="languagePage"></h1>
+  <div id="notification">
+    <span>&nbsp;</span>
+    <span class="link"><span class="link-color"></span></span>
+  </div>
+  <div class="language-options-header">
+    <div i18n-content="add_language_instructions"></div>
+    <div i18n-content="input_method_instructions"></div>
+  </div>
+  <div class="language-options">
+    <div class="language-options-left">
+      <h3 i18n-content="languages"></h3>
+      <list id="language-options-list"></list>
+      <div class="language-options-lower-left">
+        <button id="language-options-add-button"
+                i18n-content="add_button"></button>
+        <button id="language-options-remove-button"
+                i18n-content="remove_button"></button>
+      </div>
+    </div>
+    <div class="language-options-right">
+      <h3 id="language-options-language-name"></h3>
+      <div class="language-options-contents">
+        <button id="language-options-ui-language-button"></button>
+      </div>
+      <div id="language-options-ui-notification-bar"
+           class="language-options-notification">
+        <div i18n-content="restart_required"></div>
+        <button id="language-options-ui-restart-button"
+                i18n-content="restart_button"></button>
+      </div>
+      <h3 i18n-content="input_method"></h3>
+      <div id="language-options-input-method-list"
+           class="language-options-contents">
+      </div>
+    </div>
+  </div>
+  <div class="language-options-footer">
+    <div i18n-content="switch_input_methods_hint"></div>
+    <div i18n-content="select_previous_input_method_hint"></div>
+  </div>
+</div>

@@ -1,0 +1,133 @@
+#!/bin/sh
+
+# Copyright (c) 2010 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Running Chromium via this script makes it possible to set Chromium as the
+# default browser directly out of a compile, without needing to package it.
+
+DESKTOP="chromium-devel"
+TITLE="Chromium"
+
+# Check to see if there is a desktop file of the given name.
+exists_desktop_file() {
+    # Build a search list from $XDG_DATA_HOME and $XDG_DATA_DIRS, the latter
+    # of which can itself be a colon-separated list of directories to search.
+    search="${XDG_DATA_HOME:-$HOME/.local/share}:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+    IFS=:
+    for dir in $search; do
+        unset IFS
+        [ "$dir" -a -d "$dir/applications" ] || continue
+        [ -r "$dir/applications/$DESKTOP.desktop" ] && return
+    done
+    # Didn't find it in the search path.
+    return 1
+}
+
+# Checks a file to see if it's a 32 or 64-bit.
+check_executable() {
+    out=$(file $(readlink -f $1) 2> /dev/null)
+    echo $out | grep -qs "ELF 32-bit LSB"
+    if [ $? = 0 ]; then
+        echo 32
+        return
+    fi
+    echo $out | grep -qs "ELF 64-bit LSB"
+    if [ $? = 0 ]; then
+        echo 64
+        return
+    fi
+    echo neither
+}
+
+# Generate a desktop file that will run this script.
+generate_desktop_file() {
+    apps="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+    mkdir -p "$apps"
+    cat > "$apps/$DESKTOP.desktop" << EOF
+[Desktop Entry]
+Version=1.0
+Encoding=UTF-8
+Name=$TITLE
+Exec=$CHROME_WRAPPER %U
+Terminal=false
+Icon=$HERE/product_logo_48.png
+Type=Application
+Categories=Application;Network;WebBrowser;
+MimeType=text/html;text/xml;application/xhtml_xml;
+EOF
+}
+
+# Let the wrapped binary know that it has been run through the wrapper.
+export CHROME_WRAPPER="`readlink -f "$0"`"
+export CHROME_DESKTOP="$DESKTOP.desktop"
+
+HERE="`dirname "$CHROME_WRAPPER"`"
+
+# We include some xdg utilities next to the binary, and we want to prefer them
+# over the system versions because we know they work correctly for us. But if
+# our path already exists, we leave it where it is, to allow overriding this.
+# (Once distributions have picked up the updated xdg-mime, we can go back to
+# appending $HERE rather than prepending.)
+case ":$PATH:" in
+  *:$HERE:*)
+    # $PATH already contains $HERE, leave it where it is.
+    ;;
+  *)
+    # Prepend $HERE to $PATH.
+    export PATH="$HERE:$PATH"
+    ;;
+esac
+
+# Always use our ffmpeg and other shared libs.
+export LD_LIBRARY_PATH="$HERE:$HERE/lib:$HERE/lib.target:$LD_LIBRARY_PATH"
+
+MISSING_LIBS=$(ldd "$HERE/chrome" 2> /dev/null |grep "not found$" | cut -d" " -f 1|sed 's/\t//')
+CHROME_ARCH=$(check_executable "$HERE/chrome")
+uname -m | grep -qs x86_64
+if [ $? = 1 ]; then
+    LIBDIRS="/lib /lib32 /usr/lib /usr/lib32"
+else
+    LIBDIRS="/lib64 /lib /usr/lib64 /usr/lib"
+fi
+
+echo $MISSING_LIBS | grep -qs libbz2.so.1.0
+if [ $? = 0 ]; then
+    for dir in $LIBDIRS
+    do
+        if [ -e "$dir/libbz2.so.1" ]; then
+            LIB_ARCH=$(check_executable "$dir/libbz2.so.1")
+            if [ "$CHROME_ARCH" = "$LIB_ARCH" ]; then
+                ln -snf "$dir/libbz2.so.1" "$HERE/libbz2.so.1.0"
+                break;
+            fi
+        fi
+    done
+fi
+
+for lib in libnspr4.so.0d libnss3.so.1d libnssutil3.so.1d libplc4.so.0d libplds4.so.0d libsmime3.so.1d libssl3.so.1d
+do
+    echo $MISSING_LIBS | grep -qs $lib
+    if [ $? = 0 ]; then
+        reallib=$(echo $lib | sed 's/\.[01]d$//')
+        for dir in $LIBDIRS
+        do
+            if [ -e "$dir/$reallib" ]; then
+                LIB_ARCH=$(check_executable "$dir/$reallib")
+                if [ "$CHROME_ARCH" = "$LIB_ARCH" ]; then
+                    ln -snf "$dir/$reallib" "$HERE/$lib"
+                    break;
+                fi
+            fi
+        done
+    fi
+done
+
+# Custom version string for this release. This can be used to add a downstream
+# vendor string or release channel information.
+export CHROME_VERSION_EXTRA="custom"
+
+exists_desktop_file || generate_desktop_file
+
+exec "$HERE/chrome" "$@"

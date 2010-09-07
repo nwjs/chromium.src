@@ -1,0 +1,7 @@
+Name: Compact Language Detection
+URL: http://src.chromium.org/viewvc/chrome/trunk/src/third_party/cld/
+
+The CLD is used to determine the language of text.
+
+This library is open source Google code.  It is currently only
+available from the Chromium tree, and not well-documented otherwise.
