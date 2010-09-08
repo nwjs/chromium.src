@@ -11,7 +11,10 @@ TestGeolocationService::TestGeolocationService()
 }
 
 TestGeolocationService::~TestGeolocationService() {
-
+  for (IDMap<WebKit::WebGeolocationServiceBridge>::iterator it(&bridges_map_);
+       !it.IsAtEnd(); it.Advance()) {
+    it.GetCurrentValue()->onWebGeolocationServiceDestroyed();
+  }
 }
 
 void TestGeolocationService::SetGeolocationPermission(bool allowed) {
