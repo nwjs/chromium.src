@@ -28,6 +28,12 @@ bool IsExtensionSyncable(const Extension& extension) {
     return false;
   }
 
+  // Reject converted user scripts that don't have an auto-update URL.
+  if (extension.converted_from_user_script() &&
+      extension.update_url().is_empty()) {
+    return false;
+  }
+
   // TODO(akalin): Figure out if we need to allow some other types.
   if (extension.location() != Extension::INTERNAL) {
     // We have a non-standard location.
