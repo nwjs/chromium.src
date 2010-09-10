@@ -1322,8 +1322,7 @@ IPC_BEGIN_MESSAGES(ViewHost)
   // content settings for |policy_url|. It still appears in navigator.plugins in
   // Javascript though, and can be loaded via click-to-play.
   // If |setting| is set to CONTENT_SETTING_ALLOW, the domain is explicitly
-  // white-listed for the plug-in, or the user has chosen not to block
-  // nonsandboxed plugins.
+  // white-listed for the plug-in.
   // If |setting| is set to CONTENT_SETTING_DEFAULT, the plug-in is neither
   // blocked nor white-listed, which means that it's allowed by default and
   // can still be blocked if it's non-sandboxed.

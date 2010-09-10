@@ -187,7 +187,6 @@ extern const char kPerHostContentSettings[];  // OBSOLETE
 extern const char kContentSettingsVersion[];
 extern const char kContentSettingsPatterns[];
 extern const char kBlockThirdPartyCookies[];
-extern const char kBlockNonsandboxedPlugins[];
 extern const char kClearSiteDataOnExit[];
 extern const char kPerHostZoomLevels[];
 extern const char kAutoFillEnabled[];

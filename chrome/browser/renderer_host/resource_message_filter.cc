@@ -784,13 +784,10 @@ void ResourceMessageFilter::OnGetPluginInfo(const GURL& url,
 #endif
     *setting = map->GetNonDefaultContentSetting(
         policy_url, CONTENT_SETTINGS_TYPE_PLUGINS, resource);
-    if (*setting == CONTENT_SETTING_DEFAULT) {
-      ContentSetting defaultContentSetting =
-          map->GetDefaultContentSetting(CONTENT_SETTINGS_TYPE_PLUGINS);
-      if (defaultContentSetting == CONTENT_SETTING_BLOCK ||
-          !map->GetBlockNonsandboxedPlugins()) {
-        *setting = defaultContentSetting;
-      }
+    if (*setting == CONTENT_SETTING_DEFAULT &&
+        map->GetDefaultContentSetting(CONTENT_SETTINGS_TYPE_PLUGINS) ==
+            CONTENT_SETTING_BLOCK) {
+      *setting = CONTENT_SETTING_BLOCK;
     }
   }
 }
