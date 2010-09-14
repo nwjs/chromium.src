@@ -207,7 +207,7 @@ class RenderViewZoomer : public RenderViewVisitor {
 };
 
 bool IsSpeechInputEnabled(const CommandLine& command_line) {
-#if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX)
+#if defined(OS_WIN) || defined(OS_MACOSX)
   return !command_line.HasSwitch(switches::kDisableSpeechInput);
 #else
   return command_line.HasSwitch(switches::kEnableSpeechInput);
