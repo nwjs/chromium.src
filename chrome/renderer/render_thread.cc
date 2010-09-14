@@ -205,14 +205,6 @@ class RenderViewZoomer : public RenderViewVisitor {
 
   DISALLOW_COPY_AND_ASSIGN(RenderViewZoomer);
 };
-
-bool IsSpeechInputEnabled(const CommandLine& command_line) {
-#if defined(OS_WIN) || defined(OS_MACOSX)
-  return !command_line.HasSwitch(switches::kDisableSpeechInput);
-#else
-  return command_line.HasSwitch(switches::kEnableSpeechInput);
-#endif
-}
 }  // namespace
 
 // When we run plugins in process, we actually run them on the render thread,
@@ -958,7 +950,8 @@ void RenderThread::EnsureWebKitInitialized() {
   WebRuntimeFeatures::enableDeviceOrientation(
       !command_line.HasSwitch(switches::kDisableDeviceOrientation));
 
-  WebRuntimeFeatures::enableSpeechInput(IsSpeechInputEnabled(command_line));
+  WebRuntimeFeatures::enableSpeechInput(
+      command_line.HasSwitch(switches::kEnableSpeechInput));
 
   WebRuntimeFeatures::enableFileSystem(
       command_line.HasSwitch(switches::kEnableFileSystem));

@@ -85,7 +85,6 @@ extern const char kDisableRestoreBackgroundContents[];
 extern const char kDisableSessionStorage[];
 extern const char kDisableSharedWorkers[];
 extern const char kDisableSiteSpecificQuirks[];
-extern const char kDisableSpeechInput[];
 extern const char kDisableSSLFalseStart[];
 extern const char kDisableSync[];
 extern const char kDisableSyncApps[];
