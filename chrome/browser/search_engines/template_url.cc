@@ -18,6 +18,7 @@
 
 #if defined(OS_WIN)
 #include "chrome/browser/rlz/rlz.h"
+#include "chrome/installer/util/google_update_settings.h"
 #endif
 
 // The TemplateURLRef has any number of terms that need to be replaced. Each of
@@ -340,7 +341,10 @@ std::string TemplateURLRef::ReplaceSearchTerms(
         // NOTREACHED below.)
 #if defined(OS_WIN)
         std::wstring rlz_string;
-        RLZTracker::GetAccessPointRlz(rlz_lib::CHROME_OMNIBOX, &rlz_string);
+        std::wstring brand;
+        GoogleUpdateSettings::GetBrand(&brand);
+        if (!brand.empty() && !GoogleUpdateSettings::IsOrganic(brand))
+          RLZTracker::GetAccessPointRlz(rlz_lib::CHROME_OMNIBOX, &rlz_string);
         if (!rlz_string.empty()) {
           rlz_string = L"rlz=" + rlz_string + L"&";
           url.insert(i->index, WideToUTF8(rlz_string));
