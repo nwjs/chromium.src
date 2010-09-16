@@ -570,8 +570,11 @@ void GoogleChromeDistribution::LaunchUserExperiment(
   }
 
   // This ends up being processed by ShowTryChromeDialog to show different
-  // experiments.
-  int flavor = base::RandInt(0, 3);
+  // experiments.  Only run the experiment in en-US.
+  int flavor = 0;
+  std::wstring language;
+  if (GoogleUpdateSettings::GetLanguage(&language) && (language == L"en-US"))
+    flavor = base::RandInt(0, 3);
 
   std::wstring brand;
   if (GoogleUpdateSettings::GetBrand(&brand) && (brand == L"CHXX")) {
@@ -581,8 +584,7 @@ void GoogleChromeDistribution::LaunchUserExperiment(
     // Check browser usage inactivity by the age of the last-write time of the
     // chrome user data directory.
     std::wstring user_data_dir = installer::GetChromeUserDataPath();
-    // TODO(cpu): re-enable experiment.
-    const int kThirtyDays = 3000 * 24;
+    const int kThirtyDays = 30 * 24;
     int dir_age_hours = GetDirectoryWriteAgeInHours(user_data_dir.c_str());
     if (dir_age_hours < 0) {
       // This means that we failed to find the user data dir. The most likely
