@@ -131,7 +131,7 @@ int GetDirectoryWriteAgeInHours(const wchar_t* path) {
 bool RelaunchSetup(const std::wstring& flag, int value,
                    bool system_level_toast) {
   CommandLine new_cmd_line(CommandLine::ForCurrentProcess()->GetProgram());
-  new_cmd_line.AppendSwitchWithValue(flag, IntToString(value));
+  new_cmd_line.AppendSwitchASCII(flag, base::IntToString(value));
 
   // Re-add the system level toast flag.
   if (system_level_toast) {
@@ -146,7 +146,7 @@ bool RelaunchSetup(const std::wstring& flag, int value,
     std::string key = WideToASCII(installer_util::switches::kToastResultsKey);
     std::string toast_key = current_cmd_line.GetSwitchValueASCII(key);
     if (!toast_key.empty()) {
-      new_cmd_line.AppendSwitchWithValue(key, toast_key);
+      new_cmd_line.AppendSwitchASCII(key, toast_key);
 
       // Use handle inheritance to make sure the duplicated toast results key
       // gets inherited by the child process.
@@ -221,9 +221,9 @@ bool RelaunchSetupAsConsoleUser(const std::wstring& flag) {
   // Get the Google Update results key, and pass it on the command line to
   // the child process.
   int key = GoogleUpdateSettings::DuplicateGoogleUpdateSystemClientKey();
-  cmd_line.AppendSwitchWithValue(
+  cmd_line.AppendSwitchASCII(
       WideToASCII(installer_util::switches::kToastResultsKey),
-      IntToString(key));
+      base::IntToString(key));
 
   if (win_util::GetWinVersion() > win_util::WINVERSION_XP) {
     // Make sure that in Vista and Above we have the proper DACLs so
