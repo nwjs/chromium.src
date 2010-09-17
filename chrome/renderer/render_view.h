@@ -404,8 +404,6 @@ class RenderView : public RenderWidget,
       const WebKit::WebAccessibilityObject& acc_obj);
   virtual void didChangeAccessibilityObjectState(
       const WebKit::WebAccessibilityObject& acc_obj);
-  virtual void didChangeAccessibilityObjectChildren(
-      const WebKit::WebAccessibilityObject& acc_obj);
   virtual void didUpdateInspectorSetting(const WebKit::WebString& key,
                                          const WebKit::WebString& value);
   virtual void queryAutofillSuggestions(const WebKit::WebNode& node,
@@ -717,7 +715,6 @@ class RenderView : public RenderWidget,
   // render_messages_internal.h for the message that the function is handling.
 
   void OnAccessibilityDoDefaultAction(int acc_obj_id);
-  void OnAccessibilityObjectChildrenChangeAck();
   void OnAllowBindings(int enabled_bindings_flags);
   void OnAddMessageToConsole(const string16& frame_xpath,
                              const string16& message,
@@ -1255,8 +1252,6 @@ class RenderView : public RenderWidget,
   // Handles accessibility requests into the renderer side, as well as
   // maintains the cache and other features of the accessibility tree.
   scoped_ptr<WebKit::WebAccessibilityCache> accessibility_;
-
-  std::vector<webkit_glue::WebAccessibility> accessibility_changes_;
 
   // The speech dispatcher attached to this view, lazily initialized.
   scoped_ptr<SpeechInputDispatcher> speech_input_dispatcher_;
