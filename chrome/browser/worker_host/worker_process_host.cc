@@ -127,8 +127,6 @@ bool WorkerProcessHost::Init() {
                              arraysize(kSwitchNames));
 
 #if defined(OS_POSIX)
-  bool use_zygote = true;
-
   if (CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kWaitForDebuggerChildren)) {
     // Look to pass-on the kWaitForDebugger flag.
@@ -136,7 +134,6 @@ bool WorkerProcessHost::Init() {
         switches::kWaitForDebuggerChildren);
     if (value.empty() || value == switches::kWorkerProcess) {
       cmd_line->AppendSwitch(switches::kWaitForDebugger);
-      use_zygote = false;
     }
   }
 
@@ -148,8 +145,14 @@ bool WorkerProcessHost::Init() {
       // launches a new xterm, and runs the worker process in gdb, reading
       // optional commands from gdb_chrome file in the working directory.
       cmd_line->PrependWrapper("xterm -e gdb -x gdb_chrome --args");
-      use_zygote = false;
     }
+  }
+
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kRendererCmdPrefix)) {
+    cmd_line->PrependWrapper(
+        CommandLine::ForCurrentProcess()->GetSwitchValueNative(
+            switches::kRendererCmdPrefix));
   }
 #endif
 
@@ -157,7 +160,7 @@ bool WorkerProcessHost::Init() {
 #if defined(OS_WIN)
       FilePath(),
 #elif defined(OS_POSIX)
-      use_zygote,
+      false,
       base::environment_vector(),
 #endif
       cmd_line);

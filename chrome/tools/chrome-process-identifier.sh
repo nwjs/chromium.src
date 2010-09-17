@@ -52,8 +52,7 @@ identify() {
   foundzygote=0
   for child in $(ps h --format pid --ppid $1); do
     cmd="$(xargs -0 </proc/$child/cmdline|sed 's/ -/\n-/g')" 2>/dev/null
-    type="$(echo "$cmd" | sed 's/--type=//;t1;d;:1;q')"
-    case $type in
+    case "$(echo "$cmd" | sed 's/--type=//;t1;d;:1;q')" in
       '')
         echo "Process $child is part of the browser"
         identify "$child"
@@ -68,19 +67,19 @@ identify() {
         echo "Process $child is a \"$plugin\" plugin"
         identify "$child"
         ;;
-      renderer|worker)
+      renderer)
         # The seccomp sandbox has exactly one child process that has no other
         # threads. This is the trusted helper process.
-        seccomp="$(ps h --format pid --ppid $child|xargs)"
+        seccomp="$(ps h --format pid --ppid $child)"
         if [ $(echo "$seccomp" | wc -w) -eq 1 ] &&
            [ $(ls /proc/$seccomp/task 2>/dev/null | wc -w) -eq 1 ] &&
            ls -l /proc/$seccomp/exe 2>/dev/null | egrep -q '/chrome$'; then
-          echo -n "Process $child is a sandboxed $type (seccomp helper:" \
+          echo -n "Process $child is a sandboxed renderer (seccomp helper:" \
                   "$seccomp)"
           [ -d /proc/$child/cwd/. ] || echo -n "; setuid sandbox is active"
           echo
         else
-          echo -n "Process $child is a $type"
+          echo -n "Process $child is a renderer"
           [ -d /proc/$child/cwd/. ] || echo -n "; setuid sandbox is active"
           echo
           identify "$child"
@@ -92,6 +91,7 @@ identify() {
         identify "$child"
         ;;
       *)
+        type="$(echo "$cmd" | sed 's/--type=//;t1;d;:1;q')"
         echo "Process $child is of unknown type \"$type\""
         identify "$child"
         ;;
