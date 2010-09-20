@@ -80,6 +80,7 @@ extern const wchar_t kShowEula[];
 extern const wchar_t kAltDesktopShortcut[];
 extern const wchar_t kInactiveUserToast[];
 extern const wchar_t kSystemLevelToast[];
+extern const wchar_t kToastResultsKey[];
 }  // namespace switches
 
 extern const wchar_t kGoogleChromeInstallSubDir1[];

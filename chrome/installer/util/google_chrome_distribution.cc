@@ -53,13 +53,14 @@ const wchar_t kToastExpBaseGroup[] =         L"T%lc80";
 
 // Generates the actual group string that gets written in the registry.
 // |group| is one of the above kToast* strings and |flavor| is a number
-// between 0 and 5.
+// from 0 to 3.
 //
 // The big experiment in Dec 2009 used TGxx and THxx.
-// The big experiment in Feb 2010 uses TKxx and TLxx.
-// The big experiment in Apr 2010 uses TMxx and TNxx.
+// The big experiment in Feb 2010 used TKxx and TLxx.
+// The big experiment in Apr 2010 used TMxx and TNxx.
+// The big experiment in Oct 2010 (current) uses TVxx TWxx TXxx TYxx.
 std::wstring GetExperimentGroup(const wchar_t* group, int flavor) {
-  wchar_t c = flavor < 5 ? L'M' + flavor : L'X';
+  wchar_t c = flavor < 4 ? L'V' + flavor : L'Z';
   return StringPrintf(group, c);
 }
 
@@ -126,14 +127,35 @@ int GetDirectoryWriteAgeInHours(const wchar_t* path) {
 // Launches again this same process with switch --|flag|=|value|.
 // If system_level_toast is true, appends --system-level-toast.
 // Does not wait for the process to terminate.
+// If handle to experiment result key was given at startup, re-add it.
 bool RelaunchSetup(const std::wstring& flag, int value,
                    bool system_level_toast) {
-  CommandLine cmd_line(CommandLine::ForCurrentProcess()->GetProgram());
-  cmd_line.AppendSwitchWithValue(WideToASCII(flag), IntToWString(value));
-  if (system_level_toast)
-    cmd_line.AppendSwitch(
+  CommandLine new_cmd_line(CommandLine::ForCurrentProcess()->GetProgram());
+  new_cmd_line.AppendSwitchWithValue(WideToASCII(flag), IntToWString(value));
+  // Re-add the system level toast flag.
+  if (system_level_toast) {
+    new_cmd_line.AppendSwitch(
       WideToASCII(installer_util::switches::kSystemLevelToast));
-  return base::LaunchApp(cmd_line, false, false, NULL);
+
+    // Re-add the toast result key. We need to do this because Setup running as
+    // system passes the key to Setup running as user, but that child process
+    // does not perform the actual toasting, it launches another Setup (as user)
+    // to do so. That is the process that needs the key.
+    const CommandLine& current_cmd_line = *CommandLine::ForCurrentProcess();
+    std::string key = WideToASCII(installer_util::switches::kToastResultsKey);
+    std::string toast_key = current_cmd_line.GetSwitchValueASCII(key);
+    if (!toast_key.empty()) {
+      new_cmd_line.AppendSwitchWithValue(key, toast_key);
+
+      // Use handle inheritance to make sure the duplicated toast results key
+      // gets inherited by the child process.
+      return base::LaunchAppWithHandleInheritance(
+          new_cmd_line.command_line_string(), false, false, NULL);
+    }
+  }
+
+  return base::LaunchApp(new_cmd_line.command_line_string(),
+                         false, false, NULL);
 }
 
 // For System level installs, setup.exe lives in the system temp, which
@@ -195,12 +217,18 @@ bool RelaunchSetupAsConsoleUser(const std::wstring& flag) {
   CommandLine cmd_line(setup_exe);
   cmd_line.AppendSwitch(WideToASCII(flag));
 
+  // Get the Google Update results key, and pass it on the command line to
+  // the child process.
+  int key = GoogleUpdateSettings::DuplicateGoogleUpdateSystemClientKey();
+  cmd_line.AppendSwitchWithValue(
+      WideToASCII(installer_util::switches::kToastResultsKey),
+      IntToString(key));
+
   if (win_util::GetWinVersion() > win_util::WINVERSION_XP) {
     // Make sure that in Vista and Above we have the proper DACLs so
     // the interactive user can launch it.
-    if (!FixDACLsForExecute(setup_exe.ToWStringHack().c_str())) {
+    if (!FixDACLsForExecute(setup_exe.ToWStringHack().c_str()))
       NOTREACHED();
-    }
   }
 
   DWORD console_id = ::WTSGetActiveConsoleSessionId();
@@ -209,9 +237,11 @@ bool RelaunchSetupAsConsoleUser(const std::wstring& flag) {
   HANDLE user_token;
   if (!::WTSQueryUserToken(console_id, &user_token))
     return false;
+  // Note: Handle inheritance must be true in order for the child process to be
+  // able to use the duplicated handle above (Google Update results).
   bool launched = base::LaunchAppAsUser(user_token,
                                         cmd_line.command_line_string(),
-                                        false, NULL, true);
+                                        false, NULL, true, true);
   ::CloseHandle(user_token);
   return launched;
 }
@@ -480,6 +510,40 @@ void GoogleChromeDistribution::UpdateDiffInstallStatus(bool system_install,
 // The functions below are not used by the 64-bit Windows binary -
 // see the comment in google_chrome_distribution_dummy.cc
 #ifndef _WIN64
+// A helper function that writes to HKLM if the handle was passed through the
+// command line, but HKCU otherwise. |experiment_group| is the value to write
+// and |last_write| is used when writing to HKLM to determine whether to close
+// the handle when done.
+void SetClient(std::wstring experiment_group, bool last_write) {
+  static int reg_key_handle = -1;
+  if (reg_key_handle == -1) {
+    // If a specific Toast Results key handle (presumably to our HKLM key) was
+    // passed in to the command line (such as for system level installs), we use
+    // it. Otherwise, we write to the key under HKCU.
+    const CommandLine& cmd_line = *CommandLine::ForCurrentProcess();
+    if (cmd_line.HasSwitch(installer_util::switches::kToastResultsKey)) {
+      // Get the handle to the key under HKLM.
+      StringToInt(cmd_line.GetSwitchValueASCII(
+          WideToASCII(installer_util::switches::kToastResultsKey)).c_str(),
+          &reg_key_handle);
+    } else {
+      reg_key_handle = 0;
+    }
+  }
+
+  if (reg_key_handle) {
+    // Use it to write the experiment results.
+    GoogleUpdateSettings::WriteGoogleUpdateSystemClientKey(
+        reg_key_handle, google_update::kRegClientField, experiment_group);
+    if (last_write)
+      CloseHandle((HANDLE) reg_key_handle);
+  } else {
+    // Write to HKCU.
+    GoogleUpdateSettings::SetClient(experiment_group);
+  }
+}
+
+
 // Currently we only have one experiment: the inactive user toast. Which only
 // applies for users doing upgrades.
 //
@@ -491,7 +555,6 @@ void GoogleChromeDistribution::UpdateDiffInstallStatus(bool system_install,
 void GoogleChromeDistribution::LaunchUserExperiment(
     installer_util::InstallStatus status, const installer::Version& version,
     bool system_install) {
-
   if (system_install) {
     if (installer_util::NEW_VERSION_UPDATED == status) {
       // We need to relaunch as the interactive user.
@@ -506,8 +569,12 @@ void GoogleChromeDistribution::LaunchUserExperiment(
     }
   }
 
-  // currently only two equal experiment groups. 90% get the welcome back url.
-  int flavor = (base::RandDouble() > 0.1) ? 0 : 1;
+  // This ends up being processed by ShowTryChromeDialog to show different
+  // experiments.  Only run the experiment in en-US.
+  int flavor = 0;
+  std::wstring language;
+  if (GoogleUpdateSettings::GetLanguage(&language) && (language == L"en-US"))
+    flavor = base::RandInt(0, 3);
 
   std::wstring brand;
   if (GoogleUpdateSettings::GetBrand(&brand) && (brand == L"CHXX")) {
@@ -517,36 +584,34 @@ void GoogleChromeDistribution::LaunchUserExperiment(
     // Check browser usage inactivity by the age of the last-write time of the
     // chrome user data directory.
     std::wstring user_data_dir = installer::GetChromeUserDataPath();
-    // TODO(cpu): re-enable experiment.
-    const int kThirtyDays = 3000 * 24;
+    const int kThirtyDays = 30 * 24;
     int dir_age_hours = GetDirectoryWriteAgeInHours(user_data_dir.c_str());
     if (dir_age_hours < 0) {
-      // This means that we failed to find the user data dir. The most likey
+      // This means that we failed to find the user data dir. The most likely
       // cause is that this user has not ever used chrome at all which can
       // happen in a system-level install.
-      GoogleUpdateSettings::SetClient(
-          GetExperimentGroup(kToastUDDirFailure, flavor));
+      SetClient(GetExperimentGroup(kToastUDDirFailure, flavor), true);
       return;
     } else if (dir_age_hours < kThirtyDays) {
       // An active user, so it does not qualify.
       LOG(INFO) << "Chrome used in last " << dir_age_hours << " hours";
-      GoogleUpdateSettings::SetClient(
-          GetExperimentGroup(kToastActiveGroup, flavor));
+      SetClient(GetExperimentGroup(kToastActiveGroup, flavor), true);
       return;
     }
     // 1% are in the control group that qualifies but does not get drafted.
     if (base::RandDouble() > 0.99) {
-      GoogleUpdateSettings::SetClient(
-          GetExperimentGroup(kToastExpControlGroup, flavor));
+      SetClient(GetExperimentGroup(kToastExpControlGroup, flavor), true);
       LOG(INFO) << "User is control group";
       return;
     }
   }
+
   LOG(INFO) << "User drafted for toast experiment " << flavor;
-  GoogleUpdateSettings::SetClient(
-      GetExperimentGroup(kToastExpBaseGroup, flavor));
-  // The experiment needs to be performed in a different process because
-  // google_update expects the upgrade process to be quick and nimble.
+  SetClient(GetExperimentGroup(kToastExpBaseGroup, flavor), false);
+  // User level: The experiment needs to be performed in a different process
+  // because google_update expects the upgrade process to be quick and nimble.
+  // System level: We have already been relaunched, so we don't need to be
+  // quick, but we relaunch to follow the exact same codepath.
   RelaunchSetup(installer_util::switches::kInactiveUserToast, flavor,
                 system_install);
 }
@@ -583,7 +648,10 @@ void GoogleChromeDistribution::InactiveUserToastExperiment(int flavor,
     default:
       outcome = kToastExpTriesErrorGroup;
   };
-  GoogleUpdateSettings::SetClient(GetExperimentGroup(outcome, flavor));
+
+  // Write to the |client| key for the last time.
+  SetClient(GetExperimentGroup(outcome, flavor), true);
+
   if (outcome != kToastExpUninstallGroup)
     return;
   // The user wants to uninstall. This is a best effort operation. Note that
