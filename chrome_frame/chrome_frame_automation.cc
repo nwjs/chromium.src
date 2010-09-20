@@ -287,11 +287,6 @@ void AutomationProxyCacheEntry::CreateProxy(ChromeFrameLaunchParams* params,
   if (IsHeadlessMode())
     command_line->AppendSwitch(switches::kFullMemoryCrashReport);
 
-  // In accessible mode automation tests expect renderer accessibility to be
-  // enabled in chrome.
-  if (IsAccessibleMode())
-    command_line->AppendSwitch(switches::kForceRendererAccessibility);
-
   DLOG(INFO) << "Profile path: " << params->profile_path().value();
   command_line->AppendSwitchPath(switches::kUserDataDir,
                                  params->profile_path());

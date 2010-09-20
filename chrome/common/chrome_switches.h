@@ -176,7 +176,6 @@ extern const char kFeedbackServer[];
 extern const char kFileDescriptorLimit[];
 extern const char kFirstRun[];
 extern const char kForceFieldTestNameAndValue[];
-extern const char kForceRendererAccessibility[];
 extern const char kGpuLauncher[];
 extern const char kGpuProcess[];
 extern const char kGpuStartupDialog[];

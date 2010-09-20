@@ -100,11 +100,6 @@ RenderWidgetHost::RenderWidgetHost(RenderProcessHost* process,
   // Because the widget initializes as is_hidden_ == false,
   // tell the process host that we're alive.
   process_->WidgetRestored();
-
-  if (CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kForceRendererAccessibility)) {
-    EnableRendererAccessibility();
-  }
 }
 
 RenderWidgetHost::~RenderWidgetHost() {
