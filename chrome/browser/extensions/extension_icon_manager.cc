@@ -26,11 +26,13 @@ void ExtensionIconManager::LoadIcon(Extension* extension) {
   extension->GetIconResourceAllowLargerSize(&icon_resource,
                                             Extension::EXTENSION_ICON_BITTY);
   if (!icon_resource.extension_root().empty()) {
+    // Insert into pending_icons_ first because LoadImage can call us back
+    // synchronously if the image is already cached.
+    pending_icons_.insert(extension->id());
     image_tracker_.LoadImage(extension,
                              icon_resource,
                              gfx::Size(kFavIconSize, kFavIconSize),
                              ImageLoadingTracker::CACHE);
-    pending_icons_.insert(extension->id());
   }
 }
 
