@@ -50,10 +50,6 @@ SECURITY_STATUS MockSSPILibrary::InitializeSecurityContext(
   uint8* buf = reinterpret_cast<uint8 *>(out_buffer->pvBuffer);
   buf[0] = 0xAB;
   buf[1] = 0xBA;
-
-  // Fill in phNewContext with arbitrary value if it's invalid.
-  if (phNewContext != phContext)
-    phNewContext->dwLower = phNewContext->dwUpper = ((ULONG_PTR) ((INT_PTR)0));
   return SEC_E_OK;
 }
 
@@ -79,10 +75,8 @@ SECURITY_STATUS MockSSPILibrary::FreeCredentialsHandle(
 }
 
 SECURITY_STATUS MockSSPILibrary::DeleteSecurityContext(PCtxtHandle phContext) {
-  EXPECT_TRUE(phContext->dwLower == ((ULONG_PTR) ((INT_PTR) 0)));
-  EXPECT_TRUE(phContext->dwLower == ((ULONG_PTR) ((INT_PTR) 0)));
-  SecInvalidateHandle(phContext);
-  return SEC_E_OK;
+  ADD_FAILURE();
+  return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
 SECURITY_STATUS MockSSPILibrary::FreeContextBuffer(PVOID pvContextBuffer) {

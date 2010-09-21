@@ -32,11 +32,10 @@ class HttpAuthHandlerDigest : public HttpAuthHandler {
                                   scoped_ptr<HttpAuthHandler>* handler);
   };
 
-  HttpAuth::AuthorizationResult HandleAnotherChallenge(
-      HttpAuth::ChallengeTokenizer* challenge);
-
  protected:
-  virtual bool Init(HttpAuth::ChallengeTokenizer* challenge);
+  virtual bool Init(HttpAuth::ChallengeTokenizer* challenge) {
+    return ParseChallenge(challenge);
+  }
 
   virtual int GenerateAuthTokenImpl(const string16* username,
                                     const string16* password,

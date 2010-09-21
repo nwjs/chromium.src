@@ -31,9 +31,6 @@ class HttpAuthHandlerBasic : public HttpAuthHandler {
                                   scoped_ptr<HttpAuthHandler>* handler);
   };
 
-  HttpAuth::AuthorizationResult HandleAnotherChallenge(
-      HttpAuth::ChallengeTokenizer* challenge);
-
  protected:
   virtual bool Init(HttpAuth::ChallengeTokenizer* challenge);
 
@@ -45,8 +42,6 @@ class HttpAuthHandlerBasic : public HttpAuthHandler {
 
  private:
   ~HttpAuthHandlerBasic() {}
-
-  bool ParseChallenge(HttpAuth::ChallengeTokenizer* challenge);
 };
 
 }  // namespace net

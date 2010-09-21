@@ -34,6 +34,10 @@ bool HttpAuthHandlerNTLM::NeedsIdentity() {
   return auth_sspi_.NeedsIdentity();
 }
 
+bool HttpAuthHandlerNTLM::IsFinalRound() {
+  return auth_sspi_.IsFinalRound();
+}
+
 bool HttpAuthHandlerNTLM::AllowsDefaultCredentials() {
   if (target_ == HttpAuth::AUTH_PROXY)
     return true;

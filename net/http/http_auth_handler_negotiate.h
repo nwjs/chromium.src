@@ -107,10 +107,9 @@ class HttpAuthHandlerNegotiate : public HttpAuthHandler {
 
   virtual bool NeedsIdentity();
 
-  virtual bool AllowsDefaultCredentials();
+  virtual bool IsFinalRound();
 
-  virtual HttpAuth::AuthorizationResult HandleAnotherChallenge(
-      HttpAuth::ChallengeTokenizer* challenge);
+  virtual bool AllowsDefaultCredentials();
 
   // These are public for unit tests
   std::wstring CreateSPN(const AddressList& address_list, const GURL& orign);

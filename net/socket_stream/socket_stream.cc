@@ -930,11 +930,10 @@ int SocketStream::HandleAuthChallenge(const HttpResponseHeaders* headers) {
 
   LOG(INFO) << "The proxy " << auth_origin << " requested auth";
 
-  // TODO(cbentzel): Since SocketStream only suppports basic authentication
-  // right now, another challenge is always treated as a rejection.
-  // Ultimately this should be converted to use HttpAuthController like the
-  // HttpNetworkTransaction has.
-  if (auth_handler_.get() && !auth_identity_.invalid) {
+  // The auth we tried just failed, hence it can't be valid.
+  // Remove it from the cache so it won't be used again.
+  if (auth_handler_.get() && !auth_identity_.invalid &&
+      auth_handler_->IsFinalRound()) {
     if (auth_identity_.source != HttpAuth::IDENT_SRC_PATH_LOOKUP)
       auth_cache_.Remove(auth_origin,
                          auth_handler_->realm(),
