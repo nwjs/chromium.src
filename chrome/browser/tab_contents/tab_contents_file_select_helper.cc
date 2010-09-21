@@ -80,6 +80,7 @@ void TabContentsFileSelectHelper::OnListDone(int error) {
 
   GetRenderViewHost()->FilesSelectedInChooser(directory_lister_results_);
   directory_lister_ = NULL;
+  directory_lister_results_.clear();
 }
 
 void TabContentsFileSelectHelper::FileSelectionCanceled(void* params) {
