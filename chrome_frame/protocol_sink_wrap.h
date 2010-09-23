@@ -42,6 +42,12 @@ typedef HRESULT (STDMETHODCALLTYPE* InternetProtocol_UnlockRequest_Fn)(
     IInternetProtocol* this_object);
 
 
+enum RendererType {
+  UNDETERMINED,
+  CHROME,
+  OTHER
+};
+
 class ProtData;
 
 // A class to wrap protocol sink in IInternetProtocol::Start[Ex] for
@@ -138,7 +144,7 @@ class ProtData : public base::RefCounted<ProtData> {
   static ProtocolDataMap datamap_;
   static Lock datamap_lock_;
 
-  // Url we are retrieving. Used for RendererTypeForUrl() only.
+  // Url we are retrieving. Used for IsOptInUrl() only.
   std::wstring url_;
   // HTTP "Referrer" header if we detect are going to switch.
   // We have to save and pass it to Chrome, so scripts can read it via DOM.

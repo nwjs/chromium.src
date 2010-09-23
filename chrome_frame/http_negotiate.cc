@@ -443,8 +443,7 @@ STDMETHODIMP UserAgentAddOn::BeginningTransaction(LPCWSTR url, LPCWSTR headers,
 
   if (hr == S_OK) {
     std::string updated_headers;
-    if (IsGcfDefaultRenderer() &&
-        RENDERER_TYPE_CHROME_DEFAULT_RENDERER == RendererTypeForUrl(url)) {
+    if (IsGcfDefaultRenderer() && IsOptInUrl(url)) {
       // Replace the user-agent header with Chrome's.
       updated_headers = ReplaceOrAddUserAgent(*additional_headers,
                                               http_utils::GetChromeUserAgent());

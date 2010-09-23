@@ -296,7 +296,7 @@ TEST(UtilTests, IsDefaultRendererTest) {
   config_key.WriteValue(kEnableGCFRendererByDefault, saved_default_renderer);
 }
 
-TEST(UtilTests, RendererTypeForUrlTest) {
+TEST(UtilTests, IsOptInUrlTest) {
   // Open all the keys we need.
   RegKey config_key(HKEY_CURRENT_USER, kChromeFrameConfigKey, KEY_ALL_ACCESS);
   EXPECT_TRUE(config_key.Valid());
@@ -320,19 +320,18 @@ TEST(UtilTests, RendererTypeForUrlTest) {
   EXPECT_FALSE(IsGcfDefaultRenderer());
 
   opt_for_gcf.DeleteValue(kTestFilter);  // Just in case this exists
-  EXPECT_EQ(RENDERER_TYPE_UNDETERMINED, RendererTypeForUrl(kTestUrl));
+  EXPECT_FALSE(IsOptInUrl(kTestUrl));
   opt_for_gcf.WriteValue(kTestFilter, L"");
-  EXPECT_EQ(RENDERER_TYPE_CHROME_OPT_IN_URL, RendererTypeForUrl(kTestUrl));
+  EXPECT_TRUE(IsOptInUrl(kTestUrl));
 
   // Now set GCF as the default renderer.
   config_key.WriteValue(kEnableGCFRendererByDefault, static_cast<DWORD>(1));
   EXPECT_TRUE(IsGcfDefaultRenderer());
 
   opt_for_host.DeleteValue(kTestFilter);  // Just in case this exists
-  EXPECT_EQ(RENDERER_TYPE_CHROME_DEFAULT_RENDERER,
-            RendererTypeForUrl(kTestUrl));
+  EXPECT_TRUE(IsOptInUrl(kTestUrl));
   opt_for_host.WriteValue(kTestFilter, L"");
-  EXPECT_EQ(RENDERER_TYPE_UNDETERMINED, RendererTypeForUrl(kTestUrl));
+  EXPECT_FALSE(IsOptInUrl(kTestUrl));
 
   // Cleanup.
   opt_for_gcf.DeleteValue(kTestFilter);
