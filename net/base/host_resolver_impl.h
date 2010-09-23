@@ -222,8 +222,8 @@ class HostResolverImpl : public HostResolver,
   // Cancels all jobs.
   void CancelAllJobs();
 
-  // Aborts all in progress jobs (but might start new ones).
-  void AbortAllInProgressJobs();
+  // Aborts all jobs.
+  void AbortAllJobs();
 
   // Cache of host resolution results.
   scoped_ptr<HostCache> cache_;

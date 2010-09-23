@@ -760,10 +760,6 @@ class HostResolverImpl::JobPool {
     num_outstanding_jobs_ += offset;
   }
 
-  void ResetNumOutstandingJobs() {
-    num_outstanding_jobs_ = 0;
-  }
-
   // Returns true if a new job can be created for this pool.
   bool CanCreateJob() const {
     return num_outstanding_jobs_ + 1u <= max_outstanding_jobs_;
@@ -1228,8 +1224,8 @@ void HostResolverImpl::OnIPAddressChanged() {
     additional_resolver_flags_ &= ~HOST_RESOLVER_LOOPBACK_ONLY;
   }
 #endif
-  AbortAllInProgressJobs();
-  // |this| may be deleted inside AbortAllInProgressJobs().
+  AbortAllJobs();
+  // |this| may be deleted inside AbortAllJobs().
 }
 
 void HostResolverImpl::DiscardIPv6ProbeJob() {
@@ -1353,9 +1349,7 @@ void HostResolverImpl::CancelAllJobs() {
     it->second->Cancel();
 }
 
-void HostResolverImpl::AbortAllInProgressJobs() {
-  for (size_t i = 0; i < arraysize(job_pools_); ++i)
-    job_pools_[i]->ResetNumOutstandingJobs();
+void HostResolverImpl::AbortAllJobs() {
   JobMap jobs;
   jobs.swap(jobs_);
   for (JobMap::iterator it = jobs.begin(); it != jobs.end(); ++it) {
