@@ -671,11 +671,8 @@ void BrowserRenderProcessHost::SendExtensionInfo() {
     info.web_extent = extension->web_extent();
     info.name = extension->name();
     info.location = extension->location();
-
-    // The icon in the page is 96px.  We'd rather not scale up, so use 128.
-    info.icon_url = extension->GetIconURL(Extension::EXTENSION_ICON_LARGE);
-    if (info.icon_url.is_empty())
-      info.icon_url = GURL("chrome://theme/IDR_APP_DEFAULT_ICON");
+    info.icon_url =
+        extension->GetIconURLAllowLargerSize(Extension::EXTENSION_ICON_MEDIUM);
     params.extensions.push_back(info);
   }
 
