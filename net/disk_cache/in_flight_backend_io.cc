@@ -112,6 +112,11 @@ void BackendIO::FlushQueue() {
   operation_ = OP_FLUSH_QUEUE;
 }
 
+void BackendIO::RunTask(Task* task) {
+  operation_ = OP_RUN_TASK;
+  task_ = task;
+}
+
 void BackendIO::ReadData(EntryImpl* entry, int index, int offset,
                          net::IOBuffer* buf, int buf_len) {
   operation_ = OP_READ;
@@ -213,6 +218,11 @@ void BackendIO::ExecuteBackendOperation() {
       result_ = net::OK;
       break;
     case OP_FLUSH_QUEUE:
+      result_ = net::OK;
+      break;
+    case OP_RUN_TASK:
+      task_->Run();
+      delete task_;
       result_ = net::OK;
       break;
     default:
@@ -345,6 +355,12 @@ void InFlightBackendIO::DoomEntryImpl(EntryImpl* entry) {
 void InFlightBackendIO::FlushQueue(net::CompletionCallback* callback) {
   scoped_refptr<BackendIO> operation = new BackendIO(this, backend_, callback);
   operation->FlushQueue();
+  QueueOperation(operation);
+}
+
+void InFlightBackendIO::RunTask(Task* task, net::CompletionCallback* callback) {
+  scoped_refptr<BackendIO> operation = new BackendIO(this, backend_, callback);
+  operation->RunTask(task);
   QueueOperation(operation);
 }
 
