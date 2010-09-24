@@ -706,10 +706,6 @@ void HostContentSettingsMap::ResetToDefaults() {
   }
 }
 
-bool HostContentSettingsMap::IsOffTheRecord() {
-  return profile_->IsOffTheRecord();
-}
-
 void HostContentSettingsMap::Observe(NotificationType type,
                                      const NotificationSource& source,
                                      const NotificationDetails& details) {
