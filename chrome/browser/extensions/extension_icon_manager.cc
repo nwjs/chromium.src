@@ -8,6 +8,7 @@
 #include "base/logging.h"
 #include "base/stl_util-inl.h"
 #include "chrome/common/extensions/extension.h"
+#include "chrome/common/extensions/extension_icon_set.h"
 #include "chrome/common/extensions/extension_resource.h"
 #include "gfx/color_utils.h"
 #include "gfx/favicon_size.h"
@@ -22,9 +23,8 @@ ExtensionIconManager::ExtensionIconManager()
 }
 
 void ExtensionIconManager::LoadIcon(Extension* extension) {
-  ExtensionResource icon_resource;
-  extension->GetIconResourceAllowLargerSize(&icon_resource,
-                                            Extension::EXTENSION_ICON_BITTY);
+  ExtensionResource icon_resource = extension->GetIconResource(
+      Extension::EXTENSION_ICON_BITTY, ExtensionIconSet::MATCH_BIGGER);
   if (!icon_resource.extension_root().empty()) {
     // Insert into pending_icons_ first because LoadImage can call us back
     // synchronously if the image is already cached.
