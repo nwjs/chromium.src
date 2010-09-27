@@ -93,7 +93,7 @@ void EnablePluginFile(bool enable, const FilePath::StringType& path) {
 
 // Note: if you change this to false from true, you must update
 // kPluginsEnabledInternalPDF to be a new name (i.e. add 2, 3, 4...) at end.
-static bool enable_internal_pdf_ = true;
+static bool enable_internal_pdf_ = false;
 
 void DisablePluginGroupsFromPrefs(Profile* profile) {
   bool update_internal_dir = false;
