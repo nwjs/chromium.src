@@ -20,11 +20,9 @@ WifiDataProviderImplBase* WifiDataProvider::DefaultFactoryFunction() {
 }
 #endif
 
-// Only define for platforms that lack a real gateway data provider.
-#if !defined(OS_WIN)
+// No platform has a gateway data provider yet.
 // static
 template<>
 GatewayDataProviderImplBase* GatewayDataProvider::DefaultFactoryFunction() {
   return new EmptyDeviceDataProvider<GatewayData>();
 }
-#endif
