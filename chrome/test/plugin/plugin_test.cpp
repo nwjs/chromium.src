@@ -253,6 +253,8 @@ class PluginInstallerDownloadTest
   ~PluginInstallerDownloadTest() {}
 
   void Start() {
+    static const int kMaxTestTimeoutMs = 15000;
+
     initial_download_path_ = PluginTest::GetTestUrl("flash.html", false);
     download_helper_ = new PluginDownloadUrlHelper(
         initial_download_path_.spec(), base::GetCurrentProcId(), NULL,
@@ -260,8 +262,7 @@ class PluginInstallerDownloadTest
     download_helper_->InitiateDownload(new UploadRequestContext);
 
     MessageLoop::current()->PostDelayedTask(
-        FROM_HERE, new MessageLoop::QuitTask,
-        TestTimeouts::action_max_timeout_ms());
+        FROM_HERE, new MessageLoop::QuitTask, kMaxTestTimeoutMs);
   }
 
   virtual void OnDownloadCompleted(const FilePath& download_path,
