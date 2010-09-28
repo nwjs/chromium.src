@@ -2195,8 +2195,6 @@
         'browser/platform_util_win.cc',
         'browser/plugin_download_helper.cc',
         'browser/plugin_download_helper.h',
-        'browser/plugin_exceptions_table_model.cc',
-        'browser/plugin_exceptions_table_model.h',
         'browser/plugin_installer.cc',
         'browser/plugin_installer.h',
         'browser/plugin_process_host.cc',
