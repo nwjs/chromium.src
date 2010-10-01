@@ -574,7 +574,7 @@ TabContents* Browser::OpenApplicationTab(Profile* profile,
 
   return local_browser->AddTabWithURL(
       extension->GetFullLaunchURL(), GURL(), transition, -1,
-      TabStripModel::ADD_PINNED | TabStripModel::ADD_SELECTED,
+      TabStripModel::ADD_SELECTED,
       NULL, "", browser);
 }
 
