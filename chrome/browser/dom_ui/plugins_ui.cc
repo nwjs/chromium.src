@@ -170,7 +170,7 @@ class PluginsDOMHandler : public DOMMessageHandler {
   DISALLOW_COPY_AND_ASSIGN(PluginsDOMHandler);
 };
 
-PluginsDOMHandler::PluginsDOMHandler() {
+PluginsDOMHandler::PluginsDOMHandler()
     : ALLOW_THIS_IN_INITIALIZER_LIST(get_plugins_factory_(this)) {
 }
 
