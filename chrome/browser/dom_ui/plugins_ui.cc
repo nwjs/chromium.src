@@ -129,7 +129,7 @@ void PluginsUIHTMLSource::StartDataRequest(const std::string& path,
 // <http://crbug.com/39101>
 class PluginsDOMHandler : public DOMMessageHandler {
  public:
-  PluginsDOMHandler() {}
+  PluginsDOMHandler();
   virtual ~PluginsDOMHandler() {}
 
   // DOMMessageHandler implementation.
