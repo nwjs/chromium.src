@@ -615,7 +615,7 @@ struct UninstalledExtensionInfo {
   explicit UninstalledExtensionInfo(const Extension& extension);
 
   std::string extension_id;
-  std::set<std::string> extension_api_permissions;
+  std::vector<std::string> extension_api_permissions;
   // TODO(akalin): Once we have a unified ExtensionType, replace the
   // below member variables with a member of that type.
   bool is_theme;

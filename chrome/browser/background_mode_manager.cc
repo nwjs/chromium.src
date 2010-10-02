@@ -117,7 +117,7 @@ void BackgroundModeManager::SetLaunchOnStartupResetAllowed(bool allowed) {
 namespace {
 
 bool HasBackgroundAppPermission(
-    const std::set<std::string>& api_permissions) {
+    const std::vector<std::string>& api_permissions) {
   return Extension::HasApiPermission(
       api_permissions, Extension::kBackgroundPermission);
 }
