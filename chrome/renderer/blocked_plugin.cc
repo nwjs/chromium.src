@@ -10,7 +10,6 @@
 #include "base/values.h"
 #include "chrome/common/jstemplate_builder.h"
 #include "chrome/common/notification_service.h"
-#include "chrome/common/plugin_group.h"
 #include "chrome/common/render_messages.h"
 #include "chrome/renderer/render_view.h"
 #include "grit/generated_resources.h"
@@ -20,6 +19,7 @@
 #include "third_party/WebKit/WebKit/chromium/public/WebPluginContainer.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebURL.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebView.h"
+#include "webkit/glue/plugins/plugin_group.h"
 #include "webkit/glue/plugins/webview_plugin.h"
 
 using WebKit::WebCursorInfo;

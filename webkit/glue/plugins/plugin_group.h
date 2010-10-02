@@ -2,10 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CHROME_COMMON_PLUGIN_GROUP_H_
-#define CHROME_COMMON_PLUGIN_GROUP_H_
+#ifndef WEBKIT_GLUE_PLUGINS_PLUGIN_GROUP_H_
+#define WEBKIT_GLUE_PLUGINS_PLUGIN_GROUP_H_
 #pragma once
 
+#include <map>
 #include <set>
 #include <vector>
 
@@ -18,11 +19,16 @@ class FilePath;
 class Version;
 struct WebPluginInfo;
 
+namespace NPAPI {
+  class PluginList;
+};
+
 template <typename T>
 class linked_ptr;
 
 // Hard-coded definitions of plugin groups.
 struct PluginGroupDefinition {
+  const char* identifier;  // Unique identifier for this group.
   const char* name;  // Name of this group.
   const char* name_matcher;  // Substring matcher for the plugin name.
   const char* version_matcher_low;  // Matchers for the plugin version.
@@ -40,6 +46,8 @@ struct PluginGroupDefinition {
 
 class PluginGroup {
  public:
+  typedef std::map<std::string, linked_ptr<PluginGroup> > PluginMap;
+
   // Creates a PluginGroup from a PluginGroupDefinition.
   static PluginGroup* FromPluginGroupDefinition(
       const PluginGroupDefinition& definition);
@@ -53,7 +61,8 @@ class PluginGroup {
   // Find a plugin group matching |info| in the list of hardcoded plugins and
   // returns a copy of it if found, or a new group matching exactly this plugin
   // otherwise.
-  static PluginGroup* FindHardcodedPluginGroup(const WebPluginInfo& info);
+  // The caller should take ownership of the return PluginGroup.
+  static PluginGroup* CopyOrCreatePluginGroup(const WebPluginInfo& info);
 
   // Configures the set of plugin names that are disabled by policy.
   static void SetPolicyDisabledPluginSet(const std::set<string16>& set);
@@ -69,14 +78,14 @@ class PluginGroup {
   // Find the PluginGroup matching a Plugin in a list of plugin groups. Returns
   // NULL if no matching PluginGroup is found.
   static PluginGroup* FindGroupMatchingPlugin(
-      std::vector<linked_ptr<PluginGroup> >& plugin_groups,
+      const std::map<std::string, linked_ptr<PluginGroup> >& plugin_groups,
       const WebPluginInfo& plugin);
 
   // Creates a copy of this plugin group.
   PluginGroup* Copy() {
     return new PluginGroup(group_name_, name_matcher_, version_range_low_str_,
                            version_range_high_str_, min_version_str_,
-                           update_url_);
+                           update_url_, identifier_);
   }
 
   // Returns true if the given plugin matches this group.
@@ -90,8 +99,16 @@ class PluginGroup {
   // group.
   void Enable(bool enable);
 
-  // Returns this group's name
-  const string16& GetGroupName() const { return group_name_; }
+  // Returns whether the plugin group is enabled or not.
+  bool Enabled() const { return enabled_; }
+
+  // Returns a unique identifier for this group, if one is defined, or the empty
+  // string otherwise.
+  const std::string& identifier() const { return identifier_; }
+
+  // Returns this group's name, or the filename without extension if the name
+  // is empty.
+  string16 GetGroupName() const;
 
   // Returns the description of the highest-priority plug-in in the group.
   const string16& description() const { return description_; }
@@ -113,6 +130,10 @@ class PluginGroup {
   // minimum version.
   void DisableOutdatedPlugins();
 
+ protected:
+  friend class NPAPI::PluginList;
+  std::vector<FilePath> GetPaths() const;
+
  private:
   FRIEND_TEST_ALL_PREFIXES(PluginGroupTest, PluginGroupDefinition);
 
@@ -124,7 +145,8 @@ class PluginGroup {
               const std::string& version_range_low,
               const std::string& version_range_high,
               const std::string& min_version,
-              const std::string& update_url);
+              const std::string& update_url,
+              const std::string& identifier);
 
   Version* CreateVersionFromString(const string16& version_string);
 
@@ -138,6 +160,7 @@ class PluginGroup {
 
   static std::set<string16>* policy_disabled_plugins_;
 
+  std::string identifier_;
   string16 group_name_;
   string16 name_matcher_;
   std::string version_range_low_str_;
@@ -156,4 +179,4 @@ class PluginGroup {
   DISALLOW_COPY_AND_ASSIGN(PluginGroup);
 };
 
-#endif  // CHROME_COMMON_PLUGIN_GROUP_H_
+#endif  // WEBKIT_GLUE_PLUGINS_PLUGIN_GROUP_H_

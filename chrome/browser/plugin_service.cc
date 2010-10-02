@@ -68,14 +68,12 @@ void PluginService::InitGlobalInstance(Profile* profile) {
 
   NPAPI::PluginList::Singleton()->SetPluginLoadHook(LoadPluginsFromDiskHook);
 
-  // Code is disabled since plugins shouldn't be loaded on the UI/IO threads.
-  // See http://code.google.com/p/chromium/issues/detail?id=57425
   // We first group the plugins and then figure out which groups to disable.
-  // plugin_updater::DisablePluginGroupsFromPrefs(profile);
+  plugin_updater::DisablePluginGroupsFromPrefs(profile);
 
   if (CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kDisableOutdatedPlugins)) {
-    plugin_updater::DisableOutdatedPluginGroups();
+    NPAPI::PluginList::Singleton()->DisableOutdatedPluginGroups();
   }
 
   // Have Chrome plugins write their data to the profile directory.

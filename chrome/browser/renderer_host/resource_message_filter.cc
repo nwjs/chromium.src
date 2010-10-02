@@ -94,6 +94,7 @@
 #include "net/url_request/url_request_context.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebNotificationPresenter.h"
 #include "webkit/glue/context_menu.h"
+#include "webkit/glue/plugins/plugin_group.h"
 #include "webkit/glue/plugins/plugin_list.h"
 #include "webkit/glue/plugins/webplugin.h"
 #include "webkit/glue/webcookie.h"

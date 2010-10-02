@@ -2,10 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/common/plugin_group.h"
+#include "webkit/glue/plugins/plugin_group.h"
 
 #include "base/linked_ptr.h"
 #include "base/string_util.h"
+#include "base/sys_string_conversions.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "base/version.h"
@@ -18,19 +19,19 @@
 // (new versions) are published.
 // TODO(panayiotis): Get the Real Player version on Mac, somehow.
 static const PluginGroupDefinition kGroupDefinitions[] = {
-  { "Quicktime", "QuickTime Plug-in", "", "", "7.6.6",
+  { "apple-quicktime", "Quicktime", "QuickTime Plug-in", "", "", "7.6.6",
     "http://www.apple.com/quicktime/download/" },
-  { "Java", "Java", "", "", "",
+  { "java-runtime-environment", "Java", "Java", "", "", "",
     "http://support.apple.com/kb/HT1338" },
-  { "Flash", "Shockwave Flash", "", "", "10.1.82",
+  { "adobe-flash-player", "Flash", "Shockwave Flash", "", "", "10.1.82",
     "http://get.adobe.com/flashplayer/" },
-  { "Silverlight 3", "Silverlight", "0", "4", "3.0.50106.0",
+  { "silverlight-3", "Silverlight 3", "Silverlight", "0", "4", "3.0.50106.0",
     "http://go.microsoft.com/fwlink/?LinkID=185927" },
-  { "Silverlight 4", "Silverlight", "4", "5", "",
+  { "silverlight-4", "Silverlight 4", "Silverlight", "4", "5", "",
     "http://go.microsoft.com/fwlink/?LinkID=185927" },
-  { "Flip4Mac", "Flip4Mac", "",  "", "2.2.1",
+  { "flip4mac", "Flip4Mac", "Flip4Mac", "", "", "2.2.1",
     "http://www.telestream.net/flip4mac-wmv/overview.htm" },
-  { "Shockwave", "Shockwave for Director", "",  "", "11.5.8.612",
+  { "shockwave", "Shockwave", "Shockwave for Director", "",  "", "11.5.8.612",
     "http://www.adobe.com/shockwave/download/" }
 };
 
@@ -38,31 +39,34 @@ static const PluginGroupDefinition kGroupDefinitions[] = {
 // TODO(panayiotis): We should group "RealJukebox NS Plugin" with the rest of
 // the RealPlayer files.
 static const PluginGroupDefinition kGroupDefinitions[] = {
-  { "Quicktime", "QuickTime Plug-in", "", "", "7.6.7",
+  { "apple-quicktime", "Quicktime", "QuickTime Plug-in", "", "", "7.6.7",
     "http://www.apple.com/quicktime/download/" },
-  { "Java 6", "Java", "", "6", "6.0.200",
+  { "java-runtime-environment", "Java 6", "Java", "", "6", "6.0.200",
     "http://www.java.com/" },
-  { "Adobe Reader 9", "Adobe Acrobat", "9", "10", "9.3.3",
+  { "adobe-reader", "Adobe Reader 9", "Adobe Acrobat", "9", "10", "9.3.3",
     "http://get.adobe.com/reader/" },
-  { "Adobe Reader 8", "Adobe Acrobat", "0", "9",  "8.2.3",
+  { "adobe-reader-8", "Adobe Reader 8", "Adobe Acrobat", "0", "9", "8.2.3",
     "http://get.adobe.com/reader/" },
-  { "Flash", "Shockwave Flash", "", "", "10.1.82",
+  { "adobe-flash-player", "Flash", "Shockwave Flash", "", "", "10.1.82",
     "http://get.adobe.com/flashplayer/" },
-  { "Silverlight 3", "Silverlight", "0", "4", "3.0.50106.0",
+  { "silverlight-3", "Silverlight 3", "Silverlight", "0", "4", "3.0.50106.0",
     "http://go.microsoft.com/fwlink/?LinkID=185927" },
-  { "Silverlight 4", "Silverlight", "4", "5", "",
+  { "silverlight-4", "Silverlight 4", "Silverlight", "4", "5", "",
     "http://go.microsoft.com/fwlink/?LinkID=185927" },
-  { "Shockwave", "Shockwave for Director", "", "", "11.5.8.612",
+  { "shockwave", "Shockwave", "Shockwave for Director", "", "", "11.5.8.612",
     "http://www.adobe.com/shockwave/download/" },
-  { "DivX Player", "DivX Web Player", "",  "", "1.4.3.4",
-    "http://download.divx.com/divx/autoupdate/player/DivXWebPlayerInstaller.exe" },
+  { "divx-player", "DivX Player", "DivX Web Player", "", "", "1.4.3.4",
+    "http://download.divx.com/divx/autoupdate/player/"
+    "DivXWebPlayerInstaller.exe" },
   // These are here for grouping, no vulnerabilies known.
-  { "Windows Media Player",  "Windows Media Player",  "",  "",   "", "" },
-  { "Microsoft Office",  "Microsoft Office",  "",  "",   "", "" },
+  { "windows-media-player", "Windows Media Player", "Windows Media Player",
+    "", "", "", "" },
+  { "microsoft-office", "Microsoft Office", "Microsoft Office",
+    "", "", "", "" },
   // TODO(panayiotis): The vulnerable versions are
   //  (v >=  6.0.12.1040 && v <= 6.0.12.1663)
   //  || v == 6.0.12.1698  || v == 6.0.12.1741
-  { "RealPlayer", "RealPlayer", "",  "",  "",
+  { "realplayer", "RealPlayer", "RealPlayer", "", "", "",
     "http://www.adobe.com/shockwave/download/" },
 };
 
@@ -117,26 +121,25 @@ PluginGroup::PluginGroup(const string16& group_name,
                          const std::string& version_range_low,
                          const std::string& version_range_high,
                          const std::string& min_version,
-                         const std::string& update_url) {
-  group_name_ = group_name;
-  name_matcher_ = name_matcher;
-  version_range_low_str_ = version_range_low;
-  if (!version_range_low.empty()) {
-    version_range_low_.reset(
-        Version::GetVersionFromString(version_range_low));
-  }
-  version_range_high_str_ = version_range_high;
+                         const std::string& update_url,
+                         const std::string& identifier)
+    : identifier_(identifier),
+      group_name_(group_name),
+      name_matcher_(name_matcher),
+      version_range_low_str_(version_range_low),
+      version_range_high_str_(version_range_high),
+      update_url_(update_url),
+      enabled_(false),
+      min_version_str_(min_version),
+      version_(Version::GetVersionFromString("0")) {
+  if (!version_range_low.empty())
+    version_range_low_.reset(Version::GetVersionFromString(version_range_low));
   if (!version_range_high.empty()) {
     version_range_high_.reset(
         Version::GetVersionFromString(version_range_high));
   }
-  min_version_str_ = min_version;
-  if (!min_version.empty()) {
+  if (!min_version.empty())
     min_version_.reset(Version::GetVersionFromString(min_version));
-  }
-  update_url_ = update_url;
-  enabled_ = false;
-  version_.reset(Version::GetVersionFromString("0"));
 }
 
 PluginGroup* PluginGroup::FromPluginGroupDefinition(
@@ -146,27 +149,35 @@ PluginGroup* PluginGroup::FromPluginGroupDefinition(
                          definition.version_matcher_low,
                          definition.version_matcher_high,
                          definition.min_version,
-                         definition.update_url);
+                         definition.update_url,
+                         definition.identifier);
 }
 
 PluginGroup::~PluginGroup() { }
 
 PluginGroup* PluginGroup::FromWebPluginInfo(const WebPluginInfo& wpi) {
   // Create a matcher from the name of this plugin.
-  return new PluginGroup(wpi.name, wpi.name,
-                         "", "", "", "");
+#if defined(OS_POSIX)
+  std::string identifier = wpi.path.BaseName().value();
+#elif defined(OS_WIN)
+  std::string identifier = base::SysWideToUTF8(wpi.path.BaseName().value());
+#endif
+  return new PluginGroup(wpi.name, wpi.name, std::string(), std::string(),
+                         std::string(), std::string(), identifier);
 }
 
-PluginGroup* PluginGroup::FindHardcodedPluginGroup(const WebPluginInfo& info) {
-  static std::vector<linked_ptr<PluginGroup> >* hardcoded_plugin_groups = NULL;
+PluginGroup* PluginGroup::CopyOrCreatePluginGroup(
+    const WebPluginInfo& info) {
+  static PluginMap* hardcoded_plugin_groups = NULL;
   if (!hardcoded_plugin_groups) {
-    std::vector<linked_ptr<PluginGroup> >* groups =
-        new std::vector<linked_ptr<PluginGroup> >();
+    PluginMap* groups = new PluginMap();
     const PluginGroupDefinition* definitions = GetPluginGroupDefinitions();
     for (size_t i = 0; i < GetPluginGroupDefinitionsSize(); ++i) {
       PluginGroup* definition_group = PluginGroup::FromPluginGroupDefinition(
           definitions[i]);
-      groups->push_back(linked_ptr<PluginGroup>(definition_group));
+      std::string identifier = definition_group->identifier();
+      DCHECK(groups->find(identifier) == groups->end());
+      (*groups)[identifier] = linked_ptr<PluginGroup>(definition_group);
     }
     hardcoded_plugin_groups = groups;
   }
@@ -184,15 +195,14 @@ PluginGroup* PluginGroup::FindHardcodedPluginGroup(const WebPluginInfo& info) {
 }
 
 PluginGroup* PluginGroup::FindGroupMatchingPlugin(
-    std::vector<linked_ptr<PluginGroup> >& plugin_groups,
+    const PluginMap& plugin_groups,
     const WebPluginInfo& plugin) {
-  for (std::vector<linked_ptr<PluginGroup> >::iterator it =
+  for (std::map<std::string, linked_ptr<PluginGroup> >::const_iterator it =
        plugin_groups.begin();
        it != plugin_groups.end();
        ++it) {
-    if ((*it)->Match(plugin)) {
-      return it->get();
-    }
+    if (it->second->Match(plugin))
+      return it->second.get();
   }
   return NULL;
 }
@@ -268,22 +278,36 @@ void PluginGroup::AddPlugin(const WebPluginInfo& plugin, int position) {
   UpdateActivePlugin(plugin);
 }
 
+string16 PluginGroup::GetGroupName() const {
+  if (!group_name_.empty())
+    return group_name_;
+  DCHECK_EQ(1u, web_plugin_infos_.size());
+  FilePath::StringType path =
+      web_plugin_infos_[0].path.BaseName().RemoveExtension().value();
+#if defined(OS_POSIX)
+  return UTF8ToUTF16(path);
+#elif defined(OS_WIN)
+  return WideToUTF16(path);
+#endif
+}
+
 DictionaryValue* PluginGroup::GetSummary() const {
   DictionaryValue* result = new DictionaryValue();
-  result->SetString("name", group_name_);
+  result->SetString("name", GetGroupName());
   result->SetBoolean("enabled", enabled_);
   return result;
 }
 
 DictionaryValue* PluginGroup::GetDataForUI() const {
+  string16 name = GetGroupName();
   DictionaryValue* result = new DictionaryValue();
-  result->SetString("name", group_name_);
+  result->SetString("name", name);
   result->SetString("description", description_);
   result->SetString("version", version_->GetString());
   result->SetString("update_url", update_url_);
   result->SetBoolean("critical", IsVulnerable());
 
-  bool group_disabled_by_policy = IsPluginNameDisabledByPolicy(group_name_);
+  bool group_disabled_by_policy = IsPluginNameDisabledByPolicy(name);
   ListValue* plugin_files = new ListValue();
   bool all_plugins_disabled_by_policy = true;
   for (size_t i = 0; i < web_plugin_infos_.size(); ++i) {
@@ -377,4 +401,14 @@ void PluginGroup::Enable(bool enable) {
       NPAPI::PluginList::Singleton()->DisablePlugin(it->path);
     }
   }
+}
+
+std::vector<FilePath> PluginGroup::GetPaths() const {
+  std::vector<FilePath> rv;
+  for (std::vector<WebPluginInfo>::const_iterator it =
+       web_plugin_infos_.begin();
+       it != web_plugin_infos_.end(); ++it) {
+    rv.push_back(it->path);
+  }
+  return rv;
 }

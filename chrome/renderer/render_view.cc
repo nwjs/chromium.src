@@ -35,7 +35,6 @@
 #include "chrome/common/notification_service.h"
 #include "chrome/common/page_zoom.h"
 #include "chrome/common/pepper_plugin_registry.h"
-#include "chrome/common/plugin_group.h"
 #include "chrome/common/render_messages.h"
 #include "chrome/common/render_messages_params.h"
 #include "chrome/common/renderer_preferences.h"
@@ -2351,7 +2350,7 @@ WebPlugin* RenderView::createPlugin(WebFrame* frame,
   if (!found)
     return NULL;
 
-  scoped_ptr<PluginGroup> group(PluginGroup::FindHardcodedPluginGroup(info));
+  scoped_ptr<PluginGroup> group(PluginGroup::CopyOrCreatePluginGroup(info));
   group->AddPlugin(info, 0);
 
   if (!info.enabled) {
