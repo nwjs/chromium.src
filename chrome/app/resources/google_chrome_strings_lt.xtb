@@ -3,6 +3,7 @@
 <translationbundle lang="lt">
 <translation id="8000275528373650868">„Google Chrome“ reikalinga „Windows Vista“ arba „Windows XP“ operacinė sistema su SP2 arba naujesniu pakeitimų paketu.</translation>
 <translation id="6676384891291319759">Interneto prieiga</translation>
+<translation id="8582091809492103607">Prisijungus atidaryti „Google Chrome“ ir fone paleisti žiniatinklio programas</translation>
 <translation id="2383457833405848421">Apie „Chrome Frame“...</translation>
 <translation id="386202838227397562">Uždarykite visus „Google Chrome“ langus ir bandykite dar kartą.</translation>
 <translation id="2770231113462710648">Pakeisti numatytąją naršyklę į:</translation>
@@ -54,6 +55,7 @@ versija su plėtiniais.</translation>
 <translation id="1759842336958782510">„Chrome“</translation>
 <translation id="5840402478666768335">Pasirenkama: padėkite tobulinti „Google Chrome“ automatiškai siųsdami „Google“ naudojimo statistiką ir gedimų\nataskaitas</translation>
 <translation id="5008136264574452501">„Google Chrome Canary“ versija</translation>
+<translation id="2240501189676193549">Žiniatinklio programos yra aktyvios tik veikiant „Google Chrome“.</translation>
 <translation id="911206726377975832">Ar ištrinti naršymo duomenis?</translation>
 <translation id="2044287590254833138">„Google Chrome“ įrankių juosta</translation>
 <translation id="5074344184765391290">„Chrome“ papildinio priegloba</translation>
@@ -69,6 +71,7 @@ versija su plėtiniais.</translation>
 <translation id="6087062680442281307">„Google Chrome“ yra žiniatinklio naršyklė, kuri akimirksniu paleidžia tinklalapius ir programas. Ji greita, stabili ir lengvai naudojama. Naršykite žiniatinklį saugiau – „Google Chrome“ įdiegta apsauga nuo kenkėjiškų programų ir sukčiavimo.</translation>
 <translation id="2115751172320447278">© „Google Inc.“, 2006–2010 m. Visos teisės saugomos.</translation>
 <translation id="5941830788786076944">Padarykite „Google Chrome“ numatytąja naršykle</translation>
+<translation id="7892675281311705134">„Google Chrome“ žiniatinklio programos</translation>
 <translation id="5947389362804196214">Jūsų nuostatų negalima nuskaityti.\n\nKai kurios funkcijos gali būti negalimos ir nuostatų pakeitimai nebus išsaugoti.</translation>
 <translation id="4127951844153999091">Šiuo atveju sertifikate nurodytas adresas neatitinka tinklalapio, į kurį bandė nukreipti jūsų naršyklė, adreso.  Viena iš galimų priežasčių – jūsų perduodamą ryšį perėmė kompiuterių piratas ir pateikė kitos svetainės sertifikatą, siekdamas jus suklaidinti. Kita galima priežastis – serveris nustatytas keletui tinklalapių, įskaitant jūsų lankomą, pateikti tą patį sertifikatą, nors šis sertifikatas ir netinka naudoti su visais šiais tinklalapiais. „Google Chrome“ gali užtikrinti, kad pasiekėte &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, bet negali patikrinti, ar tai yra ta pati svetainė &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, kurią norėjote pasiekti. Jei tęsite, „Chrome“ nebetikrins, ar yra ir daugiau neatitikimų pavadinimuose. Paprastai tokiu atveju siūloma toliau nebetęsti.</translation>
 <translation id="2712549016134575851">Aptiktas prieštaravimas su kita įdiegta programa.</translation>

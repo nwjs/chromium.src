@@ -3,6 +3,7 @@
 <translationbundle lang="pl">
 <translation id="8000275528373650868">Google Chrome wymaga systemu Windows Vista bądź Windows XP z dodatkiem SP2 lub nowszym.</translation>
 <translation id="6676384891291319759">Skorzystaj z internetu</translation>
+<translation id="8582091809492103607">Otwórz przeglądarkę Google Chrome przy logowaniu i uruchom aplikacje internetowe działające w tle</translation>
 <translation id="2383457833405848421">Chrome Frame – informacje</translation>
 <translation id="386202838227397562">Zamknij wszystkie okna przeglądarki Google Chrome i spróbuj ponownie.</translation>
 <translation id="2770231113462710648">Zmień przeglądarkę domyślną na:</translation>
@@ -53,6 +54,7 @@
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="5840402478666768335">Opcjonalnie: pomóż udoskonalić przeglądarkę Google Chrome, automatycznie wysyłając do Google\nstatystyki użytkowania i raporty o awariach</translation>
 <translation id="5008136264574452501">Kompilacja Google Chrome Canary</translation>
+<translation id="2240501189676193549">Aplikacje internetowe są aktywne tylko wówczas, gdy działa przeglądarka Google Chrome.</translation>
 <translation id="911206726377975832">Czy usunąć także dane przeglądarki?</translation>
 <translation id="2044287590254833138">Pasek narzędzi Google Chrome</translation>
 <translation id="5074344184765391290">Serwer wtyczek przeglądarki Chrome</translation>
@@ -68,6 +70,7 @@
 <translation id="6087062680442281307">Google Chrome jest przeglądarką internetową, w której witryny internetowe i aplikacje są szybkie jak błyskawica. Jest szybka, stabilna i łatwa w obsłudze. Dzięki wbudowanej ochronie przed złośliwym oprogramowaniem i wyłudzaniem informacji przeglądanie internetu przy użyciu przeglądarki Google Chrome jest bezpieczniejsze.</translation>
 <translation id="2115751172320447278">Copyright © 2006–2010 Google Inc. Wszelkie prawa zastrzeżone.</translation>
 <translation id="5941830788786076944">Ustaw Google Chrome jako domyślną przeglądarkę</translation>
+<translation id="7892675281311705134">Aplikacje internetowe Google Chrome</translation>
 <translation id="5947389362804196214">Nie można odczytać ustawień.\n\nNiektóre funkcje mogą być niedostępne, a zmiany w ustawieniach nie zostaną zapisane.</translation>
 <translation id="4127951844153999091">W tym przypadku adres zawarty w certyfikacie nie jest zgodny z adresem witryny wpisanym w przeglądarce. Jednym z powodów takiej sytuacji może być przechwycenie komunikacji przez intruza, który przedstawia certyfikat innej witryny, co powoduje niezgodność. Inną przyczyną może być konfiguracja serwera zwracająca ten sam certyfikat dla wielu witryn (w tym witryny, którą chcesz wyświetlić) nawet w przypadku, gdy certyfikat nie jest ważny dla wszystkich witryn. Google Chrome może potwierdzić, że otwarty został adres &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, ale nie może zweryfikować, że jest to witryna &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, która miała zostać wyświetlona. Jeśli przejdziesz dalej, aplikacja Chrome nie będzie sprawdzać kolejnych niezgodności nazw. Ogólnie nie zalecamy kontynuowania pracy na tej stronie.</translation>
 <translation id="2712549016134575851">Wykryto konflikt z inną zainstalowaną aplikacją.</translation>

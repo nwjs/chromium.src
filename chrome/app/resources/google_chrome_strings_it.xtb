@@ -3,6 +3,7 @@
 <translationbundle lang="it">
 <translation id="8000275528373650868">Google Chrome richiede Windows Vista o Windows XP con SP2 o versioni successive.</translation>
 <translation id="6676384891291319759">Accesso a Internet</translation>
+<translation id="8582091809492103607">Apri Google Chrome all'accesso e avvia le applicazioni web in background</translation>
 <translation id="2383457833405848421">Informazioni su Google Chrome Frame...</translation>
 <translation id="386202838227397562">Chiudi tutte le finestre di Google Chrome e riprova.</translation>
 <translation id="2770231113462710648">Cambia browser predefinito con:</translation>
@@ -53,6 +54,7 @@
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="5840402478666768335">Facoltativo: aiutaci a migliorare Google Chrome inviando automaticamente a Google le statistiche\nsull'utilizzo e le segnalazioni sugli arresti anomali</translation>
 <translation id="5008136264574452501">Build Google Chrome Canary</translation>
+<translation id="2240501189676193549">Le applicazioni web sono attive solo quando Google Chrome è in esecuzione.</translation>
 <translation id="911206726377975832">Eliminare anche i tuoi dati di navigazione?</translation>
 <translation id="2044287590254833138">Barra degli strumenti di Google Chrome</translation>
 <translation id="5074344184765391290">Host plug-in Chrome</translation>
@@ -68,6 +70,7 @@
 <translation id="6087062680442281307">Google Chrome è un browser web che apre pagine e applicazioni web con grande velocità. È veloce, stabile e facile da utilizzare. Esplora il Web in modo più sicuro grazie alla protezione contro malware e phishing incorporata in Google Chrome.</translation>
 <translation id="2115751172320447278">Copyright © 2006-2010 Google Inc. Tutti i diritti riservati.</translation>
 <translation id="5941830788786076944">Imposta Google Chrome come browser predefinito</translation>
+<translation id="7892675281311705134">Applicazioni web di Google Chrome</translation>
 <translation id="5947389362804196214">Non è possibile leggere le tue preferenze.\n\nAlcune funzioni potrebbero non essere disponibili e le modifiche alle preferenze non verranno salvate.</translation>
 <translation id="4127951844153999091">In questo caso l'indirizzo indicato nel certificato non corrisponde all'indirizzo del sito web al quale il tuo browser ha tentato di accedere. Questa mancata corrispondenza può essere dovuta al tentativo da parte di un hacker di presentare un certificato relativo a un altro sito web. È anche possibile che il server sia impostato in modo da restituire lo stesso certificato per più siti web, incluso quello che stai cercando di visitare, malgrado tale certificato non sia valido per tutti i siti. Siamo in grado di garantire che stai comunicando con &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, ma non è possibile verificare che questo sito corrisponda a &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;. Se decidi di procedere, Google Chrome non verificherà eventuali altre mancate corrispondenze. In generale, tuttavia, ti consigliamo di non procedere oltre questo punto.</translation>
 <translation id="2712549016134575851">È stato rilevato un conflitto con un'altra applicazione installata.</translation>

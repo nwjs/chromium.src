@@ -3,6 +3,7 @@
 <translationbundle lang="ca">
 <translation id="8000275528373650868">Google Chrome requereix Windows Vista o Windows XP amb SP2 o superior.</translation>
 <translation id="6676384891291319759">Accedeix a Internet</translation>
+<translation id="8582091809492103607">Obriu Google Chrome a l'inici de sessió i llanceu les aplicacions web en segon pla</translation>
 <translation id="2383457833405848421">Quant a Chrome Frame...</translation>
 <translation id="386202838227397562">Tanqueu totes les finestres de Google Chrome i torneu-ho a provar.</translation>
 <translation id="2770231113462710648">Canvia el navegador predeterminat a:</translation>
@@ -53,6 +54,7 @@
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="5840402478666768335">Opcional: ajudeu a millorar Google Chrome i envieu automàticament les estadístiques d'ús i els informes \nde fallades a Google</translation>
 <translation id="5008136264574452501">Google Chrome Canary Build</translation>
+<translation id="2240501189676193549">Les aplicacions web només estan actives quan s'està executant Google Chrome.</translation>
 <translation id="911206726377975832">També voleu suprimir les dades de navegació?</translation>
 <translation id="2044287590254833138">Barra d'eines de Google Chrome</translation>
 <translation id="5074344184765391290">Amfitrió del connector de Chrome</translation>
@@ -68,6 +70,7 @@
 <translation id="6087062680442281307">Google Chrome és un navegador web que executa pàgines web i aplicacions a gran velocitat. És ràpid, estable i fàcil d'utilitzar. Navegueu d'una manera més segura pel web amb la protecció contra programari maliciós i llocs de pesca integrada a Google Chrome.</translation>
 <translation id="2115751172320447278">Copyright © 2006-2010 Google Inc. Tots els drets reservats.</translation>
 <translation id="5941830788786076944">Estableix Google Chrome com el navegador per defecte</translation>
+<translation id="7892675281311705134">Aplicacions web de Google Chrome</translation>
 <translation id="5947389362804196214">No es poden llegir les vostres preferències.\n\nÉs possible que algunes funcions no estiguin disponibles, i els canvis a les preferències no es desaran.</translation>
 <translation id="4127951844153999091">En aquest cas, l'adreça que s'indica al certificat no coincideix amb l'adreça del lloc web al qual heu intentat accedir el navegador. Un possible motiu és que les vostres comunicacions les està interceptant un atacant que presenta un certificat per a un lloc web diferent, cosa que podria provocar un error de concordança. Un altre motiu possible és que el servidor estigui configurat per tornar el mateix certificat per a diversos llocs web, inclòs aquest que intenteu visitar, encara que el certificat no sigui vàlid per a tots aquests llocs web. Google Chrome pot garantir que heu accedit a &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, però no pot verificar que sigui el mateix lloc que &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; , que volíeu visitar. Si continueu, Chrome no comprovarà cap altre error de nom. En general, és millor no continuar més enllà d'aquest punt.</translation>
 <translation id="2712549016134575851">S'ha detectat un conflicte amb una altra aplicació instal·lada.</translation>

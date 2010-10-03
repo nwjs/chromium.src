@@ -3,6 +3,7 @@
 <translationbundle lang="et">
 <translation id="8000275528373650868">Google Chrome vajab operatsioonisüsteemi Windows Vista või Windows XP hoolduspaketiga SP2 või uuem.</translation>
 <translation id="6676384891291319759">Pääs Internetti</translation>
+<translation id="8582091809492103607">Ava Google Chrome sisselogimisel ja käivita taustal töötavad veebirakendused</translation>
 <translation id="2383457833405848421">Info Chrome Frame'i kohta...</translation>
 <translation id="386202838227397562">Sulgege kõik Google Chrome'i aknad ja proovige uuesti.</translation>
 <translation id="2770231113462710648">Asenda vaikebrauser:</translation>
@@ -53,6 +54,7 @@
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="5840402478666768335">Valikuline: aidake muuta Google Chrome'i paremaks, saates Google'ile automaatselt\nkasutusstatistikat ja krahhiaruandeid</translation>
 <translation id="5008136264574452501">Google Chrome Canary järk</translation>
+<translation id="2240501189676193549">Veebirakendused on aktiivsed ainult siis, kui Google Chrome töötab.</translation>
 <translation id="911206726377975832">Kas kustutada ka teie sirvimisandmed?</translation>
 <translation id="2044287590254833138">Google Chrome'i tööriistariba</translation>
 <translation id="5074344184765391290">Chrome'i Plug-In Host</translation>
@@ -68,6 +70,7 @@
 <translation id="6087062680442281307">Google Chrome on veebibrauser, mis käitab veebilehti ja rakendusi välgukiirusel. See on kiire, töökindel ja lihtsalt kasutatav. Veebisirvimine on turvalisem tänu Google Chrome'i sisseehitatud pahavara- ja andmepüügivastasele kaitsele.</translation>
 <translation id="2115751172320447278">Autoriõigustega kaitstud © 2006–2010 Google Inc. Kõik õigused reserveeritud.</translation>
 <translation id="5941830788786076944">Tee Google Chrome vaikebrauseriks</translation>
+<translation id="7892675281311705134">Google Chrome'i veebirakendused</translation>
 <translation id="5947389362804196214">Teie eelistusi ei saa lugeda.\n\nMõned funktsioonid võivad olla kättesaamatud ja eelistuste muudatusi ei salvestata.</translation>
 <translation id="4127951844153999091">Sellisel juhul ei kattu serdis kirjas olev aadress veebisaidi aadressiga, millele teie brauser minna üritas. Üks võimalik põhjus võib olla ründajas, kes teie suhtlust ümber suunab, esitades muu veebisaidi serti, mis võib põhjustada nimetatud erinemist. Teine võimalik põhjus on, et server on seatud sama serdi saatmisele mitme erineva veebisaidi puhul, sealhulgas veebisaidi puhul, mida te üritate külastada, isegi kui see sert ei ole kõikide nende veebisaitide puhul kehtiv. Google Chrome oskab kindlasti öelda, et te jõudsite lehele &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, kuid ei suuda kinnitada, et see on sama leht kui &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, kuhu te kavatsesite jõuda. Jätkamise korral ei kontrolli Chrome enam järgnevaid nimede mittekattumisi. Üldiselt on parem sellest punktist mitte edasi minna.</translation>
 <translation id="2712549016134575851">Tuvastatud on konflikt teise installitud rakendusega.</translation>

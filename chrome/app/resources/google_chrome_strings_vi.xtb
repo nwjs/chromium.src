@@ -3,6 +3,7 @@
 <translationbundle lang="vi">
 <translation id="8000275528373650868">Google Chrome yêu cầu Windows Vista hoặc Windows XP với SP2 trở lên.</translation>
 <translation id="6676384891291319759">Truy cập Internet</translation>
+<translation id="8582091809492103607">Mở Google Chrome khi đăng nhập và khởi chạy ứng dụng web nền</translation>
 <translation id="2383457833405848421">Giới thiệu về Chrome Frame...</translation>
 <translation id="386202838227397562">Vui lòng đóng tất cả cửa sổ của Google Chrome và thử lại.</translation>
 <translation id="2770231113462710648">Thay đổi trình duyệt mặc định thành:</translation>
@@ -53,6 +54,7 @@
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="5840402478666768335">Tuỳ chọn: Giúp hoàn thiện Google Chrome bằng các tự động gửi thống kê sử dụng và báo cáo\nsự cố cho Google</translation>
 <translation id="5008136264574452501">Google Chrome Canary Build</translation>
+<translation id="2240501189676193549">Ứng dụng web chỉ hoạt động khi Google Chrome chạy.</translation>
 <translation id="911206726377975832">Bạn cũng muốn xoá dữ liệu duyệt web của mình?</translation>
 <translation id="2044287590254833138">Thanh công cụ Google Chrome</translation>
 <translation id="5074344184765391290">Máy chủ lưu trữ Trình cắm của Chrome</translation>
@@ -68,6 +70,7 @@
 <translation id="6087062680442281307">Google Chrome là một trình duyệt web chạy các trang web và ứng dụng với tốc độ cực nhanh. Trình duyệt này nhanh, ổn định và dễ sử dụng. Duyệt web an toàn hơn với tính năng ngăn chặn phần mềm độc hại và lừa đảo được tích hợp vào Google Chrome.</translation>
 <translation id="2115751172320447278">Bản quyền © 2006-2010 Google Inc. Mọi Quyền được Bảo lưu.</translation>
 <translation id="5941830788786076944">Chọn Google Chrome làm trình duyệt mặc định</translation>
+<translation id="7892675281311705134">Ứng dụng Web của Google Chrome</translation>
 <translation id="5947389362804196214">Không thể đọc tuỳ chọn của bạn.\n\nMột số tính năng có thể không khả dụng và thay đổi cho tuỳ chọn của bạn sẽ không được lưu.</translation>
 <translation id="4127951844153999091">Trong trường hợp này, địa chỉ được liệt kê trong chứng chỉ không phù hợp với địa chỉ của trang web mà trình duyệt của bạn cố truy cập. Một nguyên nhân có thể xảy ra là giao tiếp của bạn đang bị kẻ tấn công, người đang xuất trình chứng chỉ cho trang web khác, chặn lại và gây ra lỗi không khớp. Một nguyên nhân khác có thể là do máy chủ được thiết lập để trả về cùng một chứng chỉ cho nhiều trang web, kể cả trang web mà bạn cố truy cập, mặc dù chứng chỉ đó không có giá trị cho tất cả trang web đó. Google Chrome có thể chắc chắn rằng bạn đã truy cập &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, nhưng không thể xác minh đó là trang web tương tự như &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; mà bạn dự định truy cập. Nếu bạn tiếp tục, Chrome sẽ không kiểm tra thêm bất kỳ sự không phù hợp về tên nào nữa. Nói chung, bạn không nên tiếp tục truy cập trang web.</translation>
 <translation id="2712549016134575851">Đã phát hiện thấy xung đột với một ứng dụng đã cài đặt khác.</translation>

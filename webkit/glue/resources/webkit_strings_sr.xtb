@@ -8,7 +8,7 @@
 <translation id="4202807286478387388">прескочи</translation>
 <translation id="4611115858363067980"><ph name="FILENAME"/><ph name="WIDTH"/>×<ph name="HEIGHT"/></translation>
 <translation id="7658239707568436148">Откажи</translation>
-<translation id="795667975304826397">Није одабрана датотека</translation>
+<translation id="795667975304826397">Није одабрано</translation>
 <translation id="1416462845279468967">Инсталација додатка није успела</translation>
 <translation id="8141602879876242471">Ово је индекс који може да се претражује. Унесите кључне речи за претрагу:</translation>
 <translation id="5650795167354946011">Након инсталирања додатка, кликните овде да бисте освежили</translation>
@@ -30,7 +30,7 @@
 <translation id="5253117816378681419">Потврдите да желите да инсталирате <ph name="PLUGIN"/> додатак. Инсталирајте само додатке у које имате поверења.</translation>
 <translation id="6663448176199120256">Недавне претраге</translation>
 <translation id="2597378329261239068">Овај документ је заштићен лозинком. Унесите лозинку.</translation>
-<translation id="6807599807928161586">веб област</translation>
+<translation id="7740050170769002709">HTML садржај</translation>
 <translation id="5939518447894949180">Ресетуј</translation>
 <translation id="1842960171412779397">изабери</translation>
 <translation id="7638452146404718955">Кликните овде да бисте преузели додатак</translation>

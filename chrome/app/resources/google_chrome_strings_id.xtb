@@ -3,6 +3,7 @@
 <translationbundle lang="id">
 <translation id="8000275528373650868">Google Chrome memerlukan Windows Vista atau Windows XP dengan SP2 atau yang lebih baru.</translation>
 <translation id="6676384891291319759">Akses Internet</translation>
+<translation id="8582091809492103607">Buka Google Chrome saat masuk dan luncurkan aplikasi web latar belakang</translation>
 <translation id="2383457833405848421">Tentang Chrome Frame...</translation>
 <translation id="386202838227397562">Tutup semua jendela Google Chrome, lalu coba lagi.</translation>
 <translation id="2770231113462710648">Ubah peramban bawaan ke:</translation>
@@ -53,6 +54,7 @@
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="5840402478666768335">Opsional: Bantu Google Chrome menjadi lebih baik dengan mengirim statistik penggunaan dan\nlaporan kerusakan ke Google secara otomatis</translation>
 <translation id="5008136264574452501">Build Google Chrome Canary</translation>
+<translation id="2240501189676193549">Aplikasi web hanya aktif ketika Google Chrome berjalan.</translation>
 <translation id="911206726377975832">Hapus juga data rambanan Anda?</translation>
 <translation id="2044287590254833138">Toolbar Google Chrome</translation>
 <translation id="5074344184765391290">Inang Pengaya Chrome</translation>
@@ -68,6 +70,7 @@
 <translation id="6087062680442281307">Google Chrome adalah peramban web yang menjalankan laman dan aplikasi web dengan kecepatan kilat. Cepat, stabil, dan mudah digunakan. Ramban web secara lebih aman dengan perlindungan terhadap perangkat lunak jahat dan phishing yang disertakan dalam Google Chrome.</translation>
 <translation id="2115751172320447278">Hak Cipta © 2006-2010 Google Inc. Semua Hak Dilindungi Undang-Undang.</translation>
 <translation id="5941830788786076944">Jadikan Google Chrome sebagai browser default</translation>
+<translation id="7892675281311705134">Aplikasi Web Google Chrome</translation>
 <translation id="5947389362804196214">Preferensi Anda tidak dapat dibaca.\n\nSebagian fitur mungkin tidak tersedia dan pengubahan pada preferensi tidak akan disimpan.</translation>
 <translation id="4127951844153999091">Jika demikian, alamat yang tercantum dalam sertifikat tidak cocok dengan alamat situs Web yang akan diakses browser Anda. Salah satu kemungkinan alasannya adalah komunikasi terhenti oleh pengganggu yang memberikan sertifikat untuk situs Web lain, sehingga dapat mengakibatkan ketidakcocokan. Kemungkinan alasan lainnya adalah bahwa server dikonfigurasi untuk menampilkan sertifikat yang sama bagi beberapa situs Web, termasuk yang akan dikunjungi, meskipun sertifikat tersebut tidak valid untuk semua situs Web. Google Chrome dapat memastikan bahwa Anda akan membuka &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, namun tidak dapat memverifikasi bahwa situs tersebut sama seperti &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; yang ingin Anda buka. Jika Anda melanjutkan, Chrome tidak akan memeriksa ketidakcocokan nama lebih lanjut. Secara umum, sebaiknya jangan lanjutkan.</translation>
 <translation id="2712549016134575851">Terdeteksi konflik dengan aplikasi terinstal lain.</translation>

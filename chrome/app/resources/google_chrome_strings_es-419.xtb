@@ -3,6 +3,7 @@
 <translationbundle lang="es-419">
 <translation id="8000275528373650868">Para usar Google Chrome, se necesita Windows Vista o Windows XP con SP2 o superior.</translation>
 <translation id="6676384891291319759">Acceder a Internet</translation>
+<translation id="8582091809492103607">Abre Google Chrome en el acceso e inicia las aplicaciones web de fondo</translation>
 <translation id="2383457833405848421">Acerca de Chrome Frame...</translation>
 <translation id="386202838227397562">Cierra todas las ventanas de Google Chrome e intenta nuevamente.</translation>
 <translation id="2770231113462710648">Cambiar el navegador predeterminado a:</translation>
@@ -53,6 +54,7 @@
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="5840402478666768335">Opcional: Ayúdanos a mejorar Google Chrome enviando de forma automática estadísticas de uso e informes\nde errores a Google</translation>
 <translation id="5008136264574452501">Compilación de Google Chrome Canario</translation>
+<translation id="2240501189676193549">Las aplicaciones web únicamente permanecen activas mientras Google Chrome se está ejecutando.</translation>
 <translation id="911206726377975832">¿También eliminar datos de navegación?</translation>
 <translation id="2044287590254833138">Barra de herramientas de Google Chrome</translation>
 <translation id="5074344184765391290">Host complemento de Chrome</translation>
@@ -68,6 +70,7 @@
 <translation id="6087062680442281307">Google Chrome es un navegador web que ejecuta aplicaciones y páginas web a la velocidad de un rayo. Es rápido, estable y fácil de usar. Navega la web de manera más segura con protección contra software malicioso y suplantación de identidad (phishing) incorporada en Google Chrome.</translation>
 <translation id="2115751172320447278">Copyright © 2006-2010 Google Inc. Todos los derechos reservados.</translation>
 <translation id="5941830788786076944">Haga de Google Chrome su navegador predeterminado</translation>
+<translation id="7892675281311705134">Aplicaciones web de Google Chrome</translation>
 <translation id="5947389362804196214">No se pueden leer tus preferencias.\n\nEs posible que algunas funciones no estén disponibles y no se guardarán los cambios realizados a las preferencias.</translation>
 <translation id="4127951844153999091">En este caso, la dirección que figura en este certificado no coincide con la del sitio web a la que el navegador intentó ir. Es posible que esto ocurra debido a que un usuario malintencionado que presenta un certificado para otro sitio web está interceptando sus comunicaciones. Esto puede ser la causa de esa diferencia. O bien puede ocurrir que el servidor esté configurado para devolver el mismo certificado a varios sitios web, incluido el que está intentando visitar, aunque el certificado no sea válido para todos esos sitios web. Google Chrome puede asegurar que se conectó con &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, pero no puede comprobar que es el mismo sitio que &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; al que intentó conectarse. Si continúa, Chrome no comprobará si hay otros nombres que no coinciden. Generalmente, no recomendamos continuar.</translation>
 <translation id="2712549016134575851">Se detectó un conflicto con otra aplicación instalada.</translation>

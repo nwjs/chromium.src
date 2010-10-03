@@ -3,6 +3,7 @@
 <translationbundle lang="es">
 <translation id="8000275528373650868">Google Chrome está disponible para Windows Vista o Windows XP con SP2 o superior.</translation>
 <translation id="6676384891291319759">Accede a Internet.</translation>
+<translation id="8582091809492103607">Abrir Google Chrome al iniciar sesión y al ejecutar aplicaciones web en segundo plano</translation>
 <translation id="2383457833405848421">Acerca de Google Chrome Frame...</translation>
 <translation id="386202838227397562">Cierra todas las ventanas de Google Chrome y vuelve a intentarlo.</translation>
 <translation id="2770231113462710648">Cambiar navegador predeterminado por:</translation>
@@ -50,9 +51,10 @@
 <translation id="8899050679030089927">Cierra todas las ventanas de Google Chrome y reinicia el navegador para que se aplique el cambio.</translation>
 <translation id="3324235665723428530">Tu perfil no se puede utilizar porque pertenece a una versión anterior de Google Chrome.\n\nPuede que algunas funciones no estén disponibles. Especifique un directorio de perfil diferente o utilice una versión posterior de Google Chrome.</translation>
 <translation id="7214670531148488183">Google Chrome puede utilizar servicios web para mejorar la experiencia de navegación de los usuarios. Estos servicios se pueden inhabilitar si se desea.</translation>
-<translation id="1759842336958782510">Google Chrome</translation>
+<translation id="1759842336958782510">Chrome</translation>
 <translation id="5840402478666768335">Opcional: colabora en la mejora de Google Chrome a través del envío automático de estadísticas de uso y de informes\nsobre fallos a Google.</translation>
 <translation id="5008136264574452501">Google Chrome Canary Build</translation>
+<translation id="2240501189676193549">Las aplicaciones web solo están activas mientras se ejecuta Google Chrome.</translation>
 <translation id="911206726377975832">¿Quieres eliminar también los datos de navegación?</translation>
 <translation id="2044287590254833138">Barra de Google Chrome</translation>
 <translation id="5074344184765391290">Host del complemento de Chrome</translation>
@@ -68,6 +70,7 @@
 <translation id="6087062680442281307">Google Chrome es un navegador web que ejecuta aplicaciones y páginas web a gran velocidad. Es rápido, estable y fácil de utilizar. Navega por la Web de forma más segura gracias a la protección integrada contra suplantación de identidad y software malintencionado.</translation>
 <translation id="2115751172320447278">Copyright © 2006-2010 Google Inc. Todos los derechos reservados.</translation>
 <translation id="5941830788786076944">Establecer Google Chrome como navegador predeterminado</translation>
+<translation id="7892675281311705134">Aplicaciones web de Google Chrome</translation>
 <translation id="5947389362804196214">No se pueden leer tus preferencias.\n\nEs posible que algunas funciones no estén disponibles y que no se guarden los cambios que realices en las preferencias.</translation>
 <translation id="4127951844153999091">En este caso, la dirección que se indica en el certificado no concuerda con la dirección del sitio web al que intentó acceder el navegador. Un posible motivo es que tus comunicaciones están siendo interceptadas por un atacante que presenta un certificado para un sitio web distinto, lo que podría causar un error de concordancia. Otra posible razón es que el servidor está configurado para devolver el mismo certificado a diversos sitios web, incluido el que intentas visitar, aunque dicho certificado no sea válido para todos estos sitios web. Google Chrome puede asegurarte que has accedido a &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, pero no puede verificar que el sitio es el mismo que &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong, al que pretendías acceder. Si continúas, Chrome no comprobará otros errores de nombre. En general, es mejor no continuar llegados a este punto.</translation>
 <translation id="2712549016134575851">Se ha detectado un conflicto con otra aplicación instalada.</translation>

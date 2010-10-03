@@ -3,6 +3,7 @@
 <translationbundle lang="pt-BR">
 <translation id="8000275528373650868">O Google Chrome requer o Windows Vista ou o Windows XP com SP2 ou superior.</translation>
 <translation id="6676384891291319759">Acessar a internet</translation>
+<translation id="8582091809492103607">Abrir o Google Chrome durante o login e iniciar aplicativos da web em segundo plano</translation>
 <translation id="2383457833405848421">Sobre o Frame do Google Chrome...</translation>
 <translation id="386202838227397562">Feche todas as janelas do Google Chrome e tente novamente.</translation>
 <translation id="2770231113462710648">Alterar navegador padrão para:</translation>
@@ -53,6 +54,7 @@
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="5840402478666768335">Opcional: Enviar estatísticas de uso e relatórios de problemas automaticamente ao Google para ajudar a melhorar\no Google Chrome</translation>
 <translation id="5008136264574452501">Google Chrome Canary Build</translation>
+<translation id="2240501189676193549">Os aplicativos da web ficam ativos apenas enquanto o Google Chrome está em execução.</translation>
 <translation id="911206726377975832">Excluir também dados de navegação?</translation>
 <translation id="2044287590254833138">Barra de ferramentas do Google Chrome</translation>
 <translation id="5074344184765391290">Host do plug-in do Google Chrome</translation>
@@ -68,6 +70,7 @@
 <translation id="6087062680442281307">O Google Chrome é um navegador que executa páginas e aplicativos da web na velocidade da luz. É rápido, estável e fácil de usar. Navegue pela web de modo mais seguro com a proteção contra malware e phishing integrada ao Google Chrome.</translation>
 <translation id="2115751172320447278">Copyright © 2006-2010 Google Inc. Todos os direitos reservados.</translation>
 <translation id="5941830788786076944">Fazer do Google Chrome o navegador padrão</translation>
+<translation id="7892675281311705134">Aplicativos da web do Google Chrome</translation>
 <translation id="5947389362804196214">Não foi possível ler as suas preferências.\n\nAlguns recursos podem não estar disponíveis e as alterações nas preferências não serão salvas.</translation>
 <translation id="4127951844153999091">Nesse caso, o endereço listado no certificado não corresponde ao endereço do site que seu navegador tentou acessar. Um possível motivo para isso é o fato de suas comunicações serem interceptadas por um invasor que está apresentando um certificado para um site diferente, o que poderia causar uma correspondência incorreta. Outro possível motivo é o fato de o servidor estar configurado para retornar o mesmo certificado para vários sites, incluindo o que você está tentando visitar, mesmo que esse certificado não seja válido para todos os sites. O Google Chrome pode afirmar com certeza que você acessou &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, mas não pode confirmar que este é o mesmo site que &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, que você pretendia acessar.
 Se continuar, o Chrome não procurará nenhuma outra correspondência incorreta de nomes. Em geral, é melhor não continuar além deste ponto.</translation>

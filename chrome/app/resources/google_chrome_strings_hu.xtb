@@ -3,6 +3,7 @@
 <translationbundle lang="hu">
 <translation id="8000275528373650868">A Google Chrome futtatásához Windows Vista, illetve Windows XP SP2 vagy újabb verzió szükséges.</translation>
 <translation id="6676384891291319759">Internetelérés</translation>
+<translation id="8582091809492103607">A Google Chrome böngésző megnyitása a bejelentkezéskor, és a háttérben futó internetes alkalmazások indítása</translation>
 <translation id="2383457833405848421">A Chrome Frame névjegye...</translation>
 <translation id="386202838227397562">Zárjon be minden Google Chrome-ablakot, és próbálkozzon újra.</translation>
 <translation id="2770231113462710648">Alapértelmezett böngésző beállítása:</translation>
@@ -53,6 +54,7 @@
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="5840402478666768335">Nem kötelező: Segítsen a Google Chrome fejlesztésében azáltal, hogy automatikusan elküldi a használati statisztikákat és hibabejelentéseket a Google részére</translation>
 <translation id="5008136264574452501">Google Chrome Canary Build</translation>
+<translation id="2240501189676193549">Az internetes alkalmazások csak akkor aktívak, ha a Google Chrome is fut.</translation>
 <translation id="911206726377975832">Törli a böngészési adatait is?</translation>
 <translation id="2044287590254833138">Google Chrome Eszköztár</translation>
 <translation id="5074344184765391290">Chrome plug-in tárhely</translation>
@@ -68,6 +70,7 @@
 <translation id="6087062680442281307">A Google Chrome olyan böngésző, amely villámsebesen futtatja a weboldalakat és az alkalmazásokat. Gyors, stabil és könnyen használható. A beépített, adathalászat és a rosszindulatú programok elleni védelemmel biztonságosabban böngészhet az interneten.</translation>
 <translation id="2115751172320447278">Copyright © 2006-2010 Google Inc. Minden jog fenntartva.</translation>
 <translation id="5941830788786076944">A Google Chrome beállítása alapértelmezett böngészőként</translation>
+<translation id="7892675281311705134">Google Chrome internetes alkalmazások</translation>
 <translation id="5947389362804196214">A preferenciáit nem sikerült olvasni.\n\nEgyes funkciókat esetleg nem ér el, és a preferenciáiban végrehajtott módosításokat nem menti a rendszer.</translation>
 <translation id="4127951844153999091">Ebben az esetben a tanúsítványban szereplő cím nem egyezik meg azzal a címmel, amelyet a böngészője megpróbált megnyitni. Ennek egyik lehetséges oka, hogy a kommunikációját egy támadó nyomon követi, aki egy másik webhely tanúsítványát mutatja fel, és ez eltéréseket okoz. Másik lehetséges ok, hogy a szervert úgy állították be, hogy több webhelynek (köztük annak, amelyet épp meg szeretett volna látogatni) is ugyanazt a tanúsítványt mutassa fel, holott nem érvényes az ottani összes webhelyre. A Google Chrome megállapította, hogy ezt az oldalt érte el: &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, azonban nem tudja megállíapítani pontosan, hogy ez ugyanaz a webhely-e, mint a &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, amelyet megpróbált elérni. Ha folytatja, a Chrome nem ellenőrzi többé a nevek nem egyezését. Általánosságban: ennél a pontnál nem szabad tovább folytatni a műveletet.</translation>
 <translation id="2712549016134575851">A rendszer ütközést észlelt egy másik telepített alkalmazással.</translation>

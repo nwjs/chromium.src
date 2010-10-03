@@ -3,6 +3,7 @@
 <translationbundle lang="lv">
 <translation id="8000275528373650868">Pārlūkprogrammas Google Chrome izmantošanai nepieciešama operētājsistēma Windows Vista vai Windows XP ar SP2, vai jaunāka tās versija.</translation>
 <translation id="6676384891291319759">Piekļūt internetam</translation>
+<translation id="8582091809492103607">Piesakoties atvērt Google Chrome un palaist fona tīmekļa lietojumprogrammas</translation>
 <translation id="2383457833405848421">Par Chrome Frame...</translation>
 <translation id="386202838227397562">Lūdzu, aizveriet visus Google Chrome logus un mēģiniet vēlreiz.</translation>
 <translation id="2770231113462710648">Mainīt noklusējuma pārlūkprogrammu uz:</translation>
@@ -53,6 +54,7 @@
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="5840402478666768335">Neobligāti: palīdziet uzlabot Google Chrome, automātiski nosūtot uzņēmumam Google lietošanas statistiku un avāriju pārskatus</translation>
 <translation id="5008136264574452501">Būvējums Google Chrome Canary</translation>
+<translation id="2240501189676193549">Tīmekļa lietojumprogrammas ir aktīvas tikai tad, kad darbojas Google Chrome.</translation>
 <translation id="911206726377975832">Vai dzēst arī pārlūkošanas datus?</translation>
 <translation id="2044287590254833138">Google Chrome rīkjosla</translation>
 <translation id="5074344184765391290">Chrome Plug-In Host</translation>
@@ -68,6 +70,7 @@
 <translation id="6087062680442281307">Google Chrome ir tīmekļa pārlūks, kas zibenīgi atver tīmekļa lapas un izpilda lietojumprogrammas. Tā ir ātra, stabila un ērti lietotojama. Google Chrome iebūvētā aizsardzība pret ļaunprātīgu programmatūru un pikšķerēšanu nodrošina daudz drošāku tīmekļa pārlūkošanu.</translation>
 <translation id="2115751172320447278">Autortiesības © 2006–2010 Google Inc. Visas tiesības paturētas.</translation>
 <translation id="5941830788786076944">Izveidot Google Chrome par noklusējuma pārlūku</translation>
+<translation id="7892675281311705134">Google Chrome tīmekļa lietojumprogrammas</translation>
 <translation id="5947389362804196214">Jūsu preferences nevar nolasīt.\n\nDažas funkcijas var nebūt pieejamas, un preferenču izmaiņas netiks saglabātas.</translation>
 <translation id="4127951844153999091">Šādā gadījumā, sertifikātā minētā adrese neatbilst tai tīmekļa lapas adresei, kurai centās piekļūt jūsu pārlūks. Viens iemesls šim ir tas, ka jūsu savienojumus pārtver uzbrucējs, kas piedāvā sertifikātu citai tīmekļa vietnei, kas var radīt neatbilstību. Cits iespējams iemesls ir tas, ka serveris ir iestatīts tā, lai atgrieztu vienu sertifikātu vairākām vietnēm, tai skaitā tām, kuram centāties piekļūt, pat ja sertifikāts nav derīgs šīm tīmekļa vietnēm. Google Chrome var apgalvot, ka esat sasniedzis &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, bet nevar apstiprināt, ka tā ir &lt;strong&gt; vietne<ph name="DOMAIN"/>&lt;/strong&gt;, kuru centāties sasniegt. Ja jūs turpināsiet, Chrome nepārbaudīs tālākas nosaukumu neprecizitātes. Kopumā būtu labāk nedoties tālāk par šo punktu.</translation>
 <translation id="2712549016134575851">Atklāts konflikts ar citu instalētu lietojumprogrammu.</translation>

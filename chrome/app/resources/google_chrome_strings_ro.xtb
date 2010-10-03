@@ -3,6 +3,7 @@
 <translationbundle lang="ro">
 <translation id="8000275528373650868">Google Chrome necesită Windows Vista sau Windows XP cu SP2 sau o versiune ulterioară.</translation>
 <translation id="6676384891291319759">Accesaţi Internetul</translation>
+<translation id="8582091809492103607">Deschideţi Google Chrome la conectare şi lansaţi aplicaţiile web de fundal</translation>
 <translation id="2383457833405848421">Despre Google Chrome Frame...</translation>
 <translation id="386202838227397562">Închideţi toate ferestrele Google Chrome şi încercaţi din nou.</translation>
 <translation id="2770231113462710648">Schimbaţi browserul prestabilit la:</translation>
@@ -53,6 +54,7 @@
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="5840402478666768335">Opţional: ajutaţi la îmbunătăţirea browserului Google Chrome prin trimiterea automată a statisticilor privind utilizarea şi a rapoartelor de\navarie la Google</translation>
 <translation id="5008136264574452501">Versiunea Google Chrome Canary</translation>
+<translation id="2240501189676193549">Aplicaţiile web sunt active numai în timp ce Google Chrome rulează.</translation>
 <translation id="911206726377975832">Ştergeţi şi datele de navigare?</translation>
 <translation id="2044287590254833138">Bara de instrumente Google Chrome</translation>
 <translation id="5074344184765391290">Chrome Plug-In Host</translation>
@@ -68,6 +70,7 @@
 <translation id="6087062680442281307">Google Chrome este un browser web care rulează pagini web şi aplicaţii cu o viteză extraordinară. Este rapid, stabil şi uşor de utilizat. Navigaţi în mai mare siguranţă pe web beneficiind de protecţia împotriva programelor malware şi a phishingului încorporată în Google Chrome.</translation>
 <translation id="2115751172320447278">Copyright © 2006-2010 Google Inc. Toate drepturile rezervate.</translation>
 <translation id="5941830788786076944">Setaţi Google Chrome ca browser prestabilit</translation>
+<translation id="7892675281311705134">Aplicaţii web Google Chrome</translation>
 <translation id="5947389362804196214">Preferinţele dvs. nu pot fi citite.\n\nEste posibil ca unele funcţii să nu fie disponibile, iar modificările aduse preferinţelor nu vor fi salvate.</translation>
 <translation id="4127951844153999091">În acest caz, adresa afişată în certificat nu se potriveşte cu adresa site-ului la care a încercat să ajungă browser-ul dvs. Un motiv posibil pentru aceasta este interceptarea comunicaţiilor dvs. de către un atacator, care prezintă un certificat pentru un alt site Web, ceea ce ar provoca o nepotrivire. Un alt motiv posibil este că serverul este setat să returneze acelaşi certificat pentru mai multe site-uri Web, inclusiv cel pe care încercaţi să-l accesaţi, chiar dacă acel certificat nu este valabil pentru toate acele site-uri. Google Chrome poate confirma că aţi accesat &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, dar nu poate verifica dacă este acelaşi site ca şi &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; pe care aţi intenţionat să-l accesaţi. Dacă mergeţi mai departe, Chrome nu va mai verifica nicio altă nepotrivire de nume. În general, cel mai bine este să nu mergeţi mai departe.</translation>
 <translation id="2712549016134575851">S-a detectat un conflict cu o altă aplicaţie instalată.</translation>
