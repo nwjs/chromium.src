@@ -1655,12 +1655,8 @@ class Main(object):
 
     suite_args = [sys.argv[0]]
     chrome_flags = self._options.chrome_flags
-    # Enable crash reporter by default on posix.
-    # On windows, the choice to enable/disable crash reporting is made when
-    # downloading the installer.
-    # TODO(nirnimesh): Figure out a way to control this from here on Win too.
-    if PyUITest.IsPosix():
-      chrome_flags += ' --enable-crash-reporter'
+    # Set CHROME_HEADLESS. It enables crash reporter on posix.
+    os.putenv('CHROME_HEADLESS', '1')
 
     # We add this so that pyauto can execute javascript in the renderer and
     # read values back out.
