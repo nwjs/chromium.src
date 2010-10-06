@@ -5,31 +5,14 @@
 function debug(msg) {
   document.getElementById('debug').textContent = msg;
 }
-
-function bodyClicked() {
-  var group = templateData.pluginGroup;
-  if (group) {
-    plugin.update(group.update_url);
-  } else {
-    plugin.load();
-  }
-}
 </script>
 <style>
 body {
-  background-color: rgb(128, 128, 128);
+  background-color: rgb(187, 187, 187);
   margin: 0;
   text-align: center;
   font-family: sans-serif;
   overflow: hidden;
-}
-
-body #outer:hover {
-  background: -webkit-gradient(linear, left top, left bottom, from(#d2d2d2), to(#a5a5a5));
-}
-
-body #outer:active {
-  background: -webkit-gradient(linear, left top, left bottom, from(#b9b9b9), to(#d2d2d2));
 }
 
 h1 {
@@ -44,11 +27,7 @@ h1 {
 }
 
 #plugin_icon {
-  opacity: .4;
-}
-
-#outer:hover #plugin_icon {
-  opacity: 1.0;
+  opacity: .6;
 }
 
 p {
@@ -59,33 +38,23 @@ p {
 #outer {
   width: 100%;
   height: 100%;
-  cursor: pointer;
   position: absolute;
   border: 1px black solid;
   -webkit-box-sizing: border-box;
 }
 
-/*
-FIXME: This causes flickering on hover.
-#outer:hover {
-  -webkit-box-shadow: rgb(229,229,229) 1px 1px inset;
-}
-*/
-
 #inner {
   position: relative;
   top: 50%;
-  margin-top: -50px;
+  margin-top: -33px;
 }
 </style>
 </head>
 
 <body id="t" onSelectStart="return false;">
-<div id="outer" onclick="bodyClicked()">
+<div id="outer">
 <div id="inner">
 <div><img id="plugin_icon" src="plugin_blocked.png" /></div>
-<h1 jsdisplay="!hasOwnProperty('pluginGroup') || !pluginGroup.critical"  i18n-content="loadPlugin">PLUGIN_LOAD</h1>
-<h1 jsdisplay="hasOwnProperty('pluginGroup')" i18n-content="updatePlugin">UPDATE_PLUGIN</h1>
 <p id="debug"> </p>
 </div>
 </div>
