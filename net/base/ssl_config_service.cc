@@ -90,7 +90,7 @@ bool SSLConfigService::IsKnownFalseStartIncompatibleServer(
 }
 
 static bool g_dnssec_enabled = false;
-static bool g_false_start_enabled = true;
+static bool g_false_start_enabled = false;
 static bool g_mitm_proxies_allowed = false;
 
 // static
