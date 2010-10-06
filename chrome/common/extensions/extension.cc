@@ -167,6 +167,7 @@ const char Extension::kExperimentalPermission[] = "experimental";
 const char Extension::kGeolocationPermission[] = "geolocation";
 const char Extension::kHistoryPermission[] = "history";
 const char Extension::kIdlePermission[] = "idle";
+const char Extension::kManagementPermission[] = "management";
 const char Extension::kNotificationPermission[] = "notifications";
 const char Extension::kProxyPermission[] = "proxy";
 const char Extension::kTabPermission[] = "tabs";
@@ -182,6 +183,7 @@ const char* const Extension::kPermissionNames[] = {
   Extension::kGeolocationPermission,
   Extension::kIdlePermission,
   Extension::kHistoryPermission,
+  Extension::kManagementPermission,
   Extension::kNotificationPermission,
   Extension::kProxyPermission,
   Extension::kTabPermission,
