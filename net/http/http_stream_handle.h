@@ -59,6 +59,8 @@ class HttpStreamHandle : public HttpStream {
 
   void SetConnectionReused();
 
+  ClientSocketHandle* DetachConnection();
+
   void GetSSLInfo(SSLInfo* ssl_info);
 
   void GetSSLCertRequestInfo(SSLCertRequestInfo* cert_request_info);
@@ -66,8 +68,11 @@ class HttpStreamHandle : public HttpStream {
  private:
   FRIEND_TEST_ALL_PREFIXES(SpdyNetworkTransactionTest, WindowUpdateSent);
 
+  bool IsDetached() const;
+
   scoped_ptr<ClientSocketHandle> connection_;
   scoped_ptr<HttpStream> stream_;
+  bool detached_;
 
   DISALLOW_COPY_AND_ASSIGN(HttpStreamHandle);
 };

@@ -76,6 +76,11 @@ void HttpBasicStream::SetConnectionReused() {
   parser_->SetConnectionReused();
 }
 
+ClientSocketHandle* HttpBasicStream::DetachConnection() {
+  NOTREACHED();
+  return NULL;
+}
+
 void HttpBasicStream::GetSSLInfo(SSLInfo* ssl_info) {
   parser_->GetSSLInfo(ssl_info);
 }
