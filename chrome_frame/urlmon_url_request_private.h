@@ -241,8 +241,10 @@ class UrlmonUrlRequest
   bool pending_;
   scoped_ptr<TerminateBindCallback> terminate_bind_callback_;
   std::string response_headers_;
-  // Set to true when Chrome issues a read request for the URL.
-  bool read_received_from_chrome_;
+  // Defaults to true and indicates whether we want to keep the original
+  // transaction alive when we receive the last data notification from
+  // urlmon.
+  bool is_expecting_download_;
   // Set to true if the Urlmon transaction object needs to be cleaned up
   // when this object is destroyed. Happens if we return
   // INET_E_TERMINATE_BIND from OnDataAvailable in the last data notification.

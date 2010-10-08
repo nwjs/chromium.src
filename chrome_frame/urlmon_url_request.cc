@@ -30,7 +30,7 @@ UrlmonUrlRequest::UrlmonUrlRequest()
       parent_window_(NULL),
       privileged_mode_(false),
       pending_(false),
-      read_received_from_chrome_(false),
+      is_expecting_download_(true),
       cleanup_transaction_(false) {
   DLOG(INFO) << __FUNCTION__ << me();
 }
@@ -95,7 +95,7 @@ bool UrlmonUrlRequest::Read(int bytes_to_read) {
   DCHECK_EQ(0, calling_delegate_);
   DLOG(INFO) << __FUNCTION__ << me();
 
-  read_received_from_chrome_ = true;
+  is_expecting_download_ = false;
 
   // Re-entrancy check. Thou shall not call Read() while process OnReadComplete!
   DCHECK_EQ(0u, pending_read_size_);
@@ -504,7 +504,7 @@ STDMETHODIMP UrlmonUrlRequest::OnDataAvailable(DWORD flags, DWORD size,
   }
 
   if (BSCF_LASTDATANOTIFICATION & flags) {
-    if (read_received_from_chrome_) {
+    if (!is_expecting_download_ || pending()) {
       DLOG(INFO) << __FUNCTION__ << me() << "EOF";
       return S_OK;
     }
@@ -961,7 +961,6 @@ void UrlmonUrlRequestManager::StartRequest(int request_id,
   if (pending_request_) {
     DCHECK_EQ(pending_request_->url(), request_info.url);
     new_request.swap(pending_request_);
-    new_request->set_pending(false);
     is_started = true;
     DLOG(INFO) << __FUNCTION__ << new_request->me()
         << "assigned id " << request_id;
