@@ -1583,12 +1583,6 @@ bool Extension::InitFromValue(const DictionaryValue& source, bool require_key,
 
   // Initialize browser action (optional).
   if (source.HasKey(keys::kBrowserAction)) {
-    // Restrict extensions to one UI surface.
-    if (page_action_.get()) {
-      *error = errors::kOneUISurfaceOnly;
-      return false;
-    }
-
     DictionaryValue* browser_action_value;
     if (!source.GetDictionary(keys::kBrowserAction, &browser_action_value)) {
       *error = errors::kInvalidBrowserAction;
@@ -1801,6 +1795,11 @@ bool Extension::InitFromValue(const DictionaryValue& source, bool require_key,
       *error = errors::kInvalidIncognitoBehavior;
       return false;
     }
+  }
+
+  if (HasMultipleUISurfaces()) {
+    *error = errors::kOneUISurfaceOnly;
+    return false;
   }
 
   InitEffectiveHostPermissions();
@@ -2057,6 +2056,21 @@ void Extension::InitEffectiveHostPermissions() {
     for (; pattern != content_script->url_patterns().end(); ++pattern)
       mutable_static_data_->effective_host_permissions.AddPattern(*pattern);
   }
+}
+
+bool Extension::HasMultipleUISurfaces() const {
+  int num_surfaces = 0;
+
+  if (page_action_.get())
+    ++num_surfaces;
+
+  if (browser_action_.get())
+    ++num_surfaces;
+
+  if (is_app())
+    ++num_surfaces;
+
+  return num_surfaces > 1;
 }
 
 // static
