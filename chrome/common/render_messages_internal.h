@@ -2965,4 +2965,8 @@ IPC_BEGIN_MESSAGES(ViewHost)
                       int  /* id */,
                       bool  /* result */)
 
+  // Updates the content restrictions, i.e. to disable print/copy.
+  IPC_MESSAGE_ROUTED1(ViewHostMsg_UpdateContentRestrictions,
+                      int /* restrictions */)
+
 IPC_END_MESSAGES(ViewHost)

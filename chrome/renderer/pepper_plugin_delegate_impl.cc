@@ -765,3 +765,8 @@ void PepperPluginDelegateImpl::DidStartLoading() {
 void PepperPluginDelegateImpl::DidStopLoading() {
   render_view_->DidStopLoadingForPlugin();
 }
+
+void PepperPluginDelegateImpl::SetContentRestriction(int restrictions) {
+  render_view_->Send(new ViewHostMsg_UpdateContentRestrictions(
+      render_view_->routing_id(), restrictions));
+}

@@ -117,6 +117,10 @@ struct PPB_Private {
   // Take this out once WebFrame knows about requests by pepper plugins.
   void (*DidStartLoading)(PP_Instance instance);
   void (*DidStopLoading)(PP_Instance instance);
+
+  // Sets content restriction for a full-page plugin (i.e. can't copy/print).
+  // The value is a bitfield of ContentRestriction enums.
+  void (*SetContentRestriction)(PP_Instance instance, int restrictions);
 };
 
 #endif  // WEBKIT_GLUE_PLUGINS_PPB_PRIVATE_H_

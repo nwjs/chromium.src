@@ -241,6 +241,13 @@ void DidStopLoading(PP_Instance instance_id) {
   instance->delegate()->DidStopLoading();
 }
 
+void SetContentRestriction(PP_Instance instance_id, int restrictions) {
+  PluginInstance* instance = ResourceTracker::Get()->GetInstance(instance_id);
+  if (!instance)
+    return;
+  instance->delegate()->SetContentRestriction(restrictions);
+}
+
 const PPB_Private ppb_private = {
   &GetLocalizedString,
   &GetResourceImage,
@@ -248,7 +255,8 @@ const PPB_Private ppb_private = {
   &GetFontTableForPrivateFontFile,
   &SearchString,
   &DidStartLoading,
-  &DidStopLoading
+  &DidStopLoading,
+  &SetContentRestriction
 };
 
 }  // namespace

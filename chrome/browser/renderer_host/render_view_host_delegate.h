@@ -847,6 +847,9 @@ class RenderViewHostDelegate {
                                 int maximum_percent,
                                 bool remember) {}
 
+  // Update the content restrictions, i.e. disable print/copy.
+  virtual void UpdateContentRestrictions(int restrictions) {}
+
  protected:
   virtual ~RenderViewHostDelegate() {}
 };

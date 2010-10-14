@@ -371,7 +371,8 @@ TabContents::TabContents(Profile* profile,
           static_cast<int>(WebKit::WebView::minTextSizeMultiplier * 100)),
       maximum_zoom_percent_(
           static_cast<int>(WebKit::WebView::maxTextSizeMultiplier * 100)),
-      temporary_zoom_settings_(false) {
+      temporary_zoom_settings_(false),
+      content_restrictions_(0) {
   renderer_preferences_util::UpdateFromSystemSettings(
       &renderer_preferences_, profile);
 
@@ -2602,6 +2603,10 @@ void TabContents::RequestMove(const gfx::Rect& new_bounds) {
 
 void TabContents::DidStartLoading() {
   SetIsLoading(true, NULL);
+  if (content_restrictions_) {
+    content_restrictions_= 0;
+    delegate()->ContentRestrictionsChanged(this);
+  }
 }
 
 void TabContents::DidStopLoading() {
@@ -2967,6 +2972,11 @@ void TabContents::UpdateZoomLimits(int minimum_percent,
   minimum_zoom_percent_ = minimum_percent;
   maximum_zoom_percent_ = maximum_percent;
   temporary_zoom_settings_ = !remember;
+}
+
+void TabContents::UpdateContentRestrictions(int restrictions) {
+  content_restrictions_ = restrictions;
+  delegate()->ContentRestrictionsChanged(this);
 }
 
 void TabContents::BeforeUnloadFiredFromRenderManager(

@@ -215,6 +215,9 @@ class PluginDelegate {
   // Tell the browser when resource loading starts/ends.
   virtual void DidStartLoading() = 0;
   virtual void DidStopLoading() = 0;
+
+  // Sets restrictions on how the content can be used (i.e. no print/copy).
+  virtual void SetContentRestriction(int restrictions) = 0;
 };
 
 }  // namespace pepper

@@ -708,6 +708,8 @@ class TabContents : public PageNavigator,
   int minimum_zoom_percent() const { return minimum_zoom_percent_; }
   int maximum_zoom_percent() const { return maximum_zoom_percent_; }
 
+  int content_restrictions() const { return content_restrictions_; }
+
  private:
   friend class NavigationController;
   // Used to access the child_windows_ (ConstrainedWindowList) for testing
@@ -990,6 +992,7 @@ class TabContents : public PageNavigator,
   virtual void UpdateZoomLimits(int minimum_percent,
                                 int maximum_percent,
                                 bool remember);
+  virtual void UpdateContentRestrictions(int restrictions);
 
   // RenderViewHostManager::Delegate -------------------------------------------
 
@@ -1284,6 +1287,10 @@ class TabContents : public PageNavigator,
   // case we don't want saved settings to apply to it and we don't want to
   // remember it.
   bool temporary_zoom_settings_;
+
+  // Content restrictions, used to disable print/copy etc based on content's
+  // (full-page plugins for now only) permissions.
+  int content_restrictions_;
 
   // ---------------------------------------------------------------------------
 

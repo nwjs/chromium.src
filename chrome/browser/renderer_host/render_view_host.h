@@ -699,6 +699,7 @@ class RenderViewHost : public RenderWidgetHost {
                               double phishing_score,
                               const SkBitmap& thumbnail);
   void OnScriptEvalResponse(int id, bool result);
+  void OnUpdateContentRestrictions(int restrictions);
 
  private:
   friend class TestRenderViewHost;

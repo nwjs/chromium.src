@@ -888,6 +888,8 @@ void RenderViewHost::OnMessageReceived(const IPC::Message& msg) {
     IPC_MESSAGE_HANDLER(ViewHostMsg_DetectedPhishingSite,
                         OnDetectedPhishingSite)
     IPC_MESSAGE_HANDLER(ViewHostMsg_ScriptEvalResponse, OnScriptEvalResponse)
+    IPC_MESSAGE_HANDLER(ViewHostMsg_UpdateContentRestrictions,
+                        OnUpdateContentRestrictions)
     // Have the super handle all other messages.
     IPC_MESSAGE_UNHANDLED(RenderWidgetHost::OnMessageReceived(msg))
   IPC_END_MESSAGE_MAP_EX()
@@ -2132,4 +2134,8 @@ void RenderViewHost::OnScriptEvalResponse(int id, bool result) {
       NotificationType::EXECUTE_JAVASCRIPT_RESULT,
       Source<RenderViewHost>(this),
       Details<std::pair<int, Value*> >(&details));
+}
+
+void RenderViewHost::OnUpdateContentRestrictions(int restrictions) {
+  delegate_->UpdateContentRestrictions(restrictions);
 }
