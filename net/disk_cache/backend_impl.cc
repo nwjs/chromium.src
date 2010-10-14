@@ -143,7 +143,7 @@ bool DelayedCacheCleanup(const FilePath& full_path) {
 
 // Sets group for the current experiment. Returns false if the files should be
 // discarded.
-bool InitExperiment(disk_cache::IndexHeader* header, uint32 mask) {
+bool InitExperiment(disk_cache::IndexHeader* header) {
   if (header->experiment == disk_cache::EXPERIMENT_OLD_FILE1 ||
       header->experiment == disk_cache::EXPERIMENT_OLD_FILE2) {
     // Discard current cache.
@@ -154,31 +154,8 @@ bool InitExperiment(disk_cache::IndexHeader* header, uint32 mask) {
   if (header->experiment >= disk_cache::EXPERIMENT_DELETED_LIST_OUT)
     return true;
 
-  if (!header->create_time || !header->lru.filled) {
-    // Only for users with a full cache.
-    header->experiment = disk_cache::EXPERIMENT_DELETED_LIST_OUT;
-    return true;
-  }
-
-  int index_load = header->num_entries * 100 / (mask + 1);
-  if (index_load > 20) {
-    // Out of the experiment (~ 35% users).
-    header->experiment = disk_cache::EXPERIMENT_DELETED_LIST_OUT;
-    return true;
-  }
-
-  int option = base::RandInt(0, 5);
-  if (option > 1) {
-    // 60% out (39% of the total).
-    header->experiment = disk_cache::EXPERIMENT_DELETED_LIST_OUT;
-  } else if (!option) {
-    // About 13% of the total.
-    header->experiment = disk_cache::EXPERIMENT_DELETED_LIST_CONTROL;
-  } else {
-    // About 13% of the total.
-    header->experiment = disk_cache::EXPERIMENT_DELETED_LIST_IN;
-  }
-
+  // The experiment is closed.
+  header->experiment = disk_cache::EXPERIMENT_DELETED_LIST_OUT;
   return true;
 }
 
@@ -582,7 +559,7 @@ int BackendImpl::SyncInit() {
 
   if (!(user_flags_ & disk_cache::kNoRandom) &&
       cache_type_ == net::DISK_CACHE &&
-      !InitExperiment(&data_->header, mask_))
+      !InitExperiment(&data_->header))
     return net::ERR_FAILED;
 
   // We don't care if the value overflows. The only thing we care about is that
