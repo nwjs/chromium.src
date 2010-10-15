@@ -91,7 +91,7 @@ class ClearServerDataView : public views::View,
   // ProfileSyncServiceObserver method.
   virtual void OnStateChanged();
 
-  // ProfileSyncServiceObserver
+  // ConfirmMessageBoxObserver methods.
   virtual void OnConfirmMessageAccept();
   virtual void OnConfirmMessageCancel();
 
