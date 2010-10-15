@@ -29,7 +29,6 @@ SystemNotification::SystemNotification(Profile* profile, std::string id,
 }
 
 SystemNotification::~SystemNotification() {
-  Hide();
 }
 
 void SystemNotification::Show(const string16& message,
