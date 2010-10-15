@@ -173,6 +173,22 @@ TEST(HttpAuthTest, HandleChallengeResponse_ConnectionBasedNoMatch) {
                 disabled_schemes));
 }
 
+TEST(HttpAuthTest, HandleChallengeResponse_EmptyHeader) {
+  scoped_ptr<HttpAuthHandlerMock> mock_handler(CreateMockHandler(false));
+  std::set<std::string> disabled_schemes;
+  scoped_refptr<HttpResponseHeaders> headers(
+      HeadersFromResponseText(
+          "HTTP/1.1 401 Unauthorized\n"
+          "WWW-Authenticate: "));
+  std::string challenge_used;
+  EXPECT_EQ(HttpAuth::AUTHORIZATION_RESULT_REJECT,
+            HttpAuth::HandleChallengeResponse(
+                mock_handler.get(),
+                headers.get(),
+                HttpAuth::AUTH_SERVER,
+                disabled_schemes));
+}
+
 TEST(HttpAuthTest, ChallengeTokenizer) {
   std::string challenge_str = "Basic realm=\"foobar\"";
   HttpAuth::ChallengeTokenizer challenge(challenge_str.begin(),
