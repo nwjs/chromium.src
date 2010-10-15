@@ -195,6 +195,7 @@ class ResourceMessageFilter : public IPC::ChannelProxy::MessageFilter,
                        IPC::Message* reply_msg);
   void OnOpenChannelToPlugin(const GURL& url,
                              const std::string& mime_type,
+                             const std::string& locale,
                              IPC::Message* reply_msg);
   void OnLaunchNaCl(const std::wstring& url,
                     int channel_descriptor,
