@@ -10,13 +10,13 @@
 #if defined(OS_POSIX)
 #include "base/file_descriptor_posix.h"
 #endif
-#include "base/file_util.h"
 #include "base/file_path.h"
-#include "base/histogram.h"
+#include "base/file_util.h"
+#include "base/metrics/histogram.h"
 #include "base/process_util.h"
 #include "base/shared_memory.h"
-#include "base/thread.h"
 #include "base/sys_string_conversions.h"
+#include "base/thread.h"
 #include "base/utf_string_conversions.h"
 #include "base/worker_pool.h"
 #include "chrome/browser/appcache/appcache_dispatcher_host.h"
@@ -32,8 +32,8 @@
 #include "chrome/browser/extensions/extension_message_service.h"
 #include "chrome/browser/file_system/file_system_dispatcher_host.h"
 #include "chrome/browser/file_system/file_system_host_context.h"
-#include "chrome/browser/geolocation/geolocation_permission_context.h"
 #include "chrome/browser/geolocation/geolocation_dispatcher_host.h"
+#include "chrome/browser/geolocation/geolocation_permission_context.h"
 #include "chrome/browser/gpu_process_host.h"
 #include "chrome/browser/host_zoom_map.h"
 #include "chrome/browser/in_process_webkit/dom_storage_dispatcher_host.h"
@@ -44,8 +44,11 @@
 #include "chrome/browser/net/predictor_api.h"
 #include "chrome/browser/notifications/desktop_notification_service.h"
 #include "chrome/browser/notifications/notifications_prefs_cache.h"
-#include "chrome/browser/plugin_updater.h"
+#if defined(OS_CHROMEOS)
+#include "chrome/browser/chromeos/plugin_selection_policy.h"
+#endif
 #include "chrome/browser/plugin_service.h"
+#include "chrome/browser/plugin_updater.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/printing/print_job_manager.h"
 #include "chrome/browser/printing/printer_query.h"
@@ -763,8 +766,8 @@ void ResourceMessageFilter::OnGetPluginInfo(const GURL& url,
                                             const GURL& policy_url,
                                             const std::string& mime_type,
                                             IPC::Message* reply_msg) {
-  // The PluginList::GetPluginInfo may need to load the plugins.  Don't do it
-  // on the IO thread.
+  // The PluginService::GetFirstAllowedPluginInfo may need to load the
+  // plugins.  Don't do it on the IO thread.
   BrowserThread::PostTask(
       BrowserThread::FILE, FROM_HERE,
       NewRunnableMethod(
@@ -777,11 +780,12 @@ void ResourceMessageFilter::OnGetPluginInfoOnFileThread(
     const GURL& policy_url,
     const std::string& mime_type,
     IPC::Message* reply_msg) {
-  WebPluginInfo info;
   std::string actual_mime_type;
-  bool allow_wildcard = true;
-  bool found = NPAPI::PluginList::Singleton()->GetPluginInfo(
-      url, mime_type, allow_wildcard, &info, &actual_mime_type);
+  WebPluginInfo info;
+  bool found = plugin_service_->GetFirstAllowedPluginInfo(url,
+                                                          mime_type,
+                                                          &info,
+                                                          &actual_mime_type);
   BrowserThread::PostTask(
       BrowserThread::IO, FROM_HERE,
       NewRunnableMethod(
@@ -813,10 +817,8 @@ void ResourceMessageFilter::OnGotPluginInfo(bool found,
 
 void ResourceMessageFilter::OnOpenChannelToPlugin(const GURL& url,
                                                   const std::string& mime_type,
-                                                  const std::string& locale,
                                                   IPC::Message* reply_msg) {
-  plugin_service_->OpenChannelToPlugin(
-      this, url, mime_type, locale, reply_msg);
+  plugin_service_->OpenChannelToPlugin(this, url, mime_type, reply_msg);
 }
 
 void ResourceMessageFilter::OnLaunchNaCl(

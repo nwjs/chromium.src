@@ -9,8 +9,8 @@
 #include <string>
 #include <vector>
 
-#include "app/message_box_flags.h"
 #include "app/l10n_util.h"
+#include "app/message_box_flags.h"
 #include "app/resource_bundle.h"
 #include "base/callback.h"
 #include "base/command_line.h"
@@ -22,8 +22,8 @@
 #include "base/singleton.h"
 #include "base/string_piece.h"
 #include "base/string_util.h"
-#include "base/time.h"
 #include "base/sys_string_conversions.h"
+#include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "chrome/common/appcache/appcache_dispatcher.h"
@@ -56,9 +56,9 @@
 #include "chrome/renderer/dom_ui_bindings.h"
 #include "chrome/renderer/extension_groups.h"
 #include "chrome/renderer/extensions/bindings_utils.h"
-#include "chrome/renderer/extensions/extension_renderer_info.h"
 #include "chrome/renderer/extensions/event_bindings.h"
 #include "chrome/renderer/extensions/extension_process_bindings.h"
+#include "chrome/renderer/extensions/extension_renderer_info.h"
 #include "chrome/renderer/extensions/renderer_extension_bindings.h"
 #include "chrome/renderer/external_host_bindings.h"
 #include "chrome/renderer/geolocation_dispatcher.h"
@@ -101,8 +101,6 @@
 #include "net/base/net_errors.h"
 #include "skia/ext/bitmap_platform_device.h"
 #include "skia/ext/image_operations.h"
-#include "third_party/cld/encodings/compact_lang_det/win/cld_unicodetext.h"
-#include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebAccessibilityCache.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebAccessibilityObject.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebCString.h"
@@ -111,9 +109,9 @@
 #include "third_party/WebKit/WebKit/chromium/public/WebDocument.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebDragData.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebFileChooserParams.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFindOptions.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebFileSystem.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebFileSystemCallbacks.h"
+#include "third_party/WebKit/WebKit/chromium/public/WebFindOptions.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebFormControlElement.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebFormElement.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebFrame.h"
@@ -126,8 +124,8 @@
 #include "third_party/WebKit/WebKit/chromium/public/WebPageSerializer.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebPlugin.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebPluginContainer.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebPluginParams.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebPluginDocument.h"
+#include "third_party/WebKit/WebKit/chromium/public/WebPluginParams.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebPoint.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebRange.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebRect.h"
@@ -145,6 +143,8 @@
 #include "third_party/WebKit/WebKit/chromium/public/WebVector.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebView.h"
 #include "third_party/WebKit/WebKit/chromium/public/WebWindowFeatures.h"
+#include "third_party/cld/encodings/compact_lang_det/win/cld_unicodetext.h"
+#include "third_party/skia/include/core/SkBitmap.h"
 #include "v8/include/v8.h"
 #include "webkit/appcache/web_application_cache_host_impl.h"
 #include "webkit/glue/context_menu.h"
@@ -182,28 +182,17 @@
 #include "skia/ext/skia_utils_mac.h"
 #endif
 
-using appcache::WebApplicationCacheHostImpl;
-using base::Time;
-using base::TimeDelta;
-using webkit_glue::AltErrorPageResourceFetcher;
-using webkit_glue::FormData;
-using webkit_glue::FormField;
-using webkit_glue::ImageResourceFetcher;
-using webkit_glue::PasswordForm;
-using webkit_glue::PasswordFormDomManager;
-using webkit_glue::SiteIsolationMetrics;
-using webkit_glue::WebAccessibility;
 using WebKit::WebAccessibilityCache;
 using WebKit::WebAccessibilityNotification;
 using WebKit::WebAccessibilityObject;
 using WebKit::WebApplicationCacheHost;
 using WebKit::WebApplicationCacheHostClient;
+using WebKit::WebCString;
 using WebKit::WebColor;
 using WebKit::WebColorName;
 using WebKit::WebConsoleMessage;
 using WebKit::WebContextMenuData;
 using WebKit::WebCookieJar;
-using WebKit::WebCString;
 using WebKit::WebData;
 using WebKit::WebDataSource;
 using WebKit::WebDevToolsAgent;
@@ -255,9 +244,20 @@ using WebKit::WebURLResponse;
 using WebKit::WebVector;
 using WebKit::WebView;
 using WebKit::WebWidget;
+using WebKit::WebWindowFeatures;
 using WebKit::WebWorker;
 using WebKit::WebWorkerClient;
-using WebKit::WebWindowFeatures;
+using appcache::WebApplicationCacheHostImpl;
+using base::Time;
+using base::TimeDelta;
+using webkit_glue::AltErrorPageResourceFetcher;
+using webkit_glue::FormData;
+using webkit_glue::FormField;
+using webkit_glue::ImageResourceFetcher;
+using webkit_glue::PasswordForm;
+using webkit_glue::PasswordFormDomManager;
+using webkit_glue::SiteIsolationMetrics;
+using webkit_glue::WebAccessibility;
 
 //-----------------------------------------------------------------------------
 
@@ -299,10 +299,8 @@ static const int kDelaySecondsForContentStateSync = 1;
 // The maximum number of popups that can be spawned from one page.
 static const int kMaximumNumberOfUnacknowledgedPopups = 25;
 
-static const char* const kUnreachableWebDataURL =
-    "chrome://chromewebdata/";
-
-static const char* const kBackForwardNavigationScheme = "history";
+static const char kUnreachableWebDataURL[] = "chrome://chromewebdata/";
+static const char kBackForwardNavigationScheme[] = "history";
 
 static void GetRedirectChain(WebDataSource* ds, std::vector<GURL>* result) {
   WebVector<WebURL> urls;
@@ -5329,8 +5327,9 @@ void RenderView::DumpLoadHistograms() const {
   }
 
   // Histograms to determine if cache throttling has an impact on PLT.
-  static bool use_cache_histogram2(FieldTrialList::Find("CacheThrottle") &&
-      !FieldTrialList::Find("CacheThrottle")->group_name().empty());
+  static bool use_cache_histogram2(
+      base::FieldTrialList::Find("CacheThrottle") &&
+      !base::FieldTrialList::Find("CacheThrottle")->group_name().empty());
   if (use_cache_histogram2) {
     UMA_HISTOGRAM_ENUMERATION(
         FieldTrial::MakeName("PLT.Abandoned", "CacheThrottle"),
