@@ -156,13 +156,13 @@ const Experiment kExperiments[] = {
   //  kOsAll,
   //  switches::kDisableExperimentalWebGL
   //}
-  {
-    "print-preview",  // Do not change; see above
-    IDS_FLAGS_PRINT_PREVIEW_NAME,
-    IDS_FLAGS_PRINT_PREVIEW_DESCRIPTION,
-    kOsAll,
-    switches::kEnablePrintPreview
-  }
+  //{
+  //  "print-preview",  // Do not change; see above
+  //  IDS_FLAGS_PRINT_PREVIEW_NAME,
+  //  IDS_FLAGS_PRINT_PREVIEW_DESCRIPTION,
+  //  kOsAll,
+  //  switches::kEnablePrintPreview
+  //}
 };
 
 // Extracts the list of enabled lab experiments from preferences and stores them
