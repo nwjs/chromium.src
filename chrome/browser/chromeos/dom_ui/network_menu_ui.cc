@@ -4,6 +4,7 @@
 
 #include "chrome/browser/chromeos/dom_ui/network_menu_ui.h"
 
+#include "app/l10n_util.h"
 #include "base/values.h"
 #include "base/string_util.h"
 #include "chrome/app/chrome_dll_resource.h"
@@ -12,6 +13,7 @@
 #include "chrome/common/url_constants.h"
 #include "googleurl/src/gurl.h"
 #include "grit/browser_resources.h"
+#include "grit/generated_resources.h"
 #include "views/controls/menu/menu_2.h"
 
 namespace {
@@ -75,12 +77,26 @@ NetworkMenuUI::NetworkMenuUI(TabContents* contents)
                                    chrome::kChromeUINetworkMenu,
                                    "NetworkMenu",
                                    IDR_NETWORK_MENU_JS,
-                                   -1))) {
+                                   IDR_NETWORK_MENU_CSS))) {
   NetworkMenuHandler* handler = new NetworkMenuHandler();
   AddMessageHandler((handler)->Attach(this));
 }
 
 void NetworkMenuUI::AddCustomConfigValues(DictionaryValue* config) const {
+}
+
+void NetworkMenuUI::AddLocalizedStrings(
+    DictionaryValue* localized_strings) const {
+  DCHECK(localized_strings);
+
+  localized_strings->SetString("reconnect", l10n_util::GetStringUTF16(
+      IDS_NETWORK_RECONNECT_TITLE));
+  localized_strings->SetString("remeber_this_network",
+      l10n_util::GetStringUTF16(IDS_NETWORK_REMEMBER_THIS_NETWORK_TITLE));
+  localized_strings->SetString("ssid_prompt",
+      l10n_util::GetStringUTF16(IDS_NETWORK_SSID_HINT));
+  localized_strings->SetString("pass_prompt",
+      l10n_util::GetStringUTF16(IDS_NETWORK_PASSWORD_HINT));
 }
 
 void NetworkMenuUI::ModelAction(const menus::MenuModel* model,
