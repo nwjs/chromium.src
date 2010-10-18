@@ -2518,6 +2518,7 @@ extern NSString *NSTextInputReplacementRangeAttributeName;
     int32 major, minor, bugfix;
     base::SysInfo::OperatingSystemVersionNumbers(&major, &minor, &bugfix);
     sImeSupported = major > 10 || (major == 10 && minor > 5);
+    sHaveCheckedSupport = YES;
   }
   if (!sImeSupported)
     return false;
