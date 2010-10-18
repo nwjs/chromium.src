@@ -262,6 +262,7 @@ void PluginService::OpenChannelToPlugin(
           this, &PluginService::GetAllowedPluginForOpenChannelToPlugin,
           renderer_msg_filter, url, mime_type, reply_msg));
 }
+
 void PluginService::GetAllowedPluginForOpenChannelToPlugin(
     ResourceMessageFilter* renderer_msg_filter,
     const GURL& url,
@@ -273,6 +274,7 @@ void PluginService::GetAllowedPluginForOpenChannelToPlugin(
   FilePath plugin_path;
   if (found && info.enabled)
     plugin_path = FilePath(info.path);
+
   // Now we jump back to the IO thread to finish opening the channel.
   BrowserThread::PostTask(
       BrowserThread::IO, FROM_HERE,
