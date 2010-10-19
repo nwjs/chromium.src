@@ -522,6 +522,7 @@ IN_PROC_BROWSER_TEST_F(NotificationTest, TestActivateDeactivate) {
   // Wait until all renderers get size.
   WaitForResize(view1);
   WaitForResize(view2);
+  EXPECT_LT(view2->size().height(), 50) << "view size is bigger than expected";
 
   panel->OnMouseMotion(gfx::Point(10, 50));
   EXPECT_TRUE(tester->IsActive(view1));
