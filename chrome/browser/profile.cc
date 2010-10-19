@@ -115,7 +115,7 @@ bool Profile::IsSyncAccessible() {
 //
 ////////////////////////////////////////////////////////////////////////////////
 class OffTheRecordProfileImpl : public Profile,
-                                public BrowserList::Observer {
+                                public NotificationObserver {
  public:
   explicit OffTheRecordProfileImpl(Profile* real_profile)
       : profile_(real_profile),
@@ -123,8 +123,11 @@ class OffTheRecordProfileImpl : public Profile,
     request_context_ = ChromeURLRequestContextGetter::CreateOffTheRecord(this);
     extension_process_manager_.reset(ExtensionProcessManager::Create(this));
 
-    BrowserList::AddObserver(this);
-
+    // Register for browser close notifications so we can detect when the last
+    // off-the-record window is closed, in which case we can clean our states
+    // (cookies, downloads...).
+    registrar_.Add(this, NotificationType::BROWSER_CLOSED,
+                   NotificationService::AllSources());
     background_contents_service_.reset(
         new BackgroundContentsService(this, CommandLine::ForCurrentProcess()));
   }
@@ -142,8 +145,6 @@ class OffTheRecordProfileImpl : public Profile,
         NewRunnableMethod(
             db_tracker_.get(),
             &webkit_database::DatabaseTracker::DeleteIncognitoDBDirectory));
-
-    BrowserList::RemoveObserver(this);
   }
 
   virtual ProfileId GetRuntimeId() {
@@ -523,11 +524,18 @@ class OffTheRecordProfileImpl : public Profile,
     download_manager_ = NULL;
   }
 
-  virtual void OnBrowserAdded(const Browser* browser) {
-  }
+  virtual void Observe(NotificationType type,
+                       const NotificationSource& source,
+                       const NotificationDetails& details) {
+    DCHECK_EQ(NotificationType::BROWSER_CLOSED, type.value);
+    // We are only interested in OTR browser closing.
+    if (Source<Browser>(source)->profile() != this)
+      return;
 
-  virtual void OnBrowserRemoved(const Browser* browser) {
-    if (BrowserList::GetBrowserCount(this) == 0)
+    // Let's check if we still have an Off The Record window opened.
+    // Note that we check against 1 as this notification is sent before the
+    // browser window is actually removed from the list.
+    if (BrowserList::GetBrowserCount(this) <= 1)
       ExitedOffTheRecordMode();
   }
 
