@@ -41,7 +41,7 @@ static const PluginGroupDefinition kGroupDefinitions[] = {
 static const PluginGroupDefinition kGroupDefinitions[] = {
   { "apple-quicktime", "Quicktime", "QuickTime Plug-in", "", "", "7.6.7",
     "http://www.apple.com/quicktime/download/" },
-  { "java-runtime-environment", "Java 6", "Java", "", "6", "6.0.200",
+  { "java-runtime-environment", "Java 6", "Java", "", "6", "6.0.220",
     "http://www.java.com/" },
   { "adobe-reader", "Adobe Reader 9", "Adobe Acrobat", "9", "10", "9.3.3",
     "http://get.adobe.com/reader/" },
