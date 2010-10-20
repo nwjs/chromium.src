@@ -1261,6 +1261,8 @@
         'browser/dom_ui/bug_report_ui.h',
         'browser/dom_ui/chrome_url_data_manager.cc',
         'browser/dom_ui/chrome_url_data_manager.h',
+        'browser/dom_ui/constrained_html_ui.cc',
+        'browser/dom_ui/constrained_html_ui.h',
         'browser/dom_ui/devtools_ui.cc',
         'browser/dom_ui/devtools_ui.h',
         'browser/dom_ui/dom_ui.cc',
