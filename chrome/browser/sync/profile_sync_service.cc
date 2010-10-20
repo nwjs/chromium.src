@@ -333,6 +333,8 @@ void ProfileSyncService::ClearPreferences() {
   pref_service->ClearPref(prefs::kSyncLastSyncedTime);
   pref_service->ClearPref(prefs::kSyncHasSetupCompleted);
   pref_service->ClearPref(prefs::kEncryptionBootstrapToken);
+  pref_service->ClearPref(prefs::kSyncUsingSecondaryPassphrase);
+
   // TODO(nick): The current behavior does not clear e.g. prefs::kSyncBookmarks.
   // Is that really what we want?
   pref_service->ScheduleSavePersistentPrefs();
@@ -952,12 +954,11 @@ void ProfileSyncService::Observe(NotificationType type,
         break;
       }
 
-      if (SetupInProgress()) {
+      if (WizardIsVisible()) {
         wizard_.Step(SyncSetupWizard::ENTER_PASSPHRASE);
-      } else {
-        UpdateAuthErrorState(GoogleServiceAuthError(
-            GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS));
       }
+
+      FOR_EACH_OBSERVER(Observer, observers_, OnStateChanged());
       break;
     }
     case NotificationType::SYNC_DATA_TYPES_UPDATED: {
@@ -977,6 +978,7 @@ void ProfileSyncService::Observe(NotificationType type,
 
       FOR_EACH_OBSERVER(Observer, observers_, OnStateChanged());
       observed_passphrase_required_ = false;
+
       wizard_.Step(SyncSetupWizard::DONE);
       break;
     }
