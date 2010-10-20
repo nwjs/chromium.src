@@ -7,7 +7,7 @@
 #include "webkit/glue/plugins/pepper_private.h"
 
 #include "app/resource_bundle.h"
-#include "base/metrics/histogram.h"
+#include "base/histogram.h"
 #include "base/utf_string_conversions.h"
 #include "grit/webkit_resources.h"
 #include "grit/webkit_strings.h"
