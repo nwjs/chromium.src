@@ -230,12 +230,12 @@ void BootTimesLoader::WriteLoginTimes(
   base::Time first = login_times.front().time();
   base::Time last = login_times.back().time();
   base::TimeDelta total = last - first;
-  scoped_refptr<base::Histogram>total_hist = base::Histogram::FactoryTimeGet(
+  scoped_refptr<Histogram>total_hist = Histogram::FactoryTimeGet(
       kUmaLogin,
       base::TimeDelta::FromMilliseconds(kMinTimeMillis),
       base::TimeDelta::FromMilliseconds(kMaxTimeMillis),
       kNumBuckets,
-      base::Histogram::kUmaTargetedHistogramFlag);
+      Histogram::kUmaTargetedHistogramFlag);
   total_hist->AddTime(total);
   std::string output =
       base::StringPrintf("%s: %.2f", kUmaLogin, total.InSecondsF());
@@ -248,12 +248,12 @@ void BootTimesLoader::WriteLoginTimes(
 
     if (tm.send_to_uma()) {
       name = kUmaPrefix + tm.name();
-      scoped_refptr<base::Histogram>prev_hist = base::Histogram::FactoryTimeGet(
+      scoped_refptr<Histogram>prev_hist = Histogram::FactoryTimeGet(
           name,
           base::TimeDelta::FromMilliseconds(kMinTimeMillis),
           base::TimeDelta::FromMilliseconds(kMaxTimeMillis),
           kNumBuckets,
-          base::Histogram::kUmaTargetedHistogramFlag);
+          Histogram::kUmaTargetedHistogramFlag);
       prev_hist->AddTime(since_prev);
     } else {
       name = tm.name();

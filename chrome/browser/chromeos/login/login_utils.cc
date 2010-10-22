@@ -27,6 +27,7 @@
 #include "chrome/browser/chromeos/login/parallel_authenticator.h"
 #include "chrome/browser/chromeos/login/user_image_downloader.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
+#include "chrome/browser/extensions/extensions_service.h"
 #include "chrome/browser/net/gaia/token_service.h"
 #include "chrome/browser/prefs/pref_member.h"
 #include "chrome/browser/profile.h"
