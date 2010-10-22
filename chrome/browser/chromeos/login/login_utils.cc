@@ -140,6 +140,16 @@ void LoginUtilsImpl::CompleteLogin(const std::string& username,
       logging::DELETE_OLD_LOG_FILE);
   btl->AddLoginTimeMarker("LoggingRedirected", false);
 
+  // Take the credentials passed in and try to exchange them for
+  // full-fledged Google authentication cookies.  This is
+  // best-effort; it's possible that we'll fail due to network
+  // troubles or some such.  Either way, |cf| will call
+  // DoBrowserLaunch on the UI thread when it's done, and then
+  // delete itself.
+  CookieFetcher* cf = new CookieFetcher(profile);
+  cf->AttemptFetch(credentials.data);
+  btl->AddLoginTimeMarker("CookieFetchStarted", false);
+
   // Init extension event routers; this normally happens in browser_main
   // but on Chrome OS it has to be deferred until the user finishes
   // logging in and the profile is not OTR.
@@ -182,16 +192,6 @@ void LoginUtilsImpl::CompleteLogin(const std::string& username,
   }
   btl->AddLoginTimeMarker("TPMOwned", false);
 
-  // Take the credentials passed in and try to exchange them for
-  // full-fledged Google authentication cookies.  This is
-  // best-effort; it's possible that we'll fail due to network
-  // troubles or some such.  Either way, |cf| will call
-  // DoBrowserLaunch on the UI thread when it's done, and then
-  // delete itself.
-  CookieFetcher* cf = new CookieFetcher(profile);
-  cf->AttemptFetch(credentials.data);
-  btl->AddLoginTimeMarker("CookieFetchStarted", false);
-
   static const char kFallbackInputMethodLocale[] = "en-US";
   if (first_login) {
     std::string locale(g_browser_process->GetApplicationLocale());
@@ -226,6 +226,7 @@ void LoginUtilsImpl::CompleteLogin(const std::string& username,
       btl->AddLoginTimeMarker("IMESTarted", false);
     }
   }
+  DoBrowserLaunch(profile);
 }
 
 void LoginUtilsImpl::CompleteOffTheRecordLogin(const GURL& start_url) {

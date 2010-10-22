@@ -47,9 +47,7 @@ void CookieFetcher::OnURLFetchComplete(const URLFetcher* source,
       return;
     }
   }
-  LOG(INFO) << "Calling DoLaunch";
   BootTimesLoader::Get()->AddLoginTimeMarker("CookiesFetched", false);
-  launcher_->DoLaunch(profile_);
   delete this;
 }
 
