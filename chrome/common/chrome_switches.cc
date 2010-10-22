@@ -301,7 +301,7 @@ const char kDisableSyncBookmarks[]          = "disable-sync-bookmarks";
 // Disable syncing of extensions.
 const char kDisableSyncExtensions[]         = "disable-sync-extensions";
 
-// Disable syncing of passwords.
+// Disable syncing browser passwords.
 const char kDisableSyncPasswords[]          = "disable-sync-passwords";
 
 // Disable syncing of preferences.
@@ -509,15 +509,6 @@ const char kEnableSyncApps[]                = "enable-sync-apps";
 
 // Enable syncing browser autofill.
 const char kEnableSyncAutofill[]            = "enable-sync-autofill";
-
-// Enable syncing browser bookmarks.
-const char kEnableSyncBookmarks[]           = "enable-sync-bookmarks";
-
-// Enable syncing browser extensions.
-const char kEnableSyncExtensions[]          = "enable-sync-extensions";
-
-// Enable syncing browser passwords.
-const char kEnableSyncPasswords[]           = "enable-sync-passwords";
 
 // Enable syncing browser preferences.
 const char kEnableSyncPreferences[]         = "enable-sync-preferences";
