@@ -300,18 +300,4 @@ NetworkMenu.prototype = {
       return new MenuItem();
     }
   }
-
-  onKeydown_: function(event) {
-    switch (event.keyIdentifier) {
-      case 'Enter':
-      case 'U+0020':  // space
-        // Temporary, for testing sendConnect()
-        sendConnect(this.getMenuItemIndexOf(this.current_),
-                    "passphrase", "identity");
-        break;
-      default:
-        Menu.prototype.onKeydown_.call(this, event);
-        break;
-    }
-  }
 };
