@@ -97,8 +97,8 @@ bool WebGraphicsContext3DCommandBufferImpl::initialize(
         renderview->routing_id(),
         attribs);
   } else {
-    bool compositing_enabled = !CommandLine::ForCurrentProcess()->HasSwitch(
-        switches::kDisableAcceleratedCompositing);
+    bool compositing_enabled = CommandLine::ForCurrentProcess()->HasSwitch(
+        switches::kEnableAcceleratedCompositing);
     ggl::Context* parent_context = NULL;
     // If GPU compositing is enabled we need to create a GL context that shares
     // resources with the compositor's context.
