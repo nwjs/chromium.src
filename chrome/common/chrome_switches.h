@@ -341,9 +341,6 @@ extern const char kScreenSaverUrl[];
 extern const char kCompressSystemFeedback[];
 extern const char kForceStubLibcros[];
 extern const char kDisableDOMUIMenu[];
-#ifndef NDEBUG
-extern const char kDOMUIMenuUrl[];
-#endif
 #endif
 
 #if defined(OS_LINUX)
