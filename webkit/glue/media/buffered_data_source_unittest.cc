@@ -27,6 +27,7 @@ using ::testing::Invoke;
 using ::testing::InvokeWithoutArgs;
 using ::testing::NotNull;
 using ::testing::Return;
+using ::testing::ReturnRef;
 using ::testing::SetArgumentPointee;
 using ::testing::StrictMock;
 using ::testing::WithArgs;
@@ -525,6 +526,7 @@ class MockBufferedResourceLoader : public BufferedResourceLoader {
   MOCK_METHOD0(instance_size, int64());
   MOCK_METHOD0(partial_response, bool());
   MOCK_METHOD0(network_activity, bool());
+  MOCK_METHOD0(url, const GURL&());
   MOCK_METHOD0(GetBufferedFirstBytePosition, int64());
   MOCK_METHOD0(GetBufferedLastBytePosition, int64());
 
@@ -636,10 +638,12 @@ class BufferedDataSourceTest : public testing::Test {
         .WillByDefault(DeleteArg<3>());
 
     StrictMock<media::MockFilterCallback> callback;
-    EXPECT_CALL(*loader_, instance_size())
-        .WillRepeatedly(Return(instance_size));
-    EXPECT_CALL(*loader_, partial_response())
-        .WillRepeatedly(Return(partial_response));
+    ON_CALL(*loader_, instance_size())
+        .WillByDefault(Return(instance_size));
+    ON_CALL(*loader_, partial_response())
+        .WillByDefault(Return(partial_response));
+    ON_CALL(*loader_, url())
+        .WillByDefault(ReturnRef(gurl_));
     if (error == net::OK) {
       // Expected loaded or not.
       EXPECT_CALL(host_, SetLoaded(loaded));

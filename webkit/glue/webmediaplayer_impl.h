@@ -95,21 +95,21 @@ class WebMediaPlayerImpl : public WebKit::WebMediaPlayer,
     Proxy(MessageLoop* render_loop,
           WebMediaPlayerImpl* webmediaplayer);
 
-    // Public methods called from the video renderer.
+    // Methods for MediaFilter -> WebMediaPlayerImpl communication.
     void Repaint();
     void SetVideoRenderer(WebVideoRenderer* video_renderer);
     void SetDataSource(WebDataSource* data_source);
 
-    // Public methods called from WebMediaPlayerImpl.
+    // Methods for WebMediaPlayerImpl -> MediaFilter communication.
     void Paint(skia::PlatformCanvas* canvas, const gfx::Rect& dest_rect);
     void SetSize(const gfx::Rect& rect);
     void Detach();
     void GetCurrentFrame(scoped_refptr<media::VideoFrame>* frame_out);
     void PutCurrentFrame(scoped_refptr<media::VideoFrame> frame);
+    bool HasSingleOrigin();
     void AbortDataSource();
 
-    // Public methods called from the pipeline via callback issued by
-    // WebMediaPlayerImpl.
+    // Methods for PipelineImpl -> WebMediaPlayerImpl communication.
     void PipelineInitializationCallback();
     void PipelineSeekCallback();
     void PipelineEndedCallback();

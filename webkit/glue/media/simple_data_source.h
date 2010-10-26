@@ -15,13 +15,14 @@
 #include "media/base/factory.h"
 #include "media/base/filters.h"
 #include "webkit/glue/media/media_resource_loader_bridge_factory.h"
+#include "webkit/glue/media/web_data_source.h"
 
 class MessageLoop;
 class WebMediaPlayerDelegateImpl;
 
 namespace webkit_glue {
 
-class SimpleDataSource : public media::DataSource,
+class SimpleDataSource : public WebDataSource,
                          public webkit_glue::ResourceLoaderBridge::Peer {
  public:
   static media::FilterFactory* CreateFactory(
@@ -67,6 +68,10 @@ class SimpleDataSource : public media::DataSource,
                                   const base::Time& completion_time);
   virtual GURL GetURLForDebugging() const;
 
+  // webkit_glue::WebDataSource implementation.
+  virtual bool HasSingleOrigin();
+  virtual void Abort();
+
  private:
   friend class media::FilterFactoryImpl2<
       SimpleDataSource,
@@ -102,6 +107,7 @@ class SimpleDataSource : public media::DataSource,
   GURL url_;
   std::string data_;
   int64 size_;
+  bool single_origin_;
 
   // Simple state tracking variable.
   enum State {

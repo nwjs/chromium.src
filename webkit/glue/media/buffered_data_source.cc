@@ -548,6 +548,7 @@ BufferedDataSource::BufferedDataSource(
     : total_bytes_(kPositionNotSpecified),
       loaded_(false),
       streaming_(false),
+      single_origin_(true),
       bridge_factory_(bridge_factory),
       loader_(NULL),
       network_activity_(false),
@@ -657,6 +658,11 @@ bool BufferedDataSource::GetSize(int64* size_out) {
 
 bool BufferedDataSource::IsStreaming() {
   return streaming_;
+}
+
+bool BufferedDataSource::HasSingleOrigin() {
+  DCHECK(MessageLoop::current() == render_loop_);
+  return single_origin_;
 }
 
 void BufferedDataSource::Abort() {
@@ -886,6 +892,9 @@ void BufferedDataSource::HttpInitialStartCallback(int error) {
   DCHECK(MessageLoop::current() == render_loop_);
   DCHECK(loader_.get());
 
+  // Check if the request ended up at a different origin via redirect.
+  single_origin_ = url_.GetOrigin() == loader_->url().GetOrigin();
+
   int64 instance_size = loader_->instance_size();
   bool partial_response = loader_->partial_response();
   bool success = error == net::OK;
@@ -938,6 +947,9 @@ void BufferedDataSource::HttpInitialStartCallback(int error) {
 void BufferedDataSource::NonHttpInitialStartCallback(int error) {
   DCHECK(MessageLoop::current() == render_loop_);
   DCHECK(loader_.get());
+
+  // Check if the request ended up at a different origin via redirect.
+  single_origin_ = url_.GetOrigin() == loader_->url().GetOrigin();
 
   int64 instance_size = loader_->instance_size();
   bool success = error == net::OK && instance_size != kPositionNotSpecified;
