@@ -747,6 +747,10 @@ class BufferedDataSourceTest : public testing::Test {
     EXPECT_CALL(*loader_, Stop());
     data_source_->Abort();
     message_loop_->RunAllPending();
+
+    // The loader has now been stopped. Set this to null so that when the
+    // DataSource is stopped, it does not expect a call to stop the loader.
+    loader_ = NULL;
   }
 
   void ReadDataSourceMiss(int64 position, int size) {
@@ -934,6 +938,7 @@ TEST_F(BufferedDataSourceTest, ReadCacheMiss) {
 TEST_F(BufferedDataSourceTest, ReadHang) {
   InitializeDataSource(kHttpUrl, net::OK, true, 25, LOADING);
   ReadDataSourceHang(10, 10);
+  StopDataSource();
 }
 
 TEST_F(BufferedDataSourceTest, ReadFailed) {
