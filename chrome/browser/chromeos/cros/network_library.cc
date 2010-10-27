@@ -1005,7 +1005,8 @@ class NetworkLibraryImpl : public NetworkLibrary  {
     DLOG(INFO) << "Remembered networks:";
     for (int i = 0; i < system->remembered_service_size; i++) {
       const ServiceInfo& service = *system->GetRememberedServiceInfo(i);
-      // Only serices marked as auto_connect are considered remembered networks.
+      // Only services marked as auto_connect are considered remembered
+      // networks.
       // TODO(chocobo): Don't add to remembered service if currently available.
       if (service.auto_connect) {
         DLOG(INFO) << "  (" << service.type <<
