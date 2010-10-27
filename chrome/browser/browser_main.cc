@@ -1160,6 +1160,10 @@ int BrowserMain(const MainFunctionParams& parameters) {
   }
 #endif
 
+#if defined(USE_X11)
+  SetBrowserX11ErrorHandlers();
+#endif
+
   // Profile creation ----------------------------------------------------------
 
 #if defined(OS_CHROMEOS)
@@ -1199,10 +1203,6 @@ int BrowserMain(const MainFunctionParams& parameters) {
         *(CommandLine::ForCurrentProcess()),
         logging::DELETE_OLD_LOG_FILE);
   }
-#endif
-
-#if defined(USE_X11)
-  SetBrowserX11ErrorHandlers();
 #endif
 
   // Modifies the current command line based on active experiments on
