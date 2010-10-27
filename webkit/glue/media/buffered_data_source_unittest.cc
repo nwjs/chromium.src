@@ -25,6 +25,7 @@ using ::testing::DoAll;
 using ::testing::InSequence;
 using ::testing::Invoke;
 using ::testing::InvokeWithoutArgs;
+using ::testing::NiceMock;
 using ::testing::NotNull;
 using ::testing::Return;
 using ::testing::ReturnRef;
@@ -616,7 +617,7 @@ class BufferedDataSourceTest : public testing::Test {
     data_source_->set_host(&host_);
 
     // Creates the mock loader to be injected.
-    loader_ = new StrictMock<MockBufferedResourceLoader>();
+    loader_ = new NiceMock<MockBufferedResourceLoader>();
 
     bool loaded = networkState == LOADED;
     {
@@ -776,8 +777,8 @@ class BufferedDataSourceTest : public testing::Test {
     }
 
     // 2. Then the current loader will be stop and destroyed.
-    StrictMock<MockBufferedResourceLoader> *new_loader =
-        new StrictMock<MockBufferedResourceLoader>();
+    NiceMock<MockBufferedResourceLoader> *new_loader =
+        new NiceMock<MockBufferedResourceLoader>();
     EXPECT_CALL(*data_source_, CreateResourceLoader(position, -1))
         .WillOnce(Return(new_loader));
 
@@ -840,8 +841,8 @@ class BufferedDataSourceTest : public testing::Test {
     }
 
     // 2. Then the current loader will be stop and destroyed.
-    StrictMock<MockBufferedResourceLoader> *new_loader =
-        new StrictMock<MockBufferedResourceLoader>();
+    NiceMock<MockBufferedResourceLoader> *new_loader =
+        new NiceMock<MockBufferedResourceLoader>();
     EXPECT_CALL(*data_source_, CreateResourceLoader(position, -1))
         .WillOnce(Return(new_loader));
 
@@ -883,7 +884,7 @@ class BufferedDataSourceTest : public testing::Test {
 
   scoped_ptr<StrictMock<MockMediaResourceLoaderBridgeFactory> >
       bridge_factory_;
-  scoped_refptr<StrictMock<MockBufferedResourceLoader> > loader_;
+  scoped_refptr<NiceMock<MockBufferedResourceLoader> > loader_;
   scoped_refptr<MockBufferedDataSource> data_source_;
   scoped_refptr<media::FilterFactory> factory_;
 
