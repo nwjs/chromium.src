@@ -9,6 +9,7 @@
 #include "chrome/browser/browser_thread.h"
 #include "chrome/browser/dom_ui/bookmarks_ui.h"
 #include "chrome/browser/dom_ui/bug_report_ui.h"
+#include "chrome/browser/dom_ui/constrained_html_ui.h"
 #include "chrome/browser/dom_ui/downloads_ui.h"
 #include "chrome/browser/dom_ui/devtools_ui.h"
 #include "chrome/browser/dom_ui/history_ui.h"
