@@ -203,10 +203,10 @@ void ProfileSyncService::RegisterAuthNotifications() {
                  Source<TokenService>(profile_->GetTokenService()));
   registrar_.Add(this,
                  NotificationType::GOOGLE_SIGNIN_SUCCESSFUL,
-                 Source<SigninManager>(&signin_));
+                 Source<Profile>(profile_));
   registrar_.Add(this,
                  NotificationType::GOOGLE_SIGNIN_FAILED,
-                 Source<SigninManager>(&signin_));
+                 Source<Profile>(profile_));
 }
 
 void ProfileSyncService::RegisterDataTypeController(
