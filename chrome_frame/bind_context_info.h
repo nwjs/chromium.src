@@ -93,6 +93,14 @@ class __declspec(uuid("00000000-0000-0000-0000-000000000000")) BindContextInfo
     return prot_data_.get() != NULL;
   }
 
+  void set_protocol(IInternetProtocol* protocol) {
+    protocol_ = protocol;
+  }
+
+  IInternetProtocol* protocol() {
+    return protocol_.get();
+  }
+
  protected:
   STDMETHOD(GetCppObject)(void** me) {
     DCHECK(me);
@@ -111,6 +119,7 @@ class __declspec(uuid("00000000-0000-0000-0000-000000000000")) BindContextInfo
   std::wstring url_;
   ScopedComPtr<IUnknown> ftm_;
   scoped_refptr<ProtData> prot_data_;
+  ScopedComPtr<IInternetProtocol> protocol_;
 
   DISALLOW_COPY_AND_ASSIGN(BindContextInfo);
 };

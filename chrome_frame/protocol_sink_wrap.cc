@@ -697,6 +697,12 @@ STDMETHODIMP Hook_Start(InternetProtocol_Start_Fn orig_start,
   }
 
   if (IsCFRequest(bind_ctx)) {
+    ScopedComPtr<BindContextInfo> info;
+    BindContextInfo::FromBindContext(bind_ctx, info.Receive());
+    DCHECK(info);
+    if (info) {
+      info->set_protocol(protocol);
+    }
     return ForwardHookStart(orig_start, protocol, url, prot_sink, bind_info,
                             flags, reserved);
   }
@@ -772,6 +778,12 @@ STDMETHODIMP Hook_StartEx(InternetProtocol_StartEx_Fn orig_start_ex,
   }
 
   if (IsCFRequest(bind_ctx)) {
+    ScopedComPtr<BindContextInfo> info;
+    BindContextInfo::FromBindContext(bind_ctx, info.Receive());
+    DCHECK(info);
+    if (info) {
+      info->set_protocol(protocol);
+    }
     return ForwardHookStartEx(orig_start_ex, protocol, uri, prot_sink,
                               bind_info, flags, reserved);
   }
