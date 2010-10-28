@@ -4,12 +4,16 @@
 
 #include "chrome/browser/extensions/extension_webstore_private_api.h"
 
+#include <string>
+#include <vector>
+
 #include "base/string_util.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/crx_installer.h"
 #include "chrome/browser/extensions/extension_prefs.h"
 #include "chrome/browser/extensions/extensions_service.h"
+#include "chrome/browser/profile_manager.h"
 #include "chrome/browser/sync/profile_sync_service.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/common/extensions/extension_constants.h"
@@ -19,7 +23,16 @@ namespace {
 
 const char* install_base_url = extension_urls::kGalleryUpdateHttpsUrl;
 
+// If |profile| is not off the record, returns it. Otherwise returns the real
+// (not off the record) default profile.
+Profile* GetDefaultProfile(Profile* profile) {
+  if (!profile->IsOffTheRecord())
+    return profile;
+  else
+    return g_browser_process->profile_manager()->GetDefaultProfile();
 }
+
+}  // namespace
 
 static bool IsWebStoreURL(const GURL& url) {
   GURL store_url(Extension::ChromeStoreURL());
@@ -75,7 +88,8 @@ bool InstallFunction::RunImpl() {
 bool GetSyncLoginFunction::RunImpl() {
   if (!IsWebStoreURL(source_url()))
     return false;
-  ProfileSyncService* sync_service = profile_->GetProfileSyncService();
+  ProfileSyncService* sync_service =
+      GetDefaultProfile(profile_)->GetProfileSyncService();
   string16 username = sync_service->GetAuthenticatedUsername();
   result_.reset(Value::CreateStringValue(username));
   return true;
