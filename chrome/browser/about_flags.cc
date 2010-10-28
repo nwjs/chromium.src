@@ -143,13 +143,6 @@ const Experiment kExperiments[] = {
     switches::kEnableAcceleratedCompositing
   },
   {
-    "gpu-canvas-2d", // Do not change; see above
-    IDS_FLAGS_ACCELERATED_CANVAS_2D_NAME,
-    IDS_FLAGS_ACCELERATED_CANVAS_2D_DESCRIPTION,
-    kOsWin | kOsLinux | kOsCrOS,
-    switches::kEnableAccelerated2dCanvas
-  },
-  {
     "webgl", // Do not change; see above
     IDS_FLAGS_WEBGL_NAME,
     IDS_FLAGS_WEBGL_DESCRIPTION,
