@@ -23,6 +23,7 @@
 #include "chrome/browser/chromeos/cros_settings_provider_user.h"
 #include "chrome/browser/chromeos/login/helper.h"
 #include "chrome/browser/chromeos/login/rounded_rect_painter.h"
+#include "chrome/browser/chromeos/login/textfield_with_margin.h"
 #include "chrome/browser/chromeos/login/wizard_accessibility_helper.h"
 #include "gfx/font.h"
 #include "grit/app_resources.h"
@@ -33,10 +34,7 @@
 #include "views/controls/throbber.h"
 #include "views/widget/widget_gtk.h"
 
-using views::Label;
-using views::Textfield;
 using views::View;
-using views::WidgetGtk;
 
 namespace {
 
@@ -51,7 +49,7 @@ const char kDefaultDomain[] = "@gmail.com";
 
 // Textfield that adds domain to the entered username if focus is lost and
 // username doesn't have full domain.
-class UsernameField : public views::Textfield {
+class UsernameField : public chromeos::TextfieldWithMargin {
  public:
   UsernameField() {}
 
@@ -144,7 +142,7 @@ void NewUserView::Init() {
   CorrectTextfieldFontSize(username_field_);
   AddChildView(username_field_);
 
-  password_field_ = new views::Textfield(views::Textfield::STYLE_PASSWORD);
+  password_field_ = new TextfieldWithMargin(views::Textfield::STYLE_PASSWORD);
   CorrectTextfieldFontSize(password_field_);
   AddChildView(password_field_);
 
