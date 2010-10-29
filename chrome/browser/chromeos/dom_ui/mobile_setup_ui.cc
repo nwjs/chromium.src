@@ -16,7 +16,6 @@
 #include "base/logging.h"
 #include "base/string_piece.h"
 #include "base/string_util.h"
-#include "base/thread_restrictions.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "base/weak_ptr.h"
@@ -236,7 +235,6 @@ std::string CellularConfigDocument::GetErrorMessage(const std::string& code) {
 
 bool CellularConfigDocument::LoadFromFile(const FilePath& config_path) {
   error_map_.clear();
-  base::ThreadRestrictions::ScopedAllowIO allow_io;
 
   std::string config;
   if (!file_util::ReadFileToString(config_path, &config))
@@ -379,7 +377,7 @@ void MobileSetupHandler::PropertyChanged(const char* service_path,
     return;
   }
   std::string value_string;
-  VLOG(1) << "Cellular property change: " << key << " = " <<
+  LOG(INFO) << "Cellular property change: " << key << " = " <<
       value_string.c_str();
 
   // TODO(zelidrag, ers): Remove this once we flip the notification machanism.
@@ -443,12 +441,12 @@ void MobileSetupHandler::EvaluateCellularNetwork(
 
   PlanActivationState new_state = state_;
   if (network) {
-    LOG(INFO) << "Cellular:\n  service=" << network->GetStateString().c_str() <<
-        "\n  ui=" << GetStateDescription(state_) <<
-        "\n  activation=" << network->GetActivationStateString().c_str() <<
-        "\n  restricted=" << (network->restricted_pool() ? "yes" : "no") <<
-         "\n  error=" << network->GetErrorString().c_str() <<
-         "\n  setvice_path=" << network->service_path().c_str();
+    LOG(INFO) << "Cellular:\n  service=" << network->GetStateString().c_str()
+            << "\n  ui=" << GetStateDescription(state_)
+            << "\n  activation=" << network->GetActivationStateString().c_str()
+            << "\n  restricted=" << (network->restricted_pool() ? "yes" : "no")
+            << "\n  error=" << network->GetErrorString().c_str()
+            << "\n  setvice_path=" << network->service_path().c_str();
   } else {
     LOG(WARNING) << "Cellular service lost";
   }
@@ -473,7 +471,7 @@ void MobileSetupHandler::EvaluateCellularNetwork(
             if (network->failed_or_disconnected()) {
               new_state = PLAN_ACTIVATION_INITIATING_ACTIVATION;
             } else if (network->connected()) {
-              VLOG(1) << "Disconnecting from " <<
+              LOG(INFO) << "Disconnecting from " <<
                   network->service_path().c_str();
               chromeos::CrosLibrary::Get()->GetNetworkLibrary()->
                   DisconnectFromWirelessNetwork(network);
@@ -600,13 +598,14 @@ void MobileSetupHandler::ChangeState(const chromeos::CellularNetwork* network,
         new_state = PLAN_ACTIVATION_ERROR;
       }
       break;
-    case PLAN_ACTIVATION_ACTIVATING:
+    case PLAN_ACTIVATION_ACTIVATING: {
       DCHECK(network);
       if (network) {
         chromeos::CrosLibrary::Get()->GetNetworkLibrary()->
             ConnectToCellularNetwork(network);
       }
       break;
+    }
     case PLAN_ACTIVATION_PAGE_LOADING:
       return;
     case PLAN_ACTIVATION_SHOWING_PAYMENT:
@@ -625,6 +624,8 @@ void MobileSetupHandler::ChangeState(const chromeos::CellularNetwork* network,
       // Reactivate other types of connections if we have
       // shut them down previously.
       ReEnableOtherConnections();
+      break;
+    default:
       break;
     }
   }
