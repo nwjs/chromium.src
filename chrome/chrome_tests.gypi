@@ -2019,6 +2019,7 @@
         'test/automation/dom_automation_browsertest.cc',
         'test/in_process_browser_test.cc',
         'test/in_process_browser_test.h',
+        'test/plugin/pdf_browsertest.cc',
         'test/render_view_test.cc',
         'test/render_view_test.h',
         'test/test_launcher/out_of_proc_test_runner.cc',
