@@ -594,7 +594,7 @@ void MobileSetupHandler::ChangeState(const chromeos::CellularNetwork* network,
     case PLAN_ACTIVATION_INITIATING_ACTIVATION:
       DCHECK(network);
       LOG(INFO) << "Activating service " << network->service_path().c_str();
-      if (!network->StartActivation())
+      if (!network->StartActivation()) {
         new_state = PLAN_ACTIVATION_ERROR;
       }
       break;
