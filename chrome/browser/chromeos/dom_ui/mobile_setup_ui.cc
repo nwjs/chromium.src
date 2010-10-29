@@ -625,6 +625,7 @@ void MobileSetupHandler::ChangeState(const chromeos::CellularNetwork* network,
       // shut them down previously.
       ReEnableOtherConnections();
       break;
+    }
     default:
       break;
     }
