@@ -632,6 +632,6 @@ class OffTheRecordProfileImpl : public Profile,
   DISALLOW_COPY_AND_ASSIGN(OffTheRecordProfileImpl);
 };
 
-Profile *Profile::CreateOffTheRecordProfile() {
+Profile* Profile::CreateOffTheRecordProfile() {
   return new OffTheRecordProfileImpl(this);
 }
