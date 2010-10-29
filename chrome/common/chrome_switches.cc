@@ -202,9 +202,6 @@ const char kDisableGLSLTranslator[]         = "disable-glsl-translator";
 // Manager can be used to terminate the offending process in this case.
 const char kDisableHangMonitor[]            = "disable-hang-monitor";
 
-// Disable the Indexed Database API.
-const char kDisableIndexedDatabase[]         = "disable-indexed-database";
-
 // Disable the internal Flash Player.
 const char kDisableInternalFlash[]          = "disable-internal-flash";
 
@@ -428,6 +425,9 @@ const char kEnableFastback[]                = "enable-fastback";
 // By default, cookies are not allowed on file://. They are needed for
 // testing, for example page cycler and layout tests.  See bug 1157243.
 const char kEnableFileCookies[]             = "enable-file-cookies";
+
+// Enable the Indexed Database API.
+const char kEnableIndexedDatabase[]         = "enable-indexed-database";
 
 // Use the InMemoryURLIndex to back the HistoryURLProvider for autocomplete
 // results.  If not set, defaults to using the InMemoryDatabase.
