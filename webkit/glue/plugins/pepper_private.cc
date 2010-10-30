@@ -258,6 +258,12 @@ void HistogramPDFPageCount(int count) {
   UMA_HISTOGRAM_COUNTS_10000("PDF.PageCount", count);
 }
 
+void UserMetricsRecordAction(PP_Var action) {
+  scoped_refptr<StringVar> action_str(StringVar::FromPPVar(action));
+  if (action_str)
+    webkit_glue::UserMetricsRecordAction(action_str->value());
+}
+
 const PPB_Private ppb_private = {
   &GetLocalizedString,
   &GetResourceImage,
@@ -267,7 +273,8 @@ const PPB_Private ppb_private = {
   &DidStartLoading,
   &DidStopLoading,
   &SetContentRestriction,
-  &HistogramPDFPageCount
+  &HistogramPDFPageCount,
+  &UserMetricsRecordAction
 };
 
 }  // namespace
