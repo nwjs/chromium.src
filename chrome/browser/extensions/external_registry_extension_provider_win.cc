@@ -24,7 +24,7 @@ const wchar_t kRegistryExtensionPath[] = L"path";
 // Registry value of that key that defines the current version of the .crx file.
 const wchar_t kRegistryExtensionVersion[] = L"version";
 
-bool OpenKeyById(const std::string& id, base::win::RegKey *key) {
+bool OpenKeyById(const std::string& id, RegKey *key) {
   std::wstring key_path = ASCIIToWide(kRegistryExtensions);
   key_path.append(L"\\");
   key_path.append(ASCIIToWide(id));
@@ -90,7 +90,7 @@ void ExternalRegistryExtensionProvider::VisitRegisteredExtension(
 
 bool ExternalRegistryExtensionProvider::HasExtension(
     const std::string& id) const {
-  base::win::RegKey key;
+  RegKey key;
   return OpenKeyById(id, &key);
 }
 
