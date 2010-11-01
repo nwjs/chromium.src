@@ -1053,8 +1053,6 @@ void ChromeFrameAutomationClient::AutomationServerDied() {
 void ChromeFrameAutomationClient::InitializeComplete(
     AutomationLaunchResult result) {
   DCHECK_EQ(PlatformThread::CurrentId(), ui_thread_id_);
-  std::string version = automation_server_->server_version();
-
   if (result != AUTOMATION_SUCCESS) {
     DLOG(WARNING) << "InitializeComplete: failure " << result;
     ReleaseAutomationServer();
@@ -1077,6 +1075,9 @@ void ChromeFrameAutomationClient::InitializeComplete(
     if (result == AUTOMATION_SUCCESS) {
       chrome_frame_delegate_->OnAutomationServerReady();
     } else {
+      std::string version;
+      if (automation_server_)
+        version = automation_server_->server_version();
       chrome_frame_delegate_->OnAutomationServerLaunchFailed(result, version);
     }
   }
