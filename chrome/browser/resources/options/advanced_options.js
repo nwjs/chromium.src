@@ -139,6 +139,14 @@ var OptionsPage = options.OptionsPage;
       AdvancedOptions.getInstance().showRestartRequiredAlert_();
   }
 
+  AdvancedOptions.SetMetricsReportingSettingVisibility = function(visible) {
+    if (visible) {
+      $('metricsReportingSetting').style.display = 'block';
+    } else {
+      $('metricsReportingSetting').style.display = 'none';
+    }
+  }
+
   // Set the download path.
   AdvancedOptions.SetDownloadLocationPath = function(path) {
     if (!cr.isChromeOS)

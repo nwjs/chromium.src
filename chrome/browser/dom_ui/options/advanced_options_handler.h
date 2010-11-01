@@ -81,6 +81,9 @@ class AdvancedOptionsHandler
   // Setup the checked state for the metrics reporting checkbox.
   void SetupMetricsReportingCheckbox(bool user_changed);
 
+  // Setup the visibility for the metrics reporting setting.
+  void SetupMetricsReportingSettingVisibility();
+
   // Setup the download path based on user preferences.
   void SetupDownloadLocationPath();
 
@@ -109,4 +112,4 @@ class AdvancedOptionsHandler
   DISALLOW_COPY_AND_ASSIGN(AdvancedOptionsHandler);
 };
 
-#endif  // CHROME_BROWSER_DOM_UI_ADVANCED_OPTIONS_HANDLER_H_
+#endif  // CHROME_BROWSER_DOM_UI_OPTIONS_ADVANCED_OPTIONS_HANDLER_H_
