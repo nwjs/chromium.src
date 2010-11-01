@@ -585,6 +585,8 @@ int HttpNetworkTransaction::DoCreateStreamComplete(int result) {
   if (result == OK) {
     next_state_ = STATE_INIT_STREAM;
     DCHECK(stream_.get());
+  } else if (result == ERR_SSL_CLIENT_AUTH_CERT_NEEDED) {
+    result = HandleCertificateRequest(result);
   }
 
   // At this point we are done with the stream_request_.
@@ -605,9 +607,6 @@ int HttpNetworkTransaction::DoInitStreamComplete(int result) {
     if (is_https_request())
       stream_->GetSSLInfo(&response_.ssl_info);
   } else {
-    if (result == ERR_SSL_CLIENT_AUTH_CERT_NEEDED)
-      result = HandleCertificateRequest(result);
-
     if (result < 0)
       result = HandleIOError(result);
 
