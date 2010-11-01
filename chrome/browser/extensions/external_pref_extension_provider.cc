@@ -132,7 +132,7 @@ bool ExternalPrefExtensionProvider::GetExtensionDetails(
   if (!prefs_->GetDictionary(id, &extension))
     return false;
 
-  Extension::Location loc;
+  Extension::Location loc = Extension::INVALID;
   if (extension->HasKey(kExternalUpdateUrl)) {
     loc = Extension::EXTERNAL_PREF_DOWNLOAD;
 
