@@ -17,8 +17,10 @@
 // Unfortunately kNumServices must be defined in the .h.
 // TODO(chron): Sync doesn't use the TalkToken anymore so we can stop
 //              requesting it.
-const char* TokenService::kServices[] = {GaiaConstants::kSyncService,
+const char* TokenService::kServices[] = {GaiaConstants::kGaiaService,
+                                         GaiaConstants::kSyncService,
                                          GaiaConstants::kTalkService};
+
 TokenService::TokenService()
     : token_loading_query_(0) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
