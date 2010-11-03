@@ -15,14 +15,17 @@
 #include "chrome/browser/debugger/devtools_manager.h"
 #include "chrome/browser/dom_ui/dom_ui.h"
 #include "chrome/browser/dom_ui/dom_ui_util.h"
-#include "chrome/browser/dom_ui/html_dialog_ui.h"
+#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/printing/cloud_print/cloud_print_url.h"
+#include "chrome/browser/profile.h"
 #include "chrome/browser/renderer_host/render_view_host.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
+#include "chrome/browser/tab_contents/tab_contents_view.h"
 #include "chrome/common/notification_observer.h"
 #include "chrome/common/notification_registrar.h"
 #include "chrome/common/notification_source.h"
 #include "chrome/common/notification_type.h"
+#include "chrome/common/pref_names.h"
 #include "chrome/common/render_messages_params.h"
 #include "chrome/common/url_constants.h"
 #include "webkit/glue/webpreferences.h"
@@ -91,7 +94,6 @@
 // http://code.google.com/p/chromium/issues/detail?id=44093 The
 // high-level flow (where the PDF data is generated before even
 // bringing up the dialog) isn't what we want.
-
 
 namespace internal_cloud_print_helpers {
 
@@ -225,7 +227,6 @@ void CloudPrintFlowHandler::CancelAnyRunningTask() {
   }
 }
 
-
 void CloudPrintFlowHandler::RegisterMessages() {
   if (!dom_ui_)
     return;
@@ -358,6 +359,16 @@ void CloudPrintFlowHandler::HandleSetPageParameters(const ListValue* args) {
   // that point.
 }
 
+void CloudPrintFlowHandler::StoreDialogClientSize() const {
+  if (dom_ui_ && dom_ui_->tab_contents() && dom_ui_->tab_contents()->view()) {
+    gfx::Size size = dom_ui_->tab_contents()->view()->GetContainerSize();
+    dom_ui_->GetProfile()->GetPrefs()->SetInteger(
+        prefs::kCloudPrintDialogWidth, size.width());
+    dom_ui_->GetProfile()->GetPrefs()->SetInteger(
+        prefs::kCloudPrintDialogHeight, size.height());
+  }
+}
+
 CloudPrintHtmlDialogDelegate::CloudPrintHtmlDialogDelegate(
     const FilePath& path_to_pdf,
     int width, int height,
@@ -405,7 +416,7 @@ bool CloudPrintHtmlDialogDelegate::IsDialogModal() const {
 }
 
 std::wstring CloudPrintHtmlDialogDelegate::GetDialogTitle() const {
-  return l10n_util::GetString(IDS_CLOUD_PRINT_TITLE);
+  return std::wstring();
 }
 
 GURL CloudPrintHtmlDialogDelegate::GetDialogContentURL() const {
@@ -432,6 +443,8 @@ std::string CloudPrintHtmlDialogDelegate::GetDialogArgs() const {
 
 void CloudPrintHtmlDialogDelegate::OnDialogClosed(
     const std::string& json_retval) {
+  // Get the final dialog size and store it.
+  flow_handler_->StoreDialogClientSize();
   delete this;
 }
 
@@ -439,6 +452,10 @@ void CloudPrintHtmlDialogDelegate::OnCloseContents(TabContents* source,
                                                    bool* out_close_dialog) {
   if (out_close_dialog)
     *out_close_dialog = true;
+}
+
+bool CloudPrintHtmlDialogDelegate::ShouldShowDialogTitle() const {
+  return false;
 }
 
 }  // end of namespace internal_cloud_print_helpers
@@ -473,11 +490,25 @@ PrintDialogCloud::PrintDialogCloud(const FilePath& path_to_pdf)
   if (browser_ && browser_->GetSelectedTabContents())
     print_job_title = browser_->GetSelectedTabContents()->GetTitle();
 
-  // TODO(scottbyer): Get the dialog width, height from the dialog
-  // contents, and take the screen size into account.
+  const int kDefaultWidth = 497;
+  const int kDefaultHeight = 332;
+
+  PrefService* pref_service = browser_->GetProfile()->GetPrefs();
+  DCHECK(pref_service);
+  if (!pref_service->FindPreference(prefs::kCloudPrintDialogWidth)) {
+    pref_service->RegisterIntegerPref(prefs::kCloudPrintDialogWidth,
+                                      kDefaultWidth);
+  }
+  if (!pref_service->FindPreference(prefs::kCloudPrintDialogHeight)) {
+    pref_service->RegisterIntegerPref(prefs::kCloudPrintDialogHeight,
+                                      kDefaultHeight);
+  }
+
+  int width = pref_service->GetInteger(prefs::kCloudPrintDialogWidth);
+  int height = pref_service->GetInteger(prefs::kCloudPrintDialogHeight);
   HtmlDialogUIDelegate* dialog_delegate =
       new internal_cloud_print_helpers::CloudPrintHtmlDialogDelegate(
-          path_to_pdf, 500, 400, std::string(), print_job_title);
+          path_to_pdf, width, height, std::string(), print_job_title);
   browser_->BrowserShowHtmlDialog(dialog_delegate, NULL);
 }
 
