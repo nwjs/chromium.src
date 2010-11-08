@@ -14,7 +14,6 @@
         'chrome_extra_resources',
         'chrome_resources',
         'chrome_strings',
-        'component_extensions',
         'debugger',
         'installer_util',
         'platform_locale_settings',
@@ -4084,38 +4083,6 @@
             'browser/importer/ie_importer.cc',
           ],
         }],
-      ],
-    },
-    {
-      'target_name': 'component_extensions',
-      'type': 'none',
-      'msvs_guid': '50B52703-525F-404C-BFE2-C46D3375D73E',
-      'conditions': [
-        ['OS=="linux" and chromeos==1 and branding=="Chrome"',{
-          'copies': [
-            {
-              'destination': '<(PRODUCT_DIR)/resources/chat_manager',
-              'files': [
-                'browser/resources/chat_manager/background.html',
-                'browser/resources/chat_manager/central_roster.html',
-                'browser/resources/chat_manager/central_roster_viewer.html',
-                'browser/resources/chat_manager/manifest.json',
-                'browser/resources/chat_manager/128.png',
-                'browser/resources/chat_manager/48.png',
-                'browser/resources/chat_manager/32.png',
-                'browser/resources/chat_manager/24.png',
-              ]
-            },
-            {
-              'destination': '<(PRODUCT_DIR)/resources/chat_manager/js',
-              'files': [
-                'browser/resources/chat_manager/js/chatbridgeeventtypes.js',
-                'browser/resources/chat_manager/js/chatbridgehook.js',
-                'browser/resources/chat_manager/js/gmailbridgehook.js',
-              ]
-            },
-          ]
-        }]
       ],
     },
     {
