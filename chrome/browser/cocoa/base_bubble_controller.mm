@@ -158,7 +158,7 @@
                               info_bubble::kBubbleArrowWidth / 2.0, 0);
   offsets = [[parentWindow_ contentView] convertSize:offsets toView:nil];
   if ([bubble_ arrowLocation] == info_bubble::kTopRight) {
-    origin.x -= NSWidth([window frame]) + offsets.width;
+    origin.x -= NSWidth([window frame]) - offsets.width;
   } else {
     origin.x -= offsets.width;
   }
