@@ -390,6 +390,7 @@ GtkWidget* NativeMenuGtk::AddMenuItemAt(int index,
   g_object_set_data(G_OBJECT(menu_item), kPositionString,
                              reinterpret_cast<void*>(index));
   g_signal_connect(menu_item, "activate", G_CALLBACK(CallActivate), this);
+  UpdateMenuItemState(menu_item, false);
   gtk_widget_show(menu_item);
   gtk_menu_append(menu_, menu_item);
 
@@ -408,7 +409,7 @@ void NativeMenuGtk::ResetMenu() {
   }
 }
 
-void NativeMenuGtk::UpdateMenuItemState(GtkWidget* menu_item) {
+void NativeMenuGtk::UpdateMenuItemState(GtkWidget* menu_item, bool recurse) {
   int index = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(menu_item),
                                                 kPositionString));
 
@@ -419,8 +420,9 @@ void NativeMenuGtk::UpdateMenuItemState(GtkWidget* menu_item) {
                                    model_->IsItemCheckedAt(index));
     suppress_activate_signal_ = false;
   }
-  // Recurse into submenus, too.
-  if (GTK_IS_MENU_ITEM(menu_item)) {
+
+  if (recurse && GTK_IS_MENU_ITEM(menu_item)) {
+    // Recurse into submenus.
     if (gtk_menu_item_get_submenu(GTK_MENU_ITEM(menu_item))) {
       Menu2* submenu =
           reinterpret_cast<Menu2*>(g_object_get_data(G_OBJECT(menu_item),
@@ -434,7 +436,7 @@ void NativeMenuGtk::UpdateMenuItemState(GtkWidget* menu_item) {
 // static
 void NativeMenuGtk::UpdateStateCallback(GtkWidget* menu_item, gpointer data) {
   NativeMenuGtk* menu = reinterpret_cast<NativeMenuGtk*>(data);
-  menu->UpdateMenuItemState(menu_item);
+  menu->UpdateMenuItemState(menu_item, true);
 }
 
 // static
