@@ -4,6 +4,8 @@
 
 #include "chrome/browser/extensions/crx_installer.h"
 
+#include <list>
+
 #include "app/l10n_util.h"
 #include "app/resource_bundle.h"
 #include "base/file_util.h"
@@ -45,7 +47,7 @@ struct WhitelistedInstallData {
   std::list<std::string> ids;
 };
 
-}
+}  // namespace
 
 // static
 void CrxInstaller::SetWhitelistedInstallId(const std::string& id) {
@@ -55,6 +57,7 @@ void CrxInstaller::SetWhitelistedInstallId(const std::string& id) {
 
 // static
 bool CrxInstaller::ClearWhitelistedInstallId(const std::string& id) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   std::list<std::string>& ids = Singleton<WhitelistedInstallData>::get()->ids;
   std::list<std::string>::iterator iter = ids.begin();
   for (; iter != ids.end(); ++iter) {
@@ -288,9 +291,11 @@ void CrxInstaller::ConfirmInstall() {
   current_version_ =
       frontend_->extension_prefs()->GetVersionString(extension_->id());
 
+  bool whitelisted = ClearWhitelistedInstallId(extension_->id()) &&
+      extension_->plugins().empty();
+
   if (client_ &&
-      (!allow_silent_install_ ||
-       !ClearWhitelistedInstallId(extension_->id()))) {
+      (!allow_silent_install_ || !whitelisted)) {
     AddRef();  // Balanced in Proceed() and Abort().
     client_->ConfirmInstall(this, extension_.get());
   } else {
