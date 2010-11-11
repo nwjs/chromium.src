@@ -149,22 +149,23 @@ std::string ReplaceOrAddUserAgent(LPCWSTR headers,
   DCHECK(headers);
   using net::HttpUtil;
 
-  std::string ascii_headers(WideToASCII(headers));
-
-  // Extract "User-Agent" from the headers.
-  HttpUtil::HeadersIterator headers_iterator(ascii_headers.begin(),
-                                             ascii_headers.end(), "\r\n");
-
-  // Build new headers, skip the existing user agent value from
-  // existing headers.
   std::string new_headers;
-  while (headers_iterator.GetNext()) {
-    std::string name(headers_iterator.name());
-    if (!LowerCaseEqualsASCII(name, kLowerCaseUserAgent)) {
-      new_headers += name + ": " + headers_iterator.values() + "\r\n";
+  if (headers) {
+    std::string ascii_headers(WideToASCII(headers));
+
+    // Extract "User-Agent" from the headers.
+    HttpUtil::HeadersIterator headers_iterator(ascii_headers.begin(),
+                                               ascii_headers.end(), "\r\n");
+
+    // Build new headers, skip the existing user agent value from
+    // existing headers.
+    while (headers_iterator.GetNext()) {
+      std::string name(headers_iterator.name());
+      if (!LowerCaseEqualsASCII(name, kLowerCaseUserAgent)) {
+        new_headers += name + ": " + headers_iterator.values() + "\r\n";
+      }
     }
   }
-
   new_headers += "User-Agent: " + user_agent_value;
   new_headers += "\r\n";
   return new_headers;
