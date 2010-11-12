@@ -66,7 +66,7 @@ class ExtensionCrxInstallerTest : public ExtensionBrowserTest {
   }
 };
 
-IN_PROC_BROWSER_TEST_F(ExtensionCrxInstallerTest, Whitelisting) {
+IN_PROC_BROWSER_TEST_F(ExtensionCrxInstallerTest, DISABLED_Whitelisting) {
   // A regular extension should give no prompt.
   EXPECT_FALSE(DidWhitelistInstallPrompt("good.crx",
                                          "ldnnhddmnhbkjipkidpdiheffobcpfmf"));
