@@ -378,9 +378,16 @@
       </message>
 
       <!-- The URL for the "Learn more" page for the Privacy section under Options. -->
-      <message name="IDS_PAGE_INFO_HELP_CENTER" translateable="false">
-        http://www.google.com/support/chrome/bin/answer.py?hl=[GRITLANGCODE]&amp;answer=95617
-      </message> 
+      <if expr="not pp_ifdef('chromeos')">
+        <message name="IDS_PAGE_INFO_HELP_CENTER" translateable="false">
+          http://www.google.com/support/chrome/bin/answer.py?hl=[GRITLANGCODE]&amp;answer=95617
+        </message> 
+      </if>
+      <if expr="pp_ifdef('chromeos')">
+        <message name="IDS_PAGE_INFO_HELP_CENTER" translateable="false">
+          http://www.google.com/support/chromeos/bin/answer.py?hl=[GRITLANGCODE]&amp;answer=95617
+        </message>
+      </if>
       
       <!-- The width and height of the Page Info bubble characters and lines (See above). -->
       <message name="IDS_PAGEINFOBUBBLE_WIDTH_CHARS" use_name_for_id="true">
@@ -531,9 +538,16 @@
       </message>
 
       <!-- The URL for the "Learn more" page for the Privacy section under Options. -->
-      <message name="IDS_LEARN_MORE_PRIVACY_URL" translateable="false">
-        http://www.google.com/support/chrome/bin/answer.py?answer=114836&amp;hl=[GRITLANGCODE]
-      </message>
+      <if expr="not pp_ifdef('chromeos')">
+        <message name="IDS_LEARN_MORE_PRIVACY_URL" translateable="false">
+          http://www.google.com/support/chrome/bin/answer.py?answer=114836&amp;hl=[GRITLANGCODE]
+        </message>
+      </if>
+      <if expr="pp_ifdef('chromeos')">
+        <message name="IDS_LEARN_MORE_PRIVACY_URL" translateable="false">
+          http://www.google.com/support/chromeos/bin/answer.py?answer=1047334&amp;hl=[GRITLANGCODE]
+        </message>
+      </if>
 
       <!-- The URL for the "Learn more" page for the Chrome Web Apps section under Options.-->
       <message name="IDS_LEARN_MORE_BACKGROUND_MODE_URL" translateable="false">
@@ -546,9 +560,16 @@
       </message>
 
       <!-- The URL for the "Learn more" privacy page for the Geolocation permission infobar. -->
-      <message name="IDS_LEARN_MORE_GEOLOCATION_URL" translateable="false">
-        http://www.google.com/support/chrome/bin/answer.py?answer=142065&amp;hl=[GRITLANGCODE]
-      </message>
+      <if expr="not pp_ifdef('chromeos')">
+        <message name="IDS_LEARN_MORE_GEOLOCATION_URL" translateable="false">
+          http://www.google.com/support/chrome/bin/answer.py?answer=142065&amp;hl=[GRITLANGCODE]
+        </message>
+      </if>
+      <if expr="pp_ifdef('chromeos')">
+        <message name="IDS_LEARN_MORE_GEOLOCATION_URL" translateable="false">
+          http://www.google.com/support/chromeos/bin/answer.py?answer=142065&amp;hl=[GRITLANGCODE]
+        </message>
+      </if>
 
       <!-- The URL for the "Problems installing" page for the Plugins infobar -->
       <message name="IDS_LEARN_MORE_PLUGININSTALLER_URL" translateable="false">
@@ -628,9 +649,16 @@
       </message>
 
       <!-- The URL for the "Aw snap" page. -->
-      <message name="IDS_CRASH_REASON_URL" translateable="false">
-        http://www.google.com/support/chrome/bin/answer.py?answer=95669&amp;hl=[GRITLANGCODE]
-      </message>
+      <if expr="not pp_ifdef('chromeos')">
+        <message name="IDS_CRASH_REASON_URL" translateable="false">
+          http://www.google.com/support/chrome/bin/answer.py?answer=95669&amp;hl=[GRITLANGCODE]
+        </message>
+      </if>
+      <if expr="pp_ifdef('chromeos')">
+        <message name="IDS_CRASH_REASON_URL" translateable="false">
+          http://www.google.com/support/chromeos/bin/answer.py?answer=1047340&amp;hl=[GRITLANGCODE]
+        </message>
+      </if>
 
       <!-- The default width and min height for the 'download_in_progress' dialog. -->
       <message name="IDS_DOWNLOAD_IN_PROGRESS_WIDTH_CHARS" use_name_for_id="true">
@@ -686,9 +714,16 @@
       </message>
 
       <!-- The URL for About Google Translate. -->
-      <message name="IDS_ABOUT_GOOGLE_TRANSLATE_URL" translateable="false">
-        http://www.google.com/support/chrome/bin/answer.py?answer=173424&amp;hl=[GRITLANGCODE]
-      </message>
+      <if expr="not pp_ifdef('chromeos')">
+        <message name="IDS_ABOUT_GOOGLE_TRANSLATE_URL" translateable="false">
+          http://www.google.com/support/chrome/bin/answer.py?answer=173424&amp;hl=[GRITLANGCODE]
+        </message>
+      </if>
+      <if expr="pp_ifdef('chromeos')">
+        <message name="IDS_ABOUT_GOOGLE_TRANSLATE_URL" translateable="false">
+          http://www.google.com/support/chromeos/bin/answer.py?answer=173424&amp;hl=[GRITLANGCODE]
+        </message>
+      </if>
 
       <!-- The width and height of the Content Settings Exceptions dialog box in -->
       <!-- characters and lines (See above). -->
