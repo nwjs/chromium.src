@@ -10,7 +10,7 @@
 
 #include "chrome/browser/chromeos/login/login_status_consumer.h"
 #include "chrome/common/net/gaia/gaia_auth_consumer.h"
-#include "chrome/common/net/gaia/gaia_auth_fetcher.h"
+#include "chrome/common/net/gaia/gaia_authenticator2.h"
 
 namespace chromeos {
 
@@ -55,7 +55,7 @@ class AuthAttemptState {
   virtual const LoginFailure& online_outcome();
   virtual const GaiaAuthConsumer::ClientLoginResult& credentials();
   virtual bool is_first_time_user();
-  virtual GaiaAuthFetcher::HostedAccountsSetting hosted_policy();
+  virtual GaiaAuthenticator2::HostedAccountsSetting hosted_policy();
 
   virtual bool cryptohome_complete();
   virtual bool cryptohome_outcome();
@@ -83,7 +83,7 @@ class AuthAttemptState {
 
   // Whether or not we're accepting HOSTED accounts during the current
   // online auth attempt.
-  GaiaAuthFetcher::HostedAccountsSetting hosted_policy_;
+  GaiaAuthenticator2::HostedAccountsSetting hosted_policy_;
   bool is_first_time_user_;
 
   // Status of our cryptohome op attempt. Can only have one in flight at a time.

@@ -41,7 +41,7 @@ void TestAttemptState::PresetOnlineLoginStatus(
 }
 
 void TestAttemptState::DisableHosted() {
-  hosted_policy_ = GaiaAuthFetcher::HostedAccountsNotAllowed;
+  hosted_policy_ = GaiaAuthenticator2::HostedAccountsNotAllowed;
 }
 
 void TestAttemptState::PresetCryptohomeStatus(bool cryptohome_outcome,

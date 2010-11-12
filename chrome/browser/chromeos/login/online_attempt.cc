@@ -15,6 +15,7 @@
 #include "chrome/browser/profile.h"
 #include "chrome/browser/profile_manager.h"
 #include "chrome/common/net/gaia/gaia_authenticator2.h"
+#include "chrome/common/net/gaia/gaia_constants.h"
 #include "net/base/load_flags.h"
 #include "net/base/net_errors.h"
 #include "net/url_request/url_request_status.h"
@@ -58,7 +59,7 @@ void OnlineAttempt::OnClientLoginSuccess(
     fetch_canceler_ = NULL;
   }
 
-  if (attempt_->hosted_policy() == GaiaAuthFetcher::HostedAccountsAllowed &&
+  if (attempt_->hosted_policy() == GaiaAuthenticator2::HostedAccountsAllowed &&
       attempt_->is_first_time_user()) {
     // First time user, and we don't know if the account is HOSTED or not.
     // Since we don't allow HOSTED accounts to log in, we need to try
@@ -94,7 +95,7 @@ void OnlineAttempt::OnClientLoginFailure(
 
   if (error.state() == GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS &&
       attempt_->is_first_time_user() &&
-      attempt_->hosted_policy() != GaiaAuthFetcher::HostedAccountsAllowed) {
+      attempt_->hosted_policy() != GaiaAuthenticator2::HostedAccountsAllowed) {
     // This was a first-time login, we already tried allowing HOSTED accounts
     // and succeeded.  That we've failed with INVALID_GAIA_CREDENTIALS now
     // indicates that the account is HOSTED.

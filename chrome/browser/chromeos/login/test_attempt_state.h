@@ -45,7 +45,7 @@ class TestAttemptState : public AuthAttemptState {
     return credentials_;
   }
   virtual bool is_first_time_user() { return is_first_time_user_; }
-  virtual GaiaAuthFetcher::HostedAccountsSetting hosted_policy() {
+  virtual GaiaAuthenticator2::HostedAccountsSetting hosted_policy() {
     return hosted_policy_;
   }
 

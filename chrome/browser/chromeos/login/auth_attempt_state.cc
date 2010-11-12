@@ -8,7 +8,7 @@
 
 #include "chrome/browser/browser_thread.h"
 #include "chrome/common/net/gaia/gaia_auth_consumer.h"
-#include "chrome/common/net/gaia/gaia_auth_fetcher.h"
+#include "chrome/common/net/gaia/gaia_authenticator2.h"
 #include "cros/chromeos_cryptohome.h"
 
 namespace chromeos {
@@ -27,7 +27,7 @@ AuthAttemptState::AuthAttemptState(const std::string& username,
       unlock(false),
       online_complete_(false),
       online_outcome_(LoginFailure::NONE),
-      hosted_policy_(GaiaAuthFetcher::HostedAccountsAllowed),
+      hosted_policy_(GaiaAuthenticator2::HostedAccountsAllowed),
       is_first_time_user_(user_is_new),
       cryptohome_complete_(false),
       cryptohome_outcome_(false),
@@ -42,7 +42,7 @@ AuthAttemptState::AuthAttemptState(const std::string& username,
       online_complete_(true),
       online_outcome_(LoginFailure::UNLOCK_FAILED),
       credentials_(GaiaAuthConsumer::ClientLoginResult()),
-      hosted_policy_(GaiaAuthFetcher::HostedAccountsAllowed),
+      hosted_policy_(GaiaAuthenticator2::HostedAccountsAllowed),
       is_first_time_user_(false),
       cryptohome_complete_(false),
       cryptohome_outcome_(false),
@@ -65,7 +65,7 @@ void AuthAttemptState::RecordOnlineLoginStatus(
 
 void AuthAttemptState::DisableHosted() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-  hosted_policy_ = GaiaAuthFetcher::HostedAccountsNotAllowed;
+  hosted_policy_ = GaiaAuthenticator2::HostedAccountsNotAllowed;
 }
 
 void AuthAttemptState::RecordCryptohomeStatus(bool cryptohome_outcome,
@@ -103,7 +103,7 @@ bool AuthAttemptState::is_first_time_user() {
   return is_first_time_user_;
 }
 
-GaiaAuthFetcher::HostedAccountsSetting AuthAttemptState::hosted_policy() {
+GaiaAuthenticator2::HostedAccountsSetting AuthAttemptState::hosted_policy() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   return hosted_policy_;
 }
