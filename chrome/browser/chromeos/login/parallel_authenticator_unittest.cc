@@ -78,7 +78,8 @@ class ParallelAuthenticatorTest : public ::testing::Test {
                                       password_,
                                       hash_ascii_,
                                       "",
-                                      ""));
+                                      "",
+                                      false));
   }
 
   // Tears down the test fixture.
