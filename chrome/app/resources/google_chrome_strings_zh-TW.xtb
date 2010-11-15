@@ -3,6 +3,7 @@
 <translationbundle lang="zh-TW">
 <translation id="8000275528373650868">「Google 瀏覽器」需要 Windows Vista，或者 Windows XP SP2 或更新版本。</translation>
 <translation id="6676384891291319759">連線到網際網路</translation>
+<translation id="8582091809492103607">登入時開啟「Google 瀏覽器」並啟動背景網路應用程式</translation>
 <translation id="2383457833405848421">關於 Google 內嵌瀏覽框...</translation>
 <translation id="386202838227397562">請關閉所有 Google 瀏覽器視窗，並再試一次</translation>
 <translation id="2770231113462710648">將預設瀏覽器變更為：</translation>
@@ -14,12 +15,13 @@
 <translation id="2370289711218562573">「Google 瀏覽器」現正匯入 [我的最愛/書籤]。</translation>
 <translation id="8970027151245482499">「Google 瀏覽器」並未安裝或找不到安裝目錄，請再次下載「Google 瀏覽器」。</translation>
 <translation id="2040709530900803995">Google 瀏覽器成像器</translation>
-<translation id="3044696659294460858">我們推出了包含擴充功能的新版本「Google 瀏覽器」。</translation>
 <translation id="4281844954008187215">服務條款</translation>
 <translation id="3555616473548901994">解除安裝已完成。</translation>
+<translation id="8556340503434111824">Google 瀏覽器推出全新版本，速度更勝以往。</translation>
 <translation id="1826297811907343327">如果您現在取消，即不會匯入所有項目。您之後可在「Google 瀏覽器」功能表中再次匯入。</translation>
 <translation id="4728575227883772061">安裝因不明錯誤而失敗。如果「Google 瀏覽器」目前正在執行中，請將其關閉然後再試一次。</translation>
 <translation id="4149882025268051530">安裝程式無法解壓縮封存檔案，請再次下載「Google 瀏覽器」。</translation>
+<translation id="6989339256997917931">「Google 瀏覽器」已更新，但您至少已有 30 天未使用該瀏覽器。</translation>
 <translation id="5744005218040929396">Google 瀏覽器公用程式</translation>
 <translation id="4343226815564935778">「Google 瀏覽器」安裝目錄使用中。請重新啟動電腦，然後再試一次。</translation>
 <translation id="6817660909204164466">只要自動傳送使用統計資料及當機報告給 Google，就能助我們一臂之力，讓 Google 瀏覽器更臻完美。</translation>
@@ -34,9 +36,11 @@
 <translation id="8446794773162156990">Google 瀏覽器反應異常</translation>
 <translation id="3889417619312448367">解除安裝 Google 瀏覽器</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE"/> - Google 瀏覽器</translation>
+<translation id="3089968997497233615">Google 瀏覽器推出全新版本，安全性更勝以往。</translation>
 <translation id="8810218179782551669">Google 瀏覽器語言：</translation>
 <translation id="7001386529596391893">在下列位置建立 Google 瀏覽器捷徑：</translation>
 <translation id="7461436095086637522">瀏覽器設定檔匯入工具</translation>
+<translation id="655722166118366450">您想要將 <ph name="HOST"/> 設為您的 Google 瀏覽器搜尋引擎嗎？</translation>
 <translation id="4357846314885556934">Google 瀏覽器反應異常</translation>
 <translation id="4561681684759837226"><ph name="PAGE_TITLE"/></translation>
 <translation id="1195935957447623558">Google 瀏覽器上一次未正確關閉。如果要重新開啟之前的網頁，請按一下 [還原]。</translation>
@@ -50,9 +54,10 @@
 <translation id="8899050679030089927">為使這項變更生效，請關閉所有「Google 瀏覽器」視窗並重新啟動瀏覽器。</translation>
 <translation id="3324235665723428530">您的設定檔由於來自較新版本的 Google 瀏覽器，所以無法使用。\n\n某些功能可能無法提供。請指定另一個設定檔目錄，或使用較新版本的 Google 瀏覽器。</translation>
 <translation id="7214670531148488183">「Google 瀏覽器」會使用網頁服務來改善瀏覽功能，當然您也可以選擇停用這些服務。</translation>
-<translation id="1759842336958782510">Google 瀏覽器</translation>
+<translation id="1759842336958782510">瀏覽器</translation>
 <translation id="5840402478666768335">選用：只要設定將使用統計資料及當機報告自動傳送給 Google，\n就能助我們一臂之力，讓「Google 瀏覽器」更臻完美。</translation>
 <translation id="5008136264574452501">Google Chrome Canary 版本</translation>
+<translation id="2240501189676193549">必須執行「Google 瀏覽器」才能啟動網路應用程式。</translation>
 <translation id="911206726377975832">您要一併刪除瀏覽資料嗎？</translation>
 <translation id="2044287590254833138">Google 瀏覽器工具列</translation>
 <translation id="5074344184765391290">Chrome Plug-In Host</translation>
@@ -68,6 +73,7 @@
 <translation id="6087062680442281307">「Google 瀏覽器」開啟網頁和執行應用程式的速度奇快無比！除了執行速度快、穩定且容易使用之外，它還內建防護機制，讓您安心瀏覽網頁，無需擔心受到網路釣魚與惡意軟體的威脅。</translation>
 <translation id="2115751172320447278">版權所有 © 2006-2010 Google Inc。保留所有權利。</translation>
 <translation id="5941830788786076944">將 Google 瀏覽器設為我的預設瀏覽器</translation>
+<translation id="7892675281311705134">Google 瀏覽器網路應用程式</translation>
 <translation id="5947389362804196214">系統無法讀取您的偏好設定。\n\n部分功能可能無法使用，且系統也不會儲存任何偏好設定的變更。</translation>
 <translation id="4127951844153999091">在這個情況下，憑證所列的網址與瀏覽器嘗試前往的網址不符。憑證不符的其中一個可能原因是，攻擊者欄截了您的通訊，並且出示另一個網站的憑證。另一個可能的原因是，伺服器已設定為不同的網站傳回相同的憑證 (其中包括您嘗試造訪的網站)，而這個憑證可能對其中一些網站無效。Google 瀏覽器可以確定您已經到達 &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;，但是無法驗證這與您嘗試前往的 &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; 是同一個網站。如果您繼續，瀏覽器將不再檢查任何名稱不符的情況。一般而言，建議您就此停住。</translation>
 <translation id="2712549016134575851">偵測到與其他已安裝的應用程式互相衝突。</translation>

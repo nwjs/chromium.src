@@ -3,6 +3,7 @@
 <translationbundle lang="en-GB">
 <translation id="8000275528373650868">Google Chrome requires Windows Vista or Windows XP with SP2 or higher.</translation>
 <translation id="6676384891291319759">Access the Internet</translation>
+<translation id="8582091809492103607">Open Google Chrome at login and launch background web apps</translation>
 <translation id="2383457833405848421">About Chrome Frame...</translation>
 <translation id="386202838227397562">Please close all Google Chrome windows and try again.</translation>
 <translation id="2770231113462710648">Change default browser to:</translation>
@@ -14,12 +15,13 @@
 <translation id="2370289711218562573">Google Chrome is now importing Favourites/Bookmarks.</translation>
 <translation id="8970027151245482499">Google Chrome is not installed or it failed to find installation directory. Please download Google Chrome again.</translation>
 <translation id="2040709530900803995">Google Chrome Renderer</translation>
-<translation id="3044696659294460858">There's a new version of Google Chrome available that includes extensions.</translation>
 <translation id="4281844954008187215">Terms of Service</translation>
 <translation id="3555616473548901994">Uninstallation complete.</translation>
+<translation id="8556340503434111824">There's a new version of Google Chrome available and it's faster than ever.</translation>
 <translation id="1826297811907343327">If you cancel now, not all items will be imported. You can import again later from the Google Chrome menu.</translation>
 <translation id="4728575227883772061">Installation failed due to unspecified error. If Google Chrome is currently running, please close it and try again.</translation>
 <translation id="4149882025268051530">The installer failed to uncompress archive. Please download Google Chrome again.</translation>
+<translation id="6989339256997917931">Google Chrome has been updated, but you haven't used it for at least 30 days.</translation>
 <translation id="5744005218040929396">Google Chrome Utility</translation>
 <translation id="4343226815564935778">Google Chrome installation directory seems to be in use. Please reboot your computer and try again.</translation>
 <translation id="6817660909204164466">Help to make Google Chrome better by sending usage statistics and crash reports to Google automatically</translation>
@@ -34,9 +36,11 @@
 <translation id="8446794773162156990">Google Chrome is misbehaving</translation>
 <translation id="3889417619312448367">Uninstall Google Chrome</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE"/> - Google Chrome</translation>
+<translation id="3089968997497233615">There's a new, safer version of Google Chrome available.</translation>
 <translation id="8810218179782551669">Google Chrome language:</translation>
 <translation id="7001386529596391893">Create Google Chrome shortcuts in these locations:</translation>
 <translation id="7461436095086637522">Chrome Profile Importer</translation>
+<translation id="655722166118366450">Would you like to make <ph name="HOST"/> your search engine in Google Chrome?</translation>
 <translation id="4357846314885556934">Google Chrome is Misbehaving</translation>
 <translation id="4561681684759837226"><ph name="PAGE_TITLE"/></translation>
 <translation id="1195935957447623558">Google Chrome didn't shut down correctly. To reopen the pages that you had open, click Restore.</translation>
@@ -53,6 +57,7 @@
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="5840402478666768335">Optional: Help make Google Chrome better by sending usage statistics and crash\nreports automatically to Google</translation>
 <translation id="5008136264574452501">Google Chrome Canary Build</translation>
+<translation id="2240501189676193549">Web apps are only active while Google Chrome is running.</translation>
 <translation id="911206726377975832">Also delete your browsing data?</translation>
 <translation id="2044287590254833138">Google Chrome Toolbar</translation>
 <translation id="5074344184765391290">Chrome Plug-In Host</translation>
@@ -68,6 +73,7 @@
 <translation id="6087062680442281307">Google Chrome is a web browser that runs web pages and applications with lightning speed. It's fast, stable and easy to use. Browse the web more safely with malware and phishing protection built into Google Chrome.</translation>
 <translation id="2115751172320447278">Copyright © 2006-2010 Google Inc. All Rights Reserved.</translation>
 <translation id="5941830788786076944">Make Google Chrome the default browser</translation>
+<translation id="7892675281311705134">Google Chrome Web Apps</translation>
 <translation id="5947389362804196214">Your preferences cannot be read.\n\nSome features may be unavailable, and changes to preferences won't be saved.</translation>
 <translation id="4127951844153999091">In this case, the address listed in the certificate does not match the address of the website that your browser tried to go to. One possible reason for this is that your communications are being intercepted by an attacker who is presenting a certificate for a different website, which would cause a mismatch. Another possible reason is that the server is set up to return the same certificate for multiple websites, including the one that you are attempting to visit, even though that certificate is not valid for all of those websites. Google Chrome can say for sure that you reached &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, but cannot verify that it is the same site as &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; which you intended to reach. If you proceed, Chrome will not check for any further name mismatches. In general, it is best not to proceed past this point.</translation>
 <translation id="2712549016134575851">A conflict with another installed application has been detected.</translation>

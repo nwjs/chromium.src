@@ -3,6 +3,7 @@
 <translationbundle lang="id">
 <translation id="8000275528373650868">Google Chrome memerlukan Windows Vista atau Windows XP dengan SP2 atau yang lebih baru.</translation>
 <translation id="6676384891291319759">Akses Internet</translation>
+<translation id="8582091809492103607">Buka Google Chrome saat masuk dan luncurkan aplikasi web latar belakang</translation>
 <translation id="2383457833405848421">Tentang Chrome Frame...</translation>
 <translation id="386202838227397562">Tutup semua jendela Google Chrome, lalu coba lagi.</translation>
 <translation id="2770231113462710648">Ubah peramban bawaan ke:</translation>
@@ -14,12 +15,13 @@
 <translation id="2370289711218562573">Kini Google Chrome mengimpor Favorites/Bookmark.</translation>
 <translation id="8970027151245482499">Google Chrome tidak terinstal atau gagal menemukan direktori penginstalan. Unduh kembali Google Chrome.</translation>
 <translation id="2040709530900803995">Pengaju Google Chrome</translation>
-<translation id="3044696659294460858">Tersedia Google Chrome versi baru yang disertai ekstensi.</translation>
 <translation id="4281844954008187215">Persyaratan Layanan</translation>
 <translation id="3555616473548901994">Pencopotan pemasangan selesai.</translation>
+<translation id="8556340503434111824">Tersedia versi Google Chrome yang baru, dan versi ini lebih cepat dari sebelumnya.</translation>
 <translation id="1826297811907343327">Jika Anda membatalkan sekarang, tidak semua item akan diimpor. Anda dapat mengimpor lagi nanti dari menu Google Chrome.</translation>
 <translation id="4728575227883772061">Penginstalan gagal karena galat yang tidak diketahui. Jika Google Chrome sedang berjalan; tutup, lalu ulang kembali.</translation>
 <translation id="4149882025268051530">Instalatur gagal mendekompresi arsip. Unduh kembali Google Chrome.</translation>
+<translation id="6989339256997917931">Google Chrome telah diperbarui, tetapi Anda belum menggunakannya selama setidaknya 30 hari.</translation>
 <translation id="5744005218040929396">Utilitas Google Chrome</translation>
 <translation id="4343226815564935778">Direktori instalasi Google Chrome kelihatannya sedang digunakan. Nyalakan ulang komputer dan coba lagi.</translation>
 <translation id="6817660909204164466">Bantu Google Chrome menjadi lebih baik dengan mengirim statistik penggunaan dan laporan kerusakan secara otomatis ke Google</translation>
@@ -34,9 +36,11 @@
 <translation id="8446794773162156990">Google Chrome mengalami kesalahan</translation>
 <translation id="3889417619312448367">Hapus Penginstalan Google Chrome</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE"/> - Google Chrome</translation>
+<translation id="3089968997497233615">Tersedia versi Google Chrome yang baru dan lebih aman.</translation>
 <translation id="8810218179782551669">Bahasa Google Chrome:</translation>
 <translation id="7001386529596391893">Buat cara pintas Google Chrome di lokasi ini:</translation>
 <translation id="7461436095086637522">Pengimpor Profil Chrome</translation>
+<translation id="655722166118366450">Anda ingin menjadikan <ph name="HOST"/> mesin telusur Anda di Google Chrome?</translation>
 <translation id="4357846314885556934">Google Chrome Lagi Ngambek</translation>
 <translation id="4561681684759837226"><ph name="PAGE_TITLE"/></translation>
 <translation id="1195935957447623558">Google Chrome tidak dinonaktifkan dengan benar. Untuk membuka kembali halaman yang pernah dibuka, klik Kembalikan.</translation>
@@ -53,6 +57,7 @@
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="5840402478666768335">Opsional: Bantu Google Chrome menjadi lebih baik dengan mengirim statistik penggunaan dan\nlaporan kerusakan ke Google secara otomatis</translation>
 <translation id="5008136264574452501">Build Google Chrome Canary</translation>
+<translation id="2240501189676193549">Aplikasi web hanya aktif ketika Google Chrome berjalan.</translation>
 <translation id="911206726377975832">Hapus juga data rambanan Anda?</translation>
 <translation id="2044287590254833138">Toolbar Google Chrome</translation>
 <translation id="5074344184765391290">Inang Pengaya Chrome</translation>
@@ -68,6 +73,7 @@
 <translation id="6087062680442281307">Google Chrome adalah peramban web yang menjalankan laman dan aplikasi web dengan kecepatan kilat. Cepat, stabil, dan mudah digunakan. Ramban web secara lebih aman dengan perlindungan terhadap perangkat lunak jahat dan phishing yang disertakan dalam Google Chrome.</translation>
 <translation id="2115751172320447278">Hak Cipta © 2006-2010 Google Inc. Semua Hak Dilindungi Undang-Undang.</translation>
 <translation id="5941830788786076944">Jadikan Google Chrome sebagai browser default</translation>
+<translation id="7892675281311705134">Aplikasi Web Google Chrome</translation>
 <translation id="5947389362804196214">Preferensi Anda tidak dapat dibaca.\n\nSebagian fitur mungkin tidak tersedia dan pengubahan pada preferensi tidak akan disimpan.</translation>
 <translation id="4127951844153999091">Jika demikian, alamat yang tercantum dalam sertifikat tidak cocok dengan alamat situs Web yang akan diakses browser Anda. Salah satu kemungkinan alasannya adalah komunikasi terhenti oleh pengganggu yang memberikan sertifikat untuk situs Web lain, sehingga dapat mengakibatkan ketidakcocokan. Kemungkinan alasan lainnya adalah bahwa server dikonfigurasi untuk menampilkan sertifikat yang sama bagi beberapa situs Web, termasuk yang akan dikunjungi, meskipun sertifikat tersebut tidak valid untuk semua situs Web. Google Chrome dapat memastikan bahwa Anda akan membuka &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, namun tidak dapat memverifikasi bahwa situs tersebut sama seperti &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; yang ingin Anda buka. Jika Anda melanjutkan, Chrome tidak akan memeriksa ketidakcocokan nama lebih lanjut. Secara umum, sebaiknya jangan lanjutkan.</translation>
 <translation id="2712549016134575851">Terdeteksi konflik dengan aplikasi terinstal lain.</translation>

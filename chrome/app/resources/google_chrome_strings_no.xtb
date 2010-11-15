@@ -3,6 +3,7 @@
 <translationbundle lang="no">
 <translation id="8000275528373650868">Google Chrome krever Windows Vista eller Windows XP med SP2 eller nyere.</translation>
 <translation id="6676384891291319759">Gå til Internett</translation>
+<translation id="8582091809492103607">Åpne Google Chrome ved pålogging og start nettprogrammer i bakgrunnen</translation>
 <translation id="2383457833405848421">Om Chrome Frame</translation>
 <translation id="386202838227397562">Lukk alle Google Chrome-vinduer og prøv på nytt.</translation>
 <translation id="2770231113462710648">Endre standardnettleser til:</translation>
@@ -14,12 +15,13 @@
 <translation id="2370289711218562573">Google Chrome importerer nå favoritter/bokmerker.</translation>
 <translation id="8970027151245482499">Google Chrome er ikke installert, eller installasjonskatalogen ble ikke funnet. Last ned Google Chrome på nytt.</translation>
 <translation id="2040709530900803995">Google Chrome-gjengiver</translation>
-<translation id="3044696659294460858">Det er nå tilgjengelig en ny versjon av Google Chrome, som håndterer utvidelser.</translation>
 <translation id="4281844954008187215">Vilkår for bruk</translation>
 <translation id="3555616473548901994">Avinstallering fullført.</translation>
+<translation id="8556340503434111824">En ny versjon av Google Chrome er tilgjengelig, og den er nå raskere en noen sinne.</translation>
 <translation id="1826297811907343327">Hvis du avbryter nå, importeres ikke alle elementene. Du kan importere på nytt senere fra Google Chrome-menyen.</translation>
 <translation id="4728575227883772061">Installeringen mislyktes på grunn av en uspesifisert feil. Lukk Google Chrome hvis det kjører, og prøv på nytt.</translation>
 <translation id="4149882025268051530">Installasjonsprogrammet fikk ikke dekomprimert arkivet. Last ned Google Chrome på nytt.</translation>
+<translation id="6989339256997917931">Google Chrome har blitt oppdatert, men du har ikke brukt programmet på minst 30 dager.</translation>
 <translation id="5744005218040929396">Google Chromes verktøy</translation>
 <translation id="4343226815564935778">Det ser ut til at installasjonsmappen for Google Chrome er i bruk. Du må starte datamaskinen på nytt og prøve igjen.</translation>
 <translation id="6817660909204164466">Bidra til å gjøre Google Chrome bedre ved å sende brukerstatistikk og programstopprapporter til Google automatisk</translation>
@@ -34,9 +36,11 @@
 <translation id="8446794773162156990">Google Chrome oppfører seg galt</translation>
 <translation id="3889417619312448367">Avinstaller Google Chrome</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE"/> - Google Chrome</translation>
+<translation id="3089968997497233615">En ny, sikrere versjon av Google Chrome er tilgjengelig</translation>
 <translation id="8810218179782551669">Google Chrome-språk:</translation>
 <translation id="7001386529596391893">Opprett snarveier til Google Chrome her:</translation>
 <translation id="7461436095086637522">Chromes profilimport</translation>
+<translation id="655722166118366450">Vil du gjøre <ph name="HOST"/> til din søkemotor i Chrome?</translation>
 <translation id="4357846314885556934">Google Chrome oppfører seg på feil måte</translation>
 <translation id="4561681684759837226"><ph name="PAGE_TITLE"/></translation>
 <translation id="1195935957447623558">Google Chrome ble ikke avsluttet på riktig måte. Hvis du vil gjenåpne sidene som var åpne, klikker du Gjenopprett.</translation>
@@ -53,6 +57,7 @@
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="5840402478666768335">Valgfritt: Bidra til å gjøre Google Chrome bedre ved å sende brukerstatistikk og programstopp-\nrapporter automatisk til Google</translation>
 <translation id="5008136264574452501">Google Chrome Canary-delversjon</translation>
+<translation id="2240501189676193549">Nettprogrammer er kun aktive når Google Chrome kjører.</translation>
 <translation id="911206726377975832">Vil du slette all nettleserdata også?</translation>
 <translation id="2044287590254833138">Google Chrome-verktøyraden</translation>
 <translation id="5074344184765391290">Chromes vert for programtillegg</translation>
@@ -68,6 +73,7 @@
 <translation id="6087062680442281307">Nettleseren Google Chrome kjører nettsider og programmer i ekspressfart. Den er rask, stabil og enkel å bruke. Google Chrome har innebygd beskyttelse mot skadelig programvare og svindelforsøk (nettfisking), slik at du kan føle deg tryggere når du bruker Internett.</translation>
 <translation id="2115751172320447278">Copyright © 2006–2010 Google Inc. Med enerett.</translation>
 <translation id="5941830788786076944">Gjør Google Chrome til standardleser</translation>
+<translation id="7892675281311705134">Google Chrome-nettprogrammer</translation>
 <translation id="5947389362804196214">Kan ikke lese innstillingene.\n\nEnkelte funksjoner kan være utilgjengelige og endringer av innstillingene blir ikke lagret.</translation>
 <translation id="4127951844153999091">I dette tilfellet stemmer ikke adressen i sertifikatet med adressen til nettstedet som nettleseren forsøkte å gå til. Én mulig årsak til dette er at kommunikasjonen fra deg fanges opp av en angriper som presenterer et sertifikat for en annet nettsted, slik at nettstedet og sertifikatet ikke stemmer overens. En annen mulig årsak er at tjeneren er konfigurert til å returnere samme sertifikat for flere nettsteder, deriblant nettstedet du forsøker å besøke, selv om sertifikatet ikke er gyldig for alle disse nettstedene. Google Chrome kan si sikkert at du har kommet til &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, men kan ikke verifisere at det er det samme nettstedet som &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, som du mente å komme til. Hvis du fortsetter, vil Chrome ikke se etter flere uoverensstemmelser i forbindelse med navn. Det beste er vanligvis å ikke fortsette videre.</translation>
 <translation id="2712549016134575851">Det er registrert en konflikt med et annet installert program.</translation>

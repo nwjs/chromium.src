@@ -3,6 +3,7 @@
 <translationbundle lang="ca">
 <translation id="8000275528373650868">Google Chrome requereix Windows Vista o Windows XP amb SP2 o superior.</translation>
 <translation id="6676384891291319759">Accedeix a Internet</translation>
+<translation id="8582091809492103607">Obriu Google Chrome a l'inici de sessió i llanceu les aplicacions web en segon pla</translation>
 <translation id="2383457833405848421">Quant a Chrome Frame...</translation>
 <translation id="386202838227397562">Tanqueu totes les finestres de Google Chrome i torneu-ho a provar.</translation>
 <translation id="2770231113462710648">Canvia el navegador predeterminat a:</translation>
@@ -14,12 +15,13 @@
 <translation id="2370289711218562573">En aquests moments, Google Chrome està important els preferits o les adreces d'interès.</translation>
 <translation id="8970027151245482499">Google Chrome no s'ha instal·lat o bé no ha pogut trobar el directori d'instal·lació. Torna a baixar Google Chrome.</translation>
 <translation id="2040709530900803995">Renderitzador de Google Chrome</translation>
-<translation id="3044696659294460858">Hi ha una versió nova de Google Chrome disponible que inclou extensions.</translation>
 <translation id="4281844954008187215">Condicions d'ús</translation>
 <translation id="3555616473548901994">S'ha completat la desinstal·lació.</translation>
+<translation id="8556340503434111824">Hi ha disponible una nova versió de Google Chrome, i és més ràpida que mai.</translation>
 <translation id="1826297811907343327">Si cancel·leu ara, no s'importaran tots els elements. Podeu tornar a importar més endavant des del menú de Google Chrome.</translation>
 <translation id="4728575227883772061">S'ha produït un error no especificat durant la instal·lació. Si Google Chrome s'està executant en aquests moments, tanca'l i torna-ho a provar.</translation>
 <translation id="4149882025268051530">L'instal·lador no ha pogut descomprimir el fitxer. Torna a baixar Google Chrome.</translation>
+<translation id="6989339256997917931">Google Chrome està actualitzat, però no l'heu utilitzat durant un mínim de 30 dies.</translation>
 <translation id="5744005218040929396">Utilitat de Google Chrome</translation>
 <translation id="4343226815564935778">Sembla que s'està utilitzant el directori d'instal·lació de Google Chrome. Reinicieu l'equip i torneu-ho a provar.</translation>
 <translation id="6817660909204164466">Per ajudar-nos a millorar Google Chrome, envia automàticament estadístiques d'ús i informes d'errors a Google</translation>
@@ -34,9 +36,11 @@
 <translation id="8446794773162156990">Google Chrome té un comportament estrany.</translation>
 <translation id="3889417619312448367">Desinstal·la Google Chrome</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE"/> - Google Chrome</translation>
+<translation id="3089968997497233615">Hi ha disponible una nova versió més segura de Google Chrome.</translation>
 <translation id="8810218179782551669">L'idioma de Google Chrome:</translation>
 <translation id="7001386529596391893">Crea dreceres de Google Chrome en aquestes ubicacions:</translation>
 <translation id="7461436095086637522">Importador de perfils de Chrome</translation>
+<translation id="655722166118366450">Voleu fer que <ph name="HOST"/> sigui el vostre motor de cerca a Google Chrome?</translation>
 <translation id="4357846314885556934">Google Chrome té un comportament estrany</translation>
 <translation id="4561681684759837226"><ph name="PAGE_TITLE"/></translation>
 <translation id="1195935957447623558">Google Chrome no es va tancar correctament. Per tornar a accedir a les pàgines que teníeu obertes, feu clic a &quot;Restaura&quot;.</translation>
@@ -53,6 +57,7 @@
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="5840402478666768335">Opcional: ajudeu a millorar Google Chrome i envieu automàticament les estadístiques d'ús i els informes \nde fallades a Google</translation>
 <translation id="5008136264574452501">Google Chrome Canary Build</translation>
+<translation id="2240501189676193549">Les aplicacions web només estan actives quan s'està executant Google Chrome.</translation>
 <translation id="911206726377975832">També voleu suprimir les dades de navegació?</translation>
 <translation id="2044287590254833138">Barra d'eines de Google Chrome</translation>
 <translation id="5074344184765391290">Amfitrió del connector de Chrome</translation>
@@ -68,6 +73,7 @@
 <translation id="6087062680442281307">Google Chrome és un navegador web que executa pàgines web i aplicacions a gran velocitat. És ràpid, estable i fàcil d'utilitzar. Navegueu d'una manera més segura pel web amb la protecció contra programari maliciós i llocs de pesca integrada a Google Chrome.</translation>
 <translation id="2115751172320447278">Copyright © 2006-2010 Google Inc. Tots els drets reservats.</translation>
 <translation id="5941830788786076944">Estableix Google Chrome com el navegador per defecte</translation>
+<translation id="7892675281311705134">Aplicacions web de Google Chrome</translation>
 <translation id="5947389362804196214">No es poden llegir les vostres preferències.\n\nÉs possible que algunes funcions no estiguin disponibles, i els canvis a les preferències no es desaran.</translation>
 <translation id="4127951844153999091">En aquest cas, l'adreça que s'indica al certificat no coincideix amb l'adreça del lloc web al qual heu intentat accedir el navegador. Un possible motiu és que les vostres comunicacions les està interceptant un atacant que presenta un certificat per a un lloc web diferent, cosa que podria provocar un error de concordança. Un altre motiu possible és que el servidor estigui configurat per tornar el mateix certificat per a diversos llocs web, inclòs aquest que intenteu visitar, encara que el certificat no sigui vàlid per a tots aquests llocs web. Google Chrome pot garantir que heu accedit a &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, però no pot verificar que sigui el mateix lloc que &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; , que volíeu visitar. Si continueu, Chrome no comprovarà cap altre error de nom. En general, és millor no continuar més enllà d'aquest punt.</translation>
 <translation id="2712549016134575851">S'ha detectat un conflicte amb una altra aplicació instal·lada.</translation>

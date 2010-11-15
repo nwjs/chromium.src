@@ -3,6 +3,7 @@
 <translationbundle lang="sv">
 <translation id="8000275528373650868">För Google Chrome krävs Windows Vista eller Windows XP med SP2 eller senare.</translation>
 <translation id="6676384891291319759">Gå ut på Internet</translation>
+<translation id="8582091809492103607">Öppna Google Chromes inloggningssida och kör webbprogram i bakgrunden.</translation>
 <translation id="2383457833405848421">Om Chrome Frame...</translation>
 <translation id="386202838227397562">Stäng alla Google Chrome-fönster och försök igen.</translation>
 <translation id="2770231113462710648">Ändra standardwebbläsare till:</translation>
@@ -14,12 +15,13 @@
 <translation id="2370289711218562573">Google Chrome importerar favoriter/bokmärken.</translation>
 <translation id="8970027151245482499">Google Chrome är inte installerat eller installationskatalogen gick inte att hitta. Hämta Google Chrome igen.</translation>
 <translation id="2040709530900803995">Google Chrome Renderer</translation>
-<translation id="3044696659294460858">Det finns en ny version av Google Chrome som inkluderar tillägg.</translation>
 <translation id="4281844954008187215">Användarvillkor</translation>
 <translation id="3555616473548901994">Avinstallation slutförd.</translation>
+<translation id="8556340503434111824">Det finns en ny version av Google Chrome och den är snabbare än någonsin.</translation>
 <translation id="1826297811907343327">Om du avbryter nu importeras inte alla objekt. Du kan importera igen senare från Google Chromes meny.</translation>
 <translation id="4728575227883772061">Installationen misslyckades på grund av ett ospecificerat fel. Stäng Google Chrome, om det är igång, och försök sedan igen.</translation>
 <translation id="4149882025268051530">Det gick inte att packa upp arkivet med installationsfilen. Hämta Google Chrome igen.</translation>
+<translation id="6989339256997917931">Chrome har uppdaterats men du har inte använt det på över 30 dagar.</translation>
 <translation id="5744005218040929396">Google Chrome Utility</translation>
 <translation id="4343226815564935778">Det verkar som om installationskatalogen för Google Chrome används. Starta om datorn och försök igen.</translation>
 <translation id="6817660909204164466">Hjälp till att göra Google Chrome bättre genom att automatiskt skicka användningsstatistik och felrapporter till Google</translation>
@@ -34,9 +36,11 @@
 <translation id="8446794773162156990">Google Chrome uppför sig inte</translation>
 <translation id="3889417619312448367">Avinstallera Google Chrome</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE"/> - Google Chrome</translation>
+<translation id="3089968997497233615">Det finns en ny, ännu säkrare version av Google Chrome.</translation>
 <translation id="8810218179782551669">Språk för Google Chrome:</translation>
 <translation id="7001386529596391893">Skapa genvägar till Google Chrome på följande platser:</translation>
 <translation id="7461436095086637522">Chrome Profile Importer</translation>
+<translation id="655722166118366450">Vill du använda <ph name="HOST"/> som sökmotor i Google Chrome?</translation>
 <translation id="4357846314885556934">Google Chrome uppför sig inte</translation>
 <translation id="4561681684759837226"><ph name="PAGE_TITLE"/></translation>
 <translation id="1195935957447623558">Google Chrome stängdes inte av på rätt sätt. Klicka på Återställ om du åter vill öppna de tidigare öppna sidorna.</translation>
@@ -53,6 +57,7 @@
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="5840402478666768335">Valfritt: Hjälp till att göra Google Chrome bättre genom att automatiskt skicka användningsstatistik och felrapporter till Google</translation>
 <translation id="5008136264574452501">Google Chrome Canary Build</translation>
+<translation id="2240501189676193549">Webbprogram är endast aktiva när Google Chrome körs.</translation>
 <translation id="911206726377975832">Vill du även ta bort din webbinformation?</translation>
 <translation id="2044287590254833138">Verktygsfältet Google Chrome</translation>
 <translation id="5074344184765391290">Plugin-värd för Chrome</translation>
@@ -68,6 +73,7 @@
 <translation id="6087062680442281307">Google Chrome är en webbläsare som kör webbsidor och program med ljusets hastighet. Det är snabbt, stabilt och lätt att använda. Sök på webben säkrare med Google Chromes inbyggda skydd mot skadlig programvara och lösenordsfiske.</translation>
 <translation id="2115751172320447278">Upphovsätt © 2006-2010 Google Inc. Med ensamrätt.</translation>
 <translation id="5941830788786076944">Använd Google Chrome som standardwebbläsare</translation>
+<translation id="7892675281311705134">Google Chromes webbprogram</translation>
 <translation id="5947389362804196214">Det går inte att läsa inställningarna.\n\nVissa funktioner kanske inte är tillgängliga och ändringar i inställningarna sparas inte.</translation>
 <translation id="4127951844153999091">I det här fallet överensstämmer inte adressen i certifikatet med adressen på webbplatsen som webbläsaren försökte besöka. Det kan bero på att kommunikationen har kapats av en bedragare som anger ett certifikat för en annan webbplats, vilket orsakar konflikten. En annan orsak kan vara att servern är inställd för att returnera samma certifikat till flera webbplatser, inklusive den som du försöker besöka, trots att certifikatet inte är giltigt för alla dessa webbplatser. Google Chrome kan intyga att du nått &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, men kan inte bekräfta att det är webbplatsen &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; som du vill komma till. Om du fortsätter kommer inte Chrome att söka efter eventuella nya namnkonflikter. I allmänhet är det bäst att inte fortsätta med åtgärden.</translation>
 <translation id="2712549016134575851">En konflikt med ett annat installerat program har upptäckts.</translation>

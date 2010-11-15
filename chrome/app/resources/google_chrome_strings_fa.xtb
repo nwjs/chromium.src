@@ -3,6 +3,7 @@
 <translationbundle lang="fa">
 <translation id="8000275528373650868">Google Chrome به Windows Vista یا Windows XP با SP2 یا بالاتر نیاز دارد.</translation>
 <translation id="6676384891291319759">دسترسی به اینترنت</translation>
+<translation id="8582091809492103607">Google Chrome را هنگام ورود به سیستم باز کنید و برنامه وب پس زمینه را راه اندازی کنید.</translation>
 <translation id="2383457833405848421">درباره Chrome Frame...</translation>
 <translation id="386202838227397562">لطفاً همه پنجره های Google Chrome را ببندید و دوباره امتحان کنید.</translation>
 <translation id="2770231113462710648">تغییر مرورگر پیش فرض به:</translation>
@@ -14,12 +15,13 @@
 <translation id="2370289711218562573">اکنون Google Chrome درحال واردکردن نشانک ها/موارد دلخواه است.</translation>
 <translation id="8970027151245482499">Google Chrome نصب نشده است یا دایرکتوری نصب پیدا نشده است. لطفاً دوباره Google Chrome را دانلود کنید.</translation>
 <translation id="2040709530900803995">رندرساز Google Chrome</translation>
-<translation id="3044696659294460858">نسخه جدیدی از Google Chrome موجود است که دارای برنامه افزودنی می باشد.</translation>
 <translation id="4281844954008187215">شرایط استفاده از سرویس</translation>
 <translation id="3555616473548901994">حذف نصب انجام شد.</translation>
+<translation id="8556340503434111824">نسخه جدیدی از Google Chrome وجود دارد که سریعتر از همیشه است.</translation>
 <translation id="1826297811907343327">اگر اکنون لغو کنید، همه آیتم ها وارد نمی شوند. می توانید بعداً از منوی Google Chrome دوباره آن ها را وارد کنید.</translation>
 <translation id="4728575227883772061">به دلیل خطای نامشخص نصب ناموفق بود. اگر Google Chrome در حال اجرا است، لطفاً آن را ببندید و دوباره سعی کنید.</translation>
 <translation id="4149882025268051530">نصب کننده در خارج کردن آرشیو از حالت فشرده ناموفق بود. لطفاً دوباره Google Chrome را دانلود کنید.</translation>
+<translation id="6989339256997917931">Google Chrome به روز شده است اما حداقل 30 روز از آن استفاده نکرده اید.</translation>
 <translation id="5744005218040929396">برنامه کمکی Google Chrome</translation>
 <translation id="4343226815564935778">دایرکتوری نصب Google Chrome در حال استفاده است. لطفاً رایانه خود را مجدداً راه اندازی کنید و دوباره سعی کنید.</translation>
 <translation id="6817660909204164466">با ارسال خودکار آمار استفاده و گزارشهای خرابی به Google، به بهتر شدن Google Chrome کمک کنید.</translation>
@@ -34,15 +36,18 @@
 <translation id="8446794773162156990">Google Chrome درست عمل نمی کند</translation>
 <translation id="3889417619312448367">حذف نصب Google Chrome</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE"/> - Google Chrome</translation>
+<translation id="3089968997497233615">نسخه جدید و امن تری از Google Chrome موجود است.</translation>
 <translation id="8810218179782551669">زبان Google Chrome:</translation>
 <translation id="7001386529596391893">ایجاد میانبرهای Google Chrome در این مکانها:</translation>
 <translation id="7461436095086637522">واردکننده نمایه Chrome</translation>
+<translation id="655722166118366450">آیا می خواهید <ph name="HOST"/> را در Google Chrome به موتور جستجوی خود تبدیل کنید؟</translation>
 <translation id="4357846314885556934">Google Chrome درست عمل نمی کند</translation>
 <translation id="4561681684759837226"><ph name="PAGE_TITLE"/></translation>
 <translation id="1195935957447623558">Google Chrome درست بسته نشده است. برای باز کردن مجدد صفحاتی که بازکرده بودید، روی بازیابی کلیک کنید.</translation>
 <translation id="2499193704281978000">Google Chrome جواب نمی دهد. دوباره راه اندازی شود؟</translation>
 <translation id="2580411288591421699">نمی توان همان نسخه Google Chrome را که اکنون در حال اجراست نصب کرد. لطفاً Google Chrome را ببندید و دوباره سعی کنید.</translation>
 <translation id="7747138024166251722">نصب کننده نتوانست دایرکتوری موقت ایجاد کند. لطفاً فضای خالی دیسک و اجازه نصب نرم افزار را بررسی کنید.</translation>
+<translation id="6008953001134414503">لطفاً برای اعمال این تغییر، از سیستم عامل Google Chrome خارج شده و دوباره به سیستم وارد شوید.</translation>
 <translation id="6009537148180854585">سعی داشتید به &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; برسید، اما گواهی ارائه شده از سوی سرور دارای خطا است. Google Chrome نمی تواند از گواهی دارای خطا استفاده کند و نمی تواند هویت سایتی را تعیین کند که می خواهید به آن وصل شوید. اتصال شما ایمن نیست و نباید ادامه دهید.</translation>
 <translation id="8738921060445980047">نسخه ناشناخته.</translation>
 <translation id="2485422356828889247">حذف نصب</translation>
@@ -52,6 +57,7 @@
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="5840402478666768335">اختیاری: با ارسال خودکار آمار کاربرد و گزارشهای خرابی به Google، به پیشرفت Google Chrome\nکمک کنید.</translation>
 <translation id="5008136264574452501">Google Chrome Canary Build</translation>
+<translation id="2240501189676193549">برنامه های وب فقط هنگام اجرای Google Chrome فعال هستند.</translation>
 <translation id="911206726377975832">داده های مرور شما نیز حذف شود؟</translation>
 <translation id="2044287590254833138">نوارابزار Google Chrome</translation>
 <translation id="5074344184765391290">میزبان افزونه Chrome</translation>
@@ -67,6 +73,7 @@
 <translation id="6087062680442281307">Google Chrome یک مرورگر وب است که برنامه های کاربردی و صفحات وب را در یک چشم به هم زدن اجرا و باز می کند. استفاده از آن سریع و آسان است و همیشه در دسترس است. با برنامه های حفاظت در برابر فیشینگ و بدافزار تعبیه شده در Google Chrome، وب را امن تر مرور کنید.</translation>
 <translation id="2115751172320447278">Copyright © 2006-2010 Google Inc. کلیه حقوق محفوظ است.</translation>
 <translation id="5941830788786076944">Google Chrome مرورگر پیش فرض شود</translation>
+<translation id="7892675281311705134">برنامه های وب Google Chrome</translation>
 <translation id="5947389362804196214">موارد برگزیده شما را نمی توان خواند.\n\nبعضی ویژگیها ممکن است در دسترس نباشند و تغییرات موارد برگزیده ذخیره نخواهد شد.</translation>
 <translation id="4127951844153999091">در این مورد، آدرس لیست شده در گواهی با آدرس وب سایتی که مرورگر شما سعی در باز کردن آن را داشت یکی نیست. یک دلیل آن ممکن است این باشد که مهاجمی از ارتباطات شما جلوگیری می کند، این مهاجم یک گواهی را برای وب سایت دیگری ارائه می دهد و این باعث عدم تطابق می شود. دلیل ممکن دیگر این است که سرور طوری تنظیم شده است که یک گواهی را برای چند وب سایت برمی گرداند از جمله همین وب سایتی که می خواهید بازدید کنید، اما آن گواهی برای همه آن وب سایتها معتبر نیست. Google Chrome اطمینان دارد که به &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; دسترسی داشته اید، اما نمی تواند تأیید کند که این همان سایت &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; است که شما سعی در برقراری ارتباط با آن را داشتید. اگر ادامه دهید، Chrome دیگر عدم تطابق نام ها را بررسی نمی کند. بطور کلی، بهتر است بدون در نظر گرفتن این نکته ادامه ندهید.</translation>
 <translation id="2712549016134575851">تداخلی با یک برنامه کاربردی نصب شده دیگر شناسایی شد.</translation>

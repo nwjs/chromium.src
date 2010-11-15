@@ -3,6 +3,7 @@
 <translationbundle lang="ar">
 <translation id="8000275528373650868">يتطلب Google Chrome نظام التشغيل Windows Vista أو Windows XP المزود بحزمة الخدمة SP2 أو الأعلى منها.</translation>
 <translation id="6676384891291319759">الدخول إلى الإنترنت</translation>
+<translation id="8582091809492103607">فتح Google Chrome عند تسجيل الدخول وتشغيل تطبيقات الويب في الخلفية</translation>
 <translation id="2383457833405848421">حول إطار Google Chrome...</translation>
 <translation id="386202838227397562">الرجاء إغلاق كل نوافذ Google Chrome وإعادة المحاولة.</translation>
 <translation id="2770231113462710648">تغيير المتصفح الافتراضي إلى:</translation>
@@ -14,12 +15,13 @@
 <translation id="2370289711218562573">يقوم Google Chrome الآن باستيراد المفضلة/الإشارات.</translation>
 <translation id="8970027151245482499">لم يتم تثبيت Google Chrome، أو فشل البرنامج في العثور على دليل التثبيت. يُرجى تنزيل Google Chrome مرة أخرى.</translation>
 <translation id="2040709530900803995">عارض Google Chrome</translation>
-<translation id="3044696659294460858">يتوفر إصدار جديد من Google Chrome يتضمن الإضافات.</translation>
 <translation id="4281844954008187215">شروط الخدمة</translation>
 <translation id="3555616473548901994">تمت عملية الإزالة.</translation>
+<translation id="8556340503434111824">يتوفر إصدار جديد من Google Chrome، وهو أسرع بكثير من ذي قبل.</translation>
 <translation id="1826297811907343327">في حالة الإلغاء الآن، لن يتم استيراد جميع العناصر، ويمكنك الاستيراد مرة أخرى فيما بعد من القائمة &quot;Google Chrome&quot;.</translation>
 <translation id="4728575227883772061">فشلت عملية التثبيت بسبب خطأ غير محدد. إذا كان Google Chrome في حالة التشغيل حاليًا، يُرجى إغلاقه وإعادة المحاولة.</translation>
 <translation id="4149882025268051530">فشلت أداة المثبِّت في فك ضغط الأرشيف. يُرجى تنزيل Google Chrome مرة أخرى.</translation>
+<translation id="6989339256997917931">تم تحديث متصفح Google Chrome، ولكنك لم تستخدمه منذ أكثر من 30 يومًا.</translation>
 <translation id="5744005218040929396">أداة Google Chrome</translation>
 <translation id="4343226815564935778">يبدو أن دليل تثبيت Google Chrome قيد الاستخدام. الرجاء إعادة تشغيل الكمبيوتر والمحاولة من جديد.</translation>
 <translation id="6817660909204164466">المساعدة في تحسين Google Chrome بإرسال إحصائيات الاستخدام وتقارير الأعطال إلى Google تلقائيًا </translation>
@@ -34,9 +36,11 @@
 <translation id="8446794773162156990">خلل في عمل Google Chrome</translation>
 <translation id="3889417619312448367">إزالة Google Chrome</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE"/> - Google Chrome</translation>
+<translation id="3089968997497233615">يتوفر إصدار جديد وأكثر أمانًا لمتصفح Google Chrome.</translation>
 <translation id="8810218179782551669">لغة Google Chrome:</translation>
 <translation id="7001386529596391893">إنشاء اختصارات لـ Google Chrome في هذه الأماكن:</translation>
 <translation id="7461436095086637522">مستورد الملف الشخصي في Chrome</translation>
+<translation id="655722166118366450">هل تريد جعل <ph name="HOST"/> محرك البحث في Google Chrome؟</translation>
 <translation id="4357846314885556934">لا يعمل Google Chrome بشكل صحيح</translation>
 <translation id="4561681684759837226"><ph name="PAGE_TITLE"/></translation>
 <translation id="1195935957447623558">لم يتمّ إغلاق Google Chrome بطريقة صحيحة. لإعادة فتح الصفحات التي سبق فتحها، انقر على زرّ إعادة.</translation>
@@ -53,6 +57,7 @@
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="5840402478666768335">اختياري: ساعد في تحسين Google Chrome عن طريق إرسال إحصاءات الاستخدام وتقارير الأعطال إلى Google تلقائيًا</translation>
 <translation id="5008136264574452501">Google Chrome Canary Build</translation>
+<translation id="2240501189676193549">تنشط تطبيقات الويب فقط أثناء تشغيل Google Chrome.</translation>
 <translation id="911206726377975832">هل تريد أيضًا حذف بيانات التصفح؟</translation>
 <translation id="2044287590254833138">شريط أدوات Google Chrome</translation>
 <translation id="5074344184765391290">مضيف المكون الإضافي لمتصفح Chrome</translation>
@@ -68,6 +73,7 @@
 <translation id="6087062680442281307">إن Google Chrome هو متصفح ويب يشغّل صفحات الويب والتطبيقات بسرعة خاطفة. فهذا المتصفح سريع ويتميز بالثبات وسهولة الاستخدام، ويمكنك من خلاله تصفح الويب بقدر أكبر من الأمان من خلال وجود حماية مضمنة داخله ضد البرامج الضارة والتصيّد.</translation>
 <translation id="2115751172320447278">حقوق الطبع والنشر © 2006-2010 لصالح شركة Google Inc. جميع الحقوق محفوظة.</translation>
 <translation id="5941830788786076944">جعل Google Chrome المتصفّح الافتراضي</translation>
+<translation id="7892675281311705134">تطبيقات الويب المثبتة على Google Chrome</translation>
 <translation id="5947389362804196214">لا يمكن قراءة تفضيلاتك.\n\nقد تكون بعض الميزات غير متاحة كما لن يتم حفظ التغييرات في التفضيلات.</translation>
 <translation id="4127951844153999091">هذا يعني أنّ العنوان المذكور في الشهادة لا يتطابق  مع عنوان الموقع الذي يحاول المتصفّح دخوله. وقد يعزى ذلك إلى محاولة متسلّل ما اعتراض اتّصالاتك بإرسال شهادة تتعلّق بموقع آخر، ممّا يفسّر حالة عدم التطابق. أو إلى كون الخادم مبرمجاً بحيث يُرجع الشهادة نفسها لعدّة مواقع، من ضمنها الموقع المقصود، حتّى لو لم تكن صالحة للمواقع كلّها.  يؤكّد Google Chrome أنّك وصلت إلى الموقع &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;، ولكن لا يمكنه التحقّق من أنّه هو نفسه الموقع &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;  المقصود. إذا استأنفت البحث، لن يدقّق Google Chrome  في حالات عدم التطابق الأخرى. من المفضّل والحالة هذه التوقّف عند هذا الحدّ وعدم متابعة عملية البحث.</translation>
 <translation id="2712549016134575851">تم اكتشاف تعارض مع تطبيق آخر مثبَّت.</translation>

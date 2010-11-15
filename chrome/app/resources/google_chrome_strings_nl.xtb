@@ -3,6 +3,7 @@
 <translationbundle lang="nl">
 <translation id="8000275528373650868">Voor Google Chrome is Windows Vista of Windows XP met SP2 of hoger vereist.</translation>
 <translation id="6676384891291319759">Verbinding maken met internet</translation>
+<translation id="8582091809492103607">Google Chrome openen bij aanmelden en webtoepassingen op de achtergrond openen</translation>
 <translation id="2383457833405848421">Over Chrome Frame...</translation>
 <translation id="386202838227397562">Sluit alle Google Chrome-vensters en probeer het opnieuw.</translation>
 <translation id="2770231113462710648">Standaardbrowser wijzigen in:</translation>
@@ -14,12 +15,13 @@
 <translation id="2370289711218562573">Google Chrome importeert momenteel favorieten/bladwijzers.</translation>
 <translation id="8970027151245482499">Google Chrome is niet geïnstalleerd of de installatiedirectory is niet gevonden. Download Google Chrome opnieuw.</translation>
 <translation id="2040709530900803995">Google Chrome Renderer</translation>
-<translation id="3044696659294460858">Er is een nieuwe versie van Google Chrome beschikbaar met extensies.</translation>
 <translation id="4281844954008187215">Servicevoorwaarden</translation>
 <translation id="3555616473548901994">Verwijdering voltooid.</translation>
+<translation id="8556340503434111824">Er is een nieuwe versie van Google Chrome en deze is sneller dan ooit.</translation>
 <translation id="1826297811907343327">Als u nu annuleert, worden niet alle items geïmporteerd. U kunt deze items later importeren via het menu van Google Chrome.</translation>
 <translation id="4728575227883772061">De installatie is mislukt wegens een onbekende fout. Als Google Chrome momenteel actief is, sluit u het programma af en probeert u het opnieuw.</translation>
 <translation id="4149882025268051530">Het installatieprogramma kan het archief niet uitpakken. Download Google Chrome opnieuw.</translation>
+<translation id="6989339256997917931">Google Chrome is bijgewerkt, maar u heeft het programma minstens 30 dagen niet gebruikt.</translation>
 <translation id="5744005218040929396">Google Chrome</translation>
 <translation id="4343226815564935778">De installatiedirectory voor Google Chrome lijkt in gebruik te zijn. Start uw computer opnieuw op en probeer het opnieuw.</translation>
 <translation id="6817660909204164466">Help Google Chrome beter te maken door automatisch gebruiksstatistieken en crashmeldingen naar Google te verzenden</translation>
@@ -34,9 +36,11 @@
 <translation id="8446794773162156990">Google Chrome doet moeilijk</translation>
 <translation id="3889417619312448367">Google Chrome verwijderen</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE"/> - Google Chrome</translation>
+<translation id="3089968997497233615">Er is een nieuwere, veiligere versie van Google Chrome beschikbaar.</translation>
 <translation id="8810218179782551669">Taal van Google Chrome:</translation>
 <translation id="7001386529596391893">Maak snelkoppelingen voor Google Chrome op deze locaties:</translation>
 <translation id="7461436095086637522">Chrome Profile Importer</translation>
+<translation id="655722166118366450">Wilt u <ph name="HOST"/> instellen als uw zoekmachine in Google Chrome?</translation>
 <translation id="4357846314885556934">Google Chrome doet moeilijk</translation>
 <translation id="4561681684759837226"><ph name="PAGE_TITLE"/></translation>
 <translation id="1195935957447623558">Google Chrome is niet correct afgesloten. Klik op Herstellen om de pagina's te openen die actief waren.</translation>
@@ -53,6 +57,7 @@
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="5840402478666768335">Optioneel: help Google Chrome beter te maken door automatisch gebruiksstatistieken en\ncrashmeldingen naar Google te verzenden</translation>
 <translation id="5008136264574452501">Google Chrome Canary Build</translation>
+<translation id="2240501189676193549">Webtoepassingen zijn alleen actief wanneer Google Chrome geopend is.</translation>
 <translation id="911206726377975832">Ook browsegegevens wissen?</translation>
 <translation id="2044287590254833138">Google Chrome Toolbar</translation>
 <translation id="5074344184765391290">Invoegtoepassingshost van Chrome</translation>
@@ -68,6 +73,7 @@
 <translation id="6087062680442281307">Google Chrome is een webbrowser die bliksemsnel webpagina's en online toepassingen kan weergeven. Het is snel, stabiel en gebruiksvriendelijk. Met Google Chrome kunt u veiliger op internet surfen dankzij de ingebouwde bescherming tegen phishing en malware.</translation>
 <translation id="2115751172320447278">Copyright © 2006-2010 Google Inc. Alle rechten voorbehouden.</translation>
 <translation id="5941830788786076944">Google Chrome instellen als mijn standaardbrowser</translation>
+<translation id="7892675281311705134">Webtoepassingen voor Google Chrome</translation>
 <translation id="5947389362804196214">Uw voorkeuren kunnen niet worden gelezen.\n\nSommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren worden niet opgeslagen.</translation>
 <translation id="4127951844153999091">In dit geval komt het adres in het certificaat niet overeen met het adres van de website dat uw browser probeerde te bezoeken. Dit kan komen omdat uw communicatie wordt onderschept door een hacker die een certificaat voor een andere website retourneert, waardoor de adressen niet overeenkomen. Een andere mogelijkheid is dat de server is ingesteld op het retourneren van hetzelfde certificaat voor meerdere websites, inclusief de site die u probeert te bezoeken, hoewel dat certificaat niet geldig is voor al deze websites. Google Chrome kan garanderen dat u &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; heeft bereikt, maar kan niet verifiëren of dat dezelfde site is als &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, die u wilde bezoeken. Als u doorgaat, controleert Chrome niet verder op verschillen tussen namen. Over het algemeen is het beter hier niet verder te gaan.</translation>
 <translation id="2712549016134575851">Er is een conflict gedetecteerd met een andere geïnstalleerde toepassing.</translation>

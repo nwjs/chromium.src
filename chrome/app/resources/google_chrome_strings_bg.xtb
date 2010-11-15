@@ -3,6 +3,7 @@
 <translationbundle lang="bg">
 <translation id="8000275528373650868">За Google Chrome се изисква Windows Vista или Windows XP с SP2 или по-нова версия.</translation>
 <translation id="6676384891291319759">Достъп до интернет</translation>
+<translation id="8582091809492103607">Отваряне на Google Chrome при влизане и стартиране на уеб приложенията на заден план</translation>
 <translation id="2383457833405848421">Всичко за Chrome Frame...</translation>
 <translation id="386202838227397562">Моля, затворете всички прозорци на Google Chrome и опитайте отново.</translation>
 <translation id="2770231113462710648">Промяна на браузъра по подразбиране с/ъс:</translation>
@@ -14,12 +15,13 @@
 <translation id="2370289711218562573">В момента Google Chrome импортира „Любими/Отметки“.</translation>
 <translation id="8970027151245482499">Google Chrome не е инсталиран или не е успял да намери инсталационната директория. Моля, изтеглете Google Chrome отново.</translation>
 <translation id="2040709530900803995">Google Chrome Renderer</translation>
-<translation id="3044696659294460858">Налице е нова версия на Google Chrome, която включва разширения.</translation>
 <translation id="4281844954008187215">Условия за ползване</translation>
 <translation id="3555616473548901994">Деинсталирането завърши.</translation>
+<translation id="8556340503434111824">Налице е нова версия на Google Chrome, която е по-бърза от всякога.</translation>
 <translation id="1826297811907343327">Ако анулирате сега, няма да бъдат импортирани всички елементи. Можете да импортирате отново по-късно от менюто на Google Chrome.</translation>
 <translation id="4728575227883772061">Инсталирането не бе успешно поради неизвестна грешка. Ако Google Chrome понастоящем работи, моля, затворете го и опитайте отново.</translation>
 <translation id="4149882025268051530">Инсталационната програма не успя да декомпресира архива. Моля, изтеглете Google Chrome отново.</translation>
+<translation id="6989339256997917931">Google Chrome е актуализиран, но не сте го използвали от поне 30 дни.</translation>
 <translation id="5744005218040929396">Google Chrome Utility</translation>
 <translation id="4343226815564935778">Изглежда, че директорията за инсталиране на Google Chrome се използва. Моля, рестартирайте компютъра си и опитайте отново.</translation>
 <translation id="6817660909204164466">Помогнете за усъвършенстването на Google Chrome чрез автоматично изпращане до Google на статистически данни за употребата и сигнали за сривове.</translation>
@@ -34,9 +36,11 @@
 <translation id="8446794773162156990">Google Chrome не работи нормално</translation>
 <translation id="3889417619312448367">Деинсталиране на Google Chrome</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE"/> - Google Chrome</translation>
+<translation id="3089968997497233615">Налице е нова, по-сигурна версия на Google Chrome.</translation>
 <translation id="8810218179782551669">Език на Google Chrome:</translation>
 <translation id="7001386529596391893">Създаване на преки пътища до Google Chrome на следните места:</translation>
 <translation id="7461436095086637522">Chrome Profile Importer</translation>
+<translation id="655722166118366450">Искате ли да направите <ph name="HOST"/> своя търсеща машина в Google Chrome?</translation>
 <translation id="4357846314885556934">Google Chrome не работи нормално</translation>
 <translation id="4561681684759837226"><ph name="PAGE_TITLE"/></translation>
 <translation id="1195935957447623558">Google Chrome не се затвори правилно. За да отворите отново страниците, които са били отворени преди това, кликнете върху „Възстановяване“.</translation>
@@ -54,6 +58,7 @@
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="5840402478666768335">По избор: Помогнете за усъвършенстването на Google Chrome чрез автоматично изпращане до Google на статистически данни за употребата и\nсигнали за сривове</translation>
 <translation id="5008136264574452501">Ранна версия на Google Chrome</translation>
+<translation id="2240501189676193549">Уеб приложенията са активни само когато Google Chrome работи.</translation>
 <translation id="911206726377975832">Да се изтрият ли и данните от сърфирането?</translation>
 <translation id="2044287590254833138">Лента с инструменти на Google Chrome</translation>
 <translation id="5074344184765391290">Chrome Plug-In Host</translation>
@@ -69,6 +74,7 @@
 <translation id="6087062680442281307">Google Chrome е уеб браузър, който зарежда уеб страници и изпълнява приложения със светкавична скорост. Той е бърз, стабилен и лесен за употреба. Сърфирайте в мрежата по-безопасно с вградената защита на Google Chrome срещу злонамерен софтуер и фишинг.</translation>
 <translation id="2115751172320447278">Авторски права © 2006–2010 Google Inc. Всички права запазени.</translation>
 <translation id="5941830788786076944">Искам Google Chrome да бъде браузърът по подразбиране</translation>
+<translation id="7892675281311705134">Уеб приложения на Google Chrome</translation>
 <translation id="5947389362804196214">Предпочитанията ви не могат да бъдат прочетени.\n\nВъзможно е да няма достъп до някои функции и промените в предпочитанията няма да бъдат запазени.</translation>
 <translation id="4127951844153999091">В този случай посоченият в сертификата адрес не съответства на адреса на уебсайта, който браузърът ви се е опитал да отвори. Една от възможните причини за това е комуникацията ви да се прихваща от хакер, който представя сертификат за различен уебсайт, поради което има несъответствие между тях. Друга възможна причина е сървърът да е настроен да връща един и същи сертификат за голям брой уебсайтове, включително и за този, който се опитвате да отворите, въпреки че този сертификат може да не е валиден за всички от тях. Google Chrome гарантира със сигурност, че сте се свързали с &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, но не може да провери дали това е същият сайт като &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, с който искахте да се свържете. Ако продължите, Google Chrome няма повече да проверява за несъответствие между имената. По принцип е най-добре да не продължавате по-нататък.</translation>
 <translation id="2712549016134575851">Установен е конфликт с друго инсталирано приложение.</translation>
