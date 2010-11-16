@@ -3,6 +3,7 @@
 <translationbundle lang="bn">
 <translation id="8000275528373650868">Google Chrome-এর জন্য SP2 বা উচ্চতর সহ Windows Vista বা Windows XP প্রয়োজন৷</translation>
 <translation id="6676384891291319759">ইন্টারনেটটি অ্যাক্সেস করুন</translation>
+<translation id="8582091809492103607">লগ ইনে Google Chrome খুলুন ও পশ্চাদপট ওয়েব অ্যাপ্লিকেশান শুরু করুন</translation>
 <translation id="2383457833405848421">Chrome  ফ্রেম সম্বন্ধে  ..</translation>
 <translation id="386202838227397562">দয়া করে সকল Google Chrome উইন্ডো বন্ধ করুন ও আবার চেষ্টা করুন৷</translation>
 <translation id="2770231113462710648">ডিফল্ট ব্রাউজার এতে পরিবর্তন করুন:</translation>
@@ -14,12 +15,13 @@
 <translation id="2370289711218562573">Google Chrome এখন প্রিয়/বুকমার্কগুলি আমদানি করছে৷</translation>
 <translation id="8970027151245482499">Google Chrome ইনস্টল করা নেই বা এটি ইনস্টলেশন ডিরেক্টরি সন্ধান করতে ব্যর্থ হয়েছে৷ দয়া করে পুনরায় Google Chrome ডাউনলোড করুন৷</translation>
 <translation id="2040709530900803995">Google Chrome Renderer</translation>
-<translation id="3044696659294460858">Google Chrome-এর একটি নতুন সংস্করণ উপলব্ধ আছে যা এক্সটেনশনগুলিকে অন্তর্ভুক্ত করে৷</translation>
 <translation id="4281844954008187215">পরিষেবার শর্তাদি</translation>
 <translation id="3555616473548901994">আনইনস্টলেশন সম্পূর্ণ৷</translation>
+<translation id="8556340503434111824">Google Chrome-এর একটি নতুন সংস্করণ উপলব্ধ এবং এটি আগের তুলনায় দ্রুততর৷</translation>
 <translation id="1826297811907343327">আপনি এখন বাতিল করলে, সমস্ত আইটেম আমদানি হবে না৷ আপনি Google Chrome মেনু থেকে পরে আবার আমদানি করতে পারেন৷</translation>
 <translation id="4728575227883772061">অনির্দিষ্ট ত্রুটির জন্য ইনস্টলেশন ব্যর্থ হয়েছে৷ যদি Google Chrome বর্তমানে চলতে থাকে তবে দয়া করে এটি বন্ধ করে আবার চেষ্টা করুন৷</translation>
 <translation id="4149882025268051530">ইনস্টলারটি সংরক্ষণাগার কমপ্রেস মুক্ত করতে ব্যর্থ হয়েছে৷ দয়া করে পুনরায় Google Chrome ডাউনলোড করুন৷</translation>
+<translation id="6989339256997917931">Google Chrome আপডেট হয়েছে তবে আপনি এটি কমপক্ষে 30 দিন যাবত ব্যবহার করেন নি৷</translation>
 <translation id="5744005218040929396">Google Chrome Utility</translation>
 <translation id="4343226815564935778">Google Chrome ইনস্টলেশন ডিরেক্টরি ব্যবহার হচ্ছে বলে মনে হয়৷ দয়া করে আপনার কম্পিউটারটি রিবুট করে আবার চেষ্টা করুন৷</translation>
 <translation id="6817660909204164466">Google-এ ব্যবহার পরিসংখ্যান এবং ক্র্যাশ প্রতিবেদন স্বয়ংক্রিয়ভাবে পাঠিয়ে Google Chrome-কে সর্বোত্তম করে তুলতে সাহায্য করুন</translation>
@@ -34,9 +36,11 @@
 <translation id="8446794773162156990">Google Chrome ভুল আচরণ করছে</translation>
 <translation id="3889417619312448367">Google Chrome আনইনস্টল করুন</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE"/> - Google Chrome</translation>
+<translation id="3089968997497233615">Google Chrome-এর একটি নতুন, তুলনামূলক নিরাপদ সংস্করণ উপলব্ধ৷</translation>
 <translation id="8810218179782551669">Google Chrome ভাষা:</translation>
 <translation id="7001386529596391893">এই অবস্থানগুলিতে Google Chrome শর্টকাট তৈরি করুন:</translation>
 <translation id="7461436095086637522">Chrome Profile Importer</translation>
+<translation id="655722166118366450">আপনি কি Google Chrome-এ <ph name="HOST"/>কে আপনার অনুসন্ধান ইঞ্জিন তৈরি করতে চান?</translation>
 <translation id="4357846314885556934">Google Chrome ভুল আচরণ করছে</translation>
 <translation id="4561681684759837226"><ph name="PAGE_TITLE"/></translation>
 <translation id="1195935957447623558">Google Chrome সঠিকভাবে শাট ডাউন হয় নি৷ আপানার খোলা পৃষ্ঠাগুলি পুনঃখুলতে, পুনরুদ্ধার ক্লিক করুন৷</translation>
@@ -53,6 +57,7 @@
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="5840402478666768335">ঐচ্ছিক: Google-এ ব্যবহার পরিসংখ্যান এবং ক্র্যাশ\nপ্রতিবেদন স্বয়ংক্রিয়ভাবে পাঠিয়ে Google Chrome-কে সর্বোত্তম করে তুলতে সাহায্য করুন৷</translation>
 <translation id="5008136264574452501">Google Chrome ক্যানারি বিল্ড</translation>
+<translation id="2240501189676193549">ওয়েব অ্যাপ্লিকেশান কেবল তখনই সক্রিয় হয় যখন Google Chrome চলমান থাকে৷</translation>
 <translation id="911206726377975832">আপনার ব্রাউজিং ডেটাও মুছে দেবেন?</translation>
 <translation id="2044287590254833138">Google Chrome সরঞ্জামদণ্ড</translation>
 <translation id="5074344184765391290">Chrome Plug-In Host</translation>
@@ -68,6 +73,7 @@
 <translation id="6087062680442281307">Google Chrome হ'ল একটি ওয়েব ব্রাউজার যা ওয়েব পৃষ্ঠাগুলি এবং অ্যাপ্লিকেশনগুলিকে বিদ্যুত গতিতে চালনা করে৷ এটি স্রুত, সুস্থির এবং সহজেই ব্যবহারযোগ্য৷ Google Chrome এ অন্তর্গঠিত ম্যালওয়ার এবং ফিশিং সুরক্ষার সাথে আরও নিরাপদে ওয়েব ব্রাউজ করুন৷</translation>
 <translation id="2115751172320447278">কপিরাইট © 2006-2010 Google Inc৷ সর্বস্বত্ব সংরক্ষিত৷</translation>
 <translation id="5941830788786076944">Google Chrome-কে ডিফল্ট ব্রাউজার করুন</translation>
+<translation id="7892675281311705134">Google Chrome ওয়েব Apps</translation>
 <translation id="5947389362804196214">আপনার পছন্দগুলি পড়া যাবে না৷\n\nকিছু বৈশিষ্ট্য অনুপলব্ধ থাকতে পারে ও পছন্দগুলিতে করা পরিবর্তন সংরক্ষিত হবে না৷</translation>
 <translation id="4127951844153999091">এই ক্ষেত্রে শংসাপত্রে তালিকাবব্ধ ঠিকানা, আপনার ব্রাউজার যে ওয়েবসাইটে যাওয়ার চেষ্টা করছে তার ঠিকানার সাথে মেলে না৷ এর একটি সম্ভাব্য কারণ হতে পারে আপনার যোগাযোগ একটি আক্রমণকারী, যে একটি অন্য ওয়েবসাইটের শংসাপত্র উপস্থিত করছে তার দ্বারা ব্যহত হচ্ছে, যা কোনো অমিলের কারণ হবে৷ অন্য সম্ভাব্য কারণ হতে পারে সার্ভারটি একাধিক ওয়েবসাইটের জন্য একই শংসাপত্র ফেরত পাঠানোতে সেট আছে, যার মধ্যে আপনি যেটি পরিদর্শন করতে চাইছেন সেই সাইটিও আছে, যদিও শংসাপত্রটি এই সকল ওয়েবসাইটের জন্য কার্যকর নয়৷ Google Chrome নিশ্চিতভাবে বলতে পারে আপনি &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;-এ পৌঁছেছেন, কিন্তু এটি যাচাই করতে পারে না যে সেটি &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;-এর মত একই, যাতে আপনি পৌঁছাতে চান৷ আপনি যদি এগিয়ে যান তাহলে, Chrome আর কোনও নামের অমিল চেক করবে না৷ সধারণভাব, এর বেশি না এগোনোই ভালো৷</translation>
 <translation id="2712549016134575851">অন্য একটি ইনস্টল থাকা প্রয়োগের সাথে বিরোধ সনাক্ত করা হয়েছে৷</translation>

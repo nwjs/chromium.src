@@ -3,6 +3,7 @@
 <translationbundle lang="mr">
 <translation id="8000275528373650868">Google Chrome साठी SP2 किंवा त्यापेक्षा उच्च आवृत्ती सह Windows Vista किंवा Windows XP आवश्यक आहे.</translation>
 <translation id="6676384891291319759">इंटरनेटमध्ये प्रवेश करा</translation>
+<translation id="8582091809492103607">लॉगिन करुन Google Chrome उघडा आणि पार्श्वभूमी वेब अनुप्रयोग सुरु करा</translation>
 <translation id="2383457833405848421">Chrome Frame बद्दल...</translation>
 <translation id="386202838227397562">कृपया सर्व Google Chrome विंडो बंद करा आणि पुन्हा प्रयत्न करा.</translation>
 <translation id="2770231113462710648">डीफॉल्ट ब्राउझर यावर बदला:</translation>
@@ -14,12 +15,13 @@
 <translation id="2370289711218562573">Google Chrome आता मनपसंत/बुकमार्क् आयात करीत आहे.</translation>
 <translation id="8970027151245482499">Google Chrome स्थापित नाही किंवा तो इन्स्टॉलेशन निर्देशिका मिळवण्यास अयशस्वी आहे. कृपया Google Chrome पुन्हा डाउनलोड करा.</translation>
 <translation id="2040709530900803995">Google Chrome Renderer</translation>
-<translation id="3044696659294460858">Google Chrome च्या नवीन उपलब्ध आवृत्तीमध्ये विस्तार अंतर्भूत आहेत.</translation>
 <translation id="4281844954008187215">सेवा अटी</translation>
 <translation id="3555616473548901994">विस्थापन पूर्ण.</translation>
+<translation id="8556340503434111824">Google Chrome ची नवीन आवृत्ती उपलब्ध आहे, आणि ही नेहमीपेक्षा द्रुत आहे. </translation>
 <translation id="1826297811907343327">आपण त्वरित रद्द केल्यास, सर्व आयटम आयात केले जाणार नाहीत. आपण Google Chrome मेनूवरून नंतर पुन्हा आयात करू शकता.</translation>
 <translation id="4728575227883772061">अनिर्दिष्ट त्रुटीमुळे स्थापना अयशस्वी. जर Google Chrome सध्या चालू असेल तर, कृपया त्यास बंद करा आणि पुन्हा प्रयत्न करा.</translation>
 <translation id="4149882025268051530">संग्रहणाचा असंक्षिप्त करण्यास इन्स्टॉलर अयशस्वी. कृपया Google Chrome पुन्हा डाउनलोड करा.</translation>
+<translation id="6989339256997917931">Google Chrome अद्यतनित केला गेला, परंतु आपण तो किमान 30 दिवसांपासून वापरलेला नाही.</translation>
 <translation id="5744005218040929396">Google Chrome Utility</translation>
 <translation id="4343226815564935778">Google Chrome स्थापना निर्देशिका कदाचित वापरात आहे. कृपया आपला संगणक रीबूट करा आणि पुन्हा प्रयत्न करा.</translation>
 <translation id="6817660909204164466">वापरण्याची आकडेवारी आणि क्रॅश अहवाल Google कडे स्वयंचलितपणे पाठवून Google Chrome ला अधिक चांगले करण्यास मदत करा.</translation>
@@ -34,9 +36,11 @@
 <translation id="8446794773162156990">Google Chrome गैरवर्तन करीत आहे</translation>
 <translation id="3889417619312448367">Google Chrome विस्थापित करा</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE"/> – Google Chrome</translation>
+<translation id="3089968997497233615">Google Chrome ची नवीन, सुरक्षित आवृत्ती उपलब्ध आहे.</translation>
 <translation id="8810218179782551669">Google Chrome भाषा:</translation>
 <translation id="7001386529596391893">या स्थानांवर Google Chrome शॉर्टकट तयार करा:</translation>
 <translation id="7461436095086637522">Chrome Profile Importer</translation>
+<translation id="655722166118366450">आपण Google Chrome मध्ये <ph name="HOST"/> ला आपले शोध इंजिन बनवू इच्छिता?</translation>
 <translation id="4357846314885556934">Google Chrome गैरवर्तन करीत आहे</translation>
 <translation id="4561681684759837226"><ph name="PAGE_TITLE"/></translation>
 <translation id="1195935957447623558">Google Chrome नीट बंद झाले नाही. आपण उघडलेले पृष्ठ पुन्हा उघडण्यासाठी, पुनर्संचयित क्लिक करा.</translation>
@@ -53,6 +57,7 @@
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="5840402478666768335">पर्यायी: Google कडे स्वयंचलितपणे उपयोग आकडेवारी आणि क्रॅश\nअहवाल पाठवून Google Chrome ला अधिक चांगले करण्यात मदत करा.</translation>
 <translation id="5008136264574452501">Google Chrome कॅनरी बिल्ड</translation>
+<translation id="2240501189676193549">वेब अनुप्रयोग केवळ Google Chrome चालत असताना सक्रिय असतील.</translation>
 <translation id="911206726377975832">आपला ब्राउझिंग डेटा देखील हटवायचा?</translation>
 <translation id="2044287590254833138">Google Chrome टूलबार</translation>
 <translation id="5074344184765391290">Chrome Plug-In Host</translation>
@@ -68,6 +73,7 @@
 <translation id="6087062680442281307">Google Chrome एक वेब ब्राउझर आहे जो वेब पृष्ठे आणि अनुप्रयोग विजेच्या गतीने चालवितो. तो जलद, स्थिर आणि वापरण्यास सोपा आहे. Google Chrome मध्ये तयार केलेल्या मालवेयर आणि फिशिंग संरक्षणासह वेब अधिक सुरक्षितपणे ब्राउझ करा.</translation>
 <translation id="2115751172320447278">Copyright © 2006-2010 Google Inc. सर्व हक्क राखीव.</translation>
 <translation id="5941830788786076944">Google Chromeला डीफॉल्ट ब्राउझर बनवा</translation>
+<translation id="7892675281311705134">Google Chrome वेब अनुप्रयोग</translation>
 <translation id="5947389362804196214">आपली प्राधान्ये वाचणे शक्य नाही.\n\nकाही वैशिष्ट्ये अनुपलब्ध आहेत आणि प्राधान्यांमध्ये केलेले बदल जतन होणार नाहीत.</translation>
 <translation id="4127951844153999091">या प्रकरणात, प्रमाणपत्रामध्ये सूचीबद्ध पत्ता आपला ब्राउझर ज्या वेबसाइटवर जाण्याचा प्रयत्न करीत आहे त्या पत्त्याशी जुळत नाही. याचे एक संभाव्य कारण असे आहे की एका वेगळ्या वेबसाइटसाठी प्रमाणपत्र सादर करणार्‍या आक्रमणकर्त्याद्वारे आपल्या संभाषणात व्यत्यय आणला जात आहे ज्यामुळे तो जुळत नाही. दुसरे संभाव्य कारण असे आहे की आपण ज्या वेबसाइटला भेट देण्याचा प्रयत्न करीत आहात तीसह एकाधिक वेबसाईटकरिता समान प्रमाणपत्र परत देण्यासाठी सर्व्हर सेट केला गेला असूनही ते प्रमाणपत्र त्या सर्व वेबसाइट्ससाठी वैध नाही. Google Chrome निश्चितपणे सांगू शकतो की आपण &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; पोहोचला आहात, परंतु हे सत्यापित करू शकत नाही की जेथे आपण पोहोचू इच्छित आहात ती &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; हीच साइट आहे. आपण पुढे गेल्यास, Chrome पुढील कोणतेही न जुळत असलेले नाव तपासणार नाही. सामान्यत:, या बिंदू पुढे न जाणे चांगले.</translation>
 <translation id="2712549016134575851">अन्य स्थापित अनुप्रयोगाशी विरोध आढळला आहे.</translation>

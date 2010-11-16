@@ -3,6 +3,7 @@
 <translationbundle lang="th">
 <translation id="8000275528373650868">Google Chrome ต้องใช้ Windows Vista หรือ Windows XP พร้อม SP2 หรือที่สูงกว่า</translation>
 <translation id="6676384891291319759">เข้าถึงอินเทอร์เน็ต</translation>
+<translation id="8582091809492103607">เปิด Google Chrome เมื่อเข้าสู่ระบบ และเปิดทำงานเว็บแอปพลิเคชันในเบื้องหลัง</translation>
 <translation id="2383457833405848421">เกี่ยวกับ Chrome Frame...</translation>
 <translation id="386202838227397562">โปรดปิดหน้าต่าง Google Chrome ทั้งหมดและลองใหม่อีกครั้ง</translation>
 <translation id="2770231113462710648">เปลี่ยนเบราว์เซอร์ที่เป็นค่าเริ่มต้นเป็น:</translation>
@@ -14,12 +15,13 @@
 <translation id="2370289711218562573">Google Chrome กำลังนำเข้ารายการโปรด/บุ๊คมาร์ค</translation>
 <translation id="8970027151245482499">ไม่มีการติดตั้ง Google Chrome หรือไม่สามารถหาไดเรกทอรีการติดตั้งได้ โปรดดาวน์โหลด Google Chrome อีกครั้ง</translation>
 <translation id="2040709530900803995">โปรแกรมแสดงภาพของ Google Chrome</translation>
-<translation id="3044696659294460858">มี Google Chrome รุ่นใหม่พร้อมส่วนขยายให้ดาวน์โหลดแล้ว</translation>
 <translation id="4281844954008187215">ข้อกำหนดในการให้บริการ</translation>
 <translation id="3555616473548901994">การถอนการติดตั้งเสร็จสมบูรณ์</translation>
+<translation id="8556340503434111824">มี Chrome รุ่นใหม่ให้ใช้งานแล้วและเร็วกว่าเดิม</translation>
 <translation id="1826297811907343327">หากคุณยกเลิกตอนนี้ รายการบางอย่างจะไม่ได้รับการนำเข้า คุณสามารถนำเข้าใหม่ในภายหลังได้จากเมนู Google Chrome</translation>
 <translation id="4728575227883772061">การติดตั้งล้มเหลวเนื่องจากมีข้อผิดพลาดที่ไม่ได้ระบุ หาก Google Chrome ทำงานอยู่ในขณะนี้ โปรดปิดและลองอีกครั้ง</translation>
 <translation id="4149882025268051530">โปรแกรมติดตั้งยกเลิกการบีบอัดการเก็บข้อมูลไม่ได้ โปรดดาวน์โหลด Google Chrome อีกครั้ง</translation>
+<translation id="6989339256997917931">อัปเดต Google Chrome แล้ว แต่คุณไม่ได้ใช้งานมาไม่ต่ำกว่า 30 วันแล้ว</translation>
 <translation id="5744005218040929396">ยูทิลิตีของ Google Chrome</translation>
 <translation id="4343226815564935778">ไดเรกทอรีการติดตั้ง Google Chrome ดูเหมือนกำลังใช้งานอยู่ โปรดรีบูตคอมพิวเตอร์และลองอีกครั้ง</translation>
 <translation id="6817660909204164466">ช่วยปรับปรุง Google Chrome ให้ดีขึ้นโดยการส่งสถิติการใช้งานและรายงานปัญหาไปยัง Google โดยอัตโนมัติ</translation>
@@ -34,9 +36,11 @@
 <translation id="8446794773162156990">Google Chrome กำลังทำงานผิดปกติ</translation>
 <translation id="3889417619312448367">ยกเลิกการติดตั้ง Google Chrome</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE"/> - Google Chrome</translation>
+<translation id="3089968997497233615">Google Chrome มีรุ่นใหม่ที่ปลอดภัยกว่าให้ใช้งานแล้ว</translation>
 <translation id="8810218179782551669">ภาษาของ Google Chrome:</translation>
 <translation id="7001386529596391893">สร้างทางลัด Google Chrome ในที่ต่อไปนี้:</translation>
 <translation id="7461436095086637522">ตัวนำเข้าโปรไฟล์ของ Chrome</translation>
+<translation id="655722166118366450">คุณต้องการใช้ <ph name="HOST"/> เป็นเครื่องมือค้นหาเริ่มต้นใน Google Chrome หรือไม่</translation>
 <translation id="4357846314885556934">Google Chrome กำลังทำงานผิดปกติ</translation>
 <translation id="4561681684759837226"><ph name="PAGE_TITLE"/></translation>
 <translation id="1195935957447623558">Google Chrome ไม่ได้ปิดอย่างถูกต้อง หากต้องการเปิดหน้าที่คุณเปิดไว้แล้วอีกครั้ง ให้คลิกที่ คืนสภาพ</translation>
@@ -53,6 +57,7 @@
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="5840402478666768335">ตัวเลือก: ช่วยปรับปรุง Google Chrome ให้ดีขึ้นโดยการส่งสถิติการใช้งานและรายงาน\nปัญหาไปยัง Google โดยอัตโนมัติ</translation>
 <translation id="5008136264574452501">Google Chrome Canary Build</translation>
+<translation id="2240501189676193549">แอปพลิเคชันบนเว็บสามารถทำงานได้ในขณะที่เปิดใช้งาน Google Chrome เท่านั้น</translation>
 <translation id="911206726377975832">ลบข้อมูลการท่องเว็บด้วยหรือไม่</translation>
 <translation id="2044287590254833138">ดาวน์โหลดแถบเครื่องมือ Google Chrome</translation>
 <translation id="5074344184765391290">โฮสต์ปลั๊กอินของ Chrome</translation>
@@ -68,6 +73,7 @@
 <translation id="6087062680442281307">Google Chrome คือเว็บเบราว์เซอร์ที่แสดงหน้าเว็บและแอปพลิเคชันต่างๆ ได้รวดเร็วในพริบตา โดยทำงานได้เร็ว มีเสถียรภาพ และใช้งานง่าย ช่วยให้คุณเรียกดูเว็บได้อย่างปลอดภัยมากขึ้นด้วยการป้องกันมัลแวร์และฟิชชิงซึ่งมีอยู่ใน Google Chrome</translation>
 <translation id="2115751172320447278">ลิขสิทธิ์ © 2006-2010 Google Inc. สงวนลิขสิทธิ์</translation>
 <translation id="5941830788786076944">ทำให้ Google Chrome เป็นเบราว์เซอร์เริ่มต้น</translation>
+<translation id="7892675281311705134">Google Chrome Web Apps</translation>
 <translation id="5947389362804196214">ค่ากำหนดของคุณไม่สามารถอ่านได้\n\nคุณลักษณะบางอย่างอาจใช้ไม่ได้และการเปลี่ยนแปลงค่ากำหนดจะไม่ได้รับการบันทึก</translation>
 <translation id="4127951844153999091">ในกรณีนี้ รายการที่อยู่ในใบรับรองไม่ตรงกับที่อยู่ของเว็บไซต์ที่เบราว์เซอร์ของคุณพยายามเข้าไป เหตุผลที่เป็นไปได้ประการหนึ่งคือ ผู้โจมตีที่แสดงแสดงใบรับรองของเว็บไซต์อื่นขัดขวางการสื่อสารของคุณ ซึ่งทำให้เกิดความไม่ตรงกันของใบรับรอง อีกเหตุผลหนึ่งที่เป็นไปได้คือ เซิร์ฟเวอร์ถูกตั้งค่าให้หลายเว็บไซต์ส่งคืนใบรับรองเดียวกัน ซึ่งรวมไปถึงเว็บไซต์ที่คุณพยายามจะเข้าชมด้วย ถึงแม้ว่าใบรับรองนั้นจะไม่ถูกต้องสำหรับเว็บไซต์ทั้งหมดก็ตาม Google Chrome สามารถยืนยันได้ว่าคุณกำลังติดต่อกับ &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; แต่ไม่สามารถตรวจสอบได้ว่าเว็บไซต์นั้นเป็นเว็บไซต์เดียวกันกับ &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; ที่คุณต้องการติดต่อจริงหรือไม่ หากคุณดำเนินการต่อ Chrome จะไม่ตรวจสอบชื่อที่ไม่ตรงกันอีกต่อไป โดยทั่วไป คุณไม่ควรดำเนินการผ่านจุดนี้ไป</translation>
 <translation id="2712549016134575851">ตรวจพบข้อขัดแย้งกับแอปพลิเคชันอื่นที่ได้ติดตั้งไว้</translation>

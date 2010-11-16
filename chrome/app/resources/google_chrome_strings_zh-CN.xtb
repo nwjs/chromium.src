@@ -3,6 +3,7 @@
 <translationbundle lang="zh-CN">
 <translation id="8000275528373650868">谷歌浏览器要求操作系统必须为 Windows Vista 或者 Windows XP SP2 或更高版本。</translation>
 <translation id="6676384891291319759">访问互联网</translation>
+<translation id="8582091809492103607">在登录时打开谷歌浏览器，并启动后台网络应用程序</translation>
 <translation id="2383457833405848421">关于谷歌浏览器内嵌框架...</translation>
 <translation id="386202838227397562">请关闭所有谷歌浏览器窗口，然后重试。</translation>
 <translation id="2770231113462710648">将默认浏览器更改为：</translation>
@@ -14,12 +15,13 @@
 <translation id="2370289711218562573">谷歌浏览器正在导入收藏夹/书签。</translation>
 <translation id="8970027151245482499">未安装谷歌浏览器或无法找到安装目录。请重新下载谷歌浏览器。</translation>
 <translation id="2040709530900803995">谷歌浏览器呈现器</translation>
-<translation id="3044696659294460858">谷歌浏览器现已推出包含扩展程序的新版本。</translation>
 <translation id="4281844954008187215">服务条款</translation>
 <translation id="3555616473548901994">卸载已完成。</translation>
+<translation id="8556340503434111824">谷歌浏览器现已推出速度更快的新版本。</translation>
 <translation id="1826297811907343327">如果立即取消，则无法导入所有内容。您可以稍后再次从谷歌浏览器菜单中导入。</translation>
 <translation id="4728575227883772061">未知错误导致安装失败。如果谷歌浏览器正在运行，请将其关闭，然后重试。</translation>
 <translation id="4149882025268051530">安装程序无法解压缩存档文件。请重新下载谷歌浏览器。</translation>
+<translation id="6989339256997917931">谷歌浏览器已更新，但您已经至少 30 天未使用它了。</translation>
 <translation id="5744005218040929396">谷歌浏览器实用工具</translation>
 <translation id="4343226815564935778">谷歌浏览器的安装目录正在使用中。请重新启动计算机并重试。</translation>
 <translation id="6817660909204164466">将使用情况统计信息和崩溃报告自动发送给谷歌，帮助我们完善谷歌浏览器</translation>
@@ -34,9 +36,11 @@
 <translation id="8446794773162156990">谷歌浏览器功能失常</translation>
 <translation id="3889417619312448367">卸载谷歌浏览器</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE"/> - 谷歌浏览器</translation>
+<translation id="3089968997497233615">谷歌浏览器现已推出更安全的新版本。</translation>
 <translation id="8810218179782551669">谷歌浏览器语言：</translation>
 <translation id="7001386529596391893">在这些位置创建谷歌浏览器快捷方式：</translation>
 <translation id="7461436095086637522">浏览器个人资料导入应用程序</translation>
+<translation id="655722166118366450">您要将 <ph name="HOST"/> 设为谷歌浏览器的搜索引擎吗？</translation>
 <translation id="4357846314885556934">谷歌浏览器功能失常</translation>
 <translation id="4561681684759837226"><ph name="PAGE_TITLE"/></translation>
 <translation id="1195935957447623558">谷歌浏览器未正确关闭。要重新打开曾经打开过的网页，请点击“恢复”。</translation>
@@ -50,9 +54,10 @@
 <translation id="8899050679030089927">请关闭所有谷歌浏览器窗口，然后重新启动谷歌浏览器，以便使这项更改生效。</translation>
 <translation id="3324235665723428530">您的配置文件来自新版谷歌浏览器，因此无法使用。\n\n某些功能可能不能使用。请指定其他配置文件目录，或使用新版谷歌浏览器。</translation>
 <translation id="7214670531148488183">谷歌浏览器可能会使用网络服务以改善您的浏览体验。您可自行停用这些服务。</translation>
-<translation id="1759842336958782510">谷歌浏览器</translation>
+<translation id="1759842336958782510">Chrome 浏览器</translation>
 <translation id="5840402478666768335">可选：将使用统计信息和崩溃报告自动发送给 Google，\n帮助我们完善谷歌浏览器。</translation>
 <translation id="5008136264574452501">谷歌浏览器 Canary 版</translation>
+<translation id="2240501189676193549">只有在谷歌浏览器运行时，网络应用程序才有效</translation>
 <translation id="911206726377975832">同时删除您的浏览数据吗？</translation>
 <translation id="2044287590254833138">谷歌浏览器工具栏</translation>
 <translation id="5074344184765391290">浏览器插件主程序</translation>
@@ -68,6 +73,7 @@
 <translation id="6087062680442281307">谷歌浏览器是一款可高速运行网页和应用程序的网络浏览器。它快捷、稳定且易于使用。谷歌浏览器内置的恶意软件和网上诱骗防护功能可让您更加安全地浏览网页。</translation>
 <translation id="2115751172320447278">版权 © 2006-2010 Google Inc. 保留所有权利。</translation>
 <translation id="5941830788786076944">将谷歌浏览器设为默认浏览器</translation>
+<translation id="7892675281311705134">谷歌浏览器网络应用程序</translation>
 <translation id="5947389362804196214">系统无法读取您的偏好设置。\n\n某些功能可能无法使用，并且对偏好设置进行的更改不会保存。</translation>
 <translation id="4127951844153999091">在这种情况下，列在证书中的地址与浏览器尝试显示的网站的地址不相符。引发这种情况的一个可能原因是，您的通信内容正被攻击者拦截，攻击者出示的是其他网站的证书，这就会引发网站地址不符的情况。另一可能引发这种情况的原因是，服务器已设置为对多个网站（包括您试图访问的网站）返回同一证书，即使此证书并不是对所有这些网站都有效。谷歌浏览器确定访问的是 &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;，但无法证实该网站就是所要访问的网站 &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;。如果继续操作，则谷歌浏览器不会检查是否还有名称不相符的情况。一般而言，最好不要继续操作。</translation>
 <translation id="2712549016134575851">检测到与另一个已安装的应用程序存在冲突。</translation>

@@ -3,6 +3,7 @@
 <translationbundle lang="uk">
 <translation id="8000275528373650868">Для роботи Google Chrome потрібно мати ОС Windows Vista чи Windows XP із SP2 або новішу версію.</translation>
 <translation id="6676384891291319759">Доступ до Інтернету</translation>
+<translation id="8582091809492103607">Відкривати Google Chrome на сторінці входу й запускати фонові веб-програми</translation>
 <translation id="2383457833405848421">Про Chrome Frame...</translation>
 <translation id="386202838227397562">Закрийте всі вікна Google Chrome і повторіть спробу.</translation>
 <translation id="2770231113462710648">Змінити веб-переглядач за умовчанням на:</translation>
@@ -14,12 +15,13 @@
 <translation id="2370289711218562573">Google Chrome імпортує &quot;Улюблені/Закладки&quot;.</translation>
 <translation id="8970027151245482499">Google Chrome не встановлено, або не вдалося знайти каталог установки. Завантажте Google Chrome ще раз.</translation>
 <translation id="2040709530900803995">Рендерер Google Chrome</translation>
-<translation id="3044696659294460858">Доступна нова версія Google Chrome із розширеннями.</translation>
 <translation id="4281844954008187215">Загальні положення та умови Google</translation>
 <translation id="3555616473548901994">Видалення завершено.</translation>
+<translation id="8556340503434111824">Доступна нова версія Google Chrome – швидша, ніж будь-коли.</translation>
 <translation id="1826297811907343327">Якщо скасувати зараз, не всі елементи буде імпортовано. Пізніше можна знову здійснити імпорт з меню Google Chrome.</translation>
 <translation id="4728575227883772061">Не вдалося здійснити встановлення через невизначену помилку. Якщо наразі Google Chrome запущено, закрийте його та повторіть спробу.</translation>
 <translation id="4149882025268051530">Не вдалося відкрити архів за допомогою програми встановлення. Завантажте Google Chrome ще раз.</translation>
+<translation id="6989339256997917931">Google Chrome оновлено, проте ви не користувалися цим веб-переглядачем щонайменше 30 днів.</translation>
 <translation id="5744005218040929396">Утиліта Google Chrome</translation>
 <translation id="4343226815564935778">Каталог встановлення Google Chrome наразі використовується. Перезавантажте свій комп'ютер і спробуйте ще раз.</translation>
 <translation id="6817660909204164466">Допоможіть покращити Google Chrome, автоматично надсилаючи статистику використання та звіти про аварійне завершення роботи до Google</translation>
@@ -34,12 +36,14 @@
 <translation id="8446794773162156990">Google Chrome працює неналежним чином</translation>
 <translation id="3889417619312448367">Видалити Google Chrome</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE"/> - Google Chrome</translation>
+<translation id="3089968997497233615">Доступна нова, безпечніша версія Google Chrome.</translation>
 <translation id="8810218179782551669">Мова Google Chrome:</translation>
 <translation id="7001386529596391893">Створити ярлики Google Chrome у таких розташуваннях:</translation>
 <translation id="7461436095086637522">Імпортер профілів Chrome</translation>
+<translation id="655722166118366450">Зробити <ph name="HOST"/> вашою пошуковою системою в Google Chrome?</translation>
 <translation id="4357846314885556934">Google Chrome не працює належним чином</translation>
 <translation id="4561681684759837226"><ph name="PAGE_TITLE"/></translation>
-<translation id="1195935957447623558">Роботу Google Chrome було завершено не правильно. Щоб знову відкрити сторінки, які ви відкривали, натисніть &quot;Відновити&quot;.</translation>
+<translation id="1195935957447623558">Роботу Google Chrome було завершено неправильно. Щоб знову відкрити сторінки, які ви відкривали, натисніть &quot;Відновити&quot;.</translation>
 <translation id="2499193704281978000">Google Chrome не відповідає. Перезапустити?</translation>
 <translation id="2580411288591421699">Поки Google Chrome працює, неможливо встановити версію, аналогічну поточній. Закрийте Google Chrome і повторіть спробу.</translation>
 <translation id="7747138024166251722">Програмі встановлення не вдалося створити тимчасовий каталог. Перевірте наявність вільного простору на диску та дозволу на встановлення програмного забезпечення.</translation>
@@ -53,6 +57,7 @@
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="5840402478666768335">Необов'язково. Допоможіть покращити Google Chrome, автоматично надсилаючи статистику використання та звіти\nпро аварійне завершення роботи в Google</translation>
 <translation id="5008136264574452501">Конструкція Google Chrome Canary</translation>
+<translation id="2240501189676193549">Веб-програми активні лише під час роботи Google Chrome.</translation>
 <translation id="911206726377975832">Також видалити дані веб-перегляду?</translation>
 <translation id="2044287590254833138">Панель інструментів Google Chrome</translation>
 <translation id="5074344184765391290">Хост модуля Chrome</translation>
@@ -68,6 +73,7 @@
 <translation id="6087062680442281307">Google Chrome – це веб-переглядач, який із блискавичною швидкістю запускає веб-сторінки та програми. Він швидкий, надійний і зручний у користуванні. Вбудований у Google Chrome захист від шкідливих програм і фішингу гарантує ще більшу безпеку під час перегляду веб-сторінок.</translation>
 <translation id="2115751172320447278">Авторське право © 2006-2010 Google Inc. Усі права захищено.</translation>
 <translation id="5941830788786076944">Зробити Google Chrome переглядачем за промовчанням</translation>
+<translation id="7892675281311705134">Веб-програми Google Chrome</translation>
 <translation id="5947389362804196214">Не вдається розпізнати налаштування.\n\nДеякі функції можуть бути недоступними, а зміни в налаштуваннях не зберігатимуться.</translation>
 <translation id="4127951844153999091">У такому випадку адреса, вказана в сертифікаті, не відповідає адресі веб-сайта, на яку спробував перейти переглядач. Однією з можливих причин цього є те, що ваші спроби встановити з’єднання перехоплюються зловмисником, який надає сертифікат для іншого веб-сайта, що може спричиняти невідповідність. Іншою можливою причиною є налаштування сервера на повернення того ж сертифіката для кількох веб-сайтів, включно з тим, який ви намагаєтесь відвідати, попри те, що такий сертифікат не є чинним для всіх цих веб-сайтів. Chrome може напевно сказати, що встановлено з’єднання з &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, але не може перевірити, чи це той самий сайт &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, з яким ви мали намір встановити з’єднання. Якщо продовжити, Chrome не перевірятиме будь-які подальші невідповідності імен. Як правило, продовжувати далі не рекомендується.</translation>
 <translation id="2712549016134575851">Виявлено несумісність з іншим встановленим застосунком.</translation>

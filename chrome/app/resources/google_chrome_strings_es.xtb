@@ -3,6 +3,7 @@
 <translationbundle lang="es">
 <translation id="8000275528373650868">Google Chrome está disponible para Windows Vista o Windows XP con SP2 o superior.</translation>
 <translation id="6676384891291319759">Accede a Internet.</translation>
+<translation id="8582091809492103607">Abrir Google Chrome al iniciar sesión y al ejecutar aplicaciones web en segundo plano</translation>
 <translation id="2383457833405848421">Acerca de Google Chrome Frame...</translation>
 <translation id="386202838227397562">Cierra todas las ventanas de Google Chrome y vuelve a intentarlo.</translation>
 <translation id="2770231113462710648">Cambiar navegador predeterminado por:</translation>
@@ -14,12 +15,13 @@
 <translation id="2370289711218562573">Google Chrome está importando Favoritos/Marcadores.</translation>
 <translation id="8970027151245482499">Google Chrome no está instalado o no ha podido encontrar el directorio de instalación. Vuelve a descargar Google Chrome.</translation>
 <translation id="2040709530900803995">Motor de renderización de Google Chrome</translation>
-<translation id="3044696659294460858">Hay una nueva versión de Google Chrome disponible que incluye extensiones.</translation>
 <translation id="4281844954008187215">Condiciones del servicio</translation>
 <translation id="3555616473548901994">Desinstalación completada</translation>
+<translation id="8556340503434111824">Hay una nueva versión de Google Chrome disponible que funciona a una velocidad sin precedentes.</translation>
 <translation id="1826297811907343327">Si cancelas la operación ahora, no se importarán todos los elementos. Puedes volver a importarlos más tarde desde el menú de Google Chrome.</translation>
 <translation id="4728575227883772061">Debido a un error desconocido, la instalación no se ha llevado a cabo. Si Google Chrome se está ejecutando, ciérralo y vuelve a intentarlo.</translation>
 <translation id="4149882025268051530">El programa de instalación no ha podido descomprimir el archivo. Vuelve a descargar Google Chrome.</translation>
+<translation id="6989339256997917931">Google Chrome se ha actualizado, pero llevas al menos 30 días sin utilizarlo.</translation>
 <translation id="5744005218040929396">Utilidades de Google Chrome</translation>
 <translation id="4343226815564935778">Parece que el directorio de instalación de Google Chrome se encuentra en uso. Reinicia el equipo y vuelve a intentarlo.</translation>
 <translation id="6817660909204164466">Colabora en la mejora de Google Chrome enviando automáticamente a Google estadísticas de uso e informes sobre fallos.</translation>
@@ -34,9 +36,11 @@
 <translation id="8446794773162156990">Google Chrome está teniendo un comportamiento anómalo</translation>
 <translation id="3889417619312448367">Desinstalar Google Chrome</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE"/> - Google Chrome</translation>
+<translation id="3089968997497233615">Hay una nueva versión más segura de Google Chrome disponible.</translation>
 <translation id="8810218179782551669">Idioma de Google Chrome:</translation>
 <translation id="7001386529596391893">Crear accesos directos de Google Chrome en estas ubicaciones:</translation>
 <translation id="7461436095086637522">Importador de perfiles de Chrome</translation>
+<translation id="655722166118366450">¿Quieres convertir <ph name="HOST"/> en tu motor de búsqueda en Google Chrome?</translation>
 <translation id="4357846314885556934">Google Chrome no está funcionando correctamente.</translation>
 <translation id="4561681684759837226"><ph name="PAGE_TITLE"/></translation>
 <translation id="1195935957447623558">Google Chrome no se ha cerrado correctamente. Para volver a abrir las páginas que habías abierto, haz clic en &quot;Restaurar&quot;.</translation>
@@ -50,9 +54,10 @@
 <translation id="8899050679030089927">Cierra todas las ventanas de Google Chrome y reinicia el navegador para que se aplique el cambio.</translation>
 <translation id="3324235665723428530">Tu perfil no se puede utilizar porque pertenece a una versión anterior de Google Chrome.\n\nPuede que algunas funciones no estén disponibles. Especifique un directorio de perfil diferente o utilice una versión posterior de Google Chrome.</translation>
 <translation id="7214670531148488183">Google Chrome puede utilizar servicios web para mejorar la experiencia de navegación de los usuarios. Estos servicios se pueden inhabilitar si se desea.</translation>
-<translation id="1759842336958782510">Google Chrome</translation>
+<translation id="1759842336958782510">Chrome</translation>
 <translation id="5840402478666768335">Opcional: colabora en la mejora de Google Chrome a través del envío automático de estadísticas de uso y de informes\nsobre fallos a Google.</translation>
 <translation id="5008136264574452501">Google Chrome Canary Build</translation>
+<translation id="2240501189676193549">Las aplicaciones web solo están activas mientras se ejecuta Google Chrome.</translation>
 <translation id="911206726377975832">¿Quieres eliminar también los datos de navegación?</translation>
 <translation id="2044287590254833138">Barra de Google Chrome</translation>
 <translation id="5074344184765391290">Host del complemento de Chrome</translation>
@@ -68,6 +73,7 @@
 <translation id="6087062680442281307">Google Chrome es un navegador web que ejecuta aplicaciones y páginas web a gran velocidad. Es rápido, estable y fácil de utilizar. Navega por la Web de forma más segura gracias a la protección integrada contra suplantación de identidad y software malintencionado.</translation>
 <translation id="2115751172320447278">Copyright © 2006-2010 Google Inc. Todos los derechos reservados.</translation>
 <translation id="5941830788786076944">Establecer Google Chrome como navegador predeterminado</translation>
+<translation id="7892675281311705134">Aplicaciones web de Google Chrome</translation>
 <translation id="5947389362804196214">No se pueden leer tus preferencias.\n\nEs posible que algunas funciones no estén disponibles y que no se guarden los cambios que realices en las preferencias.</translation>
 <translation id="4127951844153999091">En este caso, la dirección que se indica en el certificado no concuerda con la dirección del sitio web al que intentó acceder el navegador. Un posible motivo es que tus comunicaciones están siendo interceptadas por un atacante que presenta un certificado para un sitio web distinto, lo que podría causar un error de concordancia. Otra posible razón es que el servidor está configurado para devolver el mismo certificado a diversos sitios web, incluido el que intentas visitar, aunque dicho certificado no sea válido para todos estos sitios web. Google Chrome puede asegurarte que has accedido a &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, pero no puede verificar que el sitio es el mismo que &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong, al que pretendías acceder. Si continúas, Chrome no comprobará otros errores de nombre. En general, es mejor no continuar llegados a este punto.</translation>
 <translation id="2712549016134575851">Se ha detectado un conflicto con otra aplicación instalada.</translation>

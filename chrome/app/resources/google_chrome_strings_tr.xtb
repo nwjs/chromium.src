@@ -3,6 +3,7 @@
 <translationbundle lang="tr">
 <translation id="8000275528373650868">Google Chrome, Windows Vista veya Windows XP SP2 veya daha ileri bir sürümü gerektirir.</translation>
 <translation id="6676384891291319759">İnternet'e erişin</translation>
+<translation id="8582091809492103607">Giriş yapıldığında Google Chrome’u aç ve arka plan web uygulamalarını başlat.</translation>
 <translation id="2383457833405848421">Chrome Frame Hakkında...</translation>
 <translation id="386202838227397562">Lütfen tüm Google Chrome pencerelerini kapatıp tekrar deneyin.</translation>
 <translation id="2770231113462710648">Varsayılan tarayıcıyı şuna dönüştür:</translation>
@@ -14,12 +15,13 @@
 <translation id="2370289711218562573">Google Chrome şu anda Sık Kullanılanları/Yer İmlerini içe aktarıyor.</translation>
 <translation id="8970027151245482499">Google Chrome yüklenmedi veya yükleme dizinini bulamadı. Lütfen Google Chrome'u yeniden indirin.</translation>
 <translation id="2040709530900803995">Google Chrome Renderer</translation>
-<translation id="3044696659294460858">Google Crome&amp;#39;un uzantıları içeren yeni bir sürümü kullanıma sunuldu.</translation>
 <translation id="4281844954008187215">Hizmet Şartları</translation>
 <translation id="3555616473548901994">Kaldırma işlemi tamamlandı.</translation>
+<translation id="8556340503434111824">Kullanabileceğiniz yeni bir Google Chrome sürümü var ve bu sürüm, her zamankinden daha hızlı.</translation>
 <translation id="1826297811907343327">Şimdi iptal ederseniz tüm öğeler içe aktarılmaz. Daha sonra Google Chrome menüsünden tekrar içe aktarabilirsiniz.</translation>
 <translation id="4728575227883772061">Belirlenemeyen bir hata nedeniyle yükleme başarısız oldu. Google Chrome şu anda çalışır durumdaysa, kapatıp yeniden deneyin.</translation>
 <translation id="4149882025268051530">Yükleyici arşivi açamadı. Lütfen Google Chrome'u yeniden indirin.</translation>
+<translation id="6989339256997917931">Google Chrome güncellendi, ancak programı en azından 30 gündür kullanmıyorsunuz.</translation>
 <translation id="5744005218040929396">Google Chrome Utility</translation>
 <translation id="4343226815564935778">Google Chrome kurulum dizininin kullanımda olduğu görülüyor. Lütfen bilgisayarınızı yeniden başlatın ve tekrar deneyin.</translation>
 <translation id="6817660909204164466">Google'a otomatik olarak kullanım istatistikleri ve sistem çökmesi raporları göndererek Google Chrome'un iyileştirilmesine katkıda bulunun.</translation>
@@ -34,9 +36,11 @@
 <translation id="8446794773162156990">Google Chrome hatalı çalışıyor</translation>
 <translation id="3889417619312448367">Google Chrome'u Kaldır</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE"/> - Google Chrome</translation>
+<translation id="3089968997497233615">Google Chrome'un kullanabileceğiniz yeni, daha güvenli bir sürümü var.</translation>
 <translation id="8810218179782551669">Google Chrome dili:</translation>
 <translation id="7001386529596391893">Şu konumlarda Google Chrome kısayolları oluşturun:</translation>
 <translation id="7461436095086637522">Chrome Profile Importer</translation>
+<translation id="655722166118366450"><ph name="HOST"/>, Google Chrome'daki arama motorunuz olsun mu?</translation>
 <translation id="4357846314885556934">Google Chrome Hatalı Çalışıyor</translation>
 <translation id="4561681684759837226"><ph name="PAGE_TITLE"/></translation>
 <translation id="1195935957447623558">Google Chrome, gerektiği gibi kapanmadı. Daha önce açık olan sayfaların tekrar açılması için Geri Yükle'yi tıklayın.</translation>
@@ -53,6 +57,7 @@
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="5840402478666768335">İsteğe Bağlı: Kullanıcı istatistiklerini ve çökme raporlarını Google'a otomatik olarak göndererek\nGoogle Chrome'u iyileştirmemize yardımcı olun</translation>
 <translation id="5008136264574452501">Google Chrome Canary Yapısı</translation>
+<translation id="2240501189676193549">Web uygulamaları yalnızca Google Chrome çalışırken etkindir.</translation>
 <translation id="911206726377975832">Tarama verileriniz de silinsin mi?</translation>
 <translation id="2044287590254833138">Google Chrome Araç Çubuğu</translation>
 <translation id="5074344184765391290">Chrome Eklentisi Ana Makinesi</translation>
@@ -68,6 +73,7 @@
 <translation id="6087062680442281307">Google Chrome, web sayfalarını ve uygulamaları yıldırım hızıyla çalıştıran bir web tarayıcısıdır. Hızlı, dengeli ve kullanımı kolaydır. Kötü amaçlı yazılımlara ve e-dolandırıcılığa karşı Google Chrome'un içinde yerleşik olarak bulunan koruma özellikleriyle web'de daha güvenli bir şekilde gezinin.</translation>
 <translation id="2115751172320447278">Telif Hakkı © 2006-2010 Google Inc. Tüm Hakları Saklıdır.</translation>
 <translation id="5941830788786076944">Google Chrome varsayılan tarayıcı olsun</translation>
+<translation id="7892675281311705134">Google Chrome Web Uygulamaları</translation>
 <translation id="5947389362804196214">Tercihleriniz okunamıyor.\n\nBazı özellikler kullanılamayabilir. Tercihlerde yapılan değişiklikler kaydedilmeyecektir.</translation>
 <translation id="4127951844153999091">Bu durumda, sertifikada listelenen adres, tarayıcınızın gitmeye çalıştığı web sitesinin adresiyle eşleşmez. Bunun olası nedenlerinden biri, iletişimlerinizin, farklı bir web sitesine ait sertifikayı sunan bir saldırgan tarafından kesilmesi olabilir, bu da hatalı eşleşmeye yol açabilir. Diğer olası bir nedense, sunucunun, ziyaret etmeye çalıştığınız web sitesi dahil olmak üzere birden çok web sitesi için, bu sertifika söz konusu web sitelerinin tümü için geçerli olmadığı halde, aynı sertifikayı döndürecek şekilde ayarlanmış olmasıdır. Google Chrome, kesin olarak &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; etki alanına ulaştığınızı belirtebilir, ancak bunun ulaşmak istediğiniz &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; etki alanıyla aynı site olduğunu doğrulayamaz. Devam ederseniz Chrome daha fazla hatalı ad eşleşmesi aramaz. Genellikle bu noktadan sonra ilerlememek en iyisidir.</translation>
 <translation id="2712549016134575851">Yüklü başka bir uygulamayla çakışma tespit edildi.</translation>
