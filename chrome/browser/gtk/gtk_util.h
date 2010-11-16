@@ -19,6 +19,7 @@
 typedef struct _cairo cairo_t;
 typedef struct _GtkWidget GtkWidget;
 
+class BrowserWindow;
 class GtkThemeProvider;
 class GURL;
 class Profile;
@@ -342,6 +343,11 @@ void InitLabelSizeRequestAndEllipsizeMode(GtkWidget* label);
 // view).
 void DrawTopDropShadowForRenderView(cairo_t* cr, const gfx::Point& origin,
                                     const gfx::Rect& paint_rect);
+
+// Performs Cut/Copy/Paste operation on the |window|.
+void DoCut(BrowserWindow* window);
+void DoCopy(BrowserWindow* window);
+void DoPaste(BrowserWindow* window);
 
 }  // namespace gtk_util
 
