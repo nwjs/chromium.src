@@ -83,7 +83,6 @@ class PasswordStore : public base::RefCountedThreadSafe<PasswordStore> {
   friend class browser_sync::PasswordDataTypeController;
   friend class browser_sync::PasswordModelAssociator;
   friend class browser_sync::PasswordModelWorker;
-  friend class LivePasswordsSyncTest;
 
   virtual ~PasswordStore() {}
 
