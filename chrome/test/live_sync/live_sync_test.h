@@ -93,41 +93,37 @@ class LiveSyncTest : public InProcessBrowserTest {
   virtual void SetUpCommandLine(CommandLine* command_line) {}
 
   // Used to get the number of sync clients used by a test.
-  int num_clients() WARN_UNUSED_RESULT { return num_clients_; }
+  int num_clients() { return num_clients_; }
 
   // Returns a pointer to a particular sync profile. Callee owns the object
   // and manages its lifetime.
-  Profile* GetProfile(int index) WARN_UNUSED_RESULT;
+  Profile* GetProfile(int index);
 
   // Returns a pointer to a particular sync client. Callee owns the object
   // and manages its lifetime.
-  ProfileSyncServiceTestHarness* GetClient(int index) WARN_UNUSED_RESULT;
+  ProfileSyncServiceTestHarness* GetClient(int index);
 
   // Returns a reference to the collection of sync clients. Callee owns the
   // object and manages its lifetime.
-  std::vector<ProfileSyncServiceTestHarness*>& clients() WARN_UNUSED_RESULT {
+  std::vector<ProfileSyncServiceTestHarness*>& clients() {
     return clients_.get();
   }
 
   // Returns a pointer to the sync profile that is used to verify changes to
   // individual sync profiles. Callee owns the object and manages its lifetime.
-  Profile* verifier() WARN_UNUSED_RESULT;
+  Profile* verifier();
 
   // Initializes sync clients and profiles but does not sync any of them.
-  virtual bool SetupClients() WARN_UNUSED_RESULT;
+  virtual bool SetupClients();
 
   // Initializes sync clients and profiles if required and syncs each of them.
-  virtual bool SetupSync() WARN_UNUSED_RESULT;
-
-  // Enable outgoing network connections for the given profile.
-  virtual void EnableNetwork(Profile* profile);
+  virtual bool SetupSync();
 
   // Disable outgoing network connections for the given profile.
   virtual void DisableNetwork(Profile* profile);
 
-  // Blocks until all sync clients have completed their mutual sync cycles.
-  // Returns true if a quiescent state was successfully reached.
-  bool AwaitQuiescence();
+  // Enable outgoing network connections for the given profile.
+  virtual void EnableNetwork(Profile* profile);
 
  protected:
   // InProcessBrowserTest override. Destroys all the sync clients and sync

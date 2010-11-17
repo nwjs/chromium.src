@@ -18,14 +18,14 @@ IN_PROC_BROWSER_TEST_F(SingleClientLivePasswordsSyncTest, Sanity) {
   AddLogin(GetVerififerPasswordStore(), form);
   AddLogin(GetPasswordStore(0), form);
 
-  ASSERT_TRUE(GetClient(0)->AwaitSyncCycleCompletion(
+  EXPECT_TRUE(GetClient(0)->AwaitSyncCycleCompletion(
       "Waiting for passwords change."));
 
   std::vector<PasswordForm> expected;
   GetLogins(GetVerififerPasswordStore(), form, expected);
-  ASSERT_EQ(1U, expected.size());
+  EXPECT_EQ(1U, expected.size());
 
   std::vector<PasswordForm> actual;
   GetLogins(GetPasswordStore(0), form, actual);
-  ASSERT_TRUE(ContainsSamePasswordForms(expected, actual));
+  EXPECT_TRUE(ContainsSamePasswordForms(expected, actual));
 }

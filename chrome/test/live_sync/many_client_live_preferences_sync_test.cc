@@ -15,7 +15,7 @@ IN_PROC_BROWSER_TEST_F(ManyClientLivePreferencesSyncTest, Sanity) {
   GetClient(0)->AwaitGroupSyncCycleCompletion(clients());
 
   for (int i = 0; i < num_clients(); ++i) {
-    ASSERT_EQ(GetVerifierPrefs()->GetBoolean(prefs::kHomePageIsNewTabPage),
+    EXPECT_EQ(GetVerifierPrefs()->GetBoolean(prefs::kHomePageIsNewTabPage),
         GetPrefs(i)->GetBoolean(prefs::kHomePageIsNewTabPage));
   }
 }
