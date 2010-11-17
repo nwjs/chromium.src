@@ -15,6 +15,7 @@
 #include "chrome/browser/tabs/tab_strip_model.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/common/chrome_switches.h"
+#include "chrome/common/url_constants.h"
 
 namespace {
 
@@ -46,6 +47,28 @@ Browser* GetOrCreateBrowser(Profile* profile) {
                                                       Browser::TYPE_NORMAL,
                                                       false);
   return browser ? browser : Browser::Create(profile);
+}
+
+// Change some of the navigation parameters based on the particular URL.
+// Currently this applies to chrome://settings and the bookmark manager,
+// which we always want to open in a normal (not incognito) window.
+void AdjustNavigateParamsForURL(browser::NavigateParams* params) {
+  if (!params->target_contents &&
+      params->url.scheme() == chrome::kChromeUIScheme &&
+      (params->url.host() == chrome::kChromeUISettingsHost ||
+       params->url.host() == chrome::kChromeUIBookmarksHost)) {
+    Profile* profile =
+        params->browser ? params->browser->profile() : params->profile;
+
+    if (profile->IsOffTheRecord()) {
+      profile = profile->GetOriginalProfile();
+
+      params->disposition = SINGLETON_TAB;
+      params->profile = profile;
+      params->browser = Browser::GetOrCreateTabbedBrowser(profile);
+      params->show_window = true;
+    }
+  }
 }
 
 // Returns a Browser that can host the navigation or tab addition specified in
@@ -208,6 +231,8 @@ NavigateParams::~NavigateParams() {
 }
 
 void Navigate(NavigateParams* params, NavigatorDelegate* delegate) {
+  AdjustNavigateParamsForURL(params);
+
   DCHECK(delegate);
   params->browser = GetBrowserForDisposition(params);
   if (!params->browser)
