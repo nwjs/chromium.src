@@ -189,10 +189,6 @@ function load() {
 
   if (cr.isChromeOS) {
     OptionsPage.register(AccountsOptions.getInstance());
-    var labsOptions = new OptionsPage('labs',
-                                      localStrings.getString('labsPage'),
-                                      'labsPage');
-    OptionsPage.register(labsOptions);
     OptionsPage.registerSubPage(LanguageOptions.getInstance());
     OptionsPage.registerSubPage(new OptionsPage(
         'languageChewing',
@@ -316,7 +312,6 @@ window.onpopstate = function(e) {
          <include src="options/chromeos_language_hangul_options.html">
          <include src="options/chromeos_language_mozc_options.html">
          <include src="options/chromeos_language_pinyin_options.html">
-         <include src="options/chromeos_labs.html">
          <include src="options/chromeos_accounts_options.html">
          <include src="options/chromeos_proxy.html">
        </if>
