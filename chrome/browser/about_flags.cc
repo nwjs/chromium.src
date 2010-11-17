@@ -148,14 +148,14 @@ const Experiment kExperiments[] = {
     IDS_FLAGS_WEBGL_DESCRIPTION,
     kOsAll,
     switches::kEnableExperimentalWebGL
-  }
+  },
   //{
   //  "print-preview",  // Do not change; see above
   //  IDS_FLAGS_PRINT_PREVIEW_NAME,
   //  IDS_FLAGS_PRINT_PREVIEW_DESCRIPTION,
   //  kOsAll,
   //  switches::kEnablePrintPreview
-  //}
+  //},
   {
     "click-to-play",   // Do not change; see above.
     IDS_FLAGS_CLICK_TO_PLAY_NAME,
