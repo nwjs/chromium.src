@@ -102,7 +102,10 @@ cr.define('options', function() {
     },
 
     setElementVisible_: function(element, visible) {
-      element.style.display = visible ? 'inline' : 'none';
+      if (visible)
+        element.classList.remove('hidden');
+      else
+        element.classList.add('hidden');
     },
 
     setElementClassSyncError_: function(element, visible) {
@@ -181,6 +184,10 @@ cr.define('options', function() {
         $('themes_set_classic').disabled = !enabled;
       }
     },
+
+    hideSyncSection_: function() {
+      this.setElementVisible_($('sync-section'), false);
+    },
   };
 
   // Forward public APIs to private implementations.
@@ -201,6 +208,7 @@ cr.define('options', function() {
     'setCustomizeButtonLabel',
     'setGtkThemeButtonEnabled',
     'setClassicThemeButtonEnabled',
+    'hideSyncSection',
   ].forEach(function(name) {
     PersonalOptions[name] = function(value) {
       PersonalOptions.getInstance()[name + '_'](value);
