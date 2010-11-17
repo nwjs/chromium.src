@@ -616,7 +616,7 @@ void BrowserRenderProcessHost::PropagateBrowserCommandLineToRenderer(
     switches::kBlockNonSandboxedPlugins,
     switches::kDisableOutdatedPlugins,
     switches::kEnableRemoting,
-    switches::kDisableClickToPlay,
+    switches::kEnableClickToPlay,
     switches::kEnableResourceContentSettings,
     switches::kPrelaunchGpuProcess,
     switches::kEnableAcceleratedDecoding,

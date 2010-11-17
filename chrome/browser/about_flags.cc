@@ -156,6 +156,13 @@ const Experiment kExperiments[] = {
   //  kOsAll,
   //  switches::kEnablePrintPreview
   //}
+  {
+    "click-to-play",   // Do not change; see above.
+    IDS_FLAGS_CLICK_TO_PLAY_NAME,
+    IDS_FLAGS_CLICK_TO_PLAY_DESCRIPTION,
+    kOsAll,
+    switches::kEnableClickToPlay
+  },
 };
 
 // Stores and encapsulates the little state that about:flags has.
