@@ -14,10 +14,8 @@
 #include "chrome/test/live_sync/bookmark_model_verifier.h"
 #include "chrome/test/live_sync/live_sync_test.h"
 #include "chrome/test/ui_test_utils.h"
-#include "gfx/codec/png_codec.h"
 #include "googleurl/src/gurl.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/skia/include/core/SkBitmap.h"
 
 class LiveBookmarksSyncTest : public LiveSyncTest {
  public:
@@ -142,20 +140,6 @@ class LiveBookmarksSyncTest : public LiveSyncTest {
         GetBookmarkModel(profile), node, WideToUTF16(new_title));
   }
 
-  // Sets the favicon of the node |node| (of type BookmarkNode::URL) in the
-  // bookmark model of profile |profile| using the data in |icon_bytes_vector|.
-  void SetFavicon(int profile,
-                  const BookmarkNode* node,
-                  const std::vector<unsigned char>& icon_bytes_vector) {
-    ASSERT_EQ(GetBookmarkModel(profile)->GetNodeByID(node->id()), node)
-        << "Node " << node->GetTitle() << " does not belong to "
-        << "Profile " << profile;
-    ASSERT_EQ(BookmarkNode::URL, node->type())
-        << "Node " << node->GetTitle() << " must be a url.";
-    verifier_helper_->SetFavicon(
-        GetBookmarkModel(profile), node, icon_bytes_vector);
-  }
-
   // Changes the url of the node |node| in the bookmark model of profile
   // |profile| to |new_url|. Returns a pointer to the node with the changed url.
   const BookmarkNode* SetURL(int profile,
@@ -276,25 +260,6 @@ class LiveBookmarksSyncTest : public LiveSyncTest {
     if (nodes.empty())
       return NULL;
     return nodes[0];
-  }
-
-  // Creates a unique favicon using |seed|.
-  static std::vector<unsigned char> CreateFavicon(int seed) {
-    const int w = 16;
-    const int h = 16;
-    SkBitmap bmp;
-    bmp.setConfig(SkBitmap::kARGB_8888_Config, w, h);
-    bmp.allocPixels();
-    uint32_t* src_data = bmp.getAddr32(0, 0);
-    for (int i = 0; i < w * h; ++i) {
-      src_data[i] = SkPreMultiplyARGB((seed + i) % 255,
-                                      (seed + i) % 250,
-                                      (seed + i) % 245,
-                                      (seed + i) % 240);
-    }
-    std::vector<unsigned char> favicon;
-    gfx::PNGCodec::EncodeBGRASkBitmap(bmp, false, &favicon);
-    return favicon;
   }
 
  private:

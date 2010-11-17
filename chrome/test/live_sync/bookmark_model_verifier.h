@@ -7,7 +7,6 @@
 #pragma once
 
 #include <string>
-#include <vector>
 
 #include "base/compiler_specific.h"
 #include "chrome/browser/profile.h"
@@ -32,10 +31,18 @@ class BookmarkModelVerifier {
   ~BookmarkModelVerifier() {}
 
   // Checks if the hierarchies in |model_a| and |model_b| are equivalent in
-  // terms of the data model and favicon. Returns true if they both match.
+  // terms of the data model. Compares favicons if |compare_favicons| is true.
+  // Returns true if they match.
   // Note: Some peripheral fields like creation times are allowed to mismatch.
   static bool ModelsMatch(BookmarkModel* model_a,
-                          BookmarkModel* model_b) WARN_UNUSED_RESULT;
+                          BookmarkModel* model_b,
+                          bool compare_favicons) WARN_UNUSED_RESULT;
+
+  // Same as the above method, but does not check if the favicons match.
+  static bool ModelsMatch(BookmarkModel* model_a,
+                          BookmarkModel* model_b) WARN_UNUSED_RESULT {
+    return ModelsMatch(model_a, model_b, false);
+  }
 
   // Checks if |model| contains any instances of two bookmarks with the same URL
   // under the same parent folder. Returns true if even one instance is found.
@@ -65,13 +72,6 @@ class BookmarkModelVerifier {
   void SetTitle(BookmarkModel* model,
                 const BookmarkNode* node,
                 const string16& title);
-
-  // Sets the favicon of the same node in |model| and |verifier_model_| using
-  // the data in |icon_bytes_vector|.
-  // See BookmarkChangeProcessor::ApplyBookmarkFavicon for details.
-  void SetFavicon(BookmarkModel* model,
-                  const BookmarkNode* node,
-                  const std::vector<unsigned char>& icon_bytes_vector);
 
   // Moves the same node to the same position in both |model| and
   // |verifier_model_|. See BookmarkModel::Move for details.
