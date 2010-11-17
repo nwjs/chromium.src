@@ -91,7 +91,6 @@ class ProfileImpl : public Profile,
   virtual SessionService* GetSessionService();
   virtual void ShutdownSessionService();
   virtual bool HasSessionService() const;
-  virtual bool HasProfileSyncService() const;
   virtual bool DidLastSessionExitCleanly();
   virtual BookmarkModel* GetBookmarkModel();
   virtual bool IsSameProfile(Profile* profile);
