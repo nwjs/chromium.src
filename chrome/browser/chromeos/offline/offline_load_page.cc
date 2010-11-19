@@ -98,7 +98,7 @@ std::string OfflineLoadPage::GetHTMLContents() {
   // The offline page for app has icons and slightly different message.
   Profile* profile = tab()->profile();
   DCHECK(profile);
-  const Extension* extension = NULL;
+  Extension* extension = NULL;
   ExtensionsService* extensions_service = profile->GetExtensionsService();
   // Extension service does not exist in test.
   if (extensions_service)
@@ -116,7 +116,7 @@ std::string OfflineLoadPage::GetHTMLContents() {
 }
 
 void OfflineLoadPage::GetAppOfflineStrings(
-    const Extension* app,
+    Extension* app,
     const string16& failed_url,
     DictionaryValue* strings) const {
   strings->SetString("title", app->name());
