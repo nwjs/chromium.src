@@ -447,6 +447,7 @@ void WizardController::ShowUserImageScreen() {
   SetStatusAreaVisible(false);
   SetCurrentScreen(GetUserImageScreen());
   background_view_->SetOobeProgress(chromeos::BackgroundView::PICTURE);
+  background_view_->EnableShutdownButton(false);
 }
 
 void WizardController::ShowEulaScreen() {
