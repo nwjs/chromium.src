@@ -9,6 +9,8 @@
 #include <vector>
 #include <X11/extensions/XTest.h>
 #include <X11/keysym.h>
+// Evil hack to undo X11 evil #define. See crosbug.com/
+#undef Status
 
 #include "app/l10n_util.h"
 #include "app/resource_bundle.h"
@@ -36,6 +38,8 @@
 #include "chrome/browser/chromeos/login/shutdown_button.h"
 #include "chrome/browser/chromeos/wm_ipc.h"
 #include "chrome/browser/metrics/user_metrics.h"
+#include "chrome/browser/profile_manager.h"
+#include "chrome/browser/sync/profile_sync_service.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/notification_service.h"
 #include "cros/chromeos_wm_ipc_enums.h"
@@ -742,6 +746,15 @@ void ScreenLocker::OnLoginSuccess(
     const GaiaAuthConsumer::ClientLoginResult& unused,
     bool pending_requests) {
   LOG(INFO) << "OnLoginSuccess: Sending Unlock request.";
+  Profile* profile = ProfileManager::GetDefaultProfile();
+  if (profile) {
+    ProfileSyncService* service = profile->GetProfileSyncService(username);
+    if (service && !service->HasSyncSetupCompleted()) {
+      // If sync has failed somehow, try setting the sync passphrase here.
+      service->SetPassphrase(password);
+    }
+  }
+
   if (CrosLibrary::Get()->EnsureLoaded())
     CrosLibrary::Get()->GetScreenLockLibrary()->NotifyScreenUnlockRequested();
 }

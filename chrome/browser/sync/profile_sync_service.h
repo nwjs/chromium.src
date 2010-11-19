@@ -352,6 +352,8 @@ class ProfileSyncService : public browser_sync::SyncFrontend,
   bool ShouldPushChanges();
 
   const GURL& sync_service_url() const { return sync_service_url_; }
+  SigninManager* signin() { return signin_.get(); }
+  const std::string& cros_user() const { return cros_user_; }
 
  protected:
   // Used by ProfileSyncServiceMock only.
@@ -460,7 +462,7 @@ class ProfileSyncService : public browser_sync::SyncFrontend,
   SyncSetupWizard wizard_;
 
   // Encapsulates user signin with TokenService.
-  SigninManager signin_;
+  scoped_ptr<SigninManager> signin_;
 
   // True if an unrecoverable error (e.g. violation of an assumed invariant)
   // occurred during syncer operation.  This value should be checked before

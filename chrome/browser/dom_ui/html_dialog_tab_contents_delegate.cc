@@ -29,17 +29,18 @@ void HtmlDialogTabContentsDelegate::Detach() {
 
 Browser* HtmlDialogTabContentsDelegate::CreateBrowser() {
   DCHECK(profile_);
-  return Browser::Create(profile_);
+  // Look for an existing browser window matching profile_.
+  // TODO(stevenjb): This code is replaced with Browser::Navigate() in ToT.
+  Browser* browser = Browser::GetOrCreateTabbedBrowser(profile_);
+  if (!browser)
+    browser = Browser::Create(profile_);
+  return browser;
 }
 
 void HtmlDialogTabContentsDelegate::OpenURLFromTab(
     TabContents* source, const GURL& url, const GURL& referrer,
     WindowOpenDisposition disposition, PageTransition::Type transition) {
   if (profile_) {
-    // Force all links to open in a new window, ignoring the incoming
-    // disposition. This is a tabless, modal dialog so we can't just
-    // open it in the current frame.  Code adapted from
-    // Browser::OpenURLFromTab() with disposition == NEW_WINDOW.
     Browser* browser = CreateBrowser();
     Browser::AddTabWithURLParams params(url, transition);
     params.referrer = referrer;
@@ -59,8 +60,6 @@ void HtmlDialogTabContentsDelegate::AddNewContents(
     WindowOpenDisposition disposition, const gfx::Rect& initial_pos,
     bool user_gesture) {
   if (profile_) {
-    // Force this to open in a new window, too.  Code adapted from
-    // Browser::AddNewContents() with disposition == NEW_WINDOW.
     Browser* browser = CreateBrowser();
     static_cast<TabContentsDelegate*>(browser)->
         AddNewContents(source, new_contents, NEW_FOREGROUND_TAB,
@@ -110,4 +109,3 @@ bool HtmlDialogTabContentsDelegate::ShouldAddNavigationToHistory(
     NavigationType::Type navigation_type) {
   return false;
 }
-
