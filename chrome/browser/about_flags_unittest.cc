@@ -179,7 +179,7 @@ TEST_F(AboutFlagsTest, PersistAndPrune) {
   // Enable exerpiement 1 and experiment 3.
   SetExperimentEnabled(&prefs_, kFlags1, true);
   SetExperimentEnabled(&prefs_, kFlags3, true);
-  CommandLine command_line(CommandLine::NO_PROGRAM);
+  CommandLine command_line(CommandLine::ARGUMENTS_ONLY);
   EXPECT_FALSE(command_line.HasSwitch(kSwitch1));
   EXPECT_FALSE(command_line.HasSwitch(kSwitch3));
 
