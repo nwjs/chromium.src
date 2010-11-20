@@ -105,6 +105,9 @@ class OutOfProcTestRunner : public tests::TestRunner {
     }
     new_cmd_line.AppendSwitchPath(switches::kUserDataDir, temp_dir.path());
 
+    // file:// access for ChromeOS.
+    new_cmd_line.AppendSwitch(switches::kAllowFileAccess);
+
     base::ProcessHandle process_handle;
 #if defined(OS_POSIX)
     // On POSIX, we launch the test in a new process group with pgid equal to

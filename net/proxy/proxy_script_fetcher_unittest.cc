@@ -73,6 +73,10 @@ class ProxyScriptFetcherTest : public PlatformTest {
       : test_server_(net::TestServer::TYPE_HTTP, FilePath(kDocRoot)) {
   }
 
+  static void SetUpTestCase() {
+    URLRequest::AllowFileAccess();
+  }
+
  protected:
   net::TestServer test_server_;
 };
