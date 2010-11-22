@@ -1027,7 +1027,8 @@ ChromeOSAboutVersionHandler::ChromeOSAboutVersionHandler(AboutSource* source,
     : source_(source),
       request_id_(request_id) {
   loader_.GetVersion(&consumer_,
-      NewCallback(this, &ChromeOSAboutVersionHandler::OnVersion), true);
+                     NewCallback(this, &ChromeOSAboutVersionHandler::OnVersion),
+                     chromeos::VersionLoader::VERSION_FULL);
 }
 
 void ChromeOSAboutVersionHandler::OnVersion(
