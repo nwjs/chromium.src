@@ -42,6 +42,10 @@
 #include "chrome/browser/rlz/rlz.h"
 #endif
 
+#if defined(OS_CHROMEOS)
+#include "chrome/browser/chromeos/boot_times_loader.h"
+#endif
+
 using base::Time;
 using base::TimeDelta;
 
@@ -100,6 +104,11 @@ FilePath GetShutdownMsPath() {
 }
 
 void Shutdown() {
+#if defined(OS_CHROMEOS)
+  chromeos::BootTimesLoader::Get()->AddLogoutTimeMarker(
+      "BrowserShutdownStarted", false);
+#endif
+
   // Unload plugins. This needs to happen on the IO thread.
   BrowserThread::PostTask(
         BrowserThread::IO, FROM_HERE,
@@ -155,6 +164,10 @@ void Shutdown() {
   // before calling UninstallJankometer().
   delete g_browser_process;
   g_browser_process = NULL;
+#if defined(OS_CHROMEOS)
+  chromeos::BootTimesLoader::Get()->AddLogoutTimeMarker("BrowserDeleted",
+                                                        true);
+#endif
 
   // Uninstall Jank-O-Meter here after the IO thread is no longer running.
   UninstallJankometer();
