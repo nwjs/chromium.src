@@ -573,7 +573,7 @@
 
       <!-- The URL for the "Problems installing" page for the Plugins infobar -->
       <message name="IDS_LEARN_MORE_PLUGININSTALLER_URL" translateable="false">
-	http://www.google.com/support/chrome/bin/answer.py?answer=95697&amp;topic=14687 
+	http://www.google.com/support/chrome/bin/answer.py?answer=95697&amp;topic=14687
       </message>
 
       <!-- The width and height of the bookmark manager in characters and lines -->
@@ -710,7 +710,7 @@
 
       <!-- The height of the AutoFill edit Credit Card dialog in lines. -->
       <message name="IDS_AUTOFILL_DIALOG_EDIT_CCARD_HEIGHT_LINES" use_name_for_id="true">
-        13
+        9
       </message>
 
       <!-- The URL for About Google Translate. -->
