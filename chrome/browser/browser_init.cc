@@ -382,6 +382,16 @@ bool BrowserInit::LaunchBrowser(const CommandLine& command_line,
   in_startup = process_startup;
   DCHECK(profile);
 
+#if defined(OS_CHROMEOS)
+  if (process_startup) {
+    // NetworkStateNotifier has to be initialized before Launching browser
+    // because the page load can happen in parallel to this UI thread
+    // and IO thread may access the NetworkStateNotifier.
+    chromeos::CrosLibrary::Get()->GetNetworkLibrary()
+        ->AddNetworkManagerObserver(chromeos::NetworkStateNotifier::Get());
+  }
+#endif
+
   // Continue with the off-the-record profile from here on if --incognito
   if (command_line.HasSwitch(switches::kIncognito))
     profile = profile->GetOffTheRecordProfile();
@@ -439,9 +449,6 @@ bool BrowserInit::LaunchBrowser(const CommandLine& command_line,
         ->AddNetworkManagerObserver(network_message_observer);
     chromeos::CrosLibrary::Get()->GetNetworkLibrary()
         ->AddCellularDataPlanObserver(network_message_observer);
-
-    chromeos::CrosLibrary::Get()->GetNetworkLibrary()
-        ->AddNetworkManagerObserver(chromeos::NetworkStateNotifier::Get());
 
     // Creates the SystemKeyEventListener to listen for keypress messages
     // regardless of what window has focus.
