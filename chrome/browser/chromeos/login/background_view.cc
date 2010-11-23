@@ -133,6 +133,7 @@ void BackgroundView::EnableShutdownButton(bool enable) {
       return;
     delete shutdown_button_;
     shutdown_button_ = NULL;
+    SchedulePaint();
   }
 }
 
