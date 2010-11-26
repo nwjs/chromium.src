@@ -679,6 +679,8 @@ class Extension {
   // True while the extension is being upgraded.
   bool being_upgraded_;
 
+  FRIEND_TEST_ALL_PREFIXES(ExtensionsServiceTest,
+                           UpdateExtensionPreservesLocation);
   FRIEND_TEST_ALL_PREFIXES(ExtensionTest, LoadPageActionHelper);
   FRIEND_TEST_ALL_PREFIXES(TabStripModelTest, Apps);
 
