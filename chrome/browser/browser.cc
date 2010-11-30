@@ -145,7 +145,7 @@ static const int kUIUpdateCoalescingTimeMS = 200;
 // The URL to be loaded to display Help.
 #if defined(OS_CHROMEOS)
 static const char* const kHelpContentUrl =
-    "chrome-extension://nifaohjgppdbmalmmgkmfdlodaggnbpe/main.html";
+    "chrome-extension://oonnajkebngbfpmcpekfdeofeannbapp/main.html";
 static const char* const kHelpContentOnlineUrl =
     "http://www.google.com/support/chromeos/";
 #else
