@@ -178,6 +178,9 @@ class ToolbarView : public AccessibleToolbarView,
   views::ImageButton* back_;
   views::ImageButton* forward_;
   ReloadButton* reload_;
+#if defined(OS_CHROMEOS)
+  views::ImageButton* feedback_;
+#endif
   views::ImageButton* home_;
   LocationBarView* location_bar_;
   BrowserActionsContainer* browser_actions_;
