@@ -92,7 +92,7 @@ void UpdateScreen::UpdateStatusChanged(UpdateLibrary* library) {
     case UPDATE_STATUS_IDLE:
     case UPDATE_STATUS_ERROR:
     case UPDATE_STATUS_REPORTING_ERROR_EVENT:
-      ExitUpdate();
+      ExitUpdate(false);
       break;
     default:
       NOTREACHED();
@@ -123,7 +123,7 @@ void UpdateScreen::StartUpdate() {
     CrosLibrary::Get()->GetUpdateLibrary()->AddObserver(this);
     LOG(INFO) << "Checking for update";
     if (!CrosLibrary::Get()->GetUpdateLibrary()->CheckForUpdate()) {
-      ExitUpdate();
+      ExitUpdate(true);
     }
   }
 }
@@ -132,15 +132,21 @@ void UpdateScreen::CancelUpdate() {
   // Screen has longer lifetime than it's view.
   // View is deleted after wizard proceeds to the next screen.
   if (view())
-    ExitUpdate();
+    ExitUpdate(true);
 }
 
-void UpdateScreen::ExitUpdate() {
+void UpdateScreen::ExitUpdate(bool forced) {
   maximal_curtain_time_timer_.Stop();
   ScreenObserver* observer = delegate()->GetObserver(this);
 
   if (!CrosLibrary::Get()->EnsureLoaded()) {
     observer->OnExit(ScreenObserver::UPDATE_ERROR_CHECKING_FOR_UPDATE);
+    return;
+  }
+
+  if (forced) {
+    observer->OnExit(ScreenObserver::UPDATE_NOUPDATE);
+    return;
   }
 
   UpdateLibrary* update_library = CrosLibrary::Get()->GetUpdateLibrary();
