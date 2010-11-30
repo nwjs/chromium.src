@@ -31,7 +31,8 @@ body.loading #main {
 #main,
 #login-container,
 .section,
-.maxiview {
+.maxiview,
+#closed-sections-bar[chromeos] {
   width: 920px;
 }
 
@@ -375,7 +376,14 @@ html[dir=rtl] .section-close-button {
 
 #closed-sections-bar {
   position: fixed;
+}
+
+#closed-sections-bar:not([chromeos]) {
   bottom: 5px;
+}
+
+#closed-sections-bar[chromeos] {
+  padding-top: 0.56em;
 }
 
 #closed-sections-bar > button {
