@@ -441,6 +441,7 @@ void BugReportData::SendReport() {
 BugReportHandler::BugReportHandler(TabContents* tab)
     : tab_(tab)
     , screenshot_source_(NULL)
+    , bug_report_(NULL)
 #if defined(OS_CHROMEOS)
     , syslogs_handle_(0)
 #endif
@@ -449,8 +450,11 @@ BugReportHandler::BugReportHandler(TabContents* tab)
 
 BugReportHandler::~BugReportHandler() {
   // Just in case we didn't send off bug_report_ to SendReport
-  if (bug_report_)
+  if (bug_report_) {
+    // If we're deleting the report object, cancel feedback collection first
+    CancelFeedbackCollection();
     delete bug_report_;
+  }
 }
 
 void BugReportHandler::ClobberScreenshotsSource() {
@@ -703,7 +707,6 @@ void BugReportHandler::HandleSendReport(const ListValue* list_value) {
 }
 
 void BugReportHandler::HandleCancel(const ListValue*) {
-  CancelFeedbackCollection();
   CloseFeedbackTab();
 }
 
