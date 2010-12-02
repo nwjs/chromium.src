@@ -27,6 +27,7 @@
 #include "chrome/browser/browser_list.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/debugger/devtools_window.h"
+#include "chrome/browser/dom_ui/bug_report_ui.h"
 #include "chrome/browser/download/download_item_model.h"
 #include "chrome/browser/download/download_manager.h"
 #include "chrome/browser/find_bar_controller.h"
@@ -916,7 +917,7 @@ DownloadShelf* BrowserWindowGtk::GetDownloadShelf() {
 }
 
 void BrowserWindowGtk::ShowReportBugDialog() {
-  NOTIMPLEMENTED();
+  browser::ShowHtmlBugReportView(window_, bounds_, browser_.get());
 }
 
 void BrowserWindowGtk::ShowClearBrowsingDataDialog() {
