@@ -13,8 +13,6 @@
 #include "base/scoped_ptr.h"
 #include "chrome/browser/notifications/balloon.h"
 #include "chrome/browser/notifications/balloon_collection.h"
-#include "chrome/common/notification_observer.h"
-#include "chrome/common/notification_registrar.h"
 
 class Notification;
 class Profile;
@@ -24,8 +22,7 @@ class SiteInstance;
 // The notification manager manages use of the desktop for notifications.
 // It maintains a queue of pending notifications when space becomes constrained.
 class NotificationUIManager
-    : public BalloonCollection::BalloonSpaceChangeListener,
-      public NotificationObserver {
+    : public BalloonCollection::BalloonSpaceChangeListener {
  public:
   NotificationUIManager();
   virtual ~NotificationUIManager();
@@ -56,19 +53,10 @@ class NotificationUIManager
   // queue.  Returns true if anything was removed.
   virtual bool CancelAllBySourceOrigin(const GURL& source_origin);
 
-  // Cancels all pending notifications and closes anything currently showing.
-  // Used when the app is terminating.
-  void CancelAll();
-
   // Returns balloon collection.
   BalloonCollection* balloon_collection() {
     return balloon_collection_.get();
   }
-
-  // NotificationObserver interface (the event signaling kind of notifications)
-  virtual void Observe(NotificationType type,
-                       const NotificationSource& source,
-                       const NotificationDetails& details);
 
  private:
   // Attempts to display notifications from the show_queue if the user
@@ -91,9 +79,6 @@ class NotificationUIManager
   // A queue of notifications which are waiting to be shown.
   typedef std::deque<QueuedNotification*> NotificationDeque;
   NotificationDeque show_queue_;
-
-  // Registrar for the other kind of notifications (event signaling).
-  NotificationRegistrar registrar_;
 
   DISALLOW_COPY_AND_ASSIGN(NotificationUIManager);
 };

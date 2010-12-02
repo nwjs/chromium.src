@@ -111,10 +111,6 @@ bool BalloonCollectionImpl::RemoveBySourceOrigin(const GURL& origin) {
   return base_.CloseAllBySourceOrigin(origin);
 }
 
-void BalloonCollectionImpl::RemoveAll() {
-  base_.CloseAll();
-}
-
 bool BalloonCollectionImpl::HasSpace() const {
   return true;
 }

@@ -63,7 +63,6 @@ class BalloonCollectionImpl : public BalloonCollection,
                    Profile* profile);
   virtual bool RemoveById(const std::string& id);
   virtual bool RemoveBySourceOrigin(const GURL& origin);
-  virtual void RemoveAll();
   virtual bool HasSpace() const;
   virtual void ResizeBalloon(Balloon* balloon, const gfx::Size& size);
   virtual void DisplayChanged() {}
