@@ -674,7 +674,7 @@ void ChromeFrameAutomationClient::Uninitialize() {
     url_fetcher_ = NULL;
   }
 
-  if (tab_.get()) {
+  if (tab_) {
     tab_->RemoveObserver(this);
     if (automation_server_)
       automation_server_->ReleaseTabProxy(tab_->handle());
@@ -902,7 +902,7 @@ void ChromeFrameAutomationClient::OnChromeFrameHostMoved() {
   scoped_refptr<TabProxy> tab(tab_);
   // There also is a possibility that tab_ has not been set yet,
   // so we still need to test for NULL.
-  if (tab.get() != NULL)
+  if (tab)
     tab->OnHostMoved();
 }
 
@@ -1286,8 +1286,8 @@ void ChromeFrameAutomationClient::ReleaseAutomationServer() {
 
 void ChromeFrameAutomationClient::SendContextMenuCommandToChromeFrame(
   int selected_command) {
-  DCHECK(tab_ != NULL);
-  tab_->SendContextMenuCommand(selected_command);
+  if (tab_)
+    tab_->SendContextMenuCommand(selected_command);
 }
 
 std::wstring ChromeFrameAutomationClient::GetVersion() const {
@@ -1320,7 +1320,8 @@ void ChromeFrameAutomationClient::Print(HDC print_dc,
 }
 
 void ChromeFrameAutomationClient::PrintTab() {
-  tab_->PrintAsync();
+  if (tab_)
+    tab_->PrintAsync();
 }
 
 bool ChromeFrameAutomationClient::Reinitialize(
