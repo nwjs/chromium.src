@@ -27,11 +27,7 @@ cr.define('options', function() {
           function(event) {
             var value = event.value && event.value['value'] != undefined ?
                 event.value['value'] : event.value;
-            // Invert pref value if inverted_pref == true.
-            if (self.inverted_pref)
-              self.checked = !Boolean(value);
-            else
-              self.checked = Boolean(value);
+            self.checked = Boolean(value);
             self.managed = event.value && event.value['managed'] != undefined ?
                 event.value['managed'] : false;
             self.disabled = self.managed;
@@ -45,15 +41,14 @@ cr.define('options', function() {
       // Listen to user events.
       this.addEventListener('click',
           function(e) {
-            var value = self.inverted_pref ? !self.checked : self.checked;
             switch(self.valueType) {
               case 'number':
                 Preferences.setIntegerPref(self.pref,
-                    Number(value), self.metric);
+                    Number(self.checked), self.metric);
                 break;
               case 'boolean':
                 Preferences.setBooleanPref(self.pref,
-                    value, self.metric);
+                    self.checked, self.metric);
                 break;
             }
           });
@@ -85,12 +80,6 @@ cr.define('options', function() {
    * @type {string}
    */
   cr.defineProperty(PrefCheckbox, 'metric', cr.PropertyKind.ATTR);
-
-  /**
-   * Whether to use inverted pref value.
-   * @type {boolean}
-   */
-  cr.defineProperty(PrefCheckbox, 'inverted_pref', cr.PropertyKind.BOOL_ATTR);
 
   /////////////////////////////////////////////////////////////////////////////
   // PrefRadio class:
