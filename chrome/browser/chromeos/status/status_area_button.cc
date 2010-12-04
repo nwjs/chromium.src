@@ -12,9 +12,6 @@
 
 namespace chromeos {
 
-// A 0.7 black to decorate status text. Same color is used for icon borders.
-static const SkColor kStatusTextHaloColor = SkColorSetARGB(0xB3, 0, 0, 0);
-
 ////////////////////////////////////////////////////////////////////////////////
 // StatusAreaButton
 
@@ -26,8 +23,8 @@ StatusAreaButton::StatusAreaButton(views::ViewMenuDelegate* menu_delegate)
   // Use an offset that is top aligned with toolbar.
   set_menu_offset(0, 2);
 
-  // Use a halo for status text as the icons.
-  SetTextHaloColor(kStatusTextHaloColor);
+  // Use a black halo for status text.
+  SetTextHaloColor(SK_ColorBLACK);
 }
 
 void StatusAreaButton::Paint(gfx::Canvas* canvas, bool for_drag) {
