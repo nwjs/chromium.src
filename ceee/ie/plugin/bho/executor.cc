@@ -426,9 +426,13 @@ HRESULT CeeeExecutor::Initialize(CeeeWindowHandle hwnd) {
   // Infobar. In any case, the construction below should have a reference to
   // a BHO and its EventSender so we don't create Infobars before the tab_id
   // is ready.
-  if (window_utils::GetTopLevelParent(hwnd_) != hwnd_)
+  if (window_utils::GetTopLevelParent(hwnd_) != hwnd_) {
+    hr = broker_rpc_client_.Connect(true);
+    if (FAILED(hr))
+      return hr;
     infobar_manager_.reset(
-        new infobar_api::InfobarManager(hwnd_, new BrokerRpcClient));
+        new infobar_api::InfobarManager(hwnd_, &broker_rpc_client_));
+  }
 
   return S_OK;
 }
