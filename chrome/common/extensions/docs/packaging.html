@@ -169,7 +169,6 @@
                   <li><a href="options.html">Options Pages</a></li>
                   <li><a href="override.html">Override Pages</a></li>
                   <li><a href="pageAction.html">Page Actions</a></li>
-                  <li><a href="themes.html">Themes</a></li>
                 </ul>
               </li>
               <li>Browser Interaction
@@ -203,6 +202,7 @@
               </li>
             </ul>
           </li>
+          <li><h2><a href="apps.html">Packaged Apps</a></h2></li>
           <li><h2><a href="tutorials.html">Tutorials</a></h2>
             <ul>
               <li><a href="tut_debugging.html">Debugging</a></li>
@@ -216,14 +216,22 @@
                 <ul>
                   <li><a href="manifest.html">Manifest Files</a></li>
                   <li><a href="match_patterns.html">Match Patterns</a></li>
-                  <!-- <li>Packages (.crx)</li> -->
                 </ul>
               </li>
+              <li><a href="permission_warnings.html">Permission Warnings</a></li>
               <li><a href="api_index.html">chrome.* APIs</a></li>
               <li><a href="api_other.html">Other APIs</a></li>
             </ul>
           </li>
-         <li><h2><a href="samples.html">Samples</a></h2></li>
+          <li><h2><a href="samples.html">Samples</a></h2></li>
+          <div class="line"> </div>
+          <li><h2>More</h2>
+            <ul>
+              <li><a href="http://code.google.com/chrome/webstore/docs/index.html">Chrome Web Store</a></li>
+              <li><a href="http://code.google.com/chrome/apps/docs/developers_guide.html">Hosted Apps</a></li>
+              <li><a href="themes.html">Themes</a></li>
+            </ul>
+          </li>
         </ul>
       </div>
       <script>
@@ -329,7 +337,7 @@ for example, <code>myextension.crx</code>.
 <b>Note:</b>
 You might not need to package your extension.
 If you publish your extension using the
-<a href="https://chrome.google.com/extensions">gallery</a>,
+<a href="https://chrome.google.com/webstore/developer/dashboard">Chrome Developer Dashboard</a>,
 then the only reason to create your own <code>.crx</code> file
 would be to distribute a non-public version —
 for example, to alpha testers.
@@ -395,8 +403,8 @@ You'll need it later if you want to do any of the following:
 </p>
 <ul>
 <li><a href="#update">Update</a> the extension</li>
-<li>Upload the extension to the
-<a href="https://chrome.google.com/extensions">Extensions Gallery</a> </li>
+<li>Upload the extension using the
+<a href="https://chrome.google.com/webstore/developer/dashboard">Chrome Developer Dashboard</a></li>
 </ul>
 
 <p>
@@ -472,7 +480,8 @@ add <code>--no-message-box</code> to the command.
 <p>
 For more information on the format, as well as pointers to scripts you can use
 to create <code>.crx</code> files, see <a href="crx.html">CRX package format</a>.
-</p></div>
+</p>
+</div>
 
         <!-- API PAGE -->
         <div class="apiPage" style="display: none; ">

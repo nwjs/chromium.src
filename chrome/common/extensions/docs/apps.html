@@ -16,7 +16,7 @@
     <script type="text/javascript" src="js/api_page_generator.js"></script>
     <script type="text/javascript" src="js/bootstrap.js"></script>
     <script type="text/javascript" src="js/sidebar.js"></script>
-  <title>Options - Google Chrome Extensions - Google Code</title></head>
+  <title>Packaged Apps - Google Chrome Extensions - Google Code</title></head>
   <body>  <div id="gc-container" class="labs">
       <div id="devModeWarning">
         You are viewing extension docs in chrome via the 'file:' scheme: are you expecting to see local changes when you refresh? You'll need run chrome with --allow-file-access-from-files.
@@ -166,7 +166,8 @@
                   <li><a href="browserAction.html">Browser Actions</a></li>
                   <li><a href="contextMenus.html">Context Menus</a></li>
                   <li><a href="notifications.html">Desktop Notifications</a></li>
-                  <li class="leftNavSelected">Options Pages</li>
+                  <li><a href="omnibox.html">Omnibox</a></li>
+                  <li><a href="options.html">Options Pages</a></li>
                   <li><a href="override.html">Override Pages</a></li>
                   <li><a href="pageAction.html">Page Actions</a></li>
                 </ul>
@@ -240,28 +241,28 @@
 
     <div class="g-unit" id="gc-pagecontent">
       <div id="pageTitle">
-        <h1 class="page_title">Options</h1>
+        <h1 class="page_title">Packaged Apps</h1>
       </div>
         <!-- TABLE OF CONTENTS -->
         <div id="toc">
           <h2>Contents</h2>
           <ol>
             <li>
-              <a href="#H2-0">Step 1: Declare your options page in the manifest</a>
+              <a href="#overview">Overview</a>
               <ol>
                 <li style="display: none; ">
                   <a>h3Name</a>
                 </li>
               </ol>
             </li><li>
-              <a href="#H2-1">Step 2: Write your options page</a>
+              <a href="#manifest"> The manifest </a>
               <ol>
                 <li style="display: none; ">
                   <a>h3Name</a>
                 </li>
               </ol>
             </li><li>
-              <a href="#H2-2">Important notes</a>
+              <a href="#next">What next?</a>
               <ol>
                 <li style="display: none; ">
                   <a>h3Name</a>
@@ -315,81 +316,176 @@
         </p>
 
         <!-- STATIC CONTENT PLACEHOLDER -->
-        <div id="static"><div id="pageData-name" class="pageData">Options</div>
+        <div id="static"><div id="pageData-name" class="pageData">Packaged Apps</div>
 <div id="pageData-showTOC" class="pageData">true</div>
-<p>To allow users to customize the behavior of your extension, you may wish to provide an options page. If you do, a link to it will be provided from the extensions management page at chrome://extensions. Clicking the Options link opens a new tab pointing at your options page.
 
-</p><a name="H2-0"></a><h2>Step 1: Declare your options page in the manifest</h2>
+<p>
+This page talks about packaged apps—how
+you implement them,
+and how they're different from
+extensions and ordinary web apps.
+</p>
+
+
+<h2 id="overview">Overview</h2>
+
+<p>
+A packaged app is a web app
+that's bundled into a <code>.crx</code> file
+and can use Chrome extension features.
+You build a packaged app just like you build an extension,
+except that a packaged app can't include a
+<a href="browserAction.html">browser action</a> or
+<a href="pageAction.html">page action</a>.
+Instead, a packaged app includes at least one HTML file
+within its <code>.crx</code> file
+that provides the app's user interface.
+</p>
+
+<p>
+Packaged apps are a type of
+<a href="http://code.google.com/chrome/apps/">installable web app</a>—a
+web app that can be installed in Chrome.
+The other type of installable web app is a
+<a href="http://code.google.com/chrome/apps/docs/developers_guide.html">hosted app</a>,
+which is an ordinary web app with a bit of additional metadata.
+</p>
+
+<p>
+If you're developing a web app for the Chrome Web Store,
+you might want to use a packaged app
+instead of a hosted app if any of the following are true:
+</p>
+
+<ul>
+  <li>
+    You don't want to run a service to host your app.
+  </li>
+  <li>
+    You want to build an app that works really well offline.
+  </li>
+  <li>
+    You want tighter integration with Chrome,
+    using the extension APIs.
+  </li>
+</ul>
+
+<p>
+The following articles can help you understand
+the differences between web apps and websites,
+extensions and packaged apps, and packaged apps and hosted apps:
+</p>
+
+<ul>
+  <li> <a href="http://code.google.com/chrome/apps/articles/thinking_in_web_apps.html">Thinking in Web Apps</a> </li>
+  <li> <a href="http://codesite-staging:29006/chrome/webstore/articles/apps_vs_extensions.html">Extensions, Packaged Apps, and Hosted Apps in the Chrome Web Store</a> </li>
+</ul>
+
+
+<h2 id="manifest"> The manifest </h2>
+
+<p>
+A packaged app's manifest can have any field
+that's available to extensions,
+except for "browser_action" and "page_action".
+In addition, a packaged app's manifest <b>must</b>
+have an "app" field.
+Here is a typical manifest for a packaged app:
+</p>
 
 <pre>{
-  "name": "My extension",
-  ...
-  <b>"options_page": "options.html"</b>,
-  ...
-}</pre>
-
-
-<a name="H2-1"></a><h2>Step 2: Write your options page</h2>
-
-Here is an example options page:
-
-<pre>&lt;html&gt;
-&lt;head&gt;&lt;title&gt;My Test Extension Options&lt;/title&gt;&lt;/head&gt;
-&lt;script type="text/javascript"&gt;
-
-// Saves options to localStorage.
-function save_options() {
-  var select = document.getElementById("color");
-  var color = select.children[select.selectedIndex].value;
-  localStorage["favorite_color"] = color;
-
-  // Update status to let user know options were saved.
-  var status = document.getElementById("status");
-  status.innerHTML = "Options Saved.";
-  setTimeout(function() {
-    status.innerHTML = "";
-  }, 750);
-}
-
-// Restores select box state to saved value from localStorage.
-function restore_options() {
-  var favorite = localStorage["favorite_color"];
-  if (!favorite) {
-    return;
-  }
-  var select = document.getElementById("color");
-  for (var i = 0; i &lt; select.children.length; i++) {
-    var child = select.children[i];
-    if (child.value == favorite) {
-      child.selected = "true";
-      break;
+  "name": "My Awesome Racing Game",
+  "description": "Enter a world where a Vanagon can beat a Maserati",
+  "version": "1",
+  <b>"app": {
+    "launch": {
+      "local_path": "main.html"
     }
-  }
+  },</b>
+  "icons": {
+    "16": "icon_16.png",
+    "128": "icon_128.png"
+  },
+  "permissions": [
+    "unlimitedStorage",
+    "notifications"
+  ]
 }
-
-&lt;/script&gt;
-
-&lt;body onload="restore_options()"&gt;
-
-Favorite Color:
-&lt;select id="color"&gt;
- &lt;option value="red"&gt;red&lt;/option&gt;
- &lt;option value="green"&gt;green&lt;/option&gt;
- &lt;option value="blue"&gt;blue&lt;/option&gt;
- &lt;option value="yellow"&gt;yellow&lt;/option&gt;
-&lt;/select&gt;
-
-&lt;br&gt;
-&lt;button onclick="save_options()"&gt;Save&lt;/button&gt;
-&lt;/body&gt;
-&lt;/html&gt;
 </pre>
 
-<a name="H2-2"></a><h2>Important notes</h2>
-<ul>
-<li>This feature is checked in to the trunk and should land in official builds sometime <b>after</b> version 4.0.222.x.</li>
-<li>We plan on providing some default css styles to encourage a consistent look across different extensions' options pages. You can star <a href="http://crbug.com/25317">crbug.com/25317</a> to be notified of updates.</li>
-</ul>
+<p>
+The "app" field has one subfield, "launch",
+which specifies the <em>launch page</em> for the app—the
+page (HTML file bundled into the <code>.crx</code> file)
+that the browser goes to when the user clicks the app's icon
+in the New Tab page.
+The "launch" field can contain the following:
+</p>
+
+<dl>
+  <dt>local_path:</dt>
+    <dd><em>Required.</em>
+    Specifies the launch page
+    as a relative path referring to a file
+    in the <code>.crx</code> package.
+    </dd>
+  <dt>container:</dt>
+    <dd> The value "panel" makes the app appear
+    in an app panel.
+    By default, or when you specify "tab",
+    the app appears in a tab.
+
+    <!-- PENDING: In the overview
+    (or somewhere else before here)
+    we should show and define both app panels and tabs.
+    We should link to that place from here. -->
+    </dd>
+  <dt>height:</dt>
+    <dd>
+    If the container is set to "panel",
+    this integer specifies the height
+    of the panel in pixels.
+    For example, you might specify
+    <code>"height":400</code>.
+    Note that you don't use quotation marks in the value.
+    This field specifies the height of the area
+    to display contents in;
+    window decorations add a few more pixels to the total height.
+    If the container isn't a panel, this field is ignored.
+    </dd>
+  <dt>width:</dt>
+    <dd>
+    Similar to "height",
+    but specifies the width of the panel.
+    </dd>
+  
+</dl>
+
+<p>
+Packaged apps usually provide a 16x16 icon
+to be used as the favicon for
+tabs that contain app's pages.
+They also should provide a 128x128 icon,
+but not a 48x48 icon.
+See the manifest documentation for the
+<a href="manifest.html#icons">"icons" field</a>
+for more information.
+</p>
+
+<p>
+For further details on what a packaged app's manifest can contain, see the
+<a href="manifest.html">manifest documentation</a>.
+</p>
+
+<h2 id="next">What next?</h2>
+
+<p>
+Read the <a href="overview.html">Overview</a> to learn
+basic concepts about extensions.
+</p>
+
+<p class="backtotop"><a href="#top">Back to top</a></p>
+
 </div>
 
         <!-- API PAGE -->
