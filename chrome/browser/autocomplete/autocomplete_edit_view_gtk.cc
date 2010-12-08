@@ -872,7 +872,8 @@ void AutocompleteEditViewGtk::UpdateInstantViewColors() {
         theme_provider_->get_active_selection_bg_color();
   }
 
-  double alpha = instant_animation_->GetCurrentValue();
+  double alpha = instant_animation_->is_animating() ?
+      instant_animation_->GetCurrentValue() : 0.0;
   GdkColor text = gfx::SkColorToGdkColor(color_utils::AlphaBlend(
       selection_text,
       gfx::GdkColorToSkColor(faded_text),
@@ -1286,6 +1287,8 @@ void AutocompleteEditViewGtk::HandleMarkSet(GtkTextBuffer* buffer,
       mark != gtk_text_buffer_get_selection_bound(text_buffer_)) {
     return;
   }
+
+  StopAnimation();
 
   // If we are here, that means the user may be changing the selection
   selection_suggested_ = false;
@@ -1763,9 +1766,7 @@ void AutocompleteEditViewGtk::SetInstantSuggestion(
   // Select the whole thing.
   gtk_label_select_region(GTK_LABEL(instant_view_), 0, -1);
 
-  // Clear the animation delegate so we don't get an AnimationEnded() callback.
-  instant_animation_->set_delegate(NULL);
-  instant_animation_->Stop();
+  StopAnimation();
 
   if (suggestion.empty()) {
     gtk_widget_hide(instant_view_);
@@ -1780,6 +1781,13 @@ void AutocompleteEditViewGtk::SetInstantSuggestion(
     AdjustVerticalAlignmentOfInstantView();
     UpdateInstantViewColors();
   }
+}
+
+void AutocompleteEditViewGtk::StopAnimation() {
+  // Clear the animation delegate so we don't get an AnimationEnded() callback.
+  instant_animation_->set_delegate(NULL);
+  instant_animation_->Stop();
+  UpdateInstantViewColors();
 }
 
 bool AutocompleteEditViewGtk::CommitInstantSuggestion() {
