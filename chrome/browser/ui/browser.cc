@@ -60,6 +60,7 @@
 #include "chrome/browser/google/google_util.h"
 #include "chrome/browser/host_zoom_map.h"
 #include "chrome/browser/instant/instant_controller.h"
+#include "chrome/browser/instant/instant_unload_handler.h"
 #include "chrome/browser/location_bar.h"
 #include "chrome/browser/metrics/user_metrics.h"
 #include "chrome/browser/net/browser_url_util.h"
@@ -182,13 +183,6 @@ const char kHashMark[] = "#";
 const float kPopupMaxWidthFactor = 0.5;
 const float kPopupMaxHeightFactor = 0.6;
 #endif
-
-// Returns true if the specified TabContents has unload listeners registered.
-bool TabHasUnloadListener(TabContents* contents) {
-  return contents->notify_disconnection() &&
-      !contents->showing_interstitial_page() &&
-      !contents->render_view_host()->SuddenTerminationAllowed();
-}
 
 }  // namespace
 
@@ -820,7 +814,7 @@ bool Browser::ShouldCloseWindow() {
 
   for (int i = 0; i < tab_count(); ++i) {
     TabContents* contents = GetTabContentsAt(i);
-    if (TabHasUnloadListener(contents))
+    if (contents->NeedToFireBeforeUnload())
       tabs_needing_before_unload_fired_.insert(contents);
   }
 
@@ -2034,11 +2028,11 @@ bool Browser::RunUnloadEventsHelper(TabContents* contents) {
   // handler we can fire even if the TabContents has an unload listener.
   // One case where we hit this is in a tab that has an infinite loop
   // before load.
-  if (TabHasUnloadListener(contents)) {
+  if (contents->NeedToFireBeforeUnload()) {
     // If the page has unload listeners, then we tell the renderer to fire
     // them. Once they have fired, we'll get a message back saying whether
     // to proceed closing the page or not, which sends us back to this method
-    // with the HasUnloadListener bit cleared.
+    // with the NeedToFireBeforeUnload bit cleared.
     contents->render_view_host()->FirePageBeforeUnload(false);
     return true;
   }
@@ -3313,7 +3307,8 @@ void Browser::Observe(NotificationType type,
         if (!InstantController::IsEnabled(profile())) {
           if (instant()) {
             instant()->DestroyPreviewContents();
-            instant_.reset(NULL);
+            instant_.reset();
+            instant_unload_handler_.reset();
           }
         } else {
           CreateInstantIfNecessary();
@@ -3373,8 +3368,11 @@ void Browser::CommitInstant(TabContentsWrapper* preview_contents) {
   preview_contents->controller().CopyStateFromAndPrune(
       &tab_contents->controller());
   // TabStripModel takes ownership of preview_contents.
-  tab_handler_->GetTabStripModel()->ReplaceTabContentsAt(
-      index, preview_contents);
+  TabContentsWrapper* old_contents =
+      tab_handler_->GetTabStripModel()->ReplaceTabContentsAt(
+          index, preview_contents);
+  // InstantUnloadHandler takes ownership of old_contents.
+  instant_unload_handler_->RunUnloadListenersOrDestroy(old_contents, index);
 }
 
 void Browser::SetSuggestedText(const string16& text) {
@@ -4141,5 +4139,6 @@ void Browser::CreateInstantIfNecessary() {
   if (type() == TYPE_NORMAL && InstantController::IsEnabled(profile()) &&
       !profile()->IsOffTheRecord()) {
     instant_.reset(new InstantController(profile_, this));
+    instant_unload_handler_.reset(new InstantUnloadHandler(this));
   }
 }
