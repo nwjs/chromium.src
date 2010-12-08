@@ -1138,6 +1138,7 @@ TEST_F(ExtensionsServiceTest, GrantedPermissions) {
 
   AddPattern(&expected_host_perms, "http://*.google.com/*");
   AddPattern(&expected_host_perms, "https://*.google.com/*");
+  AddPattern(&expected_host_perms, "http://*.google.com.hk/*");
   AddPattern(&expected_host_perms, "http://www.example.com/*");
 
   EXPECT_TRUE(prefs->GetGrantedPermissions(extension_id,
@@ -1216,6 +1217,7 @@ TEST_F(ExtensionsServiceTest, GrantedAPIAndHostPermissions) {
   expected_api_permissions.insert("tabs");
   AddPattern(&expected_host_permissions, "http://*.google.com/*");
   AddPattern(&expected_host_permissions, "https://*.google.com/*");
+  AddPattern(&expected_host_permissions, "http://*.google.com.hk/*");
   AddPattern(&expected_host_permissions, "http://www.example.com/*");
 
   std::set<std::string> api_permissions;
@@ -1265,6 +1267,7 @@ TEST_F(ExtensionsServiceTest, GrantedAPIAndHostPermissions) {
   api_permissions.insert("tabs");
   host_permissions.insert("http://*.google.com/*");
   host_permissions.insert("https://*.google.com/*");
+  host_permissions.insert("http://*.google.com.hk/*");
 
   SetPrefStringSet(extension_id, "granted_permissions.api", api_permissions);
   SetPrefStringSet(extension_id, "granted_permissions.host", host_permissions);
