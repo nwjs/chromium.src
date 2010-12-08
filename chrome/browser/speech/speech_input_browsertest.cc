@@ -160,13 +160,16 @@ class SpeechInputBrowserTest : public InProcessBrowserTest {
 
 SpeechInputManager* SpeechInputBrowserTest::speech_input_manager_ = NULL;
 
-// Marked as FLAKY due to http://crbug.com/51337
-//
 // TODO(satish): Once this flakiness has been fixed, add a second test here to
 // check for sending many clicks in succession to the speech button and verify
 // that it doesn't cause any crash but works as expected. This should act as the
 // test for http://crbug.com/59173
-#if defined(OS_WIN)
+#if defined(GOOGLE_CHROME_BUILD)
+// The tests are disabled for release branches since the speech input API is
+// disabled on the release branches.
+#define MAYBE_TestBasicRecognition DISABLED_TestBasicRecognition
+#elif defined(OS_WIN)
+// Marked as FLAKY due to http://crbug.com/51337
 #define MAYBE_TestBasicRecognition FLAKY_TestBasicRecognition
 #else
 #define MAYBE_TestBasicRecognition TestBasicRecognition
@@ -176,8 +179,12 @@ IN_PROC_BROWSER_TEST_F(SpeechInputBrowserTest, MAYBE_TestBasicRecognition) {
   EXPECT_TRUE(fake_speech_input_manager_.grammar().empty());
 }
 
+#if defined(GOOGLE_CHROME_BUILD)
+// The tests are disabled for release branches since the speech input API is
+// disabled on the release branches.
+#define MAYBE_GrammarAttribute DISABLED_GrammarAttribute
+#elif defined(OS_WIN)
 // Marked as FLAKY due to http://crbug.com/51337
-#if defined(OS_WIN)
 #define MAYBE_GrammarAttribute FLAKY_GrammarAttribute
 #else
 #define MAYBE_GrammarAttribute GrammarAttribute
