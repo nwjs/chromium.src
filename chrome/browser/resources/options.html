@@ -124,7 +124,9 @@
 <script src="options/personal_options.js"></script>
 <script src="options/search_engine_manager.js"></script>
 <script src="options/search_engine_manager_engine_list.js"></script>
-<script src="options/search_page.js"></script>
+<if expr="not pp_ifdef('chromeos')">
+  <script src="options/search_page.js"></script>
+</if>
 <script src="options/sync_options.js"></script>
 <script src="options/zippy.js"></script>
 <script>
@@ -148,7 +150,9 @@ var PasswordsExceptions = options.PasswordsExceptions;
 var PersonalOptions = options.PersonalOptions;
 var Preferences = options.Preferences;
 var SearchEngineManager = options.SearchEngineManager;
-var SearchPage = options.SearchPage;
+<if expr="not pp_ifdef('chromeos')">
+  var SearchPage = options.SearchPage;
+</if>
 var ProxyOptions = options.ProxyOptions;
 var SyncOptions = options.SyncOptions;
 
@@ -193,7 +197,9 @@ function load() {
     OptionsPage.register(InternetOptions.getInstance());
   }
 
-  OptionsPage.register(SearchPage.getInstance());
+  if (!cr.isChromeOS)
+    OptionsPage.register(SearchPage.getInstance());
+
   OptionsPage.register(BrowserOptions.getInstance());
   OptionsPage.registerSubPage(SearchEngineManager.getInstance(),
                               BrowserOptions.getInstance());
@@ -331,7 +337,9 @@ window.onpopstate = function(e) {
        <!-- Start main pages -->
        <!-- Please keep the main pages in desired order of display.  This will
             allow search results to display in the desired order. -->
-       <include src="options/search_page.html">
+       <if expr="not pp_ifdef('chromeos')">
+         <include src="options/search_page.html">
+       </if>
        <if expr="pp_ifdef('chromeos')">
          <include src="options/chromeos_system_options.html">
          <include src="options/chromeos_internet_options.html">
