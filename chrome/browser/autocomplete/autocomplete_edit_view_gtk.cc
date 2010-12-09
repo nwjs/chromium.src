@@ -1795,7 +1795,8 @@ bool AutocompleteEditViewGtk::CommitInstantSuggestion() {
   if (!suggestion || !*suggestion)
     return false;
 
-  model()->FinalizeInstantQuery(GetText() + UTF8ToWide(suggestion));
+  model()->FinalizeInstantQuery(GetText(),
+                                UTF8ToWide(suggestion));
   return true;
 }
 
