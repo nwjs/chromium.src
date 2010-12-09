@@ -184,6 +184,8 @@ class BrowserHelperObjectTest: public testing::Test {
     StrictMock<testing::MockCeeeModuleUtils> ceee_module_utils;
     EXPECT_CALL(ceee_module_utils, GetOptionToolbandIsHidden())
         .WillOnce(Return(false));
+    EXPECT_CALL(ceee_module_utils, GetOptionEnableWebProgressApis())
+        .WillRepeatedly(Return(false));
     ASSERT_HRESULT_SUCCEEDED(
         TestingBrowserHelperObject::CreateInitialized(&bho_, &bho_with_site_));
     bho_with_site_ = bho_;
@@ -882,8 +884,10 @@ TEST_F(BrowserHelperObjectTest, SetToolBandSessionId) {
 
 TEST(BrowserHelperObjectLifeCycleTest, NoBhoForInvisibleToolband) {
   StrictMock<testing::MockCeeeModuleUtils> ceee_module_utils;
-    EXPECT_CALL(ceee_module_utils, GetOptionToolbandIsHidden())
-        .WillOnce(Return(false));
+  EXPECT_CALL(ceee_module_utils, GetOptionToolbandIsHidden())
+      .WillOnce(Return(false));
+  EXPECT_CALL(ceee_module_utils, GetOptionEnableWebProgressApis())
+      .WillRepeatedly(Return(false));
 
   TestingBrowserHelperObject* bho;
   base::win::ScopedComPtr<IObjectWithSite> bho_with_site;
