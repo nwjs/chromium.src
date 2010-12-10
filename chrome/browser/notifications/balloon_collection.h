@@ -45,6 +45,9 @@ class BalloonCollection {
   // true if anything was removed.
   virtual bool Remove(const Notification& notification) = 0;
 
+  // Removes all balloons.
+  virtual void RemoveAll() = 0;
+
   // Is there room to add another notification?
   virtual bool HasSpace() const = 0;
 

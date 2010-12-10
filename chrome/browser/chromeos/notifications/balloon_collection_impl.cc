@@ -127,6 +127,14 @@ bool BalloonCollectionImpl::Remove(const Notification& notification) {
   return false;
 }
 
+void BalloonCollectionImpl::RemoveAll() {
+  // Use a local list to prevent the iterator from breaking.
+  Balloons to_close = balloons_;
+  for (Balloons::iterator iter = to_close.begin();
+       iter != to_close.end(); ++iter)
+    (*iter)->CloseByScript();
+}
+
 bool BalloonCollectionImpl::HasSpace() const {
   return true;
 }
