@@ -42,6 +42,7 @@ class BalloonCollectionImpl : public BalloonCollection
   virtual void Add(const Notification& notification,
                    Profile* profile);
   virtual bool Remove(const Notification& notification);
+  virtual void RemoveAll();
   virtual bool HasSpace() const;
   virtual void ResizeBalloon(Balloon* balloon, const gfx::Size& size);
   virtual void DisplayChanged();
