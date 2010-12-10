@@ -47,7 +47,7 @@ cr.define('options', function() {
                     Number(value), self.metric);
                 break;
               case 'boolean':
-                Preferences.setBooleanPref(self.pref, self.checked,
+                Preferences.setBooleanPref(self.pref,
                     value, self.metric);
                 break;
             }
