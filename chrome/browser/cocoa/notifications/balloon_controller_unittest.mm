@@ -31,6 +31,7 @@ class MockBalloonCollection : public BalloonCollection {
   virtual void Add(const Notification& notification,
                    Profile* profile) {}
   virtual bool Remove(const Notification& notification) { return false; }
+  virtual void RemoveAll() {}
   virtual bool HasSpace() const { return true; }
   virtual void ResizeBalloon(Balloon* balloon, const gfx::Size& size) {};
   virtual void DisplayChanged() {}
