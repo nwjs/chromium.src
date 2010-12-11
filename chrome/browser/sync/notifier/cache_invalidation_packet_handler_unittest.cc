@@ -8,7 +8,8 @@
 #include "base/message_loop.h"
 #include "base/weak_ptr.h"
 #include "google/cacheinvalidation/invalidation-client.h"
-#include "jingle/notifier/base/fake_base_task.h"
+#include "jingle/notifier/base/task_pump.h"
+#include "jingle/notifier/base/weak_xmpp_client.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "talk/base/task.h"
@@ -17,6 +18,7 @@
 namespace sync_notifier {
 
 using ::testing::_;
+using ::testing::NotNull;
 using ::testing::Return;
 
 class MockNetworkEndpoint : public invalidation::NetworkEndpoint {
@@ -36,6 +38,20 @@ class MockInvalidationClient : public invalidation::InvalidationClient {
   MOCK_METHOD0(network_endpoint, invalidation::NetworkEndpoint*());
 };
 
+class MockAsyncSocket : public buzz::AsyncSocket {
+ public:
+  virtual ~MockAsyncSocket() {}
+
+  MOCK_METHOD0(state, State());
+  MOCK_METHOD0(error, Error());
+  MOCK_METHOD0(GetError, int());
+  MOCK_METHOD1(Connect, bool(const talk_base::SocketAddress&));
+  MOCK_METHOD3(Read, bool(char*, size_t, size_t*));
+  MOCK_METHOD2(Write, bool(const char*, size_t));
+  MOCK_METHOD0(Close, bool());
+  MOCK_METHOD1(StartTls, bool(const std::string&));
+};
+
 class CacheInvalidationPacketHandlerTest : public testing::Test {
  public:
   virtual ~CacheInvalidationPacketHandlerTest() {}
@@ -44,22 +60,38 @@ class CacheInvalidationPacketHandlerTest : public testing::Test {
 TEST_F(CacheInvalidationPacketHandlerTest, Basic) {
   MessageLoop message_loop;
 
-  notifier::FakeBaseTask fake_base_task;
-
+  notifier::TaskPump task_pump;
+  // Owned by |task_pump|.
+  notifier::WeakXmppClient* weak_xmpp_client =
+      new notifier::WeakXmppClient(&task_pump);
+  base::WeakPtr<talk_base::Task> base_task(weak_xmpp_client->AsWeakPtr());
   MockNetworkEndpoint mock_network_endpoint;
   MockInvalidationClient mock_invalidation_client;
 
   EXPECT_CALL(mock_invalidation_client, network_endpoint()).
       WillRepeatedly(Return(&mock_network_endpoint));
 
+  EXPECT_CALL(mock_network_endpoint,
+              RegisterOutboundListener(NotNull())).Times(1);
+  EXPECT_CALL(mock_network_endpoint,
+              RegisterOutboundListener(NULL)).Times(1);
   const char kInboundMessage[] = "non-bogus";
   EXPECT_CALL(mock_network_endpoint,
               HandleInboundMessage(kInboundMessage)).Times(1);
   EXPECT_CALL(mock_network_endpoint, TakeOutboundMessage(_)).Times(1);
 
+  weak_xmpp_client->Start();
+  buzz::XmppClientSettings settings;
+  // Owned by |weak_xmpp_client|.
+  MockAsyncSocket* mock_async_socket = new MockAsyncSocket();
+  EXPECT_CALL(*mock_async_socket, Connect(_)).WillOnce(Return(true));
+  weak_xmpp_client->Connect(settings, "en", mock_async_socket, NULL);
+  // Initialize the XMPP client.
+  message_loop.RunAllPending();
+
   {
     CacheInvalidationPacketHandler handler(
-        fake_base_task.AsWeakPtr(), &mock_invalidation_client);
+        base_task, &mock_invalidation_client);
     // Take care of any tasks posted by the constructor.
     message_loop.RunAllPending();
 
