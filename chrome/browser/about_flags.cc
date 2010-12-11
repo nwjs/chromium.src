@@ -169,13 +169,6 @@ const Experiment kExperiments[] = {
     switches::kEnableCrxlessWebApps
   },
   {
-    "match-preview",  // FLAGS:RECORD_UMA
-    IDS_FLAGS_PREDICTIVE_INSTANT_NAME,
-    IDS_FLAGS_PREDICTIVE_INSTANT_DESCRIPTION,
-    kOsMac,
-    switches::kEnablePredictiveInstant
-  },
-  {
     "gpu-compositing",
      IDS_FLAGS_ACCELERATED_COMPOSITING_NAME,
      IDS_FLAGS_ACCELERATED_COMPOSITING_DESCRIPTION,
