@@ -34,7 +34,7 @@ void IndexedDBKey::Set(const string16& string) {
   string_ = string;
 }
 
-void IndexedDBKey::Set(int32_t number) {
+void IndexedDBKey::Set(double number) {
   type_ = WebIDBKey::NumberType;
   number_ = number;
 }
