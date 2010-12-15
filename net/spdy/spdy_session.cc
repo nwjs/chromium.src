@@ -28,6 +28,36 @@
 
 namespace net {
 
+NetLogSpdySynParameter::NetLogSpdySynParameter(
+    const linked_ptr<spdy::SpdyHeaderBlock>& headers,
+    spdy::SpdyControlFlags flags,
+    spdy::SpdyStreamId id,
+    spdy::SpdyStreamId associated_stream)
+    : headers_(headers),
+      flags_(flags),
+      id_(id),
+      associated_stream_(associated_stream) {
+}
+
+NetLogSpdySynParameter::~NetLogSpdySynParameter() {
+}
+
+Value* NetLogSpdySynParameter::ToValue() const {
+  DictionaryValue* dict = new DictionaryValue();
+  ListValue* headers_list = new ListValue();
+  for (spdy::SpdyHeaderBlock::const_iterator it = headers_->begin();
+      it != headers_->end(); ++it) {
+    headers_list->Append(new StringValue(base::StringPrintf(
+        "%s: %s", it->first.c_str(), it->second.c_str())));
+  }
+  dict->SetInteger("flags", flags_);
+  dict->Set("headers", headers_list);
+  dict->SetInteger("id", id_);
+  if (associated_stream_)
+    dict->SetInteger("associated_stream", associated_stream_);
+  return dict;
+}
+
 namespace {
 
 const int kReadBufferSize = 8 * 1024;
@@ -56,37 +86,6 @@ class NetLogSpdySessionParameter : public NetLog::EventParameters {
  private:
   const HostPortProxyPair host_pair_;
   DISALLOW_COPY_AND_ASSIGN(NetLogSpdySessionParameter);
-};
-
-class NetLogSpdySynParameter : public NetLog::EventParameters {
- public:
-  NetLogSpdySynParameter(const linked_ptr<spdy::SpdyHeaderBlock>& headers,
-                         spdy::SpdyControlFlags flags,
-                         spdy::SpdyStreamId id)
-      : headers_(headers), flags_(flags), id_(id) {}
-
-  Value* ToValue() const {
-    DictionaryValue* dict = new DictionaryValue();
-    ListValue* headers_list = new ListValue();
-    for (spdy::SpdyHeaderBlock::const_iterator it = headers_->begin();
-         it != headers_->end(); ++it) {
-      headers_list->Append(new StringValue(base::StringPrintf(
-          "%s: %s", it->first.c_str(), it->second.c_str())));
-    }
-    dict->SetInteger("flags", flags_);
-    dict->Set("headers", headers_list);
-    dict->SetInteger("id", id_);
-    return dict;
-  }
-
- private:
-  ~NetLogSpdySynParameter() {}
-
-  const linked_ptr<spdy::SpdyHeaderBlock> headers_;
-  const spdy::SpdyControlFlags flags_;
-  const spdy::SpdyStreamId id_;
-
-  DISALLOW_COPY_AND_ASSIGN(NetLogSpdySynParameter);
 };
 
 class NetLogSpdySettingsParameter : public NetLog::EventParameters {
@@ -246,8 +245,8 @@ SpdySession::SpdySession(const HostPortProxyPair& host_port_proxy_pair,
       frames_received_(0),
       sent_settings_(false),
       received_settings_(false),
-      initial_send_window_size_(spdy::kInitialWindowSize),
-      initial_recv_window_size_(spdy::kInitialWindowSize),
+      initial_send_window_size_(spdy::kSpdyStreamInitialWindowSize),
+      initial_recv_window_size_(spdy::kSpdyStreamInitialWindowSize),
       net_log_(BoundNetLog::Make(net_log, NetLog::SOURCE_SPDY_SESSION)) {
   net_log_.BeginEvent(
       NetLog::TYPE_SPDY_SESSION,
@@ -323,9 +322,7 @@ int SpdySession::GetPushStream(
     return ERR_SPDY_PROTOCOL_ERROR;
   }
 
-  const std::string& path = url.PathForRequest();
-
-  *stream = GetActivePushStream(path);
+  *stream = GetActivePushStream(url.spec());
   if (stream->get()) {
     DCHECK(streams_pushed_and_claimed_count_ < streams_pushed_count_);
     streams_pushed_and_claimed_count_++;
@@ -472,7 +469,7 @@ int SpdySession::WriteSynStream(
   if (net_log().IsLoggingAll()) {
     net_log().AddEvent(
         NetLog::TYPE_SPDY_SESSION_SYN_STREAM,
-        new NetLogSpdySynParameter(headers, flags, stream_id));
+        new NetLogSpdySynParameter(headers, flags, stream_id, 0));
   }
 
   return ERR_IO_PENDING;
@@ -958,7 +955,6 @@ void SpdySession::OnStreamFrameData(spdy::SpdyStreamId stream_id,
 bool SpdySession::Respond(const spdy::SpdyHeaderBlock& headers,
                           const scoped_refptr<SpdyStream> stream) {
   int rv = OK;
-
   rv = stream->OnResponseReceived(headers);
   if (rv < 0) {
     DCHECK_NE(rv, ERR_IO_PENDING);
@@ -979,24 +975,24 @@ void SpdySession::OnSyn(const spdy::SpdySynStreamControlFrame& frame,
         NetLog::TYPE_SPDY_SESSION_PUSHED_SYN_STREAM,
         new NetLogSpdySynParameter(
             headers, static_cast<spdy::SpdyControlFlags>(frame.flags()),
-            stream_id));
+            stream_id, associated_stream_id));
   }
 
   // Server-initiated streams should have even sequence numbers.
   if ((stream_id & 0x1) != 0) {
-    LOG(ERROR) << "Received invalid OnSyn stream id " << stream_id;
+    LOG(WARNING) << "Received invalid OnSyn stream id " << stream_id;
     return;
   }
 
   if (IsStreamActive(stream_id)) {
-    LOG(ERROR) << "Received OnSyn for active stream " << stream_id;
+    LOG(WARNING) << "Received OnSyn for active stream " << stream_id;
     return;
   }
 
   if (associated_stream_id == 0) {
-    LOG(ERROR) << "Received invalid OnSyn associated stream id "
-               << associated_stream_id
-               << " for stream " << stream_id;
+    LOG(WARNING) << "Received invalid OnSyn associated stream id "
+                 << associated_stream_id
+                 << " for stream " << stream_id;
     ResetStream(stream_id, spdy::INVALID_STREAM);
     return;
   }
@@ -1005,29 +1001,44 @@ void SpdySession::OnSyn(const spdy::SpdySynStreamControlFrame& frame,
 
   // TODO(mbelshe): DCHECK that this is a GET method?
 
-  const std::string& path = ContainsKey(*headers, "path") ?
-      headers->find("path")->second : "";
-
   // Verify that the response had a URL for us.
-  if (path.empty()) {
+  const std::string& url = ContainsKey(*headers, "url") ?
+      headers->find("url")->second : "";
+  if (url.empty()) {
     ResetStream(stream_id, spdy::PROTOCOL_ERROR);
-    LOG(WARNING) << "Pushed stream did not contain a path.";
+    LOG(WARNING) << "Pushed stream did not contain a url.";
     return;
   }
 
+  GURL gurl(url);
+  if (!gurl.is_valid()) {
+    ResetStream(stream_id, spdy::PROTOCOL_ERROR);
+    LOG(WARNING) << "Pushed stream url was invalid: " << url;
+    return;
+  }
+
+  // Verify we have a valid stream association.
   if (!IsStreamActive(associated_stream_id)) {
-    LOG(ERROR) << "Received OnSyn with inactive associated stream "
+    LOG(WARNING) << "Received OnSyn with inactive associated stream "
                << associated_stream_id;
     ResetStream(stream_id, spdy::INVALID_ASSOCIATED_STREAM);
     return;
   }
 
-  // TODO(erikchen): Actually do something with the associated id.
+  scoped_refptr<SpdyStream> associated_stream =
+      active_streams_[associated_stream_id];
+  GURL associated_url(associated_stream->GetUrl());
+  if (associated_url.GetOrigin() != gurl.GetOrigin()) {
+    LOG(WARNING) << "Rejected Cross Origin Push Stream "
+                 << associated_stream_id;
+    ResetStream(stream_id, spdy::REFUSED_STREAM);
+    return;
+  }
 
   // There should not be an existing pushed stream with the same path.
-  PushedStreamMap::iterator it = unclaimed_pushed_streams_.find(path);
+  PushedStreamMap::iterator it = unclaimed_pushed_streams_.find(url);
   if (it != unclaimed_pushed_streams_.end()) {
-    LOG(ERROR) << "Received duplicate pushed stream with path: " << path;
+    LOG(WARNING) << "Received duplicate pushed stream with url: " << url;
     ResetStream(stream_id, spdy::PROTOCOL_ERROR);
     return;
   }
@@ -1035,9 +1046,9 @@ void SpdySession::OnSyn(const spdy::SpdySynStreamControlFrame& frame,
   scoped_refptr<SpdyStream> stream =
       new SpdyStream(this, stream_id, true, net_log_);
 
-  stream->set_path(path);
+  stream->set_path(gurl.PathForRequest());
 
-  unclaimed_pushed_streams_[path] = stream;
+  unclaimed_pushed_streams_[url] = stream;
 
   ActivateStream(stream);
   stream->set_response_received();
@@ -1077,25 +1088,62 @@ void SpdySession::OnSynReply(const spdy::SpdySynReplyControlFrame& frame,
         NetLog::TYPE_SPDY_SESSION_SYN_REPLY,
         new NetLogSpdySynParameter(
             headers, static_cast<spdy::SpdyControlFlags>(frame.flags()),
-            stream_id));
+            stream_id, 0));
   }
 
   Respond(*headers, stream);
 }
 
+void SpdySession::OnHeaders(const spdy::SpdyHeadersControlFrame& frame,
+                            const linked_ptr<spdy::SpdyHeaderBlock>& headers) {
+  spdy::SpdyStreamId stream_id = frame.stream_id();
+
+  bool valid_stream = IsStreamActive(stream_id);
+  if (!valid_stream) {
+    // NOTE:  it may just be that the stream was cancelled.
+    LOG(WARNING) << "Received HEADERS for invalid stream " << stream_id;
+    return;
+  }
+
+  scoped_refptr<SpdyStream> stream = active_streams_[stream_id];
+  CHECK_EQ(stream->stream_id(), stream_id);
+  CHECK(!stream->cancelled());
+
+  if (net_log().IsLoggingAll()) {
+    net_log().AddEvent(
+        NetLog::TYPE_SPDY_SESSION_HEADERS,
+        make_scoped_refptr(new NetLogSpdySynParameter(
+            headers, static_cast<spdy::SpdyControlFlags>(frame.flags()),
+            stream_id, 0)));
+  }
+
+  int rv = stream->OnHeaders(*headers);
+  if (rv < 0) {
+    DCHECK_NE(rv, ERR_IO_PENDING);
+    const spdy::SpdyStreamId stream_id = stream->stream_id();
+    DeleteStream(stream_id, rv);
+  }
+}
+
 void SpdySession::OnControl(const spdy::SpdyControlFrame* frame) {
   const linked_ptr<spdy::SpdyHeaderBlock> headers(new spdy::SpdyHeaderBlock);
   uint32 type = frame->type();
-  if (type == spdy::SYN_STREAM || type == spdy::SYN_REPLY) {
+  if (type == spdy::SYN_STREAM ||
+      type == spdy::SYN_REPLY ||
+      type == spdy::HEADERS) {
     if (!spdy_framer_.ParseHeaderBlock(frame, headers.get())) {
       LOG(WARNING) << "Could not parse Spdy Control Frame Header.";
       int stream_id = 0;
-      if (type == spdy::SYN_STREAM)
+      if (type == spdy::SYN_STREAM) {
         stream_id = (reinterpret_cast<const spdy::SpdySynStreamControlFrame*>
                      (frame))->stream_id();
-      if (type == spdy::SYN_REPLY)
+      } else if (type == spdy::SYN_REPLY) {
         stream_id = (reinterpret_cast<const spdy::SpdySynReplyControlFrame*>
                      (frame))->stream_id();
+      } else if (type == spdy::HEADERS) {
+        stream_id = (reinterpret_cast<const spdy::SpdyHeadersControlFrame*>
+                     (frame))->stream_id();
+      }
       if(IsStreamActive(stream_id))
         ResetStream(stream_id, spdy::PROTOCOL_ERROR);
       return;
@@ -1118,6 +1166,10 @@ void SpdySession::OnControl(const spdy::SpdyControlFrame* frame) {
     case spdy::SYN_STREAM:
       OnSyn(*reinterpret_cast<const spdy::SpdySynStreamControlFrame*>(frame),
             headers);
+      break;
+    case spdy::HEADERS:
+      OnHeaders(*reinterpret_cast<const spdy::SpdyHeadersControlFrame*>(frame),
+                headers);
       break;
     case spdy::SYN_REPLY:
       OnSynReply(

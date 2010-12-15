@@ -13,6 +13,7 @@
 #include "base/linked_ptr.h"
 #include "base/ref_counted.h"
 #include "base/scoped_ptr.h"
+#include "googleurl/src/gurl.h"
 #include "net/base/bandwidth_metrics.h"
 #include "net/base/io_buffer.h"
 #include "net/base/net_log.h"
@@ -53,8 +54,12 @@ class SpdyStream : public base::RefCounted<SpdyStream> {
     // Returns true if no more data to be sent.
     virtual bool OnSendBodyComplete(int status) = 0;
 
-    // Called when SYN_STREAM or SYN_REPLY received. |status| indicates network
-    // error. Returns network error code.
+    // Called when the SYN_STREAM, SYN_REPLY, or HEADERS frames are received.
+    // Normal streams will receive a SYN_REPLY and optional HEADERS frames.
+    // Pushed streams will receive a SYN_STREAM and optional HEADERS frames.
+    // Because a stream may have a SYN_* frame and multiple HEADERS frames,
+    // this callback may be called multiple times.
+    // |status| indicates network error. Returns network error code.
     virtual int OnResponseReceived(const spdy::SpdyHeaderBlock& response,
                                    base::Time response_time,
                                    int status) = 0;
@@ -157,6 +162,10 @@ class SpdyStream : public base::RefCounted<SpdyStream> {
   // has been received for this stream. Returns a status code.
   int OnResponseReceived(const spdy::SpdyHeaderBlock& response);
 
+  // Called by the SpdySession when late-bound headers are received for a
+  // stream. Returns a status code.
+  int OnHeaders(const spdy::SpdyHeaderBlock& headers);
+
   // Called by the SpdySession when response data has been received for this
   // stream.  This callback may be called multiple times as data arrives
   // from the network, and will never be called prior to OnResponseReceived.
@@ -205,6 +214,13 @@ class SpdyStream : public base::RefCounted<SpdyStream> {
   }
 
   int response_status() const { return response_status_; }
+
+  // Returns true if the URL for this stream is known.
+  bool HasUrl() const;
+
+  // Get the URL associated with this stream.  Only valid when has_url() is
+  // true.
+  GURL GetUrl() const;
 
  private:
   enum State {
