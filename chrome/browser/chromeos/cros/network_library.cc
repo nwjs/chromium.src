@@ -1,4 +1,4 @@
-  // Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2010 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -345,7 +345,7 @@ std::string Network::GetBaseServicePath() const {
 void Network::InitIPAddress() {
   ip_address_.clear();
   // If connected, get ip config.
-  if (EnsureCrosLoaded() && connected()) {
+  if (EnsureCrosLoaded() && connected() && !device_path_.empty()) {
     IPConfigStatus* ipconfig_status = ListIPConfigs(device_path_.c_str());
     if (ipconfig_status) {
       for (int i = 0; i < ipconfig_status->size; i++) {
@@ -1477,6 +1477,10 @@ class NetworkLibraryImpl : public NetworkLibrary  {
     }
 
     ClearNetworks();
+    available_devices_ = system->available_technologies;
+    enabled_devices_ = system->enabled_technologies;
+    connected_devices_ = system->connected_technologies;
+    offline_mode_ = system->offline_mode;
 
     DVLOG(1) << "ParseSystem:";
     for (int i = 0; i < system->service_size; i++) {
@@ -1496,12 +1500,19 @@ class NetworkLibraryImpl : public NetworkLibrary  {
                << " error=" << service->error;
       // Once a connected ethernet service is found, disregard other ethernet
       // services that are also found
-      if (service->type == TYPE_ETHERNET)
-        ethernet_ = new EthernetNetwork(service);
-      else if (service->type == TYPE_WIFI) {
-        wifi_networks_.push_back(new WifiNetwork(service));
+      if (service->type == TYPE_ETHERNET) {
+        if (ethernet_enabled())
+          ethernet_ = new EthernetNetwork(service);
+      } else if (service->type == TYPE_WIFI) {
+        // Sometimes flimflam still returns wifi networks when disabled.
+        // We don't want to show these in the UI.
+        if (wifi_enabled())
+          wifi_networks_.push_back(new WifiNetwork(service));
       } else if (service->type == TYPE_CELLULAR) {
-        cellular_networks_.push_back(new CellularNetwork(service));
+        // Sometimes flimflam still returns cellular networks when disabled.
+        // We don't want to show these in the UI.
+        if (cellular_enabled())
+          cellular_networks_.push_back(new CellularNetwork(service));
       }
     }
 
@@ -1578,11 +1589,6 @@ class NetworkLibraryImpl : public NetworkLibrary  {
     //       wifi_scanning_ = true;
     //   }
     // }
-
-    available_devices_ = system->available_technologies;
-    enabled_devices_ = system->enabled_technologies;
-    connected_devices_ = system->connected_technologies;
-    offline_mode_ = system->offline_mode;
   }
 
   void Init() {
