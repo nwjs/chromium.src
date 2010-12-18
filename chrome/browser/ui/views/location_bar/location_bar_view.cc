@@ -1050,16 +1050,16 @@ bool LocationBarView::SkipDefaultKeyEventProcessing(const views::KeyEvent& e) {
       // Return true so that the edit sees the tab and commits the suggestion.
       return true;
     }
+    if (keyword_hint_view_->IsVisible() && !e.IsShiftDown()) {
+      // Return true so the edit gets the tab event and enters keyword mode.
+      return true;
+    }
     InstantController* instant = delegate_->GetInstant();
     if (instant && instant->IsCurrent()) {
       // Tab while showing instant commits instant immediately.
       instant->CommitCurrentPreview(INSTANT_COMMIT_PRESSED_ENTER);
       // Return true so that focus traversal isn't attempted. The edit ends
       // up doing nothing in this case.
-      return true;
-    }
-    if (keyword_hint_view_->IsVisible() && !e.IsShiftDown()) {
-      // Return true so the edit gets the tab event and enters keyword mode.
       return true;
     }
   }
