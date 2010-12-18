@@ -3376,7 +3376,7 @@ void Browser::ShowInstant(TabContentsWrapper* preview_contents) {
 }
 
 void Browser::HideInstant() {
-  window_->HideInstant();
+  window_->HideInstant(instant_->is_active());
 }
 
 void Browser::CommitInstant(TabContentsWrapper* preview_contents) {
