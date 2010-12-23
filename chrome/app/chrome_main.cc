@@ -859,7 +859,7 @@ int ChromeMain(int argc, char** argv) {
     // the --lang flag to pass the value of the PrefService in here. Maybe this
     // value could be passed in a different way.
     const std::string locale =
-        command_line.GetSwitchValueASCII(switches::kLang);
+        parsed_command_line.GetSwitchValueASCII(switches::kLang);
     const std::string loaded_locale =
         ResourceBundle::InitSharedInstance(locale);
     CHECK(!loaded_locale.empty()) << "Locale could not be found for " << locale;
