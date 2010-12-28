@@ -55,6 +55,10 @@ html[dir='rtl'] #close-overlay {
   left: -20px;
 }
 
+html[hide-menu=true] .close-subpage {
+  display: none
+}
+
 .action-area {
   -webkit-box-orient: horizontal;
   -webkit-box-align: center;

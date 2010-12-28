@@ -53,7 +53,7 @@ cr.define('options', function() {
     for (var name in OptionsPage.registeredSubPages_) {
       var pageInfo = OptionsPage.registeredSubPages_[name];
       var match = name == pageName;
-      if (match)
+      if (match && document.documentElement.getAttribute('hide-menu') != 'true')
         pageInfo.parentPage.visible = true;
       pageInfo.page.visible = match;
     }
