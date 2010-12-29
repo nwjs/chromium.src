@@ -120,6 +120,9 @@ TEST_F(WebResourceServiceTest, UnpackPromoSignal) {
   scoped_ptr<DictionaryValue> test_json(static_cast<DictionaryValue*>(
       base::JSONReader::Read(json, false)));
 
+  // Initialize a message loop for this to run on.
+  MessageLoop loop;
+
   // Check that prefs are set correctly.
   web_resource_service->UnpackPromoSignal(*(test_json.get()));
   double promo_start =
