@@ -59,6 +59,8 @@ class NetworkScreenTest : public WizardInProcessBrowserTest {
     cros_mock_->test_api()->SetLoginLibrary(mock_login_library_, true);
     EXPECT_CALL(*mock_login_library_, EmitLoginPromptReady())
         .Times(1);
+    EXPECT_CALL(*mock_login_library_,RetrieveProperty(_,_,_))
+        .Times(AnyNumber());
 
     // Minimal set of expectations needed on NetworkScreen initialization.
     // Status bar expectations are defined with RetiresOnSaturation() so
@@ -299,7 +301,7 @@ IN_PROC_BROWSER_TEST_F(NetworkScreenTest, Timeout) {
   EXPECT_CALL(*mock_network_library_, wifi_network())
       .WillOnce(Return(wifi.get()));
   EXPECT_CALL(*mock_network_library_, Connected())
-      .Times(2)
+      .Times(3)
       .WillRepeatedly(Return(false));
 
   network_screen->OnNetworkManagerChanged(mock_network_library_);
