@@ -1642,6 +1642,9 @@ class Main(object):
         '', '--repeat', type='int', default=1,
         help='Number of times to repeat the tests. Useful to determine '
              'flakiness. Defaults to 1.')
+    parser.add_option(
+        '-S', '--suite', type='string', default='FULL',
+        help='Temporary flag ignored on beta/stable branch.')
 
     self._options, self._args = parser.parse_args()
 
