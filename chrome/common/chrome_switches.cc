@@ -197,9 +197,6 @@ const char kDisableDevTools[]               = "disable-dev-tools";
 // Disables device orientation events.
 const char kDisableDeviceOrientation[]      = "disable-device-orientation";
 
-// Disable experimental WebGL support.
-const char kDisableExperimentalWebGL[]      = "disable-webgl";
-
 // Disable extensions.
 const char kDisableExtensions[]             = "disable-extensions";
 
@@ -463,6 +460,9 @@ const char kEnableDNSSECCerts[]             = "enable-dnssec-certs";
 const char kEnableExperimentalExtensionApis[] =
     "enable-experimental-extension-apis";
 
+// Enable experimental WebGL support.
+const char kEnableExperimentalWebGL[]      = "enable-webgl";  
+    
 // Enable experimental timeline API.
 const char kEnableExtensionTimelineApi[]    = "enable-extension-timeline-api";
 

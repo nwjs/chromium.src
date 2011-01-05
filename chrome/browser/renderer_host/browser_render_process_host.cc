@@ -606,7 +606,7 @@ void BrowserRenderProcessHost::PropagateBrowserCommandLineToRenderer(
     // WebGLArray constructors on the DOMWindow visible. This
     // information is needed very early during bringup. We prefer to
     // use the WebPreferences to set this flag on a page-by-page basis.
-    switches::kDisableExperimentalWebGL,
+    switches::kEnableExperimentalWebGL,
     switches::kDisableGLSLTranslator,
     switches::kInProcessWebGL,
     // This flag needs to be propagated to the renderer process for
