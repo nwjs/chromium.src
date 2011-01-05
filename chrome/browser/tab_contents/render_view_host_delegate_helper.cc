@@ -283,7 +283,7 @@ WebPreferences RenderViewHostDelegateHelper::GetWebkitPrefs(
         command_line.HasSwitch(switches::kShowCompositedLayerBorders);
     web_prefs.accelerated_compositing_enabled =
         gpu_enabled() &&
-        !command_line.HasSwitch(switches::kDisableAcceleratedCompositing);
+        command_line.HasSwitch(switches::kEnableAcceleratedCompositing);
     web_prefs.accelerated_2d_canvas_enabled =
         gpu_enabled() &&
         command_line.HasSwitch(switches::kEnableAccelerated2dCanvas);

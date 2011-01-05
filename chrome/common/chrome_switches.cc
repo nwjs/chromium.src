@@ -135,10 +135,6 @@ const char kDeviceManagementUrl[]           = "device-management-url";
 // Triggers a pletora of diagnostic modes.
 const char kDiagnostics[]                   = "diagnostics";
 
-// Disables accelerated compositing.
-const char kDisableAcceleratedCompositing[] =
-    "disable-accelerated-compositing";
-
 // Disables the alternate window station for the renderer.
 const char kDisableAltWinstation[]          = "disable-winsta";
 
@@ -379,6 +375,10 @@ extern const char kLogNetLog[]              = "log-net-log";
 
 // Enable gpu-accelerated 2d canvas.
 const char kEnableAccelerated2dCanvas[]     = "enable-accelerated-2d-canvas";
+
+// Enables accelerated compositing.
+const char kEnableAcceleratedCompositing[] =
+    "enable-accelerated-compositing";
 
 // Enables the hardware acceleration of 3D CSS, Video and animation.
 const char kEnableAcceleratedLayers[]       = "enable-accelerated-layers";

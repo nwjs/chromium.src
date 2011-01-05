@@ -2813,7 +2813,7 @@ WebMediaPlayer* RenderView::createMediaPlayer(
   }
 
   if (cmd_line->HasSwitch(switches::kEnableAcceleratedDecoding) &&
-      !cmd_line->HasSwitch(switches::kDisableAcceleratedCompositing)) {
+      cmd_line->HasSwitch(switches::kEnableAcceleratedCompositing)) {
     WebGraphicsContext3DCommandBufferImpl* context =
         static_cast<WebGraphicsContext3DCommandBufferImpl*>(
             frame->view()->graphicsContext3D());
