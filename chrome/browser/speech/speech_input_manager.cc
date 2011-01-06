@@ -5,16 +5,14 @@
 #include "chrome/browser/speech/speech_input_manager.h"
 
 #include "app/l10n_util.h"
-#include "base/command_line.h"
-#include "base/utf_string_conversions.h"
-#include "chrome/browser/browser_thread.h"
-#include "chrome/browser/prefs/pref_service.h"
+#include "base/ref_counted.h"
+#include "base/singleton.h"
+#include "chrome/browser/chrome_thread.h"
 #include "chrome/browser/speech/speech_input_bubble_controller.h"
 #include "chrome/browser/speech/speech_recognizer.h"
 #include "chrome/browser/tab_contents/infobar_delegate.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/browser/tab_contents/tab_util.h"
-#include "chrome/common/chrome_switches.h"
 #include "grit/generated_resources.h"
 #include "media/audio/audio_manager.h"
 #include <map>
@@ -78,26 +76,6 @@ class SpeechInputManagerImpl : public SpeechInputManager,
 
 SpeechInputManager* SpeechInputManager::Get() {
   return Singleton<SpeechInputManagerImpl>::get();
-}
-
-bool SpeechInputManager::IsFeatureEnabled() {
-  bool enabled = true;
-  const CommandLine& command_line = *CommandLine::ForCurrentProcess();
-
-  if (command_line.HasSwitch(switches::kDisableSpeechInput)) {
-    enabled = false;
-#if defined(GOOGLE_CHROME_BUILD)
-  } else if (!command_line.HasSwitch(switches::kEnableSpeechInput)) {
-    // We need to evaluate whether IO is OK here. http://crbug.com/63335.
-    base::ThreadRestrictions::ScopedAllowIO allow_io;
-    // Official Chrome builds have speech input enabled by default only in the
-    // dev channel.
-    std::string channel = platform_util::GetVersionStringModifier();
-    enabled = (channel == "dev");
-#endif
-  }
-
-  return enabled;
 }
 
 SpeechInputManagerImpl::SpeechInputManagerImpl()
