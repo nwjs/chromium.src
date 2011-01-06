@@ -204,9 +204,6 @@ const char kDisableExtensionsFileAccessCheck[] =
 // Disable FileSystem API.
 const char kDisableFileSystem[]             = "disable-file-system";
 
-// Disables the sandbox for the built-in flash player.
-const char kDisableFlashSandbox[]           = "disable-flash-sandbox";
-
 // Suppresses support for the Geolocation javascript API.
 const char kDisableGeolocation[]            = "disable-geolocation";
 
@@ -475,6 +472,10 @@ const char kEnableFastback[]                = "enable-fastback";
 // By default, cookies are not allowed on file://. They are needed for
 // testing, for example page cycler and layout tests.  See bug 1157243.
 const char kEnableFileCookies[]             = "enable-file-cookies";
+
+// Enables the sandbox for the built-in flash player.
+const char kEnableFlashSandbox[]            = "enable-flash-sandbox";
+
 
 // Enable IPv6 support, even if probes suggest that it may not be fully
 // supported.  Some probes may require internet connections, and this flag will
