@@ -77,6 +77,7 @@ class FFmpegVideoDecoder : public VideoDecoder,
 
   enum DecoderState {
     kUnInitialized,
+    kInitializing,
     kNormal,
     kFlushCodec,
     kDecodeFinished,

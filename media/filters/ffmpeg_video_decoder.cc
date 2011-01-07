@@ -95,6 +95,7 @@ void FFmpegVideoDecoder::Initialize(DemuxerStream* demuxer_stream,
   config.opaque_context = av_stream;
   config.width = width_;
   config.height = height_;
+  state_ = kInitializing;
   decode_engine_->Initialize(message_loop(), this, NULL, config);
 }
 
@@ -137,7 +138,10 @@ void FFmpegVideoDecoder::Stop(FilterCallback* callback) {
   DCHECK(!uninitialize_callback_.get());
 
   uninitialize_callback_.reset(callback);
-  decode_engine_->Uninitialize();
+  if (state_ != kUnInitialized)
+    decode_engine_->Uninitialize();
+  else
+    OnUninitializeComplete();
 }
 
 void FFmpegVideoDecoder::OnUninitializeComplete() {
