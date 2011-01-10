@@ -532,7 +532,7 @@ base::ProcessHandle StartProcessWithAccess(CommandLine* cmd_line,
   if (!in_sandbox && (type == ChildProcessInfo::PLUGIN_PROCESS)) {
       in_sandbox = browser_command_line.HasSwitch(switches::kSafePlugins) ||
           (IsBuiltInFlash(cmd_line, NULL) &&
-           browser_command_line.HasSwitch(switches::kEnableFlashSandbox));
+           !browser_command_line.HasSwitch(switches::kDisableFlashSandbox));
   }
 
   if (browser_command_line.HasSwitch(switches::kNoSandbox)) {
