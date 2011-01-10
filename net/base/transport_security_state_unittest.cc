@@ -348,6 +348,10 @@ TEST_F(TransportSecurityStateTest, Preloaded) {
 
   EXPECT_TRUE(state->IsEnabledForHost(&domain_state, "factor.cc"));
   EXPECT_FALSE(state->IsEnabledForHost(&domain_state, "www.factor.cc"));
+
+  EXPECT_TRUE(state->IsEnabledForHost(&domain_state, "splendidbacon.com"));
+  EXPECT_TRUE(state->IsEnabledForHost(&domain_state, "www.splendidbacon.com"));
+  EXPECT_TRUE(state->IsEnabledForHost(&domain_state, "foo.splendidbacon.com"));
 }
 
 TEST_F(TransportSecurityStateTest, LongNames) {
