@@ -39,7 +39,7 @@ class GPUBrowserTest : public InProcessBrowserTest {
 #if defined(OS_MACOSX)
     // Accelerated compositing does not work with OSMesa. AcceleratedSurface
     // assumes GL contexts are native.
-    // command_line->AppendSwitch(switches::kDisableAcceleratedCompositing);
+    command_line->AppendSwitch(switches::kDisableAcceleratedCompositing);
 #endif
   }
 

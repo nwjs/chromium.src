@@ -874,7 +874,7 @@ void UITest::SetUp() {
 
   // Mac does not support accelerated compositing with OSMesa. Disable on all
   // platforms so it is consistent. http://crbug.com/58343
-  // launch_arguments_.AppendSwitch(switches::kDisableAcceleratedCompositing);
+  launch_arguments_.AppendSwitch(switches::kDisableAcceleratedCompositing);
 
   UITestBase::SetUp();
   PlatformTest::SetUp();

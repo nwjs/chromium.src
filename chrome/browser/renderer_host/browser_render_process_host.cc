@@ -612,7 +612,7 @@ void BrowserRenderProcessHost::PropagateBrowserCommandLineToRenderer(
     // This flag needs to be propagated to the renderer process for
     // --in-process-webgl.
     switches::kUseGL,
-    switches::kEnableAcceleratedCompositing,
+    switches::kDisableAcceleratedCompositing,
 #if defined(OS_MACOSX)
     // Allow this to be set when invoking the browser and relayed along.
     switches::kEnableSandboxLogging,

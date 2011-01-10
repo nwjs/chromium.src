@@ -23,7 +23,7 @@ class MediaTest : public UITest {
 #if defined(OS_MACOSX)
     // Accelerated compositing does not work with OSMesa. AcceleratedSurface
     // assumes GL contexts are native.
-    // launch_arguments_.AppendSwitch(switches::kDisableAcceleratedCompositing);
+    launch_arguments_.AppendSwitch(switches::kDisableAcceleratedCompositing);
 #endif
 
     UITest::SetUp();
