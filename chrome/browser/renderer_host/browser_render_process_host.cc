@@ -48,6 +48,7 @@
 #include "chrome/browser/renderer_host/render_widget_host.h"
 #include "chrome/browser/renderer_host/resource_message_filter.h"
 #include "chrome/browser/renderer_host/web_cache_manager.h"
+#include "chrome/browser/speech/speech_input_manager.h"
 #include "chrome/browser/spellcheck_host.h"
 #include "chrome/browser/metrics/user_metrics.h"
 #include "chrome/browser/visitedlink_master.h"
@@ -696,20 +697,8 @@ void BrowserRenderProcessHost::InitExtensions() {
 }
 
 void BrowserRenderProcessHost::InitSpeechInput() {
-  bool enabled = true;
-  const CommandLine& command_line = *CommandLine::ForCurrentProcess();
-
-  if (command_line.HasSwitch(switches::kDisableSpeechInput)) {
-    enabled = false;
-#if defined(GOOGLE_CHROME_BUILD)
-  } else if (!command_line.HasSwitch(switches::kEnableSpeechInput)) {
-    // Official Chrome builds don't have speech input enabled by default in the
-    // beta and stable channels.
-    enabled = false;
-#endif
-  }
-
-  Send(new ViewMsg_SpeechInput_SetFeatureEnabled(enabled));
+  Send(new ViewMsg_SpeechInput_SetFeatureEnabled(
+      speech_input::SpeechInputManager::IsFeatureEnabled()));
 }
 
 void BrowserRenderProcessHost::SendUserScriptsUpdate(
