@@ -183,6 +183,8 @@ const ConfigurationPolicyPrefStore::PolicyToPreferenceMapEntry
     prefs::kAuthNegotiateDelegateWhitelist },
   { Value::TYPE_STRING, kPolicyGSSAPILibraryName,
     prefs::kGSSAPILibraryName },
+  { Value::TYPE_BOOLEAN, kPolicyDisable3DAPIs,
+    prefs::kDisable3DAPIs },
 
 #if defined(OS_CHROMEOS)
   { Value::TYPE_BOOLEAN, kPolicyChromeOsLockOnIdleSuspend,
@@ -299,6 +301,8 @@ ConfigurationPolicyPrefStore::GetChromePolicyDefinitionList() {
       key::kAuthNegotiateDelegateWhitelist },
     { kPolicyGSSAPILibraryName, Value::TYPE_STRING,
       key::kGSSAPILibraryName },
+    { kPolicyDisable3DAPIs, Value::TYPE_BOOLEAN,
+      key::kDisable3DAPIs },
 
 
 #if defined(OS_CHROMEOS)
