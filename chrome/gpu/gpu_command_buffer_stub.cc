@@ -278,6 +278,11 @@ void GpuCommandBufferStub::OnAsyncGetState() {
 
 void GpuCommandBufferStub::OnFlush(int32 put_offset,
                                    gpu::CommandBuffer::State* state) {
+#if defined(OS_MACOSX)
+  // See comment in |DidDestroySurface()| in gpu_processor_mac.cc.
+  if (channel_->IsRenderViewGone(render_view_id_))
+    processor_->DidDestroySurface();
+#endif
   *state = command_buffer_->Flush(put_offset);
 }
 
@@ -350,9 +355,7 @@ void GpuCommandBufferStub::SwapBuffersCallback() {
   params.window = handle_;
   params.surface_id = processor_->GetSurfaceId();
   params.route_id = route_id();
-#if defined(OS_MACOSX)
   params.swap_buffers_count = processor_->swap_buffers_count();
-#endif
   gpu_thread->Send(new GpuHostMsg_AcceleratedSurfaceBuffersSwapped(params));
 }
 
