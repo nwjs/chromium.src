@@ -109,47 +109,27 @@ void JavaScriptAppModalDialog::OnCancel(bool suppress_js_messages) {
   // back to this one. The framework should be improved to handle this, so this
   // is a temporary workaround.
   CompleteDialog();
-
-  if (!skip_this_dialog_) {
-    delegate_->OnMessageBoxClosed(reply_msg_, false, std::wstring());
-    if (suppress_js_messages)
-      delegate_->SetSuppressMessageBoxes(true);
-  }
-
-  Cleanup();
+  UpdateDelegate(false, L"", suppress_js_messages);
 }
 
 void JavaScriptAppModalDialog::OnAccept(const std::wstring& prompt_text,
                                         bool suppress_js_messages) {
   CompleteDialog();
-
-  if (!skip_this_dialog_) {
-    delegate_->OnMessageBoxClosed(reply_msg_, true, prompt_text);
-    if (suppress_js_messages)
-      delegate_->SetSuppressMessageBoxes(true);
-  }
-
-  Cleanup();
+  UpdateDelegate(true, prompt_text, suppress_js_messages);
 }
 
 void JavaScriptAppModalDialog::OnClose() {
-  Cleanup();
+  // Should we be handling suppress here too? See crbug.com/65008.
+  UpdateDelegate(false, L"", false);
 }
 
-void JavaScriptAppModalDialog::Cleanup() {
-  if (skip_this_dialog_) {
-    // We can't use the |delegate_|, because we might be in the process of
-    // destroying it.
-    if (tab_contents_)
-      tab_contents_->OnMessageBoxClosed(reply_msg_, false, L"");
-// The extension_host_ will always be a dirty pointer on OS X because the alert
-// window will cause the extension popup to close since it is resigning its key
-// state, destroying the host. http://crbug.com/29355
-#if !defined(OS_MACOSX)
-    else if (extension_host_)
-      extension_host_->OnMessageBoxClosed(reply_msg_, false, L"");
-    else
-      NOTREACHED();
-#endif
-  }
+void JavaScriptAppModalDialog::UpdateDelegate(bool success,
+                                              const std::wstring& prompt_text,
+                                              bool suppress_js_messages) {
+  if (skip_this_dialog_)
+    return;
+
+  delegate_->OnMessageBoxClosed(reply_msg_, success, prompt_text);
+  if (suppress_js_messages)
+    delegate_->SetSuppressMessageBoxes(true);
 }
