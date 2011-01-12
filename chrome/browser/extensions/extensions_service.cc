@@ -548,7 +548,8 @@ ExtensionsService::ExtensionsService(Profile* profile,
       show_extensions_prompts_(true),
       ready_(false),
       ALLOW_THIS_IN_INITIALIZER_LIST(toolbar_model_(this)),
-      default_apps_(profile->GetPrefs()),
+      default_apps_(profile->GetPrefs(),
+                    g_browser_process->GetApplicationLocale()),
       event_routers_initialized_(false) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 

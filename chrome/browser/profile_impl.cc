@@ -399,20 +399,16 @@ void ProfileImpl::RegisterComponentExtensions() {
 }
 
 void ProfileImpl::InstallDefaultApps() {
-  // The web store only supports en-US at the moment, so we don't install
-  // default apps in other locales.
-  if (g_browser_process->GetApplicationLocale() != "en-US")
+  ExtensionsService* extension_service = GetExtensionsService();
+  DefaultApps* default_apps = extension_service->default_apps();
+
+  if (!default_apps->ShouldInstallDefaultApps(extension_service->GetAppIds()))
     return;
 
-  ExtensionsService* extensions_service = GetExtensionsService();
-  const ExtensionIdSet* app_ids =
-      extensions_service->default_apps()->GetAppsToInstall();
-  if (!app_ids)
-    return;
-
-  for (ExtensionIdSet::const_iterator iter = app_ids->begin();
-       iter != app_ids->end(); ++iter) {
-    extensions_service->AddPendingExtensionFromDefaultAppList(*iter);
+  const ExtensionIdSet& app_ids = default_apps->default_apps();
+  for (ExtensionIdSet::const_iterator iter = app_ids.begin();
+       iter != app_ids.end(); ++iter) {
+    extension_service->AddPendingExtensionFromDefaultAppList(*iter);
   }
 }
 
