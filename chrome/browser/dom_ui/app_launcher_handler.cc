@@ -132,7 +132,7 @@ bool AppLauncherHandler::HandlePing(Profile* profile, const std::string& path) {
     RecordAppLaunch(is_promo_active);
 
   if (is_promo_active)
-    profile->GetExtensionService()->default_apps()->SetPromoHidden();
+    profile->GetExtensionsService()->default_apps()->SetPromoHidden();
 
   return true;
 }
