@@ -10,6 +10,8 @@
 #include <wtypes.h>
 #include "base/basictypes.h"
 
+struct ICeeeBrokerRegistrar;
+
 // Interface for sending events.
 class IEventSender {
  public:
@@ -52,6 +54,10 @@ class BrokerRpcClient : public IEventSender {
                                        int bucket_count);
   // @}
 
+ protected:
+  // Starts ceee broker process. This is unittest seam.
+  virtual HRESULT StartServer(ICeeeBrokerRegistrar** server);
+
  private:
   void LockContext();
   void ReleaseContext();
@@ -62,5 +68,7 @@ class BrokerRpcClient : public IEventSender {
   void* context_;
   DISALLOW_COPY_AND_ASSIGN(BrokerRpcClient);
 };
+
+HRESULT StartCeeeBroker(ICeeeBrokerRegistrar** broker);
 
 #endif  // CEEE_IE_BROKER_BROKER_RPC_CLIENT_H_

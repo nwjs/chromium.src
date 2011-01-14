@@ -12,15 +12,16 @@
 #include "base/debug/trace_event.h"
 #include "base/logging.h"
 #include "base/logging_win.h"
+#include "ceee/common/com_utils.h"
 #include "ceee/ie/broker/broker.h"
 #include "ceee/ie/broker/broker_rpc_server.h"
 #include "ceee/ie/broker/chrome_postman.h"
 #include "ceee/ie/broker/executors_manager.h"
 #include "ceee/ie/broker/resource.h"
 #include "ceee/ie/broker/window_events_funnel.h"
-#include "ceee/ie/plugin/toolband/toolband_proxy.h"
+#include "ceee/ie/common/ceee_module_util.h"
 #include "ceee/ie/common/crash_reporter.h"
-#include "ceee/common/com_utils.h"
+#include "ceee/ie/plugin/toolband/toolband_proxy.h"
 #include "chrome/common/url_constants.h"
 #include "chrome_frame/metrics_service.h"
 
@@ -214,7 +215,11 @@ CeeeBrokerModule::~CeeeBrokerModule() {
 }
 
 HRESULT WINAPI CeeeBrokerModule::UpdateRegistryAppId(BOOL reg) throw() {
-  return com::ModuleRegistrationWithoutAppid(IDR_BROKER_MODULE, reg);
+  HRESULT hr = com::ModuleRegistrationWithoutAppid(IDR_BROKER_MODULE, reg);
+  if (SUCCEEDED(hr)) {
+    ceee_module_util::RefreshElevationPolicyIfNeeded();
+  }
+  return hr;
 }
 
 namespace ceee_module_util {

@@ -7,15 +7,22 @@
 #include "ceee/ie/broker/broker_rpc_client.h"
 
 #include <atlbase.h>
+
 #include "base/lock.h"
 #include "base/logging.h"
 #include "base/win/scoped_comptr.h"
-#include "broker_lib.h"  // NOLINT
-#include "broker_rpc_lib.h"  // NOLINT
 #include "ceee/common/com_utils.h"
 #include "ceee/ie/broker/broker_rpc_utils.h"
+#include "ceee/ie/common/ceee_module_util.h"
 
-BrokerRpcClient::BrokerRpcClient() : context_(0), binding_handle_(NULL) {
+#include "broker_lib.h"  // NOLINT
+#include "broker_rpc_lib.h"  // NOLINT
+
+namespace {
+
+// Avoid using objects requiring unwind in functions that use __try.
+void LogRpcException(const char* str, unsigned int exception_code) {
+  LOG(ERROR) << str << com::LogWe(exception_code);
 }
 
 BrokerRpcClient::~BrokerRpcClient() {
@@ -56,6 +63,10 @@ void BrokerRpcClient::ReleaseContext() {
   } RpcExcept(HandleRpcException(RpcExceptionCode())) {
     LogRpcException("RPC error in ReleaseContext", RpcExceptionCode());
   } RpcEndExcept
+}
+
+HRESULT BrokerRpcClient::StartServer(ICeeeBrokerRegistrar** server) {
+  return StartCeeeBroker(server);
 }
 
 HRESULT BrokerRpcClient::Connect(bool start_server) {
@@ -160,4 +171,18 @@ HRESULT BrokerRpcClient::SendUmaHistogramData(const char* name,
     LogRpcException("RPC error in SendUmaHistogramData", RpcExceptionCode());
     return RPC_E_FAULT;
   } RpcEndExcept
+}
+
+HRESULT StartCeeeBroker(ICeeeBrokerRegistrar** broker) {
+  ceee_module_util::RefreshElevationPolicyIfNeeded();
+  base::win::ScopedComPtr<ICeeeBrokerRegistrar> broker_tmp;
+  // TODO(vitalybuka@google.com): Start broker without COM after the last
+  // COM interface is removed.
+  HRESULT hr = broker_tmp.CreateInstance(CLSID_CeeeBroker);
+  if (FAILED(hr)) {
+    LOG(ERROR) << "Failed to create broker. " << com::LogHr(hr);
+    return hr;
+  }
+  *broker = broker_tmp.Detach();
+  return S_OK;
 }
