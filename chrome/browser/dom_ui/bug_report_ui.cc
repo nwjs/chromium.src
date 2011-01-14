@@ -196,6 +196,7 @@ void ShowHtmlBugReportView(NSWindow* window, Browser* browser) {
   if (feedback_tab_index >=0) {
     // Do not refresh screenshot, do not create a new tab
     browser->SelectTabContentsAt(feedback_tab_index, true);
+    return;
   }
 
   // now for refreshing the last screenshot
