@@ -43,10 +43,7 @@ int HandleRpcException(unsigned int rpc_exception_code) {
 
 }  // namespace
 
-BrokerRpcClient::BrokerRpcClient(bool allow_restarts)
-    : context_(0),
-      binding_handle_(NULL),
-      allow_restarts_(allow_restarts) {
+BrokerRpcClient::BrokerRpcClient() : context_(0), binding_handle_(NULL) {
 }
 
 BrokerRpcClient::~BrokerRpcClient() {
