@@ -25,10 +25,6 @@ void LogRpcException(const char* str, unsigned int exception_code) {
   LOG(ERROR) << str << com::LogWe(exception_code);
 }
 
-BrokerRpcClient::~BrokerRpcClient() {
-  Disconnect();
-}
-
 int HandleRpcException(unsigned int rpc_exception_code) {
   switch (rpc_exception_code) {
     case STATUS_ACCESS_VIOLATION:
@@ -45,8 +41,16 @@ int HandleRpcException(unsigned int rpc_exception_code) {
   return EXCEPTION_EXECUTE_HANDLER;
 }
 
-static void LogRpcException(const char* str, unsigned int exception_code) {
-  LOG(ERROR) << str << com::LogWe(exception_code);
+}  // namespace
+
+BrokerRpcClient::BrokerRpcClient(bool allow_restarts)
+    : context_(0),
+      binding_handle_(NULL),
+      allow_restarts_(allow_restarts) {
+}
+
+BrokerRpcClient::~BrokerRpcClient() {
+  Disconnect();
 }
 
 void BrokerRpcClient::LockContext() {
