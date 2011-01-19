@@ -283,24 +283,17 @@ extern "C" {
 
 // Allocates memory from the host's memory space.
 void* NPN_MemAlloc(uint32_t size) {
-  scoped_refptr<NPAPI::PluginHost> host(NPAPI::PluginHost::Singleton());
-  if (host != NULL) {
-    // Note: We must use the same allocator/deallocator
-    // that is used by the javascript library, as some of the
-    // JS APIs will pass memory to the plugin which the plugin
-    // will attempt to free.
-    return malloc(size);
-  }
-  return NULL;
+  // Note: We must use the same allocator/deallocator
+  // that is used by the javascript library, as some of the
+  // JS APIs will pass memory to the plugin which the plugin
+  // will attempt to free.
+  return malloc(size);
 }
 
 // Deallocates memory from the host's memory space
 void NPN_MemFree(void* ptr) {
-  scoped_refptr<NPAPI::PluginHost> host(NPAPI::PluginHost::Singleton());
-  if (host != NULL) {
-    if (ptr != NULL && ptr != reinterpret_cast<void*>(-1))
-      free(ptr);
-  }
+  if (ptr != NULL && ptr != reinterpret_cast<void*>(-1))
+    free(ptr);
 }
 
 // Requests that the host free a specified amount of memory.
