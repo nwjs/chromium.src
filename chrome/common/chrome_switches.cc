@@ -238,9 +238,6 @@ const char kDisableHistoryQuickProvider[]   = "disable-history-quick-provider";
 // Disable the use of the HistoryURLProvider for autocomplete results.
 const char kDisableHistoryURLProvider[]   = "disable-history-url-provider";
 
-// Disable the Indexed Database API.
-const char kDisableIndexedDatabase[]         = "disable-indexed-database";
-
 // Disable the internal Flash Player.
 const char kDisableInternalFlash[]          = "disable-internal-flash";
 
@@ -481,6 +478,9 @@ const char kEnableFlashSandbox[]            = "enable-flash-sandbox";
 // allow support independent of application testing.
 // This flag overrides "disable-ipv6" which appears elswhere in this file.
 const char kEnableIPv6[]                    = "enable-ipv6";
+
+// Enable the Indexed Database API.
+const char kEnableIndexedDatabase[]         = "enable-indexed-database";
 
 // Enable the GPU plugin and Pepper 3D rendering.
 const char kEnableGPUPlugin[]               = "enable-gpu-plugin";
