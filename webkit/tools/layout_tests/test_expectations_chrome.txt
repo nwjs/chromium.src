@@ -772,4 +772,3 @@ BUG_OFFICIALGOGREENBRANCH LINUX : css1/box_properties/acid_test.html = IMAGE
 BUG_OFFICIALGOGREENBRANCH LINUX : fast/block/basic/011.html = IMAGE
 BUG_OFFICIALGOGREENBRANCH LINUX : fast/dom/HTMLProgressElement/progress-element.html = IMAGE
 BUG_OFFICIALGOGREENBRANCH LINUX : svg/custom/use-referencing-nonexisting-symbol.svg = IMAGE
-
