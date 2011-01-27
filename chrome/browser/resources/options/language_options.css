@@ -168,3 +168,7 @@ html[os=chromeos] #add-language-overlay-page ul {
   width: 100px;
   height: 30%;
 }
+
+#add-language-overlay-page .content-area {
+  padding-bottom: 10px;
+}
