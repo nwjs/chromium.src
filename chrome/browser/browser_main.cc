@@ -432,7 +432,7 @@ void BrowserMainParts::PrefetchFieldTrial() {
     ResourceDispatcherHost::set_is_prefetch_enabled(false);
   } else {
     const base::FieldTrial::Probability kPrefetchDivisor = 1000;
-    const base::FieldTrial::Probability no_prefetch_probability = 500;
+    const base::FieldTrial::Probability no_prefetch_probability = 970;
     // After June 30, 2011 builds, it will always be in default group.
     scoped_refptr<base::FieldTrial> trial(
         new base::FieldTrial("Prefetch", kPrefetchDivisor,
