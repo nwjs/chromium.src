@@ -686,6 +686,20 @@ void Browser::OpenOptionsWindow(Profile* profile) {
   browser->ShowOptionsTab(chrome::kDefaultOptionsSubPage);
   browser->window()->Show();
 }
+
+// static
+void Browser::OpenClearBrowingDataDialogWindow(Profile* profile) {
+  Browser* browser = Browser::Create(profile);
+  browser->OpenClearBrowsingDataDialog();
+  browser->window()->Show();
+}
+
+// static
+void Browser::OpenImportSettingsDialogWindow(Profile* profile) {
+  Browser* browser = Browser::Create(profile);
+  browser->OpenImportSettingsDialog();
+  browser->window()->Show();
+}
 #endif
 
 // static
@@ -1844,7 +1858,7 @@ void Browser::OpenImportSettingsDialog() {
 
 void Browser::OpenSyncMyBookmarksDialog() {
   sync_ui_util::OpenSyncMyBookmarksDialog(
-      profile_, ProfileSyncService::START_FROM_WRENCH);
+      profile_, this, ProfileSyncService::START_FROM_WRENCH);
 }
 
 void Browser::OpenAboutChromeDialog() {
