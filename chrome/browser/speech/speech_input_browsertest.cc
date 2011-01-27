@@ -175,7 +175,7 @@ SpeechInputManager* SpeechInputBrowserTest::speech_input_manager_ = NULL;
 // another test here to check that when speech recognition is in progress and
 // a renderer crashes, we get a call to
 // SpeechInputManager::CancelAllRequestsWithDelegate.
-#if defined(OS_WIN)
+#if defined(OS_WIN) || defined(GOOGLE_CHROME_BUILD)
 #define MAYBE_TestBasicRecognition FLAKY_TestBasicRecognition
 #else
 #define MAYBE_TestBasicRecognition TestBasicRecognition
@@ -186,7 +186,7 @@ IN_PROC_BROWSER_TEST_F(SpeechInputBrowserTest, MAYBE_TestBasicRecognition) {
 }
 
 // Marked as FLAKY due to http://crbug.com/51337
-#if defined(OS_WIN)
+#if defined(OS_WIN) || defined(GOOGLE_CHROME_BUILD)
 #define MAYBE_GrammarAttribute FLAKY_GrammarAttribute
 #else
 #define MAYBE_GrammarAttribute GrammarAttribute
