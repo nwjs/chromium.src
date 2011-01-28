@@ -731,6 +731,7 @@ void BrowserRenderProcessHost::PropagateBrowserCommandLineToRenderer(
     switches::kEnableCrxlessWebApps,
     switches::kDisable3DAPIs,
     switches::kEnableInBrowserThumbnailing,
+    switches::kEnableWebAudio,
   };
   renderer_cmd->CopySwitchesFrom(browser_cmd, kSwitchNames,
                                  arraysize(kSwitchNames));
