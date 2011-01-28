@@ -366,7 +366,7 @@ void ResourceDispatcherHost::BeginRequest(
   int child_id = filter_->child_id();
 
   ChromeURLRequestContext* context = filter_->GetURLRequestContext(
-      request_id, request_data.resource_type);
+      request_data);
 
   CheckContextForBug68766(context);
 
