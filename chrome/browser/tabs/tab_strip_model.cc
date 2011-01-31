@@ -168,10 +168,10 @@ void TabStripModel::InsertTabContentsAt(int index,
 TabContentsWrapper* TabStripModel::ReplaceTabContentsAt(
     int index,
     TabContentsWrapper* new_contents) {
-  // TODO: this should reset group/opener of any tabs that point at
-  // old_contents.
   DCHECK(ContainsIndex(index));
   TabContentsWrapper* old_contents = GetContentsAt(index);
+
+  ForgetOpenersAndGroupsReferencing(&(old_contents->controller()));
 
   contents_data_[index]->contents = new_contents;
 
@@ -212,6 +212,7 @@ TabContentsWrapper* TabStripModel::DetachTabContentsAt(int index) {
   int next_selected_index = order_controller_->DetermineNewSelectedIndex(index);
   delete contents_data_.at(index);
   contents_data_.erase(contents_data_.begin() + index);
+  ForgetOpenersAndGroupsReferencing(&(removed_contents->controller()));
   if (empty())
     closing_all_ = true;
   FOR_EACH_OBSERVER(TabStripModelObserver, observers_,
@@ -1009,4 +1010,15 @@ bool TabStripModel::OpenerMatches(const TabContentsData* data,
                                   const NavigationController* opener,
                                   bool use_group) {
   return data->opener == opener || (use_group && data->group == opener);
+}
+
+void TabStripModel::ForgetOpenersAndGroupsReferencing(
+    const NavigationController* tab) {
+  for (TabContentsDataVector::const_iterator i = contents_data_.begin();
+       i != contents_data_.end(); ++i) {
+    if ((*i)->group == tab)
+      (*i)->group = NULL;
+    if ((*i)->opener == tab)
+      (*i)->opener = NULL;
+  }
 }
