@@ -72,7 +72,7 @@ TEST_F(MetricsServiceTest, CloseRenderersNormally) {
   EXPECT_EQ(0, local_state->GetInteger(prefs::kStabilityRendererCrashCount));
 }
 
-TEST_F(MetricsServiceTest, CrashRenderers) {
+TEST_F(MetricsServiceTest, DISABLED_CrashRenderers) {
   // This doesn't make sense to test in single process mode.
   if (ProxyLauncher::in_process_renderer())
     return;
@@ -96,10 +96,6 @@ TEST_F(MetricsServiceTest, CrashRenderers) {
     defined(GOOGLE_CHROME_BUILD)
     expected_crashes_ = 1;
 #endif
-#if defined(OS_MAC)
-    expected_crashes_ = 0;
-#endif
-
 
     ASSERT_TRUE(tab->NavigateToURLAsync(GURL(chrome::kAboutCrashURL)));
   }
