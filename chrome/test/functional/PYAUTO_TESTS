@@ -62,6 +62,7 @@
       'passwords',
       'pdf',
       'plugins',
+      '-plugins.PluginsTest.testBlockPluginException',  # crbug.com/71617
       'popups',
       'prefs',
       'search_engines',
