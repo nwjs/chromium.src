@@ -324,7 +324,7 @@ bool OutdatedPluginInfoBar::Cancel() {
   UserMetrics::RecordAction(
       UserMetricsAction("OutdatedPluginInfobar.AllowThisTime"));
   tab_contents_->render_view_host()->LoadBlockedPlugins();
-  return false;
+  return true;
 }
 
 string16 OutdatedPluginInfoBar::GetLinkText() {
