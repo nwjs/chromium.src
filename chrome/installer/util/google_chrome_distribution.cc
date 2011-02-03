@@ -46,14 +46,14 @@ const wchar_t kBrowserAppId[] = L"Chrome";
 // The following strings are the possible outcomes of the toast experiment
 // as recorded in the  |client| field. Previously the groups used "TSxx" but
 // the data captured is not valid.
-const wchar_t kToastExpControlGroup[] =      L"T%lc01";
-const wchar_t kToastExpCancelGroup[] =       L"T%lc02";
-const wchar_t kToastExpUninstallGroup[] =    L"T%lc04";
-const wchar_t kToastExpTriesOkGroup[] =      L"T%lc18";
-const wchar_t kToastExpTriesErrorGroup[] =   L"T%lc28";
-const wchar_t kToastActiveGroup[] =          L"T%lc40";
-const wchar_t kToastUDDirFailure[] =         L"T%lc40";
-const wchar_t kToastExpBaseGroup[] =         L"T%lc80";
+const wchar_t kToastExpControlGroup[] =      L"S%lc01";
+const wchar_t kToastExpCancelGroup[] =       L"S%lc02";
+const wchar_t kToastExpUninstallGroup[] =    L"S%lc04";
+const wchar_t kToastExpTriesOkGroup[] =      L"S%lc18";
+const wchar_t kToastExpTriesErrorGroup[] =   L"S%lc28";
+const wchar_t kToastActiveGroup[] =          L"S%lc40";
+const wchar_t kToastUDDirFailure[] =         L"S%lc40";
+const wchar_t kToastExpBaseGroup[] =         L"S%lc80";
 
 // Generates the actual group string that gets written in the registry.
 // |group| is one of the above kToast* strings and |flavor| is a number
@@ -62,9 +62,10 @@ const wchar_t kToastExpBaseGroup[] =         L"T%lc80";
 // The big experiment in Dec 2009 used TGxx and THxx.
 // The big experiment in Feb 2010 used TKxx and TLxx.
 // The big experiment in Apr 2010 used TMxx and TNxx.
-// The big experiment in Oct 2010 (current) uses TVxx TWxx TXxx TYxx.
+// The big experiment in Oct 2010 used TVxx TWxx TXxx TYxx.
+// The Japan experiment in Feb 2011 uses S{J,K,L,M}xx
 std::wstring GetExperimentGroup(const wchar_t* group, int flavor) {
-  wchar_t c = flavor < 4 ? L'V' + flavor : L'Z';
+  wchar_t c = flavor < 3 ? L'J' + flavor : L'M';
   return StringPrintf(group, c);
 }
 
@@ -573,11 +574,13 @@ void GoogleChromeDistribution::LaunchUserExperiment(
   }
 
   // This ends up being processed by ShowTryChromeDialog to show different
-  // experiments.  Only run the experiment in en-US.
-  int flavor = 0;
+  // experiments.  Use flavor 2 for everyone but Japanese.
+  int flavor = 2;
   std::wstring language;
-  if (GoogleUpdateSettings::GetLanguage(&language) && (language == L"en-US"))
-    flavor = base::RandInt(0, 3);
+  if (GoogleUpdateSettings::GetLanguage(&language) &&
+      language == L"ja") {
+      flavor = base::RandInt(0, 2);
+  }
 
   std::wstring brand;
   if (GoogleUpdateSettings::GetBrand(&brand) && (brand == L"CHXX")) {
@@ -587,10 +590,14 @@ void GoogleChromeDistribution::LaunchUserExperiment(
     // Check browser usage inactivity by the age of the last-write time of the
     // chrome user data directory.
     std::wstring user_data_dir = installer::GetChromeUserDataPath();
-    // TODO(cpu): re-enable experiment.
-    const int kThirtyDays = 3000 * 24;
+    const bool experiment_enabled = true;
+    const int kThirtyDays = 30 * 24;
+
     int dir_age_hours = GetDirectoryWriteAgeInHours(user_data_dir.c_str());
-    if (dir_age_hours < 0) {
+    if (!experiment_enabled) {
+      VLOG(1) << "Toast experiment is disabled.";
+      return;
+    } else if (dir_age_hours < 0) {
       // This means that we failed to find the user data dir. The most likely
       // cause is that this user has not ever used chrome at all which can
       // happen in a system-level install.
