@@ -205,7 +205,7 @@ cr.define('options', function() {
         }
       }
       this.updateSelectedLanguageName_(languageCode);
-      if (!cr.isMac)
+      if (cr.isWindows || cr.isChromeOS)
         this.updateUiLanguageButton_(languageCode);
       this.updateSpellCheckLanguageButton_(languageCode);
       if (cr.isChromeOS)
