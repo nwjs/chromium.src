@@ -63,11 +63,18 @@ PRUNE_PATHS = set([
     # Used for development and test, not in the shipping product.
     os.path.join('third_party','cygwin'),
     os.path.join('third_party','lighttpd'),
-    # Filed http://code.google.com/p/nativeclient/issues/detail?id=1323
-    # to get clarification about using mingw-w64 from NaCl in Chromium:
     os.path.join('third_party','mingw-w64'),
     os.path.join('third_party','pefile'),
     os.path.join('third_party','python_26'),
+
+    # Stuff pulled in from chrome-internal for official builds/tools.
+    os.path.join('third_party', 'clear_cache'),
+    os.path.join('third_party', 'gnu'),
+    os.path.join('third_party', 'googlemac'),
+    os.path.join('third_party', 'pcre'),
+    os.path.join('third_party', 'psutils'),
+    os.path.join('third_party', 'py'),
+    os.path.join('third_party', 'sawbuck'),
 
     # Redistribution does not require attribution in documentation.
     os.path.join('third_party','directxsdk'),
@@ -87,6 +94,12 @@ ADDITIONAL_PATHS = (
     # The directory with the word list for Chinese and Japanese segmentation
     # with different license terms than ICU.
     os.path.join('third_party','icu','source','data','brkitr'),
+    # A bit of a hack. In SPECIAL_CASES, we override all the fields for v8.core
+    # and v8.strongtalk, so these don't need to be (and aren't) actual 
+    # directories. This is just a way to insert two items into the list of 
+    # items to be processed.
+    os.path.join('v8.core'),
+    os.path.join('v8.strongtalk'),
 )
 
 
@@ -125,13 +138,22 @@ SPECIAL_CASES = {
         "URL": "http://code.google.com/p/google-toolbox-for-mac/",
         "License File": "COPYING",
     },
-    # Filed issue pdfsqueeze:2 with dmaclach to get an honest LICESNE
-    # file in the pdfsqueeze repo.
-    # pdfsqueeze is Apache Licensed, reuse the same file from GTM:
     os.path.join('third_party', 'pdfsqueeze'): {
         "Name": "pdfsqueeze",
         "URL": "http://code.google.com/p/pdfsqueeze/",
-        "License File": os.path.join('..','GTM','COPYING'),
+        "License File": "COPYING",
+    },
+    # v8.core and v8.strongtalk aren't directories. We just want to include
+    # two LICENSE files without having to create empty directories to hold them.
+    os.path.join('v8.core'): {
+        "Name": "V8 JavaScript Engine",
+        "URL": "http://code.google.com/p/v8/",
+        "License File": "/v8/LICENSE.v8",
+    },
+    os.path.join('v8.strongtalk'): {
+        "Name": "Strongtalk",
+        "URL": "http://www.strongtalk.org/",
+        "License File": "/v8/LICENSE.strongtalk",
     },
 }
 
