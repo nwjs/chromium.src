@@ -590,7 +590,7 @@ void GoogleChromeDistribution::LaunchUserExperiment(
     // Check browser usage inactivity by the age of the last-write time of the
     // chrome user data directory.
     std::wstring user_data_dir = installer::GetChromeUserDataPath();
-    const bool experiment_enabled = true;
+    const bool experiment_enabled = false;
     const int kThirtyDays = 30 * 24;
 
     int dir_age_hours = GetDirectoryWriteAgeInHours(user_data_dir.c_str());
