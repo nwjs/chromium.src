@@ -523,6 +523,18 @@ TEST_F(PersonalDataManagerTest, ImportFormData) {
   autofill_test::CreateTestFormField(
       "Email:", "email", "theprez@gmail.com", "text", &field);
   form.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "Address:", "address1", "21 Laussat St", "text", &field);
+  form.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "City:", "city", "San Francisco", "text", &field);
+  form.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "State:", "state", "California", "text", &field);
+  form.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "Zip:", "zip", "94102", "text", &field);
+  form.fields.push_back(field);
   FormStructure form_structure(form);
   std::vector<const FormStructure*> forms;
   forms.push_back(&form_structure);
@@ -536,8 +548,8 @@ TEST_F(PersonalDataManagerTest, ImportFormData) {
 
   AutoFillProfile expected;
   autofill_test::SetProfileInfo(&expected, NULL, "George", NULL,
-      "Washington", "theprez@gmail.com", NULL, NULL, NULL, NULL, NULL, NULL,
-      NULL, NULL, NULL);
+      "Washington", "theprez@gmail.com", NULL, "21 Laussat St", NULL,
+      "San Francisco", "California", "94102", NULL, NULL, NULL);
   const std::vector<AutoFillProfile*>& results = personal_data_->profiles();
   ASSERT_EQ(1U, results.size());
   EXPECT_EQ(0, expected.Compare(*results[0]));
@@ -592,6 +604,18 @@ TEST_F(PersonalDataManagerTest, ImportPhoneNumberSplitAcrossMultipleFields) {
       "Phone #:", "home_phone_suffix", "0000", "text", &field);
   field.set_max_length(4);
   form.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "Address:", "address1", "21 Laussat St", "text", &field);
+  form.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "City:", "city", "San Francisco", "text", &field);
+  form.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "State:", "state", "California", "text", &field);
+  form.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "Zip:", "zip", "94102", "text", &field);
+  form.fields.push_back(field);
   FormStructure form_structure(form);
   std::vector<const FormStructure*> forms;
   forms.push_back(&form_structure);
@@ -604,8 +628,9 @@ TEST_F(PersonalDataManagerTest, ImportPhoneNumberSplitAcrossMultipleFields) {
   MessageLoop::current()->Run();
 
   AutoFillProfile expected;
-  autofill_test::SetProfileInfo(&expected, NULL, "George", NULL, "Washington",
-      NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, "6505550000", NULL);
+  autofill_test::SetProfileInfo(&expected, NULL, "George", NULL,
+      "Washington", NULL, NULL, "21 Laussat St", NULL,
+      "San Francisco", "California", "94102", NULL, "6505550000", NULL);
   const std::vector<AutoFillProfile*>& results = personal_data_->profiles();
   ASSERT_EQ(1U, results.size());
   EXPECT_EQ(0, expected.Compare(*results[0]));
@@ -684,6 +709,18 @@ TEST_F(PersonalDataManagerTest, AggregateTwoDifferentProfiles) {
   autofill_test::CreateTestFormField(
       "Email:", "email", "theprez@gmail.com", "text", &field);
   form1.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "Address:", "address1", "21 Laussat St", "text", &field);
+  form1.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "City:", "city", "San Francisco", "text", &field);
+  form1.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "State:", "state", "California", "text", &field);
+  form1.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "Zip:", "zip", "94102", "text", &field);
+  form1.fields.push_back(field);
 
   FormStructure form_structure1(form1);
   std::vector<const FormStructure*> forms;
@@ -698,8 +735,8 @@ TEST_F(PersonalDataManagerTest, AggregateTwoDifferentProfiles) {
 
   AutoFillProfile expected;
   autofill_test::SetProfileInfo(&expected, NULL, "George", NULL,
-      "Washington", "theprez@gmail.com", NULL, NULL, NULL, NULL, NULL, NULL,
-      NULL, NULL, NULL);
+      "Washington", "theprez@gmail.com", NULL, "21 Laussat St", NULL,
+      "San Francisco", "California", "94102", NULL, NULL, NULL);
   const std::vector<AutoFillProfile*>& results1 = personal_data_->profiles();
   ASSERT_EQ(1U, results1.size());
   EXPECT_EQ(0, expected.Compare(*results1[0]));
@@ -714,6 +751,18 @@ TEST_F(PersonalDataManagerTest, AggregateTwoDifferentProfiles) {
   form2.fields.push_back(field);
   autofill_test::CreateTestFormField(
       "Email:", "email", "second@gmail.com", "text", &field);
+  form2.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "Address:", "address1", "21 Laussat St", "text", &field);
+  form2.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "City:", "city", "San Francisco", "text", &field);
+  form2.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "State:", "state", "California", "text", &field);
+  form2.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "Zip:", "zip", "94102", "text", &field);
   form2.fields.push_back(field);
 
   FormStructure form_structure2(form2);
@@ -731,8 +780,8 @@ TEST_F(PersonalDataManagerTest, AggregateTwoDifferentProfiles) {
 
   AutoFillProfile expected2;
   autofill_test::SetProfileInfo(&expected2, NULL, "John", NULL,
-      "Adams", "second@gmail.com", NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-      NULL, NULL);
+      "Adams", "second@gmail.com", NULL, "21 Laussat St", NULL,
+      "San Francisco", "California", "94102", NULL, NULL, NULL);
   ASSERT_EQ(2U, results2.size());
   EXPECT_EQ(0, expected.Compare(*results2[0]));
   EXPECT_EQ(0, expected2.Compare(*results2[1]));
@@ -752,6 +801,15 @@ TEST_F(PersonalDataManagerTest, AggregateSameProfileWithConflict) {
   form1.fields.push_back(field);
   autofill_test::CreateTestFormField(
       "Address Line 2:", "address2", "Suite A", "text", &field);
+  form1.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "City:", "city", "San Francisco", "text", &field);
+  form1.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "State:", "state", "California", "text", &field);
+  form1.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "Zip:", "zip", "94102", "text", &field);
   form1.fields.push_back(field);
   autofill_test::CreateTestFormField(
       "Email:", "email", "theprez@gmail.com", "text", &field);
@@ -775,7 +833,8 @@ TEST_F(PersonalDataManagerTest, AggregateSameProfileWithConflict) {
   AutoFillProfile expected;
   autofill_test::SetProfileInfo(&expected, NULL, "George", NULL,
       "Washington", "theprez@gmail.com", NULL, "1600 Pennsylvania Avenue",
-      "Suite A", NULL, NULL, NULL, NULL, "4445556666", NULL);
+      "Suite A", "San Francisco", "California", "94102", NULL, "4445556666",
+      NULL);
   const std::vector<AutoFillProfile*>& results1 = personal_data_->profiles();
   ASSERT_EQ(1U, results1.size());
   EXPECT_EQ(0, expected.Compare(*results1[0]));
@@ -793,6 +852,15 @@ TEST_F(PersonalDataManagerTest, AggregateSameProfileWithConflict) {
   form2.fields.push_back(field);
   autofill_test::CreateTestFormField(
       "Address Line 2:", "address2", "Suite A", "text", &field);
+  form2.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "City:", "city", "San Francisco", "text", &field);
+  form2.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "State:", "state", "California", "text", &field);
+  form2.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "Zip:", "zip", "94102", "text", &field);
   form2.fields.push_back(field);
   autofill_test::CreateTestFormField(
       "Email:", "email", "theprez@gmail.com", "text", &field);
@@ -822,7 +890,8 @@ TEST_F(PersonalDataManagerTest, AggregateSameProfileWithConflict) {
   AutoFillProfile expected2;
   autofill_test::SetProfileInfo(&expected2, NULL, "George", NULL,
       "Washington", "theprez@gmail.com", NULL, "1600 Pennsylvania Avenue",
-      "Suite A", NULL, NULL, NULL, "USA", "1231231234", NULL);
+      "Suite A", "San Francisco", "California", "94102", "USA", "1231231234",
+      NULL);
   ASSERT_EQ(1U, results2.size());
   EXPECT_EQ(0, expected2.Compare(*results2[0]));
 }
@@ -837,7 +906,16 @@ TEST_F(PersonalDataManagerTest, AggregateProfileWithMissingInfoInOld) {
       "Last name:", "last_name", "Washington", "text", &field);
   form1.fields.push_back(field);
   autofill_test::CreateTestFormField(
-      "Email:", "email", "theprez@gmail.com", "text", &field);
+      "Address Line 1:", "address", "190 High Street", "text", &field);
+  form1.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "City:", "city", "Philadelphia", "text", &field);
+  form1.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "State:", "state", "Pennsylvania", "text", &field);
+  form1.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "Zip:", "zipcode", "19106", "text", &field);
   form1.fields.push_back(field);
 
   FormStructure form_structure1(form1);
@@ -853,8 +931,8 @@ TEST_F(PersonalDataManagerTest, AggregateProfileWithMissingInfoInOld) {
 
   AutoFillProfile expected;
   autofill_test::SetProfileInfo(&expected, NULL, "George", NULL,
-      "Washington", "theprez@gmail.com", NULL, NULL, NULL, NULL, NULL, NULL,
-      NULL, NULL, NULL);
+      "Washington", NULL, NULL, "190 High Street", NULL,
+      "Philadelphia", "Pennsylvania", "19106", NULL, NULL, NULL);
   const std::vector<AutoFillProfile*>& results1 = personal_data_->profiles();
   ASSERT_EQ(1U, results1.size());
   EXPECT_EQ(0, expected.Compare(*results1[0]));
@@ -866,6 +944,9 @@ TEST_F(PersonalDataManagerTest, AggregateProfileWithMissingInfoInOld) {
   form2.fields.push_back(field);
   autofill_test::CreateTestFormField(
       "Last name:", "last_name", "Washington", "text", &field);
+  form2.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "Email:", "email", "theprez@gmail.com", "text", &field);
   form2.fields.push_back(field);
   autofill_test::CreateTestFormField(
       "Address Line 1:", "address", "190 High Street", "text", &field);
@@ -916,6 +997,18 @@ TEST_F(PersonalDataManagerTest, AggregateProfileWithMissingInfoInNew) {
   autofill_test::CreateTestFormField(
       "Email:", "email", "theprez@gmail.com", "text", &field);
   form1.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "Address Line 1:", "address", "190 High Street", "text", &field);
+  form1.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "City:", "city", "Philadelphia", "text", &field);
+  form1.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "State:", "state", "Pennsylvania", "text", &field);
+  form1.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "Zip:", "zipcode", "19106", "text", &field);
+  form1.fields.push_back(field);
 
   FormStructure form_structure1(form1);
   std::vector<const FormStructure*> forms;
@@ -930,8 +1023,8 @@ TEST_F(PersonalDataManagerTest, AggregateProfileWithMissingInfoInNew) {
 
   AutoFillProfile expected;
   autofill_test::SetProfileInfo(&expected, NULL, "George", NULL,
-      "Washington", "theprez@gmail.com", "Government", NULL, NULL, NULL, NULL,
-      NULL, NULL, NULL, NULL);
+      "Washington", "theprez@gmail.com", "Government", "190 High Street", NULL,
+      "Philadelphia", "Pennsylvania", "19106", NULL, NULL, NULL);
   const std::vector<AutoFillProfile*>& results1 = personal_data_->profiles();
   ASSERT_EQ(1U, results1.size());
   EXPECT_EQ(0, expected.Compare(*results1[0]));
@@ -947,6 +1040,18 @@ TEST_F(PersonalDataManagerTest, AggregateProfileWithMissingInfoInNew) {
   // Note missing Company field.
   autofill_test::CreateTestFormField(
       "Email:", "email", "theprez@gmail.com", "text", &field);
+  form2.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "Address Line 1:", "address", "190 High Street", "text", &field);
+  form2.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "City:", "city", "Philadelphia", "text", &field);
+  form2.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "State:", "state", "Pennsylvania", "text", &field);
+  form2.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "Zip:", "zipcode", "19106", "text", &field);
   form2.fields.push_back(field);
 
   FormStructure form_structure2(form2);
@@ -966,6 +1071,35 @@ TEST_F(PersonalDataManagerTest, AggregateProfileWithMissingInfoInNew) {
   ASSERT_EQ(1U, results2.size());
   EXPECT_EQ(0, expected.Compare(*results2[0]));
 }
+
+TEST_F(PersonalDataManagerTest, AggregateProfileWithInsufficientAddress) {
+  FormData form1;
+  webkit_glue::FormField field;
+  autofill_test::CreateTestFormField(
+      "First name:", "first_name", "George", "text", &field);
+  form1.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "Last name:", "last_name", "Washington", "text", &field);
+  form1.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "Company:", "company", "Government", "text", &field);
+  form1.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "Email:", "email", "theprez@gmail.com", "text", &field);
+  form1.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "Address Line 1:", "address", "190 High Street", "text", &field);
+  form1.fields.push_back(field);
+  autofill_test::CreateTestFormField(
+      "City:", "city", "Philadelphia", "text", &field);
+  form1.fields.push_back(field);
+
+  FormStructure form_structure1(form1);
+  std::vector<const FormStructure*> forms;
+  forms.push_back(&form_structure1);
+  EXPECT_FALSE(personal_data_->ImportFormData(forms));
+}
+
 
 TEST_F(PersonalDataManagerTest, AggregateTwoDifferentCreditCards) {
   FormData form1;
