@@ -1745,9 +1745,12 @@ void Browser::ToggleDevToolsWindow(DevToolsToggleAction action) {
       GetSelectedTabContentsWrapper()->render_view_host(), action);
 }
 
-void Browser::OpenTaskManager() {
+void Browser::OpenTaskManager(bool highlight_background_resources) {
   UserMetrics::RecordAction(UserMetricsAction("TaskManager"), profile_);
-  window_->ShowTaskManager();
+  if (highlight_background_resources)
+    window_->ShowBackgroundPages();
+  else
+    window_->ShowTaskManager();
 }
 
 void Browser::OpenBugReportDialog() {
@@ -2237,8 +2240,8 @@ void Browser::ExecuteCommandWithDisposition(
     case IDC_DEV_TOOLS_INSPECT:     ToggleDevToolsWindow(
                                         DEVTOOLS_TOGGLE_ACTION_INSPECT);
                                     break;
-    case IDC_TASK_MANAGER:          // fall through to OpenTaskManager().
-    case IDC_VIEW_BACKGROUND_PAGES: OpenTaskManager();                break;
+    case IDC_TASK_MANAGER:          OpenTaskManager(false);           break;
+    case IDC_VIEW_BACKGROUND_PAGES: OpenTaskManager(true);            break;
     case IDC_FEEDBACK:              OpenBugReportDialog();            break;
 
     case IDC_SHOW_BOOKMARK_BAR:     ToggleBookmarkBar();              break;
