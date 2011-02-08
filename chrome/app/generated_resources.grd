@@ -6507,7 +6507,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
           Settings
         </message>
       </if>
-      <if expr="os == 'darwin' or os == 'linux2' or os.find('bsd') != -1">
+      <if expr="not pp_ifdef('chromeos') and (os == 'darwin' or os == 'linux2' or os.find('bsd') != -1)">
         <message name="IDS_SETTINGS_TITLE" desc="Title for the settings tab.">
           Preferences
         </message>
