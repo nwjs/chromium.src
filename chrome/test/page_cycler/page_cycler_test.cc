@@ -594,7 +594,8 @@ PAGE_CYCLER_DATABASE_TESTS("pseudo-random-transactions",
 // Disabled in debug builds on Windows.
 // Bug http://code.google.com/p/chromium/issues/detail?id=67918
 #if !defined(OS_WIN) || defined(NDEBUG)
-PAGE_CYCLER_IDB_TESTS("basic_insert", BasicInsert);
+// kerz - disabling this test on 648, as we won't be supporting indexeddb in m10
+// PAGE_CYCLER_IDB_TESTS("basic_insert", BasicInsert);
 #endif
 
 }  // namespace
