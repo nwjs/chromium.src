@@ -387,6 +387,7 @@
 <translation id="2849936225196189499">مهمة</translation>
 <translation id="9001035236599590379">نوع MIME</translation>
 <translation id="5612754943696799373">هل تريد السماح بالتنزيل؟</translation>
+<translation id="1073286447082909762">&amp;فتح إطار في نافذة جديدة</translation>
 <translation id="692135145298539227">حذف</translation>
 <translation id="5515810278159179124">عدم السماح لأي موقع ويب بتتبع موقعي الفعلي</translation>
 <translation id="398967089780480076">الإجراء:</translation>
@@ -424,6 +425,7 @@
 <translation id="2232876851878324699">احتوى الملف على شهادة واحدة، لم يتم استيرادها:</translation>
 <translation id="1290691390430578691">تبديل إلى الوضع الإنجليزي</translation>
 <translation id="4481614464927987190">التشيكية</translation>
+<translation id="7335374713830044009">فتح الإطار في نافذة &amp;التصفح المتخفي</translation>
 <translation id="3586931643579894722">إخفاء التفاصيل</translation>
 <translation id="2011110593081822050">عامل الويب: <ph name="WORKER_NAME"/></translation>
 <translation id="3294437725009624529">ضيف</translation>
@@ -436,6 +438,7 @@
 <translation id="5052931449450949884">عرَض جهاز تسجيل الصوت خطأً.</translation>
 <translation id="8795916974678578410">نافذة جديدة</translation>
 <translation id="2733275712367076659">لديك شهادات تحدد هويتك من هذه المؤسسات:</translation>
+<translation id="4670078915797619688">الإبلاغ عن خطأ.</translation>
 <translation id="2515586267016047495">Alt</translation>
 <translation id="3798449238516105146">الإصدار</translation>
 <translation id="5764483294734785780">حف&amp;ظ ملف الصوت باسم...</translation>
@@ -1087,6 +1090,7 @@
 <translation id="1588343679702972132">طلب هذا الموقع تعريف نفسك باستخدام شهادة:</translation>
 <translation id="7211994749225247711">حذف...</translation>
 <translation id="2819994928625218237">&amp;لا توجد اقتراحات إملائية</translation>
+<translation id="4316305410440790958">فتح الإطار في &amp;علامة تبويب جديدة</translation>
 <translation id="9142623379911037913">هل تريد السماح للموقع <ph name="SITE"/> بعرض تنبيهات سطح المكتب؟</translation>
 <translation id="4196320913210960460">يمكنك إدارة الإضافات التي يتم تثبيتها من خلال النقر على الإضافات في القائمة &quot;أدوات&quot;.</translation>
 <translation id="9118804773997839291">توجد أدناه قائمة بجميع العناصر غير الآمنة في الصفحة. انقر على الرابط التشخيصي لمزيد من المعلومات عن سلسلة عنصر معيِّن.</translation>
@@ -1451,6 +1455,7 @@
 <translation id="5458214261780477893">Dvorak</translation>
 <translation id="1164369517022005061">عدد الساعات المتبقية: <ph name="NUMBER_DEFAULT"/></translation>
 <translation id="2214283295778284209"><ph name="SITE"/> غير متوفّر</translation>
+<translation id="7552620667503495646">فتح الإطار في علا&amp;مة تبويب جديدة</translation>
 <translation id="8755376271068075440">أ&amp;كبر</translation>
 <translation id="8187473050234053012">تمّ إبطال شهادة أمن الخادم!</translation>
 <translation id="7444983668544353857">تعطيل <ph name="NETWORKDEVICE"/></translation>
@@ -1729,6 +1734,7 @@
 <translation id="7221869452894271364">إعادة تحميل هذه الصفحة</translation>
 <translation id="6791443592650989371">حالة التنشيط:</translation>
 <translation id="4801257000660565496">إنشاء اختصارات للتطبيق</translation>
+<translation id="8646430701497924396">استخدام الإصدار 2.0 من SSL</translation>
 <translation id="6175314957787328458">المعرّف الفريد العمومي لنطاق Microsoft</translation>
 <translation id="8179976553408161302">مفتاح Enter</translation>
 <translation id="8261506727792406068">حذف</translation>
@@ -1736,6 +1742,7 @@
 <translation id="7422192691352527311">التفضيلات...</translation>
 <translation id="1823606533857384982">تخطيط لوحة المفاتيح البلجيكية</translation>
 <translation id="1375198122581997741">معلومات عن الإصدار</translation>
+<translation id="1474307029659222435">&amp;فتح الإطار في نافذة جديدة</translation>
 <translation id="2210910566085991858">تخطيط لوحة المفاتيح اليابانية</translation>
 <translation id="5976160379964388480">غير ذلك</translation>
 <translation id="1430915738399379752">طباعة</translation>
@@ -2223,6 +2230,7 @@
 <translation id="77999321721642562">بمرور الوقت، ستعرض المنطقة أدناه المواقع الثمانية الأكثر زيارة.</translation>
 <translation id="5864830997591220873">حجب كل ملفات تعريف الارتباط</translation>
 <translation id="7447718177945067973">تعذّر العثور على الخادم .</translation>
+<translation id="715468010956678290">فتح الإطار ف&amp;ي نافذة التصفح المتخفي</translation>
 <translation id="471800408830181311">أخفق إخراج المفتاح الخاص.</translation>
 <translation id="1273291576878293349">فتح جميع الإشارات في نافذة للتصفح المتخفي</translation>
 <translation id="1136857731359746145">السماح بتشغيل تطبيقات الويب المثبّتة في الخلفية عند بدء تشغيل النظام ومتابعة تشغيلها بعد إغلاق جميع النوافذ.</translation>
@@ -2327,7 +2335,6 @@
 <translation id="5826507051599432481">الاسم الشائع (CN)</translation>
 <translation id="4215444178533108414">انتهت إزالة العناصر</translation>
 <translation id="5154702632169343078">الموضوع</translation>
-<translation id="1080520132886514561">إخفاء هذه الرسالة</translation>
 <translation id="2273562597641264981">مشغّل الشبكة:</translation>
 <translation id="122082903575839559">خوارزمية التوقيع على الشهادة</translation>
 <translation id="7240120331469437312">الاسم البديل لصاحب الشهادة</translation>

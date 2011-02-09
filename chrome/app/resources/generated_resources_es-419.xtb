@@ -387,6 +387,7 @@
 <translation id="2849936225196189499">Crítico</translation>
 <translation id="9001035236599590379">Tipo MIME</translation>
 <translation id="5612754943696799373">¿Permitir descarga?</translation>
+<translation id="1073286447082909762">Abrir marco en una nueva &amp;ventana</translation>
 <translation id="692135145298539227">suprimir</translation>
 <translation id="5515810278159179124">No permitir que los sitios rastreen mi ubicación física</translation>
 <translation id="398967089780480076">Acción:</translation>
@@ -424,6 +425,7 @@
 <translation id="2232876851878324699">El archivo contenía un certificado que no fue importado:</translation>
 <translation id="1290691390430578691">Cambiar al modo inglés</translation>
 <translation id="4481614464927987190">Checo</translation>
+<translation id="7335374713830044009">Abrir el marco en una ventana de incó&amp;gnito</translation>
 <translation id="3586931643579894722">Ocultar detalles</translation>
 <translation id="2011110593081822050">Trabajador web: <ph name="WORKER_NAME"/></translation>
 <translation id="3294437725009624529">Invitado</translation>
@@ -436,6 +438,7 @@
 <translation id="5052931449450949884">El dispositivo para grabar audio arrojó un error.</translation>
 <translation id="8795916974678578410">Nueva ventana</translation>
 <translation id="2733275712367076659">Tienes certificados de esas organizaciones que te identifican:</translation>
+<translation id="4670078915797619688">Informar un error.</translation>
 <translation id="2515586267016047495">Alt</translation>
 <translation id="3798449238516105146">Versión</translation>
 <translation id="5764483294734785780">Guardar audio como...</translation>
@@ -1082,6 +1085,7 @@
 <translation id="1588343679702972132">Este sitio ha solicitado que te identifiques con un certificado:</translation>
 <translation id="7211994749225247711">Eliminar...</translation>
 <translation id="2819994928625218237">Si&amp;n sugerencias de ortografía</translation>
+<translation id="4316305410440790958">Abrir marco en una nueva pes&amp;taña</translation>
 <translation id="9142623379911037913">¿Permitir que <ph name="SITE"/> muestre las notificaciones de escritorio?</translation>
 <translation id="4196320913210960460">Puedes administrar tus extensiones instaladas haciendo clic en Extensiones en el menú Herramientas.</translation>
 <translation id="9118804773997839291">A continuación encontrarás una lista con todos los elementos peligrosos de la página. Haz clic en el vínculo de diagnóstico para obtener más información al respecto sobre un elemento determinado.</translation>
@@ -1446,6 +1450,7 @@
 <translation id="5458214261780477893">Dvorak</translation>
 <translation id="1164369517022005061">Faltan <ph name="NUMBER_DEFAULT"/> horas</translation>
 <translation id="2214283295778284209"><ph name="SITE"/> no está disponible.</translation>
+<translation id="7552620667503495646">Abrir el marco en una pes&amp;taña nueva</translation>
 <translation id="8755376271068075440">&amp;Mayor</translation>
 <translation id="8187473050234053012">El certificado de seguridad del servidor está revocado.</translation>
 <translation id="7444983668544353857">Inhabilitar <ph name="NETWORKDEVICE"/></translation>
@@ -1724,6 +1729,7 @@
 <translation id="7221869452894271364">Cargar esta página de nuevo</translation>
 <translation id="6791443592650989371">Estado de activación:</translation>
 <translation id="4801257000660565496">Crear accesos directos para las aplicaciones</translation>
+<translation id="8646430701497924396">Usar SSL 2.0</translation>
 <translation id="6175314957787328458">GUID de dominio de Microsoft</translation>
 <translation id="8179976553408161302">Intro</translation>
 <translation id="8261506727792406068">Eliminar</translation>
@@ -1731,6 +1737,7 @@
 <translation id="7422192691352527311">Preferencias...</translation>
 <translation id="1823606533857384982">Diseño de teclado belga</translation>
 <translation id="1375198122581997741">Acerca de la versión</translation>
+<translation id="1474307029659222435">Abrir el marco en una &amp;ventana nueva</translation>
 <translation id="2210910566085991858">Diseño de teclado japonés</translation>
 <translation id="5976160379964388480">Otros</translation>
 <translation id="1430915738399379752">Imprimir</translation>
@@ -2218,6 +2225,7 @@
 <translation id="77999321721642562">Con el tiempo el área a continuación mostrará tus ocho sitios más visitados.</translation>
 <translation id="5864830997591220873">Bloquear todas las cookies</translation>
 <translation id="7447718177945067973">No se ha encontrado el servidor.</translation>
+<translation id="715468010956678290">Abrir marco en una ventana de navegación de incó&amp;gnito</translation>
 <translation id="471800408830181311">Error al emitir clave privada.</translation>
 <translation id="1273291576878293349">Abrir todos los marcadores en una ventana de incógnito</translation>
 <translation id="1136857731359746145">Permite que las aplicaciones web instaladas se ejecuten en el fondo durante el inicio del sistema, y continúen ejecutándose luego de que se hayan cerrado todas las ventanas.</translation>
@@ -2322,7 +2330,6 @@
 <translation id="5826507051599432481">Nombre común (NC)</translation>
 <translation id="4215444178533108414">Finalizó la eliminación de elementos</translation>
 <translation id="5154702632169343078">Sujeto</translation>
-<translation id="1080520132886514561">Ocultar este mensaje</translation>
 <translation id="2273562597641264981">Operador:</translation>
 <translation id="122082903575839559">Algoritmo de firma del certificado</translation>
 <translation id="7240120331469437312">Nombre alternativo del sujeto del certificado</translation>

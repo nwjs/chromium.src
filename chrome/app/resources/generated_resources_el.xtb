@@ -388,6 +388,7 @@
 <translation id="2849936225196189499">Κρίσιμη</translation>
 <translation id="9001035236599590379">Τύπος MIME</translation>
 <translation id="5612754943696799373">Να επιτρέπεται η λήψη;</translation>
+<translation id="1073286447082909762">Άνοιγμα Πλαισίου σε Νέο &amp;Παράθυρο</translation>
 <translation id="692135145298539227">διαγραφή</translation>
 <translation id="5515810278159179124">Να μην επιτρέπεται σε κανέναν ιστότοπο να παρακολουθεί τη φυσική θέση μου</translation>
 <translation id="398967089780480076">Ενέργεια:</translation>
@@ -425,6 +426,7 @@
 <translation id="2232876851878324699">Το αρχείο περιείχε ένα πιστοποιητικό, το οποίο δεν εισάχθηκε: </translation>
 <translation id="1290691390430578691">Εναλλαγή σε λειτουργία Αγγλικών</translation>
 <translation id="4481614464927987190">Τσεχικά</translation>
+<translation id="7335374713830044009">Άνοιγμα Πλαισίου σε Παράθυρο Ανώ&amp;νυμης Περιήγησης</translation>
 <translation id="3586931643579894722">Απόκρυψη λεπτομερειών</translation>
 <translation id="2011110593081822050">Web Worker: <ph name="WORKER_NAME"/></translation>
 <translation id="3294437725009624529">Προσκεκλημένος</translation>
@@ -437,6 +439,7 @@
 <translation id="5052931449450949884">Προέκυψε σφάλμα στη συσκευή εγγραφής ήχου.</translation>
 <translation id="8795916974678578410">Νέο Παράθυρο</translation>
 <translation id="2733275712367076659">Διαθέτετε πιστοποιητικά από αυτούς τους οργανισμούς που σας προσδιορίζουν:</translation>
+<translation id="4670078915797619688">Αναφορά σφάλματος.</translation>
 <translation id="2515586267016047495">Alt</translation>
 <translation id="3798449238516105146">Έκδοση</translation>
 <translation id="5764483294734785780">Αποθή&amp;κευση ήχου ως...</translation>
@@ -1085,6 +1088,7 @@
 <translation id="1588343679702972132">Αυτός ο ιστότοπος ζητά από εσάς ταυτοποίηση με πιστοποιητικό:</translation>
 <translation id="7211994749225247711">Διαγραφή...</translation>
 <translation id="2819994928625218237">&amp;Καμία Πρόταση για το Ορθογραφικό Σφάλμα</translation>
+<translation id="4316305410440790958">Άνοιγμα Πλαισίου σε Νέα &amp;Καρτέλα</translation>
 <translation id="9142623379911037913">Να επιτρέπεται στον ιστότοπο <ph name="SITE"/> να εμφανίζει ειδοποιήσεις στην επιφάνεια εργασίας;</translation>
 <translation id="4196320913210960460">Μπορείτε να διαχειρίζεστε τις εγκατεστημένες επεκτάσεις σας κάνοντας κλικ στην επιλογή Επεκτάσεις στο μενού Εργαλεία.</translation>
 <translation id="9118804773997839291">Ακολουθεί μια λίστα όλων των μη ασφαλών στοιχείων για τη σελίδα. Κάντε κλικ στο Διαγνωστικό σύνδεσμο για περισσότερες πληροφορίες για τη μηνυματοσειρά ενός συγκεκριμένου στοιχείου.</translation>
@@ -1448,6 +1452,7 @@
 <translation id="5458214261780477893">Dvorak</translation>
 <translation id="1164369517022005061">Υπολείπονται <ph name="NUMBER_DEFAULT"/> ώρες</translation>
 <translation id="2214283295778284209">Ο ιστότοπος <ph name="SITE"/> δεν είναι διαθέσιμος</translation>
+<translation id="7552620667503495646">Άνοιγμα πλαισίου σε νέα καρτέ&amp;λα</translation>
 <translation id="8755376271068075440">&amp;Μεγέθυνση</translation>
 <translation id="8187473050234053012">Το πιστοποιητικό ασφάλειας του διακομιστή έχει ακυρωθεί!</translation>
 <translation id="7444983668544353857">Απενεργοποίηση <ph name="NETWORKDEVICE"/></translation>
@@ -1725,6 +1730,7 @@
 <translation id="7221869452894271364">Επαναφόρτωση αυτής της σελίδας</translation>
 <translation id="6791443592650989371">Κατάσταση ενεργοποίησης:</translation>
 <translation id="4801257000660565496">Δημιουργία συντομεύσεων εφαρμογής</translation>
+<translation id="8646430701497924396">Χρήση SSL 2.0</translation>
 <translation id="6175314957787328458">Microsoft Domain GUID</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8261506727792406068">Διαγραφή</translation>
@@ -1732,6 +1738,7 @@
 <translation id="7422192691352527311">Προτιμήσεις</translation>
 <translation id="1823606533857384982">Διάταξη πληκτρολογίου Βελγίου</translation>
 <translation id="1375198122581997741">Σχετικά με την έκδοση</translation>
+<translation id="1474307029659222435">Άνοιγμα πλαισίου σε νέο παρά&amp;θυρο</translation>
 <translation id="2210910566085991858">Διάταξη πληκτρολογίου Ιαπωνίας</translation>
 <translation id="5976160379964388480">Άλλα</translation>
 <translation id="1430915738399379752">Εκτύπωση</translation>
@@ -2219,6 +2226,7 @@
 <translation id="77999321721642562">Με την πάροδο του χρόνου, η περιοχή που βρίσκεται πιο κάτω θα εμφανίσει τους οκτώ ιστότοπους με τις περισσότερες επισκέψεις.</translation>
 <translation id="5864830997591220873">Αποκλεισμός όλων των cookie</translation>
 <translation id="7447718177945067973">Δεν ήταν δυνατή η εύρεση του διακομιστή.</translation>
+<translation id="715468010956678290">Άνοιγμα πλαισίου σε παράθυρο απόκ&amp;ρυψης</translation>
 <translation id="471800408830181311">Αποτυχία εξόδου ιδιωτικού κλειδιού.</translation>
 <translation id="1273291576878293349">Άνοιγμα όλων των σελιδοδεικτών σε παράθυρο για ανώνυμο σερφάρισμα</translation>
 <translation id="1136857731359746145">Επιτρέπει στις εγκατεστημένες εφαρμογές ιστού να εκτελούνται στο παρασκήνιο κατά την εκκίνηση του συστήματος και να συνεχίζουν να εκτελούνται αφού κλείσουν όλα τα παράθυρα.</translation>
@@ -2323,7 +2331,6 @@
 <translation id="5826507051599432481">Κοινό όνομα (CN)</translation>
 <translation id="4215444178533108414">Η κατάργηση στοιχείων ολοκληρώθηκε</translation>
 <translation id="5154702632169343078">Θέμα</translation>
-<translation id="1080520132886514561">Απόκρυψη αυτού του μηνύματος</translation>
 <translation id="2273562597641264981">Τελεστής:</translation>
 <translation id="122082903575839559">Αλγόριθμος υπογραφής πιστοποιητικού</translation>
 <translation id="7240120331469437312">Εναλλακτικό όνομα υποκειμένου πιστοποιητικού</translation>

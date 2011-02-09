@@ -388,6 +388,7 @@
 <translation id="2849936225196189499">مهم</translation>
 <translation id="9001035236599590379">نوع MIME</translation>
 <translation id="5612754943696799373">دانلود مجاز باشد؟</translation>
+<translation id="1073286447082909762">باز کردن قاب در &amp;پنجره جدید</translation>
 <translation id="692135145298539227">حذف</translation>
 <translation id="5515810278159179124">به هیچ سایتی برای ردیابی مکان فیزیکی من اجازه داده نشود</translation>
 <translation id="398967089780480076">اقدام:</translation>
@@ -425,6 +426,7 @@
 <translation id="2232876851878324699">این فایل دارای یک مجوز است، که وارد نشده است:</translation>
 <translation id="1290691390430578691">رفتن به حالت انگلیسی</translation>
 <translation id="4481614464927987190">چکی</translation>
+<translation id="7335374713830044009">باز کردن قاب در پنجره حالت &amp;ناشناس</translation>
 <translation id="3586931643579894722">عدم نمایش جزئیات</translation>
 <translation id="2011110593081822050">Web Worker: <ph name="WORKER_NAME"/></translation>
 <translation id="3294437725009624529">مهمان</translation>
@@ -437,6 +439,7 @@
 <translation id="5052931449450949884">دستگاه ضبط صوتی خطایی بازگردانده است.</translation>
 <translation id="8795916974678578410">پنجره جدید</translation>
 <translation id="2733275712367076659">شما گواهی هایی از این سازمان ها دارید که هویت شما را شناسایی می کنند:</translation>
+<translation id="4670078915797619688">گزارش یک اشکال.</translation>
 <translation id="2515586267016047495">Alt</translation>
 <translation id="3798449238516105146">نسخه</translation>
 <translation id="5764483294734785780">ذ&amp;خیره فایل صوتی بعنوان...</translation>
@@ -1094,6 +1097,7 @@
 <translation id="1588343679702972132">این سایت از شما می خواهد که خود را با گواهی معرفی کنید:</translation>
 <translation id="7211994749225247711">حذف...</translation>
 <translation id="2819994928625218237">پیشنهادی برای املا وجود &amp;ندارد</translation>
+<translation id="4316305410440790958">باز کردن قاب در &amp;برگه جدید</translation>
 <translation id="9142623379911037913"><ph name="SITE"/> مجاز است اعلام های دسک تاپ را نمایش دهد؟</translation>
 <translation id="4196320913210960460">می توانید با کلیک کردن روی برنامه های افزودنی در منوی ابزار، برنامه های افزودنی نصب شده خود را مدیریت کنید.</translation>
 <translation id="9118804773997839291">در زیر لیستی از همه عناصر ناامن صفحه آمده است. برای کسب اطلاعات بیشتر درباره خطر یک عنصر خاص، روی پیوند عیب یابی کلید کنید.</translation>
@@ -1457,6 +1461,7 @@
 <translation id="5458214261780477893">Dvorak</translation>
 <translation id="1164369517022005061"><ph name="NUMBER_DEFAULT"/> ساعت مانده</translation>
 <translation id="2214283295778284209"><ph name="SITE"/> در دسترس نیست</translation>
+<translation id="7552620667503495646">باز کردن قاب در &amp;برگه جدید</translation>
 <translation id="8755376271068075440">&amp;بزرگ تر</translation>
 <translation id="8187473050234053012">گواهی امنیتی سرور باطل شده است!</translation>
 <translation id="7444983668544353857">غیر فعال کردن <ph name="NETWORKDEVICE"/></translation>
@@ -1735,6 +1740,7 @@
 <translation id="7221869452894271364">تازه سازی این صفحه</translation>
 <translation id="6791443592650989371">وضعیت فعالسازی:</translation>
 <translation id="4801257000660565496">ایجاد میانبرهای برنامه کاربردی</translation>
+<translation id="8646430701497924396">استفاده از SSL 2.0</translation>
 <translation id="6175314957787328458">GUID دامنه Microsoft</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8261506727792406068">حذف</translation>
@@ -1742,6 +1748,7 @@
 <translation id="7422192691352527311">موارد برگزیده...</translation>
 <translation id="1823606533857384982">طرح کلی صفحه کلید بلژیکی</translation>
 <translation id="1375198122581997741">درباره نسخه</translation>
+<translation id="1474307029659222435">باز کردن قاب در &amp;پنجره جدید</translation>
 <translation id="2210910566085991858">طرح کلی صفحه کلید ژاپنی</translation>
 <translation id="5976160379964388480">موارد دیگر</translation>
 <translation id="1430915738399379752">چاپ</translation>
@@ -2230,6 +2237,7 @@
 <translation id="77999321721642562">در طول زمان، قسمت زیر هشت وب سایتی را نشان می دهد که شما بیشتر بازدید کرده اید.</translation>
 <translation id="5864830997591220873">مسدود کردن همه کوکی ها</translation>
 <translation id="7447718177945067973">سرور یافت نشد.</translation>
+<translation id="715468010956678290">باز کردن قاب در پنجره حالت &amp;ناشناس</translation>
 <translation id="471800408830181311">ارسال کلید خصوصی ناموفق بود.</translation>
 <translation id="1273291576878293349">باز کردن همه نشانک ها در پنجره حالت ناشناس</translation>
 <translation id="1136857731359746145">به برنامه های وب نصب شده اجازه می دهد هنگام راه اندازی سیستم در پس زمینه اجرا شوند و پس از بسته شدن تمام پنجره ها همچنان به فعالیت خود ادامه دهند.</translation>
@@ -2334,7 +2342,6 @@
 <translation id="5826507051599432481">نام مشترک (CN)</translation>
 <translation id="4215444178533108414">برداشتن آیتم ها انجام شد</translation>
 <translation id="5154702632169343078">موضوع</translation>
-<translation id="1080520132886514561">پنهان کردن این پیام</translation>
 <translation id="2273562597641264981">اپراتور:</translation>
 <translation id="122082903575839559">الگوریتم امضای گواهی</translation>
 <translation id="7240120331469437312">نام دیگر موضوع گواهی</translation>

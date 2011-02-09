@@ -388,6 +388,7 @@
 <translation id="2849936225196189499">Critical</translation>
 <translation id="9001035236599590379">MIME type</translation>
 <translation id="5612754943696799373">Allow Download?</translation>
+<translation id="1073286447082909762">Open Frame in New &amp;Window</translation>
 <translation id="692135145298539227">delete</translation>
 <translation id="5515810278159179124">Do not allow any site to track my physical location</translation>
 <translation id="398967089780480076">Action:</translation>
@@ -425,6 +426,7 @@
 <translation id="2232876851878324699">The file contained one certificate, which was not imported:</translation>
 <translation id="1290691390430578691">Switch to English mode</translation>
 <translation id="4481614464927987190">Czech</translation>
+<translation id="7335374713830044009">Open Frame in Inco&amp;gnito Window</translation>
 <translation id="3586931643579894722">Hide details</translation>
 <translation id="2011110593081822050">Web Worker: <ph name="WORKER_NAME"/></translation>
 <translation id="3294437725009624529">Guest</translation>
@@ -437,6 +439,7 @@
 <translation id="5052931449450949884">Audio recording device returned an error.</translation>
 <translation id="8795916974678578410">New Window</translation>
 <translation id="2733275712367076659">You have certificates from these organisations that identify you:</translation>
+<translation id="4670078915797619688">Report a bug.</translation>
 <translation id="2515586267016047495">Alt</translation>
 <translation id="3798449238516105146">Version</translation>
 <translation id="5764483294734785780">Sa&amp;ve audio as...</translation>
@@ -1085,6 +1088,7 @@
 <translation id="1588343679702972132">This site has requested that you identify yourself with a certificate:</translation>
 <translation id="7211994749225247711">Delete...</translation>
 <translation id="2819994928625218237">&amp;No Spelling Suggestions</translation>
+<translation id="4316305410440790958">Open Frame in New &amp;Tab</translation>
 <translation id="9142623379911037913">Allow <ph name="SITE"/> to show desktop notifications?</translation>
 <translation id="4196320913210960460">You can manage your installed extensions by clicking Extensions in the Tools menu.</translation>
 <translation id="9118804773997839291">Below is a list of all the unsafe elements for the page. Click the Diagnostic link for more information on the thread for a specific element.</translation>
@@ -1449,6 +1453,7 @@
 <translation id="5458214261780477893">Dvorak</translation>
 <translation id="1164369517022005061"><ph name="NUMBER_DEFAULT"/> hours left</translation>
 <translation id="2214283295778284209"><ph name="SITE"/> is not available</translation>
+<translation id="7552620667503495646">Open frame in new &amp;tab</translation>
 <translation id="8755376271068075440">&amp;Larger</translation>
 <translation id="8187473050234053012">The server's security certificate is revoked!</translation>
 <translation id="7444983668544353857">Disable <ph name="NETWORKDEVICE"/></translation>
@@ -1728,6 +1733,7 @@
 <translation id="7221869452894271364">Reload this page</translation>
 <translation id="6791443592650989371">Activation status:</translation>
 <translation id="4801257000660565496">Create Application Short Cuts</translation>
+<translation id="8646430701497924396">Use SSL 2.0</translation>
 <translation id="6175314957787328458">Microsoft Domain GUID</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8261506727792406068">Delete</translation>
@@ -1735,6 +1741,7 @@
 <translation id="7422192691352527311">Preferences...</translation>
 <translation id="1823606533857384982">Belgian keyboard layout</translation>
 <translation id="1375198122581997741">About Version</translation>
+<translation id="1474307029659222435">Open frame in new &amp;window</translation>
 <translation id="2210910566085991858">Japanese keyboard layout</translation>
 <translation id="5976160379964388480">Others</translation>
 <translation id="1430915738399379752">Print</translation>
@@ -2223,6 +2230,7 @@
 <translation id="77999321721642562">Over time, the area below will show your eight most visited sites.</translation>
 <translation id="5864830997591220873">Block All Cookies</translation>
 <translation id="7447718177945067973">The server could not be found.</translation>
+<translation id="715468010956678290">Open frame in inco&amp;gnito window</translation>
 <translation id="471800408830181311">Failed to output private key.</translation>
 <translation id="1273291576878293349">Open all bookmarks in incognito window</translation>
 <translation id="1136857731359746145">Allows installed web apps to run in the background at system startup and continue running after all windows are closed.</translation>
@@ -2327,7 +2335,6 @@
 <translation id="5826507051599432481">Common Name (CN)</translation>
 <translation id="4215444178533108414">Finished removing items</translation>
 <translation id="5154702632169343078">Subject</translation>
-<translation id="1080520132886514561">Hide this message</translation>
 <translation id="2273562597641264981">Operator:</translation>
 <translation id="122082903575839559">Certificate Signature Algorithm</translation>
 <translation id="7240120331469437312">Certificate Subject Alternative Name</translation>

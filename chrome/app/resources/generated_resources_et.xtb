@@ -388,6 +388,7 @@
 <translation id="2849936225196189499">Kriitiline</translation>
 <translation id="9001035236599590379">MIME-tüüp</translation>
 <translation id="5612754943696799373">Luban alla laadida?</translation>
+<translation id="1073286447082909762">Ava raam uues &amp;aknas</translation>
 <translation id="692135145298539227">Kustuta</translation>
 <translation id="5515810278159179124">Ära luba ühelgi saidil jälgida minu füüsilist asukohta</translation>
 <translation id="398967089780480076">Toiming:</translation>
@@ -425,6 +426,7 @@
 <translation id="2232876851878324699">Fail sisaldas ühte sertifikaati, mida ei imporditud:</translation>
 <translation id="1290691390430578691">Lülitu ingliskeelsele režiimile</translation>
 <translation id="4481614464927987190">Tšehhi</translation>
+<translation id="7335374713830044009">Ava raam inko&amp;gnito aknas</translation>
 <translation id="3586931643579894722">Peida üksikasjad</translation>
 <translation id="2011110593081822050">Veebitööline: <ph name="WORKER_NAME"/></translation>
 <translation id="3294437725009624529">Külaline</translation>
@@ -437,6 +439,7 @@
 <translation id="5052931449450949884">Helisalvestusseadmes tekkis viga.</translation>
 <translation id="8795916974678578410">Uus aken</translation>
 <translation id="2733275712367076659">Teil on nende organisatsioonide sertifikaadid, mis tuvastavad teid:</translation>
+<translation id="4670078915797619688">Teata veast.</translation>
 <translation id="2515586267016047495">Alt</translation>
 <translation id="3798449238516105146">Versioon</translation>
 <translation id="5764483294734785780">Sa&amp;lvesta heli nimega ...</translation>
@@ -1080,6 +1083,7 @@ Proovige uuesti mõne muu sertifikaadiga (kui teil on teisi sertifikaate). Kui t
 <translation id="1588343679702972132">See sait palub teil ennast sertifikaadiga tuvastada:</translation>
 <translation id="7211994749225247711">Kustuta ...</translation>
 <translation id="2819994928625218237">&amp;Õigekirjasoovitusi pole</translation>
+<translation id="4316305410440790958">Ava raam uuel &amp;vahelehel</translation>
 <translation id="9142623379911037913">Kas lubate saidil <ph name="SITE"/> kuvada töölaua teateid?</translation>
 <translation id="4196320913210960460">Installitud laiendite haldamiseks klõpsake menüüs Tööriistad valikul Laiendid.</translation>
 <translation id="9118804773997839291">Allpool on loend kõigist lehe ohtlikest elementidest. Lisateabe saamiseks klikkige konkreetse elemendi lõimul asuval diagnostikalingil.</translation>
@@ -1444,6 +1448,7 @@ Proovige uuesti mõne muu sertifikaadiga (kui teil on teisi sertifikaate). Kui t
 <translation id="5458214261780477893">Dvorak</translation>
 <translation id="1164369517022005061"><ph name="NUMBER_DEFAULT"/> tundi jäänud</translation>
 <translation id="2214283295778284209"><ph name="SITE"/> pole saadaval</translation>
+<translation id="7552620667503495646">Ava paneel uuel &amp;vahelehel</translation>
 <translation id="8755376271068075440">&amp;Suuremaks</translation>
 <translation id="8187473050234053012">Serveri turvasert on tühistatud!</translation>
 <translation id="7444983668544353857">Keela <ph name="NETWORKDEVICE"/></translation>
@@ -1723,6 +1728,7 @@ Proovige uuesti mõne muu sertifikaadiga (kui teil on teisi sertifikaate). Kui t
 <translation id="7221869452894271364">Laadi see lehekülg uuesti</translation>
 <translation id="6791443592650989371">Aktiveerimise olek:</translation>
 <translation id="4801257000660565496">Rakenduste otseteede loomine</translation>
+<translation id="8646430701497924396">Kasuta SSL versiooni 2.0</translation>
 <translation id="6175314957787328458">Microsofti domeeni GUID</translation>
 <translation id="8179976553408161302">Sisestusklahv</translation>
 <translation id="8261506727792406068">Kustuta</translation>
@@ -1730,6 +1736,7 @@ Proovige uuesti mõne muu sertifikaadiga (kui teil on teisi sertifikaate). Kui t
 <translation id="7422192691352527311">Eelistused...</translation>
 <translation id="1823606533857384982">Belgia klaviatuuripaigutus</translation>
 <translation id="1375198122581997741">Teave versiooni kohta</translation>
+<translation id="1474307029659222435">Ava paneel uues &amp;aknas</translation>
 <translation id="2210910566085991858">Jaapani klaviatuuripaigutus</translation>
 <translation id="5976160379964388480">Muud</translation>
 <translation id="1430915738399379752">Printimine</translation>
@@ -2217,6 +2224,7 @@ Proovige uuesti mõne muu sertifikaadiga (kui teil on teisi sertifikaate). Kui t
 <translation id="77999321721642562">Mõne aja jooksul hakkab allolev ala kuvama kaheksat enim külastatud saiti.</translation>
 <translation id="5864830997591220873">Keela kõik küpsised</translation>
 <translation id="7447718177945067973">Serverit ei leitud.</translation>
+<translation id="715468010956678290">Ava paneel inko&amp;gnito aknas</translation>
 <translation id="471800408830181311">Privaatvõtit ei õnnestunud väljastada.</translation>
 <translation id="1273291576878293349">Ava kõik järjehoidjad inkogonito aknas</translation>
 <translation id="1136857731359746145">Võimaldab installitud veebirakendustel toimida taustal süsteemi käivitumisel ja jätkata toimimist pärast kõigi akende sulgemist.</translation>
@@ -2321,7 +2329,6 @@ Proovige uuesti mõne muu sertifikaadiga (kui teil on teisi sertifikaate). Kui t
 <translation id="5826507051599432481">Üldnimi (CN)</translation>
 <translation id="4215444178533108414">Üksuste eemaldamine on lõpule viidud</translation>
 <translation id="5154702632169343078">Subjekt</translation>
-<translation id="1080520132886514561">Peida see sõnum</translation>
 <translation id="2273562597641264981">Operaator:</translation>
 <translation id="122082903575839559">Sertifikaadi allkirjaalgoritm</translation>
 <translation id="7240120331469437312">Sertifikaadi subjekti alternatiivne nimi</translation>

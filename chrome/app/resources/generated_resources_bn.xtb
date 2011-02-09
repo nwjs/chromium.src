@@ -387,6 +387,7 @@
 <translation id="2849936225196189499">জটিল</translation>
 <translation id="9001035236599590379">MIME প্রকার</translation>
 <translation id="5612754943696799373">ডাউনলোডের মঞ্জুরি দেবেন?</translation>
+<translation id="1073286447082909762">নতুন &amp;উইন্ডোতে ফ্রেম খুলুন</translation>
 <translation id="692135145298539227">মুছুন</translation>
 <translation id="5515810278159179124">আমার ফিজিকাল অবস্থান ট্র্যাক করতে কোনও সাইটের অনুমতি দেবেন না</translation>
 <translation id="398967089780480076">ক্রিয়া:</translation>
@@ -424,6 +425,7 @@
 <translation id="2232876851878324699">ফাইলটিতে একটি শংসাপত্র রয়েছে, এটি আমদানি করা হয়নি:</translation>
 <translation id="1290691390430578691">ইংরেজি মোডে স্যুইচ করুন</translation>
 <translation id="4481614464927987190">সেজিয়ান</translation>
+<translation id="7335374713830044009">ফ্রেমটি ছ&amp;দ্মবেশী উইন্ডোতে খুলুন</translation>
 <translation id="3586931643579894722">বিশদ বিবরণ লুকান</translation>
 <translation id="2011110593081822050">ওয়েব ওয়ার্কার: <ph name="WORKER_NAME"/></translation>
 <translation id="3294437725009624529">অতিথি</translation>
@@ -436,6 +438,7 @@
 <translation id="5052931449450949884">অডিও রেকর্ডিং ডিভাইস একটি ত্রুটি ফিরিয়ে দিয়েছে৷</translation>
 <translation id="8795916974678578410">নতুন উইন্ডো</translation>
 <translation id="2733275712367076659">আপনার পরিচয় শনাক্তকরী এই সংস্থাগুলির থেকে আপনার কাছে শংসাপত্র আছে:</translation>
+<translation id="4670078915797619688">একটি বাগ রিপোর্ট করুন৷</translation>
 <translation id="2515586267016047495">Alt</translation>
 <translation id="3798449238516105146">সংস্করণ</translation>
 <translation id="5764483294734785780">এইরূপে অডিও সংর&amp;ক্ষণ করুন...</translation>
@@ -1090,6 +1093,7 @@
 <translation id="1588343679702972132">এই সাইটটি একটি শংসাপত্রের সাহায্যে নিজেকে শনাক্ত করার জন্য আপনাকে অনুরোধ জানিয়েছে:</translation>
 <translation id="7211994749225247711">মুছুন...</translation>
 <translation id="2819994928625218237">&amp;কোনও বানানের সাজেশন নেই</translation>
+<translation id="4316305410440790958">নতুন &amp;ট্যাবে ফ্রেম খুলুন</translation>
 <translation id="9142623379911037913">ডেস্কটপ বিজ্ঞপ্তিগুলি দেখানোর জন্য <ph name="SITE"/>-কে মঞ্জুরি দেবেন?</translation>
 <translation id="4196320913210960460">টুলস মেনুতে এক্সটেনশনে ক্লিক করে আপনার ইনস্টল করা এক্সটেনশনগুলি পরিচালনা করতে পারেন।</translation>
 <translation id="9118804773997839291">নীচে সমস্ত অনিরাপদ উপাদানের একটি তালিকা রয়েছে৷  কোনও নির্দিষ্ট উপাদানের জন্য থ্রেডে আরও তথ্যের জন্য ডায়াগনস্টিক লিঙ্কটিকে ক্লিক করুন৷</translation>
@@ -1448,6 +1452,7 @@
 <translation id="5458214261780477893">ডিভোরাক</translation>
 <translation id="1164369517022005061"><ph name="NUMBER_DEFAULT"/> ঘন্টা বাকি</translation>
 <translation id="2214283295778284209"><ph name="SITE"/> উপলভ্য নয়</translation>
+<translation id="7552620667503495646">নতুন &amp;ট্যাবে ফ্রেম খুলুন</translation>
 <translation id="8755376271068075440">&amp;বৃহত্তর</translation>
 <translation id="8187473050234053012">সার্ভারের নিরাপত্তা শংসাপত্র প্রত্যাহার করা হয়েছে!</translation>
 <translation id="7444983668544353857">অক্ষম <ph name="NETWORKDEVICE"/></translation>
@@ -1721,6 +1726,7 @@
 <translation id="7221869452894271364">এই পৃষ্ঠাটি পুনঃ লোড করুন</translation>
 <translation id="6791443592650989371">সক্রিয়করণ স্থিতি:</translation>
 <translation id="4801257000660565496">অ্যাপ্লিকেশন &amp;শর্টকাট তৈরি করুন</translation>
+<translation id="8646430701497924396">SSL 2.0 ব্যবহার করুন</translation>
 <translation id="6175314957787328458">Microsoft Domain GUID</translation>
 <translation id="8179976553408161302">প্রবেশ করান</translation>
 <translation id="8261506727792406068">মুছুন</translation>
@@ -1728,6 +1734,7 @@
 <translation id="7422192691352527311">অগ্রাধিকারগুলি...</translation>
 <translation id="1823606533857384982">বেলজিয়ান কীবোর্ড লেআউট</translation>
 <translation id="1375198122581997741">সংস্করণ সম্পর্কে</translation>
+<translation id="1474307029659222435">নতুন &amp;উইন্ডোতে ফ্রেম খুলুন</translation>
 <translation id="2210910566085991858">জাপানী  কীবোর্ড লেআউট</translation>
 <translation id="5976160379964388480">অন্যান্য</translation>
 <translation id="1430915738399379752">মুদ্রণ</translation>
@@ -2216,6 +2223,7 @@
 <translation id="77999321721642562">সময় শেষে, নীচের অঞ্চলটি আপনার সর্বাধিক দেখা আটটি সাইট প্রদর্শন করবে৷</translation>
 <translation id="5864830997591220873">সকল কুকি অবরোধ করুন</translation>
 <translation id="7447718177945067973">সার্ভাটি খুঁজে পাওয়া যায় নি৷</translation>
+<translation id="715468010956678290">ফ্রেমটি ছ&amp;দ্মবেশী উইন্ডোতে খুলুন</translation>
 <translation id="471800408830181311">ব্যক্তিগত কী আউটপুট করতে ব্যর্থ৷</translation>
 <translation id="1273291576878293349">ছ্দ্মবেশী উইন্ডোতে সকল বুকমার্ক খুলুন</translation>
 <translation id="1136857731359746145">ইনস্টল থাকা ওয়েব অ্যাপসকে সিস্টেম সূচনার সময় পৃষ্ঠভূমিতে চলার মঞ্জুরি দেয় এবং সকল উইন্ডো বন্ধ হওয়া অবধি চলে৷</translation>
@@ -2320,7 +2328,6 @@
 <translation id="5826507051599432481">কমন নেম (CN)</translation>
 <translation id="4215444178533108414">আইটেমগুলি সরানো সম্পন্ন</translation>
 <translation id="5154702632169343078">বিষয়</translation>
-<translation id="1080520132886514561">এই বার্তাটি লুকান</translation>
 <translation id="2273562597641264981">অপারেটর:</translation>
 <translation id="122082903575839559">শংসাপত্র স্বাক্ষর অ্যালগরিদম</translation>
 <translation id="7240120331469437312">শংসাপত্র বিষয় বিকল্প নাম</translation>

@@ -387,6 +387,7 @@
 <translation id="2849936225196189499">Crítica</translation>
 <translation id="9001035236599590379">Tipus de MIME</translation>
 <translation id="5612754943696799373">Voleu permetre la baixada?</translation>
+<translation id="1073286447082909762">Obre el marc en una &amp;finestra nova</translation>
 <translation id="692135145298539227">suprimeix</translation>
 <translation id="5515810278159179124">No permetis que cap lloc faci el seguiment de la meva ubicació física</translation>
 <translation id="398967089780480076">Acció:</translation>
@@ -424,6 +425,7 @@
 <translation id="2232876851878324699">El fitxer contenia un certificat que no s'ha importat:</translation>
 <translation id="1290691390430578691">Canvia al mode anglès</translation>
 <translation id="4481614464927987190">Txec</translation>
+<translation id="7335374713830044009">Obre el marc en una finestra d'incò&amp;gnit</translation>
 <translation id="3586931643579894722">Oculta els detalls</translation>
 <translation id="2011110593081822050">Treballador web: <ph name="WORKER_NAME"/></translation>
 <translation id="3294437725009624529">Convidat</translation>
@@ -436,6 +438,7 @@
 <translation id="5052931449450949884">El dispositiu d'enregistrament d'àudio ha retornat un error.</translation>
 <translation id="8795916974678578410">Finestra nova</translation>
 <translation id="2733275712367076659">Teniu certificats d'aquestes organitzacions que us identifiquen:</translation>
+<translation id="4670078915797619688">Informa d'un error.</translation>
 <translation id="2515586267016047495">Alt</translation>
 <translation id="3798449238516105146">Versió</translation>
 <translation id="5764483294734785780">De&amp;sa l'àudio com a...</translation>
@@ -1083,6 +1086,7 @@
 <translation id="1588343679702972132">Aquest lloc ha sol·licitat que us identifiqueu amb un certificat:</translation>
 <translation id="7211994749225247711">Suprimeix...</translation>
 <translation id="2819994928625218237">&amp;Sense suggeriments d'escriptura</translation>
+<translation id="4316305410440790958">Obre el marc en una &amp;pestanya nova</translation>
 <translation id="9142623379911037913">Voleu permetre que <ph name="SITE"/> mostri notificacions d'escriptori?</translation>
 <translation id="4196320913210960460">Podeu gestionar les extensions instal·lades si feu clic a l'opció Extensions del menú Eines.</translation>
 <translation id="9118804773997839291">A continuació trobareu una llista de tots els elements no segurs de la pàgina. Feu clic a l'enllaç &quot;Diagnòstic&quot; per obtenir més informació sobre el perill que suposa un element determinat.</translation>
@@ -1447,6 +1451,7 @@
 <translation id="5458214261780477893">Dvorak</translation>
 <translation id="1164369517022005061"><ph name="NUMBER_DEFAULT"/> hores restants</translation>
 <translation id="2214283295778284209"><ph name="SITE"/> no està disponible</translation>
+<translation id="7552620667503495646">Obre el marc en una &amp;pestanya nova</translation>
 <translation id="8755376271068075440">&amp;Més gran</translation>
 <translation id="8187473050234053012">El certificat de seguretat del servidor està revocat.</translation>
 <translation id="7444983668544353857">Desactiva <ph name="NETWORKDEVICE"/></translation>
@@ -1720,6 +1725,7 @@
 <translation id="7221869452894271364">Torna a carregar aquesta pàgina</translation>
 <translation id="6791443592650989371">Estat d'activació:</translation>
 <translation id="4801257000660565496">Creació de dreceres d'aplicacions</translation>
+<translation id="8646430701497924396">Utilitza SSL 2.0</translation>
 <translation id="6175314957787328458">GUID de domini de Microsoft</translation>
 <translation id="8179976553408161302">Intro</translation>
 <translation id="8261506727792406068">Suprimeix</translation>
@@ -1727,6 +1733,7 @@
 <translation id="7422192691352527311">Preferències...</translation>
 <translation id="1823606533857384982">Disseny del teclat belga</translation>
 <translation id="1375198122581997741">Quan a la versió</translation>
+<translation id="1474307029659222435">Obre el marc en una &amp;finestra nova</translation>
 <translation id="2210910566085991858">Disseny del teclat japonès</translation>
 <translation id="5976160379964388480">Altres</translation>
 <translation id="1430915738399379752">Impressió</translation>
@@ -2215,6 +2222,7 @@
 <translation id="77999321721642562">Amb el temps, l'àrea anterior mostrarà els 8 llocs que visiteu amb més freqüència.</translation>
 <translation id="5864830997591220873">Bloqueja totes les galetes</translation>
 <translation id="7447718177945067973">No s'ha trobat el servidor.</translation>
+<translation id="715468010956678290">Obre el marc en una finestra d'inco&amp;gnito</translation>
 <translation id="471800408830181311">No s'ha pogut generar la clau privada.</translation>
 <translation id="1273291576878293349">Obre totes les adreces d'interès en una finestra d'incògnit</translation>
 <translation id="1136857731359746145">Permet que les aplicacions web instal·lades s'executin de fons quan el sistema s'iniciï i que continuïn executant-se quan totes les finestres s'hagin tancat.</translation>
@@ -2319,7 +2327,6 @@
 <translation id="5826507051599432481">Nom comú (CN)</translation>
 <translation id="4215444178533108414">Ha finalitzat l'eliminació d'elements</translation>
 <translation id="5154702632169343078">Subjecte</translation>
-<translation id="1080520132886514561">Amaga aquest missatge</translation>
 <translation id="2273562597641264981">Operador:</translation>
 <translation id="122082903575839559">Algoritme de signatura del certificat</translation>
 <translation id="7240120331469437312">Nom alternatiu del subjecte del certificat</translation>
