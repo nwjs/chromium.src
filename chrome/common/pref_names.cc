@@ -540,6 +540,9 @@ const char kPluginsPluginsBlacklist[] = "plugins.plugins_blacklist";
 // enable it by default, we'll want to do so only once.
 const char kPluginsEnabledInternalPDF[] = "plugins.enabled_internal_pdf3";
 
+const char kPluginsShowSetReaderDefaultInfobar[] =
+    "plugins.show_set_reader_default";
+
 // Boolean that indicates whether we should check if we are the default browser
 // on start-up.
 const char kCheckDefaultBrowser[] = "browser.check_default_browser";
