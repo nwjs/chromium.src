@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="uk">
 <translation id="6779164083355903755">&amp;Видалити</translation>
+<translation id="6879617193011158416">Переключити панель закладок</translation>
 <translation id="861462429358727464">Закрити вкладки, відкриті цією вкладкою</translation>
 <translation id="1058418043520174283"><ph name="INDEX"/> з <ph name="COUNT"/></translation>
 <translation id="7040807039050164757">&amp;Перевірити правопис у цьому полі</translation>
@@ -17,10 +18,13 @@
 <translation id="859285277496340001">Сертифікат не вказує на механізм перевірки його відкликання.</translation>
 <translation id="2010799328026760191">Клавіші модифікаторів...</translation>
 <translation id="2160383474450212653">Шрифти та мови</translation>
+<translation id="3300394989536077382">Підписано</translation>
 <translation id="654233263479157500">Використовувати веб-послугу для виправлення помилок навігації</translation>
 <translation id="4940047036413029306">Лапки</translation>
 <translation id="1526811905352917883">Потрібно повторити спробу з'єднання за допомогою протоколу SSL 3.0. Переважно це означає, що сервер використовує дуже застаріле програмне забезпечення і можуть виникати й інші проблеми безпеки.</translation>
 <translation id="1497897566809397301">Дозволити зберігання локальних даних (рекомендовано)</translation>
+<translation id="3275778913554317645">Відкрити вікно</translation>
+<translation id="4553117311324416101">За даними Google, у разі продовження у вашому комп'ютері може бути встановлено зловмисне програмне забезпечення. Якщо ви раніше відвідували цей сайт або довіряєте йому, можливо, нещодавно його зламав хакер. Не продовжуйте, а повторіть спробу завтра чи відвідайте інший сайт.</translation>
 <translation id="509988127256758334">Зн&amp;айти що:</translation>
 <translation id="1420684932347524586">Не вдалося згенерувати випадковий секретний ключ RSA.</translation>
 <translation id="2501173422421700905">Сертифікат відтерміновано</translation>
@@ -31,15 +35,20 @@
 <translation id="4405141258442788789">Скінчився час очікування виконання операції.</translation>
 <translation id="5048179823246820836">Скандинавська</translation>
 <translation id="1763046204212875858">Створити ярлики програми</translation>
+<translation id="2105006017282194539">Ще не завантажено</translation>
 <translation id="8546541260734613940">[*.]example.com</translation>
+<translation id="9137125502445441547">Отримання запиту на підтвердження дії перед виходом.</translation>
 <translation id="561349411957324076">Завершено</translation>
 <translation id="2757513101875140959">Переключитися в режим половинної ширини</translation>
 <translation id="4764776831041365478">Веб-сторінка за адресою <ph name="URL"/> може бути тимчасово недоступною або її назавжди переміщено на нову веб-адресу.</translation>
 <translation id="6156863943908443225">Кеш сценарію</translation>
 <translation id="4610656722473172270">Панель інструментів Google</translation>
+<translation id="5955683490115499713">англійська (США розширена)</translation>
 <translation id="151501797353681931">Імпортовано з Safari</translation>
+<translation id="586567932979200359"><ph name="PRODUCT_NAME"/> працює, використовуючи своє зображення диска. Встановлення веб-переглядача на комп'ютер дозволить працювати без використання зображення диска та гарантуватиме його постійне оновлення.</translation>
 <translation id="3775432569830822555">Сертифікат SSL-сервера</translation>
 <translation id="1467071896935429871">Завантаження оновлення системи: <ph name="PERCENT"/>% виконано.</translation>
+<translation id="7881267037441701396">Завершився термін дії облікових даних для спільного доступу до ваших принтерів у <ph name="CLOUD_PRINT_NAME"/>. Щоб повторно ввести свої ім'я користувача та пароль, натисніть тут.</translation>
 <translation id="816055135686411707">Помилка під час налаштування довіри сертифікату</translation>
 <translation id="7218491361283758048">Поштовий індекс</translation>
 <translation id="5704565838965461712">Виберіть сертифікат для ідентифікації:</translation>
@@ -63,6 +72,7 @@
 <translation id="7017587484910029005">Введіть зображені нижче символи.</translation>
 <translation id="9013589315497579992">Неправильний сертифікат перевірки автентичності клієнта SSL.</translation>
 <translation id="8595062045771121608">У цьому випадку сертифікат сервера чи проміжний сертифікат центру сертифікації, виданий вашому веб-переглядачу, підписано з використанням слабкого алгоритму підпису, наприклад, RSA-MD2. Останні дослідження науковців у комп'ютерній галузі показали, що цей алгоритм підпису виявився слабшим, ніж гадали, і надійні сайти його зараз рідко використовують. Такий сертифікат може виявитися сфальсифікованим. Вам не варто продовжувати далі цього пункту.</translation>
+<translation id="8666632926482119393">Знайти попереднє</translation>
 <translation id="7567293639574541773">П&amp;еревірити елемент</translation>
 <translation id="8392896330146417149">Стан роумінгу:</translation>
 <translation id="2923240520113693977">естонська</translation>
@@ -90,13 +100,17 @@
 <translation id="5727728807527375859">Розширення, служби та теми можуть зашкодити вашому комп'ютеру. Дійсно продовжити?</translation>
 <translation id="3857272004253733895">Схема подвійного введення для стандарту піньїнь</translation>
 <translation id="1076818208934827215">Microsoft Internet Explorer</translation>
+<translation id="9056810968620647706">Збігів не знайдено.</translation>
 <translation id="1901494098092085382">Статус надсилання відгуку</translation>
+<translation id="2861301611394761800">Оновлення системи завершено. Перезапустіть систему.</translation>
 <translation id="7624421287830016388">Picasa Web</translation>
 <translation id="2231238007119540260">Якщо видалити сертифікат сервера, відновлюються звичайні перевірки безпеки для цього сервера, що вимагає використання дійсного сертифіката.</translation>
 <translation id="5712065297007251328">Вашу службу пересилання даних активовано. Нею можна користуватися.</translation>
+<translation id="5463582782056205887">Спробуйте додати <ph name="PRODUCT_NAME"/> до списку дозволених програм у налаштуваннях свого брандмауера чи антивірусного програмного забезпечення. Якщо дозвіл на цю програму вже надано, спробуйте видалити її зі списку дозволених програм і додати знову.</translation>
 <translation id="7624154074265342755">Бездротові мережі</translation>
 <translation id="3315158641124845231">Сховати <ph name="PRODUCT_NAME"/></translation>
 <translation id="3496213124478423963">Зменшити</translation>
+<translation id="42981349822642051">Розгорнути</translation>
 <translation id="4920887663447894854">На цій сторінці заборонено відстежувати ваше місцезнаходження таким сайтам:</translation>
 <translation id="7690346658388844119">Запис зображення припинено</translation>
 <translation id="8133676275609324831">&amp;Показати в папці</translation>
@@ -108,6 +122,7 @@
 <translation id="8178665534778830238">Вміст:</translation>
 <translation id="4535734014498033861">Помилка з'єднання з проксі-сервером.</translation>
 <translation id="558170650521898289">Перевірка драйверів пристроїв Microsoft Windows</translation>
+<translation id="98515147261107953">Альбомна</translation>
 <translation id="8974161578568356045">Автоматичне визначення</translation>
 <translation id="1818606096021558659">Сторінка</translation>
 <translation id="1657406563541664238">Допоможіть покращити <ph name="PRODUCT_NAME"/>, автоматично надсилаючи статистику використання та звіти про аварійне завершення роботи в Google</translation>
@@ -130,8 +145,11 @@
 <translation id="2647434099613338025">Додати мову</translation>
 <translation id="8487678622945914333">Збільшити</translation>
 <translation id="8028060951694135607">Відновлення ключів Microsoft</translation>
+<translation id="9187657844611842955">двосторонні</translation>
 <translation id="6391832066170725637">Не вдалося знайти файл або каталог.</translation>
+<translation id="4694445829210540512">Немає активного тарифного плану мережі <ph name="NETWORK"/></translation>
 <translation id="8256087479641463867">Налаштувати свої настройки</translation>
+<translation id="5494920125229734069">Вибрати все</translation>
 <translation id="2857834222104759979">Файл маніфесту недійсний.</translation>
 <translation id="7931071620596053769">Вказані сторінки перестали відповідати. Можна зачекати, доки вони не почнуть відповідати, або видалити їх.</translation>
 <translation id="1209866192426315618">Залишилось <ph name="NUMBER_DEFAULT"/> хв.</translation>
@@ -139,17 +157,21 @@
 <translation id="4081383687659939437">Зберегти дані</translation>
 <translation id="1801827354178857021">Крапка</translation>
 <translation id="2179052183774520942">Додати пошукову систему</translation>
+<translation id="5498951625591520696">Неможливо зв'язатися з сервером.</translation>
 <translation id="2956948609882871496">Імпортувати закладки...</translation>
 <translation id="1621207256975573490">Зберегти &amp;фрейм як...</translation>
+<translation id="4681260323810445443">Ви не маєте прав на доступ до веб-сторінки за адресою <ph name="URL"/>. Можливо, потрібно ввійти в систему.</translation>
 <translation id="2176444992480806665">Надіслати знімок екрана останньої активної вкладки</translation>
 <translation id="1165039591588034296">Помилка</translation>
 <translation id="2278562042389100163">Відкрити вікно переглядача</translation>
 <translation id="9218430445555521422">Установити за умовчанням</translation>
 <translation id="5027550639139316293">Сертифікат електронної пошти</translation>
+<translation id="938582441709398163">Розкладка клавіатури</translation>
 <translation id="427208986916971462">З'єднання стиснено за допомогою алгоритму <ph name="COMPRESSION"/>.</translation>
 <translation id="4589279373639964403">Експортувати закладки...</translation>
 <translation id="8876215549894133151">Формат:</translation>
 <translation id="5234764350956374838">Відхилити</translation>
+<translation id="40027638859996362">Перенести слово</translation>
 <translation id="5463275305984126951">Індекс <ph name="LOCATION"/></translation>
 <translation id="5154917547274118687">Пам’ять</translation>
 <translation id="1493492096534259649">Цю мову не можна використовувати для перевірки орфографії</translation>
@@ -161,6 +183,7 @@
 <translation id="182729337634291014">Помилка синхронізації...</translation>
 <translation id="2459861677908225199">Використовувати TLS 1.0</translation>
 <translation id="873849583815421063">Завершення...</translation>
+<translation id="4792711294155034829">&amp;Повідомити про проблему...</translation>
 <translation id="5819484510464120153">Створити &amp;ярлик програми...</translation>
 <translation id="6845180713465955339">Сертифікат &quot;<ph name="CERTIFICATE_NAME"/>&quot; видано:</translation>
 <translation id="1748246833559136615">Відмінити</translation>
@@ -179,15 +202,21 @@
 <translation id="5516565854418269276">&amp;Завжди показувати панель закладок</translation>
 <translation id="6426222199977479699">Помилка SSL</translation>
 <translation id="1661867754829461514">Відсутній PIN-код</translation>
+<translation id="8589311641140863898">API експериментальних розширень</translation>
+<translation id="2804922931795102237">Включити інформацію про систему</translation>
 <translation id="869891660844655955">Діє до</translation>
 <translation id="2178614541317717477">Дискредитація ЦС</translation>
 <translation id="4449935293120761385">Про автозаповнення</translation>
 <translation id="4194570336751258953">Увімкнути функцію &quot;торкнутися, щоб натиснути&quot;</translation>
+<translation id="6066742401428748382">У доступі до веб-сторінки відмовлено</translation>
 <translation id="5111692334209731439">&amp;Диспетчер закладок</translation>
+<translation id="8295070100601117548">Помилка сервера</translation>
 <translation id="443008484043213881">Інструменти</translation>
 <translation id="7957054228628133943">Керувати блокуванням модулів...</translation>
+<translation id="2279770628980885996">Під час спроби сервера виконати ваш запит виявлено неочікуваний стан.</translation>
 <translation id="9123413579398459698">Проксі-сервер FTP</translation>
 <translation id="8534801226027872331">У такому випадку сертифікат, наданий конкретному веб-переглядачу, має помилки та не може бути розпізнаним. Це може означати, що ми не можемо розпізнати ідентифікаційну інформацію всередині сертифіката або іншу інформацію в сертифікаті, що використовується для захисту з’єднання. Рекомендуємо не продовжувати.</translation>
+<translation id="3608527593787258723">Активувати вкладку 1</translation>
 <translation id="4497369307931735818">Віддалена взаємодія</translation>
 <translation id="3855676282923585394">Імпорт закладок і налаштувань...</translation>
 <translation id="1116694919640316211">Про</translation>
@@ -206,6 +235,7 @@
 <translation id="5197255632782567636">Інтернет</translation>
 <translation id="4755860829306298968">Керувати блокуванням модулів...</translation>
 <translation id="8879284080359814990">&amp;Показати як вкладку</translation>
+<translation id="41293960377217290">Проксі-сервер – це сервер, який виконує роль посередника між вашим комп'ютером та іншими серверами. Наразі вашу систему налаштовано на використання проксі-сервера, але <ph name="PRODUCT_NAME"/> не може з ним з'єднатися.</translation>
 <translation id="3735989458866598442">Що це за програма? Спробуйте одну із запропонованих нижче.</translation>
 <translation id="3873139305050062481">П&amp;еревірити елемент</translation>
 <translation id="7445762425076701745">Ідентифікацію сервера, з яким ви з'єднані, не можна повністю підтвердити. Ви з'єднані із сервером за допомогою імені, дійсного лише у вашій мережі, і зовнішній центр сертифікації не має способів підтвердити право власності на це ім'я. Хоча деякі центри сертифікації, попри все, видають сертифікати на такі імена, неможливо цілком упевнитися, що ви з'єднані з безпечним сайтом, а не зі зловмисником.</translation>
@@ -218,9 +248,11 @@
 <translation id="8820817407110198400">Закладки</translation>
 <translation id="2580170710466019930">Зачекайте, поки <ph name="PRODUCT_NAME"/> встановить найновіші оновлення системи.</translation>
 <translation id="7428061718435085649">Використовуйте ліву та праву клавіші Shift, щоб вибрати 2-й і 3-й варіанти</translation>
+<translation id="1070066693520972135">WEP</translation>
 <translation id="206683469794463668">Режим &quot;простий чжуїнь&quot;. Автоматичний вибір варіантів і пов'язані параметри вимкнено або не враховуються.</translation>
 <translation id="5191625995327478163">&amp;Налаштування мови...</translation>
 <translation id="1022235408517496104">Факс:</translation>
+<translation id="8833054222610756741">CRX-less Web Apps</translation>
 <translation id="1985136186573666099"><ph name="PRODUCT_NAME"/> використовує системні налаштування проксі-сервера вашого комп'ютера, щоб під'єднатися до мережі.</translation>
 <translation id="8206859287963243715">Мобільний</translation>
 <translation id="6508261954199872201">Програма: <ph name="APP_NAME"/></translation>
@@ -231,15 +263,18 @@
 <translation id="715487527529576698">Початковий режим введення китайською мовою: китайська (спрощена)</translation>
 <translation id="1674989413181946727">Налаштування SSL комп’ютера:</translation>
 <translation id="8703575177326907206">Ваше з’єднання з <ph name="DOMAIN"/> не зашифровано.</translation>
+<translation id="2526619973349913024">Перевірити наявність оновлення</translation>
 <translation id="3874070094967379652">Використовувати парольну фразу синхронізації для шифрування моїх даних</translation>
 <translation id="4864369630010738180">Вхід...</translation>
 <translation id="6500116422101723010">Сервер наразі не може обробити цей запит. Цей код указує на тимчасовість стану. Після затримки сервер працюватиме знову.</translation>
 <translation id="1644574205037202324">Історія</translation>
 <translation id="479280082949089240">Файли cookie, налаштовані цією сторінкою</translation>
+<translation id="4198861010405014042">Спільний доступ</translation>
 <translation id="2518917559152314023">Д&amp;одати...</translation>
 <translation id="7464038383832981644">Відновити налаштування за умовчанням</translation>
 <translation id="2886862922374605295">Апаратне забезпечення:</translation>
 <translation id="5155055381903895958">Імпорт профілю:</translation>
+<translation id="5303618139271450299">Цю веб-сторінку не знайдено</translation>
 <translation id="4256316378292851214">Збере&amp;гти відео як...</translation>
 <translation id="7767960058630128695">Паролі:</translation>
 <translation id="6518014396551869914">Копіюват&amp;и зображення</translation>
@@ -251,10 +286,13 @@
 <translation id="2422426094670600218">&lt;без назви&gt;</translation>
 <translation id="2012766523151663935">Модифікація мікропрограми:</translation>
 <translation id="4120898696391891645">Сторінка не завантажується</translation>
+<translation id="6060685159320643512">Обережно, ці експерименти ненадійні</translation>
 <translation id="7800304661137206267">З'єднання зашифровано з використанням <ph name="CIPHER"/> з алгоритмом <ph name="MAC"/> для автентифікації повідомлення та кодування <ph name="KX"/> як механізму обміну ключами.</translation>
 <translation id="5584537427775243893">Імпорт</translation>
 <translation id="9128870381267983090">З'єднатися з мережею</translation>
 <translation id="4181841719683918333">Мови</translation>
+<translation id="5235889404533735074">Синхронізація <ph name="PRODUCT_NAME"/> спрощує обмін даними (наприклад, закладками та налаштуваннями) між вашими комп'ютерами. 
+<ph name="PRODUCT_NAME"/> синхронізує ці дані, зберігаючи їх онлайн на серверах Google, коли ви входите, використовуючи дані облікового запису Google.</translation>
 <translation id="6533668113756472185">Форматування чи макет сторінки</translation>
 <translation id="5910363049092958439">Збер&amp;егти зображення як...</translation>
 <translation id="1363055550067308502">Переключити режим ширини (повний/половинний)</translation>
@@ -272,14 +310,18 @@
 <translation id="3053013834507634016">Використання ключа сертифіката</translation>
 <translation id="7511635910912978956"><ph name="NUMBER_FEW"/> годин залишилось</translation>
 <translation id="2152580633399033274">Показувати всі зображення (рекомендовано)</translation>
+<translation id="7894567402659809897">Натисніть <ph name="BEGIN_BOLD"/>Пуск<ph name="END_BOLD"/>, потім <ph name="BEGIN_BOLD"/>Виконати<ph name="END_BOLD"/>, введіть <ph name="BEGIN_BOLD"/>%windir%\\network diagnostic\\xpnetdiag.exe<ph name="END_BOLD"/>, а тоді натисніть <ph name="BEGIN_BOLD"/>OK<ph name="END_BOLD"/>.</translation>
 <translation id="6431347207794742960"><ph name="PRODUCT_NAME"/> налаштує автоматичні оновлення для всіх користувачів цього комп'ютера.</translation>
 <translation id="6074963268421707432">Заборонити всім сайтам відображати сповіщення на робочому столі</translation>
 <translation id="8508050303181238566">Натискайте <ph name="HOTKEY_NAME"/>, щоб переключатися між методами введення.</translation>
 <translation id="4001299999465067131">Введіть літери, наведені на зображенні вище.</translation>
 <translation id="4735819417216076266">Стиль введення пробілів</translation>
 <translation id="2977095037388048586">Ви намагалися зайти на <ph name="DOMAIN"/>, але натомість ви зайшли на сервер, який ідентифікує себе як <ph name="DOMAIN2"/>. Це може бути спричинено неправильною конфігурацією сервера або чимось серйознішим. Можливо, зловмисник у вашій мережі намагається змусити вас відвідати фальшиву (і потенційно шкідливу) версію сайту <ph name="DOMAIN3"/>. Вам не варто продовжувати.</translation>
+<translation id="220138918934036434">Сховати кнопку</translation>
 <translation id="5374359983950678924">Змінити зображення</translation>
 <translation id="2167276631610992935">Javascript</translation>
+<translation id="6974306300279582256">Увімкнути сповіщення з <ph name="SITE"/></translation>
+<translation id="492914099844938733">Переглянути несумісності</translation>
 <translation id="5233638681132016545">Нова вкладка</translation>
 <translation id="6567688344210276845">Не вдалося завантажити піктограму &quot;<ph name="ICON"/>&quot; для роботи сторінки.</translation>
 <translation id="5210365745912300556">Закрити вкладку</translation>
@@ -303,18 +345,22 @@
 <translation id="8017335670460187064"><ph name="LABEL"/></translation>
 <translation id="6840184929775541289">Не є Центром сертифікації</translation>
 <translation id="144518587530125858">Не вдалося завантажити &quot;<ph name="IMAGE_PATH"/>&quot; для теми.</translation>
+<translation id="5355097969896547230">Новий пошук</translation>
 <translation id="7925285046818567682"><ph name="HOST_NAME"/>...</translation>
 <translation id="1764354371592356238">канадська (англійська)</translation>
 <translation id="3280237271814976245">Зберегти &amp;як...</translation>
 <translation id="785407234302763980">Ви збираєтеся зупинити синхронізацію на всіх комп'ютерах, де використовуєте Chrome. Ваші дані будуть також видалені з Google, проте вони залишаться в Chrome. Ви впевнені, що хочете цього?</translation>
 <translation id="7658239707568436148">Скасувати</translation>
+<translation id="4538417792467843292">Видалити слово</translation>
 <translation id="9121814364785106365">Відкрити як закріплену вкладку</translation>
 <translation id="6996264303975215450">Веб-сторінка, повністю</translation>
 <translation id="3435896845095436175">Увімкнути</translation>
 <translation id="1891668193654680795">Довіряйте цьому сертифікату для ідентифікації виробників програмного забезпечення.</translation>
+<translation id="5078638979202084724">Позначити закладками всі вкладки</translation>
 <translation id="5585118885427931890">Не вдалося створити папку закладок.</translation>
 <translation id="2154710561487035718">Копіювати URL-адресу</translation>
 <translation id="4244236525807044920">Змінити налаштування шрифту та мови</translation>
+<translation id="8163672774605900272">Якщо ви не вважаєте, що потрібно використовувати проксі-сервер, спробуйте виконати вказані нижче дії. <ph name="PLATFORM_TEXT"/></translation>
 <translation id="3241680850019875542">Виберіть кореневий каталог для пакування розширення. Щоб оновити розширення, також виберіть файл секретного ключа для повторного використання.</translation>
 <translation id="6746124502594467657">Вниз</translation>
 <translation id="7500424997253660722">Пул з обмеженим доступом::</translation>
@@ -328,6 +374,7 @@
 <translation id="3984413272403535372">Помилка під час підписування розширення.</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="8807083958935897582"><ph name="PRODUCT_NAME"/> дозволяє здійснювати пошук в Інтернеті за допомогою універсального вікна пошуку. Виберіть пошукову систему, яку потрібно використовувати:</translation>
+<translation id="6629104427484407292">Безпека: <ph name="SECURITY"/></translation>
 <translation id="4299729908419173967">бразильська</translation>
 <translation id="3373604799988099680">Розширення або служби</translation>
 <translation id="314141447227043789">Зображення завантажено.</translation>
@@ -337,8 +384,11 @@
 <translation id="6985235333261347343">Агент відновлення ключів Microsoft</translation>
 <translation id="3605499851022050619">ĳ</translation>
 <translation id="4417271111203525803">Адреса, рядок 2</translation>
+<translation id="7617095560120859490">Повідомте нас, що відбувається (обов'язкове поле)</translation>
+<translation id="5618333180342767515">(може тривати декілька хвилин)</translation>
 <translation id="5399884481423204214">Не вдалося надіслати відгук користувача: 1 дол. США</translation>
 <translation id="4307992518367153382">Основи</translation>
+<translation id="8480417584335382321">Масштаб сторінки:</translation>
 <translation id="5912378097832178659">&amp;Змінити пошукові системи...</translation>
 <translation id="8272426682713568063">Кредитні картки</translation>
 <translation id="3173397526570909331">Зупинити синхронізацію</translation>
@@ -348,6 +398,7 @@
 <translation id="119944043368869598">Очистити все</translation>
 <translation id="1336254985736398701">Переглянути &amp;інформацію про сторінку</translation>
 <translation id="5678480951567683474">Показувати меню Сторінка та Інструменти</translation>
+<translation id="6828153365543658583">Обмежити вхід таким користувачам:</translation>
 <translation id="1652965563555864525">&amp;Вимк. звук</translation>
 <translation id="4200983522494130825">Нова &amp;вкладка</translation>
 <translation id="7979036127916589816">Помилка синхронізації</translation>
@@ -359,7 +410,9 @@
 <translation id="2021921916539001817"><ph name="HOST_NAME"/>...</translation>
 <translation id="6909042471249949473">Очистити дані за цей період:</translation>
 <translation id="5731751937436428514">Метод введення для в'єтнамської мови (VIQR)</translation>
+<translation id="8412144371993786373">Створити закладку для поточної сторінки</translation>
 <translation id="7615851733760445951">&lt;cookie-файл не вибрано&gt;</translation>
+<translation id="2493021387995458222">Вибирати &quot;слово за раз&quot;</translation>
 <translation id="5279600392753459966">Блокувати всі</translation>
 <translation id="6846298663435243399">Завантаження…</translation>
 <translation id="3660179305079774227">Курсор угору</translation>
@@ -375,17 +428,21 @@
 <translation id="4433862206975946675">Імпортувати дані з іншого веб-переглядача...</translation>
 <translation id="4022426551683927403">&amp;Додати до словника</translation>
 <translation id="2897878306272793870">Ви дійсно бажаєте відкрити <ph name="TAB_COUNT"/> вкладки?</translation>
+<translation id="3405664148539009465">Налаштувати шрифти</translation>
 <translation id="312759608736432009">Виробник пристрою:</translation>
 <translation id="362276910939193118">Показати повну історію</translation>
 <translation id="6079696972035130497">Необмежений</translation>
 <translation id="6348657800373377022">Комбіноване вікно</translation>
 <translation id="8064671687106936412">Ключ:</translation>
+<translation id="2218515861914035131">Вставити як звичайний текст</translation>
 <translation id="1725149567830788547">Показати &amp;засоби керування</translation>
 <translation id="3528033729920178817">Ця сторінка відстежує ваше місцезнаходження.</translation>
 <translation id="5518584115117143805">Сертифікат шифрування електронної пошти</translation>
 <translation id="2849936225196189499">Вирішальні</translation>
 <translation id="9001035236599590379">Тип MIME</translation>
 <translation id="5612754943696799373">Дозволити завантаження?</translation>
+<translation id="1073286447082909762">Відкрити фрейм у новому &amp;вікні</translation>
+<translation id="8242161625576104040">Не вдалося виконати автономний вхід. Відсутнє з'єднання з мережею</translation>
 <translation id="692135145298539227">видалити</translation>
 <translation id="5515810278159179124">Заборонити всім сайтам відстежувати моє фізичне місцезнаходження</translation>
 <translation id="398967089780480076">Дія:</translation>
@@ -396,12 +453,15 @@
 <translation id="8026684114486203427">Щоб користуватися Chrome Web Store, потрібно ввійти, використовуючи дані облікового запису Google.</translation>
 <translation id="8417276187983054885">Налаштувати <ph name="CLOUD_PRINT_NAME"/></translation>
 <translation id="2678063897982469759">Знову ввімкнути</translation>
+<translation id="1779766957982586368">Закрити вікно</translation>
 <translation id="4850886885716139402">Перегляд</translation>
 <translation id="5120247199412907247">Розширена конфігурація</translation>
 <translation id="5922220455727404691">Використовувати SSL 3.0</translation>
+<translation id="5105859138906591953">Щоб імпортувати закладки Панелі інструментів у Google Chrome, потрібно перебувати у своєму обліковому записі Google. Увійдіть і спробуйте імпортувати знову.</translation>
 <translation id="8899851313684471736">Відкрити посилання у новому &amp;вікні</translation>
 <translation id="4110342520124362335">Файли cookie з домену <ph name="DOMAIN"/> заблоковано.</translation>
 <translation id="2019718679933488176">&amp;Відкрити аудіо в новій вкладці</translation>
+<translation id="4138267921960073861">Показувати імена користувачів і фото на екрані входу</translation>
 <translation id="7465778193084373987">URL-адреса відкликання сертифіката Netscape</translation>
 <translation id="7421925624202799674">&amp;Переглянути джерело сторінки</translation>
 <translation id="3940082421246752453">Сервер не підтримує версію HTTP, використану в цьому запиті.</translation>
@@ -420,9 +480,13 @@
 <translation id="7052402604161570346">Цей тип файлу може бути шкідливим для вашого комп’ютера. Ви дійсно бажаєте завантажити <ph name="FILE_NAME"/>?</translation>
 <translation id="8642489171979176277">Імпортовані з панелі інструментів Google</translation>
 <translation id="1125520545229165057">Дворак (Хсу)</translation>
+<translation id="8940229512486821554">Запустити команду розширення <ph name="EXTENSION_NAME"/>: <ph name="SEARCH_TERMS"/></translation>
 <translation id="2232876851878324699">Файл містив сертифікат, який не було імпортовано:</translation>
+<translation id="5870109324660702118">Advanced File System</translation>
 <translation id="1290691390430578691">Переключитися в режим англійської мови</translation>
+<translation id="2686759344028411998">Неможливо знайти завантажені модулі.</translation>
 <translation id="4481614464927987190">чеська</translation>
+<translation id="7335374713830044009">Відкрити фрейм в аноні&amp;мному вікні</translation>
 <translation id="3586931643579894722">Сховати докладні дані</translation>
 <translation id="2011110593081822050">Web Worker: <ph name="WORKER_NAME"/></translation>
 <translation id="3294437725009624529">Гість</translation>
@@ -435,6 +499,7 @@
 <translation id="5052931449450949884">Помилка пристрою звукозапису.</translation>
 <translation id="8795916974678578410">Нове вікно</translation>
 <translation id="2733275712367076659">Вас ідентифікують сертифікати від таких організацій:</translation>
+<translation id="4670078915797619688">Повідомити про помилку.</translation>
 <translation id="2515586267016047495">Alt</translation>
 <translation id="3798449238516105146">Версія</translation>
 <translation id="5764483294734785780">Збере&amp;гти аудіо як...</translation>
@@ -445,6 +510,7 @@
 <translation id="348620396154188443">Дозволити всім сайтам відображати сповіщення на робочому столі</translation>
 <translation id="8214489666383623925">Відкрити файл...</translation>
 <translation id="5230160809118287008">Передача даних</translation>
+<translation id="4910171858422458941">Неможливо ввімкнути плагіни, вимкнені згідно політики підприємства</translation>
 <translation id="4495419450179050807">Не показувати на цій сторінці</translation>
 <translation id="939736085109172342">Нова папка</translation>
 <translation id="4933484234309072027">вбудовано на сайті <ph name="URL"/></translation>
@@ -459,6 +525,8 @@
 <translation id="888062562827966298">Винятки, відображені курсивом, стосуються лише цієї сесії анонімного перегляду.</translation>
 <translation id="3115147772012638511">...</translation>
 <translation id="257088987046510401">Теми</translation>
+<translation id="6771079623344431310">Неможливо з'єднатися з проксі-сервером</translation>
+<translation id="1368725949478140659">Усе одно завантажити</translation>
 <translation id="1426410128494586442">Так</translation>
 <translation id="6725970970008349185">Кількість варіантів, відображених на сторінку</translation>
 <translation id="3520476450377425184"><ph name="NUMBER_MANY"/> days left</translation>
@@ -466,6 +534,7 @@
 <translation id="1059307158073710225">Перевірити написання слів:</translation>
 <translation id="7643817847124207232">Інтернет-з’єднання втрачено.</translation>
 <translation id="932327136139879170">Home</translation>
+<translation id="4764675709794295630">« Назад</translation>
 <translation id="2560794850818211873">К&amp;опіювати URL-адресу відео</translation>
 <translation id="6042708169578999844">Ваших даних на веб-сайтах <ph name="WEBSITE_1"/> і <ph name="WEBSITE_2"/></translation>
 <translation id="5302048478445481009">Мова</translation>
@@ -473,11 +542,14 @@
 <translation id="5600907569873192868"><ph name="NUMBER_MANY"/> mins left</translation>
 <translation id="1275018677838892971">Веб-сайт, розташований за адресою <ph name="HOST_NAME"/>, містить елементи із сайтів, про які повідомлялось як про фішингові. Фішингові сайти намагаються облудним шляхом отримати від користувачів особисту чи фінансову інформацію, часто видаючи себе за сайти надійних закладів, зокрема банків.</translation>
 <translation id="7388873777532001697">Ім'я:</translation>
+<translation id="702455272205692181"><ph name="EXTENSION_NAME"/></translation>
 <translation id="7170041865419449892">За межами досяжності</translation>
 <translation id="908263542783690259">Очистити історію переглядів</translation>
 <translation id="7518003948725431193">Не знайдено веб-сторінок для веб-адреси <ph name="URL"/></translation>
+<translation id="745602119385594863">Нова пошукова система:</translation>
 <translation id="7484645889979462775">Ніколи для цього сайта</translation>
 <translation id="8666066831007952346"><ph name="NUMBER_TWO"/> days left</translation>
+<translation id="9086455579313502267">Неможливо отримати доступ до мережі</translation>
 <translation id="5595485650161345191">Редагувати адресу</translation>
 <translation id="2374144379568843525">&amp;Сховати панель правопису</translation>
 <translation id="6390842777729054533"><ph name="NUMBER_ZERO"/> secs left</translation>
@@ -495,6 +567,7 @@
 <translation id="210445503571712769">Синхронізовані налаштування</translation>
 <translation id="1608306110678187802">Д&amp;рукувати фрейм...</translation>
 <translation id="8919081441417203123">данська</translation>
+<translation id="5323213332664049067">латиноамериканська</translation>
 <translation id="6002148394280876541">Media Player</translation>
 <translation id="5469868506864199649">італійська</translation>
 <translation id="323509738684635129">Винятки для файлів cookie</translation>
@@ -527,8 +600,11 @@
 <translation id="5076340679995252485">&amp;Вставити</translation>
 <translation id="5097982659374947325">Приймати файли cookie лише з відвідуваних мною сайтів</translation>
 <translation id="3128292904422893714">Adobe Flash Player</translation>
+<translation id="5518442882456325299">Поточна пошукова система:</translation>
 <translation id="14171126816530869">Ідентифікаційну інформацію <ph name="ORGANIZATION"/> із <ph name="LOCALITY"/> було перевірено <ph name="ISSUER"/>.</translation>
 <translation id="6263082573641595914">Версія ЦС Microsoft</translation>
+<translation id="3105917916468784889">Зробити знімок екрана</translation>
+<translation id="3433772615844943872">Такий тип облікового запису не працюватиме з <ph name="PRODUCT_NAME"/>. Зв'яжіться з адміністратором свого домену чи скористайтеся обліковим записом @gmail.com, щоб увійти.</translation>
 <translation id="1741763547273950878">Сторінка за адресою <ph name="SITE"/></translation>
 <translation id="1587275751631642843">Консоль &amp;JavaScript</translation>
 <translation id="8460696843433742627">Отримано недійсну відповідь під час спроби завантаження <ph name="URL"/>. Можливо, сервер перебуває на стадії технічного обслуговування або неправильно налаштований.</translation>
@@ -554,17 +630,21 @@
 <translation id="5442787703230926158">Помилка синхронізації...</translation>
 <translation id="2462724976360937186">Ідентифікатор ключа центру сертифікації</translation>
 <translation id="6786747875388722282">Розширення</translation>
+<translation id="3944384147860595744">Друкувати з усього</translation>
 <translation id="4306718255138772973">Cloud Print Proxy</translation>
 <translation id="9053965862400494292">Під час налаштування синхронізації сталася помилка.</translation>
 <translation id="8596540852772265699">Нетипові файли</translation>
 <translation id="7017354871202642555">Неможливо вибрати режим після налаштування вікна.</translation>
 <translation id="3101709781009526431">Дата та час</translation>
+<translation id="833853299050699606">Інформація про тарифний план недоступна.</translation>
 <translation id="4571852245489094179">Імпорт закладок і налаштувань</translation>
 <translation id="6514771739083339959">Домашня сторінка</translation>
 <translation id="4421917670248123270">Закрити та скасувати завантаження</translation>
 <translation id="5605623530403479164">Інші пошукові системи</translation>
 <translation id="5710435578057952990">Ідентифікаційну інформацію цього веб-сайта не було перевірено.</translation>
 <translation id="3031452810742977542">Помилка сертифіката клієнта</translation>
+<translation id="1421046588786494306">Закордонні сеанси</translation>
+<translation id="1661245713600520330">На цій сторінці вказано всі модулі, завантажені в основний процес, і модулі, зареєстровані для пізнішого завантаження.</translation>
 <translation id="5451646087589576080">Переглянути &amp;інформацію про фрейм</translation>
 <translation id="3368922792935385530">Підключено</translation>
 <translation id="3498309188699715599">Налаштування методу введення для стандарту чжуїнь китайської мови</translation>
@@ -574,10 +654,13 @@
 <translation id="6208594739197220531">Функції:</translation>
 <translation id="5184063094292164363">Консоль &amp;JavaScript</translation>
 <translation id="333371639341676808">Заборонити створення додаткових діалогових вікон цією сторінкою.</translation>
+<translation id="1935100723708620893"><ph name="PRODUCT_NAME"/> працює, використовуючи своє зображення диска. Якщо оновити встановлену копію, надалі можна буде працювати без використання зображення диска.</translation>
 <translation id="3494768541638400973">Метод введення Google для японської мови (японська клавіатура)</translation>
 <translation id="5844183150118566785"><ph name="PRODUCT_NAME"/> є найновішою версією (<ph name="VERSION"/>)</translation>
 <translation id="4254921211241441775">Зупинити синхронізацію цього облікового запису</translation>
+<translation id="6428534099649884080"><ph name="PRODUCT_NAME"/> не може оновити встановлену копію, але він продовжить працювати, використовуючи своє зображення диска.</translation>
 <translation id="7791543448312431591">Додати</translation>
+<translation id="5449451542704866098">Немає тарифного плану</translation>
 <translation id="307505906468538196">Створити обліковий запис Google</translation>
 <translation id="48838266408104654">&amp;Диспетчер завдань</translation>
 <translation id="4378154925671717803">Телефон</translation>
@@ -586,6 +669,7 @@
 <translation id="3341703758641437857">Надавати доступ до URL-адрес файлу</translation>
 <translation id="5702898740348134351">&amp;Змінити пошукові системи...</translation>
 <translation id="8326478304147373412">PKCS #7, ланцюжок сертифікатів</translation>
+<translation id="8089798106823170468">Надавайте та контролюйте доступ до своїх принтерів за допомогою будь-якого облікового запису Google.</translation>
 <translation id="5984992849064510607">Додає до контекстного меню панелі вкладок запис &quot;Використовувати бокові вкладки&quot;. Користуйтеся ним, щоб переключатися між вкладками вгорі (за умовчанням) та вкладками збоку. Знадобиться на широкоекранних моніторах.</translation>
 <translation id="839736845446313156">Зареєструйтеся</translation>
 <translation id="4668929960204016307">,</translation>
@@ -605,11 +689,14 @@
 <translation id="6830600606572693159">Веб-сторінка за адресою <ph name="URL"/> наразі недоступна. Можливо, вона перевантажена або перебуває на стадії технічного обслуговування.</translation>
 <translation id="8990467782371788738">Інші програми</translation>
 <translation id="8417944620073548444">Залишилося <ph name="MEGABYTES"/> Мб</translation>
+<translation id="7339898014177206373">Нове вікно</translation>
 <translation id="8249296373107784235">Скасувати</translation>
+<translation id="3026202950002788510">Перейдіть до <ph name="BEGIN_BOLD"/>Applications &gt; System Preferences &gt; Network &gt; Advanced &gt; Proxies (Програми &gt; Системні налаштування &gt; Мережа &gt; Розширені &gt; Проксі-сервери)<ph name="END_BOLD"/> та зніміть прапорці біля всіх вибраних проксі-серверів.</translation>
 <translation id="7033648024564583278">Ініціалізація процесу запису...</translation>
 <translation id="3967132639560659870">На цій сторінці є декілька помилок SSL:</translation>
 <translation id="7770995925463083016"><ph name="NUMBER_TWO"/> mins ago</translation>
 <translation id="2816269189405906839">Метод введення для китайської мови (чангже)</translation>
+<translation id="2149951639139208969">Відкрити адресу в новій вкладці</translation>
 <translation id="175196451752279553">В&amp;ідкрити закриту вкладку знову</translation>
 <translation id="5039804452771397117">Дозволити</translation>
 <translation id="5435964418642993308">Натисніть Enter, щоб повернутися, а кнопку контекстного меню – щоб переглянути історію</translation>
@@ -618,10 +705,12 @@
 <translation id="2266011376676382776">Сторінки не відповідають</translation>
 <translation id="2714313179822741882">Налаштування редактора введення хангиль</translation>
 <translation id="8658163650946386262">Налаштувати синхронізацію...</translation>
+<translation id="3100609564180505575">Модулі (<ph name="TOTAL_COUNT"/>) – відомих конфліктів: <ph name="BAD_COUNT"/>, імовірних: <ph name="SUSPICIOUS_COUNT"/></translation>
 <translation id="3627671146180677314">Час відновлення сертифіката Netscape</translation>
 <translation id="1319824869167805246">Відкрити всі закладки в новому вікні</translation>
 <translation id="5204967432542742771">Введіть пароль</translation>
 <translation id="3493653833301553455">Автоматичне заповнення форми:</translation>
+<translation id="4388712255200933062">Основною ідеєю інструмента <ph name="CLOUD_PRINT_NAME"/> є те, що друк може бути більш інтуїтивним, доступним і придатним. Використовуючи інструмент <ph name="CLOUD_PRINT_NAME"/>, можна зробити свої принтери доступними з будь-якої веб-програми чи програми для мобільного, де ввімкнено <ph name="CLOUD_PRINT_NAME"/>.</translation>
 <translation id="2932611376188126394">Єдиний словник канджі</translation>
 <translation id="5485754497697573575">Відновити всі вкладки</translation>
 <translation id="3371861036502301517">Не вдалося встановити розширення</translation>
@@ -638,21 +727,29 @@
 <translation id="8425492902634685834">Закріпити на панелі завдань</translation>
 <translation id="3234408098842461169">Курсор униз</translation>
 <translation id="825608351287166772">Сертифікати мають обмежений термін дії, так само, як ідентифікаційний документ (такий як паспорт) у людини. Сертифікат, наданий вашому переглядачу, ще не є дійсним. Коли сертифікат перебуває поза терміном дії, певна інформація про статус такого сертифіката (якщо його було відкликано та він більше не вважається надійним) не має підтримуватись. Фактично, перевірити надійність цього сертифіката не можна. Рекомендуємо не продовжувати.</translation>
+<translation id="741630086309232721">Завершити сеанс у режимі гостя</translation>
 <translation id="8551494947769799688">латвійська</translation>
 <translation id="3300945880528414474">Недійсний код доступу.</translation>
+<translation id="7309459761865060639">Переглядайте завдання для друку та стан принтера онлайн.</translation>
+<translation id="4803909571878637176">Видалення</translation>
 <translation id="5209518306177824490">Відбиток SHA-1</translation>
 <translation id="7447657194129453603">Стан мережі:</translation>
 <translation id="1553538517812678578">без обмежень</translation>
+<translation id="7947315300197525319">(Вибрати інший знімок екрана)</translation>
+<translation id="3612070600336666959">Вимкнення</translation>
 <translation id="1516602185768225813">Знову відкрити останні відкриті сторінки</translation>
 <translation id="189210018541388520">Відкрити на весь екран</translation>
 <translation id="8795668016723474529">Додати кредитну картку</translation>
 <translation id="5860033963881614850">Вимк.</translation>
 <translation id="689050928053557380">Купити тарифний план...</translation>
 <translation id="1538486363863290963">Блокувати всі без винятку файли cookie третіх сторін</translation>
+<translation id="4235618124995926194">Включити цю електронну адресу:</translation>
 <translation id="4874539263382920044">Заголовок має містити принаймні один символ</translation>
 <translation id="798525203920325731">Простори імен мережі</translation>
+<translation id="263325223718984101"><ph name="PRODUCT_NAME"/> не вдалося завершити встановлення, але він продовжить працювати, використовуючи своє зображення диска.</translation>
 <translation id="8265096285667890932">Використовувати бокові вкладки</translation>
 <translation id="7344633671344536647">Дані веб-перегляду:</translation>
+<translation id="5517153325340374723">Дає змогу адресному рядку завантажувати URL-адреси під час їх введення. Результати пошуків відображаються для найточнішого збігу.</translation>
 <translation id="4250680216510889253">Ні</translation>
 <translation id="6291953229176937411">&amp;Показати в програмі Finder</translation>
 <translation id="7905536804357499080">Використати поточне</translation>
@@ -667,6 +764,7 @@
 <translation id="5895875028328858187">Показувати сповіщення, коли термін дії даних короткий або закінчується</translation>
 <translation id="9144951720726881238">Діє до:</translation>
 <translation id="8371806639176876412">Введені в універсальне вікно пошуку дані можуть реєструватися</translation>
+<translation id="4216499942524365685">Ваші дані для входу в обліковий запис застаріли. Натисніть, щоб повторно ввести свій пароль.</translation>
 <translation id="4435256380245822831">Налаштування зображень:</translation>
 <translation id="8899388739470541164">В'єтнамська</translation>
 <translation id="7475671414023905704">URL-адреса втраченого пароля Netscape</translation>
@@ -708,6 +806,7 @@
 <translation id="7977590112176369853">&lt;уведіть запит&gt;</translation>
 <translation id="3449839693241009168">Натисніть <ph name="SEARCH_KEY"/>, щоб надіслати команди для розширення <ph name="EXTENSION_NAME"/></translation>
 <translation id="7443484992065838938">Переглянути звіт</translation>
+<translation id="5714678912774000384">Активувати останню вкладку</translation>
 <translation id="8644246507972670626">Повне ім'я:</translation>
 <translation id="3799598397265899467">Коли веб-переглядач закривається</translation>
 <translation id="8389112860224644757">Активація служби пересилання даних</translation>
@@ -715,7 +814,10 @@
 <translation id="542318722822983047">Автоматично переміщувати курсор до наступного символу</translation>
 <translation id="5317780077021120954">Зберегти</translation>
 <translation id="9027459031423301635">Відкрити посилання в новій &amp;вкладці</translation>
+<translation id="2251809247798634662">Нове вікно в режимі анонімного перегляду</translation>
 <translation id="358344266898797651">Кельтська</translation>
+<translation id="3625870480639975468">Скинути масштабування</translation>
+<translation id="5199729219167945352">Експерименти</translation>
 <translation id="5055518462594137986">Запам’ятати мій вибір для всіх посилань цього типу.</translation>
 <translation id="246059062092993255">На цій сторінці модулі заблоковано.</translation>
 <translation id="2870560284913253234">Сайт</translation>
@@ -738,6 +840,9 @@
 <translation id="7029809446516969842">Паролі</translation>
 <translation id="8053278772142718589">Файли PKCS #12</translation>
 <translation id="1049743911850919806">Анонімний перегляд</translation>
+<translation id="3129020372442395066">Параметри автозаповнення <ph name="PRODUCT_NAME_SHORT"/></translation>
+<translation id="4114360727879906392">Попереднє вікно</translation>
+<translation id="8238649969398088015">Порада щодо довідки</translation>
 <translation id="4528378725264562960">(Працює)</translation>
 <translation id="5958418293370246440"><ph name="SAVED_FILES"/> / <ph name="TOTAL_FILES"/> файлів</translation>
 <translation id="2350172092385603347">Використано локалізацію, але параметр мови за умовчанням (default_locale) не визначено в маніфесті.</translation>
@@ -746,8 +851,10 @@
 <translation id="8142835213013417343">Налаштувати віддалену взаємодію...</translation>
 <translation id="5894314466642127212">Відгук користувача надіслано успішно</translation>
 <translation id="894360074127026135">Програма підвищення до міжнародного рівня Netscape</translation>
+<translation id="6025294537656405544">Мінімальний розмір шрифту</translation>
 <translation id="1201402288615127009">Далі</translation>
 <translation id="1335588927966684346">Утиліта:</translation>
+<translation id="662870454757950142">Неправильний формат пароля.</translation>
 <translation id="370665806235115550">Завантаження...</translation>
 <translation id="6592392877063354583">Сторінка за адресою <ph name="SECURE_PAGE_URL"/> містить незахищений вміст із <ph name="INSECURE_RESOURCE_URL"/>.</translation>
 <translation id="1808792122276977615">Додати сторінку...</translation>
@@ -762,6 +869,7 @@
 <translation id="2135787500304447609">&amp;Відновити</translation>
 <translation id="8309505303672555187">Вибрати мережу:</translation>
 <translation id="1813414402673211292">Очистити дані переглядача</translation>
+<translation id="4062903950301992112">Якщо ви розумієте, що відвідування цього сайту може зашкодити вашому комп'ютеру, <ph name="PROCEED_LINK"/>.</translation>
 <translation id="2356762928523809690">Сервер оновлення недоступний (помилка: <ph name="ERROR_NUMBER"/>)</translation>
 <translation id="6108162055037814535">Оскільки ви не довіряєте Центру сертифікації, який видав цей сертифікат, ви не довіряєте й автентичності цього сертифіката (якщо тут не вказано протилежне).</translation>
 <translation id="219008588003277019">Модуль Native Client: <ph name="NEXE_NAME"/></translation>
@@ -771,6 +879,7 @@
 <translation id="3800764353337460026">Стиль символів</translation>
 <translation id="6719684875142564568"><ph name="NUMBER_ZERO"/> hours</translation>
 <translation id="7616581516194661584">Копія</translation>
+<translation id="1036561994998035917">І надалі використовувати <ph name="ENGINE_NAME"/></translation>
 <translation id="8730621377337864115">Виконано</translation>
 <translation id="6267166720438879315">Виберіть сертифікат, щоб ідентифікувати себе на <ph name="HOST_NAME"/></translation>
 <translation id="2422927186524098759">Бічна панель</translation>
@@ -780,6 +889,8 @@
 <translation id="7198134478421755850">Розширення</translation>
 <translation id="5708171344853220004">Ім'я учасника Microsoft</translation>
 <translation id="2953767478223974804"><ph name="NUMBER_ONE"/> хв.</translation>
+<translation id="7851768487828137624">Canary</translation>
+<translation id="188779312703122101">У процесі обробки</translation>
 <translation id="6129938384427316298">Коментар сертифіката Netscape</translation>
 <translation id="8210608804940886430">Сторінка вниз</translation>
 <translation id="473775607612524610">Оновити</translation>
@@ -792,12 +903,14 @@
 <translation id="4724168406730866204">Етен 26</translation>
 <translation id="308268297242056490">URI</translation>
 <translation id="8673026256276578048">Пошук в Інтернеті...</translation>
+<translation id="1437307674059038925">Якщо ви використовуєте проксі-сервер, перевірте свої налаштування проксі чи зверніться до адміністратора мережі, щоб переконатися, що проксі-сервер працює.</translation>
 <translation id="149347756975725155">Не вдалося завантажити піктограму розширення &quot;<ph name="ICON"/>&quot;.</translation>
 <translation id="3675321783533846350">Налаштуйте проксі для з’єднання з мережею.</translation>
 <translation id="5669267381087807207">Активація</translation>
 <translation id="1572103024875503863"><ph name="NUMBER_MANY"/> days</translation>
 <translation id="8453184121293348016">Не знайдено механізм відкликання</translation>
 <translation id="2084978867795361905">MS-IME</translation>
+<translation id="7227669995306390694"><ph name="NETWORK"/> – тарифного плану немає</translation>
 <translation id="3481915276125965083">На цій сторінці заблоковано такі спливаючі вікна:</translation>
 <translation id="3468298837301810372">Мітка</translation>
 <translation id="7163503212501929773"><ph name="NUMBER_MANY"/> hours left</translation>
@@ -817,10 +930,12 @@
 <translation id="5188181431048702787">Прийняти та продовжити »</translation>
 <translation id="2490270303663597841">Застосувати лише до цього сеансу анонімного перегляду</translation>
 <translation id="1757915090001272240">Розширена латиниця</translation>
+<translation id="1222453244797358782">Попереднє відтворення веб-сторінки.</translation>
 <translation id="2916073183900451334">За допомогою клавіші Tab можна виділяти посилання та поля форми на веб-сторінці</translation>
 <translation id="7772127298218883077">Про <ph name="PRODUCT_NAME"/></translation>
 <translation id="2090876986345970080">Налаштування безпеки системи</translation>
 <translation id="9219103736887031265">Зображення</translation>
+<translation id="8909751710186125076">Неможливо зв'язатися з програмою на <ph name="HOST_NAME"/>, оскільки немає з'єднання з мережею. Сторінку буде завантажено після відновлення з'єднання з мережею. &lt;br&gt; Спробуєте повторити з'єднання, з'єднатися з іншою мережею чи продовжити завантаження за будь-яких умов.</translation>
 <translation id="5453632173748266363">Кирилиця</translation>
 <translation id="1008557486741366299">Не зараз</translation>
 <translation id="8415351664471761088">Зачекати, поки закінчиться завантаження</translation>
@@ -836,6 +951,7 @@
 <translation id="1362165759943288856"><ph name="DATE"/> ви придбали необмежений пакет даних</translation>
 <translation id="7965010376480416255">Спільна пам’ять</translation>
 <translation id="6248988683584659830">Налаштування пошуку</translation>
+<translation id="8323232699731382745">пароль мережі</translation>
 <translation id="7167621057293532233">Типи даних</translation>
 <translation id="5512204663040985264">Створення парольної фрази</translation>
 <translation id="7053983685419859001">Блокувати</translation>
@@ -846,12 +962,14 @@
 <translation id="6556866813142980365">Повторити</translation>
 <translation id="2107287771748948380"><ph name="OBFUSCATED_CC_NUMBER"/>, діє до: <ph name="CC_EXPIRATION_DATE"/></translation>
 <translation id="6584811624537923135">Підтвердити видалення</translation>
+<translation id="7866522434127619318">Вмикає параметр &quot;натисніть, щоб відтворити&quot; в налаштуваннях вмісту плагінів.</translation>
 <translation id="8860923508273563464">Зачекати, поки закінчиться завантаження</translation>
 <translation id="6406506848690869874">Синхронізація</translation>
 <translation id="5288678174502918605">В&amp;ідкрити закриту вкладку знову</translation>
 <translation id="7238461040709361198">Пароль облікового запису Google змінився з часу вашого входу з цього комп'ютера.</translation>
 <translation id="1956050014111002555">Файл містив декілька сертифікатів, жоден із яких не було імпортовано:</translation>
 <translation id="1926245297874405133">Введіть свій код доступу:</translation>
+<translation id="302620147503052030">Показати кнопку</translation>
 <translation id="1251010908205284827">англійська (розкладка Дворака)</translation>
 <translation id="9157595877708044936">Налаштування...</translation>
 <translation id="1823768272150895732">Шрифт</translation>
@@ -888,7 +1006,9 @@
 
         &lt;p&gt;Проте, ви можете виконати конфігурацію за допомогою командного рядка. Щоб отримати докладнішу інформацію про прапорці та змінні середовища, перегляньте &lt;code&gt;man <ph name="PRODUCT_BINARY_NAME"/>&lt;/code&gt;.&lt;/p&gt;</translation>
 <translation id="9071590393348537582">Веб-сторінка, розташована за адресою <ph name="URL"/>, спричинила забагато переадресацій. Цієї проблеми можна позбутись, видаливши свої файли cookie для цього сайту чи дозволивши файли cookie третьої сторони. Якщо проблема не зникає, можливо, вона пов'язана з конфігурацією сервера, а не з вашим комп'ютером.</translation>
+<translation id="7205869271332034173">SSID:</translation>
 <translation id="8797851969616414257">болгарська (фонетична) розкладка клавіатури</translation>
+<translation id="7084579131203911145">Назва тарифного плану:</translation>
 <translation id="5815645614496570556">Адреса каталогу X.400</translation>
 <translation id="6778318671961493431">Назва компанії:</translation>
 <translation id="3551320343578183772">Закрити вкладку</translation>
@@ -904,6 +1024,7 @@
 <translation id="7606992457248886637">Центри сертифікації</translation>
 <translation id="707392107419594760">Виберіть свою клавіатуру:</translation>
 <translation id="4100444335378291065">Випуск</translation>
+<translation id="2007404777272201486">Повідомити про проблему...</translation>
 <translation id="2390045462562521613">Не з'єднуватися з цією мережею</translation>
 <translation id="1666788816626221136">У вас є сертифікати, які не відповідають жодній іншій категорії:</translation>
 <translation id="1603914832182249871">(Анонімний перегляд)</translation>
@@ -915,6 +1036,8 @@
 <translation id="3664704721673470303">Налаштування <ph name="PRODUCT_NAME"/></translation>
 <translation id="7469894403370665791">Автоматично з'єднувати з цією мережею</translation>
 <translation id="4807098396393229769">Ім'я на картці</translation>
+<translation id="4131410914670010031">Чорно-білий</translation>
+<translation id="3800503346337426623">Пропустити вхід і переглядати в режимі гостя</translation>
 <translation id="2615413226240911668">Однак ця сторінка містить ресурси, які не є захищеними. Інші особи можуть переглядати їх під час передачі даних, а зловмисники – змінювати зовнішній вигляд сторінки.</translation>
 <translation id="6883611015375728278">Заблокувати всі cookie-файли</translation>
 <translation id="7842346819602959665">Найновіша версія розширення &quot;<ph name="EXTENSION_NAME"/>&quot; потребує більше дозволів, тому його було вимкнуто.</translation>
@@ -931,6 +1054,7 @@
 <translation id="2485422356828889247">Видалити</translation>
 <translation id="2621889926470140926">Вийти з <ph name="PRODUCT_NAME"/>, хоча виконується декілька (<ph name="DOWNLOAD_COUNT"/>) завантажень?</translation>
 <translation id="7279701417129455881">Керувати блокуванням файлів cookie...</translation>
+<translation id="6561519562679424969">Керування збереженими паролями</translation>
 <translation id="1166359541137214543">ABC</translation>
 <translation id="5528368756083817449">Диспетчер закладок</translation>
 <translation id="7275974018215686543"><ph name="NUMBER_MANY"/> secs ago</translation>
@@ -961,10 +1085,12 @@
 <translation id="6871644448911473373">Відповідач OCSP: <ph name="LOCATION"/></translation>
 <translation id="8281886186245836920">Пропустити</translation>
 <translation id="3867944738977021751">Поля сертифіката</translation>
+<translation id="2114224913786726438">Модулі (<ph name="TOTAL_COUNT"/>) – конфліктів не виявлено</translation>
 <translation id="7629827748548208700">Вкладка: <ph name="TAB_NAME"/></translation>
 <translation id="388442998277590542">Не вдалося завантажити сторінку параметрів &quot;<ph name="OPTIONS_PAGE"/>&quot;.</translation>
 <translation id="8449008133205184768">Вставити та застосувати стиль</translation>
 <translation id="9114223350847410618">Перш ніж видалити цю мову, додайте іншу.</translation>
+<translation id="4408427661507229495">назва мережі</translation>
 <translation id="8028993641010258682">Розмір</translation>
 <translation id="5031603669928715570">Увімкнути...</translation>
 <translation id="4710257996998566163">Останнє оновлення:</translation>
@@ -977,15 +1103,19 @@
 <translation id="5352033265844765294">Встановлення позначки часу</translation>
 <translation id="6449085810994685586">&amp;Перевірити написання слів у цьому полі</translation>
 <translation id="3621320549246006887">Це експериментальна схема, де сертифікати HTTPS можуть проходити автентифікацію та відхилятися записами DNS (захищеними DNSSEC). Якщо ви бачите це повідомлення, значить ви ввімкнули експериментальні функції за допомогою параметрів командного рядка. Щоб проігнорувати цю помилку, видаліть ці параметри командного рядка.</translation>
+<translation id="3100283258447375201">Додаткова інформація</translation>
 <translation id="50960180632766478"><ph name="NUMBER_FEW"/> хв. залишилось</translation>
 <translation id="2022540532491530427">Копіювати &amp;файл</translation>
 <translation id="748138892655239008">Базові обмеження сертифіката</translation>
 <translation id="457386861538956877">Інші...</translation>
+<translation id="8063491445163840780">Активувати вкладку 4</translation>
 <translation id="5966654788342289517">Особисті дані</translation>
 <translation id="9137013805542155359">Показати оригінал</translation>
 <translation id="4792385443586519711">Назва компанії</translation>
 <translation id="8839907368860424444">Встановленими розширеннями можна керувати, натиснувши пункт &quot;Розширення&quot; в меню &quot;Вікно&quot;.</translation>
+<translation id="2461687051570989462">Отримуйте доступ до своїх принтерів із будь-якого комп'ютера чи смартфона. <ph name="BEGIN_LINK"/>Докладніше<ph name="END_LINK"/></translation>
 <translation id="818454486170715660"><ph name="NAME"/> – власник</translation>
+<translation id="8201956630388867069">WPA</translation>
 <translation id="8302838426652833913">Перейдіть до меню <ph name="BEGIN_BOLD"/>Програми &gt; Системні налаштування &gt; Мережа &gt; Допомога (Applications &gt; System Preferences &gt; Network &gt; Assist me)<ph name="END_BOLD"/>, щоб протестувати своє з'єднання.</translation>
 <translation id="8664389313780386848">&amp;Переглянути джерело сторінки</translation>
 <translation id="8970407809569722516">Мікропрограма:</translation>
@@ -994,12 +1124,14 @@
 <translation id="2615197286839530844">Швейцарська розкладка клавіатури</translation>
 <translation id="3289566588497100676">Введення простих символів</translation>
 <translation id="6507969014813375884">Китайська (спрощене письмо)</translation>
+<translation id="7314244761674113881">Хост SOCKS</translation>
 <translation id="5285794783728826432">Довіряйте цьому сертифікату для ідентифікації веб-сайтів.</translation>
 <translation id="4224803122026931301">Винятки місцезнаходження</translation>
 <translation id="749452993132003881">Хірагана</translation>
 <translation id="8226742006292257240">Нижче наведено навмання створений пароль для модуля TPM, присвоєний вашому комп'ютеру:</translation>
 <translation id="8487693399751278191">Імпортувати закладки зараз...</translation>
 <translation id="7985242821674907985"><ph name="PRODUCT_NAME"/></translation>
+<translation id="7484580869648358686">Застереження. Можлива небезпека.</translation>
 <translation id="4474155171896946103">Позначити закладками всі вкладки...</translation>
 <translation id="5895187275912066135">Дата видачі</translation>
 <translation id="1190844492833803334">Коли веб-переглядач закривається</translation>
@@ -1012,6 +1144,8 @@
 <translation id="2649045351178520408">ASCII Base64-кодування, ланцюжок сертифікатів</translation>
 <translation id="380271916710942399">Незареєстрований сертифікат сервера</translation>
 <translation id="6459488832681039634">Використати виділення для пошуку</translation>
+<translation id="2392369802118427583">Активувати</translation>
+<translation id="9040421302519041149">Доступ до цієї мережі захищено.</translation>
 <translation id="5659593005791499971">Електронна пошта</translation>
 <translation id="8235325155053717782">Помилка <ph name="ERROR_NUMBER"/> (<ph name="ERROR_NAME"/>): <ph name="ERROR_TEXT"/></translation>
 <translation id="7734729626860583526">Файли cookie з хосту <ph name="HOST"/></translation>
@@ -1032,9 +1166,11 @@
 <translation id="6639554308659482635">Пам'ять SQLite</translation>
 <translation id="8141503649579618569"><ph name="DOWNLOAD_RECEIVED"/>/<ph name="DOWNLOAD_TOTAL"/>, <ph name="TIME_LEFT"/></translation>
 <translation id="7650701856438921772"><ph name="PRODUCT_NAME"/> відображається цією мовою</translation>
+<translation id="740624631517654988">Спливаюче вікно заблоковано</translation>
 <translation id="3738924763801731196"><ph name="OID"/>:</translation>
 <translation id="6550769511678490130">Відкрити всі закладки</translation>
 <translation id="6659594942844771486">Вкладка</translation>
+<translation id="6575134580692778371">Не налаштовано</translation>
 <translation id="4624768044135598934">Операцію виконано.</translation>
 <translation id="5582768900447355629">Зашифрувати всі мої дані</translation>
 <translation id="8593048479750897716">Керування службою пересилання даних для мобільного телефону</translation>
@@ -1053,39 +1189,50 @@
 <translation id="2065985942032347596">Потрібна автентифікація</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME"/> не вдалося з'єднатися з <ph name="NETWORK_ID"/>. Виберіть іншу мережу або повторіть спробу.</translation>
 <translation id="7222232353993864120">Електронна адреса</translation>
+<translation id="2128531968068887769">Native Client</translation>
 <translation id="4590074117005971373">Активує кращу ефективність повноекранних тегів з 2D-контекстом за допомогою візуалізації, використовуючи апаратне забезпечення графічного процесора (Graphics Processor Unit, GPU).</translation>
 <translation id="7186367841673660872">Цю сторінку перекладено. Мова оригіналу:<ph name="ORIGINAL_LANGUAGE"/>мова перекладу:<ph name="LANGUAGE_LANGUAGE"/></translation>
 <translation id="6052976518993719690">Центр сертифікації SSL</translation>
+<translation id="1636959874332483835">Хост <ph name="HOST_NAME"/> містить зловмисне програмне забезпечення. Якщо ви відвідаєте цей сайт, у ваш комп'ютер може потрапити вірус.</translation>
 <translation id="1791662854739702043">Установлено</translation>
 <translation id="1175364870820465910">&amp;Друк...</translation>
+<translation id="2986016569675068682">Утримуйте ⌘Q, щоб вийти.</translation>
 <translation id="3866249974567520381">Опис</translation>
 <translation id="2294358108254308676">Установити <ph name="PRODUCT_NAME"/>?</translation>
 <translation id="6549689063733911810">Останні</translation>
 <translation id="5542132724887566711">Профіль</translation>
+<translation id="5196117515621749903">Перезавантажити, ігноруючи кеш</translation>
 <translation id="5552632479093547648">Виявлено шкідливі програми та фішинг.</translation>
 <translation id="4988273303304146523"><ph name="NUMBER_DEFAULT"/> дн. тому</translation>
 <translation id="8428213095426709021">Налаштування</translation>
 <translation id="1588343679702972132">Цей сайт вимагає вашої ідентифікації із сертифікатом:</translation>
 <translation id="7211994749225247711">Видалити...</translation>
 <translation id="2819994928625218237">&amp;Немає варіантів правопису</translation>
+<translation id="4316305410440790958">Відкрити фрейм у новій &amp;вкладці</translation>
 <translation id="9142623379911037913">Дозволити <ph name="SITE"/> показувати сповіщення на робочому столі?</translation>
 <translation id="4196320913210960460">Можна керувати своїми встановленими розширеннями, натиснувши пункт &quot;Розширення&quot; в меню Інструменти.</translation>
+<translation id="3449494395612243720">Помилка синхронізації – увійдіть знову</translation>
 <translation id="9118804773997839291">Нижче наведено перелік небезпечних елементів на цій сторінці. Натисніть посилання &quot;Діагностика&quot;, щоб отримати докладнішу інформацію про походження певного джерела.</translation>
 <translation id="1761265592227862828">Синхронізувати всі налаштування та дані\n(може минути деякий час)</translation>
 <translation id="7754704193130578113">Запитувати, де зберігати кожен файл перед завантаженням</translation>
+<translation id="204914487372604757">Створити ярлик</translation>
 <translation id="2497284189126895209">Усі файли</translation>
 <translation id="696036063053180184">3-рядна розкладка (без клавіші &quot;Shift&quot;)</translation>
 <translation id="945332329539165145">GPU Accelerated Canvas 2D</translation>
 <translation id="5360606537916580043">Останній день</translation>
+<translation id="5220797120063118010">Вмикає підтримку встановлення програм Chrome, які застосовуються за допомогою файла маніфесту на веб-сторінці, а не пакують файл маніфесту та піктограми у файл crx.</translation>
+<translation id="9148126808321036104">Увійти знову</translation>
 <translation id="2282146716419988068">Процес GPU</translation>
 <translation id="4690246192099372265">шведська</translation>
 <translation id="1682548588986054654">Нове анонімне вікно</translation>
 <translation id="6833901631330113163">Південно-європейська</translation>
 <translation id="6065289257230303064">Атрибути каталогу суб'єкта сертифіката</translation>
+<translation id="2423017480076849397">Отримуйте та надавайте доступ до своїх принтерів за допомогою <ph name="CLOUD_PRINT_NAME"/></translation>
 <translation id="569520194956422927">&amp;Додати...</translation>
 <translation id="4018133169783460046">Відображати <ph name="PRODUCT_NAME"/> такою мовою</translation>
 <translation id="5110450810124758964"><ph name="NUMBER_ONE"/> день тому</translation>
 <translation id="941042801116775632">CapsLock</translation>
+<translation id="3906800046407092064">Ця помилка може статися під час з'єднання з безпечним (HTTPS) сервером. Це означає, що сервер намагається налаштувати безпечне з'єднання, проте з огляду на надзвичайно неправильну конфігурацію, з'єднання взагалі не буде безпечним. <ph name="LINE_BREAK"/> У такому випадку сервер треба налаштувати. З метою захисту вашої конфіденційності, Chrome не використовуватиме небезпечні з'єднання.</translation>
 <translation id="2820806154655529776"><ph name="NUMBER_ONE"/> сек.</translation>
 <translation id="1077946062898560804">Налаштувати автоматичні оновлення для всіх користувачів</translation>
 <translation id="3122496702278727796">Не вдалося створити каталог даних</translation>
@@ -1108,10 +1255,13 @@
 <translation id="7538227655922918841">Файли cookie з багатьох сайтів дозволено лише для сеансу.</translation>
 <translation id="8688030702237945137">&amp;Перекласти &quot;<ph name="TEXT"/>&quot; такою мовою: <ph name="LANGUAGE"/></translation>
 <translation id="2385700042425247848">Назва служби:</translation>
+<translation id="7751005832163144684">Надрукувати пробну сторінку</translation>
+<translation id="1471300011765310414"><ph name="PRODUCT_NAME"/> не може відобразити веб-сторінку, оскільки ваш комп'ютер не під'єднано до Інтернету.</translation>
 <translation id="4268025649754414643">Шифрування ключа</translation>
 <translation id="7925247922861151263">Помилка перевірки AAA</translation>
 <translation id="1168020859489941584">Відкриття через <ph name="TIME_REMAINING"/>...</translation>
 <translation id="7814458197256864873">&amp;Копіювати</translation>
+<translation id="8186706823560132848">Програмне забезпечення</translation>
 <translation id="4692623383562244444">Пошукові системи</translation>
 <translation id="2495069335509163989">Винятки сповіщень</translation>
 <translation id="567760371929988174">Методи &amp;введення</translation>
@@ -1120,6 +1270,7 @@
 <translation id="2526590354069164005">Google Desktop</translation>
 <translation id="7983301409776629893">Завжди перекладати цю мовну пару: <ph name="ORIGINAL_LANGUAGE"/> – <ph name="TARGET_LANGUAGE"/></translation>
 <translation id="4890284164788142455">Тайська</translation>
+<translation id="4312207540304900419">Активувати наступну вкладку</translation>
 <translation id="8456362689280298700"><ph name="HOUR"/>:<ph name="MINUTE"/> до повного зарядження</translation>
 <translation id="7648048654005891115">Стиль таблиці клавіш</translation>
 <translation id="3889424535448813030">Курсор праворуч</translation>
@@ -1129,6 +1280,7 @@
 <translation id="7154108546743862496">Докладніше</translation>
 <translation id="5167270755190684957">Галерея тем Google Chrome</translation>
 <translation id="8382913212082956454">Копіювати &amp;адресу електронної пошти</translation>
+<translation id="7447930227192971403">Активувати вкладку 3</translation>
 <translation id="2903493209154104877">Адреси</translation>
 <translation id="2056143100006548702">Плагін: <ph name="PLUGIN_NAME"/> (<ph name="PLUGIN_VERSION"/>)</translation>
 <translation id="3479552764303398839">Не зараз</translation>
@@ -1151,12 +1303,17 @@
 <translation id="720658115504386855">Літери не чутливі до регістру</translation>
 <translation id="2454247629720664989">Ключове слово</translation>
 <translation id="3950820424414687140">Увійти</translation>
+<translation id="4626106357471783850">Щоб застосувати це оновлення, потрібно перезапустити <ph name="PRODUCT_NAME"/>.</translation>
 <translation id="2840798130349147766">Онлайнові бази даних</translation>
+<translation id="288423333090604705">Примітка. Коли ви натискаєте &quot;Надіслати відгук&quot;, веб-переглядач Chrome включає журнал вашої версії Chrome і версії ОС, а також URL-адресу, пов'язану з вашим відгуком. Ви також можете долучити знімок екрана, пов'язаний із цим відгуком. Ми використовуємо цю інформацію, щоб діагностувати проблеми та підвищити ефективність Chrome. Будь-яку особисту інформацію, включену у звіт про відгук – явно у ваших коментарях або випадково в журналі, URL-адресі чи знімку екрана – буде захищено відповідно до нашої політики конфіденційності. Щоб не надсилати URL-адреси, зніміть прапорець біля пункту &quot;Включити цю URL-адресу:&quot;. Щоб не надсилати знімок екрана, не ставте прапорець біля пункту &quot;Включити цей знімок екрана:&quot;. 
+Ви погоджуєтеся, що Google може використати ваш відгук для вдосконалення продуктів або служб Google.</translation>
 <translation id="1628736721748648976">Кодування</translation>
+<translation id="1198271701881992799">Розпочнімо</translation>
 <translation id="6521850982405273806">Повідомити про помилку</translation>
 <translation id="8026334261755873520">Очистити дані веб-перегляду</translation>
 <translation id="1769104665586091481">Відкрити посилання в новому &amp;вікні</translation>
 <translation id="8503813439785031346">Ім’я користувача</translation>
+<translation id="7073368341317505833">Налаштування автозаповнення в <ph name="PRODUCT_NAME_SHORT"/></translation>
 <translation id="8651585100578802546">Примусово перезавантажити цю сторінку</translation>
 <translation id="685714579710025096">Розкладка клавіатури:</translation>
 <translation id="1361655923249334273">Не використаний</translation>
@@ -1168,6 +1325,7 @@
 <translation id="1074663319790387896">Налаштувати синхронізацію</translation>
 <translation id="4302315780171881488">Стан з'єднання:</translation>
 <translation id="7642109201157405070">Продовжити імпорт</translation>
+<translation id="1344519653668879001">Disable hyperlink auditing</translation>
 <translation id="6463795194797719782">&amp;Редагувати</translation>
 <translation id="4775879719735953715">Веб-переглядач за умовчанням</translation>
 <translation id="5575473780076478375">Розширення в режимі анонімного перегляду: <ph name="EXTENSION_NAME"/></translation>
@@ -1175,12 +1333,16 @@
 <translation id="8930622219860340959">Бездротове</translation>
 <translation id="2290414052248371705">Показати весь вміст</translation>
 <translation id="5750053751252005701">За межами даних мережі <ph name="NETWORK"/></translation>
+<translation id="8858939932848080433">Перед тим як надіслати відгук, повідомте нас, де у вас виникають проблеми.</translation>
 <translation id="1720318856472900922">Автентифікація сервера TLS WWW</translation>
 <translation id="1436238710092600782">Створити обліковий запис Google</translation>
+<translation id="4780374166989101364">Вмикає API експериментальних розширень. Зауважте, що галерея розширень не дозволяє завантажувати розширення, що використовують експериментальні API.</translation>
 <translation id="7227780179130368205">Виявлено шкідливі програми!</translation>
 <translation id="435243347905038008">Короткий термін дії даних мережі <ph name="NETWORK"/></translation>
 <translation id="4270297607104589154">Налаштувати синхронізацію...</translation>
+<translation id="7418490403869327287">Якщо функцію миттєвого пошуку ввімкнено, більшість веб-сторінок почнуть завантажуватися під час введення URL-адреси в універсальному вікні пошуку, ще до того, як ви натиснете Enter. Окрім того, результати пошуку миттєво з'являються під час введення запитів в універсальному вікні пошуку (якщо підтримується пошуковою системою за умовчанням), а відповідні пропозиції служать вам орієнтиром для пошуку.\n\nОскільки запит на нові результати пошуку надсилається вже під час введення частин тексту, ваша пошукова система за умовчанням може реєструвати їх як пошукові запити.\n</translation>
 <translation id="5149131957118398098"><ph name="NUMBER_ZERO"/> hours left</translation>
+<translation id="2541913031883863396">усе ж продовжити</translation>
 <translation id="2367499218636570208">Ім'я</translation>
 <translation id="2074527029802029717">Відмінити закріплення вкладки</translation>
 <translation id="1533897085022183721">Менше <ph name="MINUTES"/>.</translation>
@@ -1188,18 +1350,21 @@
 <translation id="3942946088478181888">Підкажіть</translation>
 <translation id="3722396466546931176">Додавайте мови та перетягуйте їх, щоб упорядкувати на основі своїх уподобань.</translation>
 <translation id="7893393459573308604"><ph name="ENGINE_NAME"/> (за замовчуванням)</translation>
+<translation id="5392544185395226057">Увімкнути підтримку для Native Client.</translation>
 <translation id="5400640815024374115">Модуль Trusted Platform Module (TPM) вимкнено або його немає.</translation>
 <translation id="2151576029659734873">Введено недійсний індекс вкладки.</translation>
 <translation id="8546611606374758193">Пошкоджено таке розширення: <ph name="EXTENSION_NAME"/></translation>
 <translation id="5150254825601720210">Ім'я SSL-сервера сертифіката Netscape</translation>
 <translation id="6771503742377376720">Є Центром сертифікації</translation>
 <translation id="8814190375133053267">Wi-Fi</translation>
+<translation id="2040078585890208937">Пов'язування з <ph name="NAME"/></translation>
 <translation id="8410619858754994443">Підтвердьте пароль:</translation>
 <translation id="2210840298541351314">Версія для друку</translation>
 <translation id="6763440176078158955">Помилка з'єднання:</translation>
 <translation id="4938277090904056629">Неможливо встановити безпечне з'єднання, оскільки запущено антивірусну програму ESET</translation>
 <translation id="4521805507184738876">(термін дії закінчився)</translation>
 <translation id="111844081046043029">Ви дійсно бажаєте залишити цю сторінку?</translation>
+<translation id="1951615167417147110">Прокрутити вгору на одну сторінку</translation>
 <translation id="4154664944169082762">Відбитки</translation>
 <translation id="3202578601642193415">Найновіше</translation>
 <translation id="8112886015144590373"><ph name="NUMBER_FEW"/> годин</translation>
@@ -1222,6 +1387,7 @@
 <translation id="6188939051578398125">Введіть імена чи адреси.</translation>
 <translation id="10122177803156699">Показати мені</translation>
 <translation id="5260878308685146029"><ph name="NUMBER_TWO"/> mins left</translation>
+<translation id="1363318044088794672">Введіть текст для пошуку в налаштуваннях <ph name="PRODUCT_NAME"/>.</translation>
 <translation id="2192505247865591433">Від:</translation>
 <translation id="5921544176073914576">Фішингова сторінка</translation>
 <translation id="3727187387656390258">Перевірити спливаюче вікно</translation>
@@ -1246,12 +1412,14 @@
 <translation id="7255513090217522383">Надсилання</translation>
 <translation id="2435457462613246316">Показати пароль</translation>
 <translation id="7988355189918024273">Увімкнути функції доступності</translation>
+<translation id="5438653034651341183">Включити поточний знімок екрана:</translation>
 <translation id="6983783921975806247">Зареєстрований ідентифікатор об'єкта (OID)</translation>
 <translation id="394984172568887996">Імпортовано із IE</translation>
 <translation id="5311260548612583999">Файл секретного ключа (необов'язково):</translation>
 <translation id="2430043402233747791">Дозволити лише для сеансу</translation>
 <translation id="345397654570398207">Довіряйте автентичності цього сертифіката.</translation>
 <translation id="7363290921156020669"><ph name="NUMBER_ZERO"/> mins</translation>
+<translation id="7568790562536448087">Оновлення</translation>
 <translation id="8190193592390505034">З'єднання з <ph name="PROVIDER_NAME"/></translation>
 <translation id="6144890426075165477"><ph name="PRODUCT_NAME"/> наразі не є вашим переглядачем за умовчанням.</translation>
 <translation id="823241703361685511">Тарифний план</translation>
@@ -1266,11 +1434,15 @@
 <translation id="2466804342846034717">Вище введіть правильний пароль, а потім – зображені нижче символи.</translation>
 <translation id="6295618774959045776">CVC:</translation>
 <translation id="3881435075661337013">Наближення завершення терміну дії мережі <ph name="NETWORK"/></translation>
+<translation id="5681833099441553262">Активувати попередню вкладку</translation>
+<translation id="1681614449735360921">Переглянути несумісності</translation>
 <translation id="8405130572442755669">Налаштування сповіщень на робочому столі:</translation>
 <translation id="2657327428424666237"><ph name="BEGIN_LINK"/>Перезавантажити<ph name="END_LINK"/> цю веб-сторінку пізніше.</translation>
+<translation id="7347751611463936647">Щоб користуватися цим розширенням, введіть &quot;<ph name="EXTENSION_KEYWORD"/>&quot;, потім TAB, а потім свою команду чи пошук.</translation>
 <translation id="659432221160402784"><ph name="PRODUCT_NAME"/> синхронізуватиме всі встановлені вами програми, тому до них буде доступ з кожного веб-переглядача <ph name="PRODUCT_NAME"/>, у який ви ввійдете.</translation>
 <translation id="5645845270586517071">Збій безпеки</translation>
 <translation id="2805756323405976993">Програми</translation>
+<translation id="3651020361689274926">Потрібний вам ресурс більше не існує. Адресу пересилання не вказано. Як очікується, цей стан не зміниться.</translation>
 <translation id="8695758493354644945">Переглянути <ph name="NUM_MATCHES"/> останніх сторінок в історії, які містять <ph name="SEARCH_TERMS"/></translation>
 <translation id="2989786307324390836">DER-кодування у двійковій формі, єдиний сертифікат</translation>
 <translation id="3827774300009121996">&amp;На весь екран</translation>
@@ -1282,6 +1454,8 @@
 <translation id="7136984461011502314">Вас вітає <ph name="PRODUCT_NAME"/></translation>
 <translation id="1594030484168838125">Вибрати</translation>
 <translation id="204497730941176055">Ім'я шаблону сертифіката Microsoft</translation>
+<translation id="6705264787989366486">Налаштування ІР-адреси для <ph name="NAME"/></translation>
+<translation id="8970721300630048025">Посміхніться! Виберіть власне фото та зробіть його зображенням для свого облікового запису.</translation>
 <translation id="4087089424473531098">Створено таке розширення:
 
 <ph name="EXTENSION_FILE"/></translation>
@@ -1299,6 +1473,7 @@
 <translation id="1911483096198679472">Що це таке?</translation>
 <translation id="1976323404609382849">Файли cookie з багатьох сайтів блоковано.</translation>
 <translation id="4494041973578304260">Прізвище:</translation>
+<translation id="2662952950313424742">Користувач указав DNS-сервер. Для дозволів DNS веб-переглядач Chrome використовуватиме його, а не налаштування системи за умовчанням.</translation>
 <translation id="4176463684765177261">Вимкнено</translation>
 <translation id="154603084978752493">Додати як пошукову сис&amp;тему...</translation>
 <translation id="2079545284768500474">Скасувати</translation>
@@ -1309,6 +1484,7 @@
 <translation id="3254409185687681395">Додати цю сторінку до закладок</translation>
 <translation id="1384616079544830839">Ідентифікаційну інформацію цього веб-сайта було перевірено <ph name="ISSUER"/>.</translation>
 <translation id="8710160868773349942">Електронна адреса: <ph name="EMAIL_ADDRESSES"/></translation>
+<translation id="4057991113334098539">Активація...</translation>
 <translation id="1800035677272595847">Фішинг</translation>
 <translation id="8448317557906454022"><ph name="NUMBER_ZERO"/> secs ago</translation>
 <translation id="402759845255257575">Заборонити всім сайтам запускати JavaScript</translation>
@@ -1324,6 +1500,7 @@
 <translation id="2026524095376928841">швейцарська (французька) розкладка клавіатури</translation>
 <translation id="7208899522964477531">Пошук у <ph name="SITE_NAME"/> за словами <ph name="SEARCH_TERMS"/></translation>
 <translation id="5584091888252706332">Автозапуск</translation>
+<translation id="8960795431111723921">Наразі ми вивчаємо цю проблему.</translation>
 <translation id="2482878487686419369">Сповіщення</translation>
 <translation id="5475998245986045772">Виберіть ім'я користувача:</translation>
 <translation id="8638746329458255632">Збігів не знайдено.</translation>
@@ -1336,25 +1513,32 @@
 <translation id="1358741672408003399">Правопис і граматика</translation>
 <translation id="2527167509808613699">Будь-яке з’єднання</translation>
 <translation id="1234466194727942574">Картотека</translation>
+<translation id="7974087985088771286">Активувати вкладку 6</translation>
 <translation id="3742235229730461951">Корейська розкладка клавіатури</translation>
 <translation id="4035758313003622889">&amp;Диспетчер завдань</translation>
 <translation id="6356936121715252359">Налаштування пам'яті Adobe Flash Player...</translation>
+<translation id="4066710578506115647">Увімкнення програвача Media Player.</translation>
 <translation id="5885996401168273077">Підключення до мережі</translation>
 <translation id="7313804056609272439">Метод введення для в'єтнамської мови (VNI)</translation>
 <translation id="1768211415369530011">Таку програму буде запущено, якщо прийняти цей запит:\n\n <ph name="APPLICATION"/></translation>
 <translation id="8793043992023823866">Імпортування...</translation>
 <translation id="8106211421800660735">Номер кредитної картки</translation>
+<translation id="7031711645186424727">Використати зовнішній монітор</translation>
 <translation id="6316768948917110108">Запис зображення...</translation>
 <translation id="4552416320897244156">PgDwn</translation>
+<translation id="2872961005593481000">Завершити роботу</translation>
 <translation id="8986267729801483565">Розташування завантаження:</translation>
 <translation id="8220731233186646397">Виберіть пароль:</translation>
+<translation id="2127514044524592993">Переглянути фонові програми (<ph name="NUM_BACKGROUND_APPS"/>)</translation>
 <translation id="4322394346347055525">Закрити інші вкладки</translation>
 <translation id="881799181680267069">Сховати інші</translation>
 <translation id="1442054921249164535">Інші дані</translation>
 <translation id="8318945219881683434">Не вдалося перевірити відкликання.</translation>
+<translation id="1650709179466243265">Додати www. та .com і відкрити адресу</translation>
 <translation id="7746486745591590900">Перезапустіть <ph name="PRODUCT_NAME"/>, щоб завершити оновлення</translation>
 <translation id="3524079319150349823">Щоб перевірити спливаюче вікно, натисніть правою кнопкою миші на сторінці чи піктограмі роботи веб-переглядача та виберіть &quot;Перевірити спливаюче вікно&quot;.</translation>
 <translation id="994289308992179865">&amp;Безперервно</translation>
+<translation id="7793343764764530903">Ви успішно ввімкнули <ph name="CLOUD_PRINT_NAME"/>. Веб-переглядач <ph name="PRODUCT_NAME"/> зареєстрував принтери на цьому комп'ютері з адресою &lt;b&gt;<ph name="EMAIL_ADDRESSES"/>&lt;/b&gt;. Тепер можна друкувати на своїх принтерах із будь-якої веб-програми чи програми для мобільного, де ввімкнено <ph name="CLOUD_PRINT_NAME"/>.</translation>
 <translation id="8887090188469175989">ZGPY</translation>
 <translation id="3302709122321372472">Не вдалося завантажити файл .css &quot;<ph name="RELATIVE_PATH"/>&quot; для сценарію вмісту.</translation>
 <translation id="305803244554250778">Створити ярлики програми в таких розташуваннях:</translation>
@@ -1369,7 +1553,9 @@
 <translation id="7466861475611330213">Стиль розділових знаків</translation>
 <translation id="2496180316473517155">Історія переглядів</translation>
 <translation id="602251597322198729">Здійснюється спроба завантажити декілька файлів із цього сайта. Надати дозвіл на завантаження?</translation>
+<translation id="2142724752377158245">Перейдіть до меню <ph name="BEGIN_BOLD"/>Інструменти &gt; Параметри &gt; Під капотом &gt; Змінити налаштування проксі<ph name="END_BOLD"/> та переконайтеся, що ваше налаштування встановлено як &quot;без проксі&quot; або &quot;безпосередньо&quot;.</translation>
 <translation id="2052389551707911401"><ph name="NUMBER_MANY"/> годин</translation>
+<translation id="5411472733320185105">Не використовуйте налаштування проксі-сервера для таких хостів і доменів:</translation>
 <translation id="616567223220666999">Знову ввімкнути...</translation>
 <translation id="6691936601825168937">&amp;Переслати</translation>
 <translation id="6566142449942033617">Не вдалося завантажити &quot;<ph name="PLUGIN_PATH"/>&quot; для плагіна.</translation>
@@ -1381,11 +1567,14 @@
 <translation id="7736284018483078792">Змініть мову словника програми перевірки правопису.</translation>
 <translation id="2148716181193084225">Сьогодні</translation>
 <translation id="1002064594444093641">Д&amp;рукувати фрейм...</translation>
+<translation id="7234674978021619913">Ми вже повідомили хост <ph name="HOST_NAME"/> про виявлення на цьому сайті зловмисного програмного забезпечення. <ph name="DIAGNOSTIC_PAGE"/> Google містить докладнішу інформацію про проблеми, виявлені на сайті <ph name="HOST_NAME2"/>.</translation>
+<translation id="8202390211066742724">Користувач указав адресу DNS-сервера.</translation>
 <translation id="4608500690299898628">&amp;Знайти...</translation>
 <translation id="3574305903863751447"><ph name="CITY"/>, <ph name="STATE"/> <ph name="COUNTRY"/></translation>
 <translation id="8724859055372736596">&amp;Показати в папці</translation>
 <translation id="978407797571588532">Перейдіть до меню <ph name="BEGIN_BOLD"/>Пуск &gt; Панель керування &gt; Мережні підключення &gt; Майстер нових підключень<ph name="END_BOLD"/>, щоб протестувати своє з'єднання.</translation>
 <translation id="5554489410841842733">Ця піктограма відображатиметься, коли розширення зможе працювати на поточній сторінці.</translation>
+<translation id="579702532610384533">З'єднати повторно</translation>
 <translation id="4862642413395066333">Підписування відповідей OCSP</translation>
 <translation id="5266113311903163739">Помилка імпортування центру сертифікації</translation>
 <translation id="9563164493805065">Запис зображення завершено.</translation>
@@ -1414,24 +1603,31 @@
 <translation id="6965648386495488594">Порт</translation>
 <translation id="7631887513477658702">&amp;Завжди відкривати файли цього типу</translation>
 <translation id="8627795981664801467">Лише захищені з’єднання</translation>
+<translation id="8680787084697685621">Дані для входу в обліковий запис застаріли.</translation>
 <translation id="3228969707346345236">Помилка перекладу. Сторінку вже перекладено такою мовою: <ph name="LANGUAGE"/>.</translation>
 <translation id="1873879463550486830">Механізм ізольованого програмного середовища SUID</translation>
 <translation id="2190355936436201913">(пусто)</translation>
+<translation id="8515737884867295000">Автентифікацію за сертифікатом не здійснено</translation>
 <translation id="5868426874618963178">Надіслати джерело поточної сторінки</translation>
 <translation id="5818003990515275822">Корейська</translation>
 <translation id="4182252350869425879">Попередження: Підозра на фішинговий сайт!</translation>
 <translation id="5458214261780477893">Дворак</translation>
 <translation id="1164369517022005061"><ph name="NUMBER_DEFAULT"/> годин залишилось</translation>
 <translation id="2214283295778284209"><ph name="SITE"/> недоступний</translation>
+<translation id="7552620667503495646">Відкрити фрейм у новій &amp;вкладці</translation>
 <translation id="8755376271068075440">&amp;Великий</translation>
+<translation id="8132793192354020517">З'єднано з <ph name="NAME"/></translation>
 <translation id="8187473050234053012">Сертифікат безпеки сервера відкликано!</translation>
 <translation id="7444983668544353857">Вимкнути <ph name="NETWORKDEVICE"/></translation>
 <translation id="6003177993629630467">Можливо <ph name="PRODUCT_NAME"/> не зможе оновлюватись.</translation>
+<translation id="418953307919369959">Менше інформації</translation>
 <translation id="421577943854572179">вбудовано на будь-якому іншому веб-сайті</translation>
+<translation id="580886651983547002"><ph name="PRODUCT_NAME"/> не може зв'язатися з веб-сайтом. Зазвичай причиною є проблеми мережі, але це також може бути наслідком неправильно налаштованого брандмауера чи проксі-сервера.</translation>
 <translation id="152482086482215392"><ph name="NUMBER_ONE"/> сек. залишилась</translation>
 <translation id="3308116878371095290">Цій сторінці було відмовлено в збереженні файлів cookie.</translation>
 <translation id="8447116497070723931">PgUp</translation>
 <translation id="7521387064766892559">JavaScript</translation>
+<translation id="7219179957768738017">З'єднання використовує версію <ph name="SSL_VERSION"/>.</translation>
 <translation id="7014174261166285193">Помилка встановлення.</translation>
 <translation id="1970746430676306437">Переглянути &amp;інформацію про сторінку</translation>
 <translation id="3199127022143353223">Сервери</translation>
@@ -1439,8 +1635,10 @@
 <translation id="8940262601983387853">Ім’я cookie-файлу</translation>
 <translation id="8053959338015477773">Для відображення деяких елементів на цій сторінці потрібен додатковий модуль.</translation>
 <translation id="3064231633428118621">Налаштування місцезнаходження:</translation>
+<translation id="8813873272012220470">Вмикає фонову перевірку, яка повідомляє вас у випадку виявлення несумісності програмного забезпечення (напр., модулів стороннього розробника, які призводять до аварійного завершення роботи веб-переглядача).</translation>
 <translation id="5020734739305654865">Увійдіть із</translation>
 <translation id="7414887922320653780"><ph name="NUMBER_ONE"/> година залишилась</translation>
+<translation id="121632099317611328">Не вдалося ініціалізувати камеру.</translation>
 <translation id="399179161741278232">Імпортовано</translation>
 <translation id="8565745688101278215"><ph name="FIRSTNAME"/><ph name="SEPARATOR"/><ph name="LASTNAME"/></translation>
 <translation id="462288279674432182">IP-адреса з обмеженим доступом:</translation>
@@ -1454,7 +1652,9 @@
 <translation id="2371076942591664043">Відкрити коли &amp;виконано</translation>
 <translation id="3920504717067627103">Політика сертифікатів</translation>
 <translation id="155865706765934889">Сенсорна панель</translation>
+<translation id="7701040980221191251">Немає</translation>
 <translation id="6069278982995177296">Копія</translation>
+<translation id="5917011688104426363">Активувати адресний рядок у режимі пошуку</translation>
 <translation id="6910239454641394402">Винятки для JavaScript</translation>
 <translation id="2979639724566107830">Відкрити в новому вікні</translation>
 <translation id="2822854841007275488">Арабська</translation>
@@ -1462,6 +1662,7 @@
 <translation id="5178667623289523808">Знайти попереднє</translation>
 <translation id="2815448242176260024">Ніколи не зберігати паролі</translation>
 <translation id="2989805286512600854">Відкрити в новій вкладці</translation>
+<translation id="8687485617085920635">Наступне вікно</translation>
 <translation id="4122118036811378575">&amp;Знайти наступне</translation>
 <translation id="2610780100389066815">Підписування списку довіри Microsoft</translation>
 <translation id="2788575669734834343">Вибрати файл сертифікату</translation>
@@ -1511,11 +1712,13 @@
 <translation id="1139892513581762545">Бокові вкладки</translation>
 <translation id="7634357567062076565">відновити</translation>
 <translation id="4779083564647765204">Збільшити</translation>
+<translation id="3282430104564575032">DOM Inspector</translation>
 <translation id="1526560967942511387">Документ без імені</translation>
 <translation id="3979748722126423326">Увімкнути <ph name="NETWORKDEVICE"/></translation>
 <translation id="5538307496474303926">Очищення...</translation>
 <translation id="4367133129601245178">К&amp;опіювати URL-адресу зображення</translation>
 <translation id="1285631718404404702">Показати останні дії</translation>
+<translation id="7542995811387359312">Автоматичне заповнення кредитної картки вимкнено, оскільки ця форма не використовує безпечне з'єднання.</translation>
 <translation id="3494444535872870968">Зберегти &amp;фрейм як...</translation>
 <translation id="987264212798334818">Загальне</translation>
 <translation id="7005812687360380971">Помилка</translation>
@@ -1528,7 +1731,9 @@
 <translation id="5271247532544265821">Переключити режим китайська спрощена/традиційна</translation>
 <translation id="2052610617971448509">Ви недостатньо захищені механізмом ізольованого програмного середовища.</translation>
 <translation id="6417515091412812850">Неможливо перевірити, чи цей сертифікат було відкликано.</translation>
+<translation id="7347702518873971555">Придбати тарифний план</translation>
 <translation id="5285267187067365830">Інсталювати модуль...</translation>
+<translation id="5334844597069022743">Переглянути джерело</translation>
 <translation id="8715293307644297506">Метод введення для стандарту бопомофо (чжуїнь) китайської мови</translation>
 <translation id="1166212789817575481">Закрити вкладки праворуч</translation>
 <translation id="6472893788822429178">Показати кнопку &quot;Домашня сторінка&quot;</translation>
@@ -1536,11 +1741,13 @@
 <translation id="534916491091036097">Ліва дужка</translation>
 <translation id="4157869833395312646">Серверне шифрування Microsoft</translation>
 <translation id="5685236799358487266">Додати як пошукову сис&amp;тему...</translation>
+<translation id="8903921497873541725">Збільшити масштаб</translation>
 <translation id="2195729137168608510">Захист електронної пошти</translation>
 <translation id="1425734930786274278">Заблоковано такі файли cookie (сторонні файли cookie блокуються без винятку):</translation>
 <translation id="3437016096396740659">Батарея заряджена</translation>
 <translation id="7907591526440419938">Відкрити файл</translation>
 <translation id="2568774940984945469">Контейнер інформаційної панелі</translation>
+<translation id="3202812515056344404">Пароль закороткий або недійсний.</translation>
 <translation id="7134098520442464001">Зменшити розмір тексту</translation>
 <translation id="21133533946938348">Закріпити вкладку</translation>
 <translation id="1325040735987616223">Оновлення системи</translation>
@@ -1553,6 +1760,7 @@
 <translation id="5143712164865402236">Увійти в повноекранний режим</translation>
 <translation id="8434177709403049435">&amp;Кодування</translation>
 <translation id="2722201176532936492">Клавіші для вибору</translation>
+<translation id="3930850196944737149">Ваш пристрій працює в автономному режимі.</translation>
 <translation id="9012607008263791152">Я розумію, що відвідання цього сайта може бути шкідливим для мого комп’ютера.</translation>
 <translation id="1441458099223378239">Мій обліковий запис недоступний</translation>
 <translation id="5782227691023083829">Виконується переклад сторінки...</translation>
@@ -1579,6 +1787,7 @@
 <translation id="7646591409235458998">Електронна пошта:</translation>
 <translation id="703748601351783580">Відкрити всі закладки в новому вікні</translation>
 <translation id="8409023599530904397">Панель інструментів:</translation>
+<translation id="6199775032047436064">Перезавантажити поточну сторінку</translation>
 <translation id="6981982820502123353">Доступність</translation>
 <translation id="112343676265501403">Винятки для модулів</translation>
 <translation id="770273299705142744">Автоматичне заповнення форми</translation>
@@ -1592,6 +1801,7 @@
 <translation id="5419599333397336257">Хост <ph name="HOST"/> намагається зберегти дані у вашому комп'ютері</translation>
 <translation id="265390580714150011">Значення поля</translation>
 <translation id="3869917919960562512">Неправильний індекс.</translation>
+<translation id="7031962166228839643">Триває підготовка модуля TPM, зачекайте (це може тривати декілька хвилин)...</translation>
 <translation id="7260118218674952234">Повторно введіть пароль:</translation>
 <translation id="8123426182923614874">Залишилося даних:</translation>
 <translation id="3707020109030358290">Не є Центром сертифікації.</translation>
@@ -1615,12 +1825,14 @@
 <translation id="1086613338090581534">Для сертифіката, який не втратив чинність, видавець сертифіката несе відповідальність за підтримку так званого &quot;переліку відкликання&quot;. Якщо сертифікат буде пошкоджено, видавець може його відкликати, додавши його до переліку відкликання, і тоді цей сертифікат більше не вважатиметься надійним вашим переглядачем. Статус відкликання не потрібно підтримувати для сертифікатів, які втратили чинність, тому якщо сертифікат був чинним для відвідуваного веб-сайта, наразі неможливо визначити, чи його було пошкоджено та потім відкликано, чи він і надалі залишається захищеним. Фактично неможливо визначити, чи ви звертаєтесь до надійного веб-сайта, чи сертифікат було пошкоджено і зараз ним володіє зловмисник, до якого ви і звертаєтесь. Рекомендуємо не продовжувати далі.</translation>
 <translation id="2645575947416143543">Якщо ж ви працюєте в організації, яка створює власні сертифікати, та намагаєтеся зв'язатися з внутрішнім веб-сайтом цієї організації за допомогою такого сертифіката, ви можете безпечно вирішити цю проблему. Можна імпортувати кореневий сертифікат вашої організації як &quot;кореневий сертифікат&quot;. У такому випадку сертифікати, видані чи підтверджені вашою організацією, вважатимуться надійними і ви не побачите цю помилку під час наступного з'єднання з внутрішнім веб-сайтом. Зв'яжіться з технічним персоналом вашої організації для отримання допомоги в додаванні нового кореневого сертифікату для вашого комп'ютера.</translation>
 <translation id="1056898198331236512">Застереження</translation>
+<translation id="8151639108075998630">Увімкнути перегляд у режимі гостя</translation>
 <translation id="3157931365184549694">Відновити</translation>
 <translation id="7426243339717063209">Видалити &quot;<ph name="EXTENSION_NAME"/>&quot;?</translation>
 <translation id="996250603853062861">Встановлення безпечного з'єднання...</translation>
 <translation id="6059232451013891645">Папка:</translation>
 <translation id="4274292172790327596">Нерозпізнана помилка</translation>
 <translation id="8182985032676093812">Джерело <ph name="PAGE_URL"/></translation>
+<translation id="760537465793895946">Перевіряти на відомі конфлікти з модулями сторонніх розробників.</translation>
 <translation id="7042418530779813870">Вста&amp;вити та здійснити пошук</translation>
 <translation id="9110447413660189038">&amp;Угору</translation>
 <translation id="375403751935624634">Не вдалося виконати переклад через помилку сервера.</translation>
@@ -1631,7 +1843,9 @@
 <translation id="3031557471081358569">Виберіть елементи для імпорту:</translation>
 <translation id="1368832886055348810">Зліва направо</translation>
 <translation id="3031433885594348982">Ваше з’єднання з <ph name="DOMAIN"/> зашифровано низьким рівнем шифрування.</translation>
+<translation id="4074479263563967818"><ph name="PRODUCT_NAME"/> завжди зашифровує ваші дані під час їх передавання до Google. Окрім того, паролі зберігаються зашифрованими на серверах Google.</translation>
 <translation id="4047345532928475040">-</translation>
+<translation id="3220630151624181591">Активувати вкладку 2</translation>
 <translation id="5657156137487675418">Дозволити всі cookie-файли</translation>
 <translation id="8898139864468905752">Огляд вкладок</translation>
 <translation id="5771816112378578655">Виконується налаштування..</translation>
@@ -1642,6 +1856,7 @@
 <translation id="3228279582454007836">Ви ніколи не відвідували цей сайт до сьогоднішнього дня</translation>
 <translation id="2159017110205600596">Налаштувати...</translation>
 <translation id="947426771994674134">Керуйте темами, розширеннями та програмами</translation>
+<translation id="2723249403333989523">Налаштування мережі ...</translation>
 <translation id="2814489978934728345">Припинити завантаження цієї сторінки</translation>
 <translation id="2354001756790975382">Інші закладки</translation>
 <translation id="8561574028787046517"><ph name="PRODUCT_NAME"/> оновлено</translation>
@@ -1660,6 +1875,7 @@
 <translation id="8167737133281862792">Додати сертифікат</translation>
 <translation id="2911372483530471524">Простори імен PID</translation>
 <translation id="6093374025603915876">Налаштування автозаповнення</translation>
+<translation id="8584134039559266300">Активувати вкладку 8</translation>
 <translation id="5189060859917252173">Сертифікат &quot;<ph name="CERTIFICATE_NAME"/>&quot; представляє Центр сертифікації.</translation>
 <translation id="3785852283863272759">Надіслати розташування сторінки електронною поштою</translation>
 <translation id="2255317897038918278">Встановлення позначки часу Microsoft</translation>
@@ -1689,12 +1905,14 @@
 <translation id="5509693895992845810">Зберегти &amp;як...</translation>
 <translation id="5986279928654338866">Сервер <ph name="DOMAIN"/> потребує введення імені користувача та пароля.</translation>
 <translation id="521467793286158632">Видалити всі паролі</translation>
+<translation id="4448844063988177157">Пошук Wi-Fi мереж...</translation>
 <translation id="5765780083710877561">Опис:</translation>
 <translation id="338583716107319301">Розділювач</translation>
 <translation id="2079053412993822885">Якщо видалити один зі своїх власних сертифікатів, ви більше не зможете використовувати його для власної ідентифікації.</translation>
 <translation id="7221869452894271364">Перезавантажити цю сторінку</translation>
 <translation id="6791443592650989371">Стан активації:</translation>
 <translation id="4801257000660565496">Створити ярлики програми</translation>
+<translation id="8646430701497924396">Використовувати SSL 2.0</translation>
 <translation id="6175314957787328458">GUID домену Microsoft</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8261506727792406068">Видалити</translation>
@@ -1702,16 +1920,21 @@
 <translation id="7422192691352527311">Налаштування...</translation>
 <translation id="1823606533857384982">Бельгійська розкладка клавіатури</translation>
 <translation id="1375198122581997741">Про версію</translation>
+<translation id="1474307029659222435">Відкрити фрейм у новому &amp;вікні</translation>
+<translation id="7915471803647590281">Перед тим як надіслати відгук, повідомте нас, що відбувається.</translation>
 <translation id="2210910566085991858">Японська розкладка клавіатури</translation>
 <translation id="5976160379964388480">Інші</translation>
+<translation id="3665842570601375360">Безпека:</translation>
 <translation id="1430915738399379752">Друк</translation>
 <translation id="7999087758969799248">Стандартний метод введення</translation>
 <translation id="2635276683026132559">Підписування</translation>
 <translation id="4835836146030131423">Помилка входу.</translation>
 <translation id="7715454002193035316">Лише під час сеансу</translation>
 <translation id="1450278846011949484">Це самопідписаний сертифікат, ви не довірятимете його автентичності (якщо тут не вказано протилежне).</translation>
+<translation id="3324684065575061611">(Вимкнено політикою підприємства)</translation>
 <translation id="7385854874724088939">Завдання друку не виконано. Перевірте свій принтер і спробуйте ще раз.</translation>
 <translation id="770015031906360009">Грецька</translation>
+<translation id="8116152017593700047">Тут можна вибирати збережені знімки екрана. Наразі знімків екрана немає. Щоб зробити знімок екрана, натисніть Ctrl + клавішу &quot;Режим перегляду&quot; одночасно. Тут з'являться три останніх зроблених вами знімки екрана.</translation>
 <translation id="3454157711543303649">Активацію завершено</translation>
 <translation id="4474796446011988286">На вашому комп’ютері збережено такі cookie-файли:</translation>
 <translation id="884923133447025588">Не знайдено механізм відкликання.</translation>
@@ -1727,20 +1950,29 @@
 <translation id="3903912596042358459">Сервер відмовився виконати запит.</translation>
 <translation id="8135557862853121765"><ph name="NUM_KILOBYTES"/>К</translation>
 <translation id="4444364671565852729"><ph name="PRODUCT_NAME"/> оновлено до <ph name="VERSION"/></translation>
+<translation id="5819890516935349394">Переглядач вмісту</translation>
 <translation id="2731392572903530958">В&amp;ідкрити закрите вікно знову</translation>
+<translation id="1254593899333212300">Пряме з'єднання з Інтернетом</translation>
 <translation id="6107012941649240045">Кому видано</translation>
 <translation id="4264420740606601613">Повністю заблокувати файли cookie третьої сторони</translation>
 <translation id="6483805311199035658">Відкривається файл <ph name="FILE"/>...</translation>
 <translation id="3576278878016363465">Доступні сегменти для запису зображення</translation>
+<translation id="2414393409052352408">усі</translation>
+<translation id="895541991026785598">Повідомити про проблему</translation>
 <translation id="494286511941020793">Довідка про конфігурацію проксі-сервера</translation>
 <translation id="1285266685456062655"><ph name="NUMBER_FEW"/> год. тому</translation>
 <translation id="9154176715500758432">Залишатися на цій сторінці</translation>
 <translation id="5875565123733157100">Тип помилки:</translation>
+<translation id="6988771638657196063">Включити цю URL-адресу:</translation>
 <translation id="6825883775269213504">російська</translation>
+<translation id="1949795154112250744"><ph name="BEGIN_BOLD"/>Застереження:<ph name="END_BOLD"/> <ph name="PRODUCT_NAME"/> не може заборонити розширенням реєструвати вашу історію перегляду. Щоб вимкнути це розширення в режимі анонімного перегляду, зніміть прапорець поруч із цим параметром.</translation>
 <translation id="4440967101351338638">Запис зображення ChromiumOs</translation>
 <translation id="1813278315230285598">Служби</translation>
+<translation id="6860097299815761905">Налаштування проксі-сервера...</translation>
 <translation id="373572798843615002">1 вкладка</translation>
+<translation id="4162393307849942816"><ph name="BEGIN_BOLD"/>Ви здійснюєте перегляд у режимі гостя<ph name="END_BOLD"/>. Сторінки, які ви переглядаєте в цьому вікні, не відобразяться в історії веб-переглядача чи історії пошуку та після виходу не залишать на вашому комп'ютері інших слідів, наприклад, файлів cookie. Завантажені вами файли та створені закладки не буде збережено. <ph name="LINE_BREAK"/> <ph name="BEGIN_LINK"/>Докладніше<ph name="END_LINK"/> про режим гостя.</translation>
 <translation id="827924395145979961">Сторінки не завантажуються</translation>
+<translation id="3092544800441494315">Включити цей знімок екрана:</translation>
 <translation id="7714464543167945231">Сертифікат</translation>
 <translation id="3616741288025931835">&amp;Очистити дані веб-перегляду...</translation>
 <translation id="3313622045786997898">Значення підпису сертифіката</translation>
@@ -1752,6 +1984,7 @@
 <translation id="5423849171846380976">Активовано</translation>
 <translation id="4251486191409116828">Не вдалося створити ярлик програми</translation>
 <translation id="13612864086385864">Сертифікат сервера не включено в DNS</translation>
+<translation id="3829953784771406197">Утримуйте клавіші Control, Alt, або Shift, щоб побачити комбінації клавіш&lt;br&gt;для цих модифікаторів</translation>
 <translation id="3009731429620355204">Сеанси</translation>
 <translation id="5190835502935405962">Панель закладок</translation>
 <translation id="7828272290962178636">Сервер не має потрібної функціональності для виконання цього запиту.</translation>
@@ -1783,8 +2016,10 @@
 <translation id="9027603907212475920">Налаштувати синхронізацію...</translation>
 <translation id="6873213799448839504">Автоматично заповнювати рядок</translation>
 <translation id="7238585580608191973">Відбиток SHA-256</translation>
+<translation id="2501278716633472235">Повернутися</translation>
 <translation id="131461803491198646">Домашня мережа, без роумінгу</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE"/> - <ph name="FULL_DATE"/></translation>
+<translation id="4551440281920791563">Перейдіть до меню <ph name="BEGIN_BOLD"/>Інструменти &gt; Параметри &gt; Під капотом &gt; Змінити налаштування проксі &gt; Налаштування LAN<ph name="END_BOLD"/> і зніміть прапорець поруч із &quot;Використовувати проксі-сервер для LAN&quot;.</translation>
 <translation id="1285320974508926690">Ніколи не перекладати цей сайт</translation>
 <translation id="8954894007019320973">(Продовж.)</translation>
 <translation id="3748412725338508953">Було забагато перенаправлень.</translation>
@@ -1799,6 +2034,7 @@
 <translation id="8925458182817574960">&amp;Налаштування</translation>
 <translation id="6361850914223837199">Деталі помилки:</translation>
 <translation id="8948393169621400698">Завжди дозволяти модулі на хості <ph name="HOST"/></translation>
+<translation id="3865082058368813534">Очищати збережені дані автозаповнення форми</translation>
 <translation id="8288345061925649502">Змінити пошукову систему</translation>
 <translation id="5436492226391861498">Очікування тунелю проксі-сервера...</translation>
 <translation id="3803991353670408298">Перш ніж видалити цей метод введення, додайте інший.</translation>
@@ -1816,13 +2052,18 @@
 <translation id="2213819743710253654">Робота сторінки</translation>
 <translation id="1317130519471511503">Редагувати елементи...</translation>
 <translation id="6391538222494443604">Має бути каталог введення.</translation>
+<translation id="8051695050440594747"><ph name="MEGABYTES"/> Мб доступно</translation>
 <translation id="7088615885725309056">Давніше</translation>
+<translation id="461656879692943278">Хост <ph name="HOST_NAME"/> містить вміст із <ph name="ELEMENTS_HOST_NAME"/> – сайту, відомого розповсюдженням зловмисного програмного забезпечення. Якщо ви відвідаєте цей сайт, у ваш комп'ютер може потрапити вірус.</translation>
+<translation id="1387022316521171484">Ці експериментальні функції можуть будь-коли змінюватися, виходити з ладу чи зникати. Ми не даємо жодних гарантій щодо можливих наслідків увімкнення однієї з цих експериментальних функцій, а ваш веб-переглядач може навіть раптово припинити роботу. Ваш веб-переглядач може видалити всі ваші дані, а ваші безпеку та конфіденційність може бути скомпрометовано неочікуваним чином. Застосовуйте з обережністю.</translation>
 <translation id="357479282490346887">литовська</translation>
 <translation id="2143778271340628265">Ручна конфігурація проксі-сервера</translation>
 <translation id="5263972071113911534"><ph name="NUMBER_MANY"/> days ago</translation>
 <translation id="7461850476009326849">Вимкнути окремі плагіни...</translation>
 <translation id="4097411759948332224">Надіслати знімок екрана поточної сторінки</translation>
 <translation id="2231990265377706070">Знак оклику</translation>
+<translation id="8652722422052983852">Помилку буде виправлено.</translation>
+<translation id="2637309462525700982">Не оновлювати</translation>
 <translation id="3726527440140411893">Під час перегляду вами цієї сторінки було створено такі файли cookie:</translation>
 <translation id="305180080422685753">Завантаження інформації про тарифний план для мобільного телефону. Зачекайте...</translation>
 <translation id="3349967884971794272">Не скидати</translation>
@@ -1844,6 +2085,7 @@
 <translation id="6193618946302416945">Пропонувати перекладати сторінки, мова яких відмінна від тієї, якою я читаю</translation>
 <translation id="129553762522093515">Нещодавно закриті</translation>
 <translation id="8355915647418390920"><ph name="NUMBER_FEW"/> днів</translation>
+<translation id="3129140854689651517">Знайти текст</translation>
 <translation id="6451458296329894277">Підтвердити повторне надсилання форми</translation>
 <translation id="5116333507878097773"><ph name="NUMBER_ONE"/> година</translation>
 <translation id="8028152732786498049">Може бути встановлено лише з <ph name="CHROME_WEB_STORE"/>.</translation>
@@ -1869,6 +2111,7 @@
 <translation id="6644971472240498405"><ph name="NUMBER_ONE"/> день</translation>
 <translation id="1782924894173027610">Сервер синхронізації зайнятий. Спробуйте ще раз пізніше.</translation>
 <translation id="6512448926095770873">Залишити цю сторінку</translation>
+<translation id="5457599981699367932">Переглядати в режимі гостя</translation>
 <translation id="6294193300318171613">&amp;Завжди показувати панель закладок</translation>
 <translation id="3414952576877147120">Розмір:</translation>
 <translation id="9098468523912235228"><ph name="NUMBER_DEFAULT"/> сек. тому</translation>
@@ -1883,7 +2126,9 @@
 <translation id="8541576570033801832">Код мови за умовчанням було вказано, але піддерево параметрів мовних кодів (_locales) відсутнє.</translation>
 <translation id="5626134646977739690">Ім'я:</translation>
 <translation id="7125953501962311360">Переглядач за умовчанням:</translation>
+<translation id="5854409662653665676">Якщо у вас часто виникають проблеми, спробуйте виконати вказані нижче дії, щоб вирішити проблему з цим модулем.</translation>
 <translation id="3681007416295224113">Інформація про сертифікат</translation>
+<translation id="3046084099139788433">Активувати вкладку 7</translation>
 <translation id="721197778055552897"><ph name="BEGIN_LINK"/>Докладніше<ph name="END_LINK"/> про цю проблему.</translation>
 <translation id="1699395855685456105">Модифікація апаратного забезпечення:</translation>
 <translation id="7774607445702416100">Internet Explorer</translation>
@@ -1901,6 +2146,7 @@
 <translation id="8241707690549784388">Сторінка, яку ви шукаєте, використовувала інформацію, введену вами. Повернення до такої сторінки може призвести до повторення ваших попередніх дій. Ви дійсно бажаєте продовжити?</translation>
 <translation id="4104163789986725820">Е&amp;кспортувати...</translation>
 <translation id="486595306984036763">Відкрити звіт про фішинг</translation>
+<translation id="3140353188828248647">Активувати адресний рядок</translation>
 <translation id="4860787810836767172"><ph name="NUMBER_FEW"/> сек. тому</translation>
 <translation id="2587203970400270934">Код оператора:</translation>
 <translation id="4350711002179453268">Не вдалося створити безпечне з'єднання із сервером. Це може бути спричинено проблемою із сервером, або сервер вимагає сертифікат автентифікації клієнта, якого у вас немає.</translation>
@@ -1915,19 +2161,26 @@
 <translation id="3591607774768458617">Наразі ця мова використовується для відображення <ph name="PRODUCT_NAME"/>.</translation>
 <translation id="621638399744152264"><ph name="VALUE"/>%</translation>
 <translation id="4927301649992043040">Пакування розширення</translation>
+<translation id="8679658258416378906">Активувати вкладку 5</translation>
+<translation id="4763816722366148126">Вибрати попередній метод введення</translation>
 <translation id="6458308652667395253">Керувати блокуванням JavaScript...</translation>
 <translation id="8435334418765210033">Збережені мережі</translation>
+<translation id="6516193643535292276">Неможливо з'єднатися з Інтернетом</translation>
 <translation id="5125751979347152379">Недійсна URL-адреса.</translation>
 <translation id="2791364193466153585">Інформація про безпеку</translation>
 <translation id="4673916386520338632">Не вдалося встановити програму через конфлікт із раніше встановленою програмою &quot;<ph name="APP_NAME"/>&quot;.</translation>
 <translation id="6040143037577758943">Закрити</translation>
 <translation id="5787146423283493983">Угода щодо ключів</translation>
 <translation id="1101671447232096497"><ph name="NUMBER_MANY"/> mins ago</translation>
+<translation id="4265682251887479829">Не можете знайти те, що шукаєте?</translation>
+<translation id="1804251416207250805">Вимикає надсилання пакетів перевірки зв'язку для аудиту гіперпосилань.</translation>
 <translation id="5116628073786783676">Збере&amp;гти аудіо як...</translation>
 <translation id="5466039779457432585">Запит сертифіката клієнта: <ph name="REQUESTING_HOST_AND_PORT"/></translation>
 <translation id="2557899542277210112">Для швидкого доступу розташуйте свої закладки тут, на панелі закладок.</translation>
 <translation id="2749881179542288782">Перевірити граматику та правопис</translation>
 <translation id="4943872375798546930">Не знайдено жодного результату</translation>
+<translation id="3549436232897695316">розібрати за копіями</translation>
+<translation id="5414121716219514204"><ph name="ENGINE_HOST_NAME"/> хоче стати вашою пошуковою системою.</translation>
 <translation id="2752805177271551234">Використовувати історію введень</translation>
 <translation id="4910619056351738551">Ось деякі пропозиції:</translation>
 <translation id="5489059749897101717">&amp;Показати панель правопису</translation>
@@ -1936,14 +2189,17 @@
 <translation id="4362187533051781987">Місто або смт</translation>
 <translation id="6571578811409016985">Поштовий індекс:</translation>
 <translation id="9149866541089851383">Редагувати...</translation>
+<translation id="1065245965611933814">Включити збережений знімок екрана:</translation>
 <translation id="7000311294523403548">Веб-сторінка без імені</translation>
 <translation id="5663459693447872156">Автоматично переключитися на половинну ширину</translation>
 <translation id="8900820606136623064">угорська</translation>
 <translation id="4593021220803146968">&amp;Перейти до <ph name="URL"/></translation>
+<translation id="869257642790614972">Повторне відкривання останньої закритої вкладки</translation>
 <translation id="3146535743396545770">Зупинити синхронізацію та видалити дані з Google.</translation>
 <translation id="7649070708921625228">Довідка</translation>
 <translation id="1734072960870006811">Факс</translation>
 <translation id="5129662217315786329">польська</translation>
+<translation id="3095995014811312755">версія</translation>
 <translation id="7052500709156631672">Шлюз або проксі-сервер отримав недійсну відповідь від висхідного сервера.</translation>
 <translation id="7442246004212327644">О&amp;чистити</translation>
 <translation id="281133045296806353">Відкрито нове вікно в поточному сеансі веб-переглядача.</translation>
@@ -1954,14 +2210,18 @@
 <translation id="6869402422344886127">Прапорець поставлено</translation>
 <translation id="8851432965916021950">Синхронізація:</translation>
 <translation id="5637380810526272785">Метод введення</translation>
+<translation id="404928562651467259">ЗАСТЕРЕЖЕННЯ</translation>
 <translation id="6314007596429871800">Кеш програми</translation>
 <translation id="6537746030088321027">example.com</translation>
 <translation id="9002707937526687073">Д&amp;рук...</translation>
 <translation id="5556459405103347317">Перезавантажити</translation>
+<translation id="8000020256436988724">Панель інструментів</translation>
 <translation id="8326395326942127023">Ім'я бази даних:</translation>
 <translation id="7507930499305566459">Сертифікат відповідача статусу</translation>
 <translation id="6440205424473899061">Ваші закладки тепер синхронізовано з Документами Google. Щоб об'єднати та синхронізувати свої закладки з <ph name="PRODUCT_NAME"/> для іншого комп'ютера, просто виконайте такі самі налаштування на відповідному комп'ютері.</translation>
+<translation id="2503406935270646946">Confirm to Quit</translation>
 <translation id="7727721885715384408">Перейменувати...</translation>
+<translation id="2604243255129603442">Розширення <ph name="NAME_OF_EXTENSION"/> вимкнено. Якщо зупинити синхронізацію закладок, це розширення можна ввімкнути знову на сторінці розширень, доступній за допомогою меню &quot;Інструменти&quot;.</translation>
 <translation id="6672697278890207089">Введіть парольну фразу</translation>
 <translation id="5508407262627860757">Скасувати</translation>
 <translation id="1731346223650886555">Крапка з комою</translation>
@@ -1971,6 +2231,8 @@
 <translation id="936801553271523408">Дані діагностики системи</translation>
 <translation id="6389701355360299052">Веб-сторінка, лише HTML</translation>
 <translation id="8067791725177197206">Продовжити »</translation>
+<translation id="4199903612224006087">Попередньо відтворює повні веб-сторінки на задньому фоні для швидшої роботи в мережі.</translation>
+<translation id="9009144784540995197">Керування принтером</translation>
 <translation id="1055006259534905434">(виберіть проблему нижче)</translation>
 <translation id="3021678814754966447">&amp;Переглянути джерело фрейму</translation>
 <translation id="8601206103050338563">Автентифікація клієнта TLS WWW</translation>
@@ -1980,6 +2242,7 @@
 <translation id="4345587454538109430">Налаштувати...</translation>
 <translation id="8148264977957212129">Метод введення для стандарту піньїнь китайської мови</translation>
 <translation id="5787378733537687553">Поміняти місцями ліву клавішу Control і ліву клавішу Alt</translation>
+<translation id="6857811139397017780">Активувати <ph name="NETWORKSERVICE"/></translation>
 <translation id="3251855518428926750">Додати...</translation>
 <translation id="4120075327926916474">Зберігати дані цієї кредитної картки в Google Chrome для заповнення веб-форм?</translation>
 <translation id="6509122719576673235">норвезька</translation>
@@ -2057,11 +2320,14 @@
 <translation id="932508678520956232">Не вдалося ініціювати друк.</translation>
 <translation id="4861833787540810454">&amp;Відтворення</translation>
 <translation id="2552545117464357659">Новіша</translation>
+<translation id="7269802741830436641">Ця веб-сторінка має цикл перенаправлень</translation>
 <translation id="4180788401304023883">Видалити сертифікат Центру сертифікації &quot;<ph name="CERTIFICATE_NAME"/>&quot;?</translation>
 <translation id="5869522115854928033">Збережені паролі</translation>
 <translation id="1709220265083931213">Під капотом</translation>
+<translation id="7838389506047506023">Неможливо зв'язатися з веб-сторінкою на <ph name="HOST_NAME"/>, оскільки немає з'єднання з мережею. Сторінку буде завантажено після відновлення з'єднання з мережею. &lt;br&gt; Спробуєте повторити з'єднання, з'єднатися з іншою мережею чи продовжити завантаження за будь-яких умов.</translation>
 <translation id="4771973620359291008">Виникла невідома помилка.</translation>
 <translation id="5509914365760201064">Видавець: <ph name="CERTIFICATE_AUTHORITY"/></translation>
+<translation id="7073385929680664879">Циклічне повторення методів введення</translation>
 <translation id="6898699227549475383">Організація (О)</translation>
 <translation id="4333854382783149454">PKCS #1 SHA-1 із шифруванням RSA</translation>
 <translation id="762904068808419792">Введіть свій пошуковий запит тут</translation>
@@ -2071,6 +2337,7 @@
 <translation id="8155798677707647270">Інсталяція нової версії...</translation>
 <translation id="6886871292305414135">Відкрити посилання в новій &amp;вкладці</translation>
 <translation id="7961015016161918242">Ніколи</translation>
+<translation id="3950924596163729246">Неможливо отримати доступ до мережі.</translation>
 <translation id="6672840978233643208">канадська (французька) розкладка клавіатури</translation>
 <translation id="2835170189407361413">Очистити форму</translation>
 <translation id="4631110328717267096">Не вдалося оновити систему.</translation>
@@ -2080,12 +2347,15 @@
 <translation id="5441100684135434593">Дротова мережа</translation>
 <translation id="3285322247471302225">Нова &amp;вкладка</translation>
 <translation id="3943582379552582368">&amp;Назад</translation>
+<translation id="7784587768278466392">Переглянути фонові програми (<ph name="NUM_BACKGROUND_APPS"/>)</translation>
 <translation id="7607002721634913082">Призупинено</translation>
 <translation id="480990236307250886">Відкрити домашню сторінку</translation>
+<translation id="8286036467436129157">Увійти</translation>
 <translation id="5999940714422617743">Розширення <ph name="EXTENSION_NAME"/> встановлено.</translation>
 <translation id="6563729046474931307">Додати кредитну картку...</translation>
 <translation id="5757539081890243754">Домашня сторінка</translation>
 <translation id="8007030362289124303">Низький заряд батареї</translation>
+<translation id="4513946894732546136">Відгуки</translation>
 <translation id="5906719743126878045"><ph name="NUMBER_TWO"/> hours left</translation>
 <translation id="1753682364559456262">Керувати блокуванням зображень...</translation>
 <translation id="6550675742724504774">Параметри</translation>
@@ -2094,6 +2364,7 @@
 <translation id="431076611119798497">&amp;Деталі</translation>
 <translation id="3051682424004710218">Під час синхронізації Chrome зберігає інформацію на серверах Google. Якщо ви цілком упевнені, що більше не використовуватимете синхронізацію, зупиніть її та видаліть дані з Google.</translation>
 <translation id="737801893573836157">Сховати системний рядок заголовка та використовувати компактні границі</translation>
+<translation id="5352235189388345738">Може отримати доступ до:</translation>
 <translation id="5040262127954254034">Конфіденційність</translation>
 <translation id="7666868073052500132">Призначення: <ph name="USAGES"/></translation>
 <translation id="6985345720668445131">Налаштування введення для японської мови</translation>
@@ -2107,6 +2378,7 @@
 <translation id="3160041952246459240">У вас записано сертифікати, які ідентифікують такі сервери:</translation>
 <translation id="566920818739465183">Ви вперше відвідали цей сайт <ph name="VISIT_DATE"/>.</translation>
 <translation id="2961695502793809356">Натисніть, щоб перейти далі; утримуйте, щоб переглянути історію</translation>
+<translation id="4092878864607680421">Найновіша версія програми &quot;<ph name="APP_NAME"/>&quot; потребує більше дозволів, тому її вимкнено.</translation>
 <translation id="923083373181549309">Перезапустіть <ph name="PRODUCT_NAME"/></translation>
 <translation id="8421864404045570940"><ph name="NUMBER_DEFAULT"/> сек.</translation>
 <translation id="176587472219019965">&amp;Нове вікно</translation>
@@ -2127,12 +2399,15 @@
 <translation id="9141716082071217089">Не можна перевірити, чи було відкликано сертифікат сервера.</translation>
 <translation id="4304224509867189079">Вхід</translation>
 <translation id="5332624210073556029">Часовий пояс:</translation>
+<translation id="4799797264838369263">Цей параметр контролюється політикою підприємства. Щоб отримати докладнішу інформацію, зв'яжіться зі своїм адміністратором.</translation>
 <translation id="8480418399907765580">Показати панель інструментів</translation>
 <translation id="4492190037599258964">Результати пошуку для запиту &quot;<ph name="SEARCH_STRING"/>&quot;</translation>
 <translation id="2238123906478057869"><ph name="PRODUCT_NAME"/> виконає такі завдання:</translation>
+<translation id="5659888002232069172">Вмикає експериментальне розширення TLS, яке видаляє повний обхід із підтверджень встановлення зв'язку HTTPS.</translation>
 <translation id="1812622104192390866">Імпорт налаштувань із</translation>
 <translation id="4042471398575101546">Додати сторінку</translation>
 <translation id="8848709220963126773">Перемикач режиму клавіші Shift</translation>
+<translation id="1167523994081052608">!</translation>
 <translation id="4871865824885782245">Відкрити параметри дати та часу...</translation>
 <translation id="8828933418460119530">DNS-ім'я</translation>
 <translation id="988159990683914416">Конструкція розробника</translation>
@@ -2142,17 +2417,21 @@
 <translation id="1993181928634750698">Німецька розкладка клавіатури</translation>
 <translation id="2183426022964444701">Вибрати кореневий каталог розширення.</translation>
 <translation id="2517143724531502372">Файли cookie з домену <ph name="DOMAIN"/> дозволено лише для сеансу.</translation>
+<translation id="4719905780348837473">RSN</translation>
 <translation id="5212108862377457573">Налаштувати перетворення на основі попереднього введення</translation>
 <translation id="5398353896536222911">&amp;Показати панель правопису</translation>
+<translation id="5811533512835101223">(Повернутися до початкового знімка екрана)</translation>
 <translation id="5131817835990480221">Оновити &amp;<ph name="PRODUCT_NAME"/></translation>
 <translation id="939519157834106403">SSID</translation>
 <translation id="3705722231355495246">-</translation>
+<translation id="2635102990349508383">Дані входу в обліковий запис ще не введено.</translation>
 <translation id="6902055721023340732">URL-адреса автоконфігурації</translation>
 <translation id="4268574628540273656">URL-адреса:</translation>
 <translation id="7481312909269577407">Переслати</translation>
 <translation id="3759876923365568382"><ph name="NUMBER_FEW"/> днів залишилось</translation>
 <translation id="5972826969634861500">Запустити <ph name="PRODUCT_NAME"/></translation>
 <translation id="383652340667548381">сербська</translation>
+<translation id="7828702903116529889">У <ph name="PRODUCT_NAME"/> виникли проблеми з доступом до мережі. <ph name="LINE_BREAK"/> Можливо, ваш брандмауер або антивірусне програмне забезпечення помилково розглядають веб-переглядач <ph name="PRODUCT_NAME"/> як зловмисника на вашому комп'ютері та не дозволяють йому під'єднатися до Інтернету.</translation>
 <translation id="878069093594050299">Цей сертифікат підтверджено для використання таким чином:</translation>
 <translation id="1664314758578115406">Додати сторінку...</translation>
 <translation id="1936717151811561466">фінська</translation>
@@ -2161,6 +2440,7 @@
 <translation id="8808478386290700967">Web Store</translation>
 <translation id="4084682180776658562">Закладка</translation>
 <translation id="8859057652521303089">Виберіть мову:</translation>
+<translation id="3030138564564344289">Повторити завантаження</translation>
 <translation id="4381091992796011497">Ім’я користувача:</translation>
 <translation id="5830720307094128296">Зберегти сторінку &amp;як...</translation>
 <translation id="8114439576766120195">Ваших даних на всіх веб-сайтах</translation>
@@ -2176,6 +2456,7 @@
 <translation id="7138678301420049075">Інше</translation>
 <translation id="9147392381910171771">&amp;Параметри</translation>
 <translation id="1803557475693955505">Не вдалося завантажити фонову сторінку &quot;<ph name="BACKGROUND_PAGE"/>&quot;.</translation>
+<translation id="5818334088068591797">Де виникли проблеми? (обов'язкове поле)</translation>
 <translation id="7919005529115468126">Додати адресу...</translation>
 <translation id="6264485186158353794">Повернутися до безпечного режиму</translation>
 <translation id="5130080518784460891">Етен</translation>
@@ -2189,6 +2470,7 @@
 <translation id="77999321721642562">Згодом вісім найчастіше відвідуваних сайтів відображатимуться нижче.</translation>
 <translation id="5864830997591220873">Заблокувати всі файли cookie</translation>
 <translation id="7447718177945067973">Не вдалося знайти сервер.</translation>
+<translation id="715468010956678290">Відкрити фрейм в аноні&amp;мному вікні</translation>
 <translation id="471800408830181311">Не вдалося вивести секретний ключ.</translation>
 <translation id="1273291576878293349">Відкрити всі закладки в новому анонімному вікні</translation>
 <translation id="1136857731359746145">Дозволяє встановленим веб-програмам працювати у фоновому режимі під час запуску системи та продовжувати працювати після закриття всіх вікон.</translation>
@@ -2196,9 +2478,12 @@
 <translation id="1177437665183591855">Помилка невідомого сертифіката сервера</translation>
 <translation id="8467473010914675605">Метод введення для корейської мови</translation>
 <translation id="3819800052061700452">&amp;На весь екран</translation>
+<translation id="5419540894229653647"><ph name="ERROR_DESCRIPTION_TEXT"/> <ph name="LINE_BREAK"/> Спробуйте діагностувати проблему, виконавши вказані нижче дії. <ph name="LINE_BREAK"/> <ph name="PLATFORM_TEXT"/></translation>
 <translation id="3533943170037501541">Вітаємо на вашій домашній сторінці!</translation>
+<translation id="5906065664303289925">Адреса апаратного забезпечення:</translation>
 <translation id="2024755148611432643">Місто або містечко:</translation>
 <translation id="2187895286714876935">Помилка імпортування сертифіката сервера</translation>
+<translation id="3229501873018723367">На жаль, ви не можете входити на цьому пристрої.</translation>
 <translation id="343107786065952164">Не довіряйте автентичності цього сертифіката.</translation>
 <translation id="2083503720363859111">Налаштування у вкладках</translation>
 <translation id="614998064310228828">Модель пристрою:</translation>
@@ -2209,6 +2494,7 @@
 <translation id="5101042277149003567">Відкрити всі закладки</translation>
 <translation id="3488065109653206955">Частково активовано</translation>
 <translation id="1481244281142949601">Ви достатньо захищені механізмом ізольованого програмного середовища.</translation>
+<translation id="4849517651082200438">Не встановлювати</translation>
 <translation id="8602882075393902833">Активує Миттєвий пошук для швидшого пошуку та перегляду мережі.</translation>
 <translation id="6349678711452810642">Зробити за замовчуванням</translation>
 <translation id="6263284346895336537">Не вирішальні</translation>
@@ -2221,6 +2507,7 @@
 <translation id="2231233239095101917">Сценарій цієї сторінки зайняв велику кількість пам'яті. Перезавантажте програму, щоб знову запустити сценарії.</translation>
 <translation id="870805141700401153">Підписання індивідуального коду Microsoft</translation>
 <translation id="5119173345047096771">Mozilla Firefox</translation>
+<translation id="9020278534503090146">Ця веб-сторінка недоступна</translation>
 <translation id="6245028464673554252">Якщо ви закриєте <ph name="PRODUCT_NAME"/> зараз, це завантаження буде скасовано.</translation>
 <translation id="3943857333388298514">Вставити</translation>
 <translation id="385051799172605136">Назад</translation>
@@ -2228,9 +2515,12 @@
 <translation id="1208126399996836490">Не скидати</translation>
 <translation id="2670965183549957348">Метод введення для стандарту чжуїнь китайської мови</translation>
 <translation id="3380286644315743596">Переключитися в режим повної ширини</translation>
+<translation id="3153752908455022872">Snap Start</translation>
 <translation id="4085298594534903246">На цій сторінці JavaScript заблоковано.</translation>
+<translation id="5630492933376732170">Примітка. Коли ви натискаєте &quot;Надіслати відгук&quot;, ОС Chrome включає журнал подій системи вашого пристрою. Ми використовуємо цю інформацію, щоб діагностувати проблеми, зрозуміти ваш спосіб взаємодії з пристроєм та підвищити його ефективність. Будь-яку особисту інформацію, включену у звіт про відгук – явно у ваших коментарях або випадково в журналі чи знімку екрана – буде захищено відповідно до нашої <ph name="BEGIN_LINK"/>політики конфіденційності<ph name="END_LINK"/>. Щоб не надсилати жодні журнали системи, зніміть прапорець біля пункту &quot;Включати інформацію системи&quot;.</translation>
 <translation id="4341977339441987045">Блокувати збереження будь-яких даних сайтами</translation>
 <translation id="806812017500012252">Переупорядкувати за назвою</translation>
+<translation id="1186495307273111926">Принтери не знайдено</translation>
 <translation id="3781751432212184938">Показати огляд вкладок...</translation>
 <translation id="2960316970329790041">Припинити імпорт</translation>
 <translation id="3835522725882634757">Сервер надсилає дані, які <ph name="PRODUCT_NAME"/> не може зрозуміти. <ph name="BEGIN_LINK"/>Повідомте про помилку<ph name="END_LINK"/>, включивши <ph name="BEGIN2_LINK"/>необроблений список файлів<ph name="END2_LINK"/>.</translation>
@@ -2240,6 +2530,7 @@
 <translation id="1731911755844941020">...</translation>
 <translation id="8371695176452482769">Диктуйте</translation>
 <translation id="2904079386864173492">Модель:</translation>
+<translation id="8917047707340793412">Змінити на <ph name="ENGINE_NAME"/></translation>
 <translation id="6129953537138746214">Пробіл</translation>
 <translation id="3704331259350077894">Припинення дії</translation>
 <translation id="5801568494490449797">Налаштування</translation>
@@ -2253,16 +2544,21 @@
 <translation id="3037605927509011580">От чорт!</translation>
 <translation id="5803531701633845775">Вибирати фрази позаду без переміщення курсора</translation>
 <translation id="1918141783557917887">&amp;Малий</translation>
+<translation id="6996550240668667907">Переглянути розкладку клавіатури</translation>
 <translation id="4065006016613364460">К&amp;опіювати URL-адресу зображення</translation>
 <translation id="6965382102122355670">OK</translation>
 <translation id="8000066093800657092">Немає мережі</translation>
 <translation id="4481249487722541506">Завантажити розпаковане розширення...</translation>
 <translation id="8542113417382134668">Шрифт Serif:</translation>
 <translation id="2149973817440762519">Редагувати закладку</translation>
+<translation id="5431318178759467895">Кольоровий</translation>
 <translation id="3679848754951088761"><ph name="SOURCE_ORIGIN"/></translation>
+<translation id="1486740077039107580">Увімкнення файлової системи Advanced File System, включно з підтримкою USB і карт SD.</translation>
 <translation id="6920989436227028121">Відкрити як звичайну вкладку</translation>
 <translation id="4057041477816018958"><ph name="SPEED"/> - <ph name="RECEIVED_AMOUNT"/></translation>
+<translation id="2050339315714019657">Портретна</translation>
 <translation id="6978839998405419496"><ph name="NUMBER_ZERO"/> days ago</translation>
+<translation id="5001351382794379394"><ph name="CONTENT"/></translation>
 <translation id="6139139147415955203">Активує фонову службу, яка з'єднує послугу <ph name="CLOUD_PRINT_NAME"/> із будь-яким принтером, установленим на цьому комп'ютері. Якщо цю експериментальну послугу активовано, можна ввімкнути <ph name="CLOUD_PRINT_NAME"/> у &quot;Параметрах і налаштуваннях&quot;, у розділі Під капотом&quot;, увійшовши за допомогою даних облікового запису Google.</translation>
 <translation id="5112577000029535889">&amp;Інструменти розробника</translation>
 <translation id="2301382460326681002">Кореневий каталог розширення недійсний.</translation>
@@ -2277,15 +2573,21 @@
 <translation id="5941711191222866238">Зменшити</translation>
 <translation id="539297715553881262">Хост:</translation>
 <translation id="4121428309786185360">Діє до</translation>
+<translation id="1146498888431277930">Помилка SSL-з'єднання</translation>
+<translation id="8041089156583427627">Надіслати відгук</translation>
 <translation id="6394627529324717982">Кома</translation>
 <translation id="253434972992662860">&amp;Пауза</translation>
 <translation id="335985608243443814">Переглянути...</translation>
 <translation id="6653385924798556138">Хост <ph name="HOST"/> намагається створити файл cookie у вашому комп'ютері.</translation>
 <translation id="7802488492289385605">Метод введення Google для японської мови (клавіатура США – Дворак)</translation>
 <translation id="3129687551880844787">Пам'ять сеансу</translation>
+<translation id="7427348830195639090">Фонова сторінка: <ph name="BACKGROUND_PAGE_URL"/></translation>
 <translation id="5898154795085152510">Сервер повідомив про недійсний сертифікат клієнта. Помилка <ph name="ERROR_NUMBER"/> (<ph name="ERROR_NAME"/>).</translation>
 <translation id="2704184184447774363">Підписування документа Microsoft</translation>
 <translation id="1474842329983231719">Керувати налаштуваннями друку...</translation>
+<translation id="8095063748969090802">Під'єднатися до іншої мережі...</translation>
+<translation id="2455981314101692989">На цій веб-сторінці вимкнено автоматичне заповнення цієї форми.</translation>
+<translation id="5988840637546770870">Канал для розробників – це місце випробування різноманітних ідей. Іноді він може бути дуже нестабільним. Застосовуйте з обережністю.</translation>
 <translation id="3569713929051927529">Додати папку...</translation>
 <translation id="4032664149172368180">Метод введення для японської мови (клавіатура США – Дворак)</translation>
 <translation id="185455864151206349">Пароль секретного ключа:</translation>
@@ -2293,9 +2595,9 @@
 <translation id="5826507051599432481">Загальне ім'я (CN)</translation>
 <translation id="4215444178533108414">Закінчити видалення елементів</translation>
 <translation id="5154702632169343078">Суб'єкт</translation>
-<translation id="1080520132886514561">Сховати це повідомлення</translation>
 <translation id="2273562597641264981">Оператор:</translation>
 <translation id="122082903575839559">Алгоритм підпису сертифіката</translation>
+<translation id="2181257377760181418">Вмикає попередній перегляд операції друку у вкладці.</translation>
 <translation id="7240120331469437312">Альтернативне ім'я суб'єкта сертифіката</translation>
 <translation id="6900113680982781280">Увімкнути &quot;Автозаповнення&quot;, щоб заповнювати веб-форми за допомогою лише одного кліка</translation>
 <translation id="1131850611586448366">Веб-сайт, розташований за адресою <ph name="HOST_NAME"/>, містить елементи з веб-сайту, про який повідомлялося, як про фішинговий. Фішингові сайти намагаються облудним шляхом отримати від користувачів особисту чи фінансову інформацію, часто видаючи себе за сайти надійних закладів, зокрема банків.</translation>
@@ -2343,7 +2645,9 @@
 <translation id="6059652578941944813">Ієрархія сертифіката</translation>
 <translation id="774576312655125744">Ваших даних на <ph name="WEBSITE_1"/>, <ph name="WEBSITE_2"/> і ще <ph name="NUMBER_OF_OTHER_WEBSITES"/> веб-сайтах.</translation>
 <translation id="4508765956121923607">Переглянути д&amp;жерело</translation>
+<translation id="5975083100439434680">Зменшити масштаб</translation>
 <translation id="8080048886850452639">К&amp;опіювати URL-адресу аудіо</translation>
+<translation id="3331321258768829690">(<ph name="UTCOFFSET"/>) <ph name="LONGTZNAME"/> (<ph name="EXEMPLARCITY"/>)</translation>
 <translation id="619398760000422129">Плагіни (напр., Adobe Flash Player, Quicktime тощо)</translation>
 <translation id="5849869942539715694">Пакування розширення...</translation>
 <translation id="7339785458027436441">Перевіряти правопис під час вводу</translation>
