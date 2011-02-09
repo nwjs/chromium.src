@@ -259,7 +259,7 @@ ssl3_PlatformSignHashes(SSL3Hashes *hash, PlatformKey key, SECItem *buf,
         ssl_MapLowLevelError(SSL_ERROR_SIGN_HASHES_FAILURE);
         goto done;
     }
-    if (!CryptSignHash(hHash, key->dwKeySpec, NULL, CRYPT_NOHASHOID,
+    if (!CryptSignHash(hHash, key->dwKeySpec, NULL, 0,
                        NULL, &signatureLen) || signatureLen == 0) {
         ssl_MapLowLevelError(SSL_ERROR_SIGN_HASHES_FAILURE);
         goto done;
@@ -268,7 +268,7 @@ ssl3_PlatformSignHashes(SSL3Hashes *hash, PlatformKey key, SECItem *buf,
     if (!buf->data)
         goto done;    /* error code was set. */
 
-    if (!CryptSignHash(hHash, key->dwKeySpec, NULL, CRYPT_NOHASHOID,
+    if (!CryptSignHash(hHash, key->dwKeySpec, NULL, 0,
                        (BYTE*)buf->data, &signatureLen)) {
         ssl_MapLowLevelError(SSL_ERROR_SIGN_HASHES_FAILURE);
         goto done;
