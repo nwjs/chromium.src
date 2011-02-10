@@ -160,6 +160,7 @@ void BlockedPlugin::LoadPlugin() {
   WebPlugin* new_plugin =
       render_view()->CreatePluginNoCheck(frame_, plugin_params_);
   if (new_plugin && new_plugin->initialize(container)) {
+    plugin_->RestoreTitleText();
     container->setPlugin(new_plugin);
     container->invalidate();
     container->reportGeometry();
