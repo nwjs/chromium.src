@@ -5,6 +5,14 @@
 {
   'variables': {
     'chromium_code': 1,
+    # These are defined here because we need to build this library twice. Once
+    # with without support for client side arrays and once with for pepper and
+    # the OpenGL ES 2.0 compliant for the conformance tests.
+    'gles2_implementation_source_files': [
+      'command_buffer/client/gles2_implementation_autogen.h',
+      'command_buffer/client/gles2_implementation.cc',
+      'command_buffer/client/gles2_implementation.h',
+    ]
   },
   'targets': [
     {
@@ -68,9 +76,27 @@
         ],
       },
       'sources': [
-        'command_buffer/client/gles2_implementation_autogen.h',
-        'command_buffer/client/gles2_implementation.cc',
-        'command_buffer/client/gles2_implementation.h',
+        '<@(gles2_implementation_source_files)',
+      ],
+    },
+    {
+      # Library emulates GLES2 using command_buffers.
+      'target_name': 'gles2_implementation_client_side_arrays',
+      'type': 'static_library',
+      'defines': [
+        'GLES2_SUPPORT_CLIENT_SIDE_ARRAYS=1'
+      ],
+      'dependencies': [
+        'gles2_cmd_helper',
+      ],
+      'all_dependent_settings': {
+        'include_dirs': [
+          # For GLES2/gl2.h
+          '.',
+        ],
+      },
+      'sources': [
+        '<@(gles2_implementation_source_files)',
       ],
     },
     {
@@ -218,8 +244,7 @@
         'command_buffer_client',
         'command_buffer_common',
         'command_buffer_service',
-        'gles2_lib',
-        'gles2_implementation',
+        'gles2_implementation_client_side_arrays',
         'gles2_cmd_helper',
       ],
       'sources': [

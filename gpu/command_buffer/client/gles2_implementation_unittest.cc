@@ -10,6 +10,10 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
+#if !defined(GLES2_SUPPORT_CLIENT_SIDE_ARRAYS)
+#define GLES2_SUPPORT_CLIENT_SIDE_ARRAYS
+#endif
+
 namespace gpu {
 
 class GLES2MockCommandBufferHelper : public CommandBuffer {
@@ -166,7 +170,7 @@ class GLES2ImplementationTest : public testing::Test {
     helper_.reset(new GLES2CmdHelper(command_buffer_.get()));
     helper_->Initialize(kCommandBufferSizeBytes);
 
-    #if defined(GLES2_SUPPORT_CLIENT_SIDE_BUFFERS)
+    #if defined(GLES2_SUPPORT_CLIENT_SIDE_ARRAYS)
       EXPECT_CALL(*command_buffer_, OnFlush(_))
           .WillOnce(SetMemory(SizedResultHelper<GLint>(kMaxVertexAttribs)))
           .RetiresOnSaturation();
@@ -260,7 +264,7 @@ TEST_F(GLES2ImplementationTest, ShaderSource) {
   EXPECT_EQ(0, memcmp(&expected, commands_, sizeof(expected)));
 }
 
-#if defined(GLES2_SUPPORT_CLIENT_SIDE_BUFFERS)
+#if defined(GLES2_SUPPORT_CLIENT_SIDE_ARRAYS)
 
 TEST_F(GLES2ImplementationTest, DrawArraysClientSideBuffers) {
   static const float verts[][4] = {
@@ -632,8 +636,6 @@ TEST_F(GLES2ImplementationTest, GetVertexAttrib) {
   EXPECT_EQ(0, memcmp(&expected, commands_, sizeof(expected)));
 }
 
-#endif  // defined(GLES2_SUPPORT_CLIENT_SIDE_BUFFERS)
-
 TEST_F(GLES2ImplementationTest, ReservedIds) {
   // Only the get error command should be issued.
   struct Cmds {
@@ -657,6 +659,8 @@ TEST_F(GLES2ImplementationTest, ReservedIds) {
   EXPECT_EQ(static_cast<GLenum>(GL_INVALID_OPERATION), err);
   EXPECT_EQ(0, memcmp(&expected, commands_, sizeof(expected)));
 }
+
+#endif  // defined(GLES2_SUPPORT_CLIENT_SIDE_ARRAYS)
 
 TEST_F(GLES2ImplementationTest, ReadPixels2Reads) {
   struct Cmds {
