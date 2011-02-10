@@ -334,8 +334,9 @@ string16 OutdatedPluginInfoBar::GetLinkText() {
 bool OutdatedPluginInfoBar::LinkClicked(WindowOpenDisposition disposition) {
   UserMetrics::RecordAction(
       UserMetricsAction("OutdatedPluginInfobar.LearnMore"));
-  // TODO(bauerb): Navigate to a help page explaining why we disabled
-  // the plugin, once we have one.
+  GURL url = google_util::AppendGoogleLocaleParam(
+      GURL(chrome::kOutdatedPluginLearnMoreURL));
+  tab_contents_->OpenURL(url, GURL(), NEW_FOREGROUND_TAB, PageTransition::LINK);
   return false;
 }
 
