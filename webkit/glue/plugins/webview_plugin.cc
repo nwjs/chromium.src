@@ -85,6 +85,12 @@ void WebViewPlugin::ReplayReceivedData(WebPlugin* plugin) {
   }
 }
 
+void WebViewPlugin::RestoreTitleText() {
+  if (container_)
+    container_->element().setAttribute("title", old_title_);
+}
+
+
 bool WebViewPlugin::initialize(WebPluginContainer* container) {
   container_ = container;
   if (container_)
@@ -97,8 +103,6 @@ void WebViewPlugin::destroy() {
     delegate_->WillDestroyPlugin();
     delegate_ = NULL;
   }
-  if (container_)
-    container_->element().setAttribute("title", old_title_);
   container_ = NULL;
   MessageLoop::current()->DeleteSoon(FROM_HERE, this);
 }

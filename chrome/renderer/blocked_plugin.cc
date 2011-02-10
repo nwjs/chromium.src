@@ -95,6 +95,7 @@ void BlockedPlugin::LoadPlugin() {
       render_view_->CreatePluginNoCheck(frame_,
                                         plugin_params_);
   if (new_plugin && new_plugin->initialize(container)) {
+    plugin_->RestoreTitleText();
     container->setPlugin(new_plugin);
     container->invalidate();
     container->reportGeometry();
