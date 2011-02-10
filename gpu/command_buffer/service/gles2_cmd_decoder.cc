@@ -1813,9 +1813,11 @@ bool GLES2DecoderImpl::Initialize(gfx::GLContext* context,
 
   vertex_attrib_manager_.Initialize(group_->max_vertex_attribs());
 
-  // We have to enable vertex array 0 on OpenGL or it won't render. Note that
-  // OpenGL ES 2.0 does not have this issue.
-  glEnableVertexAttribArray(0);
+  if (gfx::GetGLImplementation() != gfx::kGLImplementationEGLGLES2) {
+    // We have to enable vertex array 0 on OpenGL or it won't render. Note that
+    // OpenGL ES 2.0 does not have this issue.
+    glEnableVertexAttribArray(0);
+  }
   glGenBuffersARB(1, &attrib_0_buffer_id_);
   glBindBuffer(GL_ARRAY_BUFFER, attrib_0_buffer_id_);
   glVertexAttribPointer(0, 1, GL_FLOAT, GL_FALSE, 0, NULL);
@@ -2801,7 +2803,8 @@ void GLES2DecoderImpl::DoBindTexture(GLenum target, GLuint client_id) {
 
 void GLES2DecoderImpl::DoDisableVertexAttribArray(GLuint index) {
   if (vertex_attrib_manager_.Enable(index, false)) {
-    if (index != 0) {
+    if (index != 0 ||
+        gfx::GetGLImplementation() == gfx::kGLImplementationEGLGLES2) {
       glDisableVertexAttribArray(index);
     }
   } else {
