@@ -879,11 +879,8 @@ void ResourceMessageFilter::OnGotPluginInfo(bool found,
   ContentSetting setting = CONTENT_SETTING_DEFAULT;
   if (found) {
     WebPluginInfo info_copy = info;
-    // TODO(mpcomplete): The plugin service should do this check. We should
-    // not be calling the PluginList directly.
-    if (!plugin_service_->PrivatePluginAllowedForURL(
-            info_copy.path, policy_url))
-      info_copy.enabled |= webkit::npapi::WebPluginInfo::POLICY_DISABLED;
+    info_copy.enabled = info_copy.enabled &&
+        plugin_service_->PrivatePluginAllowedForURL(info_copy.path, policy_url);
     HostContentSettingsMap* map = profile_->GetHostContentSettingsMap();
     scoped_ptr<PluginGroup> group(
         PluginGroup::CopyOrCreatePluginGroup(info_copy));
