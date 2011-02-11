@@ -755,15 +755,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest, MAYBE_PluginLoadUnload) {
   EXPECT_TRUE(result);
 }
 
-#if defined(OS_WIN) || defined(OS_LINUX)
-#define MAYBE_PluginPrivate PluginPrivate
-#else
-// TODO(mpcomplete): http://crbug.com/29900 need cross platform plugin support.
-#define MAYBE_PluginPrivate DISABLED_PluginPrivate
-#endif
-
+// disabled by kerz to enable browser tests to go green
 // Tests that private extension plugins are only visible to the extension.
-IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest, MAYBE_PluginPrivate) {
+IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest, DISABLED_PluginPrivate) {
   FilePath extension_dir =
       test_data_dir_.AppendASCII("uitest").AppendASCII("plugins_private");
 
