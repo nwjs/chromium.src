@@ -877,8 +877,8 @@ void ResourceMessageFilter::OnGotPluginInfo(bool found,
                                             const GURL& policy_url,
                                             IPC::Message* reply_msg) {
   ContentSetting setting = CONTENT_SETTING_DEFAULT;
+  WebPluginInfo info_copy = info;
   if (found) {
-    WebPluginInfo info_copy = info;
     info_copy.enabled = info_copy.enabled &&
         plugin_service_->PrivatePluginAllowedForURL(info_copy.path, policy_url);
     HostContentSettingsMap* map = profile_->GetHostContentSettingsMap();
@@ -891,7 +891,7 @@ void ResourceMessageFilter::OnGotPluginInfo(bool found,
   }
 
   ViewHostMsg_GetPluginInfo::WriteReplyParams(
-      reply_msg, found, info, setting, actual_mime_type);
+      reply_msg, found, info_copy, setting, actual_mime_type);
   Send(reply_msg);
 }
 
