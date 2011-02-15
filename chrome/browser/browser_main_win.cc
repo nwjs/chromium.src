@@ -195,8 +195,10 @@ bool CheckMachineLevelInstall() {
       const string16 caption = l10n_util::GetStringUTF16(IDS_PRODUCT_NAME);
       const UINT flags = MB_OK | MB_ICONERROR | MB_TOPMOST;
       app::win::MessageBox(NULL, text, caption, flags);
-      FilePath uninstall_path(InstallUtil::GetChromeUninstallCmd(false, dist));
-      CommandLine uninstall_cmd(uninstall_path);
+
+      std::wstring uninstall_string = InstallUtil::GetChromeUninstallCmd(false,
+                                                                         dist);
+      CommandLine uninstall_cmd = CommandLine::FromString(uninstall_string);
       if (!uninstall_cmd.GetProgram().value().empty()) {
         uninstall_cmd.AppendSwitch(installer::switches::kForceUninstall);
         uninstall_cmd.AppendSwitch(
