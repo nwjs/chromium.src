@@ -29,7 +29,10 @@ FilePath::CharType kDefaultPluginLibraryName[] =
 // Some version ranges can be shared across operating systems. This should be
 // done where possible to avoid duplication.
 static const VersionRangeDefinition kFlashVersionRange[] = {
-    { "", "", "10.1.102" }
+    { "", "", "10.2.152" }
+};
+static const VersionRangeDefinition kShockwaveVersionRange[] = {
+    { "", "", "11.5.9.620" }
 };
 
 // Similarly, try and share the group definition for plug-ins that are
@@ -37,6 +40,11 @@ static const VersionRangeDefinition kFlashVersionRange[] = {
 static const PluginGroupDefinition kFlashDefinition = {
     "adobe-flash-player", "Flash", "Shockwave Flash", kFlashVersionRange,
     arraysize(kFlashVersionRange), "http://get.adobe.com/flashplayer/" };
+
+static const PluginGroupDefinition kShockwaveDefinition = {
+    "shockwave", "Shockwave", "Shockwave for Director",
+    kShockwaveVersionRange, arraysize(kShockwaveVersionRange),
+    "http://www.adobe.com/shockwave/download/" };
 
 #if defined(OS_MACOSX)
 // Plugin Groups for Mac.
@@ -56,9 +64,6 @@ static const VersionRangeDefinition kSilverlightVersionRange[] = {
 static const VersionRangeDefinition kFlip4MacVersionRange[] = {
     { "", "", "2.2.1" }
 };
-static const VersionRangeDefinition kShockwaveVersionRange[] = {
-    { "",  "", "11.5.9.615" }
-};
 static const PluginGroupDefinition kGroupDefinitions[] = {
   kFlashDefinition,
   { "apple-quicktime", "Quicktime", "QuickTime Plug-in", kQuicktimeVersionRange,
@@ -72,9 +77,7 @@ static const PluginGroupDefinition kGroupDefinitions[] = {
   { "flip4mac", "Flip4Mac", "Flip4Mac", kFlip4MacVersionRange,
     arraysize(kFlip4MacVersionRange),
     "http://www.telestream.net/flip4mac-wmv/overview.htm" },
-  { "shockwave", "Shockwave", "Shockwave for Director", kShockwaveVersionRange,
-    arraysize(kShockwaveVersionRange),
-    "http://www.adobe.com/shockwave/download/" }
+  kShockwaveDefinition
 };
 
 #elif defined(OS_WIN)
@@ -87,19 +90,19 @@ static const VersionRangeDefinition kJavaVersionRange[] = {
     { "0", "7", "6.0.220" }  // "220" is not a typo.
 };
 static const VersionRangeDefinition kAdobeReaderVersionRange[] = {
-    { "10", "11", "" },
-    { "9", "10", "9.4.1" },
-    { "0", "9", "8.2.5" }
+    { "10", "11", "10.0.1" },
+    { "9", "10", "9.4.2" },
+    { "0", "9", "8.2.6" }
 };
 static const VersionRangeDefinition kSilverlightVersionRange[] = {
     { "0", "4", "3.0.50106.0" },
     { "4", "5", "" }
 };
-static const VersionRangeDefinition kShockwaveVersionRange[] = {
-    { "", "", "11.5.9.615" }
-};
 static const VersionRangeDefinition kDivXVersionRange[] = {
     { "", "", "1.4.3.4" }
+};
+static const VersionRangeDefinition kRealPlayerVersionRange[] = {
+    { "", "", "12.0.1.633" }
 };
 static const PluginGroupDefinition kGroupDefinitions[] = {
   kFlashDefinition,
@@ -114,23 +117,19 @@ static const PluginGroupDefinition kGroupDefinitions[] = {
   { "silverlight", "Silverlight", "Silverlight", kSilverlightVersionRange,
     arraysize(kSilverlightVersionRange),
     "http://www.microsoft.com/getsilverlight/" },
-  { "shockwave", "Shockwave", "Shockwave for Director", kShockwaveVersionRange,
-    arraysize(kShockwaveVersionRange),
-    "http://www.adobe.com/shockwave/download/" },
+  kShockwaveDefinition,
   { "divx-player", "DivX Player", "DivX Web Player", kDivXVersionRange,
     arraysize(kDivXVersionRange),
     "http://download.divx.com/divx/autoupdate/player/"
     "DivXWebPlayerInstaller.exe" },
+  { "realplayer", "RealPlayer", "RealPlayer",
+    kRealPlayerVersionRange, arraysize(kRealPlayerVersionRange),
+    "http://www.real.com/realplayer/downloads" },
   // These are here for grouping, no vulnerabilities known.
   { "windows-media-player", "Windows Media Player", "Windows Media Player",
     NULL, 0, "" },
   { "microsoft-office", "Microsoft Office", "Microsoft Office",
     NULL, 0, "" },
-  // TODO(panayiotis): The vulnerable versions are
-  //  (v >=  6.0.12.1040 && v <= 6.0.12.1663)
-  //  || v == 6.0.12.1698  || v == 6.0.12.1741
-  { "realplayer", "RealPlayer", "RealPlayer", NULL, 0,
-    "www.real.com/realplayer/downloads" },
 };
 
 #else
@@ -139,8 +138,8 @@ static const VersionRangeDefinition kJavaVersionRange[] = {
 };
 
 static const VersionRangeDefinition kRedhatIcedTeaVersionRange[] = {
-    { "0", "1.9", "1.8.3" },
-    { "1.9", "1.10", "1.9.2" },
+    { "0", "1.9", "1.8.5" },
+    { "1.9", "1.10", "1.9.5" },
 };
 
 static const PluginGroupDefinition kGroupDefinitions[] = {
