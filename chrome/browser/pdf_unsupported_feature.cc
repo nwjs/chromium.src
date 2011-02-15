@@ -81,10 +81,10 @@ class PDFEnableAdobeReaderConfirmInfoBarDelegate
     switch (button) {
       case BUTTON_OK:
         return l10n_util::GetStringUTF16(
-            IDS_CONFIRM_MESSAGEBOX_NO_BUTTON_LABEL);
+            IDS_PDF_INFOBAR_NEVER_USE_READER_BUTTON);
       case BUTTON_CANCEL:
         return l10n_util::GetStringUTF16(
-            IDS_CONFIRM_MESSAGEBOX_YES_BUTTON_LABEL);
+            IDS_PDF_INFOBAR_ALWAYS_USE_READER_BUTTON);
       default:
         // All buttons are labeled above.
         NOTREACHED() << "Bad button id " << button;
@@ -139,7 +139,7 @@ void OpenUsingReader(TabContents* tab,
   // Also give it a new version so that the renderer doesn't show the blocked
   // plugin UI if it's vulnerable, since we already went through the
   // interstitial.
-  plugin.plugin.enabled = true;
+  plugin.plugin.enabled = WebPluginInfo::USER_ENABLED;
   plugin.plugin.version = ASCIIToUTF16("11.0.0.0");
 
   PluginService::GetInstance()->OverridePluginForTab(plugin);
