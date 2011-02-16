@@ -87,7 +87,7 @@ static const VersionRangeDefinition kQuicktimeVersionRange[] = {
     { "", "", "7.6.8" }
 };
 static const VersionRangeDefinition kJavaVersionRange[] = {
-    { "0", "7", "6.0.220" }  // "220" is not a typo.
+    { "0", "7", "6.0.240" }  // "240" is not a typo.
 };
 static const VersionRangeDefinition kAdobeReaderVersionRange[] = {
     { "10", "11", "10.0.1" },
@@ -134,7 +134,7 @@ static const PluginGroupDefinition kGroupDefinitions[] = {
 
 #else
 static const VersionRangeDefinition kJavaVersionRange[] = {
-    { "0", "1.7", "1.6.0.22" }
+    { "0", "1.7", "1.6.0.24" }
 };
 
 static const VersionRangeDefinition kRedhatIcedTeaVersionRange[] = {
