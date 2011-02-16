@@ -159,8 +159,9 @@ class RenderWidget : public IPC::Channel::Listener,
   // Paints a border at the given rect for debugging purposes.
   void PaintDebugBorder(const gfx::Rect& rect, skia::PlatformCanvas* canvas);
 
+  void AnimationCallback();
+  void AnimateIfNeeded();
   void CallDoDeferredUpdate();
-  void UpdateAnimationsIfNeeded();
   void DoDeferredUpdate();
   void DoDeferredClose();
   void DoDeferredSetWindowRect(const WebKit::WebRect& pos);
@@ -372,6 +373,7 @@ class RenderWidget : public IPC::Channel::Listener,
 
   base::Time animation_floor_time_;
   bool animation_update_pending_;
+  bool animation_task_posted_;
 
   DISALLOW_COPY_AND_ASSIGN(RenderWidget);
 };
