@@ -18,6 +18,7 @@
 #include "chrome/renderer/render_thread.h"
 #include "gfx/point.h"
 #include "gfx/size.h"
+#include "chrome/renderer/renderer_webkitclient_impl.h"
 #include "ipc/ipc_sync_message.h"
 #include "skia/ext/platform_canvas.h"
 #include "third_party/skia/include/core/SkShader.h"
@@ -499,6 +500,10 @@ void RenderWidget::AnimateIfNeeded() {
           this, &RenderWidget::AnimationCallback), 16);
       animation_task_posted_ = true;
       animation_update_pending_ = false;
+      // Explicitly pump the WebCore Timer queue to avoid starvation on OS X.
+      // See crbug.com/71735.
+      // TODO(jamesr) Remove this call once crbug.com/72007 is fixed.
+      RenderThread::current()->GetWebKitClientImpl()->DoTimeout();
       webwidget_->animate();
     } else if (!animation_task_posted_) {
       // This code uses base::Time::Now() to calculate the floor and next fire
