@@ -107,6 +107,9 @@ class InstallUtil {
   // Returns zero on install success, or an InstallStatus value otherwise.
   static int GetInstallReturnCode(installer::InstallStatus install_status);
 
+  // Returns a string in the form YYYYMMDD of the current date.
+  static std::wstring GetCurrentDate();
+
  private:
   DISALLOW_COPY_AND_ASSIGN(InstallUtil);
 };

@@ -240,3 +240,17 @@ int InstallUtil::GetInstallReturnCode(installer::InstallStatus status) {
       return status;
   }
 }
+
+std::wstring InstallUtil::GetCurrentDate() {
+  static const wchar_t kDateFormat[] = L"yyyyMMdd";
+  wchar_t date_str[arraysize(kDateFormat)] = {0};
+  int len = GetDateFormatW(LOCALE_INVARIANT, 0, NULL, kDateFormat,
+                           date_str, arraysize(date_str));
+  if (len) {
+    --len;  // Subtract terminating \0.
+  } else {
+    PLOG(DFATAL) << "GetDateFormat";
+  }
+
+  return std::wstring(date_str, len);
+}
