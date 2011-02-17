@@ -187,11 +187,6 @@ const char kDisableBackgroundNetworking[] = "disable-background-networking";
 // users with many windows/tabs and lots of memory.
 const char kDisableBackingStoreLimit[]      = "disable-backing-store-limit";
 
-// Disables blocked content warning animation. Currently shows animation for
-// blocked pop-ups only.
-const char kDisableBlockContentAnimation[]  =
-    "disable-blocked-content-animation";
-
 // Disables establishing a backup TCP connection if a specified timeout is
 // exceeded.
 const char kDisableConnectBackupJobs[]      = "disable-connect-backup-jobs";
@@ -433,6 +428,10 @@ const char kEnableAuthNegotiatePort[]       = "enable-auth-negotiate-port";
 
 // Enables the benchmarking extensions.
 const char kEnableBenchmarking[]            = "enable-benchmarking";
+
+// Enables blocked content warning animation. Currently shows animation for
+// blocked pop-ups only.
+const char kEnableBlockContentAnimation[] = "enable-blocked-content-animation";
 
 // In the browser process this switch is used to enable or disable the
 // client-side phishing detection.  In the renderer this switch is only enabled
