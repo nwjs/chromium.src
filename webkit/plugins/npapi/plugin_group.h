@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -29,6 +29,7 @@ class PluginList;
 namespace plugin_test_internal {
 class PluginListWithoutFileIO;
 }
+
 // Hard-coded version ranges for plugin groups.
 struct VersionRangeDefinition {
   // Matcher for lowest version matched by this range (inclusive). May be empty
@@ -46,7 +47,7 @@ struct PluginGroupDefinition {
   const char* name;  // Name of this group.
   const char* name_matcher;  // Substring matcher for the plugin name.
   const VersionRangeDefinition* versions;  // List of version ranges.
-  const size_t num_versions;  // Size of the array |versions| points to.
+  size_t num_versions;  // Size of the array |versions| points to.
   const char* update_url;  // Location of latest secure version.
 };
 
@@ -222,15 +223,17 @@ class PluginGroup {
   // enabled one, or if all plugins are disabled, simply the first one.
   void UpdateActivePlugin(const WebPluginInfo& plugin);
 
-  // Refreshes the enabled flag based on the state of its plugins.
-  void RefreshEnabledState();
+  // Resets the group state to its default value (as if the group was empty).
+  // After calling this method, calling |UpdateActivePlugin| with all plugins
+  // in a row will correctly set the group state.
+  void ResetGroupState();
 
   // Enables the plugin if not already enabled and if policy allows it to.
-  // Returns true on success.
+  // Returns true on success. Does not update the group state.
   static bool Enable(WebPluginInfo* plugin, int reason);
 
   // Disables the plugin if not already disabled and if policy allows it to.
-  // Returns true on success.
+  // Returns true on success. Does not update the group state.
   static bool Disable(WebPluginInfo* plugin, int reason);
 
   // Returns a non-const vector of all plugins in the group. This is only used
