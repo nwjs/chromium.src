@@ -433,15 +433,17 @@ bool AppendPostInstallTasks(bool multi_install,
         .Append(setup_path.BaseName()));
 
     CommandLine rename(installer_path);
-    rename.AppendSwitch(installer::switches::kRenameChromeExe);
+    rename.AppendSwitch(switches::kRenameChromeExe);
     if (package.system_level())
-      rename.AppendSwitch(installer::switches::kSystemLevel);
-
-    if (InstallUtil::IsChromeSxSProcess())
-      rename.AppendSwitch(installer::switches::kChromeSxS);
+      rename.AppendSwitch(switches::kSystemLevel);
 
     if (multi_install)
-      rename.AppendSwitch(installer::switches::kMultiInstall);
+      rename.AppendSwitch(switches::kMultiInstall);
+
+    const MasterPreferences& prefs = MasterPreferences::ForCurrentProcess();
+    bool value = false;
+    if (prefs.GetBool(master_preferences::kVerboseLogging, &value) && value)
+      rename.AppendSwitch(switches::kVerboseLogging);
 
     std::wstring version_key;
     for (size_t i = 0; i < products.size(); ++i) {
@@ -459,11 +461,19 @@ bool AppendPostInstallTasks(bool multi_install,
       // will check the key and run the command, so we add it for all.
       // After the first run, the subsequent runs should just be noops.
       // (see Upgrade::SwapNewChromeExeIfPresent).
+      // We use the same mechanism used for the uninstall command, whereby we
+      // delegate to the BrowserDistribution class to add product-specific
+      // switches to the command line.  A better name for this method would be
+      // AppendProductSpecificCommandLineFlags, or something like that.  In the
+      // interest of keeping this merge simple, we'll leave the name as-is.  On
+      // trunk, things have been refactored so this isn't quite so misleading.
+      CommandLine product_rename_cmd(rename);
+      dist->AppendUninstallCommandLineFlags(&product_rename_cmd);
       in_use_update_work_items->AddSetRegValueWorkItem(
           root,
           version_key,
           google_update::kRegRenameCmdField,
-          rename.command_line_string(),
+          product_rename_cmd.command_line_string(),
           true);
     }
 
