@@ -84,7 +84,7 @@ static const PluginGroupDefinition kGroupDefinitions[] = {
 // TODO(panayiotis): We should group "RealJukebox NS Plugin" with the rest of
 // the RealPlayer files.
 static const VersionRangeDefinition kQuicktimeVersionRange[] = {
-    { "", "", "7.6.8" }
+    { "", "", "7.6.9" }
 };
 static const VersionRangeDefinition kJavaVersionRange[] = {
     { "0", "7", "6.0.240" }  // "240" is not a typo.
