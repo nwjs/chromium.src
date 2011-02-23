@@ -5,6 +5,7 @@
 #include "chrome/browser/gpu_process_host.h"
 
 #include "app/app_switches.h"
+#include "app/gfx/gl/gl_implementation.h"
 #include "base/command_line.h"
 #include "base/metrics/histogram.h"
 #include "base/string_piece.h"
@@ -403,6 +404,8 @@ bool GpuProcessHost::LoadGpuBlacklist() {
   GpuBlacklist* blacklist = new GpuBlacklist();
   const CommandLine& browser_command_line = *CommandLine::ForCurrentProcess();
   if (browser_command_line.HasSwitch(switches::kIgnoreGpuBlacklist) ||
+      browser_command_line.GetSwitchValueASCII(
+          switches::kUseGL) == gfx::kGLImplementationOSMesaName ||
       blacklist->LoadGpuBlacklist(gpu_blacklist_json.as_string(), true)) {
     gpu_blacklist_.reset(blacklist);
     return true;
