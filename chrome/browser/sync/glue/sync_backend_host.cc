@@ -127,8 +127,13 @@ void SyncBackendHost::Initialize(
   // TODO(tim): Remove this special case once NIGORI is populated by
   // default.  We piggy back off of the passwords flag for now to not
   // require both encryption and passwords flags.
+#if defined(OS_POSIX) && !defined(OS_MACOSX) && !defined(OS_CHROMEOS)
+  bool enable_encryption = CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableSyncPasswords) || types.count(syncable::PASSWORDS);
+#else
   bool enable_encryption = !CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kDisableSyncPasswords) || types.count(syncable::PASSWORDS);
+#endif
   if (enable_encryption)
     registrar_.routing_info[syncable::NIGORI] = GROUP_PASSIVE;
 
