@@ -366,9 +366,12 @@ void BaseTab::PaintIcon(gfx::Canvas* canvas, int x, int y) {
     int image_size = frames.height();
     int image_offset = loading_animation_frame_ * image_size;
     int dst_y = (height() - image_size) / 2;
+    canvas->Save();
+    canvas->ClipRectInt(favicon_x, dst_y, image_size, image_size);
     canvas->DrawBitmapInt(frames, image_offset, 0, image_size,
                           image_size, favicon_x, dst_y, image_size, image_size,
                           false);
+    canvas->Restore();
   } else {
     canvas->Save();
     canvas->ClipRectInt(0, 0, width(), height());
