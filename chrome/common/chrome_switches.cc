@@ -344,8 +344,13 @@ const char kDisableSyncBookmarks[]          = "disable-sync-bookmarks";
 // Disable syncing of extensions.
 const char kDisableSyncExtensions[]         = "disable-sync-extensions";
 
+#if defined(OS_POSIX) && !defined(OS_MACOSX) && !defined(OS_CHROMEOS)
+// Enable syncing browser passwords.
+const char kEnableSyncPasswords[]           = "enable-sync-passwords";
+#else
 // Disable syncing browser passwords.
 const char kDisableSyncPasswords[]          = "disable-sync-passwords";
+#endif
 
 // Disable syncing of preferences.
 const char kDisableSyncPreferences[]        = "disable-sync-preferences";
@@ -1324,7 +1329,7 @@ const char kEnableCrashReporter[]           = "enable-crash-reporter";
 // This switch is used during automated testing.
 const char kNoProcessSingletonDialog[]      = "no-process-singleton-dialog";
 
-#if !defined(OS_MACOSX)
+#if !defined(OS_MACOSX) && !defined(OS_CHROMEOS)
 // Specifies which password store to use (detect, default, gnome, kwallet).
 const char kPasswordStore[]                 = "password-store";
 #endif
