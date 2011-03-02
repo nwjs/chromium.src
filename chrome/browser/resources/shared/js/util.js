@@ -121,7 +121,8 @@ document.addEventListener('click', function(e) {
     if ((el.protocol == 'file:' || el.protocol == 'about:') &&
         (e.button == 0 || e.button == 1)) {
       chrome.send('navigateToUrl',
-          [el.href, e.button, e.altKey, e.ctrlKey, e.metaKey, e.shiftKey]);
+          [el.href, String(e.button), String(e.altKey), String(e.ctrlKey),
+           String(e.shiftKey)]);
       e.preventDefault();
     }
   }
