@@ -23,6 +23,7 @@
 namespace {
 
 FilePath ConvertPepperFilePath(
+    const FilePath& module_local_path,
     const webkit::ppapi::PepperFilePath& pepper_path) {
   FilePath file_path;
   switch(pepper_path.domain()) {
@@ -32,7 +33,7 @@ FilePath ConvertPepperFilePath(
     case webkit::ppapi::PepperFilePath::DOMAIN_MODULE_LOCAL:
       if (!pepper_path.path().IsAbsolute() &&
           !pepper_path.path().ReferencesParent())
-        file_path = pepper_path.path();
+        file_path = module_local_path.Append(pepper_path.path());
       break;
     default:
       NOTREACHED();
@@ -85,7 +86,7 @@ void PepperFileMessageFilter::OnOpenFile(
     int flags,
     base::PlatformFileError* error,
     IPC::PlatformFileForTransit* file) {
-  FilePath full_path = ConvertPepperFilePath(path);
+  FilePath full_path = ConvertPepperFilePath(pepper_path_, path);
   if (full_path.empty()) {
     *error = base::PLATFORM_FILE_ERROR_ACCESS_DENIED;
     *file = IPC::InvalidPlatformFileForTransit();
@@ -128,8 +129,8 @@ void PepperFileMessageFilter::OnRenameFile(
     const webkit::ppapi::PepperFilePath& from_path,
     const webkit::ppapi::PepperFilePath& to_path,
     base::PlatformFileError* error) {
-  FilePath from_full_path = ConvertPepperFilePath(from_path);
-  FilePath to_full_path = ConvertPepperFilePath(to_path);
+  FilePath from_full_path = ConvertPepperFilePath(pepper_path_, from_path);
+  FilePath to_full_path = ConvertPepperFilePath(pepper_path_, to_path);
   if (from_full_path.empty() || to_full_path.empty()) {
     *error = base::PLATFORM_FILE_ERROR_ACCESS_DENIED;
     return;
@@ -144,7 +145,7 @@ void PepperFileMessageFilter::OnDeleteFileOrDir(
     const webkit::ppapi::PepperFilePath& path,
     bool recursive,
     base::PlatformFileError* error) {
-  FilePath full_path = ConvertPepperFilePath(path);
+  FilePath full_path = ConvertPepperFilePath(pepper_path_, path);
   if (full_path.empty()) {
     *error = base::PLATFORM_FILE_ERROR_ACCESS_DENIED;
     return;
@@ -158,7 +159,7 @@ void PepperFileMessageFilter::OnDeleteFileOrDir(
 void PepperFileMessageFilter::OnCreateDir(
     const webkit::ppapi::PepperFilePath& path,
     base::PlatformFileError* error) {
-  FilePath full_path = ConvertPepperFilePath(path);
+  FilePath full_path = ConvertPepperFilePath(pepper_path_, path);
   if (full_path.empty()) {
     *error = base::PLATFORM_FILE_ERROR_ACCESS_DENIED;
     return;
@@ -173,7 +174,7 @@ void PepperFileMessageFilter::OnQueryFile(
     const webkit::ppapi::PepperFilePath& path,
     base::PlatformFileInfo* info,
     base::PlatformFileError* error) {
-  FilePath full_path = ConvertPepperFilePath(path);
+  FilePath full_path = ConvertPepperFilePath(pepper_path_, path);
   if (full_path.empty()) {
     *error = base::PLATFORM_FILE_ERROR_ACCESS_DENIED;
     return;
@@ -188,7 +189,7 @@ void PepperFileMessageFilter::OnGetDirContents(
     const webkit::ppapi::PepperFilePath& path,
     webkit::ppapi::DirContents* contents,
     base::PlatformFileError* error) {
-  FilePath full_path = ConvertPepperFilePath(path);
+  FilePath full_path = ConvertPepperFilePath(pepper_path_, path);
   if (full_path.empty()) {
     *error = base::PLATFORM_FILE_ERROR_ACCESS_DENIED;
     return;
