@@ -176,8 +176,9 @@ void BrowserFrameWin::OnInitMenuPopup(HMENU menu, UINT position,
   browser_view_->PrepareToRunSystemMenu(menu);
 }
 
-LRESULT BrowserFrameWin::OnMouseActivate(HWND window, UINT hittest_code,
-                                         UINT message) {
+LRESULT BrowserFrameWin::OnMouseActivate(UINT message,
+                                         WPARAM w_param,
+                                         LPARAM l_param) {
   return browser_view_->ActivateAppModalDialog() ? MA_NOACTIVATEANDEAT
                                                  : MA_ACTIVATE;
 }
