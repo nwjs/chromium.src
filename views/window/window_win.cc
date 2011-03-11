@@ -807,34 +807,6 @@ void WindowWin::OnInitMenu(HMENU menu) {
                      !is_minimized);
 }
 
-LRESULT WindowWin::OnMouseLeave(UINT message, WPARAM w_param, LPARAM l_param) {
-  // We only need to manually track WM_MOUSELEAVE messages between the client
-  // and non-client area when we're not using the native frame.
-  if (GetWindow()->non_client_view()->UseNativeFrame()) {
-    SetMsgHandled(FALSE);
-    return 0;
-  }
-
-  bool process_mouse_exited = true;
-  POINT pt;
-  if (GetCursorPos(&pt)) {
-    LRESULT ht_component =
-        ::SendMessage(GetNativeView(), WM_NCHITTEST, 0, MAKELPARAM(pt.x, pt.y));
-    if (ht_component != HTNOWHERE) {
-      // If the mouse moved into a part of the window's non-client area, then
-      // don't send a mouse exited event since the mouse is still within the
-      // bounds of the ChromeView that's rendering the frame. Note that we do
-      // _NOT_ do this for windows with native frames, since in that case the
-      // mouse really will have left the bounds of the RootView.
-      process_mouse_exited = false;
-    }
-  }
-
-  if (process_mouse_exited)
-    ProcessMouseExited();
-  return 0;
-}
-
 LRESULT WindowWin::OnMouseRange(UINT message, WPARAM w_param, LPARAM l_param) {
   if (message == WM_RBUTTONUP) {
     if (is_right_mouse_pressed_on_caption_) {
