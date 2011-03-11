@@ -31,13 +31,10 @@ using webkit::npapi::PluginGroup;
 using webkit::npapi::PluginList;
 using webkit::npapi::WebPluginInfo;
 
-namespace {
-
 // Only launch Adobe Reader X or later.
 static const uint16 kMinReaderVersionToUse = 10;
 
-static const char kReaderUpdateUrl[] =
-    "http://www.adobe.com/go/getreader_chrome";
+namespace {
 
 // The info bar delegate used to ask the user if they want to use Adobe Reader
 // by default.  We want the infobar to have [No][Yes], so we swap the text on
@@ -124,7 +121,7 @@ class PDFEnableAdobeReaderConfirmInfoBarDelegate
 
 // Launch the url to get the latest Adbobe Reader installer.
 void OpenReaderUpdateURL(TabContents* tab) {
-  tab->OpenURL(GURL(kReaderUpdateUrl), GURL(), CURRENT_TAB,
+  tab->OpenURL(GURL(PluginGroup::kAdobeReaderUpdateURL), GURL(), CURRENT_TAB,
                PageTransition::LINK);
 }
 
