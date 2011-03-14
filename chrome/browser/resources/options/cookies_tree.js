@@ -134,7 +134,8 @@ cr.define('options', function() {
         return;
       }
 
-      for (var i = 0; i < nodesData.length; ++i) {
+      var length = nodesData.length;
+      for (var i = 0; i < length; ++i) {
         parent.addAt(new CookieTreeItem(nodesData[i]), start + i);
       }
 
@@ -184,14 +185,59 @@ cr.define('options', function() {
     },
 
     /**
+     * When we get a callback to set the cookie list for the tree itself, we'll
+     * actually get two identical callbacks. Due to the really slow performance
+     * of addByParent, we'd like to avoid extra work handling both. This
+     * function gets set to run a little after we get each callback, and handles
+     * the most recent such callback.
+     * @param {boolean=} force Optional. If true, force the load to finish.
+     * @private
+     */
+    handleTopLevelLoad_: function(force) {
+      var children = this.topChildren_;
+      if (children) {
+        var start = this.topChildrenIndex_;
+        if (start == 0) {
+          this.clear();
+        }
+        var end = force ? children.length : start + 10;
+        if (end >= children.length) {
+          end = children.length;
+          this.topChildren_ = null;
+        } else {
+          this.topChildrenIndex_ = end;
+          window.setTimeout(this.boundHandleTopLevelLoad_, 0);
+        }
+        this.addByParent(this, start, children.slice(start, end));
+      }
+    },
+
+    /**
      * Loads the immediate children of given parent node.
      * @param {string} parentId Id of the parent node.
      * @param {Array} children The immediate children of parent node.
      */
     loadChildren: function(parentId, children) {
-      var parent = parentId ? treeLookup[parentId] : this;
-      if (!parent) {
+      // See handleTopLevelLoad_ above.
+      if (!parentId) {
+        if (!this.boundHandleTopLevelLoad_)
+          this.boundHandleTopLevelLoad_ = this.handleTopLevelLoad_.bind(this);
+        if (!this.topChildren_)
+          window.setTimeout(this.boundHandleTopLevelLoad_, 50);
+        this.topChildren_ = children;
+        this.topChildrenIndex_ = 0;
         return;
+      }
+
+      var parent = treeLookup[parentId];
+      if (!parent) {
+        // There might be a delayed top-level load ongoing. Force it to finish,
+        // then try again.
+        this.handleTopLevelLoad_(true);
+        parent = treeLookup[parentId];
+        if (!parent) {
+          return;
+        }
       }
 
       parent.clear();
