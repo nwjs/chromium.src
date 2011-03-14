@@ -63,7 +63,7 @@
   const BookmarkNode* newParentNode = [self selectedNode];
   if (!newParentNode)
     return [NSNumber numberWithBool:NO];
-  int newIndex = newParentNode->child_count();
+  int newIndex = newParentNode->GetChildCount();
   // Create the new folder which will contain all of the tab URLs.
   NSString* newFolderName = [self displayName];
   string16 newFolderString = base::SysNSStringToUTF16(newFolderName);
