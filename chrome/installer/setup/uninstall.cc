@@ -32,6 +32,7 @@
 #include "chrome/installer/util/package_properties.h"
 #include "chrome/installer/util/shell_util.h"
 #include "chrome/installer/util/util_constants.h"
+#include "rlz/win/lib/rlz_lib.h"
 
 // Build-time generated include file.
 #include "registered_dlls.h"  // NOLINT
@@ -613,6 +614,12 @@ InstallStatus UninstallProduct(const InstallationState& original_state,
   // Chrome is not in use so lets uninstall Chrome by deleting various files
   // and registry entries. Here we will just make best effort and keep going
   // in case of errors.
+  if (is_chrome) {
+    const rlz_lib::AccessPoint access_points[] = {rlz_lib::CHROME_OMNIBOX,
+                                                  rlz_lib::CHROME_HOME_PAGE,
+                                                  rlz_lib::NO_ACCESS_POINT};
+    rlz_lib::ClearProductState(rlz_lib::CHROME, access_points);
+  }
 
   // First delete shortcuts from Start->Programs, Desktop & Quick Launch.
   DeleteChromeShortcuts(product);

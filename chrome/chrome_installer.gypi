@@ -191,6 +191,8 @@
             '<(DEPTH)/ceee/installer_dll/ceee_installer_dll.gyp:ceee_installer_helper',
             '<(DEPTH)/chrome_frame/chrome_frame.gyp:npchrome_frame',
             '<(DEPTH)/breakpad/breakpad.gyp:breakpad_handler',
+            '<(DEPTH)/rlz/rlz.gyp:rlz_lib',
+            '<(DEPTH)/third_party/zlib/zlib.gyp:zlib',
           ],
           'include_dirs': [
             '<(DEPTH)',
