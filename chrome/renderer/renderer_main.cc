@@ -43,6 +43,10 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 #endif  // OS_MACOSX
 
+#if defined(USE_LINUX_BREAKPAD)
+#include "chrome/app/breakpad_linux.h"
+#endif
+
 #if defined(OS_MACOSX)
 namespace {
 
@@ -207,6 +211,11 @@ int RendererMain(const MainFunctionParams& parameters) {
   action.sa_handler = SIGTERMHandler;
   CHECK(sigaction(SIGTERM, &action, NULL) == 0);
 #endif  // OS_MACOSX
+
+#if defined(USE_LINUX_BREAKPAD)
+  // Needs to be called after we have chrome::DIR_USER_DATA.
+  InitCrashReporter();
+#endif
 
 #if defined(OS_CHROMEOS)
   // As Zygote process starts up earlier than browser process gets its own
