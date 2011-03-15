@@ -67,6 +67,11 @@ void GpuDataManager::RequestCompleteGpuInfoIfNeeded() {
     return;
   complete_gpu_info_already_requested_ = true;
 
+  UpdateGpuFeatureFlags();
+  if (gpu_feature_flags_.flags() &
+      GpuFeatureFlags::kGpuFeatureAcceleratedCompositing)
+    return;
+
   GpuProcessHostUIShim* ui_shim = GpuProcessHostUIShim::GetForRenderer(0);
   if (ui_shim)
     ui_shim->CollectGpuInfoAsynchronously(GPUInfo::kComplete);
