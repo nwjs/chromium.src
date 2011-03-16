@@ -1114,3 +1114,4 @@ BUG_OFFICIALGOGREEN WIN : svg/zoom/page/zoom-mask-with-percentages.svg = TEXT
 BUG_OFFICALGOGREEN MAC : fast/viewport/viewport-129.html = TEXT
 BUG_OFFICALGOGREEN LINUX : fast/viewport/viewport-129.html = TEXT
 BUG_OFFICALGOGREEN LINUX : svg/zoom/text/absolute-sized-document-no-scrollbars.svg = CRASH
+BUG_OFFICALGOGREEN LINUX : editing/unsupported-content/table-delete-003.html = CRASH
