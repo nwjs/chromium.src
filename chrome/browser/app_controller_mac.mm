@@ -278,7 +278,7 @@ void RecordLastRunAppBundlePath() {
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication*)app {
   // Check if the experiment is enabled.
   const CommandLine* commandLine(CommandLine::ForCurrentProcess());
-  if (commandLine->HasSwitch(switches::kDisableConfirmToQuit))
+  if (!commandLine->HasSwitch(switches::kEnableConfirmToQuit))
     return NSTerminateNow;
 
   // If the application is going to terminate as the result of a Cmd+Q
