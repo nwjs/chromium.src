@@ -2,10 +2,10 @@
 <archive type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="7.10">
 	<data>
 		<int key="IBDocument.SystemTarget">1050</int>
-		<string key="IBDocument.SystemVersion">10F2108</string>
+		<string key="IBDocument.SystemVersion">10J567</string>
 		<string key="IBDocument.InterfaceBuilderVersion">823</string>
-		<string key="IBDocument.AppKitVersion">1038.29</string>
-		<string key="IBDocument.HIToolboxVersion">461.00</string>
+		<string key="IBDocument.AppKitVersion">1038.35</string>
+		<string key="IBDocument.HIToolboxVersion">462.00</string>
 		<object class="NSMutableDictionary" key="IBDocument.PluginVersions">
 			<string key="NS.key.0">com.apple.InterfaceBuilder.CocoaPlugin</string>
 			<string key="NS.object.0">823</string>
@@ -51,7 +51,7 @@
 							<object class="NSTextField" id="293244832">
 								<reference key="NSNextResponder" ref="1005"/>
 								<int key="NSvFlags">290</int>
-								<string key="NSFrame">{{56, 7}, {189, 17}}</string>
+								<string key="NSFrame">{{37, 7}, {208, 17}}</string>
 								<reference key="NSSuperview" ref="1005"/>
 								<bool key="NSEnabled">YES</bool>
 								<object class="NSTextFieldCell" key="NSCell" id="963811960">
@@ -99,7 +99,7 @@
 										<string>NeXT TIFF v4.0 pasteboard type</string>
 									</object>
 								</object>
-								<string key="NSFrame">{{16, 4}, {29, 29}}</string>
+								<string key="NSFrame">{{5, 1}, {29, 29}}</string>
 								<reference key="NSSuperview" ref="1005"/>
 								<bool key="NSEnabled">YES</bool>
 								<object class="NSImageCell" key="NSCell" id="905047690">

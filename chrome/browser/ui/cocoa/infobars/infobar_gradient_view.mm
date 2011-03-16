@@ -60,43 +60,17 @@ const double kBackgroundColorBottom[3] =
   bounds.size.height -= infobars::kAntiSpoofHeight;
 
   const CGFloat tipHeight = infobars::kAntiSpoofHeight;
-  const CGFloat curveDistance = 13.0;
-  const CGFloat iconWidth = 29.0;
-  const CGFloat tipPadding = 4.0;
-  const CGFloat pathJoinShift = 2.5;
 
-  // Draw the tab bulge that acts as the anti-spoofing countermeasure.
-  NSBezierPath* bulgePath = [NSBezierPath bezierPath];
+  // Create a square path for the infobar's frame.
+  NSBezierPath* infoBarPath = [NSBezierPath bezierPath];
   NSPoint startPoint = NSMakePoint(0, NSMaxY([self frame]) - tipHeight);
-  [bulgePath moveToPoint:startPoint];
-  [bulgePath relativeCurveToPoint:NSMakePoint(curveDistance, tipHeight)
-                    controlPoint1:NSMakePoint(curveDistance/2, 0)
-                    controlPoint2:NSMakePoint(curveDistance/2, tipHeight)];
-
-  // The height is too small and the control points too close for the stroke
-  // across this straight line to have enough definition. Save off the points
-  // for later to create a separate line to stroke.
-  NSPoint topStrokeStart = [bulgePath currentPoint];
-  [bulgePath relativeLineToPoint:NSMakePoint(tipPadding + iconWidth, 0)];
-  NSPoint topStrokeEnd = [bulgePath currentPoint];
-
-  [bulgePath relativeCurveToPoint:NSMakePoint(curveDistance, -tipHeight)
-                    controlPoint1:NSMakePoint(curveDistance/2, 0)
-                    controlPoint2:NSMakePoint(curveDistance/2, -tipHeight)];
-
-  // Around the bounds of the infobar, continue drawing the path into which the
-  // gradient will be drawn.
-  scoped_nsobject<NSBezierPath> infoBarPath([bulgePath copy]);
+  [infoBarPath moveToPoint:startPoint];
   [infoBarPath lineToPoint:NSMakePoint(NSMaxX(bounds), startPoint.y)];
   [infoBarPath lineToPoint:NSMakePoint(NSMaxX(bounds), NSMinY(bounds))];
   [infoBarPath lineToPoint:NSMakePoint(NSMinX(bounds), NSMinY(bounds))];
   [infoBarPath lineToPoint:NSMakePoint(NSMinX(bounds), startPoint.y)];
   [infoBarPath lineToPoint:startPoint];
   [infoBarPath closePath];
-
-  // Stroke the bulge.
-  [bulgePath setLineCapStyle:NSSquareLineCapStyle];
-  [self strokePath:bulgePath];
 
   // Draw the gradient.
   [[self gradient] drawInBezierPath:infoBarPath angle:270];
@@ -109,14 +83,6 @@ const double kBackgroundColorBottom[3] =
     NSDivideRect(bounds, &borderRect, &contentRect, 1, NSMinYEdge);
     NSRectFillUsingOperation(borderRect, NSCompositeSourceOver);
   }
-
-  // Stroke the horizontal line to ensure it has enough definition.
-  topStrokeStart.x -= pathJoinShift;
-  topStrokeEnd.x += pathJoinShift;
-  NSBezierPath* topStroke = [NSBezierPath bezierPath];
-  [topStroke moveToPoint:topStrokeStart];
-  [topStroke lineToPoint:topStrokeEnd];
-  [self strokePath:topStroke];
 }
 
 - (BOOL)mouseDownCanMoveWindow {
