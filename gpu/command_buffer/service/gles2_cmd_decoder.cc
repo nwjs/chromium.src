@@ -1854,7 +1854,16 @@ bool GLES2DecoderImpl::Initialize(gfx::GLContext* context,
     if (!attrib_parser.Parse(attribs))
       return false;
 
-    if (attrib_parser.samples_ > 0 && attrib_parser.sample_buffers_ > 0 &&
+    bool allow_multisampling = true;
+#if defined(OS_MACOSX)
+    // Currently in Mac we only turn on antialias if vendor is NVIDIA.
+    const char* vendor = reinterpret_cast<const char*>(glGetString(GL_VENDOR));
+    if (!strstr(vendor, "NVIDIA"))
+      allow_multisampling = false;
+#endif
+
+    if (allow_multisampling &&
+        attrib_parser.samples_ > 0 && attrib_parser.sample_buffers_ > 0 &&
         (context_->HasExtension("GL_EXT_framebuffer_multisample") ||
          context_->HasExtension("GL_ANGLE_framebuffer_multisample"))) {
       // Per ext_framebuffer_multisample spec, need max bound on sample count.
