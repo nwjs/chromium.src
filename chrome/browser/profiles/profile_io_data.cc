@@ -337,8 +337,7 @@ net::ProxyService* ProfileIOData::CreateProxyService(
 
 #if defined(OS_CHROMEOS)
   if (chromeos::CrosLibrary::Get()->EnsureLoaded()) {
-    chromeos::CrosLibrary::Get()->GetLibCrosServiceLibrary()->
-        RegisterNetworkProxyHandler(proxy_service);
+    chromeos::CrosLibrary::Get()->GetLibCrosServiceLibrary()->StartService();
   }
 #endif  // defined(OS_CHROMEOS)
 
