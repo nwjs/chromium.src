@@ -564,6 +564,14 @@ bool DestroyContext(Context* context) {
 #endif
 }
 
+base::WeakPtr<Context> GetWeakContextReference(Context* context) {
+#if defined(ENABLE_GPU)
+  return context ? context->AsWeakPtr() : base::WeakPtr<Context>();
+#else
+  return base::WeakPtr<Context>();
+#endif
+}
+
 media::VideoDecodeEngine* CreateVideoDecodeEngine(Context* context) {
   return context->CreateVideoDecodeEngine();
 }

@@ -12,6 +12,7 @@
 #pragma once
 
 #include "base/callback.h"
+#include "base/weak_ptr.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/gfx/size.h"
 
@@ -141,6 +142,9 @@ bool SwapBuffers(Context* context);
 
 // Destroy the given GGL context.
 bool DestroyContext(Context* context);
+
+// Gets a weak reference to the context.
+base::WeakPtr<Context> GetWeakContextReference(Context* context);
 
 // Create a hardware video decode engine corresponding to the context.
 media::VideoDecodeEngine* CreateVideoDecodeEngine(Context* context);
