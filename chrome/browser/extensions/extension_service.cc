@@ -794,7 +794,7 @@ void ExtensionService::GrantPermissions(const Extension* extension) {
   CHECK(extension);
 
   // We only maintain the granted permissions prefs for INTERNAL extensions.
-  CHECK_EQ(Extension::INTERNAL, extension->location());
+  CHECK(extension->location() == Extension::INTERNAL);
 
   ExtensionExtent effective_hosts = extension->GetEffectiveHostPermissions();
   extension_prefs_->AddGrantedPermissions(extension->id(),
