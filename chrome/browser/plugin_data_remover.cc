@@ -22,7 +22,7 @@
 namespace {
 const char* kFlashMimeType = "application/x-shockwave-flash";
 // The minimum Flash Player version that implements NPP_ClearSiteData.
-const char* kMinFlashVersion = "10.3";
+const char* kMinFlashVersion = "100";
 const int64 kRemovalTimeoutMs = 10000;
 const uint64 kClearAllData = 0;
 }  // namespace
