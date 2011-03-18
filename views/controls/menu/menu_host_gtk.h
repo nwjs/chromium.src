@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -24,30 +24,30 @@ class MenuHostGtk : public WidgetGtk, public MenuHost {
   virtual void InitMenuHost(gfx::NativeWindow parent,
                             const gfx::Rect& bounds,
                             View* contents_view,
-                            bool do_capture);
-  virtual bool IsMenuHostVisible();
-  virtual void ShowMenuHost(bool do_capture);
-  virtual void HideMenuHost();
-  virtual void DestroyMenuHost();
-  virtual void SetMenuHostBounds(const gfx::Rect& bounds);
-  virtual void ReleaseMenuHostCapture();
-  virtual gfx::NativeWindow GetMenuHostWindow();
+                            bool do_capture) OVERRIDE;
+  virtual bool IsMenuHostVisible() OVERRIDE;
+  virtual void ShowMenuHost(bool do_capture) OVERRIDE;
+  virtual void HideMenuHost() OVERRIDE;
+  virtual void DestroyMenuHost() OVERRIDE;
+  virtual void SetMenuHostBounds(const gfx::Rect& bounds) OVERRIDE;
+  virtual void ReleaseMenuHostCapture() OVERRIDE;
+  virtual gfx::NativeWindow GetMenuHostWindow() OVERRIDE;
 
  protected:
-  virtual RootView* CreateRootView();
+  virtual RootView* CreateRootView() OVERRIDE;
 
-  // Overriden to return false, we do NOT want to release capture on mouse
-  // release.
-  virtual bool ReleaseCaptureOnMouseReleased();
-
-  // Overriden to also release input grab.
-  virtual void ReleaseGrab();
-
-  virtual void OnDestroy(GtkWidget* object);
-  virtual void HandleGrabBroke();
+  // WidgetGtk overrides:
+  virtual bool ReleaseCaptureOnMouseReleased() OVERRIDE;
+  virtual void ReleaseGrab() OVERRIDE;
+  virtual void OnDestroy(GtkWidget* object) OVERRIDE;
+  virtual void HandleGtkGrabBroke() OVERRIDE;
+  virtual void HandleXGrabBroke() OVERRIDE;
 
  private:
   void DoCapture();
+
+  // Cancell all menus unless drag is in progress.
+  void CancelAllIfNoDrag();
 
   // If true, DestroyMenuHost has been invoked.
   bool destroying_;

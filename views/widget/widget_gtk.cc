@@ -1189,16 +1189,15 @@ gboolean WidgetGtk::OnVisibilityNotify(GtkWidget* widget,
 }
 
 gboolean WidgetGtk::OnGrabBrokeEvent(GtkWidget* widget, GdkEvent* event) {
-  HandleGrabBroke();
+  HandleXGrabBroke();
   return false;  // To let other widgets get the event.
 }
 
 void WidgetGtk::OnGrabNotify(GtkWidget* widget, gboolean was_grabbed) {
   if (!window_contents_)
     return;  // Grab broke after window destroyed, don't try processing it.
-
   gtk_grab_remove(window_contents_);
-  HandleGrabBroke();
+  HandleGtkGrabBroke();
 }
 
 void WidgetGtk::OnDestroy(GtkWidget* object) {
@@ -1235,7 +1234,10 @@ void WidgetGtk::ReleaseGrab() {
   }
 }
 
-void WidgetGtk::HandleGrabBroke() {
+void WidgetGtk::HandleXGrabBroke() {
+}
+
+void WidgetGtk::HandleGtkGrabBroke() {
   if (has_capture_) {
     if (is_mouse_down_)
       GetRootView()->ProcessMouseDragCanceled();
