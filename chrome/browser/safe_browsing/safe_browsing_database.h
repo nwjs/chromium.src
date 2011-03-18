@@ -20,10 +20,6 @@ namespace base {
   class Time;
 }
 
-namespace safe_browsing {
-class PrefixSet;
-}
-
 class BloomFilter;
 class GURL;
 class MessageLoop;
@@ -293,9 +289,6 @@ class SafeBrowsingDatabaseNew : public SafeBrowsingDatabase {
   // Set to true if any chunks are added or deleted during an update.
   // Used to optimize away database update.
   bool change_detected_;
-
-  // Used to check if a prefix was in the database.
-  scoped_ptr<safe_browsing::PrefixSet> prefix_set_;
 };
 
 #endif  // CHROME_BROWSER_SAFE_BROWSING_SAFE_BROWSING_DATABASE_H_
