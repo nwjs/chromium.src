@@ -1378,7 +1378,7 @@
 
       If you disable this setting, users will not be asked for a password to wake ChromeOS devices from sleep.
 
-      If you enable or disable this setting, users cannot change or override this setting in <ph name="PRODUCT_NAME">$1<ex>Google Chrome OS</ex></ph>.''',
+      If you enable or disable this setting, users cannot change or override this setting in <ph name="PRODUCT_CROS_NAME">$1<ex>Google Chrome OS</ex></ph>.''',
     },
     {
       'name': 'InstantEnabled',
