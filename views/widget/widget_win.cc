@@ -137,6 +137,7 @@ WidgetWin::WidgetWin()
       has_capture_(false),
       use_layered_buffer_(false),
       layered_alpha_(255),
+      ALLOW_THIS_IN_INITIALIZER_LIST(paint_layered_window_factory_(this)),
       delete_on_destroy_(true),
       can_update_layered_window_(true),
       last_mouse_event_was_move_(false),
@@ -394,6 +395,17 @@ void WidgetWin::SchedulePaintInRect(const gfx::Rect& rect) {
     // We must update the back-buffer immediately, since Windows' handling of
     // invalid rects is somewhat mysterious.
     layered_window_invalid_rect_ = layered_window_invalid_rect_.Union(rect);
+
+    // In some situations, such as drag and drop, when Windows itself runs a
+    // nested message loop our message loop appears to be starved and we don't
+    // receive calls to DidProcessMessage(). This only seems to affect layered
+    // windows, so we schedule a redraw manually using a task, since those never
+    // seem to be starved. Also, wtf.
+    if (paint_layered_window_factory_.empty()) {
+      MessageLoop::current()->PostTask(FROM_HERE,
+          paint_layered_window_factory_.NewRunnableMethod(
+          &WidgetWin::RedrawLayeredWindowContents));
+    }
   } else {
     // InvalidateRect() expects client coordinates.
     RECT r = rect.ToRECT();
@@ -1056,9 +1068,7 @@ void WidgetWin::MakeMSG(MSG* msg, UINT message, WPARAM w_param, LPARAM l_param,
 }
 
 void WidgetWin::RedrawInvalidRect() {
-  if (use_layered_buffer_) {
-    RedrawLayeredWindowContents();
-  } else {
+  if (!use_layered_buffer_) {
     RECT r = { 0, 0, 0, 0 };
     if (GetUpdateRect(hwnd(), &r, FALSE) && !IsRectEmpty(&r)) {
       RedrawWindow(hwnd(), &r, NULL,
