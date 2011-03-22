@@ -110,7 +110,7 @@ static const PluginGroupDefinition kGroupDefinitions[] = {
     arraysize(kQuicktimeVersionRange),
     "http://www.apple.com/quicktime/download/" },
   { "java-runtime-environment", "Java 6", "Java", kJavaVersionRange,
-    arraysize(kJavaVersionRange), "http://www.java.com/" },
+    arraysize(kJavaVersionRange), "http://www.java.com/download" },
   { "adobe-reader", PluginGroup::kAdobeReaderGroupName, "Adobe Acrobat",
     kAdobeReaderVersionRange, arraysize(kAdobeReaderVersionRange),
     "http://get.adobe.com/reader/" },
