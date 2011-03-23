@@ -152,6 +152,8 @@ GpuBlacklist::OsType GpuBlacklist::OsInfo::StringToOsType(
     return kOsMacosx;
   else if (os == "linux")
     return kOsLinux;
+  else if (os == "chromeos")
+    return kOsChromeOS;
   else if (os == "any")
     return kOsAny;
   return kOsUnknown;
@@ -743,7 +745,11 @@ bool GpuBlacklist::GetVersion(
 }
 
 GpuBlacklist::OsType GpuBlacklist::GetOsType() {
-#if defined(OS_WIN)
+#if defined(OS_CHROMEOS)
+  // ChromeOS handles GPU/Driver issues by itself. Returning OS unknown disables
+  // blacklisting.
+  return kOsChromeOS;
+#elif defined(OS_WIN)
   return kOsWin;
 #elif defined(OS_LINUX)
   return kOsLinux;
@@ -760,4 +766,3 @@ void GpuBlacklist::Clear() {
   blacklist_.clear();
   active_entries_.clear();
 }
-
