@@ -1191,4 +1191,4 @@ BUG_OFFICALGOGREEN LINUX : fast/gradients/css3-repeating-radial-gradients.html =
 BUG_OFFICALGOGREEN LINUX : fast/text/basic/014.html = IMAGE
 BUG_OFFICALGOGREEN LINUX : fast/text/midword-break-after-breakable-char.html = IMAGE
 BUG_OFFICALGOGREEN LINUX : css2.1/t1008-c44-ln-box-02-d-ag.html = IMAGE+TEXT
-
+BUG_OFFICALGOGREEN MAC : media/video-size.html = TEXT
