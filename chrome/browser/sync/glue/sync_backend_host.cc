@@ -211,14 +211,6 @@ void SyncBackendHost::UpdateCredentials(const SyncCredentials& credentials) {
                         credentials));
 }
 
-void SyncBackendHost::UpdateEnabledTypes(
-    const syncable::ModelTypeSet& types) {
-  core_thread_.message_loop()->PostTask(FROM_HERE,
-      NewRunnableMethod(core_.get(),
-                        &SyncBackendHost::Core::DoUpdateEnabledTypes,
-                        types));
-}
-
 void SyncBackendHost::StartSyncingWithServer() {
   core_thread_.message_loop()->PostTask(FROM_HERE,
       NewRunnableMethod(core_.get(), &SyncBackendHost::Core::DoStartSyncing));
@@ -415,6 +407,11 @@ void SyncBackendHost::ConfigureDataTypes(
   // complete, the configure_ready_task_ is run via an
   // OnInitializationComplete notification.
   ScheduleSyncEventForConfigChange(deleted_type, added_types);
+
+  // Notify the SyncManager about the new types.
+  core_thread_.message_loop()->PostTask(FROM_HERE,
+      NewRunnableMethod(core_.get(),
+                        &SyncBackendHost::Core::DoUpdateEnabledTypes));
 }
 
 void SyncBackendHost::ScheduleSyncEventForConfigChange(bool deleted_type,
@@ -728,10 +725,9 @@ void SyncBackendHost::Core::DoUpdateCredentials(
   syncapi_->UpdateCredentials(credentials);
 }
 
-void SyncBackendHost::Core::DoUpdateEnabledTypes(
-    const syncable::ModelTypeSet& types) {
+void SyncBackendHost::Core::DoUpdateEnabledTypes() {
   DCHECK(MessageLoop::current() == host_->core_thread_.message_loop());
-  syncapi_->UpdateEnabledTypes(types);
+  syncapi_->UpdateEnabledTypes();
 }
 
 void SyncBackendHost::Core::DoStartSyncing() {

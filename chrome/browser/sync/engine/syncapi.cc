@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -1159,9 +1159,8 @@ class SyncManager::SyncInternal
   // Update tokens that we're using in Sync. Email must stay the same.
   void UpdateCredentials(const SyncCredentials& credentials);
 
-  // Update the set of enabled sync types. Usually called when the user disables
-  // or enables a sync type.
-  void UpdateEnabledTypes(const syncable::ModelTypeSet& types);
+  // Called when the user disables or enables a sync type.
+  void UpdateEnabledTypes();
 
   // Tell the sync engine to start the syncing process.
   void StartSyncing();
@@ -1521,8 +1520,6 @@ class SyncManager::SyncInternal
   // actually communicating with the server).
   bool setup_for_test_mode_;
 
-  syncable::ModelTypeSet enabled_types_;
-
   ScopedRunnableMethodFactory<SyncManager::SyncInternal> method_factory_;
 
   sync_notifier::ServerNotifierThread* server_notifier_thread_;
@@ -1567,8 +1564,8 @@ void SyncManager::UpdateCredentials(const SyncCredentials& credentials) {
   data_->UpdateCredentials(credentials);
 }
 
-void SyncManager::UpdateEnabledTypes(const syncable::ModelTypeSet& types) {
-  data_->UpdateEnabledTypes(types);
+void SyncManager::UpdateEnabledTypes() {
+  data_->UpdateEnabledTypes();
 }
 
 
@@ -1874,13 +1871,17 @@ void SyncManager::SyncInternal::UpdateCredentials(
   sync_manager_->RequestNudge();
 }
 
-void SyncManager::SyncInternal::UpdateEnabledTypes(
-  const syncable::ModelTypeSet& types) {
+void SyncManager::SyncInternal::UpdateEnabledTypes() {
   DCHECK_EQ(MessageLoop::current(), core_message_loop_);
-
-  enabled_types_ = types;
+  ModelSafeRoutingInfo routes;
+  registrar_->GetModelSafeRoutingInfo(&routes);
+  syncable::ModelTypeSet enabled_types;
+  for (ModelSafeRoutingInfo::const_iterator it = routes.begin();
+       it != routes.end(); ++it) {
+    enabled_types.insert(it->first);
+  }
   if (server_notifier_thread_ != NULL) {
-    server_notifier_thread_->UpdateEnabledTypes(types);
+    server_notifier_thread_->UpdateEnabledTypes(enabled_types);
   }
 }
 
@@ -1911,7 +1912,7 @@ void SyncManager::SyncInternal::InitializeTalkMediator() {
 
     // Since we may be initialized more than once, make sure that any
     // newly created server notifier thread has the latest enabled types.
-    server_notifier_thread_->UpdateEnabledTypes(enabled_types_);
+    UpdateEnabledTypes();
   } else {
     notifier::MediatorThread* mediator_thread =
         new notifier::MediatorThreadImpl(notifier_options_);
