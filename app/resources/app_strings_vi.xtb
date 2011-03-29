@@ -7,7 +7,7 @@
 <translation id="5613020302032141669">Mũi tên Trái</translation>
 <translation id="8602707065186045623">Tệp <ph name="SAVEAS_EXTENSION_TYPE"/> (.<ph name="SAVEAS_EXTENSION_NAME"/>)</translation>
 <translation id="5948410903763073882">Alt+<ph name="KEY_COMBO_NAME"/></translation>
-<translation id="7658239707568436148">Huỷ</translation>
+<translation id="7658239707568436148">Hủy</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="3660179305079774227">Phím mũi tên Lên</translation>
 <translation id="3990502903496589789">Cạnh bên Phải</translation>
@@ -45,7 +45,7 @@
 <translation id="6040143037577758943">Đóng</translation>
 <translation id="7000311294523403548">Trang Web Không tên</translation>
 <translation id="8400147561352026160">Shift+<ph name="KEY_COMBO_NAME"/></translation>
-<translation id="6965382102122355670">Đồng ý</translation>
+<translation id="6965382102122355670">OK</translation>
 <translation id="5941711191222866238">Thu nhỏ</translation>
 <translation id="8328145009876646418">Cạnh Bên trái</translation>
 </translationbundle>
