@@ -159,9 +159,6 @@ const char kDisable3DAPIs[]                 = "disable-3d-apis";
 const char kDisableAcceleratedCompositing[] =
     "disable-accelerated-compositing";
 
-// Disables the hardware acceleration of 3D CSS and animation.
-const char kDisableAcceleratedLayers[]      = "disable-accelerated-layers";
-
 // Disables GPU accelerated video display.
 const char kDisableAcceleratedVideo[]       = "disable-accelerated-video";
 
@@ -404,6 +401,9 @@ extern const char kLogNetLog[]              = "log-net-log";
 
 // Enable gpu-accelerated 2d canvas.
 const char kEnableAccelerated2dCanvas[]     = "enable-accelerated-2d-canvas";
+
+// Enables the hardware acceleration of 3D CSS and animation.
+const char kEnableAcceleratedLayers[]       = "enable-accelerated-layers";
 
 // Enables the hardware acceleration of plugins.
 const char kEnableAcceleratedPlugins[]       = "enable-accelerated-plugins";
