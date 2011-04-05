@@ -41,6 +41,8 @@ class PluginInfoBarDelegate : public ConfirmInfoBarDelegate {
   virtual bool Cancel();
   virtual bool LinkClicked(WindowOpenDisposition disposition);
 
+  virtual std::string GetLearnMoreURL() const = 0;
+
   string16 name_;
   TabContents* tab_contents_;
 
@@ -72,8 +74,7 @@ bool PluginInfoBarDelegate::Cancel() {
 }
 
 bool PluginInfoBarDelegate::LinkClicked(WindowOpenDisposition disposition) {
-  GURL url = google_util::AppendGoogleLocaleParam(
-      GURL(chrome::kOutdatedPluginLearnMoreURL));
+  GURL url = google_util::AppendGoogleLocaleParam(GURL(GetLearnMoreURL()));
   tab_contents_->OpenURL(url, GURL(), NEW_FOREGROUND_TAB, PageTransition::LINK);
   return false;
 }
@@ -106,6 +107,7 @@ class BlockedPluginInfoBarDelegate : public PluginInfoBarDelegate {
   virtual void InfoBarClosed();
   virtual void InfoBarDismissed();
   virtual bool LinkClicked(WindowOpenDisposition disposition);
+  virtual std::string GetLearnMoreURL() const;
 
   DISALLOW_COPY_AND_ASSIGN(BlockedPluginInfoBarDelegate);
 };
@@ -131,6 +133,10 @@ BlockedPluginInfoBarDelegate::BlockedPluginInfoBarDelegate(
 }
 
 BlockedPluginInfoBarDelegate::~BlockedPluginInfoBarDelegate() {
+}
+
+std::string BlockedPluginInfoBarDelegate::GetLearnMoreURL() const {
+  return chrome::kBlockedPluginLearnMoreURL;
 }
 
 string16 BlockedPluginInfoBarDelegate::GetMessageText() const {
@@ -194,6 +200,7 @@ class OutdatedPluginInfoBarDelegate : public PluginInfoBarDelegate {
   virtual void InfoBarClosed();
   virtual void InfoBarDismissed();
   virtual bool LinkClicked(WindowOpenDisposition disposition);
+  virtual std::string GetLearnMoreURL() const;
 
   GURL update_url_;
 
@@ -229,6 +236,10 @@ OutdatedPluginInfoBarDelegate::OutdatedPluginInfoBarDelegate(
 }
 
 OutdatedPluginInfoBarDelegate::~OutdatedPluginInfoBarDelegate() {
+}
+
+std::string OutdatedPluginInfoBarDelegate::GetLearnMoreURL() const {
+  return chrome::kOutdatedPluginLearnMoreURL;
 }
 
 string16 OutdatedPluginInfoBarDelegate::GetMessageText() const {
