@@ -1387,6 +1387,9 @@ void TabContents::OnDidStartProvisionalLoadForFrame(int64 frame_id,
 void TabContents::OnDidRedirectProvisionalLoad(int32 page_id,
                                                const GURL& source_url,
                                                const GURL& target_url) {
+  // TODO(creis): Remove this method and have the pre-rendering code listen to
+  // the ResourceDispatcherHost's RESOURCE_RECEIVED_REDIRECT notification
+  // instead.  See http://crbug.com/78512.
   NavigationEntry* entry;
   if (page_id == -1)
     entry = controller_.pending_entry();
@@ -1394,7 +1397,6 @@ void TabContents::OnDidRedirectProvisionalLoad(int32 page_id,
     entry = controller_.GetEntryWithPageID(GetSiteInstance(), page_id);
   if (!entry || entry->url() != source_url)
     return;
-  entry->set_url(target_url);
 
   // Check if the URL we are about to load has been prerendered by any chance,
   // and use it if possible.
