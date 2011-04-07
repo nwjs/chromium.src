@@ -133,7 +133,7 @@ class ProgramManager {
     }
 
     bool AttachShader(ShaderManager* manager, ShaderManager::ShaderInfo* info);
-    void DetachShader(ShaderManager* manager, ShaderManager::ShaderInfo* info);
+    bool DetachShader(ShaderManager* manager, ShaderManager::ShaderInfo* info);
 
     bool CanLink() const;
 

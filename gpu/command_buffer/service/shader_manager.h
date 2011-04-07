@@ -31,13 +31,6 @@ class ShaderManager {
     typedef scoped_refptr<ShaderInfo> Ref;
     typedef ShaderTranslator::VariableInfo VariableInfo;
 
-    explicit ShaderInfo(GLuint service_id, GLenum shader_type)
-        : use_count_(0),
-          service_id_(service_id),
-          shader_type_(shader_type),
-          valid_(false) {
-    }
-
     void Update(const std::string& source) {
       source_ = source;
     }
@@ -83,6 +76,14 @@ class ShaderManager {
 
     friend class base::RefCounted<ShaderInfo>;
     friend class ShaderManager;
+
+    ShaderInfo(GLuint service_id, GLenum shader_type)
+        : use_count_(0),
+          service_id_(service_id),
+          shader_type_(shader_type),
+          valid_(false) {
+    }
+
     ~ShaderInfo() { }
 
     void IncUseCount() {
