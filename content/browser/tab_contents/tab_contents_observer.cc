@@ -53,6 +53,13 @@ bool TabContentsObserver::Send(IPC::Message* message) {
   return tab_contents_->render_view_host()->Send(message);
 }
 
+int TabContentsObserver::routing_id() const {
+  if (!tab_contents_ || !tab_contents_->render_view_host())
+    return MSG_ROUTING_NONE;
+
+  return tab_contents_->render_view_host()->routing_id();
+}
+
 void TabContentsObserver::TabContentsDestroyed() {
   // Do cleanup so that 'this' can safely be deleted from
   // OnTabContentsDestroyed.
