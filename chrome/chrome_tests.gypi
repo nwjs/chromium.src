@@ -2261,7 +2261,6 @@
         'browser/extensions/permissions_apitest.cc',
         'browser/extensions/stubs_apitest.cc',
         'browser/extensions/window_open_apitest.cc',
-        'browser/file_path_watcher/file_path_watcher_browsertest.cc',
         'browser/first_run/first_run_browsertest.cc',
         'browser/geolocation/access_token_store_browsertest.cc',
         'browser/geolocation/geolocation_browsertest.cc',
@@ -2337,6 +2336,7 @@
         '../content/browser/webui/web_ui_browsertest.h',
         '../content/browser/webui/web_ui_handler_browsertest.cc',
         '../content/browser/webui/web_ui_handler_browsertest.h',
+        '../content/common/file_path_watcher/file_path_watcher_browsertest.cc',
       ],
       'conditions': [
         ['chromeos==0', {

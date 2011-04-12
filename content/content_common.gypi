@@ -28,6 +28,11 @@
         'common/content_constants.h',
         'common/content_switches.cc',
         'common/content_switches.h',
+        'common/file_path_watcher/file_path_watcher.cc',
+        'common/file_path_watcher/file_path_watcher.h',
+        'common/file_path_watcher/file_path_watcher_inotify.cc',
+        'common/file_path_watcher/file_path_watcher_mac.cc',
+        'common/file_path_watcher/file_path_watcher_win.cc',
         'common/file_system/file_system_dispatcher.cc',
         'common/file_system/file_system_dispatcher.h',
         'common/file_system/webfilesystem_callback_dispatcher.cc',
@@ -66,6 +71,16 @@
         ['OS=="win"', {
           'msvs_guid': '062E9260-304A-4657-A74C-0D3AA1A0A0A4',
         }],
+        ['OS!="linux"', {
+          'sources!': [
+            'common/file_path_watcher/file_path_watcher_inotify.cc',
+          ],
+        }],
+        ['OS=="freebsd" or OS=="openbsd"', {
+          'sources': [
+            'common/file_path_watcher/file_path_watcher_stub.cc',
+          ],
+        }],      
       ],
     },
   ],

@@ -126,7 +126,8 @@ ServiceProcess::ServiceProcess()
 }
 
 bool ServiceProcess::Initialize(MessageLoopForUI* message_loop,
-                                const CommandLine& command_line) {
+                                const CommandLine& command_line,
+                                ServiceProcessState* state) {
 #if defined(TOOLKIT_USES_GTK)
   // TODO(jamiewalch): Calling GtkInitFromCommandLine here causes the process
   // to abort if run headless. The correct fix for this is to refactor the
@@ -143,6 +144,7 @@ bool ServiceProcess::Initialize(MessageLoopForUI* message_loop,
   free(argv[0]);
 #endif
   main_message_loop_ = message_loop;
+  service_process_state_.reset(state);
   network_change_notifier_.reset(net::NetworkChangeNotifier::Create());
   base::Thread::Options options;
   options.message_loop_type = MessageLoop::TYPE_IO;
@@ -221,8 +223,8 @@ bool ServiceProcess::Initialize(MessageLoopForUI* message_loop,
   }
 
   VLOG(1) << "Starting Service Process IPC Server";
-  ServiceProcessState* state = ServiceProcessState::GetInstance();
-  ipc_server_.reset(new ServiceIPCServer(state->GetServiceProcessChannel()));
+  ipc_server_.reset(new ServiceIPCServer(
+      service_process_state_->GetServiceProcessChannel()));
   ipc_server_->Init();
 
   // After the IPC server has started we signal that the service process is
@@ -251,7 +253,7 @@ bool ServiceProcess::Teardown() {
   // might use it have been shut down.
   network_change_notifier_.reset();
 
-  ServiceProcessState::GetInstance()->SignalStopped();
+  service_process_state_->SignalStopped();
   return true;
 }
 
@@ -333,7 +335,10 @@ void ServiceProcess::OnServiceEnabled() {
   if ((1 == enabled_services_) &&
       !CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kNoServiceAutorun)) {
-    ServiceProcessState::GetInstance()->AddToAutoRun();
+    if (!service_process_state_->AddToAutoRun()) {
+      // TODO(scottbyer/sanjeevr/dmaclach): Handle error condition
+      LOG(ERROR) << "Unable to AddToAutoRun";
+    }
   }
 }
 
@@ -341,7 +346,10 @@ void ServiceProcess::OnServiceDisabled() {
   DCHECK_NE(enabled_services_, 0);
   enabled_services_--;
   if (0 == enabled_services_) {
-    ServiceProcessState::GetInstance()->RemoveFromAutoRun();
+    if (!service_process_state_->RemoveFromAutoRun()) {
+      // TODO(scottbyer/sanjeevr/dmaclach): Handle error condition
+      LOG(ERROR) << "Unable to RemoveFromAutoRun";
+    }
     // We will wait for some time to respond to IPCs before shutting down.
     ScheduleShutdownCheck();
   }

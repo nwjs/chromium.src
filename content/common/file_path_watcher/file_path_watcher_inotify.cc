@@ -1,8 +1,8 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/file_path_watcher/file_path_watcher.h"
+#include "content/common/file_path_watcher/file_path_watcher.h"
 
 #include <errno.h>
 #include <string.h>
@@ -23,6 +23,7 @@
 #include "base/lazy_instance.h"
 #include "base/logging.h"
 #include "base/message_loop.h"
+#include "base/message_loop_proxy.h"
 #include "base/scoped_ptr.h"
 #include "base/synchronization/lock.h"
 #include "base/task.h"
@@ -79,7 +80,8 @@ class InotifyReader {
   DISALLOW_COPY_AND_ASSIGN(InotifyReader);
 };
 
-class FilePathWatcherImpl : public FilePathWatcher::PlatformDelegate {
+class FilePathWatcherImpl : public FilePathWatcher::PlatformDelegate,
+                            public MessageLoop::DestructionObserver {
  public:
   FilePathWatcherImpl();
 
@@ -95,13 +97,22 @@ class FilePathWatcherImpl : public FilePathWatcher::PlatformDelegate {
 
   // Start watching |path| for changes and notify |delegate| on each change.
   // Returns true if watch for |path| has been added successfully.
-  virtual bool Watch(const FilePath& path, FilePathWatcher::Delegate* delegate);
+  virtual bool Watch(const FilePath& path,
+                     FilePathWatcher::Delegate* delegate) OVERRIDE;
 
   // Cancel the watch. This unregisters the instance with InotifyReader.
-  virtual void Cancel();
+  virtual void Cancel() OVERRIDE;
+
+  // Deletion of the FilePathWatcher will call Cancel() to dispose of this
+  // object in the right thread. This also observes destruction of the required
+  // cleanup thread, in case it quits before Cancel() is called.
+  virtual void WillDestroyCurrentMessageLoop() OVERRIDE;
 
  private:
   virtual ~FilePathWatcherImpl() {}
+
+  // Cleans up and stops observing the |message_loop_| thread.
+  void CancelOnMessageLoopThread() OVERRIDE;
 
   // Inotify watches are installed for all directory components of |target_|. A
   // WatchEntry instance holds the watch descriptor for a component and the
@@ -280,13 +291,10 @@ void InotifyReader::OnInotifyEvent(const inotify_event* event) {
   for (WatcherSet::iterator watcher = watchers_[event->wd].begin();
        watcher != watchers_[event->wd].end();
        ++watcher) {
-    BrowserThread::PostTask(BrowserThread::FILE, FROM_HERE,
-        NewRunnableMethod(*watcher,
-                          &FilePathWatcherImpl::OnFilePathChanged,
-                          event->wd,
-                          child,
-                          event->mask & (IN_CREATE | IN_MOVED_TO),
-                          event->mask & IN_ISDIR));
+    (*watcher)->OnFilePathChanged(event->wd,
+                                  child,
+                                  event->mask & (IN_CREATE | IN_MOVED_TO),
+                                  event->mask & IN_ISDIR);
   }
 }
 
@@ -294,11 +302,25 @@ FilePathWatcherImpl::FilePathWatcherImpl()
     : delegate_(NULL) {
 }
 
-void FilePathWatcherImpl::OnFilePathChanged(InotifyReader::Watch fired_watch,
-                                            const FilePath::StringType& child,
-                                            bool created,
-                                            bool is_directory) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
+void FilePathWatcherImpl::OnFilePathChanged(
+    InotifyReader::Watch fired_watch,
+    const FilePath::StringType& child,
+    bool created,
+    bool is_directory) {
+
+  if (!message_loop()->BelongsToCurrentThread()) {
+    // Switch to message_loop_ to access watches_ safely.
+    message_loop()->PostTask(FROM_HERE,
+        NewRunnableMethod(this,
+                          &FilePathWatcherImpl::OnFilePathChanged,
+                          fired_watch,
+                          child,
+                          created,
+                          is_directory));
+    return;
+  }
+
+  DCHECK(MessageLoopForIO::current());
 
   // Find the entry in |watches_| that corresponds to |fired_watch|.
   WatchVector::const_iterator watch_entry(watches_.begin());
@@ -322,7 +344,7 @@ void FilePathWatcherImpl::OnFilePathChanged(InotifyReader::Watch fired_watch,
 
   // Update watches if a directory component of the |target_| path (dis)appears.
   if (is_directory && change_on_target_path && !UpdateWatches()) {
-    delegate_->OnError();
+    delegate_->OnFilePathError(target_);
     return;
   }
 
@@ -342,11 +364,14 @@ void FilePathWatcherImpl::OnFilePathChanged(InotifyReader::Watch fired_watch,
 
 bool FilePathWatcherImpl::Watch(const FilePath& path,
                                 FilePathWatcher::Delegate* delegate) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
   DCHECK(target_.empty());
+  DCHECK(MessageLoopForIO::current());
 
+  set_message_loop(base::MessageLoopProxy::CreateForCurrentThread());
   delegate_ = delegate;
   target_ = path;
+  MessageLoop::current()->AddDestructionObserver(this);
+
   std::vector<FilePath::StringType> comps;
   target_.GetComponents(&comps);
   DCHECK(!comps.empty());
@@ -360,27 +385,45 @@ bool FilePathWatcherImpl::Watch(const FilePath& path,
 }
 
 void FilePathWatcherImpl::Cancel() {
-  // Switch to the file thread if necessary so we can access |watches_|.
-  if (!BrowserThread::CurrentlyOn(BrowserThread::FILE)) {
-    BrowserThread::PostTask(BrowserThread::FILE, FROM_HERE,
-        NewRunnableMethod(this, &FilePathWatcherImpl::Cancel));
+  if (!delegate_) {
+    // Watch was never called, or the |message_loop_| thread is already gone.
+    set_cancelled();
     return;
   }
 
-  for (WatchVector::iterator watch_entry(watches_.begin());
-       watch_entry != watches_.end(); ++watch_entry) {
-    if (watch_entry->watch_ != InotifyReader::kInvalidWatch)
-      g_inotify_reader.Get().RemoveWatch(watch_entry->watch_, this);
+  // Switch to the message_loop_ if necessary so we can access |watches_|.
+  if (!message_loop()->BelongsToCurrentThread()) {
+    message_loop()->PostTask(FROM_HERE,
+                             new FilePathWatcher::CancelTask(this));
+  } else {
+    CancelOnMessageLoopThread();
   }
-  watches_.clear();
-  delegate_ = NULL;
-  target_.clear();
+}
+
+void FilePathWatcherImpl::CancelOnMessageLoopThread() {
+  if (!is_cancelled()) {
+    set_cancelled();
+    MessageLoop::current()->RemoveDestructionObserver(this);
+
+    for (WatchVector::iterator watch_entry(watches_.begin());
+         watch_entry != watches_.end(); ++watch_entry) {
+      if (watch_entry->watch_ != InotifyReader::kInvalidWatch)
+        g_inotify_reader.Get().RemoveWatch(watch_entry->watch_, this);
+    }
+    watches_.clear();
+    delegate_ = NULL;
+    target_.clear();
+  }
+}
+
+void FilePathWatcherImpl::WillDestroyCurrentMessageLoop() {
+  CancelOnMessageLoopThread();
 }
 
 bool FilePathWatcherImpl::UpdateWatches() {
-  // Ensure this runs on the file thread exclusively in order to avoid
+  // Ensure this runs on the message_loop_ exclusively in order to avoid
   // concurrency issues.
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
+  DCHECK(message_loop()->BelongsToCurrentThread());
 
   // Walk the list of watches and update them as we go.
   FilePath path(FILE_PATH_LITERAL("/"));

@@ -1,12 +1,13 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/file_path_watcher/file_path_watcher.h"
+#include "content/common/file_path_watcher/file_path_watcher.h"
 
 #include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/logging.h"
+#include "base/message_loop_proxy.h"
 #include "base/ref_counted.h"
 #include "base/time.h"
 #include "base/win/object_watcher.h"
@@ -14,18 +15,26 @@
 namespace {
 
 class FilePathWatcherImpl : public FilePathWatcher::PlatformDelegate,
-                            public base::win::ObjectWatcher::Delegate {
+                            public base::win::ObjectWatcher::Delegate,
+                            public MessageLoop::DestructionObserver {
  public:
   FilePathWatcherImpl() : delegate_(NULL), handle_(INVALID_HANDLE_VALUE) {}
 
-  virtual bool Watch(const FilePath& path, FilePathWatcher::Delegate* delegate);
-  virtual void Cancel();
+  // FilePathWatcher::PlatformDelegate overrides.
+  virtual bool Watch(const FilePath& path,
+                     FilePathWatcher::Delegate* delegate) OVERRIDE;
+  virtual void Cancel() OVERRIDE;
+
+  // Deletion of the FilePathWatcher will call Cancel() to dispose of this
+  // object in the right thread. This also observes destruction of the required
+  // cleanup thread, in case it quits before Cancel() is called.
+  virtual void WillDestroyCurrentMessageLoop() OVERRIDE;
 
   // Callback from MessageLoopForIO.
   virtual void OnObjectSignaled(HANDLE object);
 
  private:
-  virtual ~FilePathWatcherImpl();
+  virtual ~FilePathWatcherImpl() {}
 
   // Setup a watch handle for directory |dir|. Returns true if no fatal error
   // occurs. |handle| will receive the handle value if |dir| is watchable,
@@ -38,6 +47,9 @@ class FilePathWatcherImpl : public FilePathWatcher::PlatformDelegate,
 
   // Destroy the watch handle.
   void DestroyWatch();
+
+  // Cleans up and stops observing the |message_loop_| thread.
+  void CancelOnMessageLoopThread() OVERRIDE;
 
   // Delegate to notify upon changes.
   scoped_refptr<FilePathWatcher::Delegate> delegate_;
@@ -65,8 +77,11 @@ class FilePathWatcherImpl : public FilePathWatcher::PlatformDelegate,
 bool FilePathWatcherImpl::Watch(const FilePath& path,
                                 FilePathWatcher::Delegate* delegate) {
   DCHECK(target_.value().empty());  // Can only watch one path.
+
+  set_message_loop(base::MessageLoopProxy::CreateForCurrentThread());
   delegate_ = delegate;
   target_ = path;
+  MessageLoop::current()->AddDestructionObserver(this);
 
   if (!UpdateWatch())
     return false;
@@ -77,15 +92,35 @@ bool FilePathWatcherImpl::Watch(const FilePath& path,
 }
 
 void FilePathWatcherImpl::Cancel() {
-  // Switch to the file thread if necessary so we can stop |watcher_|.
-  if (!BrowserThread::CurrentlyOn(BrowserThread::FILE)) {
-    BrowserThread::PostTask(BrowserThread::FILE, FROM_HERE,
-        NewRunnableMethod(this, &FilePathWatcherImpl::Cancel));
+  if (!delegate_) {
+    // Watch was never called, or the |message_loop_| has already quit.
+    set_cancelled();
     return;
   }
 
+  // Switch to the file thread if necessary so we can stop |watcher_|.
+  if (!message_loop()->BelongsToCurrentThread()) {
+    message_loop()->PostTask(FROM_HERE,
+                             new FilePathWatcher::CancelTask(this));
+  } else {
+    CancelOnMessageLoopThread();
+  }
+}
+
+void FilePathWatcherImpl::CancelOnMessageLoopThread() {
+  set_cancelled();
+
   if (handle_ != INVALID_HANDLE_VALUE)
     DestroyWatch();
+
+  if (delegate_) {
+    MessageLoop::current()->RemoveDestructionObserver(this);
+    delegate_ = NULL;
+  }
+}
+
+void FilePathWatcherImpl::WillDestroyCurrentMessageLoop() {
+  CancelOnMessageLoopThread();
 }
 
 void FilePathWatcherImpl::OnObjectSignaled(HANDLE object) {
@@ -94,7 +129,7 @@ void FilePathWatcherImpl::OnObjectSignaled(HANDLE object) {
   scoped_refptr<FilePathWatcherImpl> keep_alive(this);
 
   if (!UpdateWatch()) {
-    delegate_->OnError();
+    delegate_->OnFilePathError(target_);
     return;
   }
 
@@ -135,11 +170,6 @@ void FilePathWatcherImpl::OnObjectSignaled(HANDLE object) {
   // The watch may have been cancelled by the callback.
   if (handle_ != INVALID_HANDLE_VALUE)
     watcher_.StartWatching(handle_, this);
-}
-
-FilePathWatcherImpl::~FilePathWatcherImpl() {
-  if (handle_ != INVALID_HANDLE_VALUE)
-    DestroyWatch();
 }
 
 // static
