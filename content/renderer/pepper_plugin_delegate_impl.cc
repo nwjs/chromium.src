@@ -1182,3 +1182,10 @@ P2PSocketDispatcher* PepperPluginDelegateImpl::GetP2PSocketDispatcher() {
 webkit_glue::P2PTransport* PepperPluginDelegateImpl::CreateP2PTransport() {
   return new P2PTransportImpl(render_view_->p2p_socket_dispatcher());
 }
+
+double PepperPluginDelegateImpl::GetLocalTimeZoneOffset(base::Time t) {
+  double result = 0.0;
+  render_view_->Send(new PepperMsg_GetLocalTimeZoneOffset(
+      t, &result));
+  return result;
+}
