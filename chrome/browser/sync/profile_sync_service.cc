@@ -22,6 +22,7 @@
 #include "base/task.h"
 #include "base/threading/thread_restrictions.h"
 #include "chrome/browser/net/gaia/token_service.h"
+#include "chrome/browser/platform_util.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/backend_migrator.h"
