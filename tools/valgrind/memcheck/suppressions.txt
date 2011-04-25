@@ -4388,7 +4388,7 @@
    fun:*FileSystemURLRequestJobTest5SetUpEv
 }
 {
-   bug_80002b
+   bug_80284
    Memcheck:Leak
    fun:_Znw*
    fun:*FileSystemDirURLRequestJobTest5SetUpEv
