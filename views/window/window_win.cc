@@ -630,7 +630,8 @@ WindowWin::WindowWin(WindowDelegate* window_delegate)
       ignore_pos_changes_factory_(this),
       force_hidden_count_(0),
       is_right_mouse_pressed_on_caption_(false),
-      last_monitor_(NULL) {
+      last_monitor_(NULL),
+      is_in_size_move_(false) {
   set_native_window(this);
   is_window_ = true;
   InitClass();
@@ -762,6 +763,24 @@ LRESULT WindowWin::OnDwmCompositionChanged(UINT msg, WPARAM w_param,
   // to have this requirement.
   FrameTypeChanged();
   return 0;
+}
+
+void WindowWin::OnEnterSizeMove() {
+  is_in_size_move_ = true;
+  WidgetWin::OnEnterSizeMove();
+}
+
+void WindowWin::OnExitSizeMove() {
+  is_in_size_move_ = false;
+  WidgetWin::OnExitSizeMove();
+
+  if (!GetThemeProvider()->ShouldUseNativeFrame()) {
+    // Sending SWP_FRAMECHANGED forces a non-client repaint, which fixes the
+    // glitch in rendering the bottom pixel of the window caused by us
+    // offsetting the client rect there (See comment in GetClientAreaInsets()).
+    SetWindowPos(NULL, 0, 0, 0, 0,
+                 SWP_FRAMECHANGED | SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER);
+  }
 }
 
 void WindowWin::OnFinalMessage(HWND window) {
@@ -1016,7 +1035,8 @@ LRESULT WindowWin::OnNCMouseRange(UINT message,
 void WindowWin::OnNCPaint(HRGN rgn) {
   // When using a custom frame, we want to avoid calling DefWindowProc() since
   // that may render artifacts.
-  SetMsgHandled(!GetWindow()->non_client_view()->UseNativeFrame());
+  SetMsgHandled(is_in_size_move_ &&
+                !GetWindow()->non_client_view()->UseNativeFrame());
 }
 
 LRESULT WindowWin::OnNCUAHDrawCaption(UINT msg, WPARAM w_param,

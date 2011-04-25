@@ -165,10 +165,7 @@ void BrowserFrameWin::OnEndSession(BOOL ending, UINT logoff) {
 
 void BrowserFrameWin::OnEnterSizeMove() {
   browser_view_->WindowMoveOrResizeStarted();
-}
-
-void BrowserFrameWin::OnExitSizeMove() {
-  views::WidgetWin::OnExitSizeMove();
+  views::WindowWin::OnEnterSizeMove();
 }
 
 void BrowserFrameWin::OnInitMenuPopup(HMENU menu, UINT position,

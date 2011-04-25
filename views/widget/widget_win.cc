@@ -1104,7 +1104,10 @@ void WidgetWin::RedrawLayeredWindowContents() {
 
 void WidgetWin::ClientAreaSizeChanged() {
   RECT r;
-  GetClientRect(&r);
+  if (GetThemeProvider()->ShouldUseNativeFrame() || IsZoomed())
+    GetClientRect(&r);
+  else
+    GetWindowRect(&r);
   gfx::Size s(r.right - r.left, r.bottom - r.top);
   delegate_->OnSizeChanged(s);
   if (use_layered_buffer_) {

@@ -54,7 +54,6 @@ class BrowserFrameWin : public BrowserFrame, public views::WindowWin {
                               ui::Accelerator* accelerator) OVERRIDE;
   virtual void OnEndSession(BOOL ending, UINT logoff) OVERRIDE;
   virtual void OnEnterSizeMove() OVERRIDE;
-  virtual void OnExitSizeMove() OVERRIDE;
   virtual void OnInitMenuPopup(HMENU menu,
                                UINT position,
                                BOOL is_system_menu) OVERRIDE;

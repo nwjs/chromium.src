@@ -137,6 +137,8 @@ class WindowWin : public WidgetWin,
   virtual LRESULT OnDwmCompositionChanged(UINT msg,
                                           WPARAM w_param,
                                           LPARAM l_param) OVERRIDE;
+  virtual void OnEnterSizeMove() OVERRIDE;
+  virtual void OnExitSizeMove() OVERRIDE;
   virtual void OnFinalMessage(HWND window) OVERRIDE;
   virtual void OnGetMinMaxInfo(MINMAXINFO* minmax_info) OVERRIDE;
   virtual void OnInitMenu(HMENU menu) OVERRIDE;
@@ -314,6 +316,9 @@ class WindowWin : public WidgetWin,
   // The window styles before we modified them for the drag frame appearance.
   DWORD drag_frame_saved_window_style_;
   DWORD drag_frame_saved_window_ex_style_;
+
+  // True when the window is being moved/sized.
+  bool is_in_size_move_;
 
   DISALLOW_COPY_AND_ASSIGN(WindowWin);
 };
