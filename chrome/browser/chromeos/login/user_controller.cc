@@ -27,13 +27,14 @@
 #include "views/controls/button/native_button.h"
 #include "views/controls/label.h"
 #include "views/controls/throbber.h"
-#include "views/focus/focus_manager.h"
+#include "views/layout/grid_layout.h"
 #include "views/painter.h"
 #include "views/screen.h"
 #include "views/widget/root_view.h"
 #include "views/widget/widget_gtk.h"
 
 using views::ColumnSet;
+using views::GridLayout;
 using views::Widget;
 using views::WidgetGtk;
 
@@ -204,21 +205,14 @@ void UserController::Init(int index,
 }
 
 void UserController::ClearAndEnableFields() {
-  user_input_->EnableInputControls(true);
   user_input_->ClearAndFocusControls();
+  user_input_->EnableInputControls(true);
   StopThrobber();
 }
 
 void UserController::ClearAndEnablePassword() {
-  // Somehow focus manager thinks that textfield is still focused but the
-  // textfield doesn't know that. So we clear focus for focus manager so it
-  // sets focus on the textfield again.
-  // TODO(avayvod): Fix the actual issue.
-  views::FocusManager* focus_manager = controls_widget_->GetFocusManager();
-  if (focus_manager)
-    focus_manager->ClearFocus();
-  user_input_->EnableInputControls(true);
   user_input_->ClearAndFocusPassword();
+  user_input_->EnableInputControls(true);
   StopThrobber();
 }
 
