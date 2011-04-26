@@ -278,6 +278,8 @@ pp::Var ChromotingInstance::GetInstanceObject() {
 }
 
 ChromotingStats* ChromotingInstance::GetStats() {
+  if (!client_.get())
+    return NULL;
   return client_->GetStats();
 }
 
