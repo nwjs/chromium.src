@@ -559,8 +559,10 @@ bool TransportSecurityState::IsPreloadedSTS(
     bool include_subdomains;
     char dns_name[30];
   } kPreloadedSNISTS[] = {
-    {11, true, "\005gmail\003com"},
-    {16, true, "\012googlemail\003com"},
+    {11, false, "\005gmail\003com"},
+    {16, false, "\012googlemail\003com"},
+    {15, false, "\003www\005gmail\003com"},
+    {20, false, "\003www\012googlemail\003com"},
   };
   static const size_t kNumPreloadedSNISTS = ARRAYSIZE_UNSAFE(kPreloadedSNISTS);
 
