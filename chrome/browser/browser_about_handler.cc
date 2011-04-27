@@ -47,7 +47,7 @@
 #include "content/browser/gpu_process_host.h"
 #include "content/browser/renderer_host/render_process_host.h"
 #include "content/browser/renderer_host/render_view_host.h"
-#include "content/common/gpu/gpu_messages.h"
+#include "content/common/gpu_messages.h"
 #include "googleurl/src/gurl.h"
 #include "grit/browser_resources.h"
 #include "grit/chromium_strings.h"

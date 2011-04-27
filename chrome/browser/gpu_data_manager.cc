@@ -12,7 +12,7 @@
 #include "content/browser/browser_thread.h"
 #include "content/browser/gpu_blacklist.h"
 #include "content/browser/gpu_process_host.h"
-#include "content/common/gpu/gpu_messages.h"
+#include "content/common/gpu_messages.h"
 #include "content/gpu/gpu_info_collector.h"
 #include "ui/gfx/gl/gl_implementation.h"
 #include "ui/gfx/gl/gl_switches.h"
