@@ -1393,6 +1393,35 @@ void RecordAppLaunch(Profile* profile, GURL url) {
   }
 }
 
+// Scans through all buttons from left to right, calculating from scratch where
+// they should be based on the preceding widths, until it finds the one
+// requested.
+// Returns NSZeroRect if there is no such button in the bookmark bar.
+// Enables you to work out where a button will end up when it is done animating.
+- (NSRect)finalRectOfButton:(BookmarkButton*)wantedButton {
+  CGFloat left = bookmarks::kBookmarkHorizontalPadding;
+  NSRect buttonFrame = NSZeroRect;
+
+  for (NSButton* button in buttons_.get()) {
+    // Hidden buttons get no space.
+    if ([button isHidden])
+      continue;
+    buttonFrame = [button frame];
+    buttonFrame.origin.x = left;
+    left += buttonFrame.size.width + bookmarks::kBookmarkHorizontalPadding;
+    if (button == wantedButton)
+      return buttonFrame;
+  }
+  return NSZeroRect;
+}
+
+// Calculates the final position of the last button in the bar.
+// We can't just use [[self buttons] lastObject] frame] because the button
+// may be animating currently.
+- (NSRect)finalRectOfLastButton {
+  return [self finalRectOfButton:[[self buttons] lastObject]];
+}
+
 - (void)redistributeButtonsOnBarAsNeeded {
   const BookmarkNode* node = bookmarkModel_->GetBookmarkBarNode();
   NSInteger barCount = node->GetChildCount();
@@ -1414,7 +1443,7 @@ void RecordAppLaunch(Profile* profile, GURL url) {
   // the off-the-side folder.
   while (displayedButtonCount_ > 0) {
     BookmarkButton* button = [buttons_ lastObject];
-    if (NSMaxX([button frame]) < maxViewX)
+    if (NSMaxX([self finalRectOfLastButton]) < maxViewX)
       break;
     [buttons_ removeLastObject];
     [button setDelegate:nil];
@@ -1425,7 +1454,7 @@ void RecordAppLaunch(Profile* profile, GURL url) {
   // As a result of cutting, deleting and dragging, the bar may now have room
   // for more buttons.
   int xOffset = displayedButtonCount_ > 0 ?
-      NSMaxX([[buttons_ lastObject] frame]) +
+      NSMaxX([self finalRectOfLastButton]) +
           bookmarks::kBookmarkHorizontalPadding : 0;
   for (int i = displayedButtonCount_; i < barCount; ++i) {
     const BookmarkNode* child = node->GetChild(i);
