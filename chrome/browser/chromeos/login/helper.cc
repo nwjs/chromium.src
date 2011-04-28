@@ -6,7 +6,7 @@
 
 #include "base/file_util.h"
 #include "chrome/browser/chromeos/cros/network_library.h"
-#include "chrome/browser/chromeos/customization_document.h"
+#include "chrome/browser/chromeos/system_access.h"
 #include "chrome/browser/google/google_util.h"
 #include "googleurl/src/gurl.h"
 #include "grit/generated_resources.h"
@@ -40,10 +40,6 @@ const SkColor kBackgroundEdgeColor = SK_ColorBLACK;
 
 const char kAccountRecoveryHelpUrl[] =
     "https://www.google.com/support/accounts/bin/answer.py?answer=48598";
-
-// Path to OEM partner startup customization manifest.
-const char kStartupCustomizationManifestPath[] =
-    "/opt/oem/etc/startup_manifest.json";
 
 class BackgroundPainter : public views::Painter {
  public:
@@ -219,27 +215,6 @@ string16 GetCurrentNetworkName(NetworkLibrary* network_library) {
   } else {
     return string16();
   }
-}
-
-const chromeos::StartupCustomizationDocument* LoadStartupManifest() {
-  // Loading manifest causes us to do blocking IO on UI thread.
-  // Temporarily allow it until we fix http://crosbug.com/11103
-  base::ThreadRestrictions::ScopedAllowIO allow_io;
-  FilePath startup_manifest_path(kStartupCustomizationManifestPath);
-  if (file_util::PathExists(startup_manifest_path)) {
-    scoped_ptr<chromeos::StartupCustomizationDocument> customization(
-        new chromeos::StartupCustomizationDocument());
-    bool manifest_loaded = customization->LoadManifestFromFile(
-        startup_manifest_path);
-    if (manifest_loaded) {
-      VLOG(1) << "Startup manifest loaded successfully";
-      return customization.release();
-    }
-    LOG(ERROR) << "Error loading startup manifest: "
-               << kStartupCustomizationManifestPath;
-  }
-
-  return NULL;
 }
 
 namespace login {

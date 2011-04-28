@@ -8,25 +8,37 @@
 
 #include <string>
 
-#include "base/file_path.h"
+#include "base/gtest_prod_util.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/memory/singleton.h"
+#include "base/timer.h"
 #include "base/values.h"
+#include "chrome/common/net/url_fetcher.h"
+#include "googleurl/src/gurl.h"
 
 class DictionaryValue;
+class FilePath;
 class ListValue;
+class PrefService;
 
 namespace chromeos {
+
+class SystemAccess;
 
 // Base class for OEM customization document classes.
 class CustomizationDocument {
  public:
-  CustomizationDocument() {}
   virtual ~CustomizationDocument() {}
+
+  // Return true if the document was successfully fetched and parsed.
+  bool IsReady() const { return root_.get(); }
+
+ protected:
+  CustomizationDocument() {}
 
   virtual bool LoadManifestFromFile(const FilePath& manifest_path);
   virtual bool LoadManifestFromString(const std::string& manifest);
 
- protected:
   std::string GetLocaleSpecificString(const std::string& locale,
                                       const std::string& dictionary_name,
                                       const std::string& entry_name) const;
@@ -38,11 +50,12 @@ class CustomizationDocument {
 };
 
 // OEM startup customization document class.
+// Now StartupCustomizationDocument is loaded in c-tor so just after create it
+// may be ready or not (if manifest is missing or corrupted) and this state
+// won't be changed later (i.e. IsReady() always return the same value).
 class StartupCustomizationDocument : public CustomizationDocument {
  public:
-  StartupCustomizationDocument() {}
-
-  virtual bool LoadManifestFromString(const std::string& manifest);
+  static StartupCustomizationDocument* GetInstance();
 
   const std::string& initial_locale() const { return initial_locale_; }
   const std::string& initial_timezone() const { return initial_timezone_; }
@@ -52,20 +65,23 @@ class StartupCustomizationDocument : public CustomizationDocument {
   std::string GetHelpPage(const std::string& locale) const;
   std::string GetEULAPage(const std::string& locale) const;
 
-  // Returns HWID for the machine. Declared as virtual to override in tests.
-  virtual std::string GetHWID() const;
-
  private:
-  typedef std::map<std::string, std::string> VPDMap;
+  FRIEND_TEST(StartupCustomizationDocumentTest, Basic);
+  FRIEND_TEST(StartupCustomizationDocumentTest, VPD);
+  FRIEND_TEST(StartupCustomizationDocumentTest, BadManifest);
+  friend struct DefaultSingletonTraits<StartupCustomizationDocument>;
 
-  // Returns VPD as string. Declared as virtual to override in tests.
-  virtual std::string GetVPD() const;
+  // C-tor for singleton construction.
+  StartupCustomizationDocument();
 
-  // Parse VPD file as string and initialize |vpd_map|.
-  bool ParseVPD(const std::string& vpd_string, VPDMap* vpd_map);
+  // C-tor for test construction.
+  StartupCustomizationDocument(SystemAccess* system_access,
+                               const std::string& manifest);
 
-  // If |attr| exists in |vpd_map|, assign it value to |value|;
-  void InitFromVPD(const VPDMap& vpd_map, const char* attr, std::string* value);
+  void Init(SystemAccess* system_access);
+
+  // If |attr| exists in machine stat, assign it to |value|.
+  void InitFromMachineStatistic(const char* attr, std::string* value);
 
   std::string initial_locale_;
   std::string initial_timezone_;
@@ -76,14 +92,72 @@ class StartupCustomizationDocument : public CustomizationDocument {
 };
 
 // OEM services customization document class.
-class ServicesCustomizationDocument : public CustomizationDocument {
+// ServicesCustomizationDocument is fetched from network or local file but on
+// FILE thread therefore it may not be ready just after creation. Fetching of
+// the manifest should be initiated outside this class by calling
+// StartFetching() method. User of the file should check IsReady before use it.
+class ServicesCustomizationDocument : public CustomizationDocument,
+                                      private URLFetcher::Delegate {
  public:
-  ServicesCustomizationDocument() {}
+  static ServicesCustomizationDocument* GetInstance();
+
+  // Registers preferences.
+  static void RegisterPrefs(PrefService* local_state);
+
+  // Return true if the customization was applied. Customization is applied only
+  // once per machine.
+  static bool WasApplied();
+
+  // Start fetching customization document.
+  void StartFetching();
+
+  // Apply customization and save in machine options that customization was
+  // applied successfully. Return true if customization was applied.
+  bool ApplyCustomization();
 
   std::string GetInitialStartPage(const std::string& locale) const;
   std::string GetSupportPage(const std::string& locale) const;
 
  private:
+  FRIEND_TEST(ServicesCustomizationDocumentTest, Basic);
+  FRIEND_TEST(ServicesCustomizationDocumentTest, BadManifest);
+  friend struct DefaultSingletonTraits<ServicesCustomizationDocument>;
+
+  // C-tor for singleton construction.
+  ServicesCustomizationDocument();
+
+  // C-tor for test construction.
+  explicit ServicesCustomizationDocument(const std::string& manifest);
+
+  // Save applied state in machine settings.
+  static void SetApplied(bool val);
+
+  // Overriden from URLFetcher::Delegate:
+  virtual void OnURLFetchComplete(const URLFetcher* source,
+                                  const GURL& url,
+                                  const net::URLRequestStatus& status,
+                                  int response_code,
+                                  const ResponseCookies& cookies,
+                                  const std::string& data);
+
+  // Initiate file fetching.
+  void StartFileFetch();
+
+  // Executes on FILE thread and reads file to string.
+  void ReadFileInBackground(const FilePath& file);
+
+  // Services customization manifest URL.
+  GURL url_;
+
+  // URLFetcher instance.
+  scoped_ptr<URLFetcher> url_fetcher_;
+
+  // Timer to retry fetching file if network is not available.
+  base::OneShotTimer<ServicesCustomizationDocument> retry_timer_;
+
+  // How many times we already tried to fetch customization manifest file.
+  int num_retries_;
+
   DISALLOW_COPY_AND_ASSIGN(ServicesCustomizationDocument);
 };
 
