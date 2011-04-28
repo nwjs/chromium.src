@@ -6,6 +6,10 @@
 
 namespace gfx {
 
+bool GLSurface::Initialize() {
+  return true;
+}
+
 unsigned int GLSurface::GetBackingFrameBufferObject() {
   return 0;
 }
