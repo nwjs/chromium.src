@@ -858,6 +858,9 @@ void ScreenLocker::OnCaptchaEntered(const std::string& captcha) {
 }
 
 void ScreenLocker::Authenticate(const string16& password) {
+  if (password.empty())
+    return;
+
   authentication_start_time_ = base::Time::Now();
   screen_lock_view_->SetEnabled(false);
   screen_lock_view_->SetSignoutEnabled(false);
