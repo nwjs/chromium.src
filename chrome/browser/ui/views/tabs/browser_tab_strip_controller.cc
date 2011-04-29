@@ -266,23 +266,21 @@ int BrowserTabStripController::HasAvailableDragActions() const {
 void BrowserTabStripController::PerformDrop(bool drop_before,
                                             int index,
                                             const GURL& url) {
+  browser::NavigateParams params(browser_, url, PageTransition::LINK);
+  params.tabstrip_index = index;
+
   if (drop_before) {
     UserMetrics::RecordAction(UserMetricsAction("Tab_DropURLBetweenTabs"),
                               model_->profile());
-
-    // Insert a new tab.
-    TabContentsWrapper* contents = model_->delegate()->CreateTabContentsForURL(
-        url, GURL(), model_->profile(), PageTransition::TYPED, false, NULL);
-    model_->AddTabContents(contents, index, PageTransition::GENERATED,
-                           TabStripModel::ADD_ACTIVE);
+    params.disposition = NEW_FOREGROUND_TAB;
   } else {
     UserMetrics::RecordAction(UserMetricsAction("Tab_DropURLOnTab"),
                               model_->profile());
-
-    model_->GetTabContentsAt(index)->controller().LoadURL(
-        url, GURL(), PageTransition::GENERATED);
-    model_->ActivateTabAt(index, true);
+    params.disposition = CURRENT_TAB;
+    params.source_contents = model_->GetTabContentsAt(index);
   }
+
+  browser::Navigate(&params);
 }
 
 bool BrowserTabStripController::IsCompatibleWith(BaseTabStrip* other) const {
