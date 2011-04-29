@@ -66,7 +66,6 @@ using syncable::CREATE_NEW_UPDATE_ITEM;
 using syncable::AUTOFILL;
 using syncable::BASE_VERSION;
 using syncable::CREATE;
-using syncable::DirectoryChangeEvent;
 using syncable::GET_BY_SERVER_TAG;
 using syncable::INVALID;
 using syncable::MutableEntry;
@@ -230,7 +229,7 @@ class AutofillProfileFactory : public AbstractAutofillFactory {
     return new AutofillProfileDataTypeController(factory,
         profile,
         service);
-   }
+  }
 
   void SetExpectation(ProfileSyncFactoryMock* factory,
       ProfileSyncService* service,
@@ -306,14 +305,14 @@ class ProfileSyncServiceAutofillTest : public AbstractProfileSyncServiceTest {
         factory->CreateDataTypeController(&factory_,
             &profile_,
             service_.get());
-   SyncBackendHostForProfileSyncTest::
-       SetDefaultExpectationsForWorkerCreation(&profile_);
+    SyncBackendHostForProfileSyncTest::
+        SetDefaultExpectationsForWorkerCreation(&profile_);
 
-   factory->SetExpectation(&factory_,
-       service_.get(),
-       web_database_.get(),
-       personal_data_manager_.get(),
-       data_type_controller);
+    factory->SetExpectation(&factory_,
+                            service_.get(),
+                            web_database_.get(),
+                            personal_data_manager_.get(),
+                            data_type_controller);
 
     EXPECT_CALL(factory_, CreateDataTypeManager(_, _)).
         WillOnce(ReturnNewDataTypeManager());
@@ -506,12 +505,12 @@ class WriteTransactionTest: public WriteTransaction {
       : WriteTransaction(directory, writer, source_file, line),
         wait_for_syncapi_(wait_for_syncapi) { }
 
-  virtual void NotifyTransactionComplete() {
+  virtual void NotifyTransactionComplete(syncable::ModelTypeBitSet types) {
     // This is where we differ. Force a thread change here, giving another
     // thread a chance to create a WriteTransaction
     (*wait_for_syncapi_)->Wait();
 
-    WriteTransaction::NotifyTransactionComplete();
+    WriteTransaction::NotifyTransactionComplete(types);
   }
 
  private:
