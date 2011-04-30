@@ -144,6 +144,7 @@
 
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/boot_times_loader.h"
+#include "chrome/browser/extensions/file_manager_util.h"
 #endif
 
 using base::TimeDelta;
@@ -1992,6 +1993,11 @@ void Browser::OpenSearchEngineOptionsDialog() {
 }
 
 #if defined(OS_CHROMEOS)
+void Browser::OpenFileManager() {
+  UserMetrics::RecordAction(UserMetricsAction("OpenFileManager"));
+  ShowSingletonTab(FileManagerUtil::GetFileBrowserUrl());
+}
+
 void Browser::OpenSystemOptionsDialog() {
   UserMetrics::RecordAction(UserMetricsAction("OpenSystemOptionsDialog"),
                             profile_);
@@ -2324,6 +2330,7 @@ void Browser::ExecuteCommandWithDisposition(
     case IDC_VIEW_INCOMPATIBILITIES: ShowAboutConflictsTab();         break;
     case IDC_HELP_PAGE:             OpenHelpTab();                    break;
 #if defined(OS_CHROMEOS)
+    case IDC_FILE_MANAGER:          OpenFileManager();                break;
     case IDC_SYSTEM_OPTIONS:        OpenSystemOptionsDialog();        break;
     case IDC_INTERNET_OPTIONS:      OpenInternetOptionsDialog();      break;
     case IDC_LANGUAGE_OPTIONS:      OpenLanguageOptionsDialog();      break;
@@ -3620,6 +3627,7 @@ void Browser::InitCommandState() {
   command_updater_.UpdateCommandEnabled(IDC_IMPORT_SETTINGS, true);
 
 #if defined(OS_CHROMEOS)
+  command_updater_.UpdateCommandEnabled(IDC_FILE_MANAGER, true);
   command_updater_.UpdateCommandEnabled(IDC_SEARCH, true);
   command_updater_.UpdateCommandEnabled(IDC_SHOW_KEYBOARD_OVERLAY, true);
   command_updater_.UpdateCommandEnabled(IDC_SYSTEM_OPTIONS, true);
