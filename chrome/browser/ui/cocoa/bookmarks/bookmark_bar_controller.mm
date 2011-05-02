@@ -209,7 +209,7 @@ void RecordAppLaunch(Profile* profile, GURL url) {
 - (void)addButtonsToView;
 - (void)centerNoItemsLabel;
 - (void)setNodeForBarMenu;
-
+- (void)resetAllButtonPositionsWithAnimation:(BOOL)animate;
 - (void)watchForExitEvent:(BOOL)watch;
 
 @end
@@ -2321,19 +2321,10 @@ static BOOL ValueInRangeInclusive(CGFloat low, CGFloat value, CGFloat high) {
           bookmarks::kBookmarkHorizontalPadding;
     }
     BookmarkButton* newButton = [self buttonForNode:node xOffset:&newOffset];
-    CGFloat xOffset =
-        NSWidth([newButton frame]) + bookmarks::kBookmarkHorizontalPadding;
-    NSUInteger buttonCount = [buttons_ count];
-    for (NSUInteger i = buttonIndex; i < buttonCount; ++i) {
-      BookmarkButton* button = [buttons_ objectAtIndex:i];
-      NSPoint buttonOrigin = [button frame].origin;
-      buttonOrigin.x += xOffset;
-      [[button animator] setFrameOrigin:buttonOrigin];
-    }
     ++displayedButtonCount_;
     [buttons_ insertObject:newButton atIndex:buttonIndex];
     [buttonView_ addSubview:newButton];
-
+    [self resetAllButtonPositionsWithAnimation:NO];
     // See if any buttons need to be pushed off to or brought in from the side.
     [self reconfigureBookmarkBar];
   } else  {
@@ -2387,7 +2378,6 @@ static BOOL ValueInRangeInclusive(CGFloat low, CGFloat value, CGFloat high) {
   return nodesWereAdded;
 }
 
-// TODO(mrossetti): jrg wants this broken up into smaller functions.
 - (void)moveButtonFromIndex:(NSInteger)fromIndex toIndex:(NSInteger)toIndex {
   if (fromIndex != toIndex) {
     NSInteger buttonCount = (NSInteger)[buttons_ count];
@@ -2397,38 +2387,10 @@ static BOOL ValueInRangeInclusive(CGFloat low, CGFloat value, CGFloat high) {
     // both button indexes are in the visible space.
     if (fromIndex < buttonCount && toIndex < buttonCount) {
       BookmarkButton* movedButton = [buttons_ objectAtIndex:fromIndex];
-      NSRect movedFrame = [movedButton frame];
-      NSPoint toOrigin = movedFrame.origin;
-      CGFloat xOffset =
-          NSWidth(movedFrame) + bookmarks::kBookmarkHorizontalPadding;
-      // Hide the button to reduce flickering while drawing the window.
-      [movedButton setHidden:YES];
       [buttons_ removeObjectAtIndex:fromIndex];
-      if (fromIndex < toIndex) {
-        // Move the button from left to right within the bar.
-        BookmarkButton* targetButton = [buttons_ objectAtIndex:toIndex - 1];
-        NSRect toFrame = [targetButton frame];
-        toOrigin.x = toFrame.origin.x - NSWidth(movedFrame) + NSWidth(toFrame);
-        for (NSInteger i = fromIndex; i < toIndex; ++i) {
-          BookmarkButton* button = [buttons_ objectAtIndex:i];
-          NSRect frame = [button frame];
-          frame.origin.x -= xOffset;
-          [[button animator] setFrameOrigin:frame.origin];
-        }
-      } else {
-        // Move the button from right to left within the bar.
-        BookmarkButton* targetButton = [buttons_ objectAtIndex:toIndex];
-        toOrigin = [targetButton frame].origin;
-        for (NSInteger i = fromIndex - 1; i >= toIndex; --i) {
-          BookmarkButton* button = [buttons_ objectAtIndex:i];
-          NSRect buttonFrame = [button frame];
-          buttonFrame.origin.x += xOffset;
-          [[button animator] setFrameOrigin:buttonFrame.origin];
-        }
-      }
       [buttons_ insertObject:movedButton atIndex:toIndex];
-      [movedButton setFrameOrigin:toOrigin];
       [movedButton setHidden:NO];
+      [self resetAllButtonPositionsWithAnimation:YES];
     } else if (fromIndex < buttonCount) {
       // A button is being removed from the bar and added to off-the-side.
       // By now the node has already been inserted into the model so the
@@ -2464,26 +2426,17 @@ static BOOL ValueInRangeInclusive(CGFloat low, CGFloat value, CGFloat high) {
       // If we are deleting a button whose folder is currently open, close it!
       [self closeAllBookmarkFolders];
     }
-    NSPoint poofPoint = [oldButton screenLocationForRemoveAnimation];
-    NSRect oldFrame = [oldButton frame];
-    [oldButton setDelegate:nil];
-    [oldButton removeFromSuperview];
-    if (animate && !ignoreAnimations_ && [self isVisible])
+    if (animate && !ignoreAnimations_ && [self isVisible] &&
+        [[self browserWindow] isMainWindow]) {
+      NSPoint poofPoint = [oldButton screenLocationForRemoveAnimation];
       NSShowAnimationEffect(NSAnimationEffectDisappearingItemDefault, poofPoint,
                             NSZeroSize, nil, nil, nil);
-    CGFloat xOffset = NSWidth(oldFrame) + bookmarks::kBookmarkHorizontalPadding;
-    [buttons_ removeObjectAtIndex:buttonIndex];
-    NSUInteger buttonCount = [buttons_ count];
-    for (NSUInteger i = buttonIndex; i < buttonCount; ++i) {
-      BookmarkButton* button = [buttons_ objectAtIndex:i];
-      NSRect buttonFrame = [button frame];
-      buttonFrame.origin.x -= xOffset;
-      [[button animator] setFrame:buttonFrame];
-      // If this button is showing its menu then we need to move the menu, too.
-      if (button == [folderController_ parentButton])
-        [folderController_ offsetFolderMenuWindow:NSMakeSize(xOffset, 0.0)];
     }
+    [oldButton setDelegate:nil];
+    [oldButton removeFromSuperview];
+    [buttons_ removeObjectAtIndex:buttonIndex];
     --displayedButtonCount_;
+    [self resetAllButtonPositionsWithAnimation:YES];
     [self reconfigureBookmarkBar];
   } else if (folderController_ &&
              [folderController_ parentButton] == offTheSideButton_) {
@@ -2501,6 +2454,26 @@ static BOOL ValueInRangeInclusive(CGFloat low, CGFloat value, CGFloat high) {
   if (bookmarkModel_->GetBookmarkBarNode() == node)
     return self;
   return [folderController_ controllerForNode:node];
+}
+
+// Put all visible bookmark bar buttons in their normal locations, either with
+// or without animation according to the |animate| flag.
+// This is generally useful, so is called from various places internally.
+- (void)resetAllButtonPositionsWithAnimation:(BOOL)animate {
+  CGFloat left = bookmarks::kBookmarkHorizontalPadding;
+
+  for (NSButton* button in buttons_.get()) {
+    // Hidden buttons get no space.
+    if ([button isHidden])
+      continue;
+    NSRect buttonFrame = [button frame];
+    buttonFrame.origin.x = left;
+    left += buttonFrame.size.width + bookmarks::kBookmarkHorizontalPadding;
+    if (animate)
+      [[button animator] setFrame:buttonFrame];
+    else
+      [button setFrame:buttonFrame];
+  }
 }
 
 #pragma mark BookmarkButtonControllerProtocol
