@@ -1490,6 +1490,7 @@ void TabContents::OnDidLoadResourceFromMemoryCache(
 }
 
 void TabContents::OnDidDisplayInsecureContent() {
+  UserMetrics::RecordAction(UserMetricsAction("SSL.DisplayedInsecureContent"));
   displayed_insecure_content_ = true;
   SSLManager::NotifySSLInternalStateChanged();
 }
@@ -1498,6 +1499,7 @@ void TabContents::OnDidRunInsecureContent(
     const std::string& security_origin, const GURL& target_url) {
   LOG(INFO) << security_origin << " ran insecure content from "
             << target_url.possibly_invalid_spec();
+  UserMetrics::RecordAction(UserMetricsAction("SSL.RanInsecureContent"));
   controller_.ssl_manager()->DidRunInsecureContent(security_origin);
 }
 
