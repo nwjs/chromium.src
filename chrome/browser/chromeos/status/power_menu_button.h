@@ -27,7 +27,7 @@ class PowerMenuButton : public StatusAreaButton,
                         public ui::MenuModel,
                         public PowerLibrary::Observer {
  public:
-  PowerMenuButton(StatusAreaHost* host);
+  PowerMenuButton();
   virtual ~PowerMenuButton();
 
   // ui::MenuModel implementation.

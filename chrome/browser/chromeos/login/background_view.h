@@ -102,22 +102,21 @@ class BackgroundView : public views::View,
 
  protected:
   // Overridden from views::View:
-  virtual void OnPaint(gfx::Canvas* canvas) OVERRIDE;
-  virtual void Layout() OVERRIDE;
-  virtual void ChildPreferredSizeChanged(View* child) OVERRIDE;
-  virtual void OnLocaleChanged() OVERRIDE;
+  virtual void OnPaint(gfx::Canvas* canvas);
+  virtual void Layout();
+  virtual void ChildPreferredSizeChanged(View* child);
+  virtual void OnLocaleChanged();
 
   // Overridden from StatusAreaHost:
-  virtual Profile* GetProfile() const OVERRIDE { return NULL; }
-  virtual void ExecuteBrowserCommand(int id) const OVERRIDE {}
+  virtual Profile* GetProfile() const { return NULL; }
+  virtual void ExecuteBrowserCommand(int id) const {}
   virtual bool ShouldOpenButtonOptions(
-      const views::View* button_view) const OVERRIDE;
-  virtual void OpenButtonOptions(const views::View* button_view) OVERRIDE;
-  virtual ScreenMode GetScreenMode() const OVERRIDE;
-  virtual TextStyle GetTextStyle() const OVERRIDE;
+      const views::View* button_view) const;
+  virtual void OpenButtonOptions(const views::View* button_view);
+  virtual ScreenMode GetScreenMode() const;
 
   // Overridden from LoginHtmlDialog::Delegate:
-  virtual void OnDialogClosed() OVERRIDE {}
+  virtual void OnDialogClosed() {}
 
  private:
   // Creates and adds the status_area.

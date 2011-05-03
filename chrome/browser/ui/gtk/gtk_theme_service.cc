@@ -602,9 +602,6 @@ GdkPixbuf* GtkThemeService::GetDefaultFavicon(bool native) {
 
 // static
 bool GtkThemeService::DefaultUsesSystemTheme() {
-#if defined(OS_CHROMEOS)
-  return false;
-#else
   scoped_ptr<base::Environment> env(base::Environment::Create());
 
   switch (base::nix::GetDesktopEnvironment(env.get())) {
@@ -614,7 +611,6 @@ bool GtkThemeService::DefaultUsesSystemTheme() {
     default:
       return false;
   }
-#endif
 }
 
 void GtkThemeService::ClearAllThemeData() {
