@@ -146,7 +146,6 @@ BUG_OFFICALGOGREEN MAC : fast/multicol/span/clone-anonymous-block-non-inline-chi
 BUG_OFFICALGOGREEN MAC : fast/repaint/block-layout-inline-children-float-positioned.html = IMAGE
 BUG_OFFICALGOGREEN MAC : fast/repaint/block-layout-inline-children-replaced.html = IMAGE
 BUG_OFFICALGOGREEN MAC : fast/repaint/block-no-inflow-children.html = IMAGE
-BUG_OFFICALGOGREEN MAC : fast/repaint/box-shadow-h.html = IMAGE
 BUG_OFFICALGOGREEN MAC : fast/repaint/caret-outside-block.html = IMAGE
 BUG_OFFICALGOGREEN MAC : fast/repaint/continuation-after-outline.html = IMAGE
 BUG_OFFICALGOGREEN MAC : fast/repaint/inline-outline-repaint.html = IMAGE
@@ -889,7 +888,6 @@ BUG_OFFICIALGOGREEN MAC : fast/replaced/width100percent-searchfield.html = IMAGE
 BUG_OFFICIALGOGREEN MAC : fast/replaced/width100percent-textfield.html = IMAGE
 BUG_OFFICIALGOGREEN MAC : fast/selectors/064.html = IMAGE
 BUG_OFFICIALGOGREEN MAC : fast/speech/input-appearance-numberandspeech.html = IMAGE
-BUG_OFFICIALGOGREEN MAC : fast/speech/input-appearance-searchandspeech.html = IMAGE
 BUG_OFFICIALGOGREEN MAC : fast/speech/input-appearance-speechbutton.html = IMAGE IMAGE+TEXT
 BUG_OFFICIALGOGREEN MAC : fast/table/028-vertical.html = IMAGE
 BUG_OFFICIALGOGREEN MAC : fast/table/append-cells2.html = IMAGE
