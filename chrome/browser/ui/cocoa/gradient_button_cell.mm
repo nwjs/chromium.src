@@ -725,7 +725,7 @@ static const NSTimeInterval kAnimationContinuousCycleDuration = 0.4;
     [self updateTrackingAreas];
 }
 
-- (void)updateTrackingAreas {
+- (BOOL)isMouseReallyInside {
   BOOL mouseInView = NO;
   NSView* controlView = [self controlView];
   NSWindow* window = [controlView window];
@@ -735,6 +735,12 @@ static const NSTimeInterval kAnimationContinuousCycleDuration = 0.4;
     mousePoint = [controlView convertPointFromBase:mousePoint];
     mouseInView = [controlView mouse:mousePoint inRect:bounds];
   }
+  return mouseInView;
+}
+
+- (void)updateTrackingAreas {
+  NSView* controlView = [self controlView];
+  BOOL mouseInView = [self isMouseReallyInside];
 
   if (trackingArea_.get())
     [controlView removeTrackingArea:trackingArea_];
@@ -745,12 +751,12 @@ static const NSTimeInterval kAnimationContinuousCycleDuration = 0.4;
     options |= NSTrackingAssumeInside;
 
   trackingArea_.reset([[NSTrackingArea alloc]
-                        initWithRect:bounds
+                        initWithRect:[controlView bounds]
                              options:options
                                owner:self
                             userInfo:nil]);
   if (isMouseInside_ != mouseInView) {
-    isMouseInside_ = mouseInView;
+    [self setMouseInside:mouseInView animate:NO];
     [controlView setNeedsDisplay:YES];
   }
 }
