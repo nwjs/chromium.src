@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -198,6 +198,7 @@ TextButton::TextButton(ButtonListener* listener, const std::wstring& text)
       active_text_shadow_color_(0),
       inactive_text_shadow_color_(0),
       has_shadow_(false),
+      shadow_offset_(gfx::Point(1, 1)),
       has_hover_icon_(false),
       has_pushed_icon_(false),
       max_width_(0),
@@ -268,6 +269,10 @@ void TextButton::SetTextShadowColors(SkColor active_color,
   has_shadow_ = true;
 }
 
+void TextButton::SetTextShadowOffset(int x, int y) {
+  shadow_offset_.SetPoint(x, y);
+}
+
 void TextButton::ClearMaxTextSize() {
   max_text_size_ = text_size_;
 }
@@ -280,10 +285,14 @@ void TextButton::SetShowMultipleIconStates(bool show_multiple_icon_states) {
   show_multiple_icon_states_ = show_multiple_icon_states;
 }
 
+void TextButton::ClearEmbellishing() {
+  has_shadow_ = false;
+  has_text_halo_ = false;
+}
+
 void TextButton::PaintButton(gfx::Canvas* canvas, PaintButtonMode mode) {
   if (mode == PB_NORMAL) {
     OnPaintBackground(canvas);
-
     if (show_multiple_icon_states_ && hover_animation_->is_animating()) {
       // Draw the hover bitmap into an offscreen buffer, then blend it
       // back into the current canvas.
@@ -392,8 +401,8 @@ void TextButton::PaintButton(gfx::Canvas* canvas, PaintButtonMode mode) {
       canvas->DrawStringInt(text_,
                             font_,
                             shadow_color,
-                            text_bounds.x() + 1,
-                            text_bounds.y() + 1,
+                            text_bounds.x() + shadow_offset_.x(),
+                            text_bounds.y() + shadow_offset_.y(),
                             text_bounds.width(),
                             text_bounds.height(),
                             draw_string_flags);
