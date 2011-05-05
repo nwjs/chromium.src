@@ -79,6 +79,7 @@
 #include "chrome/browser/ui/omnibox/location_bar.h"
 #include "chrome/browser/ui/search_engines/keyword_editor_controller.h"
 #include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/webui/active_downloads_ui.h"
 #include "chrome/browser/ui/webui/shown_sections_handler.h"
 #include "chrome/common/automation_messages.h"
 #include "chrome/common/chrome_constants.h"
@@ -1060,21 +1061,7 @@ void TestingAutomationProvider::GetShelfVisibility(int handle, bool* visible) {
 
   if (browser_tracker_->ContainsHandle(handle)) {
 #if defined(OS_CHROMEOS)
-    // Chromium OS shows FileBrowse ui rather than download shelf. So we
-    // enumerate all browsers and look for a chrome://filebrowse... pop up.
-    for (BrowserList::const_iterator it = BrowserList::begin();
-         it != BrowserList::end(); ++it) {
-      if ((*it)->type() == Browser::TYPE_POPUP) {
-        const GURL& url =
-            (*it)->GetTabContentsAt((*it)->active_index())->GetURL();
-
-        if (url.SchemeIs(chrome::kChromeUIScheme) &&
-            url.host() == chrome::kChromeUIActiveDownloadsHost) {
-          *visible = true;
-          break;
-        }
-      }
-    }
+    *visible = ActiveDownloadsUI::GetPopup(browser->profile());
 #else
     Browser* browser = browser_tracker_->GetResource(handle);
     if (browser) {
@@ -1997,10 +1984,19 @@ void TestingAutomationProvider::SetShelfVisibility(int handle, bool visible) {
   if (browser_tracker_->ContainsHandle(handle)) {
     Browser* browser = browser_tracker_->GetResource(handle);
     if (browser) {
+#if defined(OS_CHROMEOS)
+      Browser* popup_browser =
+          ActiveDownloadsUI::GetPopup(browser->profile());
+      if (!popup_browser && visible)
+        ActiveDownloadsUI::OpenPopup(browser->profile());
+      if (popup_browser && !visible)
+        popup_browser->CloseWindow();
+#else
       if (visible)
         browser->window()->GetDownloadShelf()->Show();
       else
         browser->window()->GetDownloadShelf()->Close();
+#endif
     }
   }
 }
