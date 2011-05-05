@@ -63,7 +63,6 @@
 #include "grit/locale_settings.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/l10n/l10n_util_mac.h"
-#include "ui/gfx/scoped_ns_graphics_context_save_gstate_mac.h"
 
 
 // ORGANIZATION: This is a big file. It is (in principle) organized as follows
@@ -189,7 +188,7 @@ enum {
 }
 
 - (void)drawRect:(NSRect)rect {
-  gfx::ScopedNSGraphicsContextSaveGState scopedGState;
+  [NSGraphicsContext saveGraphicsState];
 
   scoped_nsobject<NSShadow> shadow([[NSShadow alloc] init]);
   [shadow.get() setShadowColor:[NSColor colorWithCalibratedWhite:0.0
@@ -203,6 +202,7 @@ enum {
                  operation:NSCompositeSourceOver
                   fraction:1.0
               neverFlipped:YES];
+  [NSGraphicsContext restoreGraphicsState];
 }
 
 - (void)setImage:(NSImage*)image {

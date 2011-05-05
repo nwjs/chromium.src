@@ -23,7 +23,6 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/image.h"
-#include "ui/gfx/scoped_ns_graphics_context_save_gstate_mac.h"
 
 namespace {
 
@@ -339,7 +338,8 @@ void ContentSettingDecoration::DrawInFrame(NSRect frame, NSView* control_view) {
       gradient_.reset([[NSGradient alloc] initWithColors:color_array]);
     }
 
-    gfx::ScopedNSGraphicsContextSaveGState scopedGState;
+    NSGraphicsContext* context = [NSGraphicsContext currentContext];
+    [context saveGraphicsState];
 
     NSRectClip(frame);
 
@@ -368,6 +368,8 @@ void ContentSettingDecoration::DrawInFrame(NSRect frame, NSView* control_view) {
     NSInsetRect(remainder, kTextMarginPadding, kTextMarginPadding);
     // .get() needed to fix compiler warning (confusion with NSImageRep).
     [animated_text_.get() drawAtPoint:remainder.origin];
+
+    [context restoreGraphicsState];
   } else {
     // No animation, draw the image as normal.
     ImageDecoration::DrawInFrame(frame, control_view);

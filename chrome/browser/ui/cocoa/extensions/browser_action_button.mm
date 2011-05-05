@@ -23,7 +23,6 @@
 #import "third_party/GTM/AppKit/GTMNSAnimation+Duration.h"
 #include "ui/gfx/canvas_skia_paint.h"
 #include "ui/gfx/rect.h"
-#include "ui/gfx/scoped_ns_graphics_context_save_gstate_mac.h"
 #include "ui/gfx/size.h"
 
 NSString* const kBrowserActionButtonUpdatedNotification =
@@ -310,10 +309,11 @@ class ExtensionImageTrackerBridge : public NotificationObserver,
 }
 
 - (void)drawInteriorWithFrame:(NSRect)cellFrame inView:(NSView*)controlView {
-  gfx::ScopedNSGraphicsContextSaveGState scopedGState;
+  [NSGraphicsContext saveGraphicsState];
   [super drawInteriorWithFrame:cellFrame inView:controlView];
   cellFrame.origin.y += kBrowserActionBadgeOriginYOffset;
   [self drawBadgeWithinFrame:cellFrame];
+  [NSGraphicsContext restoreGraphicsState];
 }
 
 @end

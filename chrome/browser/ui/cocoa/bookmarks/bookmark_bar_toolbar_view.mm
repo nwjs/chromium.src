@@ -13,7 +13,6 @@
 #include "ui/base/theme_provider.h"
 #include "ui/gfx/canvas_skia_paint.h"
 #include "ui/gfx/rect.h"
-#include "ui/gfx/scoped_ns_graphics_context_save_gstate_mac.h"
 
 const CGFloat kBorderRadius = 3.0;
 
@@ -57,7 +56,7 @@ const CGFloat kBorderRadius = 3.0;
     return;
 
   NSGraphicsContext* context = [NSGraphicsContext currentContext];
-  gfx::ScopedNSGraphicsContextSaveGState scopedGState(context);
+  [context saveGraphicsState];
 
   // Draw the background.
   {
@@ -102,16 +101,15 @@ const CGFloat kBorderRadius = 3.0;
   [border fill];
 
   // Fade in/out the background.
-  {
-    gfx::ScopedNSGraphicsContextSaveGState bgScopedState(context);
-    [border setClip];
-    CGContextRef cgContext = (CGContextRef)[context graphicsPort];
-    CGContextBeginTransparencyLayer(cgContext, NULL);
-    CGContextSetAlpha(cgContext, 1 - morph);
-    [context setPatternPhase:[[self window] themePatternPhase]];
-    [self drawBackground];
-    CGContextEndTransparencyLayer(cgContext);
-  }
+  [context saveGraphicsState];
+  [border setClip];
+  CGContextRef cgContext = (CGContextRef)[context graphicsPort];
+  CGContextBeginTransparencyLayer(cgContext, NULL);
+  CGContextSetAlpha(cgContext, 1 - morph);
+  [context setPatternPhase:[[self window] themePatternPhase]];
+  [self drawBackground];
+  CGContextEndTransparencyLayer(cgContext);
+  [context restoreGraphicsState];
 
   // Draw the border of the rounded rectangle.
   NSColor* borderColor = themeProvider->GetNSColor(
@@ -135,6 +133,9 @@ const CGFloat kBorderRadius = 3.0;
   [divider moveToPoint:dividerStart];
   [divider relativeLineToPoint:NSMakePoint(dividerWidth, 0)];
   [divider stroke];
+
+  // Restore the graphics context.
+  [context restoreGraphicsState];
 }
 
 @end  // @implementation BookmarkBarToolbarView

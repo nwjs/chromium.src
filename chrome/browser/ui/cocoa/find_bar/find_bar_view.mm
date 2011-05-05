@@ -8,7 +8,6 @@
 #import "chrome/browser/ui/cocoa/themed_window.h"
 #import "chrome/browser/ui/cocoa/url_drop_target.h"
 #import "chrome/browser/ui/cocoa/view_id_util.h"
-#include "ui/gfx/scoped_ns_graphics_context_save_gstate_mac.h"
 
 namespace {
 CGFloat kCurveSize = 8;
@@ -62,18 +61,16 @@ CGFloat kCurveSize = 8;
   [path curveToPoint:topRight
         controlPoint1:NSMakePoint(midRight2.x, topLeft.y)
         controlPoint2:NSMakePoint(midRight2.x, topLeft.y)];
+  NSGraphicsContext* context = [NSGraphicsContext currentContext];
+  [context saveGraphicsState];
+  [path addClip];
 
-  {
-    NSGraphicsContext* context = [NSGraphicsContext currentContext];
-    gfx::ScopedNSGraphicsContextSaveGState scopedGState(context);
-    [path addClip];
+  // Set the pattern phase
+  NSPoint phase = [[self window] themePatternPhase];
 
-    // Set the pattern phase
-    NSPoint phase = [[self window] themePatternPhase];
-
-    [context setPatternPhase:phase];
-    [super drawBackground];
-  }
+  [context setPatternPhase:phase];
+  [super drawBackground];
+  [context restoreGraphicsState];
 
   [[self strokeColor] set];
   [path setLineWidth:lineWidth];

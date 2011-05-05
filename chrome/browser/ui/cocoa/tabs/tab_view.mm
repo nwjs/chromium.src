@@ -16,7 +16,6 @@
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/gfx/scoped_ns_graphics_context_save_gstate_mac.h"
 
 namespace {
 
@@ -652,7 +651,7 @@ const CGFloat kRapidCloseDist = 2.5;
   const CGFloat lineWidth = [self cr_lineWidth];
 
   NSGraphicsContext* context = [NSGraphicsContext currentContext];
-  gfx::ScopedNSGraphicsContextSaveGState scopedGState(context);
+  [context saveGraphicsState];
 
   ThemeService* themeProvider =
       static_cast<ThemeService*>([[self window] themeProvider]);
@@ -701,7 +700,7 @@ const CGFloat kRapidCloseDist = 2.5;
   CGFloat alertAlpha = [self alertAlpha];
   if (selected || hoverAlpha > 0 || alertAlpha > 0) {
     // Draw the selected background / glow overlay.
-    gfx::ScopedNSGraphicsContextSaveGState drawHoverState(context);
+    [context saveGraphicsState];
     CGContextRef cgContext = static_cast<CGContextRef>([context graphicsPort]);
     CGContextBeginTransparencyLayer(cgContext, 0);
     if (!selected) {
@@ -712,10 +711,9 @@ const CGFloat kRapidCloseDist = 2.5;
       CGContextSetAlpha(cgContext, backgroundAlpha);
     }
     [path addClip];
-    {
-      gfx::ScopedNSGraphicsContextSaveGState drawBackgroundState(context);
-      [super drawBackground];
-    }
+    [context saveGraphicsState];
+    [super drawBackground];
+    [context restoreGraphicsState];
 
     // Draw a mouse hover gradient for the default themes.
     if (!selected && hoverAlpha > 0) {
@@ -739,6 +737,7 @@ const CGFloat kRapidCloseDist = 2.5;
     }
 
     CGContextEndTransparencyLayer(cgContext);
+    [context restoreGraphicsState];
   }
 
   BOOL active = [[self window] isKeyWindow] || [[self window] isMainWindow];
@@ -768,12 +767,11 @@ const CGFloat kRapidCloseDist = 2.5;
   [context restoreGraphicsState];
 
   // Draw the top stroke.
-  {
-    gfx::ScopedNSGraphicsContextSaveGState drawBorderState(context);
-    [borderColor set];
-    [path setLineWidth:lineWidth];
-    [path stroke];
-  }
+  [context saveGraphicsState];
+  [borderColor set];
+  [path setLineWidth:lineWidth];
+  [path stroke];
+  [context restoreGraphicsState];
 
   // Mimic the tab strip's bottom border, which consists of a dark border
   // and light highlight.
@@ -789,6 +787,8 @@ const CGFloat kRapidCloseDist = 2.5;
     [highlightColor set];
     NSRectFillUsingOperation(borderRect, NSCompositeSourceOver);
   }
+
+  [context restoreGraphicsState];
 }
 
 - (void)viewDidMoveToWindow {

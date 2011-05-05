@@ -28,7 +28,6 @@
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/text/text_elider.h"
 #include "ui/gfx/rect.h"
-#include "ui/gfx/scoped_ns_graphics_context_save_gstate_mac.h"
 
 namespace {
 
@@ -824,9 +823,10 @@ bool AutocompletePopupViewMac::ShouldShowInstantOptIn() {
                        bottomRightCornerRadius:kPopupRoundingRadius];
 
   // Draw the matrix clipped to our border.
-  gfx::ScopedNSGraphicsContextSaveGState scopedGState;
+  [NSGraphicsContext saveGraphicsState];
   [path addClip];
   [super drawRect:rect];
+  [NSGraphicsContext restoreGraphicsState];
 }
 
 @end
