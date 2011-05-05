@@ -164,6 +164,7 @@ extern const char kLabsMediaplayerEnabled[];
 extern const char kEnableScreenLock[];
 extern const char kShowPlanNotifications[];
 extern const char kShow3gPromoNotification[];
+extern const char kCarrierDealPromoShown[];
 #endif
 extern const char kIpcDisabledMessages[];
 extern const char kShowHomeButton[];

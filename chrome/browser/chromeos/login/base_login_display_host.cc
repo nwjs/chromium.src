@@ -136,9 +136,8 @@ void BaseLoginDisplayHost::StartSignInScreen() {
   SetShutdownButtonEnabled(true);
   sign_in_controller_->Init(users);
 
-  // Initiate service customization manifest fetching.
-  if (!ServicesCustomizationDocument::WasApplied())
-    ServicesCustomizationDocument::GetInstance()->StartFetching();
+  // Initiate services customization manifest fetching.
+  ServicesCustomizationDocument::GetInstance()->StartFetching();
 }
 
 // BaseLoginDisplayHost --------------------------------------------------------
