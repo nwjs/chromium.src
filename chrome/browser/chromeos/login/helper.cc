@@ -104,7 +104,7 @@ void ThrobberHostView::StartThrobber() {
   throbber->set_stop_delay_ms(0);
   gfx::Rect throbber_bounds = CalculateThrobberBounds(throbber);
 
-  views::Widget::CreateParams params(views::Widget::CreateParams::TYPE_WINDOW);
+  views::Widget::CreateParams params(views::Widget::CreateParams::TYPE_POPUP);
   params.transparent = true;
   throbber_widget_ = views::Widget::CreateWidget(params);
   static_cast<views::WidgetGtk*>(throbber_widget_)->make_transient_to_parent();
