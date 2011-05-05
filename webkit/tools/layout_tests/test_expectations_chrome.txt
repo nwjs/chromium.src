@@ -1142,6 +1142,22 @@ BUG_OFFICIALGOGREEN MAC : svg/dynamic-updates/SVGFETurbulenceElement-svgdom-type
 BUG_OFFICIALGOGREEN MAC : svg/filters/feLighting-crash.svg = IMAGE
 BUG_OFFICIALGOGREEN MAC : fast/table/auto-100-percent-width.html = MISSING
 BUG_OFFICIALGOGREEN MAC : fast/dom/Node/mutation-blur.html = CRASH
-
-
+BUG_OFFICIALGOGREEN WIN : fast/layers/video-layer.html = TEXT
+BUG_OFFICIALGOGREEN WIN : fast/table/prepend-in-anonymous-table.html = TEXT
+BUG_OFFICIALGOGREEN WIN : media/audio-controls-rendering.html = TEXT
+BUG_OFFICIALGOGREEN WIN : media/media-document-audio-repaint.html = TEXT
+BUG_OFFICIALGOGREEN WIN : media/video-controls-rendering.html = TEXT
+BUG_OFFICIALGOGREEN WIN : media/video-controls-transformed.html = TEXT
+BUG_OFFICIALGOGREEN WIN : media/video-display-toggle.html = TEXT
+BUG_OFFICIALGOGREEN WIN : media/video-empty-source.html = TEXT
+BUG_OFFICIALGOGREEN WIN : media/video-no-audio.html = TEXT
+BUG_OFFICIALGOGREEN WIN : media/video-volume-slider.html = TEXT
+BUG_OFFICIALGOGREEN WIN : tables/mozilla_expected_failures/other/test4.html = TEXT
+BUG_OFFICIALGOGREEN WIN : fast/canvas/webgl/css-webkit-canvas-repaint.html = IMAGE
+BUG_OFFICIALGOGREEN WIN : fast/canvas/webgl/css-webkit-canvas.html = IMAGE
+BUG_OFFICIALGOGREEN WIN : fast/table/auto-100-percent-width.html = MISSING
+BUG_OFFICIALGOGREEN WIN : fast/dom/HTMLMeterElement/meter-element.html = IMAGE+TEXT
+BUG_OFFICIALGOGREEN WIN : fast/table/dynamic-caption-add-before-child.xhtml = IMAGE+TEXT
+BUG_OFFICIALGOGREEN WIN : fast/table/dynamic-caption-add-remove-before-child.xhtml = IMAGE+TEXT
+BUG_OFFICIALGOGREEN WIN : fast/table/multiple-captions-display.xhtml = IMAGE+TEXT
 
