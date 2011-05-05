@@ -128,8 +128,13 @@ static net::URLRequestJob* CreateExtensionURLRequestJob(
   FilePath directory_path = context->extension_info_map()->
       GetPathForExtension(extension_id);
   if (directory_path.value().empty()) {
-    LOG(WARNING) << "Failed to GetPathForExtension: " << extension_id;
-    return NULL;
+    if (context->extension_info_map()->URLIsForExtensionIcon(request->url()))
+      directory_path = context->extension_info_map()->
+          GetPathForDisabledExtension(extension_id);
+    if (directory_path.value().empty()) {
+      LOG(WARNING) << "Failed to GetPathForExtension: " << extension_id;
+      return NULL;
+    }
   }
 
   FilePath resources_path;
