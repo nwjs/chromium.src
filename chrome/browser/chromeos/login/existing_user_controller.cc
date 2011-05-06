@@ -364,6 +364,7 @@ void ExistingUserController::OnProfilePrepared(Profile* profile) {
     // Delay deletion as we're on the stack.
     host_->OnSessionStart();
   }
+  login_display_->OnFadeOut();
 }
 
 void ExistingUserController::OnOffTheRecordLoginSuccess() {
@@ -441,7 +442,6 @@ void ExistingUserController::ActivateWizard(const std::string& screen_name) {
   if (chromeos::UserManager::Get()->IsLoggedInAsGuest())
     start_url = guest_mode_url_;
   host_->StartWizard(screen_name, start_url);
-  login_display_->OnFadeOut();
 }
 
 gfx::NativeWindow ExistingUserController::GetNativeWindow() const {
