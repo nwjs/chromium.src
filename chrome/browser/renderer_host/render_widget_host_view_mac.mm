@@ -6,7 +6,6 @@
 
 #include "chrome/browser/renderer_host/render_widget_host_view_mac.h"
 
-#include "base/command_line.h"
 #include "base/logging.h"
 #include "base/mac/scoped_cftyperef.h"
 #import "base/mac/scoped_nsautorelease_pool.h"
@@ -19,10 +18,10 @@
 #include "chrome/browser/accessibility/browser_accessibility_state.h"
 #include "chrome/browser/browser_trial.h"
 #include "chrome/browser/gpu_process_host_ui_shim.h"
+#import "chrome/browser/renderer_host/accelerated_plugin_view_mac.h"
 #include "chrome/browser/spellchecker_platform_engine.h"
 #import "chrome/browser/ui/cocoa/rwhvm_editcommand_helper.h"
 #import "chrome/browser/ui/cocoa/view_id_util.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/render_messages.h"
 #include "content/browser/browser_thread.h"
 #include "content/browser/gpu_process_host.h"
@@ -41,7 +40,7 @@
 #include "third_party/skia/include/core/SkColor.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/mac/WebInputEventFactory.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
-#include "ui/gfx/gl/gl_switches.h"
+#include "ui/gfx/point.h"
 #include "ui/gfx/surface/io_surface_support_mac.h"
 #include "webkit/glue/webaccessibility.h"
 #include "webkit/plugins/npapi/webplugin.h"
@@ -172,6 +171,7 @@ NSWindow* ApparentWindowForView(NSView* view) {
 
 }  // namespace
 
+<<<<<<< .working
 // AcceleratedPluginView ------------------------------------------------------
 
 // This subclass of NSView hosts the output of accelerated plugins on
@@ -566,6 +566,8 @@ static CVReturn DrawOneAcceleratedPluginCallback(
 }
 @end
 
+=======
+>>>>>>> .merge-right.r84107
 // RenderWidgetHostView --------------------------------------------------------
 
 // static
