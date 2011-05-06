@@ -680,6 +680,8 @@ ScreenLocker::ScreenLocker(const UserManager::User& user)
 }
 
 void ScreenLocker::Init() {
+  static const GdkColor kGdkBlack = {0, 0, 0, 0};
+
   authenticator_ = LoginUtils::Get()->CreateAuthenticator(this);
 
   gfx::Point left_top(1, 1);
@@ -688,6 +690,8 @@ void ScreenLocker::Init() {
   LockWindow* lock_window = new LockWindow();
   lock_window_ = lock_window;
   lock_window_->Init(NULL, init_bounds);
+  gtk_widget_modify_bg(
+      lock_window_->GetNativeView(), GTK_STATE_NORMAL, &kGdkBlack);
 
   g_signal_connect(lock_window_->GetNativeView(), "client-event",
                    G_CALLBACK(OnClientEventThunk), this);
