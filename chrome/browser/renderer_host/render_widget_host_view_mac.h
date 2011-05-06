@@ -7,6 +7,7 @@
 #pragma once
 
 #import <Cocoa/Cocoa.h>
+#import <QuartzCore/CALayer.h>
 
 #include "base/memory/scoped_nsobject.h"
 #include "base/memory/scoped_ptr.h"
