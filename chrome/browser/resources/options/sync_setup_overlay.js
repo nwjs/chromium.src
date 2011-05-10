@@ -206,7 +206,7 @@ cr.define('options', function() {
       if (this.getRadioCheckedValue_() != "explicit" || f.option[0].disabled)
         return true;
 
-      var customPassphrase = $('customPassphrase');
+      var customPassphrase = $('custom-passphrase');
       if (customPassphrase.value.length == 0) {
         emptyError.style.display = "block";
         return false;
