@@ -122,8 +122,8 @@ class InputMethodLibrary {
   virtual void SetEnableAutoImeShutdown(bool enable) = 0;
 
 
-  virtual const InputMethodDescriptor& previous_input_method() const = 0;
-  virtual const InputMethodDescriptor& current_input_method() const = 0;
+  virtual InputMethodDescriptor previous_input_method() const = 0;
+  virtual InputMethodDescriptor current_input_method() const = 0;
 
   virtual const ImePropertyList& current_ime_properties() const = 0;
 
