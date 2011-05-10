@@ -388,15 +388,10 @@ void DownloadItem::Completed() {
     auto_opened_ = true;
   }
 
-  // The download file is meant to be completed if both the filename is
-  // finalized and the file data is downloaded. The ordering of these two
-  // actions is indeterministic. Thus, if the filename is not finalized yet,
-  // delay the notification.
-  if (name_finalized()) {
-    state_ = COMPLETE;
-    UpdateObservers();
-    download_manager_->RemoveFromActiveList(id());
-  }
+  DCHECK(all_data_saved_);
+  state_ = COMPLETE;
+  UpdateObservers();
+  download_manager_->DownloadCompleted(id());
 }
 
 void DownloadItem::Interrupted(int64 size, int os_error) {
