@@ -712,7 +712,7 @@ BUG_OFFICALGOGREEN LINUX : fast/text/international/thai-baht-space.html = IMAGE+
 BUG_OFFICALGOGREEN LINUX : fast/text/international/thai-line-breaks.html = IMAGE+TEXT
 BUG_OFFICALGOGREEN LINUX : svg/W3C-SVG-1.1/extend-namespace-01-f.svg = IMAGE+TEXT
 BUG_OFFICALGOGREEN LINUX : svg/W3C-SVG-1.1/paths-data-03-f.svg = IMAGE+TEXT
-BUG_OFFICALGOGREEN LINUX : svg/batik/filters/filterRegions.svg = IMAGE+TEXT
+BUG_OFFICALGOGREEN LINUX : svg/batik/filters/filterRegions.svg = IMAGE+TEXT IMAGE
 BUG_OFFICALGOGREEN LINUX : svg/custom/recursive-filter.svg = IMAGE+TEXT
 BUG_OFFICALGOGREEN LINUX : svg/custom/use-css-events.svg = IMAGE+TEXT TIMEOUT
 BUG_OFFICALGOGREEN LINUX : svg/filters/filterRes.svg = IMAGE+TEXT IMAGE
@@ -1215,7 +1215,9 @@ BUG_OFFICIALGOGREEN LINUX : svg/filters/feOffset.svg = IMAGE
 BUG_OFFICIALGOGREEN LINUX : svg/filters/feTile.svg = IMAGE
 BUG_OFFICIALGOGREEN LINUX : svg/filters/filter-on-tspan.svg = IMAGE
 BUG_OFFICIALGOGREEN LINUX : svg/filters/filter-rounding-issues.svg = IMAGE
-
-
+BUG_OFFICIALGOGREEN WIN : fast/block/float/float-not-removed-from-next-sibling.html = IMAGE
+BUG_OFFICIALGOGREEN WIN : fast/block/float/float-not-removed-from-next-sibling2.html = IMAGE
+BUG_OFFICIALGOGREEN WIN : fast/block/float/float-not-removed-from-next-sibling3.html = IMAGE
+BUG_OFFICIALGOGREEN WIN : fast/block/float/float-not-removed-from-next-sibling4.html = IMAGE
 
 
