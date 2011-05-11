@@ -1219,5 +1219,5 @@ BUG_OFFICIALGOGREEN WIN : fast/block/float/float-not-removed-from-next-sibling.h
 BUG_OFFICIALGOGREEN WIN : fast/block/float/float-not-removed-from-next-sibling2.html = IMAGE
 BUG_OFFICIALGOGREEN WIN : fast/block/float/float-not-removed-from-next-sibling3.html = IMAGE
 BUG_OFFICIALGOGREEN WIN : fast/block/float/float-not-removed-from-next-sibling4.html = IMAGE
-
+BUG_OFFICIALGOGREEN WIN : fast/block/positioning/hiding-inside-relpositioned-inline.html = IMAGE+TEXT
 
