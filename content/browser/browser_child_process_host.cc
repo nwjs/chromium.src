@@ -136,11 +136,13 @@ void BrowserChildProcessHost::OnChildDied() {
         OnProcessWasKilled(exit_code);
 
         // Report that this child process was killed.
-        Notify(NotificationType::CHILD_PROCESS_WAS_KILLED);
+        Notify(NotificationType::CHILD_PROCESS_CRASHED);
         UMA_HISTOGRAM_COUNTS("ChildProcess.Kills", this->type());
         break;
       }
       default:
+        Notify(NotificationType::CHILD_PROCESS_CRASHED);
+        UMA_HISTOGRAM_COUNTS("ChildProcess.DefaultCase", this->type());
         break;
     }
     // Notify in the main loop of the disconnection.
