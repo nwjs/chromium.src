@@ -86,6 +86,11 @@ class GoogleUpdateSettings {
   // true if this operation succeeded.
   static bool ClearReferral();
 
+  // Set did_run "dr" in the client state value. This is used to measure
+  // active users. Returns false if writting to the registry failed.
+  static bool UpdateDidRunState(bool did_run, bool system_level);
+
+
   // Return a human readable modifier for the version string, e.g.
   // the channel (dev, beta, stable). Returns true if this operation succeeded,
   // on success, channel contains one of "", "unknown", "dev" or "beta" (unless
