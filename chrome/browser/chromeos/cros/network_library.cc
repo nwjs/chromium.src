@@ -3290,6 +3290,8 @@ class NetworkLibraryImpl : public NetworkLibrary  {
     std::pair<NetworkMap::iterator,bool> result =
         network_map_.insert(std::make_pair(network->service_path(), network));
     DCHECK(result.second);  // Should only get called with new network.
+    VLOG(2) << "Adding Network: " << network->service_path()
+            << " (" << network->name() << ")";
     ConnectionType type(network->type());
     if (type == TYPE_WIFI) {
       if (wifi_enabled())
@@ -3461,8 +3463,10 @@ class NetworkLibraryImpl : public NetworkLibrary  {
 
   // Request the active profile which lists the remembered networks.
   void RequestRememberedNetworksUpdate() {
-    RequestNetworkProfile(
-        active_profile_path_.c_str(), &ProfileUpdate, this);
+    if (!active_profile_path_.empty()) {
+      RequestNetworkProfile(
+          active_profile_path_.c_str(), &ProfileUpdate, this);
+    }
   }
 
   // Update the list of remembered (profile) networks, and request associated
@@ -3643,15 +3647,9 @@ class NetworkLibraryImpl : public NetworkLibrary  {
       if (!device_path.empty()) {
         NetworkDeviceMap::iterator found = old_device_map.find(device_path);
         if (found != old_device_map.end()) {
-          VLOG(2) << " Adding device: " << device_path;
+          VLOG(2) << " Adding existing device: " << device_path;
           device_map_[device_path] = found->second;
           old_device_map.erase(found);
-          // Add device property monitor before we request the
-          // full property list, to ensure that we won't miss any
-          // property changes.
-          network_device_observers_[device_path] =
-              new NetworkDeviceObserverList(this, device_path);
-
         }
         RequestNetworkDeviceInfo(
             device_path.c_str(), &NetworkDeviceUpdate, this);
@@ -3700,6 +3698,11 @@ class NetworkLibraryImpl : public NetworkLibrary  {
       device = new NetworkDevice(device_path);
       VLOG(2) << " Adding device: " << device_path;
       device_map_[device_path] = device;
+      if (network_device_observers_.find(device_path) ==
+          network_device_observers_.end()) {
+        network_device_observers_[device_path] =
+            new NetworkDeviceObserverList(this, device_path);
+      }
     }
     device->ParseInfo(info);
     VLOG(1) << "ParseNetworkDevice:" << device->name();
