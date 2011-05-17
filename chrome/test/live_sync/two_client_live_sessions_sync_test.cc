@@ -111,3 +111,4 @@ IN_PROC_BROWSER_TEST_F(TwoClientLiveSessionsSyncTest, BothChanged) {
   ASSERT_TRUE(WindowsMatch(sessions1[0]->windows, *client0_windows));
   ASSERT_TRUE(WindowsMatch(sessions0[0]->windows, *client1_windows));
 }
+
