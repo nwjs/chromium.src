@@ -1100,7 +1100,8 @@ void WidgetWin::RedrawLayeredWindowContents() {
 
 void WidgetWin::ClientAreaSizeChanged() {
   RECT r;
-  if (GetThemeProvider()->ShouldUseNativeFrame() || IsZoomed())
+  Window* window = GetWindow();
+  if (IsZoomed() || (window && window->ShouldUseNativeFrame()))
     GetClientRect(&r);
   else
     GetWindowRect(&r);

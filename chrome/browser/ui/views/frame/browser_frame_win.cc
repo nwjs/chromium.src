@@ -173,6 +173,10 @@ views::NonClientFrameView* BrowserFrameWin::CreateFrameViewForWindow() {
   return delegate_->DelegateCreateFrameViewForWindow();
 }
 
+bool BrowserFrameWin::ShouldUseNativeFrame() const {
+  return AlwaysUseNativeFrame();
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // BrowserFrameWin, NativeBrowserFrame implementation:
 

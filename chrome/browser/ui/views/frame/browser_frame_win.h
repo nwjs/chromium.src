@@ -60,6 +60,7 @@ class BrowserFrameWin : public BrowserFrame,
   virtual void UpdateFrameAfterFrameChange() OVERRIDE;
   virtual views::RootView* CreateRootView() OVERRIDE;
   virtual views::NonClientFrameView* CreateFrameViewForWindow() OVERRIDE;
+  virtual bool ShouldUseNativeFrame() const OVERRIDE;
 
   // Overridden from NativeBrowserFrame:
   virtual views::NativeWindow* AsNativeWindow() OVERRIDE;
