@@ -1109,9 +1109,13 @@ void ProfileSyncService::SetPassphrase(const std::string& passphrase,
   if (ShouldPushChanges() || observed_passphrase_required_) {
     backend_->SetPassphrase(passphrase, is_explicit);
   } else {
-    cached_passphrase_.value = passphrase;
-    cached_passphrase_.is_explicit = is_explicit;
-    cached_passphrase_.is_creation = is_creation;
+    if (is_explicit) {
+      cached_passphrase_.value = passphrase;
+      cached_passphrase_.is_explicit = is_explicit;
+      cached_passphrase_.is_creation = is_creation;
+    } else {
+      gaia_password_ = passphrase;
+    }
   }
 }
 
@@ -1145,12 +1149,12 @@ void ProfileSyncService::Observe(NotificationType type,
         expect_sync_configuration_aborted_ = false;
         return;
       }
+      // Clear out the gaia password if it is already there.
+      gaia_password_ = std::string();
       if (result != DataTypeManager::OK) {
         std::string message = StringPrintf("Sync Configuration failed with %d",
                                             result);
         OnUnrecoverableError(*(result_with_location->location), message);
-
-        gaia_password_ = std::string();
         cached_passphrase_ = CachedPassphrase();
         return;
       }
@@ -1209,7 +1213,7 @@ void ProfileSyncService::Observe(NotificationType type,
       // actually change), or the user has an explicit passphrase set so this
       // becomes a no-op.
       tried_implicit_gaia_remove_when_bug_62103_fixed_ = true;
-      gaia_password_ = successful->password;
+      SetPassphrase(successful->password, false, true);
 
       // If this signin was to initiate a passphrase migration (on the
       // first computer, thus not for decryption), continue the migration.
