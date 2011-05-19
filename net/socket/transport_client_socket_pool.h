@@ -48,20 +48,35 @@ class TransportSocketParams : public base::RefCounted<TransportSocketParams> {
 };
 
 // TransportConnectJob handles the host resolution necessary for socket creation
-// and the transport (likely TCP) connect.
+// and the transport (likely TCP) connect. TransportConnectJob also has fallback
+// logic for IPv6 connect() timeouts (which may happen due to networks / routers
+// with broken IPv6 support). Those timeouts take 20s, so rather than make the
+// user wait 20s for the timeout to fire, we use a fallback timer
+// (kIPv6FallbackTimerInMs) and start a connect() to a IPv4 address if the timer
+// fires. Then we race the IPv4 connect() against the IPv6 connect() (which has
+// a headstart) and return the one that completes first to the socket pool.
 class TransportConnectJob : public ConnectJob {
  public:
   TransportConnectJob(const std::string& group_name,
-                const scoped_refptr<TransportSocketParams>& params,
-                base::TimeDelta timeout_duration,
-                ClientSocketFactory* client_socket_factory,
-                HostResolver* host_resolver,
-                Delegate* delegate,
-                NetLog* net_log);
+                      const scoped_refptr<TransportSocketParams>& params,
+                      base::TimeDelta timeout_duration,
+                      ClientSocketFactory* client_socket_factory,
+                      HostResolver* host_resolver,
+                      Delegate* delegate,
+                      NetLog* net_log);
   virtual ~TransportConnectJob();
 
   // ConnectJob methods.
   virtual LoadState GetLoadState() const;
+
+  // Makes |addrlist| start with an IPv4 address if |addrlist| contains any
+  // IPv4 address.
+  //
+  // WARNING: this method should only be used to implement the prefer-IPv4
+  // hack.  It is a public method for the unit tests.
+  static void MakeAddrListStartWithIPv4(AddressList* addrlist);
+
+  static const int kIPv6FallbackTimerInMs;
 
  private:
   enum State {
@@ -82,6 +97,10 @@ class TransportConnectJob : public ConnectJob {
   int DoTransportConnect();
   int DoTransportConnectComplete(int result);
 
+  // Not part of the state machine.
+  void DoIPv6FallbackTransportConnect();
+  void DoIPv6FallbackTransportConnectComplete(int result);
+
   // Begins the host resolution and the TCP connect.  Returns OK on success
   // and ERR_IO_PENDING if it cannot immediately service the request.
   // Otherwise, it returns a net error code.
@@ -99,6 +118,14 @@ class TransportConnectJob : public ConnectJob {
 
   // The time the connect was started (after DNS finished).
   base::TimeTicks connect_start_time_;
+
+  scoped_ptr<ClientSocket> transport_socket_;
+
+  scoped_ptr<ClientSocket> fallback_transport_socket_;
+  scoped_ptr<AddressList> fallback_addresses_;
+  CompletionCallbackImpl<TransportConnectJob> fallback_callback_;
+  base::TimeTicks fallback_connect_start_time_;
+  base::OneShotTimer<TransportConnectJob> fallback_timer_;
 
   DISALLOW_COPY_AND_ASSIGN(TransportConnectJob);
 };
