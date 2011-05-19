@@ -6,10 +6,14 @@
 
 #include "base/callback.h"
 #include "base/compiler_specific.h"
+#include "base/logging.h"
 #include "base/message_loop.h"
 #include "base/threading/platform_thread.h"
+#include "net/base/ip_endpoint.h"
 #include "net/base/mock_host_resolver.h"
 #include "net/base/net_errors.h"
+#include "net/base/net_util.h"
+#include "net/base/sys_addrinfo.h"
 #include "net/base/test_completion_callback.h"
 #include "net/socket/client_socket.h"
 #include "net/socket/client_socket_factory.h"
@@ -27,9 +31,23 @@ const int kMaxSockets = 32;
 const int kMaxSocketsPerGroup = 6;
 const net::RequestPriority kDefaultPriority = LOW;
 
+void SetIPv4Address(IPEndPoint* address) {
+  IPAddressNumber number;
+  CHECK(ParseIPLiteralToNumber("1.1.1.1", &number));
+  *address = IPEndPoint(number, 80);
+}
+
+void SetIPv6Address(IPEndPoint* address) {
+  IPAddressNumber number;
+  CHECK(ParseIPLiteralToNumber("1:abcd::3:4:ff", &number));
+  *address = IPEndPoint(number, 80);
+}
+
 class MockClientSocket : public ClientSocket {
  public:
-  MockClientSocket() : connected_(false) {}
+  MockClientSocket(const AddressList& addrlist)
+      : connected_(false),
+        addrlist_(addrlist) {}
 
   // ClientSocket methods:
   virtual int Connect(CompletionCallback* callback) {
@@ -71,12 +89,13 @@ class MockClientSocket : public ClientSocket {
 
  private:
   bool connected_;
+  const AddressList addrlist_;
   BoundNetLog net_log_;
 };
 
 class MockFailingClientSocket : public ClientSocket {
  public:
-  MockFailingClientSocket() {}
+  MockFailingClientSocket(const AddressList& addrlist) : addrlist_(addrlist) {}
 
   // ClientSocket methods:
   virtual int Connect(CompletionCallback* callback) {
@@ -117,6 +136,7 @@ class MockFailingClientSocket : public ClientSocket {
   virtual bool SetSendBufferSize(int32 size) { return true; }
 
  private:
+  const AddressList addrlist_;
   BoundNetLog net_log_;
 };
 
@@ -126,12 +146,17 @@ class MockPendingClientSocket : public ClientSocket {
   // or fail.
   // |should_stall| indicates that this socket should never connect.
   // |delay_ms| is the delay, in milliseconds, before simulating a connect.
-  MockPendingClientSocket(bool should_connect, bool should_stall, int delay_ms)
+  MockPendingClientSocket(
+      const AddressList& addrlist,
+      bool should_connect,
+      bool should_stall,
+      int delay_ms)
       : method_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)),
         should_connect_(should_connect),
         should_stall_(should_stall),
         delay_ms_(delay_ms),
-        is_connected_(false) {}
+        is_connected_(false),
+        addrlist_(addrlist) {}
 
   // ClientSocket methods:
   virtual int Connect(CompletionCallback* callback) {
@@ -194,6 +219,7 @@ class MockPendingClientSocket : public ClientSocket {
   bool should_stall_;
   int delay_ms_;
   bool is_connected_;
+  const AddressList addrlist_;
   BoundNetLog net_log_;
 };
 
@@ -213,7 +239,8 @@ class MockClientSocketFactory : public ClientSocketFactory {
   MockClientSocketFactory()
       : allocation_count_(0), client_socket_type_(MOCK_CLIENT_SOCKET),
         client_socket_types_(NULL), client_socket_index_(0),
-        client_socket_index_max_(0) {}
+        client_socket_index_max_(0),
+        delay_ms_(ClientSocketPool::kMaxConnectRetryIntervalMs) {}
 
   virtual ClientSocket* CreateTCPClientSocket(
       const AddressList& addresses,
@@ -229,21 +256,20 @@ class MockClientSocketFactory : public ClientSocketFactory {
 
     switch (type) {
       case MOCK_CLIENT_SOCKET:
-        return new MockClientSocket();
+        return new MockClientSocket(addresses);
       case MOCK_FAILING_CLIENT_SOCKET:
-        return new MockFailingClientSocket();
+        return new MockFailingClientSocket(addresses);
       case MOCK_PENDING_CLIENT_SOCKET:
-        return new MockPendingClientSocket(true, false, 0);
+        return new MockPendingClientSocket(addresses, true, false, 0);
       case MOCK_PENDING_FAILING_CLIENT_SOCKET:
-        return new MockPendingClientSocket(false, false, 0);
+        return new MockPendingClientSocket(addresses, false, false, 0);
       case MOCK_DELAYED_CLIENT_SOCKET:
-        return new MockPendingClientSocket(true, false,
-            ClientSocketPool::kMaxConnectRetryIntervalMs);
+        return new MockPendingClientSocket(addresses, true, false, delay_ms_);
       case MOCK_STALLED_CLIENT_SOCKET:
-        return new MockPendingClientSocket(true, true, 0);
+        return new MockPendingClientSocket(addresses, true, true, 0);
       default:
         NOTREACHED();
-        return new MockClientSocket();
+        return new MockClientSocket(addresses);
     }
   }
 
@@ -278,12 +304,15 @@ class MockClientSocketFactory : public ClientSocketFactory {
     client_socket_index_max_ = num_types;
   }
 
+  void set_delay_ms(int delay_ms) { delay_ms_ = delay_ms; }
+
  private:
   int allocation_count_;
   ClientSocketType client_socket_type_;
   ClientSocketType* client_socket_types_;
   int client_socket_index_;
   int client_socket_index_max_;
+  int delay_ms_;
 };
 
 class TCPClientSocketPoolTest : public testing::Test {
@@ -333,6 +362,89 @@ class TCPClientSocketPoolTest : public testing::Test {
   TCPClientSocketPool pool_;
   ClientSocketPoolTest test_base_;
 };
+
+TEST(TCPConnectJobTest, MakeAddrListStartWithIPv4) {
+  IPAddressNumber ip_number;
+  ASSERT_TRUE(ParseIPLiteralToNumber("192.168.1.1", &ip_number));
+  AddressList addrlist_v4_1(ip_number, 80, false);
+  ASSERT_TRUE(ParseIPLiteralToNumber("192.168.1.2", &ip_number));
+  AddressList addrlist_v4_2(ip_number, 80, false);
+  ASSERT_TRUE(ParseIPLiteralToNumber("2001:4860:b006::64", &ip_number));
+  AddressList addrlist_v6_1(ip_number, 80, false);
+  ASSERT_TRUE(ParseIPLiteralToNumber("2001:4860:b006::66", &ip_number));
+  AddressList addrlist_v6_2(ip_number, 80, false);
+
+  AddressList addrlist;
+  const struct addrinfo* ai;
+
+  // Test 1: IPv4 only.  Expect no change.
+  addrlist.Copy(addrlist_v4_1.head(), true);
+  addrlist.Append(addrlist_v4_2.head());
+  TCPConnectJob::MakeAddrListStartWithIPv4(&addrlist);
+  ai = addrlist.head();
+  EXPECT_EQ(AF_INET, ai->ai_family);
+  ai = ai->ai_next;
+  EXPECT_EQ(AF_INET, ai->ai_family);
+  EXPECT_TRUE(ai->ai_next == NULL);
+
+  // Test 2: IPv6 only.  Expect no change.
+  addrlist.Copy(addrlist_v6_1.head(), true);
+  addrlist.Append(addrlist_v6_2.head());
+  TCPConnectJob::MakeAddrListStartWithIPv4(&addrlist);
+  ai = addrlist.head();
+  EXPECT_EQ(AF_INET6, ai->ai_family);
+  ai = ai->ai_next;
+  EXPECT_EQ(AF_INET6, ai->ai_family);
+  EXPECT_TRUE(ai->ai_next == NULL);
+
+  // Test 3: IPv4 then IPv6.  Expect no change.
+  addrlist.Copy(addrlist_v4_1.head(), true);
+  addrlist.Append(addrlist_v4_2.head());
+  addrlist.Append(addrlist_v6_1.head());
+  addrlist.Append(addrlist_v6_2.head());
+  TCPConnectJob::MakeAddrListStartWithIPv4(&addrlist);
+  ai = addrlist.head();
+  EXPECT_EQ(AF_INET, ai->ai_family);
+  ai = ai->ai_next;
+  EXPECT_EQ(AF_INET, ai->ai_family);
+  ai = ai->ai_next;
+  EXPECT_EQ(AF_INET6, ai->ai_family);
+  ai = ai->ai_next;
+  EXPECT_EQ(AF_INET6, ai->ai_family);
+  EXPECT_TRUE(ai->ai_next == NULL);
+
+  // Test 4: IPv6, IPv4, IPv6, IPv4.  Expect first IPv6 moved to the end.
+  addrlist.Copy(addrlist_v6_1.head(), true);
+  addrlist.Append(addrlist_v4_1.head());
+  addrlist.Append(addrlist_v6_2.head());
+  addrlist.Append(addrlist_v4_2.head());
+  TCPConnectJob::MakeAddrListStartWithIPv4(&addrlist);
+  ai = addrlist.head();
+  EXPECT_EQ(AF_INET, ai->ai_family);
+  ai = ai->ai_next;
+  EXPECT_EQ(AF_INET6, ai->ai_family);
+  ai = ai->ai_next;
+  EXPECT_EQ(AF_INET, ai->ai_family);
+  ai = ai->ai_next;
+  EXPECT_EQ(AF_INET6, ai->ai_family);
+  EXPECT_TRUE(ai->ai_next == NULL);
+
+  // Test 5: IPv6, IPv6, IPv4, IPv4.  Expect first two IPv6's moved to the end.
+  addrlist.Copy(addrlist_v6_1.head(), true);
+  addrlist.Append(addrlist_v6_2.head());
+  addrlist.Append(addrlist_v4_1.head());
+  addrlist.Append(addrlist_v4_2.head());
+  TCPConnectJob::MakeAddrListStartWithIPv4(&addrlist);
+  ai = addrlist.head();
+  EXPECT_EQ(AF_INET, ai->ai_family);
+  ai = ai->ai_next;
+  EXPECT_EQ(AF_INET, ai->ai_family);
+  ai = ai->ai_next;
+  EXPECT_EQ(AF_INET6, ai->ai_family);
+  ai = ai->ai_next;
+  EXPECT_EQ(AF_INET6, ai->ai_family);
+  EXPECT_TRUE(ai->ai_next == NULL);
+}
 
 TEST_F(TCPClientSocketPoolTest, Basic) {
   TestCompletionCallback callback;
@@ -764,7 +876,7 @@ TEST_F(TCPClientSocketPoolTest, BackupSocketConnect) {
 
     // Wait for the backup socket timer to fire.
     base::PlatformThread::Sleep(
-        ClientSocketPool::kMaxConnectRetryIntervalMs * 2);
+        ClientSocketPool::kMaxConnectRetryIntervalMs + 50);
 
     // Let the appropriate socket connect.
     MessageLoop::current()->RunAllPending();
@@ -910,6 +1022,137 @@ TEST_F(TCPClientSocketPoolTest, BackupSocketFailAfterDelay) {
 
   // Reset for the next case.
   host_resolver_->set_synchronous_mode(false);
+}
+
+// Test the case of the IPv6 address stalling, and falling back to the IPv4
+// socket which finishes first.
+TEST_F(TCPClientSocketPoolTest, IPv6FallbackSocketIPv4FinishesFirst) {
+  TCPClientSocketPool pool(1,
+                           1,
+                           histograms_.get(),
+                           host_resolver_.get(),
+                           &client_socket_factory_,
+                           NULL);
+
+  MockClientSocketFactory::ClientSocketType case_types[] = {
+    // This is the IPv6 socket.
+    MockClientSocketFactory::MOCK_STALLED_CLIENT_SOCKET,
+    // This is the IPv4 socket.
+    MockClientSocketFactory::MOCK_PENDING_CLIENT_SOCKET
+  };
+
+  client_socket_factory_.set_client_socket_types(case_types, 2);
+
+  // Resolve an AddressList with a IPv6 address first and then a IPv4 address.
+  host_resolver_->rules()->AddIPLiteralRule(
+      "*", "2:abcd::3:4:ff,2.2.2.2", "");
+
+  TestCompletionCallback callback;
+  ClientSocketHandle handle;
+  int rv = handle.Init("a", low_params_, LOW, &callback, &pool, BoundNetLog());
+  EXPECT_EQ(ERR_IO_PENDING, rv);
+  EXPECT_FALSE(handle.is_initialized());
+  EXPECT_FALSE(handle.socket());
+
+  EXPECT_EQ(OK, callback.WaitForResult());
+  EXPECT_TRUE(handle.is_initialized());
+  EXPECT_TRUE(handle.socket());
+  EXPECT_EQ(2, client_socket_factory_.allocation_count());
+}
+
+// Test the case of the IPv6 address being slow, thus falling back to trying to
+// connect to the IPv4 address, but having the connect to the IPv6 address
+// finish first.
+TEST_F(TCPClientSocketPoolTest, IPv6FallbackSocketIPv6FinishesFirst) {
+  TCPClientSocketPool pool(1,
+                           1,
+                           histograms_.get(),
+                           host_resolver_.get(),
+                           &client_socket_factory_,
+                           NULL);
+
+  MockClientSocketFactory::ClientSocketType case_types[] = {
+    // This is the IPv6 socket.
+    MockClientSocketFactory::MOCK_DELAYED_CLIENT_SOCKET,
+    // This is the IPv4 socket.
+    MockClientSocketFactory::MOCK_STALLED_CLIENT_SOCKET
+  };
+
+  client_socket_factory_.set_client_socket_types(case_types, 2);
+  client_socket_factory_.set_delay_ms(
+      TCPConnectJob::kIPv6FallbackTimerInMs + 50);
+
+  // Resolve an AddressList with a IPv6 address first and then a IPv4 address.
+  host_resolver_->rules()->AddIPLiteralRule(
+      "*", "2:abcd::3:4:ff,2.2.2.2", "");
+
+  TestCompletionCallback callback;
+  ClientSocketHandle handle;
+  int rv = handle.Init("a", low_params_, LOW, &callback, &pool, BoundNetLog());
+  EXPECT_EQ(ERR_IO_PENDING, rv);
+  EXPECT_FALSE(handle.is_initialized());
+  EXPECT_FALSE(handle.socket());
+
+  EXPECT_EQ(OK, callback.WaitForResult());
+  EXPECT_TRUE(handle.is_initialized());
+  EXPECT_TRUE(handle.socket());
+  EXPECT_EQ(2, client_socket_factory_.allocation_count());
+}
+
+TEST_F(TCPClientSocketPoolTest, IPv6NoIPv4AddressesToFallbackTo) {
+  TCPClientSocketPool pool(1,
+                           1,
+                           histograms_.get(),
+                           host_resolver_.get(),
+                           &client_socket_factory_,
+                           NULL);
+
+  client_socket_factory_.set_client_socket_type(
+      MockClientSocketFactory::MOCK_DELAYED_CLIENT_SOCKET);
+
+  // Resolve an AddressList with only IPv6 addresses.
+  host_resolver_->rules()->AddIPLiteralRule(
+      "*", "2:abcd::3:4:ff,3:abcd::3:4:ff", "");
+
+  TestCompletionCallback callback;
+  ClientSocketHandle handle;
+  int rv = handle.Init("a", low_params_, LOW, &callback, &pool, BoundNetLog());
+  EXPECT_EQ(ERR_IO_PENDING, rv);
+  EXPECT_FALSE(handle.is_initialized());
+  EXPECT_FALSE(handle.socket());
+
+  EXPECT_EQ(OK, callback.WaitForResult());
+  EXPECT_TRUE(handle.is_initialized());
+  EXPECT_TRUE(handle.socket());
+  EXPECT_EQ(1, client_socket_factory_.allocation_count());
+}
+
+TEST_F(TCPClientSocketPoolTest, IPv4HasNoFallback) {
+  TCPClientSocketPool pool(1,
+                           1,
+                           histograms_.get(),
+                           host_resolver_.get(),
+                           &client_socket_factory_,
+                           NULL);
+
+  client_socket_factory_.set_client_socket_type(
+      MockClientSocketFactory::MOCK_DELAYED_CLIENT_SOCKET);
+
+  // Resolve an AddressList with only IPv4 addresses.
+  host_resolver_->rules()->AddIPLiteralRule(
+      "*", "1.1.1.1", "");
+
+  TestCompletionCallback callback;
+  ClientSocketHandle handle;
+  int rv = handle.Init("a", low_params_, LOW, &callback, &pool, BoundNetLog());
+  EXPECT_EQ(ERR_IO_PENDING, rv);
+  EXPECT_FALSE(handle.is_initialized());
+  EXPECT_FALSE(handle.socket());
+
+  EXPECT_EQ(OK, callback.WaitForResult());
+  EXPECT_TRUE(handle.is_initialized());
+  EXPECT_TRUE(handle.socket());
+  EXPECT_EQ(1, client_socket_factory_.allocation_count());
 }
 
 }  // namespace
