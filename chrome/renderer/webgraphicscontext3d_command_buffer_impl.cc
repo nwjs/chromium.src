@@ -302,11 +302,13 @@ void* WebGraphicsContext3DCommandBufferImpl::mapBufferSubDataCHROMIUM(
     WGC3Dintptr offset,
     WGC3Dsizeiptr size,
     WGC3Denum access) {
+  makeContextCurrent();
   return glMapBufferSubDataCHROMIUM(target, offset, size, access);
 }
 
 void WebGraphicsContext3DCommandBufferImpl::unmapBufferSubDataCHROMIUM(
     const void* mem) {
+  makeContextCurrent();
   return glUnmapBufferSubDataCHROMIUM(mem);
 }
 
@@ -320,12 +322,14 @@ void* WebGraphicsContext3DCommandBufferImpl::mapTexSubImage2DCHROMIUM(
     WGC3Denum format,
     WGC3Denum type,
     WGC3Denum access) {
+  makeContextCurrent();
   return glMapTexSubImage2DCHROMIUM(
       target, level, xoffset, yoffset, width, height, format, type, access);
 }
 
 void WebGraphicsContext3DCommandBufferImpl::unmapTexSubImage2DCHROMIUM(
     const void* mem) {
+  makeContextCurrent();
   glUnmapTexSubImage2DCHROMIUM(mem);
 }
 
@@ -336,11 +340,13 @@ void WebGraphicsContext3DCommandBufferImpl::copyTextureToParentTextureCHROMIUM(
 
 WebKit::WebString WebGraphicsContext3DCommandBufferImpl::
     getRequestableExtensionsCHROMIUM() {
+  makeContextCurrent();
   return WebKit::WebString::fromUTF8(glGetRequestableExtensionsCHROMIUM());
 }
 
 void WebGraphicsContext3DCommandBufferImpl::requestExtensionCHROMIUM(
     const char* extension) {
+  makeContextCurrent();
   glRequestExtensionCHROMIUM(extension);
 }
 
@@ -348,6 +354,7 @@ void WebGraphicsContext3DCommandBufferImpl::blitFramebufferCHROMIUM(
     WGC3Dint srcX0, WGC3Dint srcY0, WGC3Dint srcX1, WGC3Dint srcY1,
     WGC3Dint dstX0, WGC3Dint dstY0, WGC3Dint dstX1, WGC3Dint dstY1,
     WGC3Dbitfield mask, WGC3Denum filter) {
+  makeContextCurrent();
   glBlitFramebufferEXT(srcX0, srcY0, srcX1, srcY1,
                        dstX0, dstY0, dstX1, dstY1,
                        mask, filter);
@@ -357,6 +364,7 @@ void WebGraphicsContext3DCommandBufferImpl::
     renderbufferStorageMultisampleCHROMIUM(
         WGC3Denum target, WGC3Dsizei samples, WGC3Denum internalformat,
         WGC3Dsizei width, WGC3Dsizei height) {
+  makeContextCurrent();
   glRenderbufferStorageMultisampleEXT(target, samples, internalformat,
                                       width, height);
 }
