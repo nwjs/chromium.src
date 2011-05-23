@@ -2709,6 +2709,13 @@ bool Extension::HasApiPermission(
 bool Extension::HasHostPermission(const GURL& url) const {
   for (URLPatternList::const_iterator host = host_permissions().begin();
        host != host_permissions().end(); ++host) {
+    // Non-component extensions can only access chrome://favicon and no other
+    // chrome:// scheme urls.
+    if (url.SchemeIs(chrome::kChromeUIScheme) &&
+        url.host() != chrome::kChromeUIFaviconHost &&
+        location() != Extension::COMPONENT)
+      return false;
+
     if (host->MatchesUrl(url))
       return true;
   }
@@ -2784,6 +2791,10 @@ bool Extension::CanExecuteScriptOnPage(const GURL& page_url,
       *error = errors::kCannotScriptGallery;
     return false;
   }
+
+  if (page_url.SchemeIs(chrome::kChromeUIScheme) &&
+      !CanExecuteScriptEverywhere())
+    return false;
 
   // If a script is specified, use its matches.
   if (script)
