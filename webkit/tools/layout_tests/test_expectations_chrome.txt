@@ -1221,4 +1221,4 @@ BUG_OFFICIALGOGREEN WIN : fast/block/float/float-not-removed-from-next-sibling3.
 BUG_OFFICIALGOGREEN WIN : fast/block/float/float-not-removed-from-next-sibling4.html = IMAGE
 BUG_OFFICIALGOGREEN WIN : fast/block/positioning/hiding-inside-relpositioned-inline.html = IMAGE+TEXT
 BUG_OFFICIALGOGREEN MAC WIN LINUX : fast/inline/nested-top-alignment.html = IMAGE+TEXT
-
+BUG_OFFICIALGOGREEN MAC WIN LINUX : fast/dom/prototype-inheritance.html = TEXT
