@@ -222,9 +222,8 @@ int OpaqueBrowserFrameView::NonClientTopBorderHeight(
 
 gfx::Rect OpaqueBrowserFrameView::GetBoundsForTabStrip(
     views::View* tabstrip) const {
-  if (!tabstrip) {
+  if (!tabstrip)
     return gfx::Rect();
-  }
 
   if (browser_view_->UseVerticalTabs()) {
     gfx::Size ps = tabstrip->GetPreferredSize();
@@ -240,11 +239,8 @@ gfx::Rect OpaqueBrowserFrameView::GetBoundsForTabStrip(
   int tabstrip_width = minimize_button_->x() - tabstrip_x -
       (frame_->GetWindow()->IsMaximized() ?
       kNewTabCaptionMaximizedSpacing : kNewTabCaptionRestoredSpacing);
-  int tabstrip_height = 0;
-  if (tabstrip)
-    tabstrip_height = tabstrip->GetPreferredSize().height();
   return gfx::Rect(tabstrip_x, GetHorizontalTabStripVerticalOffset(false),
-                   std::max(0, tabstrip_width), tabstrip_height);
+      std::max(0, tabstrip_width), tabstrip->GetPreferredSize().height());
 }
 
 int OpaqueBrowserFrameView::GetHorizontalTabStripVerticalOffset(
@@ -413,16 +409,16 @@ bool OpaqueBrowserFrameView::HitTest(const gfx::Point& l) const {
     return in_nonclient;
 
   // Otherwise claim it only if it's in a non-tab portion of the tabstrip.
-  bool vertical_tabs = browser_view_->UseVerticalTabs();
-  gfx::Rect tabstrip_bounds = GetBoundsForTabStrip(browser_view_->tabstrip());
+  if (!browser_view_->tabstrip())
+    return false;
+  gfx::Rect tabstrip_bounds(browser_view_->tabstrip()->bounds());
   gfx::Point tabstrip_origin(tabstrip_bounds.origin());
   View::ConvertPointToView(frame_->GetWindow()->client_view(),
                            this, &tabstrip_origin);
   tabstrip_bounds.set_origin(tabstrip_origin);
-  if ((!vertical_tabs && l.y() > tabstrip_bounds.bottom()) ||
-      (vertical_tabs && l.x() > tabstrip_bounds.right())) {
+  if (browser_view_->UseVerticalTabs() ?
+      (l.x() > tabstrip_bounds.right()) : (l.y() > tabstrip_bounds.bottom()))
     return false;
-  }
 
   // We convert from our parent's coordinates since we assume we fill its bounds
   // completely. We need to do this since we're not a parent of the tabstrip,
