@@ -93,6 +93,8 @@ void UpdateScreen::UpdateStatusChanged(UpdateLibrary* library) {
       } else {
         LOG(INFO) << "Critical update available: "
                   << library->status().new_version;
+        view()->ShowPreparingUpdatesInfo(true);
+        view()->ShowCurtain(false);
       }
       break;
     case UPDATE_STATUS_DOWNLOADING:
@@ -111,6 +113,7 @@ void UpdateScreen::UpdateStatusChanged(UpdateLibrary* library) {
                       << library->status().new_version;
           }
         }
+        view()->ShowPreparingUpdatesInfo(false);
         view()->ShowCurtain(false);
         int download_progress = static_cast<int>(
             library->status().download_progress * kDownloadProgressIncrement);
