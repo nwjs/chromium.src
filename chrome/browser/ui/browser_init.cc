@@ -41,7 +41,7 @@
 #include "chrome/browser/sessions/session_restore.h"
 #include "chrome/browser/sessions/session_service.h"
 #include "chrome/browser/shell_integration.h"
-#include "chrome/browser/tab_contents/confirm_infobar_delegate.h"
+#include "chrome/browser/tab_contents/link_infobar_delegate.h"
 #include "chrome/browser/tab_contents/simple_alert_infobar_delegate.h"
 #include "chrome/browser/tabs/pinned_tab_codec.h"
 #include "chrome/browser/tabs/tab_strip_model.h"
@@ -77,7 +77,7 @@
 #include "chrome/browser/ui/cocoa/keystone_infobar.h"
 #endif
 
-#if defined(TOOLKIT_GTK)
+#if defined(TOOLKIT_USES_GTK)
 #include "chrome/browser/ui/gtk/gtk_util.h"
 #endif
 
@@ -1036,6 +1036,7 @@ void BrowserInit::LaunchWithProfile::AddInfoBarsIfNecessary(Browser* browser) {
   AddCrashedInfoBarIfNecessary(tab_contents);
   AddBadFlagsInfoBarIfNecessary(tab_contents);
   AddDNSCertProvenanceCheckingWarningInfoBarIfNecessary(tab_contents);
+  AddObsoleteSystemInfoBarIfNecessary(tab_contents);
 }
 
 void BrowserInit::LaunchWithProfile::AddCrashedInfoBarIfNecessary(
@@ -1082,50 +1083,93 @@ void BrowserInit::LaunchWithProfile::AddBadFlagsInfoBarIfNecessary(
   }
 }
 
-class DNSCertProvenanceCheckingInfoBar : public ConfirmInfoBarDelegate {
+class LearnMoreInfoBar : public LinkInfoBarDelegate {
  public:
-  explicit DNSCertProvenanceCheckingInfoBar(TabContents* tab_contents)
-      : ConfirmInfoBarDelegate(tab_contents),
-        tab_contents_(tab_contents) {
-  }
+  explicit LearnMoreInfoBar(TabContents* tab_contents,
+                            const string16& message,
+                            const GURL& url);
+  virtual ~LearnMoreInfoBar();
 
-  virtual string16 GetMessageText() const {
-    return l10n_util::GetStringUTF16(
-        IDS_DNS_CERT_PROVENANCE_CHECKING_WARNING_MESSAGE);
-  }
-
-  virtual int GetButtons() const {
-    return BUTTON_OK;
-  }
-
-  virtual string16 GetButtonLabel(InfoBarButton button) const {
-    return l10n_util::GetStringUTF16(IDS_LEARN_MORE);
-  }
-
-  virtual bool Accept() {
-    tab_contents_->OpenURL(GURL(kLearnMoreURL), GURL(), NEW_FOREGROUND_TAB,
-                           PageTransition::AUTO_BOOKMARK);
-    return true;
-  }
+  virtual string16 GetMessageTextWithOffset(size_t* link_offset) const OVERRIDE;
+  virtual string16 GetLinkText() const OVERRIDE;
+  virtual bool LinkClicked(WindowOpenDisposition disposition) OVERRIDE;
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(DNSCertProvenanceCheckingInfoBar);
-
-  static const char kLearnMoreURL[];
   TabContents* const tab_contents_;
+  string16 message_;
+  GURL learn_more_url_;
+
+  DISALLOW_COPY_AND_ASSIGN(LearnMoreInfoBar);
 };
+
+LearnMoreInfoBar::LearnMoreInfoBar(TabContents* tab_contents,
+                                   const string16& message,
+                                   const GURL& url)
+    : LinkInfoBarDelegate(tab_contents),
+      tab_contents_(tab_contents),
+      message_(message),
+      learn_more_url_(url) {
+}
+
+LearnMoreInfoBar::~LearnMoreInfoBar() {
+}
+
+string16 LearnMoreInfoBar::GetMessageTextWithOffset(size_t* link_offset) const {
+  string16 text = message_;
+  text.push_back(' ');  // Add a space before the following link.
+  *link_offset = text.size();
+  return text;
+}
+
+string16 LearnMoreInfoBar::GetLinkText() const {
+  return l10n_util::GetStringUTF16(IDS_LEARN_MORE);
+}
+
+bool LearnMoreInfoBar::LinkClicked(WindowOpenDisposition disposition) {
+  tab_contents_->OpenURL(learn_more_url_, GURL(), disposition,
+                         PageTransition::LINK);
+  return false;
+}
 
 // This is the page which provides information on DNS certificate provenance
 // checking.
-const char DNSCertProvenanceCheckingInfoBar::kLearnMoreURL[] =
-    "http://dev.chromium.org/dnscertprovenancechecking";
-
 void BrowserInit::LaunchWithProfile::
     AddDNSCertProvenanceCheckingWarningInfoBarIfNecessary(TabContents* tab) {
   if (!command_line_.HasSwitch(switches::kEnableDNSCertProvenanceChecking))
     return;
 
-  tab->AddInfoBar(new DNSCertProvenanceCheckingInfoBar(tab));
+  const char* kLearnMoreURL =
+      "http://dev.chromium.org/dnscertprovenancechecking";
+  string16 message = l10n_util::GetStringUTF16(
+      IDS_DNS_CERT_PROVENANCE_CHECKING_WARNING_MESSAGE);
+  tab->AddInfoBar(new LearnMoreInfoBar(tab,
+                                       message,
+                                       GURL(kLearnMoreURL)));
+}
+
+void BrowserInit::LaunchWithProfile::AddObsoleteSystemInfoBarIfNecessary(
+    TabContents* tab) {
+#if defined(TOOLKIT_USES_GTK)
+  // We've deprecated support for Ubuntu Hardy.  Rather than attempting to
+  // determine whether you're using that, we instead key off the GTK version;
+  // this will also deprecate other distributions (including variants of Ubuntu)
+  // that are of a similar age.
+  // Version key:
+  //   Ubuntu Hardy: GTK 2.12
+  //   RHEL 6:       GTK 2.18
+  //   Ubuntu Lucid: GTK 2.20
+  if (gtk_check_version(2, 18, 0)) {
+    string16 message =
+        l10n_util::GetStringFUTF16(IDS_SYSTEM_OBSOLETE_MESSAGE,
+                                   l10n_util::GetStringUTF16(IDS_PRODUCT_NAME));
+    // Link to an article in the help center on minimum system requirements.
+    const char* kLearnMoreURL =
+        "http://www.google.com/support/chrome/bin/answer.py?answer=95411";
+    tab->AddInfoBar(new LearnMoreInfoBar(tab,
+                                         message,
+                                         GURL(kLearnMoreURL)));
+  }
+#endif
 }
 
 void BrowserInit::LaunchWithProfile::AddStartupURLs(
