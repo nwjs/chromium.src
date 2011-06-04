@@ -1083,3 +1083,4 @@ BUG_OFFICALGOGREEN LINUX : svg/dynamic-updates/SVGFECompositeElement-svgdom-in2-
 BUG_OFFICALGOGREEN LINUX : tables/mozilla/bugs/bug1188.html = TIMEOUT
 BUG_OFFICALGOGREEN MAC : fast/table/table-and-parts-outline.html = IMAGE
 BUG_OFFICALGOGREEN MAC : svg/css/path-gradient-stroke-shadow.svg = IMAGE
+BUG_OFFICALGOGREEN MAC WIN LINUX : fast/events/onload-after-document-close-with-subresource.html = TEXT
