@@ -145,8 +145,6 @@ class FormField {
       std::vector<AutofillField*>::const_iterator* iter,
       const string16& pattern,
       AutofillField** dest);
-  static bool MatchName(AutofillField* field, const string16& pattern);
-  static bool MatchLabel(AutofillField* field, const string16& pattern);
 
   DISALLOW_COPY_AND_ASSIGN(FormField);
 };
@@ -167,5 +165,14 @@ class FormFieldSet : public std::vector<FormField*> {
 
   DISALLOW_COPY_AND_ASSIGN(FormFieldSet);
 };
+
+// Parsing utilities.
+namespace autofill {
+
+// Case-insensitive regular expression matching.
+// Returns true if |pattern| is found in |input|.
+bool MatchString(const string16& input, const string16& pattern);
+
+}  // namespace autofill
 
 #endif  // CHROME_BROWSER_AUTOFILL_FORM_FIELD_H_
