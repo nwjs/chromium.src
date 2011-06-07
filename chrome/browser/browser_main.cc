@@ -148,6 +148,7 @@
 #include "chrome/browser/chromeos/system_key_event_listener.h"
 #include "chrome/browser/chromeos/xinput_hierarchy_changed_event_listener.h"
 #include "chrome/browser/oom_priority_manager.h"
+#include "chrome/browser/platform_util.h"
 #include "chrome/browser/ui/views/browser_dialogs.h"
 #endif
 
@@ -1189,12 +1190,18 @@ DLLEXPORT void __cdecl RelaunchChromeBrowserWithNewCommandLineIfNeeded() {
 #if defined(USE_LINUX_BREAKPAD)
 bool IsMetricsReportingEnabled(const PrefService* local_state) {
   // Check whether we should initialize the crash reporter. It may be disabled
-  // through configuration policy or user preference.
+  // through configuration policy or user preference. It must be disabled for
+  // Guest mode on Chrome OS in Stable channel.
   // The kHeadless environment variable overrides the decision, but only if the
   // crash service is under control of the user. It is used by QA testing
   // infrastructure to switch on generation of crash reports.
 #if defined(OS_CHROMEOS)
+  bool is_guest_session =
+      CommandLine::ForCurrentProcess()->HasSwitch(switches::kGuestSession);
+  bool is_stable_channel =
+      platform_util::GetChannel() == platform_util::CHANNEL_STABLE;
   bool breakpad_enabled =
+      !(is_guest_session && is_stable_channel) &&
       chromeos::MetricsCrosSettingsProvider::GetMetricsStatus();
   if (!breakpad_enabled)
     breakpad_enabled = getenv(env_vars::kHeadless) != NULL;
