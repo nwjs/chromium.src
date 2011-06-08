@@ -68,7 +68,7 @@ class ContentSettingsPattern {
     virtual ContentSettingsPattern Build() = 0;
   };
 
-  static BuilderInterface* CreateBuilder();
+  static BuilderInterface* CreateBuilder(bool use_legacy_validate);
 
   // The version of the pattern format implemented.
   static const int kContentSettingsPatternVersion;
@@ -87,8 +87,12 @@ class ContentSettingsPattern {
   // all subdomains and ports.
   static ContentSettingsPattern FromURL(const GURL& url);
 
+  static ContentSettingsPattern LegacyFromURL(const GURL& url);
+
   // Returns a pattern that matches exactly this URL.
   static ContentSettingsPattern FromURLNoWildcard(const GURL& url);
+
+  static ContentSettingsPattern LegacyFromURLNoWildcard(const GURL& url);
 
   // Returns a pattern that matches the given pattern specification.
   // Valid patterns specifications are:
@@ -100,6 +104,9 @@ class ContentSettingsPattern {
   //   - a.b.c.d (matches an exact IPv4 ip)
   //   - [a:b:c:d:e:f:g:h] (matches an exact IPv6 ip)
   static ContentSettingsPattern FromString(const std::string& pattern_spec);
+
+  static ContentSettingsPattern LegacyFromString(
+      const std::string& pattern_spec);
 
   // Constructs an empty pattern. Empty patterns are invalid patterns. Invalid
   // patterns match nothing.
@@ -163,7 +170,7 @@ class ContentSettingsPattern {
 
   class Builder : public BuilderInterface {
     public:
-     Builder();
+     explicit Builder(bool use_legacy_validate);
      virtual ~Builder();
 
      // Overrides BuilderInterface
@@ -189,7 +196,14 @@ class ContentSettingsPattern {
      // in original (if it was already ASCII) or punycode form.
      static void Canonicalize(PatternParts* parts);
 
-     bool invalid_;
+     // Returns true when the pattern |parts| represent a valid pattern.
+     static bool Validate(const PatternParts& parts);
+
+     static bool LegacyValidate(const PatternParts& parts);
+
+     bool is_valid_;
+
+     bool use_legacy_validate_;
 
      PatternParts parts_;
 
@@ -210,7 +224,7 @@ class ContentSettingsPattern {
 
   static bool Validate(const PatternParts& parts);
 
-  explicit ContentSettingsPattern(const PatternParts& parts);
+  ContentSettingsPattern(const PatternParts& parts, bool valid);
 
   PatternParts parts_;
 
