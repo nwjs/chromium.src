@@ -1999,8 +1999,10 @@ FileManager.prototype = {
         if (this.selection.totalCount == 1 &&
             this.selection.leadEntry.isDirectory &&
             this.dialogType_ != FileManager.SELECT_FOLDER) {
+          event.preventDefault();
           this.changeDirectory(this.selection.leadEntry.fullPath);
         } else if (!this.okButton_.disabled) {
+          event.preventDefault();
           this.onOk_();
         }
         break;
