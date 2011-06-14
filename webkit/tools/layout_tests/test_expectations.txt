@@ -50,3 +50,5 @@ BUGDPRANKE WIN DEBUG : svg/custom/font-platformDestroy-crash.svg = CRASH
 BUGDPRANKE WIN DEBUG : http/tests/navigation/forward-to-fragment-fires-onload.html = TIMEOUT PASS
 BUGDPRANKE WIN DEBUG : perf/mouse-event.html = TEXT TIMEOUT PASS
 
+// Fullscreen is disabled for Chrome 12 branch. 
+BUGCR82954 SKIP : fullscreen = TIMEOUT FAIL
