@@ -93,7 +93,7 @@ static const VersionRangeDefinition kQuicktimeVersionRange[] = {
     { "", "", "7.6.9", true }
 };
 static const VersionRangeDefinition kJavaVersionRange[] = {
-    { "0", "7", "6.0.240", true }  // "240" is not a typo.
+    { "0", "7", "6.0.260", true }  // "260" is not a typo.
 };
 // This is up to date with
 // http://www.adobe.com/support/security/bulletins/apsb11-08.html
