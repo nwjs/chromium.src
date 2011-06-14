@@ -26,3 +26,5 @@ BUGADAMK WIN : svg/zoom/page/zoom-foreignObject.svg = IMAGE TEXT IMAGE+TEXT
 // new expectations.
 BUGRICOW : fast/js/property-getters-and-setters.html = TEXT
 
+// Fullscreen is disabled for Chrome 13 branch. 
+BUGCR82954 SKIP : fullscreen = TIMEOUT FAIL
