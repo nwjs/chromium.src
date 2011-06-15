@@ -186,7 +186,7 @@
           <input id="sslUseSSL3" type="checkbox">
           <span i18n-content="sslUseSSL3"></span>
         </label>
-      </div>
+      </div> 
       <div class="checkbox">
         <label>
           <input id="sslUseTLS1" type="checkbox">
@@ -195,6 +195,20 @@
       </div>
     </div>
   </section>
+</if>
+<if expr="pp_ifdef('chromeos')">
+  <section id="cloud-print-proxy-section">
+    <h3 i18n-content="advancedSectionTitleCloudPrint"></h3>
+    <div>
+      <div id="Div1"
+           i18n-content="cloudPrintOptionsStaticLabel"></div>
+      <div class="section-group">
+        <button id="cloudPrintProxyManageButton"
+                i18n-content="cloudPrintProxyEnabledManageButton"></button>
+      </div>
+    </div>
+  </section>
+</if>
 <if expr="not pp_ifdef('chromeos')">
   <section id="cloud-print-proxy-section">
     <h3 i18n-content="advancedSectionTitleCloudPrint"></h3>
