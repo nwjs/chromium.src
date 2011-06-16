@@ -398,6 +398,9 @@ void ProfileSyncService::Shutdown(bool sync_disabled) {
     data_type_manager_.reset();
   }
 
+  // Shutdown the migrator before the backend to ensure it doesn't pull a null
+  // snapshot.
+  migrator_.reset();
   js_event_handlers_.RemoveBackend();
 
   // Move aside the backend so nobody else tries to use it while we are

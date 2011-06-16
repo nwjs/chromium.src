@@ -1255,6 +1255,8 @@ class SyncManager::SyncInternal
   bool IsUsingExplicitPassphrase();
 
   // Set the datatypes we want to encrypt and encrypt any nodes as necessary.
+  // Note: |encrypted_types| will be unioned with the current set of encrypted
+  // types, as we do not currently support decrypting datatypes.
   void EncryptDataTypes(const syncable::ModelTypeSet& encrypted_types);
 
   // Try to set the current passphrase to |passphrase|, and record whether
