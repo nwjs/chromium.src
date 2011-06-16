@@ -65,12 +65,6 @@ class VPNConfigView : public ChildNetworkConfigView,
   // Update the error text label.
   void UpdateErrorLabel();
 
-  // Returns true if the provider type requires a user certificate.
-  bool UserCertRequired() const;
-
-  // Returns true if there is at least one user certificate installed.
-  bool HaveUserCerts() const;
-
   // Get text from input field.
   const std::string GetTextFromField(views::Textfield* textfield,
                                      bool trim_whitespace) const;
@@ -81,8 +75,6 @@ class VPNConfigView : public ChildNetworkConfigView,
   const std::string GetPSKPassphrase() const;
   const std::string GetUsername() const;
   const std::string GetUserPassphrase() const;
-  const std::string GetServerCACertNssNickname() const;
-  const std::string GetUserCertID() const;
 
   std::string server_hostname_;
   string16 service_name_from_server_;
@@ -97,10 +89,6 @@ class VPNConfigView : public ChildNetworkConfigView,
   views::Label* provider_type_text_label_;
   views::Label* psk_passphrase_label_;
   views::Textfield* psk_passphrase_textfield_;
-  views::Label* user_cert_label_;
-  views::Combobox* user_cert_combobox_;
-  views::Label* server_ca_cert_label_;
-  views::Combobox* server_ca_cert_combobox_;
   views::Textfield* username_textfield_;
   views::Textfield* user_passphrase_textfield_;
   views::Label* error_label_;
