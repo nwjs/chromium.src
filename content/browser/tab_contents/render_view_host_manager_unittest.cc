@@ -75,7 +75,6 @@ TEST_F(RenderViewHostManagerTest, NewTabPageProcesses) {
   ntp_rvh2->TestOnMessageReceived(
       ViewHostMsg_ShouldClose_ACK(ntp_rvh2->routing_id(), true));
   dest_rvh2->SendNavigate(101, dest);
-  ntp_rvh2->OnClosePageACK(true);
 
   // The two RVH's should be different in every way.
   EXPECT_NE(active_rvh()->process(), contents2.render_view_host()->process());
