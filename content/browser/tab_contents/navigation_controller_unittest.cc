@@ -245,7 +245,11 @@ TEST_F(NavigationControllerTest, LoadURL) {
   EXPECT_FALSE(controller().CanGoForward());
   EXPECT_EQ(contents()->GetMaxPageID(), 0);
 
-  rvh()->SendNavigate(1, url2);
+  // Simulate the beforeunload ack for the cross-site transition, and then the
+  // commit.
+  rvh()->TestOnMessageReceived(
+      ViewHostMsg_ShouldClose_ACK(rvh()->routing_id(), true));
+  contents()->pending_rvh()->SendNavigate(1, url2);
   EXPECT_TRUE(notifications.Check1AndReset(
       NotificationType::NAV_ENTRY_COMMITTED));
 
@@ -369,9 +373,11 @@ TEST_F(NavigationControllerTest, LoadURL_NewPending) {
                                   PageTransition::TYPED);
   EXPECT_EQ(0U, notifications.size());
 
-  // Before that commits, do a new navigation.
+  // After the beforeunload but before it commits, do a new navigation.
+  rvh()->TestOnMessageReceived(
+      ViewHostMsg_ShouldClose_ACK(rvh()->routing_id(), true));
   const GURL kNewURL("http://see");
-  rvh()->SendNavigate(3, kNewURL);
+  contents()->pending_rvh()->SendNavigate(3, kNewURL);
 
   // There should no longer be any pending entry, and the third navigation we
   // just made should be committed.
@@ -390,14 +396,14 @@ TEST_F(NavigationControllerTest, LoadURL_ExistingPending) {
   RegisterForAllNavNotifications(&notifications, &controller());
 
   // First make some history.
-  const GURL kExistingURL1("http://eh");
+  const GURL kExistingURL1("http://foo/eh");
   controller().LoadURL(kExistingURL1, GURL(),
                                   PageTransition::TYPED);
   rvh()->SendNavigate(0, kExistingURL1);
   EXPECT_TRUE(notifications.Check1AndReset(
       NotificationType::NAV_ENTRY_COMMITTED));
 
-  const GURL kExistingURL2("http://bee");
+  const GURL kExistingURL2("http://foo/bee");
   controller().LoadURL(kExistingURL2, GURL(),
                                   PageTransition::TYPED);
   rvh()->SendNavigate(1, kExistingURL2);
@@ -412,7 +418,7 @@ TEST_F(NavigationControllerTest, LoadURL_ExistingPending) {
   EXPECT_EQ(1, controller().last_committed_entry_index());
 
   // Before that commits, do a new navigation.
-  const GURL kNewURL("http://see");
+  const GURL kNewURL("http://foo/see");
   NavigationController::LoadCommittedDetails details;
   rvh()->SendNavigate(3, kNewURL);
 
@@ -433,20 +439,20 @@ TEST_F(NavigationControllerTest, LoadURL_BackPreemptsPending) {
   RegisterForAllNavNotifications(&notifications, &controller());
 
   // First make some history.
-  const GURL kExistingURL1("http://eh");
+  const GURL kExistingURL1("http://foo/eh");
   controller().LoadURL(kExistingURL1, GURL(), PageTransition::TYPED);
   rvh()->SendNavigate(0, kExistingURL1);
   EXPECT_TRUE(notifications.Check1AndReset(
       NotificationType::NAV_ENTRY_COMMITTED));
 
-  const GURL kExistingURL2("http://bee");
+  const GURL kExistingURL2("http://foo/bee");
   controller().LoadURL(kExistingURL2, GURL(), PageTransition::TYPED);
   rvh()->SendNavigate(1, kExistingURL2);
   EXPECT_TRUE(notifications.Check1AndReset(
       NotificationType::NAV_ENTRY_COMMITTED));
 
   // Now make a pending new navigation.
-  const GURL kNewURL("http://see");
+  const GURL kNewURL("http://foo/see");
   controller().LoadURL(kNewURL, GURL(), PageTransition::TYPED);
   EXPECT_EQ(0U, notifications.size());
   EXPECT_EQ(-1, controller().pending_entry_index());
@@ -616,9 +622,9 @@ TEST_F(NavigationControllerTest, Back_GeneratesNewPage) {
   TestNotificationTracker notifications;
   RegisterForAllNavNotifications(&notifications, &controller());
 
-  const GURL url1("http://foo1");
-  const GURL url2("http://foo2");
-  const GURL url3("http://foo3");
+  const GURL url1("http://foo/1");
+  const GURL url2("http://foo/2");
+  const GURL url3("http://foo/3");
 
   controller().LoadURL(url1, GURL(), PageTransition::TYPED);
   rvh()->SendNavigate(0, url1);
@@ -1509,13 +1515,13 @@ TEST_F(NavigationControllerTest, Interstitial) {
 }
 
 TEST_F(NavigationControllerTest, RemoveEntry) {
-  const GURL url1("http://foo1");
-  const GURL url2("http://foo2");
-  const GURL url3("http://foo3");
-  const GURL url4("http://foo4");
-  const GURL url5("http://foo5");
-  const GURL pending_url("http://pending");
-  const GURL default_url("http://default");
+  const GURL url1("http://foo/1");
+  const GURL url2("http://foo/2");
+  const GURL url3("http://foo/3");
+  const GURL url4("http://foo/4");
+  const GURL url5("http://foo/5");
+  const GURL pending_url("http://foo/pending");
+  const GURL default_url("http://foo/default");
 
   controller().LoadURL(url1, GURL(), PageTransition::TYPED);
   rvh()->SendNavigate(0, url1);
@@ -1572,12 +1578,12 @@ TEST_F(NavigationControllerTest, TransientEntry) {
   TestNotificationTracker notifications;
   RegisterForAllNavNotifications(&notifications, &controller());
 
-  const GURL url0("http://foo0");
-  const GURL url1("http://foo1");
-  const GURL url2("http://foo2");
-  const GURL url3("http://foo3");
-  const GURL url4("http://foo4");
-  const GURL transient_url("http://transient");
+  const GURL url0("http://foo/0");
+  const GURL url1("http://foo/1");
+  const GURL url2("http://foo/2");
+  const GURL url3("http://foo/3");
+  const GURL url4("http://foo/4");
+  const GURL transient_url("http://foo/transient");
 
   controller().LoadURL(url0, GURL(), PageTransition::TYPED);
   rvh()->SendNavigate(0, url0);
@@ -2031,9 +2037,9 @@ TEST_F(NavigationControllerTest, CopyStateFromAndPrune6) {
 // Tests that navigations initiated from the page (with the history object)
 // work as expected without navigation entries.
 TEST_F(NavigationControllerTest, HistoryNavigate) {
-  const GURL url1("http://foo1");
-  const GURL url2("http://foo2");
-  const GURL url3("http://foo3");
+  const GURL url1("http://foo/1");
+  const GURL url2("http://foo/2");
+  const GURL url3("http://foo/3");
 
   NavigateAndCommit(url1);
   NavigateAndCommit(url2);
@@ -2088,9 +2094,9 @@ TEST_F(NavigationControllerTest, PruneAllButActiveForSingle) {
 
 // Test call to PruneAllButActive for last entry.
 TEST_F(NavigationControllerTest, PruneAllButActiveForLast) {
-  const GURL url1("http://foo1");
-  const GURL url2("http://foo2");
-  const GURL url3("http://foo3");
+  const GURL url1("http://foo/1");
+  const GURL url2("http://foo/2");
+  const GURL url3("http://foo/3");
 
   NavigateAndCommit(url1);
   NavigateAndCommit(url2);
@@ -2107,9 +2113,9 @@ TEST_F(NavigationControllerTest, PruneAllButActiveForLast) {
 
 // Test call to PruneAllButActive for intermediate entry.
 TEST_F(NavigationControllerTest, PruneAllButActiveForIntermediate) {
-  const GURL url1("http://foo1");
-  const GURL url2("http://foo2");
-  const GURL url3("http://foo3");
+  const GURL url1("http://foo/1");
+  const GURL url2("http://foo/2");
+  const GURL url3("http://foo/3");
 
   NavigateAndCommit(url1);
   NavigateAndCommit(url2);
@@ -2125,9 +2131,9 @@ TEST_F(NavigationControllerTest, PruneAllButActiveForIntermediate) {
 
 // Test call to PruneAllButActive for intermediate entry.
 TEST_F(NavigationControllerTest, PruneAllButActiveForPending) {
-  const GURL url1("http://foo1");
-  const GURL url2("http://foo2");
-  const GURL url3("http://foo3");
+  const GURL url1("http://foo/1");
+  const GURL url2("http://foo/2");
+  const GURL url3("http://foo/3");
 
   NavigateAndCommit(url1);
   NavigateAndCommit(url2);
@@ -2141,9 +2147,9 @@ TEST_F(NavigationControllerTest, PruneAllButActiveForPending) {
 
 // Test call to PruneAllButActive for transient entry.
 TEST_F(NavigationControllerTest, PruneAllButActiveForTransient) {
-  const GURL url0("http://foo0");
-  const GURL url1("http://foo1");
-  const GURL transient_url("http://transient");
+  const GURL url0("http://foo/0");
+  const GURL url1("http://foo/1");
+  const GURL transient_url("http://foo/transient");
 
   controller().LoadURL(url0, GURL(), PageTransition::TYPED);
   rvh()->SendNavigate(0, url0);

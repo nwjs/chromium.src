@@ -15,6 +15,7 @@
 #include "content/common/notification_details.h"
 #include "content/common/notification_source.h"
 #include "content/common/page_transition_types.h"
+#include "content/common/view_messages.h"
 
 TestTabContents::TestTabContents(Profile* profile, SiteInstance* instance)
     : TabContents(profile, instance, MSG_ROUTING_NONE, NULL, NULL),
@@ -103,5 +104,8 @@ void TestTabContents::CommitPendingNavigation() {
 void TestTabContents::ProceedWithCrossSiteNavigation() {
   if (!pending_rvh())
     return;
-  render_manager_.ShouldClosePage(true, true);
+  TestRenderViewHost* rvh = static_cast<TestRenderViewHost*>(
+      render_manager_.current_host());
+  rvh->TestOnMessageReceived(
+      ViewHostMsg_ShouldClose_ACK(rvh->routing_id(), true));
 }
