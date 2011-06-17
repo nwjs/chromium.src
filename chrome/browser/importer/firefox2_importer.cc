@@ -266,9 +266,11 @@ void Firefox2Importer::ImportBookmarksFile(
         entry.title = folder_title;
         if (import_to_bookmark_bar && toolbar_folder) {
           // Flatten the folder in toolbar.
-          entry.in_toolbar = true;
-          entry.path.assign(path.begin() + toolbar_folder, path.end());
-          toolbar_bookmarks.push_back(entry);
+          if (toolbar_folder <= path.size()) {
+            entry.in_toolbar = true;
+            entry.path.assign(path.begin() + toolbar_folder, path.end());
+            toolbar_bookmarks.push_back(entry);
+          }
         } else {
           // Insert the folder into the "Imported from Firefox" folder.
           entry.path.assign(path.begin(), path.end());
