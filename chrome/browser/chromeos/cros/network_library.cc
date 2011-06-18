@@ -679,7 +679,7 @@ static ConnectionError ParseError(const std::string& error) {
     { kErrorAaaFailed, ERROR_AAA_FAILED },
   };
   static StringToEnum<ConnectionError> parser(
-      table, arraysize(table), ERROR_UNKNOWN);
+      table, arraysize(table), ERROR_NO_ERROR);
   return parser.Get(error);
 }
 
@@ -1201,8 +1201,9 @@ std::string Network::GetStateString() const {
 
 std::string Network::GetErrorString() const {
   switch (error_) {
-    case ERROR_UNKNOWN:
-      return l10n_util::GetStringUTF8(IDS_CHROMEOS_NETWORK_ERROR_UNKNOWN);
+    case ERROR_NO_ERROR:
+      // TODO(nkostylev): Introduce new error message "None" instead.
+      return std::string();
     case ERROR_OUT_OF_RANGE:
       return l10n_util::GetStringUTF8(IDS_CHROMEOS_NETWORK_ERROR_OUT_OF_RANGE);
     case ERROR_PIN_MISSING:

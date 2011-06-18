@@ -129,7 +129,7 @@ enum PinOperationError {
 
 // connection errors (see flimflam/include/service.h)
 enum ConnectionError {
-  ERROR_UNKNOWN           = 0,
+  ERROR_NO_ERROR          = 0,
   ERROR_OUT_OF_RANGE      = 1,
   ERROR_PIN_MISSING       = 2,
   ERROR_DHCP_FAILED       = 3,
@@ -329,7 +329,7 @@ class Network {
  protected:
   Network(const std::string& service_path, ConnectionType type)
       : state_(STATE_UNKNOWN),
-        error_(ERROR_UNKNOWN),
+        error_(ERROR_NO_ERROR),
         connectable_(true),
         is_active_(false),
         favorite_(false),
