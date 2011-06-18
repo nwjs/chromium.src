@@ -1032,6 +1032,13 @@ class SyncManager {
 
   UserShare* GetUserShare() const;
 
+  // Inform the cryptographer of the most recent passphrase and set of encrypted
+  // types (from nigori node), then ensure all data that needs encryption is
+  // encrypted with the appropriate passphrase.
+  // Note: opens a transaction and can trigger ON_PASSPHRASE_REQUIRED, so must
+  // only be called after syncapi has been initialized.
+  void RefreshEncryption();
+
   // Uses a read-only transaction to determine if the directory being synced has
   // any remaining unsynced items.
   bool HasUnsyncedItems() const;
