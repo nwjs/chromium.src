@@ -567,4 +567,7 @@ bool EulaView::FadeInOnShow() {
   return false;
 }
 
+void EulaView::OnLinkActivated(size_t index) {
+}
+
 }  // namespace chromeos
