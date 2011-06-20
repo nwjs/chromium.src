@@ -146,7 +146,8 @@ class RenderWidgetHostViewWin
   virtual gfx::Rect GetViewBounds() const;
   virtual void UpdateCursor(const WebCursor& cursor);
   virtual void SetIsLoading(bool is_loading);
-  virtual void ImeUpdateTextInputState(WebKit::WebTextInputType type,
+  virtual void ImeUpdateTextInputState(ui::TextInputType type,
+                                       bool can_compose_inline,
                                        const gfx::Rect& caret_rect);
   virtual void ImeCancelComposition();
   virtual void DidUpdateBackingStore(
@@ -359,7 +360,7 @@ class RenderWidgetHostViewWin
 
   // Stores the current text input type received by ImeUpdateTextInputState()
   // method.
-  WebKit::WebTextInputType text_input_type_;
+  ui::TextInputType text_input_type_;
 
   ScopedVector<ui::ViewProp> props_;
 

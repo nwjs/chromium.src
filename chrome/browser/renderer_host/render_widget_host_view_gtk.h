@@ -73,7 +73,8 @@ class RenderWidgetHostViewGtk : public RenderWidgetHostView,
   virtual gfx::Rect GetViewBounds() const;
   virtual void UpdateCursor(const WebCursor& cursor);
   virtual void SetIsLoading(bool is_loading);
-  virtual void ImeUpdateTextInputState(WebKit::WebTextInputType type,
+  virtual void ImeUpdateTextInputState(ui::TextInputType type,
+                                       bool can_compose_inline,
                                        const gfx::Rect& caret_rect);
   virtual void ImeCancelComposition();
   virtual void DidUpdateBackingStore(
