@@ -94,8 +94,15 @@ int InitSocketPoolHelper(const HttpRequestInfo& request_info,
   // Determine the host and port to connect to.
   std::string connection_group = origin_host_port.ToString();
   DCHECK(!connection_group.empty());
-  if (using_ssl)
-    connection_group = base::StringPrintf("ssl/%s", connection_group.c_str());
+  if (using_ssl) {
+    std::string prefix;
+    if (ssl_config_for_origin.tls1_enabled) {
+      prefix = "ssl/";
+    } else {
+      prefix = "sslv3/";
+    }
+    connection_group = prefix + connection_group;
+  }
 
   bool ignore_limits = (request_info.load_flags & LOAD_IGNORE_LIMITS) != 0;
   if (proxy_info.is_direct()) {
