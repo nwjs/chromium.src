@@ -34,8 +34,7 @@ CameraController::CameraController(Delegate* delegate)
 }
 
 CameraController::~CameraController() {
-  if (camera_.get())
-    camera_->set_delegate(NULL);
+  Stop();
   {
     // A ScopedAllowIO object is required to join the thread when calling Stop.
     // See http://crosbug.com/11392.
@@ -45,15 +44,17 @@ CameraController::~CameraController() {
 }
 
 void CameraController::Start() {
+  Stop();
   camera_ = new Camera(this, camera_thread_.get(), true);
   camera_->Initialize(frame_width_, frame_height_);
 }
 
 void CameraController::Stop() {
-  if (!camera_.get())
-    return;
-  camera_->StopCapturing();
-  camera_->Uninitialize();
+  if (camera_.get()) {
+    camera_->set_delegate(NULL);
+    camera_->Uninitialize();
+    camera_ = NULL;
+  }
 }
 
 void CameraController::GetFrame(SkBitmap* frame) const {
