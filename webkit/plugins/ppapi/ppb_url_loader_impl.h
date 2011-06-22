@@ -46,7 +46,7 @@ class PPB_URLLoader_Impl : public Resource, public WebKit::WebURLLoaderClient {
 
   // Resource overrides.
   virtual PPB_URLLoader_Impl* AsPPB_URLLoader_Impl();
-  virtual void LastPluginRefWasDeleted(bool instance_destroyed);
+  virtual void ClearInstance();
 
   // PPB_URLLoader implementation.
   int32_t Open(PPB_URLRequestInfo_Impl* request,
