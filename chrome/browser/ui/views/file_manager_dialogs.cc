@@ -130,7 +130,9 @@ void FileManagerDialog::SelectFileImpl(
     LOG(ERROR) << "File dialog already in use!";
     return;
   }
-  Browser* owner_browser = FindBrowserWithWindow(owner_window);
+  Browser* owner_browser = (owner_window ?
+      FindBrowserWithWindow(owner_window) :
+      BrowserList::GetLastActive());
   if (!owner_browser) {
     NOTREACHED() << "Can't find owning browser";
     return;
