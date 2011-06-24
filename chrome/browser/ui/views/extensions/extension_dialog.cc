@@ -9,38 +9,47 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/views/window.h"  // CreateViewsWindow
+#include "chrome/browser/ui/views/bubble/bubble_border.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/common/extensions/extension.h"
 #include "content/browser/renderer_host/render_view_host.h"
 #include "content/browser/renderer_host/render_widget_host_view.h"
 #include "content/common/notification_details.h"
 #include "content/common/notification_source.h"
 #include "content/common/notification_type.h"
 #include "googleurl/src/gurl.h"
+#include "views/widget/root_view.h"
 #include "views/window/window.h"
 
-ExtensionDialog::ExtensionDialog(Browser* browser, ExtensionHost* host,
-                                 int width, int height,
-                                 ExtensionDialogObserver* observer)
-    : extension_host_(host),
+#if defined(OS_CHROMEOS)
+#include "chrome/browser/chromeos/wm_ipc.h"
+#include "third_party/cros/chromeos_wm_ipc_enums.h"
+#endif
+
+ExtensionDialog::ExtensionDialog(ExtensionHost* host, views::Widget* frame,
+                                 const gfx::Rect& relative_to, int width,
+                                 int height, Observer* observer)
+    : BrowserBubble(host->view(),
+                    frame,
+                    relative_to,
+                    BubbleBorder::FLOAT),  // Centered over rectangle.
+      extension_host_(host),
+      width_(width),
+      height_(height),
+      closing_(false),
       observer_(observer) {
-  AddRef();  // Balanced in DeleteDelegate();
-  gfx::NativeWindow parent = browser->window()->GetNativeHandle();
-  window_ = browser::CreateViewsWindow(
-      parent, gfx::Rect(), this /* views::WidgetDelegate */);
-
-  // Center the window over the browser.
-  gfx::Point center = browser->window()->GetBounds().CenterPoint();
-  int x = center.x() - width / 2;
-  int y = center.y() - height / 2;
-  window_->SetBounds(gfx::Rect(x, y, width, height));
-
-  host->view()->SetContainer(this /* ExtensionView::Container */);
+  AddRef();  // Balanced in Close();
+  set_delegate(this);
+  host->view()->SetContainer(this);
 
   // Listen for the containing view calling window.close();
   registrar_.Add(this, NotificationType::EXTENSION_HOST_VIEW_SHOULD_CLOSE,
                  Source<Profile>(host->profile()));
 
-  window_->Show();
+  // Use a fixed-size view.
+  host->view()->SetBounds(host->view()->x(), host->view()->y(),
+                          width, height);
+  ResizeToView();
 }
 
 ExtensionDialog::~ExtensionDialog() {
@@ -60,7 +69,14 @@ ExtensionDialog* ExtensionDialog::Show(
   if (!manager)
     return NULL;
   ExtensionHost* host = manager->CreateDialogHost(url, browser);
-  return new ExtensionDialog(browser, host, width, height, observer);
+  views::Widget* frame = BrowserView::GetBrowserViewForNativeWindow(
+      browser->window()->GetNativeHandle())->GetWidget();
+  gfx::Rect relative_to = browser->window()->GetBounds();
+  ExtensionDialog* popup = new ExtensionDialog(host, frame, relative_to, width,
+                                               height, observer);
+  popup->Show(true);
+
+  return popup;
 }
 
 void ExtensionDialog::ObserverDestroyed() {
@@ -68,46 +84,46 @@ void ExtensionDialog::ObserverDestroyed() {
 }
 
 void ExtensionDialog::Close() {
-  if (!window_)
+  if (closing_)
     return;
+  closing_ = true;
+  DetachFromBrowser();
 
   if (observer_)
     observer_->ExtensionDialogIsClosing(this);
 
-  window_->Close();
-  window_ = NULL;
+  Release();  // Balanced in ctor.
+}
+
+void ExtensionDialog::Show(bool activate) {
+  if (popup_->IsVisible())
+    return;
+
+#if defined(OS_WIN)
+  frame_->GetContainingWindow()->DisableInactiveRendering();
+#endif
+
+  BrowserBubble::Show(activate);
 }
 
 /////////////////////////////////////////////////////////////////////////////
-// views::WidgetDelegate overrides.
+// BrowserBubble::Delegate methods.
 
-bool ExtensionDialog::CanResize() const {
-  return false;
+void ExtensionDialog::BubbleBrowserWindowMoved(BrowserBubble* bubble) {
 }
 
-bool ExtensionDialog::IsModal() const {
-  return true;
+void ExtensionDialog::BubbleBrowserWindowClosing(BrowserBubble* bubble) {
+  if (!closing_)
+    Close();
 }
 
-bool ExtensionDialog::ShouldShowWindowTitle() const {
-  return false;
+void ExtensionDialog::BubbleGotFocus(BrowserBubble* bubble) {
+  // Forward the focus to the renderer.
+  host()->render_view_host()->view()->Focus();
 }
 
-void ExtensionDialog::DeleteDelegate() {
-  // The window has finished closing.  Allow ourself to be deleted.
-  Release();
-}
-
-views::Widget* ExtensionDialog::GetWidget() {
-  return extension_host_->view()->GetWidget();
-}
-
-const views::Widget* ExtensionDialog::GetWidget() const {
-  return extension_host_->view()->GetWidget();
-}
-
-views::View* ExtensionDialog::GetContentsView() {
-  return extension_host_->view();
+void ExtensionDialog::BubbleLostFocus(BrowserBubble* bubble,
+    bool lost_focus_to_child) {
 }
 
 /////////////////////////////////////////////////////////////////////////////

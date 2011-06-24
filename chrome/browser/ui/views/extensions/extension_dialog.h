@@ -7,9 +7,10 @@
 #pragma once
 
 #include "base/memory/ref_counted.h"
+#include "chrome/browser/extensions/extension_host.h"
+#include "chrome/browser/ui/views/browser_bubble.h"
 #include "chrome/browser/ui/views/extensions/extension_view.h"
 #include "content/common/notification_observer.h"
-#include "views/widget/widget_delegate.h"
 
 class Browser;
 class ExtensionHost;
@@ -17,14 +18,16 @@ class GURL;
 class Profile;
 
 namespace views {
-class View;
 class Widget;
 }
 
 // Modal dialog containing contents provided by an extension.
 // Dialog is automatically centered in the browser window and has fixed size.
 // For example, used by the Chrome OS file browser.
-class ExtensionDialog : public views::WidgetDelegate,
+// TODO(jamescook):  This feels odd as a BrowserBubble.  Factor out a common
+// base class for ExtensionDialog and BrowserBubble.
+class ExtensionDialog : public BrowserBubble,
+                        public BrowserBubble::Delegate,
                         public ExtensionView::Container,
                         public NotificationObserver,
                         public base::RefCounted<ExtensionDialog> {
@@ -57,14 +60,15 @@ class ExtensionDialog : public views::WidgetDelegate,
 
   ExtensionHost* host() const { return extension_host_.get(); }
 
-  // views::WidgetDelegate overrides.
-  virtual bool CanResize() const OVERRIDE;
-  virtual bool IsModal() const OVERRIDE;
-  virtual bool ShouldShowWindowTitle() const OVERRIDE;
-  virtual void DeleteDelegate() OVERRIDE;
-  virtual views::Widget* GetWidget() OVERRIDE;
-  virtual const views::Widget* GetWidget() const OVERRIDE;
-  virtual views::View* GetContentsView() OVERRIDE;
+  // BrowserBubble overrides.
+  virtual void Show(bool activate);
+
+  // BrowserBubble::Delegate methods.
+  virtual void BubbleBrowserWindowMoved(BrowserBubble* bubble);
+  virtual void BubbleBrowserWindowClosing(BrowserBubble* bubble);
+  virtual void BubbleGotFocus(BrowserBubble* bubble);
+  virtual void BubbleLostFocus(BrowserBubble* bubble,
+                               bool lost_focus_to_child);
 
   // ExtensionView::Container overrides.
   virtual void OnExtensionMouseMove(ExtensionView* view);
@@ -77,15 +81,19 @@ class ExtensionDialog : public views::WidgetDelegate,
                        const NotificationDetails& details);
 
  private:
-  // Use Show() to create instances.
-  ExtensionDialog(Browser* browser, ExtensionHost* host, int width, int height,
+  ExtensionDialog(ExtensionHost* host, views::Widget* frame,
+                  const gfx::Rect& relative_to, int width, int height,
                   Observer* observer);
-
-  // Window that holds the extension host view.
-  views::Widget* window_;
 
   // The contained host for the view.
   scoped_ptr<ExtensionHost> extension_host_;
+
+  // Dialog size in pixels.
+  int width_;
+  int height_;
+
+  // Whether the ExtensionDialog is current going about closing itself.
+  bool closing_;
 
   NotificationRegistrar registrar_;
 
