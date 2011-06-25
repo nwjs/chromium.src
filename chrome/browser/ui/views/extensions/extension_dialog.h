@@ -63,8 +63,6 @@ class ExtensionDialog : public views::WindowDelegate,
   virtual bool IsModal() const OVERRIDE;
   virtual bool ShouldShowWindowTitle() const OVERRIDE;
   virtual void DeleteDelegate() OVERRIDE;
-  virtual views::Widget* GetWidget() OVERRIDE;
-  virtual const views::Widget* GetWidget() const OVERRIDE;
   virtual views::View* GetContentsView() OVERRIDE;
 
   // ExtensionView::Container overrides.

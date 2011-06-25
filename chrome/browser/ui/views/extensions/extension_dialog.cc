@@ -98,14 +98,6 @@ void ExtensionDialog::DeleteDelegate() {
   Release();
 }
 
-views::Widget* ExtensionDialog::GetWidget() {
-  return extension_host_->view()->GetWidget();
-}
-
-const views::Widget* ExtensionDialog::GetWidget() const {
-  return extension_host_->view()->GetWidget();
-}
-
 views::View* ExtensionDialog::GetContentsView() {
   return extension_host_->view();
 }
