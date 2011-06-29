@@ -11,7 +11,7 @@
 <translation id="4202807286478387388">springen</translation>
 <translation id="4611115858363067980"><ph name="FILENAME"/><ph name="WIDTH"/>×<ph name="HEIGHT"/></translation>
 <translation id="7658239707568436148">Abbrechen</translation>
-<translation id="795667975304826397">Keine Datei ausgewählt</translation>
+<translation id="795667975304826397">Keine ausgewählt</translation>
 <translation id="1416462845279468967">Plug-in-Installation fehlgeschlagen</translation>
 <translation id="8141602879876242471">Dieser Index kann durchsucht werden. Geben Sie Suchbegriffe ein:</translation>
 <translation id="5650795167354946011">Klicken Sie nach der Installation des Plug-ins hier, um eine Aktualisierung durchzuführen.</translation>
@@ -44,7 +44,7 @@
 <translation id="5466621249238537318">Wählen Sie eine oder mehrere Dateien aus.</translation>
 <translation id="8750798805984357768">Wählen Sie eine dieser Optionen aus.</translation>
 <translation id="7740050170769002709">HTML-Inhalte</translation>
-<translation id="2226276347425096477">Kürzen Sie diesen Text auf max. <ph name="MAX_CHARACTERS"/> Zeichen. Derzeit verwenden Sie <ph name="CURRENT_LENGTH"/> Zeichen.</translation>
+<translation id="2226276347425096477">Kürzen Sie diesen Text auf max. <ph name="MAX_CHARACTERS"/> Zeichen. Zurzeit verwenden Sie <ph name="CURRENT_LENGTH"/> Zeichen.</translation>
 <translation id="1639239467298939599">Wird geladen...</translation>
 <translation id="2908441821576996758">Geben Sie eine durch Kommas getrennte Liste der E-Mail-Adressen ein.</translation>
 <translation id="5939518447894949180">Zurücksetzen</translation>
