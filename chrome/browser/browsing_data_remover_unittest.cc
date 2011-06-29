@@ -11,51 +11,29 @@
 
 namespace {
 
-class BrowsingDataRemoverTester : public BrowsingDataRemover::Observer {
+class BrowsingDataRemoverTest : public testing::Test,
+                                public BrowsingDataRemover::Observer {
  public:
-  BrowsingDataRemoverTester() {}
-  virtual ~BrowsingDataRemoverTester() {}
-
-  void BlockUntilNotified() {
-    MessageLoop::current()->Run();
+  BrowsingDataRemoverTest()
+      : query_url_success_(false) {
   }
+  virtual ~BrowsingDataRemoverTest() {}
 
  protected:
-  // BrowsingDataRemover::Observer implementation.
-  virtual void OnBrowsingDataRemoverDone() {
-    Notify();
-  }
-
-  void Notify() {
-    MessageLoop::current()->Quit();
-  }
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(BrowsingDataRemoverTester);
-};
-
-class RemoveHistoryTester : public BrowsingDataRemoverTester {
- public:
-  explicit RemoveHistoryTester(TestingProfile* profile)
-      : query_url_success_(false) {
-    profile->CreateHistoryService(true, false);
-    history_service_ = profile->GetHistoryService(Profile::EXPLICIT_ACCESS);
-  }
-
   // Returns true, if the given URL exists in the history service.
-  bool HistoryContainsURL(const GURL& url) {
-    history_service_->QueryURL(
+  bool QueryURL(HistoryService* history_service, const GURL& url) {
+    history_service->QueryURL(
         url,
         true,
         &consumer_,
-        NewCallback(this, &RemoveHistoryTester::SaveResultAndQuit));
-    BlockUntilNotified();
+        NewCallback(this, &BrowsingDataRemoverTest::SaveResultAndQuit));
+    MessageLoop::current()->Run();
     return query_url_success_;
   }
 
-  void AddHistory(const GURL& url, base::Time time) {
-    history_service_->AddPage(url, time, NULL, 0, GURL(), PageTransition::LINK,
-        history::RedirectList(), history::SOURCE_BROWSED, false);
+  // BrowsingDataRemover::Observer implementation.
+  virtual void OnBrowsingDataRemoverDone() {
+    MessageLoop::current()->Quit();
   }
 
  private:
@@ -65,82 +43,36 @@ class RemoveHistoryTester : public BrowsingDataRemoverTester {
                          const history::URLRow*,
                          history::VisitVector*) {
     query_url_success_ = success;
-    Notify();
+    MessageLoop::current()->Quit();
   }
 
+  MessageLoopForUI message_loop_;
 
-  // For History requests.
+  // For history requests.
   CancelableRequestConsumer consumer_;
   bool query_url_success_;
-
-  // TestingProfile owns the history service; we shouldn't delete it.
-  HistoryService* history_service_;
-
-  DISALLOW_COPY_AND_ASSIGN(RemoveHistoryTester);
 };
 
-class BrowsingDataRemoverTest : public testing::Test {
- public:
-  BrowsingDataRemoverTest() {}
-  virtual ~BrowsingDataRemoverTest() {}
+TEST_F(BrowsingDataRemoverTest, RemoveAllHistory) {
+  TestingProfile profile;
+  profile.CreateHistoryService(true, false);
+  HistoryService* history =
+      profile.GetHistoryService(Profile::EXPLICIT_ACCESS);
+  GURL test_url("http://test.com/");
+  history->AddPage(test_url, history::SOURCE_BROWSED);
+  ASSERT_TRUE(QueryURL(history, test_url));
 
-  void BlockUntilBrowsingDataRemoved(BrowsingDataRemover::TimePeriod period,
-                                     base::Time delete_end,
-                                     int remove_mask,
-                                     BrowsingDataRemoverTester* tester) {
-    BrowsingDataRemover* remover = new BrowsingDataRemover(&profile_,
-        period, delete_end);
-    remover->AddObserver(tester);
+  BrowsingDataRemover* remover = new BrowsingDataRemover(
+      &profile, BrowsingDataRemover::EVERYTHING, base::Time::Now());
+  remover->AddObserver(this);
 
-    // BrowsingDataRemover deletes itself when it completes.
-    remover->Remove(remove_mask);
-    tester->BlockUntilNotified();
-  }
+  // BrowsingDataRemover deletes itself when it completes.
+  remover->Remove(BrowsingDataRemover::REMOVE_HISTORY);
+  MessageLoop::current()->Run();
 
-  TestingProfile* GetProfile() {
-    return &profile_;
-  }
+  EXPECT_FALSE(QueryURL(history, test_url));
 
- private:
-  // message_loop_ must be defined before profile_ to prevent explosions.
-  MessageLoopForUI message_loop_;
-  TestingProfile profile_;
-
-  DISALLOW_COPY_AND_ASSIGN(BrowsingDataRemoverTest);
-};
-
-TEST_F(BrowsingDataRemoverTest, RemoveHistoryForever) {
-  scoped_ptr<RemoveHistoryTester> tester(
-      new RemoveHistoryTester(GetProfile()));
-
-  GURL test_url("http://example.com/");
-  tester->AddHistory(test_url, base::Time::Now());
-  ASSERT_TRUE(tester->HistoryContainsURL(test_url));
-
-  BlockUntilBrowsingDataRemoved(BrowsingDataRemover::EVERYTHING,
-      base::Time::Now(), BrowsingDataRemover::REMOVE_HISTORY, tester.get());
-
-  EXPECT_FALSE(tester->HistoryContainsURL(test_url));
-}
-
-TEST_F(BrowsingDataRemoverTest, RemoveHistoryForLastHour) {
-  scoped_ptr<RemoveHistoryTester> tester(
-      new RemoveHistoryTester(GetProfile()));
-
-  base::Time two_hours_ago = base::Time::Now() - base::TimeDelta::FromHours(2);
-
-  GURL test_url1("http://example.com/1");
-  GURL test_url2("http://example.com/2");
-  tester->AddHistory(test_url1, base::Time::Now());
-  tester->AddHistory(test_url2, two_hours_ago);
-  ASSERT_TRUE(tester->HistoryContainsURL(test_url1));
-  ASSERT_TRUE(tester->HistoryContainsURL(test_url2));
-
-  BlockUntilBrowsingDataRemoved(BrowsingDataRemover::LAST_HOUR,
-      base::Time::Now(), BrowsingDataRemover::REMOVE_HISTORY, tester.get());
-
-  EXPECT_FALSE(tester->HistoryContainsURL(test_url1));
-  EXPECT_TRUE(tester->HistoryContainsURL(test_url2));
+  profile.DestroyHistoryService();
 }
 
 }  // namespace
