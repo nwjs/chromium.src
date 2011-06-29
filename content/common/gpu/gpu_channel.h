@@ -92,6 +92,9 @@ class GpuChannel : public IPC::Channel::Listener,
 
   void LoseAllContexts();
 
+  // Destroy channel and all contained contexts.
+  void DestroySoon();
+
   // Look up a GLSurface by ID. In this case the ID is the IPC routing ID.
   virtual gfx::GLSurface* LookupSurface(int surface_id);
 
@@ -108,6 +111,8 @@ class GpuChannel : public IPC::Channel::Listener,
   void OnLatchCallback(int route_id, bool is_set_latch);
 
  private:
+  void OnDestroy();
+
   bool OnControlMessageReceived(const IPC::Message& msg);
 
   int GenerateRouteID();

@@ -107,6 +107,7 @@ class GpuCommandBufferStub
   void OnCommandProcessed();
   void HandleDeferredMessages();
   void OnScheduled();
+  void OnParseError();
 
 #if defined(OS_MACOSX)
   void OnSetWindowSize(const gfx::Size& size);

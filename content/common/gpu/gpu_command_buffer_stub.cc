@@ -148,6 +148,8 @@ void GpuCommandBufferStub::OnInitialize(
       command_buffer_->SetPutOffsetChangeCallback(
           NewCallback(scheduler_.get(),
                       &gpu::GpuScheduler::PutChanged));
+      command_buffer_->SetParseErrorCallback(
+          NewCallback(this, &GpuCommandBufferStub::OnParseError));
       scheduler_->SetSwapBuffersCallback(
           NewCallback(this, &GpuCommandBufferStub::OnSwapBuffers));
       scheduler_->SetLatchCallback(base::Bind(
@@ -194,6 +196,17 @@ void GpuCommandBufferStub::OnGetState(IPC::Message* reply_message) {
 
   GpuCommandBufferMsg_GetState::WriteReplyParams(reply_message, state);
   Send(reply_message);
+}
+
+void GpuCommandBufferStub::OnParseError() {
+  TRACE_EVENT0("gpu", "GpuCommandBufferStub::OnParseError");
+  // If an error occurs, the remaining commands will not be processed.
+  // Since we may have a pending WaitLatch on a related context, we need to
+  // forcefully unblock all contexts on the same GpuChannel. However, since we
+  // don't know whether the corresponding WaitLatch is in the past or future,
+  // it may cause other side effects to simply pass the next WaitLatch on all
+  // contexts. Instead, just lose all related contexts when there's an error.
+  channel_->DestroySoon();
 }
 
 void GpuCommandBufferStub::OnFlush(int32 put_offset,
