@@ -149,7 +149,10 @@ bool NativeViewGLSurfaceGLX::Initialize() {
   DCHECK(!glx_window_);
 
   XWindowAttributes attributes;
-  XGetWindowAttributes(g_display, window_, &attributes);
+  if (!XGetWindowAttributes(g_display, window_, &attributes)) {
+    LOG(ERROR) << "XGetWindowAttributes failed for window " << window_ << ".";
+    return false;
+  }
 
   XVisualInfo visual_template = {0};
   visual_template.visualid = XVisualIDFromVisual(attributes.visual);
