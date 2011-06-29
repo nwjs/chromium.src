@@ -224,7 +224,7 @@
       '-sync',
 
       # crosbug.com/16977
-      '-chromeos_wifi_sanity.ChromeosWifiSanity.testConnectToHiddenWiFiNonExistent',
+      '-chromeos_wifi.ChromeosWifi.testConnectToHiddenWiFiNonExistent',
     ],
   },
 
