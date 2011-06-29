@@ -57,13 +57,6 @@ function FileManager(dialogDom, rootEntries, params) {
   // This is set to just the directory portion of defaultPath in initDialogType.
   this.defaultFolder_ = '/';
 
-  // TODO(dgozman): This will be changed to LocaleInfo.
-  this.locale_ = new v8Locale(navigator.language);
-  this.shortDateFormatter_ =
-      this.locale_.createDateTimeFormat({'dateType': 'medium'});
-  this.collator_ = this.locale_.createCollator({
-      'numeric': true, 'ignoreCase': true, 'ignoreAccents': true});
-
   this.showCheckboxes_ =
       (this.dialogType_ == FileManager.DialogType.FULL_PAGE ||
        this.dialogType_ == FileManager.DialogType.SELECT_OPEN_MULTI_FILE);
@@ -535,10 +528,6 @@ FileManager.prototype = {
     this.emptyDataModel_ = new cr.ui.ArrayDataModel([]);
 
     this.dataModel_ = new cr.ui.ArrayDataModel([]);
-    var collator = this.collator_;
-    this.dataModel_.setCompareFunction('name', function(a, b) {
-      return collator.compare(a.name, b.name);
-    });
     this.dataModel_.sort('name');
     this.dataModel_.prepareSort = this.prepareSort_.bind(this);
 
