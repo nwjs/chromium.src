@@ -350,7 +350,7 @@ void StatusBubbleMac::UpdateDownloadShelfVisibility(bool visible) {
 void StatusBubbleMac::Create() {
   DCHECK(!window_);
 
-  window_ = [[NSWindow alloc] initWithContentRect:NSZeroRect
+  window_ = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 1, 1)
                                         styleMask:NSBorderlessWindowMask
                                           backing:NSBackingStoreBuffered
                                             defer:YES];
@@ -434,7 +434,7 @@ void StatusBubbleMac::SetState(StatusBubbleState state) {
     return;
 
   if (state == kBubbleHidden)
-    [window_ setFrame:NSZeroRect display:YES];
+    [window_ setFrame:NSMakeRect(0, 0, 1, 1) display:YES];
   else
     UpdateSizeAndPosition();
 
