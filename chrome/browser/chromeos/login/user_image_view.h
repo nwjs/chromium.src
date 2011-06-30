@@ -86,10 +86,6 @@ class UserImageView : public views::View,
   // Initializes layout manager for this view.
   void InitLayout();
 
-  // Calls the appropriate delegate's method to return the selected image to
-  // it.
-  void NotifyDelegateOfImageSelected();
-
   views::Label* title_label_;
   DefaultImagesView* default_images_view_;
   TakePhotoView* take_photo_view_;
