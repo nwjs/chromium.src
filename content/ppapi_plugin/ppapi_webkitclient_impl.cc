@@ -99,7 +99,8 @@ void PpapiWebKitClientImpl::SandboxSupport::getRenderStyleForStrike(
 
 #endif
 
-PpapiWebKitClientImpl::PpapiWebKitClientImpl() {
+PpapiWebKitClientImpl::PpapiWebKitClientImpl()
+    : sandbox_support_(new PpapiWebKitClientImpl::SandboxSupport()) {
 }
 
 PpapiWebKitClientImpl::~PpapiWebKitClientImpl() {
