@@ -248,7 +248,10 @@ bool ViewGLContext::Initialize(bool multisampled) {
 
   Display* display = GetXDisplayHelper();
   XWindowAttributes attributes;
-  XGetWindowAttributes(display, window_, &attributes);
+  if (!XGetWindowAttributes(display, window_, &attributes)) {
+    LOG(ERROR) << "XGetWindowAttributes failed for window " << window_ << ".";
+    return false;
+  }
   XVisualInfo visual_info_template;
   visual_info_template.visualid = XVisualIDFromVisual(attributes.visual);
   int visual_info_count = 0;
