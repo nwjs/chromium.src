@@ -307,6 +307,7 @@ const char* kNetworkTechnologyHspa = "HSPA";
 const char* kNetworkTechnologyHspaPlus = "HSPA+";
 const char* kNetworkTechnologyLte = "LTE";
 const char* kNetworkTechnologyLteAdvanced = "LTE Advanced";
+const char* kNetworkTechnologyGsm = "GSM";
 
 // Flimflam roaming state options
 const char* kRoamingStateHome = "home";
@@ -738,6 +739,7 @@ static NetworkTechnology ParseNetworkTechnology(const std::string& technology) {
     { kNetworkTechnologyHspaPlus, NETWORK_TECHNOLOGY_HSPA_PLUS },
     { kNetworkTechnologyLte, NETWORK_TECHNOLOGY_LTE },
     { kNetworkTechnologyLteAdvanced, NETWORK_TECHNOLOGY_LTE_ADVANCED },
+    { kNetworkTechnologyGsm, NETWORK_TECHNOLOGY_GSM },
   };
   static StringToEnum<NetworkTechnology> parser(
       table, arraysize(table), NETWORK_TECHNOLOGY_UNKNOWN);
@@ -1938,6 +1940,9 @@ std::string CellularNetwork::GetNetworkTechnologyString() const {
       break;
     case NETWORK_TECHNOLOGY_LTE_ADVANCED:
       return "LTE Advanced";
+      break;
+    case NETWORK_TECHNOLOGY_GSM:
+      return "GSM";
       break;
     default:
       return l10n_util::GetStringUTF8(
@@ -4826,7 +4831,7 @@ class NetworkLibraryImpl : public NetworkLibrary  {
     cellular2->set_network_technology(NETWORK_TECHNOLOGY_UMTS);
     AddNetwork(cellular2);
 
-    // VPNs.
+    // VPNs
     VirtualNetwork* vpn1 = new VirtualNetwork("fv1");
     vpn1->set_name("Fake VPN Provider 1");
     vpn1->set_server_hostname("vpn1server.fake.com");
