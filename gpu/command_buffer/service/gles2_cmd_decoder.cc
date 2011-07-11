@@ -2028,6 +2028,13 @@ bool GLES2DecoderImpl::Initialize(
     // it can reference it.
     if (parent_) {
       GLuint service_id = offscreen_saved_color_texture_->id();
+
+      // Replace texture info when ID is already in use by parent.
+      if (parent_->texture_manager()->GetTextureInfo(
+              parent_client_texture_id))
+        parent_->texture_manager()->RemoveTextureInfo(
+            feature_info_, parent_client_texture_id);
+
       TextureManager::TextureInfo* info =
           parent_->CreateTextureInfo(parent_client_texture_id, service_id);
       info->SetNotOwned();
