@@ -156,6 +156,8 @@
       # crbug.com/78863
       '-sync.SyncTest.testDisableAndEnableDatatype',
       '-sync.SyncTest.testSignInToSync',
+      # crbug.com/85600
+      '-prefs.PrefsTest.testNavigationStateOnSessionRestore',
     ],
 
     'linux': [  # linux != chromeos
