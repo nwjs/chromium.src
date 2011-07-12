@@ -218,7 +218,7 @@ void ShowLoginWizard(const std::string& first_screen_name,
     // OOBE process has set kApplicationLocale to non-default value.
     PrefService* prefs = g_browser_process->local_state();
     if (!prefs->HasPrefPath(prefs::kApplicationLocale)) {
-      std::string locale = chromeos::WizardController::GetInitialLocale();
+      std::string locale = WizardController::GetInitialLocale();
       prefs->SetString(prefs::kApplicationLocale, locale);
       chromeos::input_method::EnableInputMethods(
           locale,
