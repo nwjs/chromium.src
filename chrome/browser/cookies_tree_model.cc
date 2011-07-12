@@ -724,6 +724,7 @@ void CookiesTreeModel::UpdateSearchResults(const std::wstring& filter) {
   PopulateSessionStorageInfoWithFilter(filter);
   PopulateAppCacheInfoWithFilter(filter);
   PopulateIndexedDBInfoWithFilter(filter);
+  PopulateFileSystemInfoWithFilter(filter);
   NotifyObserverTreeNodeChanged(root);
   NotifyObserverEndBatch();
 }
