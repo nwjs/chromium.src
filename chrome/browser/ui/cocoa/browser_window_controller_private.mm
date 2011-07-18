@@ -304,18 +304,9 @@ willPositionSheet:(NSWindow*)sheet
 
   // Now lay out incognito badge together with the tab strip.
   if (incognitoBadge_.get()) {
-    // Avoid the full-screen button.
-    CGFloat extraPadding = 0;
-    if ([[self window] respondsToSelector:@selector(toggleFullScreen:)]) {
-      NSButton* fullscreenButton =
-          [[self window] standardWindowButton:NSWindowFullScreenButton];
-      if (fullscreenButton)
-        extraPadding += [fullscreenButton frame].size.width;
-    }
-
     // Actually place the badge *above* |maxY|, by +2 to miss the divider.
     NSPoint origin = NSMakePoint(width - NSWidth([incognitoBadge_ frame]) -
-                                     kIncognitoBadgeOffset - extraPadding,
+                                     kIncognitoBadgeOffset,
                                  maxY + 2);
     [incognitoBadge_ setFrameOrigin:origin];
     [incognitoBadge_ setHidden:NO];  // Make sure it's shown.
@@ -543,17 +534,7 @@ willPositionSheet:(NSWindow*)sheet
 }
 
 - (void)setUpOSFullScreenButton {
-  NSWindow* window = [self window];
-  if ([window respondsToSelector:@selector(toggleFullScreen:)]) {
-    NSWindowCollectionBehavior behavior = [window collectionBehavior];
-    behavior |= NSWindowCollectionBehaviorFullScreenPrimary;
-    [window setCollectionBehavior:behavior];
-
-    NSButton* fullscreenButton =
-        [window standardWindowButton:NSWindowFullScreenButton];
-    [fullscreenButton setAction:@selector(enterFullscreen:)];
-    [fullscreenButton setTarget:self];
-  }
+  // TOOD(rsesek): Properly implement Lion fullscreen <http://crbug.com/74065>.
 }
 
 @end  // @implementation BrowserWindowController(Private)

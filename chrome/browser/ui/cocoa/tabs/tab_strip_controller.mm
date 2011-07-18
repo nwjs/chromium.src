@@ -875,18 +875,11 @@ class NotificationBridge : public NotificationObserver {
     } else {
       availableSpace = NSWidth([tabStripView_ frame]);
 
-      // Account for the widths of the new tab button, the incognito badge, and
-      // the fullscreen button if any/all are present.
+      // Account for the widths of the new tab button or the avatar, if any/all
+      // are present.
       availableSpace -= NSWidth([newTabButton_ frame]) + kNewTabButtonOffset;
       if (browser_->profile()->IsOffTheRecord())
         availableSpace -= kIncognitoBadgeTabStripShrink;
-      if ([[tabStripView_ window]
-          respondsToSelector:@selector(toggleFullScreen:)]) {
-        NSButton* fullscreenButton = [[tabStripView_ window]
-            standardWindowButton:NSWindowFullScreenButton];
-        if (fullscreenButton)
-          availableSpace -= [fullscreenButton frame].size.width;
-      }
     }
     availableSpace -= [self indentForControls];
   }
