@@ -4,8 +4,13 @@
 
 #include "content/browser/tab_contents/tab_contents_delegate.h"
 
+#include "base/logging.h"
+#include "content/browser/tab_contents/tab_contents.h"
 #include "content/common/url_constants.h"
 #include "ui/gfx/rect.h"
+
+TabContentsDelegate::TabContentsDelegate() {
+}
 
 std::string TabContentsDelegate::GetNavigationHeaders(const GURL& url) {
   return std::string();
@@ -186,4 +191,19 @@ void TabContentsDelegate::WorkerCrashed() {
 }
 
 TabContentsDelegate::~TabContentsDelegate() {
+  while (!attached_contents_.empty()) {
+    TabContents* tab_contents = *attached_contents_.begin();
+    tab_contents->set_delegate(NULL);
+  }
+  DCHECK(attached_contents_.empty());
+}
+
+void TabContentsDelegate::Attach(TabContents* tab_contents) {
+  DCHECK(attached_contents_.find(tab_contents) == attached_contents_.end());
+  attached_contents_.insert(tab_contents);
+}
+
+void TabContentsDelegate::Detach(TabContents* tab_contents) {
+  DCHECK(attached_contents_.find(tab_contents) != attached_contents_.end());
+  attached_contents_.erase(tab_contents);
 }
