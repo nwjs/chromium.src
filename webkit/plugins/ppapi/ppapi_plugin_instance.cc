@@ -510,20 +510,22 @@ PP_Var PluginInstance::GetOwnerElementObject() {
 }
 
 bool PluginInstance::BindGraphics(PP_Resource graphics_id) {
-  if (!graphics_id) {
+  if (bound_graphics_.get()) {
+    if (bound_graphics_2d()) {
+      bound_graphics_2d()->BindToInstance(NULL);
+    } else if (bound_graphics_.get()) {
+      bound_graphics_3d()->BindToInstance(false);
+    }
     // Special-case clearing the current device.
-    if (bound_graphics_.get()) {
-      if (bound_graphics_2d()) {
-        bound_graphics_2d()->BindToInstance(NULL);
-      } else if (bound_graphics_.get()) {
-        bound_graphics_3d()->BindToInstance(false);
-      }
+    if (!graphics_id) {
       setBackingTextureId(0);
       InvalidateRect(gfx::Rect());
     }
-    bound_graphics_ = NULL;
-    return true;
   }
+  bound_graphics_ = NULL;
+
+  if (!graphics_id)
+    return true;
 
   scoped_refptr<PPB_Graphics2D_Impl> graphics_2d =
       Resource::GetAs<PPB_Graphics2D_Impl>(graphics_id);
