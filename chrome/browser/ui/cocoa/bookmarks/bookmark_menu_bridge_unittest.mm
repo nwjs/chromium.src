@@ -20,13 +20,15 @@
 
 class TestBookmarkMenuBridge : public BookmarkMenuBridge {
  public:
-  TestBookmarkMenuBridge(Profile* profile)
-      : BookmarkMenuBridge(profile),
-        menu_([[NSMenu alloc] initWithTitle:@"test"]) {
+  TestBookmarkMenuBridge(Profile* profile, NSMenu* menu)
+      : BookmarkMenuBridge(profile, menu),
+        menu_(menu) {
   }
-  virtual ~TestBookmarkMenuBridge() {}
+  virtual ~TestBookmarkMenuBridge() {
+    [menu_ autorelease];
+  }
 
-  scoped_nsobject<NSMenu> menu_;
+  NSMenu* menu_;
 
  protected:
   // Overridden from BookmarkMenuBridge.
@@ -40,7 +42,9 @@ class BookmarkMenuBridgeTest : public PlatformTest {
  public:
 
    void SetUp() {
-     bridge_.reset(new TestBookmarkMenuBridge(browser_test_helper_.profile()));
+     NSMenu* menu = [[NSMenu alloc] initWithTitle:@"test"];
+     bridge_.reset(new TestBookmarkMenuBridge(browser_test_helper_.profile(),
+                                              menu));
      EXPECT_TRUE(bridge_.get());
    }
 
@@ -90,7 +94,7 @@ class BookmarkMenuBridgeTest : public PlatformTest {
 TEST_F(BookmarkMenuBridgeTest, TestBookmarkMenuAutoSeparator) {
   BookmarkModel* model = bridge_->GetBookmarkModel();
   bridge_->Loaded(model);
-  NSMenu* menu = bridge_->menu_.get();
+  NSMenu* menu = bridge_->menu_;
   bridge_->UpdateMenu(menu);
   // The bare menu after loading has a separator and an "Other Bookmarks"
   // submenu.
@@ -112,7 +116,7 @@ TEST_F(BookmarkMenuBridgeTest, TestBookmarkMenuAutoSeparator) {
 
 // Test that ClearBookmarkMenu() removes all bookmark menus.
 TEST_F(BookmarkMenuBridgeTest, TestClearBookmarkMenu) {
-  NSMenu* menu = bridge_->menu_.get();
+  NSMenu* menu = bridge_->menu_;
 
   AddTestMenuItem(menu, @"hi mom", nil);
   AddTestMenuItem(menu, @"not", @selector(openBookmarkMenuItem:));
@@ -163,7 +167,7 @@ TEST_F(BookmarkMenuBridgeTest, TestInvalidation) {
 // including the recursive case.
 TEST_F(BookmarkMenuBridgeTest, TestAddNodeToMenu) {
   string16 empty;
-  NSMenu* menu = bridge_->menu_.get();
+  NSMenu* menu = bridge_->menu_;
 
   BookmarkModel* model = bridge_->GetBookmarkModel();
   const BookmarkNode* root = model->GetBookmarkBarNode();
@@ -240,7 +244,7 @@ TEST_F(BookmarkMenuBridgeTest, TestAddNodeToMenu) {
 TEST_F(BookmarkMenuBridgeTest, TestAddItemToMenu) {
   NSString* title;
   NSMenuItem* item;
-  NSMenu* menu = bridge_->menu_.get();
+  NSMenu* menu = bridge_->menu_;
 
   BookmarkModel* model = bridge_->GetBookmarkModel();
   const BookmarkNode* root = model->GetBookmarkBarNode();
@@ -306,7 +310,7 @@ TEST_F(BookmarkMenuBridgeTest, TestAddItemToMenu) {
 // Makes sure our internal map of BookmarkNode to NSMenuItem works.
 TEST_F(BookmarkMenuBridgeTest, TestGetMenuItemForNode) {
   string16 empty;
-  NSMenu* menu = bridge_->menu_.get();
+  NSMenu* menu = bridge_->menu_;
 
   BookmarkModel* model = bridge_->GetBookmarkModel();
   const BookmarkNode* bookmark_bar = model->GetBookmarkBarNode();
@@ -337,7 +341,7 @@ TEST_F(BookmarkMenuBridgeTest, TestGetMenuItemForNode) {
 
 // Test that Loaded() adds both the bookmark bar nodes and the "other" nodes.
 TEST_F(BookmarkMenuBridgeTest, TestAddNodeToOther) {
-  NSMenu* menu = bridge_->menu_.get();
+  NSMenu* menu = bridge_->menu_;
 
   BookmarkModel* model = bridge_->GetBookmarkModel();
   const BookmarkNode* root = model->other_node();

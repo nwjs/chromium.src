@@ -35,7 +35,7 @@ class Profile;
 
 class BookmarkMenuBridge : public BookmarkModelObserver {
  public:
-  BookmarkMenuBridge(Profile* profile);
+  BookmarkMenuBridge(Profile* profile, NSMenu* menu);
   virtual ~BookmarkMenuBridge();
 
   // Overridden from BookmarkModelObserver

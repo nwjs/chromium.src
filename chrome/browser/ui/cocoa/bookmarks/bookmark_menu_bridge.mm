@@ -21,10 +21,12 @@
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/image.h"
 
-BookmarkMenuBridge::BookmarkMenuBridge(Profile* profile)
+BookmarkMenuBridge::BookmarkMenuBridge(Profile* profile,
+                                       NSMenu* menu)
     : menuIsValid_(false),
       profile_(profile),
-      controller_([[BookmarkMenuCocoaController alloc] initWithBridge:this]) {
+      controller_([[BookmarkMenuCocoaController alloc] initWithBridge:this
+                                                              andMenu:menu]) {
   if (GetBookmarkModel())
     ObserveBookmarkModel();
 }

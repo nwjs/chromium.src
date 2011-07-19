@@ -500,7 +500,8 @@ void RecordLastRunAppBundlePath() {
   // when all the browser windows get closed.
   BrowserList::StartKeepAlive();
 
-  bookmarkMenuBridge_.reset(new BookmarkMenuBridge([self defaultProfile]));
+  bookmarkMenuBridge_.reset(new BookmarkMenuBridge([self defaultProfile],
+      [[[NSApp mainMenu] itemWithTag:IDC_BOOKMARKS_MENU] submenu]));
   historyMenuBridge_.reset(new HistoryMenuBridge([self defaultProfile]));
 
   [self setUpdateCheckInterval];
