@@ -343,23 +343,20 @@ const void* GetInterface(const char* name) {
     return PluginInstance::GetZoomInterface();
 
 #ifdef ENABLE_GPU
-  // This should really refer to switches::kDisable3DAPIs.
-  if (!CommandLine::ForCurrentProcess()->HasSwitch("disable-3d-apis")) {
-    if (strcmp(name, PPB_GRAPHICS_3D_DEV_INTERFACE) == 0)
-      return PPB_Graphics3D_Impl::GetInterface();
-    if (strcmp(name, PPB_CONTEXT_3D_DEV_INTERFACE) == 0)
-      return PPB_Context3D_Impl::GetInterface();
-    if (strcmp(name, PPB_CONTEXT_3D_TRUSTED_DEV_INTERFACE) == 0)
-      return PPB_Context3D_Impl::GetTrustedInterface();
-    if (strcmp(name, PPB_GLES_CHROMIUM_TEXTURE_MAPPING_DEV_INTERFACE) == 0)
-      return PPB_GLESChromiumTextureMapping_Impl::GetInterface();
-    if (strcmp(name, PPB_OPENGLES2_DEV_INTERFACE) == 0)
-      return PPB_OpenGLES_Impl::GetInterface();
-    if (strcmp(name, PPB_SURFACE_3D_DEV_INTERFACE) == 0)
-      return PPB_Surface3D_Impl::GetInterface();
-    if (strcmp(name, PPB_LAYER_COMPOSITOR_DEV_INTERFACE) == 0)
-      return PPB_LayerCompositor_Impl::GetInterface();
-  }
+  if (strcmp(name, PPB_GRAPHICS_3D_DEV_INTERFACE) == 0)
+    return PPB_Graphics3D_Impl::GetInterface();
+  if (strcmp(name, PPB_CONTEXT_3D_DEV_INTERFACE) == 0)
+    return PPB_Context3D_Impl::GetInterface();
+  if (strcmp(name, PPB_CONTEXT_3D_TRUSTED_DEV_INTERFACE) == 0)
+    return PPB_Context3D_Impl::GetTrustedInterface();
+  if (strcmp(name, PPB_GLES_CHROMIUM_TEXTURE_MAPPING_DEV_INTERFACE) == 0)
+    return PPB_GLESChromiumTextureMapping_Impl::GetInterface();
+  if (strcmp(name, PPB_OPENGLES2_DEV_INTERFACE) == 0)
+    return PPB_OpenGLES_Impl::GetInterface();
+  if (strcmp(name, PPB_SURFACE_3D_DEV_INTERFACE) == 0)
+    return PPB_Surface3D_Impl::GetInterface();
+  if (strcmp(name, PPB_LAYER_COMPOSITOR_DEV_INTERFACE) == 0)
+    return PPB_LayerCompositor_Impl::GetInterface();
 #endif  // ENABLE_GPU
 
 #ifdef ENABLE_FLAPPER_HACKS
