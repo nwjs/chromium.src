@@ -8,9 +8,11 @@
 
 #include "base/basictypes.h"
 #include "net/base/cert_verifier.h"
+#include "net/base/host_port_pair.h"
 #include "net/base/mock_host_resolver.h"
 #include "net/base/request_priority.h"
 #include "net/base/ssl_config_service_defaults.h"
+#include "net/base/sys_addrinfo.h"
 #include "net/http/http_auth_handler_factory.h"
 #include "net/http/http_cache.h"
 #include "net/http/http_network_session.h"
@@ -370,6 +372,26 @@ class SpdyURLRequestContext : public URLRequestContext {
 };
 
 const SpdyHeaderInfo make_spdy_header(spdy::SpdyControlType type);
+
+class SpdySessionPoolPeer {
+ public:
+  explicit SpdySessionPoolPeer(SpdySessionPool* pool)
+      : pool_(pool) {}
+
+  void AddAlias(const addrinfo* address, const HostPortProxyPair& pair) {
+    pool_->AddAlias(address, pair);
+  }
+
+  void RemoveSpdySession(const scoped_refptr<SpdySession>& session) {
+    pool_->Remove(session);
+  }
+
+ private:
+  SpdySessionPool* const pool_;
+
+  DISALLOW_COPY_AND_ASSIGN(SpdySessionPoolPeer);
+};
+
 }  // namespace net
 
 #endif  // NET_SPDY_SPDY_TEST_UTIL_H_
