@@ -273,7 +273,7 @@ void ThreadWatcher::GotNoResponse() {
   // reduce the number of crashes and to get some sample data.
   if (thread_id_ == BrowserThread::IO && no_of_responding_threads == 1) {
     int* crash = NULL;
-    CHECK(crash++);
+    // CHECK(crash++);
   }
 
   hung_processing_complete_ = true;
