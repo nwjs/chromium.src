@@ -10,7 +10,6 @@
 
 #include "base/basictypes.h"
 #include "base/string16.h"
-#include "sandbox/src/interception.h"
 #include "sandbox/src/sandbox_types.h"
 #include "sandbox/src/target_process.h"
 
@@ -51,9 +50,6 @@ class HandleCloser {
 
   // Serializes and copies the closer table into the target process.
   bool InitializeTargetHandles(TargetProcess* target);
-
-  // Adds any interceptions that may be required due to closed system handles.
-  bool SetupHandleInterceptions(InterceptionManager* manager);
 
  private:
   // Calculates the memory needed to copy the serialized handles list (rounded

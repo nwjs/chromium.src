@@ -25,7 +25,6 @@ struct NtExports {
   RtlAnsiStringToUnicodeStringFunction  RtlAnsiStringToUnicodeString;
   RtlCompareUnicodeStringFunction       RtlCompareUnicodeString;
   RtlCreateHeapFunction                 RtlCreateHeap;
-  RtlCreateUserThreadFunction           RtlCreateUserThread;
   RtlDestroyHeapFunction                RtlDestroyHeap;
   RtlFreeHeapFunction                   RtlFreeHeap;
   _strnicmpFunction                     _strnicmp;
