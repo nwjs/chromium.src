@@ -1248,7 +1248,7 @@ bool IsCrashReportingEnabled(const PrefService* local_state) {
       chrome::VersionInfo::GetChannel() == chrome::VersionInfo::CHANNEL_STABLE;
   bool breakpad_enabled =
       !(is_guest_session && is_stable_channel) &&
-      chromeos::UserCrosSettingsProvider::cached_reporting_enabled()
+      chromeos::MetricsCrosSettingsProvider::GetMetricsStatus();
   if (!breakpad_enabled)
     breakpad_enabled = getenv(env_vars::kHeadless) != NULL;
 #else
