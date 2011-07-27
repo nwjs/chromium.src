@@ -130,3 +130,128 @@ TEST_F('PrintPreviewWebUITest', 'FLAKY_TestPrinterList', function() {
   expectEquals('BarDevice', printerList.options[1].value,
                '1 value is BarDevice');
 });
+
+/**
+ * Verify that the section |sectionId| visibility matches |visible|.
+ * @param {string} sectionId The id of the section to check.
+ * @param {boolean} visible The expected state of visibility.
+ **/
+function checkSectionVisible(sectionId, visible) {
+  var section = $(sectionId);
+  assertNotEquals(null, section);
+  expectEquals(section.classList.contains('visible'), visible,
+               'sectionId=' + sectionId);
+}
+
+// Test that disabled settings hide the disabled sections.
+// crbug.com/90476
+TEST_F('PrintPreviewWebUITest', 'FLAKY_TestSectionsDisabled', function() {
+  this.mockHandler.expects(once()).getPrinterCapabilities('FooDevice').
+      will(callFunction(function() {
+        updateWithPrinterCapabilities({
+          disableColorOption: true,
+          setColorAsDefault: true,
+          disableCopiesOption: true,
+          disableLandscapeOption: true,
+        });
+      }));
+
+  updateControlsWithSelectedPrinterCapabilities();
+
+  checkSectionVisible('layout-option', false);
+  checkSectionVisible('color-options', false);
+  checkSectionVisible('copies-option', false);
+});
+
+// Test that the color settings are set according to the printer capabilities.
+// crbug.com/90476
+TEST_F('PrintPreviewWebUITest', 'FLAKY_TestColorSettings', function() {
+  this.mockHandler.expects(once()).getPrinterCapabilities('FooDevice').
+      will(callFunction(function() {
+        updateWithPrinterCapabilities({
+          disableColorOption: false,
+          setColorAsDefault: true,
+          disableCopiesOption: false,
+          disableLandscapeOption: false,
+        });
+      }));
+
+  updateControlsWithSelectedPrinterCapabilities();
+  expectTrue($('color').checked);
+  expectFalse($('bw').checked);
+
+  this.mockHandler.expects(once()).getPrinterCapabilities('FooDevice').
+      will(callFunction(function() {
+        updateWithPrinterCapabilities({
+          disableColorOption: false,
+          setColorAsDefault: false,
+          disableCopiesOption: false,
+          disableLandscapeOption: false,
+        });
+      }));
+
+  updateControlsWithSelectedPrinterCapabilities();
+  expectFalse($('color').checked);
+  expectTrue($('bw').checked);
+});
+
+// Test that changing the selected printer updates the preview.
+// crbug.com/90476
+TEST_F('PrintPreviewWebUITest', 'FLAKY_TestPrinterChangeUpdatesPreview',
+       function() {
+  var matchAnythingSave = new SaveArgumentsMatcher(ANYTHING);
+
+  this.mockHandler.expects(once()).getPreview(matchAnythingSave).
+      will(callFunction(function() {
+        updatePrintPreview('title', true, 2,
+                           matchAnythingSave.argument.requestID);
+      }));
+
+  var printerList = $('printer-list');
+  assertNotEquals(null, printerList, 'printerList');
+  assertGE(printerList.options.length, printerListMinLength);
+  expectEquals(fooIndex, printerList.selectedIndex,
+               'fooIndex=' + fooIndex);
+  var oldLastPreviewRequestID = lastPreviewRequestID;
+  ++printerList.selectedIndex;
+  updateControlsWithSelectedPrinterCapabilities();
+  expectNotEquals(oldLastPreviewRequestID, lastPreviewRequestID);
+});
+
+/**
+ * Test fixture to test case when no PDF plugin exists.
+ * @extends {PrintPreviewWebUITest}
+ * @constructor
+ **/
+function PrintPreviewNoPDFWebUITest() {}
+
+PrintPreviewNoPDFWebUITest.prototype = {
+  __proto__: PrintPreviewWebUITest.prototype,
+
+  /**
+   * Provide a typedef for C++ to correspond to JS subclass.
+   * @type {?string}
+   * @override
+   */
+  typedefCppFixture: 'PrintPreviewWebUITest',
+
+  /**
+   * Always return false to simulate failure and check expected error condition.
+   * @return {boolean} Always false.
+   * @override
+   */
+  checkCompatiblePluginExists: function() {
+    return false;
+  },
+};
+
+// Test that error message is displayed when plugin doesn't exist.
+// crbug.com/90476
+TEST_F('PrintPreviewNoPDFWebUITest', 'FLAKY_TestErrorMessage', function() {
+  var errorButton = $('error-button');
+  assertNotEquals(null, errorButton);
+  expectFalse(errorButton.disabled);
+  var errorText = $('error-text');
+  assertNotEquals(null, errorText);
+  expectFalse(errorText.classList.contains('hidden'));
+});
