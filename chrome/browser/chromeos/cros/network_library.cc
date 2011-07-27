@@ -3005,8 +3005,16 @@ class NetworkLibraryImpl : public NetworkLibrary  {
     // For enterprise 802.1X networks, always provide TPM PIN when available.
     // flimflam uses the PIN if it needs to access certificates in the TPM and
     // ignores it otherwise.
-    if (wifi->encryption() == SECURITY_8021X)
-      wifi->SendTpmPin(GetTpmPin());
+    if (wifi->encryption() == SECURITY_8021X) {
+      // If the TPM initialization has not completed, GetTpmPin() will return
+      // an empty value, in which case we do not want to clear the PIN since
+      // that will cause flimflam to flag the network as unconfigured.
+      // TODO(stevenjb): We may want to delay attempting to connect, or fail
+      // immediately, rather than let the network layer attempt a connection.
+      std::string tpm_pin = GetTpmPin();
+      if (!tpm_pin.empty())
+        wifi->SendTpmPin(tpm_pin);
+    }
     CallConnectToNetwork(wifi);
   }
 
@@ -3136,8 +3144,11 @@ class NetworkLibraryImpl : public NetworkLibrary  {
 
   virtual void ConnectToVirtualNetwork(VirtualNetwork* vpn) {
     // flimflam needs the TPM PIN for some VPN networks to access client
-    // certificates, and ignores the PIN if it doesn't need them.
-    vpn->SendTpmPin(GetTpmPin());
+    // certificates, and ignores the PIN if it doesn't need them. Only set this
+    // if the TPM is ready (see comment in ConnectToWifiNetwork).
+    std::string tpm_pin = GetTpmPin();
+    if (!tpm_pin.empty())
+      vpn->SendTpmPin(tpm_pin);
     CallConnectToNetwork(vpn);
   }
 
