@@ -522,6 +522,7 @@ void TabContentsWrapper::ReplaceInfoBar(InfoBarDelegate* old_delegate,
 
   infobars_.insert(infobars_.begin() + i, new_delegate);
 
+  old_delegate->clear_owner();
   InfoBarReplacedDetails replaced_details(old_delegate, new_delegate);
   NotificationService::current()->Notify(
       chrome::NOTIFICATION_TAB_CONTENTS_INFOBAR_REPLACED,
@@ -529,7 +530,6 @@ void TabContentsWrapper::ReplaceInfoBar(InfoBarDelegate* old_delegate,
       Details<InfoBarReplacedDetails>(&replaced_details));
 
   infobars_.erase(infobars_.begin() + i + 1);
-  old_delegate->clear_owner();
 }
 
 InfoBarDelegate* TabContentsWrapper::GetInfoBarDelegateAt(size_t index) {
@@ -673,6 +673,7 @@ void TabContentsWrapper::RemoveInfoBarInternal(InfoBarDelegate* delegate,
   DCHECK_LT(i, infobars_.size());
   InfoBarDelegate* infobar = infobars_[i];
 
+  infobar->clear_owner();
   InfoBarRemovedDetails removed_details(infobar, animate);
   NotificationService::current()->Notify(
       chrome::NOTIFICATION_TAB_CONTENTS_INFOBAR_REMOVED,
@@ -680,7 +681,6 @@ void TabContentsWrapper::RemoveInfoBarInternal(InfoBarDelegate* delegate,
       Details<InfoBarRemovedDetails>(&removed_details));
 
   infobars_.erase(infobars_.begin() + i);
-  delegate->clear_owner();
   // Remove ourselves as an observer if we are tracking no more InfoBars.
   if (infobars_.empty()) {
     registrar_.Remove(this, content::NOTIFICATION_NAV_ENTRY_COMMITTED,
