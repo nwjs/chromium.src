@@ -529,6 +529,7 @@ void TabContentsWrapper::ReplaceInfoBar(InfoBarDelegate* old_delegate,
       Details<InfoBarReplacedDetails>(&replaced_details));
 
   infobars_.erase(infobars_.begin() + i + 1);
+  old_delegate->clear_owner();
 }
 
 InfoBarDelegate* TabContentsWrapper::GetInfoBarDelegateAt(size_t index) {
@@ -679,6 +680,7 @@ void TabContentsWrapper::RemoveInfoBarInternal(InfoBarDelegate* delegate,
       Details<InfoBarRemovedDetails>(&removed_details));
 
   infobars_.erase(infobars_.begin() + i);
+  delegate->clear_owner();
   // Remove ourselves as an observer if we are tracking no more InfoBars.
   if (infobars_.empty()) {
     registrar_.Remove(this, content::NOTIFICATION_NAV_ENTRY_COMMITTED,
