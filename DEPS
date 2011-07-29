@@ -3,21 +3,21 @@ vars = {
   # If you do not know, use the full path while defining your new deps entry.
   "googlecode_url": "http://%s.googlecode.com/svn",
   "webkit_trunk": "http://svn.webkit.org/repository/webkit/trunk",
-  "nacl_trunk": "http://src.chromium.org/native_client/trunk",
+  "nacl_trunk": "http://src.chromium.org/native_client/branches/835",
   "webkit_revision": "91698",
   "chromium_git": "http://git.chromium.org/git",
   "swig_revision": "69281",
   # These hashes need to be updated when nacl_revision is changed.
   # After changing nacl_revision, run 'gclient runhooks' to get the new values.
-  "nacl_irt_hash_x86_32": "cba52bdbdd515b026a9b0d05712879e21ec06090",
-  "nacl_irt_hash_x86_64": "cb6f14924590455d3234d8eef341426a95edf9b1",
-  "nacl_revision": "6201",
+  "nacl_irt_hash_x86_32": "02c4c8443656cf202562a2b9c9a63f3231fa1fbb",
+  "nacl_irt_hash_x86_64": "caa69972df32882635a78f9212ea1d759380ab51",
+  "nacl_revision": "6256",
   # After changing nacl_revision, run 'glient sync' and check native_client/DEPS
   # to update other nacl_*_revision's.
   # TODO(brettw) We should use the "From" syntax to avoid hardcoding the
   # revisions here, but it makes checkdeps confused. We should fix checkdeps.
   "nacl_chrome_ppapi_revision": "93797", # native_client/DEPS: chrome_ppapi_rev 
-  "nacl_tools_revision": "5360",  # native_client/DEPS: tools_rev
+  "nacl_tools_revision": "HEAD",  # native_client/DEPS: tools_rev
   "libjingle_revision": "73",
   "libvpx_revision": "90416",
   "ffmpeg_revision": "94155",
@@ -397,6 +397,8 @@ hooks = [
     # library, which is built as NaCl untrusted code.
     "pattern": ".",
     "action": ["python", "src/build/download_nacl_irt.py",
+	       "--base_url",
+               "http://commondatastorage.googleapis.com/nativeclient-archive2/irt/branches/m14",
                "--nacl_revision", Var("nacl_revision"),
                "--file_hash", "x86_32", Var("nacl_irt_hash_x86_32"),
                "--file_hash", "x86_64", Var("nacl_irt_hash_x86_64")],
