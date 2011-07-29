@@ -20,7 +20,20 @@
 
 // MachineInfo key names.
 static const char kMachineInfoSystemHwqual[] = "hardware_class";
-static const char kMachineInfoSerialNumber[] = "serial_number";
+
+// These are the machine serial number keys that we check in order until we
+// find a non-empty serial number. The VPD spec says the serial number should be
+// in the "serial_number" key for v2+ VPDs. However, we cannot check this first,
+// since we'd get the "serial_number" value from the SMBIOS (yes, there's a name
+// clash here!), which is different from the serial number we want and not
+// actually per-device. So, we check the the legacy keys first. If we find a
+// serial number for these, we use it, otherwise we must be on a newer device
+// that provides the correct data in "serial_number".
+static const char* kMachineInfoSerialNumberKeys[] = {
+  "sn",            // ZGB
+  "Product_S/N",   // Alex
+  "serial_number"  // VPD v2+ devices
+};
 
 namespace policy {
 
@@ -31,10 +44,16 @@ DevicePolicyIdentityStrategy::DevicePolicyIdentityStrategy() {
                                     &machine_model_)) {
     LOG(ERROR) << "Failed to get machine model.";
   }
-  if (!sys_lib->GetMachineStatistic(kMachineInfoSerialNumber,
-                                    &machine_id_)) {
-    LOG(ERROR) << "Failed to get machine serial number.";
+  for (unsigned int i = 0; i < arraysize(kMachineInfoSerialNumberKeys); i++) {
+    if (sys_lib->GetMachineStatistic(kMachineInfoSerialNumberKeys[i],
+                                     &machine_id_) &&
+        !machine_id_.empty()) {
+      break;
+    }
   }
+
+  if (machine_id_.empty())
+    LOG(ERROR) << "Failed to get machine serial number.";
 }
 
 DevicePolicyIdentityStrategy::~DevicePolicyIdentityStrategy() {
