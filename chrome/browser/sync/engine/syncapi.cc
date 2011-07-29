@@ -1204,6 +1204,7 @@ class SyncManager::SyncInternal
         registrar_(NULL),
         initialized_(false),
         method_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)),
+        observing_ip_address_changes_(false),
         js_transaction_observer_(ALLOW_THIS_IN_INITIALIZER_LIST(this)) {
     // Pre-fill |notification_info_map_|.
     for (int i = syncable::FIRST_REAL_MODEL_TYPE;
@@ -1625,6 +1626,9 @@ class SyncManager::SyncInternal
 
   ScopedRunnableMethodFactory<SyncManager::SyncInternal> method_factory_;
 
+  // Whether we should respond to an IP address change notification.
+  bool observing_ip_address_changes_;
+
   // Map used to store the notification info to be displayed in
   // about:sync page.
   NotificationInfoMap notification_info_map_;
@@ -1765,6 +1769,7 @@ bool SyncManager::SyncInternal::Init(
       sync_server_and_path, port, use_ssl, user_agent, post_factory));
 
   net::NetworkChangeNotifier::AddIPAddressObserver(this);
+  observing_ip_address_changes_ = true;
 
   connection_manager()->AddListener(this);
 
@@ -1935,6 +1940,8 @@ void SyncManager::SyncInternal::UpdateCredentials(
   DCHECK_EQ(credentials.email, share_.name);
   DCHECK(!credentials.email.empty());
   DCHECK(!credentials.sync_token.empty());
+
+  observing_ip_address_changes_ = true;
   connection_manager()->set_auth_token(credentials.sync_token);
   sync_notifier_->UpdateCredentials(
       credentials.email, credentials.sync_token);
@@ -2240,6 +2247,7 @@ void SyncManager::SyncInternal::Shutdown() {
   }
 
   net::NetworkChangeNotifier::RemoveIPAddressObserver(this);
+  observing_ip_address_changes_ = false;
 
   connection_manager_hookup_.reset();
 
@@ -2257,6 +2265,11 @@ void SyncManager::SyncInternal::Shutdown() {
 
 void SyncManager::SyncInternal::OnIPAddressChanged() {
   VLOG(1) << "IP address change detected";
+  if (!observing_ip_address_changes_) {
+    VLOG(1) << "IP address change dropped.";
+    return;
+  }
+
 #if defined (OS_CHROMEOS)
   // TODO(tim): This is a hack to intentionally lose a race with flimflam at
   // shutdown, so we don't cause shutdown to wait for our http request.
@@ -2287,6 +2300,7 @@ void SyncManager::SyncInternal::OnServerConnectionEvent(
   }
 
   if (event.connection_code == browser_sync::HttpResponse::SYNC_AUTH_ERROR) {
+    observing_ip_address_changes_ = false;
     ObserverList<SyncManager::Observer> temp_obs_list;
     CopyObservers(&temp_obs_list);
     FOR_EACH_OBSERVER(SyncManager::Observer, temp_obs_list,
