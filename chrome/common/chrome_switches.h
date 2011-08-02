@@ -139,7 +139,6 @@ extern const char kEnableNaCl[];
 extern const char kEnableNaClDebug[];
 extern const char kEnablePanels[];
 extern const char kEnablePreconnect[];
-extern const char kEnableRemoting[];
 extern const char kEnableResourceContentSettings[];
 extern const char kEnableSearchProviderApiV2[];
 extern const char kEnableShortcutsProvider[];

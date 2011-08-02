@@ -474,10 +474,6 @@ const char kEnableNaCl[]                    = "enable-nacl";
 // Enables debugging via RSP over a socket.
 const char kEnableNaClDebug[]               = "enable-nacl-debug";
 
-// This applies only when the process type is "service". Enables the
-// Chromoting Host Process within the service process.
-const char kEnableRemoting[]                = "enable-remoting";
-
 // Enable content settings based on host *and* plug-in.
 const char kEnableResourceContentSettings[] =
     "enable-resource-content-settings";
