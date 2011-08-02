@@ -16,6 +16,7 @@
 #include "content/renderer/render_view_observer_tracker.h"
 #include "printing/metafile.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebFrameClient.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebNode.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebViewClient.h"
 #include "ui/gfx/size.h"
 
@@ -40,6 +41,8 @@ class PrepareFrameAndViewForPrint {
                               WebKit::WebNode* node);
   ~PrepareFrameAndViewForPrint();
 
+  void UpdatePrintParams(const PrintMsg_Print_Params& print_params);
+
   int GetExpectedPageCount() const {
     return expected_pages_count_;
   }
@@ -55,11 +58,15 @@ class PrepareFrameAndViewForPrint {
   void FinishPrinting();
 
  private:
+  void StartPrinting(const gfx::Size& print_params);
+
   WebKit::WebFrame* frame_;
+  WebKit::WebNode node_to_print_;
   WebKit::WebView* web_view_;
   gfx::Size print_canvas_size_;
   gfx::Size prev_view_size_;
   gfx::Size prev_scroll_offset_;
+  int dpi_;
   int expected_pages_count_;
   bool use_browser_overlays_;
   bool finished_;
@@ -167,8 +174,15 @@ class PrintWebViewHelper : public RenderViewObserver,
   // Print Settings -----------------------------------------------------------
 
   // Initialize print page settings with default settings.
-  bool InitPrintSettings(WebKit::WebFrame* frame,
-                         WebKit::WebNode* node);
+  bool InitPrintSettings(WebKit::WebFrame* frame, WebKit::WebNode* node);
+
+  // Initialize print page settings with default settings and prepare the frame
+  // for print. A new PrepareFrameAndViewForPrint is created to fulfill the
+  // request and is filled into the |prepare| argument.
+  bool InitPrintSettingsAndPrepareFrame(
+      WebKit::WebFrame* frame,
+      WebKit::WebNode* node,
+      scoped_ptr<PrepareFrameAndViewForPrint>* prepare);
 
   // Parse the request id out of |job_settings| and store it in |params|.
   // Returns false on failure.
@@ -192,7 +206,8 @@ class PrintWebViewHelper : public RenderViewObserver,
   // It will implicitly revert the document to display CSS media type.
   bool PrintPages(const PrintMsg_PrintPages_Params& params,
                   WebKit::WebFrame* frame,
-                  WebKit::WebNode* node);
+                  WebKit::WebNode* node,
+                  PrepareFrameAndViewForPrint* prepare);
 
   // Prints the page listed in |params|.
 #if defined(USE_X11)
@@ -207,7 +222,8 @@ class PrintWebViewHelper : public RenderViewObserver,
 #endif
 
   // Render the frame for printing.
-  bool RenderPagesForPrint(WebKit::WebFrame* frame, WebKit::WebNode* node);
+  bool RenderPagesForPrint(WebKit::WebFrame* frame, WebKit::WebNode* node,
+                           PrepareFrameAndViewForPrint* prepare);
 
   // Platform specific helper function for rendering page(s) to |metafile|.
 #if defined(OS_WIN)
@@ -222,7 +238,8 @@ class PrintWebViewHelper : public RenderViewObserver,
 #elif defined(OS_POSIX)
   bool RenderPages(const PrintMsg_PrintPages_Params& params,
                    WebKit::WebFrame* frame, WebKit::WebNode* node,
-                   int* page_count, printing::Metafile* metafile);
+                   int* page_count, PrepareFrameAndViewForPrint* prepare,
+                   printing::Metafile* metafile);
 #endif  // defined(OS_WIN)
 
   // Helper methods -----------------------------------------------------------
@@ -232,15 +249,17 @@ class PrintWebViewHelper : public RenderViewObserver,
   bool CopyMetafileDataToSharedMem(printing::Metafile* metafile,
                                    base::SharedMemoryHandle* shared_mem_handle);
 
-  void GetPageSizeAndMarginsInPoints(
+  static void GetPageSizeAndMarginsInPoints(
       WebKit::WebFrame* frame,
       int page_index,
       const PrintMsg_Print_Params& default_params,
       PageSizeMargins* page_layout_in_points);
 
-  void UpdatePrintableSizeInPrintParameters(WebKit::WebFrame* frame,
-                                            WebKit::WebNode* node,
-                                            PrintMsg_Print_Params* params);
+  static void UpdatePrintableSizeInPrintParameters(
+      WebKit::WebFrame* frame,
+      WebKit::WebNode* node,
+      PrepareFrameAndViewForPrint* prepare,
+      PrintMsg_Print_Params* params);
 
   bool GetPrintFrame(WebKit::WebFrame** frame);
 
@@ -300,7 +319,7 @@ class PrintWebViewHelper : public RenderViewObserver,
     void OnPrintPreview();
 
     // Create the print preview document. |pages| is empty to print all pages.
-    bool CreatePreviewDocument(const PrintMsg_Print_Params& params,
+    bool CreatePreviewDocument(PrintMsg_Print_Params* params,
                                const std::vector<int>& pages);
 
     // Called after a page gets rendered. |page_time| is how long the
