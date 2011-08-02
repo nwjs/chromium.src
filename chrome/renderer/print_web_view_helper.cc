@@ -397,11 +397,6 @@ bool PrintWebViewHelper::FinalizePreviewDocument() {
                                    &(preview_params.metafile_data_handle))) {
     return false;
   }
-#if defined(OS_WIN)
-  Send(new PrintHostMsg_DuplicateSection(routing_id(),
-                                         preview_params.metafile_data_handle,
-                                         &preview_params.metafile_data_handle));
-#endif
   Send(new PrintHostMsg_PagesReadyForPreview(routing_id(), preview_params));
   return true;
 }
@@ -872,7 +867,6 @@ void PrintWebViewHelper::RequestPrintPreview() {
 
 void PrintWebViewHelper::PreviewPageRendered(int page_number,
                                              printing::Metafile* metafile) {
-#if !defined(OS_WIN)
   if ((page_number == printing::INVALID_PAGE_INDEX && metafile) ||
        (page_number >= printing::FIRST_PAGE_INDEX && !metafile &&
         print_preview_context_.IsModifiable())) {
@@ -880,7 +874,6 @@ void PrintWebViewHelper::PreviewPageRendered(int page_number,
     DidFinishPrinting(FAIL_PREVIEW);
     return;
   }
-#endif
 
   uint32 buf_size = 0;
   PrintHostMsg_DidPreviewPage_Params preview_page_params;
