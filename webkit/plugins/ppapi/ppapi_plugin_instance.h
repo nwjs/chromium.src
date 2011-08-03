@@ -40,6 +40,7 @@ struct PPP_InputEvent;
 struct PPP_Instance_Private;
 struct PPP_Messaging;
 struct PPP_Pdf;
+struct PPP_PolicyUpdate_Dev;
 struct PPP_Selection_Dev;
 struct PPP_Zoom_Dev;
 
@@ -163,6 +164,7 @@ class PluginInstance : public base::RefCounted<PluginInstance>,
   bool HandleDocumentLoad(PPB_URLLoader_Impl* loader);
   bool HandleInputEvent(const WebKit::WebInputEvent& event,
                         WebKit::WebCursorInfo* cursor_info);
+  void HandlePolicyUpdate(const std::string& policy_json);
   PP_Var GetInstanceObject();
   void ViewChanged(const gfx::Rect& position, const gfx::Rect& clip);
 
@@ -285,6 +287,7 @@ class PluginInstance : public base::RefCounted<PluginInstance>,
                                  double minimum_factor,
                                  double maximium_factor) OVERRIDE;
   virtual void PostMessage(PP_Instance instance, PP_Var message) OVERRIDE;
+  virtual void SubscribeToPolicyUpdates(PP_Instance instance) OVERRIDE;
 
  private:
   // See the static Create functions above for creating PluginInstance objects.
@@ -299,9 +302,10 @@ class PluginInstance : public base::RefCounted<PluginInstance>,
   bool LoadInputEventInterface();
   bool LoadMessagingInterface();
   bool LoadPdfInterface();
-  bool LoadSelectionInterface();
+  bool LoadPolicyUpdateInterface();
   bool LoadPrintInterface();
   bool LoadPrivateInterface();
+  bool LoadSelectionInterface();
   bool LoadZoomInterface();
 
   // Determines if we think the plugin has focus, both content area and webkit
@@ -397,6 +401,7 @@ class PluginInstance : public base::RefCounted<PluginInstance>,
   const PPP_InputEvent* plugin_input_event_interface_;
   const PPP_Instance_Private* plugin_private_interface_;
   const PPP_Pdf* plugin_pdf_interface_;
+  const PPP_PolicyUpdate_Dev* plugin_policy_updated_interface_;
   const PPP_Selection_Dev* plugin_selection_interface_;
   const PPP_Zoom_Dev* plugin_zoom_interface_;
 

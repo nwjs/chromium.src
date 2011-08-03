@@ -14,6 +14,7 @@
 #include "ppapi/c/dev/ppb_memory_dev.h"
 #include "ppapi/c/dev/ppb_zoom_dev.h"
 #include "ppapi/c/dev/ppp_find_dev.h"
+#include "ppapi/c/dev/ppp_policy_update_dev.h"
 #include "ppapi/c/dev/ppp_selection_dev.h"
 #include "ppapi/c/dev/ppp_zoom_dev.h"
 #include "ppapi/c/pp_input_event.h"
@@ -218,6 +219,7 @@ PluginInstance::PluginInstance(
       plugin_input_event_interface_(NULL),
       plugin_private_interface_(NULL),
       plugin_pdf_interface_(NULL),
+      plugin_policy_updated_interface_(NULL),
       plugin_selection_interface_(NULL),
       plugin_zoom_interface_(NULL),
       checked_for_plugin_input_event_interface_(false),
@@ -473,6 +475,14 @@ bool PluginInstance::HandleInputEvent(const WebKit::WebInputEvent& event,
   return rv;
 }
 
+void PluginInstance::HandlePolicyUpdate(const std::string& policy_json) {
+  if (!LoadPolicyUpdateInterface())
+    return;
+  plugin_policy_updated_interface_->PolicyUpdated(
+      pp_instance(),
+      StringVar::StringToPPVar(module()->pp_module(), policy_json));
+}
+
 void PluginInstance::HandleMessage(PP_Var message) {
   // Keep a reference on the stack. See NOTE above.
   scoped_refptr<PluginInstance> ref(this);
@@ -699,14 +709,14 @@ bool PluginInstance::LoadPdfInterface() {
   return !!plugin_pdf_interface_;
 }
 
-bool PluginInstance::LoadSelectionInterface() {
-  if (!plugin_selection_interface_) {
-    plugin_selection_interface_ =
-        static_cast<const PPP_Selection_Dev*>(module_->GetPluginInterface(
-            PPP_SELECTION_DEV_INTERFACE));
+bool PluginInstance::LoadPolicyUpdateInterface() {
+  if (!plugin_policy_updated_interface_) {
+    plugin_policy_updated_interface_ =
+        static_cast<const PPP_PolicyUpdate_Dev*>(module_->GetPluginInterface(
+            PPP_POLICY_UPDATE_DEV_INTERFACE));
   }
 
-  return !!plugin_selection_interface_;
+  return !!plugin_policy_updated_interface_;
 }
 
 bool PluginInstance::LoadPrintInterface() {
@@ -737,6 +747,16 @@ bool PluginInstance::LoadPrivateInterface() {
   }
 
   return !!plugin_private_interface_;
+}
+
+bool PluginInstance::LoadSelectionInterface() {
+  if (!plugin_selection_interface_) {
+    plugin_selection_interface_ =
+        static_cast<const PPP_Selection_Dev*>(module_->GetPluginInterface(
+            PPP_SELECTION_DEV_INTERFACE));
+  }
+
+  return !!plugin_selection_interface_;
 }
 
 bool PluginInstance::LoadZoomInterface() {
@@ -1543,6 +1563,10 @@ void PluginInstance::ZoomLimitsChanged(PP_Instance instance,
 
 void PluginInstance::PostMessage(PP_Instance instance, PP_Var message) {
   message_channel_->PostMessageToJavaScript(message);
+}
+
+void PluginInstance::SubscribeToPolicyUpdates(PP_Instance instance) {
+  delegate()->SubscribeToPolicyUpdates(this);
 }
 
 }  // namespace ppapi
