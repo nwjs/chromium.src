@@ -457,6 +457,9 @@ extern const char kGeolocationContentSettings[];
 
 extern const char kLoginDatabaseMigrated[];
 
+extern const char kRemoteAccessClientFirewallTraversal[];
+extern const char kRemoteAccessHostFirewallTraversal[];
+
 extern const char kCloudPrintServiceURL[];
 extern const char kCloudPrintDialogWidth[];
 extern const char kCloudPrintDialogHeight[];

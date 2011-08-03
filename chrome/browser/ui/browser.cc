@@ -2233,6 +2233,12 @@ void Browser::RegisterUserPrefs(PrefService* prefs) {
   prefs->RegisterBooleanPref(prefs::kEnableBookmarkBar,
                              true,
                              PrefService::UNSYNCABLE_PREF);
+  prefs->RegisterBooleanPref(prefs::kRemoteAccessClientFirewallTraversal,
+                             true,
+                             PrefService::UNSYNCABLE_PREF);
+  prefs->RegisterBooleanPref(prefs::kRemoteAccessHostFirewallTraversal,
+                             true,
+                             PrefService::UNSYNCABLE_PREF);
   prefs->RegisterStringPref(prefs::kCloudPrintEmail,
                             std::string(),
                             PrefService::UNSYNCABLE_PREF);
