@@ -15,9 +15,7 @@
 
 namespace net {
 
-class HttpConnection;
 class HttpServerRequestInfo;
-class WebSocket;
 
 class HttpServer : public ListenSocket::ListenSocketDelegate,
                    public base::RefCountedThreadSafe<HttpServer> {
@@ -55,7 +53,28 @@ class HttpServer : public ListenSocket::ListenSocketDelegate,
 
 private:
   friend class base::RefCountedThreadSafe<HttpServer>;
-  friend class HttpConnection;
+  class Connection {
+   private:
+    static int lastId_;
+    friend class HttpServer;
+
+    explicit Connection(HttpServer* server, ListenSocket* sock);
+    ~Connection();
+
+    void DetachSocket();
+
+    void Shift(int num_bytes);
+
+    HttpServer* server_;
+    scoped_refptr<ListenSocket> socket_;
+    bool is_web_socket_;
+    std::string recv_data_;
+    int id_;
+
+    DISALLOW_COPY_AND_ASSIGN(Connection);
+  };
+  friend class Connection;
+
 
   // ListenSocketDelegate
   virtual void DidAccept(ListenSocket* server, ListenSocket* socket);
@@ -65,18 +84,18 @@ private:
   // Expects the raw data to be stored in recv_data_. If parsing is successful,
   // will remove the data parsed from recv_data_, leaving only the unused
   // recv data.
-  bool ParseHeaders(HttpConnection* connection,
+  bool ParseHeaders(Connection* connection,
                     HttpServerRequestInfo* info,
-                    size_t* pos);
+                    int* ppos);
 
-  HttpConnection* FindConnection(int connection_id);
-  HttpConnection* FindConnection(ListenSocket* socket);
+  Connection* FindConnection(int connection_id);
+  Connection* FindConnection(ListenSocket* socket);
 
   HttpServer::Delegate* delegate_;
   scoped_refptr<ListenSocket> server_;
-  typedef std::map<int, HttpConnection*> IdToConnectionMap;
+  typedef std::map<int, Connection*> IdToConnectionMap;
   IdToConnectionMap id_to_connection_;
-  typedef std::map<ListenSocket*, HttpConnection*> SocketToConnectionMap;
+  typedef std::map<ListenSocket*, Connection*> SocketToConnectionMap;
   SocketToConnectionMap socket_to_connection_;
 
   DISALLOW_COPY_AND_ASSIGN(HttpServer);
