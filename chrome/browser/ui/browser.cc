@@ -4796,9 +4796,10 @@ void Browser::UpdateBookmarkBarState(BookmarkBarStateChangeReason reason) {
 }
 
 void Browser::ShowSyncSetup() {
-  ProfileSyncService* service = profile()->GetProfileSyncService();
+  ProfileSyncService* service =
+      profile()->GetOriginalProfile()->GetProfileSyncService();
   if (service->HasSyncSetupCompleted())
     ShowOptionsTab(chrome::kSyncSetupSubPage);
   else
-    profile()->GetProfileSyncService()->ShowLoginDialog();
+    service->ShowLoginDialog();
 }
