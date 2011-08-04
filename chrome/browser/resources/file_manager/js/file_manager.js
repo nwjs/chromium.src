@@ -177,13 +177,13 @@ FileManager.prototype = {
    * The DirectoryEntry.fullPath value of the directory containing externally
    * mounted removable storage volumes.
    */
-  const REMOVABLE_DIRECTORY = 'removable';
+  const REMOVABLE_DIRECTORY = '/removable';
 
   /**
    * The DirectoryEntry.fullPath value of the directory containing externally
    * mounted archive file volumes.
    */
-  const ARCHIVE_DIRECTORY = 'archive';
+  const ARCHIVE_DIRECTORY = '/archive';
 
   /**
    * Mnemonics for the second parameter of the changeDirectory method.
@@ -2392,7 +2392,8 @@ FileManager.prototype = {
    */
   FileManager.prototype.allowRenameClick_ = function(event, row) {
     if (this.dialogType_ != FileManager.DialogType.FULL_PAGE ||
-        this.currentDirEntry_.name == '') {
+        this.currentDirEntry_.name == '' ||
+        isSystemDirEntry(this.currentDirEntry_)) {
       // Renaming only enabled for full-page mode, outside of the root
       // directory.
       return false;
@@ -2704,7 +2705,8 @@ FileManager.prototype = {
 
       case 46:  // Delete.
         if (this.dialogType_ == FileManager.DialogType.FULL_PAGE &&
-            this.selection.totalCount > 0) {
+            this.selection.totalCount > 0 &&
+            !isSystemDirEntry(this.currentDirEntry_)) {
           event.preventDefault();
           this.deleteEntries(this.selection.entries);
         }
