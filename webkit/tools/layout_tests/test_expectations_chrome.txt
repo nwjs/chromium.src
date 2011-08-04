@@ -1,6 +1,6 @@
 BUG_BASE : svg/as-image/img-preserveAspectRatio-support-2.html = IMAGE+TEXT
 BUG_BASE : svg/as-object/object-box-sizing-no-width-height.html = IMAGE+TEXT
-BUG_BASE : svg/zoom/page/zoom-coords-viewattr-01-b.svg = IMAGE+TEXT
+BUG_BASE : svg/zoom/page/zoom-coords-viewattr-01-b.svg = IMAGE+TEXT TEXT
 BUG_BASE : svg/zoom/page/zoom-foreignObject.svg = TEXT
 BUG_BASE LINUX X86 : css2.1/20110323/block-non-replaced-width-008.htm = TIMEOUT
 BUG_BASE LINUX X86 : css2.1/t0905-c5525-fltwidth-00-c-g.html = IMAGE
@@ -316,9 +316,7 @@ BUG_BASE LINUX X86 : svg/text/text-tref-01-b.svg = IMAGE
 BUG_BASE LINUX X86 : svg/text/text-ws-01-t.svg = IMAGE
 BUG_BASE LINUX X86 : svg/text/text-ws-02-t.svg = IMAGE
 BUG_BASE LINUX X86 : svg/wicd/rightsizing-grid.xhtml = IMAGE
-BUG_BASE LINUX X86 : svg/zoom/page/zoom-coords-viewattr-01-b.svg = TEXT
 BUG_BASE LINUX X86 : svg/zoom/page/zoom-mask-with-percentages.svg = TEXT
-BUG_BASE LINUX X86 : svg/zoom/text/zoom-coords-viewattr-01-b.svg = TEXT
 BUG_BASE LINUX X86 : tables/mozilla/bugs/bug1188.html = IMAGE
 BUG_BASE LINUX X86 : tables/mozilla/bugs/bug1296.html = IMAGE
 BUG_BASE LINUX X86 : tables/mozilla/bugs/bug1430.html = IMAGE
