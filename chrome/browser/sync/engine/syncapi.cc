@@ -1645,6 +1645,12 @@ SyncManager::Observer::~Observer() {}
 SyncManager::SyncManager(const std::string& name)
     : data_(new SyncInternal(name, ALLOW_THIS_IN_INITIALIZER_LIST(this))) {}
 
+SyncManager::Status::Status() {
+}
+
+SyncManager::Status::~Status() {
+}
+
 bool SyncManager::Init(const FilePath& database_location,
                        const std::string& sync_server_and_path,
                        int sync_server_port,
@@ -1857,6 +1863,9 @@ bool SyncManager::SyncInternal::UpdateCryptographerFromNigori() {
     FOR_EACH_OBSERVER(SyncManager::Observer, temp_obs_list,
                       OnPassphraseRequired(sync_api::REASON_DECRYPTION));
   }
+
+  allstatus_.SetCryptographerReady(cryptographer->is_ready());
+  allstatus_.SetCryptoHasPendingKeys(cryptographer->has_pending_keys());
 
   return cryptographer->is_ready();
 }
@@ -2101,6 +2110,7 @@ void SyncManager::SyncInternal::EncryptDataTypes(
                  encrypted_types.begin(), encrypted_types.end(),
                  std::inserter(newly_encrypted_types,
                                newly_encrypted_types.begin()));
+  allstatus_.SetEncryptedTypes(newly_encrypted_types);
   if (newly_encrypted_types == current_encrypted_types)
     return;  // Set of encrypted types did not change.
   syncable::FillNigoriEncryptedTypes(newly_encrypted_types, &nigori);
@@ -2549,6 +2559,11 @@ void SyncManager::SyncInternal::OnSyncEngineEvent(
         FOR_EACH_OBSERVER(SyncManager::Observer, temp_obs_list,
                           OnPassphraseRequired(sync_api::REASON_ENCRYPTION));
       }
+
+      allstatus_.SetCryptographerReady(cryptographer->is_ready());
+      allstatus_.SetCryptoHasPendingKeys(cryptographer->has_pending_keys());
+      allstatus_.SetEncryptedTypes(cryptographer->GetEncryptedTypes());
+
       // If everything is in order(we have the passphrase) then there is no
       // need to inform the listeners. They will just wait for sync
       // completion event and if no errors have been raised it means
