@@ -22,7 +22,8 @@ class MenuItemView;
 class MenuModelAdapter : public MenuDelegate {
  public:
   // The caller retains ownership of the ui::MenuModel instance and
-  // must ensure it exists for the lifetime of the adapter.
+  // must ensure it exists for the lifetime of the adapter.  The
+  // base_id argument is the command id for the first menu item.
   explicit MenuModelAdapter(ui::MenuModel* menu_model);
   virtual ~MenuModelAdapter();
 
