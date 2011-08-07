@@ -288,9 +288,8 @@ class MenuModelAdapterTest : public ViewEventTestBase,
     gfx::Point screen_location;
     views::View::ConvertPointToScreen(source, &screen_location);
     gfx::Rect bounds(screen_location, source->size());
-    gfx::NativeWindow window = GTK_WINDOW(source->GetWidget()->GetNativeView());
     menu_->RunMenuAt(
-        window,
+        source->GetWidget()->GetNativeWindow(),
         button_,
         bounds,
         views::MenuItemView::TOPLEFT,
