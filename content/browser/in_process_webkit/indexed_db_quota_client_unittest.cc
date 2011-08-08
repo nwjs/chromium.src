@@ -36,7 +36,8 @@ class IndexedDBQuotaClientTest : public testing::Test {
         usage_(0),
         callback_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)),
         message_loop_(MessageLoop::TYPE_IO),
-        webkit_thread_(BrowserThread::WEBKIT, &message_loop_) {
+        webkit_thread_(BrowserThread::WEBKIT, &message_loop_),
+        io_thread_(BrowserThread::IO, &message_loop_) {
     TestingProfile profile;
     idb_context_ = profile.GetWebKitContext()->indexed_db_context();
     setup_temp_dir();
@@ -93,6 +94,15 @@ class IndexedDBQuotaClientTest : public testing::Test {
     return origins_;
   }
 
+  quota::QuotaStatusCode DeleteOrigin(quota::QuotaClient* client,
+                                      const GURL& origin_url) {
+    delete_status_ = quota::kQuotaStatusUnknown;
+    client->DeleteOriginData(origin_url, kTemp, callback_factory_.NewCallback(
+        &IndexedDBQuotaClientTest::OnDeleteOriginComplete));
+    MessageLoop::current()->RunAllPending();
+    return delete_status_;
+  }
+
   IndexedDBContext* idb_context() { return idb_context_.get(); }
 
   void SetFileSizeTo(const FilePath& path, int size) {
@@ -120,6 +130,10 @@ class IndexedDBQuotaClientTest : public testing::Test {
     origins_ = origins;
   }
 
+  void OnDeleteOriginComplete(quota::QuotaStatusCode code) {
+    delete_status_ = code;
+  }
+
   ScopedTempDir temp_dir_;
   int64 usage_;
   std::set<GURL> origins_;
@@ -127,6 +141,8 @@ class IndexedDBQuotaClientTest : public testing::Test {
   base::ScopedCallbackFactory<IndexedDBQuotaClientTest> callback_factory_;
   MessageLoop message_loop_;
   BrowserThread webkit_thread_;
+  BrowserThread io_thread_;
+  quota::QuotaStatusCode delete_status_;
 };
 
 
@@ -189,4 +205,20 @@ TEST_F(IndexedDBQuotaClientTest, GetOriginsForType) {
   EXPECT_TRUE(origins.find(kOriginA) != origins.end());
 
   EXPECT_TRUE(GetOriginsForType(&client, kPerm).empty());
+}
+
+TEST_F(IndexedDBQuotaClientTest, DeleteOrigin) {
+  IndexedDBQuotaClient client(
+      base::MessageLoopProxy::CreateForCurrentThread(),
+      idb_context());
+
+  AddFakeIndexedDB(kOriginA, 1000);
+  AddFakeIndexedDB(kOriginB, 50);
+  EXPECT_EQ(1000, GetOriginUsage(&client, kOriginA, kTemp));
+  EXPECT_EQ(50, GetOriginUsage(&client, kOriginB, kTemp));
+
+  quota::QuotaStatusCode delete_status = DeleteOrigin(&client, kOriginA);
+  EXPECT_EQ(quota::kQuotaStatusOk, delete_status);
+  EXPECT_EQ(0, GetOriginUsage(&client, kOriginA, kTemp));
+  EXPECT_EQ(50, GetOriginUsage(&client, kOriginB, kTemp));
 }
