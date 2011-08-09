@@ -411,7 +411,6 @@ BUG_BASE MAC : fast/filesystem/op-move.html = TIMEOUT
 BUG_BASE MAC : fast/filesystem/op-remove.html = TIMEOUT
 BUG_BASE MAC : fast/forms/fallback-content-submission.html = TIMEOUT
 BUG_BASE MAC : fast/forms/input-file-label.html = CRASH
-BUG_BASE MAC : fast/gradients/gradient-after-transparent-border.html = IMAGE
 BUG_BASE MAC : fast/images/pdf-as-background.html = TIMEOUT
 BUG_BASE MAC : fast/lists/w3-css3-list-styles-fallback-style.html = TIMEOUT
 BUG_BASE MAC : fast/multicol/table-margin-collapse.html = TIMEOUT
