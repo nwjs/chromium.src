@@ -3739,7 +3739,7 @@ void Browser::OnStateChanged() {
 #endif
 
   command_updater_.UpdateCommandEnabled(IDC_SYNC_BOOKMARKS,
-      show_main_ui && profile_->IsSyncAccessible());
+      show_main_ui && profile_->GetOriginalProfile()->IsSyncAccessible());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -4007,7 +4007,7 @@ void Browser::UpdateCommandsForFullscreenMode(bool is_fullscreen) {
       browser_defaults::bookmarks_enabled && show_main_ui);
   command_updater_.UpdateCommandEnabled(IDC_IMPORT_SETTINGS, show_main_ui);
   command_updater_.UpdateCommandEnabled(IDC_SYNC_BOOKMARKS,
-      show_main_ui && profile_->IsSyncAccessible());
+      show_main_ui && profile_->GetOriginalProfile()->IsSyncAccessible());
 
   command_updater_.UpdateCommandEnabled(IDC_OPTIONS, show_main_ui);
   command_updater_.UpdateCommandEnabled(IDC_EDIT_SEARCH_ENGINES, show_main_ui);
