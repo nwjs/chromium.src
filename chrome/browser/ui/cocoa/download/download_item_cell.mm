@@ -571,8 +571,7 @@ const int kInterruptedAnimationDuration = 2.5;
   [triangle lineToPoint:p3];
   [triangle closePath];
 
-  NSGraphicsContext* context = [NSGraphicsContext currentContext];
-  gfx::ScopedNSGraphicsContextSaveGState scopedGState(context);
+  gfx::ScopedNSGraphicsContextSaveGState scopedGState;
 
   scoped_nsobject<NSShadow> shadow([[NSShadow alloc] init]);
   [shadow.get() setShadowColor:[NSColor whiteColor]];
