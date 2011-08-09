@@ -355,6 +355,15 @@ const Experiment kExperiments[] = {
     kOsAll,
     SINGLE_VALUE_TYPE(switches::kEnableShortcutsProvider)
   },
+#if defined(OS_CHROMEOS)
+  {
+    "webui-login",
+    IDS_SYNC_SETUP_TITLE,
+    IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_ADVANCED_BUTTON,
+    kOsCrOS,
+    SINGLE_VALUE_TYPE(switches::kWebUILogin)
+  },
+#endif
 };
 
 const Experiment* experiments = kExperiments;
