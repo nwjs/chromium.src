@@ -36,6 +36,10 @@ body {
   text-decoration: none;
 }
 
+#eula #stats-help-link {
+  color: #316ac5;
+}
+
 hr.topshadow {
   -webkit-mask: -webkit-linear-gradient(left, rgba(0,0,0,0),
                                         black 50%, rgba(0,0,0,0));
@@ -71,6 +75,13 @@ hr.bottomshadow {
   padding-left: 54px;
 }
 
+#header span,
+#logging span,
+#user-image-screen-curtain p,
+.label {
+  cursor: default;
+}
+
 #header-sections {
   position: relative;
 }
@@ -84,6 +95,7 @@ hr.bottomshadow {
 .header-section {
   -webkit-transition: left .2s, opacity .2s ease-in-out;
   position: absolute;
+  text-transform: lowercase;
   width: 20em;
 }
 
@@ -167,6 +179,7 @@ hr.bottomshadow {
 
 #logging {
   clear: both;
+  font-size: small;
   margin-top: 20px;
 }
 
@@ -198,6 +211,7 @@ hr.bottomshadow {
 
 #footer button {
   display: none;
+  height: 29px;
 }
 
 #oobe.connect #continue-button,
@@ -266,6 +280,11 @@ button {
   margin-right: 10px;
   padding: 0 0 0 5px;
   width: 310px;
+}
+
+#cros-eula,
+#oem-eula {
+  border: 1px solid #d9d9d9;
 }
 
 #eulas.one-column #cros-eula {
