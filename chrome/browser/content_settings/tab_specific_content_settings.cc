@@ -433,6 +433,14 @@ void TabSpecificContentSettings::DidNavigateMainFramePostCommit(
   }
 }
 
+void TabSpecificContentSettings::RenderViewCreated(
+    RenderViewHost* render_view_host) {
+  HostContentSettingsMap* map =
+      tab_contents()->profile()->GetHostContentSettingsMap();
+  render_view_host->Send(new ViewMsg_SetDefaultContentSettings(
+      map->GetDefaultContentSettings()));
+}
+
 void TabSpecificContentSettings::DidStartProvisionalLoadForFrame(
     int64 frame_id,
     bool is_main_frame,
@@ -448,12 +456,6 @@ void TabSpecificContentSettings::DidStartProvisionalLoadForFrame(
   if (!is_error_page)
     ClearCookieSpecificContentSettings();
   ClearGeolocationContentSettings();
-
-  HostContentSettingsMap* map =
-      tab_contents()->profile()->GetHostContentSettingsMap();
-  render_view_host->Send(new ViewMsg_SetContentSettingsForLoadingURL(
-      render_view_host->routing_id(), validated_url,
-      map->GetContentSettings(validated_url)));
 }
 
 void TabSpecificContentSettings::Observe(NotificationType type,
@@ -469,9 +471,12 @@ void TabSpecificContentSettings::Observe(NotificationType type,
     entry_url = entry->url();
   if (settings_details.ptr()->update_all() ||
       settings_details.ptr()->pattern().Matches(entry_url)) {
+    HostContentSettingsMap* map =
+        tab_contents()->profile()->GetHostContentSettingsMap();
+    Send(new ViewMsg_SetDefaultContentSettings(
+        map->GetDefaultContentSettings()));
     Send(new ViewMsg_SetContentSettingsForCurrentURL(
-        entry_url, tab_contents()->profile()->GetHostContentSettingsMap()->
-            GetContentSettings(entry_url)));
+        entry_url, map->GetContentSettings(entry_url)));
   }
 }
 
