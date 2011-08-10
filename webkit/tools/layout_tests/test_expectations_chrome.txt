@@ -1,4 +1,13 @@
-
+BUG_BASE : compositing/color-matching/image-color-matching.html = IMAGE+TEXT
+BUG_BASE : compositing/geometry/ancestor-overflow-change.html = IMAGE+TEXT
+BUG_BASE : compositing/geometry/fixed-position.html = IMAGE+TEXT
+BUG_BASE : compositing/geometry/layer-due-to-layer-children-deep.html = IMAGE+TEXT
+BUG_BASE : compositing/geometry/layer-due-to-layer-children.html = IMAGE+TEXT
+BUG_BASE : compositing/overflow/fixed-position-ancestor-clip.html = IMAGE+TEXT
+BUG_BASE : compositing/reflections/nested-reflection-transition.html = IMAGE+TEXT
+BUG_BASE : compositing/reflections/transform-inside-reflection.html = IMAGE+TEXT
+BUG_BASE : compositing/shadows/shadow-drawing.html = IMAGE+TEXT
+BUG_BASE : compositing/transitions/scale-transition-no-start.html = IMAGE+TEXT
 BUG_BASE : fast/gradients/gradient-after-transparent-border.html = IMAGE
 BUG_BASE : svg/W3C-SVG-1.1-SE/painting-control-04-f.svg = IMAGE+TEXT
 BUG_BASE : svg/as-image/img-preserveAspectRatio-support-2.html = IMAGE+TEXT
