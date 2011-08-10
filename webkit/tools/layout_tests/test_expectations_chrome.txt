@@ -398,6 +398,7 @@ BUG_BASE LINUX X86_64 : http/tests/appcache/top-frame-1.html = TIMEOUT
 BUG_BASE LINUX X86_64 : inspector/console/command-line-api-inspect.html = TIMEOUT
 BUG_BASE LINUX X86_64 : inspector/profiler/cpu-profiler-profiling-without-inspector.html = CRASH
 BUG_BASE LINUX X86_64 : inspector/styles/css-live-edit.html = TEXT
+BUG_BASE LINUX X86_64 : inspector/styles/up-down-numerics-and-colors.html = CRASH
 BUG_BASE LINUX X86_64 : security/crypto-random-values-types.html = CRASH
 BUG_BASE LINUX X86_64 : storage/change-version-handle-reuse.html = TIMEOUT
 BUG_BASE LINUX X86_64 : storage/change-version-no-crash-on-preflight-failure.html = TIMEOUT
