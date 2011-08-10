@@ -289,6 +289,9 @@ bool PersonalDataManager::ImportFormData(
         imported_profile->SetInfo(PHONE_HOME_WHOLE_NUMBER, constructed_number);
       }
     }
+  }
+  if (imported_profile.get()) {
+    string16 constructed_number;
     if (!fax.empty()) {
       if (!fax.ParseNumber(imported_profile->CountryCode(),
                            &constructed_number)) {
