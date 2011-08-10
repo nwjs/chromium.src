@@ -139,7 +139,7 @@ class Var {
    public:
     OutException(Var* v)
         : output_(v),
-          originally_had_exception_(v && v->is_null()) {
+          originally_had_exception_(v && !v->is_undefined()) {
       if (output_) {
         temp_ = output_->var_;
       } else {
