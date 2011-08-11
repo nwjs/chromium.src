@@ -12,17 +12,13 @@
 #include "net/base/ip_endpoint.h"
 #include "net/base/network_change_notifier.h"
 
-namespace content {
-class ResourceContext;
-}  // namespace content
-
 class P2PSocketHost;
 
 class P2PSocketDispatcherHost
     : public BrowserMessageFilter,
       public net::NetworkChangeNotifier::IPAddressObserver {
  public:
-  P2PSocketDispatcherHost(const content::ResourceContext* resource_context);
+  P2PSocketDispatcherHost();
   virtual ~P2PSocketDispatcherHost();
 
   // BrowserMessageFilter overrides.
@@ -38,17 +34,11 @@ class P2PSocketDispatcherHost
   typedef std::pair<int32, int> ExtendedSocketId;
   typedef std::map<ExtendedSocketId, P2PSocketHost*> SocketsMap;
 
-  class DnsRequest;
-
   P2PSocketHost* LookupSocket(int32 routing_id, int socket_id);
 
   // Handlers for the messages coming from the renderer.
   void OnStartNetworkNotifications(const IPC::Message& msg);
   void OnStopNetworkNotifications(const IPC::Message& msg);
-
-  void OnGetHostAddress(const IPC::Message& msg,
-                        const std::string& host_name,
-                        int32 request_id);
 
   void OnCreateSocket(const IPC::Message& msg,
                       P2PSocketType type,
@@ -67,11 +57,6 @@ class P2PSocketDispatcherHost
   void DoGetNetworkList();
   void SendNetworkList(const net::NetworkInterfaceList& list);
 
-  void OnAddressResolved(DnsRequest* request,
-                         const net::IPAddressNumber& result);
-
-  const content::ResourceContext* resource_context_;
-
   SocketsMap sockets_;
 
   bool monitoring_networks_;
@@ -79,8 +64,6 @@ class P2PSocketDispatcherHost
   // List or routing IDs for the hosts that have subscribed to the
   // network list notifications.
   std::set<int> notifications_routing_ids_;
-
-  std::set<DnsRequest*> dns_requests_;
 
   DISALLOW_COPY_AND_ASSIGN(P2PSocketDispatcherHost);
 };

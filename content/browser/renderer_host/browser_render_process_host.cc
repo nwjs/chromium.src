@@ -399,8 +399,7 @@ void BrowserRenderProcessHost::CreateMessageFilters() {
               widget_helper_.get(), &RenderWidgetHelper::GetNextRoutingID)));
 
 #if defined(ENABLE_P2P_APIS)
-  channel_->AddFilter(new P2PSocketDispatcherHost(
-      &profile()->->GetResourceContext()));
+  channel_->AddFilter(new P2PSocketDispatcherHost());
 #endif
 
   channel_->AddFilter(new TraceMessageFilter());
