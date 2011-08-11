@@ -111,7 +111,7 @@ void WizardAccessibilityHelper::ToggleAccessibility() {
 
 void WizardAccessibilityHelper::SetAccessibilityEnabled(bool enabled) {
   bool doSpeak = (IsAccessibilityEnabled() != enabled);
-  accessibility::EnableAccessibility(enabled, NULL);
+  accessibility::EnableAccessibility(enabled);
   if (doSpeak) {
     accessibility_handler_->Speak(enabled ?
         l10n_util::GetStringUTF8(IDS_CHROMEOS_ACC_ACCESS_ENABLED).c_str() :
