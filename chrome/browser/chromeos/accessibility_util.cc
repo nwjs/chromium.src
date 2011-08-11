@@ -27,6 +27,7 @@ void EnableAccessibility(bool enabled) {
 
   g_browser_process->local_state()->SetBoolean(
       prefs::kAccessibilityEnabled, enabled);
+  g_browser_process->local_state()->ScheduleSavePersistentPrefs();
   ExtensionAccessibilityEventRouter::GetInstance()->
       SetAccessibilityEnabled(enabled);
 
