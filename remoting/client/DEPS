@@ -1,6 +1,6 @@
 include_rules = [
   "+ppapi",
-  "+net",
+  "+third_party/npapi",
   "+ui/gfx",
 
   "+remoting/protocol",

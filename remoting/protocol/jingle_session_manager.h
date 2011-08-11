@@ -22,7 +22,6 @@ class SessionManager;
 
 namespace remoting {
 
-class HostResolverFactory;
 class HttpPortAllocator;
 class JingleInfoRequest;
 class JingleSignalingConnector;
@@ -43,7 +42,6 @@ class JingleSessionManager
   static JingleSessionManager* CreateSandboxed(
       talk_base::NetworkManager* network_manager,
       talk_base::PacketSocketFactory* socket_factory,
-      HostResolverFactory* host_resolver_factory,
       PortAllocatorSessionFactory* port_allocator_session_factory);
 
   // SessionManager interface.
@@ -83,7 +81,6 @@ class JingleSessionManager
   JingleSessionManager(
       talk_base::NetworkManager* network_manager,
       talk_base::PacketSocketFactory* socket_factory,
-      HostResolverFactory* host_resolver_factory,
       PortAllocatorSessionFactory* port_allocator_session_factory);
 
   // Called by JingleSession when a new connection is
@@ -112,7 +109,6 @@ class JingleSessionManager
 
   scoped_ptr<talk_base::NetworkManager> network_manager_;
   scoped_ptr<talk_base::PacketSocketFactory> socket_factory_;
-  scoped_ptr<HostResolverFactory> host_resolver_factory_;
   scoped_ptr<PortAllocatorSessionFactory> port_allocator_session_factory_;
 
   std::string local_jid_;  // Full jid for the local side of the session.
