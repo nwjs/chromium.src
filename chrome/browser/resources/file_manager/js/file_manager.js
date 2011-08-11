@@ -2267,7 +2267,8 @@ FileManager.prototype = {
                         location.href);
     }
 
-    if (this.currentDirEntry_.fullPath.substr(0, DOWNLOADS_DIRECTORY.length) ==
+    if (this.dialogType_ == FileManager.DialogType.FULL_PAGE &&
+        this.currentDirEntry_.fullPath.substr(0, DOWNLOADS_DIRECTORY.length) ==
         DOWNLOADS_DIRECTORY) {
       if (this.downloadsWarning_.style.height != DOWNLOADS_WARNING_HEIGHT) {
         // Current path starts with DOWNLOADS_DIRECTORY, show the warning.
