@@ -487,7 +487,8 @@ bool ChromeRenderViewObserver::allowRunningInsecureContent(
                             INSECURE_CONTENT_NUM_EVENTS);
   std::string host(origin.host().utf8());
   GURL frame_url(frame->document().url());
-  if (EndsWith(host, kDotGoogleDotCom, false)) {
+  bool is_google = EndsWith(host, kDotGoogleDotCom, false);
+  if (is_google) {
     UMA_HISTOGRAM_ENUMERATION(kSSLInsecureContent,
                               INSECURE_CONTENT_RUN_HOST_GOOGLE,
                               INSECURE_CONTENT_NUM_EVENTS);
@@ -573,7 +574,7 @@ bool ChromeRenderViewObserver::allowRunningInsecureContent(
                               INSECURE_CONTENT_NUM_EVENTS);
   }
 
-  if (allowed_per_settings || allow_running_insecure_content_)
+  if (allow_running_insecure_content_ || (!is_google && allowed_per_settings))
     return true;
 
   Send(new ViewHostMsg_DidBlockRunningInsecureContent(routing_id()));

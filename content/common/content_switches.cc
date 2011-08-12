@@ -12,7 +12,7 @@ const char kAllowFileAccessFromFiles[]      = "allow-file-access-from-files";
 
 // By default, an https page cannot run JavaScript, CSS or plug-ins from http
 // URLs. This provides an override to get the old insecure behavior.
-const char kAllowRunningInsecureContent[]   = "allow-running-insecure-content";
+const char kNoRunningInsecureContent[]   = "no-running-insecure-content";
 
 // Allows debugging of sandboxed processes (see zygote_main_linux.cc).
 const char kAllowSandboxDebugging[]         = "allow-sandbox-debugging";
