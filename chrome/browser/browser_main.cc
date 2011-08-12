@@ -1116,6 +1116,7 @@ class StubLogin : public chromeos::LoginStatusConsumer,
                                                 credentials,
                                                 pending_requests,
                                                 using_oauth,
+                                                false,
                                                 this);
   }
 
