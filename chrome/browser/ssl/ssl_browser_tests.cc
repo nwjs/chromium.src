@@ -38,7 +38,7 @@ class SSLUITest : public InProcessBrowserTest {
 
   // Browser will both run and display insecure content.
   virtual void SetUpCommandLine(CommandLine* command_line) {
-    command_line->AppendSwitch(switches::kAllowRunningInsecureContent);
+    //command_line->AppendSwitch(switches::kAllowRunningInsecureContent);
   }
 
   void CheckAuthenticatedState(TabContents* tab,
