@@ -46,8 +46,6 @@
 #endif
 
 #if defined(OS_WIN)
-#include "base/win/windows_version.h"
-#include "webkit/plugins/npapi/plugin_constants_win.h"
 #include "webkit/plugins/npapi/webplugin_delegate_impl.h"
 
 namespace {
@@ -61,9 +59,6 @@ void ReparentPluginWindowHelper(HWND window, HWND parent) {
 
   ::SetWindowLongPtr(window, GWL_STYLE, window_style);
   ::SetParent(window, parent);
-  // Allow the Flash plugin to forward some messages back to Chrome.
-  if (base::win::GetVersion() >= base::win::VERSION_WIN7)
-    ::SetPropW(parent, webkit::npapi::kNativeWindowClassFilterProp, HANDLE(-1));
 }
 
 }  // namespace
@@ -85,11 +80,8 @@ void PluginProcessHost::AddWindow(HWND window) {
 }
 
 void PluginProcessHost::OnReparentPluginWindow(HWND window, HWND parent) {
-  // Reparent only from the plugin process to our process.
+  // Reparent only to our process.
   DWORD process_id = 0;
-  ::GetWindowThreadProcessId(window, &process_id);
-  if (process_id != ::GetProcessId(GetChildProcessHandle()))
-    return;
   ::GetWindowThreadProcessId(parent, &process_id);
   if (process_id != ::GetCurrentProcessId())
     return;
