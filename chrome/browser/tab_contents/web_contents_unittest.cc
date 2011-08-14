@@ -1710,6 +1710,9 @@ TEST_F(TabContentsTest, CopyStateFromAndPruneSourceInterstitial) {
   scoped_ptr<TestTabContents> other_contents(CreateTestTabContents());
   NavigationController& other_controller = other_contents->controller();
   other_contents->NavigateAndCommit(url3);
+  other_contents->ExpectSetHistoryLengthAndPrune(
+      other_controller.GetEntryAtIndex(0)->site_instance(), 1,
+      other_controller.GetEntryAtIndex(0)->page_id());
   other_controller.CopyStateFromAndPrune(&controller(), false);
 
   // The merged controller should only have two entries: url1 and url2.
@@ -1750,7 +1753,9 @@ TEST_F(TabContentsTest, CopyStateFromAndPruneTargetInterstitial) {
   interstitial->TestDidNavigate(1, url3);
   EXPECT_TRUE(interstitial->is_showing());
   EXPECT_EQ(2, other_controller.entry_count());
-
+  other_contents->ExpectSetHistoryLengthAndPrune(
+      other_controller.GetEntryAtIndex(0)->site_instance(), 1,
+      other_controller.GetEntryAtIndex(0)->page_id());
   other_controller.CopyStateFromAndPrune(&controller(), false);
 
   // The merged controller should only have two entries: url1 and url2.

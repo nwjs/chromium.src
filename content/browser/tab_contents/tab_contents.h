@@ -158,6 +158,10 @@ class TabContents : public PageNavigator,
   // access to its site instance.
   virtual SiteInstance* GetSiteInstance() const;
 
+  // Returns the SiteInstance for the pending navigation, if any.  Otherwise
+  // returns the current SiteInstance.
+  SiteInstance* GetPendingSiteInstance() const;
+
   // Defines whether this tab's URL should be displayed in the browser's URL
   // bar. Normally this is true so you can see the URL. This is set to false
   // for the new tab page and related pages so that the URL bar is empty and
@@ -613,9 +617,10 @@ class TabContents : public PageNavigator,
   // Sets the history for this tab_contents to |history_length| entries, and
   // moves the current page_id to the last entry in the list if it's valid.
   // This is mainly used when a prerendered page is swapped into the current
-  // tab.
-  void SetHistoryLengthAndClear(int history_length);
-
+  // tab. The method is virtual for testing.
+  virtual void SetHistoryLengthAndPrune(const SiteInstance* site_instance,
+                                        int merge_history_length,
+                                        int32 minimum_page_id);
 
   // Misc non-view stuff -------------------------------------------------------
 
