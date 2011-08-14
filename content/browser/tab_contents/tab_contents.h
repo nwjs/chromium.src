@@ -613,10 +613,9 @@ class TabContents : public PageNavigator,
   // Sets the history for this tab_contents to |history_length| entries, and
   // moves the current page_id to the last entry in the list if it's valid.
   // This is mainly used when a prerendered page is swapped into the current
-  // tab. The method is virtual for testing.
-  virtual void SetHistoryLengthAndPrune(const SiteInstance* site_instance,
-                                        int merge_history_length,
-                                        int32 minimum_page_id);
+  // tab.
+  void SetHistoryLengthAndClear(int history_length);
+
 
   // Misc non-view stuff -------------------------------------------------------
 

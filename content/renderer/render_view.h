@@ -656,7 +656,6 @@ class RenderView : public RenderWidget,
 #if defined(OS_MACOSX)
   FRIEND_TEST_ALL_PREFIXES(RenderViewTest, MacTestCmdUp);
 #endif
-  FRIEND_TEST_ALL_PREFIXES(RenderViewTest, SetHistoryLengthAndPrune);
 
   typedef std::map<GURL, double> HostZoomLevels;
 
@@ -821,7 +820,6 @@ class RenderView : public RenderWidget,
   void OnSetBackground(const SkBitmap& background);
   void OnSetWebUIProperty(const std::string& name, const std::string& value);
   void OnSetEditCommandsForNextKeyEvent(const EditCommands& edit_commands);
-  void OnSetHistoryLengthAndPrune(int history_length, int32 minimum_page_id);
   void OnSetInitialFocus(bool reverse);
 #if defined(OS_MACOSX)
   void OnSetInLiveResize(bool in_live_resize);
@@ -843,6 +841,7 @@ class RenderView : public RenderWidget,
   void OnUpdateTargetURLAck();
   void OnUpdateWebPreferences(const WebPreferences& prefs);
   void OnUpdateRemoteAccessClientFirewallTraversal(const std::string& policy);
+  void OnSetHistoryLengthAndClear(int history_length);
 
 #if defined(OS_MACOSX)
   void OnWindowFrameChanged(const gfx::Rect& window_frame,
