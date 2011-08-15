@@ -2911,7 +2911,9 @@ void RenderView::queryStorageUsageAndQuota(
     return;
   }
   ChildThread::current()->quota_dispatcher()->QueryStorageUsageAndQuota(
-      GURL(origin.toString()), type, callbacks);
+      GURL(origin.toString()),
+      static_cast<quota::StorageType>(type),
+      QuotaDispatcher::CreateWebStorageQuotaCallbacksWrapper(callbacks));
 }
 
 void RenderView::requestStorageQuota(
@@ -2927,7 +2929,9 @@ void RenderView::requestStorageQuota(
     return;
   }
   ChildThread::current()->quota_dispatcher()->RequestStorageQuota(
-      routing_id(), GURL(origin.toString()), type, requested_size, callbacks);
+      routing_id(), GURL(origin.toString()),
+      static_cast<quota::StorageType>(type), requested_size,
+      QuotaDispatcher::CreateWebStorageQuotaCallbacksWrapper(callbacks));
 }
 
 // WebKit::WebPageSerializerClient implementation ------------------------------
