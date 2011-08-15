@@ -64,15 +64,15 @@ string16 RegisterProtocolHandlerInfoBarDelegate::GetButtonLabel(
 }
 
 bool RegisterProtocolHandlerInfoBarDelegate::Accept() {
-  UserMetrics::RecordAction(UserMetricsAction(
-      "RegisterProtocolHandler.Infobar_Accept"));
+  UserMetrics::RecordAction(
+      UserMetricsAction("RegisterProtocolHandler.Infobar_Accept"));
   registry_->OnAcceptRegisterProtocolHandler(handler_);
   return true;
 }
 
 bool RegisterProtocolHandlerInfoBarDelegate::Cancel() {
-  UserMetrics::RecordAction(UserMetricsAction(
-      "RegisterProtocolHandler.InfoBar_Deny"));
+  UserMetrics::RecordAction(
+      UserMetricsAction("RegisterProtocolHandler.InfoBar_Deny"));
   registry_->OnIgnoreRegisterProtocolHandler(handler_);
   return true;
 }
@@ -83,8 +83,8 @@ string16 RegisterProtocolHandlerInfoBarDelegate::GetLinkText() const {
 
 bool RegisterProtocolHandlerInfoBarDelegate::LinkClicked(
     WindowOpenDisposition disposition) {
-  UserMetrics::RecordAction(UserMetricsAction(
-      "RegisterProtocolHandler.InfoBar_LearnMore"));
+  UserMetrics::RecordAction(
+      UserMetricsAction("RegisterProtocolHandler.InfoBar_LearnMore"));
   // Ignore the click dispostion and always open in a new top level tab.
   tab_contents_->OpenURL(GURL(chrome::kLearnMoreRegisterProtocolHandlerURL),
                          GURL(), NEW_FOREGROUND_TAB, PageTransition::LINK);

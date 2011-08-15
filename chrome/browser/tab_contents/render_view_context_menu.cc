@@ -1306,8 +1306,8 @@ void RenderViewContextMenu::ExecuteCommand(int id) {
     if (handlers.empty()) {
       return;
     }
-    UserMetrics::RecordAction(UserMetricsAction(
-        "RegisterProtocolHandler.ContextMenu_Open"));
+    UserMetrics::RecordAction(
+        UserMetricsAction("RegisterProtocolHandler.ContextMenu_Open"));
     int handlerIndex = id - IDC_CONTENT_CONTEXT_PROTOCOL_HANDLER_FIRST;
     OpenURL(
         handlers[handlerIndex].TranslateUrl(params_.link_url),
@@ -1630,8 +1630,8 @@ void RenderViewContextMenu::ExecuteCommand(int id) {
       break;
 #endif  // OS_MACOSX
     case IDC_CONTENT_CONTEXT_PROTOCOL_HANDLER_SETTINGS: {
-      UserMetrics::RecordAction(UserMetricsAction(
-          "RegisterProtocolHandler.ContextMenu_Settings"));
+      UserMetrics::RecordAction(
+          UserMetricsAction("RegisterProtocolHandler.ContextMenu_Settings"));
       std::string url = std::string(chrome::kChromeUISettingsURL) +
           chrome::kHandlerSettingsSubPage;
       OpenURL(GURL(url), GURL(), 0, NEW_FOREGROUND_TAB, PageTransition::LINK);

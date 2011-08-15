@@ -12,7 +12,7 @@ as well as generating the lists of possible actions in situations where
 there are many possible actions.
 
 See also:
-  chrome/browser/user_metrics.h
+  content/browser/user_metrics.h
   http://wiki.corp.google.com/twiki/bin/view/Main/ChromeUserExperienceMetrics
 
 If run with a "--hash" argument, chromeactions.txt will be updated.
