@@ -248,13 +248,16 @@ SkBitmap Clipboard::ReadImage(Buffer buffer) const {
 
   scoped_nsobject<NSImage> image(
       [[NSImage alloc] initWithPasteboard:GetPasteboard()]);
-  if (image.get()) {
-    gfx::ScopedNSGraphicsContextSaveGState scoped_state;
-    [image setFlipped:YES];
-    int width = [image size].width;
-    int height = [image size].height;
+  if (!image.get())
+    return SkBitmap();
 
-    gfx::CanvasSkia canvas(width, height, false);
+  gfx::ScopedNSGraphicsContextSaveGState scoped_state;
+  [image setFlipped:YES];
+  int width = [image size].width;
+  int height = [image size].height;
+
+  gfx::CanvasSkia canvas(width, height, false);
+  {
     skia::ScopedPlatformPaint scoped_platform_paint(&canvas);
     CGContextRef gc = scoped_platform_paint.GetPlatformSurface();
     NSGraphicsContext* cocoa_gc =
@@ -264,9 +267,8 @@ SkBitmap Clipboard::ReadImage(Buffer buffer) const {
              fromRect:NSZeroRect
             operation:NSCompositeCopy
              fraction:1.0];
-    return canvas.ExtractBitmap();
   }
-  return SkBitmap();
+  return canvas.ExtractBitmap();
 }
 
 void Clipboard::ReadBookmark(string16* title, std::string* url) const {
