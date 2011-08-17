@@ -131,6 +131,7 @@ bool WebGraphicsContext3DCommandBufferImpl::initialize(
     context_ = RendererGLContext::CreateViewContext(
         host,
         renderview->routing_id(),
+        !attributes.noExtensions,
         share_group,
         preferred_extensions,
         attribs,
@@ -144,6 +145,7 @@ bool WebGraphicsContext3DCommandBufferImpl::initialize(
     context_ = RendererGLContext::CreateOffscreenContext(
         host,
         gfx::Size(1, 1),
+        !attributes.noExtensions,
         share_group,
         preferred_extensions,
         attribs,
@@ -362,9 +364,7 @@ void WebGraphicsContext3DCommandBufferImpl::unmapTexSubImage2DCHROMIUM(
 
 void WebGraphicsContext3DCommandBufferImpl::copyTextureToParentTextureCHROMIUM(
     WebGLId texture, WebGLId parentTexture) {
-  TRACE_EVENT0("gpu", "WebGfxCtx3DCmdBfrImpl::copyTextureToCompositor");
-  gl_->CopyTextureToParentTextureCHROMIUM(texture, parentTexture);
-  gl_->Flush();
+  NOTIMPLEMENTED();
 }
 
 void WebGraphicsContext3DCommandBufferImpl::
