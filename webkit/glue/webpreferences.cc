@@ -237,8 +237,16 @@ void WebPreferences::Apply(WebView* web_view) const {
   settings->setAllowRunningOfInsecureContent(allow_running_insecure_content);
   settings->setShouldPrintBackgrounds(should_print_backgrounds);
   settings->setEnableScrollAnimator(enable_scroll_animator);
+
   settings->setHixie76WebSocketProtocolEnabled(
       hixie76_websocket_protocol_enabled);
+#if defined(OS_CHROMEOS)
+  if (!hixie76_websocket_protocol_enabled) {
+    // Add exceptions for servers that still retard at hixie-76.
+    settings->addHixie76WebSocketProtocolException(
+        WebURL(GURL("ws://127.0.0.1:10101")));  // Local WebSocket-to-TCP proxy.
+  }
+#endif
 
   WebNetworkStateNotifier::setOnLine(is_online);
 }
