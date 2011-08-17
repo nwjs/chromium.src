@@ -408,11 +408,6 @@ class WebGraphicsContext3DInProcessCommandBufferImpl
   virtual void copyTextureToParentTextureCHROMIUM(
       WebGLId texture, WebGLId parentTexture);
 
-  virtual void getParentToChildLatchCHROMIUM(WGC3Duint* latch_id);
-  virtual void getChildToParentLatchCHROMIUM(WGC3Duint* latch_id);
-  virtual void waitLatchCHROMIUM(WGC3Duint latch_id);
-  virtual void setLatchCHROMIUM(WGC3Duint latch_id);
-
   virtual void rateLimitOffscreenContextCHROMIUM();
 
   virtual WebKit::WebString getRequestableExtensionsCHROMIUM();
