@@ -86,7 +86,13 @@ class CertLibraryImpl
     // CertLibraryImpl is a singleton, so do not attempt to cleanup
     // request_task_ on destruction.
     DCHECK(request_task_ == NULL);
-    net::CertDatabase::RemoveObserver(this);
+    // CertLibraryImpl is owned by CrosLibrary which is a LazyInstance<>.
+    // net::CertDatabase is a Singleton<> and may already be shut down when
+    // this is destroyed. There is no way to check whether or not a Singleton<>
+    // still exists, so for now do not remove the observer.
+    // TODO(stevenjb): Explicitly construct and destroy CertLibrary so that
+    // we can safely remove the observer.
+    // net::CertDatabase::RemoveObserver(this);
   }
 
   // CertLibrary implementation.
