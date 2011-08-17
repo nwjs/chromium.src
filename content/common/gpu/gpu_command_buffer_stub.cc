@@ -30,7 +30,6 @@ using gpu::Buffer;
 
 GpuCommandBufferStub::GpuCommandBufferStub(
     GpuChannel* channel,
-    GpuCommandBufferStub* share_group,
     gfx::PluginWindowHandle handle,
     const gfx::Size& size,
     const gpu::gles2::DisallowedExtensions& disallowed_extensions,
@@ -56,10 +55,6 @@ GpuCommandBufferStub::GpuCommandBufferStub(
       parent_texture_for_initialization_(0),
       watchdog_(watchdog),
       task_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)) {
-  if (share_group)
-    context_group_ = share_group->context_group_;
-  else
-    context_group_ = new gpu::gles2::ContextGroup;
 }
 
 GpuCommandBufferStub::~GpuCommandBufferStub() {
@@ -153,7 +148,7 @@ void GpuCommandBufferStub::OnInitialize(
   if (command_buffer_->Initialize(&shared_memory, size)) {
     scheduler_.reset(gpu::GpuScheduler::Create(command_buffer_.get(),
                                                channel_,
-                                               context_group_.get()));
+                                               NULL));
 #if defined(TOUCH_UI)
     if (software_) {
       OnInitializeFailed(reply_message);
@@ -297,6 +292,13 @@ void GpuCommandBufferStub::OnParseError() {
       route_id_, state.context_lost_reason);
   msg->set_unblock(true);
   Send(msg);
+  // If an error occurs, the remaining commands will not be processed.
+  // Since we may have a pending WaitLatch on a related context, we need to
+  // forcefully unblock all contexts on the same GpuChannel. However, since we
+  // don't know whether the corresponding WaitLatch is in the past or future,
+  // it may cause other side effects to simply pass the next WaitLatch on all
+  // contexts. Instead, just lose all related contexts when there's an error.
+  channel_->DestroySoon();
 }
 
 void GpuCommandBufferStub::OnFlush(int32 put_offset,

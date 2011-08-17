@@ -9,9 +9,6 @@
 
 namespace gpu {
 
-IdAllocatorInterface::~IdAllocatorInterface() {
-}
-
 IdAllocator::IdAllocator() {}
 
 IdAllocator::~IdAllocator() {}
@@ -86,36 +83,6 @@ ResourceId IdAllocator::FindFirstUnusedId() const {
     ++id;
   }
   return id;
-}
-
-NonReusedIdAllocator::NonReusedIdAllocator() : last_id_(0) {
-}
-
-NonReusedIdAllocator::~NonReusedIdAllocator() {
-}
-
-ResourceId NonReusedIdAllocator::AllocateID() {
-  return ++last_id_;
-}
-
-ResourceId NonReusedIdAllocator::AllocateIDAtOrAbove(ResourceId desired_id) {
-  if (desired_id > last_id_)
-    last_id_ = desired_id;
-
-  return ++last_id_;
-}
-
-bool NonReusedIdAllocator::MarkAsUsed(ResourceId id) {
-  GPU_NOTREACHED();
-  return false;
-}
-
-void NonReusedIdAllocator::FreeID(ResourceId id) {
-}
-
-bool NonReusedIdAllocator::InUse(ResourceId id) const {
-  GPU_NOTREACHED();
-  return false;
 }
 
 }  // namespace gpu

@@ -128,7 +128,7 @@ class GLES2DecoderTestBase : public testing::Test {
     return reinterpret_cast<T>(ptr);
   }
 
-  IdAllocatorInterface* GetIdAllocator(GLuint namespace_id) {
+  IdAllocator* GetIdAllocator(GLuint namespace_id) {
     return group_->GetIdAllocator(namespace_id);
   }
 
@@ -307,7 +307,8 @@ class GLES2DecoderTestBase : public testing::Test {
     }
 
     virtual Buffer GetSharedMemoryBuffer(int32 shm_id) {
-      return shm_id == kSharedMemoryId ? valid_buffer_ : invalid_buffer_;
+      return shm_id == kSharedMemoryId || shm_id == gpu::kLatchSharedMemoryId ?
+          valid_buffer_ : invalid_buffer_;
     }
 
     void ClearSharedMemory() {

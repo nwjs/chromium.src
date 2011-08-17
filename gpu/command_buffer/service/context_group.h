@@ -11,13 +11,12 @@
 #include "base/memory/linked_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
-#include "gpu/command_buffer/common/gles2_cmd_format.h"
 #include "gpu/command_buffer/service/gles2_cmd_validation.h"
 #include "gpu/command_buffer/service/feature_info.h"
 
 namespace gpu {
 
-class IdAllocatorInterface;
+class IdAllocator;
 
 namespace gles2 {
 
@@ -104,7 +103,7 @@ class ContextGroup : public base::RefCounted<ContextGroup> {
     return shader_manager_.get();
   }
 
-  IdAllocatorInterface* GetIdAllocator(unsigned namespace_id);
+  IdAllocator* GetIdAllocator(unsigned namepsace_id);
 
  private:
   // Destroys all the resources.
@@ -134,8 +133,8 @@ class ContextGroup : public base::RefCounted<ContextGroup> {
 
   scoped_ptr<ShaderManager> shader_manager_;
 
-  linked_ptr<IdAllocatorInterface>
-      id_namespaces_[id_namespaces::kNumIdNamespaces];
+  typedef base::hash_map<uint32, linked_ptr<IdAllocator> > IdAllocatorMap;
+  IdAllocatorMap id_namespaces_;
 
   FeatureInfo feature_info_;
 

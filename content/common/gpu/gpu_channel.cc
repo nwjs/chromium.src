@@ -61,6 +61,28 @@ void GpuChannel::DestroyTransportTexture(int32 route_id) {
   router_.RemoveRoute(route_id);
 }
 
+void GpuChannel::OnLatchCallback(int route_id, bool is_set_latch) {
+#if defined(ENABLE_GPU)
+  if (is_set_latch) {
+    // Wake up any waiting contexts. If they are still blocked, they will re-add
+    // themselves to the set.
+    for (std::set<int32>::iterator i = latched_routes_.begin();
+         i != latched_routes_.end(); ++i) {
+      GpuCommandBufferStub* stub = stubs_.Lookup(*i);
+      if (stub)
+        stub->scheduler()->SetScheduled(true);
+    }
+    latched_routes_.clear();
+  } else {
+    // Add route_id context to a set to be woken upon any set latch.
+    latched_routes_.insert(route_id);
+    GpuCommandBufferStub* stub = stubs_.Lookup(route_id);
+    if (stub)
+      stub->scheduler()->SetScheduled(false);
+  }
+#endif
+}
+
 bool GpuChannel::OnMessageReceived(const IPC::Message& message) {
   if (log_messages_) {
     VLOG(1) << "received message @" << &message << " on channel @" << this
@@ -189,22 +211,12 @@ void GpuChannel::CreateViewCommandBuffer(
   content::GetContentClient()->SetActiveURL(init_params.active_url);
 
 #if defined(ENABLE_GPU)
-  GpuCommandBufferStub* share_group = stubs_.Lookup(init_params.share_group_id);
-
   *route_id = GenerateRouteID();
   scoped_ptr<GpuCommandBufferStub> stub(new GpuCommandBufferStub(
-      this,
-      share_group,
-      window,
-      gfx::Size(),
-      disallowed_extensions_,
+      this, window, gfx::Size(), disallowed_extensions_,
       init_params.allowed_extensions,
-      init_params.attribs,
-      *route_id,
-      renderer_id_,
-      render_view_id,
-      watchdog_,
-      software_));
+      init_params.attribs, *route_id, renderer_id_, render_view_id,
+      watchdog_, software_));
   router_.AddRoute(*route_id, stub.get());
   stubs_.AddWithID(stub.release(), *route_id);
 #endif  // ENABLE_GPU
@@ -303,13 +315,10 @@ void GpuChannel::OnCreateOffscreenCommandBuffer(
 
   content::GetContentClient()->SetActiveURL(init_params.active_url);
 #if defined(ENABLE_GPU)
-  GpuCommandBufferStub* share_group = stubs_.Lookup(init_params.share_group_id);
-
   route_id = GenerateRouteID();
 
   scoped_ptr<GpuCommandBufferStub> stub(new GpuCommandBufferStub(
       this,
-      share_group,
       gfx::kNullPluginWindow,
       size,
       disallowed_extensions_,

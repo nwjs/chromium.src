@@ -222,7 +222,6 @@ void DeleteBuffers(GLsizei n, const GLuint* buffers) {
   }
   DeleteBuffersHelper(n, buffers);
   helper_->DeleteBuffersImmediate(n, buffers);
-  Flush();
 }
 
 void DeleteFramebuffers(GLsizei n, const GLuint* framebuffers) {
@@ -243,7 +242,6 @@ void DeleteFramebuffers(GLsizei n, const GLuint* framebuffers) {
   }
   DeleteFramebuffersHelper(n, framebuffers);
   helper_->DeleteFramebuffersImmediate(n, framebuffers);
-  Flush();
 }
 
 void DeleteProgram(GLuint program) {
@@ -251,7 +249,6 @@ void DeleteProgram(GLuint program) {
   GPU_CLIENT_DCHECK(program != 0);
   program_and_shader_id_handler_->FreeIds(1, &program);
   helper_->DeleteProgram(program);
-  Flush();
 }
 
 void DeleteRenderbuffers(GLsizei n, const GLuint* renderbuffers) {
@@ -272,7 +269,6 @@ void DeleteRenderbuffers(GLsizei n, const GLuint* renderbuffers) {
   }
   DeleteRenderbuffersHelper(n, renderbuffers);
   helper_->DeleteRenderbuffersImmediate(n, renderbuffers);
-  Flush();
 }
 
 void DeleteShader(GLuint shader) {
@@ -280,7 +276,6 @@ void DeleteShader(GLuint shader) {
   GPU_CLIENT_DCHECK(shader != 0);
   program_and_shader_id_handler_->FreeIds(1, &shader);
   helper_->DeleteShader(shader);
-  Flush();
 }
 
 void DeleteTextures(GLsizei n, const GLuint* textures) {
@@ -301,7 +296,6 @@ void DeleteTextures(GLsizei n, const GLuint* textures) {
   }
   DeleteTexturesHelper(n, textures);
   helper_->DeleteTexturesImmediate(n, textures);
-  Flush();
 }
 
 void DepthFunc(GLenum func) {

@@ -11,10 +11,6 @@
 #include <utility>
 #include "../common/types.h"
 
-// TODO(apatrick): Having regular GL flush semantics on the client side, it
-// probably isn't necessary to round trip to the service to allocate IDs.
-// Retire this code.
-
 namespace gpu {
 
 // A resource ID, key to the resource maps.
@@ -22,39 +18,27 @@ typedef uint32 ResourceId;
 // Invalid resource ID.
 static const ResourceId kInvalidResource = 0u;
 
-class IdAllocatorInterface {
+// A class to manage the allocation of resource IDs.
+class IdAllocator {
  public:
-  virtual ~IdAllocatorInterface();
+  IdAllocator();
+  ~IdAllocator();
 
   // Allocates a new resource ID.
-  virtual ResourceId AllocateID() = 0;
+  ResourceId AllocateID();
 
   // Allocates an Id starting at or above desired_id.
   // Note: may wrap if it starts near limit.
-  virtual ResourceId AllocateIDAtOrAbove(ResourceId desired_id) = 0;
+  ResourceId AllocateIDAtOrAbove(ResourceId desired_id);
 
   // Marks an id as used. Returns false if id was already used.
-  virtual bool MarkAsUsed(ResourceId id) = 0;
+  bool MarkAsUsed(ResourceId id);
 
   // Frees a resource ID.
-  virtual void FreeID(ResourceId id) = 0;
+  void FreeID(ResourceId id);
 
   // Checks whether or not a resource ID is in use.
-  virtual bool InUse(ResourceId id) const = 0;
-};
-
-// A class to manage the allocation of resource IDs.
-class IdAllocator : public IdAllocatorInterface {
- public:
-  IdAllocator();
-  virtual ~IdAllocator();
-
-  // Implement IdAllocatorInterface.
-  virtual ResourceId AllocateID();
-  virtual ResourceId AllocateIDAtOrAbove(ResourceId desired_id);
-  virtual bool MarkAsUsed(ResourceId id);
-  virtual void FreeID(ResourceId id);
-  virtual bool InUse(ResourceId id) const;
+  bool InUse(ResourceId id) const;
 
  private:
   // TODO(gman): This would work much better with ranges or a hash table.
@@ -70,28 +54,6 @@ class IdAllocator : public IdAllocatorInterface {
   ResourceIdSet free_ids_;
 
   DISALLOW_COPY_AND_ASSIGN(IdAllocator);
-};
-
-// A class to manage the allocation of resource IDs that are never reused. This
-// implementation does not track which IDs are currently used. It is useful for
-// shared and programs which cannot be implicitly created by binding a
-// previously unused ID.
-class NonReusedIdAllocator : public IdAllocatorInterface {
- public:
-  NonReusedIdAllocator();
-  virtual ~NonReusedIdAllocator();
-
-  // Implement IdAllocatorInterface.
-  virtual ResourceId AllocateID();
-  virtual ResourceId AllocateIDAtOrAbove(ResourceId desired_id);
-  virtual bool MarkAsUsed(ResourceId id);
-  virtual void FreeID(ResourceId id);
-  virtual bool InUse(ResourceId id) const;
-
- private:
-  ResourceId last_id_;
-
-  DISALLOW_COPY_AND_ASSIGN(NonReusedIdAllocator);
 };
 
 }  // namespace gpu

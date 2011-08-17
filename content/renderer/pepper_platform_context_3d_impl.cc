@@ -80,7 +80,6 @@ bool PlatformContext3DImpl::Init() {
       parent_context_->GetCommandBufferProxy();
   command_buffer_ = channel_->CreateOffscreenCommandBuffer(
       gfx::Size(1, 1),
-      NULL,
       "*",
       attribs,
       GURL::EmptyGURL());

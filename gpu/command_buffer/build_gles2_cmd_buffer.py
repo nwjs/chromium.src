@@ -3057,7 +3057,6 @@ class DeleteHandler(TypeHandler):
                func.GetOriginalArgs()[-1].name)
     file.Write("  helper_->%s(%s);\n" %
                (func.name, func.MakeCmdArgString("")))
-    file.Write("  Flush();\n")
     file.Write("}\n")
     file.Write("\n")
 
@@ -3187,7 +3186,6 @@ TEST_F(%(test_name)s, %(name)sInvalidArgs) {
         arg.WriteClientSideValidationCode(file, func)
       code = """  %(name)sHelper(%(args)s);
   helper_->%(name)sImmediate(%(args)s);
-  Flush();
 }
 
 """

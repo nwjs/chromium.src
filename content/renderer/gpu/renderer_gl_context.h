@@ -98,7 +98,6 @@ class RendererGLContext : public base::SupportsWeakPtr<RendererGLContext> {
   static RendererGLContext* CreateViewContext(
       GpuChannelHost* channel,
       int render_view_id,
-      RendererGLContext* share_group,
       const char* allowed_extensions,
       const int32* attrib_list,
       const GURL& active_arl);
@@ -121,7 +120,6 @@ class RendererGLContext : public base::SupportsWeakPtr<RendererGLContext> {
   static RendererGLContext* CreateOffscreenContext(
       GpuChannelHost* channel,
       const gfx::Size& size,
-      RendererGLContext* share_group,
       const char* allowed_extensions,
       const int32* attrib_list,
       const GURL& active_url);
@@ -183,13 +181,27 @@ class RendererGLContext : public base::SupportsWeakPtr<RendererGLContext> {
 
   CommandBufferProxy* GetCommandBufferProxy();
 
+  // Create a latch for synchronization between contexts using glSetLatch and
+  // glWaitLatch.
+  // CreateLatch will only fail if there is a generally unrecoverable
+  // error, in which case 0 is returned. Returns latch_id on success.
+  bool CreateLatch(uint32* ret_latch);
+
+  // Destroy a latch.
+  bool DestroyLatch(uint32 latch);
+
+  // All child contexts get a latch pair automatically. These latches are used
+  // for synchronization with parent context. If *this* context does not have a
+  // parent context, these methods will return false.
+  bool GetParentToChildLatch(uint32* parent_to_child_latch);
+  bool GetChildToParentLatch(uint32* child_to_parent_latch);
+
  private:
   explicit RendererGLContext(GpuChannelHost* channel);
 
   bool Initialize(bool onscreen,
                   int render_view_id,
                   const gfx::Size& size,
-                  RendererGLContext* share_group,
                   const char* allowed_extensions,
                   const int32* attrib_list,
                   const GURL& active_url);
@@ -203,6 +215,9 @@ class RendererGLContext : public base::SupportsWeakPtr<RendererGLContext> {
   scoped_ptr<Callback0::Type> swap_buffers_callback_;
   scoped_ptr<Callback1<ContextLostReason>::Type> context_lost_callback_;
   uint32 parent_texture_id_;
+  uint32 child_to_parent_latch_;
+  uint32 parent_to_child_latch_;
+  int32 latch_transfer_buffer_id_;
   CommandBufferProxy* command_buffer_;
   gpu::gles2::GLES2CmdHelper* gles2_helper_;
   int32 transfer_buffer_id_;
