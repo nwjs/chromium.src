@@ -87,7 +87,7 @@ base::LazyInstance<app::win::IATPatchFunction> g_iat_patch_reg_enum_key_ex_w(
     base::LINKER_INITIALIZED);
 
 // Helper object for patching the GetKeyState API.
-base::LazyInstance<base::win::IATPatchFunction> g_iat_patch_get_key_state(
+base::LazyInstance<app::win::IATPatchFunction> g_iat_patch_get_key_state(
     base::LINKER_INITIALIZED);
 
 // Saved key state globals and helper access functions.
