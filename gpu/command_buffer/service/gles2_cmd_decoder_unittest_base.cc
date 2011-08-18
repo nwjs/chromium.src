@@ -55,8 +55,7 @@ void GLES2DecoderTestBase::SetUp() {
       false,   // has stencil
       true,    // request alpha
       true,    // request depth
-      false,   // request stencil
-      true);   // bind generates resource
+      false);  // request stencil
 }
 
 void GLES2DecoderTestBase::InitDecoder(
@@ -66,12 +65,11 @@ void GLES2DecoderTestBase::InitDecoder(
     bool has_stencil,
     bool request_alpha,
     bool request_depth,
-    bool request_stencil,
-    bool bind_generates_resource) {
+    bool request_stencil) {
   gl_.reset(new StrictMock<MockGLInterface>());
   ::gfx::GLInterface::SetGLInterface(gl_.get());
   surface_manager_.reset(new StrictMock<MockSurfaceManager>);
-  group_ = ContextGroup::Ref(new ContextGroup(bind_generates_resource));
+  group_ = ContextGroup::Ref(new ContextGroup());
 
   InSequence sequence;
 
