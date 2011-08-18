@@ -466,12 +466,14 @@ bool GLInProcessContext::Initialize(bool onscreen,
   if (!command_buffer_->Initialize(kCommandBufferSize))
     return false;
 
+  // TODO(gman): This needs to be true if this is Pepper.
+  bool bind_generates_resource = false;
   gpu_scheduler_ = GpuScheduler::Create(
       command_buffer_.get(),
       NULL,
       context_group ?
           context_group->gpu_scheduler_->decoder()->GetContextGroup() :
-              new ::gpu::gles2::ContextGroup);
+              new ::gpu::gles2::ContextGroup(bind_generates_resource));
 
   if (onscreen) {
     if (render_surface == gfx::kNullPluginWindow) {
@@ -545,7 +547,8 @@ bool GLInProcessContext::Initialize(bool onscreen,
       transfer_buffer.size,
       transfer_buffer.ptr,
       transfer_buffer_id_,
-      true);
+      true,
+      false);
 
   size_ = size;
 
