@@ -72,14 +72,12 @@ void Syncer::RequestEarlyExit() {
 }
 
 void Syncer::SyncShare(sessions::SyncSession* session,
-                       SyncerStep first_step,
-                       SyncerStep last_step) {
-  {
-    ScopedDirLookup dir(session->context()->directory_manager(),
-                        session->context()->account_name());
-    // The directory must be good here.
-    CHECK(dir.good());
-  }
+                       const SyncerStep first_step,
+                       const SyncerStep last_step) {
+  ScopedDirLookup dir(session->context()->directory_manager(),
+                      session->context()->account_name());
+  // The directory must be good here.
+  CHECK(dir.good());
 
   ScopedSessionContextConflictResolver scoped(session->context(),
                                               &resolver_);
@@ -155,14 +153,7 @@ void Syncer::SyncShare(sessions::SyncSession* session,
         VLOG(1) << "Applying Updates";
         ApplyUpdatesCommand apply_updates;
         apply_updates.Execute(session);
-        if (last_step == APPLY_UPDATES) {
-          // We're in configuration mode, but we still need to run the
-          // SYNCER_END step.
-          last_step = SYNCER_END;
-          next_step = SYNCER_END;
-        } else {
-          next_step = BUILD_COMMIT_REQUEST;
-        }
+        next_step = BUILD_COMMIT_REQUEST;
         break;
       }
       // These two steps are combined since they are executed within the same
@@ -273,10 +264,6 @@ void Syncer::SyncShare(sessions::SyncSession* session,
         break;
       }
       case SYNCER_END: {
-        VLOG(1) << "Syncer End";
-        SyncerEndCommand syncer_end_command;
-        syncer_end_command.Execute(session);
-        next_step = SYNCER_END;
         break;
       }
       default:
@@ -290,6 +277,15 @@ void Syncer::SyncShare(sessions::SyncSession* session,
       break;
     current_step = next_step;
   }
+
+  VLOG(1) << "Syncer End";
+  VLOG(2) << "last step: " << last_step << ", current step: "
+          << current_step << ", next step: "
+          << next_step << ", snapshot: "
+          << session->TakeSnapshot().ToString();
+  SyncerEndCommand syncer_end_command;
+  syncer_end_command.Execute(session);
+  return;
 }
 
 void Syncer::ProcessClientCommand(sessions::SyncSession* session) {

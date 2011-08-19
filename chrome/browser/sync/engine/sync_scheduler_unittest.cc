@@ -946,7 +946,7 @@ TEST_F(SyncSchedulerTest, SyncerSteps) {
   Mock::VerifyAndClearExpectations(syncer());
 
   // ClearUserData.
-  EXPECT_CALL(*syncer(), SyncShare(_, CLEAR_PRIVATE_DATA, CLEAR_PRIVATE_DATA))
+  EXPECT_CALL(*syncer(), SyncShare(_, CLEAR_PRIVATE_DATA, SYNCER_END))
       .Times(1);
   StartSyncScheduler(SyncScheduler::NORMAL_MODE);
   RunLoop();
@@ -956,8 +956,8 @@ TEST_F(SyncSchedulerTest, SyncerSteps) {
   PumpLoop();
 
   scheduler()->Stop();
-  Mock::VerifyAndClearExpectations(syncer());
 
+  Mock::VerifyAndClearExpectations(syncer());
   // Configuration.
   EXPECT_CALL(*syncer(), SyncShare(_, DOWNLOAD_UPDATES, APPLY_UPDATES));
   StartSyncScheduler(SyncScheduler::CONFIGURATION_MODE);
@@ -965,19 +965,6 @@ TEST_F(SyncSchedulerTest, SyncerSteps) {
 
   scheduler()->ScheduleConfig(
       ModelTypeBitSet(), sync_api::CONFIGURE_REASON_RECONFIGURATION);
-  PumpLoop();
-  PumpLoop();
-
-  scheduler()->Stop();
-  Mock::VerifyAndClearExpectations(syncer());
-
-  // Cleanup disabled types.
-  EXPECT_CALL(*syncer(),
-              SyncShare(_, CLEANUP_DISABLED_TYPES, CLEANUP_DISABLED_TYPES));
-  StartSyncScheduler(SyncScheduler::NORMAL_MODE);
-  RunLoop();
-
-  scheduler()->ScheduleCleanupDisabledTypes();
   PumpLoop();
   PumpLoop();
 

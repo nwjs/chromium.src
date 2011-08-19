@@ -1735,9 +1735,8 @@ bool SyncManager::IsUsingExplicitPassphrase() {
   return data_ && data_->IsUsingExplicitPassphrase();
 }
 
-void SyncManager::RequestCleanupDisabledTypes() {
-  if (data_->scheduler())
-    data_->scheduler()->ScheduleCleanupDisabledTypes();
+void SyncManager::RequestNudge(const tracked_objects::Location& location) {
+  data_->RequestNudge(location);
 }
 
 void SyncManager::RequestClearServerData() {

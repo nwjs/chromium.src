@@ -940,7 +940,9 @@ class SyncManager {
   void RequestConfig(const syncable::ModelTypeBitSet& types,
      sync_api::ConfigureReason reason);
 
-  void RequestCleanupDisabledTypes();
+  // Request a nudge of the syncer, which will cause the syncer thread
+  // to run at the next available opportunity.
+  void RequestNudge(const tracked_objects::Location& nudge_location);
 
   // Request a clearing of all data on the server
   void RequestClearServerData();

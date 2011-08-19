@@ -1,4 +1,3 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -53,7 +52,13 @@ SyncBackendHostForProfileSyncTest::SyncBackendHostForProfileSyncTest(
     bool fail_initial_download)
     : browser_sync::SyncBackendHost(profile),
       synchronous_init_(synchronous_init),
-      fail_initial_download_(fail_initial_download) {}
+      fail_initial_download_(fail_initial_download) {
+  ON_CALL(*this, RequestNudge(_)).WillByDefault(
+      testing::Invoke(this,
+                      &SyncBackendHostForProfileSyncTest::
+                      SimulateSyncCycleCompletedInitialSyncEnded));
+  EXPECT_CALL(*this, RequestNudge(_)).Times(testing::AnyNumber());
+}
 
 SyncBackendHostForProfileSyncTest::~SyncBackendHostForProfileSyncTest() {}
 
