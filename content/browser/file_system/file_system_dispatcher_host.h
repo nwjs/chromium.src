@@ -12,6 +12,7 @@
 #include "content/browser/browser_message_filter.h"
 #include "webkit/fileapi/file_system_types.h"
 
+class FilePath;
 class GURL;
 class Profile;
 class Receiver;
@@ -46,6 +47,8 @@ class FileSystemDispatcherHost : public BrowserMessageFilter {
 
   // BrowserMessageFilter implementation.
   virtual void OnChannelConnected(int32 peer_pid);
+  virtual void OverrideThreadForMessage(const IPC::Message& message,
+                                        BrowserThread::ID* thread) OVERRIDE;
   virtual bool OnMessageReceived(const IPC::Message& message,
                                  bool* message_was_ok);
 
@@ -85,6 +88,8 @@ class FileSystemDispatcherHost : public BrowserMessageFilter {
   void OnOpenFile(int request_id, const GURL& path, int file_flags);
   void OnWillUpdate(const GURL& path);
   void OnDidUpdate(const GURL& path, int64 delta);
+  void OnSyncGetPlatformPath(const GURL& path,
+                             FilePath* platform_path);
 
   // Creates a new FileSystemOperation.
   fileapi::FileSystemOperation* GetNewOperation(int request_id);
