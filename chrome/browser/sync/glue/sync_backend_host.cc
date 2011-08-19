@@ -280,30 +280,28 @@ void SyncBackendHost::Shutdown(bool sync_disabled) {
 }
 
 SyncBackendHost::PendingConfigureDataTypesState::
-PendingConfigureDataTypesState()
-    : reason(sync_api::CONFIGURE_REASON_UNKNOWN) {}
+PendingConfigureDataTypesState() : deleted_type(false),
+    reason(sync_api::CONFIGURE_REASON_UNKNOWN) {}
 
 SyncBackendHost::PendingConfigureDataTypesState::
 ~PendingConfigureDataTypesState() {}
 
-void SyncBackendHost::GetPendingConfigModeState(
-    const DataTypeController::TypeMap& data_type_controllers,
-    const syncable::ModelTypeSet& types,
-    base::Callback<void(bool)> ready_task,
-    ModelSafeRoutingInfo* routing_info,
-    sync_api::ConfigureReason reason,
-    bool nigori_enabled,
-    SyncBackendHost::PendingConfigureDataTypesState* state,
-    bool* deleted_type) {
-  *state = SyncBackendHost::PendingConfigureDataTypesState();
-  *deleted_type = false;
+SyncBackendHost::PendingConfigureDataTypesState*
+    SyncBackendHost::MakePendingConfigModeState(
+        const DataTypeController::TypeMap& data_type_controllers,
+        const syncable::ModelTypeSet& types,
+        base::Callback<void(bool)> ready_task,
+        ModelSafeRoutingInfo* routing_info,
+        sync_api::ConfigureReason reason,
+        bool nigori_enabled) {
+  PendingConfigureDataTypesState* state = new PendingConfigureDataTypesState();
   for (DataTypeController::TypeMap::const_iterator it =
            data_type_controllers.begin();
        it != data_type_controllers.end(); ++it) {
     syncable::ModelType type = it->first;
     // If a type is not specified, remove it from the routing_info.
     if (types.count(type) == 0) {
-      *deleted_type = true;
+      state->deleted_type = true;
       routing_info->erase(type);
     } else {
       // Add a newly specified data type as GROUP_PASSIVE into the
@@ -318,7 +316,7 @@ void SyncBackendHost::GetPendingConfigModeState(
   // We must handle NIGORI separately as it has no DataTypeController.
   if (types.count(syncable::NIGORI) == 0) {
     if (nigori_enabled) { // Nigori is currently enabled.
-      *deleted_type = true;
+      state->deleted_type = true;
       routing_info->erase(syncable::NIGORI);
       // IsNigoriEnabled is now false.
     }
@@ -333,6 +331,7 @@ void SyncBackendHost::GetPendingConfigModeState(
   state->ready_task = ready_task;
   state->initial_types = types;
   state->reason = reason;
+  return state;
 }
 
 void SyncBackendHost::ConfigureDataTypes(
@@ -351,23 +350,12 @@ void SyncBackendHost::ConfigureDataTypes(
     types_copy.insert(syncable::NIGORI);
   }
   bool nigori_currently_enabled = IsNigoriEnabled();
-  pending_config_mode_state_.reset(new PendingConfigureDataTypesState());
-  bool deleted_type = false;
   {
     base::AutoLock lock(registrar_lock_);
-    GetPendingConfigModeState(data_type_controllers, types_copy,
-                              ready_task, &registrar_.routing_info, reason,
-                              nigori_currently_enabled,
-                              pending_config_mode_state_.get(),
-                              &deleted_type);
-  }
-
-  if (deleted_type) {
-    sync_thread_.message_loop()->PostTask(
-        FROM_HERE,
-        NewRunnableMethod(
-            core_.get(),
-            &SyncBackendHost::Core::DoRequestCleanupDisabledTypes));
+    pending_config_mode_state_.reset(
+        MakePendingConfigModeState(data_type_controllers, types_copy,
+                                   ready_task, &registrar_.routing_info, reason,
+                                   nigori_currently_enabled));
   }
 
   StartConfiguration(NewCallback(core_.get(),
@@ -397,6 +385,11 @@ void SyncBackendHost::FinishConfigureDataTypesOnFrontendLoop() {
 
   VLOG(1) << "Syncer in config mode. SBH executing"
           << "FinishConfigureDataTypesOnFrontendLoop";
+  if (pending_config_mode_state_->deleted_type) {
+    sync_thread_.message_loop()->PostTask(FROM_HERE,
+        NewRunnableMethod(core_.get(),
+        &SyncBackendHost::Core::DeferCleanup));
+  }
 
   if (pending_config_mode_state_->added_types.none() &&
       !core_->sync_manager()->InitialSyncEndedForAllEnabledTypes()) {
@@ -638,7 +631,8 @@ SyncBackendHost::Core::Core(const std::string& name, SyncBackendHost* backend)
       host_(backend),
       sync_manager_observer_(ALLOW_THIS_IN_INITIALIZER_LIST(this)),
       parent_router_(NULL),
-      processing_passphrase_(false) {
+      processing_passphrase_(false),
+      deferred_cleanup_requested_(false) {
 }
 
 // Helper to construct a user agent string (ASCII) suitable for use by
@@ -718,6 +712,9 @@ void SyncBackendHost::Core::DoUpdateEnabledTypes() {
 void SyncBackendHost::Core::DoStartSyncing() {
   DCHECK(MessageLoop::current() == host_->sync_thread_.message_loop());
   sync_manager_->StartSyncingNormally();
+  if (deferred_cleanup_requested_)
+    sync_manager_->RequestCleanupDisabledTypes();
+  deferred_cleanup_requested_ = false;
 }
 
 void SyncBackendHost::Core::DoSetPassphrase(const std::string& passphrase,
@@ -1081,10 +1078,6 @@ void SyncBackendHost::Core::DoRequestClearServerData() {
   sync_manager_->RequestClearServerData();
 }
 
-void SyncBackendHost::Core::DoRequestCleanupDisabledTypes() {
-  sync_manager_->RequestCleanupDisabledTypes();
-}
-
 void SyncBackendHost::Core::SaveChanges() {
   sync_manager_->SaveChanges();
 }
@@ -1158,6 +1151,11 @@ void SyncBackendHost::Core::DoProcessMessage(
     const JsEventHandler* sender) {
   DCHECK_EQ(MessageLoop::current(), host_->sync_thread_.message_loop());
   sync_manager_->GetJsBackend()->ProcessMessage(name, args, sender);
+}
+
+void SyncBackendHost::Core::DeferCleanup() {
+  DCHECK_EQ(MessageLoop::current(), host_->sync_thread_.message_loop());
+  deferred_cleanup_requested_ = true;
 }
 
 }  // namespace browser_sync
