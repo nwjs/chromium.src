@@ -556,5 +556,5 @@ void ProfileManager::ScheduleProfileForDeletion(const FilePath& profile_dir) {
 
 // static
 bool ProfileManager::IsMultipleProfilesEnabled() {
-  return CommandLine::ForCurrentProcess()->HasSwitch(switches::kMultiProfiles);
+  return false;
 }
