@@ -67,6 +67,10 @@ class UI_API Canvas {
     // installed) don't support these characters. Thus, this flag should be
     // used to render text using RTL directionality when the locale is LTR.
     FORCE_RTL_DIRECTIONALITY = 2048,
+
+    // Similar to FORCE_RTL_DIRECTIONALITY, but left-to-right.
+    // See FORCE_RTL_DIRECTIONALITY for details.
+    FORCE_LTR_DIRECTIONALITY = 4096,
   };
 
   virtual ~Canvas() {}
