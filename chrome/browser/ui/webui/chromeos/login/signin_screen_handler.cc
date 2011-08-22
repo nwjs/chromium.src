@@ -460,7 +460,7 @@ void SigninScreenHandler::StartClearingDnsCache() {
 void SigninScreenHandler::StartClearingCookies() {
   cookies_cleared_ = false;
   BrowsingDataRemover* remover = new BrowsingDataRemover(
-      Profile::FromBrowserContext(web_ui_->tab_contents()->browser_context()),
+      web_ui_->tab_contents()->profile(),
       BrowsingDataRemover::EVERYTHING,
       base::Time());
   remover->AddObserver(this);
