@@ -27,11 +27,11 @@
 #include "content/common/notification_source.h"
 #include "webkit/plugins/npapi/plugin_group.h"
 #include "webkit/plugins/npapi/plugin_list.h"
-#include "webkit/plugins/webplugininfo.h"
+#include "webkit/plugins/npapi/webplugininfo.h"
 
 using webkit::npapi::PluginGroup;
 using webkit::npapi::PluginList;
-using webkit::WebPluginInfo;
+using webkit::npapi::WebPluginInfo;
 
 namespace {
 
