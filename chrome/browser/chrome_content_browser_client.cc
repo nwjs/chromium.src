@@ -322,13 +322,7 @@ void ChromeContentBrowserClient::AppendExtraCommandLineSwitches(
       switches::kAppsGalleryURL,
       switches::kCloudPrintServiceURL,
       switches::kDebugPrint,
-#if defined(GOOGLE_CHROME_BUILD) && !defined(OS_CHROMEOS)
-      // Enabled by default in Google Chrome builds, except on CrOS.
       switches::kDisablePrintPreview,
-#else
-      // Disabled by default in Chromium builds and on CrOS.
-      switches::kEnablePrintPreview,
-#endif
       switches::kDomAutomationController,
       switches::kDumpHistogramsOnExit,
       switches::kEnableClickToPlay,
@@ -337,6 +331,7 @@ void ChromeContentBrowserClient::AppendExtraCommandLineSwitches(
       switches::kEnableInBrowserThumbnailing,
       switches::kEnableIPCFuzzing,
       switches::kEnableNaCl,
+      switches::kEnablePrintPreview,
       switches::kEnableResourceContentSettings,
       switches::kEnableSearchProviderApiV2,
       switches::kEnableWatchdog,
