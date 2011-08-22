@@ -282,6 +282,7 @@ Browser::Browser(Type type, Profile* profile)
     local_pref_registrar_.Init(local_state);
     local_pref_registrar_.Add(prefs::kPrintingEnabled, this);
     local_pref_registrar_.Add(prefs::kAllowFileSelectionDialogs, this);
+    local_pref_registrar_.Add(prefs::kMetricsReportingEnabled, this);
   }
 
   profile_pref_registrar_.Init(profile_->GetPrefs());
@@ -289,6 +290,7 @@ Browser::Browser(Type type, Profile* profile)
   profile_pref_registrar_.Add(prefs::kEditBookmarksEnabled, this);
   profile_pref_registrar_.Add(prefs::kInstantEnabled, this);
   profile_pref_registrar_.Add(prefs::kIncognitoEnabled, this);
+  profile_pref_registrar_.Add(prefs::kSearchSuggestEnabled, this);
 
   InitCommandState();
   BrowserList::AddBrowser(this);
@@ -3684,7 +3686,9 @@ void Browser::Observe(int type,
         UseCompactNavigationBarChanged();
       } else if (pref_name == prefs::kPrintingEnabled) {
         UpdatePrintingState(GetContentRestrictionsForSelectedTab());
-      } else if (pref_name == prefs::kInstantEnabled) {
+      } else if (pref_name == prefs::kInstantEnabled ||
+                 pref_name == prefs::kMetricsReportingEnabled ||
+                 pref_name == prefs::kSearchSuggestEnabled) {
         if (!InstantController::IsEnabled(profile())) {
           if (instant()) {
             instant()->DestroyPreviewContents();
