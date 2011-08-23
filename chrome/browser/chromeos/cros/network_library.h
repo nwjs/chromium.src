@@ -110,7 +110,7 @@ enum SIMLockState {
 };
 
 // SIM PinRequire states. Since PinRequire current state is not exposed as a
-// cellular property, we initialize it's value based on the SIMLockState
+// cellular property, we initialize its value based on the SimLockState
 // initial value.
 // SIM_PIN_REQUIRE_UNKNOWN - SIM card is absent or SIMLockState initial value
 //                           hasn't been received yet.
@@ -334,6 +334,8 @@ class Network {
   bool configuring() const { return state_ == STATE_CONFIGURATION; }
   bool connected() const { return IsConnectedState(state_); }
   bool connecting_or_connected() const { return connecting() || connected(); }
+  // True when a user-initiated connection attempt is in progress
+  bool connection_started() const { return connection_started_; }
   bool failed() const { return state_ == STATE_FAILURE; }
   bool disconnected() const { return IsDisconnectedState(state_); }
   bool ready() const { return state_ == STATE_READY; }
@@ -438,6 +440,7 @@ class Network {
   ConnectionState state_;
   ConnectionError error_;
   bool connectable_;
+  bool connection_started_;
   bool is_active_;
   int priority_;  // determines order in network list.
   bool auto_connect_;
@@ -457,6 +460,7 @@ class Network {
   }
   void set_connectable(bool connectable) { connectable_ = connectable; }
   void set_active(bool is_active) { is_active_ = is_active; }
+  void set_connection_started(bool started) { connection_started_ = started; }
   void set_error(ConnectionError error) { error_ = error; }
   void set_added(bool added) { added_ = added; }
   void set_profile_path(const std::string& path) { profile_path_ = path; }
