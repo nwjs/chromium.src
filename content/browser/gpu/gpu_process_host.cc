@@ -521,7 +521,8 @@ bool GpuProcessHost::LaunchGpuProcess() {
 
   // Propagate relevant command line switches.
   static const char* const kSwitchNames[] = {
-    switches::kUseGL,
+    switches::kDisableBreakpad,
+    switches::kDisableGLMultisampling,
     switches::kDisableGpuSandbox,
     switches::kDisableGpuVsync,
     switches::kDisableGpuWatchdog,
@@ -534,10 +535,16 @@ bool GpuProcessHost::LaunchGpuProcess() {
     switches::kGpuStartupDialog,
     switches::kLoggingLevel,
     switches::kNoSandbox,
-    switches::kDisableGLMultisampling,
+    switches::kUseGL
   };
   cmd_line->CopySwitchesFrom(browser_command_line, kSwitchNames,
                              arraysize(kSwitchNames));
+
+  // If --ignore-gpu-blacklist is passed in, don't send in crash reports
+  // because GPU is expected to be unreliable.
+  if (browser_command_line.HasSwitch(switches::kIgnoreGpuBlacklist) &&
+      !cmd_line->HasSwitch(switches::kDisableBreakpad))
+    cmd_line->AppendSwitch(switches::kDisableBreakpad);
 
   GpuFeatureFlags flags = GpuDataManager::GetInstance()->GetGpuFeatureFlags();
   if (flags.flags() & GpuFeatureFlags::kGpuFeatureMultisampling)
