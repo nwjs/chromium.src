@@ -146,6 +146,8 @@ function FileManager(dialogDom, rootEntries, params) {
   this.summarizeSelection_();
   this.updatePreview_();
 
+  this.dataModel_.sort('cachedMtime_');
+
   this.refocus();
 
   // Pass all URLs to the metadata reader until we have a correct filter.
@@ -637,7 +639,6 @@ FileManager.prototype = {
                                        this.compareMtime_.bind(this));
     this.dataModel_.setCompareFunction('cachedSize_',
                                        this.compareSize_.bind(this));
-    this.dataModel_.sort('cachedMtime_');
     this.dataModel_.prepareSort = this.prepareSort_.bind(this);
 
     if (this.dialogType_ == FileManager.DialogType.SELECT_OPEN_FILE ||
@@ -663,10 +664,10 @@ FileManager.prototype = {
    * Compare by mtime first, then by name.
    */
   FileManager.prototype.compareMtime_ = function(a, b) {
-    if (a.cachedMtime_ > b.cachedMtime)
+    if (a.cachedMtime_ > b.cachedMtime_)
       return 1;
 
-    if (a.cachedMtime_ < b.cachedMtime)
+    if (a.cachedMtime_ < b.cachedMtime_)
       return -1;
 
     return this.collator_.compare(a.name, b.name);
@@ -676,10 +677,10 @@ FileManager.prototype = {
    * Compare by size first, then by name.
    */
   FileManager.prototype.compareSize_ = function(a, b) {
-    if (a.cachedSize_ > b.cachedSize)
+    if (a.cachedSize_ > b.cachedSize_)
       return 1;
 
-    if (a.cachedSize_ < b.cachedSize)
+    if (a.cachedSize_ < b.cachedSize_)
       return -1;
 
     return this.collator_.compare(a.name, b.name);
