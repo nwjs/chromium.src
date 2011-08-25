@@ -293,7 +293,7 @@ void CheckDefaultBrowserTask::Run() {
 // A delegate for the InfoBar shown when the previous session has crashed.
 class SessionCrashedInfoBarDelegate : public ConfirmInfoBarDelegate {
  public:
-  SessionCrashedInfoBarDelegate(Browser* browser, TabContents* contents);
+  SessionCrashedInfoBarDelegate(Profile* profile, TabContents* contents);
 
  private:
   virtual ~SessionCrashedInfoBarDelegate();
@@ -305,8 +305,6 @@ class SessionCrashedInfoBarDelegate : public ConfirmInfoBarDelegate {
   virtual string16 GetButtonLabel(InfoBarButton button) const OVERRIDE;
   virtual bool Accept() OVERRIDE;
 
-  Browser* browser_;
-
   // The Profile that we restore sessions from.
   Profile* profile_;
 
@@ -314,11 +312,10 @@ class SessionCrashedInfoBarDelegate : public ConfirmInfoBarDelegate {
 };
 
 SessionCrashedInfoBarDelegate::SessionCrashedInfoBarDelegate(
-    Browser* browser,
+    Profile* profile,
     TabContents* contents)
     : ConfirmInfoBarDelegate(contents),
-      browser_(browser),
-      profile_(contents->profile()) {
+      profile_(profile) {
 }
 
 SessionCrashedInfoBarDelegate::~SessionCrashedInfoBarDelegate() {
@@ -345,14 +342,16 @@ string16 SessionCrashedInfoBarDelegate::GetButtonLabel(
 
 bool SessionCrashedInfoBarDelegate::Accept() {
   uint32 behavior = 0;
-  if (browser_->tab_count() == 1 && browser_->GetTabContentsAt(0)->GetURL() ==
+  Browser* browser = BrowserList::GetLastActiveWithProfile(profile_);
+  if (browser && browser->tab_count() == 1
+      && browser->GetTabContentsAt(0)->GetURL() ==
       GURL(chrome::kChromeUINewTabURL)) {
     // There is only one tab and its the new tab page, make session restore
     // clobber it.
     behavior = SessionRestore::CLOBBER_CURRENT_TAB;
   }
   SessionRestore::RestoreSession(
-      profile_, browser_, behavior, std::vector<GURL>());
+      profile_, browser, behavior, std::vector<GURL>());
   return true;
 }
 
@@ -1046,13 +1045,12 @@ void BrowserInit::LaunchWithProfile::AddCrashedInfoBarIfNecessary(
     TabContentsWrapper* tab) {
   // Assume that if the user is launching incognito they were previously
   // running incognito so that we have nothing to restore from.
-  if (!profile_->DidLastSessionExitCleanly() &&
-      !profile_->IsOffTheRecord()) {
+  if (!profile_->DidLastSessionExitCleanly() && !profile_->IsOffTheRecord()) {
     // The last session didn't exit cleanly. Show an infobar to the user
     // so that they can restore if they want. The delegate deletes itself when
     // it is closed.
     tab->AddInfoBar(
-        new SessionCrashedInfoBarDelegate(browser, tab->tab_contents()));
+        new SessionCrashedInfoBarDelegate(profile_, tab->tab_contents()));
   }
 }
 
