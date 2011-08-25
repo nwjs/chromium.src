@@ -126,15 +126,14 @@ TEST_F('PrintPreviewWebUITest', 'FLAKY_TestPrinterList', function() {
 });
 
 /**
- * Verify that the section |sectionId| visibility matches |visible|.
- * @param {string} sectionId The id of the section to check.
+ * Verify that |section| visibility matches |visible|.
+ * @param {HTMLDivElement} section The section to check.
  * @param {boolean} visible The expected state of visibility.
  **/
-function checkSectionVisible(sectionId, visible) {
-  var section = $(sectionId);
+function checkSectionVisible(section, visible) {
   assertNotEquals(null, section);
   expectEquals(section.classList.contains('visible'), visible,
-               'sectionId=' + sectionId);
+               'section=' + section);
 }
 
 // Test that disabled settings hide the disabled sections.
@@ -152,9 +151,9 @@ TEST_F('PrintPreviewWebUITest', 'FLAKY_TestSectionsDisabled', function() {
 
   updateControlsWithSelectedPrinterCapabilities();
 
-  checkSectionVisible('layout-option', false);
-  checkSectionVisible('color-options', false);
-  checkSectionVisible('copies-option', false);
+  checkSectionVisible(layoutSettings.layoutOption_, false);
+  checkSectionVisible(colorSettings.colorOption_, false);
+  checkSectionVisible(copiesSettings.copiesOption_, false);
 });
 
 // Test that the color settings are set according to the printer capabilities.
@@ -171,8 +170,8 @@ TEST_F('PrintPreviewWebUITest', 'FLAKY_TestColorSettings', function() {
       }));
 
   updateControlsWithSelectedPrinterCapabilities();
-  expectTrue($('color').checked);
-  expectFalse($('bw').checked);
+  expectTrue(colorSettings.colorRadioButton.checked);
+  expectFalse(colorSettings.bwRadioButton.checked);
 
   this.mockHandler.expects(once()).getPrinterCapabilities('FooDevice').
       will(callFunction(function() {
@@ -185,8 +184,8 @@ TEST_F('PrintPreviewWebUITest', 'FLAKY_TestColorSettings', function() {
       }));
 
   updateControlsWithSelectedPrinterCapabilities();
-  expectFalse($('color').checked);
-  expectTrue($('bw').checked);
+  expectFalse(colorSettings.colorRadioButton.checked);
+  expectTrue(colorSettings.bwRadioButton.checked);
 });
 
 // Test that changing the selected printer updates the preview.

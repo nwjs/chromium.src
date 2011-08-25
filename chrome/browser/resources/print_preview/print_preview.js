@@ -51,6 +51,9 @@ var copiesSettings;
 // Object holding all the layout related settings.
 var layoutSettings;
 
+// Object holding all the color related settings.
+var colorSettings;
+
 // True if the user has click 'Advanced...' in order to open the system print
 // dialog.
 var showingSystemDialog = false;
@@ -96,10 +99,12 @@ function onLoad() {
   pageSettings = print_preview.PageSettings.getInstance();
   copiesSettings = print_preview.CopiesSettings.getInstance();
   layoutSettings = print_preview.LayoutSettings.getInstance();
+  colorSettings = print_preview.ColorSettings.getInstance();
   printHeader.addEventListeners();
   pageSettings.addEventListeners();
   copiesSettings.addEventListeners();
   layoutSettings.addEventListeners();
+  colorSettings.addEventListeners();
 
   showLoadingAnimation();
   chrome.send('getDefaultPrinter');
@@ -111,10 +116,6 @@ function onLoad() {
 function addEventListeners() {
   // Controls that require preview rendering.
   $('printer-list').onchange = updateControlsWithSelectedPrinterCapabilities;
-
-  // Controls that do not require preview rendering.
-  $('color').onclick = function() { setColor(true); };
-  $('bw').onclick = function() { setColor(false); };
 }
 
 /**
@@ -126,10 +127,6 @@ function removeEventListeners() {
 
   // Controls that require preview rendering
   $('printer-list').onchange = null;
-
-  // Controls that don't require preview rendering.
-  $('color').onclick = null;
-  $('bw').onclick = null;
 }
 
 /**
@@ -256,22 +253,6 @@ function updateWithPrinterCapabilities(settingInfo) {
   var customEvent = new cr.Event("printerCapabilitiesUpdated");
   customEvent.printerCapabilities = settingInfo;
   document.dispatchEvent(customEvent);
-
-  var disableColorOption = settingInfo.disableColorOption;
-  var setColorAsDefault = settingInfo.setColorAsDefault;
-  var color = $('color');
-  var bw = $('bw');
-  var colorOptions = $('color-options');
-
-  disableColorOption ? fadeOutElement(colorOptions) :
-      fadeInElement(colorOptions);
-  colorOptions.setAttribute('aria-hidden', disableColorOption);
-
-  if (color.checked != setColorAsDefault) {
-    color.checked = setColorAsDefault;
-    bw.checked = !setColorAsDefault;
-    setColor(color.checked);
-  }
 }
 
 /**
@@ -298,15 +279,6 @@ function printToCloud(data) {
  */
 function finishedCloudPrinting() {
   window.location = cloudprint.getBaseURL();
-}
-
-/**
- * Checks whether the preview color setting is set to 'color' or not.
- *
- * @return {boolean} true if color is 'color'.
- */
-function isColor() {
-  return $('color').checked;
 }
 
 /**
@@ -337,7 +309,7 @@ function getSettings() {
        'copies': copiesSettings.numberOfCopies,
        'collate': copiesSettings.isCollated(),
        'landscape': layoutSettings.isLandscape(),
-       'color': isColor(),
+       'color': colorSettings.isColor(),
        'printToPDF': printToPDF,
        'requestID': 0};
 
@@ -745,7 +717,7 @@ function setColor(color) {
     return;
   }
   pdfViewer.grayscale(!color);
-  var printerList = $('printer-list')
+  var printerList = $('printer-list');
   cloudprint.setColor(printerList[printerList.selectedIndex], color);
 }
 
@@ -805,10 +777,8 @@ function onPDFLoad() {
     cr.dispatchSimpleEvent(document, 'updateSummary');
   }
   $('pdf-viewer').fitToHeight();
-  setColor($('color').checked);
-  hideLoadingAnimation();
-
   cr.dispatchSimpleEvent(document, 'PDFLoaded');
+  hideLoadingAnimation();
 }
 
 function setPluginPreviewPageCount() {
@@ -938,7 +908,7 @@ function createPDFPlugin(previewUid) {
     // internal page count.
     pdfViewer.goToPage('0');
     pdfViewer.reload();
-    pdfViewer.grayscale(!isColor());
+    pdfViewer.grayscale(!colorSettings.isColor());
     return;
   }
 
