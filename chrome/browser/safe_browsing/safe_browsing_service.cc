@@ -6,6 +6,7 @@
 
 #include "base/callback.h"
 #include "base/command_line.h"
+#include "base/file_path.h"
 #include "base/lazy_instance.h"
 #include "base/path_service.h"
 #include "base/stl_util.h"
@@ -17,6 +18,7 @@
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/safe_browsing/client_side_detection_service.h"
 #include "chrome/browser/safe_browsing/malware_details.h"
 #include "chrome/browser/safe_browsing/protocol_manager.h"
 #include "chrome/browser/safe_browsing/safe_browsing_blocking_page.h"
@@ -165,6 +167,27 @@ SafeBrowsingService::SafeBrowsingService()
       closing_database_(false),
       download_urlcheck_timeout_ms_(kDownloadUrlCheckTimeoutMs),
       download_hashcheck_timeout_ms_(kDownloadHashCheckTimeoutMs) {
+#if !defined(OS_CHROMEOS)
+  FilePath model_file_dir;
+  if (!CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kDisableClientSidePhishingDetection) &&
+      CanReportStats() &&
+      PathService::Get(chrome::DIR_USER_DATA, &model_file_dir)) {
+    csd_service_.reset(
+        safe_browsing::ClientSideDetectionService::Create(
+            model_file_dir, g_browser_process->system_request_context()));
+  }
+#endif
+}
+
+SafeBrowsingService::~SafeBrowsingService() {
+  // Deletes the PrefChangeRegistrars, whose dtors also unregister |this| as an
+  // observer of the preferences.
+  STLDeleteValues(&prefs_map_);
+
+  // We should have already been shut down. If we're still enabled, then the
+  // database isn't going to be closed properly, which could lead to corruption.
+  DCHECK(!enabled_);
 }
 
 void SafeBrowsingService::Initialize() {
@@ -189,9 +212,11 @@ void SafeBrowsingService::Initialize() {
 }
 
 void SafeBrowsingService::ShutDown() {
-  BrowserThread::PostTask(
-      BrowserThread::IO, FROM_HERE,
-      NewRunnableMethod(this, &SafeBrowsingService::OnIOShutdown));
+  Stop();
+  // The IO thread is going away, so make sure the ClientSideDetectionService
+  // dtor executes now since it may call the dtor of URLFetcher which relies
+  // on it.
+  csd_service_.reset();
 }
 
 bool SafeBrowsingService::CanCheckUrl(const GURL& url) const {
@@ -479,16 +504,6 @@ void SafeBrowsingService::ResetDatabase() {
 
 void SafeBrowsingService::LogPauseDelay(base::TimeDelta time) {
   UMA_HISTOGRAM_LONG_TIMES("SB2.Delay", time);
-}
-
-SafeBrowsingService::~SafeBrowsingService() {
-  // Deletes the PrefChangeRegistrars, whose dtors also unregister |this| as an
-  // observer of the preferences.
-  STLDeleteValues(&prefs_map_);
-
-  // We should have already been shut down. If we're still enabled, then the
-  // database isn't going to be closed properly, which could lead to corruption.
-  DCHECK(!enabled_);
 }
 
 void SafeBrowsingService::OnIOInitialize(
@@ -895,6 +910,12 @@ void SafeBrowsingService::Start() {
       NewRunnableMethod(
           this, &SafeBrowsingService::OnIOInitialize, client_key, wrapped_key,
           request_context_getter));
+}
+
+void SafeBrowsingService::Stop() {
+  BrowserThread::PostTask(
+      BrowserThread::IO, FROM_HERE,
+      NewRunnableMethod(this, &SafeBrowsingService::OnIOShutdown));
 }
 
 void SafeBrowsingService::OnCloseDatabase() {
@@ -1321,5 +1342,8 @@ void SafeBrowsingService::RefreshState() {
   if (enable)
     Start();
   else
-    ShutDown();
+    Stop();
+
+  if (csd_service_.get())
+    csd_service_->SetEnabled(enable);
 }
