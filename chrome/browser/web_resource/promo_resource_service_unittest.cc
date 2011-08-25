@@ -116,7 +116,7 @@ TEST_F(PromoResourceServiceTest, UnpackPromoSignal) {
                      "    \"answers\": ["
                      "       {"
                      "        \"name\": \"promo_start\","
-                     "        \"question\": \"3:2\","
+                     "        \"question\": \"3:2:5\","
                      "        \"tooltip\": \"Eat more pie!\","
                      "        \"inproduct\": \"31/01/10 01:00 GMT\""
                      "       },"
@@ -143,7 +143,7 @@ TEST_F(PromoResourceServiceTest, UnpackPromoSignal) {
 
   int promo_group = prefs->GetInteger(prefs::kNTPPromoGroup);
   EXPECT_GE(promo_group, 0);
-  EXPECT_LT(promo_group, 16);
+  EXPECT_LT(promo_group, 100);
 
   int promo_build_type = prefs->GetInteger(prefs::kNTPPromoBuild);
   EXPECT_EQ(promo_build_type & PromoResourceService::DEV_BUILD,
@@ -154,6 +154,9 @@ TEST_F(PromoResourceServiceTest, UnpackPromoSignal) {
 
   int promo_time_slice = prefs->GetInteger(prefs::kNTPPromoGroupTimeSlice);
   EXPECT_EQ(promo_time_slice, 2);
+
+  int promo_group_max = prefs->GetInteger(prefs::kNTPPromoGroupMax);
+  EXPECT_EQ(promo_group_max, 5);
 
   double promo_start =
       prefs->GetDouble(prefs::kNTPPromoStart);

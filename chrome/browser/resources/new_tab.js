@@ -1096,8 +1096,8 @@ function hideNotification() {
 
 function showPromoNotification() {
   showNotification(parseHtmlSubset(localStrings.getString('serverpromo')),
-                   localStrings.getString('syncpromotext'),
-                   function () { chrome.send('SyncLinkClicked'); },
+                   undefined,
+                   function () {},
                    60000);
   var notificationElement = $('notification');
   notification.classList.add('promo');

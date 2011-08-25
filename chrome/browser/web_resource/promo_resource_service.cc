@@ -31,7 +31,7 @@ static const int kCacheUpdateDelay = 48 * 60 * 60 * 1000;
 // Users are randomly assigned to one of kNTPPromoGroupSize buckets, in order
 // to be able to roll out promos slowly, or display different promos to
 // different groups.
-static const int kNTPPromoGroupSize = 16;
+static const int kNTPPromoGroupSize = 100;
 
 // Maximum number of hours for each time slice (4 weeks).
 static const int kMaxTimeSliceHours = 24 * 7 * 4;
@@ -81,7 +81,10 @@ void PromoResourceService::RegisterUserPrefs(PrefService* prefs) {
                              false,
                              PrefService::UNSYNCABLE_PREF);
   prefs->RegisterIntegerPref(prefs::kNTPPromoGroup,
-                             -1,
+                             0,
+                             PrefService::UNSYNCABLE_PREF);
+  prefs->RegisterIntegerPref(prefs::kNTPPromoGroupMax,
+                             0,
                              PrefService::UNSYNCABLE_PREF);
   prefs->RegisterIntegerPref(
       prefs::kNTPPromoBuild,
@@ -206,6 +209,7 @@ void PromoResourceService::UnpackPromoSignal(
   double old_promo_end = 0;
   double promo_start = 0;
   double promo_end = 0;
+  int time_slice_hrs = 0;
 
   // Check for preexisting start and end values.
   if (prefs_->HasPrefPath(prefs::kNTPPromoStart) &&
@@ -222,7 +226,7 @@ void PromoResourceService::UnpackPromoSignal(
       std::string promo_string = "";
       std::string promo_build = "";
       int promo_build_type = 0;
-      int time_slice_hrs = 0;
+      int max_group = 0;
       for (ListValue::const_iterator answer_iter = answer_list->begin();
            answer_iter != answer_list->end(); ++answer_iter) {
         if (!(*answer_iter)->IsType(Value::TYPE_DICTIONARY))
@@ -233,30 +237,37 @@ void PromoResourceService::UnpackPromoSignal(
         if (a_dic->GetString("name", &promo_signal)) {
           if (promo_signal == "promo_start") {
             a_dic->GetString("question", &promo_build);
-            size_t split = promo_build.find(":");
+            size_t split = promo_build.find(':');
+            size_t split2 = promo_build.rfind(':');
             if (split != std::string::npos &&
+                split2 != std::string::npos &&
+                split != split2 &&
                 base::StringToInt(promo_build.substr(0, split),
                                   &promo_build_type) &&
-                base::StringToInt(promo_build.substr(split+1),
+                base::StringToInt(promo_build.substr(split + 1,
+                                                     split2 - split - 1),
                                   &time_slice_hrs) &&
+                base::StringToInt(promo_build.substr(split2 + 1),
+                                  &max_group) &&
                 promo_build_type >= 0 &&
                 promo_build_type <= (DEV_BUILD | BETA_BUILD | STABLE_BUILD) &&
                 time_slice_hrs >= 0 &&
-                time_slice_hrs <= kMaxTimeSliceHours) {
+                time_slice_hrs <= kMaxTimeSliceHours &&
+                max_group >= 0 &&
+                max_group <= kNTPPromoGroupSize) {
               prefs_->SetInteger(prefs::kNTPPromoBuild, promo_build_type);
               prefs_->SetInteger(prefs::kNTPPromoGroupTimeSlice,
                                  time_slice_hrs);
+              prefs_->SetInteger(prefs::kNTPPromoGroupMax, max_group);
             } else {
               // If no time data or bad time data are set, do not show promo.
               prefs_->SetInteger(prefs::kNTPPromoBuild, NO_BUILD);
               prefs_->SetInteger(prefs::kNTPPromoGroupTimeSlice, 0);
+              prefs_->SetInteger(prefs::kNTPPromoGroupMax, 0);
             }
             a_dic->GetString("inproduct", &promo_start_string);
             a_dic->GetString("tooltip", &promo_string);
             prefs_->SetString(prefs::kNTPPromoLine, promo_string);
-            srand(static_cast<uint32>(time(NULL)));
-            prefs_->SetInteger(prefs::kNTPPromoGroup,
-                               rand() % kNTPPromoGroupSize);
           } else if (promo_signal == "promo_end") {
             a_dic->GetString("inproduct", &promo_end_string);
           }
@@ -272,24 +283,25 @@ void PromoResourceService::UnpackPromoSignal(
                 ASCIIToWide(promo_start_string).c_str(), &start_time) &&
             base::Time::FromString(
                 ASCIIToWide(promo_end_string).c_str(), &end_time)) {
-          // Add group time slice, adjusted from hours to seconds.
-          promo_start = start_time.ToDoubleT() +
-              (prefs_->FindPreference(prefs::kNTPPromoGroup) ?
-                  prefs_->GetInteger(prefs::kNTPPromoGroup) *
-                      time_slice_hrs * 60 * 60 : 0);
+          promo_start = start_time.ToDoubleT();
           promo_end = end_time.ToDoubleT();
         }
       }
     }
   }
 
-  // If start or end times have changed, trigger a new web resource
+  // If end time has changed, trigger a new web resource
   // notification, so that the logo on the NTP is updated. This check is
   // outside the reading of the web resource data, because the absence of
   // dates counts as a triggering change if there were dates before.
   // Also reset the promo closed preference, to signal a new promo.
-  if (!(old_promo_start == promo_start) ||
-      !(old_promo_end == promo_end)) {
+  if (!(old_promo_end == promo_end)) {
+    srand(static_cast<uint32>(time(NULL)));
+    int promo_group = rand() % kNTPPromoGroupSize;
+    prefs_->SetInteger(prefs::kNTPPromoGroup, promo_group);
+
+    // Add group time slice, adjusted from hours to seconds.
+    promo_start += promo_group * time_slice_hrs * 60 * 60;
     prefs_->SetDouble(prefs::kNTPPromoStart, promo_start);
     prefs_->SetDouble(prefs::kNTPPromoEnd, promo_end);
     prefs_->SetBoolean(prefs::kNTPPromoClosed, false);
@@ -464,11 +476,10 @@ bool CanShowPromo(Profile* profile) {
   if (prefs->HasPrefPath(prefs::kNTPPromoClosed))
     promo_closed = prefs->GetBoolean(prefs::kNTPPromoClosed);
 
-  // Only show if not synced.
-  bool is_synced =
-      (profile->HasProfileSyncService() &&
-          sync_ui_util::GetStatus(
-              profile->GetProfileSyncService()) == sync_ui_util::SYNCED);
+  bool is_valid_group = prefs->HasPrefPath(prefs::kNTPPromoGroup) &&
+      prefs->HasPrefPath(prefs::kNTPPromoGroupMax) &&
+      (prefs->GetInteger(prefs::kNTPPromoGroup) <
+      prefs->GetInteger(prefs::kNTPPromoGroupMax));
 
   bool is_promo_build = false;
   if (prefs->HasPrefPath(prefs::kNTPPromoBuild)) {
@@ -479,7 +490,7 @@ bool CanShowPromo(Profile* profile) {
         channel, prefs->GetInteger(prefs::kNTPPromoBuild));
   }
 
-  return !promo_closed && !is_synced && is_promo_build;
+  return !promo_closed && is_valid_group && is_promo_build;
 }
 
 }  // namespace PromoResourceServiceUtil
