@@ -215,6 +215,7 @@
         'common/persistent_pref_store.h',
         'common/pref_store.cc',
         'common/pref_store.h',
+        'common/print_messages.cc',
         'common/print_messages.h',
         'common/random.cc',
         'common/random.h',

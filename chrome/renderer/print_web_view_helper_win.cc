@@ -121,7 +121,7 @@ void PrintWebViewHelper::PrintPageInternal(
   Send(new PrintHostMsg_DidPrintPage(routing_id(), page_params));
 }
 
-void PrintWebViewHelper::RenderPreviewPage(int page_number) {
+bool PrintWebViewHelper::RenderPreviewPage(int page_number) {
   PrintMsg_Print_Params print_params = print_preview_context_.print_params();
   // Calculate the dpi adjustment.
   float scale_factor = static_cast<float>(print_params.desired_dpi /
@@ -145,7 +145,7 @@ void PrintWebViewHelper::RenderPreviewPage(int page_number) {
     page_metafile.reset(reinterpret_cast<printing::PreviewMetafile*>(
         print_preview_context_.metafile())->GetMetafileForCurrentPage());
   }
-  PreviewPageRendered(page_number, page_metafile.get());
+  return PreviewPageRendered(page_number, page_metafile.get());
 }
 
 void PrintWebViewHelper::RenderPage(

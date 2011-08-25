@@ -60,7 +60,7 @@ void MockPrinter::GetDefaultPrintSettings(PrintMsg_Print_Params* params) {
 
   // Assign a unit document cookie and set the print settings.
   document_cookie_ = CreateDocumentCookie();
-  memset(params, 0, sizeof(PrintMsg_Print_Params));
+  params->Reset();
   SetPrintParams(params);
 }
 
@@ -83,7 +83,7 @@ void MockPrinter::ScriptedPrint(int cookie,
   // Verify the input parameters.
   EXPECT_EQ(document_cookie_, cookie);
 
-  memset(settings, 0, sizeof(PrintMsg_PrintPages_Params));
+  params->Reset();
   settings->params.dpi = dpi_;
   settings->params.max_shrink = max_shrink_;
   settings->params.min_shrink = min_shrink_;
@@ -101,7 +101,7 @@ void MockPrinter::UpdateSettings(int cookie,
                                  PrintMsg_PrintPages_Params* params) {
   EXPECT_EQ(document_cookie_, cookie);
 
-  memset(params, 0, sizeof(PrintMsg_PrintPages_Params));
+  params->Reset();
   SetPrintParams(&(params->params));
   printer_status_ = PRINTER_PRINTING;
 }

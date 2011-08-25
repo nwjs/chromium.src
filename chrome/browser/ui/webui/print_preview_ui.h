@@ -37,10 +37,18 @@ class PrintPreviewUI : public ChromeWebUI {
   // Clear the existing print preview data.
   void ClearAllPreviewData();
 
-  // Notify the Web UI that there is a print preview request.
-  // There should be a matching call to OnPreviewDataIsAvailable() or
-  // OnPrintPreviewFailed().
-  void OnPrintPreviewRequest();
+  // Determines whether to cancel a print preview request based on
+  // |preview_ui_addr| and |request_id|.
+  // Can be called from any thread.
+  static void GetCurrentPrintPreviewStatus(const std::string& preview_ui_addr,
+                                           int request_id,
+                                           bool* cancel);
+
+  // Returns a string to uniquely identify this PrintPreviewUI.
+  std::string GetPrintPreviewUIAddress() const;
+
+  // Notifies the Web UI of a print preview request with |request_id|.
+  void OnPrintPreviewRequest(int request_id);
 
   // Notifies the Web UI about the page count of the request preview.
   void OnDidGetPreviewPageCount(
@@ -68,9 +76,6 @@ class PrintPreviewUI : public ChromeWebUI {
   // Notify the Web UI that the print preview failed to render.
   void OnPrintPreviewFailed();
 
-  // Notify the Web UI that the print preview request has been cancelled.
-  void OnPrintPreviewCancelled();
-
   // Notify the Web UI that initiator tab is closed, so we can disable all
   // the controls that need the initiator tab for generating the preview data.
   // |initiator_tab_url| is passed in order to display a more accurate error
@@ -80,16 +85,9 @@ class PrintPreviewUI : public ChromeWebUI {
   // Notify the Web UI renderer that file selection has been cancelled.
   void OnFileSelectionCancelled();
 
-  // Return true if there are pending requests.
-  bool HasPendingRequests();
-
-  int document_cookie();
-
  private:
   // Helper function
   PrintPreviewDataService* print_preview_data_service();
-
-  void DecrementRequestCount();
 
   base::TimeTicks initial_preview_start_time_;
 
@@ -98,12 +96,6 @@ class PrintPreviewUI : public ChromeWebUI {
 
   // Weak pointer to the WebUI handler.
   PrintPreviewHandler* handler_;
-
-  // The number of print preview requests in flight.
-  uint32 request_count_;
-
-  // Document cookie from the initiator renderer.
-  int document_cookie_;
 
   DISALLOW_COPY_AND_ASSIGN(PrintPreviewUI);
 };
