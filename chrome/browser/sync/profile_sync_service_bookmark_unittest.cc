@@ -35,8 +35,6 @@
 
 namespace browser_sync {
 
-namespace {
-
 using testing::_;
 using testing::InvokeWithoutArgs;
 using testing::Mock;
@@ -113,6 +111,7 @@ class TestBookmarkModelAssociator : public BookmarkModelAssociator {
     // Create new fake tagged nodes at the end of the ordering.
     node.InitByCreation(type, root, predecessor);
     node.SetIsFolder(true);
+    node.entry_->Put(syncable::UNIQUE_SERVER_TAG, tag);
     node.SetTitle(tag_wide);
     node.SetExternalId(0);
     *sync_id = node.GetId();
@@ -123,6 +122,8 @@ class TestBookmarkModelAssociator : public BookmarkModelAssociator {
   sync_api::UserShare* user_share_;
   browser_sync::TestIdFactory id_factory_;
 };
+
+namespace {
 
 // FakeServerChange constructs a list of sync_api::ChangeRecords while modifying
 // the sync model, and can pass the ChangeRecord list to a
