@@ -83,7 +83,8 @@ void MockPrinter::ScriptedPrint(int cookie,
   // Verify the input parameters.
   EXPECT_EQ(document_cookie_, cookie);
 
-  params->Reset();
+  settings->Reset();
+
   settings->params.dpi = dpi_;
   settings->params.max_shrink = max_shrink_;
   settings->params.min_shrink = min_shrink_;
