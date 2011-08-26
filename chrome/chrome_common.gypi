@@ -209,6 +209,8 @@
         'common/jstemplate_builder.h',
         'common/launchd_mac.h',
         'common/launchd_mac.mm',
+        'common/mac/cfbundle_blocker.h',
+        'common/mac/cfbundle_blocker.mm',
         'common/libxml_utils.cc',
         'common/libxml_utils.h',
         'common/native_window_notification_source.h',
@@ -332,6 +334,9 @@
           ],
         }],
         ['OS=="mac"', {
+          'dependencies': [
+            '../third_party/mach_override/mach_override.gyp:mach_override',
+          ],
           'include_dirs': [
             '../third_party/GTM',
           ],

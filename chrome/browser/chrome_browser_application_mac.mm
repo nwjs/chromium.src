@@ -5,7 +5,6 @@
 #import "chrome/browser/chrome_browser_application_mac.h"
 
 #import "base/logging.h"
-#import "base/mac/mac_util.h"
 #import "base/mac/scoped_nsexception_enabler.h"
 #import "base/metrics/histogram.h"
 #import "base/memory/scoped_nsobject.h"
@@ -122,29 +121,6 @@ static IMP gOriginalInitIMP = NULL;
 }
 @end
 
-static IMP gOriginalNSBundleLoadIMP = NULL;
-
-@interface NSBundle (CrNSBundleSwizzle)
-- (BOOL)crLoad;
-@end
-
-@implementation NSBundle (CrNSBundleSwizzle)
-- (BOOL)crLoad {
-  // Method only called when swizzled.
-  DCHECK(_cmd == @selector(load));
-
-  // MultiClutchInputManager is broken in Chrome on Lion.
-  // http://crbug.com/90075.
-  if (base::mac::IsOSLionOrLater() &&
-      [[self bundleIdentifier]
-       isEqualToString:@"net.wonderboots.multiclutchinputmanager"]) {
-    return NO;
-  }
-
-  return gOriginalNSBundleLoadIMP(self, _cmd) != nil;
-}
-@end
-
 namespace chrome_browser_application_mac {
 
 // Maximum number of known named exceptions we'll support.  There is
@@ -225,13 +201,6 @@ void SwizzleInit() {
       [NSException class],
       @selector(initWithName:reason:userInfo:),
       @selector(crInitWithName:reason:userInfo:));
-
-  // Avoid loading broken input managers.
-  gOriginalNSBundleLoadIMP =
-      ObjcEvilDoers::SwizzleImplementedInstanceMethods(
-          [NSBundle class],
-          @selector(load),
-          @selector(crLoad));
 }
 
 }  // namespace

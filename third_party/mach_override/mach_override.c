@@ -170,6 +170,23 @@ mach_override_ptr(
 	assert( originalFunctionAddress );
 	assert( overrideFunctionAddress );
 	
+	// this addresses overriding such functions as AudioOutputUnitStart()
+	// test with modified DefaultOutputUnit project
+#if defined(__x86_64__) || defined(__i386__)
+    for(;;){
+        if(*(unsigned char*)originalFunctionAddress==0xE9)      // jmp .+0x????????
+            originalFunctionAddress=(void*)((char*)originalFunctionAddress+5+*(int32_t *)((char*)originalFunctionAddress+1));
+#if defined(__x86_64__)
+        else if(*(uint16_t*)originalFunctionAddress==0x25FF)    // jmp qword near [rip+0x????????]
+            originalFunctionAddress=*(void**)((char*)originalFunctionAddress+6+*(int32_t *)((uint16_t*)originalFunctionAddress+1));
+#elif defined(__i386__)
+        else if(*(uint16_t*)originalFunctionAddress==0x25FF)    // jmp *0x????????
+            originalFunctionAddress=**(void***)((uint16_t*)originalFunctionAddress+1);
+#endif
+        else break;
+    }
+#endif
+
 	long	*originalFunctionPtr = (long*) originalFunctionAddress;
 	mach_error_t	err = err_none;
 	
@@ -193,26 +210,26 @@ mach_override_ptr(
 		overridePossible = false;
 	}
 	if (!overridePossible) err = err_cannot_override;
-	if (err) printf("err = %x %d\n", err, __LINE__);
+	if (err) fprintf(stderr, "err = %x %s:%d\n", err, __FILE__, __LINE__);
 #endif
 	
 	//	Make the original function implementation writable.
 	if( !err ) {
 		err = vm_protect( mach_task_self(),
-				(vm_address_t) originalFunctionPtr,
-				sizeof(long), false, (VM_PROT_ALL | VM_PROT_COPY) );
+				(vm_address_t) originalFunctionPtr, 8, false,
+				(VM_PROT_ALL | VM_PROT_COPY) );
 		if( err )
 			err = vm_protect( mach_task_self(),
-					(vm_address_t) originalFunctionPtr, sizeof(long), false,
+					(vm_address_t) originalFunctionPtr, 8, false,
 					(VM_PROT_DEFAULT | VM_PROT_COPY) );
 	}
-	if (err) printf("err = %x %d\n", err, __LINE__);
+	if (err) fprintf(stderr, "err = %x %s:%d\n", err, __FILE__, __LINE__);
 	
 	//	Allocate and target the escape island to the overriding function.
 	BranchIsland	*escapeIsland = NULL;
 	if( !err )	
 		err = allocateBranchIsland( &escapeIsland, kAllocateHigh, originalFunctionAddress );
-		if (err) printf("err = %x %d\n", err, __LINE__);
+		if (err) fprintf(stderr, "err = %x %s:%d\n", err, __FILE__, __LINE__);
 
 	
 #if defined(__ppc__) || defined(__POWERPC__)
@@ -226,19 +243,19 @@ mach_override_ptr(
 		branchAbsoluteInstruction = 0x48000002 | escapeIslandAddress;
 	}
 #elif defined(__i386__) || defined(__x86_64__)
-        if (err) printf("err = %x %d\n", err, __LINE__);
+        if (err) fprintf(stderr, "err = %x %s:%d\n", err, __FILE__, __LINE__);
 
 	if( !err )
 		err = setBranchIslandTarget_i386( escapeIsland, overrideFunctionAddress, 0 );
  
-	if (err) printf("err = %x %d\n", err, __LINE__);
+	if (err) fprintf(stderr, "err = %x %s:%d\n", err, __FILE__, __LINE__);
 	// Build the jump relative instruction to the escape island
 #endif
 
 
 #if defined(__i386__) || defined(__x86_64__)
 	if (!err) {
-		uint32_t addressOffset = ((void*)escapeIsland - (void*)originalFunctionPtr - 5);
+		uint32_t addressOffset = ((char*)escapeIsland - (char*)originalFunctionPtr - 5);
 		addressOffset = OSSwapInt32(addressOffset);
 		
 		jumpRelativeInstruction |= 0xE900000000000000LL; 
@@ -250,7 +267,7 @@ mach_override_ptr(
 	//	Optionally allocate & return the reentry island.
 	BranchIsland	*reentryIsland = NULL;
 	if( !err && originalFunctionReentryIsland ) {
-		err = allocateBranchIsland( &reentryIsland, kAllocateNormal, NULL);
+		err = allocateBranchIsland( &reentryIsland, kAllocateHigh, NULL);
 		if( !err )
 			*originalFunctionReentryIsland = reentryIsland;
 	}
@@ -296,16 +313,16 @@ mach_override_ptr(
 		if( reentryIsland )
 			err = setBranchIslandTarget_i386( reentryIsland,
 										 (void*) ((char *)originalFunctionPtr+eatenCount), originalInstructions );
+		// try making islands executable before planting the jmp
+#if defined(__x86_64__) || defined(__i386__)
+        if( !err )
+            err = makeIslandExecutable(escapeIsland);
+        if( !err && reentryIsland )
+            err = makeIslandExecutable(reentryIsland);
+#endif
 		if ( !err )
 			atomic_mov64((uint64_t *)originalFunctionPtr, jumpRelativeInstruction);
 	}
-#endif
-	
-#if defined(__i386__) || defined(__x86_64__)
-	if ( !err )
-	        err = makeIslandExecutable( escapeIsland );
-	if ( !err && reentryIsland )
-	        err = makeIslandExecutable( reentryIsland );
 #endif
 	
 	//	Clean up on error.
@@ -380,7 +397,7 @@ allocateBranchIsland(
 				}
 			}
 			if( allocated )
-				*island = (void*) page;
+				*island = (BranchIsland*) page;
 			else if( !allocated && !err )
 				err = KERN_NO_SPACE;
 		}
@@ -530,6 +547,7 @@ typedef struct {
 
 #if defined(__i386__)
 static AsmInstructionMatch possibleInstructions[] = {
+	{ 0x5, {0xFF, 0xFF, 0xFF, 0xFF, 0xFF}, {0x55, 0x89, 0xe5, 0xc9, 0xc3} },	// push %ebp; mov %esp,%ebp; leave; ret
 	{ 0x1, {0xFF}, {0x90} },							// nop
 	{ 0x1, {0xFF}, {0x55} },							// push %esp
 	{ 0x2, {0xFF, 0xFF}, {0x89, 0xE5} },				                // mov %esp,%ebp
@@ -539,6 +557,9 @@ static AsmInstructionMatch possibleInstructions[] = {
 	{ 0x1, {0xFF}, {0x57} },							// push %edi
 	{ 0x1, {0xFF}, {0x56} },							// push %esi
 	{ 0x2, {0xFF, 0xFF}, {0x31, 0xC0} },						// xor %eax, %eax
+	{ 0x3, {0xFF, 0x4F, 0x00}, {0x8B, 0x45, 0x00} },  // mov $imm(%ebp), %reg
+	{ 0x3, {0xFF, 0x4C, 0x00}, {0x8B, 0x40, 0x00} },  // mov $imm(%eax-%edx), %reg
+	{ 0x4, {0xFF, 0xFF, 0xFF, 0x00}, {0x8B, 0x4C, 0x24, 0x00} },  // mov $imm(%esp), %ecx
 	{ 0x0 }
 };
 #elif defined(__x86_64__)
@@ -550,6 +571,8 @@ static AsmInstructionMatch possibleInstructions[] = {
 	{ 0x4, {0xFB, 0xFF, 0x00, 0x00}, {0x48, 0x89, 0x00, 0x00} },	                // move onto rbp
 	{ 0x2, {0xFF, 0x00}, {0x41, 0x00} },						// push %rXX
 	{ 0x2, {0xFF, 0x00}, {0x85, 0x00} },						// test %rX,%rX
+	{ 0x5, {0xF8, 0x00, 0x00, 0x00, 0x00}, {0xB8, 0x00, 0x00, 0x00, 0x00} },   // mov $imm, %reg
+	{ 0x3, {0xFF, 0xFF, 0x00}, {0xFF, 0x77, 0x00} },  // pushq $imm(%rdi)
 	{ 0x0 }
 };
 #endif
@@ -598,6 +621,7 @@ eatKnownInstructions(
 		// if all instruction matches failed, we don't know current instruction then, stop here
 		if (!curInstructionKnown) { 
 			allInstructionsKnown = false;
+			fprintf(stderr, "mach_override: some instructions unknown! Need to update mach_override.c\n");
 			break;
 		}
 		
