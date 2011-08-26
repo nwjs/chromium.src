@@ -56,7 +56,6 @@ bool GLES2Demo::Setup(void* hwnd, int32 size) {
   if (!command_buffer->Initialize(size))
     return NULL;
 
-  gpu::gles2::ContextGroup::Ref group(new gpu::gles2::ContextGroup(true));
   GpuScheduler* gpu_scheduler = GpuScheduler::Create(command_buffer.get(),
                                                      NULL,
                                                      NULL);
@@ -93,8 +92,7 @@ bool GLES2Demo::Setup(void* hwnd, int32 size) {
                                               transfer_buffer.size,
                                               transfer_buffer.ptr,
                                               transfer_buffer_id,
-                                              false,
-                                              true));
+                                              false));
 
   GLFromCPPInit();
 
