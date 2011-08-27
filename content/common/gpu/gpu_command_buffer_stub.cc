@@ -56,13 +56,10 @@ GpuCommandBufferStub::GpuCommandBufferStub(
       parent_texture_for_initialization_(0),
       watchdog_(watchdog),
       task_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)) {
-  if (share_group) {
+  if (share_group)
     context_group_ = share_group->context_group_;
-  } else {
-    // TODO(gman): this needs to be false for everything but Pepper.
-    bool bind_generates_resource = true;
-    context_group_ = new gpu::gles2::ContextGroup(bind_generates_resource);
-  }
+  else
+    context_group_ = new gpu::gles2::ContextGroup;
 }
 
 GpuCommandBufferStub::~GpuCommandBufferStub() {

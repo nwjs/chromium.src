@@ -383,8 +383,7 @@ bool Context3D::CreateImplementation() {
       transfer_buffer.size,
       transfer_buffer.ptr,
       transfer_buffer_id_,
-      false,
-      true));
+      false));
 
   return true;
 }

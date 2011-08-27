@@ -221,6 +221,8 @@ void DeleteBuffers(GLsizei n, const GLuint* buffers) {
     return;
   }
   DeleteBuffersHelper(n, buffers);
+  helper_->DeleteBuffersImmediate(n, buffers);
+  Flush();
 }
 
 void DeleteFramebuffers(GLsizei n, const GLuint* framebuffers) {
@@ -240,12 +242,16 @@ void DeleteFramebuffers(GLsizei n, const GLuint* framebuffers) {
     return;
   }
   DeleteFramebuffersHelper(n, framebuffers);
+  helper_->DeleteFramebuffersImmediate(n, framebuffers);
+  Flush();
 }
 
 void DeleteProgram(GLuint program) {
   GPU_CLIENT_LOG("[" << this << "] glDeleteProgram(" << program << ")");
   GPU_CLIENT_DCHECK(program != 0);
-  DeleteProgramHelper(program);
+  program_and_shader_id_handler_->FreeIds(1, &program);
+  helper_->DeleteProgram(program);
+  Flush();
 }
 
 void DeleteRenderbuffers(GLsizei n, const GLuint* renderbuffers) {
@@ -265,12 +271,16 @@ void DeleteRenderbuffers(GLsizei n, const GLuint* renderbuffers) {
     return;
   }
   DeleteRenderbuffersHelper(n, renderbuffers);
+  helper_->DeleteRenderbuffersImmediate(n, renderbuffers);
+  Flush();
 }
 
 void DeleteShader(GLuint shader) {
   GPU_CLIENT_LOG("[" << this << "] glDeleteShader(" << shader << ")");
   GPU_CLIENT_DCHECK(shader != 0);
-  DeleteShaderHelper(shader);
+  program_and_shader_id_handler_->FreeIds(1, &shader);
+  helper_->DeleteShader(shader);
+  Flush();
 }
 
 void DeleteTextures(GLsizei n, const GLuint* textures) {
@@ -290,6 +300,8 @@ void DeleteTextures(GLsizei n, const GLuint* textures) {
     return;
   }
   DeleteTexturesHelper(n, textures);
+  helper_->DeleteTexturesImmediate(n, textures);
+  Flush();
 }
 
 void DepthFunc(GLenum func) {
@@ -559,19 +571,18 @@ void GetProgramInfoLog(
       << static_cast<void*>(infolog) << ")");
   helper_->SetBucketSize(kResultBucketId, 0);
   helper_->GetProgramInfoLog(program, kResultBucketId);
-  std::string str;
-  GLsizei max_size = 0;
-  if (GetBucketAsString(kResultBucketId, &str)) {
-    if (bufsize > 0) {
-      max_size =
+  if (bufsize > 0) {
+    std::string str;
+    if (GetBucketAsString(kResultBucketId, &str)) {
+      GLsizei max_size =
           std::min(static_cast<size_t>(bufsize) - 1, str.size());
+      if (length != NULL) {
+        *length = max_size;
+      }
       memcpy(infolog, str.c_str(), max_size);
       infolog[max_size] = '\0';
       GPU_CLIENT_LOG("------\n" << infolog << "\n------");
     }
-  }
-  if (length != NULL) {
-    *length = max_size;
   }
 }
 void GetRenderbufferParameteriv(GLenum target, GLenum pname, GLint* params) {
@@ -622,19 +633,18 @@ void GetShaderInfoLog(
       << static_cast<void*>(infolog) << ")");
   helper_->SetBucketSize(kResultBucketId, 0);
   helper_->GetShaderInfoLog(shader, kResultBucketId);
-  std::string str;
-  GLsizei max_size = 0;
-  if (GetBucketAsString(kResultBucketId, &str)) {
-    if (bufsize > 0) {
-      max_size =
+  if (bufsize > 0) {
+    std::string str;
+    if (GetBucketAsString(kResultBucketId, &str)) {
+      GLsizei max_size =
           std::min(static_cast<size_t>(bufsize) - 1, str.size());
+      if (length != NULL) {
+        *length = max_size;
+      }
       memcpy(infolog, str.c_str(), max_size);
       infolog[max_size] = '\0';
       GPU_CLIENT_LOG("------\n" << infolog << "\n------");
     }
-  }
-  if (length != NULL) {
-    *length = max_size;
   }
 }
 void GetShaderPrecisionFormat(
@@ -650,19 +660,18 @@ void GetShaderSource(
       << static_cast<void*>(source) << ")");
   helper_->SetBucketSize(kResultBucketId, 0);
   helper_->GetShaderSource(shader, kResultBucketId);
-  std::string str;
-  GLsizei max_size = 0;
-  if (GetBucketAsString(kResultBucketId, &str)) {
-    if (bufsize > 0) {
-      max_size =
+  if (bufsize > 0) {
+    std::string str;
+    if (GetBucketAsString(kResultBucketId, &str)) {
+      GLsizei max_size =
           std::min(static_cast<size_t>(bufsize) - 1, str.size());
+      if (length != NULL) {
+        *length = max_size;
+      }
       memcpy(source, str.c_str(), max_size);
       source[max_size] = '\0';
       GPU_CLIENT_LOG("------\n" << source << "\n------");
     }
-  }
-  if (length != NULL) {
-    *length = max_size;
   }
 }
 const GLubyte* GetString(GLenum name);
@@ -800,7 +809,10 @@ void LineWidth(GLfloat width) {
   helper_->LineWidth(width);
 }
 
-void LinkProgram(GLuint program);
+void LinkProgram(GLuint program) {
+  GPU_CLIENT_LOG("[" << this << "] glLinkProgram(" << program << ")");
+  helper_->LinkProgram(program);
+}
 
 void PixelStorei(GLenum pname, GLint param);
 

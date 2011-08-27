@@ -1478,10 +1478,7 @@ _FUNCTION_INFO = {
     'decoder_func': 'DoIsTexture',
     'expectation': False,
   },
-  'LinkProgram': {
-    'decoder_func': 'DoLinkProgram',
-    'impl_func':  False,
-  },
+  'LinkProgram': {'decoder_func': 'DoLinkProgram'},
   'MapBufferSubDataCHROMIUM': {
     'gen_cmd': False,
     'extension': True,
@@ -3074,8 +3071,11 @@ class DeleteHandler(TypeHandler):
       arg.WriteClientSideValidationCode(file, func)
     file.Write(
         "  GPU_CLIENT_DCHECK(%s != 0);\n" % func.GetOriginalArgs()[-1].name)
-    file.Write("  %sHelper(%s);\n" %
-               (func.original_name, func.GetOriginalArgs()[-1].name))
+    file.Write("  program_and_shader_id_handler_->FreeIds(1, &%s);\n" %
+               func.GetOriginalArgs()[-1].name)
+    file.Write("  helper_->%s(%s);\n" %
+               (func.name, func.MakeCmdArgString("")))
+    file.Write("  Flush();\n")
     file.Write("}\n")
     file.Write("\n")
 
@@ -3204,6 +3204,8 @@ TEST_F(%(test_name)s, %(name)sInvalidArgs) {
       for arg in func.GetOriginalArgs():
         arg.WriteClientSideValidationCode(file, func)
       code = """  %(name)sHelper(%(args)s);
+  helper_->%(name)sImmediate(%(args)s);
+  Flush();
 }
 
 """
@@ -4213,19 +4215,18 @@ class STRnHandler(TypeHandler):
       << static_cast<void*>(%(arg3)s) << ")");
   helper_->SetBucketSize(kResultBucketId, 0);
   helper_->%(func_name)s(%(id_name)s, kResultBucketId);
-  std::string str;
-  GLsizei max_size = 0;
-  if (GetBucketAsString(kResultBucketId, &str)) {
-    if (bufsize > 0) {
-      max_size =
+  if (bufsize > 0) {
+    std::string str;
+    if (GetBucketAsString(kResultBucketId, &str)) {
+      GLsizei max_size =
           std::min(static_cast<size_t>(%(bufsize_name)s) - 1, str.size());
+      if (%(length_name)s != NULL) {
+        *%(length_name)s = max_size;
+      }
       memcpy(%(dest_name)s, str.c_str(), max_size);
       %(dest_name)s[max_size] = '\\0';
       GPU_CLIENT_LOG("------\\n" << %(dest_name)s << "\\n------");
     }
-  }
-  if (%(length_name)s != NULL) {
-    *%(length_name)s = max_size;
   }
 }
 """
