@@ -420,6 +420,7 @@ std::string TemplateURLRef::ReplaceSearchTermsUsingTermsData(
       }
 
       case GOOGLE_SEARCH_FIELDTRIAL_GROUP: {
+#if 0  // Disable until a decision is made about what parameter to use.
         static bool use_suggest_prefix =
             base::FieldTrialList::TrialExists("SuggestHostPrefix");
         if (use_suggest_prefix) {
@@ -427,6 +428,7 @@ std::string TemplateURLRef::ReplaceSearchTermsUsingTermsData(
               "SuggestHostPrefix") == "Www_Prefix");
           url.insert(i->index, used_www ? "cx=w&" : "cx=c&");
         }
+#endif  // 0
         break;
       }
 
