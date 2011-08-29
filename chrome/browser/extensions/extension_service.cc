@@ -1643,6 +1643,17 @@ void ExtensionService::ProcessSyncData(
     ExtensionFilter filter) {
   const std::string& id = extension_sync_data.id;
 
+  // If we have an app update for an extension, or vice versa, ignore it.
+  //
+  // This can happen if an app author publishes an update that is actually an
+  // extension, for example.
+  const Extension* extension_if_installed =
+      GetExtensionByIdInternal(id, true, true, true);
+  if (extension_if_installed && !filter(*extension_if_installed)) {
+    LOG(WARNING) << "Attempt to sync wrong type of extension for " << id;
+    return;
+  }
+
   // Handle uninstalls first.
   if (extension_sync_data.uninstalled) {
     std::string error;

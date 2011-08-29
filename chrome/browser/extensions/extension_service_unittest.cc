@@ -3540,6 +3540,29 @@ TEST_F(ExtensionServiceTest, ProcessSyncDataUninstall) {
   service_->ProcessSyncData(extension_sync_data, &AllExtensions);
 }
 
+TEST_F(ExtensionServiceTest, ProcessSyncDataWrongType) {
+  InitializeEmptyExtensionService();
+
+  ExtensionSyncData extension_sync_data;
+  extension_sync_data.id = good_crx;
+  extension_sync_data.uninstalled = true;
+
+  // Install the extension.
+  FilePath extension_path = data_dir_.AppendASCII("good.crx");
+  InstallCrx(extension_path, true);
+  EXPECT_TRUE(service_->GetExtensionById(good_crx, true));
+
+  // Should do nothing
+  service_->ProcessSyncData(extension_sync_data, &ThemesOnly);
+  EXPECT_TRUE(service_->GetExtensionById(good_crx, true));
+
+  extension_sync_data.uninstalled = false;
+  extension_sync_data.enabled = false;
+
+  // Should again do nothing.
+  service_->ProcessSyncData(extension_sync_data, &ThemesOnly);
+  EXPECT_TRUE(service_->GetExtensionById(good_crx, false));
+}
 
 TEST_F(ExtensionServiceTest, ProcessSyncDataSettings) {
   InitializeEmptyExtensionService();
