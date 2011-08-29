@@ -1698,6 +1698,12 @@ int BrowserMain(const MainFunctionParams& parameters) {
   }
 #endif
 
+  if (is_first_run) {
+    // Warn the ProfileManager that an import process will run, possibly
+    // locking the WebDataService directory of the next Profile created.
+    g_browser_process->profile_manager()->SetWillImport();
+  }
+
   Profile* profile = CreateProfile(parameters, user_data_dir,
                                    parsed_command_line);
   if (!profile)
@@ -1801,7 +1807,8 @@ int BrowserMain(const MainFunctionParams& parameters) {
     }  // if (!first_run_ui_bypass)
 
     Browser::SetNewHomePagePrefs(user_prefs);
-  }
+    g_browser_process->profile_manager()->OnImportFinished(profile);
+  }  // if (is_first_run)
 
   // Sets things up so that if we crash from this point on, a dialog will
   // popup asking the user to restart chrome. It is done this late to avoid
