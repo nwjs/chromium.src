@@ -76,7 +76,7 @@ void EnterpriseEnrollmentScreen::OnAuthCancelled() {
                             policy::kMetricEnrollmentSize);
   auth_fetcher_.reset();
   registrar_.reset();
-  g_browser_process->browser_policy_connector()->DeviceStopAutoRetry();
+  g_browser_process->browser_policy_connector()->ResetDevicePolicy();
   get_screen_observer()->OnExit(
       ScreenObserver::ENTERPRISE_ENROLLMENT_CANCELLED);
 }
@@ -153,7 +153,7 @@ void EnterpriseEnrollmentScreen::OnIssueAuthTokenSuccess(
 
   // Push the credentials to the policy infrastructure. It'll start enrollment
   // and notify us of progress through CloudPolicySubsystem::Observer.
-  connector->SetDeviceCredentials(user_, auth_token);
+  connector->RegisterForDevicePolicy(user_, auth_token);
 }
 
 void EnterpriseEnrollmentScreen::OnIssueAuthTokenFailure(
@@ -217,7 +217,7 @@ void EnterpriseEnrollmentScreen::OnPolicyStateChanged(
 
   // Stop the policy infrastructure.
   registrar_.reset();
-  g_browser_process->browser_policy_connector()->DeviceStopAutoRetry();
+  g_browser_process->browser_policy_connector()->ResetDevicePolicy();
 }
 
 void EnterpriseEnrollmentScreen::HandleAuthError(

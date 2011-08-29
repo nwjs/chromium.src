@@ -98,7 +98,7 @@ ConfigurationPolicyProvider*
   return recommended_cloud_provider_.get();
 }
 
-void BrowserPolicyConnector::SetDeviceCredentials(
+void BrowserPolicyConnector::RegisterForDevicePolicy(
     const std::string& owner_email,
     const std::string& gaia_token) {
 #if defined(OS_CHROMEOS)
@@ -136,10 +136,10 @@ std::string BrowserPolicyConnector::GetEnterpriseDomain() {
   return std::string();
 }
 
-void BrowserPolicyConnector::DeviceStopAutoRetry() {
+void BrowserPolicyConnector::ResetDevicePolicy() {
 #if defined(OS_CHROMEOS)
   if (device_cloud_policy_subsystem_.get())
-    device_cloud_policy_subsystem_->StopAutoRetry();
+    device_cloud_policy_subsystem_->Reset();
 #endif
 }
 
