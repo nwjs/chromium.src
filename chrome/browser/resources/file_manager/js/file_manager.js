@@ -236,6 +236,11 @@ FileManager.prototype = {
   };
 
   /**
+   * Regexp for archive files. Used to show mount-archive task.
+   */
+  const ARCHIVES_REGEXP = /.zip$/;
+
+  /**
    * Return a translated string.
    *
    * Wrapper function to make dealing with translated strings more concise.
@@ -1491,12 +1496,17 @@ FileManager.prototype = {
     };
 
     if (this.dialogType_ == FileManager.DialogType.FULL_PAGE) {
-      // Since unmount task cannot be defined in terms of file patterns,
-      // we manually include it here, if all selected items are mount points.
-      chrome.fileBrowserPrivate.getFileTasks(
-          selection.urls,
-          this.onTasksFound_.bind(this,
-                                  this.shouldShowUnmount_(selection.urls)));
+      // Some internal tasks cannot be defined in terms of file patterns,
+      // so we pass selection to check for them manually.
+      if (selection.directoryCount == 0 && selection.fileCount > 0) {
+        // Only files, not directories, are supported for external tasks.
+        chrome.fileBrowserPrivate.getFileTasks(
+            selection.urls,
+            this.onTasksFound_.bind(this, selection));
+      } else {
+        // There may be internal tasks for directories.
+        this.onTasksFound_(selection, []);
+      }
     }
 
     cacheNextFile();
@@ -1551,17 +1561,11 @@ FileManager.prototype = {
 
   /**
    * Callback called when tasks for selected files are determined.
-   * @param {boolean} unmount Whether unmount task should be included.
+   * @param {Object} selection Selection is passed here, since this.selection
+   *     can change before tasks were found, and we should be accurate.
    * @param {Array.<Task>} tasksList The tasks list.
    */
-  FileManager.prototype.onTasksFound_ = function(unmount, tasksList) {
-    if (unmount) {
-      tasksList.push({
-          taskId: this.getExtensionId_() + '|unmount-archive',
-          iconUrl: '',
-          title: ''
-      });
-    }
+  FileManager.prototype.onTasksFound_ = function(selection, tasksList) {
 
     this.taskButtons_.innerHTML = '';
     for (var i = 0; i < tasksList.length; i++) {
@@ -1595,29 +1599,48 @@ FileManager.prototype = {
           task.title = str('MOUNT_ARCHIVE');
           if (str('ENABLE_ARCHIVES') != 'true')
             continue;
-        } else if (task_parts[1] == 'unmount-archive') {
-          task.iconUrl =
-              chrome.extension.getURL('images/icon_unmount_archive_16x16.png');
-          task.title = str('UNMOUNT_ARCHIVE');
-          if (str('ENABLE_ARCHIVES') != 'true')
-            continue;
         }
       }
-
-      var button = this.document_.createElement('button');
-      button.addEventListener('click', this.onTaskButtonClicked_.bind(this));
-      button.className = 'task-button';
-      button.task = task;
-
-      var img = this.document_.createElement('img');
-      img.src = task.iconUrl;
-
-      button.appendChild(img);
-      button.appendChild(this.document_.createTextNode(task.title));
-
-      this.taskButtons_.appendChild(button);
+      this.renderTaskButton_(task);
     }
+    this.maybeRenderUnmountTask_(selection);
   };
+
+  FileManager.prototype.renderTaskButton_ = function(task) {
+    var button = this.document_.createElement('button');
+    button.addEventListener('click', this.onTaskButtonClicked_.bind(this));
+    button.className = 'task-button';
+    button.task = task;
+
+    var img = this.document_.createElement('img');
+    img.src = task.iconUrl;
+
+    button.appendChild(img);
+    button.appendChild(this.document_.createTextNode(task.title));
+
+    this.taskButtons_.appendChild(button);
+  };
+
+  /**
+   * Checks whether unmount task should be displayed and if the answer is
+   * affirmative renders it.
+   * @param {Object} selection Selected files object.
+   */
+  FileManager.prototype.maybeRenderUnmountTask_ = function(selection) {
+    for (var index = 0; index < selection.urls.length; ++index) {
+      // Each url should be a mount point.
+      var path = selection.urls[index];
+      if (!this.mountPoints_.hasOwnProperty(path) ||
+          this.mountPoints_[path].type != 'file')
+        return;
+    }
+    this.renderTaskButton_({
+        taskId: this.getExtensionId_() + '|unmount-archive',
+        iconUrl:
+            chrome.extension.getURL('images/icon_unmount_archive_16x16.png'),
+        title: str('UNMOUNT_ARCHIVE')
+    });
+   };
 
   FileManager.prototype.getExtensionId_ = function() {
     return chrome.extension.getURL('').split('/')[2];
@@ -1698,21 +1721,6 @@ FileManager.prototype = {
         chrome.fileBrowserPrivate.removeMount(urls[index]);
       }
     }
-  };
-
-  /**
-   * Determines whether unmount task should present for selected files.
-   */
-  FileManager.prototype.shouldShowUnmount_ = function(urls) {
-    for (var index = 0; index < urls.length; ++index) {
-      // Each url should be a mount point.
-      var path = urls[index];
-      if (!this.mountPoints_.hasOwnProperty(path) ||
-          this.mountPoints_[path].type != 'file') {
-        return false;
-      }
-    }
-    return true;
   };
 
   FileManager.prototype.onImageEditorSave = function(canvas) {
