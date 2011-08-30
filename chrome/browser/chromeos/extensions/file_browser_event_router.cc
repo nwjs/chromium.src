@@ -184,12 +184,15 @@ void ExtensionFileBrowserEventRouter::MountCompleted(
     chromeos::MountLibrary::Disk* disk =
         mount_lib->disks().find(mount_info.source_path)->second;
 
+    std::string notification_sys_path =
+        disk->system_path().substr(0, disk->system_path().rfind("/block"));
+
     if (!error_code) {
       HideDeviceNotification(disk->system_path());
     } else {
       HideDeviceNotification(disk->system_path());
       if (!disk->drive_label().empty()) {
-        ShowDeviceNotification(disk->system_path(),
+        ShowDeviceNotification(notification_sys_path,
             IDR_PAGEINFO_INFO,
             // TODO(tbarzic): Find more suitable message.
             l10n_util::GetStringFUTF16(
@@ -197,7 +200,7 @@ void ExtensionFileBrowserEventRouter::MountCompleted(
                 ASCIIToUTF16(disk->drive_label()),
                 ASCIIToUTF16(MountErrorToString(error_code))));
       } else {
-        ShowDeviceNotification(disk->system_path(),
+        ShowDeviceNotification(notification_sys_path,
             IDR_PAGEINFO_INFO,
             // TODO(tbarzic): Find more suitable message.
             l10n_util::GetStringFUTF16(
