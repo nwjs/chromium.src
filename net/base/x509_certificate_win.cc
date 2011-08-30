@@ -877,6 +877,12 @@ int X509Certificate::Verify(const std::string& hostname,
 
   if (ev_policy_oid && CheckEV(chain_context, ev_policy_oid))
     verify_result->cert_status |= CERT_STATUS_IS_EV;
+
+  if (IsPublicKeyBlacklisted(verify_result->public_key_hashes)) {
+    verify_result->cert_status |= CERT_STATUS_AUTHORITY_INVALID;
+    return MapCertStatusToNetError(verify_result->cert_status);
+  }
+
   return OK;
 }
 

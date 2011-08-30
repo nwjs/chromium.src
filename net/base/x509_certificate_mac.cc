@@ -1036,6 +1036,11 @@ int X509Certificate::Verify(const std::string& hostname, int flags,
   AppendPublicKeyHashes(completed_chain, &verify_result->public_key_hashes);
   verify_result->is_issued_by_known_root = IsIssuedByKnownRoot(completed_chain);
 
+  if (IsPublicKeyBlacklisted(verify_result->public_key_hashes)) {
+    verify_result->cert_status |= CERT_STATUS_AUTHORITY_INVALID;
+    return MapCertStatusToNetError(verify_result->cert_status);
+  }
+
   return OK;
 }
 
