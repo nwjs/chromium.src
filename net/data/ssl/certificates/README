@@ -39,3 +39,7 @@ unit tests.
      key in unittest.key.bin. The common name is "unittest".
 
 - unittest.key.bin : private key stored unencrypted.
+
+- google_diginotar.pem
+- diginotar_public_ca_2025.pem : A certificate chain for the regression test
+      of http://crbug.com/94673
