@@ -128,6 +128,10 @@ class PageInfoModelBubbleBridge : public PageInfoModel::PageInfoModelObserver {
 
  private:
   void PerformLayout() {
+    // If the window is animating closed when this is called, the
+    // animation could be holding the last reference to |controller_|
+    // (and thus |this|).  Pin it until the task is completed.
+    scoped_nsobject<PageInfoBubbleController> keep_alive([controller_ retain]);
     [controller_ performLayout];
   }
 
