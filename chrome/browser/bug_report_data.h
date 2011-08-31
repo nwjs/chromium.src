@@ -10,7 +10,6 @@
 
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/bug_report_util.h"
-#include "chrome/browser/ui/webui/screenshot_source.h"
 
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/system/syslogs_provider.h"
@@ -35,7 +34,7 @@ class BugReportData {
                   const int problem_type,
                   const std::string& page_url,
                   const std::string& description,
-                  ScreenshotDataPtr image
+                  const std::vector<unsigned char>& image
 #if defined(OS_CHROMEOS)
                   , const std::string& user_email
                   , const bool send_sys_info
@@ -53,7 +52,7 @@ class BugReportData {
   int problem_type() const { return problem_type_; }
   const std::string& page_url() const { return page_url_; }
   const std::string& description() const { return description_; }
-  ScreenshotDataPtr image() const { return image_; }
+  const std::vector<unsigned char>& image() const { return image_; }
 #if defined(OS_CHROMEOS)
   const std::string& user_email() const { return user_email_; }
   chromeos::system::LogDictionaryType* sys_info() const { return sys_info_; }
@@ -72,7 +71,7 @@ class BugReportData {
   int problem_type_;
   std::string page_url_;
   std::string description_;
-  ScreenshotDataPtr image_;
+  std::vector<unsigned char> image_;
 
 #if defined(OS_CHROMEOS)
   // Chromeos specific values for SendReport.

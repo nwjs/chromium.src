@@ -52,7 +52,9 @@ const char kScreenshotBaseUrl[] = "chrome://screenshots/";
 const char kCurrentScreenshotUrl[] = "chrome://screenshots/current";
 #if defined(OS_CHROMEOS)
 const char kSavedScreenshotsUrl[] = "chrome://screenshots/saved/";
-const char kScreenshotPattern[] = "screenshot-*.png";
+
+const char kScreenshotPattern[] = "*.png";
+const char kScreenshotsRelativePath[] = "/Screenshots";
 
 const size_t kMaxSavedScreenshots = 2;
 #endif
@@ -70,7 +72,11 @@ void GetSavedScreenshots(std::vector<std::string>* saved_screenshots,
     return;
   }
 
-  file_util::FileEnumerator screenshots(fileshelf_path, false,
+  // TODO(rkc): Change this to use FilePath.Append() once the cros
+  // issue with it is fixed
+  FilePath screenshots_path(fileshelf_path.value() +
+                            std::string(kScreenshotsRelativePath));
+  file_util::FileEnumerator screenshots(screenshots_path, false,
                                         file_util::FileEnumerator::FILES,
                                         std::string(kScreenshotPattern));
   FilePath screenshot = screenshots.Next();
@@ -638,9 +644,9 @@ void BugReportHandler::HandleSendReport(const ListValue* list_value) {
   screenshot_path.erase(0, strlen(kScreenshotBaseUrl));
 
   // Get the image to send in the report.
-  ScreenshotDataPtr image_ptr;
+  std::vector<unsigned char> image;
   if (!screenshot_path.empty())
-    image_ptr = screenshot_source_->GetCachedScreenshot(screenshot_path);
+    image = screenshot_source_->GetScreenshot(screenshot_path);
 
 #if defined(OS_CHROMEOS)
   if (++i == list_value->end()) {
@@ -672,7 +678,7 @@ void BugReportHandler::HandleSendReport(const ListValue* list_value) {
                           , problem_type
                           , page_url
                           , description
-                          , image_ptr
+                          , image
 #if defined(OS_CHROMEOS)
                           , user_email
                           , send_sys_info
