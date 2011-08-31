@@ -1293,8 +1293,6 @@ void NativeWidgetWin::OnDestroy() {
     RevokeDragDrop(hwnd());
     drop_target_ = NULL;
   }
-
-  props_.reset();
 }
 
 void NativeWidgetWin::OnDisplayChange(UINT bits_per_pixel, CSize screen_size) {
@@ -2092,6 +2090,9 @@ void NativeWidgetWin::OnWindowPosChanged(WINDOWPOS* window_pos) {
 }
 
 void NativeWidgetWin::OnFinalMessage(HWND window) {
+  // We don't destroy props in WM_DESTROY as we may still get messages after
+  // WM_DESTROY that assume the properties are still valid (such as WM_CLOSE).
+  props_.reset();
   delegate_->OnNativeWidgetDestroyed();
   if (ownership_ == Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET)
     delete this;
