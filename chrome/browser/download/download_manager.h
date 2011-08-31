@@ -123,8 +123,15 @@ class DownloadManager
   void OnResponseCompleted(int32 download_id, int64 size, int os_error,
                            const std::string& hash);
 
+  // Offthread target for cancelling a particular download.  Will be a no-op
+  // if the download has already been cancelled.
+  void CancelDownload(int32 download_id);
+
+  // Called from DownloadItem to handle the DownloadManager portion of a
+  // Cancel; should not be called from other locations.
+  void DownloadCancelledInternal(DownloadItem* download);
+
   // Called from a view when a user clicks a UI button or link.
-  void DownloadCancelled(int32 download_id);
   void RemoveDownload(int64 download_handle);
 
   // Determine if the download is ready for completion, i.e. has had
@@ -320,10 +327,6 @@ class DownloadManager
   // the user in a Save As dialog box.
   void ContinueDownloadWithPath(DownloadItem* download,
                                 const FilePath& chosen_file);
-
-  // Download cancel helper function.
-  void DownloadCancelledInternal(int download_id,
-                                 const DownloadRequestHandle& request_handle);
 
   // All data has been downloaded.
   // |hash| is sha256 hash for the downloaded file. It is empty when the hash

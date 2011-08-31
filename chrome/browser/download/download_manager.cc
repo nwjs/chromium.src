@@ -822,37 +822,36 @@ void DownloadManager::OnDownloadRenamedToFinalName(int download_id,
   download_history_->UpdateDownloadPath(item, full_path);
 }
 
-void DownloadManager::DownloadCancelled(int32 download_id) {
+void DownloadManager::CancelDownload(int32 download_id) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DownloadMap::iterator it = in_progress_.find(download_id);
-  if (it == in_progress_.end())
+  DownloadItem* download = GetDownloadItem(download_id);
+  if (!download)
     return;
-  DownloadItem* download = it->second;
 
-  VLOG(20) << __FUNCTION__ << "()" << " download_id = " << download_id
+  download->Cancel(true);
+}
+
+void DownloadManager::DownloadCancelledInternal(DownloadItem* download) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  int download_id = download->id();
+
+  VLOG(20) << __FUNCTION__ << "()"
            << " download = " << download->DebugString(true);
 
   // Clean up will happen when the history system create callback runs if we
   // don't have a valid db_handle yet.
   if (download->db_handle() != DownloadHistory::kUninitializedHandle) {
-    in_progress_.erase(it);
+    in_progress_.erase(download_id);
     active_downloads_.erase(download_id);
     UpdateAppIcon();  // Reflect removal from in_progress_.
     download_history_->UpdateEntry(download);
+
+    // This function is called from the DownloadItem, so DI state
+    // should already have been updated.
+    AssertQueueStateConsistent(download);
   }
 
-  DownloadCancelledInternal(download_id, download->request_handle());
-}
-
-void DownloadManager::DownloadCancelledInternal(
-    int download_id, const DownloadRequestHandle& request_handle) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  request_handle.CancelRequest();
-
-  BrowserThread::PostTask(
-      BrowserThread::FILE, FROM_HERE,
-      NewRunnableMethod(
-          file_manager_, &DownloadFileManager::CancelDownload, download_id));
+  download->OffThreadCancel(file_manager_);
 }
 
 void DownloadManager::OnDownloadError(int32 download_id,
@@ -1115,7 +1114,7 @@ void DownloadManager::FileSelectionCanceled(void* params) {
   VLOG(20) << __FUNCTION__ << "()"
            << " download = " << download->DebugString(true);
 
-  DownloadCancelledInternal(download_id, download->request_handle());
+  download->OffThreadCancel(file_manager_);
 }
 
 // TODO(phajdan.jr): This is apparently not being exercised in tests.
