@@ -400,8 +400,12 @@ BookmarkBarView::~BookmarkBarView() {
 
   // It's possible for the menu to outlive us, reset the observer to make sure
   // it doesn't have a reference to us.
-  if (bookmark_menu_)
+  if (bookmark_menu_) {
     bookmark_menu_->set_observer(NULL);
+    bookmark_menu_->SetPageNavigator(NULL);
+  }
+  if (context_menu_.get())
+    context_menu_->SetPageNavigator(NULL);
 
   StopShowFolderDropMenuTimer();
 
@@ -448,6 +452,10 @@ void BookmarkBarView::SetProfile(Profile* profile) {
 
 void BookmarkBarView::SetPageNavigator(PageNavigator* navigator) {
   page_navigator_ = navigator;
+  if (bookmark_menu_)
+    bookmark_menu_->SetPageNavigator(navigator);
+  if (context_menu_.get())
+    context_menu_->SetPageNavigator(navigator);
 }
 
 void BookmarkBarView::SetBookmarkBarState(
@@ -1139,11 +1147,12 @@ void BookmarkBarView::ShowContextMenuForView(View* source,
   PageNavigator* navigator =
       browser() ? browser()->GetSelectedTabContents() : NULL;
   bool close_on_remove =
-      (parent == profile_->GetBookmarkModel()->other_node() &&
-       parent->child_count() == 1);
-  BookmarkContextMenu controller(GetWidget()->GetNativeWindow(), profile_,
-                                 navigator, parent, nodes, close_on_remove);
-  controller.RunMenuAt(p);
+      (parent == profile->GetBookmarkModel()->other_node()) &&
+      (parent->child_count() == 1);
+  context_menu_.reset(new
+  BookmarkContextMenu(GetWidget()->GetNativeWindow(),
+      profile_,  navigator, parent, nodes, close_on_remove));
+  context_menu_->RunMenuAt(p);
 }
 
 void BookmarkBarView::Observe(int type,
