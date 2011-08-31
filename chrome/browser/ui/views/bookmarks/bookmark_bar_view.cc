@@ -1147,7 +1147,7 @@ void BookmarkBarView::ShowContextMenuForView(View* source,
   PageNavigator* navigator =
       browser() ? browser()->GetSelectedTabContents() : NULL;
   bool close_on_remove =
-      (parent == profile->GetBookmarkModel()->other_node()) &&
+      (parent == profile_->GetBookmarkModel()->other_node()) &&
       (parent->child_count() == 1);
   context_menu_.reset(new
   BookmarkContextMenu(GetWidget()->GetNativeWindow(),
