@@ -51,6 +51,10 @@ void BookmarkContextMenu::RunMenuAt(const gfx::Point& point) {
                    anchor, true);
 }
 
+void BookmarkContextMenu::SetPageNavigator(PageNavigator* navigator) {
+  controller_->set_navigator(navigator);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // BookmarkContextMenu, views::MenuDelegate implementation:
 
