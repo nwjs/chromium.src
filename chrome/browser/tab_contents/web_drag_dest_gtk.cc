@@ -100,6 +100,14 @@ gboolean WebDragDestGtk::OnDragMotion(GtkWidget* sender,
                                       GdkDragContext* context,
                                       gint x, gint y,
                                       guint time) {
+  // Ideally we would want to initialize the the TabContentsWrapper member in
+  // the constructor. We cannot do that as the WebDragDestGtk object is
+  // created during the construction of the TabContents object.
+  // The TabContentsWrapper is created much later.
+  if (!tab_) {
+    tab_ = TabContentsWrapper::GetCurrentWrapperForContents(tab_contents_);
+    DCHECK(tab_);
+  }
   if (context_ != context) {
     context_ = context;
     drop_data_.reset(new WebDropData);
@@ -242,10 +250,7 @@ void WebDragDestGtk::OnDragDataReceived(
             gtk_util::ScreenPoint(widget_),
             gtk_util::GdkDragActionToWebDragOp(context->actions));
 
-    if (!tab_) {
-      tab_ = TabContentsWrapper::GetCurrentWrapperForContents(tab_contents_);
-      DCHECK(tab_);
-    }
+    DCHECK(tab_);
     // This is non-null if tab_contents_ is showing an ExtensionWebUI with
     // support for (at the moment experimental) drag and drop extensions.
     if (tab_->bookmark_tab_helper()->GetBookmarkDragDelegate()) {
