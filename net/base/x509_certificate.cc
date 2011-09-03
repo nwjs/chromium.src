@@ -650,7 +650,7 @@ X509Certificate::~X509Certificate() {
 }
 
 bool X509Certificate::IsBlacklisted() const {
-  static const unsigned kNumSerials = 257;
+  static const unsigned kNumSerials = 256;
   static const unsigned kSerialBytes = 16;
   static const uint8 kSerials[kNumSerials][kSerialBytes] = {
     // Not a real certificate. For testing only.
@@ -956,8 +956,9 @@ bool X509Certificate::IsBlacklisted() const {
   if (serial_number_.size() == sizeof(kDigiNotarLeadingZero) &&
       memcmp(serial_number_.data(), kDigiNotarLeadingZero,
              sizeof(kDigiNotarLeadingZero)) == 0) {
-        UMA_HISTOGRAM_ENUMERATION("Net.SSLCertBlacklisted", kNumSerials, kNumSerials + 1);
-        return true;
+    UMA_HISTOGRAM_ENUMERATION("Net.SSLCertBlacklisted", kNumSerials,
+                              kNumSerials + 1);
+    return true;
   }
 
   return false;
