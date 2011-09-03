@@ -146,11 +146,7 @@ void SSLBlockingPage::DontProceed() {
 }
 
 void SSLBlockingPage::NotifyDenyCertificate() {
-  // It's possible that callback_ may not exist if the user clicks "Proceed"
-  // followed by pressing the back button before the interstitial is hidden.
-  // In that case the certificate will still be treated as allowed.
-  if (!callback_)
-    return;
+  DCHECK(callback_);
 
   callback_->Run(handler_, false);
   delete callback_;
