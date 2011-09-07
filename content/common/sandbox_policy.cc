@@ -209,34 +209,6 @@ void AddPluginDllEvictionPolicy(sandbox::TargetPolicy* policy) {
     BlacklistAddOneDll(kTroublesomePluginDlls[ix], false, policy);
 }
 
-// Returns the object path prepended with the current logon session.
-string16 PrependWindowsSessionPath(const char16* object) {
-  // Cache this because it can't change after process creation.
-  uintptr_t s_session_id = 0;
-  if (s_session_id == 0) {
-    HANDLE token;
-    DWORD session_id_length;
-    DWORD session_id = 0;
-
-    CHECK(::OpenProcessToken(::GetCurrentProcess(), TOKEN_QUERY, &token));
-    CHECK(::GetTokenInformation(token, TokenSessionId, &session_id,
-        sizeof(session_id), &session_id_length));
-    CloseHandle(token);
-    s_session_id = session_id;
-  }
-
-  return base::StringPrintf(L"\\Sessions\\%d%ls", s_session_id, object);
-}
-
-// Closes handles that are opened at process creation and initialization.
-void AddBaseHandleClosePolicy(sandbox::TargetPolicy* policy) {
-  // Being able to manipulate anything BaseNamedObjects is bad.
-  policy->AddKernelObjectToClose(L"Directory", PrependWindowsSessionPath(
-      L"\\BaseNamedObjects").data());
-  policy->AddKernelObjectToClose(L"Section", PrependWindowsSessionPath(
-      L"\\BaseNamedObjects\\windows_shell_global_counters").data());
-}
-
 // Adds the generic policy rules to a sandbox TargetPolicy.
 bool AddGenericPolicy(sandbox::TargetPolicy* policy) {
   sandbox::ResultCode result;
@@ -458,13 +430,6 @@ base::ProcessHandle StartProcessWithAccess(CommandLine* cmd_line,
       return 0;
   } else {
     AddPolicyForRenderer(policy);
-    // TODO(jschuh): Need get these restrictions applied to NaCl and Pepper.
-    // Just have to figure out what needs to be warmed up first.
-    if (type == ChildProcessInfo::RENDER_PROCESS ||
-        type == ChildProcessInfo::WORKER_PROCESS) {
-      AddBaseHandleClosePolicy(policy);
-    }
-
     if (type_str != switches::kRendererProcess) {
       // Hack for Google Desktop crash. Trick GD into not injecting its DLL into
       // this subprocess. See
