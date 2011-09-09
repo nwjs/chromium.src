@@ -120,7 +120,7 @@ WebUILoginView::WebUILoginView()
 
 WebUILoginView::~WebUILoginView() {
   if (status_window_)
-    status_window_->Close();
+    status_window_->CloseNow();
   status_window_ = NULL;
 }
 
@@ -211,7 +211,7 @@ void WebUILoginView::ChildPreferredSizeChanged(View* child) {
 }
 
 Profile* WebUILoginView::GetProfile() const {
-  return ProfileManager::GetDefaultProfile();
+  return NULL;
 }
 
 void WebUILoginView::ExecuteBrowserCommand(int id) const {
