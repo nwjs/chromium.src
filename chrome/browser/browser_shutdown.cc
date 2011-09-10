@@ -146,11 +146,11 @@ void Shutdown() {
 
   chrome_browser_net::SavePredictorStateForNextStartupAndTrim(user_prefs);
 
+  PluginUpdater::GetInstance()->Shutdown();
+
   MetricsService* metrics = g_browser_process->metrics_service();
   if (metrics)
     metrics->RecordCompletedSessionEnd();
-
-  PluginUpdater::GetInstance()->Shutdown();
 
   if (shutdown_type_ > NOT_VALID && shutdown_num_processes_ > 0) {
     // Record the shutdown info so that we can put it into a histogram at next
