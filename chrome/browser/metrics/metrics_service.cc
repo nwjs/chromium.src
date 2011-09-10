@@ -1491,8 +1491,8 @@ void MetricsService::LogNeedForCleanShutdown() {
 }
 
 bool MetricsService::UmaMetricsProperlyShutdown() {
-  CHECK(clean_shutdown_status_ == CLEANLY_SHUTDOWN ||
-        clean_shutdown_status_ == NEED_TO_SHUTDOWN);
+  DCHECK(clean_shutdown_status_ == CLEANLY_SHUTDOWN ||
+         clean_shutdown_status_ == NEED_TO_SHUTDOWN);
   return clean_shutdown_status_ == CLEANLY_SHUTDOWN;
 }
 
