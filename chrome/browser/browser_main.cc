@@ -1966,6 +1966,9 @@ int BrowserMain(const MainFunctionParams& parameters) {
     }
   }
 
+  // Start watching for a hang.
+  MetricsService::LogNeedForCleanShutdown();
+
 #if defined(OS_WIN)
   // We check this here because if the profile is OTR (chromeos possibility)
   // it won't still be accessible after browser is destroyed.
