@@ -140,10 +140,11 @@ void Shutdown() {
   // time to get here. If you have something that *must* happen on end session,
   // consider putting it in BrowserProcessImpl::EndSession.
   PrefService* prefs = g_browser_process->local_state();
-  ProfileManager* profile_manager = g_browser_process->profile_manager();
-  PrefService* user_prefs = profile_manager->GetDefaultProfile()->GetPrefs();
 
-  chrome_browser_net::SavePredictorStateForNextStartupAndTrim(user_prefs);
+  // TODO(rlp): Temporarily removing predictor shutdown to eliminate loading
+  // a profile during shutdown. See http://crbug.com/90114. This will mean
+  // some prefetch information is not saved which may make prefetch a bit
+  // slower than usual until the full CL fixing this takes over.
 
   MetricsService* metrics = g_browser_process->metrics_service();
   if (metrics)

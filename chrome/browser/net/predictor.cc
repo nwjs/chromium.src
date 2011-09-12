@@ -730,8 +730,10 @@ GURL Predictor::HostNameQueue::Pop() {
 }
 
 void Predictor::DeserializeReferrersThenDelete(ListValue* referral_list) {
-    DeserializeReferrers(*referral_list);
-    delete referral_list;
+  // DeserializeReferrers(*referral_list);
+  // TODO(rlp): Temporarily not deserializing since we are not saving dns
+  // info at shutdown. See http://crbug.com/90114.
+  delete referral_list;
 }
 
 
