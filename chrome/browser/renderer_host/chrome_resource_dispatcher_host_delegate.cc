@@ -8,6 +8,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/host_content_settings_map.h"
 #include "chrome/browser/external_protocol/external_protocol_handler.h"
+#include "chrome/browser/instant/instant_loader.h"
 #include "chrome/browser/net/load_timing_observer.h"
 #include "chrome/browser/prerender/prerender_manager.h"
 #include "chrome/browser/prerender/prerender_tracker.h"
@@ -32,6 +33,22 @@
 #endif
 
 namespace {
+
+// Empty ResourceDispatcherHostLoginDelegate implementation used for instant.
+// Auth navigations don't commit the load (the load remains pending) until the
+// user cancels or succeeds in authorizing. Since we don't allow merging of
+// TabContents with pending loads we disallow auth dialogs from showing during
+// instant. This empty ResourceDispatcherHostLoginDelegate implementation does
+// that.
+// TODO: see if we can handle this case more robustly.
+class InstantResourceDispatcherHostLoginDelegate :
+    public ResourceDispatcherHostLoginDelegate {
+ public:
+  InstantResourceDispatcherHostLoginDelegate() {}
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(InstantResourceDispatcherHostLoginDelegate);
+};
 
 void AddPrerenderOnUI(
     const base::WeakPtr<prerender::PrerenderManager>&
@@ -212,6 +229,11 @@ bool ChromeResourceDispatcherHostDelegate::AcceptAuthRequest(
 ResourceDispatcherHostLoginDelegate*
     ChromeResourceDispatcherHostDelegate::CreateLoginDelegate(
         net::AuthChallengeInfo* auth_info, net::URLRequest* request) {
+  std::string instant_header_value;
+  if (request->extra_request_headers().GetHeader(
+          InstantLoader::kInstantHeader, &instant_header_value) &&
+      instant_header_value == InstantLoader::kInstantHeaderValue)
+    return new InstantResourceDispatcherHostLoginDelegate;
   return CreateLoginPrompt(auth_info, request);
 }
 

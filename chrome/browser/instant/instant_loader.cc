@@ -58,11 +58,12 @@ const int kUpdateBoundsDelayMS = 1000;
 // If this status code is seen instant is disabled for the specified host.
 const int kHostBlacklistStatusCode = 403;
 
-// Header and value set for all loads.
-const char kPreviewHeader[] = "X-Purpose";
-const char kPreviewHeaderValue[] = "instant";
-
 }  // namespace
+
+// static
+const char* const InstantLoader::kInstantHeader = "X-Purpose";
+// static
+const char* const InstantLoader::kInstantHeaderValue = "instant";
 
 // FrameLoadObserver is responsible for determining if the page supports
 // instant after it has loaded.
@@ -415,7 +416,7 @@ void InstantLoader::TabContentsDelegateImpl::NavigationStateChanged(
 std::string InstantLoader::TabContentsDelegateImpl::GetNavigationHeaders(
     const GURL& url) {
   std::string header;
-  net::HttpUtil::AppendHeaderIfMissing(kPreviewHeader, kPreviewHeaderValue,
+  net::HttpUtil::AppendHeaderIfMissing(kInstantHeader, kInstantHeaderValue,
                                        &header);
   return header;
 }
