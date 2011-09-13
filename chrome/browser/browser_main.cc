@@ -1520,7 +1520,7 @@ int BrowserMain(const MainFunctionParams& parameters) {
     WarnAboutMinimumSystemRequirements();
 
   // Enable print preview once for supported platforms.
-#if defined(GOOGLE_CHROME_BUILD) && !defined(OS_CHROMEOS)
+#if defined(GOOGLE_CHROME_BUILD) && !defined(OS_CHROMEOS) && !defined(OS_MACOSX)
   local_state->RegisterBooleanPref(prefs::kPrintingPrintPreviewEnabledOnce,
                                    false,
                                    PrefService::UNSYNCABLE_PREF);
