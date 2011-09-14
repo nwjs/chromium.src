@@ -19,7 +19,6 @@ extern const char kBrowserSubprocessPath[];
 // TODO(jam): this doesn't belong in content.
 extern const char kChromeFrame[];
 extern const char kDisable3DAPIs[];
-extern const char kDisableAccelerated2dCanvas[];
 extern const char kDisableAcceleratedCompositing[];
 extern const char kDisableAcceleratedLayers[];
 extern const char kDisableAcceleratedVideo[];

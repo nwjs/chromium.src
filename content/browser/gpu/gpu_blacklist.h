@@ -90,11 +90,11 @@ class GpuBlacklist {
   //    "crBugs": [1234],
   //    "webkitBugs": []
   // }
-  base::Value* GetFeatureStatus(bool gpu_access_allowed,
-                                bool disable_accelerated_compositing,
-                                bool disable_accelerated_2D_canvas,
-                                bool disable_experimental_webgl,
-                                bool disable_multisampling) const;
+  Value* GetFeatureStatus(bool gpu_access_allowed,
+                          bool disable_accelerated_compositing,
+                          bool enable_accelerated_2D_canvas,
+                          bool disable_experimental_webgl,
+                          bool disable_multisampling) const;
 
   // Return the largest entry id.  This is used for histogramming.
   uint32 max_entry_id() const;

@@ -106,7 +106,7 @@ Value* GpuDataManager::GetFeatureStatus() {
         browser_command_line.HasSwitch(
             switches::kDisableAcceleratedCompositing),
         browser_command_line.HasSwitch(
-            switches::kDisableAccelerated2dCanvas),
+            switches::kEnableAccelerated2dCanvas),
         browser_command_line.HasSwitch(switches::kDisableExperimentalWebGL),
         browser_command_line.HasSwitch(switches::kDisableGLMultisampling));
   return NULL;
@@ -180,9 +180,7 @@ void GpuDataManager::AppendRendererCommandLine(
   if ((flags & GpuFeatureFlags::kGpuFeatureAcceleratedCompositing) &&
       !command_line->HasSwitch(switches::kDisableAcceleratedCompositing))
     command_line->AppendSwitch(switches::kDisableAcceleratedCompositing);
-  if ((flags & GpuFeatureFlags::kGpuFeatureAccelerated2dCanvas) &&
-      !command_line->HasSwitch(switches::kDisableAccelerated2dCanvas))
-    command_line->AppendSwitch(switches::kDisableAccelerated2dCanvas);
+
 }
 
 void GpuDataManager::SetBuiltInGpuBlacklist(GpuBlacklist* built_in_list) {

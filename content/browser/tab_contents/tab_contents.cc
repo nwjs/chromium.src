@@ -1731,9 +1731,6 @@ WebPreferences TabContents::GetWebkitPrefs() {
     web_prefs.accelerated_2d_canvas_enabled = false;
   }
 
-  // TODO(vangelis): Remove this line to enable accelerated 2d canvas
-  web_prefs.accelerated_2d_canvas_enabled = false;
-
 #if defined(OS_MACOSX)
   // Disable accelerated compositing if IOSurface's are not supported,
   // as is the case in 10.5.

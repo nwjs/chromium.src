@@ -724,7 +724,7 @@ bool GpuBlacklist::IsFeatureBlacklisted(
 
 Value* GpuBlacklist::GetFeatureStatus(bool gpu_access_allowed,
                                       bool disable_accelerated_compositing,
-                                      bool disable_accelerated_2D_canvas,
+                                      bool enable_accelerated_2D_canvas,
                                       bool disable_experimental_webgl,
                                       bool disable_multisampling) const {
   DictionaryValue* status = new DictionaryValue();
@@ -735,18 +735,13 @@ Value* GpuBlacklist::GetFeatureStatus(bool gpu_access_allowed,
 
     // 2d_canvas.
     if (!gpu_access_allowed) {
-      if (disable_accelerated_2D_canvas)
+      if (enable_accelerated_2D_canvas)
+        feature_status_list->Append(NewStatusValue("2d_canvas",
+                                                   "unavailable_software"));
+      else
         feature_status_list->Append(NewStatusValue("2d_canvas",
                                                    "software"));
-      else
-        feature_status_list->Append(NewStatusValue("2d_canvas",
-                                                   "unavailable_software"));
-    } else if (!disable_accelerated_2D_canvas) {
-      if (IsFeatureBlacklisted(
-              GpuFeatureFlags::kGpuFeatureAccelerated2dCanvas))
-        feature_status_list->Append(NewStatusValue("2d_canvas",
-                                                   "unavailable_software"));
-      else
+    } else if (enable_accelerated_2D_canvas) {
         feature_status_list->Append(NewStatusValue("2d_canvas",
                                                    "enabled"));
     } else {
@@ -822,10 +817,11 @@ Value* GpuBlacklist::GetFeatureStatus(bool gpu_access_allowed,
       problem->Set("webkitBugs", new ListValue());
       problem_list->Append(problem);
     }
-    if (disable_accelerated_2D_canvas) {
+    if (!enable_accelerated_2D_canvas) {
       DictionaryValue* problem = new DictionaryValue();
       problem->SetString("description",
-          "Accelerated 2D canvas has been disabled at the command line");
+          "Accelerated 2D canvas has not been enabled "
+          "(in about:flags or command line)");
       problem->Set("crBugs", new ListValue());
       problem->Set("webkitBugs", new ListValue());
       problem_list->Append(problem);
