@@ -67,10 +67,10 @@ class WebstoreInlineInstallTest : public InProcessBrowserTest {
     return page_url.ReplaceComponents(replace_host);
   }
 
-  void RunInlineInstallTest() {
+  void RunInlineInstallTest(const std::string& test_function_name) {
     bool result = false;
-    std::string script =
-        StringPrintf("runTest('%s')", test_gallery_url_.c_str());
+    std::string script = StringPrintf("%s('%s')", test_function_name.c_str(),
+        test_gallery_url_.c_str());
     ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
         browser()->GetSelectedTabContents()->render_view_host(), L"",
         UTF8ToWide(script), &result));
@@ -90,7 +90,7 @@ IN_PROC_BROWSER_TEST_F(WebstoreInlineInstallTest, Install) {
   ui_test_utils::NavigateToURL(
       browser(), GenerateTestServerUrl(kAppDomain, "install.html"));
 
-  RunInlineInstallTest();
+  RunInlineInstallTest("runTest");
 
   load_signal.Wait();
 
@@ -106,7 +106,8 @@ IN_PROC_BROWSER_TEST_F(
       browser(),
       GenerateTestServerUrl(kNonAppDomain, "install-non-verified-domain.html"));
 
-  RunInlineInstallTest();
+  RunInlineInstallTest("runTest1");
+  RunInlineInstallTest("runTest2");
 }
 
 // Flakily fails on Linux.  http://crbug.com/95280
@@ -120,7 +121,7 @@ IN_PROC_BROWSER_TEST_F(WebstoreInlineInstallTest, MAYBE_FindLink) {
   ui_test_utils::NavigateToURL(
       browser(), GenerateTestServerUrl(kAppDomain, "find_link.html"));
 
-  RunInlineInstallTest();
+  RunInlineInstallTest("runTest");
 }
 
 IN_PROC_BROWSER_TEST_F(WebstoreInlineInstallTest, ArgumentValidation) {
@@ -128,7 +129,7 @@ IN_PROC_BROWSER_TEST_F(WebstoreInlineInstallTest, ArgumentValidation) {
   ui_test_utils::NavigateToURL(
       browser(), GenerateTestServerUrl(kAppDomain, "argument_validation.html"));
 
-  RunInlineInstallTest();
+  RunInlineInstallTest("runTest");
 }
 
 IN_PROC_BROWSER_TEST_F(WebstoreInlineInstallTest, InstallNotSupported) {
@@ -137,7 +138,7 @@ IN_PROC_BROWSER_TEST_F(WebstoreInlineInstallTest, InstallNotSupported) {
       browser(),
       GenerateTestServerUrl(kAppDomain, "install-not-supported.html"));
 
-  RunInlineInstallTest();
+  RunInlineInstallTest("runTest");
 
   // The inline install should fail, and a store-provided URL should be opened
   // in a new tab.
