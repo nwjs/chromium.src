@@ -24,7 +24,6 @@ static const int64 kRemoteBlockTimeoutMillis = 2000;
 namespace remoting {
 
 using protocol::KeyEvent;
-using protocol::MouseEvent;
 
 ClientSession::ClientSession(
     EventHandler* event_handler,
@@ -74,34 +73,37 @@ void ClientSession::OnAuthorizationComplete(bool success) {
   }
 }
 
-void ClientSession::InjectKeyEvent(const KeyEvent& event) {
+void ClientSession::InjectKeyEvent(const KeyEvent* event, Task* done) {
+  base::ScopedTaskRunner done_runner(done);
   if (authenticated_ && !ShouldIgnoreRemoteKeyboardInput(event)) {
     RecordKeyEvent(event);
-    input_stub_->InjectKeyEvent(event);
+    input_stub_->InjectKeyEvent(event, done_runner.Release());
   }
 }
 
-void ClientSession::InjectMouseEvent(const MouseEvent& event) {
+void ClientSession::InjectMouseEvent(const protocol::MouseEvent* event,
+                                     Task* done) {
+  base::ScopedTaskRunner done_runner(done);
   if (authenticated_ && !ShouldIgnoreRemoteMouseInput(event)) {
-    if (event.has_button() && event.has_button_down()) {
-      if (event.button() >= 1 && event.button() < 32) {
-        uint32 button_change = 1 << (event.button() - 1);
-        if (event.button_down()) {
+    if (event->has_button() && event->has_button_down()) {
+      if (event->button() >= 1 && event->button() < 32) {
+        uint32 button_change = 1 << (event->button() - 1);
+        if (event->button_down()) {
           remote_mouse_button_state_ |= button_change;
         } else {
           remote_mouse_button_state_ &= ~button_change;
         }
       }
     }
-    if (event.has_x() && event.has_y()) {
-      gfx::Point pos(event.x(), event.y());
+    if (event->has_x() && event->has_y()) {
+      gfx::Point pos(event->x(), event->y());
       injected_mouse_positions_.push_back(pos);
       if (injected_mouse_positions_.size() > kNumRemoteMousePositions) {
         VLOG(1) << "Injected mouse positions queue full.";
         injected_mouse_positions_.pop_front();
       }
     }
-    input_stub_->InjectMouseEvent(event);
+    input_stub_->InjectMouseEvent(event, done_runner.Release());
   }
 }
 
@@ -135,7 +137,7 @@ void ClientSession::LocalMouseMoved(const gfx::Point& mouse_pos) {
 }
 
 bool ClientSession::ShouldIgnoreRemoteMouseInput(
-    const protocol::MouseEvent& event) const {
+    const protocol::MouseEvent* event) const {
   // If the last remote input event was a click or a drag, then it's not safe
   // to block remote mouse events. For example, it might result in the host
   // missing the mouse-up event and being stuck with the button pressed.
@@ -154,32 +156,32 @@ bool ClientSession::ShouldIgnoreRemoteMouseInput(
 }
 
 bool ClientSession::ShouldIgnoreRemoteKeyboardInput(
-    const KeyEvent& event) const {
+    const KeyEvent* event) const {
   // If the host user has not yet approved the continuation of the connection,
   // then all remote keyboard input is ignored, except to release keys that
   // were already pressed.
   if (awaiting_continue_approval_) {
-    return event.pressed() ||
-        (pressed_keys_.find(event.keycode()) == pressed_keys_.end());
+    return event->pressed() ||
+        (pressed_keys_.find(event->keycode()) == pressed_keys_.end());
   }
   return false;
 }
 
-void ClientSession::RecordKeyEvent(const KeyEvent& event) {
-  if (event.pressed()) {
-    pressed_keys_.insert(event.keycode());
+void ClientSession::RecordKeyEvent(const KeyEvent* event) {
+  if (event->pressed()) {
+    pressed_keys_.insert(event->keycode());
   } else {
-    pressed_keys_.erase(event.keycode());
+    pressed_keys_.erase(event->keycode());
   }
 }
 
 void ClientSession::UnpressKeys() {
   std::set<int>::iterator i;
   for (i = pressed_keys_.begin(); i != pressed_keys_.end(); ++i) {
-    KeyEvent key;
-    key.set_keycode(*i);
-    key.set_pressed(false);
-    input_stub_->InjectKeyEvent(key);
+    KeyEvent* key = new KeyEvent();
+    key->set_keycode(*i);
+    key->set_pressed(false);
+    input_stub_->InjectKeyEvent(key, new DeleteTask<KeyEvent>(key));
   }
   pressed_keys_.clear();
 }

@@ -5,7 +5,6 @@
 #include "remoting/host/host_mock_objects.h"
 
 #include "base/message_loop_proxy.h"
-#include "remoting/proto/event.pb.h"
 
 namespace remoting {
 
