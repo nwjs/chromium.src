@@ -307,8 +307,7 @@ void ChromotingHost::OnIncomingSession(
       this,
       UserAuthenticator::Create(),
       connection,
-      desktop_environment_->event_executor(),
-      desktop_environment_->capturer());
+      desktop_environment_->event_executor());
   connection->set_host_stub(client);
   connection->set_input_stub(client);
 
