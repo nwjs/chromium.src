@@ -212,7 +212,7 @@ void DeviceManagementService::OnURLFetchComplete(
     // Retry the job if it failed due to a broken proxy, by bypassing the
     // proxy on the next try. Don't retry if this URLFetcher already bypassed
     // the proxy.
-    int error = status.error();
+    int error = status.os_error();
     if (!status.is_success() &&
         ((source->load_flags() & net::LOAD_BYPASS_PROXY) == 0) &&
         (error == net::ERR_PROXY_CONNECTION_FAILED ||
