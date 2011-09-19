@@ -1948,18 +1948,13 @@ willAnimateFromState:(bookmarks::VisualState)oldState
     enteredPresentationModeFromFullscreen_ = YES;
     if ([[self window] isKindOfClass:[FramedBrowserWindow class]])
       [static_cast<FramedBrowserWindow*>([self window]) toggleSystemFullScreen];
-  } else {
-    if (fullscreen)
-      [self enterFullscreenForSnowLeopardOrEarlier];
-    else
-      [self exitFullscreenForSnowLeopardOrEarlier];
+    return;
   }
 
-  if (fullscreen) {
-    [self showFullscreenExitBubbleIfNecessary];
-  } else {
-    [self destroyFullscreenExitBubbleIfNecessary];
-  }
+  if (fullscreen)
+    [self enterFullscreenForSnowLeopardOrEarlier];
+  else
+    [self exitFullscreenForSnowLeopardOrEarlier];
 }
 
 - (BOOL)isFullscreen {
@@ -1990,9 +1985,7 @@ willAnimateFromState:(bookmarks::VisualState)oldState
 
   if (presentationMode) {
     BOOL fullscreen = [self isFullscreen];
-    BOOL fullscreen_for_tab = browser_->is_fullscreen_for_tab();
-    if (!fullscreen_for_tab)
-      [self setShouldUsePresentationModeWhenEnteringFullscreen:YES];
+    [self setShouldUsePresentationModeWhenEnteringFullscreen:YES];
     enteredPresentationModeFromFullscreen_ = fullscreen;
 
     if (fullscreen) {
@@ -2014,8 +2007,6 @@ willAnimateFromState:(bookmarks::VisualState)oldState
       if ([window isKindOfClass:[FramedBrowserWindow class]])
         [static_cast<FramedBrowserWindow*>(window) toggleSystemFullScreen];
     }
-
-    [self showFullscreenExitBubbleIfNecessary];
   } else {
     if (enteredPresentationModeFromFullscreen_) {
       // The window is currently in fullscreen mode, but the user is choosing to
@@ -2033,8 +2024,6 @@ willAnimateFromState:(bookmarks::VisualState)oldState
       if ([window isKindOfClass:[FramedBrowserWindow class]])
         [static_cast<FramedBrowserWindow*>(window) toggleSystemFullScreen];
     }
-
-    [self destroyFullscreenExitBubbleIfNecessary];
   }
 }
 

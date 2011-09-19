@@ -1314,14 +1314,6 @@ void Browser::WindowFullscreenStateChanged() {
   MessageLoop::current()->PostTask(
       FROM_HERE, method_factory_.NewRunnableMethod(
       &Browser::NotifyFullscreenChange));
-  bool notify_tab_of_exit;
-#if defined(OS_MACOSX)
-  notify_tab_of_exit = !window_->InPresentationMode();
-#else
-  notify_tab_of_exit = !window_->IsFullscreen();
-#endif
-  if (notify_tab_of_exit)
-    NotifyTabOfFullscreenExitIfNecessary();
 }
 
 void Browser::NotifyFullscreenChange() {
@@ -3842,21 +3834,10 @@ void Browser::ToggleFullscreenModeForTab(TabContents* tab,
     return;
   fullscreened_tab_ = enter_fullscreen ?
       TabContentsWrapper::GetCurrentWrapperForContents(tab) : NULL;
-  bool in_correct_mode_for_tab_fullscreen;
-#if defined(OS_MACOSX)
-  in_correct_mode_for_tab_fullscreen = window_->InPresentationMode();
-#else
-  in_correct_mode_for_tab_fullscreen = window_->IsFullscreen();
-#endif
-  if (enter_fullscreen && !in_correct_mode_for_tab_fullscreen)
+  if (enter_fullscreen && !window_->IsFullscreen())
     tab_caused_fullscreen_ = true;
-  if (tab_caused_fullscreen_) {
-#if defined(OS_MACOSX)
-    TogglePresentationMode();
-#else
+  if (tab_caused_fullscreen_)
     ToggleFullscreenMode();
-#endif
-  }
 }
 
 void Browser::JSOutOfMemory(TabContents* tab) {
