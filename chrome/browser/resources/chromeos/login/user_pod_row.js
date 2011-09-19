@@ -245,20 +245,20 @@ cr.define('login', function() {
     // Focused pod.
     focusedPod_ : undefined,
 
-    // Acitvated pod, i.e. the pod of current login attempt.
+    // Activated pod, i.e. the pod of current login attempt.
     activatedPod_: undefined,
 
     /** @inheritDoc */
     decorate: function() {
       this.style.left = 0;
 
-      this.ownerDocument.addEventListener('focus',
-          this.handleFocus_.bind(this), true);
-
-      this.ownerDocument.addEventListener('click',
-          this.handleClick_.bind(this));
-      this.ownerDocument.addEventListener('keydown',
-          this.handleKeyDown.bind(this));
+      // Event listeners that are installed for the time period during which
+      // the element is visible.
+      this.listeners_ = {
+        focus: [this.handleFocus_.bind(this), true],
+        click: [this.handleClick_.bind(this), false],
+        keydown: [this.handleKeyDown.bind(this), false]
+      };
     },
 
     /**
@@ -466,6 +466,7 @@ cr.define('login', function() {
 
     /**
      * Handler of click event.
+     * @param {Event} e Click Event object.
      * @private
      */
     handleClick_: function(e) {
@@ -477,6 +478,8 @@ cr.define('login', function() {
 
     /**
      * Handles focus event.
+     * @param {Event} e Focus Event object.
+     * @private
      */
     handleFocus_: function(e) {
       if (e.target.parentNode == this) {
@@ -500,6 +503,7 @@ cr.define('login', function() {
 
     /**
      * Handler of keydown event.
+     * @param {Event} e KeyDown Event object.
      * @public
      */
     handleKeyDown: function(e) {
@@ -534,6 +538,26 @@ cr.define('login', function() {
             e.stopPropagation();
           }
           break;
+      }
+    },
+
+    /**
+     * Called when the element is shown.
+     */
+    handleShow: function() {
+      for (var event in this.listeners_) {
+        this.ownerDocument.addEventListener(
+            event, this.listeners_[event][0], this.listeners_[event][1]);
+      }
+    },
+
+    /**
+     * Called when the element is hidden.
+     */
+    handleHide: function() {
+      for (var event in this.listeners_) {
+        this.ownerDocument.removeEventListener(
+            event, this.listeners_[event][0], this.listeners_[event][1]);
       }
     }
   };
