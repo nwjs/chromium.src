@@ -192,6 +192,9 @@ int GetSurfaceHeight(AVStream* stream) {
 }
 
 int GetSurfaceWidth(AVStream* stream) {
+  // Disabling aspect ratio code for 835 branch until we have a proper fix for
+  // http://crbug.com/94861
+#if 0
   double aspect_ratio;
 
   if (stream->sample_aspect_ratio.num)
@@ -206,6 +209,9 @@ int GetSurfaceWidth(AVStream* stream) {
   // An even width makes things easier for YV12 and appears to be the behavior
   // expected by WebKit layout tests.
   return width & ~1;
+#else
+  return stream->codec->width;
+#endif
 }
 
 void DestroyAVFormatContext(AVFormatContext* format_context) {
