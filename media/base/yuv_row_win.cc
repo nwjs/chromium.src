@@ -9,6 +9,9 @@
 
 extern "C" {
 
+// Branch 874 specific fix to disable movntq to prevent crashes on Pentium IIs.
+#define USE_MOVNTQ 0
+
 #if USE_MMX
 __declspec(naked)
 void FastConvertYUVToRGB32Row(const uint8* y_buf,
@@ -42,7 +45,11 @@ void FastConvertYUVToRGB32Row(const uint8* y_buf,
     psraw     mm1, 6
     psraw     mm2, 6
     packuswb  mm1, mm2
+#if USE_MOVNTQ
     movntq    [ebp], mm1
+#else
+    movq      [ebp], mm1
+#endif
     add       ebp, 8
  convertend :
     sub       ecx, 2
@@ -103,7 +110,11 @@ void ConvertYUVToRGB32Row(const uint8* y_buf,
     psraw     mm1, 6
     psraw     mm2, 6
     packuswb  mm1, mm2
+#if USE_MOVNTQ
     movntq    [ebp], mm1
+#else
+    movq      [ebp], mm1
+#endif
     add       ebp, 8
  wend :
     sub       ecx, 2
@@ -166,7 +177,11 @@ void RotateConvertYUVToRGB32Row(const uint8* y_buf,
     psraw     mm1, 6
     psraw     mm2, 6
     packuswb  mm1, mm2
+#if USE_MOVNTQ
     movntq    [ebp], mm1
+#else
+    movq      [ebp], mm1
+#endif
     add       ebp, 8
  wend :
     sub       ecx, 2
@@ -220,7 +235,11 @@ void DoubleYUVToRGB32Row(const uint8* y_buf,
     psraw     mm1, 6
     packuswb  mm1, mm1
     punpckldq mm1, mm1
+#if USE_MOVNTQ
     movntq    [ebp], mm1
+#else
+    movq      [ebp], mm1
+#endif
 
     movzx     ebx, byte ptr [edx + 1]
     add       edx, 2
@@ -228,7 +247,11 @@ void DoubleYUVToRGB32Row(const uint8* y_buf,
     psraw     mm0, 6
     packuswb  mm0, mm0
     punpckldq mm0, mm0
+#if USE_MOVNTQ
     movntq    [ebp+8], mm0
+#else
+    movq      [ebp+8], mm0
+#endif
     add       ebp, 16
  wend :
     sub       ecx, 4
@@ -305,7 +328,11 @@ void ScaleYUVToRGB32Row(const uint8* y_buf,
     psraw     mm1, 6
     psraw     mm2, 6
     packuswb  mm1, mm2
+#if USE_MOVNTQ
     movntq    [ebp], mm1
+#else
+    movq      [ebp], mm1
+#endif
     add       ebp, 8
  scaleend :
     sub       ecx, 2
@@ -425,7 +452,11 @@ lscaleloop:
     psraw     mm1, 0x6
     psraw     mm2, 0x6
     packuswb  mm1, mm2
+#if USE_MOVNTQ
     movntq    [ebp], mm1
+#else
+    movq      [ebp], mm1
+#endif
     add       ebp, 0x8
 
 lscaleend:
@@ -586,4 +617,3 @@ void LinearScaleYUVToRGB32Row(const uint8* y_buf,
 
 #endif  // USE_MMX
 }  // extern "C"
-

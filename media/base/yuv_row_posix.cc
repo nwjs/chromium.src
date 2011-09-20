@@ -12,6 +12,9 @@
 
 extern "C" {
 
+// Branch 874 specific fix to disable movntq to prevent crashes on Pentium IIs.
+#define USE_MOVNTQ 0
+
 #if USE_SSE2 && defined(ARCH_CPU_X86_64)
 
 // AMD64 ABI uses register paremters.
@@ -298,7 +301,11 @@ void FastConvertYUVToRGB32Row(const uint8* y_buf,
   "psraw  $0x6,%mm1\n"
   "psraw  $0x6,%mm2\n"
   "packuswb %mm2,%mm1\n"
+#if USE_MOVNTQ
   "movntq %mm1,0x0(%ebp)\n"
+#else
+  "movq   %mm1,0x0(%ebp)\n"
+#endif
   "add    $0x8,%ebp\n"
 "convertend:"
   "sub    $0x2,%ecx\n"
@@ -366,7 +373,11 @@ void ScaleYUVToRGB32Row(const uint8* y_buf,
   "psraw  $0x6,%mm1\n"
   "psraw  $0x6,%mm2\n"
   "packuswb %mm2,%mm1\n"
+#if USE_MOVNTQ
   "movntq %mm1,0x0(%ebp)\n"
+#else
+  "movq   %mm1,0x0(%ebp)\n"
+#endif
   "add    $0x8,%ebp\n"
 "scaleend:"
   "sub    $0x2,%ecx\n"
@@ -490,7 +501,11 @@ void LinearScaleYUVToRGB32Row(const uint8* y_buf,
   "psraw  $0x6,%mm1\n"
   "psraw  $0x6,%mm2\n"
   "packuswb %mm2,%mm1\n"
+#if USE_MOVNTQ
   "movntq %mm1,0x0(%ebp)\n"
+#else
+  "movq   %mm1,0x0(%ebp)\n"
+#endif
   "add    $0x8,%ebp\n"
 
 ".lscaleend:"
@@ -549,7 +564,11 @@ extern void PICConvertYUVToRGB32Row(const uint8* y_buf,
   "psraw  $0x6,%mm1\n"
   "psraw  $0x6,%mm2\n"
   "packuswb %mm2,%mm1\n"
+#if USE_MOVNTQ
   "movntq %mm1,0x0(%ebp)\n"
+#else
+  "movq   %mm1,0x0(%ebp)\n"
+#endif
   "add    $0x8,%ebp\n"
 ".Lconvertend:"
   "subl   $0x2,0x34(%esp)\n"
@@ -630,7 +649,11 @@ extern void PICScaleYUVToRGB32Row(const uint8* y_buf,
   "psraw  $0x6,%mm1\n"
   "psraw  $0x6,%mm2\n"
   "packuswb %mm2,%mm1\n"
+#if USE_MOVNTQ
   "movntq %mm1,0x0(%ebp)\n"
+#else
+  "movq   %mm1,0x0(%ebp)\n"
+#endif
   "add    $0x8,%ebp\n"
 "Lscaleend:"
   "subl   $0x2,0x34(%esp)\n"
@@ -772,7 +795,11 @@ void PICLinearScaleYUVToRGB32Row(const uint8* y_buf,
   "psraw  $0x6,%mm1\n"
   "psraw  $0x6,%mm2\n"
   "packuswb %mm2,%mm1\n"
+#if USE_MOVNTQ
   "movntq %mm1,0x0(%ebp)\n"
+#else
+  "movq   %mm1,0x0(%ebp)\n"
+#endif
   "add    $0x8,%ebp\n"
 
 ".lscaleend:"
@@ -920,4 +947,3 @@ void LinearScaleYUVToRGB32Row(const uint8* y_buf,
 
 #endif  // USE_MMX
 }  // extern "C"
-
