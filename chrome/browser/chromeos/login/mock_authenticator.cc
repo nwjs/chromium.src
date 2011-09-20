@@ -98,6 +98,9 @@ void MockLoginUtils::PrepareProfile(
   delegate->OnProfilePrepared(NULL);
 }
 
+void MockLoginUtils::DelegateDeleted(Delegate* delegate) {
+}
+
 Authenticator* MockLoginUtils::CreateAuthenticator(
     LoginStatusConsumer* consumer) {
   return new MockAuthenticator(
