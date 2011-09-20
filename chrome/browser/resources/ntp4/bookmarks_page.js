@@ -49,7 +49,8 @@ cr.define('ntp4', function() {
   function Bookmark(data) {
     var el = $('bookmark-template').cloneNode(true);
     el.__proto__ = Bookmark.prototype;
-    el.initialize(data);
+    el.data = data;
+    el.initialize();
 
     return el;
   }
@@ -59,12 +60,8 @@ cr.define('ntp4', function() {
 
     /**
      * Initialize the bookmark object.
-     * @param {Object} data The bookmark data (url, title, etc).
      */
-    initialize: function(data) {
-      this.data = data;
-      this.hidden = false;
-
+    initialize: function() {
       var id = tileId++;
       this.id = 'bookmark_tile_' + id;
 
@@ -253,9 +250,7 @@ cr.define('ntp4', function() {
       this.classList.add('bookmarks-page');
 
       // Insert the bookmark titles header which is unique to bookmark pages.
-      var titleWrapper = $('bookmarks-title-wrapper')
-      titleWrapper.hidden = false;
-      this.insertBefore(titleWrapper, this.firstChild);
+      this.insertBefore($('bookmarks-title-wrapper'), this.firstChild);
 
       // Insert the top & bottom links for the Bookmarks Manager page.
       var pageContent = this.querySelector('.tile-page-content');
