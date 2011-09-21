@@ -228,6 +228,17 @@ TEST_F(L10nUtilTest, GetAppLocale) {
   SetICUDefaultLocale("en-US");
   EXPECT_EQ("en-GB", l10n_util::GetApplicationLocale("en-GB"));
 
+  SetICUDefaultLocale("en-US");
+  EXPECT_EQ("en-GB", l10n_util::GetApplicationLocale("en-AU"));
+
+  SetICUDefaultLocale("en-US");
+  EXPECT_EQ("en-GB", l10n_util::GetApplicationLocale("en-NZ"));
+
+  SetICUDefaultLocale("en-US");
+  EXPECT_EQ("en-GB", l10n_util::GetApplicationLocale("en-CA"));
+
+  SetICUDefaultLocale("en-US");
+  EXPECT_EQ("en-GB", l10n_util::GetApplicationLocale("en-ZA"));
 #else  // defined(OS_CHROMEOS)
   SetDefaultLocaleForTest("en-GB", env.get());
   EXPECT_EQ("en-GB", l10n_util::GetApplicationLocale(""));
