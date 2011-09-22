@@ -130,12 +130,11 @@ cr.define('ntp4', function() {
      */
     onDragMove_: function(e) {
       if (e.view != window || (e.x == 0 && e.y == 0)) {
-        // attribute hidden seems to be overridden by display.
-        this.dragClone.classList.add('hidden');
+        this.dragClone.hidden = true;
         return;
       }
 
-      this.dragClone.classList.remove('hidden');
+      this.dragClone.hidden = false;
       this.dragClone.style.left = (e.x - this.dragOffsetX) + 'px';
       this.dragClone.style.top = (e.y - this.dragOffsetY) + 'px';
     },
@@ -146,8 +145,7 @@ cr.define('ntp4', function() {
      * @private
      */
     onDragEnd_: function(e) {
-      // The drag clone can still be hidden from the last drag move event.
-      this.dragClone.classList.remove('hidden');
+      this.dragClone.hidden = false;
       this.dragClone.classList.add('placing');
 
       setCurrentlyDraggingTile(null);
@@ -166,7 +164,7 @@ cr.define('ntp4', function() {
         // tilePage.lastDropEffect_ instead of e.dataTransfer.dropEffect.
         if (tilePage.selected && tilePage.lastDropEffect_ != 'copy') {
           // The drag clone can still be hidden from the last drag move event.
-          this.dragClone.classList.remove('hidden');
+          this.dragClone.hidden = false;
           // The tile's contents may have moved following the respositioning;
           // adjust for that.
           var contentDiffX = this.dragClone.firstChild.offsetLeft -
@@ -178,7 +176,7 @@ cr.define('ntp4', function() {
           this.dragClone.style.top =
               (this.gridY + this.parentNode.getBoundingClientRect().top -
               contentDiffY) + 'px';
-        } else if (this.dragClone.classList.contains('hidden')) {
+        } else if (this.dragClone.hidden) {
           this.finalizeDrag_();
         } else {
           this.dragClone.classList.add('dropped-on-other-page');
