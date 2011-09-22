@@ -154,7 +154,6 @@
 
 #if defined(OS_WIN)
 
-#include "base/environment.h"  // For PreRead experiment.
 #include "base/win/scoped_com_initializer.h"
 #include "base/win/windows_version.h"
 #include "chrome/browser/browser_trial.h"
@@ -668,20 +667,6 @@ bool IsCrashReportingEnabled(const PrefService* local_state) {
 }
 #endif  // #if defined(USE_LINUX_BREAKPAD)
 
-// This code is specific to the Windows-only PreReadExperiment field-trial.
-void AddPreReadHistogramTime(const char* name, base::TimeDelta time) {
-  const base::TimeDelta kMin(base::TimeDelta::FromMilliseconds(1));
-  const base::TimeDelta kMax(base::TimeDelta::FromHours(1));
-  static const size_t kBuckets(100);
-
-  // FactoryTimeGet will always return a pointer to the same histogram object,
-  // keyed on its name. There's no need for us to store it explicitly anywhere.
-  base::Histogram* counter = base::Histogram::FactoryTimeGet(
-      name, kMin, kMax, kBuckets, base::Histogram::kUmaTargetedHistogramFlag);
-
-  counter->AddTime(time);
-}
-
 }  // namespace
 
 namespace chrome_browser {
@@ -700,7 +685,7 @@ ChromeBrowserMainParts::ChromeBrowserMainParts(
       shutdown_watcher_(new ShutdownWatcherHelper()) {
   // If we're running tests (ui_task is non-null).
   if (parameters.ui_task)
-    browser_defaults::enable_help_app = false;  
+    browser_defaults::enable_help_app = false;
 }
 
 ChromeBrowserMainParts::~ChromeBrowserMainParts() {
@@ -1830,8 +1815,12 @@ int ChromeBrowserMainParts::TemporaryContinue() {
       if (pool)
         pool->Recycle();
 
-      RecordPreReadExperimentTime("Startup.BrowserOpenTabs",
-                                  base::TimeTicks::Now() - browser_open_start);
+      UMA_HISTOGRAM_CUSTOM_TIMES(
+          "Startup.BrowserOpenTabs",
+          base::TimeTicks::Now() - browser_open_start,
+          base::TimeDelta::FromMilliseconds(1),
+          base::TimeDelta::FromHours(1),
+          100);
 
       // TODO(mad): Move this call in a proper place on CrOS.
       // http://crosbug.com/17687
@@ -1921,32 +1910,4 @@ int ChromeBrowserMainParts::TemporaryContinue() {
   browser_shutdown::Shutdown();
 
   return result_code;
-}
-
-// This code is specific to the Windows-only PreReadExperiment field-trial.
-void RecordPreReadExperimentTime(const char* name, base::TimeDelta time) {
-  DCHECK(name != NULL);
-
-  // This gets called with different histogram names, so we don't want to use
-  // the UMA_HISTOGRAM_CUSTOM_TIMES macro--it uses a static variable, and the
-  // first call wins.
-  AddPreReadHistogramTime(name, time);
-
-#if defined(OS_WIN)
-#if defined(GOOGLE_CHROME_BUILD)
-  // The pre-read experiment is Windows and Google Chrome specific.
-  scoped_ptr<base::Environment> env(base::Environment::Create());
-
-  // Only record the sub-histogram result if the experiment is running
-  // (environment variable is set, and valid).
-  std::string pre_read;
-  if (env->GetVar(chrome::kPreReadEnvironmentVariable, &pre_read) &&
-      (pre_read == "0" || pre_read == "1")) {
-    std::string uma_name(name);
-    uma_name += "_PreRead";
-    uma_name += pre_read == "1" ? "Enabled" : "Disabled";
-    AddPreReadHistogramTime(uma_name.c_str(), time);
-  }
-#endif
-#endif
 }

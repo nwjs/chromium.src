@@ -11,8 +11,6 @@
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
-#include "base/rand_util.h"  // For PreRead experiment.
-#include "base/sha1.h"  // For PreRead experiment.
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "base/version.h"
@@ -25,7 +23,6 @@
 #include "chrome/installer/util/browser_distribution.h"
 #include "chrome/installer/util/channel_info.h"
 #include "chrome/installer/util/install_util.h"
-#include "chrome/installer/util/google_chrome_sxs_distribution.h"  // PreRead.
 #include "chrome/installer/util/google_update_constants.h"
 #include "chrome/installer/util/google_update_settings.h"
 #include "chrome/installer/util/util_constants.h"
@@ -86,82 +83,6 @@ bool EnvQueryStr(const wchar_t* key_name, std::wstring* value) {
   return true;
 }
 
-#if defined(OS_WIN)
-#if defined(GOOGLE_CHROME_BUILD)
-// These constants are used by the PreRead experiment.
-const wchar_t kPreReadRegistryValue[] = L"PreReadExperimentGroup";
-const int kPreReadExpiryYear = 2012;
-const int kPreReadExpiryMonth = 1;
-const int kPreReadExpiryDay = 1;
-
-bool PreReadShouldRun() {
-  base::Time::Exploded exploded = { 0 };
-  exploded.year = kPreReadExpiryYear;
-  exploded.month = kPreReadExpiryMonth;
-  exploded.day_of_month = kPreReadExpiryDay;
-
-  base::Time expiration_time = base::Time::FromLocalExploded(exploded);
-
-  // Get the build time. This code is copied from
-  // base::FieldTrial::GetBuildTime. We can't use MetricsLogBase::GetBuildTime
-  // because that's in seconds since Unix epoch, which base::Time can't use.
-  base::Time build_time;
-  const char* kDateTime = __DATE__ " " __TIME__;
-  bool result = base::Time::FromString(kDateTime, &build_time);
-  DCHECK(result);
-
-  // If the experiment is expired, don't run it.
-  if (build_time > expiration_time)
-    return false;
-
-  // The experiment should only run on canary and dev.
-  BrowserDistribution* dist = BrowserDistribution::GetDistribution();
-  std::wstring channel;
-  if (!dist->GetChromeChannel(&channel))
-    return false;
-  return channel == GoogleChromeSxSDistribution::ChannelName() ||
-      channel == L"dev";
-  return true;
-}
-
-// Checks to see if the experiment is running. If so, either tosses a coin
-// and persists it, or gets the already persistent coin-toss value. Returns
-// the coin-toss via |pre_read|. Returns true if the experiment is running and
-// pre_read has been written, false otherwise. |pre_read| is only written to
-// when this function returns true. |key| must be open with read-write access,
-// and be valid.
-bool GetPreReadExperimentGroup(DWORD* pre_read) {
-  DCHECK(pre_read != NULL);
-
-  // Experiment expired, or running on wrong channel?
-  if (!PreReadShouldRun())
-    return false;
-
-  // Get the MetricsId of the installation. This is only set if the user has
-  // opted in to reporting. Doing things this way ensures that we only enable
-  // the experiment if its results are actually going to be reported.
-  std::wstring metrics_id;
-  if (!GoogleUpdateSettings::GetMetricsId(&metrics_id) || metrics_id.empty())
-    return false;
-
-  // We use the same technique as FieldTrial::HashClientId.
-  unsigned char sha1_hash[base::SHA1_LENGTH];
-  base::SHA1HashBytes(
-      reinterpret_cast<const unsigned char*>(metrics_id.c_str()),
-      metrics_id.size() * sizeof(metrics_id[0]),
-      sha1_hash);
-  COMPILE_ASSERT(sizeof(uint64) < sizeof(sha1_hash), need_more_data);
-  uint64* bits = reinterpret_cast<uint64*>(&sha1_hash[0]);
-  double rand_unit = base::BitsToOpenEndedUnitInterval(*bits);
-  DWORD coin_toss = rand_unit > 0.5 ? 1 : 0;
-
-  *pre_read = coin_toss;
-
-  return true;
-}
-#endif  // if defined(GOOGLE_CHROME_BUILD)
-#endif  // if defined(OS_WIN)
-
 // Expects that |dir| has a trailing backslash. |dir| is modified so it
 // contains the full path that was tried. Caller must check for the return
 // value not being null to determine if this path contains a valid dll.
@@ -217,29 +138,6 @@ HMODULE LoadChromeWithDirectory(std::wstring* dir) {
       key.Close();
     }
 
-#if defined(OS_WIN)
-#if defined(GOOGLE_CHROME_BUILD)
-    // The PreRead experiment is unable to use the standard FieldTrial
-    // mechanism as pre-reading happens in chrome.exe prior to loading
-    // chrome.dll. As such, we use a custom approach. If the experiment is
-    // running (not expired, and we're running a version of chrome from an
-    // appropriate channel) then we look to the registry for the BreakPad/UMA
-    // metricsid. We use this to seed a coin-toss, which is then communicated
-    // to chrome.dll via an environment variable, which indicates to chrome.dll
-    // that the experiment is running, causing it to report sub-histogram
-    // results.
-
-    // If the experiment is running, indicate it to chrome.dll via an
-    // environment variable.
-    if (GetPreReadExperimentGroup(&pre_read)) {
-      DCHECK(pre_read == 0 || pre_read == 1);
-      scoped_ptr<base::Environment> env(base::Environment::Create());
-      env->SetVar(chrome::kPreReadEnvironmentVariable,
-                  pre_read ? "1" : "0");
-    }
-#endif  // if defined(GOOGLE_CHROME_BUILD)
-#endif  // if defined(OS_WIN)
-
     if (pre_read) {
       TRACE_EVENT_BEGIN_ETW("PreReadImage", 0, "");
       file_util::PreReadImage(dir->c_str(), pre_read_size, pre_read_step_size);
@@ -263,7 +161,7 @@ void ClearDidRun(const std::wstring& dll_path) {
   GoogleUpdateSettings::UpdateDidRunState(false, system_level);
 }
 
-}  // namespace
+}
 //=============================================================================
 
 MainDllLoader::MainDllLoader() : dll_(NULL) {
