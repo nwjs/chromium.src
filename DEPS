@@ -273,6 +273,9 @@ deps = {
 
   "src/third_party/mozc/session":
     "http://mozc.googlecode.com/svn/trunk/src/session@58",
+
+  "src/third_party/smhasher/src":
+    "http://smhasher.googlecode.com/svn/trunk@136",
 }
 
 
