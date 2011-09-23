@@ -9,9 +9,10 @@
 #define NATIVE_CLIENT_SRC_TRUSTED_PLUGIN_PLUGIN_H_
 
 #include <stdio.h>
+
 #include <map>
-#include <set>
 #include <queue>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -45,8 +46,8 @@ class Find_Dev;
 class Printing_Dev;
 class Selection_Dev;
 class URLLoader;
-class WidgetClient_Dev;
 class URLUtil_Dev;
+class WidgetClient_Dev;
 class Zoom_Dev;
 }
 
@@ -296,7 +297,7 @@ class Plugin : public pp::InstancePrivate {
   // Tests if the MIME type is not a NaCl MIME type.
   bool IsForeignMIMEType() const;
   // Returns true if PPAPI Dev interfaces should be allowed.
-  bool enable_dev_interface() { return enable_dev_interface_; }
+  bool enable_dev_interfaces() { return enable_dev_interfaces_; }
 
   Manifest const* manifest() const { return manifest_.get(); }
 
@@ -350,7 +351,7 @@ class Plugin : public pp::InstancePrivate {
   MethodInfo* GetMethodInfo(uintptr_t method_id, CallType call_type);
 
   // Check url and decide if PPAPI Dev interfaces are required.
-  bool RequiresDevInterface(const nacl::string& manifest_url);
+  bool RequiresDevInterfaces(const nacl::string& manifest_url);
 
   // Callback used when getting the URL for the .nexe file.  If the URL loading
   // is successful, the file descriptor is opened and can be passed to sel_ldr
@@ -467,7 +468,7 @@ class Plugin : public pp::InstancePrivate {
   ppapi_proxy::BrowserPpp* ppapi_proxy_;
 
   // PPAPI Dev interfaces are disabled by default.
-  bool enable_dev_interface_;
+  bool enable_dev_interfaces_;
 
   // If we get a DidChangeView event before the nexe is loaded, we store it and
   // replay it to nexe after it's loaded.
