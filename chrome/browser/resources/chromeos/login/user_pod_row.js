@@ -186,6 +186,7 @@ cr.define('login', function() {
         chrome.send('authenticateUser',
             [this.user.emailAddress, this.passwordElement.value]);
       }
+      this.parentNode.rowEnabled = false;
 
       return true;
     },
@@ -195,6 +196,7 @@ cr.define('login', function() {
      * @param {boolean} takeFocus True to take focus.
      */
     reset: function(takeFocus) {
+      this.parentNode.rowEnabled = true;
       this.passwordElement.value = '';
 
       if (takeFocus)
@@ -266,6 +268,15 @@ cr.define('login', function() {
      */
     get pods() {
       return this.children;
+    },
+
+    // True when clicking on pods is enabled.
+    rowEnabled_ : true,
+    get rowEnabled() {
+      return this.rowEnabled_;
+    },
+    set rowEnabled(enabled) {
+      this.rowEnabled_ = enabled;
     },
 
     /**
@@ -457,6 +468,7 @@ cr.define('login', function() {
      * @param {boolean} takeFocus True to take focus.
      */
     reset: function(takeFocus) {
+      this.rowEnabled = true;
       for (var i = 0; i < this.pods.length; ++i)
         this.pods[i].mainInput.disabled = false;
 
@@ -470,6 +482,8 @@ cr.define('login', function() {
      * @private
      */
     handleClick_: function(e) {
+      if (!this.rowEnabled)
+        return;
       // Clears focus if not clicked on a pod.
       if (e.target.parentNode != this &&
           e.target.parentNode.parentNode != this)
@@ -482,6 +496,8 @@ cr.define('login', function() {
      * @private
      */
     handleFocus_: function(e) {
+      if (!this.rowEnabled)
+        return;
       if (e.target.parentNode == this) {
         // Focus on a pod
         if (e.target.classList.contains('focused'))
