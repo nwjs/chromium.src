@@ -28,6 +28,7 @@ using testing::_;
 using testing::DeleteArg;
 using testing::InSequence;
 using testing::Return;
+using testing::ReturnRef;
 
 class ClientSessionTest : public testing::Test {
  public:
@@ -36,27 +37,40 @@ class ClientSessionTest : public testing::Test {
   virtual void SetUp() {
     connection_ = new MockConnectionToClient(
         &connection_event_handler_, &host_stub_, &input_stub_);
+    // Set up a large default screen size that won't affect most tests.
+    default_screen_size_.SetSize(1000, 1000);
+    ON_CALL(capturer_, size_most_recent()).WillByDefault(ReturnRef(
+        default_screen_size_));
+
     user_authenticator_ = new MockUserAuthenticator();
     client_session_ = new ClientSession(
         &session_event_handler_,
         user_authenticator_,
         connection_,
-        &input_stub_);
-
-    ON_CALL(input_stub_, InjectKeyEvent(_, _)).WillByDefault(DeleteArg<1>());
-    ON_CALL(input_stub_, InjectMouseEvent(_, _)).WillByDefault(DeleteArg<1>());
+        &input_stub_,
+        &capturer_);
   }
 
  protected:
+  gfx::Size default_screen_size_;
   MessageLoop message_loop_;
   MockConnectionToClientEventHandler connection_event_handler_;
   MockHostStub host_stub_;
   MockInputStub input_stub_;
+  MockCapturer capturer_;
   MockClientSessionEventHandler session_event_handler_;
   MockUserAuthenticator* user_authenticator_;
   scoped_refptr<MockConnectionToClient> connection_;
   scoped_refptr<ClientSession> client_session_;
 };
+
+MATCHER_P2(EqualsKeyEvent, keycode, pressed, "") {
+  return arg.keycode() == keycode && arg.pressed() == pressed;
+}
+
+MATCHER_P2(EqualsMouseEvent, x, y, "") {
+  return arg.x() == x && arg.y() == y;
+}
 
 TEST_F(ClientSessionTest, InputStubFilter) {
   protocol::KeyEvent key_event1;
@@ -96,25 +110,25 @@ TEST_F(ClientSessionTest, InputStubFilter) {
   EXPECT_CALL(*user_authenticator_, Authenticate(_, _))
       .WillOnce(Return(true));
   EXPECT_CALL(session_event_handler_, LocalLoginSucceeded(_));
-  EXPECT_CALL(input_stub_, InjectKeyEvent(&key_event2_down, _));
-  EXPECT_CALL(input_stub_, InjectKeyEvent(&key_event2_up, _));
-  EXPECT_CALL(input_stub_, InjectMouseEvent(&mouse_event2, _));
+  EXPECT_CALL(input_stub_, InjectKeyEvent(EqualsKeyEvent(2, true)));
+  EXPECT_CALL(input_stub_, InjectKeyEvent(EqualsKeyEvent(2, false)));
+  EXPECT_CALL(input_stub_, InjectMouseEvent(EqualsMouseEvent(200, 201)));
   EXPECT_CALL(*connection_.get(), Disconnect());
 
   // These events should not get through to the input stub,
   // because the client isn't authenticated yet.
-  client_session_->InjectKeyEvent(&key_event1, new DummyTask());
-  client_session_->InjectMouseEvent(&mouse_event1, new DummyTask());
+  client_session_->InjectKeyEvent(key_event1);
+  client_session_->InjectMouseEvent(mouse_event1);
   client_session_->BeginSessionRequest(&credentials, new DummyTask());
   // These events should get through to the input stub.
-  client_session_->InjectKeyEvent(&key_event2_down, new DummyTask());
-  client_session_->InjectKeyEvent(&key_event2_up, new DummyTask());
-  client_session_->InjectMouseEvent(&mouse_event2, new DummyTask());
+  client_session_->InjectKeyEvent(key_event2_down);
+  client_session_->InjectKeyEvent(key_event2_up);
+  client_session_->InjectMouseEvent(mouse_event2);
   client_session_->Disconnect();
   // These events should not get through to the input stub,
   // because the client has disconnected.
-  client_session_->InjectKeyEvent(&key_event3, new DummyTask());
-  client_session_->InjectMouseEvent(&mouse_event3, new DummyTask());
+  client_session_->InjectKeyEvent(key_event3);
+  client_session_->InjectMouseEvent(mouse_event3);
 }
 
 TEST_F(ClientSessionTest, LocalInputTest) {
@@ -137,28 +151,24 @@ TEST_F(ClientSessionTest, LocalInputTest) {
   EXPECT_CALL(*user_authenticator_, Authenticate(_, _))
       .WillOnce(Return(true));
   EXPECT_CALL(session_event_handler_, LocalLoginSucceeded(_));
-  EXPECT_CALL(input_stub_, InjectMouseEvent(&mouse_event1, _));
-  EXPECT_CALL(input_stub_, InjectMouseEvent(&mouse_event2, _));
+  EXPECT_CALL(input_stub_, InjectMouseEvent(EqualsMouseEvent(100, 101)));
+  EXPECT_CALL(input_stub_, InjectMouseEvent(EqualsMouseEvent(200, 201)));
   EXPECT_CALL(*connection_.get(), Disconnect());
 
   client_session_->BeginSessionRequest(&credentials, new DummyTask());
   // This event should get through to the input stub.
-  client_session_->InjectMouseEvent(&mouse_event1, new DummyTask());
+  client_session_->InjectMouseEvent(mouse_event1);
   // This one should too because the local event echoes the remote one.
   client_session_->LocalMouseMoved(gfx::Point(mouse_event1.x(),
                                               mouse_event1.y()));
-  client_session_->InjectMouseEvent(&mouse_event2, new DummyTask());
+  client_session_->InjectMouseEvent(mouse_event2);
   // This one should not.
   client_session_->LocalMouseMoved(gfx::Point(mouse_event1.x(),
                                               mouse_event1.y()));
-  client_session_->InjectMouseEvent(&mouse_event3, new DummyTask());
+  client_session_->InjectMouseEvent(mouse_event3);
   // TODO(jamiewalch): Verify that remote inputs are re-enabled eventually
   // (via dependency injection, not sleep!)
   client_session_->Disconnect();
- }
-
-MATCHER_P(IsMatchingKeyUp, k, "") {
-  return !arg->pressed() && arg->keycode() == k->keycode();
 }
 
 TEST_F(ClientSessionTest, UnpressKeys) {
@@ -170,13 +180,44 @@ TEST_F(ClientSessionTest, UnpressKeys) {
   key2.set_pressed(true);
   key2.set_keycode(2);
 
-  client_session_->RecordKeyEvent(&key1);
-  client_session_->RecordKeyEvent(&key2);
+  client_session_->RecordKeyEvent(key1);
+  client_session_->RecordKeyEvent(key2);
 
-  EXPECT_CALL(input_stub_, InjectKeyEvent(IsMatchingKeyUp(&key1), _));
-  EXPECT_CALL(input_stub_, InjectKeyEvent(IsMatchingKeyUp(&key2), _));
+  EXPECT_CALL(input_stub_, InjectKeyEvent(EqualsKeyEvent(1, false)));
+  EXPECT_CALL(input_stub_, InjectKeyEvent(EqualsKeyEvent(2, false)));
 
   client_session_->UnpressKeys();
+}
+
+TEST_F(ClientSessionTest, ClampMouseEvents) {
+  gfx::Size screen(200, 100);
+  EXPECT_CALL(capturer_, size_most_recent())
+      .WillRepeatedly(ReturnRef(screen));
+
+  protocol::LocalLoginCredentials credentials;
+  credentials.set_type(protocol::PASSWORD);
+  credentials.set_username("user");
+  credentials.set_credential("password");
+  EXPECT_CALL(*user_authenticator_, Authenticate(_, _))
+      .WillOnce(Return(true));
+  EXPECT_CALL(session_event_handler_, LocalLoginSucceeded(_));
+  client_session_->BeginSessionRequest(&credentials, new DummyTask());
+
+  int input_x[3] = { -999, 100, 999 };
+  int expected_x[3] = { 0, 100, 199 };
+  int input_y[3] = { -999, 50, 999 };
+  int expected_y[3] = { 0, 50, 99 };
+
+  protocol::MouseEvent event;
+  for (int j = 0; j < 3; j++) {
+    for (int i = 0; i < 3; i++) {
+      event.set_x(input_x[i]);
+      event.set_y(input_y[j]);
+      EXPECT_CALL(input_stub_, InjectMouseEvent(EqualsMouseEvent(
+          expected_x[i], expected_y[j])));
+      client_session_->InjectMouseEvent(event);
+    }
+  }
 }
 
 }  // namespace remoting

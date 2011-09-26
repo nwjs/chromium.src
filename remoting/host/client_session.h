@@ -16,6 +16,7 @@
 
 namespace remoting {
 
+class Capturer;
 class UserAuthenticator;
 
 // A ClientSession keeps a reference to a connection to a client, and maintains
@@ -40,19 +41,20 @@ class ClientSession : public protocol::HostStub,
   };
 
   // Takes ownership of |user_authenticator|. Does not take ownership of
-  // |event_handler| or |input_stub|.
+  // |event_handler|, |input_stub| or |capturer|.
   ClientSession(EventHandler* event_handler,
                 UserAuthenticator* user_authenticator,
                 scoped_refptr<protocol::ConnectionToClient> connection,
-                protocol::InputStub* input_stub);
+                protocol::InputStub* input_stub,
+                Capturer* capturer);
 
   // protocol::HostStub interface.
   virtual void BeginSessionRequest(
       const protocol::LocalLoginCredentials* credentials, Task* done);
 
   // protocol::InputStub interface.
-  virtual void InjectKeyEvent(const protocol::KeyEvent* event, Task* done);
-  virtual void InjectMouseEvent(const protocol::MouseEvent* event, Task* done);
+  virtual void InjectKeyEvent(const protocol::KeyEvent& event);
+  virtual void InjectMouseEvent(const protocol::MouseEvent& event);
 
   // Disconnect this client session.
   void Disconnect();
@@ -77,8 +79,8 @@ class ClientSession : public protocol::HostStub,
   // have the upper hand in 'pointer wars'.
   void LocalMouseMoved(const gfx::Point& new_pos);
 
-  bool ShouldIgnoreRemoteMouseInput(const protocol::MouseEvent* event) const;
-  bool ShouldIgnoreRemoteKeyboardInput(const protocol::KeyEvent* event) const;
+  bool ShouldIgnoreRemoteMouseInput(const protocol::MouseEvent& event) const;
+  bool ShouldIgnoreRemoteKeyboardInput(const protocol::KeyEvent& event) const;
 
  private:
   friend class base::RefCountedThreadSafe<ClientSession>;
@@ -87,7 +89,7 @@ class ClientSession : public protocol::HostStub,
 
   // Keep track of keydowns and keyups so that we can clean up the keyboard
   // state when the user disconnects.
-  void RecordKeyEvent(const protocol::KeyEvent* event);
+  void RecordKeyEvent(const protocol::KeyEvent& event);
 
   // Synthesize KeyUp events for keys that have been pressed but not released.
   // This should be used when the client has disconnected to clear out any
@@ -104,6 +106,12 @@ class ClientSession : public protocol::HostStub,
 
   // The input stub to which this object delegates.
   protocol::InputStub* input_stub_;
+
+  // Capturer, used to determine current screen size for ensuring injected
+  // mouse events fall within the screen area.
+  // TODO(lambroslambrou): Move floor-control logic, and clamping to screen
+  // area, out of this class (crbug.com/96508).
+  Capturer* capturer_;
 
   // Whether this client is authenticated.
   bool authenticated_;
