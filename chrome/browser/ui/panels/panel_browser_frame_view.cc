@@ -514,10 +514,7 @@ void PanelBrowserFrameView::ExecuteCommand(int command_id) {
       extension_uninstall_dialog_->ConfirmUninstall(this, extension);
       break;
     case COMMAND_MANAGE:
-      browser->OpenURL(GURL(chrome::kChromeUIExtensionsURL),
-                            GURL(),
-                            SINGLETON_TAB,
-                            PageTransition::LINK);
+      browser->ShowOptionsTab(chrome::kExtensionsSubPage);
       break;
     default:
       NOTREACHED();
