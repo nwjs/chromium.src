@@ -107,7 +107,8 @@ void ClientSession::InjectMouseEvent(const protocol::MouseEvent* event,
   }
 }
 
-void ClientSession::OnDisconnected() {
+void ClientSession::Disconnect() {
+  connection_->Disconnect();
   UnpressKeys();
   authenticated_ = false;
 }

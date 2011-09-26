@@ -54,9 +54,8 @@ class ClientSession : public protocol::HostStub,
   virtual void InjectKeyEvent(const protocol::KeyEvent* event, Task* done);
   virtual void InjectMouseEvent(const protocol::MouseEvent* event, Task* done);
 
-  // Notifier called when the client is being disconnected.
-  // This should only be called by ChromotingHost.
-  void OnDisconnected();
+  // Disconnect this client session.
+  void Disconnect();
 
   // Set the authenticated flag or log a failure message as appropriate.
   void OnAuthorizationComplete(bool success);

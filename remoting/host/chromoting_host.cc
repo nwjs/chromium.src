@@ -381,9 +381,6 @@ void ChromotingHost::OnClientDisconnected(ConnectionToClient* connection) {
   }
 
   // Close the connection to client just to be safe.
-  // TODO(garykac): This should be removed when we revisit our shutdown and
-  // disconnect code. This should only need to be done in
-  // ClientSession::Disconnect().
   connection->Disconnect();
 
   // Also remove reference to ConnectionToClient from this object.
@@ -406,8 +403,6 @@ void ChromotingHost::OnClientDisconnected(ConnectionToClient* connection) {
       desktop_environment_->OnLastDisconnect();
     }
   }
-
-  client->OnDisconnected();
 }
 
 // TODO(sergeyu): Move this to SessionManager?
