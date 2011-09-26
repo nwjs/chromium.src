@@ -106,6 +106,7 @@
 #include "chrome/browser/ui/tabs/tab_menu_model.h"
 #include "chrome/browser/ui/web_applications/web_app_ui.h"
 #include "chrome/browser/ui/webui/bug_report_ui.h"
+#include "chrome/browser/ui/webui/ntp/new_tab_page_handler.h"
 #include "chrome/browser/ui/webui/options/content_settings_handler.h"
 #include "chrome/browser/ui/window_sizer.h"
 #include "chrome/browser/upgrade_detector.h"
@@ -536,12 +537,6 @@ void Browser::InitBrowserWindow() {
     // Reset the preference so we don't show the bubble for subsequent windows.
     local_state->ClearPref(prefs::kShouldShowFirstRunBubble);
     window_->GetLocationBar()->ShowFirstRunBubble(bubble_type);
-
-    // Suppress ntp4 bubble if first run bubble will be shown on the same page.
-    PrefService* prefs = profile_->GetPrefs();
-    if (prefs->GetBoolean(prefs::kHomePageIsNewTabPage)) {
-      prefs->SetBoolean(prefs::kNTP4SuppressIntroOnce, true);
-    }
   }
   if (local_state->FindPreference(
       prefs::kAutofillPersonalDataManagerFirstRun) &&
@@ -553,6 +548,10 @@ void Browser::InitBrowserWindow() {
     // Reset the preference so we don't call it again for subsequent windows.
     local_state->ClearPref(prefs::kAutofillPersonalDataManagerFirstRun);
   }
+
+  // Permanently dismiss ntp4 bubble for new users.
+  if (FirstRun::IsChromeFirstRun())
+    NewTabPageHandler::DismissIntroMessage(profile_->GetPrefs());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -5283,3 +5282,4 @@ void Browser::ShowSyncSetup() {
 void Browser::ToggleSpeechInput() {
   GetSelectedTabContentsWrapper()->render_view_host()->ToggleSpeechInput();
 }
+
