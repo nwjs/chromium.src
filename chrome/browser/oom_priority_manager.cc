@@ -80,9 +80,9 @@ bool OomPriorityManager::CompareRendererStats(RendererStats first,
   // it's not really possible for the times to be identical, but if
   // the user selected two tabs at about the same time, we still want
   // to take the one that uses more memory.
-  if (abs((first.last_selected - second.last_selected).ToInternalValue()) <
+  if (abs((first.last_selected - second.last_selected).ToInternalValue()) >
       kTimeBucketInterval)
-    return first.last_selected < second.last_selected;
+    return first.last_selected > second.last_selected;
 
   return first.memory_used < second.memory_used;
 }
