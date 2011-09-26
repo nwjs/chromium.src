@@ -363,13 +363,16 @@ void ChromotingHost::OnClientDisconnected(ConnectionToClient* connection) {
   DCHECK_EQ(context_->main_message_loop(), MessageLoop::current());
 
   // Find the client session corresponding to the given connection.
-  ClientList::iterator client;
-  for (client = clients_.begin(); client != clients_.end(); ++client) {
-    if (client->get()->connection() == connection)
+  ClientList::iterator it;
+  for (it = clients_.begin(); it != clients_.end(); ++it) {
+    if (it->get()->connection() == connection)
       break;
   }
-  if (client == clients_.end())
+  if (it == clients_.end())
     return;
+
+  scoped_refptr<ClientSession> client = *it;
+  clients_.erase(it);
 
   // Remove the connection from the session manager and stop the session.
   // TODO(hclam): Stop only if the last connection disconnected.
@@ -377,16 +380,19 @@ void ChromotingHost::OnClientDisconnected(ConnectionToClient* connection) {
     recorder_->RemoveConnection(connection);
     // The recorder only exists to serve the unique authenticated client.
     // If that client has disconnected, then we can kill the recorder.
-    if (client->get()->authenticated())
+    if (client->authenticated())
       StopScreenRecorder();
   }
 
   // Close the connection to client just to be safe.
+  // TODO(garykac): This should be removed when we revisit our shutdown and
+  // disconnect code. This should only need to be done in
+  // ClientSession::Disconnect().
   connection->Disconnect();
 
   // Also remove reference to ConnectionToClient from this object.
   int old_authenticated_clients = AuthenticatedClientsCount();
-  clients_.erase(client);
+
 
   // Notify the observers of the change, if any.
   int authenticated_clients = AuthenticatedClientsCount();
@@ -404,6 +410,8 @@ void ChromotingHost::OnClientDisconnected(ConnectionToClient* connection) {
       desktop_environment_->OnLastDisconnect();
     }
   }
+
+  client->OnDisconnected();
 }
 
 // TODO(sergeyu): Move this to SessionManager?
