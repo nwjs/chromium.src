@@ -367,6 +367,13 @@ cr.define('cr.ui', function() {
     }
   };
 
+  /**
+   * Refreshes network drop-down. Should be called on language change.
+   */
+  DropDown.refresh = function() {
+    chrome.send('networkDropdownRefresh', []);
+  };
+
   return {
     DropDown: DropDown
   };

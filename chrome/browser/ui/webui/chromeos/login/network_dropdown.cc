@@ -98,8 +98,7 @@ NetworkDropdown::NetworkDropdown(WebUI *web_ui, gfx::NativeWindow parent_window)
   network_icon_.reset(
       new NetworkMenuIcon(this, NetworkMenuIcon::DROPDOWN_MODE));
   CrosLibrary::Get()->GetNetworkLibrary()->AddNetworkManagerObserver(this);
-  SetNetworkIconAndText();
-  network_menu_->UpdateMenu();
+  Refresh();
 }
 
 NetworkDropdown::~NetworkDropdown() {
@@ -132,6 +131,10 @@ bool NetworkDropdown::ShouldOpenButtonOptions() const {
 }
 
 void NetworkDropdown::OnNetworkManagerChanged(NetworkLibrary* cros) {
+  Refresh();
+}
+
+void NetworkDropdown::Refresh() {
   SetNetworkIconAndText();
   network_menu_->UpdateMenu();
 }
