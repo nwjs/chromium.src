@@ -133,8 +133,9 @@ void SigninScreenHandler::GetLocalizedStrings(
       l10n_util::GetStringUTF16(IDS_LOGIN_ERROR_ADD_USER_OFFLINE));
   localized_strings->SetString("offlineMessageTitle",
       l10n_util::GetStringUTF16(IDS_LOGIN_OFFLINE_TITLE));
+  // TODO(altimofeev): we don't want to change IDS, so we use the closest one.
   localized_strings->SetString("offlineMessageBody",
-      l10n_util::GetStringUTF16(IDS_LOGIN_OFFLINE_MESSAGE));
+      l10n_util::GetStringUTF16(IDS_IMAGEBURN_NO_CONNECTION_WARNING));
   localized_strings->SetString("captivePortalMessage",
         l10n_util::GetStringUTF16(IDS_LOGIN_MAYBE_CAPTIVE_PORTAL));
   localized_strings->SetString("createAccount",
