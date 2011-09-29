@@ -979,15 +979,10 @@ bool UpdateTabFunction::RunImpl() {
     tab_index = tab_strip->GetIndexOfTabContents(contents);
   }
 
-  if (has_callback()) {
-    if (GetExtension()->HasAPIPermission(ExtensionAPIPermission::kTab)) {
-      result_.reset(ExtensionTabUtil::CreateTabValue(contents->tab_contents(),
-                                                     tab_strip,
-                                                     tab_index));
-    } else {
-      result_.reset(Value::CreateNullValue());
-    }
-  }
+  if (has_callback())
+    result_.reset(ExtensionTabUtil::CreateTabValue(contents->tab_contents(),
+        tab_strip,
+        tab_index));
 
   SendResponse(true);
   return true;
