@@ -29,7 +29,7 @@ class PendingDialog {
  public:
   static void Add(int32 tab_id, FileManagerDialog* dialog);
   static void Remove(int32 tab_id);
-  static FileManagerDialog* Find(int32 tab_id);
+  static scoped_refptr<FileManagerDialog> Find(int32 tab_id);
 
  private:
   explicit PendingDialog(FileManagerDialog* dialog)
@@ -60,13 +60,13 @@ void PendingDialog::Remove(int32 tab_id) {
 }
 
 // static
-FileManagerDialog* PendingDialog::Find(int32 tab_id) {
+scoped_refptr<FileManagerDialog> PendingDialog::Find(int32 tab_id) {
   Map::const_iterator it = map_.find(tab_id);
   if (it == map_.end()) {
     LOG(WARNING) << "Pending dialog not found " << tab_id;
     return NULL;
   }
-  return it->second.dialog_.get();
+  return it->second.dialog_;
 }
 
 }  // namespace
@@ -119,7 +119,7 @@ void FileManagerDialog::Close() {
 // static
 void FileManagerDialog::OnFileSelected(
     int32 tab_id, const FilePath& path, int index) {
-  FileManagerDialog* self = PendingDialog::Find(tab_id);
+  scoped_refptr<FileManagerDialog> self = PendingDialog::Find(tab_id);
   if (self) {
     DCHECK(self->listener_);
     self->listener_->FileSelected(path, index, self->params_);
@@ -130,7 +130,7 @@ void FileManagerDialog::OnFileSelected(
 // static
 void FileManagerDialog::OnMultiFilesSelected(
     int32 tab_id, const std::vector<FilePath>& files) {
-  FileManagerDialog* self = PendingDialog::Find(tab_id);
+  scoped_refptr<FileManagerDialog> self = PendingDialog::Find(tab_id);
   if (self) {
     DCHECK(self->listener_);
     self->listener_->MultiFilesSelected(files, self->params_);
@@ -140,7 +140,7 @@ void FileManagerDialog::OnMultiFilesSelected(
 
 // static
 void FileManagerDialog::OnFileSelectionCanceled(int32 tab_id) {
-  FileManagerDialog* self = PendingDialog::Find(tab_id);
+  scoped_refptr<FileManagerDialog> self = PendingDialog::Find(tab_id);
   if (self) {
     DCHECK(self->listener_);
     self->listener_->FileSelectionCanceled(self->params_);
