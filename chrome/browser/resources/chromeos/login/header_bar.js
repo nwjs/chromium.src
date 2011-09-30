@@ -24,12 +24,8 @@ cr.define('login', function() {
         chrome.send('shutdownSystem');
       });
       $('add-user-button').addEventListener('click', function(e) {
-        if (window.navigator.onLine) {
-          Oobe.showSigninUI();
-        } else {
-          $('bubble').showTextForElement($('add-user-button'),
-              localStrings.getString('addUserOfflineMessage'));
-        }
+        chrome.send('loginRequestNetworkState',
+                    ['login.HeaderBar.updateState']);
       });
       $('cancel-add-user-button').addEventListener('click', function(e) {
         this.hidden = true;
@@ -38,6 +34,21 @@ cr.define('login', function() {
       });
     }
   };
+
+  /**
+   * Network state changed callback.
+   * @param {Integer} state Current state of the network: 0 - offline;
+   * 1 - online; 2 - under the captive portal.
+   */
+  HeaderBar.updateState = function(state) {
+    var isOffline = state == 0;
+    if (!isOffline) {
+      Oobe.showSigninUI();
+    } else {
+      $('bubble').showTextForElement($('add-user-button'),
+          localStrings.getString('addUserOfflineMessage'));
+    }
+  }
 
   return {
     HeaderBar: HeaderBar
