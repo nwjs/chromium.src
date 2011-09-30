@@ -48,6 +48,7 @@ const char* kName = "name";
 const char* kNaClModules = "nacl_modules";
 const char* kNaClModulesMIMEType = "mime_type";
 const char* kNaClModulesPath = "path";
+const char* kOfflineEnabled = "offline_enabled";
 const char* kOmnibox = "omnibox";
 const char* kOmniboxKeyword = "omnibox.keyword";
 const char* kOptionsPage = "options_page";

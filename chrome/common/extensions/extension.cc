@@ -1203,7 +1203,8 @@ bool Extension::EnsureNotHybridApp(const DictionaryValue* manifest,
         *key != keys::kApp &&
         *key != keys::kPermissions &&
         *key != keys::kOptionsPage &&
-        *key != keys::kBackground) {
+        *key != keys::kBackground &&
+        *key != keys::kOfflineEnabled) {
       *error = ExtensionErrorUtils::FormatErrorMessage(
           errors::kHostedAppsCannotIncludeExtensionFeatures, *key);
       return false;
