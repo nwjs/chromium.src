@@ -179,15 +179,20 @@ void FileManagerDialog::SelectFileImpl(
   GURL file_browser_url = FileManagerUtil::GetFileBrowserUrlWithParams(
       type, title, default_path, file_types, file_type_index,
       default_extension);
-  extension_dialog_ = ExtensionDialog::Show(file_browser_url,
+  ExtensionDialog* dialog = ExtensionDialog::Show(file_browser_url,
       owner_browser, kFileManagerWidth, kFileManagerHeight,
       this /* ExtensionDialog::Observer */);
+  if (!dialog) {
+    LOG(ERROR) << "Unable to create extension dialog";
+    return;
+  }
 
   // Connect our listener to FileDialogFunction's per-tab callbacks.
   TabContentsWrapper* tab = owner_browser->GetSelectedTabContentsWrapper();
   int32 tab_id = (tab ? tab->restore_tab_helper()->session_id().id() : 0);
   PendingDialog::Add(tab_id, this);
 
+  extension_dialog_ = dialog;
   params_ = params;
   tab_id_ = tab_id;
   owner_window_ = owner_window;

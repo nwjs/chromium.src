@@ -65,6 +65,8 @@ ExtensionDialog* ExtensionDialog::Show(
     return NULL;
   ExtensionHost* host = manager->CreateDialogHost(url, browser);
   DCHECK(host);
+  if (!host)
+    return NULL;
   return new ExtensionDialog(browser, host, width, height, observer);
 }
 
