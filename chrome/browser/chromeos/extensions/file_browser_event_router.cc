@@ -181,8 +181,12 @@ void ExtensionFileBrowserEventRouter::MountCompleted(
       event_type == chromeos::MountLibrary::MOUNTING) {
     chromeos::MountLibrary* mount_lib =
         chromeos::CrosLibrary::Get()->GetMountLibrary();
-    chromeos::MountLibrary::Disk* disk =
-        mount_lib->disks().find(mount_info.source_path)->second;
+    chromeos::MountLibrary::DiskMap::const_iterator disk_it =
+        mount_lib->disks().find(mount_info.source_path);
+    if (disk_it == mount_lib->disks().end()) {
+      return;
+    }
+    chromeos::MountLibrary::Disk* disk = disk_it->second;
 
     std::string notification_sys_path =
         disk->system_path().substr(0, disk->system_path().rfind("/block"));
