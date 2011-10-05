@@ -19,6 +19,9 @@ void InitCrashProcessInfo();
 // Is Breakpad enabled?
 bool IsCrashReporterEnabled();
 
+// Call on clean process shutdown.
+void DestructCrashReporter();
+
 #ifdef __OBJC__
 
 #include "base/memory/scoped_nsobject.h"

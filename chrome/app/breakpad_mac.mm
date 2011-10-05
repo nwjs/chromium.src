@@ -36,6 +36,13 @@ bool IsCrashReporterEnabled() {
   return gBreakpadRef != NULL;
 }
 
+void DestructCrashReporter() {
+  if (gBreakpadRef) {
+    BreakpadRelease(gBreakpadRef);
+    gBreakpadRef = NULL;
+  }
+}
+
 // Only called for a branded build of Chrome.app.
 void InitCrashReporter() {
   DCHECK(!gBreakpadRef);
