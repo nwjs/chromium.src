@@ -31,6 +31,7 @@ cr.define('login', function() {
         this.hidden = true;
         $('add-user-button').hidden = false;
         Oobe.showScreen({id: SCREEN_ACCOUNT_PICKER});
+        Oobe.resetSigninUI();
       });
     }
   };
