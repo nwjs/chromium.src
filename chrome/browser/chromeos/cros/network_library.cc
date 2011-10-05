@@ -4579,6 +4579,9 @@ void NetworkLibraryImplStub::Init() {
 
   ethernet_ = new EthernetNetwork("eth1");
   ethernet_->set_connected(true);
+  // Note: We need exactly one network connected and active, otherwise
+  // browser_tests sometimes conclude we are offline and fail.
+  ethernet_->set_is_active(true);
   AddNetwork(ethernet_);
 
   WifiNetwork* wifi1 = new WifiNetwork("fw1");
@@ -4586,7 +4589,6 @@ void NetworkLibraryImplStub::Init() {
   wifi1->set_strength(90);
   wifi1->set_connected(false);
   wifi1->set_connecting(true);
-  wifi1->set_is_active(true);
   wifi1->set_encryption(SECURITY_NONE);
   wifi1->set_profile_type(PROFILE_SHARED);
   AddNetwork(wifi1);
@@ -4640,7 +4642,6 @@ void NetworkLibraryImplStub::Init() {
   cellular1->set_strength(70);
   cellular1->set_connected(false);
   cellular1->set_connecting(true);
-  cellular1->set_is_active(true);
   cellular1->set_activation_state(ACTIVATION_STATE_ACTIVATED);
   cellular1->set_payment_url(std::string("http://www.google.com"));
   cellular1->set_usage_url(std::string("http://www.google.com"));
