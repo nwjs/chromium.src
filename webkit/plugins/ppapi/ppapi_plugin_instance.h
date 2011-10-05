@@ -345,6 +345,10 @@ class PluginInstance : public base::RefCounted<PluginInstance>,
 
   void DoSetCursor(WebKit::WebCursorInfo* cursor);
 
+  // Returns true if the WebView the plugin is in renders via the accelerated
+  // compositing path.
+  bool IsViewAccelerated();
+
   PluginDelegate* delegate_;
   scoped_refptr<PluginModule> module_;
   scoped_ptr< ::ppapi::PPP_Instance_Combined> instance_interface_;
