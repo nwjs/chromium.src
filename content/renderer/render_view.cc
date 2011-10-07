@@ -630,8 +630,7 @@ bool RenderView::OnMessageReceived(const IPC::Message& message) {
       return true;
 
   bool handled = true;
-  bool msg_is_ok = true;
-  IPC_BEGIN_MESSAGE_MAP_EX(RenderView, message, msg_is_ok)
+  IPC_BEGIN_MESSAGE_MAP(RenderView, message)
     IPC_MESSAGE_HANDLER(ViewMsg_Navigate, OnNavigate)
     IPC_MESSAGE_HANDLER(ViewMsg_Stop, OnStop)
     IPC_MESSAGE_HANDLER(ViewMsg_ReloadFrame, OnReloadFrame)
@@ -741,13 +740,6 @@ bool RenderView::OnMessageReceived(const IPC::Message& message) {
     // Have the super handle all other messages.
     IPC_MESSAGE_UNHANDLED(handled = RenderWidget::OnMessageReceived(message))
   IPC_END_MESSAGE_MAP()
-
-  if (!msg_is_ok) {
-    // The message had a handler, but its deserialization failed.
-    // Kill the renderer to avoid potential spoofing attacks.
-    CHECK(false) << "Unable to deserialize message in RenderView.";
-  }
-
   return handled;
 }
 
