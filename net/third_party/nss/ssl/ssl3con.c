@@ -2368,6 +2368,7 @@ ssl3_SendApplicationData(sslSocket *ss, const unsigned char *in,
 	}
 	toSend = PR_MIN(len - totalSent, MAX_FRAGMENT_LENGTH);
 	if (isBlockCipher &&
+	    ss->opt.enableFalseStart &&
 	    ss->ssl3.cwSpec->version <= SSL_LIBRARY_VERSION_3_1_TLS) {
 	    /*
 	     * We assume that block ciphers are used in CBC mode and send
