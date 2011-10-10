@@ -144,6 +144,22 @@ void CalculatePrintCanvasSize(const PrintMsg_Print_Params& print_params,
                                  print_params.desired_dpi));
 }
 
+bool PrintingNodeOrPdfFrame(const WebFrame* frame, WebNode* node) {
+  if (node)
+    return true;
+  std::string mime(frame->dataSource()->response().mimeType().utf8());
+  return mime == "application/pdf";
+}
+
+void SetMarginsForPDF(PrintMsg_Print_Params* settings) {
+  // This is the wrong way to do this.  But the pipeline for the right way is
+  // too long.  This will be removed soon. http://crbug.com/92000
+  settings->margin_top = 0;
+  settings->margin_left = 0;
+  settings->printable_size.set_width(settings->page_size.width());
+  settings->printable_size.set_height(settings->page_size.height());
+}
+
 // Get the margins option selected and set custom margins appropriately.
 void SetCustomMarginsIfSelected(const DictionaryValue& job_settings,
                                 PrintMsg_PrintPages_Params* settings) {
@@ -1018,6 +1034,8 @@ void PrintWebViewHelper::UpdatePrintableSizeInPrintParameters(
     WebNode* node,
     PrepareFrameAndViewForPrint* prepare,
     PrintMsg_Print_Params* params) {
+  if (PrintingNodeOrPdfFrame(frame, node))
+    return;
   PageSizeMargins page_layout_in_points;
   PrintWebViewHelper::GetPageSizeAndMarginsInPoints(frame, 0, *params,
                                                     &page_layout_in_points);
@@ -1104,7 +1122,7 @@ bool PrintWebViewHelper::InitPrintSettingsAndPrepareFrame(
 }
 
 bool PrintWebViewHelper::UpdatePrintSettings(
-    const DictionaryValue& job_settings, bool is_preview) {
+    const DictionaryValue& job_settings, bool generating_preview) {
   PrintMsg_PrintPages_Params settings;
 
   Send(new PrintHostMsg_UpdatePrintSettings(routing_id(),
@@ -1112,7 +1130,7 @@ bool PrintWebViewHelper::UpdatePrintSettings(
   if (settings.params.dpi < kMinDpi || !settings.params.document_cookie)
     return false;
 
-  if (is_preview) {
+  if (generating_preview) {
     // Validate expected print preview settings.
     if (!job_settings.GetString(printing::kPreviewUIAddr,
                                 &(settings.params.preview_ui_addr)) ||
@@ -1150,6 +1168,12 @@ bool PrintWebViewHelper::UpdatePrintSettings(
       header_footer_info_->SetString(printing::kSettingHeaderFooterTitle,
                                      settings.params.title);
     }
+  }
+
+  if ((is_preview_ && !generating_preview) ||
+      PrintingNodeOrPdfFrame(print_preview_context_.frame(),
+                             print_preview_context_.node())) {
+    SetMarginsForPDF(&settings.params);
   }
 
   print_pages_params_.reset(new PrintMsg_PrintPages_Params(settings));
@@ -1475,13 +1499,8 @@ bool PrintWebViewHelper::PrintPreviewContext::IsReadyToRender() const {
 }
 
 bool PrintWebViewHelper::PrintPreviewContext::IsModifiable() const {
-  // TODO(vandebo) I think this should only return false if the content is a
-  // PDF, just because we are printing a particular node does not mean it's
-  // a PDF (right?), we should check the mime type of the node.
-  if (node())
-    return false;
-  std::string mime(frame()->dataSource()->response().mimeType().utf8());
-  return mime != "application/pdf";
+  // The only kind of node we can print right now is a PDF node.
+  return !PrintingNodeOrPdfFrame(frame(), node());
 }
 
 bool PrintWebViewHelper::PrintPreviewContext::IsLastPageOfPrintReadyMetafile()
