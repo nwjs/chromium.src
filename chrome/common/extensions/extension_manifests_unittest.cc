@@ -207,7 +207,9 @@ TEST_F(ExtensionManifestTest, InitFromValueInvalid) {
     {"init_invalid_locale_empty.json", errors::kInvalidDefaultLocale},
     {"init_invalid_min_chrome_invalid.json",
         errors::kInvalidMinimumChromeVersion},
-    {"init_invalid_chrome_version_too_low.json", errors::kChromeVersionTooLow}
+    {"init_invalid_chrome_version_too_low.json", errors::kChromeVersionTooLow},
+    {"init_invalid_requirements_1.json", errors::kInvalidRequirements},
+    {"init_invalid_requirements_2.json", errors::kInvalidRequirement}
   };
 
   RunTestcases(testcases, arraysize(testcases));
@@ -244,6 +246,9 @@ TEST_F(ExtensionManifestTest, InitFromValueValid) {
 
   // Test with a minimum_chrome_version.
   extension = LoadAndExpectSuccess("init_valid_minimum_chrome.json");
+
+  // Test a hosted app with a requirements section.
+  extension = LoadAndExpectSuccess("init_valid_app_requirements.json");
 
   // Verify empty permission settings are considered valid.
   LoadAndExpectSuccess("init_valid_permissions_empty.json");

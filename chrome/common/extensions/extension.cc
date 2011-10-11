@@ -1175,7 +1175,9 @@ bool Extension::EnsureNotHybridApp(const DictionaryValue* manifest,
         *key != keys::kOptionalPermissions &&
         *key != keys::kOptionsPage &&
         *key != keys::kBackground &&
-        *key != keys::kOfflineEnabled) {
+        *key != keys::kOfflineEnabled &&
+        *key != keys::kMinimumChromeVersion &&
+        *key != keys::kRequirements) {
       *error = ExtensionErrorUtils::FormatErrorMessage(
           errors::kHostedAppsCannotIncludeExtensionFeatures, *key);
       return false;
@@ -2296,6 +2298,27 @@ bool Extension::InitFromValue(const DictionaryValue& source, int flags,
     if (!source.GetBoolean(keys::kOfflineEnabled, &offline_enabled_)) {
       *error = errors::kInvalidOfflineEnabled;
       return false;
+    }
+  }
+
+  // Initialize requirements (optional). Not actually persisted (they're only
+  // used by the store), but still validated.
+  if (source.HasKey(keys::kRequirements)) {
+    DictionaryValue* requirements_value = NULL;
+    if (!source.GetDictionary(keys::kRequirements, &requirements_value)) {
+      *error = errors::kInvalidRequirements;
+      return false;
+    }
+
+    for (DictionaryValue::key_iterator it = requirements_value->begin_keys();
+         it != requirements_value->end_keys(); ++it) {
+      DictionaryValue* requirement_value;
+      if (!requirements_value->GetDictionaryWithoutPathExpansion(
+          *it, &requirement_value)) {
+        *error = ExtensionErrorUtils::FormatErrorMessage(
+            errors::kInvalidRequirement, *it);
+        return false;
+      }
     }
   }
 
