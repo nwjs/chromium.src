@@ -37,9 +37,6 @@ class GaiaOAuthConsumer {
                                    const std::string& lsid,
                                    const std::string& auth) {}
   virtual void OnOAuthLoginFailure(const GoogleServiceAuthError& error) {}
-
-  virtual void OnOAuthRevokeTokenSuccess() {}
-  virtual void OnOAuthRevokeTokenFailure(const GoogleServiceAuthError& error) {}
 };
 
 #endif  // CHROME_BROWSER_NET_GAIA_GAIA_OAUTH_CONSUMER_H_

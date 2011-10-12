@@ -49,9 +49,6 @@ static const char kOAuth1LoginScope[] =
 static const char kUserInfoUrl[] =
     "https://www.googleapis.com/oauth2/v1/userinfo";
 
-static const char kRevokeTokenUrl[] =
-    "https://www.google.com/accounts/AuthSubRevokeToken";
-
 static const char kOAuthTokenCookie[] = "oauth_token";
 
 GaiaOAuthFetcher::GaiaOAuthFetcher(GaiaOAuthConsumer* consumer,
@@ -129,7 +126,7 @@ std::string GaiaOAuthFetcher::MakeOAuthLoginBody(
   parameters["service"] = service;
   parameters["source"] = source;
   std::string signed_request;
-  bool is_signed = OAuthRequestSigner::SignURL(
+  bool is_signed = OAuthRequestSigner::Sign(
       GURL(kOAuth1LoginScope),
       parameters,
       OAuthRequestSigner::HMAC_SHA1_SIGNATURE,
@@ -148,7 +145,7 @@ std::string GaiaOAuthFetcher::MakeOAuthGetAccessTokenBody(
     const std::string& oauth1_request_token) {
   OAuthRequestSigner::Parameters empty_parameters;
   std::string signed_request;
-  bool is_signed = OAuthRequestSigner::SignURL(
+  bool is_signed = OAuthRequestSigner::Sign(
       GURL(kOAuthGetAccessTokenUrl),
       empty_parameters,
       OAuthRequestSigner::HMAC_SHA1_SIGNATURE,
@@ -172,7 +169,7 @@ std::string GaiaOAuthFetcher::MakeOAuthWrapBridgeBody(
   parameters["wrap_token_duration"] = wrap_token_duration;
   parameters["wrap_scope"] = oauth2_scope;
   std::string signed_request;
-  bool is_signed = OAuthRequestSigner::SignURL(
+  bool is_signed = OAuthRequestSigner::Sign(
       GURL(kOAuthWrapBridgeUrl),
       parameters,
       OAuthRequestSigner::HMAC_SHA1_SIGNATURE,
@@ -450,48 +447,6 @@ void GaiaOAuthFetcher::StartUserInfo(const std::string& oauth2_access_token) {
   fetcher_->Start();
 }
 
-void GaiaOAuthFetcher::StartOAuthRevokeAccessToken(const std::string& token,
-                                                   const std::string& secret) {
-  DCHECK(!fetch_pending_) << "Tried to fetch two things at once!";
-
-  // Must outlive fetcher_.
-  request_body_ = "";
-
-  OAuthRequestSigner::Parameters empty_parameters;
-  std::string auth_header;
-  GURL url(kRevokeTokenUrl);
-  bool is_signed = OAuthRequestSigner::SignAuthHeader(
-      url,
-      empty_parameters,
-      OAuthRequestSigner::HMAC_SHA1_SIGNATURE,
-      OAuthRequestSigner::GET_METHOD,
-      "anonymous",
-      "anonymous",
-      token,
-      secret,
-      &auth_header);
-  DCHECK(is_signed);
-  request_headers_ = "Authorization: " + auth_header;
-  fetcher_.reset(CreateGaiaFetcher(getter_, url, request_body_,
-                                   request_headers_, false, this));
-  fetch_pending_ = true;
-  fetcher_->Start();
-}
-
-void GaiaOAuthFetcher::StartOAuthRevokeWrapToken(const std::string& token) {
-  DCHECK(!fetch_pending_) << "Tried to fetch two things at once!";
-
-  // Must outlive fetcher_.
-  request_body_ = "";
-
-  request_headers_ = "Authorization: Bearer " + token;
-  GURL url(kRevokeTokenUrl);
-  fetcher_.reset(CreateGaiaFetcher(getter_, url, request_body_,
-                                   request_headers_, false, this));
-  fetch_pending_ = true;
-  fetcher_->Start();
-}
-
 // static
 GoogleServiceAuthError GaiaOAuthFetcher::GenerateAuthError(
     const std::string& data,
@@ -662,18 +617,6 @@ void GaiaOAuthFetcher::OnOAuthWrapBridgeFetched(
   }
 }
 
-void GaiaOAuthFetcher::OnOAuthRevokeTokenFetched(
-    const std::string& data,
-    const net::URLRequestStatus& status,
-    int response_code) {
-  if (status.is_success() && response_code == RC_REQUEST_OK) {
-    consumer_->OnOAuthRevokeTokenSuccess();
-  } else {
-    LOG(ERROR) << "Token revocation failure " << response_code << ": " << data;
-    consumer_->OnOAuthRevokeTokenFailure(GenerateAuthError(data, status));
-  }
-}
-
 void GaiaOAuthFetcher::OnUserInfoFetched(
     const std::string& data,
     const net::URLRequestStatus& status,
@@ -707,8 +650,6 @@ void GaiaOAuthFetcher::OnURLFetchComplete(const URLFetcher* source,
     OnOAuthWrapBridgeFetched(data, status, response_code);
   } else if (url.spec() == kUserInfoUrl) {
     OnUserInfoFetched(data, status, response_code);
-  } else if (StartsWithASCII(url.spec(), kRevokeTokenUrl, true)) {
-    OnOAuthRevokeTokenFetched(data, status, response_code);
   } else {
     NOTREACHED();
   }
