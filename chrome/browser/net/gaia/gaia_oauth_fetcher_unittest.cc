@@ -74,6 +74,10 @@ class MockGaiaOAuthConsumer : public GaiaOAuthConsumer {
 
   MOCK_METHOD1(OnUserInfoSuccess, void(const std::string& email));
   MOCK_METHOD1(OnUserInfoFailure, void(const GoogleServiceAuthError& error));
+
+  MOCK_METHOD0(OnOAuthRevokeTokenSuccess, void());
+  MOCK_METHOD1(OnOAuthRevokeTokenFailure,
+               void(const GoogleServiceAuthError& error));
 };
 
 class MockGaiaOAuthFetcher : public GaiaOAuthFetcher {
@@ -200,7 +204,7 @@ TEST_F(GaiaOAuthFetcherTest, OAuthWrapBridge) {
 
   TestingProfile profile;
   MockGaiaOAuthFetcher oauth_fetcher(&consumer,
-                                     profile .GetRequestContext(),
+                                     profile.GetRequestContext(),
                                      &profile,
                                      "service_scope-0fL85iOi");
   EXPECT_CALL(oauth_fetcher, StartUserInfo(wrap_token)).Times(1);
@@ -228,7 +232,7 @@ TEST_F(GaiaOAuthFetcherTest, UserInfo) {
 
   TestingProfile profile;
   MockGaiaOAuthFetcher oauth_fetcher(&consumer,
-                                     profile .GetRequestContext(),
+                                     profile.GetRequestContext(),
                                      &profile,
                                      "service_scope-Nrj4LmgU");
 
@@ -240,4 +244,23 @@ TEST_F(GaiaOAuthFetcherTest, UserInfo) {
                                    RC_REQUEST_OK,
                                    cookies,
                                    data);
+}
+
+TEST_F(GaiaOAuthFetcherTest, OAuthRevokeToken) {
+  const std::string token = "1/OAuth2-Access_Token-nopqrstuvwxyz1234567890";
+  MockGaiaOAuthConsumer consumer;
+  EXPECT_CALL(consumer,
+              OnOAuthRevokeTokenSuccess()).Times(1);
+
+  TestingProfile profile;
+  MockGaiaOAuthFetcher oauth_fetcher(&consumer,
+                                     profile.GetRequestContext(),
+                                     &profile,
+                                     "service_scope-Nrj4LmgU");
+
+  net::ResponseCookies cookies;
+  net::URLRequestStatus status(net::URLRequestStatus::SUCCESS, 0);
+  GURL url(GaiaUrls::GetInstance()->oauth_revoke_token_url());
+  oauth_fetcher.OnURLFetchComplete(NULL, url, status,
+                                   RC_REQUEST_OK, cookies, std::string());
 }
