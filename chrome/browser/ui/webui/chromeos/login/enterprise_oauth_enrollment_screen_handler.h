@@ -37,7 +37,7 @@ class EnterpriseOAuthEnrollmentScreenHandler
   virtual void RegisterMessages() OVERRIDE;
 
   // Implements EnterpriseEnrollmentScreenActor:
-  virtual void SetController(Controller* controller);
+  virtual void SetController(Controller* controller) OVERRIDE;
   virtual void PrepareToShow() OVERRIDE;
   virtual void Show() OVERRIDE;
   virtual void Hide() OVERRIDE;
@@ -57,6 +57,8 @@ class EnterpriseOAuthEnrollmentScreenHandler
   // Implements GaiaOAuthConsumer:
   virtual void OnGetOAuthTokenFailure(
       const GoogleServiceAuthError& error) OVERRIDE;
+  virtual void OnOAuthGetAccessTokenSuccess(const std::string& token,
+                                            const std::string& secret) OVERRIDE;
   virtual void OnOAuthGetAccessTokenFailure(
       const GoogleServiceAuthError& error) OVERRIDE;
   virtual void OnOAuthWrapBridgeSuccess(const std::string& service_scope,
@@ -94,6 +96,9 @@ class EnterpriseOAuthEnrollmentScreenHandler
   // |action_on_browsing_data_removed_| once cookies are cleared.
   void ResetAuth();
 
+  // Starts asynchronous token revocation requests if there are tokens present.
+  void RevokeTokens();
+
   // Shows the screen.
   void DoShow();
 
@@ -109,6 +114,11 @@ class EnterpriseOAuthEnrollmentScreenHandler
   // This intentionally lives here and not in the controller, since it needs to
   // execute requests in the context of the profile that displays the webui.
   scoped_ptr<GaiaOAuthFetcher> oauth_fetcher_;
+
+  // Tokens currently held.
+  std::string access_token_;
+  std::string access_token_secret_;
+  std::string wrap_token_;
 
   // The browsing data remover instance currently active, if any.
   BrowsingDataRemover* browsing_data_remover_;
