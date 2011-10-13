@@ -617,9 +617,6 @@ TEST_F(TransportSecurityStateTest, Preloaded) {
                                        false));
 
   EXPECT_TRUE(state->IsEnabledForHost(&domain_state,
-                                      "cert.se",
-                                      false));
-  EXPECT_TRUE(state->IsEnabledForHost(&domain_state,
                                       "foo.cert.se",
                                       false));
 
@@ -646,9 +643,6 @@ TEST_F(TransportSecurityStateTest, Preloaded) {
 
   EXPECT_TRUE(state->IsEnabledForHost(&domain_state,
                                       "dropcam.com",
-                                      false));
-  EXPECT_TRUE(state->IsEnabledForHost(&domain_state,
-                                      "foo.dropcam.com",
                                       false));
 
   EXPECT_TRUE(state->IsEnabledForHost(&domain_state,
