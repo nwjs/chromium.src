@@ -325,7 +325,6 @@ void ChromeContentBrowserClient::AppendExtraCommandLineSwitches(
       switches::kExperimentalSpellcheckerFeatures,
       switches::kMemoryProfiling,
       switches::kMessageLoopHistogrammer,
-      switches::kNoRunningInsecureContent,
       switches::kPpapiFlashArgs,
       switches::kPpapiFlashInProcess,
       switches::kPpapiFlashPath,
