@@ -70,6 +70,7 @@ class ExternalExtensionProviderImpl
   static const char kExternalCrx[];
   static const char kExternalVersion[];
   static const char kExternalUpdateUrl[];
+  static const char kSupportedLocales[];
 
  private:
   // Location for external extensions that are provided by this provider from
