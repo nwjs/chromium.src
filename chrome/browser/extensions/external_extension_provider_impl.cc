@@ -10,6 +10,7 @@
 #include "base/path_service.h"
 #include "base/values.h"
 #include "base/version.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/external_extension_provider_interface.h"
 #include "chrome/browser/extensions/external_policy_extension_loader.h"
 #include "chrome/browser/extensions/external_pref_extension_loader.h"
