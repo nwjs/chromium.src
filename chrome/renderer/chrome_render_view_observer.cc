@@ -85,7 +85,6 @@ static const int kThumbnailHeight = 132;
 
 // Constants for UMA statistic collection.
 static const char kSSLInsecureContent[] = "SSL.InsecureContent";
-static const char kDotGoogleDotCom[] = ".google.com";
 static const char kWWWDotGoogleDotCom[] = "www.google.com";
 static const char kMailDotGoogleDotCom[] = "mail.google.com";
 static const char kPlusDotGoogleDotCom[] = "plus.google.com";
@@ -144,6 +143,11 @@ enum {
   INSECURE_CONTENT_NUM_EVENTS
 };
 
+// Constants for mixed-content blocking.
+static const char kGoogleDotCom[] = "google.com";
+static const char kFacebookDotCom[] = "facebook.com";
+static const char kTwitterDotCom[] = "twitter.com";
+
 static bool PaintViewIntoCanvas(WebView* view,
                                 skia::PlatformCanvas& canvas) {
   view->layout();
@@ -185,6 +189,13 @@ static FaviconURL::IconType ToFaviconType(WebIconURL::Type type) {
       return FaviconURL::INVALID_ICON;
   }
   return FaviconURL::INVALID_ICON;
+}
+
+static bool isHostInDomain(const std::string& host, const std::string& domain) {
+  return (EndsWith(host, domain, false) &&
+          (host.length() == domain.length() ||
+           (host.length() > domain.length() &&
+            host[host.length() - domain.length() - 1] == '.')));
 }
 
 namespace {
@@ -419,7 +430,7 @@ bool ChromeRenderViewObserver::allowDisplayingInsecureContent(
                             INSECURE_CONTENT_NUM_EVENTS);
   std::string host(origin.host().utf8());
   GURL frame_url(frame->document().url());
-  if (EndsWith(host, kDotGoogleDotCom, false)) {
+  if (isHostInDomain(host, kGoogleDotCom)) {
     UMA_HISTOGRAM_ENUMERATION(kSSLInsecureContent,
                               INSECURE_CONTENT_DISPLAY_HOST_GOOGLE,
                               INSECURE_CONTENT_NUM_EVENTS);
@@ -500,12 +511,16 @@ bool ChromeRenderViewObserver::allowRunningInsecureContent(
     bool allowed_per_settings,
     const WebKit::WebSecurityOrigin& origin,
     const WebKit::WebURL& url) {
+  // Single value to control permissive mixed content behaviour.
+  const bool enforce_insecure_content_on_all_domains = false;
+
   UMA_HISTOGRAM_ENUMERATION(kSSLInsecureContent,
                             INSECURE_CONTENT_RUN,
                             INSECURE_CONTENT_NUM_EVENTS);
   std::string host(origin.host().utf8());
   GURL frame_url(frame->document().url());
-  if (EndsWith(host, kDotGoogleDotCom, false)) {
+  bool is_google = isHostInDomain(host, kGoogleDotCom);
+  if (is_google) {
     UMA_HISTOGRAM_ENUMERATION(kSSLInsecureContent,
                               INSECURE_CONTENT_RUN_HOST_GOOGLE,
                               INSECURE_CONTENT_NUM_EVENTS);
@@ -591,8 +606,18 @@ bool ChromeRenderViewObserver::allowRunningInsecureContent(
                               INSECURE_CONTENT_NUM_EVENTS);
   }
 
-  if (allowed_per_settings || allow_running_insecure_content_)
+  if (allow_running_insecure_content_ || allowed_per_settings)
     return true;
+
+  if (!(enforce_insecure_content_on_all_domains ||
+        CommandLine::ForCurrentProcess()->HasSwitch(
+            switches::kNoRunningInsecureContent))) {
+    bool mandatory_enforcement = (is_google ||
+                                  isHostInDomain(host, kFacebookDotCom) ||
+                                  isHostInDomain(host, kTwitterDotCom));
+    if (!mandatory_enforcement)
+      return true;
+  }
 
   Send(new ChromeViewHostMsg_DidBlockRunningInsecureContent(routing_id()));
   return false;
