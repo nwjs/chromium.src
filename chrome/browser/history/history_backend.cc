@@ -91,7 +91,7 @@ static const int kArchiveDaysThreshold = 90;
 // Converts from PageUsageData to MostVisitedURL. |redirects| is a
 // list of redirects for this URL. Empty list means no redirects.
 MostVisitedURL MakeMostVisitedURL(const PageUsageData& page_data,
-                                           const RedirectList& redirects) {
+                                  const RedirectList& redirects) {
   MostVisitedURL mv;
   mv.url = page_data.GetURL();
   mv.title = page_data.GetTitle();
@@ -399,7 +399,28 @@ void HistoryBackend::AddPage(scoped_refptr<HistoryAddPageArgs> request) {
       PageTransition::StripQualifier(request->transition);
   bool is_keyword_generated = (transition == PageTransition::KEYWORD_GENERATED);
 
-  if (request->redirects.size() <= 1) {
+  // If the user is navigating to a not-previously-typed intranet hostname,
+  // change the transition to TYPED so that the omnibox will learn that this is
+  // a known host.
+  bool has_redirects = request->redirects.size() > 1;
+  if (PageTransition::IsMainFrame(request->transition) &&
+      (transition != PageTransition::TYPED) && !is_keyword_generated) {
+    const GURL& origin_url(has_redirects ?
+        request->redirects[0] : request->url);
+    if (origin_url.SchemeIs(chrome::kHttpScheme) ||
+        origin_url.SchemeIs(chrome::kHttpsScheme) ||
+        origin_url.SchemeIs(chrome::kFtpScheme)) {
+      std::string host(origin_url.host());
+      if ((net::RegistryControlledDomainService::GetRegistryLength(
+          host, false) == 0) && !db_->IsTypedHost(host)) {
+        transition = PageTransition::TYPED;
+        request->transition = PageTransition::FromInt(transition |
+            PageTransition::GetQualifier(request->transition));
+      }
+    }
+  }
+
+  if (!has_redirects) {
     // The single entry is both a chain start and end.
     PageTransition::Type t = request->transition |
         PageTransition::CHAIN_START | PageTransition::CHAIN_END;
