@@ -331,6 +331,9 @@
     # Whether to build for Wayland display server
     'use_wayland%': 0,
 
+    # Use system yasm instead of bundled one.
+    'use_system_yasm%': 0,
+
     # The release channel that this build targets. This is used to restrict
     # channel-specific build options, like which installer packages to create.
     # The default is 'all', which does no channel-specific filtering.
