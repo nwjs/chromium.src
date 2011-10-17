@@ -39,7 +39,7 @@ VideoRendererBase::VideoRendererBase()
 
 VideoRendererBase::~VideoRendererBase() {
   base::AutoLock auto_lock(lock_);
-  DCHECK(state_ == kUninitialized || state_ == kStopped);
+  DCHECK(state_ == kUninitialized || state_ == kStopped) << state_;
 }
 
 void VideoRendererBase::Play(FilterCallback* callback) {
@@ -97,7 +97,7 @@ void VideoRendererBase::SetPlaybackRate(float playback_rate) {
   playback_rate_ = playback_rate;
 }
 
-void VideoRendererBase::Seek(base::TimeDelta time, const FilterStatusCB&  cb) {
+void VideoRendererBase::Seek(base::TimeDelta time, const FilterStatusCB& cb) {
   bool run_callback = false;
 
   {
@@ -114,7 +114,6 @@ void VideoRendererBase::Seek(base::TimeDelta time, const FilterStatusCB&  cb) {
     if (state_ == kPrerolled) {
       // Already get enough buffers from decoder.
       run_callback = true;
-
     } else {
       // Otherwise we are either kFlushed or kSeeking, but without enough
       // buffers we should save the callback function and call it later.

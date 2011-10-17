@@ -178,7 +178,13 @@ void CompositeFilter::Stop(FilterCallback* stop_callback) {
       return;
   }
 
+  if (!status_cb_.is_null()) {
+    DCHECK_EQ(state_, kStopWhileSeekPending);
+    status_cb_.Reset();
+  }
+
   callback_.reset(callback.release());
+
   if (state_ == kStopPending) {
     StartSerialCallSequence();
   }

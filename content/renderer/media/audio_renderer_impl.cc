@@ -96,19 +96,28 @@ bool AudioRendererImpl::OnInitialize(const media::AudioDecoderConfig& config) {
 }
 
 void AudioRendererImpl::OnStop() {
-  base::AutoLock auto_lock(lock_);
-  if (stopped_)
-    return;
-  stopped_ = true;
+  // Since joining with the audio thread can acquire lock_, we make sure to
+  // Join() with it not under lock.
+  base::DelegateSimpleThread* audio_thread = NULL;
+  {
+    base::AutoLock auto_lock(lock_);
+    if (stopped_)
+      return;
+    stopped_ = true;
 
-  ChildProcess::current()->io_message_loop()->PostTask(
-      FROM_HERE,
-      NewRunnableMethod(this, &AudioRendererImpl::DestroyTask));
+    DCHECK_EQ(!audio_thread_.get(), !socket_.get());
+    if (socket_.get())
+      socket_->Close();
+    if (audio_thread_.get())
+      audio_thread = audio_thread_.get();
 
-  if (audio_thread_.get()) {
-    socket_->Close();
-    audio_thread_->Join();
+    ChildProcess::current()->io_message_loop()->PostTask(
+        FROM_HERE,
+        NewRunnableMethod(this, &AudioRendererImpl::DestroyTask));
   }
+
+  if (audio_thread)
+    audio_thread->Join();
 }
 
 void AudioRendererImpl::NotifyDataAvailableIfNecessary() {
