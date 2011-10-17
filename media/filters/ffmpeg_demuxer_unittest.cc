@@ -379,7 +379,7 @@ TEST_F(FFmpegDemuxerTest, Stop) {
 
   // The callback should be immediately deleted.  We'll use a checkpoint to
   // verify that it has indeed been deleted.
-  EXPECT_CALL(*callback, Run(NotNull()));
+  EXPECT_CALL(*callback, Run(IsEndOfStreamBuffer()));
   EXPECT_CALL(*callback, OnDelete());
   EXPECT_CALL(*this, CheckPoint(1));
 
