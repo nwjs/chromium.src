@@ -589,7 +589,7 @@ TEST_F(HistoryTest, MakeIntranetURLsTyped) {
   EXPECT_EQ(1, query_url_row_.visit_count());
   EXPECT_EQ(0, query_url_row_.typed_count());
   ASSERT_EQ(1U, query_url_visits_.size());
-  EXPECT_EQ(PageTransition::_AUTO_BOOKMARK,
+  EXPECT_EQ(PageTransition::AUTO_BOOKMARK,
             PageTransition::StripQualifier(query_url_visits_[0].transition));
 
   // Original URL.
