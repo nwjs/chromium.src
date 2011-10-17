@@ -158,6 +158,15 @@ void FFmpegDemuxerStream::Read(const ReadCallback& read_callback) {
   DCHECK(!read_callback.is_null());
 
   base::AutoLock auto_lock(lock_);
+  // Don't accept any additional reads if we've been told to stop.
+  // The demuxer_ may have been destroyed in the pipleine thread.
+  //
+  // TODO(scherkus): it would be cleaner if we replied with an error message.
+  if (stopped_) {
+    read_callback.Run(new DataBuffer(0));
+    return;
+  }
+
   if (!buffer_queue_.empty()) {
     // Dequeue a buffer send back.
     scoped_refptr<Buffer> buffer = buffer_queue_.front();
@@ -183,6 +192,7 @@ void FFmpegDemuxerStream::ReadTask(const ReadCallback& read_callback) {
   //
   // TODO(scherkus): it would be cleaner if we replied with an error message.
   if (stopped_) {
+    read_callback.Run(new DataBuffer(0));
     return;
   }
 
