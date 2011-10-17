@@ -56,9 +56,15 @@ class BufferedResourceLoader
   // |kPositionNotSpecified| for not specified.
   // |last_byte_position| - Last byte to be loaded,
   // |kPositionNotSpecified| for not specified.
+  // |strategy| is the initial loading strategy to use.
+  // |bitrate| is the bitrate of the media, 0 if unknown.
+  // |playback_rate| is the current playback rate of the media.
   BufferedResourceLoader(const GURL& url,
                          int64 first_byte_position,
                          int64 last_byte_position,
+                         DeferStrategy strategy,
+                         int bitrate,
+                         float playback_rate,
                          media::MediaLog* media_log);
 
   // Start the resource loading with the specified URL and range.
@@ -156,12 +162,24 @@ class BufferedResourceLoader
   // Sets the defer strategy to the given value.
   void UpdateDeferStrategy(DeferStrategy strategy);
 
+  // Sets the playback rate to the given value and updates buffer window
+  // accordingly.
+  void SetPlaybackRate(float playback_rate);
+
+  // Sets the bitrate to the given value and updates buffer window
+  // accordingly.
+  void SetBitrate(int bitrate);
+
  protected:
   friend class base::RefCountedThreadSafe<BufferedResourceLoader>;
   virtual ~BufferedResourceLoader();
 
  private:
+  friend class BufferedDataSourceTest2;
   friend class BufferedResourceLoaderTest;
+
+  // Updates the |buffer_|'s forward and backward capacities.
+  void UpdateBufferWindow();
 
   // Toggles whether the resource loading is deferred or not.
   // Returns true if a network event was fired.
@@ -271,6 +289,12 @@ class BufferedResourceLoader
 
   // Used to ensure mocks for unittests are used instead of reset in Start().
   bool keep_test_loader_;
+
+  // Bitrate of the media. Set to 0 if unknown.
+  int bitrate_;
+
+  // Playback rate of the media.
+  float playback_rate_;
 
   scoped_refptr<media::MediaLog> media_log_;
 

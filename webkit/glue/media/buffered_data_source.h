@@ -50,6 +50,7 @@ class BufferedDataSource : public WebDataSource {
   virtual bool GetSize(int64* size_out);
   virtual bool IsStreaming();
   virtual void SetPreload(media::Preload preload);
+  virtual void SetBitrate(int bitrate);
 
   // webkit_glue::WebDataSource implementation.
   virtual void Initialize(const std::string& url,
@@ -66,6 +67,8 @@ class BufferedDataSource : public WebDataSource {
       int64 first_byte_position, int64 last_byte_position);
 
  private:
+  friend class BufferedDataSourceTest2;
+
   // Posted to perform initialization on render thread and start resource
   // loading.
   void InitializeTask();
@@ -88,6 +91,9 @@ class BufferedDataSource : public WebDataSource {
 
   // This task saves the preload value for the media.
   void SetPreloadTask(media::Preload preload);
+
+  // Tells |loader_| the bitrate of the media.
+  void SetBitrateTask(int bitrate);
 
   // Decides which DeferStrategy to used based on the current state of the
   // BufferedDataSource.
@@ -210,6 +216,12 @@ class BufferedDataSource : public WebDataSource {
 
   // Number of cache miss retries left.
   int cache_miss_retries_left_;
+
+  // Bitrate of the content, 0 if unknown.
+  int bitrate_;
+
+  // Current playback rate.
+  float playback_rate_;
 
   scoped_refptr<media::MediaLog> media_log_;
 
