@@ -250,61 +250,41 @@ ContentSetting HostContentSettingsMap::GetContentSetting(
     const GURL& secondary_url,
     ContentSettingsType content_type,
     const std::string& resource_identifier) const {
+  scoped_ptr<base::Value> value(GetContentSettingValue(
+      primary_url, secondary_url, content_type, resource_identifier,
+      NULL, NULL));
+  return content_settings::ValueToContentSetting(value.get());
+}
+
+base::Value* HostContentSettingsMap::GetContentSettingValue(
+    const GURL& primary_url,
+    const GURL& secondary_url,
+    ContentSettingsType content_type,
+    const std::string& resource_identifier,
+    ContentSettingsPattern* primary_pattern,
+    ContentSettingsPattern* secondary_pattern) const {
   DCHECK_NE(CONTENT_SETTINGS_TYPE_COOKIES, content_type);
   DCHECK(content_settings::SupportsResourceIdentifier(content_type) ||
          resource_identifier.empty());
 
-  if (ShouldAllowAllContent(secondary_url, content_type))
-    return CONTENT_SETTING_ALLOW;
-
-  // Iterate through the list of providers and return the first non-NULL value
-  // that matches |primary_url| and |secondary_url|.
-  for (ConstProviderIterator provider = content_settings_providers_.begin();
-       provider != content_settings_providers_.end();
-       ++provider) {
-    ContentSetting provided_setting = content_settings::GetContentSetting(
-        provider->second, primary_url, secondary_url, content_type,
-        resource_identifier, is_off_the_record_);
-    if (provided_setting != CONTENT_SETTING_DEFAULT)
-      return provided_setting;
-  }
-  return CONTENT_SETTING_DEFAULT;
-}
-
-Value* HostContentSettingsMap::GetContentSettingValue(
-    const GURL& primary_url,
-    const GURL& secondary_url,
-    ContentSettingsType content_type,
-    const std::string& resource_identifier) const {
   // Check if the scheme of the requesting url is whitelisted.
   if (ShouldAllowAllContent(secondary_url, content_type))
     return Value::CreateIntegerValue(CONTENT_SETTING_ALLOW);
 
-  // First check if there are specific settings for the |primary_url| and
-  // |secondary_url|. The list of |content_settings_providers_| is ordered
-  // according to their priority.
+  // The list of |content_settings_providers_| is ordered according to their
+  // precedence.
   for (ConstProviderIterator provider = content_settings_providers_.begin();
        provider != content_settings_providers_.end();
        ++provider) {
-    // TODO(marja): Make DefaultProvider return NULL for
-    // CONTENT_SETTINGS_TYPE_AUTO_SELECT_CERTIFICATE, un-skip default provider
-    // here and remove the code below this loop.
-    if (provider->first == DEFAULT_PROVIDER)
-      continue;
-    base::Value* value = content_settings::GetContentSettingValue(
+    base::Value* value = content_settings::GetContentSettingValueAndPatterns(
         provider->second, primary_url, secondary_url, content_type,
-        resource_identifier, is_off_the_record_);
+        resource_identifier, is_off_the_record_,
+        primary_pattern, secondary_pattern);
     if (value)
       return value;
   }
 
-  // If no specific settings were found for the |primary_url|, |secondary_url|
-  // pair, then the default value for the given |content_type| should be
-  // returned. For CONTENT_SETTINGS_TYPE_AUTO_SELECT_CERTIFICATE the default is
-  // 'no filter available'. That's why we return |NULL| for this content type.
-  if (content_type == CONTENT_SETTINGS_TYPE_AUTO_SELECT_CERTIFICATE)
-    return NULL;
-  return Value::CreateIntegerValue(GetDefaultContentSetting(content_type));
+  return NULL;
 }
 
 ContentSettings HostContentSettingsMap::GetContentSettings(
