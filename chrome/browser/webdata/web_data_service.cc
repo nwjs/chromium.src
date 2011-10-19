@@ -737,9 +737,9 @@ void WebDataService::GetKeywordsImpl(WebDataRequest* request) {
     WDKeywordsResult result;
     db_->GetKeywordTable()->GetKeywords(&result.keywords);
     result.default_search_provider_id =
-        db_->GetKeywordTable()->GetDefaulSearchProviderID();
+        db_->GetKeywordTable()->GetDefaultSearchProviderID();
     result.builtin_keyword_version =
-        db_->GetKeywordTable()->GetBuitinKeywordVersion();
+        db_->GetKeywordTable()->GetBuiltinKeywordVersion();
     request->SetResult(
         new WDResult<WDKeywordsResult>(KEYWORDS_RESULT, result));
   }
@@ -763,7 +763,7 @@ void WebDataService::SetBuiltinKeywordVersionImpl(
     GenericRequest<int>* request) {
   InitializeDatabaseIfNecessary();
   if (db_ && !request->IsCancelled(NULL)) {
-    if (!db_->GetKeywordTable()->SetBuitinKeywordVersion(request->arg())) {
+    if (!db_->GetKeywordTable()->SetBuiltinKeywordVersion(request->arg())) {
       NOTREACHED();
       return;
     }
