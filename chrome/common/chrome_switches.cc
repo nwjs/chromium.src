@@ -334,9 +334,6 @@ const char kDisableSyncPreferences[]        = "disable-sync-preferences";
 // Disable syncing of themes.
 const char kDisableSyncThemes[]             = "disable-sync-themes";
 
-// Disable syncing browser typed urls.
-const char kDisableSyncTypedUrls[]           = "disable-sync-typed-urls";
-
 // TabCloseableStateWatcher disallows closing of tabs and browsers under certain
 // situations on ChromeOS.  Some tests expect tabs or browsers to close, so we
 // need a switch to disable the watcher.
@@ -519,6 +516,9 @@ const char kEnableSyncSessions[]            = "enable-sync-sessions";
 // Enable syncing browser sessions for other synced clients.
 const char kEnableSyncSessionsForOtherClients[] =
     "enable-sync-sessions-for-other-clients";
+
+// Enable syncing browser typed urls.
+const char kEnableSyncTypedUrls[]           = "enable-sync-typed-urls";
 
 // Enables context menu for selecting groups of tabs.
 const char kEnableTabGroupsContextMenu[]     = "enable-tab-groups-context-menu";
