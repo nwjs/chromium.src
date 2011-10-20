@@ -61,9 +61,6 @@ class SyncPromoHandler : public SyncSetupHandler {
   // Record a user's flow through the promo to our histogram in UMA.
   void RecordUserFlowAction(int action);
 
-  // Returns true if the promo is displayed as a welcome page.
-  bool IsWelcomePage();
-
   // Use this to register for certain notifications (currently when tabs or
   // windows close).
   NotificationRegistrar registrar_;
