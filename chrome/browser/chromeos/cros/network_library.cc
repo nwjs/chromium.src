@@ -988,10 +988,16 @@ CellularNetwork::CellularNetwork(const std::string& service_path)
 CellularNetwork::~CellularNetwork() {
 }
 
-bool CellularNetwork::StartActivation() const {
+bool CellularNetwork::StartActivation() {
   if (!EnsureCrosLoaded())
     return false;
-  return chromeos::ActivateCellularModem(service_path().c_str(), NULL);
+  if (!chromeos::ActivateCellularModem(service_path().c_str(), NULL))
+    return false;
+  // Don't wait for flimflam to tell us that we are really activating since
+  // other notifications in the message loop might cause us to think that
+  // the process hasn't started yet.
+  activation_state_ = ACTIVATION_STATE_ACTIVATING;
+  return true;
 }
 
 void CellularNetwork::RefreshDataPlansIfNeeded() const {
