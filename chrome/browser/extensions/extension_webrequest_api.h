@@ -25,6 +25,7 @@
 class ExtensionInfoMap;
 class ExtensionWebRequestTimeTracker;
 class GURL;
+class RenderProcessHost;
 
 namespace base {
 class DictionaryValue;
@@ -408,5 +409,10 @@ class WebRequestHandlerBehaviorChanged : public AsyncExtensionFunction {
   DECLARE_EXTENSION_FUNCTION_NAME(
       "experimental.webRequest.handlerBehaviorChanged");
 };
+
+// Send updates to |host| with information about what webRequest-related
+// extensions are installed.
+// TODO(mpcomplete): remove. http://crbug.com/100411
+void SendExtensionWebRequestStatusToHost(RenderProcessHost* host);
 
 #endif  // CHROME_BROWSER_EXTENSIONS_EXTENSION_WEBREQUEST_API_H_
