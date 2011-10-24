@@ -279,6 +279,12 @@ bool PhoneNumbersMatch(const string16& number_a,
 PhoneObject::PhoneObject(const string16& number, const std::string& locale)
     : locale_(SanitizeLocaleCode(locale)),
       i18n_number_(NULL) {
+  // TODO(isherman): Autofill profiles should always have a |locale| set, but in
+  // some cases it should be marked as implicit.  Otherwise, phone numbers
+  // might behave differently when they are synced across computers:
+  // [ http://crbug.com/100845 ].  Once the bug is fixed, add a DCHECK here to
+  // verify.
+
   scoped_ptr<i18n::phonenumbers::PhoneNumber>
       i18n_number(new i18n::phonenumbers::PhoneNumber);
   if (ParsePhoneNumberInternal(number, locale_, &country_code_, &city_code_,
