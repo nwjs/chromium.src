@@ -6,7 +6,6 @@
 #define CHROME_BROWSER_UI_WEBUI_NTP_NEW_TAB_PAGE_HANDLER_H_
 
 #include "base/values.h"
-#include "chrome/common/chrome_notification_types.h"
 #include "content/browser/webui/web_ui.h"
 
 class PrefService;
@@ -40,11 +39,8 @@ class NewTabPageHandler : public WebUIMessageHandler {
   // message is displayed.
   void HandleIntroMessageSeen(const ListValue* args);
 
-  // Register NTP per-profile preferences.
+  // Register NTP preferences.
   static void RegisterUserPrefs(PrefService* prefs);
-
-  // Register NTP profile-independent preferences.
-  static void RegisterPrefs(PrefService* prefs);
 
   // Registers values (strings etc.) for the page.
   static void GetLocalizedValues(Profile* profile, DictionaryValue* values);
@@ -67,7 +63,7 @@ class NewTabPageHandler : public WebUIMessageHandler {
   };
 
   // Helper to send out promo resource change notification.
-  void Notify(chrome::NotificationType notification_type);
+  void NotifyPromoResourceChanged();
 
   DISALLOW_COPY_AND_ASSIGN(NewTabPageHandler);
 };
