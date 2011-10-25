@@ -176,6 +176,10 @@ cr.define('options', function() {
                 $('sync-status').classList.remove('sync-error');
     },
 
+    setCustomizeSyncButtonEnabled_: function(enabled) {
+      $('customize-sync').disabled = !enabled;
+    },
+
     setSyncActionLinkEnabled_: function(enabled) {
       $('sync-action-link').disabled = !enabled;
     },
@@ -315,6 +319,7 @@ cr.define('options', function() {
   [
     'hideSyncSection',
     'setAutoLoginVisible',
+    'setCustomizeSyncButtonEnabled',
     'setGtkThemeButtonEnabled',
     'setProfilesInfo',
     'setProfilesSectionVisible',
