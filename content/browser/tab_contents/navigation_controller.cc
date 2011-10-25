@@ -670,7 +670,7 @@ content::NavigationType NavigationController::ClassifyNavigation(
     // Because the unknown entry has committed, we risk showing the wrong URL in
     // release builds. Instead, we'll kill the renderer process to be safe.
     LOG(ERROR) << "terminating renderer for bad navigation: " << params.url;
-    UserMetrics::RecordAction(UserMetricsAction("BadMessageTerminate_NC"));
+    UserMetrics::RecordAction(UserMetricsAction("BadMessageTerminate_NC17"));
     if (tab_contents_->GetSiteInstance()->HasProcess())
       tab_contents_->GetSiteInstance()->GetProcess()->ReceivedBadMessage();
     return content::NAVIGATION_TYPE_NAV_IGNORE;
