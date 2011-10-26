@@ -221,7 +221,7 @@ void BackgroundPrintingManager::RemoveFromTabStrip(TabContentsWrapper* tab) {
 
 void BackgroundPrintingManager::DeletePreviewTab(TabContentsWrapper* tab) {
   registrar_.Remove(this, chrome::NOTIFICATION_PRINT_JOB_RELEASED,
-                    content::Source<TabContentsWrapper>(tab));
+                    Source<TabContentsWrapper>(tab));
   printing_tabs_.erase(tab);
   printing_tabs_pending_deletion_.insert(tab);
   MessageLoop::current()->DeleteSoon(FROM_HERE, tab);
