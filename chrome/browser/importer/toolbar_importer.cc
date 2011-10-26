@@ -70,8 +70,6 @@ void Toolbar5Importer::StartImport(
 
   bridge_ = bridge;
   items_to_import_ = items;
-  DCHECK(source_profile.request_context_getter);
-  request_context_getter_ = source_profile.request_context_getter;
   state_ = INITIALIZED;
 
   bridge_->NotifyStarted();
@@ -211,8 +209,9 @@ void Toolbar5Importer::GetAuthenticationFromServer() {
                      random_string);
   GURL url(url_string);
 
-  token_fetcher_ = new URLFetcher(url, URLFetcher::GET, this);
-  token_fetcher_->set_request_context(request_context_getter_.get());
+  token_fetcher_ = new  URLFetcher(url, URLFetcher::GET, this);
+  token_fetcher_->set_request_context(
+      Profile::Deprecated::GetDefaultRequestContext());
   token_fetcher_->Start();
 }
 
@@ -245,7 +244,8 @@ void Toolbar5Importer::GetBookmarkDataFromServer(const std::string& response) {
   GURL url(conn_string);
 
   data_fetcher_ = new URLFetcher(url, URLFetcher::GET, this);
-  data_fetcher_->set_request_context(request_context_getter_.get());
+  data_fetcher_->set_request_context(
+      Profile::Deprecated::GetDefaultRequestContext());
   data_fetcher_->Start();
 }
 

@@ -59,8 +59,7 @@ void ImportDataHandler::GetLocalizedValues(DictionaryValue* localized_strings) {
 }
 
 void ImportDataHandler::Initialize() {
-  Profile* profile = Profile::FromWebUI(web_ui_);
-  importer_list_ = new ImporterList(profile->GetRequestContext());
+  importer_list_ = new ImporterList;
   importer_list_->DetectSourceProfiles(this);
 }
 
