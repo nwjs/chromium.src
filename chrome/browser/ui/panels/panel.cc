@@ -527,6 +527,11 @@ void Panel::ShowAvatarBubble(TabContents* tab_contents, const gfx::Rect& rect) {
   NOTREACHED();
 }
 
+void Panel::ShowAvatarBubbleFromAvatarButton() {
+  // Panels will never show an avatar button so this should never be called.
+  NOTREACHED();
+}
+
 void Panel::Observe(int type,
                     const NotificationSource& source,
                     const NotificationDetails& details) {

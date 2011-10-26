@@ -167,6 +167,7 @@ class Panel : public BrowserWindow, public NotificationObserver {
                                    const gfx::Size& pref_size) OVERRIDE;
   virtual void ShowAvatarBubble(TabContents* tab_contents,
                                 const gfx::Rect& rect) OVERRIDE;
+  virtual void ShowAvatarBubbleFromAvatarButton() OVERRIDE;
 
   // NotificationObserver overrides.
   virtual void Observe(int type,
