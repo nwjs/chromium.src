@@ -3195,6 +3195,15 @@ void Browser::TabInsertedAt(TabContentsWrapper* contents,
 void Browser::TabClosingAt(TabStripModel* tab_strip_model,
                            TabContentsWrapper* contents,
                            int index) {
+  if (fullscreened_tab_ == contents) {
+    ExitTabbedFullscreenModeIfNecessary();
+    // The call to exit fullscreen may result in asynchronous notification of
+    // fullscreen state change (e.g., on Linux). We don't want to rely on it
+    // to call NotifyTabOfFullscreenExitIfNecessary(), because at that point
+    // |fullscreen_tab_| may not be valid. Instead, we call it here to clean up
+    // tab fullscreen related state.
+    NotifyTabOfFullscreenExitIfNecessary();
+  }
   NotificationService::current()->Notify(
       content::NOTIFICATION_TAB_CLOSING,
       Source<NavigationController>(&contents->controller()),
