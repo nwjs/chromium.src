@@ -306,6 +306,7 @@ void WebstoreInlineInstaller::OnWebstoreResponseParseSuccess(
 
   scoped_refptr<WebstoreInstallHelper> helper = new WebstoreInstallHelper(
       this,
+      id_,
       manifest,
       "", // We don't have any icon data.
       icon_url,
@@ -322,6 +323,7 @@ void WebstoreInlineInstaller::OnWebstoreResponseParseFailure(
 }
 
 void WebstoreInlineInstaller::OnWebstoreParseSuccess(
+    const std::string& id,
     const SkBitmap& icon,
     base::DictionaryValue* manifest) {
   // Check if the tab has gone away in the meantime.
@@ -330,6 +332,7 @@ void WebstoreInlineInstaller::OnWebstoreParseSuccess(
     return;
   }
 
+  CHECK_EQ(id_, id);
   manifest_.reset(manifest);
   icon_ = icon;
 
@@ -358,6 +361,7 @@ void WebstoreInlineInstaller::OnWebstoreParseSuccess(
 }
 
 void WebstoreInlineInstaller::OnWebstoreParseFailure(
+    const std::string& id,
     InstallHelperResultCode result_code,
     const std::string& error_message) {
   CompleteInstall(error_message);
@@ -379,11 +383,11 @@ void WebstoreInlineInstaller::InstallUIProceed() {
 
   Profile* profile = Profile::FromBrowserContext(
       tab_contents()->browser_context());
-
-  WebstoreInstaller* installer =
-      profile->GetExtensionService()->webstore_installer();
-  installer->InstallExtension(id_, NULL,
-                              WebstoreInstaller::FLAG_INLINE_INSTALL);
+  
+  scoped_refptr<WebstoreInstaller> installer = new WebstoreInstaller(
+      profile, NULL, &(tab_contents()->controller()), id_,
+      WebstoreInstaller::FLAG_INLINE_INSTALL);
+  installer->Start();
 
   // TODO(mihaip): the success message should happen later, when the extension
   // is actually downloaded and installed (by using the callbacks on
