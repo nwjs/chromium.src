@@ -2744,7 +2744,8 @@ void ExtensionService::OnExternalExtensionFileFound(
          const std::string& id,
          const Version* version,
          const FilePath& path,
-         Extension::Location location) {
+         Extension::Location location,
+         int creation_flags) {
   CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   CHECK(Extension::IdIsValid(id));
   if (extension_prefs_->IsExternalExtensionUninstalled(id))
@@ -2779,6 +2780,7 @@ void ExtensionService::OnExternalExtensionFileFound(
   installer->set_expected_id(id);
   installer->set_expected_version(*version);
   installer->set_install_cause(extension_misc::INSTALL_CAUSE_EXTERNAL_FILE);
+  installer->set_creation_flags(creation_flags);
   installer->InstallCrx(path);
 }
 

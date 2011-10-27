@@ -513,7 +513,8 @@ class ExtensionService
   virtual void OnExternalExtensionFileFound(const std::string& id,
                                             const Version* version,
                                             const FilePath& path,
-                                            Extension::Location location)
+                                            Extension::Location location,
+                                            int creation_flags)
       OVERRIDE;
 
   virtual void OnExternalExtensionUpdateUrlFound(const std::string& id,
