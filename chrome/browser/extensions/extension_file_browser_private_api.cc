@@ -1682,8 +1682,6 @@ bool FileDialogStringsFunction::RunImpl() {
   dict->SetString("PLAY_MEDIA",
       l10n_util::GetStringUTF16(IDS_CONTENT_CONTEXT_PLAY));
 #if defined(OS_CHROMEOS)
-  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableArchives))
-    dict->SetString("ENABLE_ARCHIVES", "true");
 #endif
 
   return true;

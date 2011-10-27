@@ -316,7 +316,6 @@ extern const char kStubCros[];
 extern const char kScreenSaverUrl[];
 extern const char kCompressSystemFeedback[];
 extern const char kAuthExtensionPath[];
-extern const char kEnableArchives[];
 #ifndef NDEBUG
 extern const char kOobeSkipPostLogin[];
 #endif
