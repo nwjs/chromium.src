@@ -11,11 +11,11 @@
 #include "chrome/browser/prefs/pref_notifier.h"
 #include "chrome/browser/prefs/scoped_user_pref_update.h"
 #include "chrome/common/chrome_notification_types.h"
+#include "chrome/common/url_constants.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/url_pattern.h"
 #include "chrome/common/pref_names.h"
-#include "chrome/common/url_constants.h"
-#include "content/public/browser/notification_service.h"
+#include "content/common/notification_service.h"
 
 using base::Time;
 
@@ -587,14 +587,8 @@ bool ExtensionPrefs::SetAlertSystemFirstRun() {
 }
 
 bool ExtensionPrefs::IsExtensionAllowedByPolicy(
-    const std::string& extension_id,
-    Extension::Location location) {
+    const std::string& extension_id) {
   std::string string_value;
-
-  if (location == Extension::COMPONENT ||
-      location == Extension::EXTERNAL_POLICY_DOWNLOAD) {
-    return true;
-  }
 
   const ListValue* blacklist =
       prefs_->GetList(prefs::kExtensionInstallDenyList);
