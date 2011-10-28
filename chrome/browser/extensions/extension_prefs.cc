@@ -587,8 +587,14 @@ bool ExtensionPrefs::SetAlertSystemFirstRun() {
 }
 
 bool ExtensionPrefs::IsExtensionAllowedByPolicy(
-    const std::string& extension_id) {
+    const std::string& extension_id,
+    Extension::Location location) {
   std::string string_value;
+
+  if (location == Extension::COMPONENT ||
+      location == Extension::EXTERNAL_POLICY_DOWNLOAD) {
+    return true;
+  }
 
   const ListValue* blacklist =
       prefs_->GetList(prefs::kExtensionInstallDenyList);
