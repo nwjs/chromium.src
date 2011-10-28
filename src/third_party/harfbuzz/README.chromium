@@ -1,0 +1,18 @@
+Name: harfbuzz
+Short Name: harfbuzz
+URL: http://anongit.freedesktop.org/git/harfbuzz.old.git
+Version: 0
+Date: 20110808
+Revision: d10a264823e81631336bab37f08a52cc243d3654
+Security Critical: yes
+
+Description:
+"Harfbuzz is an OpenType text shaping engine."
+Read http://behdad.org/text/ if you dare learn more.
+This code was taken from d10a264823e81631336bab37f08a52cc243d3654
+(git://anongit.freedesktop.org/harfbuzz)
+
+The patch in chromium.patch was applied on top of this; I will talk with
+upstream about it.  (Note that chromium.patch is just a record of our
+changes against upstream; you must also apply any changes that you make to
+the checked-in copy of the source.)

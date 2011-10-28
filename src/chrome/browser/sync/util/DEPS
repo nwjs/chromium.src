@@ -1,0 +1,24 @@
+include_rules = [
+  "-chrome",
+
+  "+chrome/browser/sync/protocol",
+  "+chrome/browser/sync/sessions",
+  "+chrome/browser/sync/syncable",
+  "+chrome/browser/sync/util",
+
+  # this file is weird.
+  "+chrome/browser/sync/engine/syncproto.h",
+
+  # unittests need this for mac osx keychain overriding
+  "+chrome/browser/password_manager/encryptor.h",
+
+  # ExtensionsActivityMonitor
+  "+chrome/browser/bookmarks/bookmark_extension_api.h",
+  "+chrome/common/extensions",
+  "+chrome/common/chrome_notification_types.h",
+
+  "+chrome/common/chrome_switches.h",
+  "+chrome/common/net/gaia/gaia_constants.h",
+  "+chrome/common/random.h",
+]
+

@@ -1,0 +1,22 @@
+include_rules = [
+  "-chrome",
+
+  "+chrome/test/base",
+
+  "+chrome/browser/sync/notifier",
+  "+chrome/browser/sync/syncable/model_type.h",
+  "+chrome/browser/sync/syncable/model_type_payload_map.h",
+  "+chrome/browser/sync/protocol/service_constants.h",
+  "+chrome/browser/sync/util",
+
+  "+chrome/common/chrome_switches.h",
+  "+google/cacheinvalidation",
+  "+jingle/notifier",
+
+  # unit tests depend on talk/base.
+  "+talk/base",
+  # sync_notifier depends on the xmpp part of libjingle.
+  "+talk/xmpp",
+
+  "-chrome/browser/sync/internal_api",
+]

@@ -1,0 +1,713 @@
+/*
+ * Copyright (c) 2011 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
+body {
+  margin: 0;
+  -webkit-user-select: none;
+  font-family: Open Sans,Droid Sans Fallback,sans-serif;
+  font-size: 84%;
+}
+
+.gallery {
+  background: black;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Close button */
+.gallery > .close {
+  position: absolute;
+  right: 5px;
+  top: 5px;
+  cursor: pointer;
+  z-index: 200;
+}
+
+/* The close icon is in a nested div so that its opacity can be manipulated
+   independently from its parent (which can be dimmed when the crop frame
+   overlaps it) */
+.gallery > .close div {
+  opacity: 0;
+  width: 20px;
+  height: 20px;
+  background-image: url(../../images/gallery/close_x.png);
+  background-repeat: no-repeat;
+  background-position: center center;
+}
+
+.gallery[tools] > .close div {
+  opacity: 0.5;
+}
+
+.gallery[tools] > .close div:hover {
+  opacity: 0.7;
+  background-color: rgba(81,81,81,1);
+}
+
+/* Image container and canvas elements */
+
+.gallery > .image-container {
+  position: absolute;
+  height: 100%;
+  width: 100%;
+  background-color: rgba(0,0,0,1);
+  cursor: none;   /* Only visible when the toolbar is active */
+}
+
+.gallery[tools][locked] *,
+.gallery[tools][locked] .image-container[cursor] {
+  cursor: wait;
+}
+
+.gallery[tools] .image-container[cursor='default'] {
+  cursor: default;
+}
+
+.gallery[tools] .image-container[cursor='move'] {
+  cursor: url(../../images/gallery/cursor_move.png) 18 18;
+}
+
+.gallery[tools] .image-container[cursor='crop'] {
+  cursor: url(../../images/gallery/cursor_crop.png) 18 18;
+}
+
+.gallery[tools] .image-container[cursor='n-resize'],
+.gallery[tools] .image-container[cursor='s-resize'] {
+  cursor: url(../../images/gallery/cursor_updown.png) 18 18;
+}
+
+.gallery[tools] .image-container[cursor='e-resize'],
+.gallery[tools] .image-container[cursor='w-resize'] {
+  cursor: url(../../images/gallery/cursor_leftright.png) 18 18;
+}
+
+.gallery[tools] .image-container[cursor='nw-resize'],
+.gallery[tools] .image-container[cursor='se-resize'] {
+  cursor: url(../../images/gallery/cursor_nwse.png) 18 18;
+}
+
+.gallery[tools] .image-container[cursor='ne-resize'],
+.gallery[tools] .image-container[cursor='sw-resize'] {
+  cursor: url(../../images/gallery/cursor_swne.png) 18 18;
+}
+
+.gallery > .image-container > canvas {
+  position: absolute;
+  pointer-events: none;
+
+  -webkit-transition-property: -webkit-transform, opacity;
+  -webkit-transition-timing-function: ease-in-out;
+  /* -webkit-transition-duration is set in image_view.js*/
+}
+
+.gallery > .image-container > canvas[fade] {
+  opacity: 0;
+}
+
+.gallery > .image-container > canvas[fade='left'] {
+  -webkit-transform: translate(-40px,0);
+}
+
+.gallery > .image-container > canvas[fade='right'] {
+  -webkit-transform: translate(40px,0);
+}
+
+/* Toolbar */
+
+.gallery > .toolbar {
+  position: absolute;
+  bottom: 0px;
+  width: 100%;
+  height: 55px;
+  display: -webkit-box;
+  -webkit-box-orient: horizontal;
+  -webkit-box-pack: start;
+  -webkit-box-align: stretch;
+  background-color: rgba(18,18,18,0.75);
+  border-top: 1px solid rgba(31,31,31,0.75);
+
+  pointer-events: none;
+  opacity: 0;
+  -webkit-transform: translate(0, 0px);
+
+  -webkit-transition-property: webkit-transform, opacity;
+  -webkit-transition-duration: 220ms;
+  -webkit-transition-timing-function: ease;
+}
+
+.gallery[tools] > .toolbar {
+  pointer-events: auto;
+  opacity: 1;
+  -webkit-transform: translate(0, 0);
+}
+
+.gallery[tools][locked] > .toolbar {
+  pointer-events: none;
+}
+
+.gallery .arrow-box {
+  position: absolute;
+  z-index: 100;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  display: -webkit-box;
+  -webkit-box-orient: horizontal;
+  -webkit-box-align: center;
+  -webkit-box-pack: center;
+}
+
+.gallery .arrow-box .arrow {
+  pointer-events: none;
+}
+
+.gallery .arrow-box .arrow-spacer {
+  -webkit-box-flex: 1;
+  pointer-events: none;
+}
+
+.gallery[tools] .arrow[active] {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+/* The arrow icons are in nested divs so that their opacity can be manipulated
+   independently from their parent (which can be dimmed when the crop frame
+   overlaps it) */
+.gallery .arrow div{
+  width: 105px;
+  height: 193px;
+  background-repeat: no-repeat;
+  background-position: center center;
+  opacity: 0;
+}
+
+.gallery[tools] .arrow[active] div{
+  opacity: 0.17;
+}
+
+.gallery[tools] .arrow[active] div:hover{
+  opacity: 1;
+}
+
+.gallery .arrow.left div{
+  background-image: url(../../images/gallery/arrow_left.png);
+}
+
+.gallery .arrow.right div{
+  background-image: url(../../images/gallery/arrow_right.png);
+}
+
+/* Special behavior on mouse drag.
+  Redundant .gallery attributes included to make the rules more specific */
+
+/* Everything but the image container should become mouse-transparent */
+.gallery[tools][editing][mousedrag] * {
+  pointer-events: none;
+}
+
+.gallery[tools][editing][mousedrag] .image-container {
+  pointer-events: auto;
+}
+
+/* The editor marks elements with 'dimmed' attribute to get them out of the way
+ of the crop frame */
+.gallery[tools][editing] *[dimmed],
+.gallery[tools][editing] *[dimmed] * {
+  pointer-events: none;
+}
+
+.gallery[tools][editing] *[dimmed] {
+  opacity: 0.2;
+}
+
+/* Thumbnails */
+
+.gallery .ribbon-spacer {
+  position: relative;
+  display: -webkit-box;
+  -webkit-box-flex: 1;
+  -webkit-box-orient: horizontal;
+}
+
+.gallery .toolbar .ribbon {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  overflow: hidden;
+  height: 100%;
+  display: -webkit-box;
+  -webkit-box-orient: horizontal;
+  -webkit-box-pack: left;
+
+  max-width: 100%;
+  -webkit-transition: max-width 0.5s ease-in-out;
+  z-index: 0;
+}
+
+.gallery .toolbar .ribbon[inactive] {
+  z-index: -1;
+}
+
+.gallery[editing] .toolbar .ribbon {
+  max-width: 0;
+}
+
+.gallery .ribbon-image {
+  display: -webkit-box;
+  -webkit-box-orient: horizontal;
+  -webkit-box-pack: center;
+  -webkit-box-align: center;
+  overflow: hidden;
+  cursor: pointer;
+  width: 47px;
+  height: 47px;
+  margin: 2px;
+  border: 2px solid rgba(255,255,255,0); /* transparent white */
+
+  margin-left: 2px;
+  -webkit-transition: opacity 0.2s linear;
+}
+
+.gallery .ribbon-image[inactive] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.gallery .ribbon-image[selected] {
+  border: 2px solid rgba(255,233,168,1);
+}
+
+.gallery .image-wrapper {
+  position: relative;
+  overflow: hidden;
+  width: 45px;
+  height: 45px;
+  border: 1px solid rgba(0,0,0,0); /* transparent black */
+}
+
+.gallery .toolbar .fade {
+  background-repeat: no-repeat;
+  background-position: center center;
+  position: absolute;
+  z-index: 10;
+  width: 55px;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0;
+  -webkit-transition: opacity 0.2s linear;
+}
+
+.gallery .toolbar .fade[active] {
+  opacity: 1;
+}
+
+.gallery[editing] .toolbar .fade[active] {
+  opacity: 0;
+}
+
+.gallery .toolbar .fade.left {
+  background-image: url(../../images/gallery/thumb_fade_left.png);
+}
+
+.gallery .toolbar .fade.right {
+  background-image: url(../../images/gallery/thumb_fade_right.png);
+}
+
+/* Editor buttons */
+
+.gallery .toolbar .edit-bar {
+  position: absolute;
+  overflow: hidden;
+  pointer-events: none;
+  right: 0;
+  width: 75%;
+  height: 55px;
+  color: white;
+  display: -webkit-box;
+  -webkit-box-orient: horizontal;
+  -webkit-box-pack: center;
+  -webkit-transition: width 0.5s ease-in-out;
+  }
+
+.gallery[editing] .toolbar .edit-bar {
+  width: 100%;
+}
+
+.gallery .edit-main {
+  display: -webkit-box;
+  -webkit-box-orient: horizontal;
+  opacity: 0;
+  -webkit-transition: opacity 0.25s ease-in-out;
+}
+
+.gallery[editing] .edit-main {
+  pointer-events: auto;
+  opacity: 1.0;
+}
+
+.gallery > .toolbar .button {
+  -webkit-box-flex: 0;
+  padding: 0px 10px 0px 35px;
+  cursor: pointer;
+  margin: 8px 0px 7px 3px;
+  height: 40px;
+
+  display: -webkit-box;
+  -webkit-box-orient: horizontal;
+  -webkit-box-align: center;
+  -webkit-box-pack: end;
+
+  background-repeat: no-repeat;
+  background-position: 5px center;
+
+  opacity: 0.99;  /* Workaround for http://crosbug.com/21065 */
+}
+
+.gallery > .toolbar .button {
+  background-color: rgba(0,0,0,0);
+  color: white;
+}
+
+.gallery > .toolbar .button:hover {
+  background-color: rgba(31,31,31,1);
+  color: white;
+}
+
+.gallery > .toolbar .button[pressed] {
+  background-color: rgba(240,240,240,1);
+  color: black;
+}
+
+.gallery > .toolbar .button[pressed]:hover {
+  background-color: rgba(240,240,240,1);
+  color: black;
+}
+
+.gallery > .toolbar .button.autofix {
+  background-image: url(../../images/gallery/icon_autofix.png);
+}
+
+.gallery > .toolbar .button.autofix[pressed] {
+  background-image: url(../../images/gallery/icon_autofix_selected.png);
+}
+
+.gallery > .toolbar .button.crop {
+  background-image: url(../../images/gallery/icon_crop.png);
+}
+
+.gallery > .toolbar .button.crop[pressed] {
+  background-image: url(../../images/gallery/icon_crop_selected.png);
+}
+
+.gallery > .toolbar .button.exposure {
+  background-image: url(../../images/gallery/icon_brightness.png);
+}
+
+.gallery > .toolbar .button.exposure[pressed] {
+  background-image: url(../../images/gallery/icon_brightness_selected.png);
+}
+
+.gallery > .toolbar .button.rotate_right {
+  background-image: url(../../images/gallery/icon_rotate.png);
+}
+
+.gallery > .toolbar .button.rotate_right[pressed] {
+  background-image: url(../../images/gallery/icon_rotate_selected.png);
+}
+
+.gallery > .toolbar .button.rotate_left {
+  background-image: url(../../images/gallery/icon_rotate_left.png);
+}
+
+.gallery > .toolbar .button.rotate_left[pressed] {
+  background-image: url(../../images/gallery/icon_rotate_left_selected.png);
+}
+
+.gallery > .toolbar .button.undo {
+  background-image: url(../../images/gallery/icon_undo.png);
+}
+
+.gallery > .toolbar .button.redo {
+  position: absolute; /* Exclude from center-packing*/
+  background-image: url(../../images/gallery/icon_redo.png);
+}
+
+.gallery > .toolbar .button[disabled] {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.gallery > .toolbar .button[hidden] {
+  display: none;
+}
+
+.gallery > .toolbar > .button.edit {
+  position: relative;
+  z-index: 10;
+  margin-left: 25px;
+  background-image: url(../../images/gallery/icon_edit.png);
+}
+
+.gallery > .toolbar > .button.edit[pressed] {
+  background-image: url(../../images/gallery/icon_edit_selected.png);
+}
+
+.gallery > .toolbar > .button.share {
+  position: relative;
+  z-index: 10;
+  margin-right: 8px;
+  background-image: url(../../images/gallery/icon_share.png);
+}
+
+.gallery > .toolbar > .button.share[pressed] {
+  background-image: url(../../images/gallery/icon_share_selected.png);
+}
+
+/* Secondary toolbar (mode-specific tools) */
+
+.gallery .edit-modal {
+  position: absolute;
+  width: 100%;
+  bottom: 80px;
+  height: 40px;
+  display: -webkit-box;
+  -webkit-box-orient: horizontal;
+  -webkit-box-pack: center;
+  pointer-events: none;
+}
+
+.gallery .edit-modal-wrapper[hidden] {
+  display: none;
+}
+
+.gallery .edit-modal-wrapper {
+  color: white;
+  padding-right: 5px;
+  background-color: rgba(0, 0, 0, 0.75);
+  display: -webkit-box;
+  -webkit-box-orient: horizontal;
+  -webkit-box-pack: center;
+  -webkit-box-align: center;
+  pointer-events: auto;
+}
+
+.gallery .edit-modal .label {
+  height: 20px;
+  padding-left: 50px;
+  padding-right: 10px;
+
+  display: -webkit-box;
+  -webkit-box-orient: horizontal;
+  -webkit-box-align: center;
+
+  background-repeat: no-repeat;
+  background-position: 20px center;
+}
+
+.gallery .edit-modal .label.brightness {
+  background-image: url(../../images/gallery/icon_brightness.png);
+}
+
+.gallery .edit-modal .label.contrast {
+  margin-left: 15px;
+  background-image: url(../../images/gallery/icon_contrast.png);
+}
+
+.gallery .edit-modal .range {
+  -webkit-appearance: none !important;
+  height: 3px;
+  margin-right: 10px;
+}
+
+.gallery .edit-modal .range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 29px;
+  background-image: url(../../images/gallery/slider_thumb.png);
+}
+
+/* Crop frame */
+
+.gallery .crop-overlay {
+  position: absolute;
+  pointer-events: none;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+}
+
+.gallery .crop-overlay .shadow {
+  background-color: rgba(0,0,0,0.65);
+}
+
+.gallery .crop-overlay .middle-box {
+  display: -webkit-box;
+  -webkit-box-orient: horizontal;
+  -webkit-box-flex: 1;
+}
+
+.gallery .crop-frame {
+  position: relative;
+  display: -webkit-box;
+  -webkit-box-flex: 1;
+}
+
+.gallery .crop-frame div{
+  position: absolute;
+  background-color: rgba(255, 255, 255, 1);
+  -webkit-box-shadow: 0 0 3px rgba(0, 0, 0, 0.75);
+}
+
+.gallery .crop-frame .horizontal {
+  left: 7px;
+  right: 7px;
+  height: 1px;
+}
+
+.gallery .crop-frame .horizontal.top {
+  top: 0;
+}
+
+.gallery .crop-frame .horizontal.bottom {
+  bottom: 0;
+}
+
+.gallery .crop-frame .vertical {
+  top: 7px;
+  bottom: 7px;
+  width: 1px;
+}
+
+.gallery .crop-frame .vertical.left {
+  left: 0;
+}
+
+.gallery .crop-frame .vertical.right {
+  right: 0;
+}
+
+.gallery .crop-frame .corner {
+  border-radius: 6px;
+  width: 13px;
+  height: 13px;
+}
+
+.gallery .crop-frame .corner.left {
+  left: -6px;
+}
+
+.gallery .crop-frame .corner.right {
+  right: -6px;
+}
+
+.gallery .crop-frame .corner.top {
+  top: -6px;
+}
+
+.gallery .crop-frame .corner.bottom {
+  bottom: -6px;
+}
+
+/* Prompt/notification panel */
+
+.gallery .prompt-wrapper {
+  position: absolute;
+  pointer-events: none;
+
+  width: 100%;
+  height: 100%;
+
+  display: -webkit-box;
+  -webkit-box-orient: horizontal;
+  -webkit-box-align: center;
+  -webkit-box-pack: center;
+}
+
+.gallery .prompt-wrapper > div.dimmable {
+  opacity: 1;
+  -webkit-transition: opacity 220ms ease;
+}
+
+.gallery .prompt {
+  font-size: 120%;
+  height: 40px;
+  padding: 0 20px;
+  color: white;
+  background-color: rgba(0, 0, 0, 0.8);
+
+  display: -webkit-box;
+  -webkit-box-orient: horizontal;
+  -webkit-box-align: center;
+
+  position: relative;
+  top: 5px;
+  opacity: 0;
+  -webkit-transition: all 180ms ease;
+}
+
+.gallery .prompt[state='fadein'] {
+  top: 0;
+  opacity: 1;
+}
+
+.gallery .prompt[state='fadeout'] {
+  top: 0;
+  opacity: 0;
+}
+
+.gallery .share-menu {
+  position: absolute;
+  right: 10px;
+  bottom: 60px;
+  background-color: white;
+  opacity: 1.0;
+  -webkit-transition: opacity 0.5s ease-in-out;
+  padding: 8px;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-box-align: stretch;
+  -webkit-box-pack: start;
+  border: 1px solid #7f7f7f;
+  -webkit-border-radius: 1px;
+}
+
+.gallery .share-menu .bubble-point {
+  background-image: url(../../images/gallery/bubble_point.png);
+  background-position: center top;
+  background-repeat: no-repeat;
+  position: absolute;
+  width: 20px;
+  height: 8px;
+  bottom: -8px;
+  right: 20px;
+  padding: 0;
+}
+
+.gallery .share-menu[hidden] {
+  opacity: 0.0;
+  bottom: -100%;  /* offscreen so that 'dimmed' attribute does not show it*/
+  pointer-events: none;
+}
+
+.gallery .share-menu > div {
+  cursor: pointer;
+  background-color: rgba(0,0,0,0);
+  padding: 5px;
+  display: -webkit-box;
+  -webkit-box-align: center;
+  -webkit-box-pack: start;
+}
+
+.gallery .share-menu > div:hover {
+  background-color: rgba(240,240,240,1);
+}
+
+.gallery .share-menu > div > img {
+  margin-right: 5px;
+  display: block;
+}

@@ -1,0 +1,6 @@
+include_rules = [
+  "+chrome_frame",
+  "+rlz",
+  "+third_party/bspatch",
+  "+third_party/lzma_sdk",
+]

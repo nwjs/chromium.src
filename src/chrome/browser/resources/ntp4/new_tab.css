@@ -1,0 +1,250 @@
+/* Copyright (c) 2011 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
+html {
+  font-family: segoe ui, arial, helvetica, sans-serif;
+  font-size: 14px;
+  /* It's necessary to put this here instead of in body in order to get the
+     background-size of 100% to work properly */
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background-size: auto 100%;
+  margin: 0;
+  /* Don't highlight links when they're tapped.  Safari has bugs here that
+     show up as flicker when dragging in some situations */
+  -webkit-tap-highlight-color: transparent;
+  /* Don't allow selecting text - can occur when dragging */
+  -webkit-user-select: none;
+}
+
+/* [hidden] does display:none, but its priority is too low in some cases. */
+[hidden] {
+  display: none !important;
+}
+
+#notification-container {
+  display: block;
+  margin-top: 2px;
+  position: relative;
+  text-align: center;
+  z-index: 100;
+  -webkit-transition-duration: 0.1s;
+  -webkit-transition-property: opacity;
+}
+
+#notification-container.inactive {
+  opacity: 0;
+  -webkit-transition-duration: 0.2s;
+}
+
+#notification {
+  background-color: #FFF199;
+  border: 1px solid lightGrey;
+  border-radius: 6px;
+  color: black;
+  display: inline-block;
+  font-weight: bold;
+  padding: 7px 15px;
+}
+
+#notification > div > div,
+#notification > div {
+  display: inline-block;
+}
+
+#notification .close-button {
+  vertical-align: middle;
+  -webkit-margin-start: 0.5em;
+}
+
+.close-button {
+  background: no-repeat;
+  background-color: transparent;
+  /* TODO(estade): this should animate between states. */
+  background-image: url('chrome://theme/IDR_CLOSE_BAR');
+  border: 0;
+  cursor: default;
+  display: inline-block;
+  height: 16px;
+  padding: 0;
+  width: 16px;
+}
+
+.close-button:hover,
+.close-button:focus {
+  background-image: url('chrome://theme/IDR_CLOSE_BAR_H');
+}
+
+.close-button:active {
+  background-image: url('chrome://theme/IDR_CLOSE_BAR_P');
+}
+
+.linkButton {
+  color: #06C;
+  cursor: pointer;
+  display: inline-block;
+  text-decoration: underline;
+  -webkit-margin-start: 0.5em;
+}
+
+#card-slider-frame {
+  /* Must match #footer height. */
+  bottom: 50px;
+  overflow: hidden;
+  /* We want this to fill the window except for the region used
+     by footer */
+  position: fixed;
+  top: 0;
+  width: 100%;
+}
+
+#page-list {
+  /* fill the apps-frame */
+  height: 100%;
+  display: -webkit-box;
+}
+
+#attribution {
+  bottom: 0;
+  left: auto;
+  margin-left: 8px;
+  /* Leave room for the scrollbar. */
+  margin-right: 13px;
+  position: absolute;
+  right: 0;
+  text-align: left;
+  z-index: -5;
+}
+
+/* For themes that right-align their images, we flip the attribution to the
+ * left to avoid conflicts.  */
+html[themegravity='right'] #attribution,
+html[dir='rtl'] #attribution {
+  left: 0;
+  right: auto;
+  text-align: right;
+}
+
+#attribution > span {
+  display: block;
+  font-size: 84%;
+}
+
+#footer {
+  background-image: -webkit-linear-gradient(
+      rgba(242, 242, 242, 0.9), rgba(222, 222, 222, 0.9));
+  bottom: 0;
+  position: fixed;
+  width: 100%;
+  z-index: 5;
+}
+
+/* TODO(estade): remove this border hack and replace with a webkit-gradient
+ * border-image on #footer once WebKit supports border-image-slice.
+ * See https://bugs.webkit.org/show_bug.cgi?id=20127 */
+#footer-border {
+  height: 1px;
+}
+
+#footer-content {
+  display: -webkit-box;
+  height: 49px;
+  -webkit-box-align: center;
+}
+
+#footer-content > * {
+  margin: 0 9px;
+}
+
+#logo-img {
+  margin-top: 4px;
+}
+
+.starting-up * {
+  -webkit-transition: none !important;
+}
+
+/* Login Status. **************************************************************/
+
+#login-container {
+  background: transparent none;
+  border: none;
+  cursor: pointer;
+  font-size: 84%;
+  /* Leave room for the scrollbar. */
+  margin-right: 13px;
+  margin-top: 5px;
+  position: fixed;
+  right: 0;
+  text-align: right;
+  text-decoration: none;
+  top: 0;
+  z-index: 100;
+  -webkit-box-shadow: none;
+}
+
+html[dir='rtl'] #login-container {
+  left: 0;
+  right: auto;
+}
+
+.link-span {
+  text-decoration: underline;
+}
+
+/* Trash. *********************************************************************/
+
+#trash {
+  height: 100%;
+  position: absolute;
+  opacity: 0;
+  right: 0;
+  top: 50px;
+  -webkit-transition: top 0.2s, opacity 0;
+  -webkit-transition-delay: 0, 0.2s;
+}
+
+#footer.showing-trash-mode #trash {
+  opacity: 1;
+  top: 0;
+  -webkit-transition-delay: 0, 0;
+}
+
+#trash > span {
+  background-image: url('images/trash.png');
+  background-position: 7px;
+  background-repeat: no-repeat;
+  border: 1px dashed #7f7f7f;
+  border-radius: 4px;
+  display: inline-block;
+  font-size: 84%;
+  padding-bottom: 9px;
+  padding-top: 10px;
+  position: relative;
+  top: 7px;
+  -webkit-padding-end: 7px;
+  -webkit-padding-start: 30px;
+}
+
+/* Page switcher buttons. *****************************************************/
+
+.page-switcher {
+  background-color: transparent;
+  border: none;
+  bottom: 0;
+  font-size: 40px;
+  padding: 0;
+  position: absolute;
+  margin: 0;
+  max-width: 150px;
+  min-width: 90px;
+  outline: none;
+  top: 0;
+  z-index: 5;
+  -webkit-transition: width 150ms, right 150ms, background-color 150ms;
+}

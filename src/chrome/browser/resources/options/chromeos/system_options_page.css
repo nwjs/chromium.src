@@ -1,0 +1,73 @@
+.touchpad-sensitivity-more {
+  float: right;
+}
+
+html[dir=rtl] .touchpad-sensitivity-more {
+  float: left;
+}
+
+.option-name {
+   display: inline;
+}
+
+#timezone-value {
+   display: inline-block;
+   vertical-align: baseline;
+}
+
+#touchpad-value,
+#slider-control {
+   display: inline-block;
+   vertical-align: top;
+}
+
+#bluetooth-options-div {
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+}
+
+#bluetooth-finder-container,
+#bluetooth-scanning-status {
+  -webkit-box-orient: horizontal;
+  display: -webkit-box;
+  vertical-align: baseline;
+}
+
+#bluetooth-scanning-label,
+#bluetooth-scanning-icon {
+  -webkit-transition: 0.25s opacity;
+}
+
+#bluetooth-scanning-label {
+  -webkit-margin-start: 5px;
+  color: gray;
+}
+
+#bluetooth-scanning-icon {
+  -webkit-margin-start: 10px;
+  vertical-align: middle;
+}
+
+.bluetooth-button-group {
+  -webkit-box-flex: 1; 
+  -webkit-box-pack: end;
+  display: -webkit-box;
+}
+
+.bluetooth-headset,
+.bluetooth-keyboard,
+.bluetooth-mouse {
+  background-repeat: no-repeat;
+}
+
+.bluetooth-headset {
+  background-image: url("headset.png");
+}
+
+.bluetooth-keyboard {
+  background-image: url("keyboard.png");
+}
+
+.bluetooth-mouse {
+  background-image: url("mouse.png");
+}

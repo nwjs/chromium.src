@@ -1,0 +1,88 @@
+/* Copyright (c) 2011 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
+/* TODO(estade): handle overflow better? I tried overflow-x: hidden and
+   overflow-y: visible (for the new dot animation), but this makes a scroll
+   bar appear */
+#dot-list {
+  display: -webkit-box;
+  height: 100%;
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+  /* Expand to take up all available horizontal space.  */
+  -webkit-box-flex: 1;
+  /* Center child dots. */
+  -webkit-box-pack: center;
+}
+
+html.starting-up #dot-list {
+  display: none;
+}
+
+.dot {
+  box-sizing: border-box;
+  cursor: pointer;
+  max-width: 80px;
+  outline: none;
+  text-align: left;
+  -webkit-box-flex: 1;
+  -webkit-margin-end: 10px;
+  -webkit-padding-start: 2px;
+  -webkit-transition: max-width 0.25s, -webkit-margin-end 0.25s;
+}
+
+.dot:last-child {
+  -webkit-margin-end: 0;
+}
+
+.dot.small {
+  max-width: 0;
+  -webkit-margin-end: 0;
+}
+
+.dot .selection-bar {
+  border-bottom: 5px solid;
+  border-color: rgba(0, 0, 0, 0.1);
+  height: 10px;
+  -webkit-transition: border-color 0.2s;
+}
+
+.dot input {
+  background-color: transparent;
+  cursor: inherit;
+  /* TODO(estade): the font needs tweaking. */
+  font-size: 8pt;
+  font-weight: bold;
+  padding-top: 0;
+  width: 90%;
+  -webkit-appearance: caret;
+  -webkit-transition: color 0.2s;
+}
+
+.dot input:focus {
+  cursor: auto;
+}
+
+/* Everything below here should be themed but we don't have appropriate colors
+ * yet.
+ */
+.dot input {
+  color: #222;
+}
+
+.dot:focus input, .dot:hover input, .dot.selected input {
+  color: black;
+}
+
+.dot:focus .selection-bar,
+.dot:hover .selection-bar,
+.dot.drag-target .selection-bar {
+  border-color: #b2b2b2;
+}
+
+.dot.selected .selection-bar {
+  border-color: #7f7f7f;
+}

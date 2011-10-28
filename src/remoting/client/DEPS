@@ -1,0 +1,8 @@
+include_rules = [
+  "+ppapi",
+  "+jingle/glue",
+  "+net",
+
+  "+remoting/protocol",
+  "+remoting/jingle_glue",
+]

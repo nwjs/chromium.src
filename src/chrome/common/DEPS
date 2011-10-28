@@ -1,0 +1,36 @@
+include_rules = [
+  "+chrome/plugin",  # For checking whether we're a plugin process.
+  "+chrome/default_plugin",
+  "+grit",  # For generated headers
+  "+libxml",
+  "+ppapi/c",  # For various types.
+  "+ppapi/proxy",
+  "+remoting/client/plugin",
+  "+sandbox/src",
+  "+skia",
+  "+webkit/glue",
+  "+webkit/plugins",
+
+  # TODO(jam): remove this once all of chrome doesn't depend on content/common.
+  "-content/common",
+  "+content/common/content_message_generator.h",  # needed by all_messages.h
+
+  # TODO(jam): remove me once chrome_notifcation_types.h moves to browser
+  "+content/public/browser/notification_source.h",
+  "+content/public/browser/notification_types.h",
+
+  # Other libraries.
+  "+chrome/third_party/xdg_user_dirs",
+  "+third_party/bzip2",
+  "+third_party/npapi",
+  "+third_party/sqlite",
+  "+third_party/zlib",
+
+  # This is required by all_messages.h to allow logging of all messages. It
+  # can't be moved to chrome/common/ because it has so many dependencies in
+  # chrome/browser/.
+  "+chrome/browser/importer/profile_import_process_messages.h",
+
+  # FIXME - refactor code and remove these dependencies
+  "+chrome/installer",
+]

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html i18n-values="dir:textdirection;">
+<head>
+<meta charset="utf-8">
+<title i18n-content="title"></title>
+<link rel="icon" href="../../../app/theme/print_preview_favicon.png">
+<link rel="stylesheet" href="../webui.css">
+<link rel="stylesheet" href="chrome://resources/css/throbber.css">
+<link rel="stylesheet" href="print_preview.css">
+<link rel="stylesheet" href="margins.css">
+<script src="chrome://resources/js/event_tracker.js"></script>
+<script src="chrome://resources/js/local_strings.js"></script>
+<script src="chrome://resources/js/cr.js"></script>
+<script src="chrome://resources/js/event_tracker.js"></script>
+<script src="chrome://resources/js/util.js"></script>
+<script src="chrome://print/print_preview.js"></script>
+<script src="chrome://print/strings.js"></script>
+</head>
+<body>
+  <div id="sidebar">
+    <header>
+      <h1 i18n-content="title"></h1>
+      <div id="print-header">
+        <span id="print-summary"></span>
+        <button id="print-button" i18n-content="printButton" class="default">
+        </button>
+        <button id="cancel-button" i18n-content="cancelButton"></button>
+      </div>
+    </header>
+    <div id="main">
+      <div id="destination-option" class="two-column">
+        <h1 i18n-content="destinationLabel"></h1>
+        <select id="printer-list"></select>
+      </div>
+      <hr>
+      <include src="page_settings.html"></include>
+      <hr id="hr-before-copies" class="invisible">
+      <include src="copies_settings.html"></include>
+      <hr>
+      <include src="layout_settings.html"></include>
+      <hr>
+      <include src="color_settings.html"></include>
+      <hr>
+      <include src="margin_settings.html"></include>
+      <hr>
+      <include src="header_footer_settings.html"></include>
+      <hr>
+      <div id="system-dialog-div">
+        <if expr="pp_ifdef('chromeos')">
+          <button id="system-dialog-link" class="link-button"
+              i18n-content="cloudPrintDialogOption"></button>
+        </if>
+        <if expr="not pp_ifdef('chromeos')">
+          <button id="system-dialog-link" class="link-button"
+              i18n-content="systemDialogOption"></button>
+        </if>
+        <div id="system-dialog-throbber" class="throbber" hidden></div>
+      </div>
+    </div>
+  </div>
+  <div id="mainview">
+    <div id="overlay-layer" class="invisible">
+      <div id="messages">
+        <div id="dancing-dots-text" hidden>
+          <span id="loading"></span>
+          <span><span>.</span><span>.</span><span>.</span></span>
+        </div>
+        <div id="custom-message" hidden></div>
+        <div id="custom-message-with-dots"
+          class="message-with-dots" hidden></div>
+        <div id="error-action-area">
+          <button id="error-button" hidden></button>
+          <div id="native-print-dialog-throbber" class="throbber" hidden></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <object id="dummy-viewer"
+      type="application/x-google-chrome-print-preview-pdf"
+      data="chrome://print/dummy.pdf"></object>
+  <script src="chrome://resources/js/i18n_template.js"></script>
+  <script src="chrome://resources/js/i18n_process.js"></script>
+</body>
+</html>

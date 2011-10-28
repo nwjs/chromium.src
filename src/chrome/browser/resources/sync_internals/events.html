@@ -1,0 +1,28 @@
+<style>
+#sync-events-table,
+#sync-events-table th,
+#sync-events-table td {
+  border: 1px black solid;
+}
+
+#sync-events-table {
+  width: 100%;
+}
+
+#sync-events > tr {
+  vertical-align: top;
+}
+</style>
+
+<table id="sync-events-table">
+  <thead>
+    <th>Time</th>
+    <th>Submodule</th>
+    <th>Event</th>
+    <th>Details</th>
+  </thead>
+  <tbody id="sync-events">
+  </tbody>
+</table>
+
+<script src="chrome://sync-internals/events.js"></script>

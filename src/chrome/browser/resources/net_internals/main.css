@@ -1,0 +1,114 @@
+/*
+Copyright (c) 2011 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+*/
+
+/* TODO(eroman): Split this file up, so the styles are defined close to where
+                 they are used. For instance, the proxy tab styles should
+                 either be part of proxy_view.html, or proxy_view.css. Only
+                 common styles should be declared here */
+
+* {
+  box-sizing: border-box;
+  -moz-box-sizing: border-box;
+}
+body {
+  font-family: sans-serif;
+}
+
+/* This class is used to create the splitter widget in
+   ResizbleVerticalSplitView */
+.vertical-splitter {
+  background: #bfbfbf;
+  border-left: 1px inset black;
+  border-right: 1px solid black;
+  position:absolute;
+  width: 8px;
+  cursor: col-resize;
+  user-select: none;
+}
+
+.logSourceEntry {
+  margin: 5px;
+}
+
+.logSourceEntry * p {
+  font-weight: bold;
+  font-size: 12px;
+}
+
+.logSourceEntry * td {
+  font-size: 10px;
+}
+
+/* TODO(eroman): make this a classname instead */
+#events-view-details-log-box,
+#events-view-details-timeline-box,
+#http-cache-view-tab-content,
+#proxy-view-tab-content,
+#capture-view-tab-content,
+#import-view-tab-content,
+#export-view-tab-content,
+#dns-view-tab-content,
+#sockets-view-tab-content,
+#spdy-view-tab-content,
+#service-providers-view-tab-content,
+#test-view-tab-content,
+#hsts-view-tab-content,
+#http-throttling-view-tab-content,
+#prerender-view-tab-content,
+#logs-view-tab-content {
+  overflow: auto;
+  padding: 10px;
+}
+
+/*
+ * Styles for TABLE that uses a thin collapsed border.
+ */
+table.styledTable {
+  border-collapse:collapse;
+}
+
+table.styledTable,
+.styledTable th,
+.styledTable td {
+  border: 1px solid #777;
+  padding-right: 4px;
+  padding-left: 4px;
+}
+
+.styledTable th {
+  background: rgb(224,236,255);
+}
+
+.styledTable th.title {
+  background: rgb(255,217,217);
+}
+
+/**
+ * Styling for an emphasized button.
+ */
+.bigButton {
+  font-size: 100%;
+  font-weight: bold;
+}
+
+/**
+ * Styling for text indicating a potential problem or error state.
+ */
+.warningText {
+  color: red;
+}
+
+#status-view-for-capture {
+  background: red;
+  color: #eee;
+  padding: 4px;
+}
+
+#status-view-for-file {
+  background: #88c;
+  color: #eee;
+  padding: 4px;
+}

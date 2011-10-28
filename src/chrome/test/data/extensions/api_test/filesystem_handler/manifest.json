@@ -1,0 +1,32 @@
+{
+  "key": "MIGdMA0GCSqGSIb3DQEBAQUAA4GLADCBhwKBgQChptAQ0n4R56N03nWQ1ogR7DVRBjGo80Vw6G9KLjzZv44D8rq5Q5IkeQrtKgWyZfXevlsCe3LaLo18rcz8iZx6lK2xhLdUR+ORjsjuBfdEL5a5cWeRTSxf75AcqndQsmpwMBdrMTCZ8jQNusUI+XlrihLNNJuI5TM4vNINI5bYFQIBIw==",
+  "name": "ChromeOS file system intent hanlder extension",
+  "version": "0.1",
+  "description": "Tests of chrome.fileSystem.* methods",
+  "background_page": "background.html",
+  "file_browser_handlers": [
+    {
+      "id" : "TextAction",
+      "default_title" : "txt file action.",
+      "default_icon" : "icon.png",
+      "file_filters" : [ "filesystem:*.tXt", "filesystem:*.text" ]
+    },
+    {
+      "id" : "JpegAction",
+      "default_title" : "jpg file action",
+      "default_icon" : "icon.png",
+      "file_filters" : [ "filesystem:*.jpg", "filesystem:*.jpeg" ]
+    },
+    {
+      "id" : "BaseAction",
+      "default_title" : "Base action",
+      "default_icon" : "icon.png",
+      "file_filters" : [ "filesystem:*", "filesystem:*.*" ]
+    }
+  ],
+  "permissions": [
+    "fileBrowserHandler",
+    "tabs",
+    "unlimitedStorage"
+  ]
+}

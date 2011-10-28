@@ -1,0 +1,35 @@
+<style>
+
+.export-view-explanation-warning {
+  border: 2px solid red;
+}
+
+</style>
+
+<div id=export-view-tab-content>
+
+  <h2>Dump data</h2>
+  <div style="margin: 8px">
+    <p><input id=export-view-security-stripping-checkbox type=checkbox checked=yes>
+       Strip private information (cookies and credentials).
+    </p>
+    <textarea cols=50 rows=5 placeholder="Explain what went wrong here. (These notes will be included in the dump file. Be sure to mention the specific URLs, so investigators know what to look for!)" id=export-view-user-comments></textarea>
+    <div>
+      <button id=export-view-save-log-file class=bigButton>Dump to file</button>
+    </div>
+    <pre id=export-view-save-status-text></pre>
+
+    <ul>
+      <li><b>IMPORTANT</b>: First reproduce the problem while in recording mode.</li>
+    </ul>
+    <p>
+      For more information see: 
+      <a href="chrome://net-internals/help.html" target="_blank">
+        How to get data for bug reports?
+      </a>
+    </p>
+  </div>
+
+  <iframe style="display: none" id=export-view-download-iframe></iframe>
+
+</div>

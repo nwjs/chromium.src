@@ -1,0 +1,46 @@
+// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+//
+// Sync protocol datatype extension for apps.
+
+// Update proto_value_conversions{.h,.cc,_unittest.cc} if you change
+// any fields in this file.
+
+syntax = "proto2";
+
+option optimize_for = LITE_RUNTIME;
+option retain_unknown_fields = true;
+
+package sync_pb;
+
+import "sync.proto";
+import "extension_specifics.proto";
+
+// Settings related to push notifications for apps.
+message AppNotificationSettings {
+  // Whether or not the user has setup notifications at least once.
+  // The value for this field will start out false and will be set
+  // to true when the user accepts receiving notifications for the
+  // first time and then it will always remain true.
+  optional bool initial_setup_done = 1;
+
+  // Whether or not the user has disabled notifications.
+  optional bool disabled = 2;
+}
+
+// Properties of app sync objects.
+//
+// For now, an app is just an extension.  We keep the two data types
+// separate for future-proofing purposes.
+message AppSpecifics {
+  // Extension data.
+  optional ExtensionSpecifics extension = 1;
+
+  // Notification settings.
+  optional AppNotificationSettings notification_settings = 2; 
+}
+
+extend EntitySpecifics {
+  optional AppSpecifics app = 48364;
+}

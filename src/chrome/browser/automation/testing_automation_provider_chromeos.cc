@@ -1,0 +1,1210 @@
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "chrome/browser/automation/testing_automation_provider.h"
+
+#include "base/command_line.h"
+#include "base/i18n/time_formatting.h"
+#include "base/stringprintf.h"
+#include "base/time.h"
+#include "base/utf_string_conversions.h"
+#include "chrome/browser/automation/automation_provider_json.h"
+#include "chrome/browser/automation/automation_provider_observers.h"
+#include "chrome/browser/browser_process.h"
+#include "chrome/browser/chromeos/audio_handler.h"
+#include "chrome/browser/chromeos/cros/cros_library.h"
+#include "chrome/browser/chromeos/cros/network_library.h"
+#include "chrome/browser/chromeos/cros/power_library.h"
+#include "chrome/browser/chromeos/cros/screen_lock_library.h"
+#include "chrome/browser/chromeos/cros/update_library.h"
+#include "chrome/browser/chromeos/login/enrollment/enterprise_enrollment_screen.h"
+#include "chrome/browser/chromeos/login/existing_user_controller.h"
+#include "chrome/browser/chromeos/login/login_display.h"
+#include "chrome/browser/chromeos/login/login_display_host.h"
+#include "chrome/browser/chromeos/login/screen_locker.h"
+#include "chrome/browser/chromeos/login/webui_login_display.h"
+#include "chrome/browser/chromeos/login/wizard_controller.h"
+#include "chrome/browser/chromeos/options/take_photo_dialog.h"
+#include "chrome/browser/chromeos/proxy_cros_settings_provider.h"
+#include "chrome/browser/chromeos/system/timezone_settings.h"
+#include "chrome/browser/policy/browser_policy_connector.h"
+#include "chrome/browser/policy/cloud_policy_cache_base.h"
+#include "chrome/browser/policy/cloud_policy_data_store.h"
+#include "chrome/browser/policy/cloud_policy_subsystem.h"
+#include "chrome/browser/policy/enterprise_install_attributes.h"
+#include "chrome/browser/prefs/pref_service.h"
+#include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/views/window.h"
+#include "chrome/common/chrome_switches.h"
+#include "chrome/common/pref_names.h"
+#include "net/base/network_change_notifier.h"
+#include "policy/policy_constants.h"
+#include "views/widget/widget.h"
+
+using chromeos::CrosLibrary;
+using chromeos::NetworkLibrary;
+using chromeos::UpdateLibrary;
+using chromeos::UserManager;
+
+namespace {
+
+bool EnsureCrosLibraryLoaded(AutomationProvider* provider,
+                             IPC::Message* reply_message) {
+  if (!CrosLibrary::Get()->EnsureLoaded()) {
+    AutomationJSONReply(provider, reply_message).SendError(
+        "Could not load cros library.");
+    return false;
+  }
+  return true;
+}
+
+DictionaryValue* GetNetworkInfoDict(const chromeos::Network* network) {
+  DictionaryValue* item = new DictionaryValue;
+  item->SetString("name", network->name());
+  item->SetString("device_path", network->device_path());
+  item->SetString("ip_address", network->ip_address());
+  item->SetString("status", network->GetStateString());
+  return item;
+}
+
+Value* GetProxySetting(const std::string& setting_name) {
+  chromeos::ProxyCrosSettingsProvider settings_provider;
+  std::string setting_path = "cros.session.proxy.";
+  setting_path.append(setting_name);
+
+  if (setting_name == "ignorelist") {
+    Value* value;
+    if (settings_provider.Get(setting_path, &value))
+      return value;
+  } else {
+    Value* setting;
+    if (settings_provider.Get(setting_path, &setting)) {
+      DictionaryValue* setting_dict = static_cast<DictionaryValue*>(setting);
+      Value* value;
+      bool found = setting_dict->Remove("value", &value);
+      delete setting;
+      if (found)
+        return value;
+    }
+  }
+  return NULL;
+}
+
+const char* UpdateStatusToString(chromeos::UpdateStatusOperation status) {
+  switch (status) {
+    case chromeos::UPDATE_STATUS_IDLE:
+      return "idle";
+    case chromeos::UPDATE_STATUS_CHECKING_FOR_UPDATE:
+      return "checking for update";
+    case chromeos::UPDATE_STATUS_UPDATE_AVAILABLE:
+      return "update available";
+    case chromeos::UPDATE_STATUS_DOWNLOADING:
+      return "downloading";
+    case chromeos::UPDATE_STATUS_VERIFYING:
+      return "verifying";
+    case chromeos::UPDATE_STATUS_FINALIZING:
+      return "finalizing";
+    case chromeos::UPDATE_STATUS_UPDATED_NEED_REBOOT:
+      return "updated need reboot";
+    case chromeos::UPDATE_STATUS_REPORTING_ERROR_EVENT:
+      return "reporting error event";
+    default:
+      return "unknown";
+  }
+}
+
+void GetReleaseTrackCallback(void* user_data, const char* track) {
+  AutomationJSONReply* reply = static_cast<AutomationJSONReply*>(user_data);
+
+  if (track == NULL) {
+    reply->SendError("Unable to get release track.");
+    delete reply;
+    return;
+  }
+
+  scoped_ptr<DictionaryValue> return_value(new DictionaryValue);
+  return_value->SetString("release_track", track);
+
+  UpdateLibrary* update_library = CrosLibrary::Get()->GetUpdateLibrary();
+  const UpdateLibrary::Status& status = update_library->status();
+  chromeos::UpdateStatusOperation update_status = status.status;
+  return_value->SetString("status", UpdateStatusToString(update_status));
+  if (update_status == chromeos::UPDATE_STATUS_DOWNLOADING)
+    return_value->SetDouble("download_progress", status.download_progress);
+  if (status.last_checked_time > 0)
+    return_value->SetInteger("last_checked_time", status.last_checked_time);
+  if (status.new_size > 0)
+    return_value->SetInteger("new_size", status.new_size);
+
+  reply->SendSuccess(return_value.get());
+  delete reply;
+}
+
+void UpdateCheckCallback(void* user_data, chromeos::UpdateResult result,
+                         const char* error_msg) {
+  AutomationJSONReply* reply = static_cast<AutomationJSONReply*>(user_data);
+  if (result == chromeos::UPDATE_RESULT_SUCCESS)
+    reply->SendSuccess(NULL);
+  else
+    reply->SendError(error_msg);
+  delete reply;
+}
+
+const std::string VPNProviderTypeToString(
+    chromeos::ProviderType provider_type) {
+  switch (provider_type) {
+    case chromeos::PROVIDER_TYPE_L2TP_IPSEC_PSK:
+      return std::string("L2TP_IPSEC_PSK");
+    case chromeos::PROVIDER_TYPE_L2TP_IPSEC_USER_CERT:
+      return std::string("L2TP_IPSEC_USER_CERT");
+    case chromeos::PROVIDER_TYPE_OPEN_VPN:
+      return std::string("OPEN_VPN");
+    default:
+      return std::string("UNSUPPORTED_PROVIDER_TYPE");
+  }
+}
+
+const char* EnterpriseStatusToString(
+    policy::CloudPolicySubsystem::PolicySubsystemState state) {
+  switch (state) {
+    case policy::CloudPolicySubsystem::UNENROLLED:
+      return "UNENROLLED";
+    case policy::CloudPolicySubsystem::BAD_GAIA_TOKEN:
+      return "BAD_GAIA_TOKEN";
+    case policy::CloudPolicySubsystem::UNMANAGED:
+      return "UNMANAGED";
+    case policy::CloudPolicySubsystem::NETWORK_ERROR:
+      return "NETWORK_ERROR";
+    case policy::CloudPolicySubsystem::LOCAL_ERROR:
+      return "LOCAL_ERROR";
+    case policy::CloudPolicySubsystem::TOKEN_FETCHED:
+      return "TOKEN_FETCHED";
+    case policy::CloudPolicySubsystem::SUCCESS:
+      return "SUCCESS";
+    default:
+      return "UNKNOWN_STATE";
+  }
+}
+
+// Fills the supplied DictionaryValue with all policy settings held by the
+// given CloudPolicySubsystem (Device or User subsystems) at the given
+// PolicyLevel (Mandatory or Recommended policies).
+DictionaryValue* CreateDictionaryWithPolicies(
+    policy::CloudPolicySubsystem* policy_subsystem,
+    policy::CloudPolicyCacheBase::PolicyLevel policy_level) {
+  DictionaryValue* dict = new DictionaryValue;
+  policy::CloudPolicyCacheBase* policy_cache =
+      policy_subsystem->GetCloudPolicyCacheBase();
+  if (policy_cache) {
+    const policy::PolicyMap* policy_map = policy_cache->policy(policy_level);
+    if (policy_map) {
+      policy::PolicyMap::const_iterator i;
+      for (i = policy_map->begin(); i != policy_map->end(); i++)
+        dict->Set(policy::GetPolicyName(i->first),
+                  i->second->DeepCopy());
+    }
+  }
+  return dict;
+}
+
+// Last reported power status.
+chromeos::PowerSupplyStatus power_status;
+
+}  // namespace
+
+void TestingAutomationProvider::GetLoginInfo(DictionaryValue* args,
+                                             IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  scoped_ptr<DictionaryValue> return_value(new DictionaryValue);
+
+  const UserManager* user_manager = UserManager::Get();
+  if (!user_manager)
+    reply.SendError("No user manager!");
+  const chromeos::ScreenLocker* screen_locker =
+      chromeos::ScreenLocker::default_screen_locker();
+
+  return_value->SetString(
+      "login_ui_type",
+      CommandLine::ForCurrentProcess()->HasSwitch(switches::kWebUILogin)?
+          "webui": "nativeui");
+
+  return_value->SetBoolean("is_owner", user_manager->current_user_is_owner());
+  return_value->SetBoolean("is_logged_in", user_manager->user_is_logged_in());
+  return_value->SetBoolean("is_screen_locked", screen_locker);
+  if (user_manager->user_is_logged_in()) {
+    return_value->SetBoolean("is_guest", user_manager->IsLoggedInAsGuest());
+    return_value->SetString("email", user_manager->logged_in_user().email());
+  }
+
+  reply.SendSuccess(return_value.get());
+}
+
+// See the note under LoginAsGuest(). CreateAccount() causes a login as guest.
+void TestingAutomationProvider::ShowCreateAccountUI(
+    DictionaryValue* args, IPC::Message* reply_message) {
+  chromeos::ExistingUserController* controller =
+      chromeos::ExistingUserController::current_controller();
+  // Return immediately, since we're going to die before the login is finished.
+  AutomationJSONReply(this, reply_message).SendSuccess(NULL);
+  controller->CreateAccount();
+}
+
+// Logging in as guest will cause session_manager to restart Chrome with new
+// flags. If you used EnableChromeTesting, you will have to call it again.
+void TestingAutomationProvider::LoginAsGuest(DictionaryValue* args,
+                                             IPC::Message* reply_message) {
+  chromeos::ExistingUserController* controller =
+      chromeos::ExistingUserController::current_controller();
+  // Return immediately, since we're going to die before the login is finished.
+  AutomationJSONReply(this, reply_message).SendSuccess(NULL);
+  controller->LoginAsGuest();
+}
+
+void TestingAutomationProvider::Login(DictionaryValue* args,
+                                      IPC::Message* reply_message) {
+  std::string username, password;
+  if (!args->GetString("username", &username) ||
+      !args->GetString("password", &password)) {
+    AutomationJSONReply(this, reply_message).SendError(
+        "Invalid or missing args.");
+    return;
+  }
+
+  chromeos::ExistingUserController* controller =
+      chromeos::ExistingUserController::current_controller();
+
+  // Set up an observer (it will delete itself).
+  new LoginObserver(controller, this, reply_message);
+
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kWebUILogin)) {
+    // WebUI login.
+    chromeos::WebUILoginDisplay* webui_login_display =
+        chromeos::WebUILoginDisplay::GetInstance();
+    webui_login_display->ShowSigninScreenForCreds(username, password);
+  } else {
+    // Native UI login.
+    controller->login_display()->SelectPod(0);
+    controller->Login(username, password);
+  }
+}
+
+void TestingAutomationProvider::LockScreen(DictionaryValue* args,
+                                           IPC::Message* reply_message) {
+  if (!EnsureCrosLibraryLoaded(this, reply_message))
+    return;
+
+  new ScreenLockUnlockObserver(this, reply_message, true);
+  CrosLibrary::Get()->GetScreenLockLibrary()->
+      NotifyScreenLockRequested();
+}
+
+void TestingAutomationProvider::UnlockScreen(DictionaryValue* args,
+                                             IPC::Message* reply_message) {
+  std::string password;
+  if (!args->GetString("password", &password)) {
+    AutomationJSONReply(this, reply_message).SendError(
+        "Invalid or missing args.");
+    return;
+  }
+
+  chromeos::ScreenLocker* screen_locker =
+      chromeos::ScreenLocker::default_screen_locker();
+  if (!screen_locker) {
+    AutomationJSONReply(this, reply_message).SendError(
+        "No default screen locker. Are you sure the screen is locked?");
+    return;
+  }
+
+  new ScreenUnlockObserver(this, reply_message);
+  screen_locker->Authenticate(ASCIIToUTF16(password));
+}
+
+// Signing out could have undesirable side effects: session_manager is
+// killed, so its children, including chrome and the window manager, will
+// also be killed. Anything owned by chronos will probably be killed.
+void TestingAutomationProvider::SignoutInScreenLocker(
+    DictionaryValue* args, IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  chromeos::ScreenLocker* screen_locker =
+      chromeos::ScreenLocker::default_screen_locker();
+  if (!screen_locker) {
+    reply.SendError(
+        "No default screen locker. Are you sure the screen is locked?");
+    return;
+  }
+
+  // Send success before stopping session because if we're a child of
+  // session manager then we'll die when the session is stopped.
+  reply.SendSuccess(NULL);
+  screen_locker->Signout();
+}
+
+void TestingAutomationProvider::GetBatteryInfo(DictionaryValue* args,
+                                               IPC::Message* reply_message) {
+  if (!EnsureCrosLibraryLoaded(this, reply_message))
+    return;
+
+  scoped_ptr<DictionaryValue> return_value(new DictionaryValue);
+
+  return_value->SetBoolean("battery_is_present",
+                           power_status.battery_is_present);
+  return_value->SetBoolean("line_power_on", power_status.line_power_on);
+  if (power_status.battery_is_present) {
+    return_value->SetBoolean("battery_fully_charged",
+                             power_status.battery_is_full);
+    return_value->SetDouble("battery_percentage",
+                            power_status.battery_percentage);
+    if (power_status.line_power_on) {
+      int64 time = power_status.battery_seconds_to_full;
+      if (time > 0 || power_status.battery_is_full)
+        return_value->SetInteger("battery_seconds_to_full", time);
+    } else {
+      int64 time = power_status.battery_seconds_to_empty;
+      if (time > 0)
+        return_value->SetInteger("battery_seconds_to_empty", time);
+    }
+  }
+
+  AutomationJSONReply(this, reply_message).SendSuccess(return_value.get());
+}
+
+void TestingAutomationProvider::GetNetworkInfo(DictionaryValue* args,
+                                               IPC::Message* reply_message) {
+  if (!EnsureCrosLibraryLoaded(this, reply_message))
+    return;
+
+  scoped_ptr<DictionaryValue> return_value(new DictionaryValue);
+  NetworkLibrary* network_library = CrosLibrary::Get()->GetNetworkLibrary();
+
+  return_value->SetBoolean("offline_mode",
+                           net::NetworkChangeNotifier::IsOffline());
+
+  // IP address.
+  return_value->SetString("ip_address", network_library->IPAddress());
+
+  // Currently connected networks.
+  if (network_library->ethernet_network())
+    return_value->SetString(
+        "connected_ethernet",
+        network_library->ethernet_network()->service_path());
+  if (network_library->wifi_network())
+    return_value->SetString("connected_wifi",
+                            network_library->wifi_network()->service_path());
+  if (network_library->cellular_network())
+    return_value->SetString(
+        "connected_cellular",
+        network_library->cellular_network()->service_path());
+
+  // Ethernet network.
+  bool ethernet_available = network_library->ethernet_available();
+  bool ethernet_enabled = network_library->ethernet_enabled();
+  return_value->SetBoolean("ethernet_available", ethernet_available);
+  return_value->SetBoolean("ethernet_enabled", ethernet_enabled);
+  if (ethernet_available && ethernet_enabled) {
+    const chromeos::EthernetNetwork* ethernet_network =
+        network_library->ethernet_network();
+    if (ethernet_network) {
+      DictionaryValue* items = new DictionaryValue;
+      DictionaryValue* item = GetNetworkInfoDict(ethernet_network);
+      items->Set(ethernet_network->service_path(), item);
+      return_value->Set("ethernet_networks", items);
+    }
+  }
+
+  // Wi-fi networks.
+  bool wifi_available = network_library->wifi_available();
+  bool wifi_enabled = network_library->wifi_enabled();
+  return_value->SetBoolean("wifi_available", wifi_available);
+  return_value->SetBoolean("wifi_enabled", wifi_enabled);
+  if (wifi_available && wifi_enabled) {
+    const chromeos::WifiNetworkVector& wifi_networks =
+        network_library->wifi_networks();
+    DictionaryValue* items = new DictionaryValue;
+    for (chromeos::WifiNetworkVector::const_iterator iter =
+         wifi_networks.begin(); iter != wifi_networks.end(); ++iter) {
+      const chromeos::WifiNetwork* wifi = *iter;
+      DictionaryValue* item = GetNetworkInfoDict(wifi);
+      item->SetInteger("strength", wifi->strength());
+      item->SetBoolean("encrypted", wifi->encrypted());
+      item->SetString("encryption", wifi->GetEncryptionString());
+      items->Set(wifi->service_path(), item);
+    }
+    return_value->Set("wifi_networks", items);
+  }
+
+  // Cellular networks.
+  bool cellular_available = network_library->cellular_available();
+  bool cellular_enabled = network_library->cellular_enabled();
+  return_value->SetBoolean("cellular_available", cellular_available);
+  return_value->SetBoolean("cellular_enabled", cellular_enabled);
+  if (cellular_available && cellular_enabled) {
+    const chromeos::CellularNetworkVector& cellular_networks =
+        network_library->cellular_networks();
+    DictionaryValue* items = new DictionaryValue;
+    for (size_t i = 0; i < cellular_networks.size(); ++i) {
+      DictionaryValue* item = GetNetworkInfoDict(cellular_networks[i]);
+      item->SetInteger("strength", cellular_networks[i]->strength());
+      item->SetString("operator_name", cellular_networks[i]->operator_name());
+      item->SetString("operator_code", cellular_networks[i]->operator_code());
+      item->SetString("payment_url", cellular_networks[i]->payment_url());
+      item->SetString("usage_url", cellular_networks[i]->usage_url());
+      item->SetString("network_technology",
+                      cellular_networks[i]->GetNetworkTechnologyString());
+      item->SetString("activation_state",
+                      cellular_networks[i]->GetActivationStateString());
+      item->SetString("roaming_state",
+                      cellular_networks[i]->GetRoamingStateString());
+      items->Set(cellular_networks[i]->service_path(), item);
+    }
+    return_value->Set("cellular_networks", items);
+  }
+
+  // Remembered Wifi Networks.
+  const chromeos::WifiNetworkVector& remembered_wifi =
+      network_library->remembered_wifi_networks();
+  ListValue* items = new ListValue;
+  for (chromeos::WifiNetworkVector::const_iterator iter =
+       remembered_wifi.begin(); iter != remembered_wifi.end();
+       ++iter) {
+      const chromeos::WifiNetwork* wifi = *iter;
+      items->Append(Value::CreateStringValue(wifi->service_path()));
+  }
+  return_value->Set("remembered_wifi", items);
+
+  AutomationJSONReply(this, reply_message).SendSuccess(return_value.get());
+}
+
+void TestingAutomationProvider::NetworkScan(DictionaryValue* args,
+                                            IPC::Message* reply_message) {
+  if (!EnsureCrosLibraryLoaded(this, reply_message))
+    return;
+
+  NetworkLibrary* network_library = CrosLibrary::Get()->GetNetworkLibrary();
+  network_library->RequestNetworkScan();
+
+  // Set up an observer (it will delete itself).
+  new NetworkScanObserver(this, reply_message);
+}
+
+void TestingAutomationProvider::ToggleNetworkDevice(
+    DictionaryValue* args, IPC::Message* reply_message) {
+  if (!EnsureCrosLibraryLoaded(this, reply_message))
+    return;
+
+  AutomationJSONReply reply(this, reply_message);
+  std::string device;
+  bool enable;
+  if (!args->GetString("device", &device) ||
+      !args->GetBoolean("enable", &enable)) {
+    reply.SendError("Invalid or missing args.");
+    return;
+  }
+
+  // Set up an observer (it will delete itself).
+  new ToggleNetworkDeviceObserver(this, reply_message, device, enable);
+
+  NetworkLibrary* network_library = CrosLibrary::Get()->GetNetworkLibrary();
+  if (device == "ethernet") {
+    network_library->EnableEthernetNetworkDevice(enable);
+  } else if (device == "wifi") {
+    network_library->EnableWifiNetworkDevice(enable);
+  } else if (device == "cellular") {
+    network_library->EnableCellularNetworkDevice(enable);
+  } else {
+    reply.SendError(
+        "Unknown device. Valid devices are ethernet, wifi, cellular.");
+    return;
+  }
+}
+
+void TestingAutomationProvider::GetProxySettings(DictionaryValue* args,
+                                                 IPC::Message* reply_message) {
+  const char* settings[] = { "pacurl", "singlehttp", "singlehttpport",
+                             "httpurl", "httpport", "httpsurl", "httpsport",
+                             "type", "single", "ftpurl", "ftpport",
+                             "socks", "socksport", "ignorelist" };
+
+  scoped_ptr<DictionaryValue> return_value(new DictionaryValue);
+  chromeos::ProxyCrosSettingsProvider settings_provider;
+
+  for (size_t i = 0; i < arraysize(settings); ++i) {
+    Value* setting = GetProxySetting(settings[i]);
+    if (setting)
+      return_value->Set(settings[i], setting);
+  }
+
+  AutomationJSONReply(this, reply_message).SendSuccess(return_value.get());
+}
+
+void TestingAutomationProvider::SetProxySettings(DictionaryValue* args,
+                                                IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  std::string key;
+  Value* value;
+  if (!args->GetString("key", &key) || !args->Get("value", &value)) {
+    reply.SendError("Invalid or missing args.");
+    return;
+  }
+
+  std::string setting_path = "cros.session.proxy.";
+  setting_path.append(key);
+
+  // ProxyCrosSettingsProvider will own the Value* passed to Set().
+  chromeos::ProxyCrosSettingsProvider().Set(setting_path, value->DeepCopy());
+  reply.SendSuccess(NULL);
+}
+
+void TestingAutomationProvider::ConnectToCellularNetwork(
+    DictionaryValue* args, IPC::Message* reply_message) {
+  if (!EnsureCrosLibraryLoaded(this, reply_message))
+    return;
+
+  std::string service_path;
+  if (!args->GetString("service_path", &service_path)) {
+    AutomationJSONReply(this, reply_message).SendError(
+        "Invalid or missing args.");
+    return;
+  }
+
+  NetworkLibrary* network_library = CrosLibrary::Get()->GetNetworkLibrary();
+  chromeos::CellularNetwork* cellular =
+      network_library->FindCellularNetworkByPath(service_path);
+  if (!cellular) {
+    AutomationJSONReply(this, reply_message).SendError(
+        "No network found with specified service path.");
+    return;
+  }
+
+  // Set up an observer (it will delete itself).
+  new ServicePathConnectObserver(this, reply_message, service_path);
+
+  network_library->ConnectToCellularNetwork(cellular);
+  network_library->RequestNetworkScan();
+}
+
+void TestingAutomationProvider::DisconnectFromCellularNetwork(
+    DictionaryValue* args, IPC::Message* reply_message) {
+  if (!EnsureCrosLibraryLoaded(this, reply_message))
+    return;
+
+  NetworkLibrary* network_library = CrosLibrary::Get()->GetNetworkLibrary();
+  const chromeos::CellularNetwork* cellular =
+        network_library->cellular_network();
+  if (!cellular) {
+    AutomationJSONReply(this, reply_message).SendError(
+        "Not connected to any cellular network.");
+    return;
+  }
+
+  // Set up an observer (it will delete itself).
+  new NetworkDisconnectObserver(this, reply_message, cellular->service_path());
+
+  network_library->DisconnectFromNetwork(cellular);
+}
+
+void TestingAutomationProvider::ConnectToWifiNetwork(
+    DictionaryValue* args, IPC::Message* reply_message) {
+  if (!EnsureCrosLibraryLoaded(this, reply_message))
+    return;
+
+  AutomationJSONReply reply(this, reply_message);
+  std::string service_path, password;
+  if (!args->GetString("service_path", &service_path) ||
+      !args->GetString("password", &password)) {
+    reply.SendError("Invalid or missing args.");
+    return;
+  }
+
+  NetworkLibrary* network_library = CrosLibrary::Get()->GetNetworkLibrary();
+  chromeos::WifiNetwork* wifi =
+      network_library->FindWifiNetworkByPath(service_path);
+  if (!wifi) {
+    reply.SendError("No network found with specified service path.");
+    return;
+  }
+  if (!password.empty())
+    wifi->SetPassphrase(password);
+
+  // Set up an observer (it will delete itself).
+  new ServicePathConnectObserver(this, reply_message, service_path);
+
+  network_library->ConnectToWifiNetwork(wifi);
+  network_library->RequestNetworkScan();
+}
+
+void TestingAutomationProvider::ForgetWifiNetwork(
+    DictionaryValue* args, IPC::Message* reply_message) {
+  if (!EnsureCrosLibraryLoaded(this, reply_message))
+    return;
+  std::string service_path;
+  if (!args->GetString("service_path", &service_path)) {
+    AutomationJSONReply(this, reply_message).SendError(
+        "Invalid or missing args.");
+    return;
+  }
+
+  CrosLibrary::Get()->GetNetworkLibrary()->ForgetNetwork(service_path);
+  AutomationJSONReply(this, reply_message).SendSuccess(NULL);
+}
+
+void TestingAutomationProvider::ConnectToHiddenWifiNetwork(
+    DictionaryValue* args, IPC::Message* reply_message) {
+  if (!EnsureCrosLibraryLoaded(this, reply_message))
+    return;
+
+  std::string ssid, security, password;
+  if (!args->GetString("ssid", &ssid) ||
+      !args->GetString("security", &security) ||
+      !args->GetString("password", &password)) {
+    AutomationJSONReply(this, reply_message).SendError(
+        "Invalid or missing args.");
+    return;
+  }
+
+  std::map<std::string, chromeos::ConnectionSecurity> connection_security_map;
+  connection_security_map["SECURITY_NONE"] = chromeos::SECURITY_NONE;
+  connection_security_map["SECURITY_WEP"] = chromeos::SECURITY_WEP;
+  connection_security_map["SECURITY_WPA"] = chromeos::SECURITY_WPA;
+  connection_security_map["SECURITY_RSN"] = chromeos::SECURITY_RSN;
+  connection_security_map["SECURITY_8021X"] = chromeos::SECURITY_8021X;
+
+  if (connection_security_map.find(security) == connection_security_map.end()) {
+    AutomationJSONReply(this, reply_message).SendError(
+        "Unknown security type.");
+    return;
+  }
+  chromeos::ConnectionSecurity connection_security =
+      connection_security_map[security];
+
+  NetworkLibrary* network_library = CrosLibrary::Get()->GetNetworkLibrary();
+
+  // Set up an observer (it will delete itself).
+  new SSIDConnectObserver(this, reply_message, ssid);
+
+  const bool shared = true;
+  const bool save_credentials = false;
+
+  if (connection_security == chromeos::SECURITY_8021X) {
+    chromeos::NetworkLibrary::EAPConfigData config_data;
+    std::string eap_method, eap_auth, eap_identity;
+    if (!args->GetString("eap_method", &eap_method) ||
+        !args->GetString("eap_auth", &eap_auth) ||
+        !args->GetString("eap_identity", &eap_identity)) {
+      AutomationJSONReply(this, reply_message).SendError(
+          "Invalid or missing EAP args.");
+      return;
+    }
+
+    std::map<std::string, chromeos::EAPMethod> eap_method_map;
+    eap_method_map["EAP_METHOD_NONE"] = chromeos::EAP_METHOD_UNKNOWN;
+    eap_method_map["EAP_METHOD_PEAP"] = chromeos::EAP_METHOD_PEAP;
+    eap_method_map["EAP_METHOD_TLS"] = chromeos::EAP_METHOD_TLS;
+    eap_method_map["EAP_METHOD_TTLS"] = chromeos::EAP_METHOD_TTLS;
+    eap_method_map["EAP_METHOD_LEAP"] = chromeos::EAP_METHOD_LEAP;
+    if (eap_method_map.find(eap_method) == eap_method_map.end()) {
+      AutomationJSONReply(this, reply_message).SendError(
+          "Unknown EAP Method type.");
+      return;
+    }
+    config_data.method = eap_method_map[eap_method];
+
+    std::map<std::string, chromeos::EAPPhase2Auth> eap_auth_map;
+    eap_auth_map["EAP_PHASE_2_AUTH_AUTO"] = chromeos::EAP_PHASE_2_AUTH_AUTO;
+    eap_auth_map["EAP_PHASE_2_AUTH_MD5"] = chromeos::EAP_PHASE_2_AUTH_MD5;
+    eap_auth_map["EAP_PHASE_2_AUTH_MSCHAP"] =
+        chromeos::EAP_PHASE_2_AUTH_MSCHAP;
+    eap_auth_map["EAP_PHASE_2_AUTH_MSCHAPV2"] =
+        chromeos::EAP_PHASE_2_AUTH_MSCHAPV2;
+    eap_auth_map["EAP_PHASE_2_AUTH_PAP"] = chromeos::EAP_PHASE_2_AUTH_PAP;
+    eap_auth_map["EAP_PHASE_2_AUTH_CHAP"] = chromeos::EAP_PHASE_2_AUTH_CHAP;
+    if (eap_auth_map.find(eap_auth) == eap_auth_map.end()) {
+      AutomationJSONReply(this, reply_message).SendError(
+          "Unknown EAP Phase2 Auth type.");
+      return;
+    }
+    config_data.auth = eap_auth_map[eap_auth];
+
+    config_data.identity = eap_identity;
+
+    // TODO(stevenjb): Parse cert values?
+    config_data.server_ca_cert_nss_nickname = "";
+    config_data.use_system_cas = false;
+    config_data.client_cert_pkcs11_id = "";
+
+    network_library->ConnectToUnconfiguredWifiNetwork(
+        ssid, chromeos::SECURITY_8021X, password, &config_data,
+        save_credentials, shared);
+  } else {
+    network_library->ConnectToUnconfiguredWifiNetwork(
+        ssid, connection_security, password, NULL,
+        save_credentials, shared);
+  }
+}
+
+void TestingAutomationProvider::DisconnectFromWifiNetwork(
+    DictionaryValue* args, IPC::Message* reply_message) {
+  if (!EnsureCrosLibraryLoaded(this, reply_message))
+    return;
+
+  AutomationJSONReply reply(this, reply_message);
+  NetworkLibrary* network_library = CrosLibrary::Get()->GetNetworkLibrary();
+  const chromeos::WifiNetwork* wifi = network_library->wifi_network();
+  if (!wifi) {
+    reply.SendError("Not connected to any wifi network.");
+    return;
+  }
+
+  network_library->DisconnectFromNetwork(wifi);
+  reply.SendSuccess(NULL);
+}
+
+void TestingAutomationProvider::AddPrivateNetwork(
+    DictionaryValue* args, IPC::Message* reply_message) {
+  if (!EnsureCrosLibraryLoaded(this, reply_message))
+    return;
+
+  std::string hostname, service_name, provider_type, key, cert_id, cert_nss,
+      username, password;
+  if (!args->GetString("hostname", &hostname) ||
+      !args->GetString("service_name", &service_name) ||
+      !args->GetString("provider_type", &provider_type) ||
+      !args->GetString("username", &username) ||
+      !args->GetString("password", &password)) {
+    AutomationJSONReply(this, reply_message)
+        .SendError("Invalid or missing args.");
+    return;
+  }
+
+  NetworkLibrary* network_library = CrosLibrary::Get()->GetNetworkLibrary();
+
+  // Attempt to connect to the VPN based on the provider type.
+  if (provider_type == VPNProviderTypeToString(
+      chromeos::PROVIDER_TYPE_L2TP_IPSEC_PSK)) {
+    if (!args->GetString("key", &key)) {
+      AutomationJSONReply(this, reply_message)
+          .SendError("Missing key arg.");
+      return;
+    }
+    new VirtualConnectObserver(this, reply_message, service_name);
+    // Connect using a pre-shared key.
+    chromeos::NetworkLibrary::VPNConfigData config_data;
+    config_data.psk = key;
+    config_data.username = username;
+    config_data.user_passphrase = password;
+    network_library->ConnectToUnconfiguredVirtualNetwork(
+        service_name,
+        hostname,
+        chromeos::PROVIDER_TYPE_L2TP_IPSEC_PSK,
+        config_data);
+  } else if (provider_type == VPNProviderTypeToString(
+      chromeos::PROVIDER_TYPE_L2TP_IPSEC_USER_CERT)) {
+    if (!args->GetString("cert_id", &cert_id) ||
+        !args->GetString("cert_nss", &cert_nss)) {
+      AutomationJSONReply(this, reply_message)
+          .SendError("Missing a certificate arg.");
+      return;
+    }
+    new VirtualConnectObserver(this, reply_message, service_name);
+    // Connect using a user certificate.
+    chromeos::NetworkLibrary::VPNConfigData config_data;
+    config_data.server_ca_cert_nss_nickname = cert_nss;
+    config_data.client_cert_pkcs11_id = cert_id;
+    config_data.username = username;
+    config_data.user_passphrase = password;
+    network_library->ConnectToUnconfiguredVirtualNetwork(
+        service_name,
+        hostname,
+        chromeos::PROVIDER_TYPE_L2TP_IPSEC_USER_CERT,
+        config_data);
+  } else if (provider_type == VPNProviderTypeToString(
+      chromeos::PROVIDER_TYPE_OPEN_VPN)) {
+    std::string otp;
+    args->GetString("otp", &otp);
+    // Connect using OPEN_VPN.
+    chromeos::NetworkLibrary::VPNConfigData config_data;
+    config_data.server_ca_cert_nss_nickname = cert_nss;
+    config_data.client_cert_pkcs11_id = cert_id;
+    config_data.username = username;
+    config_data.user_passphrase = password;
+    config_data.otp = otp;
+    network_library->ConnectToUnconfiguredVirtualNetwork(
+        service_name,
+        hostname,
+        chromeos::PROVIDER_TYPE_OPEN_VPN,
+        config_data);
+  } else {
+    AutomationJSONReply(this, reply_message)
+        .SendError("Unsupported provider type.");
+    return;
+  }
+}
+
+void TestingAutomationProvider::ConnectToPrivateNetwork(
+    DictionaryValue* args, IPC::Message* reply_message) {
+  if (!EnsureCrosLibraryLoaded(this, reply_message))
+    return;
+
+  AutomationJSONReply reply(this, reply_message);
+  std::string service_path;
+  if (!args->GetString("service_path", &service_path)) {
+    reply.SendError("Invalid or missing args.");
+    return;
+  }
+
+  // Connect to a remembered VPN by its service_path. Valid service_paths
+  // can be found in the dictionary returned by GetPrivateNetworkInfo.
+  NetworkLibrary* network_library = CrosLibrary::Get()->GetNetworkLibrary();
+  chromeos::VirtualNetwork* network =
+      network_library->FindVirtualNetworkByPath(service_path);
+  if (!network) {
+    reply.SendError(StringPrintf("No virtual network found: %s",
+                                 service_path.c_str()));
+    return;
+  }
+  if (network->NeedMoreInfoToConnect()) {
+    reply.SendError("Virtual network is missing info required to connect.");
+    return;
+  };
+
+  // Set up an observer (it will delete itself).
+  new VirtualConnectObserver(this, reply_message, network->name());
+  network_library->ConnectToVirtualNetwork(network);
+}
+
+void TestingAutomationProvider::GetPrivateNetworkInfo(
+    DictionaryValue* args, IPC::Message* reply_message) {
+  if (!EnsureCrosLibraryLoaded(this, reply_message))
+    return;
+
+  scoped_ptr<DictionaryValue> return_value(new DictionaryValue);
+  NetworkLibrary* network_library = CrosLibrary::Get()->GetNetworkLibrary();
+  const chromeos::VirtualNetworkVector& virtual_networks =
+      network_library->virtual_networks();
+
+  // Construct a dictionary of fields describing remembered VPNs. Also list
+  // the currently active VPN, if any.
+  if (network_library->virtual_network())
+    return_value->SetString("connected",
+                            network_library->virtual_network()->service_path());
+  for (chromeos::VirtualNetworkVector::const_iterator iter =
+       virtual_networks.begin(); iter != virtual_networks.end(); ++iter) {
+    const chromeos::VirtualNetwork* virt = *iter;
+    DictionaryValue* item = new DictionaryValue;
+    item->SetString("name", virt->name());
+    item->SetString("provider_type",
+                    VPNProviderTypeToString(virt->provider_type()));
+    item->SetString("hostname", virt->server_hostname());
+    item->SetString("key", virt->psk_passphrase());
+    item->SetString("cert_nss", virt->ca_cert_nss());
+    item->SetString("cert_id", virt->client_cert_id());
+    item->SetString("username", virt->username());
+    item->SetString("password", virt->user_passphrase());
+    return_value->Set(virt->service_path(), item);
+  }
+
+  AutomationJSONReply(this, reply_message).SendSuccess(return_value.get());
+}
+
+void TestingAutomationProvider::DisconnectFromPrivateNetwork(
+    DictionaryValue* args, IPC::Message* reply_message) {
+  if (!EnsureCrosLibraryLoaded(this, reply_message))
+    return;
+
+  AutomationJSONReply reply(this, reply_message);
+  NetworkLibrary* network_library = CrosLibrary::Get()->GetNetworkLibrary();
+  const chromeos::VirtualNetwork* virt = network_library->virtual_network();
+  if (!virt) {
+    reply.SendError("Not connected to any virtual network.");
+    return;
+  }
+
+  network_library->DisconnectFromNetwork(virt);
+  reply.SendSuccess(NULL);
+}
+
+void TestingAutomationProvider::IsEnterpriseDevice(
+    DictionaryValue* args, IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  policy::BrowserPolicyConnector* connector =
+      g_browser_process->browser_policy_connector();
+  if (!connector) {
+    reply.SendError("Unable to access BrowserPolicyConnector");
+    return;
+  }
+  scoped_ptr<DictionaryValue> return_value(new DictionaryValue);
+  return_value->SetBoolean("enterprise", connector->IsEnterpriseManaged());
+  reply.SendSuccess(return_value.get());
+}
+
+void TestingAutomationProvider::FetchEnterprisePolicy(
+    DictionaryValue* args, IPC::Message* reply_message) {
+  policy::BrowserPolicyConnector* connector =
+      g_browser_process->browser_policy_connector();
+  if (!connector) {
+    AutomationJSONReply(this, reply_message).SendError(
+        "Unable to access BrowserPolicyConnector");
+    return;
+  }
+  policy::CloudPolicySubsystem* policy_subsystem =
+      connector->user_cloud_policy_subsystem();
+  if (policy_subsystem) {
+    // Set up an observer (it will delete itself).
+    new CloudPolicyObserver(this, reply_message, connector, policy_subsystem);
+    connector->FetchDevicePolicy();
+  } else {
+    AutomationJSONReply(this, reply_message).SendError(
+        "Unable to access CloudPolicySubsystem");
+  }
+}
+
+void TestingAutomationProvider::EnrollEnterpriseDevice(
+    DictionaryValue* args, IPC::Message* reply_message) {
+  std::string user, password;
+  if (!args->GetString("user", &user) ||
+      !args->GetString("password", &password)) {
+    AutomationJSONReply(this, reply_message)
+        .SendError("Invalid or missing args.");
+    return;
+  }
+  chromeos::ExistingUserController* user_controller =
+      chromeos::ExistingUserController::current_controller();
+  if (!user_controller) {
+    AutomationJSONReply(this, reply_message).SendError(
+        "Unable to access ExistingUserController");
+    return;
+  }
+  user_controller->login_display_host()->StartWizard(
+      chromeos::WizardController::kEnterpriseEnrollmentScreenName,
+      GURL());
+  chromeos::WizardController* wizard_controller =
+      chromeos::WizardController::default_controller();
+  if (!wizard_controller) {
+    AutomationJSONReply(this, reply_message).SendError(
+        "Unable to access WizardController");
+    return;
+  }
+  chromeos::EnterpriseEnrollmentScreen* enroll_screen =
+      wizard_controller->GetEnterpriseEnrollmentScreen();
+  if (!enroll_screen) {
+    AutomationJSONReply(this, reply_message).SendError(
+        "Unable to access EnterpriseEnrollmentScreen");
+    return;
+  }
+  // Set up an observer (it will delete itself).
+  new EnrollmentObserver(this, reply_message, enroll_screen->GetActor(),
+                         enroll_screen);
+  enroll_screen->OnAuthSubmitted(user, password, "", "");
+}
+
+void TestingAutomationProvider::GetEnterprisePolicyInfo(
+    DictionaryValue* args, IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  scoped_ptr<DictionaryValue> return_value(new DictionaryValue);
+
+  policy::BrowserPolicyConnector* connector =
+      g_browser_process->browser_policy_connector();
+  if (!connector) {
+    reply.SendError("Unable to access BrowserPolicyConnector");
+    return;
+  }
+  policy::CloudPolicySubsystem* user_cloud_policy =
+      connector->user_cloud_policy_subsystem();
+  policy::CloudPolicySubsystem* device_cloud_policy =
+      connector->device_cloud_policy_subsystem();
+  const policy::CloudPolicyDataStore* user_data_store =
+      connector->GetUserCloudPolicyDataStore();
+  const policy::CloudPolicyDataStore* device_data_store =
+      connector->GetDeviceCloudPolicyDataStore();
+  if (!user_cloud_policy || !device_cloud_policy) {
+    reply.SendError("Unable to access a CloudPolicySubsystem");
+    return;
+  }
+  if (!user_data_store || !device_data_store) {
+    reply.SendError("Unable to access a CloudPolicyDataStore");
+    return;
+  }
+
+  // Get various policy related fields.
+  return_value->SetString("enterprise_domain",
+                          connector->GetEnterpriseDomain());
+  return_value->SetString("user_cloud_policy",
+      EnterpriseStatusToString(user_cloud_policy->state()));
+  return_value->SetString("device_cloud_policy",
+      EnterpriseStatusToString(device_cloud_policy->state()));
+  return_value->SetString("device_id", device_data_store->device_id());
+  return_value->SetString("device_token", device_data_store->device_token());
+  return_value->SetString("gaia_token", device_data_store->gaia_token());
+  return_value->SetString("machine_id", device_data_store->machine_id());
+  return_value->SetString("machine_model", device_data_store->machine_model());
+  return_value->SetString("user_name", device_data_store->user_name());
+  return_value->SetBoolean("device_token_cache_loaded",
+                           device_data_store->token_cache_loaded());
+  return_value->SetBoolean("user_token_cache_loaded",
+                           user_data_store->token_cache_loaded());
+  // Get PolicyMaps.
+  return_value->Set("device_mandatory_policies",
+                    CreateDictionaryWithPolicies(device_cloud_policy,
+                        policy::CloudPolicyCacheBase::POLICY_LEVEL_MANDATORY));
+  return_value->Set("user_mandatory_policies",
+                    CreateDictionaryWithPolicies(user_cloud_policy,
+                        policy::CloudPolicyCacheBase::POLICY_LEVEL_MANDATORY));
+  return_value->Set("device_recommended_policies",
+      CreateDictionaryWithPolicies(device_cloud_policy,
+          policy::CloudPolicyCacheBase::POLICY_LEVEL_RECOMMENDED));
+  return_value->Set("user_recommended_policies",
+      CreateDictionaryWithPolicies(user_cloud_policy,
+          policy::CloudPolicyCacheBase::POLICY_LEVEL_RECOMMENDED));
+  reply.SendSuccess(return_value.get());
+}
+
+void TestingAutomationProvider::GetTimeInfo(Browser* browser,
+                                            DictionaryValue* args,
+                                            IPC::Message* reply_message) {
+  scoped_ptr<DictionaryValue> return_value(new DictionaryValue);
+  base::Time time(base::Time::Now());
+  bool use_24hour_clock = browser && browser->profile()->GetPrefs()->GetBoolean(
+      prefs::kUse24HourClock);
+  base::HourClockType hour_clock_type =
+      use_24hour_clock ? base::k24HourClock : base::k12HourClock;
+  string16 display_time = base::TimeFormatTimeOfDayWithHourClockType(
+      time, hour_clock_type, base::kDropAmPm);
+  icu::UnicodeString unicode;
+  chromeos::system::TimezoneSettings::GetInstance()->GetTimezone().getID(
+      unicode);
+  std::string timezone;
+  UTF16ToUTF8(unicode.getBuffer(), unicode.length(), &timezone);
+  return_value->SetString("display_time", display_time);
+  return_value->SetString("display_date", base::TimeFormatFriendlyDate(time));
+  return_value->SetString("timezone", timezone);
+  AutomationJSONReply(this, reply_message).SendSuccess(return_value.get());
+}
+
+void TestingAutomationProvider::GetTimeInfo(DictionaryValue* args,
+                                            IPC::Message* reply_message) {
+  GetTimeInfo(NULL, args, reply_message);
+}
+
+void TestingAutomationProvider::SetTimezone(DictionaryValue* args,
+                                            IPC::Message* reply_message) {
+  std::string timezone_id;
+  if (!args->GetString("timezone", &timezone_id)) {
+    AutomationJSONReply(this, reply_message).SendError(
+        "Invalid or missing args.");
+    return;
+  }
+
+  icu::TimeZone* timezone =
+      icu::TimeZone::createTimeZone(icu::UnicodeString::fromUTF8(timezone_id));
+  chromeos::system::TimezoneSettings::GetInstance()->SetTimezone(*timezone);
+  delete timezone;
+  AutomationJSONReply(this, reply_message).SendSuccess(NULL);
+}
+
+void TestingAutomationProvider::GetUpdateInfo(DictionaryValue* args,
+                                              IPC::Message* reply_message) {
+  if (!EnsureCrosLibraryLoaded(this, reply_message))
+    return;
+
+  UpdateLibrary* update_library = CrosLibrary::Get()->GetUpdateLibrary();
+  AutomationJSONReply* reply = new AutomationJSONReply(this, reply_message);
+  update_library->GetReleaseTrack(GetReleaseTrackCallback, reply);
+}
+
+void TestingAutomationProvider::UpdateCheck(
+    DictionaryValue* args,
+    IPC::Message* reply_message) {
+  if (!EnsureCrosLibraryLoaded(this, reply_message))
+    return;
+
+  UpdateLibrary* update_library = CrosLibrary::Get()->GetUpdateLibrary();
+  AutomationJSONReply* reply = new AutomationJSONReply(this, reply_message);
+  update_library->RequestUpdateCheck(UpdateCheckCallback, reply);
+}
+
+void TestingAutomationProvider::SetReleaseTrack(DictionaryValue* args,
+                                                IPC::Message* reply_message) {
+  if (!EnsureCrosLibraryLoaded(this, reply_message))
+    return;
+
+  AutomationJSONReply reply(this, reply_message);
+  std::string track;
+  if (!args->GetString("track", &track)) {
+    reply.SendError("Invalid or missing args.");
+    return;
+  }
+
+  UpdateLibrary* update_library = CrosLibrary::Get()->GetUpdateLibrary();
+  update_library->SetReleaseTrack(track);
+  reply.SendSuccess(NULL);
+}
+
+void TestingAutomationProvider::GetVolumeInfo(DictionaryValue* args,
+                                              IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  scoped_ptr<DictionaryValue> return_value(new DictionaryValue);
+  chromeos::AudioHandler* audio_handler = chromeos::AudioHandler::GetInstance();
+  if (!audio_handler) {
+    reply.SendError("AudioHandler not initialized.");
+    return;
+  }
+  return_value->SetDouble("volume", audio_handler->GetVolumePercent());
+  return_value->SetBoolean("is_mute", audio_handler->IsMuted());
+  reply.SendSuccess(return_value.get());
+}
+
+void TestingAutomationProvider::SetVolume(DictionaryValue* args,
+                                          IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  double volume_percent;
+  if (!args->GetDouble("volume", &volume_percent)) {
+    reply.SendError("Invalid or missing args.");
+    return;
+  }
+  chromeos::AudioHandler* audio_handler = chromeos::AudioHandler::GetInstance();
+  if (!audio_handler) {
+    reply.SendError("AudioHandler not initialized.");
+    return;
+  }
+  audio_handler->SetVolumePercent(volume_percent);
+  reply.SendSuccess(NULL);
+}
+
+void TestingAutomationProvider::SetMute(DictionaryValue* args,
+                                        IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  bool mute;
+  if (!args->GetBoolean("mute", &mute)) {
+    reply.SendError("Invalid or missing args.");
+    return;
+  }
+  chromeos::AudioHandler* audio_handler = chromeos::AudioHandler::GetInstance();
+  if (!audio_handler) {
+    reply.SendError("AudioHandler not initialized.");
+    return;
+  }
+  audio_handler->SetMuted(mute);
+  reply.SendSuccess(NULL);
+}
+
+void TestingAutomationProvider::CaptureProfilePhoto(
+    Browser* browser,
+    DictionaryValue* args,
+    IPC::Message* reply_message) {
+  chromeos::TakePhotoDialog* take_photo_dialog =
+      new chromeos::TakePhotoDialog(NULL);
+
+  // Set up an observer (it will delete itself).
+  take_photo_dialog->AddObserver(new PhotoCaptureObserver(
+      this, reply_message));
+
+  views::Widget* window = browser::CreateViewsWindow(
+      browser->window()->GetNativeHandle(), take_photo_dialog);
+  window->SetAlwaysOnTop(true);
+  window->Show();
+}
+
+void TestingAutomationProvider::PowerChanged(
+    const chromeos::PowerSupplyStatus& status) {
+  power_status = status;
+}

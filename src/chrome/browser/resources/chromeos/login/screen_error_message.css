@@ -1,0 +1,35 @@
+/* Copyright (c) 2011 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
+#error-message-screen-title {
+  -webkit-margin-start: 60px;
+  -webkit-margin-end: 60px;
+  display: block;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+#error-message-body {
+  -webkit-margin-start: 60px;
+  -webkit-margin-end: 60px;
+  display: block;
+}
+
+#captive-portal-network-select-text {
+  margin-top: 20px;
+}
+
+.show-with-offline-message,
+.show-with-captive-portal,
+.show-with-proxy-error {
+  display: none;
+}
+
+.show-offline-message .show-with-offline-message,
+.show-captive-portal .show-with-captive-portal,
+.show-proxy-error .show-with-proxy-error {
+  display: block;
+}
+

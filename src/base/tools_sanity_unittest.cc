@@ -1,0 +1,217 @@
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+//
+// This file contains intentional memory errors, some of which may lead to
+// crashes if the test is ran without special memory testing tools. We use these
+// errors to verify the sanity of the tools.
+
+#include "base/atomicops.h"
+#include "base/message_loop.h"
+#include "base/third_party/dynamic_annotations/dynamic_annotations.h"
+#include "base/threading/thread.h"
+#include "testing/gtest/include/gtest/gtest.h"
+
+namespace base {
+
+namespace {
+
+const base::subtle::Atomic32 kMagicValue = 42;
+
+// Helper for memory accesses that can potentially corrupt memory or cause a
+// crash during a native run.
+#ifdef ADDRESS_SANITIZER
+#define HARMFUL_ACCESS(action,error_regexp) EXPECT_DEATH(action,error_regexp)
+#else
+#define HARMFUL_ACCESS(action,error_regexp) \
+do { if (RunningOnValgrind()) { action; } } while (0)
+#endif
+
+void ReadUninitializedValue(char *ptr) {
+  // The || in the conditional is to prevent clang from optimizing away the
+  // jump -- valgrind only catches jumps and conditional moves, but clang uses
+  // the borrow flag if the condition is just `*ptr == '\0'`.
+  if (*ptr == '\0' || *ptr == 64) {
+    (*ptr)++;
+  } else {
+    (*ptr)--;
+  }
+}
+
+void ReadValueOutOfArrayBoundsLeft(char *ptr) {
+  char c = ptr[-2];
+  VLOG(1) << "Reading a byte out of bounds: " << c;
+}
+
+void ReadValueOutOfArrayBoundsRight(char *ptr, size_t size) {
+  char c = ptr[size + 1];
+  VLOG(1) << "Reading a byte out of bounds: " << c;
+}
+
+// This is harmless if you run it under Valgrind thanks to redzones.
+void WriteValueOutOfArrayBoundsLeft(char *ptr) {
+  ptr[-1] = kMagicValue;
+}
+
+// This is harmless if you run it under Valgrind thanks to redzones.
+void WriteValueOutOfArrayBoundsRight(char *ptr, size_t size) {
+  ptr[size] = kMagicValue;
+}
+
+void MakeSomeErrors(char *ptr, size_t size) {
+  ReadUninitializedValue(ptr);
+  HARMFUL_ACCESS(ReadValueOutOfArrayBoundsLeft(ptr),
+                 "heap-buffer-overflow.*2 bytes to the left");
+  HARMFUL_ACCESS(ReadValueOutOfArrayBoundsRight(ptr, size),
+                 "heap-buffer-overflow.*1 bytes to the right");
+  HARMFUL_ACCESS(WriteValueOutOfArrayBoundsLeft(ptr),
+                 "heap-buffer-overflow.*1 bytes to the left");
+  HARMFUL_ACCESS(WriteValueOutOfArrayBoundsRight(ptr, size),
+                 "heap-buffer-overflow.*0 bytes to the right");
+}
+
+}  // namespace
+
+// A memory leak detector should report an error in this test.
+TEST(ToolsSanityTest, MemoryLeak) {
+  int *leak = new int[256];  // Leak some memory intentionally.
+  leak[4] = 1;  // Make sure the allocated memory is used.
+}
+
+TEST(ToolsSanityTest, AccessesToNewMemory) {
+  char *foo = new char[10];
+  MakeSomeErrors(foo, 10);
+  delete [] foo;
+  // Use after delete.
+  HARMFUL_ACCESS(foo[5] = 0, "heap-use-after-free");
+}
+
+TEST(ToolsSanityTest, AccessesToMallocMemory) {
+  char *foo = reinterpret_cast<char*>(malloc(10));
+  MakeSomeErrors(foo, 10);
+  free(foo);
+  // Use after free.
+  HARMFUL_ACCESS(foo[5] = 0, "heap-use-after-free");
+}
+
+TEST(ToolsSanityTest, ArrayDeletedWithoutBraces) {
+#ifndef ADDRESS_SANITIZER
+  // This test may corrupt memory if not run under Valgrind or compiled with
+  // AddressSanitizer.
+  if (!RunningOnValgrind())
+    return;
+#endif
+
+  // Without the |volatile|, clang optimizes away the next two lines.
+  int* volatile foo = new int[10];
+  delete foo;
+}
+
+TEST(ToolsSanityTest, SingleElementDeletedWithBraces) {
+#ifndef ADDRESS_SANITIZER
+  // This test may corrupt memory if not run under Valgrind or compiled with
+  // AddressSanitizer.
+  if (!RunningOnValgrind())
+    return;
+#endif
+
+  // Without the |volatile|, clang optimizes away the next two lines.
+  int* volatile foo = new int;
+  (void) foo;
+  delete [] foo;
+}
+
+#ifdef ADDRESS_SANITIZER
+TEST(ToolsSanityTest, DISABLED_AddressSanitizerCrashTest) {
+  // Intentionally crash to make sure AddressSanitizer is running.
+  // This test should not be ran on bots.
+  int* volatile zero = NULL;
+  *zero = 0;
+}
+#endif
+
+namespace {
+
+// We use caps here just to ensure that the method name doesn't interfere with
+// the wildcarded suppressions.
+class TOOLS_SANITY_TEST_CONCURRENT_THREAD : public PlatformThread::Delegate {
+ public:
+  explicit TOOLS_SANITY_TEST_CONCURRENT_THREAD(bool *value) : value_(value) {}
+  ~TOOLS_SANITY_TEST_CONCURRENT_THREAD() {}
+  void ThreadMain() {
+    *value_ = true;
+
+    // Sleep for a few milliseconds so the two threads are more likely to live
+    // simultaneously. Otherwise we may miss the report due to mutex
+    // lock/unlock's inside thread creation code in pure-happens-before mode...
+    PlatformThread::Sleep(100);
+  }
+ private:
+  bool *value_;
+};
+
+class ReleaseStoreThread : public PlatformThread::Delegate {
+ public:
+  explicit ReleaseStoreThread(base::subtle::Atomic32 *value) : value_(value) {}
+  ~ReleaseStoreThread() {}
+  void ThreadMain() {
+    base::subtle::Release_Store(value_, kMagicValue);
+
+    // Sleep for a few milliseconds so the two threads are more likely to live
+    // simultaneously. Otherwise we may miss the report due to mutex
+    // lock/unlock's inside thread creation code in pure-happens-before mode...
+    PlatformThread::Sleep(100);
+  }
+ private:
+  base::subtle::Atomic32 *value_;
+};
+
+class AcquireLoadThread : public PlatformThread::Delegate {
+ public:
+  explicit AcquireLoadThread(base::subtle::Atomic32 *value) : value_(value) {}
+  ~AcquireLoadThread() {}
+  void ThreadMain() {
+    // Wait for the other thread to make Release_Store
+    PlatformThread::Sleep(100);
+    base::subtle::Acquire_Load(value_);
+  }
+ private:
+  base::subtle::Atomic32 *value_;
+};
+
+void RunInParallel(PlatformThread::Delegate *d1, PlatformThread::Delegate *d2) {
+  PlatformThreadHandle a;
+  PlatformThreadHandle b;
+  PlatformThread::Create(0, d1, &a);
+  PlatformThread::Create(0, d2, &b);
+  PlatformThread::Join(a);
+  PlatformThread::Join(b);
+}
+
+}  // namespace
+
+// A data race detector should report an error in this test.
+TEST(ToolsSanityTest, DataRace) {
+  bool shared = false;
+  TOOLS_SANITY_TEST_CONCURRENT_THREAD thread1(&shared), thread2(&shared);
+  RunInParallel(&thread1, &thread2);
+  EXPECT_TRUE(shared);
+}
+
+TEST(ToolsSanityTest, AnnotateBenignRace) {
+  bool shared = false;
+  ANNOTATE_BENIGN_RACE(&shared, "Intentional race - make sure doesn't show up");
+  TOOLS_SANITY_TEST_CONCURRENT_THREAD thread1(&shared), thread2(&shared);
+  RunInParallel(&thread1, &thread2);
+  EXPECT_TRUE(shared);
+}
+
+TEST(ToolsSanityTest, AtomicsAreIgnored) {
+  base::subtle::Atomic32 shared = 0;
+  ReleaseStoreThread thread1(&shared);
+  AcquireLoadThread thread2(&shared);
+  RunInParallel(&thread1, &thread2);
+  EXPECT_EQ(kMagicValue, shared);
+}
+
+}  // namespace base

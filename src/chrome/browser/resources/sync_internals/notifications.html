@@ -1,0 +1,25 @@
+<script src="chrome://sync-internals/notifications.js"></script>
+
+<style>
+table#notificationInfo tr:nth-child(odd) {
+  background: #eff3ff;
+}
+</style>
+
+<p id='notificationsEnabledInfo'>
+  Enabled: <span jscontent='notificationsEnabled'></span>
+</p>
+<table id='notificationInfo'>
+  <tr>
+    <th>Type</th>
+    <th>Total count</th>
+    <th>Session count</th>
+    <th>Payload</th>
+  </tr>
+  <tr jsselect='notifications'>
+    <td jscontent='type'/>
+    <td jscontent='totalCount'/>
+    <td jscontent='sessionCount'/>
+    <td jscontent='payload'/>
+  </tr>
+</table>

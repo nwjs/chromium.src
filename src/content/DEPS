@@ -1,0 +1,63 @@
+# Do NOT add chrome to the list below.  We shouldn't be including files from
+# src/chrome in src/content.
+include_rules = [
+  "+crypto",
+
+  "-chrome",
+  # Until we move most of our testing infrastructure in a way that content can
+  # make use of it.
+  "+chrome/test",
+
+  # The subdirectories in content/ will manually allow their own include
+  # directories in content/ so we disallow all of them.
+  "-content",
+  "+content/common",
+  "+content/public/common",
+  "+content/test",
+
+  # TODO(ben): remove this
+  "+content/public/browser/native_web_keyboard_event.h",
+
+  "+dbus",
+  "+grit",
+  "+gpu",
+  "+net",
+  "+ppapi",
+  "+printing",
+  "+sandbox",
+  "+skia",
+
+  # Don't allow inclusion of these other libs we shouldn't be calling directly.
+  "-v8",
+  "-tools",
+
+  # Allow inclusion of third-party code:
+  "+third_party/gpsd",
+  "+third_party/mozilla",
+  "+third_party/npapi/bindings",
+  "+third_party/sqlite",
+  "+third_party/tcmalloc",
+  # Allow inclusion of WebKit API files.
+  "+third_party/WebKit/Source/WebKit/chromium",
+
+  # Aura is analogous to Win32 or a Gtk, so it is allowed.
+  "+ui/aura",
+  "+ui/base",
+  "+ui/gfx",
+  # Content knows about grd files, but the specifics of how to get a resource
+  # given its id is left to the embedder.
+  "-ui/base/l10n",
+  "-ui/base/resource",
+  # This file isn't related to grd, so it's fine.
+  "+ui/base/l10n/l10n_util_win.h",
+
+  # Content shouldn't depend on views. While we technically don't need this
+  # line, since the top level DEPS doesn't allow it, we add it to make this
+  # explicit. 
+  "-views",
+  
+  # Aura Shell consumes views, so it too is banned.
+  "-ui/aura_shell",
+
+  "+webkit",
+]

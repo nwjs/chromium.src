@@ -1,0 +1,283 @@
+<!doctype html>
+<!--
+Copyright (c) 2011 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link href="http://fonts.googleapis.com/css?family=Droid+Sans&amp;v1"
+          rel="stylesheet" type="text/css">
+    <link rel="icon" type="image/png" href="chromoting16.png" />
+    <link rel="stylesheet" href="debug_log.css" />
+    <link rel="stylesheet" href="main.css" />
+    <link rel="stylesheet" href="choice.css" />
+    <link rel="stylesheet" href="toolbar.css" />
+    <script src="client_screen.js"></script>
+    <script src="client_session.js"></script>
+    <script src="debug_log.js"></script>
+    <script src="host_screen.js"></script>
+    <script src="host_session.js"></script>
+    <script src="l10n.js"></script>
+    <script src="oauth2.js"></script>
+    <script src="plugin_settings.js"></script>
+    <script src="remoting.js"></script>
+    <script src="ui_mode.js"></script>
+    <script src="util.js"></script>
+    <script src="xhr.js"></script>
+    <script src="wcs.js"></script>
+    <script src="wcs_loader.js"></script>
+    <title i18n-content="PRODUCT_NAME"></title>
+  </head>
+
+  <body onBeforeUnload="return remoting.promptClose();"
+        onLoad="remoting.init();"
+        onResize="remoting.onResize();"
+        onUnload="remoting.disconnect();">
+
+    <!-- loading-mode is initially visible, but becomes hidden as soon as an
+         AppMode is selected by remoting.init. All other divs are initially
+         hidden, but are shown appropriately when the mode changes. -->
+    <section id="loading-mode" data-ui-mode="">
+      <em>Loading&hellip;</em>
+    </section> <!-- loading-mode -->
+
+    <div class="top-primary"
+         data-ui-mode="home client host"
+         hidden>
+      <span id="email-status">
+        <span id="current-email"></span>
+        <span data-ui-mode="home client.unconnected">
+        (<a href="#" onclick="remoting.clearOAuth2();"
+            i18n-content="SIGN_OUT_BUTTON"></a>)
+        </span>
+      </span>
+    </div>
+
+    <div class="top-secondary" data-ui-mode="auth home client host">
+      <a href="https://www.google.com/support/chrome/bin/answer.py?answer=1649523"
+         target="_blank" i18n-content="HELP"></a>
+    </div>
+
+    <div id="session-toolbar"
+         data-ui-mode="in-session"
+         class="toolbar-container"
+         hidden>
+      <div class="toolbar-border">
+        <span id="session-status-message" i18n-content="LABEL_CONNECTED"></span>
+        <strong id="connected-to"></strong>
+        <button type="button" onclick="remoting.disconnect();"
+                i18n-content="DISCONNECT_MYSELF_BUTTON"></button>
+        <span class="end-align">
+          <button id="toggle-scaling"
+                  onClick="remoting.toggleScaleToFit(this);">
+            <img src="scale-to-fit.png">
+          </button>
+        </span>
+      </div>
+      <div class="toolbar-stub">
+        <div class="arrow-down"></div>
+      </div>
+    </div> <!-- session-toolbar -->
+
+    <div id="main" data-ui-mode="auth home host client" hidden>
+
+      <header class="choice-header">
+        <img id="icon" src="chromoting128.png">
+        <h1 class="icon-label">
+          <span i18n-content="PRODUCT_NAME"></span>
+          <span data-ui-mode="auth client host">&nbsp;&rsaquo;&nbsp;</span>
+          <span i18n-content="MODE_AUTHORIZE" data-ui-mode="auth"></span>
+          <span i18n-content="MODE_CONNECT" data-ui-mode="client"></span>
+          <span i18n-content="MODE_SHARE" data-ui-mode="host"></span>
+        </h1>
+      </header>
+
+      <img id="divider-top" src="dividertop.png">
+
+      <div id="auth-panel" data-ui-mode="auth">
+        <div class="description" i18n-content="DESCRIPTION_AUTHORIZE"></div>
+        <div class="centered-button">
+          <button id="auth-button" class="big-button"
+                  type="button" onclick="remoting.oauth2.doAuthRedirect();"
+                  i18n-content="CONTINUE_BUTTON"></button>
+        </div>
+      </div> <!-- auth-panel -->
+
+      <div data-ui-mode="home">
+        <div class="description"
+             i18n-content="DESCRIPTION_HOME"
+             i18n-value-1="<a href='http://g.co/remote'>g.co/remote</a>"></div>
+        <table class="mode-select-table">
+          <tr>
+            <td i18n-content="HOME_SHARE_DESCRIPTION"
+                class="mode-select-label"></td>
+            <td>
+              <button i18n-content="HOME_SHARE_BUTTON"
+                      onclick="remoting.tryShare();"
+                      class="mode-select-button"
+                      type="button"></button>
+            </td>
+          </tr>
+          <tr class="mode-select-table-underline mode-select-table-spacer">
+            <td></td><td></td>
+          </tr>
+          <tr class="mode-select-table-spacer">
+          </tr>
+          <tr>
+            <td i18n-content="HOME_ACCESS_DESCRIPTION"
+                class="mode-select-label"></td>
+            <td>
+              <button i18n-content="HOME_ACCESS_BUTTON"
+                      onclick="remoting.setMode(
+                                   remoting.AppMode.CLIENT_UNCONNECTED);"
+                      class="mode-select-button"
+                      type="button"></button>
+            </td>
+          </tr>
+        </table>
+      </div> <!-- home -->
+
+      <div id="host-panel" data-ui-mode="host">
+
+        <div data-ui-mode="host.waiting-for-code" class="message"
+             i18n-content="MESSAGE_GENERATING">
+        </div> <!-- host.waiting-for-code -->
+
+        <div data-ui-mode="host.waiting-for-connection">
+          <div class="description"
+               i18n-content="INSTRUCTIONS_SHARE_ABOVE"></div>
+          <div id="access-code-display" dir="ltr"></div>
+          <div id="access-code-countdown-container">
+            <div id="access-code-countdown" class="expiring" hidden>
+              <span id="seconds-remaining"
+                    i18n-content="ACCESS_CODE_TIMER"></span>
+            </div>
+          </div>
+          <div class="description"
+               i18n-content="INSTRUCTIONS_SHARE_BELOW"></div>
+        </div> <!-- host.waiting-for-connection -->
+
+        <div data-ui-mode="host.shared">
+          <div id="host-shared-message" class="message"
+               i18n-content="MESSAGE_SHARED"></div>
+          <div class="centered-button">
+            <button type="button" class="big-button"
+                    onclick="remoting.cancelShare();"
+                    i18n-content="STOP_SHARING_BUTTON">
+            </button>
+          </div>
+        </div> <!-- host.shared -->
+
+        <div data-ui-mode="host.share-failed" class="message">
+          <span id="host-plugin-error" class="error-state"></span>
+        </div> <!-- host.share-failed -->
+
+        <div data-ui-mode="host.share-finished" class="message"
+             i18n-content="MESSAGE_SESSION_FINISHED">
+        </div> <!-- host.share-finished -->
+
+        <div class="centered-button"
+             data-ui-mode="host.share-failed host.share-finished">
+          <button type="button"
+                  class="big-button"
+                  autofocus="autofocus"
+                  onclick="remoting.setMode(remoting.AppMode.HOME);"
+                  i18n-content="OK">
+          </button>
+        </div>
+
+        <div id="host-plugin-container"></div>
+
+      </div> <!-- host-panel -->
+
+      <div id="client-panel" data-ui-mode="client">
+        <div data-ui-mode="client.unconnected">
+          <div class="description" i18n-content="DESCRIPTION_CONNECT"></div>
+          <div id="access-code-entry-row">
+            <form action="" onsubmit="remoting.tryConnect(); return false;">
+              <label for="access-code-entry" i18n-content="ACCESS_CODE"></label>
+              <input id="access-code-entry"
+                     type="text"
+                     autofocus="autofocus"
+                     autocomplete="off"/>
+              <button id="connect-button" class="big-button"
+                      type="submit" i18n-content="CONNECT_BUTTON"></button>
+              <button class="big-button" type="button"
+                      i18n-content="CANCEL"
+                      onclick="remoting.setMode(remoting.AppMode.HOME);">
+              </button>
+            </form>
+          </div> <!-- code-entry-row -->
+        </div> <!-- client.unconnected -->
+
+        <div data-ui-mode="client.connecting" class="message"
+             i18n-content="VERIFYING_CODE">
+        </div> <!-- client.connecting -->
+
+        <div data-ui-mode="client.connect-failed"
+             class="message">
+          <span id="connect-error-message" class="error-state"></span>
+        </div> <!-- client.connect-failed -->
+
+        <div data-ui-mode="client.session-finished"
+             class="message" i18n-content="MESSAGE_SESSION_FINISHED">
+        </div> <!-- client.session-finished -->
+
+        <div data-ui-mode="client.connect-failed client.session-finished"
+             class="centered-button">
+          <button type="button"
+                  class="big-button"
+                  i18n-content="OK"
+                  autofocus="autofocus"
+                  onclick="remoting.setMode(
+                               remoting.AppMode.CLIENT_UNCONNECTED);">
+          </button>
+        </div> <!-- client.connect-failed client.session-finished -->
+
+      </div> <!-- client-panel -->
+
+      <img id="divider-bottom"
+           src="dividerbottom.png"
+           data-ui-mode="auth host client">
+
+      <footer class="choice-footer">
+
+        <div id="client-footer-text-cros" data-ui-mode="client.unconnected"
+             i18n-content="FOOTER_CHROME_OS">
+        </div> <!-- client-footer-text-cros -->
+
+        <div id="waiting-footer"
+             data-ui-mode="host.waiting-for-connection host.waiting-for-code client.connecting">
+          <img src="spinner.gif">
+          <span class="waiting icon-label" i18n-content="FOOTER_WAITING"></span>
+          <button id="cancel-button" class="big-button"
+                  onclick="remoting.cancelPendingOperation();"
+                  i18n-content="CANCEL">
+          </button>
+        </div> <!-- waiting-footer -->
+
+        <div id="nat-box-container" hidden>
+          <div class="information-box"
+               i18n-content="WARNING_NAT_DISABLED"
+               data-ui-mode="host.waiting-for-code host.waiting-for-connection">
+          </div>
+        </div> <!-- nat-box-container -->
+      </footer>
+
+    </div> <!-- main -->
+
+    <div id="session-mode" data-ui-mode="in-session client" hidden>
+    </div> <!-- session-mode -->
+
+    <section id="debug-log" dir="ltr" hidden>
+      <div id="statistics">
+      </div>
+      <div id="debug-messages">
+      </div>
+    </section> <!-- debug-log -->
+
+  </body>
+</html>

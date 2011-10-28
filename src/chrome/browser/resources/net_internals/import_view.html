@@ -1,0 +1,51 @@
+<style>
+#import-view-command-line,
+#import-view-user-comments {
+  /* Wrap long lines inside of PREs */
+  white-space: pre-wrap;
+}
+</style>
+
+<div id=import-view-tab-content>
+
+  <div id=import-view-loaded-div style="display: none">
+    <h2>Data Loaded</h2>
+    <table class=styledTable>
+    <tr>
+      <th>Export date</th>
+      <td id=import-view-export-date></td>
+    </tr>
+    <tr>
+      <th>Build</th>
+      <td id=import-view-build-name></td>
+    </tr>
+    <tr>
+      <th>OS type</th>
+      <td id=import-view-os-type></td>
+    </tr>
+    <tr>
+      <th>Command line</th>
+      <td><pre id=import-view-command-line></pre></td>
+    </tr>
+    <tr>
+      <th>User comments</th>
+      <td><pre id=import-view-user-comments></pre></td>
+    </tr>
+    </table>
+  </div>
+  <div>
+    <h2>Load data</h2>
+    <p><input type=file value="Load log from file" id=import-view-load-log-file /></p>
+    <pre id=import-view-load-status-text></pre>
+
+    <p>Once a log is loaded, this page will stop collecting data, and will
+       only start gathering data again when
+       <a id="import-view-reloaded-link" href="#">reloaded</a>.
+    </p>
+
+    <ul>
+      <li><b>NOTE</b>: The currently captured data will be discarded when you load a file.</li>
+      <li><b>TIP</b>: Drag-and-drop of log files into this window works too!</li>
+    </ul>
+  </div>
+</div>

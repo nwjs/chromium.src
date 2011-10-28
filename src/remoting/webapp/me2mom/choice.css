@@ -1,0 +1,280 @@
+/* Copyright (c) 2011 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
+/* Elements */
+a {
+  color: rgb(0, 102, 204);
+  text-decoration: none;
+}
+
+body {
+  background: -webkit-gradient(radial, center center, 0, center center, 400,
+                               from(rgb(254, 254, 254)),
+                               to(rgb(239, 239, 239)));
+  font-family: 'Droid sans', Arial, sans-serif;
+  margin:0;
+  padding:0;
+  direction: __MSG_@@bidi_dir__;
+}
+
+button, input {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+button {
+  background: -webkit-linear-gradient(#fafafa, #f4f4f4 40%, #e5e5e5);
+  border: 1px solid #aaa;
+  min-width: 72px;
+  -webkit-border-radius: 2px;
+  -webkit-box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);
+  -webkit-user-select: none;
+}
+
+button:hover {
+  background: #ebebeb -webkit-linear-gradient(#fefefe, #f8f8f8 40%, #e9e9e9);
+  border-color: #999;
+  color: #222;
+  -webkit-box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+button:active, .toggle-button-active, .toggle-button-active:hover {
+  background: #ebebeb -webkit-linear-gradient(#f4f4f4, #efefef 40%, #dcdcdc);
+  color: #333;
+  -webkit-box-shadow: inset 0px 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+button[disabled], .button[disabled]:hover {
+  background: -webkit-linear-gradient(#fafafa, #f4f4f4 40%, #e5e5e5);
+  border-color: #aaa;
+  color: #888;
+  -webkit-box-shadow: none;
+}
+
+h1 {
+  font-size: 24px;
+  font-weight: normal;
+  margin-__MSG_@@bidi_start_edge__: 10px;
+}
+
+label {
+  color: black;
+  font-weight: bold;
+}
+
+/* Classes */
+
+.access-code-digit-group {
+  /*
+    Used for each of the four-digit components of the access code as
+    displayed by the host.
+  */
+  padding: 0px 6px;
+}
+
+.big-button {
+  height: 2em;
+  font-size: 16px;
+  padding: 6px;
+}
+
+.centered-button {
+  /*
+    Used to force buttons to center correctly on Chrome due to a quirk
+    with laying out buttons. http://crbug.com/84654
+
+    TODO(ajwong): Either fix Chrome layout behavior, or if Chrome is actually
+    conforming correctly to the standard, remove this comment.
+  */
+  text-align: center;
+}
+
+.choice-header {
+  font-size: 24px;
+  font-weight: normal;
+  margin-__MSG_@@bidi_start_edge__: 10px;
+}
+
+.choice-footer {
+  font-size: 14px;
+}
+
+.choice-panel {
+  margin-top: 17px;
+  padding-bottom: 20px;
+}
+
+.description {
+  margin-bottom: 25px;
+}
+
+.error-state {
+  background-image: url('icon_warning.png');
+  background-repeat: no-repeat;
+  background-position: top __MSG_@@bidi_start_edge__;
+  padding-__MSG_@@bidi_start_edge__: 30px;
+  padding-top: 3px;
+  margin-bottom: 10px;
+  color: #900;
+  display: inline-block;
+}
+
+.expiring {
+    color: #900 !important;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+
+.icon-label {
+  display: inline-block;
+  vertical-align: top;
+}
+
+.information-box {
+  background-color: #f9e9be;
+  border: 1px solid #cacaca;
+  bottom: 8px;
+  color: black;
+  padding: 20px;
+  position: absolute;
+  text-align: center;
+  width: 600px; /* body width - 2*padding */
+}
+
+.message {
+  text-align:center;
+  margin-bottom: 10px;
+}
+
+.mode-select-button {
+  width: 100%;
+  height: 32px;
+  white-space: nowrap;
+}
+
+.mode-select-label {
+  padding-__MSG_@@bidi_end_edge__: 20px;
+}
+
+.mode-select-table {
+  margin-__MSG_@@bidi_start_edge__: 40px;
+  width: 600px;  /* width + margin = body width */
+  border-collapse: collapse;
+  margin-top: 40px;
+}
+
+.mode-select-table-spacer {
+  height: 20px;
+}
+
+.mode-select-table-underline td {
+  border-bottom: 1px solid #c6c6c6;
+}
+
+.hide-scrollbars {
+  overflow-y: hidden;
+}
+
+.top-primary {
+  font-size: 14px;
+  position: absolute;
+  top: 0.5em;
+  __MSG_@@bidi_start_edge__: 0.5em;
+}
+
+.top-secondary {
+  font-size: 14px;
+  position: absolute;
+  top: 0.5em;
+  __MSG_@@bidi_end_edge__: 0.5em;
+}
+
+.waiting {
+  color: rgb(180, 180, 180);
+}
+
+/* Ids */
+#access-code-countdown-container {
+  height: 50px;
+  text-align: center;
+}
+
+#access-code-display {
+  margin-top: 50px;
+  color: rgb(0, 0, 0);
+  font-weight: bold;
+  font-size: 26px;
+  text-align: center;
+}
+
+#access-code-entry {
+  font-weight: bold;
+  font-size: 18px;
+  height: 25px;
+  margin: 0 10px;
+  padding-__MSG_@@bidi_start_edge__: 5px;
+  width: 12em;
+}
+
+#access-code-entry-row {
+  text-align: center;
+}
+
+#cancel-button {
+  float: __MSG_@@bidi_end_edge__;
+}
+
+#client-footer-text, #host-footer-text {
+  text-align: center;
+}
+
+#current-email {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+#divider-top {
+  margin: 10px 0 15px 0;
+}
+
+#divider-bottom {
+  margin: 25px 0 10px 0;
+}
+
+#email-status {
+  margin-__MSG_@@bidi_end_edge__: 0.5ex;
+}
+
+#icon {
+  height: 64px;
+  width: 64px;
+}
+
+#main {
+  color: rgb(115, 115, 115);
+  font-size: 16px;
+  margin: 100px auto 0 auto;
+  padding: 10px;
+  width: 640px;
+}
+
+#session-mode {
+  position: absolute;
+  -webkit-box-shadow: 0 0 8px 0 black;
+  -webkit-user-select: none;
+}
+
+#session-client-plugin {
+  margin: 0 0 -4px 0;
+}
+
+#toggle-scaling {
+  margin: 1px 0 0 0;
+  padding: 1px;
+  min-width: 0;
+  line-height: 0;
+}

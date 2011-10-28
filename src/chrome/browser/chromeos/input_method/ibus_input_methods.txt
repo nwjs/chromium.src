@@ -1,0 +1,202 @@
+# The list of input methods that we support. The input methods metadata is
+# also defined here. We use this data for the following purposes.
+#
+# 1. Exclude unnecessary input methods. For example, we don't need
+#    "ja:anthy", and "zh:pinyin" engines in ibus-m17n since we have better
+#    alternatives outside of ibus-m17n. Excluding these input methods from
+#    the IBus engine XML files, such as /usr/share/ibus/component/m17n.xml,
+#    makes the startup time of the IBus daemon faster. This filtering is
+#    done using a python script at build time of ibus-xkb-layouts and
+#    ibus-m17n. See crosbug.com/4161 for details.
+#
+# 2. Provide the input methods metadata to Chrome at build time. Chrome
+#    needs to know about the supported input methods for the input method
+#    features, such as the input method switching and the options page,
+#    to work. Note that we can retrieve the same metadata from the IBus
+#    daemon, but Chrome needs be able to get the metadata without talking
+#    to the IBus daemon. This requirement comes from the fact that the
+#    IBus daemon should not run if the user is just using a single
+#    keyboard layout such as US keyboard. The metadata generation is done
+#    using a python script at build time of Chrome. See crosbug.com/16961
+#    for details.
+#
+# The order of the list is important. In Chrome's "Languages and Input" options
+# page, we list input methods in this order, when more than one input methods
+# are available for a language (ex. French).
+#
+# Each non-comment line contains the following tab-separated columns.
+#
+# 1) The input method ID used by IBus. (ex. "xkb:ca::fra")
+# 2) The keyboard layout ID used by XKB. (ex. "ca", "handwriting-vk,jp")
+# 3) The language code (ex. "fra")
+# 4) [optional] The #if condition for the input method.
+#    (ex. "defined(A)", "!defined(A)||defined(B)")
+#
+# Notes:
+#   When adding a line to this list, please also add a mapping from the input
+#   method ID to the keyboard overlay ID to INPUT_METHOD_ID_TO_OVERLAY_ID in
+#
+#    * tools/gen_keyboard_overlay_data/gen_keyboard_overlay_data.py
+#
+#   and update the following files by running this script.
+#
+#    * chrome/app/generated_resources.grd
+#    * chrome/browser/chromeos/input_method/xkeyboard.cc
+#    * chrome/browser/resources/keyboard_overlay_data.js
+#    * chrome/browser/ui/webui/chromeos/keyboard_overlay_ui.cc
+
+# U.S. English
+xkb:us::eng	us	eng
+xkb:us:intl:eng	us(intl)	eng	!defined(TOUCH_UI)
+xkb:us:altgr-intl:eng	us(altgr-intl)	eng	!defined(TOUCH_UI)
+xkb:us:dvorak:eng	us(dvorak)	eng	!defined(TOUCH_UI)
+xkb:us:colemak:eng	us(colemak)	eng	!defined(TOUCH_UI)
+english-m	us	en-US	!defined(TOUCH_UI)
+# U.S. English entiries have to be above the Dutch entry so that xkb:us:intl:eng
+# will be selected as the default keyboard when the UI language is set to Dutch.
+
+# Dutch
+xkb:be::nld	be	nld	!defined(TOUCH_UI)
+# We don't support xkb:nl::nld. See b/4430951.
+
+# French
+xkb:fr::fra	fr	fra
+xkb:be::fra	be	fra	!defined(TOUCH_UI)
+xkb:ca::fra	ca	fra	!defined(TOUCH_UI)
+xkb:ch:fr:fra	ch(fr)	fra	!defined(TOUCH_UI)
+
+# German
+xkb:de::ger	de	ger	!defined(TOUCH_UI)
+xkb:de:neo:ger	de(neo)	ger	!defined(TOUCH_UI)
+xkb:be::ger	be	ger	!defined(TOUCH_UI)
+xkb:ch::ger	ch	ger	!defined(TOUCH_UI)
+
+# Japanese
+mozc	us	ja
+mozc-jp	jp	ja	!defined(TOUCH_UI)
+mozc-dv	us(dvorak)	ja	!defined(TOUCH_UI)
+xkb:jp::jpn	jp	jpn	!defined(TOUCH_UI)
+zinnia-japanese	handwriting-vk,jp	ja	defined(TOUCH_UI)
+
+# Russian
+xkb:ru::rus	ru	rus	!defined(TOUCH_UI)
+xkb:ru:phonetic:rus	ru(phonetic)	rus	!defined(TOUCH_UI)
+
+# Thai
+m17n:th:kesmanee	us	th
+m17n:th:pattachote	us	th
+m17n:th:tis820	us	th
+
+# Simplified Chinese
+pinyin	us	zh-CN
+pinyin-dv	us(dvorak)	zh-CN	!defined(TOUCH_UI)
+# TODO(yusukes): Define zh_CN_dvorak if it's *really* necessary.
+
+# Traditional Chinese
+mozc-chewing	us	zh_TW
+m17n:zh:cangjie	us	zh
+m17n:zh:quick	us	zh
+
+# Vietnamese
+m17n:vi:tcvn	us	vi
+m17n:vi:telex	us	vi
+m17n:vi:viqr	us	vi
+m17n:vi:vni	us	vi
+# Note: Since Chrome does not support "get surrounding text" feature yet,
+# Vietnames input methods, except 4 input methods above, in m17n-db should
+# not work fine. The 4 input methods in m17n-db (>= 1.6.0) don't require the
+# feature.
+
+# Korean
+mozc-hangul	kr(kr104)	ko
+xkb:kr:kr104:kor	kr(kr104)	kor
+
+# Arabic
+m17n:ar:kbd	us	ar
+# TODO(yusukes,jshin): Check if we can use ibux-xkb-layouts for Arabic, Hindi,
+# etc.
+
+# Hindi
+m17n:hi:itrans	us	hi
+# Note: the m17n-contrib package has some more Hindi IMEs.
+
+# Farsi (Persian)
+m17n:fa:isiri	us	fa
+
+# Bengali
+m17n:bn:itrans	us	bn
+# TODO(yusukes): Support the following IMEs in m17n-db (unijoy) and
+#   m17n-db-contrib (inscript, probhat).
+# m17n:bn:unijoy	us	bn
+# m17n:bn:inscript	us	bn
+# m17n:bn:probhat	us	bn
+
+# Gujarati
+m17n:gu:itrans	us	gu
+# TODO(yusukes): Support the following IMEs in m17n-db-contrib.
+# m17n:gu:phonetic	us	gu
+# m17n:gu:inscript	us	gu
+
+# Malayalam
+m17n:ml:itrans	us	ml
+# TODO(yusukes): Support the following IMEs in m17n-db-contrib.
+# m17n:ml:inscript	us	ml
+# m17n:ml:mozhi	us	ml
+
+# Marathi
+# Note: m17n:mr:itrans is in m17n-db-contrib.
+m17n:mr:itrans	us	mr
+# TODO(yusukes): Support the following IMEs in m17n-db-contrib.
+# m17n:mr:phonetic	us	mr
+# m17n:mr:inscript	us	mr
+
+# Tamil
+m17n:ta:itrans	us	ta
+# TODO(yusukes): Support the following IMEs in m17n-db-contrib.
+# m17n:ta:phonetic	us	ta
+# m17n:ta:inscript	us	ta
+# m17n:ta:tamil99	us	ta
+# m17n:ta:typewriter	us	ta
+
+# Telugu
+m17n:te:itrans	us	te
+# Kannada
+m17n:kn:itrans	us	kn
+
+# Amharic
+m17n:am:sera	us	am
+
+# ibux-xkb-layouts input methods (keyboard layouts).
+xkb:br::por	br	por	!defined(TOUCH_UI)
+xkb:bg::bul	bg	bul	!defined(TOUCH_UI)
+xkb:bg:phonetic:bul	bg(phonetic)	bul	!defined(TOUCH_UI)
+xkb:ca:eng:eng	ca(eng)	eng	!defined(TOUCH_UI)
+xkb:cz::cze	cz	cze	!defined(TOUCH_UI)
+xkb:ee::est	ee	est	!defined(TOUCH_UI)
+xkb:es::spa	es	spa	!defined(TOUCH_UI)
+xkb:es:cat:cat	es(cat)	cat	!defined(TOUCH_UI)
+xkb:dk::dan	dk	dan	!defined(TOUCH_UI)
+xkb:gr::gre	gr	gre	!defined(TOUCH_UI)
+xkb:il::heb	il	heb	!defined(TOUCH_UI)
+xkb:latam::spa	latam	spa	!defined(TOUCH_UI)
+xkb:lt::lit	lt	lit	!defined(TOUCH_UI)
+xkb:lv:apostrophe:lav	lv(apostrophe)	lav	!defined(TOUCH_UI)
+xkb:hr::scr	hr	scr	!defined(TOUCH_UI)
+xkb:gb:extd:eng	gb(extd)	eng	!defined(TOUCH_UI)
+xkb:gb:dvorak:eng	gb(dvorak)	eng	!defined(TOUCH_UI)
+xkb:fi::fin	fi	fin	!defined(TOUCH_UI)
+xkb:hu::hun	hu	hun	!defined(TOUCH_UI)
+xkb:it::ita	it	ita	!defined(TOUCH_UI)
+xkb:no::nob	no	nob	!defined(TOUCH_UI)
+xkb:pl::pol	pl	pol	!defined(TOUCH_UI)
+xkb:pt::por	pt	por	!defined(TOUCH_UI)
+xkb:ro::rum	ro	rum	!defined(TOUCH_UI)
+xkb:se::swe	se	swe	!defined(TOUCH_UI)
+xkb:sk::slo	sk	slo	!defined(TOUCH_UI)
+xkb:si::slv	si	slv	!defined(TOUCH_UI)
+xkb:rs::srp	rs	srp	!defined(TOUCH_UI)
+xkb:tr::tur	tr	tur	!defined(TOUCH_UI)
+xkb:ua::ukr	ua	ukr	!defined(TOUCH_UI)
+
+# TODO(yusukes): Support xkb:latam:deadtilde:spa and/or xkb:latam:nodeadkeys:spa
+# if necessary.

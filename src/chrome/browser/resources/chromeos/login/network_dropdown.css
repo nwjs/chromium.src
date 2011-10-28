@@ -1,0 +1,113 @@
+/* Copyright (c) 2011 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ *
+ * This is the stylesheet used by the network drop-down control.
+ */
+
+.dropdown-title {
+  -webkit-border-radius: 2px;
+  -webkit-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  -webkit-padding-end: 20px;
+  -webkit-padding-start: 2px;
+  -webkit-user-select: none;
+  -webkit-box-align: start;
+  background-image: url('../../shared/images/select.png'),
+                    -webkit-linear-gradient(#fafafa, #f4f4f4 40%, #e5e5e5);
+  background-position: center right;
+  background-repeat: no-repeat;
+  border: 1px solid #aaa;
+  color: #555;
+  display: -webkit-box;
+  font-size: inherit;
+  height: 22px;
+  margin: 0;
+  overflow: hidden;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  text-overflow: ellipsis;
+  text-align: left;
+  text-indent: 4px;
+  white-space: nowrap;
+  z-index: 10;
+}
+
+.dropdown-title:hover {
+  -webkit-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  background-image: url('../../shared/images/select.png'),
+                    -webkit-linear-gradient(#fefefe, #f8f8f8 40%, #e9e9e9);
+  color: #333;
+  background-position: center right;
+  background-repeat: no-repeat;
+}
+
+.dropdown-title img {
+  margin-top: -1px;
+}
+
+.dropdown-title div {
+  -webkit-box-flex: 1;
+  margin-top: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dropdown-container {
+  background: #f7f7f7;
+  border: 1px solid #7c91bf;
+  max-height: 330px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-bottom: 2px;
+  padding-top: 2px;
+  position: relative;
+  top: 100%;
+  z-index: 10;
+}
+
+.dropdown-item-container {
+  -webkit-padding-start: 5px;
+  display: -webkit-box;
+  height: 24px;
+}
+
+.dropdown-item-container.hover {
+  background: #dce4fa;
+}
+
+.dropdown-image {
+  width: 24px;
+}
+
+.dropdown-item {
+  -webkit-box-flex: 1;
+  cursor: default;
+  color: #555;
+  overflow: hidden;
+  padding-top: 4px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dropdown-divider {
+  height: 3px;
+}
+
+.dropdown-divider hr {
+  -webkit-margin-before: 2px;
+  -webkit-margin-after: 2px;
+}
+
+.dropdown-item.disabled-item {
+  color: graytext;
+}
+
+.dropdown-overlay {
+  bottom: 0;
+  left: 0;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 5;
+}
+

@@ -1,0 +1,8 @@
+include_rules = [
+  "+ppapi/c",
+  "+ppapi/shared_impl",
+  "+ppapi/thunk",
+  "+printing",
+  "+media/video",
+  "+ui/base/ime",
+]

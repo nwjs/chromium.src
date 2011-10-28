@@ -1,0 +1,125 @@
+/* Copyright (c) 2011 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
+html {
+  font-family: segoe ui, arial, helvetica, sans-serif;
+  font-size: 13px;
+  height: 100%;
+}
+
+body {
+  background-image: -webkit-linear-gradient(
+      rgba(0, 0, 0, 0.0), rgba(0, 0, 0, 0.04));
+}
+
+#sync-setup-overlay {
+  background-color: transparent;
+  width: 100%;
+}
+
+#sync-setup-login {
+  margin: 0 auto;
+  max-width: 900px;
+  min-width: 830px;
+  width: auto;
+}
+
+#sync-setup-configure {
+  background-color: transparent;
+  margin-left: auto;
+  margin-right: auto;
+  width: 600px;
+}
+
+#sync-setup-login-promo-column {
+  margin-right: 385px;
+}
+
+html[dir='rtl'] #sync-setup-login-promo-column {
+  margin-left: 385px;
+  margin-right: 0;
+}
+
+#sync-setup-login-content-column {
+  float: right;
+  width: 335px;
+}
+
+html[dir='rtl'] #sync-setup-login-content-column {
+  float: left;
+}
+
+#promo-title {
+  margin-top: 33px;
+  margin-bottom: 64px;
+  text-align: center;
+}
+
+#promo-title[hidden] + div {
+  margin-top: 30px;
+}
+
+#promo-infographic {
+  margin-top: 14px;
+}
+
+#promo-skip {
+  clear: both;
+  display: block;
+  padding-top: 85px;
+  text-align: center;
+}
+
+#promo-advanced,
+#promo-advanced:hover,
+#sync-setup-login-promo-column a:link,
+#sync-setup-login-promo-column a:hover {
+  color: #15c;
+}
+
+#promo-advanced:active,
+#sync-setup-login-promo-column a:active {
+  color: #d14836;
+}
+
+#sync-setup-login h1 {
+  color: #222;
+  font-size: 27px;
+  font-weight: normal;
+}
+
+#sync-setup-login-promo-column h2 {
+  color: #222;
+  font-size: 18px;
+  font-weight: normal;
+}
+
+#sync-setup-login-promo-column h3 {
+  color: #222;
+  font-size: 13px;
+  line-height: 13px;
+}
+
+#sync-setup-login-promo-column p {
+  color: #222;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+#promo-info-pane {
+  height: 186px;
+  position: relative;
+}
+
+#promo-info-pane > * {
+  -webkit-transition: opacity .2s linear;
+  opacity: 1;
+  position: absolute;
+}
+
+#promo-info-pane > [hidden] {
+  display: inline-block; /* Override default user-agent styles. */
+  opacity: 0;
+}
