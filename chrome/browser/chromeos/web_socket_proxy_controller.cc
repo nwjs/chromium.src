@@ -111,14 +111,14 @@ class ProxyLifetime
     net::NetworkChangeNotifier::AddOnlineStateObserver(this);
     registrar_.Add(
         this, chrome::NOTIFICATION_WEB_SOCKET_PROXY_STARTED,
-        content::NotificationService::AllSources());
+        NotificationService::AllSources());
   }
 
   virtual ~ProxyLifetime() {
     net::NetworkChangeNotifier::RemoveOnlineStateObserver(this);
   }
 
-  virtual void Observe(int type, const content::NotificationSource& source,
+  virtual void Observe(int type, const NotificationSource& source,
                        const NotificationDetails& details) OVERRIDE {
     base::AutoLock alk(lock_);
     port_ = *content::Details<int>(details).ptr();
