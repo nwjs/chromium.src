@@ -121,7 +121,7 @@ class ProxyLifetime
   virtual void Observe(int type, const NotificationSource& source,
                        const NotificationDetails& details) OVERRIDE {
     base::AutoLock alk(lock_);
-    port_ = *content::Details<int>(details).ptr();
+    port_ = *Details<int>(details).ptr();
   }
 
   int GetPort() {
