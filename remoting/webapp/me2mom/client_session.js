@@ -4,7 +4,7 @@
 
 /**
  * @fileoverview
- * Class handling creation and teardown of a remoting client session.
+ * Session class that handles creation and teardown of a remoting session.
  *
  * This abstracts a <embed> element and controls the plugin which does the
  * actual remoting work.  There should be no UI code inside this class.  It
