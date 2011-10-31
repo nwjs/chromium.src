@@ -1034,8 +1034,10 @@ void PrintWebViewHelper::UpdatePrintableSizeInPrintParameters(
     WebNode* node,
     PrepareFrameAndViewForPrint* prepare,
     PrintMsg_Print_Params* params) {
-  if (PrintingNodeOrPdfFrame(frame, node))
+  if (PrintingNodeOrPdfFrame(frame, node)) {
+    prepare->UpdatePrintParams(*params);
     return;
+  }
   PageSizeMargins page_layout_in_points;
   PrintWebViewHelper::GetPageSizeAndMarginsInPoints(frame, 0, *params,
                                                     &page_layout_in_points);
