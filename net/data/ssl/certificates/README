@@ -51,3 +51,11 @@ unit tests.
 - google_diginotar.pem
 - diginotar_public_ca_2025.pem : A certificate chain for the regression test
       of http://crbug.com/94673
+
+- salesforce_com_test.pem
+- verisign_intermediate_ca_2011.pem
+- verisign_intermediate_ca_2016.pem : Certificates for testing two
+     X509Certificate objects that contain the same server certificate but
+     different intermediate CA certificates.  The two intermediate CA
+     certificates actually represent the same intermediate CA but have
+     different validity periods.
