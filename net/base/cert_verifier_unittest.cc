@@ -79,7 +79,7 @@ TEST_F(CertVerifierTest, CacheHit) {
 // Tests the same server certificate with different intermediate CA
 // certificates.  These should be treated as different certificate chains even
 // though the two X509Certificate objects contain the same server certificate.
-TEST(CertVerifierTest, DifferentCACerts) {
+TEST_F(CertVerifierTest, DifferentCACerts) {
   TestTimeService* time_service = new TestTimeService;
   base::Time current_time = base::Time::Now();
   time_service->set_current_time(current_time);
@@ -116,9 +116,8 @@ TEST(CertVerifierTest, DifferentCACerts) {
   TestCompletionCallback callback;
   CertVerifier::RequestHandle request_handle;
 
-  error = verifier.Verify(cert_chain1, "www.example.com", 0, NULL,
-                          &verify_result, callback.callback(),
-                          &request_handle, BoundNetLog());
+  error = verifier.Verify(cert_chain1, "www.example.com", 0, &verify_result,
+                          &callback, &request_handle);
   ASSERT_EQ(ERR_IO_PENDING, error);
   ASSERT_TRUE(request_handle != NULL);
   error = callback.WaitForResult();
@@ -128,9 +127,8 @@ TEST(CertVerifierTest, DifferentCACerts) {
   ASSERT_EQ(0u, verifier.inflight_joins());
   ASSERT_EQ(1u, verifier.GetCacheSize());
 
-  error = verifier.Verify(cert_chain2, "www.example.com", 0, NULL,
-                          &verify_result, callback.callback(),
-                          &request_handle, BoundNetLog());
+  error = verifier.Verify(cert_chain2, "www.example.com", 0, &verify_result,
+                          &callback, &request_handle);
   ASSERT_EQ(ERR_IO_PENDING, error);
   ASSERT_TRUE(request_handle != NULL);
   error = callback.WaitForResult();
