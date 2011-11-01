@@ -6,6 +6,7 @@
 
 #define PRArenaPool PLArenaPool  // Required by <blapi.h>.
 #include <blapi.h>  // Implement CalculateChainFingerprint() with NSS.
+#undef SHA1_LENGTH  // Conflicts with SHA1_LENGTH in base/sha1.h.
 
 #include "base/lazy_instance.h"
 #include "base/logging.h"
@@ -1039,7 +1040,7 @@ SHA1Fingerprint X509Certificate::CalculateChainFingerprint() const {
     SHA1_Update(sha1_ctx, ca_cert->pbCertEncoded, ca_cert->cbCertEncoded);
   }
   unsigned int result_len;
-  SHA1_End(sha1_ctx, sha1.data, &result_len, SHA1_LENGTH);
+  SHA1_End(sha1_ctx, sha1.data, &result_len, base::SHA1_LENGTH);
   SHA1_DestroyContext(sha1_ctx, PR_TRUE);
 
   return sha1;
