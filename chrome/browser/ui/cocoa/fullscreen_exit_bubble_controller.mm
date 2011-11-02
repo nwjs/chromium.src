@@ -93,6 +93,7 @@ const float kHideDuration = 0.7;
 - (void)deny:(id)sender {
   DCHECK(fullscreen_bubble::ShowButtonsForType(bubbleType_));
   browser_->OnDenyFullscreenPermission(bubbleType_);
+  [self hideSoon];
 }
 
 - (void)showButtons:(BOOL)show {
