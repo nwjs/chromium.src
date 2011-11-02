@@ -57,13 +57,7 @@ cr.define('options', function() {
       options.personal_options.ProfileList.decorate(profilesList);
       profilesList.autoExpands = true;
 
-      profilesList.onchange = function(event) {
-        var selectedProfile = profilesList.selectedItem;
-        var hasSelection = selectedProfile != null;
-        var hasSingleProfile = profilesList.dataModel.length == 1;
-        $('profiles-manage').disabled = !hasSelection;
-        $('profiles-delete').disabled = !hasSingleProfile && !hasSelection;
-      };
+      profilesList.onchange = self.setProfileViewButtonsStatus_;
       $('profiles-create').onclick = function(event) {
         chrome.send('createProfile');
       };
@@ -223,6 +217,20 @@ cr.define('options', function() {
     },
 
     /**
+     * Helper function to set the status of profile view buttons to disabled or
+     * enabled, depending on the number of profiles and selection status of the
+     * profiles list.
+     */
+    setProfileViewButtonsStatus_: function() {
+      var profilesList = $('profiles-list');
+      var selectedProfile = profilesList.selectedItem;
+      var hasSelection = selectedProfile != null;
+      var hasSingleProfile = profilesList.dataModel.length == 1;
+      $('profiles-manage').disabled = !hasSelection;
+      $('profiles-delete').disabled = !hasSelection || hasSingleProfile;
+    },
+
+    /**
      * Display the correct dialog layout, depending on how many profiles are
      * available.
      * @param {number} numProfiles The number of profiles to display.
@@ -253,6 +261,7 @@ cr.define('options', function() {
       // add it to the list, even if the list is hidden so we can access it
       // later.
       $('profiles-list').dataModel = new ArrayDataModel(profiles);
+      this.setProfileViewButtonsStatus_();
     },
 
     setStartStopButtonVisible_: function(visible) {
