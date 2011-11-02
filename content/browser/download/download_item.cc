@@ -121,7 +121,7 @@ const int DownloadItem::kUninitializedHandle = 0;
 // Constructor for reading from the history service.
 DownloadItem::DownloadItem(DownloadManager* download_manager,
                            const DownloadPersistentStoreInfo& info)
-    : download_id_(-1),
+    : download_id_(download_manager->GetNextId()),
       full_path_(info.path),
       url_chain_(1, info.url),
       referrer_url_(info.referrer_url),
@@ -197,7 +197,7 @@ DownloadItem::DownloadItem(DownloadManager* download_manager,
                            const GURL& url,
                            bool is_otr,
                            DownloadId download_id)
-    : download_id_(download_id.local()),
+    : download_id_(download_id),
       full_path_(path),
       url_chain_(1, url),
       referrer_url_(GURL()),
@@ -229,10 +229,6 @@ DownloadItem::~DownloadItem() {
 
   TransitionTo(REMOVING);
   download_manager_->AssertQueueStateConsistent(this);
-}
-
-DownloadId DownloadItem::global_id() const {
-  return DownloadId(download_manager_, id());
 }
 
 void DownloadItem::AddObserver(Observer* observer) {
@@ -773,7 +769,7 @@ std::string DownloadItem::DebugString(bool verbose) const {
   std::string description =
       base::StringPrintf("{ id = %d"
                          " state = %s",
-                         download_id_,
+                         download_id_.local(),
                          DebugDownloadStateString(state()));
 
   // Construct a string of the URL chain.

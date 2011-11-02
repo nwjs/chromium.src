@@ -4,6 +4,14 @@
 
 #include "content/browser/download/download_id.h"
 
+#include <string>
+
+#include "base/stringprintf.h"
+
+std::string DownloadId::DebugString() const {
+  return base::StringPrintf("%p:%d", domain_, local_id_);
+}
+
 std::ostream& operator<<(std::ostream& out, const DownloadId& global_id) {
-  return out << global_id.manager_ << ":" << global_id.local();
+  return out << global_id.DebugString();
 }

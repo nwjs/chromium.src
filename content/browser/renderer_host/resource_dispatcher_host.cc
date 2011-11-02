@@ -27,6 +27,7 @@
 #include "content/browser/content_browser_client.h"
 #include "content/browser/cross_site_request_manager.h"
 #include "content/browser/download/download_file_manager.h"
+#include "content/browser/download/download_id_factory.h"
 #include "content/browser/download/download_manager.h"
 #include "content/browser/download/download_resource_handler.h"
 #include "content/browser/download/save_file_manager.h"
@@ -830,7 +831,7 @@ void ResourceDispatcherHost::BeginDownload(
 
   request_id_--;
 
-  DownloadId dl_id = context.next_download_id_thunk().Run();
+  DownloadId dl_id = context.download_id_factory()->GetNextId();
 
   scoped_refptr<ResourceHandler> handler(
       new DownloadResourceHandler(this,
