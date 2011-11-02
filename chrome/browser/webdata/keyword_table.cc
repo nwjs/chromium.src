@@ -6,6 +6,7 @@
 
 #include "base/logging.h"
 #include "base/metrics/histogram.h"
+#include "base/metrics/stats_counters.h"
 #include "base/string_number_conversions.h"
 #include "base/string_split.h"
 #include "base/string_util.h"
@@ -46,10 +47,19 @@ const char kDefaultSearchProviderBackupSignatureKey[] =
 const char kProtectorHistogramDefaultSearchProvider[] =
     "Protector.DefaultSearchProvider";
 
+// Counter names for protector check results.
+const char kProtectorBackupInvalidCounter[] =
+    "Protector.BackupInvalidCounter";
+const char kProtectorValueChangedCounter[] =
+    "Protector.ValueChangedCounter";
+const char kProtectorValueValidCounter[] =
+    "Protector.ValueValidCounter";
+
 // Protector histogram values. TODO(avayvod): Move to protector.h/cc
 enum ProtectorError {
   kProtectorErrorBackupInvalid,
   kProtectorErrorValueChanged,
+  kProtectorErrorValueValid,
 
   // This is for convenience only, must always be the last.
   kProtectorErrorCount
@@ -92,11 +102,17 @@ void BindURLToStatement(const TemplateURL& url, sql::Statement* s) {
 // Signs search provider id and returns its signature.
 std::string GetSearchProviderIDSignature(int64 id) {
   crypto::HMAC hmac(crypto::HMAC::SHA256);
-  DCHECK(hmac.Init(kDefaultSearchProviderBackupSigningKey));
+  if (!hmac.Init(kDefaultSearchProviderBackupSigningKey)) {
+    LOG(WARNING) << "Failed to initialize HMAC algorithm for signing";
+    return std::string();
+  }
 
-  std::string id_to_sign(base::Int64ToString(id));
   std::vector<unsigned char> digest(hmac.DigestLength());
-  DCHECK(hmac.Sign(id_to_sign, &digest[0], digest.size()));
+  std::string id_to_sign(base::Int64ToString(id));
+  if (!hmac.Sign(id_to_sign, &digest[0], digest.size())) {
+    LOG(WARNING) << "Failed to sign setting";
+    return std::string();
+  }
 
   return std::string(&digest[0], &digest[0] + digest.size());
 }
@@ -104,7 +120,13 @@ std::string GetSearchProviderIDSignature(int64 id) {
 // Checks if signature for search provider id is correct and returns the
 // result.
 bool IsSearchProviderIDValid(int64 id, const std::string& signature) {
-  return signature == GetSearchProviderIDSignature(id);
+  std::string id_to_verify(base::Int64ToString(id));
+  crypto::HMAC hmac(crypto::HMAC::SHA256);
+  if (!hmac.Init(kDefaultSearchProviderBackupSigningKey)) {
+    LOG(WARNING) << "Failed to initialize HMAC algorithm for verification.";
+    return false;
+  }
+  return hmac.Verify(id_to_verify, signature);
 }
 
 }  // anonymous namespace
@@ -292,13 +314,20 @@ int64 KeywordTable::GetDefaultSearchProviderID() {
     UMA_HISTOGRAM_ENUMERATION(kProtectorHistogramDefaultSearchProvider,
                               kProtectorErrorBackupInvalid,
                               kProtectorErrorCount);
+    SIMPLE_STATS_COUNTER(kProtectorBackupInvalidCounter);
     SetDefaultSearchProviderBackupID(value);
   } else if (value != backup_value) {
     UMA_HISTOGRAM_ENUMERATION(kProtectorHistogramDefaultSearchProvider,
                               kProtectorErrorValueChanged,
                               kProtectorErrorCount);
+    SIMPLE_STATS_COUNTER(kProtectorValueChangedCounter);
     SetDefaultSearchProviderBackupID(value);
   }
+  UMA_HISTOGRAM_ENUMERATION(
+      kProtectorHistogramDefaultSearchProvider,
+      kProtectorErrorValueValid,
+      kProtectorErrorCount);
+  SIMPLE_STATS_COUNTER(kProtectorValueValidCounter);
   return value;
 }
 
