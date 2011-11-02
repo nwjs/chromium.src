@@ -1856,6 +1856,11 @@ willAnimateFromState:(bookmarks::VisualState)oldState
   return NSMakeSize(x, y);
 }
 
+// (Private/TestingAPI)
+- (FullscreenExitBubbleController*)fullscreenExitBubbleController {
+  return fullscreenExitBubbleController_.get();
+}
+
 - (void)showInstant:(TabContents*)previewContents {
   [previewableContentsController_ showPreview:previewContents];
   [self updateBookmarkBarVisibilityWithAnimation:NO];
