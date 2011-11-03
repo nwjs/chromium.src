@@ -743,14 +743,21 @@ class SyncManagerTest : public testing::Test,
   virtual void OnChangesComplete(syncable::ModelType model_type) OVERRIDE {}
 
   // Helper methods.
-  bool SetUpEncryption() {
+  bool SetUpEncryption(bool write_to_nigori) {
     // Mock the Mac Keychain service. The real Keychain can block on user input.
     #if defined(OS_MACOSX)
       Encryptor::UseMockKeychain(true);
     #endif
 
-    // We need to create the nigori node as if it were an applied server update.
     UserShare* share = sync_manager_.GetUserShare();
+    {
+      syncable::ScopedDirLookup dir(share->dir_manager.get(), share->name);
+      if (!dir.good())
+        return false;
+      dir->set_initial_sync_ended_for_type(syncable::NIGORI, true);
+    }
+
+    // We need to create the nigori node as if it were an applied server update.
     int64 nigori_id = GetIdForDataType(syncable::NIGORI);
     if (nigori_id == kInvalidId)
       return false;
@@ -762,11 +769,13 @@ class SyncManagerTest : public testing::Test,
       return false;
     KeyParams params = {"localhost", "dummy", "foobar"};
     cryptographer->AddKey(params);
-    sync_pb::NigoriSpecifics nigori;
-    cryptographer->GetKeys(nigori.mutable_encrypted());
-    WriteNode node(&trans);
-    EXPECT_TRUE(node.InitByIdLookup(nigori_id));
-    node.SetNigoriSpecifics(nigori);
+    if (write_to_nigori) {
+      sync_pb::NigoriSpecifics nigori;
+      cryptographer->GetKeys(nigori.mutable_encrypted());
+      WriteNode node(&trans);
+      EXPECT_TRUE(node.InitByIdLookup(nigori_id));
+      node.SetNigoriSpecifics(nigori);
+    }
     return cryptographer->is_ready();
   }
 
@@ -1192,12 +1201,23 @@ TEST_F(SyncManagerTest, OnIncomingNotification) {
 }
 
 TEST_F(SyncManagerTest, RefreshEncryptionReady) {
-  EXPECT_TRUE(SetUpEncryption());
+  EXPECT_TRUE(SetUpEncryption(true));
+  EXPECT_CALL(observer_, OnEncryptionComplete(_));
   sync_manager_.RefreshEncryption();
   syncable::ModelTypeSet encrypted_types =
       sync_manager_.GetEncryptedDataTypes();
   EXPECT_EQ(1U, encrypted_types.count(syncable::PASSWORDS));
   EXPECT_FALSE(sync_manager_.EncryptEverythingEnabled());
+  {
+    ReadTransaction trans(FROM_HERE, sync_manager_.GetUserShare());
+    ReadNode node(&trans);
+    EXPECT_TRUE(node.InitByIdLookup(GetIdForDataType(syncable::NIGORI)));
+    sync_pb::NigoriSpecifics nigori = node.GetNigoriSpecifics();
+    EXPECT_TRUE(nigori.has_encrypted());
+    Cryptographer* cryptographer = trans.GetCryptographer();
+    EXPECT_TRUE(cryptographer->is_ready());
+    EXPECT_TRUE(cryptographer->CanDecrypt(nigori.encrypted()));
+  }
 }
 
 // Attempt to refresh encryption when nigori not downloaded.
@@ -1210,8 +1230,29 @@ TEST_F(SyncManagerTest, RefreshEncryptionNotReady) {
   EXPECT_FALSE(sync_manager_.EncryptEverythingEnabled());
 }
 
+// Attempt to refresh encryption when nigori is empty.
+TEST_F(SyncManagerTest, RefreshEncryptionEmptyNigori) {
+  EXPECT_TRUE(SetUpEncryption(false));
+  EXPECT_CALL(observer_, OnEncryptionComplete(_));
+  sync_manager_.RefreshEncryption();  // Should write to nigori.
+  syncable::ModelTypeSet encrypted_types =
+      sync_manager_.GetEncryptedDataTypes();
+  EXPECT_EQ(1U, encrypted_types.count(syncable::PASSWORDS));  // Hardcoded.
+  EXPECT_FALSE(sync_manager_.EncryptEverythingEnabled());
+  {
+    ReadTransaction trans(FROM_HERE, sync_manager_.GetUserShare());
+    ReadNode node(&trans);
+    EXPECT_TRUE(node.InitByIdLookup(GetIdForDataType(syncable::NIGORI)));
+    sync_pb::NigoriSpecifics nigori = node.GetNigoriSpecifics();
+    EXPECT_TRUE(nigori.has_encrypted());
+    Cryptographer* cryptographer = trans.GetCryptographer();
+    EXPECT_TRUE(cryptographer->is_ready());
+    EXPECT_TRUE(cryptographer->CanDecrypt(nigori.encrypted()));
+  }
+}
+
 TEST_F(SyncManagerTest, EncryptDataTypesWithNoData) {
-  EXPECT_TRUE(SetUpEncryption());
+  EXPECT_TRUE(SetUpEncryption(true));
   EXPECT_CALL(observer_, OnEncryptionComplete(GetAllRealModelTypes()));
   sync_manager_.EnableEncryptEverything();
   EXPECT_TRUE(sync_manager_.EncryptEverythingEnabled());
@@ -1219,7 +1260,7 @@ TEST_F(SyncManagerTest, EncryptDataTypesWithNoData) {
 
 TEST_F(SyncManagerTest, EncryptDataTypesWithData) {
   size_t batch_size = 5;
-  EXPECT_TRUE(SetUpEncryption());
+  EXPECT_TRUE(SetUpEncryption(true));
 
   // Create some unencrypted unsynced data.
   int64 folder = MakeFolderWithParent(sync_manager_.GetUserShare(),
@@ -1314,7 +1355,7 @@ TEST_F(SyncManagerTest, EncryptDataTypesWithData) {
 }
 
 TEST_F(SyncManagerTest, SetPassphraseWithPassword) {
-  EXPECT_TRUE(SetUpEncryption());
+  EXPECT_TRUE(SetUpEncryption(true));
   {
     WriteTransaction trans(FROM_HERE, sync_manager_.GetUserShare());
     ReadNode root_node(&trans);
@@ -1343,7 +1384,7 @@ TEST_F(SyncManagerTest, SetPassphraseWithPassword) {
 }
 
 TEST_F(SyncManagerTest, SetPassphraseWithEmptyPasswordNode) {
-  EXPECT_TRUE(SetUpEncryption());
+  EXPECT_TRUE(SetUpEncryption(true));
   int64 node_id = 0;
   std::string tag = "foo";
   {
@@ -1377,7 +1418,7 @@ TEST_F(SyncManagerTest, SetPassphraseWithEmptyPasswordNode) {
 
 // Friended by WriteNode, so can't be in an anonymouse namespace.
 TEST_F(SyncManagerTest, EncryptBookmarksWithLegacyData) {
-  EXPECT_TRUE(SetUpEncryption());
+  EXPECT_TRUE(SetUpEncryption(true));
   std::string title;
   SyncAPINameToServerName("Google", &title);
   std::string url = "http://www.google.com";
