@@ -904,9 +904,7 @@ void PrintPreviewHandler::ClosePrintPreviewTab() {
 }
 
 void PrintPreviewHandler::OnPrintDialogShown() {
-  static_cast<RenderViewHostDelegate*>(
-      GetInitiatorTab()->tab_contents())->Activate();
-  ClosePrintPreviewTab();
+  ActivateInitiatorTabAndClosePreviewTab();
 }
 
 void PrintPreviewHandler::SelectFile(const FilePath& default_filename) {
