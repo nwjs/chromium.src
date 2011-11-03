@@ -1396,8 +1396,6 @@ bool PrintWebViewHelper::PrintPreviewContext::CreatePreviewDocument(
   DCHECK(IsReadyToRender());
   state_ = RENDERING;
 
-  print_params_.reset(new PrintMsg_Print_Params(*print_params));
-
   metafile_.reset(new printing::PreviewMetafile);
   if (!metafile_->Init()) {
     LOG(ERROR) << "PreviewMetafile Init failed";
@@ -1409,6 +1407,8 @@ bool PrintWebViewHelper::PrintPreviewContext::CreatePreviewDocument(
                                                          node()));
   UpdatePrintableSizeInPrintParameters(frame_, node_.get(),
                                        prep_frame_view_.get(), print_params);
+
+  print_params_.reset(new PrintMsg_Print_Params(*print_params));
 
   total_page_count_ = prep_frame_view_->GetExpectedPageCount();
   if (total_page_count_ == 0) {
