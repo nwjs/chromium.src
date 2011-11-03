@@ -170,7 +170,7 @@ TEST_F(FFmpegVideoDecodeEngineTest, Initialize_UnsupportedPixelFormat) {
                             kFrameRate.num, kFrameRate.den,
                             NULL, 0);
   EXPECT_CALL(*this, OnInitializeComplete(false));
-  test_engine_->Initialize(this, config);
+  test_engine_->Initialize(MessageLoop::current(), this, NULL, config);
 }
 
 TEST_F(FFmpegVideoDecodeEngineTest, DecodeFrame_Normal) {
