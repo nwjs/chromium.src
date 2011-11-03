@@ -238,9 +238,9 @@ VideoFrame::Format PixelFormatToVideoFormat(PixelFormat pixel_format) {
     case PIX_FMT_YUV420P:
       return VideoFrame::YV12;
     default:
-      NOTREACHED() << "Unsupported PixelFormat: " << pixel_format;
+      DLOG(WARNING) << "Unsupported PixelFormat: " << pixel_format;
+      return VideoFrame::INVALID;
   }
-  return VideoFrame::INVALID;
 }
 
 PixelFormat VideoFormatToPixelFormat(VideoFrame::Format video_format) {
@@ -250,9 +250,9 @@ PixelFormat VideoFormatToPixelFormat(VideoFrame::Format video_format) {
     case VideoFrame::YV12:
       return PIX_FMT_YUV420P;
     default:
-      NOTREACHED() << "Unsupported VideoFrame Format: " << video_format;
+      DLOG(WARNING) << "Unsupported VideoFrame Format: " << video_format;
+      return PIX_FMT_NONE;
   }
-  return PIX_FMT_NONE;
 }
 
 base::TimeDelta GetFrameDuration(AVStream* stream) {
