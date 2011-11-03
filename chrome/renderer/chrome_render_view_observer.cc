@@ -534,7 +534,7 @@ bool ChromeRenderViewObserver::allowRunningInsecureContent(
     const WebKit::WebSecurityOrigin& origin,
     const WebKit::WebURL& url) {
   // Single value to control permissive mixed content behaviour.
-  const bool enforce_insecure_content_on_all_domains = true;
+  const bool enforce_insecure_content_on_all_domains = false;
 
   UMA_HISTOGRAM_ENUMERATION(kSSLInsecureContent,
                             INSECURE_CONTENT_RUN,
