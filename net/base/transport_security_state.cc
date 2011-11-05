@@ -502,12 +502,20 @@ std::string TransportSecurityState::CanonicalizeHost(const std::string& host) {
   return new_host;
 }
 
+// PublicKeyPins contains a number of SubjectPublicKeyInfo hashes for a site.
+// The validated certificate chain for the site must not include any of
+// |excluded_hashes| and must include one or more of |required_hashes|.
+struct PublicKeyPins {
+  const char* const* required_hashes;
+  const char* const* excluded_hashes;
+};
+
 struct HSTSPreload {
   uint8 length;
   bool include_subdomains;
   char dns_name[30];
   bool https_required;
-  const char** required_hashes;
+  PublicKeyPins pins;
 };
 
 static bool HasPreload(const struct HSTSPreload* entries, size_t num_entries,
@@ -524,10 +532,18 @@ static bool HasPreload(const struct HSTSPreload* entries, size_t num_entries,
         *ret = true;
         if (!entries[j].https_required)
           out->mode = TransportSecurityState::DomainState::MODE_NONE;
-        if (entries[j].required_hashes) {
-          const char** hash = entries[j].required_hashes;
+        if (entries[j].pins.required_hashes) {
+          const char* const* hash = entries[j].pins.required_hashes;
           while (*hash) {
             bool ok = AddHash(*hash, &out->public_key_hashes);
+            DCHECK(ok);
+            hash++;
+          }
+        }
+        if (entries[j].pins.excluded_hashes) {
+          const char* const* hash = entries[j].pins.excluded_hashes;
+          while (*hash) {
+            bool ok = AddHash(*hash, &out->bad_public_key_hashes);
             DCHECK(ok);
             hash++;
           }
@@ -549,6 +565,12 @@ bool TransportSecurityState::IsPreloadedSTS(
   out->mode = DomainState::MODE_STRICT;
   out->include_subdomains = false;
 
+  // kNoRejectedPublicKeys is a placeholder for when no public keys are
+  // rejected.
+  static const char* const kNoRejectedPublicKeys[] = {
+    NULL,
+  };
+
   // These hashes are base64 encodings of SHA1 hashes for cert public keys.
   static const char kCertPKHashVerisignClass3[] =
       "sha1/4n972HfV354KP560yw4uqe/baXc=";
@@ -560,6 +582,18 @@ bool TransportSecurityState::IsPreloadedSTS(
       "sha1/AbkhxY0L343gKf+cki7NVWp+ozk=";
   static const char kCertPKHashEquifaxSecureCA[] =
       "sha1/SOZo+SvSspXXR9gjIBBPM5iQn9Q=";
+  static const char kCertPKHashAetna[] =
+      "sha1/klKqFN6/gK4wqtlOYDhwJKVDLxo=";
+  static const char kCertPKHashGeoTrustGlobal[] =
+      "sha1/wHqYaI2J+6sFZAwRfap9ZbjKzE4=";
+  static const char kCertPKHashGeoTrustPrimary[] =
+      "sha1/sBmJ5+/7Sq/LFI9YRjl2IkFQ4bo=";
+  static const char kCertPKHashIntel[] =
+      "sha1/DsYq91myCBCQJW/D3f2KZjEwK8U=";
+  static const char kCertPKHashTrustCenter[] =
+      "sha1/gzuEEAB/bkqdQS3EIjk2by7lW+k=";
+  static const char kCertPKHashVodaphone[] =
+      "sha1/DX/hXFUUNmiZ/EDWIgjvIuvRFRw=";
   static const char* kGoogleAcceptableCerts[] = {
     kCertPKHashVerisignClass3,
     kCertPKHashVerisignClass3G3,
@@ -568,121 +602,136 @@ bool TransportSecurityState::IsPreloadedSTS(
     kCertPKHashEquifaxSecureCA,
     0,
   };
+  static const char* const kGoogleRejectedCerts[] = {
+    kCertPKHashAetna,
+    kCertPKHashGeoTrustGlobal,
+    kCertPKHashGeoTrustPrimary,
+    kCertPKHashIntel,
+    kCertPKHashTrustCenter,
+    kCertPKHashVodaphone,
+    NULL,
+  };
+  static const PublicKeyPins kGooglePins = {
+    kGoogleAcceptableCerts,
+    kGoogleRejectedCerts,
+  };
 
   // kTestAcceptableCerts doesn't actually match any public keys and is used
   // with "pinningtest.appspot.com", below, to test if pinning is active.
   static const char* kTestAcceptableCerts[] = {
     "sha1/AAAAAAAAAAAAAAAAAAAAAAAAAAA=",
   };
+  static const PublicKeyPins kTestPins = {
+    kTestAcceptableCerts,
+    kNoRejectedPublicKeys,
+  };
+
+  static const PublicKeyPins kNoPins = {
+    NULL, NULL,
+  };
 
   // In the medium term this list is likely to just be hardcoded here. This,
   // slightly odd, form removes the need for additional relocations records.
   static const struct HSTSPreload kPreloadedSTS[] = {
     // (*.)google.com, iff using SSL must use an acceptable certificate.
-    {12, true, "\006google\003com", false, kGoogleAcceptableCerts },
-    {25, true, "\013pinningtest\007appspot\003com", false,
-     kTestAcceptableCerts },
+    {12, true, "\006google\003com", false, kGooglePins },
+    {25, true, "\013pinningtest\007appspot\003com", false, kTestPins },
     // Now we force HTTPS for subtrees of google.com.
-    {19, true, "\006health\006google\003com", true, kGoogleAcceptableCerts },
-    {21, true, "\010checkout\006google\003com", true, kGoogleAcceptableCerts },
-    {19, true, "\006chrome\006google\003com", true, kGoogleAcceptableCerts },
-    {17, true, "\004docs\006google\003com", true, kGoogleAcceptableCerts },
-    {18, true, "\005sites\006google\003com", true, kGoogleAcceptableCerts },
-    {25, true, "\014spreadsheets\006google\003com", true,
-     kGoogleAcceptableCerts },
-    {22, false, "\011appengine\006google\003com", true,
-     kGoogleAcceptableCerts },
-    {22, true, "\011encrypted\006google\003com", true, kGoogleAcceptableCerts },
-    {21, true, "\010accounts\006google\003com", true, kGoogleAcceptableCerts },
-    {21, true, "\010profiles\006google\003com", true, kGoogleAcceptableCerts },
-    {17, true, "\004mail\006google\003com", true, kGoogleAcceptableCerts },
-    {23, true, "\012talkgadget\006google\003com", true,
-     kGoogleAcceptableCerts },
-    {17, true, "\004talk\006google\003com", true, kGoogleAcceptableCerts },
-    {29, true, "\020hostedtalkgadget\006google\003com", true,
-     kGoogleAcceptableCerts },
-    {17, true, "\004plus\006google\003com", true, kGoogleAcceptableCerts },
+    {19, true, "\006health\006google\003com", true, kGooglePins },
+    {21, true, "\010checkout\006google\003com", true, kGooglePins },
+    {19, true, "\006chrome\006google\003com", true, kGooglePins },
+    {17, true, "\004docs\006google\003com", true, kGooglePins },
+    {18, true, "\005sites\006google\003com", true, kGooglePins },
+    {25, true, "\014spreadsheets\006google\003com", true, kGooglePins },
+    {22, false, "\011appengine\006google\003com", true, kGooglePins },
+    {22, true, "\011encrypted\006google\003com", true, kGooglePins },
+    {21, true, "\010accounts\006google\003com", true, kGooglePins },
+    {21, true, "\010profiles\006google\003com", true, kGooglePins },
+    {17, true, "\004mail\006google\003com", true, kGooglePins },
+    {23, true, "\012talkgadget\006google\003com", true, kGooglePins },
+    {17, true, "\004talk\006google\003com", true, kGooglePins },
+    {29, true, "\020hostedtalkgadget\006google\003com", true, kGooglePins },
+    {17, true, "\004plus\006google\003com", true, kGooglePins },
     // Other Google-related domains that must use HTTPS.
-    {20, true, "\006market\007android\003com", true, kGoogleAcceptableCerts },
-    {26, true, "\003ssl\020google-analytics\003com", true,
-     kGoogleAcceptableCerts },
-    {18, true, "\005drive\006google\003com", true, kGoogleAcceptableCerts },
+    {20, true, "\006market\007android\003com", true, kGooglePins },
+    {26, true, "\003ssl\020google-analytics\003com", true, kGooglePins },
+    {18, true, "\005drive\006google\003com", true, kGooglePins },
     // Other Google-related domains that must use an acceptable certificate
     // iff using SSL.
-    {11, true, "\005ytimg\003com", false, kGoogleAcceptableCerts },
-    {23, true, "\021googleusercontent\003com", false, kGoogleAcceptableCerts },
-    {13, true, "\007youtube\003com", false, kGoogleAcceptableCerts },
-    {16, true, "\012googleapis\003com", false, kGoogleAcceptableCerts },
-    {22, true, "\020googleadservices\003com", false, kGoogleAcceptableCerts },
-    {16, true, "\012googlecode\003com", false, kGoogleAcceptableCerts },
-    {13, true, "\007appspot\003com", false, kGoogleAcceptableCerts },
-    {23, true, "\021googlesyndication\003com", false, kGoogleAcceptableCerts },
-    {17, true, "\013doubleclick\003net", false, kGoogleAcceptableCerts },
-    {17, true, "\003ssl\007gstatic\003com", false, kGoogleAcceptableCerts },
+    {11, true, "\005ytimg\003com", false, kGooglePins },
+    {23, true, "\021googleusercontent\003com", false, kGooglePins },
+    {13, true, "\007youtube\003com", false, kGooglePins },
+    {16, true, "\012googleapis\003com", false, kGooglePins },
+    {22, true, "\020googleadservices\003com", false, kGooglePins },
+    {16, true, "\012googlecode\003com", false, kGooglePins },
+    {13, true, "\007appspot\003com", false, kGooglePins },
+    {23, true, "\021googlesyndication\003com", false, kGooglePins },
+    {17, true, "\013doubleclick\003net", false, kGooglePins },
+    {17, true, "\003ssl\007gstatic\003com", false, kGooglePins },
     // Exclude the learn.doubleclick.net subdomain because it uses a different
     // CA.
-    {23, true, "\005learn\013doubleclick\003net", false, 0 },
+    {23, true, "\005learn\013doubleclick\003net", false, kNoPins },
     // Now we force HTTPS for other sites that have requested it.
-    {16, false, "\003www\006paypal\003com", true, 0 },
-    {16, false, "\003www\006elanex\003biz", true, 0 },
-    {12, true,  "\006jottit\003com", true, 0 },
-    {19, true,  "\015sunshinepress\003org", true, 0 },
-    {21, false, "\003www\013noisebridge\003net", true, 0 },
-    {10, false, "\004neg9\003org", true, 0 },
-    {12, true, "\006riseup\003net", true, 0 },
-    {11, false, "\006factor\002cc", true, 0 },
-    {22, false, "\007members\010mayfirst\003org", true, 0 },
-    {22, false, "\007support\010mayfirst\003org", true, 0 },
-    {17, false, "\002id\010mayfirst\003org", true, 0 },
-    {20, false, "\005lists\010mayfirst\003org", true, 0 },
-    {19, true, "\015splendidbacon\003com", true, 0 },
-    {28, false, "\016aladdinschools\007appspot\003com", true, 0 },
-    {14, true, "\011ottospora\002nl", true, 0 },
-    {25, false, "\003www\017paycheckrecords\003com", true, 0 },
-    {14, false, "\010lastpass\003com", true, 0 },
-    {18, false, "\003www\010lastpass\003com", true, 0 },
-    {14, true, "\010keyerror\003com", true, 0 },
-    {13, false, "\010entropia\002de", true, 0 },
-    {17, false, "\003www\010entropia\002de", true, 0 },
-    {11, true, "\005romab\003com", true, 0 },
-    {16, false, "\012logentries\003com", true, 0 },
-    {20, false, "\003www\012logentries\003com", true, 0 },
-    {12, true, "\006stripe\003com", true, 0 },
-    {27, true, "\025cloudsecurityalliance\003org", true, 0 },
-    {15, true, "\005login\004sapo\002pt", true, 0 },
-    {19, true, "\015mattmccutchen\003net", true, 0 },
-    {11, true, "\006betnet\002fr", true, 0 },
-    {13, true, "\010uprotect\002it", true, 0 },
-    {14, false, "\010squareup\003com", true, 0 },
-    {9, true, "\004cert\002se", true, 0 },
-    {11, true, "\006crypto\002is", true, 0 },
-    {20, true, "\005simon\007butcher\004name", true, 0 },
-    {10, true, "\004linx\003net", true, 0 },
-    {13, false, "\007dropcam\003com", true, 0 },
-    {17, false, "\003www\007dropcam\003com", true, 0 },
-    {30, true, "\010ebanking\014indovinabank\003com\002vn", true, 0 },
-    {13, false, "\007epoxate\003com", true, 0 },
+    {16, false, "\003www\006paypal\003com", true, kNoPins },
+    {16, false, "\003www\006elanex\003biz", true, kNoPins },
+    {12, true,  "\006jottit\003com", true, kNoPins },
+    {19, true,  "\015sunshinepress\003org", true, kNoPins },
+    {21, false, "\003www\013noisebridge\003net", true, kNoPins },
+    {10, false, "\004neg9\003org", true, kNoPins },
+    {12, true, "\006riseup\003net", true, kNoPins },
+    {11, false, "\006factor\002cc", true, kNoPins },
+    {22, false, "\007members\010mayfirst\003org", true, kNoPins },
+    {22, false, "\007support\010mayfirst\003org", true, kNoPins },
+    {17, false, "\002id\010mayfirst\003org", true, kNoPins },
+    {20, false, "\005lists\010mayfirst\003org", true, kNoPins },
+    {19, true, "\015splendidbacon\003com", true, kNoPins },
+    {28, false, "\016aladdinschools\007appspot\003com", true, kNoPins },
+    {14, true, "\011ottospora\002nl", true, kNoPins },
+    {25, false, "\003www\017paycheckrecords\003com", true, kNoPins },
+    {14, false, "\010lastpass\003com", true, kNoPins },
+    {18, false, "\003www\010lastpass\003com", true, kNoPins },
+    {14, true, "\010keyerror\003com", true, kNoPins },
+    {13, false, "\010entropia\002de", true, kNoPins },
+    {17, false, "\003www\010entropia\002de", true, kNoPins },
+    {11, true, "\005romab\003com", true, kNoPins },
+    {16, false, "\012logentries\003com", true, kNoPins },
+    {20, false, "\003www\012logentries\003com", true, kNoPins },
+    {12, true, "\006stripe\003com", true, kNoPins },
+    {27, true, "\025cloudsecurityalliance\003org", true, kNoPins },
+    {15, true, "\005login\004sapo\002pt", true, kNoPins },
+    {19, true, "\015mattmccutchen\003net", true, kNoPins },
+    {11, true, "\006betnet\002fr", true, kNoPins },
+    {13, true, "\010uprotect\002it", true, kNoPins },
+    {14, false, "\010squareup\003com", true, kNoPins },
+    {9, true, "\004cert\002se", true, kNoPins },
+    {11, true, "\006crypto\002is", true, kNoPins },
+    {20, true, "\005simon\007butcher\004name", true, kNoPins },
+    {10, true, "\004linx\003net", true, kNoPins },
+    {13, false, "\007dropcam\003com", true, kNoPins },
+    {17, false, "\003www\007dropcam\003com", true, kNoPins },
+    {30, true, "\010ebanking\014indovinabank\003com\002vn", true, kNoPins },
+    {13, false, "\007epoxate\003com", true, kNoPins },
 #if defined(OS_CHROMEOS)
-    {13, false, "\007twitter\003com", true, 0 },
-    {17, false, "\003www\007twitter\003com", true, 0 },
-    {17, false, "\003api\007twitter\003com", true, 0 },
-    {17, false, "\003dev\007twitter\003com", true, 0 },
-    {22, false, "\010business\007twitter\003com", true, 0 },
+    {13, false, "\007twitter\003com", true, kNoPins },
+    {17, false, "\003www\007twitter\003com", true, kNoPins },
+    {17, false, "\003api\007twitter\003com", true, kNoPins },
+    {17, false, "\003dev\007twitter\003com", true, kNoPins },
+    {22, false, "\010business\007twitter\003com", true, kNoPins },
 #endif
   };
   static const size_t kNumPreloadedSTS = ARRAYSIZE_UNSAFE(kPreloadedSTS);
 
   static const struct HSTSPreload kPreloadedSNISTS[] = {
     // These SNI-only domains must always use HTTPS.
-    {11, false, "\005gmail\003com", true, kGoogleAcceptableCerts },
-    {16, false, "\012googlemail\003com", true, kGoogleAcceptableCerts },
-    {15, false, "\003www\005gmail\003com", true, kGoogleAcceptableCerts },
-    {20, false, "\003www\012googlemail\003com", true, kGoogleAcceptableCerts },
+    {11, false, "\005gmail\003com", true, kGooglePins },
+    {16, false, "\012googlemail\003com", true, kGooglePins },
+    {15, false, "\003www\005gmail\003com", true, kGooglePins },
+    {20, false, "\003www\012googlemail\003com", true, kGooglePins },
     // These SNI-only domains must use an acceptable certificate iff using
     // HTTPS.
-    {22, true, "\020google-analytics\003com", false, kGoogleAcceptableCerts },
+    {22, true, "\020google-analytics\003com", false, kGooglePins },
     // www. requires SNI.
-    {18, true, "\014googlegroups\003com", false, kGoogleAcceptableCerts },
+    {18, true, "\014googlegroups\003com", false, kGooglePins },
   };
   static const size_t kNumPreloadedSNISTS = ARRAYSIZE_UNSAFE(kPreloadedSNISTS);
 
@@ -739,6 +788,21 @@ TransportSecurityState::DomainState::~DomainState() {
 
 bool TransportSecurityState::DomainState::IsChainOfPublicKeysPermitted(
     const std::vector<net::SHA1Fingerprint>& hashes) {
+  for (std::vector<net::SHA1Fingerprint>::const_iterator
+       i = hashes.begin(); i != hashes.end(); ++i) {
+    for (std::vector<net::SHA1Fingerprint>::const_iterator
+         j = bad_public_key_hashes.begin(); j != bad_public_key_hashes.end();
+         ++j) {
+      if (i->Equals(*j)) {
+        LOG(ERROR) << "Rejecting public key chain for domain " << domain
+                   << ". Validated chain: " << HashesToBase64String(hashes)
+                   << ", matches one or more bad hashes: "
+                   << HashesToBase64String(bad_public_key_hashes);
+        return false;
+      }
+    }
+  }
+
   if (public_key_hashes.empty())
     return true;
 
