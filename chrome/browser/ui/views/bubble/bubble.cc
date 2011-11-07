@@ -51,10 +51,11 @@ string16 BubbleDelegate::GetAccessibleName() {
 Bubble* Bubble::Show(views::Widget* parent,
                      const gfx::Rect& position_relative_to,
                      views::BubbleBorder::ArrowLocation arrow_location,
+                     views::BubbleBorder::BubbleAlignment alignment,
                      views::View* contents,
                      BubbleDelegate* delegate) {
   Bubble* bubble = new Bubble;
-  bubble->InitBubble(parent, position_relative_to, arrow_location,
+  bubble->InitBubble(parent, position_relative_to, arrow_location, alignment,
                      contents, delegate);
 
   // Register the Escape accelerator for closing.
@@ -72,12 +73,13 @@ Bubble* Bubble::ShowFocusless(
     views::Widget* parent,
     const gfx::Rect& position_relative_to,
     views::BubbleBorder::ArrowLocation arrow_location,
+    views::BubbleBorder::BubbleAlignment alignment,
     views::View* contents,
     BubbleDelegate* delegate,
     bool show_while_screen_is_locked) {
   Bubble* bubble = new Bubble(views::Widget::InitParams::TYPE_POPUP,
                               show_while_screen_is_locked);
-  bubble->InitBubble(parent, position_relative_to, arrow_location,
+  bubble->InitBubble(parent, position_relative_to, arrow_location, alignment,
                      contents, delegate);
   return bubble;
 }
@@ -191,6 +193,7 @@ Bubble::~Bubble() {
 void Bubble::InitBubble(views::Widget* parent,
                         const gfx::Rect& position_relative_to,
                         views::BubbleBorder::ArrowLocation arrow_location,
+                        views::BubbleBorder::BubbleAlignment alignment,
                         views::View* contents,
                         BubbleDelegate* delegate) {
   delegate_ = delegate;
@@ -220,6 +223,7 @@ void Bubble::InitBubble(views::Widget* parent,
 
   border_->InitBorderWidgetWin(CreateBorderContents(), parent->GetNativeView());
   border_->border_contents()->SetBackgroundColor(kBackgroundColor);
+  border_->border_contents()->SetAlignment(alignment);
 
   // We make the BorderWidgetWin the owner of the Bubble HWND, so that the
   // latter is displayed on top of the former.
@@ -288,6 +292,7 @@ void Bubble::InitBubble(views::Widget* parent,
   border_contents_ = CreateBorderContents();
   border_contents_->Init();
   border_contents_->SetBackgroundColor(kBackgroundColor);
+  border_contents_->SetAlignment(alignment);
   gfx::Rect contents_bounds;
   border_contents_->SizeAndGetBounds(position_relative_to,
       arrow_location, false, contents->GetPreferredSize(),

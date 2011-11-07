@@ -132,12 +132,12 @@ void SettingLevelBubble::ShowBubble(double percent, bool enabled) {
         monitor_area.bottom() - view_size.height() / 2 - kBubbleBottomGap,
         0, 0);
 
-    bubble_ = Bubble::ShowFocusless(parent_widget,
-                                    position_relative_to,
-                                    views::BubbleBorder::FLOAT,
-                                    view_,  // contents
-                                    this,   // delegate
-                                    true);  // show while screen is locked
+    bubble_ = Bubble::ShowFocusless(parent_widget, position_relative_to,
+        views::BubbleBorder::FLOAT,
+        views::BubbleBorder::ALIGN_ARROW_TO_MID_ANCHOR,
+        view_,  // contents
+        this,   // delegate
+        true);  // show while screen is locked
     // TODO(derat): We probably shouldn't be using Bubble.  It'd be nice to call
     // bubble_->set_fade_away_on_close(true) here, but then, if ShowBubble()
     // gets called while the bubble is fading away, we end up just adjusting the
