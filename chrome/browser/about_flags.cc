@@ -167,6 +167,13 @@ const Experiment kExperiments[] = {
     kOsAll,
     SINGLE_VALUE_TYPE(switches::kDisableGpuVsync)
   },
+  {
+    "gpu-canvas-2d",  // FLAGS:RECORD_UMA
+    IDS_FLAGS_ACCELERATED_CANVAS_2D_NAME,
+    IDS_FLAGS_ACCELERATED_CANVAS_2D_DESCRIPTION,
+    kOsWin | kOsLinux | kOsCrOS,
+    SINGLE_VALUE_TYPE(switches::kEnableAccelerated2dCanvas)
+  },
   // Exposed on all platforms until there is a workaround for easy access to
   // the native print dialog for users that need it. Once that's done, revert
   // back to:
