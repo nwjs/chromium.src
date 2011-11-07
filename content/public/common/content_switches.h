@@ -23,7 +23,6 @@ CONTENT_EXPORT extern const char kBrowserSubprocessPath[];
 // TODO(jam): this doesn't belong in content.
 CONTENT_EXPORT extern const char kChromeFrame[];
 CONTENT_EXPORT extern const char kDisable3DAPIs[];
-CONTENT_EXPORT extern const char kDisableAccelerated2dCanvas[];
 CONTENT_EXPORT extern const char kDisableAcceleratedCompositing[];
 CONTENT_EXPORT extern const char kDisableAcceleratedLayers[];
 CONTENT_EXPORT extern const char kDisableAcceleratedPlugins[];
@@ -63,7 +62,7 @@ CONTENT_EXPORT extern const char kDisableSpeechInput[];
 extern const char kDisableSpellcheckAPI[];
 CONTENT_EXPORT extern const char kDisableWebAudio[];
 extern const char kDisableWebSockets[];
-extern const char kEnableAccelerated2dCanvas[];
+CONTENT_EXPORT extern const char kEnableAccelerated2dCanvas[];
 CONTENT_EXPORT extern const char kEnableAcceleratedDrawing[];
 extern const char kEnableAccessibility[];
 extern const char kEnableAccessibilityLogging[];
