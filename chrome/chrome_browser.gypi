@@ -1957,6 +1957,8 @@
         'browser/profiles/profile_keyed_service_factory.h',
         'browser/profiles/profile_manager.cc',
         'browser/profiles/profile_manager.h',
+        'browser/profiles/profile_metrics.cc',
+        'browser/profiles/profile_metrics.h',
         'browser/protector/settings_change_global_error.cc',
         'browser/protector/settings_change_global_error.h',
         'browser/remove_rows_table_model.h',
