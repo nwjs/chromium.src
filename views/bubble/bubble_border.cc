@@ -60,15 +60,12 @@ gfx::Rect BubbleBorder::GetBounds(const gfx::Rect& position_relative_to,
   switch (arrow_location_) {
     case TOP_LEFT:
     case BOTTOM_LEFT:
-      x += alignment_ == ALIGN_ARROW_TO_MID_ANCHOR ? w / 2 - arrow_offset :
-           -kArrowOverlap;
+      x += w / 2 - arrow_offset;
       break;
 
     case TOP_RIGHT:
     case BOTTOM_RIGHT:
-      x += alignment_ == ALIGN_ARROW_TO_MID_ANCHOR ?
-          w / 2 + arrow_offset - border_size.width() + 1 :
-          w - border_size.width() + kArrowOverlap;
+      x += w / 2 + arrow_offset - border_size.width() + 1;
       break;
 
     case LEFT_TOP:
@@ -101,15 +98,12 @@ gfx::Rect BubbleBorder::GetBounds(const gfx::Rect& position_relative_to,
 
     case LEFT_TOP:
     case RIGHT_TOP:
-      y += alignment_ == ALIGN_ARROW_TO_MID_ANCHOR ? h / 2 - arrow_offset :
-           -kArrowOverlap;
+      y += h / 2 - arrow_offset;
       break;
 
     case LEFT_BOTTOM:
     case RIGHT_BOTTOM:
-      y += alignment_ == ALIGN_ARROW_TO_MID_ANCHOR ?
-          h / 2 + arrow_offset - border_size.height() + 1 :
-          h - border_size.height() + kArrowOverlap;
+      y += h / 2 + arrow_offset - border_size.height() + 1;
       break;
 
     case NONE:

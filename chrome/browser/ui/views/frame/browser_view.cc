@@ -2603,14 +2603,15 @@ BrowserWindow* BrowserWindow::CreateBrowserWindow(Browser* browser) {
 
 void BrowserView::ShowAvatarBubble(TabContents* tab_contents,
                                    const gfx::Rect& rect) {
-  gfx::Point origin(rect.origin());
+  gfx::Point origin(rect.right(), rect.bottom());
   views::View::ConvertPointToScreen(GetTabContentsContainerView(), &origin);
-  gfx::Rect bounds(origin, rect.size());
+  gfx::Rect bounds;
+  bounds.set_origin(origin);
 
   AvatarMenuBubbleView* bubble_view = new AvatarMenuBubbleView(browser_.get());
   // Bubble::Show() takes ownership of the view.
-  Bubble::Show(this->GetWidget(), bounds, views::BubbleBorder::TOP_RIGHT,
-               views::BubbleBorder::ALIGN_EDGE_TO_ANCHOR_EDGE,
+  Bubble::Show(this->GetWidget(), bounds,
+               views::BubbleBorder::TOP_RIGHT,
                bubble_view, bubble_view);
 }
 

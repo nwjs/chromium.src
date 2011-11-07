@@ -408,9 +408,7 @@ void ExtensionInstalledBubble::ShowInternal() {
   bubble_content_ = new InstalledBubbleContent(
       browser_, extension_, type_, &icon_);
   Bubble* bubble = Bubble::Show(browser_view->GetWidget(), bounds,
-                                arrow_location,
-                                views::BubbleBorder::ALIGN_ARROW_TO_MID_ANCHOR,
-                                bubble_content_, this);
+                                arrow_location, bubble_content_, this);
   bubble_content_->set_bubble(bubble);
 }
 
