@@ -840,6 +840,7 @@ void CookiesTreeModel::PopulateCookieInfoWithFilter(
   // mmargh mmargh mmargh! delicious!
 
   CookieTreeRootNode* root = static_cast<CookieTreeRootNode*>(GetRoot());
+  NotifyObserverBeginBatch();
   for (CookieList::iterator it = cookie_list_.begin();
        it != cookie_list_.end(); ++it) {
     std::string source_string = it->Source();
@@ -865,6 +866,8 @@ void CookiesTreeModel::PopulateCookieInfoWithFilter(
       cookies_node->AddCookieNode(new_cookie);
     }
   }
+  NotifyObserverTreeNodeChanged(root);
+  NotifyObserverEndBatch();
 }
 
 void CookiesTreeModel::OnDatabaseModelInfoLoaded(
