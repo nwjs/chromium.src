@@ -172,6 +172,8 @@ class UserManager : public UserImageLoader::Delegate,
 
   // ProfileImageDownloader::Delegate implementation.
   virtual void OnDownloadSuccess(const SkBitmap& image) OVERRIDE;
+  virtual void OnDownloadFailure() OVERRIDE;
+  virtual void OnDownloadDefaultImage() OVERRIDE;
 
   // NotificationObserver implementation.
   virtual void Observe(int type,
