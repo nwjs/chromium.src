@@ -13,7 +13,10 @@
 #include "chrome/browser/chromeos/brightness_observer.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chrome/browser/chromeos/dbus/dbus_thread_manager.h"
+#include "chrome/browser/chromeos/input_method/input_method_manager.h"
+#include "chrome/browser/chromeos/input_method/xkeyboard.h"
 #include "chrome/browser/chromeos/net/cros_network_change_notifier_factory.h"
+#include "chrome/browser/chromeos/system/runtime_environment.h"
 #include "chrome/browser/chromeos/system/statistics_provider.h"
 #include "chrome/browser/defaults.h"
 #include "chrome/common/chrome_switches.h"
@@ -139,4 +142,11 @@ void ChromeBrowserMainPartsChromeos::PostMainMessageLoopStart() {
   brightness_observer_.reset(new chromeos::BrightnessObserver());
   chromeos::DBusThreadManager::Get()->power_manager_client()->AddObserver(
       brightness_observer_.get());
+
+  // For http://crosbug.com/p/5795 and http://crosbug.com/p/6245.
+  // Enable Num Lock on X start up.
+  if (chromeos::system::runtime_environment::IsRunningOnChromeOS()) {
+    chromeos::input_method::InputMethodManager::GetInstance()->GetXKeyboard()->
+        SetNumLockEnabled(true);
+  }
 }
