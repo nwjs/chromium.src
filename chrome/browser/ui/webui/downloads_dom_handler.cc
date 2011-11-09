@@ -34,6 +34,10 @@
 #include "grit/generated_resources.h"
 #include "ui/gfx/image/image.h"
 
+#if defined(OS_CHROMEOS)
+#include "chrome/browser/extensions/file_manager_util.h"
+#endif
+
 namespace {
 
 // Maximum number of downloads to show. TODO(glen): Remove this and instead
@@ -337,6 +341,10 @@ void DownloadsDOMHandler::HandleOpenDownloadsFolder(const ListValue* args) {
 #if defined(OS_MACOSX)
   // Must be called from the UI thread on Mac.
   platform_util::OpenItem(path);
+#elif defined(OS_CHROMEOS)
+  FileManagerUtil::ShowFullTabUrl(
+      Profile::FromBrowserContext(download_manager_->browser_context()),
+      path);
 #else
   BrowserThread::PostTask(
       BrowserThread::FILE, FROM_HERE,
