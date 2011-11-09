@@ -1437,14 +1437,7 @@ void ProfileImpl::Observe(int type,
               clear_local_state_on_exit_);
         }
       } else if (*pref_name_in == prefs::kGoogleServicesUsername) {
-        ProfileManager* profile_manager = g_browser_process->profile_manager();
-        ProfileInfoCache& cache = profile_manager->GetProfileInfoCache();
-        size_t index = cache.GetIndexOfProfileWithPath(GetPath());
-        if (index != std::string::npos) {
-          std::string user_name =
-              GetPrefs()->GetString(prefs::kGoogleServicesUsername);
-          cache.SetUserNameOfProfileAtIndex(index, UTF8ToUTF16(user_name));
-        }
+        UpdateProfileUserNameCache();
       } else if (*pref_name_in == prefs::kDefaultZoomLevel) {
           GetHostZoomMap()->set_default_zoom_level(
               prefs->GetDouble(prefs::kDefaultZoomLevel));
@@ -1522,6 +1515,8 @@ void ProfileImpl::InitSyncService(const std::string& cros_user) {
       profile_sync_factory_->CreateProfileSyncService(cros_user));
   profile_sync_factory_->RegisterDataTypes(sync_service_.get());
   sync_service_->Initialize();
+
+  UpdateProfileUserNameCache();
 }
 
 ChromeBlobStorageContext* ProfileImpl::GetBlobStorageContext() {
@@ -1711,4 +1706,15 @@ SpellCheckProfile* ProfileImpl::GetSpellCheckProfile() {
   if (!spellcheck_profile_.get())
     spellcheck_profile_.reset(new SpellCheckProfile());
   return spellcheck_profile_.get();
+}
+
+void ProfileImpl::UpdateProfileUserNameCache() {
+  ProfileManager* profile_manager = g_browser_process->profile_manager();
+  ProfileInfoCache& cache = profile_manager->GetProfileInfoCache();
+  size_t index = cache.GetIndexOfProfileWithPath(GetPath());
+  if (index != std::string::npos) {
+    std::string user_name =
+        GetPrefs()->GetString(prefs::kGoogleServicesUsername);
+    cache.SetUserNameOfProfileAtIndex(index, UTF8ToUTF16(user_name));
+  }
 }
