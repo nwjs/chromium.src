@@ -4745,6 +4745,11 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_ENABLE_VIDEO_TRACK_DESCRIPTION" desc="Title for the flag to enable the track element for captions on &lt;videos&gt; elements.">
         Enable the track element (not yet fully functional) for captions, subtitles, chapters, and audio descriptions on video elements.
       </message>
+      <message name="IDS_FLAGS_ENABLE_PHOTO_EDITOR_NAME" desc="Title for the flag to enable the photo editor.">
+        Photo Editor
+      </message>
+      <message name="IDS_FLAGS_ENABLE_PHOTO_EDITOR_DESCRIPTION" desc="Description for the flag to enable the photo editor.">
+      </message>
 
       <!-- Crashes -->
       <message name="IDS_CRASHES_TITLE" desc="Title for the chrome://crashes page.">

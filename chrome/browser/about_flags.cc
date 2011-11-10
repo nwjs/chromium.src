@@ -409,6 +409,15 @@ const Experiment kExperiments[] = {
     kOsAll,
     SINGLE_VALUE_TYPE(switches::kEnableVideoTrack)
   },
+#if defined(OS_CHROMEOS)
+  {
+    "enable-photo-editor",
+    IDS_FLAGS_ENABLE_PHOTO_EDITOR_NAME,
+    IDS_FLAGS_ENABLE_PHOTO_EDITOR_DESCRIPTION,
+    kOsCrOS,
+    SINGLE_VALUE_TYPE(switches::kEnablePhotoEditor)
+  },
+#endif
 };
 
 const Experiment* experiments = kExperiments;
