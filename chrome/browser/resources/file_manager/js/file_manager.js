@@ -56,6 +56,8 @@ function FileManager(dialogDom, filesystem, rootEntries) {
   this.document_ = dialogDom.ownerDocument;
   this.dialogType_ = this.params_.type || FileManager.DialogType.FULL_PAGE;
 
+  metrics.recordAction('Create.' + this.dialogType_);
+
   this.alert = new cr.ui.dialogs.AlertDialog(this.dialogDom_);
   this.confirm = new cr.ui.dialogs.ConfirmDialog(this.dialogDom_);
   this.prompt = new cr.ui.dialogs.PromptDialog(this.dialogDom_);
@@ -2990,8 +2992,11 @@ FileManager.prototype = {
     var self = this;
     var reader;
 
+    metrics.startInterval('ScanDirectory');
+
     function onReadSome(entries) {
       if (entries.length == 0) {
+        metrics.recordTime('ScanDirectory');
         if (opt_callback)
           opt_callback();
         return;
@@ -3042,6 +3047,7 @@ FileManager.prototype = {
     spliceArgs.unshift(0, 0);  // index, deleteCount
     self.dataModel_.splice.apply(self.dataModel_, spliceArgs);
 
+    metrics.recordTime('ScanDirectory');
     if (opt_callback)
       opt_callback();
   };
@@ -3289,6 +3295,8 @@ FileManager.prototype = {
   };
 
   FileManager.prototype.createNewFolder = function(name, opt_callback) {
+    metrics.recordAction('CreateNewFolder');
+
     var self = this;
 
     function onSuccess(dirEntry) {
