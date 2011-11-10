@@ -418,7 +418,7 @@ void WebGraphicsContext3DCommandBufferImpl::unmapTexSubImage2DCHROMIUM(
 void WebGraphicsContext3DCommandBufferImpl::setVisibilityCHROMIUM(
     bool visible) {
 // CROS only for the 912 branch
-#if defined(CHROMEOS)
+#if defined(OS_CHROMEOS)
   if (!visible)
     gl_->FreeUnusedSharedMemory();
 #endif
