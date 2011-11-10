@@ -1343,7 +1343,7 @@ bool ProfileSyncService::EncryptEverythingEnabled() const {
 void ProfileSyncService::GetEncryptedDataTypes(
     syncable::ModelTypeSet* encrypted_types) const {
   CHECK(encrypted_types);
-  if (backend_.get()) {
+  if (backend_.get() && backend_initialized_) {
     *encrypted_types = backend_->GetEncryptedDataTypes();
     DCHECK(encrypted_types->count(syncable::PASSWORDS));
   } else {
