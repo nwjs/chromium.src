@@ -69,6 +69,9 @@ class FileManagerDialog
   // Adds this to the list of pending dialogs, used for testing.
   void AddPending(int32 tab_id);
 
+  // Check if the list of pending dialogs contains dialog for |tab_id|.
+  static bool PendingExists(int32 tab_id);
+ 
   void* params_;
 
   // Host for the extension that implements this dialog.
