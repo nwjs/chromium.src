@@ -626,7 +626,7 @@ class SSLChan : public MessageLoopForIO::Watcher {
         socket_->Disconnect();
         socket_.reset();
       }
-      delete this;
+      MessageLoop::current()->DeleteSoon(FROM_HERE, this);
     }
   }
 
@@ -660,8 +660,10 @@ class SSLChan : public MessageLoopForIO::Watcher {
   }
 
   void OnSSLHandshakeCompleted(int result) {
-    if (result)
+    if (result) {
       Shut(result);
+      return;
+    }
     is_socket_read_pending_ = false;
     is_socket_write_pending_ = false;
     is_read_pipe_blocked_ = false;
@@ -820,7 +822,7 @@ class SSLChan : public MessageLoopForIO::Watcher {
   MessageLoopForIO::FileDescriptorWatcher read_pipe_controller_;
   MessageLoopForIO::FileDescriptorWatcher write_pipe_controller_;
 
-  friend class base::RefCountedThreadSafe<SSLChan>;
+  friend class DeleteTask<SSLChan>;
   DISALLOW_COPY_AND_ASSIGN(SSLChan);
 };
 
