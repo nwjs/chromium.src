@@ -1062,7 +1062,7 @@ void ProfileSyncService::OnUserSubmittedAuth(
   }
 
   if (!signin_->GetUsername().empty()) {
-    signin_->SignOut();
+    signin_->ClearInMemoryData();
   }
 
   // The user has submitted credentials, which indicates they don't
