@@ -448,6 +448,10 @@ void ExtensionServiceTestBase::InitializeEmptyExtensionService() {
   InitializeExtensionServiceHelper(false);
 }
 
+void ExtensionServiceTestBase::InitializeExtensionProcessManager() {
+  profile_->CreateExtensionProcessManager();
+}
+
 void ExtensionServiceTestBase::InitializeExtensionServiceWithUpdater() {
   InitializeExtensionServiceHelper(true);
   service_->updater()->Start();
@@ -3967,6 +3971,7 @@ TEST_F(ExtensionServiceTest, ProcessSyncDataWrongType) {
 
 TEST_F(ExtensionServiceTest, ProcessSyncDataSettings) {
   InitializeEmptyExtensionService();
+  InitializeExtensionProcessManager();
   TestSyncProcessorStub processor;
   service_->MergeDataAndStartSyncing(syncable::EXTENSIONS, SyncDataList(),
       &processor);
