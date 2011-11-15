@@ -415,6 +415,23 @@ FileManager.prototype = {
   }
 
   /**
+   * Invoke callback in sync/async manner.
+   * @param {function(*)?} callback The callback. If null, nothing is called.
+   * @param {boolean} sync True iff the callback should be called synchronously.
+   * @param {*} callback_args... The rest are callback arguments.
+   */
+  function invokeCallback(callback, sync, callback_args) {
+    if (!callback)
+      return;
+    var args = Array.prototype.slice.call(arguments, 2);
+    if (sync) {
+      callback.apply(null, args);
+    } else {
+      setTimeout(function() { callback.apply(null, args); }, 0);
+    }
+  }
+
+  /**
    * Get the size of a file, caching the result.
    *
    * When this method completes, the fileEntry object will get a
@@ -424,19 +441,18 @@ FileManager.prototype = {
    * @param {Entry} entry An HTML5 Entry object.
    * @param {function(Entry)} successCallback The function to invoke once the
    *     file size is known.
+   * @param {function=} opt_errorCallback Error callback.
+   * @param {boolean=} opt_sync True, if callback should be called sync instead
+   *     of async.
    */
-  function cacheEntrySize(entry, successCallback, opt_errorCallback) {
+  function cacheEntrySize(entry, successCallback, opt_errorCallback, opt_sync) {
     if (entry.isDirectory) {
       // No size for a directory, -1 ensures it's sorted before 0 length files.
       entry.cachedSize_ = -1;
     }
 
     if ('cachedSize_' in entry) {
-      if (successCallback) {
-        // Callback via a setTimeout so the sync/async semantics don't change
-        // based on whether or not the value is cached.
-        setTimeout(function() { successCallback(entry) }, 0);
-      }
+      invokeCallback(successCallback, !!opt_sync, entry);
       return;
     }
 
@@ -457,14 +473,13 @@ FileManager.prototype = {
    * @param {Entry} entry An HTML5 Entry object.
    * @param {function(Entry)} successCallback The function to invoke once the
    *     mtime is known.
+   * @param {function=} opt_errorCallback Error callback.
+   * @param {boolean=} opt_sync True, if callback should be called sync instead
+   *     of async.
    */
-  function cacheEntryDate(entry, successCallback, opt_errorCallback) {
+  function cacheEntryDate(entry, successCallback, opt_errorCallback, opt_sync) {
     if ('cachedMtime_' in entry) {
-      if (successCallback) {
-        // Callback via a setTimeout so the sync/async semantics don't change
-        // based on whether or not the value is cached.
-        setTimeout(function() { successCallback(entry) }, 0);
-      }
+      invokeCallback(successCallback, !!opt_sync, entry);
       return;
     }
 
@@ -753,12 +768,12 @@ FileManager.prototype = {
    * @param {Entry} entry An HTML5 Entry object.
    * @param {function(Entry)} successCallback The function to invoke once the
    *     file size is known.
+   * @param {boolean=} opt_sync If true, we are safe to do synchronous callback.
    */
-  FileManager.prototype.cacheEntryFileType = function(entry, successCallback) {
+  FileManager.prototype.cacheEntryFileType = function(
+      entry, successCallback, opt_sync) {
     this.getFileType(entry);
-
-    if (successCallback)
-      setTimeout(function() { successCallback(entry) }, 0);
+    invokeCallback(successCallback, !!opt_sync, entry);
   };
 
   /**
@@ -1545,7 +1560,7 @@ FileManager.prototype = {
 
     var icon = this.document_.createElement('div');
     icon.className = 'detail-icon';
-    this.cacheEntryIconType(entry);
+    this.getIconType(entry);
     icon.setAttribute('iconType', entry.cachedIconType_);
     div.appendChild(icon);
 
@@ -1606,7 +1621,7 @@ FileManager.prototype = {
       } else {
         div.textContent = util.bytesToSi(entry.cachedSize_);
       }
-    });
+    }, null, true);
 
     return div;
   };
@@ -1622,7 +1637,6 @@ FileManager.prototype = {
     var div = this.document_.createElement('div');
     div.className = 'detail-type';
 
-    div.textContent = '...';
     this.cacheEntryFileType(entry, function(entry) {
       var info = entry.cachedFileType_;
       if (info.name) {
@@ -1632,7 +1646,7 @@ FileManager.prototype = {
           div.textContent = str(info.name);
       } else
         div.textContent = '';
-    });
+    }, true);
 
     return div;
   };
@@ -1660,7 +1674,7 @@ FileManager.prototype = {
       } else {
         div.textContent = self.shortDateFormatter_.format(entry.cachedMtime_);
       }
-    });
+    }, null, true);
 
     return div;
   };
