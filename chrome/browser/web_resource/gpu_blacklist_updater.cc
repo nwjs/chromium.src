@@ -111,7 +111,6 @@ void GpuBlacklistUpdater::SetupOnUIThread() {
   GpuBlacklistUpdater* updater =
       g_browser_process->gpu_blacklist_updater();
   DCHECK(updater);
-  updater->StartAfterDelay();
 }
 
 void GpuBlacklistUpdater::Unpack(const DictionaryValue& parsed_json) {
