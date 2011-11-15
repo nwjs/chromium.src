@@ -26,7 +26,7 @@ class PageActionImageView : public views::ImageView,
                             public ImageLoadingTracker::Observer,
                             public ExtensionContextMenuModel::PopupDelegate,
                             public ExtensionPopup::Observer,
-                            public content::NotificationObserver {
+                            public NotificationObserver {
  public:
   PageActionImageView(LocationBarView* owner,
                       ExtensionAction* page_action);
@@ -59,10 +59,10 @@ class PageActionImageView : public views::ImageView,
   // Overridden from ExtensionPopup::Observer
   virtual void ExtensionPopupIsClosing(ExtensionPopup* popup) OVERRIDE;
 
-  // content::NotificationObserver implementation.
+  // NotificationObserver implementation.
   virtual void Observe(int type,
-                       const content::NotificationSource& source,
-                       const content::NotificationDetails& details) OVERRIDE;
+                       const NotificationSource& source,
+                       const NotificationDetails& details) OVERRIDE;
 
   // Called to notify the PageAction that it should determine whether to be
   // visible or hidden. |contents| is the TabContents that is active, |url| is
@@ -107,7 +107,7 @@ class PageActionImageView : public views::ImageView,
   // The current popup and the button it came from.  NULL if no popup.
   ExtensionPopup* popup_;
 
-  content::NotificationRegistrar registrar_;
+  NotificationRegistrar registrar_;
 
   scoped_ptr<views::MenuRunner> menu_runner_;
 

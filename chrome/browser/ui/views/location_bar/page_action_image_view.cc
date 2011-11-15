@@ -8,6 +8,7 @@
 #include "chrome/browser/extensions/extension_browser_event_router.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
+#include "chrome/browser/notification_service_impl.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_list.h"
@@ -17,9 +18,8 @@
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_action.h"
 #include "chrome/common/extensions/extension_resource.h"
-#include "content/browser/notification_service_impl.h"
-#include "content/public/browser/notification_details.h"
-#include "content/public/browser/notification_source.h"
+#include "chrome/common/notification_details.h"
+#include "chrome/common/notification_source.h"
 #include "ui/base/accessibility/accessible_view_state.h"
 #include "views/controls/menu/menu_item_view.h"
 #include "views/controls/menu/menu_model_adapter.h"
@@ -53,7 +53,7 @@ PageActionImageView::PageActionImageView(LocationBarView* owner,
   }
 
   registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_UNLOADED,
-                 content::Source<Profile>(
+                 Source<Profile>(
                      owner_->browser()->profile()->GetOriginalProfile()));
 
   set_accessibility_focusable(true);
@@ -245,11 +245,11 @@ void PageActionImageView::ExtensionPopupIsClosing(ExtensionPopup* popup) {
 }
 
 void PageActionImageView::Observe(int type,
-                                  const content::NotificationSource& source,
-                                  const content::NotificationDetails& details) {
+                                  const NotificationSource& source,
+                                  const NotificationDetails& details) {
   DCHECK_EQ(chrome::NOTIFICATION_EXTENSION_UNLOADED, type);
   const Extension* unloaded_extension =
-      content::Details<UnloadedExtensionInfo>(details)->extension;
+      Details<UnloadedExtensionInfo>(details)->extension;
   if (page_action_ == unloaded_extension ->page_action())
     owner_->UpdatePageActions();
 }
