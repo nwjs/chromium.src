@@ -1886,6 +1886,10 @@ void NativeWidgetWin::OnPaint(HDC dc) {
           gfx::CanvasPaint::CreateCanvasPaint(hwnd()));
       delegate_->OnNativeWidgetPaint(canvas->AsCanvas());
     }
+  } else {
+    // TODO(msw): Find a better solution for this crbug.com/93530 workaround.
+    // Some scenarios otherwise fail to validate minimized app/popup windows.
+    ValidateRect(hwnd(), NULL);
   }
 }
 
