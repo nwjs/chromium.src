@@ -1311,7 +1311,8 @@ void ProfileSyncService::SetPassphrase(const std::string& passphrase,
 }
 
 void ProfileSyncService::SetEncryptEverything(bool encrypt_everything) {
-  encryption_pending_ = encrypt_everything;
+  if (encrypt_everything && !EncryptEverythingEnabled())
+    encryption_pending_ = true;
 }
 
 bool ProfileSyncService::encryption_pending() const {
