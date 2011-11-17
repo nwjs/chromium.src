@@ -147,7 +147,7 @@ void ConfigurePrerenderFromOmnibox() {
   // Field trial to see if we're enabled.
   const base::FieldTrial::Probability kDivisor = 100;
 
-  const base::FieldTrial::Probability kEnabledProbability = 40;
+  const base::FieldTrial::Probability kEnabledProbability = 0;
   scoped_refptr<base::FieldTrial> enabled_trial(
       new base::FieldTrial("PrerenderFromOmnibox", kDivisor,
                            "OmniboxPrerenderDisabled", 2012, 8, 30));
