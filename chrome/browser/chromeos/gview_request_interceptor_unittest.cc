@@ -237,6 +237,10 @@ TEST_F(GViewRequestInterceptorTest, InterceptPdfWhenDisabled) {
       request.url());
 }
 
+#if !defined(OFFICIAL_BUILD)
+// Official builds have pdf plugin by default, and we cannot unload it, so the
+// test fails. Since pdf plugin is always present, we don't need to run this
+// test.
 TEST_F(GViewRequestInterceptorTest, InterceptPdfWithNoPlugin) {
   SetPDFPluginLoadedState(false);
 
@@ -248,6 +252,7 @@ TEST_F(GViewRequestInterceptorTest, InterceptPdfWithNoPlugin) {
   EXPECT_EQ(GURL("http://docs.google.com/gview?url=http%3A//foo.com/file.pdf"),
                  request.url());
 }
+#endif
 
 TEST_F(GViewRequestInterceptorTest, InterceptPowerpoint) {
   net::URLRequest request(GURL("http://foo.com/file.ppt"), &test_delegate_);
