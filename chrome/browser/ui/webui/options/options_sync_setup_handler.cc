@@ -29,7 +29,7 @@ void OptionsSyncSetupHandler::ShowSetupUI() {
   // The user is trying to manually load a syncSetup URL.  We should bring up
   // either a login or a configure flow based on the state of sync.
   if (service->HasSyncSetupCompleted()) {
-    if (service->IsPassphraseRequiredForDecryption()) {
+    if (service->IsPassphraseRequiredForDecryptionNoLock()) {
       service->get_wizard().Step(SyncSetupWizard::ENTER_PASSPHRASE);
     } else {
       service->get_wizard().Step(SyncSetupWizard::CONFIGURE);

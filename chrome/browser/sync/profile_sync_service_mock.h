@@ -68,6 +68,7 @@ class ProfileSyncServiceMock : public ProfileSyncService {
 
   MOCK_CONST_METHOD0(IsPassphraseRequired, bool());
   MOCK_CONST_METHOD0(IsPassphraseRequiredForDecryption, bool());
+  MOCK_CONST_METHOD0(IsPassphraseRequiredForDecryptionNoLock, bool());
 
   MOCK_METHOD0(ShowErrorUI, void());
 };

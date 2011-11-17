@@ -113,7 +113,8 @@ ProfileSyncService::ProfileSyncService(ProfileSyncFactory* factory,
       clear_server_data_state_(CLEAR_NOT_STARTED),
       encryption_pending_(false),
       auto_start_enabled_(false),
-      failed_datatypes_handler_(ALLOW_THIS_IN_INITIALIZER_LIST(this)) {
+      failed_datatypes_handler_(ALLOW_THIS_IN_INITIALIZER_LIST(this)),
+      encrypted_datatypes_enabled_during_passphrase_error_(false) {
   // By default, dev, canary, and unbranded Chromium users will go to the
   // development servers. Development servers have more features than standard
   // sync servers. Users with officially-branded Chrome stable and beta builds
@@ -753,6 +754,9 @@ void ProfileSyncService::OnPassphraseRequired(
           << sync_api::PassphraseRequiredReasonToString(reason);
   passphrase_required_reason_ = reason;
 
+  encrypted_datatypes_enabled_during_passphrase_error_ =
+      IsEncryptedDatatypeEnabled();
+
   // First try supplying gaia password as the passphrase.
   // TODO(atwilson): This logic seems odd here - we know what kind of passphrase
   // is required (explicit/gaia) so we should not bother setting the wrong kind
@@ -1019,6 +1023,11 @@ bool ProfileSyncService::IsPassphraseRequiredForDecryption() const {
   // passphrase, we must prompt the user for a passphrase. The only way for the
   // user to avoid entering their passphrase is to disable the encrypted types.
   return IsEncryptedDatatypeEnabled() && IsPassphraseRequired();
+}
+
+bool ProfileSyncService::IsPassphraseRequiredForDecryptionNoLock() const {
+  return IsPassphraseRequired() &&
+         encrypted_datatypes_enabled_during_passphrase_error_;
 }
 
 string16 ProfileSyncService::GetLastSyncedTimeString() const {

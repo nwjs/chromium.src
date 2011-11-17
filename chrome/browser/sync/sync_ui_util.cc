@@ -236,7 +236,7 @@ MessageType GetStatusInfo(ProfileSyncService* service,
 
     // Now finally passphrase error.
     if (service->IsPassphraseRequired()) {
-      if (service->IsPassphraseRequiredForDecryption()) {
+      if (service->IsPassphraseRequiredForDecryptionNoLock()) {
         // TODO(lipalani) : Ask tim if this is still needed.
         // NOT first machine.
         // Show a link ("needs attention"), but still indicate the
@@ -372,7 +372,7 @@ void GetStatusLabelsForSyncGlobalError(ProfileSyncService* service,
     return;
 
   if (service->IsPassphraseRequired() &&
-      service->IsPassphraseRequiredForDecryption()) {
+      service->IsPassphraseRequiredForDecryptionNoLock()) {
     // This is not the first machine so ask user to enter passphrase.
     *menu_label = l10n_util::GetStringUTF16(
         IDS_SYNC_PASSPHRASE_ERROR_WRENCH_MENU_ITEM);
@@ -412,7 +412,7 @@ bool ShouldShowSyncErrorButton(ProfileSyncService* service) {
     return false;
 
   return GetStatus(service) == sync_ui_util::SYNC_ERROR ||
-      service->IsPassphraseRequiredForDecryption();
+      service->IsPassphraseRequiredForDecryptionNoLock();
 }
 
 string16 GetSyncMenuLabel(ProfileSyncService* service) {

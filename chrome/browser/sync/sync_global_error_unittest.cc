@@ -77,7 +77,7 @@ TEST(SyncGlobalErrorTest, PassphraseGlobalError) {
 
   EXPECT_CALL(service, IsPassphraseRequired())
               .WillRepeatedly(Return(true));
-  EXPECT_CALL(service, IsPassphraseRequiredForDecryption())
+  EXPECT_CALL(service, IsPassphraseRequiredForDecryptionNoLock())
               .WillRepeatedly(Return(true));
   VerifySyncGlobalErrorResult(
       &service, &error, GoogleServiceAuthError::NONE, true, true);

@@ -314,6 +314,8 @@ class ProfileSyncService : public browser_sync::SyncFrontend,
   // we have an encrypted data type enabled.
   virtual bool IsPassphraseRequiredForDecryption() const;
 
+  virtual bool IsPassphraseRequiredForDecryptionNoLock() const;
+
   sync_api::PassphraseRequiredReason passphrase_required_reason() const {
     return passphrase_required_reason_;
   }
@@ -696,6 +698,8 @@ class ProfileSyncService : public browser_sync::SyncFrontend,
 
   // keeps track of data types that failed to load.
   FailedDatatypesHandler failed_datatypes_handler_;
+
+  bool encrypted_datatypes_enabled_during_passphrase_error_;
 
   DISALLOW_COPY_AND_ASSIGN(ProfileSyncService);
 };
