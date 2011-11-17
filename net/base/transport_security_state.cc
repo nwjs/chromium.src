@@ -1120,6 +1120,8 @@ static const struct HSTSPreload kPreloadedSTS[] = {
   {27, true, "\006luneta\016nearbuysystems\003com", true, kNoPins },
   {12, true, "\006ubertt\003org", true, kNoPins },
 
+#if 0
+  // Twitter pins disabled in order to track down pinning failures --agl
   {13, false, "\007twitter\003com", kTwitterHSTS, kTwitterComPins },
   {17, true, "\003www\007twitter\003com", kTwitterHSTS, kTwitterComPins },
   {17, true, "\003api\007twitter\003com", kTwitterHSTS, kTwitterComPins },
@@ -1128,8 +1130,6 @@ static const struct HSTSPreload kPreloadedSTS[] = {
   {17, true, "\003dev\007twitter\003com", kTwitterHSTS, kTwitterComPins },
   {22, true, "\010business\007twitter\003com", kTwitterHSTS, kTwitterComPins },
 
-#if 0
-  // Twitter CDN pins disabled in order to track down pinning failures --agl
   {22, true, "\010platform\007twitter\003com", false, kTwitterCDNPins },
   {15, true, "\003si0\005twimg\003com", false, kTwitterCDNPins },
   {23, true, "\010twimg0-a\010akamaihd\003net", false, kTwitterCDNPins },
