@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_UI_WEBUI_OPTIONS_CHROMEOS_SYSTEM_OPTIONS_HANDLER_H_
 #pragma once
 
+#include "base/memory/weak_ptr.h"
 #include "chrome/browser/ui/webui/options/chromeos/cros_options_page_ui_handler.h"
 
 namespace base {
@@ -13,7 +14,9 @@ class DictionaryValue;
 }
 
 // ChromeOS system options page UI handler.
-class SystemOptionsHandler : public chromeos::CrosOptionsPageUIHandler {
+class SystemOptionsHandler
+  : public chromeos::CrosOptionsPageUIHandler,
+    public base::SupportsWeakPtr<SystemOptionsHandler> {
  public:
   SystemOptionsHandler();
   virtual ~SystemOptionsHandler();
@@ -55,6 +58,9 @@ class SystemOptionsHandler : public chromeos::CrosOptionsPageUIHandler {
   // Simulates extracting a list of available bluetooth devices.
   // Called when emulating ChromeOS from a desktop environment.
   void GenerateFakeDeviceList();
+
+  // Callback for TouchpadHelper.
+  void TouchpadExists(bool* exists);
 
   DISALLOW_COPY_AND_ASSIGN(SystemOptionsHandler);
 };
