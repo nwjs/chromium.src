@@ -55,20 +55,8 @@ IN_PROC_BROWSER_TEST_F(PowerMenuButtonTest, BatteryMissingTest) {
   EXPECT_CALL(*mock_power_library_, IsBatteryPresent())
       .WillOnce((Return(false)))  // no battery
       .RetiresOnSaturation();
-  EXPECT_CALL(*mock_power_library_, GetBatteryPercentage())
-      .WillOnce((Return(42.0)))
-      .RetiresOnSaturation();
-  EXPECT_CALL(*mock_power_library_, IsBatteryFullyCharged())
-      .WillOnce((Return(false)))
-      .RetiresOnSaturation();
   EXPECT_CALL(*mock_power_library_, IsLinePowerOn())
-      .WillOnce((Return(false)))
-      .RetiresOnSaturation();
-  EXPECT_CALL(*mock_power_library_, GetBatteryTimeToEmpty())
-      .WillOnce((Return(base::TimeDelta::FromMinutes(42))))
-      .RetiresOnSaturation();
-  EXPECT_CALL(*mock_power_library_, GetBatteryTimeToFull())
-      .WillOnce((Return(base::TimeDelta::FromMinutes(24))))
+      .WillOnce((Return(true)))
       .RetiresOnSaturation();
   EXPECT_EQ(-1, CallPowerChangedAndGetBatteryIndex());
 
