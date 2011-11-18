@@ -668,9 +668,11 @@ void URLRequestHttpJob::OnStartCompleted(int result) {
   // TODO(agl): we might have an issue here where a request for foo.example.com
   // merges into a SPDY connection to www.example.com, and gets a different
   // certificate.
+  if (transaction_->GetResponseInfo() != NULL) {
   const SSLInfo& ssl_info = transaction_->GetResponseInfo()->ssl_info;
-  if (result == OK &&
-      ssl_info.is_valid() &&
+  if (ssl_info.is_valid() &&
+      (result == OK || (IsCertificateError(result) &&
+                        IsCertStatusMinorError(ssl_info.cert_status))) &&
       ssl_info.is_issued_by_known_root &&
       context_->transport_security_state()) {
     TransportSecurityState::DomainState domain_state;
@@ -690,6 +692,7 @@ void URLRequestHttpJob::OnStartCompleted(int result) {
         UMA_HISTOGRAM_BOOLEAN("Net.CertificatePinSuccess", true);
       }
     }
+  }
   }
 #endif
   if (result == OK) {
