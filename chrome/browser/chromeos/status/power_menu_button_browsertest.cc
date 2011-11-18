@@ -71,6 +71,10 @@ IN_PROC_BROWSER_TEST_F(PowerMenuButtonTest, BatteryMissingTest) {
       .WillOnce((Return(base::TimeDelta::FromMinutes(24))))
       .RetiresOnSaturation();
   EXPECT_EQ(-1, CallPowerChangedAndGetBatteryIndex());
+
+  PowerMenuButton* power = GetPowerMenuButton();
+
+  EXPECT_FALSE(power->IsVisible());
 }
 
 IN_PROC_BROWSER_TEST_F(PowerMenuButtonTest, BatteryChargedTest) {

@@ -106,10 +106,6 @@ SkBitmap GetImage(ImageSize size, ImageType type, int index) {
   return image;
 }
 
-SkBitmap GetMissingImage(ImageSize size) {
-  return GetImage(size, DISCHARGING, kNumPowerImages);
-}
-
 SkBitmap GetUnknownImage(ImageSize size) {
   return GetImage(size, CHARGING, kNumPowerImages);
 }
@@ -162,9 +158,7 @@ class PowerMenuButton::StatusView : public View {
 
     bool draw_percentage_text = false;
     bool battery_is_present = menu_button_->battery_is_present_;
-    if (!battery_is_present) {
-      image = GetMissingImage(LARGE);
-    } else {
+    if (battery_is_present) {
       image = GetImage(
           LARGE,
           menu_button_->line_power_on_ ? CHARGING : DISCHARGING,
@@ -173,6 +167,9 @@ class PowerMenuButton::StatusView : public View {
           !menu_button_->line_power_on_) {
         draw_percentage_text = true;
       }
+    } else {
+      NOTREACHED();
+      return;
     }
     int image_x = kPadLeftX, image_y = (height() - image.height()) / 2;
     canvas->DrawBitmapInt(image, image_x, image_y);
@@ -363,6 +360,15 @@ void PowerMenuButton::UpdateIconAndLabelInfo() {
   battery_is_present_ = power_lib->IsBatteryPresent();
   line_power_on_ = power_lib->IsLinePowerOn();
 
+  bool should_be_visible = battery_is_present_;
+  if (should_be_visible != IsVisible())
+    SetVisible(should_be_visible);
+
+  if (!should_be_visible) {
+    battery_index_ = -1;
+    return;
+  }
+
   // If fully charged, always show 100% even if internal number is a bit less.
   if (power_lib->IsBatteryFullyCharged()) {
     // We always call power_lib->GetBatteryPercentage() for test predictability.
@@ -376,29 +382,22 @@ void PowerMenuButton::UpdateIconAndLabelInfo() {
   UpdateBatteryTime(&battery_time_to_empty_,
                     power_lib->GetBatteryTimeToEmpty());
 
-  string16 tooltip_text;
-  if (!battery_is_present_) {
-    battery_index_ = -1;
-    SetIcon(GetMissingImage(SMALL));
-    tooltip_text = l10n_util::GetStringUTF16(IDS_STATUSBAR_NO_BATTERY);
+  // Preserve the fully charged icon for 100% only.
+  if (battery_percentage_ >= 100) {
+    battery_index_ = kNumPowerImages - 1;
   } else {
-    // Preserve the fully charged icon for 100% only.
-    if (battery_percentage_ >= 100) {
-      battery_index_ = kNumPowerImages - 1;
-    } else {
-      battery_index_ =
+     battery_index_ =
           static_cast<int>(battery_percentage_ / 100.0 *
-              nextafter(static_cast<float>(kNumPowerImages - 1), 0));
-      battery_index_ =
-          std::max(std::min(battery_index_, kNumPowerImages - 2), 0);
-    }
-    SetIcon(GetImage(
-        SMALL, line_power_on_ ? CHARGING : DISCHARGING, battery_index_));
+            nextafter(static_cast<float>(kNumPowerImages - 1), 0));
+    battery_index_ =
+        std::max(std::min(battery_index_, kNumPowerImages - 2), 0);
+  }
+  SetIcon(GetImage(
+      SMALL, line_power_on_ ? CHARGING : DISCHARGING, battery_index_));
 
-    tooltip_text =  l10n_util::GetStringFUTF16(
+  string16 tooltip_text =  l10n_util::GetStringFUTF16(
         IDS_STATUSBAR_BATTERY_PERCENTAGE,
         base::IntToString16(static_cast<int>(battery_percentage_)));
-  }
   SetTooltipText(tooltip_text);
   SetAccessibleName(tooltip_text);
   SchedulePaint();
