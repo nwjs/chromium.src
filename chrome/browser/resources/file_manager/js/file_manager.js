@@ -2767,9 +2767,9 @@ FileManager.prototype = {
 
       if (this.selection &&
           this.selection.totalCount == 1 &&
-          this.selection.entries[0].isFile &&
-          this.getLeadEntry())
-        this.filenameInput_.value = this.getLeadEntry().name;
+          this.selection.entries[0].isFile) {
+        this.filenameInput_.value = this.selection.entries[0].name;
+      }
     }
 
     this.updateOkButton_();
