@@ -4,8 +4,9 @@
 
 #include "net/url_request/url_request_http_job.h"
 
-#include "base/bind.h"
 #include "base/base_switches.h"
+#include "base/bind.h"
+#include "base/build_time.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/file_util.h"
@@ -669,32 +670,42 @@ void URLRequestHttpJob::OnStartCompleted(int result) {
   // merges into a SPDY connection to www.example.com, and gets a different
   // certificate.
   if (transaction_->GetResponseInfo() != NULL) {
-  const SSLInfo& ssl_info = transaction_->GetResponseInfo()->ssl_info;
-  if (ssl_info.is_valid() &&
-      (result == OK || (IsCertificateError(result) &&
-                        IsCertStatusMinorError(ssl_info.cert_status))) &&
-      ssl_info.is_issued_by_known_root &&
-      context_->transport_security_state()) {
-    TransportSecurityState::DomainState domain_state;
-    bool sni = SSLConfigService::IsSNIAvailable(context_->ssl_config_service());
-    if (context_->transport_security_state()->HasPinsForHost(
-            &domain_state,
-            request_->url().host(), sni)) {
-      if (!domain_state.IsChainOfPublicKeysPermitted(
-              ssl_info.public_key_hashes)) {
-        result = ERR_SSL_PINNED_KEY_NOT_IN_CERT_CHAIN;
-        UMA_HISTOGRAM_BOOLEAN("Net.CertificatePinSuccess", false);
-        FraudulentCertificateReporter* reporter =
-            context_->fraudulent_certificate_reporter();
-        if (reporter != NULL)
-          reporter->SendReport(request_->url().host(), ssl_info, sni);
-      } else {
-        UMA_HISTOGRAM_BOOLEAN("Net.CertificatePinSuccess", true);
+    const SSLInfo& ssl_info = transaction_->GetResponseInfo()->ssl_info;
+    if (ssl_info.is_valid() &&
+        (result == OK || (IsCertificateError(result) &&
+                          IsCertStatusMinorError(ssl_info.cert_status))) &&
+        ssl_info.is_issued_by_known_root &&
+        context_->transport_security_state()) {
+      TransportSecurityState::DomainState domain_state;
+      bool sni = SSLConfigService::IsSNIAvailable(context_->ssl_config_service());
+
+      if (context_->transport_security_state()->HasPinsForHost(
+              &domain_state,
+              request_->url().host(), sni)) {
+        if (!domain_state.IsChainOfPublicKeysPermitted(
+                ssl_info.public_key_hashes)) {
+          const base::Time build_time = base::GetBuildTime();
+          // Pins are not enforced if the build is sufficiently old. Chrome
+          // users should get updates every six weeks or so, but it's possible
+          // that some users will stop getting updates for some reason. We
+          // don't want those users building up as a pool of people with bad
+          // pins.
+          if ((base::Time::Now() - build_time).InDays() < 70 /* 10 weeks */) {
+            result = ERR_SSL_PINNED_KEY_NOT_IN_CERT_CHAIN;
+            UMA_HISTOGRAM_BOOLEAN("Net.CertificatePinSuccess", false);
+            FraudulentCertificateReporter* reporter =
+                context_->fraudulent_certificate_reporter();
+            if (reporter != NULL)
+              reporter->SendReport(request_->url().host(), ssl_info, sni);
+          }
+        } else {
+          UMA_HISTOGRAM_BOOLEAN("Net.CertificatePinSuccess", true);
+        }
       }
     }
   }
-  }
 #endif
+
   if (result == OK) {
     scoped_refptr<HttpResponseHeaders> headers = GetResponseHeaders();
     if (request_->context() && request_->context()->network_delegate()) {
