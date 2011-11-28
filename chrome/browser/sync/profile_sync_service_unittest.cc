@@ -78,14 +78,15 @@ class ProfileSyncServiceTest : public testing::Test {
   // TODO(akalin): Refactor the StartSyncService*() functions below.
 
   void StartSyncService() {
-    StartSyncServiceAndSetInitialSyncEnded(true, true, false, true);
+    StartSyncServiceAndSetInitialSyncEnded(true, true, false, true, true);
   }
 
   void StartSyncServiceAndSetInitialSyncEnded(
       bool set_initial_sync_ended,
       bool issue_auth_token,
       bool synchronous_sync_configuration,
-      bool sync_setup_completed) {
+      bool sync_setup_completed,
+      bool expect_create_dtm) {
     if (!service_.get()) {
       // Set bootstrap to true and it will provide a logged in user for test
       service_.reset(new TestProfileSyncService(&factory_,
@@ -98,9 +99,13 @@ class ProfileSyncServiceTest : public testing::Test {
       if (!sync_setup_completed)
         profile_->GetPrefs()->SetBoolean(prefs::kSyncHasSetupCompleted, false);
 
-      // Register the bookmark data type.
-      EXPECT_CALL(factory_, CreateDataTypeManager(_, _)).
-          WillOnce(ReturnNewDataTypeManager());
+      if (expect_create_dtm) {
+        // Register the bookmark data type.
+        EXPECT_CALL(factory_, CreateDataTypeManager(_, _)).
+            WillOnce(ReturnNewDataTypeManager());
+      } else {
+        EXPECT_CALL(factory_, CreateDataTypeManager(_, _)).Times(0);
+      }
 
       if (issue_auth_token) {
         profile_->GetTokenService()->IssueAuthTokenForTest(
@@ -168,7 +173,7 @@ TEST_F(ProfileSyncServiceTest, JsControllerHandlersBasic) {
 
 TEST_F(ProfileSyncServiceTest,
        JsControllerHandlersDelayedBackendInitialization) {
-  StartSyncServiceAndSetInitialSyncEnded(true, false, false, true);
+  StartSyncServiceAndSetInitialSyncEnded(true, false, false, true, true);
 
   StrictMock<MockJsEventHandler> event_handler;
   EXPECT_CALL(event_handler, HandleJsEvent(_, _)).Times(AtLeast(1));
@@ -210,7 +215,7 @@ TEST_F(ProfileSyncServiceTest, JsControllerProcessJsMessageBasic) {
 
 TEST_F(ProfileSyncServiceTest,
        JsControllerProcessJsMessageBasicDelayedBackendInitialization) {
-  StartSyncServiceAndSetInitialSyncEnded(true, false, false, true);
+  StartSyncServiceAndSetInitialSyncEnded(true, false, false, true, true);
 
   StrictMock<MockJsReplyHandler> reply_handler;
 
@@ -253,8 +258,9 @@ TEST_F(ProfileSyncServiceTest, TestStartupWithOldSyncData) {
   ASSERT_NE(-1,
             file_util::WriteFile(sync_file3, nonsense3, strlen(nonsense3)));
 
-  StartSyncServiceAndSetInitialSyncEnded(false, false, true, false);
+  StartSyncServiceAndSetInitialSyncEnded(false, false, true, false, true);
   EXPECT_FALSE(service_->HasSyncSetupCompleted());
+  EXPECT_FALSE(service_->sync_initialized());
 
   // Since we're doing synchronous initialization, backend should be
   // initialized by this call.
@@ -274,6 +280,28 @@ TEST_F(ProfileSyncServiceTest, TestStartupWithOldSyncData) {
   std::string file2text;
   ASSERT_TRUE(file_util::ReadFileToString(sync_file2, &file2text));
   ASSERT_NE(file2text.compare(nonsense2), 0);
+}
+
+TEST_F(ProfileSyncServiceTest, CorruptDatabase) {
+  const char* nonesense = "not a database";
+
+  FilePath temp_directory = profile_->GetPath().AppendASCII("Sync Data");
+  FilePath sync_db_file = temp_directory.AppendASCII("SyncData.sqlite3");
+
+  ASSERT_TRUE(file_util::CreateDirectory(temp_directory));
+  ASSERT_NE(-1,
+            file_util::WriteFile(sync_db_file, nonesense, strlen(nonesense)));
+
+  // Initialize with HasSyncSetupCompleted() set to true and InitialSyncEnded
+  // false.  This is to model the scenario that would result when opening the
+  // sync database fails.
+  StartSyncServiceAndSetInitialSyncEnded(false, true, true, true, false);
+
+  // The backend is not ready.  Ensure the PSS knows this.
+  EXPECT_FALSE(service_->sync_initialized());
+
+  // Ensure we will be prepared to initialize a fresh DB next time.
+  EXPECT_FALSE(service_->HasSyncSetupCompleted());
 }
 
 }  // namespace
