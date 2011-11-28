@@ -2724,7 +2724,7 @@ const Extension* ExtensionService::GetDisabledExtensionByWebExtent(
 bool ExtensionService::ExtensionBindingsAllowed(const GURL& url) {
   // Allow bindings for all packaged extensions.
   // Note that GetExtensionByURL may return an Extension for hosted apps
-  // (excluding bookmark apps) if the URL came from GetEffectiveURL.
+  // if the URL came from GetEffectiveURL.
   const Extension* extension = GetExtensionByURL(url);
   if (extension && extension->GetType() != Extension::TYPE_HOSTED_APP)
     return true;
