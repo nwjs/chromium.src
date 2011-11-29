@@ -55,7 +55,8 @@ class ProviderTypeComboboxModel : public ui::ComboboxModel {
   ProviderTypeComboboxModel() {}
   virtual ~ProviderTypeComboboxModel() {}
   virtual int GetItemCount() {
-    return chromeos::PROVIDER_TYPE_MAX;
+    // Exclude OpenVPN temporarily. See crosbug.com/23489
+    return chromeos::PROVIDER_TYPE_MAX - 1;
   }
   virtual string16 GetItemAt(int index) {
     ProviderType type = static_cast<ProviderType>(index);
