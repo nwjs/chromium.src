@@ -1680,7 +1680,7 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunInternal() {
 
   // Start watching for hangs during startup. We disarm this hang detector when
   // ThreadWatcher takes over or when browser is shutdown.
-  StartupTimeBomb::Arm(base::TimeDelta::FromSeconds(300));
+  // StartupTimeBomb::Arm(base::TimeDelta::FromSeconds(300));
 
 #if defined(OS_WIN)
   // Registers Chrome with the Windows Restart Manager, which will restore the
