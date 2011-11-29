@@ -30,7 +30,7 @@ class LoginPromptBrowserTest : public InProcessBrowserTest {
 
     auth_map_["foo"] = AuthInfo(L"testuser", L"foopassword");
     auth_map_["bar"] = AuthInfo(L"testuser", L"barpassword");
-    auth_map_["testrealm"] = AuthInfo("basicuser", "secret");
+    auth_map_["testrealm"] = AuthInfo(L"basicuser", L"secret");
   }
 
  protected:
