@@ -54,6 +54,7 @@ class CONTENT_EXPORT BrowserRenderProcessHost
   virtual void EnableSendQueue();
   virtual bool Init(bool is_accessibility_enabled);
   virtual int GetNextRoutingID();
+  virtual void UpdateAndSendMaxPageID(int32 page_id);
   virtual void CancelResourceRequests(int render_widget_id);
   virtual void CrossSiteSwapOutACK(const ViewMsg_SwapOut_Params& params);
   virtual bool WaitForUpdateMsg(int render_widget_id,

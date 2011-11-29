@@ -85,8 +85,9 @@ RenderProcessHost* SiteInstance::GetProcess() {
       }
     }
 
-    // Make sure the process starts at the right max_page_id
-    process_->UpdateMaxPageID(max_page_id_);
+    // Make sure the process starts at the right max_page_id, and ensure that
+    // we send an update to the renderer process.
+    process_->UpdateAndSendMaxPageID(max_page_id_);
   }
   DCHECK(process_);
 
