@@ -192,8 +192,8 @@ bool SyncPromoUI::ShouldShowSyncPromoAtStartup(Profile* profile,
   if (!AllowPromoAtStartupForCurrentBrand())
     return false;
 
-  // Default to show the promo.
-  return true;
+  // Default to not show the promo.
+  return false;
 }
 
 void SyncPromoUI::DidShowSyncPromoAtStartup(Profile* profile) {
