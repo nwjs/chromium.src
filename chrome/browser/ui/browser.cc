@@ -296,13 +296,13 @@ Browser::Browser(Type type, Profile* profile)
   registrar_.Add(this, content::NOTIFICATION_SSL_VISIBLE_STATE_CHANGED,
                  NotificationService::AllSources());
   registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_UPDATE_DISABLED,
-                 Source<Profile>(profile_));
+                 Source<Profile>(profile_->GetOriginalProfile()));
   registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_LOADED,
-                 Source<Profile>(profile_));
+                 Source<Profile>(profile_->GetOriginalProfile()));
   registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_UNLOADED,
-                 Source<Profile>(profile_));
+                 Source<Profile>(profile_->GetOriginalProfile()));
   registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_UNINSTALLED,
-                 Source<Profile>(profile_));
+                 Source<Profile>(profile_->GetOriginalProfile()));
   registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_PROCESS_TERMINATED,
                  NotificationService::AllSources());
   registrar_.Add(
