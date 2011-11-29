@@ -112,6 +112,10 @@ class MockLoginUtils : public LoginUtils {
   virtual void RestoreAuthenticationSession(const std::string& user_name,
                                             Profile* profile) {}
 
+  virtual void FetchCookies(
+      Profile* profile,
+      const GaiaAuthConsumer::ClientLoginResult& credentials) {}
+
   virtual void StartTokenServices(Profile* profile) {}
 
   virtual void StartSync(
