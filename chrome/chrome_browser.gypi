@@ -805,6 +805,8 @@
         'browser/chromeos/web_socket_proxy.h',
         'browser/chromeos/web_socket_proxy_controller.cc',
         'browser/chromeos/web_socket_proxy_controller.h',
+        'browser/chromeos/web_socket_proxy_helper.cc',
+        'browser/chromeos/web_socket_proxy_helper.h',
         'browser/chromeos/wm_ipc.cc',
         'browser/chromeos/wm_ipc.h',
         'browser/chromeos/wm_message_listener.cc',
