@@ -40,20 +40,8 @@ cr.define('login', function() {
 
     /** @inheritDoc */
     decorate: function() {
-      $('createAccount').innerHTML = localStrings.getStringF(
-          'createAccount',
-          '<a id="createAccountLink" class="signin-link" href="#">',
-          '</a>');
-      $('guestSignin').innerHTML = localStrings.getStringF(
-          'guestSignin',
-          '<a id="guestSigninLink" class="signin-link" href="#">',
-          '</a>');
-      $('createAccountLink').onclick = function() {
-        chrome.send('createAccount');
-      };
-      $('guestSigninLink').onclick = function() {
-        chrome.send('launchIncognito');
-      };
+      this.updateLocalizedContent();
+
     },
 
     /**
@@ -212,6 +200,26 @@ cr.define('login', function() {
       ++this.retryCount_;
       this.retryTimer_ = window.setTimeout(this.doReload.bind(this), delay);
       console.log('GaiaSigninScreen scheduleRetry in ' + delay + 'ms.');
+    },
+
+    /**
+     * Updates localized content of the screen that is not updated via template.
+     */
+    updateLocalizedContent: function() {
+      $('createAccount').innerHTML = localStrings.getStringF(
+        'createAccount',
+        '<a id="createAccountLink" class="signin-link" href="#">',
+        '</a>');
+      $('guestSignin').innerHTML = localStrings.getStringF(
+          'guestSignin',
+          '<a id="guestSigninLink" class="signin-link" href="#">',
+          '</a>');
+      $('createAccountLink').onclick = function() {
+        chrome.send('createAccount');
+      };
+      $('guestSigninLink').onclick = function() {
+        chrome.send('launchIncognito');
+      };
     }
   };
 
