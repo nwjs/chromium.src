@@ -62,7 +62,11 @@ remoting.Wcs = function(wcsIqClient, token, onReady, refreshToken) {
    * @private
    */
   this.pollForUpdatedToken_ = setInterval(
-      function() { refreshToken(that.setToken_); },
+      function() {
+        /** @param {string} token */
+        var setToken = function(token) { that.setToken_(token); }
+        tokenRefresh(setToken);
+      },
       60 * 1000);
 
   /**
