@@ -53,6 +53,7 @@ namespace errors = extension_manifest_errors;
 namespace {
 
 const int kPEMOutputColumns = 65;
+const char kManifestVersion[] = "manifest_version";
 
 // KEY MARKERS
 const char kKeyBeginHeaderMarker[] = "-----BEGIN";
@@ -87,6 +88,7 @@ static const char* kBaseCrxKeys[] = {
   keys::kPublicKey,
   keys::kSignature,
   keys::kVersion,
+  kManifestVersion,  // In future branches, this is in the keys namespace.
   keys::kUpdateURL
 };
 
