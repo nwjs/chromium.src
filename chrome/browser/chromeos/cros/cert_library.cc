@@ -73,6 +73,7 @@ class CertLibraryImpl
       observer_list_(new CertLibraryObserverList),
       request_task_(NULL),
       user_logged_in_(false),
+      certificates_requested_(false),
       certificates_loaded_(false),
       ALLOW_THIS_IN_INITIALIZER_LIST(certs_(this)),
       ALLOW_THIS_IN_INITIALIZER_LIST(user_certs_(this)),
@@ -92,6 +93,8 @@ class CertLibraryImpl
   // CertLibrary implementation.
   virtual void RequestCertificates() OVERRIDE {
     DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+    certificates_requested_ = true;
 
     if (!UserManager::Get()->user_is_logged_in()) {
       // If we are not logged in, we cannot load any certificates.
@@ -146,6 +149,10 @@ class CertLibraryImpl
 
   virtual void RemoveObserver(CertLibrary::Observer* observer) OVERRIDE {
     observer_list_->RemoveObserver(observer);
+  }
+
+  virtual bool CertificatesLoading() const OVERRIDE {
+    return certificates_requested_ && !certificates_loaded_;
   }
 
   virtual bool CertificatesLoaded() const OVERRIDE {
@@ -326,6 +333,7 @@ class CertLibraryImpl
 
   // Local state.
   bool user_logged_in_;
+  bool certificates_requested_;
   bool certificates_loaded_;
 
   // Certificates.
