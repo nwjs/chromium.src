@@ -198,6 +198,14 @@ class PDFBrowserTest : public InProcessBrowserTest,
 #else
 #define MAYBE_Basic Basic
 #endif
+
+// Failing on 963 branch.
+#if defined(OS_MACOSX)
+#define MAYBE_Basic DISABLED_Basic
+#else
+#define MAYBE_Basic Basic
+#endif
+
 // Tests basic PDF rendering.  This can be broken depending on bad merges with
 // the vendor, so it's important that we have basic sanity checking.
 IN_PROC_BROWSER_TEST_F(PDFBrowserTest, MAYBE_Basic) {

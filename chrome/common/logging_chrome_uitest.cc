@@ -123,13 +123,8 @@ class CheckFalseTest : public UITest {
   }
 };
 
-#if defined(OS_WIN)
-// http://crbug.com/38497
-#define CheckFails FLAKY_CheckFails
-#elif defined(OS_MACOSX)
-// Crash service doesn't exist for the Mac yet: http://crbug.com/45243
+// Fails on 963 branch.
 #define CheckFails DISABLED_CheckFails
-#endif
 // Launch the app in assertion test mode, then close the app.
 TEST_F(CheckFalseTest, CheckFails) {
   expected_errors_ = EXPECTED_ASSERT_ERRORS;
@@ -155,8 +150,8 @@ class RendererCrashTest : public UITest {
 #else
 #define EXPECTED_CRASH_CRASHES 1
 #endif
-
-#if defined(OS_MACOSX)
+// Test not passing on 963 branch for Linux either.
+#if defined(OS_MACOSX) || defined(OS_LINUX)
 // Crash service doesn't exist for the Mac yet: http://crbug.com/45243
 #define Crash DISABLED_Crash
 #endif

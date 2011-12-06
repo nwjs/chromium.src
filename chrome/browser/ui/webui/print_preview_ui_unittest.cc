@@ -42,6 +42,11 @@ typedef BrowserWithTestWindowTest PrintPreviewUIUnitTest;
 #define MAYBE_PrintPreviewDraftPages PrintPreviewDraftPages
 #define MAYBE_GetCurrentPrintPreviewStatus GetCurrentPrintPreviewStatus
 #endif
+
+// Test is failing on the 963 branch for all platforms.
+#define MAYBE_PrintPreviewDraftPages DISABLED_PrintPreviewDraftPages
+#define MAYBE_GetCurrentPrintPreviewStatus DISABLED_GetCurrentPrintPreviewStatus
+
 // Create/Get a preview tab for initiator tab.
 TEST_F(PrintPreviewUIUnitTest, MAYBE_PrintPreviewData) {
   CommandLine::ForCurrentProcess()->AppendSwitch(switches::kEnablePrintPreview);

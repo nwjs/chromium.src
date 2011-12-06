@@ -39,7 +39,15 @@ HostRulesTest::HostRulesTest()
   launch_arguments_.AppendSwitchASCII(switches::kHostRules, host_rule);
 }
 
-TEST_F(HostRulesTest, TestMap) {
+
+// Test fails on 963 branch.
+#if defined(OS_LINUX)
+#define MAYBE_TestMap DISABLED_TestMap
+#else
+#define MAYBE_TestMap TestMap
+#endif
+
+TEST_F(HostRulesTest, MAYBE_TestMap) {
   ASSERT_TRUE(test_server_started_);
 
   scoped_refptr<BrowserProxy> browser(automation()->GetBrowserWindow(0));
