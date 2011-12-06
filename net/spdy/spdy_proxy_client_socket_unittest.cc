@@ -150,6 +150,7 @@ SpdyProxyClientSocketTest::SpdyProxyClientSocketTest()
 }
 
 void SpdyProxyClientSocketTest::TearDown() {
+  sock_.reset(NULL);
   if (session_ != NULL)
     session_->spdy_session_pool()->CloseAllSessions();
 
@@ -544,7 +545,13 @@ TEST_F(SpdyProxyClientSocketTest, GetPeerAddressReturnsCorrectValues) {
   EXPECT_TRUE(sock_->IsConnected());
   EXPECT_EQ(OK, sock_->GetPeerAddress(&addr));
 
+  Run(1);
+
+  EXPECT_FALSE(sock_->IsConnected());
+  EXPECT_EQ(ERR_SOCKET_NOT_CONNECTED, sock_->GetPeerAddress(&addr));
+
   sock_->Disconnect();
+
   EXPECT_EQ(ERR_SOCKET_NOT_CONNECTED, sock_->GetPeerAddress(&addr));
 }
 
@@ -954,9 +961,10 @@ TEST_F(SpdyProxyClientSocketTest, ReadOnClosedSocketReturnsZero) {
 
   Run(1);
 
+  ASSERT_FALSE(sock_->IsConnected());
   ASSERT_EQ(0, sock_->Read(NULL, 1, NULL));
-  ASSERT_EQ(ERR_CONNECTION_CLOSED, sock_->Read(NULL, 1, NULL));
-  ASSERT_EQ(ERR_CONNECTION_CLOSED, sock_->Read(NULL, 1, NULL));
+  ASSERT_EQ(0, sock_->Read(NULL, 1, NULL));
+  ASSERT_EQ(0, sock_->Read(NULL, 1, NULL));
   ASSERT_FALSE(sock_->IsConnectedAndIdle());
 }
 
@@ -1028,11 +1036,15 @@ TEST_F(SpdyProxyClientSocketTest, ReadOnClosedSocketReturnsBufferedData) {
 
   Run(2);
 
-  AssertSyncReadEquals(kMsg1, kLen1);
+  ASSERT_FALSE(sock_->IsConnected());
+  scoped_refptr<IOBuffer> buf(new IOBuffer(kLen1));
+  ASSERT_EQ(kLen1, sock_->Read(buf, kLen1, NULL));
+  ASSERT_EQ(std::string(kMsg1, kLen1), std::string(buf->data(), kLen1));
+
   ASSERT_EQ(0, sock_->Read(NULL, 1, NULL));
-  ASSERT_EQ(ERR_CONNECTION_CLOSED, sock_->Read(NULL, 1, NULL));
-  // Verify that read *still* returns ERR_CONNECTION_CLOSED
-  ASSERT_EQ(ERR_CONNECTION_CLOSED, sock_->Read(NULL, 1, NULL));
+  ASSERT_EQ(0, sock_->Read(NULL, 1, NULL));
+  sock_->Disconnect();
+  ASSERT_EQ(ERR_SOCKET_NOT_CONNECTED, sock_->Read(NULL, 1, NULL));
 }
 
 // Calling Write() on a closed socket is an error
@@ -1055,7 +1067,7 @@ TEST_F(SpdyProxyClientSocketTest, WriteOnClosedStream) {
 
   Run(1);  // Read EOF which will close the stream
   scoped_refptr<IOBufferWithSize> buf(CreateBuffer(kMsg1, kLen1));
-  EXPECT_EQ(ERR_CONNECTION_CLOSED, sock_->Write(buf, buf->size(), NULL));
+  EXPECT_EQ(ERR_SOCKET_NOT_CONNECTED, sock_->Write(buf, buf->size(), NULL));
 }
 
 // Calling Write() on a disconnected socket is an error
