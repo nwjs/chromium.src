@@ -192,15 +192,9 @@ class PDFBrowserTest : public InProcessBrowserTest,
   scoped_ptr<net::TestServer> pdf_test_server_;
 };
 
-#if defined(OS_CHROMEOS)
 // TODO(sanjeevr): http://crbug.com/79837
-#define MAYBE_Basic DISABLED_Basic
-#else
-#define MAYBE_Basic Basic
-#endif
-
 // Failing on 963 branch.
-#if defined(OS_MACOSX)
+#if defined(OS_MACOSX) || defined(OS_CHROMEOS)
 #define MAYBE_Basic DISABLED_Basic
 #else
 #define MAYBE_Basic Basic

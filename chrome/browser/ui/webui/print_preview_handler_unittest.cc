@@ -18,25 +18,6 @@
 #include "printing/page_size_margins.h"
 #include "printing/print_job_constants.h"
 
-// Test crashes on Aura due to initiator tab's native view having no parent.
-// http://crbug.com/104284
-#if defined(USE_AURA)
-#define MAYBE_StickyMarginsCustom DISABLED_StickyMarginsCustom
-#define MAYBE_StickyMarginsDefault DISABLED_StickyMarginsDefault
-#define MAYBE_StickyMarginsCustomThenDefault \
-    DISABLED_StickyMarginsCustomThenDefault
-#define MAYBE_GetLastUsedMarginSettingsCustom \
-    DISABLED_GetLastUsedMarginSettingsCustom
-#define MAYBE_GetLastUsedMarginSettingsDefault \
-    DISABLED_GetLastUsedMarginSettingsDefault
-#else
-#define MAYBE_StickyMarginsCustom StickyMarginsCustom
-#define MAYBE_StickyMarginsDefault StickyMarginsDefault
-#define MAYBE_StickyMarginsCustomThenDefault StickyMarginsCustomThenDefault
-#define MAYBE_GetLastUsedMarginSettingsCustom GetLastUsedMarginSettingsCustom
-#define MAYBE_GetLastUsedMarginSettingsDefault GetLastUsedMarginSettingsDefault
-#endif
-
 // Tests are all failing on 963 branch.
 #define MAYBE_StickyMarginsCustom DISABLED_StickyMarginsCustom
 #define MAYBE_StickyMarginsDefault DISABLED_StickyMarginsDefault

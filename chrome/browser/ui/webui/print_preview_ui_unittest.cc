@@ -35,12 +35,8 @@ typedef BrowserWithTestWindowTest PrintPreviewUIUnitTest;
 // http://crbug.com/104284
 #if defined(USE_AURA)
 #define MAYBE_PrintPreviewDraftPages DISABLED_PrintPreviewDraftPages
-#define MAYBE_PrintPreviewData DISABLED_PrintPreviewData
-#define MAYBE_GetCurrentPrintPreviewStatus DISABLED_GetCurrentPrintPreviewStatus
 #else
 #define MAYBE_PrintPreviewData PrintPreviewData
-#define MAYBE_PrintPreviewDraftPages PrintPreviewDraftPages
-#define MAYBE_GetCurrentPrintPreviewStatus GetCurrentPrintPreviewStatus
 #endif
 
 // Test is failing on the 963 branch for all platforms.
