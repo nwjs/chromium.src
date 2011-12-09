@@ -977,12 +977,16 @@
    fun:PR_CallOnce
    fun:ssl_InitSessionCacheLocks
    fun:lock_cache
-   fun:ssl_LookupSID
-   fun:ssl2_BeginClientHandshake
-   fun:ssl_Do1stHandshake
-   fun:SSL_ForceHandshake
-   fun:_ZN3net18SSLClientSocketNSS11DoHandshakeEv
-   fun:_ZN3net18SSLClientSocketNSS15DoHandshakeLoopEi
+}
+{
+   # Intentionally leaking NSS to prevent shutdown crashes
+   bug_77990 (Intentional)
+   Memcheck:Leak
+   fun:calloc
+   ...
+   fun:error_get_my_stack
+   fun:nss_ClearErrorStack
+   fun:NSSArena_Destroy
 }
 {
    bug_83345 (Needs_Annotation)
@@ -3200,23 +3204,6 @@
    fun:_ZN24ViewHostMsg_ResolveProxyC1ERK4GURLPbPSs
    fun:_ZN25ResolveProxyMsgHelperTest13GenerateReplyEv
    fun:*ResolveProxyMsgHelperTest_*_Test8TestBodyEv
-}
-{
-   bug_77990
-   Memcheck:Leak
-   fun:calloc
-   ...
-   fun:error_get_my_stack
-   fun:nss_ClearErrorStack
-   fun:NSSArena_Destroy
-   fun:nssList_Destroy
-   fun:nssCertificateStore_RemoveCertLOCKED
-   fun:nssCertificate_Destroy
-   ...
-   fun:ssl_DestroySID
-   fun:ssl_FreeLockedSID
-   fun:UncacheSID
-   fun:SSL_ClearSessionCache
 }
 {
    bug_78201
