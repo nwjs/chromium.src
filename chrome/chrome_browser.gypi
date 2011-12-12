@@ -1943,6 +1943,8 @@
         'browser/printing/print_job_worker.cc',
         'browser/printing/print_job_worker.h',
         'browser/printing/print_job_worker_owner.h',
+        'browser/printing/print_preview_context_menu_observer.cc',
+        'browser/printing/print_preview_context_menu_observer.h',
         'browser/printing/print_preview_data_service.cc',
         'browser/printing/print_preview_data_service.h',
         'browser/printing/print_preview_message_handler.cc',
