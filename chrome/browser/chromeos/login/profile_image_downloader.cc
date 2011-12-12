@@ -37,7 +37,7 @@ const char kAuthorizationHeader[] = "Authorization: GoogleLogin auth=%s";
 
 // URL requesting Picasa API for user info.
 const char kUserEntryURL[] =
-    "http://picasaweb.google.com/data/entry/api/user/default?alt=json";
+    "https://picasaweb.google.com/data/entry/api/user/default?alt=json";
 // Path in JSON dictionary to user's photo thumbnail URL.
 const char kPhotoThumbnailURLPath[] = "entry.gphoto$thumbnail.$t";
 // Path format for specifying thumbnail's size.
