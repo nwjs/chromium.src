@@ -317,11 +317,11 @@ const Experiment kExperiments[] = {
     MULTI_VALUE_TYPE(kPrerenderFromOmniboxChoices)
   },
   {
-    "enable-panels",
-    IDS_FLAGS_ENABLE_PANELS_NAME,
-    IDS_FLAGS_ENABLE_PANELS_DESCRIPTION,
+    "disable-panels",
+    IDS_FLAGS_DISABLE_PANELS_NAME,
+    IDS_FLAGS_DISABLE_PANELS_DESCRIPTION,
     kOsAll,
-    SINGLE_VALUE_TYPE(switches::kEnablePanels)
+    SINGLE_VALUE_TYPE(switches::kDisablePanels)
   },
   {
     "disable-shortcuts-provider",
