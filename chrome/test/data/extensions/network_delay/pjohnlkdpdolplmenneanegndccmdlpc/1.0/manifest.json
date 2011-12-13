@@ -3,5 +3,5 @@
   "version": "1.0",
   "name": "My startup delay extension 2",
   "background_page": "background.html",
-  "permissions": ["tabs", "webNavigation"]
+  "permissions": ["tabs", "webRequest"]
 }
