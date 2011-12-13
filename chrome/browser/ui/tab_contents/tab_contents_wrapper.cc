@@ -640,10 +640,8 @@ void TabContentsWrapper::Observe(int type,
       } else if ((*pref_name_in == prefs::kDefaultCharset) ||
                  StartsWithASCII(*pref_name_in, "webkit.webprefs.", true)) {
         UpdateWebPreferences();
-      } else if (*pref_name_in == prefs::kDefaultZoomLevel) {
-        tab_contents()->render_view_host()->SetZoomLevel(
-            tab_contents()->GetZoomLevel());
-      } else if (*pref_name_in == prefs::kEnableReferrers) {
+      } else if (*pref_name_in == prefs::kDefaultZoomLevel ||
+                 *pref_name_in == prefs::kEnableReferrers) {
         UpdateRendererPreferences();
       } else if (*pref_name_in == prefs::kSafeBrowsingEnabled) {
         UpdateSafebrowsingDetectionHost();
