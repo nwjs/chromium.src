@@ -97,7 +97,8 @@ TabContentsWrapper* DragData::GetSourceTabContentsWrapper() {
 }
 
 TabContents* DragData::GetSourceTabContents() {
-  return GetSourceTabData()->contents_->tab_contents();
+  TabContentsWrapper* contents = GetSourceTabData()->contents_;
+  return contents ? contents->tab_contents(): NULL;
 }
 
 DraggedTabData* DragData::GetSourceTabData() {
