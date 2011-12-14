@@ -2765,8 +2765,7 @@ bool Extension::ShowConfigureContextMenus() const {
 bool Extension::ImplicitlyDelaysNetworkStartup() const {
   // Network requests should be deferred until any extensions that might want
   // to observe or modify them are loaded.
-  return HasAPIPermission(ExtensionAPIPermission::kWebNavigation) ||
-      HasAPIPermission(ExtensionAPIPermission::kWebRequest);
+  return HasAPIPermission(ExtensionAPIPermission::kWebRequest);
 }
 
 bool Extension::CanSpecifyAPIPermission(
