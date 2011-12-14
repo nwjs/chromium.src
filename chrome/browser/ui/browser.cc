@@ -1786,7 +1786,7 @@ void Browser::ShowKeyboardOverlay() {
 
 void Browser::Exit() {
   UserMetrics::RecordAction(UserMetricsAction("Exit"));
-  BrowserList::AttemptUserExit(false);
+  BrowserList::AttemptUserExit();
 }
 
 void Browser::BookmarkCurrentPage() {
