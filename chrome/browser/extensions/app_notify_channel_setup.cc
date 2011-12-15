@@ -11,6 +11,7 @@
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/json/json_reader.h"
+#include "base/metrics/histogram.h"
 #include "base/stringprintf.h"
 #include "chrome/browser/net/gaia/token_service.h"
 #include "chrome/browser/prefs/pref_service.h"
@@ -155,10 +156,30 @@ bool AppNotifyChannelSetup::ShouldPromptForLogin() const {
          !profile_->GetTokenService()->HasOAuthLoginToken();
 }
 
+namespace {
+
+enum LoginNeededHistogram {
+  LOGIN_NEEDED,
+  LOGIN_NOT_NEEDED,
+  LOGIN_NEEDED_BOUNDARY
+};
+
+enum LoginSuccessHistogram {
+  LOGIN_SUCCESS,
+  LOGIN_FAILURE,
+  LOGIN_SUCCESS_BOUNDARY
+};
+
+}  // namespace
+
 void AppNotifyChannelSetup::BeginLogin() {
   CHECK_EQ(INITIAL, state_);
   state_ = LOGIN_STARTED;
-  if (ShouldPromptForLogin()) {
+  bool login_needed = ShouldPromptForLogin();
+  UMA_HISTOGRAM_ENUMERATION("AppNotify.ChannelSetupBegin",
+                            login_needed ? LOGIN_NEEDED : LOGIN_NOT_NEEDED,
+                            LOGIN_NEEDED_BOUNDARY);
+  if (login_needed) {
     ui_->PromptSyncSetup(this);
     // We'll get called back in OnSyncSetupResult
   } else {
@@ -168,12 +189,15 @@ void AppNotifyChannelSetup::BeginLogin() {
 
 void AppNotifyChannelSetup::EndLogin(bool success) {
   CHECK_EQ(LOGIN_STARTED, state_);
+  UMA_HISTOGRAM_ENUMERATION("AppNotify.ChannelSetupLoginResult",
+                            success ? LOGIN_SUCCESS : LOGIN_FAILURE,
+                            LOGIN_SUCCESS_BOUNDARY);
   if (success) {
     state_ = LOGIN_DONE;
     BeginGetAccessToken();
   } else {
     state_ = ERROR_STATE;
-    ReportResult("", kChannelSetupCanceledByUser);
+    ReportResult("", USER_CANCELLED);
   }
 }
 
@@ -200,7 +224,7 @@ void AppNotifyChannelSetup::EndGetAccessToken(bool success) {
     BeginRecordGrant();
   } else {
     state_ = ERROR_STATE;
-    ReportResult("", kChannelSetupInternalError);
+    ReportResult("", INTERNAL_ERROR);
   }
 }
 
@@ -227,12 +251,12 @@ void AppNotifyChannelSetup::EndRecordGrant(const URLFetcher* source) {
     } else {
       // Successfully done with HTTP request, but got an explicit error.
       state_ = ERROR_STATE;
-      ReportResult("", kChannelSetupAuthError);
+      ReportResult("", AUTH_ERROR);
     }
   } else {
     // Could not do HTTP request.
     state_ = ERROR_STATE;
-    ReportResult("", kChannelSetupInternalError);
+    ReportResult("", INTERNAL_ERROR);
   }
 }
 
@@ -258,34 +282,54 @@ void AppNotifyChannelSetup::EndGetChannelId(const URLFetcher* source) {
       bool result = ParseCWSChannelServiceResponse(data, &channel_id);
       if (result) {
         state_ = CHANNEL_ID_SETUP_DONE;
-        ReportResult(channel_id, "");
+        ReportResult(channel_id, NONE);
       } else {
         state_ = ERROR_STATE;
-        ReportResult("", kChannelSetupInternalError);
+        ReportResult("", INTERNAL_ERROR);
       }
     } else {
       // Successfully done with HTTP request, but got an explicit error.
       state_ = ERROR_STATE;
-      ReportResult("", kChannelSetupAuthError);
+      ReportResult("", AUTH_ERROR);
     }
   } else {
     // Could not do HTTP request.
     state_ = ERROR_STATE;
-    ReportResult("", kChannelSetupInternalError);
+    ReportResult("", INTERNAL_ERROR);
   }
 }
 
 void AppNotifyChannelSetup::ReportResult(
     const std::string& channel_id,
-    const std::string& error) {
+    SetupError error) {
   CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   CHECK(state_ == CHANNEL_ID_SETUP_DONE || state_ == ERROR_STATE);
 
+  UMA_HISTOGRAM_ENUMERATION("AppNotification.ChannelSetupFinalResult",
+                            error, SETUP_ERROR_BOUNDARY);
   if (delegate_.get()) {
-    delegate_->AppNotifyChannelSetupComplete(channel_id, error, this);
+    delegate_->AppNotifyChannelSetupComplete(
+        channel_id, GetErrorString(error), this);
   }
   Release(); // Matches AddRef in Start.
 }
+
+// static
+std::string AppNotifyChannelSetup::GetErrorString(SetupError error) {
+  switch (error) {
+    case NONE:           return "";
+    case AUTH_ERROR:     return kChannelSetupAuthError;
+    case INTERNAL_ERROR: return kChannelSetupInternalError;
+    case USER_CANCELLED: return kChannelSetupCanceledByUser;
+    case SETUP_ERROR_BOUNDARY: {
+      CHECK(false);
+      break;
+    }
+  }
+  CHECK(false) << "Unhandled enum value";
+  return std::string();
+}
+
 
 // static
 GURL AppNotifyChannelSetup::GetCWSChannelServiceURL() {
