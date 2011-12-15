@@ -29,6 +29,7 @@
 #include "chrome/browser/chromeos/login/login_utils.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
 #include "chrome/browser/chromeos/login/webui_screen_locker.h"
+#include "chrome/browser/chromeos/status/status_area_view_chromeos.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/sync/profile_sync_service.h"
@@ -86,6 +87,9 @@ class ScreenLockObserver : public chromeos::ScreenLockLibrary::Observer,
   virtual void UnlockScreen(chromeos::ScreenLockLibrary* obj) OVERRIDE {
     RestoreInputMethods();
     chromeos::ScreenLocker::Hide();
+    chromeos::StatusAreaViewChromeos::SetScreenMode(
+        chromeos::StatusAreaViewChromeos::BROWSER_MODE);
+
   }
 
   virtual void UnlockScreenFailed(chromeos::ScreenLockLibrary* obj) OVERRIDE {
