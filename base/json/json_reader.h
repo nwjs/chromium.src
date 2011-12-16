@@ -33,18 +33,7 @@
 
 #include "base/base_export.h"
 #include "base/basictypes.h"
-
-// Chromium and Chromium OS check out gtest to different places, so we're
-// unable to compile on both if we include gtest_prod.h here.  Instead, include
-// its only contents -- this will need to be updated if the macro ever changes.
-#define FRIEND_TEST(test_case_name, test_name)\
-friend class test_case_name##_##test_name##_Test
-
-#define FRIEND_TEST_ALL_PREFIXES(test_case_name, test_name) \
-  FRIEND_TEST(test_case_name, test_name); \
-  FRIEND_TEST(test_case_name, DISABLED_##test_name); \
-  FRIEND_TEST(test_case_name, FLAKY_##test_name); \
-  FRIEND_TEST(test_case_name, FAILS_##test_name)
+#include "base/gtest_prod_util.h"
 
 namespace base {
 
