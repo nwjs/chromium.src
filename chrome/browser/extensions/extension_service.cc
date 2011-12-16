@@ -1538,10 +1538,7 @@ void ExtensionService::SetAppNotificationDisabled(
     NOTREACHED();
     return;
   }
-  if (value)
-    UMA_HISTOGRAM_COUNTS("Apps.SetAppNotificationsDisabled", 1);
-  else
-    UMA_HISTOGRAM_COUNTS("Apps.SetAppNotificationsEnabled", 1);
+
   extension_prefs_->SetAppNotificationDisabled(extension_id, value);
   SyncExtensionChangeIfNeeded(*extension);
 }

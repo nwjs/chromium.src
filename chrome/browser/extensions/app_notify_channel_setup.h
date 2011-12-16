@@ -104,16 +104,6 @@ class AppNotifyChannelSetup
     ERROR_STATE
   };
 
-  enum SetupError {
-    NONE,
-    AUTH_ERROR,
-    INTERNAL_ERROR,
-    USER_CANCELLED,
-
-    // This is used for histograms, and should always be the last value.
-    SETUP_ERROR_BOUNDARY
-  };
-
   friend class base::RefCountedThreadSafe<AppNotifyChannelSetup>;
   friend class AppNotifyChannelSetupTest;
 
@@ -133,9 +123,8 @@ class AppNotifyChannelSetup
   void BeginGetChannelId();
   void EndGetChannelId(const content::URLFetcher* source);
 
-  void ReportResult(const std::string& channel_id, SetupError error);
+  void ReportResult(const std::string& channel_id, const std::string& error);
 
-  static std::string GetErrorString(SetupError error);
   static GURL GetCWSChannelServiceURL();
   static GURL GetOAuth2IssueTokenURL();
   static std::string MakeOAuth2IssueTokenBody(
