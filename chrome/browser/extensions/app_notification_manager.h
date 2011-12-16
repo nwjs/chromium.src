@@ -12,6 +12,7 @@
 #include "base/gtest_prod_util.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/perftimer.h"
 #include "base/synchronization/waitable_event.h"
 #include "chrome/browser/extensions/app_notification.h"
 #include "chrome/browser/extensions/app_notification_storage.h"
@@ -157,6 +158,9 @@ class AppNotificationManager
   bool models_associated_;
   // Whether syncer changes are being processed right now.
   bool processing_syncer_changes_;
+
+  // Used for a histogram of load time.
+  scoped_ptr<PerfTimer> load_timer_;
 
   DISALLOW_COPY_AND_ASSIGN(AppNotificationManager);
 };
