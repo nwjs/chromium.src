@@ -123,7 +123,7 @@ class TestDownloadManagerDelegate : public ChromeDownloadManagerDelegate {
     if (!item)
       return;
     item->MarkContentDangerous();
-    item->MaybeCompleteDownload();
+    download_manager_->MaybeCompleteDownload(item);
   }
 
   FilePath expected_suggested_path_;
