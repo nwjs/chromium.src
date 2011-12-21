@@ -117,7 +117,8 @@ void RenderViewTest::SetUp() {
       new SharedRenderViewCounter(0),
       kRouteId,
       kInvalidSessionStorageNamespaceId,
-      string16());
+      string16(),
+      1);
   view->AddRef();
   view_ = view;
 

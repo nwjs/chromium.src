@@ -171,19 +171,11 @@ class RenderViewImpl : public RenderWidget,
       SharedRenderViewCounter* counter,
       int32 routing_id,
       int64 session_storage_namespace_id,
-      const string16& frame_name);
+      const string16& frame_name,
+      int32 next_page_id);
 
   // Returns the RenderViewImpl containing the given WebView.
   CONTENT_EXPORT static RenderViewImpl* FromWebView(WebKit::WebView* webview);
-
-  // Sets the "next page id" counter.
-  static void SetNextPageID(int32 next_page_id);
-
-  // TODO(creis): Remove when we no longer need
-  // RenderThreadImpl::OnTempCrashWithData.
-  static int32 next_page_id() {
-    return next_page_id_;
-  }
 
   // May return NULL when the view is closing.
   CONTENT_EXPORT WebKit::WebView* webview() const;
@@ -687,7 +679,8 @@ class RenderViewImpl : public RenderWidget,
                  SharedRenderViewCounter* counter,
                  int32 routing_id,
                  int64 session_storage_namespace_id,
-                 const string16& frame_name);
+                 const string16& frame_name,
+                 int32 next_page_id);
 
   // Do not delete directly.  This class is reference counted.
   virtual ~RenderViewImpl();
@@ -811,7 +804,6 @@ class RenderViewImpl : public RenderWidget,
   void OnRedo();
   void OnReloadFrame();
   void OnReplace(const string16& text);
-  void OnReservePageIDRange(int size_of_range);
   void OnResetPageEncodingToDefault();
   void OnScriptEvalRequest(const string16& frame_xpath,
                            const string16& jscript,
@@ -1026,9 +1018,9 @@ class RenderViewImpl : public RenderWidget,
   // goes back.
   int32 last_page_id_sent_to_browser_;
 
-  // The next available page ID to use. This ensures that the page IDs are
-  // globally unique in the renderer.
-  static int32 next_page_id_;
+  // The next available page ID to use for this RenderView.  These IDs are
+  // specific to a given RenderView and the frames within it.
+  int32 next_page_id_;
 
   // The offset of the current item in the history list.
   int history_list_offset_;
