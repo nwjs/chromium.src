@@ -200,9 +200,8 @@ TEST_F(NetworkDelayListenerTest, DelayAndUnload) {
 TEST_F(NetworkDelayListenerTest, AsynchDelayAndLoad) {
   LoadTestExtension(kTestExtensionId2);
   ASSERT_EQ(1u, service_->extensions()->size());
-  const Extension* extension =
-      service_->extensions()->GetByID(kTestExtensionId2);
-  ASSERT_TRUE(extension);
+  const Extension* extension = service_->extensions()->at(0).get();
+  ASSERT_FALSE(extension == NULL);
 
   TestDelegate delegate;
   scoped_ptr<TestURLRequest> request(StartTestRequest(&delegate, kTestUrl));
