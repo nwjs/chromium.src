@@ -158,7 +158,6 @@ BUG_OFF LINUX X86 : fast/repaint/shadow-multiple-vertical.html = IMAGE
 BUG_OFF LINUX X86 : fast/replaced/absolute-image-sizing.html = IMAGE
 BUG_OFF LINUX X86 : fast/replaced/replaced-breaking.html = IMAGE
 BUG_OFF LINUX X86 : fast/ruby/base-shorter-than-text.html = IMAGE
-BUG_OFF LINUX X86 : fast/speech/input-appearance-searchandspeech.html = IMAGE
 BUG_OFF LINUX X86 : fast/table/append-cells2.html = IMAGE
 BUG_OFF LINUX X86 : fast/table/remove-td-display-none.html = IMAGE
 BUG_OFF LINUX X86 : fast/text/international/bidi-menulist.html = IMAGE
@@ -492,5 +491,11 @@ BUG_OFF MAC : svg/W3C-SVG-1.1/fonts-elem-07-b.svg = TIMEOUT
 BUG_OFF MAC : tables/mozilla_expected_failures/marvin/backgr_position-table-row-group.html = TIMEOUT
 BUG_OFF MAC : transforms/2d/set-transform-and-top.html = TIMEOUT
 BUG_OFF WIN : fast/url/standard-url.html = TEXT
-
+BUG_OFF WIN : fast/repaint/table-extra-bottom-grow.html = IMAGE
+BUG_OFF : http/tests/inspector/network/script-as-text-loading.html = TEXT
+BUG_OFF : fast/repaint/table-extra-bottom-grow.html = IMAGE
+BUG_OFF : fast/speech/input-appearance-numberandspeech.html = IMAGE
+BUG_OFF : fast/speech/input-appearance-searchandspeech.html = IMAGE
+BUG_OFF : fast/speech/input-appearance-speechbutton.html = IMAGE
+BUG_OFF : fast/speech/speech-bidi-rendering.html = IMAGE
 
