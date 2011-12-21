@@ -492,7 +492,7 @@ BUG_OFF MAC : tables/mozilla_expected_failures/marvin/backgr_position-table-row-
 BUG_OFF MAC : transforms/2d/set-transform-and-top.html = TIMEOUT
 BUG_OFF WIN : fast/url/standard-url.html = TEXT
 BUG_OFF WIN : fast/repaint/table-extra-bottom-grow.html = IMAGE
-BUG_OFF : http/tests/inspector/network/script-as-text-loading.html = TEXT
+BUG_OFF : http/tests/inspector/network/script-as-text-loading.html = TEXT TIMEOUT
 BUG_OFF : fast/repaint/table-extra-bottom-grow.html = IMAGE
 BUG_OFF : fast/speech/input-appearance-numberandspeech.html = IMAGE
 BUG_OFF : fast/speech/input-appearance-searchandspeech.html = IMAGE
