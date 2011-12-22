@@ -170,8 +170,7 @@ bool IOSurfaceImageTransportSurface::Initialize() {
   // Only support IOSurfaces if the GL implementation is the native desktop GL.
   // IO surfaces will not work with, for example, OSMesa software renderer
   // GL contexts.
-  if (gfx::GetGLImplementation() != gfx::kGLImplementationDesktopGL &&
-      gfx::GetGLImplementation() != gfx::kGLImplementationAppleGL)
+  if (gfx::GetGLImplementation() != gfx::kGLImplementationDesktopGL)
     return false;
 
   if (!helper_->Initialize())
@@ -544,7 +543,6 @@ scoped_refptr<gfx::GLSurface> ImageTransportSurface::CreateSurface(
 
   switch (gfx::GetGLImplementation()) {
     case gfx::kGLImplementationDesktopGL:
-    case gfx::kGLImplementationAppleGL:
       if (!io_surface_support) {
         surface = new TransportDIBImageTransportSurface(manager,
                                                         render_view_id,

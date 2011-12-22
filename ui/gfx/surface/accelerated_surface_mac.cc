@@ -35,8 +35,7 @@ bool AcceleratedSurface::Initialize(
 
   // Drawing to IOSurfaces via OpenGL only works with Apple's GL and
   // not with the OSMesa software renderer.
-  if (gfx::GetGLImplementation() != gfx::kGLImplementationDesktopGL &&
-      gfx::GetGLImplementation() != gfx::kGLImplementationAppleGL)
+  if (gfx::GetGLImplementation() != gfx::kGLImplementationDesktopGL)
     return false;
 
   gl_surface_ = gfx::GLSurface::CreateOffscreenGLSurface(
