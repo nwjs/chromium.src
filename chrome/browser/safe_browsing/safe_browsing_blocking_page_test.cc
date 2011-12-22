@@ -504,9 +504,8 @@ IN_PROC_BROWSER_TEST_F(SafeBrowsingBlockingPageTest, MalwareIframeDontProceed) {
 
   ui_test_utils::WindowedNotificationObserver observer(
       content::NOTIFICATION_NAV_ENTRY_COMMITTED,
-      content::Source<NavigationController>(
-          &browser()->GetSelectedTabContentsWrapper()->tab_contents()->
-              controller()));
+      Source<NavigationController>(
+          &browser()->GetSelectedTabContentsWrapper()->controller()));
   SendCommand("\"takeMeBack\"");    // Simulate the user clicking "back"
   observer.Wait();
   AssertNoInterstitial(false);  // Assert the interstitial is gone
