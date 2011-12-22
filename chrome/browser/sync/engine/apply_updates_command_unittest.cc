@@ -709,26 +709,24 @@ TEST_F(ApplyUpdatesCommandTest, CannotEncryptUnsyncedChanges) {
   EXPECT_EQ(0, status->conflict_progress()->ConflictingItemsSize())
       << "The unsynced changes don't trigger a blocking conflict with the "
       << "nigori update.";
-  EXPECT_EQ(1, status->conflict_progress()->NonblockingConflictingItemsSize())
-      << "The unsynced changes trigger a non-blocking conflict with the "
+  EXPECT_EQ(0, status->conflict_progress()->NonblockingConflictingItemsSize())
+      << "The unsynced changes don't trigger a non-blocking conflict with the "
       << "nigori update.";
-  EXPECT_EQ(0, status->update_progress()->SuccessfullyAppliedUpdateCount())
-      << "The nigori update should not be applied";
+  EXPECT_EQ(1, status->update_progress()->SuccessfullyAppliedUpdateCount())
+      << "The nigori update should be applied";
   EXPECT_FALSE(cryptographer->is_ready());
   EXPECT_TRUE(cryptographer->has_pending_keys());
   {
-    // Ensure the unsynced nodes are still not encrypted.
     ScopedDirLookup dir(syncdb()->manager(), syncdb()->name());
     ASSERT_TRUE(dir.good());
     ReadTransaction trans(FROM_HERE, dir);
 
-    // Since we're in conflict, the specifics don't reflect the unapplied
-    // changes.
+    // Since we have pending keys, we would have failed to encrypt, but the
+    // cryptographer should be updated.
     EXPECT_FALSE(VerifyUnsyncedChangesAreEncrypted(&trans, encrypted_types));
-    encrypted_types.clear();
-    encrypted_types.insert(syncable::PASSWORDS);
-    encrypted_types.insert(syncable::BOOKMARKS);
     EXPECT_EQ(GetAllRealModelTypes(), cryptographer->GetEncryptedTypes());
+    EXPECT_FALSE(cryptographer->is_ready());
+    EXPECT_TRUE(cryptographer->has_pending_keys());
 
     Syncer::UnsyncedMetaHandles handles;
     SyncerUtil::GetUnsyncedEntries(&trans, &handles);
