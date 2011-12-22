@@ -27,8 +27,6 @@ class WriteTransaction;
 
 namespace browser_sync {
 
-class Cryptographer;
-
 namespace sessions {
 class ConflictProgress;
 class StatusController;
@@ -43,8 +41,7 @@ class ConflictResolver {
   ~ConflictResolver();
   // Called by the syncer at the end of a update/commit cycle.
   // Returns true if the syncer should try to apply its updates again.
-  bool ResolveConflicts(syncable::WriteTransaction* trans,
-                        const Cryptographer* cryptographer,
+  bool ResolveConflicts(const syncable::ScopedDirLookup& dir,
                         const sessions::ConflictProgress& progress,
                         sessions::StatusController* status);
 
@@ -73,11 +70,9 @@ class ConflictResolver {
   ProcessSimpleConflictResult ProcessSimpleConflict(
       syncable::WriteTransaction* trans,
       const syncable::Id& id,
-      const Cryptographer* cryptographer,
       sessions::StatusController* status);
 
-  bool ResolveSimpleConflicts(syncable::WriteTransaction* trans,
-                              const Cryptographer* cryptographer,
+  bool ResolveSimpleConflicts(const syncable::ScopedDirLookup& dir,
                               const sessions::ConflictProgress& progress,
                               sessions::StatusController* status);
 

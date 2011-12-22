@@ -39,11 +39,8 @@ void ResolveConflictsCommand::ModelChangingExecuteImpl(
   const sessions::ConflictProgress* progress = status->conflict_progress();
   if (!progress)
     return;  // Nothing to do.
-  syncable::WriteTransaction trans(FROM_HERE, syncable::SYNCER, dir);
-  const Cryptographer* cryptographer =
-      session->context()->directory_manager()->GetCryptographer(&trans);
   status->update_conflicts_resolved(
-      resolver->ResolveConflicts(&trans, cryptographer, *progress, status));
+      resolver->ResolveConflicts(dir, *progress, status));
 }
 
 }  // namespace browser_sync
