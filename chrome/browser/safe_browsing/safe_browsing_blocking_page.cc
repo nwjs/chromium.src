@@ -467,7 +467,7 @@ void SafeBrowsingBlockingPage::CommandReceived(const std::string& cmd) {
       tab()->controller().GoBack();
     } else {
       tab()->controller().LoadURL(GURL(chrome::kChromeUINewTabURL),
-                                  content::Referrer(),
+                                  GURL(),
                                   content::PAGE_TRANSITION_START_PAGE,
                                   std::string());
     }
