@@ -10,7 +10,9 @@
 #include "base/bind.h"
 #include "base/logging.h"
 #include "base/message_loop.h"
+#include "ppapi/shared_impl/ppapi_globals.h"
 #include "ppapi/shared_impl/var.h"
+#include "ppapi/shared_impl/var_tracker.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebBindings.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebDocument.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebDOMMessageEvent.h"
@@ -23,6 +25,7 @@
 #include "webkit/plugins/ppapi/npapi_glue.h"
 #include "webkit/plugins/ppapi/ppapi_plugin_instance.h"
 
+using ppapi::PpapiGlobals;
 using ppapi::StringVar;
 using WebKit::WebBindings;
 using WebKit::WebElement;
@@ -159,6 +162,7 @@ bool MessageChannelInvoke(NPObject* np_obj, NPIdentifier name,
     MessageChannel& message_channel(ToMessageChannel(np_obj));
     PP_Var argument(NPVariantToPPVar(message_channel.instance(), &args[0]));
     message_channel.PostMessageToNative(argument);
+    PpapiGlobals::Get()->GetVarTracker()->ReleaseVar(argument);
     return true;
   }
   // Other method calls we will pass to the passthrough object, if we have one.
