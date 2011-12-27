@@ -1,0 +1,67 @@
+Index: ppapi/native_client/src/shared/ppapi_proxy/browser_ppb_messaging_rpc_server.cc
+===================================================================
+--- ppapi/native_client/src/shared/ppapi_proxy/browser_ppb_messaging_rpc_server.cc	(revision 115834)
++++ ppapi/native_client/src/shared/ppapi_proxy/browser_ppb_messaging_rpc_server.cc	(working copy)
+@@ -13,6 +13,7 @@
+ #endif
+ 
+ using ppapi_proxy::PPBMessagingInterface;
++using ppapi_proxy::PPBVarInterface;
+ using ppapi_proxy::DebugPrintf;
+ using ppapi_proxy::DeserializeTo;
+ 
+@@ -30,6 +31,11 @@
+     return;
+ 
+   PPBMessagingInterface()->PostMessage(instance, message);
++
++  // In the case of a string, DeserializeTo creates a PP_Var with a reference-
++  // count of 1. We must release the var, or it will stay in the browser's map.
++  PPBVarInterface()->Release(message);
++
+   DebugPrintf("PPB_Messaging::PostMessage: instance=%"NACL_PRIu32"\n",
+               instance);
+ 
+Index: ppapi/proxy/plugin_var_serialization_rules.cc
+===================================================================
+--- ppapi/proxy/plugin_var_serialization_rules.cc	(revision 115834)
++++ ppapi/proxy/plugin_var_serialization_rules.cc	(working copy)
+@@ -136,6 +136,8 @@
+   if (var.type == PP_VARTYPE_OBJECT) {
+     var_tracker_->ReleaseHostObject(
+         static_cast<PluginDispatcher*>(dispatcher), var);
++  } else if (var.type == PP_VARTYPE_STRING) {
++    var_tracker_->ReleaseVar(var);
+   }
+ }
+ 
+Index: webkit/plugins/ppapi/message_channel.cc
+===================================================================
+--- webkit/plugins/ppapi/message_channel.cc	(revision 115834)
++++ webkit/plugins/ppapi/message_channel.cc	(working copy)
+@@ -10,7 +10,9 @@
+ #include "base/bind.h"
+ #include "base/logging.h"
+ #include "base/message_loop.h"
++#include "ppapi/shared_impl/ppapi_globals.h"
+ #include "ppapi/shared_impl/var.h"
++#include "ppapi/shared_impl/var_tracker.h"
+ #include "third_party/WebKit/Source/WebKit/chromium/public/WebBindings.h"
+ #include "third_party/WebKit/Source/WebKit/chromium/public/WebDocument.h"
+ #include "third_party/WebKit/Source/WebKit/chromium/public/WebDOMMessageEvent.h"
+@@ -23,6 +25,7 @@
+ #include "webkit/plugins/ppapi/npapi_glue.h"
+ #include "webkit/plugins/ppapi/ppapi_plugin_instance.h"
+ 
++using ppapi::PpapiGlobals;
+ using ppapi::StringVar;
+ using WebKit::WebBindings;
+ using WebKit::WebElement;
+@@ -159,6 +162,7 @@
+     MessageChannel& message_channel(ToMessageChannel(np_obj));
+     PP_Var argument(NPVariantToPPVar(message_channel.instance(), &args[0]));
+     message_channel.PostMessageToNative(argument);
++    PpapiGlobals::Get()->GetVarTracker()->ReleaseVar(argument);
+     return true;
+   }
+   // Other method calls we will pass to the passthrough object, if we have one.
