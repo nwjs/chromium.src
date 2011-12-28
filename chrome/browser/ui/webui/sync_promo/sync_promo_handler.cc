@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/ui/webui/sync_promo_handler.h"
+#include "chrome/browser/ui/webui/sync_promo/sync_promo_handler.h"
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
@@ -15,8 +15,8 @@
 #include "chrome/browser/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
-#include "chrome/browser/ui/webui/sync_promo_trial.h"
-#include "chrome/browser/ui/webui/sync_promo_ui.h"
+#include "chrome/browser/ui/webui/sync_promo/sync_promo_trial.h"
+#include "chrome/browser/ui/webui/sync_promo/sync_promo_ui.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/pref_names.h"
@@ -122,16 +122,12 @@ void SyncPromoHandler::RegisterMessages() {
 }
 
 void SyncPromoHandler::ShowGaiaSuccessAndClose() {
-  if (sync_promo_trial::IsExperimentActive())
-    sync_promo_trial::RecordUserSignedIn();
-
+  RecordExperimentOutcomesOnSignIn();
   SyncSetupHandler::ShowGaiaSuccessAndClose();
 }
 
 void SyncPromoHandler::ShowGaiaSuccessAndSettingUp() {
-  if (sync_promo_trial::IsExperimentActive())
-    sync_promo_trial::RecordUserSignedIn();
-
+  RecordExperimentOutcomesOnSignIn();
   SyncSetupHandler::ShowGaiaSuccessAndSettingUp();
 }
 
@@ -183,11 +179,11 @@ void SyncPromoHandler::StepWizardForShowSetupUI() {
 }
 
 void SyncPromoHandler::ShowSetupUI() {
-   // SyncSetupWizard::Step should be called in StepWizardForShowSetupUI above,
-   // but it causes the sync promo page to not set focus properly to the login
-   // email address. This happens because focus is lost between the call to
-   // StepWizardForShowSetupUI and ShowSetupUI.
-   // TODO(binji): Move this function back and fix the focus the right way.
+  // SyncSetupWizard::Step should be called in StepWizardForShowSetupUI above,
+  // but it causes the sync promo page to not set focus properly to the login
+  // email address. This happens because focus is lost between the call to
+  // StepWizardForShowSetupUI and ShowSetupUI.
+  // TODO(binji): Move this function back and fix the focus the right way.
   ProfileSyncService* service =
       Profile::FromWebUI(web_ui_)->GetProfileSyncService();
   service->get_wizard().Step(SyncSetupWizard::GetLoginState());
@@ -276,12 +272,23 @@ int SyncPromoHandler::GetViewCount() const {
   return prefs_->GetInteger(prefs::kSyncPromoViewCount);
 }
 
-int SyncPromoHandler::IncrementViewCountBy(unsigned int amount) {
+int SyncPromoHandler::IncrementViewCountBy(size_t amount) {
   // Let the user increment by 0 if they really want.  It might be useful for a
   // weird way of sending preference change notifications...
   int adjusted = GetViewCount() + amount;
   prefs_->SetInteger(prefs::kSyncPromoViewCount, adjusted);
   return adjusted;
+}
+
+void SyncPromoHandler::RecordExperimentOutcomesOnSignIn() {
+  if (sync_promo_trial::IsExperimentActive())
+    sync_promo_trial::RecordUserSignedIn();
+  if (sync_promo_trial::IsPartOfBrandTrialToEnable()) {
+    bool is_start_up = SyncPromoUI::GetIsLaunchPageForSyncPromoURL(
+        web_ui_->tab_contents()->GetURL());
+    Profile* profile = Profile::FromWebUI(web_ui_);
+    sync_promo_trial::RecordUserSignedInWithTrialBrand(is_start_up, profile);
+  }
 }
 
 void SyncPromoHandler::RecordUserFlowAction(int action) {

@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/ui/webui/sync_promo_ui.h"
+#include "chrome/browser/ui/webui/sync_promo/sync_promo_ui.h"
 
 #include "base/command_line.h"
 #include "base/utf_string_conversions.h"
@@ -15,7 +15,8 @@
 #include "chrome/browser/ui/webui/chrome_url_data_manager.h"
 #include "chrome/browser/ui/webui/chrome_web_ui_data_source.h"
 #include "chrome/browser/ui/webui/options/core_options_handler.h"
-#include "chrome/browser/ui/webui/sync_promo_handler.h"
+#include "chrome/browser/ui/webui/sync_promo/sync_promo_handler.h"
+#include "chrome/browser/ui/webui/sync_promo/sync_promo_trial.h"
 #include "chrome/browser/ui/webui/theme_source.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
@@ -121,6 +122,16 @@ SyncPromoUI::SyncPromoUI(TabContents* contents) : ChromeWebUI(contents) {
   html_source->add_resource_path(kSyncPromoJsFile, IDR_SYNC_PROMO_JS);
   html_source->set_default_resource(IDR_SYNC_PROMO_HTML);
   profile->GetChromeURLDataManager()->AddDataSource(html_source);
+
+  if (sync_promo_trial::IsPartOfBrandTrialToEnable()) {
+    bool is_start_up = GetIsLaunchPageForSyncPromoURL(contents->GetURL());
+    sync_promo_trial::RecordUserShownPromoWithTrialBrand(is_start_up, profile);
+  }
+}
+
+// static
+bool SyncPromoUI::HasShownPromoAtStartup(Profile* profile) {
+  return profile->GetPrefs()->HasPrefPath(prefs::kSyncPromoStartupCount);
 }
 
 // static
@@ -157,8 +168,10 @@ void SyncPromoUI::RegisterUserPrefs(PrefService* prefs) {
   SyncPromoHandler::RegisterUserPrefs(prefs);
 }
 
+// static
 bool SyncPromoUI::ShouldShowSyncPromoAtStartup(Profile* profile,
                                                bool is_new_profile) {
+  DCHECK(profile);
   if (!ShouldShowSyncPromo(profile))
     return false;
 
@@ -166,9 +179,8 @@ bool SyncPromoUI::ShouldShowSyncPromoAtStartup(Profile* profile,
   if (command_line.HasSwitch(switches::kNoFirstRun))
     is_new_profile = false;
 
-  PrefService *prefs = profile->GetPrefs();
   if (!is_new_profile) {
-    if (!prefs->HasPrefPath(prefs::kSyncPromoStartupCount))
+    if (!HasShownPromoAtStartup(profile))
       return false;
   }
 
@@ -179,9 +191,15 @@ bool SyncPromoUI::ShouldShowSyncPromoAtStartup(Profile* profile,
   if (g_browser_process->GetApplicationLocale() == "zh-CN")
     return false;
 
+  PrefService* prefs = profile->GetPrefs();
   int show_count = prefs->GetInteger(prefs::kSyncPromoStartupCount);
   if (show_count >= kSyncPromoShowAtStartupMaximum)
     return false;
+
+  // If the current install has a brand code that's part of an experiment, honor
+  // that before master prefs.
+  if (sync_promo_trial::IsPartOfBrandTrialToEnable())
+    return sync_promo_trial::ShouldShowAtStartupBasedOnBrand();
 
   // This pref can be set in the master preferences file to allow or disallow
   // showing the sync promo at startup.

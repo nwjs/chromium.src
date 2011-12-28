@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CHROME_BROWSER_UI_WEBUI_SYNC_PROMO_UI_H_
-#define CHROME_BROWSER_UI_WEBUI_SYNC_PROMO_UI_H_
+#ifndef CHROME_BROWSER_UI_WEBUI_SYNC_PROMO_SYNC_PROMO_UI_H_
+#define CHROME_BROWSER_UI_WEBUI_SYNC_PROMO_SYNC_PROMO_UI_H_
 #pragma once
 
 #include "chrome/browser/ui/webui/chrome_web_ui.h"
@@ -29,6 +29,9 @@ class SyncPromoUI : public ChromeWebUI {
   // Called when the sync promo has been shown so that we can keep track
   // of the number of times we've displayed it.
   static void DidShowSyncPromoAtStartup(Profile* profile);
+
+  // Returns true if a user has seen the sync promo at startup previously.
+  static bool HasShownPromoAtStartup(Profile* profile);
 
   // Returns true if the user has previously skipped the sync promo.
   static bool HasUserSkippedSyncPromo(Profile* profile);
@@ -58,4 +61,4 @@ class SyncPromoUI : public ChromeWebUI {
   DISALLOW_COPY_AND_ASSIGN(SyncPromoUI);
 };
 
-#endif  // CHROME_BROWSER_UI_WEBUI_SYNC_PROMO_UI_H_
+#endif  // CHROME_BROWSER_UI_WEBUI_SYNC_PROMO_SYNC_PROMO_UI_H_
