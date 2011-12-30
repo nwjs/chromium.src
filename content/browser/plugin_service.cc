@@ -66,12 +66,7 @@ static void GetPluginsForGroupsCallback(
 // Callback set on the PluginList to assert that plugin loading happens on the
 // correct thread.
 void WillLoadPluginsCallback() {
-  // TODO(rsesek): Change these to CHECKs.
-#if defined(OS_WIN) || (defined(OS_POSIX) && !defined(OS_MACOSX))
-  CHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
-#else
-  CHECK(false) << "Plugin loading should happen out-of-process.";
-#endif
+  // Empty body to fix <http://crbug.com/103788> on M16. M17+ are fixed.
 }
 
 }  // namespace
