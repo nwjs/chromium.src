@@ -62,6 +62,7 @@
 #include "chrome/browser/net/chrome_url_request_context.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/sync/api/sync_change.h"
@@ -473,8 +474,26 @@ ExtensionService::~ExtensionService() {
 }
 
 void ExtensionService::InitEventRoutersAfterImport() {
-  registrar_.Add(this, chrome::NOTIFICATION_IMPORT_FINISHED,
-                 content::Source<Profile>(profile_));
+  RegisterForImportFinished();
+}
+
+void ExtensionService::RegisterForImportFinished() {
+  if (!registrar_.IsRegistered(this, chrome::NOTIFICATION_IMPORT_FINISHED,
+                               content::Source<Profile>(profile_))) {
+    registrar_.Add(this, chrome::NOTIFICATION_IMPORT_FINISHED,
+                   content::Source<Profile>(profile_));
+  }
+}
+
+void ExtensionService::InitAfterImport() {
+  CheckForExternalUpdates();
+
+  GarbageCollectExtensions();
+
+  // Idempotent, so although there is a possible race if the import
+  // process finished sometime in the middle of ProfileImpl::InitExtensions,
+  // it cannot happen twice.
+  InitEventRouters();
 }
 
 void ExtensionService::InitEventRouters() {
@@ -536,12 +555,25 @@ void ExtensionService::Init() {
   component_loader_->LoadAll();
   extensions::InstalledLoader(this).LoadAllExtensions();
 
-  // TODO(erikkay) this should probably be deferred to a future point
-  // rather than running immediately at startup.
-  CheckForExternalUpdates();
+  // If we are running in the import process, don't bother initializing the
+  // extension service since this can interfere with the main browser process
+  // that is already running an extension service for this profile.
+  // TODO(aa): can we start up even less of ExtensionService?
+  // http://crbug.com/107636
+  if (!CommandLine::ForCurrentProcess()->HasSwitch(switches::kImport) &&
+      !CommandLine::ForCurrentProcess()->HasSwitch(switches::kImportFromFile)) {
+    if (g_browser_process->profile_manager() &&
+        g_browser_process->profile_manager()->will_import()) {
+      RegisterForImportFinished();
+    } else {
+      // TODO(erikkay) this should probably be deferred to a future point
+      // rather than running immediately at startup.
+      CheckForExternalUpdates();
 
-  // TODO(erikkay) this should probably be deferred as well.
-  GarbageCollectExtensions();
+      // TODO(erikkay) this should probably be deferred as well.
+      GarbageCollectExtensions();
+    }
+  }
 }
 
 bool ExtensionService::UpdateExtension(
@@ -2412,9 +2444,7 @@ void ExtensionService::Observe(int type,
       break;
     }
     case chrome::NOTIFICATION_IMPORT_FINISHED: {
-      registrar_.Remove(this, chrome::NOTIFICATION_IMPORT_FINISHED,
-                        content::Source<Profile>(profile_));
-      InitEventRouters();
+      InitAfterImport();
       break;
     }
 
