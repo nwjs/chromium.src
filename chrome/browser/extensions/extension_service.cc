@@ -712,9 +712,9 @@ void ExtensionService::InitEventRoutersAfterImport() {
 
 void ExtensionService::RegisterForImportFinished() {
   if (!registrar_.IsRegistered(this, chrome::NOTIFICATION_IMPORT_FINISHED,
-                               content::Source<Profile>(profile_))) {
+                               Source<Profile>(profile_))) {
     registrar_.Add(this, chrome::NOTIFICATION_IMPORT_FINISHED,
-                   content::Source<Profile>(profile_));
+                   Source<Profile>(profile_));
   }
 }
 
