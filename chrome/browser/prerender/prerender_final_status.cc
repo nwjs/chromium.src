@@ -47,6 +47,12 @@ const char* kFinalStatusNames[] = {
   "SSL Error",
   "Cross-Site Navigation Pending",
   "DevTools Attached To The Tab",
+  // The following empty strings fill holes in the enum.
+  "",
+  "",
+  "",
+  "",
+  "OpenURL",
   "Max",
 };
 COMPILE_ASSERT(arraysize(kFinalStatusNames) == FINAL_STATUS_MAX + 1,
