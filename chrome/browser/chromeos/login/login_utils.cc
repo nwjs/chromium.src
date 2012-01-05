@@ -894,11 +894,19 @@ void LoginUtilsImpl::StartSync(
     std::string email = UserManager::Get()->logged_in_user().display_email();
     // TODO(tim): Tidy this up once cros_user is gone (part of bug 93922).
     user_profile->GetPrefs()->SetString(prefs::kGoogleServicesUsername, email);
-    user_profile->GetProfileSyncService(email)->SetPassphrase(password_, false);
-    password_ = "";
 
-    token_service->Initialize(GaiaConstants::kChromeOSSource, user_profile);
-    token_service->LoadTokensFromDB();
+    ProfileSyncService* service = user_profile->GetProfileSyncService(email);
+    if (service) {
+      service->SetPassphrase(password_, false);
+    } else {
+      DCHECK(!token_service->Initialized());
+      // TODO(cros): This TokenService init if sync is not enabled (someone
+      // passed the --disable-sync flag) should likely be handled at a higher
+      // level.
+      token_service->Initialize(GaiaConstants::kChromeOSSource, user_profile);
+      token_service->LoadTokensFromDB();
+    }
+    password_ = "";
   }
   token_service->UpdateCredentials(credentials);
   if (token_service->AreCredentialsValid())
