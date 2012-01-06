@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -69,11 +69,14 @@ enum PreviewUsageType {
 };
 
 void AddPreviewUsageForHistogram(TemplateURLID template_url_id,
-                                 PreviewUsageType usage) {
+                                 PreviewUsageType usage,
+                                 const std::string& group) {
   DCHECK(0 <= usage && usage < PREVIEW_NUM_TYPES);
   // Only track the histogram for the instant loaders, for now.
-  if (template_url_id)
-    UMA_HISTOGRAM_ENUMERATION("Instant.Previews", usage, PREVIEW_NUM_TYPES);
+  if (template_url_id) {
+    UMA_HISTOGRAM_ENUMERATION("Instant.Previews" + group, usage,
+                              PREVIEW_NUM_TYPES);
+  }
 }
 
 }  // namespace
@@ -574,8 +577,6 @@ void InstantLoader::TabContentsDelegateImpl::OnInstantSupportDetermined(
     loader_->PageFinishedLoading();
   else
     loader_->PageDoesntSupportInstant(user_typed_before_load_);
-
-  AddPreviewUsageForHistogram(loader_->template_url_id(), PREVIEW_LOADED);
 }
 
 void InstantLoader::TabContentsDelegateImpl
@@ -588,14 +589,17 @@ void InstantLoader::TabContentsDelegateImpl
 
 // InstantLoader ---------------------------------------------------------------
 
-InstantLoader::InstantLoader(InstantLoaderDelegate* delegate, TemplateURLID id)
+InstantLoader::InstantLoader(InstantLoaderDelegate* delegate,
+                             TemplateURLID id,
+                             const std::string& group)
     : delegate_(delegate),
       template_url_id_(id),
       ready_(false),
       http_status_ok_(true),
       last_transition_type_(content::PAGE_TRANSITION_LINK),
       verbatim_(false),
-      needs_reload_(false) {
+      needs_reload_(false),
+      group_(group) {
 }
 
 InstantLoader::~InstantLoader() {
@@ -604,7 +608,7 @@ InstantLoader::~InstantLoader() {
   // Delete the TabContents before the delegate as the TabContents holds a
   // reference to the delegate.
   if (preview_contents())
-    AddPreviewUsageForHistogram(template_url_id_, PREVIEW_DELETED);
+    AddPreviewUsageForHistogram(template_url_id_, PREVIEW_DELETED, group_);
   preview_contents_.reset();
 }
 
@@ -777,7 +781,8 @@ TabContentsWrapper* InstantLoader::ReleasePreviewContents(
   }
   update_bounds_timer_.Stop();
   AddPreviewUsageForHistogram(template_url_id_,
-      type == INSTANT_COMMIT_DESTROY ? PREVIEW_DELETED : PREVIEW_COMMITTED);
+      type == INSTANT_COMMIT_DESTROY ? PREVIEW_DELETED : PREVIEW_COMMITTED,
+      group_);
   return preview_contents_.release();
 }
 
@@ -905,7 +910,7 @@ void InstantLoader::ShowPreview() {
   if (!ready_) {
     ready_ = true;
     delegate_->InstantStatusChanged(this);
-    AddPreviewUsageForHistogram(template_url_id_, PREVIEW_SHOWN);
+    AddPreviewUsageForHistogram(template_url_id_, PREVIEW_SHOWN, group_);
   }
 }
 
@@ -917,6 +922,7 @@ void InstantLoader::PageFinishedLoading() {
 
   // Wait for the user input before showing, this way the page should be up to
   // date by the time we show it.
+  AddPreviewUsageForHistogram(template_url_id_, PREVIEW_LOADED, group_);
 }
 
 // TODO(tonyg): This method only fires when the omnibox bounds change. It also
@@ -948,6 +954,8 @@ void InstantLoader::PageDoesntSupportInstant(bool needs_reload) {
   frame_load_observer_.reset(NULL);
 
   delegate_->InstantLoaderDoesntSupportInstant(this);
+
+  AddPreviewUsageForHistogram(template_url_id_, PREVIEW_LOADED, group_);
 }
 
 void InstantLoader::ProcessBoundsChange() {
@@ -1045,7 +1053,7 @@ void InstantLoader::CreatePreviewContents(TabContentsWrapper* tab_contents) {
       new TabContents(
           tab_contents->profile(), NULL, MSG_ROUTING_NONE, NULL, NULL);
   preview_contents_.reset(new TabContentsWrapper(new_contents));
-  AddPreviewUsageForHistogram(template_url_id_, PREVIEW_CREATED);
+  AddPreviewUsageForHistogram(template_url_id_, PREVIEW_CREATED, group_);
   preview_tab_contents_delegate_.reset(new TabContentsDelegateImpl(this));
   SetupPreviewContents(tab_contents);
 
