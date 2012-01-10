@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -167,14 +167,20 @@ void ConfigurePrerenderFromOmnibox() {
   // Field trial to see if we're enabled.
   const base::FieldTrial::Probability kDivisor = 100;
 
-  const base::FieldTrial::Probability kEnabledProbability = 90;
+  base::FieldTrial::Probability kEnabledProbability = 90;
+  chrome::VersionInfo::Channel channel = chrome::VersionInfo::GetChannel();
+  if (channel == chrome::VersionInfo::CHANNEL_STABLE ||
+      channel == chrome::VersionInfo::CHANNEL_BETA) {
+    kEnabledProbability = 99;
+  }
+
   scoped_refptr<base::FieldTrial> enabled_trial(
       new base::FieldTrial(kPrerenderFromOmniboxTrialName, kDivisor,
                            "OmniboxPrerenderDisabled", 2012, 8, 30));
   enabled_trial->AppendGroup("OmniboxPrerenderEnabled", kEnabledProbability);
 
   // Field trial to see which heuristic to use.
-  const base::FieldTrial::Probability kExactFullProbability = 90;
+  const base::FieldTrial::Probability kExactFullProbability = 100;
   scoped_refptr<base::FieldTrial> heuristic_trial(
       new base::FieldTrial(kPrerenderFromOmniboxHeuristicTrialName, kDivisor,
                            "OriginalAlgorithm", 2012, 8, 30));
