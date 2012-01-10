@@ -1,0 +1,26 @@
+Index: chrome/browser/prerender/prerender_field_trial.cc
+===================================================================
+--- chrome/browser/prerender/prerender_field_trial.cc	(revision 116953)
++++ chrome/browser/prerender/prerender_field_trial.cc	(working copy)
+@@ -167,14 +167,19 @@
+   // Field trial to see if we're enabled.
+   const base::FieldTrial::Probability kDivisor = 100;
+ 
+-  const base::FieldTrial::Probability kEnabledProbability = 90;
++  base::FieldTrial::Probability kEnabledProbability = 90;
++  if (channel == chrome::VersionInfo::CHANNEL_STABLE ||
++      channel == chrome::VersionInfo::CHANNEL_BETA) {
++    kEnabledProbability = 99;
++  }
++
+   scoped_refptr<base::FieldTrial> enabled_trial(
+       new base::FieldTrial(kPrerenderFromOmniboxTrialName, kDivisor,
+                            "OmniboxPrerenderDisabled", 2012, 8, 30));
+   enabled_trial->AppendGroup("OmniboxPrerenderEnabled", kEnabledProbability);
+ 
+   // Field trial to see which heuristic to use.
+-  const base::FieldTrial::Probability kExactFullProbability = 90;
++  const base::FieldTrial::Probability kExactFullProbability = 100;
+   scoped_refptr<base::FieldTrial> heuristic_trial(
+       new base::FieldTrial(kPrerenderFromOmniboxHeuristicTrialName, kDivisor,
+                            "OriginalAlgorithm", 2012, 8, 30));
