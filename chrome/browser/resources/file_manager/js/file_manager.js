@@ -1708,7 +1708,7 @@ FileManager.prototype = {
   FileManager.prototype.getLabelForRootPath_ = function(path) {
     // This hack lets us localize the top level directories.
     if (path == 'Downloads')
-      return str('DOWNLOADS_DIRECTORY_LABEL');
+      return str('CHROMEBOOK_DIRECTORY_LABEL');
 
     if (path == 'archive')
       return str('ARCHIVE_DIRECTORY_LABEL');
