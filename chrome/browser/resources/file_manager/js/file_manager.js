@@ -536,6 +536,7 @@ FileManager.prototype = {
    */
   FileManager.prototype.init_ = function() {
     metrics.startInterval('Load.DOM');
+    this.initCommands_();
 
     // TODO(rginda): 6/22/11: Remove this test when createDateTimeFormat is
     // available in all chrome trunk builds.
@@ -605,8 +606,6 @@ FileManager.prototype = {
     // all paste tasks are complete.
     this.pasteSuccessCallbacks_ = [];
 
-    this.initCommands_();
-
     this.setupCurrentDirectory_();
 
     this.summarizeSelection_();
@@ -665,7 +664,6 @@ FileManager.prototype = {
     this.taskButtons_ = this.dialogDom_.querySelector('.task-buttons');
     this.okButton_ = this.dialogDom_.querySelector('.ok');
     this.cancelButton_ = this.dialogDom_.querySelector('.cancel');
-    this.newFolderButton_ = this.dialogDom_.querySelector('.new-folder');
     this.deleteButton_ = this.dialogDom_.querySelector('.delete-button');
 
     this.downloadsWarning_ =
@@ -695,9 +693,6 @@ FileManager.prototype = {
     listContainer.addEventListener('keypress', this.onListKeyPress_.bind(this));
     this.okButton_.addEventListener('click', this.onOk_.bind(this));
     this.cancelButton_.addEventListener('click', this.onCancel_.bind(this));
-
-    this.dialogDom_.querySelector('button.new-folder').addEventListener(
-        'click', this.onNewFolderButtonClick_.bind(this));
 
     this.dialogDom_.querySelector('button.detail-view').addEventListener(
         'click', this.onDetailViewButtonClick_.bind(this));
@@ -1086,6 +1081,10 @@ FileManager.prototype = {
                 !isSystemDirEntry(this.currentDirEntry_)) &&
                 this.selection &&
                 this.selection.totalCount > 0;
+
+      case 'newfolder':
+        return this.currentDirEntry_ &&
+               !isSystemDirEntry(this.currentDirEntry_);
     }
   };
 
@@ -1290,6 +1289,10 @@ FileManager.prototype = {
 
       case 'delete':
         this.deleteEntries(this.selection.entries);
+        return;
+
+      case 'newfolder':
+        this.onNewFolderCommand_(event);
         return;
     }
   };
@@ -3032,9 +3035,6 @@ FileManager.prototype = {
 
     this.checkFreeSpace_(this.currentDirEntry_.fullPath);
 
-    // New folder should never be enabled in the root or media/ directories.
-    this.newFolderButton_.disabled = isSystemDirEntry(this.currentDirEntry_);
-
     this.document_.title = this.currentDirEntry_.fullPath;
 
     var self = this;
@@ -3488,7 +3488,7 @@ FileManager.prototype = {
     }, 0);
   };
 
-  FileManager.prototype.onNewFolderButtonClick_ = function(event) {
+  FileManager.prototype.onNewFolderCommand_ = function(event) {
     var self = this;
 
     function onNameSelected(name) {
@@ -3513,7 +3513,7 @@ FileManager.prototype = {
   };
 
   FileManager.prototype.createNewFolder = function(name, opt_callback) {
-    metrics.recordAction('CreateNewFolder');
+    metrics.recordUserAction('CreateNewFolder');
 
     var self = this;
 
