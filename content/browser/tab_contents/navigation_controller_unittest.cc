@@ -1987,11 +1987,11 @@ TEST_F(NavigationControllerTest, CopyStateFromAndPrune) {
   NavigateAndCommit(url2);
 
   // First two entries should have the same SiteInstance.
-  SiteInstance* instance1 = controller.GetEntryAtIndex(0)->site_instance();
-  SiteInstance* instance2 = controller.GetEntryAtIndex(1)->site_instance();
+  SiteInstance* instance1 = controller().GetEntryAtIndex(0)->site_instance();
+  SiteInstance* instance2 = controller().GetEntryAtIndex(1)->site_instance();
   EXPECT_EQ(instance1, instance2);
-  EXPECT_EQ(0, controller.GetEntryAtIndex(0)->page_id());
-  EXPECT_EQ(1, controller.GetEntryAtIndex(1)->page_id());
+  EXPECT_EQ(0, controller().GetEntryAtIndex(0)->page_id());
+  EXPECT_EQ(1, controller().GetEntryAtIndex(1)->page_id());
   EXPECT_EQ(1, contents()->GetMaxPageIDForSiteInstance(instance1));
 
   scoped_ptr<TestTabContents> other_contents(CreateTestTabContents());
