@@ -208,7 +208,6 @@ PrerenderContents::PrerenderContents(
       prerendering_has_been_cancelled_(false),
       child_id_(-1),
       route_id_(-1),
-      starting_page_id_(-1),
       origin_(origin),
       experiment_id_(experiment_id) {
   DCHECK(prerender_manager != NULL);
@@ -242,30 +241,10 @@ void PrerenderContents::StartPrerendering(
     TabContents* source_tc =
         source_render_view_host->delegate()->GetAsTabContents();
     if (source_tc) {
-      // So that history merging will work, get the max page ID
-      // of the old page as a starting id.
-      starting_page_id_ = source_tc->GetMaxPageID();
-
       // Set the size of the new TC to that of the old TC.
       source_tc->view()->GetContainerBounds(&tab_bounds);
     }
   } else {
-    int max_page_id = -1;
-    // Get the largest page ID of all open tabs as a starting id.
-    for (BrowserList::BrowserVector::const_iterator browser_iter =
-            BrowserList::begin();
-         browser_iter != BrowserList::end();
-         ++browser_iter) {
-      const Browser* browser = *browser_iter;
-      int num_tabs = browser->tab_count();
-      for (int tab_index = 0; tab_index < num_tabs; ++tab_index) {
-        TabContents* tab_contents = browser->GetTabContentsAt(tab_index);
-        if (tab_contents != NULL)
-          max_page_id = std::max(max_page_id, tab_contents->GetMaxPageID());
-      }
-    }
-    starting_page_id_ = max_page_id;
-
     // Try to get the active tab of the active browser and use that for tab
     // bounds. If the browser has never been active, we will fail to get a size
     // but we shouldn't be prerendering in that case anyway.
@@ -276,13 +255,6 @@ void PrerenderContents::StartPrerendering(
       active_tab_contents->view()->GetContainerBounds(&tab_bounds);
     }
   }
-
-  // Add a safety margin of kPrerenderPageIdOffset to the starting page id (for
-  // things such as redirects).
-  if (starting_page_id_ < 0)
-    starting_page_id_ = 0;
-  starting_page_id_ += kPrerenderPageIdOffset;
-  prerender_contents_->controller().set_max_restored_page_id(starting_page_id_);
 
   tab_contents_delegate_.reset(new TabContentsDelegateImpl(this));
   new_contents->set_delegate(tab_contents_delegate_.get());

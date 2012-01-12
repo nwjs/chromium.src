@@ -584,12 +584,6 @@ bool PrerenderManager::MaybeUsePrerenderedPage(TabContents* tab_contents,
     return false;
   }
 
-  if (prerender_contents->starting_page_id() <=
-      tab_contents->GetMaxPageID()) {
-    prerender_contents.release()->Destroy(FINAL_STATUS_PAGE_ID_CONFLICT);
-    return false;
-  }
-
   // Don't use prerendered pages if debugger is attached to the tab.
   // See http://crbug.com/98541
   if (content::DevToolsAgentHostRegistry::IsDebuggerAttached(tab_contents)) {

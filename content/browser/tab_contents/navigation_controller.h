@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -298,7 +298,7 @@ class CONTENT_EXPORT NavigationController {
   // active entry. For example:
   // source: A B *C* D
   // this:   E F *G*   (last must be active or pending)
-  // result: A B *G*
+  // result: A B C *G*
   // This ignores the transient index of the source and honors that of 'this'.
   void CopyStateFromAndPrune(NavigationController* source);
 
