@@ -136,8 +136,6 @@
       # ==================================================
       # Some download test fails on win official builder, only thru buildbot
       # when downloading the small zip file.
-      # crbug.com/91225
-      '-find_in_page.FindMatchTests.testSearchInPDF',
       # Disabled on vista in the actual test. crbug.com/89767
       # -imports.ImportsTest.testImportFirefoxDataTwice
       # Disabled on vista in the actual test. crbug.com/89767
@@ -184,8 +182,6 @@
       '-downloads.DownloadsTest.testDeclineDangerousDownload',
       # crbug.com/75724
       '-downloads.DownloadsTest.testSaveDangerousFile',
-      # crbug.com/93956
-       '-find_in_page.FindMatchTests.testSearchInPDF',
       '-ntp.NTPTest.testLaunchAppNewWindow',  # crbug.com/79812
       # Causes browser crash.  crbug.com/93548
       '-notifications.NotificationsTest.testIncognitoNotification',
@@ -247,8 +243,6 @@
       # ==================================================
       # Disabled tests that need to be investigated/fixed.
       # ==================================================
-      # crbug.com/91225
-      '-find_in_page.FindMatchTests.testSearchInPDF',
       # crbug.com/85310
       '-instant',
       # crbug.com/91033
