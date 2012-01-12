@@ -434,7 +434,8 @@ TEST_F(PPAPITest, MAYBE_DirectoryReader) {
 
 #if defined(ENABLE_P2P_APIS)
 // Flaky. http://crbug.com/84294
-TEST_F(PPAPITest, FLAKY_Transport) {
+// Disabled on 963 branch
+TEST_F(PPAPITest, DISABLED_Transport) {
   RunTest("Transport");
 }
 // http://crbug.com/89961
