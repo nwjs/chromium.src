@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -581,6 +581,7 @@ bool GoogleChromeDistribution::GetExperimentDetails(
   // The big experiment in Apr 2010 used TMxx and TNxx.
   // The big experiment in Oct 2010 used TVxx TWxx TXxx TYxx.
   // The big experiment in Feb 2011 used SJxx SKxx SLxx SMxx.
+  // The Chrome 16 toast in Q1 2012 used BAxx.
   // Note: the plugin infobar experiment uses PIxx codes.
   using namespace attrition_experiments;
   static const struct UserExperimentDetails {
@@ -596,12 +597,8 @@ bool GoogleChromeDistribution::GetExperimentDetails(
                             // of headings (below).
     int headings[kMax];     // A list of IDs per experiment. 0 == no heading.
   } kExperimentFlavors[] = {
-    // First in this order are the brand specific ones.
-    {L"en-US", kSkype, 1, L'Z', L'A', 1, { kSkype1, 0, 0, 0 } },
-    // And then we have catch-alls, like en-US (all brands).
-    {L"en-US", kAll,   1, L'T', L'V', 4, { kEnUs1, kEnUs2, kEnUs3, kEnUs4} },
-    // Japan has two experiments, same IDs as en-US but translated differently.
-    {L"jp",    kAll,   1, L'T', L'V', 2, { kEnUs1, kEnUs2, 0, 0} },
+    // Give all locales and brand codes the "new, safer Chrome" message.
+    {kAll, kAll, 1, L'B', L'A', 1, {kEnUs3, 0, 0, 0} },
   };
 
   std::wstring locale;
@@ -609,7 +606,10 @@ bool GoogleChromeDistribution::GetExperimentDetails(
 
   if (!GoogleUpdateSettings::GetLanguage(&locale))
     locale = L"en-US";
-  if (!GoogleUpdateSettings::GetBrand(&brand))
+
+  // The GGRV brand code indicates an MSI/enterprise install. We never want to
+  // run experiments on enterprise users.
+  if (!GoogleUpdateSettings::GetBrand(&brand) || brand == L"GGRV")
     return false;
 
   for (int i = 0; i < arraysize(kExperimentFlavors); ++i) {
