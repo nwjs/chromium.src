@@ -129,6 +129,8 @@ class BrowserWindowCocoa : public BrowserWindow,
   virtual void ShowAvatarBubble(TabContents* tab_contents,
                                 const gfx::Rect& rect) OVERRIDE;
   virtual void ShowAvatarBubbleFromAvatarButton() OVERRIDE;
+  virtual void UpdatePreferredSize(TabContents* tab_contents,
+                                   const gfx::Size& pref_size) OVERRIDE;
 
   // Overridden from NotificationObserver
   virtual void Observe(int type,

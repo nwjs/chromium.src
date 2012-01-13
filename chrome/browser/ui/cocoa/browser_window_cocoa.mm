@@ -16,6 +16,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sidebar/sidebar_container.h"
 #include "chrome/browser/sidebar/sidebar_manager.h"
+#include "chrome/browser/tab_contents/tab_contents_view_mac.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
 #import "chrome/browser/ui/cocoa/browser/avatar_button_controller.h"
@@ -636,4 +637,10 @@ void BrowserWindowCocoa::ShowAvatarBubble(TabContents* tab_contents,
 
 void BrowserWindowCocoa::ShowAvatarBubbleFromAvatarButton() {
   [[controller_ avatarButtonController] showAvatarBubble];
+}
+
+void BrowserWindowCocoa::UpdatePreferredSize(TabContents* tab_contents,
+                                             const gfx::Size& pref_size) {
+  static_cast<TabContentsViewMac*>(tab_contents->view())->
+      set_preferred_width(pref_size.width());
 }
