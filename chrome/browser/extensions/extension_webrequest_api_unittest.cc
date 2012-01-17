@@ -351,8 +351,11 @@ TEST_F(ExtensionWebRequestTest, SimulateChancelWhileBlocked) {
           request.identifier(), response));
 
   // Extension response for OnErrorOccurred: Terminate the message loop.
+  void (MessageLoop::*post_task)(
+      const tracked_objects::Location& from_here,
+      const base::Closure& task) = &MessageLoop::PostTask;
   ipc_sender_.PushTask(
-      base::Bind(&MessageLoop::PostTask,
+      base::Bind(post_task,
                  base::Unretained(MessageLoop::current()),
                  FROM_HERE, MessageLoop::QuitClosure()
                  ));
