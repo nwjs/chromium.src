@@ -177,6 +177,13 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(switches::kDisableGpuVsync)
   },
   {
+    "gpu-canvas-2d",  // FLAGS:RECORD_UMA
+    IDS_FLAGS_ACCELERATED_CANVAS_2D_NAME,
+    IDS_FLAGS_ACCELERATED_CANVAS_2D_DESCRIPTION,
+    kOsAll,
+    SINGLE_VALUE_TYPE(switches::kEnableAccelerated2dCanvas)
+  },
+  {
     "disable-webgl",
     IDS_FLAGS_DISABLE_WEBGL_NAME,
     IDS_FLAGS_DISABLE_WEBGL_DESCRIPTION,

@@ -153,7 +153,7 @@ int GetGpuBlacklistHistogramValueWin(GpuFeatureStatus status) {
 }  // namespace anonymous
 
 GpuDataManager::UserFlags::UserFlags()
-    : disable_accelerated_2d_canvas_(false),
+    : disable_accelerated_2d_canvas_(true),
       disable_accelerated_compositing_(false),
       disable_accelerated_layers_(false),
       disable_experimental_webgl_(false),
@@ -166,8 +166,8 @@ void GpuDataManager::UserFlags::Initialize() {
   const CommandLine& browser_command_line =
       *CommandLine::ForCurrentProcess();
 
-  disable_accelerated_2d_canvas_ = browser_command_line.HasSwitch(
-      switches::kDisableAccelerated2dCanvas);
+  disable_accelerated_2d_canvas_ = !browser_command_line.HasSwitch(
+      switches::kEnableAccelerated2dCanvas);
   disable_accelerated_compositing_ = browser_command_line.HasSwitch(
       switches::kDisableAcceleratedCompositing);
   disable_accelerated_layers_ = browser_command_line.HasSwitch(
@@ -273,8 +273,8 @@ Value* GpuDataManager::GetFeatureStatus() {
           flags & GpuFeatureFlags::kGpuFeatureAccelerated2dCanvas,
           user_flags_.disable_accelerated_2d_canvas() ||
           !supportsAccelerated2dCanvas(),
-          "Accelerated 2D canvas is unavailable: either disabled at the command"
-          " line or not supported by the current system.",
+          "Accelerated 2D canvas is unavailable: either not enabled in"
+          " about:flags or not supported by the current system.",
           true
       },
       {
@@ -455,9 +455,6 @@ void GpuDataManager::AppendRendererCommandLine(
   if ((flags & GpuFeatureFlags::kGpuFeatureAcceleratedCompositing) &&
       !command_line->HasSwitch(switches::kDisableAcceleratedCompositing))
     command_line->AppendSwitch(switches::kDisableAcceleratedCompositing);
-  if ((flags & GpuFeatureFlags::kGpuFeatureAccelerated2dCanvas) &&
-      !command_line->HasSwitch(switches::kDisableAccelerated2dCanvas))
-    command_line->AppendSwitch(switches::kDisableAccelerated2dCanvas);
 }
 
 void GpuDataManager::AppendGpuCommandLine(
