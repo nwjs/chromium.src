@@ -855,6 +855,8 @@ void ExtensionWebRequestEventRouter::OnCompleted(
 
   DCHECK(!GetAndSetSignaled(request->identifier(), kOnCompleted));
 
+  ClearPendingCallbacks(request);
+
   int extra_info_spec = 0;
   std::vector<const EventListener*> listeners =
       GetMatchingListeners(profile, extension_info_map,
@@ -889,7 +891,8 @@ void ExtensionWebRequestEventRouter::OnCompleted(
 void ExtensionWebRequestEventRouter::OnErrorOccurred(
     void* profile,
     ExtensionInfoMap* extension_info_map,
-    net::URLRequest* request) {
+    net::URLRequest* request,
+    bool started) {
   // We hide events from the system context as well as sensitive requests.
   if (!profile || HideRequestForURL(request->url()))
     return;
@@ -902,6 +905,8 @@ void ExtensionWebRequestEventRouter::OnErrorOccurred(
 
   DCHECK(!GetAndSetSignaled(request->identifier(), kOnErrorOccurred));
 
+  ClearPendingCallbacks(request);
+
   int extra_info_spec = 0;
   std::vector<const EventListener*> listeners =
       GetMatchingListeners(profile, extension_info_map,
@@ -909,13 +914,14 @@ void ExtensionWebRequestEventRouter::OnErrorOccurred(
   if (listeners.empty())
     return;
 
-  std::string response_ip = request->GetSocketAddress().host();
-
   ListValue args;
   DictionaryValue* dict = new DictionaryValue();
   ExtractRequestInfo(request, dict);
-  if (!response_ip.empty())
-    dict->SetString(keys::kIpKey, response_ip);
+  if (started) {
+    std::string response_ip = request->GetSocketAddress().host();
+    if (!response_ip.empty())
+      dict->SetString(keys::kIpKey, response_ip);
+  }
   dict->SetBoolean(keys::kFromCache, request->was_cached());
   dict->SetString(keys::kErrorKey,
                   net::ErrorToString(request->status().error()));
@@ -926,11 +932,17 @@ void ExtensionWebRequestEventRouter::OnErrorOccurred(
 
 void ExtensionWebRequestEventRouter::OnURLRequestDestroyed(
     void* profile, net::URLRequest* request) {
-  blocked_requests_.erase(request->identifier());
+  ClearPendingCallbacks(request);
+
   signaled_requests_.erase(request->identifier());
 
   request_time_tracker_->LogRequestEndTime(request->identifier(),
                                            base::Time::Now());
+}
+
+void ExtensionWebRequestEventRouter::ClearPendingCallbacks(
+    net::URLRequest* request) {
+  blocked_requests_.erase(request->identifier());
 }
 
 bool ExtensionWebRequestEventRouter::DispatchEvent(
