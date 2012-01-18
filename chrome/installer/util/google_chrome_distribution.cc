@@ -605,11 +605,10 @@ bool GoogleChromeDistribution::GetExperimentDetails(
   std::wstring brand;
 
   if (!GoogleUpdateSettings::GetLanguage(&locale))
-    locale = L"en-US";
-
-  // The GGRV brand code indicates an MSI/enterprise install. We never want to
-  // run experiments on enterprise users.
-  if (!GoogleUpdateSettings::GetBrand(&brand) || brand == L"GGRV")
+    locale = ASCIIToWide("en-US");
+  if (!GoogleUpdateSettings::GetBrand(&brand))
+    brand = ASCIIToWide("");  // Could still be viable for catch-all rules.
+  if (brand == kEnterprise)
     return false;
 
   for (int i = 0; i < arraysize(kExperimentFlavors); ++i) {
@@ -629,7 +628,7 @@ bool GoogleChromeDistribution::GetExperimentDetails(
            kExperimentFlavors[i].flavors - 1 <= 'Z');
 
     if (kExperimentFlavors[i].locale != locale &&
-        kExperimentFlavors[i].locale != L"*")
+        kExperimentFlavors[i].locale != ASCIIToWide("*"))
       continue;
 
     std::vector<std::wstring> brand_codes;
