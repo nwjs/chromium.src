@@ -498,3 +498,6 @@ BUG_OFF : fast/speech/input-appearance-searchandspeech.html = IMAGE
 BUG_OFF : fast/speech/input-appearance-speechbutton.html = IMAGE
 BUG_OFF : fast/speech/speech-bidi-rendering.html = IMAGE
 
+// This test depends on code that was not merged to the branch.  That's OK
+// because this feature isn't finished.
+BUG_OFF : css3/flexbox/position-absolute-child.html = TEXT
