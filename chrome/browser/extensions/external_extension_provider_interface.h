@@ -69,6 +69,10 @@ class ExternalExtensionProviderInterface {
   // Determines if this provider had loaded the list of external extensions
   // from its source.
   virtual bool IsReady() = 0;
+
+  // The creation flags that the provider passes to
+  // OnExternalExtensionFileFound.
+  virtual int GetCreationFlags() const = 0;
 };
 
 typedef std::vector<linked_ptr<ExternalExtensionProviderInterface> >
