@@ -18,20 +18,13 @@ ActiveLoader::ActiveLoader(
 }
 
 ActiveLoader::~ActiveLoader() {
-  if (parent_)
-    Cancel();
+  loader_->cancel();
+  parent_ = NULL;
 }
 
 void ActiveLoader::SetDeferred(bool deferred) {
   deferred_ = deferred;
   loader_->setDefersLoading(deferred);
-}
-
-void ActiveLoader::Cancel() {
-  // We only need to maintain a reference to our parent while the loader is
-  // still active. Failing to do so can result in circular refcounts.
-  loader_->cancel();
-  parent_ = NULL;
 }
 
 }  // namespace webkit_media
