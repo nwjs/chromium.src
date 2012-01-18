@@ -198,7 +198,7 @@ void Preferences::RegisterUserPrefs(PrefService* prefs) {
   // Use shared proxies default to off.
   prefs->RegisterBooleanPref(prefs::kUseSharedProxies,
                              false,
-                             PrefService::SYNCABLE_PREF);
+                             PrefService::UNSYNCABLE_PREF);
 
   // OAuth1 all access token and secret pair.
   prefs->RegisterStringPref(prefs::kOAuth1Token,
