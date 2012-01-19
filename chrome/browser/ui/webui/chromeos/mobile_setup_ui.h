@@ -9,7 +9,6 @@
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/ui/webui/chrome_web_ui.h"
 
-class PortalFrameLoadObserver;
 // A custom WebUI that defines datasource for mobile setup registration page
 // that is used in Chrome OS activate modem and perform plan subscription tasks.
 class MobileSetupUI : public ChromeWebUI,
@@ -17,13 +16,10 @@ class MobileSetupUI : public ChromeWebUI,
  public:
   explicit MobileSetupUI(TabContents* contents);
 
-  void OnObserverDeleted();
-
  private:
   // ChromeWebUI overrides.
   virtual void RenderViewCreated(RenderViewHost* render_view_host) OVERRIDE;
 
-  PortalFrameLoadObserver* frame_load_observer_;
   DISALLOW_COPY_AND_ASSIGN(MobileSetupUI);
 };
 
