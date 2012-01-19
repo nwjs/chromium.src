@@ -95,7 +95,7 @@ cr.define('options', function() {
         OptionsPage.closeOverlay();
       });
       $('viewAccountDetails').addEventListener('click', function(event) {
-        chrome.send('showMorePlanInfo');
+        chrome.send('buyDataPlan');
         OptionsPage.closeOverlay();
       });
       $('cellularApnUseDefault').addEventListener('click', function(event) {

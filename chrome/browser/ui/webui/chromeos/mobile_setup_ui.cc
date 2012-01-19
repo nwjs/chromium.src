@@ -1399,7 +1399,8 @@ void MobileSetupHandler::StartActivationOnUIThread() {
 ////////////////////////////////////////////////////////////////////////////////
 
 MobileSetupUI::MobileSetupUI(TabContents* contents)
-    : ChromeWebUI(contents) {
+    : ChromeWebUI(contents),
+      frame_load_observer_(NULL) {
   chromeos::CellularNetwork* network = GetCellularNetwork();
   std::string service_path = network ? network->service_path() : std::string();
   MobileSetupHandler* handler = new MobileSetupHandler(service_path);
@@ -1415,6 +1416,7 @@ MobileSetupUI::MobileSetupUI(TabContents* contents)
 
 void MobileSetupUI::RenderViewCreated(RenderViewHost* host) {
   ChromeWebUI::RenderViewCreated(host);
-  // Destroyed by the corresponding RenderViewHost
-  new PortalFrameLoadObserver(AsWeakPtr(), host);
+  // Destroyed by the corresponding RenderViewHost.
+  frame_load_observer_ =
+      new PortalFrameLoadObserver(AsWeakPtr(), host);
 }
