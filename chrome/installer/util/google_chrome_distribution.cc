@@ -703,7 +703,7 @@ void GoogleChromeDistribution::LaunchUserExperiment(
     // chrome user data directory.
     FilePath user_data_dir(installation.GetUserDataPath());
 
-    const bool toast_experiment_enabled = true;
+    const bool toast_experiment_enabled = false;
     const int kThirtyDays = 30 * 24;
 
     int dir_age_hours = GetDirectoryWriteAgeInHours(
