@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -302,6 +302,9 @@ void InternetOptionsHandler::GetLocalizedValues(
   localized_strings->SetString("buyplan_button",
       l10n_util::GetStringUTF16(
           IDS_OPTIONS_SETTINGS_BUY_PLAN));
+  localized_strings->SetString("view_account_button",
+        l10n_util::GetStringUTF16(
+            IDS_STATUSBAR_NETWORK_VIEW_ACCOUNT));
 
   localized_strings->SetString("changeProxyButton",
       l10n_util::GetStringUTF16(
@@ -746,7 +749,9 @@ void InternetOptionsHandler::OnCellularDataPlanChanged(
   connection_plans.SetBoolean("activated",
       cellular->activation_state() == chromeos::ACTIVATION_STATE_ACTIVATED);
   connection_plans.Set("plans", plan_list);
-  SetActivationButtonVisibility(cellular, &connection_plans);
+  SetActivationButtonVisibility(cellular,
+                                &connection_plans,
+                                cros_->GetCellularHomeCarrierId());
   web_ui_->CallJavascriptFunction(
       "options.InternetOptions.updateCellularPlans", connection_plans);
 }
@@ -1048,7 +1053,7 @@ void InternetOptionsHandler::PopulateCellularDetails(
 
     chromeos::MobileConfig* config = chromeos::MobileConfig::GetInstance();
     if (config->IsReady()) {
-      std::string carrier_id = cros_->GetCellularHomeCarrierId();
+      const std::string& carrier_id = cros_->GetCellularHomeCarrierId();
       const chromeos::MobileConfig::Carrier* carrier =
           config->GetCarrier(carrier_id);
       if (carrier && !carrier->top_up_url().empty())
@@ -1065,7 +1070,9 @@ void InternetOptionsHandler::PopulateCellularDetails(
                        cellular_propety_ui_data);
   }
 
-  SetActivationButtonVisibility(cellular, dictionary);
+  SetActivationButtonVisibility(cellular,
+                                dictionary,
+                                cros_->GetCellularHomeCarrierId());
 }
 
 void InternetOptionsHandler::PopulateVPNDetails(
@@ -1081,7 +1088,8 @@ void InternetOptionsHandler::PopulateVPNDetails(
 
 void InternetOptionsHandler::SetActivationButtonVisibility(
     const chromeos::CellularNetwork* cellular,
-    DictionaryValue* dictionary) {
+    DictionaryValue* dictionary,
+    const std::string& carrier_id) {
   if (cellular->needs_new_plan()) {
     dictionary->SetBoolean("showBuyButton", true);
   } else if (cellular->activation_state() !=
@@ -1089,6 +1097,14 @@ void InternetOptionsHandler::SetActivationButtonVisibility(
              cellular->activation_state() !=
                  chromeos::ACTIVATION_STATE_ACTIVATED) {
     dictionary->SetBoolean("showActivateButton", true);
+  } else {
+    const chromeos::MobileConfig::Carrier* carrier =
+        chromeos::MobileConfig::GetInstance()->GetCarrier(carrier_id);
+    if (carrier && carrier->show_portal_button()) {
+      // This will trigger BuyDataPlanCallback() so that
+      // chrome://mobilesetup/ will open carrier specific portal.
+      dictionary->SetBoolean("showViewAccountButton", true);
+    }
   }
 }
 
