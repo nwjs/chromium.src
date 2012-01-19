@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -27,7 +27,6 @@ const char kGoodMobileConfig[] =
     "        },\n"
     "      ],\n"
     "      \"top_up_url\" : \"http://www.carrier.com/\",\n"
-    "      \"show_portal_button\" : true,\n"
     "      \"deals\" : [\n"
     "        {\n"
     "          \"deal_id\" : \"0\",\n"
@@ -123,7 +122,6 @@ TEST(MobileConfigTest, Basic) {
   carrier = config.GetCarrier("cr (country)");
   EXPECT_TRUE(carrier != NULL);
   EXPECT_EQ("http://www.carrier.com/", carrier->top_up_url());
-  EXPECT_EQ(true, carrier->show_portal_button());
   const MobileConfig::CarrierDeal* deal;
   deal = carrier->GetDefaultDeal();
   EXPECT_TRUE(deal != NULL);
@@ -147,8 +145,6 @@ TEST(MobileConfigTest, OldDeal) {
   const MobileConfig::Carrier* carrier;
   carrier = config.GetCarrier("Carrier (country)");
   EXPECT_TRUE(carrier != NULL);
-  // Check default value.
-  EXPECT_EQ(false, carrier->show_portal_button());
   const MobileConfig::CarrierDeal* deal;
   // TODO(nkostylev): Pass fixed time instead of relying on Time::Now().
   deal = carrier->GetDefaultDeal();
