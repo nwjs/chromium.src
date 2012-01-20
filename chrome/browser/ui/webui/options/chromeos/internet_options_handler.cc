@@ -584,7 +584,7 @@ void InternetOptionsHandler::RegisterMessages() {
       base::Bind(&InternetOptionsHandler::BuyDataPlanCallback,
                  base::Unretained(this)));
   web_ui_->RegisterMessageCallback("showMorePlanInfo",
-      base::Bind(&InternetOptionsHandler::BuyDataPlanCallback,
+      base::Bind(&InternetOptionsHandler::ShowMorePlanInfoCallback,
                  base::Unretained(this)));
   web_ui_->RegisterMessageCallback("setApn",
       base::Bind(&InternetOptionsHandler::SetApnCallback,
@@ -621,6 +621,25 @@ void InternetOptionsHandler::EnableCellularCallback(const ListValue* args) {
 
 void InternetOptionsHandler::DisableCellularCallback(const ListValue* args) {
   cros_->EnableCellularNetworkDevice(false);
+}
+
+void InternetOptionsHandler::ShowMorePlanInfoCallback(const ListValue* args) {
+  if (!web_ui_)
+    return;
+
+  Browser* browser = BrowserList::FindBrowserWithFeature(
+      Profile::FromWebUI(web_ui_), Browser::FEATURE_TABSTRIP);
+  if (!browser)
+    return;
+
+  const chromeos::CellularNetwork* cellular = cros_->cellular_network();
+  if (!cellular)
+    return;
+
+  browser->OpenURL(cellular->GetAccountInfoUrl(),
+                   GURL(),
+                   NEW_FOREGROUND_TAB,
+                   content::PAGE_TRANSITION_LINK);
 }
 
 void InternetOptionsHandler::BuyDataPlanCallback(const ListValue* args) {

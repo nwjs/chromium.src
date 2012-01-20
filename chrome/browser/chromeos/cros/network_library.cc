@@ -39,6 +39,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "crypto/nss_util.h"  // crypto::GetTPMTokenInfo() for 802.1X and VPN.
 #include "grit/generated_resources.h"
+#include "net/base/escape.h"
 #include "net/base/x509_certificate.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -117,6 +118,12 @@ const int kRecentPlanPaymentHours = 6;
 // retries count once cellular device with SIM card is initialized.
 // If cellular device doesn't have SIM card, then retries are never used.
 const int kDefaultSimUnlockRetriesCount = 999;
+
+// Redirect extension url for POST-ing url parameters to mobile account status
+// sites.
+const char kRedirectExtensionPage[] =
+    "chrome-extension://iadeocfgjdjdmpenejdbfeaocpbikmab/redirect.html?"
+    "autoPost=1";
 
 // List of cellular operators names that should have data roaming always enabled
 // to be able to connect to any network.
@@ -334,6 +341,19 @@ GHashTable* ConvertDictionaryValueToGValueMap(const DictionaryValue* dict) {
     }
   }
   return ghash;
+}
+
+GURL AppendQueryParameter(const GURL& url,
+                          const std::string& name,
+                          const std::string& value) {
+  std::string query(url.query());
+  if (!query.empty())
+    query += "&";
+  query += (net::EscapeQueryParamValue(name, true) + "=" +
+            net::EscapeQueryParamValue(value, true));
+  GURL::Replacements replacements;
+  replacements.SetQueryStr(query);
+  return url.ReplaceComponents(replacements);
 }
 
 }  // namespace
@@ -1152,6 +1172,20 @@ bool CellularNetwork::SupportsActivation() const {
 bool CellularNetwork::SupportsDataPlan() const {
   // TODO(nkostylev): Are there cases when only one of this is defined?
   return !usage_url().empty() || !payment_url().empty();
+}
+
+GURL CellularNetwork::GetAccountInfoUrl() const {
+  if (!post_data_.length())
+    return GURL(payment_url());
+
+  GURL base_url(kRedirectExtensionPage);
+  GURL temp_url = AppendQueryParameter(base_url,
+                                       "post_data",
+                                       post_data_);
+  GURL redir_url = AppendQueryParameter(temp_url,
+                                        "formUrl",
+                                        payment_url());
+  return redir_url;
 }
 
 std::string CellularNetwork::GetNetworkTechnologyString() const {
