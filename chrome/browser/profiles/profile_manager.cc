@@ -457,6 +457,9 @@ void ProfileManager::DoFinalInit(Profile* profile, bool go_off_the_record) {
   DoFinalInitForServices(profile, go_off_the_record);
   AddProfileToCache(profile);
   DoFinalInitLogging(profile);
+#if defined(OS_WIN)
+  CreateDesktopShortcut(profile);
+#endif
 }
 
 void ProfileManager::DoFinalInitForServices(Profile* profile,
@@ -609,6 +612,25 @@ void ProfileManager::AddProfileToCache(Profile* profile) {
                             icon_index);
   }
 }
+
+#if defined(OS_WIN)
+void ProfileManager::CreateDesktopShortcut(Profile* profile) {
+  // Some distributions can not create desktop shortcuts, in which case
+  // profile_shortcut_manager_ will not be set.
+  if (!profile_shortcut_manager_.get())
+    return;
+
+  bool shortcut_created =
+      profile->GetPrefs()->GetBoolean(prefs::kProfileShortcutCreated);
+  if (!shortcut_created && GetNumberOfProfiles() > 1) {
+    profile_shortcut_manager_->AddProfileShortcut(profile->GetPath());
+
+    // We only ever create the shortcut for a profile once, so set a pref
+    // reminding us to skip this in the future.
+    profile->GetPrefs()->SetBoolean(prefs::kProfileShortcutCreated, true);
+  }
+}
+#endif
 
 bool ProfileManager::ShouldGoOffTheRecord() {
   bool go_off_the_record = false;

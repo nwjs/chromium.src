@@ -214,7 +214,7 @@ ProfileShortcutManagerWin::ProfileShortcutManagerWin() {
 ProfileShortcutManagerWin::~ProfileShortcutManagerWin() {
 }
 
-void ProfileShortcutManagerWin::OnProfileAdded(
+void ProfileShortcutManagerWin::AddProfileShortcut(
     const FilePath& profile_path) {
   ProfileInfoCache& cache =
       g_browser_process->profile_manager()->GetProfileInfoCache();
@@ -284,6 +284,10 @@ void ProfileShortcutManagerWin::OnProfileAdded(
         base::Bind(&CreateChromeDesktopShortcutForProfile,
                    L"", L"", FilePath(), static_cast<gfx::Image*>(NULL), true));
   }
+}
+
+void ProfileShortcutManagerWin::OnProfileAdded(
+    const FilePath& profile_path) {
 }
 
 void ProfileShortcutManagerWin::OnProfileWillBeRemoved(

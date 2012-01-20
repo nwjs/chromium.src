@@ -241,6 +241,12 @@ class ProfileManager : public base::NonThreadSafe,
   // Adds |profile| to the profile info cache if it hasn't been added yet.
   void AddProfileToCache(Profile* profile);
 
+#if defined(OS_WIN)
+  // Creates a profile desktop shortcut for |profile| if we are in multi
+  // profile mode and the shortcut has not been created before.
+  void CreateDesktopShortcut(Profile* profile);
+#endif
+
   // For ChromeOS, determines if profile should be otr.
   bool ShouldGoOffTheRecord();
 
