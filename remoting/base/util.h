@@ -5,8 +5,6 @@
 #ifndef REMOTING_BASE_UTIL_H_
 #define REMOTING_BASE_UTIL_H_
 
-#include <string>
-
 #include "media/base/video_frame.h"
 #include "third_party/skia/include/core/SkRect.h"
 
@@ -54,9 +52,8 @@ int RoundToTwosMultiple(int x);
 // Align the sides of the rectangle to multiples of 2 (expanding outwards).
 SkIRect AlignRect(const SkIRect& rect);
 
-// Scale a rectangle by horizontal and vertical factors.  If the result has
-// non-integer coordinates then the smallest integer-coordinate rectangle that
-// wholly encloses it is returned.
+// Return a scaled rectangle using the horizontal and vertical scale
+// factors.
 SkIRect ScaleRect(const SkIRect& rect,
                   double horizontal_ratio,
                   double vertical_ratio);

@@ -4,8 +4,6 @@
 
 #include "remoting/base/decoder_vp8.h"
 
-#include <math.h>
-
 #include "base/logging.h"
 #include "media/base/media.h"
 #include "media/base/yuv_convert.h"
@@ -156,91 +154,82 @@ bool DecoderVp8::DoScaling() const {
   return horizontal_scale_ratio_ != 1.0 || vertical_scale_ratio_ != 1.0;
 }
 
-void DecoderVp8::ConvertRects(const RectVector& input_rects,
+void DecoderVp8::ConvertRects(const RectVector& rects,
                               RectVector* output_rects) {
   if (!last_image_)
     return;
 
-  // The conversion routine we use is optimized for even widths & heights.
-  int image_width = RoundToTwosMultiple(last_image_->d_w);
-  int image_height = RoundToTwosMultiple(last_image_->d_h);
-
-  uint8* output_rgb_buf = frame_->data(media::VideoFrame::kRGBPlane);
-  const int output_stride = frame_->stride(media::VideoFrame::kRGBPlane);
+  uint8* data_start = frame_->data(media::VideoFrame::kRGBPlane);
+  const int stride = frame_->stride(media::VideoFrame::kRGBPlane);
 
   output_rects->clear();
-
-  // Clip based on both the output dimensions and Pepper clip rect.
-  SkIRect clip_rect = clip_rect_;
-  if (!clip_rect.intersect(SkIRect::MakeWH(image_width, image_height)))
-    return;
-
-  output_rects->reserve(input_rects.size());
-
-  for (size_t i = 0; i < input_rects.size(); ++i) {
-    // Align the rectangle to avoid artifacts in color space conversion.
-    SkIRect dest_rect = AlignRect(input_rects[i]);
-
-    // Clip to the image and Pepper clip region.
-    if (!dest_rect.intersect(clip_rect))
+  output_rects->reserve(rects.size());
+  for (size_t i = 0; i < rects.size(); ++i) {
+    // Clip by the clipping rectangle first.
+    SkIRect dest_rect = rects[i];
+    if (!dest_rect.intersect(clip_rect_))
       continue;
+
+    // Round down the image width and height.
+    int image_width = RoundToTwosMultiple(last_image_->d_w);
+    int image_height = RoundToTwosMultiple(last_image_->d_h);
+
+    // Then clip by the rounded down dimension of the image for safety.
+    if (!dest_rect.intersect(SkIRect::MakeWH(image_width, image_height)))
+      continue;
+
+    // Align the rectangle to avoid artifacts in color space conversion.
+    dest_rect = AlignRect(dest_rect);
 
     ConvertYUVToRGB32WithRect(last_image_->planes[0],
                               last_image_->planes[1],
                               last_image_->planes[2],
-                              output_rgb_buf,
+                              data_start,
                               dest_rect,
                               last_image_->stride[0],
                               last_image_->stride[1],
-                              output_stride);
-
+                              stride);
     output_rects->push_back(dest_rect);
   }
 }
 
-void DecoderVp8::ScaleAndConvertRects(const RectVector& input_rects,
+void DecoderVp8::ScaleAndConvertRects(const RectVector& rects,
                                       RectVector* output_rects) {
   if (!last_image_)
     return;
 
-  int input_width = last_image_->d_w;
-  int input_height = last_image_->d_h;
-
-  uint8* output_rgb_buf = frame_->data(media::VideoFrame::kRGBPlane);
-  const int output_stride = frame_->stride(media::VideoFrame::kRGBPlane);
-
-  // TODO(wez): Resize |frame_| to our desired output dimensions when scaling.
-  int output_width = ceil(input_width * horizontal_scale_ratio_);
-  int output_height = ceil(input_height * vertical_scale_ratio_);
+  uint8* data_start = frame_->data(media::VideoFrame::kRGBPlane);
+  const int stride = frame_->stride(media::VideoFrame::kRGBPlane);
 
   output_rects->clear();
+  output_rects->reserve(rects.size());
+  for (size_t i = 0; i < rects.size(); ++i) {
+    // Round down the image width and height.
+    int image_width = RoundToTwosMultiple(last_image_->d_w);
+    int image_height = RoundToTwosMultiple(last_image_->d_h);
 
-  // Clip based on both the output dimensions and Pepper clip rect.
-  SkIRect clip_rect = clip_rect_;
-  if (!clip_rect.intersect(SkIRect::MakeWH(output_width, output_height)))
-    return;
-
-  output_rects->reserve(input_rects.size());
-
-  for (size_t i = 0; i < input_rects.size(); ++i) {
-    // Determine the scaled area affected by this rectangle changing.
-    SkIRect output_rect = ScaleRect(input_rects[i],
-                                    horizontal_scale_ratio_,
-                                    vertical_scale_ratio_);
-    if (!output_rect.intersect(clip_rect))
+    // Clip by the rounded down dimension of the image for safety.
+    SkIRect dest_rect = rects[i];
+    if (!dest_rect.intersect(SkIRect::MakeWH(image_width, image_height)))
       continue;
 
-    // The scaler will not read outside the input dimensions.
+    // Align the rectangle to avoid artifacts in color space conversion.
+    dest_rect = AlignRect(dest_rect);
+
+    SkIRect scaled_rect = ScaleRect(dest_rect,
+                                    horizontal_scale_ratio_,
+                                    vertical_scale_ratio_);
+
     ScaleYUVToRGB32WithRect(last_image_->planes[0],
                             last_image_->planes[1],
                             last_image_->planes[2],
-                            output_rgb_buf,
-                            input_rects[i],
-                            output_rect,
+                            data_start,
+                            dest_rect,
+                            scaled_rect,
                             last_image_->stride[0],
                             last_image_->stride[1],
-                            output_stride);
-    output_rects->push_back(output_rect);
+                            stride);
+    output_rects->push_back(scaled_rect);
   }
 }
 

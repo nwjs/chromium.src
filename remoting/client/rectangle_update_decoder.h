@@ -62,6 +62,7 @@ class RectangleUpdateDecoder :
 
   void AllocateFrame(const VideoPacket* packet, const base::Closure& done);
   void ProcessPacketData(const VideoPacket* packet, const base::Closure& done);
+  void RefreshRects(const RectVector& rects);
 
   // Obtain updated rectangles from decoder and submit it to the consumer.
   void SubmitToConsumer();
