@@ -497,6 +497,8 @@ BUG_OFF : fast/speech/input-appearance-numberandspeech.html = IMAGE
 BUG_OFF : fast/speech/input-appearance-searchandspeech.html = IMAGE
 BUG_OFF : fast/speech/input-appearance-speechbutton.html = IMAGE
 BUG_OFF : fast/speech/speech-bidi-rendering.html = IMAGE
+BUG_OFF : fast/inline/styledEmptyInlinesWithBRs.html = IMAGE+TEXT
+BUG_OFF : fast/replaced/absolute-position-percentage-height.html = IMAGE+TEXT
 
 // This test depends on code that was not merged to the branch.  That's OK
 // because this feature isn't finished.
