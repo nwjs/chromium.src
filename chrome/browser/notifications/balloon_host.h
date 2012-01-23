@@ -63,6 +63,11 @@ class BalloonHost : public TabContentsDelegate,
   virtual void HandleMouseDown() OVERRIDE;
   virtual void UpdatePreferredSize(TabContents* source,
                                    const gfx::Size& pref_size) OVERRIDE;
+  virtual void AddNewContents(TabContents* source,
+                              TabContents* new_contents,
+                              WindowOpenDisposition disposition,
+                              const gfx::Rect& initial_pos,
+                              bool user_gesture) OVERRIDE;
 
   // TabContentsObserver implementation:
   virtual void RenderViewCreated(RenderViewHost* render_view_host) OVERRIDE;
