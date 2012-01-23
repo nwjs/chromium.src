@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -61,7 +61,7 @@ class ChromeBrowserMainParts : public content::BrowserMainParts {
   virtual void ToolkitInitialized() OVERRIDE;
   virtual void PreMainMessageLoopStart() OVERRIDE;
   virtual void PostMainMessageLoopStart() OVERRIDE;
-  virtual void PreCreateThreads() OVERRIDE;
+  virtual int PreCreateThreads() OVERRIDE;
   virtual void PreStartThread(content::BrowserThread::ID identifier) OVERRIDE;
   virtual void PostStartThread(content::BrowserThread::ID identifier) OVERRIDE;
   virtual void PreMainMessageLoopRun() OVERRIDE;

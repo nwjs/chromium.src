@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -1209,8 +1209,9 @@ void ChromeBrowserMainParts::PostMainMessageLoopStart() {
     chrome_extra_parts_[i]->PostMainMessageLoopStart();
 }
 
-void ChromeBrowserMainParts::PreCreateThreads() {
+int ChromeBrowserMainParts::PreCreateThreads() {
   result_code_ = PreCreateThreadsImpl();
+  return result_code_;
 }
 
 int ChromeBrowserMainParts::PreCreateThreadsImpl() {

@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -35,7 +35,7 @@ class ShellBrowserMainParts : public BrowserMainParts {
   virtual void PreMainMessageLoopStart() OVERRIDE {}
   virtual void ToolkitInitialized() OVERRIDE {}
   virtual void PostMainMessageLoopStart() OVERRIDE {}
-  virtual void PreCreateThreads() OVERRIDE {}
+  virtual int PreCreateThreads() OVERRIDE;
   virtual void PreStartThread(BrowserThread::ID id) OVERRIDE {}
   virtual void PostStartThread(BrowserThread::ID id) OVERRIDE {}
   virtual void PreMainMessageLoopRun() OVERRIDE;
