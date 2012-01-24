@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -1097,22 +1097,28 @@ FileManager.prototype = {
     if (type && type == this.listType_)
       return;
 
+    // TODO(dzvorygin): style.display and dataModel setting order shouldn't
+    // cause any UI bugs. Currently, the only right way is first to set display
+    // style and only then set dataModel.
+
     if (type == FileManager.ListType.DETAIL) {
       var selectedIndexes = this.grid_.selectionModel.selectedIndexes;
-      this.table_.dataModel = this.dataModel_;
-      this.table_.style.display = '';
       this.grid_.style.display = 'none';
       this.grid_.dataModel = this.emptyDataModel_;
-      this.currentList_ = this.table_;
+      this.table_.style.display = '';
+      this.table_.dataModel = this.dataModel_;
+      /** @type {cr.ui.List} */
+      this.currentList_ = this.table_.list;
       this.dialogDom_.querySelector('button.detail-view').disabled = true;
       this.dialogDom_.querySelector('button.thumbnail-view').disabled = false;
       this.table_.selectionModel.selectedIndexes = selectedIndexes;
     } else if (type == FileManager.ListType.THUMBNAIL) {
       var selectedIndexes = this.table_.selectionModel.selectedIndexes;
-      this.grid_.dataModel = this.dataModel_;
-      this.grid_.style.display = '';
       this.table_.style.display = 'none';
       this.table_.dataModel = this.emptyDataModel_;
+      this.grid_.style.display = '';
+      this.grid_.dataModel = this.dataModel_;
+      /** @type {cr.ui.List} */
       this.currentList_ = this.grid_;
       this.dialogDom_.querySelector('button.thumbnail-view').disabled = true;
       this.dialogDom_.querySelector('button.detail-view').disabled = false;

@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -88,7 +88,12 @@ cr.define('cr.ui', function() {
      */
     getColumnCount_: function() {
       var size = this.getItemSize_();
-      var width = size.width + size.marginHorizontal; // Uncollapse margin.
+
+      // We should uncollapse margin, since margin isn't collapsed for
+      // inline-block elements according to css spec which are thumbnail items.
+
+      var width = size.width + Math.min(size.marginLeft, size.marginRight);
+
       return width ? Math.floor(this.clientWidth / width) : 0;
     },
 
