@@ -450,8 +450,7 @@ IN_PROC_BROWSER_TEST_F(BrowserInitTest, UpdateWithTwoProfiles) {
   browser_init.Start(dummy, profile_manager->user_data_dir(), profile1,
                      last_opened_profiles, &return_code);
 
-  while (SessionRestore::IsRestoring(profile1) ||
-         SessionRestore::IsRestoring(profile2))
+  while (SessionRestore::IsRestoring())
     MessageLoop::current()->RunAllPending();
 
   // The startup URLs are ignored, and instead the last open sessions are

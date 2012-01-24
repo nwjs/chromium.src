@@ -45,10 +45,10 @@
 using content::NavigationController;
 using content::WebContents;
 
-namespace {
+// Are we in the process of restoring?
+static bool restoring = false;
 
-// Pointers to profiles for which the session restore is in progress.
-std::set<const Profile*>* profiles_getting_restored = NULL;
+namespace {
 
 // TabLoader ------------------------------------------------------------------
 
@@ -493,12 +493,7 @@ class SessionRestoreImpl : public content::NotificationObserver {
 
   ~SessionRestoreImpl() {
     STLDeleteElements(&windows_);
-    DCHECK(profiles_getting_restored);
-    profiles_getting_restored->erase(profile_);
-    if (profiles_getting_restored->empty()) {
-      delete profiles_getting_restored;
-      profiles_getting_restored = NULL;
-    }
+    restoring = false;
     g_browser_process->ReleaseModule();
   }
 
@@ -875,10 +870,7 @@ Browser* SessionRestore::RestoreSession(Profile* profile,
     NOTREACHED();
     return NULL;
   }
-  if (profiles_getting_restored == NULL)
-    profiles_getting_restored = new std::set<const Profile*>();
-  profiles_getting_restored->insert(profile);
-
+  restoring = true;
   profile->set_restored_last_session(true);
   // SessionRestoreImpl takes care of deleting itself when done.
   SessionRestoreImpl* restorer = new SessionRestoreImpl(
@@ -912,8 +904,6 @@ void SessionRestore::RestoreForeignSessionTab(Profile* profile,
 }
 
 // static
-bool SessionRestore::IsRestoring(const Profile* profile) {
-  return (profiles_getting_restored &&
-          profiles_getting_restored->find(profile) !=
-          profiles_getting_restored->end());
+bool SessionRestore::IsRestoring() {
+  return restoring;
 }
