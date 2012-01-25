@@ -395,7 +395,7 @@ deney kimliği: &quot;<ph name="EXPERIMENT_ID"/>&quot;</translation>
 <translation id="3236997602556743698">3 Grup (390)</translation>
 <translation id="542155483965056918"><ph name="NUMBER_ZERO"/> mins ago</translation>
 <translation id="2887525882758501333">PDF dokümanı</translation>
-<translation id="289426338439836048">Diğer mobil ağ...</translation>
+<translation id="289426338439836048">Diğer mobil ağlar...</translation>
 <translation id="3986287159189541211">HTTP Hatası <ph name="ERROR_NUMBER"/> (<ph name="ERROR_NAME"/>): <ph name="ERROR_TEXT"/></translation>
 <translation id="3225319735946384299">Kod İmzalama</translation>
 <translation id="3118319026408854581"><ph name="PRODUCT_NAME"/> Yardım</translation>
@@ -1481,7 +1481,7 @@ Arama sonuçları siz sorgunuzu yazarken bile istendiğinden, varsayılan arama 
 <translation id="7791267293787079395">Dosya Sistemi</translation>
 <translation id="118132945617475355">Oturum açmadaki bir hata nedeniyle <ph name="PRODUCT_NAME"/> verilerinizi senkronize edemedi.</translation>
 <translation id="8116190140324504026">Daha fazla bilgi...</translation>
-<translation id="8477499777346193846"><ph name="NETWORK_ID"/> ağ kimliğini kullanmak için öncelikle ağın oturum açma sayfasını ziyaret etmeniz gerekebilir. Bunu yapmak için <ph name="LINK_START"/>Misafir olarak girin<ph name="LINK_END"/> ve herhangi bir web sayfasını ziyaret edin. Ağa eriştikten sonra, Misafir oturumundan çıkabilir ve oturum açmayı tekrar deneyebilirsiniz.</translation>
+<translation id="8477499777346193846"><ph name="NETWORK_ID"/> ağını kullanmak için öncelikle ağın oturum açma sayfasını ziyaret etmeniz gerekebilir. Bunu yapmak için <ph name="LINK_START"/>Misafir olarak giriş yapın<ph name="LINK_END"/> ve herhangi bir web sayfasını ziyaret edin. Ağa eriştikten sonra, Misafir oturumundan çıkabilir ve oturum açmayı tekrar deneyebilirsiniz.</translation>
 <translation id="7469894403370665791">Bu ağa otomatik olarak bağlan</translation>
 <translation id="4807098396393229769">Kartın üzerindeki ad</translation>
 <translation id="4094130554533891764">Artık erişebilir:</translation>
@@ -2512,7 +2512,7 @@ Dolması için gereken süre: <ph name="HOUR"/>:<ph name="MINUTE"/></translation
 <translation id="4567836003335927027"><ph name="WEBSITE_1"/> web sitesindeki verileriniz</translation>
 <translation id="27822970480436970">Bu uzantı, değişikliğin başka bir uzantıyla çakışması nedeniyle bir ağ isteğini değiştiremedi.</translation>
 <translation id="756445078718366910">Tarayıcı Penceresini Aç</translation>
-<translation id="6132383530370527946">Küçük yazdırma</translation>
+<translation id="6132383530370527946">Sözleşme</translation>
 <translation id="5088534251099454936">PKCS #1 RSA Şifrelemeli SHA-512</translation>
 <translation id="6392373519963504642">Korece klavye</translation>
 <translation id="7887334752153342268">Yinelenen</translation>
@@ -2559,7 +2559,7 @@ Dolması için gereken süre: <ph name="HOUR"/>:<ph name="MINUTE"/></translation
 <translation id="5503844897713343920"><ph name="DOMAIN"/> adresine ulaşmayı denediniz, ancak sunucunun sağladığı sertifika, sertifikayı veren tarafından iptal edildi. Bu, sunucunun sağladığı güvenlik kimlik bilgilerine kesinlikle güvenilmemesi gerektiği anlamına gelir. Bir saldırganla irtibat kuruyor olabilirsiniz. Bu işleme devam etmemelisiniz.</translation>
 <translation id="6928853950228839340">Dokuya Birleştir</translation>
 <translation id="6015801676111387671">Bu tercih bir uzantı tarafından yönetiliyor.</translation>
-<translation id="8446084853024828633">Misafir olarak gir</translation>
+<translation id="8446084853024828633">Misafir olarak giriş yap</translation>
 <translation id="1308727876662951186"><ph name="NUMBER_ZERO"/> mins left</translation>
 <translation id="7671576867600624">Teknoloji:</translation>
 <translation id="1103966635949043187">Şu sitenin ana sayfasına gidin:</translation>
@@ -2902,7 +2902,7 @@ Dolması için gereken süre: <ph name="HOUR"/>:<ph name="MINUTE"/></translation
 <translation id="4928569512886388887">Sistem güncellemesi tamamlanıyor…</translation>
 <translation id="3129173833825111527">Sol kenar boşluğu</translation>
 <translation id="4309420042698375243"><ph name="NUM_KILOBYTES"/>K (<ph name="NUM_KILOBYTES_LIVE"/>K aktif)</translation>
-<translation id="5554573843028719904">Diğer kablosuz ağ...</translation>
+<translation id="5554573843028719904">Diğer kablosuz ağlar...</translation>
 <translation id="7013485839273047434">Daha fazla uzantı edinin</translation>
 <translation id="5034259512732355072">Başka Bir Dizin Seçin...</translation>
 <translation id="8885905466771744233">Belirtilen uzantıya ilişkin özel anahtar zaten var. Var olan anahtarı yeniden kullanın veya öncelikle bu anahtarı silin.</translation>
@@ -3225,7 +3225,7 @@ Dolması için gereken süre: <ph name="HOUR"/>:<ph name="MINUTE"/></translation
 <translation id="5365539031341696497">Tayca giriş yöntemi (Kesmanee klavye)</translation>
 <translation id="2403091441537561402">Ağ Geçidi:</translation>
 <translation id="668171684555832681">Diğer...</translation>
-<translation id="7540972813190816353">Güncellemeler denetlenirken bir hata oluştu: <ph name="ERROR"/></translation>
+<translation id="7540972813190816353">Güncelleme olup olmadığı kontrol edilirken bir hata oluştu: <ph name="ERROR"/></translation>
 <translation id="1932098463447129402">Şundan Önce Değil:</translation>
 <translation id="7845920762538502375"><ph name="PRODUCT_NAME"/>, senkronizasyon sunucusuna bağlanamadığından verilerinizi senkronize edemedi. Tekrar deniyor...</translation>
 <translation id="2192664328428693215">Bir site masaüstü bildirimi göstermek istediğinde bana sor (önerilen)</translation>
@@ -3365,7 +3365,7 @@ Dolana kadar geçecek süre hesaplanıyor</translation>
 <translation id="4871865824885782245">Tarih ve saat seçeneklerini aç...</translation>
 <translation id="8828933418460119530">DNS Adı</translation>
 <translation id="988159990683914416">Geliştirici Derlemesi</translation>
-<translation id="1097658378307015415">Oturum açmadan önce <ph name="NETWORK_ID"/> ağını etkinleştirmek için lütfen Misafir olarak girin</translation>
+<translation id="1097658378307015415">Oturum açmadan önce <ph name="NETWORK_ID"/> ağını etkinleştirmek için lütfen Misafir olarak giriş yapın</translation>
 <translation id="4114470632216071239">SIM kartını kilitle (mobil verileri kullanmak için PIN iste)</translation>
 <translation id="2183426022964444701">Uzantı kök dizinini seçin.</translation>
 <translation id="2517143724531502372"><ph name="DOMAIN"/> tarafından gönderilen çerezlere yalnızca oturum için izin verildi.</translation>
@@ -3637,7 +3637,7 @@ Dolana kadar geçecek süre hesaplanıyor</translation>
 <translation id="1884319566525838835">Sandbox (Korumalı Alan) Durumu</translation>
 <translation id="2770465223704140727">Listeden kaldır</translation>
 <translation id="6053401458108962351">&amp;Tarama verilerini temizle...</translation>
-<translation id="2339641773402824483">Güncellemeler kontrol ediliyor...</translation>
+<translation id="2339641773402824483">Güncelleme olup olmadığı kontrol ediliyor...</translation>
 <translation id="5770385044111747894">NPAPI</translation>
 <translation id="9111742992492686570">Kritik Güvenlik Güncellemesini İndir</translation>
 <translation id="8636666366616799973">Paket geçersiz. Ayrıntılar: '<ph name="ERROR_MESSAGE"/>'</translation>

@@ -285,7 +285,7 @@
 <translation id="2529657954821696995">Klawiatura holenderska</translation>
 <translation id="1128128132059598906">EAP-TTLS</translation>
 <translation id="6337534724793800597">Filtruj zasady według nazwy</translation>
-<translation id="6585234750898046415">Wybierz zdjęcie wyświetlane dla Twojego konta na ekranie logowania.</translation>
+<translation id="6585234750898046415">Wybierz zdjęcie dla Twojego konta, które pojawi się na ekranie logowania.</translation>
 <translation id="7957054228628133943">Zarządzaj blokowaniem wyskakujących okienek...</translation>
 <translation id="179767530217573436">ostatnie 4 tygodnie</translation>
 <translation id="2279770628980885996">Napotkano nieoczekiwaną sytuację przy próbie zrealizowania żądania przez serwer.</translation>
@@ -1453,7 +1453,7 @@
 <translation id="7791267293787079395">System plików</translation>
 <translation id="118132945617475355"><ph name="PRODUCT_NAME"/> nie może zsynchronizować danych z powodu błędu podczas logowania.</translation>
 <translation id="8116190140324504026">Więcej informacji...</translation>
-<translation id="8477499777346193846">Przed rozpoczęciem korzystania z sieci <ph name="NETWORK_ID"/> może być konieczne odwiedzenie jej strony logowania. W tym celu <ph name="LINK_START"/>rozpocznij sesję gościa<ph name="LINK_END"/> i odwiedź dowolną stronę. Gdy uzyskasz dostęp do sieci, możesz zakończyć sesję gościa i spróbować zalogować się ponownie.</translation>
+<translation id="8477499777346193846">Zanim zaczniesz korzystać z sieci <ph name="NETWORK_ID"/> sprawdź, czy nie trzeba się zalogować na jej stronie powitalnej. <ph name="LINK_START"/>Rozpocznij sesję gościa<ph name="LINK_END"/> i wejdź na dowolną stronę. Gdy tylko sieć zacznie działać, możesz zakończyć sesję gościa i spróbować zalogować się ponownie.</translation>
 <translation id="7469894403370665791">Automatycznie łącz się z tą siecią</translation>
 <translation id="4807098396393229769">Imię i nazwisko na karcie</translation>
 <translation id="4094130554533891764">Elementy dostępne teraz dla tego produktu:</translation>
@@ -1501,7 +1501,7 @@
 <translation id="7781829728241885113">Wczoraj</translation>
 <translation id="7786207843293321886">Zakończ sesję gościa</translation>
 <translation id="2762402405578816341">Automatycznie synchronizuj następujące elementy:</translation>
-<translation id="1623661092385839831">Twój komputer zawiera moduł TPM (Trusted Platform Module), który służy do zapewniania istotnych zabezpieczeń w systemie Chrome OS.</translation>
+<translation id="1623661092385839831">Twój komputer zawiera moduł TPM (Trusted Platform Module), który służy do wdrażania ważnych zabezpieczeń w systemie Chrome OS.</translation>
 <translation id="3359256513598016054">Ograniczenia zasad certyfikatu</translation>
 <translation id="4433914671537236274">Utwórz nośnik odzyskiwania</translation>
 <translation id="4509345063551561634">Lokalizacja:</translation>
@@ -1961,7 +1961,7 @@
 <translation id="8401363965527883709">Niezaznaczone pole wyboru</translation>
 <translation id="7771452384635174008">Układ</translation>
 <translation id="6188939051578398125">Wprowadź nazwy lub adresy.</translation>
-<translation id="8443621894987748190">Wybierz zdjęcie na konto</translation>
+<translation id="8443621894987748190">Wybierz zdjęcie dla konta</translation>
 <translation id="10122177803156699">Pokaż mi</translation>
 <translation id="5260878308685146029">Pozostało: <ph name="NUMBER_TWO"/> min</translation>
 <translation id="2192505247865591433">Z:</translation>
@@ -2525,7 +2525,7 @@
 <translation id="5503844897713343920">Próbujesz uzyskać dostęp do witryny <ph name="DOMAIN"/>, ale certyfikat przedstawiony przez serwer został odwołany przez wystawcę. Oznacza to, że absolutnie nie należy ufać zabezpieczającym danym uwierzytelniania przedstawionym przez serwer. Możliwe, że komunikujesz się z intruzem. Nie należy kontynuować.</translation>
 <translation id="6928853950228839340">Komponowanie do tekstury</translation>
 <translation id="6015801676111387671">Tym ustawieniem zarządza rozszerzenie.</translation>
-<translation id="8446084853024828633">Zaloguj się jako gość.</translation>
+<translation id="8446084853024828633">Zaloguj się jako gość</translation>
 <translation id="1308727876662951186"><ph name="NUMBER_ZERO"/> mins left</translation>
 <translation id="7671576867600624">Technologia:</translation>
 <translation id="1103966635949043187">Przejdź do strony głównej witryny:</translation>
@@ -3602,7 +3602,7 @@
 <translation id="5770385044111747894">NPAPI</translation>
 <translation id="9111742992492686570">Pobierz krytyczną aktualizację zabezpieczeń</translation>
 <translation id="8636666366616799973">Pakiet jest nieprawidłowy. Szczegółowe informacje: „<ph name="ERROR_MESSAGE"/>”.</translation>
-<translation id="2654226057706132620">Możesz także pominąć logowanie i <ph name="LINK_START"/>przeglądać jako gość<ph name="LINK_END"/>.</translation>
+<translation id="2654226057706132620">Lub możesz pominąć logowanie i <ph name="LINK_START"/>przeglądać internet jako gość<ph name="LINK_END"/>.</translation>
 <translation id="2045969484888636535">Nadal blokuj pliki cookie</translation>
 <translation id="7353601530677266744">Wiersz poleceń</translation>
 <translation id="2766006623206032690">Wk&amp;lej i otwórz</translation>

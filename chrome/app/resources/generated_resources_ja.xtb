@@ -186,7 +186,7 @@
 <translation id="1510030919967934016">このページは、あなたの現在地を追跡できないようブロックされています。</translation>
 <translation id="8848519885565996859">ユーザー定義の URL リンク フレーム</translation>
 <translation id="4640525840053037973">Google アカウントでログイン</translation>
-<translation id="6315526595991863271"><ph name="SHORT_PRODUCT_NAME"/> にログインしています。ブックマーク、履歴、その他の設定はデフォルト設定を使用して Google アカウントに同期されます。</translation>
+<translation id="6315526595991863271"><ph name="SHORT_PRODUCT_NAME"/> にログインします。ブックマーク、履歴、その他の設定はデフォルト設定を使用して Google アカウントに同期されます。</translation>
 <translation id="5255315797444241226">入力したパスフレーズが正しくありません。</translation>
 <translation id="762917759028004464">既定のブラウザは <ph name="BROWSER_NAME"/> に設定されています。</translation>
 <translation id="8289982954746764694">video 要素でキャプション、字幕、チャプター、音声の説明の track 要素を有効にします（まだ完全には機能しません）。</translation>
@@ -1478,7 +1478,7 @@
 <translation id="3966072572894326936">別のフォルダを選択...</translation>
 <translation id="8766796754185931010">ことえり</translation>
 <translation id="7781829728241885113">昨日</translation>
-<translation id="7786207843293321886">ゲストを終了</translation>
+<translation id="7786207843293321886">ゲスト セッションを終了</translation>
 <translation id="2762402405578816341">以下のアイテムを自動的に同期させる:</translation>
 <translation id="1623661092385839831">ご使用のパソコンには Trusted Platform Module（TPM）セキュリティ デバイスが組み込まれており、Chrome OS の多くの重要なセキュリティ機能の実装に使用されます。</translation>
 <translation id="3359256513598016054">証明書ポリシーの制約</translation>
@@ -2504,7 +2504,7 @@
 <translation id="5503844897713343920"><ph name="DOMAIN"/> にアクセスしようとしましたが、サーバーにより提示された証明書は発行元により取り消されています。これは、サーバーにより提示されたセキュリティ認証が信頼できないことを示しており、悪意のあるユーザーと通信を行っている可能性があります。処理を続行しないでください。</translation>
 <translation id="6928853950228839340">テクスチャへの合成</translation>
 <translation id="6015801676111387671">この設定は拡張機能によって管理されています。</translation>
-<translation id="8446084853024828633">ゲストとして利用する</translation>
+<translation id="8446084853024828633">ゲスト セッションを開始する</translation>
 <translation id="1308727876662951186"><ph name="NUMBER_ZERO"/> mins left</translation>
 <translation id="7671576867600624">テクノロジー:</translation>
 <translation id="1103966635949043187">サイトのホームページにアクセスする:</translation>
@@ -2626,7 +2626,7 @@
 <translation id="6503256918647795660">フランス語（スイス）のキーボード</translation>
 <translation id="2498826285048723189">拡張機能「<ph name="EXTENSION_NAME"/>」は自動的に削除されました。</translation>
 <translation id="6175314957787328458">Microsoft ドメイン GUID</translation>
-<translation id="8179976553408161302">Enter</translation>
+<translation id="8179976553408161302">開始</translation>
 <translation id="8261506727792406068">削除</translation>
 <translation id="345693547134384690">新しいタブで画像を開く(&amp;I)</translation>
 <translation id="7422192691352527311">環境設定...</translation>
@@ -2973,7 +2973,7 @@
 <translation id="8711402221661888347">ピクルス</translation>
 <translation id="8170399998441334161">プラットフォームのアプリケーションを有効にする</translation>
 <translation id="2168725742002792683">ファイル拡張子</translation>
-<translation id="3974195870082915331">クリックしてパスワードを表示</translation>
+<translation id="3974195870082915331">クリックしてパスワードを表示する</translation>
 <translation id="7861805612256278846">ログインしていません</translation>
 <translation id="1753905327828125965">よくアクセスするページ</translation>
 <translation id="8116972784401310538">ブックマーク マネージャ(&amp;B)</translation>
@@ -3091,7 +3091,7 @@
 <translation id="8601206103050338563">TLS WWW クライアント認証</translation>
 <translation id="1692799361700686467">複数サイトからの Cookie が許可されました。</translation>
 <translation id="7074488040076962230">サイドバー ページ「<ph name="SIDEBAR_PAGE"/>」を読み込むことができませんでした。</translation>
-<translation id="5187295959347858724"><ph name="SHORT_PRODUCT_NAME"/> にログインしています。ブックマーク、履歴、その他の設定は Google アカウントに同期されます。</translation>
+<translation id="5187295959347858724"><ph name="SHORT_PRODUCT_NAME"/> にログインします。ブックマーク、履歴、その他の設定は Google アカウントに同期されます。</translation>
 <translation id="529232389703829405"><ph name="DATE"/>に <ph name="DATA_AMOUNT"/> のデータを購入しました</translation>
 <translation id="7419106976560586862">プロフィール パス</translation>
 <translation id="5271549068863921519">パスワードの保存</translation>
@@ -3311,7 +3311,7 @@
 <translation id="4871865824885782245">日時オプションを開く...</translation>
 <translation id="8828933418460119530">DNS 名</translation>
 <translation id="988159990683914416">Developer Build</translation>
-<translation id="1097658378307015415">ログインする前に、ゲストとしてログインして <ph name="NETWORK_ID"/> ネットワークを有効にしてください</translation>
+<translation id="1097658378307015415">ログインする前に、ゲスト セッションを開始して <ph name="NETWORK_ID"/> ネットワークを有効にしてください</translation>
 <translation id="4114470632216071239">SIM カードをロックする（モバイル データのご使用には PIN が必要になります）</translation>
 <translation id="2183426022964444701">拡張機能のルート ディレクトリを選択します。</translation>
 <translation id="2517143724531502372"><ph name="DOMAIN"/> からの Cookie がセッションにのみ許可されました。</translation>

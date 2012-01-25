@@ -302,7 +302,7 @@
 <translation id="8195796306739579529">Шифровать пароли</translation>
 <translation id="4422347585044846479">Изменить закладку для этой страницы</translation>
 <translation id="2452539774207938933">Переключиться на профиль <ph name="PROFILE_NAME"/></translation>
-<translation id="4700157086864140907">Google Chrome предлагает более интеллектуальную технологию проверки правописания. Введенный вами текст отправляется на серверы Google, что позволяет использовать те же механизмы проверки, что и в Поиске Google.</translation>
+<translation id="4700157086864140907">Google Chrome предлагает интеллектуальную технологию проверки правописания. Введенный вами текст отправляется на серверы Google, что позволяет использовать те же механизмы проверки, что и в Поиске Google.</translation>
 <translation id="7632357940961158759">Некоторыми настройками управляет расширение.</translation>
 <translation id="1880905663253319515">Удалить сертификат <ph name="CERTIFICATE_NAME"/>?</translation>
 <translation id="8546306075665861288">Кэш изображений</translation>
@@ -341,7 +341,7 @@
 <translation id="3809280248639369696">Пришелец</translation>
 <translation id="1985136186573666099"><ph name="PRODUCT_NAME"/> использует настройки прокси-сервера системы для подключения к сети.</translation>
 <translation id="4808139931410481934">Активировать окно 2</translation>
-<translation id="50976363813604307">Обнаружена попытка изменить настройки поиска по умолчанию! Мы не знали, как лучше поступить, поэтому выбрали поисковую систему <ph name="PREPOPULATED_ENGINE"/>.</translation>
+<translation id="50976363813604307">Обнаружена попытка изменить настройки поиска, заданные по умолчанию! Мы не знали, как лучше поступить, поэтому выбрали поисковую систему <ph name="PREPOPULATED_ENGINE"/>.</translation>
 <translation id="1064835277883315402">Подключение к частной сети</translation>
 <translation id="6508261954199872201">Приложение: <ph name="APP_NAME"/></translation>
 <translation id="5585645215698205895">&amp;Вниз</translation>
@@ -1412,7 +1412,7 @@
 <translation id="8580634710208701824">Перезагрузить фрейм</translation>
 <translation id="1018656279737460067">Отменено</translation>
 <translation id="7606992457248886637">Центры сертификации</translation>
-<translation id="707392107419594760">Выберите клавиатуру:</translation>
+<translation id="707392107419594760">Выберите раскладку:</translation>
 <translation id="1109977641518209564">Этим параметром управляет расширение.</translation>
 <translation id="2007404777272201486">Сообщить о проблеме...</translation>
 <translation id="1783075131180517613">Обновите кодовую фразу для синхронизации.</translation>
@@ -1707,7 +1707,7 @@
 <translation id="452785312504541111">Английский (полноширинный)</translation>
 <translation id="6702639462873609204">&amp;Изменить</translation>
 <translation id="9148126808321036104">Повторите вход</translation>
-<translation id="2282146716419988068">Процесс графического процессора</translation>
+<translation id="2282146716419988068">Процесс GPU</translation>
 <translation id="428771275901304970">Осталось меньше 1 МБ</translation>
 <translation id="1682548588986054654">Новое окно в режиме инкогнито</translation>
 <translation id="6833901631330113163">Южноевропейская</translation>

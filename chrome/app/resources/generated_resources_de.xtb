@@ -1448,7 +1448,7 @@ nicht auf unsichere Verbindungen zurück.</translation>
 <translation id="7791267293787079395">Dateisystem</translation>
 <translation id="118132945617475355"><ph name="PRODUCT_NAME"/> konnte Ihre Daten aufgrund eines Fehlers bei der Anmeldung nicht synchronisieren.</translation>
 <translation id="8116190140324504026">Weitere Informationen</translation>
-<translation id="8477499777346193846">Sie müssen möglicherweise zuerst die Anmeldeseite des Netzwerks besuchen, um <ph name="NETWORK_ID"/> verwenden zu können. Melden Sie sich dazu zunächst <ph name="LINK_START"/>als Gast<ph name="LINK_END"/> an und besuchen Sie eine beliebige Webseite. Sobald Sie Zugang zum Netzwerk haben, können Sie die Gastsitzung beenden und erneut versuchen, sich anzumelden.</translation>
+<translation id="8477499777346193846">Sie müssen eventuell zuerst die Anmeldeseite des Netzwerks besuchen, um <ph name="NETWORK_ID"/> verwenden zu können. Melden Sie sich dazu zunächst <ph name="LINK_START"/>als Gast<ph name="LINK_END"/> an und besuchen Sie eine beliebige Webseite. Sobald Sie Zugang zum Netzwerk haben, können Sie die Gastsitzung beenden und erneut versuchen, sich anzumelden.</translation>
 <translation id="7469894403370665791">Verbindung zu diesem Netzwerk automatisch herstellen</translation>
 <translation id="4807098396393229769">Name auf Karte</translation>
 <translation id="4094130554533891764">Sie kann nun auf folgende Elemente zugreifen:</translation>
@@ -3294,7 +3294,7 @@ nicht auf unsichere Verbindungen zurück.</translation>
 <translation id="4042471398575101546">Seite hinzufügen</translation>
 <translation id="8848709220963126773">Moduswechsel mit Umschalttaste</translation>
 <translation id="3703445029708071516">Synchronisierung eingegebener URLs aktivieren</translation>
-<translation id="4871865824885782245">Datum- und Uhrzeitoptionen öffnen...</translation>
+<translation id="4871865824885782245">Optionen für Datum und Uhrzeit öffnen...</translation>
 <translation id="8828933418460119530">DNS-Name</translation>
 <translation id="988159990683914416">Entwickler-Build</translation>
 <translation id="1097658378307015415">Melden Sie vor der Anmeldung als Gast an, um das Netzwerk <ph name="NETWORK_ID"/> zu aktivieren.</translation>

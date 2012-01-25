@@ -846,7 +846,7 @@ Výpočet zbývajícího času</translation>
 <translation id="3828440302402348524">Jste přihlášeni jako uživatel <ph name="USER_NAME"/>...</translation>
 <translation id="446322110108864323">Nastavení vstupu Pinyin</translation>
 <translation id="4948468046837535074">Otevřít následující stránky:</translation>
-<translation id="5222676887888702881">Odhlásit</translation>
+<translation id="5222676887888702881">Odhlásit se</translation>
 <translation id="6978121630131642226">Vyhledávače</translation>
 <translation id="662720828712108508">Chcete obslužnému nástroji <ph name="HANDLER_TITLE"/> (<ph name="HANDLER_HOSTNAME"/>) povolit otevírat všechny odkazy s protokolem <ph name="PROTOCOL"/> (namísto obslužného nástroje <ph name="REPLACED_HANDLER_TITLE"/>)?</translation>
 <translation id="6839225236531462745">Chyba při mazání certifikátu</translation>
@@ -1397,7 +1397,7 @@ Veřejný exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitů):
 <translation id="462551743132815358">Zavřít archiv</translation>
 <translation id="6588399906604251380">Zapnout kontrolu pravopisu</translation>
 <translation id="7053983685419859001">Blokovat</translation>
-<translation id="2485056306054380289">Certifikát CA serveru:</translation>
+<translation id="2485056306054380289">Certif. CA serveru:</translation>
 <translation id="6462109140674788769">Řecká klávesnice</translation>
 <translation id="2727712005121231835">Skutečná velikost</translation>
 <translation id="8887733174653581061">Vždy navrchu</translation>
@@ -1474,7 +1474,7 @@ Veřejný exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitů):
 <translation id="8580634710208701824">Znovu načíst rám</translation>
 <translation id="1018656279737460067">Zrušeno</translation>
 <translation id="7606992457248886637">Autority</translation>
-<translation id="707392107419594760">Vybrat klávesnici:</translation>
+<translation id="707392107419594760">Vyberte klávesnici:</translation>
 <translation id="1109977641518209564">Nastavení je spravováno rozšířením.</translation>
 <translation id="2007404777272201486">Nahlásit problém...</translation>
 <translation id="1783075131180517613">Aktualizujte prosím přístupové heslo pro synchronizaci.</translation>
@@ -1871,7 +1871,7 @@ Baterie plná</translation>
         <ph name="LINE_BREAK"/>
         Pokud problém přetrvává, zkuste vymazat mezipaměť. V některých případech
         to může být počáteční projev selhání hardwaru.</translation>
-<translation id="5298219193514155779">Autor tématu</translation>
+<translation id="5298219193514155779">Autor motivu</translation>
 <translation id="7366909168761621528">Údaje o prohlížení</translation>
 <translation id="1047726139967079566">Přidat stránku do záložek...</translation>
 <translation id="9020142588544155172">Server odmítl připojení.</translation>
@@ -2099,7 +2099,7 @@ Baterie plná</translation>
 <translation id="204497730941176055">Název šablony certifikátu Microsoft</translation>
 <translation id="6705264787989366486">Konfigurování adresy IP sítě <ph name="NAME"/></translation>
 <translation id="4002066346123236978">Název</translation>
-<translation id="8970721300630048025">Úsměv! Pořiďte si vlastní fotografii a nastavte ji jako obrázek svého účtu.</translation>
+<translation id="8970721300630048025">Úsměv, prosím! Vyfoťte se a fotografii si nastavte jako obrázek svého účtu.</translation>
 <translation id="4087089424473531098">Bylo vytvořeno rozšíření:
 
 <ph name="EXTENSION_FILE"/></translation>
@@ -2355,7 +2355,7 @@ Baterie plná</translation>
 <translation id="2371076942591664043">Po dokončení otevřít</translation>
 <translation id="3920504717067627103">Zásady certifikátů</translation>
 <translation id="155865706765934889">Touchpad</translation>
-<translation id="7701040980221191251">Žádný</translation>
+<translation id="7701040980221191251">Žádné</translation>
 <translation id="2299271837233608948">Získejte záložky, historii a nastavení do všech svých zařízení.</translation>
 <translation id="5917011688104426363">Přepnout na adresní řádek v režimu vyhledávání</translation>
 <translation id="6910239454641394402">Výjimky pro JavaScript</translation>

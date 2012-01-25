@@ -1453,7 +1453,7 @@
 <translation id="7791267293787079395">File System</translation>
 <translation id="118132945617475355">Impossibile sincronizzare i dati in <ph name="PRODUCT_NAME"/> a causa di un errore durante l'accesso.</translation>
 <translation id="8116190140324504026">Ulteriori informazioni...</translation>
-<translation id="8477499777346193846">Per poter utilizzare <ph name="NETWORK_ID"/> potrebbe essere necessario visitare la pagina di accesso della rete. A tale scopo, <ph name="LINK_START"/>entra come Ospite<ph name="LINK_END"/> e visita qualsiasi pagina web. Se riesci ad accedere alla rete, puoi uscire dalla sessione Ospite e provare di nuovo a eseguire l'accesso.</translation>
+<translation id="8477499777346193846">Per utilizzare <ph name="NETWORK_ID"/>, potrebbe essere necessario visitare prima la pagina di accesso della rete. A tale scopo, <ph name="LINK_START"/>inizia una sessione Ospite<ph name="LINK_END"/> e visita qualsiasi pagina web. Una volta in grado di accedere alla rete, puoi uscire dalla sessione Ospite e provare ad accedere di nuovo.</translation>
 <translation id="7469894403370665791">Collegati automaticamente a questa rete</translation>
 <translation id="4807098396393229769">Nome sulla carta di credito</translation>
 <translation id="4094130554533891764">Può ora accedere a:</translation>

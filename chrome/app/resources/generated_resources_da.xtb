@@ -1579,7 +1579,7 @@ Offentlig eksponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bit):
 <translation id="50960180632766478"><ph name="NUMBER_FEW"/> minutter tilbage</translation>
 <translation id="3174168572213147020">Ø</translation>
 <translation id="748138892655239008">Grundlæggende begrænsninger for certifikat</translation>
-<translation id="457386861538956877">Flere ...</translation>
+<translation id="457386861538956877">Flere...</translation>
 <translation id="1950295184970569138">* Google-profilfoto (indlæser)</translation>
 <translation id="8063491445163840780">Aktiver fane 4</translation>
 <translation id="2322193970951063277">Sidehoveder og sidefødder</translation>
@@ -1616,7 +1616,7 @@ Offentlig eksponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bit):
 <translation id="4224803122026931301">Placeringsundtagelser</translation>
 <translation id="749452993132003881">Hiragana</translation>
 <translation id="8273972836055206582"><ph name="FULLSCREEN_ORIGIN"/> er nu i fuld skærm og ønsker at skjule din musemarkør.</translation>
-<translation id="8226742006292257240">Nedenfor ses en vilkårlig TPM-adgangskode, der er tilknyttet din computer:</translation>
+<translation id="8226742006292257240">Nedenfor ses den vilkårlige TPM-adgangskode, der er tilknyttet din computer:</translation>
 <translation id="2050524657923939561">Webhensigter</translation>
 <translation id="8487693399751278191">Importer bogmærker nu...</translation>
 <translation id="7615602087246926389">Du har allerede data, der er krypteret med en anden version af adgangskoden til din Google-konto. Indtast adgangskoden i feltet nedenfor.</translation>
@@ -3036,7 +3036,7 @@ Offentlig eksponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bit):
 <translation id="1055276160337268034">Udvidelsen &quot;<ph name="EXTENSION_NAME"/>&quot; har anmodet om yderligere tilladelser.</translation>
 <translation id="2557899542277210112">Placer dine bogmærker her på bogmærkelinjen for at få hurtig adgang til dem.</translation>
 <translation id="2324001595651213578">Amerikansk Mystery-tastatur</translation>
-<translation id="2749881179542288782">Kontroller grammatik med stavning</translation>
+<translation id="2749881179542288782">Kontrollér grammatik med stavning</translation>
 <translation id="5105855035535475848">Fastgør faner</translation>
 <translation id="5707604204219538797">Næste ord</translation>
 <translation id="6319015265107461127">Tjenestedata</translation>
@@ -3605,7 +3605,7 @@ Offentlig eksponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bit):
 <translation id="1884319566525838835">Sandkassestatus</translation>
 <translation id="2770465223704140727">Fjern fra listen</translation>
 <translation id="6053401458108962351">&amp;Slet browserdata...</translation>
-<translation id="2339641773402824483">Kontrollerer for opdateringer ...</translation>
+<translation id="2339641773402824483">Søger efter opdateringer...</translation>
 <translation id="5770385044111747894">NPAPI</translation>
 <translation id="9111742992492686570">Download vigtig sikkerhedsopdatering</translation>
 <translation id="8636666366616799973">Pakken er ugyldig. Oplysninger: &quot;<ph name="ERROR_MESSAGE"/>&quot;.</translation>
@@ -3658,7 +3658,7 @@ Opbevar din nøglefil på et sikkert sted. Du skal bruge den til at oprette nye 
 <translation id="3331321258768829690">(<ph name="UTCOFFSET"/>) <ph name="LONGTZNAME"/> (<ph name="EXEMPLARCITY"/>)</translation>
 <translation id="619398760000422129">Plugins (f.eks. Adobe Flash Player, Quicktime osv.)</translation>
 <translation id="5849869942539715694">Pak udvidelse...</translation>
-<translation id="7339785458027436441">Kontroller stavning under indtastning</translation>
+<translation id="7339785458027436441">Kontrollér stavning under indtastning</translation>
 <translation id="8308427013383895095">Oversættelsen mislykkedes på grund af problemer med netværksforbindelsen.</translation>
 <translation id="1828901632669367785">Dialogboks til Udskriv via system...</translation>
 <translation id="1801298019027379214">Forkert PIN-kode. Prøv igen. Forsøg tilbage: <ph name="TRIES_COUNT"/></translation>
