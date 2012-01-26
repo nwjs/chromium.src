@@ -578,7 +578,8 @@ ProfileInfoCache& ProfileManager::GetProfileInfoCache() {
   if (!profile_info_cache_.get()) {
     profile_info_cache_.reset(new ProfileInfoCache(
         g_browser_process->local_state(), user_data_dir_));
-#if defined(OS_WIN)
+  // Disable creating profile shortcuts for M17.
+#if 0
     const CommandLine& command_line = *CommandLine::ForCurrentProcess();
     if (!command_line.HasSwitch(switches::kNoFirstRun)) {
       profile_shortcut_manager_.reset(new ProfileShortcutManagerWin());
