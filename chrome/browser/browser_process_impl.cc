@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -27,7 +27,6 @@
 #include "chrome/browser/download/download_request_limiter.h"
 #include "chrome/browser/extensions/extension_event_router_forwarder.h"
 #include "chrome/browser/extensions/extension_tab_id_map.h"
-#include "chrome/browser/extensions/network_delay_listener.h"
 #include "chrome/browser/extensions/user_script_listener.h"
 #include "chrome/browser/first_run/upgrade_util.h"
 #include "chrome/browser/google/google_url_tracker.h"
@@ -720,10 +719,9 @@ void BrowserProcessImpl::CreateResourceDispatcherHost() {
          resource_dispatcher_host_.get() == NULL);
   created_resource_dispatcher_host_ = true;
 
-  // UserScriptListener and NetworkDelayListener will delete themselves.
+  // UserScriptListener will delete itself.
   ResourceQueue::DelegateSet resource_queue_delegates;
   resource_queue_delegates.insert(new UserScriptListener());
-  resource_queue_delegates.insert(new NetworkDelayListener());
 
   resource_dispatcher_host_.reset(
       new ResourceDispatcherHost(resource_queue_delegates));
