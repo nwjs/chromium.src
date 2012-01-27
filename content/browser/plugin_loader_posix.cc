@@ -52,7 +52,9 @@ void PluginLoaderPosix::OnProcessCrashed(int exit_code) {
 }
 
 bool PluginLoaderPosix::Send(IPC::Message* message) {
-  return process_host_->Send(message);
+  if (process_host_)
+    return process_host_->Send(message);
+  return false;
 }
 
 PluginLoaderPosix::~PluginLoaderPosix() {
@@ -94,7 +96,8 @@ void PluginLoaderPosix::LoadPluginsInternal() {
   if (load_start_time_.is_null())
     load_start_time_ = base::TimeTicks::Now();
 
-  process_host_ = new UtilityProcessHost(this, BrowserThread::IO);
+  process_host_ =
+      (new UtilityProcessHost(this, BrowserThread::IO))->AsWeakPtr();
   process_host_->set_no_sandbox(true);
 #if defined(OS_MACOSX)
   process_host_->set_child_flags(ChildProcessHost::CHILD_ALLOW_HEAP_EXECUTION);

@@ -91,7 +91,7 @@ class CONTENT_EXPORT PluginLoaderPosix : public UtilityProcessHost::Client,
   bool MaybeRunPendingCallbacks();
 
   // The process host for which this is a client.
-  UtilityProcessHost* process_host_;
+  base::WeakPtr<UtilityProcessHost> process_host_;
 
   // A list of paths to plugins which will be loaded by the utility process, in
   // the order specified by this vector.

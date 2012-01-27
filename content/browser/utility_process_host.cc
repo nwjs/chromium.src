@@ -50,6 +50,7 @@ UtilityProcessHost::UtilityProcessHost(Client* client,
 }
 
 UtilityProcessHost::~UtilityProcessHost() {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   DCHECK(!is_batch_mode_);
 }
 

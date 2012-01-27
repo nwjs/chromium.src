@@ -104,7 +104,7 @@ class WebstoreInstallHelper : public UtilityProcessHost::Client,
   scoped_ptr<content::URLFetcher> url_fetcher_;
   net::URLRequestContextGetter* context_getter_; // Only usable on UI thread.
 
-  UtilityProcessHost* utility_host_;
+  base::WeakPtr<UtilityProcessHost> utility_host_;
 
   // Flags for whether we're done doing icon decoding and manifest parsing.
   bool icon_decode_complete_;

@@ -30,7 +30,6 @@ ExternalProcessImporterClient::ExternalProcessImporterClient(
       total_history_rows_count_(0),
       total_favicons_count_(0),
       process_importer_host_(importer_host),
-      utility_process_host_(NULL),
       source_profile_(source_profile),
       items_(items),
       bridge_(bridge),
@@ -75,7 +74,8 @@ void ExternalProcessImporterClient::Start() {
 
 void ExternalProcessImporterClient::StartProcessOnIOThread(
     BrowserThread::ID thread_id) {
-  utility_process_host_ = new UtilityProcessHost(this, thread_id);
+  utility_process_host_ =
+      (new UtilityProcessHost(this, thread_id))->AsWeakPtr();
   utility_process_host_->set_no_sandbox(true);
 
 #if defined(OS_MACOSX)
@@ -128,7 +128,6 @@ void ExternalProcessImporterClient::Cancel() {
 }
 
 void ExternalProcessImporterClient::OnProcessCrashed(int exit_code) {
-  utility_process_host_ = NULL;
   if (cancelled_)
     return;
 

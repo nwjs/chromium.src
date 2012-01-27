@@ -178,6 +178,7 @@ void BrowserChildProcessHost::OnChildDisconnected() {
       break;
     }
     case base::TERMINATION_STATUS_PROCESS_WAS_KILLED: {
+      OnProcessCrashed(exit_code);
       // Report that this child process was killed.
       UMA_HISTOGRAM_ENUMERATION("ChildProcess.Killed",
                                 this->type(),

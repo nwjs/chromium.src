@@ -12,6 +12,7 @@
 #include "base/basictypes.h"
 #include "base/memory/ref_counted.h"
 #include "base/process_util.h"
+#include "base/memory/weak_ptr.h"
 #include "content/browser/browser_child_process_host.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/browser_thread.h"
@@ -23,7 +24,9 @@
 // If you need multiple batches of work to be done in the sandboxed process,
 // use StartBatchMode(), then multiple calls to StartFooBar(p),
 // then finish with EndBatchMode().
-class CONTENT_EXPORT UtilityProcessHost : public BrowserChildProcessHost {
+class CONTENT_EXPORT UtilityProcessHost
+    : public BrowserChildProcessHost,
+      public base::SupportsWeakPtr<UtilityProcessHost> {
  public:
   // An interface to be implemented by consumers of the utility process to
   // get results back.  All functions are called on the thread passed along
