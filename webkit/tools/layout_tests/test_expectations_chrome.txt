@@ -500,9 +500,22 @@ BUG_OFF : fast/speech/speech-bidi-rendering.html = IMAGE
 BUG_OFF : fast/inline/styledEmptyInlinesWithBRs.html = IMAGE+TEXT
 BUG_OFF : fast/replaced/absolute-position-percentage-height.html = IMAGE+TEXT
 
-// This test depends on code that was not merged to the branch.  That's OK
+// This test depends on code that was not merged to the branch.BUG_OFF MAC : That's OK
 // because this feature isn't finished.
 BUG_OFF : css3/flexbox/position-absolute-child.html = TEXT
 
 
+BUG_OFF : http/tests/filesystem/workers/resolve-url-sync.html = TEXT
+BUG_OFF : http/tests/filesystem/workers/resolve-url.html = TEXT
+BUG_OFF : fast/multicol/span/generated-child-split-flow-crash.html = MISSING
 
+BUG_OFF MAC : fast/dom/HTMLTableElement/colSpan.html = IMAGE+TEXT
+BUG_OFF MAC : fast/dom/HTMLTableElement/createCaption.html = IMAGE+TEXT
+BUG_OFF MAC : tables/mozilla/core/captions.html = IMAGE+TEXT
+BUG_OFF MAC : tables/mozilla_expected_failures/core/captions1.html = IMAGE+TEXT
+BUG_OFF MAC : tables/mozilla_expected_failures/core/captions2.html = IMAGE+TEXT
+BUG_OFF MAC : tables/mozilla_expected_failures/core/captions3.html = IMAGE+TEXT
+BUG_OFF MAC : fast/css/bidi-override-in-anonymous-block.html = TEXT
+BUG_OFF MAC : svg/clip-path/clip-path-tspan-and-stroke.svg = TEXT
+BUG_OFF MAC : tables/mozilla/other/wa_table_thtd_rowspan.html = TEXT
+BUG_OFF MAC : tables/mozilla/other/wa_table_tr_align.html = TEXT
