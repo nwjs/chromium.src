@@ -22,9 +22,7 @@ namespace protocol {
 PepperSessionManager::PepperSessionManager(pp::Instance* pp_instance)
     : pp_instance_(pp_instance),
       signal_strategy_(NULL),
-      listener_(NULL),
-      allow_nat_traversal_(false) {
-  transport_config_.nat_traversal = allow_nat_traversal_;
+      listener_(NULL) {
 }
 
 PepperSessionManager::~PepperSessionManager() {
@@ -40,7 +38,7 @@ void PepperSessionManager::Init(
   local_jid_ = local_jid;
   signal_strategy_ = signal_strategy;
   iq_sender_.reset(new IqSender(signal_strategy_));
-  allow_nat_traversal_ = allow_nat_traversal;
+  transport_config_.nat_traversal = allow_nat_traversal;
 
   signal_strategy_->AddListener(this);
 
