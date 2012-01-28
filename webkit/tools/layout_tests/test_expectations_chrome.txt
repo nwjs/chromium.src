@@ -519,3 +519,5 @@ BUG_OFF MAC : fast/css/bidi-override-in-anonymous-block.html = TEXT
 BUG_OFF MAC : svg/clip-path/clip-path-tspan-and-stroke.svg = TEXT
 BUG_OFF MAC : tables/mozilla/other/wa_table_thtd_rowspan.html = TEXT
 BUG_OFF MAC : tables/mozilla/other/wa_table_tr_align.html = TEXT
+BUG_OFF MAC : animations/combo-transform-translate+scale.html = TEXT
+
