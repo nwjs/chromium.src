@@ -49,21 +49,6 @@ std::string GetTypeName(ContentSettingsType type) {
   return std::string(kTypeNames[type]);
 }
 
-bool SupportsResourceIdentifier(ContentSettingsType content_type) {
-  return content_type == CONTENT_SETTINGS_TYPE_PLUGINS;
-}
-
-ContentSetting ClickToPlayFixup(ContentSettingsType content_type,
-                                ContentSetting setting) {
-  if (setting == CONTENT_SETTING_ASK &&
-      content_type == CONTENT_SETTINGS_TYPE_PLUGINS &&
-      !CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableClickToPlay)) {
-    return CONTENT_SETTING_BLOCK;
-  }
-  return setting;
-}
-
 std::string CreatePatternString(
     const ContentSettingsPattern& item_pattern,
     const ContentSettingsPattern& top_level_frame_pattern) {

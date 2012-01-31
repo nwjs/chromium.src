@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -27,15 +27,6 @@ class RuleIterator;
 typedef std::pair<ContentSettingsPattern, ContentSettingsPattern> PatternPair;
 
 std::string GetTypeName(ContentSettingsType type);
-
-// Returns true if the |content_type| supports a resource identifier.
-// Resource identifiers are supported (but not required) for plug-ins.
-bool SupportsResourceIdentifier(ContentSettingsType content_type);
-
-// Maps CONTENT_SETTING_ASK for the CONTENT_SETTINGS_TYPE_PLUGINS to
-// CONTENT_SETTING_BLOCK if click-to-play is not enabled.
-ContentSetting ClickToPlayFixup(ContentSettingsType content_type,
-                                ContentSetting setting);
 
 // Converts |Value| to |ContentSetting|.
 ContentSetting ValueToContentSetting(const base::Value* value);

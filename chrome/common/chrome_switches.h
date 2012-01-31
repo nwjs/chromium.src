@@ -129,7 +129,6 @@ extern const char kEnableAuthNegotiatePort[];
 extern const char kEnableAutofillFeedback[];
 extern const char kEnableAutologin[];
 extern const char kEnableClearServerData[];
-extern const char kEnableClickToPlay[];
 extern const char kEnableCloudPrintProxy[];
 extern const char kEnableCompositeToTexture[];
 extern const char kEnableConnectBackupJobs[];
