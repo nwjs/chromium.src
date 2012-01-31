@@ -631,7 +631,6 @@ void ChromeContentBrowserClient::AppendExtraCommandLineSwitches(
       switches::kDisablePrintPreview,
       switches::kDomAutomationController,
       switches::kDumpHistogramsOnExit,
-      switches::kEnableBenchmarking,
       switches::kEnableCrxlessWebApps,
       switches::kEnableExperimentalExtensionApis,
       switches::kEnableInBrowserThumbnailing,

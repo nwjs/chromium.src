@@ -28,6 +28,10 @@ typedef std::pair<ContentSettingsPattern, ContentSettingsPattern> PatternPair;
 
 std::string GetTypeName(ContentSettingsType type);
 
+// Returns true if the |content_type| supports a resource identifier.
+// Resource identifiers are supported (but not required) for plug-ins.
+bool SupportsResourceIdentifier(ContentSettingsType content_type);
+
 // Converts |Value| to |ContentSetting|.
 ContentSetting ValueToContentSetting(const base::Value* value);
 
