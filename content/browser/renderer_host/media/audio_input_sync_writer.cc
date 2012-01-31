@@ -31,10 +31,9 @@ void AudioInputSyncWriter::Close() {
 }
 
 bool AudioInputSyncWriter::Init() {
-  socket_.reset(new base::CancelableSyncSocket());
-  foreign_socket_.reset(new base::CancelableSyncSocket());
-  return base::CancelableSyncSocket::CreatePair(socket_.get(),
-                                                foreign_socket_.get());
+  socket_.reset(new base::SyncSocket());
+  foreign_socket_.reset(new base::SyncSocket());
+  return base::SyncSocket::CreatePair(socket_.get(), foreign_socket_.get());
 }
 
 #if defined(OS_WIN)
