@@ -17,8 +17,8 @@
 #include "native_client/src/trusted/plugin/nexe_arch.h"
 #include "native_client/src/trusted/plugin/plugin.h"
 #include "native_client/src/trusted/plugin/plugin_error.h"
+#include "native_client/src/trusted/plugin/pnacl_srpc_lib.h"
 #include "native_client/src/trusted/plugin/utility.h"
-#include "native_client/src/trusted/service_runtime/include/sys/stat.h"
 
 #include "ppapi/c/pp_errors.h"
 #include "ppapi/c/ppb_file_io.h"
@@ -32,7 +32,6 @@ namespace {
 
 const char kLlcUrl[] = "llc";
 const char kLdUrl[] = "ld";
-const char kPnaclTempDir[] = "/.pnacl";
 
 nacl::string ExtensionUrl() {
   // TODO(sehr,jvoung): Find a better way to express the URL for the pnacl
@@ -64,18 +63,19 @@ nacl::string Random32CharHexString(struct NaClDescRng* rng) {
 // Some constants for PnaclFileDescPair::GetFD readability.
 const bool kReadOnly = false;
 const bool kWriteable = true;
+
 }  // namespace
 
 //////////////////////////////////////////////////////////////////////
-//  Local temporary file access.
+//  Temporary file descriptors.
 //////////////////////////////////////////////////////////////////////
-LocalTempFile::LocalTempFile(Plugin* plugin,
-                             pp::FileSystem* file_system,
-                             PnaclCoordinator* coordinator)
+PnaclFileDescPair::PnaclFileDescPair(Plugin* plugin,
+                                     pp::FileSystem* file_system,
+                                     PnaclCoordinator* coordinator)
     : plugin_(plugin),
       file_system_(file_system),
       coordinator_(coordinator) {
-  PLUGIN_PRINTF(("LocalTempFile::LocalTempFile (plugin=%p, "
+  PLUGIN_PRINTF(("PnaclFileDescPair::PnaclFileDescPair (plugin=%p, "
                  "file_system=%p, coordinator=%p)\n",
                  static_cast<void*>(plugin), static_cast<void*>(file_system),
                  static_cast<void*>(coordinator)));
@@ -85,42 +85,39 @@ LocalTempFile::LocalTempFile(Plugin* plugin,
   CHECK(NaClDescRngCtor(rng_desc_));
   file_io_trusted_ = static_cast<const PPB_FileIOTrusted*>(
       pp::Module::Get()->GetBrowserInterface(PPB_FILEIOTRUSTED_INTERFACE));
+  // Get a random temp file name.
+  filename_ = "/" + Random32CharHexString(rng_desc_);
 }
 
-LocalTempFile::~LocalTempFile() {
-  PLUGIN_PRINTF(("LocalTempFile::~LocalTempFile\n"));
+PnaclFileDescPair::~PnaclFileDescPair() {
+  PLUGIN_PRINTF(("PnaclFileDescPair::~PnaclFileDescPair\n"));
   NaClDescUnref(reinterpret_cast<NaClDesc*>(rng_desc_));
 }
 
-void LocalTempFile::OpenWrite(const pp::CompletionCallback& cb) {
-  PLUGIN_PRINTF(("LocalTempFile::OpenWrite\n"));
+void PnaclFileDescPair::Open(const pp::CompletionCallback& cb) {
+  PLUGIN_PRINTF(("PnaclFileDescPair::Open\n"));
   done_callback_ = cb;
-  // If we don't already have a filename, generate one.
-  if (filename_ == "") {
-    // Get a random temp file name.
-    filename_ =
-        nacl::string(kPnaclTempDir) + "/" + Random32CharHexString(rng_desc_);
-    // Remember the ref used to open for writing and reading.
-    file_ref_.reset(new pp::FileRef(*file_system_, filename_.c_str()));
-  }
-  // Open the writeable file.
+
+  write_ref_.reset(new pp::FileRef(*file_system_, filename_.c_str()));
   write_io_.reset(new pp::FileIO(plugin_));
+  read_ref_.reset(new pp::FileRef(*file_system_, filename_.c_str()));
+  read_io_.reset(new pp::FileIO(plugin_));
+
   pp::CompletionCallback open_write_cb =
-      callback_factory_.NewCallback(&LocalTempFile::WriteFileDidOpen);
-  write_io_->Open(*file_ref_,
-                  PP_FILEOPENFLAG_WRITE |
-                  PP_FILEOPENFLAG_CREATE |
-                  PP_FILEOPENFLAG_EXCLUSIVE,
+      callback_factory_.NewCallback(&PnaclFileDescPair::WriteFileDidOpen);
+  // Open the writeable file.
+  write_io_->Open(*write_ref_,
+                  PP_FILEOPENFLAG_WRITE | PP_FILEOPENFLAG_CREATE,
                   open_write_cb);
 }
 
-int32_t LocalTempFile::GetFD(int32_t pp_error,
-                             const pp::Resource& resource,
-                             bool is_writable) {
-  PLUGIN_PRINTF(("LocalTempFile::GetFD (pp_error=%"NACL_PRId32
+int32_t PnaclFileDescPair::GetFD(int32_t pp_error,
+                                 const pp::Resource& resource,
+                                 bool is_writable) {
+  PLUGIN_PRINTF(("PnaclFileDescPair::GetFD (pp_error=%"NACL_PRId32
                  ", is_writable=%d)\n", pp_error, is_writable));
   if (pp_error != PP_OK) {
-    PLUGIN_PRINTF(("LocalTempFile::GetFD pp_error != PP_OK\n"));
+    PLUGIN_PRINTF(("PnaclFileDescPair::GetFD pp_error != PP_OK\n"));
     return -1;
   }
   int32_t file_desc =
@@ -132,27 +129,22 @@ int32_t LocalTempFile::GetFD(int32_t pp_error,
   if (posix_desc == -1) {
     // Close the Windows HANDLE if it can't be converted.
     CloseHandle(reinterpret_cast<HANDLE>(file_desc));
-    PLUGIN_PRINTF(("LocalTempFile::GetFD _open_osfhandle failed.\n"));
+    PLUGIN_PRINTF(("PnaclFileDescPair::GetFD _open_osfhandle failed.\n"));
     return NACL_NO_FILE_DESC;
   }
   file_desc = posix_desc;
 #endif
   int32_t file_desc_ok_to_close = DUP(file_desc);
   if (file_desc_ok_to_close == NACL_NO_FILE_DESC) {
-    PLUGIN_PRINTF(("LocalTempFile::GetFD dup failed.\n"));
+    PLUGIN_PRINTF(("PnaclFileDescPair::GetFD dup failed.\n"));
     return -1;
   }
   return file_desc_ok_to_close;
 }
 
-void LocalTempFile::WriteFileDidOpen(int32_t pp_error) {
-  PLUGIN_PRINTF(("LocalTempFile::WriteFileDidOpen (pp_error=%"
+void PnaclFileDescPair::WriteFileDidOpen(int32_t pp_error) {
+  PLUGIN_PRINTF(("PnaclFileDescPair::WriteFileDidOpen (pp_error=%"
                  NACL_PRId32")\n", pp_error));
-  if (pp_error == PP_ERROR_FILEEXISTS) {
-    // Filenames clashed, retry.
-    filename_ = "";
-    OpenWrite(done_callback_);
-  }
   // Remember the object temporary file descriptor.
   int32_t fd = GetFD(pp_error, *write_io_, kWriteable);
   if (fd < 0) {
@@ -160,23 +152,14 @@ void LocalTempFile::WriteFileDidOpen(int32_t pp_error) {
     return;
   }
   write_wrapper_.reset(plugin_->wrapper_factory()->MakeFileDesc(fd, O_RDWR));
-  // Run the client's completion callback.
-  pp::Core* core = pp::Module::Get()->core();
-  core->CallOnMainThread(0, done_callback_, PP_OK);
-}
-
-void LocalTempFile::OpenRead(const pp::CompletionCallback& cb) {
-  PLUGIN_PRINTF(("LocalTempFile::OpenRead\n"));
-  done_callback_ = cb;
-  // Open the read only file.
-  read_io_.reset(new pp::FileIO(plugin_));
   pp::CompletionCallback open_read_cb =
-      callback_factory_.NewCallback(&LocalTempFile::ReadFileDidOpen);
-  read_io_->Open(*file_ref_, PP_FILEOPENFLAG_READ, open_read_cb);
+      callback_factory_.NewCallback(&PnaclFileDescPair::ReadFileDidOpen);
+  // Open the read only file.
+  read_io_->Open(*read_ref_, PP_FILEOPENFLAG_READ, open_read_cb);
 }
 
-void LocalTempFile::ReadFileDidOpen(int32_t pp_error) {
-  PLUGIN_PRINTF(("LocalTempFile::ReadFileDidOpen (pp_error=%"
+void PnaclFileDescPair::ReadFileDidOpen(int32_t pp_error) {
+  PLUGIN_PRINTF(("PnaclFileDescPair::ReadFileDidOpen (pp_error=%"
                  NACL_PRId32")\n", pp_error));
   // Remember the object temporary file descriptor.
   int32_t fd = GetFD(pp_error, *read_io_, kReadOnly);
@@ -188,39 +171,6 @@ void LocalTempFile::ReadFileDidOpen(int32_t pp_error) {
   // Run the client's completion callback.
   pp::Core* core = pp::Module::Get()->core();
   core->CallOnMainThread(0, done_callback_, PP_OK);
-}
-
-void LocalTempFile::Close(const pp::CompletionCallback& cb) {
-  PLUGIN_PRINTF(("LocalTempFile::Close\n"));
-  // Close the open DescWrappers and FileIOs.
-  if (write_io_.get() != NULL) {
-    write_io_->Close();
-  }
-  write_wrapper_.reset(NULL);
-  write_io_.reset(NULL);
-  if (read_io_.get() != NULL) {
-    read_io_->Close();
-  }
-  read_wrapper_.reset(NULL);
-  read_io_.reset(NULL);
-  // Run the client's completion callback.
-  pp::Core* core = pp::Module::Get()->core();
-  core->CallOnMainThread(0, cb, PP_OK);
-}
-
-void LocalTempFile::Delete(const pp::CompletionCallback& cb) {
-  PLUGIN_PRINTF(("LocalTempFile::Delete\n"));
-  file_ref_->Delete(cb);
-}
-
-void LocalTempFile::Rename(const nacl::string& new_name,
-                           const pp::CompletionCallback& cb) {
-  PLUGIN_PRINTF(("LocalTempFile::Rename\n"));
-  // Rename the temporary file.
-  filename_ = new_name;
-  nacl::scoped_ptr<pp::FileRef> old_ref(file_ref_.release());
-  file_ref_.reset(new pp::FileRef(*file_system_, new_name.c_str()));
-  old_ref->Rename(*file_ref_, cb);
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -437,13 +387,11 @@ PnaclCoordinator::PnaclCoordinator(
 PnaclCoordinator::~PnaclCoordinator() {
   PLUGIN_PRINTF(("PnaclCoordinator::~PnaclCoordinator (this=%p)\n",
                  static_cast<void*>(this)));
-  // Stopping the translate thread will cause the translate thread to try to
-  // run translation_complete_callback_ on the main thread.  This destructor is
-  // running from the main thread, and by the time it exits, callback_factory_
-  // will have been destroyed.  This will result in the cancellation of
-  // translation_complete_callback_, so no notification will be delivered.
+  // Join helper thread which will block the page from refreshing while a
+  // translation is happening.
   if (translate_thread_.get() != NULL) {
     SetSubprocessesShouldDie(true);
+    NaClThreadJoin(translate_thread_.get());
   }
   NaClMutexDtor(&subprocess_mu_);
 }
@@ -488,79 +436,10 @@ void PnaclCoordinator::TranslateFinished(int32_t pp_error) {
                  NACL_PRId32")\n", pp_error));
   if (pp_error != PP_OK) {
     ReportPpapiError(pp_error);
-    // TODO(sehr): Delete the object and nexe temporary files.
-    return;
-  }
-  // Close the object temporary file.
-  pp::CompletionCallback cb =
-      callback_factory_.NewCallback(&PnaclCoordinator::ObjectFileWasClosed);
-  obj_file_->Close(cb);
-}
-
-void PnaclCoordinator::ObjectFileWasClosed(int32_t pp_error) {
-  PLUGIN_PRINTF(("PnaclCoordinator::ObjectFileWasClosed (pp_error=%"
-                 NACL_PRId32")\n", pp_error));
-  if (pp_error != PP_OK) {
-    ReportPpapiError(pp_error);
-    return;
-  }
-  // Delete the object temporary file.
-  // TODO(sehr): delete the temporary file once the quota updates work.
-  // pp::CompletionCallback cb =
-  //    callback_factory_.NewCallback(&PnaclCoordinator::ObjectFileWasDeleted);
-  // obj_file_->Delete(cb);
-  ObjectFileWasDeleted(PP_OK);
-}
-
-void PnaclCoordinator::ObjectFileWasDeleted(int32_t pp_error) {
-  PLUGIN_PRINTF(("PnaclCoordinator::ObjectFileWasDeleted (pp_error=%"
-                 NACL_PRId32")\n", pp_error));
-  if (pp_error != PP_OK) {
-    ReportPpapiError(pp_error);
-    return;
-  }
-  // Close the nexe temporary file.
-  pp::CompletionCallback cb =
-     callback_factory_.NewCallback(&PnaclCoordinator::NexeFileWasClosed);
-  nexe_file_->Close(cb);
-}
-
-void PnaclCoordinator::NexeFileWasClosed(int32_t pp_error) {
-  PLUGIN_PRINTF(("PnaclCoordinator::NexeFileWasClosed (pp_error=%"
-                 NACL_PRId32")\n", pp_error));
-  if (pp_error != PP_OK) {
-    ReportPpapiError(pp_error);
-    return;
-  }
-  // TODO(sehr): enable renaming once cache ids are available.
-  // Rename the nexe file to the cache id.
-  // pp::CompletionCallback cb =
-  //     callback_factory_.NewCallback(&PnaclCoordinator::NexeReadDidOpen);
-  // nexe_file_->Rename(new_name, cb);
-  NexeFileWasRenamed(PP_OK);
-}
-
-void PnaclCoordinator::NexeFileWasRenamed(int32_t pp_error) {
-  PLUGIN_PRINTF(("PnaclCoordinator::NexeFileWasRenamed (pp_error=%"
-                 NACL_PRId32")\n", pp_error));
-  if (pp_error != PP_OK) {
-    ReportPpapiError(pp_error);
-    return;
-  }
-  // Open the nexe temporary file for reading.
-  pp::CompletionCallback cb =
-      callback_factory_.NewCallback(&PnaclCoordinator::NexeReadDidOpen);
-  nexe_file_->OpenRead(cb);
-}
-
-void PnaclCoordinator::NexeReadDidOpen(int32_t pp_error) {
-  PLUGIN_PRINTF(("PnaclCoordinator::NexeReadDidOpen (pp_error=%"
-                 NACL_PRId32")\n", pp_error));
-  if (pp_error != PP_OK) {
-    ReportPpapiError(pp_error);
     return;
   }
   // Transfer ownership of the nexe wrapper to the coordinator.
+  // TODO(sehr): figure out when/how to delete/reap these temporary files.
   translated_fd_.reset(nexe_file_->release_read_wrapper());
   plugin_->EnqueueProgressEvent(Plugin::kProgressEventProgress);
   translate_notify_callback_.Run(pp_error);
@@ -572,7 +451,8 @@ void PnaclCoordinator::TranslateFailed(const nacl::string& error_string) {
   pp::Core* core = pp::Module::Get()->core();
   error_info_.SetReport(ERROR_UNKNOWN,
                         nacl::string("PnaclCoordinator: ") + error_string);
-  core->CallOnMainThread(0, report_translate_finished_, PP_ERROR_FAILED);
+  core->CallOnMainThread(0, translate_done_cb_, PP_ERROR_FAILED);
+  NaClThreadExit(1);
 }
 
 void PnaclCoordinator::ResourcesDidLoad(int32_t pp_error) {
@@ -598,95 +478,29 @@ void PnaclCoordinator::FileSystemDidOpen(int32_t pp_error) {
     ReportPpapiError(pp_error, "file system didn't open.");
     return;
   }
-  dir_ref_.reset(new pp::FileRef(*file_system_, kPnaclTempDir));
-  dir_io_.reset(new pp::FileIO(plugin_));
-  // Attempt to open the directory.
-  pp::CompletionCallback cb =
-      callback_factory_.NewCallback(&PnaclCoordinator::DirectoryWasOpened);
-  dir_io_->Open(*dir_ref_, PP_FILEOPENFLAG_READ, cb);
-}
-
-void PnaclCoordinator::DirectoryWasOpened(int32_t pp_error) {
-  PLUGIN_PRINTF(("PnaclCoordinator::DirectoryWasOpened (pp_error=%"
-                 NACL_PRId32")\n", pp_error));
-  if (pp_error == PP_ERROR_FILENOTFOUND) {
-    // Pathname did not exist, create it.
-    pp::CompletionCallback cb =
-        callback_factory_.NewCallback(&PnaclCoordinator::DirectoryWasCreated);
-    dir_ref_->MakeDirectory(cb);
-    return;
-  }
-  if (pp_error != PP_OK) {
-    ReportPpapiError(pp_error, "directory couldn't be opened.");
-    return;
-  }
-  // Query for information on the directory.
-  pp::CompletionCallback cb =
-      callback_factory_.NewCallback(&PnaclCoordinator::DirectoryWasQueried);
-  dir_io_->Query(&dir_info_, cb);
-}
-
-void PnaclCoordinator::DirectoryWasQueried(int32_t pp_error) {
-  PLUGIN_PRINTF(("PnaclCoordinator::DirectoryWasQueried (pp_error=%"
-                 NACL_PRId32")\n", pp_error));
-  if (pp_error != PP_OK) {
-    ReportPpapiError(pp_error, "directory query failed.");
-    return;
-  }
-  dir_io_->Close();
-  dir_io_.reset(NULL);
-  // Ensure directory has the right properties.
-  if (dir_info_.type != PP_FILETYPE_DIRECTORY ||
-      dir_info_.system_type != PP_FILESYSTEMTYPE_LOCALTEMPORARY) {
-    ReportPpapiError(pp_error, "bad temporary directory.");
-    return;
-  }
-  // A valid directory existed, use it.
-  DirectoryWasCreated(PP_OK);
-}
-
-void PnaclCoordinator::DirectoryWasCreated(int32_t pp_error) {
-  PLUGIN_PRINTF(("PnaclCoordinator::DirectoryWasCreated (pp_error=%"
-                 NACL_PRId32")\n", pp_error));
-  if (pp_error != PP_OK) {
-    ReportPpapiError(pp_error, "directory creation failed.");
-    return;
-  }
   // Create the object file pair for connecting llc and ld.
-  obj_file_.reset(new LocalTempFile(plugin_, file_system_.get(), this));
+  obj_file_.reset(new PnaclFileDescPair(plugin_, file_system_.get(), this));
   pp::CompletionCallback cb =
-      callback_factory_.NewCallback(&PnaclCoordinator::ObjectWriteDidOpen);
-  obj_file_->OpenWrite(cb);
+      callback_factory_.NewCallback(&PnaclCoordinator::ObjectPairDidOpen);
+  obj_file_->Open(cb);
 }
 
-void PnaclCoordinator::ObjectWriteDidOpen(int32_t pp_error) {
-  PLUGIN_PRINTF(("PnaclCoordinator::ObjectWriteDidOpen (pp_error=%"
+void PnaclCoordinator::ObjectPairDidOpen(int32_t pp_error) {
+  PLUGIN_PRINTF(("PnaclCoordinator::ObjectPairDidOpen (pp_error=%"
                  NACL_PRId32")\n", pp_error));
   if (pp_error != PP_OK) {
     ReportPpapiError(pp_error);
     return;
   }
+  // Create the nexe file pair for connecting ld and sel_ldr.
+  nexe_file_.reset(new PnaclFileDescPair(plugin_, file_system_.get(), this));
   pp::CompletionCallback cb =
-      callback_factory_.NewCallback(&PnaclCoordinator::ObjectReadDidOpen);
-  obj_file_->OpenRead(cb);
+      callback_factory_.NewCallback(&PnaclCoordinator::NexePairDidOpen);
+  nexe_file_->Open(cb);
 }
 
-void PnaclCoordinator::ObjectReadDidOpen(int32_t pp_error) {
-  PLUGIN_PRINTF(("PnaclCoordinator::ObjectReadDidOpen (pp_error=%"
-                 NACL_PRId32")\n", pp_error));
-  if (pp_error != PP_OK) {
-    ReportPpapiError(pp_error);
-    return;
-  }
-  // Create the nexe file for connecting ld and sel_ldr.
-  nexe_file_.reset(new LocalTempFile(plugin_, file_system_.get(), this));
-  pp::CompletionCallback cb =
-      callback_factory_.NewCallback(&PnaclCoordinator::NexeWriteDidOpen);
-  nexe_file_->OpenWrite(cb);
-}
-
-void PnaclCoordinator::NexeWriteDidOpen(int32_t pp_error) {
-  PLUGIN_PRINTF(("PnaclCoordinator::NexeWriteDidOpen (pp_error=%"
+void PnaclCoordinator::NexePairDidOpen(int32_t pp_error) {
+  PLUGIN_PRINTF(("PnaclCoordinator::NexePairDidOpen (pp_error=%"
                  NACL_PRId32")\n", pp_error));
   if (pp_error != PP_OK) {
     ReportPpapiError(pp_error);
@@ -712,7 +526,7 @@ void PnaclCoordinator::RunTranslate(int32_t pp_error) {
   pexe_wrapper_.reset(plugin_->wrapper_factory()->MakeFileDesc(fd, O_RDONLY));
   // Invoke llc followed by ld off the main thread.  This allows use of
   // blocking RPCs that would otherwise block the JavaScript main thread.
-  report_translate_finished_ =
+  translate_done_cb_ =
       callback_factory_.NewCallback(&PnaclCoordinator::TranslateFinished);
   translate_thread_.reset(new NaClThread);
   if (translate_thread_ == NULL) {
@@ -734,14 +548,14 @@ NaClSubprocess* PnaclCoordinator::StartSubprocess(
   PLUGIN_PRINTF(("PnaclCoordinator::StartSubprocess (url_for_nexe=%s)\n",
                  url_for_nexe.c_str()));
   nacl::DescWrapper* wrapper = resources_->WrapperForUrl(url_for_nexe);
-  nacl::scoped_ptr<NaClSubprocess> subprocess(
-      plugin_->LoadHelperNaClModule(wrapper, manifest, &error_info_));
-  if (subprocess.get() == NULL) {
+  NaClSubprocessId id =
+      plugin_->LoadHelperNaClModule(wrapper, manifest, &error_info_);
+  if (kInvalidNaClSubprocessId == id) {
     PLUGIN_PRINTF((
-        "PnaclCoordinator::StartSubprocess: subprocess creation failed\n"));
+        "PnaclCoordinator::StartSubprocess: invalid subprocess id\n"));
     return NULL;
   }
-  return subprocess.release();
+  return plugin_->nacl_subprocess(id);
 }
 
 // TODO(sehr): the thread body should be in a class by itself with a delegate
@@ -755,18 +569,18 @@ void WINAPI PnaclCoordinator::DoTranslateThread(void* arg) {
       coordinator->StartSubprocess(kLlcUrl, coordinator->manifest_.get()));
   if (llc_subprocess == NULL) {
     coordinator->TranslateFailed("Compile process could not be created.");
-    return;
   }
   // Run LLC.
   SrpcParams params;
   nacl::DescWrapper* llc_out_file = coordinator->obj_file_->write_wrapper();
-  if (!llc_subprocess->InvokeSrpcMethod("RunWithDefaultCommandLine",
-                                        "hh",
-                                        &params,
-                                        coordinator->pexe_wrapper_->desc(),
-                                        llc_out_file->desc())) {
+  if (!PnaclSrpcLib::InvokeSrpcMethod(browser_interface,
+                                      llc_subprocess.get(),
+                                      "RunWithDefaultCommandLine",
+                                      "hh",
+                                      &params,
+                                      coordinator->pexe_wrapper_->desc(),
+                                      llc_out_file->desc())) {
     coordinator->TranslateFailed("compile failed.");
-    return;
   }
   // LLC returns values that are used to determine how linking is done.
   int is_shared_library = (params.outs()[0]->u.ival != 0);
@@ -777,39 +591,42 @@ void WINAPI PnaclCoordinator::DoTranslateThread(void* arg) {
                  arg, is_shared_library, soname.c_str(),
                  lib_dependencies.c_str()));
   // Shut down the llc subprocess.
-  llc_subprocess.reset(NULL);
+  llc_subprocess.release();
   if (coordinator->SubprocessesShouldDie()) {
-    coordinator->TranslateFailed("stopped by coordinator.");
-    return;
+    PLUGIN_PRINTF((
+        "PnaclCoordinator::DoTranslateThread: killed by coordinator.\n"));
+    NaClThreadExit(1);
   }
   nacl::scoped_ptr<NaClSubprocess> ld_subprocess(
       coordinator->StartSubprocess(kLdUrl, coordinator->ld_manifest_.get()));
   if (ld_subprocess == NULL) {
     coordinator->TranslateFailed("Link process could not be created.");
-    return;
   }
   nacl::DescWrapper* ld_in_file = coordinator->obj_file_->read_wrapper();
   nacl::DescWrapper* ld_out_file = coordinator->nexe_file_->write_wrapper();
-  if (!ld_subprocess->InvokeSrpcMethod("RunWithDefaultCommandLine",
-                                       "hhiCC",
-                                       &params,
-                                       ld_in_file->desc(),
-                                       ld_out_file->desc(),
-                                       is_shared_library,
-                                       soname.c_str(),
-                                       lib_dependencies.c_str())) {
+  if (!PnaclSrpcLib::InvokeSrpcMethod(browser_interface,
+                                      ld_subprocess.get(),
+                                      "RunWithDefaultCommandLine",
+                                      "hhiCC",
+                                      &params,
+                                      ld_in_file->desc(),
+                                      ld_out_file->desc(),
+                                      is_shared_library,
+                                      soname.c_str(),
+                                      lib_dependencies.c_str())) {
     coordinator->TranslateFailed("link failed.");
-    return;
   }
   PLUGIN_PRINTF(("PnaclCoordinator: link (coordinator=%p) succeeded\n", arg));
   // Shut down the ld subprocess.
-  ld_subprocess.reset(NULL);
+  ld_subprocess.release();
   if (coordinator->SubprocessesShouldDie()) {
-    coordinator->TranslateFailed("stopped by coordinator.");
-    return;
+    PLUGIN_PRINTF((
+        "PnaclCoordinator::DoTranslateThread: killed by coordinator.\n"));
+    NaClThreadExit(1);
   }
   pp::Core* core = pp::Module::Get()->core();
-  core->CallOnMainThread(0, coordinator->report_translate_finished_, PP_OK);
+  core->CallOnMainThread(0, coordinator->translate_done_cb_, PP_OK);
+  NaClThreadExit(0);
 }
 
 bool PnaclCoordinator::SubprocessesShouldDie() {
