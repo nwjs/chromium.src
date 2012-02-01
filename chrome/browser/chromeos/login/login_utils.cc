@@ -775,11 +775,18 @@ void LoginUtilsImpl::OnProfileCreated(
   switch (status) {
     case Profile::CREATE_STATUS_INITIALIZED:
       break;
-    case Profile::CREATE_STATUS_CREATED:
+    case Profile::CREATE_STATUS_CREATED: {
       if (UserManager::Get()->current_user_is_new())
         SetFirstLoginPrefs(user_profile->GetPrefs());
+      // Make sure we flip every profile to not share proxies if the user hasn't
+      // specified so explicitly.
+      const PrefService::Preference* use_shared_proxies_pref =
+          user_profile->GetPrefs()->FindPreference(prefs::kUseSharedProxies);
+      if (use_shared_proxies_pref->IsDefaultValue())
+        user_profile->GetPrefs()->SetBoolean(prefs::kUseSharedProxies, false);
       RespectLocalePreference(user_profile);
       return;
+    }
     case Profile::CREATE_STATUS_FAIL:
     default:
       NOTREACHED();
@@ -1268,9 +1275,9 @@ void LoginUtilsImpl::FetchPolicyToken(Profile* offrecord_profile,
   // Fetch dm service token now, if it hasn't been fetched yet.
   if (!policy_oauth_fetcher_.get() || policy_oauth_fetcher_->failed()) {
     // Trigger oauth token fetch for user policy.
-    policy_oauth_fetcher_.reset(new PolicyOAuthFetcher(offrecord_profile,
-                                                       token,
-                                                       secret));
+    policy_oauth_fetcher_.reset(
+        new PolicyOAuthFetcher(authenticator_->authentication_profile(),
+                               token, secret));
     policy_oauth_fetcher_->Start();
   }
 
