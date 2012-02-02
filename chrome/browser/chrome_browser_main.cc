@@ -1623,13 +1623,20 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
   // Post-profile init ---------------------------------------------------------
 
 #if defined(OS_CHROMEOS)
-  // Pass the TokenService pointer to the policy connector so user policy can
-  // grab a token and register with the policy server.
-  // TODO(mnissler): Remove once OAuth is the only authentication mechanism.
   if (parsed_command_line().HasSwitch(switches::kLoginUser) &&
       !parsed_command_line().HasSwitch(switches::kLoginPassword)) {
+    // Pass the TokenService pointer to the policy connector so user policy can
+    // grab a token and register with the policy server.
+    // TODO(mnissler): Remove once OAuth is the only authentication mechanism.
     g_browser_process->browser_policy_connector()->SetUserPolicyTokenService(
         profile_->GetTokenService());
+
+    // Make sure we flip every profile to not share proxies if the user hasn't
+    // specified so explicitly.
+    const PrefService::Preference* use_shared_proxies_pref =
+        profile_->GetPrefs()->FindPreference(prefs::kUseSharedProxies);
+    if (use_shared_proxies_pref->IsDefaultValue())
+      profile_->GetPrefs()->SetBoolean(prefs::kUseSharedProxies, false);
   }
 
   // Tests should be able to tune login manager before showing it.
