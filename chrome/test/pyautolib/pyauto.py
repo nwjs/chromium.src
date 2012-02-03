@@ -1590,6 +1590,10 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
     }
     return self._GetResultFromJSONRequest(cmd_dict, windex=-1)
 
+  def IsAura(self):
+    """Is this Aura?"""
+    return self.GetBrowserInfo()['properties']['aura']
+
   def GetProcessInfo(self):
     """Returns information about browser-related processes that currently exist.
 
