@@ -145,6 +145,10 @@ void WebUILoginDisplay::ShowError(int error_msg_id,
       error_text.c_str(), false, false);
 }
 
+void WebUILoginDisplay::ShowGaiaPasswordChanged(const std::string& username) {
+  webui_handler_->ShowGaiaPasswordChanged(username);
+}
+
 // WebUILoginDisplay, SigninScreenHandlerDelegate implementation: --------------
 void WebUILoginDisplay::CompleteLogin(const std::string& username,
                                       const std::string& password) {
