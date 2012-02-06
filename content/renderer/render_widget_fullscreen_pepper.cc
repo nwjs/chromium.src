@@ -284,9 +284,9 @@ RenderWidgetFullscreenPepper::CreateContext3D() {
 #endif
 }
 
-void RenderWidgetFullscreenPepper::WillInitiatePaint() {
+void RenderWidgetFullscreenPepper::DidInitiatePaint() {
   if (plugin_)
-    plugin_->ViewWillInitiatePaint();
+    plugin_->ViewInitiatedPaint();
 }
 
 void RenderWidgetFullscreenPepper::DidFlushPaint() {

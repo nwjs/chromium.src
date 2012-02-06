@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -140,17 +140,14 @@ unsigned int PPB_Graphics3D_Impl::GetBackingTextureId() {
   return platform_context_->GetBackingTextureId();
 }
 
-void PPB_Graphics3D_Impl::ViewWillInitiatePaint() {
+void PPB_Graphics3D_Impl::ViewInitiatedPaint() {
 }
 
-void PPB_Graphics3D_Impl::ViewInitiatedPaint() {
+void PPB_Graphics3D_Impl::ViewFlushedPaint() {
   commit_pending_ = false;
 
   if (HasPendingSwap())
     SwapBuffersACK(PP_OK);
-}
-
-void PPB_Graphics3D_Impl::ViewFlushedPaint() {
 }
 
 gpu::CommandBuffer* PPB_Graphics3D_Impl::GetCommandBuffer() {
