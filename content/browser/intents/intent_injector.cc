@@ -94,9 +94,6 @@ void IntentInjector::OnReply(webkit_glue::WebIntentReplyType reply_type,
     NOTREACHED();
 
   if (intents_dispatcher_) {
-    // Ensure we only call SendReplyMessage once.
-    content::WebIntentsDispatcher* intents_dispatcher = intents_dispatcher_;
-    intents_dispatcher_ = NULL;
-    intents_dispatcher->SendReplyMessage(reply_type, data);
+    intents_dispatcher_->SendReplyMessage(reply_type, data);
   }
 }
