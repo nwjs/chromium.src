@@ -599,7 +599,15 @@ bool GoogleChromeDistribution::GetExperimentDetails(
                             // of headings (below).
     int headings[kMax];     // A list of IDs per experiment. 0 == no heading.
   } kExperimentFlavors[] = {
-    // Give all locales and brand codes the "new, safer Chrome" message.
+    // This list should be ordered most-specific rule first (catch-all, like all
+    // brands or all locales should be last).
+
+    // The experiment with the more compact bubble. This one is a bit special
+    // because it is split into two: CAxx is regular style bubble and CBxx is
+    // compact style bubble. See |compact_bubble| below.
+    {L"en-US", kBrief, 1, L'C', L'A', 2, { kEnUs3, kEnUs3, 0, 0 } },
+
+    // Catch-all rules.
     {kAll, kAll, 1, L'B', L'A', 1, {kEnUs3, 0, 0, 0} },
   };
 
@@ -651,6 +659,7 @@ bool GoogleChromeDistribution::GetExperimentDetails(
       experiment->prefix.resize(2);
       experiment->prefix[0] = kExperimentFlavors[i].prefix1;
       experiment->prefix[1] = kExperimentFlavors[i].prefix2 + flavor;
+      experiment->compact_bubble = (brand == kBrief) && (flavor == 1);
       return true;
     }
   }
