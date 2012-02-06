@@ -44,14 +44,8 @@ bool PluginLoaderPosix::OnMessageReceived(const IPC::Message& message) {
 }
 
 void PluginLoaderPosix::OnProcessCrashed(int exit_code) {
-  if (next_load_index_ == canonical_list_.size()) {
-    // How this case occurs is unknown. See crbug.com/111935.
-    canonical_list_.clear();
-  } else {
-    canonical_list_.erase(canonical_list_.begin(),
-                          canonical_list_.begin() + next_load_index_ + 1);
-  }
-
+  canonical_list_.erase(canonical_list_.begin(),
+                        canonical_list_.begin() + next_load_index_ + 1);
   next_load_index_ = 0;
 
   LoadPluginsInternal();
