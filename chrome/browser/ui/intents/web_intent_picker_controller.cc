@@ -14,6 +14,7 @@
 #include "chrome/browser/intents/web_intents_registry_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/intents/web_intent_picker.h"
 #include "chrome/browser/ui/intents/web_intent_picker_factory.h"
@@ -119,6 +120,7 @@ WebIntentPickerController::WebIntentPickerController(
               new FaviconFetcher(this, GetFaviconService(wrapper))),
           picker_(NULL),
           pending_async_count_(0),
+          intents_dispatcher_(NULL),
           service_tab_(NULL) {
   NavigationController* controller = &wrapper->web_contents()->GetController();
   registrar_.Add(this, content::NOTIFICATION_LOAD_START,
@@ -132,7 +134,7 @@ WebIntentPickerController::~WebIntentPickerController() {
 
 void WebIntentPickerController::SetIntentsDispatcher(
     content::WebIntentsDispatcher* intents_dispatcher) {
-  intents_dispatcher_.reset(intents_dispatcher);
+  intents_dispatcher_ = intents_dispatcher;
   intents_dispatcher_->RegisterReplyNotification(
       base::Bind(&WebIntentPickerController::OnSendReturnMessage,
                  base::Unretained(this)));
@@ -194,7 +196,7 @@ void WebIntentPickerController::OnServiceChosen(size_t index) {
 }
 
 void WebIntentPickerController::OnCancelled() {
-  if (!intents_dispatcher_.get())
+  if (!intents_dispatcher_)
     return;
 
   if (service_tab_) {
@@ -211,19 +213,32 @@ void WebIntentPickerController::OnCancelled() {
 void WebIntentPickerController::OnClosing() {
 }
 
-void WebIntentPickerController::OnSendReturnMessage() {
+void WebIntentPickerController::OnSendReturnMessage(
+    webkit_glue::WebIntentReplyType reply_type) {
   ClosePicker();
 
-  if (service_tab_) {
+  if (service_tab_ &&
+      reply_type != webkit_glue::WEB_INTENT_SERVICE_TAB_CLOSED) {
     int index = TabStripModel::kNoTab;
     Browser* browser = Browser::GetBrowserForController(
         &service_tab_->GetController(), &index);
     if (browser) {
       browser->tabstrip_model()->CloseTabContentsAt(
           index, TabStripModel::CLOSE_CREATE_HISTORICAL_TAB);
+
+      // Activate source tab.
+      Browser* source_browser =
+          BrowserList::FindBrowserWithWebContents(wrapper_->web_contents());
+      if (source_browser) {
+        int source_index =
+            source_browser->tabstrip_model()->GetIndexOfTabContents(wrapper_);
+        source_browser->ActivateTabAt(source_index, false);
+      }
     }
     service_tab_ = NULL;
   }
+
+  intents_dispatcher_ = NULL;
 }
 
 void WebIntentPickerController::OnWebIntentDataAvailable(
