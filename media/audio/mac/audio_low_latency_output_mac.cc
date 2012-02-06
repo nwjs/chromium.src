@@ -354,7 +354,7 @@ double AUAudioOutputStream::GetHardwareLatency() {
   DLOG_IF(WARNING, result != noErr) << "Could not get audio stream latency.";
 
   return static_cast<double>((audio_unit_latency_sec *
-      format_.mSampleRate) + device_latency_frames + stream_latency_frames);
+      format_.mSampleRate) + device_latency_frames);
 }
 
 double AUAudioOutputStream::GetPlayoutLatency(
