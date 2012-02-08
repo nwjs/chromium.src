@@ -271,9 +271,7 @@ void ScreenLocker::OnLoginSuccess(
         ProfileSyncServiceFactory::GetInstance()->GetForProfile(profile));
     if (service && !service->HasSyncSetupCompleted()) {
       // If sync has failed somehow, try setting the sync passphrase here.
-      service->SetPassphrase(password,
-                             ProfileSyncService::IMPLICIT,
-                             ProfileSyncService::INTERNAL);
+      service->SetPassphrase(password, false);
     }
   }
   DBusThreadManager::Get()->GetPowerManagerClient()->
