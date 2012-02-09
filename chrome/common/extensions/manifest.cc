@@ -60,6 +60,7 @@ struct Restrictions {
     map[keys::kConvertedFromUserScript] = all_but_themes;
     map[keys::kNaClModules] = all_but_themes;
     map[keys::kPlugins] = all_but_themes;
+    map[keys::kIntents] = all_but_themes;
 
     // Extensions and packaged apps.
     int ext_and_packaged =
@@ -78,7 +79,6 @@ struct Restrictions {
     map[keys::kIncognito] = local_apps_and_ext;
     map[keys::kInputComponents] = local_apps_and_ext;
     map[keys::kTtsEngine] = local_apps_and_ext;
-    map[keys::kIntents] = local_apps_and_ext;
   }
 
   // Returns true if the |key| is recognized.
