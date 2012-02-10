@@ -19,6 +19,7 @@
       'targets': [
         {
           'target_name': 'libpng',
+          'type': '<(component)',
           'dependencies': [
             '../zlib/zlib.gyp:zlib',
           ],
@@ -62,13 +63,6 @@
           ],
           'conditions': [
             ['OS!="win"', {'product_name': 'png'}],
-            ['OS=="win"', {
-              'type': '<(component)',
-            }, {
-              # Chromium libpng does not support building as a shared_library
-              # on non-Windows platforms.
-              'type': 'static_library',
-            }],
             ['OS=="win" and component=="shared_library"', {
               'defines': [
                 'PNG_BUILD_DLL',
