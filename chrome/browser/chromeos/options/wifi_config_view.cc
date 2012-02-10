@@ -618,7 +618,7 @@ bool WifiConfigView::Login() {
       if (passphrase != wifi->passphrase())
         wifi->SetPassphrase(passphrase);
     }
-    bool share_default = (wifi->profile_type() == PROFILE_SHARED);
+    bool share_default = (wifi->profile_type() != PROFILE_USER);
     cros->ConnectToWifiNetwork(wifi, GetShareNetwork(share_default));
     // Connection failures are responsible for updating the UI, including
     // reopening dialogs.
@@ -649,7 +649,7 @@ bool WifiConfigView::GetSaveCredentials() const {
 }
 
 bool WifiConfigView::GetShareNetwork(bool share_default) const {
-  if (!share_network_checkbox_ || !share_network_checkbox_->IsEnabled())
+  if (!share_network_checkbox_)
     return share_default;
   return share_network_checkbox_->checked();
 }
