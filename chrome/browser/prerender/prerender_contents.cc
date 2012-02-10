@@ -235,7 +235,7 @@ void PrerenderContents::StartPrerendering(
   prerender_contents_.reset(new TabContentsWrapper(new_contents));
   TabContentsObserver::Observe(new_contents);
 
-  gfx::Rect tab_bounds;
+  gfx::Rect tab_bounds(640, 480);
   if (source_render_view_host) {
     DCHECK(source_render_view_host->view() != NULL);
     TabContents* source_tc =
@@ -252,7 +252,8 @@ void PrerenderContents::StartPrerendering(
     if (active_browser) {
       TabContents* active_tab_contents = active_browser->GetTabContentsAt(
           active_browser->active_index());
-      active_tab_contents->view()->GetContainerBounds(&tab_bounds);
+      if (active_tab_contents)
+        active_tab_contents->view()->GetContainerBounds(&tab_bounds);
     }
   }
 
