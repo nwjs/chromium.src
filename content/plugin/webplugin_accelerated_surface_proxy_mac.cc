@@ -17,8 +17,9 @@
 WebPluginAcceleratedSurfaceProxy* WebPluginAcceleratedSurfaceProxy::Create(
     WebPluginProxy* plugin_proxy,
     gfx::GpuPreference gpu_preference) {
+  // && false => workaround for http://crbug.com/113703
   bool composited = !CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kDisableCompositedCoreAnimationPlugins);
+      switches::kDisableCompositedCoreAnimationPlugins) && false;
 
   // Require IOSurface support for drawing Core Animation plugins.
   if (composited && !IOSurfaceSupport::Initialize())

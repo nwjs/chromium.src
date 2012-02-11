@@ -75,8 +75,9 @@ static bool SupportsSharingAcceleratedSurfaces() {
 }
 
 static bool UsingCompositedCoreAnimationPlugins() {
+  // && false => workaround for http://crbug.com/113703
   return !CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kDisableCompositedCoreAnimationPlugins);
+      switches::kDisableCompositedCoreAnimationPlugins) && false;
 }
 #endif
 
