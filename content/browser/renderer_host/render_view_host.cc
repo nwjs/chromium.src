@@ -237,13 +237,9 @@ void RenderViewHost::Navigate(const ViewMsg_Navigate_Params& params) {
     DCHECK(!suspended_nav_message_.get());
     suspended_nav_message_.reset(nav_message);
   } else {
-    // Unset this, otherwise if true and the hang monitor fires we'll
-    // incorrectly close the tab.
-    is_waiting_for_unload_ack_ = false;
-
-    // Unset this, in case we never finished committing a previous RVH swap.
-    // Otherwise we'll filter out the messages for this navigation.
-    is_swapped_out_ = false;
+    // Get back to a clean state, in case we start a new navigation without
+    // completing a RVH swap or unload handler.
+    SetSwappedOut(false);
 
     Send(nav_message);
   }
@@ -287,7 +283,8 @@ void RenderViewHost::SetNavigationsSuspended(bool suspend) {
     // There's a navigation message waiting to be sent.  Now that we're not
     // suspended anymore, resume navigation by sending it.  If we were swapped
     // out, we should also stop filtering out the IPC messages now.
-    is_swapped_out_ = false;
+    SetSwappedOut(false);
+
     Send(suspended_nav_message_.release());
   }
 }
@@ -371,7 +368,7 @@ void RenderViewHost::WasSwappedOut() {
   // for that message, and additional IPC messages may keep streaming in.
   // We filter them out, as long as that won't cause problems (e.g., we
   // still allow synchronous messages through).
-  is_swapped_out_ = true;
+  SetSwappedOut(true);
 
   // Inform the renderer that it can exit if no one else is using it.
   Send(new ViewMsg_WasSwappedOut(routing_id()));
@@ -1548,6 +1545,16 @@ void RenderViewHost::OnWebUISend(const GURL& source_url,
                                  const std::string& name,
                                  const base::ListValue& args) {
   delegate_->WebUISend(this, source_url, name, args);
+}
+
+void RenderViewHost::SetSwappedOut(bool is_swapped_out) {
+  is_swapped_out_ = is_swapped_out;
+
+  // Whenever we change swap out state, we should not be waiting for
+  // beforeunload or unload acks.  We clear them here to be safe, since they
+  // can cause navigations to be ignored in OnMsgNavigate.
+  is_waiting_for_beforeunload_ack_ = false;
+  is_waiting_for_unload_ack_ = false;
 }
 
 void RenderViewHost::ClearPowerSaveBlockers() {
