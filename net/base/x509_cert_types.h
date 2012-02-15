@@ -57,9 +57,6 @@ struct NET_EXPORT CertPrincipal {
 #endif
 
 #if defined(OS_MACOSX)
-  // Parses a CSSM_X509_NAME struct.
-  void Parse(const CSSM_X509_NAME* name);
-
   // Compare this CertPrincipal with |against|, returning true if they're
   // equal enough to be a possible match. This should NOT be used for any
   // security relevant decisions.
