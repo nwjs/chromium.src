@@ -1592,21 +1592,6 @@ void SpdySession::UpdateStreamsSendWindowSize(int32 delta_window_size) {
     DCHECK(stream);
     stream->AdjustSendWindowSize(delta_window_size);
   }
-
-  for (int i = 0; i < NUM_PRIORITIES; ++i) {
-    PendingCreateStreamQueue tmp;
-    while (!create_stream_queues_[i].empty()) {
-      PendingCreateStream pending_create = create_stream_queues_[i].front();
-      const scoped_refptr<SpdyStream>& stream = *(pending_create.spdy_stream);
-      stream->AdjustSendWindowSize(delta_window_size);
-      create_stream_queues_[i].pop();
-      tmp.push(pending_create);
-    }
-    while (!tmp.empty()) {
-      create_stream_queues_[i].push(tmp.front());
-      tmp.pop();
-    }
-  }
 }
 
 void SpdySession::SendPrefacePingIfNoneInFlight() {
