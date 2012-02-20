@@ -11,9 +11,7 @@
 #include "chrome/browser/chromeos/cros/network_library.h"
 #include "ui/gfx/native_widget_types.h"
 
-namespace content {
 class WebUI;
-}
 
 namespace chromeos {
 
