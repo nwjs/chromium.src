@@ -8,6 +8,7 @@
 
 #include "base/values.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
+#include "chrome/browser/chromeos/login/base_login_display_host.h"
 #include "chrome/browser/chromeos/login/login_display_host.h"
 #include "chrome/browser/ui/webui/web_ui_util.h"
 #include "content/browser/webui/web_ui.h"
