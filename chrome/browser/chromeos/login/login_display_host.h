@@ -40,6 +40,9 @@ class LoginDisplayHost {
   // Sets current step on OOBE progress bar.
   virtual void SetOobeProgress(BackgroundView::LoginStep step) = 0;
 
+  // Open proxy settings dialog.
+  virtual void OpenProxySettings() = 0;
+
   // Toggles OOBE progress bar visibility, the bar is hidden by default.
   virtual void SetOobeProgressBarVisible(bool visible) = 0;
 

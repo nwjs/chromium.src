@@ -66,6 +66,9 @@ class WebUILoginView : public views::WidgetDelegateView,
   // Returns current WebUI.
   WebUI* GetWebUI();
 
+  // Opens proxy settings dialog.
+  void OpenProxySettings();
+
   // Toggles whether status area is enabled.
   void SetStatusAreaEnabled(bool enable);
 

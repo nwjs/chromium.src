@@ -59,6 +59,11 @@ gfx::NativeWindow WebUILoginDisplayHost::GetNativeWindow() const {
 void WebUILoginDisplayHost::SetOobeProgress(BackgroundView::LoginStep step) {
 }
 
+void WebUILoginDisplayHost::OpenProxySettings() {
+  if (login_view_)
+    login_view_->OpenProxySettings();
+}
+
 void WebUILoginDisplayHost::SetOobeProgressBarVisible(bool visible) {
   GetOobeUI()->ShowOobeUI(visible);
 }
