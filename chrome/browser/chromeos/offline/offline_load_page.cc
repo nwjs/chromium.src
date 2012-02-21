@@ -29,6 +29,7 @@
 #include "content/public/browser/notification_types.h"
 #include "grit/browser_resources.h"
 #include "grit/generated_resources.h"
+#include "net/base/escape.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 
@@ -125,7 +126,7 @@ void OfflineLoadPage::GetAppOfflineStrings(
   strings->SetString(
       "msg",
       l10n_util::GetStringFUTF16(IDS_APP_OFFLINE_LOAD_DESCRIPTION,
-                                 failed_url));
+                                 net::EscapeForHTML(failed_url)));
 }
 
 void OfflineLoadPage::GetNormalOfflineStrings(
@@ -139,7 +140,7 @@ void OfflineLoadPage::GetNormalOfflineStrings(
   strings->SetString(
       "msg",
       l10n_util::GetStringFUTF16(IDS_SITE_OFFLINE_LOAD_DESCRIPTION,
-                                 failed_url));
+                                 net::EscapeForHTML(failed_url)));
 }
 
 void OfflineLoadPage::CommandReceived(const std::string& cmd) {
