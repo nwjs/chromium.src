@@ -35,6 +35,11 @@ void Statement::Assign(scoped_refptr<Connection::StatementRef> ref) {
   ref_ = ref;
 }
 
+void Statement::Clear() {
+  Assign(new Connection::StatementRef);
+  succeeded_ = false;
+}
+
 bool Statement::Run() {
   if (!is_valid())
     return false;
