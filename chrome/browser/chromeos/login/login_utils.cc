@@ -1000,6 +1000,7 @@ std::string LoginUtilsImpl::GetOffTheRecordCommandLine(
       switches::kLoginProfile,
       switches::kScrollPixels,
       switches::kNoFirstRun,
+      switches::kPpapiFlashArgs,
       switches::kPpapiFlashInProcess,
       switches::kPpapiFlashPath,
       switches::kPpapiFlashVersion,
