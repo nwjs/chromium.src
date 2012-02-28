@@ -1663,9 +1663,6 @@ void PepperPluginDelegateImpl::OnConnectTcpACK(
 }
 
 uint32 PepperPluginDelegateImpl::TCPSocketCreate() {
-  if (!CanUseSocketAPIs())
-    return 0;
-
   uint32 socket_id = 0;
   render_view_->Send(new PpapiHostMsg_PPBTCPSocket_Create(
       render_view_->routing_id(), 0, &socket_id));
@@ -1678,8 +1675,8 @@ void PepperPluginDelegateImpl::TCPSocketConnect(
     const std::string& host,
     uint16_t port) {
   tcp_sockets_.AddWithID(socket, socket_id);
-  render_view_->Send(
-      new PpapiHostMsg_PPBTCPSocket_Connect(socket_id, host, port));
+  render_view_->Send(new PpapiHostMsg_PPBTCPSocket_Connect(
+      render_view_->routing_id(), socket_id, host, port));
 }
 
 void PepperPluginDelegateImpl::TCPSocketConnectWithNetAddress(
@@ -1687,8 +1684,8 @@ void PepperPluginDelegateImpl::TCPSocketConnectWithNetAddress(
       uint32 socket_id,
       const PP_NetAddress_Private& addr) {
   tcp_sockets_.AddWithID(socket, socket_id);
-  render_view_->Send(
-      new PpapiHostMsg_PPBTCPSocket_ConnectWithNetAddress(socket_id, addr));
+  render_view_->Send(new PpapiHostMsg_PPBTCPSocket_ConnectWithNetAddress(
+      render_view_->routing_id(), socket_id, addr));
 }
 
 void PepperPluginDelegateImpl::TCPSocketSSLHandshake(
@@ -1722,9 +1719,6 @@ void PepperPluginDelegateImpl::TCPSocketDisconnect(uint32 socket_id) {
 }
 
 uint32 PepperPluginDelegateImpl::UDPSocketCreate() {
-  if (!CanUseSocketAPIs())
-    return 0;
-
   uint32 socket_id = 0;
   render_view_->Send(new PpapiHostMsg_PPBUDPSocket_Create(
       render_view_->routing_id(), 0, &socket_id));
@@ -1736,7 +1730,8 @@ void PepperPluginDelegateImpl::UDPSocketBind(
     uint32 socket_id,
     const PP_NetAddress_Private& addr) {
   udp_sockets_.AddWithID(socket, socket_id);
-  render_view_->Send(new PpapiHostMsg_PPBUDPSocket_Bind(socket_id, addr));
+  render_view_->Send(new PpapiHostMsg_PPBUDPSocket_Bind(
+      render_view_->routing_id(), socket_id, addr));
 }
 
 void PepperPluginDelegateImpl::UDPSocketRecvFrom(uint32 socket_id,
@@ -2094,16 +2089,6 @@ PepperPluginDelegateImpl::GetParentContextForPlatformContext3D() {
   if (!parent_context)
     return NULL;
   return parent_context;
-}
-
-bool PepperPluginDelegateImpl::CanUseSocketAPIs() {
-  WebView* webview = render_view_->webview();
-  WebFrame* main_frame = webview ? webview->mainFrame() : NULL;
-  GURL url(main_frame ? GURL(main_frame->document().url()) : GURL());
-  if (!url.is_valid())
-    return false;
-
-  return content::GetContentClient()->renderer()->AllowSocketAPI(url);
 }
 
 MouseLockDispatcher::LockTarget*

@@ -57,12 +57,13 @@ TCPSocket::~TCPSocket() {
 }
 
 void TCPSocket::SendConnect(const std::string& host, uint16_t port) {
-  SendToBrowser(new PpapiHostMsg_PPBTCPSocket_Connect(socket_id_, host, port));
+  SendToBrowser(new PpapiHostMsg_PPBTCPSocket_Connect(
+      API_ID_PPB_TCPSOCKET_PRIVATE, socket_id_, host, port));
 }
 
 void TCPSocket::SendConnectWithNetAddress(const PP_NetAddress_Private& addr) {
-  SendToBrowser(
-      new PpapiHostMsg_PPBTCPSocket_ConnectWithNetAddress(socket_id_, addr));
+  SendToBrowser(new PpapiHostMsg_PPBTCPSocket_ConnectWithNetAddress(
+      API_ID_PPB_TCPSOCKET_PRIVATE, socket_id_, addr));
 }
 
 void TCPSocket::SendSSLHandshake(const std::string& server_name,

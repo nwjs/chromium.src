@@ -19,7 +19,7 @@ class TestUDPSocketPrivateDisallowed : public TestCase {
   virtual void RunTests(const std::string& filter);
 
  private:
-  std::string TestCreate();
+  std::string TestBind();
 
   const PPB_UDPSocket_Private* udp_socket_private_interface_;
 };

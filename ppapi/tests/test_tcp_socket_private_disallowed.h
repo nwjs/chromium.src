@@ -19,7 +19,7 @@ class TestTCPSocketPrivateDisallowed : public TestCase {
   virtual void RunTests(const std::string& filter);
 
  private:
-  std::string TestCreate();
+  std::string TestConnect();
 
   const PPB_TCPSocket_Private* tcp_socket_private_interface_;
 };
