@@ -10,7 +10,6 @@
 #include <X11/XKBlib.h>
 #undef Status
 
-#include "chrome/browser/chromeos/accessibility/accessibility_util.h"
 #include "chrome/browser/chromeos/audio/audio_handler.h"
 #include "chrome/browser/chromeos/dbus/dbus_thread_manager.h"
 #include "chrome/browser/chromeos/dbus/power_manager_client.h"
@@ -343,16 +342,9 @@ bool SystemKeyEventListener::ProcessedXEvent(XEvent* xevent) {
       if (XKeycodeToKeysym(ui::GetXDisplay(), keycode, 0) == XK_Super_L) {
         const bool shift_is_held = (state & ShiftMask);
         const bool other_mods_are_held = (state & ~(ShiftMask | LockMask));
-
-        // When spoken feedback is enabled, the Search key is used as an
-        // accessibility modifier key.
-        const bool accessibility_enabled =
-            accessibility::IsSpokenFeedbackEnabled();
-
-        if (shift_is_held && !other_mods_are_held && !accessibility_enabled) {
+        if (shift_is_held && !other_mods_are_held)
           input_method_manager->GetXKeyboard()->SetCapsLockEnabled(
               !caps_lock_is_on_);
-        }
       }
 #endif
 
