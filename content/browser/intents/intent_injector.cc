@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -56,8 +56,8 @@ void IntentInjector::OnSendReturnMessage(
 
 void IntentInjector::RenderViewCreated(RenderViewHost* render_view_host) {
   if (source_intent_.get() == NULL ||
-      CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kDisableWebIntents) ||
+      !CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kEnableWebIntents) ||
       web_contents()->GetRenderViewHost() == NULL) {
     return;
   }
@@ -77,7 +77,7 @@ bool IntentInjector::OnMessageReceived(const IPC::Message& message) {
 
 void IntentInjector::OnReply(webkit_glue::WebIntentReplyType reply_type,
                              const string16& data) {
-  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kDisableWebIntents))
+  if (!CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableWebIntents))
     NOTREACHED();
 
   if (intents_dispatcher_) {

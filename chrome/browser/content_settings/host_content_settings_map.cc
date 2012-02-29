@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -311,7 +311,8 @@ bool HostContentSettingsMap::IsSettingAllowedForType(
     ContentSetting setting, ContentSettingsType content_type) {
   // Intents content settings are hidden behind a switch for now.
   if (content_type == CONTENT_SETTINGS_TYPE_INTENTS &&
-      CommandLine::ForCurrentProcess()->HasSwitch(switches::kDisableWebIntents))
+      !CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kEnableWebIntents))
     return false;
 
   // BLOCK semantics are not implemented for fullscreen.
