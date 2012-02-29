@@ -910,10 +910,13 @@ void LoginUtilsImpl::StartSync(
       // TODO(cros): This TokenService init if sync is not enabled (someone
       // passed the --disable-sync flag) should likely be handled at a higher
       // level.
-      token_service->Initialize(GaiaConstants::kChromeOSSource, user_profile);
-      token_service->LoadTokensFromDB();
     }
     password_ = "";
+  }
+  if (!token_service->Initialized()) {
+    // http://crosbug.com/26922
+    token_service->Initialize(GaiaConstants::kChromeOSSource, user_profile);
+    token_service->LoadTokensFromDB();
   }
   token_service->UpdateCredentials(credentials);
   if (token_service->AreCredentialsValid())
