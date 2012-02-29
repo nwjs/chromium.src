@@ -1,7 +1,8 @@
-# Copyright (c) 2011 The Chromium Authors. All rights reserved.
+# Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import chrome_test, cros_ui, cros_ui_test
 from blacklists import blacklist, blacklist_vm
 
@@ -30,7 +31,9 @@ def get_binary_prefix(arguments=[]):
 
 class desktopui_BrowserTest(chrome_test.ChromeTestBase, cros_ui_test.UITest):
     version = 1
-    binary_to_run='browser_tests'
+    binary_to_run = 'browser_tests'
+
+    MAX_TESTS_TO_RUN = 100
 
     def initialize(self, creds='$default', arguments=[]):
         if SKIP_DEPS_ARG in arguments:
@@ -54,15 +57,35 @@ class desktopui_BrowserTest(chrome_test.ChromeTestBase, cros_ui_test.UITest):
                 blacklist + blacklist_vm)
         return tests_to_run
 
+    def split_tests_into_smaller_arrays(self, tests):
+        """Returns a list of lists with tests partitioned into smaller arrays.
+
+        This splits the number of tests to smaller arrays that gtest can parse.
+        With > 500 tests, we reach the maxiumum character limit for strings and
+        our filters get cut off.
+        """
+        for index in xrange(0, len(tests), self.MAX_TESTS_TO_RUN):
+            yield tests[index:index + self.MAX_TESTS_TO_RUN]
+
     def run_once(self, group=0, total_groups=1, arguments=[]):
         tests_to_run = self.get_tests_to_run(group, total_groups, arguments)
+        last_error_message = None
+        for tests in self.split_tests_into_smaller_arrays(tests_to_run):
+          test_args = '--gtest_filter=%s' % ':'.join(tests)
+          args_to_pass = ' --'.join(extract_named_args(PASS_TO_TESTS_ARG,
+                                                       arguments))
+          if args_to_pass:
+              test_args += ' --' + args_to_pass
 
-        test_args = '--gtest_filter=%s' % ':'.join(tests_to_run);
-        args_to_pass = ' --'.join(extract_named_args(PASS_TO_TESTS_ARG,
-                                                     arguments));
-        if args_to_pass:
-          test_args += ' --' + args_to_pass
+          try:
+              self.run_chrome_test(self.binary_to_run,
+                                   test_args,
+                                   prefix=get_binary_prefix(arguments))
+          except error.TestFail as test_error:
+              # We only track the last_error message as we rely on gtest_runnner
+              # to parse the failures for us when run. Right now all this
+              # suppresses is multiple browser_tests failed messages.
+              last_error_message = test_error.message
 
-        self.run_chrome_test(self.binary_to_run,
-                             test_args,
-                             prefix=get_binary_prefix(arguments))
+        if last_error_message:
+            raise error.TestError(last_error_message)
