@@ -63,7 +63,7 @@ OfflineLoadPage::~OfflineLoadPage() {
 
 std::string OfflineLoadPage::GetHTMLContents() {
   DictionaryValue strings;
-  int64 time_to_wait = 0;  // kMaxBlankPeriod
+  int64 time_to_wait = kMaxBlankPeriod;
   // Set the timeout to show the page.
   strings.SetInteger("time_to_wait", static_cast<int>(time_to_wait));
   // Button labels
