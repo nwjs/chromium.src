@@ -508,6 +508,7 @@ BUG_OFF : css3/flexbox/position-absolute-child.html = TEXT
 BUG_OFF : http/tests/filesystem/workers/resolve-url-sync.html = TEXT
 BUG_OFF : http/tests/filesystem/workers/resolve-url.html = TEXT
 BUG_OFF : fast/multicol/span/generated-child-split-flow-crash.html = MISSING
+BUG_OFF : fast/events/remove-target-with-shadow-in-drag.html = TEXT
 
 BUG_OFF MAC : fast/dom/HTMLTableElement/colSpan.html = IMAGE+TEXT
 BUG_OFF MAC : fast/dom/HTMLTableElement/createCaption.html = IMAGE+TEXT
