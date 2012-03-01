@@ -2087,15 +2087,7 @@ gfx::GLSurfaceHandle RenderWidgetHostViewWin::GetCompositingSurface() {
 
   ui::SetWindowUserData(compositor_host_window_, this);
 
-  gfx::GLSurfaceHandle surface_handle(compositor_host_window_, true);
-
-  base::win::OSInfo *os_info = base::win::OSInfo::GetInstance();
-  if (os_info->version() >= base::win::VERSION_VISTA) {
-    accelerated_surface_.reset(new AcceleratedSurface);
-    surface_handle.accelerated_surface = accelerated_surface_.get();
-  }
-
-  return surface_handle;
+  return gfx::GLSurfaceHandle(compositor_host_window_, true);
 }
 
 void RenderWidgetHostViewWin::OnAcceleratedCompositingStateChange() {
@@ -2144,13 +2136,34 @@ void RenderWidgetHostViewWin::OnAcceleratedCompositingStateChange() {
 void RenderWidgetHostViewWin::AcceleratedSurfaceBuffersSwapped(
     const GpuHostMsg_AcceleratedSurfaceBuffersSwapped_Params& params,
     int gpu_host_id) {
-  NOTREACHED();
+  if (params.surface_handle) {
+    if (!accelerated_surface_.get() && compositor_host_window_) {
+      accelerated_surface_.reset(new AcceleratedSurface);
+    }
+
+    scoped_ptr<IPC::Message> message(
+        new AcceleratedSurfaceMsg_BuffersSwappedACK(params.route_id));
+    base::Closure acknowledge_task = base::Bind(
+        SendToGpuProcessHost,
+        gpu_host_id,
+        base::Passed(&message));
+
+    accelerated_surface_->AsyncPresentAndAcknowledge(
+        compositor_host_window_,
+        params.size,
+        params.surface_handle,
+        base::Bind(PostTaskOnIOThread,
+                   FROM_HERE,
+                   acknowledge_task));
+  } else {
+    RenderWidgetHost::AcknowledgeSwapBuffers(params.route_id, gpu_host_id);
+  }
 }
 
 void RenderWidgetHostViewWin::AcceleratedSurfacePostSubBuffer(
     const GpuHostMsg_AcceleratedSurfacePostSubBuffer_Params& params,
     int gpu_host_id) {
-  NOTREACHED();
+  RenderWidgetHost::AcknowledgePostSubBuffer(params.route_id, gpu_host_id);
 }
 
 void RenderWidgetHostViewWin::AcceleratedSurfaceSuspend() {
