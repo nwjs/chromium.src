@@ -105,7 +105,7 @@ bool CreateRandomMemoryHole() {
     const uint32_t wait = kMaxWaitSeconds - (rand_val / kRandomValueDivisor);
     MessageLoop::current()->PostDelayedTask(FROM_HERE,
         base::Bind(&FreeRandomMemoryHole, hole),
-        base::TimeDelta::FromSeconds(wait));
+        base::TimeDelta::FromSeconds(wait).InMilliseconds());
     return true;
   }
 
