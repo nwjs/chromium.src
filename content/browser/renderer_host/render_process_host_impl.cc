@@ -491,8 +491,9 @@ void RenderProcessHostImpl::CreateMessageFilters() {
       &GetBrowserContext()->GetResourceContext(), GetID()));
   channel_->AddFilter(new PepperFileMessageFilter(GetID(),
                       GetBrowserContext()));
-  channel_->AddFilter(
-      new PepperMessageFilter(&GetBrowserContext()->GetResourceContext()));
+  channel_->AddFilter(new PepperMessageFilter(
+      PepperMessageFilter::RENDERER, GetID(),
+      &GetBrowserContext()->GetResourceContext()));
   channel_->AddFilter(new speech_input::SpeechInputDispatcherHost(
       GetID(), GetBrowserContext()->GetRequestContext(),
       GetBrowserContext()->GetSpeechInputPreferences()));

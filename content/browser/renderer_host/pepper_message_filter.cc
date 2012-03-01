@@ -49,17 +49,26 @@ const uint32 kInvalidSocketID = 0;
 }  // namespace
 
 PepperMessageFilter::PepperMessageFilter(
+    ProcessType type,
+    int process_id,
     const content::ResourceContext* resource_context)
-    : resource_context_(resource_context),
+    : process_type_(type),
+      process_id_(process_id),
+      resource_context_(resource_context),
       host_resolver_(NULL),
       next_socket_id_(1) {
+  DCHECK(type == RENDERER);
   DCHECK(resource_context_);
 }
 
-PepperMessageFilter::PepperMessageFilter(net::HostResolver* host_resolver)
-    : resource_context_(NULL),
+PepperMessageFilter::PepperMessageFilter(ProcessType type,
+                                         net::HostResolver* host_resolver)
+    : process_type_(type),
+      process_id_(0),
+      resource_context_(NULL),
       host_resolver_(host_resolver),
       next_socket_id_(1) {
+  DCHECK(type == PLUGIN);
   DCHECK(host_resolver);
 }
 
