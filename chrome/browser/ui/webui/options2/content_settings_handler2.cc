@@ -20,6 +20,7 @@
 #include "chrome/browser/custom_handlers/protocol_handler_registry.h"
 #include "chrome/browser/notifications/desktop_notification_service.h"
 #include "chrome/browser/notifications/desktop_notification_service_factory.h"
+#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/common/chrome_notification_types.h"
@@ -671,6 +672,33 @@ void ContentSettingsHandler::RegisterMessages() {
                  base::Unretained(this)));
 }
 
+void ContentSettingsHandler::ApplyWhitelist(ContentSettingsType content_type,
+                                            ContentSetting default_setting) {
+  Profile* profile = Profile::FromWebUI(web_ui());
+  HostContentSettingsMap* map = GetContentSettingsMap();
+  if (content_type != CONTENT_SETTINGS_TYPE_PLUGINS)
+    return;
+  const int kDefaultWhitelistVersion = 1;
+  PrefService* prefs = profile->GetPrefs();
+  int version = prefs->GetInteger(
+      prefs::kContentSettingsDefaultWhitelistVersion);
+  if (version >= kDefaultWhitelistVersion)
+    return;
+  ContentSetting old_setting =
+      map->GetDefaultContentSetting(CONTENT_SETTINGS_TYPE_PLUGINS, NULL);
+  if (old_setting == CONTENT_SETTING_ALLOW &&
+      default_setting == CONTENT_SETTING_ASK) {
+    map->SetWebsiteSetting(
+        ContentSettingsPattern::Wildcard(),
+        ContentSettingsPattern::Wildcard(),
+        CONTENT_SETTINGS_TYPE_PLUGINS,
+        "google-talk",
+        Value::CreateIntegerValue(CONTENT_SETTING_ALLOW));
+  }
+  prefs->SetInteger(prefs::kContentSettingsDefaultWhitelistVersion,
+                    kDefaultWhitelistVersion);
+}
+
 void ContentSettingsHandler::SetContentFilter(const ListValue* args) {
   DCHECK_EQ(2U, args->GetSize());
   std::string group, setting;
@@ -687,8 +715,9 @@ void ContentSettingsHandler::SetContentFilter(const ListValue* args) {
     DesktopNotificationServiceFactory::GetForProfile(profile)->
         SetDefaultContentSetting(default_setting);
   } else {
-    GetContentSettingsMap()->
-        SetDefaultContentSetting(content_type, default_setting);
+    HostContentSettingsMap* map = GetContentSettingsMap();
+    ApplyWhitelist(content_type, default_setting);
+    map->SetDefaultContentSetting(content_type, default_setting);
   }
   switch (content_type) {
     case CONTENT_SETTINGS_TYPE_COOKIES:
