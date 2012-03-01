@@ -775,6 +775,8 @@ TEST_F(ExtensionManifestTest, TtsEngine) {
 }
 
 TEST_F(ExtensionManifestTest, WebIntents) {
+  CommandLine::ForCurrentProcess()->AppendSwitch(switches::kEnableWebIntents);
+
   Testcase testcases[] = {
     {"intent_invalid_1.json", errors::kInvalidIntents},
     {"intent_invalid_2.json", errors::kInvalidIntent},
@@ -818,6 +820,8 @@ TEST_F(ExtensionManifestTest, WebIntents) {
 }
 
 TEST_F(ExtensionManifestTest, WebIntentsWithMultipleMimeTypes) {
+  CommandLine::ForCurrentProcess()->AppendSwitch(switches::kEnableWebIntents);
+
   scoped_refptr<Extension> extension(
       LoadAndExpectSuccess("intent_valid_multitype.json"));
   ASSERT_TRUE(extension.get() != NULL);
@@ -843,28 +847,6 @@ TEST_F(ExtensionManifestTest, WebIntentsWithMultipleMimeTypes) {
 
   LoadAndExpectError("intent_invalid_type_element.json",
                      extension_manifest_errors::kInvalidIntentTypeElement);
-}
-
-TEST_F(ExtensionManifestTest,WebIntentsInHostedApps) {
-  LoadAndExpectError("intent_invalid_hosted_app_1.json",
-                     errors::kInvalidIntentPageInHostedApp);
-  LoadAndExpectError("intent_invalid_hosted_app_2.json",
-                     errors::kInvalidIntentPageInHostedApp);
-  LoadAndExpectError("intent_invalid_hosted_app_3.json",
-                     errors::kInvalidIntentPageInHostedApp);
-
-  scoped_refptr<Extension> extension(
-      LoadAndExpectSuccess("intent_valid_hosted_app.json"));
-  ASSERT_TRUE(extension.get() != NULL);
-
-  ASSERT_EQ(3u, extension->intents_services().size());
-
-  EXPECT_EQ("http://www.cfp.com/intents/edit.html",
-            extension->intents_services()[0].service_url.spec());
-  EXPECT_EQ("http://www.cloudfilepicker.com/",
-            extension->intents_services()[1].service_url.spec());
-  EXPECT_EQ("http://www.cloudfilepicker.com/intents/share.html",
-            extension->intents_services()[2].service_url.spec());
 }
 
 TEST_F(ExtensionManifestTest, PortsInPermissions) {
