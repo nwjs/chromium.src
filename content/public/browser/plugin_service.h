@@ -116,6 +116,10 @@ class PluginService {
   virtual void SetFilter(PluginServiceFilter* filter) = 0;
   virtual PluginServiceFilter* GetFilter() = 0;
 
+  // Used to monitor plug-in stability. An unstable plug-in is one that has
+  // crashed more than a set number of times in a set time period.
+  virtual bool IsPluginUnstable(const FilePath& plugin_path) = 0;
+
   // The following functions are wrappers around webkit::npapi::PluginList.
   // These must be used instead of those in order to ensure that we have a
   // single global list in the component build and so that we don't
