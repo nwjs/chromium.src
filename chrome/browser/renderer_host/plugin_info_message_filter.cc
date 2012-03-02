@@ -176,7 +176,8 @@ void PluginInfoMessageFilter::DecidePluginStatus(
   }
 
   // Check if the plug-in requires authorization.
-  if (group->RequiresAuthorization(*plugin) &&
+  if ((group->RequiresAuthorization(*plugin) ||
+       PluginService::GetInstance()->IsPluginUnstable(plugin->path)) &&
       !always_authorize &&
       plugin_setting != CONTENT_SETTING_BLOCK &&
       uses_default_content_setting) {

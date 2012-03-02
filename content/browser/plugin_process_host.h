@@ -141,6 +141,7 @@ class CONTENT_EXPORT PluginProcessHost : public BrowserChildProcessHost {
 #endif
 
   virtual bool CanShutdown() OVERRIDE;
+  virtual void OnProcessCrashed(int exit_code) OVERRIDE;
 
   void CancelRequests();
 

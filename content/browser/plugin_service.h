@@ -9,6 +9,7 @@
 #define CONTENT_BROWSER_PLUGIN_SERVICE_H_
 #pragma once
 
+#include <map>
 #include <set>
 #include <string>
 #include <vector>
@@ -18,6 +19,7 @@
 #include "base/memory/scoped_vector.h"
 #include "base/memory/singleton.h"
 #include "base/synchronization/waitable_event_watcher.h"
+#include "base/time.h"
 #include "build/build_config.h"
 #include "content/browser/plugin_process_host.h"
 #include "content/browser/ppapi_plugin_process_host.h"
@@ -182,6 +184,9 @@ class CONTENT_EXPORT PluginService
   }
   content::PluginServiceFilter* filter() { return filter_; }
 
+  bool IsPluginUnstable(const FilePath& plugin_path);
+  void RegisterPluginCrash(const FilePath& plugin_path);
+
   // The following functions are wrappers around webkit::npapi::PluginList.
   // These must be used instead of those in order to ensure that we have a
   // single global list in the component build and so that we don't
@@ -287,6 +292,9 @@ class CONTENT_EXPORT PluginService
 #if defined(OS_POSIX)
   scoped_refptr<PluginLoaderPosix> plugin_loader_;
 #endif
+
+  // Used to detect if a given plug-in is crashing over and over.
+  std::map<FilePath, std::vector<base::Time> > crash_times_;
 
   DISALLOW_COPY_AND_ASSIGN(PluginService);
 };

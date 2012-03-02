@@ -343,6 +343,10 @@ bool PluginProcessHost::CanShutdown() {
   return sent_requests_.empty();
 }
 
+void PluginProcessHost::OnProcessCrashed(int exit_code) {
+  PluginService::GetInstance()->RegisterPluginCrash(info_.path);
+}
+
 void PluginProcessHost::CancelRequests() {
   for (size_t i = 0; i < pending_requests_.size(); ++i)
     pending_requests_[i]->OnError();
