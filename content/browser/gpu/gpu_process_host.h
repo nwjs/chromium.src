@@ -23,6 +23,8 @@
 
 class GpuMainThread;
 struct GPUCreateCommandBufferConfig;
+struct GpuHostMsg_AcceleratedSurfaceBuffersSwapped_Params;
+struct GpuHostMsg_AcceleratedSurfacePostSubBuffer_Params;
 
 class BrowserChildProcessHostImpl;
 
@@ -107,6 +109,13 @@ class GpuProcessHost : public content::BrowserChildProcessHostDelegate,
   void OnChannelEstablished(const IPC::ChannelHandle& channel_handle);
   void OnCommandBufferCreated(const int32 route_id);
   void OnDestroyCommandBuffer(int32 surface_id);
+
+#if defined(OS_WIN) && !defined(USE_AURA)
+  void OnAcceleratedSurfaceBuffersSwapped(
+      const GpuHostMsg_AcceleratedSurfaceBuffersSwapped_Params& params);
+  void OnAcceleratedSurfacePostSubBuffer(
+      const GpuHostMsg_AcceleratedSurfacePostSubBuffer_Params& params);
+#endif
 
   bool LaunchGpuProcess(const std::string& channel_id);
 
