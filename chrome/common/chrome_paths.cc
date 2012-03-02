@@ -160,7 +160,7 @@ bool PathProvider(int key, FilePath* result) {
     case chrome::DIR_CRASH_DUMPS:
 #if defined(OS_CHROMEOS)
       // ChromeOS uses a separate directory. See http://crosbug.com/25089
-      cur = FILE_PATH_LITERAL("/var/log/chrome");
+      cur = FilePath("/var/log/chrome");
 #else
       // The crash reports are always stored relative to the default user data
       // directory.  This avoids the problem of having to re-initialize the
