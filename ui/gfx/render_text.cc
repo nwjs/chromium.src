@@ -12,12 +12,17 @@
 #include "base/stl_util.h"
 #include "third_party/skia/include/core/SkTypeface.h"
 #include "third_party/skia/include/effects/SkGradientShader.h"
+#include "ui/base/text/utf16_indexing.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/canvas_skia.h"
 #include "ui/gfx/native_theme.h"
-#include "unicode/uchar.h"
 
 namespace {
+
+// All chars are replaced by this char when the password style is set.
+// TODO(benrg): GTK uses the first of U+25CF, U+2022, U+2731, U+273A, '*'
+// that's available in the font (find_invisible_char() in gtkentry.c).
+const char16 kPasswordReplacementChar = '*';
 
 // Color settings for text, backgrounds and cursor.
 // These are tentative, and should be derived from theme, system
@@ -378,6 +383,14 @@ void RenderText::ToggleInsertMode() {
   cached_bounds_and_offset_valid_ = false;
 }
 
+void RenderText::SetObscured(bool obscured) {
+  if (obscured != obscured_) {
+    obscured_ = obscured;
+    cached_bounds_and_offset_valid_ = false;
+    UpdateLayout();
+  }
+}
+
 void RenderText::SetDisplayRect(const Rect& r) {
   display_rect_ = r;
   cached_bounds_and_offset_valid_ = false;
@@ -501,6 +514,11 @@ void RenderText::SelectAll() {
 }
 
 void RenderText::SelectWord() {
+  if (obscured_) {
+    SelectAll();
+    return;
+  }
+
   size_t cursor_position = GetCursorPosition();
 
   base::i18n::BreakIterator iter(text(), base::i18n::BreakIterator::BREAK_WORD);
@@ -619,6 +637,7 @@ RenderText::RenderText()
       insert_mode_(true),
       focused_(false),
       composition_range_(ui::Range::InvalidRange()),
+      obscured_(false),
       fade_head_(false),
       fade_tail_(false),
       cached_bounds_and_offset_valid_(false) {
@@ -653,6 +672,14 @@ void RenderText::SetSelectionModel(const SelectionModel& model) {
   selection_model_.set_caret_placement(model.caret_placement());
 
   cached_bounds_and_offset_valid_ = false;
+}
+
+string16 RenderText::GetDisplayText() const {
+  if (!obscured_)
+    return text_;
+  size_t obscured_text_length =
+      static_cast<size_t>(ui::UTF16IndexToOffset(text_, 0, text_.length()));
+  return string16(obscured_text_length, kPasswordReplacementChar);
 }
 
 void RenderText::ApplyCompositionAndSelectionStyles(
