@@ -1343,6 +1343,7 @@ WebPreferences ChromeContentBrowserClient::GetWebkitPrefs(RenderViewHost* rvh) {
     if (gpu_data_manager->software_rendering()) {
       web_prefs.accelerated_video_enabled = false;
       web_prefs.accelerated_animation_enabled = false;
+      web_prefs.accelerated_layers_enabled = false;
     }
   }
 
