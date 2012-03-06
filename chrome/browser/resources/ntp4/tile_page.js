@@ -298,7 +298,7 @@ cr.define('ntp4', function() {
       if (opt_animate)
         this.firstChild.classList.add('removing-tile-contents');
       else
-        this.parentNode.removeChild(this);
+        this.tilePage.removeTile(this, false);
     },
 
     /**
