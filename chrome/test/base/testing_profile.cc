@@ -718,11 +718,6 @@ void TestingProfile::BlockUntilHistoryProcessesPendingRequests() {
   MessageLoop::current()->Run();
 }
 
-void TestingProfile::SetTokenService(TokenService* service) {
-  DCHECK(!token_service_.get());
-  token_service_.reset(service);
-}
-
 TokenService* TestingProfile::GetTokenService() {
   if (!token_service_.get()) {
     token_service_.reset(new TokenService());

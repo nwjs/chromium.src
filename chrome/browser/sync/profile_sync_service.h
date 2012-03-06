@@ -183,9 +183,13 @@ class ProfileSyncService : public browser_sync::SyncFrontend,
 
   void RegisterAuthNotifications();
 
-  // Return whether all sync tokens are loaded and available for the backend to
-  // start up. Virtual to enable mocking in tests.
+  // Same as AreCredentialsAvailable(false). Virtual to enable mocking in tests.
   virtual bool AreCredentialsAvailable();
+
+  // Return whether all sync tokens are loaded and available for the backend to
+  // start up. Also checks for OAuth login token if |check_oauth_login_token| is
+  // true.
+  bool AreCredentialsAvailable(bool check_oauth_login_token);
 
   // Registers a data type controller with the sync service.  This
   // makes the data type controller available for use, it does not

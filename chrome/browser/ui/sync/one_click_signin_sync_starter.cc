@@ -32,8 +32,7 @@ OneClickSigninSyncStarter::~OneClickSigninSyncStarter() {
 void OneClickSigninSyncStarter::GaiaCredentialsValid() {
 }
 
-void OneClickSigninSyncStarter::SigninFailed(
-    const GoogleServiceAuthError& error) {
+void OneClickSigninSyncStarter::SigninFailed() {
   delete this;
 }
 

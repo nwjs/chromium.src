@@ -68,7 +68,7 @@ class MockSyncSetupHandler : public OptionsSyncSetupHandler {
 
 class SigninManagerMock : public FakeSigninManager {
  public:
-  SigninManagerMock() {}
+  SigninManagerMock() : auth_error_(AuthError::None()) {}
 
   virtual void StartSignIn(const std::string& username,
                            const std::string& password,
@@ -80,12 +80,17 @@ class SigninManagerMock : public FakeSigninManager {
     captcha_ = captcha;
   }
 
+  virtual const AuthError& GetLoginAuthError() const OVERRIDE {
+    return auth_error_;
+  }
+
   void ResetTestStats() {
     username_.clear();
     password_.clear();
     captcha_.clear();
   }
 
+  AuthError auth_error_;
   std::string username_;
   std::string password_;
   std::string captcha_;
@@ -127,8 +132,9 @@ class ProfileSyncServiceForWizardTest : public ProfileSyncService {
   }
 
   void set_last_auth_error(const AuthError& error) {
-    // Set the cached auth error in ProfileSyncService.
+    // Set the cached auth error in the SigninManager and ProfileSyncService.
     last_auth_error_ = error;
+    mock_signin_.auth_error_ = error;
   }
 
   void set_is_using_secondary_passphrase(bool secondary) {
