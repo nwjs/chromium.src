@@ -522,7 +522,7 @@ class WebGraphicsContext3DCommandBufferImpl
   base::WeakPtrFactory<WebGraphicsContext3DCommandBufferImpl> weak_ptr_factory_;
 
 #ifdef FLIP_FRAMEBUFFER_VERTICALLY
-  scoped_array<uint8> scanline_;
+  std::vector<uint8> scanline_;
   void FlipVertically(uint8* framebuffer,
                       unsigned int width,
                       unsigned int height);
