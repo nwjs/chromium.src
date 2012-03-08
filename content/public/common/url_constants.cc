@@ -46,7 +46,7 @@ const char kStandardSchemeSeparator[] = "://";
 const char kAboutBlankURL[] = "about:blank";
 const char kAboutCrashURL[] = "about:crash";
 
-const char kUnreachableWebDataURL[] = "chrome://chromewebdata/";
+const char kUnreachableWebDataURL[] = "data:text/html,chromewebdata";
 
 const char** GetSavableSchemes() {
   return const_cast<const char**>(g_savable_schemes);
