@@ -148,7 +148,7 @@ static scoped_ptr<base::Lock> g_exec_mem_lock;
 bool UpdateExecMemSize(intptr_t size) {
   base::AutoLock locked(*g_exec_mem_lock);
 
-  const intptr_t kMaxPluginExecMemSizeSpike = 80 * 1024 * 1024;  // 80mb.
+  const intptr_t kMaxPluginExecMemSizeSpike = 96 * 1024 * 1024;  // 96mb.
   const DWORD kTimeLimit = 6;  // 6 minute timeout.
 
   static intptr_t s_exec_mem_size = 0;
