@@ -394,7 +394,8 @@ class Canvas2DPixelTestSD : public GpuPixelBrowserTest {
  public:
   virtual void SetUpCommandLine(CommandLine* command_line) {
     GpuPixelBrowserTest::SetUpCommandLine(command_line);
-    command_line->AppendSwitch(switches::kDisableAccelerated2dCanvas);
+    // accelerated canvas disabled by default in this branch.
+    //command_line->AppendSwitch(switches::kDisableAccelerated2dCanvas);
   }
 };
 

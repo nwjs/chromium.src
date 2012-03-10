@@ -106,7 +106,8 @@ class FrameRateTest
     if (!HasFlag(kUseGpu)) {
       launch_arguments_.AppendSwitch(switches::kDisableAcceleratedCompositing);
       launch_arguments_.AppendSwitch(switches::kDisableExperimentalWebGL);
-      launch_arguments_.AppendSwitch(switches::kDisableAccelerated2dCanvas);
+      // Accelerated 2d canvas is now disabled by default.
+      //launch_arguments_.AppendSwitch(switches::kDisableAccelerated2dCanvas);
     } else {
       // This switch is required for enabling the accelerated 2d canvas on
       // Chrome versions prior to Chrome 15, which may be the case for the

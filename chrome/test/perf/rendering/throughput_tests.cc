@@ -73,7 +73,8 @@ class ThroughputTest : public BrowserPerfTest {
     } else {
       command_line->AppendSwitch(switches::kDisableAcceleratedCompositing);
       command_line->AppendSwitch(switches::kDisableExperimentalWebGL);
-      command_line->AppendSwitch(switches::kDisableAccelerated2dCanvas);
+      // Accelerated canvas is disabled by default in this branch.
+      //command_line->AppendSwitch(switches::kDisableAccelerated2dCanvas);
     }
   }
 

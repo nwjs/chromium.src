@@ -310,7 +310,8 @@ class Canvas2DDisabledTest : public GpuFeatureTest {
  public:
   virtual void SetUpCommandLine(CommandLine* command_line) {
     GpuFeatureTest::SetUpCommandLine(command_line);
-    command_line->AppendSwitch(switches::kDisableAccelerated2dCanvas);
+    // Accelerated 2d canvas disabled by default.
+    //command_line->AppendSwitch(switches::kDisableAccelerated2dCanvas);
   }
 };
 
