@@ -218,6 +218,13 @@ const Experiment kExperiments[] = {
     kOsAll,
     SINGLE_VALUE_TYPE(switches::kDisableExperimentalWebGL)
   },
+  {
+    "gpu-canvas-2d",  // FLAGS:RECORD_UMA
+    IDS_FLAGS_ACCELERATED_CANVAS_2D_NAME,
+    IDS_FLAGS_ACCELERATED_CANVAS_2D_DESCRIPTION,
+    kOsWin | kOsLinux | kOsCrOS,
+    SINGLE_VALUE_TYPE(switches::kEnableAccelerated2dCanvas)
+  },
 
 #if defined(GOOGLE_CHROME_BUILD)
   // TODO(thestig) Remove this for bug 107600.
