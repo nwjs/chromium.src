@@ -322,8 +322,10 @@ bool AddPolicyForGPU(CommandLine* cmd_line, sandbox::TargetPolicy* policy) {
         policy->SetTokenLevel(sandbox::USER_RESTRICTED_SAME_ACCESS,
                               sandbox::USER_LIMITED);
       } else {
+        // Temporarily reduce sandbox level while we disable the use of image
+        // transport surface in all versions of windows.
         policy->SetTokenLevel(sandbox::USER_RESTRICTED_SAME_ACCESS,
-                              sandbox::USER_RESTRICTED);
+                              sandbox::USER_LIMITED);
       }
 
       // UI restrictions break when we access Windows from outside our job.
