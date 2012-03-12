@@ -79,6 +79,9 @@ class LoginDisplayHost {
 
   // Closes the login window.
   virtual void CloseWindow() = 0;
+
+  // Invoked when system preferences that affect the signin screen have changed.
+  virtual void OnPreferencesChanged() = 0;
 };
 
 }  // namespace chromeos

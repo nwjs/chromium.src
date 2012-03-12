@@ -37,7 +37,8 @@ WebUILoginDisplayHost::WebUILoginDisplayHost(const gfx::Rect& background_bounds)
     : BaseLoginDisplayHost(background_bounds),
       login_window_(NULL),
       login_view_(NULL),
-      webui_login_display_(NULL) {
+      webui_login_display_(NULL),
+      is_showing_login_(false) {
 }
 
 WebUILoginDisplayHost::~WebUILoginDisplayHost() {
@@ -85,6 +86,8 @@ void WebUILoginDisplayHost::SetStatusAreaVisible(bool visible) {
 
 void WebUILoginDisplayHost::StartWizard(const std::string& first_screen_name,
                                         DictionaryValue* screen_parameters) {
+  is_showing_login_ = false;
+
   scoped_ptr<DictionaryValue> scoped_parameters(screen_parameters);
   // This is a special case for WebUI. We don't want to go through the
   // OOBE WebUI page loading. Since we already have the browser we just
@@ -115,12 +118,19 @@ void WebUILoginDisplayHost::StartWizard(const std::string& first_screen_name,
 }
 
 void WebUILoginDisplayHost::StartSignInScreen() {
+  is_showing_login_ = true;
+
   if (!login_window_)
     LoadURL(GURL(kLoginURL));
 
   BaseLoginDisplayHost::StartSignInScreen();
   CHECK(webui_login_display_);
   GetOobeUI()->ShowSigninScreen(webui_login_display_);
+}
+
+void WebUILoginDisplayHost::OnPreferencesChanged() {
+  if (is_showing_login_)
+    webui_login_display_->OnPreferencesChanged();
 }
 
 void WebUILoginDisplayHost::CloseWindow() {

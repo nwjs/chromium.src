@@ -172,9 +172,8 @@ class ExistingUserController : public LoginDisplay::Delegate,
   // Subsequent disk space control checks are invoked by cryptohomed timer.
   void SetOwnerUserInCryptohome();
 
-  // Prepares and updates/initializes depending on |init| the |login_display_|
-  // attached to this controller.
-  void UpdateLoginDisplay(const UserList& users, bool init);
+  // Updates the |login_display_| attached to this controller.
+  void UpdateLoginDisplay(const UserList& users);
 
   // Used to execute login operations.
   scoped_ptr<LoginPerformer> login_performer_;

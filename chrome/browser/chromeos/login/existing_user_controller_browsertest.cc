@@ -41,7 +41,7 @@ class MockLoginDisplay : public LoginDisplay {
   }
 
   MOCK_METHOD4(Init, void(const UserList&, bool, bool, bool));
-  MOCK_METHOD4(PreferencesChanged, void(const UserList&, bool, bool, bool));
+  MOCK_METHOD0(OnPreferencesChanged, void(void));
   MOCK_METHOD1(OnUserImageChanged, void(const User&));
   MOCK_METHOD0(OnFadeOut, void(void));
   MOCK_METHOD1(OnLoginSuccess, void(const std::string&));
@@ -77,6 +77,7 @@ class MockLoginDisplayHost : public LoginDisplayHost {
   MOCK_METHOD0(StartSignInScreen, void(void));
   MOCK_METHOD0(ResumeSignInScreen, void(void));
   MOCK_METHOD0(CloseWindow, void(void));
+  MOCK_METHOD0(OnPreferencesChanged, void(void));
 
  private:
  DISALLOW_COPY_AND_ASSIGN(MockLoginDisplayHost);
