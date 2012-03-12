@@ -580,6 +580,20 @@ void RenderViewHost::DragSourceSystemDragEnded() {
 }
 
 void RenderViewHost::AllowBindings(int bindings_flags) {
+  // Ensure we aren't granting bindings to a process that has already
+  // been used for non-privileged views.
+  if (process()->HasConnection() &&
+      !ChildProcessSecurityPolicy::GetInstance()->HasWebUIBindings(
+          process()->GetID())) {
+    // This process has no bindings yet. Make sure it does not have more
+    // than this single view.
+    content::RenderProcessHost::listeners_iterator iter(
+        process()->ListenersIterator());
+    iter.Advance();
+    if (!iter.IsAtEnd())
+      return;
+  }
+
   if (bindings_flags & content::BINDINGS_POLICY_WEB_UI) {
     ChildProcessSecurityPolicy::GetInstance()->GrantWebUIBindings(
         process()->GetID());
@@ -592,8 +606,13 @@ void RenderViewHost::AllowBindings(int bindings_flags) {
 
 void RenderViewHost::SetWebUIProperty(const std::string& name,
                                       const std::string& value) {
-  DCHECK(enabled_bindings_  & content::BINDINGS_POLICY_WEB_UI);
-  Send(new ViewMsg_SetWebUIProperty(routing_id(), name, value));
+  // This is just a sanity check before telling the renderer to enable the
+  // property.  It could lie and send the corresponding IPC messages anyway,
+  // but we will not act on them if enabled_bindings_ doesn't agree.
+  if (enabled_bindings_ & content::BINDINGS_POLICY_WEB_UI)
+    Send(new ViewMsg_SetWebUIProperty(routing_id(), name, value));
+  else
+    NOTREACHED() << "WebUI bindings not enabled.";
 }
 
 void RenderViewHost::GotFocus() {
