@@ -382,12 +382,6 @@ WebPlugin* ChromeContentRendererClient::CreatePlugin(
       chrome::ChromeContentClient::kNaClPluginName));
   if (status.value == ChromeViewHostMsg_GetPluginInfo_Status::kAllowed ||
       observer->plugins_temporarily_allowed()) {
-    // Delay loading plugins if prerendering.
-    if (prerender::PrerenderHelper::IsPrerendering(render_view)) {
-      return BlockedPlugin::Create(
-          render_view, frame, params, plugin, group.get(),
-          IDR_CLICK_TO_PLAY_PLUGIN_HTML, IDS_PLUGIN_LOAD, true, true);
-    }
 
     // Determine if NaCl is allowed for both the internal plugin and
     // any external plugin that handles our MIME type. This is so NaCl
@@ -420,6 +414,13 @@ WebPlugin* ChromeContentRendererClient::CreatePlugin(
             render_view, frame, params, plugin, group.get(),
             IDR_BLOCKED_PLUGIN_HTML, IDS_PLUGIN_BLOCKED, false, false);
       }
+    }
+
+    // Delay loading plugins if prerendering.
+    if (prerender::PrerenderHelper::IsPrerendering(render_view)) {
+      return BlockedPlugin::Create(
+          render_view, frame, params, plugin, group.get(),
+          IDR_CLICK_TO_PLAY_PLUGIN_HTML, IDS_PLUGIN_LOAD, true, true);
     }
 
     return render_view->CreatePlugin(frame, plugin, params);
