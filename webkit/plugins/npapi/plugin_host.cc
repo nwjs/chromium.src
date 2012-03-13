@@ -74,8 +74,7 @@ static bool SupportsSharingAcceleratedSurfaces() {
 }
 
 static bool UsingCompositedCoreAnimationPlugins() {
-  // Temporarily disabling composited core animation plugins
-  return false && !CommandLine::ForCurrentProcess()->HasSwitch(
+  return !CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kDisableCompositedCoreAnimationPlugins);
 }
 #endif

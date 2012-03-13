@@ -17,8 +17,7 @@
 WebPluginAcceleratedSurfaceProxy* WebPluginAcceleratedSurfaceProxy::Create(
     WebPluginProxy* plugin_proxy,
     gfx::GpuPreference gpu_preference) {
-  // Temporarily turning off accelerated plugin compositing
-  bool composited = false && !CommandLine::ForCurrentProcess()->HasSwitch(
+  bool composited = !CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kDisableCompositedCoreAnimationPlugins);
 
   // Require IOSurface support for drawing Core Animation plugins.
