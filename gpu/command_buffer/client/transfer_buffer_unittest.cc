@@ -66,9 +66,6 @@ void TransferBufferTest::SetUp() {
 
 void TransferBufferTest::TearDown() {
   if (transfer_buffer_->HaveBuffer()) {
-    EXPECT_CALL(*command_buffer(), OnFlush())
-        .Times(1)
-        .RetiresOnSaturation();
     EXPECT_CALL(*command_buffer(), DestroyTransferBuffer(_))
         .Times(1)
         .RetiresOnSaturation();
@@ -98,9 +95,6 @@ TEST_F(TransferBufferTest, Free) {
   EXPECT_EQ(transfer_buffer_id_, transfer_buffer_->GetShmId());
 
   // Free buffer.
-  EXPECT_CALL(*command_buffer(), OnFlush())
-      .Times(1)
-      .RetiresOnSaturation();
   EXPECT_CALL(*command_buffer(), DestroyTransferBuffer(_))
       .Times(1)
       .RetiresOnSaturation();
@@ -112,9 +106,6 @@ TEST_F(TransferBufferTest, Free) {
   EXPECT_TRUE(transfer_buffer_->HaveBuffer());
 
   // Free buffer.
-  EXPECT_CALL(*command_buffer(), OnFlush())
-      .Times(1)
-      .RetiresOnSaturation();
   EXPECT_CALL(*command_buffer(), DestroyTransferBuffer(_))
       .Times(1)
       .RetiresOnSaturation();
@@ -126,9 +117,6 @@ TEST_F(TransferBufferTest, Free) {
   EXPECT_TRUE(transfer_buffer_->HaveBuffer());
 
   // Free buffer.
-  EXPECT_CALL(*command_buffer(), OnFlush())
-      .Times(1)
-      .RetiresOnSaturation();
   EXPECT_CALL(*command_buffer(), DestroyTransferBuffer(_))
       .Times(1)
       .RetiresOnSaturation();
@@ -143,9 +131,6 @@ TEST_F(TransferBufferTest, Free) {
   transfer_buffer_->FreePendingToken(data, 1);
 
   // Free buffer.
-  EXPECT_CALL(*command_buffer(), OnFlush())
-      .Times(1)
-      .RetiresOnSaturation();
   EXPECT_CALL(*command_buffer(), DestroyTransferBuffer(_))
       .Times(1)
       .RetiresOnSaturation();
@@ -161,9 +146,6 @@ TEST_F(TransferBufferTest, Free) {
       transfer_buffer_->GetCurrentMaxAllocationWithoutRealloc());
 
   // Test freeing twice.
-  EXPECT_CALL(*command_buffer(), OnFlush())
-      .Times(1)
-      .RetiresOnSaturation();
   EXPECT_CALL(*command_buffer(), DestroyTransferBuffer(_))
       .Times(1)
       .RetiresOnSaturation();
@@ -260,9 +242,6 @@ void TransferBufferExpandContractTest::SetUp() {
 
 void TransferBufferExpandContractTest::TearDown() {
   if (transfer_buffer_->HaveBuffer()) {
-    EXPECT_CALL(*command_buffer(), OnFlush())
-        .Times(1)
-        .RetiresOnSaturation();
     EXPECT_CALL(*command_buffer(), DestroyTransferBuffer(_))
         .Times(1)
         .RetiresOnSaturation();
@@ -287,9 +266,6 @@ TEST_F(TransferBufferExpandContractTest, Expand) {
       kStartTransferBufferSize - kStartingOffset,
       transfer_buffer_->GetCurrentMaxAllocationWithoutRealloc());
 
-  EXPECT_CALL(*command_buffer(), OnFlush())
-      .Times(1)
-      .RetiresOnSaturation();
   EXPECT_CALL(*command_buffer(), DestroyTransferBuffer(_))
       .Times(1)
       .RetiresOnSaturation();
@@ -309,9 +285,6 @@ TEST_F(TransferBufferExpandContractTest, Expand) {
   EXPECT_EQ(kSize1, transfer_buffer_->GetCurrentMaxAllocationWithoutRealloc());
   transfer_buffer_->FreePendingToken(ptr, 1);
 
-  EXPECT_CALL(*command_buffer(), OnFlush())
-      .Times(1)
-      .RetiresOnSaturation();
   EXPECT_CALL(*command_buffer(), DestroyTransferBuffer(_))
       .Times(1)
       .RetiresOnSaturation();
@@ -346,9 +319,6 @@ TEST_F(TransferBufferExpandContractTest, Contract) {
       transfer_buffer_->GetCurrentMaxAllocationWithoutRealloc());
 
   // Free buffer.
-  EXPECT_CALL(*command_buffer(), OnFlush())
-      .Times(1)
-      .RetiresOnSaturation();
   EXPECT_CALL(*command_buffer(), DestroyTransferBuffer(_))
       .Times(1)
       .RetiresOnSaturation();
@@ -378,9 +348,6 @@ TEST_F(TransferBufferExpandContractTest, Contract) {
   transfer_buffer_->FreePendingToken(ptr, 1);
 
   // Free buffer.
-  EXPECT_CALL(*command_buffer(), OnFlush())
-      .Times(1)
-      .RetiresOnSaturation();
   EXPECT_CALL(*command_buffer(), DestroyTransferBuffer(_))
       .Times(1)
       .RetiresOnSaturation();
@@ -405,9 +372,6 @@ TEST_F(TransferBufferExpandContractTest, Contract) {
 
 TEST_F(TransferBufferExpandContractTest, OutOfMemory) {
   // Free buffer.
-  EXPECT_CALL(*command_buffer(), OnFlush())
-      .Times(1)
-      .RetiresOnSaturation();
   EXPECT_CALL(*command_buffer(), DestroyTransferBuffer(_))
       .Times(1)
       .RetiresOnSaturation();
