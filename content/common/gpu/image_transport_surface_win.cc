@@ -183,9 +183,7 @@ scoped_refptr<gfx::GLSurface> ImageTransportSurface::CreateSurface(
     gfx::PluginWindowHandle handle) {
   scoped_refptr<gfx::GLSurface> surface;
 
-  // Temporarily disabling the image transport surface to test whether it
-  // contributes to memory bloat.
-  if (false && gfx::GetGLImplementation() == gfx::kGLImplementationEGLGLES2 &&
+  if (gfx::GetGLImplementation() == gfx::kGLImplementationEGLGLES2 &&
       !CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kDisableImageTransportSurface)) {
     const char* extensions = eglQueryString(eglGetDisplay(EGL_DEFAULT_DISPLAY),
