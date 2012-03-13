@@ -51,11 +51,11 @@ void SetupPrerenderFieldTrial() {
   chrome::VersionInfo::Channel channel = chrome::VersionInfo::GetChannel();
   if (channel == chrome::VersionInfo::CHANNEL_STABLE ||
       channel == chrome::VersionInfo::CHANNEL_BETA) {
-    exp1_probability = 495;
-    control1_probability = 5;
+    exp1_probability = 0;
+    control1_probability = 500;
     no_use1_probability = 0;
-    exp2_probability = 495;
-    control2_probability = 5;
+    exp2_probability = 0;
+    control2_probability = 500;
     no_use2_probability = 0;
   }
   CHECK_EQ(divisor, exp1_probability + control1_probability +
@@ -172,7 +172,7 @@ void ConfigurePrerenderFromOmnibox() {
   chrome::VersionInfo::Channel channel = chrome::VersionInfo::GetChannel();
   if (channel == chrome::VersionInfo::CHANNEL_STABLE ||
       channel == chrome::VersionInfo::CHANNEL_BETA) {
-    kEnabledProbability = 99;
+    kEnabledProbability = 0;
   }
   scoped_refptr<base::FieldTrial> enabled_trial(
       new base::FieldTrial(kPrerenderFromOmniboxTrialName, kDivisor,
