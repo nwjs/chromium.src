@@ -50,9 +50,6 @@ const char kAllowRunningInsecureContent[]   = "allow-running-insecure-content";
 // automation testing of the gallery.
 const char kAllowScriptingGallery[]         = "allow-scripting-gallery";
 
-// Specifies comma-separated list of extension ids to grant access to local
-// websocket proxy.
-const char kAllowWebSocketProxy[]           = "allow-websocket-proxy";
 
 // Allow compositing on chrome:// pages.
 const char kAllowWebUICompositing[]         = "allow-webui-compositing";
@@ -1182,6 +1179,9 @@ const char kUserDataDir[]                   = "user-data-dir";
 
 // Prints version information and quits.
 const char kVersion[]                       = "version";
+
+// Adds the given extension ID to all the permission whitelists.
+const char kWhitelistedExtensionID[]        = "whitelisted-extension-id";
 
 // Uses WinHTTP to fetch and evaluate PAC scripts. Otherwise the default is to
 // use Chromium's network stack to fetch, and V8 to evaluate.

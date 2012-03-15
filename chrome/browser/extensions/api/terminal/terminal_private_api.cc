@@ -22,32 +22,6 @@ const char kCroshCommand[] = "/usr/bin/crosh";
 // We make stubbed crosh just echo back input.
 const char kStubbedCroshCommand[] = "cat";
 
-const char kPermissionError[] =
-    "Extension does not have the permission to use this API";
-
-const char* kAllowedExtensionIds[] ={
-    "okddffdblfhhnmhodogpojmfkjmhinfp",  // test SSH/Crosh Client
-    "pnhechapfaindjhompbnflcldabbghjo"  // HTerm App
-};
-
-// Allow component and whitelisted extensions.
-bool AllowAccessToExtension(Profile* profile, const std::string& extension_id) {
-  ExtensionService* service = profile->GetExtensionService();
-  const Extension* extension = service->GetExtensionById(extension_id, false);
-
-  if (!extension)
-    return false;
-
-  if (extension->location() == Extension::COMPONENT)
-    return true;
-
-  for (size_t i = 0; i < arraysize(kAllowedExtensionIds); i++) {
-    if (extension->id() == kAllowedExtensionIds[i])
-      return true;
-  }
-  return false;
-}
-
 const char* GetCroshPath() {
   if (chromeos::system::runtime_environment::IsRunningOnChromeOS())
     return kCroshCommand;
@@ -75,8 +49,6 @@ void NotifyProcessOutput(Profile* profile,
     return;
   }
 
-  CHECK(AllowAccessToExtension(profile, extension_id));
-
   base::ListValue args;
   args.Append(new base::FundamentalValue(pid));
   args.Append(new base::StringValue(output_type));
@@ -101,11 +73,6 @@ TerminalPrivateFunction::~TerminalPrivateFunction() {
 }
 
 bool TerminalPrivateFunction::RunImpl() {
-  if (!AllowAccessToExtension(profile_, extension_id())) {
-    error_ = kPermissionError;
-    return false;
-  }
-
   return RunTerminalFunction();
 }
 
