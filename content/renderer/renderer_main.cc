@@ -41,6 +41,10 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 #endif  // OS_MACOSX
 
+#if defined(OS_WIN)
+#include <signal.h>
+#endif  // OS_WIN
+
 #if defined(OS_MACOSX)
 namespace {
 
@@ -126,9 +130,20 @@ class RendererMessageLoopObserver : public MessageLoop::TaskObserver {
   DISALLOW_COPY_AND_ASSIGN(RendererMessageLoopObserver);
 };
 
+#if defined(OS_WIN)
+void __cdecl ForceCrashForAbort(int) {
+  *((int*)0) = 0xDEAD;  // Crash.
+}
+#endif
+
 // mainline routine for running as the Renderer process
 int RendererMain(const content::MainFunctionParams& parameters) {
   TRACE_EVENT_BEGIN_ETW("RendererMain", 0, "");
+
+#if defined(OS_WIN)
+  // Force a crash whenever abort() is called.
+  signal(SIGABRT, ForceCrashForAbort);
+#endif
 
   const CommandLine& parsed_command_line = parameters.command_line;
 
