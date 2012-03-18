@@ -2419,7 +2419,7 @@ void Browser::RegisterPrefs(PrefService* prefs) {
   prefs->RegisterBooleanPref(prefs::kShouldShowFirstRunBubble, false);
   prefs->RegisterBooleanPref(prefs::kPrintPreviewDisabled,
 #if defined(GOOGLE_CHROME_BUILD)
-                             false
+                             true
 #else
                              true
 #endif
