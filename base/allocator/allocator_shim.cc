@@ -41,7 +41,8 @@ typedef enum {
 // specifying environment variables shown below it.
 // See SetupSubprocessAllocator() to specify a default secondary (subprocess)
 // allocator.
-static Allocator allocator = WINHEAP;  // Default
+// TODO(jar): Switch to using TCMALLOC for the renderer as well.
+static Allocator allocator = TCMALLOC;
 
 // The names of the environment variables that can optionally control the
 // selection of the allocator.  The primary may be used to control overall
@@ -293,7 +294,7 @@ void SetupSubprocessAllocator() {
   buffer[sizeof(buffer) - 1] = '\0';
 
   if (secondary_length || !primary_length) {
-    const char* secondary_value = secondary_length ? buffer : "WINHEAP";
+    const char* secondary_value = secondary_length ? buffer : "TCMALLOC";
     // Force renderer (or other subprocesses) to use secondary_value.
     int ret_val = _putenv_s(primary_name, secondary_value);
     DCHECK_EQ(0, ret_val);
