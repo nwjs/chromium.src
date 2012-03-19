@@ -1214,9 +1214,6 @@
           'ENABLE_WEB_INTENTS=1',
         ],
       }],
-      ['OS=="win" and branding=="Chrome"', {
-        'defines': ['ENABLE_SWIFTSHADER'],
-      }],
       ['enable_dart==1', {
         'defines': ['WEBKIT_USING_DART=1'],
       }],
