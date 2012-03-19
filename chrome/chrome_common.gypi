@@ -298,11 +298,11 @@
             '../third_party/GTM',
           ],
         }],
-        ['remoting==1', {
-          'dependencies': [
-            '../remoting/remoting.gyp:remoting_client_plugin',
-          ],
-        }],
+        #['remoting==1', {
+        #  'dependencies': [
+        #    '../remoting/remoting.gyp:remoting_client_plugin',
+        #  ],
+        #}],
       ],
       'export_dependent_settings': [
         '../base/base.gyp:base',
