@@ -49,8 +49,7 @@ class IPC_EXPORT Channel : public Message::Sender {
 
     // Called when an error is detected that causes the channel to close.
     // This method is not called when a channel is closed normally.
-    class foo;
-    virtual class foo * OnChannelError() {}
+    virtual void OnChannelError() {}
 
 #if defined(OS_POSIX)
     // Called on the server side when a channel that listens for connections
