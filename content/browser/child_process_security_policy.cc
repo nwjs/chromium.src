@@ -11,6 +11,7 @@
 #include "base/stl_util.h"
 #include "base/string_util.h"
 #include "content/browser/site_instance.h"
+#include "content/public/browser/content_browser_client.h"
 #include "content/public/common/bindings_policy.h"
 #include "content/public/common/url_constants.h"
 #include "googleurl/src/gurl.h"
@@ -382,7 +383,8 @@ bool ChildProcessSecurityPolicy::CanRequestURL(
     return false;
   }
 
-  if (!net::URLRequest::IsHandledURL(url))
+  if (!content::GetContentClient()->browser()->IsHandledURL(url) &&
+      !net::URLRequest::IsHandledURL(url))
     return true;  // This URL request is destined for ShellExecute.
 
   {

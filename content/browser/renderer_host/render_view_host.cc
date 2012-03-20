@@ -1326,7 +1326,7 @@ void RenderViewHost::FilterURL(ChildProcessSecurityPolicy* policy,
     // URL.  This prevents us from storing the blocked URL and becoming confused
     // later.
     VLOG(1) << "Blocked URL " << url->spec();
-    *url = GURL();
+    *url = GURL(chrome::kAboutBlankURL);
   }
 }
 
