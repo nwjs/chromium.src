@@ -65,8 +65,7 @@ class GamepadService : public NotificationObserver {
 
   DISALLOW_COPY_AND_ASSIGN(GamepadService);
 };
-#endif
 
 } // namespace content
-
+#endif
 #endif // CONTENT_BROWSER_GAMEPAD_GAMEPAD_SERVICE_H
