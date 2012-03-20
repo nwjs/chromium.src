@@ -913,7 +913,7 @@ void RenderProcessHostImpl::OnChannelConnected(int32 peer_pid) {
   Send(new ChildProcessMsg_SetProfilerStatus(enable));
 }
 
-enum foo RenderProcessHostImpl::OnChannelError() {
+void RenderProcessHostImpl::OnChannelError() {
   if (!channel_.get())
     return;
 
