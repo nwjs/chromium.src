@@ -313,11 +313,15 @@ FileManager.prototype = {
       return;
     }
 
-    batchAsyncCall(entry, 'file', function(file) {
-      entry.cachedSize_ = file.size;
-      if (successCallback)
-        successCallback(entry);
-    }, opt_errorCallback);
+    function callback(success, file) {
+      entry.cachedSize_ = (entry.isFile && file.size) || -1;
+      if (success && successCallback) successCallback(entry);
+      if (!success && opt_errorCallback) opt_errorCallback();
+    }
+
+    batchAsyncCall(entry, 'file',
+        callback.bind(null, true),
+        callback.bind(null, false, {}));
   }
 
   /**
@@ -340,19 +344,17 @@ FileManager.prototype = {
       return;
     }
 
-    if (entry.isFile) {
-      batchAsyncCall(entry, 'file', function(file) {
-        entry.cachedMtime_ = file.lastModifiedDate;
-        if (successCallback)
-          successCallback(entry);
-      });
-    } else {
-      batchAsyncCall(entry, 'getMetadata', function(metadata) {
-        entry.cachedMtime_ = metadata.modificationTime;
-        if (successCallback)
-          successCallback(entry);
-      }, opt_errorCallback);
+    function callback(success, result) {
+      entry.cachedMtime_ = (entry.isFile ? result.lastModifiedDate
+                                         : result.modificationTime);
+      if (success && successCallback) successCallback(entry);
+      if (!success && opt_errorCallback) opt_errorCallback();
     }
+
+    var callName = (entry.isFile ? 'file' : 'getMetadata');
+    batchAsyncCall(entry, callName,
+      callback.bind(null, true),
+      callback.bind(null, false, {}));
   }
 
   function removeChildren(element) {
