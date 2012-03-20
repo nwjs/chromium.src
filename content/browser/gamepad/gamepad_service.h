@@ -15,6 +15,7 @@
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 
+#if 0
 namespace content {
 
 class GamepadDataFetcher;
@@ -64,6 +65,7 @@ class GamepadService : public NotificationObserver {
 
   DISALLOW_COPY_AND_ASSIGN(GamepadService);
 };
+#endif
 
 } // namespace content
 

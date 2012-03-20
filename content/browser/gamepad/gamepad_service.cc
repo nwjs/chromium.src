@@ -14,6 +14,7 @@
 #include "content/public/browser/notification_types.h"
 #include "content/public/browser/render_process_host.h"
 
+#if 0
 namespace content {
 
 GamepadService::GamepadService() : num_readers_(0) {
@@ -74,3 +75,4 @@ void GamepadService::Observe(int type,
 }
 
 } // namespace content
+#endif
