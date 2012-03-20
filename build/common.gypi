@@ -165,7 +165,7 @@
       'use_third_party_translations%': 0,
 
       # Remoting compilation is enabled by default. Set to 0 to disable.
-      'remoting%': 0,
+      'remoting%': 1,
 
       # P2P APIs are compiled in by default. Set to 0 to disable.
       # Also note that this should be enabled for remoting to compile.
