@@ -738,7 +738,7 @@
         'GR_USE_OFFSCREEN_AA=0',
         'GR_AGGRESSIVE_SHADER_OPTS=1',
         'SK_DISABLE_FAST_AA_STROKE_RECT',
-        'SK_DEFAULT_FONT_CACHE_LIMIT=(20*1024*1024)',
+        'SK_DEFAULT_FONT_CACHE_LIMIT=(10*1024*1024)',
 
         # temporary for landing Skia rev 3077 with minimal layout test breakage
         'SK_SIMPLE_TWOCOLOR_VERTICAL_GRADIENTS',
