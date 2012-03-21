@@ -939,15 +939,15 @@ void RenderViewHost::OnMsgNavigate(const IPC::Message& msg) {
   // renderer to load the URL and grant the renderer the privileges to request
   // the URL.  To prevent this attack, we block the renderer from inserting
   // banned URLs into the navigation controller in the first place.
-  FilterURL(policy, renderer_id, &validated_params.url);
-  FilterURL(policy, renderer_id, &validated_params.referrer.url);
+  FilterURL(policy, renderer_id, false, &validated_params.url);
+  FilterURL(policy, renderer_id, true, &validated_params.referrer.url);
   for (std::vector<GURL>::iterator it(validated_params.redirects.begin());
       it != validated_params.redirects.end(); ++it) {
-    FilterURL(policy, renderer_id, &(*it));
+    FilterURL(policy, renderer_id, false, &(*it));
   }
-  FilterURL(policy, renderer_id, &validated_params.searchable_form_url);
-  FilterURL(policy, renderer_id, &validated_params.password_form.origin);
-  FilterURL(policy, renderer_id, &validated_params.password_form.action);
+  FilterURL(policy, renderer_id, true, &validated_params.searchable_form_url);
+  FilterURL(policy, renderer_id, true, &validated_params.password_form.origin);
+  FilterURL(policy, renderer_id, true, &validated_params.password_form.action);
 
   delegate_->DidNavigate(this, validated_params);
 }
@@ -1037,10 +1037,10 @@ void RenderViewHost::OnMsgContextMenu(const ContextMenuParams& params) {
 
   // We don't validate |unfiltered_link_url| so that this field can be used
   // when users want to copy the original link URL.
-  FilterURL(policy, renderer_id, &validated_params.link_url);
-  FilterURL(policy, renderer_id, &validated_params.src_url);
-  FilterURL(policy, renderer_id, &validated_params.page_url);
-  FilterURL(policy, renderer_id, &validated_params.frame_url);
+  FilterURL(policy, renderer_id, true, &validated_params.link_url);
+  FilterURL(policy, renderer_id, true, &validated_params.src_url);
+  FilterURL(policy, renderer_id, false, &validated_params.page_url);
+  FilterURL(policy, renderer_id, true, &validated_params.frame_url);
 
   view->ShowContextMenu(validated_params);
 }
@@ -1056,7 +1056,7 @@ void RenderViewHost::OnMsgOpenURL(const GURL& url,
                                   int64 source_frame_id) {
   GURL validated_url(url);
   FilterURL(ChildProcessSecurityPolicy::GetInstance(),
-            process()->GetID(), &validated_url);
+            process()->GetID(), false, &validated_url);
 
   delegate_->RequestOpenURL(
       validated_url, referrer, disposition, source_frame_id);
@@ -1142,8 +1142,8 @@ void RenderViewHost::OnMsgStartDragging(
 
   // Allow drag of Javascript URLs to enable bookmarklet drag to bookmark bar.
   if (!drag_url.SchemeIs(chrome::kJavaScriptScheme))
-    FilterURL(policy, process()->GetID(), &drag_url);
-  FilterURL(policy, process()->GetID(), &html_base_url);
+    FilterURL(policy, process()->GetID(), false, &drag_url);
+  FilterURL(policy, process()->GetID(), false, &html_base_url);
 
   if (drag_url != drop_data.url || html_base_url != drop_data.html_base_url) {
     WebDropData drop_data_copy = drop_data;
@@ -1331,9 +1331,19 @@ void RenderViewHost::ToggleSpeechInput() {
 
 void RenderViewHost::FilterURL(ChildProcessSecurityPolicy* policy,
                                int renderer_id,
+                               bool empty_allowed,
                                GURL* url) {
-  if (!url->is_valid())
-    return;  // We don't need to block invalid URLs.
+  if (empty_allowed && url->is_empty())
+    return;
+
+  if (!url->is_valid()) {
+    // Have to use about:blank for the denied case, instead of an empty GURL.
+    // This is because the browser treats navigation to an empty GURL as a
+    // navigation to the home page. This is often a privileged page
+    // (chrome://newtab/) which is exactly what we don't want.
+    *url = GURL(chrome::kAboutBlankURL);
+    return;
+  }
 
   if (url->SchemeIs(chrome::kAboutScheme)) {
     // The renderer treats all URLs in the about: scheme as being about:blank.
@@ -1346,7 +1356,7 @@ void RenderViewHost::FilterURL(ChildProcessSecurityPolicy* policy,
     // URL.  This prevents us from storing the blocked URL and becoming confused
     // later.
     VLOG(1) << "Blocked URL " << url->spec();
-    *url = GURL();
+    *url = GURL(chrome::kAboutBlankURL);
   }
 }
 

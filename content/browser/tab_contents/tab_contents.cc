@@ -1210,7 +1210,7 @@ void TabContents::OnDidStartProvisionalLoadForFrame(int64 frame_id,
   bool is_error_page = (url.spec() == chrome::kUnreachableWebDataURL);
   GURL validated_url(url);
   GetRenderViewHost()->FilterURL(ChildProcessSecurityPolicy::GetInstance(),
-      GetRenderProcessHost()->GetID(), &validated_url);
+      GetRenderProcessHost()->GetID(), false, &validated_url);
 
   RenderViewHost* rvh =
       render_manager_.pending_render_view_host() ?
@@ -1223,7 +1223,8 @@ void TabContents::OnDidStartProvisionalLoadForFrame(int64 frame_id,
   if (is_main_frame) {
     // Notify observers about the provisional change in the main frame URL.
     FOR_EACH_OBSERVER(WebContentsObserver, observers_,
-                      ProvisionalChangeToMainFrameUrl(url, opener_url));
+                      ProvisionalChangeToMainFrameUrl(validated_url,
+                                                      opener_url));
   }
 }
 
@@ -1259,7 +1260,7 @@ void TabContents::OnDidFailProvisionalLoadWithError(
           << ", frame_id: " << params.frame_id;
   GURL validated_url(params.url);
   GetRenderViewHost()->FilterURL(ChildProcessSecurityPolicy::GetInstance(),
-      GetRenderProcessHost()->GetID(), &validated_url);
+      GetRenderProcessHost()->GetID(), false, &validated_url);
 
   if (net::ERR_ABORTED == params.error_code) {
     // EVIL HACK ALERT! Ignore failed loads when we're showing interstitials.

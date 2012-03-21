@@ -405,10 +405,12 @@ class CONTENT_EXPORT RenderViewHost : public RenderWidgetHost {
     return is_waiting_for_unload_ack_;
   }
 
-  // Checks that the given renderer can request |url|, if not it sets it to an
-  // empty url.
+  // Checks that the given renderer can request |url|, if not it sets it to
+  // about:blank.
+  // empty_allowed must be set to false for navigations for security reasons.
   static void FilterURL(ChildProcessSecurityPolicy* policy,
                         int renderer_id,
+                        bool empty_allowed,
                         GURL* url);
 
   // Sets the alternate error page URL (link doctor) for the renderer process.
