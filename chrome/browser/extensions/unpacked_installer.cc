@@ -201,7 +201,7 @@ void UnpackedInstaller::OnLoaded(
       !extension->plugins().empty() &&
       std::find(disabled_extensions->begin(),
                 disabled_extensions->end(),
-                extension) !=
+                extension) ==
       disabled_extensions->end()) {
     SimpleExtensionLoadPrompt* prompt = new SimpleExtensionLoadPrompt(
         service_weak_->profile(),
