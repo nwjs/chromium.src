@@ -35,11 +35,9 @@ bool GamepadBrowserMessageFilter::OnMessageReceived(
 
 void GamepadBrowserMessageFilter::OnGamepadStartPolling(
     base::SharedMemoryHandle* renderer_handle) {
-#if 0    
   GamepadService* service = GamepadService::GetInstance();
   service->Start(NULL, render_process_host_);
   *renderer_handle = service->GetSharedMemoryHandle(peer_handle());
-#endif
 }
 
 void GamepadBrowserMessageFilter::OnGamepadStopPolling() {
