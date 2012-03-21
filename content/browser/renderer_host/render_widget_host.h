@@ -614,7 +614,7 @@ class CONTENT_EXPORT RenderWidgetHost : public IPC::Channel::Listener,
                                            int32 height,
                                            TransportDIB::Handle transport_dib);
   void OnAcceleratedSurfaceBuffersSwapped(gfx::PluginWindowHandle window,
-                                          uint64 surface_id);
+                                          uint64 surface_handle);
 #endif
 #if defined(TOOLKIT_USES_GTK)
   void OnMsgCreatePluginContainer(gfx::PluginWindowHandle id);
