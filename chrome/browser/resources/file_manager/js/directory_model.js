@@ -640,7 +640,7 @@ DirectoryModel.prototype = {
       var entry = entries[i];
       if (!(field in entry)) {
         waitCount++;
-        cacheFunction(entry, onCacheDone)
+        cacheFunction(entry, onCacheDone, onCacheDone);
       }
     }
     onCacheDone();  // Finish the fake callback.
