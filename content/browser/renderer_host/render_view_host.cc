@@ -1142,7 +1142,7 @@ void RenderViewHost::OnMsgStartDragging(
 
   // Allow drag of Javascript URLs to enable bookmarklet drag to bookmark bar.
   if (!drag_url.SchemeIs(chrome::kJavaScriptScheme))
-    FilterURL(policy, process()->GetID(), false, &drag_url);
+    FilterURL(policy, process()->GetID(), true, &drag_url);
   FilterURL(policy, process()->GetID(), false, &html_base_url);
 
   if (drag_url != drop_data.url || html_base_url != drop_data.html_base_url) {
