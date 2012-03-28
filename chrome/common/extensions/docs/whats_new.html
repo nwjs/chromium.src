@@ -353,6 +353,8 @@ made in recent releases.
 </p>
 
 <ul>
+  <li> <a href="#18">Google Chrome 18</a> </li>
+  <li> <a href="#17">Google Chrome 17</a> </li>
   <li> <a href="#16">Google Chrome 16</a> </li>
   <li> <a href="#15">Google Chrome 15</a> </li>
   <li> <a href="#14">Google Chrome 14</a> </li>
@@ -371,7 +373,82 @@ In addition to the changes listed below,
 check out the
 <a href="experimental.html">experimental APIs</a>.
 </p>
-
+<h2 id="18"> Google Chrome 18 </h2>
+<h4> New APIs </h4>
+  <ul>
+    <li>The <a href="debugger.html">debugger API</a>
+      lets you use the Chrome Developer Tools
+      on one or more tabs remotely.
+    </li><li>The <a href="devtools.html">developer tools APIs</a>
+      provide support for extending Chrome Developer Tools.
+      The inspected window API lets you interact with the inspected window.
+      The network API lets you retrive information about network requests.
+      The panels API lets you add panels and sidebars.
+    </li><li>The <a href="input.ime.html">input method editor API</a>
+      lets you add custom input methods
+      such as complex language characters
+      directly to the system's input device.
+    </li><li>The <a href="pageCapture.html">page capture API</a>
+      lets you save a tab as MHTML.
+    </li><li> The <a href="privacy.html">privacy API</a>
+      lets you control usage of the features
+      in Chrome that can affect a user's privacy policy.
+  </li></ul>
+<h4> Manifest changes </h4>
+  <ul>
+    <li>The new
+      <a href="manifest.html#manifest_version">manifest version</a>
+      field specifies the version of the manifest that your package requires.
+      As of Chrome 18, you should use
+      <a href="manifestVersion.html">manifest version 2</a>.
+    </li><li>The new
+      <a href="contentSecurityPolicy.html">Content Security Policy (CSP)</a>
+      field is used to define an extension's policies
+      towards the types of content
+      that can be loaded and executed by the extension.
+    </li><li>Most background pages only include a list of script files.
+      For these background pages,
+      you can use the new
+      <a href="background_pages.html">background.scripts</a> property
+      and Chrome will generate a background page for you.
+  </li></ul>
+<h4> Additions to existing APIs </h4>
+  <ul>
+    <li>The <a href="windows.html#property-WINDOW_ID_CURRENT">windows API</a>
+    now has a <code>WINDOW_ID_CURRENT</code> property.
+    </li><li>The <code>chrome.tabs</code>
+    <a href="tabs.html#method-create">create()</a> and
+    <a href="tabs.html#method-update">update()</a> methods
+    now have an <code>openerTabId</code> parameter.
+  </li></ul>
+<h2 id="17"> Google Chrome 17 </h2>
+<h4> New APIs </h4>
+  <ul>
+    <li>The
+      <a href="webRequest.html">web request API</a>
+      lets you intercept, block, or
+      modify requests in-flight and
+      to observe and analyze traffic.
+  </li></ul>
+<h4> Manifest changes </h4>
+  <ul>
+    <li>Permissions can be
+      <a href="permissions.html">optional</a>
+      for the content setting API, the web navigation API, and
+      the new web request API.
+  </li></ul>
+<h4> Additions to existing APIs </h4>
+  <ul>
+    <li>The management API's
+    <a href="management.html#type-ExtensionInfo">ExtensionInfo</a> object
+    now has a <code>disabledReason</code> property.
+  </li></ul>
+<h4> Changes to existing APIs </h4>
+  <ul>
+    <li>The <a href="omnibox.html">omnibox API</a>
+    now works in
+    <a href="manifest.html#incognito">split incognito mode</a>.
+  </li></ul>
 <h2 id="16"> Google Chrome 16 </h2>
 
 <h4> New APIs </h4>
@@ -391,7 +468,6 @@ check out the
       You can use this API to control whether websites can use features
       such as cookies, JavaScript, and plug-ins.
   </li></ul>
-
 <h4> Manifest changes </h4>
   <ul>
     <li>The new
@@ -401,7 +477,6 @@ check out the
       to specify that your app requires 3D graphics support
       in order to use features such as CSS 3D Tranforms or WebGL.
   </li></ul>
-  
 <h4> Additions to existing APIs </h4>
   <ul>
     <li>The new
@@ -420,7 +495,6 @@ check out the
     by adding the <code>supported_locales</code> attribute
     to the <code>external_extensions.json</code>.
   </li></ul>
-  
 <h4> Changes to existing APIs </h4>
   <ul>
     <li>The methods <code>getAllInWindow()</code> and
@@ -445,7 +519,6 @@ check out the
     By default, the "panel" type creates a popup
     unless the <code>--enable-panels</code> flag is set.
   </li></ul>
-
 <h2 id="15"> Google Chrome 15 </h2>
 
 <p>Chrome 15 had a few minor API additions. Also see the Chrome Web Store’s new
@@ -460,7 +533,6 @@ installation</a> feature, which lets your website help users install extensions
       lets you specify that your app works well even without an internet
       connection.
   </li></ul>
-
 <h4> Additions to existing APIs </h4>
   <ul>
     <li>You can retrieve permission warnings using the new management API methods
@@ -473,14 +545,12 @@ installation</a> feature, which lets your website help users install extensions
     </li><li>You can now <a href="i18n.html">internationalize</a> content script CSS
       files by using <code>__MSG_messagename__</code> placeholders.
   </li></ul>
-
 <h4> Changes to existing APIs </h4>
   <ul>
     <li>The callback for the <a href="tabs.html#method-update">tabs.update</a>
       method is passed <code>null</code> instead of the tab details if the
       extension does not have the "tabs" permission.
   </li></ul>
-
 <h2 id="14"> Google Chrome 14 </h2>
 
 <h4> New APIs </h4>
@@ -509,7 +579,6 @@ installation</a> feature, which lets your website help users install extensions
       lets you register Native Client modules
       as content handlers for MIME types.
   </li></ul>
-
 <h4> Additions to existing APIs </h4>
   <ul>
     <li><a href="contextMenus.html">Context menu</a> items
@@ -525,14 +594,12 @@ installation</a> feature, which lets your website help users install extensions
       <a href="bookmarks.html#method-getSubTree">bookmarks.getSubTree()</a>
       function lets you retrieve just part of the Bookmarks hierarchy.
   </li></ul>
-
 <h4> Changes to existing APIs </h4>
   <ul>
     <li>The "tabs" permission is no longer required for
       <a href="tabs.html#method-remove">tabs.remove</a> and
       <a href="tabs.html#event-onRemoved">tabs.onRemoved</a>.
   </li></ul>
-
 <h2 id="13"> Google Chrome 13 </h2>
 
 <h4> New APIs </h4>
@@ -547,7 +614,6 @@ installation</a> feature, which lets your website help users install extensions
       The <a href="fileBrowserHandler.html">fileBrowserHandler API</a>
       lets you extend the Chrome OS file browser.
   </li></ul>
-
 <h4> Manifest changes </h4>
   <ul>
     <li>A new <code>exclude_matches</code> item
@@ -559,7 +625,6 @@ installation</a> feature, which lets your website help users install extensions
       <a href="manifest.html#permissions">permissions</a>
       specify capabilities for <code>document.execCommand()</code>.
   </li></ul>
-
 <h4> Additions to existing APIs </h4>
   <ul>
     <li>Content scripts can now make
@@ -617,7 +682,6 @@ installation</a> feature, which lets your website help users install extensions
       To get the previous behavior,
       specify <code>&lt;all_urls&gt;</code> for the host permission.
   </li></ul>
-
 <h4> Additions to existing APIs </h4>
   <ul>
     <li>The management API's
@@ -633,7 +697,6 @@ installation</a> feature, which lets your website help users install extensions
       and <a href="cookies.html#method-remove">remove()</a> methods
       can now take callbacks.
   </li></ul>
-
 <h2 id="10"> Google Chrome 10 </h2>
 
 <h4> Manifest changes </h4>
@@ -643,7 +706,6 @@ installation</a> feature, which lets your website help users install extensions
       allowing your extension or app
       to run even when Chrome has no windows open.
   </li></ul>
-
 <h4> Additions to existing APIs </h4>
   <ul>
     <li>The <a href="windows.html#method-create">chrome.windows.create()</a>
@@ -654,7 +716,6 @@ installation</a> feature, which lets your website help users install extensions
       This change was incorrectly attributed to Chrome 9
       in previous release notes.
   </p></li></ul>
-
 <h2 id="9"> Google Chrome 9 </h2>
 
 <h4> New APIs </h4>
@@ -662,13 +723,11 @@ installation</a> feature, which lets your website help users install extensions
     <li>The <a href="omnibox.html">omnibox API</a> allows you to
       register a keyword with Chrome's address bar.
   </li></ul>
-
 <h4> Manifest changes </h4>
   <ul>
     <li>The <a href="manifest.html#homepage_url">homepage_url</a> field
       lets you specify the extension or app's homepage.
   </li></ul>
-
 <h4> Additions to existing APIs </h4>
   <ul>
     <li>The <a href="tabs.html#type-Tab">Tab</a> object
@@ -684,8 +743,6 @@ installation</a> feature, which lets your website help users install extensions
       <a href="management.html#method-get">chrome.management.get()</a> method
       lets you get information about the specified extension or app.
   </li></ul>
-
-
 <h2 id="8"> Google Chrome 8 </h2>
 
 <p>
@@ -704,7 +761,6 @@ No API or manifest changes worth noting.
     </li><li>The <a href="management.html">management API</a>
       lets you work with installed apps and extensions.
   </li></ul>
-
 <h4> Manifest changes </h4>
   <ul>
     <li>Introduced <a href="manifest.html#incognito">split incognito</a>
@@ -715,8 +771,6 @@ No API or manifest changes worth noting.
       no longer require the "tabs" permission, removing one common cause of
       <a href="permission_warnings.html">scary dialogs</a>.
   </li></ul>
-
-
 <h2 id="6">Google Chrome 6</h2>
 
 <h4> New APIs </h4>
@@ -728,7 +782,6 @@ No API or manifest changes worth noting.
     </li><li>The <a href="idle.html">idle API</a> allows you to detect when the
       machine's idle state changes.
   </li></ul>
-
 <h4> Additions to existing APIs </h4>
   <ul>
     <li>The <a href="extension.html#method-getViews">chrome.extension.getViews()</a>
@@ -738,7 +791,6 @@ No API or manifest changes worth noting.
     </li><li>The new <a href="tabs.html#method-getCurrent">chrome.tabs.getCurrent()</a> method
       returns the tab associated with the currently executing script.
   </li></ul>
-
 <h4> Manifest changes </h4>
   <ul>
     <li>The <a href="manifest.html#geolocation">geolocation</a> permission
@@ -749,7 +801,6 @@ No API or manifest changes worth noting.
       security warning, but now requires user opt-in from the extensions
       management page.
   </li></ul>
-
 </div>
 
         <!-- API PAGE -->
