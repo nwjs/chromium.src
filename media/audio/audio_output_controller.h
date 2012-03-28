@@ -184,7 +184,7 @@ class MEDIA_EXPORT AudioOutputController
   void PollAndStartIfDataReady();
   void DoPause();
   void DoFlush();
-  void DoClose();
+  void DoClose(const base::Closure& closed_task);
   void DoSetVolume(double volume);
   void DoReportError(int code);
 

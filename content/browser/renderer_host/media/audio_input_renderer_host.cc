@@ -374,10 +374,20 @@ void AudioInputRendererHost::CloseAndDeleteStream(AudioEntry* entry) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
 
   if (!entry->pending_close) {
-    entry->controller->Close(base::Bind(&AudioInputRendererHost::DeleteEntry,
+    entry->controller->Close(base::Bind(&AudioInputRendererHost::OnStreamClosed,
                                         this, entry));
     entry->pending_close = true;
   }
+}
+
+void AudioInputRendererHost::OnStreamClosed(AudioEntry* entry) {
+  // We should be on the the audio-manager thread now.
+  DCHECK(entry->controller->message_loop()->BelongsToCurrentThread());
+
+  // Delete the entry after we've closed the stream.
+  BrowserThread::PostTask(
+      BrowserThread::IO, FROM_HERE,
+      base::Bind(&AudioInputRendererHost::DeleteEntry, this, entry));
 }
 
 void AudioInputRendererHost::DeleteEntry(AudioEntry* entry) {
