@@ -580,9 +580,10 @@ void RenderViewHost::DragSourceSystemDragEnded() {
 }
 
 void RenderViewHost::AllowBindings(int bindings_flags) {
-  // Ensure we aren't granting bindings to a process that has already
+  // Ensure we aren't granting WebUI bindings to a process that has already
   // been used for non-privileged views.
-  if (process()->HasConnection() &&
+  if (bindings_flags & content::BINDINGS_POLICY_WEB_UI &&
+      process()->HasConnection() &&
       !ChildProcessSecurityPolicy::GetInstance()->HasWebUIBindings(
           process()->GetID())) {
     // This process has no bindings yet. Make sure it does not have more
