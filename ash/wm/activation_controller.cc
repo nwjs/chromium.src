@@ -278,7 +278,9 @@ aura::Window* ActivationController::GetTopmostWindowToActivateInContainer(
            container->children().rbegin();
        i != container->children().rend();
        ++i) {
-    if (*i != ignore && CanActivateWindow(*i, NULL))
+    if (*i != ignore &&
+        CanActivateWindow(*i, NULL) &&
+        !wm::IsWindowMinimized(*i))
       return *i;
   }
   return NULL;
