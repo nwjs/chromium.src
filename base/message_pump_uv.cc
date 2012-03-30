@@ -1,0 +1,114 @@
+// Copyright (c) 2006-2008 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "base/message_pump_uv.h"
+
+#include "base/logging.h"
+#include "base/command_line.h"
+
+#if defined(OS_MACOSX)
+#include "base/mac/scoped_nsautorelease_pool.h"
+#endif
+
+#include "third_party/libuv/include/uv.h"
+
+#include "third_party/node/src/node.h"
+
+namespace base {
+
+static void async_cb(uv_async_t* handle, int status) {
+}
+
+MessagePumpUV::MessagePumpUV()
+    : keep_running_(true),
+      uv_loop_(uv_default_loop()),
+      wake_up_event_(new uv_async_t){
+  uv_async_init(uv_loop_, wake_up_event_, async_cb);
+}
+
+MessagePumpUV::~MessagePumpUV()
+{
+  delete wake_up_event_;
+}
+
+static void timer_cb (uv_timer_t* timer, int status) {
+  uv_timer_stop(timer);
+}
+
+void MessagePumpUV::Run(Delegate* delegate) {
+  DCHECK(keep_running_) << "Quit must have been called outside of Run!";
+
+  uv_timer_t timer0;
+  int argc    = CommandLine::ForCurrentProcess()->argc();
+  char** argv = CommandLine::ForCurrentProcess()->argv_c();
+
+  uv_timer_init(uv_loop_, &timer0);
+  node::Start0(argc, argv);
+  {
+    v8::HandleScope handle_scope;
+    node::Start(argc, argv);
+
+    for (;;) {
+#if defined(OS_MACOSX)
+      mac::ScopedNSAutoreleasePool autorelease_pool;
+#endif
+
+      bool did_work = delegate->DoWork();
+      if (!keep_running_)
+        break;
+
+      did_work |= delegate->DoDelayedWork(&delayed_work_time_);
+      if (!keep_running_)
+        break;
+
+      if (did_work)
+        continue;
+
+      did_work = delegate->DoIdleWork();
+      if (!keep_running_)
+        break;
+
+      if (did_work)
+        continue;
+
+      if (delayed_work_time_.is_null()) {
+        uv_run_once(uv_loop_);
+      } else {
+        TimeDelta delay = delayed_work_time_ - TimeTicks::Now();
+        if (delay > TimeDelta()) {
+          uv_timer_start(&timer0, (uv_timer_cb) &timer_cb,
+                         delay.InMilliseconds(), 0);
+          uv_run_once(uv_loop_);
+        } else {
+          // It looks like delayed_work_time_ indicates a time in the past, so we
+          // need to call DoDelayedWork now.
+          delayed_work_time_ = TimeTicks();
+        }
+      }
+      // Since event_ is auto-reset, we don't need to do anything special here
+      // other than service each delegate method.
+    }
+  }
+  keep_running_ = true;
+}
+
+void MessagePumpUV::Quit() {
+  keep_running_ = false;
+}
+
+void MessagePumpUV::ScheduleWork() {
+  // Since this can be called on any thread, we need to ensure that our Run
+  // loop wakes up.
+  uv_async_send(wake_up_event_);
+}
+
+void MessagePumpUV::ScheduleDelayedWork(
+    const TimeTicks& delayed_work_time) {
+  // We know that we can't be blocked on Wait right now since this method can
+  // only be called on the same thread as Run, so we only need to update our
+  // record of how long to sleep when we do sleep.
+  delayed_work_time_ = delayed_work_time;
+}
+
+}  // namespace base

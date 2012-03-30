@@ -581,6 +581,7 @@
         '../testing/gtest.gyp:gtest_prod',
         '../third_party/modp_b64/modp_b64.gyp:modp_b64',
         'third_party/dynamic_annotations/dynamic_annotations.gyp:dynamic_annotations',
+        '../third_party/libuv/uv.gyp:uv',
       ],
       # TODO(gregoryd): direct_dependent_settings should be shared with the
       #  64-bit target, but it doesn't work due to a bug in gyp
@@ -773,6 +774,8 @@
         'message_pump_mac.h',
         'message_pump_mac.mm',
         'message_pump_wayland.h',
+        'message_pump_uv.h',
+        'message_pump_uv.cc',
         'metrics/field_trial.cc',
         'metrics/field_trial.h',
         'string16.cc',

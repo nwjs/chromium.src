@@ -487,7 +487,7 @@ class ContentMainRunnerImpl : public content::ContentMainRunner {
       delegate->SandboxInitialized(process_type);
 
 #if defined(OS_POSIX)
-    SetProcessTitleFromCommandLine(argv);
+    // SetProcessTitleFromCommandLine(argv);
 #endif
 
     // Return -1 to indicate no early termination.

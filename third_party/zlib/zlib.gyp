@@ -21,6 +21,7 @@
         {
           'target_name': 'zlib',
           'type': 'static_library',
+          'toolsets': [ 'host', 'target' ],
           'sources': [
             'contrib/minizip/ioapi.c',
             'contrib/minizip/ioapi.h',
@@ -98,6 +99,7 @@
         {
           'target_name': 'zlib',
           'type': 'static_library',
+          'toolsets': [ 'host', 'target'],
           'direct_dependent_settings': {
             'defines': [
               'USE_SYSTEM_ZLIB',

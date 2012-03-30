@@ -174,7 +174,7 @@ int RendererMain(const content::MainFunctionParams& parameters) {
   // The main message loop of the renderer services doesn't have IO or UI tasks,
   // unless in-process-plugins is used.
   MessageLoop main_message_loop(RenderProcessImpl::InProcessPlugins() ?
-              MessageLoop::TYPE_UI : MessageLoop::TYPE_DEFAULT);
+              MessageLoop::TYPE_UI : MessageLoop::TYPE_NODE);
 #endif
   main_message_loop.AddTaskObserver(&task_observer);
 

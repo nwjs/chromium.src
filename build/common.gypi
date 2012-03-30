@@ -30,7 +30,7 @@
           'use_ash%': 0,
 
           # Use OpenSSL instead of NSS. Under development: see http://crbug.com/62803
-          'use_openssl%': 0,
+          'use_openssl%': 1,
 
           # Disable Virtual keyboard support by default.
           'use_virtual_keyboard%': 0,

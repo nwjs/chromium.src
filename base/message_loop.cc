@@ -159,6 +159,8 @@ MessageLoop::MessageLoop(Type type)
 #error Not implemented
 #endif
 
+#define MESSAGE_PUMP_UV new base::MessagePumpUV()
+
   if (type_ == TYPE_UI) {
     if (message_pump_for_ui_factory_)
       pump_ = message_pump_for_ui_factory_();
@@ -166,6 +168,8 @@ MessageLoop::MessageLoop(Type type)
       pump_ = MESSAGE_PUMP_UI;
   } else if (type_ == TYPE_IO) {
     pump_ = MESSAGE_PUMP_IO;
+  } else if (type_ == TYPE_NODE) {
+    pump_ = MESSAGE_PUMP_UV;
   } else {
     DCHECK_EQ(TYPE_DEFAULT, type_);
     pump_ = new base::MessagePumpDefault();
