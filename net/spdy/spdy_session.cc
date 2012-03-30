@@ -572,9 +572,9 @@ int SpdySession::WriteStreamData(spdy::SpdyStreamId stream_id,
   // Find our stream
   DCHECK(IsStreamActive(stream_id));
   scoped_refptr<SpdyStream> stream = active_streams_[stream_id];
-  CHECK_EQ(stream->stream_id(), stream_id);
   if (!stream)
     return ERR_INVALID_SPDY_STREAM;
+  CHECK_EQ(stream->stream_id(), stream_id);
 
   if (len > kMaxSpdyFrameChunkSize) {
     len = kMaxSpdyFrameChunkSize;
