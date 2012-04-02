@@ -7,6 +7,7 @@
 #include <windows.h>
 #include <d3d9.h>
 #include <setupapi.h>
+#include <winsatcominterfacei.h>
 
 #include "base/command_line.h"
 #include "base/file_path.h"
@@ -30,6 +31,82 @@ std::string VersionNumberToString(uint32 version_number) {
   int hi = (version_number >> 8) & 0xff;
   int low = version_number & 0xff;
   return base::IntToString(hi) + "." + base::IntToString(low);
+}
+
+float GetAssessmentScore(IProvideWinSATResultsInfo* results,
+                         WINSAT_ASSESSMENT_TYPE type) {
+  IProvideWinSATAssessmentInfo* subcomponent = NULL;
+  if (FAILED(results->GetAssessmentInfo(type, &subcomponent)))
+    return 0.0;
+
+  float score = 0.0;
+  if (FAILED(subcomponent->get_Score(&score)))
+    score = 0.0;
+  subcomponent->Release();
+  return score;
+}
+
+content::GpuPerformanceStats RetrieveGpuPerformanceStats() {
+  IQueryRecentWinSATAssessment* assessment = NULL;
+  IProvideWinSATResultsInfo* results = NULL;
+
+  content::GpuPerformanceStats stats;
+
+  do {
+    HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    if (FAILED(hr)) {
+      LOG(ERROR) << "CoInitializeEx() failed";
+      break;
+    }
+
+    hr = CoCreateInstance(__uuidof(CQueryWinSAT),
+                          NULL,
+                          CLSCTX_INPROC_SERVER,
+                          __uuidof(IQueryRecentWinSATAssessment),
+                          reinterpret_cast<void**>(&assessment));
+    if (FAILED(hr)) {
+      LOG(ERROR) << "CoCreateInstance() failed";
+      break;
+    }
+
+    hr = assessment->get_Info(&results);
+    if (FAILED(hr)) {
+      LOG(ERROR) << "get_Info() failed";
+      break;
+    }
+
+    WINSAT_ASSESSMENT_STATE state = WINSAT_ASSESSMENT_STATE_UNKNOWN;
+    hr = results->get_AssessmentState(&state);
+    if (FAILED(hr)) {
+      LOG(ERROR) << "get_AssessmentState() failed";
+      break;
+    }
+    if (state != WINSAT_ASSESSMENT_STATE_VALID &&
+        state != WINSAT_ASSESSMENT_STATE_INCOHERENT_WITH_HARDWARE) {
+      LOG(ERROR) << "Can't retrieve a valid assessment";
+      break;
+    }
+
+    hr = results->get_SystemRating(&stats.overall);
+    if (FAILED(hr))
+      LOG(ERROR) << "Get overall score failed";
+
+    stats.gaming = GetAssessmentScore(results, WINSAT_ASSESSMENT_D3D);
+    if (stats.gaming == 0.0)
+      LOG(ERROR) << "Get gaming score failed";
+
+    stats.graphics = GetAssessmentScore(results, WINSAT_ASSESSMENT_GRAPHICS);
+    if (stats.graphics == 0.0)
+      LOG(ERROR) << "Get graphics score failed";
+  } while (false);
+
+  if (assessment)
+    assessment->Release();
+  if (results)
+    results->Release();
+  CoUninitialize();
+
+  return stats;
 }
 
 }  // namespace anonymous
@@ -63,6 +140,8 @@ namespace gpu_info_collector {
 
 bool CollectGraphicsInfo(content::GPUInfo* gpu_info) {
   DCHECK(gpu_info);
+
+  gpu_info->performance_stats = RetrieveGpuPerformanceStats();
 
   if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kUseGL)) {
     std::string requested_implementation_name =
@@ -112,6 +191,8 @@ bool CollectPreliminaryGraphicsInfo(content::GPUInfo* gpu_info) {
   bool rt = true;
   if (!CollectVideoCardInfo(gpu_info))
     rt = false;
+
+  gpu_info->performance_stats = RetrieveGpuPerformanceStats();
 
   return rt;
 }
