@@ -161,9 +161,6 @@ class GDataFileSystemInterface {
     // changed directory.
     virtual void OnDirectoryChanged(const FilePath& directory_path) {}
 
-    // Triggered when the file system is initially loaded.
-    virtual void OnInitialLoadFinished() {}
-
    protected:
     virtual ~Observer() {}
   };
@@ -869,7 +866,6 @@ class GDataFileSystem : public GDataFileSystemInterface {
   void NotifyFileUnpinned(const std::string& resource_id,
                           const std::string& md5);
   void NotifyDirectoryChanged(const FilePath& directory_path);
-  void NotifyInitialLoadFinished();
 
   // Helper function that completes bookkeeping tasks related to
   // completed file transfer.
