@@ -15,7 +15,7 @@ namespace net {
 
 class URLRequest;
 
-class URLRequestDataJob : public URLRequestSimpleJob {
+class NET_EXPORT URLRequestDataJob : public URLRequestSimpleJob {
  public:
   explicit URLRequestDataJob(URLRequest* request);
 

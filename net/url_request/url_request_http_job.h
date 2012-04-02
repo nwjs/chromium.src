@@ -29,7 +29,7 @@ class URLRequestContext;
 
 // A URLRequestJob subclass that is built on top of HttpTransaction.  It
 // provides an implementation for both HTTP and HTTPS.
-class URLRequestHttpJob : public URLRequestJob {
+class NET_EXPORT URLRequestHttpJob : public URLRequestJob {
  public:
   static URLRequestJob* Factory(URLRequest* request,
                                 const std::string& scheme);

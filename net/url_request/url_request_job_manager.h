@@ -29,7 +29,7 @@ namespace net {
 //   However, we do support checking for supported schemes FROM ANY THREAD
 //   (i.e., it is safe to call SupportsScheme on any thread).
 //
-class URLRequestJobManager {
+class NET_EXPORT URLRequestJobManager {
  public:
   // Returns the singleton instance.
   static URLRequestJobManager* GetInstance();

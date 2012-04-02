@@ -21,7 +21,7 @@ class URLRequestContext;
 
 // A URLRequestJob subclass that is built on top of FtpTransaction. It
 // provides an implementation for FTP.
-class URLRequestFtpJob : public URLRequestJob {
+class NET_EXPORT URLRequestFtpJob : public URLRequestJob {
  public:
   explicit URLRequestFtpJob(URLRequest* request);
 
