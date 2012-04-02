@@ -1288,7 +1288,15 @@ void RenderViewImpl::UpdateSessionHistory(WebFrame* frame) {
 
   const WebHistoryItem& item =
       webview()->mainFrame()->previousHistoryItem();
+  SendUpdateState(item);
+}
+
+void RenderViewImpl::SendUpdateState(const WebHistoryItem& item) {
   if (item.isNull())
+    return;
+
+  // Don't send state updates for about:swappedout.
+  if (item.urlString() == WebString::fromUTF8("about:swappedout"))
     return;
 
   Send(new ViewHostMsg_UpdateState(
@@ -3509,11 +3517,7 @@ void RenderViewImpl::SyncNavigationState() {
     return;
 
   const WebHistoryItem& item = webview()->mainFrame()->currentHistoryItem();
-  if (item.isNull())
-    return;
-
-  Send(new ViewHostMsg_UpdateState(
-      routing_id_, page_id_, webkit_glue::HistoryItemToString(item)));
+  SendUpdateState(item);
 }
 
 void RenderViewImpl::SyncSelectionIfRequired() {
