@@ -67,8 +67,7 @@ void CustomFrameViewAsh::Init(views::Widget* frame) {
     AddChildView(window_icon_);
   }
 
-  frame_painter_->Init(frame_, window_icon_, maximize_button_, close_button_,
-                       FramePainter::SIZE_BUTTON_MAXIMIZES);
+  frame_painter_->Init(frame_, window_icon_, maximize_button_, close_button_);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -61,31 +61,21 @@ const int kContentShadowHeight = 1;
 BrowserNonClientFrameViewAura::BrowserNonClientFrameViewAura(
     BrowserFrame* frame, BrowserView* browser_view)
     : BrowserNonClientFrameView(frame, browser_view),
-      size_button_(NULL),
+      maximize_button_(NULL),
       close_button_(NULL),
       window_icon_(NULL),
-      frame_painter_(new ash::FramePainter),
-      size_button_minimizes_(false) {
+      frame_painter_(new ash::FramePainter) {
 }
 
 BrowserNonClientFrameViewAura::~BrowserNonClientFrameViewAura() {
 }
 
 void BrowserNonClientFrameViewAura::Init() {
-  // Panels only minimize.
-  ash::FramePainter::SizeButtonBehavior size_button_behavior;
-  if (browser_view()->browser()->is_type_panel() &&
-      browser_view()->browser()->app_type() == Browser::APP_TYPE_CHILD) {
-    size_button_minimizes_ = true;
-    size_button_ = new views::ImageButton(this);
-    size_button_behavior = ash::FramePainter::SIZE_BUTTON_MINIMIZES;
-  } else {
-    size_button_ = new ash::FrameMaximizeButton(this, this);
-    size_button_behavior = ash::FramePainter::SIZE_BUTTON_MAXIMIZES;
-  }
-  size_button_->SetAccessibleName(
+  // Caption buttons.
+  maximize_button_ = new ash::FrameMaximizeButton(this, this);
+  maximize_button_->SetAccessibleName(
       l10n_util::GetStringUTF16(IDS_ACCNAME_MAXIMIZE));
-  AddChildView(size_button_);
+  AddChildView(maximize_button_);
   close_button_ = new views::ImageButton(this);
   close_button_->SetAccessibleName(
       l10n_util::GetStringUTF16(IDS_ACCNAME_CLOSE));
@@ -103,8 +93,7 @@ void BrowserNonClientFrameViewAura::Init() {
   UpdateAvatarInfo();
 
   // Frame painter handles layout of these buttons.
-  frame_painter_->Init(frame(), window_icon_, size_button_, close_button_,
-                       size_button_behavior);
+  frame_painter_->Init(frame(), window_icon_, maximize_button_, close_button_);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -119,7 +108,7 @@ gfx::Rect BrowserNonClientFrameViewAura::GetBoundsForTabStrip(
       (avatar_button()->bounds().right() + kAvatarSideSpacing) :
       kTabstripLeftSpacing;
   int tabstrip_width =
-      size_button_->x() - kTabstripRightSpacing - tabstrip_x;
+      maximize_button_->x() - kTabstripRightSpacing - tabstrip_x;
   return gfx::Rect(tabstrip_x,
                    GetHorizontalTabStripVerticalOffset(false),
                    std::max(0, tabstrip_width),
@@ -173,7 +162,7 @@ void BrowserNonClientFrameViewAura::GetWindowMask(const gfx::Size& size,
 }
 
 void BrowserNonClientFrameViewAura::ResetWindowControls() {
-  size_button_->SetState(views::CustomButton::BS_NORMAL);
+  maximize_button_->SetState(views::CustomButton::BS_NORMAL);
   // The close button isn't affected by this constraint.
 }
 
@@ -252,12 +241,10 @@ gfx::Size BrowserNonClientFrameViewAura::GetMinimumSize() {
 
 void BrowserNonClientFrameViewAura::ButtonPressed(views::Button* sender,
                                                   const views::Event& event) {
-  if (sender == size_button_) {
+  if (sender == maximize_button_) {
     // The maximize button may move out from under the cursor.
     ResetWindowControls();
-    if (size_button_minimizes_)
-      frame()->Minimize();
-    else if (frame()->IsMaximized())
+    if (frame()->IsMaximized())
       frame()->Restore();
     else
       frame()->Maximize();
