@@ -63,6 +63,9 @@ const SkColor kHeaderContentSeparatorColor = SkColorSetRGB(128, 128, 128);
 const int kCloseButtonOffsetX = 0;
 // Space between close button and top edge of window.
 const int kCloseButtonOffsetY = 0;
+// The size and close buttons are designed to slightly overlap in order
+// to do fancy hover highlighting.
+const int kButtonOverlap = 1;
 // In the pre-Ash era the web content area had a frame along the left edge, so
 // user-generated theme images for the new tab page assume they are shifted
 // right relative to the header.  Now that we have removed the left edge frame
@@ -269,8 +272,8 @@ gfx::Size FramePainter::GetMinimumSize(views::NonClientFrameView* view) {
   // Ensure we have enough space for the window icon and buttons.  We allow
   // the title string to collapse to zero width.
   int title_width = GetTitleOffsetX() +
-      size_button_->width() +
-      button_separator_->width() +
+      size_button_->width() -
+      kButtonOverlap +
       close_button_->width();
   if (title_width > min_size.width())
     min_size.set_width(title_width);
@@ -301,9 +304,10 @@ void FramePainter::PaintHeader(views::NonClientFrameView* view,
   if (theme_frame_overlay)
     canvas->DrawBitmapInt(*theme_frame_overlay, 0, 0);
 
-  // Separator between the maximize and close buttons.
+  // Separator between the maximize and close buttons.  It overlaps the left
+  // edge of the close button.
   canvas->DrawBitmapInt(*button_separator_,
-                        close_button_->x() - button_separator_->width(),
+                        close_button_->x(),
                         close_button_->y());
 
   // We don't need the extra lightness in the edges when we're maximized.
@@ -419,8 +423,7 @@ void FramePainter::LayoutHeader(views::NonClientFrameView* view,
 
   gfx::Size size_button_size = size_button_->GetPreferredSize();
   size_button_->SetBounds(
-      close_button_->x() - button_separator_->width() -
-          size_button_size.width(),
+      close_button_->x() - size_button_size.width() + kButtonOverlap,
       close_button_->y(),
       size_button_size.width(),
       size_button_size.height());
