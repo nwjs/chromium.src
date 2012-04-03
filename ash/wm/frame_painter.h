@@ -11,9 +11,6 @@
 #include "ash/ash_export.h"
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"  // OVERRIDE
-#include "base/memory/scoped_ptr.h"
-#include "ui/base/animation/animation_delegate.h"
-#include "ui/gfx/rect.h"
 #include "ui/aura/window_observer.h"
 
 class SkBitmap;
@@ -23,11 +20,9 @@ class Window;
 namespace gfx {
 class Canvas;
 class Font;
+class Rect;
 class Point;
 class Size;
-}
-namespace ui {
-class SlideAnimation;
 }
 namespace views {
 class ImageButton;
@@ -41,8 +36,7 @@ namespace ash {
 // Helper class for painting window frames.  Exists to share code between
 // various implementations of views::NonClientFrameView.  Canonical source of
 // layout constants for Ash window frames.
-class ASH_EXPORT FramePainter : public aura::WindowObserver,
-                                public ui::AnimationDelegate {
+class ASH_EXPORT FramePainter : public aura::WindowObserver {
  public:
   // Opacity values for the window header in various states, from 0 to 255.
   static int kActiveWindowOpacity;
@@ -111,9 +105,6 @@ class ASH_EXPORT FramePainter : public aura::WindowObserver,
                                        intptr_t old) OVERRIDE;
   virtual void OnWindowDestroying(aura::Window* window) OVERRIDE;
 
-  // Overridden from ui::AnimationDelegate
-  virtual void AnimationProgressed(const ui::Animation* animation) OVERRIDE;
-
  private:
   // Sets the images for a button base on IDs from the |frame_| theme provider.
   void SetButtonImages(views::ImageButton* button,
@@ -146,17 +137,6 @@ class ASH_EXPORT FramePainter : public aura::WindowObserver,
   const SkBitmap* top_right_corner_;
   const SkBitmap* header_left_edge_;
   const SkBitmap* header_right_edge_;
-
-  // Bitmap and opacity last used for painting header.
-  const SkBitmap* previous_theme_frame_;
-  int previous_opacity_;
-
-  // Bitmap and opacity we are crossfading from.
-  const SkBitmap* crossfade_theme_frame_;
-  int crossfade_opacity_;
-
-  gfx::Rect header_frame_bounds_;
-  scoped_ptr<ui::SlideAnimation> crossfade_animation_;
 
   SizeButtonBehavior size_button_behavior_;
 
