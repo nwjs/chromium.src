@@ -206,10 +206,6 @@ Value* GpuMessageHandler::OnRequestClientInfo(const ListValue* list) {
   dict->SetString("blacklist_version",
       GpuDataManager::GetInstance()->GetBlacklistVersion());
 
-  GpuPerformanceStats stats =
-      GpuDataManager::GetInstance()->GetPerformanceStats();
-  dict->Set("performance", stats.ToValue());
-
   return dict;
 }
 

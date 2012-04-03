@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -110,6 +110,17 @@ class CONTENT_EXPORT GpuBlacklist {
     kMalformed
   };
 
+  enum NumericOp {
+    kBetween,  // <= * <=
+    kEQ,  // =
+    kLT,  // <
+    kLE,  // <=
+    kGT,  // >
+    kGE,  // >=
+    kAny,
+    kUnknown  // Indicates the data is invalid.
+  };
+
   class VersionInfo {
    public:
     VersionInfo(const std::string& version_op,
@@ -124,21 +135,7 @@ class CONTENT_EXPORT GpuBlacklist {
     bool IsValid() const;
 
    private:
-    enum Op {
-      kBetween,  // <= * <=
-      kEQ,  // =
-      kLT,  // <
-      kLE,  // <=
-      kGT,  // >
-      kGE,  // >=
-      kAny,
-      kUnknown  // Indicates VersionInfo data is invalid.
-    };
-
-    // Maps string to Op; returns kUnknown if it's not a valid Op.
-    static Op StringToOp(const std::string& version_op);
-
-    Op op_;
+    NumericOp op_;
     scoped_ptr<Version> version_;
     scoped_ptr<Version> version2_;
   };
@@ -191,6 +188,24 @@ class CONTENT_EXPORT GpuBlacklist {
 
     Op op_;
     std::string value_;
+  };
+
+  class FloatInfo {
+   public:
+    FloatInfo(const std::string& float_op,
+              const std::string& float_value,
+              const std::string& float_value2);
+
+    // Determines if a given float is included in the FloatInfo.
+    bool Contains(float value) const;
+
+    // Determines if the FloatInfo contains valid information.
+    bool IsValid() const;
+
+   private:
+    NumericOp op_;
+    float value_;
+    float value2_;
   };
 
   class GpuBlacklistEntry;
@@ -272,6 +287,18 @@ class CONTENT_EXPORT GpuBlacklist {
     bool SetGLRendererInfo(const std::string& renderer_op,
                            const std::string& renderer_value);
 
+    bool SetPerfGraphicsInfo(const std::string& op,
+                             const std::string& float_string,
+                             const std::string& float_string2);
+
+    bool SetPerfGamingInfo(const std::string& op,
+                           const std::string& float_string,
+                           const std::string& float_string2);
+
+    bool SetPerfOverallInfo(const std::string& op,
+                            const std::string& float_string,
+                            const std::string& float_string2);
+
     bool SetBlacklistedFeatures(
         const std::vector<std::string>& blacklisted_features);
 
@@ -290,6 +317,9 @@ class CONTENT_EXPORT GpuBlacklist {
     scoped_ptr<VersionInfo> driver_date_info_;
     scoped_ptr<StringInfo> gl_vendor_info_;
     scoped_ptr<StringInfo> gl_renderer_info_;
+    scoped_ptr<FloatInfo> perf_graphics_info_;
+    scoped_ptr<FloatInfo> perf_gaming_info_;
+    scoped_ptr<FloatInfo> perf_overall_info_;
     scoped_ptr<GpuFeatureFlags> feature_flags_;
     std::vector<ScopedGpuBlacklistEntry> exceptions_;
     bool contains_unknown_fields_;
@@ -314,6 +344,8 @@ class CONTENT_EXPORT GpuBlacklist {
   bool contains_unknown_fields() const { return contains_unknown_fields_; }
 
   void SetBrowserVersion(const std::string& version_string);
+
+  static NumericOp StringToNumericOp(const std::string& op);
 
   scoped_ptr<Version> version_;
   std::vector<ScopedGpuBlacklistEntry> blacklist_;
