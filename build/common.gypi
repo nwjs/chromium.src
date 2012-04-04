@@ -375,12 +375,6 @@
           'webui_task_manager%': 1,
         }],
 
-        # For now one-click signin is enabled only for windows and mac
-        # since the UI is not yet complete for other platforms.
-        ['OS=="win" or OS=="mac"', {
-          'enable_one_click_signin%': 1,
-        }],
-
         ['OS=="android"', {
           'proprietary_codecs%': 1,
           'enable_webrtc%': 0,
