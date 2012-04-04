@@ -1227,7 +1227,8 @@ FileManager.prototype = {
    *                   selection.
    */
   FileManager.prototype.canExecute_ = function(commandId) {
-    var readonly = this.directoryModel_.readonly;
+    var readonly = this.directoryModel_.readonly ||
+        (this.isOnGData() && this.isOffline());
     var path = this.directoryModel_.currentEntry.fullPath;
     switch (commandId) {
       case 'cut':
@@ -2022,7 +2023,8 @@ FileManager.prototype = {
       if (entry.gdata_.isHosted) {
         element.classList.add('gdata-hosted');
       }
-      if (this.isAvaliableOffline_(entry.gdata_, this.getFileType(entry))) {
+      if (entry.isDirectory ||
+          this.isAvaliableOffline_(entry.gdata_, this.getFileType(entry))) {
         element.classList.add('gdata-present');
       }
     }.bind(this));
@@ -2163,6 +2165,9 @@ FileManager.prototype = {
     var div = doc.createElement('div');
     div.className = 'offline';
 
+    if (entry.isDirectory)
+      return div;
+
     var checkbox = doc.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.className = 'common pin';
@@ -2172,6 +2177,8 @@ FileManager.prototype = {
 
     if (this.isOnGData()) {
       cacheGDataProps(entry, function(entry) {
+        if (entry.gdata_.isHosted)
+          return;
         checkbox.checked = entry.gdata_.isPinned;
         div.appendChild(checkbox);
       });
@@ -2670,7 +2677,7 @@ FileManager.prototype = {
   };
 
   FileManager.prototype.isAvaliableOffline_ = function(gdata, type) {
-    return gdata.isPresent || type.offline;
+    return gdata.isPresent && !gdata.isHosted;
   };
 
   FileManager.prototype.isOffline = function() {
