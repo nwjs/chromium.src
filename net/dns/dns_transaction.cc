@@ -488,10 +488,8 @@ class DnsTransactionImpl : public DnsTransaction, public base::NonThreadSafe {
         }
         break;
     }
-    // TODO(szym): The next step might be to make another attempt.
-    // http://crbug.com/121717
     if (rv != ERR_IO_PENDING)
-      DoCallback(rv, attempts_->back()->response());
+      DoCallback(rv, NULL);
   }
 
   void OnTimeout() {
@@ -501,10 +499,8 @@ class DnsTransactionImpl : public DnsTransaction, public base::NonThreadSafe {
       return;
     }
     int rv = MakeAttempt();
-    // TODO(szym): The next step might be to make another attempt.
-    // http://crbug.com/121717
     if (rv != ERR_IO_PENDING)
-      DoCallback(rv, attempts_->back()->response());
+      DoCallback(rv, NULL);
   }
 
   scoped_refptr<DnsSession> session_;
