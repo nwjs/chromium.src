@@ -28,6 +28,7 @@
 #include "remoting/base/scoped_thread_proxy.h"
 #include "remoting/client/client_context.h"
 #include "remoting/client/plugin/pepper_plugin_thread_delegate.h"
+#include "remoting/proto/event.pb.h"
 #include "remoting/protocol/connection_to_host.h"
 
 namespace base {
@@ -86,7 +87,7 @@ class ChromotingInstance :
 
   // Plugin API version. This should be incremented whenever the API
   // interface changes.
-  static const int kApiVersion = 5;
+  static const int kApiVersion = 6;
 
   // Backward-compatibility version used by for the messaging
   // interface. Should be updated whenever we remove support for
@@ -129,6 +130,7 @@ class ChromotingInstance :
   void Disconnect();
   void OnIncomingIq(const std::string& iq);
   void ReleaseAllKeys();
+  void InjectKeyEvent(const protocol::KeyEvent& event);
 
   // Return statistics record by ChromotingClient.
   // If no connection is currently active then NULL will be returned.
