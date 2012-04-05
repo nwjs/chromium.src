@@ -152,7 +152,6 @@ class TransactionHelper {
       }
     } else {
       EXPECT_EQ(expected_answer_count_, rv);
-      EXPECT_EQ(NULL, response);
     }
 
     if (quit_in_callback_)
