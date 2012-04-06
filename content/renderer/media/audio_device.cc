@@ -95,6 +95,22 @@ void AudioDevice::Start() {
   AudioParameters params;
   params.format = latency_format_;
   params.channels = channels_;
+
+  // Chrome 18 specific fix for http://crbug.com/109441 where we determine the
+  // ChannelLayout based on |channels_| but only up to stereo. The proper fix
+  // was committed as r128054 in time for Chrome 19 but it's not suitable for
+  // merging.
+  //
+  // NOTE: surround sound will still be broken but that's something we'll have
+  // to live with until Chrome 19.
+  if (channels_ == 1) {
+    params.channel_layout = CHANNEL_LAYOUT_MONO;
+  } else if (channels_ == 2) {
+    params.channel_layout = CHANNEL_LAYOUT_STEREO;
+  } else {
+    params.channel_layout = CHANNEL_LAYOUT_NONE;
+  }
+
   params.sample_rate = static_cast<int>(sample_rate_);
   params.bits_per_sample = bits_per_sample_;
   params.samples_per_packet = buffer_size_;
