@@ -1238,7 +1238,7 @@ TEST_F(ExtensionManifestTest, PageActionManifestVersion2) {
                      errors::kInvalidPageActionPopup);
 }
 
-TEST_F(ExtensionManifestTest, StorageAPIManifestVersionAvailability) {
+TEST_F(ExtensionManifestTest, DISABLED_StorageAPIManifestVersionAvailability) {
   DictionaryValue base_manifest;
   {
     base_manifest.SetString(keys::kName, "test");
