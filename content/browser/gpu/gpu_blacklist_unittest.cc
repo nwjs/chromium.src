@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -33,9 +33,6 @@ class GpuBlacklistTest : public testing::Test {
     gpu_info_.driver_date = "7-14-2009";
     gpu_info_.gl_vendor = "NVIDIA Corporation";
     gpu_info_.gl_renderer = "NVIDIA GeForce GT 120 OpenGL Engine";
-    gpu_info_.performance_stats.graphics = 5.0;
-    gpu_info_.performance_stats.gaming = 5.0;
-    gpu_info_.performance_stats.overall = 5.0;
   }
 
   void TearDown() {
@@ -651,93 +648,6 @@ TEST_F(GpuBlacklistTest, GlRenderer) {
   GpuBlacklist blacklist("1.0");
   EXPECT_TRUE(
       blacklist.LoadGpuBlacklist(gl_renderer_json, GpuBlacklist::kAllOs));
-  GpuFeatureFlags flags = blacklist.DetermineGpuFeatureFlags(
-      GpuBlacklist::kOsWin, os_version.get(), gpu_info());
-  EXPECT_EQ(flags.flags(),
-            static_cast<uint32>(GpuFeatureFlags::kGpuFeatureWebgl));
-}
-
-TEST_F(GpuBlacklistTest, PerfGraphics) {
-  const std::string json =
-      "{\n"
-      "  \"name\": \"gpu blacklist\",\n"
-      "  \"version\": \"0.1\",\n"
-      "  \"entries\": [\n"
-      "    {\n"
-      "      \"id\": 1,\n"
-      "      \"perf_graphics\": {\n"
-      "        \"op\": \"<\",\n"
-      "        \"value\": \"6.0\"\n"
-      "      },\n"
-      "      \"blacklist\": [\n"
-      "        \"webgl\"\n"
-      "      ]\n"
-      "    }\n"
-      "  ]\n"
-      "}";
-  scoped_ptr<Version> os_version(Version::GetVersionFromString("10.6.4"));
-
-  GpuBlacklist blacklist("1.0");
-  EXPECT_TRUE(
-      blacklist.LoadGpuBlacklist(json, GpuBlacklist::kAllOs));
-  GpuFeatureFlags flags = blacklist.DetermineGpuFeatureFlags(
-      GpuBlacklist::kOsWin, os_version.get(), gpu_info());
-  EXPECT_EQ(flags.flags(),
-            static_cast<uint32>(GpuFeatureFlags::kGpuFeatureWebgl));
-}
-
-TEST_F(GpuBlacklistTest, PerfGaming) {
-  const std::string json =
-      "{\n"
-      "  \"name\": \"gpu blacklist\",\n"
-      "  \"version\": \"0.1\",\n"
-      "  \"entries\": [\n"
-      "    {\n"
-      "      \"id\": 1,\n"
-      "      \"perf_gaming\": {\n"
-      "        \"op\": \"<=\",\n"
-      "        \"value\": \"4.0\"\n"
-      "      },\n"
-      "      \"blacklist\": [\n"
-      "        \"webgl\"\n"
-      "      ]\n"
-      "    }\n"
-      "  ]\n"
-      "}";
-  scoped_ptr<Version> os_version(Version::GetVersionFromString("10.6.4"));
-
-  GpuBlacklist blacklist("1.0");
-  EXPECT_TRUE(
-      blacklist.LoadGpuBlacklist(json, GpuBlacklist::kAllOs));
-  GpuFeatureFlags flags = blacklist.DetermineGpuFeatureFlags(
-      GpuBlacklist::kOsWin, os_version.get(), gpu_info());
-  EXPECT_EQ(flags.flags(), 0u);
-}
-
-TEST_F(GpuBlacklistTest, PerfOverall) {
-  const std::string json =
-      "{\n"
-      "  \"name\": \"gpu blacklist\",\n"
-      "  \"version\": \"0.1\",\n"
-      "  \"entries\": [\n"
-      "    {\n"
-      "      \"id\": 1,\n"
-      "      \"perf_overall\": {\n"
-      "        \"op\": \"between\",\n"
-      "        \"value\": \"1.0\",\n"
-      "        \"value2\": \"9.0\"\n"
-      "      },\n"
-      "      \"blacklist\": [\n"
-      "        \"webgl\"\n"
-      "      ]\n"
-      "    }\n"
-      "  ]\n"
-      "}";
-  scoped_ptr<Version> os_version(Version::GetVersionFromString("10.6.4"));
-
-  GpuBlacklist blacklist("1.0");
-  EXPECT_TRUE(
-      blacklist.LoadGpuBlacklist(json, GpuBlacklist::kAllOs));
   GpuFeatureFlags flags = blacklist.DetermineGpuFeatureFlags(
       GpuBlacklist::kOsWin, os_version.get(), gpu_info());
   EXPECT_EQ(flags.flags(),
