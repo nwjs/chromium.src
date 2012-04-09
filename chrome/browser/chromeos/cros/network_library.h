@@ -971,6 +971,7 @@ class WifiNetwork : public WirelessNetwork {
   const std::string& passphrase() const { return passphrase_; }
   const std::string& identity() const { return identity_; }
   bool passphrase_required() const { return passphrase_required_; }
+  bool hidden_ssid() const { return hidden_ssid_; }
 
   EAPMethod eap_method() const { return eap_method_; }
   EAPPhase2Auth eap_phase_2_auth() const { return eap_phase_2_auth_; }
@@ -992,6 +993,7 @@ class WifiNetwork : public WirelessNetwork {
   bool SetHexSsid(const std::string& ssid_hex);
   void SetPassphrase(const std::string& passphrase);
   void SetIdentity(const std::string& identity);
+  void SetHiddenSSID(bool hidden_ssid);
 
   // 802.1x properties
   void SetEAPMethod(EAPMethod method);
@@ -1045,6 +1047,9 @@ class WifiNetwork : public WirelessNetwork {
   void set_identity(const std::string& identity) {
     identity_ = identity;
   }
+  void set_hidden_ssid(bool hidden_ssid) {
+    hidden_ssid_ = hidden_ssid;
+  }
   void set_eap_method(EAPMethod eap_method) { eap_method_ = eap_method; }
   void set_eap_phase_2_auth(EAPPhase2Auth eap_phase_2_auth) {
     eap_phase_2_auth_ = eap_phase_2_auth;
@@ -1088,6 +1093,7 @@ class WifiNetwork : public WirelessNetwork {
   std::string passphrase_;
   bool passphrase_required_;
   std::string identity_;
+  bool hidden_ssid_;
 
   EAPMethod eap_method_;
   EAPPhase2Auth eap_phase_2_auth_;
