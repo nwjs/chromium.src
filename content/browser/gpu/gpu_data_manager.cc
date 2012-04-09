@@ -564,13 +564,13 @@ DictionaryValue* GpuDataManager::GpuInfoAsDictionaryValue() const {
   ListValue* perf_info = new ListValue();
   perf_info->Append(NewDescriptionValuePair(
       "Graphics",
-      base::StringPrintf("%.1f", gpu_info().performance_stats.graphics)));
+      base::StringPrintf("%.1f", gpu_info.performance_stats.graphics)));
   perf_info->Append(NewDescriptionValuePair(
       "Gaming",
-      base::StringPrintf("%.1f", gpu_info().performance_stats.gaming)));
+      base::StringPrintf("%.1f", gpu_info.performance_stats.gaming)));
   perf_info->Append(NewDescriptionValuePair(
       "Overall",
-      base::StringPrintf("%.1f", gpu_info().performance_stats.overall)));
+      base::StringPrintf("%.1f", gpu_info.performance_stats.overall)));
   info->Set("performance_info", perf_info);
 
   Value* dx_info;
