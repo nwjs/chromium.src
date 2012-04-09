@@ -7,29 +7,29 @@
  * expects to correctly populate the page.
  */
 var flagsExperimentsDataFormat = {
-  flagsExperiments: [
+  'flagsExperiments': [
     {
-      internal_name: 'Experiment ID string',
-      name: 'Experiment Name',
-      description: 'description',
+      'internal_name': 'Experiment ID string',
+      'name': 'Experiment Name',
+      'description': 'description',
       // enabled is only set if the experiment is single valued.
-      enabled: true,
+      'enabled': true,
       // choices is only set if the experiment has multiple values.
-      choices: [
+      'choices': [
         {
-          internal_name: 'Experiment ID string',
-          description: 'description',
-          selected: true
+          'internal_name': 'Experiment ID string',
+          'description': 'description',
+          'selected': true
         }
       ],
-      supported: true,
-      supported_platforms: [
+      'supported': true,
+      'supported_platforms' : [
         'Mac',
         'Linux'
       ],
     }
   ],
-  needsRestart: false
+  'needsRestart': false
 };
 
 /**
@@ -37,12 +37,11 @@ var flagsExperimentsDataFormat = {
  * the currently available experiments and populates the html jstemplate
  * with that data. It expects an object structure like the above.
  * @param {Object} flagsExperimentsData Information about available experiments
- *     in the format of the flagsExperimentsDataFormat object above.
  */
 function renderTemplate(flagsExperimentsData) {
   // This is the javascript code that processes the template:
   var input = new JsEvalContext(flagsExperimentsData);
-  var output = $('flagsExperimentTemplate');
+  var output = document.getElementById('flagsExperimentTemplate');
   jstProcess(input, output);
 
   // Add handlers to dynamically created HTML elements.
@@ -95,19 +94,15 @@ function restartBrowser() {
 /**
  * Called by the WebUI to re-populate the page with data representing the
  * current state of installed experiments.
- * @param {Object} flagsExperimentsData Information about available experiments
- *     in the format of the flagsExperimentsDataFormat object above.
  */
 function returnFlagsExperiments(flagsExperimentsData) {
-  var bodyContainer = $('body-container');
+  var bodyContainer = document.getElementById('body-container');
   renderTemplate(flagsExperimentsData);
   bodyContainer.style.visibility = 'visible';
 }
 
 /**
  * Handles a 'enable' or 'disable' button getting clicked.
- * @param {HTMLElement} node The node for the experiment being changed.
- * @param {boolean} enable Whether to enable or disable the experiment.
  */
 function handleEnableExperiment(node, enable) {
   // Tell the C++ FlagsDOMHandler to enable/disable the experiment.
@@ -119,8 +114,6 @@ function handleEnableExperiment(node, enable) {
 /**
  * Invoked when the selection of a multi-value choice is changed to the
  * specified index.
- * @param {HTMLElement} node The node for the experiment being changed.
- * @param {number} index The index of the option that was selected.
  */
 function handleSelectChoiceExperiment(node, index) {
   // Tell the C++ FlagsDOMHandler to enable the selected choice.
