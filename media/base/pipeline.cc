@@ -845,7 +845,7 @@ void Pipeline::VolumeChangedTask(float volume) {
 }
 
 void Pipeline::PreloadChangedTask(Preload preload) {
-  DCHECK_EQ(MessageLoop::current(), message_loop_);
+  DCHECK(message_loop_->BelongsToCurrentThread());
   if (!running_ || tearing_down_)
     return;
 
