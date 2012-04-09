@@ -21,6 +21,7 @@
 class MessageLoop;
 
 namespace base {
+class MessageLoopProxy;
 class TimeDelta;
 }
 
@@ -476,7 +477,7 @@ class MEDIA_EXPORT Pipeline
   void ReportStatus(const PipelineStatusCB& cb, PipelineStatus status);
 
   // Message loop used to execute pipeline tasks.
-  MessageLoop* message_loop_;
+  scoped_refptr<base::MessageLoopProxy> message_loop_;
 
   // MediaLog to which to log events.
   scoped_refptr<MediaLog> media_log_;
