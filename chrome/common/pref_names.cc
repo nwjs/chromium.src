@@ -1792,7 +1792,10 @@ const char kRestoreSessionStateDialogShown[] =
 const char kWebIntentsEnabled[] = "webintents.enabled";
 
 #if defined(USE_AURA)
-const char kPinnedLauncherApps[] = "pinned_launcher_apps";
+// Boolean value indicating whether to use default pinned apps.
+const char kUseDefaultPinnedApps[] = "use_default_pinned_apps";
+const char kPinnedLauncherApps[] =
+    "pinned_launcher_apps";
 
 const char kMaximumSecondsBetweenDoubleClick[] =
     "gesture.maximum_seconds_between_double_click";
