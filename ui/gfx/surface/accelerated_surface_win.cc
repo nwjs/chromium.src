@@ -464,6 +464,13 @@ void AcceleratedPresenter::Suspend() {
                  this));
 }
 
+void AcceleratedPresenter::ReleaseSurface() {
+  present_thread_->message_loop()->PostTask(
+      FROM_HERE,
+      base::Bind(&AcceleratedPresenter::DoReleaseSurface,
+                 this));
+}
+
 void AcceleratedPresenter::Invalidate() {
   // Make any pending or future presentation tasks do nothing. Once the last
   // last pending task has been ignored, the reference count on the presenter
@@ -536,8 +543,7 @@ void AcceleratedPresenter::DoPresentAndAcknowledge(
       return;
   }
 
-  base::win::ScopedComPtr<IDirect3DTexture9> source_texture;
-  {
+  if (!source_texture_.get()) {
     TRACE_EVENT0("surface", "CreateTexture");
     HANDLE handle = reinterpret_cast<HANDLE>(surface_handle);
     hr = present_thread_->device()->CreateTexture(size.width(),
@@ -546,14 +552,14 @@ void AcceleratedPresenter::DoPresentAndAcknowledge(
                                                   D3DUSAGE_RENDERTARGET,
                                                   D3DFMT_A8R8G8B8,
                                                   D3DPOOL_DEFAULT,
-                                                  source_texture.Receive(),
+                                                  source_texture_.Receive(),
                                                   &handle);
     if (FAILED(hr))
       return;
   }
 
   base::win::ScopedComPtr<IDirect3DSurface9> source_surface;
-  hr = source_texture->GetSurfaceLevel(0, source_surface.Receive());
+  hr = source_texture_->GetSurfaceLevel(0, source_surface.Receive());
   if (FAILED(hr))
     return;
 
@@ -626,6 +632,11 @@ void AcceleratedPresenter::DoPresentAndAcknowledge(
 void AcceleratedPresenter::DoSuspend() {
   base::AutoLock locked(lock_);
   swap_chain_ = NULL;
+}
+
+void AcceleratedPresenter::DoReleaseSurface() {
+  base::AutoLock locked(lock_);
+  source_texture_.Release();
 }
 
 AcceleratedSurface::AcceleratedSurface(gfx::NativeWindow window)
