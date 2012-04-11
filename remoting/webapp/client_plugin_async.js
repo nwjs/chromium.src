@@ -276,7 +276,7 @@ remoting.ClientPluginAsync.prototype.injectKey =
     function(usb_keycode, pressed) {
   this.plugin.postMessage(JSON.stringify(
       { method: 'injectKeyEvent', data: {
-          'usb_keycode': usb_keycode,
+          'usbKeycode': usb_keycode,
           'pressed': pressed}
       }));
 };
