@@ -27,7 +27,6 @@
 #include "ppapi/cpp/private/instance_private.h"
 #include "remoting/base/scoped_thread_proxy.h"
 #include "remoting/client/client_context.h"
-#include "remoting/client/key_event_mapper.h"
 #include "remoting/client/plugin/pepper_plugin_thread_delegate.h"
 #include "remoting/proto/event.pb.h"
 #include "remoting/protocol/connection_to_host.h"
@@ -136,8 +135,6 @@ class ChromotingInstance :
   void OnIncomingIq(const std::string& iq);
   void ReleaseAllKeys();
   void InjectKeyEvent(const protocol::KeyEvent& event);
-  void RemapKey(uint32 in_usb_keycode, uint32 out_usb_keycode);
-  void TrapKey(uint32 usb_keycode, bool trap);
 
   // Return statistics record by ChromotingClient.
   // If no connection is currently active then NULL will be returned.
@@ -172,9 +169,6 @@ class ChromotingInstance :
   void PostChromotingMessage(const std::string& method,
                              scoped_ptr<base::DictionaryValue> data);
 
-  // Posts trapped keys to the web-app to handle.
-  void SendTrappedKey(uint32 usb_keycode, bool pressed);
-
   // Callback for PepperXmppProxy.
   void SendOutgoingIq(const std::string& iq);
 
@@ -193,7 +187,6 @@ class ChromotingInstance :
   scoped_refptr<RectangleUpdateDecoder> rectangle_decoder_;
   scoped_ptr<MouseInputFilter> mouse_input_filter_;
   scoped_ptr<protocol::KeyEventTracker> key_event_tracker_;
-  KeyEventMapper key_mapper_;
   scoped_ptr<PepperInputHandler> input_handler_;
   scoped_ptr<ChromotingClient> client_;
 

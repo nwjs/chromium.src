@@ -16,7 +16,6 @@ namespace protocol {
 class InputFilter : public InputStub {
  public:
   InputFilter();
-  explicit InputFilter(InputStub* input_stub);
   virtual ~InputFilter();
 
   // Return the InputStub that events will be forwarded to.
