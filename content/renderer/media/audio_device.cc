@@ -353,6 +353,10 @@ void AudioDevice::ShutDownAudioThread() {
     // TODO(tommi): We must not do this from the IO thread.  Fix.
     base::ThreadRestrictions::ScopedAllowIO allow_wait;
     audio_thread_->Join();
+    // Make sure not to release the socket pointer until after the thread
+    // has exited.  Otherwise there's a race between startup of the thread
+    // and this.
+    audio_socket_ = NULL;
     audio_thread_.reset(NULL);
     audio_socket_.reset();
   }
