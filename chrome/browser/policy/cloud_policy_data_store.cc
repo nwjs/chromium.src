@@ -35,7 +35,7 @@ CloudPolicyDataStore::CloudPolicyDataStore(
       known_machine_id_(false),
       token_cache_loaded_(false),
       policy_fetching_enabled_(true),
-      device_mode_(DEVICE_MODE_UNKNOWN) {}
+      device_mode_(DEVICE_MODE_PENDING) {}
 
 void CloudPolicyDataStore::SetDeviceToken(const std::string& device_token,
                                           bool from_cache) {
