@@ -40,12 +40,16 @@ void MessagePumpUV::Run(Delegate* delegate) {
   DCHECK(keep_running_) << "Quit must have been called outside of Run!";
 
   uv_timer_t timer0;
-  int argc    = CommandLine::ForCurrentProcess()->argc();
-  char** argv = CommandLine::ForCurrentProcess()->argv_c();
+  //  int argc    = CommandLine::ForCurrentProcess()->argc();
+  //char** argv = CommandLine::ForCurrentProcess()->argv_c();
+  int argc = 1;
+  char argv0[] = "node";
+  char* argv[] = {argv0, NULL};
 
   uv_timer_init(uv_loop_, &timer0);
   node::Start0(argc, argv);
   {
+    v8::Locker locker;
     v8::HandleScope handle_scope;
     node::Start(argc, argv);
 
@@ -109,6 +113,27 @@ void MessagePumpUV::ScheduleDelayedWork(
   // only be called on the same thread as Run, so we only need to update our
   // record of how long to sleep when we do sleep.
   delayed_work_time_ = delayed_work_time;
+}
+
+bool print_js_stacktrace(int frameLimit) {
+  if (!v8::Context::InContext())
+    return false;
+  v8::Handle<v8::Context> context = v8::Context::GetCurrent();
+  if (context.IsEmpty())
+    return false;
+  v8::HandleScope scope;
+  v8::Context::Scope contextScope(context);
+  v8::Handle<v8::StackTrace> trace(v8::StackTrace::CurrentStackTrace(frameLimit));
+  int frameCount = trace->GetFrameCount();
+  if (trace.IsEmpty() || !frameCount)
+    return false;
+  for (int i = 0; i < frameCount; ++i) {
+    v8::Handle<v8::StackFrame> frame = trace->GetFrame(i);
+    v8::String::Utf8Value scriptName(frame->GetScriptName());
+    v8::String::Utf8Value functionName(frame->GetFunctionName());
+    fprintf(stderr, "%s:%d - %s\n", *scriptName, frame->GetLineNumber(), *functionName);
+  }
+  return true;
 }
 
 }  // namespace base

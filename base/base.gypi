@@ -586,6 +586,7 @@
       ],
       'include_dirs': [
         '..',
+        '../v8/include',
       ],
       'defines': ['COMPONENT_BUILD'], #FIXME
     },
