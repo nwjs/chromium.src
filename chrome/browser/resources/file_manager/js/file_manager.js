@@ -1526,7 +1526,7 @@ FileManager.prototype = {
     var self = this;
     var progress = this.copyManager_.getProgress();
 
-    var options = {progress: progress.percentage, actions:{}};
+    var options = {progress: progress.percentage, actions: {}, timeout: 0};
     options.actions[str('CANCEL_LABEL')] = function cancelPaste() {
       self.copyManager_.requestCancel();
     };
@@ -1550,7 +1550,7 @@ FileManager.prototype = {
       // Perform this check inside Progress event handler, avoid to log error
       // message 'Unknown event reason: PROGRESS' in console.
       if (this.currentButter_) {
-        var options = {progress: progress.percentage};
+        var options = {progress: progress.percentage, timeout: 0};
         this.updateButter(strf('PASTE_ITEMS_REMAINING', progress.pendingItems),
                           options);
       }
