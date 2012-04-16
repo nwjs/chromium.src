@@ -614,8 +614,7 @@ cr.define('options', function() {
     decorate: function() {
       DeletableItemList.prototype.decorate.call(this);
       this.classList.add('cookie-list');
-      this.data_ = [];
-      this.dataModel = new ArrayDataModel(this.data_);
+      this.dataModel = new ArrayDataModel([]);
       this.addEventListener('keydown', this.handleKeyLeftRight_.bind(this));
       var sm = new ListSingleSelectionModel();
       sm.addEventListener('change', this.cookieSelectionChange_.bind(this));
@@ -739,7 +738,7 @@ cr.define('options', function() {
     // from options.DeletableItemList
     /** @inheritDoc */
     deleteItemAtIndex: function(index) {
-      var item = this.data_[index];
+      var item = this.dataModel.item(index);
       if (item) {
         var pathId = item.pathId;
         if (pathId)
@@ -763,7 +762,7 @@ cr.define('options', function() {
      * @param {number} index The index of the tree node to remove.
      */
     remove: function(index) {
-      if (index < this.data_.length)
+      if (index < this.dataModel.length)
         this.dataModel.splice(index, 1);
     },
 
@@ -774,8 +773,7 @@ cr.define('options', function() {
      */
     clear: function() {
       parentLookup = {};
-      this.data_ = [];
-      this.dataModel = new ArrayDataModel(this.data_);
+      this.dataModel.splice(0, this.dataModel.length);
       this.redraw();
     },
 
