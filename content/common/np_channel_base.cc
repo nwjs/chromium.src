@@ -79,7 +79,7 @@ NPChannelBase::~NPChannelBase() {
 }
 
 NPChannelBase* NPChannelBase::GetCurrentChannel() {
-  return g_lazy_channel_stack_.Pointer()->top();
+  return g_lazy_channel_stack.Pointer()->top();
 }
 
 void NPChannelBase::CleanupChannels() {
@@ -161,7 +161,7 @@ int NPChannelBase::Count() {
 bool NPChannelBase::OnMessageReceived(const IPC::Message& message) {
   // This call might cause us to be deleted, so keep an extra reference to
   // ourself so that we can send the reply and decrement back in_dispatch_.
-  g_lazy_channel_stack_.Pointer()->push(
+  g_lazy_channel_stack.Pointer()->push(
       scoped_refptr<NPChannelBase>(this));
 
   bool handled;
@@ -182,7 +182,7 @@ bool NPChannelBase::OnMessageReceived(const IPC::Message& message) {
   if (message.should_unblock())
     in_unblock_dispatch_--;
 
-  g_lazy_channel_stack_.Pointer()->pop();
+  g_lazy_channel_stack.Pointer()->pop();
   return handled;
 }
 
