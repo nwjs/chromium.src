@@ -63,7 +63,6 @@
       },
       {'target_name': 'content_common',
        'type': 'static_library',
-       'variables': { 'enable_wexit_time_destructors': 1, },
        'includes': [
           'content_common.gypi',
         ],
