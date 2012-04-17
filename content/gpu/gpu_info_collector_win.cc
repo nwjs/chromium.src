@@ -116,8 +116,6 @@ namespace gpu_info_collector {
 bool CollectGraphicsInfo(content::GPUInfo* gpu_info) {
   DCHECK(gpu_info);
 
-  gpu_info->performance_stats = RetrieveGpuPerformanceStats();
-
   if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kUseGL)) {
     std::string requested_implementation_name =
         CommandLine::ForCurrentProcess()->GetSwitchValueASCII(switches::kUseGL);
@@ -168,8 +166,6 @@ bool CollectPreliminaryGraphicsInfo(content::GPUInfo* gpu_info) {
   bool rt = true;
   if (!CollectVideoCardInfo(gpu_info))
     rt = false;
-
-  gpu_info->performance_stats = RetrieveGpuPerformanceStats();
 
   return rt;
 }
