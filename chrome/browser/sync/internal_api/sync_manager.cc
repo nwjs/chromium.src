@@ -1014,43 +1014,8 @@ void SyncManager::SyncInternal::UpdateCryptographerAndNigoriCallback(
         }
       }
 
-      // Add or update device information.
-      chrome::VersionInfo version_info;
-      bool contains_this_device = false;
-      for (int i = 0; i < nigori.device_information_size(); ++i) {
-        const sync_pb::DeviceInformation& device_information =
-            nigori.device_information(i);
-        if (device_information.cache_guid() == lookup->cache_guid()) {
-          // Update the version number in case it changed due to an update.
-          if (device_information.chrome_version() !=
-              version_info.CreateVersionString()) {
-            sync_pb::DeviceInformation* mutable_device_information =
-                nigori.mutable_device_information(i);
-            mutable_device_information->set_chrome_version(
-                version_info.CreateVersionString());
-          }
-          contains_this_device = true;
-        }
-      }
-
-      if (!contains_this_device) {
-        sync_pb::DeviceInformation* device_information =
-            nigori.add_device_information();
-        device_information->set_cache_guid(lookup->cache_guid());
-#if defined(OS_CHROMEOS)
-        device_information->set_platform("ChromeOS");
-#elif defined(OS_LINUX)
-        device_information->set_platform("Linux");
-#elif defined(OS_MACOSX)
-        device_information->set_platform("Mac");
-#elif defined(OS_WIN)
-        device_information->set_platform("Windows");
-#endif
-        device_information->set_name(session_name);
-        chrome::VersionInfo version_info;
-        device_information->set_chrome_version(
-            version_info.CreateVersionString());
-      }
+      // Device writing disabled to avoid nigori races. TODO(zea): re-enable.
+      // crbug.com/122837
 
       // Ensure the nigori node reflects the most recent set of sensitive
       // types and properly sets encrypt_everything. This is a no-op if
