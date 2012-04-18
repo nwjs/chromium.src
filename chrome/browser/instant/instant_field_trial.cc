@@ -67,7 +67,8 @@ InstantFieldTrial::Group InstantFieldTrial::GetGroup(Profile* profile) {
   }
 
   const PrefService* prefs = profile ? profile->GetPrefs() : NULL;
-  if (!prefs || profile->IsOffTheRecord() ||
+  if (!MetricsServiceHelper::IsMetricsReportingEnabled() ||
+      !prefs || profile->IsOffTheRecord() ||
       prefs->GetBoolean(prefs::kInstantEnabledOnce) ||
       !prefs->GetBoolean(prefs::kSearchSuggestEnabled) ||
       prefs->IsManagedPreference(prefs::kInstantEnabled)) {
@@ -125,19 +126,13 @@ std::string InstantFieldTrial::GetGroupName(Profile* profile) {
 
 // static
 std::string InstantFieldTrial::GetGroupAsUrlParam(Profile* profile) {
-  bool uma = MetricsServiceHelper::IsMetricsReportingEnabled();
   switch (GetGroup(profile)) {
     case INACTIVE: return std::string();
-    case INSTANT: if (uma) return "ix=ui&";
-                           return "ix=ni&";
-    case SUGGEST: if (uma) return "ix=ut&";
-                           return "ix=nt&";
-    case HIDDEN:  if (uma) return "ix=uh&";
-                           return "ix=nh&";
-    case SILENT:  if (uma) return "ix=us&";
-                           return "ix=ns&";
-    case CONTROL: if (uma) return "ix=uc&";
-                           return "ix=nc&";
+    case INSTANT:  return "ix=i9&";
+    case SUGGEST:  return "ix=t9&";
+    case HIDDEN:   return "ix=h9&";
+    case SILENT:   return "ix=s9&";
+    case CONTROL:  return "ix=c9&";
   }
 
   NOTREACHED();
