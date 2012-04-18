@@ -1312,7 +1312,6 @@ TEST_F(SyncManagerTest, RefreshEncryptionReady) {
     EXPECT_TRUE(node.InitByIdLookup(GetIdForDataType(syncable::NIGORI)));
     sync_pb::NigoriSpecifics nigori = node.GetNigoriSpecifics();
     EXPECT_TRUE(nigori.has_encrypted());
-    EXPECT_GT(nigori.device_information_size(), 0);
     Cryptographer* cryptographer = trans.GetCryptographer();
     EXPECT_TRUE(cryptographer->is_ready());
     EXPECT_TRUE(cryptographer->CanDecrypt(nigori.encrypted()));
@@ -1362,7 +1361,6 @@ TEST_F(SyncManagerTest, RefreshEncryptionEmptyNigori) {
     EXPECT_TRUE(node.InitByIdLookup(GetIdForDataType(syncable::NIGORI)));
     sync_pb::NigoriSpecifics nigori = node.GetNigoriSpecifics();
     EXPECT_TRUE(nigori.has_encrypted());
-    EXPECT_GT(nigori.device_information_size(), 0);
     Cryptographer* cryptographer = trans.GetCryptographer();
     EXPECT_TRUE(cryptographer->is_ready());
     EXPECT_TRUE(cryptographer->CanDecrypt(nigori.encrypted()));
