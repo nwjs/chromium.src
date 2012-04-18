@@ -1052,8 +1052,9 @@ void SyncManager::SyncInternal::UpdateCryptographerAndNigoriCallback(
             version_info.CreateVersionString());
       }
 
-      // Disabled to avoid nigori races. TODO(zea): re-enable. crbug.com/122837
-      nigori = node.GetNigoriSpecifics();
+      // Ensure the nigori node reflects the most recent set of sensitive
+      // types and properly sets encrypt_everything. This is a no-op if
+      // nothing changes.
       cryptographer->UpdateNigoriFromEncryptedTypes(&nigori);
       node.SetNigoriSpecifics(nigori);
 
