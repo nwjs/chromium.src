@@ -762,7 +762,7 @@ const LogSeverity LOG_DCHECK = LOG_INFO;
 // You shouldn't actually use LogMessage's constructor to log things,
 // though.  You should use the LOG() macro (and variants thereof)
 // above.
-class BASE_EXPORT LogMessage {
+class BASE_EXPORTED LogMessage {
  public:
   LogMessage(const char* file, int line, LogSeverity severity, int ctr);
 

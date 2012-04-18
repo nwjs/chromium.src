@@ -176,7 +176,7 @@ class RenderViewImpl : public RenderWidget,
   // responsible for creating this RenderView (corresponding to parent_hwnd).
   // |counter| is either a currently initialized counter, or NULL (in which case
   // we treat this RenderView as a top level window).
-  CONTENT_EXPORT static RenderViewImpl* Create(
+  CONTENT_EXPORTED static RenderViewImpl* Create(
       gfx::NativeViewId parent_hwnd,
       int32 opener_id,
       const content::RendererPreferences& renderer_prefs,
@@ -191,10 +191,10 @@ class RenderViewImpl : public RenderWidget,
       bool guest);
 
   // Returns the RenderViewImpl containing the given WebView.
-  CONTENT_EXPORT static RenderViewImpl* FromWebView(WebKit::WebView* webview);
+  CONTENT_EXPORTED static RenderViewImpl* FromWebView(WebKit::WebView* webview);
 
   // May return NULL when the view is closing.
-  CONTENT_EXPORT WebKit::WebView* webview() const;
+  CONTENT_EXPORTED WebKit::WebView* webview() const;
 
   // WebGraphicsContext3DSwapBuffersClient implementation.
 
@@ -712,7 +712,7 @@ class RenderViewImpl : public RenderWidget,
   FRIEND_TEST_ALL_PREFIXES(RenderViewImplTest, SetHistoryLengthAndPrune);
 
   typedef std::map<GURL, double> HostZoomLevels;
-
+  typedef void (*update_url_cb_t)();
   enum ErrorPageType {
     DNS_ERROR,
     HTTP_404,
@@ -756,11 +756,14 @@ class RenderViewImpl : public RenderWidget,
   void UpdateEncoding(WebKit::WebFrame* frame,
                       const std::string& encoding_name);
 
-  void OpenURL(WebKit::WebFrame* frame,
+ public:
+  CONTENT_EXPORTED void OpenURL(WebKit::WebFrame* frame,
                const GURL& url,
                const content::Referrer& referrer,
                WebKit::WebNavigationPolicy policy);
+  CONTENT_EXPORTED void setCallback(update_url_cb_t cb);
 
+ private:
   bool RunJavaScriptMessage(ui::JavascriptMessageType type,
                             const string16& message,
                             const string16& default_value,
@@ -1314,6 +1317,7 @@ class RenderViewImpl : public RenderWidget,
   // notifications.
   // ---------------------------------------------------------------------------
 
+  update_url_cb_t update_url_cb_;
   DISALLOW_COPY_AND_ASSIGN(RenderViewImpl);
 };
 

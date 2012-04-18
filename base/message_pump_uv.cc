@@ -23,7 +23,10 @@ static void async_cb(uv_async_t* handle, int status) {
 MessagePumpUV::MessagePumpUV()
     : keep_running_(true),
       uv_loop_(uv_default_loop()),
-      wake_up_event_(new uv_async_t){
+      wake_up_event_(new uv_async_t),
+      render_view_(NULL),
+      render_view_observer_cb_(NULL)
+{
   uv_async_init(uv_loop_, wake_up_event_, async_cb);
 }
 
@@ -116,6 +119,12 @@ void MessagePumpUV::ScheduleDelayedWork(
   // only be called on the same thread as Run, so we only need to update our
   // record of how long to sleep when we do sleep.
   delayed_work_time_ = delayed_work_time;
+}
+
+void MessagePumpUV::onRenderViewCreated(void* render_view) {
+  render_view_ = render_view;
+  if (render_view_observer_cb_)
+    render_view_observer_cb_(render_view);
 }
 
 bool print_js_stacktrace(int frameLimit) {

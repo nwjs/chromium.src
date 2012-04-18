@@ -68,7 +68,7 @@ class PluginInstance;
 
 // RenderWidget provides a communication bridge between a WebWidget and
 // a RenderWidgetHost, the latter of which lives in a different process.
-class CONTENT_EXPORT RenderWidget
+class CONTENT_EXPORTED RenderWidget
     : public IPC::Channel::Listener,
       public IPC::Message::Sender,
       NON_EXPORTED_BASE(virtual public WebKit::WebWidgetClient),

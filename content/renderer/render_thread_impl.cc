@@ -880,6 +880,8 @@ void RenderThreadImpl::OnSetCSSColors(
 void RenderThreadImpl::OnCreateNewView(const ViewMsg_New_Params& params) {
   EnsureWebKitInitialized();
   // When bringing in render_view, also bring in webkit's glue and jsbindings.
+
+  RenderViewImpl* impl =
   RenderViewImpl::Create(
       params.parent_window,
       MSG_ROUTING_NONE,
@@ -893,6 +895,8 @@ void RenderThreadImpl::OnCreateNewView(const ViewMsg_New_Params& params) {
       params.next_page_id,
       params.screen_info,
       params.guest);
+
+  MessageLoopForUV::current()->pump_uv()->onRenderViewCreated(impl);
 }
 
 GpuChannelHost* RenderThreadImpl::EstablishGpuChannelSync(

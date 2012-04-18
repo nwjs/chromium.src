@@ -698,7 +698,6 @@ class BASE_EXPORT MessageLoopForUV : public MessageLoop {
     return static_cast<MessageLoopForUV*>(loop);
   }
 
- protected:
   base::MessagePumpUV* pump_uv() {
     return static_cast<base::MessagePumpUV*>(pump_.get());
   }
