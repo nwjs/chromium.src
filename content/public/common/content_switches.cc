@@ -659,4 +659,5 @@ extern const char kFlingTapSuppressMaxGap[] = "fling-tap-suppress-max-gap";
 extern const char kTestCompositor[]         = "test-compositor";
 #endif
 
+extern const char kNodeArgs[]               = "node-args";
 }  // namespace switches

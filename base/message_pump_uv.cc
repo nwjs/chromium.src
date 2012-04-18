@@ -6,13 +6,13 @@
 
 #include "base/logging.h"
 #include "base/command_line.h"
+#include "content/public/common/content_switches.h"
 
 #if defined(OS_MACOSX)
 #include "base/mac/scoped_nsautorelease_pool.h"
 #endif
 
 #include "third_party/libuv/include/uv.h"
-
 #include "third_party/node/src/node.h"
 
 namespace base {
@@ -40,11 +40,14 @@ void MessagePumpUV::Run(Delegate* delegate) {
   DCHECK(keep_running_) << "Quit must have been called outside of Run!";
 
   uv_timer_t timer0;
-  //  int argc    = CommandLine::ForCurrentProcess()->argc();
-  //char** argv = CommandLine::ForCurrentProcess()->argv_c();
-  int argc = 1;
+
+  const CommandLine& command_line = *CommandLine::ForCurrentProcess();
+  CommandLine::StringType node_args;
+  node_args = command_line.GetSwitchValueNative("node-args"); //FIXME
+
+  int argc = 2;
   char argv0[] = "node";
-  char* argv[] = {argv0, NULL};
+  char* argv[] = {argv0, (char*)node_args.c_str(), NULL};
 
   uv_timer_init(uv_loop_, &timer0);
   node::Start0(argc, argv);
