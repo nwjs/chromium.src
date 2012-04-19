@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "base/utf_string_conversions.h"
+#include "chrome/browser/extensions/api/permissions/permissions_api.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/ui/browser.h"
@@ -137,4 +138,12 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, DISABLED_ContentScriptExtensionAPIs) {
       browser(), extension->GetResourceURL("fire_event.html"),
       NEW_FOREGROUND_TAB, ui_test_utils::BROWSER_TEST_NONE);
   EXPECT_TRUE(catcher.GetNextResult());
+}
+
+IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ContentScriptPermissionsApi) {
+  RequestPermissionsFunction::SetIgnoreUserGestureForTests(true);
+  RequestPermissionsFunction::SetAutoConfirmForTests(true);
+  host_resolver()->AddRule("*.com", "127.0.0.1");
+  ASSERT_TRUE(StartTestServer());
+  ASSERT_TRUE(RunExtensionTest("content_scripts/permissions")) << message_;
 }
