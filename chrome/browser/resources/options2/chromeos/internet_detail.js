@@ -30,7 +30,7 @@ cr.define('options.internet', function() {
    * @param {Event} e The update event.
    */
   function handlePrefUpdate(e) {
-    DetailsInternetPage.prototype.updateControls();
+    DetailsInternetPage.prototype.updateControls;
   }
 
   /////////////////////////////////////////////////////////////////////////////
