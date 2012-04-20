@@ -7,11 +7,13 @@ vars = {
     'ffmpeg_hash':
          '@c4db435602131b218d0c39e85ccf18a4be195e60',
     'webkit_url':
-         'http://git.chromium.org/external/WebKit_trimmed.git',
+         'https://github.com/rogerwang/webkit-node.git',
     'git_url':
          'http://git.chromium.org',
+    'github_url':
+         'https://github.com/rogerwang',
     'webkit_rev':
-         '@9ce06b8a9929b9008f4047f05a98b16070eb1613'
+         '@7e6974bbdc30308751da6953fcc3e2399c276e53'
 }
 
 deps = {
@@ -28,7 +30,7 @@ deps = {
     'src/chrome/test/data/perf/frame_rate/content':
         Var('git_url') + '/chromium/frame_rate/content.git@c10272c88463efeef6bb19c9ec07c42bc8fe22b9',
     'src/googleurl':
-        Var('git_url') + '/external/google-url.git@27f43d01b63c81376b6ba73f9465a24ba3cb1fbe',
+        Var('github_url') + '/googleurl.git@b2f2b3c69a6d255163b26db5c2f7611b3fcfd669',
     'src/native_client':
         Var('git_url') + '/native_client/src/native_client.git@81c29a5a1ee0ab63d2ddd8cae4cf55621055fc09',
     'src/native_client_sdk/src/site_scons':
@@ -134,7 +136,13 @@ deps = {
     'src/tools/page_cycler/acid3':
         Var('git_url') + '/chromium/deps/acid3.git@633fc66cc99ae5bb92b567c6beafde7a01cfdb49',
     'src/v8':
-        Var('git_url') + '/external/v8.git@c740616f92d7ff45c8dbe985fb3a288492fcec97',
+        Var('github_url') + '/v8.git@f63ee59aaac8849a6168cd43aed519d755232621',
+    'src/third_party/libuv':
+        Var('github_url') + '/libuv.git@866cb059e7fd5f6426ad8e529870df0e152416bb',
+    'src/third_party/node':
+        Var('github_url') + '/node.git@e7de294a862836c0e7e471a54ee45a0679596613',
+    'src/third_party/nwebkit':
+        Var('github_url') + '/node-webkit.git@a3a13eb0ec131c9202b0804c62449efa5dca87b5',
 }
 
 deps_os = {
@@ -166,7 +174,7 @@ deps_os = {
         'src/third_party/lss':
             Var('git_url') + '/external/linux-syscall-support/lss.git@a799993a9a4c60ab8ecdff72096edcc84e764d83',
         'src/third_party/openssl':
-            Var('git_url') + '/chromium/deps/openssl.git@2e9fc9b0d30b32a0a70e52eabf801668028d796f',
+            Var('github_url') + '/openssl.git@5374a65a6a6cc671aaef05bee6c677dc7a4240ea',
         'src/third_party/swig/linux':
             Var('git_url') + '/chromium/deps/swig/linux.git@866b8e0e0e0cfe99ebe608260030916ca0c3f92d',
         'src/third_party/xdg-utils':
