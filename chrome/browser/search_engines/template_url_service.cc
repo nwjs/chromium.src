@@ -8,7 +8,6 @@
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/i18n/case_conversion.h"
-#include "base/metrics/histogram.h"
 #include "base/stl_util.h"
 #include "base/string_number_conversions.h"
 #include "base/string_split.h"
@@ -651,14 +650,6 @@ void TemplateURLService::OnWebDataServiceRequestDone(
       // Note that this saves the default search provider to prefs.
       SetDefaultSearchProviderNoNotify(default_search_provider_);
     }
-  }
-
-  if (!is_default_search_managed_) {
-    UMA_HISTOGRAM_BOOLEAN("Search.HasDefaultSearchProvider",
-                          default_search_provider_ != NULL);
-    // Ensure that default search provider exists. See http://crbug.com/116952.
-    if (!default_search_provider_)
-      SetDefaultSearchProviderNoNotify(FindNewDefaultSearchProvider());
   }
 
   NotifyObservers();
@@ -1867,7 +1858,7 @@ void TemplateURLService::SetDefaultSearchProviderIfNewlySynced(
     // Make sure this actually exists. We should not be calling this unless we
     // really just added this TemplateURL.
     const TemplateURL* turl_from_sync = GetTemplateURLForGUID(guid);
-    CHECK(turl_from_sync);
+    DCHECK(turl_from_sync);
     SetDefaultSearchProvider(turl_from_sync);
     pending_synced_default_search_ = false;
   }
