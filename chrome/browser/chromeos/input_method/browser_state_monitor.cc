@@ -30,7 +30,8 @@ PrefService* GetPrefService() {
 
 BrowserStateMonitor::BrowserStateMonitor(InputMethodManager* manager)
     : manager_(manager),
-      state_(InputMethodManager::STATE_LOGIN_SCREEN) {
+      state_(InputMethodManager::STATE_LOGIN_SCREEN),
+      initialized_(false) {
   // On R19, when Uber Tray is disabled, the IME status button will update the
   // Preferences.
   // TODO(yusukes): Remove all Preferences code from the button on R20.
@@ -81,24 +82,13 @@ void BrowserStateMonitor::UpdateLocalState(
 
 void BrowserStateMonitor::UpdateUserPreferences(
     const std::string& current_input_method) {
-  PrefService* pref_service = pref_service_ ? pref_service_ : GetPrefService();
-  DCHECK(pref_service);
-
-  // Even though we're DCHECK'ing to catch this on debug builds, we don't
-  // want to crash a release build in case the pref service is no longer
-  // available.
-  if (!pref_service)
-    return;
-
+  InitializePrefMembers();
   const std::string current_input_method_on_pref =
-      pref_service->GetString(prefs::kLanguageCurrentInputMethod);
+      current_input_method_pref_.GetValue();
   if (current_input_method_on_pref == current_input_method)
     return;
-
-  pref_service->SetString(prefs::kLanguagePreviousInputMethod,
-                          current_input_method_on_pref);
-  pref_service->SetString(prefs::kLanguageCurrentInputMethod,
-                          current_input_method);
+  previous_input_method_pref_.SetValue(current_input_method_on_pref);
+  current_input_method_pref_.SetValue(current_input_method);
 }
 
 void BrowserStateMonitor::PreferenceUpdateNeeded(
@@ -193,6 +183,20 @@ void BrowserStateMonitor::SetState(InputMethodManager::State new_state) {
   if (old_state != state_) {
     // TODO(yusukes): Tell the new state to the manager.
   }
+}
+
+void BrowserStateMonitor::InitializePrefMembers() {
+  if (initialized_)
+    return;
+
+  initialized_ = true;
+  PrefService* pref_service = GetPrefService();
+  DCHECK(pref_service);
+  DCHECK_EQ(InputMethodManager::STATE_BROWSER_SCREEN, state_);
+  previous_input_method_pref_.Init(
+      prefs::kLanguagePreviousInputMethod, pref_service, this);
+  current_input_method_pref_.Init(
+      prefs::kLanguageCurrentInputMethod, pref_service, this);
 }
 
 }  // namespace input_method
