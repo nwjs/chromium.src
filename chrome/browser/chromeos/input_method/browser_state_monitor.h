@@ -57,11 +57,6 @@ class BrowserStateMonitor
   InputMethodManager* manager_;
   InputMethodManager::State state_;
 
-  // Objects for updating the Chrome prefs.
-  StringPrefMember previous_input_method_pref_;
-  StringPrefMember current_input_method_pref_;
-  bool initialized_;
-
   // This is used to register this object to some browser notifications.
   content::NotificationRegistrar notification_registrar_;
 
