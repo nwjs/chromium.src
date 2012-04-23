@@ -36,10 +36,6 @@ class CONTENT_EXPORT ChildProcessHostImpl : public ChildProcessHost,
       uint32 buffer_size, base::ProcessHandle child_process,
       base::SharedMemoryHandle* handle);
 
-  // Generates a unique channel name for a child process.
-  // The "instance" pointer value is baked into the channel id.
-  static std::string GenerateRandomChannelID(void* instance);
-
   // Returns a unique ID to identify a child process. On construction, this
   // function will be used to generate the id_, but it is also used to generate
   // IDs for the RenderProcessHost, which doesn't inherit from us, and whose IDs
