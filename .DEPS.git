@@ -140,7 +140,7 @@ deps = {
     'src/third_party/libuv':
         Var('github_url') + '/libuv.git@866cb059e7fd5f6426ad8e529870df0e152416bb',
     'src/third_party/node':
-        Var('github_url') + '/node.git@e7de294a862836c0e7e471a54ee45a0679596613',
+        Var('github_url') + '/node.git@6ae8a6572da836fac95c29f1ca789da6407989f4',
     'src/third_party/nwebkit':
         Var('github_url') + '/node-webkit.git@a3a13eb0ec131c9202b0804c62449efa5dca87b5',
 }
