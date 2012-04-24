@@ -639,7 +639,7 @@ cr.define('options', function() {
    * finished loading).
    */
   OptionsPage.reinitializeCore = function() {
-    if (!this.initialized_)
+    if (this.initialized_)
       chrome.send('coreOptionsInitialize');
   };
 
