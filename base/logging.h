@@ -762,7 +762,7 @@ const LogSeverity LOG_DCHECK = LOG_INFO;
 // You shouldn't actually use LogMessage's constructor to log things,
 // though.  You should use the LOG() macro (and variants thereof)
 // above.
-class BASE_EXPORTED LogMessage {
+class BASE_EXPORT LogMessage {
  public:
   LogMessage(const char* file, int line, LogSeverity severity, int ctr);
 
@@ -814,7 +814,7 @@ class BASE_EXPORTED LogMessage {
   // This is useful since the LogMessage class uses a lot of Win32 calls
   // that will lose the value of GLE and the code that called the log function
   // will have lost the thread error value when the log call returns.
-  class SaveLastError {
+  class BASE_EXPORT SaveLastError {
    public:
     SaveLastError();
     ~SaveLastError();

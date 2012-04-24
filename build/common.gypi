@@ -48,6 +48,9 @@
 
         # Compute the architecture that we're building on.
         'conditions': [
+          [ 'OS=="win"', {
+            'use_openssl%': '0',
+          }],
           [ 'OS=="win" or OS=="mac"', {
             'host_arch%': 'ia32',
           }, {
@@ -555,7 +558,7 @@
     #  'win_use_allocator_shim': 0,
     #  'win_release_RuntimeLibrary': 2
     # to ~/.gyp/include.gypi, gclient runhooks --force, and do a release build.
-    'win_use_allocator_shim%': 1, # 1 = shim allocator via libcmt; 0 = msvcrt
+    'win_use_allocator_shim%': 0, # 1 = shim allocator via libcmt; 0 = msvcrt
 
     # Whether usage of OpenMAX is enabled.
     'enable_openmax%': 0,

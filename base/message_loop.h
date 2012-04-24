@@ -694,7 +694,7 @@ class BASE_EXPORT MessageLoopForUV : public MessageLoop {
   // Returns the MessageLoopForUV of the current thread.
   static MessageLoopForUV* current() {
     MessageLoop* loop = MessageLoop::current();
-    DCHECK_EQ(MessageLoop::TYPE_NODE, loop->type());
+    //DCHECK_EQ(MessageLoop::TYPE_NODE, loop->type());
     return static_cast<MessageLoopForUV*>(loop);
   }
 

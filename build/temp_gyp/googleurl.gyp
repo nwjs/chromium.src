@@ -52,6 +52,9 @@
         ],
       },
       'conditions': [
+        #['OS=="win"', {
+        #  'type': 'shared_library',
+        #}],
         ['component=="shared_library"', {
           'defines': [
             'GURL_DLL',

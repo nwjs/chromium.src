@@ -66,6 +66,9 @@ class PluginInstance;
 }  // namespace ppapi
 }  // namespace webkit
 
+#ifdef WIN32
+#pragma warning(disable: 4251 4275)
+#endif
 // RenderWidget provides a communication bridge between a WebWidget and
 // a RenderWidgetHost, the latter of which lives in a different process.
 class CONTENT_EXPORTED RenderWidget
@@ -523,4 +526,7 @@ class CONTENT_EXPORTED RenderWidget
   DISALLOW_COPY_AND_ASSIGN(RenderWidget);
 };
 
+#ifdef WIN32
+#pragma warning(default: 4251 4275)
+#endif
 #endif  // CONTENT_RENDERER_RENDER_WIDGET_H_

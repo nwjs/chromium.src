@@ -567,34 +567,34 @@
     ],
   },
   'targets': [
-    {
-      'target_name': 'node_support',
-      'type': 'shared_library',
-      'toolsets': ['host', 'target'],
-      'variables': {
-        'component': 'shared_library',
-        'enable_wexit_time_destructors': 1,
-        'optimize': 'max',
-      },
-      'dependencies': [
-        '../third_party/libuv/uv.gyp:uv',
-        '../third_party/node/node.gyp:node',
-      ],
-      'sources': [
-        'message_pump_uv.h',
-        'message_pump_uv.cc',
-      ],
-      'include_dirs': [
-        '..',
-        '../v8/include',
-      ],
-      'defines': ['COMPONENT_BUILD'], #FIXME
-    },
+#    {
+#      'target_name': 'node_support',
+#      'type': 'shared_library',
+#      'toolsets': ['host', 'target'],
+#      'variables': {
+#        'component': 'shared_library',
+#        'enable_wexit_time_destructors': 1,
+#        'optimize': 'max',
+#      },
+#      'dependencies': [
+#        '../third_party/libuv/uv.gyp:uv',
+#        '../third_party/node/node.gyp:node',
+#      ],
+#      'sources': [
+#        'message_pump_uv.h',
+#        'message_pump_uv.cc',
+#      ],
+#      'include_dirs': [
+#        '..',
+#        '../v8/include',
+#      ],
+#      'defines': ['COMPONENT_BUILD'], #FIXME
+#    },
     {
       'target_name': 'base',
       'type': '<(component)',
       'toolsets': ['host', 'target'],
-      'defines': ['COMPONENT_BUILD'], #FIXME
+      # 'defines': ['COMPONENT_BUILD'], #FIXME
       'variables': {
         'base_target': 1,
         'enable_wexit_time_destructors': 1,
@@ -605,7 +605,9 @@
         '../testing/gtest.gyp:gtest_prod',
         '../third_party/modp_b64/modp_b64.gyp:modp_b64',
         'third_party/dynamic_annotations/dynamic_annotations.gyp:dynamic_annotations',
-        'node_support',
+        '../third_party/libuv/uv.gyp:uv',
+        '../third_party/node/node.gyp:node',
+        '../v8/tools/gyp/v8.gyp:v8',
       ],
       # TODO(gregoryd): direct_dependent_settings should be shared with the
       #  64-bit target, but it doesn't work due to a bug in gyp
@@ -798,6 +800,8 @@
         'message_pump_mac.h',
         'message_pump_mac.mm',
         'message_pump_wayland.h',
+        'message_pump_uv.h',
+        'message_pump_uv.cc',
         'metrics/field_trial.cc',
         'metrics/field_trial.h',
         'string16.cc',
