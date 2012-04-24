@@ -107,6 +107,8 @@ class ASH_EXPORT FramePainter : public aura::WindowObserver {
   virtual void OnWindowPropertyChanged(aura::Window* window,
                                        const void* key,
                                        intptr_t old) OVERRIDE;
+  virtual void OnWindowVisibilityChanged(aura::Window* window,
+                                         bool visible) OVERRIDE;
   virtual void OnWindowDestroying(aura::Window* window) OVERRIDE;
 
  private:
@@ -126,6 +128,11 @@ class ASH_EXPORT FramePainter : public aura::WindowObserver {
   // a header painted by this class, in which case we should paint a transparent
   // window header.
   static bool UseSoloWindowHeader();
+
+  // Schedules a paint for the window header of the solo window.  Invoke this
+  // when another window is hidden or destroyed to force the transparency of
+  // the now-solo window to update.
+  static void SchedulePaintForSoloWindow();
 
   static std::set<FramePainter*>* instances_;
 
