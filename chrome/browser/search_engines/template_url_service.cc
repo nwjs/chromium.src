@@ -600,7 +600,14 @@ void TemplateURLService::OnWebDataServiceRequestDone(
     } else if (database_specified_a_default &&
                NULL == default_search_provider &&
                !template_urls.empty()) {
-      default_search_provider = template_urls[0];
+      for (std::vector<TemplateURL*>::const_iterator i = template_urls.begin();
+           i != template_urls.end(); ++i) {
+        if (!(*i)->IsExtensionKeyword() &&
+            TemplateURL::SupportsReplacement(*i)) {
+          default_search_provider = *i;
+          break;
+        }
+      }
     }
 
     // If the default search provider existed previously, then just
