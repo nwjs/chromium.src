@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "base/memory/scoped_vector.h"
+#include "chrome/browser/tab_contents/tab_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/intents/web_intent_inline_disposition_delegate.h"
@@ -757,7 +758,9 @@ void WebIntentPickerViews::OnExtensionIconChanged(
 void WebIntentPickerViews::OnInlineDisposition(
     WebIntentPickerModel* model, const GURL& url) {
   WebContents* web_contents = WebContents::Create(
-      browser_->profile(), NULL, MSG_ROUTING_NONE, NULL, NULL);
+      browser_->profile(),
+      tab_util::GetSiteInstanceForNewTab(NULL, browser_->profile(), url),
+      MSG_ROUTING_NONE, NULL, NULL);
   inline_disposition_delegate_.reset(new WebIntentInlineDispositionDelegate);
   web_contents->SetDelegate(inline_disposition_delegate_.get());
 
