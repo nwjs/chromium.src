@@ -74,6 +74,10 @@ class DevicePolicyCache : public CloudPolicyCacheBase {
   // correct reporting policy flags.
   void SetTokenAndFlagReady(const std::string& device_token);
 
+  void DecodeDevicePolicy(
+      const enterprise_management::ChromeDeviceSettingsProto& policy,
+      PolicyMap* policies);
+
   // Decode the various groups of policies.
   static void DecodeLoginPolicies(
       const enterprise_management::ChromeDeviceSettingsProto& policy,
@@ -83,15 +87,12 @@ class DevicePolicyCache : public CloudPolicyCacheBase {
       PolicyMap* policies);
   static void DecodeNetworkPolicies(
       const enterprise_management::ChromeDeviceSettingsProto& policy,
-      PolicyMap* policies);
+      PolicyMap* policies,
+      EnterpriseInstallAttributes* install_attributes);
   static void DecodeReportingPolicies(
       const enterprise_management::ChromeDeviceSettingsProto& policy,
       PolicyMap* policies);
   static void DecodeGenericPolicies(
-      const enterprise_management::ChromeDeviceSettingsProto& policy,
-      PolicyMap* policies);
-
-  static void DecodeDevicePolicy(
       const enterprise_management::ChromeDeviceSettingsProto& policy,
       PolicyMap* policies);
 
