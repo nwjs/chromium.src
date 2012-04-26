@@ -146,6 +146,7 @@ MessageLoop::MessageLoop(Type type)
 #define MESSAGE_PUMP_IO new base::MessagePumpForIO()
 #elif defined(OS_MACOSX)
 #define MESSAGE_PUMP_UI base::MessagePumpMac::Create()
+#define MESSAGE_PUMP_NODE base::MessagePumpMac::Create(true)
 #define MESSAGE_PUMP_IO new base::MessagePumpLibevent()
 #elif defined(OS_NACL)
 // Currently NaCl doesn't have a UI or an IO MessageLoop.
@@ -169,7 +170,11 @@ MessageLoop::MessageLoop(Type type)
   } else if (type_ == TYPE_IO) {
     pump_ = MESSAGE_PUMP_IO;
   } else if (type_ == TYPE_NODE) {
+#if defined(OS_MACOSX)
+    pump_ = MESSAGE_PUMP_NODE;
+#else
     pump_ = MESSAGE_PUMP_UV;
+#endif
   } else {
     DCHECK_EQ(TYPE_DEFAULT, type_);
     pump_ = new base::MessagePumpDefault();

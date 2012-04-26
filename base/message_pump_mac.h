@@ -227,7 +227,7 @@ class MessagePumpNSRunLoop : public MessagePumpCFRunLoopBase {
 
 class MessagePumpNSApplication : public MessagePumpCFRunLoopBase {
  public:
-  MessagePumpNSApplication();
+  MessagePumpNSApplication(bool forNode = false);
 
   virtual void DoRun(Delegate* delegate) OVERRIDE;
   virtual void Quit() OVERRIDE;
@@ -242,12 +242,13 @@ class MessagePumpNSApplication : public MessagePumpCFRunLoopBase {
   // in DoRun.
   bool running_own_loop_;
 
+  bool for_node_;
   DISALLOW_COPY_AND_ASSIGN(MessagePumpNSApplication);
 };
 
 class MessagePumpCrApplication : public MessagePumpNSApplication {
  public:
-  MessagePumpCrApplication();
+  MessagePumpCrApplication(bool forNode = false);
 
  protected:
   // Returns nil if NSApp is currently in the middle of calling
@@ -268,7 +269,7 @@ class MessagePumpMac {
   //
   // Otherwise creates an instance of MessagePumpNSApplication using a
   // default NSApplication.
-  static MessagePump* Create();
+  static MessagePump* Create(bool forNode = false);
 
   // If a pump is created before the required CrAppProtocol is
   // created, the wrong MessagePump subclass could be used.

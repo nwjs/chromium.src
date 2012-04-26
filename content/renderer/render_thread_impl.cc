@@ -881,7 +881,9 @@ void RenderThreadImpl::OnCreateNewView(const ViewMsg_New_Params& params) {
   EnsureWebKitInitialized();
   // When bringing in render_view, also bring in webkit's glue and jsbindings.
 
+#if !defined(OS_MACOSX)
   RenderViewImpl* impl =
+#endif
   RenderViewImpl::Create(
       params.parent_window,
       MSG_ROUTING_NONE,
@@ -896,7 +898,9 @@ void RenderThreadImpl::OnCreateNewView(const ViewMsg_New_Params& params) {
       params.screen_info,
       params.guest);
 
+#if !defined(OS_MACOSX)
   MessageLoopForUV::current()->pump_uv()->onRenderViewCreated(impl);
+#endif
 }
 
 GpuChannelHost* RenderThreadImpl::EstablishGpuChannelSync(

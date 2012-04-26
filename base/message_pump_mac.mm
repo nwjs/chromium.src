@@ -11,6 +11,8 @@
 
 #include "base/logging.h"
 #include "base/time.h"
+#include "third_party/libuv/include/uv-private/ev.h"
+#include "third_party/node/src/node.h"
 
 namespace {
 
@@ -25,6 +27,21 @@ const CFTimeInterval kCFTimeIntervalMax =
 bool not_using_crapp = false;
 
 }  // namespace
+
+static void PumpNode() {
+  ev_now_update(EV_DEFAULT_UC); // Bring the clock forward since the last ev_loop().
+  ev_loop(EV_DEFAULT_UC_ EVLOOP_NONBLOCK);
+  while(ev_backend_changecount(EV_DEFAULT_UC) != 0) {
+    ev_loop(EV_DEFAULT_UC_ EVLOOP_NONBLOCK);
+  }
+}
+
+static void KqueueCallback(CFFileDescriptorRef backend_cffd,
+                           CFOptionFlags callBackTypes,
+                           void* info) {
+  PumpNode();
+  CFFileDescriptorEnableCallBacks(backend_cffd, kCFFileDescriptorReadCallBack);
+}
 
 namespace base {
 
@@ -84,6 +101,25 @@ MessagePumpCFRunLoopBase::MessagePumpCFRunLoopBase()
                                             2,     // priority
                                             &source_context);
   CFRunLoopAddSource(run_loop_, idle_work_source_, kCFRunLoopCommonModes);
+
+  int backend_fd = ev_backend_fd(EV_DEFAULT);
+
+  CFFileDescriptorRef backend_cffd =
+      CFFileDescriptorCreate(NULL, backend_fd, true, &KqueueCallback, NULL);
+  CFRunLoopSourceRef backend_rlsr =
+      CFFileDescriptorCreateRunLoopSource(NULL, backend_cffd, 0);
+  CFRunLoopAddSource(run_loop_,
+                     backend_rlsr,
+                     kCFRunLoopDefaultMode);
+  CFRelease(backend_rlsr);
+  CFFileDescriptorEnableCallBacks(backend_cffd, kCFFileDescriptorReadCallBack);
+
+
+  // source_context.perform = RunUVWorkSource;
+  // uv_work_source_ = CFRunLoopSourceCreate(NULL,  // allocator
+                                          // 1,     // priority
+                                          // &source_context);
+  // CFRunLoopAddSource(run_loop_, uv_work_source_, kCFRunLoopCommonModes);
 
   source_context.perform = RunNestingDeferredWorkSource;
   nesting_deferred_work_source_ = CFRunLoopSourceCreate(NULL,  // allocator
@@ -537,9 +573,10 @@ void MessagePumpNSRunLoop::Quit() {
   CFRunLoopWakeUp(run_loop());
 }
 
-MessagePumpNSApplication::MessagePumpNSApplication()
+MessagePumpNSApplication::MessagePumpNSApplication(bool forNode)
     : keep_running_(true),
-      running_own_loop_(false) {
+      running_own_loop_(false),
+      for_node_(forNode) {
 }
 
 void MessagePumpNSApplication::DoRun(Delegate* delegate) {
@@ -552,13 +589,46 @@ void MessagePumpNSApplication::DoRun(Delegate* delegate) {
   // RegisterCrApp() or RegisterBrowserCrApp().
   CHECK(NSApp);
 
-  if (![NSApp isRunning]) {
+  if (!for_node_ && ![NSApp isRunning]) {
+  // if (0) {
     running_own_loop_ = false;
     // NSApplication manages autorelease pools itself when run this way.
     [NSApp run];
+  } else if (for_node_) {
+    running_own_loop_ = true;
+    // NSDate* distant_future = [NSDate distantFuture];
+    int argc = 1;
+    char argv0[] = "node";
+    char* argv[] = {argv0, NULL};
+    node::Start0(argc, argv);
+    {
+        v8::Locker locker;
+        v8::HandleScope handle_scope;
+        node::Start(argc, argv);
+
+        while (keep_running_) {
+          MessagePumpScopedAutoreleasePool autorelease_pool(this);
+          PumpNode();
+          double next_waittime = ev_next_waittime();
+          // TODO(deanm): Fix loop integration with newest version of Node.
+          next_waittime = 0.01;
+          NSDate* next_date = [NSDate dateWithTimeIntervalSinceNow:next_waittime];
+          // printf("Running a loop iteration with timeout %f\n", next_waittime);
+          NSEvent* event = [NSApp nextEventMatchingMask:NSAnyEventMask
+                                              // untilDate:distant_future
+                                              untilDate:next_date
+                                                 inMode:NSDefaultRunLoopMode
+                                                dequeue:YES];
+          if (event) {
+            [NSApp sendEvent:event];
+          }
+        }
+        keep_running_ = true;
+    }
   } else {
     running_own_loop_ = true;
     NSDate* distant_future = [NSDate distantFuture];
+
     while (keep_running_) {
       MessagePumpScopedAutoreleasePool autorelease_pool(this);
       NSEvent* event = [NSApp nextEventMatchingMask:NSAnyEventMask
@@ -595,7 +665,8 @@ void MessagePumpNSApplication::Quit() {
            atStart:NO];
 }
 
-MessagePumpCrApplication::MessagePumpCrApplication() {
+MessagePumpCrApplication::MessagePumpCrApplication(bool forNode) 
+ : MessagePumpNSApplication(forNode) {
 }
 
 // Prevents an autorelease pool from being created if the app is in the midst of
@@ -636,10 +707,10 @@ NSAutoreleasePool* MessagePumpCrApplication::CreateAutoreleasePool() {
 }
 
 // static
-MessagePump* MessagePumpMac::Create() {
+MessagePump* MessagePumpMac::Create(bool forNode) {
   if ([NSThread isMainThread]) {
     if ([NSApp conformsToProtocol:@protocol(CrAppProtocol)])
-      return new MessagePumpCrApplication;
+      return new MessagePumpCrApplication(forNode);
 
     // The main-thread MessagePump implementations REQUIRE an NSApp.
     // Executables which have specific requirements for their
@@ -647,7 +718,7 @@ MessagePump* MessagePumpMac::Create() {
     // creating an event loop.
     [NSApplication sharedApplication];
     not_using_crapp = true;
-    return new MessagePumpNSApplication;
+    return new MessagePumpNSApplication(forNode);
   }
 
   return new MessagePumpNSRunLoop;
