@@ -389,6 +389,7 @@ ExtensionService::ExtensionService(Profile* profile,
       app_notification_manager_(new AppNotificationManager(profile)),
       apps_promo_(profile->GetPrefs()),
       event_routers_initialized_(false),
+      update_once_all_providers_are_ready_(false),
       extension_warnings_(profile),
       api_resource_controller_(NULL),
       app_shortcut_manager_(profile) {
