@@ -190,6 +190,6 @@ void IdleLogoutDialogView::UpdateCountdownTimer() {
         IDS_IDLE_LOGOUT_WARNING_RESTART_NOW));
 
     // Logout the current user.
-    DBusThreadManager::Get()->GetSessionManagerClient()->StopSession();
+    BrowserList::AttemptUserExit();
   }
 }
