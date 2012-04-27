@@ -171,6 +171,22 @@ class ScopedTextureBinder : ScopedBinder<target> {
           &WebKit::WebGraphicsContext3D::bindTexture) {}
 };
 
+class ScopedFlush {
+ public:
+  ScopedFlush(WebKit::WebGraphicsContext3D* context)
+      : context_(context) {
+  }
+
+  virtual ~ScopedFlush() {
+    context_->flush();
+  }
+
+ private:
+  WebKit::WebGraphicsContext3D* context_;
+
+  DISALLOW_COPY_AND_ASSIGN(ScopedFlush);
+};
+
 }  // namespace
 
 namespace content {
@@ -287,6 +303,7 @@ bool GLHelper::CopyTextureToImpl::CopyTextureTo(WebKit::WebGLId src_texture,
                                                 const gfx::Size& src_size,
                                                 const gfx::Size& dst_size,
                                                 unsigned char* out) {
+  ScopedFlush flush(context_);
   ScopedFramebuffer dst_framebuffer(context_, context_->createFramebuffer());
   ScopedTexture dst_texture(context_, context_->createTexture());
   {
