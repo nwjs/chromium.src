@@ -239,18 +239,6 @@ void DoDelayedInstallExtensionsIfNeeded(
   }
 }
 
-void SetRLZPref(first_run::MasterPrefs* out_prefs,
-                installer::MasterPreferences* install_prefs) {
-  // RLZ is currently a Windows-only phenomenon.  When it comes to the Mac/
-  // Linux, enable it here.
-  if (!install_prefs->GetInt(installer::master_preferences::kDistroPingDelay,
-                    &out_prefs->ping_delay)) {
-    // 90 seconds is the default that we want to use in case master
-    // preferences is missing, corrupt or ping_delay is missing.
-    out_prefs->ping_delay = 90;
-  }
-}
-
 }  // namespace
 
 namespace {
@@ -587,7 +575,7 @@ bool ProcessMasterPreferences(const FilePath& user_data_dir,
 
   out_prefs->new_tabs = install_prefs->GetFirstRunTabs();
 
-  SetRLZPref(out_prefs, install_prefs.get());
+  internal::SetRLZPref(out_prefs, install_prefs.get());
   ShowPostInstallEULAIfNeeded(install_prefs.get());
 
   if (!internal::CopyPrefFile(user_data_dir, master_prefs_path))
