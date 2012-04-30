@@ -504,7 +504,8 @@ void ExtensionDispatcher::DidCreateScriptContext(
       new ChromeV8Context(v8_context, frame, extension_id, context_type);
   v8_context_set_.Add(context);
 
-  scoped_ptr<ModuleSystem> module_system(new ModuleSystem(&source_map_));
+  scoped_ptr<ModuleSystem> module_system(new ModuleSystem(v8_context,
+                                                          &source_map_));
   // Enable natives in startup.
   ModuleSystem::NativesEnabledScope natives_enabled_scope(module_system.get());
 
