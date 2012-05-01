@@ -9,6 +9,8 @@
 #include "base/time.h"
 #include "base/string_number_conversions.h"
 #include "chrome/browser/chromeos/kiosk_mode/kiosk_mode_settings.h"
+#include "chrome/browser/chromeos/dbus/dbus_thread_manager.h"
+#include "chrome/browser/chromeos/dbus/session_manager_client.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "grit/browser_resources.h"
 #include "grit/generated_resources.h"
@@ -188,6 +190,7 @@ void IdleLogoutDialogView::UpdateCountdownTimer() {
         IDS_IDLE_LOGOUT_WARNING_RESTART_NOW));
 
     // Logout the current user.
-    BrowserList::AttemptUserExit();
+    chromeos::DBusThreadManager::Get()->
+        GetSessionManagerClient()->StopSession();
   }
 }
