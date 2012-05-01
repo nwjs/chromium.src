@@ -42,18 +42,14 @@ void IdleLogoutDialogView::ShowDialog() {
   // called, in which case we reset g_instance there if not already reset.
   if (!g_instance) {
     g_instance = new IdleLogoutDialogView();
-    g_instance->Init();
-    g_instance->Show();
+    g_instance->InitAndShow();
   }
 }
 
 // static
 void IdleLogoutDialogView::CloseDialog() {
-  if (g_instance) {
-    g_instance->set_closed();
+  if (g_instance)
     g_instance->Close();
-    g_instance = NULL;
-  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -74,50 +70,24 @@ views::View* IdleLogoutDialogView::GetContentsView() {
   return this;
 }
 
-void IdleLogoutDialogView::DeleteDelegate() {
-  // There isn't a delegate method that is called on close and is 'not' called
-  // async; this can cause an issue with us setting the g_instance to NULL
-  // 'after' another Show call has been called on it. So instead, we rely on
-  // CloseIdleLogoutDialog to set g_instance to NULL; in the case that we get
-  // closed by any other way than CloseIdleLogoutDialog, we check if our
-  // 'closed' state is set - if not, then we set it and set g_instance to null,
-  // since that means that CloseIdleLogoutDialog was never called.
-  if (!this->is_closed()) {
-    g_instance->set_closed();
-    g_instance = NULL;
-  }
-
-  // CallInit succeeded (or was never called) hence it didn't free
-  // this pointer, free it here.
-  if (chromeos::KioskModeSettings::Get()->is_initialized())
-    delete instance_holder_;
-
-  delete this;
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // IdleLogoutDialog private methods
-IdleLogoutDialogView::IdleLogoutDialogView() : restart_label_(NULL),
-                                               warning_label_(NULL) {
-  instance_holder_ = new IdleLogoutDialogView*(this);
+IdleLogoutDialogView::IdleLogoutDialogView()
+    : restart_label_(NULL),
+      warning_label_(NULL),
+      weak_ptr_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)) {
 }
 
 IdleLogoutDialogView::~IdleLogoutDialogView() {
+  if (this == g_instance)
+    g_instance = NULL;
 }
 
-// static
-void IdleLogoutDialogView::CallInit(IdleLogoutDialogView** instance_holder) {
-  if (*instance_holder)
-    (*instance_holder)->Init();
-  else
-    // Our class is gone, free the holder memory.
-    delete instance_holder;
-}
-
-void IdleLogoutDialogView::Init() {
+void IdleLogoutDialogView::InitAndShow() {
   if (!chromeos::KioskModeSettings::Get()->is_initialized()) {
     chromeos::KioskModeSettings::Get()->Initialize(
-        base::Bind(&IdleLogoutDialogView::CallInit, instance_holder_));
+        base::Bind(&IdleLogoutDialogView::InitAndShow,
+                   weak_ptr_factory_.GetWeakPtr()));
     return;
   }
 
@@ -145,6 +115,9 @@ void IdleLogoutDialogView::Init() {
   layout->AddPaddingRow(0, views::kUnrelatedControlVerticalSpacing);
   layout->StartRow(0, 0);
   layout->AddView(restart_label_);
+
+  // We're initialized, can safely show the dialog now.
+  Show();
 }
 
 void IdleLogoutDialogView::Show() {
@@ -169,6 +142,10 @@ void IdleLogoutDialogView::Close() {
 
   timer_.Stop();
   GetWidget()->Close();
+
+  // We just closed our dialog. The global
+  // instance is invalid now, set it to null.
+  g_instance = NULL;
 }
 
 void IdleLogoutDialogView::UpdateCountdownTimer() {

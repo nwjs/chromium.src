@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_CHROMEOS_UI_IDLE_LOGOUT_DIALOG_VIEW_H_
 #pragma once
 
+#include "base/memory/weak_ptr.h"
 #include "base/timer.h"
 #include "ui/views/window/dialog_delegate.h"
 
@@ -27,26 +28,18 @@ class IdleLogoutDialogView : public views::DialogDelegateView {
   virtual ui::ModalType GetModalType() const OVERRIDE;
   virtual string16 GetWindowTitle() const OVERRIDE;
   virtual views::View* GetContentsView() OVERRIDE;
-  virtual void DeleteDelegate() OVERRIDE;
 
  private:
   IdleLogoutDialogView();
   virtual ~IdleLogoutDialogView();
 
-  // Calls init after checking if the class is still alive.
-  static void CallInit(IdleLogoutDialogView** dialog);
   // Adds the labels and adds them to the layout.
-  void Init();
+  void InitAndShow();
 
   void Show();
   void Close();
 
   void UpdateCountdownTimer();
-
-  // Indicate that this instance has been 'closed' and should not be used.
-  void set_closed() { *instance_holder_ = NULL; }
-  // If our instance holder holds NULL, means we've been closed already.
-  bool is_closed() const { return NULL == *instance_holder_; }
 
   views::Label* restart_label_;
   views::Label* warning_label_;
@@ -56,10 +49,7 @@ class IdleLogoutDialogView : public views::DialogDelegateView {
 
   base::RepeatingTimer<IdleLogoutDialogView> timer_;
 
-  // Holds a pointer to our instance; if we are closed, we set this to hold
-  // a NULL value, indicating that our instance is been 'closed' and should
-  // not be used further. The delete will happen async to the closing.
-  IdleLogoutDialogView** instance_holder_;
+  base::WeakPtrFactory<IdleLogoutDialogView> weak_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(IdleLogoutDialogView);
 };
