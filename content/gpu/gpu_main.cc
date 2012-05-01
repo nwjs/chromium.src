@@ -82,6 +82,10 @@ int GpuMain(const content::MainFunctionParams& parameters) {
   base::win::ScopedCOMInitializer com_initializer;
 
 #if defined(OS_WIN)
+  // Cause advapi32 to load before the sandbox is turned on.
+  unsigned int dummy_rand;
+  rand_s(&dummy_rand);
+
   sandbox::TargetServices* target_services =
       parameters.sandbox_info->target_services;
   // Initialize H/W video decoding stuff which fails in the sandbox.
