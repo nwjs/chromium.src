@@ -303,7 +303,7 @@
 <translation id="5111692334209731439">&amp;Správce záložek</translation>
 <translation id="8295070100601117548">Chyba serveru</translation>
 <translation id="8060695457992179083">Zakáže panel Uber Tray pro panel Ash. Místo toho se použije staré zobrazení stavu.</translation>
-<translation id="5661272705528507004">Tato karta SIM je zablokována a nemůžete ji použít. Kontaktujte prosím svého poskytovatele služeb a požádejte o náhradu.</translation>
+<translation id="5661272705528507004">Tato SIM karta je zablokována a nemůžete ji použít. Kontaktujte prosím svého poskytovatele služeb a požádejte o náhradu.</translation>
 <translation id="443008484043213881">Nástroje</translation>
 <translation id="2529657954821696995">Holandská klávesnice</translation>
 <translation id="1128128132059598906">EAP-TTLS</translation>
@@ -1047,7 +1047,7 @@ Výpočet zbývajícího času</translation>
 <translation id="3973347941002960835">Ikona:</translation>
 <translation id="2280486287150724112">Pravý okraj</translation>
 <translation id="7632380866023782514">Vpravo nahoře</translation>
-<translation id="4693789964669838452">Snímků za sekundu</translation>
+<translation id="4693789964669838452">Snímky/s</translation>
 <translation id="4925520021222027859">Zadejte heslo pro konkrétní aplikaci:</translation>
 <translation id="3494768541638400973">Zadávání japonštiny Google (pro japonskou klávesnici)</translation>
 <translation id="4679639996443646335">Google zjistil, že pokud budete pokračovat, může být do mobilního zařízení nainstalován škodlivý software. Jestliže jste tento web již v minulosti navštívili nebo mu důvěřujete, je možné, že byl v nedávné době napaden hackerem. Neměli byste pokračovat. Zkuste to třeba znovu zítra nebo navštivte jiné webové stránky.</translation>
@@ -1299,7 +1299,7 @@ Protože i během zadávání hledaného výrazu jsou průběžně odesílány �
 <translation id="4089521618207933045">Obsahuje podnabídku</translation>
 <translation id="1936157145127842922">Zobrazit ve složce</translation>
 <translation id="2367567093518048410">Úroveň</translation>
-<translation id="6982279413068714821">Před <ph name="NUMBER_DEFAULT"/> minutami</translation>
+<translation id="6982279413068714821">před <ph name="NUMBER_DEFAULT"/> minutami</translation>
 <translation id="3952119550285200690">Pokud chcete přidat uživatele, připojte se prosím nejprve k síti.</translation>
 <translation id="7977590112176369853">&lt;zadat dotaz&gt;</translation>
 <translation id="3449839693241009168">Stiskem klávesy <ph name="SEARCH_KEY"/> odešlete příkazy pro rozšíření <ph name="EXTENSION_NAME"/></translation>
@@ -1567,7 +1567,7 @@ Veřejný exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitů):
 <translation id="2320435940785160168">Tento server vyžaduje pro ověření certifikát a nepřijal certifikát odeslaný prohlížečem. Buď vypršela platnost vašeho certifikátu, nebo server nedůvěřuje jeho vydavateli. Můžete zkusit akci opakovat s jiným certifikátem, máte-li jej. Jinak musíte získat platný certifikát od jiného vydavatele.</translation>
 <translation id="6295228342562451544">Když se připojíte k zabezpečeným webovým stránkám, server, na kterém jsou takové stránky hostovány, předloží vašemu prohlížeči takzvaný „certifikát“, kterým se ověřuje identita takového serveru. Certifikát obsahuje informace o identitě, například adresu webových stránek, které ověřuje třetí strana, které váš počítač důvěřuje. Kontrolou, zda adresa v certifikátu odpovídá adrese webových stránek, je možné ověřit, že bezpečně komunikujete s požadovanými webovými stránkami a ne s třetí stranou (například s útočníkem na vaši síť).</translation>
 <translation id="6342069812937806050">Právě nyní</translation>
-<translation id="5605716740717446121">Pokud správně nezadáte klíč k odemčení kódu PIN, bude karta SIM natrvalo zablokována. Zbývající pokusy: <ph name="TRIES_COUNT"/></translation>
+<translation id="5605716740717446121">Pokud správně nezadáte klíč k odemčení kódu PIN, bude SIM karta natrvalo zablokována. Zbývající pokusy: <ph name="TRIES_COUNT"/></translation>
 <translation id="8836712291807476944"><ph name="SAVED_BYTES"/> / <ph name="TOTAL_BYTES"/> bajtů, přerušeno</translation>
 <translation id="6773455881569219915">Odeslat tuto stránku do zařízení <ph name="DEVICE_NAME"/>.</translation>
 <translation id="5502500733115278303">Importováno z Firefoxu</translation>
@@ -1738,7 +1738,7 @@ Veřejný exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitů):
 <translation id="3929960541581096910">Adresa <ph name="URL"/> chce sledovat vaši fyzickou polohu.</translation>
 <translation id="7915525366357786991">Povolí experimentální rozhraní Media Source API v prvcích videa. Toto rozhraní umožňuje kódu JavaScript odesílat data médií přímo do prvku videa.</translation>
 <translation id="2370882663124746154">Aktivovat režim Double-Pinyin</translation>
-<translation id="3967885517199024316">Přihlaste se a získejte záložky, historii a nastavení do všech svých zařízení.</translation>
+<translation id="3967885517199024316">Přihlaste se a synchronizujte záložky, historii a nastavení do všech svých zařízení.</translation>
 <translation id="5463856536939868464">Nabídka obsahující skryté záložky</translation>
 <translation id="8286227656784970313">Použít systémový slovník</translation>
 <translation id="5431084084184068621">Vybrali jste si šifrování dat pomocí hesla Google. Svoji volbu můžete kdykoliv změnit v nastavení synchronizace.</translation>
@@ -1985,7 +1985,7 @@ Veřejný exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitů):
 <translation id="7751005832163144684">Tisk testovací stránky</translation>
 <translation id="2853916256216444076">Video ve formátu $1</translation>
 <translation id="2208158072373999562">Archiv ZIP</translation>
-<translation id="2756798847867733934">Karta SIM je deaktivována</translation>
+<translation id="2756798847867733934">SIM karta je deaktivována</translation>
 <translation id="2891555853153413261">Bez uvedení přístupového hesla nebudou v tomto mobilním zařízení synchronizována vaše hesla ani další šifrované údaje.</translation>
 <translation id="5464632865477611176">Tentokrát spustit</translation>
 <translation id="4268025649754414643">Šifrování klíče</translation>
@@ -2370,7 +2370,7 @@ Veřejný exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitů):
 <translation id="378193144039415469">Šifrovaný soubor ONC používá nepodporované schéma šifrování.</translation>
 <translation id="1234466194727942574">Lišta karet</translation>
 <translation id="4330523403413375536">Povolí experimenty v Nástrojích pro vývojáře. Pomocí panelu Nastavení v Nástrojích pro vývojáře můžete vypnout nebo zapnout jednotlivé experimenty.</translation>
-<translation id="7956713633345437162">Záložky pro mobily</translation>
+<translation id="7956713633345437162">Mobilní záložky</translation>
 <translation id="7974087985088771286">Aktivovat kartu 6</translation>
 <translation id="4035758313003622889">Správce úloh</translation>
 <translation id="6356936121715252359">Nastavení úložiště přehrávače Adobe Flash...</translation>
@@ -2439,7 +2439,7 @@ Veřejný exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitů):
 <translation id="4608500690299898628">&amp;Najít...</translation>
 <translation id="7582582252461552277">Preferovat tuto síť</translation>
 <translation id="3574305903863751447"><ph name="CITY"/>, <ph name="STATE"/> <ph name="COUNTRY"/></translation>
-<translation id="213826338245044447">Záložky pro mobily</translation>
+<translation id="213826338245044447">Mobilní záložky</translation>
 <translation id="8724859055372736596">Zobrazit ve &amp;složce</translation>
 <translation id="6723099650957480714">Aktivuje hardwarovou grafickou akceleraci zobrazení obsahu stránky (pokud je aktivní skládání).</translation>
 <translation id="2367657048471519165">Nastavit <ph name="PRODUCT_NAME"/> jako výchozí prohlížeč</translation>
@@ -2466,7 +2466,7 @@ Veřejný exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitů):
 <translation id="8571890674111243710">Překlad stránky do jazyka: <ph name="LANGUAGE"/>...</translation>
 <translation id="4056561919922437609">Počet karet: <ph name="TAB_COUNT"/></translation>
 <translation id="8952215000178696124">Kterou službu chcete použít pro výběr?</translation>
-<translation id="4373894838514502496">Před <ph name="NUMBER_FEW"/> minutami</translation>
+<translation id="4373894838514502496">před <ph name="NUMBER_FEW"/> minutami</translation>
 <translation id="3612628222817739505">(<ph name="ACCELERATOR"/>)</translation>
 <translation id="6358450015545214790">Nápověda</translation>
 <translation id="1156185823432343624">Hlasitost: Ztlumena</translation>
@@ -2972,7 +2972,7 @@ Veřejný exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitů):
 <translation id="7582844466922312471">Mobilní data</translation>
 <translation id="945522503751344254">Odeslat názor</translation>
 <translation id="1215411991991485844">Byla přidána nová aplikace na pozadí</translation>
-<translation id="4539401194496451708">Použitý profil Chrome: <ph name="USER_EMAIL_ADDRESS"/>. Poslední synchronizace: <ph name="LAST_SYNC_TIME"/></translation>
+<translation id="4539401194496451708">Použitý profil Chrome: <ph name="USER_EMAIL_ADDRESS"/>. Synchronizace: <ph name="LAST_SYNC_TIME"/></translation>
 <translation id="4726672564094551039">Znovu načíst zásady</translation>
 <translation id="4647697156028544508">Zadejte prosím PIN pro zařízení <ph name="DEVICE_NAME"/>:</translation>
 <translation id="7369847606959702983">Platební karta (další)</translation>
@@ -3409,7 +3409,7 @@ Zrušíte je stisknutím kombinace kláves Ctrl+Alt+Z.</translation>
 <translation id="2604243255129603442">Rozšíření <ph name="NAME_OF_EXTENSION"/> bylo deaktivováno. Pokud přestanete synchronizovat své záložky, budete moci toto rozšíření znovu aktivovat na stránce rozšíření. Tato stránka je dostupná prostřednictvím nabídky Nástroje.</translation>
 <translation id="7136694880210472378">Nastavit jako výchozí</translation>
 <translation id="3274763671541996799">Přepnuli jste do režimu celé obrazovky.</translation>
-<translation id="7681202901521675750">Karta SIM je zamčena, zadejte kód PIN. Zbývající pokusy: <ph name="TRIES_COUNT"/></translation>
+<translation id="7681202901521675750">SIM karta je zamčena, zadejte kód PIN. Zbývající pokusy: <ph name="TRIES_COUNT"/></translation>
 <translation id="2489918096470125693">Přidat &amp;složku...</translation>
 <translation id="7353651168734309780">Rozšíření <ph name="EXTENSION_NAME"/> vyžaduje nová oprávnění</translation>
 <translation id="6420812616858267777">Synchronizace aplikace <ph name="PRODUCT_NAME"/> usnadňuje sdílení dat (jako jsou záložky a nastavení)  mezi počítači a mobilními zařízeními.
@@ -3420,7 +3420,7 @@ Zrušíte je stisknutím kombinace kláves Ctrl+Alt+Z.</translation>
 <translation id="7339763383339757376">PKCS #7, jeden certifikát</translation>
 <translation id="7587108133605326224">Baltské jazyky</translation>
 <translation id="5705029873444503867">Přístup k místním souborům v tomto mobilním zařízení zakázal správce.</translation>
-<translation id="3991936620356087075">Příliš mnohokrát jste zadali klíč k odemčení kódu PIN. Vaše karta SIM byla natrvalo zablokována.</translation>
+<translation id="3991936620356087075">Příliš mnohokrát jste zadali klíč k odemčení kódu PIN. Vaše SIM karta byla natrvalo zablokována.</translation>
 <translation id="936801553271523408">Diagnostická data o systému</translation>
 <translation id="820791781874064845">Webová stránka byla zablokována rozšířením</translation>
 <translation id="9009144784540995197">Správa tiskárny</translation>
@@ -3573,7 +3573,7 @@ Výpočet času zbývajícího do úplného nabití</translation>
 <translation id="8186593878477717195">Kolize s certifikátem GUID</translation>
 <translation id="7206494583433114060">Spustit synchronizaci</translation>
 <translation id="6886871292305414135">Otevřít odkaz na nové kartě</translation>
-<translation id="1639192739400715787">Chcete-li otevřít nastavení Zabezpečení, zadejte kód PIN karty SIM</translation>
+<translation id="1639192739400715787">Chcete-li otevřít nastavení Zabezpečení, zadejte PIN SIM karty</translation>
 <translation id="7961015016161918242">Nikdy</translation>
 <translation id="3950924596163729246">Nelze získat přístup k síti.</translation>
 <translation id="5212461935944305924">Výjimky souborů cookie a dat webů</translation>
@@ -3600,14 +3600,14 @@ Výpočet času zbývajícího do úplného nabití</translation>
 <translation id="4816492930507672669">Přizpůsobit na stránku</translation>
 <translation id="8286036467436129157">Přihlásit se</translation>
 <translation id="594713537555167317">Konfigurovat nastavení ...</translation>
-<translation id="1255964530203229794">Synchronizováno jako <ph name="USER_EMAIL_ADDRESS"/>. Poslední synchronizace: <ph name="LAST_SYNC_TIME"/></translation>
+<translation id="1255964530203229794">Synchronizováno jako <ph name="USER_EMAIL_ADDRESS"/>. Synchronizace: <ph name="LAST_SYNC_TIME"/></translation>
 <translation id="6697308399043041614">Chrome to Mobile</translation>
 <translation id="1122198203221319518">&amp;Nástroje</translation>
 <translation id="2760009672169282879">Bulharská fonetická klávesnice</translation>
 <translation id="6608140561353073361">Všechny soubory cookie a data webu...</translation>
 <translation id="2596602318381383954">Dokončit akci pomocí aplikace:</translation>
 <translation id="8007030362289124303">Baterie je téměř vybitá</translation>
-<translation id="3790909017043401679">Zadejte kód PIN karty SIM</translation>
+<translation id="3790909017043401679">Zadejte PIN SIM karty</translation>
 <translation id="4513946894732546136">Váš názor</translation>
 <translation id="1135328998467923690">Balíček je neplatný: <ph name="ERROR_CODE"/>.</translation>
 <translation id="5906719743126878045">Zbývá: <ph name="NUMBER_TWO"/> hod</translation>
@@ -3619,7 +3619,7 @@ Výpočet času zbývajícího do úplného nabití</translation>
 <translation id="5653140146600257126">Složka s názvem „$1“ již existuje. Vyberte jiný název.</translation>
 <translation id="737801893573836157">Skrýt systémovou lištu s názvem a použít úzké okraje</translation>
 <translation id="5352235189388345738">Má přístup k těmto objektům:</translation>
-<translation id="5040262127954254034">Ochrana osobních údajů</translation>
+<translation id="5040262127954254034">Ochrana soukromí</translation>
 <translation id="7666868073052500132">Účely: <ph name="USAGES"/></translation>
 <translation id="7148311641502571842">Plugin <ph name="PLUGIN_NAME"/> byl deaktivován. Chcete-li jej znovu aktivovat, přejděte na stránku <ph name="CHROME_PLUGINS_LINK"/>.</translation>
 <translation id="3258281577757096226">3 sady (finální)</translation>
@@ -3686,7 +3686,7 @@ Výpočet času zbývajícího do úplného nabití</translation>
 <translation id="8828933418460119530">Název DNS</translation>
 <translation id="988159990683914416">Vývojářské sestavení</translation>
 <translation id="1097658378307015415">Chcete-li aktivovat síť <ph name="NETWORK_ID"/>, vstupte prosím před přihlášením jako host</translation>
-<translation id="4114470632216071239">Zamknout kartu SIM (k použití mobilních dat vyžadovat kód PIN)</translation>
+<translation id="4114470632216071239">Zamknout SIM kartu (k použití mobilních dat vyžadovat kód PIN)</translation>
 <translation id="5184584788669813359">Část tohoto dokumentu PDF nelze zobrazit. Chcete dokument otevřít v programu Adobe Reader?</translation>
 <translation id="3303260552072730022">Rozšíření spustilo režim celé obrazovky.</translation>
 <translation id="2183426022964444701">Vyberte kořenový adresář rozšíření.</translation>
@@ -3959,7 +3959,7 @@ Vypnete jej stisknutím vyhledávacího tlačítka.</translation>
 <translation id="2339641773402824483">Kontrola aktualizací...</translation>
 <translation id="5770385044111747894">NPAPI</translation>
 <translation id="9111742992492686570">Stáhnout důležitou aktualizaci zabezpečení</translation>
-<translation id="304009983491258911">Změna kódu PIN karty SIM</translation>
+<translation id="304009983491258911">Změna PIN SIM karty</translation>
 <translation id="8636666366616799973">Balíček je neplatný. Podrobnosti: <ph name="ERROR_MESSAGE"/></translation>
 <translation id="2654226057706132620">Také můžete přihlášení přeskočit a <ph name="LINK_START"/>prohlížet v roli hosta<ph name="LINK_END"/>.</translation>
 <translation id="2045969484888636535">Pokračovat v blokování souborů cookie</translation>

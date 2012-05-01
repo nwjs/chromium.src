@@ -2,7 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="tr">
 <translation id="3595596368722241419">Pil tam dolu</translation>
-<translation id="908313544993743941">Hücreseli devre dışı bırak</translation>
+<translation id="908313544993743941">Hücresel bağlantıyı devre dışı bırak</translation>
 <translation id="30155388420722288">Taşma Düğmesi</translation>
 <translation id="5571066253365925590">Bluetooth etkin</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
@@ -26,7 +26,7 @@
 <translation id="1480041086352807611">Demo modu</translation>
 <translation id="4186384497305035875">Bu ekran özellikle boş bırakılmıştır</translation>
 <translation id="9089416786594320554">Giriş yöntemleri</translation>
-<translation id="7706302027196209560">Kablosuzu etkinleştir</translation>
+<translation id="7706302027196209560">Kablosuz bağlantıyı etkinleştir</translation>
 <translation id="4430019312045809116">Ses</translation>
 <translation id="3557139239102318020">Küçültmek için aşağı, döşemek için sağa veya sola çekin</translation>
 <translation id="5980301590375426705">Misafir oturumundan çık</translation>
@@ -44,7 +44,7 @@
 <translation id="7029814467594812963">Oturumdan çık</translation>
 <translation id="7908019422099334890">Duvar Kağıdını ayarla...</translation>
 <translation id="6362354186508391853">Ctrl +</translation>
-<translation id="7841796031898165175">Hücreseli etkinleştir</translation>
+<translation id="7841796031898165175">Hücresel bağlantıyı etkinleştir</translation>
 <translation id="9072667645353666975">Pil: %<ph name="PERCENTAGE"/>
 <ph name="HOUR"/>s <ph name="MINUTE"/>d</translation>
 <translation id="48607902311828362">Uçak modu</translation>

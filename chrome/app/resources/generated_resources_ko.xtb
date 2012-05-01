@@ -61,7 +61,7 @@
 <translation id="7821009361098626711">서버 <ph name="DOMAIN"/>에 사용자 이름과 비밀번호를 입력해야 합니다. 서버 메시지: <ph name="REALM"/></translation>
 <translation id="524759338601046922">새 PIN 다시 입력:</translation>
 <translation id="9084336854646116906">&lt;style scoped&gt;를 사용합니다.</translation>
-<translation id="7165384154200672320">모니터 순환</translation>
+<translation id="7165384154200672320">화면 전환</translation>
 <translation id="777702478322588152">현</translation>
 <translation id="6562437808764959486">복구 이미지 추출 중...</translation>
 <translation id="4203887994236766970">CSS 영역을 사용합니다.</translation>
@@ -1481,7 +1481,7 @@
 <translation id="2815382244540487333">다음 쿠키가 차단됨:</translation>
 <translation id="8882395288517865445">내 주소록 카드의 주소 포함</translation>
 <translation id="374530189620960299">이 사이트의 보안 인증서는 신뢰할 수 없습니다.</translation>
-<translation id="4924638091161556692">고정</translation>
+<translation id="4924638091161556692">보정 완료</translation>
 <translation id="8893928184421379330">죄송합니다. 기기(<ph name="DEVICE_LABEL"/>)를 인식하지 못했습니다.</translation>
 <translation id="5647283451836752568">이번만 모든 플러그인 실행</translation>
 <translation id="8642947597466641025">텍스트 확대</translation>
@@ -1579,7 +1579,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="600038297188708848">실험용 작업 관리자를 사용합니다.</translation>
 <translation id="5399158067281117682">PIN이 일치하지 않습니다.</translation>
 <translation id="8494234776635784157">웹 콘텐츠</translation>
-<translation id="2681441671465314329">캐시 비우기</translation>
+<translation id="2681441671465314329">캐시 삭제</translation>
 <translation id="3646789916214779970">테마 기본값으로 다시 설정</translation>
 <translation id="1679068421605151609">개발자 도구</translation>
 <translation id="7014051144917845222"><ph name="PRODUCT_NAME"/>이(가) <ph name="HOST_NAME"/>에 연결을 시도했으나 거부되었습니다. 웹사이트가 다운되었거나 네트워크가 제대로 설정되지 않았기 때문일 수 있습니다.</translation>
@@ -1813,7 +1813,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="8315720913203253727">이 웹페이지를 제대로 표시하려면 이전에 입력한 데이터가 필요합니다. 이 데이터를 다시 보낼 수 있지만 이 경우 해당 페이지에서 이전에 수행한 작업이 반복됩니다. 새로고침을 눌러 데이터를 다시 보낸 다음 이 페이지를 표시하세요.</translation>
 <translation id="4419409365248380979"><ph name="HOST"/>에서 항상 쿠키를 설정하도록 허용</translation>
 <translation id="8069732954367771603">이 작업에 등록된 서비스가 없습니다.</translation>
-<translation id="1805520545536844220">셸프 공개</translation>
+<translation id="1805520545536844220">셸프 표시</translation>
 <translation id="917450738466192189">서버의 인증서가 유효하지 않습니다.</translation>
 <translation id="2649045351178520408">Base64-인코딩 ASCII, 인증서 체인</translation>
 <translation id="2615569600992945508">모든 사이트에서 마우스 커서 사용 중지 허용 안함</translation>
@@ -1949,7 +1949,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="4018133169783460046">이 언어로 <ph name="PRODUCT_NAME"/> 사용하기</translation>
 <translation id="5110450810124758964"><ph name="NUMBER_ONE"/>일 전</translation>
 <translation id="6224995341905622854">자주 표시되는 경우 다음을 시도해 보세요. <ph name="HELP_LINK"/></translation>
-<translation id="3264544094376351444">Sans-serif 체</translation>
+<translation id="3264544094376351444">Sans-serif</translation>
 <translation id="2820806154655529776"><ph name="NUMBER_ONE"/>초</translation>
 <translation id="1077946062898560804">모든 사용자에 대해 자동 업데이트 설정</translation>
 <translation id="3122496702278727796">데이터 디렉토리 만들기 실패</translation>
@@ -1996,7 +1996,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="4692623383562244444">검색엔진</translation>
 <translation id="567760371929988174">입력 방법(&amp;M)</translation>
 <translation id="586940690534897885">설정 유지</translation>
-<translation id="10614374240317010">저장되지 않음</translation>
+<translation id="10614374240317010">저장되지 않은 사이트</translation>
 <translation id="5116300307302421503">파일을 구문분석할 수 없습니다.</translation>
 <translation id="1907054602291213374">검색주소창 자동완성 순위에서 HistoryURL 제공자가 제공하는 순위 일치를 더 적극적으로 참고합니다.</translation>
 <translation id="2745080116229976798">Microsoft Qualified Subordination</translation>
@@ -2321,7 +2321,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="1911483096198679472">설명</translation>
 <translation id="1976323404609382849">여러 사이트의 쿠키를 차단했습니다.</translation>
 <translation id="916322872615955950">연결하려는 네트워크에 아직 설치되지 않았거나 더 이상 유효하지 않은 보안 인증서가 필요합니다.  계속 연결하려면 아래에서 새 인증서를 만드세요.</translation>
-<translation id="2523966157338854187">특정 페이지 또는 페이지 집합을 엽니다.</translation>
+<translation id="2523966157338854187">특정 페이지 또는 페이지 집합 열기.</translation>
 <translation id="4176463684765177261">사용 중지</translation>
 <translation id="154603084978752493">검색 엔진으로 추가(&amp;G)</translation>
 <translation id="2079545284768500474">실행 취소</translation>
@@ -2988,7 +2988,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="1285266685456062655"><ph name="NUMBER_FEW"/>시간 전</translation>
 <translation id="9154176715500758432">이 페이지에 머무르기</translation>
 <translation id="6988771638657196063">다음 URL 포함:</translation>
-<translation id="3842552989725514455">Serif 체</translation>
+<translation id="3842552989725514455">Serif</translation>
 <translation id="9070966745251964488">경로가 너무 김</translation>
 <translation id="1813278315230285598">서비스</translation>
 <translation id="6860097299815761905">프록시 설정...</translation>
@@ -3551,7 +3551,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
           <ph name="PRODUCT_NAME"/>
           (이)가 사용자의 휴대기기에 침입하여 인터넷 연결을 차단하고 있다고 잘못 인식했기 때문일 수 있습니다.</translation>
 <translation id="5449588825071916739">모든 탭 북마크</translation>
-<translation id="7073385929680664879">입력 방식 순환</translation>
+<translation id="7073385929680664879">입력 문자 전환</translation>
 <translation id="6898699227549475383">조직(O)</translation>
 <translation id="4333854382783149454">PKCS #1 SHA-1(RSA 암호화 사용)</translation>
 <translation id="762904068808419792">여기에 검색어를 입력합니다.</translation>
@@ -3730,7 +3730,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 
 일부 기능을 사용하지 못할 수 있습니다. 프로필의 존재 여부와 해당 콘텐츠를 읽고 쓸 권한이 있는지 확인하시기 바랍니다.</translation>
 <translation id="7953739707111622108">파일 시스템이 인식되지 않아 이 기기를 열 수 없습니다.</translation>
-<translation id="2433507940547922241">모양</translation>
+<translation id="2433507940547922241">디자인</translation>
 <translation id="839072384475670817">애플리케이션 바로가기 만들기(&amp;S)...</translation>
 <translation id="2176045495080708525">현재 설치된 확장 프로그램:</translation>
 <translation id="2501190902826909027">음성 피드백을 사용중지합니다.</translation>
@@ -3951,7 +3951,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="9111742992492686570">중요한 보안 업데이트 다운로드</translation>
 <translation id="304009983491258911">SIM 카드 PIN 변경</translation>
 <translation id="8636666366616799973">패키지가 잘못되었습니다. 세부정보: '<ph name="ERROR_MESSAGE"/>'.</translation>
-<translation id="2654226057706132620">또한 로그인을 건너뛰고 <ph name="LINK_START"/>손님으로 로그인<ph name="LINK_END"/>할 수 있습니다.</translation>
+<translation id="2654226057706132620">로그인을 건너뛰고 <ph name="LINK_START"/>손님으로 로그인<ph name="LINK_END"/>할 수도 있습니다.</translation>
 <translation id="2045969484888636535">쿠키 계속 차단</translation>
 <translation id="7353601530677266744">명령줄</translation>
 <translation id="766024200984943827">휴대기기에 어떤 일이 발생해도 <ph name="SHORT_PRODUCT_NAME"/> 설정은 안전하게 유지됩니다.</translation>

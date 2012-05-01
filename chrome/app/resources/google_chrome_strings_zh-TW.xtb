@@ -57,11 +57,11 @@ Google Chrome 無法復原您的設定。</translation>
 <translation id="7451721381978275812">無效的引數。您必須安裝 Google Chrome，才能在就緒模式中安裝「Google Chrome 內嵌框架」。</translation>
 <translation id="5727432509906037972">系統正在下載檔案，您確定要結束 Google Chrome 嗎？</translation>
 <translation id="4585888816441913908">這台電腦已安裝較新的 Google Chrome 和「Google Chrome 內嵌框架」版本，如果軟體無法順利運作，請解除安裝 Google Chrome 和「Google Chrome 內嵌框架」，然後再試一次。</translation>
-<translation id="6368958679917195344">「Chrome 作業系統」藉助了其他<ph name="BEGIN_LINK_CROS_OSS"/>開放原始碼軟體<ph name="END_LINK_CROS_OSS"/>的相關技術才得以問世。</translation>
+<translation id="6368958679917195344">Chrome 作業系統藉助了其他<ph name="BEGIN_LINK_CROS_OSS"/>開放原始碼軟體<ph name="END_LINK_CROS_OSS"/>的相關技術才得以問世。</translation>
 <translation id="7459554271817304652">設定同步處理功能，即可在網路上儲存您的個人化瀏覽器功能，並且透過任何電腦從 Google Chrome 使用這些功能。</translation>
 <translation id="4561681684759837226"><ph name="PAGE_TITLE"/></translation>
 <translation id="3215326788962391210">您嘗試前往 &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;，但伺服器提供的憑證由您電腦作業系統不信任的實體簽署。這可能表示伺服器自行產生安全性憑證，因此 Google Chrome 無法藉以辨認身分；或者有攻擊者試圖攔截您的通訊。</translation>
-<translation id="4331809312908958774">Chrome 作業系統</translation>
+<translation id="4331809312908958774">Chrome OS</translation>
 <translation id="1195935957447623558">Google Chrome 上次執行時並未正確關閉。如果要重新開啟您之前瀏覽的網頁，請按一下 [還原]。</translation>
 <translation id="2783467918276328046">參閱登入 Chrome 可享用的<ph name="BEGIN_LINK"/>更多好處<ph name="END_LINK"/>。</translation>
 <translation id="2580411288591421699">您無法安裝這個版本的 Google Chrome，因為相同的版本目前正在執行中。請關閉 Google Chrome 然後再試一次。</translation>

@@ -61,7 +61,7 @@
 <translation id="7821009361098626711">Il server <ph name="DOMAIN"/> richiede un nome utente e una password. Il server dichiara: <ph name="REALM"/>.</translation>
 <translation id="524759338601046922">Ridigita il nuovo PIN:</translation>
 <translation id="9084336854646116906">Attiva &lt;style scoped&gt;.</translation>
-<translation id="7165384154200672320">Consente di spostarsi tra i monitor</translation>
+<translation id="7165384154200672320">Passa da un monitor all'altro</translation>
 <translation id="777702478322588152">Prefettura</translation>
 <translation id="6562437808764959486">Estrazione dell'immagine di ripristino in corso...</translation>
 <translation id="4203887994236766970">Attiva regioni CSS.</translation>
@@ -569,7 +569,7 @@
 <translation id="6985235333261347343">Agente di recupero chiavi Microsoft</translation>
 <translation id="3605499851022050619">Pagina di diagnostica Navigazione sicura.</translation>
 <translation id="4417271111203525803">Riga indirizzo 2</translation>
-<translation id="7617095560120859490">Comunicaci cosa succede. (obbligatorio)</translation>
+<translation id="7617095560120859490">Comunicaci cosa succede (obbligatorio)</translation>
 <translation id="3426211747733405477">Impossibile analizzare alcuni parametri nel file ONC crittografato.</translation>
 <translation id="5618333180342767515">(l'operazione potrebbe richiedere alcuni minuti)</translation>
 <translation id="1697820107502723922">Archivi</translation>
@@ -777,7 +777,7 @@ Premi Maiusc + tasto per la ricerca per annullare.</translation>
 <translation id="7375125077091615385">Tipo:</translation>
 <translation id="8214489666383623925">Apri file...</translation>
 <translation id="4583537898417244378">File non valido o danneggiato.</translation>
-<translation id="5230160809118287008">Goats Teleported</translation>
+<translation id="5230160809118287008">Capre teletrasportate</translation>
 <translation id="7761701407923456692">Il certificato del server non corrisponde all'URL.</translation>
 <translation id="3885155851504623709">Parrocchia</translation>
 <translation id="4495419450179050807">Non visualizzare in questa pagina</translation>
@@ -1735,7 +1735,7 @@ Premi Maiusc + tasto per la ricerca per annullare.</translation>
 <translation id="8273972836055206582"><ph name="FULLSCREEN_ORIGIN"/> ora è a schermo intero e vuole disattivare il puntatore del mouse.</translation>
 <translation id="5916084858004523819">Non consentito</translation>
 <translation id="8226742006292257240">Di seguito viene indicata la password TPM generata in modo casuale che è stata assegnata al tuo computer:</translation>
-<translation id="2050524657923939561">Intent web</translation>
+<translation id="2050524657923939561">Web Intents</translation>
 <translation id="8487693399751278191">Importa preferiti adesso...</translation>
 <translation id="7615602087246926389">Hai già dati crittografati utilizzando una versione diversa della password del tuo account Google. Inseriscila qui di seguito.</translation>
 <translation id="7484580869648358686">Avviso: C'è qualcosa che non va qui.</translation>
@@ -1940,7 +1940,7 @@ Premi Maiusc + tasto per la ricerca per annullare.</translation>
 <translation id="7983301409776629893">Traduci sempre <ph name="ORIGINAL_LANGUAGE"/> in <ph name="TARGET_LANGUAGE"/></translation>
 <translation id="4890284164788142455">Tailandese</translation>
 <translation id="978248992969828584">Telefono (<ph name="ADDRESS"/>)</translation>
-<translation id="4312207540304900419">Attiva prossima scheda</translation>
+<translation id="4312207540304900419">Attiva scheda successiva</translation>
 <translation id="7648048654005891115">Stile mappa di chiavi</translation>
 <translation id="539295039523818097">Si è verificato un problema con il microfono.</translation>
 <translation id="4935613694514038624">Preparazione primo accesso aziendale in corso...</translation>
@@ -2149,7 +2149,7 @@ Premi Maiusc + tasto per la ricerca per annullare.</translation>
 <translation id="674375294223700098">Errore sconosciuto del certificato del server.</translation>
 <translation id="7780428956635859355">Invia una schermata salvata</translation>
 <translation id="2850961597638370327">Rilasciato a: <ph name="NAME"/></translation>
-<translation id="2168039046890040389">Pagina in alto</translation>
+<translation id="2168039046890040389">Pagina su</translation>
 <translation id="1767519210550978135">Hsu</translation>
 <translation id="5508282018086013138">Questa estensione non è autorizzata dalla norma di amministrazione.</translation>
 <translation id="2498539833203011245">Riduci a icona</translation>
@@ -2312,7 +2312,7 @@ Premi Maiusc + tasto per la ricerca per annullare.</translation>
 <translation id="5089810972385038852">Stato</translation>
 <translation id="2872961005593481000">Spegni</translation>
 <translation id="8986267729801483565">Percorso di download:</translation>
-<translation id="2044540568167155862">Goats teleported</translation>
+<translation id="2044540568167155862">Capre teletrasportate</translation>
 <translation id="1776712937009046120">Aggiungi utente</translation>
 <translation id="4322394346347055525">Chiudi le altre schede</translation>
 <translation id="2562743677925229011">Non connesso a <ph name="SHORT_PRODUCT_NAME"/></translation>
@@ -2506,7 +2506,7 @@ Premi Maiusc + tasto per la ricerca per annullare.</translation>
 <translation id="7450732239874446337">Operazioni di I/O di rete sospese.</translation>
 <translation id="5178667623289523808">Trova precedente</translation>
 <translation id="2815448242176260024">Non salvare mai le password</translation>
-<translation id="8687485617085920635">Prossima finestra</translation>
+<translation id="8687485617085920635">Finestra successiva</translation>
 <translation id="4122118036811378575">Trova successiv&amp;o</translation>
 <translation id="6008256403891681546">JCB</translation>
 <translation id="2610780100389066815">Elenco firme attendibili Microsoft</translation>
@@ -3191,7 +3191,7 @@ Premi Maiusc + tasto per la ricerca per annullare.</translation>
 <translation id="2113479184312716848">Apri &amp;file...</translation>
 <translation id="3314617171364900239">Ripetuti controlli della disponibilità di aggiornamenti non riusciti per l'estensione &quot;<ph name="EXTENSION_NAME"/>&quot;.</translation>
 <translation id="4850458635498951714">Aggiungi un dispositivo</translation>
-<translation id="3140353188828248647">Stabilisci impostazione della barra degli indirizzi</translation>
+<translation id="3140353188828248647">Area attiva nella barra degli indirizzi</translation>
 <translation id="4860787810836767172"><ph name="NUMBER_FEW"/> secondi fa</translation>
 <translation id="6462082050341971451">Sei ancora lì?</translation>
 <translation id="1185611560928829188">Magic List (<ph name="MAGIC_COUNT"/>)</translation>
@@ -3544,7 +3544,7 @@ Premi Maiusc + tasto per la ricerca per annullare.</translation>
 <translation id="899403249577094719">URL di base certificato Netscape</translation>
 <translation id="2737363922397526254">Comprimi...</translation>
 <translation id="8605428685123651449">Memoria SQLite</translation>
-<translation id="5469175127151858022">Verranno inviate la versione di Chrome e del sistema operativo in uso, nonché eventuali informazioni che decidi di inserire sopra. Questo feedback verrà utilizzato per identificare i problemi e migliorare Chrome. Le informazioni personali che invii, esplicitamente o casualmente, verranno protette in conformità con le nostre norme sulla privacy.<ph name="BEGIN_BOLD"/>Se invii questo feedback, accetti che Google possa utilizzarlo per migliorare i suoi prodotti o servizi.<ph name="END_BOLD"/></translation>
+<translation id="5469175127151858022">Verranno inviate la versione di Chrome e del sistema operativo in uso, nonché eventuali informazioni che decidi di inserire sopra. Questo feedback verrà utilizzato per identificare i problemi e migliorare Chrome. Le informazioni personali che invii, esplicitamente o casualmente, verranno protette in conformità con le nostre norme sulla privacy. <ph name="BEGIN_BOLD"/>Se invii questo feedback, accetti che Google possa utilizzarlo per migliorare i suoi prodotti o servizi.<ph name="END_BOLD"/></translation>
 <translation id="2841013758207633010">Ora</translation>
 <translation id="4880827082731008257">Cerca nella cronologia</translation>
 <translation id="8661290697478713397">Apri link in finestra di navigazione in inco&amp;gnito</translation>
@@ -3600,7 +3600,7 @@ Premi Maiusc + tasto per la ricerca per annullare.</translation>
 <translation id="5852112051279473187">Spiacenti. Si è verificato un grave problema durante la registrazione di questo dispositivo. Riprova o contatta un rappresentante dell'assistenza.</translation>
 <translation id="6894066781028910720">Apri Gestione file</translation>
 <translation id="7088418943933034707">Gestisci certificati...</translation>
-<translation id="497421865427891073">Procedi</translation>
+<translation id="497421865427891073">Avanti</translation>
 <translation id="2453576648990281505">File già esistente</translation>
 <translation id="3127589841327267804">PYJJ</translation>
 <translation id="3902011095621490992">Attiva avvisi estensioni</translation>
@@ -3783,7 +3783,7 @@ Premi Maiusc + tasto per la ricerca per annullare.</translation>
 <translation id="2879560882721503072">Memorizzazione riuscita del certificato client rilasciato da <ph name="ISSUER"/>.</translation>
 <translation id="1275718070701477396">Selezionato</translation>
 <translation id="1178581264944972037">Pausa</translation>
-<translation id="932089513367755776">Consente di attivare/disattivare l'elenco di applicazioni</translation>
+<translation id="932089513367755776">Attiva/disattiva l'elenco di applicazioni</translation>
 <translation id="6492313032770352219">Dimensioni su disco:</translation>
 <translation id="3225919329040284222">Il server ha presentato un certificato che non corrisponde alle previsioni integrate. Queste previsioni sono incluse per determinati siti web con protezione elevata allo scopo di proteggerti.</translation>
 <translation id="5233231016133573565">ID processo</translation>

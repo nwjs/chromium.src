@@ -2,7 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="fr">
 <translation id="3595596368722241419">Batterie pleine</translation>
-<translation id="908313544993743941">Désactiver le réseau cellulaire</translation>
+<translation id="908313544993743941">Désactiver le réseau mobile</translation>
 <translation id="30155388420722288">Bouton de dépassement de capacité</translation>
 <translation id="5571066253365925590">Bluetooth activé</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
@@ -32,19 +32,19 @@
 <translation id="5980301590375426705">Fermer la session Invité</translation>
 <translation id="8308637677604853869">Menu précédent</translation>
 <translation id="3595065677684516080">Paramètres et aide</translation>
-<translation id="4479639480957787382">Ethernet</translation>
-<translation id="8814190375133053267">Wi-Fi</translation>
+<translation id="4479639480957787382">Ethernet </translation>
+<translation id="8814190375133053267">Wi-Fi </translation>
 <translation id="3784455785234192852">Verrouiller</translation>
 <translation id="5836819469861742634">Modifier les paramètres du proxy…</translation>
 <translation id="2872961005593481000">Éteindre</translation>
 <translation id="8735871257195921372">Autre réseau Wi-Fi…</translation>
 <translation id="2152495481414285304">Applications</translation>
-<translation id="1690310444231390462">Désactiver le Wi-fi</translation>
+<translation id="1690310444231390462">Désactiver le Wi-Fi</translation>
 <translation id="77565731175229781">Paramètres réseau…</translation>
 <translation id="7029814467594812963">Quitter la session</translation>
 <translation id="7908019422099334890">Sélectionner un fond d'écran…</translation>
 <translation id="6362354186508391853">Ctrl +</translation>
-<translation id="7841796031898165175">Activer les réseaux cellulaires</translation>
+<translation id="7841796031898165175">Activer le réseau mobile</translation>
 <translation id="9072667645353666975">Batterie : <ph name="PERCENTAGE"/> %
 <ph name="HOUR"/> h <ph name="MINUTE"/> m</translation>
 <translation id="48607902311828362">Mode Avion</translation>

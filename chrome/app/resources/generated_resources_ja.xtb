@@ -142,7 +142,7 @@
 <translation id="2490581551466368871">ブロックした API 呼び出し</translation>
 <translation id="3626281679859535460">輝度</translation>
 <translation id="1076818208934827215">Microsoft Internet Explorer</translation>
-<translation id="9056810968620647706">一致が見つかりませんでした。</translation>
+<translation id="9056810968620647706">一致する項目が見つかりません。</translation>
 <translation id="2861301611394761800">システムの更新が完了しました。システムを再起動してください。</translation>
 <translation id="4858913220355269194">フリッツ</translation>
 <translation id="2231238007119540260">サーバー証明書を削除すると、そのサーバーの通常のセキュリティ チェックを復活させることになり、サーバーは正当な証明書を使用することが必要となります。</translation>
@@ -1300,7 +1300,7 @@ Shift+検索キーを押すとキャンセルできます。</translation>
 <translation id="2870560284913253234">サイト</translation>
 <translation id="6945221475159498467">選択</translation>
 <translation id="4776917500594043016"><ph name="USER_EMAIL_ADDRESS"/> のパスワード</translation>
-<translation id="7724603315864178912">カット</translation>
+<translation id="7724603315864178912">切り取り</translation>
 <translation id="8456681095658380701">名前が無効です</translation>
 <translation id="5869015858594559197">ウェブサイトが Cookie、JavaScript、プラグインなどの機能を使用できるかどうかを指定する設定</translation>
 <translation id="917051065831856788">サイド タブを使用する</translation>
@@ -1444,7 +1444,7 @@ Shift+検索キーを押すとキャンセルできます。</translation>
 <translation id="2815382244540487333">以下の Cookie がブロックされました:</translation>
 <translation id="8882395288517865445">アドレスブックの住所を含める</translation>
 <translation id="374530189620960299">このサイトのセキュリティ証明書は信頼できません</translation>
-<translation id="4924638091161556692">固定</translation>
+<translation id="4924638091161556692">修正済み</translation>
 <translation id="8893928184421379330">デバイス <ph name="DEVICE_LABEL"/> を認識できませんでした。</translation>
 <translation id="5647283451836752568">今回はすべてのプラグインを実行</translation>
 <translation id="8642947597466641025">テキストを拡大する</translation>
@@ -2292,7 +2292,7 @@ Shift+検索キーを押すとキャンセルできます。</translation>
 <translation id="2523966157338854187">特定の 1 つのページまたは複数のページを開く</translation>
 <translation id="4176463684765177261">無効</translation>
 <translation id="154603084978752493">検索エンジンとして追加(&amp;G)</translation>
-<translation id="2079545284768500474">取消</translation>
+<translation id="2079545284768500474">取り消す</translation>
 <translation id="114140604515785785">拡張機能のルート ディレクトリ:</translation>
 <translation id="4788968718241181184">ベトナム語 IME（TCVN6064）</translation>
 <translation id="1512064327686280138">起動失敗</translation>
@@ -3033,7 +3033,7 @@ Shift+検索キーを押すとキャンセルできます。</translation>
 <translation id="5233930340889611108">WebKit</translation>
 <translation id="8260864402787962391">マウス</translation>
 <translation id="9076523132036239772">メール アドレスまたはパスワードを確認できませんでした。まずネットワークに接続してください。</translation>
-<translation id="6965978654500191972">携帯端末</translation>
+<translation id="6965978654500191972">デバイス</translation>
 <translation id="2959872918720987777">アドバイスを適用する</translation>
 <translation id="5295309862264981122">ナビゲーションの確認</translation>
 <translation id="8249320324621329438">前回の取得:</translation>
@@ -3670,7 +3670,7 @@ Shift+検索キーを押すとキャンセルできます。</translation>
 <translation id="878069093594050299">この証明書は、以下の用途に使用できることが確認されています:</translation>
 <translation id="2991701592828182965">音声フィードバックを有効にします。</translation>
 <translation id="5852112051279473187">エラー: このデバイスの登録中に問題が発生しました。もう一度お試しいただくか、サポート担当者にお問い合わせください。</translation>
-<translation id="6894066781028910720">ファイル マネージャを開きます</translation>
+<translation id="6894066781028910720">ファイル マネージャを開く</translation>
 <translation id="7088418943933034707">証明書の管理...</translation>
 <translation id="497421865427891073">次に進む</translation>
 <translation id="2453576648990281505">このファイルは既に存在します</translation>
@@ -3727,7 +3727,7 @@ Shift+検索キーを押すとキャンセルできます。</translation>
 <translation id="8941882480823041320">前の単語</translation>
 <translation id="2489435327075806094">ポインタの速度:</translation>
 <translation id="2574102660421949343"><ph name="DOMAIN"/> からの Cookie が許可されました。</translation>
-<translation id="2773948261276885771">複数のページを設定</translation>
+<translation id="2773948261276885771">ページを設定</translation>
 <translation id="8279030405537691301">スレッド合成が有効な場合、合成しているスレッド上で CSS アニメーションの加速を行います。ただし、コンポジタ スレッドを使用しなくても、CSS アニメーションの加速によってパフォーマンスが向上することがあります。</translation>
 <translation id="2157875535253991059">現在このページは全画面表示です。</translation>
 <translation id="20817612488360358">システム プロキシ設定を使用するように設定されていますが、明示的なプロキシの設定も指定されています。</translation>

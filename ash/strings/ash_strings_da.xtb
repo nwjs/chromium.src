@@ -12,12 +12,12 @@
 <translation id="2297568595583585744">Statusbakke</translation>
 <translation id="2946640296642327832">Aktivér Bluetooth</translation>
 <translation id="6596816719288285829">IP-adresse</translation>
-<translation id="289426338439836048">Andre mobilnetværk...</translation>
+<translation id="289426338439836048">Andet mobilnetværk...</translation>
 <translation id="5233638681132016545">Ny fane</translation>
 <translation id="785750925697875037">Vis mobilkonto</translation>
 <translation id="7864539943188674973">Deaktiver Bluetooth</translation>
 <translation id="3126069444801937830">Genstart for at opdatere</translation>
-<translation id="8190698733819146287">Tilpas sprog og indtastning ...</translation>
+<translation id="8190698733819146287">Tilpas sprog og indtastning...</translation>
 <translation id="7911992579061465928">Lavt batteriniveau</translation>
 <translation id="598295083618286569">Bluetooth tilsluttet</translation>
 <translation id="5222676887888702881">Log ud</translation>
@@ -26,9 +26,9 @@
 <translation id="1480041086352807611">Demotilstand</translation>
 <translation id="4186384497305035875">Det er meningen, at denne skærm skal være tom.</translation>
 <translation id="9089416786594320554">Indtastningsmetoder</translation>
-<translation id="7706302027196209560">Aktiver Wi-Fi</translation>
+<translation id="7706302027196209560">Aktivér Wi-Fi</translation>
 <translation id="4430019312045809116">Lydstyrke</translation>
-<translation id="3557139239102318020">Træk ned for at minimere og til venstre eller højre for at opdele billedet</translation>
+<translation id="3557139239102318020">Træk ned for at minimere og træk til venstre eller højre for at opdele billedet</translation>
 <translation id="5980301590375426705">Afslut gæstesession</translation>
 <translation id="8308637677604853869">Forrige menu</translation>
 <translation id="3595065677684516080">Indstillinger og hjælp</translation>
@@ -42,7 +42,7 @@
 <translation id="1690310444231390462">Deaktiver Wi-Fi </translation>
 <translation id="77565731175229781">Netværksindstillinger...</translation>
 <translation id="7029814467594812963">Afslut session</translation>
-<translation id="7908019422099334890">Angiv tapet...</translation>
+<translation id="7908019422099334890">Angiv baggrund...</translation>
 <translation id="6362354186508391853">Ctrl +</translation>
 <translation id="7841796031898165175">Aktivér mobilnetværk</translation>
 <translation id="9072667645353666975">Batteri: <ph name="PERCENTAGE"/>%

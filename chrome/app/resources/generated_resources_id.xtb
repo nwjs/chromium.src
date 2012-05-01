@@ -70,7 +70,7 @@
 <translation id="1358267447825621237">Ubah beranda</translation>
 <translation id="1156689104822061371">Tata letak keyboard:</translation>
 <translation id="4764776831041365478">Laman web di <ph name="URL"/> mungkin sedang tidak aktif untuk sementara atau dipindahkan secara permanen ke alamat web baru.</translation>
-<translation id="6156863943908443225">Tembolok skrip</translation>
+<translation id="6156863943908443225">Cache skrip</translation>
 <translation id="908313544993743941">Nonaktifkan seluler</translation>
 <translation id="4274187853770964845">Kesalahan Sinkronisasi: Hentikan dan mulai ulang Sinkronisasi.</translation>
 <translation id="4610656722473172270">Google Toolbar</translation>
@@ -318,7 +318,7 @@
 <translation id="4700157086864140907">Google Chrome dapat memberikan periksa-ejaan yang lebih pintar dengan mengirimkan apa yang Anda ketik di browser ke server Google sehingga memungkinkan Anda menggunakan teknologi periksa-ejaan yang sama seperti yang digunakan oleh Google penelusuran.</translation>
 <translation id="7632357940961158759">Beberapa setelan dikelola oleh ekstensi.</translation>
 <translation id="1880905663253319515">Hapus sertifikat &quot;<ph name="CERTIFICATE_NAME"/>&quot;?</translation>
-<translation id="8546306075665861288">Tembolok gambar</translation>
+<translation id="8546306075665861288">Cache gambar</translation>
 <translation id="5904093760909470684">Konfigurasi Proxy</translation>
 <translation id="5271696982761495740">Tablet (<ph name="ADDRESS"/>)</translation>
 <translation id="3348643303702027858">Pembuatan Media Pemulihan OS telah dibatalkan.</translation>
@@ -740,7 +740,7 @@ Tekan tombol Shift + Search untuk membatalkan.</translation>
 <translation id="2778346081696727092">Gagal mengautentikasi dengan nama pengguna atau sandi yang diberikan</translation>
 <translation id="37613671848467444">Buka di &amp;Jendela Penyamaran</translation>
 <translation id="2519040785135695148">Situs ini dicegah mendaftarkan penangan URL ubahsuaian.</translation>
-<translation id="159359590073980872">Tembolok Gambar</translation>
+<translation id="159359590073980872">Cache Gambar</translation>
 <translation id="3395249460272133069">Pilih gambar untuk ditampilkan pada latar belakang Anda.</translation>
 <translation id="3317459757438853210">Dua sisi</translation>
 <translation id="2011110593081822050">Web Worker: <ph name="WORKER_NAME"/></translation>
@@ -760,7 +760,7 @@ Tekan tombol Shift + Search untuk membatalkan.</translation>
 <translation id="409504436206021213">Jangan Muat Ulang</translation>
 <translation id="8795916974678578410">Jendela Baru</translation>
 <translation id="2733275712367076659">Anda memiliki sertifikat dari organisasi ini yang mengidentifikasikan Anda:</translation>
-<translation id="5334142896108694079">Tembolok Skrip</translation>
+<translation id="5334142896108694079">Cache Skrip</translation>
 <translation id="4801512016965057443">Izinkan roaming data seluler</translation>
 <translation id="2515586267016047495">Alt</translation>
 <translation id="4839122884004914586">Timpa daftar penguraian perangkat lunak</translation>
@@ -784,7 +784,7 @@ Tekan tombol Shift + Search untuk membatalkan.</translation>
 <translation id="939736085109172342">Folder baru</translation>
 <translation id="4933484234309072027">disematkan di <ph name="URL"/></translation>
 <translation id="5554720593229208774">Otoritas Sertifikasi Email</translation>
-<translation id="862750493060684461">Tembolok CSS</translation>
+<translation id="862750493060684461">Cache CSS</translation>
 <translation id="8169977663846153645">Baterai - Menghitung sisa waktu</translation>
 <translation id="7690853182226561458">Tambahkan &amp;map...</translation>
 <translation id="7968982339740310781">Lihat detail</translation>
@@ -796,7 +796,7 @@ Tekan tombol Shift + Search untuk membatalkan.</translation>
 <translation id="5301751748813680278">Masuk sebagai Tamu.</translation>
 <translation id="121827551500866099">Tampilkan semua unduhan...</translation>
 <translation id="5949910269212525572">Tidak dapat menentukan alamat DNS server.</translation>
-<translation id="3115147772012638511">Menunggu tembolok...</translation>
+<translation id="3115147772012638511">Menunggu cache...</translation>
 <translation id="257088987046510401">Tema</translation>
 <translation id="6771079623344431310">Tidak dapat menyambung ke server proxy</translation>
 <translation id="6973656660372572881">Server proxy tetap dan URL skrip .pac telah ditentukan.</translation>
@@ -852,7 +852,7 @@ Tekan tombol Shift + Search untuk membatalkan.</translation>
 <translation id="6623138136890659562">Menampilkan jaringan Pribadi pada menu Jaringan untuk mengaktifkan sambungan ke VPN.</translation>
 <translation id="8969837897925075737">Memverifikasi pembaruan sistem...</translation>
 <translation id="4045024958826158406">Bersihkan Memori</translation>
-<translation id="3393716657345709557">Entri yang diminta tidak ditemukan di tembolok.</translation>
+<translation id="3393716657345709557">Entri yang diminta tidak ditemukan di cache.</translation>
 <translation id="7191454237977785534">Simpan file sebagai</translation>
 <translation id="7241389281993241388">Masuklah ke <ph name="TOKEN_NAME"/> untuk mengimpor sertifikat klien.</translation>
 <translation id="7206693748120342859">Mengunduh <ph name="PLUGIN_NAME"/>...</translation>
@@ -1214,7 +1214,7 @@ Tekan tombol Shift + Search untuk membatalkan.</translation>
 <translation id="6252594924928912846">Ubahsuaikan Setelan Sinkronisasi...</translation>
 <translation id="8425755597197517046">Tempel dan Telu&amp;suri</translation>
 <translation id="1093148655619282731">Detail sertifikat yang dipilih:</translation>
-<translation id="3003623123441819449">Tembolok CSS</translation>
+<translation id="3003623123441819449">Cache CSS</translation>
 <translation id="2743322561779022895">Aktivasi:</translation>
 <translation id="4181898366589410653">Tidak ditemukan mekanisme pembatalan dalam sertifikat server.</translation>
 <translation id="6914291514448387591"><ph name="PLUGIN_NAME"/> memerlukan izin Anda untuk dijalankan.</translation>
@@ -1238,7 +1238,7 @@ Tekan tombol Shift + Search untuk membatalkan.</translation>
 <translation id="3952119550285200690">Untuk menambah pengguna, sambungkan ke jaringan terlebih dulu.</translation>
 <translation id="7977590112176369853">&lt;masukkan permintaan&gt;</translation>
 <translation id="3449839693241009168">Tekan <ph name="SEARCH_KEY"/> untuk mengirimkan perintah ke <ph name="EXTENSION_NAME"/></translation>
-<translation id="968174221497644223">Tembolok aplikasi</translation>
+<translation id="968174221497644223">Cache aplikasi</translation>
 <translation id="1478897831827830200">Pelacakan</translation>
 <translation id="5714678912774000384">Aktifkan tab terakhir</translation>
 <translation id="9017608379655359501">Batal menempel.</translation>
@@ -1356,7 +1356,7 @@ Tekan tombol Shift + Search untuk membatalkan.</translation>
 <translation id="5464696796438641524">Keyboard untuk bahasa Polski</translation>
 <translation id="2080010875307505892">Keyboard untuk bahasa Serbia</translation>
 <translation id="2953767478223974804"><ph name="NUMBER_ONE"/> menit</translation>
-<translation id="201192063813189384">Kesalahan membaca data dari tembolok.</translation>
+<translation id="201192063813189384">Kesalahan membaca data dari cache.</translation>
 <translation id="4153936847658816004">Yakin ingin menghapus &quot;<ph name="PROFILE_NAME"/>&quot; dan semua data yang terkait dengannya dari perangkat seluler ini? Hal ini tidak dapat dibatalkan!</translation>
 <translation id="7441570539304949520">Pengecualian JavaScript</translation>
 <translation id="1789575671122666129">Munculan</translation>
@@ -1502,7 +1502,7 @@ Tekan tombol Shift + Search untuk membatalkan.</translation>
 <translation id="600038297188708848">Aktifkan pengelola tugas eksperimental.</translation>
 <translation id="5399158067281117682">PIN tidak cocok!</translation>
 <translation id="8494234776635784157">Konten Web</translation>
-<translation id="2681441671465314329">Kosongkan tembolok</translation>
+<translation id="2681441671465314329">Kosongkan cache</translation>
 <translation id="3646789916214779970">Setel ulang ke tema default</translation>
 <translation id="1679068421605151609">Alat Pengembang</translation>
 <translation id="7014051144917845222">Upaya koneksi <ph name="PRODUCT_NAME"/> ke <ph name="HOST_NAME"/> ditolak. Situs web mungkin sedang tidak aktif atau jaringan Anda tidak dikonfigurasi dengan benar.</translation>
@@ -1831,7 +1831,7 @@ Tekan tombol Shift + Search untuk membatalkan.</translation>
 <translation id="1529968269513889022">minggu lalu</translation>
 <translation id="5542132724887566711">Profil</translation>
 <translation id="7912145082919339430">Setelah <ph name="PLUGIN_NAME"/> selesai terpasang, muat ulang laman untuk mengaktifkannya.</translation>
-<translation id="5196117515621749903">Muat ulang tembolok yang diabaikan</translation>
+<translation id="5196117515621749903">Muat ulang cache yang diabaikan</translation>
 <translation id="5552632479093547648">Program Jahat dan phishing Terdeteksi!</translation>
 <translation id="4375848860086443985">Komposer</translation>
 <translation id="4988273303304146523"><ph name="NUMBER_DEFAULT"/> hari yang lalu</translation>
@@ -1964,7 +1964,7 @@ Tekan tombol Shift + Search untuk membatalkan.</translation>
        pada kesalahan ini.  Memuat ulang laman akan memecahkan masalah ini, dan
         mematikan komputer dengan benar akan mencegahnya terulang di masa mendatang.
         <ph name="LINE_BREAK"/>
-        Jika masalah berlanjut, cobalah bersihkan tembolok.  Pada beberapa kejadian, hal ini
+        Jika masalah berlanjut, cobalah bersihkan cache.  Pada beberapa kejadian, hal ini
         juga menjadi pertanda mulai merosotnya kemampuan perangkat keras.</translation>
 <translation id="5298219193514155779">Tema dibuat oleh</translation>
 <translation id="7366909168761621528">Data penjelajahan</translation>
@@ -2081,7 +2081,7 @@ Tekan tombol Shift + Search untuk membatalkan.</translation>
 <translation id="3202578601642193415">Teranyar</translation>
 <translation id="8112886015144590373"><ph name="NUMBER_FEW"/> jam</translation>
 <translation id="1398853756734560583">Perbesar</translation>
-<translation id="8988255471271407508">Laman web tidak ditemukan di tembolok. Sumber tertentu hanya dapat dimuat dengan aman dari tembolok, seperti laman yang dihasilkan dari laman yang dikirim. <ph name="LINE_BREAK"/> Kesalahan ini juga dapat diakibatkan oleh kerusakan tembolok karena penonaktifan yang tidak sesuai.<ph name="LINE_BREAK"/> Jika kesalahan tetap terjadi, coba kosongkan tembolok.</translation>
+<translation id="8988255471271407508">Laman web tidak ditemukan di cache. Sumber tertentu hanya dapat dimuat dengan aman dari cache, seperti laman yang dihasilkan dari laman yang dikirim. <ph name="LINE_BREAK"/> Kesalahan ini juga dapat diakibatkan oleh kerusakan cache karena penonaktifan yang tidak sesuai.<ph name="LINE_BREAK"/> Jika kesalahan tetap terjadi, coba kosongkan cache.</translation>
 <translation id="1653828314016431939">Oke - Mulai ulang sekarang</translation>
 <translation id="8915370057835397490">Memuat saran</translation>
 <translation id="2138262541062800200">Nonaktifkan sinkronisasi pemberitahuan apl</translation>
@@ -2501,7 +2501,7 @@ Tekan tombol Shift + Search untuk membatalkan.</translation>
 <translation id="3862763658360970896">Aktifkan Chrome Ke Seluler.</translation>
 <translation id="902638246363752736">Setelan keyboard</translation>
 <translation id="7925686952655276919">Jangan gunakan data seluler untuk sinkronisasi</translation>
-<translation id="6503077044568424649">Sering disinggahi</translation>
+<translation id="6503077044568424649">Sering dibuka</translation>
 <translation id="7970256634075683692">&amp;Akhiri Proses</translation>
 <translation id="9016164105820007189">Menyambungkan ke &quot;<ph name="DEVICE_NAME"/>&quot;.</translation>
 <translation id="7168109975831002660">Ukuran font minimal</translation>
@@ -2617,7 +2617,7 @@ Tekan tombol Shift + Search untuk membatalkan.</translation>
 <translation id="2028531481946156667">Tidak dapat memulai proses pemformatan.</translation>
 <translation id="385120052649200804">Keyboard internasional AS</translation>
 <translation id="9012607008263791152">Saya mengetahui bahwa mengunjungi situs ini dapat membahayakan komputer.</translation>
-<translation id="6640442327198413730">Tembolok hilang</translation>
+<translation id="6640442327198413730">Cache hilang</translation>
 <translation id="5793220536715630615">Salin URL vide&amp;o</translation>
 <translation id="468249400587767128">Masuk dan sinkronkan</translation>
 <translation id="523397668577733901">Mau <ph name="BEGIN_LINK"/>lihat isi galeri<ph name="END_LINK"/> aja?</translation>
@@ -3191,7 +3191,7 @@ Tekan tombol Shift + Search untuk membatalkan.</translation>
 <translation id="2168725742002792683">Ekstensi file</translation>
 <translation id="3974195870082915331">Klik untuk menampilkan sandi</translation>
 <translation id="7861805612256278846">belum masuk</translation>
-<translation id="1753905327828125965">Paling Sering Dikunjungi</translation>
+<translation id="1753905327828125965">Sering Dibuka</translation>
 <translation id="8116972784401310538">&amp;Pengelola bookmark</translation>
 <translation id="3591607774768458617">Bahasa ini sedang digunakan untuk menampilkan <ph name="PRODUCT_NAME"/>.</translation>
 <translation id="621638399744152264"><ph name="VALUE"/>%</translation>
@@ -3402,7 +3402,7 @@ Tekan tombol Shift + Search untuk membatalkan.</translation>
 <translation id="6137946187038918690">Setelan Touchpad/Mouse</translation>
 <translation id="2192664328428693215">Tanya saya jika ada situs yang ingin menampilkan pemberitahuan desktop (disarankan)</translation>
 <translation id="6708242697268981054">Asal:</translation>
-<translation id="4786993863723020412">Kesalahan pembacaan tembolok</translation>
+<translation id="4786993863723020412">Kesalahan pembacaan cache</translation>
 <translation id="6630452975878488444">Pintasan pilihan</translation>
 <translation id="8709969075297564489">Periksa pembatalan sertifikat server</translation>
 <translation id="6393653048282730833">Kelola setelan cetak...</translation>
@@ -3533,7 +3533,7 @@ Tekan tombol Shift + Search untuk membatalkan.</translation>
 <translation id="794676567536738329">Konfirmasi Izin</translation>
 <translation id="6636709850131805001">Keadaan yang tidak dikenal</translation>
 <translation id="6095984072944024315">−</translation>
-<translation id="5567989639534621706">Tembolok aplikasi</translation>
+<translation id="5567989639534621706">Cache aplikasi</translation>
 <translation id="9141716082071217089">Tidak dapat memeriksa apakah sertifikat server dibatalkan.</translation>
 <translation id="4304224509867189079">Log In</translation>
 <translation id="5332624210073556029">Zona waktu:</translation>

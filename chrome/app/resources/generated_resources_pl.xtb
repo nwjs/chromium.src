@@ -51,7 +51,7 @@
 <translation id="2313634973119803790">Technologia sieciowa:</translation>
 <translation id="380018804185729075">Włącz wyszukiwanie dynamiczne, aby przyspieszyć wyszukiwanie.</translation>
 <translation id="2382901536325590843">Certyfikat serwera nie jest uwzględniony w rekordzie DNS.</translation>
-<translation id="2833791489321462313">Do wybudzenia wymagane jest hasło</translation>
+<translation id="2833791489321462313">Do wybudzenia systemu wymagane jest hasło</translation>
 <translation id="3850258314292525915">Wyłącz synchronizację</translation>
 <translation id="8208216423136871611">Nie zapisuj</translation>
 <translation id="4405141258442788789">Przekroczono limit czasu operacji.</translation>
@@ -132,7 +132,7 @@
 <translation id="6310545596129886942">Pozostało: <ph name="NUMBER_FEW"/> sek</translation>
 <translation id="9181716872983600413">Unicode</translation>
 <translation id="1383861834909034572">Otwieranie po ukończeniu</translation>
-<translation id="2492538245231809938">Szyfrowane typy danych</translation>
+<translation id="2492538245231809938">Typ danych do szyfrowania</translation>
 <translation id="5727728807527375859">Rozszerzenia, aplikacje i motywy mogą wyrządzić szkody na komputerze. Czy na pewno chcesz kontynuować?</translation>
 <translation id="3857272004253733895">Schemat podwójnych znaków w metodzie pinyin</translation>
 <translation id="7977486230165662465">Włącz obsługę gamepada</translation>
@@ -297,7 +297,7 @@
 <translation id="2529657954821696995">Klawiatura holenderska</translation>
 <translation id="1128128132059598906">EAP-TTLS</translation>
 <translation id="6337534724793800597">Filtruj zasady według nazwy</translation>
-<translation id="6585234750898046415">Wybierz zdjęcie dla Twojego konta, które pojawi się na ekranie logowania.</translation>
+<translation id="6585234750898046415">Wybierz zdjęcie do Twojego konta, które pojawi się na ekranie logowania.</translation>
 <translation id="7957054228628133943">Zarządzaj blokowaniem wyskakujących okienek...</translation>
 <translation id="179767530217573436">ostatnie 4 tygodnie</translation>
 <translation id="2279770628980885996">Napotkano nieoczekiwaną sytuację przy próbie zrealizowania żądania przez serwer.</translation>
@@ -644,7 +644,7 @@
 <translation id="3464868340187708956">Dodaj nowego użytkownika</translation>
 <translation id="6353618411602605519">Klawiatura chorwacka</translation>
 <translation id="7986039047000333986">Właśnie została zastosowana specjalna aktualizacja zabezpieczeń przeglądarki <ph name="PRODUCT_NAME"/>. Uruchom teraz przeglądarkę ponownie, aby zmiany zostały wprowadzone (karty zostaną przywrócone).</translation>
-<translation id="5515810278159179124">Nie zezwalaj żadnej witrynie na śledzenie mojej fizycznej lokalizacji</translation>
+<translation id="5515810278159179124">Nie zezwalaj żadnej witrynie na rejestrowanie mojej fizycznej lokalizacji</translation>
 <translation id="5999606216064768721">Użyj systemowego paska tytułu i obramowania</translation>
 <translation id="904752364881701675">W lewym dolnym rogu</translation>
 <translation id="3398951731874728419">Informacje o błędzie:</translation>
@@ -656,7 +656,7 @@
 <translation id="1836938920852968258">Wyłącz menu „Inne urządzenia” na stronie nowej karty.</translation>
 <translation id="8417276187983054885">Skonfiguruj usługę <ph name="CLOUD_PRINT_NAME"/></translation>
 <translation id="3056462238804545033">Ups, wystąpił błąd podczas próby uwierzytelnienia. Sprawdź poprawność danych logowania i spróbuj jeszcze raz.</translation>
-<translation id="5246356625895986067">Przypnij do programu uruchamiającego</translation>
+<translation id="5246356625895986067">Przypnij do menu startowego</translation>
 <translation id="2018352199541442911">Niestety, to urządzenie zewnętrznej pamięci masowej nie jest obecnie obsługiwane.</translation>
 <translation id="2678063897982469759">Włącz ponownie</translation>
 <translation id="4692690030323697737">Drugie imię</translation>
@@ -694,7 +694,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="8289391556078545517">Strony internetowe mogą przechwycić kursor myszy i pozbawić użytkownika kontroli nad nim. Dane dotyczące ruchu myszy są kierowane bezpośrednio do aplikacji internetowej. Użytkownicy mogą to przerwać, naciskając „Esc”.</translation>
 <translation id="348495353354674884">Włącz wirtualną klawiaturę</translation>
 <translation id="3395011312013575824">Wysyłam.</translation>
-<translation id="4667176955651319626">Zablokuj pliki cookie i dane z witryn innych firm.</translation>
+<translation id="4667176955651319626">Zablokuj pliki cookie i dane z witryn innych firm</translation>
 <translation id="6686490380836145850">Zamknij karty po prawej</translation>
 <translation id="8366694425498033255">Klawisze wyboru</translation>
 <translation id="5608669887400696928"><ph name="NUMBER_DEFAULT"/> godz.</translation>
@@ -761,7 +761,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="8795916974678578410">Nowe okno</translation>
 <translation id="2733275712367076659">Masz umożliwiające Twoją identyfikację certyfikaty od następujących organizacji:</translation>
 <translation id="5334142896108694079">Pamięć podręczna skryptów</translation>
-<translation id="4801512016965057443">Zezwól na komórkową transmisję danych w roamingu</translation>
+<translation id="4801512016965057443">Zezwól na przesył danych w roamingu</translation>
 <translation id="2515586267016047495">Alt</translation>
 <translation id="4839122884004914586">Zastąp listę renderowania programowego</translation>
 <translation id="3798449238516105146">Wersja</translation>
@@ -880,7 +880,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="6745994589677103306">Nic nie rób</translation>
 <translation id="1637259088766071440">Strona <ph name="HOST_NAME"/> zawiera elementy pochodzące z witryn prawdopodobnie zawierających złośliwe oprogramowanie, które może zaszkodzić komórce lub w inny sposób działać bez zgody użytkownika. Samo odwiedzenie witryny zawierającej złośliwe oprogramowanie może spowodować zainfekowanie urządzenia. Ta strona zawiera też treści z witryn, które zostały zgłoszone jako wyłudzające informacje. Witryny tego typu wyłudzają od użytkowników dane osobowe lub informacje finansowe, często podszywając się pod zaufane instytucje, na przykład banki.</translation>
 <translation id="855081842937141170">Przypnij kartę</translation>
-<translation id="6263541650532042179">resetuj synchronizację</translation>
+<translation id="6263541650532042179">Resetuj synchronizację</translation>
 <translation id="6513247462497316522">Google Chrome będzie używać komórkowej transmisji danych, jeśli nie jest dostępne połączenie z inną siecią.</translation>
 <translation id="6055392876709372977">PKCS #1, SHA-256 z szyfrowaniem RSA</translation>
 <translation id="7903984238293908205">katakana</translation>
@@ -1029,7 +1029,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="6178664161104547336">Wybór certyfikatu</translation>
 <translation id="3341703758641437857">Zezwalaj na dostęp do adresów URL plików</translation>
 <translation id="5702898740348134351">&amp;Edytuj wyszukiwarki...</translation>
-<translation id="1756681705074952506">Metoda wprowadzania</translation>
+<translation id="1756681705074952506">Sposób wprowadzania tekstu</translation>
 <translation id="8545211332741562162">Włącz eksperymentalne funkcje języka JavaScript na stronach internetowych.</translation>
 <translation id="734303607351427494">Zarządzaj wyszukiwarkami</translation>
 <translation id="3706919628594312718">Ustawienia myszy</translation>
@@ -1183,7 +1183,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="7917972308273378936">Klawiatura litewska</translation>
 <translation id="8371806639176876412">Dane wprowadzane w polu omnibox mogą być rejestrowane</translation>
 <translation id="5788367137662787332">Niestety, nie można podłączyć co najmniej jednej partycji na urządzeniu <ph name="DEVICE_LABEL"/>.</translation>
-<translation id="1886996562706621347">Zezwalaj witrynom na wyświetlanie prośby o ustawienie ich jako domyślnego modułu obsługi protokołu (zalecane)</translation>
+<translation id="1886996562706621347">Zezwalaj witrynom, by mogły prosić o ustawienie ich jako domyślnego modułu obsługi protokołu (zalecane)</translation>
 <translation id="6736329909263487977"><ph name="ISSUED_BY"/> [<ph name="ISSUED_TO"/>]</translation>
 <translation id="8899388739470541164">Wietnamski</translation>
 <translation id="1282227640663454719">Podpis formularza <ph name="FORM_SIGNATURE"/> dotyczy adresu <ph name="FORM_URL"/>.</translation>
@@ -1199,7 +1199,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="1424875271419827265">Wygląd paska narzędzi</translation>
 <translation id="3947376313153737208">Nie wybrano</translation>
 <translation id="1346104802985271895">wietnamski (TELEX)</translation>
-<translation id="5935630983280450497">Pozostała <ph name="NUMBER_ONE"/> minuta</translation>
+<translation id="5935630983280450497"><ph name="NUMBER_ONE"/> min do końca</translation>
 <translation id="2242603986093373032">Brak urządzeń</translation>
 <translation id="7713873128508426081">Zawsze dozwolone</translation>
 <translation id="5889282057229379085">Maksymalna liczba pośrednich urzędów certyfikacji: <ph name="NUM_INTERMEDIATE_CA"/></translation>
@@ -1271,7 +1271,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="9027459031423301635">Otwórz link w nowej &amp;karcie</translation>
 <translation id="2251809247798634662">Nowe okno incognito</translation>
 <translation id="7610193165460212391">Wartość spoza zakresu (<ph name="VALUE"/>)</translation>
-<translation id="4540154706690252107">Odepnij od programu uruchamiającego</translation>
+<translation id="4540154706690252107">Odepnij z menu startowego</translation>
 <translation id="3100472813537288234">Ukryj pisownię i gramatykę</translation>
 <translation id="358344266898797651">Celtycki</translation>
 <translation id="3625870480639975468">Resetuj powiększenie</translation>
@@ -1313,7 +1313,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="8053278772142718589">Pliki PKCS #12</translation>
 <translation id="6662016084451426657">Błąd synchronizacji: aby włączyć synchronizację, skontaktuj się z administratorem.</translation>
 <translation id="2129904043921227933">Błąd synchronizacji: zaktualizuj hasło synchronizacji.</translation>
-<translation id="1476949146811612304">Określ wyszukiwarkę używaną w <ph name="BEGIN_LINK"/>omniboksie<ph name="END_LINK"/>.</translation>
+<translation id="1476949146811612304">Wybierz wyszukiwarkę używaną w <ph name="BEGIN_LINK"/>omniboksie<ph name="END_LINK"/>.</translation>
 <translation id="4114360727879906392">Poprzednie okno</translation>
 <translation id="8238649969398088015">Wskazówka pomocy</translation>
 <translation id="5958418293370246440">Liczba plików: <ph name="SAVED_FILES"/>/<ph name="TOTAL_FILES"/></translation>
@@ -1418,7 +1418,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="6162656142027440299">Wyłącz Bluetooth</translation>
 <translation id="8525306231823319788">Pełny ekran</translation>
 <translation id="5892507820957994680">Zastępuje wbudowaną listę renderowania programowego i włącza przyspieszanie za pomocą procesora GPU w przypadku nieobsługiwanej konfiguracji systemu.</translation>
-<translation id="9054208318010838">Zezwalaj wszystkim witrynom na śledzenie mojej fizycznej lokalizacji</translation>
+<translation id="9054208318010838">Zezwalaj wszystkim witrynom na rejestrowanie mojej fizycznej lokalizacji</translation>
 <translation id="3058212636943679650">Do przywrócenia systemu operacyjnego komputera niezbędna jest karta SD lub pamięć USB z obrazem odzyskiwania.</translation>
 <translation id="2815382244540487333">Następujące pliki cookie zostały zablokowane:</translation>
 <translation id="8882395288517865445">Uwzględnij adresy z mojej wizytówki z książki adresowej</translation>
@@ -1481,7 +1481,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="6556866813142980365">Ponów</translation>
 <translation id="8824701697284169214">Dodaj &amp;stronę</translation>
 <translation id="2107287771748948380"><ph name="OBFUSCATED_CC_NUMBER"/>, ważna do: <ph name="CC_EXPIRATION_DATE"/></translation>
-<translation id="7866522434127619318">Włącza opcję „kliknij, aby odtworzyć” w ustawieniach zawartości wtyczki.</translation>
+<translation id="7866522434127619318">Włącza opcję „Kliknij, by uruchomić” w ustawieniach wtyczek.</translation>
 <translation id="6466988389784393586">&amp;Otwórz wszystkie zakładki</translation>
 <translation id="8860923508273563464">Zaczekaj na zakończenie pobierania</translation>
 <translation id="6406506848690869874">Synchronizacja</translation>
@@ -1494,7 +1494,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="9157595877708044936">Konfigurowanie...</translation>
 <translation id="4475552974751346499">Przeszukaj pobrane pliki</translation>
 <translation id="6624687053722465643">Słodycz</translation>
-<translation id="3021256392995617989">Pytaj mnie, gdy witryna próbuje śledzić moją fizyczną lokalizację (zalecane)</translation>
+<translation id="3021256392995617989">Pytaj mnie, gdy witryna chce rejestrować moją fizyczną lokalizację (zalecane)</translation>
 <translation id="271083069174183365">Ustawienia wprowadzania japońskich znaków</translation>
 <translation id="1640672724030957280">Pobieram...</translation>
 <translation id="5185386675596372454">Najnowsza wersja rozszerzenia „<ph name="EXTENSION_NAME"/>” została wyłączona, ponieważ wymaga więcej uprawnień.</translation>
@@ -1591,7 +1591,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="2412835451908901523">Wprowadź dostarczony przez operatora <ph name="CARRIER_ID"/> 8-cyfrowy klucz odblokowania kodu PIN.</translation>
 <translation id="6979448128170032817">Wyjątki...</translation>
 <translation id="7019805045859631636">Szybko</translation>
-<translation id="4880520557730313061">Autopoprawka</translation>
+<translation id="4880520557730313061">Autokorekta</translation>
 <translation id="7584802760054545466">Łączenie z siecią <ph name="NETWORK_ID"/></translation>
 <translation id="4060383410180771901">Witryna nie może obsłużyć żądania adresu <ph name="URL"/>.</translation>
 <translation id="6710213216561001401">Wstecz</translation>
@@ -1720,7 +1720,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
           aby przetestować swoje połączenie.</translation>
 <translation id="8664389313780386848">&amp;Wyświetl źródło strony</translation>
 <translation id="8970407809569722516">Oprogramowanie układowe:</translation>
-<translation id="2828701613241603541">Jesteś zalogowany(a) jako <ph name="USER_EMAIL_ADDRESS"/>. Synchronizowanymi danymi możesz zarządzać w <ph name="BEGIN_LINK"/>Panelu Google<ph name="END_LINK"/></translation>
+<translation id="2828701613241603541">Jesteś zalogowany(a) jako <ph name="USER_EMAIL_ADDRESS"/>. Dane, które mają być synchronizowane, możesz wybrać w <ph name="BEGIN_LINK"/>Panelu Google<ph name="END_LINK"/></translation>
 <translation id="13649080186077898">Zarządzaj ustawieniami autouzupełniania</translation>
 <translation id="57646104491463491">Data modyfikacji</translation>
 <translation id="7266345500930177944">Kliknij, by uruchomić <ph name="PLUGIN_NAME"/>.</translation>
@@ -1783,7 +1783,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="7658008455977046314">Renderowanie wspomagane przez GPU</translation>
 <translation id="3123243061080120667">KB</translation>
 <translation id="3220586366024592812">Proces oprogramowania sprzęgającego usługi <ph name="CLOUD_PRINT_NAME"/> uległ awarii. Uruchomić go ponownie?</translation>
-<translation id="2379281330731083556">Drukuj za pomocą okna systemowego <ph name="SHORTCUT_KEY"/></translation>
+<translation id="2379281330731083556">Drukuj w oknie systemowym <ph name="SHORTCUT_KEY"/></translation>
 <translation id="918765022965757994">Zaloguj się do tej witryny jako: <ph name="EMAIL_ADDRESS"/>.</translation>
 <translation id="8216278935161109887">Wyloguj się i ponownie zaloguj</translation>
 <translation id="6254503684448816922">Złamanie klucza</translation>
@@ -1830,7 +1830,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="2128531968068887769">Klient natywny</translation>
 <translation id="7175353351958621980">Załadowane z:</translation>
 <translation id="7186367841673660872">Ta strona została przetłumaczona z języka<ph name="ORIGINAL_LANGUAGE"/>na język<ph name="LANGUAGE_LANGUAGE"/></translation>
-<translation id="8448695406146523553">Tylko osoba znająca hasło może odczytać Twoje zaszyfrowane dane – hasło nie jest przesyłane do firmy Google ani przez nią przechowywane. Jeśli zapomnisz hasła, trzeba będzie zresetować synchronizację.</translation>
+<translation id="8448695406146523553">Tylko osoba znająca hasło może odczytać Twoje zaszyfrowane dane – hasło nie jest przesyłane do firmy Google ani przez nią przechowywane. Jeśli zapomnisz hasło, trzeba będzie zresetować synchronizację.</translation>
 <translation id="6052976518993719690">Urząd certyfikacji protokołu SSL</translation>
 <translation id="1636959874332483835">Witryna <ph name="HOST_NAME"/> zawiera złośliwe oprogramowanie. Otwarcie tej witryny grozi zainfekowaniem komputera wirusem.</translation>
 <translation id="8050783156231782848">Brak dostępnych danych</translation>
@@ -1940,7 +1940,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="2526590354069164005">Pulpit</translation>
 <translation id="4165738236481494247">Uruchom ten dodatek</translation>
 <translation id="7983301409776629893">Zawsze tłumacz z języka: <ph name="ORIGINAL_LANGUAGE"/> na język: <ph name="TARGET_LANGUAGE"/></translation>
-<translation id="4890284164788142455">tajski</translation>
+<translation id="4890284164788142455">Tajski</translation>
 <translation id="978248992969828584">Telefon (<ph name="ADDRESS"/>)</translation>
 <translation id="4312207540304900419">Aktywuj następną kartę</translation>
 <translation id="7648048654005891115">Styl mapy klawiszy</translation>
@@ -1990,7 +1990,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="8871696467337989339">Użyto nieobsługiwanej flagi wiersza polecenia: <ph name="BAD_FLAG"/>. Ma to negatywny wpływ na stabilność i zabezpieczenia.</translation>
 <translation id="4767443964295394154">Lokalizacja pobierania</translation>
 <translation id="5031870354684148875">Tłumacz Google – informacje</translation>
-<translation id="5702389759209837579">Korzystaj z otwartych kart na wszystkich urządzeniach.</translation>
+<translation id="5702389759209837579">Możesz korzystać z kart, które masz otwarte na innych urządzeniach.</translation>
 <translation id="720658115504386855">Wielkość liter nie jest rozróżniana</translation>
 <translation id="8263744495942430914">Witryna <ph name="FULLSCREEN_ORIGIN"/> wyłączyła kursor myszy.</translation>
 <translation id="2454247629720664989">Słowo kluczowe</translation>
@@ -2135,7 +2135,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="7143207342074048698">Łączenie</translation>
 <translation id="4212084985543581100">Serwer proxy pełni funkcję pośrednika między Twoją komórką a innymi serwerami. W tej chwili konfiguracja komórki przewiduje korzystanie z serwera proxy, ale <ph name="PRODUCT_NAME"/> nie może się z nim połączyć.</translation>
 <translation id="671928215901716392">Zablokuj ekran</translation>
-<translation id="1843187317472788812">Zawsze widoczne</translation>
+<translation id="1843187317472788812">Zawsze widoczna</translation>
 <translation id="3727187387656390258">Sprawdź wyskakujące okienko</translation>
 <translation id="569068482611873351">Importuj...</translation>
 <translation id="6571070086367343653">Edytuj kartę kredytową</translation>
@@ -2318,7 +2318,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="1776712937009046120">Dodaj użytkownika</translation>
 <translation id="4322394346347055525">Zamknij inne karty</translation>
 <translation id="2562743677925229011">Nie jesteś zalogowany(a) do <ph name="SHORT_PRODUCT_NAME"/>.</translation>
-<translation id="593451978644335626">Naciśnij kombinację klawiszy CTRL+spacja, aby wybrać poprzednią metodę wprowadzania.</translation>
+<translation id="593451978644335626">Naciśnij kombinację klawiszy CTRL+spacja, aby wybrać poprzedni sposób wprowadzania tekstu.</translation>
 <translation id="881799181680267069">Ukryj pozostałe</translation>
 <translation id="1812631533912615985">Odpinanie kart</translation>
 <translation id="8318945219881683434">Nie można sprawdzić unieważnienia.</translation>
@@ -2338,7 +2338,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="3816844797124379499">Nie udało się dodać aplikacji, bo powoduje ona konflikt z aplikacją „<ph name="APP_NAME"/>”.</translation>
 <translation id="7301360164412453905">Klawisze wyboru na klawiaturze Hsu</translation>
 <translation id="8631271110654520730">Trwa kopiowanie obrazu odzyskiwania...</translation>
-<translation id="7779140087128114262">Tylko osoba znająca hasło może odczytać Twoje zaszyfrowane dane – hasło nie jest przesyłane do firmy Google ani przez nią przechowywane. Jeśli zapomnisz hasła, trzeba będzie zresetować synchronizację.</translation>
+<translation id="7779140087128114262">Tylko osoba znająca hasło może odczytać Twoje zaszyfrowane dane – hasło nie jest przesyłane do firmy Google ani przez nią przechowywane. Jeśli zapomnisz hasło, trzeba będzie zresetować synchronizację.</translation>
 <translation id="13356285923490863">Nazwa zasady</translation>
 <translation id="8241040075392580210">Zacieniony</translation>
 <translation id="6030946405726632495">Nie można utworzyć folderu „$1”: $2</translation>
@@ -2409,7 +2409,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="4563210852471260509">Początkowy język wprowadzania: chiński</translation>
 <translation id="6897140037006041989">Klient</translation>
 <translation id="3413122095806433232">Wystawcy urzędu certyfikacji: <ph name="LOCATION"/></translation>
-<translation id="1956724372173215413">Naciśnij kombinację klawiszy Alt+Shift, aby przełączyć metodę wprowadzania.</translation>
+<translation id="1956724372173215413">Naciśnij kombinację klawiszy Alt+Shift, aby przełączyć sposób wprowadzania tekstu.</translation>
 <translation id="4115153316875436289">Liczba dni: <ph name="NUMBER_TWO"/></translation>
 <translation id="701080569351381435">Wyświetl źródło</translation>
 <translation id="3286538390144397061">Uruchom ponownie teraz</translation>
@@ -2453,7 +2453,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="3093473105505681231">Ustawienia języków i sprawdzania pisowni</translation>
 <translation id="152482086482215392">Pozostała <ph name="NUMBER_ONE"/> sekunda</translation>
 <translation id="4261901459838235729">Prezentacja Google</translation>
-<translation id="8678698760965522072">Stan online</translation>
+<translation id="8678698760965522072">Online</translation>
 <translation id="529172024324796256">Nazwa użytkownika:</translation>
 <translation id="3308116878371095290">Umieszczanie na komputerze plików cookie z tej strony jest niedozwolone.</translation>
 <translation id="7521387064766892559">JavaScript</translation>
@@ -2561,7 +2561,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="8030169304546394654">Rozłączone</translation>
 <translation id="4010065515774514159">Czynność wykonywana w przeglądarce</translation>
 <translation id="5244403939744861887">Ukryj, gdy okno jest zmaksymalizowane</translation>
-<translation id="267285457822962309">Zmień ustawienia specyficzne dla urządzenia i urządzeń peryferyjnych.</translation>
+<translation id="267285457822962309">Zmień ustawienia dla tego urządzenia i urządzeń peryferyjnych.</translation>
 <translation id="1154228249304313899">Otwórz tę stronę:</translation>
 <translation id="9074348188580488499">Czy na pewno chcesz usunąć wszystkie hasła?</translation>
 <translation id="4563703643501244594">Lista zainstalowanych aplikacji, rozszerzeń i motywów</translation>
@@ -2626,7 +2626,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="2568774940984945469">Kontener paska informacji</translation>
 <translation id="8971063699422889582">Ważność certyfikatu serwera wygasła.</translation>
 <translation id="4377125064752653719">Próbujesz wejść na <ph name="DOMAIN"/>, ale serwer przedstawił certyfikat unieważniony przez wystawcę. Oznacza to, że dane uwierzytelniające podane przez serwer są zupełnie niewiarygodne. Możliwe, że komunikujesz się z intruzem.</translation>
-<translation id="8281596639154340028">Użyj produktu <ph name="HANDLER_TITLE"/></translation>
+<translation id="8281596639154340028">Użyj usługi <ph name="HANDLER_TITLE"/></translation>
 <translation id="7134098520442464001">Pomniejsz tekst</translation>
 <translation id="21133533946938348">Przypnij kartę</translation>
 <translation id="4090404313667273475">Wyświetlenie pewnych elementów na tej stronie wymaga wtyczki <ph name="PLUGIN_NAME"/>.</translation>
@@ -2704,7 +2704,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="7070714457904110559">Włącza eksperymentalne rozszerzenia funkcji geolokalizacji, w tym między innymi korzystanie z systemowych interfejsów API lokalizacji (jeśli system operacyjny je udostępnia) i wysyłanie do usługi lokalizacji Google dodatkowych danych dotyczących konfiguracji sieci lokalnej, by umożliwić bardziej precyzyjne określenie pozycji.</translation>
 <translation id="6701535245008341853">Nie można uzyskać profilu.</translation>
 <translation id="8303655282093186569">Ustawienia wprowadzania znaków pinyin</translation>
-<translation id="992779717417561630">Drukuj za pomocą okna <ph name="CLOUD_PRINT_NAME"/>... <ph name="SHORTCUT_KEY"/></translation>
+<translation id="992779717417561630">Drukuj w oknie <ph name="CLOUD_PRINT_NAME"/>... <ph name="SHORTCUT_KEY"/></translation>
 <translation id="1991402313603869273">Wtyczka <ph name="PLUGIN_NAME"/> jest niedozwolona.</translation>
 <translation id="527605982717517565">Zawsze zezwalaj na wykonywanie kodu JavaScript w witrynie <ph name="HOST"/></translation>
 <translation id="702373420751953740">Wersja PRL:</translation>
@@ -2749,7 +2749,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="271907111803265074">Limit komórkowej transmisji danych został wyczerpany. Wykup następny pakiet, aby korzystać z sieci <ph name="NETWORK"/>.</translation>
 <translation id="3031557471081358569">Wybierz elementy do zaimportowania:</translation>
 <translation id="1368832886055348810">Od lewej do prawej</translation>
-<translation id="2246796647895323322">Włącz wyszukiwanie dynamiczne, by zaoszczędzić czas (tekst wpisany w omniboksie może być <ph name="BEGIN_LINK"/>rejestrowany<ph name="END_LINK"/>)</translation>
+<translation id="2246796647895323322">Włącz wyszukiwanie dynamiczne, by szukać szybciej (tekst wpisywany w omniboksie może być <ph name="BEGIN_LINK"/>rejestrowany<ph name="END_LINK"/>)</translation>
 <translation id="3031433885594348982">Połączenie z domeną <ph name="DOMAIN"/> jest szyfrowane za pomocą słabego mechanizmu.</translation>
 <translation id="4047345532928475040">Nd.</translation>
 <translation id="5604324414379907186">Zawsze pokazuj pasek zakładek</translation>
@@ -2851,7 +2851,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="7800518121066352902">&amp;Obróć w lewo</translation>
 <translation id="345693547134384690">Otwórz &amp;grafikę w nowej karcie</translation>
 <translation id="7422192691352527311">Ustawienia...</translation>
-<translation id="3911824782900911339">Strona Nowa karta</translation>
+<translation id="3911824782900911339">Strona „Nowa karta”</translation>
 <translation id="4545759655004063573">Nie można zapisać z powodu niewystarczających uprawnień. Zapisz w innym miejscu.</translation>
 <translation id="1799205928600649930">Ta wersja systemu operacyjnego nie obsługuje podanego trybu rejestrowania. Upewnij się, że używasz najnowszej wersji i spróbuj ponownie.</translation>
 <translation id="354211537509721945">Funkcja aktualizacji została wyłączona przez administratora</translation>
@@ -3002,7 +3002,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="1999115740519098545">Po uruchomieniu</translation>
 <translation id="3151436138455740407">Obsługa wyjątków sprzętowych przez klienta natywnego</translation>
 <translation id="2983818520079887040">Ustawienia</translation>
-<translation id="1465619815762735808">Kliknij, aby odtworzyć</translation>
+<translation id="1465619815762735808">Kliknij, by uruchomić</translation>
 <translation id="6941937518557314510">Zaloguj się do urządzenia <ph name="TOKEN_NAME"/>, aby za pomocą swojego certyfikatu wykonać uwierzytelnianie w witrynie <ph name="HOST_NAME"/>.</translation>
 <translation id="2099686503067610784">Czy usunąć certyfikat serwera „<ph name="CERTIFICATE_NAME"/>”?</translation>
 <translation id="6873213799448839504">Automatycznie przekaż ciąg</translation>
@@ -3239,13 +3239,13 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="7522312030875244365">Wstępnie wczytuj dane wyszukiwania dynamicznego</translation>
 <translation id="5787146423283493983">Uzgadnianie klucza</translation>
 <translation id="1101671447232096497"><ph name="NUMBER_MANY"/> mins ago</translation>
-<translation id="4265682251887479829">Nie możesz znaleźć szukanych informacji?</translation>
+<translation id="4265682251887479829">Nie możesz znaleźć informacji, których szukasz?</translation>
 <translation id="216169395504480358">Dodaj Wi-Fi...</translation>
 <translation id="1804251416207250805">Wyłącz wysyłanie pakietów kontrolujących hiperlinki.</translation>
 <translation id="5116628073786783676">Za&amp;pisz dźwięk jako...</translation>
 <translation id="3134199831823465489">Włącz synchronizację historii omniboksu</translation>
 <translation id="1055276160337268034">Rozszerzenie „<ph name="EXTENSION_NAME"/>” żąda dodatkowych uprawnień.</translation>
-<translation id="2557899542277210112">Aby zapewnić sobie szybki dostęp, umieść zakładki w tym miejscu na pasku zakładek.</translation>
+<translation id="2557899542277210112">Dodaj tutaj zakładki, do których chcesz mieć szybki dostęp.</translation>
 <translation id="2324001595651213578">Klawiatura amerykańska (Mystery)</translation>
 <translation id="2749881179542288782">Sprawdzaj gramatykę razem z pisownią</translation>
 <translation id="5105855035535475848">Przypinanie kart</translation>
@@ -3435,7 +3435,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="8698171900303917290">Masz problem z instalacją?</translation>
 <translation id="2440443888409942524">pinyin (dla klawiatury amerykańskiej Dvoraka)</translation>
 <translation id="830868413617744215">Beta</translation>
-<translation id="2679392804024228530">Szyfruj wszystkie synchronizowane dane</translation>
+<translation id="2679392804024228530">Szyfruj synchronizowane dane</translation>
 <translation id="5925147183566400388">Wskaźnik Kodeksu postępowania certyfikacyjnego</translation>
 <translation id="1497270430858433901">Otrzymano <ph name="DATA_AMOUNT"/> do bezpłatnego wykorzystania w dniu <ph name="DATE"/></translation>
 <translation id="1779652936965200207">Wpisz ten klucz na urządzeniu „<ph name="DEVICE_NAME"/>”:</translation>
@@ -3504,7 +3504,7 @@ Naciśnij Shift + klawisz wyszukiwania, by anulować.</translation>
 <translation id="2596602318381383954">Wykonaj czynność za pomocą:</translation>
 <translation id="8007030362289124303">Bateria rozładowana</translation>
 <translation id="3790909017043401679">Wpisz PIN karty SIM</translation>
-<translation id="4513946894732546136">Opinia</translation>
+<translation id="4513946894732546136">Twoja opinia</translation>
 <translation id="1135328998467923690">Pakiet jest nieprawidłowy: „<ph name="ERROR_CODE"/>”.</translation>
 <translation id="5906719743126878045">Pozostało: <ph name="NUMBER_TWO"/> godz</translation>
 <translation id="1753682364559456262">Zarządzaj blokowaniem grafik...</translation>
@@ -3908,7 +3908,7 @@ Przechowuj plik klucza w bezpiecznym miejscu. Będzie on potrzebny do utworzenia
 <translation id="5849869942539715694">Umieść rozszerzenie w pakiecie...</translation>
 <translation id="7339785458027436441">Sprawdzaj pisownię w trakcie pisania</translation>
 <translation id="8308427013383895095">Tłumaczenie nie powiodło się z powodu problemu z połączeniem sieciowym.</translation>
-<translation id="1828901632669367785">Drukuj za pomocą okna systemowego</translation>
+<translation id="1828901632669367785">Drukuj w oknie systemowym</translation>
 <translation id="1801298019027379214">Nieprawidłowy kod PIN, spróbuj ponownie. Pozostało prób: <ph name="TRIES_COUNT"/></translation>
 <translation id="3529020546926570314">Zaloguj się, aby uzyskać dostęp do drukarek w chmurze</translation>
 <translation id="1384721974622518101">Czy wiesz, że możesz wyszukiwać bezpośrednio w polu powyżej?</translation>

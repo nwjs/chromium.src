@@ -47,7 +47,7 @@
 <translation id="1420684932347524586">Ops! Falha ao gerar a chave privada RSA aleatória.</translation>
 <translation id="2501173422421700905">Certificado em espera</translation>
 <translation id="7428534988046001922">Os seguintes aplicativos foram instalados:</translation>
-<translation id="787386463582943251">Adicionar endereço de e-mail</translation>
+<translation id="787386463582943251">Ad. endereço de e-mail</translation>
 <translation id="2313634973119803790">Tecnologia da rede:</translation>
 <translation id="380018804185729075">Ativar Instant para pesquisar com mais rapidez</translation>
 <translation id="2382901536325590843">O certificado do servidor não está incluído no DNS.</translation>
@@ -283,7 +283,7 @@
 <translation id="1661867754829461514">PIN ausente</translation>
 <translation id="8589311641140863898">APIs de extensões experimentais</translation>
 <translation id="6990295747880223380">Integrar sugestões do HistoryQuickProvider</translation>
-<translation id="869891660844655955">Data de expiração</translation>
+<translation id="869891660844655955">Validade</translation>
 <translation id="2178614541317717477">Compromisso da autoridade de certificação</translation>
 <translation id="4449935293120761385">Sobre o preenchimento automático</translation>
 <translation id="4194570336751258953">Ativar toque para clicar</translation>
@@ -465,7 +465,7 @@
 <translation id="2934952234745269935">Marcador de volume</translation>
 <translation id="6272247697534482847">Desativar GPU VSync</translation>
 <translation id="6431347207794742960">O <ph name="PRODUCT_NAME"/> irá configurar as atualizações automáticas para todos os usuários deste computador.</translation>
-<translation id="4973698491777102067">Eliminar os seguintes itens de:</translation>
+<translation id="4973698491777102067">Eliminar os seguintes itens desde:</translation>
 <translation id="6074963268421707432">Não permitir que nenhum site exiba notificações da área de trabalho</translation>
 <translation id="1995173078718234136">Verificando conteúdo...</translation>
 <translation id="7920521481309889533">Ativar SPDY/3</translation>
@@ -1326,7 +1326,7 @@
 <translation id="6143635259298204954">Não é possível abrir a extensão.  Para abrir uma extensão com segurança, deve haver um caminho para o diretório de seu perfil que não contenha um symlink. Não existe um caminho assim para seu perfil.</translation>
 <translation id="3081104028562135154">Aumentar</translation>
 <translation id="3734816294831429815"><ph name="PRODUCT_NAME"/> será reiniciado em <ph name="SECONDS"/> segundos.</translation>
-<translation id="2728624657977418581">Adicione seu primeiro nome</translation>
+<translation id="2728624657977418581">Ad. seu primeiro nome</translation>
 <translation id="4062903950301992112">Se você acreditar que visitar esse site pode danificar seu computador, <ph name="PROCEED_LINK"/>.</translation>
 <translation id="32330993344203779">Seu dispositivo foi registrado para o gerenciamento empresarial.</translation>
 <translation id="2356762928523809690">Servidor de atualização não disponível (erro: <ph name="ERROR_NUMBER"/>)</translation>
@@ -1441,7 +1441,7 @@
 <translation id="1362165759943288856">Você comprou dados ilimitados em <ph name="DATE"/></translation>
 <translation id="2078019350989722914">Avisar antes de sair (<ph name="KEY_EQUIVALENT"/>)</translation>
 <translation id="7965010376480416255">Memória compartilhada</translation>
-<translation id="6248988683584659830">Pesquisar nas configurações</translation>
+<translation id="6248988683584659830">Pesq. nas configurações</translation>
 <translation id="8323232699731382745">senha da rede</translation>
 <translation id="2750306679399709583">$1 x $2</translation>
 <translation id="6588399906604251380">Ativar o corretor ortográfico</translation>
@@ -1626,7 +1626,7 @@
 <translation id="289695669188700754">ID da chave: <ph name="KEY_ID"/></translation>
 <translation id="2181821976797666341">Políticas</translation>
 <translation id="8767072502252310690">Usuários</translation>
-<translation id="683526731807555621">Adicionar um novo mecanismo de pesquisa</translation>
+<translation id="683526731807555621">Ad. novo mecanismo de pesquisa</translation>
 <translation id="6871644448911473373">Respondente OCSP: <ph name="LOCATION"/></translation>
 <translation id="6998711733709403587"><ph name="SELCTED_FOLDERS_COUNT"/> pastas selecionadas</translation>
 <translation id="8157788939037761987">Abrir <ph name="CLOUD_PRINT_NAME"/></translation>
@@ -1910,7 +1910,7 @@
 <translation id="4692623383562244444">Mecanismos de pesquisa</translation>
 <translation id="567760371929988174">Inserir &amp;métodos</translation>
 <translation id="586940690534897885">Manter minhas configurações</translation>
-<translation id="10614374240317010">Nunca salvo</translation>
+<translation id="10614374240317010">Nunca salvam</translation>
 <translation id="5116300307302421503">Não foi possível analisar o arquivo.</translation>
 <translation id="1907054602291213374">Na classificação do preenchimento automático da omnibox, seja mais agressivo na classificação das correspondências vindas do provedor HistoryURL.</translation>
 <translation id="2745080116229976798">Subordinação qualificada da Microsoft</translation>
@@ -2358,7 +2358,7 @@
 <translation id="4320697033624943677">Adicionar usuários</translation>
 <translation id="9153934054460603056">Salvar identidade e senha</translation>
 <translation id="1455548678241328678">Teclado norueguês</translation>
-<translation id="4063084925710371119">Adicione o(s) nome(s) do meio</translation>
+<translation id="4063084925710371119">Ad. o(s) nome(s) do meio</translation>
 <translation id="7908378463497120834">Ao menos uma partição em seu dispositivo de armazenamento externo não pôde ser montado.</translation>
 <translation id="2520481907516975884">Alternar entre os modos chinês/inglês</translation>
 <translation id="8571890674111243710">Traduzindo página para <ph name="LANGUAGE"/>...</translation>
@@ -3247,7 +3247,7 @@
 <translation id="560602183358579978">Computando seleção...</translation>
 <translation id="5495984885367316038">Não há espaço suficiente no <ph name="PRODUCT_NAME"/> para salvar este arquivo. Remova arquivos ou <ph name="BEGIN_LINK"/>compre mais espaço de armazenamento<ph name="END_LINK"/>.</translation>
 <translation id="7649070708921625228">Ajuda</translation>
-<translation id="858637041960032120">Adicionar número de telefone</translation>
+<translation id="858637041960032120">Ad. número de telefone</translation>
 <translation id="3210492393564338011">Excluir usuário</translation>
 <translation id="3095995014811312755">versão</translation>
 <translation id="7052500709156631672">O gateway ou o servidor proxy recebeu uma resposta inválida de um servidor upstream.</translation>

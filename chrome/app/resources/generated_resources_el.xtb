@@ -325,7 +325,7 @@
 <translation id="7264275118036872269">Αποτυχία έναρξης αναζήτησης συσκευών Bluetooth.</translation>
 <translation id="3855676282923585394">Εισαγωγή σελιδοδεικτών και ρυθμίσεων...</translation>
 <translation id="1116694919640316211">Σχετικά με</translation>
-<translation id="8195796306739579529">Κρυπτογράφηση κωδικών πρόσβασης</translation>
+<translation id="8195796306739579529">Κρυπτογρ. κωδικών</translation>
 <translation id="4422347585044846479">Επεξεργασία σελιδοδείκτη για αυτή τη σελίδα</translation>
 <translation id="2452539774207938933">Εναλλαγή στον χρήστη: <ph name="PROFILE_NAME"/></translation>
 <translation id="4700157086864140907">Το Google Chrome μπορεί να παρέχει πιο έξυπνο ορθογραφικό έλεγχο, αποστέλλοντας ό,τι πληκτρολογείτε στο πρόγραμμα περιήγησης, στους διακομιστές της Google, επιτρέποντάς σας να χρησιμοποιείτε την ίδια τεχνολογία ορθογραφικού ελέγχου που χρησιμοποιείται από την αναζήτηση Google.</translation>
@@ -353,7 +353,7 @@
 <translation id="6370820475163108109"><ph name="ORGANIZATION_NAME"/> (<ph name="DOMAIN_NAME"/>)</translation>
 <translation id="5453029940327926427">Κλείσιμο καρτελών</translation>
 <translation id="406070391919917862">Εφαρμογές στο παρασκήνιο</translation>
-<translation id="8820817407110198400">Σελιδοδείκτες</translation>
+<translation id="8820817407110198400">Σελιδοδ.</translation>
 <translation id="2580170710466019930">Περιμένετε μέχρι να γίνει εγκατάσταση των πιο πρόσφατων ενημερώσεων συστήματος <ph name="PRODUCT_NAME"/>.</translation>
 <translation id="7428061718435085649">Χρησιμοποιήστε το αριστερό και το δεξί πλήκτρο Shift για να επιλέξετε τη δεύτερη και την τρίτη υποψηφιότητα</translation>
 <translation id="1070066693520972135">WEP</translation>
@@ -3511,7 +3511,7 @@
 <translation id="8698171900303917290">Προβλήματα στην εγκατάσταση;</translation>
 <translation id="2440443888409942524">Εισαγωγή Pinyin (για πληκτρολόγιο ΗΠΑ Dvorak)</translation>
 <translation id="830868413617744215">Beta</translation>
-<translation id="2679392804024228530">Κρυπτογράφηση όλων των συγχρονισμένων δεδομένων</translation>
+<translation id="2679392804024228530">Κρυπτογρ. συγχρ. δεδομ.</translation>
 <translation id="5925147183566400388">Δείκτης για τη Δήλωση πρακτικής πιστοποίησης</translation>
 <translation id="1497270430858433901">Σας δόθηκε δωρεάν χρήση <ph name="DATA_AMOUNT"/> στις <ph name="DATE"/></translation>
 <translation id="1779652936965200207">Εισαγάγετε αυτό το κλειδί πρόσβασης στη συσκευή &quot;<ph name="DEVICE_NAME"/>&quot;:</translation>

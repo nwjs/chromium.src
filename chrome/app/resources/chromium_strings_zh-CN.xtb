@@ -146,7 +146,7 @@ Chromium 无法恢复您的设置。</translation>
 <translation id="2927042866129133279">参数无效。在准备模式下，Chromium 内嵌框架必须与 Chromium 同时安装。</translation>
 <translation id="2572494885440352020">Chromium 帮助程序</translation>
 <translation id="442817494342774222">Chromium 已配置为在计算机启动时自动启动。</translation>
-<translation id="8974095189086268230">Chromium 操作系统是借助其他<ph name="BEGIN_LINK_CROS_OSS"/>开放源代码软件<ph name="END_LINK_CROS_OSS"/>实现的。</translation>
+<translation id="8974095189086268230">Chromium 操作系统的问世还有其他<ph name="BEGIN_LINK_CROS_OSS"/>开放源代码软件<ph name="END_LINK_CROS_OSS"/>的一份功能。</translation>
 <translation id="6154296300983386343">重新启动 Chromium 以完成更新</translation>
 <translation id="1221340462641866827">Chromium 操作系统不支持启动外部应用处理 <ph name="SCHEME"/> 链接。请求的链接是 <ph name="PROTOLINK"/>。</translation>
 </translationbundle>

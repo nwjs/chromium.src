@@ -1656,7 +1656,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="5528368756083817449">Bokmärkshanteraren</translation>
 <translation id="7275974018215686543"><ph name="NUMBER_MANY"/> secs ago</translation>
 <translation id="215753907730220065">Avsluta helskärmsläge</translation>
-<translation id="7849264908733290972">Öppna &amp;bild på ny flik</translation>
+<translation id="7849264908733290972">Öppna &amp;bild i ny flik</translation>
 <translation id="1560991001553749272">Bokmärke har lagts till!</translation>
 <translation id="3966072572894326936">Välj en annan mapp...</translation>
 <translation id="8758455334359714415">Inbyggd asynkron DNS</translation>
@@ -2896,7 +2896,7 @@ hanteraren
 <translation id="691321796646552019">Sluta!</translation>
 <translation id="8261506727792406068">Ta bort</translation>
 <translation id="7800518121066352902">Rotera m&amp;oturs</translation>
-<translation id="345693547134384690">Öppna &amp;bild på ny flik</translation>
+<translation id="345693547134384690">Öppna &amp;bild i ny flik</translation>
 <translation id="7422192691352527311">Inställningar...</translation>
 <translation id="3911824782900911339">Sidan Ny flik</translation>
 <translation id="4545759655004063573">Det gick inte att spara eftersom behörigheten var otillräcklig. Spara på en annan plats.</translation>

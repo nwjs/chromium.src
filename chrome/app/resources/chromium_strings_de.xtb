@@ -68,7 +68,7 @@
 <translation id="4932687624772039103"><ph name="OS_NAME"/> wird von Chromium nicht unterstützt.</translation>
 <translation id="8738921060445980047">Unbekannte Version</translation>
 <translation id="2485422356828889247">Deinstallieren</translation>
-<translation id="85843667276690461">Hilfe bei der Nutzung von Chromium erhalten</translation>
+<translation id="85843667276690461">Hilfe für Chromium aufrufen</translation>
 <translation id="263863604136125912">Chromium starten</translation>
 <translation id="2881203820889150661">Chromium kann keine Anwendungsverknüpfung erstellen, da die aktuelle Desktop-Umgebung nicht erkannt wird.</translation>
 <translation id="4886158514168859177">Auf diesem Computer befindet sich bereits eine neuere Version von Chromium Frame. Falls die Software nicht funktioniert, deinstallieren Sie Chromium Frame bitte und versuchen Sie es erneut.</translation>
@@ -77,7 +77,7 @@
 <translation id="8862326446509486874">Sie verfügen nicht über die erforderlichen Rechte für eine systemweite Installation. Starten Sie das Installationsprogramm als Administrator.</translation>
 <translation id="1774152462503052664">Chromium im Hintergrund ausführen</translation>
 <translation id="9022552996538154597">In Chromium anmelden</translation>
-<translation id="4365115785552740256">Chromium wird durch das Open Source-Projekt <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> und andere <ph name="BEGIN_LINK_OSS"/>Open Source-Software<ph name="END_LINK_OSS"/> ermöglicht.</translation>
+<translation id="4365115785552740256">Chromium wird durch das Open Source-Projekt <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> und andere <ph name="BEGIN_LINK_OSS"/>Open-Source-Software<ph name="END_LINK_OSS"/> ermöglicht.</translation>
 <translation id="7549178288319965365">Über Chromium OS</translation>
 <translation id="6248213926982192922">Chromium als Standardbrowser verwenden</translation>
 <translation id="7337881442233988129">Chromium</translation>
@@ -88,7 +88,7 @@
 <translation id="275588974610408078">Absturzberichte sind in Chromium nicht verfügbar.</translation>
 <translation id="5909170354645388250">Wird in Chromium nicht verwendet. Platzhalter zur Beibehaltung der Ressourcenzuordnungen bei der Synchronisierung. Es wird ein Argument erwartet: $1.</translation>
 <translation id="3582788516608077514">Chromium wird aktualisiert...</translation>
-<translation id="7223968959479464213">Task-Manager - Chromium</translation>
+<translation id="7223968959479464213">Taskmanager - Chromium</translation>
 <translation id="3838208658251026018">Chromium importiert jetzt die folgenden Elemente aus &quot;<ph name="BROWSER_COMPONENT"/>&quot;:</translation>
 <translation id="2673087257647337101">Fast fertig! Starten Sie Chromium neu, um die Aktualisierung abzuschließen.</translation>
 <translation id="5398878173008909840">Eine neue Version von Chromium ist verfügbar.</translation>
@@ -104,7 +104,7 @@ Einige Funktionen stehen möglicherweise nicht zur Verfügung. Geben Sie bitte e
 <translation id="9013087743919948559">Zu Chromium hinzufügen</translation>
 <translation id="6212496753309875659">Auf diesem Computer befindet sich bereits eine neuere Version von Chromium. Falls die Software nicht funktioniert, deinstallieren Sie Chromium bitte und versuchen Sie es erneut.</translation>
 <translation id="3014684866565908571">Chromium-Dienstprogramm</translation>
-<translation id="1298199220304005244">Hilfe bei der Nutzung von Chromium OS erhalten</translation>
+<translation id="1298199220304005244">Hilfe für Chromium OS aufrufen</translation>
 <translation id="667672506951335584">Wenn Sie Chromium jetzt schließen, werden diese Downloads abgebrochen.</translation>
 <translation id="1691304614444223855">Chromium Frame wurde aktualisiert. Bitte starten Sie Ihren Browser neu. Chromium-Version: <ph name="TODO_0001"/>, Chromium Frame-Version: <ph name="TODO_0002"/></translation>
 <translation id="1105130903706696483">Chromium wurde nicht richtig heruntergefahren. Klicken Sie auf &quot;Wiederherstellen&quot;, um die zuletzt geöffneten Seiten erneut zu öffnen.</translation>
@@ -146,7 +146,7 @@ Chromium kann Ihre Einstellungen nicht wiederherstellen.</translation>
 <translation id="2927042866129133279">Ungültige Argumente. Chromium Frame kann nicht im Betriebsmodus installiert werden, ohne dass Chromium ebenfalls installiert wird.</translation>
 <translation id="2572494885440352020">Chromium Helper</translation>
 <translation id="442817494342774222">Chromium ist so konfiguriert, dass es beim Hochfahren Ihres Computers automatisch gestartet wird.</translation>
-<translation id="8974095189086268230">Chromium OS wird durch zusätzliche <ph name="BEGIN_LINK_CROS_OSS"/>Open Source-Software<ph name="END_LINK_CROS_OSS"/> möglich gemacht.</translation>
+<translation id="8974095189086268230">Chromium OS wird durch zusätzliche <ph name="BEGIN_LINK_CROS_OSS"/>Open-Source-Software<ph name="END_LINK_CROS_OSS"/> möglich gemacht.</translation>
 <translation id="6154296300983386343">Chromium zum Abschluss der Aktualisierung neu starten</translation>
 <translation id="1221340462641866827">Chromium unterstützt keine externe Anwendung zur Verarbeitung von <ph name="SCHEME"/>-Links. Der angeforderte Link ist <ph name="PROTOLINK"/>.</translation>
 </translationbundle>

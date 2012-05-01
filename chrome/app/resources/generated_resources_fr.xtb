@@ -71,7 +71,7 @@
 <translation id="1156689104822061371">Disposition du clavier :</translation>
 <translation id="4764776831041365478">Il se peut que la page Web à l'adresse <ph name="URL"/> soit temporairement inaccessible ou qu'elle ait été déplacée de façon permanente à une autre adresse Web.</translation>
 <translation id="6156863943908443225">Cache des scripts</translation>
-<translation id="908313544993743941">Désactiver le réseau cellulaire</translation>
+<translation id="908313544993743941">Désactiver le réseau mobile</translation>
 <translation id="4274187853770964845">Erreur de synchronisation. Veuillez interrompre la synchronisation, puis la relancer.</translation>
 <translation id="4610656722473172270">Barre d'outils Google</translation>
 <translation id="7845201717638045845">Données que vous copiez et collez</translation>
@@ -219,8 +219,7 @@
           <ph name="PLATFORM_TEXT"/></translation>
 <translation id="6391832066170725637">Fichier ou répertoire introuvable</translation>
 <translation id="6980028882292583085">Alerte JavaScript</translation>
-<translation id="577624874850706961">Rechercher des
-cookies</translation>
+<translation id="577624874850706961">Rechercher des cookies</translation>
 <translation id="5494920125229734069">Tout sélectionner</translation>
 <translation id="2857834222104759979">Le fichier manifeste est incorrect.</translation>
 <translation id="7931071620596053769">Les pages suivantes ne répondent plus. Vous pouvez attendre qu'elles soient de nouveau accessibles ou les supprimer.</translation>
@@ -1457,7 +1456,7 @@ Chaque touche utilisée fait l'objet d'une requête, par conséquent, il se peut
 <translation id="2815382244540487333">Les cookies suivants ont été bloqués :</translation>
 <translation id="8882395288517865445">Inclure les adresses de ma fiche de Carnet d’adresses</translation>
 <translation id="374530189620960299">Le certificat de sécurité du site n'est pas approuvé !</translation>
-<translation id="4924638091161556692">Fixe</translation>
+<translation id="4924638091161556692">Corrigé</translation>
 <translation id="8893928184421379330">Désolé, impossible de reconnaître le périphérique <ph name="DEVICE_LABEL"/>.</translation>
 <translation id="5647283451836752568">Exécuter tous les plug-ins de cette page</translation>
 <translation id="8642947597466641025">Augmente la taille du texte</translation>
@@ -1523,7 +1522,7 @@ Exposant public (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bits) :
 <translation id="6556866813142980365">Rétablir</translation>
 <translation id="8824701697284169214">Ajouter une pa&amp;ge...</translation>
 <translation id="2107287771748948380"><ph name="OBFUSCATED_CC_NUMBER"/>, expire le : <ph name="CC_EXPIRATION_DATE"/></translation>
-<translation id="7866522434127619318">Cette fonctionnalité active l'option &quot;Lire en un clic&quot; dans les paramètres de contenu du plug-in.</translation>
+<translation id="7866522434127619318">Cette fonctionnalité active l'option &quot;Cliquer pour lire&quot; dans les paramètres de contenu du plug-in.</translation>
 <translation id="6466988389784393586">&amp;Ouvrir tous les favoris</translation>
 <translation id="8860923508273563464">Attendre la fin des téléchargements</translation>
 <translation id="6406506848690869874">Synchronisation</translation>
@@ -1997,7 +1996,7 @@ Sinon, vous devrez en obtenir un nouveau d'un autre émetteur.</translation>
 <translation id="539295039523818097">Un problème lié à votre microphone s'est produit.</translation>
 <translation id="4935613694514038624">Préparation à la première connexion d'entreprise…</translation>
 <translation id="6970216967273061347">District</translation>
-<translation id="4479639480957787382">Ethernet</translation>
+<translation id="4479639480957787382">Ethernet </translation>
 <translation id="3897043425372399633">Cette fonctionnalité désactive la limitation de la vitesse de redimensionnement de la fenêtre. La limitation de la vitesse de redimensionnement permet de réduire la latence perçue.</translation>
 <translation id="2633084400146331575">Activer les commentaires audio</translation>
 <translation id="6312403991423642364">Erreur de réseau inconnue.</translation>
@@ -2133,7 +2132,7 @@ Sinon, vous devrez en obtenir un nouveau d'un autre émetteur.</translation>
 <translation id="2728812059138274132">Recherche du plug-in…</translation>
 <translation id="2471964272749426546">Mode de saisie en tamoul (Tamil99)</translation>
 <translation id="9088917181875854783">Confirmez que cette clé d'accès est affichée sur &quot;<ph name="DEVICE_NAME"/>&quot; :</translation>
-<translation id="8814190375133053267">Wi-Fi</translation>
+<translation id="8814190375133053267">Wi-Fi </translation>
 <translation id="1128554891575825309">Supprimer l'utilisateur <ph name="USER_EMAIL_ADDRESS"/></translation>
 <translation id="8410619858754994443">Confirmer le mot de passe :</translation>
 <translation id="3377251335797762771">Mode Fenêtre</translation>
@@ -2158,7 +2157,7 @@ Sinon, vous devrez en obtenir un nouveau d'un autre émetteur.</translation>
 <translation id="1758018619400202187">EAP-TLS</translation>
 <translation id="7469237359338869056">Retrouver du texte</translation>
 <translation id="6690744523875189208"><ph name="NUMBER_TWO"/> heures</translation>
-<translation id="8053390638574070785">Rafraîchir cette page</translation>
+<translation id="8053390638574070785">Actualiser cette page</translation>
 <translation id="5507756662695126555">Non-répudiation</translation>
 <translation id="3678156199662914018">Extension : <ph name="EXTENSION_NAME"/></translation>
 <translation id="7951780829309373534">Impossible de coller &quot;$1&quot; : $2</translation>
@@ -2730,7 +2729,7 @@ Sinon, vous devrez en obtenir un nouveau d'un autre émetteur.</translation>
 <translation id="9026731007018893674">téléchargement</translation>
 <translation id="7646591409235458998">E-mail :</translation>
 <translation id="3096595804210155701">Suggestions d'applications du Chrome Web Store :</translation>
-<translation id="6199775032047436064">Rafraîchir la page actuelle</translation>
+<translation id="6199775032047436064">Actualiser la page actuelle</translation>
 <translation id="6981982820502123353">Accessibilité</translation>
 <translation id="7210998213739223319">Nom d'utilisateur</translation>
 <translation id="4523336217659634227">Une erreur (<ph name="ERROR"/>) s'est produite lors du téléchargement du plug-in.</translation>
@@ -2806,7 +2805,7 @@ Sinon, vous devrez en obtenir un nouveau d'un autre émetteur.</translation>
 <translation id="271907111803265074">Votre forfait de données mobiles est épuisé. Achetez un autre forfait pour utiliser <ph name="NETWORK"/>.</translation>
 <translation id="3031557471081358569">Sélectionnez les éléments à importer :</translation>
 <translation id="1368832886055348810">De gauche à droite</translation>
-<translation id="2246796647895323322">Activer Chrome Instantané pour des recherches plus rapides (les saisies effectuées dans le champ polyvalent peuvent être <ph name="BEGIN_LINK"/>enregistrées<ph name="END_LINK"/>)</translation>
+<translation id="2246796647895323322">Activer Chrome Instantané pour des recherches plus rapides (les saisies effectuées dans l'Omnibox peuvent être <ph name="BEGIN_LINK"/>enregistrées<ph name="END_LINK"/>)</translation>
 <translation id="3031433885594348982">Votre connexion à <ph name="DOMAIN"/> est sécurisée par le biais d'un faible chiffrement.</translation>
 <translation id="4047345532928475040">sans objet</translation>
 <translation id="5604324414379907186">Toujours afficher la barre de favoris</translation>
@@ -2893,7 +2892,7 @@ Sinon, vous devrez en obtenir un nouveau d'un autre émetteur.</translation>
 <translation id="2954705784594331199"><ph name="BEGIN_LINK"/>Actualisez<ph name="END_LINK"/> cette page Web ultérieurement.</translation>
 <translation id="338583716107319301">Séparateur</translation>
 <translation id="2079053412993822885">Si vous supprimez l'un de vos propres certificats, vous ne pouvez plus l'utiliser pour vous identifier.</translation>
-<translation id="7221869452894271364">Rafraîchir cette page</translation>
+<translation id="7221869452894271364">Actualiser cette page</translation>
 <translation id="8446884382197647889">En savoir plus</translation>
 <translation id="3805982836721883262">Quelque chose a tenté de réquisitionner votre page d'accueil !</translation>
 <translation id="6791443592650989371">État d'activation :</translation>
@@ -3072,7 +3071,7 @@ Sinon, vous devrez en obtenir un nouveau d'un autre émetteur.</translation>
 <translation id="1999115740519098545">Au démarrage</translation>
 <translation id="3151436138455740407">Gestion des exceptions de matériel Native Client</translation>
 <translation id="2983818520079887040">Paramètres...</translation>
-<translation id="1465619815762735808">Lire en un clic</translation>
+<translation id="1465619815762735808">Cliquer pour lire</translation>
 <translation id="6941937518557314510">Connectez-vous à <ph name="TOKEN_NAME"/> pour vous authentifier auprès de <ph name="HOST_NAME"/> avec votre certificat.</translation>
 <translation id="2099686503067610784">Supprimer le certificat de serveur &quot;<ph name="CERTIFICATE_NAME"/>&quot;?</translation>
 <translation id="6873213799448839504">Valider automatiquement une chaîne</translation>
@@ -3101,7 +3100,7 @@ Sinon, vous devrez en obtenir un nouveau d'un autre émetteur.</translation>
 <translation id="722363467515709460">Activer la loupe</translation>
 <translation id="7190251665563814471">Toujours autoriser ces plug-ins sur <ph name="HOST"/></translation>
 <translation id="2043684166640445160">Impossible d'afficher cette page Web
-          dans <ph name="PRODUCT_NAME"/>, car votre appareil mobile n'est pas connecté à Internet.</translation>
+          dans <ph name="PRODUCT_NAME"/>, car votre ordinateur n'est pas connecté à Internet.</translation>
 <translation id="5390222677196640946">Afficher les cookies et les données de site</translation>
 <translation id="2712866615167520691">Les fonctionnalités d'accessibilité sont activées. 
 
@@ -3385,7 +3384,7 @@ Appuyez sur Ctrl+Alt+Z pour annuler.</translation>
 <translation id="9002707937526687073">Imp&amp;rimer...</translation>
 <translation id="4133237568661345071">Activer la connexion automatique</translation>
 <translation id="3851140433852960970">Aucun plug-in disponible pour afficher ce contenu.</translation>
-<translation id="5556459405103347317">Rafraîchir</translation>
+<translation id="5556459405103347317">Actualiser</translation>
 <translation id="8000020256436988724">Barre d'outils</translation>
 <translation id="7507930499305566459">Certificat du répondeur d'état</translation>
 <translation id="3958088479270651626">Importer les favoris et les paramètres</translation>

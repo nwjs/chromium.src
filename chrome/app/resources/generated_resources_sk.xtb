@@ -2566,7 +2566,7 @@ Verejný exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitov):
 <translation id="3862763658360970896">Povoliť rozšírenie Chrome To Mobile.</translation>
 <translation id="902638246363752736">Nastavenia klávesnice</translation>
 <translation id="7925686952655276919">Nepoužívať mobilné dátové prenosy na synchronizáciu</translation>
-<translation id="6503077044568424649">Najnavštevovanejšie</translation>
+<translation id="6503077044568424649">Najviac navšt.</translation>
 <translation id="7970256634075683692">&amp;Ukončiť proces</translation>
 <translation id="9016164105820007189">Pripája sa k zariadeniu „<ph name="DEVICE_NAME"/>“.</translation>
 <translation id="7168109975831002660">Minimálna veľkosť písma</translation>
@@ -3261,7 +3261,7 @@ Ak ich chcete zrušiť, stlačte kombináciu klávesov Ctrl+Alt+Z.</translation>
 <translation id="2168725742002792683">Rozšírenia súboru</translation>
 <translation id="3974195870082915331">Kliknutím zobrazíte heslo</translation>
 <translation id="7861805612256278846">nie ste prihlásený/-á</translation>
-<translation id="1753905327828125965">Najnavštevovanejšie</translation>
+<translation id="1753905327828125965">Najviac navšt.</translation>
 <translation id="8116972784401310538">&amp;Správca záložiek</translation>
 <translation id="3591607774768458617">Tento jazyk sa momentálne používa na zobrazenie aplikácie <ph name="PRODUCT_NAME"/>.</translation>
 <translation id="621638399744152264"><ph name="VALUE"/>%</translation>
