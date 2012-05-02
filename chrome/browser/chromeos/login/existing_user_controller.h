@@ -136,6 +136,9 @@ class ExistingUserController : public LoginDisplay::Delegate,
   // Changes state of the status area. During login operation it's disabled.
   void SetStatusAreaEnabled(bool enable);
 
+  // Returns Getting Started Guide URL with parameters.
+  std::string GetGettingStartedGuideURL() const;
+
   // Show error message. |error_id| error message ID in resources.
   // If |details| string is not empty, it specify additional error text
   // provided by authenticator, it is not localized.
