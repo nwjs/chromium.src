@@ -272,8 +272,8 @@ void NewTabUI::RegisterUserPrefs(PrefService* prefs) {
 // static
 void NewTabUI::SetupFieldTrials() {
   scoped_refptr<base::FieldTrial> trial(
-      new base::FieldTrial(kWebStoreLinkExperiment, 3, "Disabled",
-                           2012, 6, 1));
+      new base::FieldTrial(kWebStoreLinkExperiment, 1, "Disabled",
+                           2025, 6, 1));
 
   // Try to give the user a consistent experience, if possible.
   if (base::FieldTrialList::IsOneTimeRandomizationEnabled())
@@ -281,7 +281,7 @@ void NewTabUI::SetupFieldTrials() {
 
   // 33.3% in each group.
   g_footer_group = trial->AppendGroup("FooterLink", 1);
-  g_hint_group = trial->AppendGroup("PlusIcon", 1);
+  g_hint_group = trial->AppendGroup("PlusIcon", 0);
 }
 
 // static
