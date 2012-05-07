@@ -196,7 +196,7 @@ ExtensionAPI::ExtensionAPI() {
       IDR_EXTENSION_API_JSON_I18N);
   unloaded_schemas_["idle"] = ReadFromResource(
       IDR_EXTENSION_API_JSON_IDLE);
-  unloaded_schemas_["input.ime"] = ReadFromResource(
+  unloaded_schemas_["experimental.input.ime"] = ReadFromResource(
       IDR_EXTENSION_API_JSON_INPUT_IME);
   unloaded_schemas_["inputMethodPrivate"] = ReadFromResource(
       IDR_EXTENSION_API_JSON_INPUTMETHODPRIVATE);

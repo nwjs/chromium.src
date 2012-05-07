@@ -69,35 +69,36 @@ class SetCompositionFunction : public SyncExtensionFunction {
  public:
   virtual ~SetCompositionFunction() {}
   virtual bool RunImpl() OVERRIDE;
-  DECLARE_EXTENSION_FUNCTION_NAME("input.ime.setComposition");
+  DECLARE_EXTENSION_FUNCTION_NAME("experimental.input.ime.setComposition");
 };
 
 class ClearCompositionFunction : public SyncExtensionFunction {
  public:
   virtual ~ClearCompositionFunction() {}
   virtual bool RunImpl() OVERRIDE;
-  DECLARE_EXTENSION_FUNCTION_NAME("input.ime.clearComposition");
+  DECLARE_EXTENSION_FUNCTION_NAME("experimental.input.ime.clearComposition");
 };
 
 class CommitTextFunction : public SyncExtensionFunction {
  public:
   virtual ~CommitTextFunction() {}
   virtual bool RunImpl() OVERRIDE;
-  DECLARE_EXTENSION_FUNCTION_NAME("input.ime.commitText");
+  DECLARE_EXTENSION_FUNCTION_NAME("experimental.input.ime.commitText");
 };
 
 class SetCandidateWindowPropertiesFunction : public SyncExtensionFunction {
  public:
   virtual ~SetCandidateWindowPropertiesFunction() {}
   virtual bool RunImpl() OVERRIDE;
-  DECLARE_EXTENSION_FUNCTION_NAME("input.ime.setCandidateWindowProperties");
+  DECLARE_EXTENSION_FUNCTION_NAME(
+      "experimental.input.ime.setCandidateWindowProperties");
 };
 
 class SetCandidatesFunction : public SyncExtensionFunction {
  public:
   virtual ~SetCandidatesFunction() {}
   virtual bool RunImpl() OVERRIDE;
-  DECLARE_EXTENSION_FUNCTION_NAME("input.ime.setCandidates");
+  DECLARE_EXTENSION_FUNCTION_NAME("experimental.input.ime.setCandidates");
  private:
   bool ReadCandidates(
       ListValue* candidates,
@@ -108,28 +109,28 @@ class SetCursorPositionFunction : public SyncExtensionFunction {
  public:
   virtual ~SetCursorPositionFunction() {}
   virtual bool RunImpl() OVERRIDE;
-  DECLARE_EXTENSION_FUNCTION_NAME("input.ime.setCursorPosition");
+  DECLARE_EXTENSION_FUNCTION_NAME("experimental.input.ime.setCursorPosition");
 };
 
 class SetMenuItemsFunction : public SyncExtensionFunction {
  public:
   virtual ~SetMenuItemsFunction() {}
   virtual bool RunImpl() OVERRIDE;
-  DECLARE_EXTENSION_FUNCTION_NAME("input.ime.setMenuItems");
+  DECLARE_EXTENSION_FUNCTION_NAME("experimental.input.ime.setMenuItems");
 };
 
 class UpdateMenuItemsFunction : public SyncExtensionFunction {
  public:
   virtual ~UpdateMenuItemsFunction() {}
   virtual bool RunImpl() OVERRIDE;
-  DECLARE_EXTENSION_FUNCTION_NAME("input.ime.updateMenuItems");
+  DECLARE_EXTENSION_FUNCTION_NAME("experimental.input.ime.updateMenuItems");
 };
 
 class InputEventHandled : public AsyncExtensionFunction {
  public:
   virtual ~InputEventHandled() {}
   virtual bool RunImpl() OVERRIDE;
-  DECLARE_EXTENSION_FUNCTION_NAME("input.ime.eventHandled");
+  DECLARE_EXTENSION_FUNCTION_NAME("experimental.input.ime.eventHandled");
 };
 
 #endif  // CHROME_BROWSER_EXTENSIONS_EXTENSION_INPUT_IME_API_H_
