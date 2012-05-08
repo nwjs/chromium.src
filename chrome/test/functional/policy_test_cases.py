@@ -171,6 +171,7 @@ class PolicyPrefsTestCases(object):
     'OpenNetworkConfiguration': ('', [], [ 'chromeos' ]),
     'GDataDisabled': (True, [], [ 'chromeos' ]),
     'GDataDisabledOverCellular': (True, [], [ 'chromeos' ]),
+    'PinnedLauncherApps': (None, [], [], ['chromeos']),
 
     # ChromeOS Device policies:
     'DevicePolicyRefreshRate': (300000, [], [ 'chromeos' ]),
