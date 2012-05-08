@@ -286,7 +286,7 @@ IN_PROC_BROWSER_TEST_F(PluginTest, PrivateEnabled) {
   LoadAndWait(GetURL("private.html"), "OK");
 }
 
-#if defined(OS_WIN) || defined(OS_MACOSX)
+#if defined(OS_WIN)
 // Test a browser hang due to special case of multiple
 // plugin instances indulged in sync calls across renderer.
 IN_PROC_BROWSER_TEST_F(PluginTest, MultipleInstancesSyncCalls) {

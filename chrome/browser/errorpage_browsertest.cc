@@ -149,7 +149,7 @@ IN_PROC_BROWSER_TEST_F(ErrorPageTest, MAYBE_DNSError_GoBack2) {
 }
 
 // See crbug.com/109669
-#if defined(USE_AURA)
+#if defined(USE_AURA) || defined(OS_LINUX)
 #define MAYBE_DNSError_GoBack2AndForward DISABLED_DNSError_GoBack2AndForward
 #else
 #define MAYBE_DNSError_GoBack2AndForward DNSError_GoBack2AndForward

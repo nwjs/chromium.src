@@ -151,7 +151,13 @@ class MediaLayoutTest : public InProcessBrowserLayoutTest {
   }
 };
 
-IN_PROC_BROWSER_TEST_F(MediaLayoutTest, Tests) {
+#if defined(OS_MACOSX)
+#define MAYBE_Tests DISABLED_Tests
+#else
+#define MAYBE_Tests Tests
+#endif
+
+IN_PROC_BROWSER_TEST_F(MediaLayoutTest, MAYBE_Tests) {
   static const char* kMediaTests[] = {
     "video-autoplay.html",
     // "video-loop.html", disabled due to 52887.
