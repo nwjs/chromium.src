@@ -121,7 +121,8 @@ public:
   }
 };
 
-IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, BrowserActionCreateTab) {
+
+IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, DISABLED_BrowserActionCreateTab) {
   ASSERT_TRUE(LoadExtensionAndWait("browser_action_create_tab"));
 
   // Lazy Background Page doesn't exist yet.
@@ -144,7 +145,7 @@ IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, BrowserActionCreateTab) {
 }
 
 IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest,
-                       BrowserActionCreateTabAfterCallback) {
+                       DISABLED_BrowserActionCreateTabAfterCallback) {
   ASSERT_TRUE(LoadExtensionAndWait("browser_action_with_callback"));
 
   // Lazy Background Page doesn't exist yet.
@@ -164,7 +165,7 @@ IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest,
   EXPECT_EQ(num_tabs_before + 1, browser()->tab_count());
 }
 
-IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, BroadcastEvent) {
+IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, DISABLED_BroadcastEvent) {
   ASSERT_TRUE(StartTestServer());
 
   const Extension* extension = LoadExtensionAndWait("broadcast_event");
@@ -197,7 +198,7 @@ IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, BroadcastEvent) {
 
 // Tests that the lazy background page receives the onInstalled event and shuts
 // down.
-IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, OnInstalled) {
+IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, DISABLED_OnInstalled) {
   ResultCatcher catcher;
   ASSERT_TRUE(LoadExtensionAndWait("on_installed"));
   EXPECT_TRUE(catcher.GetNextResult()) << catcher.message();
@@ -210,7 +211,7 @@ IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, OnInstalled) {
 
 // Tests that the lazy background page stays alive until all visible views are
 // closed.
-IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, WaitForView) {
+IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, DISABLED_WaitForView) {
   LazyBackgroundObserver page_complete;
   ResultCatcher catcher;
   FilePath extdir = test_data_dir_.AppendASCII("lazy_background_page").
@@ -239,7 +240,7 @@ IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, WaitForView) {
 
 // Tests that the lazy background page stays alive until all network requests
 // are complete.
-IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, WaitForRequest) {
+IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, DISABLED_WaitForRequest) {
   host_resolver()->AddRule("*", "127.0.0.1");
   ASSERT_TRUE(StartTestServer());
 
@@ -271,7 +272,7 @@ IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, WaitForRequest) {
 
 // Tests that an incognito split mode extension gets 2 lazy background pages,
 // and they each load and unload at the proper times.
-IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, IncognitoSplitMode) {
+IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, DISABLED_IncognitoSplitMode) {
   // Open incognito window.
   ui_test_utils::OpenURLOffTheRecord(
       browser()->profile(), GURL("about:blank"));
@@ -339,7 +340,7 @@ IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, IncognitoSplitMode) {
 
 // Tests that messages from the content script activate the lazy background
 // page, and keep it alive until all channels are closed.
-IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, Messaging) {
+IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, DISABLED_Messaging) {
   ASSERT_TRUE(StartTestServer());
   ASSERT_TRUE(LoadExtensionAndWait("messaging"));
 
@@ -372,7 +373,7 @@ IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, Messaging) {
 // Tests that the lazy background page receives the unload event when we
 // close it, and that it can execute simple API calls that don't require an
 // asynchronous response.
-IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, OnUnload) {
+IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, DISABLED_OnUnload) {
   ASSERT_TRUE(LoadExtensionAndWait("on_unload"));
 
   // Lazy Background Page has been shut down.
