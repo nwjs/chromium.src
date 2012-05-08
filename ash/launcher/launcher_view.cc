@@ -436,6 +436,14 @@ void LauncherView::PrepareForDrag(const views::MouseEvent& event) {
   DCHECK(drag_view_);
   dragging_ = true;
   start_drag_index_ = view_model_->GetIndexOfView(drag_view_);
+
+  // If the item is no longer draggable, bail out.
+  if (start_drag_index_ == -1 ||
+      !delegate_->IsDraggable(model_->items()[start_drag_index_])) {
+    CancelDrag(NULL);
+    return;
+  }
+
   // Move the view to the front so that it appears on top of other views.
   ReorderChildView(drag_view_, -1);
   bounds_animator_->StopAnimatingView(drag_view_);
@@ -447,6 +455,13 @@ void LauncherView::ContinueDrag(const views::MouseEvent& event) {
   views::View::ConvertPointToView(drag_view_, this, &drag_point);
   int current_index = view_model_->GetIndexOfView(drag_view_);
   DCHECK_NE(-1, current_index);
+
+  // If the item is no longer draggable, bail out.
+  if (current_index == -1 ||
+      !delegate_->IsDraggable(model_->items()[current_index])) {
+    CancelDrag(NULL);
+    return;
+  }
 
   // Constrain the x location to the range of valid indices for the type.
   std::pair<int,int> indices(GetDragRange(current_index));
@@ -706,8 +721,11 @@ void LauncherView::LauncherItemWillChange(int index) {
 
 void LauncherView::MousePressedOnButton(views::View* view,
                                         const views::MouseEvent& event) {
-  if (view_model_->GetIndexOfView(view) == -1 || view_model_->view_size() <= 1)
-    return;  // View is being deleted, ignore request.
+  int index = view_model_->GetIndexOfView(view);
+  if (index == -1 ||
+      view_model_->view_size() <= 1 ||
+      !delegate_->IsDraggable(model_->items()[index]))
+    return;  // View is being deleted or not draggable, ignore request.
 
   drag_view_ = view;
   drag_offset_ = event.x();

@@ -40,13 +40,6 @@
 
 namespace {
 
-// See description in PersistPinnedState().
-const char kAppIDPath[] = "id";
-const char kAppTypePanel[] = "panel";
-const char kAppTypePath[] = "type";
-const char kAppTypeTab[] = "tab";
-const char kAppTypeWindow[] = "window";
-
 // Values used for prefs::kShelfAutoHideBehavior.
 const char kShelfAutoHideBehaviorAlways[] = "Always";
 const char kShelfAutoHideBehaviorDefault[] = "Default";
@@ -54,7 +47,7 @@ const char kShelfAutoHideBehaviorNever[] = "Never";
 
 // App ID of default pinned apps.
 const char* kDefaultPinnedApps[] = {
-  "pjkljhegncpnkpknbcohdijeoejaedia",  // Gamil
+  "pjkljhegncpnkpknbcohdijeoejaedia",  // Gmail
   "coobgpohoikkiipiblmjeljniedjpjpf",  // Search
   "apdfllckaahabafndbhieahigkjlhalf",  // Doc
   "blpcfgokakmgnkcojhhkbfbldkacnbeo",  // YouTube
@@ -64,19 +57,21 @@ base::DictionaryValue* CreateAppDict(
     const std::string& app_id,
     ChromeLauncherDelegate::AppType app_type) {
   scoped_ptr<base::DictionaryValue> app_value(new base::DictionaryValue);
-  app_value->SetString(kAppIDPath, app_id);
+  app_value->SetString(ChromeLauncherDelegate::kPinnedAppsPrefAppIDPath,
+                       app_id);
   const char* app_type_string;
   if (app_type == ChromeLauncherDelegate::APP_TYPE_WINDOW) {
-    app_type_string = kAppTypeWindow;
+    app_type_string = ChromeLauncherDelegate::kAppTypeWindow;
   } else if (app_type == ChromeLauncherDelegate::APP_TYPE_APP_PANEL) {
-    app_type_string = kAppTypePanel;
+    app_type_string = ChromeLauncherDelegate::kAppTypePanel;
   } else if (app_type == ChromeLauncherDelegate::APP_TYPE_TAB) {
-    app_type_string = kAppTypeTab;
+    app_type_string = ChromeLauncherDelegate::kAppTypeTab;
   } else {
     LOG(ERROR) << "Unsupported pinned type: " << app_type;
     return NULL;
   }
-  app_value->SetString(kAppTypePath, app_type_string);
+  app_value->SetString(ChromeLauncherDelegate::kPinnedAppsPrefAppTypePath,
+                       app_type_string);
   return app_value.release();
 }
 
@@ -106,6 +101,14 @@ ChromeLauncherDelegate::Item::~Item() {
 // ChromeLauncherDelegate ------------------------------------------------------
 
 // static
+const char ChromeLauncherDelegate::kPinnedAppsPrefAppIDPath[] = "id";
+const char ChromeLauncherDelegate::kPinnedAppsPrefAppTypePath[] = "type";
+
+const char ChromeLauncherDelegate::kAppTypePanel[] = "panel";
+const char ChromeLauncherDelegate::kAppTypeTab[] = "tab";
+const char ChromeLauncherDelegate::kAppTypeWindow[] = "window";
+
+// static
 ChromeLauncherDelegate* ChromeLauncherDelegate::instance_ = NULL;
 
 ChromeLauncherDelegate::ChromeLauncherDelegate(Profile* profile,
@@ -121,12 +124,14 @@ ChromeLauncherDelegate::ChromeLauncherDelegate(Profile* profile,
   model_->AddObserver(this);
   app_icon_loader_.reset(new LauncherAppIconLoader(profile_, this));
 
-  registrar_.Add(this,
-                 chrome::NOTIFICATION_EXTENSION_LOADED,
-                 content::Source<Profile>(profile_));
-  registrar_.Add(this,
-                 chrome::NOTIFICATION_EXTENSION_UNLOADED,
-                 content::Source<Profile>(profile_));
+  notification_registrar_.Add(this,
+                              chrome::NOTIFICATION_EXTENSION_LOADED,
+                              content::Source<Profile>(profile_));
+  notification_registrar_.Add(this,
+                              chrome::NOTIFICATION_EXTENSION_UNLOADED,
+                              content::Source<Profile>(profile_));
+  pref_change_registrar_.Init(profile_->GetPrefs());
+  pref_change_registrar_.Add(prefs::kPinnedLauncherApps, this);
 }
 
 ChromeLauncherDelegate::~ChromeLauncherDelegate() {
@@ -140,45 +145,7 @@ ChromeLauncherDelegate::~ChromeLauncherDelegate() {
 }
 
 void ChromeLauncherDelegate::Init() {
-  const base::ListValue* pinned_apps =
-      profile_->GetPrefs()->GetList(prefs::kPinnedLauncherApps);
-
-  // Use default pinned apps only when current pinned apps list is empty and
-  // kUseDefaultPinnedApps is true.
-  // TODO(xiyuan): Remove this after http://crbug.com/122679 is resolved.
-  scoped_ptr<base::ListValue> default_pinned_apps;
-  if (pinned_apps->empty() &&
-      profile_->GetPrefs()->GetBoolean(prefs::kUseDefaultPinnedApps)) {
-    default_pinned_apps.reset(CreateDefaultPinnedAppsList());
-    pinned_apps = default_pinned_apps.get();
-  }
-
-  for (size_t i = 0; i < pinned_apps->GetSize(); ++i) {
-    DictionaryValue* app = NULL;
-    if (pinned_apps->GetDictionary(i, &app)) {
-      std::string app_id, type_string;
-      if (app->GetString(kAppIDPath, &app_id) &&
-          app->GetString(kAppTypePath, &type_string)) {
-        AppType app_type;
-        if (type_string == kAppTypeWindow)
-          app_type = APP_TYPE_WINDOW;
-        else if (type_string == kAppTypePanel)
-          app_type = APP_TYPE_APP_PANEL;
-        else
-          app_type = APP_TYPE_TAB;
-
-        if (app_icon_loader_->IsValidID(app_id)) {
-          CreateAppLauncherItem(NULL, app_id, app_type, ash::STATUS_CLOSED);
-        } else {
-          Item pending_item;
-          pending_item.item_type = TYPE_APP;
-          pending_item.app_type = app_type;
-          pending_item.app_id = app_id;
-          pending_pinned_apps_.push(pending_item);
-        }
-      }
-    }
-  }
+  CreateAppLaunchersFromPref();
   // TODO(sky): update unit test so that this test isn't necessary.
   if (ash::Shell::HasInstance()) {
     std::string behavior_value(
@@ -272,7 +239,8 @@ void ChromeLauncherDelegate::Unpin(ash::LauncherID id) {
   DCHECK(id_to_item_map_.find(id) != id_to_item_map_.end());
   DCHECK(!id_to_item_map_[id].updater);
   LauncherItemClosed(id);
-  PersistPinnedState();
+  if (CanPin())
+    PersistPinnedState();
 }
 
 bool ChromeLauncherDelegate::IsPinned(ash::LauncherID id) {
@@ -291,7 +259,9 @@ void ChromeLauncherDelegate::TogglePinned(ash::LauncherID id) {
 
 bool ChromeLauncherDelegate::IsPinnable(ash::LauncherID id) const {
   int index = model_->ItemIndexByID(id);
-  return index != -1 && model_->items()[index].type == ash::TYPE_APP_SHORTCUT;
+  return (index != -1 &&
+          model_->items()[index].type == ash::TYPE_APP_SHORTCUT &&
+          CanPin());
 }
 
 void ChromeLauncherDelegate::Open(ash::LauncherID id) {
@@ -388,20 +358,10 @@ bool ChromeLauncherDelegate::IsAppPinned(const std::string& app_id) {
 
 void ChromeLauncherDelegate::PinAppWithID(const std::string& app_id,
                                           AppType app_type) {
-  // If there is an item, update the app_type and return.
-  for (IDToItemMap::iterator i = id_to_item_map_.begin();
-       i != id_to_item_map_.end(); ++i) {
-    if (i->second.app_id == app_id && IsPinned(i->first)) {
-      DCHECK_EQ(ash::TYPE_APP_SHORTCUT,
-                model_->ItemByID(i->first)->type);
-      i->second.app_type = app_type;
-      return;
-    }
-  }
-
-  // Otherwise, create an item for it.
-  CreateAppLauncherItem(NULL, app_id, app_type, ash::STATUS_CLOSED);
-  PersistPinnedState();
+  if (CanPin())
+    DoPinAppWithID(app_id, app_type);
+  else
+    NOTREACHED();
 }
 
 void ChromeLauncherDelegate::SetAppType(ash::LauncherID id, AppType app_type) {
@@ -412,13 +372,16 @@ void ChromeLauncherDelegate::SetAppType(ash::LauncherID id, AppType app_type) {
 }
 
 void ChromeLauncherDelegate::UnpinAppsWithID(const std::string& app_id) {
-  for (IDToItemMap::iterator i = id_to_item_map_.begin();
-       i != id_to_item_map_.end(); ) {
-    IDToItemMap::iterator current(i);
-    ++i;
-    if (current->second.app_id == app_id && IsPinned(current->first))
-      Unpin(current->first);
-  }
+  if (CanPin())
+    DoUnpinAppsWithID(app_id);
+  else
+    NOTREACHED();
+}
+
+bool ChromeLauncherDelegate::CanPin() const {
+  const PrefService::Preference* pref =
+      profile_->GetPrefs()->FindPreference(prefs::kPinnedLauncherApps);
+  return pref && pref->IsUserModifiable();
 }
 
 void ChromeLauncherDelegate::SetAutoHideBehavior(
@@ -513,6 +476,10 @@ ash::LauncherID ChromeLauncherDelegate::GetIDByWindow(
   return 0;
 }
 
+bool ChromeLauncherDelegate::IsDraggable(const ash::LauncherItem& item) {
+  return item.type == ash::TYPE_APP_SHORTCUT ? CanPin() : true;
+}
+
 void ChromeLauncherDelegate::LauncherItemAdded(int index) {
 }
 
@@ -559,7 +526,25 @@ void ChromeLauncherDelegate::Observe(
     case chrome::NOTIFICATION_EXTENSION_UNLOADED: {
       const Extension* extension =
           content::Details<UnloadedExtensionInfo>(details)->extension;
-      UnpinAppsWithID(extension->id());
+      DoUnpinAppsWithID(extension->id());
+      break;
+    }
+    case chrome::NOTIFICATION_PREF_CHANGED: {
+      const std::string& pref_name(
+          *content::Details<std::string>(details).ptr());
+      if (pref_name == prefs::kPinnedLauncherApps) {
+        // Destroy existing app launchers and reinitialize from the pref.
+        for (size_t i = 0; i < model_->items().size(); ) {
+          const ash::LauncherItem& item(model_->items()[i]);
+          if (item.type == ash::TYPE_APP_SHORTCUT)
+            LauncherItemClosed(item.id);
+          else
+            i++;
+        }
+        CreateAppLaunchersFromPref();
+      } else {
+        NOTREACHED() << "Unexpected pref change for " << pref_name;
+      }
       break;
     }
     default:
@@ -568,6 +553,14 @@ void ChromeLauncherDelegate::Observe(
 }
 
 void ChromeLauncherDelegate::PersistPinnedState() {
+  // It is a coding error to call PersistPinnedState() if the pinned apps are
+  // not user-editable. The code should check earlier and not perform any
+  // modification actions that trigger persisting the state.
+  if (!CanPin()) {
+    NOTREACHED() << "Can't pin but pinned state being updated";
+    return;
+  }
+
   // Set kUseDefaultPinnedApps to false and use pinned apps list from prefs
   // from now on.
   profile_->GetPrefs()->SetBoolean(prefs::kUseDefaultPinnedApps, false);
@@ -604,7 +597,78 @@ void ChromeLauncherDelegate::ProcessPendingPinnedApps() {
     if (!app_icon_loader_->IsValidID(item.app_id))
       return;
 
-    PinAppWithID(item.app_id, item.app_type);
+    DoPinAppWithID(item.app_id, item.app_type);
     pending_pinned_apps_.pop();
+  }
+}
+
+void ChromeLauncherDelegate::DoPinAppWithID(const std::string& app_id,
+                                            AppType app_type) {
+  // If there is an item, update the app_type and return.
+  for (IDToItemMap::iterator i = id_to_item_map_.begin();
+       i != id_to_item_map_.end(); ++i) {
+    if (i->second.app_id == app_id && IsPinned(i->first)) {
+      DCHECK_EQ(ash::TYPE_APP_SHORTCUT,
+                model_->ItemByID(i->first)->type);
+      i->second.app_type = app_type;
+      return;
+    }
+  }
+
+  // Otherwise, create an item for it.
+  CreateAppLauncherItem(NULL, app_id, app_type, ash::STATUS_CLOSED);
+  if (CanPin())
+    PersistPinnedState();
+}
+
+void ChromeLauncherDelegate::DoUnpinAppsWithID(const std::string& app_id) {
+  for (IDToItemMap::iterator i = id_to_item_map_.begin();
+       i != id_to_item_map_.end(); ) {
+    IDToItemMap::iterator current(i);
+    ++i;
+    if (current->second.app_id == app_id && IsPinned(current->first))
+      Unpin(current->first);
+  }
+}
+
+void ChromeLauncherDelegate::CreateAppLaunchersFromPref() {
+  const base::ListValue* pinned_apps =
+      profile_->GetPrefs()->GetList(prefs::kPinnedLauncherApps);
+
+  // Use default pinned apps only when current pinned apps list is empty and
+  // kUseDefaultPinnedApps is true.
+  // TODO(xiyuan): Remove this after http://crbug.com/122679 is resolved.
+  scoped_ptr<base::ListValue> default_pinned_apps;
+  if (pinned_apps->empty() &&
+      profile_->GetPrefs()->GetBoolean(prefs::kUseDefaultPinnedApps)) {
+    default_pinned_apps.reset(CreateDefaultPinnedAppsList());
+    pinned_apps = default_pinned_apps.get();
+  }
+
+  for (size_t i = 0; i < pinned_apps->GetSize(); ++i) {
+    DictionaryValue* app = NULL;
+    if (pinned_apps->GetDictionary(i, &app)) {
+      std::string app_id, type_string;
+      if (app->GetString(kPinnedAppsPrefAppIDPath, &app_id) &&
+          app->GetString(kPinnedAppsPrefAppTypePath, &type_string)) {
+        AppType app_type;
+        if (type_string == kAppTypeWindow)
+          app_type = APP_TYPE_WINDOW;
+        else if (type_string == kAppTypePanel)
+          app_type = APP_TYPE_APP_PANEL;
+        else
+          app_type = APP_TYPE_TAB;
+
+        if (app_icon_loader_->IsValidID(app_id)) {
+          CreateAppLauncherItem(NULL, app_id, app_type, ash::STATUS_CLOSED);
+        } else {
+          Item pending_item;
+          pending_item.item_type = TYPE_APP;
+          pending_item.app_type = app_type;
+          pending_item.app_id = app_id;
+          pending_pinned_apps_.push(pending_item);
+        }
+      }
+    }
   }
 }

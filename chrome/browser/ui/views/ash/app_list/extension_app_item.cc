@@ -12,8 +12,8 @@
 #include "chrome/browser/extensions/extension_uninstall_dialog.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/views/ash/launcher/chrome_launcher_delegate.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_icon_set.h"
@@ -145,6 +145,10 @@ void UnpinApp(const std::string& extension_id) {
   return ChromeLauncherDelegate::instance()->UnpinAppsWithID(extension_id);
 }
 
+bool CanPin() {
+  return ChromeLauncherDelegate::instance()->CanPin();
+}
+
 }  // namespace
 
 ExtensionAppItem::ExtensionAppItem(Profile* profile,
@@ -274,7 +278,9 @@ bool ExtensionAppItem::IsCommandIdChecked(int command_id) const {
 }
 
 bool ExtensionAppItem::IsCommandIdEnabled(int command_id) const {
-  if (command_id == OPTIONS) {
+  if (command_id == TOGGLE_PIN) {
+    return CanPin();
+  } else if (command_id == OPTIONS) {
     const Extension* extension = GetExtension();
     return IsExtensionEnabled(profile_, extension_id_) && extension &&
         !extension->options_url().is_empty();
@@ -294,7 +300,7 @@ bool ExtensionAppItem::GetAcceleratorForCommandId(
 void ExtensionAppItem::ExecuteCommand(int command_id) {
   if (command_id == LAUNCH) {
     Activate(0);
-  } else if (command_id == TOGGLE_PIN) {
+  } else if (command_id == TOGGLE_PIN && CanPin()) {
     if (IsAppPinned(extension_id_)) {
       UnpinApp(extension_id_);
     } else {
@@ -378,4 +384,3 @@ ui::MenuModel* ExtensionAppItem::GetContextMenuModel() {
 
   return context_menu_model_.get();
 }
-

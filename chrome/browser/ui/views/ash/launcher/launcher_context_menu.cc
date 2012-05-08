@@ -59,7 +59,12 @@ bool LauncherContextMenu::IsCommandIdChecked(int command_id) const {
 }
 
 bool LauncherContextMenu::IsCommandIdEnabled(int command_id) const {
-  return true;
+  switch (command_id) {
+    case MENU_PIN:
+      return delegate_->IsPinnable(item_.id);
+    default:
+      return true;
+  }
 }
 
 bool LauncherContextMenu::GetAcceleratorForCommandId(
