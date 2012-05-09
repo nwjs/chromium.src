@@ -21,14 +21,16 @@
 class ChromeLauncherDelegateTest : public testing::Test {
  protected:
   ChromeLauncherDelegateTest()
-      : ui_thread_(content::BrowserThread::UI, &loop_) {
+      : ui_thread_(content::BrowserThread::UI, &loop_),
+        extension_service_(NULL) {
     DictionaryValue manifest;
     manifest.SetString("name", "launcher controller test extension");
     manifest.SetString("version", "1");
     manifest.SetString("description", "for testing pinned apps");
 
-    profile_.CreateExtensionService(CommandLine::ForCurrentProcess(),
-                                    FilePath(), false);
+    extension_service_ = profile_.CreateExtensionService(
+        CommandLine::ForCurrentProcess(), FilePath(), false);
+
     std::string error;
     extension1_ = Extension::Create(FilePath(), Extension::LOAD, manifest,
                                     Extension::NO_FLAGS,
@@ -43,6 +45,11 @@ class ChromeLauncherDelegateTest : public testing::Test {
                                     Extension::NO_FLAGS,
                                     "pjkljhegncpnkpknbcohdijeoejaedia",
                                     &error);
+    // Fake search extension.
+    extension4_ = Extension::Create(FilePath(), Extension::LOAD, manifest,
+                                    Extension::NO_FLAGS,
+                                    "coobgpohoikkiipiblmjeljniedjpjpf",
+                                    &error);
   }
 
   // Needed for extension service & friends to work.
@@ -52,8 +59,11 @@ class ChromeLauncherDelegateTest : public testing::Test {
   scoped_refptr<Extension> extension1_;
   scoped_refptr<Extension> extension2_;
   scoped_refptr<Extension> extension3_;
+  scoped_refptr<Extension> extension4_;
   TestingProfile profile_;
   ash::LauncherModel model_;
+
+  ExtensionService* extension_service_;
 
   DISALLOW_COPY_AND_ASSIGN(ChromeLauncherDelegateTest);
 };
@@ -69,7 +79,7 @@ TEST_F(ChromeLauncherDelegateTest, DefaultApps) {
   EXPECT_FALSE(launcher_delegate.IsAppPinned(extension3_->id()));
 
   // Installing |extension3_| should add it to the launcher.
-  profile_.GetExtensionService()->AddExtension(extension3_.get());
+  extension_service_->AddExtension(extension3_.get());
   EXPECT_EQ(3, model_.item_count());
   EXPECT_EQ(ash::TYPE_APP_SHORTCUT, model_.items()[1].type);
   EXPECT_FALSE(launcher_delegate.IsAppPinned(extension1_->id()));
@@ -78,8 +88,8 @@ TEST_F(ChromeLauncherDelegateTest, DefaultApps) {
 }
 
 TEST_F(ChromeLauncherDelegateTest, Policy) {
-  profile_.GetExtensionService()->AddExtension(extension1_.get());
-  profile_.GetExtensionService()->AddExtension(extension3_.get());
+  extension_service_->AddExtension(extension1_.get());
+  extension_service_->AddExtension(extension3_.get());
 
   base::ListValue policy_value;
   base::DictionaryValue* entry1 = new DictionaryValue();
@@ -109,7 +119,7 @@ TEST_F(ChromeLauncherDelegateTest, Policy) {
   EXPECT_FALSE(launcher_delegate.IsAppPinned(extension3_->id()));
 
   // Installing |extension2_| should add it to the launcher.
-  profile_.GetExtensionService()->AddExtension(extension2_.get());
+  extension_service_->AddExtension(extension2_.get());
   EXPECT_EQ(4, model_.item_count());
   EXPECT_EQ(ash::TYPE_APP_SHORTCUT, model_.items()[1].type);
   EXPECT_EQ(ash::TYPE_APP_SHORTCUT, model_.items()[2].type);
@@ -126,4 +136,21 @@ TEST_F(ChromeLauncherDelegateTest, Policy) {
   EXPECT_FALSE(launcher_delegate.IsAppPinned(extension1_->id()));
   EXPECT_TRUE(launcher_delegate.IsAppPinned(extension2_->id()));
   EXPECT_FALSE(launcher_delegate.IsAppPinned(extension3_->id()));
+}
+
+TEST_F(ChromeLauncherDelegateTest, UnpinWithPending) {
+  extension_service_->AddExtension(extension3_.get());
+  extension_service_->AddExtension(extension4_.get());
+
+  ChromeLauncherDelegate launcher_controller(&profile_, &model_);
+  launcher_controller.Init();
+
+  EXPECT_TRUE(launcher_controller.IsAppPinned(extension3_->id()));
+  EXPECT_TRUE(launcher_controller.IsAppPinned(extension4_->id()));
+
+  extension_service_->UnloadExtension(extension3_->id(),
+                                      extension_misc::UNLOAD_REASON_UNINSTALL);
+
+  EXPECT_FALSE(launcher_controller.IsAppPinned(extension3_->id()));
+  EXPECT_TRUE(launcher_controller.IsAppPinned(extension4_->id()));
 }
