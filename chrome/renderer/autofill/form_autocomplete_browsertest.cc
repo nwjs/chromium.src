@@ -23,7 +23,13 @@ typedef ChromeRenderViewTest FormAutocompleteTest;
 
 // Tests that submitting a form generates a FormSubmitted message
 // with the form fields.
-TEST_F(FormAutocompleteTest, NormalFormSubmit) {
+#if defined(OS_LINUX)
+#define MAYBE_NormalFormSubmit DISABLED_NormalFormSubmit
+#else
+#define MAYBE_NormalFormSubmit NormalFormSubmit
+#endif
+
+TEST_F(FormAutocompleteTest, MAYBE_NormalFormSubmit) {
   // Load a form.
   LoadHTML("<html><form id='myForm'><input name='fname' value='Rick'/>"
            "<input name='lname' value='Deckard'/></form></html>");

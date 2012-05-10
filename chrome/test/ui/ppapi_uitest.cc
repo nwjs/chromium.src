@@ -767,7 +767,10 @@ IN_PROC_BROWSER_TEST_F(OutOfProcessPPAPITest, MAYBE_OutOfProcessFlashFullscreen)
   RunTestViaHTTP("FlashFullscreen");
 }
 
+//Disabling for official tests
+#if !defined(OS_LINUX)
 TEST_PPAPI_IN_PROCESS_VIA_HTTP(Fullscreen)
+#endif
 TEST_PPAPI_OUT_OF_PROCESS_VIA_HTTP(Fullscreen)
 
 TEST_PPAPI_IN_PROCESS(FlashClipboard)

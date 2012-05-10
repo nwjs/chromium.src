@@ -262,7 +262,12 @@ class AutofillTest : public InProcessBrowserTest {
 };
 
 // Test that basic form fill is working.
-IN_PROC_BROWSER_TEST_F(AutofillTest, BasicFormFill) {
+#if defined(OS_LINUX)
+#define MAYBE_BasicFormFill DISABLED_BasicFormFill
+#else
+#define MAYBE_BasicFormFill BasicFormFill
+#endif
+IN_PROC_BROWSER_TEST_F(AutofillTest, MAYBE_BasicFormFill) {
   CreateTestProfile();
 
   // Load the test page.
