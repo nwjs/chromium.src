@@ -56,6 +56,7 @@
 #include "content/public/browser/notification_source.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_view_host_delegate.h"
+#include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_view.h"
 #include "skia/ext/image_operations.h"
@@ -1652,14 +1653,18 @@ bool CaptureVisibleTabFunction::RunImpl() {
     return false;
 
   RenderViewHost* render_view_host = web_contents->GetRenderViewHost();
-
+  content::RenderWidgetHostView* view = render_view_host->GetView();
+  if (!view) {
+    error_ = keys::kInternalVisibleTabCaptureError;
+    return false;
+  }
   // If a backing store is cached for the tab we want to capture,
   // and it can be copied into a bitmap, then use it to generate the image.
   // For example, some uncommon X11 visual modes are not supported by
   // CopyFromBackingStore().
   skia::PlatformCanvas temp_canvas;
   if (render_view_host->CopyFromBackingStore(
-          gfx::Rect(), gfx::Size(), &temp_canvas)) {
+          gfx::Rect(), view->GetViewBounds().size(), &temp_canvas)) {
     VLOG(1) << "captureVisibleTab() got image from backing store.";
     SendResultFromBitmap(skia::GetTopDevice(temp_canvas)->accessBitmap(false));
     return true;
