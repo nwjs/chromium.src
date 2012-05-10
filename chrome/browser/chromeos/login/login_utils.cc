@@ -1195,7 +1195,7 @@ class WarmingObserver : public NetworkLibrary::NetworkManagerObserver {
           chrome_browser_net::UrlInfo::EARLY_LOAD_MOTIVATED,
           kConnectionsNeeded,
           make_scoped_refptr(
-              ProfileManager::GetDefaultProfile()->GetRequestContext()));
+              Profile::Deprecated::GetDefaultRequestContextTemporary()));
       netlib->RemoveNetworkManagerObserver(this);
       delete this;
     }
@@ -1211,7 +1211,7 @@ void LoginUtilsImpl::PrewarmAuthentication() {
         chrome_browser_net::UrlInfo::EARLY_LOAD_MOTIVATED,
         kConnectionsNeeded,
         make_scoped_refptr(
-            ProfileManager::GetDefaultProfile()->GetRequestContext()));
+            Profile::Deprecated::GetDefaultRequestContextTemporary()));
   } else {
     new WarmingObserver();
   }
