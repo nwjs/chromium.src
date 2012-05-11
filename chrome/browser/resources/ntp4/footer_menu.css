@@ -107,7 +107,7 @@
   margin-bottom: 8px;
 }
 
-.footer-menu section h3:first-of-type {
+.footer-menu section:first-of-type h3 {
   margin-top: 4px;
 }
 
