@@ -43,7 +43,7 @@
 
           # Enable HiDPI support.
           'enable_hidpi%': 0,
-          
+
           # Enable touch optimized art assets and metrics.
           'enable_touch_ui%': 0,
 
@@ -103,7 +103,7 @@
           ['OS=="mac"', {
             'enable_hidpi%': 1,
           }],
-          
+
           # Enable touch UI on Metro and Chrome OS.
           ['enable_metro==1 or chromeos==1', {
             'enable_touch_ui%': 1,
@@ -829,9 +829,9 @@
         'variables': {
           'variables': {
             'android_ndk_root%': '<!(/bin/echo -n $ANDROID_NDK_ROOT)',
-            # Android uses x86 instead of ia32 for their target_arch 
+            # Android uses x86 instead of ia32 for their target_arch
             # designation.
-            # TODO(wistoch): Adjust the target_arch naming scheme to avoid 
+            # TODO(wistoch): Adjust the target_arch naming scheme to avoid
             # confusion.
             # http://crbug.com/125329
             'conditions': [
@@ -1154,12 +1154,14 @@
     # default_apps/external_extensions.json file must also be updated.
     'default_apps_list': [
       'browser/resources/default_apps/external_extensions.json',
+      'browser/resources/default_apps/docs.crx',
       'browser/resources/default_apps/gmail.crx',
       'browser/resources/default_apps/search.crx',
       'browser/resources/default_apps/youtube.crx',
     ],
     'default_apps_list_linux_dest': [
       '<(PRODUCT_DIR)/default_apps/external_extensions.json',
+      '<(PRODUCT_DIR)/default_apps/docs.crx',
       '<(PRODUCT_DIR)/default_apps/gmail.crx',
       '<(PRODUCT_DIR)/default_apps/search.crx',
       '<(PRODUCT_DIR)/default_apps/youtube.crx',
