@@ -50,5 +50,3 @@ metro_driver.dll: %(VersionDir)s\
 plugin.vch: %(VersionDir)s\
 FlashPlayerApp.exe: %(VersionDir)s\
 FlashPlayerCPLApp.cpl: %(VersionDir)s\
-PepperFlash\pepflashplayer.dll: %(VersionDir)s\PepperFlash\
-PepperFlash\manifest.json: %(VersionDir)s\PepperFlash\
