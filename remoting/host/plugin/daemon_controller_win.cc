@@ -123,10 +123,9 @@ class DaemonControllerWin : public remoting::DaemonController {
   void DoStop(const CompletionCallback& done_callback);
   void DoSetWindow(void* window_handle);
 
-  // |control_| and |control_ui_| hold references to an instance of the daemon
-  // controller to prevent a UAC prompt on every operation.
+  // |control_| holds a reference to an instance of the daemon controller
+  // to prevent a UAC prompt on every operation.
   ScopedComPtr<IDaemonControl> control_;
-  ScopedComPtr<IDaemonControlUi> control_ui_;
 
   // True if |control_| holds a reference to an elevated instance of the daemon
   // controller.
@@ -299,9 +298,6 @@ HRESULT DaemonControllerWin::ActivateElevatedController() {
                           base::TimeDelta::FromSeconds(kUacTimeoutSec),
                           this,
                           &DaemonControllerWin::ReleaseController);
-
-    // Ignore the error. IID_IDaemonControlUi is optional.
-    control_.QueryInterface(IID_IDaemonControlUi, control_ui_.ReceiveVoid());
   }
 
   return S_OK;
@@ -311,7 +307,6 @@ void DaemonControllerWin::ReleaseController() {
   DCHECK(worker_thread_.message_loop_proxy()->BelongsToCurrentThread());
 
   control_.Release();
-  control_ui_.Release();
   release_timer_.reset();
   control_is_elevated_ = false;
 }
@@ -494,14 +489,11 @@ void DaemonControllerWin::DoSetConfigAndStart(
     return;
   }
 
-  // Make sure that the PIN confirmation dialog is focused properly.
-  if (control_ui_.get() != NULL) {
-    hr = control_ui_->SetOwnerWindow(
+  hr = control_->SetOwnerWindow(
       reinterpret_cast<LONG_PTR>(GetTopLevelWindow(window_handle_)));
-    if (FAILED(hr)) {
-      done_callback.Run(HResultToAsyncResult(hr));
-      return;
-    }
+  if (FAILED(hr)) {
+    done_callback.Run(HResultToAsyncResult(hr));
+    return;
   }
 
   hr = control_->SetConfig(config_str);
@@ -535,13 +527,11 @@ void DaemonControllerWin::DoUpdateConfig(
   }
 
   // Make sure that the PIN confirmation dialog is focused properly.
-  if (control_ui_.get() != NULL) {
-    hr = control_ui_->SetOwnerWindow(
+  hr = control_->SetOwnerWindow(
       reinterpret_cast<LONG_PTR>(GetTopLevelWindow(window_handle_)));
-    if (FAILED(hr)) {
-      done_callback.Run(HResultToAsyncResult(hr));
-      return;
-    }
+  if (FAILED(hr)) {
+    done_callback.Run(HResultToAsyncResult(hr));
+    return;
   }
 
   hr = control_->UpdateConfig(config_str);
