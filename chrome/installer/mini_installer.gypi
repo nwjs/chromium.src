@@ -46,7 +46,9 @@
       'ExceptionHandling': '0',
     },
     'VCLinkerTool': {
-      'OutputFile': '<(output_dir)/mini_installer.exe', 
+      'OutputFile': '<(output_dir)/mini_installer.exe',
+      'ProgramDatabaseFile': '<(output_dir)/mini_installer.pdb',
+      'MapFileName': '<(output_dir)/mini_installer.map',
       'RandomizedBaseAddress': '1',
       'DataExecutionPrevention': '0',
       'AdditionalLibraryDirectories': [
