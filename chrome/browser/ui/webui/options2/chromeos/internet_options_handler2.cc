@@ -1051,13 +1051,6 @@ void InternetOptionsHandler::SetActivationButtonVisibility(
   }
 }
 
-void InternetOptionsHandler::CreateModalPopup(views::WidgetDelegate* view) {
-  views::Widget* window = views::Widget::CreateWindowWithParent(
-      view, GetNativeWindow());
-  window->SetAlwaysOnTop(true);
-  window->Show();
-}
-
 gfx::NativeWindow InternetOptionsHandler::GetNativeWindow() const {
   // TODO(beng): This is an improper direct dependency on Browser. Route this
   // through some sort of delegate.
@@ -1113,7 +1106,8 @@ void InternetOptionsHandler::HandleWifiButtonClick(
     cros_->ForgetNetwork(service_path);
   } else if (service_path == kOtherNetworksFakePath) {
     // Other wifi networks.
-    CreateModalPopup(new chromeos::NetworkConfigView(chromeos::TYPE_WIFI));
+    chromeos::NetworkConfigView::ShowForType(
+        chromeos::TYPE_WIFI, GetNativeWindow());
   } else if ((wifi = cros_->FindWifiNetworkByPath(service_path))) {
     if (command == "connect") {
       wifi->SetEnrollmentDelegate(
@@ -1158,7 +1152,8 @@ void InternetOptionsHandler::HandleVPNButtonClick(
   } else if (service_path == kOtherNetworksFakePath) {
     // TODO(altimofeev): verify if service_path in condition is correct.
     // Other VPN networks.
-    CreateModalPopup(new chromeos::NetworkConfigView(chromeos::TYPE_VPN));
+    chromeos::NetworkConfigView::ShowForType(
+        chromeos::TYPE_VPN, GetNativeWindow());
   } else if ((network = cros_->FindVirtualNetworkByPath(service_path))) {
     if (command == "connect") {
       network->SetEnrollmentDelegate(
@@ -1182,7 +1177,7 @@ void InternetOptionsHandler::DoConnect(chromeos::Network* network) {
     chromeos::VirtualNetwork* vpn =
         static_cast<chromeos::VirtualNetwork*>(network);
     if (vpn->NeedMoreInfoToConnect()) {
-      CreateModalPopup(new chromeos::NetworkConfigView(network));
+      chromeos::NetworkConfigView::Show(network, GetNativeWindow());
     } else {
       cros_->ConnectToVirtualNetwork(vpn);
       // Connection failures are responsible for updating the UI, including
@@ -1193,7 +1188,7 @@ void InternetOptionsHandler::DoConnect(chromeos::Network* network) {
     chromeos::WifiNetwork* wifi = static_cast<chromeos::WifiNetwork*>(network);
     if (wifi->IsPassphraseRequired()) {
       // Show the connection UI if we require a passphrase.
-      CreateModalPopup(new chromeos::NetworkConfigView(wifi));
+      chromeos::NetworkConfigView::Show(wifi, GetNativeWindow());
     } else {
       cros_->ConnectToWifiNetwork(wifi);
       // Connection failures are responsible for updating the UI, including
