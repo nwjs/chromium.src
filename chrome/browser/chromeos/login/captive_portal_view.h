@@ -19,6 +19,7 @@
 
 class Profile;
 class ReloadButton;
+class TabContentsWrapper;
 class ToolbarModel;
 
 namespace views {
@@ -113,6 +114,8 @@ class CaptivePortalView : public views::ButtonListener,
   ReloadButton* reload_;
   LocationBarView* location_bar_;
   views::WebView* web_view_;
+  // TODO: remove, needed to create a password manager for web_view_'s WC.
+  scoped_ptr<TabContentsWrapper> wrapper_;
 
   // Contains |web_view_| while it isn't owned by the view.
   scoped_ptr<views::WebView> web_view_container_;
