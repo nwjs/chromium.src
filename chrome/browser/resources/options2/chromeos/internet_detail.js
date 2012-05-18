@@ -347,6 +347,7 @@ cr.define('options.internet', function() {
       // Network type related.
       updateHidden('#details-internet-page .cellular-details', !this.cellular);
       updateHidden('#details-internet-page .wifi-details', !this.wireless);
+      updateHidden('#details-internet-page .wimax-details', !this.wimax);
       updateHidden('#details-internet-page .vpn-details', !this.vpn);
       updateHidden('#details-internet-page .proxy-details', !this.showProxy);
       /* Network information merged into the Wifi tab for wireless networks. */
@@ -603,6 +604,9 @@ cr.define('options.internet', function() {
     case Constants.TYPE_WIFI:
       typeKey = 'wifiTitle';
       break;
+    case Constants.TYPE_WIMAX:
+      typeKey = 'wimaxTitle';
+      break;
     case Constants.TYPE_CELLULAR:
       typeKey = 'cellularTitle';
       break;
@@ -730,6 +734,7 @@ cr.define('options.internet', function() {
       detailsPage.ethernet = false;
       detailsPage.cellular = false;
       detailsPage.gsm = false;
+      detailsPage.wimax = false;
       detailsPage.shared = data.shared;
       $('wifi-connection-state').textContent = data.connectionState;
       $('wifi-ssid').textContent = data.ssid;
@@ -769,6 +774,30 @@ cr.define('options.internet', function() {
       $('auto-connect-network-wifi').checked = data.autoConnect.value;
       $('auto-connect-network-wifi').disabled = !data.remembered;
       detailsPage.password = data.encrypted;
+    } else if (data.type == Constants.TYPE_WIMAX) {
+      OptionsPage.showTab($('wimax-network-nav-tab'));
+      detailsPage.wimax = true;
+      detailsPage.wireless = false;
+      detailsPage.vpn = false;
+      detailsPage.ethernet = false;
+      detailsPage.cellular = false;
+      detailsPage.gsm = false;
+      detailsPage.shared = data.shared;
+      detailsPage.showPreferred = data.showPreferred;
+      $('prefer-network-wimax').checked = data.preferred.value;
+      $('prefer-network-wimax').disabled = !data.remembered;
+      $('auto-connect-network-wimax').checked = data.autoConnect.value;
+      $('auto-connect-network-wimax').disabled = !data.remembered;
+      if (data.identity) {
+        $('wimax-eap-identity').textContent = data.identity;
+        $('wimax-eap-identity-entry').hidden = false;
+      } else {
+        $('wimax-eap-identity-entry').hidden = true;
+      }
+      // Signal strength as percentage.
+      var signalStrength = loadTimeData.getString('inetSignalStrengthFormat');
+      signalStrength = signalStrength.replace('$1', data.strength);
+      $('wimax-signal-strength').textContent = signalStrength;
     } else if (data.type == Constants.TYPE_CELLULAR) {
       if (!data.gsm)
         OptionsPage.showTab($('cellular-plan-nav-tab'));
@@ -776,6 +805,7 @@ cr.define('options.internet', function() {
         OptionsPage.showTab($('cellular-conn-nav-tab'));
       detailsPage.ethernet = false;
       detailsPage.wireless = false;
+      detailsPage.wimax = false;
       detailsPage.vpn = false;
       detailsPage.cellular = true;
       $('service-name').textContent = data.serviceName;
@@ -866,6 +896,7 @@ cr.define('options.internet', function() {
     } else if (data.type == Constants.TYPE_VPN) {
       OptionsPage.showTab($('vpn-nav-tab'));
       detailsPage.wireless = false;
+      detailsPage.wimax = false;
       detailsPage.vpn = true;
       detailsPage.ethernet = false;
       detailsPage.cellular = false;
@@ -878,6 +909,7 @@ cr.define('options.internet', function() {
       OptionsPage.showTab($('internet-nav-tab'));
       detailsPage.ethernet = true;
       detailsPage.wireless = false;
+      detailsPage.wimax = false;
       detailsPage.vpn = false;
       detailsPage.cellular = false;
       detailsPage.gsm = false;

@@ -423,7 +423,7 @@ class DummySystemTrayDelegate : public SystemTrayDelegate {
     }
   }
 
-  virtual void ToggleCellular() OVERRIDE {
+  virtual void ToggleMobile() OVERRIDE {
     cellular_enabled_ = !cellular_enabled_;
     ash::NetworkObserver* observer =
         ash::Shell::GetInstance()->tray()->network_observer();
@@ -451,7 +451,7 @@ class DummySystemTrayDelegate : public SystemTrayDelegate {
     return true;
   }
 
-  virtual bool GetCellularAvailable() OVERRIDE {
+  virtual bool GetMobileAvailable() OVERRIDE {
     return true;
   }
 
@@ -463,7 +463,7 @@ class DummySystemTrayDelegate : public SystemTrayDelegate {
     return wifi_enabled_;
   }
 
-  virtual bool GetCellularEnabled() OVERRIDE {
+  virtual bool GetMobileEnabled() OVERRIDE {
     return cellular_enabled_;
   }
 
@@ -471,7 +471,7 @@ class DummySystemTrayDelegate : public SystemTrayDelegate {
     return bluetooth_enabled_;
   }
 
-  virtual bool GetCellularScanSupported() OVERRIDE {
+  virtual bool GetMobileScanSupported() OVERRIDE {
     return true;
   }
 

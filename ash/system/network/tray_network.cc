@@ -162,7 +162,7 @@ class NetworkDetailedView : public views::View,
         airplane_(NULL),
         info_icon_(NULL),
         button_wifi_(NULL),
-        button_cellular_(NULL),
+        button_mobile_(NULL),
         view_mobile_account_(NULL),
         setup_mobile_account_(NULL),
         networks_list_(NULL),
@@ -195,7 +195,7 @@ class NetworkDetailedView : public views::View,
     airplane_ = NULL;
     info_icon_ = NULL;
     button_wifi_ = NULL;
-    button_cellular_ = NULL;
+    button_mobile_ = NULL;
     view_mobile_account_ = NULL;
     setup_mobile_account_ = NULL;
     networks_list_ = NULL;
@@ -241,10 +241,10 @@ class NetworkDetailedView : public views::View,
         IDR_AURA_UBER_TRAY_WIFI_DISABLED);
     header_buttons_->AddChildView(button_wifi_);
 
-    button_cellular_ = new TrayPopupHeaderButton(this,
+    button_mobile_ = new TrayPopupHeaderButton(this,
         IDR_AURA_UBER_TRAY_CELLULAR_ENABLED,
         IDR_AURA_UBER_TRAY_CELLULAR_DISABLED);
-    header_buttons_->AddChildView(button_cellular_);
+    header_buttons_->AddChildView(button_mobile_);
 
     info_icon_ = new TrayPopupHeaderButton(this,
         IDR_AURA_UBER_TRAY_NETWORK_INFO,
@@ -257,8 +257,8 @@ class NetworkDetailedView : public views::View,
   void UpdateHeaderButtons() {
     SystemTrayDelegate* delegate = Shell::GetInstance()->tray_delegate();
     button_wifi_->SetToggled(!delegate->GetWifiEnabled());
-    button_cellular_->SetToggled(!delegate->GetCellularEnabled());
-    button_cellular_->SetVisible(delegate->GetCellularAvailable());
+    button_mobile_->SetToggled(!delegate->GetMobileEnabled());
+    button_mobile_->SetVisible(delegate->GetMobileAvailable());
   }
 
   void AppendNetworkEntries() {
@@ -375,10 +375,10 @@ class NetworkDetailedView : public views::View,
 
     SystemTrayDelegate* delegate = Shell::GetInstance()->tray_delegate();
     other_wifi_->SetEnabled(delegate->GetWifiEnabled());
-    other_mobile_->SetVisible(delegate->GetCellularAvailable() &&
-                              delegate->GetCellularScanSupported());
+    other_mobile_->SetVisible(delegate->GetMobileAvailable() &&
+                              delegate->GetMobileScanSupported());
     if (other_mobile_->visible())
-      other_mobile_->SetEnabled(delegate->GetCellularEnabled());
+      other_mobile_->SetEnabled(delegate->GetMobileEnabled());
   }
 
   void AppendAirplaneModeEntry() {
@@ -491,8 +491,8 @@ class NetworkDetailedView : public views::View,
     ResetInfoBubble();
     if (sender == button_wifi_)
       delegate->ToggleWifi();
-    else if (sender == button_cellular_)
-      delegate->ToggleCellular();
+    else if (sender == button_mobile_)
+      delegate->ToggleMobile();
     else if (sender == settings_)
       delegate->ShowNetworkSettings();
     else if (sender == proxy_settings_)
@@ -547,7 +547,7 @@ class NetworkDetailedView : public views::View,
   views::View* airplane_;
   views::ImageButton* info_icon_;
   views::ToggleImageButton* button_wifi_;
-  views::ToggleImageButton* button_cellular_;
+  views::ToggleImageButton* button_mobile_;
   views::View* view_mobile_account_;
   views::View* setup_mobile_account_;
   views::View* networks_list_;
