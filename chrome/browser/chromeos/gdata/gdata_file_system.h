@@ -593,6 +593,7 @@ class GDataFileSystem : public GDataFileSystemInterface,
                        bool should_fetch_multiple_feeds,
                        const FilePath& search_file_path,
                        const std::string& search_query,
+                       const std::string& directory_resource_id,
                        const FindEntryCallback& callback);
     ~GetDocumentsParams();
 
@@ -608,6 +609,7 @@ class GDataFileSystem : public GDataFileSystemInterface,
     bool should_fetch_multiple_feeds;
     FilePath search_file_path;
     std::string search_query;
+    std::string directory_resource_id;
     FindEntryCallback callback;
   };
 
@@ -940,6 +942,7 @@ class GDataFileSystem : public GDataFileSystemInterface,
                           bool should_fetch_multiple_feeds,
                           const FilePath& search_file_path,
                           const std::string& search_query,
+                          const std::string& directory_resource_id,
                           const FindEntryCallback& entry_found_callback,
                           const LoadDocumentFeedCallback& load_feed_callback);
 
