@@ -575,7 +575,8 @@ RenderViewImpl::RenderViewImpl(
   if (opener_id != MSG_ROUTING_NONE && !is_renderer_created) {
     RenderViewImpl* opener_view = static_cast<RenderViewImpl*>(
         ChildThread::current()->ResolveRoute(opener_id));
-    webview()->mainFrame()->setOpener(opener_view->webview()->mainFrame());
+    if (opener_view)
+      webview()->mainFrame()->setOpener(opener_view->webview()->mainFrame());
   }
 
   // If we are initially swapped out, navigate to kSwappedOutURL.
