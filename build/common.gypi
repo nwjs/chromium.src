@@ -48,11 +48,9 @@
 
         # Compute the architecture that we're building on.
         'conditions': [
-          [ 'OS=="win"', {
-            'use_openssl%': '0',
-          }],
           [ 'OS=="win" or OS=="mac"', {
             'host_arch%': 'ia32',
+            'use_openssl%': '0',
           }, {
             # This handles the Unix platforms for which there is some support.
             # Anything else gets passed through, which probably won't work very
