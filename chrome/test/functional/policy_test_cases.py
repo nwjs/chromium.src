@@ -100,7 +100,7 @@ class PolicyPrefsTestCases(object):
          'https://clients2.google.com/service/update2/crx' ], []),
     'ShowHomeButton': (True, [ BROWSER ]),
     'DeveloperToolsDisabled': (True, []),
-    'RestoreOnStartup': (0, [ BROWSER ]),
+    'RestoreOnStartup': (5, [ BROWSER ]),
     # TODO(joaodasilva): Should be BROWSER. http://crbug.com/97749
     'RestoreOnStartupURLs': ([ 'chromium.org' ], []),
     # TODO(joaodasilva): The banner is out of place. http://crbug.com/77791
@@ -197,6 +197,9 @@ class PolicyPrefsTestCases(object):
     'DeviceStartUpUrls': ([ 'http://google.com' ], [], [ 'chromeos' ]),
     'DeviceAppPack': ([], [], [ 'chromeos' ]),
     'DeviceAutoUpdateDisabled': (True, [], [ 'chromeos' ]),
+    'DeviceTargetVersionPrefix': (None, '1412.', [], ['chromeos']),
+    'ReportDeviceLocation': (None, False, [], ['chromeos']),
+
 
     # Chrome Frame policies:
     'ChromeFrameRendererSettings': (0, [], []),

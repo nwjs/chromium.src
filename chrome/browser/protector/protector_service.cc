@@ -81,6 +81,10 @@ ProtectedPrefsWatcher* ProtectorService::GetPrefsWatcher() {
   return prefs_watcher_.get();
 }
 
+void ProtectorService::StopWatchingPrefsForTesting() {
+  prefs_watcher_.reset();
+}
+
 void ProtectorService::Shutdown() {
   while (IsShowingChange())
     items_[0].error->RemoveFromProfile();

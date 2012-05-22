@@ -1031,18 +1031,67 @@ void JavascriptPolicyHandler::ApplyPolicySettings(const PolicyMap& policies,
 // RestoreOnStartupPolicyHandler implementation --------------------------------
 
 RestoreOnStartupPolicyHandler::RestoreOnStartupPolicyHandler()
-    : SimplePolicyHandler(key::kRestoreOnStartup,
-                          prefs::kRestoreOnStartup,
-                          Value::TYPE_INTEGER) {
+    : TypeCheckingPolicyHandler(key::kRestoreOnStartup,
+                                Value::TYPE_INTEGER) {
 }
 
 RestoreOnStartupPolicyHandler::~RestoreOnStartupPolicyHandler() {
 }
 
+void RestoreOnStartupPolicyHandler::ApplyPolicySettings(
+    const PolicyMap& policies,
+    PrefValueMap* prefs) {
+  const Value* restore_on_startup_value = policies.GetValue(policy_name());
+  if (restore_on_startup_value) {
+    int restore_on_startup;
+    if (!restore_on_startup_value->GetAsInteger(&restore_on_startup))
+      return;
+
+    if (restore_on_startup == SessionStartupPref::kPrefValueHomePage)
+      ApplyPolicySettingsFromHomePage(policies, prefs);
+    else
+      prefs->SetInteger(prefs::kRestoreOnStartup, restore_on_startup);
+  }
+}
+
+void RestoreOnStartupPolicyHandler::ApplyPolicySettingsFromHomePage(
+    const PolicyMap& policies,
+    PrefValueMap* prefs) {
+  const base::Value* homepage_is_new_tab_page_value =
+      policies.GetValue(key::kHomepageIsNewTabPage);
+  if (!homepage_is_new_tab_page_value) {
+    // The policy is enforcing 'open the homepage on startup' but not
+    // enforcing what the homepage should be. Don't set any prefs.
+    return;
+  }
+
+  bool homepage_is_new_tab_page;
+  if (!homepage_is_new_tab_page_value->GetAsBoolean(&homepage_is_new_tab_page))
+    return;
+
+  if (homepage_is_new_tab_page) {
+    prefs->SetInteger(prefs::kRestoreOnStartup,
+                      SessionStartupPref::kPrefValueNewTab);
+  } else {
+    const base::Value* homepage_value =
+        policies.GetValue(key::kHomepageLocation);
+    if (!homepage_value || !homepage_value->IsType(base::Value::TYPE_STRING)) {
+      // The policy is enforcing 'open the homepage on startup' but not
+      // enforcing what the homepage should be. Don't set any prefs.
+      return;
+    }
+    ListValue* url_list = new ListValue();
+    url_list->Append(homepage_value->DeepCopy());
+    prefs->SetInteger(prefs::kRestoreOnStartup,
+                      SessionStartupPref::kPrefValueURLs);
+    prefs->SetValue(prefs::kURLsToRestoreOnStartup, url_list);
+  }
+}
+
 bool RestoreOnStartupPolicyHandler::CheckPolicySettings(
     const PolicyMap& policies,
     PolicyErrorMap* errors) {
-  if (!SimplePolicyHandler::CheckPolicySettings(policies, errors))
+  if (!TypeCheckingPolicyHandler::CheckPolicySettings(policies, errors))
     return false;
 
   // If the restore urls at start up policy is set, session cookies are treated
