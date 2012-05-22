@@ -417,8 +417,10 @@ const CGFloat kTextWidth = kWindowWidth -
 
   if ((self = [super initWithWindow:window.get()])) {
     picker_ = picker;
+    if (picker)
+      model_ = picker->model();
     intentButtons_.reset([[NSMutableArray alloc] init]);
-    [self performLayoutWithModel:NULL];
+    [self performLayoutWithModel:model_];
     [[self window] makeFirstResponder:self];
   }
   return self;
