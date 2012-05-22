@@ -105,7 +105,6 @@ namespace {
 
 const int kReadBufferSize = 8 * 1024;
 const int kDefaultConnectionAtRiskOfLossSeconds = 10;
-const int kTrailingPingDelayTimeSeconds = 1;
 const int kHungIntervalSeconds = 10;
 
 class NetLogSpdySessionParameter : public NetLog::EventParameters {
@@ -359,10 +358,8 @@ SpdySession::SpdySession(const HostPortProxyPair& host_port_proxy_pair,
       stalled_streams_(0),
       pings_in_flight_(0),
       next_ping_id_(1),
-      received_data_time_(base::TimeTicks::Now()),
-      trailing_ping_pending_(false),
+      last_activity_time_(base::TimeTicks::Now()),
       check_ping_status_pending_(false),
-      need_to_send_ping_(false),
       flow_control_(false),
       initial_send_window_size_(kSpdyStreamInitialWindowSize),
       initial_recv_window_size_(kSpdyStreamInitialWindowSize),
@@ -371,8 +368,6 @@ SpdySession::SpdySession(const HostPortProxyPair& host_port_proxy_pair,
       credential_state_(SpdyCredentialState::kDefaultNumSlots),
       connection_at_risk_of_loss_time_(
           base::TimeDelta::FromSeconds(kDefaultConnectionAtRiskOfLossSeconds)),
-      trailing_ping_delay_time_(
-          base::TimeDelta::FromSeconds(kTrailingPingDelayTimeSeconds)),
       hung_interval_(
           base::TimeDelta::FromSeconds(kHungIntervalSeconds)) {
   DCHECK(HttpStreamFactory::spdy_enabled());
@@ -666,13 +661,6 @@ int SpdySession::WriteSynStream(
             new NetLogSpdySynParameter(headers, flags, stream_id, 0)));
   }
 
-  // Some servers don't like too many pings, so we limit our current sending to
-  // no more than two pings for any syn frame or data frame sent.  To do this,
-  // we avoid ever setting this to true unless we send a syn (which we have just
-  // done) or data frame. This approach may change over time as servers change
-  // their responses to pings.
-  need_to_send_ping_ = true;
-
   return ERR_IO_PENDING;
 }
 
@@ -790,14 +778,6 @@ int SpdySession::WriteStreamData(SpdyStreamId stream_id,
           stream_id, data->data(), len, flags));
   QueueFrame(frame.get(), stream->priority(), stream);
 
-  // Some servers don't like too many pings, so we limit our current sending to
-  // no more than two pings for any syn frame or data frame sent.  To do this,
-  // we avoid ever setting this to true unless we send a syn (which we have just
-  // done) or data frame. This approach may change over time as servers change
-  // their responses to pings.
-  if (len > 0)
-    need_to_send_ping_ = true;
-
   return ERR_IO_PENDING;
 }
 
@@ -867,7 +847,7 @@ void SpdySession::OnReadComplete(int bytes_read) {
 
   bytes_received_ += bytes_read;
 
-  received_data_time_ = base::TimeTicks::Now();
+  last_activity_time_ = base::TimeTicks::Now();
 
   // The SpdyFramer will use callbacks onto |this| as it parses frames.
   // When errors occur, those callbacks can lead to teardown of all references
@@ -896,6 +876,7 @@ void SpdySession::OnWriteComplete(int result) {
   DCHECK(write_pending_);
   DCHECK(in_flight_write_.size());
 
+  last_activity_time_ = base::TimeTicks::Now();
   write_pending_ = false;
 
   scoped_refptr<SpdyStream> stream = in_flight_write_.stream();
@@ -1591,6 +1572,7 @@ void SpdySession::OnPing(const SpdyPingControlFrame& frame) {
   if (pings_in_flight_ < 0) {
     CloseSessionOnError(
         net::ERR_SPDY_PROTOCOL_ERROR, true, "pings_in_flight_ is < 0.");
+    pings_in_flight_ = 0;
     return;
   }
 
@@ -1600,11 +1582,6 @@ void SpdySession::OnPing(const SpdyPingControlFrame& frame) {
   // We will record RTT in histogram when there are no more client sent
   // pings_in_flight_.
   RecordPingRTTHistogram(base::TimeTicks::Now() - last_ping_sent_time_);
-
-  if (!need_to_send_ping_)
-    return;
-
-  PlanToSendTrailingPing();
 }
 
 void SpdySession::OnWindowUpdate(
@@ -1751,36 +1728,16 @@ void SpdySession::UpdateStreamsSendWindowSize(int32 delta_window_size) {
 }
 
 void SpdySession::SendPrefacePingIfNoneInFlight() {
-  if (pings_in_flight_ || trailing_ping_pending_ ||
-      !g_enable_ping_based_connection_checking)
+  if (pings_in_flight_ || !g_enable_ping_based_connection_checking)
     return;
 
   base::TimeTicks now = base::TimeTicks::Now();
-  // If we haven't heard from server, then send a preface-PING.
-  if ((now - received_data_time_) > connection_at_risk_of_loss_time_)
+  // If there is no activity in the session, then send a preface-PING.
+  if ((now - last_activity_time_) > connection_at_risk_of_loss_time_)
     SendPrefacePing();
-
-  PlanToSendTrailingPing();
 }
 
 void SpdySession::SendPrefacePing() {
-  WritePingFrame(next_ping_id_);
-}
-
-void SpdySession::PlanToSendTrailingPing() {
-  if (trailing_ping_pending_)
-    return;
-
-  trailing_ping_pending_ = true;
-  MessageLoop::current()->PostDelayedTask(
-      FROM_HERE,
-      base::Bind(&SpdySession::SendTrailingPing, weak_factory_.GetWeakPtr()),
-      trailing_ping_delay_time_);
-}
-
-void SpdySession::SendTrailingPing() {
-  DCHECK(trailing_ping_pending_);
-  trailing_ping_pending_ = false;
   WritePingFrame(next_ping_id_);
 }
 
@@ -1799,7 +1756,6 @@ void SpdySession::WritePingFrame(uint32 unique_id) {
   if (unique_id % 2 != 0) {
     next_ping_id_ += 2;
     ++pings_in_flight_;
-    need_to_send_ping_ = false;
     PlanToCheckPingStatus();
     last_ping_sent_time_ = base::TimeTicks::Now();
   }
@@ -1826,9 +1782,9 @@ void SpdySession::CheckPingStatus(base::TimeTicks last_check_time) {
   DCHECK(check_ping_status_pending_);
 
   base::TimeTicks now = base::TimeTicks::Now();
-  base::TimeDelta delay = hung_interval_ - (now - received_data_time_);
+  base::TimeDelta delay = hung_interval_ - (now - last_activity_time_);
 
-  if (delay.InMilliseconds() < 0 || received_data_time_ < last_check_time) {
+  if (delay.InMilliseconds() < 0 || last_activity_time_ < last_check_time) {
     CloseSessionOnError(net::ERR_SPDY_PING_FAILED, true, "Failed ping.");
     // Track all failed PING messages in a separate bucket.
     const base::TimeDelta kFailedPing =
