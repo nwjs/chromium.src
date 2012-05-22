@@ -861,9 +861,6 @@ const char kNoFirstRun[]                    = "no-first-run";
 // Don't send hyperlink auditing pings
 const char kNoPings[]                       = "no-pings";
 
-// Disables the Protector feature.
-const char kNoProtector[]                   = "no-protector";
-
 // Don't use a proxy server, always make direct connections. Overrides any
 // other proxy server flags that are passed.
 const char kNoProxyServer[]                 = "no-proxy-server";
@@ -1017,6 +1014,9 @@ const char kProfilingFlush[]                = "profiling-flush";
 
 // Specifies a custom URL for fetching NTP promo data.
 const char kPromoServerURL[]                = "promo-server-url";
+
+// Enables the Protector feature.
+const char kProtector[]                     = "protector";
 
 // Forces proxy auto-detection.
 const char kProxyAutoDetect[]               = "proxy-auto-detect";
