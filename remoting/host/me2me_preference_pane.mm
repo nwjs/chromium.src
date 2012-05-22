@@ -23,6 +23,8 @@
 #include "base/sys_string_conversions.h"
 #include "remoting/host/host_config.h"
 #include "remoting/host/json_host_config.h"
+#import "remoting/host/me2me_preference_pane_confirm_pin.h"
+#import "remoting/host/me2me_preference_pane_disable.h"
 #include "remoting/protocol/me2me_host_authenticator_factory.h"
 
 namespace {
@@ -78,6 +80,10 @@ bool IsPinValid(const std::string& pin, const std::string& host_id,
   [authorization_view_ setDelegate:self];
   [authorization_view_ setString:kAuthorizationRightExecute];
   [authorization_view_ setAutoupdate:YES];
+  confirm_pin_view_ = [[Me2MePreferencePaneConfirmPin alloc] init];
+  [confirm_pin_view_ setDelegate:self];
+  disable_view_ = [[Me2MePreferencePaneDisable alloc] init];
+  [disable_view_ setDelegate:self];
 }
 
 - (void)willSelect {
@@ -115,7 +121,8 @@ bool IsPinValid(const std::string& pin, const std::string& host_id,
   }
 }
 
-- (void)onApply:(id)sender {
+- (void)applyConfiguration:(id)sender
+                       pin:(NSString*)pin {
   if (!have_new_config_) {
     // It shouldn't be possible to hit the button if there is no config to
     // apply, but check anyway just in case it happens somehow.
@@ -126,13 +133,13 @@ bool IsPinValid(const std::string& pin, const std::string& host_id,
   [self updateAuthorizationStatus];
   [self updateUI];
 
-  std::string pin = base::SysNSStringToUTF8([pin_ stringValue]);
+  std::string pin_utf8 = base::SysNSStringToUTF8(pin);
   std::string host_id, host_secret_hash;
   bool result = (config_->GetString(remoting::kHostIdConfigPath, &host_id) &&
                  config_->GetString(remoting::kHostSecretHashConfigPath,
                                     &host_secret_hash));
   DCHECK(result);
-  if (!IsPinValid(pin, host_id, host_secret_hash)) {
+  if (!IsPinValid(pin_utf8, host_id, host_secret_hash)) {
     [self showIncorrectPinMessage];
     return;
   }
@@ -222,20 +229,32 @@ bool IsPinValid(const std::string& pin, const std::string& host_id,
 
   config_.swap(new_config_);
   have_new_config_ = YES;
+
+  [confirm_pin_view_ resetPin];
 }
 
 - (void)updateUI {
-  // TODO(lambroslambrou): These strings should be localized.
-#ifdef OFFICIAL_BUILD
-  NSString* name = @"Chrome Remote Desktop";
-#else
-  NSString* name = @"Chromoting";
-#endif
+  if (have_new_config_) {
+    [box_ setContentView:[confirm_pin_view_ view]];
+  } else {
+    [box_ setContentView:[disable_view_ view]];
+  }
+
+  // TODO(lambroslambrou): Show "enabled" and "disabled" in bold font.
   NSString* message;
   if (is_service_running_) {
-    message = [NSString stringWithFormat:@"%@ is enabled", name];
+    if (have_new_config_) {
+      message = @"Please confirm your new PIN.";
+    } else {
+      message = @"Remote connections to this computer are enabled.";
+    }
   } else {
-    message = [NSString stringWithFormat:@"%@ is disabled", name];
+    if (have_new_config_) {
+      message = @"Remote connections to this computer are disabled. To enable "
+          "remote connections you must confirm your PIN.";
+    } else {
+      message = @"Remote connections to this computer are disabled.";
+    }
   }
   [status_message_ setStringValue:message];
 
@@ -246,13 +265,12 @@ bool IsPinValid(const std::string& pin, const std::string& host_id,
     // The config has already been checked by |IsConfigValid|.
     DCHECK(result);
   }
-  [email_ setStringValue:base::SysUTF8ToNSString(email)];
 
-  [disable_button_ setEnabled:(is_pane_unlocked_ && is_service_running_)];
-  [pin_instruction_message_ setEnabled:have_new_config_];
-  [email_ setEnabled:have_new_config_];
-  [pin_ setEnabled:have_new_config_];
-  [apply_button_ setEnabled:(is_pane_unlocked_ && have_new_config_)];
+  [disable_view_ setEnabled:(is_pane_unlocked_ && is_service_running_)];
+  [confirm_pin_view_ setEnabled:is_pane_unlocked_];
+  [confirm_pin_view_ setEmail:base::SysUTF8ToNSString(email)];
+  NSString* applyButtonText = is_service_running_ ? @"Confirm" : @"Enable";
+  [confirm_pin_view_ setButtonText:applyButtonText];
 }
 
 - (void)showError {

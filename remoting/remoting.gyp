@@ -386,6 +386,10 @@
           'sources': [
             'host/me2me_preference_pane.h',
             'host/me2me_preference_pane.mm',
+            'host/me2me_preference_pane_confirm_pin.h',
+            'host/me2me_preference_pane_confirm_pin.mm',
+            'host/me2me_preference_pane_disable.h',
+            'host/me2me_preference_pane_disable.mm',
           ],
           'link_settings': {
             'libraries': [
@@ -399,6 +403,8 @@
           },
           'mac_bundle_resources': [
             'host/me2me_preference_pane.xib',
+            'host/me2me_preference_pane_confirm_pin.xib',
+            'host/me2me_preference_pane_disable.xib',
             'host/me2me_preference_pane-Info.plist',
             'resources/chromoting128.png',
           ],
