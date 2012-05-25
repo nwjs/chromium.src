@@ -864,6 +864,7 @@
           'target_name': 'installer_packaging',
           'type': 'none',
           'dependencies': [
+            'keychain_reauthorize',
             'installer/mac/third_party/bsdiff/goobsdiff.gyp:*',
             'installer/mac/third_party/xz/xz.gyp:*',
           ],
@@ -908,6 +909,7 @@
               'files': [
                 '<(PRODUCT_DIR)/goobsdiff',
                 '<(PRODUCT_DIR)/goobspatch',
+                '<(PRODUCT_DIR)/keychain_reauthorize',
                 '<(PRODUCT_DIR)/liblzma_decompress.dylib',
                 '<(PRODUCT_DIR)/xz',
                 '<(PRODUCT_DIR)/xzdec',
@@ -938,6 +940,13 @@
             },
           ],  # copies
         },  # target: installer_packaging
+        {
+          'target_name': 'keychain_reauthorize',
+          'type': 'executable',
+          'sources': [
+            'installer/mac/keychain_reauthorize_main.cc',
+          ],
+        },  # target: keychain_reauthorize
       ],  # targets
     }],  # OS=="mac"
     [ 'branding == "Chrome"', {
