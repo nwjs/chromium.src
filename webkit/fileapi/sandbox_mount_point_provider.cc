@@ -498,14 +498,11 @@ FilePath SandboxMountPointProvider::GetBaseDirectoryForOriginAndType(
 }
 
 bool SandboxMountPointProvider::DeleteOriginDataOnFileThread(
-    FileSystemContext* file_system_context,
-    QuotaManagerProxy* proxy,
-    const GURL& origin_url,
+    QuotaManagerProxy* proxy, const GURL& origin_url,
     fileapi::FileSystemType type) {
   MigrateIfNeeded(sandbox_file_util_.get(), old_base_path());
 
-  int64 usage = GetOriginUsageOnFileThread(file_system_context,
-                                           origin_url, type);
+  int64 usage = GetOriginUsageOnFileThread(origin_url, type);
 
   bool result =
       sandbox_file_util_->DeleteDirectoryForOriginAndType(origin_url, type);
@@ -555,9 +552,7 @@ void SandboxMountPointProvider::GetOriginsForHostOnFileThread(
 }
 
 int64 SandboxMountPointProvider::GetOriginUsageOnFileThread(
-    FileSystemContext* file_system_context,
-    const GURL& origin_url,
-    fileapi::FileSystemType type) {
+    const GURL& origin_url, fileapi::FileSystemType type) {
   DCHECK(type == kFileSystemTypeTemporary ||
          type == kFileSystemTypePersistent);
   FilePath base_path =
@@ -579,7 +574,7 @@ int64 SandboxMountPointProvider::GetOriginUsageOnFileThread(
   // Get the directory size now and update the cache.
   FileSystemUsageCache::Delete(usage_file_path);
 
-  FileSystemOperationContext context(file_system_context);
+  FileSystemOperationContext context(NULL);
   FileSystemPath path(origin_url, type, FilePath());
   scoped_ptr<FileSystemFileUtil::AbstractFileEnumerator> enumerator(
       sandbox_file_util_->CreateFileEnumerator(&context, path, true));

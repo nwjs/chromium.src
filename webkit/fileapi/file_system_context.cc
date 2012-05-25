@@ -78,9 +78,9 @@ bool FileSystemContext::DeleteDataForOriginOnFileThread(
   // Delete temporary and persistent data.
   return
       sandbox_provider()->DeleteOriginDataOnFileThread(
-          this, quota_manager_proxy(), origin_url, kFileSystemTypeTemporary) &&
+          quota_manager_proxy(), origin_url, kFileSystemTypeTemporary) &&
       sandbox_provider()->DeleteOriginDataOnFileThread(
-          this, quota_manager_proxy(), origin_url, kFileSystemTypePersistent);
+          quota_manager_proxy(), origin_url, kFileSystemTypePersistent);
 }
 
 bool FileSystemContext::DeleteDataForOriginAndTypeOnFileThread(
@@ -90,7 +90,7 @@ bool FileSystemContext::DeleteDataForOriginAndTypeOnFileThread(
       type == fileapi::kFileSystemTypePersistent) {
     DCHECK(sandbox_provider());
     return sandbox_provider()->DeleteOriginDataOnFileThread(
-        this, quota_manager_proxy(), origin_url, type);
+        quota_manager_proxy(), origin_url, type);
   }
   return false;
 }
