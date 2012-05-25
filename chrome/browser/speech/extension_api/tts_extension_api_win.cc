@@ -213,7 +213,8 @@ ExtensionTtsPlatformImplWin::ExtensionTtsPlatformImplWin()
 
 // static
 ExtensionTtsPlatformImplWin* ExtensionTtsPlatformImplWin::GetInstance() {
-  return Singleton<ExtensionTtsPlatformImplWin>::get();
+  return Singleton<ExtensionTtsPlatformImplWin,
+                   LeakySingletonTraits<ExtensionTtsPlatformImplWin> >::get();
 }
 
 // static
