@@ -238,6 +238,7 @@ gfx::Image& ResourceBundle::GetImageNamed(int resource_id) {
       scoped_ptr<SkBitmap> bitmap(LoadBitmap(*data_packs_[i], resource_id));
       if (bitmap.get()) {
         image_skia.AddBitmapForScale(*bitmap, 1.0f);
+      }
     }
 
     if (image_skia.empty()) {
