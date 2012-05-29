@@ -57,6 +57,8 @@ const EntryKindMap kEntryKindMap[] = {
     { DocumentEntry::PDF,          "pdf",          NULL},
 };
 
+const char kEntryField[] = "entry";
+
 struct LinkTypeMap {
   Link::LinkType type;
   const char* rel;
@@ -603,6 +605,18 @@ void DocumentEntry::FillRemainingFields() {
     else if (category->type() == Category::LABEL)
       labels_.push_back(category->label());
   }
+}
+
+// static
+DocumentEntry* DocumentEntry::ExtractAndParse(
+    const base::Value& value) {
+  const base::DictionaryValue* as_dict = NULL;
+  base::DictionaryValue* entry_dict = NULL;
+  if (value.GetAsDictionary(&as_dict) &&
+      as_dict->GetDictionary(kEntryField, &entry_dict)) {
+    return DocumentEntry::CreateFrom(entry_dict);
+  }
+  return NULL;
 }
 
 // static
