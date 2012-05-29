@@ -74,6 +74,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
 #include "googleurl/src/gurl.h"
+#include "media/base/media_switches.h"
 #include "net/base/network_change_notifier.h"
 #include "net/cookies/cookie_monster.h"
 #include "net/cookies/cookie_store.h"
@@ -1080,6 +1081,9 @@ std::string LoginUtilsImpl::GetOffTheRecordCommandLine(
       ash::switches::kAuraWindowAnimationsDisabled,
       switches::kUIEnablePartialSwap,
       switches::kUIUseGPUProcess,
+#if defined(USE_CRAS)
+      switches::kUseCras,
+#endif
       switches::kUseGL,
       switches::kUserDataDir,
 #if defined(USE_VIRTUAL_KEYBOARD)
