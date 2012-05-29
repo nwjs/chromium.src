@@ -185,12 +185,11 @@ class MockSessionDescription : public SessionDescriptionInterface {
     NOTIMPLEMENTED();
     return 0;
   }
-  virtual const IceCandidateCollection* candidates(
+  virtual const IceCandidateColletion* candidates(
       size_t mediasection_index) const OVERRIDE {
     NOTIMPLEMENTED();
     return NULL;
   }
-
   virtual bool ToString(std::string* out) const OVERRIDE {
     *out = sdp_;
     return true;

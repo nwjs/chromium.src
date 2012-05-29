@@ -12,8 +12,6 @@
 #include "jingle/glue/thread_wrapper.h"
 #include "jingle/glue/utils.h"
 #include "net/base/net_errors.h"
-#include "third_party/libjingle/source/talk/base/helpers.h"
-#include "third_party/libjingle/source/talk/p2p/base/constants.h"
 #include "third_party/libjingle/source/talk/p2p/base/p2ptransportchannel.h"
 #include "third_party/libjingle/source/talk/p2p/client/basicportallocator.h"
 
@@ -77,10 +75,7 @@ bool P2PTransportImpl::Init(WebKit::WebFrame* web_frame,
 
   DCHECK(!channel_.get());
   channel_.reset(new cricket::P2PTransportChannel(
-      0, NULL, allocator_.get()));
-  channel_->SetIceUfrag(
-      talk_base::CreateRandomString(cricket::ICE_UFRAG_LENGTH));
-  channel_->SetIcePwd(talk_base::CreateRandomString(cricket::ICE_PWD_LENGTH));
+      name, 0, NULL, allocator_.get()));
   channel_->SignalRequestSignaling.connect(
       this, &P2PTransportImpl::OnRequestSignaling);
   channel_->SignalCandidateReady.connect(

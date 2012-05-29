@@ -34,10 +34,9 @@ class P2PPortAllocator : public cricket::BasicPortAllocator {
                    const webkit_glue::P2PTransport::Config& config);
   virtual ~P2PPortAllocator();
 
-  virtual cricket::PortAllocatorSession* CreateSessionInternal(
-      int component,
-      const std::string& ice_username_fragment,
-      const std::string& ice_password) OVERRIDE;
+  virtual cricket::PortAllocatorSession* CreateSession(
+      const std::string& channel_name,
+      int component) OVERRIDE;
 
  private:
   friend class P2PPortAllocatorSession;
@@ -54,9 +53,8 @@ class P2PPortAllocatorSession : public cricket::BasicPortAllocatorSession,
  public:
   P2PPortAllocatorSession(
       P2PPortAllocator* allocator,
-      int component,
-      const std::string& ice_username_fragment,
-      const std::string& ice_password);
+      const std::string& channel_name,
+      int candidate);
   virtual ~P2PPortAllocatorSession();
 
   // WebKit::WebURLLoaderClient overrides.

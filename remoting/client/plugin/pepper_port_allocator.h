@@ -28,10 +28,9 @@ class PepperPortAllocator : public cricket::HttpPortAllocatorBase {
   virtual ~PepperPortAllocator();
 
   // cricket::HttpPortAllocatorBase overrides.
-  virtual cricket::PortAllocatorSession* CreateSessionInternal(
-      int component,
-      const std::string& ice_username_fragment,
-      const std::string& ice_password) OVERRIDE;
+  virtual cricket::PortAllocatorSession* CreateSession(
+      const std::string& channel_name,
+      int component) OVERRIDE;
 
  private:
   PepperPortAllocator(

@@ -30,8 +30,7 @@ class GaiaTokenPreXmppAuth : public buzz::PreXmppAuth {
   virtual void StartPreXmppAuth(const buzz::Jid& jid,
                                 const talk_base::SocketAddress& server,
                                 const talk_base::CryptString& pass,
-                                const std::string& auth_mechanism,
-                                const std::string& auth_token) OVERRIDE;
+                                const std::string& auth_cookie) OVERRIDE;
 
   virtual bool IsAuthDone() const OVERRIDE;
 
@@ -43,9 +42,7 @@ class GaiaTokenPreXmppAuth : public buzz::PreXmppAuth {
 
   virtual buzz::CaptchaChallenge GetCaptchaChallenge() const OVERRIDE;
 
-  virtual std::string GetAuthToken() const OVERRIDE;
-
-  virtual std::string GetAuthMechanism() const OVERRIDE;
+  virtual std::string GetAuthCookie() const OVERRIDE;
 
   // buzz::SaslHandler implementation.
 
