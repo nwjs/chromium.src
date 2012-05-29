@@ -88,6 +88,7 @@ bool IsPinValid(const std::string& pin, const std::string& host_id,
 
 - (void)willSelect {
   have_new_config_ = NO;
+  awaiting_service_stop_ = NO;
 
   NSDistributedNotificationCenter* center =
       [NSDistributedNotificationCenter defaultCenter];
@@ -117,7 +118,7 @@ bool IsPinValid(const std::string& pin, const std::string& host_id,
   [service_status_timer_ release];
   service_status_timer_ = nil;
   if (have_new_config_) {
-    [self notifyPlugin: kUpdateFailedNotificationName];
+    [self notifyPlugin:kUpdateFailedNotificationName];
   }
 }
 
@@ -166,8 +167,7 @@ bool IsPinValid(const std::string& pin, const std::string& host_id,
   // Stop the launchd job.  This cannot easily be done by the helper tool,
   // since the launchd job runs in the current user's context.
   [self sendJobControlMessage:LAUNCH_KEY_STOPJOB];
-
-  [self notifyPlugin: kUpdateSucceededNotificationName];
+  awaiting_service_stop_ = YES;
 }
 
 - (void)onNewConfigFile:(NSNotification*)notification {
@@ -178,6 +178,11 @@ bool IsPinValid(const std::string& pin, const std::string& host_id,
 - (void)refreshServiceStatus:(NSTimer*)timer {
   BOOL was_running = is_service_running_;
   [self updateServiceStatus];
+  if (awaiting_service_stop_ && !is_service_running_) {
+    awaiting_service_stop_ = NO;
+    [self notifyPlugin:kUpdateSucceededNotificationName];
+  }
+
   if (was_running != is_service_running_)
     [self updateUI];
 }
