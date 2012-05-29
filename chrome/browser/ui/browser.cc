@@ -206,6 +206,8 @@
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/boot_times_loader.h"
 #include "chrome/browser/chromeos/gdata/gdata_util.h"
+#include "chrome/browser/chromeos/kiosk_mode/kiosk_mode_metrics.h"
+#include "chrome/browser/chromeos/kiosk_mode/kiosk_mode_settings.h"
 #endif
 
 #if defined(USE_ASH)
@@ -699,6 +701,10 @@ WebContents* Browser::OpenApplication(
   prefs->SetActiveBit(extension->id(), true);
 
   UMA_HISTOGRAM_ENUMERATION("Extensions.AppLaunchContainer", container, 100);
+#if defined(OS_CHROMEOS)
+  if (chromeos::KioskModeSettings::Get()->IsKioskModeEnabled())
+    chromeos::KioskModeMetrics::Get()->UserOpenedApp();
+#endif
 
   if (extension->is_platform_app()) {
     extensions::AppEventRouter::DispatchOnLaunchedEvent(profile, extension);
