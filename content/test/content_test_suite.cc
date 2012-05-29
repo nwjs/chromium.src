@@ -6,18 +6,13 @@
 
 #include "base/logging.h"
 #include "content/browser/mock_content_browser_client.h"
-#include "content/public/common/content_paths.h"
-#include "content/public/common/url_constants.h"
 #include "content/test/test_content_client.h"
 #include "content/test/test_content_client_initializer.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "ui/base/ui_base_paths.h"
 
 #if defined(OS_MACOSX)
 #include "base/mac/scoped_nsautorelease_pool.h"
 #endif
-#include "ui/compositor/compositor_setup.h"
-
 
 namespace {
 
@@ -43,8 +38,10 @@ class TestInitializationListener : public testing::EmptyTestEventListener {
 
 }  // namespace
 
+namespace content {
+
 ContentTestSuite::ContentTestSuite(int argc, char** argv)
-    : base::TestSuite(argc, argv) {
+    : ContentTestSuiteBase(argc, argv) {
 }
 
 ContentTestSuite::~ContentTestSuite() {
@@ -55,21 +52,15 @@ void ContentTestSuite::Initialize() {
   base::mac::ScopedNSAutoreleasePool autorelease_pool;
 #endif
 
-  base::TestSuite::Initialize();
-
-  TestContentClient client_for_init;
-  content::SetContentClient(&client_for_init);
-  content::RegisterContentSchemes(false);
-  content::SetContentClient(NULL);
-
-  content::RegisterPathProvider();
-  ui::RegisterPathProvider();
-
-  // Mock out the compositor on platforms that use it.
-  ui::SetupTestCompositor();
+  ContentTestSuiteBase::Initialize();
 
   testing::TestEventListeners& listeners =
       testing::UnitTest::GetInstance()->listeners();
   listeners.Append(new TestInitializationListener);
 }
 
+ContentClient* ContentTestSuite::CreateClientForInitialization() {
+  return new TestContentClient();
+}
+
+}  // namespace content

@@ -7,10 +7,12 @@
 #pragma once
 
 #include "base/compiler_specific.h"
-#include "base/test/test_suite.h"
 #include "base/win/scoped_com_initializer.h"
+#include "content/test/content_test_suite_base.h"
 
-class ContentTestSuite : public base::TestSuite {
+namespace content {
+
+class ContentTestSuite : public ContentTestSuiteBase {
  public:
   ContentTestSuite(int argc, char** argv);
   virtual ~ContentTestSuite();
@@ -18,10 +20,14 @@ class ContentTestSuite : public base::TestSuite {
  protected:
   virtual void Initialize() OVERRIDE;
 
+  virtual ContentClient* CreateClientForInitialization() OVERRIDE;
+
  private:
   base::win::ScopedCOMInitializer com_initializer_;
 
   DISALLOW_COPY_AND_ASSIGN(ContentTestSuite);
 };
+
+}  // namespace content
 
 #endif  // CONTENT_TEST_CONTENT_TEST_SUITE_H_
