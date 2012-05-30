@@ -5210,10 +5210,10 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_THREADED_COMPOSITING_MODE_DISABLED" desc="Option name for turning off threaded compositing">
         Disabled
       </message>
-      <message name="IDS_FLAGS_DISABLE_THREADED_ANIMATION_NAME" desc="Name of the 'Disable accelerated CSS animations' lab.">
-        Disable accelerated CSS animations
+      <message name="IDS_FLAGS_ENABLE_THREADED_ANIMATION_NAME" desc="Name of the 'Enable accelerated CSS animations' lab.">
+        Enable accelerated CSS animations
       </message>
-      <message name="IDS_FLAGS_DISABLE_THREADED_ANIMATION_DESCRIPTION" desc="Description of the 'Disable accelerated CSS animations' lab.">
+      <message name="IDS_FLAGS_ENABLE_THREADED_ANIMATION_DESCRIPTION" desc="Description of the 'Enable accelerated CSS animations' lab.">
         When threaded compositing is enabled, accelerated CSS animations run on the compositing thread. However, there may be performance gains running with accelerated CSS animations, even without the compositor thread.
       </message>
       <message name="IDS_FLAGS_WEBGL_NAME" desc="Name of the 'WebGL' lab.">
@@ -16170,7 +16170,7 @@ Battery full
       When enabled, will use ClientOAuth to connect a profile to a Google account.  Otherwise ClientLogin is used.
       ClientOAuth permits using OTPs instead of ASPs to during authentication.
     </message>
-      
+
     </messages>
     <structures fallback_to_english="true">
       <!-- Make sure these stay in sync with the structures in generated_resources.grd. -->
