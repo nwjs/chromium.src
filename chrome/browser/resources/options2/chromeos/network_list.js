@@ -529,7 +529,7 @@ cr.define('options.network', function() {
                        data: {}});
         } else if (this.data_.key == 'wimax') {
           // TODO(zelidrag): Add proper strings for wimax.
-          addendum.push({label: loadTimeData.getString('turnOffCellular'),
+          addendum.push({label: localStrings.getString('turnOffCellular'),
                        command: function() {
                          chrome.send('disableWimax');
                        },
@@ -906,7 +906,7 @@ cr.define('options.network', function() {
       if (data.wimaxEnabled) {
         loadData_('wimax', data.wirelessList, data.rememberedList);
       } else {
-        var subtitle = loadTimeData.getString('networkDisabled');
+        var subtitle = localStrings.getString('networkDisabled');
         var enableWimax = function() {
           chrome.send('enableWimax');
         };
