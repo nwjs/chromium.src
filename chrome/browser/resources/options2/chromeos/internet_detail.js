@@ -803,7 +803,7 @@ cr.define('options.internet', function() {
         $('wimax-eap-identity-entry').hidden = true;
       }
       // Signal strength as percentage.
-      var signalStrength = loadTimeData.getString('inetSignalStrengthFormat');
+      var signalStrength = localStrings.getString('inetSignalStrengthFormat');
       signalStrength = signalStrength.replace('$1', data.strength);
       $('wimax-signal-strength').textContent = signalStrength;
     } else if (data.type == Constants.TYPE_CELLULAR) {
