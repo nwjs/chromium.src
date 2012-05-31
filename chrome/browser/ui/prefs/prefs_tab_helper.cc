@@ -19,6 +19,7 @@
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/render_view_host.h"
+#include "content/public/browser/render_view_host_delegate.h"
 #include "content/public/browser/web_contents.h"
 #include "grit/locale_settings.h"
 #include "grit/platform_locale_settings.h"
@@ -528,8 +529,10 @@ void PrefsTabHelper::Observe(int type,
 }
 
 void PrefsTabHelper::UpdateWebPreferences() {
+  content::RenderViewHostDelegate* rvhd =
+      web_contents_->GetRenderViewHost()->GetDelegate();
   web_contents_->GetRenderViewHost()->UpdateWebkitPreferences(
-      web_contents_->GetRenderViewHost()->GetWebkitPreferences());
+      rvhd->GetWebkitPrefs());
 }
 
 void PrefsTabHelper::UpdateRendererPreferences() {

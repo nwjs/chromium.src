@@ -116,7 +116,8 @@ bool HasClientHost(RenderViewHost* rvh) {
 }
 
 DictionaryValue* BuildTargetDescriptor(RenderViewHost* rvh, bool is_tab) {
-  WebContents* web_contents = WebContents::FromRenderViewHost(rvh);
+  RenderViewHostDelegate* rvh_delegate = rvh->GetDelegate();
+  WebContents* web_contents = rvh_delegate->GetAsWebContents();
   std::string title;
   std::string target_type = is_tab ? kPageTargetType : "";
   GURL favicon_url;
@@ -142,7 +143,7 @@ DictionaryValue* BuildTargetDescriptor(RenderViewHost* rvh, bool is_tab) {
 
   return BuildTargetDescriptor(target_type,
                                HasClientHost(rvh),
-                               web_contents->GetURL(),
+                               rvh_delegate->GetURL(),
                                title,
                                favicon_url,
                                rvh->GetProcess()->GetID(),

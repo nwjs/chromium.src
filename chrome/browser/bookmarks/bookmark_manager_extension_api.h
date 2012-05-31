@@ -27,7 +27,7 @@ class BookmarkManagerExtensionEventRouter
                                       TabContentsWrapper* tab);
   virtual ~BookmarkManagerExtensionEventRouter();
 
-  // BookmarkTabHelper::BookmarkDrag interface
+  // RenderViewHostDelegate::BookmarkDrag interface
   virtual void OnDragEnter(const BookmarkNodeData& data) OVERRIDE;
   virtual void OnDragOver(const BookmarkNodeData& data) OVERRIDE;
   virtual void OnDragLeave(const BookmarkNodeData& data) OVERRIDE;

@@ -16,6 +16,7 @@ namespace content {
 enum ViewTypeValues {
   VIEW_TYPE_INVALID,
   VIEW_TYPE_INTERSTITIAL_PAGE,
+  VIEW_TYPE_DEV_TOOLS_UI,
   VIEW_TYPE_CONTENT_END
 };
 
