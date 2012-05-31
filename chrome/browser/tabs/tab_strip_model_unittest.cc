@@ -26,6 +26,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
 #include "chrome/browser/ui/webui/ntp/new_tab_ui.h"
+#include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
@@ -59,9 +60,8 @@ class DeleteTabContentsOnDestroyedObserver
                                        TabContentsWrapper* tab_to_delete)
       : source_(source),
         tab_to_delete_(tab_to_delete) {
-    registrar_.Add(this,
-                   content::NOTIFICATION_WEB_CONTENTS_DESTROYED,
-                   content::Source<WebContents>(source->web_contents()));
+    registrar_.Add(this, chrome::NOTIFICATION_TAB_CONTENTS_DESTROYED,
+                   content::Source<TabContentsWrapper>(source));
   }
 
   virtual void Observe(int type,

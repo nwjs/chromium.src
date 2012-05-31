@@ -45,7 +45,9 @@
 #include "chrome/browser/ui/sync/one_click_signin_helper.h"
 #include "chrome/browser/ui/sync/tab_contents_wrapper_synced_tab_delegate.h"
 #include "chrome/browser/ui/tab_contents/core_tab_helper.h"
+#include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
+#include "content/public/browser/notification_service.h"
 #include "content/public/browser/web_contents.h"
 
 using content::WebContents;
@@ -156,6 +158,11 @@ TabContentsWrapper::TabContentsWrapper(WebContents* contents)
 
 TabContentsWrapper::~TabContentsWrapper() {
   in_destructor_ = true;
+
+  content::NotificationService::current()->Notify(
+      chrome::NOTIFICATION_TAB_CONTENTS_DESTROYED,
+      content::Source<TabContentsWrapper>(this),
+      content::NotificationService::NoDetails());
 
   // Need to tear down infobars before the WebContents goes away.
   // TODO(avi): Can we get this handled by the tab helper itself?

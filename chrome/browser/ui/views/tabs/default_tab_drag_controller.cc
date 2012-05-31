@@ -393,10 +393,8 @@ void DefaultTabDragController::InitTabDragData(BaseTab* tab,
   drag_data->contents = GetModel(source_tabstrip_)->GetTabContentsAt(
       drag_data->source_model_index);
   drag_data->pinned = source_tabstrip_->IsTabPinned(tab);
-  registrar_.Add(
-      this,
-      content::NOTIFICATION_WEB_CONTENTS_DESTROYED,
-      content::Source<WebContents>(drag_data->contents->web_contents()));
+  registrar_.Add(this, chrome::NOTIFICATION_TAB_CONTENTS_DESTROYED,
+                 content::Source<TabContentsWrapper>(drag_data->contents));
 
   // We need to be the delegate so we receive messages about stuff, otherwise
   // our dragged WebContents may be replaced and subsequently
@@ -514,13 +512,15 @@ void DefaultTabDragController::Observe(
     int type,
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
-  DCHECK_EQ(type, content::NOTIFICATION_WEB_CONTENTS_DESTROYED);
-  WebContents* destroyed_contents = content::Source<WebContents>(source).ptr();
+  DCHECK_EQ(chrome::NOTIFICATION_TAB_CONTENTS_DESTROYED, type);
+  TabContentsWrapper* destroyed_tab_contents =
+      content::Source<TabContentsWrapper>(source).ptr();
+  WebContents* destroyed_web_contents = destroyed_tab_contents->web_contents();
   for (size_t i = 0; i < drag_data_.size(); ++i) {
-    if (drag_data_[i].contents->web_contents() == destroyed_contents) {
+    if (drag_data_[i].contents == destroyed_tab_contents) {
       // One of the tabs we're dragging has been destroyed. Cancel the drag.
-      if (destroyed_contents->GetDelegate() == this)
-        destroyed_contents->SetDelegate(NULL);
+      if (destroyed_web_contents->GetDelegate() == this)
+        destroyed_web_contents->SetDelegate(NULL);
       drag_data_[i].contents = NULL;
       drag_data_[i].original_delegate = NULL;
       EndDragImpl(TAB_DESTROYED);
