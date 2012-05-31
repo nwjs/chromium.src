@@ -33,6 +33,7 @@
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_source.h"
 #include "content/public/browser/render_view_host.h"
+#include "content/public/browser/render_view_host_delegate.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_client.h"
 #include "grit/generated_resources.h"
@@ -43,10 +44,10 @@ using content::DevToolsAgentHost;
 using content::DevToolsAgentHostRegistry;
 using content::DevToolsClientHost;
 using content::DevToolsManager;
-using content::WebContents;
 
 namespace keys = extension_debugger_api_constants;
 
+using content::WebContents;
 
 class ExtensionDevToolsInfoBarDelegate : public ConfirmInfoBarDelegate {
  public:
@@ -145,7 +146,8 @@ class AttachedClientHosts {
         continue;
       content::RenderViewHost* rvh =
           DevToolsAgentHostRegistry::GetRenderViewHost(agent_host);
-      if (rvh && WebContents::FromRenderViewHost(rvh) == contents)
+      if (rvh && rvh->GetDelegate() &&
+          rvh->GetDelegate()->GetAsWebContents() == contents)
         return static_cast<ExtensionDevToolsClientHost*>(*it);
     }
     return NULL;

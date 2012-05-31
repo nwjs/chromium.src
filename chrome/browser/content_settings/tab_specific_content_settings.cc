@@ -28,6 +28,7 @@
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/render_view_host.h"
+#include "content/public/browser/render_view_host_delegate.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "webkit/fileapi/file_system_types.h"
@@ -86,7 +87,7 @@ TabSpecificContentSettings* TabSpecificContentSettings::Get(
   // latter will miss provisional RenderViewHosts.
   for (TabSpecificList::iterator i = g_tab_specific.Get().begin();
        i != g_tab_specific.Get().end(); ++i) {
-    if (WebContents::FromRenderViewHost(view) == (*i)->web_contents())
+    if (view->GetDelegate()->GetAsWebContents() == (*i)->web_contents())
       return (*i);
   }
 
