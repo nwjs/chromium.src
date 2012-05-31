@@ -14,7 +14,6 @@ namespace plugin {
 
 PnaclTranslateThread::PnaclTranslateThread() : subprocesses_should_die_(false),
                                                manifest_(NULL),
-                                               ld_manifest_(NULL),
                                                obj_file_(NULL),
                                                nexe_file_(NULL),
                                                pexe_wrapper_(NULL),
@@ -24,16 +23,15 @@ PnaclTranslateThread::PnaclTranslateThread() : subprocesses_should_die_(false),
   NaClXMutexCtor(&subprocess_mu_);
 }
 
-void PnaclTranslateThread::RunTranslate(
-    const pp::CompletionCallback& finish_callback,
-    const Manifest* manifest,
-    const Manifest* ld_manifest,
-    LocalTempFile* obj_file,
-    LocalTempFile* nexe_file,
-    nacl::DescWrapper* pexe_wrapper,
-    ErrorInfo* error_info,
-    PnaclResources* resources,
-    Plugin* plugin) {
+void PnaclTranslateThread::RunTranslate(pp::CompletionCallback finish_callback,
+                                        const Manifest* manifest,
+                                        const Manifest* ld_manifest,
+                                        LocalTempFile* obj_file,
+                                        LocalTempFile* nexe_file,
+                                        nacl::DescWrapper* pexe_wrapper,
+                                        ErrorInfo* error_info,
+                                        PnaclResources* resources,
+                                        Plugin* plugin) {
   PLUGIN_PRINTF(("PnaclTranslateThread::RunTranslate)\n"));
   manifest_ = manifest;
   ld_manifest_ = ld_manifest;
