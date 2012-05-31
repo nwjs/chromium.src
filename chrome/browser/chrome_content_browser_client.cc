@@ -72,7 +72,6 @@
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
-#include "chrome/common/extensions/extension_process_policy.h"
 #include "chrome/common/extensions/extension_set.h"
 #include "chrome/common/logging_chrome.h"
 #include "chrome/common/pref_names.h"
@@ -682,15 +681,6 @@ bool ChromeContentBrowserClient::ShouldSwapProcessesForNavigation(
   }
 
   return false;
-}
-
-bool ChromeContentBrowserClient::ShouldSwapProcessesForRedirect(
-    content::ResourceContext* resource_context, const GURL& current_url,
-    const GURL& new_url) {
-  ProfileIOData* io_data = ProfileIOData::FromResourceContext(resource_context);
-  return extensions::CrossesExtensionProcessBoundary(
-      io_data->GetExtensionInfoMap()->extensions(),
-      ExtensionURLInfo(current_url), ExtensionURLInfo(new_url));
 }
 
 std::string ChromeContentBrowserClient::GetCanonicalEncodingNameByAliasName(
