@@ -56,7 +56,7 @@ class ShellContentBrowserClient : public content::ContentBrowserClient {
   virtual bool ShouldSwapProcessesForNavigation(const GURL& current_url,
                                                 const GURL& new_url) OVERRIDE;
   virtual bool ShouldSwapProcessesForRedirect(
-      content::ResourceContext* resource_context,
+      ResourceContext* resource_context,
       const GURL& current_url,
       const GURL& new_url) OVERRIDE;
   virtual std::string GetCanonicalEncodingNameByAliasName(

@@ -98,7 +98,7 @@ bool ShellContentBrowserClient::ShouldSwapProcessesForNavigation(
 }
 
 bool ShellContentBrowserClient::ShouldSwapProcessesForRedirect(
-    content::ResourceContext* resource_context, const GURL& current_url,
+    ResourceContext* resource_context, const GURL& current_url,
     const GURL& new_url) {
   return false;
 }
