@@ -652,7 +652,7 @@ class OAuth1TokenFetcher
 };
 
 class LoginUtilsImpl : public LoginUtils,
-                       public GaiaOAuthConsumer,
+                       public OAuth1TokenFetcher::Delegate,
                        public OAuthLoginVerifier::Delegate,
                        public net::NetworkChangeNotifier::OnlineStateObserver,
                        public base::SupportsWeakPtr<LoginUtilsImpl> {
