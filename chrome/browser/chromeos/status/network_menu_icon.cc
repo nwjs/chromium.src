@@ -699,18 +699,18 @@ void NetworkMenuIcon::SetDisconnectedIconAndText() {
   switch (last_network_type_) {
     case TYPE_ETHERNET:
       icon_->set_icon(*rb.GetBitmapNamed(IDR_STATUSBAR_WIRED));
-      icon_->set_bottom_right_badge(
-          rb.GetBitmapNamed(IDR_STATUSBAR_NETWORK_DISCONNECTED));
       break;
     case TYPE_WIFI:
+      icon_->set_icon(GetDisconnectedBitmap(ARCS, resource_color_theme_));
+      break;
     case TYPE_WIMAX:
     case TYPE_CELLULAR:
     default:
       icon_->set_icon(GetDisconnectedBitmap(BARS, resource_color_theme_));
-      icon_->set_bottom_right_badge(
-          rb.GetBitmapNamed(IDR_STATUSBAR_NETWORK_DISCONNECTED));
       break;
   }
+  icon_->set_bottom_right_badge(
+      rb.GetBitmapNamed(IDR_STATUSBAR_NETWORK_DISCONNECTED));
   if (mode_ == MENU_MODE)
     text_ = l10n_util::GetStringUTF16(IDS_STATUSBAR_NETWORK_NO_NETWORK_TOOLTIP);
   else
