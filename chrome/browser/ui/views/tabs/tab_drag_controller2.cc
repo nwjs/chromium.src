@@ -871,9 +871,15 @@ void TabDragController2::Attach(TabStrip* attached_tabstrip,
   static_cast<views::internal::RootView*>(
       attached_tabstrip_->GetWidget()->GetRootView())->SetMouseHandler(
           attached_tabstrip_);
+
+  attached_tabstrip_->GetWidget()->SetMouseCapture(attached_tabstrip_);
+  attached_tabstrip_->OwnDragController(this);
 }
 
 void TabDragController2::Detach() {
+  attached_tabstrip_->ReleaseDragController();
+  attached_tabstrip_->GetWidget()->ReleaseMouseCapture();
+
   TabStripModel* attached_model = GetModel(attached_tabstrip_);
   for (size_t i = 0; i < drag_data_.size(); ++i) {
     int index = attached_model->GetIndexOfTabContents(drag_data_[i].contents);
@@ -948,7 +954,6 @@ void TabDragController2::DetachIntoNewBrowserAndRunMoveLoop(
 
   Browser* browser = CreateBrowserForDrag(
       attached_tabstrip_, screen_point, &drag_bounds);
-  attached_tabstrip_->ReleaseDragController();
   Detach();
   BrowserView* dragged_browser_view =
       BrowserView::GetBrowserViewForBrowser(browser);
@@ -956,7 +961,6 @@ void TabDragController2::DetachIntoNewBrowserAndRunMoveLoop(
       false);
   Attach(static_cast<TabStrip*>(dragged_browser_view->tabstrip()),
          gfx::Point());
-  attached_tabstrip_->OwnDragController(this);
   // TODO: come up with a cleaner way to do this.
   static_cast<TabStrip*>(attached_tabstrip_)->SetTabBoundsForDrag(
       drag_bounds);
