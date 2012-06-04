@@ -1056,8 +1056,6 @@ cr.define('cr.ui', function() {
         return;
       }
 
-      console.time('list:redraw');
-
       // Save the previous positions before any manipulation of elements.
       var scrollTop = this.scrollTop;
       var clientHeight = this.clientHeight;
@@ -1147,8 +1145,6 @@ cr.define('cr.ui', function() {
           }
         });
       }
-
-      console.timeEnd('list:redraw');
     },
 
     /**
