@@ -126,8 +126,6 @@ cr.define('cr.ui', function() {
               this.boundHandleDataModelPermuted_);
           this.dataModel_.removeEventListener('change',
                                               this.boundHandleDataModelChange_);
-          this.dataModel_.removeEventListener('splice',
-                                              this.boundHandleDataModelChange_);
         }
 
         this.dataModel_ = dataModel;
@@ -143,8 +141,6 @@ cr.define('cr.ui', function() {
               'permuted',
               this.boundHandleDataModelPermuted_);
           this.dataModel_.addEventListener('change',
-                                           this.boundHandleDataModelChange_);
-          this.dataModel_.addEventListener('splice',
                                            this.boundHandleDataModelChange_);
         }
 
@@ -1060,6 +1056,8 @@ cr.define('cr.ui', function() {
         return;
       }
 
+      console.time('list:redraw');
+
       // Save the previous positions before any manipulation of elements.
       var scrollTop = this.scrollTop;
       var clientHeight = this.clientHeight;
@@ -1149,6 +1147,8 @@ cr.define('cr.ui', function() {
           }
         });
       }
+
+      console.timeEnd('list:redraw');
     },
 
     /**
