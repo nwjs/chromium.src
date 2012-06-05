@@ -304,8 +304,8 @@ input[type='search'] {
   -webkit-margin-start: 10px;
   -webkit-padding-end: 11px;
   -webkit-padding-start: 0;
-  background: -webkit-canvas(drop-down-arrow) right middle no-repeat;
-  background: transparent;
+  background: transparent -webkit-canvas(drop-down-arrow)
+              no-repeat right center;
   border: 0;
   font: inherit;
   padding-bottom: 0;
@@ -313,5 +313,5 @@ input[type='search'] {
 }
 
 html[dir=rtl] .summary button {
-  background-position: top middle;
+  background-position: left center;
 }
