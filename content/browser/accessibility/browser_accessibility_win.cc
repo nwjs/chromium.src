@@ -16,7 +16,6 @@
 #include "base/win/windows_version.h"
 #include "content/browser/accessibility/browser_accessibility_manager_win.h"
 #include "content/common/accessibility_messages.h"
-#include "net/base/escape.h"
 #include "ui/base/accessibility/accessible_text_utils.h"
 
 using webkit_glue::WebAccessibility;
@@ -2891,10 +2890,6 @@ void BrowserAccessibilityWin::IntAttributeToIA2(
   if (GetIntAttribute(attribute, &value))
     ia2_attributes_.push_back(ASCIIToUTF16(ia2_attr) + L":" +
                               base::IntToString16(value));
-}
-
-string16 BrowserAccessibilityWin::Escape(const string16& str) {
-  return net::EscapeQueryParamValueUTF8(str, false);
 }
 
 const string16& BrowserAccessibilityWin::TextForIAccessibleText() {
