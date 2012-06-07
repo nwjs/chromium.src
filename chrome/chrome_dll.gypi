@@ -516,6 +516,7 @@
                       'postbuild_name': 'Copy KeystoneRegistration.framework',
                       'action': [
                         '../build/mac/copy_framework_unversioned.sh',
+                        '-I',
                         '../third_party/googlemac/Releases/Keystone/KeystoneRegistration.framework',
                         '${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/Frameworks',
                       ],
