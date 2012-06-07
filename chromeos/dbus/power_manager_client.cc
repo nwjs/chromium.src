@@ -28,6 +28,14 @@ namespace chromeos {
 // The PowerManagerClient implementation used in production.
 class PowerManagerClientImpl : public PowerManagerClient {
  public:
+  enum LockScreensState {
+    LOCK_SCREEN_REQUESTED,  // Lock screen is requested.
+    LOCK_SCREEN_REQUEST_SUCCEEDED,  // Method call succeeded.
+    LOCK_SCREEN_REQUEST_FAILED,  // Method call failed.
+    LOCK_SCREEN_FINISHED,  // Signal is received.
+    NUM_LOCK_SCREEN_STATES
+  };
+
   explicit PowerManagerClientImpl(dbus::Bus* bus)
       : power_manager_proxy_(NULL),
         screen_locked_(false),
@@ -259,6 +267,9 @@ class PowerManagerClientImpl : public PowerManagerClient {
   virtual void NotifyScreenLockRequested() OVERRIDE {
     dbus::MethodCall method_call(power_manager::kPowerManagerInterface,
                                  power_manager::kRequestLockScreenMethod);
+    UMA_HISTOGRAM_ENUMERATION("LockScreen.LockScreenPath",
+                              LOCK_SCREEN_REQUESTED,
+                              NUM_LOCK_SCREEN_STATES);
     power_manager_proxy_->CallMethodWithErrorCallback(
         &method_call,
         dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
@@ -431,7 +442,9 @@ class PowerManagerClientImpl : public PowerManagerClient {
   }
 
   void OnScreenLockRequested(dbus::Response* response) {
-    UMA_HISTOGRAM_BOOLEAN("LockScreen.RequestLockScreen", true);
+    UMA_HISTOGRAM_ENUMERATION("LockScreen.LockScreenPath",
+                              LOCK_SCREEN_REQUEST_SUCCEEDED,
+                              NUM_LOCK_SCREEN_STATES);
   }
 
   void OnScreenLockRequestedError(dbus::ErrorResponse* error_response) {
@@ -443,7 +456,9 @@ class PowerManagerClientImpl : public PowerManagerClient {
                  << error_response->GetErrorName()
                  << ": " << error_message;
     }
-    UMA_HISTOGRAM_BOOLEAN("LockScreen.RequestLockScreen", false);
+    UMA_HISTOGRAM_ENUMERATION("LockScreen.LockScreenPath",
+                              LOCK_SCREEN_REQUEST_FAILED,
+                              NUM_LOCK_SCREEN_STATES);
   }
 
   void OnGetScreenBrightnessPercent(
@@ -464,6 +479,9 @@ class PowerManagerClientImpl : public PowerManagerClient {
 
   void ScreenLockSignalReceived(dbus::Signal* signal) {
     screen_locked_ = true;
+    UMA_HISTOGRAM_ENUMERATION("LockScreen.LockScreenPath",
+                              LOCK_SCREEN_FINISHED,
+                              NUM_LOCK_SCREEN_STATES);
     FOR_EACH_OBSERVER(Observer, observers_, LockScreen());
   }
 
