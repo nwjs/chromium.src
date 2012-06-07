@@ -241,6 +241,19 @@ bool RenderViewHostImpl::CreateRenderView(const string16& frame_name,
   params.opener_route_id = opener_route_id;
   params.swapped_out = is_swapped_out_;
   params.next_page_id = next_page_id;
+#if defined(OS_POSIX) || defined(USE_AURA)
+  if (GetView()) {
+    static_cast<content::RenderWidgetHostViewPort*>(
+        GetView())->GetScreenInfo(&params.screen_info);
+  } else {
+    content::RenderWidgetHostViewPort::GetDefaultScreenInfo(
+        &params.screen_info);
+  }
+#else
+  params.screen_info =
+      WebKit::WebScreenInfoFactory::screenInfo(
+          gfx::NativeViewFromId(GetNativeViewId()));
+#endif
   params.guest = guest_;
   params.accessibility_mode =
       BrowserAccessibilityState::GetInstance()->IsAccessibleBrowser() ?

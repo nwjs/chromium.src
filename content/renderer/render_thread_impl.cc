@@ -911,6 +911,7 @@ void RenderThreadImpl::OnCreateNewView(const ViewMsg_New_Params& params) {
       false,
       params.swapped_out,
       params.next_page_id,
+      params.screen_info,
       params.guest,
       params.accessibility_mode);
 }
