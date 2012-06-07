@@ -260,15 +260,6 @@ bool RenderViewHostImpl::CreateRenderView(const string16& frame_name,
           AccessibilityModeComplete :
           AccessibilityModeOff;
 
-#if defined(OS_WIN)
-  // On Windows 8, always enable accessibility for editable text controls
-  // so we can show the virtual keyboard when one is enabled.
-  if (base::win::GetVersion() >= base::win::VERSION_WIN8 &&
-      params.accessibility_mode == AccessibilityModeOff) {
-    params.accessibility_mode = AccessibilityModeEditableTextOnly;
-  }
-#endif
-
   Send(new ViewMsg_New(params));
 
   // If it's enabled, tell the renderer to set up the Javascript bindings for
