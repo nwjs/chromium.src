@@ -440,10 +440,9 @@ RenderViewImpl::RenderViewImpl(
     bool is_renderer_created,
     bool swapped_out,
     int32 next_page_id,
-    const WebKit::WebScreenInfo& screen_info,
     bool guest,
     AccessibilityMode accessibility_mode)
-    : RenderWidget(WebKit::WebPopupTypeNone, screen_info, swapped_out),
+    : RenderWidget(WebKit::WebPopupTypeNone, swapped_out),
       webkit_preferences_(webkit_prefs),
       send_content_state_immediately_(false),
       enabled_bindings_(0),
@@ -657,7 +656,6 @@ RenderViewImpl* RenderViewImpl::Create(
     bool is_renderer_created,
     bool swapped_out,
     int32 next_page_id,
-    const WebKit::WebScreenInfo& screen_info,
     bool guest,
     AccessibilityMode accessibility_mode) {
   DCHECK(routing_id != MSG_ROUTING_NONE);
@@ -674,7 +672,6 @@ RenderViewImpl* RenderViewImpl::Create(
       is_renderer_created,
       swapped_out,
       next_page_id,
-      screen_info,
       guest,
       accessibility_mode);
 }
@@ -1541,7 +1538,6 @@ WebView* RenderViewImpl::createView(
       true,
       false,
       1,
-      screen_info_,
       guest_,
       accessibility_mode_);
   view->opened_by_user_gesture_ = params.user_gesture;
@@ -1564,7 +1560,7 @@ WebView* RenderViewImpl::createView(
 
 WebWidget* RenderViewImpl::createPopupMenu(WebKit::WebPopupType popup_type) {
   RenderWidget* widget =
-      RenderWidget::Create(routing_id_, popup_type, screen_info_);
+      RenderWidget::Create(routing_id_, popup_type);
   return widget->webwidget();
 }
 
