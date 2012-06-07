@@ -26,6 +26,7 @@
 #include "chrome/browser/chromeos/customization_document.h"
 #include "chrome/browser/chromeos/dbus/dbus_thread_manager.h"
 #include "chrome/browser/chromeos/dbus/session_manager_client.h"
+#include "chrome/browser/chromeos/kiosk_mode/kiosk_mode_settings.h"
 #include "chrome/browser/chromeos/login/helper.h"
 #include "chrome/browser/chromeos/login/login_display_host.h"
 #include "chrome/browser/chromeos/login/login_utils.h"
@@ -805,7 +806,7 @@ std::string ExistingUserController::GetGettingStartedGuideURL() const {
 void ExistingUserController::OptionallyShowReleaseNotes(
     Profile* profile) const {
   // TODO(nkostylev): Fix WizardControllerFlowTest case.
-  if (!profile)
+  if (!profile || KioskModeSettings::Get()->IsKioskModeEnabled())
     return;
   PrefService* prefs = profile->GetPrefs();
   chrome::VersionInfo version_info;
