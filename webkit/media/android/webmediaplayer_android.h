@@ -92,8 +92,9 @@ class WebMediaPlayerAndroid :
   virtual WebKit::WebMediaPlayer::NetworkState networkState() const OVERRIDE;
   virtual WebKit::WebMediaPlayer::ReadyState readyState() const OVERRIDE;
 
-  virtual bool hasSingleSecurityOrigin() const OVERRIDE;
-  virtual WebKit::WebMediaPlayer::MovieLoadType movieLoadType() const OVERRIDE;
+  virtual bool hasSingleSecurityOrigin() const;
+  virtual bool didPassCORSAccessCheck() const;
+  virtual WebKit::WebMediaPlayer::MovieLoadType movieLoadType() const;
 
   virtual float mediaTimeForTimeValue(float timeValue) const OVERRIDE;
 

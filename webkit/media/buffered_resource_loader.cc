@@ -559,6 +559,12 @@ bool BufferedResourceLoader::HasSingleOrigin() const {
   return single_origin_;
 }
 
+bool BufferedResourceLoader::DidPassCORSAccessCheck() const {
+  DCHECK(start_cb_.is_null())
+      << "Start() must complete before calling DidPassCORSAccessCheck()";
+  return !loader_failed_ && cors_mode_ != kUnspecified;
+}
+
 void BufferedResourceLoader::UpdateDeferStrategy(DeferStrategy strategy) {
   defer_strategy_ = strategy;
   UpdateDeferBehavior();
