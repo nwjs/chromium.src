@@ -615,6 +615,7 @@ void BrowserOptionsHandler::InitializePage() {
   OnTemplateURLServiceChanged();
   ObserveThemeChanged();
   UpdateDefaultBrowserState();
+  UpdateDefaultBrowserState();
 
   SetupMetricsReportingCheckbox();
   SetupMetricsReportingSettingVisibility();
