@@ -4235,7 +4235,8 @@ void Browser::Observe(int type,
       } else if (pref_name == prefs::kInstantEnabled ||
                  pref_name == prefs::kMetricsReportingEnabled ||
                  pref_name == prefs::kSearchSuggestEnabled) {
-        if (!InstantController::IsEnabled(profile())) {
+        if (browser_shutdown::ShuttingDownWithoutClosingBrowsers() ||
+            !InstantController::IsEnabled(profile())) {
           if (instant()) {
             instant()->DestroyPreviewContents();
             instant_.reset();
