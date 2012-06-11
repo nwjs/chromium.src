@@ -81,6 +81,15 @@ const float kMaxRate = 16.0f;
 
 namespace webkit_media {
 
+#define COMPILE_ASSERT_MATCHING_ENUM(name)                              \
+  COMPILE_ASSERT(static_cast<int>(WebKit::WebMediaPlayer::CORSMode ## name) == \
+                 static_cast<int>(BufferedResourceLoader::k ## name),   \
+                 mismatching_enums)
+COMPILE_ASSERT_MATCHING_ENUM(Unspecified);
+COMPILE_ASSERT_MATCHING_ENUM(Anonymous);
+COMPILE_ASSERT_MATCHING_ENUM(UseCredentials);
+#undef COMPILE_ASSERT_MATCHING_ENUM
+
 WebMediaPlayerImpl::WebMediaPlayerImpl(
     WebKit::WebFrame* frame,
     WebKit::WebMediaPlayerClient* client,
@@ -196,6 +205,10 @@ URLSchemeForHistogram URLScheme(const GURL& url) {
 }  // anonymous namespace
 
 void WebMediaPlayerImpl::load(const WebKit::WebURL& url) {
+  load(url, CORSModeUnspecified);
+}
+
+void WebMediaPlayerImpl::load(const WebKit::WebURL& url, CORSMode cors_mode) {
   DCHECK_EQ(main_loop_, MessageLoop::current());
 
   GURL gurl(url);
@@ -231,9 +244,11 @@ void WebMediaPlayerImpl::load(const WebKit::WebURL& url) {
   // Otherwise it's a regular request which requires resolving the URL first.
   proxy_->set_data_source(
       new BufferedDataSource(main_loop_, frame_, media_log_));
-  proxy_->data_source()->Initialize(url, base::Bind(
-      &WebMediaPlayerImpl::DataSourceInitialized,
-      base::Unretained(this), gurl));
+  proxy_->data_source()->Initialize(
+      url, static_cast<BufferedResourceLoader::CORSMode>(cors_mode),
+      base::Bind(
+          &WebMediaPlayerImpl::DataSourceInitialized,
+          base::Unretained(this), gurl));
 
   // TODO(scherkus): this is leftover from removing DemuxerFactory -- instead
   // our DataSource should report this information. See http://crbug.com/120426
@@ -363,6 +378,7 @@ void WebMediaPlayerImpl::setVisible(bool visible) {
 COMPILE_ASSERT_MATCHING_ENUM(PreloadNone, NONE);
 COMPILE_ASSERT_MATCHING_ENUM(PreloadMetaData, METADATA);
 COMPILE_ASSERT_MATCHING_ENUM(PreloadAuto, AUTO);
+#undef COMPILE_ASSERT_MATCHING_ENUM
 
 void WebMediaPlayerImpl::setPreload(WebMediaPlayer::Preload preload) {
   DCHECK_EQ(main_loop_, MessageLoop::current());
