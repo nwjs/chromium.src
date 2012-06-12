@@ -194,16 +194,19 @@ const OriginIdentifierValueMap* ExtensionContentSettingsStore::GetValueMap(
     const std::string& ext_id,
     ExtensionPrefsScope scope) const {
   ExtensionEntryMap::const_iterator i = FindEntry(ext_id);
-  if (i != entries_.end()) {
-    switch (scope) {
-      case kExtensionPrefsScopeRegular:
-        return &(i->second->settings);
-      case kExtensionPrefsScopeIncognitoPersistent:
-        return &(i->second->incognito_persistent_settings);
-      case kExtensionPrefsScopeIncognitoSessionOnly:
-        return &(i->second->incognito_session_only_settings);
-    }
+  if (i == entries_.end())
+    return NULL;
+
+  switch (scope) {
+    case kExtensionPrefsScopeRegular:
+      return &(i->second->settings);
+    case kExtensionPrefsScopeIncognitoPersistent:
+      return &(i->second->incognito_persistent_settings);
+    case kExtensionPrefsScopeIncognitoSessionOnly:
+      return &(i->second->incognito_session_only_settings);
   }
+
+  NOTREACHED();
   return NULL;
 }
 
@@ -214,6 +217,8 @@ void ExtensionContentSettingsStore::ClearContentSettingsForExtension(
   {
     base::AutoLock lock(lock_);
     OriginIdentifierValueMap* map = GetValueMap(ext_id, scope);
+    if (!map)
+      return;
     notify = !map->empty();
     map->clear();
   }
