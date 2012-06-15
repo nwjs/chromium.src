@@ -417,6 +417,10 @@ void SigninScreenHandler::Initialize() {
   }
 }
 
+gfx::NativeWindow SigninScreenHandler::GetNativeWindow() {
+  return delegate_ ? delegate_->GetNativeWindow() : NULL;
+}
+
 void SigninScreenHandler::RegisterMessages() {
   network_state_informer_.reset(new NetworkStateInformer(this, web_ui()));
   network_state_informer_->Init();
@@ -730,6 +734,8 @@ void SigninScreenHandler::HandleLaunchIncognito(const base::ListValue* args) {
 }
 
 void SigninScreenHandler::HandleFixCaptivePortal(const base::ListValue* args) {
+  if (!delegate_)
+    return;
   // TODO(altimofeev): move error page and captive portal window showing logic
   // to C++ (currenly most of it is done on the JS side).
   if (!captive_portal_window_proxy_.get()) {
@@ -813,6 +819,8 @@ void SigninScreenHandler::HandleToggleEnrollmentScreen(
 }
 
 void SigninScreenHandler::HandleLaunchHelpApp(const base::ListValue* args) {
+  if (!delegate_)
+    return;
   double help_topic_id;  // Javascript number is passed back as double.
   if (!args->GetDouble(0, &help_topic_id)) {
     NOTREACHED();
