@@ -489,8 +489,13 @@ bool AcceleratorController::AcceleratorPressed(
     }
     case WINDOW_MINIMIZE: {
       aura::Window* window = wm::GetActiveWindow();
-      if (window)
+      // Disable the shortcut for minimizing full screen window due to
+      // crbug.com/131709, which is a crashing issue related to minimizing
+      // full screen pepper window.
+      if (window && !wm::IsWindowFullscreen(window)) {
         wm::MinimizeWindow(window);
+	return true;
+      }
       break;
     }
     case WINDOW_MAXIMIZE_RESTORE: {
