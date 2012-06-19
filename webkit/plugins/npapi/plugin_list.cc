@@ -141,8 +141,8 @@ static const VersionRangeDefinition kQuicktimeVersionRange[] = {
     { "", "", "7.6.9" }
 };
 static const VersionRangeDefinition kJavaVersionRange[] = {
-    { "0", "7", "6.0.310" },  // "310" is not a typo.
-    { "7", "", "10.3" }  // JDK7u3 identifies itself as 10.3
+    { "0", "7", "6.0.330" },  // Java SE 6 Update 33. "330" is not a typo.
+    { "7", "", "10.5.1" }  // JDK7u5 identifies itself as 10.5.1.
 };
 // This is up to date with
 // http://www.adobe.com/support/security/bulletins/apsb12-08.html
@@ -192,8 +192,8 @@ static const PluginGroupDefinition kGroupDefinitions[] = {
 
 #else  // Most importantly, covers desktop Linux.
 static const VersionRangeDefinition kJavaVersionRange[] = {
-    { "0", "1.7", "1.6.0.31" },
-    { "1.7", "", "1.7.0.3" }
+    { "0", "1.7", "1.6.0.33" },
+    { "1.7", "", "1.7.0.5" }
 };
 
 // Up to date with:
