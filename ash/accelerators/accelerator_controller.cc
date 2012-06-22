@@ -500,7 +500,7 @@ bool AcceleratorController::AcceleratorPressed(
     }
     case WINDOW_MAXIMIZE_RESTORE: {
       aura::Window* window = wm::GetActiveWindow();
-      if (window) {
+      if (window && !wm::IsWindowFullscreen(window)) {
         if (wm::IsWindowMaximized(window))
           wm::RestoreWindow(window);
         else
