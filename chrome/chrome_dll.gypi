@@ -425,17 +425,6 @@
                   ],
                 },
                 {
-                  'destination': '<(PRODUCT_DIR)/$(CONTENTS_FOLDER_PATH)/Internet Plug-Ins/PepperFlash',
-                  'files': [],
-                  'conditions': [
-                    ['branding == "Chrome"', {
-                      'files': [
-                        '<(PRODUCT_DIR)/PepperFlash/PepperFlashPlayer.plugin',
-                      ],
-                    }],
-                  ],
-                },
-                {
                   # Copy of resources used by tests.
                   'destination': '<(PRODUCT_DIR)',
                   'files': [
