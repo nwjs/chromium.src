@@ -156,10 +156,6 @@ void WebIntentPickerCocoa::OnExtensionIconChanged(
 
 void WebIntentPickerCocoa::OnInlineDisposition(WebIntentPickerModel* model,
                                                const GURL& url) {
-  const WebIntentPickerModel::InstalledService* service =
-     model->GetInstalledServiceWithURL(model->inline_disposition_url());
-  DCHECK(service);
-
   content::WebContents* web_contents = content::WebContents::Create(
       tab_contents_->profile(),
       tab_util::GetSiteInstanceForNewTab(tab_contents_->profile(), url),
@@ -178,8 +174,7 @@ void WebIntentPickerCocoa::OnInlineDisposition(WebIntentPickerModel* model,
       content::Referrer(),
       content::PAGE_TRANSITION_START_PAGE,
       std::string());
-  [sheet_controller_ setInlineDispositionTitle:
-    base::SysUTF16ToNSString(service->title)];
+
   [sheet_controller_ setInlineDispositionTabContents:
       inline_disposition_tab_contents_.get()];
   PerformLayout();
@@ -233,13 +228,4 @@ void WebIntentPickerCocoa::OnExtensionLinkClicked(const std::string& id) {
 void WebIntentPickerCocoa::OnSuggestionsLinkClicked() {
   DCHECK(delegate_);
   delegate_->OnSuggestionsLinkClicked();
-}
-
-void WebIntentPickerCocoa::OnChooseAnotherService() {
-  DCHECK(delegate_);
-  delegate_->OnChooseAnotherService();
-  inline_disposition_tab_contents_.reset();
-  inline_disposition_delegate_.reset();
-  [sheet_controller_ setInlineDispositionTabContents:NULL];
-  PerformLayout();
 }
