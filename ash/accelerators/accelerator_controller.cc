@@ -41,6 +41,12 @@ namespace {
 
 bool HandleCycleWindowMRU(ash::WindowCycleController::Direction direction,
                           bool is_alt_down) {
+  // Disable cycling while a fullscreen window is active as a workaround for
+  // http://crbug.com/123083.
+  aura::Window* window = ash::wm::GetActiveWindow();
+  if (window && ash::wm::IsWindowFullscreen(window))
+    return true;
+
   // TODO(mukai): support Apps windows here.
   ash::Shell::GetInstance()->
       window_cycle_controller()->HandleCycleWindow(direction, is_alt_down);
@@ -64,6 +70,12 @@ bool ShouldSkip(ash::LauncherItemType type) {
 }
 
 void HandleCycleWindowLinear(ash::WindowCycleController::Direction direction) {
+  // Disable cycling while a fullscreen window is active as a workaround for
+  // http://crbug.com/123083.
+  aura::Window* window = ash::wm::GetActiveWindow();
+  if (window && ash::wm::IsWindowFullscreen(window))
+    return;
+
   // TODO(mukai): move this function to somewhere else (probably a new
   // file launcher_navigator.cc) and write test cases.
   ash::LauncherModel* model = ash::Shell::GetInstance()->launcher()->model();
@@ -388,9 +400,14 @@ bool AcceleratorController::AcceleratorPressed(
       // Return true to prevent propagation of the key event because
       // this key combination is reserved for partial screenshot.
       return true;
-    case SEARCH_KEY:
-      ash::Shell::GetInstance()->delegate()->Search();
+    case SEARCH_KEY: {
+      // Disable the search key while a fullscreen window is open as a
+      // workaround for http://crbug.com/131436.
+      aura::Window* window = wm::GetActiveWindow();
+      if (!window || !wm::IsWindowFullscreen(window))
+        ash::Shell::GetInstance()->delegate()->Search();
       break;
+    }
     case TOGGLE_APP_LIST:
       ash::Shell::GetInstance()->ToggleAppList();
       break;
@@ -541,6 +558,12 @@ bool AcceleratorController::AcceleratorPressed(
 }
 
 void AcceleratorController::SwitchToWindow(int window) {
+  // Disable switching while a fullscreen window is active as a workaround for
+  // http://crbug.com/123083.
+  aura::Window* active_window = wm::GetActiveWindow();
+  if (active_window && wm::IsWindowFullscreen(active_window))
+    return;
+
   const LauncherItems& items =
       Shell::GetInstance()->launcher()->model()->items();
   int item_count =
