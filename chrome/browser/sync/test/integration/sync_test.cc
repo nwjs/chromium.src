@@ -214,6 +214,9 @@ void SyncTest::AddTestSwitches(CommandLine* cl) {
   // Disable non-essential access of external network resources.
   if (!cl->HasSwitch(switches::kDisableBackgroundNetworking))
     cl->AppendSwitch(switches::kDisableBackgroundNetworking);
+
+  if (!cl->HasSwitch(switches::kEnableSyncSearchEngines))
+    cl->AppendSwitch(switches::kEnableSyncSearchEngines);
 }
 
 void SyncTest::AddOptionalTypesToCommandLine(CommandLine* cl) {
