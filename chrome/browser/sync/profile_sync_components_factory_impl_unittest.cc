@@ -43,7 +43,6 @@ class ProfileSyncComponentsFactoryImplTest : public testing::Test {
     datatypes.push_back(syncable::EXTENSION_SETTINGS);
     datatypes.push_back(syncable::PASSWORDS);
     datatypes.push_back(syncable::PREFERENCES);
-    datatypes.push_back(syncable::SEARCH_ENGINES);
     datatypes.push_back(syncable::SESSIONS);
     datatypes.push_back(syncable::THEMES);
     datatypes.push_back(syncable::TYPED_URLS);
