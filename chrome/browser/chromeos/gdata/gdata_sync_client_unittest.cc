@@ -102,7 +102,7 @@ class GDataSyncClientTest : public testing::Test {
     EXPECT_CALL(*mock_network_library_, active_network())
         .Times(AnyNumber())
         .WillRepeatedly((Return(active_network_.get())));
-    chromeos::Network::TestApi(active_network_.get()).SetConnected(true);
+    chromeos::Network::TestApi(active_network_.get()).SetConnected();
     // Notify the sync client that the network is changed. This is done via
     // NetworkLibrary in production, but here, we simulate the behavior by
     // directly calling OnNetworkManagerChanged().
@@ -116,7 +116,7 @@ class GDataSyncClientTest : public testing::Test {
     EXPECT_CALL(*mock_network_library_, active_network())
         .Times(AnyNumber())
         .WillRepeatedly((Return(active_network_.get())));
-    chromeos::Network::TestApi(active_network_.get()).SetConnected(true);
+    chromeos::Network::TestApi(active_network_.get()).SetConnected();
     sync_client_->OnNetworkManagerChanged(mock_network_library_);
   }
 
@@ -127,7 +127,7 @@ class GDataSyncClientTest : public testing::Test {
     EXPECT_CALL(*mock_network_library_, active_network())
         .Times(AnyNumber())
         .WillRepeatedly((Return(active_network_.get())));
-    chromeos::Network::TestApi(active_network_.get()).SetConnected(true);
+    chromeos::Network::TestApi(active_network_.get()).SetConnected();
     sync_client_->OnNetworkManagerChanged(mock_network_library_);
   }
 
@@ -138,8 +138,7 @@ class GDataSyncClientTest : public testing::Test {
     EXPECT_CALL(*mock_network_library_, active_network())
         .Times(AnyNumber())
         .WillRepeatedly((Return(active_network_.get())));
-    // Here false is passed to make it disconnected.
-    chromeos::Network::TestApi(active_network_.get()).SetConnected(false);
+    chromeos::Network::TestApi(active_network_.get()).SetDisconnected();
     sync_client_->OnNetworkManagerChanged(mock_network_library_);
   }
 
