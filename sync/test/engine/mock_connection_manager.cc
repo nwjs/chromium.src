@@ -87,6 +87,7 @@ bool MockConnectionManager::PostBufferToPath(PostBufferParams* params,
     browser_sync::ScopedServerStatusWatcher* watcher) {
   ClientToServerMessage post;
   CHECK(post.ParseFromString(params->buffer_in));
+  CHECK(post.has_protocol_version());
   last_request_.CopyFrom(post);
   client_stuck_ = post.sync_problem_detected();
   ClientToServerResponse response;
