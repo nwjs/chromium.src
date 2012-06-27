@@ -1102,6 +1102,7 @@ class GDataFileSystemTest : public testing::Test {
 
     // drive/File1
     GDataFileProto* file = root_dir->add_child_files();
+    file->set_upload_url("http://resumable-edit-media/1");
     file_base = file->mutable_gdata_entry();
     platform_info = file_base->mutable_file_info();
     file_base->set_title("File1");
@@ -1117,6 +1118,7 @@ class GDataFileSystemTest : public testing::Test {
 
     // drive/Dir1/File2
     file = dir1->add_child_files();
+    file->set_upload_url("http://resumable-edit-media/2");
     file_base = file->mutable_gdata_entry();
     platform_info = file_base->mutable_file_info();
     file_base->set_title("File2");
@@ -1132,6 +1134,7 @@ class GDataFileSystemTest : public testing::Test {
 
     // drive/Dir1/SubDir2/File3
     file = dir2->add_child_files();
+    file->set_upload_url("http://resumable-edit-media/3");
     file_base = file->mutable_gdata_entry();
     platform_info = file_base->mutable_file_info();
     file_base->set_title("File3");
