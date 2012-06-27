@@ -151,9 +151,9 @@ void ProfileSyncComponentsFactoryImpl::RegisterDataTypes(
         new TypedUrlDataTypeController(this, profile_, pss));
   }
 
-  // Search Engine sync is temporarily disabled by default.  Register only if
-  // explicitly enabled.
-  if (command_line_->HasSwitch(switches::kEnableSyncSearchEngines)) {
+  // Search Engine sync is enabled by default.  Register only if explicitly
+  // disabled.
+  if (!command_line_->HasSwitch(switches::kDisableSyncSearchEngines)) {
     pss->RegisterDataTypeController(
         new SearchEngineDataTypeController(this, profile_, pss));
   }
