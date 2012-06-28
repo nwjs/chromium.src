@@ -2,12 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/ui/views/ash/launcher/chrome_launcher_controller.h"
+
 #include "ash/launcher/launcher.h"
 #include "ash/launcher/launcher_model.h"
 #include "ash/shell.h"
 #include "ash/wm/window_util.h"
 #include "base/command_line.h"
-#include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/automation/automation_util.h"
 #include "chrome/browser/extensions/extension_apitest.h"
@@ -24,7 +25,6 @@
 #include "chrome/browser/ui/extensions/application_launch.h"
 #include "chrome/browser/ui/extensions/shell_window.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/views/ash/launcher/chrome_launcher_controller.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension_constants.h"
@@ -57,7 +57,8 @@ class LauncherAppBrowserTest : public ExtensionBrowserTest {
 
   const Extension* LoadAndLaunchExtension(
       const char* name,
-      extension_misc::LaunchContainer container) {
+      extension_misc::LaunchContainer container,
+      WindowOpenDisposition disposition) {
     EXPECT_TRUE(LoadExtension(test_data_dir_.AppendASCII(name)));
 
     ExtensionService* service = browser()->profile()->GetExtensionService();
@@ -71,7 +72,7 @@ class LauncherAppBrowserTest : public ExtensionBrowserTest {
         // Overriding manifest to open in a panel.
         container,
         GURL(),
-        NEW_FOREGROUND_TAB,
+        disposition,
         NULL);
     return extension;
   }
@@ -452,7 +453,8 @@ IN_PROC_BROWSER_TEST_F(LauncherAppBrowserTest, LaunchPinned) {
 IN_PROC_BROWSER_TEST_F(LauncherAppBrowserTest, LaunchUnpinned) {
   TabStripModel* tab_strip = browser()->tab_strip_model();
   int tab_count = tab_strip->count();
-  LoadAndLaunchExtension("app1", extension_misc::LAUNCH_TAB);
+  LoadAndLaunchExtension("app1", extension_misc::LAUNCH_TAB,
+                         NEW_FOREGROUND_TAB);
   EXPECT_EQ(++tab_count, tab_strip->count());
   ash::LauncherID shortcut_id = CreateShortcut("app1");
   EXPECT_EQ(ash::STATUS_ACTIVE, (*model_->ItemByID(shortcut_id)).status);
@@ -466,6 +468,17 @@ IN_PROC_BROWSER_TEST_F(LauncherAppBrowserTest, LaunchUnpinned) {
   EXPECT_EQ(ash::STATUS_CLOSED, (*model_->ItemByID(shortcut_id)).status);
 }
 
+// Launches an app in the background and then tries to open it. This is test for
+// a crash we had.
+IN_PROC_BROWSER_TEST_F(LauncherAppBrowserTest, LaunchInBackground) {
+  TabStripModel* tab_strip = browser()->tab_strip_model();
+  int tab_count = tab_strip->count();
+  LoadAndLaunchExtension("app1", extension_misc::LAUNCH_TAB,
+                         NEW_BACKGROUND_TAB);
+  EXPECT_EQ(++tab_count, tab_strip->count());
+  ChromeLauncherController::instance()->OpenAppID(last_loaded_extension_id_, 0);
+}
+
 // Confirm that clicking a icon for an app running in one of 2 maxmized windows
 // activates the right window.
 IN_PROC_BROWSER_TEST_F(LauncherAppBrowserTest, LaunchMaximized) {
@@ -477,7 +490,6 @@ IN_PROC_BROWSER_TEST_F(LauncherAppBrowserTest, LaunchMaximized) {
   Browser::NewEmptyWindow(browser()->profile());
   open_observer.Wait();
   Browser* browser2 = browser::FindLastActiveWithProfile(browser()->profile());
-  printf("browser2 is active: %d\n", browser2->window()->IsActive());
   aura::Window* window2 = browser2->window()->GetNativeWindow();
   TabStripModel* tab_strip = browser2->tab_strip_model();
   int tab_count = tab_strip->count();
