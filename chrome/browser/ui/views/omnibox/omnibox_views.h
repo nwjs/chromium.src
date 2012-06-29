@@ -10,9 +10,23 @@ class AutocompleteEditController;
 class CommandUpdater;
 class LocationBarView;
 class OmniboxView;
+class OmniboxViewViews;
+class OmniboxViewWin;
 class Profile;
 class ToolbarModel;
 
+// Returns true if OmniboxViewViews should be used (instead of OmniboxViewWin).
+bool UseOmniboxViews();
+
+// Return |view| as an OmniboxViewViews, or NULL if it is of a different type.
+OmniboxViewViews* GetOmniboxViewViews(OmniboxView* view);
+
+#if defined(OS_WIN) && !defined(USE_AURA)
+// Return |view| as an OmniboxViewWin, or NULL if it is of a different type.
+OmniboxViewWin* GetOmniboxViewWin(OmniboxView* view);
+#endif
+
+// Creates an OmniboxView of the appropriate type; Views or Win.
 OmniboxView* CreateOmniboxView(AutocompleteEditController* controller,
                                ToolbarModel* toolbar_model,
                                Profile* profile,
