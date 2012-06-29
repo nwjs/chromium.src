@@ -1226,6 +1226,7 @@ TemplateURL* TemplateURLService::CreateTemplateURLFromTemplateURLAndSyncData(
   data.favicon_url = GURL(specifics.favicon_url());
   data.show_in_default_list = specifics.show_in_default_list();
   data.safe_for_autoreplace = specifics.safe_for_autoreplace();
+  data.input_encodings.clear();
   base::SplitString(specifics.input_encodings(), ';', &data.input_encodings);
   data.date_created = base::Time::FromInternalValue(specifics.date_created());
   data.last_modified = base::Time::FromInternalValue(specifics.last_modified());
