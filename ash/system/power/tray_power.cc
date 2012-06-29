@@ -210,8 +210,7 @@ void TrayPower::OnPowerStatusChanged(const PowerSupplyStatus& status) {
   if (notification_view_)
     notification_view_->UpdatePowerStatus(status);
 
-  if (!CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kAshNotifyDisabled)) {
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kAshNotify)) {
     if (UpdateNotificationState(status))
       ShowNotificationView();
     else if (notification_state_ == NOTIFICATION_NONE)

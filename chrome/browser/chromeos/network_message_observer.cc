@@ -69,8 +69,8 @@ class NetworkMessageNotification : public ash::NetworkTrayDelegate {
         break;
     }
     DCHECK(!id.empty());
-    if (CommandLine::ForCurrentProcess()->HasSwitch(
-            ash::switches::kAshNotifyDisabled)) {
+    if (!CommandLine::ForCurrentProcess()->HasSwitch(
+            ash::switches::kAshNotify)) {
       system_notification_.reset(
           new SystemNotification(profile, id, icon_id, title_));
     }

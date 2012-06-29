@@ -17,8 +17,8 @@ const char kAshEnableOak[] = "ash-enable-oak";
 // Enable extended desktop.
 const char kAshExtendedDesktop[] = "ash-extended-desktop";
 
-// Disable using Ash notifications.
-const char kAshNotifyDisabled[] = "ash-notify-disabled";
+// Use Ash notifications.
+const char kAshNotify[] = "ash-notify";
 
 // Enables the heads-up display for tracking touch points.
 const char kAshTouchHud[] = "ash-touch-hud";

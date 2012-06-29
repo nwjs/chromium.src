@@ -135,8 +135,8 @@ class FileBrowserNotifications::NotificationMessage {
         type_(type),
         notification_id_(notification_id),
         message_(message) {
-    if (!CommandLine::ForCurrentProcess()->HasSwitch(
-            ash::switches::kAshNotifyDisabled)) {
+    if (CommandLine::ForCurrentProcess()->HasSwitch(
+            ash::switches::kAshNotify)) {
       const gfx::ImageSkia& icon =
           *ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
               IDR_FILES_APP_ICON);
