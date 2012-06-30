@@ -10,7 +10,6 @@ vars = {
   "nacl_trunk": "http://src.chromium.org/native_client/trunk",
   "webkit_revision": "121589",
   "chromium_git": "http://git.chromium.org/git",
-  "chromiumos_git": "http://git.chromium.org/chromiumos",
   "swig_revision": "69281",
   "nacl_revision": "9053",
   # After changing nacl_revision, run 'glient sync' and check native_client/DEPS
@@ -443,12 +442,7 @@ deps_os = {
 
     "src/third_party/gold":
       "/trunk/deps/third_party/gold@124239",
-
-    # For Chromium OS.
-    "src/third_party/cros_system_api":
-      Var("chromiumos_git") + "/platform/system_api.git" +
-      "@a6b76c4e38f97311a7c577758467c5e2c5f3b123",
-  },
+		  },
   "android": {
     "src/third_party/freetype":
       Var("chromium_git") + "/chromium/src/third_party/freetype.git" +
