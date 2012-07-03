@@ -17,7 +17,7 @@
 #include "chrome/browser/ui/cocoa/image_utils.h"
 #import "chrome/browser/ui/cocoa/location_bar/omnibox_popup_view.h"
 #include "chrome/browser/ui/cocoa/omnibox/omnibox_view_mac.h"
-#include "grit/theme_resources.h"
+#include "grit/theme_resources_standard.h"
 #include "skia/ext/skia_utils_mac.h"
 #import "third_party/GTM/AppKit/GTMNSAnimation+Duration.h"
 #import "third_party/GTM/AppKit/GTMNSBezierPath+RoundRect.h"
