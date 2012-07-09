@@ -1250,6 +1250,11 @@ TemplateURL* TemplateURLService::CreateTemplateURLFromTemplateURLAndSyncData(
   data.show_in_default_list = specifics.show_in_default_list();
   data.safe_for_autoreplace = specifics.safe_for_autoreplace();
   base::SplitString(specifics.input_encodings(), ';', &data.input_encodings);
+  // If the server data has duplicate encodings, we'll want to push an update
+  // below to correct it.  Note that we also fix this in
+  // GetSearchProvidersUsingKeywordResult(), since otherwise we'd never correct
+  // local problems for clients which have disabled search engine sync.
+  bool deduped = DeDupeEncodings(&data.input_encodings);
   data.date_created = base::Time::FromInternalValue(specifics.date_created());
   data.last_modified = base::Time::FromInternalValue(specifics.last_modified());
   data.prepopulate_id = specifics.prepopulate_id();
@@ -1257,8 +1262,9 @@ TemplateURL* TemplateURLService::CreateTemplateURLFromTemplateURLAndSyncData(
 
   TemplateURL* turl = new TemplateURL(profile, data);
   DCHECK(!turl->IsExtensionKeyword());
-  if (reset_keyword) {
-    turl->ResetKeywordIfNecessary(true);
+  if (reset_keyword || deduped) {
+    if (reset_keyword)
+      turl->ResetKeywordIfNecessary(true);
     SyncData sync_data = CreateSyncDataFromTemplateURL(*turl);
     change_list->push_back(SyncChange(SyncChange::ACTION_UPDATE, sync_data));
   } else if (turl->IsGoogleSearchURLWithReplaceableKeyword()) {
