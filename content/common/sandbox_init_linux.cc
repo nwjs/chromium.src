@@ -297,6 +297,7 @@ static void ApplyGPUPolicy(std::vector<struct sock_filter>* program) {
   EmitAllowSyscall(__NR_shutdown, program);  // Virtual driver.
   EmitAllowSyscall(__NR_rt_sigaction, program);  // Breakpad signal handler.
   EmitFailSyscall(__NR_socket, EACCES, program);  // Nvidia binary driver.
+  EmitFailSyscall(__NR_fchmod, EPERM, program);  // ATI binary driver.
   EmitAllowSignalSelf(program);  // GPU watchdog.
 
   // Generally, filename-based syscalls will fail with ENOENT to behave
@@ -348,6 +349,8 @@ static void ApplyFlashPolicy(std::vector<struct sock_filter>* program) {
   EmitAllowSyscall(__NR_sched_yield, program);
   EmitAllowSyscall(__NR_shutdown, program);
   EmitAllowSyscall(__NR_sched_getaffinity, program);  // 3D
+  EmitAllowSyscall(__NR_sched_setscheduler, program);
+  EmitFailSyscall(__NR_socket, EACCES, program);
   EmitAllowSignalSelf(program);
 
   // These are under investigation, and hopefully not here for the long term.
