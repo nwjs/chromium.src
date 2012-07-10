@@ -4879,6 +4879,7 @@
                   'app/nibs/ContentBlockedCookies.xib',
                   'app/nibs/ContentBlockedImages.xib',
                   'app/nibs/ContentBlockedJavaScript.xib',
+                  'app/nibs/ContentBlockedMixedScript.xib',
                   'app/nibs/ContentBlockedPlugins.xib',
                   'app/nibs/ContentBlockedPopups.xib',
                   'app/nibs/ContentBlockedGeolocation.xib',

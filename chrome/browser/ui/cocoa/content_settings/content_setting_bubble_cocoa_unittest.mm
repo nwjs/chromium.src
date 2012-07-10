@@ -62,7 +62,7 @@ TEST_F(ContentSettingBubbleControllerTest, Init) {
         i == CONTENT_SETTINGS_TYPE_AUTO_SELECT_CERTIFICATE ||
         i == CONTENT_SETTINGS_TYPE_FULLSCREEN ||
         i == CONTENT_SETTINGS_TYPE_MOUSELOCK) {
-      // Notifications, web intents and auto select certificate have no bubble.
+      // These types have no bubble.
       continue;
     }
 
@@ -84,7 +84,7 @@ TEST_F(ContentSettingBubbleControllerTest, Init) {
                                                         profile(),
                                                         settingsType)
         parentWindow:parent
-         anchoredAt:NSMakePoint(50, 20)];
+          anchoredAt:NSMakePoint(50, 20)];
     EXPECT_TRUE(controller != nil);
     EXPECT_TRUE([[controller window] isVisible]);
     [parent.get() close];
