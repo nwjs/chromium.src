@@ -92,12 +92,7 @@ bool IsPepperFlashEnabledByDefault() {
   // Pepper Flash is required for Aura (on any OS).
   return true;
 #elif defined(OS_WIN)
-  // Pepper Flash is required for Windows 8 Metro mode.
-  if (base::win::IsMetroProcess())
-    return true;
-
-  // For other Windows users, enable for users in a field trial.
-  return IsInFieldTrialGroup();
+  return true;
 #elif defined(OS_LINUX)
   // For Linux, always try to use it (availability is checked elsewhere).
   return true;
