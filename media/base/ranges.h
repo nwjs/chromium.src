@@ -10,7 +10,6 @@
 
 #include "base/basictypes.h"
 #include "base/logging.h"
-#include "base/time.h"
 #include "media/base/media_export.h"
 
 namespace media {
@@ -38,9 +37,6 @@ class Ranges {
   void clear();
 
  private:
-  // Wrapper around DCHECK_LT allowing comparisons of operator<<'able T's.
-  void DCheckLT(const T& lhs, const T& rhs) const;
-
   // Disjoint, in increasing order of start.
   std::vector<std::pair<T, T> > ranges_;
 };
@@ -54,7 +50,7 @@ size_t Ranges<T>::Add(T start, T end) {
   if (start == end)  // Nothing to be done with empty ranges.
     return ranges_.size();
 
-  DCheckLT(start, end);
+  DCHECK(start < end);
   size_t i;
   // Walk along the array of ranges until |start| is no longer larger than the
   // current interval's end.
@@ -97,15 +93,6 @@ size_t Ranges<T>::Add(T start, T end) {
   }
 
   return ranges_.size();
-}
-
-template<>
-void Ranges<base::TimeDelta>::DCheckLT(const base::TimeDelta& lhs,
-                                       const base::TimeDelta& rhs) const;
-
-template<class T>
-void Ranges<T>::DCheckLT(const T& lhs, const T& rhs) const {
-  DCHECK_LT(lhs, rhs);
 }
 
 template<class T>
