@@ -36,7 +36,7 @@ extern const char kDisableBackingStoreLimit[];
 CONTENT_EXPORT extern const char kDisableBrowserPlugin[];
 CONTENT_EXPORT extern const char kDisableDatabases[];
 extern const char kDisableDataTransferItems[];
-CONTENT_EXPORT extern const char kDisableDeferred2dCanvas[];
+CONTENT_EXPORT extern const char kEnableDeferred2dCanvas[];
 extern const char kDisableDesktopNotifications[];
 CONTENT_EXPORT extern const char kDisableDeviceOrientation[];
 CONTENT_EXPORT extern const char kDisableExperimentalWebGL[];
