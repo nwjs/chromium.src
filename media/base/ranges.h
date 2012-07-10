@@ -10,6 +10,7 @@
 
 #include "base/basictypes.h"
 #include "base/logging.h"
+#include "base/time.h"
 #include "media/base/media_export.h"
 
 namespace media {
@@ -36,7 +37,13 @@ class Ranges {
   // Clear all ranges.
   void clear();
 
+  // Computes the intersection between this range and |other|.
+  Ranges<T> IntersectionWith(const Ranges<T>& other);
+
  private:
+  // Wrapper around DCHECK_LT allowing comparisons of operator<<'able T's.
+  void DCheckLT(const T& lhs, const T& rhs) const;
+
   // Disjoint, in increasing order of start.
   std::vector<std::pair<T, T> > ranges_;
 };
@@ -50,7 +57,7 @@ size_t Ranges<T>::Add(T start, T end) {
   if (start == end)  // Nothing to be done with empty ranges.
     return ranges_.size();
 
-  DCHECK(start < end);
+  DCheckLT(start, end);
   size_t i;
   // Walk along the array of ranges until |start| is no longer larger than the
   // current interval's end.
@@ -95,6 +102,15 @@ size_t Ranges<T>::Add(T start, T end) {
   return ranges_.size();
 }
 
+template<>
+void Ranges<base::TimeDelta>::DCheckLT(const base::TimeDelta& lhs,
+                                       const base::TimeDelta& rhs) const;
+
+template<class T>
+void Ranges<T>::DCheckLT(const T& lhs, const T& rhs) const {
+  DCHECK_LT(lhs, rhs);
+}
+
 template<class T>
 size_t Ranges<T>::size() const {
   return ranges_.size();
@@ -113,6 +129,30 @@ T Ranges<T>::end(int i) const {
 template<class T>
 void Ranges<T>::clear() {
   ranges_.clear();
+}
+
+template<class T>
+Ranges<T> Ranges<T>::IntersectionWith(const Ranges<T>& other) {
+  Ranges<T> result;
+
+  size_t i = 0;
+  size_t j = 0;
+
+  while (i < size() && j < other.size()) {
+    T max_start = std::max(start(i), other.start(j));
+    T min_end = std::min(end(i), other.end(j));
+
+    // Add an intersection range to the result if the ranges overlap.
+    if (max_start < min_end)
+      result.Add(max_start, min_end);
+
+    if (end(i) < other.end(j))
+      ++i;
+    else
+      ++j;
+  }
+
+  return result;
 }
 
 }  // namespace media

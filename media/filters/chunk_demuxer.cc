@@ -139,6 +139,9 @@ static bool IsSupported(const std::string& type,
 
 class ChunkDemuxerStream : public DemuxerStream {
  public:
+  // Only present in 1180 branch to fix compile breakage; stubbed out.
+  virtual Ranges<base::TimeDelta> GetBufferedRanges() OVERRIDE;
+
   typedef std::deque<scoped_refptr<StreamParserBuffer> > BufferQueue;
   typedef std::deque<ReadCB> ReadCBQueue;
   typedef std::deque<base::Closure> ClosureQueue;
@@ -216,6 +219,10 @@ class ChunkDemuxerStream : public DemuxerStream {
 
   DISALLOW_IMPLICIT_CONSTRUCTORS(ChunkDemuxerStream);
 };
+
+Ranges<base::TimeDelta> ChunkDemuxerStream::GetBufferedRanges() {
+  return Ranges<base::TimeDelta>();
+}
 
 ChunkDemuxerStream::ChunkDemuxerStream(const AudioDecoderConfig& audio_config)
     : type_(AUDIO),
