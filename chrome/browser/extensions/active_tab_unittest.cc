@@ -127,7 +127,7 @@ class ActiveTabTest : public TabContentsTestHarness {
   content::TestBrowserThread ui_thread_;
 };
 
-TEST_F(ActiveTabTest, GrantToSinglePage) {
+TEST_F(ActiveTabTest, DISABLED_GrantToSinglePage) {
   GURL google("http://www.google.com");
   NavigateAndCommit(google);
 

@@ -436,7 +436,8 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest, DownloadsApi_PauseResumeCancel) {
 
 // Test downloads.getFileIcon() on in-progress, finished, cancelled and deleted
 // download items.
-IN_PROC_BROWSER_TEST_F(DownloadExtensionTest, DownloadsApi_FileIcon_Active) {
+IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
+                       DISABLED_DownloadsApi_FileIcon_Active) {
   DownloadItem* download_item = CreateSlowTestDownload();
   ASSERT_TRUE(download_item);
 
@@ -535,7 +536,8 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest, DownloadsApi_FileIcon_Active) {
 // whether they exist or not.  If the file doesn't exist we should receive a
 // generic icon from the OS/toolkit that may or may not be specific to the file
 // type.
-IN_PROC_BROWSER_TEST_F(DownloadExtensionTest, DownloadsApi_FileIcon_History) {
+IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
+                       DISABLED_DownloadsApi_FileIcon_History) {
   const HistoryDownloadInfo kHistoryInfo[] = {
     { FILE_PATH_LITERAL("real.txt"),
       DownloadItem::COMPLETE,
@@ -820,7 +822,7 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest, DownloadsApi_SearchPlural) {
 }
 
 IN_PROC_BROWSER_TEST_F(DownloadExtensionTestIncognito,
-                       DownloadsApi_SearchIncognito) {
+                       DISABLED_DownloadsApi_SearchIncognito) {
   scoped_ptr<base::Value> result_value;
   base::ListValue* result_list = NULL;
   base::DictionaryValue* result_dict = NULL;
