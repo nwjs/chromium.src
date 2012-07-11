@@ -47,6 +47,11 @@ class GDataFileSystemProxy : public fileapi::RemoteFileSystemProxyInterface {
       bool recursive,
       const fileapi::FileSystemOperationInterface::StatusCallback& callback)
           OVERRIDE;
+  virtual void CreateFile(
+      const GURL& file_url,
+      bool exclusive,
+      const fileapi::FileSystemOperationInterface::StatusCallback& callback)
+          OVERRIDE;
   virtual void Truncate(const GURL& file_url, int64 length,
       const fileapi::FileSystemOperationInterface::StatusCallback& callback)
           OVERRIDE;

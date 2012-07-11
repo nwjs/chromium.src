@@ -77,7 +77,10 @@ void RemoteFileSystemOperation::CreateDirectory(
 void RemoteFileSystemOperation::CreateFile(const GURL& path,
                                            bool exclusive,
                                            const StatusCallback& callback) {
-  NOTIMPLEMENTED();
+  DCHECK(SetPendingOperationType(kOperationCreateFile));
+  remote_proxy_->CreateFile(path, exclusive,
+      base::Bind(&RemoteFileSystemOperation::DidFinishFileOperation,
+                 base::Owned(this), callback));
 }
 
 void RemoteFileSystemOperation::Copy(const GURL& src_path,
