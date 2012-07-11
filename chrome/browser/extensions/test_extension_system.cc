@@ -67,6 +67,7 @@ ExtensionService* TestExtensionSystem::CreateExtensionService(
                                                 extension_prefs_.get(),
                                                 autoupdate_enabled,
                                                 true));
+  extension_service_->ClearProvidersForTesting();
   return extension_service_.get();
 }
 
