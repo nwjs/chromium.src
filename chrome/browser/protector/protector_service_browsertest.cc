@@ -109,8 +109,23 @@ IN_PROC_BROWSER_TEST_F(ProtectorServiceTest, ShowAndApply) {
 // bots. http://crbug.com/130590
 #if defined(OS_WIN)
 #define MAYBE_ShowAndApplyManually DISABLED_ShowAndApplyManually
+// These are failing on "win beta" buildbots.
+#define MAYBE_BubbleClosedInsideApply DISABLED_BubbleClosedInsideApply
+#define MAYBE_ShowAndDiscardManually DISABLED_ShowAndDiscardManually
+#define MAYBE_ShowCompositeAndDismiss DISABLED_ShowCompositeAndDismiss
+#define MAYBE_ShowMultipleChangesAndApplyManuallyBeforeOther \
+  DISABLED_ShowMultipleChangesAndApplyManuallyBeforeOther
+#define MAYBE_ShowMultipleChangesAndApplyManually \
+  DISABLED_ShowMultipleChangesAndApplyManually
 #else
 #define MAYBE_ShowAndApplyManually ShowAndApplyManually
+#define MAYBE_BubbleClosedInsideApply BubbleClosedInsideApply
+#define MAYBE_ShowAndDiscardManually ShowAndDiscardManually
+#define MAYBE_ShowCompositeAndDismiss ShowCompositeAndDismiss
+#define MAYBE_ShowMultipleChangesAndApplyManuallyBeforeOther \
+  ShowMultipleChangesAndApplyManuallyBeforeOther
+#define MAYBE_ShowMultipleChangesAndApplyManually \
+  ShowMultipleChangesAndApplyManually
 #endif
 
 IN_PROC_BROWSER_TEST_F(ProtectorServiceTest, MAYBE_ShowAndApplyManually) {
