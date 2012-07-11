@@ -65,7 +65,7 @@ class MediaStreamInfoBarDelegate : public InfoBarDelegate {
   virtual MediaStreamInfoBarDelegate* AsMediaStreamInfoBarDelegate() OVERRIDE;
 
   // The original request for access to devices.
-  const content::MediaStreamRequest* request_;
+  const content::MediaStreamRequest request_;
 
   // The callback that needs to be Run to notify WebRTC of whether access to
   // audio/video devices was granted or not.
