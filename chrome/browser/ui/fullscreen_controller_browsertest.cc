@@ -166,9 +166,18 @@ void FullscreenControllerBrowserTest::TestFullscreenMouseLockContentSettings() {
   ASSERT_FALSE(IsMouseLockPermissionRequested());
 }
 
+#if defined(OS_MACOSX) || defined(OS_LINUX)
+// http://crbug.com/133831
+#define MAYBE_FullscreenMouseLockContentSettings \
+    DISABLED_FullscreenMouseLockContentSettings
+#else
+#define MAYBE_FullscreenMouseLockContentSettings \
+    FullscreenMouseLockContentSettings
+#endif
+
 // Tests fullscreen and Mouse Lock with varying content settings ALLOW & BLOCK.
 IN_PROC_BROWSER_TEST_F(FullscreenControllerBrowserTest,
-                       FullscreenMouseLockContentSettings) {
+                       MAYBE_FullscreenMouseLockContentSettings) {
   TestFullscreenMouseLockContentSettings();
 }
 
@@ -242,8 +251,17 @@ IN_PROC_BROWSER_TEST_F(FullscreenControllerTest,
   ASSERT_FALSE(browser()->window()->IsFullscreen());
 }
 
+#if defined(OS_LINUX)
+// Supressing on 1180 branch, may be related to http://crbug.com/133831.
+#define MAYBE_TestTabExitsFullscreenOnGoBack \
+    DISABLED_TestTabExitsFullscreenOnGoBack
+#else
+#define MAYBE_TestTabExitsFullscreenOnGoBack \
+    TestTabExitsFullscreenOnGoBack
+#endif
+
 IN_PROC_BROWSER_TEST_F(FullscreenControllerTest,
-                       TestTabExitsFullscreenOnGoBack) {
+                       MAYBE_TestTabExitsFullscreenOnGoBack) {
   ASSERT_TRUE(test_server()->Start());
 
   WebContents* fullscreen_tab = browser()->GetActiveWebContents();
