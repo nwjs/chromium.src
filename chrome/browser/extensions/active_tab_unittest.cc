@@ -225,7 +225,7 @@ TEST_F(ActiveTabTest, DISABLED_GrantToSinglePage) {
   EXPECT_TRUE(IsBlocked(extension_without_active_tab, chromium));
 };
 
-TEST_F(ActiveTabTest, GrantToMultiplePages) {
+TEST_F(ActiveTabTest, DISABLED_GrantToMultiplePages) {
   GURL google("http://www.google.com");
   NavigateAndCommit(google);
 
@@ -375,7 +375,7 @@ TEST_F(ActiveTabTest, GrantToMultiplePages) {
   EXPECT_TRUE(IsBlocked(another_extension, omahaproxy_appspot));
 }
 
-TEST_F(ActiveTabTest, Uninstalling) {
+TEST_F(ActiveTabTest, DISABLED_Uninstalling) {
   // Some semi-arbitrary setup.
   GURL google("http://www.google.com");
   NavigateAndCommit(google);
@@ -413,7 +413,7 @@ TEST_F(ActiveTabTest, Uninstalling) {
   EXPECT_TRUE(IsAllowed(extension, gmail));
 }
 
-TEST_F(ActiveTabTest, OnlyActiveTab) {
+TEST_F(ActiveTabTest, DISABLED_OnlyActiveTab) {
   GURL google("http://www.google.com");
   NavigateAndCommit(google);
 
