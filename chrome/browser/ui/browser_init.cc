@@ -1195,17 +1195,18 @@ Browser* BrowserInit::LaunchWithProfile::ProcessSpecifiedURLs(
   if (!urls_to_open.empty()) {
     // If urls were specified on the command line, use them.
     UrlsToTabs(urls_to_open, &tabs);
+  } else if (pref.type == SessionStartupPref::DEFAULT ||
+             (is_first_run_ &&
+              browser_init_ && !browser_init_->first_run_tabs_.empty())) {
+    std::vector<GURL> urls;
+    AddStartupURLs(&urls);
+    UrlsToTabs(urls, &tabs);
   } else if (pref.type == SessionStartupPref::URLS && !pref.urls.empty() &&
              !HasPendingUncleanExit(profile_)) {
     // Only use the set of urls specified in preferences if nothing was
     // specified on the command line. Filter out any urls that are to be
     // restored by virtue of having been previously pinned.
     AddUniqueURLs(pref.urls, &tabs);
-  } else if (pref.type == SessionStartupPref::DEFAULT) {
-    std::vector<GURL> urls;
-    AddStartupURLs(&urls);
-    UrlsToTabs(urls, &tabs);
-
   } else if (pref.type == SessionStartupPref::HOMEPAGE) {
     // If 'homepage' selected, either by the user or by a policy, we should
     // have migrated them to another value.
