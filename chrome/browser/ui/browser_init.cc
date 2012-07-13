@@ -799,10 +799,16 @@ bool BrowserInit::WasRestarted() {
 SessionStartupPref BrowserInit::GetSessionStartupPref(
     const CommandLine& command_line,
     Profile* profile) {
-  SessionStartupPref pref = SessionStartupPref::GetStartupPref(profile);
+  DCHECK(profile);
+  PrefService* prefs = profile->GetPrefs();
+  SessionStartupPref pref = SessionStartupPref::GetStartupPref(prefs);
 
-  // Session restore should be avoided on the first run.
-  if (first_run::IsChromeFirstRun())
+  // The pref has an OS-dependent default value. For the first run only, this
+  // default is overridden with SessionStartupPref::DEFAULT so that first run
+  // behavior (sync promo, welcome page) is consistently invoked.
+  // This applies only if the pref is still at its default and has not been
+  // set by the user, managed prefs or policy.
+  if (first_run::IsChromeFirstRun() && SessionStartupPref::TypeIsDefault(prefs))
     pref.type = SessionStartupPref::DEFAULT;
 
   if (command_line.HasSwitch(switches::kRestoreLastSession) ||
@@ -810,8 +816,7 @@ SessionStartupPref BrowserInit::GetSessionStartupPref(
     pref.type = SessionStartupPref::LAST;
   }
   if (pref.type == SessionStartupPref::LAST &&
-      IncognitoModePrefs::ShouldLaunchIncognito(command_line,
-                                                profile->GetPrefs())) {
+      IncognitoModePrefs::ShouldLaunchIncognito(command_line, prefs)) {
     // We don't store session information when incognito. If the user has
     // chosen to restore last session and launched incognito, fallback to
     // default launch behavior.
