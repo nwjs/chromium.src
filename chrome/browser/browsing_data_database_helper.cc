@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,21 +9,18 @@
 #include "base/file_util.h"
 #include "base/message_loop.h"
 #include "base/utf_string_conversions.h"
+#include "chrome/browser/browsing_data_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "content/public/browser/browser_thread.h"
 #include "net/base/completion_callback.h"
 #include "net/base/net_errors.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebCString.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/WebSecurityOrigin.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebString.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSecurityOrigin.h"
 
 using content::BrowserContext;
 using content::BrowserThread;
 using WebKit::WebSecurityOrigin;
-
-BrowsingDataDatabaseHelper::DatabaseInfo::DatabaseInfo()
-    : size(0) {
-}
 
 BrowsingDataDatabaseHelper::DatabaseInfo::DatabaseInfo(
     const std::string& host,
@@ -43,12 +40,6 @@ BrowsingDataDatabaseHelper::DatabaseInfo::DatabaseInfo(
 }
 
 BrowsingDataDatabaseHelper::DatabaseInfo::~DatabaseInfo() {}
-
-bool BrowsingDataDatabaseHelper::DatabaseInfo::IsFileSchemeData() {
-  return StartsWithASCII(origin_identifier,
-                         std::string(chrome::kFileScheme),
-                         true);
-}
 
 BrowsingDataDatabaseHelper::BrowsingDataDatabaseHelper(Profile* profile)
     : is_fetching_(false),
@@ -73,11 +64,6 @@ void BrowsingDataDatabaseHelper::StartFetching(
                  this));
 }
 
-void BrowsingDataDatabaseHelper::CancelNotification() {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  completion_callback_.Reset();
-}
-
 void BrowsingDataDatabaseHelper::DeleteDatabase(const std::string& origin,
                                                 const std::string& name) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
@@ -93,16 +79,13 @@ void BrowsingDataDatabaseHelper::FetchDatabaseInfoOnFileThread() {
   if (tracker_.get() && tracker_->GetAllOriginsInfo(&origins_info)) {
     for (std::vector<webkit_database::OriginInfo>::const_iterator ori =
          origins_info.begin(); ori != origins_info.end(); ++ori) {
-      const std::string origin_identifier(UTF16ToUTF8(ori->GetOrigin()));
-      if (StartsWithASCII(origin_identifier,
-                          std::string(chrome::kExtensionScheme),
-                          true)) {
-        // Extension state is not considered browsing data.
+      WebSecurityOrigin web_security_origin =
+          WebSecurityOrigin::createFromDatabaseIdentifier(ori->GetOrigin());
+      GURL origin_url(web_security_origin.toString().utf8());
+      if (!BrowsingDataHelper::HasWebScheme(origin_url)) {
+        // Non-websafe state is not considered browsing data.
         continue;
       }
-      WebSecurityOrigin web_security_origin =
-          WebSecurityOrigin::createFromDatabaseIdentifier(
-              ori->GetOrigin());
       std::vector<string16> databases;
       ori->GetAllDatabaseNames(&databases);
       for (std::vector<string16>::const_iterator db = databases.begin();
@@ -113,9 +96,9 @@ void BrowsingDataDatabaseHelper::FetchDatabaseInfoOnFileThread() {
           database_info_.push_back(DatabaseInfo(
                 web_security_origin.host().utf8(),
                 UTF16ToUTF8(*db),
-                origin_identifier,
+                UTF16ToUTF8(ori->GetOrigin()),
                 UTF16ToUTF8(ori->GetDatabaseDescription(*db)),
-                web_security_origin.toString().utf8(),
+                origin_url.spec(),
                 file_info.size,
                 file_info.last_modified));
         }
@@ -131,12 +114,8 @@ void BrowsingDataDatabaseHelper::FetchDatabaseInfoOnFileThread() {
 void BrowsingDataDatabaseHelper::NotifyInUIThread() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(is_fetching_);
-  // Note: completion_callback_ mutates only in the UI thread, so it's safe to
-  // test it here.
-  if (!completion_callback_.is_null()) {
-    completion_callback_.Run(database_info_);
-    completion_callback_.Reset();
-  }
+  completion_callback_.Run(database_info_);
+  completion_callback_.Reset();
   is_fetching_ = false;
   database_info_.clear();
 }
@@ -151,8 +130,6 @@ void BrowsingDataDatabaseHelper::DeleteDatabaseOnFileThread(
                            net::CompletionCallback());
 }
 
-CannedBrowsingDataDatabaseHelper::PendingDatabaseInfo::PendingDatabaseInfo() {}
-
 CannedBrowsingDataDatabaseHelper::PendingDatabaseInfo::PendingDatabaseInfo(
     const GURL& origin,
     const std::string& name,
@@ -163,6 +140,13 @@ CannedBrowsingDataDatabaseHelper::PendingDatabaseInfo::PendingDatabaseInfo(
 }
 
 CannedBrowsingDataDatabaseHelper::PendingDatabaseInfo::~PendingDatabaseInfo() {}
+
+bool CannedBrowsingDataDatabaseHelper::PendingDatabaseInfo::operator<(
+    const PendingDatabaseInfo& other) const {
+  if (origin == other.origin)
+    return name < other.name;
+  return origin < other.origin;
+}
 
 CannedBrowsingDataDatabaseHelper::CannedBrowsingDataDatabaseHelper(
     Profile* profile)
@@ -177,7 +161,6 @@ CannedBrowsingDataDatabaseHelper* CannedBrowsingDataDatabaseHelper::Clone() {
 
   base::AutoLock auto_lock(lock_);
   clone->pending_database_info_ = pending_database_info_;
-  clone->database_info_ = database_info_;
   return clone;
 }
 
@@ -185,20 +168,32 @@ void CannedBrowsingDataDatabaseHelper::AddDatabase(
     const GURL& origin,
     const std::string& name,
     const std::string& description) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   base::AutoLock auto_lock(lock_);
-  pending_database_info_.push_back(PendingDatabaseInfo(
-        origin, name, description));
+  if (BrowsingDataHelper::HasWebScheme(origin)) {
+    pending_database_info_.insert(PendingDatabaseInfo(
+          origin, name, description));
+  }
 }
 
 void CannedBrowsingDataDatabaseHelper::Reset() {
   base::AutoLock auto_lock(lock_);
-  database_info_.clear();
   pending_database_info_.clear();
 }
 
 bool CannedBrowsingDataDatabaseHelper::empty() const {
   base::AutoLock auto_lock(lock_);
-  return database_info_.empty() && pending_database_info_.empty();
+  return pending_database_info_.empty();
+}
+
+size_t CannedBrowsingDataDatabaseHelper::GetDatabaseCount() const {
+  base::AutoLock auto_lock(lock_);
+  return pending_database_info_.size();
+}
+
+const std::set<CannedBrowsingDataDatabaseHelper::PendingDatabaseInfo>&
+CannedBrowsingDataDatabaseHelper::GetPendingDatabaseInfo() {
+  return pending_database_info_;
 }
 
 void CannedBrowsingDataDatabaseHelper::StartFetching(
@@ -219,7 +214,8 @@ CannedBrowsingDataDatabaseHelper::~CannedBrowsingDataDatabaseHelper() {}
 
 void CannedBrowsingDataDatabaseHelper::ConvertInfoInWebKitThread() {
   base::AutoLock auto_lock(lock_);
-  for (std::list<PendingDatabaseInfo>::const_iterator
+  database_info_.clear();
+  for (std::set<PendingDatabaseInfo>::const_iterator
        info = pending_database_info_.begin();
        info != pending_database_info_.end(); ++info) {
     WebSecurityOrigin web_security_origin =
@@ -227,18 +223,6 @@ void CannedBrowsingDataDatabaseHelper::ConvertInfoInWebKitThread() {
             UTF8ToUTF16(info->origin.spec()));
     std::string origin_identifier =
         web_security_origin.databaseIdentifier().utf8();
-
-    bool duplicate = false;
-    for (std::list<DatabaseInfo>::iterator database = database_info_.begin();
-         database != database_info_.end(); ++database) {
-      if (database->origin_identifier == origin_identifier &&
-          database->database_name == info->name) {
-        duplicate = true;
-        break;
-      }
-    }
-    if (duplicate)
-      continue;
 
     database_info_.push_back(DatabaseInfo(
         web_security_origin.host().utf8(),
@@ -249,7 +233,6 @@ void CannedBrowsingDataDatabaseHelper::ConvertInfoInWebKitThread() {
         0,
         base::Time()));
   }
-  pending_database_info_.clear();
 
   BrowserThread::PostTask(
       BrowserThread::UI, FROM_HERE,

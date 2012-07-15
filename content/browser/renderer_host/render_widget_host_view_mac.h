@@ -4,9 +4,9 @@
 
 #ifndef CONTENT_BROWSER_RENDERER_HOST_RENDER_WIDGET_HOST_VIEW_MAC_H_
 #define CONTENT_BROWSER_RENDERER_HOST_RENDER_WIDGET_HOST_VIEW_MAC_H_
-#pragma once
 
 #import <Cocoa/Cocoa.h>
+#include <list>
 
 #include "base/memory/scoped_nsobject.h"
 #include "base/memory/scoped_ptr.h"
@@ -22,6 +22,8 @@
 #include "webkit/glue/webcursor.h"
 
 @class AcceleratedPluginView;
+class CompositingIOSurfaceMac;
+@class FullscreenWindowManager;
 class RenderWidgetHostViewMac;
 @protocol RenderWidgetHostViewMacDelegate;
 class RenderWidgetHostViewMacEditCommandHelper;
@@ -62,6 +64,9 @@ class RenderWidgetHostImpl;
   BOOL hasOpenMouseDown_;
 
   NSWindow* lastWindow_;  // weak
+
+  // The cursor for the page. This is passed up from the renderer.
+  scoped_nsobject<NSCursor> currentCursor_;
 
   // Variables used by our implementaion of the NSTextInput protocol.
   // An input method of Mac calls the methods of this protocol not only to
@@ -125,6 +130,11 @@ class RenderWidgetHostImpl;
 
   // Event monitor for gesture-end events.
   id endGestureMonitor_;
+
+  // OpenGL Support:
+
+  // recursive globalFrameDidChange protection:
+  BOOL handlingGlobalFrameDidChange_;
 }
 
 @property(nonatomic, readonly) NSRange selectedRange;
@@ -146,7 +156,7 @@ class RenderWidgetHostImpl;
 // Evaluates the event in the context of plugin IME, if plugin IME is enabled.
 // Returns YES if the event was handled.
 - (BOOL)postProcessEventForPluginIme:(NSEvent*)event;
-
+- (void)updateCursor:(NSCursor*)cursor;
 @end
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -164,6 +174,7 @@ class RenderWidgetHostImpl;
 //     If the render process dies, the RenderWidgetHost* goes away and all
 //     references to it must become NULL."
 //
+// RenderWidgetHostView class hierarchy described in render_widget_host_view.h.
 class RenderWidgetHostViewMac : public content::RenderWidgetHostViewBase {
  public:
   virtual ~RenderWidgetHostViewMac();
@@ -181,6 +192,7 @@ class RenderWidgetHostViewMac : public content::RenderWidgetHostViewBase {
   virtual gfx::NativeViewId GetNativeViewId() const OVERRIDE;
   virtual gfx::NativeViewAccessible GetNativeViewAccessible() OVERRIDE;
   virtual bool HasFocus() const OVERRIDE;
+  virtual bool IsSurfaceAvailableForCopy() const OVERRIDE;
   virtual void Show() OVERRIDE;
   virtual void Hide() OVERRIDE;
   virtual bool IsShowing() OVERRIDE;
@@ -191,16 +203,13 @@ class RenderWidgetHostViewMac : public content::RenderWidgetHostViewBase {
   virtual void SetWindowVisibility(bool visible) OVERRIDE;
   virtual void WindowFrameChanged() OVERRIDE;
   virtual void SetBackground(const SkBitmap& background) OVERRIDE;
-  virtual bool CopyFromCompositingSurface(
-      const gfx::Size& size,
-      skia::PlatformCanvas* output) OVERRIDE;
 
   // Implementation of RenderWidgetHostViewPort.
   virtual void InitAsPopup(content::RenderWidgetHostView* parent_host_view,
                            const gfx::Rect& pos) OVERRIDE;
   virtual void InitAsFullscreen(
       content::RenderWidgetHostView* reference_host_view) OVERRIDE;
-  virtual void DidBecomeSelected() OVERRIDE;
+  virtual void WasRestored() OVERRIDE;
   virtual void WasHidden() OVERRIDE;
   virtual void MovePluginWindows(
       const std::vector<webkit::npapi::WebPluginGeometry>& moves) OVERRIDE;
@@ -213,7 +222,9 @@ class RenderWidgetHostViewMac : public content::RenderWidgetHostViewBase {
   virtual void SelectionBoundsChanged(const gfx::Rect& start_rect,
                                       const gfx::Rect& end_rect) OVERRIDE;
   virtual void ImeCancelComposition() OVERRIDE;
-  virtual void ImeCompositionRangeChanged(const ui::Range& range) OVERRIDE;
+  virtual void ImeCompositionRangeChanged(
+      const ui::Range& range,
+      const std::vector<gfx::Rect>& character_bounds) OVERRIDE;
   virtual void DidUpdateBackingStore(
       const gfx::Rect& scroll_rect, int scroll_dx, int scroll_dy,
       const std::vector<gfx::Rect>& copy_rects) OVERRIDE;
@@ -225,9 +236,11 @@ class RenderWidgetHostViewMac : public content::RenderWidgetHostViewBase {
                                 size_t offset,
                                 const ui::Range& range) OVERRIDE;
   virtual BackingStore* AllocBackingStore(const gfx::Size& size) OVERRIDE;
+  virtual void CopyFromCompositingSurface(
+      const gfx::Size& size,
+      const base::Callback<void(bool)>& callback,
+      skia::PlatformCanvas* output) OVERRIDE;
   virtual void OnAcceleratedCompositingStateChange() OVERRIDE;
-  // See comment in RenderWidgetHostView!
-  virtual gfx::Rect GetViewCocoaBounds() const OVERRIDE;
 
   virtual void OnAccessibilityNotifications(
       const std::vector<AccessibilityHostMsg_NotificationParams>& params
@@ -236,7 +249,7 @@ class RenderWidgetHostViewMac : public content::RenderWidgetHostViewBase {
   virtual void PluginFocusChanged(bool focused, int plugin_id) OVERRIDE;
   virtual void StartPluginIme() OVERRIDE;
   virtual bool PostProcessEventForPluginIme(
-      const NativeWebKeyboardEvent& event) OVERRIDE;
+      const content::NativeWebKeyboardEvent& event) OVERRIDE;
 
   // Methods associated with GPU-accelerated plug-in instances and the
   // accelerated compositor.
@@ -272,6 +285,8 @@ class RenderWidgetHostViewMac : public content::RenderWidgetHostViewBase {
       const GpuHostMsg_AcceleratedSurfacePostSubBuffer_Params& params,
       int gpu_host_id) OVERRIDE;
   virtual void AcceleratedSurfaceSuspend() OVERRIDE;
+  virtual bool HasAcceleratedSurface(const gfx::Size& desired_size) OVERRIDE;
+  virtual void AboutToWaitForBackingStoreMsg() OVERRIDE;
   virtual void GetScreenInfo(WebKit::WebScreenInfo* results) OVERRIDE;
   virtual gfx::Rect GetRootWindowBounds() OVERRIDE;
   virtual gfx::GLSurfaceHandle GetCompositingSurface() OVERRIDE;
@@ -307,13 +322,13 @@ class RenderWidgetHostViewMac : public content::RenderWidgetHostViewBase {
 
   const std::string& selected_text() const { return selected_text_; }
 
-  void UpdateRootGpuViewVisibility(bool show_gpu_widget);
-
-  // When rendering transitions from gpu to software, the gpu widget can't be
-  // hidden until the software backing store has been updated. This method
-  // checks if the GPU view needs to be hidden and hides it if necessary. It
-  // should be called after the software backing store has been painted to.
-  void HandleDelayedGpuViewHiding();
+  // Call setNeedsDisplay on the cocoa_view_. The IOSurface will be drawn during
+  // the next drawRect. Return true if the Ack should be sent, false if it
+  // should be deferred until drawRect.
+  bool CompositorSwapBuffers(uint64 surface_handle);
+  // Ack pending SwapBuffers requests, if any, to unblock the GPU process. Has
+  // no effect if there are no pending requests.
+  void AckPendingSwapBuffers();
 
   // These member variables should be private, but the associated ObjC class
   // needs access to them and can't be made a friend.
@@ -345,7 +360,7 @@ class RenderWidgetHostViewMac : public content::RenderWidgetHostViewBase {
   base::TimeTicks whiteout_start_time_;
 
   // The time it took after this view was selected for it to be fully painted.
-  base::TimeTicks tab_switch_paint_time_;
+  base::TimeTicks web_contents_switch_paint_time_;
 
   // Current text input type.
   ui::TextInputType text_input_type_;
@@ -358,6 +373,12 @@ class RenderWidgetHostViewMac : public content::RenderWidgetHostViewBase {
   // Helper class for managing instances of accelerated plug-ins.
   AcceleratedSurfaceContainerManagerMac plugin_container_manager_;
 
+  scoped_ptr<CompositingIOSurfaceMac> compositing_iosurface_;
+
+  NSWindow* pepper_fullscreen_window() const {
+    return pepper_fullscreen_window_;
+  }
+
  private:
   friend class content::RenderWidgetHostView;
 
@@ -366,28 +387,21 @@ class RenderWidgetHostViewMac : public content::RenderWidgetHostViewBase {
   // deleted it will delete this out from under the caller.
   explicit RenderWidgetHostViewMac(content::RenderWidgetHost* widget);
 
-  // If the window is at the root of the plugin container hierachy,
-  // we need to update the geometry manually.
-  void UpdatePluginGeometry(gfx::PluginWindowHandle window,
-                            int32 width,
-                            int32 height);
-
   // Returns whether this render view is a popup (autocomplete window).
   bool IsPopup() const;
-
-  // Updates the display cursor if the current event is over the view's window.
-  void UpdateCursorIfNecessary();
 
   // Shuts down the render_widget_host_.  This is a separate function so we can
   // invoke it from the message loop.
   void ShutdownHost();
 
+  // Called when a GPU SwapBuffers is received.
+  void GotAcceleratedFrame();
+  // Called when a software DIB is received.
+  void GotSoftwareFrame();
+
   // The associated view. This is weak and is inserted into the view hierarchy
   // to own this RenderWidgetHostViewMac object.
   RenderWidgetHostViewCocoa* cocoa_view_;
-
-  // The cursor for the page. This is passed up from the renderer.
-  WebCursor current_cursor_;
 
   // Indicates if the page is loading.
   bool is_loading_;
@@ -404,14 +418,13 @@ class RenderWidgetHostViewMac : public content::RenderWidgetHostViewBase {
   // selected text on the renderer.
   std::string selected_text_;
 
-  bool accelerated_compositing_active_;
+  // The fullscreen window used for pepper flash.
+  scoped_nsobject<NSWindow> pepper_fullscreen_window_;
+  scoped_nsobject<FullscreenWindowManager> fullscreen_window_manager_;
 
-  // When rendering transitions from gpu to software, the gpu widget can't be
-  // hidden until the software backing store has been updated. This variable is
-  // set when the gpu widget needs to be hidden once a paint is completed.
-  bool needs_gpu_visibility_update_after_repaint_;
-
-  gfx::PluginWindowHandle compositing_surface_;
+  // List of pending swaps for deferred acking:
+  //   pairs of (route_id, gpu_host_id).
+  std::list<std::pair<int32, int32> > pending_swap_buffers_acks_;
 
   DISALLOW_COPY_AND_ASSIGN(RenderWidgetHostViewMac);
 };

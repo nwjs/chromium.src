@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_CREATE_APPLICATION_SHORTCUT_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_CREATE_APPLICATION_SHORTCUT_VIEW_H_
-#pragma once
 
 #include <string>
 
@@ -15,10 +14,13 @@
 #include "ui/views/controls/button/button.h"
 #include "ui/views/window/dialog_delegate.h"
 
-class Extension;
 class Profile;
-class TabContentsWrapper;
+class TabContents;
 class SkBitmap;
+
+namespace extensions {
+class Extension;
+}
 
 namespace views {
 class Checkbox;
@@ -79,7 +81,7 @@ class CreateApplicationShortcutView : public views::DialogDelegateView,
 // Create an application shortcut pointing to a URL.
 class CreateUrlApplicationShortcutView : public CreateApplicationShortcutView {
  public:
-  explicit CreateUrlApplicationShortcutView(TabContentsWrapper* tab_contents);
+  explicit CreateUrlApplicationShortcutView(TabContents* tab_contents);
   virtual ~CreateUrlApplicationShortcutView();
 
   virtual bool Accept() OVERRIDE;
@@ -93,7 +95,7 @@ class CreateUrlApplicationShortcutView : public CreateApplicationShortcutView {
   void OnIconDownloaded(bool errored, const SkBitmap& image);
 
   // The tab whose URL is being turned into an app.
-  TabContentsWrapper* tab_contents_;
+  TabContents* tab_contents_;
 
   // Pending app icon download tracked by us.
   class IconDownloadCallbackFunctor;
@@ -110,7 +112,8 @@ class CreateChromeApplicationShortcutView
     : public CreateApplicationShortcutView,
      public ImageLoadingTracker::Observer {
  public:
-  CreateChromeApplicationShortcutView(Profile* profile, const Extension* app);
+  CreateChromeApplicationShortcutView(Profile* profile,
+                                      const extensions::Extension* app);
   virtual ~CreateChromeApplicationShortcutView();
 
   // Implement ImageLoadingTracker::Observer.  |tracker_| is used to
@@ -121,7 +124,7 @@ class CreateChromeApplicationShortcutView
                              int index) OVERRIDE;
 
  private:
-  const Extension* app_;
+  const extensions::Extension* app_;
   ImageLoadingTracker tracker_;
 
   DISALLOW_COPY_AND_ASSIGN(CreateChromeApplicationShortcutView);

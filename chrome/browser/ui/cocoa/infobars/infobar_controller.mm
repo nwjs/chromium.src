@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -20,7 +20,7 @@
 #import "chrome/browser/ui/cocoa/infobars/infobar_controller.h"
 #import "chrome/browser/ui/cocoa/infobars/infobar_gradient_view.h"
 #import "chrome/browser/ui/cocoa/location_bar/location_bar_view_mac.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "third_party/GTM/AppKit/GTMUILocalizerAndLayoutTweaker.h"
 #include "ui/gfx/image/image.h"
 #include "webkit/glue/window_open_disposition.h"
@@ -40,8 +40,8 @@ const float kAnimateCloseDuration = 0.12;
 // infobar from its container, if necessary.
 - (void)cleanUpAfterAnimation:(BOOL)finished;
 
-// Returns the point, in gradient view coordinates, at which the apex of the
-// infobar tip should be drawn.
+// Returns the point, in window coordinates, at which the apex of the infobar
+// tip should be drawn.
 - (NSPoint)pointForTipApex;
 @end
 
@@ -94,9 +94,9 @@ const float kAnimateCloseDuration = 0.12;
 }
 
 // Called when someone clicks on the embedded link.
-- (BOOL) textView:(NSTextView*)textView
-    clickedOnLink:(id)link
-          atIndex:(NSUInteger)charIndex {
+- (BOOL)textView:(NSTextView*)textView
+   clickedOnLink:(id)link
+         atIndex:(NSUInteger)charIndex {
   if ([self respondsToSelector:@selector(linkClicked)])
     [self performSelector:@selector(linkClicked)];
   return YES;
@@ -269,9 +269,7 @@ const float kAnimateCloseDuration = 0.12;
   }
 
   LocationBarViewMac* locationBar = [windowController locationBarBridge];
-  NSPoint point = locationBar->GetPageInfoBubblePoint();
-  point = [infoBarView_ convertPoint:point fromView:nil];
-  return point;
+  return locationBar->GetPageInfoBubblePoint();
 }
 
 @end
@@ -294,7 +292,7 @@ const float kAnimateCloseDuration = 0.12;
 
   LinkInfoBarDelegate* delegate = delegate_->AsLinkInfoBarDelegate();
   DCHECK(delegate);
-  size_t offset = std::wstring::npos;
+  size_t offset = string16::npos;
   string16 message = delegate->GetMessageTextWithOffset(&offset);
   string16 link = delegate->GetLinkText();
   NSFont* font = [NSFont labelFontOfSize:

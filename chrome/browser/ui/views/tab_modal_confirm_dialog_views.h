@@ -1,15 +1,14 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_UI_VIEWS_TAB_MODAL_CONFIRM_DIALOG_VIEWS_H_
 #define CHROME_BROWSER_UI_VIEWS_TAB_MODAL_CONFIRM_DIALOG_VIEWS_H_
-#pragma once
 
 #include "ui/gfx/native_widget_types.h"
 #include "ui/views/window/dialog_delegate.h"
 
-class TabContentsWrapper;
+class TabContents;
 class TabModalConfirmDialogDelegate;
 
 namespace views {
@@ -24,7 +23,7 @@ class MessageBoxView;
 class TabModalConfirmDialogViews : public views::DialogDelegate {
  public:
   TabModalConfirmDialogViews(TabModalConfirmDialogDelegate* delegate,
-                             TabContentsWrapper* wrapper);
+                             TabContents* tab_contents);
 
   // views::DialogDelegate:
   virtual string16 GetWindowTitle() const OVERRIDE;

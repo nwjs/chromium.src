@@ -4,7 +4,6 @@
 
 #ifndef NET_TEST_REMOTE_TEST_SERVER_H_
 #define NET_TEST_REMOTE_TEST_SERVER_H_
-#pragma once
 
 #include <string>
 
@@ -39,6 +38,12 @@ class RemoteTestServer : public BaseTestServer {
 
  private:
   bool Init(const FilePath& document_root);
+
+  // The local port used to communicate with the TestServer spawner. This is
+  // used to control the startup and shutdown of the Python TestServer running
+  // on the remote machine. On Android, this port will be redirected to the
+  // same port on the host machine.
+  int spawner_server_port_;
 
   // Helper to start and stop instances of the Python test server that runs on
   // the host machine.

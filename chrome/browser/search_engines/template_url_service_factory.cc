@@ -4,34 +4,44 @@
 
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 
+#include "chrome/browser/google/google_url_tracker_factory.h"
+#include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile_dependency_manager.h"
 #include "chrome/browser/search_engines/template_url_service.h"
+#include "chrome/browser/webdata/web_data_service_factory.h"
 #include "chrome/common/pref_names.h"
 
+// static
 TemplateURLService* TemplateURLServiceFactory::GetForProfile(Profile* profile) {
   return static_cast<TemplateURLService*>(
       GetInstance()->GetServiceForProfile(profile, true));
 }
 
+// static
 TemplateURLServiceFactory* TemplateURLServiceFactory::GetInstance() {
   return Singleton<TemplateURLServiceFactory>::get();
+}
+
+// static
+ProfileKeyedService* TemplateURLServiceFactory::BuildInstanceFor(
+    Profile* profile) {
+  return new TemplateURLService(profile);
 }
 
 TemplateURLServiceFactory::TemplateURLServiceFactory()
     : ProfileKeyedServiceFactory("TemplateURLServiceFactory",
                                  ProfileDependencyManager::GetInstance()) {
-  // TODO(erg): For Shutdown() order, we need to:
-  //     DependsOn(WebDataServiceFactory::GetInstance());
-  //     DependsOn(HistoryService::GetInstance());
-  //     DependsOn(ExtensionService::GetInstance());
+  DependsOn(GoogleURLTrackerFactory::GetInstance());
+  DependsOn(HistoryServiceFactory::GetInstance());
+  DependsOn(WebDataServiceFactory::GetInstance());
 }
 
 TemplateURLServiceFactory::~TemplateURLServiceFactory() {}
 
 ProfileKeyedService* TemplateURLServiceFactory::BuildServiceInstanceFor(
     Profile* profile) const {
-  return new TemplateURLService(profile);
+  return BuildInstanceFor(profile);
 }
 
 void TemplateURLServiceFactory::RegisterUserPrefs(PrefService* prefs) {

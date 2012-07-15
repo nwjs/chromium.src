@@ -4,17 +4,16 @@
 
 #ifndef SKIA_EXT_SKIA_UTILS_MAC_H_
 #define SKIA_EXT_SKIA_UTILS_MAC_H_
-#pragma once
 
 #include <ApplicationServices/ApplicationServices.h>
 #include <vector>
 
+#include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColor.h"
 
 struct SkIRect;
 struct SkPoint;
 struct SkRect;
-class SkBitmap;
 class SkCanvas;
 class SkMatrix;
 #ifdef __LP64__
@@ -24,10 +23,12 @@ typedef struct _NSSize NSSize;
 #endif
 
 #ifdef __OBJC__
+@class NSBitmapImageRep;
 @class NSImage;
 @class NSImageRep;
 @class NSColor;
 #else
+class NSBitmapImageRep;
 class NSImage;
 class NSImageRep;
 class NSColor;
@@ -81,6 +82,10 @@ SK_API SkBitmap NSImageToSkBitmap(NSImage* image, NSSize size, bool is_opaque);
 SK_API SkBitmap NSImageRepToSkBitmap(
     NSImageRep* image, NSSize size, bool is_opaque);
 
+// Given an SkBitmap, return an autoreleased NSBitmapImageRep in the generic
+// color space.
+SK_API NSBitmapImageRep* SkBitmapToNSBitmapImageRep(const SkBitmap& image);
+
 // Given an SkBitmap and a color space, return an autoreleased NSImage.
 SK_API NSImage* SkBitmapToNSImageWithColorSpace(const SkBitmap& icon,
                                                 CGColorSpaceRef colorSpace);
@@ -89,13 +94,6 @@ SK_API NSImage* SkBitmapToNSImageWithColorSpace(const SkBitmap& icon,
 // DEPRECATED, use SkBitmapToNSImageWithColorSpace() instead.
 // TODO(thakis): Remove this -- http://crbug.com/69432
 SK_API NSImage* SkBitmapToNSImage(const SkBitmap& icon);
-
-// Given a vector of SkBitmaps, return an NSImage with each bitmap added
-// as a representation.
-SK_API NSImage* SkBitmapsToNSImage(const std::vector<const SkBitmap*>& bitmaps);
-
-// Returns |[NSImage imageNamed:@"NSApplicationIcon"]| as SkBitmap.
-SK_API SkBitmap AppplicationIconAtSize(int size);
 
 // Converts a SkCanvas temporarily to a CGContext
 class SK_API SkiaBitLocker {
@@ -108,6 +106,8 @@ class SK_API SkiaBitLocker {
   void releaseIfNeeded();
   SkCanvas* canvas_;
   CGContextRef cgContext_;
+  SkBitmap bitmap_;
+  bool useDeviceBits_;
 };
 
 

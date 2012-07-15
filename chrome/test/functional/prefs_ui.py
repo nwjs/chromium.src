@@ -3,14 +3,21 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import time
+
 import pyauto_functional  # Must be imported before pyauto
 import pyauto
+import test_utils
+
 from webdriver_pages import settings
 from webdriver_pages.settings import Behaviors, ContentTypes
+from webdriver_pages.settings import RestoreOnStartupType
 
 
 class PrefsUITest(pyauto.PyUITest):
   """TestCase for Preferences UI."""
+
+  INFOBAR_TYPE = 'rph_infobar'
 
   def setUp(self):
     pyauto.PyUITest.setUp(self)
@@ -101,20 +108,23 @@ class PrefsUITest(pyauto.PyUITest):
   def testExceptionsEntryCorrectlyDisplayed(self):
     """Verify the exceptions line entry is correctly displayed in the UI."""
     geo_exception = (
-        {'http://maps.google.com:80/': {'http://maps.google.com': 2}})
-    self.SetPrefs(pyauto.kGeolocationContentSettings, geo_exception)
+        {'http://maps.google.com:80,http://maps.google.com:80':
+            {'geolocation': 2}})
+    self.SetPrefs(pyauto.kContentSettingsPatternPairs, geo_exception)
     self._VerifyContentExceptionUI(
         ContentTypes.GEOLOCATION, 'http://maps.google.com:80',
         Behaviors.BLOCK)
     geo_exception = (
-        {'http://maps.google.com:80/': {'http://maps.google.com:80': 1}})
-    self.SetPrefs(pyauto.kGeolocationContentSettings, geo_exception)
+        {'http://maps.google.com:80,http://maps.google.com:80':
+            {'geolocation': 1}})
+    self.SetPrefs(pyauto.kContentSettingsPatternPairs, geo_exception)
     self._VerifyContentExceptionUI(
         ContentTypes.GEOLOCATION, 'http://maps.google.com:80',
         Behaviors.ALLOW)
     geo_exception = (
-        {'http://maps.google.com:80/': {'http://maps.google.com:80': 3}})
-    self.SetPrefs(pyauto.kGeolocationContentSettings, geo_exception)
+        {'http://maps.google.com:80,http://maps.google.com:80':
+            {'geolocation': 3}})
+    self.SetPrefs(pyauto.kContentSettingsPatternPairs, geo_exception)
     self._VerifyContentExceptionUI(
         ContentTypes.GEOLOCATION, 'http://maps.google.com:80', Behaviors.ASK)
 
@@ -194,6 +204,139 @@ class PrefsUITest(pyauto.PyUITest):
     self._VerifyContentExceptionUI(
         ContentTypes.PLUGINS, 'http://maps.google.com:80',
         Behaviors.BLOCK, incognito=True)
+
+  def testSetCookieAndDeleteInContentSettings(self):
+    """Verify a cookie can be deleted in the Content Settings UI."""
+    # Create a cookie.
+    cookie_dict = {
+        'name': 'test_cookie',
+        'value': 'test_value',
+        'expiry': time.time() + 30,
+    }
+    site = '127.0.0.1'
+    self.NavigateToURL(self.GetHttpURLForDataPath('google', 'google.html'))
+    self._driver.add_cookie(cookie_dict)
+    page = settings.CookiesAndSiteDataSettings.FromNavigation(self._driver)
+    page.DeleteSiteData(site)
+    self.assertTrue(site not in page.GetSiteNameList(),
+                    'Site "%s" was not deleted.'  % site)
+
+  def testRemoveMailProtocolHandler(self):
+    """Verify the mail protocol handler is added and removed successfully."""
+    url = self.GetHttpURLForDataPath('settings', 'protocol_handler.html')
+    self.NavigateToURL(url)
+    # Returns a dictionary with the mail handler that was asked for
+    # registration.
+    asked_handler_dict = self._driver.execute_script(
+        'return registerMailClient()')
+    self.PerformActionOnInfobar(
+        'accept', infobar_index=test_utils.WaitForInfobarTypeAndGetIndex(
+            self, self.INFOBAR_TYPE))
+    self._driver.find_element_by_id('test_mail_protocol').click()
+
+    protocol_handlers_list = (
+        self.GetPrefsInfo().Prefs(pyauto.kRegisteredProtocolHandlers))
+    registered_mail_handler = {}
+    for handler_dict in protocol_handlers_list:
+      if (handler_dict['protocol'] == 'mailto' and
+          handler_dict['url'] == asked_handler_dict['url'] and
+          handler_dict['title'] == asked_handler_dict['title'] and
+          handler_dict.get('default')):
+        registered_mail_handler = handler_dict
+        break
+      # Verify the mail handler is registered as asked.
+      self.assertNotEqual(
+      registered_mail_handler, {},
+      msg='Mail protocol handler was not registered correctly.')
+      # Verify the registered mail handler works as expected.
+      self.assertTrue(
+          self._driver.execute_script(
+              'return doesQueryConformsToProtocol("%s", "%s")'
+              % (asked_handler_dict['query_key'],
+                 asked_handler_dict['query_value'])),
+              msg='Mail protocol did not register correctly.')
+
+    self._driver.get('chrome://settings-frame/handlers')
+    # There are 3 DIVs in a handler entry. The last one acts as a remove button.
+    # The remove button is also equivalent to setting the site to NONE.
+    self._driver.find_element_by_id('handlers-list').\
+        find_element_by_xpath('.//div[@role="listitem"]').\
+        find_element_by_xpath('.//div[@class="handlers-site-column"]').\
+        find_element_by_xpath('.//option[@value="-1"]').click()
+
+    self._driver.get(url)
+    self._driver.find_element_by_id('test_mail_protocol').click()
+    self.assertEqual(url, self._driver.current_url,
+                     msg='Mail protocol still registered.')
+
+class BasicSettingsUITest(pyauto.PyUITest):
+  """Testcases for uber page basic settings UI."""
+
+  def setUp(self):
+    pyauto.PyUITest.setUp(self)
+    self._driver = self.NewWebDriver()
+
+  def Debug(self):
+    """chrome://plugins test debug method.
+
+    This method will not run automatically.
+    """
+    driver = self.NewWebDriver()
+    page = settings.BasicSettingsPage.FromNavigation(driver)
+    import pdb
+    pdb.set_trace()
+
+  def testOnStartupSettings(self):
+    """Verify user can set startup options."""
+    page = settings.BasicSettingsPage.FromNavigation(self._driver)
+    page.SetOnStartupOptions(RestoreOnStartupType.NEW_TAB_PAGE)
+    self.assertEqual(RestoreOnStartupType.NEW_TAB_PAGE,
+        self.GetPrefsInfo().Prefs(pyauto.kRestoreOnStartup))
+    page.SetOnStartupOptions(RestoreOnStartupType.RESTORE_SESSION)
+    self.assertEqual(RestoreOnStartupType.RESTORE_SESSION,
+        self.GetPrefsInfo().Prefs(pyauto.kRestoreOnStartup))
+    page.SetOnStartupOptions(RestoreOnStartupType.RESTORE_URLS)
+    self.assertEqual(RestoreOnStartupType.RESTORE_URLS,
+        self.GetPrefsInfo().Prefs(pyauto.kRestoreOnStartup))
+
+  def testSetStartupPages(self):
+    """Verify user can add urls for startup pages."""
+    page = settings.BasicSettingsPage.FromNavigation(self._driver)
+    for url in ['www.google.com', 'http://www.amazon.com', 'ebay.com']:
+      page.AddStartupPage(url)
+    self.assertEqual(RestoreOnStartupType.RESTORE_URLS,
+        self.GetPrefsInfo().Prefs(pyauto.kRestoreOnStartup))
+    startup_urls = self.GetPrefsInfo().Prefs(pyauto.kURLsToRestoreOnStartup)
+    self.assertEqual(startup_urls[0], 'http://www.google.com/')
+    self.assertEqual(startup_urls[1], 'http://www.amazon.com/')
+    self.assertEqual(startup_urls[2], 'http://ebay.com/')
+
+  def testUseCurrentPagesForStartup(self):
+    """Verify user can start up browser using current pages."""
+    page = settings.BasicSettingsPage.FromNavigation(self._driver)
+    self.OpenNewBrowserWindow(True)
+    url1 = self.GetHttpURLForDataPath('title2.html')
+    url2 = self.GetHttpURLForDataPath('title3.html')
+    self.NavigateToURL(url1, 1, 0)
+    self.AppendTab(pyauto.GURL(url2), 1)
+    title_list = ['Title Of Awesomeness',
+                  'Title Of More Awesomeness']
+    page.UseCurrentPageForStartup(title_list)
+    page.VerifyStartupURLs(title_list)
+    self.assertEqual(RestoreOnStartupType.RESTORE_URLS,
+        self.GetPrefsInfo().Prefs(pyauto.kRestoreOnStartup))
+    startup_urls = self.GetPrefsInfo().Prefs(pyauto.kURLsToRestoreOnStartup)
+    self.assertEqual(len(startup_urls), 3)
+    self.assertEqual(startup_urls[1], url1)
+    self.assertEqual(startup_urls[2], url2)
+
+  def testCancelStartupURLSetting(self):
+    """Verify canceled start up URLs settings are not saved."""
+    page = settings.BasicSettingsPage.FromNavigation(self._driver)
+    for url in ['www.google.com', 'http://www.amazon.com']:
+      page.CancelStartupURLSetting(url)
+    startup_urls = self.GetPrefsInfo().Prefs(pyauto.kURLsToRestoreOnStartup)
+    self.assertEqual(len(startup_urls), 0)
 
 
 if __name__ == '__main__':

@@ -4,11 +4,11 @@
 
 #ifndef CRYPTO_KEYCHAIN_MAC_H_
 #define CRYPTO_KEYCHAIN_MAC_H_
-#pragma once
 
 #include <Security/Security.h>
 
 #include "base/basictypes.h"
+#include "crypto/crypto_export.h"
 
 namespace crypto {
 
@@ -20,7 +20,7 @@ namespace crypto {
 // SecKeychainFoo). The only exception is Free, which should be used for
 // anything returned from this class that would normally be freed with
 // CFRelease (to aid in testing).
-class MacKeychain {
+class CRYPTO_EXPORT MacKeychain {
  public:
   MacKeychain();
   virtual ~MacKeychain();

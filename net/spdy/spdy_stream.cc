@@ -9,51 +9,34 @@
 #include "base/message_loop.h"
 #include "base/stringprintf.h"
 #include "base/values.h"
+#include "net/spdy/spdy_http_utils.h"
 #include "net/spdy/spdy_session.h"
 
 namespace net {
 
-NetLogSpdyStreamErrorParameter::NetLogSpdyStreamErrorParameter(
-    SpdyStreamId stream_id,
-    int status,
-    const std::string& description)
-    : stream_id_(stream_id),
-      status_(status),
-      description_(description) {
-}
+namespace {
 
-NetLogSpdyStreamErrorParameter::~NetLogSpdyStreamErrorParameter() {
-}
-
-Value* NetLogSpdyStreamErrorParameter::ToValue() const {
+Value* NetLogSpdyStreamErrorCallback(SpdyStreamId stream_id,
+                                     int status,
+                                     const std::string* description,
+                                     NetLog::LogLevel /* log_level */) {
   DictionaryValue* dict = new DictionaryValue();
-  dict->SetInteger("stream_id", static_cast<int>(stream_id_));
-  dict->SetInteger("status", status_);
-  dict->SetString("description", description_);
+  dict->SetInteger("stream_id", static_cast<int>(stream_id));
+  dict->SetInteger("status", status);
+  dict->SetString("description", *description);
   return dict;
 }
 
-namespace {
-
-class NetLogSpdyStreamWindowUpdateParameter : public NetLog::EventParameters {
- public:
-  NetLogSpdyStreamWindowUpdateParameter(SpdyStreamId stream_id,
-                                        int32 delta,
-                                        int32 window_size)
-      : stream_id_(stream_id), delta_(delta), window_size_(window_size) {}
-  virtual Value* ToValue() const {
-    DictionaryValue* dict = new DictionaryValue();
-    dict->SetInteger("id", static_cast<int>(stream_id_));
-    dict->SetInteger("delta", delta_);
-    dict->SetInteger("window_size", window_size_);
-    return dict;
-  }
- private:
-  const SpdyStreamId stream_id_;
-  const int32 delta_;
-  const int32 window_size_;
-  DISALLOW_COPY_AND_ASSIGN(NetLogSpdyStreamWindowUpdateParameter);
-};
+Value* NetLogSpdyStreamWindowUpdateCallback(SpdyStreamId stream_id,
+                                            int32 delta,
+                                            int32 window_size,
+                                            NetLog::LogLevel /* log_level */) {
+  DictionaryValue* dict = new DictionaryValue();
+  dict->SetInteger("stream_id", stream_id);
+  dict->SetInteger("delta", delta);
+  dict->SetInteger("window_size", window_size);
+  return dict;
+}
 
 bool ContainsUpperAscii(const std::string& str) {
   for (std::string::const_iterator i(str.begin()); i != str.end(); ++i) {
@@ -72,7 +55,7 @@ SpdyStream::SpdyStream(SpdySession* session,
                        const BoundNetLog& net_log)
     : continue_buffering_data_(true),
       stream_id_(stream_id),
-      priority_(0),
+      priority_(HIGHEST),
       slot_(0),
       stalled_by_flow_control_(false),
       send_window_size_(kSpdyStreamInitialWindowSize),
@@ -145,43 +128,48 @@ void SpdyStream::PushedStreamReplayData() {
 }
 
 void SpdyStream::DetachDelegate() {
-  if (delegate_)
-    delegate_->set_chunk_callback(NULL);
   delegate_ = NULL;
   if (!closed())
     Cancel();
 }
 
-const linked_ptr<SpdyHeaderBlock>& SpdyStream::spdy_headers() const {
-  return request_;
+const SpdyHeaderBlock& SpdyStream::spdy_headers() const {
+  DCHECK(request_ != NULL);
+  return *request_.get();
 }
 
-void SpdyStream::set_spdy_headers(
-    const linked_ptr<SpdyHeaderBlock>& headers) {
-  request_ = headers;
+void SpdyStream::set_spdy_headers(scoped_ptr<SpdyHeaderBlock> headers) {
+  request_.reset(headers.release());
 }
 
 void SpdyStream::set_initial_recv_window_size(int32 window_size) {
   session_->set_initial_recv_window_size(window_size);
 }
 
+void SpdyStream::PossiblyResumeIfStalled() {
+  if (send_window_size_ > 0 && stalled_by_flow_control_) {
+    stalled_by_flow_control_ = false;
+    io_state_ = STATE_SEND_BODY;
+    DoLoop(OK);
+  }
+}
+
 void SpdyStream::AdjustSendWindowSize(int32 delta_window_size) {
   send_window_size_ += delta_window_size;
+  PossiblyResumeIfStalled();
 }
 
 void SpdyStream::IncreaseSendWindowSize(int32 delta_window_size) {
   DCHECK(session_->is_flow_control_enabled());
   DCHECK_GE(delta_window_size, 1);
 
-  int32 new_window_size = send_window_size_ + delta_window_size;
-
-  // We should ignore WINDOW_UPDATEs received before or after this state,
-  // since before means we've not written SYN_STREAM yet (i.e. it's too
-  // early) and after means we've written a DATA frame with FIN bit.
-  if (io_state_ != STATE_SEND_BODY_COMPLETE)
+  // Ignore late WINDOW_UPDATEs.
+  if (closed())
     return;
 
-  // it's valid for send_window_size_ to become negative (via an incoming
+  int32 new_window_size = send_window_size_ + delta_window_size;
+
+  // It's valid for send_window_size_ to become negative (via an incoming
   // SETTINGS), in which case incoming WINDOW_UPDATEs will eventually make
   // it positive; however, if send_window_size_ is positive and incoming
   // WINDOW_UPDATE makes it negative, we have an overflow.
@@ -198,13 +186,10 @@ void SpdyStream::IncreaseSendWindowSize(int32 delta_window_size) {
 
   net_log_.AddEvent(
       NetLog::TYPE_SPDY_STREAM_UPDATE_SEND_WINDOW,
-      make_scoped_refptr(new NetLogSpdyStreamWindowUpdateParameter(
-          stream_id_, delta_window_size, send_window_size_)));
-  if (send_window_size_ > 0 && stalled_by_flow_control_) {
-    stalled_by_flow_control_ = false;
-    io_state_ = STATE_SEND_BODY;
-    DoLoop(OK);
-  }
+      base::Bind(&NetLogSpdyStreamWindowUpdateCallback,
+                 stream_id_, delta_window_size, send_window_size_));
+
+  PossiblyResumeIfStalled();
 }
 
 void SpdyStream::DecreaseSendWindowSize(int32 delta_window_size) {
@@ -222,8 +207,8 @@ void SpdyStream::DecreaseSendWindowSize(int32 delta_window_size) {
 
   net_log_.AddEvent(
       NetLog::TYPE_SPDY_STREAM_UPDATE_SEND_WINDOW,
-      make_scoped_refptr(new NetLogSpdyStreamWindowUpdateParameter(
-          stream_id_, -delta_window_size, send_window_size_)));
+      base::Bind(&NetLogSpdyStreamWindowUpdateCallback,
+                 stream_id_, -delta_window_size, send_window_size_));
 }
 
 void SpdyStream::IncreaseRecvWindowSize(int32 delta_window_size) {
@@ -242,8 +227,8 @@ void SpdyStream::IncreaseRecvWindowSize(int32 delta_window_size) {
   recv_window_size_ = new_window_size;
   net_log_.AddEvent(
       NetLog::TYPE_SPDY_STREAM_UPDATE_RECV_WINDOW,
-      make_scoped_refptr(new NetLogSpdyStreamWindowUpdateParameter(
-          stream_id_, delta_window_size, recv_window_size_)));
+      base::Bind(&NetLogSpdyStreamWindowUpdateCallback,
+                 stream_id_, delta_window_size, recv_window_size_));
 
   unacked_recv_window_bytes_ += delta_window_size;
   if (unacked_recv_window_bytes_ > session_->initial_recv_window_size() / 2) {
@@ -261,8 +246,8 @@ void SpdyStream::DecreaseRecvWindowSize(int32 delta_window_size) {
   recv_window_size_ -= delta_window_size;
   net_log_.AddEvent(
       NetLog::TYPE_SPDY_STREAM_UPDATE_RECV_WINDOW,
-      make_scoped_refptr(new NetLogSpdyStreamWindowUpdateParameter(
-          stream_id_, -delta_window_size, recv_window_size_)));
+      base::Bind(&NetLogSpdyStreamWindowUpdateCallback,
+                 stream_id_, -delta_window_size, recv_window_size_));
 
   // Since we never decrease the initial window size, we should never hit
   // a negative |recv_window_size_|, if we do, it's a client side bug, so we use
@@ -274,7 +259,7 @@ void SpdyStream::DecreaseRecvWindowSize(int32 delta_window_size) {
   }
 }
 
-int SpdyStream::GetPeerAddress(AddressList* address) const {
+int SpdyStream::GetPeerAddress(IPEndPoint* address) const {
   return session_->GetPeerAddress(address);
 }
 
@@ -325,6 +310,12 @@ int SpdyStream::OnResponseReceived(const SpdyHeaderBlock& response) {
     }
   }
 
+  if ((*response_).find("transfer-encoding") != (*response_).end()) {
+    session_->ResetStream(stream_id_, PROTOCOL_ERROR,
+                         "Received transfer-encoding header");
+    return ERR_SPDY_PROTOCOL_ERROR;
+  }
+
   if (delegate_)
     rv = delegate_->OnResponseReceived(*response_, response_time_, rv);
   // If delegate_ is not yet attached, we'll call OnResponseReceived after the
@@ -355,6 +346,12 @@ int SpdyStream::OnHeaders(const SpdyHeaderBlock& headers) {
     }
 
     (*response_)[it->first] = it->second;
+  }
+
+  if ((*response_).find("transfer-encoding") != (*response_).end()) {
+    session_->ResetStream(stream_id_, PROTOCOL_ERROR,
+                         "Received transfer-encoding header");
+    return ERR_SPDY_PROTOCOL_ERROR;
   }
 
   int rv = OK;
@@ -434,22 +431,14 @@ void SpdyStream::OnWriteComplete(int bytes) {
   DoLoop(bytes);
 }
 
-void SpdyStream::OnChunkAvailable() {
-  DCHECK(io_state_ == STATE_SEND_HEADERS || io_state_ == STATE_SEND_BODY ||
-         io_state_ == STATE_SEND_BODY_COMPLETE);
-  if (io_state_ == STATE_SEND_BODY)
-    OnWriteComplete(0);
-}
-
 int SpdyStream::GetProtocolVersion() const {
   return session_->GetProtocolVersion();
 }
 
 void SpdyStream::LogStreamError(int status, const std::string& description) {
-  net_log_.AddEvent(
-      NetLog::TYPE_SPDY_STREAM_ERROR,
-      make_scoped_refptr(
-          new NetLogSpdyStreamErrorParameter(stream_id_, status, description)));
+  net_log_.AddEvent(NetLog::TYPE_SPDY_STREAM_ERROR,
+                    base::Bind(&NetLogSpdyStreamErrorCallback,
+                               stream_id_, status, &description));
 }
 
 void SpdyStream::OnClose(int status) {
@@ -457,10 +446,8 @@ void SpdyStream::OnClose(int status) {
   response_status_ = status;
   Delegate* delegate = delegate_;
   delegate_ = NULL;
-  if (delegate) {
-    delegate->set_chunk_callback(NULL);
+  if (delegate)
     delegate->OnClose(status);
-  }
 }
 
 void SpdyStream::Cancel() {
@@ -477,9 +464,6 @@ void SpdyStream::Close() {
 }
 
 int SpdyStream::SendRequest(bool has_upload_data) {
-  if (delegate_)
-    delegate_->set_chunk_callback(this);
-
   // Pushed streams do not send any data, and should always be in STATE_OPEN or
   // STATE_DONE. However, we still want to return IO_PENDING to mimic non-push
   // behavior.
@@ -497,12 +481,15 @@ int SpdyStream::SendRequest(bool has_upload_data) {
 
 int SpdyStream::WriteStreamData(IOBuffer* data, int length,
                                 SpdyDataFlags flags) {
+  // Until the headers have been completely sent, we can not be sure
+  // that our stream_id is correct.
+  DCHECK_GT(io_state_, STATE_SEND_HEADERS_COMPLETE);
   return session_->WriteStreamData(stream_id_, data, length, flags);
 }
 
 bool SpdyStream::GetSSLInfo(SSLInfo* ssl_info,
                             bool* was_npn_negotiated,
-                            SSLClientSocket::NextProto* protocol_negotiated) {
+                            NextProto* protocol_negotiated) {
   return session_->GetSSLInfo(
       ssl_info, was_npn_negotiated, protocol_negotiated);
 }
@@ -520,44 +507,8 @@ bool SpdyStream::HasUrl() const {
 GURL SpdyStream::GetUrl() const {
   DCHECK(HasUrl());
 
-  if (pushed_) {
-    if (GetProtocolVersion() >= 3) {
-      return GetUrlFromHeaderBlock(response_);
-    } else {
-      // assemble from the response
-      std::string url;
-      SpdyHeaderBlock::const_iterator it;
-      it = response_->find("url");
-      if (it != (*response_).end())
-        url = it->second;
-      return GURL(url);
-    }
-  }
-
-  return GetUrlFromHeaderBlock(request_);
-}
-
-GURL SpdyStream::GetUrlFromHeaderBlock(
-    const linked_ptr<SpdyHeaderBlock>& headers) const {
-  const char* scheme_header = GetProtocolVersion() >= 3 ? ":scheme" : "scheme";
-  const char* host_header = GetProtocolVersion() >= 3 ? ":host" : "host";
-  const char* path_header = GetProtocolVersion() >= 3 ? ":path" : "path";
-
-  std::string scheme;
-  std::string host_port;
-  std::string path;
-  SpdyHeaderBlock::const_iterator it;
-  it = headers->find(scheme_header);
-  if (it != (*headers).end())
-    scheme = it->second;
-  it = headers->find(host_header);
-  if (it != (*headers).end())
-    host_port = it->second;
-  it = headers->find(path_header);
-  if (it != (*headers).end())
-    path = it->second;
-  std::string url = scheme + "://" + host_port + path;
-  return GURL(url);
+  const SpdyHeaderBlock& headers = (pushed_) ? *response_ : *request_;
+  return GetUrlFromHeaderBlock(headers, GetProtocolVersion(), pushed_);
 }
 
 void SpdyStream::OnGetDomainBoundCertComplete(int result) {
@@ -655,7 +606,7 @@ int SpdyStream::DoGetDomainBoundCert() {
   ServerBoundCertService* sbc_service = session_->GetServerBoundCertService();
   DCHECK(sbc_service != NULL);
   std::vector<uint8> requested_cert_types;
-  requested_cert_types.push_back(session_->GetDomainBoundCertType());
+  requested_cert_types.push_back(CLIENT_CERT_ECDSA_SIGN);
   int rv = sbc_service->GetDomainBoundCert(
       GetUrl().GetOrigin().spec(), requested_cert_types,
       &domain_bound_cert_type_, &domain_bound_private_key_, &domain_bound_cert_,
@@ -681,7 +632,7 @@ int SpdyStream::DoSendDomainBoundCert() {
   origin.erase(origin.length() - 1);  // trim trailing slash
   int rv =  session_->WriteCredentialFrame(
       origin, domain_bound_cert_type_, domain_bound_private_key_,
-      domain_bound_cert_, static_cast<RequestPriority>(priority_));
+      domain_bound_cert_, priority_);
   if (rv != ERR_IO_PENDING)
     return rv;
   return OK;
@@ -704,8 +655,8 @@ int SpdyStream::DoSendHeaders() {
 
   CHECK(request_.get());
   int result = session_->WriteSynStream(
-      stream_id_, static_cast<RequestPriority>(priority_), slot_, flags,
-      request_);
+      stream_id_, priority_, slot_, flags,
+      *request_);
   if (result != ERR_IO_PENDING)
     return result;
 
@@ -736,7 +687,7 @@ int SpdyStream::DoSendHeadersComplete(int result) {
 // DoSendBody is called to send the optional body for the request.  This call
 // will also be called as each write of a chunk of the body completes.
 int SpdyStream::DoSendBody() {
-  // If we're already in the STATE_SENDING_BODY state, then we've already
+  // If we're already in the STATE_SEND_BODY state, then we've already
   // sent a portion of the body.  In that case, we need to first consume
   // the bytes written in the body stream.  Note that the bytes written is
   // the number of bytes in the frame that were written, only consume the

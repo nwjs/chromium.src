@@ -4,7 +4,6 @@
 
 #ifndef NET_SOCKET_CLIENT_SOCKET_HANDLE_H_
 #define NET_SOCKET_CLIENT_SOCKET_HANDLE_H_
-#pragma once
 
 #include <string>
 
@@ -95,6 +94,8 @@ class NET_EXPORT ClientSocketHandle {
   bool IsPoolStalled() const;
 
   void AddLayeredPool(LayeredPool* layered_pool);
+
+  void RemoveLayeredPool(LayeredPool* layered_pool);
 
   // Returns true when Init() has completed successfully.
   bool is_initialized() const { return is_initialized_; }

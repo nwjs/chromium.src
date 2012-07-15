@@ -13,7 +13,7 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/plugin_service.h"
 #include "content/public/browser/plugin_service_filter.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "webkit/plugins/npapi/mock_plugin_list.h"
@@ -120,7 +120,7 @@ TEST_F(PluginInfoMessageFilterTest, FindEnabledPlugin) {
     ChromeViewHostMsg_GetPluginInfo_Status status;
     webkit::WebPluginInfo plugin;
     std::string actual_mime_type;
-    EXPECT_FALSE(context_.FindEnabledPlugin(
+    EXPECT_TRUE(context_.FindEnabledPlugin(
         0, GURL(), GURL(), "foo/bar", &status, &plugin, &actual_mime_type));
     EXPECT_EQ(ChromeViewHostMsg_GetPluginInfo_Status::kAllowed, status.value);
     EXPECT_EQ(foo_plugin_path_.value(), plugin.path.value());
@@ -131,7 +131,7 @@ TEST_F(PluginInfoMessageFilterTest, FindEnabledPlugin) {
     ChromeViewHostMsg_GetPluginInfo_Status status;
     webkit::WebPluginInfo plugin;
     std::string actual_mime_type;
-    EXPECT_FALSE(context_.FindEnabledPlugin(
+    EXPECT_TRUE(context_.FindEnabledPlugin(
         0, GURL(), GURL(), "foo/bar", &status, &plugin, &actual_mime_type));
     EXPECT_EQ(ChromeViewHostMsg_GetPluginInfo_Status::kAllowed, status.value);
     EXPECT_EQ(bar_plugin_path_.value(), plugin.path.value());
@@ -142,7 +142,7 @@ TEST_F(PluginInfoMessageFilterTest, FindEnabledPlugin) {
     ChromeViewHostMsg_GetPluginInfo_Status status;
     webkit::WebPluginInfo plugin;
     std::string actual_mime_type;
-    EXPECT_TRUE(context_.FindEnabledPlugin(
+    EXPECT_FALSE(context_.FindEnabledPlugin(
         0, GURL(), GURL(), "foo/bar", &status, &plugin, &actual_mime_type));
     EXPECT_EQ(ChromeViewHostMsg_GetPluginInfo_Status::kDisabled, status.value);
     EXPECT_EQ(foo_plugin_path_.value(), plugin.path.value());
@@ -151,7 +151,7 @@ TEST_F(PluginInfoMessageFilterTest, FindEnabledPlugin) {
     ChromeViewHostMsg_GetPluginInfo_Status status;
     webkit::WebPluginInfo plugin;
     std::string actual_mime_type;
-    EXPECT_TRUE(context_.FindEnabledPlugin(
+    EXPECT_FALSE(context_.FindEnabledPlugin(
         0, GURL(), GURL(), "baz/blurp", &status, &plugin, &actual_mime_type));
     EXPECT_EQ(ChromeViewHostMsg_GetPluginInfo_Status::kNotFound, status.value);
     EXPECT_EQ(FILE_PATH_LITERAL(""), plugin.path.value());

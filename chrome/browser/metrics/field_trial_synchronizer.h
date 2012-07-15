@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_METRICS_FIELD_TRIAL_SYNCHRONIZER_H_
 #define CHROME_BROWSER_METRICS_FIELD_TRIAL_SYNCHRONIZER_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -35,8 +34,6 @@ class FieldTrialSynchronizer
   // is finalized in the browser process.
   FieldTrialSynchronizer();
 
-  virtual ~FieldTrialSynchronizer();
-
   // Notify all renderer processes about the |group_name| that is finalized for
   // the given field trail (|field_trial_name|). This is called on UI thread.
   void NotifyAllRenderers(const std::string& field_trial_name,
@@ -53,11 +50,8 @@ class FieldTrialSynchronizer
       const std::string& group_name) OVERRIDE;
 
  private:
-  // This singleton instance should be constructed during the single threaded
-  // portion of main(). It initializes globals to provide support for all future
-  // calls. This object is created on the UI thread, and it is destroyed after
-  // all the other threads have gone away.
-  static FieldTrialSynchronizer* field_trial_synchronizer_;
+  friend class base::RefCountedThreadSafe<FieldTrialSynchronizer>;
+  virtual ~FieldTrialSynchronizer();
 
   DISALLOW_COPY_AND_ASSIGN(FieldTrialSynchronizer);
 };

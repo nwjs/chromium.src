@@ -8,7 +8,7 @@
 #include "base/compiler_specific.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
-#include "net/base/cert_verifier.h"
+#include "net/base/mock_cert_verifier.h"
 #include "net/base/mock_host_resolver.h"
 #include "net/base/net_errors.h"
 #include "net/base/ssl_config_service_defaults.h"
@@ -53,7 +53,8 @@ class HttpProxyClientSocketPoolSpdy3Test : public TestWithHttpParam {
   HttpProxyClientSocketPoolSpdy3Test()
       : ssl_config_(),
         ignored_transport_socket_params_(new TransportSocketParams(
-            HostPortPair("proxy", 80), LOWEST, false, false)),
+            HostPortPair("proxy", 80), LOWEST, false, false,
+            OnHostResolutionCallback())),
         ignored_ssl_socket_params_(new SSLSocketParams(
             ignored_transport_socket_params_, NULL, NULL,
             ProxyServer::SCHEME_DIRECT, HostPortPair("www.google.com", 443),
@@ -64,7 +65,7 @@ class HttpProxyClientSocketPoolSpdy3Test : public TestWithHttpParam {
             &tcp_histograms_,
             &socket_factory_),
         ssl_histograms_("MockSSL"),
-        cert_verifier_(CertVerifier::CreateDefault()),
+        cert_verifier_(new MockCertVerifier),
         proxy_service_(ProxyService::CreateDirect()),
         ssl_config_service_(new SSLConfigServiceDefaults),
         ssl_socket_pool_(kMaxSockets, kMaxSocketsPerGroup,
@@ -73,7 +74,6 @@ class HttpProxyClientSocketPoolSpdy3Test : public TestWithHttpParam {
                          cert_verifier_.get(),
                          NULL /* server_bound_cert_store */,
                          NULL /* transport_security_state */,
-                         NULL /* ssl_host_info_factory */,
                          ""   /* ssl_session_cache_shard */,
                          &socket_factory_,
                          &transport_socket_pool_,
@@ -154,12 +154,13 @@ class HttpProxyClientSocketPoolSpdy3Test : public TestWithHttpParam {
                   MockWrite* writes, size_t writes_count,
                   MockRead* spdy_reads, size_t spdy_reads_count,
                   MockWrite* spdy_writes, size_t spdy_writes_count) {
-    if (GetParam() == SPDY)
-      data_ = new DeterministicSocketData(spdy_reads, spdy_reads_count,
-                                          spdy_writes, spdy_writes_count);
-    else
-      data_ = new DeterministicSocketData(reads, reads_count, writes,
-                                          writes_count);
+    if (GetParam() == SPDY) {
+      data_.reset(new DeterministicSocketData(spdy_reads, spdy_reads_count,
+                                              spdy_writes, spdy_writes_count));
+    } else {
+      data_.reset(new DeterministicSocketData(reads, reads_count, writes,
+                                              writes_count));
+    }
 
     data_->set_connect_data(MockConnect(SYNCHRONOUS, OK));
     data_->StopAfter(2);  // Request / Response
@@ -176,7 +177,7 @@ class HttpProxyClientSocketPoolSpdy3Test : public TestWithHttpParam {
   }
 
   void InitializeSpdySsl() {
-    ssl_data_->SetNextProto(SSLClientSocket::kProtoSPDY3);
+    ssl_data_->SetNextProto(kProtoSPDY3);
   }
 
   HttpNetworkSession* CreateNetworkSession() {
@@ -188,7 +189,10 @@ class HttpProxyClientSocketPoolSpdy3Test : public TestWithHttpParam {
     params.ssl_config_service = ssl_config_service_;
     params.http_auth_handler_factory = http_auth_handler_factory_.get();
     params.http_server_properties = &http_server_properties_;
-    return new HttpNetworkSession(params);
+    HttpNetworkSession* session = new HttpNetworkSession(params);
+    SpdySessionPoolPeer pool_peer(session->spdy_session_pool());
+    pool_peer.EnableSendingInitialSettings(false);
+    return session;
   }
 
  private:
@@ -214,7 +218,7 @@ class HttpProxyClientSocketPoolSpdy3Test : public TestWithHttpParam {
 
  protected:
   scoped_ptr<SSLSocketDataProvider> ssl_data_;
-  scoped_refptr<DeterministicSocketData> data_;
+  scoped_ptr<DeterministicSocketData> data_;
   HttpProxyClientSocketPool pool_;
   ClientSocketHandle handle_;
   TestCompletionCallback callback_;
@@ -260,8 +264,8 @@ TEST_P(HttpProxyClientSocketPoolSpdy3Test, NeedAuth) {
     CreateMockWrite(*rst, 2, ASYNC),
   };
   static const char* const kAuthChallenge[] = {
-    "status", "407 Proxy Authentication Required",
-    "version", "HTTP/1.1",
+    ":status", "407 Proxy Authentication Required",
+    ":version", "HTTP/1.1",
     "proxy-authenticate", "Basic realm=\"MyRealm1\"",
   };
   scoped_ptr<SpdyFrame> resp(
@@ -382,7 +386,7 @@ TEST_P(HttpProxyClientSocketPoolSpdy3Test, AsyncHaveAuth) {
 
 TEST_P(HttpProxyClientSocketPoolSpdy3Test, TCPError) {
   if (GetParam() == SPDY) return;
-  data_ = new DeterministicSocketData(NULL, 0, NULL, 0);
+  data_.reset(new DeterministicSocketData(NULL, 0, NULL, 0));
   data_->set_connect_data(MockConnect(ASYNC, ERR_CONNECTION_CLOSED));
 
   socket_factory().AddSocketDataProvider(data_.get());
@@ -401,7 +405,7 @@ TEST_P(HttpProxyClientSocketPoolSpdy3Test, TCPError) {
 
 TEST_P(HttpProxyClientSocketPoolSpdy3Test, SSLError) {
   if (GetParam() == HTTP) return;
-  data_ = new DeterministicSocketData(NULL, 0, NULL, 0);
+  data_.reset(new DeterministicSocketData(NULL, 0, NULL, 0));
   data_->set_connect_data(MockConnect(ASYNC, OK));
   socket_factory().AddSocketDataProvider(data_.get());
 
@@ -426,7 +430,7 @@ TEST_P(HttpProxyClientSocketPoolSpdy3Test, SSLError) {
 
 TEST_P(HttpProxyClientSocketPoolSpdy3Test, SslClientAuth) {
   if (GetParam() == HTTP) return;
-  data_ = new DeterministicSocketData(NULL, 0, NULL, 0);
+  data_.reset(new DeterministicSocketData(NULL, 0, NULL, 0));
   data_->set_connect_data(MockConnect(ASYNC, OK));
   socket_factory().AddSocketDataProvider(data_.get());
 

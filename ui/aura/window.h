@@ -4,22 +4,25 @@
 
 #ifndef UI_AURA_WINDOW_H_
 #define UI_AURA_WINDOW_H_
-#pragma once
 
 #include <map>
 #include <string>
 #include <vector>
 
 #include "base/basictypes.h"
+#include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/observer_list.h"
 #include "base/string16.h"
-#include "ui/base/events.h"
 #include "ui/aura/aura_export.h"
 #include "ui/aura/client/window_types.h"
-#include "ui/gfx/compositor/layer_animator.h"
-#include "ui/gfx/compositor/layer_delegate.h"
-#include "ui/gfx/compositor/layer_type.h"
+#include "ui/base/events.h"
+#include "ui/base/gestures/gesture_types.h"
+#include "ui/compositor/layer_animator.h"
+#include "ui/compositor/layer_delegate.h"
+#include "ui/compositor/layer_owner.h"
+#include "ui/compositor/layer_type.h"
+#include "ui/gfx/insets.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/gfx/rect.h"
 
@@ -34,14 +37,11 @@ class Transform;
 namespace aura {
 
 class EventFilter;
+class FocusManager;
 class LayoutManager;
 class RootWindow;
 class WindowDelegate;
 class WindowObserver;
-
-namespace internal {
-class FocusManager;
-}
 
 // Defined in window_property.h (which we do not include)
 template<typename T>
@@ -50,7 +50,9 @@ struct WindowProperty;
 // Aura window implementation. Interesting events are sent to the
 // WindowDelegate.
 // TODO(beng): resolve ownership.
-class AURA_EXPORT Window : public ui::LayerDelegate {
+class AURA_EXPORT Window : public ui::LayerDelegate,
+                           public ui::LayerOwner,
+                           public ui::GestureConsumer {
  public:
   typedef std::vector<Window*> Windows;
 
@@ -71,7 +73,19 @@ class AURA_EXPORT Window : public ui::LayerDelegate {
   explicit Window(WindowDelegate* delegate);
   virtual ~Window();
 
+  // Initializes the window. This creates the window's layer.
   void Init(ui::LayerType layer_type);
+
+  // Creates a new layer for the window. Erases the layer-owned bounds, so the
+  // caller may wish to set new bounds and other state on the window/layer.
+  // Returns the old layer, which can be used for animations. Caller owns the
+  // memory for the returned layer and must delete it when animation completes.
+  // Returns NULL and does not recreate layer if window does not own its layer.
+  ui::Layer* RecreateLayer() WARN_UNUSED_RESULT;
+
+  void set_owned_by_parent(bool owned_by_parent) {
+    owned_by_parent_ = owned_by_parent;
+  }
 
   // A type is used to identify a class of Windows and customize behavior such
   // as event handling and parenting.  This field should only be consumed by the
@@ -90,17 +104,6 @@ class AURA_EXPORT Window : public ui::LayerDelegate {
 
   bool transparent() const { return transparent_; }
   void SetTransparent(bool transparent);
-
-  ui::Layer* layer() { return layer_; }
-  const ui::Layer* layer() const { return layer_; }
-
-  // Releases the Window's owning reference to its layer, and returns it.
-  // This is used when you need to animate the presentation of the Window just
-  // prior to destroying it. The window can be destroyed soon after calling this
-  // function, and the caller is then responsible for disposing of the layer
-  // once any animation completes. Note that layer() will remain valid until the
-  // end of ~Window().
-  ui::Layer* AcquireLayer();
 
   WindowDelegate* delegate() { return delegate_; }
 
@@ -128,7 +131,13 @@ class AURA_EXPORT Window : public ui::LayerDelegate {
   // whether Show() without a Hide() has been invoked.
   bool TargetVisibility() const { return visible_; }
 
+  // Returns the window's bounds in root window's coordinates.
+  gfx::Rect GetRootWindowBounds() const;
+
   // Returns the window's bounds in screen coordinates.
+  // How the root window's coordinates is mapped to screen's coordinates
+  // is platform dependent and defined in the implementation of the
+  // |aura::client::ScreenPositionClient| interface.
   gfx::Rect GetScreenBounds() const;
 
   virtual void SetTransform(const ui::Transform& transform);
@@ -141,6 +150,10 @@ class AURA_EXPORT Window : public ui::LayerDelegate {
   // Changes the bounds of the window. If present, the window's parent's
   // LayoutManager may adjust the bounds.
   void SetBounds(const gfx::Rect& new_bounds);
+
+  // Changes the bounds of the window in the screen coordintates.
+  // If present, the window's parent's LayoutManager may adjust the bounds.
+  void SetScreenBounds(const gfx::Rect& new_bounds_in_screen_coords);
 
   // Returns the target bounds of the window. If the window's layer is
   // not animating, it simply returns the current bounds.
@@ -169,8 +182,6 @@ class AURA_EXPORT Window : public ui::LayerDelegate {
   void StackChildBelow(Window* child, Window* target);
 
   // Tree operations.
-  // TODO(beng): Child windows are currently not owned by the hierarchy. We
-  //             should change this.
   void AddChild(Window* child);
   void RemoveChild(Window* child);
 
@@ -207,6 +218,9 @@ class AURA_EXPORT Window : public ui::LayerDelegate {
                                    const Window* target,
                                    gfx::Point* point);
 
+  // Moves the cursor to the specified location relative to the window.
+  virtual void MoveCursorTo(const gfx::Point& point_in_window);
+
   // Returns the cursor for the specified point, in window coordinates.
   gfx::NativeCursor GetCursor(const gfx::Point& point) const;
 
@@ -220,15 +234,26 @@ class AURA_EXPORT Window : public ui::LayerDelegate {
 
   void set_ignore_events(bool ignore_events) { ignore_events_ = ignore_events; }
 
-  // Sets the window to grab hits for an area extending |outer| pixels outside
-  // its bounds and |inner| pixels inside its bounds (even if that inner region
-  // overlaps a child window).  This can be used to create an invisible non-
-  // client area, for example if your windows have no visible frames but still
-  // need to have resize edges.  Both |outer| and |inner| must be >= 0.
-  void SetHitTestBoundsOverride(int outer, int inner);
+  // Sets the window to grab hits for an area extending -|insets| pixels outside
+  // its bounds. This can be used to create an invisible non- client area, for
+  // example if your windows have no visible frames but still need to have
+  // resize edges.
+  void set_hit_test_bounds_override_outer(const gfx::Insets& insets) {
+    hit_test_bounds_override_outer_ = insets;
+  }
+  gfx::Insets hit_test_bounds_override_outer() const {
+    return hit_test_bounds_override_outer_;
+  }
 
-  // Returns the hit test bounds override set above.
-  void GetHitTestBoundsOverride(int* outer, int* inner);
+  // Sets the window to grab hits for an area extending |insets| pixels inside
+  // its bounds (even if that inner region overlaps a child window). This can be
+  // used to create an invisible non-client area that overlaps the client area.
+  void set_hit_test_bounds_override_inner(const gfx::Insets& insets) {
+    hit_test_bounds_override_inner_ = insets;
+  }
+  gfx::Insets hit_test_bounds_override_inner() const {
+    return hit_test_bounds_override_inner_;
+  }
 
   // Returns true if the |point_in_root| in root window's coordinate falls
   // within this window's bounds. Returns false if the window is detached
@@ -272,17 +297,17 @@ class AURA_EXPORT Window : public ui::LayerDelegate {
 
   // Returns the FocusManager for the Window, which may be attached to a parent
   // Window. Can return NULL if the Window has no FocusManager.
-  virtual internal::FocusManager* GetFocusManager();
-  virtual const internal::FocusManager* GetFocusManager() const;
+  virtual FocusManager* GetFocusManager();
+  virtual const FocusManager* GetFocusManager() const;
 
-  // Does a mouse capture on the window. This does nothing if the window isn't
-  // showing (VISIBILITY_SHOWN) or isn't contained in a valid window hierarchy.
+  // Does a capture on the window. This does nothing if the window isn't showing
+  // (VISIBILITY_SHOWN) or isn't contained in a valid window hierarchy.
   void SetCapture();
 
-  // Releases a mouse capture.
+  // Releases a capture.
   void ReleaseCapture();
 
-  // Returns true if this window has a mouse capture.
+  // Returns true if this window has capture.
   bool HasCapture();
 
   // Suppresses painting window content by disgarding damaged rect and ignoring
@@ -313,6 +338,9 @@ class AURA_EXPORT Window : public ui::LayerDelegate {
 
   // Type of a function to delete a property that this window owns.
   typedef void (*PropertyDeallocator)(intptr_t value);
+
+  // Overridden from ui::LayerDelegate:
+  virtual void OnDeviceScaleFactorChanged(float device_scale_factor) OVERRIDE;
 
  private:
   friend class LayoutManager;
@@ -369,26 +397,38 @@ class AURA_EXPORT Window : public ui::LayerDelegate {
 
   // Notifies observers registered with this Window (and its subtree) when the
   // Window has been added or is about to be removed from a RootWindow.
-  void NotifyAddedToRootWindow();
   void NotifyRemovingFromRootWindow();
+  void NotifyAddedToRootWindow();
+
+  // Invoked from the closure returned by PrepareForLayerBoundsChange() after
+  // the bounds of the layer has changed. |old_bounds| is the previous bounds of
+  // the layer, and |contained_mouse| is true if the mouse was previously within
+  // the window's bounds.
+  void OnLayerBoundsChanged(const gfx::Rect& old_bounds, bool contained_mouse);
 
   // Overridden from ui::LayerDelegate:
   virtual void OnPaintLayer(gfx::Canvas* canvas) OVERRIDE;
+  virtual base::Closure PrepareForLayerBoundsChange() OVERRIDE;
 
   // Updates the layer name with a name based on the window's name and id.
   void UpdateLayerName(const std::string& name);
 
+  // Returns true if the mouse is currently within our bounds.
+  bool ContainsMouse();
+
+#ifndef NDEBUG
+  // These methods are useful when debugging.
+  std::string GetDebugInfo() const;
+  void PrintWindowHierarchy(int depth) const;
+#endif
+
   client::WindowType type_;
 
-  WindowDelegate* delegate_;
+  // True if the Window is owned by its parent - i.e. it will be deleted by its
+  // parent during its parents destruction. True is the default.
+  bool owned_by_parent_;
 
-  // The Window will own its layer unless ownership is relinquished via a call
-  // to AcquireLayer(). After that moment |layer_| will still be valid but
-  // |layer_owner_| will be NULL. The reason for releasing ownership is that
-  // the client may wish to animate the window's layer beyond the lifetime of
-  // the window, e.g. fading it out when it is destroyed.
-  scoped_ptr<ui::Layer> layer_owner_;
-  ui::Layer* layer_;
+  WindowDelegate* delegate_;
 
   // The Window's parent.
   Window* parent_;
@@ -422,9 +462,9 @@ class AURA_EXPORT Window : public ui::LayerDelegate {
   // Makes the window pass all events through to any windows behind it.
   bool ignore_events_;
 
-  // See SetHitTestBoundsOverride().
-  int hit_test_bounds_override_outer_;
-  int hit_test_bounds_override_inner_;
+  // See set_hit_test_outer_override().
+  gfx::Insets hit_test_bounds_override_outer_;
+  gfx::Insets hit_test_bounds_override_inner_;
 
   ObserverList<WindowObserver> observers_;
 
@@ -438,6 +478,13 @@ class AURA_EXPORT Window : public ui::LayerDelegate {
   };
 
   std::map<const void*, Value> prop_map_;
+
+  // A boolean flag to debug crash in http://crbug.com/134507. It is set when
+  // SetVisible is called and reset when SetVisible finishes. In Window dtor,
+  // the flag is CHECKed to catch the case that Window is destroyed during
+  // SetVisbile(false).
+  // TODO(xiyuan): Remove this when http://crbug.com/134507 is resolved.
+  bool in_set_visible_call_;
 
   DISALLOW_COPY_AND_ASSIGN(Window);
 };

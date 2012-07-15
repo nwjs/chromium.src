@@ -4,10 +4,9 @@
 
 #ifndef CHROME_BROWSER_UI_TAB_MODAL_CONFIRM_DIALOG_BROWSERTEST_H_
 #define CHROME_BROWSER_UI_TAB_MODAL_CONFIRM_DIALOG_BROWSERTEST_H_
-#pragma once
 
 #include "chrome/test/base/in_process_browser_test.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 
 #if defined(OS_MACOSX)
 class TabModalConfirmDialogMac;
@@ -15,17 +14,13 @@ typedef TabModalConfirmDialogMac TabModalConfirmDialog;
 #elif defined(TOOLKIT_GTK)
 #include "chrome/browser/ui/gtk/tab_modal_confirm_dialog_gtk.h"
 typedef TabModalConfirmDialogGtk TabModalConfirmDialog;
-#elif defined(OS_CHROMEOS) && !defined(USE_AURA)
-#include "chrome/browser/ui/webui/constrained_html_ui.h"
-#include "chrome/browser/ui/webui/tab_modal_confirm_dialog_webui.h"
-typedef TabModalConfirmDialogWebUI TabModalConfirmDialog;
 #else
 #include "chrome/browser/ui/views/tab_modal_confirm_dialog_views.h"
 typedef TabModalConfirmDialogViews TabModalConfirmDialog;
 #endif
 
 class MockTabModalConfirmDialogDelegate;
-class TabContentsWrapper;
+class TabContents;
 class TabModalConfirmDialogDelegate;
 
 class TabModalConfirmDialogTest : public InProcessBrowserTest {
@@ -43,7 +38,7 @@ class TabModalConfirmDialogTest : public InProcessBrowserTest {
 
  private:
   TabModalConfirmDialog* CreateTestDialog(
-      TabModalConfirmDialogDelegate* delegate, TabContentsWrapper* wrapper);
+      TabModalConfirmDialogDelegate* delegate, TabContents* tab_contents);
 
   // Deletes itself.
   TabModalConfirmDialog* dialog_;

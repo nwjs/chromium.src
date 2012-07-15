@@ -4,10 +4,10 @@
 
 #ifndef UI_VIEWS_CONTROLS_TEXTFIELD_NATIVE_TEXTFIELD_VIEWS_H_
 #define UI_VIEWS_CONTROLS_TEXTFIELD_NATIVE_TEXTFIELD_VIEWS_H_
-#pragma once
 
 #include "base/memory/weak_ptr.h"
 #include "base/string16.h"
+#include "ui/base/events.h"
 #include "ui/base/ime/text_input_client.h"
 #include "ui/base/models/simple_menu_model.h"
 #include "ui/gfx/font.h"
@@ -57,6 +57,7 @@ class VIEWS_EXPORT NativeTextfieldViews : public TouchSelectionClientView,
   virtual bool OnMousePressed(const MouseEvent& event) OVERRIDE;
   virtual bool OnMouseDragged(const MouseEvent& event) OVERRIDE;
   virtual void OnMouseReleased(const MouseEvent& event) OVERRIDE;
+  virtual ui::GestureStatus OnGestureEvent(const GestureEvent& event) OVERRIDE;
   virtual bool OnKeyPressed(const KeyEvent& event) OVERRIDE;
   virtual bool GetDropFormats(
       int* formats,
@@ -93,7 +94,7 @@ class VIEWS_EXPORT NativeTextfieldViews : public TouchSelectionClientView,
   virtual void UpdateText() OVERRIDE;
   virtual void AppendText(const string16& text) OVERRIDE;
   virtual string16 GetSelectedText() const OVERRIDE;
-  virtual void SelectAll() OVERRIDE;
+  virtual void SelectAll(bool reversed) OVERRIDE;
   virtual void ClearSelection() OVERRIDE;
   virtual void UpdateBorder() OVERRIDE;
   virtual void UpdateTextColor() OVERRIDE;
@@ -131,6 +132,8 @@ class VIEWS_EXPORT NativeTextfieldViews : public TouchSelectionClientView,
   virtual bool GetAcceleratorForCommandId(
       int command_id,
       ui::Accelerator* accelerator) OVERRIDE;
+  virtual bool IsItemForCommandIdDynamic(int command_id) const OVERRIDE;
+  virtual string16 GetLabelForCommandId(int command_id) const OVERRIDE;
   virtual void ExecuteCommand(int command_id) OVERRIDE;
 
   // class name of internal
@@ -154,6 +157,8 @@ class VIEWS_EXPORT NativeTextfieldViews : public TouchSelectionClientView,
   virtual ui::TextInputType GetTextInputType() const OVERRIDE;
   virtual bool CanComposeInline() const OVERRIDE;
   virtual gfx::Rect GetCaretBounds() OVERRIDE;
+  virtual bool GetCompositionCharacterBounds(uint32 index,
+                                             gfx::Rect* rect) OVERRIDE;
   virtual bool HasCompositionText() OVERRIDE;
   virtual bool GetTextRange(ui::Range* range) OVERRIDE;
   virtual bool GetCompositionTextRange(ui::Range* range) OVERRIDE;
@@ -171,6 +176,10 @@ class VIEWS_EXPORT NativeTextfieldViews : public TouchSelectionClientView,
 
   // Returns the TextfieldViewsModel's text/cursor/selection rendering model.
   gfx::RenderText* GetRenderText() const;
+
+  // Converts |text| according to textfield style, e.g. lower case if
+  // |textfield_| has STYLE_LOWERCASE style.
+  string16 GetTextForDisplay(const string16& text);
 
   // A callback function to periodically update the cursor state.
   void UpdateCursor();
@@ -197,7 +206,7 @@ class VIEWS_EXPORT NativeTextfieldViews : public TouchSelectionClientView,
   // changed.
   void UpdateAfterChange(bool text_changed, bool cursor_changed);
 
-  // Utility function to prepare the context menu..
+  // Utility function to prepare the context menu.
   void UpdateContextMenu();
 
   // Convenience method to call InputMethod::OnTextInputTypeChanged();

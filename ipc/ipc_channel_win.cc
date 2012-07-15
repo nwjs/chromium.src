@@ -13,7 +13,7 @@
 #include "base/process_util.h"
 #include "base/rand_util.h"
 #include "base/string_number_conversions.h"
-#include "base/threading/non_thread_safe.h"
+#include "base/threading/thread_checker.h"
 #include "base/utf_string_conversions.h"
 #include "base/win/scoped_handle.h"
 #include "ipc/ipc_logging.h"
@@ -37,6 +37,7 @@ Channel::ChannelImpl::ChannelImpl(const IPC::ChannelHandle &channel_handle,
       ALLOW_THIS_IN_INITIALIZER_LIST(input_state_(this)),
       ALLOW_THIS_IN_INITIALIZER_LIST(output_state_(this)),
       pipe_(INVALID_HANDLE_VALUE),
+      peer_pid_(base::kNullProcessId),
       waiting_connect_(mode & MODE_SERVER_FLAG),
       processing_incoming_(false),
       ALLOW_THIS_IN_INITIALIZER_LIST(weak_factory_(this)),
@@ -142,7 +143,9 @@ Channel::ChannelImpl::ReadState Channel::ChannelImpl::ReadData(
 }
 
 bool Channel::ChannelImpl::WillDispatchInputMessage(Message* msg) {
-  // We don't need to do anything here.
+  // Make sure we get a hello when client validation is required.
+  if (validate_client_)
+    return IsHelloMessage(*msg);
   return true;
 }
 
@@ -157,6 +160,9 @@ void Channel::ChannelImpl::HandleHelloMessage(const Message& msg) {
     listener()->OnChannelError();
     return;
   }
+  peer_pid_ = claimed_pid;
+  // validation completed.
+  validate_client_ = false;
   listener()->OnChannelConnected(claimed_pid);
 }
 
@@ -245,7 +251,7 @@ bool Channel::ChannelImpl::CreatePipe(const IPC::ChannelHandle &channel_handle,
   if (pipe_ == INVALID_HANDLE_VALUE) {
     // If this process is being closed, the pipe may be gone already.
     LOG(WARNING) << "Unable to create pipe \"" << pipe_name <<
-                    "\" in " << (mode == 0 ? "server" : "client")
+                    "\" in " << (mode & MODE_SERVER_FLAG ? "server" : "client")
                     << " mode. Error :" << GetLastError();
     return false;
   }
@@ -273,7 +279,7 @@ bool Channel::ChannelImpl::Connect() {
   DLOG_IF(WARNING, thread_check_.get()) << "Connect called more than once";
 
   if (!thread_check_.get())
-    thread_check_.reset(new base::NonThreadSafe());
+    thread_check_.reset(new base::ThreadChecker());
 
   if (pipe_ == INVALID_HANDLE_VALUE)
     return false;
@@ -456,11 +462,16 @@ bool Channel::Connect() {
 }
 
 void Channel::Close() {
-  channel_impl_->Close();
+  if (channel_impl_)
+    channel_impl_->Close();
 }
 
 void Channel::set_listener(Listener* listener) {
   channel_impl_->set_listener(listener);
+}
+
+base::ProcessId Channel::peer_pid() const {
+  return channel_impl_->peer_pid();
 }
 
 bool Channel::Send(Message* message) {

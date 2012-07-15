@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_UI_COCOA_BROWSER_WINDOW_CONTROLLER_PRIVATE_H_
 #define CHROME_BROWSER_UI_COCOA_BROWSER_WINDOW_CONTROLLER_PRIVATE_H_
-#pragma once
 
 #import "chrome/browser/ui/cocoa/browser_window_controller.h"
 
@@ -20,10 +19,6 @@
 // Create the appropriate tab strip controller based on whether or not side
 // tabs are enabled. Replaces the current controller.
 - (void)createTabStripController;
-
-// Creates the button used to toggle presentation mode.  Must only be called on
-// Lion or later.  Does nothing if the button already exists.
-- (void)createAndInstallPresentationModeToggleButton;
 
 // Saves the window's position in the local state preferences.
 - (void)saveWindowPositionIfNeeded;
@@ -46,12 +41,6 @@
 // Shows the informational "how to exit fullscreen" bubble.
 - (void)showFullscreenExitBubbleIfNecessary;
 - (void)destroyFullscreenExitBubbleIfNecessary;
-
-// Lays out the presentation mode toggle button at the top right corner of the
-// overlay.  Creates the button if needed, and removes it if it is not needed.
-// This method is safe to call on all OS versions.
-- (void)layoutPresentationModeToggleAtOverlayMaxX:(CGFloat)maxX
-                                      overlayMaxY:(CGFloat)maxY;
 
 // Lays out the tab strip at the given maximum y-coordinate, with the given
 // width, possibly for fullscreen mode; returns the new maximum y (below the

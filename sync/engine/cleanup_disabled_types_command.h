@@ -4,12 +4,11 @@
 
 #ifndef SYNC_ENGINE_CLEANUP_DISABLED_TYPES_COMMAND_H_
 #define SYNC_ENGINE_CLEANUP_DISABLED_TYPES_COMMAND_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "sync/engine/syncer_command.h"
 
-namespace browser_sync {
+namespace syncer {
 
 // A syncer command that purges (from memory and disk) entries belonging to
 // a ModelType or ServerModelType that the user has not elected to sync.
@@ -40,7 +39,6 @@ class CleanupDisabledTypesCommand : public SyncerCommand {
   DISALLOW_COPY_AND_ASSIGN(CleanupDisabledTypesCommand);
 };
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_ENGINE_CLEANUP_DISABLED_TYPES_COMMAND_H_
-

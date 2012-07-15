@@ -1,6 +1,6 @@
 <div id="pointer-overlay" class="page" hidden>
   <div class="close-button"></div>
-  <h1 i18n-content="pointerOverlayTitle"></h1>
+  <h1 id="pointer-overlay-title"></h1>
   <div class="content-area">
     <div id="pointer-section-touchpad" hidden>
       <div i18n-content="pointerOverlaySectionTitleTouchpad"></div>
@@ -15,7 +15,7 @@
         <label>
           <input type="checkbox" metric="Options_TouchpadNaturalScroll"
               pref="settings.touchpad.natural_scroll" dialog-pref>
-          <span i18n-content="naturalScroll"></span>
+          <span i18n-values=".innerHTML:naturalScroll"></span>
         </label>
       </div>
     </div>

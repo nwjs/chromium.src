@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -14,20 +14,13 @@
 
 // File utilities messages sent from the renderer to the browser.
 
-// Get file size in bytes. Set result to -1 if failed to get the file size.
-IPC_SYNC_MESSAGE_CONTROL1_1(FileUtilitiesMsg_GetFileSize,
+IPC_SYNC_MESSAGE_CONTROL1_2(FileUtilitiesMsg_GetFileInfo,
                             FilePath /* path */,
-                            int64 /* result */)
-
-// Get file modification time in seconds. Set result to 0 if failed to get the
-// file modification time.
-IPC_SYNC_MESSAGE_CONTROL1_1(FileUtilitiesMsg_GetFileModificationTime,
-                            FilePath /* path */,
-                            base::Time /* result */)
+                            base::PlatformFileInfo /* result */,
+                            base::PlatformFileError /* status */)
 
 // Open the file.
 IPC_SYNC_MESSAGE_CONTROL2_1(FileUtilitiesMsg_OpenFile,
                             FilePath /* path */,
                             int /* mode */,
                             IPC::PlatformFileForTransit /* result */)
-

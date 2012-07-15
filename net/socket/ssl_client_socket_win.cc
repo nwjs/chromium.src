@@ -116,6 +116,7 @@ static int MapSecurityError(SECURITY_STATUS err) {
 
 // A bitmask consisting of these bit flags encodes which versions of the SSL
 // protocol (SSL 3.0 and TLS 1.0) are enabled.
+// TODO(wtc): support TLS 1.1 and TLS 1.2 on Windows Vista and later.
 enum {
   SSL3 = 1 << 0,
   TLS1 = 1 << 1,
@@ -413,8 +414,9 @@ void SSLClientSocketWin::GetSSLInfo(SSLInfo* ssl_info) {
   ssl_info->public_key_hashes = server_cert_verify_result_.public_key_hashes;
   ssl_info->is_issued_by_known_root =
       server_cert_verify_result_.is_issued_by_known_root;
-  ssl_info->client_cert_sent = WasDomainBoundCertSent() ||
-      (ssl_config_.send_client_cert && ssl_config_.client_cert);
+  ssl_info->client_cert_sent =
+      ssl_config_.send_client_cert && ssl_config_.client_cert;
+  ssl_info->channel_id_sent = WasChannelIDSent();
   SecPkgContext_ConnectionInfo connection_info;
   SECURITY_STATUS status = QueryContextAttributes(
       &ctxt_, SECPKG_ATTR_CONNECTION_INFO, &connection_info);
@@ -423,6 +425,8 @@ void SSLClientSocketWin::GetSSLInfo(SSLInfo* ssl_info) {
     // dwExchStrength and dwHashStrength.  dwExchStrength needs to be
     // normalized.
     ssl_info->security_bits = connection_info.dwCipherStrength;
+    // TODO(wtc): connection_info.dwProtocol is the negotiated version.
+    // Save it in ssl_info->connection_status.
   }
   // SecPkgContext_CipherInfo comes from CNG and is available on Vista or
   // later only.  On XP, the next QueryContextAttributes call fails with
@@ -442,8 +446,8 @@ void SSLClientSocketWin::GetSSLInfo(SSLInfo* ssl_info) {
     // any field related to the compression method.
   }
 
-  if (ssl_config_.ssl3_fallback)
-    ssl_info->connection_status |= SSL_CONNECTION_SSL3_FALLBACK;
+  if (ssl_config_.version_fallback)
+    ssl_info->connection_status |= SSL_CONNECTION_VERSION_FALLBACK;
 }
 
 void SSLClientSocketWin::GetSSLCertRequestInfo(
@@ -565,11 +569,11 @@ int SSLClientSocketWin::Connect(const CompletionCallback& callback) {
   DCHECK(next_state_ == STATE_NONE);
   DCHECK(user_connect_callback_.is_null());
 
-  net_log_.BeginEvent(NetLog::TYPE_SSL_CONNECT, NULL);
+  net_log_.BeginEvent(NetLog::TYPE_SSL_CONNECT);
 
   int rv = InitializeSSLContext();
   if (rv != OK) {
-    net_log_.EndEvent(NetLog::TYPE_SSL_CONNECT, NULL);
+    net_log_.EndEvent(NetLog::TYPE_SSL_CONNECT);
     return rv;
   }
 
@@ -579,17 +583,23 @@ int SSLClientSocketWin::Connect(const CompletionCallback& callback) {
   if (rv == ERR_IO_PENDING) {
     user_connect_callback_ = callback;
   } else {
-    net_log_.EndEvent(NetLog::TYPE_SSL_CONNECT, NULL);
+    net_log_.EndEvent(NetLog::TYPE_SSL_CONNECT);
   }
   return rv;
 }
 
 int SSLClientSocketWin::InitializeSSLContext() {
+  // If ssl_config_.version_max > SSL_PROTOCOL_VERSION_TLS1, it means the
+  // SSLConfigService::SetDefaultVersionMax(SSL_PROTOCOL_VERSION_TLS1) call
+  // in ClientSocketFactory::UseSystemSSL() is not effective.
+  DCHECK_LE(ssl_config_.version_max, SSL_PROTOCOL_VERSION_TLS1);
   int ssl_version_mask = 0;
-  if (ssl_config_.ssl3_enabled)
+  if (ssl_config_.version_min == SSL_PROTOCOL_VERSION_SSL3)
     ssl_version_mask |= SSL3;
-  if (ssl_config_.tls1_enabled)
+  if (ssl_config_.version_min <= SSL_PROTOCOL_VERSION_TLS1 &&
+      ssl_config_.version_max >= SSL_PROTOCOL_VERSION_TLS1) {
     ssl_version_mask |= TLS1;
+  }
   // If we pass 0 to GetCredHandle, we will let Schannel select the protocols,
   // rather than enabling no protocols.  So we have to fail here.
   if (ssl_version_mask == 0)
@@ -702,7 +712,7 @@ bool SSLClientSocketWin::IsConnectedAndIdle() const {
   return completed_handshake() && transport_->socket()->IsConnectedAndIdle();
 }
 
-int SSLClientSocketWin::GetPeerAddress(AddressList* address) const {
+int SSLClientSocketWin::GetPeerAddress(IPEndPoint* address) const {
   return transport_->socket()->GetPeerAddress(address);
 }
 
@@ -848,7 +858,7 @@ void SSLClientSocketWin::OnHandshakeIOComplete(int result) {
       c.Run(rv);
       return;
     }
-    net_log_.EndEvent(NetLog::TYPE_SSL_CONNECT, NULL);
+    net_log_.EndEvent(NetLog::TYPE_SSL_CONNECT);
     CompletionCallback c = user_connect_callback_;
     user_connect_callback_.Reset();
     c.Run(rv);
@@ -1554,7 +1564,8 @@ int SSLClientSocketWin::DidCompleteHandshake() {
       X509Certificate::CreateFromHandle(server_cert_handle, intermediates));
   net_log_.AddEvent(
       NetLog::TYPE_SSL_CERTIFICATES_RECEIVED,
-      make_scoped_refptr(new X509CertificateNetLogParam(new_server_cert)));
+      base::Bind(&NetLogX509CertificateCallback,
+                 base::Unretained(new_server_cert.get())));
   if (renegotiating_ && IsCertificateChainIdentical(server_cert_,
                                                     new_server_cert)) {
     // We already verified the server certificate.  Either it is good or the

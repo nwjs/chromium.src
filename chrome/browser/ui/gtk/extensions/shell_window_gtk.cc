@@ -4,31 +4,35 @@
 
 #include "chrome/browser/ui/gtk/extensions/shell_window_gtk.h"
 
-#include "chrome/browser/extensions/extension_host.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/common/extensions/extension.h"
+#include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host_view.h"
+#include "content/public/browser/web_contents.h"
+#include "content/public/browser/web_contents_view.h"
 #include "ui/base/x/active_window_watcher_x.h"
 #include "ui/gfx/rect.h"
 
-ShellWindowGtk::ShellWindowGtk(ExtensionHost* host)
-    : ShellWindow(host),
+ShellWindowGtk::ShellWindowGtk(Profile* profile,
+                               const extensions::Extension* extension,
+                               const GURL& url,
+                               const ShellWindow::CreateParams& params)
+    : ShellWindow(profile, extension, url),
       state_(GDK_WINDOW_STATE_WITHDRAWN),
       is_active_(!ui::ActiveWindowWatcherX::WMSupportsActivation()) {
-  host_->view()->SetContainer(this);
   window_ = GTK_WINDOW(gtk_window_new(GTK_WINDOW_TOPLEVEL));
 
-  gtk_container_add(GTK_CONTAINER(window_), host_->view()->native_view());
+  gfx::NativeView native_view =
+      web_contents()->GetView()->GetNativeView();
+  gtk_container_add(GTK_CONTAINER(window_), native_view);
 
-  const Extension* extension = host_->extension();
-
-  // TOOD(mihaip): restore prior window dimensions and positions on relaunch.
   gtk_window_set_default_size(
-      window_, extension->launch_width(), extension->launch_height());
+      window_, params.bounds.width(), params.bounds.height());
 
-  int min_width = extension->launch_min_width();
-  int min_height = extension->launch_min_height();
-  int max_width = extension->launch_max_width();
-  int max_height = extension->launch_max_height();
+  int min_width = params.minimum_size.width();
+  int min_height = params.minimum_size.height();
+  int max_width = params.maximum_size.width();
+  int max_height = params.maximum_size.height();
   GdkGeometry hints;
   int hints_mask = 0;
   if (min_width || min_height) {
@@ -60,8 +64,6 @@ ShellWindowGtk::ShellWindowGtk(ExtensionHost* host)
                    G_CALLBACK(OnWindowStateThunk), this);
 
   ui::ActiveWindowWatcherX::AddObserver(this);
-
-  gtk_window_present(window_);
 }
 
 ShellWindowGtk::~ShellWindowGtk() {
@@ -78,6 +80,14 @@ bool ShellWindowGtk::IsMaximized() const {
 
 bool ShellWindowGtk::IsMinimized() const {
   return (state_ & GDK_WINDOW_STATE_ICONIFIED);
+}
+
+bool ShellWindowGtk::IsFullscreen() const {
+  return false;
+}
+
+gfx::NativeWindow ShellWindowGtk::GetNativeWindow() {
+  return window_;
 }
 
 gfx::Rect ShellWindowGtk::GetRestoredBounds() const {
@@ -103,8 +113,11 @@ void ShellWindowGtk::Close() {
   // destruction, set window_ to NULL before any handlers will run.
   window_ = NULL;
 
+  // OnNativeClose does a delete this so no other members should
+  // be accessed after. gtk_widget_destroy is safe (and must
+  // be last).
+  OnNativeClose();
   gtk_widget_destroy(window);
-  delete this;
 }
 
 void ShellWindowGtk::Activate() {
@@ -135,6 +148,10 @@ void ShellWindowGtk::SetBounds(const gfx::Rect& bounds) {
   // TODO(mihaip): Do we need the same workaround as BrowserWindowGtk::
   // SetWindowSize in order to avoid triggering fullscreen mode?
   gtk_window_resize(window_, bounds.width(), bounds.height());
+}
+
+void ShellWindowGtk::SetDraggableRegion(SkRegion* region) {
+  // TODO: implement
 }
 
 void ShellWindowGtk::FlashFrame(bool flash) {
@@ -178,10 +195,34 @@ gboolean ShellWindowGtk::OnConfigure(GtkWidget* widget,
 gboolean ShellWindowGtk::OnWindowState(GtkWidget* sender,
                                        GdkEventWindowState* event) {
   state_ = event->new_window_state;
+
+  if (content_thinks_its_fullscreen_ &&
+      !(state_ & GDK_WINDOW_STATE_FULLSCREEN)) {
+    content_thinks_its_fullscreen_ = false;
+    content::RenderViewHost* rvh = web_contents()->GetRenderViewHost();
+    if (rvh)
+      rvh->ExitFullscreen();
+  }
+
   return FALSE;
 }
 
+void ShellWindowGtk::SetFullscreen(bool fullscreen) {
+  content_thinks_its_fullscreen_ = fullscreen;
+  if (fullscreen)
+    gtk_window_fullscreen(window_);
+  else
+    gtk_window_unfullscreen(window_);
+}
+
+bool ShellWindowGtk::IsFullscreenOrPending() const {
+  return content_thinks_its_fullscreen_;
+}
+
 // static
-ShellWindow* ShellWindow::CreateShellWindow(ExtensionHost* host) {
-  return new ShellWindowGtk(host);
+ShellWindow* ShellWindow::CreateImpl(Profile* profile,
+                                     const extensions::Extension* extension,
+                                     const GURL& url,
+                                     const ShellWindow::CreateParams& params) {
+  return new ShellWindowGtk(profile, extension, url, params);
 }

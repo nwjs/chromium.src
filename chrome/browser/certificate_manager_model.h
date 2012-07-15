@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -67,8 +67,7 @@ class CertificateManagerModel {
   // Tries to import all the certificates given.  The root will be trusted
   // according to |trust_bits|.  Any certificates that could not be imported
   // will be listed in |not_imported|.
-  // |trust_bits| should be a bit field of TRUST_* values from CertDatabase, or
-  // UNTRUSTED.
+  // |trust_bits| should be a bit field of TRUST* values from CertDatabase.
   // Returns false if there is an internal error, otherwise true is returned and
   // |not_imported| should be checked for any certificates that were not
   // imported.
@@ -81,16 +80,18 @@ class CertificateManagerModel {
   // not given any trust.
   // Any certificates that could not be imported will be listed in
   // |not_imported|.
+  // |trust_bits| can be set to explicitly trust or distrust the certificate, or
+  // use TRUST_DEFAULT to inherit trust as normal.
   // Returns false if there is an internal error, otherwise true is returned and
   // |not_imported| should be checked for any certificates that were not
   // imported.
   bool ImportServerCert(
       const net::CertificateList& certificates,
+      net::CertDatabase::TrustBits trust_bits,
       net::CertDatabase::ImportCertFailureList* not_imported);
 
   // Set trust values for certificate.
-  // |trust_bits| should be a bit field of TRUST_* values from CertDatabase, or
-  // UNTRUSTED.
+  // |trust_bits| should be a bit field of TRUST* values from CertDatabase.
   // Returns true on success or false on failure.
   bool SetCertTrust(const net::X509Certificate* cert,
                     net::CertType type,
@@ -99,6 +100,11 @@ class CertificateManagerModel {
   // Delete the cert.  Returns true on success.  |cert| is still valid when this
   // function returns.
   bool Delete(net::X509Certificate* cert);
+
+  // IsHardwareBacked returns true if |cert| is hardware backed.
+  // This function is only implemented for Chrome OS and always returns false
+  // for other platforms.
+  bool IsHardwareBacked(const net::X509Certificate* cert) const;
 
  private:
   // Callback used by Refresh() for when the cert slots have been unlocked.

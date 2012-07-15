@@ -4,16 +4,18 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_CONVERT_WEB_APP_H_
 #define CHROME_BROWSER_EXTENSIONS_CONVERT_WEB_APP_H_
-#pragma once
 
 #include <string>
 
 #include "base/memory/ref_counted.h"
 
-class Extension;
 
 namespace base {
 class Time;
+}
+
+namespace extensions {
+class Extension;
 }
 
 struct WebApplicationInfo;
@@ -36,7 +38,7 @@ std::string ConvertTimeToExtensionVersion(const base::Time& time);
 // NOTE: This function does file IO and should not be called on the UI thread.
 // NOTE: The caller takes ownership of the directory at extension->path() on the
 // returned object.
-scoped_refptr<Extension> ConvertWebAppToExtension(
+scoped_refptr<extensions::Extension> ConvertWebAppToExtension(
     const WebApplicationInfo& web_app_info,
     const base::Time& create_time);
 

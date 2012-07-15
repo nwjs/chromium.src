@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,11 +9,14 @@
 #include "content/browser/geolocation/location_arbitrator.h"
 #include "content/browser/geolocation/location_provider.h"
 #include "content/browser/geolocation/mock_location_provider.h"
-#include "content/common/geoposition.h"
+#include "content/public/common/geoposition.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using content::AccessTokenStore;
 using content::FakeAccessTokenStore;
+using content::Geoposition;
+using ::testing::NiceMock;
 
 namespace {
 
@@ -22,7 +25,7 @@ class MockLocationObserver : public GeolocationObserver {
   void InvalidateLastPosition() {
     last_position_.latitude = 100;
     last_position_.error_code = Geoposition::ERROR_CODE_NONE;
-    ASSERT_FALSE(last_position_.IsInitialized());
+    ASSERT_FALSE(last_position_.Validate());
   }
   // Delegate
   virtual void OnLocationUpdate(const Geoposition& position) {
@@ -52,8 +55,7 @@ void SetPositionFix(MockLocationProvider* provider,
   position.longitude = longitude;
   position.accuracy = accuracy;
   position.timestamp = GetTimeNowForTest();
-  ASSERT_TRUE(position.IsInitialized());
-  ASSERT_TRUE(position.IsValidFix());
+  ASSERT_TRUE(position.Validate());
   provider->HandlePositionChanged(position);
 }
 
@@ -68,12 +70,15 @@ class MockDependencyFactory : public GeolocationArbitratorDependencyFactory {
         gps_(NULL),
         access_token_store_(access_token_store) {
   }
+
   virtual GeolocationArbitrator::GetTimeNow GetTimeFunction() {
     return GetTimeNowForTest;
   }
+
   virtual AccessTokenStore* NewAccessTokenStore() {
     return access_token_store_.get();
   }
+
   virtual LocationProviderBase* NewNetworkLocationProvider(
       AccessTokenStore* access_token_store,
       net::URLRequestContextGetter* context,
@@ -81,6 +86,7 @@ class MockDependencyFactory : public GeolocationArbitratorDependencyFactory {
       const string16& access_token) {
     return new MockLocationProvider(&cell_);
   }
+
   virtual LocationProviderBase* NewSystemLocationProvider() {
     return new MockLocationProvider(&gps_);
   }
@@ -93,13 +99,16 @@ class MockDependencyFactory : public GeolocationArbitratorDependencyFactory {
   MockLocationProvider* gps_;
 
   scoped_refptr<AccessTokenStore> access_token_store_;
+
+ private:
+  virtual ~MockDependencyFactory() {}
 };
 
 class GeolocationLocationArbitratorTest : public testing::Test {
  protected:
   // testing::Test
   virtual void SetUp() {
-    access_token_store_ = new FakeAccessTokenStore;
+    access_token_store_ = new NiceMock<FakeAccessTokenStore>;
     observer_.reset(new MockLocationObserver);
     dependency_factory_ = new MockDependencyFactory(access_token_store_);
     GeolocationArbitrator::SetDependencyFactoryForTest(
@@ -117,7 +126,7 @@ class GeolocationLocationArbitratorTest : public testing::Test {
                              double longitude,
                              double accuracy) {
     Geoposition geoposition = observer_->last_position_;
-    EXPECT_TRUE(geoposition.IsValidFix());
+    EXPECT_TRUE(geoposition.Validate());
     EXPECT_DOUBLE_EQ(latitude, geoposition.latitude);
     EXPECT_DOUBLE_EQ(longitude, geoposition.longitude);
     EXPECT_DOUBLE_EQ(accuracy, geoposition.accuracy);
@@ -153,7 +162,7 @@ TEST_F(GeolocationLocationArbitratorTest, CreateDestroy) {
 
 TEST_F(GeolocationLocationArbitratorTest, OnPermissionGranted) {
   EXPECT_FALSE(arbitrator_->HasPermissionBeenGranted());
-  arbitrator_->OnPermissionGranted(GURL("http://frame.test"));
+  arbitrator_->OnPermissionGranted();
   EXPECT_TRUE(arbitrator_->HasPermissionBeenGranted());
   // Can't check the provider has been notified without going through the
   // motions to create the provider (see next test).
@@ -178,24 +187,23 @@ TEST_F(GeolocationLocationArbitratorTest, NormalUsage) {
   EXPECT_TRUE(cell()->has_listeners());
   EXPECT_EQ(MockLocationProvider::LOW_ACCURACY, cell()->state_);
   EXPECT_EQ(MockLocationProvider::LOW_ACCURACY, gps()->state_);
-  EXPECT_FALSE(observer_->last_position_.IsInitialized());
+  EXPECT_FALSE(observer_->last_position_.Validate());
+  EXPECT_EQ(content::Geoposition::ERROR_CODE_NONE,
+            observer_->last_position_.error_code);
 
   SetReferencePosition(cell());
 
-  EXPECT_TRUE(observer_->last_position_.IsInitialized());
+  EXPECT_TRUE(observer_->last_position_.Validate() ||
+              observer_->last_position_.error_code !=
+                  content::Geoposition::ERROR_CODE_NONE);
   EXPECT_EQ(cell()->position_.latitude,
             observer_->last_position_.latitude);
 
-  EXPECT_FALSE(
-      cell()->permission_granted_url_.is_valid());
+  EXPECT_FALSE(cell()->is_permission_granted_);
   EXPECT_FALSE(arbitrator_->HasPermissionBeenGranted());
-  GURL frame_url("http://frame.test");
-  arbitrator_->OnPermissionGranted(frame_url);
+  arbitrator_->OnPermissionGranted();
   EXPECT_TRUE(arbitrator_->HasPermissionBeenGranted());
-  EXPECT_TRUE(
-      cell()->permission_granted_url_.is_valid());
-  EXPECT_EQ(frame_url,
-            cell()->permission_granted_url_);
+  EXPECT_TRUE(cell()->is_permission_granted_);
 }
 
 TEST_F(GeolocationLocationArbitratorTest, SetObserverOptions) {
@@ -222,7 +230,7 @@ TEST_F(GeolocationLocationArbitratorTest, Arbitration) {
   SetPositionFix(cell(), 1, 2, 150);
 
   // First position available
-  EXPECT_TRUE(observer_->last_position_.IsValidFix());
+  EXPECT_TRUE(observer_->last_position_.Validate());
   CheckLastPositionInfo(1, 2, 150);
 
   SetPositionFix(gps(), 3, 4, 50);

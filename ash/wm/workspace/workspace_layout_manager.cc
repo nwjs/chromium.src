@@ -5,9 +5,8 @@
 #include "ash/wm/workspace/workspace_layout_manager.h"
 
 #include "ash/screen_ash.h"
-#include "ash/wm/property_util.h"
-#include "ash/wm/window_animations.h"
 #include "ash/wm/window_util.h"
+#include "ash/wm/window_properties.h"
 #include "ash/wm/workspace/workspace.h"
 #include "ash/wm/workspace/workspace_manager.h"
 #include "ash/wm/workspace/workspace_window_resizer.h"
@@ -16,27 +15,12 @@
 #include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_observer.h"
-#include "ui/aura/window_property.h"
 #include "ui/base/ui_base_types.h"
-#include "ui/gfx/compositor/layer.h"
 #include "ui/gfx/rect.h"
 #include "ui/views/widget/native_widget_aura.h"
 
-DECLARE_WINDOW_PROPERTY_TYPE(ui::WindowShowState)
-
 namespace ash {
 namespace internal {
-
-namespace {
-
-// Used to remember the show state before the window was minimized.
-DEFINE_WINDOW_PROPERTY_KEY(
-    ui::WindowShowState, kRestoreShowStateKey, ui::SHOW_STATE_DEFAULT);
-
-}  // namespace
-
-////////////////////////////////////////////////////////////////////////////////
-// WorkspaceLayoutManager, public:
 
 WorkspaceLayoutManager::WorkspaceLayoutManager(
     aura::RootWindow* root_window,
@@ -54,40 +38,39 @@ void WorkspaceLayoutManager::OnWindowResized() {
 
 void WorkspaceLayoutManager::OnWindowAddedToLayout(aura::Window* child) {
   BaseLayoutManager::OnWindowAddedToLayout(child);
-  if (!workspace_manager_->IsManagedWindow(child))
+  if (!workspace_manager_->IsManagedWindow(child)) {
+    if (child->IsVisible())
+      workspace_manager_->UpdateShelfVisibility();
     return;
-
-  if (child->IsVisible()) {
-    workspace_manager_->AddWindow(child);
-  } else if (wm::IsWindowNormal(child)) {
-    // Align non-maximized/fullscreen windows to a grid.
-    SetChildBoundsDirect(
-        child, workspace_manager_->AlignBoundsToGrid(child->GetTargetBounds()));
   }
+
+  if (child->IsVisible())
+    workspace_manager_->AddWindow(child);
 }
 
-void WorkspaceLayoutManager::OnWillRemoveWindowFromLayout(
-    aura::Window* child) {
+void WorkspaceLayoutManager::OnWillRemoveWindowFromLayout(aura::Window* child) {
   workspace_manager_->RemoveWindow(child);
   BaseLayoutManager::OnWillRemoveWindowFromLayout(child);
+}
+
+void WorkspaceLayoutManager::OnWindowRemovedFromLayout(aura::Window* child) {
+  workspace_manager_->UpdateShelfVisibility();
+  BaseLayoutManager::OnWindowRemovedFromLayout(child);
 }
 
 void WorkspaceLayoutManager::OnChildWindowVisibilityChanged(
     aura::Window* child,
     bool visible) {
-  if (!workspace_manager_->IsManagedWindow(child))
+  BaseLayoutManager::OnChildWindowVisibilityChanged(child, visible);
+  if (!workspace_manager_->IsManagedWindow(child)) {
+    workspace_manager_->UpdateShelfVisibility();
     return;
-  if (visible) {
-    if (wm::IsWindowMinimized(child)) {
-      // Attempting to show a minimized window. Unminimize it.
-      child->SetProperty(aura::client::kShowStateKey,
-                         child->GetProperty(kRestoreShowStateKey));
-      child->ClearProperty(kRestoreShowStateKey);
-    }
-    workspace_manager_->AddWindow(child);
-  } else {
-    workspace_manager_->RemoveWindow(child);
   }
+
+  if (visible)
+    workspace_manager_->AddWindow(child);
+  else
+    workspace_manager_->RemoveWindow(child);
 }
 
 void WorkspaceLayoutManager::SetChildBounds(
@@ -100,21 +83,12 @@ void WorkspaceLayoutManager::SetChildBounds(
   workspace_manager_->UpdateShelfVisibility();
 }
 
-void WorkspaceLayoutManager::OnMonitorWorkAreaInsetsChanged() {
-  // The workspace is currently the only one that updates the shelf, so we can
-  // safely ignore this. If we don't there are timing issues when transitioning
-  // between maximized/fullscreen windows and normal windows.
-}
-
 void WorkspaceLayoutManager::OnWindowPropertyChanged(aura::Window* window,
                                                      const void* key,
                                                      intptr_t old) {
   BaseLayoutManager::OnWindowPropertyChanged(window, key, old);
-  if (key == aura::client::kShowStateKey &&
-      workspace_manager_->IsManagedWindow(window)) {
-    ShowStateChanged(window, static_cast<ui::WindowShowState>(old));
-  } else if (key == ash::kWindowTrackedByWorkspaceSplitPropKey &&
-             ash::GetTrackedByWorkspace(window)) {
+  if (key == ash::internal::kWindowTrackedByWorkspaceKey &&
+      ash::GetTrackedByWorkspace(window)) {
     // We currently don't need to support transitioning from true to false, so
     // we ignore it.
     workspace_manager_->AddWindow(window);
@@ -124,33 +98,18 @@ void WorkspaceLayoutManager::OnWindowPropertyChanged(aura::Window* window,
 void WorkspaceLayoutManager::ShowStateChanged(
     aura::Window* window,
     ui::WindowShowState last_show_state) {
-  if (wm::IsWindowMinimized(window)) {
-    // Save the previous show state so that we can correctly restore it.
-    window->SetProperty(kRestoreShowStateKey, last_show_state);
-    workspace_manager_->RemoveWindow(window);
-    SetWindowVisibilityAnimationType(
-        window, WINDOW_VISIBILITY_ANIMATION_TYPE_MINIMIZE);
-
-    // Hide the window.
-    window->Hide();
-    // Activate another window.
-    if (wm::IsActiveWindow(window))
-      wm::DeactivateWindow(window);
-    return;
-  }
-  // We can end up here if the window was minimized and we are transitioning
-  // to another state. In that case the window is hidden.
-  if ((window->TargetVisibility() ||
-       (last_show_state == ui::SHOW_STATE_MINIMIZED)) &&
-      !workspace_manager_->IsManagingWindow(window)) {
-    workspace_manager_->AddWindow(window);
-    if (!window->layer()->visible()) {
-      // The layer may be hidden if the window was previously minimized. Make
-      // sure it's visible.
-      window->Show();
+  if (workspace_manager_->IsManagedWindow(window)) {
+    if (wm::IsWindowMinimized(window)) {
+      workspace_manager_->RemoveWindow(window);
+    } else if ((window->TargetVisibility() ||
+                last_show_state == ui::SHOW_STATE_MINIMIZED) &&
+               !workspace_manager_->IsManagingWindow(window)) {
+      workspace_manager_->AddWindow(window);
     }
-    return;
+  } else {
+    workspace_manager_->UpdateShelfVisibility();
   }
+  BaseLayoutManager::ShowStateChanged(window, last_show_state);
   workspace_manager_->ShowStateChanged(window);
 }
 

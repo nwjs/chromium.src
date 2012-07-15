@@ -9,6 +9,7 @@
 #include "chrome/browser/extensions/extension_context_menu_model.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/views/browser_action_view.h"
 #include "chrome/browser/ui/views/browser_actions_container.h"
 #include "chrome/browser/ui/views/extensions/browser_action_drag_data.h"
 #include "chrome/common/extensions/extension.h"
@@ -86,10 +87,14 @@ void BrowserActionOverflowMenuController::CancelMenu() {
   menu_->Cancel();
 }
 
+bool BrowserActionOverflowMenuController::IsCommandEnabled(int id) const {
+  BrowserActionView* view = (*views_)[start_index_ + id - 1];
+  return view->button()->IsEnabled(owner_->GetCurrentTabId());
+}
+
 void BrowserActionOverflowMenuController::ExecuteCommand(int id) {
   BrowserActionView* view = (*views_)[start_index_ + id - 1];
-  owner_->OnBrowserActionExecuted(view->button(),
-                                  false);  // inspect_with_devtools
+  owner_->OnBrowserActionExecuted(view->button());
 }
 
 bool BrowserActionOverflowMenuController::ShowContextMenu(
@@ -97,13 +102,13 @@ bool BrowserActionOverflowMenuController::ShowContextMenu(
     int id,
     const gfx::Point& p,
     bool is_mouse_gesture) {
-  const Extension* extension =
+  const extensions::Extension* extension =
       (*views_)[start_index_ + id - 1]->button()->extension();
   if (!extension->ShowConfigureContextMenus())
     return false;
 
   scoped_refptr<ExtensionContextMenuModel> context_menu_contents =
-      new ExtensionContextMenuModel(extension, owner_->browser(), owner_);
+      new ExtensionContextMenuModel(extension, owner_->browser());
   views::MenuModelAdapter context_menu_model_adapter(
       context_menu_contents.get());
   views::MenuRunner context_menu_runner(

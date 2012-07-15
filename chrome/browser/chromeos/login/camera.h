@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_CAMERA_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_CAMERA_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -143,7 +142,7 @@ class Camera : public base::RefCountedThreadSafe<Camera> {
   void PostCameraTaskWithDelay(
       const tracked_objects::Location& from_here,
       const base::Closure& task,
-      int64 delay_in_ms);
+      base::TimeDelta delay);
 
   // Defines a buffer in memory where one frame from the camera is stored.
   struct VideoBuffer {

@@ -28,9 +28,9 @@
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_types.h"
 #include "content/public/browser/render_process_host.h"
-#include "content/public/common/url_fetcher.h"
 #include "googleurl/src/gurl.h"
 #include "net/base/load_flags.h"
+#include "net/url_request/url_fetcher.h"
 #include "net/url_request/url_request_context_getter.h"
 #include "third_party/hunspell/google/bdict.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -44,7 +44,7 @@ FilePath GetFirstChoiceFilePath(const std::string& language) {
 
   FilePath dict_dir;
   PathService::Get(chrome::DIR_APP_DICTIONARIES, &dict_dir);
-  return SpellCheckCommon::GetVersionedFileName(language, dict_dir);
+  return chrome::spellcheck_common::GetVersionedFileName(language, dict_dir);
 }
 
 #if defined(OS_WIN)
@@ -147,13 +147,14 @@ void SpellCheckHostImpl::InitForRenderer(content::RenderProcessHost* process) {
 #if defined(OS_POSIX)
     file = base::FileDescriptor(GetDictionaryFile(), false);
 #elif defined(OS_WIN)
-    ::DuplicateHandle(::GetCurrentProcess(),
-                      GetDictionaryFile(),
-                      process->GetHandle(),
-                      &file,
-                      0,
-                      false,
-                      DUPLICATE_SAME_ACCESS);
+    BOOL ok = ::DuplicateHandle(::GetCurrentProcess(),
+                                GetDictionaryFile(),
+                                process->GetHandle(),
+                                &file,
+                                0,
+                                false,
+                                DUPLICATE_SAME_ACCESS);
+    DCHECK(ok) << ::GetLastError();
 #endif
   }
 
@@ -282,8 +283,8 @@ void SpellCheckHostImpl::DownloadDictionary() {
   }
   GURL url = GURL(std::string(kDownloadServerUrl) +
                   StringToLowerASCII(bdict_file));
-  fetcher_.reset(content::URLFetcher::Create(url, content::URLFetcher::GET,
-                                weak_ptr_factory_.GetWeakPtr()));
+  fetcher_.reset(net::URLFetcher::Create(url, net::URLFetcher::GET,
+                                         weak_ptr_factory_.GetWeakPtr()));
   fetcher_->SetRequestContext(request_context_getter_);
   fetcher_->SetLoadFlags(
       net::LOAD_DO_NOT_SEND_COOKIES | net::LOAD_DO_NOT_SAVE_COOKIES);
@@ -321,10 +322,10 @@ void SpellCheckHostImpl::WriteWordToCustomDictionary(const std::string& word) {
     profile_->WriteWordToCustomDictionary(word);
 }
 
-void SpellCheckHostImpl::OnURLFetchComplete(const content::URLFetcher* source) {
+void SpellCheckHostImpl::OnURLFetchComplete(const net::URLFetcher* source) {
   DCHECK(source);
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  scoped_ptr<content::URLFetcher> fetcher_destructor(fetcher_.release());
+  scoped_ptr<net::URLFetcher> fetcher_destructor(fetcher_.release());
 
   if ((source->GetResponseCode() / 100) != 2) {
     // Initialize will not try to download the file a second time.

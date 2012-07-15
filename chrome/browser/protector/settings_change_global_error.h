@@ -4,16 +4,14 @@
 
 #ifndef CHROME_BROWSER_PROTECTOR_SETTINGS_CHANGE_GLOBAL_ERROR_H_
 #define CHROME_BROWSER_PROTECTOR_SETTINGS_CHANGE_GLOBAL_ERROR_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/protector/base_setting_change.h"
-#include "chrome/browser/ui/browser_list.h"
-#include "chrome/browser/ui/global_error.h"
+#include "chrome/browser/ui/browser_list_observer.h"
+#include "chrome/browser/ui/global_error/global_error.h"
 
 class Browser;
 class Profile;
@@ -25,7 +23,7 @@ class SettingsChangeGlobalErrorDelegate;
 
 // Global error about unwanted settings changes.
 class SettingsChangeGlobalError : public GlobalError,
-                                  public BrowserList::Observer {
+                                  public chrome::BrowserListObserver {
  public:
   // Creates new global error about setting changes |change| which must not be
   // deleted until |delegate->OnRemovedFromProfile| is called. Uses |delegate|
@@ -66,10 +64,10 @@ class SettingsChangeGlobalError : public GlobalError,
   virtual void BubbleViewAcceptButtonPressed(Browser* browser) OVERRIDE;
   virtual void BubbleViewCancelButtonPressed(Browser* browser) OVERRIDE;
 
-  // BrowserList::Observer implementation.
-  virtual void OnBrowserAdded(const Browser* browser) OVERRIDE {}
-  virtual void OnBrowserRemoved(const Browser* browser) OVERRIDE {}
-  virtual void OnBrowserSetLastActive(const Browser* browser) OVERRIDE;
+  // chrome::BrowserListObserver implementation.
+  virtual void OnBrowserAdded(Browser* browser) OVERRIDE {}
+  virtual void OnBrowserRemoved(Browser* browser) OVERRIDE {}
+  virtual void OnBrowserSetLastActive(Browser* browser) OVERRIDE;
 
   // Displays the bubble in |browser|'s window.
   void ShowBubbleInBrowser(Browser* browser);

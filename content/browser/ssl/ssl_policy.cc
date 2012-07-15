@@ -15,8 +15,8 @@
 #include "content/browser/site_instance_impl.h"
 #include "content/browser/ssl/ssl_cert_error_handler.h"
 #include "content/browser/ssl/ssl_request_info.h"
-#include "content/browser/tab_contents/navigation_entry_impl.h"
-#include "content/browser/tab_contents/tab_contents.h"
+#include "content/browser/web_contents/navigation_entry_impl.h"
+#include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/common/ssl_status.h"
 #include "content/public/common/url_constants.h"
@@ -64,7 +64,7 @@ void SSLPolicy::OnCertError(SSLCertErrorHandler* handler) {
     case net::ERR_CERT_AUTHORITY_INVALID:
     case net::ERR_CERT_WEAK_SIGNATURE_ALGORITHM:
     case net::ERR_CERT_WEAK_KEY:
-      OnCertErrorInternal(handler, !handler->fatal());
+      OnCertErrorInternal(handler, !handler->fatal(), handler->fatal());
       break;
     case net::ERR_CERT_NO_REVOCATION_MECHANISM:
       // Ignore this error.
@@ -79,7 +79,7 @@ void SSLPolicy::OnCertError(SSLCertErrorHandler* handler) {
     case net::ERR_CERT_REVOKED:
     case net::ERR_CERT_INVALID:
     case net::ERR_CERT_NOT_IN_DNS:
-      OnCertErrorInternal(handler, false);
+      OnCertErrorInternal(handler, false, handler->fatal());
       break;
     default:
       NOTREACHED();
@@ -111,7 +111,7 @@ void SSLPolicy::OnRequestStarted(SSLRequestInfo* info) {
 }
 
 void SSLPolicy::UpdateEntry(NavigationEntryImpl* entry,
-                            TabContents* tab_contents) {
+                            WebContentsImpl* web_contents) {
   DCHECK(entry);
 
   InitializeEntryIfNeeded(entry);
@@ -158,7 +158,7 @@ void SSLPolicy::UpdateEntry(NavigationEntryImpl* entry,
     return;
   }
 
-  if (tab_contents->DisplayedInsecureContent())
+  if (web_contents->DisplayedInsecureContent())
     entry->GetSSL().content_status |= SSLStatus::DISPLAYED_INSECURE_CONTENT;
 }
 
@@ -194,7 +194,8 @@ void SSLPolicy::OnAllowCertificate(scoped_refptr<SSLCertErrorHandler> handler,
 // Certificate Error Routines
 
 void SSLPolicy::OnCertErrorInternal(SSLCertErrorHandler* handler,
-                                    bool overridable) {
+                                    bool overridable,
+                                    bool strict_enforcement) {
   if (handler->resource_type() != ResourceType::MAIN_FRAME) {
     // A sub-resource has a certificate error.  The user doesn't really
     // have a context for making the right decision, so block the
@@ -212,6 +213,7 @@ void SSLPolicy::OnCertErrorInternal(SSLCertErrorHandler* handler,
       handler->ssl_info(),
       handler->request_url(),
       overridable,
+      strict_enforcement,
       base::Bind(&SSLPolicy::OnAllowCertificate, base::Unretained(this),
                  make_scoped_refptr(handler)),
       &cancel_request);

@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,7 +9,7 @@
 
 #include "base/sys_byteorder.h"
 #include "content/common/p2p_messages.h"
-#include "ipc/ipc_message.h"
+#include "ipc/ipc_sender.h"
 #include "ipc/ipc_message_utils.h"
 #include "net/base/address_list.h"
 #include "net/base/completion_callback.h"
@@ -33,7 +33,7 @@ const uint16 kStunBindingResponse = 0x0102;
 const uint16 kStunBindingError = 0x0111;
 const uint32 kStunMagicCookie = 0x2112A442;
 
-class MockIPCSender : public IPC::Message::Sender {
+class MockIPCSender : public IPC::Sender {
  public:
   MockIPCSender();
   virtual ~MockIPCSender();
@@ -66,7 +66,7 @@ class FakeSocket : public net::StreamSocket {
   virtual void Disconnect() OVERRIDE;
   virtual bool IsConnected() const OVERRIDE;
   virtual bool IsConnectedAndIdle() const OVERRIDE;
-  virtual int GetPeerAddress(net::AddressList* address) const OVERRIDE;
+  virtual int GetPeerAddress(net::IPEndPoint* address) const OVERRIDE;
   virtual int GetLocalAddress(net::IPEndPoint* address) const OVERRIDE;
   virtual const net::BoundNetLog& NetLog() const OVERRIDE;
   virtual void SetSubresourceSpeculation() OVERRIDE;
@@ -75,6 +75,7 @@ class FakeSocket : public net::StreamSocket {
   virtual bool UsingTCPFastOpen() const OVERRIDE;
   virtual int64 NumBytesRead() const OVERRIDE;
   virtual base::TimeDelta GetConnectTimeMicros() const OVERRIDE;
+  virtual net::NextProto GetNegotiatedProtocol() const OVERRIDE;
 
  private:
   bool read_pending_;
@@ -179,9 +180,8 @@ bool FakeSocket::IsConnectedAndIdle() const {
   return false;
 }
 
-int FakeSocket::GetPeerAddress(net::AddressList* address) const {
-  *address = net::AddressList::CreateFromIPAddress(peer_address_.address(),
-                                                   peer_address_.port());
+int FakeSocket::GetPeerAddress(net::IPEndPoint* address) const {
+  *address = peer_address_;
   return net::OK;
 }
 
@@ -219,6 +219,10 @@ base::TimeDelta FakeSocket::GetConnectTimeMicros() const {
   return base::TimeDelta::FromMicroseconds(-1);
 }
 
+net::NextProto FakeSocket::GetNegotiatedProtocol() const {
+  return net::kProtoUnknown;
+}
+
 void CreateRandomPacket(std::vector<char>* packet) {
   size_t size = kStunHeaderSize + rand() % 1000;
   packet->resize(size);
@@ -232,10 +236,11 @@ void CreateRandomPacket(std::vector<char>* packet) {
 
 void CreateStunPacket(std::vector<char>* packet, uint16 type) {
   CreateRandomPacket(packet);
-  *reinterpret_cast<uint16*>(&*packet->begin()) = htons(type);
+  *reinterpret_cast<uint16*>(&*packet->begin()) = base::HostToNet16(type);
   *reinterpret_cast<uint16*>(&*packet->begin() + 2) =
-      htons(packet->size() - kStunHeaderSize);
-  *reinterpret_cast<uint32*>(&*packet->begin() + 4) = htonl(kStunMagicCookie);
+      base::HostToNet16(packet->size() - kStunHeaderSize);
+  *reinterpret_cast<uint32*>(&*packet->begin() + 4) =
+      base::HostToNet32(kStunMagicCookie);
 }
 
 void CreateStunRequest(std::vector<char>* packet) {

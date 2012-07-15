@@ -1,11 +1,11 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef UI_GFX_GTK_PRESERVE_WINDOW_H_
 #define UI_GFX_GTK_PRESERVE_WINDOW_H_
-#pragma once
 
+#include <atk/atk.h>
 #include <gdk/gdk.h>
 #include <gtk/gtk.h>
 
@@ -46,20 +46,28 @@ struct _GtkPreserveWindowClass {
   GtkFixedClass parent_class;
 };
 
-GType gtk_preserve_window_get_type() G_GNUC_CONST;
+UI_EXPORT GType gtk_preserve_window_get_type() G_GNUC_CONST;
 UI_EXPORT GtkWidget* gtk_preserve_window_new();
 
 // Whether or not we should preserve associated windows as the widget
 // is realized or unrealized.
-gboolean gtk_preserve_window_get_preserve(GtkPreserveWindow* widget);
-void gtk_preserve_window_set_preserve(GtkPreserveWindow* widget,
-                                      gboolean value);
+UI_EXPORT gboolean gtk_preserve_window_get_preserve(GtkPreserveWindow* widget);
+UI_EXPORT void gtk_preserve_window_set_preserve(GtkPreserveWindow* widget,
+                                                gboolean value);
 
 // Whether or not someone else will gdk_window_resize the GdkWindow associated
 // with this widget (needed by the GPU process to synchronize resizing
 // with swapped between front and back buffer).
 UI_EXPORT void gtk_preserve_window_delegate_resize(GtkPreserveWindow* widget,
                                                    gboolean delegate);
+
+// Provide a function to return an AtkObject* when calls to get_accessible
+// are made on this widget. The parameter |userdata| will be passed to the
+// factory function.
+UI_EXPORT void gtk_preserve_window_set_accessible_factory(
+    GtkPreserveWindow* widget,
+    AtkObject* (*factory)(void* userdata),
+    gpointer userdata);
 
 G_END_DECLS
 

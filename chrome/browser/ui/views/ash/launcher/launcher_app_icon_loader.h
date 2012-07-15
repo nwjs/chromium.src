@@ -4,29 +4,30 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_ASH_LAUNCHER_LAUNCHER_APP_ICON_LOADER_H_
 #define CHROME_BROWSER_UI_VIEWS_ASH_LAUNCHER_LAUNCHER_APP_ICON_LOADER_H_
-#pragma once
 
 #include <map>
 #include <string>
 
 #include "base/memory/scoped_ptr.h"
 #include "chrome/browser/extensions/image_loading_tracker.h"
-#include "chrome/browser/ui/views/ash/launcher/chrome_launcher_delegate.h"
+#include "chrome/browser/ui/views/ash/launcher/chrome_launcher_controller.h"
 
-class Extension;
 class Profile;
+
+namespace extensions {
+class Extension;
+}
+
 
 // Default implementation of LauncherUpdater::AppIconLoader that interacts
 // with the ExtensionService and ImageLoadingTracker to load images.
-class LauncherAppIconLoader : public ChromeLauncherDelegate::AppIconLoader,
+class LauncherAppIconLoader : public ChromeLauncherController::AppIconLoader,
                               public ImageLoadingTracker::Observer {
  public:
-  LauncherAppIconLoader(Profile* profile, ChromeLauncherDelegate* host);
+  LauncherAppIconLoader(Profile* profile, ChromeLauncherController* host);
   virtual ~LauncherAppIconLoader();
 
   // AppIconLoader:
-  virtual std::string GetAppID(TabContentsWrapper* tab) OVERRIDE;
-  virtual bool IsValidID(const std::string& id) OVERRIDE;
   virtual void FetchImage(const std::string& id) OVERRIDE;
 
   // ImageLoadingTracker::Observer:
@@ -37,16 +38,10 @@ class LauncherAppIconLoader : public ChromeLauncherDelegate::AppIconLoader,
  private:
   typedef std::map<int, std::string> ImageLoaderIDToExtensionIDMap;
 
-  // Returns the extension for the specified tab.
-  const Extension* GetExtensionForTab(TabContentsWrapper* tab);
-
-  // Returns the extension by ID.
-  const Extension* GetExtensionByID(const std::string& id);
-
   Profile* profile_;
 
-  // ChromeLauncherDelegate we're associated with (and owned by).
-  ChromeLauncherDelegate* host_;
+  // ChromeLauncherController we're associated with (and owned by).
+  ChromeLauncherController* host_;
 
   // Used to load images.
   scoped_ptr<ImageLoadingTracker> image_loader_;

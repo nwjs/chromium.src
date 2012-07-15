@@ -12,6 +12,7 @@
 #include "base/utf_string_conversions.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
+#include "ui/base/native_theme/native_theme.h"
 #include "ui/base/range/range.h"
 #include "ui/base/text/utf16_indexing.h"
 #include "ui/gfx/canvas.h"
@@ -281,8 +282,18 @@ TextfieldViewsModel::Delegate::~Delegate() {
 
 TextfieldViewsModel::TextfieldViewsModel(Delegate* delegate)
     : delegate_(delegate),
-      render_text_(gfx::RenderText::CreateRenderText()),
+      render_text_(gfx::RenderText::CreateInstance()),
       current_edit_(edit_history_.end()) {
+  const ui::NativeTheme* theme = ui::NativeTheme::instance();
+  render_text_->set_selection_color(
+      theme->GetSystemColor(
+          ui::NativeTheme::kColorId_TextfieldSelectionColor));
+  render_text_->set_selection_background_focused_color(
+      theme->GetSystemColor(
+          ui::NativeTheme::kColorId_TextfieldSelectionBackgroundFocused));
+  render_text_->set_selection_background_unfocused_color(
+      theme->GetSystemColor(
+          ui::NativeTheme::kColorId_TextfieldSelectionBackgroundUnfocused));
 }
 
 TextfieldViewsModel::~TextfieldViewsModel() {
@@ -304,8 +315,9 @@ bool TextfieldViewsModel::SetText(const string16& text) {
     if (changed)  // No need to remember composition.
       Undo();
     size_t old_cursor = GetCursorPosition();
-    size_t new_cursor = old_cursor > text.length() ? text.length() : old_cursor;
-    SelectAll();
+    // SetText moves the cursor to the end.
+    size_t new_cursor = text.length();
+    SelectAll(false);
     // If there is a composition text, don't merge with previous edit.
     // Otherwise, force merge the edits.
     ExecuteAndRecordReplace(
@@ -427,10 +439,10 @@ void TextfieldViewsModel::SelectSelectionModel(const gfx::SelectionModel& sel) {
   render_text_->MoveCursorTo(sel);
 }
 
-void TextfieldViewsModel::SelectAll() {
+void TextfieldViewsModel::SelectAll(bool reversed) {
   if (HasCompositionText())
     ConfirmCompositionText();
-  render_text_->SelectAll();
+  render_text_->SelectAll(reversed);
 }
 
 void TextfieldViewsModel::SelectWord() {
@@ -666,9 +678,7 @@ void TextfieldViewsModel::ReplaceTextInternal(const string16& text,
 }
 
 void TextfieldViewsModel::ClearEditHistory() {
-  STLDeleteContainerPointers(edit_history_.begin(),
-                             edit_history_.end());
-  edit_history_.clear();
+  STLDeleteElements(&edit_history_);
   current_edit_ = edit_history_.end();
 }
 

@@ -4,7 +4,6 @@
 
 #ifndef ASH_WM_WORKSPACE_WINDOW_RESIZER_H_
 #define ASH_WM_WORKSPACE_WINDOW_RESIZER_H_
-#pragma once
 
 #include <vector>
 
@@ -16,7 +15,6 @@ namespace ash {
 namespace internal {
 
 class PhantomWindowController;
-class RootWindowEventFilter;
 class SnapSizer;
 
 // WindowResizer implementation for workspaces. This enforces that windows are
@@ -41,7 +39,6 @@ class ASH_EXPORT WorkspaceWindowResizer : public WindowResizer {
       aura::Window* window,
       const gfx::Point& location,
       int window_component,
-      int grid_size,
       const std::vector<aura::Window*>& attached_windows);
 
   // Returns true if the drag will result in changing the window in anyway.
@@ -52,8 +49,8 @@ class ASH_EXPORT WorkspaceWindowResizer : public WindowResizer {
   }
 
   // Overridden from WindowResizer:
-  virtual void Drag(const gfx::Point& location) OVERRIDE;
-  virtual void CompleteDrag() OVERRIDE;
+  virtual void Drag(const gfx::Point& location, int event_flags) OVERRIDE;
+  virtual void CompleteDrag(int event_flags) OVERRIDE;
   virtual void RevertDrag() OVERRIDE;
 
  private:
@@ -67,19 +64,16 @@ class ASH_EXPORT WorkspaceWindowResizer : public WindowResizer {
     SNAP_LEFT_EDGE,
     SNAP_RIGHT_EDGE,
 
-    // Snap to the final bounds. Used when there is a grid.
-    SNAP_DESTINATION,
-
     // No snap position.
     SNAP_NONE
   };
 
   // Returns the final bounds to place the window at. This differs from
   // the current if there is a grid.
-  gfx::Rect GetFinalBounds(const gfx::Rect& bounds) const;
+  gfx::Rect GetFinalBounds(const gfx::Rect& bounds, int grid_size) const;
 
   // Lays out the attached windows. |bounds| is the bounds of the main window.
-  void LayoutAttachedWindows(const gfx::Rect& bounds);
+  void LayoutAttachedWindows(const gfx::Rect& bounds, int grid_size);
 
   // Calculates the size (along the primary axis) of the attached windows.
   // |initial_size| is the initial size of the main window, |current_size| the
@@ -90,14 +84,18 @@ class ASH_EXPORT WorkspaceWindowResizer : public WindowResizer {
       int current_size,
       int start,
       int end,
+      int grid_size,
       std::vector<int>* sizes) const;
 
   // Adjusts the bounds to enforce that windows are vertically contained in the
   // work area.
-  void AdjustBoundsForMainWindow(gfx::Rect* bounds) const;
+  void AdjustBoundsForMainWindow(gfx::Rect* bounds, int grid_size) const;
 
   // Snaps the window bounds to the work area edges if necessary.
-  void SnapToWorkAreaEdges(const gfx::Rect& work_area, gfx::Rect* bounds) const;
+  void SnapToWorkAreaEdges(
+      const gfx::Rect& work_area,
+      gfx::Rect* bounds,
+      int grid_size) const;
 
   // Returns true if the window touches the bottom edge of the work area.
   bool TouchesBottomOfScreen() const;
@@ -108,7 +106,10 @@ class ASH_EXPORT WorkspaceWindowResizer : public WindowResizer {
   int PrimaryAxisCoordinate(int x, int y) const;
 
   // Updates the bounds of the phantom window.
-  void UpdatePhantomWindow(const gfx::Point& location, const gfx::Rect& bounds);
+  void UpdatePhantomWindow(
+      const gfx::Point& location,
+      const gfx::Rect& bounds,
+      int grid_size);
 
   // Restacks the windows z-order position so that one of the windows is at the
   // top of the z-order, and the rest directly underneath it.
@@ -126,8 +127,6 @@ class ASH_EXPORT WorkspaceWindowResizer : public WindowResizer {
 
   // Set to true once Drag() is invoked and the bounds of the window change.
   bool did_move_or_resize_;
-
-  internal::RootWindowEventFilter* root_filter_;
 
   // The initial size of each of the windows in |attached_windows_| along the
   // primary axis.

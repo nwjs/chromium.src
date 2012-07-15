@@ -1,14 +1,16 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/mock_browsing_data_cookie_helper.h"
 
 #include "base/logging.h"
+#include "net/cookies/canonical_cookie.h"
+#include "net/cookies/parsed_cookie.h"
 
-MockBrowsingDataCookieHelper::MockBrowsingDataCookieHelper(Profile* profile)
-    : BrowsingDataCookieHelper(profile),
-      profile_(profile) {
+MockBrowsingDataCookieHelper::MockBrowsingDataCookieHelper(
+    net::URLRequestContextGetter* request_context_getter)
+    : BrowsingDataCookieHelper(request_context_getter) {
 }
 
 MockBrowsingDataCookieHelper::~MockBrowsingDataCookieHelper() {
@@ -19,12 +21,8 @@ void MockBrowsingDataCookieHelper::StartFetching(
   callback_ = callback;
 }
 
-void MockBrowsingDataCookieHelper::CancelNotification() {
-  callback_.Reset();
-}
-
 void MockBrowsingDataCookieHelper::DeleteCookie(
-    const net::CookieMonster::CanonicalCookie& cookie) {
+    const net::CanonicalCookie& cookie) {
   std::string key = cookie.Name() + "=" + cookie.Value();
   CHECK(cookies_.find(key) != cookies_.end());
   cookies_[key] = false;
@@ -33,9 +31,8 @@ void MockBrowsingDataCookieHelper::DeleteCookie(
 void MockBrowsingDataCookieHelper::AddCookieSamples(
     const GURL& url, const std::string& cookie_line) {
   typedef net::CookieList::const_iterator cookie_iterator;
-  net::CookieMonster::ParsedCookie pc(cookie_line);
-  scoped_ptr<net::CookieMonster::CanonicalCookie> cc;
-  cc.reset(new net::CookieMonster::CanonicalCookie(url, pc));
+  net::ParsedCookie pc(cookie_line);
+  scoped_ptr<net::CanonicalCookie> cc(new net::CanonicalCookie(url, pc));
 
   if (cc.get()) {
     for (cookie_iterator cookie = cookie_list_.begin();

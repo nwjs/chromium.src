@@ -75,13 +75,14 @@ bool RemoveFromLaunchd() {
 
 class ExecFilePathWatcherDelegate : public FilePathWatcher::Delegate {
  public:
-  ExecFilePathWatcherDelegate() { }
-  virtual ~ExecFilePathWatcherDelegate() { }
+  ExecFilePathWatcherDelegate() {}
 
   bool Init(const FilePath& path);
   virtual void OnFilePathChanged(const FilePath& path) OVERRIDE;
 
  private:
+  virtual ~ExecFilePathWatcherDelegate() {}
+
   FSRef executable_fsref_;
 };
 
@@ -204,27 +205,26 @@ bool CheckServiceProcessReady() {
   if (!GetServiceProcessData(&version, &pid)) {
     return false;
   }
-  scoped_ptr<Version> service_version(Version::GetVersionFromString(version));
+  Version service_version(version);
   bool ready = true;
-  if (!service_version.get()) {
+  if (!service_version.IsValid()) {
     ready = false;
   } else {
     chrome::VersionInfo version_info;
     if (!version_info.is_valid()) {
       // Our own version is invalid. This is an error case. Pretend that we
       // are out of date.
-      NOTREACHED() << "Failed to get current file version";
+      NOTREACHED();
       ready = true;
     }
     else {
-      scoped_ptr<Version> running_version(Version::GetVersionFromString(
-          version_info.Version()));
-      if (!running_version.get()) {
+      Version running_version(version_info.Version());
+      if (!running_version.IsValid()) {
         // Our own version is invalid. This is an error case. Pretend that we
         // are out of date.
-        NOTREACHED() << "Failed to parse version info";
+        NOTREACHED();
         ready = true;
-      } else if (running_version->CompareTo(*service_version) > 0) {
+      } else if (running_version.CompareTo(service_version) > 0) {
         ready = false;
       } else {
         ready = true;
@@ -319,13 +319,13 @@ bool ServiceProcessState::StateData::WatchExecutable() {
   }
 
   FilePath executable_path = FilePath([exe_path fileSystemRepresentation]);
-  scoped_ptr<ExecFilePathWatcherDelegate> delegate(
+  scoped_refptr<ExecFilePathWatcherDelegate> delegate(
       new ExecFilePathWatcherDelegate);
   if (!delegate->Init(executable_path)) {
     DLOG(ERROR) << "executable_watcher_.Init " << executable_path.value();
     return false;
   }
-  if (!executable_watcher_.Watch(executable_path, delegate.release())) {
+  if (!executable_watcher_.Watch(executable_path, delegate)) {
     DLOG(ERROR) << "executable_watcher_.watch " << executable_path.value();
     return false;
   }

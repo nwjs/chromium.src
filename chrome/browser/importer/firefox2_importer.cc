@@ -134,14 +134,13 @@ TemplateURL* Firefox2Importer::CreateTemplateURL(const string16& title,
   if (keyword.empty() || !url.is_valid())
     return NULL;
 
-  TemplateURL* t_url = new TemplateURL();
+  TemplateURLData data;
   // We set short name by using the title if it exists.
   // Otherwise, we use the shortcut.
-  t_url->set_short_name(title.empty() ? keyword : title);
-  t_url->set_keyword(keyword);
-  t_url->SetURL(TemplateURLRef::DisplayURLToURLRef(UTF8ToUTF16(url.spec())),
-                0, 0);
-  return t_url;
+  data.short_name = title.empty() ? keyword : title;
+  data.SetKeyword(keyword);
+  data.SetURL(TemplateURLRef::DisplayURLToURLRef(UTF8ToUTF16(url.spec())));
+  return new TemplateURL(NULL, data);
 }
 
 // static
@@ -314,11 +313,10 @@ void Firefox2Importer::ImportBookmarks() {
                                        IDS_BOOKMARK_GROUP_FROM_FIREFOX);
     bridge_->AddBookmarks(bookmarks, first_folder_name);
   }
-  if (!parsing_bookmarks_html_file_ && !template_urls.empty() && !cancelled()) {
+  if (!parsing_bookmarks_html_file_ && !template_urls.empty() && !cancelled())
     bridge_->SetKeywords(template_urls, false);
-  } else {
-    STLDeleteContainerPointers(template_urls.begin(), template_urls.end());
-  }
+  else
+    STLDeleteElements(&template_urls);
   if (!favicons.empty())
     bridge_->SetFavicons(favicons);
 }

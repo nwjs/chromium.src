@@ -67,8 +67,8 @@
 
 #ifndef CONTENT_RENDERER_MEDIA_AUDIO_INPUT_DEVICE_H_
 #define CONTENT_RENDERER_MEDIA_AUDIO_INPUT_DEVICE_H_
-#pragma once
 
+#include <string>
 #include <vector>
 
 #include "base/basictypes.h"
@@ -94,8 +94,9 @@ class CONTENT_EXPORT AudioInputDevice
   class CONTENT_EXPORT CaptureCallback {
    public:
     virtual void Capture(const std::vector<float*>& audio_data,
-                         size_t number_of_frames,
-                         size_t audio_delay_milliseconds) = 0;
+                         int number_of_frames,
+                         int audio_delay_milliseconds,
+                         double volume) = 0;
     virtual void OnCaptureError() = 0;
    protected:
     virtual ~CaptureCallback() {}
@@ -116,9 +117,9 @@ class CONTENT_EXPORT AudioInputDevice
   };
 
   // Methods called on main render thread -------------------------------------
-  AudioInputDevice(const AudioParameters& params, CaptureCallback* callback,
+  AudioInputDevice(const media::AudioParameters& params,
+                   CaptureCallback* callback,
                    CaptureEventHandler* event_handler);
-  virtual ~AudioInputDevice();
 
   // Specify the |session_id| to query which device to use. This method is
   // asynchronous/non-blocking.
@@ -145,12 +146,17 @@ class CONTENT_EXPORT AudioInputDevice
     return audio_parameters_.sample_rate();
   }
 
-  size_t buffer_size() const {
+  int buffer_size() const {
     return audio_parameters_.frames_per_buffer();
   }
 
+  // Sets the Automatic Gain Control state to on or off.
+  // This method must be called before Start(). It will not have any effect
+  // if it is called while capturing has already started.
+  void SetAutomaticGainControl(bool enabled);
+
   // Methods called on IO thread ----------------------------------------------
-  // AudioInputMessageFilter::Delegate impl., called by AudioInputMessageFilter
+  // AudioInputMessageFilter::Delegate impl., called by AudioInputMessageFilter.
   virtual void OnStreamCreated(base::SharedMemoryHandle handle,
                                base::SyncSocket::Handle socket_handle,
                                uint32 length) OVERRIDE;
@@ -158,7 +164,12 @@ class CONTENT_EXPORT AudioInputDevice
   virtual void OnStateChanged(AudioStreamState state) OVERRIDE;
   virtual void OnDeviceReady(const std::string& device_id) OVERRIDE;
 
+ protected:
+  virtual ~AudioInputDevice();
+
  private:
+  friend class base::RefCountedThreadSafe<AudioInputDevice>;
+
   // Methods called on IO thread ----------------------------------------------
   // The following methods are tasks posted on the IO thread that needs to
   // be executed on that thread. They interact with AudioInputMessageFilter and
@@ -168,6 +179,7 @@ class CONTENT_EXPORT AudioInputDevice
   void StartOnIOThread();
   void ShutDownOnIOThread();
   void SetVolumeOnIOThread(double volume);
+  void SetAutomaticGainControlOnIOThread(bool enabled);
 
   void Send(IPC::Message* message);
 
@@ -176,7 +188,7 @@ class CONTENT_EXPORT AudioInputDevice
   virtual void WillDestroyCurrentMessageLoop() OVERRIDE;
 
   // Format
-  AudioParameters audio_parameters_;
+  media::AudioParameters audio_parameters_;
 
   CaptureCallback* callback_;
   CaptureEventHandler* event_handler_;
@@ -197,6 +209,10 @@ class CONTENT_EXPORT AudioInputDevice
   // State variable used to indicate it is waiting for a OnDeviceReady()
   // callback. Only modified on the IO thread.
   bool pending_device_ready_;
+
+  // Stores the Automatic Gain Control state. Default is false.
+  // Only modified on the IO thread.
+  bool agc_is_enabled_;
 
   // Our audio thread callback class.  See source file for details.
   class AudioThreadCallback;

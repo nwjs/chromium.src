@@ -56,7 +56,7 @@ bool enable_3d_interfaces = true;
 
 void SetBrowserPppForInstance(PP_Instance instance, BrowserPpp* browser_ppp) {
   // If there was no map, create one.
-  if (instance_to_ppp_map == NULL) {
+  if (NULL == instance_to_ppp_map) {
     instance_to_ppp_map = new std::map<PP_Instance, BrowserPpp*>;
   }
   // Add the instance to the map.
@@ -64,7 +64,7 @@ void SetBrowserPppForInstance(PP_Instance instance, BrowserPpp* browser_ppp) {
 }
 
 void UnsetBrowserPppForInstance(PP_Instance instance) {
-  if (instance_to_ppp_map == NULL) {
+  if (NULL == instance_to_ppp_map) {
     // Something major is wrong here.  We are deleting a map entry
     // when there is no map.
     NACL_NOTREACHED();
@@ -80,15 +80,19 @@ void UnsetBrowserPppForInstance(PP_Instance instance) {
 }
 
 BrowserPpp* LookupBrowserPppForInstance(PP_Instance instance) {
-  if (instance_to_ppp_map == NULL) {
+  if (NULL == instance_to_ppp_map) {
     return NULL;
   }
-  return (*instance_to_ppp_map)[instance];
+  std::map<PP_Instance, BrowserPpp*>::const_iterator iter =
+    instance_to_ppp_map->find(instance);
+  if (iter == instance_to_ppp_map->end())
+    return NULL;
+  return iter->second;
 }
 
 void SetModuleIdForSrpcChannel(NaClSrpcChannel* channel, PP_Module module_id) {
   // If there was no map, create one.
-  if (channel_to_module_id_map == NULL) {
+  if (NULL == channel_to_module_id_map) {
     channel_to_module_id_map = new std::map<NaClSrpcChannel*, PP_Module>;
   }
   // Add the channel to the map.
@@ -97,14 +101,14 @@ void SetModuleIdForSrpcChannel(NaClSrpcChannel* channel, PP_Module module_id) {
 
 void SetInstanceIdForSrpcChannel(NaClSrpcChannel* channel,
                                  PP_Instance instance_id) {
-  if (channel_to_instance_id_map == NULL) {
+  if (NULL == channel_to_instance_id_map) {
     channel_to_instance_id_map = new std::map<NaClSrpcChannel*, PP_Instance>;
   }
   (*channel_to_instance_id_map)[channel] = instance_id;
 }
 
 void UnsetModuleIdForSrpcChannel(NaClSrpcChannel* channel) {
-  if (channel_to_module_id_map == NULL) {
+  if (NULL == channel_to_module_id_map) {
     // Something major is wrong here.  We are deleting a map entry
     // when there is no map.
     NACL_NOTREACHED();
@@ -120,7 +124,7 @@ void UnsetModuleIdForSrpcChannel(NaClSrpcChannel* channel) {
 }
 
 void UnsetInstanceIdForSrpcChannel(NaClSrpcChannel* channel) {
-  if (channel_to_instance_id_map == NULL) {
+  if (NULL == channel_to_instance_id_map) {
     NACL_NOTREACHED();
     return;
   }
@@ -132,17 +136,27 @@ void UnsetInstanceIdForSrpcChannel(NaClSrpcChannel* channel) {
 }
 
 PP_Module LookupModuleIdForSrpcChannel(NaClSrpcChannel* channel) {
-  if (channel_to_module_id_map == NULL) {
+  if (NULL == channel_to_module_id_map) {
     return 0;
   }
-  return (*channel_to_module_id_map)[channel];
+  std::map<NaClSrpcChannel*, PP_Module>::const_iterator iter =
+    channel_to_module_id_map->find(channel);
+  if (iter == channel_to_module_id_map->end()) {
+    return 0;
+  }
+  return iter->second;
 }
 
-PP_Module LookupInstanceIdForSrpcChannel(NaClSrpcChannel* channel) {
-  if (channel_to_instance_id_map == NULL) {
+PP_Instance LookupInstanceIdForSrpcChannel(NaClSrpcChannel* channel) {
+  if (NULL == channel_to_instance_id_map) {
     return 0;
   }
-  return (*channel_to_instance_id_map)[channel];
+  std::map<NaClSrpcChannel*, PP_Instance>::const_iterator iter =
+    channel_to_instance_id_map->find(channel);
+  if (iter == channel_to_instance_id_map->end()) {
+    return 0;
+  }
+  return iter->second;
 }
 
 NaClSrpcChannel* GetMainSrpcChannel(NaClSrpcRpc* upcall_rpc) {
@@ -154,13 +168,16 @@ NaClSrpcChannel* GetMainSrpcChannel(NaClSrpcRpc* upcall_rpc) {
 }
 
 NaClSrpcChannel* GetMainSrpcChannel(PP_Instance instance) {
-  return LookupBrowserPppForInstance(instance)->main_channel();
+  BrowserPpp* proxy = LookupBrowserPppForInstance(instance);
+  if (NULL == proxy)
+    return NULL;
+  return proxy->main_channel();
 }
 
 void CleanUpAfterDeadNexe(PP_Instance instance) {
   DebugPrintf("CleanUpAfterDeadNexe\n");
   BrowserPpp* proxy = LookupBrowserPppForInstance(instance);
-  if (proxy == NULL)
+  if (NULL == proxy)
     return;
   proxy->plugin()->ReportDeadNexe();  // Shuts down and deletes the proxy.
 }
@@ -189,12 +206,12 @@ const void* GetBrowserInterface(const char* interface_name) {
       PPB_GRAPHICS_3D_TRUSTED_INTERFACE,
       PPB_GLES_CHROMIUM_TEXTURE_MAPPING_DEV_INTERFACE,
       PPB_OPENGLES2_INTERFACE,
-      PPB_OPENGLES2_INSTANCEDARRAYS_DEV_INTERFACE,
-      PPB_OPENGLES2_FRAMEBUFFERBLIT_DEV_INTERFACE,
-      PPB_OPENGLES2_FRAMEBUFFERMULTISAMPLE_DEV_INTERFACE,
-      PPB_OPENGLES2_CHROMIUMENABLEFEATURE_DEV_INTERFACE,
-      PPB_OPENGLES2_CHROMIUMMAPSUB_DEV_INTERFACE,
-      PPB_OPENGLES2_QUERY_DEV_INTERFACE,
+      PPB_OPENGLES2_INSTANCEDARRAYS_INTERFACE,
+      PPB_OPENGLES2_FRAMEBUFFERBLIT_INTERFACE,
+      PPB_OPENGLES2_FRAMEBUFFERMULTISAMPLE_INTERFACE,
+      PPB_OPENGLES2_CHROMIUMENABLEFEATURE_INTERFACE,
+      PPB_OPENGLES2_CHROMIUMMAPSUB_INTERFACE,
+      PPB_OPENGLES2_QUERY_INTERFACE,
       PPB_LAYER_COMPOSITOR_DEV_INTERFACE
     };
     for (size_t i = 0; i < NACL_ARRAY_SIZE(disabled_interface_names); i++) {
@@ -207,9 +224,9 @@ const void* GetBrowserInterface(const char* interface_name) {
 
 const void* GetBrowserInterfaceSafe(const char* interface_name) {
   const void* ppb_interface = GetBrowserInterface(interface_name);
-  if (ppb_interface == NULL)
+  if (NULL == ppb_interface)
     DebugPrintf("PPB_GetInterface: %s not found\n", interface_name);
-  CHECK(ppb_interface != NULL);
+  CHECK(NULL != ppb_interface);
   return ppb_interface;
 }
 
@@ -347,13 +364,6 @@ const PPB_WheelInputEvent* PPBWheelInputEventInterface() {
 }
 
 // Dev interfaces.
-const PPB_CursorControl_Dev* PPBCursorControlInterface() {
-  static const PPB_CursorControl_Dev* ppb =
-      static_cast<const PPB_CursorControl_Dev*>(
-          GetBrowserInterfaceSafe(PPB_CURSOR_CONTROL_DEV_INTERFACE));
-  return ppb;
-}
-
 const PPB_FileIO* PPBFileIOInterface() {
   static const PPB_FileIO* ppb =
       static_cast<const PPB_FileIO*>(
@@ -400,6 +410,13 @@ const PPB_Gamepad* PPBGamepadInterface() {
   static const PPB_Gamepad* ppb =
       static_cast<const PPB_Gamepad*>(
           GetBrowserInterfaceSafe(PPB_GAMEPAD_INTERFACE));
+  return ppb;
+}
+
+const PPB_MouseCursor_1_0* PPBMouseCursorInterface() {
+  static const PPB_MouseCursor_1_0* ppb =
+      static_cast<const PPB_MouseCursor_1_0*>(
+          GetBrowserInterfaceSafe(PPB_MOUSECURSOR_INTERFACE_1_0));
   return ppb;
 }
 

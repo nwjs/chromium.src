@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,30 +10,12 @@
 namespace webkit {
 namespace npapi {
 
-PluginStream::PluginStream(
-    PluginInstance *instance,
-    const char *url,
-    bool need_notify,
-    void *notify_data)
-    : instance_(instance),
-      notify_needed_(need_notify),
-      notify_data_(notify_data),
-      close_on_write_data_(false),
-      opened_(false),
-      requested_plugin_mode_(NP_NORMAL),
-      temp_file_handle_(INVALID_HANDLE_VALUE),
-      seekable_stream_(false),
-      data_offset_(0) {
-  memset(&stream_, 0, sizeof(stream_));
-  stream_.url = _strdup(url);
-  temp_file_name_[0] = '\0';
+void PluginStream::ResetTempFileHandle() {
+  temp_file_handle_ = INVALID_HANDLE_VALUE;
 }
 
-void PluginStream::UpdateUrl(const char* url) {
-  DCHECK(!opened_);
-  free(const_cast<char*>(stream_.url));
-  stream_.url = _strdup(url);
-  pending_redirect_url_.clear();
+void PluginStream::ResetTempFileName() {
+  temp_file_name_[0] = '\0';
 }
 
 void PluginStream::WriteAsFile() {
@@ -52,7 +34,7 @@ size_t PluginStream::WriteBytes(const char *buf, size_t length) {
 }
 
 bool PluginStream::OpenTempFile() {
-  DCHECK(temp_file_handle_ == INVALID_HANDLE_VALUE);
+  DCHECK_EQ(INVALID_HANDLE_VALUE, temp_file_handle_);
 
   // The reason for using all the Ascii versions of these filesystem
   // calls is that the filename which we pass back to the plugin
@@ -78,20 +60,21 @@ bool PluginStream::OpenTempFile() {
                                   FILE_ATTRIBUTE_NORMAL,
                                   0);
   if (temp_file_handle_ == INVALID_HANDLE_VALUE) {
-    temp_file_name_[0] = '\0';
+    ResetTempFileName();
     return false;
   }
   return true;
 }
 
 void PluginStream::CloseTempFile() {
-  if (temp_file_handle_ != INVALID_HANDLE_VALUE) {
-    CloseHandle(temp_file_handle_);
-    temp_file_handle_ = INVALID_HANDLE_VALUE;
-  }
+  if (!TempFileIsValid())
+    return;
+
+  CloseHandle(temp_file_handle_);
+  ResetTempFileHandle();
 }
 
-bool PluginStream::TempFileIsValid() {
+bool PluginStream::TempFileIsValid() const {
   return temp_file_handle_ != INVALID_HANDLE_VALUE;
 }
 

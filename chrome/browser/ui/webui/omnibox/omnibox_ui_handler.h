@@ -4,20 +4,21 @@
 
 #ifndef CHROME_BROWSER_UI_WEBUI_OMNIBOX_OMNIBOX_UI_HANDLER_H_
 #define CHROME_BROWSER_UI_WEBUI_OMNIBOX_OMNIBOX_UI_HANDLER_H_
-#pragma once
 
+#include "base/basictypes.h"
+#include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/time.h"
-#include "chrome/browser/autocomplete/autocomplete.h"
 #include "chrome/browser/autocomplete/autocomplete_controller_delegate.h"
+#include "chrome/browser/autocomplete/autocomplete_match.h"
 #include "content/public/browser/web_ui_message_handler.h"
-
-namespace base {
-class ListValue;
-}  // namespace base
 
 class AutocompleteController;
 class Profile;
+
+namespace base {
+class ListValue;
+}
 
 // UI Handler for chrome://omnibox/
 // It listens for calls from javascript to StartOmniboxQuery() and
@@ -55,7 +56,7 @@ class OmniboxUIHandler : public AutocompleteControllerDelegate,
   // Helper function for OnResultChanged().
   // Takes an iterator over AutocompleteMatches and packages them into
   // the DictionaryValue output, all stored under the given prefix.
-  void AddResultToDictionary(const std::string prefix,
+  void AddResultToDictionary(const std::string& prefix,
                              ACMatches::const_iterator result_it,
                              ACMatches::const_iterator end,
                              base::DictionaryValue* output);

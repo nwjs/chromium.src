@@ -8,15 +8,20 @@
 #include <string>
 
 #include "base/compiler_specific.h"
+#include "base/memory/weak_ptr.h"
 #include "chrome/browser/ui/webui/help/version_updater.h"
+#include "content/public/browser/notification_observer.h"
+#include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/web_ui_message_handler.h"
 
 #if defined(OS_CHROMEOS)
+#include "base/platform_file.h"
 #include "chrome/browser/chromeos/version_loader.h"
 #endif  // defined(OS_CHROMEOS)
 
 // WebUI message handler for the help page.
-class HelpHandler : public content::WebUIMessageHandler {
+class HelpHandler : public content::WebUIMessageHandler,
+                    public content::NotificationObserver {
  public:
   HelpHandler();
   virtual ~HelpHandler();
@@ -26,6 +31,10 @@ class HelpHandler : public content::WebUIMessageHandler {
 
   // Fills |localized_strings| with string values for the UI.
   void GetLocalizedValues(base::DictionaryValue* localized_strings);
+
+  // NotificationObserver implementation.
+  virtual void Observe(int type, const content::NotificationSource& source,
+                       const content::NotificationDetails& details) OVERRIDE;
 
  private:
   // Initializes querying values for the page.
@@ -65,10 +74,19 @@ class HelpHandler : public content::WebUIMessageHandler {
   void OnOSFirmware(chromeos::VersionLoader::Handle handle,
                     std::string firmware);
   void OnReleaseChannel(const std::string& channel);
+
+  void ProcessLsbFileInfo(
+      base::PlatformFileError rv, const base::PlatformFileInfo& file_info);
 #endif
 
   // Specialized instance of the VersionUpdater used to update the browser.
   scoped_ptr<VersionUpdater> version_updater_;
+
+  // Used for callbacks.
+  base::WeakPtrFactory<HelpHandler> weak_factory_;
+
+  // Used to observe notifications.
+  content::NotificationRegistrar registrar_;
 
 #if defined(OS_CHROMEOS)
   // Handles asynchronously loading the CrOS version info.

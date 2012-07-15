@@ -4,14 +4,16 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_SETTINGS_SETTING_SYNC_DATA_H_
 #define CHROME_BROWSER_EXTENSIONS_SETTINGS_SETTING_SYNC_DATA_H_
-#pragma once
 
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/values.h"
-#include "chrome/browser/sync/api/sync_change.h"
+#include "sync/api/sync_change.h"
 
+namespace syncer {
 class SyncData;
+}
+
 namespace sync_pb {
 class ExtensionSettingSpecifics;
 }
@@ -23,14 +25,14 @@ namespace extensions {
 class SettingSyncData {
  public:
   // Creates from a sync change.
-  explicit SettingSyncData(const SyncChange& sync_change);
+  explicit SettingSyncData(const syncer::SyncChange& sync_change);
 
   // Creates from sync data. |change_type| will be ACTION_INVALID.
-  explicit SettingSyncData(const SyncData& sync_data);
+  explicit SettingSyncData(const syncer::SyncData& sync_data);
 
   // Creates explicitly.
   SettingSyncData(
-      SyncChange::SyncChangeType change_type,
+      syncer::SyncChange::SyncChangeType change_type,
       const std::string& extension_id,
       const std::string& key,
       scoped_ptr<Value> value);
@@ -38,7 +40,7 @@ class SettingSyncData {
   ~SettingSyncData();
 
   // Returns the type of the sync change; may be ACTION_INVALID.
-  SyncChange::SyncChangeType change_type() const;
+  syncer::SyncChange::SyncChangeType change_type() const;
 
   // Returns the extension id the setting is for.
   const std::string& extension_id() const;
@@ -55,12 +57,12 @@ class SettingSyncData {
   class Internal : public base::RefCountedThreadSafe<Internal> {
    public:
     Internal(
-      SyncChange::SyncChangeType change_type,
+      syncer::SyncChange::SyncChangeType change_type,
       const std::string& extension_id,
       const std::string& key,
       scoped_ptr<Value> value);
 
-    SyncChange::SyncChangeType change_type_;
+    syncer::SyncChange::SyncChangeType change_type_;
     std::string extension_id_;
     std::string key_;
     scoped_ptr<Value> value_;
@@ -71,11 +73,12 @@ class SettingSyncData {
   };
 
   // Initializes internal_ from sync data for an extension or app setting.
-  void Init(SyncChange::SyncChangeType change_type, const SyncData& sync_data);
+  void Init(syncer::SyncChange::SyncChangeType change_type,
+            const syncer::SyncData& sync_data);
 
   // Initializes internal_ from extension specifics.
   void InitFromExtensionSettingSpecifics(
-      SyncChange::SyncChangeType change_type,
+      syncer::SyncChange::SyncChangeType change_type,
       const sync_pb::ExtensionSettingSpecifics& specifics);
 
   scoped_refptr<Internal> internal_;

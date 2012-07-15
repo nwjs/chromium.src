@@ -31,24 +31,25 @@
 //
 // The DownloadFileManager tracks download requests, mapping from a download
 // ID (unique integer created in the IO thread) to the DownloadManager for the
-// tab (profile) where the download was initiated. In the event of a tab closure
-// during a download, the DownloadFileManager will continue to route data to the
-// appropriate DownloadManager. In progress downloads are cancelled for a
-// DownloadManager that exits (such as when closing a profile).
+// contents (profile) where the download was initiated. In the event of a
+// contents closure during a download, the DownloadFileManager will continue to
+// route data to the appropriate DownloadManager. In progress downloads are
+// cancelled for a DownloadManager that exits (such as when closing a profile).
 
 #ifndef CONTENT_BROWSER_DOWNLOAD_DOWNLOAD_FILE_MANAGER_H_
 #define CONTENT_BROWSER_DOWNLOAD_DOWNLOAD_FILE_MANAGER_H_
-#pragma once
 
 #include <map>
 
 #include "base/atomic_sequence_num.h"
 #include "base/basictypes.h"
+#include "base/callback_forward.h"
 #include "base/gtest_prod_util.h"
 #include "base/hash_tables.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/timer.h"
+#include "content/browser/download/download_file.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/download_id.h"
 #include "content/public/browser/download_interrupt_reasons.h"
@@ -60,8 +61,8 @@ class DownloadRequestHandle;
 class FilePath;
 
 namespace content {
-class DownloadBuffer;
-class DownloadFile;
+class ByteStreamReader;
+class DownloadId;
 class DownloadManager;
 }
 
@@ -70,16 +71,27 @@ class BoundNetLog;
 }
 
 // Manages all in progress downloads.
+// Methods are virtual to allow mocks--this class is not intended
+// to be a base class.
 class CONTENT_EXPORT DownloadFileManager
     : public base::RefCountedThreadSafe<DownloadFileManager> {
  public:
+  // Callback used with CreateDownloadFile().  |reason| will be
+  // DOWNLOAD_INTERRUPT_REASON_NONE on a successful creation.
+  typedef base::Callback<void(content::DownloadInterruptReason reason)>
+      CreateDownloadFileCallback;
+
+  // Callback used with RenameDownloadFile().
+  typedef content::DownloadFile::RenameCompletionCallback
+      RenameCompletionCallback;
+
   class DownloadFileFactory {
    public:
     virtual ~DownloadFileFactory() {}
 
     virtual content::DownloadFile* CreateFile(
         DownloadCreateInfo* info,
-        const DownloadRequestHandle& request_handle,
+        scoped_ptr<content::ByteStreamReader> stream,
         content::DownloadManager* download_manager,
         bool calculate_hash,
         const net::BoundNetLog& bound_net_log) = 0;
@@ -90,57 +102,42 @@ class CONTENT_EXPORT DownloadFileManager
   // |DownloadFileFactory| to be used.
   explicit DownloadFileManager(DownloadFileFactory* factory);
 
+  // Create a download file and record it in the download file manager.
+  virtual void CreateDownloadFile(
+      scoped_ptr<DownloadCreateInfo> info,
+      scoped_ptr<content::ByteStreamReader> stream,
+      scoped_refptr<content::DownloadManager> download_manager,
+      bool hash_needed,
+      const net::BoundNetLog& bound_net_log,
+      const CreateDownloadFileCallback& callback);
+
   // Called on shutdown on the UI thread.
-  void Shutdown();
-
-  // Called on UI thread to make DownloadFileManager start the download.
-  void StartDownload(DownloadCreateInfo* info,
-                     const DownloadRequestHandle& request_handle);
-
-  // Handlers for notifications sent from the IO thread and run on the
-  // FILE thread.
-  void UpdateDownload(content::DownloadId global_id,
-                      content::DownloadBuffer* buffer);
-
-  // |reason| is the reason for interruption, if one occurs.
-  // |security_info| contains SSL information (cert_id, cert_status,
-  // security_bits, ssl_connection_status), which can be used to
-  // fine-tune the error message.  It is empty if the transaction
-  // was not performed securely.
-  void OnResponseCompleted(content::DownloadId global_id,
-                           content::DownloadInterruptReason reason,
-                           const std::string& security_info);
+  virtual void Shutdown();
 
   // Handlers for notifications sent from the UI thread and run on the
   // FILE thread.  These are both terminal actions with respect to the
   // download file, as far as the DownloadFileManager is concerned -- if
   // anything happens to the download file after they are called, it will
   // be ignored.
-  void CancelDownload(content::DownloadId id);
-  void CompleteDownload(content::DownloadId id);
+  // We call back to the UI thread in the case of CompleteDownload so that
+  // we know when we can hand the file off to other consumers.
+  virtual void CancelDownload(content::DownloadId id);
+  virtual void CompleteDownload(content::DownloadId id,
+                                const base::Closure& callback);
 
   // Called on FILE thread by DownloadManager at the beginning of its shutdown.
-  void OnDownloadManagerShutdown(content::DownloadManager* manager);
+  virtual void OnDownloadManagerShutdown(content::DownloadManager* manager);
 
-  // The DownloadManager in the UI thread has provided an intermediate
-  // .crdownload name for the download specified by |id|.
-  void RenameInProgressDownloadFile(content::DownloadId id,
-                                    const FilePath& full_path);
-
-  // The DownloadManager in the UI thread has provided a final name for the
-  // download specified by |id|.
-  // |overwrite_existing_file| prevents uniquification, and is used for SAFE
-  // downloads, as the user may have decided to overwrite the file.
-  // Sent from the UI thread and run on the FILE thread.
-  void RenameCompletingDownloadFile(content::DownloadId id,
-                                    const FilePath& full_path,
-                                    bool overwrite_existing_file);
+  // Rename the download file, uniquifying if overwrite was not requested.
+  virtual void RenameDownloadFile(
+      content::DownloadId id,
+      const FilePath& full_path,
+      bool overwrite_existing_file,
+      const RenameCompletionCallback& callback);
 
   // The number of downloads currently active on the DownloadFileManager.
   // Primarily for testing.
-  int NumberOfActiveDownloads() const {
-    return downloads_.size();
-  }
+  virtual int NumberOfActiveDownloads() const;
 
   void SetFileFactoryForTesting(scoped_ptr<DownloadFileFactory> file_factory) {
     download_file_factory_.reset(file_factory.release());
@@ -150,38 +147,20 @@ class CONTENT_EXPORT DownloadFileManager
     return download_file_factory_.get();  // Explicitly NOT a scoped_ptr.
   }
 
+ protected:
+  virtual ~DownloadFileManager();
+
  private:
   friend class base::RefCountedThreadSafe<DownloadFileManager>;
   friend class DownloadFileManagerTest;
   friend class DownloadManagerTest;
   FRIEND_TEST_ALL_PREFIXES(DownloadManagerTest, StartDownload);
 
-  ~DownloadFileManager();
-
-  // Timer helpers for updating the UI about the current progress of a download.
-  void StartUpdateTimer();
-  void StopUpdateTimer();
-  void UpdateInProgressDownloads();
-
   // Clean up helper that runs on the download thread.
   void OnShutdown();
 
-  // Creates DownloadFile on FILE thread and continues starting the download
-  // process.
-  void CreateDownloadFile(DownloadCreateInfo* info,
-                          const DownloadRequestHandle& request_handle,
-                          content::DownloadManager* download_manager,
-                          bool hash_needed,
-                          const net::BoundNetLog& bound_net_log);
-
   // Called only on the download thread.
   content::DownloadFile* GetDownloadFile(content::DownloadId global_id);
-
-  // Called only from RenameInProgressDownloadFile and
-  // RenameCompletingDownloadFile on the FILE thread.
-  // |rename_error| indicates what error caused the cancel.
-  void CancelDownloadOnRename(content::DownloadId global_id,
-                              net::Error rename_error);
 
   // Erases the download file with the given the download |id| and removes
   // it from the maps.
@@ -192,10 +171,6 @@ class CONTENT_EXPORT DownloadFileManager
 
   // A map of all in progress downloads.  It owns the download files.
   DownloadFileMap downloads_;
-
-  // Schedule periodic updates of the download progress. This timer
-  // is controlled from the FILE thread, and posts updates to the UI thread.
-  base::RepeatingTimer<DownloadFileManager> update_timer_;
 
   scoped_ptr<DownloadFileFactory> download_file_factory_;
 

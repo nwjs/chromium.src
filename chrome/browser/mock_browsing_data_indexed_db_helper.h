@@ -1,17 +1,15 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_MOCK_BROWSING_DATA_INDEXED_DB_HELPER_H_
 #define CHROME_BROWSER_MOCK_BROWSING_DATA_INDEXED_DB_HELPER_H_
-#pragma once
 
 #include <list>
 #include <map>
 
 #include "base/callback.h"
 #include "base/compiler_specific.h"
-#include "base/memory/scoped_ptr.h"
 #include "chrome/browser/browsing_data_indexed_db_helper.h"
 
 // Mock for BrowsingDataIndexedDBHelper.
@@ -39,7 +37,6 @@ class MockBrowsingDataIndexedDBHelper
   virtual void StartFetching(
       const base::Callback<void(const std::list<IndexedDBInfo>&)>&
           callback) OVERRIDE;
-  virtual void CancelNotification() OVERRIDE;
   virtual void DeleteIndexedDB(const GURL& origin) OVERRIDE;
 
  private:

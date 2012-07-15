@@ -29,7 +29,7 @@
 #include "sync/protocol/theme_specifics.pb.h"
 #include "sync/protocol/typed_url_specifics.pb.h"
 
-namespace browser_sync {
+namespace syncer {
 
 namespace {
 
@@ -138,6 +138,9 @@ DictionaryValue* SessionTabToValue(
   SET_BOOL(pinned);
   SET_STR(extension_app_id);
   SET_REP(navigation, TabNavigationToValue);
+  SET_BYTES(favicon);
+  SET_ENUM(favicon_type, GetFaviconTypeString);
+  SET_STR(favicon_source);
   return value;
 }
 
@@ -154,13 +157,14 @@ DictionaryValue* SessionWindowToValue(
 DictionaryValue* TabNavigationToValue(
     const sync_pb::TabNavigation& proto) {
   DictionaryValue* value = new DictionaryValue();
-  SET_INT32(index);
   SET_STR(virtual_url);
   SET_STR(referrer);
   SET_STR(title);
   SET_STR(state);
   SET_ENUM(page_transition, GetPageTransitionString);
   SET_ENUM(navigation_qualifier, GetPageTransitionQualifierString);
+  SET_INT32(unique_id);
+  SET_INT64(timestamp);
   return value;
 }
 
@@ -303,9 +307,9 @@ DictionaryValue* NigoriSpecificsToValue(
   SET_BOOL(encrypt_app_settings);
   SET_BOOL(encrypt_apps);
   SET_BOOL(encrypt_search_engines);
-  SET_BOOL(sync_tabs);
   SET_BOOL(encrypt_everything);
   SET_REP(device_information, DeviceInformationToValue);
+  SET_BOOL(sync_tab_favicons);
   return value;
 }
 
@@ -351,6 +355,7 @@ DictionaryValue* SessionSpecificsToValue(
   SET_STR(session_tag);
   SET(header, SessionHeaderToValue);
   SET(tab, SessionTabToValue);
+  SET_INT32(tab_node_id);
   return value;
 }
 
@@ -588,4 +593,4 @@ DictionaryValue* ClientToServerMessageToValue(
 
 #undef SET_FIELD
 
-}  // namespace browser_sync
+}  // namespace syncer

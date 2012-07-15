@@ -4,14 +4,13 @@
 
 #ifndef CHROME_BROWSER_RENDERER_HOST_CHROME_RENDER_MESSAGE_FILTER_H_
 #define CHROME_BROWSER_RENDERER_HOST_CHROME_RENDER_MESSAGE_FILTER_H_
-#pragma once
 
 #include <string>
 #include <vector>
 
 #include "base/file_path.h"
 #include "base/memory/weak_ptr.h"
-#include "base/message_loop_helpers.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/content_settings.h"
 #include "content/public/browser/browser_message_filter.h"
@@ -74,13 +73,11 @@ class ChromeRenderMessageFilter : public content::BrowserMessageFilter {
   virtual ~ChromeRenderMessageFilter();
 
 #if !defined(DISABLE_NACL)
-  void OnLaunchNaCl(const std::wstring& url,
+  void OnLaunchNaCl(const GURL& manifest_url,
                     int socket_count,
                     IPC::Message* reply_msg);
 #endif
   void OnDnsPrefetch(const std::vector<std::string>& hostnames);
-  void OnRendererHistograms(int sequence_number,
-                            const std::vector<std::string>& histogram_info);
   void OnResourceTypeStats(const WebKit::WebCache::ResourceTypeStats& stats);
   void OnUpdatedCacheStats(const WebKit::WebCache::UsageStats& stats);
   void OnFPS(int routing_id, float fps);
@@ -117,13 +114,23 @@ class ChromeRenderMessageFilter : public content::BrowserMessageFilter {
                                   const std::string& event_name);
   void OnExtensionRemoveLazyListener(const std::string& extension_id,
                                      const std::string& event_name);
-  void OnExtensionEventAck(const std::string& extension_id);
-  void OnExtensionCloseChannel(int port_id);
+  void OnExtensionAddFilteredListener(const std::string& extension_id,
+                                      const std::string& event_name,
+                                      const base::DictionaryValue& filter,
+                                      bool lazy);
+  void OnExtensionRemoveFilteredListener(const std::string& extension_id,
+                                         const std::string& event_name,
+                                         const base::DictionaryValue& filter,
+                                         bool lazy);
+  void OnExtensionCloseChannel(int port_id, bool connection_error);
   void OnExtensionRequestForIOThread(
       int routing_id,
       const ExtensionHostMsg_Request_Params& params);
-  void OnExtensionShouldCloseAck(const std::string& extension_id,
-                                 int sequence_id);
+  void OnExtensionShouldUnloadAck(const std::string& extension_id,
+                                  int sequence_id);
+  void OnExtensionUnloadAck(const std::string& extension_id);
+  void OnExtensionGenerateUniqueID(int* unique_id);
+  void OnExtensionResumeRequests(int route_id);
 #if defined(USE_TCMALLOC)
   void OnRendererTcmalloc(const std::string& output);
   void OnWriteTcmallocHeapProfile(const FilePath::StringType& filename,
@@ -164,6 +171,8 @@ class ChromeRenderMessageFilter : public content::BrowserMessageFilter {
   // The Profile associated with our renderer process.  This should only be
   // accessed on the UI thread!
   Profile* profile_;
+  // Copied from the profile so that it can be read on the IO thread.
+  bool off_the_record_;
   scoped_refptr<net::URLRequestContextGetter> request_context_;
   scoped_refptr<ExtensionInfoMap> extension_info_map_;
   // Used to look up permissions at database creation time.

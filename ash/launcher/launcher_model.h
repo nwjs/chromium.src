@@ -4,13 +4,12 @@
 
 #ifndef ASH_LAUNCHER_LAUNCHER_MODEL_H_
 #define ASH_LAUNCHER_LAUNCHER_MODEL_H_
-#pragma once
 
 #include <vector>
 
+#include "ash/ash_export.h"
 #include "ash/launcher/launcher_types.h"
 #include "base/observer_list.h"
-#include "ash/ash_export.h"
 
 namespace aura {
 class Window;
@@ -29,6 +28,10 @@ class ASH_EXPORT LauncherModel {
   // Adds a new item to the model. Returns the resulting index.
   int Add(const LauncherItem& item);
 
+  // Adds the item. |index| is the requested insertion index, which may be
+  // modified to meet type-based ordering. Returns the actual insertion index.
+  int AddAt(int index, const LauncherItem& item);
+
   // Removes the item at |index|.
   void RemoveItemAt(int index);
 
@@ -39,10 +42,6 @@ class ASH_EXPORT LauncherModel {
   // Resets the item at the specified index. The item maintains its existing
   // id and type.
   void Set(int index, const LauncherItem& item);
-
-  // Sends LauncherItemWillChange() to the observers. Used when the images are
-  // going to change for an item, but not for a while.
-  void SetPendingUpdate(int index);
 
   // Returns the index of the item by id.
   int ItemIndexByID(int id);
@@ -61,11 +60,10 @@ class ASH_EXPORT LauncherModel {
   void RemoveObserver(LauncherModelObserver* observer);
 
  private:
-  // Adds the item at the specified index. Returns |index|.
-  int AddAt(int index, const LauncherItem& item);
-
-  // Returns the index to add the specified item at.
-  int GetIndexToAddItemAt(LauncherItemType type) const;
+  // Makes sure |index| is in line with the type-based order of items. If that
+  // is not the case, adjusts index by shifting it to the valid range and
+  // returns the new value.
+  int ValidateInsertionIndex(LauncherItemType type, int index) const;
 
   // ID assigned to the next item.
   LauncherID next_id_;

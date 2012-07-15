@@ -54,6 +54,7 @@ ErrorCode AuthRejectionReasonToErrorCode(
 
 JingleSession::JingleSession(JingleSessionManager* session_manager)
     : session_manager_(session_manager),
+      event_handler_(NULL),
       state_(INITIALIZING),
       error_(OK),
       config_is_set_(false) {
@@ -66,17 +67,10 @@ JingleSession::~JingleSession() {
   session_manager_->SessionDestroyed(this);
 }
 
-void JingleSession::SetStateChangeCallback(
-    const StateChangeCallback& callback) {
+void JingleSession::SetEventHandler(Session::EventHandler* event_handler) {
   DCHECK(CalledOnValidThread());
-  DCHECK(!callback.is_null());
-  state_change_callback_ = callback;
-}
-
-void JingleSession::SetRouteChangeCallback(
-    const RouteChangeCallback& callback) {
-  DCHECK(CalledOnValidThread());
-  route_change_callback_ = callback;
+  DCHECK(event_handler);
+  event_handler_ = event_handler;
 }
 
 ErrorCode JingleSession::error() {
@@ -87,8 +81,7 @@ ErrorCode JingleSession::error() {
 void JingleSession::StartConnection(
     const std::string& peer_jid,
     scoped_ptr<Authenticator> authenticator,
-    scoped_ptr<CandidateSessionConfig> config,
-    const StateChangeCallback& state_change_callback) {
+    scoped_ptr<CandidateSessionConfig> config) {
   DCHECK(CalledOnValidThread());
   DCHECK(authenticator.get());
   DCHECK_EQ(authenticator->state(), Authenticator::MESSAGE_READY);
@@ -96,7 +89,6 @@ void JingleSession::StartConnection(
   peer_jid_ = peer_jid;
   authenticator_ = authenticator.Pass();
   candidate_config_ = config.Pass();
-  state_change_callback_ = state_change_callback;
 
   // Generate random session ID. There are usually not more than 1
   // concurrent session per host, so a random 64-bit integer provides
@@ -187,8 +179,7 @@ void JingleSession::CreateStreamChannel(
       authenticator_->CreateChannelAuthenticator();
   scoped_ptr<StreamTransport> channel =
       session_manager_->transport_factory_->CreateStreamTransport();
-  channel->Initialize(name, session_manager_->transport_config_,
-                      this, channel_authenticator.Pass());
+  channel->Initialize(name, this, channel_authenticator.Pass());
   channel->Connect(callback);
   channels_[name] = channel.release();
 }
@@ -202,8 +193,7 @@ void JingleSession::CreateDatagramChannel(
       authenticator_->CreateChannelAuthenticator();
   scoped_ptr<DatagramTransport> channel =
       session_manager_->transport_factory_->CreateDatagramTransport();
-  channel->Initialize(name, session_manager_->transport_config_,
-                      this, channel_authenticator.Pass());
+  channel->Initialize(name, this, channel_authenticator.Pass());
   channel->Connect(callback);
   channels_[name] = channel.release();
 }
@@ -246,7 +236,8 @@ void JingleSession::Close() {
 
 void JingleSession::OnTransportCandidate(Transport* transport,
                                          const cricket::Candidate& candidate) {
-  pending_candidates_.push_back(candidate);
+  pending_candidates_.push_back(JingleMessage::NamedCandidate(
+      transport->name(), candidate));
 
   if (!transport_infos_timer_.IsRunning()) {
     // Delay sending the new candidates in case we get more candidates
@@ -259,8 +250,8 @@ void JingleSession::OnTransportCandidate(Transport* transport,
 
 void JingleSession::OnTransportRouteChange(Transport* transport,
                                            const TransportRoute& route) {
-  if (!route_change_callback_.is_null())
-    route_change_callback_.Run(transport->name(), route);
+  if (event_handler_)
+    event_handler_->OnSessionRouteChange(transport->name(), route);
 }
 
 void JingleSession::OnTransportDeleted(Transport* transport) {
@@ -438,15 +429,15 @@ void JingleSession::OnSessionInfo(const JingleMessage& message,
 }
 
 void JingleSession::ProcessTransportInfo(const JingleMessage& message) {
-  for (std::list<cricket::Candidate>::const_iterator it =
+  for (std::list<JingleMessage::NamedCandidate>::const_iterator it =
            message.candidates.begin();
        it != message.candidates.end(); ++it) {
-    ChannelsMap::iterator channel = channels_.find(it->name());
+    ChannelsMap::iterator channel = channels_.find(it->name);
     if (channel == channels_.end()) {
-      LOG(WARNING) << "Received candidate for unknown channel " << it->name();
+      LOG(WARNING) << "Received candidate for unknown channel " << it->name;
       continue;
     }
-    channel->second->AddRemoteCandidate(*it);
+    channel->second->AddRemoteCandidate(it->candidate);
   }
 }
 
@@ -470,6 +461,9 @@ void JingleSession::OnTerminate(const JingleMessage& message,
       break;
     case JingleMessage::DECLINE:
       error_ = AUTHENTICATION_FAILED;
+      break;
+    case JingleMessage::CANCEL:
+      error_ = HOST_OVERLOAD;
       break;
     case JingleMessage::GENERAL_ERROR:
       error_ = CHANNEL_CONNECTION_ERROR;
@@ -546,6 +540,9 @@ void JingleSession::CloseInternal(ErrorCode error) {
       case INCOMPATIBLE_PROTOCOL:
         reason = JingleMessage::INCOMPATIBLE_PARAMETERS;
         break;
+      case HOST_OVERLOAD:
+        reason = JingleMessage::CANCEL;
+        break;
       default:
         reason = JingleMessage::GENERAL_ERROR;
     }
@@ -575,8 +572,8 @@ void JingleSession::SetState(State new_state) {
     DCHECK_NE(state_, FAILED);
 
     state_ = new_state;
-    if (!state_change_callback_.is_null())
-      state_change_callback_.Run(new_state);
+    if (event_handler_)
+      event_handler_->OnSessionStateChange(new_state);
   }
 }
 

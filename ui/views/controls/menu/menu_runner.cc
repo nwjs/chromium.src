@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -28,6 +28,8 @@ class MenuRunnerImpl : public internal::MenuControllerDelegate {
   explicit MenuRunnerImpl(MenuItemView* menu);
 
   MenuItemView* menu() { return menu_; }
+
+  bool running() const { return running_; }
 
   // See description above class for details.
   void Release();
@@ -238,13 +240,22 @@ bool MenuRunnerImpl::ShouldShowMnemonics(MenuButton* button) {
   // Show mnemonics if the button has focus or alt is pressed.
   bool show_mnemonics = button ? button->HasFocus() : false;
 #if defined(OS_WIN)
-  // We don't currently need this on gtk as showing the menu gives focus to the
-  // button first.
+  // This is only needed on Windows.
   if (!show_mnemonics)
     show_mnemonics = base::win::IsAltPressed();
 #endif
   return show_mnemonics;
 }
+
+// In theory we could implement this every where, but for now we're only
+// implementing it on aura.
+#if !defined(USE_AURA)
+// static
+DisplayChangeListener* DisplayChangeListener::Create(Widget* widget,
+                                                     MenuRunner* runner) {
+  return NULL;
+}
+#endif
 
 }  // namespace internal
 
@@ -265,7 +276,18 @@ MenuRunner::RunResult MenuRunner::RunMenuAt(Widget* parent,
                                             const gfx::Rect& bounds,
                                             MenuItemView::AnchorPosition anchor,
                                             int32 types) {
+  // The parent of the nested menu will have created a DisplayChangeListener, so
+  // we avoid creating a DisplayChangeListener if nested. Drop menus are
+  // transient, so we don't cancel in that case.
+  if ((types & (IS_NESTED | FOR_DROP)) == 0) {
+    display_change_listener_.reset(
+        internal::DisplayChangeListener::Create(parent, this));
+  }
   return holder_->RunMenuAt(parent, button, bounds, anchor, types);
+}
+
+bool MenuRunner::IsRunning() const {
+  return holder_->running();
 }
 
 void MenuRunner::Cancel() {

@@ -11,9 +11,10 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/common/chrome_switches.h"
 
-// Sometimes times out on Mac OS
-// crbug.com/
-#ifdef OS_MACOSX
+// Sometimes times out on Mac OS and Windows
+// crbug.com/97499
+// Also on Linux: crbug.com/130138
+#if defined(OS_MACOSX) || defined(OS_WIN) || defined(OS_LINUX) || defined(OS_CHROMEOS)
 IN_PROC_BROWSER_TEST_F(ExtensionApiTest, DISABLED_Processes) {
 #else
 IN_PROC_BROWSER_TEST_F(ExtensionApiTest, Processes) {
@@ -24,13 +25,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, Processes) {
   ASSERT_TRUE(RunExtensionTest("processes/api")) << message_;
 }
 
-// http://crbug.com/111787
-#ifdef OS_WIN
-#define MAYBE_ProcessesVsTaskManager DISABLED_ProcessesVsTaskManager
-#else
-#define MAYBE_ProcessesVsTaskManager ProcessesVsTaskManager
-#endif
-IN_PROC_BROWSER_TEST_F(ExtensionApiTest, MAYBE_ProcessesVsTaskManager) {
+IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ProcessesVsTaskManager) {
   CommandLine::ForCurrentProcess()->AppendSwitch(
       switches::kEnableExperimentalExtensionApis);
 

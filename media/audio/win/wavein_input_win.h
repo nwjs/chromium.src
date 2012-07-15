@@ -5,6 +5,8 @@
 #ifndef MEDIA_AUDIO_WIN_WAVEIN_INPUT_WIN_H_
 #define MEDIA_AUDIO_WIN_WAVEIN_INPUT_WIN_H_
 
+#include <string>
+
 #include <windows.h>
 #include <mmsystem.h>
 
@@ -13,6 +15,8 @@
 #include "base/win/scoped_handle.h"
 #include "media/audio/audio_io.h"
 #include "media/audio/audio_parameters.h"
+
+namespace media {
 
 class AudioManagerWin;
 
@@ -36,6 +40,8 @@ class PCMWaveInAudioInputStream : public AudioInputStream {
   virtual double GetMaxVolume() OVERRIDE;
   virtual void SetVolume(double volume) OVERRIDE;
   virtual double GetVolume() OVERRIDE;
+  virtual void SetAutomaticGainControl(bool enabled) OVERRIDE;
+  virtual bool GetAutomaticGainControl() OVERRIDE;
 
  private:
   enum State {
@@ -112,5 +118,7 @@ class PCMWaveInAudioInputStream : public AudioInputStream {
 
   DISALLOW_COPY_AND_ASSIGN(PCMWaveInAudioInputStream);
 };
+
+}  // namespace media
 
 #endif  // MEDIA_AUDIO_WIN_WAVEIN_INPUT_WIN_H_

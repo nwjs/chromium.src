@@ -12,6 +12,8 @@
 #include "content/renderer/render_thread_impl.h"
 #include "media/video/capture/video_capture_proxy.h"
 
+namespace content {
+
 PepperPlatformVideoCaptureImpl::PepperPlatformVideoCaptureImpl(
     const base::WeakPtr<PepperPluginDelegateImpl>& plugin_delegate,
     const std::string& device_id,
@@ -40,20 +42,9 @@ PepperPlatformVideoCaptureImpl::PepperPlatformVideoCaptureImpl(
   }
 }
 
-PepperPlatformVideoCaptureImpl::~PepperPlatformVideoCaptureImpl() {
-  if (video_capture_) {
-    VideoCaptureImplManager* manager =
-        RenderThreadImpl::current()->video_capture_impl_manager();
-    manager->RemoveDevice(session_id_, handler_proxy_.get());
-  }
-
-  if (plugin_delegate_ && !label_.empty())
-    plugin_delegate_->CloseDevice(label_);
-}
-
 void PepperPlatformVideoCaptureImpl::StartCapture(
     media::VideoCapture::EventHandler* handler,
-    const VideoCaptureCapability& capability) {
+    const media::VideoCaptureCapability& capability) {
   DCHECK(handler == handler_);
 
   if (unbalanced_start_)
@@ -153,6 +144,17 @@ void PepperPlatformVideoCaptureImpl::OnDeviceInfoReceived(
     handler_->OnDeviceInfoReceived(capture, device_info);
 }
 
+PepperPlatformVideoCaptureImpl::~PepperPlatformVideoCaptureImpl() {
+  if (video_capture_) {
+    VideoCaptureImplManager* manager =
+        RenderThreadImpl::current()->video_capture_impl_manager();
+    manager->RemoveDevice(session_id_, handler_proxy_.get());
+  }
+
+  if (plugin_delegate_ && !label_.empty())
+    plugin_delegate_->CloseDevice(label_);
+}
+
 void PepperPlatformVideoCaptureImpl::Initialize() {
   VideoCaptureImplManager* manager =
       RenderThreadImpl::current()->video_capture_impl_manager();
@@ -173,3 +175,5 @@ void PepperPlatformVideoCaptureImpl::OnDeviceOpened(int request_id,
   if (handler_)
     handler_->OnInitialized(this, succeeded);
 }
+
+}  // namespace content

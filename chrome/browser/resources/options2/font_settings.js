@@ -14,7 +14,7 @@ cr.define('options', function() {
   function FontSettings() {
     OptionsPage.call(this,
                      'fonts',
-                     templateData.fontSettingsPageTabTitle,
+                     loadTimeData.getString('fontSettingsPageTabTitle'),
                      'font-settings');
   }
 
@@ -45,7 +45,7 @@ cr.define('options', function() {
       minimumFontRange.notifyPrefChange =
           this.minimumFontSizeChanged_.bind(this);
 
-      var placeholder = localStrings.getString('fontSettingsPlaceholder');
+      var placeholder = loadTimeData.getString('fontSettingsPlaceholder');
       var elements = [$('standard-font-family'), $('serif-font-family'),
                       $('sans-serif-font-family'), $('fixed-font-family'),
                       $('font-encoding')];
@@ -148,7 +148,7 @@ cr.define('options', function() {
     setUpFontSample_: function(el, size, font, showSize) {
       var prefix = showSize ? (size + ': ') : '';
       el.textContent = prefix +
-          localStrings.getString('fontSettingsLoremIpsum');
+          loadTimeData.getString('fontSettingsLoremIpsum');
       el.style.fontSize = size + 'px';
       if (font)
         el.style.fontFamily = font;
@@ -170,9 +170,12 @@ cr.define('options', function() {
       for (var i = 0; i < items.length; i++) {
         value = items[i][0];
         text = items[i][1];
+        dir = items[i][2];
         if (text) {
           selected = value == selectedValue;
-          element.appendChild(new Option(text, value, false, selected));
+          var option = new Option(text, value, false, selected);
+          option.dir = dir;
+          element.appendChild(option);
         } else {
           element.appendChild(document.createElement('hr'));
         }

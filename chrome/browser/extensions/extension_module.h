@@ -1,33 +1,50 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_MODULE_H__
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_MODULE_H__
-#pragma once
 
 #include "chrome/browser/extensions/extension_function.h"
 
+namespace extensions {
 class ExtensionPrefs;
+}
 
 class SetUpdateUrlDataFunction : public SyncExtensionFunction {
- protected:
-  virtual bool RunImpl() OVERRIDE;
+ public:
   DECLARE_EXTENSION_FUNCTION_NAME("extension.setUpdateUrlData");
 
+ protected:
+  virtual ~SetUpdateUrlDataFunction() {}
+
+  // ExtensionFunction:
+  virtual bool RunImpl() OVERRIDE;
+
  private:
-  ExtensionPrefs* extension_prefs();
+  extensions::ExtensionPrefs* extension_prefs();
 };
 
 class IsAllowedIncognitoAccessFunction : public SyncExtensionFunction {
- protected:
-  virtual bool RunImpl() OVERRIDE;
+ public:
   DECLARE_EXTENSION_FUNCTION_NAME("extension.isAllowedIncognitoAccess");
+
+ protected:
+  virtual ~IsAllowedIncognitoAccessFunction() {}
+
+  // ExtensionFunction:
+  virtual bool RunImpl() OVERRIDE;
 };
 
 class IsAllowedFileSchemeAccessFunction : public SyncExtensionFunction {
- protected:
-  virtual bool RunImpl() OVERRIDE;
+ public:
   DECLARE_EXTENSION_FUNCTION_NAME("extension.isAllowedFileSchemeAccess");
+
+ protected:
+  virtual ~IsAllowedFileSchemeAccessFunction() {}
+
+  // ExtensionFunction:
+  virtual bool RunImpl() OVERRIDE;
 };
+
 #endif  // CHROME_BROWSER_EXTENSIONS_EXTENSION_MODULE_H__

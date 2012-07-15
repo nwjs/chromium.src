@@ -9,18 +9,18 @@
 #include "base/string_number_conversions.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/glue/theme_util.h"
-#include "chrome/browser/sync/internal_api/change_record.h"
-#include "chrome/browser/sync/internal_api/read_node.h"
-#include "chrome/browser/sync/internal_api/write_node.h"
-#include "chrome/browser/sync/internal_api/write_transaction.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/extensions/extension.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
+#include "sync/internal_api/public/change_record.h"
+#include "sync/internal_api/public/read_node.h"
+#include "sync/internal_api/public/util/unrecoverable_error_handler.h"
+#include "sync/internal_api/public/write_node.h"
+#include "sync/internal_api/public/write_transaction.h"
 #include "sync/protocol/theme_specifics.pb.h"
-#include "sync/util/unrecoverable_error_handler.h"
 
 namespace browser_sync {
 
@@ -41,12 +41,13 @@ void ThemeChangeProcessor::Observe(
   DCHECK(profile_);
   DCHECK(type == chrome::NOTIFICATION_BROWSER_THEME_CHANGED);
 
-  sync_api::WriteTransaction trans(FROM_HERE, share_handle());
-  sync_api::WriteNode node(&trans);
-  if (!node.InitByClientTagLookup(syncable::THEMES,
-                                  kCurrentThemeClientTag)) {
+  syncer::WriteTransaction trans(FROM_HERE, share_handle());
+  syncer::WriteNode node(&trans);
+  if (node.InitByClientTagLookup(syncer::THEMES,
+                                 kCurrentThemeClientTag) !=
+          syncer::BaseNode::INIT_OK) {
     std::string err = "Could not create node with client tag: ";
-    error_handler()->OnUnrecoverableError(FROM_HERE,
+    error_handler()->OnSingleDatatypeUnrecoverableError(FROM_HERE,
                                           err + kCurrentThemeClientTag);
     return;
   }
@@ -65,8 +66,8 @@ void ThemeChangeProcessor::Observe(
 }
 
 void ThemeChangeProcessor::ApplyChangesFromSyncModel(
-    const sync_api::BaseTransaction* trans,
-    const sync_api::ImmutableChangeRecordList& changes) {
+    const syncer::BaseTransaction* trans,
+    const syncer::ImmutableChangeRecordList& changes) {
   if (!running()) {
     return;
   }
@@ -85,26 +86,26 @@ void ThemeChangeProcessor::ApplyChangesFromSyncModel(
     LOG(WARNING) << change_count << " theme changes detected; "
                  << "only applying the last one";
   }
-  const sync_api::ChangeRecord& change =
+  const syncer::ChangeRecord& change =
       changes.Get()[change_count - 1];
-  if (change.action != sync_api::ChangeRecord::ACTION_UPDATE &&
-      change.action != sync_api::ChangeRecord::ACTION_DELETE) {
+  if (change.action != syncer::ChangeRecord::ACTION_UPDATE &&
+      change.action != syncer::ChangeRecord::ACTION_DELETE) {
     std::string err = "strange theme change.action " +
         base::IntToString(change.action);
-    error_handler()->OnUnrecoverableError(FROM_HERE, err);
+    error_handler()->OnSingleDatatypeUnrecoverableError(FROM_HERE, err);
     return;
   }
   sync_pb::ThemeSpecifics theme_specifics;
   // If the action is a delete, simply use the default values for
   // ThemeSpecifics, which would cause the default theme to be set.
-  if (change.action != sync_api::ChangeRecord::ACTION_DELETE) {
-    sync_api::ReadNode node(trans);
-    if (!node.InitByIdLookup(change.id)) {
+  if (change.action != syncer::ChangeRecord::ACTION_DELETE) {
+    syncer::ReadNode node(trans);
+    if (node.InitByIdLookup(change.id) != syncer::BaseNode::INIT_OK) {
       error_handler()->OnSingleDatatypeUnrecoverableError(FROM_HERE,
           "Theme node lookup failed.");
       return;
     }
-    DCHECK_EQ(node.GetModelType(), syncable::THEMES);
+    DCHECK_EQ(node.GetModelType(), syncer::THEMES);
     DCHECK(profile_);
     theme_specifics = node.GetThemeSpecifics();
   }

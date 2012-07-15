@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,7 +13,7 @@
 #include "base/synchronization/waitable_event.h"
 #include "base/threading/thread.h"
 #include "chrome/browser/net/chrome_url_request_context.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "net/base/cert_test_util.h"
 #include "net/base/ssl_info.h"
 #include "net/base/transport_security_state.h"
@@ -121,7 +121,9 @@ class NotSendingTestReporter : public TestReporter {
 // This class doesn't do anything now, but in near future versions it will.
 class MockURLRequest : public net::URLRequest {
  public:
-  MockURLRequest() : net::URLRequest(GURL(""), NULL), passed_(false) {
+  MockURLRequest(net::URLRequestContext* context)
+      : net::URLRequest(GURL(""), NULL, context),
+        passed_(false) {
   }
 
  private:
@@ -135,8 +137,9 @@ class MockReporter : public ChromeFraudulentCertificateReporter {
   explicit MockReporter(net::URLRequestContext* request_context)
     : ChromeFraudulentCertificateReporter(request_context) {}
 
-  virtual net::URLRequest* CreateURLRequest() OVERRIDE {
-    return new MockURLRequest();
+  virtual net::URLRequest* CreateURLRequest(
+      net::URLRequestContext* context) OVERRIDE {
+    return new MockURLRequest(context);
   }
 
   virtual void SendReport(
@@ -151,22 +154,22 @@ class MockReporter : public ChromeFraudulentCertificateReporter {
 };
 
 static void DoReportIsSent() {
-  scoped_refptr<ChromeURLRequestContext> context = new ChromeURLRequestContext;
-  SendingTestReporter reporter(context.get());
+  ChromeURLRequestContext context;
+  SendingTestReporter reporter(&context);
   SSLInfo info = GetGoodSSLInfo();
   reporter.SendReport("mail.google.com", info, true);
 }
 
 static void DoReportIsNotSent() {
-  scoped_refptr<ChromeURLRequestContext> context = new ChromeURLRequestContext;
-  NotSendingTestReporter reporter(context.get());
+  ChromeURLRequestContext context;
+  NotSendingTestReporter reporter(&context);
   SSLInfo info = GetBadSSLInfo();
   reporter.SendReport("www.example.com", info, true);
 }
 
 static void DoMockReportIsSent() {
-  scoped_refptr<ChromeURLRequestContext> context = new ChromeURLRequestContext;
-  MockReporter reporter(context.get());
+  ChromeURLRequestContext context;
+  MockReporter reporter(&context);
   SSLInfo info = GetGoodSSLInfo();
   reporter.SendReport("mail.google.com", info, true);
 }
@@ -201,4 +204,3 @@ TEST(ChromeFraudulentCertificateReporterTest, ReportIsNotSent) {
 }
 
 }  // namespace chrome_browser_net
-

@@ -18,6 +18,7 @@
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_source.h"
+#include "ui/base/cocoa/window_size_constants.h"
 
 using content::RenderViewHost;
 
@@ -92,6 +93,14 @@ class DevtoolsNotificationBridge : public content::NotificationObserver {
         }
         break;
       }
+      case content::NOTIFICATION_DEVTOOLS_WINDOW_OPENING: {
+        RenderViewHost* rvh = [controller_ extensionHost]->render_view_host();
+        if (content::Details<RenderViewHost>(rvh) == details)
+          // Set the flag on the controller so the popup is not hidden when
+          // the dev tools get focus.
+          [controller_ setBeingInspected:YES];
+        break;
+      }
       case content::NOTIFICATION_DEVTOOLS_WINDOW_CLOSING: {
         RenderViewHost* rvh = [controller_ extensionHost]->render_view_host();
         if (content::Details<RenderViewHost>(rvh) == details)
@@ -121,7 +130,7 @@ class DevtoolsNotificationBridge : public content::NotificationObserver {
            devMode:(BOOL)devMode {
   scoped_nsobject<InfoBubbleWindow> window(
       [[InfoBubbleWindow alloc]
-          initWithContentRect:NSZeroRect
+          initWithContentRect:ui::kWindowSizeDeterminedLater
                     styleMask:NSBorderlessWindowMask
                       backing:NSBackingStoreBuffered
                         defer:YES]);
@@ -149,17 +158,27 @@ class DevtoolsNotificationBridge : public content::NotificationObserver {
 
     [view addSubview:extensionView_];
 
+    notificationBridge_.reset(new DevtoolsNotificationBridge(self));
+    registrar_.reset(new content::NotificationRegistrar);
+    // Listen for the the devtools window closing so we can close this window if
+    // it is being inspected and the inspector is closed.
+    registrar_->Add(notificationBridge_.get(),
+                    content::NOTIFICATION_DEVTOOLS_WINDOW_CLOSING,
+                    content::Source<content::BrowserContext>(
+                        host->profile()));
     if (beingInspected_) {
-      // Listen for the the devtools window closing.
-      notificationBridge_.reset(new DevtoolsNotificationBridge(self));
-      registrar_.reset(new content::NotificationRegistrar);
-      registrar_->Add(notificationBridge_.get(),
-                      content::NOTIFICATION_DEVTOOLS_WINDOW_CLOSING,
-                      content::Source<content::BrowserContext>(
-                          host->profile()));
+      // Listen for the extension to finish loading so the dev tools can be
+      // opened.
       registrar_->Add(notificationBridge_.get(),
                       chrome::NOTIFICATION_EXTENSION_HOST_DID_STOP_LOADING,
                       content::Source<Profile>(host->profile()));
+    } else {
+      // Listen for the dev tools opening on this popup, so we can stop it going
+      // away when the dev tools get focus.
+      registrar_->Add(notificationBridge_.get(),
+                      content::NOTIFICATION_DEVTOOLS_WINDOW_OPENING,
+                      content::Source<content::BrowserContext>(
+                          host->profile()));
     }
   }
   return self;
@@ -192,6 +211,10 @@ class DevtoolsNotificationBridge : public content::NotificationObserver {
 
 - (ExtensionHost*)extensionHost {
   return host_.get();
+}
+
+- (void)setBeingInspected:(BOOL)beingInspected {
+  beingInspected_ = beingInspected;
 }
 
 + (ExtensionPopupController*)showURL:(GURL)url
@@ -230,7 +253,7 @@ class DevtoolsNotificationBridge : public content::NotificationObserver {
   // closed, so no need to do that here.
   gPopup = [[ExtensionPopupController alloc]
       initWithHost:host
-      parentWindow:browser->window()->GetNativeHandle()
+      parentWindow:browser->window()->GetNativeWindow()
         anchoredAt:anchoredAt
      arrowLocation:arrowLocation
            devMode:devMode];
@@ -265,7 +288,7 @@ class DevtoolsNotificationBridge : public content::NotificationObserver {
   frame.size.height += info_bubble::kBubbleArrowHeight +
                        info_bubble::kBubbleCornerRadius;
   frame.size.width += info_bubble::kBubbleCornerRadius;
-  frame = [extensionView_ convertRectToBase:frame];
+  frame = [extensionView_ convertRect:frame toView:nil];
   // Adjust the origin according to the height and width so that the arrow is
   // positioned correctly at the middle and slightly down from the button.
   NSPoint windowOrigin = self.anchorPoint;

@@ -10,7 +10,6 @@
 
 #ifndef UI_BASE_CLIPBOARD_SCOPED_CLIPBOARD_WRITER_H_
 #define UI_BASE_CLIPBOARD_SCOPED_CLIPBOARD_WRITER_H_
-#pragma once
 
 #include <string>
 
@@ -43,6 +42,9 @@ class UI_EXPORT ScopedClipboardWriter {
   // Adds HTML to the clipboard.  The url parameter is optional, but especially
   // useful if the HTML fragment contains relative links.
   void WriteHTML(const string16& markup, const std::string& source_url);
+
+  // Adds RTF to the clipboard.
+  void WriteRTF(const std::string& rtf_data);
 
   // Adds a bookmark to the clipboard.
   void WriteBookmark(const string16& bookmark_title,

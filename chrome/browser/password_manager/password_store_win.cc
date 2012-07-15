@@ -39,6 +39,9 @@ class FormGetLoginsRequest : public PasswordStore::GetLoginsRequest {
   }
   bool IsLoginsRequest() const { return !!form_.get(); }
 
+ protected:
+  virtual ~FormGetLoginsRequest() {}
+
  private:
   scoped_ptr<PasswordForm> form_;
 };
@@ -162,13 +165,17 @@ void PasswordStoreWin::DBHandler::OnWebDataServiceRequestDone(
   if (ie7_form)
     request->value.push_back(ie7_form);
 
+  // Since we aren't using ForwardLoginsResult(), we must call
+  // ApplyIgnoreLoginsCutoff() manually here as is done in
+  // PasswordStore::ForwardLoginsResult().
+  request->ApplyIgnoreLoginsCutoff();
   request->ForwardResult(request->handle(), request->value);
 }
 
 PasswordStoreWin::PasswordStoreWin(LoginDatabase* login_database,
                                    Profile* profile,
                                    WebDataService* web_data_service)
-    : PasswordStoreDefault(login_database, profile, web_data_service) {
+    : PasswordStoreDefault(login_database, profile) {
   db_handler_.reset(new DBHandler(web_data_service, this));
 }
 

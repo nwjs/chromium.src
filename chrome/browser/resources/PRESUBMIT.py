@@ -41,26 +41,17 @@ def _CommonChecks(input_api, output_api):
   old_path = sys.path
 
   try:
-    sys.path.insert(0, resources)
+    sys.path = [resources] + old_path
     from web_dev_style import css_checker, js_checker
 
-    # TODO(dbeam): Remove this directory filter eventually when ready.
-    dirs = (
-        path.join(resources, 'extensions'),
-        path.join(resources, 'help'),
-        path.join(resources, 'net_internals'),
-        path.join(resources, 'ntp4'),
-        path.join(resources, 'options2'),
-        path.join(resources, 'uber'),
-    )
-    def file_filter(affected_file):
-      f = affected_file.AbsoluteLocalPath()
-      return (f.startswith(dirs) and f.endswith(('.css', '.html', '.js')))
+    def is_resource(maybe_resource):
+      f = maybe_resource.AbsoluteLocalPath()
+      return f.endswith(('.css', '.html', '.js')) and f.startswith(resources)
 
     results.extend(css_checker.CSSChecker(input_api, output_api,
-                                          file_filter=file_filter).RunChecks())
+                                          file_filter=is_resource).RunChecks())
     results.extend(js_checker.JSChecker(input_api, output_api,
-                                        file_filter=file_filter).RunChecks())
+                                        file_filter=is_resource).RunChecks())
   finally:
     sys.path = old_path
 

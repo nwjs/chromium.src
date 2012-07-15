@@ -21,6 +21,7 @@ ChromeWebUIDataSource* CreateAboutPageHTMLSource() {
       new ChromeWebUIDataSource(chrome::kChromeUIHelpFrameHost);
 
   source->set_json_path("strings.js");
+  source->set_use_json_js_format_v2();
   source->add_resource_path("help.js", IDR_HELP_JS);
   source->set_default_resource(IDR_HELP_HTML);
   return source;
@@ -32,9 +33,8 @@ HelpUI::HelpUI(content::WebUI* web_ui)
     : WebUIController(web_ui) {
   Profile* profile = Profile::FromWebUI(web_ui);
   ChromeWebUIDataSource* source = CreateAboutPageHTMLSource();
-  profile->GetChromeURLDataManager()->AddDataSource(source);
-  profile->GetChromeURLDataManager()->AddDataSource(
-      new SharedResourcesDataSource());
+  ChromeURLDataManager::AddDataSource(profile, source);
+  ChromeURLDataManager::AddDataSource(profile, new SharedResourcesDataSource());
 
   HelpHandler* handler = new HelpHandler();
   handler->GetLocalizedValues(source->localized_strings());

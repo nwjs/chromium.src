@@ -8,7 +8,7 @@
 #include "content/browser/speech/google_one_shot_remote_engine.h"
 #include "content/public/common/speech_recognition_error.h"
 #include "content/public/common/speech_recognition_result.h"
-#include "content/test/test_url_fetcher_factory.h"
+#include "net/url_request/test_url_fetcher_factory.h"
 #include "net/url_request/url_request_context_getter.h"
 #include "net/url_request/url_request_status.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -22,7 +22,7 @@ class GoogleOneShotRemoteEngineTest
   GoogleOneShotRemoteEngineTest()
       : error_(content::SPEECH_RECOGNITION_ERROR_NONE) {}
 
-  // Creates a speech recognition request and invokes it's URL fetcher delegate
+  // Creates a speech recognition request and invokes its URL fetcher delegate
   // with the given test data.
   void CreateAndTestRequest(bool success, const std::string& http_response);
 
@@ -39,7 +39,7 @@ class GoogleOneShotRemoteEngineTest
 
  protected:
   MessageLoop message_loop_;
-  TestURLFetcherFactory url_fetcher_factory_;
+  net::TestURLFetcherFactory url_fetcher_factory_;
   content::SpeechRecognitionErrorCode error_;
   content::SpeechRecognitionResult result_;
 };
@@ -48,14 +48,15 @@ void GoogleOneShotRemoteEngineTest::CreateAndTestRequest(
     bool success, const std::string& http_response) {
   GoogleOneShotRemoteEngine client(NULL);
   unsigned char dummy_audio_buffer_data[2] = {'\0', '\0'};
-  AudioChunk dummy_audio_chunk(&dummy_audio_buffer_data[0],
-                               sizeof(dummy_audio_buffer_data),
-                               2 /* bytes per sample */);
+  scoped_refptr<AudioChunk> dummy_audio_chunk(
+      new AudioChunk(&dummy_audio_buffer_data[0],
+                     sizeof(dummy_audio_buffer_data),
+                     2 /* bytes per sample */));
   client.set_delegate(this);
   client.StartRecognition();
-  client.TakeAudioChunk(dummy_audio_chunk);
+  client.TakeAudioChunk(*dummy_audio_chunk);
   client.AudioChunksEnded();
-  TestURLFetcher* fetcher = url_fetcher_factory_.GetFetcherByID(0);
+  net::TestURLFetcher* fetcher = url_fetcher_factory_.GetFetcherByID(0);
   ASSERT_TRUE(fetcher);
 
   fetcher->set_url(fetcher->GetOriginalURL());

@@ -15,6 +15,11 @@
 #include "ppapi/cpp/private/instance_private.h"
 #endif
 
+// Windows defines 'PostMessage', so we have to undef it.
+#ifdef PostMessage
+#undef PostMessage
+#endif
+
 class TestCase;
 
 // How signaling works:
@@ -99,6 +104,9 @@ pp::InstancePrivate {
   // evaluate to |true| or the test will fail.
   void AddPostCondition(const std::string& script);
 
+  // See doc for |remove_plugin_|.
+  void set_remove_plugin(bool remove) { remove_plugin_ = remove; }
+
  private:
   void ExecuteTests(int32_t unused);
 
@@ -141,6 +149,9 @@ pp::InstancePrivate {
   // Set once the tests are run so we know not to re-run when the view is sized.
   bool executed_tests_;
 
+  // The number of tests executed so far.
+  int32_t number_tests_executed_;
+
   // Collects all errors to send the the browser. Empty indicates no error yet.
   std::string errors_;
 
@@ -156,6 +167,11 @@ pp::InstancePrivate {
 
   // WebSocket port.
   int websocket_port_;
+
+  // At the end of each set of tests, the plugin is removed from the web-page.
+  // However, for some tests, it is desirable to not remove the plguin from the
+  // page.
+  bool remove_plugin_;
 };
 
 #endif  // PPAPI_TESTS_TESTING_INSTANCE_H_

@@ -6,13 +6,17 @@
 
 #include "base/memory/linked_ptr.h"
 #include "base/logging.h"
+#include "chrome/renderer/module_system.h"
 #include "v8/include/v8.h"
 
 NativeHandler::NativeHandler()
-    : object_template_(v8::ObjectTemplate::New()) {
+    : object_template_(
+        v8::Persistent<v8::ObjectTemplate>::New(v8::ObjectTemplate::New())) {
 }
 
-NativeHandler::~NativeHandler() {}
+NativeHandler::~NativeHandler() {
+  object_template_.Dispose();
+}
 
 v8::Handle<v8::Object> NativeHandler::NewInstance() {
   return object_template_->NewInstance();
@@ -20,6 +24,13 @@ v8::Handle<v8::Object> NativeHandler::NewInstance() {
 
 // static
 v8::Handle<v8::Value> NativeHandler::Router(const v8::Arguments& args) {
+  // It is possible for JS code to execute after ModuleSystem has been deleted
+  // in which case the native handlers will also have been deleted, making
+  // HandlerFunction below point to freed memory.
+  if (!ModuleSystem::IsPresentInCurrentContext()) {
+    return v8::ThrowException(v8::Exception::Error(
+        v8::String::New("ModuleSystem has been deleted")));
+  }
   HandlerFunction* handler_function = static_cast<HandlerFunction*>(
       args.Data().As<v8::External>()->Value());
   return handler_function->Run(args);

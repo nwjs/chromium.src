@@ -1,26 +1,34 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_PROXY_SETTINGS_DIALOG_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_PROXY_SETTINGS_DIALOG_H_
-#pragma once
 
-#include "chrome/browser/chromeos/login/login_html_dialog.h"
+#include "chrome/browser/chromeos/login/login_web_dialog.h"
 #include "ui/gfx/native_widget_types.h"
 
 namespace chromeos {
 
-class ProxySettingsDialog : public LoginHtmlDialog {
+// Should be used on the UI thread only, because of static |instance_count_|.
+class ProxySettingsDialog : public LoginWebDialog {
  public:
-  ProxySettingsDialog(LoginHtmlDialog::Delegate* delegate,
+  // Returns whether the dialog is being shown.
+  static bool IsShown();
+
+  ProxySettingsDialog(LoginWebDialog::Delegate* delegate,
                       gfx::NativeWindow window);
+  virtual ~ProxySettingsDialog();
 
  protected:
-  // HtmlDialogUIDelegate implementation.
+  // ui::WebDialogDelegate implementation.
   virtual void OnDialogClosed(const std::string& json_retval) OVERRIDE;
 
  private:
+  // TODO(altimofeev): consider avoidance static variable by extending current
+  // WebUI/login interfaces.
+  static int instance_count_;
+
   DISALLOW_COPY_AND_ASSIGN(ProxySettingsDialog);
 };
 

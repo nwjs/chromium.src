@@ -12,7 +12,6 @@
 #include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chrome/browser/chromeos/input_method/input_method_manager.h"
 #include "chrome/browser/chromeos/input_method/input_method_util.h"
-#include "chrome/browser/chromeos/language_preferences.h"
 #include "chrome/browser/chromeos/login/language_list.h"
 #include "chrome/browser/chromeos/login/ownership_service.h"
 #include "chrome/browser/chromeos/login/screen_observer.h"
@@ -199,7 +198,7 @@ void LanguageSwitchMenu::ExecuteCommand(int command_id) {
   // that users can use those keyboard layouts on the login screen.
   SwitchLanguageAndEnableKeyboardLayouts(locale);
   InitLanguageMenu();
-  NotifyLocaleChanged(ash::Shell::GetRootWindow());
+  NotifyLocaleChanged(ash::Shell::GetPrimaryRootWindow());
 }
 
 }  // namespace chromeos

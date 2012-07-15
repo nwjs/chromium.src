@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_UI_WEBUI_NTP_FAVICON_WEBUI_HANDLER_H_
 #define CHROME_BROWSER_UI_WEBUI_NTP_FAVICON_WEBUI_HANDLER_H_
-#pragma once
 
 #include <map>
 #include <string>
@@ -55,7 +54,7 @@ class FaviconWebUIHandler : public content::WebUIMessageHandler {
 
   // Raw PNG representation of the favicon to show when the favicon
   // database doesn't have a favicon for a webpage.
-  scoped_refptr<RefCountedMemory> default_favicon_;
+  scoped_refptr<base::RefCountedMemory> default_favicon_;
 
   // Manage retrieval of icons from apps.
   scoped_ptr<ExtensionIconColorManager> app_icon_color_manager_;

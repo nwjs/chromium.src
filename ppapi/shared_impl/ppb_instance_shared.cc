@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,9 +9,15 @@
 #include "ppapi/c/pp_errors.h"
 #include "ppapi/c/ppb_input_event.h"
 #include "ppapi/shared_impl/ppapi_globals.h"
+#include "ppapi/shared_impl/ppb_image_data_shared.h"
 #include "ppapi/shared_impl/var.h"
+#include "ppapi/thunk/enter.h"
+#include "ppapi/thunk/ppb_image_data_api.h"
 
 namespace ppapi {
+
+// static
+const int PPB_Instance_Shared::kExtraCharsForTextInput = 100;
 
 PPB_Instance_Shared::~PPB_Instance_Shared() {
 }
@@ -51,5 +57,47 @@ int32_t PPB_Instance_Shared::ValidateRequestInputEvents(
   // Everything else is valid.
   return PP_OK;
 }
+
+#if !defined(OS_NACL)
+bool PPB_Instance_Shared::ValidateSetCursorParams(PP_MouseCursor_Type type,
+                                                  PP_Resource image,
+                                                  const PP_Point* hot_spot) {
+  if (static_cast<int>(type) < static_cast<int>(PP_MOUSECURSOR_TYPE_CUSTOM) ||
+      static_cast<int>(type) > static_cast<int>(PP_MOUSECURSOR_TYPE_GRABBING))
+    return false;  // Cursor type out of range.
+  if (type != PP_MOUSECURSOR_TYPE_CUSTOM) {
+    // The image must not be specified if the type isn't custom. However, we
+    // don't require that the hot spot be null since the C++ wrappers and proxy
+    // pass the point by reference and it will normally be specified.
+    return image == 0;
+  }
+
+  if (!hot_spot)
+    return false;  // Hot spot must be specified for custom cursor.
+
+  thunk::EnterResourceNoLock<thunk::PPB_ImageData_API> enter(image, true);
+  if (enter.failed())
+    return false;  // Invalid image resource.
+
+  // Validate the image size. A giant cursor can arbitrarily overwrite parts
+  // of the screen resulting in potential spoofing attacks. So we force the
+  // cursor to be a reasonably-sized image.
+  PP_ImageDataDesc desc;
+  if (!PP_ToBool(enter.object()->Describe(&desc)))
+    return false;
+  if (desc.size.width > 32 || desc.size.height > 32)
+    return false;
+
+  // Validate image format.
+  if (desc.format != PPB_ImageData_Shared::GetNativeImageDataFormat())
+    return false;
+
+  // Validate the hot spot location.
+  if (hot_spot->x < 0 || hot_spot->x >= desc.size.width ||
+      hot_spot->y < 0 || hot_spot->y >= desc.size.height)
+    return false;
+  return true;
+}
+#endif  // !defined(OS_NACL)
 
 }  // namespace ppapi

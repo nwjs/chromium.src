@@ -4,7 +4,6 @@
 
 #ifndef NET_HTTP_HTTP_NETWORK_TRANSACTION_H_
 #define NET_HTTP_HTTP_NETWORK_TRANSACTION_H_
-#pragma once
 
 #include <string>
 
@@ -87,8 +86,6 @@ class NET_EXPORT_PRIVATE HttpNetworkTransaction
  private:
   FRIEND_TEST_ALL_PREFIXES(HttpNetworkTransactionSpdy2Test,
                            ResetStateForRestart);
-  FRIEND_TEST_ALL_PREFIXES(HttpNetworkTransactionSpdy21Test,
-                           ResetStateForRestart);
   FRIEND_TEST_ALL_PREFIXES(HttpNetworkTransactionSpdy3Test,
                            ResetStateForRestart);
   FRIEND_TEST_ALL_PREFIXES(SpdyNetworkTransactionSpdy2Test,
@@ -99,14 +96,6 @@ class NET_EXPORT_PRIVATE HttpNetworkTransaction
                            WindowUpdateOverflow);
   FRIEND_TEST_ALL_PREFIXES(SpdyNetworkTransactionSpdy2Test,
                            FlowControlStallResume);
-  FRIEND_TEST_ALL_PREFIXES(SpdyNetworkTransactionSpdy21Test,
-                           WindowUpdateReceived);
-  FRIEND_TEST_ALL_PREFIXES(SpdyNetworkTransactionSpdy21Test,
-                           WindowUpdateSent);
-  FRIEND_TEST_ALL_PREFIXES(SpdyNetworkTransactionSpdy21Test,
-                           WindowUpdateOverflow);
-  FRIEND_TEST_ALL_PREFIXES(SpdyNetworkTransactionSpdy21Test,
-                           FlowControlStallResume);
   FRIEND_TEST_ALL_PREFIXES(SpdyNetworkTransactionSpdy3Test,
                            WindowUpdateReceived);
   FRIEND_TEST_ALL_PREFIXES(SpdyNetworkTransactionSpdy3Test,
@@ -115,6 +104,10 @@ class NET_EXPORT_PRIVATE HttpNetworkTransaction
                            WindowUpdateOverflow);
   FRIEND_TEST_ALL_PREFIXES(SpdyNetworkTransactionSpdy3Test,
                            FlowControlStallResume);
+  FRIEND_TEST_ALL_PREFIXES(SpdyNetworkTransactionSpdy3Test,
+                           FlowControlStallResumeAfterSettings);
+  FRIEND_TEST_ALL_PREFIXES(SpdyNetworkTransactionSpdy3Test,
+                           FlowControlNegativeSendWindowSize);
 
   enum State {
     STATE_CREATE_STREAM,

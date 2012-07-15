@@ -12,11 +12,12 @@
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/keycodes/keyboard_codes.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/simple_menu_model.h"
+#include "ui/compositor/compositor.h"
+#include "ui/compositor/layer.h"
+#include "ui/compositor/layer_animator.h"
 #include "ui/gfx/canvas.h"
-#include "ui/gfx/compositor/compositor.h"
-#include "ui/gfx/compositor/layer.h"
-#include "ui/gfx/compositor/layer_animator.h"
 #include "ui/gfx/path.h"
 #include "ui/gfx/transform.h"
 #include "ui/views/background.h"
@@ -40,8 +41,8 @@
 #endif
 #if defined(USE_AURA)
 #include "ui/aura/event.h"
-#include "ui/aura/gestures/gesture_recognizer.h"
 #include "ui/aura/root_window.h"
+#include "ui/base/gestures/gesture_recognizer.h"
 #endif
 
 using ::testing::_;
@@ -194,7 +195,7 @@ typedef ViewsTestBase ViewTest;
 // A derived class for testing purpose.
 class TestView : public View {
  public:
-  TestView() : View(), in_touch_sequence_(false) {}
+  TestView() : View(), delete_on_pressed_(false), in_touch_sequence_(false) {}
   virtual ~TestView() {}
 
   // Reset all test state
@@ -234,6 +235,7 @@ class TestView : public View {
   gfx::Point location_;
   bool received_mouse_enter_;
   bool received_mouse_exit_;
+  bool delete_on_pressed_;
 
   // Painting.
   std::vector<gfx::Rect> scheduled_paint_rects_;
@@ -270,13 +272,14 @@ class TestViewConsumeGesture : public TestView {
   TestViewConsumeGesture() : TestView() {}
   virtual ~TestViewConsumeGesture() {}
 
- private:
+ protected:
   virtual ui::GestureStatus OnGestureEvent(const GestureEvent& event) OVERRIDE {
     last_gesture_event_type_ = event.type();
     location_.SetPoint(event.x(), event.y());
     return ui::GESTURE_STATUS_CONSUMED;
   }
 
+ private:
   DISALLOW_COPY_AND_ASSIGN(TestViewConsumeGesture);
 };
 
@@ -292,6 +295,23 @@ class TestViewIgnoreGesture: public TestView {
   }
 
   DISALLOW_COPY_AND_ASSIGN(TestViewIgnoreGesture);
+};
+
+// A view subclass that ignores all scroll-gesture events, but consume all other
+// gesture events.
+class TestViewIgnoreScrollGestures : public TestViewConsumeGesture {
+ public:
+  TestViewIgnoreScrollGestures() {}
+  virtual ~TestViewIgnoreScrollGestures() {}
+
+ private:
+  virtual ui::GestureStatus OnGestureEvent(const GestureEvent& event) OVERRIDE {
+    if (event.IsScrollGestureEvent())
+      return ui::GESTURE_STATUS_UNKNOWN;
+    return TestViewConsumeGesture::OnGestureEvent(event);
+  }
+
+  DISALLOW_COPY_AND_ASSIGN(TestViewIgnoreScrollGestures);
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -325,6 +345,8 @@ TEST_F(ViewTest, OnBoundsChanged) {
 bool TestView::OnMousePressed(const MouseEvent& event) {
   last_mouse_event_type_ = event.type();
   location_.SetPoint(event.x(), event.y());
+  if (delete_on_pressed_)
+    delete this;
   return true;
 }
 
@@ -402,6 +424,38 @@ TEST_F(ViewTest, MouseEvent) {
   EXPECT_EQ(v2->location_.y(), -100);
   // Make sure v1 did not receive the event
   EXPECT_EQ(v1->last_mouse_event_type_, 0);
+
+  widget->CloseNow();
+}
+
+// Confirm that a view can be deleted as part of processing a mouse press.
+TEST_F(ViewTest, DeleteOnPressed) {
+  TestView* v1 = new TestView();
+  v1->SetBoundsRect(gfx::Rect(0, 0, 300, 300));
+
+  TestView* v2 = new TestView();
+  v2->SetBoundsRect(gfx::Rect(100, 100, 100, 100));
+
+  v1->Reset();
+  v2->Reset();
+
+  scoped_ptr<Widget> widget(new Widget);
+  Widget::InitParams params(Widget::InitParams::TYPE_POPUP);
+  params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
+  params.bounds = gfx::Rect(50, 50, 650, 650);
+  widget->Init(params);
+  View* root = widget->GetRootView();
+
+  root->AddChildView(v1);
+  v1->AddChildView(v2);
+
+  v2->delete_on_pressed_ = true;
+  MouseEvent pressed(ui::ET_MOUSE_PRESSED,
+                     110,
+                     120,
+                     ui::EF_LEFT_MOUSE_BUTTON);
+  root->OnMousePressed(pressed);
+  EXPECT_EQ(0, v1->child_count());
 
   widget->CloseNow();
 }
@@ -566,6 +620,10 @@ TEST_F(ViewTest, GestureEvent) {
   EXPECT_EQ(gfx::Point(10, 10), v2->location_);
   EXPECT_EQ(ui::ET_UNKNOWN, v1->last_gesture_event_type_);
 
+  // Simulate an up so that RootView is no longer targetting |v3|.
+  GestureEventForTest g1_up(ui::ET_GESTURE_END, 110, 110, 0);
+  root->OnGestureEvent(g1_up);
+
   v1->Reset();
   v2->Reset();
   v3->Reset();
@@ -576,6 +634,106 @@ TEST_F(ViewTest, GestureEvent) {
   EXPECT_EQ(ui::ET_GESTURE_TAP, v1->last_gesture_event_type_);
   EXPECT_EQ(gfx::Point(80, 80), v1->location_);
   EXPECT_EQ(ui::ET_UNKNOWN, v2->last_gesture_event_type_);
+
+  // Send event |g1| again. Even though the coordinates target |v3| it should go
+  // to |v1| as that is the view the touch was initially down on.
+  v1->last_gesture_event_type_ = ui::ET_UNKNOWN;
+  v3->last_gesture_event_type_ = ui::ET_UNKNOWN;
+  root->OnGestureEvent(g1);
+  EXPECT_EQ(ui::ET_GESTURE_TAP, v1->last_gesture_event_type_);
+  EXPECT_EQ(ui::ET_UNKNOWN, v3->last_gesture_event_type_);
+  EXPECT_EQ("110,110", v1->location_.ToString());
+
+  widget->CloseNow();
+}
+
+TEST_F(ViewTest, ScrollGestureEvent) {
+  // Views hierarchy for non delivery of GestureEvent.
+  TestView* v1 = new TestViewConsumeGesture();
+  v1->SetBoundsRect(gfx::Rect(0, 0, 300, 300));
+
+  TestView* v2 = new TestViewIgnoreScrollGestures();
+  v2->SetBoundsRect(gfx::Rect(100, 100, 100, 100));
+
+  TestView* v3 = new TestViewIgnoreGesture();
+  v3->SetBoundsRect(gfx::Rect(0, 0, 100, 100));
+
+  scoped_ptr<Widget> widget(new Widget());
+  Widget::InitParams params(Widget::InitParams::TYPE_POPUP);
+  params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
+  params.bounds = gfx::Rect(50, 50, 650, 650);
+  widget->Init(params);
+  View* root = widget->GetRootView();
+
+  root->AddChildView(v1);
+  v1->AddChildView(v2);
+  v2->AddChildView(v3);
+
+  // |v3| completely obscures |v2|, but all the gesture events on |v3| should
+  // reach |v2| because |v3| doesn't process any gesture events. However, since
+  // |v2| does process gesture events, gesture events on |v3| or |v2| should not
+  // reach |v1|.
+
+  v1->Reset();
+  v2->Reset();
+  v3->Reset();
+
+  // Gesture on |v3|
+  GestureEventForTest g1(ui::ET_GESTURE_TAP, 110, 110, 0);
+  root->OnGestureEvent(g1);
+  EXPECT_EQ(ui::ET_GESTURE_TAP, v2->last_gesture_event_type_);
+  EXPECT_EQ(gfx::Point(10, 10), v2->location_);
+  EXPECT_EQ(ui::ET_UNKNOWN, v1->last_gesture_event_type_);
+
+  v2->Reset();
+
+  // Send scroll gestures on |v3|. The gesture should reach |v2|, however,
+  // since it does not process scroll-gesture events, these events should reach
+  // |v1|.
+  GestureEventForTest gscroll_begin(ui::ET_GESTURE_SCROLL_BEGIN, 115, 115, 0);
+  root->OnGestureEvent(gscroll_begin);
+  EXPECT_EQ(ui::ET_UNKNOWN, v2->last_gesture_event_type_);
+  EXPECT_EQ(ui::ET_GESTURE_SCROLL_BEGIN, v1->last_gesture_event_type_);
+  v1->Reset();
+
+  // Send a second tap on |v1|. The event should reach |v2| since it is the
+  // default gesture handler, and not |v1| (even though it is the view under the
+  // point, and is the scroll event handler).
+  GestureEventForTest second_tap(ui::ET_GESTURE_TAP, 70, 70, 0);
+  root->OnGestureEvent(second_tap);
+  EXPECT_EQ(ui::ET_GESTURE_TAP, v2->last_gesture_event_type_);
+  EXPECT_EQ(ui::ET_UNKNOWN, v1->last_gesture_event_type_);
+  v2->Reset();
+
+  GestureEventForTest gscroll_end(ui::ET_GESTURE_SCROLL_END, 50, 50, 0);
+  root->OnGestureEvent(gscroll_end);
+  EXPECT_EQ(ui::ET_GESTURE_SCROLL_END, v1->last_gesture_event_type_);
+  v1->Reset();
+
+  // Simulate an up so that RootView is no longer targetting |v3|.
+  GestureEventForTest g1_up(ui::ET_GESTURE_END, 110, 110, 0);
+  root->OnGestureEvent(g1_up);
+  EXPECT_EQ(ui::ET_GESTURE_END, v2->last_gesture_event_type_);
+
+  v1->Reset();
+  v2->Reset();
+  v3->Reset();
+
+  // Gesture on |v1|
+  GestureEventForTest g2(ui::ET_GESTURE_TAP, 80, 80, 0);
+  root->OnGestureEvent(g2);
+  EXPECT_EQ(ui::ET_GESTURE_TAP, v1->last_gesture_event_type_);
+  EXPECT_EQ(gfx::Point(80, 80), v1->location_);
+  EXPECT_EQ(ui::ET_UNKNOWN, v2->last_gesture_event_type_);
+
+  // Send event |g1| again. Even though the coordinates target |v3| it should go
+  // to |v1| as that is the view the touch was initially down on.
+  v1->last_gesture_event_type_ = ui::ET_UNKNOWN;
+  v3->last_gesture_event_type_ = ui::ET_UNKNOWN;
+  root->OnGestureEvent(g1);
+  EXPECT_EQ(ui::ET_GESTURE_TAP, v1->last_gesture_event_type_);
+  EXPECT_EQ(ui::ET_UNKNOWN, v3->last_gesture_event_type_);
+  EXPECT_EQ("110,110", v1->location_.ToString());
 
   widget->CloseNow();
 }
@@ -995,7 +1153,7 @@ TEST_F(ViewTest, Textfield) {
   // Test selection related methods.
   textfield->SetText(kText);
   EXPECT_EQ(kEmptyString, textfield->GetSelectedText());
-  textfield->SelectAll();
+  textfield->SelectAll(false);
   EXPECT_EQ(kText, textfield->text());
   textfield->ClearSelection();
   EXPECT_EQ(kEmptyString, textfield->GetSelectedText());
@@ -1036,7 +1194,7 @@ TEST_F(ViewTest, TextfieldCutCopyPaste) {
   // Test cut.
   //
   ASSERT_TRUE(normal->GetTestingHandle());
-  normal->SelectAll();
+  normal->SelectAll(false);
   ::SendMessage(normal->GetTestingHandle(), WM_CUT, 0, 0);
 
   string16 result;
@@ -1045,7 +1203,7 @@ TEST_F(ViewTest, TextfieldCutCopyPaste) {
   normal->SetText(kNormalText);  // Let's revert to the original content.
 
   ASSERT_TRUE(read_only->GetTestingHandle());
-  read_only->SelectAll();
+  read_only->SelectAll(false);
   ::SendMessage(read_only->GetTestingHandle(), WM_CUT, 0, 0);
   result.clear();
   clipboard.ReadText(ui::Clipboard::BUFFER_STANDARD, &result);
@@ -1053,7 +1211,7 @@ TEST_F(ViewTest, TextfieldCutCopyPaste) {
   EXPECT_EQ(kNormalText, result);
 
   ASSERT_TRUE(password->GetTestingHandle());
-  password->SelectAll();
+  password->SelectAll(false);
   ::SendMessage(password->GetTestingHandle(), WM_CUT, 0, 0);
   result.clear();
   clipboard.ReadText(ui::Clipboard::BUFFER_STANDARD, &result);
@@ -1066,19 +1224,19 @@ TEST_F(ViewTest, TextfieldCutCopyPaste) {
 
   // Let's start with read_only as the clipboard already contains the content
   // of normal.
-  read_only->SelectAll();
+  read_only->SelectAll(false);
   ::SendMessage(read_only->GetTestingHandle(), WM_COPY, 0, 0);
   result.clear();
   clipboard.ReadText(ui::Clipboard::BUFFER_STANDARD, &result);
   EXPECT_EQ(kReadOnlyText, result);
 
-  normal->SelectAll();
+  normal->SelectAll(false);
   ::SendMessage(normal->GetTestingHandle(), WM_COPY, 0, 0);
   result.clear();
   clipboard.ReadText(ui::Clipboard::BUFFER_STANDARD, &result);
   EXPECT_EQ(kNormalText, result);
 
-  password->SelectAll();
+  password->SelectAll(false);
   ::SendMessage(password->GetTestingHandle(), WM_COPY, 0, 0);
   result.clear();
   clipboard.ReadText(ui::Clipboard::BUFFER_STANDARD, &result);
@@ -1094,22 +1252,22 @@ TEST_F(ViewTest, TextfieldCutCopyPaste) {
   // WM_KEYDOWN messages that we are not simulating here.
 
   // Attempting to copy kNormalText in a read-only text-field should fail.
-  read_only->SelectAll();
+  read_only->SelectAll(false);
   ::SendMessage(read_only->GetTestingHandle(), WM_KEYDOWN, 0, 0);
   wchar_t buffer[1024] = { 0 };
   ::GetWindowText(read_only->GetTestingHandle(), buffer, 1024);
   EXPECT_EQ(kReadOnlyText, string16(buffer));
 
-  password->SelectAll();
+  password->SelectAll(false);
   ::SendMessage(password->GetTestingHandle(), WM_PASTE, 0, 0);
   ::GetWindowText(password->GetTestingHandle(), buffer, 1024);
   EXPECT_EQ(kNormalText, string16(buffer));
 
   // Copy from read_only so the string we are pasting is not the same as the
   // current one.
-  read_only->SelectAll();
+  read_only->SelectAll(false);
   ::SendMessage(read_only->GetTestingHandle(), WM_COPY, 0, 0);
-  normal->SelectAll();
+  normal->SelectAll(false);
   ::SendMessage(normal->GetTestingHandle(), WM_PASTE, 0, 0);
   ::GetWindowText(normal->GetTestingHandle(), buffer, 1024);
   EXPECT_EQ(kReadOnlyText, string16(buffer));
@@ -1128,7 +1286,7 @@ bool TestView::AcceleratorPressed(const ui::Accelerator& accelerator) {
 #if defined(OS_WIN) && !defined(USE_AURA)
 TEST_F(ViewTest, ActivateAccelerator) {
   // Register a keyboard accelerator before the view is added to a window.
-  ui::Accelerator return_accelerator(ui::VKEY_RETURN, false, false, false);
+  ui::Accelerator return_accelerator(ui::VKEY_RETURN, ui::EF_NONE);
   TestView* view = new TestView();
   view->Reset();
   view->AddAccelerator(return_accelerator);
@@ -1153,7 +1311,7 @@ TEST_F(ViewTest, ActivateAccelerator) {
   EXPECT_EQ(view->accelerator_count_map_[return_accelerator], 1);
 
   // Hit the escape key. Nothing should happen.
-  ui::Accelerator escape_accelerator(ui::VKEY_ESCAPE, false, false, false);
+  ui::Accelerator escape_accelerator(ui::VKEY_ESCAPE, ui::EF_NONE);
   EXPECT_FALSE(focus_manager->ProcessAccelerator(escape_accelerator));
   EXPECT_EQ(view->accelerator_count_map_[return_accelerator], 1);
   EXPECT_EQ(view->accelerator_count_map_[escape_accelerator], 0);
@@ -1194,7 +1352,7 @@ TEST_F(ViewTest, ActivateAccelerator) {
 
 #if defined(OS_WIN) && !defined(USE_AURA)
 TEST_F(ViewTest, HiddenViewWithAccelerator) {
-  ui::Accelerator return_accelerator(ui::VKEY_RETURN, false, false, false);
+  ui::Accelerator return_accelerator(ui::VKEY_RETURN, ui::EF_NONE);
   TestView* view = new TestView();
   view->Reset();
   view->AddAccelerator(return_accelerator);
@@ -1224,7 +1382,7 @@ TEST_F(ViewTest, HiddenViewWithAccelerator) {
 
 #if defined(OS_WIN) && !defined(USE_AURA)
 TEST_F(ViewTest, ViewInHiddenWidgetWithAccelerator) {
-  ui::Accelerator return_accelerator(ui::VKEY_RETURN, false, false, false);
+  ui::Accelerator return_accelerator(ui::VKEY_RETURN, ui::EF_NONE);
   TestView* view = new TestView();
   view->Reset();
   view->AddAccelerator(return_accelerator);
@@ -1366,7 +1524,7 @@ class MockMenuModel : public ui::MenuModel {
       ui::Accelerator* accelerator));
   MOCK_CONST_METHOD1(IsItemCheckedAt, bool(int index));
   MOCK_CONST_METHOD1(GetGroupIdAt, int(int index));
-  MOCK_METHOD2(GetIconAt, bool(int index, SkBitmap* icon));
+  MOCK_METHOD2(GetIconAt, bool(int index, gfx::ImageSkia* icon));
   MOCK_CONST_METHOD1(GetButtonMenuItemAt, ui::ButtonMenuItemModel*(int index));
   MOCK_CONST_METHOD1(IsEnabledAt, bool(int index));
   MOCK_CONST_METHOD1(IsVisibleAt, bool(int index));
@@ -2725,7 +2883,6 @@ class ViewLayerTest : public ViewsTestBase {
   virtual void TearDown() OVERRIDE {
     View::set_use_acceleration_when_possible(old_use_acceleration_);
     widget_->CloseNow();
-    Widget::SetPureViews(false);
     ViewsTestBase::TearDown();
   }
 
@@ -2867,6 +3024,65 @@ TEST_F(ViewLayerTest, BoundsChangeWithLayer) {
   v2->SetVisible(false);
   v2->SetBoundsRect(gfx::Rect(10, 11, 20, 30));
   EXPECT_EQ(gfx::Rect(30, 41, 20, 30), v2->layer()->bounds());
+}
+
+// Make sure layers are positioned correctly in RTL.
+TEST_F(ViewLayerTest, BoundInRTL) {
+  std::string locale = l10n_util::GetApplicationLocale(std::string());
+  base::i18n::SetICUDefaultLocale("he");
+
+  View* view = new View;
+  widget()->SetContentsView(view);
+
+  int content_width = view->width();
+
+  // |v1| is initially not attached to anything. So its layer will have the same
+  // bounds as the view.
+  View* v1 = new View;
+  v1->SetPaintToLayer(true);
+  v1->SetBounds(10, 10, 20, 10);
+  EXPECT_EQ(gfx::Rect(10, 10, 20, 10),
+            v1->layer()->bounds());
+
+  // Once |v1| is attached to the widget, its layer will get RTL-appropriate
+  // bounds.
+  view->AddChildView(v1);
+  EXPECT_EQ(gfx::Rect(content_width - 30, 10, 20, 10),
+            v1->layer()->bounds());
+  gfx::Rect l1bounds = v1->layer()->bounds();
+
+  // Now attach a View to the widget first, then create a layer for it. Make
+  // sure the bounds are correct.
+  View* v2 = new View;
+  v2->SetBounds(50, 10, 30, 10);
+  EXPECT_FALSE(v2->layer());
+  view->AddChildView(v2);
+  v2->SetPaintToLayer(true);
+  EXPECT_EQ(gfx::Rect(content_width - 80, 10, 30, 10),
+            v2->layer()->bounds());
+  gfx::Rect l2bounds = v2->layer()->bounds();
+
+  view->SetPaintToLayer(true);
+  EXPECT_EQ(l1bounds, v1->layer()->bounds());
+  EXPECT_EQ(l2bounds, v2->layer()->bounds());
+
+  // Move one of the views. Make sure the layer is positioned correctly
+  // afterwards.
+  v1->SetBounds(v1->x() - 5, v1->y(), v1->width(), v1->height());
+  l1bounds.set_x(l1bounds.x() + 5);
+  EXPECT_EQ(l1bounds, v1->layer()->bounds());
+
+  view->SetPaintToLayer(false);
+  EXPECT_EQ(l1bounds, v1->layer()->bounds());
+  EXPECT_EQ(l2bounds, v2->layer()->bounds());
+
+  // Move a view again.
+  v2->SetBounds(v2->x() + 5, v2->y(), v2->width(), v2->height());
+  l2bounds.set_x(l2bounds.x() - 5);
+  EXPECT_EQ(l2bounds, v2->layer()->bounds());
+
+  // Reset locale.
+  base::i18n::SetICUDefaultLocale(locale);
 }
 
 // Makes sure a transform persists after toggling the visibility.
@@ -3099,6 +3315,36 @@ TEST_F(ViewLayerTest, ReorderUnderWidget) {
   content->ReorderChildView(c1, -1);
   EXPECT_EQ(c1->layer(), parent_layer->children()[1]);
   EXPECT_EQ(c2->layer(), parent_layer->children()[0]);
+}
+
+// Verifies that the layer of a view can be acquired properly.
+TEST_F(ViewLayerTest, AcquireLayer) {
+  View* content = new View;
+  widget()->SetContentsView(content);
+  scoped_ptr<View> c1(new View);
+  c1->SetPaintToLayer(true);
+  EXPECT_TRUE(c1->layer());
+  content->AddChildView(c1.get());
+
+  scoped_ptr<ui::Layer> layer(c1->AcquireLayer());
+  EXPECT_EQ(layer.get(), c1->layer());
+
+  scoped_ptr<ui::Layer> layer2(c1->RecreateLayer());
+  EXPECT_NE(c1->layer(), layer2.get());
+
+  // Destroy view before destroying layer.
+  c1.reset();
+}
+
+// Verify that new layer scales content only if the old layer does.
+TEST_F(ViewLayerTest, RecreateLayer) {
+  scoped_ptr<View> v(new View());
+  v->SetPaintToLayer(true);
+  // Set to non default value.
+  v->layer()->set_scale_content(false);
+  scoped_ptr<ui::Layer> old_layer(v->RecreateLayer());
+  ui::Layer* new_layer = v->layer();
+  EXPECT_EQ(false, new_layer->scale_content());
 }
 
 #endif  // USE_AURA

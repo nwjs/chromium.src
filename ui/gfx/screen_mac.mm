@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,6 +6,13 @@
 
 #import <ApplicationServices/ApplicationServices.h>
 #import <Cocoa/Cocoa.h>
+
+@interface NSScreen (LionAPI)
+- (CGFloat)backingScaleFactor;
+@end
+
+#include "base/logging.h"
+#include "ui/gfx/display.h"
 
 namespace {
 
@@ -38,9 +45,39 @@ NSScreen* GetMatchingScreen(const gfx::Rect& match_rect) {
   return max_screen;
 }
 
+gfx::Display GetDisplayForScreen(NSScreen* screen, bool is_primary) {
+  NSRect frame = [screen frame];
+  // TODO(oshima): Implement ID and Observer.
+  gfx::Display display(0, gfx::Rect(NSRectToCGRect(frame)));
+
+  NSRect visible_frame = [screen visibleFrame];
+
+  // Convert work area's coordinate systems.
+  if (is_primary) {
+    gfx::Rect work_area = gfx::Rect(NSRectToCGRect(visible_frame));
+    work_area.set_y(frame.size.height - visible_frame.origin.y -
+                    visible_frame.size.height);
+    display.set_work_area(work_area);
+  } else {
+    display.set_work_area(ConvertCoordinateSystem(visible_frame));
+  }
+  CGFloat scale;
+  if ([screen respondsToSelector:@selector(backingScaleFactor)])
+    scale = [screen backingScaleFactor];
+  else
+    scale = [screen userSpaceScaleFactor];
+  display.set_device_scale_factor(scale);
+  return display;
+}
+
 }  // namespace
 
 namespace gfx {
+
+// static
+bool Screen::IsDIPEnabled() {
+  return true;
+}
 
 // static
 gfx::Point Screen::GetCursorScreenPoint() {
@@ -52,43 +89,31 @@ gfx::Point Screen::GetCursorScreenPoint() {
 }
 
 // static
-gfx::Rect Screen::GetPrimaryMonitorWorkArea() {
-  // Primary monitor is defined as the monitor with the menubar,
-  // which is always at index 0.
-  NSScreen* primary = [[NSScreen screens] objectAtIndex:0];
-  NSRect frame = [primary frame];
-  NSRect visible_frame = [primary visibleFrame];
-
-  // Convert coordinate systems.
-  gfx::Rect rect = gfx::Rect(NSRectToCGRect(visible_frame));
-  rect.set_y(frame.size.height - visible_frame.origin.y -
-             visible_frame.size.height);
-  return rect;
+gfx::Display Screen::GetDisplayNearestWindow(gfx::NativeView view) {
+  NSWindow* window = [view window];
+  if (!window)
+    return GetPrimaryDisplay();
+  NSScreen* match_screen = [window screen];
+  return GetDisplayForScreen(match_screen, false /* may not be primary */);
 }
 
 // static
-gfx::Rect Screen::GetPrimaryMonitorBounds() {
-  // Primary monitor is defined as the monitor with the menubar,
-  // which is always at index 0.
-  NSScreen* primary = [[NSScreen screens] objectAtIndex:0];
-  return gfx::Rect(NSRectToCGRect([primary frame]));
-}
-
-// static
-gfx::Rect Screen::GetMonitorWorkAreaMatching(const gfx::Rect& match_rect) {
+gfx::Display Screen::GetDisplayMatching(const gfx::Rect& match_rect) {
   NSScreen* match_screen = GetMatchingScreen(match_rect);
-  return ConvertCoordinateSystem([match_screen visibleFrame]);
+  return GetDisplayForScreen(match_screen, false /* may not be primary */);
 }
 
 // static
-gfx::Size Screen::GetPrimaryMonitorSize() {
-  CGDirectDisplayID main_display = CGMainDisplayID();
-  return gfx::Size(CGDisplayPixelsWide(main_display),
-                   CGDisplayPixelsHigh(main_display));
+gfx::Display Screen::GetPrimaryDisplay() {
+  // Primary display is defined as the display with the menubar,
+  // which is always at index 0.
+  NSScreen* primary = [[NSScreen screens] objectAtIndex:0];
+  gfx::Display display = GetDisplayForScreen(primary, true /* primary */);
+  return display;
 }
 
 // static
-int Screen::GetNumMonitors() {
+int Screen::GetNumDisplays() {
   // Don't just return the number of online displays.  It includes displays
   // that mirror other displays, which are not desired in the count.  It's
   // tempting to use the count returned by CGGetActiveDisplayList, but active
@@ -120,6 +145,19 @@ int Screen::GetNumMonitors() {
   }
 
   return display_count;
+}
+
+// static
+gfx::Display Screen::GetDisplayNearestPoint(const gfx::Point& point) {
+  NSPoint ns_point = NSPointFromCGPoint(point.ToCGPoint());
+
+  NSArray* screens = [NSScreen screens];
+  NSScreen* primary = [screens objectAtIndex:0];
+  for (NSScreen* screen in screens) {
+    if (NSMouseInRect(ns_point, [screen frame], NO))
+      return GetDisplayForScreen(screen, screen == primary);
+  }
+  return GetPrimaryDisplay();
 }
 
 }  // namespace gfx

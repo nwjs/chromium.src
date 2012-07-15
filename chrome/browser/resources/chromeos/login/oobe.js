@@ -43,8 +43,19 @@ cr.define('cr.ui', function() {
       select.appendChild(option);
     }
     if (callback) {
-      select.addEventListener('change', function(event) {
+      var send_callback = function() {
         chrome.send(callback, [select.options[select.selectedIndex].value]);
+      };
+      select.addEventListener('blur', function(event) { send_callback(); });
+      select.addEventListener('click', function(event) { send_callback(); });
+      select.addEventListener('keyup', function(event) {
+        var keycode_interested = [
+          9,  // Tab
+          13,  // Enter
+          27,  // Escape
+        ];
+        if (keycode_interested.indexOf(event.keyCode) >= 0)
+          send_callback();
       });
     }
   }
@@ -66,8 +77,14 @@ cr.define('cr.ui', function() {
     cr.ui.Bubble.decorate($('bubble'));
     login.HeaderBar.decorate($('login-header-bar'));
 
+    // TODO: Cleanup with old OOBE style removal.
     $('security-link').addEventListener('click', function(event) {
-      chrome.send('eulaOnTpmPopupOpened', []);
+      chrome.send('eulaOnTpmPopupOpened');
+      $('popup-overlay').hidden = false;
+      $('security-ok-button').focus();
+    });
+    $('security-tpm-link').addEventListener('click', function(event) {
+      chrome.send('eulaOnTpmPopupOpened');
       $('popup-overlay').hidden = false;
       $('security-ok-button').focus();
     });
@@ -81,7 +98,7 @@ cr.define('cr.ui', function() {
       event.preventDefault();
     });
 
-    chrome.send('screenStateInitialize', []);
+    chrome.send('screenStateInitialize');
   };
 
   /**
@@ -137,6 +154,37 @@ cr.define('cr.ui', function() {
    */
   Oobe.setUpdateProgress = function(progress) {
     $('update-progress-bar').value = progress;
+  };
+
+  /**
+   * Shows estimated time left status.
+   * @param {boolean} enable Are time left status show?
+   */
+  Oobe.showUpdateEstimatedTimeLeft = function(enable) {
+    $('update-estimated-time-left').hidden = !enable;
+  };
+
+  /**
+   * Sets estimated time left until download will complete.
+   * @param {number} seconds Time left in seconds.
+   */
+  Oobe.setUpdateEstimatedTimeLeft = function(seconds) {
+    var minutes = Math.ceil(seconds / 60);
+    var message = '';
+    if (minutes > 60) {
+      message = localStrings.getString('downloadingTimeLeftLong');
+    } else if (minutes > 55) {
+      message = localStrings.getString('downloadingTimeLeftStatusOneHour');
+    } else if (minutes > 20) {
+      message = localStrings.getStringF('downloadingTimeLeftStatusMinutes',
+                                        Math.ceil(minutes / 5) * 5);
+    } else if (minutes > 1) {
+      message = localStrings.getStringF('downloadingTimeLeftStatusMinutes',
+                                        minutes);
+    } else {
+      message = localStrings.getString('downloadingTimeLeftSmall');
+    }
+    $('update-estimated-time-left').textContent = message;
   };
 
   /**

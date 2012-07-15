@@ -13,19 +13,7 @@
 #include "content/renderer/media/audio_hardware.h"
 #include "content/renderer/render_thread_impl.h"
 
-PepperPlatformAudioOutputImpl::PepperPlatformAudioOutputImpl()
-    : client_(NULL),
-      stream_id_(0),
-      main_message_loop_proxy_(base::MessageLoopProxy::current()) {
-  filter_ = RenderThreadImpl::current()->audio_message_filter();
-}
-
-PepperPlatformAudioOutputImpl::~PepperPlatformAudioOutputImpl() {
-  // Make sure we have been shut down. Warning: this will usually happen on
-  // the I/O thread!
-  DCHECK_EQ(0, stream_id_);
-  DCHECK(!client_);
-}
+namespace content {
 
 // static
 PepperPlatformAudioOutputImpl* PepperPlatformAudioOutputImpl::Create(
@@ -73,6 +61,47 @@ void PepperPlatformAudioOutputImpl::ShutDown() {
       base::Bind(&PepperPlatformAudioOutputImpl::ShutDownOnIOThread, this));
 }
 
+void PepperPlatformAudioOutputImpl::OnStateChanged(AudioStreamState state) {}
+
+void PepperPlatformAudioOutputImpl::OnStreamCreated(
+    base::SharedMemoryHandle handle,
+    base::SyncSocket::Handle socket_handle,
+    uint32 length) {
+#if defined(OS_WIN)
+  DCHECK(handle);
+  DCHECK(socket_handle);
+#else
+  DCHECK_NE(-1, handle.fd);
+  DCHECK_NE(-1, socket_handle);
+#endif
+  DCHECK(length);
+
+  if (base::MessageLoopProxy::current() == main_message_loop_proxy_) {
+    // Must dereference the client only on the main thread. Shutdown may have
+    // occurred while the request was in-flight, so we need to NULL check.
+    if (client_)
+      client_->StreamCreated(handle, length, socket_handle);
+  } else {
+    main_message_loop_proxy_->PostTask(FROM_HERE,
+        base::Bind(&PepperPlatformAudioOutputImpl::OnStreamCreated, this,
+                   handle, socket_handle, length));
+  }
+}
+
+PepperPlatformAudioOutputImpl::~PepperPlatformAudioOutputImpl() {
+  // Make sure we have been shut down. Warning: this will usually happen on
+  // the I/O thread!
+  DCHECK_EQ(0, stream_id_);
+  DCHECK(!client_);
+}
+
+PepperPlatformAudioOutputImpl::PepperPlatformAudioOutputImpl()
+    : client_(NULL),
+      stream_id_(0),
+      main_message_loop_proxy_(base::MessageLoopProxy::current()) {
+  filter_ = RenderThreadImpl::current()->audio_message_filter();
+}
+
 bool PepperPlatformAudioOutputImpl::Initialize(
     int sample_rate,
     int frames_per_buffer,
@@ -83,20 +112,20 @@ bool PepperPlatformAudioOutputImpl::Initialize(
 
   client_ = client;
 
-  AudioParameters::Format format;
+  media::AudioParameters::Format format;
   const int kMaxFramesForLowLatency = 2048;
   // Use the low latency back end if the client request is compatible, and
   // the sample count is low enough to justify using AUDIO_PCM_LOW_LATENCY.
   if (sample_rate == audio_hardware::GetOutputSampleRate() &&
       frames_per_buffer <= kMaxFramesForLowLatency &&
       frames_per_buffer % audio_hardware::GetOutputBufferSize() == 0) {
-    format = AudioParameters::AUDIO_PCM_LOW_LATENCY;
+    format = media::AudioParameters::AUDIO_PCM_LOW_LATENCY;
   } else {
-    format = AudioParameters::AUDIO_PCM_LINEAR;
+    format = media::AudioParameters::AUDIO_PCM_LINEAR;
   }
 
-  AudioParameters params(format, CHANNEL_LAYOUT_STEREO, sample_rate,
-                         16, frames_per_buffer);
+  media::AudioParameters params(format, CHANNEL_LAYOUT_STEREO, sample_rate, 16,
+                                frames_per_buffer);
 
   ChildProcess::current()->io_message_loop()->PostTask(
       FROM_HERE,
@@ -106,7 +135,7 @@ bool PepperPlatformAudioOutputImpl::Initialize(
 }
 
 void PepperPlatformAudioOutputImpl::InitializeOnIOThread(
-    const AudioParameters& params) {
+    const media::AudioParameters& params) {
   stream_id_ = filter_->AddDelegate(this);
   filter_->Send(new AudioHostMsg_CreateStream(stream_id_, params));
 }
@@ -134,30 +163,4 @@ void PepperPlatformAudioOutputImpl::ShutDownOnIOThread() {
               // PepperPluginDelegateImpl::CreateAudio.
 }
 
-void PepperPlatformAudioOutputImpl::OnStateChanged(AudioStreamState state) {
-}
-
-void PepperPlatformAudioOutputImpl::OnStreamCreated(
-    base::SharedMemoryHandle handle,
-    base::SyncSocket::Handle socket_handle,
-    uint32 length) {
-#if defined(OS_WIN)
-  DCHECK(handle);
-  DCHECK(socket_handle);
-#else
-  DCHECK_NE(-1, handle.fd);
-  DCHECK_NE(-1, socket_handle);
-#endif
-  DCHECK(length);
-
-  if (base::MessageLoopProxy::current() == main_message_loop_proxy_) {
-    // Must dereference the client only on the main thread. Shutdown may have
-    // occurred while the request was in-flight, so we need to NULL check.
-    if (client_)
-      client_->StreamCreated(handle, length, socket_handle);
-  } else {
-    main_message_loop_proxy_->PostTask(FROM_HERE,
-        base::Bind(&PepperPlatformAudioOutputImpl::OnStreamCreated, this,
-                   handle, socket_handle, length));
-  }
-}
+}  // namespace content

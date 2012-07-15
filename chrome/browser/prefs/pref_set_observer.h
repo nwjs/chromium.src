@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_PREFS_PREF_SET_OBSERVER_H_
 #define CHROME_BROWSER_PREFS_PREF_SET_OBSERVER_H_
-#pragma once
 
 #include <set>
 
@@ -34,11 +33,6 @@ class PrefSetObserver : public content::NotificationObserver {
 
   // Create a pref set observer for all preferences relevant to proxies.
   static PrefSetObserver* CreateProxyPrefSetObserver(
-      PrefService* pref_service,
-      content::NotificationObserver* observer);
-
-  // Create a pref set observer for all preferences relevant to default search.
-  static PrefSetObserver* CreateDefaultSearchPrefSetObserver(
       PrefService* pref_service,
       content::NotificationObserver* observer);
 

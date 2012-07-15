@@ -10,11 +10,12 @@
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_resource.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/gfx/skia_util.h"
 
 using content::BrowserThread;
+using extensions::Extension;
 
 // Our test class that takes care of managing the necessary threads for loading
 // extension icons, and waiting for those loads to happen.
@@ -115,7 +116,7 @@ TEST_F(ExtensionIconManagerTest, LoadRemoveLoad) {
   std::string error;
   scoped_refptr<Extension> extension(Extension::Create(
       manifest_path.DirName(), Extension::INVALID, *manifest.get(),
-      Extension::STRICT_ERROR_CHECKS, &error));
+      Extension::NO_FLAGS, &error));
   ASSERT_TRUE(extension.get());
   TestIconManager icon_manager(this);
 
@@ -137,3 +138,45 @@ TEST_F(ExtensionIconManagerTest, LoadRemoveLoad) {
 
   EXPECT_TRUE(gfx::BitmapsAreEqual(first_icon, second_icon));
 }
+
+#if defined(FILE_MANAGER_EXTENSION)
+// Tests loading an icon for a component extension.
+TEST_F(ExtensionIconManagerTest, LoadComponentExtensionResource) {
+  SkBitmap default_icon = GetDefaultIcon();
+
+  FilePath test_dir;
+  ASSERT_TRUE(PathService::Get(chrome::DIR_TEST_DATA, &test_dir));
+  FilePath manifest_path = test_dir.AppendASCII(
+      "extensions/file_manager/app.json");
+
+  JSONFileValueSerializer serializer(manifest_path);
+  scoped_ptr<DictionaryValue> manifest(
+      static_cast<DictionaryValue*>(serializer.Deserialize(NULL, NULL)));
+  ASSERT_TRUE(manifest.get() != NULL);
+
+  std::string error;
+  scoped_refptr<Extension> extension(Extension::Create(
+      manifest_path.DirName(), Extension::COMPONENT, *manifest.get(),
+      Extension::NO_FLAGS, &error));
+  ASSERT_TRUE(extension.get());
+
+  TestIconManager icon_manager(this);
+  // Load the icon and grab the bitmap.
+  icon_manager.LoadIcon(extension.get());
+  WaitForImageLoad();
+  SkBitmap first_icon = icon_manager.GetIcon(extension->id());
+  EXPECT_FALSE(gfx::BitmapsAreEqual(first_icon, default_icon));
+
+  // Remove the icon from the manager.
+  icon_manager.RemoveIcon(extension->id());
+
+  // Now re-load the icon - we should get the same result bitmap (and not the
+  // default icon).
+  icon_manager.LoadIcon(extension.get());
+  WaitForImageLoad();
+  SkBitmap second_icon = icon_manager.GetIcon(extension->id());
+  EXPECT_FALSE(gfx::BitmapsAreEqual(second_icon, default_icon));
+
+  EXPECT_TRUE(gfx::BitmapsAreEqual(first_icon, second_icon));
+}
+#endif

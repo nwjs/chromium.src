@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_COCOA_EXTENSIONS_BROWSER_ACTION_BUTTON_H_
 #define CHROME_BROWSER_UI_COCOA_EXTENSIONS_BROWSER_ACTION_BUTTON_H_
-#pragma once
 
 #import <Cocoa/Cocoa.h>
 
@@ -12,10 +11,13 @@
 #include "base/memory/scoped_ptr.h"
 #import "chrome/browser/ui/cocoa/gradient_button_cell.h"
 
-class Extension;
+class Browser;
 class ExtensionAction;
 class ExtensionImageTrackerBridge;
-class Profile;
+
+namespace extensions {
+class Extension;
+}
 
 // Fired when the Browser Action's state has changed. Usually the image needs to
 // be updated.
@@ -42,7 +44,7 @@ extern NSString* const kBrowserActionButtonDragEndNotification;
   scoped_nsobject<NSViewAnimation> moveAnimation_;
 
   // The extension for this button. Weak.
-  const Extension* extension_;
+  const extensions::Extension* extension_;
 
   // The ID of the active tab.
   int tabId_;
@@ -57,8 +59,8 @@ extern NSString* const kBrowserActionButtonDragEndNotification;
 }
 
 - (id)initWithFrame:(NSRect)frame
-          extension:(const Extension*)extension
-            profile:(Profile*)profile
+          extension:(const extensions::Extension*)extension
+            browser:(Browser*)browser
               tabId:(int)tabId;
 
 - (void)setFrame:(NSRect)frameRect animate:(BOOL)animate;
@@ -76,7 +78,7 @@ extern NSString* const kBrowserActionButtonDragEndNotification;
 - (NSImage*)compositedImage;
 
 @property(readonly, nonatomic) BOOL isBeingDragged;
-@property(readonly, nonatomic) const Extension* extension;
+@property(readonly, nonatomic) const extensions::Extension* extension;
 @property(readwrite, nonatomic) int tabId;
 
 @end

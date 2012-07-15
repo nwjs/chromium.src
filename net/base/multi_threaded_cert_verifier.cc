@@ -83,6 +83,55 @@ MultiThreadedCertVerifier::CachedResult::CachedResult() : error(ERR_FAILED) {}
 
 MultiThreadedCertVerifier::CachedResult::~CachedResult() {}
 
+MultiThreadedCertVerifier::CacheValidityPeriod::CacheValidityPeriod(
+    const base::Time& now)
+    : verification_time(now),
+      expiration_time(now) {
+}
+
+MultiThreadedCertVerifier::CacheValidityPeriod::CacheValidityPeriod(
+    const base::Time& now,
+    const base::Time& expiration)
+    : verification_time(now),
+      expiration_time(expiration) {
+}
+
+bool MultiThreadedCertVerifier::CacheExpirationFunctor::operator()(
+    const CacheValidityPeriod& now,
+    const CacheValidityPeriod& expiration) const {
+  // Ensure this functor is being used for expiration only, and not strict
+  // weak ordering/sorting. |now| should only ever contain a single
+  // base::Time.
+  // Note: DCHECK_EQ is not used due to operator<< overloading requirements.
+  DCHECK(now.verification_time == now.expiration_time);
+
+  // |now| contains only a single time (verification_time), while |expiration|
+  // contains the validity range - both when the certificate was verified and
+  // when the verification result should expire.
+  //
+  // If the user receives a "not yet valid" message, and adjusts their clock
+  // foward to the correct time, this will (typically) cause
+  // now.verification_time to advance past expiration.expiration_time, thus
+  // treating the cached result as an expired entry and re-verifying.
+  // If the user receives a "expired" message, and adjusts their clock
+  // backwards to the correct time, this will cause now.verification_time to
+  // be less than expiration_verification_time, thus treating the cached
+  // result as an expired entry and re-verifying.
+  // If the user receives either of those messages, and does not adjust their
+  // clock, then the result will be (typically) be cached until the expiration
+  // TTL.
+  //
+  // This algorithm is only problematic if the user consistently keeps
+  // adjusting their clock backwards in increments smaller than the expiration
+  // TTL, in which case, cached elements continue to be added. However,
+  // because the cache has a fixed upper bound, if no entries are expired, a
+  // 'random' entry will be, thus keeping the memory constraints bounded over
+  // time.
+  return now.verification_time >= expiration.verification_time &&
+         now.verification_time < expiration.expiration_time;
+};
+
+
 // Represents the output and result callback of a request.
 class CertVerifierRequest {
  public:
@@ -92,7 +141,7 @@ class CertVerifierRequest {
       : callback_(callback),
         verify_result_(verify_result),
         net_log_(net_log) {
-    net_log_.BeginEvent(NetLog::TYPE_CERT_VERIFIER_REQUEST, NULL);
+    net_log_.BeginEvent(NetLog::TYPE_CERT_VERIFIER_REQUEST);
   }
 
   ~CertVerifierRequest() {
@@ -102,15 +151,15 @@ class CertVerifierRequest {
   void Cancel() {
     callback_.Reset();
     verify_result_ = NULL;
-    net_log_.AddEvent(NetLog::TYPE_CANCELLED, NULL);
-    net_log_.EndEvent(NetLog::TYPE_CERT_VERIFIER_REQUEST, NULL);
+    net_log_.AddEvent(NetLog::TYPE_CANCELLED);
+    net_log_.EndEvent(NetLog::TYPE_CERT_VERIFIER_REQUEST);
   }
 
   // Copies the contents of |verify_result| to the caller's
   // CertVerifyResult and calls the callback.
   void Post(const MultiThreadedCertVerifier::CachedResult& verify_result) {
     if (!callback_.is_null()) {
-      net_log_.EndEvent(NetLog::TYPE_CERT_VERIFIER_REQUEST, NULL);
+      net_log_.EndEvent(NetLog::TYPE_CERT_VERIFIER_REQUEST);
       *verify_result_ = verify_result.result;
       callback_.Run(verify_result.error);
     }
@@ -263,15 +312,16 @@ class CertVerifierJob {
       : start_time_(base::TimeTicks::Now()),
         worker_(worker),
         net_log_(net_log) {
-    scoped_refptr<NetLog::EventParameters> params(
-        new X509CertificateNetLogParam(worker_->certificate()));
-    net_log_.BeginEvent(NetLog::TYPE_CERT_VERIFIER_JOB, params);
+    net_log_.BeginEvent(
+        NetLog::TYPE_CERT_VERIFIER_JOB,
+        base::Bind(&NetLogX509CertificateCallback,
+                   base::Unretained(worker_->certificate())));
   }
 
   ~CertVerifierJob() {
     if (worker_) {
-      net_log_.AddEvent(NetLog::TYPE_CANCELLED, NULL);
-      net_log_.EndEvent(NetLog::TYPE_CERT_VERIFIER_JOB, NULL);
+      net_log_.AddEvent(NetLog::TYPE_CANCELLED);
+      net_log_.EndEvent(NetLog::TYPE_CERT_VERIFIER_JOB);
       worker_->Cancel();
       DeleteAllCanceled();
     }
@@ -280,8 +330,7 @@ class CertVerifierJob {
   void AddRequest(CertVerifierRequest* request) {
     request->net_log().AddEvent(
         NetLog::TYPE_CERT_VERIFIER_REQUEST_BOUND_TO_JOB,
-        make_scoped_refptr(new NetLogSourceParameter(
-          "source_dependency", net_log_.source())));
+        net_log_.source().ToEventParametersCallback());
 
     requests_.push_back(request);
   }
@@ -289,7 +338,7 @@ class CertVerifierJob {
   void HandleResult(
       const MultiThreadedCertVerifier::CachedResult& verify_result) {
     worker_ = NULL;
-    net_log_.EndEvent(NetLog::TYPE_CERT_VERIFIER_JOB, NULL);
+    net_log_.EndEvent(NetLog::TYPE_CERT_VERIFIER_JOB);
     UMA_HISTOGRAM_CUSTOM_TIMES("Net.CertVerifier_Job_Latency",
                                base::TimeTicks::Now() - start_time_,
                                base::TimeDelta::FromMilliseconds(1),
@@ -362,7 +411,7 @@ int MultiThreadedCertVerifier::Verify(X509Certificate* cert,
   const RequestParams key(cert->fingerprint(), cert->ca_fingerprint(),
                           hostname, flags);
   const CertVerifierCache::value_type* cached_entry =
-      cache_.Get(key, base::TimeTicks::Now());
+      cache_.Get(key, CacheValidityPeriod(base::Time::Now()));
   if (cached_entry) {
     ++cache_hits_;
     *out_req = NULL;
@@ -427,8 +476,10 @@ void MultiThreadedCertVerifier::HandleResult(
   CachedResult cached_result;
   cached_result.error = error;
   cached_result.result = verify_result;
-  cache_.Put(key, cached_result, base::TimeTicks::Now(),
-             base::TimeDelta::FromSeconds(kTTLSecs));
+  base::Time now = base::Time::Now();
+  cache_.Put(
+      key, cached_result, CacheValidityPeriod(now),
+      CacheValidityPeriod(now, now + base::TimeDelta::FromSeconds(kTTLSecs)));
 
   std::map<RequestParams, CertVerifierJob*>::iterator j;
   j = inflight_.find(key);

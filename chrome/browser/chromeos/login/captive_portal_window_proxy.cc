@@ -6,6 +6,7 @@
 
 #include "chrome/browser/chromeos/login/captive_portal_view.h"
 #include "chrome/browser/chromeos/login/helper.h"
+#include "chrome/browser/chromeos/login/proxy_settings_dialog.h"
 #include "chrome/browser/profiles/profile_manager.h"
 
 namespace {
@@ -31,26 +32,38 @@ CaptivePortalWindowProxy::~CaptivePortalWindowProxy() {
 }
 
 void CaptivePortalWindowProxy::ShowIfRedirected() {
-  if (!widget_ && !captive_portal_view_.get()) {
-    captive_portal_view_.reset(
-        new CaptivePortalView(ProfileManager::GetDefaultProfile(), this));
-    captive_portal_view_->StartLoad();
-  }
-}
-
-void CaptivePortalWindowProxy::Close() {
   if (widget_) {
-    widget_->Close();
-  } else {
-    captive_portal_view_.reset();
-  }
-}
-
-void CaptivePortalWindowProxy::OnRedirected() {
-  if (!captive_portal_view_.get() || widget_) {
-    NOTREACHED();
+    // Invalid state as when widget is created (Show())
+    // CaptivePortalView ownership is transferred to it.
+    if (captive_portal_view_.get()) {
+      NOTREACHED();
+    }
+    // Dialog is already shown, no need to reload.
     return;
   }
+
+  // Dialog is not initialized yet.
+  if (!captive_portal_view_.get()) {
+    captive_portal_view_.reset(
+        new CaptivePortalView(ProfileManager::GetDefaultProfile(), this));
+  }
+
+  // If dialog has been created (but not shown) previously, force reload.
+  captive_portal_view_->StartLoad();
+}
+
+void CaptivePortalWindowProxy::Show() {
+  if (ProxySettingsDialog::IsShown()) {
+    // ProxySettingsDialog is being shown, don't cover it.
+    Close();
+    return;
+  }
+
+  if (!captive_portal_view_.get() || widget_) {
+    // Dialog is already shown, do nothing.
+    return;
+  }
+
   CaptivePortalView* captive_portal_view = captive_portal_view_.release();
   widget_ = views::Widget::CreateWindowWithParent(
       captive_portal_view,
@@ -63,6 +76,18 @@ void CaptivePortalWindowProxy::OnRedirected() {
 
   widget_->AddObserver(this);
   widget_->Show();
+}
+
+void CaptivePortalWindowProxy::Close() {
+  if (widget_) {
+    widget_->Close();
+  } else {
+    captive_portal_view_.reset();
+  }
+}
+
+void CaptivePortalWindowProxy::OnRedirected() {
+  Show();
   delegate_->OnPortalDetected();
 }
 

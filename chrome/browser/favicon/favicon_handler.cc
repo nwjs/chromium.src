@@ -138,7 +138,7 @@ void FaviconHandler::FetchFavicon(const GURL& url) {
   image_urls_.clear();
 
   // Request the favicon from the history service. In parallel to this the
-  // renderer is going to notify us (well TabContents) when the favicon url is
+  // renderer is going to notify us (well WebContents) when the favicon url is
   // available.
   if (GetFaviconService()) {
     GetFaviconForURL(url_, icon_types_, &cancelable_consumer_,
@@ -221,7 +221,7 @@ void FaviconHandler::SetFavicon(
 }
 
 void FaviconHandler::UpdateFavicon(NavigationEntry* entry,
-                                   scoped_refptr<RefCountedMemory> data) {
+                                   scoped_refptr<base::RefCountedMemory> data) {
   scoped_ptr<gfx::Image> image(gfx::ImageFromPNGEncodedData(data->front(),
                                                             data->size()));
   UpdateFavicon(entry, image.get());
@@ -235,7 +235,7 @@ void FaviconHandler::UpdateFavicon(NavigationEntry* entry,
   if (!image)
     return;
 
-  entry->GetFavicon().bitmap = *image;
+  entry->GetFavicon().bitmap = *image->ToSkBitmap();
   delegate_->NotifyFaviconUpdated();
 }
 
@@ -296,13 +296,13 @@ void FaviconHandler::OnDidDownloadFavicon(int id,
                                           const gfx::Image& image) {
   DownloadRequests::iterator i = download_requests_.find(id);
   if (i == download_requests_.end()) {
-    // Currently TabContents notifies us of ANY downloads so that it is
+    // Currently WebContents notifies us of ANY downloads so that it is
     // possible to get here.
     return;
   }
 
   if (!i->second.callback.is_null()) {
-    i->second.callback.Run(id, errored, *(&image));
+    i->second.callback.Run(id, errored, *image.ToSkBitmap());
   } else if (current_candidate() &&
              DoUrlAndIconMatch(*current_candidate(), image_url,
                                i->second.icon_type)) {
@@ -346,9 +346,7 @@ int FaviconHandler::DownloadFavicon(const GURL& image_url, int image_size) {
     NOTREACHED();
     return 0;
   }
-  static int next_id = 1;
-  int id = next_id++;
-  delegate_->StartDownload(id, image_url, image_size);
+  int id = delegate_->StartDownload(image_url, image_size);
   return id;
 }
 

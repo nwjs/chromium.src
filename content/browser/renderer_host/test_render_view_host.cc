@@ -5,17 +5,18 @@
 #include "content/browser/renderer_host/test_backing_store.h"
 #include "content/browser/renderer_host/test_render_view_host.h"
 #include "content/browser/site_instance_impl.h"
-#include "content/browser/tab_contents/navigation_controller_impl.h"
-#include "content/browser/tab_contents/test_web_contents.h"
-#include "content/common/dom_storage_common.h"
+#include "content/browser/web_contents/navigation_controller_impl.h"
+#include "content/browser/web_contents/test_web_contents.h"
 #include "content/common/view_messages.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/common/content_client.h"
 #include "ui/gfx/rect.h"
+#include "webkit/dom_storage/dom_storage_types.h"
 #include "webkit/forms/password_form.h"
 #include "webkit/glue/webkit_glue.h"
 #include "webkit/glue/webpreferences.h"
 
+using content::NativeWebKeyboardEvent;
 using webkit::forms::PasswordForm;
 
 namespace content {
@@ -68,6 +69,10 @@ bool TestRenderWidgetHostView::HasFocus() const {
   return true;
 }
 
+bool TestRenderWidgetHostView::IsSurfaceAvailableForCopy() const {
+  return true;
+}
+
 void TestRenderWidgetHostView::Show() {
   is_showing_ = true;
 }
@@ -94,6 +99,13 @@ BackingStore* TestRenderWidgetHostView::AllocBackingStore(
   return new TestBackingStore(rwh_, size);
 }
 
+void TestRenderWidgetHostView::CopyFromCompositingSurface(
+    const gfx::Size& size,
+    const base::Callback<void(bool)>& callback,
+    skia::PlatformCanvas* output) {
+  callback.Run(false);
+}
+
 void TestRenderWidgetHostView::OnAcceleratedCompositingStateChange() {
 }
 
@@ -110,10 +122,14 @@ void TestRenderWidgetHostView::AcceleratedSurfacePostSubBuffer(
 void TestRenderWidgetHostView::AcceleratedSurfaceSuspend() {
 }
 
+bool TestRenderWidgetHostView::HasAcceleratedSurface(
+      const gfx::Size& desired_size) {
+  return false;
+}
+
 #if defined(OS_MACOSX)
 
-gfx::Rect TestRenderWidgetHostView::GetViewCocoaBounds() const {
-  return gfx::Rect();
+void TestRenderWidgetHostView::AboutToWaitForBackingStoreMsg() {
 }
 
 void TestRenderWidgetHostView::SetActive(bool active) {
@@ -136,7 +152,7 @@ gfx::PluginWindowHandle
 TestRenderWidgetHostView::AllocateFakePluginWindowHandle(
     bool opaque,
     bool root) {
-  return NULL;
+  return gfx::kNullPluginWindow;
 }
 
 void TestRenderWidgetHostView::DestroyFakePluginWindowHandle(
@@ -160,7 +176,10 @@ void TestRenderWidgetHostView::AcceleratedSurfaceSetTransportDIB(
 #elif defined(OS_WIN) && !defined(USE_AURA)
 void TestRenderWidgetHostView::WillWmDestroy() {
 }
+#endif
 
+#if defined(OS_ANDROID)
+void TestRenderWidgetHostView::StartContentIntent(const GURL&) {}
 #endif
 
 #if defined(OS_POSIX) || defined(USE_AURA)
@@ -169,23 +188,15 @@ gfx::Rect TestRenderWidgetHostView::GetRootWindowBounds() {
 }
 #endif
 
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
 GdkEventButton* TestRenderWidgetHostView::GetLastMouseDown() {
   return NULL;
 }
 
-#if !defined(TOOLKIT_VIEWS)
 gfx::NativeView TestRenderWidgetHostView::BuildInputMethodsGtkMenu() {
   return NULL;
 }
-#endif  // !defined(TOOLKIT_VIEWS)
-#endif  // defined(TOOLKIT_USES_GTK)
-
-bool TestRenderWidgetHostView::CopyFromCompositingSurface(
-    const gfx::Size& size,
-    skia::PlatformCanvas* output) {
-  return false;
-}
+#endif  // defined(TOOLKIT_GTK)
 
 gfx::GLSurfaceHandle TestRenderWidgetHostView::GetCompositingSurface() {
   return gfx::GLSurfaceHandle();
@@ -198,13 +209,18 @@ bool TestRenderWidgetHostView::LockMouse() {
 void TestRenderWidgetHostView::UnlockMouse() {
 }
 
-TestRenderViewHost::TestRenderViewHost(SiteInstance* instance,
-                                       RenderViewHostDelegate* delegate,
-                                       int routing_id)
+TestRenderViewHost::TestRenderViewHost(
+    SiteInstance* instance,
+    RenderViewHostDelegate* delegate,
+    RenderWidgetHostDelegate* widget_delegate,
+    int routing_id,
+    bool swapped_out)
     : RenderViewHostImpl(instance,
                          delegate,
+                         widget_delegate,
                          routing_id,
-                         kInvalidSessionStorageNamespaceId),
+                         swapped_out,
+                         dom_storage::kInvalidSessionStorageNamespaceId),
       render_view_created_(false),
       delete_counter_(NULL),
       simulate_fetch_via_proxy_(false),
@@ -224,8 +240,12 @@ TestRenderViewHost::~TestRenderViewHost() {
   delete GetView();
 }
 
-bool TestRenderViewHost::CreateRenderView(const string16& frame_name,
-                                          int32 max_page_id) {
+bool TestRenderViewHost::CreateRenderView(
+    const string16& frame_name,
+    int opener_route_id,
+    int32 max_page_id,
+    const std::string& embedder_channel_name,
+    int embedder_container_id) {
   DCHECK(!render_view_created_);
   render_view_created_ = true;
   return true;

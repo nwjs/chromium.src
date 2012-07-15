@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_SELECT_FILE_DIALOG_EXTENSION_H_
 #define CHROME_BROWSER_UI_VIEWS_SELECT_FILE_DIALOG_EXTENSION_H_
-#pragma once
 
 #include <vector>
 
@@ -14,12 +13,16 @@
 #include "chrome/browser/ui/views/extensions/extension_dialog_observer.h"
 #include "ui/gfx/native_widget_types.h"  // gfx::NativeWindow
 
-class Browser;
 class ExtensionDialog;
+class Profile;
 
 namespace content {
 class RenderViewHost;
+}
+
+namespace ui {
 struct SelectedFileInfo;
+class SelectFilePolicy;
 }
 
 // Shows a dialog box for selecting a file or a folder, using the
@@ -29,7 +32,8 @@ class SelectFileDialogExtension
       public ExtensionDialogObserver {
  public:
   static SelectFileDialogExtension* Create(
-      SelectFileDialog::Listener* listener);
+      SelectFileDialog::Listener* listener,
+      ui::SelectFilePolicy* policy);
 
   // BaseShellDialog implementation.
   virtual bool IsRunning(gfx::NativeWindow owner_window) const OVERRIDE;
@@ -42,11 +46,11 @@ class SelectFileDialogExtension
   // Routes callback to appropriate SelectFileDialog::Listener based on
   // the owning |tab_id|.
   static void OnFileSelected(int32 tab_id,
-                             const content::SelectedFileInfo& file,
+                             const ui::SelectedFileInfo& file,
                              int index);
   static void OnMultiFilesSelected(
       int32 tab_id,
-      const std::vector<content::SelectedFileInfo>& files);
+      const std::vector<ui::SelectedFileInfo>& files);
   static void OnFileSelectionCanceled(int32 tab_id);
 
   // For testing, so we can inject JavaScript into the contained view.
@@ -69,7 +73,8 @@ class SelectFileDialogExtension
   friend class SelectFileDialogExtensionTest;
 
   // Object is ref-counted, use Create().
-  explicit SelectFileDialogExtension(SelectFileDialog::Listener* listener);
+  explicit SelectFileDialogExtension(SelectFileDialog::Listener* listener,
+                                     ui::SelectFilePolicy* policy);
   virtual ~SelectFileDialogExtension();
 
   // Invokes the appropriate file selection callback on our listener.
@@ -92,10 +97,10 @@ class SelectFileDialogExtension
   // ID of the tab that spawned this dialog, used to route callbacks.
   int32 tab_id_;
 
-  // Cache a pointer to our owner browser. Since we're a child window of our
-  // owner browser, if this browser gets deleted, it will also close us.
-  Browser* owner_browser_;
+  // Pointer to the profile the dialog is running in.
+  Profile* profile_;
 
+  // The window that created the dialog.
   gfx::NativeWindow owner_window_;
 
   // We defer the callback into SelectFileDialog::Listener until the window
@@ -107,7 +112,7 @@ class SelectFileDialogExtension
     MULTIPLE_FILES
   };
   SelectionType selection_type_;
-  std::vector<content::SelectedFileInfo> selection_files_;
+  std::vector<ui::SelectedFileInfo> selection_files_;
   int selection_index_;
   void* params_;
 

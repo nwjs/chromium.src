@@ -95,10 +95,10 @@ cr.define('options', function() {
     this.deleteButton.onclick = function(e) {
       var data = tree.selectedItem.data;
       AlertOverlay.show(
-          localStrings.getStringF(id + 'DeleteConfirm', data.name),
-          localStrings.getString(id + 'DeleteImpact'),
-          localStrings.getString('ok'),
-          localStrings.getString('cancel'),
+          loadTimeData.getStringF(id + 'DeleteConfirm', data.name),
+          loadTimeData.getString(id + 'DeleteImpact'),
+          loadTimeData.getString('ok'),
+          loadTimeData.getString('cancel'),
           function() {
             tree.selectedItem = null;
             chrome.send('deleteCertificate', [data.id]);
@@ -114,14 +114,15 @@ cr.define('options', function() {
      * @param {!Object} data The data of the selected item.
      */
     updateButtonState: function(data) {
-      var isCert = !!data && data.id.substr(0, 5) == 'cert-';
+      var isCert = !!data && data.isCert;
       var readOnly = !!data && data.readonly;
+      var extractable = !!data && data.extractable;
       var hasChildren = this.tree.items.length > 0;
       this.viewButton.disabled = !isCert;
       if (this.editButton !== null)
         this.editButton.disabled = !isCert;
       if (this.backupButton !== null)
-        this.backupButton.disabled = !isCert;
+        this.backupButton.disabled = !isCert || !extractable;
       if (this.backupAllButton !== null)
         this.backupAllButton.disabled = !hasChildren;
       if (this.exportButton !== null)
@@ -173,7 +174,7 @@ cr.define('options', function() {
    */
   function CertificateManager(model) {
     OptionsPage.call(this, 'certificates',
-                     templateData.certificateManagerPageTabTitle,
+                     loadTimeData.getString('certificateManagerPageTabTitle'),
                      'certificateManagerPage');
   }
 

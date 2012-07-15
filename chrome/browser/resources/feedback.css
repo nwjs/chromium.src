@@ -1,180 +1,99 @@
 /* Copyright (c) 2012 The Chromium Authors. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be
- * found in the LICENSE file.
- */
+ * found in the LICENSE file. */
 
-.feedback-label {
+#feedback-page {
+  -webkit-margin-start: 80px;
+  color: rgb(48, 57, 66);
+}
+
+#feedback-page > h1 {
+  border-bottom: 1px solid #eee;
+  padding-bottom: 6px;
+  width: 718px;
+}
+
+#content {
+  width: 600px;
+}
+
+#description {
+  display: block;
+  font-weight: 300;
   text-align: start;
   vertical-align: text-top;
-  font-weight: 300;
 }
 
-.feedback-text {
-  width: 40em;
+#description-text {
+  box-sizing: border-box;
+  margin-top: 1em;
+  width: 100%;
 }
 
-.feedback-table {
-  width: 40em;
-  border-spacing: 0;
+#page-url {
+  -webkit-box-align: baseline;
+  display: -webkit-box;
 }
 
-.feedback-field {
-  width: 22em;
-  border-style: solid;
-  border-width: 1px;
+#page-url-text {
+  /* Don't push checkboxes out of alignment with bulky input. */
+  margin-bottom: -0.25em;
 }
 
-.feedback-fieldlabel {
-  width: 13em;
-  font-weight: 300;
+#page-url > label {
+  -webkit-margin-end: 1em;
 }
 
-.feedback-button {
-}
-
-hr {
-  border: none;
-  height: 1px;
-  background: #cccccc;
-  margin-top: 10px;
-  margin-bottom: 10px;
-  width: 40em;
+#page-url-text {
+  -webkit-box-flex: 1;
+  display: block;
 }
 
 .thumbnail-list {
-  -webkit-margin-start: 1em;
-  width: 33.5em;
-  margin-top: 0.5em;
   margin-bottom: 1em;
+  margin-top: 1em;
+  min-height: 151px;
 }
 
 .image-thumbnail-container {
-  display: inline-block;
-  border: 2px solid white;
+  border: 2px solid #ccc;
   border-radius: 3px;
-  z-index: 0;
-}
-
-.image-thumbnail-container-selected {
   display: inline-block;
-  border: 2px solid green;
-  border-radius: 3px;
-  z-index: 0;
 }
 
-.image-thumbnail-container:hover {
-  border: 2px solid #B8DAB0;
-  z-index: 0;
+.image-thumbnail-container-selected:not(:only-of-type) {
+  border-color: green;
 }
 
-.image-popup {
-  width: 50%;
+.image-thumbnail-container:not(:only-of-type):not(
+    .image-thumbnail-container-selected):hover {
+  border-color: rgb(184, 218, 176);
 }
 
 .image-thumbnail {
-  position: relative;
-  z-index: 1;
-  display: inline-block;
-  padding: 0;
   border: 2px solid white;
-}
-
-.image-thumbnail:hover {
-  z-index: 2;
-}
-
-.image-thumbnail div {
-  display: none;
 }
 
 .image-thumbnail img {
   display: block;
-  width: 200px;
-}
-
-.image-thumbnail:hover div {
-  display: block;
-  position: absolute;
-  top: 130%;
-  left: 0;
-  padding: 1px;
-  border: 1px dashed blue;
-  background-color: transparent;
-  text-align: center
-}
-
-.image-thumbnail:hover div img {
-  position: absolute;
-  width: 400px;
-}
-
-.image-thumbnail-current {
-  position: relative;
-  z-index: 1;
-  display: inline-block;
-  padding: 0;
-  border: 2px solid white;
-}
-
-.image-thumbnail-current:hover {
-  z-index: 2;
-}
-
-.image-thumbnail-current div {
-  display: none;
-}
-
-.image-thumbnail-current img {
-  display: block;
-  width: 200px;
-}
-
-.image-thumbnail-current:hover div {
-  display: block;
-  position: absolute;
-  top: 130%;
-  left: 0;
-  padding: 1px;
-  border: 1px dashed blue;
-  background-color: transparent;
-  text-align: center
-}
-
-.image-thumbnail-current:hover div img {
-  position: absolute;
-  width: 400px;
-  padding: 2px;
-  border: 1px dashed blue;
-}
-
-th {
-  padding-top: 10px;
-  font-weight: normal;
-}
-
-.formpane {
-  margin-right: 20px;
-}
-
-.feedback-input {
-  border-style: solid;
-  border-width: 1px;
-}
-
-#user-email-text {
-  border: none;
-}
-
-#buttons-pane {
-  padding: 0;
+  height: 140px;
 }
 
 #privacy-note {
-  padding-top: 24px;
-  padding-bottom: 10px;
-  text-align: start;
-  font-size: 90%;
-  font-weight: normal;
-  margin: 0;
+  margin-bottom: 0.8em;
   width: 44em;
+}
+
+#buttons-pane {
+  /* Linux and Mac OS X display OK/Cancel dialogs in the reverse direction. */
+<if expr="not pp_ifdef('toolkit_views')">
+  -webkit-box-direction: reverse;
+</if>
+  display: -webkit-box;
+  padding: 0;
+}
+
+#buttons-pane > input {
+  -webkit-margin-end: 0.8em;
+  display: block;
 }

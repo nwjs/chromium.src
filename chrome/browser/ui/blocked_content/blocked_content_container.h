@@ -4,13 +4,12 @@
 
 // Defines the public interface for the blocked content (including popup)
 // notifications. This interface should only be used by the
-// BlockedContentTabHelper. Users and subclasses of TabContents/
-// TabContentsWrapper should use the appropriate methods on
-// BlockedContentTabHelper to access information about blocked content.
+// BlockedContentTabHelper. Users and subclasses of WebContents/TabContents
+// should use the appropriate methods on BlockedContentTabHelper to access
+// information about blocked content.
 
 #ifndef CHROME_BROWSER_UI_BLOCKED_CONTENT_BLOCKED_CONTENT_CONTAINER_H_
 #define CHROME_BROWSER_UI_BLOCKED_CONTENT_BLOCKED_CONTENT_CONTAINER_H_
-#pragma once
 
 #include <vector>
 
@@ -18,40 +17,38 @@
 #include "chrome/browser/ui/blocked_content/blocked_content_tab_helper_delegate.h"
 #include "content/public/browser/web_contents_delegate.h"
 
-class TabContentsWrapper;
+class TabContents;
 
-// Takes ownership of TabContents that are unrequested popup windows.
+// Takes ownership of TabContentses that are unrequested popup windows.
 class BlockedContentContainer : public BlockedContentTabHelperDelegate,
                                 public content::WebContentsDelegate {
  public:
   // Creates a container for a certain TabContents:
-  explicit BlockedContentContainer(TabContentsWrapper* owner);
+  explicit BlockedContentContainer(TabContents* owner);
   virtual ~BlockedContentContainer();
 
   // Adds a TabContents to this container. |bounds| are the window bounds
   // requested for the TabContents.
-  void AddTabContents(TabContentsWrapper* tab_contents,
+  void AddTabContents(TabContents* tab_contents,
                       WindowOpenDisposition disposition,
                       const gfx::Rect& bounds,
                       bool user_gesture);
 
   // Shows the blocked TabContents |tab_contents|.
-  void LaunchForContents(TabContentsWrapper* tab_contents);
+  void LaunchForContents(TabContents* tab_contents);
 
   // Returns the number of blocked contents.
   size_t GetBlockedContentsCount() const;
 
-  // Returns the contained TabContentsWrapper pointers.  |blocked_contents| must
+  // Returns the contained TabContents pointers.  |blocked_contents| must
   // be non-NULL.
-  void GetBlockedContents(
-      std::vector<TabContentsWrapper*>* blocked_contents) const;
+  void GetBlockedContents(std::vector<TabContents*>* blocked_contents) const;
 
   // Removes all blocked contents.
   void Clear();
 
   // Overridden from BlockedContentTabHelperDelegate:
-  virtual TabContentsWrapper* GetConstrainingContentsWrapper(
-      TabContentsWrapper* source) OVERRIDE;
+  virtual TabContents* GetConstrainingTabContents(TabContents* source) OVERRIDE;
 
   // Overridden from content::WebContentsDelegate:
 
@@ -91,7 +88,7 @@ class BlockedContentContainer : public BlockedContentTabHelperDelegate,
   typedef std::vector<BlockedContent> BlockedContents;
 
   // The TabContents that owns and constrains this BlockedContentContainer.
-  TabContentsWrapper* owner_;
+  TabContents* owner_;
 
   // Information about all blocked contents.
   BlockedContents blocked_contents_;

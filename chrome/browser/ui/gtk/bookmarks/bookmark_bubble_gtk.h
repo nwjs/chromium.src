@@ -11,7 +11,6 @@
 
 #ifndef CHROME_BROWSER_UI_GTK_BOOKMARKS_BOOKMARK_BUBBLE_GTK_H_
 #define CHROME_BROWSER_UI_GTK_BOOKMARKS_BOOKMARK_BUBBLE_GTK_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -88,7 +87,7 @@ class BookmarkBubbleGtk : public BubbleDelegateGtk,
   BookmarkModel* model_;
 
   // Provides colors and stuff.
-  ThemeServiceGtk* theme_service_;
+  GtkThemeService* theme_service_;
 
   // The widget relative to which we are positioned.
   GtkWidget* anchor_;

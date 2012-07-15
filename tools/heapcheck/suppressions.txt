@@ -95,7 +95,7 @@
    bug_51988_c
    Heapcheck:Leak
    ...
-   fun:crypto::OpenTestNSSDB
+   fun:crypto::Open*NSSDB
 }
 {
    bug_51988_d
@@ -116,6 +116,35 @@
    Heapcheck:Leak
    ...
    fun:net::CertDatabaseNSSTest::TearDown
+}
+{
+   bug_51988_g
+   Heapcheck:Leak
+   fun:sqlite3MemMalloc
+   ...
+   fun:net::CertDatabaseNSSTest::SetUp
+}
+{
+   bug_51988_h
+   Heapcheck:Leak
+   fun:sqlite3MemMalloc
+   ...
+   fun:chromeos::OncNetworkParser::ParseServerOrCaCertificate
+   fun:chromeos::OncNetworkParser::ParseCertificate
+}
+{
+   bug_51988_i
+   Heapcheck:Leak
+   fun:sqlite3MemMalloc
+   fun:net::X509Certificate::GetDefaultNickname
+}
+{
+   bug_51988_j
+   Heapcheck:Leak
+   fun:sqlite3MemMalloc
+   fun:chromeos::*::ListCertsInSlot
+   ...
+   fun:chromeos::*::TearDown
 }
 {
    bug_66941_a
@@ -139,6 +168,14 @@
    bug_todo_getdelim_lucid
    Heapcheck:Leak
    fun:_IO_getdelim
+}
+{
+   bug_119677
+   Heapcheck:Leak
+   ...
+   fun:DisplayChangeObserverX11
+   fun:aura::Env::Init
+   fun:aura::Env::GetInstance
 }
 
 #-----------------------------------------------------------------------
@@ -226,35 +263,21 @@
    ...
    fun:tracked_objects::ThreadData::TallyA*
 }
-
-#-----------------------------------------------------------------------
-# 3. Suppressions for real chromium bugs that are not yet fixed.
-# These should all be in chromium's bug tracking system (but a few aren't yet).
-# Periodically we should sweep this file and the bug tracker clean by
-# running overnight and removing outdated bugs/suppressions.
 {
-   bug_31643
-   Heapcheck:Leak
-   fun:browser_sync::BookmarkModelWorker::CallDoWorkFromModelSafeThreadAndWait
-   fun:Syncer::SyncShare
-}
-{
-   bug_32623
+   NSS is initialized (LeakyLazyInstance) but intentionally never shut down
    Heapcheck:Leak
    ...
    fun:InitSessionCacheLocks
    fun:initSessionCacheLocksLazily
    ...
    fun:ssl_InitSessionCacheLocks
-   fun:lock_cache
-   fun:ssl_LookupSID
-   fun:ssl2_BeginClientHandshake
-   fun:ssl_Do1stHandshake
-   fun:SSL_ForceHandshake
-   fun:net::SSLClientSocketNSS::DoHandshake
-   fun:net::SSLClientSocketNSS::DoHandshakeLoop
-   fun:net::SSLClientSocketNSS::Connect
 }
+
+#-----------------------------------------------------------------------
+# 3. Suppressions for real chromium bugs that are not yet fixed.
+# These should all be in chromium's bug tracking system (but a few aren't yet).
+# Periodically we should sweep this file and the bug tracker clean by
+# running overnight and removing outdated bugs/suppressions.
 {
    bug_17540
    Heapcheck:Leak
@@ -299,12 +322,6 @@
    fun:v8::internal::Execution::Call
    fun:v8::Function::Call
 }
-{
-  bug_39016
-  Heapcheck:Leak
-  ...
-  fun:::RenderThreadTest::SetUp
-}
 # TODO(glider): sometimes the stacks differ between the bot and the local run,
 # e.g. "base::subtle::RefCountedBase::RefCountedBase" vs. "RefCountedBase".
 {
@@ -320,20 +337,6 @@
   Heapcheck:Leak
   ...
   fun:browser_sync::SyncBackendHost::Core::NotifyFrontend
-}
-{
-  bug_42153
-  Heapcheck:Leak
-  fun:::InitPersonalInfo
-  fun:AutoFillProfile
-  fun:AutoFillProfile::Clone
-  fun:browser_sync::AutofillChangeProcessor::ObserveAutofillProfileChanged
-}
-{
-  bug_43387
-  Heapcheck:Leak
-  ...
-  fun:net::SpdyNetworkTransactionTest_PostWithEarlySynReply_Test::TestBody
 }
 {
    bug_44354
@@ -429,89 +432,6 @@
    fun:*~TestShell
    fun:::MainWindowDestroyed
    fun:g_closure_invoke
-}
-{
-   bug_46649_a
-   Heapcheck:Leak
-   fun:__gnu_cxx::new_allocator::allocate
-   fun:std::_Vector_base::_M_allocate
-   fun:std::vector::_M_allocate_and_copy
-   fun:std::vector::reserve
-   fun:courgette::ReadVector
-   fun:courgette::EncodedProgram::ReadFrom
-}
-{
-   bug_46649_b
-   Heapcheck:Leak
-   fun:__gnu_cxx::new_allocator::allocate
-   fun:std::_Vector_base::_M_allocate
-   fun:std::vector::_M_insert_aux
-   fun:std::vector::push_back
-   fun:courgette::EncodedProgram::AddRel32
-}
-{
-   bug_46649_c
-   Heapcheck:Leak
-   fun:__gnu_cxx::new_allocator::allocate
-   fun:std::_Vector_base::_M_allocate
-   fun:std::vector::_M_insert_aux
-   fun:std::vector::push_back
-   fun:courgette::EncodedProgram::AssembleTo
-}
-{
-   bug_46649_d
-   Heapcheck:Leak
-   fun:EncodedProgramTest_Test_Test::TestBody
-}
-{
-   bug_46649_e
-   Heapcheck:Leak
-   fun:__gnu_cxx::new_allocator::allocate
-   fun:std::_Vector_base::_M_allocate
-   fun:std::vector::_M_fill_insert
-   fun:std::vector::insert
-   fun:std::vector::resize
-   fun:courgette::EncodedProgram::DefineLabelCommon
-   fun:courgette::EncodedProgram::DefineRel32Label
-}
-{
-   bug_46649_f
-   Heapcheck:Leak
-   fun:__gnu_cxx::new_allocator::allocate
-   fun:std::_Vector_base::_M_allocate
-   fun:std::vector::_M_fill_insert
-   fun:std::vector::insert
-   fun:std::vector::resize
-   fun:courgette::EncodedProgram::DefineLabelCommon
-   fun:courgette::EncodedProgram::DefineAbs32Label
-}
-{
-   bug_46649_g
-   Heapcheck:Leak
-   fun:__gnu_cxx::new_allocator::allocate
-   fun:std::_Vector_base::_M_allocate
-   fun:std::vector::_M_allocate_and_copy
-   fun:std::vector::reserve
-   fun:courgette::ReadU32Delta
-   fun:courgette::EncodedProgram::ReadFrom
-}
-{
-   bug_46649_h
-   Heapcheck:Leak
-   fun:__gnu_cxx::new_allocator::allocate
-   fun:std::_Vector_base::_M_allocate
-   fun:std::vector::_M_insert_aux
-   fun:std::vector::push_back
-   fun:courgette::EncodedProgram::AddAbs32
-}
-{
-   bug_46649_i
-   Heapcheck:Leak
-   fun:__gnu_cxx::new_allocator::allocate
-   fun:std::_Vector_base::_M_allocate
-   fun:std::vector::_M_insert_aux
-   fun:std::vector::push_back
-   fun:courgette::EncodedProgram::AddOrigin
 }
 {
    bug_46678_a
@@ -659,13 +579,6 @@
    fun:safe_browsing::PhishingDOMFeatureExtractorTest::GetNextThreadName
 }
 {
-   bug_52826
-   Heapcheck:Leak
-   fun:TestingProfile::CreateRequestContext
-   fun:GoogleURLTrackerTest::CreateRequestContext
-   fun:GoogleURLTrackerTest*_Test::TestBody
-}
-{
    bug_53184
    Heapcheck:Leak
    fun:base::WaitableEventWatcher::StartWatching
@@ -697,14 +610,6 @@
    fun:file_util::FileEnumerator::Next
    fun:::RelayReadDirectory::RunWork
    fun:::MessageLoopRelay::ProcessOnTargetThread
-}
-{
-   bug_57910
-   Heapcheck:Leak
-   fun:inflateInit2_
-   fun:remoting::DecompressorZlib::InitStream
-   fun:remoting::DecompressorZlib::Reset
-   fun:~DecompressorZlib
 }
 {
    bug_58474_a
@@ -747,12 +652,6 @@
    fun:policy::AsynchronousPolicyTestBase_ProviderRefresh_Test::TestBody
 }
 {
-   bug_66227
-   Heapcheck:Leak
-   ...
-   fun:MalwareDetailsTest_*
-}
-{
    bug_67524
    Heapcheck:Leak
    ...
@@ -770,14 +669,6 @@
    fun:ResourceDispatcherHostTest::MakeTestRequest
 }
 {
-   Bug_70062
-   Heapcheck:Leak
-   fun:PR_NewLock
-   fun:InitSessionCacheLocks
-   fun:initSessionCacheLocksLazily
-   fun:PR_CallOnce
-}
-{
    bug_70327
    Heapcheck:Leak
    ...
@@ -786,52 +677,6 @@
    fun:gfx::PlatformFontPango::GetStringWidth
    ...
    fun:ui::TextEliderTest_*_Test::TestBody
-}
-{
-   bug_70782
-   Heapcheck:Leak
-   fun:SyncSetupWizard
-   fun:ProfileSyncService
-}
-{
-   bug_71728a
-   Heapcheck:Leak
-   fun:__gnu_cxx::new_allocator::allocate
-   fun:std::_Vector_base::_M_allocate
-   fun:std::vector::_M_allocate_and_copy
-   fun:std::vector::reserve
-   fun:__gnu_cxx::hashtable::_M_initialize_buckets
-   fun:hashtable
-   fun:hash_map
-   fun:DownloadManager
-   fun:MockDownloadManager
-   fun:::DownloadFileTest::SetUp
-}
-{
-   bug_71728b
-   Heapcheck:Leak
-   fun:::DownloadFileTest::SetUp
-}
-{
-   bug_71728c
-   Heapcheck:Leak
-   fun:base::internal::WeakReferenceOwner::GetRef
-   fun:base::SupportsWeakPtr::AsWeakPtr
-   fun:DownloadManager
-   fun:MockDownloadManager
-   fun:::DownloadFileTest::SetUp
-}
-{
-   bug_71728d
-   Heapcheck:Leak
-   fun:RefCountedBase
-   fun:RefCounted
-   fun:Flag
-   fun:base::internal::WeakReferenceOwner::GetRef
-   fun:base::SupportsWeakPtr::AsWeakPtr
-   fun:DownloadManager
-   fun:MockDownloadManager
-   fun:::DownloadFileTest::SetUp
 }
 {
    bug_71909
@@ -849,67 +694,6 @@
    fun:ExtensionService::ClearExtensionData
    fun:ExtensionService::UninstallExtension
    fun:BackgroundApplicationListModelTest_Load*Extension*_Test::TestBody
-}
-{
-   bug_73828
-   Heapcheck:Leak
-   ...
-   fun:GpuProcessHostUIShim::GetForRenderer
-}
-{
-   bug_75023
-   Heapcheck:Leak
-   ...
-   fun:::DefaultFocusManagerFactory::CreateFocusManager
-   fun:views::FocusManagerFactory::Create
-   fun:views::Widget::OnNativeWidgetCreated
-   fun:views::NativeWidgetAura::InitNativeWidget
-   fun:views::Widget::Init
-   fun:views::::NativeWidgetAuraTest_GetClientAreaScreenBounds_Test::TestBody
-}
-{
-   bug_76354
-   Heapcheck:Leak
-   fun:*ViewHostMsg_ResolveProxy
-   fun:ResolveProxyMsgHelperTest::GenerateReply
-   fun:ResolveProxyMsgHelperTest_*_Test::TestBody
-}
-{
-   bug_76644_a
-   Heapcheck:Leak
-   ...
-   fun:UserStyleSheetWatcherTest_StyleLoad_Test::TestBody
-}
-{
-   bug_76644_b
-   Heapcheck:Leak
-   ...
-   fun:UserStyleSheetWatcher::Init
-}
-{
-   bug_77376_a
-   Heapcheck:Leak
-   ...
-   fun:SelectFileDialogImpl::SelectFile
-   fun:DownloadManager::OnPathExistenceAvailable
-   ...
-   fun:DownloadManagerTest_StartDownload_Test::TestBody
-}
-{
-   bug_77376_b
-   Heapcheck:Leak
-   fun:g_realloc
-   fun:~SelectFileDialogImpl
-}
-{
-   bug_77885
-   Heapcheck:Leak
-   ...
-   fun:cssyyparse
-   fun:WebCore::CSSParser::parseSheet
-   fun:WebCore::CSSStyleSheet::parseStringAtLine
-   fun:WebCore::CSSStyleSheet::parseString
-   fun:WebCore::parseUASheet
 }
 {
    bug_79322a
@@ -958,28 +742,11 @@
    fun:::AutocompleteProviderTest::RunTest
 }
 {
-   bug_79327
-   Heapcheck:Leak
-   fun:HttpBridgeFactory
-   fun:browser_sync::SyncBackendHost::MakeHttpBridgeFactory
-   fun:browser_sync::SyncBackendHost::Initialize
-   fun:browser_sync::SyncBackendHostTest_InitShutdown_Test::TestBody
-}
-{
    bug_79328
    Heapcheck:Leak
    ...
    fun:TestingProfile::CreateRequestContext
    fun:*
-}
-{
-   bug_79568
-   Heapcheck:Leak
-   ...
-   fun:browser_sync::SyncerThread::HandleConsecutiveContinuationError
-   fun:browser_sync::SyncerThread::ScheduleNextSync
-   fun:browser_sync::SyncerThread::FinishSyncSessionJob
-   fun:browser_sync::SyncerThread::DoSyncSessionJob
 }
 {
    bug_80467
@@ -1012,28 +779,6 @@
    fun:RenderWidgetHost::WasHidden
 }
 {
-   bug_80654
-   Heapcheck:Leak
-   fun:__gnu_cxx::new_allocator::allocate
-   fun:std::_Vector_base::_M_allocate
-   fun:std::vector::_M_insert_aux
-   fun:std::vector::push_back
-   fun:ObserverListBase::AddObserver
-   fun:net::SSLConfigService::AddObserver
-   fun:*SSLClientSocketPool
-   ...
-   fun:*HttpNetworkSession
-   ...
-   fun:notifier::XmppClientSocketFactory::CreateTransportClientSocket
-   fun:notifier::ChromeAsyncSocket::Connect
-   fun:buzz::XmppClient::ProcessStartXmppLogin
-   fun:buzz::XmppClient::Process
-   fun:talk_base::Task::Step
-   fun:talk_base::TaskRunner::InternalRunTasks
-   fun:talk_base::TaskRunner::RunTasks
-   fun:notifier::TaskPump::CheckAndRunTasks
-}
-{
    bug_80663
    Heapcheck:Leak
    ...
@@ -1041,39 +786,11 @@
    fun:URLFetcher::Core::StartURLRequestWhen*
 }
 {
-   bug_80666
-   Heapcheck:Leak
-   ...
-   fun:*basic_string*
-   fun:GURL::ComponentString
-   fun:GURL::HostNoBrackets
-   fun:net::::InitSocketPoolHelper
-   fun:net::*
-   fun:notifier::ProxyResolvingClientSocket::ProcessProxyResolveDone
-}
-{
    bug_81575
    Heapcheck:Leak
    ...
    fun:Options
    fun:fileapi::FileSystemOriginDatabase::Init
-}
-{
-   bug_81796_a
-   Heapcheck:Leak
-   fun:base::MessageLoopProxy::current
-   fun:*Context
-   fun:*ChannelProxy
-   fun:IPCChannelTest_ChannelProxyTest_Test::TestBody
-}
-{
-   bug_81796_b
-   Heapcheck:Leak
-   fun:base::MessageLoopProxy::current
-   ...
-   fun:*SyncContext
-   fun:*SyncChannel
-   fun:ChildThread::Init
 }
 {
    bug_82974a
@@ -1100,7 +817,6 @@
    Heapcheck:Leak
    fun:sqlite3MemMalloc
    fun:net::CertDatabase::ListCerts
-   fun:net::CertDatabaseNSSTest_ListCerts_Test::TestBody
 }
 {
    bug_82974e
@@ -1135,38 +851,6 @@
    fun:MessageLoop::RunHandler
 }
 {
-   bug_83561b
-   Heapcheck:Leak
-   fun:ChromeTestSuite::Initialize
-   fun:::UnitTestTestSuite::Initialize
-   fun:base::TestSuite::Run
-}
-{
-   bug_83561c
-   Heapcheck:Leak
-   ...
-   fun:net::HostResolverImpl::Resolve
-   fun:net::SingleRequestHostResolver::Resolve
-   fun:net::TransportConnectJob::DoResolveHost
-   fun:net::TransportConnectJob::DoLoop
-   fun:net::TransportConnectJob::ConnectInternal
-   fun:net::ConnectJob::Connect
-   fun:net::internal::ClientSocketPoolBaseHelper::RequestSocketInternal
-   fun:net::internal::ClientSocketPoolBaseHelper::RequestSocket
-   fun:net::ClientSocketPoolBase::RequestSocket
-   fun:net::TransportClientSocketPool::RequestSocket
-   fun:net::ClientSocketHandle::Init
-   fun:net::::InitSocketPoolHelper
-   ...
-   fun:notifier::ProxyResolvingClientSocket::ProcessProxyResolveDone
-}
-{
-   bug_86468
-   Heapcheck:Leak
-   ...
-   fun:content_settings::PrefProviderTest_MigrateSinglePatternSettings_Test::TestBody
-}
-{
    bug_88640
    Heapcheck:Leak
    ...
@@ -1179,31 +863,6 @@
    ...
    fun:ProtocolHandlerRegistry::MaybeCreateJob
    fun:MakeRequest
-}
-{
-   bug_89684
-   Heapcheck:Leak
-   ...
-   fun:chromeos::NetworkLibraryImplStub::Init
-   fun:chromeos::NetworkLibrary::GetImpl
-   fun:chromeos::CrosLibrary::Library::GetDefaultImpl
-   fun:chromeos::CrosLibrary::GetNetworkLibrary
-   fun:~ProxyConfigServiceImpl
-   fun:base::RefCountedThreadSafe::DeleteInternal
-   fun:base::DefaultRefCountedThreadSafeTraits::Destruct
-   fun:base::RefCountedThreadSafe::Release
-   fun:scoped_refptr::operator=
-   fun:chromeos::ProxyConfigServiceImplTest::CreateConfigService
-}
-{
-   bug_90154
-   Heapcheck:Leak
-   ...
-   fun:views::NativeWidgetGtk::InitNativeWidget
-   fun:views::Widget::Init
-   fun:NativeTabContentsViewGtk::InitNativeTabContentsView
-   fun:TabContentsViewViews::CreateView
-   fun:TabContents
 }
 {
    bug_90271
@@ -1238,43 +897,31 @@
    Heapcheck:Leak
    fun:DownloadManager::OnPathExistenceAvailable
 }
-# These are temporary suppressions for the CrOS bot to be used until the stacks are fixed.
 {
    bug_90013_a
    Heapcheck:Leak
-   ...
-   fun:gtk_views_fixed_new
+   fun:??
+   fun:gfx::RenderTextLinux::EnsureLayout
 }
 {
    bug_90013_b
    Heapcheck:Leak
-   ...
-   fun:g_type_class_meta_marshal
+   fun:??
+   fun:gfx::RenderTextLinux::GetStringSize
 }
 {
    bug_90013_c
    Heapcheck:Leak
-   ...
-   fun:find_invisible_char
+   fun:??
+   fun:::FindBestMatchFontFamilyName
+   fun:PlatformFontPango
 }
 {
    bug_90013_d
    Heapcheck:Leak
-   ...
-   fun:views::View::*
-}
-# This one is the most scary
-{
-   bug_90013_e
-   Heapcheck:Leak
-   ...
    fun:??
-}
-{
-   bug_91491
-   Heapcheck:Leak
-   ...
-   fun:CrxUpdateService::ProcessPendingItems
+   fun:gfx::GetPangoFontMetrics
+   fun:gfx::PlatformFontPango::InitPangoMetrics
 }
 {
    bug_91845_a
@@ -1327,28 +974,6 @@
    fun:DownloadManagerTest_*
 }
 {
-   bug_93006e
-   Heapcheck:Leak
-   ...
-   fun:DownloadResourceHandler::OnWillRead
-   fun:BufferedResourceHandler::UseAlternateResourceHandler
-   fun:BufferedResourceHandler::CompleteResponseStarted
-   fun:BufferedResourceHandler::OnReadCompleted
-   fun:ResourceDispatcherHost::CompleteRead
-   fun:ResourceDispatcherHost::OnReadCompleted
-   fun:net::URLRequest::NotifyReadCompleted
-   fun:net::URLRequestJob::NotifyReadComplete
-   fun:net::URLRequestTestJob::ProcessNextOperation
-   fun:net::URLRequestTestJob::ProcessOnePendingMessage
-   fun:ResourceDispatcherHostTest_*
-}
-{
-   bug_94195
-   Heapcheck:Leak
-   ...
-   fun:GpuBlacklist::LoadGpuBlacklist
-}
-{
    bug_94764
    Heapcheck:Leak
    fun:remoting::ClientSession::UnpressKeys
@@ -1373,17 +998,9 @@
    fun:TestURLRequestContextGetter::GetURLRequestContext
    fun:*SingleLoginAttempt
    fun:notifier::Login::StartConnection
-   fun:sync_notifier::InvalidationNotifier::UpdateCredentials
-   fun:sync_notifier::NonBlockingInvalidationNotifier::Core::UpdateCredentials
+   fun:syncer::InvalidationNotifier::UpdateCredentials
+   fun:syncer::NonBlockingInvalidationNotifier::Core::UpdateCredentials
    fun:void DispatchToMethod
-}
-{
-   bug_97814
-   Heapcheck:Leak
-   fun:base::Value::CreateIntegerValue
-   fun:base::FundamentalValue::DeepCopy
-   fun:ExtensionContentSettingsStore::GetEffectiveContentSetting
-   fun:ExtensionContentSettingsStoreTest_*
 }
 {
    bug_98967
@@ -1448,12 +1065,6 @@
    fun:~ProfileManagerWithoutInit
    fun:scoped_ptr::reset
    fun:ProfileManagerTest::TearDown
-}
-{
-   bug_100608
-   Heapcheck:Leak
-   ...
-   fun:SQLitePersistentCookieStore::Backend::LoadCookiesForDomains
 }
 {
    bug_102831_a
@@ -1530,21 +1141,6 @@
    fun:PluginService::RegisterPepperPlugins
    fun:PluginService::Init
    fun:chromeos::::GViewRequestInterceptorTest::SetUp
-}
-{
-   bug_109613
-   Heapcheck:Leak
-   fun:AutofillProfileSyncableServiceTest::SetUp
-}
-{
-   bug_111317
-   Heapcheck:Leak
-   ...
-   fun:PORT_Alloc_Util
-   ...
-   fun:crypto::::SignData
-   fun:crypto::ECSignatureCreator::Sign
-   fun:ECSignatureCreatorTest_BasicTest_Test::TestBody
 }
 {
    bug_111588a
@@ -1701,29 +1297,17 @@
    fun:net::KeygenHandler::GenKeyAndSignChallenge
 }
 {
-   bug_114979_a
+   bug_114979
    Heapcheck:Leak
    ...
    fun:BookmarkBarGtkUnittest::SetUp
-}
-{
-   bug_114979_b
-   Heapcheck:Leak
-   ...
-   fun:BookmarkBarGtkUnittest_HidesHelpMessageWithBookmark_Test::TestBody
-}
-{
-   bug_114980
-   Heapcheck:Leak
-   ...
-   fun:BackFwdMenuModelTest_*_Test::TestBody
 }
 {
    bug_114986
    Heapcheck:Leak
    ...
    fun:ThemeServiceFactory::BuildServiceInstanceFor
-   fun:ProfileKeyedBaseFactory::GetBaseForProfile
+   ...
    fun:ProfileKeyedServiceFactory::GetServiceForProfile
    fun:ThemeServiceFactory::GetForProfile
 }
@@ -1755,58 +1339,168 @@
    fun:TraceSubscriberStdioTest_CanWriteDataToFile_Test::TestBody
 }
 {
-   bug_116923
-   Heapcheck:Leak
-   fun:AppLauncherButton
-   fun:ash::internal::LauncherView::CreateViewForItem
-   fun:ash::internal::LauncherView::Init
-   fun:Launcher
-   fun:ash::Shell::Init
-   fun:ash::Shell::CreateInstance
-   fun:chromeos::DesktopNotificationsTest::SetUp
-}
-{
    bug_117389
    Heapcheck:Leak
    ...
    fun:TestURLRequestContextGetter::GetURLRequestContext
    ...
    fun:notifier::Login::StartConnection
-   fun:sync_notifier::InvalidationNotifier::UpdateCredentials
-   fun:sync_notifier::NonBlockingInvalidationNotifier::Core::UpdateCredentials
+   fun:syncer::InvalidationNotifier::UpdateCredentials
+   fun:syncer::NonBlockingInvalidationNotifier::Core::UpdateCredentials
 }
 {
-   bug_117427
+   bug_124758
+   Heapcheck:Leak
+   fun:sqlite3MemMalloc
+   fun:crypto::RSAPrivateKey::FindFromPublicKeyInfo
+   fun:crypto::RSAPrivateKeyNSSTest_*_Test::TestBody
+}
+{
+   bug_125129_a
+   Heapcheck:Leak
+   ...
+   fun:content::RenderProcessHostImpl::RenderProcessHostImpl
+   fun:SiteInstanceImpl::GetProcess
+   fun:*RenderViewHostImpl
+   fun:*TestRenderViewHost
+   fun:::TestInterstitialPage::CreateRenderViewHost
+}
+{
+   bug_125129_b
+   Heapcheck:Leak
+   ...
+   fun:content::RenderProcessHostImpl::RenderProcessHostImpl
+   fun:SiteInstanceImpl::GetProcess
+   ...
+   fun:*_*_Test::TestBody
+}
+{
+   # Like 125129_b, but for Chromium OS instead of Linux.
+   bug_125129_c
+   Heapcheck:Leak
+   ...
+   fun:RenderProcessHostImpl
+   fun:SiteInstanceImpl::GetProcess
+   ...
+   fun:*_*_Test::TestBody
+}
+{
+   bug_127717
+   Heapcheck:Leak
+   ...
+   fun:SkBitmap::HeapAllocator::allocPixelRef
+   fun:SkBitmap::allocPixels
+   fun:SkBitmap::allocPixels
+}
+{
+   bug_128145
+   Heapcheck:Leak
+   ...
+   fun:BuildWebDataService
+   fun:RefcountedProfileKeyedServiceFactory::GetServiceForProfile
+   fun:RefcountedProfileKeyedServiceFactory::SetTestingFactoryAndUse
+   fun:TestingProfile::CreateWebDataService
+}
+{
+   bug_129392
+   Heapcheck:Leak
+   fun:::ChromeTestSuiteInitializer::SetUpHostResolver
+   fun:::ChromeTestSuiteInitializer::OnTestStart
+   fun:testing::internal::TestEventRepeater::OnTestStart
+}
+{
+  bug_130640_a
+  Heapcheck:Leak
+  ...
+  fun:GtkThemeService::GetFolderIcon
+}
+{
+  bug_130640_b
+  Heapcheck:Leak
+  ...
+  fun:GtkThemeService::GetDefaultFavicon
+}
+{
+   bug_131668_a
+   Heapcheck:Leak
+   ...
+   fun:history::InMemoryURLIndex::PostRestoreFromCacheFileTask
+   fun:history::InMemoryURLIndex::Init
+   fun:HistoryService::Init
+   fun:TestingProfile::CreateHistoryService
+   fun:ShortcutsProviderTest::SetUp
+}
+{
+   bug_131668_b
+   Heapcheck:Leak
+   fun:std::basic_string::_Rep::_S_create
+   fun:base::PrepareForUTF8Output
+   fun:UTF16ToUTF8
+   fun:UTF16ToUTF8
+   fun:l10n_util::GetStringUTF8
+   fun:::CreateLocaleDefaultValue
+   fun:PrefService::RegisterLocalizedStringPref
+   fun:PrefsTabHelper::RegisterUserPrefs
+   fun:browser::RegisterUserPrefs
+   fun:TestingProfile::CreateTestingPrefService
+   fun:TestingProfile::GetPrefs
+   fun:ProfileKeyedBaseFactory::RegisterUserPrefsOnProfile
+   fun:ProfileDependencyManager::CreateProfileServices
+   fun:TestingProfile::Init
+   fun:TestingProfile::TestingProfile
+   fun:ShortcutsProviderTest::SetUp
+}
+{
+   bug_132431
+   Heapcheck:Leak
+   ...
+   fun:gfx::::LoadDefaults
+   fun:gfx::GetDefaultFontRenderParams
+   fun:renderer_preferences_util::UpdateFromSystemSettings
+   fun:PrefsTabHelper::PrefsTabHelper
+   fun:TabContents::TabContents
+   fun:TabContentsTestHarness::SetContents
+   fun:content::RenderViewHostTestHarness::SetUp
+   fun:ChromeRenderViewHostTestHarness::SetUp
+   fun:TabContentsTestHarness::SetUp
+}
+{
+   bug_134527
+   Heapcheck:Leak
+   fun:IA__FcMatrixCopy
+   fun:gfx::RenderTextLinux::EnsureLayout
+   fun:gfx::RenderText::IndexOfAdjacentGrapheme
+   fun:gfx::RenderTextTest_GraphemePositions_Test::TestBody
+}
+{
+   bug_134717
+   Heapcheck:Leak
+   fun:ui::InputMethodIBus::CreateContext
+   fun:ui::InputMethodIBus::Init
+}
+{
+   bug_65940_a
+   Heapcheck:Leak
+   ...
+   fun:IPC::SyncChannel::SyncChannel
+   fun:ChildThread::Init
+   fun:ChildThread::ChildThread
+   fun:RenderThreadImpl::RenderThreadImpl
+}
+{
+   bug_65940_b
    Heapcheck:Leak
    fun:__gnu_cxx::new_allocator::allocate
-   fun:std::_Rb_tree::_M_get_node
-   fun:std::_Rb_tree::_M_create_node
-   fun:std::_Rb_tree::_M_insert_
-   fun:std::_Rb_tree::_M_insert_unique
-   fun:std::map::insert
-   fun:net::ExpiringCache::Put
-   fun:net::HostCache::Set
-   fun:net::HostResolverImpl::CacheResult
-   fun:net::HostResolverImpl::Job::CompleteRequests
-   fun:net::HostResolverImpl::Job::OnProcTaskComplete
+   fun:std::_Vector_base::_M_allocate
+   fun:std::vector::_M_insert_aux
+   fun:std::vector::push_back
+   fun:IPC::ChannelProxy::Context::OnAddFilter
 }
 {
-   bug_118336
+   bug_136936
    Heapcheck:Leak
    ...
-   fun:SelectFileDialogExtensionTest_SelfDeleting_Test::TestBody
-}
-{
-   bug_119714_a
-   Heapcheck:Leak
+   fun:std::basic_string::_Rep::_S_create
    ...
-   fun:*AudioInputControllerTest_CreateAndClose_Test*
-}
-{
-   # This should be removed soon!  It's a pretty broad suppression.
-   bug_119714_b
-   Heapcheck:Leak
-   fun:MessageLoop::MessageLoop
-   fun:base::Thread::ThreadMain
-   fun:base::::ThreadFunc
+   fun:base::PlatformThread::SetName
 }

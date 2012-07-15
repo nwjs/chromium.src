@@ -32,7 +32,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/message_loop.h"
-#include "base/message_loop_helpers.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "base/sha1.h"
 #include "base/stl_util.h"
 #include "base/string_number_conversions.h"
@@ -464,11 +464,11 @@ class SSLChan : public MessageLoopForIO::Watcher {
       DCHECK(host_->data());
     }
 
+   protected:
     virtual ~DerivedIOBufferWithSize() {
       data_ = NULL;  // We do not own memory, bypass base class destructor.
     }
 
-   protected:
     scoped_refptr<net::IOBuffer> host_;
   };
 
@@ -618,7 +618,7 @@ class SSLChan : public MessageLoopForIO::Watcher {
       cert_verifier_.reset(net::CertVerifier::CreateDefault());
     ssl_context.cert_verifier = cert_verifier_.get();
     socket_.reset(factory->CreateSSLClientSocket(
-        handle, host_port_pair_, ssl_config_, NULL, ssl_context));
+        handle, host_port_pair_, ssl_config_, ssl_context));
     if (!socket_.get()) {
       LOG(WARNING) << "Failed to create an SSL client socket.";
       OnSSLHandshakeCompleted(net::ERR_UNEXPECTED);
@@ -841,8 +841,9 @@ void Serv::Run() {
   struct sockaddr_in addr;
   memset(&addr, 0, sizeof(addr));
   addr.sin_family = AF_INET;
-  addr.sin_port = htons(0);  // let OS allocatate ephemeral port number.
-  addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+  // Let the OS allocate a port number.
+  addr.sin_port = base::HostToNet16(0);
+  addr.sin_addr.s_addr = base::HostToNet32(INADDR_LOOPBACK);
   if (bind(listening_sock_,
            reinterpret_cast<struct sockaddr*>(&addr),
            sizeof(addr))) {
@@ -883,8 +884,8 @@ void Serv::Run() {
     const int kPort = 10101;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(kPort);
-    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr.sin_port = base::HostToNet16(kPort);
+    addr.sin_addr.s_addr = base::HostToNet32(INADDR_LOOPBACK);
     if (bind(extra_listening_sock_,
              reinterpret_cast<struct sockaddr*>(&addr),
              sizeof(addr))) {
@@ -934,7 +935,7 @@ void Serv::Run() {
   }
   BrowserThread::PostTask(
       BrowserThread::UI, FROM_HERE,
-      base::Bind(&SendNotification, ntohs(addr.sin_port)));
+      base::Bind(&SendNotification, base::NetToHost16(addr.sin_port)));
 
   LOG(INFO) << "WebSocketProxy: Starting event dispatch loop.";
   event_base_dispatch(evbase_);
@@ -1269,7 +1270,7 @@ Conn::Status Conn::ConsumeHeader(struct evbuffer* evb) {
         FetchExtensionIdFromOrigin(GetOrigin());
     std::string passport(requested_parameters_["passport"]);
     requested_parameters_.erase("passport");
-    if (!browser::InternalAuthVerification::VerifyPassport(
+    if (!chrome::InternalAuthVerification::VerifyPassport(
         passport, "web_socket_proxy", requested_parameters_)) {
       return STATUS_ABORT;
     }
@@ -1361,7 +1362,7 @@ Conn::Status Conn::ConsumeDestframe(struct evbuffer* evb) {
   map["extension_id"] = FetchExtensionIdFromOrigin(GetOrigin());
   if (!destaddr_.empty())
     map["addr"] = destaddr_;
-  if (!browser::InternalAuthVerification::VerifyPassport(
+  if (!chrome::InternalAuthVerification::VerifyPassport(
       passport, "web_socket_proxy", map)) {
     return STATUS_ABORT;
   }
@@ -1480,8 +1481,10 @@ bool Conn::TryConnectDest(const struct sockaddr* addr, socklen_t addrlen) {
         destchan_.write_fd(),
         NULL, &OnDestchanWrite, &OnDestchanError,
         evkey_));
-    net::AddressList addrlist = net::AddressList::CreateFromSockaddr(
-        addr, addrlen, SOCK_STREAM, IPPROTO_TCP);
+    net::IPEndPoint endpoint;
+    if (!endpoint.FromSockAddr(addr, addrlen))
+      return false;
+    net::AddressList addrlist(endpoint);
     net::HostPortPair host_port_pair(destname_, destport_);
     BrowserThread::PostTask(
         BrowserThread::IO, FROM_HERE, base::Bind(
@@ -1574,7 +1577,7 @@ void Conn::OnPrimchanRead(struct bufferevent* bev, EventKey evkey) {
             {
               struct sockaddr_in sa;
               memset(&sa, 0, sizeof(sa));
-              sa.sin_port = htons(cs->destport_);
+              sa.sin_port = base::HostToNet16(cs->destport_);
               if (inet_pton(sa.sin_family = AF_INET,
                             cs->destaddr_.c_str(),
                             &sa.sin_addr) == 1) {
@@ -1595,7 +1598,7 @@ void Conn::OnPrimchanRead(struct bufferevent* bev, EventKey evkey) {
               }
               struct sockaddr_in6 sa;
               memset(&sa, 0, sizeof(sa));
-              sa.sin6_port = htons(cs->destport_);
+              sa.sin6_port = base::HostToNet16(cs->destport_);
               if (inet_pton(sa.sin6_family = AF_INET6,
                             cs->destaddr_.c_str(),
                             &sa.sin6_addr) == 1) {
@@ -1754,7 +1757,7 @@ void Conn::OnDestResolutionIPv4(int result, char type,
       struct sockaddr_in sa;
       memset(&sa, 0, sizeof(sa));
       sa.sin_family = AF_INET;
-      sa.sin_port = htons(cs->destport_);
+      sa.sin_port = base::HostToNet16(cs->destport_);
       DCHECK(sizeof(sa.sin_addr) == sizeof(struct in_addr));
       memcpy(&sa.sin_addr,
              static_cast<struct in_addr*>(addr_list) + i,
@@ -1785,7 +1788,7 @@ void Conn::OnDestResolutionIPv6(int result, char type,
       struct sockaddr_in6 sa;
       memset(&sa, 0, sizeof(sa));
       sa.sin6_family = AF_INET6;
-      sa.sin6_port = htons(cs->destport_);
+      sa.sin6_port = base::HostToNet16(cs->destport_);
       DCHECK(sizeof(sa.sin6_addr) == sizeof(struct in6_addr));
       memcpy(&sa.sin6_addr,
              static_cast<struct in6_addr*>(addr_list) + i,

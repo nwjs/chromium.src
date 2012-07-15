@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_BROWSER_RENDERER_HOST_RENDER_VIEW_HOST_FACTORY_H_
 #define CONTENT_BROWSER_RENDERER_HOST_RENDER_VIEW_HOST_FACTORY_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "content/common/content_export.h"
@@ -12,6 +11,7 @@
 namespace content {
 class RenderViewHost;
 class RenderViewHostDelegate;
+class RenderWidgetHostDelegate;
 class SessionStorageNamespace;
 class SiteInstance;
 }
@@ -27,7 +27,9 @@ class RenderViewHostFactory {
   static content::RenderViewHost* Create(
       content::SiteInstance* instance,
       content::RenderViewHostDelegate* delegate,
+      content::RenderWidgetHostDelegate* widget_delegate,
       int routing_id,
+      bool swapped_out,
       content::SessionStorageNamespace* session_storage);
 
   // Returns true if there is currently a globally-registered factory.
@@ -44,7 +46,9 @@ class RenderViewHostFactory {
   virtual content::RenderViewHost* CreateRenderViewHost(
       content::SiteInstance* instance,
       content::RenderViewHostDelegate* delegate,
+      content::RenderWidgetHostDelegate* widget_delegate,
       int routing_id,
+      bool swapped_out,
       content::SessionStorageNamespace* session_storage_namespace) = 0;
 
   // Registers your factory to be called when new RenderViewHosts are created.

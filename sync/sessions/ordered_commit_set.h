@@ -4,17 +4,16 @@
 
 #ifndef SYNC_SESSIONS_ORDERED_COMMIT_SET_H_
 #define SYNC_SESSIONS_ORDERED_COMMIT_SET_H_
-#pragma once
 
 #include <map>
 #include <set>
 #include <vector>
 
-#include "sync/engine/model_safe_worker.h"
-#include "sync/syncable/model_type.h"
+#include "sync/internal_api/public/base/model_type.h"
+#include "sync/internal_api/public/engine/model_safe_worker.h"
 #include "sync/syncable/syncable_id.h"
 
-namespace browser_sync {
+namespace syncer {
 namespace sessions {
 
 // TODO(ncarter): This code is more generic than just Commit and can
@@ -30,7 +29,7 @@ class OrderedCommitSet {
   typedef std::vector<size_t> Projection;
 
   // TODO(chron): Reserve space according to batch size?
-  explicit OrderedCommitSet(const browser_sync::ModelSafeRoutingInfo& routes);
+  explicit OrderedCommitSet(const syncer::ModelSafeRoutingInfo& routes);
   ~OrderedCommitSet();
 
   bool HaveCommitItem(const int64 metahandle) const {
@@ -38,7 +37,7 @@ class OrderedCommitSet {
   }
 
   void AddCommitItem(const int64 metahandle, const syncable::Id& commit_id,
-                     syncable::ModelType type);
+                     syncer::ModelType type);
 
   const std::vector<syncable::Id>& GetAllCommitIds() const {
     return commit_ids_;
@@ -56,7 +55,7 @@ class OrderedCommitSet {
   }
 
   // Same as above, but for ModelType of the item.
-  syncable::ModelType GetModelTypeAt(const size_t position) const {
+  syncer::ModelType GetModelTypeAt(const size_t position) const {
     return types_[position];
   }
 
@@ -64,12 +63,15 @@ class OrderedCommitSet {
   // belonging to |group|.  This is useful when you need to process a commit
   // response one ModelSafeGroup at a time. See GetCommitIdAt for how the
   // indices contained in the returned Projection can be used.
-  const Projection& GetCommitIdProjection(browser_sync::ModelSafeGroup group) {
-    return projections_[group];
+  const Projection& GetCommitIdProjection(
+      syncer::ModelSafeGroup group) const;
+
+  size_t Size() const {
+    return commit_ids_.size();
   }
 
-  int Size() const {
-    return commit_ids_.size();
+  bool Empty() const {
+    return Size() == 0;
   }
 
   // Returns true iff any of the commit ids added to this set have model type
@@ -80,19 +82,22 @@ class OrderedCommitSet {
   void AppendReverse(const OrderedCommitSet& other);
   void Truncate(size_t max_size);
 
+  // Removes all entries from this set.
+  void Clear();
+
   void operator=(const OrderedCommitSet& other);
  private:
   // A set of CommitIdProjections associated with particular ModelSafeGroups.
-  typedef std::map<browser_sync::ModelSafeGroup, Projection> Projections;
+  typedef std::map<syncer::ModelSafeGroup, Projection> Projections;
 
   // Helper container for return value of GetCommitItemAt.
   struct CommitItem {
     int64 meta;
     syncable::Id id;
-    syncable::ModelType group;
+    syncer::ModelType group;
   };
 
-  CommitItem GetCommitItemAt(const int position) const;
+  CommitItem GetCommitItemAt(const size_t position) const;
 
   // These lists are different views of the same items; e.g they are
   // isomorphic.
@@ -107,13 +112,13 @@ class OrderedCommitSet {
   // projection.  We could store it in commit_ids_, but sometimes we want
   // to just return the vector of Ids, so this is more straightforward
   // and shouldn't take up too much extra space since commit lists are small.
-  std::vector<syncable::ModelType> types_;
+  std::vector<syncer::ModelType> types_;
 
-  browser_sync::ModelSafeRoutingInfo routes_;
+  syncer::ModelSafeRoutingInfo routes_;
 };
 
 }  // namespace sessions
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_SESSIONS_ORDERED_COMMIT_SET_H_
 

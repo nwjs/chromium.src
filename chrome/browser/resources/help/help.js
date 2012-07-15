@@ -5,8 +5,6 @@
 <include src="../uber/uber_utils.js">
 
 cr.define('help', function() {
-  var localStrings = new LocalStrings();
-
   /**
    * Encapsulated handling of the help page.
    */
@@ -24,29 +22,35 @@ cr.define('help', function() {
       uber.onContentFrameLoaded();
 
       // Set the title.
-      var title = localStrings.getString('helpTitle');
+      var title = loadTimeData.getString('helpTitle');
       uber.invokeMethodOnParent('setTitle', {title: title});
 
-      $('product-license').innerHTML = localStrings.getString('productLicense');
-      if (cr.isChromeOS)
+      $('product-license').innerHTML = loadTimeData.getString('productLicense');
+      if (cr.isChromeOS) {
         $('product-os-license').innerHTML =
-            localStrings.getString('productOsLicense');
+            loadTimeData.getString('productOsLicense');
+      }
 
       var productTOS = $('product-tos');
       if (productTOS)
-        productTOS.innerHTML = localStrings.getString('productTOS');
+        productTOS.innerHTML = loadTimeData.getString('productTOS');
 
-      $('get-help').onclick = chrome.send.bind(chrome, 'openHelpPage');
-      $('report-issue').onclick =
-          chrome.send.bind(chrome, 'openFeedbackDialog');
+      $('get-help').onclick = function() {
+        chrome.send('openHelpPage');
+      };
+      $('report-issue').onclick = function() {
+        chrome.send('openFeedbackDialog');
+      };
 
       this.maybeSetOnClick_($('more-info-expander'),
           this.toggleMoreInfo_.bind(this));
 
-      this.maybeSetOnClick_($('promote'),
-          chrome.send.bind(chrome, 'promoteUpdater'));
-      this.maybeSetOnClick_($('relaunch'),
-          chrome.send.bind(chrome, 'relaunchNow'));
+      this.maybeSetOnClick_($('promote'), function() {
+        chrome.send('promoteUpdater');
+      });
+      this.maybeSetOnClick_($('relaunch'), function() {
+        chrome.send('relaunchNow');
+      });
 
       var channelChanger = $('channel-changer');
       if (channelChanger) {
@@ -68,10 +72,11 @@ cr.define('help', function() {
       var moreInfo = $('more-info-container');
       var visible = moreInfo.className == 'visible';
       moreInfo.className = visible ? '' : 'visible';
+      moreInfo.style.height = visible ? '' : moreInfo.scrollHeight + 'px';
       moreInfo.addEventListener('webkitTransitionEnd', function(event) {
         $('more-info-expander').textContent = visible ?
-            localStrings.getString('showMoreInfo') :
-                localStrings.getString('hideMoreInfo');
+            loadTimeData.getString('showMoreInfo') :
+            loadTimeData.getString('hideMoreInfo');
       });
     },
 
@@ -98,31 +103,30 @@ cr.define('help', function() {
       if (status == 'checking') {
         this.setUpdateImage_('working');
         $('update-status').innerHTML =
-            localStrings.getString('updateCheckStarted');
+            loadTimeData.getString('updateCheckStarted');
       } else if (status == 'updating') {
         this.setUpdateImage_('working');
-        $('update-status').innerHTML = localStrings.getString('updating');
+        $('update-status').innerHTML = loadTimeData.getString('updating');
       } else if (status == 'nearly_updated') {
         this.setUpdateImage_('up-to-date');
         $('update-status').innerHTML =
-            localStrings.getString('updateAlmostDone');
+            loadTimeData.getString('updateAlmostDone');
       } else if (status == 'updated') {
         this.setUpdateImage_('up-to-date');
-        $('update-status').innerHTML = localStrings.getString('upToDate');
+        $('update-status').innerHTML = loadTimeData.getString('upToDate');
       } else if (status == 'failed') {
         this.setUpdateImage_('failed');
         $('update-status').innerHTML = message;
-      } else if (status == 'disabled') {
-        var container = $('update-status-container');
-        if (container)
-          container.hidden = true;
-        return;
       }
 
-      if (!cr.isMac)
-        $('update-percentage').hidden = status != 'updating';
+      var container = $('update-status-container');
+      if (container) {
+        container.hidden = status == 'disabled';
+        $('relaunch').hidden = status != 'nearly_updated';
 
-      $('relaunch').hidden = status != 'nearly_updated';
+        if (!cr.isMac)
+          $('update-percentage').hidden = status != 'updating';
+      }
     },
 
     /**
@@ -144,6 +148,18 @@ cr.define('help', function() {
       } else if (state == 'disabled') {
         $('promote').disabled = true;
         $('promote').hidden = false;
+      }
+    },
+
+    /**
+     * @private
+     */
+    setObsoleteOS_: function(obsolete) {
+      if (cr.isMac) {
+        var updateObsoleteOSContainer = $('update-obsolete-os-container');
+        if (updateObsoleteOSContainer) {
+          updateObsoleteOSContainer.hidden = !obsolete;
+        }
       }
     },
 
@@ -212,6 +228,16 @@ cr.define('help', function() {
     setReleaseChannel_: function(channel) {
       chrome.send('setReleaseTrack', [channel]);
     },
+
+    /**
+     * Sets the value of the "Last Updated" field of the "More Info" section.
+     * @param {String} lastUpdated The date of the last update.
+     * @private
+     */
+    setLastUpdated_: function(lastUpdated) {
+      $('last-updated-container').classList.remove('empty');
+      $('last-updated').textContent = lastUpdated;
+    },
   };
 
   HelpPage.setUpdateStatus = function(status, message) {
@@ -224,6 +250,10 @@ cr.define('help', function() {
 
   HelpPage.setPromotionState = function(state) {
     HelpPage.getInstance().setPromotionState_(state);
+  };
+
+  HelpPage.setObsoleteOS = function(obsolete) {
+    HelpPage.getInstance().setObsoleteOS_(obsolete);
   };
 
   HelpPage.setOSVersion = function(version) {
@@ -249,6 +279,10 @@ cr.define('help', function() {
   HelpPage.setReleaseChannel = function(channel) {
     HelpPage.getInstance().setReleaseChannel_(channel);
   };
+
+  HelpPage.setLastUpdated = function(lastUpdated) {
+    HelpPage.getInstance().setLastUpdated_(lastUpdated);
+  }
 
   // Export
   return {

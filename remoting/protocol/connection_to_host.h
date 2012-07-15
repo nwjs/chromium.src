@@ -10,17 +10,15 @@
 #include "base/callback_forward.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/threading/non_thread_safe.h"
 #include "remoting/jingle_glue/signal_strategy.h"
 #include "remoting/proto/internal.pb.h"
+#include "remoting/protocol/clipboard_filter.h"
 #include "remoting/protocol/errors.h"
 #include "remoting/protocol/input_filter.h"
 #include "remoting/protocol/message_reader.h"
 #include "remoting/protocol/session.h"
 #include "remoting/protocol/session_manager.h"
-
-namespace base {
-class MessageLoopProxy;
-}  // namespace base
 
 namespace pp {
 class Instance;
@@ -33,18 +31,24 @@ class VideoPacket;
 
 namespace protocol {
 
+class AudioReader;
+class AudioStub;
 class Authenticator;
 class ClientControlDispatcher;
 class ClientEventDispatcher;
 class ClientStub;
+class ClipboardStub;
 class HostStub;
 class InputStub;
 class SessionConfig;
+class TransportFactory;
 class VideoReader;
 class VideoStub;
 
 class ConnectionToHost : public SignalStrategy::Listener,
-                         public SessionManager::Listener {
+                         public SessionManager::Listener,
+                         public Session::EventHandler,
+                         public base::NonThreadSafe {
  public:
   enum State {
     CONNECTING,
@@ -61,24 +65,28 @@ class ConnectionToHost : public SignalStrategy::Listener,
     virtual void OnConnectionState(State state, ErrorCode error) = 0;
   };
 
-  ConnectionToHost(base::MessageLoopProxy* message_loop,
-                   pp::Instance* pp_instance,
-                   bool allow_nat_traversal);
+  ConnectionToHost(bool allow_nat_traversal);
   virtual ~ConnectionToHost();
 
   virtual void Connect(scoped_refptr<XmppProxy> xmpp_proxy,
                        const std::string& local_jid,
                        const std::string& host_jid,
                        const std::string& host_public_key,
+                       scoped_ptr<TransportFactory> transport_factory,
                        scoped_ptr<Authenticator> authenticator,
                        HostEventCallback* event_callback,
                        ClientStub* client_stub,
-                       VideoStub* video_stub);
+                       ClipboardStub* clipboard_stub,
+                       VideoStub* video_stub,
+                       AudioStub* audio_stub);
 
   virtual void Disconnect(const base::Closure& shutdown_task);
 
   virtual const SessionConfig& config();
 
+  // Stubs for sending data to the host.
+  virtual ClipboardStub* clipboard_stub();
+  virtual HostStub* host_stub();
   virtual InputStub* input_stub();
 
   // SignalStrategy::StatusObserver interface.
@@ -91,23 +99,19 @@ class ConnectionToHost : public SignalStrategy::Listener,
       Session* session,
       SessionManager::IncomingSessionResponse* response) OVERRIDE;
 
-  // Called when the host accepts the client authentication.
-  void OnClientAuthenticated();
+  // Session::EventHandler interface.
+  virtual void OnSessionStateChange(Session::State state) OVERRIDE;
+  virtual void OnSessionRouteChange(const std::string& channel_name,
+                                    const TransportRoute& route) OVERRIDE;
 
   // Return the current state of ConnectionToHost.
   State state() const;
 
  private:
-  // Callback for |session_|.
-  void OnSessionStateChange(Session::State state);
-
   // Callbacks for channel initialization
   void OnChannelInitialized(bool successful);
 
   void NotifyIfChannelsReady();
-
-  // Callback for |video_reader_|.
-  void OnVideoPacket(VideoPacket* packet);
 
   void CloseOnError(ErrorCode error);
 
@@ -116,8 +120,6 @@ class ConnectionToHost : public SignalStrategy::Listener,
 
   void SetState(State state, ErrorCode error);
 
-  scoped_refptr<base::MessageLoopProxy> message_loop_;
-  pp::Instance* pp_instance_;
   bool allow_nat_traversal_;
 
   std::string host_jid_;
@@ -128,15 +130,19 @@ class ConnectionToHost : public SignalStrategy::Listener,
 
   // Stub for incoming messages.
   ClientStub* client_stub_;
+  ClipboardStub* clipboard_stub_;
   VideoStub* video_stub_;
+  AudioStub* audio_stub_;
 
   scoped_ptr<SignalStrategy> signal_strategy_;
   scoped_ptr<SessionManager> session_manager_;
   scoped_ptr<Session> session_;
 
   scoped_ptr<VideoReader> video_reader_;
+  scoped_ptr<AudioReader> audio_reader_;
   scoped_ptr<ClientControlDispatcher> control_dispatcher_;
   scoped_ptr<ClientEventDispatcher> event_dispatcher_;
+  ClipboardFilter clipboard_forwarder_;
   InputFilter event_forwarder_;
 
   // Internal state of the connection.

@@ -9,7 +9,6 @@
 #include "base/tracked_objects.h"
 #include "chrome/browser/extensions/app_notification_manager.h"
 #include "chrome/browser/extensions/extension_service.h"
-#include "chrome/browser/sync/api/fake_syncable_service.h"
 #include "chrome/browser/sync/glue/app_notification_data_type_controller.h"
 #include "chrome/browser/sync/glue/data_type_controller_mock.h"
 #include "chrome/browser/sync/glue/fake_generic_change_processor.h"
@@ -18,7 +17,8 @@
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/notification_service.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
+#include "sync/api/fake_syncable_service.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using content::BrowserThread;
@@ -29,15 +29,6 @@ using testing::Return;
 using testing::SetArgumentPointee;
 
 namespace browser_sync {
-namespace {
-
-ACTION(MakeSharedChangeProcessor) {
-  return new SharedChangeProcessor();
-}
-
-ACTION_P(ReturnAndRelease, change_processor) {
-  return change_processor->release();
-}
 
 class TestAppNotificationDataTypeController
     : public AppNotificationDataTypeController {
@@ -57,8 +48,20 @@ class TestAppNotificationDataTypeController
   }
 
  private:
+  virtual ~TestAppNotificationDataTypeController() {}
+
   scoped_refptr<AppNotificationManager> manager_;
 };
+
+namespace {
+
+ACTION(MakeSharedChangeProcessor) {
+  return new SharedChangeProcessor();
+}
+
+ACTION_P(ReturnAndRelease, change_processor) {
+  return change_processor->release();
+}
 
 class SyncAppNotificationDataTypeControllerTest
     : public testing::Test {
@@ -79,12 +82,11 @@ class SyncAppNotificationDataTypeControllerTest
         profile_sync_factory_.get(),
         profile_.get(),
         &service_);
-    SetStartExpectations();
   }
 
   virtual void TearDown() {
     // Must be done before we pump the loop.
-    syncable_service_.StopSyncing(syncable::APP_NOTIFICATIONS);
+    syncable_service_.StopSyncing(syncer::APP_NOTIFICATIONS);
     app_notif_dtc_ = NULL;
     PumpLoop();
   }
@@ -116,9 +118,10 @@ class SyncAppNotificationDataTypeControllerTest
   }
 
   void SetStartExpectations() {
+    EXPECT_CALL(model_load_callback_, Run(_, _));
     // Ownership gets passed to caller of CreateGenericChangeProcessor.
     EXPECT_CALL(*profile_sync_factory_,
-                GetSyncableServiceForType(syncable::APP_NOTIFICATIONS)).
+                GetSyncableServiceForType(syncer::APP_NOTIFICATIONS)).
         WillOnce(Return(syncable_service_.AsWeakPtr()));
     EXPECT_CALL(*profile_sync_factory_, CreateSharedChangeProcessor()).
         WillOnce(MakeSharedChangeProcessor());
@@ -134,6 +137,15 @@ class SyncAppNotificationDataTypeControllerTest
     EXPECT_CALL(service_, DeactivateDataType(_));
   }
 
+  void Start() {
+    app_notif_dtc_->LoadModels(
+        base::Bind(&ModelLoadCallbackMock::Run,
+                   base::Unretained(&model_load_callback_)));
+    app_notif_dtc_->StartAssociating(
+        base::Bind(&StartCallbackMock::Run,
+                   base::Unretained(&start_callback_)));
+  }
+
   void PumpLoop() {
     ui_loop_.RunAllPending();
   }
@@ -146,32 +158,36 @@ class SyncAppNotificationDataTypeControllerTest
   scoped_ptr<ProfileSyncComponentsFactoryMock> profile_sync_factory_;
   ProfileSyncServiceMock service_;
   scoped_ptr<FakeGenericChangeProcessor> change_processor_;
-  FakeSyncableService syncable_service_;
+  syncer::FakeSyncableService syncable_service_;
   StartCallbackMock start_callback_;
+  ModelLoadCallbackMock model_load_callback_;
 };
 
 // When notification manager is ready, sync association should happen
 // successfully.
 TEST_F(SyncAppNotificationDataTypeControllerTest, StartManagerReady) {
+  SetStartExpectations();
   InitAndLoadManager();
   SetActivateExpectations();
 
   EXPECT_EQ(DataTypeController::NOT_RUNNING, app_notif_dtc_->state());
   EXPECT_CALL(start_callback_, Run(DataTypeController::OK, _));
-  app_notif_dtc_->Start(
-      base::Bind(&StartCallbackMock::Run, base::Unretained(&start_callback_)));
+  Start();
   EXPECT_EQ(DataTypeController::RUNNING, app_notif_dtc_->state());
 }
 
 // When notification manager is not ready, sync assocation should wait
 // until loaded event is seen.
 TEST_F(SyncAppNotificationDataTypeControllerTest, StartManagerNotReady) {
-  SetActivateExpectations();
-  EXPECT_CALL(start_callback_, Run(DataTypeController::OK, _));
+  EXPECT_CALL(*profile_sync_factory_, CreateSharedChangeProcessor()).
+      WillOnce(MakeSharedChangeProcessor());
+  EXPECT_CALL(model_load_callback_, Run(_, _));
 
   EXPECT_EQ(DataTypeController::NOT_RUNNING, app_notif_dtc_->state());
-  app_notif_dtc_->Start(
-      base::Bind(&StartCallbackMock::Run, base::Unretained(&start_callback_)));
+  app_notif_dtc_->LoadModels(
+      base::Bind(&ModelLoadCallbackMock::Run,
+                 base::Unretained(&model_load_callback_)));
+
   EXPECT_EQ(DataTypeController::MODEL_STARTING, app_notif_dtc_->state());
 
   // Unblock file thread and wait for it to finish all tasks.
@@ -181,50 +197,50 @@ TEST_F(SyncAppNotificationDataTypeControllerTest, StartManagerNotReady) {
       content::Source<AppNotificationManager>(
           app_notif_dtc_->GetAppNotificationManager()),
           content::NotificationService::NoDetails());
-  EXPECT_EQ(DataTypeController::RUNNING, app_notif_dtc_->state());
-  EXPECT_TRUE(syncable_service_.syncing());
+  EXPECT_EQ(DataTypeController::MODEL_LOADED, app_notif_dtc_->state());
 }
 
 TEST_F(SyncAppNotificationDataTypeControllerTest, StartFirstRun) {
+  SetStartExpectations();
   InitAndLoadManager();
   SetActivateExpectations();
   EXPECT_CALL(start_callback_, Run(DataTypeController::OK_FIRST_RUN, _));
   change_processor_->set_sync_model_has_user_created_nodes(false);
 
-  app_notif_dtc_->Start(
-      base::Bind(&StartCallbackMock::Run, base::Unretained(&start_callback_)));
+  Start();
   EXPECT_EQ(DataTypeController::RUNNING, app_notif_dtc_->state());
   EXPECT_TRUE(syncable_service_.syncing());
 }
 
 TEST_F(SyncAppNotificationDataTypeControllerTest, StartAssociationFailed) {
+  SetStartExpectations();
   InitAndLoadManager();
   EXPECT_CALL(start_callback_,
               Run(DataTypeController::ASSOCIATION_FAILED, _));
   syncable_service_.set_merge_data_and_start_syncing_error(
-      SyncError(FROM_HERE, "Error", syncable::APP_NOTIFICATIONS));
+      syncer::SyncError(FROM_HERE, "Error", syncer::APP_NOTIFICATIONS));
 
-  app_notif_dtc_->Start(
-      base::Bind(&StartCallbackMock::Run, base::Unretained(&start_callback_)));
+  Start();
   EXPECT_EQ(DataTypeController::DISABLED, app_notif_dtc_->state());
   EXPECT_FALSE(syncable_service_.syncing());
 }
 
 TEST_F(SyncAppNotificationDataTypeControllerTest,
        StartAssociationTriggersUnrecoverableError) {
+  SetStartExpectations();
   InitAndLoadManager();
   EXPECT_CALL(start_callback_,
               Run(DataTypeController::UNRECOVERABLE_ERROR, _));
   // Set up association to fail with an unrecoverable error.
   change_processor_->set_sync_model_has_user_created_nodes_success(false);
 
-  app_notif_dtc_->Start(
-      base::Bind(&StartCallbackMock::Run, base::Unretained(&start_callback_)));
+  Start();
   EXPECT_EQ(DataTypeController::NOT_RUNNING, app_notif_dtc_->state());
   EXPECT_FALSE(syncable_service_.syncing());
 }
 
 TEST_F(SyncAppNotificationDataTypeControllerTest, Stop) {
+  SetStartExpectations();
   InitAndLoadManager();
   SetActivateExpectations();
   SetStopExpectations();
@@ -232,8 +248,7 @@ TEST_F(SyncAppNotificationDataTypeControllerTest, Stop) {
 
   EXPECT_EQ(DataTypeController::NOT_RUNNING, app_notif_dtc_->state());
   EXPECT_FALSE(syncable_service_.syncing());
-  app_notif_dtc_->Start(
-      base::Bind(&StartCallbackMock::Run, base::Unretained(&start_callback_)));
+  Start();
   EXPECT_EQ(DataTypeController::RUNNING, app_notif_dtc_->state());
   EXPECT_TRUE(syncable_service_.syncing());
   app_notif_dtc_->Stop();
@@ -241,21 +256,22 @@ TEST_F(SyncAppNotificationDataTypeControllerTest, Stop) {
   EXPECT_FALSE(syncable_service_.syncing());
 }
 
-TEST_F(SyncAppNotificationDataTypeControllerTest, OnUnrecoverableError) {
+TEST_F(SyncAppNotificationDataTypeControllerTest,
+       OnSingleDatatypeUnrecoverableError) {
+  SetStartExpectations();
   InitAndLoadManager();
   SetActivateExpectations();
-  EXPECT_CALL(service_, OnUnrecoverableError(_, _)).
+  EXPECT_CALL(service_, DisableBrokenDatatype(_, _, _)).
       WillOnce(InvokeWithoutArgs(app_notif_dtc_.get(),
                                  &AppNotificationDataTypeController::Stop));
   SetStopExpectations();
 
   EXPECT_CALL(start_callback_, Run(DataTypeController::OK, _));
-  app_notif_dtc_->Start(
-      base::Bind(&StartCallbackMock::Run, base::Unretained(&start_callback_)));
+  Start();
   EXPECT_EQ(DataTypeController::RUNNING, app_notif_dtc_->state());
   EXPECT_TRUE(syncable_service_.syncing());
   // This should cause app_notif_dtc_->Stop() to be called.
-  app_notif_dtc_->OnUnrecoverableError(FROM_HERE, "Test");
+  app_notif_dtc_->OnSingleDatatypeUnrecoverableError(FROM_HERE, "Test");
   PumpLoop();
   EXPECT_EQ(DataTypeController::NOT_RUNNING, app_notif_dtc_->state());
   EXPECT_FALSE(syncable_service_.syncing());

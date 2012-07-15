@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_COMMON_SANDBOX_MAC_H_
 #define CONTENT_COMMON_SANDBOX_MAC_H_
-#pragma once
 
 #include <string>
 
@@ -125,6 +124,10 @@ class CONTENT_EXPORT Sandbox {
                   std::string *final_sandbox_profile_str);
 
  private:
+  // Returns an (allow file-read-metadata) rule for |allowed_path| and all its
+  // parent directories.
+  static NSString* AllowMetadataForPath(const FilePath& allowed_path);
+
   // Escape |src_utf8| for use in a plain string variable in a sandbox
   // configuraton file.  On return |dst| is set to the quoted output.
   // Returns: true on success, false otherwise.
@@ -148,11 +151,11 @@ class CONTENT_EXPORT Sandbox {
   // Convert provided path into a "canonical" path matching what the Sandbox
   // expects i.e. one without symlinks.
   // This path is not necessarily unique e.g. in the face of hardlinks.
-  static void GetCanonicalSandboxPath(FilePath* path);
+  static FilePath GetCanonicalSandboxPath(const FilePath& path);
 
   FRIEND_TEST_ALL_PREFIXES(MacDirAccessSandboxTest, StringEscape);
   FRIEND_TEST_ALL_PREFIXES(MacDirAccessSandboxTest, RegexEscape);
-  FRIEND_TEST_ALL_PREFIXES(MacDirAccessSandboxTest, DISABLED_SandboxAccess);
+  FRIEND_TEST_ALL_PREFIXES(MacDirAccessSandboxTest, SandboxAccess);
 
   DISALLOW_IMPLICIT_CONSTRUCTORS(Sandbox);
 };

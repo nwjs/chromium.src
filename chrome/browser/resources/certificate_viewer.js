@@ -10,21 +10,54 @@ cr.define('cert_viewer', function() {
    * substituting in translated strings and requesting certificate details.
    */
   function initialize() {
-    $('export').onclick = exportCertificate;
     cr.ui.decorate('tabbox', cr.ui.TabBox);
 
-    initializeTree($('hierarchy'), showCertificateFields);
-    initializeTree($('cert-fields'), showCertificateFieldValue);
-
     i18nTemplate.process(document, templateData);
-    stripGtkAccessorKeys();
-    chrome.send('requestCertificateInfo');
-    // TODO(kochi): ESC key should be handled in the views window side.
-    document.addEventListener('keydown', function(e) {
-      if (e.keyCode == 27) {  // ESC
-        chrome.send('DialogClose');
-      }
+
+    var args = JSON.parse(chrome.dialogArguments);
+    getCertificateInfo(args);
+
+    /**
+     * Initialize the second tab's contents.
+     * This is a 'oneShot' function, meaning it will only be invoked once,
+     * no matter how many times it is called.  This is done for unit-testing
+     * purposes in case a test needs to initialize the tab before the timer
+     * fires.
+     */
+    var initializeDetailTab = oneShot(function() {
+      initializeTree($('hierarchy'), showCertificateFields);
+      initializeTree($('cert-fields'), showCertificateFieldValue);
+      createCertificateHierarchy(args.hierarchy);
     });
+
+    // The second tab's contents aren't visible on startup, so we can
+    // shorten startup by not populating those controls until after we
+    // have had a chance to draw the visible controls the first time.
+    // The value of 200ms is quick enough that the user couldn't open the
+    // tab in that time but long enough to allow the first tab to draw on
+    // even the slowest machine.
+    setTimeout(initializeDetailTab, 200);
+
+    $('tabbox').addEventListener('selectedChange', function f(e) {
+      $('tabbox').removeEventListener('selectedChange', f);
+      initializeDetailTab();
+    }, true);
+
+    stripGtkAccessorKeys();
+
+    $('export').onclick = exportCertificate;
+  }
+
+  /**
+   * Decorate a function so that it can only be invoked once.
+   */
+  function oneShot(fn) {
+    var fired = false;
+    return function() {
+       if (fired) return;
+       fired = true;
+       fn();
+    };
   }
 
   /**
@@ -42,7 +75,7 @@ cr.define('cert_viewer', function() {
   /**
    * The tab name strings in the languages file have accessor keys indicated
    * by a preceding & sign. Strip these out for now.
-   * @TODO(flackr) These accessor keys could be implemented with Javascript or
+   * TODO(flackr) These accessor keys could be implemented with Javascript or
    *     translated strings could be added / modified to remove the & sign.
    */
   function stripGtkAccessorKeys() {
@@ -50,7 +83,7 @@ cr.define('cert_viewer', function() {
     var nodes = Array.prototype.slice.call($('tabs').childNodes, 0);
     nodes.push($('export'));
     for (var i = 0; i < nodes.length; i++)
-      nodes[i].textContent = nodes[i].textContent.replace('&','');
+      nodes[i].textContent = nodes[i].textContent.replace('&', '');
   }
 
   /**
@@ -73,7 +106,6 @@ cr.define('cert_viewer', function() {
     for (var key in certInfo.general) {
       $(key).textContent = certInfo.general[key];
     }
-    createCertificateHierarchy(certInfo.hierarchy);
   }
 
   /**
@@ -148,7 +180,7 @@ cr.define('cert_viewer', function() {
     treeItem.add(treeItem.detail.children['root'] =
         constructTree(certFields[0]));
     revealTree(treeItem);
-    // Ensure the list is scrolled  to the top by selecting the first item.
+    // Ensure the list is scrolled to the top by selecting the first item.
     treeItem.children[0].selected = true;
   }
 
@@ -174,7 +206,6 @@ cr.define('cert_viewer', function() {
 
   return {
     initialize: initialize,
-    getCertificateInfo: getCertificateInfo,
     getCertificateFields: getCertificateFields,
   };
 });

@@ -14,7 +14,10 @@
 #include "chrome/browser/bookmarks/bookmark_model.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/search/search.h"
+#include "chrome/browser/ui/search/search_model.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_menu_delegate.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "content/public/browser/host_zoom_map.h"
@@ -27,10 +30,13 @@
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
+#include "third_party/skia/include/core/SkCanvas.h"
 #include "third_party/skia/include/core/SkPaint.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/canvas.h"
+#include "ui/gfx/image/canvas_image_source.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/views/background.h"
 #include "ui/views/controls/button/image_button.h"
@@ -65,9 +71,20 @@ const SkColor kPushedBorderColor = SkColorSetARGB(72, 0, 0, 0);
 const SkColor kHotBackgroundColor = SkColorSetARGB(204, 255, 255, 255);
 const SkColor kBackgroundColor = SkColorSetARGB(102, 255, 255, 255);
 const SkColor kPushedBackgroundColor = SkColorSetARGB(13, 0, 0, 0);
+const SkColor kTouchBackgroundColor = SkColorSetARGB(247, 255, 255, 255);
+const SkColor kHotTouchBackgroundColor = SkColorSetARGB(247, 242, 242, 242);
+const SkColor kPushedTouchBackgroundColor = SkColorSetARGB(247, 235, 235, 235);
+
+const SkColor kTouchButtonText = 0xff5a5a5a;
+const SkColor kTouchImageBrighten = 0x80ffffff;
 
 // Horizontal padding on the edges of the buttons.
 const int kHorizontalPadding = 6;
+// Horizontal padding for a touch enabled menu.
+const int kHorizontalTouchPadding = 15;
+
+// For touch menu items we want to have this height in pixels.
+const int kTouchItemHeight = 47;
 
 // Subclass of ImageButton whose preferred size includes the size of the border.
 class FullscreenButton : public ImageButton {
@@ -92,7 +109,10 @@ class FullscreenButton : public ImageButton {
 // insets, the actual painting is done in MenuButtonBackground.
 class MenuButtonBorder : public views::Border {
  public:
-  MenuButtonBorder() {}
+  MenuButtonBorder()
+    : horizontal_padding_(ui::GetDisplayLayout() == ui::LAYOUT_TOUCH ?
+                              kHorizontalTouchPadding :
+                              kHorizontalPadding) {}
 
   virtual void Paint(const View& view, gfx::Canvas* canvas) const {
     // Painting of border is done in MenuButtonBackground.
@@ -100,12 +120,15 @@ class MenuButtonBorder : public views::Border {
 
   virtual void GetInsets(gfx::Insets* insets) const {
     insets->Set(MenuConfig::instance().item_top_margin,
-                kHorizontalPadding,
+                horizontal_padding_,
                 MenuConfig::instance().item_bottom_margin,
-                kHorizontalPadding);
+                horizontal_padding_);
   }
 
  private:
+  // The horizontal padding dependent on the layout.
+  const int horizontal_padding_;
+
   DISALLOW_COPY_AND_ASSIGN(MenuButtonBorder);
 };
 
@@ -144,6 +167,24 @@ class MenuButtonBackground : public views::Background {
         CustomButton::BS_NORMAL : static_cast<CustomButton*>(view)->state();
     int w = view->width();
     int h = view->height();
+    // Windows is drawing its own separators and we cannot use the touch button
+    // for that.
+#if !defined(OS_WIN)
+    if (ui::GetDisplayLayout() == ui::LAYOUT_TOUCH) {
+      // Normal buttons get a border drawn on the right side and the rest gets
+      // filled in. The left button however does not get a line to combine
+      // buttons.
+      int border = 0;
+      if (type_ != RIGHT_BUTTON) {
+        border = 1;
+        canvas->FillRect(gfx::Rect(0, 0, border, h),
+                         border_color(CustomButton::BS_NORMAL));
+      }
+      canvas->FillRect(gfx::Rect(border, 0, w - border, h),
+                       touch_background_color(state));
+      return;
+    }
+#endif
     switch (TypeAdjustedForRTL()) {
       case LEFT_BUTTON:
         canvas->FillRect(gfx::Rect(1, 1, w, h - 2), background_color(state));
@@ -211,6 +252,14 @@ class MenuButtonBackground : public views::Background {
       case CustomButton::BS_HOT:    return kHotBackgroundColor;
       case CustomButton::BS_PUSHED: return kPushedBackgroundColor;
       default:                      return kBackgroundColor;
+    }
+  }
+
+  static SkColor touch_background_color(CustomButton::ButtonState state) {
+    switch (state) {
+      case CustomButton::BS_HOT:    return kHotTouchBackgroundColor;
+      case CustomButton::BS_PUSHED: return kPushedTouchBackgroundColor;
+      default:                      return kTouchBackgroundColor;
     }
   }
 
@@ -320,6 +369,63 @@ class WrenchMenuView : public ScheduleAllView, public views::ButtonListener {
   DISALLOW_COPY_AND_ASSIGN(WrenchMenuView);
 };
 
+class ButtonContainerMenuItemView : public MenuItemView {
+ public:
+  // Constructor for use with button containing menu items which have a
+  // different height then .
+  explicit ButtonContainerMenuItemView(MenuItemView* parent,
+                                       int id,
+                                       int height)
+      : MenuItemView(parent, id, MenuItemView::NORMAL),
+        height_(height) {
+  };
+
+  gfx::Size GetChildPreferredSize() OVERRIDE {
+    gfx::Size size = MenuItemView::GetChildPreferredSize();
+    // When there is a height override given, we need to deduct our spacing
+    // above and below to get to the correct height to return here for the
+    // child item.
+    int height = height_ - GetTopMargin() - GetBottomMargin();
+    if (height > size.height())
+      size.set_height(height);
+    return size;
+  }
+
+ private:
+  int height_;
+
+  DISALLOW_COPY_AND_ASSIGN(ButtonContainerMenuItemView);
+};
+
+class TintedImageSource: public gfx::CanvasImageSource {
+ public:
+  TintedImageSource(gfx::ImageSkia& image, SkColor tint_value)
+      : CanvasImageSource(image.size(), false),
+        image_(image),
+        tint_value_(tint_value) {
+  }
+
+  virtual ~TintedImageSource() {
+  }
+
+  void Draw(gfx::Canvas* canvas) OVERRIDE {
+    canvas->DrawImageInt(image_, 0, 0);
+    SkPaint paint;
+    // We leave the old alpha alone and add the new color multiplied
+    // with the source alpha to the existing alpha. Thus: We brighten
+    // the image up - but only the non transparent pixels.
+    paint.setXfermodeMode(SkXfermode::kDstATop_Mode);
+    paint.setColor(tint_value_);
+    canvas->sk_canvas()->drawPaint(paint);
+  }
+
+ private:
+  const gfx::ImageSkia image_;
+  const SkColor tint_value_;
+
+  DISALLOW_COPY_AND_ASSIGN(TintedImageSource);
+};
+
 }  // namespace
 
 // CutCopyPasteView ------------------------------------------------------------
@@ -337,13 +443,25 @@ class WrenchMenu::CutCopyPasteView : public WrenchMenuView {
         IDS_CUT, MenuButtonBackground::LEFT_BUTTON, cut_index, NULL);
 
     MenuButtonBackground* copy_background = NULL;
-    CreateAndConfigureButton(
+    TextButton* copy = CreateAndConfigureButton(
         IDS_COPY, MenuButtonBackground::CENTER_BUTTON, copy_index,
         &copy_background);
 
-    TextButton* paste = CreateAndConfigureButton(
-        IDS_PASTE, MenuButtonBackground::RIGHT_BUTTON, paste_index, NULL);
+    bool is_touch = ui::GetDisplayLayout() == ui::LAYOUT_TOUCH;
 
+    TextButton* paste = CreateAndConfigureButton(
+        IDS_PASTE,
+#if !defined(OS_WIN)
+        is_touch ? MenuButtonBackground::CENTER_BUTTON :
+#endif
+            MenuButtonBackground::RIGHT_BUTTON,
+        paste_index,
+        NULL);
+    if (is_touch) {
+      cut->SetEnabledColor(kTouchButtonText);
+      copy->SetEnabledColor(kTouchButtonText);
+      paste->SetEnabledColor(kTouchButtonText);
+    }
     copy_background->SetOtherButtons(cut, paste);
   }
 
@@ -381,6 +499,7 @@ class WrenchMenu::CutCopyPasteView : public WrenchMenuView {
 
 // Padding between the increment buttons and the reset button.
 static const int kZoomPadding = 6;
+static const int kTouchZoomPadding = 14;
 
 // ZoomView contains the various zoom controls: two buttons to increase/decrease
 // the zoom, a label showing the current zoom percent, and a button to go
@@ -407,13 +526,19 @@ class WrenchMenu::ZoomView : public WrenchMenuView,
     zoom_label_ = new Label(
         l10n_util::GetStringFUTF16Int(IDS_ZOOM_PERCENT, 100));
     zoom_label_->SetAutoColorReadabilityEnabled(false);
-    zoom_label_->SetEnabledColor(MenuConfig::instance().text_color);
     zoom_label_->SetHorizontalAlignment(Label::ALIGN_RIGHT);
-    MenuButtonBackground* center_bg =
-        new MenuButtonBackground(MenuButtonBackground::CENTER_BUTTON);
+
+    bool is_touch = ui::GetDisplayLayout() == ui::LAYOUT_TOUCH;
+
+    MenuButtonBackground* center_bg = new MenuButtonBackground(
+#if !defined(OS_WIN)
+        is_touch ? MenuButtonBackground::RIGHT_BUTTON :
+#endif
+            MenuButtonBackground::CENTER_BUTTON);
     zoom_label_->set_background(center_bg);
     zoom_label_->set_border(new MenuButtonBorder());
     zoom_label_->SetFont(MenuConfig::instance().font);
+
     AddChildView(zoom_label_);
     zoom_label_width_ = MaxWidthForZoomLabel();
 
@@ -424,17 +549,37 @@ class WrenchMenu::ZoomView : public WrenchMenuView,
     center_bg->SetOtherButtons(decrement_button_, increment_button_);
 
     fullscreen_button_ = new FullscreenButton(this);
-    fullscreen_button_->SetImage(
-        ImageButton::BS_NORMAL,
-        ResourceBundle::GetSharedInstance().GetBitmapNamed(
-            IDR_FULLSCREEN_MENU_BUTTON));
+    gfx::ImageSkia* full_screen_image =
+        ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
+            IDR_FULLSCREEN_MENU_BUTTON);
+    if (is_touch) {
+      // In case of touch, the menu needs to be brightened up a bit.
+      gfx::CanvasImageSource* source = new TintedImageSource(
+          *full_screen_image, kTouchImageBrighten);
+      // ImageSkia takes ownership of |source|.
+      tinted_fullscreen_image_ = gfx::ImageSkia(source, source->size());
+      fullscreen_button_->SetImage(ImageButton::BS_NORMAL,
+                                   &tinted_fullscreen_image_);
+    } else {
+      fullscreen_button_->SetImage(ImageButton::BS_NORMAL, full_screen_image);
+    }
+    if (is_touch) {
+      zoom_label_->SetEnabledColor(kTouchButtonText);
+      decrement_button_->SetEnabledColor(kTouchButtonText);
+      increment_button_->SetEnabledColor(kTouchButtonText);
+    } else {
+      zoom_label_->SetEnabledColor(MenuConfig::instance().text_color);
+    }
+
     fullscreen_button_->set_focusable(true);
     fullscreen_button_->set_request_focus_on_press(false);
     fullscreen_button_->set_tag(fullscreen_index);
     fullscreen_button_->SetImageAlignment(
         ImageButton::ALIGN_CENTER, ImageButton::ALIGN_MIDDLE);
+    int horizontal_padding = ui::GetDisplayLayout() == ui::LAYOUT_TOUCH ?
+                                 kHorizontalTouchPadding : kHorizontalPadding;
     fullscreen_button_->set_border(views::Border::CreateEmptyBorder(
-        0, kHorizontalPadding, 0, kHorizontalPadding));
+        0, horizontal_padding, 0, horizontal_padding));
     fullscreen_button_->set_background(
         new MenuButtonBackground(MenuButtonBackground::SINGLE_BUTTON));
     fullscreen_button_->SetAccessibleName(
@@ -454,11 +599,15 @@ class WrenchMenu::ZoomView : public WrenchMenuView,
     // The increment/decrement button are forced to the same width.
     int button_width = std::max(increment_button_->GetPreferredSize().width(),
                                 decrement_button_->GetPreferredSize().width());
-    int fullscreen_width = fullscreen_button_->GetPreferredSize().width();
+    int zoom_padding = ui::GetDisplayLayout() == ui::LAYOUT_TOUCH ?
+                           kTouchZoomPadding : kZoomPadding;
+    int fullscreen_width = fullscreen_button_->GetPreferredSize().width() +
+                           zoom_padding;
     // Returned height doesn't matter as MenuItemView forces everything to the
-    // height of the menuitemview.
+    // height of the menuitemview. Note that we have overridden the height when
+    // constructing the menu.
     return gfx::Size(button_width + zoom_label_width_ + button_width +
-                     kZoomPadding + fullscreen_width, 0);
+                     fullscreen_width, 0);
   }
 
   void Layout() {
@@ -479,9 +628,11 @@ class WrenchMenu::ZoomView : public WrenchMenuView,
     bounds.set_width(button_width);
     increment_button_->SetBoundsRect(bounds);
 
-    x += bounds.width() + kZoomPadding;
+    bool is_touch = ui::GetDisplayLayout() == ui::LAYOUT_TOUCH;
+    x += bounds.width() + (is_touch ? 0 : kZoomPadding);
     bounds.set_x(x);
-    bounds.set_width(fullscreen_button_->GetPreferredSize().width());
+    bounds.set_width(fullscreen_button_->GetPreferredSize().width() +
+                     (is_touch ? kTouchZoomPadding : 0));
     fullscreen_button_->SetBoundsRect(bounds);
   }
 
@@ -505,14 +656,25 @@ class WrenchMenu::ZoomView : public WrenchMenuView,
 
  private:
   void UpdateZoomControls() {
-    bool enable_increment = false;
-    bool enable_decrement = false;
-    WebContents* selected_tab = menu_->browser_->GetSelectedWebContents();
     int zoom = 100;
-    if (selected_tab)
-      zoom = selected_tab->GetZoomPercent(&enable_increment, &enable_decrement);
-    increment_button_->SetEnabled(enable_increment);
-    decrement_button_->SetEnabled(enable_decrement);
+    // Don't override initial states of increment and decrement buttons when
+    // instant extended API is enabled and mode is NTP; they are properly
+    // updated in ToolbarView::ModeChanged() via CommandUpdater, and queried
+    // via WrenchMenuModel::IsCommandIdEnabled() when the buttons were created
+    // in CreateButtonWithAccName().
+    if (!(chrome::search::IsInstantExtendedAPIEnabled(
+              menu_->browser_->profile()) &&
+          menu_->browser_->search_model()->mode().is_ntp())) {
+      bool enable_increment = false;
+      bool enable_decrement = false;
+      WebContents* selected_tab = chrome::GetActiveWebContents(menu_->browser_);
+      if (selected_tab) {
+        zoom = selected_tab->GetZoomPercent(&enable_increment,
+                                            &enable_decrement);
+      }
+      increment_button_->SetEnabled(enable_increment);
+      decrement_button_->SetEnabled(enable_decrement);
+    }
     zoom_label_->SetText(
         l10n_util::GetStringFUTF16Int(IDS_ZOOM_PERCENT, zoom));
 
@@ -528,7 +690,7 @@ class WrenchMenu::ZoomView : public WrenchMenuView,
 
     int max_w = 0;
 
-    WebContents* selected_tab = menu_->browser_->GetSelectedWebContents();
+    WebContents* selected_tab = chrome::GetActiveWebContents(menu_->browser_);
     if (selected_tab) {
       int min_percent = selected_tab->GetMinimumZoomPercent();
       int max_percent = selected_tab->GetMaximumZoomPercent();
@@ -562,6 +724,9 @@ class WrenchMenu::ZoomView : public WrenchMenuView,
   TextButton* decrement_button_;
 
   ImageButton* fullscreen_button_;
+
+  // The tinted bitmap of the fullscreen button.
+  gfx::ImageSkia tinted_fullscreen_image_;
 
   // Width given to |zoom_label_|. This is the width at 100%.
   int zoom_label_width_;
@@ -627,7 +792,7 @@ string16 WrenchMenu::GetTooltipText(int id,
 }
 
 bool WrenchMenu::IsTriggerableEvent(views::MenuItemView* menu,
-                                    const views::MouseEvent& e) {
+                                    const views::Event& e) {
   return is_bookmark_command(menu->GetCommand()) ?
       bookmark_menu_delegate_->IsTriggerableEvent(menu, e) :
       MenuDelegate::IsTriggerableEvent(menu, e);
@@ -724,11 +889,9 @@ bool WrenchMenu::IsCommandEnabled(int id) const {
 
   const Entry& entry = id_to_entry_.find(id)->second;
   int command_id = entry.first->GetCommandIdAt(entry.second);
-  // The items representing the cut (cut/copy/paste) and zoom menu
-  // (increment/decrement/reset) are always enabled. The child views of these
-  // items enabled state updates appropriately.
-  return command_id == IDC_CUT || command_id == IDC_ZOOM_MINUS ||
-      entry.first->IsEnabledAt(entry.second);
+  // The items representing the cut menu (cut/copy/paste) are always enabled.
+  // The child views of these items enabled state updates appropriately.
+  return command_id == IDC_CUT || entry.first->IsEnabledAt(entry.second);
 }
 
 void WrenchMenu::ExecuteCommand(int id, int mouse_event_flags) {
@@ -819,12 +982,22 @@ void WrenchMenu::Observe(int type,
 void WrenchMenu::PopulateMenu(MenuItemView* parent,
                               MenuModel* model,
                               int* next_id) {
+  bool is_touch = ui::GetDisplayLayout() == ui::LAYOUT_TOUCH;
+
   int index_offset = model->GetFirstItemIndex(NULL);
   for (int i = 0, max = model->GetItemCount(); i < max; ++i) {
     int index = i + index_offset;
 
-    MenuItemView* item =
-        AppendMenuItem(parent, model, index, model->GetTypeAt(index), next_id);
+    // The button container menu items have a special height which we have to
+    // use instead of the normal height.
+    int height = 0;
+    if (is_touch &&
+        (model->GetCommandIdAt(index) == IDC_CUT ||
+         model->GetCommandIdAt(index) == IDC_ZOOM_MINUS))
+      height = kTouchItemHeight;
+
+    MenuItemView* item = AppendMenuItem(
+        parent, model, index, model->GetTypeAt(index), next_id, height);
 
     if (model->GetTypeAt(index) == MenuModel::TYPE_SUBMENU)
       PopulateMenu(item, model->GetSubmenuModelAt(index), next_id);
@@ -837,7 +1010,8 @@ void WrenchMenu::PopulateMenu(MenuItemView* parent,
         DCHECK_EQ(IDC_PASTE, model->GetCommandIdAt(index + 2));
         item->SetTitle(l10n_util::GetStringUTF16(IDS_EDIT2));
         item->AddChildView(
-            new CutCopyPasteView(this, model, index, index + 1, index + 2));
+            new CutCopyPasteView(
+                this, model, index, index + 1, index + 2));
         i += 2;
         break;
 
@@ -871,19 +1045,32 @@ MenuItemView* WrenchMenu::AppendMenuItem(MenuItemView* parent,
                                          MenuModel* model,
                                          int index,
                                          MenuModel::ItemType menu_type,
-                                         int* next_id) {
+                                         int* next_id,
+                                         int height) {
   int id = (*next_id)++;
 
   id_to_entry_[id].first = model;
   id_to_entry_[id].second = index;
 
-  MenuItemView* menu_item = parent->AppendMenuItemFromModel(model, index, id);
+  MenuItemView* menu_item = NULL;
+  if (height > 0) {
+    // For menu items with a special menu height we use our special class to be
+    // able to modify the item height.
+    menu_item = new ButtonContainerMenuItemView(parent, id, height);
+    parent->GetSubmenu()->AddChildView(menu_item);
+  } else {
+    // For all other cases we use the more generic way to add menu items.
+    menu_item = parent->AppendMenuItemFromModel(model, index, id);
+  }
 
   if (menu_item) {
+    // Flush all buttons to the right side of the menu for touch menus.
+    menu_item->set_use_right_margin(
+        ui::GetDisplayLayout() != ui::LAYOUT_TOUCH);
     menu_item->SetVisible(model->IsVisibleAt(index));
 
     if (menu_type == MenuModel::TYPE_COMMAND && model->HasIcons()) {
-      SkBitmap icon;
+      gfx::ImageSkia icon;
       if (model->GetIconAt(index, &icon))
         menu_item->SetIcon(icon);
     }
@@ -910,10 +1097,10 @@ void WrenchMenu::CreateBookmarkMenu() {
 
   // TODO(oshima): Replace with views only API.
   views::Widget* parent = views::Widget::GetWidgetForNativeWindow(
-      browser_->window()->GetNativeHandle());
+      browser_->window()->GetNativeWindow());
   bookmark_menu_delegate_.reset(
-      new BookmarkMenuDelegate(browser_->profile(),
-                               NULL,
+      new BookmarkMenuDelegate(browser_,
+                               browser_,
                                parent,
                                first_bookmark_command_id_));
   bookmark_menu_delegate_->Init(

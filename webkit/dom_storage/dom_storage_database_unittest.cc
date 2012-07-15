@@ -91,7 +91,7 @@ void CreateMapWithValues(ValuesMap* values) {
       NullableString16(ASCIIToUTF16("123"), false),
       NullableString16(ASCIIToUTF16("Google"), false),
       NullableString16(ASCIIToUTF16("18-01-2012"), false),
-      NullableString16(ASCIIToUTF16(""), false)
+      NullableString16(string16(), false)
   };
   for (unsigned i = 0; i < sizeof(kCannedKeys) / sizeof(kCannedKeys[0]); i++)
     (*values)[kCannedKeys[i]] = kCannedValues[i];
@@ -115,7 +115,7 @@ TEST(DomStorageDatabaseTest, CloseEmptyDatabaseDeletesFile) {
   CreateMapWithValues(&storage);
 
   // First test the case that explicitly clearing the database will
-  // trigger it's deletion from disk.
+  // trigger its deletion from disk.
   {
     DomStorageDatabase db(file_name);
     EXPECT_EQ(file_name, db.file_path());

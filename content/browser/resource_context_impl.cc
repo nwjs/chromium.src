@@ -8,11 +8,14 @@
 #include "content/browser/appcache/chrome_appcache_service.h"
 #include "content/browser/fileapi/browser_file_system_helper.h"
 #include "content/browser/fileapi/chrome_blob_storage_context.h"
+#include "content/browser/histogram_internals_request_job.h"
 #include "content/browser/host_zoom_map_impl.h"
 #include "content/browser/in_process_webkit/indexed_db_context_impl.h"
 #include "content/browser/net/view_blob_internals_job_factory.h"
 #include "content/browser/net/view_http_cache_job_factory.h"
+#include "content/browser/renderer_host/resource_dispatcher_host_impl.h"
 #include "content/browser/renderer_host/resource_request_info_impl.h"
+#include "content/browser/tcmalloc_internals_request_job.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/common/url_constants.h"
@@ -108,6 +111,21 @@ class DeveloperProtocolHandler
       return ViewBlobInternalsJobFactory::CreateJobForRequest(
           request, blob_storage_controller_);
     }
+
+#if defined(USE_TCMALLOC)
+    // Next check for chrome://tcmalloc/, which uses its own job type.
+    if (request->url().SchemeIs(chrome::kChromeUIScheme) &&
+        request->url().host() == chrome::kChromeUITcmallocHost) {
+      return new TcmallocInternalsRequestJob(request);
+    }
+#endif
+
+    // Next check for chrome://histograms/, which uses its own job type.
+    if (request->url().SchemeIs(chrome::kChromeUIScheme) &&
+        request->url().host() == chrome::kChromeUIHistogramHost) {
+      return new HistogramInternalsRequestJob(request);
+    }
+
     return NULL;
   }
 
@@ -120,6 +138,10 @@ class DeveloperProtocolHandler
   virtual net::URLRequestJob* MaybeInterceptResponse(
       net::URLRequest* request) const OVERRIDE {
     return NULL;
+  }
+
+  virtual bool WillHandleProtocol(const std::string& protocol) const {
+    return protocol == chrome::kChromeUIScheme;
   }
 
  private:
@@ -147,8 +169,7 @@ void InitializeRequestContext(
   set_protocol = job_factory->SetProtocolHandler(
       chrome::kFileSystemScheme,
       CreateFileSystemProtocolHandler(
-          GetFileSystemContextForResourceContext(resource_context),
-          BrowserThread::GetMessageLoopProxyForThread(BrowserThread::FILE)));
+          GetFileSystemContextForResourceContext(resource_context)));
   DCHECK(set_protocol);
 
   job_factory->AddInterceptor(new DeveloperProtocolHandler(
@@ -161,41 +182,61 @@ void InitializeRequestContext(
 }  // namespace
 
 AppCacheService* ResourceContext::GetAppCacheService(ResourceContext* context) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   return UserDataAdapter<ChromeAppCacheService>::Get(
       context, kAppCacheServicKeyName);
 }
 
+ResourceContext::ResourceContext() {
+  if (ResourceDispatcherHostImpl::Get())
+    ResourceDispatcherHostImpl::Get()->AddResourceContext(this);
+}
+
+ResourceContext::~ResourceContext() {
+  ResourceDispatcherHostImpl* rdhi = ResourceDispatcherHostImpl::Get();
+  if (rdhi) {
+    rdhi->CancelRequestsForContext(this);
+    rdhi->RemoveResourceContext(this);
+  }
+}
+
 BlobStorageController* GetBlobStorageControllerForResourceContext(
     ResourceContext* resource_context) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   return GetChromeBlobStorageContextForResourceContext(resource_context)->
       controller();
 }
 
 DatabaseTracker* GetDatabaseTrackerForResourceContext(
     ResourceContext* resource_context) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   return UserDataAdapter<DatabaseTracker>::Get(
       resource_context, kDatabaseTrackerKeyName);
 }
 
 FileSystemContext* GetFileSystemContextForResourceContext(
     ResourceContext* resource_context) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   return UserDataAdapter<FileSystemContext>::Get(
       resource_context, kFileSystemContextKeyName);
 }
 
 IndexedDBContextImpl* GetIndexedDBContextForResourceContext(
     ResourceContext* resource_context) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   return UserDataAdapter<IndexedDBContextImpl>::Get(
       resource_context, kIndexedDBContextKeyName);
 }
 
 ChromeBlobStorageContext* GetChromeBlobStorageContextForResourceContext(
     ResourceContext* resource_context) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   return UserDataAdapter<ChromeBlobStorageContext>::Get(
       resource_context, kBlobStorageContextKeyName);
 }
 
 HostZoomMap* GetHostZoomMapForResourceContext(ResourceContext* context) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   return static_cast<NonOwningZoomData*>(
       context->GetUserData(kHostZoomMapKeyName))->host_zoom_map();
 }

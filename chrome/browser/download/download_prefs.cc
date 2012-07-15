@@ -31,6 +31,7 @@
 #include "chrome/browser/chromeos/gdata/gdata_util.h"
 #endif
 
+using content::BrowserContext;
 using content::BrowserThread;
 using content::DownloadManager;
 
@@ -110,17 +111,15 @@ void DownloadPrefs::RegisterUserPrefs(PrefService* prefs) {
 DownloadPrefs* DownloadPrefs::FromDownloadManager(
     DownloadManager* download_manager) {
   ChromeDownloadManagerDelegate* delegate =
-      static_cast<ChromeDownloadManagerDelegate*>(download_manager->delegate());
+      static_cast<ChromeDownloadManagerDelegate*>(
+          download_manager->GetDelegate());
   return delegate->download_prefs();
 }
 
 // static
 DownloadPrefs* DownloadPrefs::FromBrowserContext(
-    content::BrowserContext* browser_context) {
-  Profile* profile = static_cast<Profile*>(browser_context);
-  DownloadService* download_service =
-      DownloadServiceFactory::GetForProfile(profile);
-  return FromDownloadManager(download_service->GetDownloadManager());
+    content::BrowserContext* context) {
+  return FromDownloadManager(BrowserContext::GetDownloadManager(context));
 }
 
 bool DownloadPrefs::PromptForDownload() const {

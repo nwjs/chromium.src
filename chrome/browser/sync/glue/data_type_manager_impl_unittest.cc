@@ -8,25 +8,27 @@
 #include "base/message_loop.h"
 #include "chrome/browser/sync/glue/backend_data_type_configurer.h"
 #include "chrome/browser/sync/glue/data_type_controller.h"
-#include "chrome/browser/sync/internal_api/configure_reason.h"
+#include "chrome/browser/sync/glue/fake_data_type_controller.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_service.h"
-#include "content/test/notification_observer_mock.h"
-#include "content/test/test_browser_thread.h"
-#include "sync/syncable/model_type.h"
+#include "content/public/test/mock_notification_observer.h"
+#include "content/public/test/test_browser_thread.h"
+#include "sync/internal_api/public/base/model_type.h"
+#include "sync/internal_api/public/configure_reason.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace browser_sync {
 
-using syncable::ModelType;
-using syncable::ModelTypeSet;
-using syncable::ModelTypeToString;
-using syncable::BOOKMARKS;
-using syncable::PASSWORDS;
-using syncable::PREFERENCES;
+using syncer::ModelType;
+using syncer::ModelTypeSet;
+using syncer::ModelTypeToString;
+using syncer::BOOKMARKS;
+using syncer::APPS;
+using syncer::PASSWORDS;
+using syncer::PREFERENCES;
 using testing::_;
 using testing::Mock;
 using testing::ResultOf;
@@ -39,12 +41,12 @@ class FakeBackendDataTypeConfigurer : public BackendDataTypeConfigurer {
   virtual ~FakeBackendDataTypeConfigurer() {}
 
   virtual void ConfigureDataTypes(
-      sync_api::ConfigureReason reason,
+      syncer::ConfigureReason reason,
       ModelTypeSet types_to_add,
       ModelTypeSet types_to_remove,
       NigoriState nigori_state,
-      base::Callback<void(ModelTypeSet)> ready_task,
-      base::Callback<void()> retry_callback) OVERRIDE {
+      const base::Callback<void(ModelTypeSet)>& ready_task,
+      const base::Callback<void()>& retry_callback) OVERRIDE {
     last_nigori_state_ = nigori_state;
     last_ready_task_ = ready_task;
   }
@@ -62,124 +64,6 @@ class FakeBackendDataTypeConfigurer : public BackendDataTypeConfigurer {
   NigoriState last_nigori_state_;
 };
 
-// Fake DataTypeController implementation that simulates the state
-// machine of a typical asynchronous data type.
-//
-// TODO(akalin): Consider using subclasses of
-// {Frontend,NonFrontend,NewNonFrontend}DataTypeController instead, so
-// that we don't have to update this class if we change the expected
-// behavior of controllers. (It would be easier of the above classes
-// used delegation instead of subclassing for per-data-type
-// functionality.)
-class FakeDataTypeController : public DataTypeController {
- public:
-  explicit FakeDataTypeController(ModelType type)
-      : state_(NOT_RUNNING), type_(type) {}
-
-  virtual ~FakeDataTypeController() {}
-
-  // NOT_RUNNING -> MODEL_STARTING
-  virtual void Start(const StartCallback& start_callback) {
-    // A real data type would call |start_callback| with a BUSY status
-    // if Start() is called when not NOT_RUNNING, but we don't expect
-    // that to happen in these tests.
-    if (state_ != NOT_RUNNING) {
-      ADD_FAILURE();
-      return;
-    }
-    // We shouldn't have any pending callbacks.
-    if (!last_start_callback_.is_null()) {
-      ADD_FAILURE();
-      return;
-    }
-    last_start_callback_ = start_callback;
-    state_ = MODEL_STARTING;
-  }
-
-  // MODEL_STARTING -> ASSOCIATING
-  void StartModel() {
-    if (state_ != MODEL_STARTING) {
-      ADD_FAILURE();
-      return;
-    }
-    state_ = ASSOCIATING;
-  }
-
-  // MODEL_STARTING | ASSOCIATING -> RUNNING | DISABLED | NOT_RUNNING
-  // (depending on |result|)
-  void FinishStart(StartResult result) {
-    // We should have a callback from Start().
-    if (last_start_callback_.is_null()) {
-      ADD_FAILURE();
-      return;
-    }
-
-    // Set |state_| first below since the callback may call state().
-    SyncError error;
-    if (result <= OK_FIRST_RUN) {
-      state_ = RUNNING;
-    } else if (result == ASSOCIATION_FAILED) {
-      state_ = DISABLED;
-      error.Reset(FROM_HERE, "Association failed", type_);
-    } else {
-      state_ = NOT_RUNNING;
-      error.Reset(FROM_HERE, "Fake error", type_);
-    }
-    last_start_callback_.Run(result, error);
-    last_start_callback_.Reset();
-  }
-
-  // * -> NOT_RUNNING
-  virtual void Stop() {
-    state_ = NOT_RUNNING;
-    // The DTM still expects |last_start_callback_| to be called back.
-    if (!last_start_callback_.is_null()) {
-      SyncError error(FROM_HERE, "Fake error", type_);
-      last_start_callback_.Run(ABORTED, error);
-    }
-  }
-
-  virtual ModelType type() const {
-    return type_;
-  }
-
-  virtual std::string name() const {
-    return ModelTypeToString(type_);
-  }
-
-  // This isn't called by the DTM.
-  virtual browser_sync::ModelSafeGroup model_safe_group() const {
-    ADD_FAILURE();
-    return browser_sync::GROUP_PASSIVE;
-  }
-
-  virtual State state() const {
-    return state_;
-  }
-
-  virtual void OnUnrecoverableError(
-      const tracked_objects::Location& from_here,
-      const std::string& message) {
-    ADD_FAILURE() << message;
-  }
-
-  virtual void OnSingleDatatypeUnrecoverableError(
-      const tracked_objects::Location& from_here,
-      const std::string& message) {
-    ADD_FAILURE() << message;
- }
-
-  virtual void RecordUnrecoverableError(
-      const tracked_objects::Location& from_here,
-      const std::string& message) {
-    ADD_FAILURE() << message;
- }
-
- private:
-  State state_;
-  ModelType type_;
-  StartCallback last_start_callback_;
-};
 
 // Used by SetConfigureDoneExpectation.
 DataTypeManager::ConfigureStatus GetStatus(
@@ -234,8 +118,8 @@ class SyncDataTypeManagerImplTest
   // Configure the given DTM with the given desired types.
   void Configure(DataTypeManagerImpl* dtm,
                  const DataTypeManager::TypeSet& desired_types) {
-    const sync_api::ConfigureReason kReason =
-        sync_api::CONFIGURE_REASON_RECONFIGURATION;
+    const syncer::ConfigureReason kReason =
+        syncer::CONFIGURE_REASON_RECONFIGURATION;
     if (GetNigoriState() == BackendDataTypeConfigurer::WITH_NIGORI) {
       dtm->Configure(desired_types, kReason);
     } else {
@@ -276,7 +160,7 @@ class SyncDataTypeManagerImplTest
   content::TestBrowserThread ui_thread_;
   DataTypeController::TypeMap controllers_;
   FakeBackendDataTypeConfigurer configurer_;
-  content::NotificationObserverMock observer_;
+  content::MockNotificationObserver observer_;
   content::NotificationRegistrar registrar_;
 };
 
@@ -318,6 +202,52 @@ TEST_P(SyncDataTypeManagerImplTest, ConfigureOne) {
   dtm.Stop();
   EXPECT_EQ(DataTypeManager::STOPPED, dtm.state());
 }
+
+// Set up a DTM with 2 controllers. configure it. One of them finishes loading
+// after the  timeout. Make sure eventually all are configured.
+TEST_P(SyncDataTypeManagerImplTest, ConfigureSlowLoadingType) {
+  AddController(BOOKMARKS);
+  AddController(APPS);
+
+  GetController(BOOKMARKS)->SetDelayModelLoad();
+
+  DataTypeManagerImpl dtm(&configurer_, &controllers_);
+  SetConfigureStartExpectation();
+  SetConfigureDoneExpectation(DataTypeManager::PARTIAL_SUCCESS);
+
+  syncer::ModelTypeSet types;
+  types.Put(BOOKMARKS);
+  types.Put(APPS);
+
+  Configure(&dtm, types);
+  EXPECT_EQ(DataTypeManager::DOWNLOAD_PENDING, dtm.state());
+
+  FinishDownload(dtm, ModelTypeSet());
+  EXPECT_EQ(DataTypeManager::CONFIGURING, dtm.state());
+
+  base::OneShotTimer<ModelAssociationManager>* timer =
+    dtm.GetModelAssociationManagerForTesting()->GetTimerForTesting();
+
+  base::Closure task = timer->user_task();
+  timer->Stop();
+  task.Run();
+
+  SetConfigureDoneExpectation(DataTypeManager::OK);
+  GetController(APPS)->FinishStart(DataTypeController::OK);
+
+  SetConfigureStartExpectation();
+  GetController(BOOKMARKS)->SimulateModelLoadFinishing();
+
+  FinishDownload(dtm, ModelTypeSet());
+  GetController(BOOKMARKS)->SimulateModelLoadFinishing();
+
+  GetController(BOOKMARKS)->FinishStart(DataTypeController::OK);
+  EXPECT_EQ(DataTypeManager::CONFIGURED, dtm.state());
+
+  dtm.Stop();
+  EXPECT_EQ(DataTypeManager::STOPPED, dtm.state());
+}
+
 
 // Set up a DTM with a single controller, configure it, but stop it
 // before finishing the download.  It should still be safe to run the
@@ -381,9 +311,6 @@ TEST_P(SyncDataTypeManagerImplTest, ConfigureOneStopWhileAssociating) {
     EXPECT_EQ(DataTypeManager::DOWNLOAD_PENDING, dtm.state());
 
     FinishDownload(dtm, ModelTypeSet());
-    EXPECT_EQ(DataTypeManager::CONFIGURING, dtm.state());
-
-    GetController(BOOKMARKS)->StartModel();
     EXPECT_EQ(DataTypeManager::CONFIGURING, dtm.state());
 
     dtm.Stop();

@@ -4,17 +4,19 @@
 
 #ifndef NET_BASE_HOST_RESOLVER_H_
 #define NET_BASE_HOST_RESOLVER_H_
-#pragma once
 
 #include <string>
 
-#include "base/memory/scoped_ptr.h"
 #include "net/base/address_family.h"
 #include "net/base/completion_callback.h"
 #include "net/base/host_port_pair.h"
 #include "net/base/net_export.h"
 #include "net/base/net_util.h"
 #include "net/base/request_priority.h"
+
+namespace base {
+class Value;
+}
 
 namespace net {
 
@@ -161,6 +163,11 @@ class NET_EXPORT HostResolver {
   // Used primarily to clear the cache and for getting debug information.
   virtual HostCache* GetHostCache();
 
+  // Returns the current DNS configuration |this| is using, as a Value, or NULL
+  // if it's configured to always use the system host resolver.  Caller takes
+  // ownership of the returned Value.
+  virtual base::Value* GetDnsConfigAsValue() const;
+
  protected:
   HostResolver();
 
@@ -177,6 +184,10 @@ class NET_EXPORT HostResolver {
 // |max_retry_attempts| is the maximum number of times we will retry for host
 // resolution. Pass HostResolver::kDefaultRetryAttempts to choose a default
 // value.
+// The created HostResolver uses an instance of DnsConfigService to retrieve
+// system DNS configuration.
+// This resolver should not be used in test context. Instead, use
+// MockHostResolver from net/base/mock_host_resolver.h.
 NET_EXPORT HostResolver* CreateSystemHostResolver(
     size_t max_concurrent_resolves,
     size_t max_retry_attempts,

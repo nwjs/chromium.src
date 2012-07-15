@@ -4,7 +4,6 @@
 
 #ifndef NET_HTTP_HTTP_NETWORK_SESSION_H_
 #define NET_HTTP_HTTP_NETWORK_SESSION_H_
-#pragma once
 
 #include <set>
 #include "base/memory/ref_counted.h"
@@ -16,7 +15,6 @@
 #include "net/http/http_auth_cache.h"
 #include "net/http/http_stream_factory.h"
 #include "net/spdy/spdy_session_pool.h"
-#include "net/spdy/spdy_settings_storage.h"
 
 namespace base {
 class Value;
@@ -40,7 +38,6 @@ class ProxyService;
 class SOCKSClientSocketPool;
 class SSLClientSocketPool;
 class SSLConfigService;
-class SSLHostInfoFactory;
 class TransportClientSocketPool;
 class TransportSecurityState;
 
@@ -57,7 +54,6 @@ class NET_EXPORT HttpNetworkSession
           server_bound_cert_service(NULL),
           transport_security_state(NULL),
           proxy_service(NULL),
-          ssl_host_info_factory(NULL),
           ssl_config_service(NULL),
           http_auth_handler_factory(NULL),
           network_delegate(NULL),
@@ -71,7 +67,6 @@ class NET_EXPORT HttpNetworkSession
     ServerBoundCertService* server_bound_cert_service;
     TransportSecurityState* transport_security_state;
     ProxyService* proxy_service;
-    SSLHostInfoFactory* ssl_host_info_factory;
     std::string ssl_session_cache_shard;
     SSLConfigService* ssl_config_service;
     HttpAuthHandlerFactory* http_auth_handler_factory;
@@ -79,6 +74,7 @@ class NET_EXPORT HttpNetworkSession
     HttpServerProperties* http_server_properties;
     NetLog* net_log;
     bool force_http_pipelining;
+    std::string trusted_spdy_proxy;
   };
 
   enum SocketPoolType {

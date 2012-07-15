@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CONTENT_COMMON_WEBMESSAGEPORTCHANNEL_IMPL_H_
 #define CONTENT_COMMON_WEBMESSAGEPORTCHANNEL_IMPL_H_
-#pragma once
 
 #include <queue>
 #include <vector>
@@ -13,13 +12,13 @@
 #include "base/memory/ref_counted.h"
 #include "base/string16.h"
 #include "base/synchronization/lock.h"
-#include "ipc/ipc_channel.h"
+#include "ipc/ipc_listener.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebMessagePortChannel.h"
 
 // This is thread safe.
 class WebMessagePortChannelImpl
     : public WebKit::WebMessagePortChannel,
-      public IPC::Channel::Listener,
+      public IPC::Listener,
       public base::RefCountedThreadSafe<WebMessagePortChannelImpl> {
  public:
   WebMessagePortChannelImpl();
@@ -47,7 +46,7 @@ class WebMessagePortChannelImpl
   void Entangle(scoped_refptr<WebMessagePortChannelImpl> channel);
   void Send(IPC::Message* message);
 
-  // IPC::Channel::Listener implementation.
+  // IPC::Listener implementation.
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
 
   void OnMessage(const string16& message,

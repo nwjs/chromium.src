@@ -5,8 +5,8 @@
 #include "chrome/browser/net/connection_tester.h"
 
 #include "chrome/test/base/testing_pref_service.h"
-#include "content/test/test_browser_thread.h"
-#include "net/base/cert_verifier.h"
+#include "content/public/test/test_browser_thread.h"
+#include "net/base/mock_cert_verifier.h"
 #include "net/base/mock_host_resolver.h"
 #include "net/base/ssl_config_service_defaults.h"
 #include "net/cookies/cookie_monster.h"
@@ -113,13 +113,13 @@ class ConnectionTesterTest : public PlatformTest {
   scoped_refptr<net::SSLConfigService> ssl_config_service_;
   scoped_ptr<net::HttpTransactionFactory> http_transaction_factory_;
   net::HttpAuthHandlerRegistryFactory http_auth_handler_factory_;
-  scoped_refptr<net::URLRequestContext> proxy_script_fetcher_context_;
   net::HttpServerPropertiesImpl http_server_properties_impl_;
+  scoped_ptr<net::URLRequestContext> proxy_script_fetcher_context_;
 
  private:
   void InitializeRequestContext() {
     proxy_script_fetcher_context_->set_host_resolver(&host_resolver_);
-    cert_verifier_.reset(net::CertVerifier::CreateDefault());
+    cert_verifier_.reset(new net::MockCertVerifier);
     proxy_script_fetcher_context_->set_cert_verifier(cert_verifier_.get());
     proxy_script_fetcher_context_->set_http_auth_handler_factory(
         &http_auth_handler_factory_);
@@ -148,7 +148,7 @@ class ConnectionTesterTest : public PlatformTest {
 TEST_F(ConnectionTesterTest, RunAllTests) {
   ASSERT_TRUE(test_server_.Start());
 
-  ConnectionTester tester(&test_delegate_, proxy_script_fetcher_context_);
+  ConnectionTester tester(&test_delegate_, proxy_script_fetcher_context_.get());
 
   // Start the test suite on URL "echoall".
   // TODO(eroman): Is this URL right?
@@ -173,7 +173,8 @@ TEST_F(ConnectionTesterTest, DeleteWhileInProgress) {
   ASSERT_TRUE(test_server_.Start());
 
   scoped_ptr<ConnectionTester> tester(
-      new ConnectionTester(&test_delegate_, proxy_script_fetcher_context_));
+      new ConnectionTester(&test_delegate_,
+                           proxy_script_fetcher_context_.get()));
 
   // Start the test suite on URL "echoall".
   // TODO(eroman): Is this URL right?

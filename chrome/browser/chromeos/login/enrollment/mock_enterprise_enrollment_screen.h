@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_ENROLLMENT_MOCK_ENTERPRISE_ENROLLMENT_SCREEN_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_ENROLLMENT_MOCK_ENTERPRISE_ENROLLMENT_SCREEN_H_
-#pragma once
 
 #include "chrome/browser/chromeos/login/enrollment/enterprise_enrollment_screen.h"
 #include "chrome/browser/chromeos/login/enrollment/enterprise_enrollment_screen_actor.h"
@@ -33,13 +32,7 @@ class MockEnterpriseEnrollmentScreenActor
   MOCK_METHOD0(Hide, void());
   MOCK_METHOD0(ShowConfirmationScreen, void());
   MOCK_METHOD1(ShowAuthError, void(const GoogleServiceAuthError& error));
-  MOCK_METHOD0(ShowAccountError, void());
-  MOCK_METHOD0(ShowSerialNumberError, void());
-  MOCK_METHOD0(ShowEnrollmentModeError, void());
-  MOCK_METHOD0(ShowFatalAuthError, void());
-  MOCK_METHOD0(ShowFatalEnrollmentError, void());
-  MOCK_METHOD0(ShowAutoEnrollmentError, void());
-  MOCK_METHOD0(ShowNetworkEnrollmentError, void());
+  MOCK_METHOD1(ShowEnrollmentError, void(EnrollmentError error_code));
   MOCK_METHOD2(SubmitTestCredentials, void(const std::string& email,
                                            const std::string& password));
 };

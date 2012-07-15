@@ -14,6 +14,7 @@
 #include "base/stringprintf.h"
 #include "base/values.h"
 #include "chrome/browser/chromeos/cros/certificate_pattern.h"
+#include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chrome/browser/chromeos/cros/native_network_constants.h"
 #include "chrome/browser/chromeos/cros/native_network_parser.h"
 #include "chrome/browser/chromeos/cros/network_library.h"
@@ -30,6 +31,7 @@
 #include "net/base/cert_database.h"
 #include "net/base/crypto_module.h"
 #include "net/base/net_errors.h"
+#include "net/base/pem_tokenizer.h"
 #include "net/base/x509_certificate.h"
 #include "net/proxy/proxy_bypass_rules.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
@@ -39,6 +41,11 @@ namespace chromeos {
 
 // Local constants.
 namespace {
+
+// The PEM block header used for DER certificates
+const char kCertificateHeader[] = "CERTIFICATE";
+// This is an older PEM marker for DER certificates.
+const char kX509CertificateHeader[] = "X509 CERTIFICATE";
 
 const base::Value::Type TYPE_BOOLEAN = base::Value::TYPE_BOOLEAN;
 const base::Value::Type TYPE_DICTIONARY = base::Value::TYPE_DICTIONARY;
@@ -55,7 +62,6 @@ OncValueSignature network_configuration_signature[] = {
   { onc::kGUID, PROPERTY_INDEX_GUID, TYPE_STRING },
   { onc::kProxySettings, PROPERTY_INDEX_ONC_PROXY_SETTINGS, TYPE_DICTIONARY },
   { onc::kName, PROPERTY_INDEX_NAME, TYPE_STRING },
-  // TODO(crosbug.com/23604): Handle removing networks.
   { onc::kRemove, PROPERTY_INDEX_ONC_REMOVE, TYPE_BOOLEAN },
   { onc::kType, PROPERTY_INDEX_TYPE, TYPE_STRING },
   { onc::kEthernet, PROPERTY_INDEX_ONC_ETHERNET, TYPE_DICTIONARY },
@@ -361,9 +367,16 @@ base::DictionaryValue* OncNetworkParser::Decrypt(
     return NULL;
   }
 
+  // Make sure iterations != 0, since that's not valid.
+  if (iterations == 0) {
+    parse_error_ = l10n_util::GetStringUTF8(
+        IDS_NETWORK_CONFIG_ERROR_ENCRYPTED_ONC_UNABLE_TO_DECRYPT);
+    return NULL;
+  }
+
   // Simply a sanity check to make sure we can't lock up the machine
-  // for too long with a huge number.
-  if (iterations > kMaxIterationCount) {
+  // for too long with a huge number (or a negative number).
+  if (iterations < 0 || iterations > kMaxIterationCount) {
     parse_error_ = l10n_util::GetStringUTF8(
         IDS_NETWORK_CONFIG_ERROR_ENCRYPTED_ONC_TOO_MANY_ITERATIONS);
     return NULL;
@@ -452,7 +465,7 @@ const base::DictionaryValue* OncNetworkParser::GetNetworkConfig(int n) {
   return info;
 }
 
-Network* OncNetworkParser::ParseNetwork(int n) {
+Network* OncNetworkParser::ParseNetwork(int n, bool* marked_for_removal) {
   const base::DictionaryValue* info = GetNetworkConfig(n);
   if (!info)
     return NULL;
@@ -462,8 +475,12 @@ Network* OncNetworkParser::ParseNetwork(int n) {
     base::JSONWriter::WriteWithOptions(static_cast<const base::Value*>(info),
                                        base::JSONWriter::OPTIONS_PRETTY_PRINT,
                                        &network_json);
-    VLOG(2) << "Parsing network at index " << n
-            << ": " << network_json;
+    VLOG(2) << "Parsing network at index " << n << ": " << network_json;
+  }
+
+  if (marked_for_removal) {
+    if (!info->GetBoolean(onc::kRemove, marked_for_removal))
+      *marked_for_removal = false;
   }
 
   return CreateNetworkFromInfo(std::string(), *info);
@@ -545,10 +562,10 @@ Network* OncNetworkParser::CreateNetworkFromInfo(
   }
   scoped_ptr<Network> network(CreateNewNetwork(type, service_path));
 
-  // Initialize UI data.
-  NetworkUIData ui_data;
+  // Initialize ONC source.
+  NetworkUIData ui_data = network->ui_data();
   ui_data.set_onc_source(onc_source_);
-  ui_data.FillDictionary(network->ui_data());
+  network->set_ui_data(ui_data);
 
   // Parse all properties recursively.
   if (!ParseNestedObject(network.get(),
@@ -563,9 +580,11 @@ Network* OncNetworkParser::CreateNetworkFromInfo(
     return NULL;
   }
 
-  // Update the UI data property.
+  // Update the UI data property in flimflam.
   std::string ui_data_json;
-  base::JSONWriter::Write(network->ui_data(), &ui_data_json);
+  base::DictionaryValue ui_data_dict;
+  network->ui_data().FillDictionary(&ui_data_dict);
+  base::JSONWriter::Write(&ui_data_dict, &ui_data_json);
   base::StringValue ui_data_string_value(ui_data_json);
   network->UpdatePropertyMap(PROPERTY_INDEX_UI_DATA, &ui_data_string_value);
 
@@ -671,7 +690,7 @@ std::string OncNetworkParser::GetUserExpandedValue(
   const User& logged_in_user(UserManager::Get()->GetLoggedInUser());
   ReplaceSubstringsAfterOffset(&string_value, 0,
                                onc::substitutes::kLoginIDField,
-                               logged_in_user.GetAccountName());
+                               logged_in_user.GetAccountName(false));
   ReplaceSubstringsAfterOffset(&string_value, 0,
                                onc::substitutes::kEmailField,
                                logged_in_user.email());
@@ -722,17 +741,15 @@ bool OncNetworkParser::ParseNetworkConfigurationValue(
     const base::Value& value,
     Network* network) {
   switch (index) {
-    case PROPERTY_INDEX_ONC_ETHERNET: {
+    case PROPERTY_INDEX_ONC_ETHERNET:
       return parser->ParseNestedObject(network, "Ethernet", value,
           ethernet_signature, OncEthernetNetworkParser::ParseEthernetValue);
-    }
-    case PROPERTY_INDEX_ONC_WIFI: {
+    case PROPERTY_INDEX_ONC_WIFI:
       return parser->ParseNestedObject(network,
                                        onc::kWiFi,
                                        value,
                                        wifi_signature,
                                        OncWifiNetworkParser::ParseWifiValue);
-    }
     case PROPERTY_INDEX_ONC_VPN: {
       if (!CheckNetworkType(network, TYPE_VPN, onc::kVPN))
         return false;
@@ -756,12 +773,11 @@ bool OncNetworkParser::ParseNetworkConfigurationValue(
                                        vpn_signature,
                                        OncVirtualNetworkParser::ParseVPNValue);
     }
-    case PROPERTY_INDEX_ONC_PROXY_SETTINGS: {
-       return ProcessProxySettings(parser, value, network);
-    }
+    case PROPERTY_INDEX_ONC_PROXY_SETTINGS:
+      return ProcessProxySettings(parser, value, network);
     case PROPERTY_INDEX_ONC_REMOVE:
-      VLOG(1) << network->name() << ": Remove field not yet implemented";
-      return false;
+      // Removal is handled in ParseNetwork, and so is ignored here.
+      return true;
     case PROPERTY_INDEX_TYPE: {
       // Update property with native value for type.
       std::string str =
@@ -820,6 +836,8 @@ OncNetworkParser::ParseServerOrCaCertificate(
         return NULL;
       }
       if (trust_type == "Web") {
+        // "Web" implies that the certificate is to be trusted for SSL
+        // identification.
         web_trust = true;
       } else {
         LOG(WARNING) << "ONC File: certificate contains unknown "
@@ -842,13 +860,28 @@ OncNetworkParser::ParseServerOrCaCertificate(
     return NULL;
   }
 
+  // Parse PEM certificate, and get the decoded data for use in creating
+  // certificate below.
+  std::vector<std::string> pem_headers;
+  pem_headers.push_back(kCertificateHeader);
+  pem_headers.push_back(kX509CertificateHeader);
+
+  net::PEMTokenizer pem_tokenizer(x509_data, pem_headers);
   std::string decoded_x509;
-  if (!base::Base64Decode(x509_data, &decoded_x509)) {
-    LOG(WARNING) << "Unable to base64 decode X509 data: \""
-                 << x509_data << "\".";
-    parse_error_ = l10n_util::GetStringUTF8(
-        IDS_NETWORK_CONFIG_ERROR_CERT_DATA_MALFORMED);
-    return NULL;
+  if (!pem_tokenizer.GetNext()) {
+    // If we failed to read the data as a PEM file, then let's just try plain
+    // base64 decode: some versions of Spigots didn't apply the PEM marker
+    // strings. For this to work, there has to be no white space, and it has to
+    // only contain the base64-encoded data.
+    if (!base::Base64Decode(x509_data, &decoded_x509)) {
+      LOG(WARNING) << "Unable to base64 decode X509 data: \""
+                   << x509_data << "\".";
+      parse_error_ = l10n_util::GetStringUTF8(
+          IDS_NETWORK_CONFIG_ERROR_CERT_DATA_MALFORMED);
+      return NULL;
+    }
+  } else {
+    decoded_x509 = pem_tokenizer.data();
   }
 
   scoped_refptr<net::X509Certificate> x509_cert =
@@ -920,12 +953,12 @@ OncNetworkParser::ParseServerOrCaCertificate(
   cert_list.push_back(x509_cert);
   net::CertDatabase::ImportCertFailureList failures;
   bool success = false;
+  net::CertDatabase::TrustBits trust = web_trust ?
+                                       net::CertDatabase::TRUSTED_SSL :
+                                       net::CertDatabase::TRUST_DEFAULT;
   if (cert_type == "Server") {
-    success = cert_database.ImportServerCert(cert_list, &failures);
+    success = cert_database.ImportServerCert(cert_list, trust, &failures);
   } else {  // Authority cert
-    net::CertDatabase::TrustBits trust = web_trust ?
-                                         net::CertDatabase::TRUSTED_SSL :
-                                         net::CertDatabase::UNTRUSTED;
     success = cert_database.ImportCACerts(cert_list, trust, &failures);
   }
   if (!failures.empty()) {
@@ -1346,16 +1379,18 @@ bool OncNetworkParser::ParseClientCertPattern(OncNetworkParser* parser,
       std::vector<std::string> resulting_list;
       if (!GetAsListOfStrings(value, &resulting_list))
         return false;
-      CertificatePattern* pattern = network->client_cert_pattern();
-      pattern->set_enrollment_uri_list(resulting_list);
+      CertificatePattern pattern = network->client_cert_pattern();
+      pattern.set_enrollment_uri_list(resulting_list);
+      network->set_client_cert_pattern(pattern);
       return true;
     }
     case PROPERTY_INDEX_ONC_CERTIFICATE_PATTERN_ISSUER_CA_REF: {
       std::vector<std::string> resulting_list;
       if (!GetAsListOfStrings(value, &resulting_list))
         return false;
-      CertificatePattern* pattern = network->client_cert_pattern();
-      pattern->set_issuer_ca_ref_list(resulting_list);
+      CertificatePattern pattern = network->client_cert_pattern();
+      pattern.set_issuer_ca_ref_list(resulting_list);
+      network->set_client_cert_pattern(pattern);
       return true;
     }
     case PROPERTY_INDEX_ONC_CERTIFICATE_PATTERN_ISSUER:
@@ -1383,7 +1418,9 @@ bool OncNetworkParser::ParseIssuerPattern(OncNetworkParser* parser,
                                           Network* network) {
   IssuerSubjectPattern pattern;
   if (ParseIssuerSubjectPattern(&pattern, parser, index, value, network)) {
-    network->client_cert_pattern()->set_issuer(pattern);
+    CertificatePattern cert_pattern = network->client_cert_pattern();
+    cert_pattern.set_issuer(pattern);
+    network->set_client_cert_pattern(cert_pattern);
     return true;
   }
   return false;
@@ -1396,7 +1433,9 @@ bool OncNetworkParser::ParseSubjectPattern(OncNetworkParser* parser,
                                            Network* network) {
   IssuerSubjectPattern pattern;
   if (ParseIssuerSubjectPattern(&pattern, parser, index, value, network)) {
-    network->client_cert_pattern()->set_subject(pattern);
+    CertificatePattern cert_pattern = network->client_cert_pattern();
+    cert_pattern.set_subject(pattern);
+    network->set_client_cert_pattern(cert_pattern);
     return true;
   }
   return false;
@@ -1516,7 +1555,7 @@ bool OncWifiNetworkParser::ParseWifiValue(OncNetworkParser* parser,
       network->set_auto_connect(GetBooleanValue(value));
       return true;
     case PROPERTY_INDEX_HIDDEN_SSID:
-      // Pass this through to connection manager as is.
+      wifi_network->set_hidden_ssid(GetBooleanValue(value));
       return true;
     default:
       break;
@@ -1597,9 +1636,12 @@ bool OncWifiNetworkParser::ParseEAPValue(OncNetworkParser* parser,
             OncNetworkParser::ParseClientCertPattern);
     case PROPERTY_INDEX_ONC_CLIENT_CERT_TYPE: {
       ClientCertType type = ParseClientCertType(GetStringValue(value));
-      wifi_network->set_eap_client_cert_type(type);
+      wifi_network->set_client_cert_type(type);
       return true;
     }
+    case PROPERTY_INDEX_SAVE_CREDENTIALS:
+      wifi_network->set_eap_save_credentials(GetBooleanValue(value));
+      return true;
     default:
       break;
   }

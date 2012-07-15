@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_COCOA_EXTENSIONS_EXTENSION_POPUP_CONTROLLER_H_
 #define CHROME_BROWSER_UI_COCOA_EXTENSIONS_EXTENSION_POPUP_CONTROLLER_H_
-#pragma once
 
 #import <Cocoa/Cocoa.h>
 
@@ -86,6 +85,10 @@ class NotificationRegistrar;
 
 // Show the dev tools attached to the popup.
 - (void)showDevTools;
+
+// Set whether the popup is being inspected or not. If it is being inspected
+// it will not be hidden when it loses focus.
+- (void)setBeingInspected:(BOOL)beingInspected;
 @end
 
 @interface ExtensionPopupController(TestingAPI)

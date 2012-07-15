@@ -4,14 +4,12 @@
 
 #ifndef ASH_WM_PROPERTY_UTIL_H_
 #define ASH_WM_PROPERTY_UTIL_H_
-#pragma once
 
 #include "ash/ash_export.h"
 
 namespace aura {
+class RootWindow;
 class Window;
-template<typename T>
-struct WindowProperty;
 }
 
 namespace gfx {
@@ -19,19 +17,30 @@ class Rect;
 }
 
 namespace ash {
+namespace internal {
+class RootWindowController;
+}
 
-// Sets the restore bounds property on |window|. Deletes existing bounds value
-// if exists.
-ASH_EXPORT void SetRestoreBounds(aura::Window* window, const gfx::Rect& bounds);
+// Sets the restore bounds property on |window| in the virtual screen
+// coordinates.  Deletes existing bounds value if exists.
+ASH_EXPORT void SetRestoreBoundsInScreen(aura::Window* window,
+                                       const gfx::Rect& screen_bounds);
+// Same as |SetRestoreBoundsInScreen| except that the bounds is in the
+// parent's coordinates.
+ASH_EXPORT void SetRestoreBoundsInParent(aura::Window* window,
+                                         const gfx::Rect& parent_bounds);
 
 // Same as SetRestoreBounds(), but does nothing if the restore bounds have
 // already been set. The bounds used are the bounds of the window.
 ASH_EXPORT void SetRestoreBoundsIfNotSet(aura::Window* window);
 
-// Returns the restore bounds property on |window|. NULL if the
-// restore bounds property does not exist for |window|. |window|
-// owns the bounds object.
-ASH_EXPORT const gfx::Rect* GetRestoreBounds(aura::Window* window);
+// Returns the restore bounds property on |window| in the virtual screen
+// coordinates. The bounds can be NULL if the bounds property does not
+// exist for |window|. |window| owns the bounds object.
+ASH_EXPORT const gfx::Rect* GetRestoreBoundsInScreen(aura::Window* window);
+// Same as |GetRestoreBoundsInScreen| except that it returns the
+// bounds in the parent's coordinates.
+ASH_EXPORT gfx::Rect GetRestoreBoundsInParent(aura::Window* window);
 
 // Deletes and clears the restore bounds property on |window|.
 ASH_EXPORT void ClearRestoreBounds(aura::Window* window);
@@ -39,8 +48,11 @@ ASH_EXPORT void ClearRestoreBounds(aura::Window* window);
 // Toggles the maximized state of the specified window.
 ASH_EXPORT void ToggleMaximizedState(aura::Window* window);
 
-ASH_EXPORT extern const aura::WindowProperty<bool>* const
-    kWindowTrackedByWorkspaceSplitPropKey;
+enum WindowPersistsAcrossAllWorkspacesType {
+  WINDOW_PERSISTS_ACROSS_ALL_WORKSPACES_VALUE_DEFAULT,
+  WINDOW_PERSISTS_ACROSS_ALL_WORKSPACES_VALUE_NO,
+  WINDOW_PERSISTS_ACROSS_ALL_WORKSPACES_VALUE_YES,
+};
 
 // Sets whether the specified window is tracked by workspace code. Default is
 // true. If set to false the workspace does not switch the current workspace,
@@ -48,6 +60,24 @@ ASH_EXPORT extern const aura::WindowProperty<bool>* const
 // is intended for tab dragging.
 ASH_EXPORT void SetTrackedByWorkspace(aura::Window* window, bool value);
 ASH_EXPORT bool GetTrackedByWorkspace(aura::Window* window);
+
+// Makes |window| persist across all workspaces. The default is controlled
+// by SetDefaultPersistsAcrossAllWorkspaces().
+ASH_EXPORT void SetPersistsAcrossAllWorkspaces(
+    aura::Window* window,
+    WindowPersistsAcrossAllWorkspacesType type);
+ASH_EXPORT bool GetPersistsAcrossAllWorkspaces(aura::Window* window);
+
+// Sets the default value for whether windows persist across all workspaces.
+// The default is false.
+ASH_EXPORT void SetDefaultPersistsAcrossAllWorkspaces(bool value);
+
+// Sets/Gets the RootWindowController for |root_window|.
+ASH_EXPORT void SetRootWindowController(
+    aura::RootWindow* root_window,
+    internal::RootWindowController* controller);
+ASH_EXPORT internal::RootWindowController* GetRootWindowController(
+    aura::RootWindow* root_window);
 
 }
 

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_COCOA_BOOKMARKS_BOOKMARK_ALL_TABS_CONTROLLER_H_
 #define CHROME_BROWSER_UI_COCOA_BOOKMARKS_BOOKMARK_ALL_TABS_CONTROLLER_H_
-#pragma once
 
 #include <utility>
 #include <vector>
@@ -28,6 +27,8 @@ typedef std::vector<ActiveTabNameURLPair> ActiveTabsNameURLPairVector;
 - (id)initWithParentWindow:(NSWindow*)parentWindow
                    profile:(Profile*)profile
                     parent:(const BookmarkNode*)parent
+                       url:(const GURL&)url
+                     title:(const string16&)title
              configuration:(BookmarkEditor::Configuration)configuration;
 
 @end

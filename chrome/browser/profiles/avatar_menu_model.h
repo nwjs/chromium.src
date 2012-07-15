@@ -41,12 +41,16 @@ class AvatarMenuModel : public content::NotificationObserver {
     // A string representing the sync state of the profile.
     string16 sync_state;
 
+    // Whether or not the current profile is signed in. If true, |sync_state| is
+    // expected to be the email of the signed in user.
+    bool signed_in;
+
     // The index in the |profile_cache| that this Item represents.
     size_t model_index;
   };
 
-  // Constructor. No parameters can be NULL in practice. |browser| can be NULL
-  // and a new one will be created if an action requires it.
+  // Constructor. |observer| can be NULL. |browser| can be NULL and a new one
+  // will be created if an action requires it.
   AvatarMenuModel(ProfileInfoInterface* profile_cache,
                   AvatarMenuModelObserver* observer,
                   Browser* browser);

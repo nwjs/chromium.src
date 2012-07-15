@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SYNC_GLUE_APP_NOTIFICATION_DATA_TYPE_CONTROLLER_H__
 #define CHROME_BROWSER_SYNC_GLUE_APP_NOTIFICATION_DATA_TYPE_CONTROLLER_H__
-#pragma once
 
 #include <string>
 
@@ -25,7 +24,6 @@ class AppNotificationDataTypeController
       ProfileSyncComponentsFactory* profile_sync_factory,
       Profile* profile,
       ProfileSyncService* sync_service);
-  virtual ~AppNotificationDataTypeController();
 
   // NotificationObserver interface.
   virtual void Observe(int type,
@@ -36,6 +34,9 @@ class AppNotificationDataTypeController
   virtual AppNotificationManager* GetAppNotificationManager();
 
  private:
+  friend class TestAppNotificationDataTypeController;
+  virtual ~AppNotificationDataTypeController();
+
   // FrontendDataTypeController implementations.
   virtual bool StartModels() OVERRIDE;
   virtual void StopModels() OVERRIDE;

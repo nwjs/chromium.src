@@ -12,6 +12,7 @@
 #include "base/values.h"
 #include "chrome/browser/browser_about_handler.h"
 #include "chrome/browser/chromeos/kiosk_mode/kiosk_mode_settings.h"
+#include "chrome/browser/chromeos/login/base_login_display_host.h"
 #include "chrome/browser/chromeos/login/enrollment/enterprise_enrollment_screen_actor.h"
 #include "chrome/browser/chromeos/login/screen_locker.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
@@ -28,13 +29,16 @@
 #include "chrome/browser/ui/webui/chromeos/login/signin_screen_handler.h"
 #include "chrome/browser/ui/webui/chromeos/login/update_screen_handler.h"
 #include "chrome/browser/ui/webui/chromeos/login/user_image_screen_handler.h"
-#include "chrome/browser/ui/webui/options2/chromeos/user_image_source2.h"
+#include "chrome/browser/ui/webui/options2/chromeos/user_image_source.h"
+#include "chrome/browser/ui/webui/options2/chromeos/wallpaper_source.h"
 #include "chrome/browser/ui/webui/theme_source.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/common/jstemplate_builder.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "grit/browser_resources.h"
+#include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 
 using content::WebContents;
@@ -86,7 +90,8 @@ void OobeUIHTMLSource::StartDataRequest(const std::string& path,
   if (UserManager::Get()->IsUserLoggedIn() &&
       !UserManager::Get()->IsLoggedInAsStub() &&
       !ScreenLocker::default_screen_locker()) {
-    scoped_refptr<RefCountedBytes> empty_bytes(new RefCountedBytes());
+    scoped_refptr<base::RefCountedBytes> empty_bytes =
+        new base::RefCountedBytes();
     SendResponse(request_id, empty_bytes);
     return;
   }
@@ -106,7 +111,8 @@ void OobeUIHTMLSource::StartDataRequest(const std::string& path,
 
 std::string OobeUIHTMLSource::GetDataResource(int resource_id) const {
   const base::StringPiece html(
-      ResourceBundle::GetSharedInstance().GetRawDataResource(resource_id));
+      ResourceBundle::GetSharedInstance().GetRawDataResource(
+          resource_id, ui::SCALE_FACTOR_NONE));
   return jstemplate_builder::GetI18nTemplateHtml(html,
                                                  localized_strings_.get());
 }
@@ -158,21 +164,28 @@ OobeUI::OobeUI(content::WebUI* web_ui)
   Profile* profile = Profile::FromWebUI(web_ui);
   // Set up the chrome://theme/ source, for Chrome logo.
   ThemeSource* theme = new ThemeSource(profile);
-  profile->GetChromeURLDataManager()->AddDataSource(theme);
+  ChromeURLDataManager::AddDataSource(profile, theme);
 
   // Set up the chrome://terms/ data source, for EULA content.
   AboutUIHTMLSource* about_source =
       new AboutUIHTMLSource(chrome::kChromeUITermsHost, profile);
-  profile->GetChromeURLDataManager()->AddDataSource(about_source);
+  ChromeURLDataManager::AddDataSource(profile, about_source);
 
   // Set up the chrome://oobe/ source.
   OobeUIHTMLSource* html_source = new OobeUIHTMLSource(localized_strings);
-  profile->GetChromeURLDataManager()->AddDataSource(html_source);
+  ChromeURLDataManager::AddDataSource(profile, html_source);
 
   // Set up the chrome://userimage/ source.
   options2::UserImageSource* user_image_source =
       new options2::UserImageSource();
-  profile->GetChromeURLDataManager()->AddDataSource(user_image_source);
+  ChromeURLDataManager::AddDataSource(profile, user_image_source);
+
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableNewOobe)) {
+    // Set up the chrome://wallpaper/ source.
+    chromeos::options2::WallpaperImageSource* wallpaper_image_source =
+        new chromeos::options2::WallpaperImageSource();
+    ChromeURLDataManager::AddDataSource(profile, wallpaper_image_source);
+  }
 }
 
 OobeUI::~OobeUI() {
@@ -224,6 +237,17 @@ void OobeUI::GetLocalizedStrings(base::DictionaryValue* localized_strings) {
   for (size_t i = 0; i < handlers_.size(); ++i)
     handlers_[i]->GetLocalizedStrings(localized_strings);
   ChromeURLDataManager::DataSource::SetFontAndTextDirection(localized_strings);
+
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableNewOobe))
+    localized_strings->SetString("oobeType", "new");
+  else
+    localized_strings->SetString("oobeType", "old");
+
+  // OobeUI is used for OOBE/login and lock screen.
+  if (BaseLoginDisplayHost::default_host())
+    localized_strings->SetString("screenType", "login");
+  else
+    localized_strings->SetString("screenType", "lock");
 }
 
 void OobeUI::AddScreenHandler(BaseScreenHandler* handler) {

@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef UI_BASE_WIN_WINDOW_IMPL_H_
 #define UI_BASE_WIN_WINDOW_IMPL_H_
-#pragma once
 
 #include <atlbase.h>
 #include <atlapp.h>
@@ -30,7 +29,7 @@ class MessageMapInterface {
                                     WPARAM w_param,
                                     LPARAM l_param,
                                     LRESULT& result,
-                                    DWORD msg_mad_id = 0) = 0;
+                                    DWORD msg_map_id = 0) = 0;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -49,7 +48,7 @@ class UI_EXPORT WindowImpl : public MessageMapInterface {
   // Initializes the Window with a parent and an initial desired size.
   void Init(HWND parent, const gfx::Rect& bounds);
 
-  // Retrieves the default window icon to use for windows if none is specified.
+  // Returns the default window icon to use for windows of this type.
   virtual HICON GetDefaultWindowIcon() const;
 
   // Returns the HWND associated with this Window.
@@ -103,6 +102,12 @@ class UI_EXPORT WindowImpl : public MessageMapInterface {
 
   // Our hwnd.
   HWND hwnd_;
+
+  // For debugging.
+  // TODO(sky): nuke this when get crash data.
+  bool got_create_;
+  bool got_valid_hwnd_;
+  bool* destroyed_;
 
   DISALLOW_COPY_AND_ASSIGN(WindowImpl);
 };

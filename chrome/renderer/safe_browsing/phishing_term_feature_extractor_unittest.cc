@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -19,10 +19,10 @@
 #include "chrome/renderer/safe_browsing/features.h"
 #include "chrome/renderer/safe_browsing/mock_feature_extractor_clock.h"
 #include "chrome/renderer/safe_browsing/murmurhash3_util.h"
+#include "chrome/renderer/safe_browsing/test_utils.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-using ::testing::ContainerEq;
 using ::testing::Return;
 
 namespace safe_browsing {
@@ -130,7 +130,7 @@ TEST_F(PhishingTermFeatureExtractorTest, ExtractFeatures) {
 
   FeatureMap features;
   ASSERT_TRUE(ExtractFeatures(&page_text, &features));
-  EXPECT_THAT(features.features(), ContainerEq(expected_features.features()));
+  ExpectFeatureMapsAreEqual(features, expected_features);
 
   page_text = ASCIIToUTF16("one one");
   expected_features.Clear();
@@ -141,7 +141,7 @@ TEST_F(PhishingTermFeatureExtractorTest, ExtractFeatures) {
 
   features.Clear();
   ASSERT_TRUE(ExtractFeatures(&page_text, &features));
-  EXPECT_THAT(features.features(), ContainerEq(expected_features.features()));
+  ExpectFeatureMapsAreEqual(features, expected_features);
 
   page_text = ASCIIToUTF16("bla bla multi word test bla");
   expected_features.Clear();
@@ -150,7 +150,7 @@ TEST_F(PhishingTermFeatureExtractorTest, ExtractFeatures) {
 
   features.Clear();
   ASSERT_TRUE(ExtractFeatures(&page_text, &features));
-  EXPECT_THAT(features.features(), ContainerEq(expected_features.features()));
+  ExpectFeatureMapsAreEqual(features, expected_features);
 
   // This text has all of the words for one of the terms, but they are
   // not in the correct order.
@@ -159,7 +159,7 @@ TEST_F(PhishingTermFeatureExtractorTest, ExtractFeatures) {
 
   features.Clear();
   ASSERT_TRUE(ExtractFeatures(&page_text, &features));
-  EXPECT_THAT(features.features(), ContainerEq(expected_features.features()));
+  ExpectFeatureMapsAreEqual(features, expected_features);
 
   page_text = ASCIIToUTF16("Capitalization plus non-space\n"
                            "separator... punctuation!");
@@ -175,14 +175,14 @@ TEST_F(PhishingTermFeatureExtractorTest, ExtractFeatures) {
 
   features.Clear();
   ASSERT_TRUE(ExtractFeatures(&page_text, &features));
-  EXPECT_THAT(features.features(), ContainerEq(expected_features.features()));
+  ExpectFeatureMapsAreEqual(features, expected_features);
 
   // Test with empty page text.
   page_text = string16();
   expected_features.Clear();
   features.Clear();
   ASSERT_TRUE(ExtractFeatures(&page_text, &features));
-  EXPECT_THAT(features.features(), ContainerEq(expected_features.features()));
+  ExpectFeatureMapsAreEqual(features, expected_features);
 
   // Chinese translation of the phrase "hello goodbye". This tests that
   // we can correctly separate terms in languages that don't use spaces.
@@ -195,7 +195,7 @@ TEST_F(PhishingTermFeatureExtractorTest, ExtractFeatures) {
 
   features.Clear();
   ASSERT_TRUE(ExtractFeatures(&page_text, &features));
-  EXPECT_THAT(features.features(), ContainerEq(expected_features.features()));
+  ExpectFeatureMapsAreEqual(features, expected_features);
 }
 
 TEST_F(PhishingTermFeatureExtractorTest, Continuation) {
@@ -210,9 +210,9 @@ TEST_F(PhishingTermFeatureExtractorTest, Continuation) {
   }
   page_text.append(ASCIIToUTF16("two"));
 
-  // Advance the clock 15 ms every 10 words processed, 10 ms between chunks.
+  // Advance the clock 3 ms every 5 words processed, 10 ms between chunks.
   // Note that this assumes kClockCheckGranularity = 5 and
-  // kMaxTimePerChunkMs = 20.
+  // kMaxTimePerChunkMs = 10.
   base::TimeTicks now = base::TimeTicks::Now();
   EXPECT_CALL(clock_, Now())
       // Time check at the start of extraction.
@@ -220,22 +220,22 @@ TEST_F(PhishingTermFeatureExtractorTest, Continuation) {
       // Time check at the start of the first chunk of work.
       .WillOnce(Return(now))
       // Time check after the first 5 words.
-      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(7)))
+      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(3)))
       // Time check after the next 5 words.
-      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(15)))
+      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(6)))
       // Time check after the next 5 words.
-      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(19)))
+      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(9)))
       // Time check after the next 5 words.  This is over the chunk
       // time limit, so a continuation task will be posted.
-      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(30)))
+      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(12)))
       // Time check at the start of the second chunk of work.
-      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(40)))
+      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(22)))
       // Time check after the next 5 words.
-      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(47)))
+      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(25)))
       // Time check after the next 5 words.
-      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(55)))
+      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(28)))
       // A final check for the histograms.
-      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(56)));
+      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(30)));
 
   FeatureMap expected_features;
   expected_features.AddBooleanFeature(features::kPageTerm +
@@ -245,7 +245,7 @@ TEST_F(PhishingTermFeatureExtractorTest, Continuation) {
 
   FeatureMap features;
   ASSERT_TRUE(ExtractFeatures(&page_text, &features));
-  EXPECT_THAT(features.features(), ContainerEq(expected_features.features()));
+  ExpectFeatureMapsAreEqual(features, expected_features);
   // Make sure none of the mock expectations carry over to the next test.
   ::testing::Mock::VerifyAndClearExpectations(&clock_);
 
@@ -284,10 +284,10 @@ TEST_F(PhishingTermFeatureExtractorTest, PartialExtractionTest) {
       // Time check at the start of the first chunk of work.
       .WillOnce(Return(now))
       // Time check after the first 5 words.
-      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(15)))
+      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(7)))
       // Time check after the next 5 words. This should be greater than
       // kMaxTimePerChunkMs so that we stop and schedule extraction for later.
-      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(30)));
+      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(14)));
 
   FeatureMap features;
   // Extract first 10 words then stop.
@@ -309,7 +309,7 @@ TEST_F(PhishingTermFeatureExtractorTest, PartialExtractionTest) {
   FeatureMap expected_features;
   expected_features.AddBooleanFeature(features::kPageTerm +
                                       std::string("multi word test"));
-  EXPECT_THAT(features.features(), ContainerEq(expected_features.features()));
+  ExpectFeatureMapsAreEqual(features, expected_features);
 }
 
 }  // namespace safe_browsing

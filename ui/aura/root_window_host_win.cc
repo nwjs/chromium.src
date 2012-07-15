@@ -9,9 +9,11 @@
 #include <algorithm>
 
 #include "base/message_loop.h"
-#include "ui/aura/root_window.h"
+#include "ui/aura/client/capture_client.h"
 #include "ui/aura/env.h"
 #include "ui/aura/event.h"
+#include "ui/aura/root_window.h"
+#include "ui/base/view_prop.h"
 
 using std::max;
 using std::min;
@@ -20,76 +22,78 @@ namespace aura {
 
 namespace {
 
+const char* kRootWindowHostWinKey = "__AURA_ROOT_WINDOW_HOST_WIN__";
+
 const wchar_t* GetCursorId(gfx::NativeCursor native_cursor) {
-  switch (native_cursor) {
-    case kCursorNull:
+  switch (native_cursor.native_type()) {
+    case ui::kCursorNull:
       return IDC_ARROW;
-    case kCursorPointer:
+    case ui::kCursorPointer:
       return IDC_ARROW;
-    case kCursorCross:
+    case ui::kCursorCross:
       return IDC_CROSS;
-    case kCursorHand:
+    case ui::kCursorHand:
       return IDC_HAND;
-    case kCursorIBeam:
+    case ui::kCursorIBeam:
       return IDC_IBEAM;
-    case kCursorWait:
+    case ui::kCursorWait:
       return IDC_WAIT;
-    case kCursorHelp:
+    case ui::kCursorHelp:
       return IDC_HELP;
-    case kCursorEastResize:
+    case ui::kCursorEastResize:
       return IDC_SIZEWE;
-    case kCursorNorthResize:
+    case ui::kCursorNorthResize:
       return IDC_SIZENS;
-    case kCursorNorthEastResize:
+    case ui::kCursorNorthEastResize:
       return IDC_SIZENESW;
-    case kCursorNorthWestResize:
+    case ui::kCursorNorthWestResize:
       return IDC_SIZENWSE;
-    case kCursorSouthResize:
+    case ui::kCursorSouthResize:
       return IDC_SIZENS;
-    case kCursorSouthEastResize:
+    case ui::kCursorSouthEastResize:
       return IDC_SIZENWSE;
-    case kCursorSouthWestResize:
+    case ui::kCursorSouthWestResize:
       return IDC_SIZENESW;
-    case kCursorWestResize:
+    case ui::kCursorWestResize:
       return IDC_SIZEWE;
-    case kCursorNorthSouthResize:
+    case ui::kCursorNorthSouthResize:
       return IDC_SIZENS;
-    case kCursorEastWestResize:
+    case ui::kCursorEastWestResize:
       return IDC_SIZEWE;
-    case kCursorNorthEastSouthWestResize:
+    case ui::kCursorNorthEastSouthWestResize:
       return IDC_SIZENESW;
-    case kCursorNorthWestSouthEastResize:
+    case ui::kCursorNorthWestSouthEastResize:
       return IDC_SIZENWSE;
-    case kCursorMove:
+    case ui::kCursorMove:
       return IDC_SIZEALL;
-    case kCursorProgress:
+    case ui::kCursorProgress:
       return IDC_APPSTARTING;
-    case kCursorNoDrop:
+    case ui::kCursorNoDrop:
       return IDC_NO;
-    case kCursorNotAllowed:
+    case ui::kCursorNotAllowed:
       return IDC_NO;
-    case kCursorColumnResize:
-    case kCursorRowResize:
-    case kCursorMiddlePanning:
-    case kCursorEastPanning:
-    case kCursorNorthPanning:
-    case kCursorNorthEastPanning:
-    case kCursorNorthWestPanning:
-    case kCursorSouthPanning:
-    case kCursorSouthEastPanning:
-    case kCursorSouthWestPanning:
-    case kCursorWestPanning:
-    case kCursorVerticalText:
-    case kCursorCell:
-    case kCursorContextMenu:
-    case kCursorAlias:
-    case kCursorCopy:
-    case kCursorNone:
-    case kCursorZoomIn:
-    case kCursorZoomOut:
-    case kCursorGrab:
-    case kCursorGrabbing:
-    case kCursorCustom:
+    case ui::kCursorColumnResize:
+    case ui::kCursorRowResize:
+    case ui::kCursorMiddlePanning:
+    case ui::kCursorEastPanning:
+    case ui::kCursorNorthPanning:
+    case ui::kCursorNorthEastPanning:
+    case ui::kCursorNorthWestPanning:
+    case ui::kCursorSouthPanning:
+    case ui::kCursorSouthEastPanning:
+    case ui::kCursorSouthWestPanning:
+    case ui::kCursorWestPanning:
+    case ui::kCursorVerticalText:
+    case ui::kCursorCell:
+    case ui::kCursorContextMenu:
+    case ui::kCursorAlias:
+    case ui::kCursorCopy:
+    case ui::kCursorNone:
+    case ui::kCursorZoomIn:
+    case ui::kCursorZoomOut:
+    case ui::kCursorGrab:
+    case ui::kCursorGrabbing:
+    case ui::kCursorCustom:
       // TODO(jamescook): Should we use WebKit glue resources for these?
       // Or migrate those resources to someplace ui/aura can share?
       NOTIMPLEMENTED();
@@ -108,6 +112,13 @@ RootWindowHost* RootWindowHost::Create(const gfx::Rect& bounds) {
 }
 
 // static
+RootWindowHost* RootWindowHost::GetForAcceleratedWidget(
+    gfx::AcceleratedWidget accelerated_widget) {
+  return reinterpret_cast<RootWindowHost*>(
+      ui::ViewProp::GetValue(accelerated_widget, kRootWindowHostWinKey));
+}
+
+// static
 gfx::Size RootWindowHost::GetNativeScreenSize() {
   return gfx::Size(GetSystemMetrics(SM_CXSCREEN),
                    GetSystemMetrics(SM_CYSCREEN));
@@ -121,6 +132,7 @@ RootWindowHostWin::RootWindowHostWin(const gfx::Rect& bounds)
       saved_window_ex_style_(0) {
   Init(NULL, bounds);
   SetWindowText(hwnd(), L"aura::RootWindow!");
+  prop_.reset(new ui::ViewProp(hwnd(), kRootWindowHostWinKey, this));
 }
 
 RootWindowHostWin::~RootWindowHostWin() {
@@ -129,6 +141,10 @@ RootWindowHostWin::~RootWindowHostWin() {
 
 void RootWindowHostWin::SetRootWindow(RootWindow* root_window) {
   root_window_ = root_window;
+}
+
+RootWindow* RootWindowHostWin::GetRootWindow() {
+  return root_window_;
 }
 
 gfx::AcceleratedWidget RootWindowHostWin::GetAcceleratedWidget() {
@@ -211,7 +227,7 @@ gfx::Point RootWindowHostWin::GetLocationOnNativeScreen() const {
 
 void RootWindowHostWin::SetCursor(gfx::NativeCursor native_cursor) {
   // Custom web cursors are handled directly.
-  if (native_cursor == kCursorCustom)
+  if (native_cursor == ui::kCursorCustom)
     return;
   const wchar_t* cursor_id = GetCursorId(native_cursor);
   // TODO(jamescook): Support for non-system cursors will require finding
@@ -252,6 +268,13 @@ bool RootWindowHostWin::ConfineCursorToRootWindow() {
   return ClipCursor(&window_rect) != 0;
 }
 
+bool RootWindowHostWin::GrabSnapshot(
+    const gfx::Rect& snapshot_bounds,
+    std::vector<unsigned char>* png_representation) {
+  NOTIMPLEMENTED();
+  return false;
+}
+
 void RootWindowHostWin::UnConfineCursor() {
   ClipCursor(NULL);
 }
@@ -269,6 +292,11 @@ void RootWindowHostWin::SetFocusWhenShown(bool focus_when_shown) {
 void RootWindowHostWin::PostNativeEvent(const base::NativeEvent& native_event) {
   ::PostMessage(
       hwnd(), native_event.message, native_event.wParam, native_event.lParam);
+}
+
+void RootWindowHostWin::OnDeviceScaleFactorChanged(
+    float device_scale_factor) {
+  NOTIMPLEMENTED();
 }
 
 void RootWindowHostWin::OnClose() {
@@ -303,7 +331,9 @@ LRESULT RootWindowHostWin::OnCaptureChanged(UINT message,
                                             LPARAM l_param) {
   if (has_capture_) {
     has_capture_ = false;
-    root_window_->SetCapture(NULL);
+    Window* capture_window = client::GetCaptureWindow(root_window_);
+    if (capture_window && capture_window->GetRootWindow() == root_window_)
+      capture_window->ReleaseCapture();
   }
   return 0;
 }

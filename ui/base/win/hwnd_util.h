@@ -4,7 +4,6 @@
 
 #ifndef UI_BASE_WIN_HWND_UTIL_H_
 #define UI_BASE_WIN_HWND_UTIL_H_
-#pragma once
 
 #include <windows.h>
 
@@ -46,6 +45,11 @@ UI_EXPORT void CheckWindowCreated(HWND hwnd);
 // Shows the system menu for |window| and sends the selected command (if the
 // user selected something.
 UI_EXPORT void ShowSystemMenu(HWND window, int screen_x, int screen_y);
+
+// Returns the window you can use to parent a top level window.
+// Note that in some cases we create child windows not parented to its final
+// container so in those cases you should pass true in |get_real_hwnd|.
+UI_EXPORT HWND GetWindowToParentTo(bool get_real_hwnd);
 
 }  // namespace ui
 

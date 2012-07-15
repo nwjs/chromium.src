@@ -4,6 +4,7 @@
 # found in the LICENSE file.
 
 import os
+import logging
 
 import pyauto_functional  # Must be imported before pyauto
 import pyauto
@@ -14,7 +15,7 @@ class CookiesTest(pyauto.PyUITest):
 
   def __init__(self, methodName='runTest'):
     super(CookiesTest, self).__init__(methodName)
-    self.test_host = os.environ.get('COOKIES_TEST_HOST', 'www.google.com')
+    self.test_host = os.environ.get('COOKIES_TEST_HOST', 'google.com')
 
   def setUp(self):
     pyauto.PyUITest.setUp(self);
@@ -142,24 +143,6 @@ class CookiesTest(pyauto.PyUITest):
     self.assertFalse(self.GetCookie(pyauto.GURL(https_url)),
                      msg='Cookies are not blocked.')
 
-  def testClearCookiesOnEndingSession(self):
-    """Verify that cookies are cleared when the browsing session is closed."""
-    file_url = self.GetFileURLForDataPath('setcookie.html')
-    self.assertFalse(self.GetCookie(pyauto.GURL(file_url)),
-                     msg='There should be no cookies on %s' % file_url)
-
-    # Set the option to clear cookies when the browser session is closed.
-    self.SetPrefs(pyauto.kClearSiteDataOnExit, True)
-
-    self.NavigateToURL(file_url)
-    self.assertEqual('name=Good', self.GetCookie(pyauto.GURL(file_url)),
-                     msg='Unable to retrieve the cookie name=Good')
-
-    # Restart and verify that cookie does not persist
-    self.RestartBrowser(clear_profile=False)
-    self.assertFalse(self.GetCookie(pyauto.GURL(file_url)),
-                     msg='Cookie persisted after restarting session.')
-
   def testAllowCookiesUsingExceptions(self):
     """Verify that cookies can be allowed and set using exceptions for
     particular website(s) when all others are blocked."""
@@ -231,9 +214,12 @@ class CookiesTest(pyauto.PyUITest):
     self.assertTrue(self.GetCookie(pyauto.GURL(http_url)),
                     msg='Cookies are not set for the exception.')
     # Restart the browser to check that the cookie doesn't persist.
-    self.RestartBrowser(clear_profile=False)
-    self.assertFalse(self.GetCookie(pyauto.GURL(http_url)),
-                     msg='Cookie persisted after restarting session.')
+    # (This fails on ChromeOS because kRestoreOnStartup is ignored and
+    # the startup preference is always "continue where I left off.")
+    if not self.IsChromeOS():
+      self.RestartBrowser(clear_profile=False)
+      self.assertFalse(self.GetCookie(pyauto.GURL(http_url)),
+                       msg='Cookie persisted after restarting session.')
 
 if __name__ == '__main__':
   pyauto_functional.Main()

@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -15,7 +15,6 @@
 
 #ifndef JINGLE_NOTIFIER_BASE_FAKE_SSL_CLIENT_SOCKET_H_
 #define JINGLE_NOTIFIER_BASE_FAKE_SSL_CLIENT_SOCKET_H_
-#pragma once
 
 #include <cstddef>
 
@@ -56,7 +55,7 @@ class FakeSSLClientSocket : public net::StreamSocket {
   virtual void Disconnect() OVERRIDE;
   virtual bool IsConnected() const OVERRIDE;
   virtual bool IsConnectedAndIdle() const OVERRIDE;
-  virtual int GetPeerAddress(net::AddressList* address) const OVERRIDE;
+  virtual int GetPeerAddress(net::IPEndPoint* address) const OVERRIDE;
   virtual int GetLocalAddress(net::IPEndPoint* address) const OVERRIDE;
   virtual const net::BoundNetLog& NetLog() const OVERRIDE;
   virtual void SetSubresourceSpeculation() OVERRIDE;
@@ -65,6 +64,7 @@ class FakeSSLClientSocket : public net::StreamSocket {
   virtual bool UsingTCPFastOpen() const OVERRIDE;
   virtual int64 NumBytesRead() const OVERRIDE;
   virtual base::TimeDelta GetConnectTimeMicros() const OVERRIDE;
+  virtual net::NextProto GetNegotiatedProtocol() const OVERRIDE;
 
  private:
   enum HandshakeState {

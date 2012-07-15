@@ -10,12 +10,12 @@
 #include "base/bind_helpers.h"
 #include "base/compiler_specific.h"
 #include "base/message_loop.h"
-#include "chrome/browser/sync/api/fake_syncable_service.h"
-#include "chrome/browser/sync/profile_sync_components_factory_mock.h"
 #include "chrome/browser/sync/glue/data_type_error_handler_mock.h"
 #include "chrome/browser/sync/profile_sync_components_factory_impl.h"
+#include "chrome/browser/sync/profile_sync_components_factory_mock.h"
 #include "chrome/browser/sync/profile_sync_service_mock.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
+#include "sync/api/fake_syncable_service.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -86,7 +86,7 @@ class SyncSharedChangeProcessorTest : public testing::Test {
   void SetUpDBSyncableService() {
     DCHECK(BrowserThread::CurrentlyOn(BrowserThread::DB));
     DCHECK(!db_syncable_service_.get());
-    db_syncable_service_.reset(new FakeSyncableService());
+    db_syncable_service_.reset(new syncer::FakeSyncableService());
   }
 
   // Used by TearDown().
@@ -102,12 +102,12 @@ class SyncSharedChangeProcessorTest : public testing::Test {
   void ConnectOnDBThread(
       const scoped_refptr<SharedChangeProcessor>& shared_change_processor) {
     DCHECK(BrowserThread::CurrentlyOn(BrowserThread::DB));
-    EXPECT_CALL(sync_factory_, GetSyncableServiceForType(syncable::AUTOFILL)).
+    EXPECT_CALL(sync_factory_, GetSyncableServiceForType(syncer::AUTOFILL)).
         WillOnce(GetWeakPtrToSyncableService(db_syncable_service_.get()));
     EXPECT_TRUE(shared_change_processor->Connect(&sync_factory_,
                                                  &sync_service_,
                                                  &error_handler_,
-                                                 syncable::AUTOFILL));
+                                                 syncer::AUTOFILL));
   }
 
   MessageLoopForUI ui_loop_;
@@ -120,7 +120,7 @@ class SyncSharedChangeProcessorTest : public testing::Test {
   StrictMock<DataTypeErrorHandlerMock> error_handler_;
 
   // Used only on DB thread.
-  scoped_ptr<FakeSyncableService> db_syncable_service_;
+  scoped_ptr<syncer::FakeSyncableService> db_syncable_service_;
 };
 
 // Simply connect the shared change processor.  It should succeed, and

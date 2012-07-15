@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -15,15 +15,28 @@
 #include "base/logging.h"
 #include "base/mac/bundle_locations.h"
 #import "base/mac/cocoa_protocols.h"
+#include "base/mac/foundation_util.h"
 #include "base/mac/mac_util.h"
 #include "base/mac/scoped_cftyperef.h"
 #import "base/memory/scoped_nsobject.h"
 #include "base/sys_string_conversions.h"
 #include "base/threading/thread_restrictions.h"
 #include "grit/generated_resources.h"
+#import "ui/base/cocoa/nib_loading.h"
 #include "ui/base/l10n/l10n_util_mac.h"
 
-static const int kFileTypePopupTag = 1234;
+namespace {
+
+const int kFileTypePopupTag = 1234;
+
+CFStringRef CreateUTIFromExtension(const FilePath::StringType& ext) {
+  base::mac::ScopedCFTypeRef<CFStringRef> ext_cf(
+      base::SysUTF8ToCFStringRef(ext));
+  return UTTypeCreatePreferredIdentifierForTag(
+      kUTTagClassFilenameExtension, ext_cf.get(), NULL);
+}
+
+}  // namespace
 
 class SelectFileDialogImpl;
 
@@ -48,8 +61,8 @@ class SelectFileDialogImpl;
 // file or folder.
 class SelectFileDialogImpl : public SelectFileDialog {
  public:
-  explicit SelectFileDialogImpl(Listener* listener);
-  virtual ~SelectFileDialogImpl();
+  explicit SelectFileDialogImpl(Listener* listener,
+                                ui::SelectFilePolicy* policy);
 
   // BaseShellDialog implementation.
   virtual bool IsRunning(gfx::NativeWindow parent_window) const;
@@ -80,9 +93,11 @@ class SelectFileDialogImpl : public SelectFileDialog {
                               int file_type_index,
                               const FilePath::StringType& default_extension,
                               gfx::NativeWindow owning_window,
-                              void* params);
+                              void* params) OVERRIDE;
 
  private:
+  virtual ~SelectFileDialogImpl();
+
   // Gets the accessory view for the save dialog.
   NSView* GetAccessoryView(const FileTypeInfo* file_types,
                            int file_type_index);
@@ -107,30 +122,16 @@ class SelectFileDialogImpl : public SelectFileDialog {
 };
 
 // static
-SelectFileDialog* SelectFileDialog::Create(Listener* listener) {
-  return new SelectFileDialogImpl(listener);
+SelectFileDialog* SelectFileDialog::Create(Listener* listener,
+                                           ui::SelectFilePolicy* policy) {
+  return new SelectFileDialogImpl(listener, policy);
 }
 
-SelectFileDialogImpl::SelectFileDialogImpl(Listener* listener)
-    : SelectFileDialog(listener),
+SelectFileDialogImpl::SelectFileDialogImpl(Listener* listener,
+                                           ui::SelectFilePolicy* policy)
+    : SelectFileDialog(listener, policy),
       bridge_([[SelectFileDialogBridge alloc]
                initWithSelectFileDialogImpl:this]) {
-}
-
-SelectFileDialogImpl::~SelectFileDialogImpl() {
-  // Walk through the open dialogs and close them all.  Use a temporary vector
-  // to hold the pointers, since we can't delete from the map as we're iterating
-  // through it.
-  std::vector<NSSavePanel*> panels;
-  for (std::map<NSSavePanel*, void*>::iterator it = params_map_.begin();
-       it != params_map_.end(); ++it) {
-    panels.push_back(it->first);
-  }
-
-  for (std::vector<NSSavePanel*>::iterator it = panels.begin();
-       it != panels.end(); ++it) {
-    [*it cancel:*it];
-  }
 }
 
 bool SelectFileDialogImpl::IsRunning(gfx::NativeWindow parent_window) const {
@@ -139,6 +140,42 @@ bool SelectFileDialogImpl::IsRunning(gfx::NativeWindow parent_window) const {
 
 void SelectFileDialogImpl::ListenerDestroyed() {
   listener_ = NULL;
+}
+
+void SelectFileDialogImpl::FileWasSelected(NSSavePanel* dialog,
+                                           NSWindow* parent_window,
+                                           bool was_cancelled,
+                                           bool is_multi,
+                                           const std::vector<FilePath>& files,
+                                           int index) {
+  void* params = params_map_[dialog];
+  params_map_.erase(dialog);
+  parents_.erase(parent_window);
+  type_map_.erase(dialog);
+
+  [dialog setDelegate:nil];
+
+  if (!listener_)
+    return;
+
+  if (was_cancelled) {
+    listener_->FileSelectionCanceled(params);
+  } else {
+    if (is_multi) {
+      listener_->MultiFilesSelected(files, params);
+    } else {
+      listener_->FileSelected(files[0], index, params);
+    }
+  }
+}
+
+bool SelectFileDialogImpl::ShouldEnableFilename(NSSavePanel* dialog,
+                                                NSString* filename) {
+  // If this is a single open file dialog, disable selecting packages.
+  if (type_map_[dialog] != SELECT_OPEN_FILE)
+    return true;
+
+  return ![[NSWorkspace sharedWorkspace] isFilePackageAtPath:filename];
 }
 
 void SelectFileDialogImpl::SelectFileImpl(
@@ -157,7 +194,7 @@ void SelectFileDialogImpl::SelectFileImpl(
   parents_.insert(owning_window);
 
   // Note: we need to retain the dialog as owning_window can be null.
-  // (see http://crbug.com/29213)
+  // (See http://crbug.com/29213 .)
   NSSavePanel* dialog;
   if (type == SELECT_SAVEAS_FILE)
     dialog = [[NSSavePanel savePanel] retain];
@@ -182,17 +219,28 @@ void SelectFileDialogImpl::SelectFileImpl(
     }
   }
 
-  NSMutableArray* allowed_file_types = nil;
+  NSArray* allowed_file_types = nil;
   if (file_types) {
     if (!file_types->extensions.empty()) {
-      allowed_file_types = [NSMutableArray array];
-      for (size_t i=0; i < file_types->extensions.size(); ++i) {
+      // While the example given in the header for FileTypeInfo lists an example
+      // |file_types->extensions| value as
+      //   { { "htm", "html" }, { "txt" } }
+      // it is not always the case that the given extensions in one of the sub-
+      // lists are all synonyms. In fact, in the case of a <select> element with
+      // multiple "accept" types, all the extensions allowed for all the types
+      // will be part of one list. To be safe, allow the types of all the
+      // specified extensions.
+      NSMutableSet* file_type_set = [NSMutableSet set];
+      for (size_t i = 0; i < file_types->extensions.size(); ++i) {
         const std::vector<FilePath::StringType>& ext_list =
             file_types->extensions[i];
-        for (size_t j=0; j < ext_list.size(); ++j) {
-          [allowed_file_types addObject:base::SysUTF8ToNSString(ext_list[j])];
+        for (size_t j = 0; j < ext_list.size(); ++j) {
+          base::mac::ScopedCFTypeRef<CFStringRef> uti(
+              CreateUTIFromExtension(ext_list[j]));
+          [file_type_set addObject:base::mac::CFToNSCast(uti.get())];
         }
       }
+      allowed_file_types = [file_type_set allObjects];
     }
     if (type == SELECT_SAVEAS_FILE)
       [dialog setAllowedFileTypes:allowed_file_types];
@@ -228,6 +276,7 @@ void SelectFileDialogImpl::SelectFileImpl(
   context->owning_window = owning_window;
 
   if (type == SELECT_SAVEAS_FILE) {
+    [dialog setCanSelectHiddenExtension:YES];
     [dialog beginSheetForDirectory:default_dir
                               file:default_filename
                     modalForWindow:owning_window
@@ -264,96 +313,57 @@ void SelectFileDialogImpl::SelectFileImpl(
   }
 }
 
-void SelectFileDialogImpl::FileWasSelected(NSSavePanel* dialog,
-                                           NSWindow* parent_window,
-                                           bool was_cancelled,
-                                           bool is_multi,
-                                           const std::vector<FilePath>& files,
-                                           int index) {
-  void* params = params_map_[dialog];
-  params_map_.erase(dialog);
-  parents_.erase(parent_window);
-  type_map_.erase(dialog);
+SelectFileDialogImpl::~SelectFileDialogImpl() {
+  // Walk through the open dialogs and close them all.  Use a temporary vector
+  // to hold the pointers, since we can't delete from the map as we're iterating
+  // through it.
+  std::vector<NSSavePanel*> panels;
+  for (std::map<NSSavePanel*, void*>::iterator it = params_map_.begin();
+       it != params_map_.end(); ++it) {
+    panels.push_back(it->first);
+  }
 
-  [dialog setDelegate:nil];
-
-  if (!listener_)
-    return;
-
-  if (was_cancelled) {
-    listener_->FileSelectionCanceled(params);
-  } else {
-    if (is_multi) {
-      listener_->MultiFilesSelected(files, params);
-    } else {
-      listener_->FileSelected(files[0], index, params);
-    }
+  for (std::vector<NSSavePanel*>::iterator it = panels.begin();
+       it != panels.end(); ++it) {
+    [*it cancel:*it];
   }
 }
 
 NSView* SelectFileDialogImpl::GetAccessoryView(const FileTypeInfo* file_types,
                                                int file_type_index) {
   DCHECK(file_types);
-  scoped_nsobject<NSNib> nib (
-      [[NSNib alloc] initWithNibNamed:@"SaveAccessoryView"
-                               bundle:base::mac::FrameworkBundle()]);
-  if (!nib)
+  NSView* accessory_view = ui::GetViewFromNib(@"SaveAccessoryView");
+  if (!accessory_view)
     return nil;
-
-  NSArray* objects;
-  BOOL success = [nib instantiateNibWithOwner:nil
-                              topLevelObjects:&objects];
-  if (!success)
-    return nil;
-  [objects makeObjectsPerformSelector:@selector(release)];
-
-  // This is a one-object nib, but IB insists on creating a second object, the
-  // NSApplication. I don't know why.
-  size_t view_index = 0;
-  while (view_index < [objects count] &&
-      ![[objects objectAtIndex:view_index] isKindOfClass:[NSView class]])
-    ++view_index;
-  DCHECK(view_index < [objects count]);
-  NSView* accessory_view = [objects objectAtIndex:view_index];
 
   NSPopUpButton* popup = [accessory_view viewWithTag:kFileTypePopupTag];
   DCHECK(popup);
 
   size_t type_count = file_types->extensions.size();
-  for (size_t type = 0; type<type_count; ++type) {
+  for (size_t type = 0; type < type_count; ++type) {
     NSString* type_description;
     if (type < file_types->extension_description_overrides.size()) {
       type_description = base::SysUTF16ToNSString(
           file_types->extension_description_overrides[type]);
     } else {
+      // No description given for a list of extensions; pick the first one from
+      // the list (arbitrarily) and use its description.
       const std::vector<FilePath::StringType>& ext_list =
           file_types->extensions[type];
       DCHECK(!ext_list.empty());
-      NSString* type_extension = base::SysUTF8ToNSString(ext_list[0]);
       base::mac::ScopedCFTypeRef<CFStringRef> uti(
-          UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension,
-                                                (CFStringRef)type_extension,
-                                                NULL));
+          CreateUTIFromExtension(ext_list[0]));
       base::mac::ScopedCFTypeRef<CFStringRef> description(
           UTTypeCopyDescription(uti.get()));
 
       type_description =
-          [NSString stringWithString:(NSString*)description.get()];
+          [[base::mac::CFToNSCast(description.get()) retain] autorelease];
     }
     [popup addItemWithTitle:type_description];
   }
 
-  [popup selectItemAtIndex:file_type_index-1];  // 1-based
+  [popup selectItemAtIndex:file_type_index - 1];  // 1-based
   return accessory_view;
-}
-
-bool SelectFileDialogImpl::ShouldEnableFilename(NSSavePanel* dialog,
-                                                NSString* filename) {
-  // If this is a single open file dialog, disable selecting packages.
-  if (type_map_[dialog] != SELECT_OPEN_FILE)
-    return true;
-
-  return ![[NSWorkspace sharedWorkspace] isFilePackageAtPath:filename];
 }
 
 bool SelectFileDialogImpl::HasMultipleFileTypeChoicesImpl() {
@@ -374,8 +384,8 @@ bool SelectFileDialogImpl::HasMultipleFileTypeChoicesImpl() {
         withReturn:(int)returnCode
            context:(void*)context {
   // |context| should never be NULL, but we are seeing indications otherwise.
-  // |This CHECK is here to confirm if we are actually getting NULL
-  // ||context|s. http://crbug.com/58959
+  // This CHECK is here to confirm if we are actually getting NULL
+  // |context|s. http://crbug.com/58959
   CHECK(context);
 
   int index = 0;

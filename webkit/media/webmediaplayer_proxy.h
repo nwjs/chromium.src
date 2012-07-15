@@ -6,13 +6,18 @@
 #define WEBKIT_MEDIA_WEBMEDIAPLAYER_PROXY_H_
 
 #include <list>
+#include <string>
+#include <vector>
 
 #include "base/memory/ref_counted.h"
 #include "base/synchronization/lock.h"
+#include "media/base/decryptor_client.h"
 #include "media/base/pipeline.h"
+#include "media/filters/chunk_demuxer.h"
 #include "media/filters/chunk_demuxer_client.h"
+#include "media/filters/ffmpeg_video_decoder.h"
+#include "webkit/media/buffered_data_source.h"
 #include "webkit/media/skcanvas_video_renderer.h"
-#include "webkit/media/web_data_source.h"
 
 class SkCanvas;
 
@@ -37,14 +42,15 @@ class WebMediaPlayerImpl;
 // the render thread that WebMediaPlayerImpl is running on.
 class WebMediaPlayerProxy
     : public base::RefCountedThreadSafe<WebMediaPlayerProxy>,
-      public media::ChunkDemuxerClient {
+      public media::ChunkDemuxerClient,
+      public media::DecryptorClient {
  public:
   WebMediaPlayerProxy(const scoped_refptr<base::MessageLoopProxy>& render_loop,
                       WebMediaPlayerImpl* webmediaplayer);
-  const scoped_refptr<WebDataSource>& data_source() {
+  const scoped_refptr<BufferedDataSource>& data_source() {
     return data_source_;
   }
-  void set_data_source(const scoped_refptr<WebDataSource>& data_source) {
+  void set_data_source(const scoped_refptr<BufferedDataSource>& data_source) {
     data_source_ = data_source;
   }
 
@@ -54,16 +60,26 @@ class WebMediaPlayerProxy
     frame_provider_ = frame_provider;
   }
 
+  void set_video_decoder(
+      const scoped_refptr<media::FFmpegVideoDecoder>& video_decoder) {
+    video_decoder_ = video_decoder;
+  }
+  const scoped_refptr<media::FFmpegVideoDecoder>& video_decoder() {
+    return video_decoder_;
+  }
+
   // Methods for Filter -> WebMediaPlayerImpl communication.
   void Repaint();
   void SetOpaque(bool opaque);
 
   // Methods for WebMediaPlayerImpl -> Filter communication.
-  void Paint(SkCanvas* canvas, const gfx::Rect& dest_rect);
+  void Paint(SkCanvas* canvas, const gfx::Rect& dest_rect, uint8_t alpha);
   void Detach();
   void GetCurrentFrame(scoped_refptr<media::VideoFrame>* frame_out);
   void PutCurrentFrame(scoped_refptr<media::VideoFrame> frame);
   bool HasSingleOrigin();
+  bool DidPassCORSAccessCheck() const;
+
   void AbortDataSource();
 
   // Methods for Pipeline -> WebMediaPlayerImpl communication.
@@ -71,20 +87,41 @@ class WebMediaPlayerProxy
   void PipelineSeekCallback(media::PipelineStatus status);
   void PipelineEndedCallback(media::PipelineStatus status);
   void PipelineErrorCallback(media::PipelineStatus error);
-  void NetworkEventCallback(media::NetworkEvent type);
 
   // ChunkDemuxerClient implementation.
   virtual void DemuxerOpened(media::ChunkDemuxer* demuxer) OVERRIDE;
   virtual void DemuxerClosed() OVERRIDE;
+  virtual void DemuxerNeedKey(scoped_array<uint8> init_data,
+                              int init_data_size) OVERRIDE;
 
   // Methods for Demuxer communication.
-  void DemuxerFlush();
-  bool DemuxerAppend(const uint8* data, size_t length);
+  void DemuxerStartWaitingForSeek();
+  media::ChunkDemuxer::Status DemuxerAddId(const std::string& id,
+                                           const std::string& type,
+                                           std::vector<std::string>& codecs);
+  void DemuxerRemoveId(const std::string& id);
+  media::Ranges<base::TimeDelta> DemuxerBufferedRange(const std::string& id);
+  bool DemuxerAppend(const std::string& id, const uint8* data, size_t length);
+  void DemuxerAbort(const std::string& id);
   void DemuxerEndOfStream(media::PipelineStatus status);
   void DemuxerShutdown();
 
-  void DemuxerOpenedTask(const scoped_refptr<media::ChunkDemuxer>& demuxer);
-  void DemuxerClosedTask();
+  // DecryptorClient implementation.
+  virtual void KeyAdded(const std::string& key_system,
+                        const std::string& session_id) OVERRIDE;
+  virtual void KeyError(const std::string& key_system,
+                        const std::string& session_id,
+                        media::Decryptor::KeyError error_code,
+                        int system_code) OVERRIDE;
+  virtual void KeyMessage(const std::string& key_system,
+                          const std::string& session_id,
+                          scoped_array<uint8> message,
+                          int message_length,
+                          const std::string& default_url) OVERRIDE;
+  virtual void NeedKey(const std::string& key_system,
+                       const std::string& session_id,
+                       scoped_array<uint8> init_data,
+                       int init_data_size) OVERRIDE;
 
  private:
   friend class base::RefCountedThreadSafe<WebMediaPlayerProxy>;
@@ -106,19 +143,43 @@ class WebMediaPlayerProxy
   // playback.
   void PipelineErrorTask(media::PipelineStatus error);
 
-  // Notify |webmediaplayer_| that there's a network event.
-  void NetworkEventTask(media::NetworkEvent type);
-
   // Inform |webmediaplayer_| whether the video content is opaque.
   void SetOpaqueTask(bool opaque);
+
+  void DemuxerOpenedTask(const scoped_refptr<media::ChunkDemuxer>& demuxer);
+  void DemuxerClosedTask();
+
+  // Notify |webmediaplayer_| that a key has been added.
+  void KeyAddedTask(const std::string& key_system,
+                    const std::string& session_id);
+
+  // Notify |webmediaplayer_| that a key error occurred.
+  void KeyErrorTask(const std::string& key_system,
+                    const std::string& session_id,
+                    media::Decryptor::KeyError error_code,
+                    int system_code);
+
+  // Notify |webmediaplayer_| that a key message has been generated.
+  void KeyMessageTask(const std::string& key_system,
+                      const std::string& session_id,
+                      scoped_array<uint8> message,
+                      int message_length,
+                      const std::string& default_url);
+
+  // Notify |webmediaplayer_| that a key is needed for decryption.
+  void NeedKeyTask(const std::string& key_system,
+                   const std::string& session_id,
+                   scoped_array<uint8> init_data,
+                   int init_data_size);
 
   // The render message loop where WebKit lives.
   scoped_refptr<base::MessageLoopProxy> render_loop_;
   WebMediaPlayerImpl* webmediaplayer_;
 
-  scoped_refptr<WebDataSource> data_source_;
+  scoped_refptr<BufferedDataSource> data_source_;
   scoped_refptr<media::VideoRendererBase> frame_provider_;
   SkCanvasVideoRenderer video_renderer_;
+  scoped_refptr<media::FFmpegVideoDecoder> video_decoder_;
 
   base::Lock lock_;
   int outstanding_repaints_;

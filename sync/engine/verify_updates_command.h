@@ -4,20 +4,18 @@
 
 #ifndef SYNC_ENGINE_VERIFY_UPDATES_COMMAND_H_
 #define SYNC_ENGINE_VERIFY_UPDATES_COMMAND_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "sync/engine/model_changing_syncer_command.h"
-#include "sync/engine/model_safe_worker.h"
 #include "sync/engine/syncer_types.h"
-#include "sync/engine/syncproto.h"
+#include "sync/internal_api/public/engine/model_safe_worker.h"
+
+namespace syncer {
 
 namespace syncable {
 class WriteTransaction;
 }
-
-namespace browser_sync {
 
 // Verifies the response from a GetUpdates request. All invalid updates will be
 // noted in the SyncSession after this command is executed.
@@ -39,11 +37,12 @@ class VerifyUpdatesCommand : public ModelChangingSyncerCommand {
     ModelSafeGroup placement;
   };
   VerifyUpdateResult VerifyUpdate(syncable::WriteTransaction* trans,
-                                  const SyncEntity& entry,
+                                  const sync_pb::SyncEntity& entry,
+                                  const syncer::ModelTypeSet& requested_types,
                                   const ModelSafeRoutingInfo& routes);
   DISALLOW_COPY_AND_ASSIGN(VerifyUpdatesCommand);
 };
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_ENGINE_VERIFY_UPDATES_COMMAND_H_

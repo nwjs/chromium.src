@@ -9,7 +9,7 @@
 #include "base/basictypes.h"
 #include "base/logging.h"
 
-namespace browser_sync {
+namespace syncer {
 
 #define ASSERT_ENUM_BOUNDS(enum_parent, enum_type, enum_min, enum_max)  \
   COMPILE_ASSERT(enum_parent::enum_type##_MIN == enum_parent::enum_min, \
@@ -33,36 +33,36 @@ const char* GetBrowserTypeString(
 }
 
 const char* GetPageTransitionString(
-    sync_pb::TabNavigation::PageTransition page_transition) {
-  ASSERT_ENUM_BOUNDS(sync_pb::TabNavigation, PageTransition,
+    sync_pb::SyncEnums::PageTransition page_transition) {
+  ASSERT_ENUM_BOUNDS(sync_pb::SyncEnums, PageTransition,
                      LINK, CHAIN_END);
   switch (page_transition) {
-    ENUM_CASE(sync_pb::TabNavigation, LINK);
-    ENUM_CASE(sync_pb::TabNavigation, TYPED);
-    ENUM_CASE(sync_pb::TabNavigation, AUTO_BOOKMARK);
-    ENUM_CASE(sync_pb::TabNavigation, AUTO_SUBFRAME);
-    ENUM_CASE(sync_pb::TabNavigation, MANUAL_SUBFRAME);
-    ENUM_CASE(sync_pb::TabNavigation, GENERATED);
-    ENUM_CASE(sync_pb::TabNavigation, START_PAGE);
-    ENUM_CASE(sync_pb::TabNavigation, FORM_SUBMIT);
-    ENUM_CASE(sync_pb::TabNavigation, RELOAD);
-    ENUM_CASE(sync_pb::TabNavigation, KEYWORD);
-    ENUM_CASE(sync_pb::TabNavigation, KEYWORD_GENERATED);
-    ENUM_CASE(sync_pb::TabNavigation, CHAIN_START);
-    ENUM_CASE(sync_pb::TabNavigation, CHAIN_END);
+    ENUM_CASE(sync_pb::SyncEnums, LINK);
+    ENUM_CASE(sync_pb::SyncEnums, TYPED);
+    ENUM_CASE(sync_pb::SyncEnums, AUTO_BOOKMARK);
+    ENUM_CASE(sync_pb::SyncEnums, AUTO_SUBFRAME);
+    ENUM_CASE(sync_pb::SyncEnums, MANUAL_SUBFRAME);
+    ENUM_CASE(sync_pb::SyncEnums, GENERATED);
+    ENUM_CASE(sync_pb::SyncEnums, START_PAGE);
+    ENUM_CASE(sync_pb::SyncEnums, FORM_SUBMIT);
+    ENUM_CASE(sync_pb::SyncEnums, RELOAD);
+    ENUM_CASE(sync_pb::SyncEnums, KEYWORD);
+    ENUM_CASE(sync_pb::SyncEnums, KEYWORD_GENERATED);
+    ENUM_CASE(sync_pb::SyncEnums, CHAIN_START);
+    ENUM_CASE(sync_pb::SyncEnums, CHAIN_END);
   }
   NOTREACHED();
   return "";
 }
 
 const char* GetPageTransitionQualifierString(
-    sync_pb::TabNavigation::PageTransitionQualifier
+    sync_pb::SyncEnums::PageTransitionQualifier
         page_transition_qualifier) {
-  ASSERT_ENUM_BOUNDS(sync_pb::TabNavigation, PageTransitionQualifier,
+  ASSERT_ENUM_BOUNDS(sync_pb::SyncEnums, PageTransitionQualifier,
                      CLIENT_REDIRECT, SERVER_REDIRECT);
   switch (page_transition_qualifier) {
-    ENUM_CASE(sync_pb::TabNavigation, CLIENT_REDIRECT);
-    ENUM_CASE(sync_pb::TabNavigation, SERVER_REDIRECT);
+    ENUM_CASE(sync_pb::SyncEnums, CLIENT_REDIRECT);
+    ENUM_CASE(sync_pb::SyncEnums, SERVER_REDIRECT);
   }
   NOTREACHED();
   return "";
@@ -79,7 +79,6 @@ const char* GetUpdatesSourceString(
     ENUM_CASE(sync_pb::GetUpdatesCallerInfo, NOTIFICATION);
     ENUM_CASE(sync_pb::GetUpdatesCallerInfo, PERIODIC);
     ENUM_CASE(sync_pb::GetUpdatesCallerInfo, SYNC_CYCLE_CONTINUATION);
-    ENUM_CASE(sync_pb::GetUpdatesCallerInfo, CLEAR_PRIVATE_DATA);
     ENUM_CASE(sync_pb::GetUpdatesCallerInfo, NEWLY_SUPPORTED_DATATYPE);
     ENUM_CASE(sync_pb::GetUpdatesCallerInfo, MIGRATION);
     ENUM_CASE(sync_pb::GetUpdatesCallerInfo, NEW_CLIENT);
@@ -125,18 +124,16 @@ const char* GetErrorTypeString(sync_pb::SyncEnums::ErrorType error_type) {
   return "";
 }
 
-const char* GetActionString(
-   sync_pb::ClientToServerResponse::Error::Action action) {
-  ASSERT_ENUM_BOUNDS(sync_pb::ClientToServerResponse::Error, Action,
+const char* GetActionString(sync_pb::SyncEnums::Action action) {
+  ASSERT_ENUM_BOUNDS(sync_pb::SyncEnums, Action,
                      UPGRADE_CLIENT, UNKNOWN_ACTION);
   switch (action) {
-    ENUM_CASE(sync_pb::ClientToServerResponse::Error, UPGRADE_CLIENT);
-    ENUM_CASE(sync_pb::ClientToServerResponse::Error,
-              CLEAR_USER_DATA_AND_RESYNC);
-    ENUM_CASE(sync_pb::ClientToServerResponse::Error, ENABLE_SYNC_ON_ACCOUNT);
-    ENUM_CASE(sync_pb::ClientToServerResponse::Error, STOP_AND_RESTART_SYNC);
-    ENUM_CASE(sync_pb::ClientToServerResponse::Error, DISABLE_SYNC_ON_CLIENT);
-    ENUM_CASE(sync_pb::ClientToServerResponse::Error, UNKNOWN_ACTION);
+    ENUM_CASE(sync_pb::SyncEnums, UPGRADE_CLIENT);
+    ENUM_CASE(sync_pb::SyncEnums, CLEAR_USER_DATA_AND_RESYNC);
+    ENUM_CASE(sync_pb::SyncEnums, ENABLE_SYNC_ON_ACCOUNT);
+    ENUM_CASE(sync_pb::SyncEnums, STOP_AND_RESTART_SYNC);
+    ENUM_CASE(sync_pb::SyncEnums, DISABLE_SYNC_ON_CLIENT);
+    ENUM_CASE(sync_pb::SyncEnums, UNKNOWN_ACTION);
   }
   NOTREACHED();
   return "";
@@ -159,7 +156,18 @@ const char* GetDeviceTypeString(
   return "";
 }
 
+const char* GetFaviconTypeString(
+    sync_pb::SessionTab::FaviconType favicon_type) {
+  ASSERT_ENUM_BOUNDS(sync_pb::SessionTab, FaviconType, TYPE_WEB_FAVICON,
+                     TYPE_WEB_FAVICON);
+  switch (favicon_type) {
+    ENUM_CASE(sync_pb::SessionTab, TYPE_WEB_FAVICON);
+  }
+  NOTREACHED();
+  return "";
+}
+
 #undef ASSERT_ENUM_BOUNDS
 #undef ENUM_CASE
 
-}  // namespace
+}  // namespace syncer

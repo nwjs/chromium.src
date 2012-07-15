@@ -28,7 +28,7 @@ class MockMediaStreamTrackList
   virtual ~MockMediaStreamTrackList() {}
 
  private:
-  std::vector<TrackType*> tracks_;
+  std::vector<talk_base::scoped_refptr<TrackType> > tracks_;
 };
 
 typedef MockMediaStreamTrackList<AudioTrackInterface> MockAudioTracks;
@@ -87,6 +87,18 @@ void MockLocalVideoTrack::SetRenderer(VideoRendererWrapperInterface* renderer) {
 }
 
 VideoRendererWrapperInterface* MockLocalVideoTrack::GetRenderer() {
+  return renderer_;
+}
+
+void MockLocalVideoTrack::AddRenderer(VideoRendererInterface* renderer) {
+  NOTIMPLEMENTED();
+}
+
+void MockLocalVideoTrack::RemoveRenderer(VideoRendererInterface* renderer) {
+  NOTIMPLEMENTED();
+}
+
+cricket::VideoRenderer* MockLocalVideoTrack::FrameInput() {
   NOTIMPLEMENTED();
   return NULL;
 }
@@ -123,10 +135,121 @@ void MockLocalVideoTrack::UnregisterObserver(ObserverInterface* observer) {
   NOTIMPLEMENTED();
 }
 
+AudioDeviceModule* MockLocalAudioTrack::GetAudioDevice() {
+  NOTIMPLEMENTED();
+  return NULL;
+}
+
+std::string MockLocalAudioTrack::kind() const {
+  NOTIMPLEMENTED();
+  return "";
+}
+
+std::string MockLocalAudioTrack::label() const { return label_; }
+
+bool MockLocalAudioTrack::enabled() const { return enabled_; }
+
+MockLocalVideoTrack::TrackState MockLocalAudioTrack::state() const {
+  NOTIMPLEMENTED();
+  return kInitializing;
+}
+
+bool MockLocalAudioTrack::set_enabled(bool enable) {
+  enabled_ = enable;
+  return true;
+}
+
+bool MockLocalAudioTrack::set_state(TrackState new_state) {
+  NOTIMPLEMENTED();
+  return false;
+}
+
+void MockLocalAudioTrack::RegisterObserver(ObserverInterface* observer) {
+  NOTIMPLEMENTED();
+}
+
+void MockLocalAudioTrack::UnregisterObserver(ObserverInterface* observer) {
+  NOTIMPLEMENTED();
+}
+
+class MockSessionDescription : public SessionDescriptionInterface {
+ public:
+  MockSessionDescription(const std::string& sdp)
+      : sdp_(sdp) {
+  }
+  virtual ~MockSessionDescription() {}
+  virtual const cricket::SessionDescription* description() const OVERRIDE {
+    NOTIMPLEMENTED();
+    return NULL;
+  }
+  virtual std::string session_id() const OVERRIDE {
+    NOTIMPLEMENTED();
+    return "";
+  }
+  virtual std::string session_version() const OVERRIDE {
+    NOTIMPLEMENTED();
+    return "";
+  }
+  virtual SdpType type() const OVERRIDE {
+    NOTIMPLEMENTED();
+    return kOffer;
+  }
+  virtual bool AddCandidate(const IceCandidateInterface* candidate) OVERRIDE {
+    NOTIMPLEMENTED();
+    return false;
+  }
+  virtual size_t number_of_mediasections() const OVERRIDE {
+    NOTIMPLEMENTED();
+    return 0;
+  }
+  virtual const IceCandidateCollection* candidates(
+      size_t mediasection_index) const OVERRIDE {
+    NOTIMPLEMENTED();
+    return NULL;
+  }
+
+  virtual bool ToString(std::string* out) const OVERRIDE {
+    *out = sdp_;
+    return true;
+  }
+
+ private:
+  std::string sdp_;
+};
+
+class MockIceCandidate : public IceCandidateInterface {
+ public:
+  MockIceCandidate(const std::string& label, const std::string& sdp)
+      : label_(label),
+        sdp_(sdp) {
+  }
+  virtual ~MockIceCandidate() {}
+  virtual std::string label() const OVERRIDE {
+    return label_;
+  }
+  virtual const cricket::Candidate& candidate() const OVERRIDE {
+    // This function should never be called. It will intentionally crash. The
+    // base class forces us to return a reference.
+    NOTREACHED();
+    cricket::Candidate* candidate = NULL;
+    return *candidate;
+  }
+  virtual bool ToString(std::string* out) const OVERRIDE {
+    *out = sdp_;
+    return true;
+  }
+
+ private:
+  std::string label_;
+  std::string sdp_;
+};
+
 }  // namespace webrtc
 
-MockMediaStreamDependencyFactory::MockMediaStreamDependencyFactory()
-    : mock_pc_factory_created_(false) {
+MockMediaStreamDependencyFactory::MockMediaStreamDependencyFactory(
+    VideoCaptureImplManager* vc_manager)
+    : MediaStreamDependencyFactory(vc_manager),
+      mock_pc_factory_created_(false) {
 }
 
 MockMediaStreamDependencyFactory::~MockMediaStreamDependencyFactory() {}
@@ -154,7 +277,7 @@ MockMediaStreamDependencyFactory::CreatePeerConnection(
     const std::string& config,
     webrtc::PeerConnectionObserver* observer) {
   DCHECK(mock_pc_factory_created_);
-  return new talk_base::RefCountedObject<webrtc::MockPeerConnectionImpl>();
+  return new talk_base::RefCountedObject<webrtc::MockPeerConnectionImpl>(this);
 }
 
 talk_base::scoped_refptr<webrtc::PeerConnectionInterface>
@@ -162,7 +285,7 @@ MockMediaStreamDependencyFactory::CreateRoapPeerConnection(
     const std::string& config,
     webrtc::PeerConnectionObserver* observer) {
   DCHECK(mock_pc_factory_created_);
-  return new talk_base::RefCountedObject<webrtc::MockPeerConnectionImpl>();
+  return new talk_base::RefCountedObject<webrtc::MockPeerConnectionImpl>(this);
 }
 
 talk_base::scoped_refptr<webrtc::LocalMediaStreamInterface>
@@ -176,16 +299,30 @@ MockMediaStreamDependencyFactory::CreateLocalMediaStream(
 talk_base::scoped_refptr<webrtc::LocalVideoTrackInterface>
 MockMediaStreamDependencyFactory::CreateLocalVideoTrack(
     const std::string& label,
-    cricket::VideoCapturer* video_device) {
-  talk_base::scoped_refptr<webrtc::LocalVideoTrackInterface> stream(
+    int video_session_id) {
+  talk_base::scoped_refptr<webrtc::LocalVideoTrackInterface> track(
       new talk_base::RefCountedObject<webrtc::MockLocalVideoTrack>(label));
-  return stream;
+  return track;
 }
 
 talk_base::scoped_refptr<webrtc::LocalAudioTrackInterface>
 MockMediaStreamDependencyFactory::CreateLocalAudioTrack(
     const std::string& label,
     webrtc::AudioDeviceModule* audio_device) {
-  NOTIMPLEMENTED();
-  return NULL;
+  talk_base::scoped_refptr<webrtc::LocalAudioTrackInterface> track(
+      new talk_base::RefCountedObject<webrtc::MockLocalAudioTrack>(label));
+  return track;
+}
+
+webrtc::SessionDescriptionInterface*
+MockMediaStreamDependencyFactory::CreateSessionDescription(
+    const std::string& sdp) {
+  return new webrtc::MockSessionDescription(sdp);
+}
+
+webrtc::IceCandidateInterface*
+MockMediaStreamDependencyFactory::CreateIceCandidate(
+    const std::string& label,
+    const std::string& sdp) {
+  return new webrtc::MockIceCandidate(label, sdp);
 }

@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef UI_VIEWS_CONTROLS_SCROLLBAR_BITMAP_SCROLL_BAR_H_
 #define UI_VIEWS_CONTROLS_SCROLLBAR_BITMAP_SCROLL_BAR_H_
-#pragma once
 
 #include "ui/views/controls/scrollbar/base_scroll_bar.h"
 
@@ -18,8 +17,8 @@ class BitmapScrollBarThumb;
 //
 // BitmapScrollBar
 //
-//  A ScrollBar subclass that implements a scroll bar rendered using bitmaps
-//  that the user provides. There are bitmaps for the up and down buttons, as
+//  A ScrollBar subclass that implements a scroll bar rendered using images
+//  that the user provides. There are images for the up and down buttons, as
 //  well as for the thumb and track. This is intended for creating UIs that
 //  have customized, non-native appearances, like floating HUDs etc.
 //
@@ -30,7 +29,7 @@ class VIEWS_EXPORT BitmapScrollBar : public BaseScrollBar,
   BitmapScrollBar(bool horizontal, bool show_scroll_buttons);
   virtual ~BitmapScrollBar() { }
 
-  // A list of parts that the user may supply bitmaps for.
+  // A list of parts that the user may supply images for.
   enum ScrollBarPart {
     // The button used to represent scrolling up/left by 1 line.
     PREV_BUTTON = 0,
@@ -51,10 +50,10 @@ class VIEWS_EXPORT BitmapScrollBar : public BaseScrollBar,
     PART_COUNT
   };
 
-  // Sets the bitmap to be rendered for the specified part and state.
+  // Sets the image to be rendered for the specified part and state.
   void SetImage(ScrollBarPart part,
                 CustomButton::ButtonState state,
-                SkBitmap* bitmap);
+                gfx::ImageSkia* image_skia);
 
 
   gfx::Rect GetTrackBounds() const;
@@ -79,7 +78,7 @@ class VIEWS_EXPORT BitmapScrollBar : public BaseScrollBar,
 
   // The thumb needs to be able to access the part images.
   friend BitmapScrollBarThumb;
-  SkBitmap* images_[PART_COUNT][CustomButton::BS_COUNT];
+  gfx::ImageSkia* images_[PART_COUNT][CustomButton::BS_COUNT];
 
   // True if the scroll buttons at each end of the scroll bar should be shown.
   bool show_scroll_buttons_;

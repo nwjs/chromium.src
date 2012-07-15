@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_GTK_DOWNLOAD_DOWNLOAD_SHELF_CONTEXT_MENU_GTK_H_
 #define CHROME_BROWSER_UI_GTK_DOWNLOAD_DOWNLOAD_SHELF_CONTEXT_MENU_GTK_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
@@ -19,7 +18,8 @@ class DownloadShelfContextMenuGtk : public DownloadShelfContextMenu,
                                     public MenuGtk::Delegate {
  public:
   DownloadShelfContextMenuGtk(BaseDownloadItemModel* model,
-                              DownloadItemGtk* download_item);
+                              DownloadItemGtk* download_item,
+                              content::PageNavigator* navigator);
   virtual ~DownloadShelfContextMenuGtk();
 
   void Popup(GtkWidget* widget, GdkEventButton* event);

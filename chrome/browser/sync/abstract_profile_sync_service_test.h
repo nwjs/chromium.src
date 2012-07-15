@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SYNC_ABSTRACT_PROFILE_SYNC_SERVICE_TEST_H_
 #define CHROME_BROWSER_SYNC_ABSTRACT_PROFILE_SYNC_SERVICE_TEST_H_
-#pragma once
 
 #include <string>
 
@@ -13,36 +12,36 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
 #include "chrome/browser/signin/token_service.h"
-#include "chrome/browser/sync/internal_api/change_record.h"
 #include "chrome/browser/sync/profile_sync_components_factory_mock.h"
-#include "content/test/test_browser_thread.h"
-#include "sync/syncable/model_type.h"
+#include "content/public/test/test_browser_thread.h"
+#include "sync/internal_api/public/base/model_type.h"
+#include "sync/internal_api/public/change_record.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 class ProfileSyncService;
 class TestProfileSyncService;
 
-namespace browser_sync {
+namespace syncer {
 class TestIdFactory;
-}  // namespace browser_sync
+}  // namespace syncer
 
-namespace sync_api {
+namespace syncer {
 struct UserShare;
-}  //  namespace sync_api
+}  //  namespace syncer
 
 class ProfileSyncServiceTestHelper {
  public:
-  static const std::string GetTagForType(syncable::ModelType model_type);
+  static const std::string GetTagForType(syncer::ModelType model_type);
 
-  static bool CreateRoot(syncable::ModelType model_type,
-                         sync_api::UserShare* service,
-                         browser_sync::TestIdFactory* ids);
+  static bool CreateRoot(syncer::ModelType model_type,
+                         syncer::UserShare* service,
+                         syncer::TestIdFactory* ids);
 
-  static sync_api::ImmutableChangeRecordList MakeSingletonChangeRecordList(
-      int64 node_id, sync_api::ChangeRecord::Action action);
+  static syncer::ImmutableChangeRecordList MakeSingletonChangeRecordList(
+      int64 node_id, syncer::ChangeRecord::Action action);
 
   // Deletions must provide an EntitySpecifics for the deleted data.
-  static sync_api::ImmutableChangeRecordList
+  static syncer::ImmutableChangeRecordList
       MakeSingletonDeletionChangeRecordList(
           int64 node_id,
           const sync_pb::EntitySpecifics& specifics);
@@ -57,7 +56,7 @@ class AbstractProfileSyncServiceTest : public testing::Test {
 
   virtual void TearDown() OVERRIDE;
 
-  bool CreateRoot(syncable::ModelType model_type);
+  bool CreateRoot(syncer::ModelType model_type);
 
   static ProfileKeyedService* BuildTokenService(Profile* profile);
  protected:
@@ -73,7 +72,7 @@ class AbstractProfileSyncServiceTest : public testing::Test {
 class CreateRootHelper {
  public:
   CreateRootHelper(AbstractProfileSyncServiceTest* test,
-                   syncable::ModelType model_type);
+                   syncer::ModelType model_type);
   virtual ~CreateRootHelper();
 
   const base::Closure& callback() const;
@@ -84,7 +83,7 @@ class CreateRootHelper {
 
   base::Closure callback_;
   AbstractProfileSyncServiceTest* test_;
-  syncable::ModelType model_type_;
+  syncer::ModelType model_type_;
   bool success_;
 };
 

@@ -1,22 +1,20 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_BROWSING_DATA_INDEXED_DB_HELPER_H_
 #define CHROME_BROWSER_BROWSING_DATA_INDEXED_DB_HELPER_H_
-#pragma once
 
 #include <list>
+#include <set>
 #include <string>
 
 #include "base/callback.h"
 #include "base/compiler_specific.h"
 #include "base/file_path.h"
 #include "base/memory/ref_counted.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/synchronization/lock.h"
 #include "base/time.h"
-#include "chrome/common/url_constants.h"
 #include "googleurl/src/gurl.h"
 
 class Profile;
@@ -25,8 +23,7 @@ class Profile;
 // aggregating and deleting browsing data stored in indexed databases.  A
 // client of this class need to call StartFetching from the UI thread to
 // initiate the flow, and it'll be notified by the callback in its UI thread at
-// some later point.  The client must call CancelNotification() if it's
-// destroyed before the callback is notified.
+// some later point.
 class BrowsingDataIndexedDBHelper
     : public base::RefCountedThreadSafe<BrowsingDataIndexedDBHelper> {
  public:
@@ -37,10 +34,6 @@ class BrowsingDataIndexedDBHelper
         int64 size,
         base::Time last_modified);
     ~IndexedDBInfo();
-
-    bool IsFileSchemeData() {
-      return origin.SchemeIsFile();
-    }
 
     GURL origin;
     int64 size;
@@ -57,10 +50,6 @@ class BrowsingDataIndexedDBHelper
   virtual void StartFetching(
       const base::Callback<void(const std::list<IndexedDBInfo>&)>&
           callback) = 0;
-  // Cancels the notification callback (i.e., the window that created it no
-  // longer exists).
-  // This must be called only in the UI thread.
-  virtual void CancelNotification() = 0;
   // Requests a single indexed database to be deleted in the WEBKIT thread.
   virtual void DeleteIndexedDB(const GURL& origin) = 0;
 
@@ -75,6 +64,17 @@ class BrowsingDataIndexedDBHelper
 class CannedBrowsingDataIndexedDBHelper
     : public BrowsingDataIndexedDBHelper {
  public:
+  // Contains information about an indexed database.
+  struct PendingIndexedDBInfo {
+    PendingIndexedDBInfo(const GURL& origin, const string16& name);
+    ~PendingIndexedDBInfo();
+
+    bool operator<(const PendingIndexedDBInfo& other) const;
+
+    GURL origin;
+    string16 name;
+  };
+
   CannedBrowsingDataIndexedDBHelper();
 
   // Return a copy of the IndexedDB helper. Only one consumer can use the
@@ -85,7 +85,7 @@ class CannedBrowsingDataIndexedDBHelper
   // Add a indexed database to the set of canned indexed databases that is
   // returned by this helper.
   void AddIndexedDB(const GURL& origin,
-                    const string16& description);
+                    const string16& name);
 
   // Clear the list of canned indexed databases.
   void Reset();
@@ -93,23 +93,21 @@ class CannedBrowsingDataIndexedDBHelper
   // True if no indexed databases are currently stored.
   bool empty() const;
 
+  // Returns the number of currently stored indexed databases.
+  size_t GetIndexedDBCount() const;
+
+  // Returns the current list of indexed data bases.
+  const std::set<CannedBrowsingDataIndexedDBHelper::PendingIndexedDBInfo>&
+      GetIndexedDBInfo() const;
+
   // BrowsingDataIndexedDBHelper methods.
   virtual void StartFetching(
       const base::Callback<void(const std::list<IndexedDBInfo>&)>&
           callback) OVERRIDE;
-  virtual void CancelNotification() OVERRIDE;
+
   virtual void DeleteIndexedDB(const GURL& origin) OVERRIDE {}
 
  private:
-  struct PendingIndexedDBInfo {
-    PendingIndexedDBInfo();
-    PendingIndexedDBInfo(const GURL& origin, const string16& description);
-    ~PendingIndexedDBInfo();
-
-    GURL origin;
-    string16 description;
-  };
-
   virtual ~CannedBrowsingDataIndexedDBHelper();
 
   // Convert the pending indexed db info to indexed db info objects.
@@ -120,10 +118,16 @@ class CannedBrowsingDataIndexedDBHelper
   // Lock to protect access to pending_indexed_db_info_;
   mutable base::Lock lock_;
 
-  // This may mutate on WEBKIT and UI threads.
-  std::list<PendingIndexedDBInfo> pending_indexed_db_info_;
+  // Access to |pending_indexed_db_info_| is protected by |lock_| since it can
+  // be accessed on the UI and on the WEBKIT thread.
+  std::set<PendingIndexedDBInfo> pending_indexed_db_info_;
 
-  // This only mutates on the WEBKIT thread.
+  // Access to |indexed_db_info_| is triggered indirectly via the UI thread and
+  // guarded by |is_fetching_|. This means |indexed_db_info_| is only accessed
+  // while |is_fetching_| is true. The flag |is_fetching_| is only accessed on
+  // the UI thread.
+  // In the context of this class |indexed_db_info_| is only accessed on the UI
+  // thread.
   std::list<IndexedDBInfo> indexed_db_info_;
 
   // This only mutates on the UI thread.

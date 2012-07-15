@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,8 +8,8 @@
 #include "base/message_loop_proxy.h"
 #include "chrome/service/net/service_url_request_context.h"
 #include "chrome/service/service_process.h"
-#include "content/public/common/url_fetcher.h"
 #include "googleurl/src/gurl.h"
+#include "net/url_request/url_fetcher.h"
 
 ServiceGaiaAuthenticator::ServiceGaiaAuthenticator(
     const std::string& user_agent, const std::string& service_id,
@@ -21,7 +21,19 @@ ServiceGaiaAuthenticator::ServiceGaiaAuthenticator(
           http_response_code_(0) {
 }
 
-ServiceGaiaAuthenticator::~ServiceGaiaAuthenticator() {
+// net::URLFetcherDelegate implementation
+void ServiceGaiaAuthenticator::OnURLFetchComplete(
+    const net::URLFetcher* source) {
+  DCHECK(io_message_loop_proxy_->BelongsToCurrentThread());
+  http_response_code_ = source->GetResponseCode();
+  source->GetResponseAsString(&response_data_);
+  delete source;
+  // Add an extra reference because we want http_post_completed_ to remain
+  // valid until after Signal() returns.
+  scoped_refptr<ServiceGaiaAuthenticator> keep_alive(this);
+  // Wake the blocked thread in Post.
+  http_post_completed_.Signal();
+  // WARNING: DONT DO ANYTHING AFTER THIS CALL! |this| may be deleted!
 }
 
 bool ServiceGaiaAuthenticator::Post(const GURL& url,
@@ -61,28 +73,15 @@ int ServiceGaiaAuthenticator::GetBackoffDelaySeconds(
   return ret;
 }
 
+ServiceGaiaAuthenticator::~ServiceGaiaAuthenticator() {}
+
 void ServiceGaiaAuthenticator::DoPost(const GURL& post_url,
                                       const std::string& post_body) {
   DCHECK(io_message_loop_proxy_->BelongsToCurrentThread());
-  content::URLFetcher* request = content::URLFetcher::Create(
-      post_url, content::URLFetcher::POST, this);
+  net::URLFetcher* request = net::URLFetcher::Create(
+      post_url, net::URLFetcher::POST, this);
   request->SetRequestContext(
       g_service_process->GetServiceURLRequestContextGetter());
   request->SetUploadData("application/x-www-form-urlencoded", post_body);
   request->Start();
-}
-
-// content::URLFetcherDelegate implementation
-void ServiceGaiaAuthenticator::OnURLFetchComplete(
-    const content::URLFetcher* source) {
-  DCHECK(io_message_loop_proxy_->BelongsToCurrentThread());
-  http_response_code_ = source->GetResponseCode();
-  source->GetResponseAsString(&response_data_);
-  delete source;
-  // Add an extra reference because we want http_post_completed_ to remain
-  // valid until after Signal() returns.
-  scoped_refptr<ServiceGaiaAuthenticator> keep_alive(this);
-  // Wake the blocked thread in Post.
-  http_post_completed_.Signal();
-  // WARNING: DONT DO ANYTHING AFTER THIS CALL! |this| may be deleted!
 }

@@ -19,6 +19,7 @@ class Statement;
 namespace history {
 
 typedef int64 AndroidURLID;
+typedef int64 SearchTermID;
 
 // Wraps all columns needed to support android.provider.Browser.BookmarkColumns.
 // It is used in insert() and update() to specify the columns need to insert or
@@ -27,9 +28,9 @@ typedef int64 AndroidURLID;
 // the specific column could be used.
 //
 // The defult copy constructor is used.
-class BookmarkRow {
+class HistoryAndBookmarkRow {
  public:
-  enum BookmarkColumnID {
+  enum ColumnID {
     ID,
     URL,
     TITLE,
@@ -44,13 +45,13 @@ class BookmarkRow {
     COLUMN_END // This must be the last.
   };
 
-  BookmarkRow();
-  virtual ~BookmarkRow();
+  HistoryAndBookmarkRow();
+  virtual ~HistoryAndBookmarkRow();
 
   // Returns the column name defined in Android.
-  static std::string GetAndroidName(BookmarkColumnID id);
+  static std::string GetAndroidName(ColumnID id);
 
-  static BookmarkColumnID GetBookmarkColumnID(const std::string& name);
+  static ColumnID GetColumnID(const std::string& name);
 
   // URLs for the page.
   void set_url(const GURL& url) {
@@ -152,12 +153,12 @@ class BookmarkRow {
   }
 
   // Returns true if the given |id| has been set explicitly.
-  bool is_value_set_explicitly(BookmarkColumnID id) const {
+  bool is_value_set_explicitly(ColumnID id) const {
     return values_set_.find(id) != values_set_.end();
   }
 
  private:
-  void set_value_explicitly(BookmarkColumnID id) {
+  void set_value_explicitly(ColumnID id) {
     values_set_.insert(id);
   }
 
@@ -174,7 +175,7 @@ class BookmarkRow {
   URLID url_id_;
 
   // Used to find whether a column has been set a value explicitly.
-  std::set<BookmarkColumnID> values_set_;
+  std::set<ColumnID> values_set_;
 
   // We support the implicit copy constuctor and operator=.
 };
@@ -189,7 +190,7 @@ class BookmarkRow {
 // The defult copy constructor is used.
 class SearchRow {
  public:
-  enum SearchColumnID {
+  enum ColumnID {
     ID,
     SEARCH_TERM,
     SEARCH_TIME,
@@ -202,9 +203,17 @@ class SearchRow {
   virtual ~SearchRow();
 
   // Returns the column name defined in Android.
-  static std::string GetAndroidName(SearchColumnID id);
+  static std::string GetAndroidName(ColumnID id);
 
-  static SearchColumnID GetSearchColumnID(const std::string& name);
+  static ColumnID GetColumnID(const std::string& name);
+
+  SearchTermID id() const {
+    return id_;
+  }
+  void set_id(SearchTermID id) {
+    set_value_explicitly(SearchRow::ID);
+    id_ = id;
+  }
 
   const string16& search_term() const {
     return search_term_;
@@ -239,33 +248,31 @@ class SearchRow {
   }
 
  // Returns true if the given |id| has been set explicitly.
-  bool is_value_set_explicitly(SearchColumnID id) const {
+  bool is_value_set_explicitly(ColumnID id) const {
     return values_set_.find(id) != values_set_.end();
   }
 
  private:
-  void set_value_explicitly(SearchColumnID id) {
+  void set_value_explicitly(ColumnID id) {
     values_set_.insert(id);
   }
 
-  int64 id_;
+  SearchTermID id_;
   string16 search_term_;
   base::Time search_time_;
   GURL url_;
   TemplateURLID template_url_id_;
 
   // Used to find whether a column has been set a value.
-  std::set<SearchColumnID> values_set_;
+  std::set<ColumnID> values_set_;
 
   // We support the implicit copy constuctor and operator=.
 };
 
 // Defines the row stored in android_urls table.
 struct AndroidURLRow {
-  AndroidURLRow()
-      :id(0),
-       url_id(0) {
-  }
+  AndroidURLRow();
+  ~AndroidURLRow();
 
   // The unique id of the row
   AndroidURLID id;
@@ -273,6 +280,19 @@ struct AndroidURLRow {
   URLID url_id;
   // The orignal URL string passed in by client.
   std::string raw_url;
+};
+
+// Defines the row of keyword_cache table.
+struct SearchTermRow {
+  SearchTermRow();
+  ~SearchTermRow();
+
+  // The unique id of the row.
+  SearchTermID id;
+  // The keyword.
+  string16 term;
+  // The last visit time.
+  base::Time last_visit_time;
 };
 
 // This class wraps the sql statement and favicon column index in statement if

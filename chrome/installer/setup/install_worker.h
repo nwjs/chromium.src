@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -7,7 +7,6 @@
 
 #ifndef CHROME_INSTALLER_SETUP_INSTALL_WORKER_H_
 #define CHROME_INSTALLER_SETUP_INSTALL_WORKER_H_
-#pragma once
 
 #include <windows.h>
 
@@ -121,6 +120,14 @@ void AddChromeFrameWorkItems(const InstallationState& original_state,
                              const Version& new_version,
                              const Product& product,
                              WorkItemList* list);
+
+// Called for either installation or uninstallation. This method adds or
+// removes COM registration for a product's DelegateExecute verb handler.
+void AddDelegateExecuteWorkItems(const InstallerState& installer_state,
+                                 const FilePath& src_path,
+                                 const Version& new_version,
+                                 const Product& product,
+                                 WorkItemList* list);
 
 // This method adds work items to create (or update) Chrome uninstall entry in
 // either the Control Panel->Add/Remove Programs list or in the Omaha client

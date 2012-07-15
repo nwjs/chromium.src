@@ -1,5 +1,4 @@
-#!/usr/bin/python
-#
+#!/usr/bin/env python
 # Copyright (c) 2012 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -30,7 +29,9 @@ class TestGenerator(unittest.TestCase):
           isinstance(type(value[0]), object)):
         self.assertListEquals(value, second.__getattribute__(key))
       else:
-        self.assertEquals(value, second.__getattribute__(key))
+        actual = second.__getattribute__(key)
+        self.assertEquals(value, actual,
+                          'Key ' + key + ': ' + str(value) + '!=' + str(actual))
 
   def assertListEquals(self, first, second):
     self.assertEquals(len(first), len(second))
@@ -53,6 +54,7 @@ class TestGenerator(unittest.TestCase):
       print '=' * 80
       self.fail('Golden text mismatch')
 
+  # TODO(bulach): Detangle these tests from knowing about classes from Content.
   def testNatives(self):
     test_data = """"
     private native int nativeInit();
@@ -63,7 +65,7 @@ class TestGenerator(unittest.TestCase):
     private static native String nativeGetDomainAndRegistry(String url);
     private static native void nativeCreateHistoricalTabFromState(
             byte[] state, int tab_index);
-    private native byte[] nativeGetStateAsByteArray(ChromeView view);
+    private native byte[] nativeGetStateAsByteArray(ContentViewCore view);
     private static native String[] nativeGetAutofillProfileGUIDs();
     private native void nativeSetRecognitionResults(
             int sessionId, String[] results);
@@ -78,7 +80,7 @@ class TestGenerator(unittest.TestCase):
             String[] projection, String selection,
             String[] selectionArgs, String sortOrder);
     private native void nativeGotOrientation(
-            int nativePtr /* device_orientation::DeviceOrientationAndroid */,
+            int nativeDataFetcherImplAndroid,
             double alpha, double beta, double gamma);
     """
     natives = jni_generator.ExtractNatives(test_data)
@@ -86,12 +88,12 @@ class TestGenerator(unittest.TestCase):
         NativeMethod(return_type='int', static=False,
                      name='Init',
                      params=[],
-                     java_class_name='',
+                     java_class_name=None,
                      type='function'),
         NativeMethod(return_type='void', static=False, name='Destroy',
                      params=[Param(datatype='int',
                                    name='nativeChromeBrowserProvider')],
-                     java_class_name='',
+                     java_class_name=None,
                      type='method',
                      p0_type='ChromeBrowserProvider'),
         NativeMethod(return_type='long', static=False, name='AddBookmark',
@@ -105,14 +107,14 @@ class TestGenerator(unittest.TestCase):
                                    name='isFolder'),
                              Param(datatype='long',
                                    name='parentId')],
-                     java_class_name='',
+                     java_class_name=None,
                      type='method',
                      p0_type='ChromeBrowserProvider'),
         NativeMethod(return_type='String', static=True,
                      name='GetDomainAndRegistry',
                      params=[Param(datatype='String',
                                    name='url')],
-                     java_class_name='',
+                     java_class_name=None,
                      type='function'),
         NativeMethod(return_type='void', static=True,
                      name='CreateHistoricalTabFromState',
@@ -120,22 +122,22 @@ class TestGenerator(unittest.TestCase):
                                    name='state'),
                              Param(datatype='int',
                                    name='tab_index')],
-                     java_class_name='',
+                     java_class_name=None,
                      type='function'),
         NativeMethod(return_type='byte[]', static=False,
                      name='GetStateAsByteArray',
-                     params=[Param(datatype='ChromeView', name='view')],
-                     java_class_name='',
+                     params=[Param(datatype='ContentViewCore', name='view')],
+                     java_class_name=None,
                      type='function'),
         NativeMethod(return_type='String[]', static=True,
                      name='GetAutofillProfileGUIDs', params=[],
-                     java_class_name='',
+                     java_class_name=None,
                      type='function'),
         NativeMethod(return_type='void', static=False,
                      name='SetRecognitionResults',
                      params=[Param(datatype='int', name='sessionId'),
                              Param(datatype='String[]', name='results')],
-                     java_class_name='',
+                     java_class_name=None,
                      type='function'),
         NativeMethod(return_type='long', static=False,
                      name='AddBookmarkFromAPI',
@@ -155,19 +157,19 @@ class TestGenerator(unittest.TestCase):
                                    name='title'),
                              Param(datatype='Integer',
                                    name='visits')],
-                     java_class_name='',
+                     java_class_name=None,
                      type='method',
                      p0_type='ChromeBrowserProvider'),
         NativeMethod(return_type='int', static=False,
                      name='FindAll',
                      params=[Param(datatype='String',
                                    name='find')],
-                     java_class_name='',
+                     java_class_name=None,
                      type='function'),
         NativeMethod(return_type='BookmarkNode', static=True,
                      name='GetDefaultBookmarkFolder',
                      params=[],
-                     java_class_name='',
+                     java_class_name=None,
                      type='function'),
         NativeMethod(return_type='SQLiteCursor',
                      static=False,
@@ -183,15 +185,13 @@ class TestGenerator(unittest.TestCase):
                              Param(datatype='String',
                                    name='sortOrder'),
                             ],
-                     java_class_name='',
+                     java_class_name=None,
                      type='method',
                      p0_type='ChromeBrowserProvider'),
         NativeMethod(return_type='void', static=False,
                      name='GotOrientation',
                      params=[Param(datatype='int',
-                                   cpp_class_name=
-                                 'device_orientation::DeviceOrientationAndroid',
-                                   name='nativePtr'),
+                                   name='nativeDataFetcherImplAndroid'),
                              Param(datatype='double',
                                    name='alpha'),
                              Param(datatype='double',
@@ -199,9 +199,9 @@ class TestGenerator(unittest.TestCase):
                              Param(datatype='double',
                                    name='gamma'),
                             ],
-                     java_class_name='',
+                     java_class_name=None,
                      type='method',
-                     p0_type='device_orientation::DeviceOrientationAndroid'),
+                     p0_type='device_orientation::DataFetcherImplAndroid'),
     ]
     self.assertListEquals(golden_natives, natives)
     h = jni_generator.InlHeaderFileGenerator('', 'org/chromium/TestJni',
@@ -210,7 +210,6 @@ class TestGenerator(unittest.TestCase):
 // Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-
 
 // This file is autogenerated by
 //     base/android/jni_generator/jni_generator_tests.py
@@ -238,34 +237,26 @@ jclass g_TestJni_clazz = NULL;
 
 static jint Init(JNIEnv* env, jobject obj);
 
-
 static jstring GetDomainAndRegistry(JNIEnv* env, jclass clazz,
     jstring url);
-
 
 static void CreateHistoricalTabFromState(JNIEnv* env, jclass clazz,
     jbyteArray state,
     jint tab_index);
 
-
 static jbyteArray GetStateAsByteArray(JNIEnv* env, jobject obj,
     jobject view);
 
-
 static jobjectArray GetAutofillProfileGUIDs(JNIEnv* env, jclass clazz);
-
 
 static void SetRecognitionResults(JNIEnv* env, jobject obj,
     jint sessionId,
     jobjectArray results);
 
-
 static jint FindAll(JNIEnv* env, jobject obj,
     jstring find);
 
-
 static jobject GetDefaultBookmarkFolder(JNIEnv* env, jclass clazz);
-
 
 // Step 2: method stubs.
 static void Destroy(JNIEnv* env, jobject obj,
@@ -318,20 +309,17 @@ static jobject QueryBookmarkFromAPI(JNIEnv* env, jobject obj,
 }
 
 static void GotOrientation(JNIEnv* env, jobject obj,
-    jint nativePtr,
+    jint nativeDataFetcherImplAndroid,
     jdouble alpha,
     jdouble beta,
     jdouble gamma) {
-  DCHECK(nativePtr) << "GotOrientation";
-  device_orientation::DeviceOrientationAndroid* native =
-    reinterpret_cast<device_orientation::DeviceOrientationAndroid*>(nativePtr);
+  DCHECK(nativeDataFetcherImplAndroid) << "GotOrientation";
+  DataFetcherImplAndroid* native =
+    reinterpret_cast<DataFetcherImplAndroid*>(nativeDataFetcherImplAndroid);
   return native->GotOrientation(env, obj, alpha, beta, gamma);
 }
 
-
 // Step 3: GetMethodIDs and RegisterNatives.
-
-
 static void GetMethodIDsImpl(JNIEnv* env) {
   g_TestJni_clazz = reinterpret_cast<jclass>(env->NewGlobalRef(
       base::android::GetUnscopedClass(env, kTestJniClassPath)));
@@ -372,7 +360,7 @@ static bool RegisterNativesImpl(JNIEnv* env) {
 "V", reinterpret_cast<void*>(CreateHistoricalTabFromState) },
     { "nativeGetStateAsByteArray",
 "("
-"Lorg/chromium/chromeview/ChromeView;"
+"Lorg/chromium/content/browser/ContentViewCore;"
 ")"
 "[B", reinterpret_cast<void*>(GetStateAsByteArray) },
     { "nativeGetAutofillProfileGUIDs",
@@ -405,7 +393,7 @@ static bool RegisterNativesImpl(JNIEnv* env) {
     { "nativeGetDefaultBookmarkFolder",
 "("
 ")"
-"Lcom/android/chrome/ChromeBrowserProvider$BookmarkNode;",
+"Lcom/google/android/apps/chrome/ChromeBrowserProvider$BookmarkNode;",
     reinterpret_cast<void*>(GetDefaultBookmarkFolder) },
     { "nativeQueryBookmarkFromAPI",
 "("
@@ -415,7 +403,7 @@ static bool RegisterNativesImpl(JNIEnv* env) {
 "[Ljava/lang/String;"
 "Ljava/lang/String;"
 ")"
-"Lcom/android/chrome/database/SQLiteCursor;",
+"Lcom/google/android/apps/chrome/database/SQLiteCursor;",
     reinterpret_cast<void*>(QueryBookmarkFromAPI) },
     { "nativeGotOrientation",
 "("
@@ -464,7 +452,6 @@ static bool RegisterNativesImpl(JNIEnv* env) {
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-
 // This file is autogenerated by
 //     base/android/jni_generator/jni_generator_tests.py
 // For
@@ -492,13 +479,9 @@ jclass g_TestJni_clazz = NULL;
 
 static jint Init(JNIEnv* env, jobject obj);
 
-
 // Step 2: method stubs.
 
-
 // Step 3: GetMethodIDs and RegisterNatives.
-
-
 static void GetMethodIDsImpl(JNIEnv* env) {
   g_TestJni_clazz = reinterpret_cast<jclass>(env->NewGlobalRef(
       base::android::GetUnscopedClass(env, kTestJniClassPath)));
@@ -559,7 +542,6 @@ static bool RegisterNativesImpl(JNIEnv* env) {
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-
 // This file is autogenerated by
 //     base/android/jni_generator/jni_generator_tests.py
 // For
@@ -589,16 +571,11 @@ jclass g_TestJni_clazz = NULL;
 
 static jint Init(JNIEnv* env, jobject obj);
 
-
 static jint Init(JNIEnv* env, jobject obj);
-
 
 // Step 2: method stubs.
 
-
 // Step 3: GetMethodIDs and RegisterNatives.
-
-
 static void GetMethodIDsImpl(JNIEnv* env) {
   g_TestJni_clazz = reinterpret_cast<jclass>(env->NewGlobalRef(
       base::android::GetUnscopedClass(env, kTestJniClassPath)));
@@ -659,7 +636,7 @@ static bool RegisterNativesImpl(JNIEnv* env) {
     golden_natives = [
         NativeMethod(return_type='int', static=False,
                      name='Init', params=[],
-                     java_class_name='',
+                     java_class_name=None,
                      type='function'),
         NativeMethod(return_type='int', static=False,
                      name='Init', params=[],
@@ -673,7 +650,6 @@ static bool RegisterNativesImpl(JNIEnv* env) {
 // Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-
 
 // This file is autogenerated by
 //     base/android/jni_generator/jni_generator_tests.py
@@ -703,16 +679,11 @@ jclass g_TestJni_clazz = NULL;
 
 static jint Init(JNIEnv* env, jobject obj);
 
-
 static jint Init(JNIEnv* env, jobject obj);
-
 
 // Step 2: method stubs.
 
-
 // Step 3: GetMethodIDs and RegisterNatives.
-
-
 static void GetMethodIDsImpl(JNIEnv* env) {
   g_TestJni_clazz = reinterpret_cast<jclass>(env->NewGlobalRef(
       base::android::GetUnscopedClass(env, kTestJniClassPath)));
@@ -784,10 +755,10 @@ static bool RegisterNativesImpl(JNIEnv* env) {
     void dismiss();
     @SuppressWarnings("unused")
     @CalledByNative
-    private static boolean shouldShowAutoLogin(ChromeView chromeView,
+    private static boolean shouldShowAutoLogin(ContentViewCore contentView,
             String realm, String account, String args) {
         AccountManagerContainer accountManagerContainer =
-            new AccountManagerContainer((Activity)chromeView.getContext(),
+            new AccountManagerContainer((Activity)contentView.getContext(),
             realm, account, args);
         String[] logins = accountManagerContainer.getAccountLogins(null);
         return logins.length != 0;
@@ -856,7 +827,7 @@ static bool RegisterNativesImpl(JNIEnv* env) {
             name='shouldShowAutoLogin',
             method_id_var_name='shouldShowAutoLogin',
             java_class_name='',
-            params=[Param(datatype='ChromeView', name='chromeView'),
+            params=[Param(datatype='ContentViewCore', name='contentView'),
                     Param(datatype='String', name='realm'),
                     Param(datatype='String', name='account'),
                     Param(datatype='String', name='args')],
@@ -910,7 +881,6 @@ static bool RegisterNativesImpl(JNIEnv* env) {
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-
 // This file is autogenerated by
 //     base/android/jni_generator/jni_generator_tests.py
 // For
@@ -937,7 +907,6 @@ jclass g_TestJni_clazz = NULL;
 // Leaking this jclass as we cannot use LazyInstance from some threads.
 jclass g_InfoBar_clazz = NULL;
 }  // namespace
-
 
 // Step 2: method stubs.
 
@@ -989,7 +958,7 @@ static void Java_InfoBar_dismiss(JNIEnv* env, jobject obj) {
 
 static jmethodID g_TestJni_shouldShowAutoLogin = 0;
 static jboolean Java_TestJni_shouldShowAutoLogin(JNIEnv* env, jobject
-    chromeView,
+    contentView,
     jstring realm,
     jstring account,
     jstring args) {
@@ -998,7 +967,7 @@ static jboolean Java_TestJni_shouldShowAutoLogin(JNIEnv* env, jobject
   DCHECK(g_TestJni_shouldShowAutoLogin);
   jboolean ret =
     env->CallStaticBooleanMethod(g_TestJni_clazz,
-      g_TestJni_shouldShowAutoLogin, chromeView, realm, account, args);
+      g_TestJni_shouldShowAutoLogin, contentView, realm, account, args);
   base::android::CheckException(env);
   return ret;
 }
@@ -1043,12 +1012,9 @@ static void Java_TestJni_uncheckedCall(JNIEnv* env, jobject obj, jint iParam) {
   env->CallVoidMethod(obj,
       g_TestJni_uncheckedCall, iParam);
 
-
 }
 
 // Step 3: GetMethodIDs and RegisterNatives.
-
-
 static void GetMethodIDsImpl(JNIEnv* env) {
   g_TestJni_clazz = reinterpret_cast<jclass>(env->NewGlobalRef(
       base::android::GetUnscopedClass(env, kTestJniClassPath)));
@@ -1066,7 +1032,7 @@ static void GetMethodIDsImpl(JNIEnv* env) {
 "Ljava/lang/String;"
 "Landroid/graphics/Bitmap;"
 ")"
-"Lcom/android/chrome/infobar/InfoBarContainer$NativeInfoBar;");
+"Lcom/google/android/apps/chrome/infobar/InfoBarContainer$NativeInfoBar;");
 
   g_TestJni_showAutoLoginInfoBar =
       base::android::GetMethodID(
@@ -1079,7 +1045,7 @@ static void GetMethodIDsImpl(JNIEnv* env) {
 "Ljava/lang/String;"
 "Ljava/lang/String;"
 ")"
-"Lcom/android/chrome/infobar/InfoBarContainer$NativeInfoBar;");
+"Lcom/google/android/apps/chrome/infobar/InfoBarContainer$NativeInfoBar;");
 
   g_InfoBar_dismiss =
       base::android::GetMethodID(
@@ -1096,7 +1062,7 @@ static void GetMethodIDsImpl(JNIEnv* env) {
           "shouldShowAutoLogin",
 
 "("
-"Lorg/chromium/chromeview/ChromeView;"
+"Lorg/chromium/content/browser/ContentViewCore;"
 "Ljava/lang/String;"
 "Ljava/lang/String;"
 "Ljava/lang/String;"
@@ -1168,14 +1134,14 @@ scooby doo
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-package org.chromium.chromeview;
+package org.chromium.content.browser;
 
-import org.chromium.chromeview.legacy.DownloadListener;
+import org.chromium.base.BuildInfo;
 """
-    self.assertEquals('org/chromium/chromeview/Foo',
+    self.assertEquals('org/chromium/content/browser/Foo',
                       jni_generator.ExtractFullyQualifiedJavaClassName(
-                          'org/chromium/chromeview/Foo.java', contents))
-    self.assertEquals('org/chromium/chromeview/Foo',
+                          'org/chromium/content/browser/Foo.java', contents))
+    self.assertEquals('org/chromium/content/browser/Foo',
                       jni_generator.ExtractFullyQualifiedJavaClassName(
                           'frameworks/Foo.java', contents))
     self.assertRaises(SyntaxError,
@@ -1215,7 +1181,6 @@ public abstract class java.io.InputStream extends java.lang.Object
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-
 // This file is autogenerated by
 //     base/android/jni_generator/jni_generator_tests.py
 // For
@@ -1240,6 +1205,7 @@ const char kInputStreamClassPath[] = "java/io/InputStream";
 jclass g_InputStream_clazz = NULL;
 }  // namespace
 
+namespace JNI_InputStream {
 
 // Step 2: method stubs.
 
@@ -1373,8 +1339,6 @@ static jlong Java_InputStream_skip(JNIEnv* env, jobject obj, jlong p0) {
 }
 
 // Step 3: GetMethodIDs and RegisterNatives.
-namespace JNI_InputStream {
-
 static void GetMethodIDsImpl(JNIEnv* env) {
   g_InputStream_clazz = reinterpret_cast<jclass>(env->NewGlobalRef(
       base::android::GetUnscopedClass(env, kInputStreamClassPath)));
@@ -1468,7 +1432,7 @@ static void GetMethodIDsImpl(JNIEnv* env) {
 }
 
 static bool RegisterNativesImpl(JNIEnv* env) {
-  JNI_InputStream::GetMethodIDsImpl(env);
+  GetMethodIDsImpl(env);
 
   return true;
 }
@@ -1501,6 +1465,17 @@ static bool RegisterNativesImpl(JNIEnv* env) {
     test_data = """
     class MyInnerClass {
       private native int nativeInit(AnUnknownDatatype p0);
+    }
+    """
+    self.assertRaises(SyntaxError,
+                      jni_generator.JNIFromJavaSource,
+                      test_data, 'foo/bar')
+
+  def testRaisesOnNonJNIMethod(self):
+    test_data = """
+    class MyInnerClass {
+      private int Foo(int p0) {
+      }
     }
     """
     self.assertRaises(SyntaxError,

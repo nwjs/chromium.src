@@ -8,6 +8,7 @@
 
 #include "base/logging.h"
 #include "base/time.h"
+#include "base/win/win_util.h"
 #include "ui/base/keycodes/keyboard_code_conversion_win.h"
 #include "ui/gfx/point.h"
 
@@ -84,9 +85,9 @@ bool IsKeyEvent(const base::NativeEvent& native_event) {
 // Checks the current global state and the state sent by client mouse messages.
 int KeyStateFlagsFromNative(const base::NativeEvent& native_event) {
   int flags = 0;
-  flags |= (GetKeyState(VK_MENU) & 0x80) ? ui::EF_ALT_DOWN : 0;
-  flags |= (GetKeyState(VK_SHIFT) & 0x80) ? ui::EF_SHIFT_DOWN : 0;
-  flags |= (GetKeyState(VK_CONTROL) & 0x80) ? ui::EF_CONTROL_DOWN : 0;
+  flags |= base::win::IsAltPressed() ? ui::EF_ALT_DOWN : ui::EF_NONE;
+  flags |= base::win::IsShiftPressed() ? ui::EF_SHIFT_DOWN : ui::EF_NONE;
+  flags |= base::win::IsCtrlPressed() ? ui::EF_CONTROL_DOWN : ui::EF_NONE;
 
   // Check key messages for the extended key flag.
   if (IsKeyEvent(native_event))
@@ -126,6 +127,10 @@ int MouseStateFlagsFromNative(const base::NativeEvent& native_event) {
 }  // namespace
 
 namespace ui {
+
+void UpdateDeviceList() {
+  NOTIMPLEMENTED();
+}
 
 EventType EventTypeFromNative(const base::NativeEvent& native_event) {
   switch (native_event.message) {
@@ -276,8 +281,14 @@ void SetNaturalScroll(bool enabled) {
   NOTIMPLEMENTED();
 }
 
-void UpdateDeviceList() {
+bool IsNaturalScrollEnabled() {
   NOTIMPLEMENTED();
+  return false;
+}
+
+bool IsTouchpadEvent(const base::NativeEvent& event) {
+  NOTIMPLEMENTED();
+  return false;
 }
 
 bool IsNoopEvent(const base::NativeEvent& event) {
@@ -288,6 +299,17 @@ base::NativeEvent CreateNoopEvent() {
   MSG event = { NULL };
   event.message = WM_USER + 310;
   return event;
+}
+
+int GetModifiersFromACCEL(const ACCEL& accel) {
+  int modifiers = ui::EF_NONE;
+  if (accel.fVirt & FSHIFT)
+    modifiers |= ui::EF_SHIFT_DOWN;
+  if (accel.fVirt & FCONTROL)
+    modifiers |= ui::EF_CONTROL_DOWN;
+  if (accel.fVirt & FALT)
+    modifiers |= ui::EF_ALT_DOWN;
+  return modifiers;
 }
 
 }  // namespace ui

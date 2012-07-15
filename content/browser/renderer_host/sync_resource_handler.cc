@@ -18,17 +18,22 @@ namespace content {
 
 SyncResourceHandler::SyncResourceHandler(
     ResourceMessageFilter* filter,
-    const GURL& url,
+    net::URLRequest* request,
     IPC::Message* result_message,
     ResourceDispatcherHostImpl* resource_dispatcher_host)
     : read_buffer_(new net::IOBuffer(kReadBufSize)),
       filter_(filter),
+      request_(request),
       result_message_(result_message),
       rdh_(resource_dispatcher_host) {
-  result_.final_url = url;
+  result_.final_url = request_->url();
 }
 
 SyncResourceHandler::~SyncResourceHandler() {
+  if (result_message_) {
+    result_message_->set_reply_error();
+    filter_->Send(result_message_);
+  }
 }
 
 bool SyncResourceHandler::OnUploadProgress(int request_id,
@@ -42,12 +47,12 @@ bool SyncResourceHandler::OnRequestRedirected(
     const GURL& new_url,
     ResourceResponse* response,
     bool* defer) {
-  net::URLRequest* request = rdh_->GetURLRequest(
-      GlobalRequestID(filter_->child_id(), request_id));
-  if (rdh_->delegate())
-    rdh_->delegate()->OnRequestRedirected(request, response);
+  if (rdh_->delegate()) {
+    rdh_->delegate()->OnRequestRedirected(request_, filter_->resource_context(),
+                                          response);
+  }
 
-  DevToolsNetLogObserver::PopulateResponseInfo(request, response);
+  DevToolsNetLogObserver::PopulateResponseInfo(request_, response);
   // TODO(darin): It would be much better if this could live in WebCore, but
   // doing so requires API changes at all levels.  Similar code exists in
   // WebCore/platform/network/cf/ResourceHandleCFNet.cpp :-(
@@ -61,25 +66,26 @@ bool SyncResourceHandler::OnRequestRedirected(
 
 bool SyncResourceHandler::OnResponseStarted(
     int request_id,
-    ResourceResponse* response) {
-  net::URLRequest* request = rdh_->GetURLRequest(
-      GlobalRequestID(filter_->child_id(), request_id));
-  if (rdh_->delegate())
-    rdh_->delegate()->OnResponseStarted(request, response, filter_);
+    ResourceResponse* response,
+    bool* defer) {
+  if (rdh_->delegate()) {
+    rdh_->delegate()->OnResponseStarted(request_, filter_->resource_context(),
+                                        response, filter_);
+  }
 
-  DevToolsNetLogObserver::PopulateResponseInfo(request, response);
+  DevToolsNetLogObserver::PopulateResponseInfo(request_, response);
 
   // We don't care about copying the status here.
-  result_.headers = response->headers;
-  result_.mime_type = response->mime_type;
-  result_.charset = response->charset;
-  result_.download_file_path = response->download_file_path;
-  result_.request_time = response->request_time;
-  result_.response_time = response->response_time;
-  result_.connection_id = response->connection_id;
-  result_.connection_reused = response->connection_reused;
-  result_.load_timing = response->load_timing;
-  result_.devtools_info = response->devtools_info;
+  result_.headers = response->head.headers;
+  result_.mime_type = response->head.mime_type;
+  result_.charset = response->head.charset;
+  result_.download_file_path = response->head.download_file_path;
+  result_.request_time = response->head.request_time;
+  result_.response_time = response->head.response_time;
+  result_.connection_id = response->head.connection_id;
+  result_.connection_reused = response->head.connection_reused;
+  result_.load_timing = response->head.load_timing;
+  result_.devtools_info = response->head.devtools_info;
   return true;
 }
 
@@ -97,10 +103,11 @@ bool SyncResourceHandler::OnWillRead(int request_id, net::IOBuffer** buf,
   return true;
 }
 
-bool SyncResourceHandler::OnReadCompleted(int request_id, int* bytes_read) {
-  if (!*bytes_read)
+bool SyncResourceHandler::OnReadCompleted(int request_id, int bytes_read,
+                                          bool* defer) {
+  if (!bytes_read)
     return true;
-  result_.data.append(read_buffer_->data(), *bytes_read);
+  result_.data.append(read_buffer_->data(), bytes_read);
   return true;
 }
 
@@ -110,23 +117,13 @@ bool SyncResourceHandler::OnResponseCompleted(
     const std::string& security_info) {
   result_.status = status;
 
-  net::URLRequest* request = rdh_->GetURLRequest(
-      GlobalRequestID(filter_->child_id(), request_id));
   result_.encoded_data_length =
-      DevToolsNetLogObserver::GetAndResetEncodedDataLength(request);
+      DevToolsNetLogObserver::GetAndResetEncodedDataLength(request_);
 
   ResourceHostMsg_SyncLoad::WriteReplyParams(result_message_, result_);
   filter_->Send(result_message_);
   result_message_ = NULL;
   return true;
-}
-
-void SyncResourceHandler::OnRequestClosed() {
-  if (!result_message_)
-    return;
-
-  result_message_->set_reply_error();
-  filter_->Send(result_message_);
 }
 
 }  // namespace content

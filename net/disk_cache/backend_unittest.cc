@@ -28,8 +28,6 @@
 
 using base::Time;
 
-static const int kDiskDelayMs = 20;
-
 // Tests that can run with different types of caches.
 class DiskCacheBackendTest : public DiskCacheTestWithCache {
  protected:
@@ -280,6 +278,7 @@ TEST_F(DiskCacheBackendTest, ExternalFiles) {
 // Tests that we deal with file-level pending operations at destruction time.
 void DiskCacheBackendTest::BackendShutdownWithPendingFileIO(bool fast) {
   net::TestCompletionCallback cb;
+  int rv;
 
   {
     ASSERT_TRUE(CleanupCacheDir());
@@ -291,10 +290,10 @@ void DiskCacheBackendTest::BackendShutdownWithPendingFileIO(bool fast) {
     uint32 flags = disk_cache::kNoBuffering;
     if (!fast)
       flags |= disk_cache::kNoRandom;
-    int rv = disk_cache::BackendImpl::CreateBackend(
-                 cache_path_, false, 0, net::DISK_CACHE, flags,
-                 base::MessageLoopProxy::current(), NULL,
-                 &cache, cb.callback());
+    rv = disk_cache::BackendImpl::CreateBackend(
+             cache_path_, false, 0, net::DISK_CACHE, flags,
+             base::MessageLoopProxy::current(), NULL,
+             &cache, cb.callback());
     ASSERT_EQ(net::OK, cb.GetResult(rv));
 
     disk_cache::EntryImpl* entry;
@@ -333,6 +332,14 @@ void DiskCacheBackendTest::BackendShutdownWithPendingFileIO(bool fast) {
   }
 
   MessageLoop::current()->RunAllPending();
+
+#if defined(OS_WIN)
+  // Wait for the actual operation to complete, or we'll keep a file handle that
+  // may cause issues later. Note that on Posix systems even though this test
+  // uses a single thread, the actual IO is posted to a worker thread and the
+  // cache destructor breaks the link to reach cb when the operation completes.
+  rv = cb.GetResult(rv);
+#endif
 }
 
 TEST_F(DiskCacheBackendTest, ShutdownWithPendingFileIO) {
@@ -370,16 +377,9 @@ void DiskCacheBackendTest::BackendShutdownWithPendingIO(bool fast) {
     rv = cache->CreateEntry("some key", &entry, cb.callback());
     ASSERT_EQ(net::OK, cb.GetResult(rv));
 
-    const int kSize = 25000;
-    scoped_refptr<net::IOBuffer> buffer(new net::IOBuffer(kSize));
-    CacheTestFillBuffer(buffer->data(), kSize, false);
-
-    rv = entry->WriteData(0, 0, buffer, kSize, cb.callback(), false);
-    EXPECT_EQ(net::ERR_IO_PENDING, rv);
-
     entry->Close();
 
-    // The cache destructor will see two pending operations here.
+    // The cache destructor will see one pending operation here.
     delete cache;
   }
 
@@ -1045,7 +1045,7 @@ void DiskCacheBackendTest::BackendEnumerations2() {
   FlushQueueForTest();
 
   // Make sure that the timestamp is not the same.
-  base::PlatformThread::Sleep(base::TimeDelta::FromMilliseconds(kDiskDelayMs));
+  AddDelay();
   ASSERT_EQ(net::OK, OpenEntry(second, &entry1));
   void* iter = NULL;
   ASSERT_EQ(net::OK, OpenNextEntry(&iter, &entry2));
@@ -1221,7 +1221,7 @@ void DiskCacheBackendTest::BackendDoomRecent() {
   entry->Close();
   FlushQueueForTest();
 
-  base::PlatformThread::Sleep(base::TimeDelta::FromMilliseconds(kDiskDelayMs));
+  AddDelay();
   Time middle = Time::Now();
 
   ASSERT_EQ(net::OK, CreateEntry("third", &entry));
@@ -1230,7 +1230,7 @@ void DiskCacheBackendTest::BackendDoomRecent() {
   entry->Close();
   FlushQueueForTest();
 
-  base::PlatformThread::Sleep(base::TimeDelta::FromMilliseconds(kDiskDelayMs));
+  AddDelay();
   Time final = Time::Now();
 
   ASSERT_EQ(4, cache_->GetEntryCount());
@@ -1266,7 +1266,7 @@ void DiskCacheBackendTest::BackendDoomBetween() {
   entry->Close();
   FlushQueueForTest();
 
-  base::PlatformThread::Sleep(base::TimeDelta::FromMilliseconds(kDiskDelayMs));
+  AddDelay();
   Time middle_start = Time::Now();
 
   ASSERT_EQ(net::OK, CreateEntry("second", &entry));
@@ -1275,7 +1275,7 @@ void DiskCacheBackendTest::BackendDoomBetween() {
   entry->Close();
   FlushQueueForTest();
 
-  base::PlatformThread::Sleep(base::TimeDelta::FromMilliseconds(kDiskDelayMs));
+  AddDelay();
   Time middle_end = Time::Now();
 
   ASSERT_EQ(net::OK, CreateEntry("fourth", &entry));
@@ -1284,7 +1284,7 @@ void DiskCacheBackendTest::BackendDoomBetween() {
   entry->Close();
   FlushQueueForTest();
 
-  base::PlatformThread::Sleep(base::TimeDelta::FromMilliseconds(kDiskDelayMs));
+  AddDelay();
   Time final = Time::Now();
 
   ASSERT_EQ(4, cache_->GetEntryCount());

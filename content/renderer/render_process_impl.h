@@ -4,11 +4,9 @@
 
 #ifndef CONTENT_RENDERER_RENDER_PROCESS_IMPL_H_
 #define CONTENT_RENDERER_RENDER_PROCESS_IMPL_H_
-#pragma once
 
 #include "base/timer.h"
 #include "content/renderer/render_process.h"
-#include "native_client/src/shared/imc/nacl_imc.h"
 
 namespace skia {
 class PlatformCanvas;

@@ -4,6 +4,7 @@
 
 #include "net/http/http_stream_factory_impl_request.h"
 
+#include "base/callback.h"
 #include "base/logging.h"
 #include "base/stl_util.h"
 #include "net/http/http_stream_factory_impl_job.h"
@@ -22,12 +23,12 @@ HttpStreamFactoryImpl::Request::Request(const GURL& url,
       net_log_(net_log),
       completed_(false),
       was_npn_negotiated_(false),
-      protocol_negotiated_(SSLClientSocket::kProtoUnknown),
+      protocol_negotiated_(kProtoUnknown),
       using_spdy_(false) {
   DCHECK(factory_);
   DCHECK(delegate_);
 
-  net_log_.BeginEvent(NetLog::TYPE_HTTP_STREAM_REQUEST, NULL);
+  net_log_.BeginEvent(NetLog::TYPE_HTTP_STREAM_REQUEST);
 }
 
 HttpStreamFactoryImpl::Request::~Request() {
@@ -36,7 +37,7 @@ HttpStreamFactoryImpl::Request::~Request() {
   else
     DCHECK(!jobs_.empty());
 
-  net_log_.EndEvent(NetLog::TYPE_HTTP_STREAM_REQUEST, NULL);
+  net_log_.EndEvent(NetLog::TYPE_HTTP_STREAM_REQUEST);
 
   for (std::set<Job*>::iterator it = jobs_.begin(); it != jobs_.end(); ++it)
     factory_->request_map_.erase(*it);
@@ -77,7 +78,7 @@ void HttpStreamFactoryImpl::Request::AttachJob(Job* job) {
 
 void HttpStreamFactoryImpl::Request::Complete(
     bool was_npn_negotiated,
-    SSLClientSocket::NextProto protocol_negotiated,
+    NextProto protocol_negotiated,
     bool using_spdy,
     const BoundNetLog& job_net_log) {
   DCHECK(!completed_);
@@ -87,12 +88,10 @@ void HttpStreamFactoryImpl::Request::Complete(
   using_spdy_ = using_spdy;
   net_log_.AddEvent(
       NetLog::TYPE_HTTP_STREAM_REQUEST_BOUND_TO_JOB,
-      make_scoped_refptr(new NetLogSourceParameter(
-          "source_dependency", job_net_log.source())));
+      job_net_log.source().ToEventParametersCallback());
   job_net_log.AddEvent(
       NetLog::TYPE_HTTP_STREAM_JOB_BOUND_TO_REQUEST,
-      make_scoped_refptr(new NetLogSourceParameter(
-          "source_dependency", net_log_.source())));
+      net_log_.source().ToEventParametersCallback());
 }
 
 void HttpStreamFactoryImpl::Request::OnStreamReady(
@@ -233,7 +232,7 @@ bool HttpStreamFactoryImpl::Request::was_npn_negotiated() const {
   return was_npn_negotiated_;
 }
 
-SSLClientSocket::NextProto HttpStreamFactoryImpl::Request::protocol_negotiated()
+NextProto HttpStreamFactoryImpl::Request::protocol_negotiated()
     const {
   DCHECK(completed_);
   return protocol_negotiated_;
@@ -300,7 +299,7 @@ void HttpStreamFactoryImpl::Request::OnSpdySessionReady(
   const SSLConfig used_ssl_config = job->server_ssl_config();
   const ProxyInfo used_proxy_info = job->proxy_info();
   const bool was_npn_negotiated = job->was_npn_negotiated();
-  const SSLClientSocket::NextProto protocol_negotiated =
+  const NextProto protocol_negotiated =
       job->protocol_negotiated();
   const bool using_spdy = job->using_spdy();
   const BoundNetLog net_log = job->net_log();

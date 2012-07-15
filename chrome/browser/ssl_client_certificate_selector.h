@@ -4,11 +4,10 @@
 
 #ifndef CHROME_BROWSER_SSL_CLIENT_CERTIFICATE_SELECTOR_H_
 #define CHROME_BROWSER_SSL_CLIENT_CERTIFICATE_SELECTOR_H_
-#pragma once
 
 #include "base/callback_forward.h"
 
-class TabContentsWrapper;
+class TabContents;
 
 namespace net {
 class HttpNetworkSession;
@@ -16,7 +15,7 @@ class SSLCertRequestInfo;
 class X509Certificate;
 }
 
-namespace browser {
+namespace chrome {
 
 // Opens a constrained SSL client certificate selection dialog under |parent|,
 // offering certificates from |cert_request_info|. When the user has made a
@@ -24,11 +23,11 @@ namespace browser {
 // when the dialog closes in call cases; if the user cancels the dialog, we call
 // with a NULL certificate.
 void ShowSSLClientCertificateSelector(
-    TabContentsWrapper* wrapper,
+    TabContents* tab_contents,
     const net::HttpNetworkSession* network_session,
     net::SSLCertRequestInfo* cert_request_info,
     const base::Callback<void(net::X509Certificate*)>& callback);
 
-}  // namespace browser
+}  // namespace chrome
 
 #endif  // CHROME_BROWSER_SSL_CLIENT_CERTIFICATE_SELECTOR_H_

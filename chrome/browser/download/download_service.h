@@ -1,17 +1,15 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_DOWNLOAD_DOWNLOAD_SERVICE_H_
 #define CHROME_BROWSER_DOWNLOAD_DOWNLOAD_SERVICE_H_
-#pragma once
 
 #include <vector>
 
 #include "base/basictypes.h"
 #include "base/callback_forward.h"
 #include "base/memory/ref_counted.h"
-#include "base/memory/scoped_ptr.h"
 #include "chrome/browser/profiles/profile_keyed_service.h"
 
 class ChromeDownloadManagerDelegate;
@@ -19,10 +17,10 @@ class Profile;
 
 namespace content {
 class DownloadManager;
+class DownloadManagerDelegate;
 }
 
-// Owning class for DownloadManager (content) and
-// ChromeDownloadManagerDelegate (chrome)
+// Owning class for ChromeDownloadManagerDelegate.
 class DownloadService : public ProfileKeyedService {
  public:
   explicit DownloadService(Profile* profile);
@@ -33,11 +31,10 @@ class DownloadService : public ProfileKeyedService {
       OnManagerCreatedCallback;
   void OnManagerCreated(const OnManagerCreatedCallback& cb);
 
-  // Get the download manager.  Creates the download manager if
-  // it does not already exist.
-  content::DownloadManager* GetDownloadManager();
+  // Get the download manager delegate, creating it if it doesn't already exist.
+  content::DownloadManagerDelegate* GetDownloadManagerDelegate();
 
-  // Has a download manager been created?  (By calling above function.)
+  // Has a download manager been created?
   bool HasCreatedDownloadManager();
 
   // Number of downloads associated with this instance of the service.
@@ -60,14 +57,9 @@ class DownloadService : public ProfileKeyedService {
   bool download_manager_created_;
   Profile* profile_;
 
-  // Both of these objects are owned by this class.
-  // DownloadManager is RefCountedThreadSafe because of references
-  // from DownloadFile objects on the FILE thread, and may need to be
-  // kept alive until those objects are deleted.
   // ChromeDownloadManagerDelegate may be the target of callbacks from
   // the history service/DB thread and must be kept alive for those
   // callbacks.
-  scoped_refptr<content::DownloadManager> manager_;
   scoped_refptr<ChromeDownloadManagerDelegate> manager_delegate_;
 
   std::vector<OnManagerCreatedCallback> on_manager_created_callbacks_;

@@ -8,7 +8,6 @@
 
 #ifndef CHROME_BROWSER_WEBDATA_WEB_DATA_SERVICE_H__
 #define CHROME_BROWSER_WEBDATA_WEB_DATA_SERVICE_H__
-#pragma once
 
 #include <map>
 #include <string>
@@ -17,9 +16,11 @@
 #include "base/callback_forward.h"
 #include "base/file_path.h"
 #include "base/location.h"
-#include "base/message_loop_helpers.h"
 #include "base/memory/ref_counted.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "base/synchronization/lock.h"
+#include "chrome/browser/profiles/refcounted_profile_keyed_service.h"
+#include "chrome/browser/search_engines/template_url.h"
 #include "chrome/browser/search_engines/template_url_id.h"
 #include "chrome/browser/webdata/keyword_table.h"
 #include "content/public/browser/browser_thread.h"
@@ -38,7 +39,6 @@ struct IE7PasswordInfo;
 class MessageLoop;
 class Profile;
 class SkBitmap;
-class TemplateURL;
 class WebDatabase;
 
 namespace base {
@@ -48,7 +48,6 @@ class Thread;
 namespace webkit {
 namespace forms {
 struct FormField;
-struct PasswordForm;
 }
 }
 
@@ -79,7 +78,6 @@ typedef enum {
   BOOL_RESULT = 1,             // WDResult<bool>
   KEYWORDS_RESULT,             // WDResult<WDKeywordsResult>
   INT64_RESULT,                // WDResult<int64>
-  PASSWORD_RESULT,             // WDResult<std::vector<PasswordForm*>>
 #if defined(OS_WIN)
   PASSWORD_IE7_RESULT,         // WDResult<IE7PasswordInfo>
 #endif
@@ -119,8 +117,9 @@ struct WDKeywordsResult {
   int64 default_search_provider_id;
   // Version of the built-in keywords. A value of 0 indicates a first run.
   int builtin_keyword_version;
-  // Backup of the default search provider. NULL if the backup is invalid.
-  TemplateURL* default_search_provider_backup;
+  // Backup of the default search provider, and whether the backup is valid.
+  bool backup_valid;
+  TemplateURLData default_search_provider_backup;
   // Indicates if default search provider has been changed by something
   // other than user's action in the browser.
   bool did_default_search_provider_change;
@@ -185,9 +184,7 @@ template <class T> class WDObjectResult : public WDTypedResult {
 
 class WebDataServiceConsumer;
 
-class WebDataService
-    : public base::RefCountedThreadSafe<
-          WebDataService, content::BrowserThread::DeleteOnUIThread> {
+class WebDataService : public RefcountedProfileKeyedService {
  public:
   // All requests return an opaque handle of the following type.
   typedef int Handle;
@@ -301,13 +298,14 @@ class WebDataService
   // |web_data_service| may be NULL for testing purposes.
   static void NotifyOfMultipleAutofillChanges(WebDataService* web_data_service);
 
+  // RefcountedProfileKeyedService override:
+  // Shutdown the web data service. The service can no longer be used after this
+  // call.
+  virtual void ShutdownOnUIThread() OVERRIDE;
+
   // Initializes the web data service. Returns false on failure
   // Takes the path of the profile directory as its argument.
   bool Init(const FilePath& profile_path);
-
-  // Shutdown the web data service. The service can no longer be used after this
-  // call.
-  void Shutdown();
 
   // Returns false if Shutdown() has been called.
   bool IsRunning() const;
@@ -335,11 +333,10 @@ class WebDataService
   // Many of the keyword related methods do not return a handle. This is because
   // the caller (TemplateURLService) does not need to know when the request is
   // done.
-  void AddKeyword(const TemplateURL& url);
 
-  void RemoveKeyword(const TemplateURL& url);
-
-  void UpdateKeyword(const TemplateURL& url);
+  void AddKeyword(const TemplateURLData& data);
+  void RemoveKeyword(TemplateURLID id);
+  void UpdateKeyword(const TemplateURLData& data);
 
   // Fetches the keywords.
   // On success, consumer is notified with WDResult<KeywordTable::Keywords>.
@@ -430,52 +427,13 @@ class WebDataService
   // Null on failure. Success is WDResult<std::vector<std::string> >
   virtual Handle GetAllTokens(WebDataServiceConsumer* consumer);
 
-  //////////////////////////////////////////////////////////////////////////////
-  //
-  // Password manager
-  // NOTE: These methods are all deprecated; new clients should use
-  // PasswordStore. These are only still here because Windows is (temporarily)
-  // still using them for its PasswordStore implementation.
-  //
-  //////////////////////////////////////////////////////////////////////////////
-
-  // Adds |form| to the list of remembered password forms.
-  void AddLogin(const webkit::forms::PasswordForm& form);
-
-  // Updates the remembered password form.
-  void UpdateLogin(const webkit::forms::PasswordForm& form);
-
-  // Removes |form| from the list of remembered password forms.
-  void RemoveLogin(const webkit::forms::PasswordForm& form);
-
-  // Removes all logins created in the specified daterange
-  void RemoveLoginsCreatedBetween(const base::Time& delete_begin,
-                                  const base::Time& delete_end);
-
-  // Removes all logins created on or after the date passed in.
-  void RemoveLoginsCreatedAfter(const base::Time& delete_begin);
-
-  // Gets a list of password forms that match |form|.
-  // |consumer| will be notified when the request is done. The result is of
-  // type WDResult<std::vector<PasswordForm*>>.
-  // The result will be null on failure. The |consumer| owns all PasswordForm's.
-  Handle GetLogins(const webkit::forms::PasswordForm& form,
-                   WebDataServiceConsumer* consumer);
-
-  // Gets the complete list of password forms that have not been blacklisted and
-  // are thus auto-fillable.
-  // |consumer| will be notified when the request is done. The result is of
-  // type WDResult<std::vector<PasswordForm*>>.
-  // The result will be null on failure.  The |consumer| owns all PasswordForms.
-  Handle GetAutofillableLogins(WebDataServiceConsumer* consumer);
-
-  // Gets the complete list of password forms that have been blacklisted.
-  // |consumer| will be notified when the request is done. The result is of
-  // type WDResult<std::vector<PasswordForm*>>.
-  // The result will be null on failure. The |consumer| owns all PasswordForm's.
-  Handle GetBlacklistLogins(WebDataServiceConsumer* consumer);
-
 #if defined(OS_WIN)
+  //////////////////////////////////////////////////////////////////////////////
+  //
+  // IE7/8 Password Access (used by PasswordStoreWin - do not use elsewhere)
+  //
+  //////////////////////////////////////////////////////////////////////////////
+
   // Adds |info| to the list of imported passwords from ie7/ie8.
   void AddIE7Login(const IE7PasswordInfo& info);
 
@@ -512,6 +470,7 @@ class WebDataService
   // Removes form elements recorded for Autocomplete from the database.
   void RemoveFormElementsAddedBetween(const base::Time& delete_begin,
                                       const base::Time& delete_end);
+  void RemoveExpiredFormElements();
   void RemoveFormValueForElementName(const string16& name,
                                      const string16& value);
 
@@ -598,7 +557,7 @@ class WebDataService
       content::BrowserThread::UI>;
   friend class base::DeleteHelper<WebDataService>;
 
-  typedef GenericRequest2<std::vector<const TemplateURL*>,
+  typedef GenericRequest2<std::vector<const TemplateURLData*>,
                           KeywordTable::Keywords> SetKeywordsRequest;
 
   // Invoked on the main thread if initializing the db fails.
@@ -637,9 +596,9 @@ class WebDataService
   // Keywords.
   //
   //////////////////////////////////////////////////////////////////////////////
-  void AddKeywordImpl(GenericRequest<TemplateURL>* request);
+  void AddKeywordImpl(GenericRequest<TemplateURLData>* request);
   void RemoveKeywordImpl(GenericRequest<TemplateURLID>* request);
-  void UpdateKeywordImpl(GenericRequest<TemplateURL>* request);
+  void UpdateKeywordImpl(GenericRequest<TemplateURLData>* request);
   void GetKeywordsImpl(WebDataRequest* request);
   void SetDefaultSearchProviderImpl(GenericRequest<TemplateURLID>* r);
   void SetBuiltinKeywordVersionImpl(GenericRequest<int>* r);
@@ -685,20 +644,12 @@ class WebDataService
     GenericRequest2<std::string, std::string>* request);
   void GetAllTokensImpl(GenericRequest<std::string>* request);
 
+#if defined(OS_WIN)
   //////////////////////////////////////////////////////////////////////////////
   //
   // Password manager.
   //
   //////////////////////////////////////////////////////////////////////////////
-  void AddLoginImpl(GenericRequest<webkit::forms::PasswordForm>* request);
-  void UpdateLoginImpl(GenericRequest<webkit::forms::PasswordForm>* request);
-  void RemoveLoginImpl(GenericRequest<webkit::forms::PasswordForm>* request);
-  void RemoveLoginsCreatedBetweenImpl(
-      GenericRequest2<base::Time, base::Time>* request);
-  void GetLoginsImpl(GenericRequest<webkit::forms::PasswordForm>* request);
-  void GetAutofillableLoginsImpl(WebDataRequest* request);
-  void GetBlacklistLoginsImpl(WebDataRequest* request);
-#if defined(OS_WIN)
   void AddIE7LoginImpl(GenericRequest<IE7PasswordInfo>* request);
   void RemoveIE7LoginImpl(GenericRequest<IE7PasswordInfo>* request);
   void GetIE7LoginImpl(GenericRequest<IE7PasswordInfo>* request);
@@ -715,6 +666,7 @@ class WebDataService
       const string16& name, const string16& prefix, int limit);
   void RemoveFormElementsAddedBetweenImpl(
       GenericRequest2<base::Time, base::Time>* request);
+  void RemoveExpiredFormElementsImpl(WebDataRequest* request);
   void RemoveFormValueForElementNameImpl(
       GenericRequest2<string16, string16>* request);
   void AddAutofillProfileImpl(GenericRequest<AutofillProfile>* request);

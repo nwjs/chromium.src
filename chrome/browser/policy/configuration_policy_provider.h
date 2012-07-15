@@ -4,19 +4,13 @@
 
 #ifndef CHROME_BROWSER_POLICY_CONFIGURATION_POLICY_PROVIDER_H_
 #define CHROME_BROWSER_POLICY_CONFIGURATION_POLICY_PROVIDER_H_
-#pragma once
-
-#include <map>
-#include <string>
 
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/observer_list.h"
+#include "chrome/browser/policy/policy_bundle.h"
 
 namespace policy {
-
-struct PolicyDefinitionList;
-class PolicyMap;
 
 // A mostly-abstract super class for platform-specific policy providers.
 // Platform-specific policy providers (Windows Group Policy, gconf,
@@ -30,27 +24,17 @@ class ConfigurationPolicyProvider {
     virtual void OnProviderGoingAway(ConfigurationPolicyProvider* provider);
   };
 
-  explicit ConfigurationPolicyProvider(const PolicyDefinitionList* policy_list);
+  ConfigurationPolicyProvider();
 
   virtual ~ConfigurationPolicyProvider();
 
-  // Fills the given |result| with the current policy values. Returns true if
-  // the policies were provided. This is used mainly by the
-  // ConfigurationPolicyPrefStore, which retrieves policy values from here.
-  bool Provide(PolicyMap* result);
+  // Returns the current PolicyBundle.
+  const PolicyBundle& policies() const { return policy_bundle_; }
 
   // Check whether this provider has completed initialization. This is used to
   // detect whether initialization is done in case providers implementations
   // need to do asynchronous operations for initialization.
   virtual bool IsInitializationComplete() const;
-
-#if !defined(OFFICIAL_BUILD)
-  // Overrides the policy values that are obtained in calls to |Provide|.
-  // The default behavior is restored if |policies| is NULL.
-  // Takes ownership of |policies|.
-  // This is meant for tests only, and is disabled on official builds.
-  void OverridePolicies(PolicyMap* policies);
-#endif
 
   // Asks the provider to refresh its policies. All the updates caused by this
   // call will be visible on the next call of OnUpdatePolicy on the observers,
@@ -59,23 +43,11 @@ class ConfigurationPolicyProvider {
   // OnUpdatePolicy won't be called if that happens.
   virtual void RefreshPolicies() = 0;
 
-  // Utility method that converts deprecated policies into their corresponding
-  // actual policies. Subclasses can use this to fix deprecated policies in
-  // PolicyMaps that they obtained from elsewhere.
-  static void FixDeprecatedPolicies(PolicyMap* policies);
-
  protected:
-  // Sends a policy update notification to observers.
-  void NotifyPolicyUpdated();
-
-  // Must be implemented by subclasses to provide their policy values. The
-  // values actually provided by |Provide| can be overridden using
-  // |OverridePolicies|.
-  virtual bool ProvideInternal(PolicyMap* result) = 0;
-
-  const PolicyDefinitionList* policy_definition_list() const {
-    return policy_definition_list_;
-  }
+  // Subclasses must invoke this to update the policies currently served by
+  // this provider. UpdatePolicy() takes ownership of |policies|.
+  // The observers are notified after the policies are updated.
+  void UpdatePolicy(scoped_ptr<PolicyBundle> bundle);
 
  private:
   friend class ConfigurationPolicyObserverRegistrar;
@@ -83,15 +55,10 @@ class ConfigurationPolicyProvider {
   virtual void AddObserver(Observer* observer);
   virtual void RemoveObserver(Observer* observer);
 
-  // Contains the default mapping from policy values to the actual names.
-  const PolicyDefinitionList* policy_definition_list_;
+  // The policies currently configured at this provider.
+  PolicyBundle policy_bundle_;
 
   ObserverList<Observer, true> observer_list_;
-
-#if !defined(OFFICIAL_BUILD)
-  // Usually NULL, but can be used in tests to override the policies provided.
-  scoped_ptr<PolicyMap> override_policies_;
-#endif
 
   DISALLOW_COPY_AND_ASSIGN(ConfigurationPolicyProvider);
 };

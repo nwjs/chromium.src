@@ -19,6 +19,7 @@
   /* The padding increases the clickable area. */
   padding-bottom: 0;
   padding-top: 0;
+  white-space: nowrap;
 }
 
 .footer-menu-button:hover:not([menu-shown]) {
@@ -38,11 +39,17 @@
 }
 
 .footer-menu {
+  -webkit-margin-end: 10px;
   max-height: 400px;
   overflow: auto;
   padding: 6px 8px;
   /* Needs to be above #footer. */
   z-index: 10;
+}
+
+.footer-menu,
+.footer-menu-context-menu {
+  min-width: 150px;
 }
 
 /* TODO(dubroy): Unify this with tile page scrollbar. */
@@ -69,10 +76,9 @@
   background-size: 16px 16px;
   box-sizing: border-box;
   display: block;
-  font-size: 1.2em;
-  line-height: 20px;
-  margin-bottom: 8px;
-  margin-top: 8px;
+  line-height: 1.5em;
+  margin-bottom: 0.5em;
+  margin-top: 0.5em;
   max-width: 450px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -84,11 +90,11 @@
 }
 
 .footer-menu-item:first-of-type {
-  margin-top: 4px;
+  margin-top: 0.25em;
 }
 
 .footer-menu-item:last-of-type {
-  margin-bottom: 4px;
+  margin-bottom: 0.25em;
 }
 
 .footer-menu section {
@@ -97,12 +103,25 @@
 
 .footer-menu section h3 {
   color: black;
+  font-size: 1em;
   font-weight: bold;
-  margin-bottom: 8px;
+  margin-bottom: 0.5em;
 }
 
-.footer-menu section h3:first-of-type {
-  margin-top: 4px;
+.footer-menu section:first-of-type h3 {
+  margin-top: 0.25em;
+}
+
+/* Used to add additional details to a section header */
+.footer-menu section h3 .details {
+  color: rgb(151, 156, 160);
+  font-style: italic;
+  font-weight: normal;
+}
+
+.footer-menu section h3 .details:before {
+  content: '\2013';  /* En-dash character. */
+  margin: 0 0.5em;
 }
 
 html[dir='rtl'] .footer-menu-item {
@@ -127,4 +146,15 @@ html[dir='rtl'] .footer-menu-item {
   display: inline-block;
   height: 9px;
   width: 9px;
+}
+
+.footer-menu-context-menu {
+  /* Needs to be above .footer-menu. */
+  z-index: 11;
+}
+
+.footer-menu hr {
+  background-color: rgb(217, 217, 217);
+  border: 0;
+  height: 1px;
 }

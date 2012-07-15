@@ -3,13 +3,12 @@
 // found in the LICENSE file.
 
 #include "base/bind.h"
+#include "content/common/child_process.h"
 #include "content/renderer/media/capture_video_decoder.h"
 #include "content/renderer/media/video_capture_impl.h"
 #include "content/renderer/media/video_capture_impl_manager.h"
-#include "media/base/filters.h"
 #include "media/base/limits.h"
 #include "media/base/mock_callback.h"
-#include "media/base/mock_filter_host.h"
 #include "media/base/mock_filters.h"
 #include "media/base/pipeline_status.h"
 #include "media/video/capture/video_capture_types.h"
@@ -53,11 +52,10 @@ class MockVideoCaptureImpl : public VideoCaptureImpl {
                        VideoCaptureMessageFilter* filter)
       : VideoCaptureImpl(id, ml_proxy, filter) {
   }
-  virtual ~MockVideoCaptureImpl() {}
 
   MOCK_METHOD2(StartCapture,
                void(media::VideoCapture::EventHandler* handler,
-                    const VideoCaptureCapability& capability));
+                    const media::VideoCaptureCapability& capability));
   MOCK_METHOD1(StopCapture, void(media::VideoCapture::EventHandler* handler));
   MOCK_METHOD1(FeedBuffer, void(scoped_refptr<VideoFrameBuffer> buffer));
 
@@ -68,7 +66,6 @@ class MockVideoCaptureImpl : public VideoCaptureImpl {
 class MockVideoCaptureImplManager : public VideoCaptureImplManager {
  public:
   MockVideoCaptureImplManager() {}
-  virtual ~MockVideoCaptureImplManager() {}
 
   MOCK_METHOD2(AddDevice,
                media::VideoCapture*(media::VideoCaptureSessionId id,
@@ -76,6 +73,9 @@ class MockVideoCaptureImplManager : public VideoCaptureImplManager {
   MOCK_METHOD2(RemoveDevice,
                void(media::VideoCaptureSessionId id,
                    media::VideoCapture::EventHandler* handler));
+
+ protected:
+  virtual ~MockVideoCaptureImplManager() {}
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockVideoCaptureImplManager);
@@ -88,23 +88,23 @@ class CaptureVideoDecoderTest : public ::testing::Test {
     message_loop_proxy_ =
         base::MessageLoopProxy::current().get();
     vc_manager_ = new MockVideoCaptureImplManager();
-    media::VideoCapture::VideoCaptureCapability capability;
+    media::VideoCaptureCapability capability;
     capability.width = kWidth;
     capability.height = kHeight;
-    capability.max_fps = kFPS;
+    capability.frame_rate = kFPS;
     capability.expected_capture_delay = 0;
-    capability.raw_type = media::VideoFrame::I420;
+    capability.color = media::VideoCaptureCapability::kI420;
     capability.interlaced = false;
 
     decoder_ = new CaptureVideoDecoder(message_loop_proxy_,
                                        kVideoStreamId, vc_manager_, capability);
-    decoder_->set_host(&host_);
     EXPECT_CALL(statistics_cb_object_, OnStatistics(_))
         .Times(AnyNumber());
 
     read_cb_ = base::Bind(&CaptureVideoDecoderTest::FrameReady,
                           base::Unretained(this));
 
+    child_process_.reset(new ChildProcess());
     vc_impl_.reset(new MockVideoCaptureImpl(
         kVideoStreamId, message_loop_proxy_, new VideoCaptureMessageFilter()));
   }
@@ -120,7 +120,7 @@ class CaptureVideoDecoderTest : public ::testing::Test {
 
   void Initialize() {
     // Issue a read.
-    EXPECT_CALL(*this, FrameReady(_));
+    EXPECT_CALL(*this, FrameReady(media::VideoDecoder::kOk, _));
     decoder_->Read(read_cb_);
 
     EXPECT_CALL(*vc_manager_, AddDevice(_, _))
@@ -141,21 +141,6 @@ class CaptureVideoDecoderTest : public ::testing::Test {
     message_loop_->RunAllPending();
   }
 
-  void Play() {
-    decoder_->Play(media::NewExpectedClosure());
-    message_loop_->RunAllPending();
-  }
-
-  void Flush() {
-    // Issue a read.
-    EXPECT_CALL(*this, FrameReady(_));
-    decoder_->Read(read_cb_);
-
-    decoder_->Pause(media::NewExpectedClosure());
-    decoder_->Flush(media::NewExpectedClosure());
-    message_loop_->RunAllPending();
-  }
-
   void Stop() {
     EXPECT_CALL(*vc_impl_, StopCapture(capture_client()))
         .Times(1)
@@ -170,14 +155,15 @@ class CaptureVideoDecoderTest : public ::testing::Test {
     return static_cast<media::VideoCapture::EventHandler*>(decoder_);
   }
 
-  MOCK_METHOD1(FrameReady, void(scoped_refptr<media::VideoFrame>));
+  MOCK_METHOD2(FrameReady, void(media::VideoDecoder::DecoderStatus status,
+                                const scoped_refptr<media::VideoFrame>&));
 
   // Fixture members.
   scoped_refptr<CaptureVideoDecoder> decoder_;
   scoped_refptr<MockVideoCaptureImplManager> vc_manager_;
+  scoped_ptr<ChildProcess> child_process_;
   scoped_ptr<MockVideoCaptureImpl> vc_impl_;
   media::MockStatisticsCB statistics_cb_object_;
-  StrictMock<media::MockFilterHost> host_;
   scoped_ptr<MessageLoop> message_loop_;
   scoped_refptr<base::MessageLoopProxy> message_loop_proxy_;
   media::VideoDecoder::ReadCB read_cb_;
@@ -186,14 +172,18 @@ class CaptureVideoDecoderTest : public ::testing::Test {
   DISALLOW_COPY_AND_ASSIGN(CaptureVideoDecoderTest);
 };
 
-TEST_F(CaptureVideoDecoderTest, Play) {
-  // Test basic initialize, play, and teardown sequence.
+TEST_F(CaptureVideoDecoderTest, ReadAndReset) {
+  // Test basic initialize and teardown sequence.
   Initialize();
   // Natural size should be initialized to default capability.
   EXPECT_EQ(kWidth, decoder_->natural_size().width());
   EXPECT_EQ(kHeight, decoder_->natural_size().height());
-  Play();
-  Flush();
+
+  EXPECT_CALL(*this, FrameReady(media::VideoDecoder::kOk, _));
+  decoder_->Read(read_cb_);
+  decoder_->Reset(media::NewExpectedClosure());
+  message_loop_->RunAllPending();
+
   Stop();
 }
 
@@ -209,7 +199,6 @@ TEST_F(CaptureVideoDecoderTest, OnDeviceInfoReceived) {
   params.frame_per_second = kFPS;
   params.session_id = kVideoStreamId;
 
-  EXPECT_CALL(host_, SetNaturalVideoSize(expected_size));
   decoder_->OnDeviceInfoReceived(vc_impl_.get(), params);
   message_loop_->RunAllPending();
 
@@ -218,3 +207,18 @@ TEST_F(CaptureVideoDecoderTest, OnDeviceInfoReceived) {
 
   Stop();
 }
+
+TEST_F(CaptureVideoDecoderTest, ReadAndShutdown) {
+  // Test all the Read requests can be fullfilled (which is needed in order to
+  // teardown the pipeline) even when there's no input frame.
+  Initialize();
+
+  EXPECT_CALL(*this, FrameReady(media::VideoDecoder::kOk, _)).Times(2);
+  decoder_->Read(read_cb_);
+  decoder_->PrepareForShutdownHack();
+  decoder_->Read(read_cb_);
+  message_loop_->RunAllPending();
+
+  Stop();
+}
+

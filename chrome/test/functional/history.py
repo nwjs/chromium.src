@@ -327,12 +327,15 @@ class HistoryTest(pyauto.PyUITest):
     Also, make sure that existing history tab is activated.
     """
     command_line = self.GetBrowserInfo()['properties']['command_line_string']
-    history_url = 'chrome://history-frame/'
+    history_url = 'chrome://chrome/history/'
 
     # Invoke History.
     self.RunCommand(pyauto.IDC_SHOW_HISTORY)
-    self.assertEqual('History', self.GetActiveTabTitle(),
-                     msg='History page was not opened.')
+    # Even when the above command completes, the currently-active tab title
+    # is 'Loading...' for a brief time while the history page loads.
+    self.assertTrue(
+        self.WaitUntil(lambda: 'History' == self.GetActiveTabTitle()),
+        msg='History page was not opened.')
 
     # Open new tab, invoke History again.
     self.RunCommand(pyauto.IDC_NEW_TAB)
@@ -349,8 +352,9 @@ class HistoryTest(pyauto.PyUITest):
         history_url, tab1url,
         msg='Tab 1: History page not expected.')
 
-    self.assertEqual('History', self.GetActiveTabTitle(),
-                     msg='History page is not activated.')
+    self.assertTrue(
+        self.WaitUntil(lambda: 'History' == self.GetActiveTabTitle()),
+        msg='History page is not activated.')
 
 
 if __name__ == '__main__':

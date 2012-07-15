@@ -4,14 +4,13 @@
 
 #ifndef CHROME_BROWSER_UI_GTK_BROWSER_TOOLBAR_GTK_H_
 #define CHROME_BROWSER_UI_GTK_BROWSER_TOOLBAR_GTK_H_
-#pragma once
 
 #include <gtk/gtk.h>
 #include <string>
 
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
-#include "chrome/browser/command_updater.h"
+#include "chrome/browser/command_observer.h"
 #include "chrome/browser/prefs/pref_member.h"
 #include "chrome/browser/ui/gtk/custom_button.h"
 #include "chrome/browser/ui/gtk/menu_gtk.h"
@@ -29,7 +28,7 @@ class Browser;
 class BrowserActionsToolbarGtk;
 class BrowserWindowGtk;
 class CustomDrawButton;
-class ThemeServiceGtk;
+class GtkThemeService;
 class LocationBar;
 class LocationBarViewGtk;
 class ReloadButtonGtk;
@@ -41,7 +40,7 @@ class WebContents;
 
 // View class that displays the GTK version of the toolbar and routes gtk
 // events back to the Browser.
-class BrowserToolbarGtk : public CommandUpdater::CommandObserver,
+class BrowserToolbarGtk : public CommandObserver,
                           public ui::AcceleratorProvider,
                           public MenuGtk::Delegate,
                           public content::NotificationObserver {
@@ -87,7 +86,7 @@ class BrowserToolbarGtk : public CommandUpdater::CommandObserver,
 
   void ShowAppMenu();
 
-  // Overridden from CommandUpdater::CommandObserver:
+  // Overridden from CommandObserver:
   virtual void EnabledStateChangedForCommand(int id, bool enabled) OVERRIDE;
 
   // Overridden from MenuGtk::Delegate:
@@ -191,7 +190,7 @@ class BrowserToolbarGtk : public CommandUpdater::CommandObserver,
   // The model that contains the security level, text, icon to display...
   ToolbarModel* model_;
 
-  ThemeServiceGtk* theme_service_;
+  GtkThemeService* theme_service_;
 
   scoped_ptr<MenuGtk> wrench_menu_;
 

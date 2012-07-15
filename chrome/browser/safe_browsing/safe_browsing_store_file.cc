@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -239,6 +239,60 @@ bool SafeBrowsingStoreFile::Delete() {
       filename_.value() + FILE_PATH_LITERAL("-journal"));
   if (file_util::PathExists(journal_filename))
     file_util::Delete(journal_filename, false);
+
+  return true;
+}
+
+bool SafeBrowsingStoreFile::CheckValidity() {
+  // The file was either empty or never opened.  The empty case is
+  // presumed not to be invalid.  The never-opened case can happen if
+  // BeginUpdate() fails for any databases, and should already have
+  // caused the corruption callback to fire.
+  if (!file_.get())
+    return true;
+
+  if (!FileRewind(file_.get()))
+    return OnCorruptDatabase();
+
+  int64 size = 0;
+  if (!file_util::GetFileSize(filename_, &size))
+    return OnCorruptDatabase();
+
+  base::MD5Context context;
+  base::MD5Init(&context);
+
+  // Read everything except the final digest.
+  size_t bytes_left = static_cast<size_t>(size);
+  CHECK(size == static_cast<int64>(bytes_left));
+  if (bytes_left < sizeof(base::MD5Digest))
+    return OnCorruptDatabase();
+  bytes_left -= sizeof(base::MD5Digest);
+
+  // Fold the contents of the file into the checksum.
+  while (bytes_left > 0) {
+    char buf[4096];
+    const size_t c = std::min(sizeof(buf), bytes_left);
+    const size_t ret = fread(buf, 1, c, file_.get());
+
+    // The file's size changed while reading, give up.
+    if (ret != c)
+      return OnCorruptDatabase();
+    base::MD5Update(&context, base::StringPiece(buf, c));
+    bytes_left -= c;
+  }
+
+  // Calculate the digest to this point.
+  base::MD5Digest calculated_digest;
+  base::MD5Final(&calculated_digest, &context);
+
+  // Read the stored digest and verify it.
+  base::MD5Digest file_digest;
+  if (!ReadItem(&file_digest, file_.get(), NULL))
+    return OnCorruptDatabase();
+  if (0 != memcmp(&file_digest, &calculated_digest, sizeof(file_digest))) {
+    RecordFormatEvent(FORMAT_EVENT_VALIDITY_CHECKSUM_FAILURE);
+    return OnCorruptDatabase();
+  }
 
   return true;
 }
@@ -503,8 +557,10 @@ bool SafeBrowsingStoreFile::DoUpdate(
     if (!ReadItem(&file_digest, file_.get(), NULL))
       return OnCorruptDatabase();
 
-    if (0 != memcmp(&file_digest, &calculated_digest, sizeof(file_digest)))
+    if (0 != memcmp(&file_digest, &calculated_digest, sizeof(file_digest))) {
+      RecordFormatEvent(FORMAT_EVENT_UPDATE_CHECKSUM_FAILURE);
       return OnCorruptDatabase();
+    }
 
     // Close the file so we can later rename over it.
     file_.reset();

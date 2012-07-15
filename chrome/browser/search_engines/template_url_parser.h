@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SEARCH_ENGINES_TEMPLATE_URL_PARSER_H_
 #define CHROME_BROWSER_SEARCH_ENGINES_TEMPLATE_URL_PARSER_H_
-#pragma once
 
 #include <string>
 
@@ -37,6 +36,7 @@ class TemplateURLParser {
   // from another browser, we remove any parameter identifying that browser.  If
   // set to NULL, the URL is not modified.
   static TemplateURL* Parse(Profile* profile,
+                            bool show_in_default_list,
                             const char* data,
                             size_t length,
                             ParameterFilter* parameter_filter);

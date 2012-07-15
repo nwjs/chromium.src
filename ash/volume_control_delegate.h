@@ -4,7 +4,6 @@
 
 #ifndef ASH_VOLUME_CONTROL_DELEGATE_H_
 #define ASH_VOLUME_CONTROL_DELEGATE_H_
-#pragma once
 
 namespace ui {
 class Accelerator;
@@ -20,6 +19,10 @@ class VolumeControlDelegate {
   virtual bool HandleVolumeMute(const ui::Accelerator& accelerator) = 0;
   virtual bool HandleVolumeDown(const ui::Accelerator& accelerator) = 0;
   virtual bool HandleVolumeUp(const ui::Accelerator& accelerator) = 0;
+
+  // Requests that the volume be set to |percent|, in the range
+  // [0.0, 100.0].
+  virtual void SetVolumePercent(double percent) = 0;
 };
 
 }  // namespace ash

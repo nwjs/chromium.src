@@ -6,12 +6,15 @@
 
 #include "base/command_line.h"
 #include "base/memory/singleton.h"
-#include "chrome/browser/defaults.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
+#include "chrome/browser/bookmarks/bookmark_model_factory.h"
+#include "chrome/browser/defaults.h"
+#include "chrome/browser/extensions/extension_system_factory.h"
+#include "chrome/browser/history/history_service_factory.h"
+#include "chrome/browser/password_manager/password_store_factory.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_dependency_manager.h"
-#include "chrome/browser/password_manager/password_store_factory.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
 #include "chrome/browser/signin/signin_manager.h"
@@ -19,7 +22,8 @@
 #include "chrome/browser/sync/profile_sync_components_factory_impl.h"
 #include "chrome/browser/sync/profile_sync_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
-#include "chrome/browser/ui/global_error_service_factory.h"
+#include "chrome/browser/ui/global_error/global_error_service_factory.h"
+#include "chrome/browser/webdata/web_data_service_factory.h"
 #include "chrome/common/pref_names.h"
 
 // static
@@ -52,17 +56,17 @@ ProfileSyncServiceFactory::ProfileSyncServiceFactory()
   DependsOn(GlobalErrorServiceFactory::GetInstance());
   DependsOn(SigninManagerFactory::GetInstance());
   DependsOn(PasswordStoreFactory::GetInstance());
+  DependsOn(extensions::ExtensionSystemFactory::GetInstance());
+  DependsOn(WebDataServiceFactory::GetInstance());
+  DependsOn(HistoryServiceFactory::GetInstance());
+  DependsOn(BookmarkModelFactory::GetInstance());
 
   // The following have not been converted to ProfileKeyedServices yet, and for
   // now they are explicitly destroyed after the ProfileDependencyManager is
   // told to DestroyProfileServices, so they will be around when the
   // ProfileSyncService is destroyed.
 
-  // DependsOn(WebDataServiceFactory::GetInstance());
-  // DependsOn(HistoryServiceFactory::GetInstance());
-  // DependsOn(BookmarkBarModelFactory::GetInstance());
   // DependsOn(FaviconServiceFactory::GetInstance());
-  // DependsOn(ExtensionServiceFactory::GetInstance());
 }
 
 ProfileSyncServiceFactory::~ProfileSyncServiceFactory() {

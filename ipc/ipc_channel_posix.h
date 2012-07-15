@@ -4,7 +4,6 @@
 
 #ifndef IPC_IPC_CHANNEL_POSIX_H_
 #define IPC_IPC_CHANNEL_POSIX_H_
-#pragma once
 
 #include "ipc/ipc_channel.h"
 
@@ -15,6 +14,7 @@
 #include <vector>
 
 #include "base/message_loop.h"
+#include "base/process.h"
 #include "ipc/file_descriptor_set_posix.h"
 #include "ipc/ipc_channel_reader.h"
 
@@ -65,6 +65,7 @@ class Channel::ChannelImpl : public internal::ChannelReader,
   bool HasAcceptedConnection() const;
   bool GetClientEuid(uid_t* client_euid) const;
   void ResetToAcceptingConnectionState();
+  base::ProcessId peer_pid() const { return peer_pid_; }
   static bool IsNamedServerInitialized(const std::string& channel_id);
 #if defined(OS_LINUX)
   static void SetGlobalPid(int pid);
@@ -112,6 +113,8 @@ class Channel::ChannelImpl : public internal::ChannelReader,
   virtual void OnFileCanWriteWithoutBlocking(int fd) OVERRIDE;
 
   Mode mode_;
+
+  base::ProcessId peer_pid_;
 
   // After accepting one client connection on our server socket we want to
   // stop listening.
@@ -175,7 +178,10 @@ class Channel::ChannelImpl : public internal::ChannelReader,
   // File descriptors extracted from messages coming off of the channel. The
   // handles may span messages and come off different channels from the message
   // data (in the case of READWRITE), and are processed in FIFO here.
-  std::deque<int> input_fds_;
+  // NOTE: The implementation assumes underlying storage here is contiguous, so
+  // don't change to something like std::deque<> without changing the
+  // implementation!
+  std::vector<int> input_fds_;
 
   // True if we are responsible for unlinking the unix domain socket file.
   bool must_unlink_;

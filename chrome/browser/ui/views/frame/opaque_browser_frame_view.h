@@ -4,18 +4,19 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_FRAME_OPAQUE_BROWSER_FRAME_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_FRAME_OPAQUE_BROWSER_FRAME_VIEW_H_
-#pragma once
 
 #include "base/memory/scoped_ptr.h"
 #include "chrome/browser/ui/views/frame/browser_frame.h"
 #include "chrome/browser/ui/views/frame/browser_non_client_frame_view.h"
-#include "chrome/browser/ui/views/tab_icon_view.h"
+#include "chrome/browser/ui/views/tab_icon_view_model.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/window/non_client_view.h"
 
 class BrowserView;
+class TabIconView;
+
 namespace views {
 class ImageButton;
 class FrameBackground;
@@ -24,7 +25,7 @@ class FrameBackground;
 class OpaqueBrowserFrameView : public BrowserNonClientFrameView,
                                public content::NotificationObserver,
                                public views::ButtonListener,
-                               public TabIconView::TabIconViewModel {
+                               public chrome::TabIconViewModel {
  public:
   // Constructs a non-client view for an BrowserFrame.
   OpaqueBrowserFrameView(BrowserFrame* frame, BrowserView* browser_view);
@@ -72,9 +73,9 @@ class OpaqueBrowserFrameView : public BrowserNonClientFrameView,
   virtual void ButtonPressed(views::Button* sender, const views::Event& event)
       OVERRIDE;
 
-  // Overridden from TabIconView::TabIconViewModel:
+  // Overridden from chrome::TabIconViewModel:
   virtual bool ShouldTabIconViewAnimate() const OVERRIDE;
-  virtual SkBitmap GetFaviconForTabIconView() OVERRIDE;
+  virtual gfx::ImageSkia GetFaviconForTabIconView() OVERRIDE;
 
   // content::NotificationObserver implementation:
   virtual void Observe(int type,
@@ -84,10 +85,10 @@ class OpaqueBrowserFrameView : public BrowserNonClientFrameView,
  private:
   // Creates, adds and returns a new image button with |this| as its listener.
   // Memory is owned by the caller.
-  views::ImageButton* InitWindowCaptionButton(int normal_bitmap_id,
-                                              int hot_bitmap_id,
-                                              int pushed_bitmap_id,
-                                              int mask_bitmap_id,
+  views::ImageButton* InitWindowCaptionButton(int normal_image_id,
+                                              int hot_image_id,
+                                              int pushed_image_id,
+                                              int mask_image_id,
                                               int accessibility_string_id);
 
   // Returns the thickness of the border that makes up the window frame edges.
@@ -120,6 +121,9 @@ class OpaqueBrowserFrameView : public BrowserNonClientFrameView,
   // there was one).
   gfx::Rect IconBounds() const;
 
+  // Returns the combined bounds for the tab strip and avatar area.
+  gfx::Rect GetBoundsForTabStripAndAvatarArea(views::View* tabstrip) const;
+
   // Paint various sub-components of this view.  The *FrameBorder() functions
   // also paint the background of the titlebar area, since the top frame border
   // and titlebar background are a contiguous component.
@@ -131,8 +135,8 @@ class OpaqueBrowserFrameView : public BrowserNonClientFrameView,
 
   // Compute aspects of the frame needed to paint the frame background.
   SkColor GetFrameColor() const;
-  SkBitmap* GetFrameBitmap() const;
-  SkBitmap* GetFrameOverlayBitmap() const;
+  gfx::ImageSkia* GetFrameImage() const;
+  gfx::ImageSkia* GetFrameOverlayImage() const;
   int GetTopAreaHeight() const;
 
   // Layout various sub-components of this view.

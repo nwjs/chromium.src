@@ -1,0 +1,31 @@
+{
+  // chrome-extension://dfgpjpjbeeflfdhdpabeeeheghdmeigc
+  "key": "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCzzB6c4Z0cusW6trA/issIOyMaxXtPfMYQclO0Dg5rOrS8SZLOAio0G4TpYDvY8z/BPdAH3a1BOSeetey8tBSdcIhOoYpqN3i9yIFuZVwHuOt83AWnJrxinVUpY05HtTblopGvGtQNlCR5crMdG+uc2yI3NlPOFZVDrFXtOv/LXQIDAQAB",
+  "name": "Chrome OS ECHO Extension",
+  "version": "0.0.3",
+  "description": "Chrome OS ECHO Extension",
+  "manifest_version": 2,
+  "content_security_policy": "default-src 'self'; connect-src 'self' https://chromeos-registration.googleapis.com",
+  "permissions": [
+      "cookies",
+      "echoPrivate",
+      "https://*/*"
+   ],
+  "icons": {
+    "16": "chrome16.png"
+    },
+  "default_locale": "en",
+  "web_accessible_resources": [
+    "main.html",
+    "main.js",
+    "style.css"
+  ],
+  "intents": {
+    "https://crosecho.com/startEcho": [{
+      "type" : ["application/vnd.chromeos.echo"],
+      "title" : "chrome",
+      "path" : "main.html",
+      "disposition" : "inline"
+    }]
+  }
+}

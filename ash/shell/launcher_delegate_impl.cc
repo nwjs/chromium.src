@@ -4,6 +4,7 @@
 
 #include "ash/shell/launcher_delegate_impl.h"
 
+#include "ash/launcher/launcher_context_menu.h"
 #include "ash/shell/toplevel_window.h"
 #include "ash/shell/window_watcher.h"
 #include "ash/wm/window_util.h"
@@ -32,7 +33,8 @@ void LauncherDelegateImpl::CreateNewWindow() {
   ash::shell::ToplevelWindow::CreateToplevelWindow(create_params);
 }
 
-void LauncherDelegateImpl::ItemClicked(const ash::LauncherItem& item) {
+void LauncherDelegateImpl::ItemClicked(const ash::LauncherItem& item,
+                                       int event_flags) {
   aura::Window* window = watcher_->GetWindowByID(item.id);
   window->Show();
   ash::wm::ActivateWindow(window);
@@ -52,11 +54,15 @@ ui::MenuModel* LauncherDelegateImpl::CreateContextMenu(
 }
 
 ui::MenuModel* LauncherDelegateImpl::CreateContextMenuForLauncher() {
-  return NULL;
+  return new LauncherContextMenu;
 }
 
 ash::LauncherID LauncherDelegateImpl::GetIDByWindow(aura::Window* window) {
   return watcher_->GetIDByWindow(window);
+}
+
+bool LauncherDelegateImpl::IsDraggable(const ash::LauncherItem& item) {
+  return true;
 }
 
 }  // namespace shell

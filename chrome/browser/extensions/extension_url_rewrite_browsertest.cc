@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,6 +7,7 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/omnibox/location_bar.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
@@ -25,7 +26,7 @@ class ExtensionURLRewriteBrowserTest : public ExtensionBrowserTest {
  protected:
   std::string GetLocationBarText() const {
     return UTF16ToUTF8(
-        browser()->window()->GetLocationBar()->location_entry()->GetText());
+        browser()->window()->GetLocationBar()->GetLocationEntry()->GetText());
   }
 
   GURL GetLocationBarTextAsURL() const {
@@ -33,7 +34,7 @@ class ExtensionURLRewriteBrowserTest : public ExtensionBrowserTest {
   }
 
   content::NavigationController* GetNavigationController() const {
-    return &browser()->GetSelectedWebContents()->GetController();
+    return &chrome::GetActiveWebContents(browser())->GetController();
   }
 
   NavigationEntry* GetNavigationEntry() const {

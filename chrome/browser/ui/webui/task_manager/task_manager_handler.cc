@@ -18,10 +18,9 @@
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_source.h"
 #include "content/public/browser/render_view_host.h"
-#include "content/public/browser/render_view_host_delegate.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
-#include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/gfx/image/image_skia.h"
 #include "webkit/glue/webpreferences.h"
 
 namespace {
@@ -31,10 +30,11 @@ Value* CreateColumnValue(const TaskManagerModel* tm,
                          const int i) {
   if (column_name == "uniqueId")
     return Value::CreateIntegerValue(tm->GetResourceUniqueId(i));
-  if (column_name == "type")
+  if (column_name == "type") {
     return Value::CreateStringValue(
         TaskManager::Resource::GetResourceTypeAsString(
         tm->GetResourceType(i)));
+  }
   if (column_name == "processId")
     return Value::CreateStringValue(tm->GetResourceProcessId(i));
   if (column_name == "processIdValue")
@@ -64,9 +64,10 @@ Value* CreateColumnValue(const TaskManagerModel* tm,
     tm->GetPhysicalMemory(i, &physical_memory);
     return Value::CreateDoubleValue(physical_memory);
   }
-  if (column_name == "icon")
+  if (column_name == "icon") {
     return Value::CreateStringValue(
                web_ui_util::GetImageDataUrl(tm->GetResourceIcon(i)));
+  }
   if (column_name == "title")
     return Value::CreateStringValue(tm->GetResourceTitle(i));
   if (column_name == "profileName")
@@ -346,8 +347,8 @@ void TaskManagerHandler::EnableTaskManager(const ListValue* indexes) {
 void TaskManagerHandler::OpenAboutMemory(const ListValue* indexes) {
   content::RenderViewHost* rvh =
       web_ui()->GetWebContents()->GetRenderViewHost();
-  if (rvh && rvh->GetDelegate()) {
-    WebPreferences webkit_prefs = rvh->GetDelegate()->GetWebkitPrefs();
+  if (rvh) {
+    webkit_glue::WebPreferences webkit_prefs = rvh->GetWebkitPreferences();
     webkit_prefs.allow_scripts_to_close_windows = true;
     rvh->UpdateWebkitPreferences(webkit_prefs);
   } else {

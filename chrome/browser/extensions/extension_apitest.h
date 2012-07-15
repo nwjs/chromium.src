@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_APITEST_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_APITEST_H_
-#pragma once
 
 #include <deque>
 #include <string>
@@ -14,12 +13,15 @@
 #include "chrome/browser/extensions/extension_browsertest.h"
 #include "content/public/browser/notification_registrar.h"
 
+class FilePath;
+
+namespace extensions {
+class Extension;
+}
+
 namespace ui_test_utils {
 class TestWebSocketServer;
 }
-
-class Extension;
-class FilePath;
 
 // The general flow of these API tests should work like this:
 // (1) Setup initial browser state (e.g. create some bookmarks for the
@@ -48,8 +50,8 @@ class ExtensionApiTest : public ExtensionBrowserTest {
     // Loads the extension with location COMPONENT.
     kFlagLoadAsComponent = 1 << 3,
 
-    // Launch the extension in a platform app shell.
-    kFlagLaunchAppShell = 1 << 4
+    // Launch the extension as a platform app.
+    kFlagLaunchPlatformApp = 1 << 4
   };
 
   ExtensionApiTest();
@@ -123,7 +125,8 @@ class ExtensionApiTest : public ExtensionBrowserTest {
   bool RunExtensionSubtest(const char* extension_name,
                            const std::string& page_url);
 
-  // Same as RunExtensionSubtest, except run with the specific |flags|.
+  // Same as RunExtensionSubtest, except run with the specific |flags|
+  // (as defined in the Flags enum).
   bool RunExtensionSubtest(const char* extension_name,
                            const std::string& page_url,
                            int flags);
@@ -131,6 +134,7 @@ class ExtensionApiTest : public ExtensionBrowserTest {
   // Load |page_url| and wait for pass / fail notification from the extension
   // API on the page.
   bool RunPageTest(const std::string& page_url);
+  bool RunPageTest(const std::string& page_url, int flags);
 
   // Similar to RunExtensionTest, except used for running tests in platform app
   // shell windows.
@@ -147,7 +151,7 @@ class ExtensionApiTest : public ExtensionBrowserTest {
 
   // Test that exactly one extension loaded.  If so, return a pointer to
   // the extension.  If not, return NULL and set message_.
-  const Extension* GetSingleLoadedExtension();
+  const extensions::Extension* GetSingleLoadedExtension();
 
   // All extensions tested by ExtensionApiTest are in the "api_test" dir.
   virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE;
@@ -169,20 +173,13 @@ class ExtensionApiTest : public ExtensionBrowserTest {
 };
 
 // PlatformAppApiTest sets up the command-line flags necessary for platform
-// apps (if any), and provides a convenience method for confirming that your
-// API requires those flags.
+// apps (if any).
 class PlatformAppApiTest : public ExtensionApiTest {
  public:
   PlatformAppApiTest();
   virtual ~PlatformAppApiTest();
 
   virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE;
-
- protected:
-  void VerifyPermissions(const FilePath& extension_path);
-
- private:
-  CommandLine previous_command_line_;
 };
 
 #endif  // CHROME_BROWSER_EXTENSIONS_EXTENSION_APITEST_H_

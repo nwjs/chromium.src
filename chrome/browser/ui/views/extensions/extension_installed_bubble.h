@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_EXTENSIONS_EXTENSION_INSTALLED_BUBBLE_H_
 #define CHROME_BROWSER_UI_VIEWS_EXTENSIONS_EXTENSION_INSTALLED_BUBBLE_H_
-#pragma once
 
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
@@ -12,7 +11,10 @@
 #include "ui/views/bubble/bubble_delegate.h"
 
 class Browser;
+
+namespace extensions {
 class Extension;
+}
 
 // Provides feedback to the user upon successful installation of an
 // extension. Depending on the type of extension, the Bubble will
@@ -41,12 +43,13 @@ class ExtensionInstalledBubble
   // the extension has loaded. |extension| is the installed extension. |browser|
   // is the browser window which will host the bubble. |icon| is the install
   // icon of the extension.
-  static void Show(
-      const Extension* extension, Browser *browser, const SkBitmap& icon);
+  static void Show(const extensions::Extension* extension,
+                   Browser *browser,
+                   const SkBitmap& icon);
 
  private:
   // Private ctor. Registers a listener for EXTENSION_LOADED.
-  ExtensionInstalledBubble(const Extension* extension,
+  ExtensionInstalledBubble(const extensions::Extension* extension,
                            Browser *browser,
                            const SkBitmap& icon);
 
@@ -66,7 +69,7 @@ class ExtensionInstalledBubble
   // views::BubbleDelegate
   virtual gfx::Rect GetAnchorRect() OVERRIDE;
 
-  const Extension* extension_;
+  const extensions::Extension* extension_;
   Browser* browser_;
   SkBitmap icon_;
   content::NotificationRegistrar registrar_;

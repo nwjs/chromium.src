@@ -12,6 +12,8 @@
 #include "media/audio/audio_io.h"
 #include "media/audio/audio_parameters.h"
 
+namespace media {
+
 class AudioManagerMac;
 
 // Implementation of AudioInputStream for Mac OS X using the audio queue service
@@ -31,6 +33,8 @@ class PCMQueueInAudioInputStream : public AudioInputStream {
   virtual double GetMaxVolume() OVERRIDE;
   virtual void SetVolume(double volume) OVERRIDE;
   virtual double GetVolume() OVERRIDE;
+  virtual void SetAutomaticGainControl(bool enabled) OVERRIDE;
+  virtual bool GetAutomaticGainControl() OVERRIDE;
 
  private:
   // Issue the OnError to |callback_|;
@@ -75,5 +79,7 @@ class PCMQueueInAudioInputStream : public AudioInputStream {
 
   DISALLOW_COPY_AND_ASSIGN(PCMQueueInAudioInputStream);
 };
+
+}  // namespace media
 
 #endif  // MEDIA_AUDIO_MAC_AUDIO_INPUT_MAC_H_

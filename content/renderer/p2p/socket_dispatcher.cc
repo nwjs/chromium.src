@@ -18,7 +18,7 @@ namespace content {
 class P2PSocketDispatcher::AsyncMessageSender
     : public base::RefCountedThreadSafe<AsyncMessageSender> {
  public:
-  explicit AsyncMessageSender(IPC::Message::Sender* message_sender)
+  explicit AsyncMessageSender(IPC::Sender* message_sender)
       : message_loop_(base::MessageLoopProxy::current()),
         message_sender_(message_sender) {
   }
@@ -34,6 +34,9 @@ class P2PSocketDispatcher::AsyncMessageSender
   }
 
  private:
+  friend class base::RefCountedThreadSafe<AsyncMessageSender>;
+  ~AsyncMessageSender() {}
+
   void DoSend(IPC::Message* msg) {
     DCHECK(message_loop_->BelongsToCurrentThread());
     if (message_sender_)
@@ -41,7 +44,7 @@ class P2PSocketDispatcher::AsyncMessageSender
   }
 
   scoped_refptr<base::MessageLoopProxy> message_loop_;
-  IPC::Message::Sender* message_sender_;
+  IPC::Sender* message_sender_;
 
   DISALLOW_COPY_AND_ASSIGN(AsyncMessageSender);
 };
@@ -56,6 +59,8 @@ P2PSocketDispatcher::P2PSocketDispatcher(RenderViewImpl* render_view)
 }
 
 P2PSocketDispatcher::~P2PSocketDispatcher() {
+  FOR_EACH_OBSERVER(P2PSocketDispatcherDestructionObserver,
+                    destruction_observer_, OnSocketDispatcherDestroyed());
   network_list_observers_->AssertEmpty();
   if (network_notifications_started_)
     Send(new P2PHostMsg_StopNetworkNotifications(routing_id()));
@@ -77,6 +82,16 @@ void P2PSocketDispatcher::AddNetworkListObserver(
 void P2PSocketDispatcher::RemoveNetworkListObserver(
     webkit_glue::NetworkListObserver* network_list_observer) {
   network_list_observers_->RemoveObserver(network_list_observer);
+}
+
+void P2PSocketDispatcher::AddDestructionObserver(
+    P2PSocketDispatcherDestructionObserver* observer) {
+  destruction_observer_.AddObserver(observer);
+}
+
+void P2PSocketDispatcher::RemoveDestructionObserver(
+    P2PSocketDispatcherDestructionObserver* observer) {
+  destruction_observer_.RemoveObserver(observer);
 }
 
 bool P2PSocketDispatcher::OnMessageReceived(const IPC::Message& message) {

@@ -15,9 +15,10 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_metrics.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_init.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/chrome_pages.h"
+#include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/notification_service.h"
@@ -36,8 +37,8 @@ void OnProfileCreated(bool always_create,
   if (status == Profile::CREATE_STATUS_INITIALIZED) {
     ProfileManager::FindOrCreateNewWindowForProfile(
         profile,
-        BrowserInit::IS_NOT_PROCESS_STARTUP,
-        BrowserInit::IS_NOT_FIRST_RUN,
+        chrome::startup::IS_NOT_PROCESS_STARTUP,
+        chrome::startup::IS_NOT_FIRST_RUN,
         always_create);
   }
 }
@@ -51,7 +52,6 @@ AvatarMenuModel::AvatarMenuModel(ProfileInfoInterface* profile_cache,
       observer_(observer),
       browser_(browser) {
   DCHECK(profile_info_);
-  DCHECK(observer_);
   // Don't DCHECK(browser_) so that unit tests can reuse this ctor.
 
   // Register this as an observer of the info cache.
@@ -69,6 +69,7 @@ AvatarMenuModel::~AvatarMenuModel() {
 AvatarMenuModel::Item::Item(size_t model_index, const gfx::Image& icon)
     : icon(icon),
       active(false),
+      signed_in(false),
       model_index(model_index) {
 }
 
@@ -76,10 +77,13 @@ AvatarMenuModel::Item::~Item() {
 }
 
 void AvatarMenuModel::SwitchToProfile(size_t index, bool always_create) {
+  DCHECK(ProfileManager::IsMultipleProfilesEnabled() ||
+         index == GetActiveProfileIndex());
   const Item& item = GetItemAt(index);
   FilePath path = profile_info_->GetPathOfProfileAtIndex(item.model_index);
   g_browser_process->profile_manager()->CreateProfileAsync(
-      path, base::Bind(&OnProfileCreated, always_create));
+      path, base::Bind(&OnProfileCreated, always_create), string16(),
+      string16());
 
   ProfileMetrics::LogProfileSwitchUser(ProfileMetrics::SWITCH_PROFILE_ICON);
 }
@@ -94,11 +98,11 @@ void AvatarMenuModel::EditProfile(size_t index) {
   std::string page = chrome::kManageProfileSubPage;
   page += "#";
   page += base::IntToString(static_cast<int>(index));
-  browser->ShowOptionsTab(page);
+  chrome::ShowSettingsSubPage(browser, page);
 }
 
 void AvatarMenuModel::AddNewProfile() {
-  ProfileManager::CreateMultiProfileAsync();
+  ProfileManager::CreateMultiProfileAsync(string16(), string16());
   ProfileMetrics::LogProfileAddNewUser(ProfileMetrics::ADD_NEW_USER_ICON);
 }
 
@@ -135,7 +139,8 @@ void AvatarMenuModel::Observe(int type,
                               const content::NotificationDetails& details) {
   DCHECK_EQ(chrome::NOTIFICATION_PROFILE_CACHED_INFO_CHANGED, type);
   RebuildMenu();
-  observer_->OnAvatarMenuModelChanged(this);
+  if (observer_)
+    observer_->OnAvatarMenuModelChanged(this);
 }
 
 // static
@@ -158,7 +163,8 @@ void AvatarMenuModel::RebuildMenu() {
     Item* item = new Item(i, icon);
     item->name = profile_info_->GetNameOfProfileAtIndex(i);
     item->sync_state = profile_info_->GetUserNameOfProfileAtIndex(i);
-    if (item->sync_state.empty()) {
+    item->signed_in = !item->sync_state.empty();
+    if (!item->signed_in) {
       item->sync_state = l10n_util::GetStringUTF16(
           IDS_PROFILES_LOCAL_PROFILE_STATE);
     }

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_COMMON_NET_GAIA_GAIA_URLS_H_
 #define CHROME_COMMON_NET_GAIA_GAIA_URLS_H_
-#pragma once
 
 #include <string>
 
@@ -20,6 +19,7 @@ class GaiaUrls {
 
   const std::string& gaia_origin_url();
   const std::string& client_login_url();
+  const std::string& service_login_url();
   const std::string& issue_auth_token_url();
   const std::string& get_user_info_url();
   const std::string& token_auth_url();
@@ -33,6 +33,7 @@ class GaiaUrls {
 
   const std::string& oauth1_login_scope();
   const std::string& oauth_wrap_bridge_user_info_scope();
+  const std::string& client_oauth_url();
 
   const std::string& oauth2_chrome_client_id();
   const std::string& oauth2_chrome_client_secret();
@@ -52,6 +53,7 @@ class GaiaUrls {
 
   std::string gaia_origin_url_;
   std::string client_login_url_;
+  std::string service_login_url_;
   std::string issue_auth_token_url_;
   std::string get_user_info_url_;
   std::string token_auth_url_;
@@ -65,6 +67,7 @@ class GaiaUrls {
 
   std::string oauth1_login_scope_;
   std::string oauth_wrap_bridge_user_info_scope_;
+  std::string client_oauth_url_;
 
   std::string oauth2_chrome_client_id_;
   std::string oauth2_chrome_client_secret_;

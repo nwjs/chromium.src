@@ -7,9 +7,11 @@
 #include "chrome/common/extensions/extension_manifest_constants.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
+using extensions::Extension;
+
 namespace keys = extension_manifest_keys;
 
-class ExtensionSortingTest : public ExtensionPrefsTest {
+class ExtensionSortingTest : public extensions::ExtensionPrefsTest {
  protected:
   ExtensionSorting* extension_sorting() {
     return prefs()->extension_sorting();
@@ -132,7 +134,7 @@ TEST_F(ExtensionSortingPageOrdinal, ExtensionSortingPageOrdinal) {}
 // Ensure that ExtensionSorting is able to properly initialize off a set
 // of old page and app launch indices and properly convert them.
 class ExtensionSortingInitialize
-    : public ExtensionPrefsPrepopulatedTest {
+    : public extensions::ExtensionPrefsPrepopulatedTest {
  public:
   ExtensionSortingInitialize() {}
   virtual ~ExtensionSortingInitialize() {}
@@ -169,7 +171,7 @@ class ExtensionSortingInitialize
 
     // We insert the ids in reserve order so that we have to deal with the
     // element on the 2nd page before the 1st page is seen.
-    ExtensionPrefs::ExtensionIdSet ids;
+    extensions::ExtensionPrefs::ExtensionIdSet ids;
     ids.push_back(ext3_->id());
     ids.push_back(ext2_->id());
     ids.push_back(ext1_->id());
@@ -200,7 +202,7 @@ TEST_F(ExtensionSortingInitialize, ExtensionSortingInitialize) {}
 // Make sure that initialization still works when no extensions are present
 // (i.e. make sure that the web store icon is still loaded into the map).
 class ExtensionSortingInitializeWithNoApps
-    : public ExtensionPrefsPrepopulatedTest {
+    : public extensions::ExtensionPrefsPrepopulatedTest {
  public:
   ExtensionSortingInitializeWithNoApps() {}
   virtual ~ExtensionSortingInitializeWithNoApps() {}
@@ -215,7 +217,7 @@ class ExtensionSortingInitializeWithNoApps
     extension_sorting->SetAppLaunchOrdinal(extension_misc::kWebStoreAppId,
                                            initial_ordinal);
 
-    ExtensionPrefs::ExtensionIdSet ids;
+    extensions::ExtensionPrefs::ExtensionIdSet ids;
     extension_sorting->Initialize(ids);
   }
   virtual void Verify() OVERRIDE {
@@ -246,7 +248,7 @@ TEST_F(ExtensionSortingInitializeWithNoApps,
 // is taken out.
 // http://crbug.com/107376
 class ExtensionSortingMigrateAppIndexInvalid
- : public ExtensionPrefsPrepopulatedTest {
+ : public extensions::ExtensionPrefsPrepopulatedTest {
  public:
   ExtensionSortingMigrateAppIndexInvalid() {}
   virtual ~ExtensionSortingMigrateAppIndexInvalid() {}
@@ -267,7 +269,7 @@ class ExtensionSortingMigrateAppIndexInvalid
                                       kPrefPageIndexDeprecated,
                                       Value::CreateIntegerValue(-1));
 
-    ExtensionPrefs::ExtensionIdSet ids;
+    extensions::ExtensionPrefs::ExtensionIdSet ids;
     ids.push_back(ext1_->id());
 
     prefs()->extension_sorting()->Initialize(ids);
@@ -282,7 +284,7 @@ TEST_F(ExtensionSortingMigrateAppIndexInvalid,
        ExtensionSortingMigrateAppIndexInvalid) {}
 
 class ExtensionSortingFixNTPCollisionsAllCollide
-    : public ExtensionPrefsPrepopulatedTest {
+    : public extensions::ExtensionPrefsPrepopulatedTest {
  public:
   ExtensionSortingFixNTPCollisionsAllCollide() {}
   virtual ~ExtensionSortingFixNTPCollisionsAllCollide() {}
@@ -337,7 +339,7 @@ TEST_F(ExtensionSortingFixNTPCollisionsAllCollide,
        ExtensionSortingFixNTPCollisionsAllCollide) {}
 
 class ExtensionSortingFixNTPCollisionsSomeCollideAtStart
-    : public ExtensionPrefsPrepopulatedTest {
+    : public extensions::ExtensionPrefsPrepopulatedTest {
  public:
   ExtensionSortingFixNTPCollisionsSomeCollideAtStart() {}
   virtual ~ExtensionSortingFixNTPCollisionsSomeCollideAtStart() {}
@@ -395,7 +397,7 @@ TEST_F(ExtensionSortingFixNTPCollisionsSomeCollideAtStart,
        ExtensionSortingFixNTPCollisionsSomeCollideAtStart) {}
 
 class ExtensionSortingFixNTPCollisionsSomeCollideAtEnd
-    : public ExtensionPrefsPrepopulatedTest {
+    : public extensions::ExtensionPrefsPrepopulatedTest {
  public:
   ExtensionSortingFixNTPCollisionsSomeCollideAtEnd() {}
   virtual ~ExtensionSortingFixNTPCollisionsSomeCollideAtEnd() {}
@@ -453,7 +455,7 @@ TEST_F(ExtensionSortingFixNTPCollisionsSomeCollideAtEnd,
        ExtensionSortingFixNTPCollisionsSomeCollideAtEnd) {}
 
 class ExtensionSortingFixNTPCollisionsTwoCollisions
-    : public ExtensionPrefsPrepopulatedTest {
+    : public extensions::ExtensionPrefsPrepopulatedTest {
  public:
   ExtensionSortingFixNTPCollisionsTwoCollisions() {}
   virtual ~ExtensionSortingFixNTPCollisionsTwoCollisions() {}
@@ -521,7 +523,7 @@ TEST_F(ExtensionSortingFixNTPCollisionsTwoCollisions,
        ExtensionSortingFixNTPCollisionsTwoCollisions) {}
 
 class ExtensionSortingEnsureValidOrdinals :
-    public ExtensionPrefsPrepopulatedTest {
+    public extensions::ExtensionPrefsPrepopulatedTest {
  public :
   ExtensionSortingEnsureValidOrdinals() {}
   ~ExtensionSortingEnsureValidOrdinals() {}
@@ -545,7 +547,7 @@ TEST_F(ExtensionSortingEnsureValidOrdinals,
        ExtensionSortingEnsureValidOrdinals) {}
 
 class ExtensionSortingPageOrdinalMapping :
-    public ExtensionPrefsPrepopulatedTest {
+    public extensions::ExtensionPrefsPrepopulatedTest {
  public:
   ExtensionSortingPageOrdinalMapping() {}
   virtual ~ExtensionSortingPageOrdinalMapping() {}
@@ -604,7 +606,7 @@ TEST_F(ExtensionSortingPageOrdinalMapping,
        ExtensionSortingPageOrdinalMapping) {}
 
 class ExtensionSortingPreinstalledAppsBase :
-    public ExtensionPrefsPrepopulatedTest {
+    public extensions::ExtensionPrefsPrepopulatedTest {
  public:
   ExtensionSortingPreinstalledAppsBase() {
     DictionaryValue simple_dict;
@@ -616,7 +618,7 @@ class ExtensionSortingPreinstalledAppsBase :
     std::string error;
     app1_scoped_ = Extension::Create(
         prefs_.temp_dir().AppendASCII("app1_"), Extension::EXTERNAL_PREF,
-        simple_dict, Extension::STRICT_ERROR_CHECKS, &error);
+        simple_dict, Extension::NO_FLAGS, &error);
     prefs()->OnExtensionInstalled(app1_scoped_.get(),
                                   Extension::ENABLED,
                                   false,
@@ -624,7 +626,7 @@ class ExtensionSortingPreinstalledAppsBase :
 
     app2_scoped_ = Extension::Create(
         prefs_.temp_dir().AppendASCII("app2_"), Extension::EXTERNAL_PREF,
-        simple_dict, Extension::STRICT_ERROR_CHECKS, &error);
+        simple_dict, Extension::NO_FLAGS, &error);
     prefs()->OnExtensionInstalled(app2_scoped_.get(),
                                   Extension::ENABLED,
                                   false,
@@ -685,7 +687,7 @@ class ExtensionSortingGetMinOrMaxAppLaunchOrdinalsOnPage :
 TEST_F(ExtensionSortingGetMinOrMaxAppLaunchOrdinalsOnPage,
        ExtensionSortingGetMinOrMaxAppLaunchOrdinalsOnPage) {}
 
-// Make sure that empty pages aren't removes from the integer to ordinal
+// Make sure that empty pages aren't removed from the integer to ordinal
 // mapping. See http://www.crbug.com/109802 for details.
 class ExtensionSortingKeepEmptyStringOrdinalPages :
     public ExtensionSortingPreinstalledAppsBase {
@@ -725,3 +727,35 @@ class ExtensionSortingKeepEmptyStringOrdinalPages :
 };
 TEST_F(ExtensionSortingKeepEmptyStringOrdinalPages,
        ExtensionSortingKeepEmptyStringOrdinalPages) {}
+
+class ExtensionSortingMakesFillerOrdinals :
+    public ExtensionSortingPreinstalledAppsBase {
+ public:
+  ExtensionSortingMakesFillerOrdinals() {}
+  virtual ~ExtensionSortingMakesFillerOrdinals() {}
+
+  virtual void Initialize() {
+    ExtensionSorting* extension_sorting = prefs()->extension_sorting();
+
+    StringOrdinal first_page = StringOrdinal::CreateInitialOrdinal();
+    extension_sorting->SetPageOrdinal(app1_->id(), first_page);
+    EXPECT_EQ(0, extension_sorting->PageStringOrdinalAsInteger(first_page));
+  }
+  virtual void Verify() {
+    ExtensionSorting* extension_sorting = prefs()->extension_sorting();
+
+    // Because the UI can add an unlimited number of empty pages without an app
+    // on them, this test simulates dropping of an app on the 1st and 4th empty
+    // pages (3rd and 6th pages by index) to ensure we don't crash and that
+    // filler ordinals are created as needed. See: http://crbug.com/122214
+    StringOrdinal page_three = extension_sorting->PageIntegerAsStringOrdinal(2);
+    extension_sorting->SetPageOrdinal(app1_->id(), page_three);
+    EXPECT_EQ(2, extension_sorting->PageStringOrdinalAsInteger(page_three));
+
+    StringOrdinal page_six = extension_sorting->PageIntegerAsStringOrdinal(5);
+    extension_sorting->SetPageOrdinal(app1_->id(), page_six);
+    EXPECT_EQ(5, extension_sorting->PageStringOrdinalAsInteger(page_six));
+  }
+};
+TEST_F(ExtensionSortingMakesFillerOrdinals,
+       ExtensionSortingMakesFillerOrdinals) {}

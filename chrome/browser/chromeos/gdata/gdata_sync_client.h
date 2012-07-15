@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_GDATA_GDATA_SYNC_CLIENT_H_
 #define CHROME_BROWSER_CHROMEOS_GDATA_GDATA_SYNC_CLIENT_H_
-#pragma once
 
 #include <deque>
 #include <string>
@@ -12,7 +11,16 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/message_loop_proxy.h"
-#include "chrome/browser/chromeos/gdata/gdata_file_system.h"
+#include "base/time.h"
+#include "chrome/browser/chromeos/cros/network_library.h"
+#include "chrome/browser/chromeos/gdata/gdata_cache.h"
+#include "chrome/browser/chromeos/gdata/gdata_file_system_interface.h"
+#include "content/public/browser/notification_details.h"
+#include "content/public/browser/notification_observer.h"
+#include "content/public/browser/notification_source.h"
+
+class Profile;
+class PrefChangeRegistrar;
 
 namespace gdata {
 
@@ -34,9 +42,8 @@ namespace gdata {
 // edited) files to gdata. Will work on this once downloading is done.
 // crosbug.com/27836.
 //
-
 // The interface class is defined to make GDataSyncClient mockable.
-class GDataSyncClientInterface : public GDataFileSystem::Observer {
+class GDataSyncClientInterface {
  public:
   // Initializes the GDataSyncClient.
   virtual void Initialize() = 0;
@@ -45,65 +52,162 @@ class GDataSyncClientInterface : public GDataFileSystem::Observer {
 };
 
 // The production implementation of GDataSyncClientInterface.
-class GDataSyncClient : public GDataSyncClientInterface {
+class GDataSyncClient
+    : public GDataSyncClientInterface,
+      public GDataFileSystemInterface::Observer,
+      public GDataCache::Observer,
+      public chromeos::NetworkLibrary::NetworkManagerObserver,
+      public content::NotificationObserver {
  public:
-  // |file_system| is used to access to the
+  // Types of sync tasks.
+  enum SyncType {
+    FETCH,  // Fetch a file from the gdata server.
+    UPLOAD,  // Upload a file to the gdata server.
+  };
+
+  // The struct is used to queue tasks for fetching and uploading.
+  struct SyncTask {
+    SyncTask(SyncType in_sync_type,
+             const std::string& in_resource_id,
+             const base::Time& in_timestamp);
+
+    SyncType sync_type;
+    std::string resource_id;
+    base::Time timestamp;
+  };
+
+  // |profile| is used to access user preferences.
+  // |file_system| is used access the
   // cache (ex. store a file to the cache when the file is downloaded).
-  explicit GDataSyncClient(GDataFileSystemInterface* file_system);
+  GDataSyncClient(Profile* profile,
+                  GDataFileSystemInterface* file_system,
+                  GDataCache* cache);
   virtual ~GDataSyncClient();
 
   // GDataSyncClientInterface overrides.
   virtual void Initialize() OVERRIDE;
 
-  // GDataFileSystem::Observer overrides.
-  virtual void OnCacheInitialized() OVERRIDE;
-  virtual void OnFilePinned(const std::string& resource_id,
-                            const std::string& md5) OVERRIDE;
-  virtual void OnFileUnpinned(const std::string& resource_id,
-                              const std::string& md5) OVERRIDE;
+  // GDataFileSystemInterface overrides.
+  virtual void OnInitialLoadFinished() OVERRIDE;
+  virtual void OnFeedFromServerLoaded() OVERRIDE;
 
-  // Starts scanning the pinned directory in the cache to collect
-  // pinned-but-not-fetched files. |closure| is run on the calling thread
-  // once the initial scan is complete.
-  void StartInitialScan(const base::Closure& closure);
+  // GDataCache::Observer overrides.
+  virtual void OnCachePinned(const std::string& resource_id,
+                             const std::string& md5) OVERRIDE;
+  virtual void OnCacheUnpinned(const std::string& resource_id,
+                               const std::string& md5) OVERRIDE;
+  virtual void OnCacheCommitted(const std::string& resource_id) OVERRIDE;
 
-  // Runs the fetch loop that fetches files in |queue_|. One file is fetched
-  // at a time, rather than in parallel. The loop ends when the queue becomes
-  // empty.
-  void DoFetchLoop();
+  // Starts processing the backlog (i.e. pinned-but-not-filed files and
+  // dirty-but-not-uploaded files). Kicks off retrieval of the resource
+  // IDs of these files, and then starts the sync loop.
+  void StartProcessingBacklog();
 
-  // Returns the contents of |queue_|. Used only for testing.
-  const std::deque<std::string>& GetResourceIdsForTesting() const {
-    return queue_;
-  }
+  // Starts checking the existing pinned files to see if these are
+  // up-to-date. If stale files are detected, the resource IDs of these files
+  // are added to the queue and the sync loop is started.
+  void StartCheckingExistingPinnedFiles();
+
+  // Returns the resource IDs in |queue_| for the given sync type. Used only
+  // for testing.
+  std::vector<std::string> GetResourceIdsForTesting(SyncType sync_type) const;
 
   // Adds the resource ID to the queue. Used only for testing.
-  void AddResourceIdForTesting(const std::string& resource_id) {
-    queue_.push_back(resource_id);
+  void AddResourceIdForTesting(SyncType sync_type,
+                               const std::string& resource_id) {
+    queue_.push_back(SyncTask(sync_type, resource_id, base::Time::Now()));
   }
 
+  // Sets a delay for testing.
+  void set_delay_for_testing(const base::TimeDelta& delay) {
+    delay_ = delay;
+  }
+
+  // Starts the sync loop if it's not running.
+  void StartSyncLoop();
+
  private:
-  // Called when the initial scan is complete. Receives the resource IDs of
-  // pinned-but-not-fetched files as |resource_ids|. |closure| is run at the
-  // end.
-  void OnInitialScanComplete(const base::Closure& closure,
-                             std::vector<std::string>* resource_ids);
+  friend class GDataSyncClientTest;
+
+  // Adds the given task to the queue. If the same task is queued, remove the
+  // existing one, and adds a new one to the end of the queue.
+  void AddTaskToQueue(const SyncTask& sync_task);
+
+  // Runs the sync loop that fetches/uploads files in |queue_|. One file is
+  // fetched/uploaded at a time, rather than in parallel. The loop ends when
+  // the queue becomes empty.
+  void DoSyncLoop();
+
+  // Returns true if we should stop the sync loop.
+  bool ShouldStopSyncLoop();
+
+  // Called when the resource IDs of files in the backlog are obtained.
+  void OnGetResourceIdsOfBacklog(
+      const std::vector<std::string>& to_fetch,
+      const std::vector<std::string>& to_upload);
+
+  // Called when the resource IDs of pinned files are obtained.
+  void OnGetResourceIdsOfExistingPinnedFiles(
+    const std::vector<std::string>& resource_ids);
+
+  // Called when a file entry is obtained.
+  void OnGetFileInfoByResourceId(const std::string& resource_id,
+                                 GDataFileError error,
+                                 const FilePath& file_path,
+                                 scoped_ptr<GDataFileProto> file_proto);
+
+  // Called when a cache entry is obtained.
+  void OnGetCacheEntry(const std::string& resource_id,
+                       const std::string& latest_md5,
+                       bool success,
+                       const GDataCacheEntry& cache_entry);
+
+  // Called when an existing cache entry and the local files are removed.
+  void OnRemove(GDataFileError error,
+                const std::string& resource_id,
+                const std::string& md5);
+
+  // Called when a file is pinned.
+  void OnPinned(GDataFileError error,
+                const std::string& resource_id,
+                const std::string& md5);
 
   // Called when the file for |resource_id| is fetched.
-  // Calls DoFetchLoop() to go back to the fetch loop.
-  void OnFetchFileComplete(const std::string& resource_id,
-                           base::PlatformFileError error,
+  // Calls DoSyncLoop() to go back to the sync loop.
+  void OnFetchFileComplete(const SyncTask& sync_task,
+                           GDataFileError error,
                            const FilePath& local_path,
                            const std::string& ununsed_mime_type,
                            GDataFileType file_type);
 
+  // Called when the file for |resource_id| is uploaded.
+  // Calls DoSyncLoop() to go back to the sync loop.
+  void OnUploadFileComplete(const std::string& resource_id,
+                            GDataFileError error);
 
-  GDataFileSystemInterface* file_system_;
+  // chromeos::NetworkLibrary::NetworkManagerObserver override.
+  virtual void OnNetworkManagerChanged(
+      chromeos::NetworkLibrary* network_library) OVERRIDE;
 
-  // The queue of resource IDs used to fetch pinned-but-not-fetched files in
-  // the background thread. Note that this class does not use a lock to
-  // protect |queue_| as all methods touching |queue_| run on the UI thread.
-  std::deque<std::string> queue_;
+  // content::NotificationObserver override.
+  virtual void Observe(int type,
+                       const content::NotificationSource& source,
+                       const content::NotificationDetails& details) OVERRIDE;
+  Profile* profile_;
+  GDataFileSystemInterface* file_system_;  // Owned by GDataSystemService.
+  GDataCache* cache_;  // Owned by GDataSystemService.
+  scoped_ptr<PrefChangeRegistrar> registrar_;
+
+  // The queue of tasks used to fetch/upload files in the background
+  // thread. Note that this class does not use a lock to protect |queue_| as
+  // all methods touching |queue_| run on the UI thread.
+  std::deque<SyncTask> queue_;
+
+  // The delay is used for delaying processing SyncTasks in DoSyncLoop().
+  base::TimeDelta delay_;
+
+  // True if the sync loop is running.
+  bool sync_loop_is_running_;
 
   base::WeakPtrFactory<GDataSyncClient> weak_ptr_factory_;
 

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_MEDIA_MEDIA_INTERNALS_H_
 #define CHROME_BROWSER_MEDIA_MEDIA_INTERNALS_H_
-#pragma once
 
 #include "base/memory/ref_counted.h"
 #include "base/memory/singleton.h"
@@ -13,6 +12,7 @@
 #include "content/public/browser/media_observer.h"
 
 class MediaInternalsObserver;
+class MediaStreamCaptureIndicator;
 
 namespace media {
 struct MediaLogEvent;
@@ -40,6 +40,14 @@ class MediaInternals : public content::MediaObserver {
                                       double volume) OVERRIDE;
   virtual void OnMediaEvent(int render_process_id,
                             const media::MediaLogEvent& event) OVERRIDE;
+  virtual void OnCaptureDevicesOpened(
+      int render_process_id,
+      int render_view_id,
+      const content::MediaStreamDevices& devices) OVERRIDE;
+  virtual void OnCaptureDevicesClosed(
+      int render_process_id,
+      int render_view_id,
+      const content::MediaStreamDevices& devices) OVERRIDE;
 
   // Methods for observers.
   // Observers should add themselves on construction and remove themselves
@@ -74,6 +82,7 @@ class MediaInternals : public content::MediaObserver {
   static MediaInternals* instance_;
   DictionaryValue data_;
   ObserverList<MediaInternalsObserver> observers_;
+  scoped_refptr<MediaStreamCaptureIndicator> media_stream_capture_indicator_;
 
   DISALLOW_COPY_AND_ASSIGN(MediaInternals);
 };

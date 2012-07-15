@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CONTENT_RENDERER_WEBPLUGIN_DELEGATE_PROXY_H_
 #define CONTENT_RENDERER_WEBPLUGIN_DELEGATE_PROXY_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -12,13 +11,13 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "base/message_loop_helpers.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "googleurl/src/gurl.h"
 #include "ipc/ipc_channel.h"
 #include "ipc/ipc_message.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/gfx/rect.h"
-#include "ui/gfx/surface/transport_dib.h"
+#include "ui/surface/transport_dib.h"
 #include "webkit/plugins/npapi/webplugin_delegate.h"
 #include "webkit/plugins/webplugininfo.h"
 
@@ -52,8 +51,8 @@ class WebPlugin;
 // the plugin process.
 class WebPluginDelegateProxy
     : public webkit::npapi::WebPluginDelegate,
-      public IPC::Channel::Listener,
-      public IPC::Message::Sender,
+      public IPC::Listener,
+      public IPC::Sender,
       public base::SupportsWeakPtr<WebPluginDelegateProxy> {
  public:
   WebPluginDelegateProxy(const std::string& mime_type,
@@ -105,11 +104,11 @@ class WebPluginDelegateProxy
   virtual void ImeCompositionCompleted(const string16& text, int plugin_id);
 #endif
 
-  // IPC::Channel::Listener implementation:
+  // IPC::Listener implementation:
   virtual bool OnMessageReceived(const IPC::Message& msg) OVERRIDE;
   virtual void OnChannelError() OVERRIDE;
 
-  // IPC::Message::Sender implementation:
+  // IPC::Sender implementation:
   virtual bool Send(IPC::Message* msg) OVERRIDE;
 
   virtual void SendJavaScriptStream(const GURL& url,

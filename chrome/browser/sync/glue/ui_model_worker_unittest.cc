@@ -11,11 +11,11 @@
 #include "base/synchronization/waitable_event.h"
 #include "base/threading/thread.h"
 #include "chrome/browser/sync/glue/ui_model_worker.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using browser_sync::UIModelWorker;
-using browser_sync::SyncerError;
+using syncer::SyncerError;
 using content::BrowserThread;
 
 // Various boilerplate, primarily for the StopWithPendingWork test.
@@ -28,12 +28,12 @@ class UIModelWorkerVisitor {
        was_run_(was_run) { }
   virtual ~UIModelWorkerVisitor() { }
 
-  virtual SyncerError DoWork() {
+  virtual syncer::SyncerError DoWork() {
     EXPECT_TRUE(BrowserThread::CurrentlyOn(BrowserThread::UI));
     was_run_->Signal();
     if (quit_loop_when_run_)
       MessageLoop::current()->Quit();
-    return browser_sync::SYNCER_OK;
+    return syncer::SYNCER_OK;
   }
 
  private:
@@ -50,8 +50,8 @@ class Syncer {
 
   void SyncShare(UIModelWorkerVisitor* visitor) {
     // We wait until the callback is executed. So it is safe to use Unretained.
-    browser_sync::WorkCallback c = base::Bind(&UIModelWorkerVisitor::DoWork,
-                                              base::Unretained(visitor));
+    syncer::WorkCallback c = base::Bind(&UIModelWorkerVisitor::DoWork,
+                                       base::Unretained(visitor));
     worker_->DoWorkAndWaitUntilDone(c);
   }
  private:
@@ -70,7 +70,7 @@ void FakeSyncapiShutdownCallback(base::Thread* syncer_thread,
   // result in the syncer calling it's own destructor, which results in
   // the SyncerThread::HaltSyncer being called, which sets the
   // syncer in RequestEarlyExit mode and waits until the Syncer finishes
-  // SyncShare to remove the syncer from it's watch. Here we just manually
+  // SyncShare to remove the syncer from its watch. Here we just manually
   // wait until all outstanding jobs are done to simulate what happens in
   // SyncerThread::HaltSyncer.
   all_jobs_done.WaitMany(jobs, job_count);

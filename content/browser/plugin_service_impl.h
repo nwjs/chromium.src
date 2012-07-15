@@ -7,7 +7,6 @@
 
 #ifndef CONTENT_BROWSER_PLUGIN_SERVICE_IMPL_H_
 #define CONTENT_BROWSER_PLUGIN_SERVICE_IMPL_H_
-#pragma once
 
 #include <map>
 #include <set>
@@ -18,6 +17,7 @@
 #include "base/memory/scoped_vector.h"
 #include "base/memory/singleton.h"
 #include "base/synchronization/waitable_event_watcher.h"
+#include "base/threading/sequenced_worker_pool.h"
 #include "base/time.h"
 #include "build/build_config.h"
 #include "content/browser/plugin_process_host.h"
@@ -97,6 +97,7 @@ class CONTENT_EXPORT PluginServiceImpl
                              std::string* actual_mime_type) OVERRIDE;
   virtual bool GetPluginInfoByPath(const FilePath& plugin_path,
                                    webkit::WebPluginInfo* info) OVERRIDE;
+  virtual string16 GetPluginDisplayNameByPath(const FilePath& path) OVERRIDE;
   virtual void GetPlugins(const GetPluginsCallback& callback) OVERRIDE;
   virtual void GetPluginGroups(
       const GetPluginGroupsCallback& callback) OVERRIDE;
@@ -126,6 +127,7 @@ class CONTENT_EXPORT PluginServiceImpl
       const FilePath& plugin_path);
   PpapiPluginProcessHost* FindOrStartPpapiPluginProcess(
       const FilePath& plugin_path,
+      const FilePath& profile_data_directory,
       PpapiPluginProcessHost::PluginClient* client);
   PpapiPluginProcessHost* FindOrStartPpapiBrokerProcess(
       const FilePath& plugin_path);
@@ -139,7 +141,8 @@ class CONTENT_EXPORT PluginServiceImpl
                                 const GURL& page_url,
                                 const std::string& mime_type,
                                 PluginProcessHost::Client* client);
-  void OpenChannelToPpapiPlugin(const FilePath& path,
+  void OpenChannelToPpapiPlugin(const FilePath& plugin_path,
+                                const FilePath& profile_data_directory,
                                 PpapiPluginProcessHost::PluginClient* client);
   void OpenChannelToPpapiBroker(const FilePath& path,
                                 PpapiPluginProcessHost::BrokerClient* client);
@@ -171,14 +174,18 @@ class CONTENT_EXPORT PluginServiceImpl
   // has been started by this service. Returns NULL if no process has been
   // started.
   PluginProcessHost* FindNpapiPluginProcess(const FilePath& plugin_path);
-  PpapiPluginProcessHost* FindPpapiPluginProcess(const FilePath& plugin_path);
+  PpapiPluginProcessHost* FindPpapiPluginProcess(
+      const FilePath& plugin_path,
+      const FilePath& profile_data_directory);
   PpapiPluginProcessHost* FindPpapiBrokerProcess(const FilePath& broker_path);
 
   void RegisterPepperPlugins();
 
-  // Function that is run on the FILE thread to load the plugins synchronously.
+#if defined(OS_WIN)
+  // Run on the blocking pool to load the plugins synchronously.
   void GetPluginsInternal(base::MessageLoopProxy* target_loop,
                           const GetPluginsCallback& callback);
+#endif
 
   // Binding directly to GetAllowedPluginForOpenChannelToPlugin() isn't possible
   // because more arity is needed <http://crbug.com/98542>. This just forwards.
@@ -239,6 +246,10 @@ class CONTENT_EXPORT PluginServiceImpl
 
   std::set<PluginProcessHost::Client*> pending_plugin_clients_;
 
+#if defined(OS_WIN)
+  // Used to sequentialize loading plug-ins from disk.
+  base::SequencedWorkerPool::SequenceToken plugin_list_token_;
+#endif
 #if defined(OS_POSIX)
   scoped_refptr<PluginLoaderPosix> plugin_loader_;
 #endif

@@ -15,8 +15,13 @@ namespace remoting {
 // Return a string that contains the current date formatted as 'MMDD/HHMMSS:'.
 std::string GetTimestampString();
 
-// TODO(sergeyu): Move these methods to media.
-int GetBytesPerPixel(media::VideoFrame::Format format);
+// Calculate the offset of a specific pixel in an RGB32 buffer.
+int CalculateRGBOffset(int x, int y, int stride);
+
+// Calculate the offset of a specific pixel in a YV12/YUV420 buffer. Note that
+// the X and Y coordinates must both be even owing to the YV12 buffer layout.
+int CalculateYOffset(int x, int y, int stride);
+int CalculateUVOffset(int x, int y, int stride);
 
 // Convert and scale YUV to RGB32 on a specific rectangle. The source and
 // destination buffers are assumed to contain only |source_buffer_rect| and
@@ -84,6 +89,12 @@ void CopyRGB32Rect(const uint8* source_buffer,
                    int dest_stride,
                    const SkIRect& dest_buffer_rect,
                    const SkIRect& dest_rect);
+
+// Replaces every occurrence of "\n" in a string by "\r\n".
+std::string ReplaceLfByCrLf(const std::string& in);
+
+// Replaces every occurrence of "\r\n" in a string by "\n".
+std::string ReplaceCrLfByLf(const std::string& in);
 
 }  // namespace remoting
 

@@ -35,14 +35,15 @@ FirstRunBubbleTest::~FirstRunBubbleTest() {}
 
 void FirstRunBubbleTest::SetUp() {
   ViewsTestBase::SetUp();
-  profile_.CreateTemplateURLService();
+  TemplateURLServiceFactory::GetInstance()->SetTestingFactoryAndUse(
+      &profile_, &TemplateURLServiceFactory::BuildInstanceFor);
   TemplateURLService* turl_model =
       TemplateURLServiceFactory::GetForProfile(&profile_);
   turl_model->Load();
 }
 
 TEST_F(FirstRunBubbleTest, CreateAndClose) {
-  FirstRunBubble* delegate = FirstRunBubble::ShowBubble(profile(), NULL);
+  FirstRunBubble* delegate = FirstRunBubble::ShowBubble(NULL, profile(), NULL);
   EXPECT_TRUE(delegate != NULL);
   delegate->GetWidget()->CloseNow();
 }

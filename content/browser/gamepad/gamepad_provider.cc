@@ -20,28 +20,30 @@
 
 namespace content {
 
-GamepadProvider::GamepadProvider(GamepadDataFetcher* fetcher)
-    : is_paused_(false),
-      devices_changed_(true),
-      provided_fetcher_(fetcher),
-      ALLOW_THIS_IN_INITIALIZER_LIST(weak_factory_(this)) {
+GamepadProvider::GamepadProvider()
+    : is_paused_(true),
+      devices_changed_(true) {
   size_t data_size = sizeof(GamepadHardwareBuffer);
   base::SystemMonitor* monitor = base::SystemMonitor::Get();
   if (monitor)
     monitor->AddDevicesChangedObserver(this);
   bool res = gamepad_shared_memory_.CreateAndMapAnonymous(data_size);
-  DCHECK(res);
+  CHECK(res);
   GamepadHardwareBuffer* hwbuf = SharedMemoryAsHardwareBuffer();
   memset(hwbuf, 0, sizeof(GamepadHardwareBuffer));
 
   polling_thread_.reset(new base::Thread("Gamepad polling thread"));
   polling_thread_->StartWithOptions(
       base::Thread::Options(MessageLoop::TYPE_IO, 0));
+}
 
+void GamepadProvider::SetDataFetcher(GamepadDataFetcher* fetcher) {
   MessageLoop* polling_loop = polling_thread_->message_loop();
   polling_loop->PostTask(
       FROM_HERE,
-      base::Bind(&GamepadProvider::DoInitializePollingThread, this));
+      base::Bind(&GamepadProvider::DoInitializePollingThread,
+                 Unretained(this),
+                 fetcher));
 }
 
 GamepadProvider::~GamepadProvider() {
@@ -65,8 +67,10 @@ void GamepadProvider::Pause() {
     base::AutoLock lock(is_paused_lock_);
     is_paused_ = true;
   }
-  if (data_fetcher_.get())
-    data_fetcher_->PauseHint(true);
+  MessageLoop* polling_loop = polling_thread_->message_loop();
+  polling_loop->PostTask(
+      FROM_HERE,
+      base::Bind(&GamepadProvider::SendPauseHint, Unretained(this), true));
 }
 
 void GamepadProvider::Resume() {
@@ -76,13 +80,14 @@ void GamepadProvider::Resume() {
         return;
     is_paused_ = false;
   }
-  if (data_fetcher_.get())
-    data_fetcher_->PauseHint(false);
 
   MessageLoop* polling_loop = polling_thread_->message_loop();
   polling_loop->PostTask(
       FROM_HERE,
-      base::Bind(&GamepadProvider::ScheduleDoPoll, this));
+      base::Bind(&GamepadProvider::SendPauseHint, Unretained(this), false));
+  polling_loop->PostTask(
+      FROM_HERE,
+      base::Bind(&GamepadProvider::ScheduleDoPoll, Unretained(this)));
 }
 
 void GamepadProvider::OnDevicesChanged() {
@@ -90,17 +95,25 @@ void GamepadProvider::OnDevicesChanged() {
   devices_changed_ = true;
 }
 
-void GamepadProvider::DoInitializePollingThread() {
+void GamepadProvider::DoInitializePollingThread(GamepadDataFetcher* fetcher) {
   DCHECK(MessageLoop::current() == polling_thread_->message_loop());
 
-  if (!provided_fetcher_.get())
-    provided_fetcher_.reset(new GamepadPlatformDataFetcher);
+  if (data_fetcher_ != NULL) {
+    // Already initialized.
+    return;
+  }
+
+  if (fetcher == NULL)
+    fetcher = new GamepadPlatformDataFetcher;
 
   // Pass ownership of fetcher to provider_.
-  data_fetcher_.swap(provided_fetcher_);
+  data_fetcher_.reset(fetcher);
+}
 
-  // Start polling.
-  ScheduleDoPoll();
+void GamepadProvider::SendPauseHint(bool paused) {
+  DCHECK(MessageLoop::current() == polling_thread_->message_loop());
+  if (data_fetcher_.get())
+    data_fetcher_->PauseHint(paused);
 }
 
 void GamepadProvider::DoPoll() {
@@ -140,13 +153,13 @@ void GamepadProvider::ScheduleDoPoll() {
 
   MessageLoop::current()->PostDelayedTask(
       FROM_HERE,
-      base::Bind(&GamepadProvider::DoPoll, weak_factory_.GetWeakPtr()),
+      base::Bind(&GamepadProvider::DoPoll, Unretained(this)),
       base::TimeDelta::FromMilliseconds(kDesiredSamplingIntervalMs));
 }
 
 GamepadHardwareBuffer* GamepadProvider::SharedMemoryAsHardwareBuffer() {
   void* mem = gamepad_shared_memory_.memory();
-  DCHECK(mem);
+  CHECK(mem);
   return static_cast<GamepadHardwareBuffer*>(mem);
 }
 

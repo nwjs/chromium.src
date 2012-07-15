@@ -7,9 +7,10 @@
 #include "base/logging.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/aura/window.h"
+#include "ui/compositor/compositor.h"
+#include "ui/compositor/dip_util.h"
+#include "ui/compositor/layer.h"
 #include "ui/gfx/codec/png_codec.h"
-#include "ui/gfx/compositor/compositor.h"
-#include "ui/gfx/compositor/layer.h"
 #include "ui/gfx/rect.h"
 
 namespace browser {
@@ -25,20 +26,22 @@ bool GrabWindowSnapshot(gfx::NativeWindow window,
   // the desktop.
   read_pixels_bounds.set_origin(
       snapshot_bounds.origin().Add(window->bounds().origin()));
+  gfx::Rect read_pixels_bounds_in_pixel =
+      ui::ConvertRectToPixel(window->layer(), read_pixels_bounds);
 
-  DCHECK_GE(compositor->size().width(), read_pixels_bounds.right());
-  DCHECK_GE(compositor->size().height(), read_pixels_bounds.bottom());
+  DCHECK_GE(compositor->size().width(), read_pixels_bounds_in_pixel.right());
+  DCHECK_GE(compositor->size().height(), read_pixels_bounds_in_pixel.bottom());
   DCHECK_LE(0, read_pixels_bounds.x());
   DCHECK_LE(0, read_pixels_bounds.y());
 
   SkBitmap bitmap;
-  if (!compositor->ReadPixels(&bitmap, read_pixels_bounds))
+  if (!compositor->ReadPixels(&bitmap, read_pixels_bounds_in_pixel))
     return false;
 
   unsigned char* pixels = reinterpret_cast<unsigned char*>(bitmap.getPixels());
 
   gfx::PNGCodec::Encode(pixels, gfx::PNGCodec::FORMAT_BGRA,
-                        snapshot_bounds.size(),
+                        read_pixels_bounds_in_pixel.size(),
                         bitmap.rowBytes(), true,
                         std::vector<gfx::PNGCodec::Comment>(),
                         png_representation);

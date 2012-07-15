@@ -4,10 +4,13 @@
 
 #include "content/browser/renderer_host/doomed_resource_handler.h"
 
-#include "net/url_request/url_request.h"
+#include "net/url_request/url_request_status.h"
 
-DoomedResourceHandler::DoomedResourceHandler(ResourceHandler* old_handler)
-    : old_handler_(old_handler) {
+namespace content {
+
+DoomedResourceHandler::DoomedResourceHandler(
+    scoped_ptr<ResourceHandler> old_handler)
+    : old_handler_(old_handler.Pass()) {
 }
 
 DoomedResourceHandler::~DoomedResourceHandler() {
@@ -20,17 +23,17 @@ bool DoomedResourceHandler::OnUploadProgress(int request_id,
   return true;
 }
 
-bool DoomedResourceHandler::OnRequestRedirected(
-    int request_id,
-    const GURL& new_url,
-    content::ResourceResponse* response,
-    bool* defer) {
+bool DoomedResourceHandler::OnRequestRedirected(int request_id,
+                                                const GURL& new_url,
+                                                ResourceResponse* response,
+                                                bool* defer) {
   NOTREACHED();
   return true;
 }
 
-bool DoomedResourceHandler::OnResponseStarted(
-    int request_id, content::ResourceResponse* response) {
+bool DoomedResourceHandler::OnResponseStarted(int request_id,
+                                              ResourceResponse* response,
+                                              bool* defer) {
   NOTREACHED();
   return true;
 }
@@ -51,7 +54,8 @@ bool DoomedResourceHandler::OnWillRead(int request_id,
 }
 
 bool DoomedResourceHandler::OnReadCompleted(int request_id,
-                                            int* bytes_read) {
+                                            int bytes_read,
+                                            bool* defer) {
   NOTREACHED();
   return true;
 }
@@ -65,10 +69,9 @@ bool DoomedResourceHandler::OnResponseCompleted(
   return true;
 }
 
-void DoomedResourceHandler::OnRequestClosed() {
-}
-
 void DoomedResourceHandler::OnDataDownloaded(int request_id,
                                              int bytes_downloaded) {
   NOTREACHED();
 }
+
+}  // namespace content

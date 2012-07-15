@@ -5,6 +5,7 @@
 #include "base/threading/platform_thread.h"
 
 #include "base/debug/alias.h"
+#include "base/debug/profiler.h"
 #include "base/logging.h"
 #include "base/threading/thread_local.h"
 #include "base/threading/thread_restrictions.h"
@@ -109,11 +110,6 @@ void PlatformThread::YieldCurrentThread() {
 }
 
 // static
-void PlatformThread::Sleep(int duration_ms) {
-  ::Sleep(duration_ms);
-}
-
-// static
 void PlatformThread::Sleep(TimeDelta duration) {
   ::Sleep(duration.InMillisecondsRoundedUp());
 }
@@ -133,7 +129,9 @@ void PlatformThread::SetName(const char* name) {
 
   // The debugger needs to be around to catch the name in the exception.  If
   // there isn't a debugger, we are just needlessly throwing an exception.
-  if (!::IsDebuggerPresent())
+  // If this image file is instrumented, we raise the exception anyway
+  // to provide the profiler with human-readable thread names.
+  if (!::IsDebuggerPresent() && !base::debug::IsBinaryInstrumented())
     return;
 
   SetNameInternal(CurrentId(), name);
@@ -149,6 +147,16 @@ bool PlatformThread::Create(size_t stack_size, Delegate* delegate,
                             PlatformThreadHandle* thread_handle) {
   DCHECK(thread_handle);
   return CreateThreadInternal(stack_size, delegate, thread_handle);
+}
+
+// static
+bool PlatformThread::CreateWithPriority(size_t stack_size, Delegate* delegate,
+                                        PlatformThreadHandle* thread_handle,
+                                        ThreadPriority priority) {
+  bool result = Create(stack_size, delegate, thread_handle);
+  if (result)
+    SetThreadPriority(*thread_handle, priority);
+  return result;
 }
 
 // static
@@ -171,7 +179,14 @@ void PlatformThread::Join(PlatformThreadHandle thread_handle) {
   // Wait for the thread to exit.  It should already have terminated but make
   // sure this assumption is valid.
   DWORD result = WaitForSingleObject(thread_handle, INFINITE);
-  DCHECK_EQ(WAIT_OBJECT_0, result);
+  if (result != WAIT_OBJECT_0) {
+    // Debug info for bug 127931.
+    DWORD error = GetLastError();
+    debug::Alias(&error);
+    debug::Alias(&result);
+    debug::Alias(&thread_handle);
+    CHECK(false);
+  }
 
   CloseHandle(thread_handle);
 }

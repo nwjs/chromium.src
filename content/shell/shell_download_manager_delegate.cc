@@ -14,11 +14,10 @@
 #include "base/logging.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
-#include "content/browser/download/download_state_info.h"
-#include "content/browser/tab_contents/tab_contents.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/download_manager.h"
+#include "content/public/browser/web_contents.h"
 #include "net/base/net_util.h"
 
 namespace content {
@@ -36,18 +35,17 @@ void ShellDownloadManagerDelegate::SetDownloadManager(
   download_manager_ = download_manager;
 }
 
-DownloadId ShellDownloadManagerDelegate::GetNextId() {
-  static int next_id;
-  return DownloadId(this, ++next_id);
-}
-
 bool ShellDownloadManagerDelegate::ShouldStartDownload(int32 download_id) {
   DownloadItem* download =
       download_manager_->GetActiveDownloadItem(download_id);
-  DownloadStateInfo state = download->GetStateInfo();
 
-  if (!state.force_file_name.empty())
+  if (!download->GetForcedFilePath().empty()) {
+    download->OnTargetPathDetermined(
+        download->GetForcedFilePath(),
+        DownloadItem::TARGET_DISPOSITION_OVERWRITE,
+        content::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS);
     return true;
+  }
 
   FilePath generated_name = net::GenerateFileName(
       download->GetURL(),
@@ -57,63 +55,58 @@ bool ShellDownloadManagerDelegate::ShouldStartDownload(int32 download_id) {
       download->GetMimeType(),
       "download");
 
-  // Since we have no download UI, show the user a dialog always.
-  state.prompt_user_for_save_location = true;
-
   BrowserThread::PostTask(
       BrowserThread::FILE,
       FROM_HERE,
       base::Bind(
           &ShellDownloadManagerDelegate::GenerateFilename,
-          this, download_id, state, generated_name));
+          this, download_id, generated_name));
   return false;
 }
 
 void ShellDownloadManagerDelegate::GenerateFilename(
     int32 download_id,
-    DownloadStateInfo state,
     const FilePath& generated_name) {
-  if (state.suggested_path.empty()) {
-    state.suggested_path = download_manager_->GetBrowserContext()->GetPath().
-        Append(FILE_PATH_LITERAL("Downloads"));
-    if (!file_util::PathExists(state.suggested_path))
-      file_util::CreateDirectory(state.suggested_path);
-  }
+  FilePath suggested_path = download_manager_->GetBrowserContext()->GetPath().
+      Append(FILE_PATH_LITERAL("Downloads"));
+  if (!file_util::PathExists(suggested_path))
+    file_util::CreateDirectory(suggested_path);
 
-  state.suggested_path = state.suggested_path.Append(generated_name);
-
+  suggested_path = suggested_path.Append(generated_name);
   BrowserThread::PostTask(
       BrowserThread::UI,
       FROM_HERE,
       base::Bind(
           &ShellDownloadManagerDelegate::RestartDownload,
-          this, download_id, state));
+          this, download_id, suggested_path));
 }
 
 void ShellDownloadManagerDelegate::RestartDownload(
     int32 download_id,
-    DownloadStateInfo state) {
+    const FilePath& suggested_path) {
   DownloadItem* download =
       download_manager_->GetActiveDownloadItem(download_id);
   if (!download)
     return;
-  download->SetFileCheckResults(state);
+
+  // Since we have no download UI, show the user a dialog always.
+  download->OnTargetPathDetermined(suggested_path,
+                                   DownloadItem::TARGET_DISPOSITION_PROMPT,
+                                   content::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS);
   download_manager_->RestartDownload(download_id);
 }
 
-void ShellDownloadManagerDelegate::ChooseDownloadPath(
-    WebContents* web_contents,
-    const FilePath& suggested_path,
-    int32 download_id) {
+void ShellDownloadManagerDelegate::ChooseDownloadPath(DownloadItem* item) {
   FilePath result;
-#if defined(OS_WIN)
+#if defined(OS_WIN) && !defined(USE_AURA)
+  const FilePath suggested_path(item->GetTargetFilePath());
   std::wstring file_part = FilePath(suggested_path).BaseName().value();
   wchar_t file_name[MAX_PATH];
   base::wcslcpy(file_name, file_part.c_str(), arraysize(file_name));
   OPENFILENAME save_as;
   ZeroMemory(&save_as, sizeof(save_as));
   save_as.lStructSize = sizeof(OPENFILENAME);
-  save_as.hwndOwner = web_contents->GetNativeView();
+  save_as.hwndOwner = item->GetWebContents()->GetNativeView();
   save_as.lpstrFile = file_name;
   save_as.nMaxFile = arraysize(file_name);
 
@@ -132,9 +125,9 @@ void ShellDownloadManagerDelegate::ChooseDownloadPath(
 #endif
 
   if (result.empty()) {
-    download_manager_->FileSelectionCanceled(download_id);
+    download_manager_->FileSelectionCanceled(item->GetId());
   } else {
-    download_manager_->FileSelected(result, download_id);
+    download_manager_->FileSelected(result, item->GetId());
   }
 }
 

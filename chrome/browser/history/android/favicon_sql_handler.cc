@@ -5,6 +5,8 @@
 #include "chrome/browser/history/android/favicon_sql_handler.h"
 
 #include "base/logging.h"
+#include "base/memory/ref_counted.h"
+#include "base/memory/ref_counted_memory.h"
 #include "chrome/browser/history/thumbnail_database.h"
 
 using base::Time;
@@ -14,8 +16,8 @@ namespace history {
 namespace {
 
 // The interesting columns of this handler.
-const BookmarkRow::BookmarkColumnID kInterestingColumns[] = {
-  BookmarkRow::FAVICON};
+const HistoryAndBookmarkRow::ColumnID kInterestingColumns[] = {
+  HistoryAndBookmarkRow::FAVICON};
 
 } // namespace
 
@@ -27,7 +29,7 @@ FaviconSQLHandler::FaviconSQLHandler(ThumbnailDatabase* thumbnail_db)
 FaviconSQLHandler::~FaviconSQLHandler() {
 }
 
-bool FaviconSQLHandler::Update(const BookmarkRow& row,
+bool FaviconSQLHandler::Update(const HistoryAndBookmarkRow& row,
                                const TableIDRows& ids_set) {
   FaviconID favicon_id = 0;
   if (!row.favicon().empty()) {
@@ -37,8 +39,8 @@ bool FaviconSQLHandler::Update(const BookmarkRow& row,
     if (!favicon_id)
       return false;
 
-    scoped_refptr<RefCountedMemory> image_data =
-        new RefCountedBytes(row.favicon());
+    scoped_refptr<base::RefCountedMemory> image_data =
+        new base::RefCountedBytes(row.favicon());
     if (!thumbnail_db_->SetFavicon(favicon_id, image_data, Time::Now()))
       return false;
   }
@@ -101,20 +103,20 @@ bool FaviconSQLHandler::Delete(const TableIDRows& ids_set) {
   return true;
 }
 
-bool FaviconSQLHandler::Insert(BookmarkRow* row) {
-  if (!row->is_value_set_explicitly(BookmarkRow::FAVICON) ||
+bool FaviconSQLHandler::Insert(HistoryAndBookmarkRow* row) {
+  if (!row->is_value_set_explicitly(HistoryAndBookmarkRow::FAVICON) ||
       row->favicon().empty())
     return true;
 
-  DCHECK(row->is_value_set_explicitly(BookmarkRow::URL));
+  DCHECK(row->is_value_set_explicitly(HistoryAndBookmarkRow::URL));
 
   // Is it a problem to give a empty URL?
   FaviconID id = thumbnail_db_->AddFavicon(GURL(), history::FAVICON);
   if (!id)
     return false;
 
-  scoped_refptr<RefCountedMemory> image_data =
-      new RefCountedBytes(row->favicon());
+  scoped_refptr<base::RefCountedMemory> image_data =
+      new base::RefCountedBytes(row->favicon());
   if (!thumbnail_db_->SetFavicon(id, image_data, Time::Now()))
     return false;
   return thumbnail_db_->AddIconMapping(row->url(), id);

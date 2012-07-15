@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_DROPDOWN_BAR_HOST_H_
 #define CHROME_BROWSER_UI_VIEWS_DROPDOWN_BAR_HOST_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
@@ -37,7 +36,7 @@ class Widget;
 //
 // The DropdownBarHost implements the container widget for the UI that
 // is shown at the top of browser contents. It uses the appropriate
-// implementation from dropdown_bar_host_win.cc or dropdown_bar_host_gtk.cc to
+// implementation from dropdown_bar_host_win.cc or dropdown_bar_host_aura.cc to
 // draw its content and is responsible for showing, hiding, animating, closing,
 // and moving the bar if needed, for example if the widget is
 // obscuring the selection results in FindBar.
@@ -147,7 +146,7 @@ class DropdownBarHost : public ui::AcceleratorTarget,
   void SetWidgetPositionNative(const gfx::Rect& new_pos, bool no_redraw);
 
   // Returns a keyboard event suitable for forwarding.
-  NativeWebKeyboardEvent GetKeyboardEvent(
+  content::NativeWebKeyboardEvent GetKeyboardEvent(
       const content::WebContents* contents,
       const views::KeyEvent& key_event);
 

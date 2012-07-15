@@ -141,7 +141,7 @@ URLPattern::ParseResult URLPattern::Parse(const std::string& pattern) {
   }
 
   // Parse out the scheme.
-  size_t scheme_end_pos = pattern.find(chrome::kStandardSchemeSeparator);
+  size_t scheme_end_pos = pattern.find(content::kStandardSchemeSeparator);
   bool has_standard_scheme_separator = true;
 
   // Some urls also use ':' alone as the scheme separator.
@@ -162,7 +162,7 @@ URLPattern::ParseResult URLPattern::Parse(const std::string& pattern) {
 
   // Advance past the scheme separator.
   scheme_end_pos +=
-      (standard_scheme ? strlen(chrome::kStandardSchemeSeparator) : 1);
+      (standard_scheme ? strlen(content::kStandardSchemeSeparator) : 1);
   if (scheme_end_pos >= pattern.size())
     return PARSE_ERROR_EMPTY_HOST;
 
@@ -295,24 +295,46 @@ bool URLPattern::SetPort(const std::string& port) {
 }
 
 bool URLPattern::MatchesURL(const GURL& test) const {
-  if (!MatchesScheme(test.scheme()))
+  const GURL* test_url = &test;
+  bool has_inner_url = test.inner_url() != NULL;
+
+  if (has_inner_url) {
+    if (!test.SchemeIsFileSystem())
+      return false;  // The only nested URLs we handle are filesystem URLs.
+    test_url = test.inner_url();
+  }
+
+  if (!MatchesScheme(test_url->scheme()))
     return false;
 
   if (match_all_urls_)
     return true;
 
-  return MatchesSecurityOriginHelper(test) &&
-         MatchesPath(test.PathForRequest());
+  std::string path_for_request = test.PathForRequest();
+  if (has_inner_url)
+    path_for_request = test_url->path() + path_for_request;
+
+  return MatchesSecurityOriginHelper(*test_url) &&
+         MatchesPath(path_for_request);
 }
 
 bool URLPattern::MatchesSecurityOrigin(const GURL& test) const {
-  if (!MatchesScheme(test.scheme()))
+  const GURL* test_url = &test;
+  bool has_inner_url = test.inner_url() != NULL;
+
+  if (has_inner_url) {
+    if (!test.SchemeIsFileSystem())
+      return false;  // The only nested URLs we handle are filesystem URLs.
+    test_url = test.inner_url();
+  }
+
+  if (!MatchesScheme(test_url->scheme()))
     return false;
 
   if (match_all_urls_)
     return true;
 
-  return MatchesSecurityOriginHelper(test);
+  return MatchesSecurityOriginHelper(*test_url);
 }
 
 bool URLPattern::MatchesScheme(const std::string& test) const {
@@ -324,7 +346,7 @@ bool URLPattern::MatchesScheme(const std::string& test) const {
 
 bool URLPattern::MatchesHost(const std::string& host) const {
   std::string test(chrome::kHttpScheme);
-  test += chrome::kStandardSchemeSeparator;
+  test += content::kStandardSchemeSeparator;
   test += host;
   test += "/";
   return MatchesHost(GURL(test));
@@ -388,7 +410,7 @@ const std::string& URLPattern::GetAsString() const {
   bool standard_scheme = IsStandardScheme(scheme_);
 
   std::string spec = scheme_ +
-      (standard_scheme ? chrome::kStandardSchemeSeparator : ":");
+      (standard_scheme ? content::kStandardSchemeSeparator : ":");
 
   if (scheme_ != chrome::kFileScheme && standard_scheme) {
     if (match_subdomains_) {

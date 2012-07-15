@@ -3,8 +3,6 @@
 // found in the LICENSE file.
 
 cr.define('uber', function() {
-  var localStrings = new LocalStrings();
-
   /**
    * Options for how web history should be handled.
    */
@@ -100,7 +98,7 @@ cr.define('uber', function() {
    * @return {Object} The default iframe container.
    */
   function getDefaultIframe() {
-    return $(localStrings.getString('helpHost'));
+    return $(loadTimeData.getString('helpHost'));
   }
 
   /**
@@ -151,6 +149,8 @@ cr.define('uber', function() {
    */
   function backgroundNavigation() {
     navFrame.classList.add('background');
+    navFrame.firstChild.tabIndex = -1;
+    navFrame.firstChild.setAttribute('aria-hidden', true);
   }
 
   /**
@@ -158,6 +158,8 @@ cr.define('uber', function() {
    */
   function foregroundNavigation() {
     navFrame.classList.remove('background');
+    navFrame.firstChild.tabIndex = 0;
+    navFrame.firstChild.removeAttribute('aria-hidden');
   }
 
   /**
@@ -268,9 +270,6 @@ cr.define('uber', function() {
     if (lastSelected)
       lastSelected.classList.remove('selected');
     container.classList.add('selected');
-    if (container.dataset.title)
-      document.title = container.dataset.title;
-    $('favicon').href = container.dataset.favicon;
 
     setContentChanging(true);
     adjustToScroll(0);
@@ -280,6 +279,10 @@ cr.define('uber', function() {
 
     if (historyOption != HISTORY_STATE_OPTION.NONE)
       changePathTo(path, historyOption);
+
+    if (container.dataset.title)
+      document.title = container.dataset.title;
+    $('favicon').href = container.dataset.favicon;
 
     updateNavigationControls();
   }

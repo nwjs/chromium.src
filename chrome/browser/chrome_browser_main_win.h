@@ -6,11 +6,16 @@
 
 #ifndef CHROME_BROWSER_CHROME_BROWSER_MAIN_WIN_H_
 #define CHROME_BROWSER_CHROME_BROWSER_MAIN_WIN_H_
-#pragma once
 
+#include "base/memory/ref_counted.h"
 #include "chrome/browser/chrome_browser_main.h"
 
 class CommandLine;
+
+namespace chrome {
+class MediaDeviceNotificationsWindowWin;
+}  // namespace chrome
+
 
 // Handle uninstallation when given the appropriate the command-line switch.
 // If |chrome_still_running| is true a modal dialog will be shown asking the
@@ -21,6 +26,8 @@ class ChromeBrowserMainPartsWin : public ChromeBrowserMainParts {
  public:
   explicit ChromeBrowserMainPartsWin(
       const content::MainFunctionParams& parameters);
+
+  virtual ~ChromeBrowserMainPartsWin();
 
   // BrowserParts overrides.
   virtual void ToolkitInitialized() OVERRIDE;
@@ -53,7 +60,13 @@ class ChromeBrowserMainPartsWin : public ChromeBrowserMainParts {
   // user level Chrome.
   static bool CheckMachineLevelInstall();
 
+  // Sets the TranslationDelegate which provides localized strings to
+  // installer_util.
+  static void SetupInstallerUtilStrings();
+
  private:
+  scoped_refptr<chrome::MediaDeviceNotificationsWindowWin>
+      media_device_notifications_window_;
   DISALLOW_COPY_AND_ASSIGN(ChromeBrowserMainPartsWin);
 };
 

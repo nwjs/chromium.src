@@ -5,16 +5,17 @@
 #include "content/browser/geolocation/network_location_request.h"
 
 #include <set>
+#include <string>
 
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/string_number_conversions.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
-#include "content/common/geoposition.h"
-#include "content/common/net/url_fetcher_impl.h"
+#include "content/public/common/geoposition.h"
 #include "net/base/escape.h"
 #include "net/base/load_flags.h"
+#include "net/url_request/url_fetcher.h"
 #include "net/url_request/url_request_context_getter.h"
 #include "net/url_request/url_request_status.h"
 
@@ -43,15 +44,15 @@ void GetLocationFromResponse(bool http_post_result,
                              const std::string& response_body,
                              const base::Time& timestamp,
                              const GURL& server_url,
-                             Geoposition* position,
+                             content::Geoposition* position,
                              string16* access_token);
 
 // Parses the server response body. Returns true if parsing was successful.
 // Sets |*position| to the parsed location if a valid fix was received,
-// otherwise leaves it unchanged (i.e. IsInitialized() == false).
+// otherwise leaves it unchanged.
 bool ParseServerResponse(const std::string& response_body,
                          const base::Time& timestamp,
-                         Geoposition* position,
+                         content::Geoposition* position,
                          string16* access_token);
 void AddWifiData(const WifiData& wifi_data,
                  int age_milliseconds,
@@ -72,23 +73,20 @@ NetworkLocationRequest::NetworkLocationRequest(
 NetworkLocationRequest::~NetworkLocationRequest() {
 }
 
-bool NetworkLocationRequest::MakeRequest(const std::string& host_name,
-                                         const string16& access_token,
-                                         const RadioData& radio_data,
+bool NetworkLocationRequest::MakeRequest(const string16& access_token,
                                          const WifiData& wifi_data,
                                          const base::Time& timestamp) {
   if (url_fetcher_ != NULL) {
     DVLOG(1) << "NetworkLocationRequest : Cancelling pending request";
     url_fetcher_.reset();
   }
-  radio_data_ = radio_data;
   wifi_data_ = wifi_data;
   timestamp_ = timestamp;
 
   GURL request_url = FormRequestURL(url_.spec(), access_token,
                                     wifi_data, timestamp_);
-  url_fetcher_.reset(URLFetcherImpl::Create(
-      url_fetcher_id_for_tests, request_url, URLFetcherImpl::GET, this));
+  url_fetcher_.reset(net::URLFetcher::Create(
+      url_fetcher_id_for_tests, request_url, net::URLFetcher::GET, this));
   url_fetcher_->SetRequestContext(url_context_);
   url_fetcher_->SetLoadFlags(
       net::LOAD_BYPASS_CACHE | net::LOAD_DISABLE_CACHE |
@@ -100,13 +98,13 @@ bool NetworkLocationRequest::MakeRequest(const std::string& host_name,
 }
 
 void NetworkLocationRequest::OnURLFetchComplete(
-    const content::URLFetcher* source) {
+    const net::URLFetcher* source) {
   DCHECK_EQ(url_fetcher_.get(), source);
 
   net::URLRequestStatus status = source->GetStatus();
   int response_code = source->GetResponseCode();
 
-  Geoposition position;
+  content::Geoposition position;
   string16 access_token;
   std::string data;
   source->GetResponseAsString(&data);
@@ -124,7 +122,7 @@ void NetworkLocationRequest::OnURLFetchComplete(
   DCHECK(listener_);
   DVLOG(1) << "NetworkLocationRequest::Run() : Calling listener with position.";
   listener_->LocationResponseAvailable(position, server_error, access_token,
-                                       radio_data_, wifi_data_);
+                                       wifi_data_);
 }
 
 // Local functions.
@@ -237,8 +235,9 @@ void AddWifiData(const WifiData& wifi_data,
 
 void FormatPositionError(const GURL& server_url,
                          const std::string& message,
-                         Geoposition* position) {
-    position->error_code = Geoposition::ERROR_CODE_POSITION_UNAVAILABLE;
+                         content::Geoposition* position) {
+    position->error_code =
+        content::Geoposition::ERROR_CODE_POSITION_UNAVAILABLE;
     position->error_message = "Network location provider at '";
     position->error_message += server_url.possibly_invalid_spec();
     position->error_message += "' : ";
@@ -253,7 +252,7 @@ void GetLocationFromResponse(bool http_post_result,
                              const std::string& response_body,
                              const base::Time& timestamp,
                              const GURL& server_url,
-                             Geoposition* position,
+                             content::Geoposition* position,
                              string16* access_token) {
   DCHECK(position);
   DCHECK(access_token);
@@ -279,7 +278,7 @@ void GetLocationFromResponse(bool http_post_result,
   }
   // The response was successfully parsed, but it may not be a valid
   // position fix.
-  if (!position->IsValidFix()) {
+  if (!position->Validate()) {
     FormatPositionError(server_url,
                         "Did not provide a good position fix", position);
     return;
@@ -308,10 +307,11 @@ bool GetAsDouble(const DictionaryValue& object,
 
 bool ParseServerResponse(const std::string& response_body,
                          const base::Time& timestamp,
-                         Geoposition* position,
+                         content::Geoposition* position,
                          string16* access_token) {
   DCHECK(position);
-  DCHECK(!position->IsInitialized());
+  DCHECK(!position->Validate());
+  DCHECK(position->error_code == content::Geoposition::ERROR_CODE_NONE);
   DCHECK(access_token);
   DCHECK(!timestamp.is_null());
 
@@ -324,7 +324,7 @@ bool ParseServerResponse(const std::string& response_body,
   // Parse the response, ignoring comments.
   std::string error_msg;
   scoped_ptr<Value> response_value(base::JSONReader::ReadAndReturnError(
-      response_body, false, NULL, &error_msg));
+      response_body, base::JSON_PARSE_RFC, NULL, &error_msg));
   if (response_value == NULL) {
     LOG(WARNING) << "ParseServerResponse() : JSONReader failed : "
                  << error_msg;

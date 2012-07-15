@@ -11,7 +11,6 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
-#include "net/base/capturing_net_log.h"
 #include "net/base/io_buffer.h"
 #include "net/base/net_log.h"
 #include "net/base/test_completion_callback.h"
@@ -57,7 +56,7 @@ class MockClientSocket : public net::StreamSocket {
   MOCK_METHOD0(Disconnect, void());
   MOCK_CONST_METHOD0(IsConnected, bool());
   MOCK_CONST_METHOD0(IsConnectedAndIdle, bool());
-  MOCK_CONST_METHOD1(GetPeerAddress, int(net::AddressList*));
+  MOCK_CONST_METHOD1(GetPeerAddress, int(net::IPEndPoint*));
   MOCK_CONST_METHOD1(GetLocalAddress, int(net::IPEndPoint*));
   MOCK_CONST_METHOD0(NetLog, const net::BoundNetLog&());
   MOCK_METHOD0(SetSubresourceSpeculation, void());
@@ -66,6 +65,7 @@ class MockClientSocket : public net::StreamSocket {
   MOCK_CONST_METHOD0(UsingTCPFastOpen, bool());
   MOCK_CONST_METHOD0(NumBytesRead, int64());
   MOCK_CONST_METHOD0(GetConnectTimeMicros, base::TimeDelta());
+  MOCK_CONST_METHOD0(GetNegotiatedProtocol, net::NextProto());
 };
 
 // Break up |data| into a bunch of chunked MockReads/Writes and push
@@ -86,14 +86,13 @@ void AddChunkedOps(base::StringPiece data, size_t chunk_size, net::IoMode mode,
 
 class FakeSSLClientSocketTest : public testing::Test {
  protected:
-  FakeSSLClientSocketTest()
-      : capturing_net_log_(net::CapturingNetLog::kUnbounded) {}
+  FakeSSLClientSocketTest() {}
 
   virtual ~FakeSSLClientSocketTest() {}
 
   net::StreamSocket* MakeClientSocket() {
     return mock_client_socket_factory_.CreateTransportClientSocket(
-        net::AddressList(), &capturing_net_log_, net::NetLog::Source());
+        net::AddressList(), NULL, net::NetLog::Source());
   }
 
   void SetData(const net::MockConnect& mock_connect,
@@ -263,7 +262,6 @@ class FakeSSLClientSocketTest : public testing::Test {
   // MockTCPClientSocket needs a message loop.
   MessageLoop message_loop_;
 
-  net::CapturingNetLog capturing_net_log_;
   net::MockClientSocketFactory mock_client_socket_factory_;
   scoped_ptr<net::StaticSocketDataProvider> static_socket_data_provider_;
 };
@@ -272,12 +270,12 @@ TEST_F(FakeSSLClientSocketTest, PassThroughMethods) {
   MockClientSocket* mock_client_socket = new MockClientSocket();
   const int kReceiveBufferSize = 10;
   const int kSendBufferSize = 20;
-  net::AddressList address_list;
+  net::IPEndPoint ip_endpoint(net::IPAddressNumber(net::kIPv4AddressSize), 80);
   const int kPeerAddress = 30;
   net::BoundNetLog net_log;
   EXPECT_CALL(*mock_client_socket, SetReceiveBufferSize(kReceiveBufferSize));
   EXPECT_CALL(*mock_client_socket, SetSendBufferSize(kSendBufferSize));
-  EXPECT_CALL(*mock_client_socket, GetPeerAddress(&address_list)).
+  EXPECT_CALL(*mock_client_socket, GetPeerAddress(&ip_endpoint)).
       WillOnce(Return(kPeerAddress));
   EXPECT_CALL(*mock_client_socket, NetLog()).WillOnce(ReturnRef(net_log));
   EXPECT_CALL(*mock_client_socket, SetSubresourceSpeculation());
@@ -288,7 +286,7 @@ TEST_F(FakeSSLClientSocketTest, PassThroughMethods) {
   fake_ssl_client_socket.SetReceiveBufferSize(kReceiveBufferSize);
   fake_ssl_client_socket.SetSendBufferSize(kSendBufferSize);
   EXPECT_EQ(kPeerAddress,
-            fake_ssl_client_socket.GetPeerAddress(&address_list));
+            fake_ssl_client_socket.GetPeerAddress(&ip_endpoint));
   EXPECT_EQ(&net_log, &fake_ssl_client_socket.NetLog());
   fake_ssl_client_socket.SetSubresourceSpeculation();
   fake_ssl_client_socket.SetOmniboxSpeculation();

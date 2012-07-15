@@ -4,8 +4,8 @@
 
 #include "base/message_loop.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/test/base/view_event_test_base.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "chrome/test/base/view_event_test_base.h"
 #include "ui/base/models/simple_menu_model.h"
 #include "ui/ui_controls/ui_controls.h"
 #include "ui/views/controls/button/button_dropdown.h"
@@ -130,4 +130,9 @@ class ButtonDropDownDragTest : public ViewEventTestBase,
   bool menu_closed_;
 };
 
-VIEW_TEST(ButtonDropDownDragTest, DragActivation)
+#if defined(OS_WIN)
+#define MAYBE_DragActivation DISABLED_DragActivation
+#else
+#define MAYBE_DragActivation DragActivation
+#endif
+VIEW_TEST(ButtonDropDownDragTest, MAYBE_DragActivation)

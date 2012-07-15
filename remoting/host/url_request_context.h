@@ -7,6 +7,7 @@
 
 #include <string>
 
+#include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
 #include "net/proxy/proxy_config_service.h"
@@ -25,29 +26,40 @@ namespace remoting {
 // remoting Me2Me host process where the profile is not available.
 class URLRequestContext : public net::URLRequestContext {
  public:
-  explicit URLRequestContext(net::ProxyConfigService* net_proxy_config_service);
+  explicit URLRequestContext(
+      scoped_ptr<net::ProxyConfigService> proxy_config_service);
 
  private:
+  virtual ~URLRequestContext();
+
   net::URLRequestContextStorage storage_;
+
+  DISALLOW_COPY_AND_ASSIGN(URLRequestContext);
 };
 
 class URLRequestContextGetter : public net::URLRequestContextGetter {
  public:
-  URLRequestContextGetter(MessageLoop* io_message_loop,
-                          MessageLoop* file_message_loop);
-  virtual ~URLRequestContextGetter();
+  URLRequestContextGetter(
+      scoped_refptr<base::SingleThreadTaskRunner> ui_task_runner,
+      scoped_refptr<base::SingleThreadTaskRunner> network_task_runner,
+      MessageLoopForIO* file_message_loop);
 
   // Overridden from net::URLRequestContextGetter:
   virtual net::URLRequestContext* GetURLRequestContext() OVERRIDE;
-  virtual scoped_refptr<base::MessageLoopProxy>
-      GetIOMessageLoopProxy() const OVERRIDE;
+  virtual scoped_refptr<base::SingleThreadTaskRunner>
+      GetNetworkTaskRunner() const OVERRIDE;
+
+ protected:
+  virtual ~URLRequestContextGetter();
 
  private:
-  scoped_refptr<net::URLRequestContext> url_request_context_;
-  scoped_refptr<base::MessageLoopProxy> io_message_loop_proxy_;
+  scoped_refptr<base::SingleThreadTaskRunner> network_task_runner_;
   scoped_ptr<net::ProxyConfigService> proxy_config_service_;
+  scoped_ptr<net::URLRequestContext> url_request_context_;
+
+  DISALLOW_COPY_AND_ASSIGN(URLRequestContextGetter);
 };
 
 }  // namespace remoting
 
-#endif  // CHROME_SERVICE_NET_SERVICE_URL_REQUEST_CONTEXT_H_
+#endif  // REMOTING_HOST_URL_REQUEST_CONTEXT_H_

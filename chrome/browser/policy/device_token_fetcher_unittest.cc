@@ -12,7 +12,7 @@
 #include "chrome/browser/policy/mock_device_management_service.h"
 #include "chrome/browser/policy/policy_notifier.h"
 #include "chrome/browser/policy/user_policy_cache.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -28,11 +28,8 @@ using testing::Mock;
 using testing::_;
 
 ACTION_P(VerifyRegisterRequest, known_machine_id) {
-  ASSERT_TRUE(arg0);
-  ASSERT_TRUE(arg0->GetRequest());
-  ASSERT_TRUE(arg0->GetRequest()->has_register_request());
-  const em::DeviceRegisterRequest& request =
-      arg0->GetRequest()->register_request();
+  ASSERT_TRUE(arg6.has_register_request());
+  const em::DeviceRegisterRequest& request = arg6.register_request();
   if (known_machine_id) {
     EXPECT_TRUE(request.has_auto_enrolled());
     EXPECT_TRUE(request.auto_enrolled());
@@ -57,7 +54,7 @@ class DeviceTokenFetcherTest : public testing::Test {
     cache_.reset(new UserPolicyCache(
         temp_user_data_dir_.path().AppendASCII("DeviceTokenFetcherTest"),
         false  /* wait_for_policy_fetch */));
-    EXPECT_CALL(service_, StartJob(_)).Times(AnyNumber());
+    EXPECT_CALL(service_, StartJob(_, _, _, _, _, _, _)).Times(AnyNumber());
     data_store_.reset(CloudPolicyDataStore::CreateForUserPolicies());
     data_store_->AddObserver(&observer_);
   }
@@ -89,7 +86,7 @@ class DeviceTokenFetcherTest : public testing::Test {
     EXPECT_CALL(service_,
                 CreateJob(DeviceManagementRequestJob::TYPE_REGISTRATION))
         .WillOnce(service_.SucceedJob(successful_registration_response_));
-    EXPECT_CALL(service_, StartJob(_))
+    EXPECT_CALL(service_, StartJob(_, _, _, _, _, _, _))
         .WillOnce(VerifyRegisterRequest(known_machine_id));
   }
 
@@ -114,14 +111,14 @@ TEST_F(DeviceTokenFetcherTest, FetchToken) {
                              &notifier_);
   EXPECT_CALL(observer_, OnDeviceTokenChanged());
   EXPECT_EQ("", data_store_->device_token());
-  EXPECT_EQ(DEVICE_MODE_UNKNOWN, data_store_->device_mode());
+  EXPECT_EQ(DEVICE_MODE_PENDING, data_store_->device_mode());
   FetchToken(&fetcher, data_store_.get());
   loop_.RunAllPending();
   Mock::VerifyAndClearExpectations(&observer_);
   std::string token = data_store_->device_token();
   EXPECT_NE("", token);
   // User policy registration should not set enrollment mode.
-  EXPECT_EQ(DEVICE_MODE_UNKNOWN, data_store_->device_mode());
+  EXPECT_EQ(DEVICE_MODE_PENDING, data_store_->device_mode());
 
   // Calling FetchToken() again should result in a new token being fetched.
   successful_registration_response_.mutable_register_response()->
@@ -146,7 +143,7 @@ TEST_F(DeviceTokenFetcherTest, FetchDeviceToken) {
   DeviceTokenFetcher fetcher(&service_, cache_.get(), data_store.get(),
                              &notifier_);
   EXPECT_EQ("", data_store->device_token());
-  EXPECT_EQ(DEVICE_MODE_UNKNOWN, data_store->device_mode());
+  EXPECT_EQ(DEVICE_MODE_PENDING, data_store->device_mode());
   FetchToken(&fetcher, data_store.get());
   loop_.RunAllPending();
   EXPECT_NE("", data_store->device_token());
@@ -154,8 +151,6 @@ TEST_F(DeviceTokenFetcherTest, FetchDeviceToken) {
   EXPECT_EQ(DEVICE_MODE_ENTERPRISE, data_store->device_mode());
 }
 
-// TODO(pastarmovj): This test must be changed in accordance with
-// http://crosbug.com/26624.
 TEST_F(DeviceTokenFetcherTest, FetchDeviceTokenMissingMode) {
   testing::InSequence s;
   scoped_ptr<CloudPolicyDataStore> data_store(
@@ -164,14 +159,13 @@ TEST_F(DeviceTokenFetcherTest, FetchDeviceTokenMissingMode) {
   DeviceTokenFetcher fetcher(&service_, cache_.get(), data_store.get(),
                              &notifier_);
   EXPECT_EQ("", data_store->device_token());
-  EXPECT_EQ(DEVICE_MODE_UNKNOWN, data_store->device_mode());
+  EXPECT_EQ(DEVICE_MODE_PENDING, data_store->device_mode());
   successful_registration_response_.mutable_register_response()->
       clear_enrollment_type();
   FetchToken(&fetcher, data_store.get());
   loop_.RunAllPending();
   Mock::VerifyAndClearExpectations(&observer_);
   EXPECT_NE("", data_store->device_token());
-  // TODO(pastarmovj): Modify when http://crosbug.com/26624 is resolved.
   EXPECT_EQ(DEVICE_MODE_ENTERPRISE, data_store->device_mode());
 }
 

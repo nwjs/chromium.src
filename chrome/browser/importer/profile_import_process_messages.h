@@ -189,146 +189,82 @@ struct ParamTraits<history::ImportedFaviconUsage> {
   }
 };  // ParamTraits<history::ImportedFaviconUsage
 
-// Traits for TemplateURLRef
+// Traits for TemplateURLData
 template <>
-struct ParamTraits<TemplateURLRef> {
-  typedef TemplateURLRef param_type;
+struct ParamTraits<TemplateURLData> {
+  typedef TemplateURLData param_type;
   static void Write(Message* m, const param_type& p) {
-    WriteParam(m, p.url());
-    WriteParam(m, p.index_offset());
-    WriteParam(m, p.page_offset());
-  }
-  static bool Read(const Message* m, PickleIterator* iter, param_type* p) {
-    return ReadParam(m, iter, &p->url_) &&
-        ReadParam(m, iter, &p->index_offset_) &&
-        ReadParam(m, iter, &p->page_offset_);
-  }
-  static void Log(const param_type& p, std::string* l) {
-    l->append("<TemplateURLRef>");
-  }
-};
-
-// Traits for TemplateURL::ImageRef
-template <>
-struct ParamTraits<TemplateURL::ImageRef> {
-  typedef TemplateURL::ImageRef param_type;
-  static void Write(Message* m, const param_type& p) {
-    WriteParam(m, p.type);
-    WriteParam(m, p.width);
-    WriteParam(m, p.height);
-    WriteParam(m, p.url);
-  }
-  static bool Read(const Message* m, PickleIterator* iter, param_type* p) {
-    return ReadParam(m, iter, &p->type) &&
-        ReadParam(m, iter, &p->width) &&
-        ReadParam(m, iter, &p->height) &&
-        ReadParam(m, iter, &p->url);
-  }
-  static void Log(const param_type& p, std::string* l) {
-    l->append("<TemplateURL::ImageRef>");
-  }
-};
-
-// Traits for TemplateURL
-template <>
-struct ParamTraits<TemplateURL> {
-  typedef TemplateURL param_type;
-  static void Write(Message* m, const param_type& p) {
-    WriteParam(m, p.short_name());
-    WriteParam(m, p.description());
-    if (p.suggestions_url()) {
-      WriteParam(m, true);
-      WriteParam(m, *p.suggestions_url());
-    } else {
-      WriteParam(m, false);
-    }
-    WriteParam(m, *p.url());
-    WriteParam(m, p.originating_url());
+    WriteParam(m, p.short_name);
     WriteParam(m, p.keyword());
-    WriteParam(m, p.autogenerate_keyword());
-    WriteParam(m, p.show_in_default_list());
-    WriteParam(m, p.safe_for_autoreplace());
-    WriteParam(m, p.image_refs());
-    WriteParam(m, p.languages());
-    WriteParam(m, p.input_encodings());
-    WriteParam(m, p.date_created());
-    WriteParam(m, p.last_modified());
-    WriteParam(m, p.usage_count());
-    WriteParam(m, p.prepopulate_id());
+    WriteParam(m, p.url());
+    WriteParam(m, p.suggestions_url);
+    WriteParam(m, p.instant_url);
+    WriteParam(m, p.favicon_url);
+    WriteParam(m, p.originating_url);
+    WriteParam(m, p.show_in_default_list);
+    WriteParam(m, p.safe_for_autoreplace);
+    WriteParam(m, p.input_encodings);
+    WriteParam(m, p.id);
+    WriteParam(m, p.date_created);
+    WriteParam(m, p.last_modified);
+    WriteParam(m, p.created_by_policy);
+    WriteParam(m, p.usage_count);
+    WriteParam(m, p.prepopulate_id);
+    WriteParam(m, p.sync_guid);
   }
   static bool Read(const Message* m, PickleIterator* iter, param_type* p) {
-    string16 short_name;
-    string16 description;
-    bool includes_suggestions_url;
-    TemplateURLRef suggestions_url;
-    TemplateURLRef url;
-    GURL originating_url;
     string16 keyword;
-    bool autogenerate_keyword;
-    bool show_in_default_list;
-    bool safe_for_autoreplace;
-    std::vector<string16> languages;
-    std::vector<std::string> input_encodings;
-    base::Time date_created;
-    base::Time last_modified;
-    int usage_count;
-    int prepopulate_id;
-
-    if (!ReadParam(m, iter, &short_name) ||
-        !ReadParam(m, iter, &description))
-      return false;
-
-    if (!ReadParam(m, iter, &includes_suggestions_url))
-      return false;
-    if (includes_suggestions_url) {
-        if (!ReadParam(m, iter, &suggestions_url))
-          return false;
-    }
-
-    if (!ReadParam(m, iter, &url) ||
-        !ReadParam(m, iter, &originating_url) ||
+    std::string url;
+    if (!ReadParam(m, iter, &p->short_name) ||
         !ReadParam(m, iter, &keyword) ||
-        !ReadParam(m, iter, &autogenerate_keyword) ||
-        !ReadParam(m, iter, &show_in_default_list) ||
-        !ReadParam(m, iter, &safe_for_autoreplace))
+        !ReadParam(m, iter, &url) ||
+        !ReadParam(m, iter, &p->suggestions_url) ||
+        !ReadParam(m, iter, &p->instant_url) ||
+        !ReadParam(m, iter, &p->favicon_url) ||
+        !ReadParam(m, iter, &p->originating_url) ||
+        !ReadParam(m, iter, &p->show_in_default_list) ||
+        !ReadParam(m, iter, &p->safe_for_autoreplace) ||
+        !ReadParam(m, iter, &p->input_encodings) ||
+        !ReadParam(m, iter, &p->id) ||
+        !ReadParam(m, iter, &p->date_created) ||
+        !ReadParam(m, iter, &p->last_modified) ||
+        !ReadParam(m, iter, &p->created_by_policy) ||
+        !ReadParam(m, iter, &p->usage_count) ||
+        !ReadParam(m, iter, &p->prepopulate_id) ||
+        !ReadParam(m, iter, &p->sync_guid))
       return false;
-
-    *p = TemplateURL();
-    if (!ReadParam(m, iter, &p->image_refs_) ||
-        !ReadParam(m, iter, &languages) ||
-        !ReadParam(m, iter, &input_encodings) ||
-        !ReadParam(m, iter, &date_created) ||
-        !ReadParam(m, iter, &last_modified) ||
-        !ReadParam(m, iter, &usage_count) ||
-        !ReadParam(m, iter, &prepopulate_id))
-      return false;
-
-    p->set_short_name(short_name);
-    p->set_description(description);
-    p->SetSuggestionsURL(suggestions_url.url(), suggestions_url.index_offset(),
-                         suggestions_url.page_offset());
-    p->SetURL(url.url(), url.index_offset(), url.page_offset());
-    p->set_originating_url(originating_url);
-    p->set_keyword(keyword);
-    p->set_autogenerate_keyword(autogenerate_keyword);
-    p->set_show_in_default_list(show_in_default_list);
-    p->set_safe_for_autoreplace(safe_for_autoreplace);
-
-    std::vector<string16>::const_iterator lang_iter;
-    for (lang_iter = languages.begin();
-         lang_iter != languages.end();
-         ++lang_iter) {
-      p->languages_.push_back(*lang_iter);
-    }
-    p->set_input_encodings(input_encodings);
-    p->set_date_created(date_created);
-    p->set_last_modified(last_modified);
-    p->set_usage_count(usage_count);
-    p->SetPrepopulateId(prepopulate_id);
+    p->SetKeyword(keyword);
+    p->SetURL(url);
     return true;
   }
   static void Log(const param_type& p, std::string* l) {
-    l->append("<TemplateURL>");
+    l->append("<TemplateURLData>");
+  }
+};
+
+// Traits for TemplateURL*.
+// WARNING: These will cause us to allocate a new TemplateURL on the heap on the
+// receiver side.  Any messages using this type must have handlers that are
+// careful to properly take ownership and avoid leaks!  See warning below on
+// ProfileImportProcessHostMsg_NotifyKeywordsReady.
+template <>
+struct ParamTraits<TemplateURL*> {
+  typedef TemplateURL* param_type;
+  static void Write(Message* m, const param_type& p) {
+    WriteParam(m, p->data());
+  }
+  static bool Read(const Message* m, PickleIterator* iter, param_type* p) {
+    TemplateURLData data;
+    if (!ReadParam(m, iter, &data))
+      return false;
+    // Since we don't have access to a Profile*, just supply NULL.  The caller
+    // can create a new TemplateURL or modify this one (e.g. via
+    // TemplateURLService::AddAndSetProfile()) to correct this later.
+    *p = new TemplateURL(NULL, data);
+    return true;
+  }
+  static void Log(const param_type& p, std::string* l) {
+    l->append("<TemplateURL*>");
   }
 };
 
@@ -397,6 +333,9 @@ IPC_MESSAGE_CONTROL1(ProfileImportProcessHostMsg_NotifyFaviconsImportGroup,
 IPC_MESSAGE_CONTROL1(ProfileImportProcessHostMsg_NotifyPasswordFormReady,
                      webkit::forms::PasswordForm)
 
+// WARNING: The TemplateURL*s in the following message get heap-allocated on the
+// receiving end.  The message handler for this message MUST take ownership of
+// these pointers and ensure they're properly freed!
 IPC_MESSAGE_CONTROL2(ProfileImportProcessHostMsg_NotifyKeywordsReady,
-                     std::vector<TemplateURL>,
+                     std::vector<TemplateURL*>,
                      bool  /* unique on host and path */)

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_OMNIBOX_OMNIBOX_VIEW_WIN_H_
 #define CHROME_BROWSER_UI_VIEWS_OMNIBOX_OMNIBOX_VIEW_WIN_H_
-#pragma once
 
 #include <atlbase.h>
 #include <atlapp.h>
@@ -16,30 +15,24 @@
 
 #include "base/memory/scoped_ptr.h"
 #include "base/win/scoped_comptr.h"
-#include "chrome/browser/autocomplete/autocomplete.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
 #include "chrome/browser/ui/toolbar/toolbar_model.h"
-#include "chrome/browser/ui/views/autocomplete/autocomplete_popup_contents_view.h"
+#include "chrome/browser/ui/views/omnibox/omnibox_popup_contents_view.h"
 #include "ui/base/models/simple_menu_model.h"
+#include "ui/base/win/extra_sdk_defines.h"
 #include "ui/gfx/font.h"
-#include "ui/views/controls/menu/menu_2.h"
 #include "webkit/glue/window_open_disposition.h"
 
-class AutocompleteEditController;
-class AutocompleteEditModel;
-class AutocompletePopupView;
 class LocationBarView;
+class OmniboxEditController;
+class OmniboxEditModel;
+class OmniboxPopupView;
 
 namespace views {
+class MenuRunner;
 class NativeViewHost;
 class View;
 }
-
-// TODO(abodenha): This should be removed once we have the new windows SDK
-// which defines these messages.
-#if !defined(WM_POINTERDOWN)
-#define WM_POINTERDOWN  0x0246
-#endif  // WM_POINTERDOWN
 
 // Provides the implementation of an edit control with a drop-down
 // autocomplete box. The box itself is implemented in autocomplete_popup.cc
@@ -66,12 +59,13 @@ class OmniboxViewWin
 
   DECLARE_WND_CLASS(L"Chrome_OmniboxView");
 
-  OmniboxViewWin(AutocompleteEditController* controller,
+  OmniboxViewWin(OmniboxEditController* controller,
                  ToolbarModel* toolbar_model,
                  LocationBarView* parent_view,
                  CommandUpdater* command_updater,
                  bool popup_window_mode,
-                 views::View* location_bar);
+                 views::View* location_bar,
+                 views::View* popup_parent_view);
   ~OmniboxViewWin();
 
   // Gets the relative window for the specified native view.
@@ -80,17 +74,9 @@ class OmniboxViewWin
 
   views::View* parent_view() const;
 
-  // Returns the width in pixels needed to display the text from one character
-  // before the caret to the end of the string. See comments in
-  // LocationBarView::Layout as to why this uses -1.
-  int WidthOfTextAfterCursor();
-
-  // Returns the font.
-  gfx::Font GetFont();
-
   // OmniboxView:
-  virtual AutocompleteEditModel* model() OVERRIDE { return model_.get(); }
-  virtual const AutocompleteEditModel* model() const OVERRIDE {
+  virtual OmniboxEditModel* model() OVERRIDE { return model_.get(); }
+  virtual const OmniboxEditModel* model() const OVERRIDE {
     return model_.get();
   }
   virtual void SaveStateToTab(content::WebContents* tab) OVERRIDE;
@@ -112,7 +98,7 @@ class OmniboxViewWin
                                         bool update_popup,
                                         bool notify_text_changed) OVERRIDE;
   virtual void SetForcedQuery() OVERRIDE;
-  virtual bool IsSelectAll() OVERRIDE;
+  virtual bool IsSelectAll() const OVERRIDE;
   virtual bool DeleteAtEndPressed() OVERRIDE;
   virtual void GetSelectionBounds(string16::size_type* start,
                                   string16::size_type* end) const OVERRIDE;
@@ -140,6 +126,8 @@ class OmniboxViewWin
   virtual int GetMaxEditWidth(int entry_width) const OVERRIDE;
   virtual views::View* AddToView(views::View* parent) OVERRIDE;
   virtual int OnPerformDrop(const views::DropTargetEvent& event) OVERRIDE;
+  virtual gfx::Font GetFont() OVERRIDE;
+  virtual int WidthOfTextAfterCursor() OVERRIDE;
 
   int GetPopupMaxYCoordinate();
 
@@ -155,11 +143,6 @@ class OmniboxViewWin
   // Inserts the text at the specified position.
   void InsertText(int position, const string16& text);
 
-  // Invokes CanPasteAndGo with the specified text, and if successful navigates
-  // to the appropriate URL. The behavior of this is the same as if the user
-  // typed in the specified text and pressed enter.
-  void PasteAndGo(const string16& text);
-
   void set_force_hidden(bool force_hidden) { force_hidden_ = force_hidden; }
 
   // Called before an accelerator is processed to give us a chance to override
@@ -171,7 +154,7 @@ class OmniboxViewWin
   void HandleExternalMsg(UINT msg, UINT flags, const CPoint& screen_point);
 
   // CWindowImpl
-  BEGIN_MSG_MAP(AutocompleteEdit)
+  BEGIN_MSG_MAP(OmniboxViewWin)
     MSG_WM_CHAR(OnChar)
     MSG_WM_CONTEXTMENU(OnContextMenu)
     MSG_WM_COPY(OnCopy)
@@ -180,6 +163,7 @@ class OmniboxViewWin
     MESSAGE_HANDLER_EX(WM_IME_COMPOSITION, OnImeComposition)
     MESSAGE_HANDLER_EX(WM_IME_NOTIFY, OnImeNotify)
     MESSAGE_HANDLER_EX(WM_POINTERDOWN, OnPointerDown)
+    MESSAGE_HANDLER_EX(WM_POINTERUP, OnPointerUp)
     MSG_WM_KEYDOWN(OnKeyDown)
     MSG_WM_KEYUP(OnKeyUp)
     MSG_WM_KILLFOCUS(OnKillFocus)
@@ -280,6 +264,7 @@ class OmniboxViewWin
   LRESULT OnImeComposition(UINT message, WPARAM wparam, LPARAM lparam);
   LRESULT OnImeNotify(UINT message, WPARAM wparam, LPARAM lparam);
   LRESULT OnPointerDown(UINT message, WPARAM wparam, LPARAM lparam);
+  LRESULT OnPointerUp(UINT message, WPARAM wparam, LPARAM lparam);
   void OnKeyDown(TCHAR key, UINT repeat_count, UINT flags);
   void OnKeyUp(TCHAR key, UINT repeat_count, UINT flags);
   void OnKillFocus(HWND focus_wnd);
@@ -374,14 +359,6 @@ class OmniboxViewWin
   // Internally invoked whenever the text changes in some way.
   void TextChanged();
 
-  // Returns the current clipboard contents as a string that can be pasted in.
-  // In addition to just getting CF_UNICODETEXT out, this can also extract URLs
-  // from bookmarks on the clipboard.
-  string16 GetClipboardText() const;
-
-  // Determines whether the user can "paste and go", given the specified text.
-  bool CanPasteAndGo(const string16& text) const;
-
   // Getter for the text_object_model_.  Note that the pointer returned here is
   // only valid as long as the AutocompleteEdit is still alive.  Also, if the
   // underlying call fails, this may return NULL.
@@ -420,11 +397,11 @@ class OmniboxViewWin
   // Common implementation for performing a drop on the edit view.
   int OnPerformDropImpl(const views::DropTargetEvent& event, bool in_drag);
 
-  scoped_ptr<AutocompleteEditModel> model_;
+  scoped_ptr<OmniboxEditModel> model_;
 
-  scoped_ptr<AutocompletePopupView> popup_view_;
+  scoped_ptr<OmniboxPopupView> popup_view_;
 
-  AutocompleteEditController* controller_;
+  OmniboxEditController* controller_;
 
   // The parent view for the edit, used to align the popup and for
   // accessibility.
@@ -498,7 +475,7 @@ class OmniboxViewWin
 
   // The context menu for the edit.
   scoped_ptr<ui::SimpleMenuModel> context_menu_contents_;
-  scoped_ptr<views::Menu2> context_menu_;
+  scoped_ptr<views::MenuRunner> context_menu_runner_;
 
   // Font we're using.  We keep a reference to make sure the font supplied to
   // the constructor doesn't go away before we do.
@@ -546,10 +523,6 @@ class OmniboxViewWin
 
   // The native view host.
   views::NativeViewHost* native_view_host_;
-
-  // ITextInputPanel to allow us to show the Windows virtual keyboard when a
-  // user touches the Omnibox.
-  base::win::ScopedComPtr<ITextInputPanel> keyboard_;
 
   DISALLOW_COPY_AND_ASSIGN(OmniboxViewWin);
 };

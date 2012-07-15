@@ -1,17 +1,19 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_PREF_VALUE_MAP_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_PREF_VALUE_MAP_H_
-#pragma once
 
 #include <map>
 #include <set>
 #include <string>
 
+#include "base/observer_list.h"
 #include "base/time.h"
-#include "chrome/browser/prefs/value_map_pref_store.h"
+#include "base/values.h"
+#include "chrome/browser/prefs/pref_value_map.h"
+#include "chrome/browser/profiles/profile_keyed_service.h"
 #include "chrome/browser/extensions/extension_prefs_scope.h"
 
 // Non-persistent data container that is shared by ExtensionPrefStores. All
@@ -19,37 +21,43 @@
 // provided to ExtensionPrefStores.
 //
 // The semantics of the ExtensionPrefValueMap are:
-// - The precedence of extensions is determined by their installation time.
-//   The extension that has been installed later takes higher precedence.
-// - If two extensions set a value for the same preference, the following
-//   rules determine which value becomes effective (visible).
-// - The effective regular extension pref value is determined by the regular
-//   extension pref value of the extension with the highest precedence.
-// - The effective incognito extension pref value is determined by the incognito
-//   extension pref value of the extension with the highest precedence, unless
-//   another extension with higher precedence overrides it with a regular
-//   extension pref value.
+// - A regular setting applies to regular browsing sessions as well as incognito
+//   browsing sessions.
+// - An incognito setting applies only to incognito browsing sessions, not to
+//   regular ones. It takes precedence over a regular setting set by the same
+//   extension.
+// - A regular-only setting applies only to regular browsing sessions, not to
+//   incognito ones. It takes precedence over a regular setting set by the same
+//   extension.
+// - If two different extensions set a value for the same preference (and both
+//   values apply to the regular/incognito browsing session), the extension that
+//   was installed later takes precedence, regardless of whether the settings
+//   are regular, incognito or regular-only.
 //
 // The following table illustrates the behavior:
-//   A.reg | A.inc | B.reg | B.inc | E.reg | E.inc
-//     1   |   -   |   -   |   -   |   1   |   1
-//     1   |   2   |   -   |   -   |   1   |   2
-//     1   |   -   |   3   |   -   |   3   |   3
-//     1   |   -   |   -   |   4   |   1   |   4
-//     1   |   2   |   3   |   -   |   3   |   3(!)
-//     1   |   2   |   -   |   4   |   1   |   4
-//     1   |   2   |   3   |   4   |   3   |   4
+//   A.reg | A.reg_only | A.inc | B.reg | B.reg_only | B.inc | E.reg | E.inc
+//     1   |      -     |   -   |   -   |      -     |   -   |   1   |   1
+//     1   |      2     |   -   |   -   |      -     |   -   |   2   |   1
+//     1   |      -     |   3   |   -   |      -     |   -   |   1   |   3
+//     1   |      2     |   3   |   -   |      -     |   -   |   2   |   3
+//     1   |      -     |   -   |   4   |      -     |   -   |   4   |   4
+//     1   |      2     |   3   |   4   |      -     |   -   |   4   |   4
+//     1   |      -     |   -   |   -   |      5     |   -   |   5   |   1
+//     1   |      -     |   3   |   4   |      5     |   -   |   5   |   4
+//     1   |      -     |   -   |   -   |      -     |   6   |   1   |   6
+//     1   |      2     |   -   |   4   |      -     |   6   |   4   |   6
+//     1   |      2     |   3   |   -   |      5     |   6   |   5   |   6
+//
 // A = extension A, B = extension B, E = effective value
 // .reg = regular value
+// .reg_only = regular-only value
 // .inc = incognito value
 // Extension B has higher precedence than A.
-class ExtensionPrefValueMap {
+class ExtensionPrefValueMap : public ProfileKeyedService {
  public:
   // Observer interface for monitoring ExtensionPrefValueMap.
   class Observer {
    public:
-    virtual ~Observer() {}
-
     // Called when the value for the given |key| set by one of the extensions
     // changes. This does not necessarily mean that the effective value has
     // changed.
@@ -59,10 +67,16 @@ class ExtensionPrefValueMap {
     // Called when the ExtensionPrefValueMap is being destroyed. When called,
     // observers must unsubscribe.
     virtual void OnExtensionPrefValueMapDestruction() = 0;
+
+   protected:
+    virtual ~Observer() {}
   };
 
   ExtensionPrefValueMap();
   virtual ~ExtensionPrefValueMap();
+
+  // ProfileKeyedService implementation.
+  virtual void Shutdown() OVERRIDE;
 
   // Set an extension preference |value| for |key| of extension |ext_id|.
   // Takes ownership of |value|.
@@ -71,14 +85,14 @@ class ExtensionPrefValueMap {
   // Precondition: the extension must be registered.
   void SetExtensionPref(const std::string& ext_id,
                         const std::string& key,
-                        ExtensionPrefsScope scope,
+                        extensions::ExtensionPrefsScope scope,
                         base::Value* value);
 
   // Remove the extension preference value for |key| of extension |ext_id|.
   // Precondition: the extension must be registered.
   void RemoveExtensionPref(const std::string& ext_id,
                            const std::string& key,
-                           ExtensionPrefsScope scope);
+                           extensions::ExtensionPrefsScope scope);
 
   // Returns true if currently no extension with higher precedence controls the
   // preference.
@@ -94,13 +108,16 @@ class ExtensionPrefValueMap {
 
   // Returns true if an extension identified by |extension_id| controls the
   // preference. This means this extension has set a preference value and no
-  // other extension with higher precedence overrides it.
+  // other extension with higher precedence overrides it. If |from_incognito|
+  // is not NULL, looks at incognito preferences first, and |from_incognito| is
+  // set to true if the effective pref value is coming from the incognito
+  // preferences, false if it is coming from the normal ones.
   // Note that the this function does does not consider the existence of
   // policies. An extension is only really able to control a preference if
   // PrefService::Preference::IsExtensionModifiable() returns true as well.
   bool DoesExtensionControlPref(const std::string& extension_id,
                                 const std::string& pref_key,
-                                bool incognito) const;
+                                bool* from_incognito) const;
 
   // Tell the store it's now fully initialized.
   void NotifyInitializationCompleted();
@@ -133,11 +150,11 @@ class ExtensionPrefValueMap {
 
   const PrefValueMap* GetExtensionPrefValueMap(
       const std::string& ext_id,
-      ExtensionPrefsScope scope) const;
+      extensions::ExtensionPrefsScope scope) const;
 
   PrefValueMap* GetExtensionPrefValueMap(
       const std::string& ext_id,
-      ExtensionPrefsScope scope);
+      extensions::ExtensionPrefsScope scope);
 
   // Returns all keys of pref values that are set by the extension of |entry|,
   // regardless whether they are set for incognito or regular pref values.
@@ -162,6 +179,11 @@ class ExtensionPrefValueMap {
   // preferences values (i.e. the ones with the highest precedence)
   // are stored in ExtensionPrefStores.
   ExtensionEntryMap entries_;
+
+  // In normal Profile shutdown, Shutdown() notifies observers that we are
+  // being destroyed. In tests, it isn't called, so the notification must
+  // be done in the destructor. This bit tracks whether it has been done yet.
+  bool destroyed_;
 
   ObserverList<Observer, true> observers_;
 

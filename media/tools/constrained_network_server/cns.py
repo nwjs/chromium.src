@@ -65,7 +65,7 @@ class PortAllocator(object):
 
     # Locks port creation and cleanup. TODO(dalecurtis): If performance becomes
     # an issue a per-port based lock system can be used instead.
-    self._port_lock = threading.Lock()
+    self._port_lock = threading.RLock()
 
   def Get(self, key, new_port=False, **kwargs):
     """Sets up a constrained port using the requested parameters.
@@ -95,7 +95,7 @@ class PortAllocator(object):
       # Cleanup ports on new port requests. Do it after the cache check though
       # so we don't erase and then setup the same port.
       if self._expiry_time_secs > 0:
-        self._CleanupLocked(all_ports=False)
+        self.Cleanup(all_ports=False)
 
       # Performance isn't really an issue here, so just iterate over the port
       # range to find an unused port. If no port is found, None is returned.
@@ -128,22 +128,24 @@ class PortAllocator(object):
       cherrypy.log('Error: %s\nOutput: %s' % (e.msg, e.error))
       return False
 
-  def _CleanupLocked(self, all_ports):
-    """Internal cleanup method, expects lock to have already been acquired.
+  def Cleanup(self, all_ports):
+    """Cleans up expired ports, or if all_ports=True, all allocated ports.
 
-    See Cleanup() for more information.
+    By default, ports which haven't been used for self._expiry_time_secs are
+    torn down. If all_ports=True then they are torn down regardless.
 
     Args:
       all_ports: Should all ports be torn down regardless of expiration?
     """
-    now = time.time()
-    # Use .items() instead of .iteritems() so we can delete keys w/o error.
-    for port, status in self._ports.items():
-      expired = now - status['last_update'] > self._expiry_time_secs
-      if all_ports or expired:
-        cherrypy.log('Cleaning up port %d' % port)
-        self._DeletePort(port)
-        del self._ports[port]
+    with self._port_lock:
+      now = time.time()
+      # Use .items() instead of .iteritems() so we can delete keys w/o error.
+      for port, status in self._ports.items():
+        expired = now - status['last_update'] > self._expiry_time_secs
+        if all_ports or expired:
+          cherrypy.log('Cleaning up port %d' % port)
+          self._DeletePort(port)
+          del self._ports[port]
 
   def _DeletePort(self, port):
     """Deletes network constraints on port.
@@ -155,19 +157,6 @@ class PortAllocator(object):
       traffic_control.DeleteConstrainedPort(self._ports[port]['config'])
     except traffic_control.TrafficControlError as e:
       cherrypy.log('Error: %s\nOutput: %s' % (e.msg, e.error))
-
-  def Cleanup(self, interface, all_ports=False):
-    """Cleans up expired ports, or if all_ports=True, all allocated ports.
-
-    By default, ports which haven't been used for self._expiry_time_secs are
-    torn down. If all_ports=True then they are torn down regardless.
-
-    Args:
-      interface: Interface the constrained network is setup on.
-      all_ports: Should all ports be torn down regardless of expiration?
-    """
-    with self._port_lock:
-      self._CleanupLocked(all_ports)
 
 
 class ConstrainedNetworkServer(object):
@@ -185,7 +174,7 @@ class ConstrainedNetworkServer(object):
 
   @cherrypy.expose
   def ServeConstrained(self, f=None, bandwidth=None, latency=None, loss=None,
-                       new_port=False):
+                       new_port=False, no_cache=False, **kwargs):
     """Serves the requested file with the requested constraints.
 
     Subsequent requests for the same constraints from the same IP will share the
@@ -199,9 +188,13 @@ class ConstrainedNetworkServer(object):
       latency: time to add to each packet (integer in ms).
       loss: percentage of packets to drop (integer, 0-100).
       new_port: whether to use a new port for this request or not.
+      no_cache: Set reponse's cache-control to no-cache.
     """
-    cherrypy.log('Got request for %s, bandwidth=%s, latency=%s, loss=%s, '
-                 'new_port=%s' % (f, bandwidth, latency, loss, new_port))
+    if no_cache:
+      response = cherrypy.response
+      response.headers['Pragma'] = 'no-cache'
+      response.headers['Cache-Control'] = 'no-cache'
+
     # CherryPy is a bit wonky at detecting parameters, so just make them all
     # optional and validate them ourselves.
     if not f:
@@ -237,7 +230,7 @@ class ConstrainedNetworkServer(object):
     constrained_port = self._port_allocator.Get(
         cherrypy.request.remote.ip, server_port=self._options.port,
         interface=self._options.interface, bandwidth=bandwidth, latency=latency,
-        loss=loss, new_port=new_port)
+        loss=loss, new_port=new_port, file=f, **kwargs)
     end_time = time.time()
 
     if not constrained_port:
@@ -246,11 +239,14 @@ class ConstrainedNetworkServer(object):
     cherrypy.log('Time to set up port %d = %ssec.' %
                  (constrained_port, end_time - start_time))
 
-    # Build constrained URL. Only pass on the file parameter.
-    constrained_url = '%s?f=%s' % (
+    # Build constrained URL using the constrained port and original URL
+    # parameters except the network constraints (bandwidth, latency, and loss).
+    constrained_url = '%s?f=%s&no_cache=%s&%s' % (
         cherrypy.url().replace(
             ':%d' % self._options.port, ':%d' % constrained_port),
-        f)
+        f,
+        no_cache,
+        '&'.join(['%s=%s' % (key, kwargs[key]) for key in kwargs]))
 
     # Redirect request to the constrained port.
     cherrypy.lib.cptools.redirect(constrained_url, internal=False)
@@ -296,6 +292,10 @@ def ParseArgs():
   parser.add_option('--interface', default='eth0',
                     help=('Interface to setup constraints on. Use lo for a '
                           'local client. Default: %default'))
+  parser.add_option('--socket-timeout', type='int',
+                    default=cherrypy.server.socket_timeout,
+                    help=('Number of seconds before a socket connection times '
+                          'out. Default: %default'))
   parser.add_option('--threads', type='int',
                     default=cherrypy._cpserver.Server.thread_pool,
                     help=('Number of threads in the thread pool. Default: '
@@ -324,6 +324,7 @@ def ParseArgs():
   # Required so that cherrypy logs do not get propagated to root logger causing
   # the logs to be printed twice.
   cherrypy.log.error_log.propagate = False
+  cherrypy.log.access_log.propagate = False
 
   _SetLogger(options.verbose)
 
@@ -348,11 +349,14 @@ def Main():
     cherrypy.log(e.msg)
     return
 
-  cherrypy.config.update(
-      {'server.socket_host': '::', 'server.socket_port': options.port})
+  cherrypy.config.update({'server.socket_host': '::',
+                          'server.socket_port': options.port})
 
   if options.threads:
     cherrypy.config.update({'server.thread_pool': options.threads})
+
+  if options.socket_timeout:
+    cherrypy.config.update({'server.socket_timeout': options.socket_timeout})
 
   # Setup port allocator here so we can call cleanup on failures/exit.
   pa = PortAllocator(options.port_range, expiry_time_secs=options.expiry_time)
@@ -362,7 +366,7 @@ def Main():
   finally:
     # Disable Ctrl-C handler to prevent interruption of cleanup.
     signal.signal(signal.SIGINT, lambda signal, frame: None)
-    pa.Cleanup(options.interface, all_ports=True)
+    pa.Cleanup(all_ports=True)
 
 
 if __name__ == '__main__':

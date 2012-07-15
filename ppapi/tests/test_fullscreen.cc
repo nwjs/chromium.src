@@ -56,9 +56,8 @@ TestFullscreen::TestFullscreen(TestingInstance* instance)
       painted_color_(0),
       fullscreen_pending_(false),
       normal_pending_(false),
-      set_fullscreen_true_callback_(instance->pp_instance()),
-      fullscreen_callback_(instance->pp_instance()),
-      normal_callback_(instance->pp_instance()) {
+      fullscreen_event_(instance->pp_instance()),
+      normal_event_(instance->pp_instance()) {
   screen_mode_.GetScreenSize(&screen_size_);
 }
 
@@ -115,7 +114,7 @@ std::string TestFullscreen::TestNormalToFullscreenToNormal() {
   instance_->RequestInputEvents(PP_INPUTEVENT_CLASS_MOUSE);
   SimulateUserGesture();
   // DidChangeView() will call the callback once in fullscreen mode.
-  fullscreen_callback_.WaitForResult();
+  fullscreen_event_.Wait();
   if (GotError())
     return Error();
   if (fullscreen_pending_)
@@ -135,8 +134,8 @@ std::string TestFullscreen::TestNormalToFullscreenToNormal() {
   normal_pending_ = true;
   if (!screen_mode_.SetFullscreen(false))
     return ReportError("SetFullscreen(false) in fullscreen", false);
-  // DidChangeView() will call the callback once out of fullscreen mode.
-  normal_callback_.WaitForResult();
+  // DidChangeView() will signal once out of fullscreen mode.
+  normal_event_.Wait();
   if (GotError())
     return Error();
   if (normal_pending_)
@@ -174,20 +173,20 @@ void TestFullscreen::SimulateUserGesture() {
 
 void TestFullscreen::FailFullscreenTest(const std::string& error) {
   error_ = error;
-  pp::Module::Get()->core()->CallOnMainThread(0, fullscreen_callback_);
+  fullscreen_event_.Signal();
 }
 
 void TestFullscreen::FailNormalTest(const std::string& error) {
   error_ = error;
-  pp::Module::Get()->core()->CallOnMainThread(0, normal_callback_);
+  normal_event_.Signal();
 }
 
 void TestFullscreen::PassFullscreenTest() {
-  pp::Module::Get()->core()->CallOnMainThread(0, fullscreen_callback_);
+  fullscreen_event_.Signal();
 }
 
 void TestFullscreen::PassNormalTest() {
-  pp::Module::Get()->core()->CallOnMainThread(0, normal_callback_);
+  normal_event_.Signal();
 }
 
 // Transition to fullscreen can only happen when processing a user gesture.
@@ -272,6 +271,8 @@ void TestFullscreen::CheckPluginPaint() {
 // fullscreen.
 //
 // NOTE: The number of DidChangeView calls for <object> might be different.
+// TODO(bbudge) Figure out how to test that the plugin positon eventually
+// changes to normal_position_.
 void TestFullscreen::DidChangeView(const pp::View& view) {
   pp::Rect position = view.GetRect();
   pp::Rect clip = view.GetClipRect();
@@ -296,8 +297,6 @@ void TestFullscreen::DidChangeView(const pp::View& view) {
     normal_pending_ = false;
     if (screen_mode_.IsFullscreen())
       FailNormalTest("DidChangeview is in fullscreen");
-    else if (position != normal_position_)
-      FailNormalTest("DidChangeView position is not normal");
     else if (!instance_->BindGraphics(graphics2d_))
       FailNormalTest("Failed to BindGraphics() in normal");
     else if (!PaintPlugin(position.size(), kSheerBlue))

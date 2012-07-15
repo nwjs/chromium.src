@@ -20,6 +20,8 @@ using ::testing::AtLeast;
 using ::testing::Ge;
 using ::testing::NotNull;
 
+namespace media {
+
 ACTION_P3(CheckCountAndPostQuitTask, count, limit, loop) {
   if (++*count >= limit) {
     loop->PostTask(FROM_HERE, MessageLoop::QuitClosure());
@@ -28,9 +30,9 @@ ACTION_P3(CheckCountAndPostQuitTask, count, limit, loop) {
 
 class MockAudioInputCallback : public AudioInputStream::AudioInputCallback {
  public:
-  MOCK_METHOD4(OnData, void(AudioInputStream* stream,
+  MOCK_METHOD5(OnData, void(AudioInputStream* stream,
                             const uint8* src, uint32 size,
-                            uint32 hardware_delay_bytes));
+                            uint32 hardware_delay_bytes, double volume));
   MOCK_METHOD1(OnClose, void(AudioInputStream* stream));
   MOCK_METHOD2(OnError, void(AudioInputStream* stream, int code));
 };
@@ -44,7 +46,7 @@ class WriteToFileAudioSink : public AudioInputStream::AudioInputCallback {
  public:
   // Allocate space for ~10 seconds of data @ 48kHz in stereo:
   // 2 bytes per sample, 2 channels, 10ms @ 48kHz, 10 seconds <=> 1920000 bytes.
-  static const size_t kMaxBufferSize = 2 * 2 * 480 * 100 * 10;
+  static const int kMaxBufferSize = 2 * 2 * 480 * 100 * 10;
 
   explicit WriteToFileAudioSink(const char* file_name)
       : buffer_(0, kMaxBufferSize),
@@ -53,10 +55,10 @@ class WriteToFileAudioSink : public AudioInputStream::AudioInputCallback {
   }
 
   virtual ~WriteToFileAudioSink() {
-    size_t bytes_written = 0;
+    int bytes_written = 0;
     while (bytes_written < bytes_to_write_) {
       const uint8* chunk;
-      size_t chunk_size;
+      int chunk_size;
 
       // Stop writing if no more data is available.
       if (!buffer_.GetCurrentChunk(&chunk, &chunk_size))
@@ -73,7 +75,7 @@ class WriteToFileAudioSink : public AudioInputStream::AudioInputCallback {
   // AudioInputStream::AudioInputCallback implementation.
   virtual void OnData(AudioInputStream* stream,
                       const uint8* src, uint32 size,
-                      uint32 hardware_delay_bytes) {
+                      uint32 hardware_delay_bytes, double volume) {
     // Store data data in a temporary buffer to avoid making blocking
     // fwrite() calls in the audio callback. The complete buffer will be
     // written to file in the destructor.
@@ -88,7 +90,7 @@ class WriteToFileAudioSink : public AudioInputStream::AudioInputCallback {
  private:
   media::SeekableBuffer buffer_;
   FILE* file_;
-  size_t bytes_to_write_;
+  int bytes_to_write_;
 };
 
 class MacAudioInputTest : public testing::Test {
@@ -232,7 +234,7 @@ TEST_F(MacAudioInputTest, AUAudioInputStreamVerifyMonoRecording) {
   // All should contain valid packets of the same size and a valid delay
   // estimate.
   EXPECT_CALL(sink, OnData(ais, NotNull(), bytes_per_packet,
-                           Ge(bytes_per_packet)))
+                           Ge(bytes_per_packet), _))
       .Times(AtLeast(10))
       .WillRepeatedly(CheckCountAndPostQuitTask(&count, 10, &loop));
   ais->Start(&sink);
@@ -268,7 +270,7 @@ TEST_F(MacAudioInputTest, AUAudioInputStreamVerifyStereoRecording) {
   // All should contain valid packets of the same size and a valid delay
   // estimate.
   EXPECT_CALL(sink, OnData(ais, NotNull(), bytes_per_packet,
-                           Ge(bytes_per_packet)))
+                           Ge(bytes_per_packet), _))
       .Times(AtLeast(10))
       .WillRepeatedly(CheckCountAndPostQuitTask(&count, 10, &loop));
   ais->Start(&sink);
@@ -307,3 +309,4 @@ TEST_F(MacAudioInputTest, DISABLED_AUAudioInputStreamRecordToFile) {
   ais->Close();
 }
 
+}  // namespace media

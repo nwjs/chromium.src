@@ -2,10 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef UI_GFX_RANGE_H_
-#define UI_GFX_RANGE_H_
+#ifndef UI_BASE_RANGE_RANGE_H_
+#define UI_BASE_RANGE_RANGE_H_
 
-#include <iosfwd>
+#include <string>
 
 #include "base/basictypes.h"
 #include "ui/base/ui_export.h"
@@ -102,13 +102,13 @@ class UI_EXPORT Range {
 #endif
   // GTK+ has no concept of a range.
 
+  std::string ToString() const;
+
  private:
   size_t start_;
   size_t end_;
 };
 
-UI_EXPORT std::ostream& operator<<(std::ostream& out, const ui::Range& range);
+}  // namespace ui
 
-}  // namespace gfx
-
-#endif  // UI_GFX_RANGE_H_
+#endif  // UI_BASE_RANGE_RANGE_H_

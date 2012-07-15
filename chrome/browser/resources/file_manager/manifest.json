@@ -1,7 +1,7 @@
 {
   // chrome-extension://hhaomjibdihmijegdhdafkllkbggdgoj/
   "key": "MIGdMA0GCSqGSIb3DQEBAQUAA4GLADCBhwKBgQDlhpGghtnNJ7pluQN0RDwbUxwwi99oM35ZEaFYvxPLrf0fIEC18cfDdJi6u4aJ+UoSpgzK731L0P/k4LvK2Rz9kVKOy0+IvuRrWkT7lbrLfA1UEBh02OA1AAshjmyRg4IxCqgl8ia8XWq6HKegS1y1KXZYGgb4qp7Bh9VC4cIzswIBIw==",
-  "name": "File Manager",
+  "name": "Files",
   "version": "0.1",
   "description": "File Manager",
   "incognito" : "split",
@@ -22,6 +22,7 @@
     "clipboardRead",
     "https://*.googleusercontent.com/"
   ],
+  "content_security_policy": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-src 'self' about:; img-src 'self' data: filesystem: https://docs.google.com https://*.googleusercontent.com chrome://extension-icon; media-src filesystem: https://*.googleusercontent.com;",
   "app": {
     "launch": {
       "local_path": "main.html"
@@ -31,7 +32,7 @@
     {
       "id": "play",
       "default_title": "__MSG_PLAY_MEDIA__",
-      "default_icon": "images/icon_play_16x16.png",
+      "default_icon": "images/filetype_audio.png",
       "file_filters": [
         "filesystem:*.flac",
         "filesystem:*.m4a",
@@ -42,9 +43,29 @@
       ]
     },
     {
+      "id": "watch",
+      "default_title": "__MSG_PLAY_MEDIA__",
+      "default_icon": "images/filetype_video.png",
+      "file_filters": [
+        "filesystem:*.3gp",
+        "filesystem:*.avi",
+        "filesystem:*.m4v",
+        "filesystem:*.mov",
+        "filesystem:*.mp4",
+        "filesystem:*.mpeg",
+        "filesystem:*.mpeg4",
+        "filesystem:*.mpg",
+        "filesystem:*.mpg4",
+        "filesystem:*.ogm",
+        "filesystem:*.ogv",
+        "filesystem:*.ogx",
+        "filesystem:*.webm"
+      ]
+    },
+    {
       "id": "mount-archive",
       "default_title": "__MSG_MOUNT_ARCHIVE__",
-      "default_icon": "images/icon_mount_archive_16x16.png",
+      "default_icon": "images/filetype_archive.png",
       "file_filters": [
         "filesystem:*.rar",
         "filesystem:*.tar",
@@ -59,24 +80,27 @@
     {
       "id": "view-pdf",
       "default_title": "__MSG_OPEN_ACTION__",
-      "default_icon": "images/icon_preview_16x16.png",
+      "default_icon": "images/filetype_pdf.png",
       "file_filters": [
         "filesystem:*.pdf"
       ]
     },
     {
-      "id": "view-txt",
+      "id": "view-in-browser",
       "default_title": "__MSG_OPEN_ACTION__",
-      "default_icon": "images/icon_preview_16x16.png",
+      "default_icon": "images/filetype_generic.png",
       "file_filters": [
+        "filesystem:*.htm",
+        "filesystem:*.html",
+        "filesystem:*.mht",
+        "filesystem:*.mhtml",
         "filesystem:*.txt"
       ]
     },
     {
       "id": "install-crx",
       "default_title": "__MSG_INSTALL_CRX__",
-      // TODO(dgozman): replace to the right icon.
-      "default_icon": "images/icon_preview_16x16.png",
+      "default_icon": "images/filetype_generic.png",
       "file_filters": [
         "filesystem:*.crx"
       ]
@@ -84,7 +108,7 @@
     {
       "id": "gallery",
       "default_title": "__MSG_OPEN_ACTION__",
-      "default_icon": "images/icon_preview_16x16.png",
+      "default_icon": "images/filetype_image.png",
       "file_filters": [
         // Image formats
         "filesystem:*.bmp",
@@ -112,7 +136,7 @@
     {
       "id": "open-hosted",
       "default_title": "__MSG_HOSTED__",
-      "default_icon": "images/icon_preview_16x16.png",
+      "default_icon": "images/filetype_generic.png",
       "file_filters": [
         "filesystem:*.gdoc",
         "filesystem:*.gsheet",

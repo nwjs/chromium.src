@@ -10,7 +10,7 @@
 #include "content/public/common/content_switches.h"
 #include "skia/ext/platform_canvas.h"
 #include "ui/gfx/gdi_util.h"
-#include "ui/gfx/surface/transport_dib.h"
+#include "ui/surface/transport_dib.h"
 
 namespace {
 
@@ -118,6 +118,7 @@ void BackingStoreWin::PaintToBackingStore(
     TransportDIB::Id bitmap,
     const gfx::Rect& bitmap_rect,
     const std::vector<gfx::Rect>& copy_rects,
+    float scale_factor,
     const base::Closure& completion_callback,
     bool* scheduled_completion_callback) {
   *scheduled_completion_callback = false;

@@ -9,11 +9,9 @@
 #include <string>
 
 #include "base/memory/scoped_ptr.h"
+#include "third_party/libjingle/source/talk/p2p/base/candidate.h"
 #include "third_party/libjingle/source/talk/xmllite/xmlelement.h"
 
-namespace cricket {
-class Candidate;
-}  // namespace cricket
 
 namespace remoting {
 namespace protocol {
@@ -35,13 +33,21 @@ struct JingleMessage {
   };
 
   enum Reason {
-    // Currently only termination reasons that can be sent by the host
-    // are understood. All others are converted to UNKNOWN_REASON.
     UNKNOWN_REASON,
     SUCCESS,
     DECLINE,
+    CANCEL,
     GENERAL_ERROR,
     INCOMPATIBLE_PARAMETERS,
+  };
+
+  struct NamedCandidate {
+    NamedCandidate();
+    NamedCandidate(const std::string& name,
+                   const cricket::Candidate& candidate);
+
+    std::string name;
+    cricket::Candidate candidate;
   };
 
   JingleMessage();
@@ -66,7 +72,7 @@ struct JingleMessage {
   std::string sid;
 
   scoped_ptr<ContentDescription> description;
-  std::list<cricket::Candidate> candidates;
+  std::list<NamedCandidate> candidates;
 
   // Content of session-info messages.
   scoped_ptr<buzz::XmlElement> info;

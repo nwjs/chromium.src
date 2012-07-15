@@ -6,7 +6,6 @@
 
 #ifndef CHROME_BROWSER_UI_GTK_NOTIFICATIONS_BALLOON_VIEW_GTK_H_
 #define CHROME_BROWSER_UI_GTK_NOTIFICATIONS_BALLOON_VIEW_GTK_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
@@ -25,7 +24,7 @@
 
 class BalloonCollection;
 class CustomDrawButton;
-class ThemeServiceGtk;
+class GtkThemeService;
 class MenuGtk;
 class NotificationOptionsMenuModel;
 
@@ -96,7 +95,7 @@ class BalloonViewImpl : public BalloonView,
   // Non-owned pointer to the balloon which owns this object.
   Balloon* balloon_;
 
-  ThemeServiceGtk* theme_service_;
+  GtkThemeService* theme_service_;
 
   // The window that contains the frame of the notification.
   GtkWidget* frame_container_;

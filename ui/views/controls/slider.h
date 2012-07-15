@@ -4,11 +4,12 @@
 
 #ifndef UI_VIEWS_CONTROLS_SLIDER_H_
 #define UI_VIEWS_CONTROLS_SLIDER_H_
-#pragma once
 
 #include "ui/base/animation/animation_delegate.h"
 #include "ui/views/view.h"
 #include "ui/views/views_export.h"
+
+typedef unsigned int SkColor;
 
 namespace ui {
 class SlideAnimation;
@@ -29,6 +30,11 @@ class VIEWS_EXPORT SliderListener {
                                   float value,
                                   float old_value,
                                   SliderChangeReason reason) = 0;
+
+  // Invoked when a drag starts or ends (more specifically, when the mouse
+  // button is pressed or released).
+  virtual void SliderDragStarted(Slider* sender) {}
+  virtual void SliderDragEnded(Slider* sender) {}
 
  protected:
   virtual ~SliderListener() {}
@@ -53,16 +59,29 @@ class VIEWS_EXPORT Slider : public View,
 
   void SetAccessibleName(const string16& name);
 
+  void set_enable_accessibility_events(bool enabled) {
+    accessibility_events_enabled_ = enabled;
+  }
+
+  void set_focus_border_color(SkColor color) { focus_border_color_ = color; }
+
  private:
   void SetValueInternal(float value, SliderChangeReason reason);
+
+  // Moves the button to the specified point and updates the value accordingly.
+  void MoveButtonTo(const gfx::Point& point);
 
   // views::View overrides:
   virtual gfx::Size GetPreferredSize() OVERRIDE;
   virtual void OnPaint(gfx::Canvas* canvas) OVERRIDE;
   virtual bool OnMousePressed(const views::MouseEvent& event) OVERRIDE;
   virtual bool OnMouseDragged(const views::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseReleased(const views::MouseEvent& event) OVERRIDE;
+  virtual ui::GestureStatus OnGestureEvent(
+      const views::GestureEvent& event) OVERRIDE;
   virtual bool OnKeyPressed(const views::KeyEvent& event) OVERRIDE;
   virtual void GetAccessibleState(ui::AccessibleViewState* state) OVERRIDE;
+  virtual void OnPaintFocusBorder(gfx::Canvas* canvas) OVERRIDE;
 
   // ui::AnimationDelegate overrides:
   virtual void AnimationProgressed(const ui::Animation* animation) OVERRIDE;
@@ -77,6 +96,8 @@ class VIEWS_EXPORT Slider : public View,
   float animating_value_;
   bool value_is_valid_;
   string16 accessible_name_;
+  bool accessibility_events_enabled_;
+  SkColor focus_border_color_;
 
   DISALLOW_COPY_AND_ASSIGN(Slider);
 };

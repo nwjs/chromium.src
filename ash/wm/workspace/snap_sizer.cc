@@ -28,7 +28,7 @@ const float kPercents[] = { .5f, 2.0f / 3.0f, .8f };
 //   |kMovesBeforeAdjust| times.
 const int kDelayBeforeIncreaseMS = 500;
 const int kMovesBeforeAdjust = 50;
-const int kPixelsBeforeAdjust = 200;
+const int kPixelsBeforeAdjust = 100;
 
 }  // namespace
 
@@ -66,6 +66,18 @@ void SnapSizer::Update(const gfx::Point& location) {
   time_last_update_ = base::TimeTicks::Now();
 }
 
+gfx::Rect SnapSizer::GetSnapBounds(const gfx::Rect& bounds) {
+  size_t current;
+  for (current = 0; current < arraysize(kPercents); ++current) {
+    gfx::Rect target = GetTargetBoundsForPercent(current);
+    if (target == bounds) {
+      ++current;
+      break;
+    }
+  }
+  return GetTargetBoundsForPercent(current % arraysize(kPercents));
+}
+
 int SnapSizer::CalculateIncrement(int x, int reference_x) const {
   if (AlongEdge(x))
     return 1;
@@ -94,11 +106,16 @@ void SnapSizer::ChangeBounds(int x, int delta) {
 }
 
 gfx::Rect SnapSizer::GetTargetBounds() const {
-  gfx::Rect work_area(ScreenAsh::GetUnmaximizedWorkAreaBounds(window_));
+  return GetTargetBoundsForPercent(percent_index_);
+}
+
+gfx::Rect SnapSizer::GetTargetBoundsForPercent(int percent_index) const {
+  gfx::Rect work_area(ScreenAsh::GetUnmaximizedWorkAreaParentBounds(window_));
   int y = WindowResizer::AlignToGridRoundUp(work_area.y(), grid_size_);
-  int max_y =
-      WindowResizer::AlignToGridRoundDown(work_area.bottom(), grid_size_);
-  int width = static_cast<float>(work_area.width()) * kPercents[percent_index_];
+  // We don't align to the bottom of the grid as the launcher may not
+  // necessarily align to the grid (happens when auto-hidden).
+  int max_y = work_area.bottom();
+  int width = static_cast<float>(work_area.width()) * kPercents[percent_index];
   if (edge_ == LEFT_EDGE) {
     int x = WindowResizer::AlignToGridRoundUp(work_area.x(), grid_size_);
     int mid_x = WindowResizer::AlignToGridRoundUp(
@@ -112,8 +129,7 @@ gfx::Rect SnapSizer::GetTargetBounds() const {
 }
 
 bool SnapSizer::AlongEdge(int x) const {
-  // TODO: need to support multi-monitor.
-  gfx::Rect area(gfx::Screen::GetMonitorAreaNearestWindow(window_));
+  gfx::Rect area(ScreenAsh::GetDisplayParentBounds(window_));
   return (x <= area.x()) || (x >= area.right() - 1);
 }
 

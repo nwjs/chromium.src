@@ -154,7 +154,7 @@ ServiceURLRequestContext::~ServiceURLRequestContext() {
 }
 
 ServiceURLRequestContextGetter::ServiceURLRequestContextGetter()
-    : io_message_loop_proxy_(
+    : network_task_runner_(
           g_service_process->io_thread()->message_loop_proxy()) {
   // Build the default user agent.
   user_agent_ = MakeUserAgentForServiceProcess();
@@ -164,22 +164,22 @@ ServiceURLRequestContextGetter::ServiceURLRequestContextGetter()
   DCHECK(g_service_process);
   proxy_config_service_.reset(
       net::ProxyService::CreateSystemProxyConfigService(
-          g_service_process->io_thread()->message_loop(),
+          g_service_process->io_thread()->message_loop_proxy(),
           g_service_process->file_thread()->message_loop()));
 }
 
 net::URLRequestContext*
 ServiceURLRequestContextGetter::GetURLRequestContext() {
-  if (!url_request_context_)
-    url_request_context_ =
+  if (!url_request_context_.get())
+    url_request_context_.reset(
         new ServiceURLRequestContext(user_agent_,
-                                     proxy_config_service_.release());
-  return url_request_context_;
+                                     proxy_config_service_.release()));
+  return url_request_context_.get();
 }
 
-scoped_refptr<base::MessageLoopProxy>
-ServiceURLRequestContextGetter::GetIOMessageLoopProxy() const {
-  return io_message_loop_proxy_;
+scoped_refptr<base::SingleThreadTaskRunner>
+ServiceURLRequestContextGetter::GetNetworkTaskRunner() const {
+  return network_task_runner_;
 }
 
 ServiceURLRequestContextGetter::~ServiceURLRequestContextGetter() {}

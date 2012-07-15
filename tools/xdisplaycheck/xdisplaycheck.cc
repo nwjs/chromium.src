@@ -1,17 +1,18 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
 // This is a small program that tries to connect to the X server.  It
-// continually retries until it connects or 5 seconds pass.  If it fails
-// to connect to the X server after 5 seconds, it returns an error code
-// of -1.
+// continually retries until it connects or 30 seconds pass.  If it fails
+// to connect to the X server or fails to find needed functiona, it returns
+// an error code of -1.
 //
-// This is to help verify that the X server is available before we start
+// This is to help verify that a useful X server is available before we start
 // start running tests on the build bots.
 
 #include <errno.h>
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 #include <X11/Xlib.h>
 
@@ -34,19 +35,33 @@ void Sleep(int duration_ms) {
 }
 
 int main(int argc, char* argv[]) {
-  int kNumTries = 50;
   Display* display = NULL;
-  for (int i = 0; i < kNumTries; ++i) {
+  if (argv[1] && strcmp(argv[1], "--noserver") == 0) {
+    display = XOpenDisplay(NULL);
+    if (display) {
+      fprintf(stderr, "Found unexpected connectable display %s\n",
+              XDisplayName(NULL));
+    }
+    // Return success when we got an unexpected display so that the code
+    // without the --noserver is the same, but slow, rather than inverted.
+    return !display;
+  }
+
+  int kNumTries = 78;  // 78*77/2 * 10 = 30s of waiting
+  int tries;
+  for (tries = 0; tries < kNumTries; ++tries) {
     display = XOpenDisplay(NULL);
     if (display)
       break;
-    Sleep(100);
+    Sleep(10 * tries);
   }
 
   if (!display) {
     fprintf(stderr, "Failed to connect to %s\n", XDisplayName(NULL));
     return -1;
   }
+
+  fprintf(stderr, "Connected after %d retries\n", tries);
 
 #if defined(USE_AURA)
   // Check for XInput2
@@ -69,6 +84,9 @@ int main(int argc, char* argv[]) {
   XIDeviceInfo* devices = XIQueryDevice(display, XIAllDevices, &count);
   if (devices)
     XIFreeDeviceInfo(devices);
+
+  fprintf(stderr,
+      "XInput2 verified initially sane on %s.\n", XDisplayName(NULL));
 #endif
 
   return 0;

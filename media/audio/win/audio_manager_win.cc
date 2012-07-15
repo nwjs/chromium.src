@@ -38,6 +38,8 @@
 DEFINE_GUID(AM_KSCATEGORY_AUDIO, 0x6994ad04, 0x93ef, 0x11d0,
             0xa3, 0xcc, 0x00, 0xa0, 0xc9, 0x22, 0x31, 0x96);
 
+namespace media {
+
 // Maximum number of output streams that can be open simultaneously.
 static const int kMaxOutputStreams = 50;
 
@@ -242,7 +244,10 @@ AudioOutputStream* AudioManagerWin::MakeLinearOutputStream(
   if (params.channels() > kWinMaxChannels)
     return NULL;
 
-  return new PCMWaveOutAudioOutputStream(this, params, 3, WAVE_MAPPER);
+  return new PCMWaveOutAudioOutputStream(this,
+                                         params,
+                                         media::NumberOfWaveOutBuffers(),
+                                         WAVE_MAPPER);
 }
 
 // Factory for the implementations of AudioOutputStream for
@@ -317,3 +322,5 @@ AudioInputStream* AudioManagerWin::CreatePCMWaveInAudioInputStream(
 AudioManager* CreateAudioManager() {
   return new AudioManagerWin();
 }
+
+}  // namespace media

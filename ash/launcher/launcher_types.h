@@ -4,12 +4,11 @@
 
 #ifndef ASH_LAUNCHER_LAUNCHER_TYPES_H_
 #define ASH_LAUNCHER_LAUNCHER_TYPES_H_
-#pragma once
 
 #include <vector>
 
-#include "third_party/skia/include/core/SkBitmap.h"
 #include "ash/ash_export.h"
+#include "ui/gfx/image/image_skia.h"
 
 namespace aura {
 class Window;
@@ -21,14 +20,17 @@ typedef int LauncherID;
 
 // Height of the Launcher. Hard coded to avoid resizing as items are
 // added/removed.
-ASH_EXPORT extern const int kLauncherPreferredHeight;
+ASH_EXPORT extern const int kLauncherPreferredSize;
 
 // Type the LauncherItem represents.
-enum ASH_EXPORT LauncherItemType {
+enum LauncherItemType {
   // Represents a tabbed browser.
   TYPE_TABBED,
 
-  // Represents an app window.
+  // Represents a running app panel.
+  TYPE_APP_PANEL,
+
+  // Represents a pinned shortcut to an app.
   TYPE_APP_SHORTCUT,
 
   // Toggles visiblity of the app list.
@@ -36,13 +38,26 @@ enum ASH_EXPORT LauncherItemType {
 
   // The browser shortcut button.
   TYPE_BROWSER_SHORTCUT,
+
+  // Represents a platform app.
+  TYPE_PLATFORM_APP,
 };
 
 // Represents the status of pinned or running app launcher items.
-enum ASH_EXPORT LauncherItemStatus {
+enum LauncherItemStatus {
+  // A closed LauncherItem, i.e. has no live instance.
   STATUS_CLOSED,
+  // A LauncherItem that has live instance.
   STATUS_RUNNING,
-  STATUS_ACTIVE
+  // An active LauncherItem that has focus.
+  STATUS_ACTIVE,
+  // A LauncherItem that needs user's attention.
+  STATUS_ATTENTION,
+  // A LauncherItem that has pending operations.
+  //   e.g. A TYEE_APP_SHORTCUT item whose application is
+  //        being installed/upgraded.
+  // Note STATUS_PENDING is a macro in WinNT.h on Windows.
+  STATUS_IS_PENDING,
 };
 
 struct ASH_EXPORT LauncherItem {
@@ -51,12 +66,13 @@ struct ASH_EXPORT LauncherItem {
 
   LauncherItemType type;
 
-  // Whether it is incognito. Only used if this is TYPE_TABBED.
+  // Whether it is drawn as an incognito icon or not. Only used if this is
+  // TYPE_TABBED. Note: This cannot be used for identifying incognito windows.
   bool is_incognito;
 
   // Image to display in the launcher. If this item is TYPE_TABBED the image is
   // a favicon image.
-  SkBitmap image;
+  gfx::ImageSkia image;
 
   // Assigned by the model when the item is added.
   LauncherID id;
@@ -66,6 +82,12 @@ struct ASH_EXPORT LauncherItem {
 };
 
 typedef std::vector<LauncherItem> LauncherItems;
+
+// The direction of the focus cycling.
+enum CycleDirection {
+  CYCLE_FORWARD,
+  CYCLE_BACKWARD
+};
 
 }  // namespace ash
 

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_COCOA_LOCATION_BAR_LOCATION_BAR_VIEW_MAC_H_
 #define CHROME_BROWSER_UI_COCOA_LOCATION_BAR_LOCATION_BAR_VIEW_MAC_H_
-#pragma once
 
 #include <string>
 
@@ -14,20 +13,23 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/scoped_vector.h"
 #include "base/memory/weak_ptr.h"
-#include "chrome/browser/autocomplete/autocomplete_edit.h"
+#include "chrome/browser/command_observer.h"
 #include "chrome/browser/extensions/image_loading_tracker.h"
 #include "chrome/browser/prefs/pref_member.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/cocoa/omnibox/omnibox_view_mac.h"
 #include "chrome/browser/ui/omnibox/location_bar.h"
+#include "chrome/browser/ui/omnibox/omnibox_edit_controller.h"
 #include "chrome/browser/ui/toolbar/toolbar_model.h"
 #include "chrome/common/content_settings_types.h"
 
 @class AutocompleteTextField;
+class ChromeToMobileDecoration;
 class CommandUpdater;
 class ContentSettingDecoration;
 class EVBubbleDecoration;
 class KeywordHintDecoration;
+class LocationBarDecoration;
 class LocationIconDecoration;
 class PageActionDecoration;
 class Profile;
@@ -40,10 +42,11 @@ class ToolbarModel;
 // the portable code.  Wires up an OmniboxViewMac instance to
 // the location bar text field, which handles most of the work.
 
-class LocationBarViewMac : public AutocompleteEditController,
-                           public LocationBar,
+class LocationBarViewMac : public LocationBar,
                            public LocationBarTesting,
-                           public content::NotificationObserver {
+                           public OmniboxEditController,
+                           public content::NotificationObserver,
+                           public CommandObserver {
  public:
   LocationBarViewMac(AutocompleteTextField* field,
                      CommandUpdater* command_updater,
@@ -67,8 +70,8 @@ class LocationBarViewMac : public AutocompleteEditController,
   virtual void InvalidatePageActions() OVERRIDE;
   virtual void SaveStateToContents(content::WebContents* contents) OVERRIDE;
   virtual void Revert() OVERRIDE;
-  virtual const OmniboxView* location_entry() const OVERRIDE;
-  virtual OmniboxView* location_entry() OVERRIDE;
+  virtual const OmniboxView* GetLocationEntry() const OVERRIDE;
+  virtual OmniboxView* GetLocationEntry() OVERRIDE;
   virtual LocationBarTesting* GetLocationBarForTesting() OVERRIDE;
 
   // Overridden from LocationBarTesting:
@@ -85,14 +88,20 @@ class LocationBarViewMac : public AutocompleteEditController,
   // Set the starred state of the bookmark star.
   void SetStarred(bool starred);
 
-  // Get the point on the star for the bookmark bubble to aim at.
+  // Set ChromeToMobileDecoration's lit state (to update the icon).
+  void SetChromeToMobileDecorationLit(bool lit);
+
+  // Get the point in window coordinates on the star for the bookmark bubble to
+  // aim at.
   NSPoint GetBookmarkBubblePoint() const;
 
-  // Get the point in the security icon at which the page info bubble aims.
-  NSPoint GetPageInfoBubblePoint() const;
+  // Get the point in window coordinates on the Chrome To Mobile icon for
+  // anchoring its bubble.
+  NSPoint GetChromeToMobileBubblePoint() const;
 
-  // Get the point in the omnibox at which the first run bubble aims.
-  NSPoint GetFirstRunBubblePoint() const;
+  // Get the point in window coordinates in the security icon at which the page
+  // info bubble aims.
+  NSPoint GetPageInfoBubblePoint() const;
 
   // Updates the location bar.  Resets the bar's permanent text and
   // security style, and if |should_restore_state| is true, restores
@@ -101,6 +110,9 @@ class LocationBarViewMac : public AutocompleteEditController,
 
   // Layout the various decorations which live in the field.
   void Layout();
+
+  // Re-draws |decoration| if it's already being displayed.
+  void RedrawDecoration(LocationBarDecoration* decoration);
 
   // Returns the current WebContents.
   content::WebContents* GetWebContents() const;
@@ -125,7 +137,7 @@ class LocationBarViewMac : public AutocompleteEditController,
   // visible.
   NSRect GetBlockedPopupRect() const;
 
-  // AutocompleteEditController implementation.
+  // OmniboxEditController:
   virtual void OnAutocompleteAccept(
       const GURL& url,
       WindowOpenDisposition disposition,
@@ -139,17 +151,20 @@ class LocationBarViewMac : public AutocompleteEditController,
   virtual SkBitmap GetFavicon() const OVERRIDE;
   virtual string16 GetTitle() const OVERRIDE;
   virtual InstantController* GetInstant() OVERRIDE;
-  virtual TabContentsWrapper* GetTabContentsWrapper() const OVERRIDE;
+  virtual TabContents* GetTabContents() const OVERRIDE;
 
   NSImage* GetKeywordImage(const string16& keyword);
 
   AutocompleteTextField* GetAutocompleteTextField() { return field_; }
 
 
-  // Overridden from NotificationObserver.
+  // content::NotificationObserver:
   virtual void Observe(int type,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
+
+  // CommandObserver:
+  virtual void EnabledStateChangedForCommand(int id, bool enabled) OVERRIDE;
 
  private:
   // Posts |notification| to the default notification center.
@@ -173,6 +188,9 @@ class LocationBarViewMac : public AutocompleteEditController,
 
   // Checks if the bookmark star should be enabled or not.
   bool IsStarEnabled();
+
+  // Update the Chrome To Mobile page action visibility and command state.
+  void UpdateChromeToMobileEnabled();
 
   scoped_ptr<OmniboxViewMac> omnibox_view_;
 
@@ -201,7 +219,13 @@ class LocationBarViewMac : public AutocompleteEditController,
   // Bookmark star right of page actions.
   scoped_ptr<StarDecoration> star_decoration_;
 
-  // Any installed Page Actions.
+  // Chrome To Mobile page action icon.
+  scoped_ptr<ChromeToMobileDecoration> chrome_to_mobile_decoration_;
+
+  // The installed page actions.
+  std::vector<ExtensionAction*> page_actions_;
+
+  // Decorations for the installed Page Actions.
   ScopedVector<PageActionDecoration> page_action_decorations_;
 
   // The content blocked decorations.

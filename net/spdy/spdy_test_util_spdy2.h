@@ -4,7 +4,6 @@
 
 #ifndef NET_SPDY_SPDY_TEST_UTIL_H_
 #define NET_SPDY_SPDY_TEST_UTIL_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "net/base/cert_verifier.h"
@@ -12,7 +11,6 @@
 #include "net/base/mock_host_resolver.h"
 #include "net/base/request_priority.h"
 #include "net/base/ssl_config_service_defaults.h"
-#include "net/base/sys_addrinfo.h"
 #include "net/http/http_auth_handler_factory.h"
 #include "net/http/http_cache.h"
 #include "net/http/http_network_session.h"
@@ -158,8 +156,7 @@ int ConstructSpdyReplyString(const char* const extra_headers[],
 // Construct an expected SPDY SETTINGS frame.
 // |settings| are the settings to set.
 // Returns the constructed frame.  The caller takes ownership of the frame.
-SpdyFrame* ConstructSpdySettings(
-    const SpdySettings& settings);
+SpdyFrame* ConstructSpdySettings(const SettingsMap& settings);
 
 // Construct an expected SPDY CREDENTIAL frame.
 // |credential| is the credential to send.
@@ -369,16 +366,15 @@ class SpdySessionDependencies {
   scoped_ptr<DeterministicMockClientSocketFactory> deterministic_socket_factory;
   scoped_ptr<HttpAuthHandlerFactory> http_auth_handler_factory;
   HttpServerPropertiesImpl http_server_properties;
+  std::string trusted_spdy_proxy;
 };
 
 class SpdyURLRequestContext : public URLRequestContext {
  public:
   SpdyURLRequestContext();
+  virtual ~SpdyURLRequestContext();
 
   MockClientSocketFactory& socket_factory() { return socket_factory_; }
-
- protected:
-  virtual ~SpdyURLRequestContext();
 
  private:
   MockClientSocketFactory socket_factory_;
@@ -392,7 +388,7 @@ class SpdySessionPoolPeer {
   explicit SpdySessionPoolPeer(SpdySessionPool* pool)
       : pool_(pool) {}
 
-  void AddAlias(const addrinfo* address, const HostPortProxyPair& pair) {
+  void AddAlias(const IPEndPoint& address, const HostPortProxyPair& pair) {
     pool_->AddAlias(address, pair);
   }
 
@@ -406,6 +402,10 @@ class SpdySessionPoolPeer {
 
   void DisableDomainAuthenticationVerification() {
     pool_->verify_domain_authentication_ = false;
+  }
+
+  void EnableSendingInitialSettings(bool enabled) {
+    pool_->enable_sending_initial_settings_ = enabled;
   }
 
  private:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (c) 2011 The Chromium Authors. All rights reserved.
+# Copyright (c) 2012 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -8,6 +8,7 @@ import os
 
 import pyauto_functional  # must come before pyauto.
 import policy_base
+import policy_test_cases
 import pyauto_errors
 import pyauto
 
@@ -15,21 +16,39 @@ import pyauto
 class PolicyTest(policy_base.PolicyTestBase):
   """Tests that the effects of policies are being enforced as expected."""
 
-  def _VerifyPrefIsLocked(self, key, defaultval, newval):
+  def _GetPrefIsManagedError(self, pref, expected_value):
     """Verify the managed preferences cannot be modified.
 
     Args:
-      key: The preference key that you want to modify
-      defaultval: Default value of the preference that we are trying to modify
-      newval: New value that we are trying to set
+      pref: The preference key that you want to modify.
+      expected_value: Current value of the preference.
+
+    Returns:
+      Error message if any, None if pref is successfully managed.
     """
-    # Check if the default value of the preference is set as expected.
-    self.assertEqual(
-        self.GetPrefsInfo().Prefs(key), defaultval,
-        msg='Expected preference value "%s" does not match actual value "%s".' %
-        (defaultval, self.GetPrefsInfo().Prefs(key)))
-    self.assertRaises(pyauto_errors.JSONInterfaceError,
-                      lambda: self.SetPrefs(key, newval))
+    # Check if the current value of the preference is set as expected.
+    local_state_pref_value = self.GetLocalStatePrefsInfo().Prefs(pref)
+    profile_pref_value = self.GetPrefsInfo().Prefs(pref)
+    actual_value = (profile_pref_value if profile_pref_value is not None else
+                    local_state_pref_value)
+    if actual_value is None:
+      return 'Preference %s is not registered.'  % pref
+    elif actual_value != expected_value:
+      return ('Preference value "%s" does not match policy value "%s".' %
+              (actual_value, expected_value))
+    # If the preference is managed, this should throw an exception.
+    try:
+      if profile_pref_value is not None:
+        self.SetPrefs(pref, expected_value)
+      else:
+        self.SetLocalStatePrefs(pref, expected_value)
+    except pyauto_errors.JSONInterfaceError, e:
+      if str(e) != 'pref is managed. cannot be changed.':
+        return str(e)
+      else:
+        return None
+    else:
+      return 'Preference can be set even though a policy is in effect.'
 
   # TODO(frankf): Move tests dependending on this to plugins.py.
   def _GetPluginPID(self, plugin_name):
@@ -85,6 +104,34 @@ class PolicyTest(policy_base.PolicyTestBase):
     self.KillRendererProcess(pid)
     self.ReloadActiveTab()
 
+  def setUp(self):
+    policy_base.PolicyTestBase.setUp(self)
+    if self.IsChromeOS():
+      self.LoginWithTestAccount()
+
+  def testPolicyToPrefMapping(self):
+    """Verify that simple user policies map to corresponding prefs.
+
+    Also verify that once these policies are in effect, the prefs cannot be
+    modified by the user.
+    """
+    total = 0
+    fails = []
+    policy_prefs = policy_test_cases.PolicyPrefsTestCases
+    for policy, values in policy_prefs.policies.iteritems():
+      pref = values[policy_prefs.INDEX_PREF]
+      value = values[policy_prefs.INDEX_VALUE]
+      os = values[policy_prefs.INDEX_OS]
+      if not pref or self.GetPlatform() not in os:
+        continue
+      self.SetUserPolicy({policy: value})
+      error = self._GetPrefIsManagedError(getattr(pyauto, pref), value)
+      if error:
+        fails.append('%s: %s' % (policy, error))
+      total += 1
+    self.assertFalse(fails, msg='%d of %d policies failed.\n%s' %
+                     (len(fails), total, '\n'.join(fails)))
+
   def testBlacklistPolicy(self):
     """Tests the URLBlacklist and URLWhitelist policies."""
     # This is an end to end test and not an exaustive test of the filter format.
@@ -98,7 +145,7 @@ class PolicyTest(policy_base.PolicyTestBase):
         'chromium.org/chromium-os',
       ]
     }
-    self.SetPolicies(policy)
+    self.SetUserPolicy(policy)
 
     self.assertTrue(self._IsBlocked('http://news.google.com/'))
     self.assertFalse(self._IsBlocked('http://www.google.com/'))
@@ -123,23 +170,27 @@ class PolicyTest(policy_base.PolicyTestBase):
     policy = {
       'BookmarkBarEnabled': True
     }
-    self.SetPolicies(policy)
+    self.SetUserPolicy(policy)
 
     self.assertTrue(self.WaitForBookmarkBarVisibilityChange(True))
     self.assertTrue(self.GetBookmarkBarVisibility())
     self.assertFalse(self.IsBookmarkBarDetached())
     # The accelerator should be disabled by the policy.
-    self.ApplyAccelerator(pyauto.IDC_SHOW_BOOKMARK_BAR)
+    self.assertRaises(
+        pyauto_errors.JSONInterfaceError,
+        lambda: self.ApplyAccelerator(pyauto.IDC_SHOW_BOOKMARK_BAR))
     self.assertTrue(self.WaitForBookmarkBarVisibilityChange(True))
     self.assertTrue(self.GetBookmarkBarVisibility())
     self.assertFalse(self.IsBookmarkBarDetached())
 
     policy['BookmarkBarEnabled'] = False
-    self.SetPolicies(policy)
+    self.SetUserPolicy(policy)
 
     self.assertTrue(self.WaitForBookmarkBarVisibilityChange(False))
     self.assertFalse(self.GetBookmarkBarVisibility())
-    self.ApplyAccelerator(pyauto.IDC_SHOW_BOOKMARK_BAR)
+    self.assertRaises(
+        pyauto_errors.JSONInterfaceError,
+        lambda: self.ApplyAccelerator(pyauto.IDC_SHOW_BOOKMARK_BAR))
     self.assertTrue(self.WaitForBookmarkBarVisibilityChange(False))
     self.assertFalse(self.GetBookmarkBarVisibility())
     # When disabled by policy, it should never be displayed at all,
@@ -151,26 +202,26 @@ class PolicyTest(policy_base.PolicyTestBase):
     # The navigation to about:blank after each policy reset is to reset the
     # content settings state.
     policy = {}
-    self.SetPolicies(policy)
+    self.SetUserPolicy(policy)
     self.assertTrue(self._IsJavascriptEnabled())
     self.assertTrue(self.IsMenuCommandEnabled(pyauto.IDC_DEV_TOOLS))
     self.assertTrue(self.IsMenuCommandEnabled(pyauto.IDC_DEV_TOOLS_CONSOLE))
 
     policy['DeveloperToolsDisabled'] = True
-    self.SetPolicies(policy)
+    self.SetUserPolicy(policy)
     self.assertTrue(self._IsJavascriptEnabled())
     self.assertFalse(self.IsMenuCommandEnabled(pyauto.IDC_DEV_TOOLS))
     self.assertFalse(self.IsMenuCommandEnabled(pyauto.IDC_DEV_TOOLS_CONSOLE))
 
     policy['DeveloperToolsDisabled'] = False
-    self.SetPolicies(policy)
+    self.SetUserPolicy(policy)
     self.assertTrue(self._IsJavascriptEnabled())
     self.assertTrue(self.IsMenuCommandEnabled(pyauto.IDC_DEV_TOOLS))
     self.assertTrue(self.IsMenuCommandEnabled(pyauto.IDC_DEV_TOOLS_CONSOLE))
 
     # The Developer Tools still work when javascript is disabled.
     policy['JavascriptEnabled'] = False
-    self.SetPolicies(policy)
+    self.SetUserPolicy(policy)
     self.NavigateToURL('about:blank')
     self.assertFalse(self._IsJavascriptEnabled())
     self.assertTrue(self.IsMenuCommandEnabled(pyauto.IDC_DEV_TOOLS))
@@ -181,7 +232,7 @@ class PolicyTest(policy_base.PolicyTestBase):
 
     # The Developer Tools can be explicitly disabled.
     policy['DeveloperToolsDisabled'] = True
-    self.SetPolicies(policy)
+    self.SetUserPolicy(policy)
     self.NavigateToURL('about:blank')
     self.assertFalse(self._IsJavascriptEnabled())
     self.assertFalse(self.IsMenuCommandEnabled(pyauto.IDC_DEV_TOOLS))
@@ -191,7 +242,7 @@ class PolicyTest(policy_base.PolicyTestBase):
     policy = {
       'DefaultJavaScriptSetting': 2,
     }
-    self.SetPolicies(policy)
+    self.SetUserPolicy(policy)
     self.NavigateToURL('about:blank')
     self.assertFalse(self._IsJavascriptEnabled())
     self.assertTrue(self.IsMenuCommandEnabled(pyauto.IDC_DEV_TOOLS))
@@ -202,7 +253,7 @@ class PolicyTest(policy_base.PolicyTestBase):
       'DefaultJavaScriptSetting': 1,
       'JavascriptEnabled': False,
     }
-    self.SetPolicies(policy)
+    self.SetUserPolicy(policy)
     self.NavigateToURL('about:blank')
     self.assertTrue(self._IsJavascriptEnabled())
 
@@ -211,7 +262,7 @@ class PolicyTest(policy_base.PolicyTestBase):
     self.assertFalse(self.GetPrefsInfo().Prefs(pyauto.kDisable3DAPIs))
     self.assertTrue(self._IsWebGLEnabled())
 
-    self.SetPolicies({
+    self.SetUserPolicy({
         'Disable3DAPIs': True
     })
     self.assertTrue(self.GetPrefsInfo().Prefs(pyauto.kDisable3DAPIs))
@@ -219,21 +270,32 @@ class PolicyTest(policy_base.PolicyTestBase):
     self._RestartRenderer()
     self.assertFalse(self._IsWebGLEnabled())
 
-  def testStartupOptions(self):
-    """Verify that user cannot modify the startup page options."""
+  def testStartupOptionsURLs(self):
+    """Verify that user cannot modify the startup page options if "Open the
+    following URLs" is set by a policy.
+    """
     policy = {
       'RestoreOnStartup': 4,
       'RestoreOnStartupURLs': ['http://chromium.org']
     }
-    self.SetPolicies(policy)
+    self.SetUserPolicy(policy)
     # Verify startup option
     self.assertEquals(4, self.GetPrefsInfo().Prefs(pyauto.kRestoreOnStartup))
     self.assertRaises(
         pyauto.JSONInterfaceError,
         lambda: self.SetPrefs(pyauto.kRestoreOnStartup, 1))
-    policy['RestoreOnStartup'] = 0
-    self.SetPolicies(policy)
-    self.assertEquals(0, self.GetPrefsInfo().Prefs(pyauto.kRestoreOnStartup))
+
+  def testStartupOptionsHomepage(self):
+    """Verify that user cannot modify the startup page options if the
+    deprecated "Open the homepage" option is set by a policy.
+    """
+    policy = {
+      'RestoreOnStartup': 0,
+      'HomepageLocation': 'http://chromium.org',
+      'HomepageIsNewTabPage': False,
+    }
+    self.SetUserPolicy(policy)
+    self.assertEquals(4, self.GetPrefsInfo().Prefs(pyauto.kRestoreOnStartup))
     self.assertRaises(
         pyauto.JSONInterfaceError,
         lambda: self.SetPrefs(pyauto.kRestoreOnStartup, 1))
@@ -252,7 +314,7 @@ class PolicyTest(policy_base.PolicyTestBase):
       'HomepageLocation': 'http://chromium.org',
       'HomepageIsNewTabPage': True
     }
-    self.SetPolicies(policy)
+    self.SetUserPolicy(policy)
     # Try to configure home page URL
     self.assertEquals('http://chromium.org',
                       self.GetPrefsInfo().Prefs('homepage'))
@@ -265,90 +327,11 @@ class PolicyTest(policy_base.PolicyTestBase):
         pyauto.JSONInterfaceError,
         lambda: self.SetPrefs(pyauto.kHomePageIsNewTabPage, False))
 
-  def testShowHomeButton(self):
-    """Verify that home button option cannot be modified when it's managed."""
-    policy = {'ShowHomeButton': True}
-    self.SetPolicies(policy)
-    self._VerifyPrefIsLocked(pyauto.kShowHomeButton, True, False)
-    policy = {'ShowHomeButton': False}
-    self.SetPolicies(policy)
-    self._VerifyPrefIsLocked(pyauto.kShowHomeButton, False, True)
-
-  def testInstantEnabled(self):
-    """Verify that Instant option cannot be modified."""
-    policy = {'InstantEnabled': True}
-    self.SetPolicies(policy)
-    self._VerifyPrefIsLocked(pyauto.kInstantEnabled, True, False)
-    policy = {'InstantEnabled': False}
-    self.SetPolicies(policy)
-    self._VerifyPrefIsLocked(pyauto.kInstantEnabled, False, True)
-
-  def testPasswordManagerEnabled(self):
-    """Verify that password manager preference cannot be modified."""
-    policy = {'PasswordManagerEnabled': True}
-    self.SetPolicies(policy)
-    self._VerifyPrefIsLocked(pyauto.kPasswordManagerEnabled, True, False)
-    policy = {'PasswordManagerEnabled': False}
-    self.SetPolicies(policy)
-    self._VerifyPrefIsLocked(pyauto.kPasswordManagerEnabled, False, True)
-
-  def testPasswordManagerNotAllowShowPasswords(self):
-    """Verify that the preference not to show passwords cannot be modified."""
-    policy = {'PasswordManagerAllowShowPasswords': False}
-    self.SetPolicies(policy)
-    self._VerifyPrefIsLocked(pyauto.kPasswordManagerAllowShowPasswords,
-                                   False, True)
-    policy = {'PasswordManagerAllowShowPasswords': True}
-    self.SetPolicies(policy)
-    self._VerifyPrefIsLocked(pyauto.kPasswordManagerAllowShowPasswords,
-                                   True, False)
-
-  def testPrivacyPrefs(self):
-    """Verify that the managed preferences cannot be modified."""
-    policy = {
-      'AlternateErrorPagesEnabled': True,
-      'AutofillEnabled': False,
-      'DnsPrefetchingEnabled': True,
-      'SafeBrowsingEnabled': True,
-      'SearchSuggestEnabled': True,
-    }
-    self.SetPolicies(policy)
-    prefs_list = [
-        # (preference key, default value, new value)
-        (pyauto.kAlternateErrorPagesEnabled, True, False),
-        (pyauto.kAutofillEnabled, False, True),
-        (pyauto.kNetworkPredictionEnabled, True, False),
-        (pyauto.kSafeBrowsingEnabled, True, False),
-        (pyauto.kSearchSuggestEnabled, True, False),
-        ]
-    # Check if the policies got applied by trying to modify
-    for key, defaultval, newval in prefs_list:
-      logging.info('Checking pref %s', key)
-      self._VerifyPrefIsLocked(key, defaultval, newval)
-
-  def testClearSiteDataOnExit(self):
-    """Verify that clear data on exit preference cannot be modified."""
-    policy = {'ClearSiteDataOnExit': True}
-    self.SetPolicies(policy)
-    self._VerifyPrefIsLocked(pyauto.kClearSiteDataOnExit, True, False)
-    policy = {'ClearSiteDataOnExit': False}
-    self.SetPolicies(policy)
-    self._VerifyPrefIsLocked(pyauto.kClearSiteDataOnExit, False, True)
-
-  def testBlockThirdPartyCookies(self):
-    """Verify that third party cookies can be disabled."""
-    policy = {'BlockThirdPartyCookies': True}
-    self.SetPolicies(policy)
-    self._VerifyPrefIsLocked(pyauto.kBlockThirdPartyCookies, True, False)
-    policy = {'BlockThirdPartyCookies': False}
-    self.SetPolicies(policy)
-    self._VerifyPrefIsLocked(pyauto.kBlockThirdPartyCookies, False, True)
-
   def testApplicationLocaleValue(self):
     """Verify that Chrome can be launched only in a specific locale."""
     if self.IsWin():
       policy = {'ApplicationLocaleValue': 'hi'}
-      self.SetPolicies(policy)
+      self.SetUserPolicy(policy)
       self.assertTrue(
           'hi' in self.GetPrefsInfo().Prefs()['intl']['accept_languages'],
           msg='Chrome locale is not Hindi.')
@@ -360,13 +343,14 @@ class PolicyTest(policy_base.PolicyTestBase):
     """Verify that devtools window cannot be launched."""
     # DevTools process can be seen by PyAuto only when it's undocked.
     policy = {'DeveloperToolsDisabled': True}
-    self.SetPolicies(policy)
+    self.SetUserPolicy(policy)
     self.SetPrefs(pyauto.kDevToolsOpenDocked, False)
-    self.ApplyAccelerator(pyauto.IDC_DEV_TOOLS)
+    self.assertRaises(pyauto_errors.JSONInterfaceError,
+                      lambda: self.ApplyAccelerator(pyauto.IDC_DEV_TOOLS))
     self.assertEquals(1, len(self.GetBrowserInfo()['windows']),
                       msg='Devtools window launched.')
     policy = {'DeveloperToolsDisabled': False}
-    self.SetPolicies(policy)
+    self.SetUserPolicy(policy)
     self.ApplyAccelerator(pyauto.IDC_DEV_TOOLS)
     self.assertEquals(2, len(self.GetBrowserInfo()['windows']),
                       msg='Devtools window not launched.')
@@ -374,7 +358,7 @@ class PolicyTest(policy_base.PolicyTestBase):
   def testDisableSPDY(self):
     """Verify that SPDY is disabled."""
     policy = {'DisableSpdy': True}
-    self.SetPolicies(policy)
+    self.SetUserPolicy(policy)
     self.NavigateToURL('chrome://net-internals/#spdy')
     self.assertEquals(0, self.FindInPage('SPDY Enabled: true')['match_count'])
     self.assertEquals(
@@ -382,7 +366,7 @@ class PolicyTest(policy_base.PolicyTestBase):
         self.FindInPage('SPDY Enabled: false', tab_index=0)['match_count'],
         msg='SPDY is not disabled.')
     policy = {'DisableSpdy': False}
-    self.SetPolicies(policy)
+    self.SetUserPolicy(policy)
     self.GetBrowserWindow(0).GetTab(0).Reload()
     self.assertEquals(
         1,
@@ -392,7 +376,7 @@ class PolicyTest(policy_base.PolicyTestBase):
   def testDisabledPlugins(self):
     """Verify that disabled plugins cannot be enabled."""
     policy = {'DisabledPlugins': ['Shockwave Flash']}
-    self.SetPolicies(policy)
+    self.SetUserPolicy(policy)
     for plugin in self.GetPluginsInfo().Plugins():
       if 'Flash' in plugin['name']:
         self.assertRaises(pyauto.JSONInterfaceError,
@@ -410,7 +394,7 @@ class PolicyTest(policy_base.PolicyTestBase):
       'DisabledPlugins': ['Chrome PDF Viewer'],
       'DisabledPluginsExceptions': ['Chrome PDF Viewer']
     }
-    self.SetPolicies(policy)
+    self.SetUserPolicy(policy)
     for plugin in self.GetPluginsInfo().Plugins():
       if 'Chrome PDF Viewer' in plugin['name']:
         self.EnablePlugin(plugin['path'])
@@ -418,19 +402,19 @@ class PolicyTest(policy_base.PolicyTestBase):
 
   def testEnabledPlugins(self):
     """Verify that enabled plugins cannot be disabled."""
-    policy = {'EnabledPlugins': 'Java'}
-    self.SetPolicies(policy)
+    policy = {'EnabledPlugins': ['Shockwave Flash']}
+    self.SetUserPolicy(policy)
     for plugin in self.GetPluginsInfo().Plugins():
-      if 'Java' in plugin['name']:
+      if 'Flash' in plugin['name']:
         self.assertRaises(pyauto.JSONInterfaceError,
                           lambda: self.DisablePlugin(plugin['path']))
         return
-    logging.debug('Java is not present.')
+    logging.debug('Flash is not present.')
 
   def testAlwaysAuthorizePlugins(self):
     """Verify plugins are always allowed to run when policy is set."""
     policy = {'AlwaysAuthorizePlugins': True}
-    self.SetPolicies(policy)
+    self.SetUserPolicy(policy)
     url = self.GetFileURLForDataPath('plugin', 'java_new.html')
     self.NavigateToURL(url)
     self.assertFalse(self.WaitForInfobarCount(1))
@@ -454,7 +438,7 @@ class PolicyTest(policy_base.PolicyTestBase):
     new_download_dir = os.path.abspath(os.path.join(download_default_dir,
                                                     os.pardir))
     policy = {'DownloadDirectory': new_download_dir}
-    self.SetPolicies(policy)
+    self.SetUserPolicy(policy)
     self.assertEqual(
         new_download_dir,
         self.GetPrefsInfo().Prefs()['download']['default_directory'],
@@ -471,24 +455,26 @@ class PolicyTest(policy_base.PolicyTestBase):
   def testIncognitoEnabled(self):
     """Verify that incognito window can be launched."""
     policy = {'IncognitoEnabled': False}
-    self.SetPolicies(policy)
-    self.RunCommand(pyauto.IDC_NEW_INCOGNITO_WINDOW)
+    self.SetUserPolicy(policy)
+    self.assertRaises(
+        pyauto_errors.JSONInterfaceError,
+        lambda: self.ApplyAccelerator(pyauto.IDC_NEW_INCOGNITO_WINDOW))
     self.assertEquals(1, self.GetBrowserWindowCount())
     policy = {'IncognitoEnabled': True}
-    self.SetPolicies(policy)
+    self.SetUserPolicy(policy)
     self.RunCommand(pyauto.IDC_NEW_INCOGNITO_WINDOW)
     self.assertEquals(2, self.GetBrowserWindowCount())
 
   def testSavingBrowserHistoryDisabled(self):
     """Verify that browsing history is not being saved."""
     policy = {'SavingBrowserHistoryDisabled': True}
-    self.SetPolicies(policy)
+    self.SetUserPolicy(policy)
     url = self.GetFileURLForPath(os.path.join(self.DataDir(), 'empty.html'))
     self.NavigateToURL(url)
     self.assertFalse(self.GetHistoryInfo().History(),
                      msg='History is being saved.')
     policy = {'SavingBrowserHistoryDisabled': False}
-    self.SetPolicies(policy)
+    self.SetUserPolicy(policy)
     self.NavigateToURL(url)
     self.assertTrue(self.GetHistoryInfo().History(),
                      msg='History not is being saved.')
@@ -496,7 +482,7 @@ class PolicyTest(policy_base.PolicyTestBase):
   def testTranslateEnabled(self):
     """Verify that translate happens if policy enables it."""
     policy = {'TranslateEnabled': True}
-    self.SetPolicies(policy)
+    self.SetUserPolicy(policy)
     self.assertTrue(self.GetPrefsInfo().Prefs(pyauto.kEnableTranslate))
     url = self.GetFileURLForDataPath('translate', 'es', 'google.html')
     self.NavigateToURL(url)
@@ -506,22 +492,14 @@ class PolicyTest(policy_base.PolicyTestBase):
     self.assertFalse(translate_info['page_translated'])
     self.assertTrue(translate_info['can_translate_page'])
     self.assertTrue('translate_bar' in translate_info)
-    self._VerifyPrefIsLocked(pyauto.kEnableTranslate, True, False)
+    self.assertFalse(self._GetPrefIsManagedError(pyauto.kEnableTranslate, True))
     policy = {'TranslateEnabled': False}
-    self.SetPolicies(policy)
+    self.SetUserPolicy(policy)
     self.assertFalse(self.GetPrefsInfo().Prefs(pyauto.kEnableTranslate))
     self.NavigateToURL(url)
     self.assertFalse(self.WaitForInfobarCount(1))
-    self._VerifyPrefIsLocked(pyauto.kEnableTranslate, False, True)
-
-  def testEditBookmarksEnabled(self):
-    """Verify that bookmarks can be edited if policy sets it."""
-    policy = {'EditBookmarksEnabled': True}
-    self.SetPolicies(policy)
-    self._VerifyPrefIsLocked(pyauto.kEditBookmarksEnabled, True, False)
-    policy = {'EditBookmarksEnabled': False}
-    self.SetPolicies(policy)
-    self._VerifyPrefIsLocked(pyauto.kEditBookmarksEnabled, False, True)
+    self.assertFalse(self._GetPrefIsManagedError(pyauto.kEnableTranslate,
+                                                 False))
 
   def testDefaultSearchProviderOptions(self):
     """Verify a default search is performed when using omnibox."""
@@ -539,9 +517,9 @@ class PolicyTest(policy_base.PolicyTestBase):
       'DefaultSearchProviderSuggestURL': ('http://search.my.company/'
                                           'suggest?q={searchTerms}'),
     }
-    self.SetPolicies(policy)
-    self._VerifyPrefIsLocked(pyauto.kDefaultSearchProviderEnabled, True,
-                             False)
+    self.SetUserPolicy(policy)
+    self.assertFalse(
+        self._GetPrefIsManagedError(pyauto.kDefaultSearchProviderEnabled, True))
     intranet_engine = [x for x in self.GetSearchEngineInfo()
                        if x['keyword'] == 'mis']
     self.assertTrue(intranet_engine)
@@ -553,9 +531,10 @@ class PolicyTest(policy_base.PolicyTestBase):
     policy = {
       'DefaultSearchProviderEnabled': False,
     }
-    self.SetPolicies(policy)
-    self._VerifyPrefIsLocked(pyauto.kDefaultSearchProviderEnabled, False,
-                             True)
+    self.SetUserPolicy(policy)
+    self.assertFalse(
+        self._GetPrefIsManagedError(pyauto.kDefaultSearchProviderEnabled,
+                                    False))
     self.SetOmniboxText('deli')
     self.WaitUntilOmniboxQueryDone()
     self.assertRaises(pyauto.JSONInterfaceError,
@@ -643,7 +622,7 @@ class PolicyTest(policy_base.PolicyTestBase):
     # TODO(krisr): Remove this when crosbug.com/27227 is fixed.
     self._RemoveTestingExtensions()
     # Blacklist good.crx
-    self.SetPolicies({
+    self.SetUserPolicy({
       'ExtensionInstallBlacklist': [self._GOOD_CRX_ID]
     })
     self._AttemptExtensionInstallThatShouldFail('good.crx')
@@ -655,7 +634,7 @@ class PolicyTest(policy_base.PolicyTestBase):
     # TODO(krisr): Remove this when crosbug.com/27227 is fixed.
     self._RemoveTestingExtensions()
     # Block installs of all extensions
-    self.SetPolicies({
+    self.SetUserPolicy({
       'ExtensionInstallBlacklist': ['*']
     })
     self._AttemptExtensionInstallThatShouldFail('good.crx')
@@ -666,7 +645,7 @@ class PolicyTest(policy_base.PolicyTestBase):
     # TODO(krisr): Remove this when crosbug.com/27227 is fixed.
     self._RemoveTestingExtensions()
     # Block installs of all extensions, but whitelist adblock.crx
-    self.SetPolicies({
+    self.SetUserPolicy({
       'ExtensionInstallBlacklist': ['*'],
       'ExtensionInstallWhitelist': [self._ADBLOCK_CRX_ID]
     })
@@ -680,7 +659,7 @@ class PolicyTest(policy_base.PolicyTestBase):
     # TODO(krisr): Remove this when crosbug.com/27227 is fixed.
     self._RemoveTestingExtensions()
     # Force an extension download from the webstore.
-    self.SetPolicies({
+    self.SetUserPolicy({
       'ExtensionInstallForcelist': [self._SCREEN_CAPTURE_CRX_ID],
     })
     # Give the system 30 seconds to go get this extension.  We are not sure how
@@ -689,6 +668,32 @@ class PolicyTest(policy_base.PolicyTestBase):
       self._CheckForExtensionByID(self._SCREEN_CAPTURE_CRX_ID),
       expect_retval=True),
       msg='The force install extension was never installed.')
+
+  def testClearSiteDataOnExit(self):
+    """Verify the ClearSiteDataOnExit policy is taking effect.
+
+    Install a cookie and make sure the cookie gets removed on browser restart
+    when the policy is set.
+    """
+    cookie_url = 'http://example.com'
+    cookie_val = 'ponies=unicorns'
+    self.SetCookie(pyauto.GURL(cookie_url),
+                   cookie_val + ';expires=Wed Jan 01 3000 00:00:00 GMT')
+
+    # Cookie should be kept over restarts.
+    self.RestartBrowser(clear_profile=False)
+    self.assertEqual(
+        cookie_val, self.GetCookie(pyauto.GURL(cookie_url)),
+        msg='Cookie on ' + cookie_url + ' does not match ' + cookie_val + '.');
+
+    # With the policy set, the cookie should be gone after a restart.
+    self.SetUserPolicy({
+      'ClearSiteDataOnExit': True
+    })
+    self.RestartBrowser(clear_profile=False)
+    self.assertFalse(
+        self.GetCookie(pyauto.GURL(cookie_url)),
+        msg='Cookie present on ' + cookie_url + '.');
 
 
 if __name__ == '__main__':

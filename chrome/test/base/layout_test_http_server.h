@@ -4,7 +4,6 @@
 
 #ifndef CHROME_TEST_BASE_LAYOUT_TEST_HTTP_SERVER_H_
 #define CHROME_TEST_BASE_LAYOUT_TEST_HTTP_SERVER_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "base/file_path.h"
@@ -33,6 +32,8 @@ class LayoutTestHttpServer {
   // to bind to the same port will fail, possibly resulting in further test
   // failures.
   bool Stop() WARN_UNUSED_RESULT;
+
+  int port() const { return port_; }
 
  private:
   FilePath root_directory_;  // Root directory of the server.

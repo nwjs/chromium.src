@@ -4,11 +4,10 @@
   <meta charset="utf-8">
   <title i18n-content="title"></title>
   <link rel="icon" href="chrome://theme/IDR_DOWNLOADS_FAVICON">
-  <link rel="stylesheet" href="../old_webui.css">
   <link rel="stylesheet" href="../shared/css/chrome_shared.css">
-  <link rel="stylesheet" href="../shared/css/widgets.css">
+  <!-- This has to come after chrome_shared.css -->
   <link rel="stylesheet" href="downloads.css">
-  <script src="chrome://resources/js/local_strings.js"></script>
+  <script src="chrome://resources/js/load_time_data.js"></script>
   <script src="chrome://resources/js/util.js"></script>
   <script src="chrome://downloads/downloads.js"></script>
 </head>
@@ -18,11 +17,8 @@
       <img src="../shared/images/downloads_section.png"
           width="67" height="67" class="logo" border="0">
     </a>
-    <form id="search-form" method="post" action="" class="form">
-      <input type="text" name="term" id="term">
-      <input id="search-submit" type="submit" name="submit"
-          i18n-values="value:searchbutton">
-    </form>
+    <input id="term" type="search" tabindex=1
+        i18n-values="placeholder:searchbutton" class="form" autofocus incremental>
   </div>
   <div class="main">
     <div id="downloads-summary">
@@ -37,7 +33,6 @@
     <div id="downloads-display"></div>
   </div>
   <script src="chrome://downloads/strings.js"></script>
-  <script src="chrome://resources/js/i18n_template.js"></script>
-  <script src="chrome://resources/js/i18n_process.js"></script>
+  <script src="chrome://resources/js/i18n_template2.js"></script>
 </body>
 </html>

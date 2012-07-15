@@ -8,11 +8,11 @@
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/event_disposition.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/prefs/scoped_user_pref_update.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/ui/views/accessibility_event_router_views.h"
-#include "chrome/browser/ui/views/event_utils.h"
+#include "chrome/browser/ui/views/accessibility/accessibility_event_router_views.h"
 #include "chrome/common/pref_names.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/gfx/rect.h"
@@ -24,8 +24,13 @@
 #include "chrome/browser/app_icon_win.h"
 #endif
 
+#if defined(USE_AURA)
+#include "ui/views/widget/desktop_native_widget_helper_aura.h"
+#endif
+
 #if defined(USE_ASH)
 #include "ash/shell.h"
+#include "chrome/browser/ui/ash/ash_init.h"
 #endif
 
 namespace {
@@ -72,8 +77,8 @@ void ChromeViewsDelegate::SaveWindowPlacement(const views::Widget* window,
   window_preferences->SetInteger("bottom", bounds.bottom());
   window_preferences->SetBoolean("maximized",
                                  show_state == ui::SHOW_STATE_MAXIMIZED);
-
-  gfx::Rect work_area(gfx::Screen::GetMonitorWorkAreaMatching(bounds));
+  gfx::Rect work_area(
+      gfx::Screen::GetDisplayMatching(bounds).work_area());
   window_preferences->SetInteger("work_area_left", work_area.x());
   window_preferences->SetInteger("work_area_top", work_area.y());
   window_preferences->SetInteger("work_area_right", work_area.right());
@@ -155,5 +160,25 @@ void ChromeViewsDelegate::ReleaseRef() {
 }
 
 int ChromeViewsDelegate::GetDispositionForEvent(int event_flags) {
-  return event_utils::DispositionFromEventFlags(event_flags);
+  return chrome::DispositionFromEventFlags(event_flags);
+}
+
+#if defined(USE_AURA)
+views::NativeWidgetHelperAura* ChromeViewsDelegate::CreateNativeWidgetHelper(
+    views::NativeWidgetAura* native_widget) {
+  // TODO(beng): insufficient but currently necessary. http://crbug.com/133312
+#if defined(USE_ASH)
+  if (!chrome::ShouldOpenAshOnStartup())
+#endif
+    return new views::DesktopNativeWidgetHelperAura(native_widget);
+#if defined(USE_ASH)
+  return NULL;
+#endif
+}
+#endif
+
+content::WebContents* ChromeViewsDelegate::CreateWebContents(
+    content::BrowserContext* browser_context,
+    content::SiteInstance* site_instance) {
+  return NULL;
 }

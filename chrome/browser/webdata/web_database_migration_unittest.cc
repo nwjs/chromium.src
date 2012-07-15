@@ -5,6 +5,7 @@
 #include <string>
 
 #include "base/file_util.h"
+#include "base/guid.h"
 #include "base/message_loop.h"
 #include "base/scoped_temp_dir.h"
 #include "base/stl_util.h"
@@ -20,10 +21,10 @@
 #include "chrome/browser/webdata/autofill_entry.h"
 #include "chrome/browser/webdata/keyword_table.h"
 #include "chrome/browser/webdata/web_database.h"
+#include "chrome/browser/webdata/web_intents_table.h"
 #include "chrome/common/chrome_paths.h"
-#include "chrome/common/guid.h"
 #include "chrome/test/base/ui_test_utils.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "sql/statement.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -57,7 +58,7 @@ void AutofillProfile31FromStatement(const sql::Statement& s,
   profile->SetInfo(PHONE_HOME_WHOLE_NUMBER, s.ColumnString16(13));
   *date_modified = s.ColumnInt64(15);
   profile->set_guid(s.ColumnString(16));
-  EXPECT_TRUE(guid::IsValidGUID(profile->guid()));
+  EXPECT_TRUE(base::IsValidGUID(profile->guid()));
 }
 
 void AutofillProfile33FromStatement(const sql::Statement& s,
@@ -66,7 +67,7 @@ void AutofillProfile33FromStatement(const sql::Statement& s,
   DCHECK(profile);
   DCHECK(date_modified);
   profile->set_guid(s.ColumnString(0));
-  EXPECT_TRUE(guid::IsValidGUID(profile->guid()));
+  EXPECT_TRUE(base::IsValidGUID(profile->guid()));
   profile->SetInfo(COMPANY_NAME, s.ColumnString16(1));
   profile->SetInfo(ADDRESS_HOME_LINE1, s.ColumnString16(2));
   profile->SetInfo(ADDRESS_HOME_LINE2, s.ColumnString16(3));
@@ -101,7 +102,7 @@ void CreditCard31FromStatement(const sql::Statement& s,
   }
   *date_modified = s.ColumnInt64(12);
   credit_card->set_guid(s.ColumnString(13));
-  EXPECT_TRUE(guid::IsValidGUID(credit_card->guid()));
+  EXPECT_TRUE(base::IsValidGUID(credit_card->guid()));
 }
 
 void CreditCard32FromStatement(const sql::Statement& s,
@@ -112,7 +113,7 @@ void CreditCard32FromStatement(const sql::Statement& s,
   DCHECK(encrypted_number);
   DCHECK(date_modified);
   credit_card->set_guid(s.ColumnString(0));
-  EXPECT_TRUE(guid::IsValidGUID(credit_card->guid()));
+  EXPECT_TRUE(base::IsValidGUID(credit_card->guid()));
   credit_card->SetInfo(CREDIT_CARD_NAME, s.ColumnString16(1));
   credit_card->SetInfo(CREDIT_CARD_EXP_MONTH, s.ColumnString16(2));
   credit_card->SetInfo(CREDIT_CARD_EXP_4_DIGIT_YEAR, s.ColumnString16(3));
@@ -194,7 +195,7 @@ class WebDatabaseMigrationTest : public testing::Test {
   DISALLOW_COPY_AND_ASSIGN(WebDatabaseMigrationTest);
 };
 
-const int WebDatabaseMigrationTest::kCurrentTestedVersionNumber = 44;
+const int WebDatabaseMigrationTest::kCurrentTestedVersionNumber = 46;
 
 void WebDatabaseMigrationTest::LoadDatabase(const FilePath::StringType& file) {
   std::string contents;
@@ -224,16 +225,19 @@ TEST_F(WebDatabaseMigrationTest, MigrateEmptyToCurrent) {
     EXPECT_EQ(kCurrentTestedVersionNumber, VersionFromConnection(&connection));
 
     // Check that expected tables are present.
-    EXPECT_TRUE(connection.DoesTableExist("meta"));
-    EXPECT_TRUE(connection.DoesTableExist("keywords"));
-    EXPECT_TRUE(connection.DoesTableExist("logins"));
-    EXPECT_TRUE(connection.DoesTableExist("web_app_icons"));
-    EXPECT_TRUE(connection.DoesTableExist("web_apps"));
     EXPECT_TRUE(connection.DoesTableExist("autofill"));
     EXPECT_TRUE(connection.DoesTableExist("autofill_dates"));
     EXPECT_TRUE(connection.DoesTableExist("autofill_profiles"));
     EXPECT_TRUE(connection.DoesTableExist("credit_cards"));
+    EXPECT_TRUE(connection.DoesTableExist("keywords"));
+    // The logins table is obsolete. (We used to store saved passwords here.)
+    EXPECT_FALSE(connection.DoesTableExist("logins"));
+    EXPECT_TRUE(connection.DoesTableExist("meta"));
     EXPECT_TRUE(connection.DoesTableExist("token_service"));
+    EXPECT_TRUE(connection.DoesTableExist("web_app_icons"));
+    EXPECT_TRUE(connection.DoesTableExist("web_apps"));
+    EXPECT_TRUE(connection.DoesTableExist("web_intents"));
+    EXPECT_TRUE(connection.DoesTableExist("web_intents_defaults"));
   }
 }
 
@@ -302,7 +306,6 @@ TEST_F(WebDatabaseMigrationTest, MigrateVersion22CorruptedToCurrent) {
     ASSERT_TRUE(
         connection.DoesColumnExist("credit_cards", "card_number_encrypted"));
     ASSERT_TRUE(connection.DoesColumnExist("keywords", "id"));
-    ASSERT_FALSE(connection.DoesColumnExist("keywords", "logo_id"));
   }
 
   // Load the database via the WebDatabase class and migrate the database to
@@ -328,47 +331,6 @@ TEST_F(WebDatabaseMigrationTest, MigrateVersion22CorruptedToCurrent) {
     EXPECT_TRUE(
         connection.DoesColumnExist("credit_cards", "card_number_encrypted"));
     EXPECT_TRUE(connection.DoesColumnExist("keywords", "id"));
-    EXPECT_TRUE(connection.DoesColumnExist("keywords", "logo_id"));
-  }
-}
-
-// Tests that the |keywords| |logo_id| column gets added to the schema for a
-// version 24 database.
-TEST_F(WebDatabaseMigrationTest, MigrateVersion24ToCurrent) {
-  // This schema is taken from a build prior to the addition of the |keywords|
-  // |logo_id| column.
-  ASSERT_NO_FATAL_FAILURE(LoadDatabase(FILE_PATH_LITERAL("version_24.sql")));
-
-  // Verify pre-conditions.  These are expectations for version 24 of the
-  // database.
-  {
-    sql::Connection connection;
-    ASSERT_TRUE(connection.Open(GetDatabasePath()));
-
-    // Columns existing and not existing before current version.
-    ASSERT_TRUE(connection.DoesColumnExist("keywords", "id"));
-    ASSERT_FALSE(connection.DoesColumnExist("keywords", "logo_id"));
-  }
-
-  // Load the database via the WebDatabase class and migrate the database to
-  // the current version.
-  {
-    WebDatabase db;
-    ASSERT_EQ(sql::INIT_OK, db.Init(GetDatabasePath()));
-  }
-
-  // Verify post-conditions.  These are expectations for current version of the
-  // database.
-  {
-    sql::Connection connection;
-    ASSERT_TRUE(connection.Open(GetDatabasePath()));
-
-    // Check version.
-    EXPECT_EQ(kCurrentTestedVersionNumber, VersionFromConnection(&connection));
-
-    // |keywords| |logo_id| column should have been added.
-    EXPECT_TRUE(connection.DoesColumnExist("keywords", "id"));
-    EXPECT_TRUE(connection.DoesColumnExist("keywords", "logo_id"));
   }
 }
 
@@ -617,12 +579,10 @@ TEST_F(WebDatabaseMigrationTest, MigrateVersion27ToCurrent) {
     EXPECT_EQ(std::string("{google:baseSuggestURL}search?client=chrome&hl="
                           "{language}&q={searchTerms}"), s2.ColumnString(11));
     EXPECT_EQ(1, s2.ColumnInt(12));
-    EXPECT_TRUE(s2.ColumnBool(13));
-    EXPECT_EQ(6245, s2.ColumnInt(14));
-    EXPECT_FALSE(s2.ColumnBool(15));
+    //EXPECT_EQ(false, s2.ColumnBool(13));
+    EXPECT_EQ(std::string(), s2.ColumnString(14));
+    EXPECT_EQ(0, s2.ColumnInt(15));
     EXPECT_EQ(std::string(), s2.ColumnString(16));
-    EXPECT_EQ(0, s2.ColumnInt(17));
-    EXPECT_EQ(std::string(), s2.ColumnString(18));
   }
 }
 
@@ -733,11 +693,11 @@ TEST_F(WebDatabaseMigrationTest, MigrateVersion30ToCurrent) {
 
     ASSERT_TRUE(s.Step());
     std::string guid1 = s.ColumnString(0);
-    EXPECT_TRUE(guid::IsValidGUID(guid1));
+    EXPECT_TRUE(base::IsValidGUID(guid1));
 
     ASSERT_TRUE(s.Step());
     std::string guid2 = s.ColumnString(0);
-    EXPECT_TRUE(guid::IsValidGUID(guid2));
+    EXPECT_TRUE(base::IsValidGUID(guid2));
 
     EXPECT_NE(guid1, guid2);
   }
@@ -1844,14 +1804,12 @@ TEST_F(WebDatabaseMigrationTest, MigrateVersion42ToCurrent) {
     EXPECT_EQ("{google:baseSuggestURL}search?client=chrome&hl={language}&"
               "q={searchTerms}", s.ColumnString(11));
     EXPECT_EQ(1, s.ColumnInt(12));
-    EXPECT_TRUE(s.ColumnBool(13));
-    EXPECT_EQ(6262, s.ColumnInt(14));
-    EXPECT_FALSE(s.ColumnBool(15));
+    //EXPECT_EQ(false, s.ColumnBool(13));
     EXPECT_EQ("{google:baseURL}webhp?{google:RLZ}sourceid=chrome-instant&"
               "ie={inputEncoding}&ion=1{searchTerms}&nord=1",
-              s.ColumnString(16));
-    EXPECT_EQ(0, s.ColumnInt(17));
-    EXPECT_EQ("{1234-5678-90AB-CDEF}", s.ColumnString(18));
+              s.ColumnString(14));
+    EXPECT_EQ(0, s.ColumnInt(15));
+    EXPECT_EQ("{1234-5678-90AB-CDEF}", s.ColumnString(16));
 
     EXPECT_FALSE(s.Step());
   }
@@ -1933,5 +1891,321 @@ TEST_F(WebDatabaseMigrationTest, MigrateVersion43ToCurrent) {
     EXPECT_TRUE(meta_table.GetValue(KeywordTable::kBackupSignatureKey,
         &default_search_provider_id_backup_signature));
     EXPECT_FALSE(default_search_provider_id_backup_signature.empty());
+  }
+}
+
+#if !defined(GOOGLE_CHROME_BUILD)
+// Tests that the |autogenerate_keyword| and |logo_id| columns get removed from
+// the keyword table schema for a version 45 database.
+//
+// This is enabled on Chromium only because a valid signature is required for
+// this test, which makes it key-dependent.
+TEST_F(WebDatabaseMigrationTest, MigrateVersion44ToCurrent) {
+  ASSERT_NO_FATAL_FAILURE(LoadDatabase(FILE_PATH_LITERAL("version_44.sql")));
+
+  // Verify pre-conditions.  These are expectations for version 44 of the
+  // database.
+  {
+    sql::Connection connection;
+    ASSERT_TRUE(connection.Open(GetDatabasePath()));
+    ASSERT_TRUE(sql::MetaTable::DoesTableExist(&connection));
+
+    sql::MetaTable meta_table;
+    ASSERT_TRUE(meta_table.Init(&connection, 44, 44));
+
+    ASSERT_TRUE(connection.DoesColumnExist("keywords", "autogenerate_keyword"));
+    ASSERT_TRUE(connection.DoesColumnExist("keywords", "logo_id"));
+  }
+
+  // Load the database via the WebDatabase class and migrate the database to
+  // the current version.
+  {
+    WebDatabase db;
+    ASSERT_EQ(sql::INIT_OK, db.Init(GetDatabasePath()));
+    ASSERT_FALSE(db.GetKeywordTable()->DidDefaultSearchProviderChange());
+
+    // The backup table should match the keyword table.
+    std::string keywords_contents;
+    EXPECT_TRUE(db.GetKeywordTable()->GetTableContents("keywords",
+        kCurrentTestedVersionNumber, &keywords_contents));
+    std::string keywords_backup_contents;
+    EXPECT_TRUE(db.GetKeywordTable()->GetTableContents("keywords_backup",
+        kCurrentTestedVersionNumber, &keywords_backup_contents));
+    EXPECT_EQ(keywords_contents, keywords_backup_contents);
+  }
+
+  // Verify post-conditions.  These are expectations for current version of the
+  // database.
+  {
+    sql::Connection connection;
+    ASSERT_TRUE(connection.Open(GetDatabasePath()));
+    ASSERT_TRUE(sql::MetaTable::DoesTableExist(&connection));
+
+    // Check version.
+    EXPECT_EQ(kCurrentTestedVersionNumber, VersionFromConnection(&connection));
+
+    sql::MetaTable meta_table;
+    ASSERT_TRUE(meta_table.Init(&connection, kCurrentTestedVersionNumber,
+                                kCurrentTestedVersionNumber));
+
+    // We should have removed this obsolete key.
+    std::string default_search_provider_backup;
+    EXPECT_FALSE(meta_table.GetValue("Default Search Provider Backup",
+                                     &default_search_provider_backup));
+
+    // Two columns should have been removed.
+    EXPECT_FALSE(connection.DoesColumnExist("keywords",
+                                            "autogenerate_keyword"));
+    EXPECT_FALSE(connection.DoesColumnExist("keywords", "logo_id"));
+  }
+}
+#endif  // !defined(GOOGLE_CHROME_BUILD)
+
+// Like MigrateVersion44ToCurrent above, but with a corrupt backup signature.
+// This should result in us dropping the backup table but successfully migrating
+// otherwise.
+//
+// Because this test doesn't rely on a valid signature, we can run it on
+// official builds as well.
+TEST_F(WebDatabaseMigrationTest, MigrateVersion44CorruptBackupToCurrent) {
+  ASSERT_NO_FATAL_FAILURE(
+      LoadDatabase(FILE_PATH_LITERAL("version_44_backup_corrupt.sql")));
+
+  // Verify pre-conditions.  These are expectations for version 44 of the
+  // database.
+  {
+    sql::Connection connection;
+    ASSERT_TRUE(connection.Open(GetDatabasePath()));
+    ASSERT_TRUE(sql::MetaTable::DoesTableExist(&connection));
+
+    sql::MetaTable meta_table;
+    ASSERT_TRUE(meta_table.Init(&connection, 44, 44));
+
+    ASSERT_TRUE(connection.DoesColumnExist("keywords", "autogenerate_keyword"));
+    ASSERT_TRUE(connection.DoesColumnExist("keywords", "logo_id"));
+  }
+
+  // Load the database via the WebDatabase class and migrate the database to
+  // the current version.
+  {
+    WebDatabase db;
+    ASSERT_EQ(sql::INIT_OK, db.Init(GetDatabasePath()));
+    // We should detect a "search provider change" as a side effect of dropping
+    // the backup table.
+    ASSERT_TRUE(db.GetKeywordTable()->DidDefaultSearchProviderChange());
+  }
+
+  // Verify post-conditions.  These are expectations for current version of the
+  // database.
+  {
+    sql::Connection connection;
+    ASSERT_TRUE(connection.Open(GetDatabasePath()));
+    ASSERT_TRUE(sql::MetaTable::DoesTableExist(&connection));
+
+    // Check version.
+    EXPECT_EQ(kCurrentTestedVersionNumber, VersionFromConnection(&connection));
+
+    sql::MetaTable meta_table;
+    ASSERT_TRUE(meta_table.Init(&connection, kCurrentTestedVersionNumber,
+                                kCurrentTestedVersionNumber));
+
+    // We should have removed this obsolete key.
+    std::string default_search_provider_backup;
+    EXPECT_FALSE(meta_table.GetValue("Default Search Provider Backup",
+                                     &default_search_provider_backup));
+
+    // Two columns should have been removed.
+    EXPECT_FALSE(connection.DoesColumnExist("keywords",
+                                            "autogenerate_keyword"));
+    EXPECT_FALSE(connection.DoesColumnExist("keywords", "logo_id"));
+
+    // The backup table should be gone.
+    EXPECT_FALSE(connection.DoesTableExist("keywords_backup"));
+  }
+}
+
+// Tests that the web_intents and web_intents_defaults tables are
+// modified to include "scheme" columns.
+TEST_F(WebDatabaseMigrationTest, MigrateVersion45ToCurrent) {
+  ASSERT_NO_FATAL_FAILURE(LoadDatabase(FILE_PATH_LITERAL("version_45.sql")));
+
+  // Verify pre-conditions.  These are expectations for version 45 of the
+  // database.
+  {
+    sql::Connection connection;
+    ASSERT_TRUE(connection.Open(GetDatabasePath()));
+    ASSERT_TRUE(sql::MetaTable::DoesTableExist(&connection));
+
+    sql::MetaTable meta_table;
+    ASSERT_TRUE(meta_table.Init(&connection, 45, 45));
+
+    ASSERT_FALSE(connection.DoesColumnExist("scheme", "web_intents"));
+    ASSERT_FALSE(connection.DoesColumnExist(
+        "scheme", "web_intents_defaults"));
+  }
+
+  // Load the database via the WebDatabase class and migrate the database to
+  // the current version.
+  {
+    WebDatabase db;
+    ASSERT_EQ(sql::INIT_OK, db.Init(GetDatabasePath()));
+  }
+
+  // Verify post-conditions.  These are expectations for current version of the
+  // database.
+  {
+    sql::Connection connection;
+    ASSERT_TRUE(connection.Open(GetDatabasePath()));
+    ASSERT_TRUE(sql::MetaTable::DoesTableExist(&connection));
+
+    // Check version.
+    EXPECT_EQ(kCurrentTestedVersionNumber, VersionFromConnection(&connection));
+
+    sql::MetaTable meta_table;
+    ASSERT_TRUE(meta_table.Init(
+        &connection,
+        kCurrentTestedVersionNumber,
+        kCurrentTestedVersionNumber));
+
+    // A new "scheme" column should have been added to each web_intents table.
+    EXPECT_TRUE(connection.DoesColumnExist("web_intents", "scheme"));
+    EXPECT_TRUE(connection.DoesColumnExist("web_intents_defaults", "scheme"));
+
+    // Verify existing user data was copied.
+    sql::Statement s1(
+        connection.GetUniqueStatement("SELECT * FROM web_intents"));
+
+    ASSERT_TRUE(s1.Step());
+    EXPECT_EQ("http://poodles.com/fuzzer", s1.ColumnString(0));
+    EXPECT_EQ(ASCIIToUTF16("fuzz"), s1.ColumnString16(1));
+    EXPECT_EQ(ASCIIToUTF16("poodle/*"), s1.ColumnString16(2));
+    EXPECT_EQ(ASCIIToUTF16("Poodle Fuzzer"), s1.ColumnString16(3));
+    EXPECT_EQ(ASCIIToUTF16("window"), s1.ColumnString16(4));
+    EXPECT_EQ(ASCIIToUTF16(""), s1.ColumnString16(5));
+    ASSERT_FALSE(s1.Step());
+
+    // Now we want to verify existing user data was copied
+    sql::Statement s2(
+        connection.GetUniqueStatement("SELECT * FROM web_intents_defaults"));
+
+    ASSERT_TRUE(s2.Step());
+    EXPECT_EQ("fuzz", s2.ColumnString(0));
+    EXPECT_EQ(ASCIIToUTF16("poodle/*"), s2.ColumnString16(1));
+    EXPECT_EQ(ASCIIToUTF16(""), s2.ColumnString16(2));
+    EXPECT_EQ(0, s2.ColumnInt(3));
+    EXPECT_EQ(0, s2.ColumnInt(4));
+    EXPECT_EQ(ASCIIToUTF16("http://poodles.com/fuzzer"), s2.ColumnString16(5));
+    EXPECT_EQ(ASCIIToUTF16(""), s2.ColumnString16(6));
+    ASSERT_FALSE(s2.Step());
+
+    // finally ensure the migration code cleaned up after itself
+    EXPECT_FALSE(connection.DoesTableExist("old_web_intents"));
+    EXPECT_FALSE(connection.DoesTableExist("old_web_intents_defaults"));
+  }
+}
+
+// Tests that the web_intents and web_intents_defaults tables are
+// modified to include "scheme" columns.
+TEST_F(WebDatabaseMigrationTest, MigrateVersion45InvalidToCurrent) {
+  ASSERT_NO_FATAL_FAILURE(
+      LoadDatabase(FILE_PATH_LITERAL("version_45_invalid.sql")));
+
+  // Verify pre-conditions.  These are expectations for version 45 of the
+  // database.
+  {
+    sql::Connection connection;
+    ASSERT_TRUE(connection.Open(GetDatabasePath()));
+    ASSERT_TRUE(sql::MetaTable::DoesTableExist(&connection));
+
+    sql::MetaTable meta_table;
+    ASSERT_TRUE(meta_table.Init(&connection, 45, 45));
+
+    ASSERT_FALSE(connection.DoesColumnExist("scheme", "web_intents"));
+    ASSERT_FALSE(connection.DoesColumnExist(
+        "scheme", "web_intents_defaults"));
+  }
+
+  // Load the database via the WebDatabase class and migrate the database to
+  // the current version.
+  {
+    WebDatabase db;
+    ASSERT_EQ(sql::INIT_OK, db.Init(GetDatabasePath()));
+  }
+
+  // Verify post-conditions.  These are expectations for current version of the
+  // database.
+  {
+    sql::Connection connection;
+    ASSERT_TRUE(connection.Open(GetDatabasePath()));
+    ASSERT_TRUE(sql::MetaTable::DoesTableExist(&connection));
+
+    // Check version.
+    EXPECT_EQ(kCurrentTestedVersionNumber, VersionFromConnection(&connection));
+
+    sql::MetaTable meta_table;
+    ASSERT_TRUE(meta_table.Init(
+        &connection,
+        kCurrentTestedVersionNumber,
+        kCurrentTestedVersionNumber));
+
+    // A new "scheme" column should have been added to each web_intents table.
+    EXPECT_TRUE(connection.DoesColumnExist("web_intents", "scheme"));
+    EXPECT_TRUE(connection.DoesColumnExist("web_intents_defaults", "scheme"));
+
+    // Verify existing user data was copied.
+    sql::Statement s1(
+        connection.GetUniqueStatement("SELECT * FROM web_intents"));
+
+    ASSERT_FALSE(s1.Step());  // Basically should be empty at this point.
+
+    // Now we want to verify existing user data was copied
+    sql::Statement s2(
+        connection.GetUniqueStatement("SELECT * FROM web_intents_defaults"));
+
+    // We were able to create the new tables, but unable to copy any data
+    // Given the initial bad state of the tables.
+    ASSERT_FALSE(s2.Step());
+
+    // Finally ensure the migration code cleaned up after itself.
+    EXPECT_FALSE(connection.DoesTableExist("old_web_intents"));
+    EXPECT_FALSE(connection.DoesTableExist("old_web_intents_defaults"));
+  }
+}
+
+// Check that current version is forced to compatible version before migration,
+// if the former is smaller.
+TEST_F(WebDatabaseMigrationTest, MigrateVersion45CompatibleToCurrent) {
+  ASSERT_NO_FATAL_FAILURE(
+      LoadDatabase(FILE_PATH_LITERAL("version_45_compatible.sql")));
+
+  // Verify pre-conditions.  These are expectations for version 45 of the
+  // database.
+  {
+    sql::Connection connection;
+    ASSERT_TRUE(connection.Open(GetDatabasePath()));
+    ASSERT_TRUE(sql::MetaTable::DoesTableExist(&connection));
+
+    sql::MetaTable meta_table;
+    // Database is actually version 45 but the version field states 40.
+    ASSERT_TRUE(meta_table.Init(&connection, 40, 45));
+  }
+
+  // Load the database via the WebDatabase class and migrate the database to
+  // the current version.
+  {
+    WebDatabase db;
+    ASSERT_EQ(sql::INIT_OK, db.Init(GetDatabasePath()));
+  }
+
+  // Verify post-conditions.  These are expectations for current version of the
+  // database.
+  {
+    sql::Connection connection;
+    ASSERT_TRUE(connection.Open(GetDatabasePath()));
+    ASSERT_TRUE(sql::MetaTable::DoesTableExist(&connection));
+
+    // Check version.
+    EXPECT_EQ(kCurrentTestedVersionNumber, VersionFromConnection(&connection));
+    EXPECT_LE(45, VersionFromConnection(&connection));
   }
 }

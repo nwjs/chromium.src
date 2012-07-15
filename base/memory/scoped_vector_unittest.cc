@@ -62,12 +62,11 @@ class LifeCycleWatcher : public LifeCycleObject::Observer {
   LifeCycleWatcher()
       : life_cycle_state_(LC_INITIAL),
         constructed_life_cycle_object_(NULL) {}
-  ~LifeCycleWatcher() {
-  }
+  virtual ~LifeCycleWatcher() {}
 
   // Assert INITIAL -> CONSTRUCTED and no LifeCycleObject associated with this
   // LifeCycleWatcher.
-  virtual void OnLifeCycleConstruct(LifeCycleObject* object) {
+  virtual void OnLifeCycleConstruct(LifeCycleObject* object) OVERRIDE {
     ASSERT_EQ(LC_INITIAL, life_cycle_state_);
     ASSERT_EQ(NULL, constructed_life_cycle_object_.get());
     life_cycle_state_ = LC_CONSTRUCTED;
@@ -76,7 +75,7 @@ class LifeCycleWatcher : public LifeCycleObject::Observer {
 
   // Assert CONSTRUCTED -> DESTROYED and the |object| being destroyed is the
   // same one we saw constructed.
-  virtual void OnLifeCycleDestroy(LifeCycleObject* object) {
+  virtual void OnLifeCycleDestroy(LifeCycleObject* object) OVERRIDE {
     ASSERT_EQ(LC_CONSTRUCTED, life_cycle_state_);
     LifeCycleObject* constructed_life_cycle_object =
         constructed_life_cycle_object_.release();
@@ -108,14 +107,27 @@ TEST(ScopedVectorTest, LifeCycleWatcher) {
   EXPECT_EQ(LC_DESTROYED, watcher.life_cycle_state());
 }
 
-TEST(ScopedVectorTest, Reset) {
+TEST(ScopedVectorTest, Clear) {
   LifeCycleWatcher watcher;
   EXPECT_EQ(LC_INITIAL, watcher.life_cycle_state());
   ScopedVector<LifeCycleObject> scoped_vector;
   scoped_vector.push_back(watcher.NewLifeCycleObject());
   EXPECT_EQ(LC_CONSTRUCTED, watcher.life_cycle_state());
-  scoped_vector.reset();
+  scoped_vector.clear();
   EXPECT_EQ(LC_DESTROYED, watcher.life_cycle_state());
+  EXPECT_EQ(static_cast<size_t>(0), scoped_vector.size());
+}
+
+TEST(ScopedVectorTest, WeakClear) {
+  LifeCycleWatcher watcher;
+  EXPECT_EQ(LC_INITIAL, watcher.life_cycle_state());
+  ScopedVector<LifeCycleObject> scoped_vector;
+  scoped_ptr<LifeCycleObject> object(watcher.NewLifeCycleObject());
+  scoped_vector.push_back(object.get());
+  EXPECT_EQ(LC_CONSTRUCTED, watcher.life_cycle_state());
+  scoped_vector.weak_clear();
+  EXPECT_EQ(LC_CONSTRUCTED, watcher.life_cycle_state());
+  EXPECT_EQ(static_cast<size_t>(0), scoped_vector.size());
 }
 
 TEST(ScopedVectorTest, Scope) {
@@ -197,7 +209,7 @@ TEST(ScopedVectorTest, Passed) {
   EXPECT_EQ(0, deletes);
   ScopedVector<DeleteCounter> result = callback.Run();
   EXPECT_EQ(0, deletes);
-  result.reset();
+  result.clear();
   EXPECT_EQ(1, deletes);
 };
 

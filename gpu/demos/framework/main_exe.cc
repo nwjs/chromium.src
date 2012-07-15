@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,11 +6,11 @@
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "gpu/demos/framework/window.h"
-#include "ui/gfx/gl/gl_surface.h"
+#include "ui/gl/gl_surface.h"
 
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
 #include <gtk/gtk.h>
-#endif  // TOOLKIT_USES_GTK
+#endif  // TOOLKIT_GTK
 
 namespace {
 static const int kWindowWidth = 512;
@@ -18,9 +18,9 @@ static const int kWindowHeight = 512;
 }  // namespace.
 
 int main(int argc, char** argv) {
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
   gtk_init(&argc, &argv);
-#endif  // TOOLKIT_USES_GTK
+#endif  // TOOLKIT_GTK
 
   // AtExitManager is used by singleton classes to delete themselves when
   // the program terminates.

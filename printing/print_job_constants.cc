@@ -27,6 +27,9 @@ const char kSettingCollate[] = "collate";
 // Print out color: true for color, false for grayscale.
 const char kSettingColor[] = "color";
 
+// Default to color on or not.
+const char kSettingSetColorAsDefault[] = "setColorAsDefault";
+
 // Key that specifies the height of the content area of the page.
 const char kSettingContentHeight[] = "contentHeight";
 
@@ -41,6 +44,10 @@ const char kSettingDeviceName[] = "deviceName";
 
 // Print job duplex mode.
 const char kSettingDuplexMode[] = "duplex";
+
+// Option to fit source page contents to printer paper size: true if
+// selected else false.
+const char kSettingFitToPageEnabled[] = "fitToPageEnabled";
 
 // True, when a new set of draft preview data is required.
 const char kSettingGenerateDraftData[] = "generateDraftData";

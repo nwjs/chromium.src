@@ -67,7 +67,8 @@ void CustomFrameViewAsh::Init(views::Widget* frame) {
     AddChildView(window_icon_);
   }
 
-  frame_painter_->Init(frame_, window_icon_, maximize_button_, close_button_);
+  frame_painter_->Init(frame_, window_icon_, maximize_button_, close_button_,
+                       FramePainter::SIZE_BUTTON_MAXIMIZES);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -119,11 +120,15 @@ void CustomFrameViewAsh::Layout() {
 }
 
 void CustomFrameViewAsh::OnPaint(gfx::Canvas* canvas) {
-  ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
-  const SkBitmap* theme_bitmap = ShouldPaintAsActive() ?
-      rb.GetImageNamed(IDR_AURA_WINDOW_HEADER_BASE_ACTIVE).ToSkBitmap() :
-      rb.GetImageNamed(IDR_AURA_WINDOW_HEADER_BASE_INACTIVE).ToSkBitmap();
-  frame_painter_->PaintHeader(this, canvas, theme_bitmap, NULL);
+  bool paint_as_active = ShouldPaintAsActive();
+  int theme_image_id = paint_as_active ? IDR_AURA_WINDOW_HEADER_BASE_ACTIVE :
+      IDR_AURA_WINDOW_HEADER_BASE_INACTIVE;
+  frame_painter_->PaintHeader(
+      this,
+      canvas,
+      paint_as_active ? FramePainter::ACTIVE : FramePainter::INACTIVE,
+      theme_image_id,
+      NULL);
   frame_painter_->PaintTitleBar(this, canvas, GetTitleFont());
   frame_painter_->PaintHeaderContentSeparator(this, canvas);
 }

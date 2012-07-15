@@ -4,7 +4,6 @@
 
 #ifndef SYNC_UTIL_CRYPTOGRAPHER_H_
 #define SYNC_UTIL_CRYPTOGRAPHER_H_
-#pragma once
 
 #include <map>
 #include <string>
@@ -13,12 +12,12 @@
 #include "base/memory/linked_ptr.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/observer_list.h"
-#include "sync/syncable/model_type.h"
-#include "sync/util/nigori.h"
+#include "sync/internal_api/public/base/model_type.h"
 #include "sync/protocol/encryption.pb.h"
 #include "sync/protocol/nigori_specifics.pb.h"
+#include "sync/util/nigori.h"
 
-namespace browser_sync {
+namespace syncer {
 
 class Encryptor;
 
@@ -65,7 +64,7 @@ class Cryptographer {
     // set of encrypted types is SensitiveTypes() and that the encrypt
     // everything flag is false.
     virtual void OnEncryptedTypesChanged(
-        syncable::ModelTypeSet encrypted_types,
+        syncer::ModelTypeSet encrypted_types,
         bool encrypt_everything) = 0;
 
    protected:
@@ -181,7 +180,7 @@ class Cryptographer {
   UpdateResult Update(const sync_pb::NigoriSpecifics& nigori);
 
   // The set of types that are always encrypted.
-  static syncable::ModelTypeSet SensitiveTypes();
+  static syncer::ModelTypeSet SensitiveTypes();
 
   // Reset our set of encrypted types based on the contents of the nigori
   // specifics.
@@ -198,11 +197,10 @@ class Cryptographer {
   bool encrypt_everything() const;
 
   // Return the set of encrypted types.
-  syncable::ModelTypeSet GetEncryptedTypes() const;
+  syncer::ModelTypeSet GetEncryptedTypes() const;
 
   // Forwards to MergeEncryptedTypes.
-  void MergeEncryptedTypesForTest(
-      syncable::ModelTypeSet encrypted_types);
+  void MergeEncryptedTypesForTest(syncer::ModelTypeSet encrypted_types);
 
  private:
   FRIEND_TEST_ALL_PREFIXES(SyncCryptographerTest, PackUnpack);
@@ -210,7 +208,7 @@ class Cryptographer {
 
   // Merges the given set of encrypted types with the existing set and emits a
   // notification if necessary.
-  void MergeEncryptedTypes(syncable::ModelTypeSet encrypted_types);
+  void MergeEncryptedTypes(syncer::ModelTypeSet encrypted_types);
 
   void EmitEncryptedTypesChangedNotification();
 
@@ -242,12 +240,12 @@ class Cryptographer {
 
   scoped_ptr<sync_pb::EncryptedData> pending_keys_;
 
-  syncable::ModelTypeSet encrypted_types_;
+  syncer::ModelTypeSet encrypted_types_;
   bool encrypt_everything_;
 
   DISALLOW_COPY_AND_ASSIGN(Cryptographer);
 };
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_UTIL_CRYPTOGRAPHER_H_

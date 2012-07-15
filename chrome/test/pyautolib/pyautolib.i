@@ -191,24 +191,6 @@ class TabProxy {
     }
   };
 
-  // HTTP Auth
-  %feature("docstring",
-      "Checks if this tab has a login prompt waiting for auth.  This will be "
-      "true if a navigation results in a login prompt, and if an attempted "
-      "login fails. "
-      "Note that this is only valid if you've done a navigation on this same "
-      "object; different TabProxy objects can refer to the same Tab.  Calls "
-      "that can set this are NavigateToURL, GoBack, and GoForward. ")
-      NeedsAuth;
-  bool NeedsAuth() const;
-  %feature("docstring", "Supply authentication to a login prompt. "
-           "Blocks until navigation completes or another login prompt appears "
-           "in the case of failed auth.") SetAuth;
-  bool SetAuth(const std::wstring& username, const std::wstring& password);
-  %feature("docstring", "Cancel authentication to a login prompt. ")
-      CancelAuth;
-  bool CancelAuth();
-
 };
 
 class PyUITestSuiteBase {
@@ -240,6 +222,14 @@ class PyUITestBase {
       AppendBrowserLaunchSwitch;
   void AppendBrowserLaunchSwitch(const char* name);
   void AppendBrowserLaunchSwitch(const char* name, const char* value);
+
+  %feature("docstring", "Begins tracing with the given category string.")
+      BeginTracing;
+  bool BeginTracing(const std::string& categories);
+
+  %feature("docstring", "Ends tracing and returns the collected events.")
+      EndTracing;
+  std::string EndTracing();
 
   void UseNamedChannelID(const std::string& named_channel_id);
 
@@ -285,37 +275,6 @@ class PyUITestBase {
       set_clear_profile;
   void set_clear_profile(bool clear_profile);
 
-  // Navigation Methods
-  %feature("docstring", "Navigate to the given url in the given tab and given "
-           "window (or active tab in first window if indexes not given). "
-           "Note that this method also activates the corresponding tab/window "
-           "if it's not active already. Blocks until page has loaded.")
-      NavigateToURL;
-  void NavigateToURL(const char* url_string);
-  void NavigateToURL(const char* url_string, int window_index);
-  void NavigateToURL(const char* url_string, int window_index, int tab_index);
-
-  %feature("docstring", "Reload the active tab in the given window (or first "
-           "window if index not given). Blocks until page has reloaded.")
-      ReloadActiveTab;
-  void ReloadActiveTab(int window_index = 0);
-
-  // BrowserProxy methods
-  %feature("docstring", "Apply the accelerator with given id "
-           "(IDC_BACK, IDC_NEWTAB ...) to the given or first window. "
-           "The list can be found at chrome/app/chrome_dll_resource.h. "
-           "Note that this method just schedules the accelerator, but does "
-           "not wait for it to actually finish doing anything."
-           "Returns True on success.")
-      ApplyAccelerator;
-  bool ApplyAccelerator(int id, int window_index=0);
-  %feature("docstring", "Like ApplyAccelerator, except that it waits for "
-           "the command to execute.") RunCommand;
-  bool RunCommand(int browser_command, int window_index = 0);
-  %feature("docstring", "Returns true if the given command id is enabled on "
-           "the given window.") IsMenuCommandEnabled;
-  bool IsMenuCommandEnabled(int browser_command, int window_index = 0);
-
   // Get/fetch properties
   %feature("docstring",
            "Get the path to download directory.") GetDownloadDirectory;
@@ -344,31 +303,46 @@ class PyUITestBase {
   %feature("docstring", "Wait for the bookmark bar animation to complete. "
            "|wait_for_open| specifies which kind of change we wait for.")
       WaitForBookmarkBarVisibilityChange;
-  bool WaitForBookmarkBarVisibilityChange(bool wait_for_open);
+  bool WaitForBookmarkBarVisibilityChange(bool wait_for_open,
+                                          int window_index=0);
 
-  %feature("docstring", "Get the bookmarks as a JSON string.  Internal method.")
+  %feature("docstring", "Get the bookmarks as a JSON string. Internal method.")
       _GetBookmarksAsJSON;
-  std::string _GetBookmarksAsJSON();
+  std::string _GetBookmarksAsJSON(int window_index=0);
 
-  %feature("docstring", "Add a bookmark folder with the given index in the parent."
-                        "  |title| is the title/name of the folder.") AddBookmarkGroup;
-  bool AddBookmarkGroup(std::wstring parent_id, int index, std::wstring title);
+  %feature("docstring", "Add a bookmark folder with the given index in the "
+                        " parent. |title| is the title/name of the folder.")
+      AddBookmarkGroup;
+  bool AddBookmarkGroup(std::wstring parent_id,
+                        int index, std::wstring title,
+                        int window_index=0);
 
-  %feature("docstring", "Add a bookmark with the given title and URL.") AddBookmarkURL;
-  bool AddBookmarkURL(std::wstring parent_id, int index,
-                      std::wstring title, const std::wstring url);
+  %feature("docstring", "Add a bookmark with the given title and URL.")
+      AddBookmarkURL;
+  bool AddBookmarkURL(std::wstring parent_id,
+                      int index,
+                      std::wstring title,
+                      const std::wstring url,
+                      int window_index=0);
 
   %feature("docstring", "Move a bookmark to a new parent.") ReparentBookmark;
-  bool ReparentBookmark(std::wstring id, std::wstring new_parent_id, int index);
+  bool ReparentBookmark(std::wstring id,
+                        std::wstring new_parent_id,
+                        int index,
+                        int window_index=0);
 
   %feature("docstring", "Set the title of a bookmark.") SetBookmarkTitle;
-  bool SetBookmarkTitle(std::wstring id, std::wstring title);
+  bool SetBookmarkTitle(std::wstring id,
+                        std::wstring title,
+                        int window_index=0);
 
   %feature("docstring", "Set the URL of a bookmark.") SetBookmarkURL;
-  bool SetBookmarkURL(std::wstring id, const std::wstring url);
+  bool SetBookmarkURL(std::wstring id,
+                      const std::wstring url,
+                      int window_index=0);
 
   %feature("docstring", "Remove (delete) a bookmark.") RemoveBookmark;
-  bool RemoveBookmark(std::wstring id);
+  bool RemoveBookmark(std::wstring id, int window_index=0);
 
   %feature("docstring", "Open the Find box in the given or first browser "
            "window.") OpenFindInPage;
@@ -389,9 +363,6 @@ class PyUITestBase {
       GetBrowserWindowCount;
   int GetBrowserWindowCount();
 
-  %feature("docstring", "Get the index of the active tab in the given or "
-           "first window. Indexes are zero-based.") GetActiveTabIndex;
-  int GetActiveTabIndex(int window_index=0);
   %feature("docstring", "Activate the tab at the given zero-based index in "
            "the given or first window.  Also brings the window to the front. "
            "Returns True on success.") ActivateTab;
@@ -408,10 +379,6 @@ class PyUITestBase {
   %feature("docstring", "Count of the number of tabs in the given or "
            "first window.") GetTabCount;
   int GetTabCount(int window_index=0);
-  %feature("docstring", "Create a new tab at the end of given or first browser "
-           "window and activate it. Blocks until the page is loaded. "
-           "Returns True on success.") AppendTab;
-  bool AppendTab(const GURL& tab_url, int window_index=0);
 
   %feature("docstring", "Set the value of the cookie at cookie_url to value "
            "for the given window index and tab index. "
@@ -445,6 +412,12 @@ class PyUITestBase {
            "Returns true on success.") ResetToDefaultTheme;
   bool ResetToDefaultTheme();
 
+  %feature("docstring",
+           "Returns empty string if there were no unexpected Chrome asserts or "
+           "crashes, a string describing the failures otherwise. As a side "
+           "effect, it will fail with EXPECT_EQ macros if this code runs "
+           "within a gtest harness.") GetErrorsAndCrashes;
+  std::string CheckErrorsAndCrashes() const;
 };
 
 namespace net {

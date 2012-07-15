@@ -188,7 +188,7 @@ void TextDatabaseManager::AddPageTitle(const GURL& url,
   if (found == recent_changes_.end()) {
     // This page is not in our cache of recent pages. This is very much an edge
     // case as normally a title will come in <20 seconds after the page commits,
-    // and TabContents will avoid spamming us with >1 title per page. However,
+    // and WebContents will avoid spamming us with >1 title per page. However,
     // it could come up if your connection is unhappy, and we don't want to
     // miss anything.
     //
@@ -237,7 +237,7 @@ void TextDatabaseManager::AddPageContents(const GURL& url,
     // This page is not in our cache of recent pages. This means that the page
     // took more than kExpirationSeconds to load. Often, this will be the result
     // of a very slow iframe or other resource on the page that makes us think
-    // its still loading.
+    // it's still loading.
     //
     // As a fallback, set the most recent visit's contents using the input, and
     // use the last set title in the URL table as the title to index.

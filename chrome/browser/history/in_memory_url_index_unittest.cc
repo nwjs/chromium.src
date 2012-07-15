@@ -9,21 +9,29 @@
 #include "base/file_util.h"
 #include "base/message_loop.h"
 #include "base/path_service.h"
-#include "base/string_util.h"
+#include "base/scoped_temp_dir.h"
 #include "base/string16.h"
+#include "base/string_util.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/autocomplete/autocomplete.h"
+#include "chrome/browser/autocomplete/autocomplete_provider.h"
 #include "chrome/browser/history/history.h"
 #include "chrome/browser/history/history_backend.h"
 #include "chrome/browser/history/history_database.h"
-#include "chrome/browser/history/in_memory_url_index_types.h"
+#include "chrome/browser/history/history_notifications.h"
+#include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/history/in_memory_url_index.h"
+#include "chrome/browser/history/in_memory_url_index_types.h"
 #include "chrome/browser/history/url_index_private_data.h"
+#include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/testing_profile.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/browser/notification_details.h"
+#include "content/public/browser/notification_source.h"
+#include "content/public/test/test_browser_thread.h"
 #include "sql/transaction.h"
 #include "testing/gtest/include/gtest/gtest.h"
+
+using content::BrowserThread;
 
 // The test version of the history url database table ('url') is contained in
 // a database file created from a text file('url_history_provider_test.db.txt').
@@ -38,6 +46,54 @@
 
 namespace history {
 
+// -----------------------------------------------------------------------------
+
+// Observer class so the unit tests can wait while the cache is being saved.
+class CacheFileSaverObserver : public InMemoryURLIndex::SaveCacheObserver {
+ public:
+  explicit CacheFileSaverObserver(MessageLoop* loop);
+  virtual void OnCacheSaveFinished(bool succeeded) OVERRIDE;
+
+  MessageLoop* loop_;
+  bool succeeded_;
+  DISALLOW_COPY_AND_ASSIGN(CacheFileSaverObserver);
+};
+
+CacheFileSaverObserver::CacheFileSaverObserver(MessageLoop* loop)
+    : loop_(loop),
+      succeeded_(false) {
+  DCHECK(loop);
+}
+
+void CacheFileSaverObserver::OnCacheSaveFinished(bool succeeded) {
+  succeeded_ = succeeded;
+  loop_->Quit();
+}
+
+// Observer class so the unit tests can wait while the cache is being restored.
+class CacheFileReaderObserver : public InMemoryURLIndex::RestoreCacheObserver {
+ public:
+  explicit CacheFileReaderObserver(MessageLoop* loop);
+  virtual void OnCacheRestoreFinished(bool succeeded) OVERRIDE;
+
+  MessageLoop* loop_;
+  bool succeeded_;
+  DISALLOW_COPY_AND_ASSIGN(CacheFileReaderObserver);
+};
+
+CacheFileReaderObserver::CacheFileReaderObserver(MessageLoop* loop)
+    : loop_(loop),
+      succeeded_(false) {
+  DCHECK(loop);
+}
+
+void CacheFileReaderObserver::OnCacheRestoreFinished(bool succeeded) {
+  succeeded_ = succeeded;
+  loop_->Quit();
+}
+
+// -----------------------------------------------------------------------------
+
 class InMemoryURLIndexTest : public testing::Test {
  public:
   InMemoryURLIndexTest();
@@ -50,6 +106,7 @@ class InMemoryURLIndexTest : public testing::Test {
   // subclasses.
   virtual FilePath::StringType TestDBName() const;
 
+#if 0
   // Convenience function to create a URLRow with basic data for |url|, |title|,
   // |visit_count|, and |typed_count|. |last_visit_ago| gives the number of
   // days from now to set the URL's last_visit.
@@ -63,6 +120,15 @@ class InMemoryURLIndexTest : public testing::Test {
   String16Vector Make1Term(const char* term) const;
   String16Vector Make2Terms(const char* term_1, const char* term_2) const;
 
+  // Convenience function for GetTopicalityScore() that builds the
+  // term match and word break information automatically that are needed
+  // to call GetTopicalityScore().  It only works for scoring a single term,
+  // not multiple terms.
+  float GetTopicalityScoreOfTermAgainstURLAndTitle(const string16& term,
+                                                   const string16& url,
+                                                   const string16& title);
+#endif
+
   // Validates that the given |term| is contained in |cache| and that it is
   // marked as in-use.
   void CheckTerm(const URLIndexPrivateData::SearchTermCacheMap& cache,
@@ -73,8 +139,16 @@ class InMemoryURLIndexTest : public testing::Test {
 
   // Pass-through functions to simplify our friendship with InMemoryURLIndex.
   URLIndexPrivateData* GetPrivateData() const;
+  void ClearPrivateData();
+  void set_history_dir(const FilePath& dir_path);
   bool GetCacheFilePath(FilePath* file_path) const;
-  void ClearHistoryDir() const;
+  void PostRestoreFromCacheFileTask();
+  void PostSaveToCacheFileTask();
+  void Observe(int notification_type,
+               const content::NotificationSource& source,
+               const content::NotificationDetails& details);
+  const std::set<std::string>& scheme_whitelist();
+
 
   // Pass-through functions to simplify our friendship with URLIndexPrivateData.
   bool UpdateURL(const URLRow& row);
@@ -105,8 +179,16 @@ sql::Connection& InMemoryURLIndexTest::GetDB() {
 }
 
 URLIndexPrivateData* InMemoryURLIndexTest::GetPrivateData() const {
-  DCHECK(url_index_->private_data_.get());
-  return url_index_->private_data_.get();
+  DCHECK(url_index_->private_data());
+  return url_index_->private_data();
+}
+
+void InMemoryURLIndexTest::ClearPrivateData() {
+  return url_index_->ClearPrivateData();
+}
+
+void InMemoryURLIndexTest::set_history_dir(const FilePath& dir_path) {
+  return url_index_->set_history_dir(dir_path);
 }
 
 bool InMemoryURLIndexTest::GetCacheFilePath(FilePath* file_path) const {
@@ -114,16 +196,32 @@ bool InMemoryURLIndexTest::GetCacheFilePath(FilePath* file_path) const {
   return url_index_->GetCacheFilePath(file_path);
 }
 
-void InMemoryURLIndexTest::ClearHistoryDir() const {
-  url_index_->history_dir_.clear();
+void InMemoryURLIndexTest::PostRestoreFromCacheFileTask() {
+  url_index_->PostRestoreFromCacheFileTask();
+}
+
+void InMemoryURLIndexTest::PostSaveToCacheFileTask() {
+  url_index_->PostSaveToCacheFileTask();
+}
+
+void InMemoryURLIndexTest::Observe(
+    int notification_type,
+    const content::NotificationSource& source,
+    const content::NotificationDetails& details) {
+  url_index_->Observe(notification_type, source, details);
+}
+
+const std::set<std::string>& InMemoryURLIndexTest::scheme_whitelist() {
+  return url_index_->scheme_whitelist();
 }
 
 bool InMemoryURLIndexTest::UpdateURL(const URLRow& row) {
-  return url_index_->private_data_->UpdateURL(row);
+  return GetPrivateData()->UpdateURL(row, url_index_->languages_,
+                                     url_index_->scheme_whitelist_);
 }
 
 bool InMemoryURLIndexTest::DeleteURL(const GURL& url) {
-  return url_index_->private_data_->DeleteURL(url);
+  return GetPrivateData()->DeleteURL(url);
 }
 
 void InMemoryURLIndexTest::SetUp() {
@@ -133,7 +231,8 @@ void InMemoryURLIndexTest::SetUp() {
   profile_.BlockUntilBookmarkModelLoaded();
   profile_.BlockUntilHistoryProcessesPendingRequests();
   HistoryService* history_service =
-      profile_.GetHistoryService(Profile::EXPLICIT_ACCESS);
+      HistoryServiceFactory::GetForProfile(&profile_,
+                                           Profile::EXPLICIT_ACCESS);
   ASSERT_TRUE(history_service);
   HistoryBackend* backend = history_service->history_backend_.get();
   history_database_ = backend->db();
@@ -203,6 +302,7 @@ FilePath::StringType InMemoryURLIndexTest::TestDBName() const {
     return FILE_PATH_LITERAL("url_history_provider_test.db.txt");
 }
 
+#if 0
 URLRow InMemoryURLIndexTest::MakeURLRow(const char* url,
                   const char* title,
                   int visit_count,
@@ -230,6 +330,20 @@ String16Vector InMemoryURLIndexTest::Make2Terms(const char* term_1,
   original_terms.push_back(UTF8ToUTF16(term_2));
   return original_terms;
 }
+
+float InMemoryURLIndexTest::GetTopicalityScoreOfTermAgainstURLAndTitle(
+    const string16& term,
+    const string16& url,
+    const string16& title) {
+  TermMatches url_matches = MatchTermInString(term, url, 0);
+  TermMatches title_matches = MatchTermInString(term, title, 0);
+  RowWordStarts word_starts;
+  String16SetFromString16(url, &word_starts.url_word_starts_);
+  String16SetFromString16(title, &word_starts.title_word_starts_);
+  return ScoredHistoryMatch::GetTopicalityScore(
+      1, url, url_matches, title_matches, word_starts);
+}
+#endif
 
 void InMemoryURLIndexTest::CheckTerm(
     const URLIndexPrivateData::SearchTermCacheMap& cache,
@@ -297,6 +411,7 @@ void InMemoryURLIndexTest::ExpectPrivateDataEqual(
   EXPECT_EQ(expected.history_id_word_map_.size(),
             actual.history_id_word_map_.size());
   EXPECT_EQ(expected.history_info_map_.size(), actual.history_info_map_.size());
+  EXPECT_EQ(expected.word_starts_map_.size(), actual.word_starts_map_.size());
   // WordList must be index-by-index equal.
   size_t count = expected.word_list_.size();
   for (size_t i = 0; i < count; ++i)
@@ -314,6 +429,9 @@ void InMemoryURLIndexTest::ExpectPrivateDataEqual(
       expected_info != expected.history_info_map_.end(); ++expected_info) {
     HistoryInfoMap::const_iterator actual_info =
         actual.history_info_map_.find(expected_info->first);
+    // NOTE(yfriedman): ASSERT_NE can't be used due to incompatibility between
+    // gtest and STLPort in the Android build. See
+    // http://code.google.com/p/googletest/issues/detail?id=359
     ASSERT_TRUE(actual_info != actual.history_info_map_.end());
     const URLRow& expected_row(expected_info->second);
     const URLRow& actual_row(actual_info->second);
@@ -329,6 +447,9 @@ void InMemoryURLIndexTest::ExpectPrivateDataEqual(
       ++expected_starts) {
     WordStartsMap::const_iterator actual_starts =
         actual.word_starts_map_.find(expected_starts->first);
+    // NOTE(yfriedman): ASSERT_NE can't be used due to incompatibility between
+    // gtest and STLPort in the Android build. See
+    // http://code.google.com/p/googletest/issues/detail?id=359
     ASSERT_TRUE(actual_starts != actual.word_starts_map_.end());
     const RowWordStarts& expected_word_starts(expected_starts->second);
     const RowWordStarts& actual_word_starts(actual_starts->second);
@@ -359,8 +480,7 @@ FilePath::StringType LimitedInMemoryURLIndexTest::TestDBName() const {
 TEST_F(LimitedInMemoryURLIndexTest, Initialization) {
   // Verify that the database contains the expected number of items, which
   // is the pre-filtered count, i.e. all of the items.
-  sql::Connection& db(GetDB());
-  sql::Statement statement(db.GetUniqueStatement("SELECT * FROM urls;"));
+  sql::Statement statement(GetDB().GetUniqueStatement("SELECT * FROM urls;"));
   ASSERT_TRUE(statement.is_valid());
   uint64 row_count = 0;
   while (statement.Step()) ++row_count;
@@ -369,7 +489,7 @@ TEST_F(LimitedInMemoryURLIndexTest, Initialization) {
       new InMemoryURLIndex(&profile_, FilePath(), "en,ja,hi,zh"));
   url_index_->Init();
   url_index_->RebuildFromHistory(history_database_);
-  URLIndexPrivateData& private_data(*(url_index_->private_data_));
+  URLIndexPrivateData& private_data(*GetPrivateData());
 
   // history_info_map_ should have the same number of items as were filtered.
   EXPECT_EQ(1U, private_data.history_info_map_.size());
@@ -675,49 +795,127 @@ TEST_F(InMemoryURLIndexTest, TypedCharacterCaching) {
   CheckTerm(cache, ASCIIToUTF16("rec"));
 }
 
+#if 0
 TEST_F(InMemoryURLIndexTest, Scoring) {
   URLRow row_a(MakeURLRow("http://abcdef", "fedcba", 3, 30, 1));
-  // Test scores based on position.
-  // TODO(mpearson): Set word_starts when ScoredMatchForURL has been modified
-  // to take them into consideration when scoring.
+  // We use NowFromSystemTime() because MakeURLRow uses the same function
+  // to calculate last visit time when building a row.
+  base::Time now = base::Time::NowFromSystemTime();
   RowWordStarts word_starts;
-  ScoredHistoryMatch scored_a(URLIndexPrivateData::ScoredMatchForURL(
-      row_a, ASCIIToUTF16("abc"), Make1Term("abc"), word_starts));
-  ScoredHistoryMatch scored_b(URLIndexPrivateData::ScoredMatchForURL(
-      row_a, ASCIIToUTF16("bcd"), Make1Term("bcd"), word_starts));
+  // Test scores based on position.
+  // TODO(mpearson): Test new_scoring if we're actually going to turn it
+  // on by default.  This requires setting word_starts, which isn't done
+  // right now.
+  ScoredHistoryMatch scored_a(row_a, ASCIIToUTF16("abc"), Make1Term("abc"),
+                              word_starts, now);
+  ScoredHistoryMatch scored_b(row_a, ASCIIToUTF16("bcd"), Make1Term("bcd"),
+                              word_starts, now);
   EXPECT_GT(scored_a.raw_score, scored_b.raw_score);
   // Test scores based on length.
-  ScoredHistoryMatch scored_c(URLIndexPrivateData::ScoredMatchForURL(
-      row_a, ASCIIToUTF16("abcd"), Make1Term("abcd"), word_starts));
+  ScoredHistoryMatch scored_c(row_a, ASCIIToUTF16("abcd"), Make1Term("abcd"),
+                              word_starts, now);
   EXPECT_LT(scored_a.raw_score, scored_c.raw_score);
   // Test scores based on order.
-  ScoredHistoryMatch scored_d(URLIndexPrivateData::ScoredMatchForURL(
-      row_a, ASCIIToUTF16("abcdef"), Make2Terms("abc", "def"), word_starts));
-  ScoredHistoryMatch scored_e(URLIndexPrivateData::ScoredMatchForURL(
-      row_a, ASCIIToUTF16("def abc"), Make2Terms("def", "abc"), word_starts));
+  ScoredHistoryMatch scored_d(row_a, ASCIIToUTF16("abcdef"),
+                              Make2Terms("abc", "def"), word_starts, now);
+  ScoredHistoryMatch scored_e(row_a, ASCIIToUTF16("def abc"),
+                              Make2Terms("def", "abc"), word_starts, now);
   EXPECT_GT(scored_d.raw_score, scored_e.raw_score);
   // Test scores based on visit_count.
   URLRow row_b(MakeURLRow("http://abcdef", "fedcba", 10, 30, 1));
-  ScoredHistoryMatch scored_f(URLIndexPrivateData::ScoredMatchForURL(
-      row_b, ASCIIToUTF16("abc"), Make1Term("abc"), word_starts));
+  ScoredHistoryMatch scored_f(row_b, ASCIIToUTF16("abc"), Make1Term("abc"),
+                              word_starts, now);
   EXPECT_GT(scored_f.raw_score, scored_a.raw_score);
   // Test scores based on last_visit.
   URLRow row_c(MakeURLRow("http://abcdef", "fedcba", 3, 10, 1));
-  ScoredHistoryMatch scored_g(URLIndexPrivateData::ScoredMatchForURL(
-      row_c, ASCIIToUTF16("abc"), Make1Term("abc"), word_starts));
+  ScoredHistoryMatch scored_g(row_c, ASCIIToUTF16("abc"), Make1Term("abc"),
+                              word_starts, now);
   EXPECT_GT(scored_g.raw_score, scored_a.raw_score);
   // Test scores based on typed_count.
   URLRow row_d(MakeURLRow("http://abcdef", "fedcba", 3, 30, 10));
-  ScoredHistoryMatch scored_h(URLIndexPrivateData::ScoredMatchForURL(
-      row_d, ASCIIToUTF16("abc"), Make1Term("abc"), word_starts));
+  ScoredHistoryMatch scored_h(row_d, ASCIIToUTF16("abc"), Make1Term("abc"),
+                              word_starts, now);
   EXPECT_GT(scored_h.raw_score, scored_a.raw_score);
   // Test scores based on a terms appearing multiple times.
   URLRow row_i(MakeURLRow("http://csi.csi.csi/csi_csi",
       "CSI Guide to CSI Las Vegas, CSI New York, CSI Provo", 3, 30, 10));
-  ScoredHistoryMatch scored_i(URLIndexPrivateData::ScoredMatchForURL(
-      row_i, ASCIIToUTF16("csi"), Make1Term("csi"), word_starts));
+  ScoredHistoryMatch scored_i(row_i, ASCIIToUTF16("csi"), Make1Term("csi"),
+                              word_starts, now);
   EXPECT_LT(scored_i.raw_score, 1400);
 }
+
+TEST_F(InMemoryURLIndexTest, GetTopicalityScoreTrailingSlash) {
+  const float hostname = GetTopicalityScoreOfTermAgainstURLAndTitle(
+      ASCIIToUTF16("def"),
+      ASCIIToUTF16("http://abc.def.com/"),
+      ASCIIToUTF16("Non-Matching Title"));
+  const float hostname_no_slash = GetTopicalityScoreOfTermAgainstURLAndTitle(
+      ASCIIToUTF16("def"),
+      ASCIIToUTF16("http://abc.def.com"),
+      ASCIIToUTF16("Non-Matching Title"));
+  EXPECT_EQ(hostname_no_slash, hostname);
+}
+
+// This function only tests scoring of single terms that match exactly
+// once somewhere in the URL or title.
+TEST_F(InMemoryURLIndexTest, GetTopicalityScore) {
+  string16 url = ASCIIToUTF16("http://abc.def.com/path1/path2?"
+      "arg1=val1&arg2=val2#hash_component");
+  string16 title = ASCIIToUTF16("here is a title");
+  const float hostname_score =
+      GetTopicalityScoreOfTermAgainstURLAndTitle(
+          ASCIIToUTF16("abc"), url, title);
+  const float hostname_mid_word_score =
+      GetTopicalityScoreOfTermAgainstURLAndTitle(
+          ASCIIToUTF16("bc"), url, title);
+  const float path_score =
+      GetTopicalityScoreOfTermAgainstURLAndTitle(
+          ASCIIToUTF16("path1"), url, title);
+  const float path_mid_word_score =
+      GetTopicalityScoreOfTermAgainstURLAndTitle(
+          ASCIIToUTF16("ath1"), url, title);
+  const float arg_score =
+      GetTopicalityScoreOfTermAgainstURLAndTitle(
+          ASCIIToUTF16("arg2"), url, title);
+  const float arg_mid_word_score =
+      GetTopicalityScoreOfTermAgainstURLAndTitle(
+          ASCIIToUTF16("rg2"), url, title);
+  const float protocol_score =
+      GetTopicalityScoreOfTermAgainstURLAndTitle(
+          ASCIIToUTF16("htt"), url, title);
+  const float protocol_mid_word_score =
+      GetTopicalityScoreOfTermAgainstURLAndTitle(
+          ASCIIToUTF16("tt"), url, title);
+  const float title_score =
+      GetTopicalityScoreOfTermAgainstURLAndTitle(
+          ASCIIToUTF16("her"), url, title);
+  const float title_mid_word_score =
+      GetTopicalityScoreOfTermAgainstURLAndTitle(
+          ASCIIToUTF16("er"), url, title);
+  // Verify hostname > path > arg, and the same for the matches at
+  // non-word-boundaries.
+  EXPECT_GT(hostname_score, path_score);
+  EXPECT_GT(path_score, arg_score);
+  EXPECT_GT(hostname_mid_word_score, path_mid_word_score);
+  EXPECT_GT(path_mid_word_score, arg_mid_word_score);
+  // Also verify that the matches at non-word-boundaries all score
+  // worse than the matches at word boundaries.  These two sets suffice.
+  EXPECT_GT(arg_score, hostname_mid_word_score);
+  EXPECT_GT(title_score, title_mid_word_score);
+  // Check that title matches fit somewhere reasonable compared to the
+  // various types of URL matches.
+  EXPECT_GT(title_score, arg_score);
+  EXPECT_GT(arg_score, hostname_mid_word_score);
+  EXPECT_GT(title_mid_word_score, arg_mid_word_score);
+  // Finally, verify that protocol matches score worse than everything
+  // (except possibly mid-word matches in the ?arg section of the URL--I
+  // can imagine scoring those pretty harshly as well).
+  EXPECT_GT(path_mid_word_score, protocol_score);
+  EXPECT_GT(path_mid_word_score, protocol_mid_word_score);
+  EXPECT_GT(title_mid_word_score, protocol_score);
+  EXPECT_GT(title_mid_word_score, protocol_mid_word_score);
+}
+#endif
 
 TEST_F(InMemoryURLIndexTest, AddNewRows) {
   // Verify that the row we're going to add does not already exist.
@@ -753,7 +951,7 @@ TEST_F(InMemoryURLIndexTest, DeleteRows) {
       url_index_->HistoryItemsForTerms(ASCIIToUTF16("DrudgeReport"));
   ASSERT_EQ(1U, matches.size());
 
-  // Determine the row id for that result, delete that id, then search again.
+  // Delete the URL then search again.
   EXPECT_TRUE(DeleteURL(matches[0].url_info.url()));
   EXPECT_TRUE(url_index_->HistoryItemsForTerms(
       ASCIIToUTF16("DrudgeReport")).empty());
@@ -761,6 +959,23 @@ TEST_F(InMemoryURLIndexTest, DeleteRows) {
   // Make up an URL that does not exist in the database and delete it.
   GURL url("http://www.hokeypokey.com/putyourrightfootin.html");
   EXPECT_FALSE(DeleteURL(url));
+}
+
+TEST_F(InMemoryURLIndexTest, ExpireRow) {
+  ScoredHistoryMatches matches =
+      url_index_->HistoryItemsForTerms(ASCIIToUTF16("DrudgeReport"));
+  ASSERT_EQ(1U, matches.size());
+
+  // Determine the row id for the result, remember that id, broadcast a
+  // delete notification, then ensure that the row has been deleted.
+  URLsDeletedDetails deleted_details;
+  deleted_details.all_history = false;
+  deleted_details.rows.push_back(matches[0].url_info);
+  Observe(chrome::NOTIFICATION_HISTORY_URLS_DELETED,
+          content::Source<InMemoryURLIndexTest>(this),
+          content::Details<history::HistoryDetails>(&deleted_details));
+  EXPECT_TRUE(url_index_->HistoryItemsForTerms(
+      ASCIIToUTF16("DrudgeReport")).empty());
 }
 
 TEST_F(InMemoryURLIndexTest, WhitelistedURLs) {
@@ -838,73 +1053,64 @@ TEST_F(InMemoryURLIndexTest, WhitelistedURLs) {
   };
 
   URLIndexPrivateData& private_data(*GetPrivateData());
+  const std::set<std::string>& whitelist(scheme_whitelist());
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(data); ++i) {
     GURL url(data[i].url_spec);
     EXPECT_EQ(data[i].expected_is_whitelisted,
-              private_data.URLSchemeIsWhitelisted(url));
+              private_data.URLSchemeIsWhitelisted(url, whitelist));
   }
 }
 
 TEST_F(InMemoryURLIndexTest, CacheSaveRestore) {
-  // Part 1: Save the cache to a protobuf, restore it, and compare the results.
-  in_memory_url_index::InMemoryURLIndexCacheItem index_cache;
-  URLIndexPrivateData& expected(*GetPrivateData());
+  ScopedTempDir temp_directory;
+  ASSERT_TRUE(temp_directory.CreateUniqueTempDir());
+  set_history_dir(temp_directory.path());
 
-  // Capture our private data so we can later compare for equality.
-  URLIndexPrivateData actual(expected);
+  URLIndexPrivateData& private_data(*GetPrivateData());
 
-  actual.SavePrivateData(&index_cache);
+  // Ensure that there is really something there to be saved.
+  EXPECT_FALSE(private_data.word_list_.empty());
+  // available_words_ will already be empty since we have freshly built the
+  // data set for this test.
+  EXPECT_TRUE(private_data.available_words_.empty());
+  EXPECT_FALSE(private_data.word_map_.empty());
+  EXPECT_FALSE(private_data.char_word_map_.empty());
+  EXPECT_FALSE(private_data.word_id_history_map_.empty());
+  EXPECT_FALSE(private_data.history_id_word_map_.empty());
+  EXPECT_FALSE(private_data.history_info_map_.empty());
+  EXPECT_FALSE(private_data.word_starts_map_.empty());
 
-  // Version check: Make sure this version actually has the word starts.
-  EXPECT_TRUE(index_cache.has_word_starts_map());
+  // Capture the current private data for later comparison to restored data.
+  scoped_refptr<URLIndexPrivateData> old_data(private_data.Duplicate());
 
-  // Save the size of the resulting cache for later versioning comparison.
-  std::string data;
-  EXPECT_TRUE(index_cache.SerializeToString(&data));
-  size_t current_version_cache_size = data.size();
+  // Save then restore our private data.
+  CacheFileSaverObserver save_observer(&message_loop_);
+  url_index_->set_save_cache_observer(&save_observer);
+  PostSaveToCacheFileTask();
+  message_loop_.Run();
+  EXPECT_TRUE(save_observer.succeeded_);
 
-  // Prove that there is really something there.
-  ExpectPrivateDataNotEmpty(actual);
+  // Clear and then prove it's clear before restoring.
+  ClearPrivateData();
+  EXPECT_TRUE(private_data.word_list_.empty());
+  EXPECT_TRUE(private_data.available_words_.empty());
+  EXPECT_TRUE(private_data.word_map_.empty());
+  EXPECT_TRUE(private_data.char_word_map_.empty());
+  EXPECT_TRUE(private_data.word_id_history_map_.empty());
+  EXPECT_TRUE(private_data.history_id_word_map_.empty());
+  EXPECT_TRUE(private_data.history_info_map_.empty());
+  EXPECT_TRUE(private_data.word_starts_map_.empty());
 
-  // Clear and then prove it's clear.
-  actual.Clear();
-  ExpectPrivateDataEmpty(actual);
+  CacheFileReaderObserver read_observer(&message_loop_);
+  url_index_->set_restore_cache_observer(&read_observer);
+  PostRestoreFromCacheFileTask();
+  message_loop_.Run();
+  EXPECT_TRUE(read_observer.succeeded_);
 
-  // Restore the cache.
-  EXPECT_TRUE(actual.RestorePrivateData(index_cache));
-  EXPECT_EQ(kCurrentCacheFileVersion, actual.restored_cache_version_);
+  URLIndexPrivateData& new_data(*GetPrivateData());
 
-  // Compare the restored and expected for equality.
-  ExpectPrivateDataEqual(expected, actual);
-
-  // Part 2: Save an older version of the cache, restore it, and verify that the
-  // reversioned portions are as expected.
-  URLIndexPrivateData older(expected);
-  in_memory_url_index::InMemoryURLIndexCacheItem older_cache;
-  older.set_saved_cache_version(0);
-  older.SavePrivateData(&older_cache);
-
-  // Version check: Make sure this version does not have the word starts.
-  EXPECT_FALSE(older_cache.has_word_starts_map());
-
-  // Since we shouldn't have saved the word starts information for the version
-  // 0 save immediately above, the cache should be a bit smaller.
-  std::string older_data;
-  EXPECT_TRUE(older_cache.SerializeToString(&older_data));
-  size_t old_version_file_size = older_data.size();
-  EXPECT_LT(old_version_file_size, current_version_cache_size);
-  EXPECT_NE(data, older_data);
-
-  // Clear and then prove it's clear.
-  older.Clear();
-  ExpectPrivateDataEmpty(older);
-
-  // Restore the cache.
-  EXPECT_TRUE(older.RestorePrivateData(older_cache));
-  EXPECT_EQ(0, older.restored_cache_version_);
-
-  // Compare the restored and expected for equality.
-  ExpectPrivateDataEqual(expected, older);
+  // Compare the captured and restored for equality.
+  ExpectPrivateDataEqual(*old_data, new_data);
 }
 
 class InMemoryURLIndexCacheTest : public testing::Test {
@@ -913,6 +1119,10 @@ class InMemoryURLIndexCacheTest : public testing::Test {
 
  protected:
   virtual void SetUp() OVERRIDE;
+
+  // Pass-through functions to simplify our friendship with InMemoryURLIndex.
+  void set_history_dir(const FilePath& dir_path);
+  bool GetCacheFilePath(FilePath* file_path) const;
 
   ScopedTempDir temp_dir_;
   scoped_ptr<InMemoryURLIndex> url_index_;
@@ -925,13 +1135,22 @@ void InMemoryURLIndexCacheTest::SetUp() {
       new InMemoryURLIndex(NULL, path, "en,ja,hi,zh"));
 }
 
+void InMemoryURLIndexCacheTest::set_history_dir(const FilePath& dir_path) {
+  return url_index_->set_history_dir(dir_path);
+}
+
+bool InMemoryURLIndexCacheTest::GetCacheFilePath(FilePath* file_path) const {
+  DCHECK(file_path);
+  return url_index_->GetCacheFilePath(file_path);
+}
+
 TEST_F(InMemoryURLIndexCacheTest, CacheFilePath) {
   FilePath expectedPath =
       temp_dir_.path().Append(FILE_PATH_LITERAL("History Provider Cache"));
   std::vector<FilePath::StringType> expected_parts;
   expectedPath.GetComponents(&expected_parts);
   FilePath full_file_path;
-  ASSERT_TRUE(url_index_->GetCacheFilePath(&full_file_path));
+  ASSERT_TRUE(GetCacheFilePath(&full_file_path));
   std::vector<FilePath::StringType> actual_parts;
   full_file_path.GetComponents(&actual_parts);
   ASSERT_EQ(expected_parts.size(), actual_parts.size());
@@ -939,7 +1158,7 @@ TEST_F(InMemoryURLIndexCacheTest, CacheFilePath) {
   for (size_t i = 0; i < count; ++i)
     EXPECT_EQ(expected_parts[i], actual_parts[i]);
   // Must clear the history_dir_ to satisfy the dtor's DCHECK.
-  url_index_->history_dir_.clear();
+  set_history_dir(FilePath());
 }
 
 }  // namespace history

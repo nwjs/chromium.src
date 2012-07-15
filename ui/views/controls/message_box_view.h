@@ -4,13 +4,15 @@
 
 #ifndef UI_VIEWS_CONTROLS_MESSAGE_BOX_VIEW_H_
 #define UI_VIEWS_CONTROLS_MESSAGE_BOX_VIEW_H_
-#pragma once
 
-#include <string>
 #include <vector>
 
 #include "base/string16.h"
 #include "ui/views/view.h"
+
+namespace gfx {
+class ImageSkia;
+}
 
 namespace views {
 
@@ -37,14 +39,17 @@ class VIEWS_EXPORT MessageBoxView : public View {
     HAS_PROMPT_FIELD = 1 << 1,
   };
 
-  MessageBoxView(int options,
-                 const string16& message,
-                 const string16& default_prompt,
-                 int message_width);
+  struct VIEWS_EXPORT InitParams {
+    explicit InitParams(const string16& message);
+    ~InitParams();
 
-  MessageBoxView(int options,
-                 const string16& message,
-                 const string16& default_prompt);
+    uint16 options;
+    string16 message;
+    string16 default_prompt;
+    int message_width;
+  };
+
+  explicit MessageBoxView(const InitParams& params);
 
   virtual ~MessageBoxView();
 
@@ -60,7 +65,7 @@ class VIEWS_EXPORT MessageBoxView : public View {
 
   // Adds |icon| to the upper left of the message box or replaces the current
   // icon. To start out, the message box has no icon.
-  void SetIcon(const SkBitmap& icon);
+  void SetIcon(const gfx::ImageSkia& icon);
 
   // Adds a checkbox with the specified label to the message box if this is the
   // first call. Otherwise, it changes the label of the current checkbox. To
@@ -84,7 +89,7 @@ class VIEWS_EXPORT MessageBoxView : public View {
  private:
   // Sets up the layout manager and initializes the message labels and prompt
   // field. This should only be called once, from the constructor.
-  void Init(int options, const string16& message, const string16& prompt);
+  void Init(const InitParams& params);
 
   // Sets up the layout manager based on currently initialized views. Should be
   // called when a view is initialized or changed.

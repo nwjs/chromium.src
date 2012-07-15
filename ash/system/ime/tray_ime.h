@@ -4,11 +4,9 @@
 
 #ifndef ASH_SYSTEM_IME_TRAY_IME_H_
 #define ASH_SYSTEM_IME_TRAY_IME_H_
-#pragma once
 
 #include "ash/system/ime/ime_observer.h"
 #include "ash/system/tray/system_tray_item.h"
-#include "base/memory/scoped_ptr.h"
 
 namespace views {
 class Label;
@@ -23,7 +21,10 @@ namespace internal {
 namespace tray {
 class IMEDefaultView;
 class IMEDetailedView;
-};
+class IMENotificationView;
+}
+
+class TrayItemView;
 
 class TrayIME : public SystemTrayItem,
                 public IMEObserver {
@@ -38,16 +39,23 @@ class TrayIME : public SystemTrayItem,
   virtual views::View* CreateTrayView(user::LoginStatus status) OVERRIDE;
   virtual views::View* CreateDefaultView(user::LoginStatus status) OVERRIDE;
   virtual views::View* CreateDetailedView(user::LoginStatus status) OVERRIDE;
+  virtual views::View* CreateNotificationView(
+      user::LoginStatus status) OVERRIDE;
   virtual void DestroyTrayView() OVERRIDE;
   virtual void DestroyDefaultView() OVERRIDE;
   virtual void DestroyDetailedView() OVERRIDE;
+  virtual void DestroyNotificationView() OVERRIDE;
+  virtual void UpdateAfterLoginStatusChange(user::LoginStatus status) OVERRIDE;
 
   // Overridden from IMEObserver.
-  virtual void OnIMERefresh() OVERRIDE;
+  virtual void OnIMERefresh(bool show_message) OVERRIDE;
 
-  scoped_ptr<views::Label> tray_label_;
-  scoped_ptr<tray::IMEDefaultView> default_;
-  scoped_ptr<tray::IMEDetailedView> detailed_;
+  TrayItemView* tray_label_;
+  tray::IMEDefaultView* default_;
+  tray::IMEDetailedView* detailed_;
+  tray::IMENotificationView* notification_;
+
+  bool message_shown_;
 
   DISALLOW_COPY_AND_ASSIGN(TrayIME);
 };

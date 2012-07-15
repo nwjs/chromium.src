@@ -11,24 +11,40 @@
     <output filename="component_extension_resources.pak" type="data_package" />
   </outputs>
   <release seq="1">
+    <structures>
+      <structure name="IDR_BOOKMARK_MANAGER_MAIN" file="bookmark_manager/main.html" flattenhtml="true" allowexternalscript="true" type="chrome_html" />
+    </structures>
     <includes>
       <include name="IDR_BOOKMARK_MANAGER_BOOKMARK_MANAGER_RECENT" file="bookmark_manager/images/bookmark_manager_recent.png" type="BINDATA" />
       <include name="IDR_BOOKMARK_MANAGER_BOOKMARK_MANAGER_SEARCH" file="bookmark_manager/images/bookmark_manager_search.png" type="BINDATA" />
       <include name="IDR_BOOKMARK_MANAGER_BOOKMARK_MANAGER_SEARCH_RTL" file="bookmark_manager/images/bookmark_manager_search_rtl.png" type="BINDATA" />
-      <include name="IDR_BOOKMARK_MANAGER_MAIN" file="bookmark_manager/main.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
-      <include name="IDR_BOOKMARK_MANAGER_BOOKMARK_ALL_TABS" file="bookmark_manager/bookmark_all_tabs.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_BOOKMARK_MANAGER_BOOKMARK_MAIN_JS" file="bookmark_manager/js/main.js" type="BINDATA" />
-      <include name="IDR_BOOKMARK_MANAGER_BOOKMARK_ALL_TABS_JS" file="bookmark_manager/js/bookmark_all_tabs.js" type="BINDATA" />
       <include name="IDR_BOOKMARK_MANAGER_BOOKMARK_BMM_LIST_JS" file="bookmark_manager/js/bmm/bookmark_list.js" type="BINDATA" />
       <include name="IDR_BOOKMARK_MANAGER_BOOKMARK_BMM_TREE_JS" file="bookmark_manager/js/bmm/bookmark_tree.js" type="BINDATA" />
       <include name="IDR_BOOKMARK_MANAGER_BOOKMARK_BMM_JS" file="bookmark_manager/js/bmm.js" type="BINDATA" />
       <include name="IDR_BOOKMARK_MANAGER_BOOKMARK_CSS_JS" file="bookmark_manager/css/bmm.css.js" type="BINDATA" />
-
+      <if expr="pp_ifdef('chromeos')">
+        <include name="IDR_GAIA_AUTH_MAIN" file="gaia_auth/main.html" allowexternalscript="true" type="BINDATA" />
+        <include name="IDR_GAIA_AUTH_MAIN_JS" file="gaia_auth/main.js" type="BINDATA" />
+        <include name="IDR_GAIA_AUTH_MAIN_CSS" file="gaia_auth/main.css" type="BINDATA" />
+        <include name="IDR_GAIA_AUTH_OFFLINE" file="gaia_auth/offline.html" allowexternalscript="true" type="BINDATA" />
+        <include name="IDR_GAIA_AUTH_OFFLINE_JS" file="gaia_auth/offline.js" type="BINDATA" />
+        <include name="IDR_GAIA_AUTH_OFFLINE_CSS" file="gaia_auth/offline.css" type="BINDATA" />
+        <include name="IDR_GAIA_AUTH_SUCCESS" file="gaia_auth/success.html" allowexternalscript="true" type="BINDATA" />
+        <include name="IDR_GAIA_AUTH_SUCCESS_JS" file="gaia_auth/success.js" type="BINDATA" />
+        <include name="IDR_GAIA_AUTH_UTIL_JS" file="gaia_auth/util.js" type="BINDATA" />
+        <include name="IDR_GAIA_AUTH_TEST_CONTENT_JS" file="gaia_auth/test/content.js" type="BINDATA" />
+      </if>
       <if expr="pp_ifdef('file_manager_extension')">
-        <include name="IDR_FILE_MANAGER_MAIN" file="file_manager/main.html" flattenhtml="true" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_MEDIAPLAYER" file="file_manager/mediaplayer.html" flattenhtml="true" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_MAIN" file="file_manager/main.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_MAIN_JS" file="file_manager/js/main_scripts.js" flattenhtml="true" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_MEDIAPLAYER" file="file_manager/mediaplayer.html" allowexternalscript="true" flattenhtml="true" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_MEDIAPLAYER_JS" file="file_manager/js/media/mediaplayer_scripts.js" flattenhtml="true" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_VIDEO_PLAYER" file="file_manager/video_player.html" allowexternalscript="true" flattenhtml="true" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_VIDEO_PLAYER_JS" file="file_manager/js/media/video_player_scripts.js" flattenhtml="true" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMAGE_EDITOR" file="file_manager/gallery.html" allowexternalscript="true" flattenhtml="true" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMAGE_EDITOR_JS" file="file_manager/js/image_editor/gallery_scripts.js" flattenhtml="true" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_UTIL" file="file_manager/js/util.js" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMAGE_EDITOR" file="file_manager/gallery.html" flattenhtml="true" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_METADATA_DISPATCHER" file="file_manager/js/metadata/metadata_dispatcher.js" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_METADATA_READER" file="file_manager/js/metadata/byte_reader.js" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_METADATA_PARSER" file="file_manager/js/metadata/metadata_parser.js" type="BINDATA" />
@@ -40,104 +56,115 @@
         <include name="IDR_FILE_MANAGER_SEQUENCE" file="file_manager/js/metadata/function_sequence.js" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_ICON_16" file="file_manager/images/icon16.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_ICON_128" file="file_manager/images/icon128.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_PREVIEW_ICON" file="file_manager/images/icon_preview_16x16.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_MEDIA_PLAY_ICON" file="file_manager/images/icon_play_16x16.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_MEDIA_ENQUEUE_ICON" file="file_manager/images/icon_add_to_queue_16x16.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_ARCHIVE_MOUNT_ICON" file="file_manager/images/icon_mount_archive_16x16.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_ARCHIVE_UNMOUNT_ICON" file="file_manager/images/icon_unmount_archive_16x16.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_OPEN_SIDEBAR_ICON" file="file_manager/images/open_sidebar.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_CLOSE_SIDEBAR_ICON" file="file_manager/images/close_sidebar.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_EJECT_ICON" file="file_manager/images/eject.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_ADD_DRIVE_ICON" file="file_manager/images/add_drive.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_DOWNLOADS_24_ICON" file="file_manager/images/downloads_24x24.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_DOWNLOADS_28_ICON" file="file_manager/images/downloads_28x28.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_SPINNER" file="file_manager/images/spinner.svg" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_ARCHIVE_24_ICON" file="file_manager/images/archive_24x24.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_ARCHIVE_28_ICON" file="file_manager/images/archive_28x28.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_BREADCRUMB_SEPARATOR_ICON" file="file_manager/images/breadcrumb-separator.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_COMMON_CHECK_NO_BOX_ICON" file="file_manager/images/common/check_no_box.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_SORT_ASC_ICON" file="file_manager/images/sort_asc.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_SORT_DESC_ICON" file="file_manager/images/sort_desc.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_REMOVABLE_24_ICON" file="file_manager/images/usb_source_24x24.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_REMOVABLE_28_ICON" file="file_manager/images/usb_source_28x28.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_GDATA_24_ICON" file="file_manager/images/gdata_24x24.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_GDATA_28_ICON" file="file_manager/images/gdata_28x28.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_USB_28_ICON" file="file_manager/images/device_usb_28x28.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_SD_28_ICON" file="file_manager/images/device_sd_28x28.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_HD_28_ICON" file="file_manager/images/device_hd_28x28.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_OPTICAL_28_ICON" file="file_manager/images/device_optical_28x28.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_GDRIVE_28_ICON" file="file_manager/images/gdrive_28x28.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_SEARCH_ICON" file="file_manager/images/icon_search.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_HASHED_BACKGROUND" file="file_manager/images/hashed_bg.gif" type="BINDATA" />
+
+        <include name="IDR_FILE_MANAGER_COMMON_CHECK_NO_BOX" file="file_manager/images/common/check_no_box.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_COMMON_BUBBLE_POINT_WHITE" file="file_manager/images/common/bubble_point_white.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_COMMON_CHECKBOX_WHITE_CHECKED" file="file_manager/images/common/checkbox_white_checked.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_COMMON_CHECKBOX_WHITE_UNCHECKED" file="file_manager/images/common/checkbox_white_unchecked.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_COMMON_CLOSE_X_GRAY" file="file_manager/images/common/close_x_gray.png" type="BINDATA" />
 
         <include name="IDR_FILE_MANAGER_IMG_FILETYPE_ARCHIVE" file="file_manager/images/filetype_archive.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_FILETYPE_AUDIO" file="file_manager/images/filetype_audio.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_FILETYPE_CHART" file="file_manager/images/filetype_chart.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_FILETYPE_DEVICE" file="file_manager/images/filetype_device.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_FILETYPE_DOC" file="file_manager/images/filetype_doc.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_FILETYPE_DRAWING" file="file_manager/images/filetype_drawing.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_FILETYPE_GDOC" file="file_manager/images/filetype_gdoc.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_FILETYPE_GDRAW" file="file_manager/images/filetype_gdraw.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_FILETYPE_GSHEET" file="file_manager/images/filetype_gsheet.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_FILETYPE_GSLIDES" file="file_manager/images/filetype_gslides.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_FILETYPE_GTABLE" file="file_manager/images/filetype_gtable.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_FILETYPE_EXCEL" file="file_manager/images/filetype_excel.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_FILETYPE_FOLDER" file="file_manager/images/filetype_folder.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_FILETYPE_FORM" file="file_manager/images/filetype_form.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_FILETYPE_GENERIC" file="file_manager/images/filetype_generic.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_FILETYPE_HTML" file="file_manager/images/filetype_html.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_FILETYPE_GLINK" file="file_manager/images/filetype_glink.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_FILETYPE_IMAGE" file="file_manager/images/filetype_image.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_FILETYPE_PDF" file="file_manager/images/filetype_pdf.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_FILETYPE_PPT" file="file_manager/images/filetype_ppt.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_FILETYPE_PRESENTATION" file="file_manager/images/filetype_presentation.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_FILETYPE_SCRIPT" file="file_manager/images/filetype_script.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_FILETYPE_SITES" file="file_manager/images/filetype_sites.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_FILETYPE_SPREADSHEET" file="file_manager/images/filetype_spreadsheet.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_FILETYPE_TEXT" file="file_manager/images/filetype_text.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_FILETYPE_UNREADABLE_DEVICE" file="file_manager/images/filetype_unreadable_device.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_FILETYPE_VIDEO" file="file_manager/images/filetype_video.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_FILETYPE_WORD" file="file_manager/images/filetype_word.png" type="BINDATA" />
 
         <include name="IDR_FILE_MANAGER_IMG_FILETYPE_LARGE_AUDIO" file="file_manager/images/filetype_large_audio.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_FILETYPE_LARGE_FOLDER" file="file_manager/images/filetype_large_folder.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_FILETYPE_LARGE_GENERIC" file="file_manager/images/filetype_large_generic.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_FILETYPE_LARGE_GENERIC_MULTIPLE" file="file_manager/images/filetype_large_generic_multiple.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_FILETYPE_LARGE_VIDEO" file="file_manager/images/filetype_large_video.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_FILETYPE_LARGE_IMAGE" file="file_manager/images/filetype_large_image.png" type="BINDATA" />
 
         <include name="IDR_FILE_MANAGER_IMG_GALLERY_ARROW_LEFT" file="file_manager/images/gallery/arrow_left.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_GALLERY_ARROW_LEFT_DISABLED" file="file_manager/images/gallery/arrow_left_disabled.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_GALLERY_ARROW_RIGHT" file="file_manager/images/gallery/arrow_right.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_GALLERY_ARROW_RIGHT_DISABLED" file="file_manager/images/gallery/arrow_right_disabled.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_GALLERY_EDIT" file="file_manager/images/gallery/icon_edit.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_GALLERY_EDIT_SELECTED" file="file_manager/images/gallery/icon_edit_selected.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_GALLERY_SHARE" file="file_manager/images/gallery/icon_share.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_GALLERY_SHARE_SELECTED" file="file_manager/images/gallery/icon_share_selected.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_BUBBLE_POINT" file="file_manager/images/gallery/bubble_point.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_BUTTERBAR_CLOSE_X" file="file_manager/images/gallery/butterbar_close_x.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_CLOSE" file="file_manager/images/gallery/close_x.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_CURSOR_CROP" file="file_manager/images/gallery/cursor_crop.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_CURSOR_LEFTRIGHT" file="file_manager/images/gallery/cursor_leftright.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_CURSOR_MOVE" file="file_manager/images/gallery/cursor_move.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_CURSOR_NWSE" file="file_manager/images/gallery/cursor_nwse.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_CURSOR_SWNE" file="file_manager/images/gallery/cursor_swne.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_CURSOR_UPDOWN" file="file_manager/images/gallery/cursor_updown.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_GALLERY_AUTOFIX" file="file_manager/images/gallery/icon_autofix.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_GALLERY_AUTOFIX_SELECTED" file="file_manager/images/gallery/icon_autofix_selected.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_GALLERY_CROP" file="file_manager/images/gallery/icon_crop.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_GALLERY_CROP_SELECTED" file="file_manager/images/gallery/icon_crop_selected.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_GALLERY_BRIGHTNESS" file="file_manager/images/gallery/icon_brightness.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_GALLERY_BRIGHTNESS_SELECTED" file="file_manager/images/gallery/icon_brightness_selected.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_GALLERY_CONTRAST" file="file_manager/images/gallery/icon_contrast.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_GALLERY_CONTRAST_SELECTED" file="file_manager/images/gallery/icon_contrast_selected.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_CROP" file="file_manager/images/gallery/icon_crop.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_CROP_SELECTED" file="file_manager/images/gallery/icon_crop_selected.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_EDIT" file="file_manager/images/gallery/icon_edit.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_EDIT_SELECTED" file="file_manager/images/gallery/icon_edit_selected.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_REDO" file="file_manager/images/gallery/icon_redo.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_GALLERY_ROTATE" file="file_manager/images/gallery/icon_rotate.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_GALLERY_ROTATE_SELECTED" file="file_manager/images/gallery/icon_rotate_selected.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_GALLERY_ROTATE_LEFT" file="file_manager/images/gallery/icon_rotate_left.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_GALLERY_ROTATE_LEFT_SELECTED" file="file_manager/images/gallery/icon_rotate_left_selected.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_SHARE" file="file_manager/images/gallery/icon_share.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_SHARE_SELECTED" file="file_manager/images/gallery/icon_share_selected.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_GALLERY_UNDO" file="file_manager/images/gallery/icon_undo.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_GALLERY_REDO" file="file_manager/images/gallery/icon_redo.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_GALLERY_OK" file="file_manager/images/gallery/icon_ok_check.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_GALLERY_CANCEL" file="file_manager/images/gallery/icon_cancel_x.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_GALLERY_CLOSE" file="file_manager/images/gallery/close_x.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_GALLERY_BUBBLE_POINT" file="file_manager/images/gallery/bubble_point.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_GALLERY_FADE_LEFT" file="file_manager/images/gallery/thumb_fade_left.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_GALLERY_FADE_RIGHT" file="file_manager/images/gallery/thumb_fade_right.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_GALLERY_CURSOR_CROP" file="file_manager/images/gallery/cursor_crop.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_GALLERY_CURSOR_MOVE" file="file_manager/images/gallery/cursor_move.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_GALLERY_CURSOR_LEFTRIGHT" file="file_manager/images/gallery/cursor_leftright.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_GALLERY_CURSOR_UPDOWN" file="file_manager/images/gallery/cursor_updown.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_GALLERY_CURSOR_NWSE" file="file_manager/images/gallery/cursor_nwse.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_GALLERY_CURSOR_SWNE" file="file_manager/images/gallery/cursor_swne.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_GALLERY_SLIDER_THUMB" file="file_manager/images/gallery/slider_thumb.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_GALLERY_BUTTERBAR_CLOSE_X" file="file_manager/images/gallery/butterbar_close_x.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_GALLERY_SPINNER" file="file_manager/images/gallery/spinner_white.svg" type="BINDATA" />
 
-        <include name="IDR_FILE_MANAGER_ICON_LIST_VIEW_ON" file="file_manager/images/icon_list_view_on.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_ICON_LIST_VIEW_OFF" file="file_manager/images/icon_list_view_off.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_ICON_THUMB_VIEW_ON" file="file_manager/images/icon_thumb_view_on.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_ICON_THUMB_VIEW_OFF" file="file_manager/images/icon_thumb_view_off.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_WARNING_ICON" file="file_manager/images/warning_icon_square_26x26.png" type="BINDATA"/>
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_2X_ARROW_LEFT" file="file_manager/images/gallery/2x/arrow_left.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_2X_ARROW_RIGHT" file="file_manager/images/gallery/2x/arrow_right.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_2X_BUBBLE_POINT" file="file_manager/images/gallery/2x/bubble_point.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_2X_BUTTERBAR_CLOSE_X" file="file_manager/images/gallery/2x/butterbar_close_x.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_2X_CLOSE" file="file_manager/images/gallery/2x/close_x.png" type="BINDATA" />
+        <!-- HiDPI cursors are not supported yet -->
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_2X_AUTOFIX" file="file_manager/images/gallery/2x/icon_autofix.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_2X_AUTOFIX_SELECTED" file="file_manager/images/gallery/2x/icon_autofix_selected.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_2X_BRIGHTNESS" file="file_manager/images/gallery/2x/icon_brightness.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_2X_BRIGHTNESS_SELECTED" file="file_manager/images/gallery/2x/icon_brightness_selected.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_2X_CONTRAST" file="file_manager/images/gallery/2x/icon_contrast.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_2X_CROP" file="file_manager/images/gallery/2x/icon_crop.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_2X_CROP_SELECTED" file="file_manager/images/gallery/2x/icon_crop_selected.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_2X_EDIT" file="file_manager/images/gallery/2x/icon_edit.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_2X_EDIT_SELECTED" file="file_manager/images/gallery/2x/icon_edit_selected.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_2X_REDO" file="file_manager/images/gallery/2x/icon_redo.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_2X_ROTATE" file="file_manager/images/gallery/2x/icon_rotate.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_2X_ROTATE_SELECTED" file="file_manager/images/gallery/2x/icon_rotate_selected.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_2X_ROTATE_LEFT" file="file_manager/images/gallery/2x/icon_rotate_left.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_2X_ROTATE_LEFT_SELECTED" file="file_manager/images/gallery/2x/icon_rotate_left_selected.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_2X_SHARE" file="file_manager/images/gallery/2x/icon_share.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_2X_SHARE_SELECTED" file="file_manager/images/gallery/2x/icon_share_selected.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_2X_UNDO" file="file_manager/images/gallery/2x/icon_undo.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_GALLERY_2X_SLIDER_THUMB" file="file_manager/images/gallery/2x/slider_thumb.png" type="BINDATA" />
 
-        <include name="IDR_FILE_MANAGER_BUTTON_ICON_DELETE" file="file_manager/images/button-icon-delete.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_ICON_GDRIVE_WELCOME_STYLE" file="file_manager/css/gdrive_welcome.css" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_ICON_GDRIVE_WELCOME_LOGO" file="file_manager/images/gdrive_logo.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_ICON_GDRIVE_WELCOME_BACKGROUND" file="file_manager/images/clouds.png" type="BINDATA" />
+
+        <include name="IDR_FILE_MANAGER_WARNING_ICON" file="file_manager/images/warning_icon_square_26x26.png" type="BINDATA"/>
 
         <include name="IDR_FILE_MANAGER_IMG_MEDIA_FULLSCREEN" file="file_manager/images/media/media_fullscreen.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_MEDIA_FULLSCREEN_DISABLED" file="file_manager/images/media/media_fullscreen_disabled.png" type="BINDATA" />
@@ -145,7 +172,6 @@
         <include name="IDR_FILE_MANAGER_IMG_MEDIA_FULLSCREEN_HOVER" file="file_manager/images/media/media_fullscreen_hover.png" type="BINDATA" />
 
         <include name="IDR_FILE_MANAGER_IMG_MEDIA_PAUSE" file="file_manager/images/media/media_pause.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_MEDIA_PAUSE_DISABLED" file="file_manager/images/media/media_pause_disabled.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_MEDIA_PAUSE_DOWN" file="file_manager/images/media/media_pause_down.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_MEDIA_PAUSE_HOVER" file="file_manager/images/media/media_pause_hover.png" type="BINDATA" />
 
@@ -155,12 +181,10 @@
         <include name="IDR_FILE_MANAGER_IMG_MEDIA_PLAY_HOVER" file="file_manager/images/media/media_play_hover.png" type="BINDATA" />
 
         <include name="IDR_FILE_MANAGER_IMG_MEDIA_SLIDER_THUMB" file="file_manager/images/media/media_slider_thumb.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_MEDIA_SLIDER_THUMB_DISABLED" file="file_manager/images/media/media_slider_thumb_disabled.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_MEDIA_SLIDER_THUMB_DOWN" file="file_manager/images/media/media_slider_thumb_down.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_MEDIA_SLIDER_THUMB_HOVER" file="file_manager/images/media/media_slider_thumb_hover.png" type="BINDATA" />
 
         <include name="IDR_FILE_MANAGER_IMG_MEDIA_SOUND_DISABLED" file="file_manager/images/media/media_sound_disabled.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_MEDIA_SOUND_DISABLED_DISABLED" file="file_manager/images/media/media_sound_disabled_disabled.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_MEDIA_SOUND_DISABLED_DOWN" file="file_manager/images/media/media_sound_disabled_down.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_MEDIA_SOUND_DISABLED_HOVER" file="file_manager/images/media/media_sound_disabled_hover.png" type="BINDATA" />
 
@@ -170,17 +194,14 @@
         <include name="IDR_FILE_MANAGER_IMG_MEDIA_SOUND_FULL_HOVER" file="file_manager/images/media/media_sound_full_hover.png" type="BINDATA" />
 
         <include name="IDR_FILE_MANAGER_IMG_MEDIA_SOUND_LEVEL1" file="file_manager/images/media/media_sound_level1.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_MEDIA_SOUND_LEVEL1_DISABLED" file="file_manager/images/media/media_sound_level1_disabled.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_MEDIA_SOUND_LEVEL1_DOWN" file="file_manager/images/media/media_sound_level1_down.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_MEDIA_SOUND_LEVEL1_HOVER" file="file_manager/images/media/media_sound_level1_hover.png" type="BINDATA" />
 
         <include name="IDR_FILE_MANAGER_IMG_MEDIA_SOUND_LEVEL2" file="file_manager/images/media/media_sound_level2.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_MEDIA_SOUND_LEVEL2_DISABLED" file="file_manager/images/media/media_sound_level2_disabled.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_MEDIA_SOUND_LEVEL2_DOWN" file="file_manager/images/media/media_sound_level2_down.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_MEDIA_SOUND_LEVEL2_HOVER" file="file_manager/images/media/media_sound_level2_hover.png" type="BINDATA" />
 
         <include name="IDR_FILE_MANAGER_IMG_MEDIA_VOLUME_SLIDER_THUMB" file="file_manager/images/media/media_volume_slider_thumb.png" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_MEDIA_VOLUME_SLIDER_THUMB_DISABLED" file="file_manager/images/media/media_volume_slider_thumb_disabled.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_MEDIA_VOLUME_SLIDER_THUMB_DOWN" file="file_manager/images/media/media_volume_slider_thumb_down.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_MEDIA_VOLUME_SLIDER_THUMB_HOVER" file="file_manager/images/media/media_volume_slider_thumb_hover.png" type="BINDATA" />
 
@@ -202,9 +223,9 @@
 
         <include name="IDR_FILE_MANAGER_MEDIA_ERROR" file="file_manager/images/media/error.png" type="BINDATA" />
       </if>
-
-      <if expr="pp_ifdef('use_virtual_keyboard')">
-        <include name="IDR_KEYBOARD_INDEX" file="keyboard/index.html" flattenhtml="true" type="BINDATA" />
+      <if expr="pp_ifdef('chromeos')">
+        <include name="IDR_WALLPAPER_MANAGER_MAIN" file="chromeos/wallpaper_manager/main.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
+        <include name="IDR_WALLPAPER_MANAGER_MAIN_JS" file="chromeos/wallpaper_manager/js/main_scripts.js" flattenhtml="true" type="BINDATA" />
       </if>
     </includes>
   </release>

@@ -14,6 +14,7 @@
 #include "base/message_loop.h"
 #include "base/rand_util.h"
 #include "sync/engine/syncer.h"
+#include "sync/engine/throttled_data_type_tracker.h"
 #include "sync/protocol/proto_enum_conversions.h"
 #include "sync/protocol/sync.pb.h"
 #include "sync/util/data_type_histogram.h"
@@ -22,34 +23,31 @@
 using base::TimeDelta;
 using base::TimeTicks;
 
-namespace browser_sync {
+namespace syncer {
 
 using sessions::SyncSession;
 using sessions::SyncSessionSnapshot;
 using sessions::SyncSourceInfo;
-using syncable::ModelTypeSet;
-using syncable::ModelTypeSetToString;
-using syncable::ModelTypePayloadMap;
 using sync_pb::GetUpdatesCallerInfo;
 
 namespace {
 bool ShouldRequestEarlyExit(
-    const browser_sync::SyncProtocolError& error) {
+    const syncer::SyncProtocolError& error) {
   switch (error.error_type) {
-    case browser_sync::SYNC_SUCCESS:
-    case browser_sync::MIGRATION_DONE:
-    case browser_sync::THROTTLED:
-    case browser_sync::TRANSIENT_ERROR:
+    case syncer::SYNC_SUCCESS:
+    case syncer::MIGRATION_DONE:
+    case syncer::THROTTLED:
+    case syncer::TRANSIENT_ERROR:
       return false;
-    case browser_sync::NOT_MY_BIRTHDAY:
-    case browser_sync::CLEAR_PENDING:
+    case syncer::NOT_MY_BIRTHDAY:
+    case syncer::CLEAR_PENDING:
       // If we send terminate sync early then |sync_cycle_ended| notification
       // would not be sent. If there were no actions then |ACTIONABLE_ERROR|
       // notification wouldnt be sent either. Then the UI layer would be left
       // waiting forever. So assert we would send something.
-      DCHECK(error.action != browser_sync::UNKNOWN_ACTION);
+      DCHECK(error.action != syncer::UNKNOWN_ACTION);
       return true;
-    case browser_sync::INVALID_CREDENTIAL:
+    case syncer::INVALID_CREDENTIAL:
       // The notification for this is handled by PostAndProcessHeaders|.
       // Server does no have to send any action for this.
       return true;
@@ -62,10 +60,28 @@ bool ShouldRequestEarlyExit(
 }
 
 bool IsActionableError(
-    const browser_sync::SyncProtocolError& error) {
-  return (error.action != browser_sync::UNKNOWN_ACTION);
+    const syncer::SyncProtocolError& error) {
+  return (error.action != syncer::UNKNOWN_ACTION);
 }
 }  // namespace
+
+ConfigurationParams::ConfigurationParams()
+    : source(GetUpdatesCallerInfo::UNKNOWN),
+      keystore_key_status(KEYSTORE_KEY_UNNECESSARY) {}
+ConfigurationParams::ConfigurationParams(
+    const sync_pb::GetUpdatesCallerInfo::GetUpdatesSource& source,
+    const syncer::ModelTypeSet& types_to_download,
+    const syncer::ModelSafeRoutingInfo& routing_info,
+    KeystoreKeyStatus keystore_key_status,
+    const base::Closure& ready_task)
+    : source(source),
+      types_to_download(types_to_download),
+      routing_info(routing_info),
+      keystore_key_status(keystore_key_status),
+      ready_task(ready_task) {
+  DCHECK(!ready_task.is_null());
+}
+ConfigurationParams::~ConfigurationParams() {}
 
 SyncScheduler::DelayProvider::DelayProvider() {}
 SyncScheduler::DelayProvider::~DelayProvider() {}
@@ -98,12 +114,16 @@ SyncScheduler::SyncSessionJob::~SyncSessionJob() {}
 
 SyncScheduler::SyncSessionJob::SyncSessionJob(SyncSessionJobPurpose purpose,
     base::TimeTicks start,
-    linked_ptr<sessions::SyncSession> session, bool is_canary_job,
-    const tracked_objects::Location& from_here) : purpose(purpose),
-        scheduled_start(start),
-        session(session),
-        is_canary_job(is_canary_job),
-        from_here(from_here) {
+    linked_ptr<sessions::SyncSession> session,
+    bool is_canary_job,
+    const ConfigurationParams& config_params,
+    const tracked_objects::Location& from_here)
+    : purpose(purpose),
+      scheduled_start(start),
+      session(session),
+      is_canary_job(is_canary_job),
+      config_params(config_params),
+      from_here(from_here) {
 }
 
 const char* SyncScheduler::SyncSessionJob::GetPurposeString(
@@ -112,7 +132,6 @@ const char* SyncScheduler::SyncSessionJob::GetPurposeString(
     ENUM_CASE(UNKNOWN);
     ENUM_CASE(POLL);
     ENUM_CASE(NUDGE);
-    ENUM_CASE(CLEAR_USER_DATA);
     ENUM_CASE(CONFIGURATION);
     ENUM_CASE(CLEANUP_DISABLED_TYPES);
   }
@@ -246,7 +265,7 @@ void SyncScheduler::UpdateServerConnectionManagerStatus(
   connection_code_ = code;
 }
 
-void SyncScheduler::Start(Mode mode, const base::Closure& callback) {
+void SyncScheduler::Start(Mode mode) {
   DCHECK_EQ(MessageLoop::current(), sync_loop_);
   std::string thread_name = MessageLoop::current()->thread_name();
   if (thread_name.empty())
@@ -255,38 +274,14 @@ void SyncScheduler::Start(Mode mode, const base::Closure& callback) {
             << thread_name << " with mode " << GetModeString(mode);
   if (!started_) {
     started_ = true;
-    PostTask(FROM_HERE, "SendInitialSnapshot",
-             base::Bind(&SyncScheduler::SendInitialSnapshot,
-                        weak_ptr_factory_.GetWeakPtr()));
+    SendInitialSnapshot();
   }
-  PostTask(FROM_HERE, "StartImpl",
-           base::Bind(&SyncScheduler::StartImpl,
-                      weak_ptr_factory_.GetWeakPtr(), mode, callback));
-}
 
-void SyncScheduler::SendInitialSnapshot() {
-  DCHECK_EQ(MessageLoop::current(), sync_loop_);
-  scoped_ptr<SyncSession> dummy(new SyncSession(session_context_.get(), this,
-      SyncSourceInfo(), ModelSafeRoutingInfo(),
-      std::vector<ModelSafeWorker*>()));
-  SyncEngineEvent event(SyncEngineEvent::STATUS_CHANGED);
-  sessions::SyncSessionSnapshot snapshot(dummy->TakeSnapshot());
-  event.snapshot = &snapshot;
-  session_context_->NotifyListeners(event);
-}
-
-void SyncScheduler::StartImpl(Mode mode, const base::Closure& callback) {
-  DCHECK_EQ(MessageLoop::current(), sync_loop_);
-  SDVLOG(2) << "In StartImpl with mode " << GetModeString(mode);
-
-  DCHECK_EQ(MessageLoop::current(), sync_loop_);
   DCHECK(!session_context_->account_name().empty());
   DCHECK(syncer_.get());
   Mode old_mode = mode_;
   mode_ = mode;
   AdjustPolling(NULL);  // Will kick start poll timer if needed.
-  if (!callback.is_null())
-    callback.Run();
 
   if (old_mode != mode_) {
     // We just changed our mode. See if there are any pending jobs that we could
@@ -295,11 +290,126 @@ void SyncScheduler::StartImpl(Mode mode, const base::Closure& callback) {
   }
 }
 
+void SyncScheduler::SendInitialSnapshot() {
+  DCHECK_EQ(MessageLoop::current(), sync_loop_);
+  scoped_ptr<SyncSession> dummy(new SyncSession(session_context_, this,
+      SyncSourceInfo(), ModelSafeRoutingInfo(),
+      std::vector<ModelSafeWorker*>()));
+  SyncEngineEvent event(SyncEngineEvent::STATUS_CHANGED);
+  event.snapshot = dummy->TakeSnapshot();
+  session_context_->NotifyListeners(event);
+}
+
+namespace {
+
+// Helper to extract the routing info and workers corresponding to types in
+// |types| from |current_routes| and |current_workers|.
+void BuildModelSafeParams(
+    const ModelTypeSet& types_to_download,
+    const ModelSafeRoutingInfo& current_routes,
+    const std::vector<ModelSafeWorker*>& current_workers,
+    ModelSafeRoutingInfo* result_routes,
+    std::vector<ModelSafeWorker*>* result_workers) {
+  std::set<ModelSafeGroup> active_groups;
+  active_groups.insert(GROUP_PASSIVE);
+  for (ModelTypeSet::Iterator iter = types_to_download.First(); iter.Good();
+       iter.Inc()) {
+    syncer::ModelType type = iter.Get();
+    ModelSafeRoutingInfo::const_iterator route = current_routes.find(type);
+    DCHECK(route != current_routes.end());
+    ModelSafeGroup group = route->second;
+    (*result_routes)[type] = group;
+    active_groups.insert(group);
+  }
+
+  for(std::vector<ModelSafeWorker*>::const_iterator iter =
+          current_workers.begin(); iter != current_workers.end(); ++iter) {
+    if (active_groups.count((*iter)->GetModelSafeGroup()) > 0)
+      result_workers->push_back(*iter);
+  }
+}
+
+}  // namespace.
+
+bool SyncScheduler::ScheduleConfiguration(const ConfigurationParams& params) {
+  DCHECK_EQ(MessageLoop::current(), sync_loop_);
+  DCHECK(IsConfigRelatedUpdateSourceValue(params.source));
+  DCHECK_EQ(CONFIGURATION_MODE, mode_);
+  DCHECK(!params.ready_task.is_null());
+  SDVLOG(2) << "Reconfiguring syncer.";
+
+  // Only one configuration is allowed at a time. Verify we're not waiting
+  // for a pending configure job.
+  DCHECK(!wait_interval_.get() || !wait_interval_->pending_configure_job.get());
+
+  // TODO(sync): now that ModelChanging commands only use those workers within
+  // the routing info, we don't really need |restricted_workers|. Remove it.
+  // crbug.com/133030
+  syncer::ModelSafeRoutingInfo restricted_routes;
+  std::vector<ModelSafeWorker*> restricted_workers;
+  BuildModelSafeParams(params.types_to_download,
+                       params.routing_info,
+                       session_context_->workers(),
+                       &restricted_routes,
+                       &restricted_workers);
+  session_context_->set_routing_info(params.routing_info);
+
+  // We rely on this not failing, so don't need to worry about checking for
+  // success. In addition, this will be removed as part of crbug.com/131433.
+  SyncSessionJob cleanup_job(
+      SyncSessionJob::CLEANUP_DISABLED_TYPES,
+      TimeTicks::Now(),
+      make_linked_ptr(CreateSyncSession(SyncSourceInfo())),
+      false,
+      ConfigurationParams(),
+      FROM_HERE);
+  DoSyncSessionJob(cleanup_job);
+
+  if (params.keystore_key_status == ConfigurationParams::KEYSTORE_KEY_NEEDED) {
+    // TODO(zea): implement in such a way that we can handle failures and the
+    // subsequent retrys the scheduler might perform. See crbug.com/129665.
+    NOTIMPLEMENTED();
+  }
+
+  // Only reconfigure if we have types to download.
+  if (!params.types_to_download.Empty()) {
+    DCHECK(!restricted_routes.empty());
+    linked_ptr<SyncSession> session(new SyncSession(
+        session_context_,
+        this,
+        SyncSourceInfo(params.source,
+                       ModelSafeRoutingInfoToPayloadMap(
+                           restricted_routes,
+                           std::string())),
+        restricted_routes,
+        restricted_workers));
+    SyncSessionJob job(SyncSessionJob::CONFIGURATION,
+                       TimeTicks::Now(),
+                       session,
+                       false,
+                       params,
+                       FROM_HERE);
+    DoSyncSessionJob(job);
+
+    // If we failed, the job would have been saved as the pending configure
+    // job and a wait interval would have been set.
+    if (!session->Succeeded()) {
+      DCHECK(wait_interval_.get() &&
+             wait_interval_->pending_configure_job.get());
+      return false;
+    }
+  } else {
+    SDVLOG(2) << "No change in routing info, calling ready task directly.";
+    params.ready_task.Run();
+  }
+
+  return true;
+}
+
 SyncScheduler::JobProcessDecision SyncScheduler::DecideWhileInWaitInterval(
     const SyncSessionJob& job) {
   DCHECK_EQ(MessageLoop::current(), sync_loop_);
   DCHECK(wait_interval_.get());
-  DCHECK_NE(job.purpose, SyncSessionJob::CLEAR_USER_DATA);
   DCHECK_NE(job.purpose, SyncSessionJob::CLEANUP_DISABLED_TYPES);
 
   SDVLOG(2) << "DecideWhileInWaitInterval with WaitInterval mode "
@@ -333,16 +443,15 @@ SyncScheduler::JobProcessDecision SyncScheduler::DecideWhileInWaitInterval(
 SyncScheduler::JobProcessDecision SyncScheduler::DecideOnJob(
     const SyncSessionJob& job) {
   DCHECK_EQ(MessageLoop::current(), sync_loop_);
-  if (job.purpose == SyncSessionJob::CLEAR_USER_DATA ||
-      job.purpose == SyncSessionJob::CLEANUP_DISABLED_TYPES)
+  if (job.purpose == SyncSessionJob::CLEANUP_DISABLED_TYPES)
     return CONTINUE;
 
   // See if our type is throttled.
-  syncable::ModelTypeSet throttled_types =
-      session_context_->GetThrottledTypes();
+  syncer::ModelTypeSet throttled_types =
+      session_context_->throttled_data_type_tracker()->GetThrottledTypes();
   if (job.purpose == SyncSessionJob::NUDGE &&
       job.session->source().updates_source == GetUpdatesCallerInfo::LOCAL) {
-    syncable::ModelTypeSet requested_types;
+    syncer::ModelTypeSet requested_types;
     for (ModelTypePayloadMap::const_iterator i =
          job.session->source().types.begin();
          i != job.session->source().types.end();
@@ -393,7 +502,8 @@ void SyncScheduler::InitOrCoalescePendingJob(const SyncSessionJob& job) {
         s->delegate(), s->source(), s->routing_info(), s->workers()));
 
     SyncSessionJob new_job(SyncSessionJob::NUDGE, job.scheduled_start,
-        make_linked_ptr(session.release()), false, job.from_here);
+        make_linked_ptr(session.release()), false,
+        ConfigurationParams(), job.from_here);
     pending_nudge_.reset(new SyncSessionJob(new_job));
 
     return;
@@ -428,7 +538,6 @@ bool SyncScheduler::ShouldRunJob(const SyncSessionJob& job) {
 
 void SyncScheduler::SaveJob(const SyncSessionJob& job) {
   DCHECK_EQ(MessageLoop::current(), sync_loop_);
-  DCHECK_NE(job.purpose, SyncSessionJob::CLEAR_USER_DATA);
   // TODO(sync): Should we also check that job.purpose !=
   // CLEANUP_DISABLED_TYPES?  (See http://crbug.com/90868.)
   if (job.purpose == SyncSessionJob::NUDGE) {
@@ -439,11 +548,17 @@ void SyncScheduler::SaveJob(const SyncSessionJob& job) {
     DCHECK(wait_interval_.get());
     DCHECK(mode_ == CONFIGURATION_MODE);
 
+    // Config params should always get set.
+    DCHECK(!job.config_params.ready_task.is_null());
     SyncSession* old = job.session.get();
-    SyncSession* s(new SyncSession(session_context_.get(), this,
-        old->source(), old->routing_info(), old->workers()));
-    SyncSessionJob new_job(job.purpose, TimeTicks::Now(),
-                           make_linked_ptr(s), false, job.from_here);
+    SyncSession* s(new SyncSession(session_context_, this, old->source(),
+                                   old->routing_info(), old->workers()));
+    SyncSessionJob new_job(job.purpose,
+                           TimeTicks::Now(),
+                           make_linked_ptr(s),
+                           false,
+                           job.config_params,
+                           job.from_here);
     wait_interval_->pending_configure_job.reset(new SyncSessionJob(new_job));
   } // drop the rest.
   // TODO(sync): Is it okay to drop the rest?  It's weird that
@@ -460,25 +575,7 @@ struct ModelSafeWorkerGroupIs {
   ModelSafeGroup group;
 };
 
-void SyncScheduler::ScheduleClearUserData() {
-  DCHECK_EQ(MessageLoop::current(), sync_loop_);
-  PostTask(FROM_HERE, "ScheduleClearUserDataImpl",
-           base::Bind(&SyncScheduler::ScheduleClearUserDataImpl,
-                      weak_ptr_factory_.GetWeakPtr()));
-}
-
-// TODO(sync): Remove the *Impl methods for the other Schedule*
-// functions, too.
-void SyncScheduler::ScheduleCleanupDisabledTypes() {
-  DCHECK_EQ(MessageLoop::current(), sync_loop_);
-  SyncSessionJob job(SyncSessionJob::CLEANUP_DISABLED_TYPES, TimeTicks::Now(),
-                     make_linked_ptr(CreateSyncSession(SyncSourceInfo())),
-                     false,
-                     FROM_HERE);
-  ScheduleSyncSessionJob(job);
-}
-
-void SyncScheduler::ScheduleNudge(
+void SyncScheduler::ScheduleNudgeAsync(
     const TimeDelta& delay,
     NudgeSource source, ModelTypeSet types,
     const tracked_objects::Location& nudge_location) {
@@ -489,18 +586,15 @@ void SyncScheduler::ScheduleNudge(
       << "types " << ModelTypeSetToString(types);
 
   ModelTypePayloadMap types_with_payloads =
-      syncable::ModelTypePayloadMapFromEnumSet(types, std::string());
-  PostTask(nudge_location, "ScheduleNudgeImpl",
-           base::Bind(&SyncScheduler::ScheduleNudgeImpl,
-                      weak_ptr_factory_.GetWeakPtr(),
-                      delay,
-                      GetUpdatesFromNudgeSource(source),
-                      types_with_payloads,
-                      false,
-                      nudge_location));
+      syncer::ModelTypePayloadMapFromEnumSet(types, std::string());
+  SyncScheduler::ScheduleNudgeImpl(delay,
+                                   GetUpdatesFromNudgeSource(source),
+                                   types_with_payloads,
+                                   false,
+                                   nudge_location);
 }
 
-void SyncScheduler::ScheduleNudgeWithPayloads(
+void SyncScheduler::ScheduleNudgeWithPayloadsAsync(
     const TimeDelta& delay,
     NudgeSource source, const ModelTypePayloadMap& types_with_payloads,
     const tracked_objects::Location& nudge_location) {
@@ -509,26 +603,13 @@ void SyncScheduler::ScheduleNudgeWithPayloads(
       << "Nudge scheduled with delay " << delay.InMilliseconds() << " ms, "
       << "source " << GetNudgeSourceString(source) << ", "
       << "payloads "
-      << syncable::ModelTypePayloadMapToString(types_with_payloads);
+      << syncer::ModelTypePayloadMapToString(types_with_payloads);
 
-  PostTask(nudge_location, "ScheduleNudgeImpl",
-           base::Bind(&SyncScheduler::ScheduleNudgeImpl,
-                      weak_ptr_factory_.GetWeakPtr(),
-                      delay,
-                      GetUpdatesFromNudgeSource(source),
-                      types_with_payloads,
-                      false,
-                      nudge_location));
-}
-
-void SyncScheduler::ScheduleClearUserDataImpl() {
-  DCHECK_EQ(MessageLoop::current(), sync_loop_);
-  SyncSessionJob job(SyncSessionJob::CLEAR_USER_DATA, TimeTicks::Now(),
-                     make_linked_ptr(CreateSyncSession(SyncSourceInfo())),
-                     false,
-                     FROM_HERE);
-
-  ScheduleSyncSessionJob(job);
+  SyncScheduler::ScheduleNudgeImpl(delay,
+                                   GetUpdatesFromNudgeSource(source),
+                                   types_with_payloads,
+                                   false,
+                                   nudge_location);
 }
 
 void SyncScheduler::ScheduleNudgeImpl(
@@ -543,7 +624,7 @@ void SyncScheduler::ScheduleNudgeImpl(
       << delay.InMilliseconds() << " ms, "
       << "source " << GetUpdatesSourceString(source) << ", "
       << "payloads "
-      << syncable::ModelTypePayloadMapToString(types_with_payloads)
+      << syncer::ModelTypePayloadMapToString(types_with_payloads)
       << (is_canary_job ? " (canary)" : "");
 
   SyncSourceInfo info(source, types_with_payloads);
@@ -551,7 +632,7 @@ void SyncScheduler::ScheduleNudgeImpl(
   SyncSession* session(CreateSyncSession(info));
   SyncSessionJob job(SyncSessionJob::NUDGE, TimeTicks::Now() + delay,
                      make_linked_ptr(session), is_canary_job,
-                     nudge_location);
+                     ConfigurationParams(), nudge_location);
 
   session = NULL;
   if (!ShouldRunJob(job))
@@ -582,89 +663,6 @@ void SyncScheduler::ScheduleNudgeImpl(
   ScheduleSyncSessionJob(job);
 }
 
-// Helper to extract the routing info and workers corresponding to types in
-// |types| from |registrar|.
-void GetModelSafeParamsForTypes(ModelTypeSet types,
-    ModelSafeWorkerRegistrar* registrar, ModelSafeRoutingInfo* routes,
-    std::vector<ModelSafeWorker*>* workers) {
-  ModelSafeRoutingInfo r_tmp;
-  std::vector<ModelSafeWorker*> w_tmp;
-  registrar->GetModelSafeRoutingInfo(&r_tmp);
-  registrar->GetWorkers(&w_tmp);
-
-  bool passive_group_added = false;
-
-  typedef std::vector<ModelSafeWorker*>::const_iterator iter;
-  for (ModelTypeSet::Iterator it = types.First();
-       it.Good(); it.Inc()) {
-    const syncable::ModelType t = it.Get();
-    DCHECK_EQ(1U, r_tmp.count(t));
-    (*routes)[t] = r_tmp[t];
-    iter w_tmp_it = std::find_if(w_tmp.begin(), w_tmp.end(),
-                                 ModelSafeWorkerGroupIs(r_tmp[t]));
-    if (w_tmp_it != w_tmp.end()) {
-      iter workers_it = std::find_if(workers->begin(), workers->end(),
-                                     ModelSafeWorkerGroupIs(r_tmp[t]));
-      if (workers_it == workers->end())
-        workers->push_back(*w_tmp_it);
-
-      if (r_tmp[t] == GROUP_PASSIVE)
-        passive_group_added = true;
-    } else {
-        NOTREACHED();
-    }
-  }
-
-  // Always add group passive.
-  if (passive_group_added == false) {
-    iter it = std::find_if(w_tmp.begin(), w_tmp.end(),
-                           ModelSafeWorkerGroupIs(GROUP_PASSIVE));
-    if (it != w_tmp.end())
-      workers->push_back(*it);
-    else
-      NOTREACHED();
-  }
-}
-
-void SyncScheduler::ScheduleConfig(
-    ModelTypeSet types,
-    GetUpdatesCallerInfo::GetUpdatesSource source) {
-  DCHECK_EQ(MessageLoop::current(), sync_loop_);
-  DCHECK(IsConfigRelatedUpdateSourceValue(source));
-  SDVLOG(2) << "Scheduling a config";
-  ModelSafeRoutingInfo routes;
-  std::vector<ModelSafeWorker*> workers;
-  GetModelSafeParamsForTypes(types, session_context_->registrar(),
-                             &routes, &workers);
-
-  PostTask(FROM_HERE, "ScheduleConfigImpl",
-           base::Bind(&SyncScheduler::ScheduleConfigImpl,
-                      weak_ptr_factory_.GetWeakPtr(),
-                      routes,
-                      workers,
-                      source));
-}
-
-void SyncScheduler::ScheduleConfigImpl(
-    const ModelSafeRoutingInfo& routing_info,
-    const std::vector<ModelSafeWorker*>& workers,
-    const sync_pb::GetUpdatesCallerInfo::GetUpdatesSource source) {
-  DCHECK_EQ(MessageLoop::current(), sync_loop_);
-
-  SDVLOG(2) << "In ScheduleConfigImpl";
-  // TODO(tim): config-specific GetUpdatesCallerInfo value?
-  SyncSession* session = new SyncSession(session_context_.get(), this,
-      SyncSourceInfo(source,
-          syncable::ModelTypePayloadMapFromRoutingInfo(
-              routing_info, std::string())),
-      routing_info, workers);
-  SyncSessionJob job(SyncSessionJob::CONFIGURATION, TimeTicks::Now(),
-                     make_linked_ptr(session),
-                     false,
-                     FROM_HERE);
-  ScheduleSyncSessionJob(job);
-}
-
 const char* SyncScheduler::GetModeString(SyncScheduler::Mode mode) {
   switch (mode) {
     ENUM_CASE(CONFIGURATION_MODE);
@@ -681,6 +679,33 @@ const char* SyncScheduler::GetDecisionString(
     ENUM_CASE(DROP);
   }
   return "";
+}
+
+// static
+void SyncScheduler::SetSyncerStepsForPurpose(
+    SyncSessionJob::SyncSessionJobPurpose purpose,
+    SyncerStep* start,
+    SyncerStep* end) {
+  switch (purpose) {
+    case SyncSessionJob::CONFIGURATION:
+      *start = DOWNLOAD_UPDATES;
+      *end = APPLY_UPDATES;
+      return;
+    case SyncSessionJob::NUDGE:
+    case SyncSessionJob::POLL:
+      *start = SYNCER_BEGIN;
+      *end = SYNCER_END;
+      return;
+    case SyncSessionJob::CLEANUP_DISABLED_TYPES:
+      *start = CLEANUP_DISABLED_TYPES;
+      *end = CLEANUP_DISABLED_TYPES;
+      return;
+    default:
+      NOTREACHED();
+      *start = SYNCER_END;
+      *end = SYNCER_END;
+      return;
+  }
 }
 
 void SyncScheduler::PostTask(
@@ -718,6 +743,8 @@ void SyncScheduler::ScheduleSyncSessionJob(const SyncSessionJob& job) {
       << SyncSessionJob::GetPurposeString(job.purpose)
       << " job and " << delay.InMilliseconds() << " ms delay";
 
+  DCHECK(job.purpose == SyncSessionJob::NUDGE ||
+         job.purpose == SyncSessionJob::POLL);
   if (job.purpose == SyncSessionJob::NUDGE) {
     SDVLOG_LOC(job.from_here, 2) << "Resetting pending_nudge";
     DCHECK(!pending_nudge_.get() || pending_nudge_->session.get() ==
@@ -729,36 +756,6 @@ void SyncScheduler::ScheduleSyncSessionJob(const SyncSessionJob& job) {
                              weak_ptr_factory_.GetWeakPtr(),
                              job),
                   delay);
-}
-
-void SyncScheduler::SetSyncerStepsForPurpose(
-    SyncSessionJob::SyncSessionJobPurpose purpose,
-    SyncerStep* start, SyncerStep* end) {
-  DCHECK_EQ(MessageLoop::current(), sync_loop_);
-  switch (purpose) {
-    case SyncSessionJob::CONFIGURATION:
-      *start = DOWNLOAD_UPDATES;
-      *end = APPLY_UPDATES;
-      return;
-    case SyncSessionJob::CLEAR_USER_DATA:
-      *start = CLEAR_PRIVATE_DATA;
-      *end = CLEAR_PRIVATE_DATA;
-       return;
-    case SyncSessionJob::NUDGE:
-    case SyncSessionJob::POLL:
-      *start = SYNCER_BEGIN;
-      *end = SYNCER_END;
-      return;
-    case SyncSessionJob::CLEANUP_DISABLED_TYPES:
-      *start = CLEANUP_DISABLED_TYPES;
-      *end = CLEANUP_DISABLED_TYPES;
-      return;
-    default:
-      NOTREACHED();
-      *start = SYNCER_END;
-      *end = SYNCER_END;
-      return;
-  }
 }
 
 void SyncScheduler::DoSyncSessionJob(const SyncSessionJob& job) {
@@ -864,6 +861,11 @@ void SyncScheduler::FinishSyncSessionJob(const SyncSessionJob& job) {
     // here; see DCHECKs in SaveJob().  (See http://crbug.com/90868.)
     SaveJob(job);
     return;  // Nothing to do.
+  } else if (job.session->Succeeded() &&
+             !job.config_params.ready_task.is_null()) {
+    // If this was a configuration job with a ready task, invoke it now that
+    // we finished successfully.
+    job.config_params.ready_task.Run();
   }
 
   SDVLOG(2) << "Updating the next polling time after SyncMain";
@@ -877,13 +879,9 @@ void SyncScheduler::ScheduleNextSync(const SyncSessionJob& old_job) {
   AdjustPolling(&old_job);
 
   if (old_job.session->Succeeded()) {
-    // Success implies backoff relief.  Note that if this was a
-    // "one-off" job (i.e. purpose ==
-    // SyncSessionJob::{CLEAR_USER_DATA,CLEANUP_DISABLED_TYPES}), if
-    // there was work to do before it ran this wont have changed, as
-    // jobs like this don't run a full sync cycle.  So we don't need
-    // special code here.
-    wait_interval_.reset();
+    // Only reset backoff if we actually reached the server.
+    if (old_job.session->SuccessfullyReachedServer())
+      wait_interval_.reset();
     SDVLOG(2) << "Job succeeded so not scheduling more jobs";
     return;
   }
@@ -970,11 +968,15 @@ void SyncScheduler::HandleContinuationError(
   wait_interval_.reset(new WaitInterval(WaitInterval::EXPONENTIAL_BACKOFF,
                                         length));
   if (old_job.purpose == SyncSessionJob::CONFIGURATION) {
+    SDVLOG(2) << "Configuration did not succeed, scheduling retry.";
+    // Config params should always get set.
+    DCHECK(!old_job.config_params.ready_task.is_null());
     SyncSession* old = old_job.session.get();
-    SyncSession* s(new SyncSession(session_context_.get(), this,
+    SyncSession* s(new SyncSession(session_context_, this,
         old->source(), old->routing_info(), old->workers()));
     SyncSessionJob job(old_job.purpose, TimeTicks::Now() + length,
-                        make_linked_ptr(s), false, FROM_HERE);
+                       make_linked_ptr(s), false, old_job.config_params,
+                       FROM_HERE);
     wait_interval_->pending_configure_job.reset(new SyncSessionJob(job));
   } else {
     // We are not in configuration mode. So wait_interval's pending job
@@ -1075,16 +1077,12 @@ void SyncScheduler::DoPendingJobIfPossible(bool is_canary_job) {
 
 SyncSession* SyncScheduler::CreateSyncSession(const SyncSourceInfo& source) {
   DCHECK_EQ(MessageLoop::current(), sync_loop_);
-  ModelSafeRoutingInfo routes;
-  std::vector<ModelSafeWorker*> workers;
-  session_context_->registrar()->GetModelSafeRoutingInfo(&routes);
   DVLOG(2) << "Creating sync session with routes "
-           << ModelSafeRoutingInfoToString(routes);
-  session_context_->registrar()->GetWorkers(&workers);
-  SyncSourceInfo info(source);
+           << ModelSafeRoutingInfoToString(session_context_->routing_info());
 
-  SyncSession* session(new SyncSession(session_context_.get(), this, info,
-      routes, workers));
+  SyncSourceInfo info(source);
+  SyncSession* session(new SyncSession(session_context_, this, info,
+      session_context_->routing_info(), session_context_->workers()));
 
   return session;
 }
@@ -1093,13 +1091,14 @@ void SyncScheduler::PollTimerCallback() {
   DCHECK_EQ(MessageLoop::current(), sync_loop_);
   ModelSafeRoutingInfo r;
   ModelTypePayloadMap types_with_payloads =
-      syncable::ModelTypePayloadMapFromRoutingInfo(r, std::string());
+      ModelSafeRoutingInfoToPayloadMap(r, std::string());
   SyncSourceInfo info(GetUpdatesCallerInfo::PERIODIC, types_with_payloads);
   SyncSession* s = CreateSyncSession(info);
 
   SyncSessionJob job(SyncSessionJob::POLL, TimeTicks::Now(),
                      make_linked_ptr(s),
                      false,
+                     ConfigurationParams(),
                      FROM_HERE);
 
   ScheduleSyncSessionJob(job);
@@ -1168,19 +1167,19 @@ void SyncScheduler::OnActionableError(
   DCHECK_EQ(MessageLoop::current(), sync_loop_);
   SDVLOG(2) << "OnActionableError";
   SyncEngineEvent event(SyncEngineEvent::ACTIONABLE_ERROR);
-  sessions::SyncSessionSnapshot snapshot(snap);
-  event.snapshot = &snapshot;
+  event.snapshot = snap;
   session_context_->NotifyListeners(event);
 }
 
 void SyncScheduler::OnSyncProtocolError(
     const sessions::SyncSessionSnapshot& snapshot) {
   DCHECK_EQ(MessageLoop::current(), sync_loop_);
-  if (ShouldRequestEarlyExit(snapshot.errors.sync_protocol_error)) {
+  if (ShouldRequestEarlyExit(
+          snapshot.model_neutral_state().sync_protocol_error)) {
     SDVLOG(2) << "Sync Scheduler requesting early exit.";
     syncer_->RequestEarlyExit();  // Thread-safe.
   }
-  if (IsActionableError(snapshot.errors.sync_protocol_error))
+  if (IsActionableError(snapshot.model_neutral_state().sync_protocol_error))
     OnActionableError(snapshot);
 }
 
@@ -1202,4 +1201,4 @@ base::TimeDelta SyncScheduler::sessions_commit_delay() const {
 
 #undef ENUM_CASE
 
-}  // browser_sync
+}  // namespace syncer

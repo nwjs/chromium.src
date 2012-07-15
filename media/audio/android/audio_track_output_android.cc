@@ -1,8 +1,10 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "media/audio/android/audio_track_output_android.h"
+
+#include <algorithm>  // std::min
 
 #include "base/android/jni_android.h"
 #include "base/logging.h"
@@ -11,6 +13,8 @@
 
 using base::android::AttachCurrentThread;
 using base::android::CheckException;
+
+namespace media {
 
 static const int kTimerIntervalInMilliseconds = 50;
 
@@ -286,7 +290,6 @@ void AudioTrackOutputStream::FillAudioBufferTask() {
   // Fill the internal buffer first.
   if (!data_buffer_->data_len()) {
     uint32 src_data_size = source_callback_->OnMoreData(
-        this,
         data_buffer_->GetWritableBuffer(),
         data_buffer_->buffer_size(),
         AudioBuffersState());
@@ -309,3 +312,5 @@ void AudioTrackOutputStream::FillAudioBufferTask() {
   CheckException(env);
   env->DeleteLocalRef(buf);
 }
+
+}  // namespace media

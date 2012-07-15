@@ -6,21 +6,22 @@
 
 #include "base/bind.h"
 #include "media/base/media_log.h"
-#include "media/filters/chunk_demuxer_factory.h"
+#include "media/filters/audio_renderer_impl.h"
+#include "media/filters/chunk_demuxer.h"
 #include "media/filters/ffmpeg_audio_decoder.h"
-#include "media/filters/ffmpeg_demuxer_factory.h"
+#include "media/filters/ffmpeg_demuxer.h"
 #include "media/filters/ffmpeg_video_decoder.h"
 #include "media/filters/file_data_source.h"
-#include "media/filters/null_audio_renderer.h"
 
 using ::testing::AnyNumber;
 
 namespace media {
 
-const char kNullVideoHash[] = "d41d8cd98f00b204e9800998ecf8427e";
+const char kNullHash[] = "d41d8cd98f00b204e9800998ecf8427e";
 
 PipelineIntegrationTestBase::PipelineIntegrationTestBase()
-    : message_loop_factory_(new MessageLoopFactory()),
+    : hashing_enabled_(false),
+      message_loop_factory_(new MessageLoopFactory()),
       pipeline_(new Pipeline(&message_loop_, new MediaLog())),
       ended_(false),
       pipeline_status_(PIPELINE_OK) {
@@ -36,16 +37,21 @@ PipelineIntegrationTestBase::~PipelineIntegrationTestBase() {
 }
 
 void PipelineIntegrationTestBase::OnStatusCallback(
-    PipelineStatus expected_status,
     PipelineStatus status) {
-  EXPECT_EQ(status, expected_status);
   pipeline_status_ = status;
   message_loop_.PostTask(FROM_HERE, MessageLoop::QuitClosure());
 }
 
+void PipelineIntegrationTestBase::OnStatusCallbackChecked(
+    PipelineStatus expected_status,
+    PipelineStatus status) {
+  EXPECT_EQ(status, expected_status);
+  OnStatusCallback(status);
+}
+
 PipelineStatusCB PipelineIntegrationTestBase::QuitOnStatusCB(
     PipelineStatus expected_status) {
-  return base::Bind(&PipelineIntegrationTestBase::OnStatusCallback,
+  return base::Bind(&PipelineIntegrationTestBase::OnStatusCallbackChecked,
                     base::Unretained(this),
                     expected_status);
 }
@@ -67,6 +73,8 @@ bool PipelineIntegrationTestBase::WaitUntilOnEnded() {
 }
 
 PipelineStatus PipelineIntegrationTestBase::WaitUntilEndedOrError() {
+  if (ended_ || pipeline_status_ != PIPELINE_OK)
+    return pipeline_status_;
   message_loop_.Run();
   return pipeline_status_;
 }
@@ -81,11 +89,27 @@ bool PipelineIntegrationTestBase::Start(const std::string& url,
                                         PipelineStatus expected_status) {
   pipeline_->Start(
       CreateFilterCollection(url),
-      url,
       base::Bind(&PipelineIntegrationTestBase::OnEnded, base::Unretained(this)),
       base::Bind(&PipelineIntegrationTestBase::OnError, base::Unretained(this)),
-      NetworkEventCB(),
       QuitOnStatusCB(expected_status));
+  message_loop_.Run();
+  return (pipeline_status_ == PIPELINE_OK);
+}
+
+bool PipelineIntegrationTestBase::Start(const std::string& url,
+                                        PipelineStatus expected_status,
+                                        bool hashing_enabled) {
+  hashing_enabled_ = hashing_enabled;
+  return Start(url, expected_status);
+}
+
+bool PipelineIntegrationTestBase::Start(const std::string& url) {
+  pipeline_->Start(
+      CreateFilterCollection(url),
+      base::Bind(&PipelineIntegrationTestBase::OnEnded, base::Unretained(this)),
+      base::Bind(&PipelineIntegrationTestBase::OnError, base::Unretained(this)),
+      base::Bind(&PipelineIntegrationTestBase::OnStatusCallback,
+                 base::Unretained(this)));
   message_loop_.Run();
   return (pipeline_status_ == PIPELINE_OK);
 }
@@ -108,7 +132,7 @@ bool PipelineIntegrationTestBase::Seek(base::TimeDelta seek_time) {
 
 void PipelineIntegrationTestBase::Stop() {
   DCHECK(pipeline_->IsRunning());
-  pipeline_->Stop(QuitOnStatusCB(PIPELINE_OK));
+  pipeline_->Stop(MessageLoop::QuitClosure());
   message_loop_.Run();
 }
 
@@ -147,42 +171,52 @@ scoped_ptr<FilterCollection>
 PipelineIntegrationTestBase::CreateFilterCollection(const std::string& url) {
   scoped_refptr<FileDataSource> data_source = new FileDataSource();
   CHECK_EQ(PIPELINE_OK, data_source->Initialize(url));
-  return CreateFilterCollection(scoped_ptr<DemuxerFactory>(
-      new FFmpegDemuxerFactory(data_source, &message_loop_)));
+  return CreateFilterCollection(new FFmpegDemuxer(&message_loop_, data_source));
 }
 
 scoped_ptr<FilterCollection>
 PipelineIntegrationTestBase::CreateFilterCollection(
     ChunkDemuxerClient* client) {
-  return CreateFilterCollection(scoped_ptr<DemuxerFactory>(
-      new ChunkDemuxerFactory(client)));
+  return CreateFilterCollection(new ChunkDemuxer(client));
 }
 
 scoped_ptr<FilterCollection>
 PipelineIntegrationTestBase::CreateFilterCollection(
-    scoped_ptr<DemuxerFactory> demuxer_factory) {
+    const scoped_refptr<Demuxer>& demuxer) {
   scoped_ptr<FilterCollection> collection(new FilterCollection());
-  collection->SetDemuxerFactory(demuxer_factory.Pass());
+  collection->SetDemuxer(demuxer);
   collection->AddAudioDecoder(new FFmpegAudioDecoder(
       base::Bind(&MessageLoopFactory::GetMessageLoop,
                  base::Unretained(message_loop_factory_.get()),
                  "AudioDecoderThread")));
-  collection->AddVideoDecoder(new FFmpegVideoDecoder(
+  decoder_ = new FFmpegVideoDecoder(
       base::Bind(&MessageLoopFactory::GetMessageLoop,
                  base::Unretained(message_loop_factory_.get()),
-                 "VideoDecoderThread")));
+                 "VideoDecoderThread"));
+  collection->AddVideoDecoder(decoder_);
+  // Disable frame dropping if hashing is enabled.
   renderer_ = new VideoRendererBase(
       base::Bind(&PipelineIntegrationTestBase::OnVideoRendererPaint,
                  base::Unretained(this)),
       base::Bind(&PipelineIntegrationTestBase::OnSetOpaque,
                  base::Unretained(this)),
-      false);
+      !hashing_enabled_);
   collection->AddVideoRenderer(renderer_);
-  collection->AddAudioRenderer(new NullAudioRenderer());
+  audio_sink_ = new NullAudioSink();
+  if (hashing_enabled_)
+    audio_sink_->StartAudioHashForTesting();
+  scoped_refptr<AudioRendererImpl> audio_renderer(new AudioRendererImpl(
+      audio_sink_));
+  // Disable underflow if hashing is enabled.
+  if (hashing_enabled_)
+    audio_renderer->DisableUnderflowForTesting();
+  collection->AddAudioRenderer(audio_renderer);
   return collection.Pass();
 }
 
 void PipelineIntegrationTestBase::OnVideoRendererPaint() {
+  if (!hashing_enabled_)
+    return;
   scoped_refptr<VideoFrame> frame;
   renderer_->GetCurrentFrame(&frame);
   if (frame)
@@ -191,9 +225,15 @@ void PipelineIntegrationTestBase::OnVideoRendererPaint() {
 }
 
 std::string PipelineIntegrationTestBase::GetVideoHash() {
+  DCHECK(hashing_enabled_);
   base::MD5Digest digest;
   base::MD5Final(&digest, &md5_context_);
   return base::MD5DigestToBase16(digest);
+}
+
+std::string PipelineIntegrationTestBase::GetAudioHash() {
+  DCHECK(hashing_enabled_);
+  return audio_sink_->GetAudioHashForTesting();
 }
 
 }  // namespace media

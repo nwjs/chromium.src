@@ -42,11 +42,20 @@ const char kProtectorHistogramStartupSettingsDiscarded[] =
 const char kProtectorHistogramStartupSettingsTimeout[] =
     "Protector.StartupSettings.Timeout";
 
+const char kProtectorHistogramHomepageApplied[] =
+    "Protector.Homepage.Applied";
+const char kProtectorHistogramHomepageChanged[] =
+    "Protector.Homepage.Changed";
+const char kProtectorHistogramHomepageDiscarded[] =
+    "Protector.Homepage.Discarded";
+const char kProtectorHistogramHomepageTimeout[] =
+    "Protector.Homepage.Timeout";
+
 const int kProtectorMaxSearchProviderID = SEARCH_ENGINE_MAX;
 
 int GetSearchProviderHistogramID(const TemplateURL* t_url) {
-  return (t_url && t_url->url()) ?
-      TemplateURLPrepopulateData::GetEngineType(t_url->url()->url()) :
+  return t_url ?
+      TemplateURLPrepopulateData::GetEngineType(t_url->url()) :
       SEARCH_ENGINE_NONE;
 }
 

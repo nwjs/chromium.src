@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef UI_GFX_IMAGE_IMAGE_UTIL_H_
 #define UI_GFX_IMAGE_IMAGE_UTIL_H_
-#pragma once
 
 #include <vector>
 
@@ -20,6 +19,12 @@ namespace gfx {
 // Creates an image from the given PNG-encoded input.  The caller owns the
 // returned Image.  If there was an error creating the image, returns NULL.
 UI_EXPORT Image* ImageFromPNGEncodedData(const unsigned char* input,
+                                         size_t input_size);
+
+// Creates an image from the given JPEG-encoded input.  The caller owns the
+// returned Image.  If there was an error creating the image, returns an
+// IsEmpty() Image.
+UI_EXPORT Image ImageFromJPEGEncodedData(const unsigned char* input,
                                          size_t input_size);
 
 // Fills the |dst| vector with PNG-encoded bytes based on the given Image.

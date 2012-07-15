@@ -4,7 +4,6 @@
 
 #ifndef NET_COOKIES_COOKIE_STORE_UNITTEST_H_
 #define NET_COOKIES_COOKIE_STORE_UNITTEST_H_
-#pragma once
 
 #include "base/bind.h"
 #include "base/message_loop.h"
@@ -148,6 +147,17 @@ class CookieStoreTest : public testing::Test {
     return callback.result();
   }
 
+  bool SetCookieWithServerTime(CookieStore* cs,
+                               const GURL& url,
+                               const std::string& cookie_line,
+                               const base::Time& server_time) {
+    CookieOptions options;
+    if (!CookieStoreTestTraits::supports_http_only)
+      options.set_include_httponly();
+    options.set_server_time(server_time);
+    return SetCookieWithOptions(cs, url, cookie_line, options);
+  }
+
   bool SetCookie(CookieStore* cs,
                  const GURL& url,
                  const std::string& cookie_line) {
@@ -176,6 +186,16 @@ class CookieStoreTest : public testing::Test {
     DeleteCallback callback;
     cs->DeleteAllCreatedBetweenAsync(
         delete_begin, delete_end,
+        base::Bind(&DeleteCallback::Run, base::Unretained(&callback)));
+    RunFor(kTimeout);
+    EXPECT_TRUE(callback.did_run());
+    return callback.num_deleted();
+  }
+
+  int DeleteSessionCookies(CookieStore* cs) {
+    DCHECK(cs);
+    DeleteCallback callback;
+    cs->DeleteSessionCookiesAsync(
         base::Bind(&DeleteCallback::Run, base::Unretained(&callback)));
     RunFor(kTimeout);
     EXPECT_TRUE(callback.did_run());
@@ -693,6 +713,22 @@ TYPED_TEST_P(CookieStoreTest, TestCookieDeletion) {
                               std::string(kValidCookieLine) +
                               "; expires=Mon, 18-Apr-22 22:50:13 GMT"));
   this->MatchCookieLines("A=B", this->GetCookies(cs, this->url_google_));
+  // Check that it is not deleted with significant enough clock skew.
+  base::Time server_time;
+  EXPECT_TRUE(base::Time::FromString("Sun, 17-Apr-1977 22:50:13 GMT",
+                                     &server_time));
+  EXPECT_TRUE(this->SetCookieWithServerTime(
+      cs, this->url_google_,
+      std::string(kValidCookieLine) +
+      "; expires=Mon, 18-Apr-1977 22:50:13 GMT",
+      server_time));
+  this->MatchCookieLines("A=B", this->GetCookies(cs, this->url_google_));
+
+  // Create a persistent cookie.
+  EXPECT_TRUE(this->SetCookie(cs, this->url_google_,
+                              std::string(kValidCookieLine) +
+                              "; expires=Mon, 18-Apr-22 22:50:13 GMT"));
+  this->MatchCookieLines("A=B", this->GetCookies(cs, this->url_google_));
   // Delete it via Expires, with a unix epoch of 0.
   EXPECT_TRUE(this->SetCookie(cs, this->url_google_,
                               std::string(kValidCookieLine) +
@@ -933,6 +969,11 @@ class MultiThreadedCookieStoreTest :
         base::Bind(&DeleteCookieCallback::Run, base::Unretained(callback)));
   }
 
+    void DeleteSessionCookiesTask(CookieStore* cs, DeleteCallback* callback) {
+    cs->DeleteSessionCookiesAsync(
+        base::Bind(&DeleteCallback::Run, base::Unretained(callback)));
+  }
+
  protected:
   void RunOnOtherThread(const base::Closure& task) {
     other_thread_.Start();
@@ -1045,10 +1086,45 @@ TYPED_TEST_P(MultiThreadedCookieStoreTest, ThreadCheckDeleteCookie) {
   EXPECT_TRUE(callback.did_run());
 }
 
+TYPED_TEST_P(MultiThreadedCookieStoreTest, ThreadCheckDeleteSessionCookies) {
+  scoped_refptr<CookieStore> cs(this->GetCookieStore());
+  CookieOptions options;
+  if (!TypeParam::supports_http_only)
+    options.set_include_httponly();
+  EXPECT_TRUE(this->SetCookieWithOptions(cs, this->url_google_,
+                                         "A=B", options));
+  EXPECT_TRUE(this->SetCookieWithOptions(cs, this->url_google_,
+      "B=C; expires=Mon, 18-Apr-22 22:50:13 GMT", options));
+
+#if defined(ENABLE_PERSISTENT_SESSION_COOKIES)
+  EXPECT_EQ(0, this->DeleteSessionCookies(cs));
+#else
+  EXPECT_EQ(1, this->DeleteSessionCookies(cs));
+#endif
+
+  EXPECT_EQ(0, this->DeleteSessionCookies(cs));
+
+  EXPECT_TRUE(this->SetCookieWithOptions(cs, this->url_google_,
+                                         "A=B", options));
+  DeleteCallback callback(&this->other_thread_);
+  base::Closure task = base::Bind(
+      &net::MultiThreadedCookieStoreTest<TypeParam>::DeleteSessionCookiesTask,
+      base::Unretained(this),
+      cs, &callback);
+  this->RunOnOtherThread(task);
+  EXPECT_TRUE(callback.did_run());
+
+#if defined(ENABLE_PERSISTENT_SESSION_COOKIES)
+  EXPECT_EQ(0, callback.num_deleted());
+#else
+  EXPECT_EQ(1, callback.num_deleted());
+#endif
+}
+
 REGISTER_TYPED_TEST_CASE_P(MultiThreadedCookieStoreTest,
     ThreadCheckGetCookies, ThreadCheckGetCookiesWithOptions,
     ThreadCheckGetCookiesWithInfo, ThreadCheckSetCookieWithOptions,
-    ThreadCheckDeleteCookie);
+    ThreadCheckDeleteCookie, ThreadCheckDeleteSessionCookies);
 
 }  // namespace net
 

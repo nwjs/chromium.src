@@ -6,7 +6,7 @@
 
 #include "content/browser/debugger/devtools_manager_impl.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
-#include "content/browser/tab_contents/tab_contents.h"
+#include "content/browser/web_contents/web_contents_impl.h"
 #include "content/common/devtools_messages.h"
 #include "content/public/browser/devtools_client_host.h"
 #include "content/public/browser/devtools_frontend_host_delegate.h"
@@ -18,7 +18,7 @@ DevToolsClientHost* DevToolsClientHost::CreateDevToolsFrontendHost(
     WebContents* client_web_contents,
     DevToolsFrontendHostDelegate* delegate) {
   return new DevToolsFrontendHost(
-      static_cast<TabContents*>(client_web_contents), delegate);
+      static_cast<WebContentsImpl*>(client_web_contents), delegate);
 }
 
 // static
@@ -29,35 +29,36 @@ void DevToolsClientHost::SetupDevToolsFrontendClient(
 }
 
 DevToolsFrontendHost::DevToolsFrontendHost(
-    TabContents* tab_contents,
+    WebContentsImpl* web_contents,
     DevToolsFrontendHostDelegate* delegate)
-    : RenderViewHostObserver(tab_contents->GetRenderViewHost()),
-      tab_contents_(tab_contents),
+    : RenderViewHostObserver(web_contents->GetRenderViewHost()),
+      web_contents_(web_contents),
       delegate_(delegate) {
 }
 
 DevToolsFrontendHost::~DevToolsFrontendHost() {
+  DevToolsManager::GetInstance()->ClientHostClosing(this);
 }
 
 void DevToolsFrontendHost::DispatchOnInspectorFrontend(
     const std::string& message) {
   RenderViewHostImpl* target_host =
-      static_cast<RenderViewHostImpl*>(tab_contents_->GetRenderViewHost());
+      static_cast<RenderViewHostImpl*>(web_contents_->GetRenderViewHost());
   target_host->Send(new DevToolsClientMsg_DispatchOnInspectorFrontend(
       target_host->GetRoutingID(),
       message));
 }
 
-void DevToolsFrontendHost::InspectedTabClosing() {
-  delegate_->InspectedTabClosing();
+void DevToolsFrontendHost::InspectedContentsClosing() {
+  delegate_->InspectedContentsClosing();
 }
 
 void DevToolsFrontendHost::FrameNavigating(const std::string& url) {
   delegate_->FrameNavigating(url);
 }
 
-void DevToolsFrontendHost::TabReplaced(WebContents* new_tab) {
-  delegate_->TabReplaced(new_tab);
+void DevToolsFrontendHost::ContentsReplaced(WebContents* new_contents) {
+  delegate_->ContentsReplaced(new_contents);
 }
 
 bool DevToolsFrontendHost::OnMessageReceived(
@@ -74,10 +75,9 @@ bool DevToolsFrontendHost::OnMessageReceived(
                         OnRequestUndockWindow)
     IPC_MESSAGE_HANDLER(DevToolsHostMsg_RequestSetDockSide,
                         OnRequestSetDockSide)
-    IPC_MESSAGE_HANDLER(DevToolsHostMsg_OpenInNewTab,
-                        OnOpenInNewTab)
-    IPC_MESSAGE_HANDLER(DevToolsHostMsg_SaveAs,
-                        OnSaveAs)
+    IPC_MESSAGE_HANDLER(DevToolsHostMsg_OpenInNewTab, OnOpenInNewTab)
+    IPC_MESSAGE_HANDLER(DevToolsHostMsg_Save, OnSave)
+    IPC_MESSAGE_HANDLER(DevToolsHostMsg_Append, OnAppend)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
   return handled;
@@ -105,10 +105,17 @@ void DevToolsFrontendHost::OnOpenInNewTab(const std::string& url) {
   delegate_->OpenInNewTab(url);
 }
 
-void DevToolsFrontendHost::OnSaveAs(
-    const std::string& suggested_file_name,
+void DevToolsFrontendHost::OnSave(
+    const std::string& url,
+    const std::string& content,
+    bool save_as) {
+  delegate_->SaveToFile(url, content, save_as);
+}
+
+void DevToolsFrontendHost::OnAppend(
+    const std::string& url,
     const std::string& content) {
-  delegate_->SaveToFile(suggested_file_name, content);
+  delegate_->AppendToFile(url, content);
 }
 
 void DevToolsFrontendHost::OnRequestDockWindow() {

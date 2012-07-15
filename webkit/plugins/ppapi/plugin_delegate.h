@@ -25,17 +25,17 @@
 #include "ppapi/c/pp_instance.h"
 #include "ppapi/c/pp_resource.h"
 #include "ppapi/c/pp_stdint.h"
+#include "ppapi/shared_impl/dir_contents.h"
 #include "ui/gfx/size.h"
 #include "webkit/fileapi/file_system_types.h"
 #include "webkit/glue/clipboard_client.h"
-#include "webkit/plugins/ppapi/dir_contents.h"
 #include "webkit/quota/quota_types.h"
 
 class GURL;
-struct PP_HostResolver_Private_Hint;
-struct PP_NetAddress_Private;
 class SkBitmap;
 class TransportDIB;
+struct PP_HostResolver_Private_Hint;
+struct PP_NetAddress_Private;
 
 namespace base {
 class MessageLoopProxy;
@@ -55,21 +55,28 @@ class CommandBuffer;
 }
 
 namespace ppapi {
+class PepperFilePath;
 class PPB_HostResolver_Shared;
+class PPB_X509Certificate_Fields;
 struct DeviceRefData;
 struct HostPortPair;
 struct Preferences;
+
+namespace thunk {
+class ResourceCreationAPI;
 }
+
+}  // namespace ppapi
 
 namespace skia {
 class PlatformCanvas;
 }
 
 namespace WebKit {
-class WebFileChooserCompletion;
 class WebGamepads;
+class WebPlugin;
+struct WebCompositionUnderline;
 struct WebCursorInfo;
-struct WebFileChooserParams;
 }
 
 namespace webkit_glue {
@@ -83,12 +90,10 @@ namespace ppapi {
 
 class FileIO;
 class FullscreenContainer;
-class PepperFilePath;
 class PluginInstance;
 class PluginModule;
 class PPB_Broker_Impl;
 class PPB_Flash_Menu_Impl;
-class PPB_Flash_NetConnector_Impl;
 class PPB_TCPSocket_Private_Impl;
 class PPB_UDPSocket_Private_Impl;
 
@@ -169,7 +174,8 @@ class PluginDelegate {
     virtual ~PlatformContext3D() {}
 
     // Initialize the context.
-    virtual bool Init(const int32* attrib_list) = 0;
+    virtual bool Init(const int32* attrib_list,
+                      PlatformContext3D* share_context) = 0;
 
     // If the plugin instance is backed by an OpenGL, return its ID in the
     // compositors namespace. Otherwise return 0. Returns 0 by default.
@@ -263,7 +269,7 @@ class PluginDelegate {
   // Interface for PlatformVideoDecoder is directly inherited from general media
   // VideoDecodeAccelerator interface.
   class PlatformVideoDecoder : public media::VideoDecodeAccelerator {
-   protected:
+   public:
     virtual ~PlatformVideoDecoder() {}
   };
 
@@ -279,10 +285,14 @@ class PluginDelegate {
   class PlatformVideoCapture : public media::VideoCapture,
                                public base::RefCounted<PlatformVideoCapture> {
    public:
-    virtual ~PlatformVideoCapture() {}
-
     // Detaches the event handler and stops sending notifications to it.
     virtual void DetachEventHandler() = 0;
+
+   protected:
+    virtual ~PlatformVideoCapture() {}
+
+   private:
+    friend class base::RefCounted<PlatformVideoCapture>;
   };
 
   // Provides access to the ppapi broker.
@@ -315,6 +325,13 @@ class PluginDelegate {
   // Notification that the text selection in the given plugin is changed.
   virtual void PluginSelectionChanged(
       webkit::ppapi::PluginInstance* instance) = 0;
+  // Requests simulating IME events for testing purpose.
+  virtual void SimulateImeSetComposition(
+      const string16& text,
+      const std::vector<WebKit::WebCompositionUnderline>& underlines,
+      int selection_start,
+      int selection_end) = 0;
+  virtual void SimulateImeConfirmComposition(const string16& text) = 0;
 
   // Notification that the given plugin has crashed. When a plugin crashes, all
   // instances associated with that plugin will notify that they've crashed via
@@ -329,9 +346,18 @@ class PluginDelegate {
   // from this call.
   virtual void InstanceDeleted(PluginInstance* instance) = 0;
 
+  // Creates the resource creation API for the given instance.
+  virtual scoped_ptr< ::ppapi::thunk::ResourceCreationAPI>
+      CreateResourceCreationAPI(PluginInstance* instance) = 0;
+
   // Returns a pointer (ownership not transferred) to the bitmap to paint the
   // sad plugin screen with. Returns NULL on failure.
   virtual SkBitmap* GetSadPluginBitmap() = 0;
+
+  // Creates a replacement plug-in that is shown when the plug-in at |file_path|
+  // couldn't be loaded.
+  virtual WebKit::WebPlugin* CreatePluginReplacement(
+      const FilePath& file_path) = 0;
 
   // The caller will own the pointer returned from this.
   virtual PlatformImage2D* CreateImage2D(int width, int height) = 0;
@@ -389,24 +415,32 @@ class PluginDelegate {
   // Notifies that the index of the currently selected item has been updated.
   virtual void SelectedFindResultChanged(int identifier, int index) = 0;
 
-  // Runs a file chooser.
-  virtual bool RunFileChooser(
-      const WebKit::WebFileChooserParams& params,
-      WebKit::WebFileChooserCompletion* chooser_completion) = 0;
-
-  // Sends an async IPC to open a file.
+  // Sends an async IPC to open a local file.
   typedef base::Callback<void (base::PlatformFileError, base::PassPlatformFile)>
       AsyncOpenFileCallback;
   virtual bool AsyncOpenFile(const FilePath& path,
                              int flags,
                              const AsyncOpenFileCallback& callback) = 0;
+
+  // Sends an async IPC to open a file through filesystem API.
+  // When a file is successfully opened, |callback| is invoked with
+  // PLATFORM_FILE_OK, the opened file handle, and a callback function for
+  // notifying that the file is closed. When the users of this function
+  // finished using the file, they must close the file handle and then must call
+  // the supplied callback function.
+  typedef base::Callback<void (base::PlatformFileError)>
+      NotifyCloseFileCallback;
+  typedef base::Callback<
+      void (base::PlatformFileError,
+            base::PassPlatformFile,
+            const NotifyCloseFileCallback&)> AsyncOpenFileSystemURLCallback;
   virtual bool AsyncOpenFileSystemURL(
       const GURL& path,
       int flags,
-      const AsyncOpenFileCallback& callback) = 0;
+      const AsyncOpenFileSystemURLCallback& callback) = 0;
 
   virtual bool OpenFileSystem(
-      const GURL& url,
+      const GURL& origin_url,
       fileapi::FileSystemType type,
       long long size,
       fileapi::FileSystemCallbackDispatcher* dispatcher) = 0;
@@ -437,18 +471,26 @@ class PluginDelegate {
   virtual void WillUpdateFile(const GURL& file_path) = 0;
   virtual void DidUpdateFile(const GURL& file_path, int64_t delta) = 0;
 
-  virtual base::PlatformFileError OpenFile(const PepperFilePath& path,
-                                           int flags,
-                                           base::PlatformFile* file) = 0;
-  virtual base::PlatformFileError RenameFile(const PepperFilePath& from_path,
-                                             const PepperFilePath& to_path) = 0;
-  virtual base::PlatformFileError DeleteFileOrDir(const PepperFilePath& path,
-                                                  bool recursive) = 0;
-  virtual base::PlatformFileError CreateDir(const PepperFilePath& path) = 0;
-  virtual base::PlatformFileError QueryFile(const PepperFilePath& path,
-                                            base::PlatformFileInfo* info) = 0;
-  virtual base::PlatformFileError GetDirContents(const PepperFilePath& path,
-                                                 DirContents* contents) = 0;
+  virtual base::PlatformFileError OpenFile(
+      const ::ppapi::PepperFilePath& path,
+      int flags,
+      base::PlatformFile* file) = 0;
+  virtual base::PlatformFileError RenameFile(
+      const ::ppapi::PepperFilePath& from_path,
+      const ::ppapi::PepperFilePath& to_path) = 0;
+  virtual base::PlatformFileError DeleteFileOrDir(
+      const ::ppapi::PepperFilePath& path,
+      bool recursive) = 0;
+  virtual base::PlatformFileError CreateDir(
+      const ::ppapi::PepperFilePath& path) = 0;
+  virtual base::PlatformFileError QueryFile(
+      const ::ppapi::PepperFilePath& path,
+      base::PlatformFileInfo* info) = 0;
+  virtual base::PlatformFileError GetDirContents(
+      const ::ppapi::PepperFilePath& path,
+      ::ppapi::DirContents* contents) = 0;
+  virtual base::PlatformFileError CreateTemporaryFile(
+      base::PlatformFile* file) = 0;
 
   // Synchronously returns the platform file path for a filesystem URL.
   virtual void SyncGetFileSystemPlatformPath(const GURL& url,
@@ -458,14 +500,6 @@ class PluginDelegate {
   // of the file thread in this renderer.
   virtual scoped_refptr<base::MessageLoopProxy>
       GetFileThreadMessageLoopProxy() = 0;
-
-  virtual int32_t ConnectTcp(
-      webkit::ppapi::PPB_Flash_NetConnector_Impl* connector,
-      const char* host,
-      uint16_t port) = 0;
-  virtual int32_t ConnectTcpAddress(
-      webkit::ppapi::PPB_Flash_NetConnector_Impl* connector,
-      const PP_NetAddress_Private* addr) = 0;
 
   // For PPB_TCPSocket_Private.
   virtual uint32 TCPSocketCreate() = 0;
@@ -477,9 +511,12 @@ class PluginDelegate {
       PPB_TCPSocket_Private_Impl* socket,
       uint32 socket_id,
       const PP_NetAddress_Private& addr) = 0;
-  virtual void TCPSocketSSLHandshake(uint32 socket_id,
-                                     const std::string& server_name,
-                                     uint16_t server_port) = 0;
+  virtual void TCPSocketSSLHandshake(
+      uint32 socket_id,
+      const std::string& server_name,
+      uint16_t server_port,
+      const std::vector<std::vector<char> >& trusted_certs,
+      const std::vector<std::vector<char> >& untrusted_certs) = 0;
   virtual void TCPSocketRead(uint32 socket_id, int32_t bytes_to_read) = 0;
   virtual void TCPSocketWrite(uint32 socket_id, const std::string& buffer) = 0;
   virtual void TCPSocketDisconnect(uint32 socket_id) = 0;
@@ -522,6 +559,11 @@ class PluginDelegate {
   virtual void RemoveNetworkListObserver(
       webkit_glue::NetworkListObserver* observer) = 0;
 
+  // For PPB_X509Certificate_Private.
+  virtual bool X509CertificateParseDER(
+      const std::vector<char>& der,
+      ::ppapi::PPB_X509Certificate_Fields* fields) = 0;
+
   // Show the given context menu at the given position (in the plugin's
   // coordinates).
   virtual int32_t ShowContextMenu(
@@ -563,10 +605,6 @@ class PluginDelegate {
   virtual webkit_glue::P2PTransport* CreateP2PTransport() = 0;
 
   virtual double GetLocalTimeZoneOffset(base::Time t) = 0;
-
-  // TODO(viettrungluu): Generalize this for use with other plugins if it proves
-  // necessary.
-  virtual std::string GetFlashCommandLineArgs() = 0;
 
   // Create an anonymous shared memory segment of size |size| bytes, and return
   // a pointer to it, or NULL on error.  Caller owns the returned pointer.
@@ -623,6 +661,9 @@ class PluginDelegate {
   // Create a ClipboardClient for writing to the clipboard. The caller will own
   // the pointer to this.
   virtual webkit_glue::ClipboardClient* CreateClipboardClient() const = 0;
+
+  // Returns a Device ID
+  virtual std::string GetDeviceID() = 0;
 };
 
 }  // namespace ppapi

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_AVATAR_MENU_BUTTON_H_
 #define CHROME_BROWSER_UI_VIEWS_AVATAR_MENU_BUTTON_H_
-#pragma once
 
 #include <string>
 
@@ -32,9 +31,9 @@ void DrawTaskBarDecoration(gfx::NativeWindow window, const gfx::Image* image);
 class AvatarMenuButton : public views::MenuButton,
                          public views::MenuButtonListener {
  public:
-  // Creates a new button. If |has_menu| is true then clicking on the button
-  // will cause the profile menu to be displayed.
-  AvatarMenuButton(Browser* browser, bool has_menu);
+  // Creates a new button. If |incognito| is true and we're not in managed mode,
+  // clicking on the button will cause the profile menu to be displayed.
+  AvatarMenuButton(Browser* browser, bool incognito);
 
   virtual ~AvatarMenuButton();
 
@@ -52,13 +51,15 @@ class AvatarMenuButton : public views::MenuButton,
   virtual void OnMenuButtonClicked(views::View* source,
                                    const gfx::Point& point) OVERRIDE;
 
+  void ButtonClicked();
+
   Browser* browser_;
-  bool has_menu_;
+  bool incognito_;
   scoped_ptr<ui::MenuModel> menu_model_;
 
   // Use a scoped ptr because gfx::Image doesn't have a default constructor.
   scoped_ptr<gfx::Image> icon_;
-  SkBitmap button_icon_;
+  gfx::ImageSkia button_icon_;
   bool is_gaia_picture_;
   int old_height_;
 

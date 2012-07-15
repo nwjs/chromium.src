@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,7 +6,7 @@
 
 #if defined(OS_WIN)
 #include <windows.h>
-#elif defined(TOOLKIT_USES_GTK)
+#elif defined(TOOLKIT_GTK)
 #include <gdk/gdk.h>
 #endif
 
@@ -22,6 +22,65 @@
 #endif
 
 namespace ui {
+
+Accelerator::Accelerator()
+    : key_code_(ui::VKEY_UNKNOWN),
+      type_(ui::ET_KEY_PRESSED),
+      modifiers_(0) {
+}
+
+Accelerator::Accelerator(KeyboardCode keycode, int modifiers)
+    : key_code_(keycode),
+      type_(ui::ET_KEY_PRESSED),
+      modifiers_(modifiers) {
+}
+
+Accelerator::Accelerator(const Accelerator& accelerator) {
+  key_code_ = accelerator.key_code_;
+  type_ = accelerator.type_;
+  modifiers_ = accelerator.modifiers_;
+}
+
+Accelerator::~Accelerator() {
+}
+
+Accelerator& Accelerator::operator=(const Accelerator& accelerator) {
+  if (this != &accelerator) {
+    key_code_ = accelerator.key_code_;
+    type_ = accelerator.type_;
+    modifiers_ = accelerator.modifiers_;
+  }
+  return *this;
+}
+
+bool Accelerator::operator <(const Accelerator& rhs) const {
+  if (key_code_ != rhs.key_code_)
+    return key_code_ < rhs.key_code_;
+  if (type_ != rhs.type_)
+    return type_ < rhs.type_;
+  return modifiers_ < rhs.modifiers_;
+}
+
+bool Accelerator::operator ==(const Accelerator& rhs) const {
+  return (key_code_ == rhs.key_code_) && (type_ == rhs.type_) &&
+      (modifiers_ == rhs.modifiers_);
+}
+
+bool Accelerator::operator !=(const Accelerator& rhs) const {
+  return !(*this == rhs);
+}
+
+bool Accelerator::IsShiftDown() const {
+  return (modifiers_ & EF_SHIFT_DOWN) == EF_SHIFT_DOWN;
+}
+
+bool Accelerator::IsCtrlDown() const {
+  return (modifiers_ & EF_CONTROL_DOWN) == EF_CONTROL_DOWN;
+}
+
+bool Accelerator::IsAltDown() const {
+  return (modifiers_ & EF_ALT_DOWN) == EF_ALT_DOWN;
+}
 
 string16 Accelerator::GetShortcutText() const {
   int string_id = 0;
@@ -92,7 +151,7 @@ string16 Accelerator::GetShortcutText() const {
     if (c != 0) {
       shortcut += static_cast<string16::value_type>(base::ToUpperASCII(c));
     }
-#elif defined(TOOLKIT_USES_GTK)
+#elif defined(TOOLKIT_GTK)
     const gchar* name = NULL;
     switch (key_code_) {
       case ui::VKEY_OEM_2:
@@ -146,10 +205,10 @@ string16 Accelerator::GetShortcutText() const {
   // problem).
   //
   // The only way to solve this problem is to adjust the string if the locale
-  // is RTL so that it is drawn correnctly in an RTL context. Instead of
+  // is RTL so that it is drawn correctly in an RTL context. Instead of
   // returning "Ctrl++" in the above example, we return "++Ctrl". This will
   // cause the text to appear as "Ctrl++" when Windows draws the string in an
-  // RTL context because the punctunation no longer appears at the end of the
+  // RTL context because the punctuation no longer appears at the end of the
   // string.
   //
   // TODO(idana) bug# 1232732: this hack can be avoided if instead of using

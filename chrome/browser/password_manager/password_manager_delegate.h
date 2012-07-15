@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_PASSWORD_MANAGER_PASSWORD_MANAGER_DELEGATE_H_
 #define CHROME_BROWSER_PASSWORD_MANAGER_PASSWORD_MANAGER_DELEGATE_H_
-#pragma once
 
 namespace webkit {
 namespace forms {
@@ -15,7 +14,7 @@ struct PasswordFormFillData;
 class PasswordFormManager;
 class Profile;
 
-// An abstraction of operations in the external environment (TabContents)
+// An abstraction of operations in the external environment (WebContents)
 // that the PasswordManager depends on.  This allows for more targeted
 // unit testing.
 class PasswordManagerDelegate {
@@ -36,7 +35,7 @@ class PasswordManagerDelegate {
       PasswordFormManager* form_to_save) = 0;
 
   // Get the profile for which we are managing passwords.
-  virtual Profile* GetProfileForPasswordManager() = 0;
+  virtual Profile* GetProfile() = 0;
 
   // If any SSL certificate errors were encountered as a result of the last
   // page load.

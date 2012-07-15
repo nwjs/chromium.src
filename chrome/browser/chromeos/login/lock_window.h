@@ -4,11 +4,8 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_LOCK_WINDOW_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_LOCK_WINDOW_H_
-#pragma once
 
 #include "base/basictypes.h"
-
-class DOMView;
 
 namespace views {
 class Widget;
@@ -31,9 +28,9 @@ class LockWindow {
 
   LockWindow();
 
-  // Attempt to grab inputs on |dom_view|, the actual view displaying the lock
-  // screen DOM.
-  virtual void Grab(DOMView* dom_view) = 0;
+  // Attempt to grab inputs on the webview, the actual view displaying the lock
+  // screen WebView.
+  virtual void Grab() = 0;
 
   // Returns the actual widget for the lock window.
   virtual views::Widget* GetWidget() = 0;

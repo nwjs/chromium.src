@@ -3,32 +3,35 @@
 // found in the LICENSE file.
 
 #include <algorithm>
+#include <iterator>
 
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/favicon/favicon_service.h"
-#include "chrome/browser/intents/web_intents_registry.h"
-#include "chrome/browser/intents/web_intents_registry_factory.h"
+#include "chrome/browser/intents/default_web_intent_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/intents/web_intent_picker.h"
 #include "chrome/browser/ui/intents/web_intent_picker_controller.h"
 #include "chrome/browser/ui/intents/web_intent_picker_model.h"
 #include "chrome/browser/ui/intents/web_intent_picker_model_observer.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/webdata/web_data_service.h"
+#include "chrome/browser/webdata/web_data_service_factory.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_intents_dispatcher.h"
-#include "content/test/test_url_fetcher_factory.h"
 #include "net/base/escape.h"
 #include "net/base/mock_host_resolver.h"
+#include "net/url_request/test_url_fetcher_factory.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/gfx/image/image_unittest_util.h"
 #include "ui/gfx/image/image_util.h"
@@ -74,17 +77,17 @@ const char kCWSResponseResultFormat[] =
 
 const char kCWSFakeIconURLFormat[] = "http://example.com/%s/icon.png";
 
-class DummyURLFetcherFactory : public content::URLFetcherFactory {
+class DummyURLFetcherFactory : public net::URLFetcherFactory {
  public:
    DummyURLFetcherFactory() {}
    virtual ~DummyURLFetcherFactory() {}
 
-   virtual content::URLFetcher* CreateURLFetcher(
+   virtual net::URLFetcher* CreateURLFetcher(
        int id,
        const GURL& url,
-       content::URLFetcher::RequestType request_type,
-       content::URLFetcherDelegate* d) OVERRIDE {
-     return new TestURLFetcher(id, url, d);
+       net::URLFetcher::RequestType request_type,
+       net::URLFetcherDelegate* d) OVERRIDE {
+     return new net::TestURLFetcher(id, url, d);
    }
 };
 
@@ -99,37 +102,42 @@ class WebIntentPickerMock : public WebIntentPicker,
         num_extension_icons_changed_(0),
         num_extensions_installed_(0),
         message_loop_started_(false),
-        pending_async_completed_(false) {
+        pending_async_completed_(false),
+        num_inline_disposition_(0),
+        delegate_(NULL) {
   }
 
+  void MockClose() {
+    delegate_->OnClosing();
+  }
+
+  // WebIntentPicker implementation.
+  virtual void Close() OVERRIDE {}
+  virtual void SetActionString(const string16& action) OVERRIDE {}
+  virtual void OnExtensionInstallSuccess(const std::string& id) OVERRIDE {
+    num_extensions_installed_++;
+  }
+  virtual void OnExtensionInstallFailure(const std::string& id) OVERRIDE {}
+  virtual void OnPendingAsyncCompleted() OVERRIDE {
+    StopWaiting();
+  }
+
+  // WebIntentPickerModelObserver implementation.
   virtual void OnModelChanged(WebIntentPickerModel* model) OVERRIDE {
     num_installed_services_ =
         static_cast<int>(model->GetInstalledServiceCount());
   }
-
   virtual void OnFaviconChanged(
       WebIntentPickerModel* model, size_t index) OVERRIDE {
     num_icons_changed_++;
   }
-
   virtual void OnExtensionIconChanged(
       WebIntentPickerModel* model, const string16& extension_id) OVERRIDE {
     num_extension_icons_changed_++;
   }
-
   virtual void OnInlineDisposition(
-      WebIntentPickerModel* model, const GURL& url) OVERRIDE {}
-  virtual void Close() OVERRIDE {}
-
-  virtual void OnExtensionInstallSuccess(const std::string& id) OVERRIDE {
-    num_extensions_installed_++;
-  }
-
-  virtual void OnExtensionInstallFailure(const std::string& id) OVERRIDE {
-  }
-
-  virtual void OnPendingAsyncCompleted() OVERRIDE {
-    StopWaiting();
+      const string16& title, const GURL& url) OVERRIDE {
+    num_inline_disposition_++;
   }
 
   void Wait() {
@@ -152,13 +160,16 @@ class WebIntentPickerMock : public WebIntentPicker,
   int num_extensions_installed_;
   bool message_loop_started_;
   bool pending_async_completed_;
+  int num_inline_disposition_;
+  WebIntentPickerDelegate* delegate_;
 };
 
 class IntentsDispatcherMock : public content::WebIntentsDispatcher {
  public:
   explicit IntentsDispatcherMock(const webkit_glue::WebIntentData& intent)
       : intent_(intent),
-        dispatched_(false) {}
+        dispatched_(false),
+        replied_(false) {}
 
   virtual const webkit_glue::WebIntentData& GetIntent() OVERRIDE {
     return intent_;
@@ -168,8 +179,13 @@ class IntentsDispatcherMock : public content::WebIntentsDispatcher {
     dispatched_ = true;
   }
 
+  virtual void ResetDispatch() OVERRIDE {
+  }
+
   virtual void SendReplyMessage(webkit_glue::WebIntentReplyType reply_type,
                                 const string16& data) OVERRIDE {
+    replied_ = true;
+    LOG(INFO) << "Intent Reply: " << UTF16ToASCII(data);
   }
 
   virtual void RegisterReplyNotification(
@@ -178,6 +194,7 @@ class IntentsDispatcherMock : public content::WebIntentsDispatcher {
 
   webkit_glue::WebIntentData intent_;
   bool dispatched_;
+  bool replied_;
 };
 
 class WebIntentPickerControllerBrowserTest : public InProcessBrowserTest {
@@ -190,8 +207,6 @@ class WebIntentPickerControllerBrowserTest : public InProcessBrowserTest {
     // We start the test server now instead of in
     // SetUpInProcessBrowserTestFixture so that we can get its port number.
     ASSERT_TRUE(test_server()->Start());
-
-    InProcessBrowserTest::SetUpCommandLine(command_line);
 
     net::HostPortPair host_port = test_server()->host_port_pair();
     command_line->AppendSwitchASCII(
@@ -213,19 +228,24 @@ class WebIntentPickerControllerBrowserTest : public InProcessBrowserTest {
     // Instead, use this dummy factory to infinitely delay the request.
     default_url_fetcher_factory_.reset(new DummyURLFetcherFactory);
     fake_url_fetcher_factory_.reset(
-        new FakeURLFetcherFactory(default_url_fetcher_factory_.get()));
+        new net::FakeURLFetcherFactory(default_url_fetcher_factory_.get()));
 
-    web_data_service_ =
-        GetBrowser()->profile()->GetWebDataService(Profile::EXPLICIT_ACCESS);
+    web_data_service_ = WebDataServiceFactory::GetForProfile(
+        GetBrowser()->profile(), Profile::EXPLICIT_ACCESS);
     favicon_service_ =
         GetBrowser()->profile()->GetFaviconService(Profile::EXPLICIT_ACCESS);
-    controller_ = GetBrowser()->
-        GetSelectedTabContentsWrapper()->web_intent_picker_controller();
+    controller_ = chrome::GetActiveTabContents(GetBrowser())->
+        web_intent_picker_controller();
 
-    controller_->set_picker(&picker_);
+    SetupMockPicker();
     controller_->set_model_observer(&picker_);
+    picker_.delegate_ = controller_;
 
     CreateFakeIcon();
+  }
+
+  virtual void SetupMockPicker() {
+    controller_->set_picker(&picker_);
   }
 
   virtual Browser* GetBrowser() { return browser(); }
@@ -265,6 +285,16 @@ class WebIntentPickerControllerBrowserTest : public InProcessBrowserTest {
                                                true);
   }
 
+  void SetDefaultService(const string16& action,
+                         const std::string& url) {
+    DefaultWebIntentService default_service;
+    default_service.action = action;
+    default_service.type = kType1;
+    default_service.user_date = 1000000;
+    default_service.service_url = url;
+    web_data_service_->AddDefaultWebIntentService(default_service);
+  }
+
   void OnSendReturnMessage(
     webkit_glue::WebIntentReplyType reply_type) {
     controller_->OnSendReturnMessage(reply_type);
@@ -275,7 +305,7 @@ class WebIntentPickerControllerBrowserTest : public InProcessBrowserTest {
   }
 
   void OnCancelled() {
-    controller_->OnCancelled();
+    controller_->OnPickerClosed();
   }
 
   void OnExtensionInstallRequested(const std::string& extension_id) {
@@ -293,11 +323,11 @@ class WebIntentPickerControllerBrowserTest : public InProcessBrowserTest {
   }
 
   WebIntentPickerMock picker_;
-  WebDataService* web_data_service_;
+  scoped_refptr<WebDataService> web_data_service_;
   FaviconService* favicon_service_;
   WebIntentPickerController* controller_;
   scoped_ptr<DummyURLFetcherFactory> default_url_fetcher_factory_;
-  scoped_ptr<FakeURLFetcherFactory> fake_url_fetcher_factory_;
+  scoped_ptr<net::FakeURLFetcherFactory> fake_url_fetcher_factory_;
   std::string icon_response_;
 };
 
@@ -306,7 +336,7 @@ IN_PROC_BROWSER_TEST_F(WebIntentPickerControllerBrowserTest, ChooseService) {
   AddWebIntentService(kAction1, kServiceURL2);
   AddCWSExtensionServiceEmpty(kAction1);
 
-  controller_->ShowDialog(browser(), kAction1, kType1);
+  controller_->ShowDialog(kAction1, kType1);
   picker_.Wait();
   EXPECT_EQ(2, picker_.num_installed_services_);
   EXPECT_EQ(0, picker_.num_icons_changed_);
@@ -320,7 +350,7 @@ IN_PROC_BROWSER_TEST_F(WebIntentPickerControllerBrowserTest, ChooseService) {
   OnServiceChosen(kServiceURL2, WebIntentPickerModel::DISPOSITION_WINDOW);
   ASSERT_EQ(2, browser()->tab_count());
   EXPECT_EQ(GURL(kServiceURL2),
-            browser()->GetSelectedWebContents()->GetURL());
+            chrome::GetActiveWebContents(browser())->GetURL());
 
   EXPECT_TRUE(dispatcher.dispatched_);
 
@@ -334,7 +364,7 @@ IN_PROC_BROWSER_TEST_F(WebIntentPickerControllerBrowserTest,
   AddWebIntentService(kAction1, kServiceURL2);
   AddCWSExtensionServiceWithResult(kDummyExtensionId, kAction1, kType1);
 
-  controller_->ShowDialog(browser(), kAction1, kType1);
+  controller_->ShowDialog(kAction1, kType1);
   picker_.Wait();
   EXPECT_EQ(2, picker_.num_installed_services_);
   EXPECT_EQ(0, picker_.num_icons_changed_);
@@ -346,11 +376,11 @@ IN_PROC_BROWSER_TEST_F(WebIntentPickerControllerBrowserTest, OpenCancelOpen) {
   AddWebIntentService(kAction1, kServiceURL2);
   AddCWSExtensionServiceEmpty(kAction1);
 
-  controller_->ShowDialog(browser(), kAction1, kType1);
+  controller_->ShowDialog(kAction1, kType1);
   picker_.Wait();
   OnCancelled();
 
-  controller_->ShowDialog(browser(), kAction1, kType1);
+  controller_->ShowDialog(kAction1, kType1);
   OnCancelled();
 }
 
@@ -359,16 +389,16 @@ IN_PROC_BROWSER_TEST_F(WebIntentPickerControllerBrowserTest,
   AddWebIntentService(kAction1, kServiceURL1);
   AddCWSExtensionServiceEmpty(kAction1);
 
-  GURL original = browser()->GetSelectedWebContents()->GetURL();
+  GURL original = chrome::GetActiveWebContents(browser())->GetURL();
 
   // Open a new page, but keep focus on original.
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), GURL(chrome::kChromeUINewTabURL), NEW_BACKGROUND_TAB,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
   ASSERT_EQ(2, browser()->tab_count());
-  EXPECT_EQ(original, browser()->GetSelectedWebContents()->GetURL());
+  EXPECT_EQ(original, chrome::GetActiveWebContents(browser())->GetURL());
 
-  controller_->ShowDialog(browser(), kAction1, kType1);
+  controller_->ShowDialog(kAction1, kType1);
   picker_.Wait();
   EXPECT_EQ(1, picker_.num_installed_services_);
 
@@ -381,13 +411,13 @@ IN_PROC_BROWSER_TEST_F(WebIntentPickerControllerBrowserTest,
   OnServiceChosen(kServiceURL1, WebIntentPickerModel::DISPOSITION_WINDOW);
   ASSERT_EQ(3, browser()->tab_count());
   EXPECT_EQ(GURL(kServiceURL1),
-            browser()->GetSelectedWebContents()->GetURL());
+            chrome::GetActiveWebContents(browser())->GetURL());
 
   EXPECT_TRUE(dispatcher.dispatched_);
 
   OnSendReturnMessage(webkit_glue::WEB_INTENT_REPLY_SUCCESS);
   ASSERT_EQ(2, browser()->tab_count());
-  EXPECT_EQ(original, browser()->GetSelectedWebContents()->GetURL());
+  EXPECT_EQ(original, chrome::GetActiveWebContents(browser())->GetURL());
 }
 
 class WebIntentPickerControllerIncognitoBrowserTest :
@@ -410,7 +440,7 @@ class WebIntentPickerControllerIncognitoBrowserTest :
 
 IN_PROC_BROWSER_TEST_F(WebIntentPickerControllerIncognitoBrowserTest,
                        ShowDialogShouldntCrash) {
-  controller_->ShowDialog(GetBrowser(), kAction1, kType1);
+  controller_->ShowDialog(kAction1, kType1);
   // This should do nothing for now.
   EXPECT_EQ(0, pending_async_count());
 }
@@ -420,7 +450,37 @@ IN_PROC_BROWSER_TEST_F(WebIntentPickerControllerBrowserTest,
   const char extension_id[] = "ooodacpbmglpoagccnepcbfhfhpdgddn";
   AddCWSExtensionServiceWithResult(extension_id, kAction1, kType2);
 
-  controller_->ShowDialog(browser(), kAction1, kType2);
+  controller_->ShowDialog(kAction1, kType2);
+  picker_.Wait();
+
+  webkit_glue::WebIntentData intent;
+  intent.action = kAction1;
+  intent.type = kType2;
+  IntentsDispatcherMock dispatcher(intent);
+  controller_->SetIntentsDispatcher(&dispatcher);
+
+  ASSERT_EQ(1, browser()->tab_count());
+  OnExtensionInstallRequested(extension_id);
+  picker_.Wait();
+  EXPECT_EQ(1, picker_.num_extensions_installed_);
+  const extensions::Extension* extension = browser()->profile()->
+      GetExtensionService()->GetExtensionById(extension_id, false);
+  EXPECT_TRUE(extension);
+
+  // Installing an extension should also choose it. Since this extension uses
+  // window disposition, it will create a new tab.
+  EXPECT_EQ(2, browser()->tab_count());
+  EXPECT_EQ(0, picker_.num_inline_disposition_);
+}
+
+// Tests that inline install of an extension using inline disposition works
+// and brings up content as inline content.
+IN_PROC_BROWSER_TEST_F(WebIntentPickerControllerBrowserTest,
+                       ExtensionInstallSuccessInline) {
+  const char extension_id[] = "nnhendkbgefomfgdlnmfhhmihihlljpi";
+  AddCWSExtensionServiceWithResult(extension_id, kAction1, kType2);
+
+  controller_->ShowDialog(kAction1, kType2);
   picker_.Wait();
 
   webkit_glue::WebIntentData intent;
@@ -432,11 +492,141 @@ IN_PROC_BROWSER_TEST_F(WebIntentPickerControllerBrowserTest,
   OnExtensionInstallRequested(extension_id);
   picker_.Wait();
   EXPECT_EQ(1, picker_.num_extensions_installed_);
-  const Extension* extension = browser()->profile()->GetExtensionService()->
-      GetExtensionById(extension_id, false);
+  const extensions::Extension* extension = browser()->profile()->
+      GetExtensionService()->GetExtensionById(extension_id, false);
   EXPECT_TRUE(extension);
 
   // Installing an extension should also choose it. Since this extension uses
-  // window disposition, it will create a new tab.
+  // inline disposition, it will create no tabs and invoke OnInlineDisposition.
+  EXPECT_EQ(1, browser()->tab_count());
+  EXPECT_EQ(1, picker_.num_inline_disposition_);
+}
+
+// Test that an explicit intent does not trigger loading intents from the
+// registry (skips the picker), and creates the intent service handler
+// immediately.
+IN_PROC_BROWSER_TEST_F(WebIntentPickerControllerBrowserTest,
+                       ExplicitIntentTest) {
+  // Install a target service for the explicit intent.
+  const char extension_id[] = "ooodacpbmglpoagccnepcbfhfhpdgddn";
+  AddCWSExtensionServiceWithResult(extension_id, kAction1, kType2);
+  controller_->ShowDialog(kAction1, kType2);
+  picker_.Wait();
+
+  webkit_glue::WebIntentData intent;
+  intent.action = kAction1;
+  intent.type = kType2;
+  IntentsDispatcherMock dispatcher(intent);
+  controller_->SetIntentsDispatcher(&dispatcher);
+
+  OnExtensionInstallRequested(extension_id);
+  picker_.Wait();
+  ASSERT_EQ(1, picker_.num_extensions_installed_);
+  // The intent launches a new tab.
   ASSERT_EQ(2, browser()->tab_count());
+
+  // Make the controller think nothing is being shown.
+  picker_.MockClose();
+  SetupMockPicker();
+
+  // Now call the explicit intent.
+  webkit_glue::WebIntentData explicitIntent;
+  explicitIntent.action = kAction1;
+  explicitIntent.type = kType2;
+  explicitIntent.service = GURL(StringPrintf("%s://%s/%s",
+                                             chrome::kExtensionScheme,
+                                             extension_id,
+                                             "share.html"));
+  LOG(INFO) << "Calling " << explicitIntent.service.spec();
+  IntentsDispatcherMock dispatcher2(explicitIntent);
+  controller_->SetIntentsDispatcher(&dispatcher2);
+  controller_->ShowDialog(kAction1, kType2);
+  picker_.Wait();
+
+  EXPECT_EQ(3, browser()->tab_count());
+  EXPECT_EQ(0, picker_.num_inline_disposition_);
+  EXPECT_FALSE(dispatcher2.replied_);
+
+  // num_installed_services_ would be 2 if the intent wasn't explicit.
+  EXPECT_EQ(1, picker_.num_installed_services_);
+}
+
+// Test that an explicit intent for non-installed extension won't
+// complete.
+IN_PROC_BROWSER_TEST_F(WebIntentPickerControllerBrowserTest,
+                       ExplicitIntentNoExtensionTest) {
+  AddWebIntentService(kAction1, kServiceURL1);
+  AddWebIntentService(kAction1, kServiceURL2);
+  AddCWSExtensionServiceWithResult(kDummyExtensionId, kAction1, kType1);
+
+  webkit_glue::WebIntentData intent;
+  intent.action = kAction1;
+  intent.type = kType1;
+  intent.service = GURL(StringPrintf("%s://%s/%s",
+                                     chrome::kExtensionScheme,
+                                     kDummyExtensionId,
+                                     UTF16ToASCII(kAction1).c_str()));
+  LOG(INFO) << "Calling " << intent.service.spec();
+  IntentsDispatcherMock dispatcher(intent);
+  controller_->SetIntentsDispatcher(&dispatcher);
+  controller_->ShowDialog(kAction1, kType1);
+  picker_.Wait();
+
+  EXPECT_EQ(1, browser()->tab_count());
+  EXPECT_EQ(0, picker_.num_inline_disposition_);
+  EXPECT_TRUE(dispatcher.replied_);
+
+  // num_installed_services_ would be 2 if the intent wasn't explicit.
+  EXPECT_EQ(0, picker_.num_installed_services_);
+}
+
+// Test that explicit intents won't load non-extensions.
+IN_PROC_BROWSER_TEST_F(WebIntentPickerControllerBrowserTest,
+                       ExplicitIntentNonExtensionTest) {
+  AddWebIntentService(kAction1, kServiceURL1);
+  AddWebIntentService(kAction1, kServiceURL2);
+  AddCWSExtensionServiceWithResult(kDummyExtensionId, kAction1, kType1);
+
+  webkit_glue::WebIntentData intent;
+  intent.action = kAction1;
+  intent.type = kType1;
+  intent.service = GURL("http://www.google.com/");
+  IntentsDispatcherMock dispatcher(intent);
+  controller_->SetIntentsDispatcher(&dispatcher);
+  controller_->ShowDialog(kAction1, kType1);
+
+  EXPECT_EQ(1, browser()->tab_count());
+  EXPECT_EQ(0, picker_.num_inline_disposition_);
+
+  // num_installed_services_ would be 2 if the intent wasn't explicit.
+  EXPECT_EQ(0, picker_.num_installed_services_);
+  EXPECT_TRUE(dispatcher.replied_);
+}
+
+IN_PROC_BROWSER_TEST_F(WebIntentPickerControllerBrowserTest,
+                       DefaultsTest) {
+  AddWebIntentService(kAction1, kServiceURL1);
+  AddWebIntentService(kAction1, kServiceURL2);
+
+  SetDefaultService(kAction1, kServiceURL1.spec());
+
+  webkit_glue::WebIntentData intent;
+  intent.action = kAction1;
+  intent.type = kType1;
+  IntentsDispatcherMock dispatcher(intent);
+  controller_->SetIntentsDispatcher(&dispatcher);
+
+  ui_test_utils::WindowedTabAddedNotificationObserver new_tab_observer((
+      content::Source<content::WebContentsDelegate>(browser())));
+  controller_->ShowDialog(kAction1, kType1);
+  new_tab_observer.Wait();
+
+  EXPECT_EQ(2, picker_.num_installed_services_);
+
+  // The tab is shown immediately without needing to call OnServiceChosen.
+  ASSERT_EQ(2, browser()->tab_count());
+  EXPECT_EQ(GURL(kServiceURL1),
+            chrome::GetActiveWebContents(browser())->GetURL());
+
+  EXPECT_TRUE(dispatcher.dispatched_);
 }

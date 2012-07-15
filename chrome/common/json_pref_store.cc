@@ -79,6 +79,7 @@ class FileThreadDeserializer
 
  private:
   friend class base::RefCountedThreadSafe<FileThreadDeserializer>;
+  ~FileThreadDeserializer() {}
 
   bool no_dir_;
   PersistentPrefStore::PrefReadError error_;
@@ -148,10 +149,6 @@ JsonPrefStore::JsonPrefStore(const FilePath& filename,
       read_error_(PREF_READ_ERROR_OTHER) {
 }
 
-JsonPrefStore::~JsonPrefStore() {
-  CommitPendingWrite();
-}
-
 PrefStore::ReadResult JsonPrefStore::GetValue(const std::string& key,
                                               const Value** result) const {
   Value* tmp = NULL;
@@ -212,6 +209,10 @@ void JsonPrefStore::RemoveValue(const std::string& key) {
     ReportValueChanged(key);
 }
 
+void JsonPrefStore::MarkNeedsEmptyValue(const std::string& key) {
+  keys_need_empty_value_.insert(key);
+}
+
 bool JsonPrefStore::ReadOnly() const {
   return read_only_;
 }
@@ -220,11 +221,49 @@ PersistentPrefStore::PrefReadError JsonPrefStore::GetReadError() const {
   return read_error_;
 }
 
+PersistentPrefStore::PrefReadError JsonPrefStore::ReadPrefs() {
+  if (path_.empty()) {
+    OnFileRead(NULL, PREF_READ_ERROR_FILE_NOT_SPECIFIED, false);
+    return PREF_READ_ERROR_FILE_NOT_SPECIFIED;
+  }
+
+  PrefReadError error;
+  bool no_dir;
+  Value* value = FileThreadDeserializer::DoReading(path_, &error, &no_dir);
+  OnFileRead(value, error, no_dir);
+  return error;
+}
+
+void JsonPrefStore::ReadPrefsAsync(ReadErrorDelegate *error_delegate) {
+  initialized_ = false;
+  error_delegate_.reset(error_delegate);
+  if (path_.empty()) {
+    OnFileRead(NULL, PREF_READ_ERROR_FILE_NOT_SPECIFIED, false);
+    return;
+  }
+
+  // Start async reading of the preferences file. It will delete itself
+  // in the end.
+  scoped_refptr<FileThreadDeserializer> deserializer(
+      new FileThreadDeserializer(this, file_message_loop_proxy_.get()));
+  deserializer->Start(path_);
+}
+
+void JsonPrefStore::CommitPendingWrite() {
+  if (writer_.HasPendingWrite() && !read_only_)
+    writer_.DoScheduledWrite();
+}
+
+void JsonPrefStore::ReportValueChanged(const std::string& key) {
+  FOR_EACH_OBSERVER(PrefStore::Observer, observers_, OnPrefValueChanged(key));
+  if (!read_only_)
+    writer_.ScheduleWrite(this);
+}
+
 void JsonPrefStore::OnFileRead(Value* value_owned,
                                PersistentPrefStore::PrefReadError error,
                                bool no_dir) {
   scoped_ptr<Value> value(value_owned);
-  initialized_ = true;
   read_error_ = error;
 
   if (no_dir) {
@@ -233,6 +272,8 @@ void JsonPrefStore::OnFileRead(Value* value_owned,
                       OnInitializationCompleted(false));
     return;
   }
+
+  initialized_ = true;
 
   switch (error) {
     case PREF_READ_ERROR_ACCESS_DENIED:
@@ -265,43 +306,8 @@ void JsonPrefStore::OnFileRead(Value* value_owned,
                     OnInitializationCompleted(true));
 }
 
-void JsonPrefStore::ReadPrefsAsync(ReadErrorDelegate *error_delegate) {
-  initialized_ = false;
-  error_delegate_.reset(error_delegate);
-  if (path_.empty()) {
-    OnFileRead(NULL, PREF_READ_ERROR_FILE_NOT_SPECIFIED, false);
-    return;
-  }
-
-  // Start async reading of the preferences file. It will delete itself
-  // in the end.
-  scoped_refptr<FileThreadDeserializer> deserializer(
-      new FileThreadDeserializer(this, file_message_loop_proxy_.get()));
-  deserializer->Start(path_);
-}
-
-PersistentPrefStore::PrefReadError JsonPrefStore::ReadPrefs() {
-  if (path_.empty()) {
-    OnFileRead(NULL, PREF_READ_ERROR_FILE_NOT_SPECIFIED, false);
-    return PREF_READ_ERROR_FILE_NOT_SPECIFIED;
-  }
-
-  PrefReadError error;
-  bool no_dir;
-  Value* value = FileThreadDeserializer::DoReading(path_, &error, &no_dir);
-  OnFileRead(value, error, no_dir);
-  return error;
-}
-
-void JsonPrefStore::CommitPendingWrite() {
-  if (writer_.HasPendingWrite() && !read_only_)
-    writer_.DoScheduledWrite();
-}
-
-void JsonPrefStore::ReportValueChanged(const std::string& key) {
-  FOR_EACH_OBSERVER(PrefStore::Observer, observers_, OnPrefValueChanged(key));
-  if (!read_only_)
-    writer_.ScheduleWrite(this);
+JsonPrefStore::~JsonPrefStore() {
+  CommitPendingWrite();
 }
 
 bool JsonPrefStore::SerializeData(std::string* output) {
@@ -310,5 +316,29 @@ bool JsonPrefStore::SerializeData(std::string* output) {
   JSONStringValueSerializer serializer(output);
   serializer.set_pretty_print(true);
   scoped_ptr<DictionaryValue> copy(prefs_->DeepCopyWithoutEmptyChildren());
+
+  // Iterates |keys_need_empty_value_| and if the key exists in |prefs_|,
+  // ensure its empty ListValue or DictonaryValue is preserved.
+  for (std::set<std::string>::const_iterator
+       it = keys_need_empty_value_.begin();
+       it != keys_need_empty_value_.end();
+       ++it) {
+    const std::string& key = *it;
+
+    base::Value* value = NULL;
+    if (!prefs_->Get(key, &value))
+      continue;
+
+    if (value->IsType(base::Value::TYPE_LIST)) {
+      const base::ListValue* list = NULL;
+      if (value->GetAsList(&list) && list->empty())
+        copy->Set(key, new base::ListValue);
+    } else if (value->IsType(base::Value::TYPE_DICTIONARY)) {
+      const base::DictionaryValue* dict = NULL;
+      if (value->GetAsDictionary(&dict) && dict->empty())
+        copy->Set(key, new base::DictionaryValue);
+    }
+  }
+
   return serializer.Serialize(*(copy.get()));
 }

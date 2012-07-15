@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+  <!--
+  Copyright (c) 2012 The Chromium Authors. All rights reserved.
+  Use of this source code is governed by a BSD-style license that can be
+  found in the LICENSE file.
+  -->
+<head>
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="-1">
+  <title><TITLE></title>
+  <script type="text/javascript" src="common.js"></script>
+  <script type ="text/javascript" >
+    function postFileContents(file) {
+      var reader = new FileReader();
+      reader.onload = function(load_event) {
+        if (common.naclModule)
+          common.naclModule.postMessage(load_event.target.result);
+      }
+      reader.readAsArrayBuffer(file);
+    }
+
+    // Handle a file being dropped on to the plugin's rectangle.
+    function handleFileDrop(dropEvent) {
+      if (!dropEvent.dataTransfer || !dropEvent.dataTransfer.files)
+        return;
+      dropEvent.stopPropagation();
+      dropEvent.preventDefault();
+      var files = dropEvent.dataTransfer.files;
+      for(var i = 0; i < files.length; ++i)
+        postFileContents(files[i]);
+    }
+
+    // Handle a file being chosen from the <input type=file...> tag.
+    function handleFileInput() {
+      var file_input = document.getElementById("FileInput");
+      var files = file_input.files;
+      for(var i = 0; i < files.length; ++i)
+        postFileContents(files[i]);
+    }
+  </script>
+</head>
+<body onload="common.onload('<NAME>', '<tc>', 256, 256)">
+  <h1><TITLE></h1>
+  <h2>Status: <code id="statusField">NO-STATUS</code></h2>
+  <input type="file" id="FileInput" onchange="handleFileInput()" multiple>
+  <!-- The NaCl plugin will be embedded inside the element with id "listener".
+      See common.js.-->
+  <div id="listener">
+    <script type="text/javascript">
+      var listener = document.getElementById('listener');
+      listener.addEventListener('drop', handleFileDrop, true);
+    </script>
+  </div>
+</body>
+</html>

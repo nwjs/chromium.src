@@ -4,7 +4,6 @@
 
 #ifndef UI_BASE_WIN_SINGLETON_HWND_H_
 #define UI_BASE_WIN_SINGLETON_HWND_H_
-#pragma once
 
 #include <windows.h>
 #include <vector>
@@ -12,6 +11,7 @@
 #include "base/basictypes.h"
 #include "base/callback_forward.h"
 #include "base/observer_list.h"
+#include "ui/base/win/window_impl.h"
 
 template<typename T> struct DefaultSingletonTraits;
 
@@ -19,7 +19,7 @@ namespace ui {
 
 // Singleton message-only HWND that allows interested clients to receive WM_*
 // notifications.
-class SingletonHwnd {
+class SingletonHwnd : public WindowImpl {
  public:
   static SingletonHwnd* GetInstance();
 
@@ -37,16 +37,18 @@ class SingletonHwnd {
   void RemoveObserver(Observer* observer);
 
   // Windows callback for WM_* notifications.
-  void OnWndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam);
+  virtual BOOL ProcessWindowMessage(HWND window,
+                                    UINT message,
+                                    WPARAM wparam,
+                                    LPARAM lparam,
+                                    LRESULT& result,
+                                    DWORD msg_map_id) OVERRIDE;
 
  private:
   friend struct DefaultSingletonTraits<SingletonHwnd>;
 
   SingletonHwnd();
   ~SingletonHwnd();
-
-  // Listener HWND for WM_* notifications.
-  HWND listener_window_;
 
   // List of registered observers.
   ObserverList<Observer> observer_list_;

@@ -25,7 +25,6 @@
 #include "chrome/browser/chromeos/cros_settings.h"
 #include "chrome/browser/chromeos/cros_settings_names.h"
 #include "chrome/browser/chromeos/customization_document.h"
-#include "chrome/browser/chromeos/language_preferences.h"
 #include "chrome/browser/chromeos/login/enrollment/enterprise_enrollment_screen.h"
 #include "chrome/browser/chromeos/login/eula_screen.h"
 #include "chrome/browser/chromeos/login/existing_user_controller.h"
@@ -121,6 +120,9 @@ const char WizardController::kTestNoScreenName[] = "test:nowindow";
 // static
 WizardController* WizardController::default_controller_ = NULL;
 
+// static
+bool WizardController::skip_user_image_selection_ = false;
+
 ///////////////////////////////////////////////////////////////////////////////
 // WizardController, public:
 
@@ -135,7 +137,9 @@ WizardController::WizardController(chromeos::LoginDisplayHost* host,
       is_out_of_box_(false),
       host_(host),
       oobe_display_(oobe_display),
-      usage_statistics_reporting_(true) {
+      usage_statistics_reporting_(true),
+      skip_update_enroll_after_eula_(false),
+      login_screen_started_(false) {
   DCHECK(default_controller_ == NULL);
   default_controller_ = this;
 }
@@ -252,6 +256,7 @@ void WizardController::ShowLoginScreen() {
   host_->StartSignInScreen();
   smooth_show_timer_.Stop();
   oobe_display_ = NULL;
+  login_screen_started_ = true;
 }
 
 void WizardController::ResumeLoginScreen() {
@@ -275,7 +280,10 @@ void WizardController::ShowUserImageScreen() {
     return;
   }
   VLOG(1) << "Showing user image screen.";
-  SetStatusAreaVisible(false);
+  // Status area has been already shown at sign in screen so it
+  // doesn't make sense to hide it here and then show again at user session as
+  // this produces undesired UX transitions.
+  SetStatusAreaVisible(true);
   SetCurrentScreen(GetUserImageScreen());
   host_->SetShutdownButtonEnabled(false);
 }
@@ -320,11 +328,38 @@ void WizardController::ShowEnterpriseEnrollmentScreen() {
   SetCurrentScreen(screen);
 }
 
+void WizardController::SkipToLoginForTesting() {
+  MarkEulaAccepted();
+  PerformPostEulaActions();
+  PerformPostUpdateActions();
+  ShowLoginScreen();
+}
+
+void WizardController::SkipImageSelectionForTesting() {
+  skip_user_image_selection_ = true;
+}
+
 void WizardController::SkipRegistration() {
   if (current_screen_ == GetRegistrationScreen())
     OnRegistrationSkipped();
   else
     LOG(ERROR) << "Registration screen is not active.";
+}
+
+void WizardController::AddObserver(Observer* observer) {
+  observer_list_.AddObserver(observer);
+}
+
+void WizardController::RemoveObserver(Observer* observer) {
+  observer_list_.RemoveObserver(observer);
+}
+
+void WizardController::OnSessionStart() {
+  FOR_EACH_OBSERVER(Observer, observer_list_, OnSessionStart());
+}
+
+void WizardController::SkipUpdateEnrollAfterEula() {
+  skip_update_enroll_after_eula_ = true;
 }
 
 // static
@@ -412,7 +447,13 @@ void WizardController::OnEulaAccepted() {
 #endif
   }
 
-  InitiateOOBEUpdate();
+  if (skip_update_enroll_after_eula_) {
+    PerformPostEulaActions();
+    PerformPostUpdateActions();
+    ShowEnterpriseEnrollmentScreen();
+  } else {
+    InitiateOOBEUpdate();
+  }
 }
 
 void WizardController::OnUpdateErrorCheckingForUpdate() {
@@ -479,20 +520,27 @@ void WizardController::OnEnterpriseAutoEnrollmentDone() {
 }
 
 void WizardController::OnOOBECompleted() {
-  MarkOobeCompleted();
+  PerformPostUpdateActions();
   ShowLoginScreen();
 }
 
 void WizardController::InitiateOOBEUpdate() {
+  PerformPostEulaActions();
+  GetUpdateScreen()->StartUpdate();
+  SetCurrentScreenSmooth(GetUpdateScreen(), true);
+}
+
+void WizardController::PerformPostEulaActions() {
   // Now that EULA has been accepted (for official builds), enable portal check.
   // ChromiumOS builds would go though this code path too.
   chromeos::CrosLibrary::Get()->GetNetworkLibrary()->
       SetDefaultCheckPortalList();
   host_->CheckForAutoEnrollment();
-  GetUpdateScreen()->StartUpdate();
-  SetCurrentScreenSmooth(GetUpdateScreen(), true);
 }
 
+void WizardController::PerformPostUpdateActions() {
+  MarkOobeCompleted();
+}
 
 void WizardController::SetCurrentScreen(WizardScreen* new_current) {
   SetCurrentScreenSmooth(new_current, false);
@@ -505,6 +553,8 @@ void WizardController::ShowCurrentScreen() {
     return;
 
   smooth_show_timer_.Stop();
+
+  FOR_EACH_OBSERVER(Observer, observer_list_, OnScreenChanged(current_screen_));
 
   oobe_display_->ShowScreen(current_screen_);
 }
@@ -638,7 +688,6 @@ bool WizardController::IsDeviceRegistered() {
     // IO on UI thread. But it's required for update from old versions.
     base::ThreadRestrictions::ScopedAllowIO allow_io;
     FilePath oobe_complete_flag_file_path = GetOobeCompleteFlagPath();
-    DVLOG(1) << "Checking " << oobe_complete_flag_file_path.value();
     bool file_exists = file_util::PathExists(oobe_complete_flag_file_path);
     SaveIntegerPreferenceForced(kDeviceRegistered, file_exists ? 1 : 0);
     return file_exists;
@@ -687,9 +736,6 @@ void WizardController::OnExit(ExitCodes exit_code) {
     case NETWORK_CONNECTED:
       OnNetworkConnected();
       break;
-    case NETWORK_OFFLINE:
-      OnNetworkOffline();
-      break;
     case CONNECTION_FAILED:
       OnConnectionFailed();
       break;
@@ -705,9 +751,6 @@ void WizardController::OnExit(ExitCodes exit_code) {
       break;
     case USER_IMAGE_SELECTED:
       OnUserImageSelected();
-      break;
-    case USER_IMAGE_SKIPPED:
-      OnUserImageSkipped();
       break;
     case EULA_ACCEPTED:
       OnEulaAccepted();
@@ -738,11 +781,11 @@ void WizardController::OnSetUserNamePassword(const std::string& username,
   password_ = password;
 }
 
-void WizardController::set_usage_statistics_reporting(bool val) {
+void WizardController::SetUsageStatisticsReporting(bool val) {
   usage_statistics_reporting_ = val;
 }
 
-bool WizardController::usage_statistics_reporting() const {
+bool WizardController::GetUsageStatisticsReporting() const {
   return usage_statistics_reporting_;
 }
 

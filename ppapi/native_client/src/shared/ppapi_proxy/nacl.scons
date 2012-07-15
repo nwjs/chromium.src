@@ -26,6 +26,7 @@ command_buffer_common_srcs = [
     ]
 
 command_buffer_client_srcs = [
+    'command_buffer/client/atomicops.cc',
     'command_buffer/client/cmd_buffer_helper.cc',
     'command_buffer/client/fenced_allocator.cc',
     'command_buffer/client/gles2_c_lib.cc',
@@ -36,6 +37,7 @@ command_buffer_client_srcs = [
     'command_buffer/client/mapped_memory.cc',
     'command_buffer/client/query_tracker.cc',
     'command_buffer/client/ring_buffer.cc',
+    'command_buffer/client/share_group.cc',
     'command_buffer/client/transfer_buffer.cc',
     'command_buffer/common/id_allocator.cc',
     ]
@@ -51,14 +53,12 @@ libppruntime = env.NaClSdkLibrary(
     'plugin_globals.cc',
     'plugin_instance_data.cc',
     'plugin_main.cc',
-    'plugin_nacl_file.cc',
     'plugin_opengles.cc',
     'plugin_ppb.cc',
     'plugin_ppb_audio.cc',
     'plugin_ppb_audio_config.cc',
     'plugin_ppb_buffer.cc',
     'plugin_ppb_core.cc',
-    'plugin_ppb_cursor_control.cc',
     'plugin_ppb_file_io.cc',
     'plugin_ppb_file_system.cc',
     'plugin_ppb_file_ref.cc',
@@ -74,6 +74,7 @@ libppruntime = env.NaClSdkLibrary(
     'plugin_ppb_instance.cc',
     'plugin_ppb_memory.cc',
     'plugin_ppb_messaging.cc',
+    'plugin_ppb_mouse_cursor.cc',
     'plugin_ppb_mouse_lock.cc',
     'plugin_ppb_net_address_private.cc',
     'plugin_ppb_pdf.cc',

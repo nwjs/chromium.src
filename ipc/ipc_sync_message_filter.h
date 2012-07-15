@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef IPC_IPC_SYNC_MESSAGE_FILTER_H_
 #define IPC_IPC_SYNC_MESSAGE_FILTER_H_
-#pragma once
 
 #include <set>
 
@@ -27,12 +26,11 @@ namespace IPC {
 // receiving messages while waiting for a response.  Note that this object can
 // be used to send simultaneous synchronous messages from different threads.
 class IPC_EXPORT SyncMessageFilter : public ChannelProxy::MessageFilter,
-                                     public Message::Sender {
+                                     public Sender {
  public:
   explicit SyncMessageFilter(base::WaitableEvent* shutdown_event);
-  virtual ~SyncMessageFilter();
 
-  // Message::Sender implementation.
+  // MessageSender implementation.
   virtual bool Send(Message* message) OVERRIDE;
 
   // ChannelProxy::MessageFilter implementation.
@@ -40,6 +38,9 @@ class IPC_EXPORT SyncMessageFilter : public ChannelProxy::MessageFilter,
   virtual void OnChannelError() OVERRIDE;
   virtual void OnChannelClosing() OVERRIDE;
   virtual bool OnMessageReceived(const Message& message) OVERRIDE;
+
+ protected:
+  virtual ~SyncMessageFilter();
 
  private:
   void SendOnIOThread(Message* message);

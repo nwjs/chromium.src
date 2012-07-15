@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_AUTOFILL_AUTOFILL_DOWNLOAD_H_
 #define CHROME_BROWSER_AUTOFILL_AUTOFILL_DOWNLOAD_H_
-#pragma once
 
 #include <stddef.h>
 #include <list>
@@ -17,14 +16,18 @@
 #include "base/gtest_prod_util.h"
 #include "base/time.h"
 #include "chrome/browser/autofill/autofill_type.h"
-#include "content/public/common/url_fetcher_delegate.h"
+#include "net/url_request/url_fetcher_delegate.h"
 
 class AutofillMetrics;
 class FormStructure;
 class Profile;
 
+namespace net {
+class URLFetcher;
+}  // namespace net
+
 // Handles getting and updating Autofill heuristics.
-class AutofillDownloadManager : public content::URLFetcherDelegate {
+class AutofillDownloadManager : public net::URLFetcherDelegate {
  public:
   enum AutofillRequestType {
     REQUEST_QUERY,
@@ -110,8 +113,8 @@ class AutofillDownloadManager : public content::URLFetcherDelegate {
   std::string GetCombinedSignature(
       const std::vector<std::string>& forms_in_query) const;
 
-  // content::URLFetcherDelegate implementation:
-  virtual void OnURLFetchComplete(const content::URLFetcher* source) OVERRIDE;
+  // net::URLFetcherDelegate implementation:
+  virtual void OnURLFetchComplete(const net::URLFetcher* source) OVERRIDE;
 
   // Probability of the form upload. Between 0 (no upload) and 1 (upload all).
   // GetPositiveUploadRate() is for matched forms,
@@ -132,7 +135,7 @@ class AutofillDownloadManager : public content::URLFetcherDelegate {
   // For each requested form for both query and upload we create a separate
   // request and save its info. As url fetcher is identified by its address
   // we use a map between fetchers and info.
-  std::map<content::URLFetcher*, FormRequestData> url_fetchers_;
+  std::map<net::URLFetcher*, FormRequestData> url_fetchers_;
 
   // Cached QUERY requests.
   QueryRequestCache cached_forms_;

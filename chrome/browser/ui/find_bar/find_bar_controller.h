@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_UI_FIND_BAR_FIND_BAR_CONTROLLER_H_
 #define CHROME_BROWSER_UI_FIND_BAR_FIND_BAR_CONTROLLER_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
@@ -16,15 +15,24 @@ class Rect;
 }
 
 class FindBar;
-class TabContentsWrapper;
+class TabContents;
 
 class FindBarController : public content::NotificationObserver {
  public:
-  // An enum listing the possible actions to take on a find-in-page selection.
+  // An enum listing the possible actions to take on a find-in-page selection
+  // in the page when ending the find session.
   enum SelectionAction {
-    kKeepSelection,  // Translate the find selection into a normal selection.
-    kClearSelection,  // Clear the find selection.
-    kActivateSelection  // Focus and click the selected node (for links).
+    kKeepSelectionOnPage,     // Translate the find selection into a normal
+                              // selection.
+    kClearSelectionOnPage,    // Clear the find selection.
+    kActivateSelectionOnPage  // Focus and click the selected node (for links).
+  };
+
+  // An enum listing the possible actions to take on a find-in-page results in
+  // the Find box when ending the find session.
+  enum ResultAction {
+    kClearResultsInFindBox,  // Clear search string, ordinal and match count.
+    kKeepResultsInFindBox,   // Leave the results untouched.
   };
 
   // FindBar takes ownership of |find_bar_view|.
@@ -35,15 +43,19 @@ class FindBarController : public content::NotificationObserver {
   // Shows the find bar. Any previous search string will again be visible.
   void Show();
 
-  // Ends the current session.
-  void EndFindSession(SelectionAction action);
+  // Ends the current session. |selection_action| specifies what to do with the
+  // selection on the page created by the find operation. |results_action|
+  // specifies what to do with the contents of the Find box (after ending).
+  void EndFindSession(SelectionAction selection_action,
+                      ResultAction results_action);
 
-  // Accessor for the attached TabContentsWrapper.
-  TabContentsWrapper* tab_contents() const { return tab_contents_; }
+  // Accessor for the attached TabContents.
+  TabContents* tab_contents() const { return tab_contents_; }
 
-  // Changes the TabContents that this FindBar is attached to. This occurs when
-  // the user switches tabs in the Browser window. |contents| can be NULL.
-  void ChangeTabContents(TabContentsWrapper* contents);
+  // Changes the TabContents that this FindBar is attached to. This
+  // occurs when the user switches tabs in the Browser window. |contents| can be
+  // NULL.
+  void ChangeTabContents(TabContents* contents);
 
   // Overridden from content::NotificationObserver:
   virtual void Observe(int type,
@@ -76,8 +88,8 @@ class FindBarController : public content::NotificationObserver {
 
   scoped_ptr<FindBar> find_bar_;
 
-  // The TabContentsWrapper we are currently associated with.  Can be NULL.
-  TabContentsWrapper* tab_contents_;
+  // The TabContents we are currently associated with.  Can be NULL.
+  TabContents* tab_contents_;
 
   // The last match count we reported to the user. This is used by
   // UpdateFindBarForCurrentResult to avoid flickering.

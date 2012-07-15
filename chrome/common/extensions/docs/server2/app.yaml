@@ -1,0 +1,9 @@
+application: chrome-apps-doc2
+version: 1-0-0
+runtime: python27
+api_version: 1
+threadsafe: false
+
+handlers:
+- url: /.*
+  script: echo_handler.py

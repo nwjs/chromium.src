@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_BOOKMARKS_BOOKMARK_EDITOR_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_BOOKMARKS_BOOKMARK_EDITOR_VIEW_H_
-#pragma once
 
 #include <vector>
 
@@ -120,7 +119,7 @@ class BookmarkEditorView : public BookmarkEditor,
 
   // Creates a Window and adds the BookmarkEditorView to it. When the window is
   // closed the BookmarkEditorView is deleted.
-  void Show(gfx::NativeWindow parent_hwnd);
+  void Show(gfx::NativeWindow parent_window);
 
   // Closes the dialog.
   void Close();
@@ -202,9 +201,6 @@ class BookmarkEditorView : public BookmarkEditor,
   // Returns the current url the user has input.
   GURL GetInputURL() const;
 
-  // Returns the title the user has input.
-  string16 GetInputTitle() const;
-
   // Invoked when the url or title has possibly changed. Updates the background
   // of Textfields and ok button appropriately.
   void UserInputChanged();
@@ -247,8 +243,8 @@ class BookmarkEditorView : public BookmarkEditor,
   // The label for the title text field.
   views::Label* title_label_;
 
-  // Used for editing the title.
-  views::Textfield title_tf_;
+  // The text field used for editing the title.
+  views::Textfield* title_tf_;
 
   // Initial parent to select. Is only used if |details_.existing_node| is
   // NULL.

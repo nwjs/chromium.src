@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -17,20 +17,21 @@
 #include "base/time.h"
 #include "chrome/renderer/safe_browsing/features.h"
 #include "chrome/renderer/safe_browsing/mock_feature_extractor_clock.h"
-#include "content/test/render_view_fake_resources_test.h"
+#include "chrome/renderer/safe_browsing/test_utils.h"
+#include "content/public/test/render_view_fake_resources_test.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebScriptSource.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebString.h"
 
-using ::testing::ContainerEq;
 using ::testing::DoAll;
 using ::testing::Invoke;
 using ::testing::Return;
 
 namespace safe_browsing {
 
-class PhishingDOMFeatureExtractorTest : public RenderViewFakeResourcesTest {
+class PhishingDOMFeatureExtractorTest
+    : public content::RenderViewFakeResourcesTest {
  public:
   // Helper for the SubframeRemoval test that posts a message to remove
   // the iframe "frame1" from the document.
@@ -43,19 +44,19 @@ class PhishingDOMFeatureExtractorTest : public RenderViewFakeResourcesTest {
 
  protected:
   PhishingDOMFeatureExtractorTest()
-      : RenderViewFakeResourcesTest(),
+      : content::RenderViewFakeResourcesTest(),
         ALLOW_THIS_IN_INITIALIZER_LIST(weak_factory_(this)) {}
 
   virtual ~PhishingDOMFeatureExtractorTest() {}
 
   virtual void SetUp() {
     // Set up WebKit and the RenderView.
-    RenderViewFakeResourcesTest::SetUp();
+    content::RenderViewFakeResourcesTest::SetUp();
     extractor_.reset(new PhishingDOMFeatureExtractor(view(), &clock_));
   }
 
   virtual void TearDown() {
-    RenderViewFakeResourcesTest::TearDown();
+    content::RenderViewFakeResourcesTest::TearDown();
   }
 
   // Runs the DOMFeatureExtractor on the RenderView, waiting for the
@@ -111,7 +112,7 @@ TEST_F(PhishingDOMFeatureExtractorTest, FormFeatures) {
   FeatureMap features;
   LoadURL("http://host.com/");
   ASSERT_TRUE(ExtractFeatures(&features));
-  EXPECT_THAT(features.features(), ContainerEq(expected_features.features()));
+  ExpectFeatureMapsAreEqual(features, expected_features);
 
   responses_["http://host.com/"] =
       "<html><head><body>"
@@ -124,7 +125,7 @@ TEST_F(PhishingDOMFeatureExtractorTest, FormFeatures) {
   features.Clear();
   LoadURL("http://host.com/");
   ASSERT_TRUE(ExtractFeatures(&features));
-  EXPECT_THAT(features.features(), ContainerEq(expected_features.features()));
+  ExpectFeatureMapsAreEqual(features, expected_features);
 
   responses_["http://host.com/"] =
       "<html><head><body><input></body></html>";
@@ -135,7 +136,7 @@ TEST_F(PhishingDOMFeatureExtractorTest, FormFeatures) {
   features.Clear();
   LoadURL("http://host.com/");
   ASSERT_TRUE(ExtractFeatures(&features));
-  EXPECT_THAT(features.features(), ContainerEq(expected_features.features()));
+  ExpectFeatureMapsAreEqual(features, expected_features);
 
   responses_["http://host.com/"] =
       "<html><head><body><input type=\"invalid\"></body></html>";
@@ -146,7 +147,7 @@ TEST_F(PhishingDOMFeatureExtractorTest, FormFeatures) {
   features.Clear();
   LoadURL("http://host.com/");
   ASSERT_TRUE(ExtractFeatures(&features));
-  EXPECT_THAT(features.features(), ContainerEq(expected_features.features()));
+  ExpectFeatureMapsAreEqual(features, expected_features);
 }
 
 TEST_F(PhishingDOMFeatureExtractorTest, LinkFeatures) {
@@ -168,7 +169,7 @@ TEST_F(PhishingDOMFeatureExtractorTest, LinkFeatures) {
   FeatureMap features;
   LoadURL("http://www.host.com/");
   ASSERT_TRUE(ExtractFeatures(&features));
-  EXPECT_THAT(features.features(), ContainerEq(expected_features.features()));
+  ExpectFeatureMapsAreEqual(features, expected_features);
 
   responses_.clear();
   responses_["https://www.host.com/"] =
@@ -188,7 +189,7 @@ TEST_F(PhishingDOMFeatureExtractorTest, LinkFeatures) {
   features.Clear();
   LoadURL("https://www.host.com/");
   ASSERT_TRUE(ExtractFeatures(&features));
-  EXPECT_THAT(features.features(), ContainerEq(expected_features.features()));
+  ExpectFeatureMapsAreEqual(features, expected_features);
 }
 
 TEST_F(PhishingDOMFeatureExtractorTest, ScriptAndImageFeatures) {
@@ -203,7 +204,7 @@ TEST_F(PhishingDOMFeatureExtractorTest, ScriptAndImageFeatures) {
   FeatureMap features;
   LoadURL("http://host.com/");
   ASSERT_TRUE(ExtractFeatures(&features));
-  EXPECT_THAT(features.features(), ContainerEq(expected_features.features()));
+  ExpectFeatureMapsAreEqual(features, expected_features);
 
   responses_["http://host.com/"] =
       "<html><head><script></script><script></script><script></script>"
@@ -219,7 +220,7 @@ TEST_F(PhishingDOMFeatureExtractorTest, ScriptAndImageFeatures) {
   features.Clear();
   LoadURL("http://host.com/");
   ASSERT_TRUE(ExtractFeatures(&features));
-  EXPECT_THAT(features.features(), ContainerEq(expected_features.features()));
+  ExpectFeatureMapsAreEqual(features, expected_features);
 }
 
 TEST_F(PhishingDOMFeatureExtractorTest, SubFrames) {
@@ -271,7 +272,7 @@ TEST_F(PhishingDOMFeatureExtractorTest, SubFrames) {
   FeatureMap features;
   LoadURL("http://host.com/");
   ASSERT_TRUE(ExtractFeatures(&features));
-  EXPECT_THAT(features.features(), ContainerEq(expected_features.features()));
+  ExpectFeatureMapsAreEqual(features, expected_features);
 }
 
 TEST_F(PhishingDOMFeatureExtractorTest, Continuation) {
@@ -290,9 +291,9 @@ TEST_F(PhishingDOMFeatureExtractorTest, Continuation) {
   response.append("<form action=\"http://host2.com/\"></form></body></html>");
   responses_["http://host.com/"] = response;
 
-  // Advance the clock 12 ms every 10 elements processed, 10 ms between chunks.
+  // Advance the clock 6 ms every 10 elements processed, 10 ms between chunks.
   // Note that this assumes kClockCheckGranularity = 10 and
-  // kMaxTimePerChunkMs = 20.
+  // kMaxTimePerChunkMs = 10.
   base::TimeTicks now = base::TimeTicks::Now();
   EXPECT_CALL(clock_, Now())
       // Time check at the start of extraction.
@@ -300,27 +301,27 @@ TEST_F(PhishingDOMFeatureExtractorTest, Continuation) {
       // Time check at the start of the first chunk of work.
       .WillOnce(Return(now))
       // Time check after the first 10 elements.
-      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(12)))
+      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(6)))
       // Time check after the next 10 elements.  This is over the chunk
       // time limit, so a continuation task will be posted.
-      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(24)))
+      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(12)))
       // Time check at the start of the second chunk of work.
-      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(34)))
+      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(22)))
       // Time check after resuming iteration for the second chunk.
-      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(36)))
+      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(24)))
       // Time check after the next 10 elements.
-      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(48)))
+      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(30)))
       // Time check after the next 10 elements.  This will trigger another
       // continuation task.
-      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(60)))
+      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(36)))
       // Time check at the start of the third chunk of work.
-      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(70)))
+      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(46)))
       // Time check after resuming iteration for the third chunk.
-      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(72)))
+      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(48)))
       // Time check after the last 10 elements.
-      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(84)))
+      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(54)))
       // A final time check for the histograms.
-      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(86)));
+      .WillOnce(Return(now + base::TimeDelta::FromMilliseconds(56)));
 
   FeatureMap expected_features;
   expected_features.AddBooleanFeature(features::kPageHasForms);
@@ -329,7 +330,7 @@ TEST_F(PhishingDOMFeatureExtractorTest, Continuation) {
   FeatureMap features;
   LoadURL("http://host.com/");
   ASSERT_TRUE(ExtractFeatures(&features));
-  EXPECT_THAT(features.features(), ContainerEq(expected_features.features()));
+  ExpectFeatureMapsAreEqual(features, expected_features);
   // Make sure none of the mock expectations carry over to the next test.
   ::testing::Mock::VerifyAndClearExpectations(&clock_);
 
@@ -396,7 +397,7 @@ TEST_F(PhishingDOMFeatureExtractorTest, SubframeRemoval) {
   FeatureMap features;
   LoadURL("http://host.com/");
   ASSERT_TRUE(ExtractFeatures(&features));
-  EXPECT_THAT(features.features(), ContainerEq(expected_features.features()));
+  ExpectFeatureMapsAreEqual(features, expected_features);
 }
 
 }  // namespace safe_browsing

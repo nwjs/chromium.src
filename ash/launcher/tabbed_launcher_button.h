@@ -4,7 +4,6 @@
 
 #ifndef ASH_LAUNCHER_TABBED_LAUNCHER_BUTTON_H_
 #define ASH_LAUNCHER_TABBED_LAUNCHER_BUTTON_H_
-#pragma once
 
 #include "ash/launcher/launcher_button.h"
 #include "base/memory/scoped_ptr.h"
@@ -37,12 +36,10 @@ class TabbedLauncherButton : public LauncherButton {
                                       IncognitoState is_incognito);
   virtual ~TabbedLauncherButton();
 
-  // Notification that the images are about to change. Kicks off an animation.
-  void PrepareForImageChange();
-
   // Sets the images to display for this entry.
   void SetTabImage(const SkBitmap& image);
 
+  // This only defines how the icon is drawn. Do not use it for other purposes.
   IncognitoState is_incognito() const { return is_incognito_; }
 
  protected:
@@ -67,9 +64,6 @@ class TabbedLauncherButton : public LauncherButton {
     virtual void AnimationEnded(const ui::Animation* animation) OVERRIDE;
     virtual void AnimationProgressed(const ui::Animation* animation) OVERRIDE;
 
-    // Notification that the images are about to change. Kicks off an animation.
-    void PrepareForImageChange();
-
     // Sets the image to display for this entry.
     void SetTabImage(const SkBitmap& image);
 
@@ -80,14 +74,10 @@ class TabbedLauncherButton : public LauncherButton {
    private:
     TabbedLauncherButton* host_;
     SkBitmap image_;
+    SkBitmap animating_image_;
 
     // Used to animate image.
     scoped_ptr<ui::MultiAnimation> animation_;
-
-    // Should |image_| be shown? This is set to false soon after
-    // PrepareForImageChange() is invoked without a following call to
-    // SetImages().
-    bool show_image_;
 
     // Background images. Which one is chosen depends on the type of the window.
     static SkBitmap* browser_image_;
@@ -103,8 +93,8 @@ class TabbedLauncherButton : public LauncherButton {
     return static_cast<IconView*>(icon_view());
   }
 
-  // Indicates if the tabbed browser associated with this is an incognito
-  // window.
+  // Indicates how the icon is drawn. If true an Incognito symbol will be
+  // drawn. It does not necessarily indicate if the window is 'incognito'.
   const IncognitoState is_incognito_;
 
   DISALLOW_COPY_AND_ASSIGN(TabbedLauncherButton);

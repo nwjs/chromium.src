@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_COMMON_CUSTOM_HANDLERS_PROTOCOL_HANDLER_H_
 #define CHROME_COMMON_CUSTOM_HANDLERS_PROTOCOL_HANDLER_H_
-#pragma once
 
 #include <string>
 
@@ -53,6 +52,12 @@ class ProtocolHandler {
   bool IsEmpty() const {
     return protocol_.empty();
   }
+
+#if !defined(NDEBUG)
+  // Returns a string representation suitable for use in debugging.
+  std::string ToString() const;
+#endif
+
 
   bool operator==(const ProtocolHandler& other) const;
   bool operator<(const ProtocolHandler& other) const;

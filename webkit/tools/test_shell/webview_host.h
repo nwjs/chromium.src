@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,11 +10,14 @@
 #include "ui/gfx/rect.h"
 #include "webkit/tools/test_shell/webwidget_host.h"
 
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
 #include "webkit/plugins/npapi/gtk_plugin_container_manager.h"
 #endif
 
+namespace webkit_glue {
 struct WebPreferences;
+}
+
 class TestWebViewDelegate;
 
 namespace WebKit {
@@ -31,11 +34,11 @@ class WebViewHost : public WebWidgetHost {
   static WebViewHost* Create(gfx::NativeView parent_view,
                              TestWebViewDelegate* delegate,
                              WebKit::WebDevToolsAgentClient* devtools_client,
-                             const WebPreferences& prefs);
+                             const webkit_glue::WebPreferences& prefs);
 
   WebKit::WebView* webview() const;
 
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
   // Create a new plugin parent container for a given plugin XID.
   void CreatePluginContainer(gfx::PluginWindowHandle id);
 
@@ -56,7 +59,7 @@ class WebViewHost : public WebWidgetHost {
   }
 #endif
 
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
   // Helper class that creates and moves plugin containers.
   webkit::npapi::GtkPluginContainerManager plugin_container_manager_;
 #endif

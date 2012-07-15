@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -207,17 +207,17 @@ void TestShell::InitializeTestShell(bool layout_test_mode,
   layout_test_mode_ = layout_test_mode;
   allow_external_pages_ = allow_external_pages;
 
-  web_prefs_ = new WebPreferences;
+  web_prefs_ = new webkit_glue::WebPreferences;
 
   // mmap the data pack which holds strings used by WebCore. This is only
   // a fatal error if we're bundled, which means we might be running layout
   // tests. This is a harmless failure for test_shell_tests.
-  g_resource_data_pack = new ui::DataPack;
+  g_resource_data_pack = new ui::DataPack(ui::SCALE_FACTOR_100P);
   NSString *resource_path =
       [base::mac::FrameworkBundle() pathForResource:@"test_shell"
                                              ofType:@"pak"];
   FilePath resources_pak_path([resource_path fileSystemRepresentation]);
-  if (!g_resource_data_pack->Load(resources_pak_path)) {
+  if (!g_resource_data_pack->LoadFromPath(resources_pak_path)) {
     LOG(FATAL) << "failed to load test_shell.pak";
   }
 
@@ -630,7 +630,9 @@ string16 TestShellWebKitInit::GetLocalizedString(int message_id) {
   return msg;
 }
 
-base::StringPiece TestShellWebKitInit::GetDataResource(int resource_id) {
+base::StringPiece TestShellWebKitInit::GetDataResource(
+    int resource_id,
+    ui::ScaleFactor scale_factor) {
   switch (resource_id) {
   case IDR_BROKENIMAGE: {
     // Use webkit's broken image icon (16x16)
@@ -677,6 +679,7 @@ base::StringPiece TestShellWebKitInit::GetDataResource(int resource_id) {
   case IDR_INPUT_SPEECH:
   case IDR_INPUT_SPEECH_RECORDING:
   case IDR_INPUT_SPEECH_WAITING:
+    // TODO(flackr): Pass scale_factor to ResourceProvider.
     return TestShell::ResourceProvider(resource_id);
 
   default:

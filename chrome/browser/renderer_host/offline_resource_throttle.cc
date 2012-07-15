@@ -16,10 +16,11 @@
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/render_view_host.h"
-#include "content/public/browser/render_view_host_delegate.h"
 #include "content/public/browser/resource_context.h"
-#include "content/public/browser/resource_throttle_controller.h"
+#include "content/public/browser/resource_controller.h"
+#include "content/public/browser/web_contents.h"
 #include "net/base/net_errors.h"
+#include "net/base/net_util.h"
 #include "net/base/network_change_notifier.h"
 #include "net/url_request/url_request.h"
 #include "net/url_request/url_request_context.h"
@@ -47,7 +48,7 @@ void ShowOfflinePage(
     RenderViewHost* render_view_host =
         RenderViewHost::FromID(render_process_id, render_view_id);
     WebContents* web_contents = render_view_host ?
-        render_view_host->GetDelegate()->GetAsWebContents() : NULL;
+        WebContents::FromRenderViewHost(render_view_host) : NULL;
     // There is a chance that the tab closed after we decided to show
     // the offline page on the IO thread and before we actually show the
     // offline page here on the UI thread.
@@ -83,6 +84,18 @@ void OfflineResourceThrottle::WillStartRequest(bool* defer) {
 
   DVLOG(1) << "WillStartRequest: this=" << this << ", url=" << request_->url();
 
+  const GURL* url = &(request_->url());
+  const GURL* first_party = &(request_->first_party_for_cookies());
+
+  // Anticipate a client-side HSTS based redirect from HTTP to HTTPS, and
+  // ask the appcache about the HTTPS url instead of the HTTP url.
+  GURL redirect_url;
+  if (request_->GetHSTSRedirect(&redirect_url)) {
+    if (url->GetOrigin() == first_party->GetOrigin())
+      first_party = &redirect_url;
+    url = &redirect_url;
+  }
+
   DCHECK(appcache_completion_callback_.IsCancelled());
 
   appcache_completion_callback_.Reset(
@@ -90,8 +103,7 @@ void OfflineResourceThrottle::WillStartRequest(bool* defer) {
                  AsWeakPtr()));
   ResourceContext::GetAppCacheService(resource_context_)->
       CanHandleMainResourceOffline(
-          request_->url(),
-          request_->first_party_for_cookies(),
+          *url, *first_party,
           appcache_completion_callback_.callback());
 
   *defer = true;
@@ -108,9 +120,10 @@ void OfflineResourceThrottle::OnBlockingPageComplete(bool proceed) {
 }
 
 bool OfflineResourceThrottle::IsRemote(const GURL& url) const {
-  return url.SchemeIs(chrome::kFtpScheme) ||
-         url.SchemeIs(chrome::kHttpScheme) ||
-         url.SchemeIs(chrome::kHttpsScheme);
+  return !net::IsLocalhost(url.host()) &&
+    (url.SchemeIs(chrome::kFtpScheme) ||
+     url.SchemeIs(chrome::kHttpScheme) ||
+     url.SchemeIs(chrome::kHttpsScheme));
 }
 
 bool OfflineResourceThrottle::ShouldShowOfflinePage(const GURL& url) const {

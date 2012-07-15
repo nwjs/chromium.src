@@ -11,6 +11,8 @@
 #include "chrome/browser/password_manager/password_store_default.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile_dependency_manager.h"
+#include "chrome/browser/webdata/web_data_service.h"
+#include "chrome/browser/webdata/web_data_service_factory.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
@@ -63,10 +65,7 @@ PasswordStoreFactory::PasswordStoreFactory()
     : RefcountedProfileKeyedServiceFactory(
         "PasswordStore",
         ProfileDependencyManager::GetInstance()) {
-  // TODO(erg): We must always depend on WebDB; we don't want the dependency
-  // graph to be different based on platform.
-  //
-  // DependsOn(WebDataServiceFactory::GetInstance());
+  DependsOn(WebDataServiceFactory::GetInstance());
 }
 
 PasswordStoreFactory::~PasswordStoreFactory() {}
@@ -108,7 +107,7 @@ PasswordStoreFactory::BuildServiceInstanceFor(Profile* profile) const {
 #if defined(OS_WIN)
   ps = new PasswordStoreWin(
       login_db, profile,
-      profile->GetWebDataService(Profile::IMPLICIT_ACCESS));
+      WebDataServiceFactory::GetForProfile(profile, Profile::IMPLICIT_ACCESS));
 #elif defined(OS_MACOSX)
   if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kUseMockKeychain)) {
     ps = new PasswordStoreMac(new crypto::MockKeychain(), login_db);
@@ -118,8 +117,7 @@ PasswordStoreFactory::BuildServiceInstanceFor(Profile* profile) const {
 #elif defined(OS_CHROMEOS) || defined(OS_ANDROID)
   // For now, we use PasswordStoreDefault. We might want to make a native
   // backend for PasswordStoreX (see below) in the future though.
-  ps = new PasswordStoreDefault(
-      login_db, profile, profile->GetWebDataService(Profile::IMPLICIT_ACCESS));
+  ps = new PasswordStoreDefault(login_db, profile);
 #elif defined(OS_POSIX)
   // On POSIX systems, we try to use the "native" password management system of
   // the desktop environment currently running, allowing GNOME Keyring in XFCE.
@@ -156,6 +154,7 @@ PasswordStoreFactory::BuildServiceInstanceFor(Profile* profile) const {
     else
       backend.reset();
   } else if (desktop_env == base::nix::DESKTOP_ENVIRONMENT_GNOME ||
+             desktop_env == base::nix::DESKTOP_ENVIRONMENT_UNITY ||
              desktop_env == base::nix::DESKTOP_ENVIRONMENT_XFCE) {
 #if defined(USE_GNOME_KEYRING)
     VLOG(1) << "Trying GNOME keyring for password storage.";
@@ -173,9 +172,7 @@ PasswordStoreFactory::BuildServiceInstanceFor(Profile* profile) const {
         "more information about password storage options.";
   }
 
-  ps = new PasswordStoreX(login_db, profile,
-                          profile->GetWebDataService(Profile::IMPLICIT_ACCESS),
-                          backend.release());
+  ps = new PasswordStoreX(login_db, profile, backend.release());
 #else
   NOTIMPLEMENTED();
 #endif

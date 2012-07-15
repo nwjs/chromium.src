@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_UPDATER_SAFE_MANIFEST_PARSER_H_
 #define CHROME_BROWSER_EXTENSIONS_UPDATER_SAFE_MANIFEST_PARSER_H_
-#pragma once
 #include <string>
 
 #include "base/basictypes.h"
@@ -28,17 +27,17 @@ class SafeManifestParser : public content::UtilityProcessHostClient {
                      ManifestFetchData* fetch_data,
                      const UpdateCallback& update_callback);
 
-  virtual ~SafeManifestParser();
-
   // Posts a task over to the IO loop to start the parsing of xml_ in a
   // utility process.
   void Start();
 
  private:
+  virtual ~SafeManifestParser();
+
   // Creates the sandboxed utility process and tells it to start parsing.
   void ParseInSandbox();
 
-  // UtilityProcessHostClient implementation.
+  // content::UtilityProcessHostClient implementation.
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
 
   void OnParseUpdateManifestSucceeded(const UpdateManifest::Results& results);

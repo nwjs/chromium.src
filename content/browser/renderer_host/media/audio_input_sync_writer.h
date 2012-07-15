@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_BROWSER_RENDERER_HOST_MEDIA_AUDIO_INPUT_SYNC_WRITER_H_
 #define CONTENT_BROWSER_RENDERER_HOST_MEDIA_AUDIO_INPUT_SYNC_WRITER_H_
-#pragma once
 
 #include "base/file_descriptor_posix.h"
 #include "base/process.h"
@@ -15,6 +14,7 @@ namespace base {
 class SharedMemory;
 }
 
+namespace media {
 // A AudioInputController::SyncWriter implementation using SyncSocket. This
 // is used by AudioInputController to provide a low latency data source for
 // transmitting audio packets between the browser process and the renderer
@@ -27,7 +27,7 @@ class AudioInputSyncWriter : public media::AudioInputController::SyncWriter {
 
   // media::AudioOutputController::SyncWriter implementation.
   virtual void UpdateRecordedBytes(uint32 bytes) OVERRIDE;
-  virtual uint32 Write(const void* data, uint32 size) OVERRIDE;
+  virtual uint32 Write(const void* data, uint32 size, double volume) OVERRIDE;
   virtual void Close() OVERRIDE;
 
   bool Init();
@@ -50,5 +50,7 @@ class AudioInputSyncWriter : public media::AudioInputController::SyncWriter {
 
   DISALLOW_IMPLICIT_CONSTRUCTORS(AudioInputSyncWriter);
 };
+
+}  // namespace media
 
 #endif  // CONTENT_BROWSER_RENDERER_HOST_MEDIA_AUDIO_INPUT_SYNC_WRITER_H_

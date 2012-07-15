@@ -15,8 +15,12 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/observer_list.h"
 #include "base/time.h"
-#include "content/public/common/url_fetcher_delegate.h"
 #include "googleurl/src/gurl.h"
+#include "net/url_request/url_fetcher_delegate.h"
+
+namespace net {
+class URLFetcher;
+}  // namespace net
 
 namespace chromeos {
 namespace imageburner {
@@ -154,14 +158,15 @@ class StateMachine {
   DISALLOW_COPY_AND_ASSIGN(StateMachine);
 };
 
-class BurnManager : content::URLFetcherDelegate {
+class BurnManager : net::URLFetcherDelegate {
  public:
 
   class Delegate : public base::SupportsWeakPtr<Delegate> {
    public:
     virtual void OnImageDirCreated(bool success) = 0;
-    virtual void OnConfigFileFetched(const ConfigFile& config_file,
-                                     bool success) = 0;
+    virtual void OnConfigFileFetched(bool success,
+                                     const std::string& image_file_name,
+                                     const GURL& image_download_url) = 0;
   };
 
   class Observer {
@@ -200,8 +205,8 @@ class BurnManager : content::URLFetcherDelegate {
   void CancelImageFetch();
 
   // URLFetcherDelegate overrides:
-  virtual void OnURLFetchComplete(const content::URLFetcher* source) OVERRIDE;
-  virtual void OnURLFetchDownloadProgress(const content::URLFetcher* source,
+  virtual void OnURLFetchComplete(const net::URLFetcher* source) OVERRIDE;
+  virtual void OnURLFetchDownloadProgress(const net::URLFetcher* source,
                                           int64 current,
                                           int64 total) OVERRIDE;
 
@@ -237,22 +242,22 @@ class BurnManager : content::URLFetcherDelegate {
   void OnImageDirCreated(Delegate* delegate, bool success);
   void ConfigFileFetched(bool fetched, const std::string& content);
 
-  bool config_file_fetched() const { return !config_file_.empty(); }
-
   base::WeakPtrFactory<BurnManager> weak_ptr_factory_;
 
   FilePath image_dir_;
   FilePath target_device_path_;
   FilePath target_file_path_;
 
-  ConfigFile config_file_;
   GURL config_file_url_;
+  bool config_file_fetched_;
+  std::string image_file_name_;
+  GURL image_download_url_;
   std::vector<base::WeakPtr<Delegate> > downloaders_;
 
   scoped_ptr<StateMachine> state_machine_;
 
-  scoped_ptr<content::URLFetcher> config_fetcher_;
-  scoped_ptr<content::URLFetcher> image_fetcher_;
+  scoped_ptr<net::URLFetcher> config_fetcher_;
+  scoped_ptr<net::URLFetcher> image_fetcher_;
 
   base::TimeTicks tick_image_download_start_;
   int64 bytes_image_download_progress_last_reported_;

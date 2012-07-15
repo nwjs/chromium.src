@@ -7,10 +7,12 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url.h"
 #include "chrome/browser/search_engines/template_url_fetcher.h"
+#include "chrome/browser/search_engines/template_url_fetcher_factory.h"
 #include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/ui/search_engines/template_url_fetcher_ui_callbacks.h"
 #include "chrome/common/render_messages.h"
+#include "chrome/common/url_constants.h"
 #include "content/public/browser/favicon_status.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
@@ -44,7 +46,16 @@ string16 GenerateKeywordFromNavigationEntry(const NavigationEntry* entry) {
       return string16();
   }
 
-  return TemplateURLService::GenerateKeyword(url, true);
+  // Don't autogenerate keywords for referrers that are anything other than HTTP
+  // or have a path.
+  //
+  // If we relax the path constraint, we need to be sure to sanitize the path
+  // elements and update AutocompletePopup to look for keywords using the path.
+  // See http://b/issue?id=863583.
+  if (!url.SchemeIs(chrome::kHttpScheme) || (url.path().length() > 1))
+    return string16();
+
+  return TemplateURLService::GenerateKeyword(url);
 }
 
 }  // namespace
@@ -86,7 +97,8 @@ void SearchEngineTabHelper::OnPageHasOSDD(
   Profile* profile =
       Profile::FromBrowserContext(web_contents()->GetBrowserContext());
   if (!web_contents()->IsActiveEntry(page_id) ||
-      !profile->GetTemplateURLFetcher() || profile->IsOffTheRecord())
+      !TemplateURLFetcherFactory::GetForProfile(profile) ||
+      profile->IsOffTheRecord())
     return;
 
   TemplateURLFetcher::ProviderType provider_type =
@@ -116,8 +128,8 @@ void SearchEngineTabHelper::OnPageHasOSDD(
 
   // Download the OpenSearch description document. If this is successful, a
   // new keyword will be created when done.
-  profile->GetTemplateURLFetcher()->ScheduleDownload(keyword, doc_url,
-      entry->GetFavicon().url, web_contents(),
+  TemplateURLFetcherFactory::GetForProfile(profile)->ScheduleDownload(
+      keyword, doc_url, entry->GetFavicon().url, web_contents(),
       new TemplateURLFetcherUICallbacks(this, web_contents()), provider_type);
 }
 
@@ -155,7 +167,7 @@ void SearchEngineTabHelper::GenerateKeywordIfNecessary(
     return;
   }
 
-  const TemplateURL* current_url;
+  TemplateURL* current_url;
   GURL url = params.searchable_form_url;
   if (!url_service->CanReplaceKeyword(keyword, url, &current_url))
     return;
@@ -169,11 +181,10 @@ void SearchEngineTabHelper::GenerateKeywordIfNecessary(
     url_service->Remove(current_url);
   }
 
-  TemplateURL* new_url = new TemplateURL();
-  new_url->set_short_name(keyword);
-  new_url->set_keyword(keyword);
-  new_url->set_safe_for_autoreplace(true);
-  new_url->add_input_encoding(params.searchable_form_encoding);
+  TemplateURLData data;
+  data.short_name = keyword;
+  data.SetKeyword(keyword);
+  data.SetURL(url.spec());
   DCHECK(controller.GetLastCommittedEntry());
   const GURL& current_favicon =
       controller.GetLastCommittedEntry()->GetFavicon().url;
@@ -182,9 +193,9 @@ void SearchEngineTabHelper::GenerateKeywordIfNecessary(
   // latter.
   // TODO(sky): Need a way to set the favicon that doesn't involve generating
   // its url.
-  const GURL& favicon_url = current_favicon.is_valid() ?
+  data.favicon_url = current_favicon.is_valid() ?
       current_favicon : TemplateURL::GenerateFaviconURL(params.referrer.url);
-  new_url->SetURL(url.spec(), 0, 0);
-  new_url->SetFaviconURL(favicon_url);
-  url_service->Add(new_url);
+  data.safe_for_autoreplace = true;
+  data.input_encodings.push_back(params.searchable_form_encoding);
+  url_service->Add(new TemplateURL(profile, data));
 }

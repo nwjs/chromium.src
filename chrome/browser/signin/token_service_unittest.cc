@@ -13,11 +13,12 @@
 #include "base/synchronization/waitable_event.h"
 #include "chrome/browser/password_manager/encryptor.h"
 #include "chrome/browser/signin/token_service_factory.h"
+#include "chrome/browser/webdata/web_data_service_factory.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/common/net/gaia/mock_url_fetcher_factory.h"
 #include "chrome/common/net/gaia/gaia_constants.h"
-#include "content/test/test_url_fetcher_factory.h"
+#include "chrome/common/net/gaia/mock_url_fetcher_factory.h"
+#include "net/url_request/test_url_fetcher_factory.h"
 
 using content::BrowserThread;
 
@@ -72,7 +73,8 @@ void TokenServiceTestHarness::SetUp() {
   ASSERT_TRUE(db_thread_.Start());
 
   profile_.reset(new TestingProfile());
-  profile_->CreateWebDataService(false);
+  profile_->CreateWebDataService();
+
   WaitForDBLoadCompletion();
   service_ = TokenServiceFactory::GetForProfile(profile_.get());
 
@@ -89,6 +91,12 @@ void TokenServiceTestHarness::TearDown() {
   if (profile_.get()) {
     profile_.reset(NULL);
   }
+  // Schedule another task on the DB thread to notify us that it's safe to
+  // carry on with the test.
+  base::WaitableEvent done(false, false);
+  BrowserThread::PostTask(BrowserThread::DB, FROM_HERE,
+      base::Bind(&base::WaitableEvent::Signal, base::Unretained(&done)));
+  done.Wait();
 
   db_thread_.Stop();
   MessageLoop::current()->PostTask(FROM_HERE, MessageLoop::QuitClosure());
@@ -96,6 +104,10 @@ void TokenServiceTestHarness::TearDown() {
 }
 
 void TokenServiceTestHarness::WaitForDBLoadCompletion() {
+  // Force the loading of the WebDataService.
+  WebDataServiceFactory::GetForProfile(profile_.get(),
+                                       Profile::IMPLICIT_ACCESS);
+
   // The WebDB does all work on the DB thread. This will add an event
   // to the end of the DB thread, so when we reach this task, all DB
   // operations should be complete.
@@ -138,8 +150,6 @@ class TokenServiceTest : public TokenServiceTestHarness {
 };
 
 TEST_F(TokenServiceTest, SanityCheck) {
-  EXPECT_TRUE(service_->HasLsid());
-  EXPECT_EQ(service_->GetLsid(), "lsid");
   EXPECT_FALSE(service_->HasTokenForService("nonexistent service"));
   EXPECT_FALSE(service_->TokensLoadedFromDB());
 }
@@ -165,7 +175,8 @@ TEST_F(TokenServiceTest, NotificationSuccess) {
 TEST_F(TokenServiceTest, NotificationOAuthLoginTokenSuccess) {
   EXPECT_EQ(0U, success_tracker_.size());
   EXPECT_EQ(0U, failure_tracker_.size());
-  service_->OnOAuthLoginTokenSuccess("rt1", "at1", 3600);
+  service_->OnClientOAuthSuccess(
+      GaiaAuthConsumer::ClientOAuthResult("rt1", "at1", 3600));
   EXPECT_EQ(1U, success_tracker_.size());
   EXPECT_EQ(0U, failure_tracker_.size());
 
@@ -194,7 +205,7 @@ TEST_F(TokenServiceTest, NotificationOAuthLoginTokenFailed) {
   EXPECT_EQ(0U, success_tracker_.size());
   EXPECT_EQ(0U, failure_tracker_.size());
   GoogleServiceAuthError error(GoogleServiceAuthError::REQUEST_CANCELED);
-  service_->OnOAuthLoginTokenFailure(error);
+  service_->OnClientOAuthFailure(error);
   EXPECT_EQ(0U, success_tracker_.size());
   EXPECT_EQ(1U, failure_tracker_.size());
 
@@ -223,15 +234,18 @@ TEST_F(TokenServiceTest, OnTokenSuccessUpdate) {
 
 TEST_F(TokenServiceTest, OnOAuth2LoginTokenSuccessUpdate) {
   std::string service = GaiaConstants::kGaiaOAuth2LoginRefreshToken;
-  service_->OnOAuthLoginTokenSuccess("rt1", "at1", 3600);
+  service_->OnClientOAuthSuccess(
+      GaiaAuthConsumer::ClientOAuthResult("rt1", "at1", 3600));
   EXPECT_TRUE(service_->HasOAuthLoginToken());
   EXPECT_EQ(service_->GetOAuth2LoginRefreshToken(), "rt1");
 
-  service_->OnOAuthLoginTokenSuccess("rt2", "at2", 3600);
+  service_->OnClientOAuthSuccess(
+      GaiaAuthConsumer::ClientOAuthResult("rt2", "at2", 3600));
   EXPECT_TRUE(service_->HasOAuthLoginToken());
   EXPECT_EQ(service_->GetOAuth2LoginRefreshToken(), "rt2");
 
-  service_->OnOAuthLoginTokenSuccess("rt3", "at3", 3600);
+  service_->OnClientOAuthSuccess(
+      GaiaAuthConsumer::ClientOAuthResult("rt3", "at3", 3600));
   EXPECT_TRUE(service_->HasOAuthLoginToken());
   EXPECT_EQ(service_->GetOAuth2LoginRefreshToken(), "rt3");
 }
@@ -240,14 +254,13 @@ TEST_F(TokenServiceTest, OnTokenSuccess) {
   // Don't "start fetching", just go ahead and issue the callback.
   service_->OnIssueAuthTokenSuccess(GaiaConstants::kSyncService, "token");
   EXPECT_TRUE(service_->HasTokenForService(GaiaConstants::kSyncService));
-  EXPECT_FALSE(service_->HasTokenForService(GaiaConstants::kTalkService));
   // Gaia returns the entire result as the token so while this is a shared
   // result with ClientLogin, it doesn't matter, we should still get it back.
   EXPECT_EQ(service_->GetTokenForService(GaiaConstants::kSyncService), "token");
 }
 
 TEST_F(TokenServiceTest, Reset) {
-  TestURLFetcherFactory factory;
+  net::TestURLFetcherFactory factory;
   service_->StartFetchingTokens();
   // You have to call delegates by hand with the test fetcher,
   // Let's pretend only one returned.
@@ -256,24 +269,17 @@ TEST_F(TokenServiceTest, Reset) {
   EXPECT_TRUE(service_->HasTokenForService(GaiaConstants::kSyncService));
   EXPECT_EQ(service_->GetTokenForService(GaiaConstants::kSyncService),
             "eraseme");
-  EXPECT_FALSE(service_->HasTokenForService(GaiaConstants::kTalkService));
 
   service_->ResetCredentialsInMemory();
   EXPECT_FALSE(service_->HasTokenForService(GaiaConstants::kSyncService));
-  EXPECT_FALSE(service_->HasTokenForService(GaiaConstants::kTalkService));
-  EXPECT_FALSE(service_->HasLsid());
 
   // Now start using it again.
   service_->UpdateCredentials(credentials_);
-  EXPECT_TRUE(service_->HasLsid());
   service_->StartFetchingTokens();
 
   service_->OnIssueAuthTokenSuccess(GaiaConstants::kSyncService, "token");
-  service_->OnIssueAuthTokenSuccess(GaiaConstants::kTalkService, "token3");
 
   EXPECT_EQ(service_->GetTokenForService(GaiaConstants::kSyncService), "token");
-  EXPECT_EQ(service_->GetTokenForService(GaiaConstants::kTalkService),
-            "token3");
 }
 
 TEST_F(TokenServiceTest, FullIntegration) {
@@ -283,20 +289,16 @@ TEST_F(TokenServiceTest, FullIntegration) {
     MockURLFetcherFactory<MockFetcher> factory;
     factory.set_results(result);
     EXPECT_FALSE(service_->HasTokenForService(GaiaConstants::kSyncService));
-    EXPECT_FALSE(service_->HasTokenForService(GaiaConstants::kTalkService));
     service_->StartFetchingTokens();
   }
 
   EXPECT_TRUE(service_->HasTokenForService(GaiaConstants::kSyncService));
-  EXPECT_TRUE(service_->HasTokenForService(GaiaConstants::kTalkService));
   // Gaia returns the entire result as the token so while this is a shared
   // result with ClientLogin, it doesn't matter, we should still get it back.
   EXPECT_EQ(service_->GetTokenForService(GaiaConstants::kSyncService), result);
-  EXPECT_EQ(service_->GetTokenForService(GaiaConstants::kTalkService), result);
 
   service_->ResetCredentialsInMemory();
   EXPECT_FALSE(service_->HasTokenForService(GaiaConstants::kSyncService));
-  EXPECT_FALSE(service_->HasTokenForService(GaiaConstants::kTalkService));
 }
 
 TEST_F(TokenServiceTest, LoadTokensIntoMemoryBasic) {
@@ -310,13 +312,14 @@ TEST_F(TokenServiceTest, LoadTokensIntoMemoryBasic) {
   EXPECT_TRUE(memory_tokens.empty());
   EXPECT_EQ(0U, success_tracker_.size());
 
-  std::string service;
-  std::string token;
-  for (int i = 0; i < TokenService::kNumServices; ++i) {
-    service = TokenService::kServices[i];
+  std::vector<std::string> services;
+  TokenService::GetServiceNamesForTesting(&services);
+  for (std::vector<std::string>::const_iterator i = services.begin();
+       i != services.end(); ++i) {
+    const std::string& service = *i;
     TestLoadSingleToken(&db_tokens, &memory_tokens, service);
   }
-  service = GaiaConstants::kGaiaOAuth2LoginRefreshToken;
+  std::string service = GaiaConstants::kGaiaOAuth2LoginRefreshToken;
   TestLoadSingleToken(&db_tokens, &memory_tokens, service);
   service = GaiaConstants::kGaiaOAuth2LoginAccessToken;
   TestLoadSingleToken(&db_tokens, &memory_tokens, service);
@@ -372,8 +375,6 @@ TEST_F(TokenServiceTest, WebDBLoadIntegration) {
 
   EXPECT_EQ(1U, success_tracker_.size());
   EXPECT_TRUE(service_->HasTokenForService(GaiaConstants::kSyncService));
-  EXPECT_FALSE(service_->HasTokenForService(GaiaConstants::kTalkService));
-  EXPECT_TRUE(service_->HasLsid());
 }
 
 TEST_F(TokenServiceTest, MultipleLoadResetIntegration) {
@@ -382,7 +383,6 @@ TEST_F(TokenServiceTest, MultipleLoadResetIntegration) {
   service_->ResetCredentialsInMemory();
   success_tracker_.Reset();
   EXPECT_FALSE(service_->HasTokenForService(GaiaConstants::kSyncService));
-  EXPECT_FALSE(service_->HasLsid());
 
   EXPECT_FALSE(service_->TokensLoadedFromDB());
   service_->LoadTokensFromDB();
@@ -395,8 +395,6 @@ TEST_F(TokenServiceTest, MultipleLoadResetIntegration) {
 
   EXPECT_EQ(1U, success_tracker_.size());
   EXPECT_TRUE(service_->HasTokenForService(GaiaConstants::kSyncService));
-  EXPECT_FALSE(service_->HasTokenForService(GaiaConstants::kTalkService));
-  EXPECT_TRUE(service_->HasLsid());
 
   // Reset it one more time so there's no surprises.
   service_->ResetCredentialsInMemory();
@@ -409,7 +407,6 @@ TEST_F(TokenServiceTest, MultipleLoadResetIntegration) {
 
   EXPECT_EQ(1U, success_tracker_.size());
   EXPECT_TRUE(service_->HasTokenForService(GaiaConstants::kSyncService));
-  EXPECT_TRUE(service_->HasLsid());
 }
 
 #ifndef NDEBUG

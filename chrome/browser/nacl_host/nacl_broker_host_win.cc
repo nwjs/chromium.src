@@ -15,9 +15,10 @@
 #include "chrome/common/nacl_cmd_line.h"
 #include "chrome/common/nacl_messages.h"
 #include "content/public/browser/browser_child_process_host.h"
+#include "content/public/browser/child_process_data.h"
 #include "content/public/common/child_process_host.h"
 
-NaClBrokerHost::NaClBrokerHost() {
+NaClBrokerHost::NaClBrokerHost() : is_terminating_(false) {
   process_.reset(content::BrowserChildProcessHost::Create(
       content::PROCESS_TYPE_NACL_BROKER, this));
 }
@@ -71,14 +72,25 @@ void NaClBrokerHost::OnLoaderLaunched(const std::string& loader_channel_id,
   NaClBrokerService::GetInstance()->OnLoaderLaunched(loader_channel_id, handle);
 }
 
-bool NaClBrokerHost::LaunchDebugExceptionHandler(int32 pid) {
-  return process_->Send(new NaClProcessMsg_LaunchDebugExceptionHandler(pid));
+bool NaClBrokerHost::LaunchDebugExceptionHandler(
+    int32 pid, base::ProcessHandle process_handle,
+    const std::string& startup_info) {
+  base::ProcessHandle broker_process = process_->GetData().handle;
+  base::ProcessHandle handle_in_broker_process;
+  if (!DuplicateHandle(::GetCurrentProcess(), process_handle,
+                       broker_process, &handle_in_broker_process,
+                       0, /* bInheritHandle= */ FALSE, DUPLICATE_SAME_ACCESS))
+    return false;
+  return process_->Send(new NaClProcessMsg_LaunchDebugExceptionHandler(
+      pid, handle_in_broker_process, startup_info));
 }
 
-void NaClBrokerHost::OnDebugExceptionHandlerLaunched(int32 pid) {
-  NaClBrokerService::GetInstance()->OnDebugExceptionHandlerLaunched(pid);
+void NaClBrokerHost::OnDebugExceptionHandlerLaunched(int32 pid, bool success) {
+  NaClBrokerService::GetInstance()->OnDebugExceptionHandlerLaunched(pid,
+                                                                    success);
 }
 
 void NaClBrokerHost::StopBroker() {
+  is_terminating_ = true;
   process_->Send(new NaClProcessMsg_StopBroker());
 }

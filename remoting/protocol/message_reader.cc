@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,6 +7,7 @@
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/location.h"
+#include "base/thread_task_runner_handle.h"
 #include "net/base/io_buffer.h"
 #include "net/base/net_errors.h"
 #include "net/socket/socket.h"
@@ -25,16 +26,16 @@ MessageReader::MessageReader()
       closed_(false) {
 }
 
-MessageReader::~MessageReader() {
-  CHECK_EQ(pending_messages_, 0);
-}
-
 void MessageReader::Init(net::Socket* socket,
                          const MessageReceivedCallback& callback) {
   message_received_callback_ = callback;
   DCHECK(socket);
   socket_ = socket;
   DoRead();
+}
+
+MessageReader::~MessageReader() {
+  CHECK_EQ(pending_messages_, 0);
 }
 
 void MessageReader::DoRead() {
@@ -65,14 +66,14 @@ void MessageReader::HandleReadResult(int result) {
 
   if (result > 0) {
     OnDataReceived(read_buffer_, result);
+  } else if (result == net::ERR_IO_PENDING) {
+    read_pending_ = true;
   } else {
-    if (result == net::ERR_CONNECTION_CLOSED) {
-      closed_ = true;
-    } else if (result == net::ERR_IO_PENDING) {
-      read_pending_ = true;
-    } else {
+    if (result != net::ERR_CONNECTION_CLOSED) {
       LOG(ERROR) << "Read() returned error " << result;
     }
+    // Stop reading after any error.
+    closed_ = true;
   }
 }
 
@@ -91,34 +92,31 @@ void MessageReader::OnDataReceived(net::IOBuffer* data, int data_size) {
 
   pending_messages_ += new_messages.size();
 
-  // TODO(lambroslambrou): MessageLoopProxy::current() will not work from the
-  // plugin thread if this code is compiled into a separate binary.  Fix this.
   for (std::vector<CompoundBuffer*>::iterator it = new_messages.begin();
        it != new_messages.end(); ++it) {
-    message_received_callback_.Run(*it, base::Bind(
-        &MessageReader::OnMessageDone, this,
-        *it, base::MessageLoopProxy::current()));
+    message_received_callback_.Run(
+        scoped_ptr<CompoundBuffer>(*it),
+        base::Bind(&MessageReader::OnMessageDone, this,
+                   base::ThreadTaskRunnerHandle::Get()));
   }
 }
 
 void MessageReader::OnMessageDone(
-    CompoundBuffer* message,
-    scoped_refptr<base::MessageLoopProxy> message_loop) {
-  if (!message_loop->BelongsToCurrentThread()) {
-    message_loop->PostTask(
-        FROM_HERE,
-        base::Bind(&MessageReader::OnMessageDone, this, message, message_loop));
-    return;
+    scoped_refptr<base::SingleThreadTaskRunner> task_runner) {
+  if (task_runner->BelongsToCurrentThread()) {
+    ProcessDoneEvent();
+  } else {
+    task_runner->PostTask(
+        FROM_HERE, base::Bind(&MessageReader::ProcessDoneEvent, this));
   }
-  delete message;
-  ProcessDoneEvent();
 }
 
 void MessageReader::ProcessDoneEvent() {
   pending_messages_--;
   DCHECK_GE(pending_messages_, 0);
 
-  DoRead(); // Start next read if neccessary.
+  if (!read_pending_)
+    DoRead();  // Start next read if neccessary.
 }
 
 }  // namespace protocol

@@ -4,13 +4,12 @@
 
 #ifndef CHROME_BROWSER_TAB_CONTENTS_WEB_DRAG_BOOKMARK_HANDLER_MAC_H_
 #define CHROME_BROWSER_TAB_CONTENTS_WEB_DRAG_BOOKMARK_HANDLER_MAC_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "chrome/browser/bookmarks/bookmark_node_data.h"
 #include "content/public/browser/web_drag_dest_delegate.h"
 
-class TabContentsWrapper;
+class TabContents;
 
 // Chrome needs to intercept content drag events so it can dispatch them to the
 // bookmarks and extensions system.
@@ -27,10 +26,10 @@ class WebDragBookmarkHandlerMac : public content::WebDragDestDelegate {
   virtual void OnDragLeave() OVERRIDE;
 
  private:
-  // The TabContentsWrapper for |tab_contents_|.
-  // Weak reference; may be NULL if the contents aren't contained in a wrapper
-  // (e.g. WebUI dialogs).
-  TabContentsWrapper* tab_;
+  // The TabContents.
+  // Weak reference; may be NULL if the contents aren't contained in a
+  // TabContents (e.g. WebUI dialogs).
+  TabContents* tab_;
 
   // The bookmark data for the current tab. This will be empty if there is not
   // a native bookmark drag.

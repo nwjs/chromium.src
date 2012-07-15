@@ -4,8 +4,8 @@
 
 #ifndef CHROME_BROWSER_INTENTS_WEB_INTENTS_UTIL_H_
 #define CHROME_BROWSER_INTENTS_WEB_INTENTS_UTIL_H_
-#pragma once
 
+class Profile;
 class PrefService;
 
 namespace web_intents {
@@ -13,9 +13,12 @@ namespace web_intents {
 // Registers the preferences related to Web Intents.
 void RegisterUserPrefs(PrefService* user_prefs);
 
-// Returns true if Web Intent is enabled due to various factors. |profile| is
-// the current, active Profile.
-bool IsWebIntentsEnabled();
+// Returns true if WebIntents are enabled in preferences.
+bool IsWebIntentsEnabled(PrefService* prefs);
+
+// Returns true if WebIntents are enabled due to various factors. |profile| is
+// the Profile to check that WebIntents are enabled for.
+bool IsWebIntentsEnabledForProfile(Profile* profile);
 
 }  // namespace web_intents
 

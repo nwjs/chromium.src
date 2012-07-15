@@ -13,55 +13,18 @@ namespace content {
 ShellContentClient::~ShellContentClient() {
 }
 
-void ShellContentClient::SetActiveURL(const GURL& url) {
+std::string ShellContentClient::GetUserAgent() const {
+  // The "19" is so that sites that sniff for version think that this is
+  // something reasonably current; the "77.34.5" is a hint that this isn't a
+  // standard Chrome.
+  return webkit_glue::BuildUserAgentFromProduct("Chrome/19.77.34.5");
 }
 
-void ShellContentClient::SetGpuInfo(const GPUInfo& gpu_info) {
+base::StringPiece ShellContentClient::GetDataResource(
+    int resource_id,
+    ui::ScaleFactor scale_factor) const {
+  return ResourceBundle::GetSharedInstance().GetRawDataResource(
+      resource_id, scale_factor);
 }
-
-void ShellContentClient::AddPepperPlugins(
-    std::vector<content::PepperPluginInfo>* plugins) {
-}
-
-void ShellContentClient::AddNPAPIPlugins(
-    webkit::npapi::PluginList* plugin_list) {
-}
-
-bool ShellContentClient::HasWebUIScheme(const GURL& url) const {
-  // There are no WebUI URLs in content_shell.
-  return false;
-}
-
-bool ShellContentClient::CanHandleWhileSwappedOut(const IPC::Message& msg) {
-  return false;
-}
-
-std::string ShellContentClient::GetUserAgent(bool* overriding) const {
-  *overriding = false;
-  return std::string("Chrome/15.16.17.18");
-}
-
-string16 ShellContentClient::GetLocalizedString(int message_id) const {
-  return string16();
-}
-
-base::StringPiece ShellContentClient::GetDataResource(int resource_id) const {
-  return ResourceBundle::GetSharedInstance().GetRawDataResource(resource_id);
-}
-
-#if defined(OS_WIN)
-bool ShellContentClient::SandboxPlugin(CommandLine* command_line,
-                                       sandbox::TargetPolicy* policy) {
-  return false;
-}
-#endif
-
-#if defined(OS_MACOSX)
-bool ShellContentClient::GetSandboxProfileForSandboxType(
-    int sandbox_type,
-    int* sandbox_profile_resource_id) const {
-  return false;
-}
-#endif
 
 }  // namespace content

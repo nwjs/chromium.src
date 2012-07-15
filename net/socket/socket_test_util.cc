@@ -23,10 +23,15 @@
 #include "net/http/http_response_headers.h"
 #include "net/socket/client_socket_pool_histograms.h"
 #include "net/socket/socket.h"
-#include "net/socket/ssl_host_info.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-#define NET_TRACE(level, s)   DLOG(level) << s << __FUNCTION__ << "() "
+// Socket events are easier to debug if you log individual reads and writes.
+// Enable these if locally debugging, but they are too noisy for the waterfall.
+#if 0
+#define NET_TRACE(level, s) DLOG(level) << s << __FUNCTION__ << "() "
+#else
+#define NET_TRACE(level, s) EAT_STREAM_PARAMETERS
+#endif
 
 namespace net {
 
@@ -116,6 +121,26 @@ void DumpMockRead(const MockRead& r) {
 }
 
 }  // namespace
+
+MockConnect::MockConnect() : mode(ASYNC), result(OK) {
+  IPAddressNumber ip;
+  CHECK(ParseIPLiteralToNumber("192.0.2.33", &ip));
+  peer_addr = IPEndPoint(ip, 0);
+}
+
+MockConnect::MockConnect(IoMode io_mode, int r) : mode(io_mode), result(r) {
+  IPAddressNumber ip;
+  CHECK(ParseIPLiteralToNumber("192.0.2.33", &ip));
+  peer_addr = IPEndPoint(ip, 0);
+}
+
+MockConnect::MockConnect(IoMode io_mode, int r, IPEndPoint addr) :
+    mode(io_mode),
+    result(r),
+    peer_addr(addr) {
+}
+
+MockConnect::~MockConnect() {}
 
 StaticSocketDataProvider::StaticSocketDataProvider()
     : reads_(NULL),
@@ -239,16 +264,16 @@ SSLSocketDataProvider::SSLSocketDataProvider(IoMode mode, int result)
     : connect(mode, result),
       next_proto_status(SSLClientSocket::kNextProtoUnsupported),
       was_npn_negotiated(false),
-      protocol_negotiated(SSLClientSocket::kProtoUnknown),
+      protocol_negotiated(kProtoUnknown),
       client_cert_sent(false),
       cert_request_info(NULL),
-      domain_bound_cert_type(CLIENT_CERT_INVALID_TYPE) {
+      channel_id_sent(false) {
 }
 
 SSLSocketDataProvider::~SSLSocketDataProvider() {
 }
 
-void SSLSocketDataProvider::SetNextProto(SSLClientSocket::NextProto proto) {
+void SSLSocketDataProvider::SetNextProto(NextProto proto) {
   was_npn_negotiated = true;
   next_proto_status = SSLClientSocket::kNextProtoNegotiated;
   protocol_negotiated = proto;
@@ -424,7 +449,8 @@ DeterministicSocketData::DeterministicSocketData(MockRead* reads,
       current_write_(),
       stopping_sequence_number_(0),
       stopped_(false),
-      print_debug_(false) {}
+      print_debug_(false) {
+}
 
 DeterministicSocketData::~DeterministicSocketData() {}
 
@@ -622,11 +648,10 @@ SSLClientSocket* MockClientSocketFactory::CreateSSLClientSocket(
     ClientSocketHandle* transport_socket,
     const HostPortPair& host_and_port,
     const SSLConfig& ssl_config,
-    SSLHostInfo* ssl_host_info,
     const SSLClientSocketContext& context) {
   MockSSLClientSocket* socket =
       new MockSSLClientSocket(transport_socket, host_and_port, ssl_config,
-                              ssl_host_info, mock_ssl_data_.GetNext());
+                              mock_ssl_data_.GetNext());
   return socket;
 }
 
@@ -637,6 +662,9 @@ MockClientSocket::MockClientSocket(net::NetLog* net_log)
     : ALLOW_THIS_IN_INITIALIZER_LIST(weak_factory_(this)),
       connected_(false),
       net_log_(BoundNetLog::Make(net_log, net::NetLog::SOURCE_NONE)) {
+  IPAddressNumber ip;
+  CHECK(ParseIPLiteralToNumber("192.0.2.33", &ip));
+  peer_addr_ = IPEndPoint(ip, 0);
 }
 
 bool MockClientSocket::SetReceiveBufferSize(int32 size) {
@@ -659,11 +687,8 @@ bool MockClientSocket::IsConnectedAndIdle() const {
   return connected_;
 }
 
-int MockClientSocket::GetPeerAddress(AddressList* address) const {
-  IPAddressNumber ip;
-  bool rv = ParseIPLiteralToNumber("192.0.2.33", &ip);
-  CHECK(rv);
-  *address = AddressList::CreateFromIPAddress(ip, 0);
+int MockClientSocket::GetPeerAddress(IPEndPoint* address) const {
+  *address = peer_addr_;
   return OK;
 }
 
@@ -738,6 +763,7 @@ MockTCPClientSocket::MockTCPClientSocket(const AddressList& addresses,
       pending_buf_len_(0),
       was_used_to_convey_data_(false) {
   DCHECK(data_);
+  peer_addr_ = data->connect_data().peer_addr;
   data_->Reset();
 }
 
@@ -823,9 +849,7 @@ bool MockTCPClientSocket::IsConnectedAndIdle() const {
   return IsConnected();
 }
 
-int MockTCPClientSocket::GetPeerAddress(AddressList* address) const {
-  if (!IsConnected())
-    return ERR_SOCKET_NOT_CONNECTED;
+int MockTCPClientSocket::GetPeerAddress(IPEndPoint* address) const {
   return MockClientSocket::GetPeerAddress(address);
 }
 
@@ -918,7 +942,9 @@ DeterministicMockTCPClientSocket::DeterministicMockTCPClientSocket(
       read_buf_len_(0),
       read_pending_(false),
       data_(data),
-      was_used_to_convey_data_(false) {}
+      was_used_to_convey_data_(false) {
+  peer_addr_ = data->connect_data().peer_addr;
+}
 
 DeterministicMockTCPClientSocket::~DeterministicMockTCPClientSocket() {}
 
@@ -1061,7 +1087,6 @@ MockSSLClientSocket::MockSSLClientSocket(
     ClientSocketHandle* transport_socket,
     const HostPortPair& host_port_pair,
     const SSLConfig& ssl_config,
-    SSLHostInfo* ssl_host_info,
     SSLSocketDataProvider* data)
     : MockClientSocket(transport_socket->socket()->NetLog().net_log()),
       transport_(transport_socket),
@@ -1069,9 +1094,9 @@ MockSSLClientSocket::MockSSLClientSocket(
       is_npn_state_set_(false),
       new_npn_value_(false),
       is_protocol_negotiated_set_(false),
-      protocol_negotiated_(SSLClientSocket::kProtoUnknown) {
+      protocol_negotiated_(kProtoUnknown) {
   DCHECK(data_);
-  delete ssl_host_info;  // we take ownership but don't use it.
+  peer_addr_ = data->connect.peer_addr;
 }
 
 MockSSLClientSocket::~MockSSLClientSocket() {
@@ -1125,6 +1150,10 @@ int64 MockSSLClientSocket::NumBytesRead() const {
   return -1;
 }
 
+int MockSSLClientSocket::GetPeerAddress(IPEndPoint* address) const {
+  return transport_->socket()->GetPeerAddress(address);
+}
+
 base::TimeDelta MockSSLClientSocket::GetConnectTimeMicros() const {
   return base::TimeDelta::FromMicroseconds(-1);
 }
@@ -1132,8 +1161,8 @@ base::TimeDelta MockSSLClientSocket::GetConnectTimeMicros() const {
 void MockSSLClientSocket::GetSSLInfo(SSLInfo* ssl_info) {
   ssl_info->Reset();
   ssl_info->cert = data_->cert;
-  ssl_info->client_cert_sent = WasDomainBoundCertSent() ||
-      data_->client_cert_sent;
+  ssl_info->client_cert_sent = data_->client_cert_sent;
+  ssl_info->channel_id_sent = data_->channel_id_sent;
 }
 
 void MockSSLClientSocket::GetSSLCertRequestInfo(
@@ -1166,29 +1195,24 @@ bool MockSSLClientSocket::set_was_npn_negotiated(bool negotiated) {
   return new_npn_value_ = negotiated;
 }
 
-SSLClientSocket::NextProto MockSSLClientSocket::protocol_negotiated() const {
+NextProto MockSSLClientSocket::GetNegotiatedProtocol() const {
   if (is_protocol_negotiated_set_)
     return protocol_negotiated_;
   return data_->protocol_negotiated;
 }
 
 void MockSSLClientSocket::set_protocol_negotiated(
-    SSLClientSocket::NextProto protocol_negotiated) {
+    NextProto protocol_negotiated) {
   is_protocol_negotiated_set_ = true;
   protocol_negotiated_ = protocol_negotiated;
 }
 
-bool MockSSLClientSocket::WasDomainBoundCertSent() const {
-  return data_->domain_bound_cert_type != CLIENT_CERT_INVALID_TYPE;
+bool MockSSLClientSocket::WasChannelIDSent() const {
+  return data_->channel_id_sent;
 }
 
-SSLClientCertType MockSSLClientSocket::domain_bound_cert_type() const {
-  return data_->domain_bound_cert_type;
-}
-
-SSLClientCertType MockSSLClientSocket::set_domain_bound_cert_type(
-    SSLClientCertType type) {
-  return data_->domain_bound_cert_type = type;
+void MockSSLClientSocket::set_channel_id_sent(bool channel_id_sent) {
+  data_->channel_id_sent = channel_id_sent;
 }
 
 ServerBoundCertService* MockSSLClientSocket::GetServerBoundCertService() const {
@@ -1569,11 +1593,10 @@ SSLClientSocket* DeterministicMockClientSocketFactory::CreateSSLClientSocket(
     ClientSocketHandle* transport_socket,
     const HostPortPair& host_and_port,
     const SSLConfig& ssl_config,
-    SSLHostInfo* ssl_host_info,
     const SSLClientSocketContext& context) {
   MockSSLClientSocket* socket =
       new MockSSLClientSocket(transport_socket, host_and_port, ssl_config,
-                              ssl_host_info, mock_ssl_data_.GetNext());
+                              mock_ssl_data_.GetNext());
   ssl_client_sockets_.push_back(socket);
   return socket;
 }

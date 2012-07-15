@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_AUTOMATION_AUTOMATION_WINDOW_TRACKER_H_
 #define CHROME_BROWSER_AUTOMATION_AUTOMATION_WINDOW_TRACKER_H_
-#pragma once
 
 #include "build/build_config.h"
 #include "chrome/browser/automation/automation_resource_tracker.h"
@@ -13,7 +12,7 @@
 class AutomationWindowTracker
     : public AutomationResourceTracker<gfx::NativeWindow> {
  public:
-  explicit AutomationWindowTracker(IPC::Message::Sender* automation);
+  explicit AutomationWindowTracker(IPC::Sender* automation);
   virtual ~AutomationWindowTracker();
 
   virtual void AddObserver(gfx::NativeWindow resource);

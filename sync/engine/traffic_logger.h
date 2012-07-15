@@ -8,19 +8,18 @@
 
 #ifndef CHROME_BROWSER_SYNC_ENGINE_TRAFFIC_LOGGER_H_
 #define CHROME_BROWSER_SYNC_ENGINE_TRAFFIC_LOGGER_H_
-#pragma once
 
 namespace sync_pb {
 class ClientToServerResponse;
 class ClientToServerMessage;
 }  // namespace sync_pb
 
-namespace browser_sync {
+namespace syncer {
 
 void LogClientToServerMessage(const sync_pb::ClientToServerMessage& msg);
 void LogClientToServerResponse(
     const sync_pb::ClientToServerResponse& response);
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // CHROME_BROWSER_SYNC_ENGINE_TRAFFIC_LOGGER_H_

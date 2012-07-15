@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -43,6 +43,13 @@ void SessionServiceTestHelper::SetTabExtensionAppID(
   service()->SetTabExtensionAppID(window_id, tab_id, extension_app_id);
 }
 
+void SessionServiceTestHelper::SetTabUserAgentOverride(
+    const SessionID& window_id,
+    const SessionID& tab_id,
+    const std::string& user_agent_override) {
+  service()->SetTabUserAgentOverride(window_id, tab_id, user_agent_override);
+}
+
 // Be sure and null out service to force closing the file.
 void SessionServiceTestHelper::ReadWindows(
     std::vector<SessionWindow*>* windows) {
@@ -83,6 +90,9 @@ void SessionServiceTestHelper::AssertNavigationEquals(
   EXPECT_EQ(expected.state(), actual.state());
   EXPECT_EQ(expected.transition(), actual.transition());
   EXPECT_EQ(expected.type_mask(), actual.type_mask());
+  EXPECT_TRUE(expected.original_request_url() == actual.original_request_url());
+  EXPECT_EQ(expected.is_overriding_user_agent(),
+      actual.is_overriding_user_agent());
 }
 
 void SessionServiceTestHelper::AssertSingleWindowWithSingleTab(

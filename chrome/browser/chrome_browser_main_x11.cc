@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,9 +6,10 @@
 
 #include "base/bind.h"
 #include "base/debug/debugger.h"
+#include "base/message_loop.h"
 #include "chrome/browser/browser_shutdown.h"
+#include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/metrics/metrics_service.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/common/chrome_result_codes.h"
 #include "content/public/browser/browser_thread.h"
 #include "ui/base/x/x11_util.h"
@@ -60,7 +61,7 @@ int BrowserX11IOErrorHandler(Display* d) {
     g_in_x11_io_error_handler = true;
     LOG(ERROR) << "X IO Error detected";
     browser_shutdown::SetShuttingDownWithoutClosingBrowsers(true);
-    BrowserList::SessionEnding();
+    browser::SessionEnding();
   }
 
   return 0;
@@ -79,10 +80,6 @@ void RecordBreakpadStatusUMA(MetricsService* metrics) {
 
 void WarnAboutMinimumSystemRequirements() {
   // Nothing to warn about on X11 right now.
-}
-
-void RecordBrowserStartupTime() {
-  // Not implemented on X11 for now.
 }
 
 // From browser_main_win.h, stubs until we figure out the right thing...

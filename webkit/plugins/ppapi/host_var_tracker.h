@@ -13,11 +13,9 @@
 #include "base/hash_tables.h"
 #include "base/memory/linked_ptr.h"
 #include "base/memory/ref_counted.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "ppapi/c/pp_instance.h"
 #include "ppapi/c/pp_resource.h"
-#include "ppapi/shared_impl/function_group_base.h"
 #include "ppapi/shared_impl/resource_tracker.h"
 #include "ppapi/shared_impl/var_tracker.h"
 #include "webkit/plugins/webkit_plugins_export.h"
@@ -58,12 +56,11 @@ class HostVarTracker : public ::ppapi::VarTracker {
   WEBKIT_PLUGINS_EXPORT int GetLiveNPObjectVarsForInstance(
       PP_Instance instance) const;
 
-  // Forcibly deletes all np object vars for the given instance. Used for
-  // instance cleanup.
-  void ForceFreeNPObjectsForInstance(PP_Instance instance);
+  // VarTracker public implementation.
+  virtual void DidDeleteInstance(PP_Instance instance) OVERRIDE;
 
  private:
-  // VarTracker implementation.
+  // VarTracker private implementation.
   virtual ::ppapi::ArrayBufferVar* CreateArrayBuffer(
       uint32 size_in_bytes) OVERRIDE;
 

@@ -1,13 +1,15 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include <gtk/gtk.h>
 
-#include "chrome/browser/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/gtk/view_id_util.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "net/test/test_server.h"
@@ -31,22 +33,22 @@ IN_PROC_BROWSER_TEST_F(BookmarkBarGtkInteractiveUITest, FindBarTest) {
   ASSERT_TRUE(test_server()->Start());
 
   // Create new tab; open findbar.
-  browser()->NewTab();
-  browser()->Find();
+  chrome::NewTab(browser());
+  chrome::Find(browser());
 
   // Create new tab with an arbitrary URL.
   GURL url = test_server()->GetURL(kSimplePage);
-  browser()->AddSelectedTabWithURL(url, content::PAGE_TRANSITION_TYPED);
+  chrome::AddSelectedTabWithURL(browser(), url, content::PAGE_TRANSITION_TYPED);
 
   // Switch back to the NTP with the active findbar.
-  browser()->ActivateTabAt(1, false);
+  chrome::ActivateTabAt(browser(), 1, false);
 
   // Wait for the findbar to show.
   MessageLoop::current()->RunAllPending();
 
   // Set focus somewhere else, so that we can test clicking on the findbar
   // works.
-  browser()->FocusLocationBar();
+  chrome::FocusLocationBar(browser());
   ui_test_utils::ClickOnView(browser(), VIEW_ID_FIND_IN_PAGE_TEXT_FIELD);
   ui_test_utils::IsViewFocused(browser(), VIEW_ID_FIND_IN_PAGE_TEXT_FIELD);
 }
@@ -58,14 +60,14 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_TRUE(test_server()->Start());
 
   GtkWidget* other_bookmarks =
-      ViewIDUtil::GetWidget(GTK_WIDGET(browser()->window()->GetNativeHandle()),
+      ViewIDUtil::GetWidget(GTK_WIDGET(browser()->window()->GetNativeWindow()),
       VIEW_ID_OTHER_BOOKMARKS);
   bool has_been_clicked = false;
   g_signal_connect(other_bookmarks, "clicked",
                    G_CALLBACK(OnClicked), &has_been_clicked);
 
   // Create new tab.
-  browser()->NewTab();
+  chrome::NewTab(browser());
 
   // Wait for the floating bar to appear.
   MessageLoop::current()->RunAllPending();

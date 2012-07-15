@@ -84,6 +84,7 @@ std::string WheelEvent::ToString() const {
          << " wheel_ticks_x:" << ticks_x_
          << " wheel_ticks_y:" << ticks_y_
          << " scroll_by_page: " << scroll_by_page_
+         << " time:" << timestamp_
          << "\n";
   return stream.str();
 }
@@ -105,6 +106,57 @@ std::string MouseEvent::MouseButtonToString(MouseButton button) const {
              << ")";
       return stream.str();
   }
+}
+
+std::string TouchEvent::KindToString(Kind kind) const {
+  switch (kind) {
+    case kNone:
+      return "None";
+    case kStart:
+      return "Start";
+    case kMove:
+      return "Move";
+    case kEnd:
+      return "End";
+    case kCancel:
+      return "Cancel";
+    default:
+      std::ostringstream stream;
+      stream << "Unrecognized ("
+             << static_cast<int32_t>(kind)
+             << ")";
+      return stream.str();
+  }
+}
+
+void TouchEvent::AddTouch(uint32_t id, float x, float y, float radii_x,
+    float radii_y, float angle, float pressure) {
+  Touch touch;
+  touch.id = id;
+  touch.x = x;
+  touch.y = y;
+  touch.radii_x = radii_x;
+  touch.radii_y = radii_y;
+  touch.angle = angle;
+  touch.pressure = pressure;
+  touches.push_back(touch);
+}
+
+std::string TouchEvent::ToString() const {
+  std::ostringstream stream;
+  stream << " Touch event:" << KindToString(kind_)
+         << " modifier:" << string_event_modifiers();
+  for (size_t i = 0; i < touches.size(); ++i) {
+    const Touch& touch = touches[i];
+    stream << " x[" << touch.id << "]:" << touch.x
+           << " y[" << touch.id << "]:" << touch.y
+           << " radii_x[" << touch.id << "]:" << touch.radii_x
+           << " radii_y[" << touch.id << "]:" << touch.radii_y
+           << " angle[" << touch.id << "]:" << touch.angle
+           << " pressure[" << touch.id << "]:" << touch.pressure;
+  }
+  stream << " time:" << timestamp_ << "\n";
+  return stream.str();
 }
 
 }  // end namespace

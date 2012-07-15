@@ -14,10 +14,7 @@ using content::TraceControllerImpl;
 TraceMessageFilter::TraceMessageFilter() :
     has_child_(false),
     is_awaiting_end_ack_(false),
-    is_awaiting_bpf_ack_(false) {
-}
-
-TraceMessageFilter::~TraceMessageFilter() {
+    is_awaiting_buffer_percent_full_ack_(false) {
 }
 
 void TraceMessageFilter::OnFilterAdded(IPC::Channel* channel) {
@@ -30,10 +27,10 @@ void TraceMessageFilter::OnChannelClosing() {
   BrowserMessageFilter::OnChannelClosing();
 
   if (has_child_) {
-    if (is_awaiting_bpf_ack_)
+    if (is_awaiting_end_ack_)
       OnEndTracingAck(std::vector<std::string>());
 
-    if (is_awaiting_end_ack_)
+    if (is_awaiting_buffer_percent_full_ack_)
       OnTraceBufferPercentFullReply(0.0f);
 
     TraceControllerImpl::GetInstance()->RemoveFilter(this);
@@ -76,10 +73,12 @@ void TraceMessageFilter::SendEndTracing() {
 
 void TraceMessageFilter::SendGetTraceBufferPercentFull() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DCHECK(!is_awaiting_bpf_ack_);
-  is_awaiting_bpf_ack_ = true;
+  DCHECK(!is_awaiting_buffer_percent_full_ack_);
+  is_awaiting_buffer_percent_full_ack_ = true;
   Send(new ChildProcessMsg_GetTraceBufferPercentFull);
 }
+
+TraceMessageFilter::~TraceMessageFilter() {}
 
 void TraceMessageFilter::OnChildSupportsTracing() {
   has_child_ = true;
@@ -93,6 +92,8 @@ void TraceMessageFilter::OnEndTracingAck(
   if (is_awaiting_end_ack_) {
     is_awaiting_end_ack_ = false;
     TraceControllerImpl::GetInstance()->OnEndTracingAck(known_categories);
+  } else {
+    NOTREACHED();
   }
 }
 
@@ -107,10 +108,12 @@ void TraceMessageFilter::OnTraceBufferFull() {
 }
 
 void TraceMessageFilter::OnTraceBufferPercentFullReply(float percent_full) {
-  if (is_awaiting_bpf_ack_) {
-    is_awaiting_bpf_ack_ = false;
+  if (is_awaiting_buffer_percent_full_ack_) {
+    is_awaiting_buffer_percent_full_ack_ = false;
     TraceControllerImpl::GetInstance()->OnTraceBufferPercentFullReply(
         percent_full);
+  } else {
+    NOTREACHED();
   }
 }
 

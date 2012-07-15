@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_WEBUI_EXTENSIONS_PACK_EXTENSION_HANDLER_H_
 #define CHROME_BROWSER_UI_WEBUI_EXTENSIONS_PACK_EXTENSION_HANDLER_H_
-#pragma once
 
 #include <string>
 
@@ -32,7 +31,7 @@ class PackExtensionHandler : public content::WebUIMessageHandler,
                              const FilePath& key_file) OVERRIDE;
 
   virtual void OnPackFailure(const std::string& error,
-                             ExtensionCreator::ErrorType) OVERRIDE;
+                             extensions::ExtensionCreator::ErrorType) OVERRIDE;
 
  private:
   // SelectFileDialog::Listener implementation.

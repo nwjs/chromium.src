@@ -15,10 +15,16 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/webui/web_ui_util.h"
 #include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/gfx/image/image_skia.h"
 
 namespace {
 
 void CloseBalloon(const std::string& id) {
+  // The browser process may have gone away during shutting down, in this case
+  // notification_ui_manager() will close the balloon in its destructor.
+  if (!g_browser_process)
+    return;
+
   g_browser_process->notification_ui_manager()->CancelById(id);
 }
 
@@ -32,7 +38,6 @@ class DummyNotificationDelegate : public NotificationDelegate {
  public:
   explicit DummyNotificationDelegate(const std::string& id)
       : id_(kNotificationPrefix + id) {}
-  virtual ~DummyNotificationDelegate() {}
 
   virtual void Display() OVERRIDE {
     MessageLoop::current()->PostDelayedTask(
@@ -44,8 +49,13 @@ class DummyNotificationDelegate : public NotificationDelegate {
   virtual void Close(bool by_user) OVERRIDE {}
   virtual void Click() OVERRIDE {}
   virtual std::string id() const OVERRIDE { return id_; }
+  virtual content::RenderViewHost* GetRenderViewHost() const OVERRIDE {
+    return NULL;
+  }
 
  private:
+  virtual ~DummyNotificationDelegate() {}
+
   std::string id_;
 };
 
@@ -57,28 +67,22 @@ DesktopNotificationBalloon::DesktopNotificationBalloon() {
 }
 
 DesktopNotificationBalloon::~DesktopNotificationBalloon() {
-  if (notification_.get())
-    CloseBalloon(notification_->notification_id());
+  if (!notification_id_.empty())
+    CloseBalloon(notification_id_);
 }
 
 void DesktopNotificationBalloon::DisplayBalloon(const SkBitmap& icon,
                                                 const string16& title,
                                                 const string16& contents) {
-  GURL icon_url;
-  if (!icon.empty())
-    icon_url = GURL(web_ui_util::GetImageDataUrl(icon));
-
-  GURL content_url(DesktopNotificationService::CreateDataUrl(
-      icon_url, title, contents, WebKit::WebTextDirectionDefault));
-
-  notification_.reset(new Notification(
-      GURL(), content_url, string16(), string16(),
-      new DummyNotificationDelegate(base::IntToString(id_count_++))));
-
   // Allowing IO access is required here to cover the corner case where
   // there is no last used profile and the default one is loaded.
   // IO access won't be required for normal uses.
-  base::ThreadRestrictions::ScopedAllowIO allow_io;
-  g_browser_process->notification_ui_manager()->Add(
-      *notification_.get(), ProfileManager::GetLastUsedProfile());
+  Profile* profile;
+  {
+    base::ThreadRestrictions::ScopedAllowIO allow_io;
+    profile = ProfileManager::GetLastUsedProfile();
+  }
+  notification_id_ = DesktopNotificationService::AddIconNotification(
+      GURL(), title, contents, gfx::ImageSkia(icon),
+      new DummyNotificationDelegate(base::IntToString(id_count_++)), profile);
 }

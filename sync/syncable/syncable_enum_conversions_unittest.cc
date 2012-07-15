@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// Keep this file in sync with syncable.h.
+// Keep this file in sync with entry_kernel.h.
 
 #include "sync/syncable/syncable_enum_conversions.h"
 
@@ -10,6 +10,7 @@
 
 #include "testing/gtest/include/gtest/gtest.h"
 
+namespace syncer {
 namespace syncable {
 namespace {
 
@@ -83,3 +84,4 @@ TEST_F(SyncableEnumConversionsTest, GetBitTempString) {
 
 }  // namespace
 }  // namespace syncable
+}  // namespace syncer

@@ -4,6 +4,7 @@
 
 #include "chrome/browser/extensions/extension_navigation_observer.h"
 
+#include "chrome/browser/extensions/extension_install_ui.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "content/public/browser/navigation_controller.h"
@@ -55,7 +56,7 @@ void ExtensionNavigationObserver::PromptToEnableExtensionIfNecessary(
     return;
 
   ExtensionService* extension_service = profile_->GetExtensionService();
-  const Extension* extension =
+  const extensions::Extension* extension =
       extension_service->disabled_extensions()->
       GetExtensionOrAppByURL(ExtensionURLInfo(nav_entry->GetURL()));
   if (!extension)
@@ -66,21 +67,24 @@ void ExtensionNavigationObserver::PromptToEnableExtensionIfNecessary(
     return;
   prompted_extensions_.insert(extension->id());
 
-  ExtensionPrefs* extension_prefs = extension_service->extension_prefs();
+  extensions::ExtensionPrefs* extension_prefs =
+      extension_service->extension_prefs();
   if (extension_prefs->DidExtensionEscalatePermissions(extension->id())) {
     // Keep track of the extension id and nav controller we're prompting for.
     // These must be reset in InstallUIProceed and InstallUIAbort.
     in_progress_prompt_extension_id_ = extension->id();
     in_progress_prompt_navigation_controller_ = nav_controller;
 
-    extension_install_ui_.reset(new ExtensionInstallUI(profile_));
-    extension_install_ui_->ConfirmReEnable(this, extension);
+    extension_install_prompt_.reset(
+        ExtensionInstallUI::CreateInstallPromptWithWebContents(
+            nav_controller->GetWebContents()));
+    extension_install_prompt_->ConfirmReEnable(this, extension);
   }
 }
 
 void ExtensionNavigationObserver::InstallUIProceed() {
   ExtensionService* extension_service = profile_->GetExtensionService();
-  const Extension* extension = extension_service->GetExtensionById(
+  const extensions::Extension* extension = extension_service->GetExtensionById(
       in_progress_prompt_extension_id_, true);
   NavigationController* nav_controller =
       in_progress_prompt_navigation_controller_;
@@ -89,21 +93,22 @@ void ExtensionNavigationObserver::InstallUIProceed() {
 
   in_progress_prompt_extension_id_ = "";
   in_progress_prompt_navigation_controller_ = NULL;
-  extension_install_ui_.reset();
+  extension_install_prompt_.reset();
 
   // Grant permissions, re-enable the extension, and then reload the tab.
-  extension_service->GrantPermissionsAndEnableExtension(extension);
+  extension_service->GrantPermissionsAndEnableExtension(
+      extension, extension_install_prompt_->record_oauth2_grant());
   nav_controller->Reload(true);
 }
 
 void ExtensionNavigationObserver::InstallUIAbort(bool user_initiated) {
   ExtensionService* extension_service = profile_->GetExtensionService();
-  const Extension* extension = extension_service->GetExtensionById(
+  const extensions::Extension* extension = extension_service->GetExtensionById(
       in_progress_prompt_extension_id_, true);
 
   in_progress_prompt_extension_id_ = "";
   in_progress_prompt_navigation_controller_ = NULL;
-  extension_install_ui_.reset();
+  extension_install_prompt_.reset();
 
   std::string histogram_name = user_initiated ?
       "Extensions.Permissions_ReEnableCancel" :

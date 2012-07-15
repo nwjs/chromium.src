@@ -6,7 +6,6 @@
 
 #ifndef UI_BASE_CLIPBOARD_CLIPBOARD_UTIL_WIN_H_
 #define UI_BASE_CLIPBOARD_CLIPBOARD_UTIL_WIN_H_
-#pragma once
 
 #include <shlobj.h>
 #include <map>
@@ -31,6 +30,8 @@ class UI_EXPORT ClipboardUtil {
   static FORMATETC* GetFilenameWFormat();
   // MS HTML Format
   static FORMATETC* GetHtmlFormat();
+  // MS RTF Format
+  static FORMATETC* GetRtfFormat();
   // Firefox text/html
   static FORMATETC* GetTextHtmlFormat();
   static FORMATETC* GetCFHDropFormat();

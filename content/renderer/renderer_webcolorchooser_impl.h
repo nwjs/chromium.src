@@ -4,9 +4,8 @@
 
 #ifndef CONTENT_RENDERER_RENDERER_WEBCOLORCHOOSER_IMPL_H_
 #define CONTENT_RENDERER_RENDERER_WEBCOLORCHOOSER_IMPL_H_
-#pragma once
 
-#include "base/memory/scoped_ptr.h"
+#include "base/compiler_specific.h"
 #include "content/public/renderer/render_view_observer.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebColorChooser.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebColorChooserClient.h"
@@ -35,10 +34,8 @@ class RendererWebColorChooserImpl : public WebKit::WebColorChooser,
  private:
   // RenderViewObserver implementation.
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
-  virtual void FrameWillClose(WebKit::WebFrame* frame) OVERRIDE;
 
-  void OnDidChooseColorResponse(int color_chooser_id,
-                                const SkColor& color);
+  void OnDidChooseColorResponse(int color_chooser_id, SkColor color);
   void OnDidEndColorChooser(int color_chooser_id);
 
   int identifier_;

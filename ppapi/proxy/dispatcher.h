@@ -10,11 +10,13 @@
 #include <vector>
 
 #include "base/callback_forward.h"
+#include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
 #include "base/tracked_objects.h"
 #include "ipc/ipc_channel_proxy.h"
 #include "ppapi/c/pp_instance.h"
 #include "ppapi/c/pp_module.h"
+#include "ppapi/c/ppp.h"
 #include "ppapi/proxy/proxy_channel.h"
 #include "ppapi/proxy/interface_list.h"
 #include "ppapi/proxy/interface_proxy.h"
@@ -43,14 +45,13 @@ class VarSerializationRules;
 //                                      |
 class PPAPI_PROXY_EXPORT Dispatcher : public ProxyChannel {
  public:
-  typedef const void* (*GetInterfaceFunc)(const char*);
-  typedef int32_t (*InitModuleFunc)(PP_Module, GetInterfaceFunc);
-
   virtual ~Dispatcher();
 
   // Returns true if the dispatcher is on the plugin side, or false if it's the
   // browser side.
   virtual bool IsPlugin() const = 0;
+
+  void AddFilter(IPC::Listener* listener);
 
   VarSerializationRules* serialization_rules() const {
     return serialization_rules_.get();
@@ -68,9 +69,6 @@ class PPAPI_PROXY_EXPORT Dispatcher : public ProxyChannel {
   base::MessageLoopProxy* GetIPCMessageLoop();
 
   // Adds the given filter to the IO thread. Takes ownership of the pointer.
-  // TODO(brettw) remove this. It's a hack to support the Flash
-  // ModuleLocalThreadAdapter. When the thread stuff is sorted out, this
-  // implementation detail should be hidden.
   void AddIOThreadMessageFilter(IPC::ChannelProxy::MessageFilter* filter);
 
   // TODO(brettw): What is this comment referring to?
@@ -78,14 +76,15 @@ class PPAPI_PROXY_EXPORT Dispatcher : public ProxyChannel {
   // so we don't have to query for each one. We'll pre-create proxies for
   // each of the given interfaces.
 
-  // IPC::Channel::Listener implementation.
-  virtual bool OnMessageReceived(const IPC::Message& msg);
+  // IPC::Listener implementation.
+  virtual bool OnMessageReceived(const IPC::Message& msg) OVERRIDE;
 
-  GetInterfaceFunc local_get_interface() const { return local_get_interface_; }
+  PP_GetInterface_Func local_get_interface() const {
+    return local_get_interface_;
+  }
 
  protected:
-  Dispatcher(base::ProcessHandle remote_process_handle,
-             GetInterfaceFunc local_get_interface);
+  explicit Dispatcher(PP_GetInterface_Func local_get_interface);
 
   // Setter for the derived classes to set the appropriate var serialization.
   // Takes one reference of the given pointer, which must be on the heap.
@@ -99,6 +98,9 @@ class PPAPI_PROXY_EXPORT Dispatcher : public ProxyChannel {
     return disallow_trusted_interfaces_;
   }
 
+ protected:
+  std::vector<IPC::Listener*> filters_;
+
  private:
   friend class HostDispatcherTest;
   friend class PluginDispatcherTest;
@@ -108,7 +110,7 @@ class PPAPI_PROXY_EXPORT Dispatcher : public ProxyChannel {
 
   bool disallow_trusted_interfaces_;
 
-  GetInterfaceFunc local_get_interface_;
+  PP_GetInterface_Func local_get_interface_;
 
   scoped_refptr<VarSerializationRules> serialization_rules_;
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -119,7 +119,11 @@ cr.define('cr.ui', function() {
 
     // Fired whenever a touch that is being tracked has been released.
     // Correlates 1:1 with a TOUCH_START.
-    TOUCH_END: 'touchHandler:touch_end'
+    TOUCH_END: 'touchHandler:touch_end',
+
+    // Fired whenever the element is tapped in a short time and no dragging is
+    // detected.
+    TAP: 'touchHandler:tap'
   };
 
 
@@ -187,11 +191,11 @@ cr.define('cr.ui', function() {
   };
 
   /**
-   * Minimum movement of touch required to be considered a drag.
+   * Maximum movement of touch required to be considered a tap.
    * @type {number}
    * @private
    */
-  TouchHandler.MIN_TRACKING_FOR_DRAG_ = 8;
+  TouchHandler.MAX_TRACKING_FOR_TAP_ = 8;
 
 
   /**
@@ -330,6 +334,12 @@ cr.define('cr.ui', function() {
      * @private
      */
     swallowNextClick_: undefined,
+
+    /**
+     * @type {boolean}
+     * @private
+     */
+    draggingEnabled_: false,
 
     /**
      * Start listenting for events.
@@ -479,6 +489,8 @@ cr.define('cr.ui', function() {
       if (this.swallowNextClick_)
         this.swallowNextClick_ = false;
 
+      this.disableTap_ = false;
+
       // Sign up for end/cancel notifications for this touch.
       // Note that we do this on the document so that even if the user drags
       // their finger off the element, we'll still know what they're doing.
@@ -499,9 +511,8 @@ cr.define('cr.ui', function() {
           TouchHandler.TIME_FOR_LONG_PRESS_);
 
       // Dispatch the TOUCH_START event
-      if (!this.dispatchEvent_(TouchHandler.EventType.TOUCH_START, touch))
-        // Dragging was not enabled, nothing more to do
-        return;
+      this.draggingEnabled_ =
+          !!this.dispatchEvent_(TouchHandler.EventType.TOUCH_START, touch);
 
       // We want dragging notifications
       if (e.type == 'mousedown') {
@@ -569,10 +580,14 @@ cr.define('cr.ui', function() {
       this.lastTouchX_ = clientX;
       this.lastTouchY_ = clientY;
 
-      if (!this.dragging_ && (this.totalMoveY_ >
-          TouchHandler.MIN_TRACKING_FOR_DRAG_ ||
-          this.totalMoveX_ >
-          TouchHandler.MIN_TRACKING_FOR_DRAG_)) {
+      var couldBeTap =
+          this.totalMoveY_ <= TouchHandler.MAX_TRACKING_FOR_TAP_ ||
+          this.totalMoveX_ <= TouchHandler.MAX_TRACKING_FOR_TAP_;
+
+      if (!couldBeTap)
+        this.disableTap_ = true;
+
+      if (this.draggingEnabled_ && !this.dragging_ && !couldBeTap) {
         // If we're waiting for a long press, stop
         window.clearTimeout(this.longPressTimeout_);
 
@@ -699,12 +714,15 @@ cr.define('cr.ui', function() {
 
         this.endTracking_();
       }
+      this.draggingEnabled_ = false;
 
       // Note that we dispatch the touchEnd event last so that events at
       // different levels of semantics nest nicely (similar to how DOM
       // drag-and-drop events are nested inside of the mouse events that trigger
       // them).
       this.dispatchEvent_(TouchHandler.EventType.TOUCH_END, touch);
+      if (!this.disableTap_)
+        this.dispatchEvent_(TouchHandler.EventType.TAP, touch);
     },
 
     /**
@@ -766,6 +784,7 @@ cr.define('cr.ui', function() {
       // touch start event.  This simple click-busting technique should be
       // sufficient here since a real click should have a touchstart first.
       this.swallowNextClick_ = true;
+      this.disableTap_ = true;
 
       // Dispatch to the LONG_PRESS
       this.dispatchEventXY_(TouchHandler.EventType.LONG_PRESS, this.element_,

@@ -4,7 +4,6 @@
 
 #ifndef DBUS_OBJECT_PATH_H_
 #define DBUS_OBJECT_PATH_H_
-#pragma once
 
 #include <string>
 
@@ -28,6 +27,9 @@ class ObjectPath {
 
   // Retrieves value as a std::string.
   const std::string& value() const { return value_; }
+
+  // Returns true if the value is a valid object path.
+  bool IsValid() const;
 
   // Permit sufficient comparison to allow an ObjectPath to be used as a
   // key in a std::map.

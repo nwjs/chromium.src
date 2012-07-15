@@ -4,10 +4,13 @@
 
 #ifndef CHROME_RENDERER_EXTENSIONS_EVENT_BINDINGS_H_
 #define CHROME_RENDERER_EXTENSIONS_EVENT_BINDINGS_H_
-#pragma once
 
 class ChromeV8Extension;
 class ExtensionDispatcher;
+
+namespace extensions {
+class EventFilter;
+}
 
 namespace v8 {
 class Extension;

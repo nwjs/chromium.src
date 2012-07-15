@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,7 +11,7 @@
 #include "content/browser/geolocation/location_provider.h"
 #include "content/browser/geolocation/win7_location_api_win.h"
 #include "content/common/content_export.h"
-#include "content/common/geoposition.h"
+#include "content/public/common/geoposition.h"
 
 // Location provider for Windows 7 that uses the Location and Sensors platform
 // to obtain position fixes.
@@ -27,9 +27,8 @@ class CONTENT_EXPORT Win7LocationProvider : public LocationProviderBase {
   // LocationProvider.
   virtual bool StartProvider(bool high_accuracy) OVERRIDE;
   virtual void StopProvider() OVERRIDE;
-  virtual void GetPosition(Geoposition* position) OVERRIDE;
+  virtual void GetPosition(content::Geoposition* position) OVERRIDE;
   virtual void UpdatePosition() OVERRIDE;
-  virtual void OnPermissionGranted(const GURL& requesting_frame) OVERRIDE;
 
  private:
   // Task which runs in the child thread.
@@ -38,7 +37,7 @@ class CONTENT_EXPORT Win7LocationProvider : public LocationProviderBase {
   void ScheduleNextPoll(int interval);
 
   scoped_ptr<Win7LocationApi> api_;
-  Geoposition position_;
+  content::Geoposition position_;
   // Holder for the tasks which run on the thread; takes care of cleanup.
   base::WeakPtrFactory<Win7LocationProvider> weak_factory_;
 };

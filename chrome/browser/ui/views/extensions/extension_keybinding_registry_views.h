@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_EXTENSIONS_EXTENSION_KEYBINDING_REGISTRY_VIEWS_H_
 #define CHROME_BROWSER_UI_VIEWS_EXTENSIONS_EXTENSION_KEYBINDING_REGISTRY_VIEWS_H_
-#pragma once
 
 #include <map>
 #include <string>
@@ -13,21 +12,25 @@
 #include "chrome/browser/extensions/extension_keybinding_registry.h"
 #include "ui/base/accelerators/accelerator.h"
 
-class Extension;
 class Profile;
+
+namespace extensions {
+class Extension;
+}
 
 namespace views {
 class FocusManager;
 }
 
 // ExtensionKeybindingRegistryViews is a class that handles Views-specific
-// implemenation of the Extension Keybinding shortcuts (keyboard accelerators).
+// implementation of the Extension Keybinding shortcuts (keyboard accelerators).
 // Note: It handles regular extension commands (not browserAction and pageAction
 // popups, which are handled elsewhere). This class registers the accelerators
 // on behalf of the extensions and routes the commands to them via the
 // BrowserEventRouter.
-class ExtensionKeybindingRegistryViews : public ExtensionKeybindingRegistry,
-                                         public ui::AcceleratorTarget {
+class ExtensionKeybindingRegistryViews
+    : public extensions::ExtensionKeybindingRegistry,
+      public ui::AcceleratorTarget {
  public:
   ExtensionKeybindingRegistryViews(Profile* profile,
                                    views::FocusManager* focus_manager);
@@ -39,8 +42,12 @@ class ExtensionKeybindingRegistryViews : public ExtensionKeybindingRegistry,
 
  private:
   // Overridden from ExtensionKeybindingRegistry:
-  virtual void AddExtensionKeybinding(const Extension* extension) OVERRIDE;
-  virtual void RemoveExtensionKeybinding(const Extension* extension) OVERRIDE;
+  virtual void AddExtensionKeybinding(
+      const extensions::Extension* extension,
+      const std::string& command_name) OVERRIDE;
+  virtual void RemoveExtensionKeybinding(
+      const extensions::Extension* extension,
+      const std::string& command_name) OVERRIDE;
 
   // Weak pointer to the our profile. Not owned by us.
   Profile* profile_;

@@ -14,25 +14,7 @@
 #include "content/renderer/render_thread_impl.h"
 #include "media/audio/audio_manager_base.h"
 
-PepperPlatformAudioInputImpl::PepperPlatformAudioInputImpl()
-    : client_(NULL),
-      stream_id_(0),
-      main_message_loop_proxy_(base::MessageLoopProxy::current()),
-      shutdown_called_(false) {
-  filter_ = RenderThreadImpl::current()->audio_input_message_filter();
-}
-
-PepperPlatformAudioInputImpl::~PepperPlatformAudioInputImpl() {
-  // Make sure we have been shut down. Warning: this may happen on the I/O
-  // thread!
-  // Although these members should be accessed on a specific thread (either the
-  // main thread or the I/O thread), it should be fine to examine their value
-  // here.
-  DCHECK_EQ(0, stream_id_);
-  DCHECK(!client_);
-  DCHECK(label_.empty());
-  DCHECK(shutdown_called_);
-}
+namespace content {
 
 // static
 PepperPlatformAudioInputImpl* PepperPlatformAudioInputImpl::Create(
@@ -79,6 +61,83 @@ void PepperPlatformAudioInputImpl::ShutDown() {
       base::Bind(&PepperPlatformAudioInputImpl::ShutDownOnIOThread, this));
 }
 
+void PepperPlatformAudioInputImpl::OnStreamCreated(
+    base::SharedMemoryHandle handle,
+    base::SyncSocket::Handle socket_handle,
+    uint32 length) {
+#if defined(OS_WIN)
+  DCHECK(handle);
+  DCHECK(socket_handle);
+#else
+  DCHECK_NE(-1, handle.fd);
+  DCHECK_NE(-1, socket_handle);
+#endif
+  DCHECK(length);
+
+  if (base::MessageLoopProxy::current() != main_message_loop_proxy_) {
+    // No need to check |shutdown_called_| here. If shutdown has occurred,
+    // |client_| will be NULL and the handles will be cleaned up on the main
+    // thread.
+    main_message_loop_proxy_->PostTask(
+        FROM_HERE,
+        base::Bind(&PepperPlatformAudioInputImpl::OnStreamCreated, this,
+                   handle, socket_handle, length));
+  } else {
+    // Must dereference the client only on the main thread. Shutdown may have
+    // occurred while the request was in-flight, so we need to NULL check.
+    if (client_) {
+      client_->StreamCreated(handle, length, socket_handle);
+    } else {
+      // Clean up the handles.
+      base::SyncSocket temp_socket(socket_handle);
+      base::SharedMemory temp_shared_memory(handle, false);
+    }
+  }
+}
+
+void PepperPlatformAudioInputImpl::OnVolume(double volume) {}
+
+void PepperPlatformAudioInputImpl::OnStateChanged(AudioStreamState state) {}
+
+void PepperPlatformAudioInputImpl::OnDeviceReady(const std::string& device_id) {
+  DCHECK(ChildProcess::current()->io_message_loop_proxy()->
+      BelongsToCurrentThread());
+
+  if (shutdown_called_)
+    return;
+
+  if (device_id.empty()) {
+    main_message_loop_proxy_->PostTask(
+        FROM_HERE,
+        base::Bind(&PepperPlatformAudioInputImpl::NotifyStreamCreationFailed,
+                   this));
+  } else {
+    // We will be notified by OnStreamCreated().
+    filter_->Send(new AudioInputHostMsg_CreateStream(stream_id_, params_,
+                                                     device_id, false));
+  }
+}
+
+PepperPlatformAudioInputImpl::~PepperPlatformAudioInputImpl() {
+  // Make sure we have been shut down. Warning: this may happen on the I/O
+  // thread!
+  // Although these members should be accessed on a specific thread (either the
+  // main thread or the I/O thread), it should be fine to examine their value
+  // here.
+  DCHECK_EQ(0, stream_id_);
+  DCHECK(!client_);
+  DCHECK(label_.empty());
+  DCHECK(shutdown_called_);
+}
+
+PepperPlatformAudioInputImpl::PepperPlatformAudioInputImpl()
+    : client_(NULL),
+      stream_id_(0),
+      main_message_loop_proxy_(base::MessageLoopProxy::current()),
+      shutdown_called_(false) {
+  filter_ = RenderThreadImpl::current()->audio_input_message_filter();
+}
+
 bool PepperPlatformAudioInputImpl::Initialize(
     const base::WeakPtr<PepperPluginDelegateImpl>& plugin_delegate,
     const std::string& device_id,
@@ -93,7 +152,7 @@ bool PepperPlatformAudioInputImpl::Initialize(
   plugin_delegate_ = plugin_delegate;
   client_ = client;
 
-  params_.Reset(AudioParameters::AUDIO_PCM_LINEAR, CHANNEL_LAYOUT_MONO,
+  params_.Reset(media::AudioParameters::AUDIO_PCM_LINEAR, CHANNEL_LAYOUT_MONO,
                 sample_rate, 16, frames_per_buffer);
 
   if (device_id.empty()) {
@@ -127,7 +186,8 @@ void PepperPlatformAudioInputImpl::InitializeOnIOThread(int session_id) {
   if (!session_id) {
     // We will be notified by OnStreamCreated().
     filter_->Send(new AudioInputHostMsg_CreateStream(
-        stream_id_, params_, AudioManagerBase::kDefaultDeviceId));
+        stream_id_, params_,
+        media::AudioManagerBase::kDefaultDeviceId, false));
   } else {
     // We will be notified by OnDeviceReady().
     filter_->Send(new AudioInputHostMsg_StartDevice(stream_id_, session_id));
@@ -174,65 +234,6 @@ void PepperPlatformAudioInputImpl::ShutDownOnIOThread() {
               // PepperPluginDelegateImpl::CreateAudioInput.
 }
 
-void PepperPlatformAudioInputImpl::OnStreamCreated(
-    base::SharedMemoryHandle handle,
-    base::SyncSocket::Handle socket_handle,
-    uint32 length) {
-#if defined(OS_WIN)
-  DCHECK(handle);
-  DCHECK(socket_handle);
-#else
-  DCHECK_NE(-1, handle.fd);
-  DCHECK_NE(-1, socket_handle);
-#endif
-  DCHECK(length);
-
-  if (base::MessageLoopProxy::current() != main_message_loop_proxy_) {
-    // No need to check |shutdown_called_| here. If shutdown has occurred,
-    // |client_| will be NULL and the handles will be cleaned up on the main
-    // thread.
-    main_message_loop_proxy_->PostTask(
-        FROM_HERE,
-        base::Bind(&PepperPlatformAudioInputImpl::OnStreamCreated, this,
-                   handle, socket_handle, length));
-  } else {
-    // Must dereference the client only on the main thread. Shutdown may have
-    // occurred while the request was in-flight, so we need to NULL check.
-    if (client_) {
-      client_->StreamCreated(handle, length, socket_handle);
-    } else {
-      // Clean up the handles.
-      base::SyncSocket temp_socket(socket_handle);
-      base::SharedMemory temp_shared_memory(handle, false);
-    }
-  }
-}
-
-void PepperPlatformAudioInputImpl::OnVolume(double volume) {
-}
-
-void PepperPlatformAudioInputImpl::OnStateChanged(AudioStreamState state) {
-}
-
-void PepperPlatformAudioInputImpl::OnDeviceReady(const std::string& device_id) {
-  DCHECK(ChildProcess::current()->io_message_loop_proxy()->
-      BelongsToCurrentThread());
-
-  if (shutdown_called_)
-    return;
-
-  if (device_id.empty()) {
-    main_message_loop_proxy_->PostTask(
-        FROM_HERE,
-        base::Bind(&PepperPlatformAudioInputImpl::NotifyStreamCreationFailed,
-                   this));
-  } else {
-    // We will be notified by OnStreamCreated().
-    filter_->Send(new AudioInputHostMsg_CreateStream(stream_id_, params_,
-                                                     device_id));
-  }
-}
-
 void PepperPlatformAudioInputImpl::OnDeviceOpened(int request_id,
                                                   bool succeeded,
                                                   const std::string& label) {
@@ -273,3 +274,5 @@ void PepperPlatformAudioInputImpl::NotifyStreamCreationFailed() {
   if (client_)
     client_->StreamCreationFailed();
 }
+
+}  // namespace content

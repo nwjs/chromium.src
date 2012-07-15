@@ -4,7 +4,6 @@
 
 #ifndef BASE_PICKLE_H__
 #define BASE_PICKLE_H__
-#pragma once
 
 #include <string>
 
@@ -168,9 +167,17 @@ class BASE_EXPORT Pickle {
   bool ReadString16(PickleIterator* iter, string16* result) const {
     return iter->ReadString16(result);
   }
+  // A pointer to the data will be placed in *data, and the length will be
+  // placed in *length. This buffer will be into the message's buffer so will
+  // be scoped to the lifetime of the message (or until the message data is
+  // mutated).
   bool ReadData(PickleIterator* iter, const char** data, int* length) const {
     return iter->ReadData(data, length);
   }
+  // A pointer to the data will be placed in *data. The caller specifies the
+  // number of bytes to read, and ReadBytes will validate this length. The
+  // returned buffer will be into the message's buffer so will be scoped to the
+  // lifetime of the message (or until the message data is mutated).
   bool ReadBytes(PickleIterator* iter, const char** data, int length) const {
     return iter->ReadBytes(data, length);
   }
@@ -214,7 +221,12 @@ class BASE_EXPORT Pickle {
   bool WriteString(const std::string& value);
   bool WriteWString(const std::wstring& value);
   bool WriteString16(const string16& value);
+  // "Data" is a blob with a length. When you read it out you will be given the
+  // length. See also WriteBytes.
   bool WriteData(const char* data, int length);
+  // "Bytes" is a blob with no length. The caller must specify the lenght both
+  // when reading and writing. It is normally used to serialize PoD types of a
+  // known size. See also WriteData.
   bool WriteBytes(const void* data, int data_len);
 
   // Same as WriteData, but allows the caller to write directly into the
@@ -257,14 +269,15 @@ class BASE_EXPORT Pickle {
     return static_cast<const T*>(header_);
   }
 
- protected:
+  // The payload is the pickle data immediately following the header.
   size_t payload_size() const { return header_->payload_size; }
-
-  char* payload() {
-    return reinterpret_cast<char*>(header_) + header_size_;
-  }
   const char* payload() const {
     return reinterpret_cast<const char*>(header_) + header_size_;
+  }
+
+ protected:
+  char* payload() {
+    return reinterpret_cast<char*>(header_) + header_size_;
   }
 
   // Returns the address of the byte immediately following the currently valid

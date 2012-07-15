@@ -5,6 +5,7 @@
 #include "chrome/browser/web_applications/web_app.h"
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/file_util.h"
 #include "base/i18n/file_util_icu.h"
 #include "base/string_util.h"
@@ -80,7 +81,7 @@ FilePath GetWebAppDataDirectory(const FilePath& profile_path,
 }
 
 FilePath GetWebAppDataDirectory(const FilePath& profile_path,
-                                const Extension& extension) {
+                                const extensions::Extension& extension) {
   return GetWebAppDataDirectory(
       profile_path, extension.id(), GURL(extension.launch_web_url()));
 }
@@ -118,23 +119,43 @@ std::string GetExtensionIdFromApplicationName(const std::string& app_name) {
 }
 
 void CreateShortcut(
-    const FilePath& data_dir,
+    const FilePath& profile_path,
     const ShellIntegration::ShortcutInfo& shortcut_info) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
   BrowserThread::PostTask(
       BrowserThread::FILE,
       FROM_HERE,
-      base::Bind(&internals::CreateShortcutTask,
-                 GetWebAppDataDirectory(
-                      data_dir,
-                      shortcut_info.extension_id,
-                      shortcut_info.url),
-                 data_dir,
-                 shortcut_info));
+      base::Bind(base::IgnoreResult(&CreateShortcutOnFileThread),
+                 profile_path, shortcut_info));
+}
+
+void DeleteAllShortcuts(const FilePath& profile_path,
+                        const std::string& extension_id) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  BrowserThread::PostTask(
+      BrowserThread::FILE,
+      FROM_HERE,
+      base::Bind(&internals::DeletePlatformShortcuts, profile_path,
+                 extension_id));
+}
+
+bool CreateShortcutOnFileThread(
+    const FilePath& profile_path,
+    const ShellIntegration::ShortcutInfo& shortcut_info) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
+
+  FilePath shortcut_data_dir = GetWebAppDataDirectory(
+      profile_path, shortcut_info.extension_id, shortcut_info.url);
+  return internals::CreatePlatformShortcut(
+      shortcut_data_dir, profile_path, shortcut_info);
 }
 
 bool IsValidUrl(const GURL& url) {
   static const char* const kValidUrlSchemes[] = {
       chrome::kFileScheme,
+      chrome::kFileSystemScheme,
       chrome::kFtpScheme,
       chrome::kHttpScheme,
       chrome::kHttpsScheme,
@@ -166,7 +187,7 @@ void GetIconsInfo(const WebApplicationInfo& app_info,
 }
 #endif
 
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
 std::string GetWMClassFromAppName(std::string app_name) {
   file_util::ReplaceIllegalCharactersInPath(&app_name, '_');
   TrimString(app_name, "_", &app_name);

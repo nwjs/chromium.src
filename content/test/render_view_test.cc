@@ -2,17 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "content/test/render_view_test.h"
+#include "content/public/test/render_view_test.h"
 
-#include "content/common/dom_storage_common.h"
 #include "content/common/view_messages.h"
 #include "content/public/browser/native_web_keyboard_event.h"
 #include "content/public/common/renderer_preferences.h"
 #include "content/renderer/render_thread_impl.h"
 #include "content/renderer/render_view_impl.h"
 #include "content/renderer/renderer_main_platform_delegate.h"
+#include "content/renderer/renderer_webkitplatformsupport_impl.h"
 #include "content/test/mock_render_process.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebHistoryItem.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebKit.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebScreenInfo.h"
@@ -20,22 +21,9 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebScriptSource.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebURLRequest.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
+#include "webkit/dom_storage/dom_storage_types.h"
+#include "webkit/glue/glue_serialize.h"
 #include "webkit/glue/webkit_glue.h"
-
-#if defined(OS_LINUX) && !defined(USE_AURA)
-#include "ui/base/gtk/event_synthesis_gtk.h"
-#endif
-
-#if defined(USE_AURA)
-#include "ui/aura/event.h"
-#endif
-
-#if defined(USE_AURA) && defined(USE_X11)
-#include <X11/Xlib.h>
-#include "ui/base/events.h"
-#include "ui/base/keycodes/keyboard_code_conversion.h"
-#include "ui/base/x/x11_util.h"
-#endif
 
 using WebKit::WebFrame;
 using WebKit::WebInputEvent;
@@ -44,41 +32,43 @@ using WebKit::WebScriptController;
 using WebKit::WebScriptSource;
 using WebKit::WebString;
 using WebKit::WebURLRequest;
+using content::NativeWebKeyboardEvent;
 
 namespace {
-const int32 kOpenerId = 7;
+const int32 kOpenerId = -2;
 const int32 kRouteId = 5;
 const int32 kNewWindowRouteId = 6;
 const int32 kSurfaceId = 42;
 
-#if defined(USE_AURA) && defined(USE_X11)
-// Converts MockKeyboard::Modifiers to ui::EventFlags.
-int ConvertMockKeyboardModifier(MockKeyboard::Modifiers modifiers) {
-  static struct ModifierMap {
-    MockKeyboard::Modifiers src;
-    int dst;
-  } kModifierMap[] = {
-    { MockKeyboard::LEFT_SHIFT, ui::EF_SHIFT_DOWN },
-    { MockKeyboard::RIGHT_SHIFT, ui::EF_SHIFT_DOWN },
-    { MockKeyboard::LEFT_CONTROL, ui::EF_CONTROL_DOWN },
-    { MockKeyboard::RIGHT_CONTROL, ui::EF_CONTROL_DOWN },
-    { MockKeyboard::LEFT_ALT,  ui::EF_ALT_DOWN },
-    { MockKeyboard::RIGHT_ALT, ui::EF_ALT_DOWN },
-  };
-  int flags = 0;
-  for (size_t i = 0; i < ARRAYSIZE_UNSAFE(kModifierMap); ++i) {
-    if (kModifierMap[i].src & modifiers) {
-      flags |= kModifierMap[i].dst;
-    }
-  }
-  return flags;
-}
-#endif
 }  // namespace
 
 namespace content {
 
-RenderViewTest::RenderViewTest() : view_(NULL) {
+class RendererWebKitPlatformSupportImplNoSandboxImpl :
+    public RendererWebKitPlatformSupportImpl {
+ public:
+  virtual WebKit::WebSandboxSupport* sandboxSupport() {
+    return NULL;
+  }
+};
+
+RenderViewTest::RendererWebKitPlatformSupportImplNoSandbox::
+    RendererWebKitPlatformSupportImplNoSandbox() {
+  webkit_platform_support_.reset(
+      new RendererWebKitPlatformSupportImplNoSandboxImpl());
+}
+
+RenderViewTest::RendererWebKitPlatformSupportImplNoSandbox::
+    ~RendererWebKitPlatformSupportImplNoSandbox() {
+}
+
+WebKit::WebKitPlatformSupport*
+    RenderViewTest::RendererWebKitPlatformSupportImplNoSandbox::Get() {
+  return webkit_platform_support_.get();
+}
+
+RenderViewTest::RenderViewTest()
+    : view_(NULL) {
 }
 
 RenderViewTest::~RenderViewTest() {
@@ -123,11 +113,19 @@ void RenderViewTest::LoadHTML(const char* html) {
   ProcessPendingMessages();
 }
 
+void RenderViewTest::GoBack(const WebKit::WebHistoryItem& item) {
+  GoToOffset(-1, item);
+}
+
+void RenderViewTest::GoForward(const WebKit::WebHistoryItem& item) {
+  GoToOffset(1, item);
+}
+
 void RenderViewTest::SetUp() {
   // Subclasses can set the ContentClient's renderer before calling
   // RenderViewTest::SetUp().
   if (!GetContentClient()->renderer())
-    GetContentClient()->set_renderer(&mock_content_renderer_client_);
+    GetContentClient()->set_renderer_for_testing(&content_renderer_client_);
 
   // Subclasses can set render_thread_ with their own implementation before
   // calling RenderViewTest::SetUp().
@@ -145,7 +143,7 @@ void RenderViewTest::SetUp() {
   // Setting flags and really doing anything with WebKit is fairly fragile and
   // hacky, but this is the world we live in...
   webkit_glue::SetJavaScriptFlags(" --expose-gc");
-  WebKit::initialize(&webkit_platform_support_);
+  WebKit::initialize(webkit_platform_support_.Get());
 
   // Ensure that we register any necessary schemes when initializing WebKit,
   // since we are using a MockRenderThread.
@@ -158,20 +156,20 @@ void RenderViewTest::SetUp() {
       0,
       kOpenerId,
       content::RendererPreferences(),
-      WebPreferences(),
+      webkit_glue::WebPreferences(),
       new SharedRenderViewCounter(0),
       kRouteId,
       kSurfaceId,
-      kInvalidSessionStorageNamespaceId,
+      dom_storage::kInvalidSessionStorageNamespaceId,
       string16(),
+      false,
+      false,
       1,
       WebKit::WebScreenInfo(),
-      false);
+      NULL,
+      AccessibilityModeOff);
   view->AddRef();
   view_ = view;
-
-  // Attach a pseudo keyboard device to this object.
-  mock_keyboard_.reset(new MockKeyboard());
 }
 
 void RenderViewTest::TearDown() {
@@ -193,138 +191,10 @@ void RenderViewTest::TearDown() {
 
   WebKit::shutdown();
 
-  mock_keyboard_.reset();
-
   platform_->PlatformUninitialize();
   platform_.reset();
   params_.reset();
   command_line_.reset();
-}
-
-int RenderViewTest::SendKeyEvent(MockKeyboard::Layout layout,
-                                 int key_code,
-                                 MockKeyboard::Modifiers modifiers,
-                                 string16* output) {
-#if defined(OS_WIN)
-  // Retrieve the Unicode character for the given tuple (keyboard-layout,
-  // key-code, and modifiers).
-  // Exit when a keyboard-layout driver cannot assign a Unicode character to
-  // the tuple to prevent sending an invalid key code to the RenderView object.
-  CHECK(mock_keyboard_.get());
-  CHECK(output);
-  int length = mock_keyboard_->GetCharacters(layout, key_code, modifiers,
-                                             output);
-  if (length != 1)
-    return -1;
-
-  // Create IPC messages from Windows messages and send them to our
-  // back-end.
-  // A keyboard event of Windows consists of three Windows messages:
-  // WM_KEYDOWN, WM_CHAR, and WM_KEYUP.
-  // WM_KEYDOWN and WM_KEYUP sends virtual-key codes. On the other hand,
-  // WM_CHAR sends a composed Unicode character.
-  MSG msg1 = { NULL, WM_KEYDOWN, key_code, 0 };
-#if defined(USE_AURA)
-  aura::KeyEvent evt1(msg1, false);
-  NativeWebKeyboardEvent keydown_event(&evt1);
-#else
-  NativeWebKeyboardEvent keydown_event(msg1);
-#endif
-  SendNativeKeyEvent(keydown_event);
-
-  MSG msg2 = { NULL, WM_CHAR, (*output)[0], 0 };
-#if defined(USE_AURA)
-  aura::KeyEvent evt2(msg2, true);
-  NativeWebKeyboardEvent char_event(&evt2);
-#else
-  NativeWebKeyboardEvent char_event(msg2);
-#endif
-  SendNativeKeyEvent(char_event);
-
-  MSG msg3 = { NULL, WM_KEYUP, key_code, 0 };
-#if defined(USE_AURA)
-  aura::KeyEvent evt3(msg3, false);
-  NativeWebKeyboardEvent keyup_event(&evt3);
-#else
-  NativeWebKeyboardEvent keyup_event(msg3);
-#endif
-  SendNativeKeyEvent(keyup_event);
-
-  return length;
-#elif defined(USE_AURA) && defined(USE_X11)
-  // We ignore |layout|, which means we are only testing the layout of the
-  // current locale. TODO(mazda): fix this to respect |layout|.
-  CHECK(output);
-  const int flags = ConvertMockKeyboardModifier(modifiers);
-
-  XEvent xevent1;
-  InitXKeyEventForTesting(ui::ET_KEY_PRESSED,
-                          static_cast<ui::KeyboardCode>(key_code),
-                          flags,
-                          &xevent1);
-  aura::KeyEvent event1(&xevent1, false);
-  NativeWebKeyboardEvent keydown_event(&event1);
-  SendNativeKeyEvent(keydown_event);
-
-  XEvent xevent2;
-  InitXKeyEventForTesting(ui::ET_KEY_PRESSED,
-                          static_cast<ui::KeyboardCode>(key_code),
-                          flags,
-                          &xevent2);
-  aura::KeyEvent event2(&xevent2, true);
-  NativeWebKeyboardEvent char_event(&event2);
-  SendNativeKeyEvent(char_event);
-
-  XEvent xevent3;
-  InitXKeyEventForTesting(ui::ET_KEY_RELEASED,
-                          static_cast<ui::KeyboardCode>(key_code),
-                          flags,
-                          &xevent3);
-  aura::KeyEvent event3(&xevent3, false);
-  NativeWebKeyboardEvent keyup_event(&event3);
-  SendNativeKeyEvent(keyup_event);
-
-  long c = GetCharacterFromKeyCode(static_cast<ui::KeyboardCode>(key_code),
-                                   flags);
-  output->assign(1, static_cast<char16>(c));
-  return 1;
-#elif defined(OS_LINUX)
-  // We ignore |layout|, which means we are only testing the layout of the
-  // current locale. TODO(estade): fix this to respect |layout|.
-  std::vector<GdkEvent*> events;
-  ui::SynthesizeKeyPressEvents(
-      NULL, static_cast<ui::KeyboardCode>(key_code),
-      modifiers & (MockKeyboard::LEFT_CONTROL | MockKeyboard::RIGHT_CONTROL),
-      modifiers & (MockKeyboard::LEFT_SHIFT | MockKeyboard::RIGHT_SHIFT),
-      modifiers & (MockKeyboard::LEFT_ALT | MockKeyboard::RIGHT_ALT),
-      &events);
-
-  guint32 unicode_key = 0;
-  for (size_t i = 0; i < events.size(); ++i) {
-    // Only send the up/down events for key press itself (skip the up/down
-    // events for the modifier keys).
-    if ((i + 1) == (events.size() / 2) || i == (events.size() / 2)) {
-      unicode_key = gdk_keyval_to_unicode(events[i]->key.keyval);
-      NativeWebKeyboardEvent webkit_event(events[i]);
-      SendNativeKeyEvent(webkit_event);
-
-      // Need to add a char event after the key down.
-      if (webkit_event.type == WebKit::WebInputEvent::RawKeyDown) {
-        NativeWebKeyboardEvent char_event = webkit_event;
-        char_event.type = WebKit::WebInputEvent::Char;
-        char_event.skip_in_browser = true;
-        SendNativeKeyEvent(char_event);
-      }
-    }
-    gdk_event_free(events[i]);
-  }
-
-  output->assign(1, static_cast<char16>(unicode_key));
-  return 1;
-#else
-  NOTIMPLEMENTED();
-  return L'\0';
-#endif
 }
 
 void RenderViewTest::SendNativeKeyEvent(
@@ -458,6 +328,32 @@ void RenderViewTest::SendContentStateImmediately() {
 WebKit::WebWidget* RenderViewTest::GetWebWidget() {
   RenderViewImpl* impl = static_cast<RenderViewImpl*>(view_);
   return impl->webwidget();
+}
+
+void RenderViewTest::GoToOffset(int offset,
+                                const WebKit::WebHistoryItem& history_item) {
+  RenderViewImpl* impl = static_cast<RenderViewImpl*>(view_);
+
+  int history_list_length = impl->historyBackListCount() +
+                            impl->historyForwardListCount() + 1;
+  int pending_offset = offset + impl->history_list_offset();
+
+  ViewMsg_Navigate_Params navigate_params;
+  navigate_params.navigation_type = ViewMsg_Navigate_Type::NORMAL;
+  navigate_params.transition = content::PAGE_TRANSITION_FORWARD_BACK;
+  navigate_params.current_history_list_length = history_list_length;
+  navigate_params.current_history_list_offset = impl->history_list_offset();
+  navigate_params.pending_history_list_offset = pending_offset;
+  navigate_params.page_id = impl->GetPageId() + offset;
+  navigate_params.state = webkit_glue::HistoryItemToString(history_item);
+  navigate_params.request_time = base::Time::Now();
+
+  ViewMsg_Navigate navigate_message(impl->GetRoutingID(), navigate_params);
+  OnMessageReceived(navigate_message);
+
+  // The load actually happens asynchronously, so we pump messages to process
+  // the pending continuation.
+  ProcessPendingMessages();
 }
 
 }  // namespace content

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_PRINTING_CLOUD_PRINT_CLOUD_PRINT_SETUP_HANDLER_H_
 #define CHROME_BROWSER_PRINTING_CLOUD_PRINT_CLOUD_PRINT_SETUP_HANDLER_H_
-#pragma once
 
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/printing/cloud_print/cloud_print_setup_flow.h"
@@ -13,7 +12,7 @@
 // Provides a weak pointer adapter so that callers of
 // CloudPrintSetupFlow::OpenDialog can still be notified when the dialog
 // completes, but don't have to stick around until the end. Lifetime should be
-// shorter than that of it's owner.
+// shorter than that of its owner.
 class CloudPrintSetupHandler
     : public CloudPrintSetupFlow::Delegate,
       public base::SupportsWeakPtr<CloudPrintSetupHandler> {

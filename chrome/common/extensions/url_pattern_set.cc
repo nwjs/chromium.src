@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,9 +7,19 @@
 #include <algorithm>
 #include <iterator>
 
+#include "base/logging.h"
+#include "base/memory/linked_ptr.h"
+#include "base/values.h"
+#include "chrome/common/extensions/extension_error_utils.h"
 #include "chrome/common/extensions/url_pattern.h"
+#include "content/public/common/url_constants.h"
 #include "googleurl/src/gurl.h"
 
+namespace {
+
+const char kInvalidURLPatternError[] = "Invalid url pattern '*'";
+
+}  // namespace
 
 // static
 void URLPatternSet::CreateDifference(const URLPatternSet& set1,
@@ -44,6 +54,39 @@ void URLPatternSet::CreateUnion(const URLPatternSet& set1,
                      out->patterns_, out->patterns_.begin()));
 }
 
+// static
+void URLPatternSet::CreateUnion(const std::vector<URLPatternSet>& sets,
+                                URLPatternSet* out) {
+  out->ClearPatterns();
+  if (sets.empty())
+    return;
+
+  // N-way union algorithm is basic O(nlog(n)) merge algorithm.
+  //
+  // Do the first merge step into a working set so that we don't mutate any of
+  // the input.
+  std::vector<URLPatternSet> working;
+  for (size_t i = 0; i < sets.size(); i += 2) {
+    if (i + 1 < sets.size()) {
+      URLPatternSet u;
+      URLPatternSet::CreateUnion(sets[i], sets[i + 1], &u);
+      working.push_back(u);
+    } else {
+      working.push_back(sets[i]);
+    }
+  }
+
+  for (size_t skip = 1; skip < working.size(); skip *= 2) {
+    for (size_t i = 0; i < (working.size() - skip); i += skip) {
+      URLPatternSet u;
+      URLPatternSet::CreateUnion(working[i], working[i + skip], &u);
+      working[i].patterns_.swap(u.patterns_);
+    }
+  }
+
+  out->patterns_.swap(working[0].patterns_);
+}
+
 URLPatternSet::URLPatternSet() {}
 
 URLPatternSet::URLPatternSet(const URLPatternSet& rhs)
@@ -67,8 +110,17 @@ bool URLPatternSet::is_empty() const {
   return patterns_.empty();
 }
 
-void URLPatternSet::AddPattern(const URLPattern& pattern) {
-  patterns_.insert(pattern);
+size_t URLPatternSet::size() const {
+  return patterns_.size();
+}
+
+bool URLPatternSet::AddPattern(const URLPattern& pattern) {
+  return patterns_.insert(pattern).second;
+}
+
+void URLPatternSet::AddPatterns(const URLPatternSet& set) {
+  patterns_.insert(set.patterns().begin(),
+                   set.patterns().end());
 }
 
 void URLPatternSet::ClearPatterns() {
@@ -113,4 +165,40 @@ bool URLPatternSet::OverlapsWith(const URLPatternSet& other) const {
   }
 
   return false;
+}
+
+scoped_ptr<base::ListValue> URLPatternSet::ToValue() const {
+  scoped_ptr<ListValue> value(new ListValue);
+  for (URLPatternSet::const_iterator i = patterns_.begin();
+       i != patterns_.end(); ++i)
+    value->AppendIfNotPresent(Value::CreateStringValue(i->GetAsString()));
+  return value.Pass();
+}
+
+bool URLPatternSet::Populate(const base::ListValue& value,
+                             int valid_schemes,
+                             bool allow_file_access,
+                             std::string* error) {
+  ClearPatterns();
+  for (size_t i = 0; i < value.GetSize(); ++i) {
+    std::string item;
+    if (!value.GetString(i, &item))
+      return false;
+    URLPattern pattern(valid_schemes);
+    if (pattern.Parse(item) != URLPattern::PARSE_SUCCESS) {
+      if (error) {
+        *error = ExtensionErrorUtils::FormatErrorMessage(
+            kInvalidURLPatternError, item);
+      } else {
+        LOG(ERROR) << "Invalid url pattern: " << item;
+      }
+      return false;
+    }
+    if (!allow_file_access && pattern.MatchesScheme(chrome::kFileScheme)) {
+      pattern.SetValidSchemes(
+          pattern.valid_schemes() & ~URLPattern::SCHEME_FILE);
+    }
+    AddPattern(pattern);
+  }
+  return true;
 }

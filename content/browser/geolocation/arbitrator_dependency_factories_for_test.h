@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CONTENT_BROWSER_GEOLOCATION_ARBITRATOR_DEPENDENCY_FACTORIES_FOR_TEST_H_
 #define CONTENT_BROWSER_GEOLOCATION_ARBITRATOR_DEPENDENCY_FACTORIES_FOR_TEST_H_
-#pragma once
 
 #include "content/browser/geolocation/arbitrator_dependency_factory.h"
 
@@ -15,7 +14,6 @@ class GeolocationArbitratorDependencyFactoryWithLocationProvider
 
   GeolocationArbitratorDependencyFactoryWithLocationProvider(
       LocationProviderFactoryFunction factory_function);
-  virtual ~GeolocationArbitratorDependencyFactoryWithLocationProvider();
 
   virtual LocationProviderBase* NewNetworkLocationProvider(
       content::AccessTokenStore* access_token_store,
@@ -26,6 +24,8 @@ class GeolocationArbitratorDependencyFactoryWithLocationProvider
   virtual LocationProviderBase* NewSystemLocationProvider() OVERRIDE;
 
  protected:
+  virtual ~GeolocationArbitratorDependencyFactoryWithLocationProvider();
+
   LocationProviderFactoryFunction factory_function_;
 };
 

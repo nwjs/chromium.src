@@ -45,13 +45,14 @@ int VideoCaptureImpl::CaptureFrameRate() {
 
 VideoCaptureImpl::VideoCaptureImpl(
     const media::VideoCaptureSessionId id,
-    scoped_refptr<base::MessageLoopProxy> ml_proxy,
+    base::MessageLoopProxy* capture_message_loop_proxy,
     VideoCaptureMessageFilter* filter)
     : VideoCapture(),
       message_filter_(filter),
-      ml_proxy_(ml_proxy),
+      capture_message_loop_proxy_(capture_message_loop_proxy),
+      io_message_loop_proxy_(ChildProcess::current()->io_message_loop_proxy()),
       device_id_(0),
-      video_type_(media::VideoFrame::I420),
+      video_type_(media::VideoCaptureCapability::kI420),
       device_info_available_(false),
       state_(video_capture::kStopped) {
   DCHECK(filter);
@@ -61,215 +62,182 @@ VideoCaptureImpl::VideoCaptureImpl(
 }
 
 VideoCaptureImpl::~VideoCaptureImpl() {
-  STLDeleteContainerPairSecondPointers(cached_dibs_.begin(),
-                                       cached_dibs_.end());
+  STLDeleteValues(&cached_dibs_);
 }
 
 void VideoCaptureImpl::Init() {
-  base::MessageLoopProxy* io_message_loop_proxy =
-      ChildProcess::current()->io_message_loop_proxy();
-
-  if (!io_message_loop_proxy->BelongsToCurrentThread()) {
-    io_message_loop_proxy->PostTask(FROM_HERE,
+  if (!io_message_loop_proxy_->BelongsToCurrentThread()) {
+    io_message_loop_proxy_->PostTask(FROM_HERE,
         base::Bind(&VideoCaptureImpl::AddDelegateOnIOThread,
                    base::Unretained(this)));
-    return;
+  } else {
+    AddDelegateOnIOThread();
   }
-
-  AddDelegateOnIOThread();
 }
 
 void VideoCaptureImpl::DeInit(base::Closure task) {
-  ml_proxy_->PostTask(FROM_HERE,
-      base::Bind(&VideoCaptureImpl::DoDeInit,
-                 base::Unretained(this), task));
-}
-
-void VideoCaptureImpl::DoDeInit(base::Closure task) {
-  if (state_ == video_capture::kStarted)
-    Send(new VideoCaptureHostMsg_Stop(device_id_));
-
-  base::MessageLoopProxy* io_message_loop_proxy =
-      ChildProcess::current()->io_message_loop_proxy();
-
-  io_message_loop_proxy->PostTask(FROM_HERE,
-      base::Bind(&VideoCaptureImpl::RemoveDelegateOnIOThread,
+  capture_message_loop_proxy_->PostTask(FROM_HERE,
+      base::Bind(&VideoCaptureImpl::DoDeInitOnCaptureThread,
                  base::Unretained(this), task));
 }
 
 void VideoCaptureImpl::StartCapture(
     media::VideoCapture::EventHandler* handler,
-    const VideoCaptureCapability& capability) {
-  DCHECK_EQ(capability.raw_type, media::VideoFrame::I420);
+    const media::VideoCaptureCapability& capability) {
+  DCHECK_EQ(capability.color, media::VideoCaptureCapability::kI420);
 
-  ml_proxy_->PostTask(FROM_HERE,
-      base::Bind(&VideoCaptureImpl::DoStartCapture,
+  capture_message_loop_proxy_->PostTask(FROM_HERE,
+      base::Bind(&VideoCaptureImpl::DoStartCaptureOnCaptureThread,
                  base::Unretained(this), handler, capability));
 }
 
 void VideoCaptureImpl::StopCapture(media::VideoCapture::EventHandler* handler) {
-  ml_proxy_->PostTask(FROM_HERE,
-      base::Bind(&VideoCaptureImpl::DoStopCapture,
+  capture_message_loop_proxy_->PostTask(FROM_HERE,
+      base::Bind(&VideoCaptureImpl::DoStopCaptureOnCaptureThread,
                  base::Unretained(this), handler));
 }
 
 void VideoCaptureImpl::FeedBuffer(scoped_refptr<VideoFrameBuffer> buffer) {
-  ml_proxy_->PostTask(FROM_HERE,
-      base::Bind(&VideoCaptureImpl::DoFeedBuffer,
+  capture_message_loop_proxy_->PostTask(FROM_HERE,
+      base::Bind(&VideoCaptureImpl::DoFeedBufferOnCaptureThread,
                  base::Unretained(this), buffer));
 }
 
 void VideoCaptureImpl::OnBufferCreated(
     base::SharedMemoryHandle handle,
     int length, int buffer_id) {
-  ml_proxy_->PostTask(FROM_HERE,
-      base::Bind(&VideoCaptureImpl::DoBufferCreated,
+  capture_message_loop_proxy_->PostTask(FROM_HERE,
+      base::Bind(&VideoCaptureImpl::DoBufferCreatedOnCaptureThread,
                  base::Unretained(this), handle, length, buffer_id));
 }
 
 void VideoCaptureImpl::OnBufferReceived(int buffer_id, base::Time timestamp) {
-  ml_proxy_->PostTask(FROM_HERE,
-      base::Bind(&VideoCaptureImpl::DoBufferReceived,
+  capture_message_loop_proxy_->PostTask(FROM_HERE,
+      base::Bind(&VideoCaptureImpl::DoBufferReceivedOnCaptureThread,
                  base::Unretained(this), buffer_id, timestamp));
 }
 
 void VideoCaptureImpl::OnStateChanged(video_capture::State state) {
-  ml_proxy_->PostTask(FROM_HERE,
-      base::Bind(&VideoCaptureImpl::DoStateChanged,
+  capture_message_loop_proxy_->PostTask(FROM_HERE,
+      base::Bind(&VideoCaptureImpl::DoStateChangedOnCaptureThread,
                  base::Unretained(this), state));
 }
 
 void VideoCaptureImpl::OnDeviceInfoReceived(
     const media::VideoCaptureParams& device_info) {
-  ml_proxy_->PostTask(FROM_HERE,
-      base::Bind(&VideoCaptureImpl::DoDeviceInfoReceived,
+  capture_message_loop_proxy_->PostTask(FROM_HERE,
+      base::Bind(&VideoCaptureImpl::DoDeviceInfoReceivedOnCaptureThread,
                  base::Unretained(this), device_info));
 }
 
 void VideoCaptureImpl::OnDelegateAdded(int32 device_id) {
-  ml_proxy_->PostTask(FROM_HERE,
-      base::Bind(&VideoCaptureImpl::DoDelegateAdded,
+  capture_message_loop_proxy_->PostTask(FROM_HERE,
+      base::Bind(&VideoCaptureImpl::DoDelegateAddedOnCaptureThread,
                  base::Unretained(this), device_id));
 }
 
-void VideoCaptureImpl::DoStartCapture(
+void VideoCaptureImpl::DoDeInitOnCaptureThread(base::Closure task) {
+  if (state_ == video_capture::kStarted)
+    Send(new VideoCaptureHostMsg_Stop(device_id_));
+
+  io_message_loop_proxy_->PostTask(FROM_HERE,
+      base::Bind(&VideoCaptureImpl::RemoveDelegateOnIOThread,
+                 base::Unretained(this), task));
+}
+
+void VideoCaptureImpl::DoStartCaptureOnCaptureThread(
     media::VideoCapture::EventHandler* handler,
-    const VideoCaptureCapability& capability) {
-  DCHECK(ml_proxy_->BelongsToCurrentThread());
+    const media::VideoCaptureCapability& capability) {
+  DCHECK(capture_message_loop_proxy_->BelongsToCurrentThread());
 
   if (state_ == video_capture::kError) {
     handler->OnError(this, 1);
     handler->OnRemoved(this);
-    return;
-  }
-
-  ClientInfo::iterator it1 = clients_pending_on_filter_.find(handler);
-  ClientInfo::iterator it2 = clients_pending_on_restart_.find(handler);
-  if (it1 != clients_pending_on_filter_.end() ||
-      it2 != clients_pending_on_restart_.end() ||
-      clients_.find(handler) != clients_.end() ) {
+  } else if ((clients_pending_on_filter_.find(handler) !=
+              clients_pending_on_filter_.end()) ||
+             (clients_pending_on_restart_.find(handler) !=
+              clients_pending_on_restart_.end()) ||
+             clients_.find(handler) != clients_.end() ) {
     // This client has started.
-    return;
-  }
-
-  if (!device_id_) {
+  } else if (!device_id_) {
     clients_pending_on_filter_[handler] = capability;
-    return;
-  }
+  } else {
+    handler->OnStarted(this);
+    if (state_ == video_capture::kStarted) {
+      if (capability.width > current_params_.width ||
+          capability.height > current_params_.height) {
+        StopDevice();
+        DVLOG(1) << "StartCapture: Got client with higher resolution ("
+                 << capability.width << ", " << capability.height << ") "
+                 << "after started, try to restart.";
+        clients_pending_on_restart_[handler] = capability;
+      } else {
+        if (device_info_available_) {
+          handler->OnDeviceInfoReceived(this, device_info_);
+        }
 
-  handler->OnStarted(this);
-  if (state_ == video_capture::kStarted) {
-    if (capability.width > current_params_.width ||
-        capability.height > current_params_.height) {
-      StopDevice();
-      DVLOG(1) << "StartCapture: Got client with higher resolution ("
-               << capability.width << ", " << capability.height << ") "
-               << "after started, try to restart.";
+        clients_[handler] = capability;
+      }
+    } else if (state_ == video_capture::kStopping) {
       clients_pending_on_restart_[handler] = capability;
-      return;
+      DVLOG(1) << "StartCapture: Got new resolution ("
+               << capability.width << ", " << capability.height << ") "
+               << ", during stopping.";
+    } else {
+      clients_[handler] = capability;
+      DCHECK_EQ(1ul, clients_.size());
+      video_type_ = capability.color;
+      current_params_.width = capability.width;
+      current_params_.height = capability.height;
+      current_params_.frame_per_second = capability.frame_rate;
+      DVLOG(1) << "StartCapture: starting with first resolution ("
+               << current_params_.width << "," << current_params_.height << ")";
+
+      StartCaptureInternal();
     }
-
-    if (device_info_available_) {
-      handler->OnDeviceInfoReceived(this, device_info_);
-    }
-
-    clients_[handler] = capability;
-    return;
   }
-
-  if (state_ == video_capture::kStopping) {
-    clients_pending_on_restart_[handler] = capability;
-    DVLOG(1) << "StartCapture: Got new resolution ("
-             << capability.width << ", " << capability.height << ") "
-             << ", during stopping.";
-    return;
-  }
-
-  clients_[handler] = capability;
-  DCHECK_EQ(clients_.size(), 1ul);
-  video_type_ = capability.raw_type;
-  current_params_.width = capability.width;
-  current_params_.height = capability.height;
-  current_params_.frame_per_second = capability.max_fps;
-  DVLOG(1) << "StartCapture: starting with first resolution ("
-           << current_params_.width << ", " << current_params_.height << ")";
-
-  StartCaptureInternal();
 }
 
-void VideoCaptureImpl::DoStopCapture(
+void VideoCaptureImpl::DoStopCaptureOnCaptureThread(
     media::VideoCapture::EventHandler* handler) {
-  DCHECK(ml_proxy_->BelongsToCurrentThread());
+  DCHECK(capture_message_loop_proxy_->BelongsToCurrentThread());
 
-  ClientInfo::iterator it = clients_pending_on_filter_.find(handler);
-  if (it != clients_pending_on_filter_.end()) {
-    handler->OnStopped(this);
-    handler->OnRemoved(this);
-    clients_pending_on_filter_.erase(it);
-    return;
-  }
-  it = clients_pending_on_restart_.find(handler);
-  if (it != clients_pending_on_restart_.end()) {
-    handler->OnStopped(this);
-    handler->OnRemoved(this);
-    clients_pending_on_filter_.erase(it);
-    return;
-  }
-
-  if (clients_.find(handler) == clients_.end())
-    return;
-
-  clients_.erase(handler);
+  // A handler can be in only one client list.
+  // If this handler is in any client list, we can just remove it from
+  // that client list and don't have to run the other following RemoveClient().
+  RemoveClient(handler, &clients_pending_on_filter_) ||
+  RemoveClient(handler, &clients_pending_on_restart_) ||
+  RemoveClient(handler, &clients_);
 
   if (clients_.empty()) {
     DVLOG(1) << "StopCapture: No more client, stopping ...";
     StopDevice();
   }
-  handler->OnStopped(this);
-  handler->OnRemoved(this);
 }
 
-void VideoCaptureImpl::DoFeedBuffer(scoped_refptr<VideoFrameBuffer> buffer) {
-  DCHECK(ml_proxy_->BelongsToCurrentThread());
+void VideoCaptureImpl::DoFeedBufferOnCaptureThread(
+    scoped_refptr<VideoFrameBuffer> buffer) {
+  DCHECK(capture_message_loop_proxy_->BelongsToCurrentThread());
 
   CachedDIB::iterator it;
-  for (it = cached_dibs_.begin(); it != cached_dibs_.end(); it++) {
+  for (it = cached_dibs_.begin(); it != cached_dibs_.end(); ++it) {
     if (buffer == it->second->mapped_memory)
       break;
   }
 
-  DCHECK(it != cached_dibs_.end());
-  DCHECK_GT(it->second->references, 0);
-  it->second->references--;
-  if (it->second->references == 0) {
-    Send(new VideoCaptureHostMsg_BufferReady(device_id_, it->first));
+  if (it != cached_dibs_.end() && it->second) {
+    DCHECK_GT(it->second->references, 0);
+    --it->second->references;
+    if (it->second->references == 0) {
+      Send(new VideoCaptureHostMsg_BufferReady(device_id_, it->first));
+    }
   }
 }
 
-void VideoCaptureImpl::DoBufferCreated(
+void VideoCaptureImpl::DoBufferCreatedOnCaptureThread(
     base::SharedMemoryHandle handle,
     int length, int buffer_id) {
-  DCHECK(ml_proxy_->BelongsToCurrentThread());
+  DCHECK(capture_message_loop_proxy_->BelongsToCurrentThread());
   DCHECK(device_info_available_);
 
   media::VideoCapture::VideoFrameBuffer* buffer;
@@ -288,8 +256,9 @@ void VideoCaptureImpl::DoBufferCreated(
   cached_dibs_[buffer_id] = dib_buffer;
 }
 
-void VideoCaptureImpl::DoBufferReceived(int buffer_id, base::Time timestamp) {
-  DCHECK(ml_proxy_->BelongsToCurrentThread());
+void VideoCaptureImpl::DoBufferReceivedOnCaptureThread(
+    int buffer_id, base::Time timestamp) {
+  DCHECK(capture_message_loop_proxy_->BelongsToCurrentThread());
 
   if (state_ != video_capture::kStarted) {
     Send(new VideoCaptureHostMsg_BufferReady(device_id_, buffer_id));
@@ -301,14 +270,15 @@ void VideoCaptureImpl::DoBufferReceived(int buffer_id, base::Time timestamp) {
   buffer = cached_dibs_[buffer_id]->mapped_memory;
   buffer->timestamp = timestamp;
 
-  for (ClientInfo::iterator it = clients_.begin(); it != clients_.end(); it++) {
+  for (ClientInfo::iterator it = clients_.begin(); it != clients_.end(); ++it) {
     it->first->OnBufferReady(this, buffer);
   }
   cached_dibs_[buffer_id]->references = clients_.size();
 }
 
-void VideoCaptureImpl::DoStateChanged(video_capture::State state) {
-  DCHECK(ml_proxy_->BelongsToCurrentThread());
+void VideoCaptureImpl::DoStateChangedOnCaptureThread(
+    video_capture::State state) {
+  DCHECK(capture_message_loop_proxy_->BelongsToCurrentThread());
 
   switch (state) {
     case video_capture::kStarted:
@@ -322,14 +292,14 @@ void VideoCaptureImpl::DoStateChanged(video_capture::State state) {
       break;
     case video_capture::kPaused:
       for (ClientInfo::iterator it = clients_.begin();
-           it != clients_.end(); it++) {
+           it != clients_.end(); ++it) {
         it->first->OnPaused(this);
       }
       break;
     case video_capture::kError:
       DVLOG(1) << "OnStateChanged: error!, device_id = " << device_id_;
       for (ClientInfo::iterator it = clients_.begin();
-           it != clients_.end(); it++) {
+           it != clients_.end(); ++it) {
         // TODO(wjia): browser process would send error code.
         it->first->OnError(this, 1);
         it->first->OnRemoved(this);
@@ -342,36 +312,36 @@ void VideoCaptureImpl::DoStateChanged(video_capture::State state) {
   }
 }
 
-void VideoCaptureImpl::DoDeviceInfoReceived(
+void VideoCaptureImpl::DoDeviceInfoReceivedOnCaptureThread(
     const media::VideoCaptureParams& device_info) {
-  DCHECK(ml_proxy_->BelongsToCurrentThread());
+  DCHECK(capture_message_loop_proxy_->BelongsToCurrentThread());
   DCHECK(!ClientHasDIB());
 
   STLDeleteValues(&cached_dibs_);
 
   device_info_ = device_info;
   device_info_available_ = true;
-  for (ClientInfo::iterator it = clients_.begin(); it != clients_.end(); it++) {
+  for (ClientInfo::iterator it = clients_.begin(); it != clients_.end(); ++it) {
     it->first->OnDeviceInfoReceived(this, device_info);
   }
 }
 
-void VideoCaptureImpl::DoDelegateAdded(int32 device_id) {
+void VideoCaptureImpl::DoDelegateAddedOnCaptureThread(int32 device_id) {
   DVLOG(1) << "DoDelegateAdded: device_id " << device_id;
-  DCHECK(ml_proxy_->BelongsToCurrentThread());
+  DCHECK(capture_message_loop_proxy_->BelongsToCurrentThread());
 
   device_id_ = device_id;
   for (ClientInfo::iterator it = clients_pending_on_filter_.begin();
        it != clients_pending_on_filter_.end(); ) {
     media::VideoCapture::EventHandler* handler = it->first;
-    const VideoCaptureCapability capability = it->second;
+    const media::VideoCaptureCapability capability = it->second;
     clients_pending_on_filter_.erase(it++);
     StartCapture(handler, capability);
   }
 }
 
 void VideoCaptureImpl::StopDevice() {
-  DCHECK(ml_proxy_->BelongsToCurrentThread());
+  DCHECK(capture_message_loop_proxy_->BelongsToCurrentThread());
 
   device_info_available_ = false;
   if (state_ == video_capture::kStarted) {
@@ -382,24 +352,20 @@ void VideoCaptureImpl::StopDevice() {
 }
 
 void VideoCaptureImpl::RestartCapture() {
-  DCHECK(ml_proxy_->BelongsToCurrentThread());
+  DCHECK(capture_message_loop_proxy_->BelongsToCurrentThread());
   DCHECK_EQ(state_, video_capture::kStopped);
 
   int width = 0;
   int height = 0;
   for (ClientInfo::iterator it = clients_.begin();
-       it != clients_.end(); it++) {
-    if (it->second.width > width)
-      width = it->second.width;
-    if (it->second.height > height)
-      height = it->second.height;
+       it != clients_.end(); ++it) {
+    width = std::max(width, it->second.width);
+    height = std::max(height, it->second.height);
   }
   for (ClientInfo::iterator it = clients_pending_on_restart_.begin();
        it != clients_pending_on_restart_.end(); ) {
-    if (it->second.width > width)
-      width = it->second.width;
-    if (it->second.height > height)
-      height = it->second.height;
+    width = std::max(width, it->second.width);
+    height = std::max(height, it->second.height);
     clients_[it->first] = it->second;
     clients_pending_on_restart_.erase(it++);
   }
@@ -411,7 +377,7 @@ void VideoCaptureImpl::RestartCapture() {
 }
 
 void VideoCaptureImpl::StartCaptureInternal() {
-  DCHECK(ml_proxy_->BelongsToCurrentThread());
+  DCHECK(capture_message_loop_proxy_->BelongsToCurrentThread());
   DCHECK(device_id_);
 
   Send(new VideoCaptureHostMsg_Start(device_id_, current_params_));
@@ -419,28 +385,44 @@ void VideoCaptureImpl::StartCaptureInternal() {
 }
 
 void VideoCaptureImpl::AddDelegateOnIOThread() {
+  DCHECK(io_message_loop_proxy_->BelongsToCurrentThread());
   message_filter_->AddDelegate(this);
 }
 
 void VideoCaptureImpl::RemoveDelegateOnIOThread(base::Closure task) {
+  DCHECK(io_message_loop_proxy_->BelongsToCurrentThread());
   message_filter_->RemoveDelegate(this);
-  ml_proxy_->PostTask(FROM_HERE, task);
+  capture_message_loop_proxy_->PostTask(FROM_HERE, task);
 }
 
 void VideoCaptureImpl::Send(IPC::Message* message) {
-  base::MessageLoopProxy* io_message_loop_proxy =
-      ChildProcess::current()->io_message_loop_proxy();
-
-  io_message_loop_proxy->PostTask(FROM_HERE,
+  io_message_loop_proxy_->PostTask(FROM_HERE,
       base::Bind(base::IgnoreResult(&VideoCaptureMessageFilter::Send),
                  message_filter_.get(), message));
 }
 
-bool VideoCaptureImpl::ClientHasDIB() {
-  CachedDIB::iterator it;
-  for (it = cached_dibs_.begin(); it != cached_dibs_.end(); it++) {
+bool VideoCaptureImpl::ClientHasDIB() const {
+  DCHECK(capture_message_loop_proxy_->BelongsToCurrentThread());
+  for (CachedDIB::const_iterator it = cached_dibs_.begin();
+       it != cached_dibs_.end(); ++it) {
     if (it->second->references > 0)
       return true;
   }
   return false;
+}
+
+bool VideoCaptureImpl::RemoveClient(
+    media::VideoCapture::EventHandler* handler,
+    ClientInfo* clients) {
+  DCHECK(capture_message_loop_proxy_->BelongsToCurrentThread());
+  bool found = false;
+
+  ClientInfo::iterator it = clients->find(handler);
+  if (it != clients->end()) {
+    handler->OnStopped(this);
+    handler->OnRemoved(this);
+    clients->erase(it);
+    found = true;
+  }
+  return found;
 }

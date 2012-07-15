@@ -61,6 +61,40 @@ std::vector<uint16> ParseCipherSuites(
   return cipher_suites;
 }
 
+// Returns the string representation of an SSL protocol version. Returns an
+// empty string on error.
+std::string SSLProtocolVersionToString(uint16 version) {
+  switch (version) {
+    case net::SSL_PROTOCOL_VERSION_SSL3:
+      return "ssl3";
+    case net::SSL_PROTOCOL_VERSION_TLS1:
+      return "tls1";
+    case net::SSL_PROTOCOL_VERSION_TLS1_1:
+      return "tls1.1";
+    case net::SSL_PROTOCOL_VERSION_TLS1_2:
+      return "tls1.2";
+    default:
+      NOTREACHED();
+      return std::string();
+  }
+}
+
+// Returns the SSL protocol version (as a uint16) represented by a string.
+// Returns 0 if the string is invalid.
+uint16 SSLProtocolVersionFromString(const std::string& version_str) {
+  uint16 version = 0;  // Invalid.
+  if (version_str == "ssl3") {
+    version = net::SSL_PROTOCOL_VERSION_SSL3;
+  } else if (version_str == "tls1") {
+    version = net::SSL_PROTOCOL_VERSION_TLS1;
+  } else if (version_str == "tls1.1") {
+    version = net::SSL_PROTOCOL_VERSION_TLS1_1;
+  } else if (version_str == "tls1.2") {
+    version = net::SSL_PROTOCOL_VERSION_TLS1_2;
+  }
+  return version;
+}
+
 }  // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -72,7 +106,6 @@ std::vector<uint16> ParseCipherSuites(
 class SSLConfigServicePref : public net::SSLConfigService {
  public:
   SSLConfigServicePref() {}
-  virtual ~SSLConfigServicePref() {}
 
   // Store SSL config settings in |config|. Must only be called from IO thread.
   virtual void GetSSLConfig(net::SSLConfig* config);
@@ -80,6 +113,8 @@ class SSLConfigServicePref : public net::SSLConfigService {
  private:
   // Allow the pref watcher to update our internal state.
   friend class SSLConfigServiceManagerPref;
+
+  virtual ~SSLConfigServicePref() {}
 
   // This method is posted to the IO thread from the browser thread to carry the
   // new config information.
@@ -137,9 +172,9 @@ class SSLConfigServiceManagerPref
 
   // The prefs (should only be accessed from UI thread)
   BooleanPrefMember rev_checking_enabled_;
-  BooleanPrefMember ssl3_enabled_;
-  BooleanPrefMember tls1_enabled_;
-  BooleanPrefMember domain_bound_certs_enabled_;
+  StringPrefMember ssl_version_min_;
+  StringPrefMember ssl_version_max_;
+  BooleanPrefMember channel_id_enabled_;
   BooleanPrefMember ssl_record_splitting_disabled_;
 
   // The cached list of disabled SSL cipher suites.
@@ -157,10 +192,9 @@ SSLConfigServiceManagerPref::SSLConfigServiceManagerPref(
 
   rev_checking_enabled_.Init(prefs::kCertRevocationCheckingEnabled,
                              local_state, this);
-  ssl3_enabled_.Init(prefs::kSSL3Enabled, local_state, this);
-  tls1_enabled_.Init(prefs::kTLS1Enabled, local_state, this);
-  domain_bound_certs_enabled_.Init(prefs::kEnableOriginBoundCerts,
-                                   local_state, this);
+  ssl_version_min_.Init(prefs::kSSLVersionMin, local_state, this);
+  ssl_version_max_.Init(prefs::kSSLVersionMax, local_state, this);
+  channel_id_enabled_.Init(prefs::kEnableOriginBoundCerts, local_state, this);
   ssl_record_splitting_disabled_.Init(prefs::kDisableSSLRecordSplitting,
                                       local_state, this);
   pref_change_registrar_.Init(local_state);
@@ -177,20 +211,17 @@ void SSLConfigServiceManagerPref::RegisterPrefs(PrefService* prefs) {
   net::SSLConfig default_config;
   prefs->RegisterBooleanPref(prefs::kCertRevocationCheckingEnabled,
                              default_config.rev_checking_enabled);
-  prefs->RegisterBooleanPref(prefs::kSSL3Enabled,
-                             default_config.ssl3_enabled);
-  prefs->RegisterBooleanPref(prefs::kTLS1Enabled,
-                             default_config.tls1_enabled);
+  std::string version_min_str =
+      SSLProtocolVersionToString(default_config.version_min);
+  std::string version_max_str =
+      SSLProtocolVersionToString(default_config.version_max);
+  prefs->RegisterStringPref(prefs::kSSLVersionMin, version_min_str);
+  prefs->RegisterStringPref(prefs::kSSLVersionMax, version_max_str);
   prefs->RegisterBooleanPref(prefs::kEnableOriginBoundCerts,
-                             default_config.domain_bound_certs_enabled);
+                             default_config.channel_id_enabled);
   prefs->RegisterBooleanPref(prefs::kDisableSSLRecordSplitting,
                              !default_config.false_start_enabled);
   prefs->RegisterListPref(prefs::kCipherSuiteBlacklist);
-  // The Options menu used to allow changing the ssl.ssl3.enabled and
-  // ssl.tls1.enabled preferences, so some users' Local State may have
-  // these preferences.  Remove them from Local State.
-  prefs->ClearPref(prefs::kSSL3Enabled);
-  prefs->ClearPref(prefs::kTLS1Enabled);
 }
 
 net::SSLConfigService* SSLConfigServiceManagerPref::Get() {
@@ -227,10 +258,28 @@ void SSLConfigServiceManagerPref::Observe(
 void SSLConfigServiceManagerPref::GetSSLConfigFromPrefs(
     net::SSLConfig* config) {
   config->rev_checking_enabled = rev_checking_enabled_.GetValue();
-  config->ssl3_enabled = ssl3_enabled_.GetValue();
-  config->tls1_enabled = tls1_enabled_.GetValue();
+  std::string version_min_str = ssl_version_min_.GetValue();
+  std::string version_max_str = ssl_version_max_.GetValue();
+  config->version_min = net::SSLConfigService::default_version_min();
+  config->version_max = net::SSLConfigService::default_version_max();
+  uint16 version_min = SSLProtocolVersionFromString(version_min_str);
+  uint16 version_max = SSLProtocolVersionFromString(version_max_str);
+  if (version_min) {
+    // TODO(wtc): get the minimum SSL protocol version supported by the
+    // SSLClientSocket class. Right now it happens to be the same as the
+    // default minimum SSL protocol version because we enable all supported
+    // versions by default.
+    uint16 supported_version_min = config->version_min;
+    config->version_min = std::max(supported_version_min, version_min);
+  }
+  if (version_max) {
+    // TODO(wtc): get the maximum SSL protocol version supported by the
+    // SSLClientSocket class.
+    uint16 supported_version_max = config->version_max;
+    config->version_max = std::min(supported_version_max, version_max);
+  }
   config->disabled_cipher_suites = disabled_cipher_suites_;
-  config->domain_bound_certs_enabled = domain_bound_certs_enabled_.GetValue();
+  config->channel_id_enabled = channel_id_enabled_.GetValue();
   // disabling False Start also happens to disable record splitting.
   config->false_start_enabled = !ssl_record_splitting_disabled_.GetValue();
   SSLConfigServicePref::SetSSLConfigFlags(config);

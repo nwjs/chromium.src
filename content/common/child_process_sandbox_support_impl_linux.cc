@@ -9,8 +9,8 @@
 #include "base/eintr_wrapper.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/pickle.h"
+#include "base/posix/unix_domain_socket.h"
 #include "content/common/sandbox_methods_linux.h"
-#include "content/common/unix_domain_socket_posix.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/linux/WebFontFamily.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/linux/WebFontRenderStyle.h"
 
@@ -65,19 +65,22 @@ void GetRenderStyleForStrike(const char* family, int sizeAndStyle,
 
   Pickle reply(reinterpret_cast<char*>(buf), n);
   PickleIterator pickle_iter(reply);
-  int useBitmaps, useAutoHint, useHinting, hintStyle, useAntiAlias, useSubpixel;
+  int useBitmaps, useAutoHint, useHinting, hintStyle, useAntiAlias;
+  int useSubpixelRendering, useSubpixelPositioning;
   if (reply.ReadInt(&pickle_iter, &useBitmaps) &&
       reply.ReadInt(&pickle_iter, &useAutoHint) &&
       reply.ReadInt(&pickle_iter, &useHinting) &&
       reply.ReadInt(&pickle_iter, &hintStyle) &&
       reply.ReadInt(&pickle_iter, &useAntiAlias) &&
-      reply.ReadInt(&pickle_iter, &useSubpixel)) {
+      reply.ReadInt(&pickle_iter, &useSubpixelRendering) &&
+      reply.ReadInt(&pickle_iter, &useSubpixelPositioning)) {
     out->useBitmaps = useBitmaps;
     out->useAutoHint = useAutoHint;
     out->useHinting = useHinting;
     out->hintStyle = hintStyle;
     out->useAntiAlias = useAntiAlias;
-    out->useSubpixel = useSubpixel;
+    out->useSubpixelRendering = useSubpixelRendering;
+    out->useSubpixelPositioning = useSubpixelPositioning;
   }
 }
 

@@ -1,17 +1,17 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef VIEWS_ACCESSIBILITY_NATIVE_VIEW_ACCESSIBILITY_WIN_H_
-#define VIEWS_ACCESSIBILITY_NATIVE_VIEW_ACCESSIBILITY_WIN_H_
-#pragma once
+#ifndef UI_VIEWS_ACCESSIBILITY_NATIVE_VIEW_ACCESSIBILITY_WIN_H_
+#define UI_VIEWS_ACCESSIBILITY_NATIVE_VIEW_ACCESSIBILITY_WIN_H_
 
 #include <atlbase.h>
 #include <atlcom.h>
 
 #include <oleacc.h>
+#include <UIAutomationCore.h>
 
-#include "base/memory/scoped_ptr.h"
+#include "base/memory/ref_counted.h"
 #include "third_party/iaccessible2/ia2_api_all.h"
 #include "ui/base/accessibility/accessible_view_state.h"
 #include "ui/views/controls/native/native_view_host.h"
@@ -40,7 +40,9 @@ NativeViewAccessibilityWin
     public IDispatchImpl<IAccessible2, &IID_IAccessible2,
                            &LIBID_IAccessible2Lib>,
     public IAccessibleText,
-    public IServiceProvider {
+    public IServiceProvider,
+    public IAccessibleEx,
+    public IRawElementProviderSimple {
  public:
   BEGIN_COM_MAP(NativeViewAccessibilityWin)
     COM_INTERFACE_ENTRY2(IDispatch, IAccessible2)
@@ -48,6 +50,8 @@ NativeViewAccessibilityWin
     COM_INTERFACE_ENTRY(IAccessible2)
     COM_INTERFACE_ENTRY(IAccessibleText)
     COM_INTERFACE_ENTRY(IServiceProvider)
+    COM_INTERFACE_ENTRY(IAccessibleEx)
+    COM_INTERFACE_ENTRY(IRawElementProviderSimple)
   END_COM_MAP()
 
   // Create method for view accessibility.
@@ -286,6 +290,46 @@ NativeViewAccessibilityWin
 
   STDMETHODIMP QueryService(REFGUID guidService, REFIID riid, void** object);
 
+  //
+  // IAccessibleEx methods not implemented.
+  //
+  STDMETHODIMP GetObjectForChild(long child_id, IAccessibleEx** ret) {
+    return E_NOTIMPL;
+  }
+
+  STDMETHODIMP GetIAccessiblePair(IAccessible** acc, long* child_id) {
+    return E_NOTIMPL;
+  }
+
+  STDMETHODIMP GetRuntimeId(SAFEARRAY** runtime_id) {
+    return E_NOTIMPL;
+  }
+
+  STDMETHODIMP ConvertReturnedElement(IRawElementProviderSimple* element,
+                                      IAccessibleEx** acc) {
+    return E_NOTIMPL;
+  }
+
+  //
+  // IRawElementProviderSimple methods.
+  //
+  // The GetPatternProvider/GetPropertyValue methods need to be implemented for
+  // the on-screen keyboard to show up in Windows 8 metro.
+  STDMETHODIMP GetPatternProvider(PATTERNID id, IUnknown** provider);
+  STDMETHODIMP GetPropertyValue(PROPERTYID id, VARIANT* ret);
+
+  //
+  // IRawElementProviderSimple methods not implemented.
+  //
+  STDMETHODIMP get_ProviderOptions(enum ProviderOptions* ret) {
+    return E_NOTIMPL;
+  }
+
+  STDMETHODIMP get_HostRawElementProvider(
+      IRawElementProviderSimple** provider) {
+    return E_NOTIMPL;
+  }
+
   // Returns a conversion from the event (as defined in accessibility_types.h)
   // to an MSAA event.
   static int32 MSAAEvent(ui::AccessibilityTypes::Event event);
@@ -352,4 +396,4 @@ NativeViewAccessibilityWin
   DISALLOW_COPY_AND_ASSIGN(NativeViewAccessibilityWin);
 };
 
-#endif  // VIEWS_ACCESSIBILITY_NATIVE_VIEW_ACCESSIBILITY_WIN_H_
+#endif  // UI_VIEWS_ACCESSIBILITY_NATIVE_VIEW_ACCESSIBILITY_WIN_H_

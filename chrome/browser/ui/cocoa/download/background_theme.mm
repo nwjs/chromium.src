@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -28,7 +28,11 @@ BackgroundTheme::BackgroundTheme(ui::ThemeProvider* provider) :
 BackgroundTheme::~BackgroundTheme() {}
 
 SkBitmap* BackgroundTheme::GetBitmapNamed(int id) const {
-  return nil;
+  return NULL;
+}
+
+gfx::ImageSkia* BackgroundTheme::GetImageSkiaNamed(int id) const {
+  return NULL;
 }
 
 SkColor BackgroundTheme::GetColor(int id) const {
@@ -47,7 +51,7 @@ bool BackgroundTheme::HasCustomImage(int id) const {
   return false;
 }
 
-RefCountedMemory* BackgroundTheme::GetRawData(int id) const {
+base::RefCountedMemory* BackgroundTheme::GetRawData(int id) const {
   return NULL;
 }
 

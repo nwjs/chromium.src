@@ -21,7 +21,8 @@ const char AudioInputDeviceManager::kInvalidDeviceId[] = "";
 // Starting id for the first capture session.
 const int kFirstSessionId = AudioInputDeviceManager::kFakeOpenSessionId + 1;
 
-AudioInputDeviceManager::AudioInputDeviceManager(AudioManager* audio_manager)
+AudioInputDeviceManager::AudioInputDeviceManager(
+    media::AudioManager* audio_manager)
     : listener_(NULL),
       next_capture_session_id_(kFirstSessionId),
       audio_manager_(audio_manager) {
@@ -30,14 +31,17 @@ AudioInputDeviceManager::AudioInputDeviceManager(AudioManager* audio_manager)
 AudioInputDeviceManager::~AudioInputDeviceManager() {
 }
 
-void AudioInputDeviceManager::Register(MediaStreamProviderListener* listener) {
+void AudioInputDeviceManager::Register(
+    MediaStreamProviderListener* listener,
+    base::MessageLoopProxy* device_thread_loop) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   DCHECK(!listener_);
+  DCHECK(!device_loop_);
   listener_ = listener;
+  device_loop_ = device_thread_loop;
 }
 
 void AudioInputDeviceManager::Unregister() {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   DCHECK(listener_);
   listener_ = NULL;
 }
@@ -46,6 +50,43 @@ void AudioInputDeviceManager::EnumerateDevices() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   DCHECK(listener_);
 
+  device_loop_->PostTask(
+      FROM_HERE,
+      base::Bind(&AudioInputDeviceManager::EnumerateOnDeviceThread, this));
+}
+
+int AudioInputDeviceManager::Open(const StreamDeviceInfo& device) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  // Generates a new id for this device.
+  int session_id = next_capture_session_id_++;
+  device_loop_->PostTask(
+      FROM_HERE,
+      base::Bind(&AudioInputDeviceManager::OpenOnDeviceThread,
+                 this, session_id, device));
+
+  return session_id;
+}
+
+void AudioInputDeviceManager::Close(int session_id) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  DCHECK(listener_);
+  // Checks if the device has been stopped, if not, send stop signal.
+  EventHandlerMap::iterator it = event_handlers_.find(session_id);
+  if (it != event_handlers_.end()) {
+    it->second->OnDeviceStopped(session_id);
+    event_handlers_.erase(session_id);
+  }
+
+  device_loop_->PostTask(
+      FROM_HERE,
+      base::Bind(&AudioInputDeviceManager::CloseOnDeviceThread,
+                 this, session_id));
+}
+
+void AudioInputDeviceManager::EnumerateOnDeviceThread() {
+  DCHECK(IsOnDeviceThread());
+  // AudioManager is guaranteed to outlive MediaStreamManager in
+  // BrowserMainloop.
   media::AudioDeviceNames device_names;
   audio_manager_->GetAudioInputDeviceNames(&device_names);
 
@@ -68,19 +109,14 @@ void AudioInputDeviceManager::EnumerateDevices() {
                  devices));
 }
 
-int AudioInputDeviceManager::Open(const StreamDeviceInfo& device) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-
-  // Generates a new id for this device.
-  int session_id = next_capture_session_id_++;
+void AudioInputDeviceManager::OpenOnDeviceThread(
+    int session_id, const StreamDeviceInfo& device) {
+  DCHECK(IsOnDeviceThread());
   DCHECK(devices_.find(session_id) == devices_.end());
 
-  media::AudioDeviceName audio_input_device_name;
-  audio_input_device_name.device_name = device.name;
-  audio_input_device_name.unique_id = device.device_id;
-
   // Adds the session_id and device to the list.
-  devices_[session_id] = audio_input_device_name;
+  media::AudioDeviceName target_device(device.name, device.device_id);
+  devices_[session_id] = target_device;
 
   // Returns the |session_id| through the listener by posting a task on
   // IO thread since MediaStreamManager handles the callback asynchronously.
@@ -89,23 +125,13 @@ int AudioInputDeviceManager::Open(const StreamDeviceInfo& device) {
                           base::Bind(&AudioInputDeviceManager::OpenedOnIOThread,
                                      this,
                                      session_id));
-
-  return session_id;
 }
 
-void AudioInputDeviceManager::Close(int session_id) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-  DCHECK(listener_);
+void AudioInputDeviceManager::CloseOnDeviceThread(int session_id) {
+  DCHECK(IsOnDeviceThread());
 
   if (devices_.find(session_id) != devices_.end())
     devices_.erase(session_id);
-
-  // Checks if the device has been stopped, if not, send stop signal.
-  EventHandlerMap::iterator it = event_handlers_.find(session_id);
-  if (it != event_handlers_.end()) {
-    it->second->OnDeviceStopped(session_id);
-    event_handlers_.erase(session_id);
-  }
 
   // Posts a callback through the listener on IO thread since
   // MediaStreamManager handles the callback asynchronously.
@@ -127,7 +153,7 @@ void AudioInputDeviceManager::Start(
   // the callback immediately.
   if (session_id == kFakeOpenSessionId) {
     event_handler->OnDeviceStarted(session_id,
-                                   AudioManagerBase::kDefaultDeviceId);
+                                   media::AudioManagerBase::kDefaultDeviceId);
     return;
   }
 
@@ -178,6 +204,10 @@ void AudioInputDeviceManager::ClosedOnIOThread(int session_id) {
   if (listener_)
     listener_->Closed(content::MEDIA_STREAM_DEVICE_TYPE_AUDIO_CAPTURE,
                       session_id);
+}
+
+bool AudioInputDeviceManager::IsOnDeviceThread() const {
+  return device_loop_->BelongsToCurrentThread();
 }
 
 }  // namespace media_stream

@@ -4,10 +4,10 @@
 
 #ifndef CONTENT_BROWSER_SSL_SSL_CERT_ERROR_HANDLER_H_
 #define CONTENT_BROWSER_SSL_SSL_CERT_ERROR_HANDLER_H_
-#pragma once
 
 #include <string>
 
+#include "base/memory/weak_ptr.h"
 #include "content/browser/ssl/ssl_error_handler.h"
 #include "net/base/ssl_info.h"
 
@@ -17,7 +17,7 @@
 class SSLCertErrorHandler : public SSLErrorHandler {
  public:
   // Construct on the IO thread.
-  SSLCertErrorHandler(Delegate* delegate,
+  SSLCertErrorHandler(const base::WeakPtr<Delegate>& delegate,
                       const content::GlobalRequestID& id,
                       ResourceType::Type resource_type,
                       const GURL& url,

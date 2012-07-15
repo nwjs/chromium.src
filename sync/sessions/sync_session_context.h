@@ -17,49 +17,48 @@
 
 #ifndef SYNC_SESSIONS_SYNC_SESSION_CONTEXT_H_
 #define SYNC_SESSIONS_SYNC_SESSION_CONTEXT_H_
-#pragma once
 
 #include <map>
 #include <string>
+#include <vector>
 
-#include "base/gtest_prod_util.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/time.h"
-#include "sync/engine/model_safe_worker.h"
+#include "sync/engine/sync_engine_event.h"
 #include "sync/engine/syncer_types.h"
+#include "sync/engine/traffic_recorder.h"
+#include "sync/internal_api/public/engine/model_safe_worker.h"
 #include "sync/sessions/debug_info_getter.h"
+
+namespace syncer {
+
+class ConflictResolver;
+class ExtensionsActivityMonitor;
+class ServerConnectionManager;
+class ThrottledDataTypeTracker;
 
 namespace syncable {
 class Directory;
 }
-
-namespace browser_sync {
-
-class ConflictResolver;
-class ExtensionsActivityMonitor;
-class ModelSafeWorkerRegistrar;
-class ServerConnectionManager;
 
 // Default number of items a client can commit in a single message.
 static const int kDefaultMaxCommitBatchSize = 25;
 
 namespace sessions {
 class ScopedSessionContextConflictResolver;
-struct SyncSessionSnapshot;
 class TestScopedSessionEventListener;
 
 class SyncSessionContext {
  public:
   SyncSessionContext(ServerConnectionManager* connection_manager,
                      syncable::Directory* directory,
-                     ModelSafeWorkerRegistrar* model_safe_worker_registrar,
+                     const ModelSafeRoutingInfo& model_safe_routing_info,
+                     const std::vector<ModelSafeWorker*>& workers,
                      ExtensionsActivityMonitor* extensions_activity_monitor,
+                     ThrottledDataTypeTracker* throttled_data_type_tracker,
                      const std::vector<SyncEngineEventListener*>& listeners,
-                     DebugInfoGetter* debug_info_getter);
-
-  // Empty constructor for unit tests.
-  SyncSessionContext();
-  virtual ~SyncSessionContext();
+                     DebugInfoGetter* debug_info_getter,
+                     syncer::TrafficRecorder* traffic_recorder);
+  ~SyncSessionContext();
 
   ConflictResolver* resolver() { return resolver_; }
   ServerConnectionManager* connection_manager() {
@@ -69,11 +68,24 @@ class SyncSessionContext {
     return directory_;
   }
 
-  ModelSafeWorkerRegistrar* registrar() {
-    return registrar_;
+  const ModelSafeRoutingInfo& routing_info() const {
+    return routing_info_;
   }
+
+  void set_routing_info(const ModelSafeRoutingInfo& routing_info) {
+    routing_info_ = routing_info;
+  }
+
+  const std::vector<ModelSafeWorker*> workers() const {
+    return workers_;
+  }
+
   ExtensionsActivityMonitor* extensions_monitor() {
     return extensions_activity_monitor_;
+  }
+
+  ThrottledDataTypeTracker* throttled_data_type_tracker() {
+    return throttled_data_type_tracker_;
   }
 
   DebugInfoGetter* debug_info_getter() {
@@ -87,7 +99,7 @@ class SyncSessionContext {
   bool notifications_enabled() { return notifications_enabled_; }
 
   // Account name, set once a directory has been opened.
-  void set_account_name(const std::string name) {
+  void set_account_name(const std::string& name) {
     DCHECK(account_name_.empty());
     account_name_ = name;
   }
@@ -111,25 +123,11 @@ class SyncSessionContext {
                       OnSyncEngineEvent(event));
   }
 
-  // This is virtual for unit tests.
-  virtual void SetUnthrottleTime(syncable::ModelTypeSet types,
-                                 const base::TimeTicks& time);
-
-  // This prunes the |unthrottle_time_| map based on the |time| passed in. This
-  // is called by syncer at the SYNCER_BEGIN stage.
-  void PruneUnthrottledTypes(const base::TimeTicks& time);
-
-  // This returns the list of currently throttled types. Unless server returns
-  // new throttled types this will remain constant through out the sync cycle.
-  syncable::ModelTypeSet GetThrottledTypes() const;
+  syncer::TrafficRecorder* traffic_recorder() {
+    return traffic_recorder_;
+  }
 
  private:
-  typedef std::map<syncable::ModelType, base::TimeTicks> UnthrottleTimes;
-
-  FRIEND_TEST_ALL_PREFIXES(SyncSessionContextTest, AddUnthrottleTimeTest);
-  FRIEND_TEST_ALL_PREFIXES(SyncSessionContextTest,
-                           GetCurrentlyThrottledTypesTest);
-
   // Rather than force clients to set and null-out various context members, we
   // extend our encapsulation boundary to scoped helpers that take care of this
   // once they are allocated. See definitions of these below.
@@ -144,9 +142,12 @@ class SyncSessionContext {
   ServerConnectionManager* const connection_manager_;
   syncable::Directory* const directory_;
 
-  // A registrar of workers capable of processing work closures on a thread
-  // that is guaranteed to be safe for model modifications.
-  ModelSafeWorkerRegistrar* registrar_;
+  // A cached copy of SyncBackendRegistrar's routing info.
+  // Must be updated manually when SBR's state is modified.
+  ModelSafeRoutingInfo routing_info_;
+
+  // The set of ModelSafeWorkers.  Used to execute tasks of various threads.
+  const std::vector<ModelSafeWorker*> workers_;
 
   // We use this to stuff extensions activity into CommitMessages so the server
   // can correlate commit traffic with extension-related bookmark mutations.
@@ -166,16 +167,13 @@ class SyncSessionContext {
   // by the user.
   ModelSafeRoutingInfo previous_session_routing_info_;
 
-  // Cache of last session snapshot information.
-  scoped_ptr<sessions::SyncSessionSnapshot> previous_session_snapshot_;
+  ThrottledDataTypeTracker* throttled_data_type_tracker_;
 
   // We use this to get debug info to send to the server for debugging
   // client behavior on server side.
   DebugInfoGetter* const debug_info_getter_;
 
-  // This is a map from throttled data types to the time at which they can be
-  // unthrottled.
-  UnthrottleTimes unthrottle_times_;
+  syncer::TrafficRecorder* traffic_recorder_;
 
   DISALLOW_COPY_AND_ASSIGN(SyncSessionContext);
 };
@@ -195,7 +193,8 @@ class ScopedSessionContextConflictResolver {
   }
   ~ScopedSessionContextConflictResolver() {
     context_->resolver_ = NULL;
-   }
+  }
+
  private:
   SyncSessionContext* context_;
   ConflictResolver* resolver_;
@@ -203,6 +202,6 @@ class ScopedSessionContextConflictResolver {
 };
 
 }  // namespace sessions
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_SESSIONS_SYNC_SESSION_CONTEXT_H_

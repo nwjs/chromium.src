@@ -24,18 +24,24 @@
 #include "chrome/browser/download/download_service_factory.h"
 #include "chrome/browser/extensions/extension_info_map.h"
 #include "chrome/browser/extensions/extension_protocols.h"
+#include "chrome/browser/extensions/extension_resource_protocols.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/io_thread.h"
 #include "chrome/browser/net/chrome_cookie_notification_details.h"
 #include "chrome/browser/net/chrome_fraudulent_certificate_reporter.h"
 #include "chrome/browser/net/chrome_net_log.h"
 #include "chrome/browser/net/chrome_network_delegate.h"
+#include "chrome/browser/net/http_server_properties_manager.h"
 #include "chrome/browser/net/proxy_service_factory.h"
+#include "chrome/browser/net/resource_prefetch_predictor_observer.h"
+#include "chrome/browser/net/transport_security_persister.h"
 #include "chrome/browser/notifications/desktop_notification_service_factory.h"
 #include "chrome/browser/policy/url_blacklist_manager.h"
+#include "chrome/browser/predictors/resource_prefetch_predictor.h"
+#include "chrome/browser/predictors/resource_prefetch_predictor_factory.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/transport_security_persister.h"
 #include "chrome/browser/ui/webui/chrome_url_data_manager_backend.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
@@ -45,8 +51,9 @@
 #include "content/public/browser/host_zoom_map.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/resource_context.h"
-#include "content/public/browser/resource_dispatcher_host.h"
 #include "net/base/server_bound_cert_service.h"
+#include "net/cookies/canonical_cookie.h"
+#include "net/cookies/cookie_monster.h"
 #include "net/http/http_transaction_factory.h"
 #include "net/http/http_util.h"
 #include "net/proxy/proxy_config_service_fixed.h"
@@ -55,6 +62,9 @@
 #include "net/url_request/url_request.h"
 
 #if defined(OS_CHROMEOS)
+#include "chrome/browser/chromeos/cros_settings.h"
+#include "chrome/browser/chromeos/cros_settings_names.h"
+#include "chrome/browser/chromeos/gdata/gdata_protocol_handler.h"
 #include "chrome/browser/chromeos/gview_request_interceptor.h"
 #include "chrome/browser/chromeos/proxy_config_service_impl.h"
 #endif  // defined(OS_CHROMEOS)
@@ -62,7 +72,6 @@
 using content::BrowserContext;
 using content::BrowserThread;
 using content::ResourceContext;
-using content::ResourceDispatcherHost;
 
 namespace {
 
@@ -79,7 +88,7 @@ class ChromeCookieMonsterDelegate : public net::CookieMonster::Delegate {
 
   // net::CookieMonster::Delegate implementation.
   virtual void OnCookieChanged(
-      const net::CookieMonster::CanonicalCookie& cookie,
+      const net::CanonicalCookie& cookie,
       bool removed,
       net::CookieMonster::Delegate::ChangeCause cause) {
     BrowserThread::PostTask(
@@ -92,7 +101,7 @@ class ChromeCookieMonsterDelegate : public net::CookieMonster::Delegate {
   virtual ~ChromeCookieMonsterDelegate() {}
 
   void OnCookieChangedAsyncHelper(
-      const net::CookieMonster::CanonicalCookie& cookie,
+      const net::CanonicalCookie& cookie,
       bool removed,
       net::CookieMonster::Delegate::ChangeCause cause) {
     Profile* profile = profile_getter_.Run();
@@ -160,15 +169,11 @@ void ProfileIOData::InitializeOnUIThread(Profile* profile) {
 
   scoped_ptr<ProfileParams> params(new ProfileParams);
   params->path = profile->GetPath();
-  params->is_incognito = profile->IsOffTheRecord();
-  params->clear_local_state_on_exit =
-      pref_service->GetBoolean(prefs::kClearSiteDataOnExit);
 
   // Set up Accept-Language and Accept-Charset header values
   params->accept_language = net::HttpUtil::GenerateAcceptLanguageHeader(
       pref_service->GetString(prefs::kAcceptLanguages));
-  std::string default_charset =
-      pref_service->GetString(prefs::kGlobalDefaultCharset);
+  std::string default_charset = pref_service->GetString(prefs::kDefaultCharset);
   params->accept_charset =
       net::HttpUtil::GenerateAcceptCharsetHeader(default_charset);
 
@@ -188,7 +193,6 @@ void ProfileIOData::InitializeOnUIThread(Profile* profile) {
 
   params->io_thread = g_browser_process->io_thread();
 
-  params->host_content_settings_map = profile->GetHostContentSettingsMap();
   params->cookie_settings = CookieSettings::Factory::GetForProfile(profile);
   params->ssl_config_service = profile->GetSSLConfigService();
   base::Callback<Profile*(void)> profile_getter =
@@ -196,7 +200,15 @@ void ProfileIOData::InitializeOnUIThread(Profile* profile) {
                  profile);
   params->cookie_monster_delegate =
       new ChromeCookieMonsterDelegate(profile_getter);
-  params->extension_info_map = profile->GetExtensionInfoMap();
+  params->extension_info_map =
+      extensions::ExtensionSystem::Get(profile)->info_map();
+
+  if (predictors::ResourcePrefetchPredictor* predictor =
+          predictors::ResourcePrefetchPredictorFactory::GetForProfile(
+              profile)) {
+    resource_prefetch_predictor_observer_.reset(
+        new chrome_browser_net::ResourcePrefetchPredictorObserver(predictor));
+  }
 
 #if defined(ENABLE_NOTIFICATIONS)
   params->notification_service =
@@ -231,7 +243,6 @@ void ProfileIOData::InitializeOnUIThread(Profile* profile) {
 }
 
 ProfileIOData::AppRequestContext::AppRequestContext() {}
-ProfileIOData::AppRequestContext::~AppRequestContext() {}
 
 void ProfileIOData::AppRequestContext::SetCookieStore(
     net::CookieStore* cookie_store) {
@@ -245,26 +256,40 @@ void ProfileIOData::AppRequestContext::SetHttpTransactionFactory(
   set_http_transaction_factory(http_factory);
 }
 
+ProfileIOData::AppRequestContext::~AppRequestContext() {}
+
 ProfileIOData::ProfileParams::ProfileParams()
-    : is_incognito(false),
-      clear_local_state_on_exit(false),
-      io_thread(NULL),
+    : io_thread(NULL),
 #if defined(ENABLE_NOTIFICATIONS)
       notification_service(NULL),
 #endif
-      profile(NULL) {}
+      profile(NULL) {
+}
+
 ProfileIOData::ProfileParams::~ProfileParams() {}
 
 ProfileIOData::ProfileIOData(bool is_incognito)
     : initialized_(false),
-      ALLOW_THIS_IN_INITIALIZER_LIST(resource_context_(this)),
-      initialized_on_UI_thread_(false) {
+      ALLOW_THIS_IN_INITIALIZER_LIST(
+          resource_context_(new ResourceContext(this))),
+      initialized_on_UI_thread_(false),
+      is_incognito_(is_incognito) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 }
 
 ProfileIOData::~ProfileIOData() {
   if (BrowserThread::IsMessageLoopValid(BrowserThread::IO))
     DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+
+  if (main_request_context_.get())
+    main_request_context_->AssertNoURLRequests();
+  if (extensions_request_context_.get())
+    extensions_request_context_->AssertNoURLRequests();
+  for (AppRequestContextMap::iterator it = app_request_context_map_.begin();
+       it != app_request_context_map_.end(); ++it) {
+    it->second->AssertNoURLRequests();
+    delete it->second;
+  }
 }
 
 // static
@@ -282,9 +307,11 @@ bool ProfileIOData::IsHandledProtocol(const std::string& scheme) {
     chrome::kChromeDevToolsScheme,
 #if defined(OS_CHROMEOS)
     chrome::kMetadataScheme,
+    chrome::kDriveScheme,
 #endif  // defined(OS_CHROMEOS)
     chrome::kBlobScheme,
     chrome::kFileSystemScheme,
+    chrome::kExtensionResourceScheme,
   };
   for (size_t i = 0; i < arraysize(kProtocolList); ++i) {
     if (scheme == kProtocolList[i])
@@ -303,7 +330,7 @@ bool ProfileIOData::IsHandledURL(const GURL& url) {
 }
 
 content::ResourceContext* ProfileIOData::GetResourceContext() const {
-  return &resource_context_;
+  return resource_context_.get();
 }
 
 ChromeURLDataManagerBackend*
@@ -312,33 +339,33 @@ ProfileIOData::GetChromeURLDataManagerBackend() const {
   return chrome_url_data_manager_backend_.get();
 }
 
-scoped_refptr<ChromeURLRequestContext>
+ChromeURLRequestContext*
 ProfileIOData::GetMainRequestContext() const {
   LazyInitialize();
-  return main_request_context_;
+  return main_request_context_.get();
 }
 
-scoped_refptr<ChromeURLRequestContext>
+ChromeURLRequestContext*
 ProfileIOData::GetMediaRequestContext() const {
   LazyInitialize();
-  scoped_refptr<ChromeURLRequestContext> context =
+  ChromeURLRequestContext* context =
       AcquireMediaRequestContext();
   DCHECK(context);
   return context;
 }
 
-scoped_refptr<ChromeURLRequestContext>
+ChromeURLRequestContext*
 ProfileIOData::GetExtensionsRequestContext() const {
   LazyInitialize();
-  return extensions_request_context_;
+  return extensions_request_context_.get();
 }
 
-scoped_refptr<ChromeURLRequestContext>
+ChromeURLRequestContext*
 ProfileIOData::GetIsolatedAppRequestContext(
-    scoped_refptr<ChromeURLRequestContext> main_context,
+    ChromeURLRequestContext* main_context,
     const std::string& app_id) const {
   LazyInitialize();
-  scoped_refptr<ChromeURLRequestContext> context;
+  ChromeURLRequestContext* context;
   if (ContainsKey(app_request_context_map_, app_id)) {
     context = app_request_context_map_[app_id];
   } else {
@@ -353,10 +380,6 @@ ExtensionInfoMap* ProfileIOData::GetExtensionInfoMap() const {
   return extension_info_map_;
 }
 
-HostContentSettingsMap* ProfileIOData::GetHostContentSettingsMap() const {
-  return host_content_settings_map_;
-}
-
 CookieSettings* ProfileIOData::GetCookieSettings() const {
   return cookie_settings_;
 }
@@ -366,6 +389,44 @@ DesktopNotificationService* ProfileIOData::GetNotificationService() const {
   return notification_service_;
 }
 #endif
+
+void ProfileIOData::InitializeMetricsEnabledStateOnUIThread() {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+#if defined(OS_CHROMEOS)
+  // Just fetch the value from ChromeOS' settings while we're on the UI thread.
+  // TODO(stevet): For now, this value is only set on profile initialization.
+  // We will want to do something similar to the PrefMember method below in the
+  // future to more accurately capture this state.
+  chromeos::CrosSettings::Get()->GetBoolean(chromeos::kStatsReportingPref,
+                                            &enable_metrics_);
+#else
+  // Prep the PrefMember and send it to the IO thread, since this value will be
+  // read from there.
+  enable_metrics_.Init(prefs::kMetricsReportingEnabled,
+                       g_browser_process->local_state(),
+                       NULL);
+  enable_metrics_.MoveToThread(BrowserThread::IO);
+#endif  // defined(OS_CHROMEOS)
+}
+
+bool ProfileIOData::GetMetricsEnabledStateOnIOThread() const {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+#if defined(OS_CHROMEOS)
+  return enable_metrics_;
+#else
+  return enable_metrics_.GetValue();
+#endif  // defined(OS_CHROMEOS)
+}
+
+chrome_browser_net::HttpServerPropertiesManager*
+    ProfileIOData::http_server_properties_manager() const {
+  return http_server_properties_manager_.get();
+}
+
+void ProfileIOData::set_http_server_properties_manager(
+    chrome_browser_net::HttpServerPropertiesManager* manager) const {
+  http_server_properties_manager_.reset(manager);
+}
 
 ProfileIOData::ResourceContext::ResourceContext(ProfileIOData* io_data)
     : io_data_(io_data) {
@@ -417,8 +478,8 @@ void ProfileIOData::LazyInitialize() const {
   const CommandLine& command_line = *CommandLine::ForCurrentProcess();
 
   // Create the common request contexts.
-  main_request_context_ = new ChromeURLRequestContext;
-  extensions_request_context_ = new ChromeURLRequestContext;
+  main_request_context_.reset(new ChromeURLRequestContext);
+  extensions_request_context_.reset(new ChromeURLRequestContext);
 
   chrome_url_data_manager_backend_.reset(new ChromeURLDataManagerBackend);
 
@@ -432,7 +493,7 @@ void ProfileIOData::LazyInitialize() const {
 
   fraudulent_certificate_reporter_.reset(
       new chrome_browser_net::ChromeFraudulentCertificateReporter(
-          main_request_context_));
+          main_request_context_.get()));
 
   proxy_service_.reset(
       ProxyServiceFactory::CreateProxyService(
@@ -441,53 +502,29 @@ void ProfileIOData::LazyInitialize() const {
           profile_params_->proxy_config_service.release(),
           command_line));
 
-  transport_security_state_.reset(new net::TransportSecurityState(
-      command_line.GetSwitchValueASCII(switches::kHstsHosts)));
+  transport_security_state_.reset(new net::TransportSecurityState());
   transport_security_persister_.reset(
       new TransportSecurityPersister(transport_security_state_.get(),
                                      profile_params_->path,
-                                     profile_params_->is_incognito));
-
-  // NOTE(willchan): Keep these protocol handlers in sync with
-  // ProfileIOData::IsHandledProtocol().
-  job_factory_.reset(new net::URLRequestJobFactory);
-  if (profile_params_->protocol_handler_registry) {
-    job_factory_->AddInterceptor(
-        new ProtocolHandlerRegistryInterceptor(
-            profile_params_->protocol_handler_registry));
-  }
-  bool set_protocol = job_factory_->SetProtocolHandler(
-      chrome::kExtensionScheme,
-      CreateExtensionProtocolHandler(profile_params_->is_incognito,
-                                     profile_params_->extension_info_map));
-  DCHECK(set_protocol);
-  set_protocol = job_factory_->SetProtocolHandler(
-      chrome::kChromeUIScheme,
-      ChromeURLDataManagerBackend::CreateProtocolHandler(
-          chrome_url_data_manager_backend_.get()));
-  DCHECK(set_protocol);
-  set_protocol = job_factory_->SetProtocolHandler(
-      chrome::kChromeDevToolsScheme,
-      CreateDevToolsProtocolHandler(chrome_url_data_manager_backend_.get()));
-  DCHECK(set_protocol);
-#if defined(OS_CHROMEOS) && !defined(GOOGLE_CHROME_BUILD)
-  // Install the GView request interceptor that will redirect requests
-  // of compatible documents (PDF, etc) to the GView document viewer.
-  const CommandLine& parsed_command_line = *CommandLine::ForCurrentProcess();
-  if (parsed_command_line.HasSwitch(switches::kEnableGView))
-    job_factory_->AddInterceptor(new chromeos::GViewRequestInterceptor);
-#endif  // defined(OS_CHROMEOS) && !defined(GOOGLE_CHROME_BUILD)
+                                     is_incognito()));
+  const std::string& serialized =
+      command_line.GetSwitchValueASCII(switches::kHstsHosts);
+  transport_security_persister_.get()->DeserializeFromCommandLine(serialized);
 
   // Take ownership over these parameters.
-  host_content_settings_map_ = profile_params_->host_content_settings_map;
   cookie_settings_ = profile_params_->cookie_settings;
 #if defined(ENABLE_NOTIFICATIONS)
   notification_service_ = profile_params_->notification_service;
 #endif
   extension_info_map_ = profile_params_->extension_info_map;
 
-  resource_context_.host_resolver_ = io_thread_globals->host_resolver.get();
-  resource_context_.request_context_ = main_request_context_;
+  resource_context_->host_resolver_ = io_thread_globals->host_resolver.get();
+  resource_context_->request_context_ = main_request_context_.get();
+
+  if (profile_params_->resource_prefetch_predictor_observer_.get()) {
+    resource_prefetch_predictor_observer_.reset(
+        profile_params_->resource_prefetch_predictor_observer_.release());
+  }
 
   LazyInitializeInternal(profile_params_.get());
 
@@ -497,29 +534,68 @@ void ProfileIOData::LazyInitialize() const {
 
 void ProfileIOData::ApplyProfileParamsToContext(
     ChromeURLRequestContext* context) const {
-  context->set_is_incognito(profile_params_->is_incognito);
+  context->set_is_incognito(is_incognito());
   context->set_accept_language(profile_params_->accept_language);
   context->set_accept_charset(profile_params_->accept_charset);
   context->set_referrer_charset(profile_params_->referrer_charset);
   context->set_ssl_config_service(profile_params_->ssl_config_service);
 }
 
+void ProfileIOData::SetUpJobFactoryDefaults(
+    net::URLRequestJobFactory* job_factory) const {
+  // NOTE(willchan): Keep these protocol handlers in sync with
+  // ProfileIOData::IsHandledProtocol().
+  if (profile_params_->protocol_handler_registry) {
+    job_factory->AddInterceptor(
+        new ProtocolHandlerRegistryInterceptor(
+            profile_params_->protocol_handler_registry));
+  }
+  bool set_protocol = job_factory->SetProtocolHandler(
+      chrome::kExtensionScheme,
+      CreateExtensionProtocolHandler(is_incognito(),
+                                     profile_params_->extension_info_map));
+  DCHECK(set_protocol);
+  set_protocol = job_factory->SetProtocolHandler(
+      chrome::kExtensionResourceScheme,
+      CreateExtensionResourceProtocolHandler());
+  DCHECK(set_protocol);
+  set_protocol = job_factory->SetProtocolHandler(
+      chrome::kChromeUIScheme,
+      ChromeURLDataManagerBackend::CreateProtocolHandler(
+          chrome_url_data_manager_backend_.get()));
+  DCHECK(set_protocol);
+  set_protocol = job_factory->SetProtocolHandler(
+      chrome::kChromeDevToolsScheme,
+      CreateDevToolsProtocolHandler(chrome_url_data_manager_backend_.get()));
+  DCHECK(set_protocol);
+#if defined(OS_CHROMEOS)
+  if (!is_incognito()) {
+    set_protocol = job_factory->SetProtocolHandler(
+        chrome::kDriveScheme, new gdata::GDataProtocolHandler());
+    DCHECK(set_protocol);
+  }
+#if !defined(GOOGLE_CHROME_BUILD)
+  // Install the GView request interceptor that will redirect requests
+  // of compatible documents (PDF, etc) to the GView document viewer.
+  const CommandLine& parsed_command_line = *CommandLine::ForCurrentProcess();
+  if (parsed_command_line.HasSwitch(switches::kEnableGView))
+    job_factory->AddInterceptor(new chromeos::GViewRequestInterceptor);
+#endif  // !defined(GOOGLE_CHROME_BUILD)
+#endif  // defined(OS_CHROMEOS)
+}
+
 void ProfileIOData::ShutdownOnUIThread() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   enable_referrers_.Destroy();
-  clear_local_state_on_exit_.Destroy();
+#if !defined(OS_CHROMEOS)
+  enable_metrics_.Destroy();
+#endif
   safe_browsing_enabled_.Destroy();
   session_startup_pref_.Destroy();
 #if defined(ENABLE_CONFIGURATION_POLICY)
   if (url_blacklist_manager_.get())
     url_blacklist_manager_->ShutdownOnUIThread();
 #endif
-  BrowserThread::PostTask(
-      BrowserThread::IO, FROM_HERE,
-      base::Bind(
-          &ResourceDispatcherHost::CancelRequestsForContext,
-          base::Unretained(ResourceDispatcherHost::Get()),
-          &resource_context_));
   bool posted = BrowserThread::DeleteSoon(BrowserThread::IO, FROM_HERE, this);
   if (!posted)
     delete this;
@@ -528,4 +604,8 @@ void ProfileIOData::ShutdownOnUIThread() {
 void ProfileIOData::set_server_bound_cert_service(
     net::ServerBoundCertService* server_bound_cert_service) const {
   server_bound_cert_service_.reset(server_bound_cert_service);
+}
+
+void ProfileIOData::DestroyResourceContext() {
+  resource_context_.reset();
 }

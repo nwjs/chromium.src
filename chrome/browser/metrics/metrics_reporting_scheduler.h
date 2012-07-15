@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_METRICS_METRICS_REPORTING_SCHEDULER_H_
 #define CHROME_BROWSER_METRICS_METRICS_REPORTING_SCHEDULER_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/callback.h"
@@ -38,14 +37,14 @@ class MetricsReportingScheduler {
   void TriggerUpload();
 
   // Schedules a future call to TriggerUpload if one isn't already pending.
-  void ScheduleNextCallback();
+  void ScheduleNextUpload();
 
   // Increases the upload interval each time it's called, to handle the case
   // where the server is having issues.
   void BackOffUploadInterval();
 
   // The MetricsService method to call when uploading should happen.
-  base::Closure upload_callback_;
+  const base::Closure upload_callback_;
 
   base::OneShotTimer<MetricsReportingScheduler> upload_timer_;
 

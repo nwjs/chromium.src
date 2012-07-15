@@ -4,10 +4,9 @@
 
 #ifndef NET_BASE_SERVER_BOUND_CERT_STORE_H_
 #define NET_BASE_SERVER_BOUND_CERT_STORE_H_
-#pragma once
 
+#include <list>
 #include <string>
-#include <vector>
 
 #include "base/time.h"
 #include "net/base/net_export.h"
@@ -62,6 +61,8 @@ class NET_EXPORT ServerBoundCertStore {
     std::string cert_;
   };
 
+  typedef std::list<ServerBoundCert> ServerBoundCertList;
+
   virtual ~ServerBoundCertStore() {}
 
   // TODO(rkn): File I/O may be required, so this should have an asynchronous
@@ -105,11 +106,15 @@ class NET_EXPORT ServerBoundCertStore {
 
   // Returns all server bound certs and the corresponding private keys.
   virtual void GetAllServerBoundCerts(
-      std::vector<ServerBoundCert>* server_bound_certs) = 0;
+      ServerBoundCertList* server_bound_certs) = 0;
 
   // Returns the number of certs in the store.
   // Public only for unit testing.
   virtual int GetCertCount() = 0;
+
+  // When invoked, instructs the store to keep session related data on
+  // destruction.
+  virtual void SetForceKeepSessionState() = 0;
 };
 
 }  // namespace net

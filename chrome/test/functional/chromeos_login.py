@@ -1,13 +1,20 @@
 #!/usr/bin/env python
-# Copyright (c) 2011 The Chromium Authors. All rights reserved.
+# Copyright (c) 2012 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 import os
 import subprocess
+import sys
 
 import pyauto_functional  # Must be imported before pyauto
 import pyauto
+import pyauto_errors
+
+
+sys.path.append('/usr/local')  # To make autotest libs importable.
+from autotest.cros import cros_ui
+from autotest.cros import cryptohome
 
 
 class ChromeosLogin(pyauto.PyUITest):
@@ -17,10 +24,10 @@ class ChromeosLogin(pyauto.PyUITest):
 
   def setUp(self):
     # We want a clean session_manager instance for every run,
-    # so restart session_manager now.
-    assert self.WaitForSessionManagerRestart(
-        lambda: subprocess.call(['pkill', 'session_manager'])), \
-        'Timed out waiting for session_manager to start.'
+    # so restart ui now.
+    cros_ui.stop(allow_fail=True)
+    cryptohome.remove_all_vaults()
+    cros_ui.start(wait_for_login_prompt=False)
     pyauto.PyUITest.setUp(self)
 
   def _ValidCredentials(self, account_type='test_google_account'):
@@ -31,6 +38,13 @@ class ChromeosLogin(pyauto.PyUITest):
     """
     return self.GetPrivateInfo()[account_type]
 
+  def testExecuteJavascriptInOOBEWebUI(self):
+    """Test that javascript can be executed at the login page."""
+    msg = 'test success'
+    ret = self.ExecuteJavascriptInOOBEWebUI(
+              'window.domAutomationController.send("%s");' % msg)
+    self.assertEqual(ret, msg)
+
   def testGoodLogin(self):
     """Test that login is successful with valid credentials."""
     credentials = self._ValidCredentials()
@@ -40,7 +54,9 @@ class ChromeosLogin(pyauto.PyUITest):
 
   def testBadUsername(self):
     """Test that login fails when passed an invalid username."""
-    self.Login('doesnotexist@fakedomain.org', 'badpassword')
+    self.assertRaises(
+        pyauto_errors.JSONInterfaceError,
+        lambda: self.Login('doesnotexist@fakedomain.org', 'badpassword'))
     login_info = self.GetLoginInfo()
     self.assertFalse(login_info['is_logged_in'],
                      msg='Login succeeded, with bad credentials.')
@@ -48,7 +64,9 @@ class ChromeosLogin(pyauto.PyUITest):
   def testBadPassword(self):
     """Test that login fails when passed an invalid password."""
     credentials = self._ValidCredentials()
-    self.Login(credentials['username'], 'badpassword')
+    self.assertRaises(
+        pyauto_errors.JSONInterfaceError,
+        lambda: self.Login(credentials['username'], 'badpassword'))
     login_info = self.GetLoginInfo()
     self.assertFalse(login_info['is_logged_in'],
                      msg='Login succeeded, with bad credentials.')
@@ -144,6 +162,64 @@ class ChromeosLogin(pyauto.PyUITest):
     self.testLoginAsGuest()
     self.Logout()
     self.testLoginToCreateNewAccount()
+
+  def testLogoutWithNoWindows(self):
+    """Verify logout when no browser windows are present."""
+    self.testGoodLogin()
+    for i in range(5):
+      self.OpenNewBrowserWindow(True)
+    for _ in range(self.GetBrowserWindowCount()):
+      self.CloseBrowserWindow(0)
+    self.assertEqual(0, self.GetBrowserWindowCount(),
+                     msg='Could not close all browser windows')
+    self.Logout()
+    self.testGoodLogin()
+
+  def testInitialLoginState(self):
+    """Verify basic state of browser windows at initial login."""
+    self.testGoodLogin()
+    # Should have 1 browser window with 1 tab.
+    info = self.GetBrowserInfo()
+    self.assertEqual(1, len(info['windows']))
+    self.assertFalse(info['windows'][0]['incognito'],
+        msg='Did not expect incognito window after login')
+    self.assertEqual(1, len(info['windows'][0]['tabs']))
+
+    self.OpenNewBrowserWindow(True)
+    # Should have 2 regular browser windows.
+    info = self.GetBrowserInfo()
+    self.assertEqual(2, len(info['windows']))
+    self.assertFalse(info['windows'][0]['incognito'])
+    self.assertFalse(info['windows'][1]['incognito'],
+        msg='Expected a regular new window.')
+
+  def testProfilePreservedBetweenLogins(self):
+    """Verify that profile is preserved between two login sessions.
+
+    Also verify Local State.
+    """
+    self.testGoodLogin()
+
+    # Build up some history and setup state in "Local State".
+    url = self.GetHttpURLForDataPath('title2.html')
+    self.NavigateToURL(url)
+    open('/home/chronos/__magic__', 'w').close()
+    open('/home/chronos/user/__magic__', 'w').close()
+
+    def _VerifyProfile():
+      history = self.GetHistoryInfo().History()
+      self.assertEqual(1, len(history))
+      self.assertEqual(url, history[0]['url'])
+      self.assertTrue(os.path.exists('/home/chronos/__magic__'),
+          msg='/home/chronos/__magic__ did not persist across login sessions')
+      self.assertTrue(os.path.exists('/home/chronos/user/__magic__'),
+          msg='/home/chronos/user/__magic__ did not persist across '
+              'login sessions')
+
+    _VerifyProfile()
+    self.Logout()
+    self.testGoodLogin()  # Re-login with same account.
+    _VerifyProfile()
 
 
 if __name__ == '__main__':

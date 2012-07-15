@@ -1,46 +1,46 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_INSTANT_INSTANT_UNLOAD_HANDLER_H_
 #define CHROME_BROWSER_INSTANT_INSTANT_UNLOAD_HANDLER_H_
-#pragma once
 
+#include "base/basictypes.h"
 #include "base/memory/scoped_vector.h"
 
 class Browser;
-class TabContentsWrapper;
+class TabContents;
 
-// InstantUnloadHandler makes sure the before unload and unload handler is run
-// when using instant. When the user commits the instant preview the existing
-// TabContentsWrapper is passed to |RunUnloadListenersOrDestroy|. If the tab has
-// no before unload or unload listener the tab is deleted, otherwise the before
-// unload and unload listener is executed. If the before unload listener shows a
-// dialog the tab is added back to the tabstrip at its original location next to
-// the instant page.
+// InstantUnloadHandler ensures that the beforeunload and unload handlers are
+// run when using Instant. When the user commits the Instant preview the
+// existing TabContents is passed to |RunUnloadListenersOrDestroy|. If the tab
+// has no beforeunload or unload listeners, the tab is deleted; otherwise the
+// beforeunload and unload listeners are executed. If the beforeunload listener
+// shows a dialog the tab is added back to the tabstrip at its original location
+// next to the Instant page.
 class InstantUnloadHandler {
  public:
   explicit InstantUnloadHandler(Browser* browser);
   ~InstantUnloadHandler();
 
   // See class description for details on what this does.
-  void RunUnloadListenersOrDestroy(TabContentsWrapper* tab_contents, int index);
+  void RunUnloadListenersOrDestroy(TabContents* tab_contents, int index);
 
  private:
-  class TabContentsDelegateImpl;
+  class WebContentsDelegateImpl;
 
   // Invoked if the tab is to be shown. This happens if the before unload
   // listener returns a string.
-  void Activate(TabContentsDelegateImpl* delegate);
+  void Activate(WebContentsDelegateImpl* delegate);
 
   // Destroys the old tab. This is invoked if script tries to close the page.
-  void Destroy(TabContentsDelegateImpl* delegate);
+  void Destroy(WebContentsDelegateImpl* delegate);
 
-  // TODO(sky): browser really needs to wait to close until there are no more
+  // TODO(sky): Browser really needs to wait to close until there are no more
   // tabs managed by InstantUnloadHandler.
-  Browser* browser_;
+  Browser* const browser_;
 
-  ScopedVector<TabContentsDelegateImpl> delegates_;
+  ScopedVector<WebContentsDelegateImpl> delegates_;
 
   DISALLOW_COPY_AND_ASSIGN(InstantUnloadHandler);
 };

@@ -15,9 +15,12 @@
 #include "chrome/browser/notifications/desktop_notification_service.h"
 #include "chrome/browser/notifications/desktop_notification_service_factory.h"
 #include "chrome/browser/notifications/notification.h"
+#include "chrome/browser/notifications/notification_prefs_manager.h"
 #include "chrome/browser/notifications/notification_ui_manager.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/content_settings_types.h"
 #include "chrome/common/extensions/extension.h"
@@ -64,8 +67,10 @@ CornerSelectionMenuModel::~CornerSelectionMenuModel() {
 }
 
 bool CornerSelectionMenuModel::IsCommandIdChecked(int command_id) const {
-  NotificationUIManager* ui = g_browser_process->notification_ui_manager();
-  BalloonCollection::PositionPreference current = ui->GetPositionPreference();
+  NotificationPrefsManager* prefs =
+      g_browser_process->notification_ui_manager()->prefs_manager();
+  BalloonCollection::PositionPreference current =
+      prefs->GetPositionPreference();
 
   if (command_id == kCornerUpperLeft)
     return (current == BalloonCollection::UPPER_LEFT);
@@ -94,18 +99,19 @@ bool CornerSelectionMenuModel::GetAcceleratorForCommandId(
 }
 
 void CornerSelectionMenuModel::ExecuteCommand(int command_id) {
-  NotificationUIManager* ui = g_browser_process->notification_ui_manager();
+  NotificationPrefsManager* prefs =
+      g_browser_process->notification_ui_manager()->prefs_manager();
 
   if (command_id == kCornerUpperLeft)
-    ui->SetPositionPreference(BalloonCollection::UPPER_LEFT);
+    prefs->SetPositionPreference(BalloonCollection::UPPER_LEFT);
   else if (command_id == kCornerUpperRight)
-    ui->SetPositionPreference(BalloonCollection::UPPER_RIGHT);
+    prefs->SetPositionPreference(BalloonCollection::UPPER_RIGHT);
   else if (command_id == kCornerLowerLeft)
-    ui->SetPositionPreference(BalloonCollection::LOWER_LEFT);
+    prefs->SetPositionPreference(BalloonCollection::LOWER_LEFT);
   else if (command_id == kCornerLowerRight)
-    ui->SetPositionPreference(BalloonCollection::LOWER_RIGHT);
+    prefs->SetPositionPreference(BalloonCollection::LOWER_RIGHT);
   else if (command_id == kCornerDefault)
-    ui->SetPositionPreference(BalloonCollection::DEFAULT_POSITION);
+    prefs->SetPositionPreference(BalloonCollection::DEFAULT_POSITION);
   else
     NOTREACHED();
 }
@@ -119,7 +125,7 @@ NotificationOptionsMenuModel::NotificationOptionsMenuModel(Balloon* balloon)
   if (origin.SchemeIs(chrome::kExtensionScheme)) {
     ExtensionService* extension_service =
         balloon_->profile()->GetExtensionService();
-    const Extension* extension =
+    const extensions::Extension* extension =
         extension_service->extensions()->GetExtensionOrAppByURL(
             ExtensionURLInfo(origin));
     // We get back no extension here when we show the notification after
@@ -171,7 +177,7 @@ string16 NotificationOptionsMenuModel::GetLabelForCommandId(int command_id)
     if (origin.SchemeIs(chrome::kExtensionScheme)) {
       ExtensionService* extension_service =
           balloon_->profile()->GetExtensionService();
-      const Extension* extension =
+      const extensions::Extension* extension =
           extension_service->extensions()->GetExtensionOrAppByURL(
               ExtensionURLInfo(origin));
       if (extension) {
@@ -229,13 +235,14 @@ void NotificationOptionsMenuModel::ExecuteCommand(int command_id) {
         service->GrantPermission(origin);
       break;
     case kToggleExtensionCommand: {
-      const Extension* extension =
+      const extensions::Extension* extension =
           extension_service->extensions()->GetExtensionOrAppByURL(
               ExtensionURLInfo(origin));
       if (extension) {
         const std::string& id = extension->id();
         if (extension_service->IsExtensionEnabled(id))
-          extension_service->DisableExtension(id);
+          extension_service->DisableExtension(
+              id, extensions::Extension::DISABLE_USER_ACTION);
         else
           extension_service->EnableExtension(id);
       }
@@ -243,13 +250,13 @@ void NotificationOptionsMenuModel::ExecuteCommand(int command_id) {
     }
     case kOpenContentSettingsCommand: {
       Browser* browser =
-          BrowserList::GetLastActiveWithProfile(balloon_->profile());
+          browser::FindLastActiveWithProfile(balloon_->profile());
       if (!browser) {
         // It is possible that there is no browser window (e.g. when there are
         // background pages, or for a chrome frame process on windows).
         browser = Browser::Create(balloon_->profile());
       }
-      browser->ShowContentSettingsPage(CONTENT_SETTINGS_TYPE_NOTIFICATIONS);
+      chrome::ShowContentSettings(browser, CONTENT_SETTINGS_TYPE_NOTIFICATIONS);
       break;
     }
     default:

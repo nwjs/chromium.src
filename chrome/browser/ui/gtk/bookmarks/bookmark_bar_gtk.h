@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_GTK_BOOKMARKS_BOOKMARK_BAR_GTK_H_
 #define CHROME_BROWSER_UI_GTK_BOOKMARKS_BOOKMARK_BAR_GTK_H_
-#pragma once
 
 #include <gtk/gtk.h>
 
@@ -34,7 +33,7 @@
 class BookmarkMenuController;
 class Browser;
 class BrowserWindowGtk;
-class ThemeServiceGtk;
+class GtkThemeService;
 class MenuGtk;
 class TabstripOriginProvider;
 
@@ -169,7 +168,7 @@ class BookmarkBarGtk : public ui::AnimationDelegate,
   void PaintEventBox();
 
   // Finds the size of the current tab contents, if it exists and sets |size|
-  // to the correct value. Returns false if there isn't a TabContents, a
+  // to the correct value. Returns false if there isn't a WebContents, a
   // condition that can happen during testing.
   bool GetTabContentsSize(gfx::Size* size);
 
@@ -361,7 +360,7 @@ class BookmarkBarGtk : public ui::AnimationDelegate,
   GtkToolItem* toolbar_drop_item_;
 
   // Theme provider for building buttons.
-  ThemeServiceGtk* theme_service_;
+  GtkThemeService* theme_service_;
 
   // Whether we should show the instructional text in the bookmark bar.
   bool show_instructions_;

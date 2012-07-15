@@ -11,10 +11,10 @@
 #include "grit/ui_resources.h"
 #include "ui/base/accessibility/accessible_view_state.h"
 #include "ui/base/keycodes/keyboard_codes.h"
+#include "ui/base/native_theme/native_theme.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/image/image.h"
-#include "ui/gfx/native_theme.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/views/background.h"
 #include "ui/views/border.h"
@@ -60,10 +60,10 @@ TreeView::TreeView()
   set_background(Background::CreateSolidBackground(SK_ColorWHITE));
   closed_icon_ = *ui::ResourceBundle::GetSharedInstance().GetImageNamed(
       (base::i18n::IsRTL() ? IDR_FOLDER_CLOSED_RTL
-                           : IDR_FOLDER_CLOSED)).ToSkBitmap();
+                           : IDR_FOLDER_CLOSED)).ToImageSkia();
   open_icon_ = *ui::ResourceBundle::GetSharedInstance().GetImageNamed(
       (base::i18n::IsRTL() ? IDR_FOLDER_OPEN_RTL
-                           : IDR_FOLDER_OPEN)).ToSkBitmap();
+                           : IDR_FOLDER_OPEN)).ToImageSkia();
   text_offset_ = closed_icon_.width() + kImagePadding + kImagePadding +
       kArrowRegionSize;
 }
@@ -81,8 +81,8 @@ View* TreeView::CreateParentIfNecessary() {
   ScrollView* scroll_view = new ScrollView;
   scroll_view->SetContents(this);
   scroll_view->set_border(Border::CreateSolidBorder(
-      1, gfx::NativeTheme::instance()->GetSystemColor(
-          gfx::NativeTheme::kColorId_UnfocusedBorderColor)));
+      1, ui::NativeTheme::instance()->GetSystemColor(
+          ui::NativeTheme::kColorId_UnfocusedBorderColor)));
   return scroll_view;
 }
 
@@ -143,7 +143,7 @@ void TreeView::StartEditing(TreeModelNode* node) {
   LayoutEditor();
   SchedulePaintForNode(selected_node_);
   editor_->RequestFocus();
-  editor_->SelectAll();
+  editor_->SelectAll(false);
 
   // Listen for focus changes so that we can cancel editing.
   focus_manager_ = GetFocusManager();
@@ -391,7 +391,7 @@ void TreeView::TreeNodesRemoved(TreeModel* model,
   }
   if (reset_selection) {
     // selected_node_ is no longer valid (at the time we enter this function
-    // it's model_node() is likely deleted). Explicitly NULL out the field
+    // its model_node() is likely deleted). Explicitly NULL out the field
     // rather than invoking SetSelectedNode() otherwise, we'll try and use a
     // deleted value.
     selected_node_ = NULL;
@@ -639,7 +639,7 @@ void TreeView::PaintRow(gfx::Canvas* canvas,
     PaintExpandControl(canvas, bounds, node->is_expanded());
 
   // Paint the icon.
-  SkBitmap icon;
+  gfx::ImageSkia icon;
   int icon_index = model_->GetIconIndex(node->model_node());
   if (icon_index != -1)
     icon = icons_[icon_index];
@@ -653,7 +653,7 @@ void TreeView::PaintRow(gfx::Canvas* canvas,
     icon_x = bounds.right() - icon_x - open_icon_.width();
   else
     icon_x += bounds.x();
-  canvas->DrawBitmapInt(
+  canvas->DrawImageInt(
       icon, icon_x,
       bounds.y() + (bounds.height() - icon.height()) / 2);
 

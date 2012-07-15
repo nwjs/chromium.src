@@ -8,11 +8,14 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/signin/signin_manager.h"
+#include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/browser/sync/profile_sync_service_mock.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/webui/signin/login_ui_service.h"
+#include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
 #include "chrome/test/base/browser_with_test_window_test.h"
 #include "chrome/test/base/testing_profile.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "testing/gmock/include/gmock/gmock-actions.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -33,6 +36,16 @@ class BrowserMock: public Browser {
                void(int command_id, WindowOpenDisposition));
 };
 
+class LoginUIServiceMock: public LoginUIService {
+ public:
+  explicit LoginUIServiceMock() : LoginUIService() {}
+  MOCK_METHOD1(ShowLoginUI, void(Browser*));
+};
+
+ProfileKeyedService* BuildMockLoginUIService(Profile* profile) {
+  return new LoginUIServiceMock();
+}
+
 // Same as BrowserWithTestWindowTest, but uses MockBrowser to test calls to
 // ExecuteCommand method.
 class SyncGlobalErrorTest : public BrowserWithTestWindowTest {
@@ -49,6 +62,10 @@ class SyncGlobalErrorTest : public BrowserWithTestWindowTest {
     browser()->SetWindowForTesting(window());
   }
 
+  virtual void TearDown() OVERRIDE {
+    testing::Test::TearDown();
+  }
+
  private:
   DISALLOW_COPY_AND_ASSIGN(SyncGlobalErrorTest);
 };
@@ -56,6 +73,7 @@ class SyncGlobalErrorTest : public BrowserWithTestWindowTest {
 // Utility function to test that SyncGlobalError behaves correct for the given
 // error condition.
 void VerifySyncGlobalErrorResult(NiceMock<ProfileSyncServiceMock>* service,
+                                 LoginUIServiceMock* login_ui_service,
                                  Browser* browser,
                                  SyncGlobalError* error,
                                  GoogleServiceAuthError::State error_state,
@@ -87,6 +105,13 @@ void VerifySyncGlobalErrorResult(NiceMock<ProfileSyncServiceMock>* service,
   EXPECT_FALSE(error->GetBubbleViewTitle().empty());
 
 #if defined(OS_CHROMEOS)
+  // TODO(altimofeev): Implement this in a way that doesn't involve subclassing
+  //                   Browser or using GMock on browser/ui types which is
+  //                   banned. Consider observing NOTIFICATION_APP_TERMINATING
+  //                   instead.
+  //                   http://crbug.com/134675
+#else
+#if defined(OS_CHROMEOS)
   if (error_state != GoogleServiceAuthError::NONE) {
     // In CrOS sign-in/sign-out is made to fix the error.
     EXPECT_CALL(*static_cast<BrowserMock*>(browser),
@@ -96,12 +121,13 @@ void VerifySyncGlobalErrorResult(NiceMock<ProfileSyncServiceMock>* service,
 #else
   // Test message handler.
   if (is_error) {
-    EXPECT_CALL(*service, ShowErrorUI());
+    EXPECT_CALL(*login_ui_service, ShowLoginUI(browser));
     error->ExecuteMenuItem(browser);
-    EXPECT_CALL(*service, ShowErrorUI());
+    EXPECT_CALL(*login_ui_service, ShowLoginUI(browser));
     error->BubbleViewAcceptButtonPressed(browser);
     error->BubbleViewDidClose(browser);
   }
+#endif
 #endif
 }
 
@@ -112,14 +138,23 @@ TEST_F(SyncGlobalErrorTest, PassphraseGlobalError) {
   scoped_ptr<Profile> profile(
       ProfileSyncServiceMock::MakeSignedInTestingProfile());
   NiceMock<ProfileSyncServiceMock> service(profile.get());
-  SyncGlobalError error(&service);
+  SigninManager* signin = SigninManagerFactory::GetForProfile(profile.get());
+  LoginUIServiceMock* login_ui_service = static_cast<LoginUIServiceMock*>(
+      LoginUIServiceFactory::GetInstance()->SetTestingFactoryAndUse(
+          profile.get(), BuildMockLoginUIService));
+  SyncGlobalError error(&service, signin);
+
+  browser_sync::SyncBackendHost::Status status;
+  EXPECT_CALL(service, QueryDetailedSyncStatus())
+              .WillRepeatedly(Return(status));
 
   EXPECT_CALL(service, IsPassphraseRequired())
               .WillRepeatedly(Return(true));
   EXPECT_CALL(service, IsPassphraseRequiredForDecryption())
               .WillRepeatedly(Return(true));
   VerifySyncGlobalErrorResult(
-      &service, browser(), &error, GoogleServiceAuthError::NONE, true, true);
+      &service, login_ui_service, browser(), &error,
+      GoogleServiceAuthError::NONE, true, true);
 }
 
 // Test that SyncGlobalError shows an error for conditions that can be resolved
@@ -129,7 +164,11 @@ TEST_F(SyncGlobalErrorTest, AuthStateGlobalError) {
   scoped_ptr<Profile> profile(
       ProfileSyncServiceMock::MakeSignedInTestingProfile());
   NiceMock<ProfileSyncServiceMock> service(profile.get());
-  SyncGlobalError error(&service);
+  SigninManager* signin = SigninManagerFactory::GetForProfile(profile.get());
+  LoginUIServiceMock* login_ui_service = static_cast<LoginUIServiceMock*>(
+      LoginUIServiceFactory::GetInstance()->SetTestingFactoryAndUse(
+          profile.get(), BuildMockLoginUIService));
+  SyncGlobalError error(&service, signin);
 
   browser_sync::SyncBackendHost::Status status;
   EXPECT_CALL(service, QueryDetailedSyncStatus())
@@ -153,9 +192,9 @@ TEST_F(SyncGlobalErrorTest, AuthStateGlobalError) {
   };
 
   for (size_t i = 0; i < sizeof(table)/sizeof(*table); ++i) {
-    VerifySyncGlobalErrorResult(&service, browser(), &error,
+    VerifySyncGlobalErrorResult(&service, login_ui_service, browser(), &error,
                                 table[i].error_state, true, table[i].is_error);
-    VerifySyncGlobalErrorResult(&service, browser(), &error,
+    VerifySyncGlobalErrorResult(&service, login_ui_service, browser(), &error,
                                 table[i].error_state, false, false);
   }
 }

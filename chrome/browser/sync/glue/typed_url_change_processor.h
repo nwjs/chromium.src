@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SYNC_GLUE_TYPED_URL_CHANGE_PROCESSOR_H_
 #define CHROME_BROWSER_SYNC_GLUE_TYPED_URL_CHANGE_PROCESSOR_H_
-#pragma once
 
 #include "chrome/browser/sync/glue/change_processor.h"
 
@@ -39,7 +38,7 @@ namespace browser_sync {
 class DataTypeErrorHandler;
 
 // This class is responsible for taking changes from the history backend and
-// applying them to the sync_api 'syncable' model, and vice versa. All
+// applying them to the sync API 'syncable' model, and vice versa. All
 // operations and use of this class are from the UI thread.
 class TypedUrlChangeProcessor : public ChangeProcessor,
                                 public content::NotificationObserver {
@@ -51,15 +50,15 @@ class TypedUrlChangeProcessor : public ChangeProcessor,
   virtual ~TypedUrlChangeProcessor();
 
   // content::NotificationObserver implementation.
-  // History -> sync_api model change application.
+  // History -> sync API change application.
   virtual void Observe(int type,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
-  // sync_api model -> WebDataService change application.
+  // sync API model -> WebDataService change application.
   virtual void ApplyChangesFromSyncModel(
-      const sync_api::BaseTransaction* trans,
-      const sync_api::ImmutableChangeRecordList& changes) OVERRIDE;
+      const syncer::BaseTransaction* trans,
+      const syncer::ImmutableChangeRecordList& changes) OVERRIDE;
 
   // Commit changes here, after we've released the transaction lock to avoid
   // jank.
@@ -88,7 +87,7 @@ class TypedUrlChangeProcessor : public ChangeProcessor,
   // new one for the passed |typed_url| if one does not already exist. Returns
   // false and sets an unrecoverable error if the operation failed.
   bool CreateOrUpdateSyncNode(history::URLRow typed_url,
-                              sync_api::WriteTransaction* transaction);
+                              syncer::WriteTransaction* transaction);
 
   // The profile with which we are associated.
   Profile* profile_;

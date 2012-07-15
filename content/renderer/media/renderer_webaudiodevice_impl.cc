@@ -4,14 +4,20 @@
 
 #include "content/renderer/media/renderer_webaudiodevice_impl.h"
 
+#include "base/logging.h"
+#include "content/renderer/media/audio_device_factory.h"
+
+using content::AudioDeviceFactory;
 using WebKit::WebAudioDevice;
 using WebKit::WebVector;
 
 RendererWebAudioDeviceImpl::RendererWebAudioDeviceImpl(
-    const AudioParameters& params, WebAudioDevice::RenderCallback* callback)
+    const media::AudioParameters& params,
+    WebAudioDevice::RenderCallback* callback)
     : is_running_(false),
       client_callback_(callback) {
-  audio_device_ = new AudioDevice(params, this);
+  audio_device_ = AudioDeviceFactory::Create();
+  audio_device_->Initialize(params, this);
 }
 
 RendererWebAudioDeviceImpl::~RendererWebAudioDeviceImpl() {
@@ -36,9 +42,9 @@ double RendererWebAudioDeviceImpl::sampleRate() {
   return 44100.0;
 }
 
-size_t RendererWebAudioDeviceImpl::Render(const std::vector<float*>& audio_data,
-                                          size_t number_of_frames,
-                                          size_t audio_delay_milliseconds) {
+int RendererWebAudioDeviceImpl::Render(const std::vector<float*>& audio_data,
+                                       int number_of_frames,
+                                       int audio_delay_milliseconds) {
   // Make the client callback to get rendered audio.
   DCHECK(client_callback_);
   if (client_callback_) {

@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "net/base/ip_endpoint.h"
 #include "net/base/net_errors.h"
-#include "net/base/sys_addrinfo.h"
 #include "net/curvecp/curvecp_client_socket.h"
 #include "net/curvecp/messenger.h"
 
@@ -42,22 +41,12 @@ bool CurveCPClientSocket::IsConnectedAndIdle() const {
   return false;
 }
 
-int CurveCPClientSocket::GetPeerAddress(AddressList* address) const {
+int CurveCPClientSocket::GetPeerAddress(IPEndPoint* address) const {
   IPEndPoint endpoint;
   int rv = packetizer_.GetPeerAddress(&endpoint);
   if (rv < 0)
     return rv;
-  struct sockaddr_storage sockaddr;
-  size_t sockaddr_length = sizeof(sockaddr);
-  bool success = endpoint.ToSockAddr(
-      reinterpret_cast<struct sockaddr*>(&sockaddr), &sockaddr_length);
-  if (!success)
-    return ERR_FAILED;
-  struct addrinfo ai;
-  memset(&ai, 0, sizeof(ai));
-  memcpy(&ai.ai_addr, &sockaddr, sockaddr_length);
-  ai.ai_addrlen = sockaddr_length;
-  *address = AddressList::CreateByCopying(&ai);
+  *address = endpoint;
   return OK;
 }
 
@@ -94,6 +83,10 @@ int64 CurveCPClientSocket::NumBytesRead() const {
 
 base::TimeDelta CurveCPClientSocket::GetConnectTimeMicros() const {
   return base::TimeDelta::FromMicroseconds(-1);
+}
+
+NextProto CurveCPClientSocket::GetNegotiatedProtocol() const {
+  return kProtoUnknown;
 }
 
 int CurveCPClientSocket::Read(IOBuffer* buf,

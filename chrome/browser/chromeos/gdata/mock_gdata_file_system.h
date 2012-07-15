@@ -4,9 +4,10 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_GDATA_MOCK_GDATA_FILE_SYSTEM_H_
 #define CHROME_BROWSER_CHROMEOS_GDATA_MOCK_GDATA_FILE_SYSTEM_H_
-#pragma once
 
-#include "chrome/browser/chromeos/gdata/gdata_file_system.h"
+#include <string>
+
+#include "chrome/browser/chromeos/gdata/gdata_file_system_interface.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
 namespace gdata {
@@ -21,15 +22,26 @@ class MockGDataFileSystem : public GDataFileSystemInterface {
   MOCK_METHOD0(Initialize, void());
   MOCK_METHOD1(AddObserver, void(Observer* observer));
   MOCK_METHOD1(RemoveObserver, void(Observer* observer));
-  MOCK_METHOD1(Authenticate, void(const AuthStatusCallback& callback));
-  MOCK_METHOD2(FindFileByPathAsync,
-               void(const FilePath& file_path,
-                    const FindFileCallback& callback));
-  MOCK_METHOD2(FindFileByPathSync, void(const FilePath& file_path,
-                                        FindFileDelegate* delegate));
-  MOCK_METHOD3(TransferFile, void(const FilePath& local_file_path,
-                                  const FilePath& remote_dest_file_path,
-                                  const FileOperationCallback& callback));
+  MOCK_METHOD0(StartUpdates, void());
+  MOCK_METHOD0(StopUpdates, void());
+  MOCK_METHOD0(CheckForUpdates, void());
+  MOCK_METHOD2(GetFileInfoByResourceId,
+               void(const std::string& resource_id,
+                    const GetFileInfoWithFilePathCallback& callback));
+  MOCK_METHOD2(Search, void(const std::string& search_query,
+                            const SearchCallback& callback));
+  MOCK_METHOD3(TransferFileFromRemoteToLocal,
+               void(const FilePath& local_src_file_path,
+                    const FilePath& remote_dest_file_path,
+                    const FileOperationCallback& callback));
+  MOCK_METHOD3(TransferFileFromLocalToRemote,
+               void(const FilePath& local_src_file_path,
+                    const FilePath& remote_dest_file_path,
+                    const FileOperationCallback& callback));
+  MOCK_METHOD2(OpenFile, void(const FilePath& file_path,
+                              const OpenFileCallback& callback));
+  MOCK_METHOD2(CloseFile, void(const FilePath& file_path,
+                              const FileOperationCallback& callback));
   MOCK_METHOD3(Copy, void(const FilePath& src_file_path,
                           const FilePath& dest_file_path,
                           const FileOperationCallback& callback));
@@ -44,45 +56,39 @@ class MockGDataFileSystem : public GDataFileSystemInterface {
                     bool is_exclusive,
                     bool is_recursive,
                     const FileOperationCallback& callback));
-  MOCK_METHOD2(GetFile, void(const FilePath& file_path,
-                             const GetFileCallback& callback));
-  MOCK_METHOD2(GetFileForResourceId,
+  MOCK_METHOD3(CreateFile,
+               void(const FilePath& file_path,
+                    bool is_exclusive,
+                    const FileOperationCallback& callback));
+  MOCK_METHOD3(GetFileByPath,
+               void(const FilePath& file_path,
+                    const GetFileCallback& get_file_callback,
+                    const GetDownloadDataCallback& get_download_data_callback));
+  MOCK_METHOD3(GetFileByResourceId,
                void(const std::string& resource_id,
-                    const GetFileCallback& callback));
-  MOCK_METHOD2(GetFromCacheForPath,
-               void(const FilePath& gdata_file_path,
-                    const GetFromCacheCallback& callback));
-  MOCK_METHOD0(GetProgressStatusList,
-               std::vector<GDataOperationRegistry::ProgressStatus>());
-  MOCK_METHOD1(CancelOperation, bool(const FilePath& file_path));
-  MOCK_METHOD1(AddOperationObserver,
-               void(GDataOperationRegistry::Observer* observer));
-  MOCK_METHOD1(RemoveOperationObserver,
-               void(GDataOperationRegistry::Observer* observer));
-  MOCK_METHOD3(GetCacheState, void(const std::string& resource_id,
-                                   const std::string& md5,
-                                   const GetCacheStateCallback& callback));
-  MOCK_METHOD2(GetFileInfoFromPath, bool(const FilePath& gdata_file_path,
-                                         GDataFileProperties* properties));
-  MOCK_CONST_METHOD0(GetGDataCacheTmpDirectory, FilePath());
-  MOCK_CONST_METHOD0(GetGDataTempDownloadFolderPath, FilePath());
-  MOCK_CONST_METHOD0(GetGDataTempDocumentFolderPath, FilePath());
-  MOCK_CONST_METHOD0(GetGDataCachePinnedDirectory, FilePath());
-  MOCK_CONST_METHOD0(GetGDataCachePersistentDirectory, FilePath());
-  MOCK_CONST_METHOD4(GetCacheFilePath, FilePath(
-      const std::string&,
-      const std::string&,
-      GDataRootDirectory::CacheSubDirectoryType,
-      CachedFileOrigin));
+                    const GetFileCallback& get_file_callback,
+                    const GetDownloadDataCallback& get_download_data_callback));
+  MOCK_METHOD2(UpdateFileByResourceId,
+               void(const std::string& resource_id,
+                    const FileOperationCallback& callback));
+  MOCK_METHOD2(GetFileInfoByPath, void(const FilePath& file_path,
+                                       const GetFileInfoCallback& callback));
+  MOCK_METHOD2(GetEntryInfoByPath, void(const FilePath& file_path,
+                                        const GetEntryInfoCallback& callback));
+  MOCK_METHOD2(ReadDirectoryByPath,
+               void(const FilePath& file_path,
+                    const ReadDirectoryCallback& callback));
+  MOCK_METHOD1(RequestDirectoryRefresh,
+               void(const FilePath& file_path));
   MOCK_METHOD1(GetAvailableSpace,
                void(const GetAvailableSpaceCallback& callback));
-  MOCK_METHOD3(SetPinState, void(const FilePath&,
-                                 bool,
-                                 const FileOperationCallback& callback));
-  MOCK_METHOD4(AddUploadedFile, void(const FilePath& file,
-                                     DocumentEntry* entry,
-                                     const FilePath& file_content_path,
-                                     FileOperationType cache_operation));
+  // This function is not mockable by gmock because scoped_ptr is not supported.
+  virtual void AddUploadedFile(UploadMode upload_mode,
+                               const FilePath& file,
+                               scoped_ptr<DocumentEntry> entry,
+                               const FilePath& file_content_path,
+                               GDataCache::FileOperationType cache_operation,
+                               const base::Closure& callback) OVERRIDE {}
 };
 
 }  // namespace gdata

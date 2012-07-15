@@ -16,7 +16,7 @@ cr.define('options', function() {
    */
   function AutofillEditAddressOverlay() {
     OptionsPage.call(this, 'autofillEditAddress',
-                     templateData.autofillEditAddressTitle,
+                     loadTimeData.getString('autofillEditAddressTitle'),
                      'autofill-edit-address-overlay');
   }
 
@@ -37,10 +37,30 @@ cr.define('options', function() {
       $('autofill-edit-address-cancel-button').onclick = function(event) {
         self.dismissOverlay_();
       };
+
+      // TODO(jhawkins): Investigate other possible solutions.
       $('autofill-edit-address-apply-button').onclick = function(event) {
-        self.saveAddress_();
-        self.dismissOverlay_();
+        // Blur active element to ensure that pending changes are committed.
+        if (document.activeElement)
+          document.activeElement.blur();
+        // Blurring is delayed for list elements.  Queue save and close to
+        // ensure that pending changes have been applied.
+        setTimeout(function() {
+          self.saveAddress_();
+          self.dismissOverlay_();
+        }, 0);
       };
+
+      // Prevent 'blur' events on the OK and cancel buttons, which can trigger
+      // insertion of new placeholder elements.  The addition of placeholders
+      // affects layout, which interferes with being able to click on the
+      // buttons.
+      $('autofill-edit-address-apply-button').onmousedown = function(event) {
+        event.preventDefault();
+      };
+      $('autofill-edit-address-cancel-button').onmousedown = function(event) {
+        event.preventDefault();
+      }
 
       self.guid = '';
       self.populateCountryList_();
@@ -189,11 +209,10 @@ cr.define('options', function() {
      * @private
      */
     countryChanged_: function() {
-      var countryCode = $('country').value;
-      if (!countryCode)
-        countryCode = templateData.defaultCountryCode;
+      var countryCode = $('country').value ||
+          loadTimeData.getString('defaultCountryCode');
 
-      var details = templateData.autofillCountryData[countryCode];
+      var details = loadTimeData.getValue('autofillCountryData')[countryCode];
       var postal = $('postal-code-label');
       postal.textContent = details['postalCodeLabel'];
       $('state-label').textContent = details['stateLabel'];
@@ -207,8 +226,8 @@ cr.define('options', function() {
      * @private
      */
     populateCountryList_: function() {
-      var countryData = templateData.autofillCountryData;
-      var defaultCountryCode = templateData.defaultCountryCode;
+      var countryData = loadTimeData.getValue('autofillCountryData');
+      var defaultCountryCode = loadTimeData.getString('defaultCountryCode');
 
       // Build an array of the country names and their corresponding country
       // codes, so that we can sort and insert them in order.

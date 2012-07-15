@@ -12,7 +12,7 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browsing_data_file_system_helper.h"
 #include "chrome/test/base/testing_profile.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "webkit/fileapi/file_system_context.h"
 #include "webkit/fileapi/file_system_types.h"
 #include "webkit/fileapi/file_system_usage_cache.h"
@@ -33,9 +33,15 @@ const char kTestOrigin1[] = "http://host1:1/";
 const char kTestOrigin2[] = "http://host2:2/";
 const char kTestOrigin3[] = "http://host3:3/";
 
+// Extensions and Devtools should be ignored.
+const char kTestOriginExt[] = "chrome-extension://abcdefghijklmnopqrstuvwxyz/";
+const char kTestOriginDevTools[] = "chrome-devtools://abcdefghijklmnopqrstuvw/";
+
 const GURL kOrigin1(kTestOrigin1);
 const GURL kOrigin2(kTestOrigin2);
 const GURL kOrigin3(kTestOrigin3);
+const GURL kOriginExt(kTestOriginExt);
+const GURL kOriginDevTools(kTestOriginDevTools);
 
 // TODO(mkwst): Update this size once the discussion in http://crbug.com/86114
 // is concluded.
@@ -64,6 +70,7 @@ class BrowsingDataFileSystemHelperTest : public testing::Test {
         io_thread_(BrowserThread::IO, &message_loop_) {
     profile_.reset(new TestingProfile());
     helper_ = BrowsingDataFileSystemHelper::Create(profile_.get());
+    message_loop_.RunAllPending();
     canned_helper_ = new CannedBrowsingDataFileSystemHelper(profile_.get());
   }
   virtual ~BrowsingDataFileSystemHelperTest() {
@@ -296,6 +303,16 @@ TEST_F(BrowsingDataFileSystemHelperTest, CannedAddFileSystem) {
   EXPECT_TRUE(info->has_temporary);
   EXPECT_EQ(0, info->usage_persistent);
   EXPECT_EQ(100, info->usage_temporary);
+}
+
+// Verifies that the CannedBrowsingDataFileSystemHelper correctly ignores
+// extension and devtools schemes.
+TEST_F(BrowsingDataFileSystemHelperTest, IgnoreExtensionsAndDevTools) {
+  ASSERT_TRUE(canned_helper_->empty());
+  canned_helper_->AddFileSystem(kOriginExt, kTemporary, 0);
+  ASSERT_TRUE(canned_helper_->empty());
+  canned_helper_->AddFileSystem(kOriginDevTools, kTemporary, 0);
+  ASSERT_TRUE(canned_helper_->empty());
 }
 
 }  // namespace

@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,6 +12,7 @@
 #include "chrome/browser/chromeos/login/help_app_launcher.h"
 #include "chrome/browser/chromeos/login/login_utils.h"
 #include "chrome/browser/chromeos/login/screen_observer.h"
+#include "chrome/browser/chromeos/login/wizard_controller.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
@@ -58,6 +59,10 @@ void NetworkScreen::Show() {
 
 void NetworkScreen::Hide() {
   actor_->Hide();
+}
+
+std::string NetworkScreen::GetName() const {
+  return WizardController::kNetworkScreenName;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -124,7 +129,7 @@ void NetworkScreen::OnConnectionTimeout() {
     actor_->ShowError(
         l10n_util::GetStringFUTF16(
             IDS_NETWORK_SELECTION_ERROR,
-            l10n_util::GetStringUTF16(IDS_PRODUCT_OS_NAME),
+            l10n_util::GetStringUTF16(IDS_SHORT_PRODUCT_OS_NAME),
             network_id_));
   }
 }

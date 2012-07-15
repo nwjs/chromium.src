@@ -1,10 +1,11 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "content/public/browser/download_manager_delegate.h"
 
 #include "content/public/browser/download_id.h"
+#include "content/public/browser/download_item.h"
 
 namespace content {
 
@@ -17,8 +18,8 @@ bool DownloadManagerDelegate::ShouldStartDownload(int32 download_id) {
 }
 
 FilePath DownloadManagerDelegate::GetIntermediatePath(
-    const FilePath& suggested_path) {
-  return suggested_path;
+    const DownloadItem& item) {
+  return item.GetTargetFilePath();
 }
 
 WebContents* DownloadManagerDelegate::
@@ -31,7 +32,9 @@ bool DownloadManagerDelegate::ShouldOpenFileBasedOnExtension(
   return false;
 }
 
-bool DownloadManagerDelegate::ShouldCompleteDownload(DownloadItem* item) {
+bool DownloadManagerDelegate::ShouldCompleteDownload(
+    DownloadItem* item,
+    const base::Closure& complete_callback) {
   return true;
 }
 
@@ -42,5 +45,7 @@ bool DownloadManagerDelegate::ShouldOpenDownload(DownloadItem* item) {
 bool DownloadManagerDelegate::GenerateFileHash() {
   return false;
 }
+
+DownloadManagerDelegate::~DownloadManagerDelegate() {}
 
 }  // namespace content

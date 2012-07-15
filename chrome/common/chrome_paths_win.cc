@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,19 +12,37 @@
 
 #include "base/file_path.h"
 #include "base/path_service.h"
+#include "base/win/metro.h"
 #include "base/win/scoped_co_mem.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/installer/util/browser_distribution.h"
+#include "content/public/common/content_switches.h"
 
 namespace chrome {
 
-bool GetDefaultUserDataDirectory(FilePath* result) {
+namespace {
+
+// Gets the default user data directory for either the current environment
+// (desktop or metro) or for the other one (metro or desktop).
+bool GetUserDataDirectoryForEnvironment(bool current, FilePath* result) {
   if (!PathService::Get(base::DIR_LOCAL_APP_DATA, result))
     return false;
   BrowserDistribution* dist = BrowserDistribution::GetDistribution();
   *result = result->Append(dist->GetInstallSubDir());
+  if (base::win::IsMetroProcess() ? current : !current)
+    *result = result->Append(kMetroChromeUserDataSubDir);
   *result = result->Append(chrome::kUserDataDirname);
   return true;
+}
+
+}  // namespace
+
+bool GetDefaultUserDataDirectory(FilePath* result) {
+  return GetUserDataDirectoryForEnvironment(true, result);
+}
+
+bool GetAlternateUserDataDirectory(FilePath *result) {
+  return GetUserDataDirectoryForEnvironment(false, result);
 }
 
 bool GetChromeFrameUserDataDirectory(FilePath* result) {
@@ -79,6 +97,16 @@ bool GetUserDownloadsDirectory(FilePath* result) {
   return GetUserDownloadsDirectorySafe(result);
 }
 
+bool GetUserPicturesDirectory(FilePath* result) {
+  wchar_t path_buf[MAX_PATH];
+  if (FAILED(SHGetFolderPath(NULL, CSIDL_MYPICTURES, NULL,
+                             SHGFP_TYPE_CURRENT, path_buf))) {
+    return false;
+  }
+  *result = FilePath(path_buf);
+  return true;
+}
+
 bool GetUserDesktop(FilePath* result) {
   // We need to go compute the value. It would be nice to support paths
   // with names longer than MAX_PATH, but the system functions don't seem
@@ -88,10 +116,26 @@ bool GetUserDesktop(FilePath* result) {
   wchar_t system_buffer[MAX_PATH];
   system_buffer[0] = 0;
   if (FAILED(SHGetFolderPath(NULL, CSIDL_DESKTOPDIRECTORY, NULL,
-                             SHGFP_TYPE_CURRENT, system_buffer)))
+                             SHGFP_TYPE_CURRENT, system_buffer))) {
     return false;
+  }
   *result = FilePath(system_buffer);
   return true;
+}
+
+bool ProcessNeedsProfileDir(const std::string& process_type) {
+  // On windows we don't want subprocesses other than the browser process and
+  // service processes to be able to use the profile directory because if it
+  // lies on a network share the sandbox will prevent us from accessing it.
+  // TODO(pastarmovj): For now gpu and plugin broker processes are whitelisted
+  // too because they do use the profile dir in some way but this must be
+  // investigated and fixed if possible.
+  return process_type.empty() ||
+         process_type == switches::kServiceProcess ||
+         process_type == switches::kGpuProcess ||
+         process_type == switches::kNaClBrokerProcess ||
+         process_type == switches::kNaClLoaderProcess ||
+         process_type == switches::kPpapiBrokerProcess;
 }
 
 }  // namespace chrome

@@ -4,7 +4,6 @@
 
 #ifndef SQL_STATEMENT_H_
 #define SQL_STATEMENT_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -87,9 +86,9 @@ class SQL_EXPORT Statement {
   //   return s.Succeeded();
   bool Step();
 
-  // Resets the statement to its initial condition. This includes clearing all
-  // the bound variables and any current result row.
-  void Reset();
+  // Resets the statement to its initial condition. This includes any current
+  // result row, and also the bound variables if the |clear_bound_vars| is true.
+  void Reset(bool clear_bound_vars);
 
   // Returns true if the last executed thing in this statement succeeded. If
   // there was no last executed thing or the statement is invalid, this will

@@ -4,50 +4,27 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_INSTALL_DIALOG_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_INSTALL_DIALOG_H_
-#pragma once
 
 #include <vector>
 
 #include "base/memory/ref_counted.h"
 #include "base/string16.h"
-#include "chrome/browser/extensions/extension_install_ui.h"
-
-class Extension;
-class Profile;
-class SkBitmap;
+#include "chrome/browser/extensions/extension_install_prompt.h"
 
 namespace base {
 class DictionaryValue;
 }
 
-void ShowExtensionInstallDialog(Profile* profile,
-                                ExtensionInstallUI::Delegate* delegate,
-                                const ExtensionInstallUI::Prompt& prompt);
+void ShowExtensionInstallDialog(gfx::NativeWindow parent,
+                                content::PageNavigator* navigator,
+                                ExtensionInstallPrompt::Delegate* delegate,
+                                const ExtensionInstallPrompt::Prompt& prompt);
 
 // The implementations of this function are platform-specific.
-void ShowExtensionInstallDialogImpl(Profile* profile,
-                                    ExtensionInstallUI::Delegate* delegate,
-                                    const ExtensionInstallUI::Prompt& prompt);
-
-// Wrapper around ShowExtensionInstallDialog that shows the install dialog for
-// a given manifest (that corresponds to an extension about to be installed with
-// ID |id|). If the name or description in the manifest is a localized
-// placeholder, it may be overidden with |localized_name| or
-// |localized_description| (which may be empty). The Extension instance
-// that's parsed is returned via |dummy_extension|. |prompt| should be fully
-// populated except for the permissions field, which will be extracted from the
-// extension.
-// Returns true if |dummy_extension| is valid and delegate methods will be
-// called.
-bool ShowExtensionInstallDialogForManifest(
-    Profile *profile,
-    ExtensionInstallUI::Delegate* delegate,
-    const base::DictionaryValue* manifest,
-    const std::string& id,
-    const std::string& localized_name,
-    const std::string& localized_description,
-    SkBitmap* icon,
-    const ExtensionInstallUI::Prompt& prompt,
-    scoped_refptr<Extension>* dummy_extension);
+void ShowExtensionInstallDialogImpl(
+    gfx::NativeWindow parent,
+    content::PageNavigator* navigator,
+    ExtensionInstallPrompt::Delegate* delegate,
+    const ExtensionInstallPrompt::Prompt& prompt);
 
 #endif  // CHROME_BROWSER_EXTENSIONS_EXTENSION_INSTALL_DIALOG_H_

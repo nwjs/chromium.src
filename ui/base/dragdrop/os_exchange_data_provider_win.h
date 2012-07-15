@@ -4,11 +4,18 @@
 
 #ifndef UI_BASE_DRAGDROP_OS_EXCHANGE_DATA_PROVIDER_WIN_H_
 #define UI_BASE_DRAGDROP_OS_EXCHANGE_DATA_PROVIDER_WIN_H_
-#pragma once
 
 #include <objidl.h>
 #include <shlobj.h>
 #include <string>
+
+// Win8 SDK compatibility, see http://goo.gl/fufvl for more information.
+// "Note: This interface has been renamed IDataObjectAsyncCapability."
+// If we're building on pre-8 we define it to its old name. It's documented as
+// being binary compatible.
+#ifndef __IDataObjectAsyncCapability_FWD_DEFINED__
+#define IDataObjectAsyncCapability IAsyncOperation
+#endif
 
 #include "base/win/scoped_comptr.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
@@ -18,7 +25,7 @@ namespace ui {
 
 class DataObjectImpl : public DownloadFileObserver,
                        public IDataObject,
-                       public IAsyncOperation {
+                       public IDataObjectAsyncCapability {
  public:
   class Observer {
    public:
@@ -55,7 +62,7 @@ class DataObjectImpl : public DownloadFileObserver,
   HRESULT __stdcall DUnadvise(DWORD connection);
   HRESULT __stdcall EnumDAdvise(IEnumSTATDATA** enumerator);
 
-  // IAsyncOperation implementation:
+  // IDataObjectAsyncCapability implementation:
   HRESULT __stdcall EndOperation(
       HRESULT result, IBindCtx* reserved, DWORD effects);
   HRESULT __stdcall GetAsyncMode(BOOL* is_op_async);
@@ -138,7 +145,8 @@ class UI_EXPORT OSExchangeDataProviderWin : public OSExchangeData::Provider {
 
   static DataObjectImpl* GetDataObjectImpl(const OSExchangeData& data);
   static IDataObject* GetIDataObject(const OSExchangeData& data);
-  static IAsyncOperation* GetIAsyncOperation(const OSExchangeData& data);
+  static IDataObjectAsyncCapability* GetIAsyncOperation(
+      const OSExchangeData& data);
 
   explicit OSExchangeDataProviderWin(IDataObject* source);
   OSExchangeDataProviderWin();
@@ -146,13 +154,14 @@ class UI_EXPORT OSExchangeDataProviderWin : public OSExchangeData::Provider {
   virtual ~OSExchangeDataProviderWin();
 
   IDataObject* data_object() const { return data_.get(); }
-  IAsyncOperation* async_operation() const { return data_.get(); }
+  IDataObjectAsyncCapability* async_operation() const { return data_.get(); }
 
   // OSExchangeData::Provider methods.
   virtual void SetString(const string16& data);
   virtual void SetURL(const GURL& url, const string16& title);
   virtual void SetFilename(const FilePath& path);
-  virtual void SetFilenames(const std::vector<FilePath>& paths) {
+  virtual void SetFilenames(
+      const std::vector<OSExchangeData::FileInfo>& filenames) {
     NOTREACHED();
   }
   virtual void SetPickledData(OSExchangeData::CustomFormat format,
@@ -164,7 +173,8 @@ class UI_EXPORT OSExchangeDataProviderWin : public OSExchangeData::Provider {
   virtual bool GetString(string16* data) const;
   virtual bool GetURLAndTitle(GURL* url, string16* title) const;
   virtual bool GetFilename(FilePath* path) const;
-  virtual bool GetFilenames(std::vector<FilePath>* paths) const {
+  virtual bool GetFilenames(
+      std::vector<OSExchangeData::FileInfo>* filenames) const {
     NOTREACHED();
     return false;
   }

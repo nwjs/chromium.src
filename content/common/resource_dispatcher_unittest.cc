@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -20,6 +20,8 @@
 
 using webkit_glue::ResourceLoaderBridge;
 using webkit_glue::ResourceResponseInfo;
+
+namespace content {
 
 static const char test_page_url[] = "http://www.google.com/";
 static const char test_page_headers[] =
@@ -90,10 +92,9 @@ class TestRequestCallback : public ResourceLoaderBridge::Peer {
 
 
 // Sets up the message sender override for the unit test
-class ResourceDispatcherTest : public testing::Test,
-                               public IPC::Message::Sender {
+class ResourceDispatcherTest : public testing::Test, public IPC::Sender {
  public:
-  // Emulates IPC send operations (IPC::Message::Sender) by adding
+  // Emulates IPC send operations (IPC::Sender) by adding
   // pending messages to the queue.
   virtual bool Send(IPC::Message* msg) {
     message_queue_.push_back(IPC::Message(*msg));
@@ -114,7 +115,7 @@ class ResourceDispatcherTest : public testing::Test,
       EXPECT_EQ(test_page_url, request.url.spec());
 
       // received response message
-      content::ResourceResponseHead response;
+      ResourceResponseHead response;
       std::string raw_headers(test_page_headers);
       std::replace(raw_headers.begin(), raw_headers.end(), '\n', '\0');
       response.headers = new net::HttpResponseHeaders(raw_headers);
@@ -172,8 +173,9 @@ class ResourceDispatcherTest : public testing::Test,
     request_info.appcache_host_id = appcache::kNoHostId;
     request_info.routing_id = 0;
     RequestExtraData extra_data(WebKit::WebReferrerPolicyDefault,
-                                true, 0, false, -1,
-                                content::PAGE_TRANSITION_LINK, -1, -1);
+                                WebKit::WebString(),
+                                true, 0, false, -1, true,
+                                PAGE_TRANSITION_LINK, -1, -1);
     request_info.extra_data = &extra_data;
 
     return dispatcher_->CreateBridge(request_info);
@@ -242,7 +244,7 @@ class DeferredResourceLoadingTest : public ResourceDispatcherTest,
   void InitMessages() {
     set_defer_loading(true);
 
-    content::ResourceResponseHead response_head;
+    ResourceResponseHead response_head;
     response_head.status.set_status(net::URLRequestStatus::SUCCESS);
 
     IPC::Message* response_message =
@@ -340,3 +342,5 @@ TEST_F(DeferredResourceLoadingTest, DeferredLoadTest) {
   message_loop.RunAllPending();
   delete bridge;
 }
+
+}  // namespace content

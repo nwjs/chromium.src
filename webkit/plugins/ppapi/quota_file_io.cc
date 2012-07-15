@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,6 +7,7 @@
 #include <algorithm>
 
 #include "base/bind.h"
+#include "base/location.h"
 #include "base/memory/weak_ptr.h"
 #include "base/message_loop_proxy.h"
 #include "base/stl_util.h"
@@ -301,7 +302,7 @@ bool QuotaFileIO::RegisterOperationForQuotaChecks(
     // Query the current available space.
     ++outstanding_quota_queries_;
     plugin_delegate->QueryAvailableSpace(
-        GURL(file_url_.path()).GetOrigin(), storage_type_,
+        file_url_.GetOrigin(), storage_type_,
         base::Bind(&QuotaFileIO::DidQueryAvailableSpace,
                    weak_factory_.GetWeakPtr()));
   }

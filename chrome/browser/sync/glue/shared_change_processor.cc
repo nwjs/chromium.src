@@ -4,11 +4,11 @@
 
 #include "chrome/browser/sync/glue/shared_change_processor.h"
 
-#include "chrome/browser/sync/api/sync_change.h"
 #include "chrome/browser/sync/glue/generic_change_processor.h"
 #include "chrome/browser/sync/profile_sync_components_factory.h"
 #include "chrome/browser/sync/profile_sync_service.h"
 #include "content/public/browser/browser_thread.h"
+#include "sync/api/sync_change.h"
 
 using base::AutoLock;
 using content::BrowserThread;
@@ -17,16 +17,17 @@ namespace browser_sync {
 
 SharedChangeProcessor::SharedChangeProcessor()
     : disconnected_(false),
-      type_(syncable::UNSPECIFIED),
+      type_(syncer::UNSPECIFIED),
       sync_service_(NULL),
-      generic_change_processor_(NULL) {
+      generic_change_processor_(NULL),
+      error_handler_(NULL) {
   // We're always created on the UI thread.
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 }
 
 SharedChangeProcessor::~SharedChangeProcessor() {
   // We can either be deleted when the DTC is destroyed (on UI
-  // thread), or when the SyncableService stop's syncing (datatype
+  // thread), or when the syncer::SyncableService stop's syncing (datatype
   // thread).  |generic_change_processor_|, if non-NULL, must be
   // deleted on |backend_loop_|.
   if (BrowserThread::CurrentlyOn(BrowserThread::UI)) {
@@ -44,27 +45,28 @@ SharedChangeProcessor::~SharedChangeProcessor() {
   }
 }
 
-base::WeakPtr<SyncableService> SharedChangeProcessor::Connect(
+base::WeakPtr<syncer::SyncableService> SharedChangeProcessor::Connect(
     ProfileSyncComponentsFactory* sync_factory,
     ProfileSyncService* sync_service,
     DataTypeErrorHandler* error_handler,
-    syncable::ModelType type) {
+    syncer::ModelType type) {
   DCHECK(sync_factory);
   DCHECK(sync_service);
   DCHECK(error_handler);
-  DCHECK_NE(type, syncable::UNSPECIFIED);
+  DCHECK_NE(type, syncer::UNSPECIFIED);
   backend_loop_ = base::MessageLoopProxy::current();
   AutoLock lock(monitor_lock_);
   if (disconnected_)
-    return base::WeakPtr<SyncableService>();
+    return base::WeakPtr<syncer::SyncableService>();
   type_ = type;
   sync_service_ = sync_service;
-  base::WeakPtr<SyncableService> local_service =
+  error_handler_ = error_handler;
+  base::WeakPtr<syncer::SyncableService> local_service =
       sync_factory->GetSyncableServiceForType(type);
   if (!local_service.get()) {
     NOTREACHED() << "SyncableService destroyed before DTC was stopped.";
     disconnected_ = true;
-    return base::WeakPtr<SyncableService>();
+    return base::WeakPtr<syncer::SyncableService>();
   }
   generic_change_processor_ =
       sync_factory->CreateGenericChangeProcessor(sync_service_,
@@ -79,31 +81,33 @@ bool SharedChangeProcessor::Disconnect() {
   AutoLock lock(monitor_lock_);
   bool was_connected = !disconnected_;
   disconnected_ = true;
+  error_handler_ = NULL;
   return was_connected;
 }
 
-SyncError SharedChangeProcessor::GetSyncData(SyncDataList* current_sync_data) {
+syncer::SyncError SharedChangeProcessor::GetSyncData(
+    syncer::SyncDataList* current_sync_data) {
   DCHECK(backend_loop_.get());
   DCHECK(backend_loop_->BelongsToCurrentThread());
   AutoLock lock(monitor_lock_);
   if (disconnected_) {
-    SyncError error(FROM_HERE, "Change processor disconnected.", type_);
+    syncer::SyncError error(FROM_HERE, "Change processor disconnected.", type_);
     return error;
   }
   return generic_change_processor_->GetSyncDataForType(type_,
                                                        current_sync_data);
 }
 
-SyncError SharedChangeProcessor::ProcessSyncChanges(
+syncer::SyncError SharedChangeProcessor::ProcessSyncChanges(
     const tracked_objects::Location& from_here,
-    const SyncChangeList& list_of_changes) {
+    const syncer::SyncChangeList& list_of_changes) {
   DCHECK(backend_loop_.get());
   DCHECK(backend_loop_->BelongsToCurrentThread());
   AutoLock lock(monitor_lock_);
   if (disconnected_) {
     // The DTC that disconnects us must ensure it posts a StopSyncing task.
     // If we reach this, it means it just hasn't executed yet.
-    SyncError error(FROM_HERE, "Change processor disconnected.", type_);
+    syncer::SyncError error(FROM_HERE, "Change processor disconnected.", type_);
     return error;
   }
   return generic_change_processor_->ProcessSyncChanges(
@@ -134,7 +138,7 @@ bool SharedChangeProcessor::CryptoReadyIfNecessary() {
 }
 
 void SharedChangeProcessor::ActivateDataType(
-    browser_sync::ModelSafeGroup model_safe_group) {
+    syncer::ModelSafeGroup model_safe_group) {
   DCHECK(backend_loop_.get());
   DCHECK(backend_loop_->BelongsToCurrentThread());
   AutoLock lock(monitor_lock_);
@@ -145,6 +149,17 @@ void SharedChangeProcessor::ActivateDataType(
   sync_service_->ActivateDataType(type_,
                                   model_safe_group,
                                   generic_change_processor_);
+}
+
+syncer::SyncError SharedChangeProcessor::CreateAndUploadError(
+    const tracked_objects::Location& location,
+    const std::string& message) {
+  AutoLock lock(monitor_lock_);
+  if (!disconnected_) {
+    return error_handler_->CreateAndUploadError(location, message, type_);
+  } else {
+    return syncer::SyncError(location, message, type_);
+  }
 }
 
 }  // namespace browser_sync

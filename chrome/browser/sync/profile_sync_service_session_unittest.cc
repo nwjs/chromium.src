@@ -23,11 +23,6 @@
 #include "chrome/browser/sync/glue/session_data_type_controller.h"
 #include "chrome/browser/sync/glue/session_model_associator.h"
 #include "chrome/browser/sync/glue/sync_backend_host.h"
-#include "chrome/browser/sync/internal_api/change_record.h"
-#include "chrome/browser/sync/internal_api/read_node.h"
-#include "chrome/browser/sync/internal_api/read_transaction.h"
-#include "chrome/browser/sync/internal_api/write_node.h"
-#include "chrome/browser/sync/internal_api/write_transaction.h"
 #include "chrome/browser/sync/profile_sync_components_factory_mock.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/sync/profile_sync_test_util.h"
@@ -35,18 +30,21 @@
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/net/gaia/gaia_constants.h"
 #include "chrome/test/base/browser_with_test_window_test.h"
-#include "chrome/test/base/profile_mock.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_service.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "googleurl/src/gurl.h"
+#include "sync/internal_api/public/base/model_type.h"
+#include "sync/internal_api/public/change_record.h"
+#include "sync/internal_api/public/read_node.h"
+#include "sync/internal_api/public/read_transaction.h"
+#include "sync/internal_api/public/write_node.h"
+#include "sync/internal_api/public/write_transaction.h"
 #include "sync/protocol/session_specifics.pb.h"
 #include "sync/protocol/sync.pb.h"
-#include "sync/syncable/model_type.h"
-#include "sync/syncable/syncable.h"
 #include "sync/test/engine/test_id_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -57,10 +55,10 @@ using browser_sync::SessionDataTypeController;
 using browser_sync::SessionModelAssociator;
 using browser_sync::SyncBackendHost;
 using content::BrowserThread;
-using sync_api::ChangeRecord;
+using syncer::ChangeRecord;
 using testing::_;
 using testing::Return;
-using browser_sync::TestIdFactory;
+using syncer::TestIdFactory;
 
 namespace browser_sync {
 
@@ -98,11 +96,10 @@ void BuildTabSpecifics(const std::string& tag, int window_id, int tab_id,
   tab->set_pinned(true);
   tab->set_extension_app_id("app_id");
   sync_pb::TabNavigation* navigation = tab->add_navigation();
-  navigation->set_index(12);
   navigation->set_virtual_url("http://foo/1");
   navigation->set_referrer("referrer");
   navigation->set_title("title");
-  navigation->set_page_transition(sync_pb::TabNavigation_PageTransition_TYPED);
+  navigation->set_page_transition(sync_pb::SyncEnums_PageTransition_TYPED);
 }
 
 // Verifies number of windows, number of tabs, and basic fields.
@@ -141,7 +138,6 @@ void VerifySyncedSession(
       ASSERT_TRUE(tab->pinned);
       ASSERT_EQ("app_id", tab->extension_app_id);
       ASSERT_EQ(1U, tab->navigations.size());
-      ASSERT_EQ(12, tab->navigations[0].index());
       ASSERT_EQ(tab->navigations[0].virtual_url(), GURL("http://foo/1"));
       ASSERT_EQ(tab->navigations[0].referrer().url, GURL("referrer"));
       ASSERT_EQ(tab->navigations[0].title(), string16(ASCIIToUTF16("title")));
@@ -183,7 +179,7 @@ class ProfileSyncServiceSessionTest
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
     registrar_.Add(this, chrome::NOTIFICATION_FOREIGN_SESSION_UPDATED,
         content::NotificationService::AllSources());
-    registrar_.Add(this, chrome::NOTIFICATION_SYNC_REFRESH,
+    registrar_.Add(this, chrome::NOTIFICATION_SYNC_REFRESH_LOCAL,
         content::NotificationService::AllSources());
   }
 
@@ -194,7 +190,7 @@ class ProfileSyncServiceSessionTest
       case chrome::NOTIFICATION_FOREIGN_SESSION_UPDATED:
         notified_of_update_ = true;
         break;
-      case chrome::NOTIFICATION_SYNC_REFRESH:
+      case chrome::NOTIFICATION_SYNC_REFRESH_LOCAL:
         notified_of_refresh_ = true;
         break;
       default:
@@ -210,7 +206,7 @@ class ProfileSyncServiceSessionTest
     // We need to destroy the profile before shutting down the threads, because
     // some of the ref counted objects in the profile depend on their
     // destruction on the io thread.
-    DestroyBrowser();
+    DestroyBrowserAndProfile();
     set_profile(NULL);
 
     // Pump messages posted by the sync core thread (which may end up
@@ -292,7 +288,7 @@ class CreateRootHelper {
  private:
   void CreateRootCallback(ProfileSyncServiceSessionTest* test) {
     success_ = ProfileSyncServiceTestHelper::CreateRoot(
-        syncable::SESSIONS, test->sync_service()->GetUserShare(), test->ids());
+        syncer::SESSIONS, test->sync_service()->GetUserShare(), test->ids());
   }
 
   base::Closure callback_;
@@ -311,12 +307,13 @@ TEST_F(ProfileSyncServiceSessionTest, WriteSessionToNode) {
   ASSERT_TRUE(has_nodes);
   std::string machine_tag = model_associator_->GetCurrentMachineTag();
   int64 sync_id = model_associator_->GetSyncIdFromSessionTag(machine_tag);
-  ASSERT_NE(sync_api::kInvalidId, sync_id);
+  ASSERT_NE(syncer::kInvalidId, sync_id);
 
   // Check that we can get the correct session specifics back from the node.
-  sync_api::ReadTransaction trans(FROM_HERE, sync_service_->GetUserShare());
-  sync_api::ReadNode node(&trans);
-  ASSERT_TRUE(node.InitByClientTagLookup(syncable::SESSIONS, machine_tag));
+  syncer::ReadTransaction trans(FROM_HERE, sync_service_->GetUserShare());
+  syncer::ReadNode node(&trans);
+  ASSERT_EQ(syncer::BaseNode::INIT_OK,
+            node.InitByClientTagLookup(syncer::SESSIONS, machine_tag));
   const sync_pb::SessionSpecifics& specifics(node.GetSessionSpecifics());
   ASSERT_EQ(machine_tag, specifics.session_tag());
   ASSERT_TRUE(specifics.has_header());
@@ -328,13 +325,8 @@ TEST_F(ProfileSyncServiceSessionTest, WriteSessionToNode) {
 
 // Test that we can fill this machine's session, write it to a node,
 // and then retrieve it.
-#if defined(OS_WIN)
-// This test is failing on windows occasionally: http://crbug.com/81104
-#define MAYBE_WriteFilledSessionToNode DISABLED_WriteFilledSessionToNode
-#else
-#define MAYBE_WriteFilledSessionToNode WriteFilledSessionToNode
-#endif
-TEST_F(ProfileSyncServiceSessionTest, MAYBE_WriteFilledSessionToNode) {
+// Disabled because this test fails occasionally: http://crbug.com/81104
+TEST_F(ProfileSyncServiceSessionTest, DISABLED_WriteFilledSessionToNode) {
   CreateRootHelper create_root(this);
   ASSERT_TRUE(StartSyncService(create_root.callback(), false));
   ASSERT_TRUE(create_root.success());
@@ -352,7 +344,7 @@ TEST_F(ProfileSyncServiceSessionTest, MAYBE_WriteFilledSessionToNode) {
   ASSERT_TRUE(has_nodes);
   std::string machine_tag = model_associator_->GetCurrentMachineTag();
   int64 sync_id = model_associator_->GetSyncIdFromSessionTag(machine_tag);
-  ASSERT_NE(sync_api::kInvalidId, sync_id);
+  ASSERT_NE(syncer::kInvalidId, sync_id);
 
   // Check that this machine's data is not included in the foreign windows.
   std::vector<const SyncedSession*> foreign_sessions;
@@ -366,23 +358,23 @@ TEST_F(ProfileSyncServiceSessionTest, MAYBE_WriteFilledSessionToNode) {
   // Tabs are ordered by sessionid in tab_map, so should be able to traverse
   // the tree based on order of tabs created
   SessionModelAssociator::TabLinksMap::iterator iter = tab_map.begin();
-  ASSERT_EQ(2, iter->second.tab()->GetEntryCount());
-  ASSERT_EQ(GURL("http://foo/1"), iter->second.tab()->
+  ASSERT_EQ(2, iter->second->tab()->GetEntryCount());
+  ASSERT_EQ(GURL("http://foo/1"), iter->second->tab()->
           GetEntryAtIndex(0)->GetVirtualURL());
-  ASSERT_EQ(GURL("http://foo/2"), iter->second.tab()->
+  ASSERT_EQ(GURL("http://foo/2"), iter->second->tab()->
           GetEntryAtIndex(1)->GetVirtualURL());
   iter++;
-  ASSERT_EQ(2, iter->second.tab()->GetEntryCount());
-  ASSERT_EQ(GURL("http://bar/1"), iter->second.tab()->
+  ASSERT_EQ(2, iter->second->tab()->GetEntryCount());
+  ASSERT_EQ(GURL("http://bar/1"), iter->second->tab()->
       GetEntryAtIndex(0)->GetVirtualURL());
-  ASSERT_EQ(GURL("http://bar/2"), iter->second.tab()->
+  ASSERT_EQ(GURL("http://bar/2"), iter->second->tab()->
       GetEntryAtIndex(1)->GetVirtualURL());
 }
 
 // Test that we fail on a failed model association.
 TEST_F(ProfileSyncServiceSessionTest, FailModelAssociation) {
   ASSERT_TRUE(StartSyncService(base::Closure(), true));
-  ASSERT_TRUE(sync_service_->unrecoverable_error_detected());
+  ASSERT_TRUE(sync_service_->HasUnrecoverableError());
 }
 
 // Write a foreign session to a node, and then retrieve it.
@@ -656,7 +648,7 @@ TEST_F(ProfileSyncServiceSessionTest, UpdatedSyncNodeActionUpdate) {
       model_associator_->GetCurrentMachineTag());
   ASSERT_FALSE(notified_of_update_);
   {
-    sync_api::WriteTransaction trans(FROM_HERE, sync_service_->GetUserShare());
+    syncer::WriteTransaction trans(FROM_HERE, sync_service_->GetUserShare());
     change_processor_->ApplyChangesFromSyncModel(
         &trans,
         ProfileSyncServiceTestHelper::MakeSingletonChangeRecordList(
@@ -675,7 +667,7 @@ TEST_F(ProfileSyncServiceSessionTest, UpdatedSyncNodeActionAdd) {
       model_associator_->GetCurrentMachineTag());
   ASSERT_FALSE(notified_of_update_);
   {
-    sync_api::WriteTransaction trans(FROM_HERE, sync_service_->GetUserShare());
+    syncer::WriteTransaction trans(FROM_HERE, sync_service_->GetUserShare());
     change_processor_->ApplyChangesFromSyncModel(
         &trans,
         ProfileSyncServiceTestHelper::MakeSingletonChangeRecordList(
@@ -696,7 +688,7 @@ TEST_F(ProfileSyncServiceSessionTest, UpdatedSyncNodeActionDelete) {
   deleted_specifics.mutable_session()->set_session_tag("tag");
   ASSERT_FALSE(notified_of_update_);
   {
-    sync_api::WriteTransaction trans(FROM_HERE, sync_service_->GetUserShare());
+    syncer::WriteTransaction trans(FROM_HERE, sync_service_->GetUserShare());
     change_processor_->ApplyChangesFromSyncModel(
         &trans,
         ProfileSyncServiceTestHelper::MakeSingletonDeletionChangeRecordList(
@@ -731,8 +723,9 @@ TEST_F(ProfileSyncServiceSessionTest, TabNodePoolEmpty) {
   ASSERT_TRUE(model_associator_->tab_pool_.full());
 }
 
+// TODO(jhorwich): Re-enable when crbug.com/121487 addressed
 // Test the TabNodePool when it starts off with nodes
-TEST_F(ProfileSyncServiceSessionTest, TabNodePoolNonEmpty) {
+TEST_F(ProfileSyncServiceSessionTest, DISABLED_TabNodePoolNonEmpty) {
   CreateRootHelper create_root(this);
   ASSERT_TRUE(StartSyncService(create_root.callback(), false));
   ASSERT_TRUE(create_root.success());
@@ -879,7 +872,7 @@ TEST_F(ProfileSyncServiceSessionTest, DeleteStaleSessions) {
   VerifySyncedSession(tag2, session_reference, *(foreign_sessions[0]));
 }
 
-// Write a stale foreign session to a node. Then update one of it's tabs so
+// Write a stale foreign session to a node. Then update one of its tabs so
 // the session is no longer stale. Ensure it doesn't get deleted.
 TEST_F(ProfileSyncServiceSessionTest, StaleSessionRefresh) {
   CreateRootHelper create_root(this);
@@ -926,13 +919,8 @@ TEST_F(ProfileSyncServiceSessionTest, StaleSessionRefresh) {
 
 // Test that tabs with nothing but "chrome://*" and "file://*" navigations are
 // not be synced.
-#if defined(OS_WIN)
-// This test is crashing on windows occasionally: http://crbug.com/116097
-#define MAYBE_ValidTabs DISABLED_ValidTabs
-#else
-#define MAYBE_ValidTabs ValidTabs
-#endif
-TEST_F(ProfileSyncServiceSessionTest, MAYBE_ValidTabs) {
+// This test is crashing occasionally: http://crbug.com/116097
+TEST_F(ProfileSyncServiceSessionTest, DISABLED_ValidTabs) {
   CreateRootHelper create_root(this);
   ASSERT_TRUE(StartSyncService(create_root.callback(), false));
   ASSERT_TRUE(create_root.success());
@@ -947,13 +935,13 @@ TEST_F(ProfileSyncServiceSessionTest, MAYBE_ValidTabs) {
   SessionModelAssociator::TabLinksMap tab_map = model_associator_->tab_map_;
   ASSERT_EQ(1U, tab_map.size());
   SessionModelAssociator::TabLinksMap::iterator iter = tab_map.begin();
-  ASSERT_EQ(1, iter->second.tab()->GetEntryCount());
-  ASSERT_EQ(GURL("bla://bla"), iter->second.tab()->
+  ASSERT_EQ(1, iter->second->tab()->GetEntryCount());
+  ASSERT_EQ(GURL("bla://bla"), iter->second->tab()->
       GetEntryAtIndex(0)->GetVirtualURL());
 }
 
-// Verify that AttemptSessionsDataRefresh triggers the NOTIFICATION_SYNC_REFRESH
-// notification.
+// Verify that AttemptSessionsDataRefresh triggers the
+// NOTIFICATION_SYNC_REFRESH_LOCAL notification.
 // TODO(zea): Once we can have unit tests that are able to open to the NTP,
 // test that the NTP/#opentabs URL triggers a refresh as well (but only when
 // it is the active tab).
@@ -974,7 +962,8 @@ TEST_F(ProfileSyncServiceSessionTest, SessionsRefresh) {
 }
 
 // Ensure model association associates the pre-existing tabs.
-TEST_F(ProfileSyncServiceSessionTest, ExistingTabs) {
+// TODO(jhorwich): Fix the test so that it doesn't crash (crbug.com/121487)
+TEST_F(ProfileSyncServiceSessionTest, DISABLED_ExistingTabs) {
   AddTab(browser(), GURL("http://foo1"));
   NavigateAndCommitActiveTab(GURL("http://foo2"));
   AddTab(browser(), GURL("http://bar1"));
@@ -989,7 +978,7 @@ TEST_F(ProfileSyncServiceSessionTest, ExistingTabs) {
 
   std::string machine_tag = model_associator_->GetCurrentMachineTag();
   int64 sync_id = model_associator_->GetSyncIdFromSessionTag(machine_tag);
-  ASSERT_NE(sync_api::kInvalidId, sync_id);
+  ASSERT_NE(syncer::kInvalidId, sync_id);
 
   // Check that this machine's data is not included in the foreign windows.
   std::vector<const SyncedSession*> foreign_sessions;
@@ -1003,99 +992,212 @@ TEST_F(ProfileSyncServiceSessionTest, ExistingTabs) {
   // Tabs are ordered by sessionid in tab_map, so should be able to traverse
   // the tree based on order of tabs created
   SessionModelAssociator::TabLinksMap::iterator iter = tab_map.begin();
-  ASSERT_EQ(2, iter->second.tab()->GetEntryCount());
-  ASSERT_EQ(GURL("http://foo1"), iter->second.tab()->
+  ASSERT_EQ(2, iter->second->tab()->GetEntryCount());
+  ASSERT_EQ(GURL("http://foo1"), iter->second->tab()->
           GetEntryAtIndex(0)->GetVirtualURL());
-  ASSERT_EQ(GURL("http://foo2"), iter->second.tab()->
+  ASSERT_EQ(GURL("http://foo2"), iter->second->tab()->
           GetEntryAtIndex(1)->GetVirtualURL());
   iter++;
-  ASSERT_EQ(2, iter->second.tab()->GetEntryCount());
-  ASSERT_EQ(GURL("http://bar1"), iter->second.tab()->
+  ASSERT_EQ(2, iter->second->tab()->GetEntryCount());
+  ASSERT_EQ(GURL("http://bar1"), iter->second->tab()->
       GetEntryAtIndex(0)->GetVirtualURL());
-  ASSERT_EQ(GURL("http://bar2"), iter->second.tab()->
+  ASSERT_EQ(GURL("http://bar2"), iter->second->tab()->
       GetEntryAtIndex(1)->GetVirtualURL());
 }
 
-TEST_F(ProfileSyncServiceSessionTest, MissingHeaderAndTab) {
+// TODO(jhorwich): Re-enable when crbug.com/121487 addressed
+TEST_F(ProfileSyncServiceSessionTest, DISABLED_MissingHeaderAndTab) {
   AddTab(browser(), GURL("http://foo1"));
   NavigateAndCommitActiveTab(GURL("http://foo2"));
   AddTab(browser(), GURL("http://bar1"));
   NavigateAndCommitActiveTab(GURL("http://bar2"));
   CreateRootHelper create_root(this);
   ASSERT_TRUE(StartSyncService(create_root.callback(), false));
-  SyncError error;
+  syncer::SyncError error;
   std::string local_tag = model_associator_->GetCurrentMachineTag();
 
-  ASSERT_TRUE(model_associator_->DisassociateModels(&error));
+  error = model_associator_->DisassociateModels();
+  ASSERT_FALSE(error.IsSet());
   {
     // Create a sync node with the local tag but neither header nor tab field.
-    sync_api::WriteTransaction trans(FROM_HERE, sync_service_->GetUserShare());
-    sync_api::ReadNode root(&trans);
-    root.InitByTagLookup(syncable::ModelTypeToRootTag(syncable::SESSIONS));
-    sync_api::WriteNode extra_header(&trans);
-    ASSERT_TRUE(extra_header.InitUniqueByCreation(syncable::SESSIONS,
-                                                  root, "new_tag"));
+    syncer::WriteTransaction trans(FROM_HERE, sync_service_->GetUserShare());
+    syncer::ReadNode root(&trans);
+    root.InitByTagLookup(syncer::ModelTypeToRootTag(syncer::SESSIONS));
+    syncer::WriteNode extra_header(&trans);
+    syncer::WriteNode::InitUniqueByCreationResult result =
+        extra_header.InitUniqueByCreation(syncer::SESSIONS, root, "new_tag");
+    ASSERT_EQ(syncer::WriteNode::INIT_SUCCESS, result);
     sync_pb::SessionSpecifics specifics;
     specifics.set_session_tag(local_tag);
     extra_header.SetSessionSpecifics(specifics);
   }
-  ASSERT_TRUE(model_associator_->AssociateModels(&error));
+
+  error = model_associator_->AssociateModels();
   ASSERT_FALSE(error.IsSet());
 }
 
-TEST_F(ProfileSyncServiceSessionTest, MultipleHeaders) {
+// TODO(jhorwich): Re-enable when crbug.com/121487 addressed
+TEST_F(ProfileSyncServiceSessionTest, DISABLED_MultipleHeaders) {
   AddTab(browser(), GURL("http://foo1"));
   NavigateAndCommitActiveTab(GURL("http://foo2"));
   AddTab(browser(), GURL("http://bar1"));
   NavigateAndCommitActiveTab(GURL("http://bar2"));
   CreateRootHelper create_root(this);
   ASSERT_TRUE(StartSyncService(create_root.callback(), false));
-  SyncError error;
+  syncer::SyncError error;
   std::string local_tag = model_associator_->GetCurrentMachineTag();
 
-  ASSERT_TRUE(model_associator_->DisassociateModels(&error));
+  error = model_associator_->DisassociateModels();
+  ASSERT_FALSE(error.IsSet());
   {
     // Create another sync node with a header field and the local tag.
-    sync_api::WriteTransaction trans(FROM_HERE, sync_service_->GetUserShare());
-    sync_api::ReadNode root(&trans);
-    root.InitByTagLookup(syncable::ModelTypeToRootTag(syncable::SESSIONS));
-    sync_api::WriteNode extra_header(&trans);
-    ASSERT_TRUE(extra_header.InitUniqueByCreation(syncable::SESSIONS,
-                                                  root, local_tag + "_"));
+    syncer::WriteTransaction trans(FROM_HERE, sync_service_->GetUserShare());
+    syncer::ReadNode root(&trans);
+    root.InitByTagLookup(syncer::ModelTypeToRootTag(syncer::SESSIONS));
+    syncer::WriteNode extra_header(&trans);
+    syncer::WriteNode::InitUniqueByCreationResult result =
+        extra_header.InitUniqueByCreation(syncer::SESSIONS,
+                                          root, local_tag + "_");
+    ASSERT_EQ(syncer::WriteNode::INIT_SUCCESS, result);
     sync_pb::SessionSpecifics specifics;
     specifics.set_session_tag(local_tag);
     specifics.mutable_header();
     extra_header.SetSessionSpecifics(specifics);
   }
-  ASSERT_TRUE(model_associator_->AssociateModels(&error));
+  error = model_associator_->AssociateModels();
   ASSERT_FALSE(error.IsSet());
 }
 
-TEST_F(ProfileSyncServiceSessionTest, CorruptedForeign) {
+// TODO(jhorwich): Re-enable when crbug.com/121487 addressed
+TEST_F(ProfileSyncServiceSessionTest, DISABLED_CorruptedForeign) {
   AddTab(browser(), GURL("http://foo1"));
   NavigateAndCommitActiveTab(GURL("http://foo2"));
   AddTab(browser(), GURL("http://bar1"));
   NavigateAndCommitActiveTab(GURL("http://bar2"));
   CreateRootHelper create_root(this);
   ASSERT_TRUE(StartSyncService(create_root.callback(), false));
-  SyncError error;
+  syncer::SyncError error;
 
-  ASSERT_TRUE(model_associator_->DisassociateModels(&error));
+  error = model_associator_->DisassociateModels();
+  ASSERT_FALSE(error.IsSet());
   {
     // Create another sync node with neither header nor tab field and a foreign
     // tag.
     std::string foreign_tag = "foreign_tag";
-    sync_api::WriteTransaction trans(FROM_HERE, sync_service_->GetUserShare());
-    sync_api::ReadNode root(&trans);
-    root.InitByTagLookup(syncable::ModelTypeToRootTag(syncable::SESSIONS));
-    sync_api::WriteNode extra_header(&trans);
-    ASSERT_TRUE(extra_header.InitUniqueByCreation(syncable::SESSIONS,
-                                                  root, foreign_tag));
+    syncer::WriteTransaction trans(FROM_HERE, sync_service_->GetUserShare());
+    syncer::ReadNode root(&trans);
+    root.InitByTagLookup(syncer::ModelTypeToRootTag(syncer::SESSIONS));
+    syncer::WriteNode extra_header(&trans);
+    syncer::WriteNode::InitUniqueByCreationResult result =
+        extra_header.InitUniqueByCreation(syncer::SESSIONS,
+                                          root, foreign_tag);
+    ASSERT_EQ(syncer::WriteNode::INIT_SUCCESS, result);
     sync_pb::SessionSpecifics specifics;
     specifics.set_session_tag(foreign_tag);
     extra_header.SetSessionSpecifics(specifics);
   }
-  ASSERT_TRUE(model_associator_->AssociateModels(&error));
+  error = model_associator_->AssociateModels();
+  ASSERT_FALSE(error.IsSet());
+}
+
+// TODO(jhorwich): Re-enable when crbug.com/121487 addressed
+TEST_F(ProfileSyncServiceSessionTest, DISABLED_MissingLocalTabNode) {
+  AddTab(browser(), GURL("http://foo1"));
+  NavigateAndCommitActiveTab(GURL("http://foo2"));
+  AddTab(browser(), GURL("http://bar1"));
+  NavigateAndCommitActiveTab(GURL("http://bar2"));
+  CreateRootHelper create_root(this);
+  ASSERT_TRUE(StartSyncService(create_root.callback(), false));
+  std::string local_tag = model_associator_->GetCurrentMachineTag();
+  syncer::SyncError error;
+
+  error = model_associator_->DisassociateModels();
+  ASSERT_FALSE(error.IsSet());
+  {
+    // Delete the first sync tab node.
+    std::string tab_tag = SessionModelAssociator::TabIdToTag(local_tag, 0);
+
+    syncer::WriteTransaction trans(FROM_HERE, sync_service_->GetUserShare());
+    syncer::ReadNode root(&trans);
+    root.InitByTagLookup(syncer::ModelTypeToRootTag(syncer::SESSIONS));
+    syncer::WriteNode tab_node(&trans);
+    ASSERT_TRUE(tab_node.InitByClientTagLookup(syncer::SESSIONS, tab_tag));
+    tab_node.Remove();
+  }
+  error = model_associator_->AssociateModels();
+  ASSERT_FALSE(error.IsSet());
+
+  // Add some more tabs to ensure we don't conflict with the pre-existing tab
+  // node.
+  AddTab(browser(), GURL("http://baz1"));
+  AddTab(browser(), GURL("http://baz2"));
+}
+
+TEST_F(ProfileSyncServiceSessionTest, Favicons) {
+    CreateRootHelper create_root(this);
+  ASSERT_TRUE(StartSyncService(create_root.callback(), false));
+  ASSERT_TRUE(create_root.success());
+
+  // Build a foreign session with one window and one tab.
+  std::string tag = "tag1";
+  sync_pb::SessionSpecifics meta;
+  BuildSessionSpecifics(tag, &meta);
+  std::vector<SessionID::id_type> tab_list;
+  tab_list.push_back(5);
+  AddWindowSpecifics(0, tab_list, &meta);
+  sync_pb::SessionSpecifics tab;
+  BuildTabSpecifics(tag, 0, tab_list[0], &tab);
+  std::string url = tab.tab().navigation(0).virtual_url();
+  std::string favicon;
+
+  // Update associator.
+  model_associator_->AssociateForeignSpecifics(meta, base::Time());
+  model_associator_->AssociateForeignSpecifics(tab, base::Time());
+  ASSERT_FALSE(model_associator_->GetSyncedFaviconForPageURL(url, &favicon));
+
+  // Now add a favicon.
+  tab.mutable_tab()->set_favicon_source("http://favicon_source.com/png.ico");
+  tab.mutable_tab()->set_favicon_type(sync_pb::SessionTab::TYPE_WEB_FAVICON);
+  tab.mutable_tab()->set_favicon("data");
+  model_associator_->AssociateForeignSpecifics(tab, base::Time());
+  ASSERT_TRUE(model_associator_->GetSyncedFaviconForPageURL(url, &favicon));
+  ASSERT_EQ("data", favicon);
+
+  // Simulate navigating away. The associator should delete the favicon.
+  tab.mutable_tab()->clear_navigation();
+  tab.mutable_tab()->add_navigation()->set_virtual_url("http://new_url.com");
+  tab.mutable_tab()->clear_favicon_source();
+  tab.mutable_tab()->clear_favicon_type();
+  tab.mutable_tab()->clear_favicon();
+  model_associator_->AssociateForeignSpecifics(tab, base::Time());
+  ASSERT_FALSE(model_associator_->GetSyncedFaviconForPageURL(url, &favicon));
+}
+
+// TODO(jhorwich): Re-enable when crbug.com/121487 addressed
+TEST_F(ProfileSyncServiceSessionTest, DISABLED_CorruptedLocalHeader) {
+  AddTab(browser(), GURL("http://foo1"));
+  NavigateAndCommitActiveTab(GURL("http://foo2"));
+  AddTab(browser(), GURL("http://bar1"));
+  NavigateAndCommitActiveTab(GURL("http://bar2"));
+  CreateRootHelper create_root(this);
+  ASSERT_TRUE(StartSyncService(create_root.callback(), false));
+  std::string local_tag = model_associator_->GetCurrentMachineTag();
+  syncer::SyncError error;
+
+  error = model_associator_->DisassociateModels();
+  ASSERT_FALSE(error.IsSet());
+  {
+    // Load the header node and clear it.
+    syncer::WriteTransaction trans(FROM_HERE, sync_service_->GetUserShare());
+    syncer::WriteNode header(&trans);
+    ASSERT_EQ(syncer::BaseNode::INIT_OK,
+              header.InitByClientTagLookup(syncer::SESSIONS, local_tag));
+    sync_pb::SessionSpecifics specifics;
+    header.SetSessionSpecifics(specifics);
+  }
+  // Ensure we associate properly despite the pre-existing node with our local
+  // tag.
+  error = model_associator_->AssociateModels();
   ASSERT_FALSE(error.IsSet());
 }
 

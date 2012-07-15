@@ -2,10 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-function FileCopyManager() {
+/**
+ * @constructor
+ * @param {DirectoryEntry} root Root directory entry.
+ */
+function FileCopyManager(root) {
   this.copyTasks_ = [];
   this.cancelObservers_ = [];
   this.cancelRequested_ = false;
+  this.root_ = root;
 }
 
 FileCopyManager.prototype = {
@@ -18,6 +23,9 @@ FileCopyManager.prototype = {
  * Multiple copy operations may be queued at any given time.  Additional
  * Tasks may be added while the queue is being serviced.  Though a
  * cancel operation cancels everything in the queue.
+ *
+ * @param {DirectoryEntry} sourceDirEntry Source directory.
+ * @param {DirectoryEntry} targetDirEntry Target directory.
  */
 FileCopyManager.Task = function(sourceDirEntry, targetDirEntry) {
   this.sourceDirEntry = sourceDirEntry;
@@ -33,6 +41,7 @@ FileCopyManager.Task = function(sourceDirEntry, targetDirEntry) {
   this.completedBytes = 0;
 
   this.deleteAfterCopy = false;
+  this.move = false;
   this.sourceOnGData = false;
   this.targetOnGData = false;
 
@@ -42,8 +51,12 @@ FileCopyManager.Task = function(sourceDirEntry, targetDirEntry) {
   // For example, if 'dir' was copied as 'dir (1)', then 'dir\file.txt' should
   // become 'dir (1)\file.txt'.
   this.renamedDirectories_ = [];
-}
+};
 
+/**
+ * @param {Array.<Entry>} entries Entries.
+ * @param {Function} callback When entries resolved.
+ */
 FileCopyManager.Task.prototype.setEntries = function(entries, callback) {
   var self = this;
 
@@ -57,11 +70,13 @@ FileCopyManager.Task.prototype.setEntries = function(entries, callback) {
   this.originalEntries = entries;
   // When moving directories, FileEntry.moveTo() is used if both source
   // and target are on GData. There is no need to recurse into directories.
-  var recurse = !(this.deleteAfterCopy &&
-                  this.sourceOnGData && this.targetOnGData);
+  var recurse = !this.move;
   util.recurseAndResolveEntries(entries, recurse, onEntriesRecursed);
-}
+};
 
+/**
+ * @return {Entry} Next entry.
+ */
 FileCopyManager.Task.prototype.getNextEntry = function() {
   // We should keep the file in pending list and remove it after complete.
   // Otherwise, if we try to get status in the middle of copying. The returned
@@ -79,6 +94,10 @@ FileCopyManager.Task.prototype.getNextEntry = function() {
   return null;
 };
 
+/**
+ * @param {Entry} entry Entry.
+ * @param {number} size Bytes completed.
+ */
 FileCopyManager.Task.prototype.markEntryComplete = function(entry, size) {
   // It is probably not safe to directly remove the first entry in pending list.
   // We need to check if the removed entry (srcEntry) corresponding to the added
@@ -90,6 +109,7 @@ FileCopyManager.Task.prototype.markEntryComplete = function(entry, size) {
   } else if (this.pendingFiles && this.pendingFiles[0].inProgress) {
     this.completedFiles.push(entry);
     this.completedBytes += size;
+    this.pendingBytes -= size;
     this.pendingFiles.shift();
   } else {
     throw new Error('Try to remove a source entry which is not correspond to' +
@@ -97,10 +117,31 @@ FileCopyManager.Task.prototype.markEntryComplete = function(entry, size) {
   }
 };
 
+/**
+ * Updates copy progress status for the entry.
+ *
+ * @param {Entry} entry Entry which is being coppied.
+ * @param {number} size Number of bytes that has been copied since last update.
+ */
+FileCopyManager.Task.prototype.updateFileCopyProgress = function(entry, size) {
+  if (entry.isFile && this.pendingFiles && this.pendingFiles[0].inProgress) {
+    this.completedBytes += size;
+    this.pendingBytes -= size;
+  }
+};
+
+/**
+ * @param {string} fromName Old name.
+ * @param {string} toName New name.
+ */
 FileCopyManager.Task.prototype.registerRename = function(fromName, toName) {
   this.renamedDirectories_.push({from: fromName + '/', to: toName + '/'});
 };
 
+/**
+ * @param {string} path A path.
+ * @return {string} Path after renames.
+ */
 FileCopyManager.Task.prototype.applyRenames = function(path) {
   // Directories are processed in pre-order, so we will store only the first
   // renaming point:
@@ -119,20 +160,31 @@ FileCopyManager.Task.prototype.applyRenames = function(path) {
 
 /**
  * Error class used to report problems with a copy operation.
+ * @constructor
+ * @param {string} reason Error type.
+ * @param {Object} data Additional data.
  */
 FileCopyManager.Error = function(reason, data) {
   this.reason = reason;
   this.code = FileCopyManager.Error[reason];
   this.data = data;
-}
+};
 
+/** @const */
 FileCopyManager.Error.CANCELLED = 0;
+/** @const */
 FileCopyManager.Error.UNEXPECTED_SOURCE_FILE = 1;
+/** @const */
 FileCopyManager.Error.TARGET_EXISTS = 2;
+/** @const */
 FileCopyManager.Error.FILESYSTEM_ERROR = 3;
+
 
 // FileCopyManager methods.
 
+/**
+ * @return {Object} Status object.
+ */
 FileCopyManager.prototype.getStatus = function() {
   var rv = {
     pendingItems: 0,  // Files + Directories
@@ -143,7 +195,7 @@ FileCopyManager.prototype.getStatus = function() {
     completedItems: 0,  // Files + Directories
     completedFiles: 0,
     completedDirectories: 0,
-    completedBytes: 0
+    completedBytes: 0,
   };
 
   for (var i = 0; i < this.copyTasks_.length; i++) {
@@ -175,23 +227,20 @@ FileCopyManager.prototype.getStatus = function() {
  */
 FileCopyManager.prototype.getProgress = function() {
   var status = this.getStatus();
+
+  var percentage = status.completedBytes / status.totalBytes;
+
   return {
-    // TODO(bshe): Need to figure out a way to get completed bytes in real
-    // time. We currently use completedItems and totalItems to estimate the
-    // progress. There are completeBytes and totalBytes ready to use.
-    // However, the completedBytes is not in real time. It only updates
-    // itself after each item finished. So if there is a large item to
-    // copy, the progress bar will stop moving until it finishes and jump
-    // a large portion of the bar.
-    // There is case that when user copy a large file, we want to show an
-    // 100% animated progress bar. So we use completedItems + 1 here.
-    percentage: (status.completedItems + 1) / status.totalItems,
+    percentage: percentage,
     pendingItems: status.pendingItems
   };
 };
 
 /**
  * Dispatch a simple copy-progress event with reason and optional err data.
+ * @private
+ * @param {string} reason Event type.
+ * @param {FileCopyManager.Error} opt_err Error.
  */
 FileCopyManager.prototype.sendProgressEvent_ = function(reason, opt_err) {
   var event = new cr.Event('copy-progress');
@@ -202,8 +251,23 @@ FileCopyManager.prototype.sendProgressEvent_ = function(reason, opt_err) {
 };
 
 /**
+ * Dispatch an event of file operation completion (allows to update the UI).
+ * @private
+ * @param {string} reason Completed file operation: 'movied|copied|deleted'.
+ * @param {Array.<Entry>} affectedEntries deleted ot created entries.
+ */
+FileCopyManager.prototype.sendOperationEvent_ = function(reason,
+                                                         affectedEntries) {
+  var event = new cr.Event('copy-operation-complete');
+  event.reason = reason;
+  event.affectedEntries = affectedEntries;
+  this.dispatchEvent(event);
+};
+
+/**
  * Completely clear out the copy queue, either because we encountered an error
  * or completed successfully.
+ * @private
  */
 FileCopyManager.prototype.resetQueue_ = function() {
   for (var i = 0; i < this.cancelObservers_.length; i++)
@@ -216,6 +280,7 @@ FileCopyManager.prototype.resetQueue_ = function() {
 
 /**
  * Request that the current copy queue be abandoned.
+ * @param {Function} opt_callback On cancel.
  */
 FileCopyManager.prototype.requestCancel = function(opt_callback) {
   this.cancelRequested_ = true;
@@ -225,6 +290,7 @@ FileCopyManager.prototype.requestCancel = function(opt_callback) {
 
 /**
  * Perform the bookeeping required to cancel.
+ * @private
  */
 FileCopyManager.prototype.doCancel_ = function() {
   this.sendProgressEvent_('CANCELLED');
@@ -234,6 +300,8 @@ FileCopyManager.prototype.doCancel_ = function() {
 /**
  * Used internally to check if a cancel has been requested, and handle
  * it if so.
+ * @private
+ * @return {boolean} If canceled.
  */
 FileCopyManager.prototype.maybeCancel_ = function() {
   if (!this.cancelRequested_)
@@ -241,13 +309,16 @@ FileCopyManager.prototype.maybeCancel_ = function() {
 
   this.doCancel_();
   return true;
-}
+};
 
 /**
  * Convert string in clipboard to entries and kick off pasting.
+ * @param {Object} clipboard Clipboard contents.
+ * @param {string} targetPath Target path.
+ * @param {boolean} targetOnGData If target is on GDrive.
  */
-FileCopyManager.prototype.paste = function(clipboard, targetEntry,
-                                           targetOnGData, root) {
+FileCopyManager.prototype.paste = function(clipboard, targetPath,
+                                           targetOnGData) {
   var self = this;
   var results = {
     sourceDirEntry: null,
@@ -262,7 +333,7 @@ FileCopyManager.prototype.paste = function(clipboard, targetEntry,
   }
 
   function onSourceEntryFound(dirEntry) {
-    function onComplete() {
+    function onTargetEntryFound(targetEntry) {
       self.queueCopy(results.sourceDirEntry,
             targetEntry,
             results.entries,
@@ -271,13 +342,18 @@ FileCopyManager.prototype.paste = function(clipboard, targetEntry,
             targetOnGData);
     }
 
+    function onComplete() {
+      self.root_.getDirectory(targetPath, {},
+                              onTargetEntryFound, onPathError);
+    }
+
     function onEntryFound(entry) {
       // When getDirectories/getFiles finish, they call addEntry with null.
       // We dont want to add null to our entries.
       if (entry != null) {
         results.entries.push(entry);
         added++;
-        if (added == total && results.sourceDirEntry != null)
+        if (added == total)
           onComplete();
       }
     }
@@ -301,19 +377,46 @@ FileCopyManager.prototype.paste = function(clipboard, targetEntry,
     results.isCut = (clipboard.isCut == 'true');
     results.isOnGData = (clipboard.isOnGData == 'true');
 
-    util.getDirectories(root, {create: false}, directories, onEntryFound,
+    util.getDirectories(self.root_, {create: false}, directories, onEntryFound,
                         onPathError);
-    util.getFiles(root, {create: false}, files, onEntryFound, onPathError);
+    util.getFiles(self.root_, {create: false}, files, onEntryFound,
+                  onPathError);
   }
 
-  root.getDirectory(clipboard.sourceDir,
-                    {create: false},
-                    onSourceEntryFound,
-                    onPathError);
-}
+  if (clipboard.sourceDir) {
+    this.root_.getDirectory(clipboard.sourceDir,
+                            {create: false},
+                            onSourceEntryFound,
+                            onPathError);
+  } else {
+    onSourceEntryFound(null);
+  }
+};
+
+/**
+ * Checks if source and target are on the same root.
+ *
+ * @param {DirectoryEntry} sourceEntry An entry from the source.
+ * @param {DirectoryEntry} targetDirEntry Directory entry for the target.
+ * @param {boolean} targetOnGData If target is on GDrive.
+ * @return {boolean} Whether source and target dir are on the same root.
+ */
+FileCopyManager.prototype.isOnSameRoot = function(sourceEntry,
+                                                  targetDirEntry,
+                                                  targetOnGData) {
+  return PathUtil.getRootPath(sourceEntry.fullPath) ==
+         PathUtil.getRootPath(targetDirEntry.fullPath);
+};
 
 /**
  * Initiate a file copy.
+ * @param {DirectoryEntry} sourceDirEntry Source directory.
+ * @param {DirectoryEntry} targetDirEntry Target directory.
+ * @param {Array.<Entry>} entries Entries to copy.
+ * @param {boolean} deleteAfterCopy In case of move.
+ * @param {boolean} sourceOnGData Source directory on GDrive.
+ * @param {boolean} targetOnGData Target directory on GDrive.
+ * @return {FileCopyManager.Task} Copy task.
  */
 FileCopyManager.prototype.queueCopy = function(sourceDirEntry,
                                                targetDirEntry,
@@ -323,7 +426,15 @@ FileCopyManager.prototype.queueCopy = function(sourceDirEntry,
                                                targetOnGData) {
   var self = this;
   var copyTask = new FileCopyManager.Task(sourceDirEntry, targetDirEntry);
-  copyTask.deleteAfterCopy = deleteAfterCopy;
+  if (deleteAfterCopy) {
+    // |sourecDirEntry| may be null, so let's check the root for the first of
+    // the entries scheduled to be copied.
+    if (this.isOnSameRoot(entries[0], targetDirEntry)) {
+      copyTask.move = true;
+    } else {
+      copyTask.deleteAfterCopy = true;
+    }
+  }
   copyTask.sourceOnGData = sourceOnGData;
   copyTask.targetOnGData = targetOnGData;
   copyTask.setEntries(entries, function() {
@@ -344,6 +455,7 @@ FileCopyManager.prototype.queueCopy = function(sourceDirEntry,
 /**
  * Service all pending tasks, as well as any that might appear during the
  * copy.
+ * @private
  */
 FileCopyManager.prototype.serviceAllTasks_ = function() {
   var self = this;
@@ -379,6 +491,9 @@ FileCopyManager.prototype.serviceAllTasks_ = function() {
 
 /**
  * Service all entries in the next copy task.
+ * @private
+ * @param {Function} successCallback On success.
+ * @param {Function} errorCallback On error.
  */
 FileCopyManager.prototype.serviceNextTask_ = function(
     successCallback, errorCallback) {
@@ -400,15 +515,17 @@ FileCopyManager.prototype.serviceNextTask_ = function(
   function deleteOriginals() {
     var count = task.originalEntries.length;
 
-    function onEntryDeleted() {
+    function onEntryDeleted(entry) {
+      self.sendOperationEvent_('deleted', [entry]);
       count--;
       if (!count)
         onTaskComplete();
     }
 
     for (var i = 0; i < task.originalEntries.length; i++) {
+      var entry = task.originalEntries[i];
       util.removeFileOrDirectory(
-          task.originalEntries[i], onEntryDeleted, onFilesystemError);
+          entry, onEntryDeleted.bind(self, entry), onFilesystemError);
     }
   }
 
@@ -416,11 +533,7 @@ FileCopyManager.prototype.serviceNextTask_ = function(
     // We should not dispatch a PROGRESS event when there is no pending items
     // in the task.
     if (task.pendingDirectories.length + task.pendingFiles.length == 0) {
-      // All done with the entries in this task.
-      // If files are moved within GData, FileEntry.moveTo() is used and
-      // there is no need to delete the original files.
-      var sourceAndTargetOnGData = task.sourceOnGData && task.targetOnGData;
-      if (task.deleteAfterCopy && !sourceAndTargetOnGData) {
+      if (task.deleteAfterCopy) {
         deleteOriginals();
       } else {
         onTaskComplete();
@@ -438,10 +551,14 @@ FileCopyManager.prototype.serviceNextTask_ = function(
   }
 
   this.serviceNextTaskEntry_(task, onEntryServiced, errorCallback);
-}
+};
 
 /**
  * Service the next entry in a given task.
+ * @private
+ * @param {FileManager.Task} task A task.
+ * @param {Function} successCallback On success.
+ * @param {Function} errorCallback On error.
  */
 FileCopyManager.prototype.serviceNextTaskEntry_ = function(
     task, successCallback, errorCallback) {
@@ -457,15 +574,18 @@ FileCopyManager.prototype.serviceNextTaskEntry_ = function(
     return;
   }
 
-  var sourcePath = task.sourceDirEntry.fullPath;
+  // |sourceEntry.originalSourcePath| is set in util.recurseAndResolveEntries.
+  var sourcePath = sourceEntry.originalSourcePath;
   if (sourceEntry.fullPath.substr(0, sourcePath.length) != sourcePath) {
     // We found an entry in the list that is not relative to the base source
     // path, something is wrong.
-    return onError('UNEXPECTED_SOURCE_FILE', sourceEntry.fullPath);
+    onError('UNEXPECTED_SOURCE_FILE', sourceEntry.fullPath);
+    return;
   }
 
   var targetDirEntry = task.targetDirEntry;
   var originalPath = sourceEntry.fullPath.substr(sourcePath.length + 1);
+
   originalPath = task.applyRenames(originalPath);
 
   var targetRelativePrefix = originalPath;
@@ -490,9 +610,19 @@ FileCopyManager.prototype.serviceNextTaskEntry_ = function(
   var renameTries = 0;
   var firstExistingEntry = null;
 
-  function onCopyComplete(entry, size) {
+  function onCopyCompleteBase(entry, size) {
     task.markEntryComplete(entry, size);
     successCallback(entry, size);
+  }
+
+  function onCopyComplete(entry, size) {
+    self.sendOperationEvent_('copied', [entry]);
+    onCopyCompleteBase(entry, size);
+  }
+
+  function onCopyProgress(entry, size) {
+    task.updateFileCopyProgress(entry, size);
+    self.sendProgressEvent_('PROGRESS');
   }
 
   function onError(reason, data) {
@@ -500,12 +630,18 @@ FileCopyManager.prototype.serviceNextTaskEntry_ = function(
     errorCallback(new FileCopyManager.Error(reason, data));
   }
 
-  function onFilesystemCopyComplete(entry) {
+  function onFilesystemCopyComplete(sourceEntry, targetEntry) {
     // TODO(benchan): We currently do not know the size of data being
     // copied by FileEntry.copyTo(), so task.completedBytes will not be
     // increased. We will address this issue once we need to use
     // task.completedBytes to track the progress.
-    onCopyComplete(entry, 0);
+    self.sendOperationEvent_('copied', [sourceEntry, targetEntry]);
+    onCopyCompleteBase(targetEntry, 0);
+  }
+
+  function onFilesystemMoveComplete(sourceEntry, targetEntry) {
+    self.sendOperationEvent_('moved', [sourceEntry, targetEntry]);
+    onCopyCompleteBase(targetEntry, 0);
   }
 
   function onFilesystemError(err) {
@@ -539,10 +675,10 @@ FileCopyManager.prototype.serviceNextTaskEntry_ = function(
    *
    * @param {DirectoryEntry} dirEntry A directory entry.
    * @param {string} relativePath A path relative to |dirEntry|.
-   * @param {function(Entry,string)} A callback for returning the
-   *        |parentDirEntry| and |fileName| upon success.
-   * @param {function(FileError)} An error callback when there is an error
-   *        getting |parentDirEntry|.
+   * @param {function(Entry,string)} successCallback A callback for returning
+   *     the |parentDirEntry| and |fileName| upon success.
+   * @param {function(FileError)} errorCallback An error callback when there is
+   *     an error getting |parentDirEntry|.
    */
   function resolveDirAndBaseName(dirEntry, relativePath,
                                  successCallback, errorCallback) {
@@ -577,48 +713,78 @@ FileCopyManager.prototype.serviceNextTaskEntry_ = function(
     if (err.code != FileError.NOT_FOUND_ERR)
       return onError('FILESYSTEM_ERROR', err);
 
+    if (task.move) {
+      resolveDirAndBaseName(
+          targetDirEntry, targetRelativePath,
+          function(dirEntry, fileName) {
+            sourceEntry.moveTo(dirEntry, fileName,
+                               onFilesystemMoveComplete.bind(self, sourceEntry),
+                               onFilesystemError);
+          },
+          onFilesystemError);
+      return;
+    }
+
     if (task.sourceOnGData && task.targetOnGData) {
-      if (task.deleteAfterCopy) {
+      // TODO(benchan): GDataFileSystem has not implemented directory copy,
+      // and thus we only call FileEntry.copyTo() for files. Revisit this
+      // code when GDataFileSystem supports directory copy.
+      if (!sourceEntry.isDirectory) {
         resolveDirAndBaseName(
             targetDirEntry, targetRelativePath,
             function(dirEntry, fileName) {
-              sourceEntry.moveTo(dirEntry, fileName,
-                                 onFilesystemCopyComplete, onFilesystemError);
+              sourceEntry.copyTo(dirEntry, fileName,
+                  onFilesystemCopyComplete.bind(self, sourceEntry),
+                  onFilesystemError);
             },
             onFilesystemError);
         return;
-      } else {
-        // TODO(benchan): GDataFileSystem has not implemented directory copy,
-        // and thus we only call FileEntry.copyTo() for files. Revisit this
-        // code when GDataFileSystem supports directory copy.
-        if (!sourceEntry.isDirectory) {
-          resolveDirAndBaseName(
-              targetDirEntry, targetRelativePath,
-              function(dirEntry, fileName) {
-                sourceEntry.copyTo(dirEntry, fileName,
-                                   onFilesystemCopyComplete, onFilesystemError);
-              },
-              onFilesystemError);
-          return;
-        }
       }
     }
 
-    // TODO(benchan): Until GDataFileSystem supports FileWriter, we use
-    // the transferFile API to copy file from a non-gdata file system to a
-    // gdata file system.
-    if (sourceEntry.isFile && task.targetOnGData) {
+    // TODO(benchan): Until GDataFileSystem supports FileWriter, we use the
+    // transferFile API to copy files into or out from a gdata file system.
+    if (sourceEntry.isFile && (task.sourceOnGData || task.targetOnGData)) {
       var sourceFileUrl = sourceEntry.toURL();
-      var targetFileUrl = targetDirEntry.toURL() + '/' + targetRelativePath;
+      var targetFileUrl = targetDirEntry.toURL() + '/' +
+                          encodeURIComponent(targetRelativePath);
+      var transferedBytes = 0;
+      function onFileTransfersUpdated(statusList) {
+        for (var i = 0; i < statusList.length; i++) {
+          var s = statusList[i];
+          if ((s.fileUrl == sourceFileUrl || s.fileUrl == targetFileUrl) &&
+              s.processed > transferedBytes) {
+            onCopyProgress(sourceEntry, s.processed - transferedBytes);
+            transferedBytes = s.processed;
+          }
+        }
+      }
+      chrome.fileBrowserPrivate.onFileTransfersUpdated.addListener(
+          onFileTransfersUpdated);
       chrome.fileBrowserPrivate.transferFile(
         sourceFileUrl, targetFileUrl,
         function() {
+          chrome.fileBrowserPrivate.onFileTransfersUpdated.removeListener(
+              onFileTransfersUpdated);
           if (chrome.extension.lastError) {
-            util.flog('Error copying ' + sourceFileUrl + ' to ' +
-                      targetFileUrl, onFilesystemError);
-
+            console.log(
+                'Error copying ' + sourceFileUrl + ' to ' + targetFileUrl);
+            onFilesystemError({
+              code: chrome.extension.lastError.message,
+              toGDrive: task.targetOnGData,
+              sourceFileUrl: sourceFileUrl
+            });
           } else {
-            onFilesystemCopyComplete(sourceEntry);
+            targetDirEntry.getFile(targetRelativePath, {},
+                function(targetEntry) {
+                  targetEntry.getMetadata(function(metadata) {
+                    if (metadata.size > transferedBytes)
+                      onCopyProgress(sourceEntry,
+                                     metadata.size - transferedBytes);
+                    onFilesystemCopyComplete(sourceEntry, targetEntry);
+                  });
+                },
+                onFilesystemError);
           }
         });
       return;
@@ -642,7 +808,7 @@ FileCopyManager.prototype.serviceNextTaskEntry_ = function(
           {create: true, exclusive: true},
           function(targetEntry) {
             self.copyEntry_(sourceEntry, targetEntry,
-                           onCopyComplete, onError);
+                            onCopyProgress, onCopyComplete, onError);
           },
           util.flog('Error getting file: ' + targetRelativePath,
                     onFilesystemError));
@@ -667,20 +833,53 @@ FileCopyManager.prototype.serviceNextTaskEntry_ = function(
 
 /**
  * Copy the contents of sourceEntry into targetEntry.
+ *
+ * @private
+ * @param {Entry} sourceEntry entry that will be copied.
+ * @param {Entry} targetEntry entry to which sourceEntry will be copied.
+ * @param {function(Entry, number)} progressCallback function that will be
+ *     called when a part of the source entry is copied. It takes |targetEntry|
+ *     and size of the last copied chunk as parameters.
+ * @param {function(Entry, number)} successCallback function that will be called
+ *     the copy operation finishes. It takes |targetEntry| and size of the last
+ *     (not previously reported) copied chunk as parameters.
+ * @param {function{string, object}} errorCallback function that will be called
+ *     if an error is encountered. Takes error type and additional error data
+ *     as parameters.
  */
-FileCopyManager.prototype.copyEntry_ = function(
-    sourceEntry, targetEntry, successCallback, errorCallback) {
+FileCopyManager.prototype.copyEntry_ = function(sourceEntry,
+                                                targetEntry,
+                                                progressCallback,
+                                                successCallback,
+                                                errorCallback) {
   if (this.maybeCancel_())
     return;
 
+  self = this;
   function onSourceFileFound(file) {
     function onWriterCreated(writer) {
-      writer.onerror = function(err) {
-        errorCallback('FILESYSTEM_ERROR', err);
+      var reportedProgress = 0;
+      writer.onerror = function(progress) {
+        errorCallback('FILESYSTEM_ERROR', writer.error);
       };
+
+      writer.onprogress = function(progress) {
+        if (self.maybeCancel_()) {
+          // If the copy was canelled, we should abort the operation.
+          writer.abort();
+          return;
+        }
+        // |progress.loaded| will contain total amount of data copied by now.
+        // |progressCallback| expects data amount delta from the last progress
+        // update.
+        progressCallback(targetEntry, progress.loaded - reportedProgress);
+        reportedProgress = progress.loaded;
+      };
+
       writer.onwriteend = function() {
-        successCallback(targetEntry, file.size)
+        successCallback(targetEntry, file.size - reportedProgress);
       };
+
       writer.write(file);
     }
 

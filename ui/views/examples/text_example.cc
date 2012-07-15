@@ -100,23 +100,26 @@ class TextExample::TextExampleView : public View {
   }
 
   virtual void OnPaint(gfx::Canvas* canvas) OVERRIDE {
+    View::OnPaint(canvas);
+
+    const gfx::Rect bounds = GetContentsBounds();
+
 #if defined(OS_WIN)
     if (fade_) {
       size_t characters_to_truncate_from_head =
           gfx::Canvas::TruncateFadeHeadAndTail ? 10 : 0;
       canvas->DrawFadeTruncatingString(text_, fade_mode_,
-          characters_to_truncate_from_head, font_, SK_ColorDKGRAY,
-          GetLocalBounds());
+          characters_to_truncate_from_head, font_, SK_ColorDKGRAY, bounds);
       return;
     }
 #endif
 
     if (halo_) {
-      canvas->DrawStringWithHalo(text_, font_, SK_ColorDKGRAY, SK_ColorWHITE, 0,
-          0, width(), height(), text_flags_);
+      canvas->DrawStringWithHalo(text_, font_, SK_ColorDKGRAY, SK_ColorWHITE,
+          bounds.x(), bounds.y(), bounds.width(), bounds.height(), text_flags_);
     } else {
-      canvas->DrawStringInt(text_, font_, SK_ColorDKGRAY, 0, 0, width(),
-          height(), text_flags_);
+      canvas->DrawStringInt(text_, font_, SK_ColorDKGRAY, bounds.x(),
+          bounds.y(), bounds.width(), bounds.height(), text_flags_);
     }
   }
 
@@ -187,17 +190,19 @@ Combobox* TextExample::AddCombobox(GridLayout* layout,
                                    int count) {
   layout->StartRow(0, 0);
   layout->AddView(new Label(ASCIIToUTF16(name)));
-  ExampleComboboxModel* new_model = new ExampleComboboxModel(strings, count);
-  example_combobox_model_.push_back(new_model);
-  Combobox* combo_box = new Combobox(new_model);
-  combo_box->SetSelectedItem(0);
-  combo_box->set_listener(this);
-  layout->AddView(combo_box, kNumColumns - 1, 1);
-  return combo_box;
+  ExampleComboboxModel* combobox_model = new ExampleComboboxModel(strings,
+                                                                  count);
+  example_combobox_model_.push_back(combobox_model);
+  Combobox* combobox = new Combobox(combobox_model);
+  combobox->SetSelectedIndex(0);
+  combobox->set_listener(this);
+  layout->AddView(combobox, kNumColumns - 1, 1);
+  return combobox;
 }
 
 void TextExample::CreateExampleView(View* container) {
   text_view_ = new TextExampleView;
+  text_view_->set_border(views::Border::CreateSolidBorder(1, SK_ColorGRAY));
 
   GridLayout* layout = new GridLayout(container);
   container->SetLayoutManager(layout);
@@ -270,15 +275,13 @@ void TextExample::ButtonPressed(Button* button,
   text_view_->SchedulePaint();
 }
 
-void TextExample::ItemChanged(Combobox* combo_box,
-                              int prev_index,
-                              int new_index) {
+void TextExample::OnSelectedIndexChanged(Combobox* combobox) {
   int text_flags = text_view_->text_flags();
-  if (combo_box == h_align_cb_) {
+  if (combobox == h_align_cb_) {
     text_flags &= ~(gfx::Canvas::TEXT_ALIGN_LEFT |
                     gfx::Canvas::TEXT_ALIGN_CENTER |
                     gfx::Canvas::TEXT_ALIGN_RIGHT);
-    switch (new_index) {
+    switch (combobox->selected_index()) {
       case 0:
         break;
       case 1:
@@ -291,11 +294,11 @@ void TextExample::ItemChanged(Combobox* combo_box,
         text_flags |= gfx::Canvas::TEXT_ALIGN_RIGHT;
         break;
     }
-  } else if (combo_box == v_align_cb_) {
+  } else if (combobox == v_align_cb_) {
     text_flags &= ~(gfx::Canvas::TEXT_VALIGN_TOP |
                     gfx::Canvas::TEXT_VALIGN_MIDDLE |
                     gfx::Canvas::TEXT_VALIGN_BOTTOM);
-    switch (new_index) {
+    switch (combobox->selected_index()) {
       case 0:
         break;
       case 1:
@@ -308,8 +311,8 @@ void TextExample::ItemChanged(Combobox* combo_box,
         text_flags |= gfx::Canvas::TEXT_VALIGN_BOTTOM;
         break;
     }
-  } else if (combo_box == text_cb_) {
-    switch (new_index) {
+  } else if (combobox == text_cb_) {
+    switch (combobox->selected_index()) {
       case 0:
         text_view_->set_text(ASCIIToUTF16(kShortText));
         break;
@@ -326,8 +329,8 @@ void TextExample::ItemChanged(Combobox* combo_box,
         text_view_->set_text(ASCIIToUTF16(kNewlineText));
         break;
     }
-  } else if (combo_box == eliding_cb_) {
-    switch (new_index) {
+  } else if (combobox == eliding_cb_) {
+    switch (combobox->selected_index()) {
       case 0:
         text_flags &= ~gfx::Canvas::NO_ELLIPSIS;
         text_view_->set_fade(false);
@@ -351,9 +354,9 @@ void TextExample::ItemChanged(Combobox* combo_box,
         break;
 #endif
     }
-  } else if (combo_box == prefix_cb_) {
+  } else if (combobox == prefix_cb_) {
     text_flags &= ~(gfx::Canvas::SHOW_PREFIX | gfx::Canvas::HIDE_PREFIX);
-    switch (new_index) {
+    switch (combobox->selected_index()) {
       case 0:
         break;
       case 1:

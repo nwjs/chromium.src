@@ -9,7 +9,7 @@
 #include "chrome/browser/prefs/scoped_user_pref_update.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/navigation_entry.h"
@@ -43,18 +43,6 @@ class ExtensionOverrideTest : public ExtensionApiTest {
 
     return true;
   }
-
-#if defined(USE_VIRTUAL_KEYBOARD)
-  // Navigate to the keyboard page, and ensure we have arrived at an
-  // extension URL.
-  void NavigateToKeyboard() {
-    ui_test_utils::NavigateToURL(browser(), GURL("chrome://keyboard/"));
-    WebContents* tab = browser()->GetSelectedWebContents();
-    ASSERT_TRUE(tab->GetController().GetActiveEntry());
-    EXPECT_TRUE(tab->GetController().GetActiveEntry()->GetURL().
-                SchemeIs(chrome::kExtensionScheme));
-  }
-#endif
 };
 
 IN_PROC_BROWSER_TEST_F(ExtensionOverrideTest, OverrideNewtab) {
@@ -64,7 +52,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOverrideTest, OverrideNewtab) {
     // Navigate to the new tab page.  The overridden new tab page
     // will call chrome.test.notifyPass() .
     ui_test_utils::NavigateToURL(browser(), GURL("chrome://newtab/"));
-    WebContents* tab = browser()->GetSelectedWebContents();
+    WebContents* tab = chrome::GetActiveWebContents(browser());
     ASSERT_TRUE(tab->GetController().GetActiveEntry());
     EXPECT_TRUE(tab->GetController().GetActiveEntry()->GetURL().
                 SchemeIs(chrome::kExtensionScheme));
@@ -87,11 +75,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionOverrideTest, MAYBE_OverrideNewtabIncognito) {
 
   // Navigate an incognito tab to the new tab page.  We should get the actual
   // new tab page because we can't load chrome-extension URLs in incognito.
-  ui_test_utils::OpenURLOffTheRecord(browser()->profile(),
-                                     GURL("chrome://newtab/"));
-  Browser* otr_browser = BrowserList::FindTabbedBrowser(
-      browser()->profile()->GetOffTheRecordProfile(), false);
-  WebContents* tab = otr_browser->GetSelectedWebContents();
+  Browser* otr_browser = ui_test_utils::OpenURLOffTheRecord(
+      browser()->profile(), GURL("chrome://newtab/"));
+  WebContents* tab = chrome::GetActiveWebContents(otr_browser);
   ASSERT_TRUE(tab->GetController().GetActiveEntry());
   EXPECT_FALSE(tab->GetController().GetActiveEntry()->GetURL().
                SchemeIs(chrome::kExtensionScheme));
@@ -117,7 +103,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOverrideTest, MAYBE_OverrideHistory) {
 
 // Regression test for http://crbug.com/41442.
 IN_PROC_BROWSER_TEST_F(ExtensionOverrideTest, ShouldNotCreateDuplicateEntries) {
-  const Extension* extension =
+  const extensions::Extension* extension =
       LoadExtension(test_data_dir_.AppendASCII("override/history"));
   ASSERT_TRUE(extension);
 
@@ -153,32 +139,3 @@ IN_PROC_BROWSER_TEST_F(ExtensionOverrideTest, ShouldCleanUpDuplicateEntries) {
 
   ASSERT_TRUE(CheckHistoryOverridesContainsNoDupes());
 }
-
-#if defined(USE_VIRTUAL_KEYBOARD)
-IN_PROC_BROWSER_TEST_F(ExtensionOverrideTest, OverrideKeyboard) {
-  ASSERT_TRUE(RunExtensionTest("override/keyboard")) << message_;
-  {
-    ResultCatcher catcher;
-    NavigateToKeyboard();
-    ASSERT_TRUE(catcher.GetNextResult());
-  }
-
-  // Load the failing version.  This should take precedence.
-  const Extension* extension = LoadExtension(
-      test_data_dir_.AppendASCII("override").AppendASCII("keyboard_fails"));
-  ASSERT_TRUE(extension);
-  {
-    ResultCatcher catcher;
-    NavigateToKeyboard();
-    ASSERT_FALSE(catcher.GetNextResult());
-  }
-
-  // Unload the failing version.  We should be back to passing now.
-  UnloadExtension(extension->id());
-  {
-    ResultCatcher catcher;
-    NavigateToKeyboard();
-    ASSERT_TRUE(catcher.GetNextResult());
-  }
-}
-#endif

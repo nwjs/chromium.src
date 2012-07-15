@@ -9,6 +9,7 @@
 #include "base/logging.h"
 #include "net/base/file_stream.h"
 #include "net/base/net_util.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFileInfo.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebString.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebURL.h"
 #include "webkit/glue/webkit_glue.h"
@@ -22,10 +23,6 @@ WebFileUtilitiesImpl::WebFileUtilitiesImpl()
 }
 
 WebFileUtilitiesImpl::~WebFileUtilitiesImpl() {
-}
-
-void WebFileUtilitiesImpl::revealFolderInOS(const WebString& path) {
-  NOTREACHED();
 }
 
 bool WebFileUtilitiesImpl::fileExists(const WebString& path) {
@@ -43,26 +40,18 @@ bool WebFileUtilitiesImpl::deleteEmptyDirectory(const WebString& path) {
   return false;
 }
 
-bool WebFileUtilitiesImpl::getFileSize(const WebString& path,
-                                       long long& result) {
+bool WebFileUtilitiesImpl::getFileInfo(const WebString& path,
+                                       WebKit::WebFileInfo& web_file_info) {
   if (sandbox_enabled_) {
     NOTREACHED();
     return false;
   }
-  return file_util::GetFileSize(WebStringToFilePath(path),
-                                reinterpret_cast<int64*>(&result));
-}
+  base::PlatformFileInfo file_info;
+  if (!file_util::GetFileInfo(WebStringToFilePath(path), &file_info))
+    return false;
 
-bool WebFileUtilitiesImpl::getFileModificationTime(const WebString& path,
-                                                   double& result) {
-  if (sandbox_enabled_) {
-    NOTREACHED();
-    return false;
-  }
-  base::PlatformFileInfo info;
-  if (!file_util::GetFileInfo(WebStringToFilePath(path), &info))
-    return false;
-  result = info.last_modified.ToDoubleT();
+  webkit_glue::PlatformFileInfoToWebFileInfo(file_info, &web_file_info);
+  web_file_info.platformPath = path;
   return true;
 }
 
@@ -128,7 +117,7 @@ long long WebFileUtilitiesImpl::seekFile(base::PlatformFile handle,
   if (handle == base::kInvalidPlatformFileValue)
     return -1;
   net::FileStream file_stream(handle, 0, NULL);
-  return file_stream.Seek(static_cast<net::Whence>(origin), offset);
+  return file_stream.SeekSync(static_cast<net::Whence>(origin), offset);
 }
 
 bool WebFileUtilitiesImpl::truncateFile(base::PlatformFile handle,

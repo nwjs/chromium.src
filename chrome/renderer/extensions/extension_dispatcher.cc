@@ -10,28 +10,39 @@
 #include "base/string_piece.h"
 #include "chrome/common/child_process_logging.h"
 #include "chrome/common/chrome_switches.h"
+#include "chrome/common/chrome_version_info.h"
 #include "chrome/common/extensions/api/extension_api.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_messages.h"
-#include "chrome/common/extensions/extension_permission_set.h"
+#include "chrome/common/extensions/permissions/permission_set.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/common/view_type.h"
 #include "chrome/renderer/chrome_render_process_observer.h"
+#include "chrome/renderer/extensions/api_definitions_natives.h"
 #include "chrome/renderer/extensions/app_bindings.h"
+#include "chrome/renderer/extensions/app_window_custom_bindings.h"
 #include "chrome/renderer/extensions/chrome_v8_context.h"
 #include "chrome/renderer/extensions/chrome_v8_extension.h"
-#include "chrome/renderer/extensions/chrome_private_custom_bindings.h"
 #include "chrome/renderer/extensions/context_menus_custom_bindings.h"
 #include "chrome/renderer/extensions/event_bindings.h"
-#include "chrome/renderer/extensions/experimental.socket_custom_bindings.h"
+#include "chrome/renderer/extensions/experimental.app_custom_bindings.h"
+#include "chrome/renderer/extensions/experimental.usb_custom_bindings.h"
 #include "chrome/renderer/extensions/extension_custom_bindings.h"
 #include "chrome/renderer/extensions/extension_groups.h"
+#include "chrome/renderer/extensions/extension_helper.h"
+#include "chrome/renderer/extensions/extension_request_sender.h"
 #include "chrome/renderer/extensions/file_browser_handler_custom_bindings.h"
 #include "chrome/renderer/extensions/file_browser_private_custom_bindings.h"
+#include "chrome/renderer/extensions/file_system_natives.h"
 #include "chrome/renderer/extensions/i18n_custom_bindings.h"
+#include "chrome/renderer/extensions/media_gallery_custom_bindings.h"
 #include "chrome/renderer/extensions/miscellaneous_bindings.h"
 #include "chrome/renderer/extensions/page_actions_custom_bindings.h"
 #include "chrome/renderer/extensions/page_capture_custom_bindings.h"
-#include "chrome/renderer/extensions/schema_generated_bindings.h"
+#include "chrome/renderer/extensions/runtime_custom_bindings.h"
+#include "chrome/renderer/extensions/send_request_natives.h"
+#include "chrome/renderer/extensions/set_icon_natives.h"
+#include "chrome/renderer/extensions/tab_finder.h"
 #include "chrome/renderer/extensions/tabs_custom_bindings.h"
 #include "chrome/renderer/extensions/tts_custom_bindings.h"
 #include "chrome/renderer/extensions/user_script_slave.h"
@@ -41,6 +52,7 @@
 #include "chrome/renderer/native_handler.h"
 #include "chrome/renderer/resource_bundle_source_map.h"
 #include "content/public/renderer/render_thread.h"
+#include "content/public/renderer/render_view.h"
 #include "grit/renderer_resources.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebDataSource.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebDocument.h"
@@ -50,39 +62,54 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebString.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebURLRequest.h"
+#include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "v8/include/v8.h"
 
+using WebKit::WebDataSource;
+using WebKit::WebDocument;
+using WebKit::WebFrame;
+using WebKit::WebScopedUserGesture;
+using WebKit::WebSecurityPolicy;
+using WebKit::WebString;
+using WebKit::WebVector;
+using WebKit::WebView;
 using content::RenderThread;
-using extensions::ChromePrivateCustomBindings;
+using content::RenderView;
+using extensions::APIPermission;
+using extensions::ApiDefinitionsNatives;
+using extensions::AppWindowCustomBindings;
 using extensions::ContextMenusCustomBindings;
-using extensions::ExperimentalSocketCustomBindings;
+using extensions::Extension;
+using extensions::ExperimentalAppCustomBindings;
+using extensions::ExperimentalUsbCustomBindings;
 using extensions::ExtensionAPI;
 using extensions::ExtensionCustomBindings;
 using extensions::Feature;
 using extensions::FileBrowserHandlerCustomBindings;
 using extensions::FileBrowserPrivateCustomBindings;
+using extensions::FileSystemNatives;
 using extensions::I18NCustomBindings;
 using extensions::MiscellaneousBindings;
+using extensions::MediaGalleryCustomBindings;
 using extensions::PageActionsCustomBindings;
 using extensions::PageCaptureCustomBindings;
-using extensions::SchemaGeneratedBindings;
+using extensions::PermissionSet;
+using extensions::RuntimeCustomBindings;
+using extensions::SendRequestNatives;
+using extensions::SetIconNatives;
 using extensions::TTSCustomBindings;
+using extensions::TabFinder;
 using extensions::TabsCustomBindings;
+using extensions::UpdatedExtensionPermissionsInfo;
 using extensions::WebRequestCustomBindings;
-using WebKit::WebDataSource;
-using WebKit::WebDocument;
-using WebKit::WebFrame;
-using WebKit::WebSecurityPolicy;
-using WebKit::WebString;
-using WebKit::WebScopedUserGesture;
-using WebKit::WebVector;
-using WebKit::WebView;
 
 namespace {
 
 static const int64 kInitialExtensionIdleHandlerDelayMs = 5*1000;
 static const int64 kMaxExtensionIdleHandlerDelayMs = 5*60*1000;
+static const char kEventDispatchFunction[] = "Event.dispatchJSON";
+static const char kOnUnloadEvent[] = "runtime.onSuspend";
 
 class ChromeHiddenNativeHandler : public NativeHandler {
  public:
@@ -118,14 +145,142 @@ class PrintNativeHandler : public NativeHandler {
   }
 };
 
+class LazyBackgroundPageNativeHandler : public ChromeV8Extension {
+ public:
+  explicit LazyBackgroundPageNativeHandler(ExtensionDispatcher* dispatcher)
+      : ChromeV8Extension(dispatcher) {
+    RouteFunction("IncrementKeepaliveCount",
+        base::Bind(&LazyBackgroundPageNativeHandler::IncrementKeepaliveCount,
+                   base::Unretained(this)));
+    RouteFunction("DecrementKeepaliveCount",
+        base::Bind(&LazyBackgroundPageNativeHandler::DecrementKeepaliveCount,
+                   base::Unretained(this)));
+  }
+
+  v8::Handle<v8::Value> IncrementKeepaliveCount(const v8::Arguments& args) {
+    ChromeV8Context* context =
+        extension_dispatcher()->v8_context_set().GetCurrent();
+    if (!context)
+      return v8::Undefined();
+    RenderView* render_view = context->GetRenderView();
+    if (IsContextLazyBackgroundPage(render_view, context->extension())) {
+      render_view->Send(new ExtensionHostMsg_IncrementLazyKeepaliveCount(
+          render_view->GetRoutingID()));
+    }
+    return v8::Undefined();
+  }
+
+  v8::Handle<v8::Value> DecrementKeepaliveCount(const v8::Arguments& args) {
+    ChromeV8Context* context =
+        extension_dispatcher()->v8_context_set().GetCurrent();
+    if (!context)
+      return v8::Undefined();
+    RenderView* render_view = context->GetRenderView();
+    if (IsContextLazyBackgroundPage(render_view, context->extension())) {
+      render_view->Send(new ExtensionHostMsg_DecrementLazyKeepaliveCount(
+          render_view->GetRoutingID()));
+    }
+    return v8::Undefined();
+  }
+
+ private:
+  bool IsContextLazyBackgroundPage(RenderView* render_view,
+                                   const Extension* extension) {
+    if (!render_view)
+      return false;
+
+    ExtensionHelper* helper = ExtensionHelper::Get(render_view);
+    return (extension && extension->has_lazy_background_page() &&
+            helper->view_type() == chrome::VIEW_TYPE_EXTENSION_BACKGROUND_PAGE);
+  }
+};
+
+class ChannelNativeHandler : public NativeHandler {
+ public:
+  explicit ChannelNativeHandler(chrome::VersionInfo::Channel channel)
+      : channel_(channel) {
+    RouteFunction("IsDevChannel",
+        base::Bind(&ChannelNativeHandler::IsDevChannel,
+                   base::Unretained(this)));
+  }
+
+  v8::Handle<v8::Value> IsDevChannel(const v8::Arguments& args) {
+    return v8::Boolean::New(channel_ <= chrome::VersionInfo::CHANNEL_DEV);
+  }
+
+  chrome::VersionInfo::Channel channel_;
+};
+
+class LoggingNativeHandler : public NativeHandler {
+ public:
+  LoggingNativeHandler() {
+    RouteFunction("DCHECK",
+        base::Bind(&LoggingNativeHandler::Dcheck,
+                   base::Unretained(this)));
+  }
+
+  v8::Handle<v8::Value> Dcheck(const v8::Arguments& args) {
+    CHECK_LE(args.Length(), 2);
+    bool check_value = args[0]->BooleanValue();
+    std::string error_message;
+    if (args.Length() == 2)
+      error_message += "Error: " + std::string(*v8::String::AsciiValue(args[1]))
+          + "\n";
+
+    v8::Handle<v8::Array> stack_trace(
+        v8::StackTrace::CurrentStackTrace(10)->AsArray());
+    error_message += "Stack trace: {\n";
+    for (size_t i = 0; i < stack_trace->Length(); i++) {
+      error_message += "  "
+          + std::string(*v8::String::AsciiValue(stack_trace->Get(i))) + "\n";
+    }
+    error_message += "}";
+    DCHECK(check_value) << error_message;
+    return v8::Undefined();
+  }
+};
+
+void InstallAppBindings(ModuleSystem* module_system,
+                        v8::Handle<v8::Object> chrome,
+                        v8::Handle<v8::Object> chrome_hidden) {
+  module_system->SetLazyField(chrome, "app", "app", "chromeApp");
+  module_system->SetLazyField(chrome, "appNotifications", "app",
+                              "chromeAppNotifications");
+  module_system->SetLazyField(chrome_hidden, "app", "app",
+                              "chromeHiddenApp");
 }
+
+void InstallWebstoreBindings(ModuleSystem* module_system,
+                             v8::Handle<v8::Object> chrome,
+                             v8::Handle<v8::Object> chrome_hidden) {
+  module_system->SetLazyField(chrome, "webstore", "webstore", "chromeWebstore");
+  module_system->SetLazyField(chrome_hidden, "webstore", "webstore",
+                              "chromeHiddenWebstore");
+}
+
+static v8::Handle<v8::Object> GetOrCreateChrome(
+    v8::Handle<v8::Context> context) {
+  v8::Handle<v8::String> chrome_string(v8::String::New("chrome"));
+  v8::Handle<v8::Object> global(context->Global());
+  v8::Handle<v8::Value> chrome(global->Get(chrome_string));
+  if (chrome.IsEmpty() || chrome->IsUndefined()) {
+    v8::Handle<v8::Object> chrome_object(v8::Object::New());
+    global->Set(chrome_string, chrome_object);
+    return chrome_object;
+  }
+  CHECK(chrome->IsObject());
+  return chrome->ToObject();
+}
+
+}  // namespace
 
 ExtensionDispatcher::ExtensionDispatcher()
     : is_webkit_initialized_(false),
       webrequest_adblock_(false),
       webrequest_adblock_plus_(false),
       webrequest_other_(false),
-      source_map_(&ResourceBundle::GetSharedInstance()) {
+      source_map_(&ResourceBundle::GetSharedInstance()),
+      chrome_channel_(chrome::VersionInfo::CHANNEL_UNKNOWN) {
   const CommandLine& command_line = *(CommandLine::ForCurrentProcess());
   is_extension_process_ =
       command_line.HasSwitch(switches::kExtensionProcess) ||
@@ -136,8 +291,10 @@ ExtensionDispatcher::ExtensionDispatcher()
         kInitialExtensionIdleHandlerDelayMs);
   }
 
-  user_script_slave_.reset(new UserScriptSlave(&extensions_));
+  user_script_slave_.reset(new extensions::UserScriptSlave(&extensions_));
+  request_sender_.reset(new ExtensionRequestSender(this, &v8_context_set_));
   PopulateSourceMap();
+  PopulateLazyBindingsMap();
 }
 
 ExtensionDispatcher::~ExtensionDispatcher() {
@@ -147,8 +304,12 @@ bool ExtensionDispatcher::OnControlMessageReceived(
     const IPC::Message& message) {
   bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(ExtensionDispatcher, message)
+    IPC_MESSAGE_HANDLER(ExtensionMsg_SetChannel, OnSetChannel)
     IPC_MESSAGE_HANDLER(ExtensionMsg_MessageInvoke, OnMessageInvoke)
+    IPC_MESSAGE_HANDLER(ExtensionMsg_DispatchOnConnect, OnDispatchOnConnect)
     IPC_MESSAGE_HANDLER(ExtensionMsg_DeliverMessage, OnDeliverMessage)
+    IPC_MESSAGE_HANDLER(ExtensionMsg_DispatchOnDisconnect,
+                        OnDispatchOnDisconnect)
     IPC_MESSAGE_HANDLER(ExtensionMsg_SetFunctionNames, OnSetFunctionNames)
     IPC_MESSAGE_HANDLER(ExtensionMsg_Loaded, OnLoaded)
     IPC_MESSAGE_HANDLER(ExtensionMsg_Unloaded, OnUnloaded)
@@ -156,9 +317,14 @@ bool ExtensionDispatcher::OnControlMessageReceived(
                         OnSetScriptingWhitelist)
     IPC_MESSAGE_HANDLER(ExtensionMsg_ActivateExtension, OnActivateExtension)
     IPC_MESSAGE_HANDLER(ExtensionMsg_UpdatePermissions, OnUpdatePermissions)
+    IPC_MESSAGE_HANDLER(ExtensionMsg_UpdateTabSpecificPermissions,
+                        OnUpdateTabSpecificPermissions)
+    IPC_MESSAGE_HANDLER(ExtensionMsg_ClearTabSpecificPermissions,
+                        OnClearTabSpecificPermissions)
     IPC_MESSAGE_HANDLER(ExtensionMsg_UpdateUserScripts, OnUpdateUserScripts)
     IPC_MESSAGE_HANDLER(ExtensionMsg_UsingWebRequestAPI, OnUsingWebRequestAPI)
-    IPC_MESSAGE_HANDLER(ExtensionMsg_ShouldClose, OnShouldClose)
+    IPC_MESSAGE_HANDLER(ExtensionMsg_ShouldUnload, OnShouldUnload)
+    IPC_MESSAGE_HANDLER(ExtensionMsg_Unload, OnUnload)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
 
@@ -207,6 +373,10 @@ void ExtensionDispatcher::OnSetFunctionNames(
     function_names_.insert(names[i]);
 }
 
+void ExtensionDispatcher::OnSetChannel(int channel) {
+  chrome_channel_ = channel;
+}
+
 void ExtensionDispatcher::OnMessageInvoke(const std::string& extension_id,
                                           const std::string& function_name,
                                           const ListValue& args,
@@ -227,13 +397,31 @@ void ExtensionDispatcher::OnMessageInvoke(const std::string& extension_id,
         kInitialExtensionIdleHandlerDelayMs);
   }
 
+  // Tell the browser process when an event has been dispatched with a lazy
+  // background page active.
   const Extension* extension = extensions_.GetByID(extension_id);
-  // Tell the browser process that the event is dispatched and we're idle.
   if (extension && extension->has_lazy_background_page() &&
-      function_name == "Event.dispatchJSON") { // may always be true
-    RenderThread::Get()->Send(
-        new ExtensionHostMsg_ExtensionEventAck(extension_id));
+      function_name == kEventDispatchFunction) {
+    RenderView* background_view =
+        ExtensionHelper::GetBackgroundPage(extension_id);
+    if (background_view) {
+      background_view->Send(new ExtensionHostMsg_EventAck(
+          background_view->GetRoutingID()));
+    }
   }
+}
+
+void ExtensionDispatcher::OnDispatchOnConnect(
+    int target_port_id,
+    const std::string& channel_name,
+    const std::string& tab_json,
+    const std::string& source_extension_id,
+    const std::string& target_extension_id) {
+  MiscellaneousBindings::DispatchOnConnect(
+      v8_context_set_.GetAll(),
+      target_port_id, channel_name, tab_json,
+      source_extension_id, target_extension_id,
+      NULL);  // All render views.
 }
 
 void ExtensionDispatcher::OnDeliverMessage(int target_port_id,
@@ -242,6 +430,14 @@ void ExtensionDispatcher::OnDeliverMessage(int target_port_id,
       v8_context_set_.GetAll(),
       target_port_id,
       message,
+      NULL);  // All render views.
+}
+
+void ExtensionDispatcher::OnDispatchOnDisconnect(int port_id,
+                                                bool connection_error) {
+  MiscellaneousBindings::DispatchOnDisconnect(
+      v8_context_set_.GetAll(),
+      port_id, connection_error,
       NULL);  // All render views.
 }
 
@@ -279,7 +475,8 @@ void ExtensionDispatcher::OnLoaded(
     patterns.assign(platform_app_patterns);
     WebView::addUserStyleSheet(
         WebString::fromUTF8(ResourceBundle::GetSharedInstance().
-                            GetRawDataResource(IDR_PLATFORM_APP_CSS)),
+            GetRawDataResource(IDR_PLATFORM_APP_CSS,
+                               ui::SCALE_FACTOR_NONE)),
         patterns,
         WebView::UserContentInjectInAllFrames,
         WebView::UserStyleInjectInExistingDocuments);
@@ -343,22 +540,35 @@ void ExtensionDispatcher::RegisterNativeHandlers(ModuleSystem* module_system,
       scoped_ptr<NativeHandler>(EventBindings::Get(this)));
   module_system->RegisterNativeHandler("miscellaneous_bindings",
       scoped_ptr<NativeHandler>(MiscellaneousBindings::Get(this)));
-  module_system->RegisterNativeHandler("schema_generated_bindings",
-      scoped_ptr<NativeHandler>(SchemaGeneratedBindings::Get(this)));
+  module_system->RegisterNativeHandler("apiDefinitions",
+      scoped_ptr<NativeHandler>(new ApiDefinitionsNatives(this)));
+  module_system->RegisterNativeHandler("sendRequest",
+      scoped_ptr<NativeHandler>(
+          new SendRequestNatives(this, request_sender_.get())));
+  module_system->RegisterNativeHandler("setIcon",
+      scoped_ptr<NativeHandler>(
+          new SetIconNatives(this, request_sender_.get())));
+
+  // Natives used by multiple APIs.
+  module_system->RegisterNativeHandler("file_system_natives",
+      scoped_ptr<NativeHandler>(new FileSystemNatives()));
 
   // Custom bindings.
   module_system->RegisterNativeHandler("app",
       scoped_ptr<NativeHandler>(new AppBindings(this, context)));
-  module_system->RegisterNativeHandler("chrome_private",
-      scoped_ptr<NativeHandler>(
-          new ChromePrivateCustomBindings(this)));
+  module_system->RegisterNativeHandler("app_window",
+      scoped_ptr<NativeHandler>(new AppWindowCustomBindings(this)));
   module_system->RegisterNativeHandler("context_menus",
       scoped_ptr<NativeHandler>(new ContextMenusCustomBindings()));
   module_system->RegisterNativeHandler("extension",
       scoped_ptr<NativeHandler>(
           new ExtensionCustomBindings(this)));
-  module_system->RegisterNativeHandler("experimental_socket",
-      scoped_ptr<NativeHandler>(new ExperimentalSocketCustomBindings()));
+  module_system->RegisterNativeHandler("experimental_mediaGalleries",
+      scoped_ptr<NativeHandler>(new MediaGalleryCustomBindings()));
+  module_system->RegisterNativeHandler("experimental_app",
+      scoped_ptr<NativeHandler>(new ExperimentalAppCustomBindings()));
+  module_system->RegisterNativeHandler("experimental_usb",
+      scoped_ptr<NativeHandler>(new ExperimentalUsbCustomBindings()));
   module_system->RegisterNativeHandler("file_browser_handler",
       scoped_ptr<NativeHandler>(new FileBrowserHandlerCustomBindings()));
   module_system->RegisterNativeHandler("file_browser_private",
@@ -370,6 +580,8 @@ void ExtensionDispatcher::RegisterNativeHandlers(ModuleSystem* module_system,
           new PageActionsCustomBindings(this)));
   module_system->RegisterNativeHandler("page_capture",
       scoped_ptr<NativeHandler>(new PageCaptureCustomBindings()));
+  module_system->RegisterNativeHandler("runtime",
+      scoped_ptr<NativeHandler>(new RuntimeCustomBindings(context)));
   module_system->RegisterNativeHandler("tabs",
       scoped_ptr<NativeHandler>(new TabsCustomBindings()));
   module_system->RegisterNativeHandler("tts",
@@ -389,28 +601,42 @@ void ExtensionDispatcher::PopulateSourceMap() {
   source_map_.RegisterSource("json_schema", IDR_JSON_SCHEMA_JS);
   source_map_.RegisterSource("apitest", IDR_EXTENSION_APITEST_JS);
 
+  // Libraries.
+  source_map_.RegisterSource("lastError", IDR_LAST_ERROR_JS);
+  source_map_.RegisterSource("schemaUtils", IDR_SCHEMA_UTILS_JS);
+  source_map_.RegisterSource("sendRequest", IDR_SEND_REQUEST_JS);
+  source_map_.RegisterSource("setIcon", IDR_SET_ICON_JS);
+  source_map_.RegisterSource("utils", IDR_UTILS_JS);
+
   // Custom bindings.
   source_map_.RegisterSource("app", IDR_APP_CUSTOM_BINDINGS_JS);
+  source_map_.RegisterSource("appWindow", IDR_APP_WINDOW_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("browserAction",
                              IDR_BROWSER_ACTION_CUSTOM_BINDINGS_JS);
-  source_map_.RegisterSource("chromePrivate",
-                             IDR_CHROME_PRIVATE_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("contentSettings",
                              IDR_CONTENT_SETTINGS_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("contextMenus",
                              IDR_CONTEXT_MENUS_CUSTOM_BINDINGS_JS);
+  source_map_.RegisterSource("declarativeWebRequest",
+                             IDR_DECLARATIVE_WEBREQUEST_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("devtools", IDR_DEVTOOLS_CUSTOM_BINDINGS_JS);
-  source_map_.RegisterSource("experimental.declarative",
-                             IDR_EXPERIMENTAL_DECLARATIVE_CUSTOM_BINDINGS_JS);
+  source_map_.RegisterSource("experimental.app",
+                             IDR_EXPERIMENTAL_APP_CUSTOM_BINDINGS_JS);
+  source_map_.RegisterSource("experimental.bluetooth",
+                             IDR_EXPERIMENTAL_BLUETOOTH_CUSTOM_BINDINGS_JS);
+  source_map_.RegisterSource("experimental.mediaGalleries",
+                             IDR_MEDIA_GALLERY_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("experimental.offscreen",
                              IDR_EXPERIMENTAL_OFFSCREENTABS_CUSTOM_BINDINGS_JS);
-  source_map_.RegisterSource("experimental.socket",
-                             IDR_EXPERIMENTAL_SOCKET_CUSTOM_BINDINGS_JS);
+  source_map_.RegisterSource("experimental.usb",
+                             IDR_EXPERIMENTAL_USB_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("extension", IDR_EXTENSION_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("fileBrowserHandler",
                              IDR_FILE_BROWSER_HANDLER_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("fileBrowserPrivate",
                              IDR_FILE_BROWSER_PRIVATE_CUSTOM_BINDINGS_JS);
+  source_map_.RegisterSource("fileSystem",
+                             IDR_FILE_SYSTEM_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("i18n", IDR_I18N_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("input.ime", IDR_INPUT_IME_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("omnibox", IDR_OMNIBOX_CUSTOM_BINDINGS_JS);
@@ -419,13 +645,42 @@ void ExtensionDispatcher::PopulateSourceMap() {
   source_map_.RegisterSource("pageAction", IDR_PAGE_ACTION_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("pageCapture",
                              IDR_PAGE_CAPTURE_CUSTOM_BINDINGS_JS);
+  source_map_.RegisterSource("runtime", IDR_RUNTIME_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("storage", IDR_STORAGE_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("tabs", IDR_TABS_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("tts", IDR_TTS_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("ttsEngine", IDR_TTS_ENGINE_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("types", IDR_TYPES_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("webRequest", IDR_WEB_REQUEST_CUSTOM_BINDINGS_JS);
+  source_map_.RegisterSource("webRequestInternal",
+                             IDR_WEB_REQUEST_INTERNAL_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("webstore", IDR_WEBSTORE_CUSTOM_BINDINGS_JS);
+
+  // Platform app sources that are not API-specific..
+  source_map_.RegisterSource("browserTag", IDR_BROWSER_TAG_JS);
+  source_map_.RegisterSource("platformApp", IDR_PLATFORM_APP_JS);
+}
+
+void ExtensionDispatcher::PopulateLazyBindingsMap() {
+  lazy_bindings_map_["app"] = InstallAppBindings;
+  lazy_bindings_map_["webstore"] = InstallWebstoreBindings;
+}
+
+void ExtensionDispatcher::InstallBindings(ModuleSystem* module_system,
+                                          v8::Handle<v8::Context> v8_context,
+                                          const std::string& api) {
+  std::map<std::string, BindingInstaller>::const_iterator lazy_binding =
+      lazy_bindings_map_.find(api);
+  if (lazy_binding != lazy_bindings_map_.end()) {
+    v8::Handle<v8::Object> global(v8_context->Global());
+    v8::Handle<v8::Object> chrome =
+        global->Get(v8::String::New("chrome"))->ToObject();
+    v8::Handle<v8::Object> chrome_hidden =
+        ChromeV8Context::GetOrCreateChromeHidden(v8_context)->ToObject();
+    (*lazy_binding->second)(module_system, chrome, chrome_hidden);
+  } else {
+    module_system->Require(api);
+  }
 }
 
 void ExtensionDispatcher::DidCreateScriptContext(
@@ -438,7 +693,7 @@ void ExtensionDispatcher::DidCreateScriptContext(
   std::string extension_id = GetExtensionID(frame, world_id);
 
   const Extension* extension = extensions_.GetByID(extension_id);
-  if (!extension && !extension_id.empty() && !IsTestExtensionId(extension_id)) {
+  if (!extension && !extension_id.empty()) {
     // There are conditions where despite a context being associated with an
     // extension, no extension actually gets found.  Ignore "invalid" because
     // CSP blocks extension page loading by switching the extension ID to
@@ -447,38 +702,39 @@ void ExtensionDispatcher::DidCreateScriptContext(
       LOG(ERROR) << "Extension \"" << extension_id << "\" not found";
       RenderThread::Get()->RecordUserMetrics("ExtensionNotFound_ED");
     }
+
+    extension_id = "";
   }
 
   ExtensionURLInfo url_info(frame->document().securityOrigin(),
-      UserScriptSlave::GetDataSourceURLForFrame(frame));
+      extensions::UserScriptSlave::GetDataSourceURLForFrame(frame));
 
   Feature::Context context_type =
       ClassifyJavaScriptContext(extension_id, extension_group, url_info);
 
   ChromeV8Context* context =
-      new ChromeV8Context(v8_context, frame, extension_id, context_type);
+      new ChromeV8Context(v8_context, frame, extension, context_type);
   v8_context_set_.Add(context);
 
-  scoped_ptr<ModuleSystem> module_system(new ModuleSystem(&source_map_));
+  scoped_ptr<ModuleSystem> module_system(new ModuleSystem(v8_context,
+                                                          &source_map_));
+  // Enable natives in startup.
+  ModuleSystem::NativesEnabledScope natives_enabled_scope(module_system.get());
+
   RegisterNativeHandlers(module_system.get(), context);
 
   module_system->RegisterNativeHandler("chrome_hidden",
       scoped_ptr<NativeHandler>(new ChromeHiddenNativeHandler()));
   module_system->RegisterNativeHandler("print",
       scoped_ptr<NativeHandler>(new PrintNativeHandler()));
-
-  int manifest_version = 1;
-  if (extension)
-    manifest_version = extension->manifest_version();
-
-  // Create the 'chrome' variable if it doesn't already exist.
-  {
-    v8::HandleScope handle_scope;
-    v8::Handle<v8::String> chrome_string(v8::String::New("chrome"));
-    v8::Handle<v8::Object> global(v8::Context::GetCurrent()->Global());
-    if (global->Get(chrome_string)->IsUndefined())
-      global->Set(chrome_string, v8::Object::New());
-  }
+  module_system->RegisterNativeHandler("lazy_background_page",
+      scoped_ptr<NativeHandler>(new LazyBackgroundPageNativeHandler(this)));
+  module_system->RegisterNativeHandler("channel",
+      scoped_ptr<NativeHandler>(new ChannelNativeHandler(
+          static_cast<chrome::VersionInfo::Channel>(chrome_channel_))));
+  module_system->RegisterNativeHandler("logging",
+      scoped_ptr<NativeHandler>(new LoggingNativeHandler()));
+  GetOrCreateChrome(v8_context);
 
   // Loading JavaScript is expensive, so only run the full API bindings
   // generation mechanisms in extension pages (NOT all web pages).
@@ -486,16 +742,16 @@ void ExtensionDispatcher::DidCreateScriptContext(
     case Feature::UNSPECIFIED_CONTEXT:
     case Feature::WEB_PAGE_CONTEXT:
       // TODO(kalman): see comment below about ExtensionAPI.
-      module_system->Require("app");
-      module_system->Require("webstore");
+      InstallBindings(module_system.get(), v8_context, "app");
+      InstallBindings(module_system.get(), v8_context, "webstore");
       break;
 
     case Feature::BLESSED_EXTENSION_CONTEXT:
     case Feature::UNBLESSED_EXTENSION_CONTEXT:
     case Feature::CONTENT_SCRIPT_CONTEXT: {
-      module_system->Require("json_schema");
-      module_system->Require("event_bindings");
-      module_system->Require("miscellaneous_bindings");
+      CHECK(extension);
+      if (!extension->is_platform_app())
+        module_system->Require("miscellaneous_bindings");
       module_system->Require("schema_generated_bindings");
       module_system->Require("apitest");
 
@@ -503,51 +759,54 @@ void ExtensionDispatcher::DidCreateScriptContext(
       // regardless of |context_type|. ExtensionAPI knows how to return the
       // correct APIs, however, until it doesn't have a 2MB overhead we can't
       // load it in every process.
-      scoped_ptr<std::set<std::string> > apis =
-        ExtensionAPI::GetInstance()->GetAPIsForContext(
-            context_type, extension, url_info.url());
-      for (std::set<std::string>::iterator i = apis->begin(); i != apis->end();
-          ++i) {
-        module_system->Require(*i);
+      const std::set<std::string>& apis = context->GetAvailableExtensionAPIs();
+      for (std::set<std::string>::const_iterator i = apis.begin();
+           i != apis.end(); ++i) {
+        InstallBindings(module_system.get(), v8_context, *i);
       }
 
       break;
     }
   }
 
-  // TODO(kalman): this is probably the most unfortunate thing I've ever had to
-  // write. We really need to factor things differently to delete the concept
-  // of a test extension ID.
-  if (IsTestExtensionId(extension_id)) {
-    module_system->Require("miscellaneous_bindings");
-    module_system->Require("schema_generated_bindings");
-    module_system->Require("extension");
-  }
+  // Inject custom JS into the platform app context.
+  if (IsWithinPlatformApp(frame))
+    module_system->Require("platformApp");
 
-  module_system->set_natives_enabled(false);
+  if (context_type == Feature::BLESSED_EXTENSION_CONTEXT &&
+      extension && extension->HasAPIPermission(APIPermission::kBrowserTag)) {
+    module_system->Require("browserTag");
+  }
 
   context->set_module_system(module_system.Pass());
 
+  int manifest_version = 1;
+  if (extension)
+    manifest_version = extension->manifest_version();
   context->DispatchOnLoadEvent(
-      is_extension_process_,
       ChromeRenderProcessObserver::is_incognito_process(),
       manifest_version);
 
   VLOG(1) << "Num tracked contexts: " << v8_context_set_.size();
 }
 
-std::string ExtensionDispatcher::GetExtensionID(WebFrame* frame, int world_id) {
-  if (!test_extension_id_.empty()) {
-    return test_extension_id_;
-  } else if (world_id != 0) {
+std::string ExtensionDispatcher::GetExtensionID(const WebFrame* frame,
+                                                int world_id) {
+  if (world_id != 0) {
     // Isolated worlds (content script).
     return user_script_slave_->GetExtensionIdForIsolatedWorld(world_id);
-  } else {
-    // Extension pages (chrome-extension:// URLs).
-    GURL frame_url = UserScriptSlave::GetDataSourceURLForFrame(frame);
-    return extensions_.GetExtensionOrAppIDByURL(
-        ExtensionURLInfo(frame->document().securityOrigin(), frame_url));
   }
+
+  // Extension pages (chrome-extension:// URLs).
+  GURL frame_url = extensions::UserScriptSlave::GetDataSourceURLForFrame(frame);
+  return extensions_.GetExtensionOrAppIDByURL(
+      ExtensionURLInfo(frame->document().securityOrigin(), frame_url));
+}
+
+bool ExtensionDispatcher::IsWithinPlatformApp(const WebFrame* frame) {
+  const Extension* extension =
+      extensions_.GetByID(GetExtensionID(frame->top(), 0));
+  return extension && extension->is_platform_app();
 }
 
 void ExtensionDispatcher::WillReleaseScriptContext(
@@ -560,15 +819,6 @@ void ExtensionDispatcher::WillReleaseScriptContext(
 
   v8_context_set_.Remove(context);
   VLOG(1) << "Num tracked contexts: " << v8_context_set_.size();
-}
-
-void ExtensionDispatcher::SetTestExtensionId(const std::string& id) {
-  CHECK(!id.empty());
-  test_extension_id_ = id;
-}
-
-bool ExtensionDispatcher::IsTestExtensionId(const std::string& id) {
-  return !test_extension_id_.empty() && id == test_extension_id_;
 }
 
 void ExtensionDispatcher::OnActivateExtension(
@@ -593,7 +843,7 @@ void ExtensionDispatcher::InitOriginPermissions(const Extension* extension) {
   // TODO(jstritar): We should try to remove this special case. Also, these
   // whitelist entries need to be updated when the kManagement permission
   // changes.
-  if (extension->HasAPIPermission(ExtensionAPIPermission::kManagement)) {
+  if (extension->HasAPIPermission(APIPermission::kManagement)) {
     WebSecurityPolicy::addOriginAccessWhitelistEntry(
         extension->url(),
         WebString::fromUTF8(chrome::kChromeUIScheme),
@@ -601,12 +851,13 @@ void ExtensionDispatcher::InitOriginPermissions(const Extension* extension) {
         false);
   }
 
-  UpdateOriginPermissions(UpdatedExtensionPermissionsInfo::ADDED,
-                          extension,
-                          extension->GetActivePermissions()->explicit_hosts());
+  AddOrRemoveOriginPermissions(
+      UpdatedExtensionPermissionsInfo::ADDED,
+      extension,
+      extension->GetActivePermissions()->explicit_hosts());
 }
 
-void ExtensionDispatcher::UpdateOriginPermissions(
+void ExtensionDispatcher::AddOrRemoveOriginPermissions(
     UpdatedExtensionPermissionsInfo::Reason reason,
     const Extension* extension,
     const URLPatternSet& origins) {
@@ -635,30 +886,64 @@ void ExtensionDispatcher::UpdateOriginPermissions(
 void ExtensionDispatcher::OnUpdatePermissions(
     int reason_id,
     const std::string& extension_id,
-    const ExtensionAPIPermissionSet& apis,
+    const extensions::APIPermissionSet& apis,
     const URLPatternSet& explicit_hosts,
     const URLPatternSet& scriptable_hosts) {
   const Extension* extension = extensions_.GetByID(extension_id);
   if (!extension)
     return;
 
-  scoped_refptr<const ExtensionPermissionSet> delta =
-      new ExtensionPermissionSet(apis, explicit_hosts, scriptable_hosts);
-  scoped_refptr<const ExtensionPermissionSet> old_active =
+  scoped_refptr<const PermissionSet> delta =
+      new PermissionSet(apis, explicit_hosts, scriptable_hosts);
+  scoped_refptr<const PermissionSet> old_active =
       extension->GetActivePermissions();
   UpdatedExtensionPermissionsInfo::Reason reason =
       static_cast<UpdatedExtensionPermissionsInfo::Reason>(reason_id);
 
-  const ExtensionPermissionSet* new_active = NULL;
-  if (reason == UpdatedExtensionPermissionsInfo::ADDED) {
-    new_active = ExtensionPermissionSet::CreateUnion(old_active, delta);
-  } else {
-    CHECK_EQ(UpdatedExtensionPermissionsInfo::REMOVED, reason);
-    new_active = ExtensionPermissionSet::CreateDifference(old_active, delta);
+  const PermissionSet* new_active = NULL;
+  switch (reason) {
+    case UpdatedExtensionPermissionsInfo::ADDED:
+      new_active = PermissionSet::CreateUnion(old_active, delta);
+      break;
+    case UpdatedExtensionPermissionsInfo::REMOVED:
+      new_active = PermissionSet::CreateDifference(old_active, delta);
+      break;
   }
 
   extension->SetActivePermissions(new_active);
-  UpdateOriginPermissions(reason, extension, explicit_hosts);
+  AddOrRemoveOriginPermissions(reason, extension, explicit_hosts);
+}
+
+void ExtensionDispatcher::OnUpdateTabSpecificPermissions(
+    int page_id,
+    int tab_id,
+    const std::string& extension_id,
+    const URLPatternSet& origin_set) {
+  RenderView* view = TabFinder::Find(tab_id);
+
+  // For now, the message should only be sent to the render view that contains
+  // the target tab. This may change. Either way, if this is the target tab it
+  // gives us the chance to check against the page ID to avoid races.
+  DCHECK(view);
+  if (view && view->GetPageId() != page_id)
+    return;
+
+  const Extension* extension = extensions_.GetByID(extension_id);
+  if (!extension)
+    return;
+
+  extension->SetTabSpecificHostPermissions(tab_id, origin_set);
+}
+
+void ExtensionDispatcher::OnClearTabSpecificPermissions(
+    int tab_id,
+    const std::vector<std::string>& extension_ids) {
+  for (std::vector<std::string>::const_iterator it = extension_ids.begin();
+       it != extension_ids.end(); ++it) {
+    const Extension* extension = extensions_.GetByID(*it);
+    if (extension)
+      extension->ClearTabSpecificHostPermissions(tab_id);
+  }
 }
 
 void ExtensionDispatcher::OnUpdateUserScripts(
@@ -693,10 +978,25 @@ void ExtensionDispatcher::OnUsingWebRequestAPI(
   webrequest_other_ = other;
 }
 
-void ExtensionDispatcher::OnShouldClose(const std::string& extension_id,
-                                        int sequence_id) {
+void ExtensionDispatcher::OnShouldUnload(const std::string& extension_id,
+                                         int sequence_id) {
   RenderThread::Get()->Send(
-      new ExtensionHostMsg_ShouldCloseAck(extension_id, sequence_id));
+      new ExtensionHostMsg_ShouldUnloadAck(extension_id, sequence_id));
+}
+
+void ExtensionDispatcher::OnUnload(const std::string& extension_id) {
+  // Dispatch the unload event. This doesn't go through the standard event
+  // dispatch machinery because it requires special handling. We need to let
+  // the browser know when we are starting and stopping the event dispatch, so
+  // that it still considers the extension idle despite any activity the unload
+  // event creates.
+  ListValue args;
+  args.Set(0, Value::CreateStringValue(kOnUnloadEvent));
+  args.Set(1, Value::CreateStringValue("[]"));
+  v8_context_set_.DispatchChromeHiddenMethod(
+      extension_id, kEventDispatchFunction, args, NULL, GURL());
+
+  RenderThread::Get()->Send(new ExtensionHostMsg_UnloadAck(extension_id));
 }
 
 Feature::Context ExtensionDispatcher::ClassifyJavaScriptContext(
@@ -705,6 +1005,16 @@ Feature::Context ExtensionDispatcher::ClassifyJavaScriptContext(
     const ExtensionURLInfo& url_info) {
   if (extension_group == EXTENSION_GROUP_CONTENT_SCRIPTS)
     return Feature::CONTENT_SCRIPT_CONTEXT;
+
+  // We have an explicit check for sandboxed pages first since:
+  // 1. Sandboxed pages run in the same process as regular extension pages, so
+  //    the extension is considered active.
+  // 2. ScriptContext creation (which triggers bindings injection) happens
+  //    before the SecurityContext is updated with the sandbox flags (after
+  //    reading the CSP header), so url_info.url().securityOrigin() is not
+  //    unique yet.
+  if (extensions_.IsSandboxedPage(url_info))
+    return Feature::WEB_PAGE_CONTEXT;
 
   if (IsExtensionActive(extension_id))
     return Feature::BLESSED_EXTENSION_CONTEXT;
@@ -716,4 +1026,52 @@ Feature::Context ExtensionDispatcher::ClassifyJavaScriptContext(
     return Feature::WEB_PAGE_CONTEXT;
 
   return Feature::UNSPECIFIED_CONTEXT;
+}
+
+void ExtensionDispatcher::OnExtensionResponse(int request_id,
+                                              bool success,
+                                              const base::ListValue& response,
+                                              const std::string& error) {
+  request_sender_->HandleResponse(request_id, success, response, error);
+}
+
+bool ExtensionDispatcher::CheckCurrentContextAccessToExtensionAPI(
+    const std::string& function_name) const {
+  ChromeV8Context* context = v8_context_set().GetCurrent();
+  if (!context) {
+    DLOG(ERROR) << "Not in a v8::Context";
+    return false;
+  }
+
+  if (!context->extension() ||
+      !context->extension()->HasAPIPermission(function_name)) {
+    static const char kMessage[] =
+        "You do not have permission to use '%s'. Be sure to declare"
+        " in your manifest what permissions you need.";
+    std::string error_msg = base::StringPrintf(kMessage, function_name.c_str());
+    v8::ThrowException(
+        v8::Exception::Error(v8::String::New(error_msg.c_str())));
+    return false;
+  }
+
+  if (ExtensionAPI::GetSharedInstance()->IsPrivileged(function_name) &&
+      context->context_type() != Feature::BLESSED_EXTENSION_CONTEXT) {
+    static const char kMessage[] =
+        "%s can only be used in an extension process.";
+    std::string error_msg = base::StringPrintf(kMessage, function_name.c_str());
+    v8::ThrowException(
+        v8::Exception::Error(v8::String::New(error_msg.c_str())));
+    return false;
+  }
+
+  // We should never end up with sandboxed contexts trying to invoke extension
+  // APIs, they don't get extension bindings injected. If we end up here it
+  // means that a sandboxed page somehow managed to invoke an API anyway, so
+  // we should abort.
+  WebKit::WebFrame* frame = context->web_frame();
+  ExtensionURLInfo url_info(frame->document().securityOrigin(),
+      extensions::UserScriptSlave::GetDataSourceURLForFrame(frame));
+  CHECK(!extensions_.IsSandboxedPage(url_info));
+
+  return true;
 }

@@ -6,9 +6,14 @@
 
 #include "base/i18n/rtl.h"
 #include "base/logging.h"
+#include "base/memory/ref_counted_memory.h"
+#include "base/path_service.h"
 #include "base/synchronization/lock.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/gtk/scoped_gobject.h"
+#include "ui/base/layout.h"
+#include "ui/base/resource/resource_handle.h"
+#include "ui/base/ui_base_paths.h"
 #include "ui/gfx/image/image.h"
 
 #include <gtk/gtk.h>
@@ -20,7 +25,7 @@ namespace {
 // Convert the raw image data into a GdkPixbuf.  The GdkPixbuf that is returned
 // has a ref count of 1 so the caller must call g_object_unref to free the
 // memory.
-GdkPixbuf* LoadPixbuf(RefCountedStaticMemory* data, bool rtl_enabled) {
+GdkPixbuf* LoadPixbuf(base::RefCountedStaticMemory* data, bool rtl_enabled) {
   ScopedGObject<GdkPixbufLoader>::Type loader(gdk_pixbuf_loader_new());
   bool ok = data && gdk_pixbuf_loader_write(loader.get(),
       reinterpret_cast<const guint8*>(data->front()), data->size(), NULL);
@@ -48,54 +53,63 @@ GdkPixbuf* LoadPixbuf(RefCountedStaticMemory* data, bool rtl_enabled) {
   }
 }
 
-}  // namespace
+FilePath GetResourcesPakFilePath(const std::string& pak_name) {
+  FilePath path;
+  if (PathService::Get(base::DIR_MODULE, &path))
+    return path.AppendASCII(pak_name.c_str());
 
-gfx::Image& ResourceBundle::GetNativeImageNamed(int resource_id) {
-  return *GetPixbufImpl(resource_id, false);
+  // Return just the name of the pack file.
+  return FilePath(pak_name.c_str());
 }
 
-gfx::Image* ResourceBundle::GetPixbufImpl(int resource_id, bool rtl_enabled) {
+}  // namespace
+
+void ResourceBundle::LoadCommonResources() {
+  AddDataPackFromPath(GetResourcesPakFilePath("chrome.pak"),
+                      SCALE_FACTOR_100P);
+  AddDataPackFromPath(GetResourcesPakFilePath("theme_resources_standard.pak"),
+                      SCALE_FACTOR_100P);
+  AddDataPackFromPath(GetResourcesPakFilePath("ui_resources_standard.pak"),
+                      SCALE_FACTOR_100P);
+}
+
+gfx::Image& ResourceBundle::GetNativeImageNamed(int resource_id, ImageRTL rtl) {
   // Use the negative |resource_id| for the key for BIDI-aware images.
-  int key = rtl_enabled ? -resource_id : resource_id;
+  int key = rtl == RTL_ENABLED ? -resource_id : resource_id;
 
   // Check to see if the image is already in the cache.
   {
     base::AutoLock lock_scope(*images_and_fonts_lock_);
-    ImageMap::const_iterator found = images_.find(key);
-    if (found != images_.end())
-      return found->second;
+    if (images_.count(key))
+      return images_[key];
   }
 
-  scoped_refptr<RefCountedStaticMemory> data(
-      LoadDataResourceBytes(resource_id));
-  GdkPixbuf* pixbuf = LoadPixbuf(data.get(), rtl_enabled);
+  gfx::Image image;
+  if (delegate_)
+    image = delegate_->GetNativeImageNamed(resource_id, rtl);
 
-  // The load was successful, so cache the image.
-  if (pixbuf) {
-    base::AutoLock lock_scope(*images_and_fonts_lock_);
+  if (image.IsEmpty()) {
+    scoped_refptr<base::RefCountedStaticMemory> data(
+        LoadDataResourceBytes(resource_id, SCALE_FACTOR_100P));
+    GdkPixbuf* pixbuf = LoadPixbuf(data.get(), rtl == RTL_ENABLED);
 
-    // Another thread raced the load and has already cached the image.
-    if (images_.count(key)) {
-      g_object_unref(pixbuf);
-      return images_[key];
+    if (!pixbuf) {
+      LOG(WARNING) << "Unable to load pixbuf with id " << resource_id;
+      NOTREACHED();  // Want to assert in debug mode.
+      return GetEmptyImage();
     }
 
-    gfx::Image* image = new gfx::Image(pixbuf);  // Takes ownership.
-    images_[key] = image;
-    return image;
+    image = gfx::Image(pixbuf);  // Takes ownership.
   }
 
-  LOG(WARNING) << "Unable to pixbuf with id " << resource_id;
-  NOTREACHED();  // Want to assert in debug mode.
-  return GetEmptyImage();
-}
+  base::AutoLock lock_scope(*images_and_fonts_lock_);
 
-GdkPixbuf* ResourceBundle::GetRTLEnabledPixbufNamed(int resource_id) {
-  return GetPixbufImpl(resource_id, true)->ToGdkPixbuf();
-}
+  // Another thread raced the load and has already cached the image.
+  if (images_.count(key))
+    return images_[key];
 
-gfx::Image& ResourceBundle::GetRTLEnabledImageNamed(int resource_id) {
-  return *GetPixbufImpl(resource_id, true);
+  images_[key] = image;
+  return images_[key];
 }
 
 }  // namespace ui

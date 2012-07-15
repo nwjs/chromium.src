@@ -4,13 +4,12 @@
 
 #ifndef CONTENT_BROWSER_RENDERER_HOST_RENDER_WIDGET_HOST_VIEW_BASE_H_
 #define CONTENT_BROWSER_RENDERER_HOST_RENDER_WIDGET_HOST_VIEW_BASE_H_
-#pragma once
 
 #if defined(OS_MACOSX)
 #include <OpenGL/OpenGL.h>
 #endif
 
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
 #include <gdk/gdk.h>
 #endif
 
@@ -22,6 +21,7 @@
 #include "content/common/content_export.h"
 #include "content/port/browser/render_widget_host_view_port.h"
 #include "ui/base/range/range.h"
+#include "ui/gfx/rect.h"
 
 namespace content {
 
@@ -36,6 +36,8 @@ class RenderWidgetHostImpl;
 //
 // To enable embedders that add ports, everything else in content/
 // should use the RenderWidgetHostViewPort interface.
+//
+// RenderWidgetHostView class hierarchy described in render_widget_host_view.h.
 class CONTENT_EXPORT RenderWidgetHostViewBase
     : public RenderWidgetHostViewPort {
  public:
@@ -56,8 +58,13 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
   virtual WebKit::WebPopupType GetPopupType() OVERRIDE;
   virtual BrowserAccessibilityManager*
       GetBrowserAccessibilityManager() const OVERRIDE;
+  virtual SmoothScrollGesture* CreateSmoothScrollGesture(
+      bool scroll_down, bool scroll_far) OVERRIDE;
 
   void SetBrowserAccessibilityManager(BrowserAccessibilityManager* manager);
+
+  // Notification that a resize or move session ended on the native widget.
+  void UpdateScreenInfo();
 
  protected:
   // Interface class only, do not construct.
@@ -94,6 +101,9 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
  private:
   // Manager of the tree representation of the WebKit render tree.
   scoped_ptr<BrowserAccessibilityManager> browser_accessibility_manager_;
+
+  gfx::Rect current_display_area_;
+  float current_device_scale_factor_;
 
   DISALLOW_COPY_AND_ASSIGN(RenderWidgetHostViewBase);
 };

@@ -4,14 +4,16 @@
 
 #ifndef SYNC_UTIL_NIGORI_H_
 #define SYNC_UTIL_NIGORI_H_
-#pragma once
 
 #include <string>
 
 #include "base/memory/scoped_ptr.h"
-#include "crypto/symmetric_key.h"
 
-namespace browser_sync {
+namespace crypto {
+class SymmetricKey;
+}  // namespace crypto
+
+namespace syncer {
 
 // A (partial) implementation of Nigori, a protocol to securely store secrets in
 // the cloud. This implementation does not support server authentication or
@@ -78,6 +80,6 @@ class Nigori {
   scoped_ptr<crypto::SymmetricKey> mac_key_;
 };
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_UTIL_NIGORI_H_

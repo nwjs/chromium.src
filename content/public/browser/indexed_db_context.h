@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_PUBLIC_BROWSER_INDEXED_DB_CONTEXT_H_
 #define CONTENT_PUBLIC_BROWSER_INDEXED_DB_CONTEXT_H_
-#pragma once
 
 #include <vector>
 
@@ -24,8 +23,6 @@ namespace content {
 // Call these methods only on the WebKit thread.
 class IndexedDBContext : public base::RefCountedThreadSafe<IndexedDBContext> {
  public:
-  virtual ~IndexedDBContext() {}
-
   // Methods used in response to QuotaManager requests.
   virtual std::vector<GURL> GetAllOrigins() = 0;
   virtual int64 GetOriginDiskUsage(const GURL& origin_url) = 0;
@@ -36,6 +33,10 @@ class IndexedDBContext : public base::RefCountedThreadSafe<IndexedDBContext> {
 
   // Get the file name of the local storage file for the given origin.
   virtual FilePath GetFilePathForTesting(const string16& origin_id) const = 0;
+
+ protected:
+  friend class base::RefCountedThreadSafe<IndexedDBContext>;
+  virtual ~IndexedDBContext() {}
 };
 
 }  // namespace content

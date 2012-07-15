@@ -167,21 +167,19 @@
       ],
       'dependencies': [
         '../../base/base.gyp:base',
-        'cacheinvalidation_proto',
         'cacheinvalidation_proto_cpp',
       ],
-      # This target exports a hard dependency because its include files
-      # include generated header files from cache_invalidation_proto_cpp.
-      'hard_dependency': 1,
       'direct_dependent_settings': {
         'include_dirs': [
           './overrides',
           './files/src',
         ],
       },
+      # We avoid including header files from
+      # cacheinvalidation_proto_cpp in our public header files so we
+      # don't need to export its settings.
       'export_dependent_settings': [
         '../../base/base.gyp:base',
-        'cacheinvalidation_proto_cpp',
       ],
     },
     # Unittests for the cache invalidation library.
@@ -207,6 +205,7 @@
         '../../testing/gmock.gyp:gmock',
         '../../testing/gtest.gyp:gtest',
         'cacheinvalidation',
+        'cacheinvalidation_proto_cpp',
       ],
     },
     {
@@ -215,22 +214,28 @@
       'dependencies': [
         'cacheinvalidation_unittests',
       ],
+      'includes': [
+        'cacheinvalidation_unittests.isolate',
+      ],
       'actions': [
         {
           'action_name': 'isolate',
           'inputs': [
-            '<(PRODUCT_DIR)/cacheinvalidation_unittests<(EXECUTABLE_SUFFIX)',
+            'cacheinvalidation_unittests.isolate',
+            '<@(isolate_dependency_tracked)',
           ],
           'outputs': [
             '<(PRODUCT_DIR)/cacheinvalidation_unittests.results',
           ],
           'action': [
             'python',
-            '<(DEPTH)/tools/isolate/isolate.py',
-            '--mode=<(tests_run)',
-            '--root', '<(DEPTH)',
+            '../../tools/isolate/isolate.py',
+            '<(test_isolation_mode)',
+            '--outdir', '<(test_isolation_outdir)',
+            '--variable', 'PRODUCT_DIR', '<(PRODUCT_DIR)',
+            '--variable', 'OS', '<(OS)',
             '--result', '<@(_outputs)',
-            '<@(_inputs)',
+            '--isolate', 'cacheinvalidation_unittests.isolate',
           ],
         },
       ],

@@ -1717,6 +1717,15 @@
     }
   }
 
+  void CopyTextureCHROMIUM(
+      GLenum target, GLenum source_id, GLenum dest_id, GLint level,
+      GLint internalformat) {
+    gles2::CopyTextureCHROMIUM* c = GetCmdSpace<gles2::CopyTextureCHROMIUM>();
+    if (c) {
+      c->Init(target, source_id, dest_id, level, internalformat);
+    }
+  }
+
   void DrawArraysInstancedANGLE(
       GLenum mode, GLint first, GLsizei count, GLsizei primcount) {
     gles2::DrawArraysInstancedANGLE* c =
@@ -1741,6 +1750,81 @@
         GetCmdSpace<gles2::VertexAttribDivisorANGLE>();
     if (c) {
       c->Init(index, divisor);
+    }
+  }
+
+  void GenMailboxCHROMIUM(GLuint bucket_id) {
+    gles2::GenMailboxCHROMIUM* c = GetCmdSpace<gles2::GenMailboxCHROMIUM>();
+    if (c) {
+      c->Init(bucket_id);
+    }
+  }
+
+  void ProduceTextureCHROMIUM(
+      GLenum target, uint32 mailbox_shm_id, uint32 mailbox_shm_offset) {
+    gles2::ProduceTextureCHROMIUM* c =
+        GetCmdSpace<gles2::ProduceTextureCHROMIUM>();
+    if (c) {
+      c->Init(target, mailbox_shm_id, mailbox_shm_offset);
+    }
+  }
+
+  void ProduceTextureCHROMIUMImmediate(GLenum target, const GLbyte* mailbox) {
+    const uint32 size = gles2::ProduceTextureCHROMIUMImmediate::ComputeSize();
+    gles2::ProduceTextureCHROMIUMImmediate* c =
+        GetImmediateCmdSpaceTotalSize<gles2::ProduceTextureCHROMIUMImmediate>(
+            size);
+    if (c) {
+      c->Init(target, mailbox);
+    }
+  }
+
+  void ConsumeTextureCHROMIUM(
+      GLenum target, uint32 mailbox_shm_id, uint32 mailbox_shm_offset) {
+    gles2::ConsumeTextureCHROMIUM* c =
+        GetCmdSpace<gles2::ConsumeTextureCHROMIUM>();
+    if (c) {
+      c->Init(target, mailbox_shm_id, mailbox_shm_offset);
+    }
+  }
+
+  void ConsumeTextureCHROMIUMImmediate(GLenum target, const GLbyte* mailbox) {
+    const uint32 size = gles2::ConsumeTextureCHROMIUMImmediate::ComputeSize();
+    gles2::ConsumeTextureCHROMIUMImmediate* c =
+        GetImmediateCmdSpaceTotalSize<gles2::ConsumeTextureCHROMIUMImmediate>(
+            size);
+    if (c) {
+      c->Init(target, mailbox);
+    }
+  }
+
+  void BindUniformLocationCHROMIUM(
+      GLuint program, GLint location, uint32 name_shm_id,
+      uint32 name_shm_offset, uint32 data_size) {
+    gles2::BindUniformLocationCHROMIUM* c =
+        GetCmdSpace<gles2::BindUniformLocationCHROMIUM>();
+    if (c) {
+      c->Init(program, location, name_shm_id, name_shm_offset, data_size);
+    }
+  }
+
+  void BindUniformLocationCHROMIUMImmediate(
+      GLuint program, GLint location, const char* name) {
+    const uint32 data_size = strlen(name);
+    gles2::BindUniformLocationCHROMIUMImmediate* c =
+        GetImmediateCmdSpace<gles2::BindUniformLocationCHROMIUMImmediate>(
+            data_size);
+    if (c) {
+      c->Init(program, location, name, data_size);
+    }
+  }
+
+  void BindUniformLocationCHROMIUMBucket(
+      GLuint program, GLint location, uint32 name_bucket_id) {
+    gles2::BindUniformLocationCHROMIUMBucket* c =
+        GetCmdSpace<gles2::BindUniformLocationCHROMIUMBucket>();
+    if (c) {
+      c->Init(program, location, name_bucket_id);
     }
   }
 

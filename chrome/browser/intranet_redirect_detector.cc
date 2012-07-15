@@ -13,10 +13,10 @@
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
-#include "content/public/common/url_fetcher.h"
 #include "net/base/load_flags.h"
 #include "net/base/net_errors.h"
 #include "net/base/registry_controlled_domain.h"
+#include "net/url_request/url_fetcher.h"
 #include "net/url_request/url_request_context_getter.h"
 #include "net/url_request/url_request_status.h"
 
@@ -81,8 +81,8 @@ void IntranetRedirectDetector::FinishSleep() {
     for (size_t j = 0; j < kNumCharsInHostnames; ++j)
       url_string += ('a' + base::RandInt(0, 'z' - 'a'));
     GURL random_url(url_string + '/');
-    content::URLFetcher* fetcher = content::URLFetcher::Create(
-        random_url, content::URLFetcher::HEAD, this);
+    net::URLFetcher* fetcher = net::URLFetcher::Create(
+        random_url, net::URLFetcher::HEAD, this);
     // We don't want these fetches to affect existing state in the profile.
     fetcher->SetLoadFlags(net::LOAD_DISABLE_CACHE |
                           net::LOAD_DO_NOT_SAVE_COOKIES |
@@ -94,12 +94,12 @@ void IntranetRedirectDetector::FinishSleep() {
 }
 
 void IntranetRedirectDetector::OnURLFetchComplete(
-    const content::URLFetcher* source) {
+    const net::URLFetcher* source) {
   // Delete the fetcher on this function's exit.
   Fetchers::iterator fetcher = fetchers_.find(
-      const_cast<content::URLFetcher*>(source));
+      const_cast<net::URLFetcher*>(source));
   DCHECK(fetcher != fetchers_.end());
-  scoped_ptr<content::URLFetcher> clean_up_fetcher(*fetcher);
+  scoped_ptr<net::URLFetcher> clean_up_fetcher(*fetcher);
   fetchers_.erase(fetcher);
 
   // If any two fetches result in the same domain/host, we set the redirect

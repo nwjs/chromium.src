@@ -6,15 +6,19 @@
 
 #include "ash/wm/panel_frame_view.h"
 #include "base/utf_string_conversions.h"
+#include "chrome/browser/extensions/api/tabs/tabs_constants.h"
 #include "chrome/browser/extensions/extension_function_dispatcher.h"
+#include "chrome/browser/extensions/extension_process_manager.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
-#include "chrome/browser/extensions/extension_tabs_module_constants.h"
-#include "chrome/browser/extensions/extension_window_controller.h"
-#include "chrome/browser/extensions/extension_window_list.h"
+#include "chrome/browser/extensions/window_controller.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/sessions/session_id.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list.h"
-#include "chrome/common/chrome_view_type.h"
+#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/view_type_utils.h"
+#include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_messages.h"
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/web_contents.h"
@@ -26,14 +30,14 @@
 #include "ui/aura/window.h"
 #include "ui/views/widget/widget.h"
 
-using content::RenderViewHost;
-
 namespace {
 const int kMinWidth = 100;
 const int kMinHeight = 100;
 const int kDefaultWidth = 200;
 const int kDefaultHeight = 300;
 }
+
+namespace keys = extensions::tabs_constants;
 
 namespace internal {
 
@@ -53,7 +57,8 @@ class PanelHost : public content::WebContentsDelegate,
   Profile* profile() const { return profile_; }
 
   // ExtensionFunctionDispatcher::Delegate overrides.
-  virtual Browser* GetBrowser() OVERRIDE;
+  virtual extensions::WindowController* GetExtensionWindowController()
+      const OVERRIDE;
   virtual content::WebContents* GetAssociatedWebContents() const OVERRIDE;
 
   // content::WebContentsDelegate implementation:
@@ -68,7 +73,8 @@ class PanelHost : public content::WebContentsDelegate,
                               bool user_gesture) OVERRIDE;
 
   // content::WebContentsObserver implementation:
-  virtual void RenderViewCreated(RenderViewHost* render_view_host) OVERRIDE;
+  virtual void RenderViewCreated(
+      content::RenderViewHost* render_view_host) OVERRIDE;
   virtual void RenderViewReady() OVERRIDE;
   virtual void RenderViewGone(base::TerminationStatus status) OVERRIDE;
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
@@ -101,7 +107,7 @@ void PanelHost::Init(const GURL& url) {
 
   web_contents_.reset(content::WebContents::Create(
       profile_, site_instance_.get(), MSG_ROUTING_NONE, NULL, NULL));
-  web_contents_->SetViewType(chrome::VIEW_TYPE_PANEL);
+  chrome::SetViewType(web_contents_.get(), chrome::VIEW_TYPE_PANEL);
   web_contents_->SetDelegate(this);
   Observe(web_contents_.get());
 
@@ -109,8 +115,8 @@ void PanelHost::Init(const GURL& url) {
       url, content::Referrer(), content::PAGE_TRANSITION_LINK, std::string());
 }
 
-Browser* PanelHost::GetBrowser() {
-  return NULL;
+extensions::WindowController* PanelHost::GetExtensionWindowController() const {
+  return panel_view_->extension_window_controller();
 }
 
 content::WebContents* PanelHost::GetAssociatedWebContents() const {
@@ -137,14 +143,15 @@ void PanelHost::AddNewContents(content::WebContents* source,
                                WindowOpenDisposition disposition,
                                const gfx::Rect& initial_pos,
                                bool user_gesture) {
-  Browser* browser = BrowserList::GetLastActiveWithProfile(
+  Browser* browser = browser::FindLastActiveWithProfile(
       Profile::FromBrowserContext(new_contents->GetBrowserContext()));
-  if (!browser)
-    return;
-  browser->AddWebContents(new_contents, disposition, initial_pos, user_gesture);
+  if (browser) {
+    chrome::AddWebContents(browser, NULL, new_contents, disposition,
+                           initial_pos, user_gesture);
+  }
 }
 
-void PanelHost::RenderViewCreated(RenderViewHost* render_view_host) {
+void PanelHost::RenderViewCreated(content::RenderViewHost* render_view_host) {
 }
 
 void PanelHost::RenderViewReady() {
@@ -171,19 +178,21 @@ void PanelHost::OnRequest(const ExtensionHostMsg_Request_Params& params) {
 ////////////////////////////////////////////////////////////////////////////////
 // PanelExtensionWindowController
 
-class PanelExtensionWindowController : public ExtensionWindowController {
+class PanelExtensionWindowController : public extensions::WindowController {
  public:
   PanelExtensionWindowController(PanelViewAura* panel_view,
                                  PanelHost* panel_host);
 
-  // Overriden from ExtensionWindowController:
-  virtual const SessionID& GetSessionId() const OVERRIDE;
+  // Overriden from extensions::WindowController:
+  virtual int GetWindowId() const OVERRIDE;
+  virtual std::string GetWindowTypeText() const OVERRIDE;
   virtual base::DictionaryValue* CreateWindowValue() const OVERRIDE;
   virtual base::DictionaryValue* CreateWindowValueWithTabs() const OVERRIDE;
-  virtual bool CanClose(
-      ExtensionWindowController::Reason* reason) const OVERRIDE;
+  virtual bool CanClose(Reason* reason) const OVERRIDE;
   virtual void SetFullscreenMode(bool is_fullscreen,
                                  const GURL& extension_url) const OVERRIDE;
+  virtual bool IsVisibleToExtension(
+      const extensions::Extension* extension) const OVERRIDE;
 
  private:
   PanelViewAura* panel_view_;
@@ -195,26 +204,22 @@ class PanelExtensionWindowController : public ExtensionWindowController {
 PanelExtensionWindowController::PanelExtensionWindowController(
     PanelViewAura* panel_view,
     PanelHost* panel_host)
-    : ExtensionWindowController(panel_view, panel_host->profile()),
+    : extensions::WindowController(panel_view, panel_host->profile()),
       panel_view_(panel_view),
       panel_host_(panel_host) {
 }
 
-const SessionID& PanelExtensionWindowController::GetSessionId() const {
-  return panel_view_->session_id();
+int PanelExtensionWindowController::GetWindowId() const {
+  return static_cast<int>(panel_view_->session_id().id());
 }
 
-namespace keys = extension_tabs_module_constants;
+std::string PanelExtensionWindowController::GetWindowTypeText() const {
+  return keys::kWindowTypeValuePanel;
+}
 
 base::DictionaryValue*
 PanelExtensionWindowController::CreateWindowValue() const {
-  DictionaryValue* result = ExtensionWindowController::CreateWindowValue();
-
-  result->SetString(keys::kWindowTypeKey, keys::kWindowTypeValuePanel);
-  std::string window_state = window()->IsMinimized() ?
-      keys::kShowStateValueMinimized : keys::kShowStateValueNormal;
-  result->SetString(keys::kShowStateKey, window_state);
-
+  DictionaryValue* result = extensions::WindowController::CreateWindowValue();
   return result;
 }
 
@@ -224,19 +229,39 @@ PanelExtensionWindowController::CreateWindowValueWithTabs() const {
 
   // TODO(stevenjb): Implement tab interface for Aura panels.
   // Currently there is no mechanism to get a tab id without an associated
-  // TabContentsWrapper. We will need to either add a TabContentsWrapper for
+  // TabContents. We will need to either add a TabContents for
   // panels, or add another mechanism for tracking tabs. crbug.com/115532.
 
   return result;
 }
 
-bool PanelExtensionWindowController::CanClose(
-    ExtensionWindowController::Reason* reason) const {
+bool PanelExtensionWindowController::CanClose(Reason* reason) const {
   return true;
 }
 
 void PanelExtensionWindowController::SetFullscreenMode(
     bool is_fullscreen, const GURL& extension_url) const {
+}
+
+bool PanelExtensionWindowController::IsVisibleToExtension(
+    const extensions::Extension* extension) const {
+  ExtensionProcessManager* process_manager =
+      extensions::ExtensionSystem::Get(
+          panel_host_->profile())->process_manager();
+  const extensions::Extension* panel_extension = process_manager->
+      GetExtensionForRenderViewHost(
+          panel_view_->WebContents()->GetRenderViewHost());
+
+  // Non-extension panels are visible to all extensions.
+  if (!panel_extension)
+    return !extension->is_platform_app();
+
+  // Platform apps can only see their own panels.
+  if (extension->is_platform_app())
+    return extension == panel_extension;
+
+  // Other extensions can see non-platform app panels.
+  return !panel_extension->is_platform_app();
 }
 
 }  // namespace internal
@@ -360,6 +385,14 @@ bool PanelViewAura::IsMinimized() const {
   return GetWidget()->IsMinimized();
 }
 
+bool PanelViewAura::IsFullscreen() const {
+  return GetWidget()->IsFullscreen();
+}
+
+gfx::NativeWindow PanelViewAura::GetNativeWindow() {
+  return GetWidget()->GetNativeWindow();
+}
+
 gfx::Rect PanelViewAura::GetRestoredBounds() const {
   return GetWidget()->GetRestoredBounds();
 }
@@ -406,6 +439,10 @@ void PanelViewAura::Restore() {
 
 void PanelViewAura::SetBounds(const gfx::Rect& bounds) {
   GetWidget()->SetBounds(bounds);
+}
+
+void PanelViewAura::SetDraggableRegion(SkRegion* region) {
+  NOTIMPLEMENTED();
 }
 
 void PanelViewAura::FlashFrame(bool flash) {

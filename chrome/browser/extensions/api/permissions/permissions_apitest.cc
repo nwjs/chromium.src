@@ -9,8 +9,12 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/common/extensions/extension_permission_set.h"
+#include "chrome/common/extensions/permissions/permission_set.h"
 #include "net/base/mock_host_resolver.h"
+
+using extensions::APIPermission;
+using extensions::APIPermissionSet;
+using extensions::PermissionSet;
 
 namespace {
 
@@ -60,21 +64,22 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, FaviconPermission) {
 
 // Test functions and APIs that are always allowed (even if you ask for no
 // permissions).
-IN_PROC_BROWSER_TEST_F(ExtensionApiTest, AlwaysAllowed) {
+// Disabled: http://crbug.com/125193
+IN_PROC_BROWSER_TEST_F(ExtensionApiTest, DISABLED_AlwaysAllowed) {
   ASSERT_TRUE(RunExtensionTest("permissions/always_allowed")) << message_;
 }
 
 // Tests that the optional permissions API works correctly.
 IN_PROC_BROWSER_TEST_F(ExtensionApiTest, OptionalPermissionsGranted) {
   // Mark all the tested APIs as granted to bypass the confirmation UI.
-  ExtensionAPIPermissionSet apis;
-  apis.insert(ExtensionAPIPermission::kTab);
+  APIPermissionSet apis;
+  apis.insert(APIPermission::kTab);
   URLPatternSet explicit_hosts;
   AddPattern(&explicit_hosts, "http://*.c.com/*");
-  scoped_refptr<ExtensionPermissionSet> granted_permissions =
-      new ExtensionPermissionSet(apis, explicit_hosts, URLPatternSet());
+  scoped_refptr<PermissionSet> granted_permissions =
+      new PermissionSet(apis, explicit_hosts, URLPatternSet());
 
-  ExtensionPrefs* prefs =
+  extensions::ExtensionPrefs* prefs =
       browser()->profile()->GetExtensionService()->extension_prefs();
   prefs->AddGrantedPermissions("kjmkgkdkpedkejedfhmfcenooemhbpbo",
                                granted_permissions);

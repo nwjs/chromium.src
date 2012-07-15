@@ -5,6 +5,7 @@
 #include "content/public/common/common_param_traits.h"
 
 #include "content/public/common/content_constants.h"
+#include "content/public/common/referrer.h"
 #include "net/base/host_port_pair.h"
 #include "net/base/upload_data.h"
 #include "net/http/http_response_headers.h"
@@ -67,76 +68,6 @@ bool ParamTraits<GURL>::Read(const Message* m, PickleIterator* iter, GURL* p) {
 
 void ParamTraits<GURL>::Log(const GURL& p, std::string* l) {
   l->append(p.spec());
-}
-
-void ParamTraits<ResourceType::Type>::Write(Message* m, const param_type& p) {
-  m->WriteInt(p);
-}
-
-bool ParamTraits<ResourceType::Type>::Read(const Message* m,
-                                           PickleIterator* iter,
-                                           param_type* p) {
-  int type;
-  if (!m->ReadInt(iter, &type) || !ResourceType::ValidType(type))
-    return false;
-  *p = ResourceType::FromInt(type);
-  return true;
-}
-
-void ParamTraits<ResourceType::Type>::Log(const param_type& p, std::string* l) {
-  std::string type;
-  switch (p) {
-    case ResourceType::MAIN_FRAME:
-      type = "MAIN_FRAME";
-      break;
-    case ResourceType::SUB_FRAME:
-      type = "SUB_FRAME";
-      break;
-    case ResourceType::STYLESHEET:
-      type = "STYLESHEET";
-      break;
-    case ResourceType::SCRIPT:
-      type = "SCRIPT";
-      break;
-    case ResourceType::IMAGE:
-      type = "IMAGE";
-      break;
-    case ResourceType::FONT_RESOURCE:
-      type = "FONT_RESOURCE";
-      break;
-    case ResourceType::SUB_RESOURCE:
-      type = "SUB_RESOURCE";
-      break;
-    case ResourceType::OBJECT:
-      type = "OBJECT";
-      break;
-    case ResourceType::MEDIA:
-      type = "MEDIA";
-      break;
-    case ResourceType::WORKER:
-      type = "WORKER";
-      break;
-    case ResourceType::SHARED_WORKER:
-      type = "SHARED_WORKER";
-      break;
-    case ResourceType::PREFETCH:
-      type = "PREFETCH";
-      break;
-    case ResourceType::PRERENDER:
-      type = "PRERENDER";
-      break;
-    case ResourceType::FAVICON:
-      type = "FAVICON";
-      break;
-    case ResourceType::XHR:
-      type = "XHR";
-      break;
-    default:
-      type = "UNKNOWN";
-      break;
-  }
-
-  LogParam(type, l);
 }
 
 void ParamTraits<net::URLRequestStatus>::Write(Message* m,
@@ -402,46 +333,23 @@ void ParamTraits<net::IPEndPoint>::Log(const param_type& p, std::string* l) {
   LogParam("IPEndPoint:" + p.ToString(), l);
 }
 
-void ParamTraits<base::PlatformFileInfo>::Write(
+void ParamTraits<content::Referrer>::Write(
     Message* m, const param_type& p) {
-  WriteParam(m, p.size);
-  WriteParam(m, p.is_directory);
-  WriteParam(m, p.last_modified.ToDoubleT());
-  WriteParam(m, p.last_accessed.ToDoubleT());
-  WriteParam(m, p.creation_time.ToDoubleT());
+  WriteParam(m, p.url);
+  WriteParam(m, p.policy);
 }
 
-bool ParamTraits<base::PlatformFileInfo>::Read(
-    const Message* m, PickleIterator* iter, param_type* p) {
-  double last_modified;
-  double last_accessed;
-  double creation_time;
-  bool result =
-      ReadParam(m, iter, &p->size) &&
-      ReadParam(m, iter, &p->is_directory) &&
-      ReadParam(m, iter, &last_modified) &&
-      ReadParam(m, iter, &last_accessed) &&
-      ReadParam(m, iter, &creation_time);
-  if (result) {
-    p->last_modified = base::Time::FromDoubleT(last_modified);
-    p->last_accessed = base::Time::FromDoubleT(last_accessed);
-    p->creation_time = base::Time::FromDoubleT(creation_time);
-  }
-  return result;
+bool ParamTraits<content::Referrer>::Read(
+    const Message* m, PickleIterator* iter, param_type* r) {
+  return ReadParam(m, iter, &r->url) && ReadParam(m, iter, &r->policy);
 }
 
-void ParamTraits<base::PlatformFileInfo>::Log(
+void ParamTraits<content::Referrer>::Log(
     const param_type& p, std::string* l) {
   l->append("(");
-  LogParam(p.size, l);
+  LogParam(p.url, l);
   l->append(",");
-  LogParam(p.is_directory, l);
-  l->append(",");
-  LogParam(p.last_modified.ToDoubleT(), l);
-  l->append(",");
-  LogParam(p.last_accessed.ToDoubleT(), l);
-  l->append(",");
-  LogParam(p.creation_time.ToDoubleT(), l);
+  LogParam(p.policy, l);
   l->append(")");
 }
 
@@ -575,4 +483,25 @@ void ParamTraits<SkBitmap>::Log(const SkBitmap& p, std::string* l) {
   l->append("<SkBitmap>");
 }
 
+}  // namespace IPC
+
+// Generate param traits write methods.
+#include "ipc/param_traits_write_macros.h"
+namespace IPC {
+#undef CONTENT_PUBLIC_COMMON_COMMON_PARAM_TRAITS_MACROS_H_
+#include "content/public/common/common_param_traits_macros.h"
+}  // namespace IPC
+
+// Generate param traits read methods.
+#include "ipc/param_traits_read_macros.h"
+namespace IPC {
+#undef CONTENT_PUBLIC_COMMON_COMMON_PARAM_TRAITS_MACROS_H_
+#include "content/public/common/common_param_traits_macros.h"
+}  // namespace IPC
+
+// Generate param traits log methods.
+#include "ipc/param_traits_log_macros.h"
+namespace IPC {
+#undef CONTENT_PUBLIC_COMMON_COMMON_PARAM_TRAITS_MACROS_H_
+#include "content/public/common/common_param_traits_macros.h"
 }  // namespace IPC

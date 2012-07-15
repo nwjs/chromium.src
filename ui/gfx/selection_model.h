@@ -4,9 +4,8 @@
 
 #ifndef UI_GFX_SELECTION_MODEL_H_
 #define UI_GFX_SELECTION_MODEL_H_
-#pragma once
 
-#include <iosfwd>
+#include <string>
 
 #include "ui/base/range/range.h"
 #include "ui/base/ui_export.h"
@@ -77,6 +76,8 @@ class UI_EXPORT SelectionModel {
   bool operator==(const SelectionModel& sel) const;
   bool operator!=(const SelectionModel& sel) { return !(*this == sel); }
 
+  std::string ToString() const;
+
  private:
   friend class RenderText;
 
@@ -106,9 +107,6 @@ class UI_EXPORT SelectionModel {
   //          6                  abc|FED                     abcFED|
   LogicalCursorDirection caret_affinity_;
 };
-
-UI_EXPORT std::ostream& operator<<(std::ostream& out,
-                                   const SelectionModel& sel);
 
 }  // namespace gfx
 

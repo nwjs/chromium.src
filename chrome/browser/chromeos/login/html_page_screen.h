@@ -4,12 +4,10 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_HTML_PAGE_SCREEN_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_HTML_PAGE_SCREEN_H_
-#pragma once
 
 #include <string>
 
 #include "base/compiler_specific.h"
-#include "base/memory/scoped_ptr.h"
 #include "chrome/browser/chromeos/login/screen_observer.h"
 #include "chrome/browser/chromeos/login/view_screen.h"
 #include "chrome/browser/chromeos/login/web_page_screen.h"
@@ -22,7 +20,7 @@ class ViewScreenDelegate;
 
 class HTMLPageView : public WebPageView {
  public:
-  HTMLPageView();
+  explicit HTMLPageView(content::BrowserContext* browser_context);
 
  protected:
   virtual WebPageDomView* dom_view() OVERRIDE;
@@ -42,6 +40,9 @@ class HTMLPageScreen : public ViewScreen<HTMLPageView>,
   HTMLPageScreen(ViewScreenDelegate* delegate, const std::string& url);
   virtual ~HTMLPageScreen();
 
+  // WizardScreen overrides:
+  virtual std::string GetName() const OVERRIDE;
+
  protected:
   // Overrides WebPageScreen:
   virtual void OnNetworkTimeout() OVERRIDE;
@@ -53,7 +54,7 @@ class HTMLPageScreen : public ViewScreen<HTMLPageView>,
   virtual HTMLPageView* AllocateView() OVERRIDE;
 
   virtual void HandleKeyboardEvent(
-      const NativeWebKeyboardEvent& event) OVERRIDE;
+      const content::NativeWebKeyboardEvent& event) OVERRIDE;
 
   // WebPageScreen implementation:
   virtual void CloseScreen(ScreenObserver::ExitCodes code) OVERRIDE;

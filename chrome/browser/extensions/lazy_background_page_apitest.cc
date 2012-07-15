@@ -12,9 +12,10 @@
 #include "chrome/browser/extensions/extension_host.h"
 #include "chrome/browser/extensions/extension_test_message_listener.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/lazy_background_page_test_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/omnibox/location_bar.h"
 #include "chrome/common/chrome_notification_types.h"
@@ -26,38 +27,9 @@
 #include "googleurl/src/gurl.h"
 #include "net/base/mock_host_resolver.h"
 
+using extensions::Extension;
+
 namespace {
-// Helper class to wait for a lazy background page to load and close again.
-class LazyBackgroundObserver {
- public:
-  LazyBackgroundObserver()
-      : page_created_(chrome::NOTIFICATION_EXTENSION_BACKGROUND_PAGE_READY,
-                      content::NotificationService::AllSources()),
-        page_closed_(chrome::NOTIFICATION_EXTENSION_HOST_DESTROYED,
-                     content::NotificationService::AllSources()) {
-  }
-  explicit LazyBackgroundObserver(Profile* profile)
-      : page_created_(chrome::NOTIFICATION_EXTENSION_BACKGROUND_PAGE_READY,
-                      content::NotificationService::AllSources()),
-        page_closed_(chrome::NOTIFICATION_EXTENSION_HOST_DESTROYED,
-                     content::Source<Profile>(profile)) {
-  }
-  void Wait() {
-    page_created_.Wait();
-    page_closed_.Wait();
-  }
-
-  void WaitUntilLoaded() {
-    page_created_.Wait();
-  }
-  void WaitUntilClosed() {
-    page_closed_.Wait();
-  }
-
- private:
-  ui_test_utils::WindowedNotificationObserver page_created_;
-  ui_test_utils::WindowedNotificationObserver page_closed_;
-};
 
 // This unfortunate bit of silliness is necessary when loading an extension in
 // incognito. The goal is to load the extension, enable incognito, then wait
@@ -95,14 +67,16 @@ class LoadedIncognitoObserver : public content::NotificationObserver {
   scoped_ptr<LazyBackgroundObserver> incognito_complete_;
 };
 
-
 }  // namespace
 
 class LazyBackgroundPageApiTest : public ExtensionApiTest {
-public:
+ public:
   void SetUpCommandLine(CommandLine* command_line) {
     ExtensionApiTest::SetUpCommandLine(command_line);
     command_line->AppendSwitch(switches::kEnableExperimentalExtensionApis);
+    // Set shorter delays to prevent test timeouts.
+    command_line->AppendSwitchASCII(switches::kEventPageIdleTime, "1");
+    command_line->AppendSwitchASCII(switches::kEventPageUnloadingTime, "1");
   }
 
   // Loads the extension, which temporarily starts the lazy background page
@@ -136,8 +110,8 @@ IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, BrowserActionCreateTab) {
   // Background page created a new tab before it closed.
   EXPECT_FALSE(pm->GetBackgroundHostForExtension(last_loaded_extension_id_));
   EXPECT_EQ(num_tabs_before + 1, browser()->tab_count());
-  EXPECT_EQ("chrome://extensions/",
-            browser()->GetSelectedWebContents()->GetURL().spec());
+  EXPECT_EQ("chrome://chrome/extensions/",
+            chrome::GetActiveWebContents(browser())->GetURL().spec());
 }
 
 IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest,
@@ -192,6 +166,22 @@ IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, BroadcastEvent) {
                 GetLocationBarForTesting()->PageActionVisibleCount());
 }
 
+IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, Filters) {
+  const Extension* extension = LoadExtensionAndWait("filters");
+  ASSERT_TRUE(extension);
+
+  // Lazy Background Page doesn't exist yet.
+  ExtensionProcessManager* pm =
+      browser()->profile()->GetExtensionProcessManager();
+  EXPECT_FALSE(pm->GetBackgroundHostForExtension(last_loaded_extension_id_));
+
+  // Open a tab to a URL that will fire a webNavigation event.
+  LazyBackgroundObserver page_complete;
+  ui_test_utils::NavigateToURL(
+      browser(), test_server()->GetURL("files/extensions/test_file.html"));
+  page_complete.Wait();
+}
+
 // Tests that the lazy background page receives the onInstalled event and shuts
 // down.
 IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, OnInstalled) {
@@ -218,7 +208,7 @@ IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, WaitForView) {
 
   // The extension should've opened a new tab to an extension page.
   EXPECT_EQ(extension->GetResourceURL("extension_page.html").spec(),
-            browser()->GetSelectedWebContents()->GetURL().spec());
+            chrome::GetActiveWebContents(browser())->GetURL().spec());
 
   // Lazy Background Page still exists, because the extension created a new tab
   // to an extension page.
@@ -227,7 +217,7 @@ IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, WaitForView) {
   EXPECT_TRUE(pm->GetBackgroundHostForExtension(last_loaded_extension_id_));
 
   // Close the new tab.
-  browser()->CloseTabContents(browser()->GetSelectedWebContents());
+  chrome::CloseWebContents(browser(), chrome::GetActiveWebContents(browser()));
   page_complete.Wait();
 
   // Lazy Background Page has been shut down.
@@ -270,11 +260,8 @@ IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, WaitForRequest) {
 // and they each load and unload at the proper times.
 IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, IncognitoSplitMode) {
   // Open incognito window.
-  ui_test_utils::OpenURLOffTheRecord(
+  Browser* incognito_browser = ui_test_utils::OpenURLOffTheRecord(
       browser()->profile(), GURL("about:blank"));
-  Browser* incognito_browser = BrowserList::FindTabbedBrowser(
-      browser()->profile()->GetOffTheRecordProfile(), false);
-  ASSERT_TRUE(incognito_browser);
 
   // Load the extension with incognito enabled.
   {
@@ -366,6 +353,22 @@ IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, Messaging) {
   EXPECT_FALSE(pm->GetBackgroundHostForExtension(last_loaded_extension_id_));
 }
 
+// Tests that the lazy background page receives the unload event when we
+// close it, and that it can execute simple API calls that don't require an
+// asynchronous response.
+IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, OnUnload) {
+  ASSERT_TRUE(LoadExtensionAndWait("on_unload"));
+
+  // Lazy Background Page has been shut down.
+  ExtensionProcessManager* pm =
+      browser()->profile()->GetExtensionProcessManager();
+  EXPECT_FALSE(pm->GetBackgroundHostForExtension(last_loaded_extension_id_));
+
+  // The browser action has a new title.
+  BrowserActionTestUtil browser_action(browser());
+  ASSERT_EQ(1, browser_action.NumberOfBrowserActions());
+  EXPECT_EQ("Success", browser_action.GetTooltip(0));
+}
+
 // TODO: background page with timer.
 // TODO: background page that interacts with popup.
-// TODO: background page with menu.

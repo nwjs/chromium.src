@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_GTK_OMNIBOX_OMNIBOX_VIEW_GTK_H_
 #define CHROME_BROWSER_UI_GTK_OMNIBOX_OMNIBOX_VIEW_GTK_H_
-#pragma once
 
 #include <gtk/gtk.h>
 
@@ -14,7 +13,6 @@
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/string_util.h"
-#include "chrome/browser/autocomplete/autocomplete_match.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
 #include "chrome/browser/ui/toolbar/toolbar_model.h"
 #include "content/public/browser/notification_observer.h"
@@ -26,9 +24,10 @@
 #include "ui/gfx/rect.h"
 #include "webkit/glue/window_open_disposition.h"
 
-class AutocompleteEditController;
-class AutocompleteEditModel;
-class AutocompletePopupView;
+class Browser;
+class OmniboxEditController;
+class OmniboxEditModel;
+class OmniboxPopupView;
 class Profile;
 
 namespace gfx {
@@ -39,7 +38,7 @@ namespace ui {
 class MultiAnimation;
 }
 
-class ThemeServiceGtk;
+class GtkThemeService;
 
 class OmniboxViewGtk : public OmniboxView,
                        public content::NotificationObserver,
@@ -61,9 +60,9 @@ class OmniboxViewGtk : public OmniboxView,
     int cp_max;  // For a selection: Represents the end (insert position).
   };
 
-  OmniboxViewGtk(AutocompleteEditController* controller,
+  OmniboxViewGtk(OmniboxEditController* controller,
                  ToolbarModel* toolbar_model,
-                 Profile* profile,
+                 Browser* browser,
                  CommandUpdater* command_updater,
                  bool popup_window_mode,
                  GtkWidget* location_bar);
@@ -77,8 +76,8 @@ class OmniboxViewGtk : public OmniboxView,
   int WidthOfTextAfterCursor();
 
   // OmniboxView:
-  virtual AutocompleteEditModel* model() OVERRIDE;
-  virtual const AutocompleteEditModel* model() const OVERRIDE;
+  virtual OmniboxEditModel* model() OVERRIDE;
+  virtual const OmniboxEditModel* model() const OVERRIDE;
   virtual void SaveStateToTab(content::WebContents* tab) OVERRIDE;
   virtual void Update(
       const content::WebContents* tab_for_state_restoring) OVERRIDE;
@@ -98,7 +97,7 @@ class OmniboxViewGtk : public OmniboxView,
                                         bool update_popup,
                                         bool notify_text_changed) OVERRIDE;
   virtual void SetForcedQuery() OVERRIDE;
-  virtual bool IsSelectAll() OVERRIDE;
+  virtual bool IsSelectAll() const OVERRIDE;
   virtual bool DeleteAtEndPressed() OVERRIDE;
   virtual void GetSelectionBounds(string16::size_type* start,
                                   string16::size_type* end) const OVERRIDE;
@@ -330,6 +329,9 @@ class OmniboxViewGtk : public OmniboxView,
   // Stop showing the instant suggest auto-commit animation.
   void StopAnimation();
 
+  // The Browser that contains this omnibox.
+  Browser* browser_;
+
   // The widget we expose, used for vertically centering the real text edit,
   // since the height will change based on the font / font size, etc.
   ui::OwnedWidgetGtk alignment_;
@@ -362,9 +364,9 @@ class OmniboxViewGtk : public OmniboxView,
   // be used.
   GtkTextMark* instant_mark_;
 
-  scoped_ptr<AutocompleteEditModel> model_;
-  scoped_ptr<AutocompletePopupView> popup_view_;
-  AutocompleteEditController* controller_;
+  scoped_ptr<OmniboxEditModel> model_;
+  scoped_ptr<OmniboxPopupView> popup_view_;
+  OmniboxEditController* controller_;
   ToolbarModel* toolbar_model_;
 
   // The object that handles additional command functionality exposed on the
@@ -408,7 +410,7 @@ class OmniboxViewGtk : public OmniboxView,
   bool button_1_pressed_;
 
   // Supplies colors, et cetera.
-  ThemeServiceGtk* theme_service_;
+  GtkThemeService* theme_service_;
 
   content::NotificationRegistrar registrar_;
 
@@ -434,6 +436,10 @@ class OmniboxViewGtk : public OmniboxView,
   // The actual paste clipboard action might be performed later if the
   // clipboard is not empty.
   bool paste_clipboard_requested_;
+
+  // Text to "Paste and go"; set by HandlePopulatePopup() and consumed by
+  // HandlePasteAndGo().
+  string16 sanitized_text_for_paste_and_go_;
 
   // Indicates if an Enter key press is inserted as text.
   // It's used in the key press handler to determine if an Enter key event is

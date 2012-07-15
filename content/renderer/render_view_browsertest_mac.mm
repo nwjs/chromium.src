@@ -5,13 +5,14 @@
 #include "base/string_util.h"
 #include "base/string16.h"
 #include "content/public/browser/native_web_keyboard_event.h"
+#include "content/public/test/render_view_test.h"
 #include "content/renderer/render_view_impl.h"
-#include "content/test/render_view_test.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 #include <Cocoa/Cocoa.h>
 #include <Carbon/Carbon.h>  // for the kVK_* constants.
 
+using content::NativeWebKeyboardEvent;
 using content::RenderViewTest;
 
 NSEvent* CmdDeadKeyEvent(NSEventType type, unsigned short code) {
@@ -83,7 +84,7 @@ TEST_F(RenderViewTest, MacTestCmdUp) {
   );
   #undef HTML
 
-  WebPreferences prefs;
+  webkit_glue::WebPreferences prefs;
   prefs.enable_scroll_animator = false;
 
   RenderViewImpl* view = static_cast<RenderViewImpl*>(view_);

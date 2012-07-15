@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_MOCK_BROWSING_DATA_DATABASE_HELPER_H_
 #define CHROME_BROWSER_MOCK_BROWSING_DATA_DATABASE_HELPER_H_
-#pragma once
 
 #include <list>
 #include <map>
@@ -22,8 +21,6 @@ class MockBrowsingDataDatabaseHelper : public BrowsingDataDatabaseHelper {
   virtual void StartFetching(
       const base::Callback<void(const std::list<DatabaseInfo>&)>& callback)
           OVERRIDE;
-
-  virtual void CancelNotification() OVERRIDE;
 
   virtual void DeleteDatabase(const std::string& origin,
       const std::string& name) OVERRIDE;
@@ -47,8 +44,6 @@ class MockBrowsingDataDatabaseHelper : public BrowsingDataDatabaseHelper {
 
  private:
   virtual ~MockBrowsingDataDatabaseHelper();
-
-  Profile* profile_;
 
   base::Callback<void(const std::list<DatabaseInfo>&)> callback_;
 

@@ -12,6 +12,12 @@
 
 #include "mouselock.h"
 
+#ifdef WIN32
+#undef min
+#undef max
+#undef PostMessage
+#endif
+
 // Indicate the direction of the mouse location relative to the center of the
 // view.  These values are used to determine which 2D quadrant the needle lies
 // in.
@@ -105,25 +111,24 @@ bool MouseLockInstance::HandleInputEvent(const pp::InputEvent& event) {
     case PP_INPUTEVENT_TYPE_IME_COMPOSITION_END:
     case PP_INPUTEVENT_TYPE_IME_TEXT:
     case PP_INPUTEVENT_TYPE_UNDEFINED:
+    case PP_INPUTEVENT_TYPE_TOUCHSTART:
+    case PP_INPUTEVENT_TYPE_TOUCHMOVE:
+    case PP_INPUTEVENT_TYPE_TOUCHEND:
+    case PP_INPUTEVENT_TYPE_TOUCHCANCEL:
     default:
       return false;
   }
 }
 
-void MouseLockInstance::DidChangeView(const pp::Rect& position,
-                                      const pp::Rect& clip) {
-  int width = position.size().width();
-  int height = position.size().height();
-
+void MouseLockInstance::DidChangeView(const pp::View& view) {
   // When entering into full-screen mode, DidChangeView() gets called twice.
   // The first time, any 2D context will fail to bind to this pp::Instacne.
-  if (width == width_ && height == height_ && is_context_bound_) {
+  if (view.GetRect().size() == size_ && is_context_bound_) {
     return;
   }
-  width_ = width;
-  height_ = height;
+  size_ = view.GetRect().size();
 
-  device_context_ = pp::Graphics2D(this, pp::Size(width_, height_), false);
+  device_context_ = pp::Graphics2D(this, size_, false);
   waiting_for_flush_completion_ = false;
   free(background_scanline_);
   background_scanline_ = NULL;
@@ -133,9 +138,9 @@ void MouseLockInstance::DidChangeView(const pp::Rect& position,
     return;
   }
   background_scanline_ = static_cast<uint32_t*>(
-      malloc(width_ * sizeof(*background_scanline_)));
+      malloc(size_.width() * sizeof(*background_scanline_)));
   uint32_t* bg_pixel = background_scanline_;
-  for (int x = 0; x < width_; ++x) {
+  for (int x = 0; x < size_.width(); ++x) {
     *bg_pixel++ = kBackgroundColor;
   }
   Paint();
@@ -165,7 +170,7 @@ void MouseLockInstance::Paint() {
   if (waiting_for_flush_completion_) {
     return;
   }
-  pp::ImageData image = PaintImage(width_, height_);
+  pp::ImageData image = PaintImage(size_);
   if (image.is_null()) {
     Log("Could not create image data\n");
     return;
@@ -176,9 +181,8 @@ void MouseLockInstance::Paint() {
       callback_factory_.NewCallback(&MouseLockInstance::DidFlush));
 }
 
-pp::ImageData MouseLockInstance::PaintImage(int width, int height) {
-  pp::ImageData image(this, PP_IMAGEDATAFORMAT_BGRA_PREMUL,
-                      pp::Size(width, height), false);
+pp::ImageData MouseLockInstance::PaintImage(const pp::Size& size) {
+  pp::ImageData image(this, PP_IMAGEDATAFORMAT_BGRA_PREMUL, size, false);
   if (image.is_null() || image.data() == NULL)
     return image;
 

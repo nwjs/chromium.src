@@ -58,10 +58,10 @@ class TraceEventTestFixture : public testing::Test {
     json_output_.json_output.clear();
   }
 
-  virtual void SetUp() {
+  virtual void SetUp() OVERRIDE {
     old_thread_name_ = PlatformThread::GetName();
   }
-  virtual void TearDown() {
+  virtual void TearDown() OVERRIDE {
     if (TraceLog::GetInstance())
       EXPECT_FALSE(TraceLog::GetInstance()->IsEnabled());
     PlatformThread::SetName(old_thread_name_ ? old_thread_name_  : "");
@@ -99,7 +99,8 @@ void TraceEventTestFixture::OnTraceDataCollected(
   trace_buffer_.Finish();
 
   scoped_ptr<Value> root;
-  root.reset(base::JSONReader::Read(json_output_.json_output, false));
+  root.reset(base::JSONReader::Read(json_output_.json_output,
+                                    JSON_PARSE_RFC | JSON_DETACHABLE_CHILDREN));
 
   if (!root.get()) {
     LOG(ERROR) << json_output_.json_output;
@@ -330,12 +331,10 @@ void TraceWithAllMacroVariants(WaitableEvent* task_complete_event) {
                              "name1", "value1",
                              "name2", "value2");
 
-    TRACE_EVENT_ASYNC_STEP0("all", "TRACE_EVENT_ASYNC_STEP0 call", 5);
-    TRACE_EVENT_ASYNC_STEP1("all", "TRACE_EVENT_ASYNC_STEP1 call", 5,
-                            "name1", "value1");
-    TRACE_EVENT_ASYNC_STEP2("all", "TRACE_EVENT_ASYNC_STEP2 call", 5,
-                            "name1", "value1",
-                            "name2", "value2");
+    TRACE_EVENT_ASYNC_BEGIN_STEP0("all", "TRACE_EVENT_ASYNC_BEGIN_STEP0 call",
+                                  5, "step1");
+    TRACE_EVENT_ASYNC_BEGIN_STEP1("all", "TRACE_EVENT_ASYNC_BEGIN_STEP1 call",
+                                  5, "step2", "name1", "value1");
 
     TRACE_EVENT_ASYNC_END0("all", "TRACE_EVENT_ASYNC_END0 call", 5);
     TRACE_EVENT_ASYNC_END1("all", "TRACE_EVENT_ASYNC_END1 call", 5,
@@ -463,21 +462,16 @@ void ValidateAllTraceMacrosCreatedData(const ListValue& trace_parsed) {
   EXPECT_SUB_FIND_("name2");
   EXPECT_SUB_FIND_("value2");
 
-  EXPECT_FIND_("TRACE_EVENT_ASYNC_STEP0 call");
+  EXPECT_FIND_("TRACE_EVENT_ASYNC_BEGIN_STEP0 call");
   EXPECT_SUB_FIND_("id");
   EXPECT_SUB_FIND_("5");
-  EXPECT_FIND_("TRACE_EVENT_ASYNC_STEP1 call");
+  EXPECT_SUB_FIND_("step1");
+  EXPECT_FIND_("TRACE_EVENT_ASYNC_BEGIN_STEP1 call");
   EXPECT_SUB_FIND_("id");
   EXPECT_SUB_FIND_("5");
+  EXPECT_SUB_FIND_("step2");
   EXPECT_SUB_FIND_("name1");
   EXPECT_SUB_FIND_("value1");
-  EXPECT_FIND_("TRACE_EVENT_ASYNC_STEP2 call");
-  EXPECT_SUB_FIND_("id");
-  EXPECT_SUB_FIND_("5");
-  EXPECT_SUB_FIND_("name1");
-  EXPECT_SUB_FIND_("value1");
-  EXPECT_SUB_FIND_("name2");
-  EXPECT_SUB_FIND_("value2");
 
   EXPECT_FIND_("TRACE_EVENT_ASYNC_END0 call");
   EXPECT_SUB_FIND_("id");
@@ -947,7 +941,7 @@ TEST_F(TraceEventTestFixture, AsyncBeginEndEvents) {
 
   unsigned long long id = 0xfeedbeeffeedbeefull;
   TRACE_EVENT_ASYNC_BEGIN0( "cat", "name1", id);
-  TRACE_EVENT_ASYNC_STEP0( "cat", "name1", id);
+  TRACE_EVENT_ASYNC_BEGIN_STEP0( "cat", "name1", id, "step1");
   TRACE_EVENT_ASYNC_END0("cat", "name1", id);
   TRACE_EVENT_BEGIN0( "cat", "name2");
   TRACE_EVENT_ASYNC_BEGIN0( "cat", "name3", 0);

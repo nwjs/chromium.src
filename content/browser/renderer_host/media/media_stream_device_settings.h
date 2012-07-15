@@ -7,21 +7,13 @@
 // There will be one instance of MediaStreamDeviceSettings handling all
 // requests.
 
-// This version always accepts the first device in the list(s), but this will
-// soon be changed to ask the user and/or Chrome settings.
-
 // Expected call flow:
-// 1. RequestCaptureDeviceUsage() to request usage of capture device.
-// 2. SettingsRequester::GetDevices() is called to get a list of available
-//    devices.
-// 3. AvailableDevices() is called with a list of currently available devices.
-// 4. TODO(mflodman) Pick device and get user confirmation.
-// Temporary 4. Choose first device of each requested media type.
-// 5. Confirm by calling SettingsRequester::DevicesAccepted().
-// Repeat step 1 - 5 for new device requests.
-
-// Note that this is still in a development phase and the class will be modified
-// to include real UI interaction.
+// 1. RequestCaptureDeviceUsage() is called to create a new request for capture
+//    device usage.
+// 2. AvailableDevices() is called with a list of currently available devices.
+// 3. Pick device and get user confirmation.
+// 4. Confirm by calling SettingsRequester::DevicesAccepted().
+// Repeat step 1 - 4 for new device requests.
 
 #ifndef CONTENT_BROWSER_RENDERER_HOST_MEDIA_MEDIA_STREAM_DEVICE_SETTINGS_H_
 #define CONTENT_BROWSER_RENDERER_HOST_MEDIA_MEDIA_STREAM_DEVICE_SETTINGS_H_
@@ -51,7 +43,11 @@ class CONTENT_EXPORT MediaStreamDeviceSettings
                                  int render_process_id,
                                  int render_view_id,
                                  const StreamOptions& stream_components,
-                                 const std::string& security_origin);
+                                 const GURL& security_origin);
+
+  // Called to remove a pending request of capture device usage when the user
+  // has no action for the media stream InfoBar.
+  void RemovePendingCaptureRequest(const std::string& label);
 
   // Called to pass in an array of available devices for a request represented
   // by |label|. There could be multiple calls for a request.
@@ -72,8 +68,19 @@ class CONTENT_EXPORT MediaStreamDeviceSettings
   void UseFakeUI();
 
  private:
-  typedef std::map< std::string, MediaStreamDeviceSettingsRequest* >
+  typedef std::map<std::string, MediaStreamDeviceSettingsRequest*>
       SettingsRequests;
+
+  // Returns true if the UI is already processing a request for this render
+  // view.
+  bool IsUiBusy(int render_view_id, int render_process_id);
+
+  // Finds a request ready to be sent to UI for user approval.
+  std::string FindReadyRequestForView(int render_view_id,
+                                      int render_process_id);
+
+  // Posts a request to be approved/denied by UI.
+  void PostRequestToUi(const std::string& label);
 
   SettingsRequester* requester_;
   SettingsRequests requests_;

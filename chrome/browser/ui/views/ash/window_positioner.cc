@@ -5,11 +5,12 @@
 #include "chrome/browser/ui/views/ash/window_positioner.h"
 
 #include "ash/shell.h"
-#include "ash/shell_delegate.h"
+#include "ash/wm/window_cycle_controller.h"
+#include "ash/wm/window_resizer.h"
 #include "ash/wm/window_util.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_delegate.h"
-#include "ui/gfx/compositor/layer.h"
+#include "ui/compositor/layer.h"
 #include "ui/gfx/screen.h"
 
 WindowPositioner::WindowPositioner()
@@ -34,6 +35,7 @@ gfx::Rect WindowPositioner::GetPopupPosition(const gfx::Rect& old_pos) {
       grid *= 2;
   }
   popup_position_offset_from_screen_corner_x = grid;
+  popup_position_offset_from_screen_corner_y = grid;
   if (!pop_position_offset_increment_x) {
     // When the popup position increment is , the last popup position
     // was not yet initialized.
@@ -46,18 +48,18 @@ gfx::Rect WindowPositioner::GetPopupPosition(const gfx::Rect& old_pos) {
   // work area.
   aura::Window* window = ash::wm::GetActiveWindow();
   const gfx::Rect work_area = window && window->IsVisible() ?
-      gfx::Screen::GetMonitorWorkAreaNearestWindow(window) :
-      gfx::Screen::GetPrimaryMonitorWorkArea();
+      gfx::Screen::GetDisplayNearestWindow(window).work_area() :
+      gfx::Screen::GetPrimaryDisplay().work_area();
   // Only try to reposition the popup when it is not spanning the entire
   // screen.
   if ((old_pos.width() + popup_position_offset_from_screen_corner_x >=
       work_area.width()) ||
       (old_pos.height() + popup_position_offset_from_screen_corner_y >=
        work_area.height()))
-    return old_pos;
-  const gfx::Rect result = SmartPopupPosition(old_pos, work_area);
+    return AlignPopupPosition(old_pos, work_area, grid);
+  const gfx::Rect result = SmartPopupPosition(old_pos, work_area, grid);
   if (!result.IsEmpty())
-    return result;
+    return AlignPopupPosition(result, work_area, grid);
   return NormalPopupPosition(old_pos, work_area);
 }
 
@@ -73,7 +75,9 @@ gfx::Rect WindowPositioner::NormalPopupPosition(
   if (last_popup_position_y_ + h > work_area.height() ||
       last_popup_position_x_ + w > work_area.width()) {
     // Popup does not fit on screen. Reset to next diagonal row.
-    last_popup_position_x_ -= last_popup_position_y_;
+    last_popup_position_x_ -= last_popup_position_y_ -
+                              popup_position_offset_from_screen_corner_x -
+                              pop_position_offset_increment_x;
     last_popup_position_y_ = popup_position_offset_from_screen_corner_y;
     reset = true;
   }
@@ -94,11 +98,10 @@ gfx::Rect WindowPositioner::NormalPopupPosition(
 
 gfx::Rect WindowPositioner::SmartPopupPosition(
     const gfx::Rect& old_pos,
-    const gfx::Rect& work_area) {
-  // We get a list of all windows.
-  const std::vector<aura::Window*>& windows =
-      ash::Shell::GetInstance()->delegate()->GetCycleWindowList(
-          ash::ShellDelegate::SOURCE_KEYBOARD);
+    const gfx::Rect& work_area,
+    int grid) {
+  const std::vector<aura::Window*> windows =
+      ash::WindowCycleController::BuildWindowList();
 
   std::vector<const gfx::Rect*> regions;
   // Process the window list and check if we can bail immediately.
@@ -144,12 +147,16 @@ gfx::Rect WindowPositioner::SmartPopupPosition(
     // origin.
     for (; x_increment > 0 ? (x < x_end) : (x > x_end); x += x_increment) {
       int y = 0;
-      while (y + h < work_area.height()) {
+      while (y + h <= work_area.height()) {
         size_t i;
         for (i = 0; i < regions.size(); i++) {
           if (regions[i]->Intersects(gfx::Rect(x + work_area.x(),
                                                y + work_area.y(), w, h))) {
-            y = regions[i]->y() + regions[i]->height() - work_area.y();
+            y = regions[i]->bottom() - work_area.y();
+            if (grid > 1) {
+              // Align to the (next) grid step.
+              y = ash::WindowResizer::AlignToGridRoundUp(y, grid);
+            }
             break;
           }
         }
@@ -159,4 +166,25 @@ gfx::Rect WindowPositioner::SmartPopupPosition(
     }
   }
   return gfx::Rect(0, 0, 0, 0);
+}
+
+gfx::Rect WindowPositioner::AlignPopupPosition(
+    const gfx::Rect& pos,
+    const gfx::Rect& work_area,
+    int grid) {
+  if (grid <= 1)
+    return pos;
+
+  int x = pos.x() - (pos.x() - work_area.x()) % grid;
+  int y = pos.y() - (pos.y() - work_area.y()) % grid;
+  int w = pos.width();
+  int h = pos.height();
+
+  // If the alignment was pushing the window out of the screen, we ignore the
+  // alignment for that call.
+  if (abs(pos.right() - work_area.right()) < grid)
+    x = work_area.right() - w;
+  if (abs(pos.bottom() - work_area.bottom()) < grid)
+    y = work_area.bottom() - h;
+  return gfx::Rect(x, y, w, h);
 }

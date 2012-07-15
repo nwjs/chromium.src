@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -6,47 +6,67 @@
 
 #include "chrome/browser/download/download_util.h"
 #include "chrome/browser/extensions/crx_installer.h"
-#include "chrome/browser/extensions/extension_install_ui.h"
+#include "chrome/browser/extensions/extension_install_prompt.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_system.h"
+#include "chrome/browser/extensions/webstore_installer.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/common/chrome_notification_types.h"
+#include "chrome/common/extensions/extension_switch_utils.h"
 #include "content/public/browser/download_item.h"
 #include "content/public/browser/notification_service.h"
 
 using content::BrowserThread;
 using content::DownloadItem;
+using extensions::WebstoreInstaller;
 
 namespace download_crx_util {
 
 namespace {
 
-// Hold a mock ExtensionInstallUI object that will be used when the
+// Hold a mock ExtensionInstallPrompt object that will be used when the
 // download system opens a CRX.
-ExtensionInstallUI* mock_install_ui_for_testing = NULL;
+ExtensionInstallPrompt* mock_install_prompt_for_testing = NULL;
 
 // Called to get an extension install UI object.  In tests, will return
 // a mock if the test calls download_util::SetMockInstallUIForTesting()
 // to set one.
-ExtensionInstallUI* CreateExtensionInstallUI(Profile* profile) {
+ExtensionInstallPrompt* CreateExtensionInstallPrompt(Profile* profile) {
   // Use a mock if one is present.  Otherwise, create a real extensions
   // install UI.
-  ExtensionInstallUI* result = NULL;
-  if (mock_install_ui_for_testing) {
-    result = mock_install_ui_for_testing;
-    mock_install_ui_for_testing = NULL;
+  ExtensionInstallPrompt* result = NULL;
+  if (mock_install_prompt_for_testing) {
+    result = mock_install_prompt_for_testing;
+    mock_install_prompt_for_testing = NULL;
   } else {
-    result = new ExtensionInstallUI(profile);
+    Browser* browser = browser::FindLastActiveWithProfile(profile);
+    result = chrome::CreateExtensionInstallPromptWithBrowser(browser);
   }
 
   return result;
 }
 
+bool OffStoreInstallAllowedByPrefs(Profile* profile, const DownloadItem& item) {
+  extensions::ExtensionPrefs* prefs = extensions::ExtensionSystem::Get(
+      profile)->extension_service()->extension_prefs();
+  CHECK(prefs);
+
+  URLPatternSet url_patterns = prefs->GetAllowedInstallSites();
+
+  // TODO(aa): RefererURL is cleared in some cases, for example when going
+  // between secure and non-secure URLs. It would be better if DownloadItem
+  // tracked the initiating page explicitly.
+  return url_patterns.MatchesURL(item.GetURL()) &&
+      url_patterns.MatchesURL(item.GetReferrerUrl());
+}
+
 }  // namespace
 
-// Tests can call this method to inject a mock ExtensionInstallUI
+// Tests can call this method to inject a mock ExtensionInstallPrompt
 // to be used to confirm permissions on a downloaded CRX.
-void SetMockInstallUIForTesting(ExtensionInstallUI* mock_ui) {
-  mock_install_ui_for_testing = mock_ui;
+void SetMockInstallPromptForTesting(ExtensionInstallPrompt* mock_prompt) {
+  mock_install_prompt_for_testing = mock_prompt;
 }
 
 scoped_refptr<CrxInstaller> OpenChromeExtension(
@@ -58,16 +78,26 @@ scoped_refptr<CrxInstaller> OpenChromeExtension(
   CHECK(service);
 
   scoped_refptr<CrxInstaller> installer(
-      CrxInstaller::Create(service, CreateExtensionInstallUI(profile)));
-  installer->set_delete_source(true);
+      CrxInstaller::Create(
+          service,
+          CreateExtensionInstallPrompt(profile),
+          WebstoreInstaller::GetAssociatedApproval(download_item)));
 
-  if (UserScript::IsURLUserScript(download_item.GetURL(),
-                                  download_item.GetMimeType())) {
+  installer->set_delete_source(true);
+  installer->set_install_cause(extension_misc::INSTALL_CAUSE_USER_DOWNLOAD);
+
+  if (OffStoreInstallAllowedByPrefs(profile, download_item)) {
+    installer->set_off_store_install_allow_reason(
+        CrxInstaller::OffStoreInstallAllowedBecausePref);
+  }
+
+  if (extensions::UserScript::IsURLUserScript(download_item.GetURL(),
+                                              download_item.GetMimeType())) {
     installer->InstallUserScript(download_item.GetFullPath(),
                                  download_item.GetURL());
   } else {
-    bool is_gallery_download = service->IsDownloadFromGallery(
-        download_item.GetURL(), download_item.GetReferrerUrl());
+    bool is_gallery_download =
+        WebstoreInstaller::GetAssociatedApproval(download_item) != NULL;
     installer->set_original_mime_type(download_item.GetOriginalMimeType());
     installer->set_apps_require_extension_mime_type(true);
     installer->set_download_url(download_item.GetURL());
@@ -75,11 +105,24 @@ scoped_refptr<CrxInstaller> OpenChromeExtension(
     if (is_gallery_download)
       installer->set_original_download_url(download_item.GetOriginalUrl());
     installer->set_allow_silent_install(is_gallery_download);
-    installer->set_install_cause(extension_misc::INSTALL_CAUSE_USER_DOWNLOAD);
     installer->InstallCrx(download_item.GetFullPath());
   }
 
   return installer;
+}
+
+bool IsExtensionDownload(const DownloadItem& download_item) {
+  if (download_item.GetTargetDisposition() ==
+      DownloadItem::TARGET_DISPOSITION_PROMPT)
+    return false;
+
+  if (download_item.GetMimeType() == extensions::Extension::kMimeType ||
+      extensions::UserScript::IsURLUserScript(download_item.GetURL(),
+                                              download_item.GetMimeType())) {
+    return true;
+  } else {
+    return false;
+  }
 }
 
 }  // namespace download_crx_util

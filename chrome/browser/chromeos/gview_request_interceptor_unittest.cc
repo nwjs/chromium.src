@@ -15,8 +15,8 @@
 #include "chrome/test/base/testing_pref_service.h"
 #include "content/public/browser/plugin_service.h"
 #include "content/public/browser/resource_request_info.h"
-#include "content/test/mock_resource_context.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/mock_resource_context.h"
+#include "content/public/test/test_browser_thread.h"
 #include "net/base/load_flags.h"
 #include "net/url_request/url_request.h"
 #include "net/url_request/url_request_job.h"
@@ -128,36 +128,40 @@ class GViewRequestInterceptorTest : public testing::Test {
     webkit::WebPluginInfo info;
     info.path = pdf_path_;
     plugin_list_.AddPluginToLoad(info);
+    plugin_list_.RefreshPlugins();
   }
 
   void UnregisterPDFPlugin() {
     plugin_list_.ClearPluginsToLoad();
+    plugin_list_.RefreshPlugins();
   }
 
   void SetPDFPluginLoadedState(bool want_loaded) {
     webkit::WebPluginInfo info;
     bool is_loaded = PluginService::GetInstance()->GetPluginInfoByPath(
         pdf_path_, &info);
-    if (is_loaded && !want_loaded) {
-      UnregisterPDFPlugin();
-      is_loaded = PluginService::GetInstance()->GetPluginInfoByPath(
-          pdf_path_, &info);
-    } else if (!is_loaded && want_loaded) {
+    if (is_loaded == want_loaded)
+      return;
+
+    if (want_loaded) {
       // This "loads" the plug-in even if it's not present on the
       // system - which is OK since we don't actually use it, just
       // need it to be "enabled" for the test.
       RegisterPDFPlugin();
-      is_loaded = PluginService::GetInstance()->GetPluginInfoByPath(
-          pdf_path_, &info);
+    } else {
+      UnregisterPDFPlugin();
     }
-    EXPECT_EQ(want_loaded, is_loaded);
+    is_loaded = PluginService::GetInstance()->GetPluginInfoByPath(
+        pdf_path_, &info);
+    ASSERT_EQ(want_loaded, is_loaded);
   }
 
   void SetupRequest(net::URLRequest* request) {
     content::ResourceRequestInfo::AllocateForTesting(request,
                                                      ResourceType::MAIN_FRAME,
-                                                     &resource_context_);
-    request->set_context(resource_context_.GetRequestContext());
+                                                     &resource_context_,
+                                                     -1,
+                                                     -1);
   }
 
  protected:
@@ -177,7 +181,8 @@ class GViewRequestInterceptorTest : public testing::Test {
 };
 
 TEST_F(GViewRequestInterceptorTest, DoNotInterceptHtml) {
-  net::URLRequest request(GURL(kHtmlUrl), &test_delegate_);
+  net::URLRequest request(
+      GURL(kHtmlUrl), &test_delegate_, resource_context_.GetRequestContext());
   SetupRequest(&request);
   request.Start();
   MessageLoop::current()->Run();
@@ -186,7 +191,8 @@ TEST_F(GViewRequestInterceptorTest, DoNotInterceptHtml) {
 }
 
 TEST_F(GViewRequestInterceptorTest, DoNotInterceptDownload) {
-  net::URLRequest request(GURL(kPdfUrl), &test_delegate_);
+  net::URLRequest request(
+      GURL(kPdfUrl), &test_delegate_, resource_context_.GetRequestContext());
   SetupRequest(&request);
   request.set_load_flags(net::LOAD_IS_DOWNLOAD);
   request.Start();
@@ -196,10 +202,12 @@ TEST_F(GViewRequestInterceptorTest, DoNotInterceptDownload) {
 }
 
 TEST_F(GViewRequestInterceptorTest, DoNotInterceptPdfWhenEnabled) {
-  SetPDFPluginLoadedState(true);
-  plugin_prefs_->EnablePlugin(true, pdf_path_);
+  ASSERT_NO_FATAL_FAILURE(SetPDFPluginLoadedState(true));
+  plugin_prefs_->EnablePlugin(true, pdf_path_, MessageLoop::QuitClosure());
+  MessageLoop::current()->Run();
 
-  net::URLRequest request(GURL(kPdfUrl), &test_delegate_);
+  net::URLRequest request(
+      GURL(kPdfUrl), &test_delegate_, resource_context_.GetRequestContext());
   SetupRequest(&request);
   request.Start();
   MessageLoop::current()->Run();
@@ -208,10 +216,12 @@ TEST_F(GViewRequestInterceptorTest, DoNotInterceptPdfWhenEnabled) {
 }
 
 TEST_F(GViewRequestInterceptorTest, InterceptPdfWhenDisabled) {
-  SetPDFPluginLoadedState(true);
-  plugin_prefs_->EnablePlugin(false, pdf_path_);
+  ASSERT_NO_FATAL_FAILURE(SetPDFPluginLoadedState(true));
+  plugin_prefs_->EnablePlugin(false, pdf_path_, MessageLoop::QuitClosure());
+  MessageLoop::current()->Run();
 
-  net::URLRequest request(GURL(kPdfUrl), &test_delegate_);
+  net::URLRequest request(
+      GURL(kPdfUrl), &test_delegate_, resource_context_.GetRequestContext());
   SetupRequest(&request);
   request.Start();
   MessageLoop::current()->Run();
@@ -224,9 +234,10 @@ TEST_F(GViewRequestInterceptorTest, InterceptPdfWhenDisabled) {
 // test fails. Since pdf plugin is always present, we don't need to run this
 // test.
 TEST_F(GViewRequestInterceptorTest, InterceptPdfWithNoPlugin) {
-  SetPDFPluginLoadedState(false);
+  ASSERT_NO_FATAL_FAILURE(SetPDFPluginLoadedState(false));
 
-  net::URLRequest request(GURL(kPdfUrl), &test_delegate_);
+  net::URLRequest request(
+      GURL(kPdfUrl), &test_delegate_, resource_context_.GetRequestContext());
   SetupRequest(&request);
   request.Start();
   MessageLoop::current()->Run();
@@ -236,7 +247,8 @@ TEST_F(GViewRequestInterceptorTest, InterceptPdfWithNoPlugin) {
 #endif
 
 TEST_F(GViewRequestInterceptorTest, InterceptPowerpoint) {
-  net::URLRequest request(GURL(kPptUrl), &test_delegate_);
+  net::URLRequest request(
+      GURL(kPptUrl), &test_delegate_, resource_context_.GetRequestContext());
   SetupRequest(&request);
   request.Start();
   MessageLoop::current()->Run();
@@ -245,9 +257,10 @@ TEST_F(GViewRequestInterceptorTest, InterceptPowerpoint) {
 }
 
 TEST_F(GViewRequestInterceptorTest, DoNotInterceptPost) {
-  SetPDFPluginLoadedState(false);
+  ASSERT_NO_FATAL_FAILURE(SetPDFPluginLoadedState(false));
 
-  net::URLRequest request(GURL(kPdfUrl), &test_delegate_);
+  net::URLRequest request(
+      GURL(kPdfUrl), &test_delegate_, resource_context_.GetRequestContext());
   SetupRequest(&request);
   request.set_method("POST");
   request.Start();
@@ -257,9 +270,10 @@ TEST_F(GViewRequestInterceptorTest, DoNotInterceptPost) {
 }
 
 TEST_F(GViewRequestInterceptorTest, DoNotInterceptBlob) {
-  SetPDFPluginLoadedState(false);
+  ASSERT_NO_FATAL_FAILURE(SetPDFPluginLoadedState(false));
 
-  net::URLRequest request(GURL(kPdfBlob), &test_delegate_);
+  net::URLRequest request(
+      GURL(kPdfBlob), &test_delegate_, resource_context_.GetRequestContext());
   SetupRequest(&request);
   request.Start();
   MessageLoop::current()->Run();

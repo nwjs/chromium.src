@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_GDATA_GDATA_OPERATION_REGISTRY_H_
 #define CHROME_BROWSER_CHROMEOS_GDATA_GDATA_OPERATION_REGISTRY_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -22,7 +21,7 @@ namespace gdata {
 class GDataOperationRegistry {
  public:
   GDataOperationRegistry();
-  virtual ~GDataOperationRegistry();
+  ~GDataOperationRegistry();
 
   // Unique ID to identify each operation.
   typedef int32 OperationID;
@@ -40,8 +39,12 @@ class GDataOperationRegistry {
     OPERATION_IN_PROGRESS,
     OPERATION_COMPLETED,
     OPERATION_FAILED,
+    OPERATION_SUSPENDED,
   };
 
+  // Returns string representations of the operation type and state, which are
+  // exposed to the private extension API as in:
+  // operation.chrome/common/extensions/api/file_browser_private.json
   static std::string OperationTypeToString(OperationType type);
   static std::string OperationTransferStateToString(
       OperationTransferState state);
@@ -50,7 +53,7 @@ class GDataOperationRegistry {
   struct ProgressStatus {
     ProgressStatus(OperationType type, const FilePath& file_path);
     // For debugging
-    std::string ToString() const;
+    std::string DebugString() const;
 
     OperationID operation_id;
 
@@ -68,19 +71,23 @@ class GDataOperationRegistry {
     // -1 if no expectation is available (yet).
     int64 progress_total;
   };
+  typedef std::vector<ProgressStatus> ProgressStatusList;
 
   // Observer interface for listening changes in the active set of operations.
   class Observer {
    public:
     // Called when a GData operation started, made some progress, or finished.
-    virtual void OnProgressUpdate(const std::vector<ProgressStatus>& list) = 0;
+    virtual void OnProgressUpdate(const ProgressStatusList& list) = 0;
+    // Called when GData authentication failed.
+    virtual void OnAuthenticationFailed() {}
    protected:
     virtual ~Observer() {}
   };
 
   // Base class for operations that this registry class can maintain.
-  // The Operation objects are owned by the registry. In particular, calling
-  // NotifyFinish() causes the registry to delete the Operation object itself.
+  // NotifyStart() passes the ownership of the Operation object to the registry.
+  // In particular, calling NotifyFinish() causes the registry to delete the
+  // Operation object itself.
   class Operation {
    public:
     explicit Operation(GDataOperationRegistry* registry);
@@ -101,6 +108,17 @@ class GDataOperationRegistry {
     void NotifyStart();
     void NotifyProgress(int64 current, int64 total);
     void NotifyFinish(OperationTransferState status);
+    // Notifies suspend/resume, used for chunked upload operations.
+    // The initial upload operation should issue "start" "progress"* "suspend".
+    // The subsequent operations will call "resume" "progress"* "suspend",
+    // and the last one will do "resume" "progress"* "finish".
+    // In other words, "suspend" is similar to "finish" except it lasts to live
+    // until the next "resume" comes. "Resume" is similar to "start", except
+    // that it removes the existing "suspend" operation.
+    void NotifySuspend();
+    void NotifyResume();
+    // Notifies that authentication has failed.
+    void NotifyAuthFailed();
 
    private:
     // Does the cancellation.
@@ -118,19 +136,24 @@ class GDataOperationRegistry {
   bool CancelForFilePath(const FilePath& file_path);
 
   // Obtains the list of currently active operations.
-  std::vector<ProgressStatus> GetProgressStatusList();
+  ProgressStatusList GetProgressStatusList();
 
-  // Sets the observer.
+  // Sets an observer. The registry do NOT own observers; before destruction
+  // they need to be removed from the registry.
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
 
  private:
   // Handlers for notifications from Operations.
   friend class Operation;
-  // The registry assigns a fresh operation ID and return it to *id.
+  // Notifies that an operation has started. This method passes the ownership of
+  // the operation to the registry. A fresh operation ID is returned to *id.
   void OnOperationStart(Operation* operation, OperationID* id);
   void OnOperationProgress(OperationID operation);
   void OnOperationFinish(OperationID operation);
+  void OnOperationSuspend(OperationID operation);
+  void OnOperationResume(Operation* operation, ProgressStatus* new_status);
+  void OnOperationAuthFailed();
 
   bool IsFileTransferOperation(const Operation* operation) const;
 

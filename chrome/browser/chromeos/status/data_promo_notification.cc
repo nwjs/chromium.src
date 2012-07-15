@@ -4,6 +4,8 @@
 
 #include "chrome/browser/chromeos/status/data_promo_notification.h"
 
+#include "ash/shell.h"
+#include "ash/shell_window_ids.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
@@ -12,12 +14,11 @@
 #include "chrome/browser/chromeos/login/message_bubble.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
 #include "chrome/browser/chromeos/mobile_config.h"
-#include "chrome/browser/chromeos/status/status_area_view_chromeos.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
-#include "chrome/browser/ui/views/window.h"
 #include "chrome/common/pref_names.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
@@ -34,12 +35,8 @@ const int kPromoShowDelayMs = 10000;
 const int kNotificationCountPrefDefault = -1;
 
 bool GetBooleanPref(const char* pref_name) {
-  Browser* browser = BrowserList::GetLastActive();
-  // Default to safe value which is false (not to show bubble).
-  if (!browser || !browser->profile())
-    return false;
-
-  PrefService* prefs = browser->profile()->GetPrefs();
+  Profile* profile = ProfileManager::GetDefaultProfileOrOffTheRecord();
+  PrefService* prefs = profile->GetPrefs();
   return prefs->GetBoolean(pref_name);
 }
 
@@ -49,11 +46,8 @@ int GetIntegerLocalPref(const char* pref_name) {
 }
 
 void SetBooleanPref(const char* pref_name, bool value) {
-  Browser* browser = BrowserList::GetLastActive();
-  if (!browser || !browser->profile())
-    return;
-
-  PrefService* prefs = browser->profile()->GetPrefs();
+  Profile* profile = ProfileManager::GetDefaultProfileOrOffTheRecord();
+  PrefService* prefs = profile->GetPrefs();
   prefs->SetBoolean(pref_name, value);
 }
 
@@ -132,6 +126,11 @@ DataPromoNotification::~DataPromoNotification() {
     mobile_data_bubble_->GetWidget()->Close();
 }
 
+void DataPromoNotification::RegisterPrefs(PrefService* local_state) {
+  // Carrier deal notification shown count defaults to 0.
+  local_state->RegisterIntegerPref(prefs::kCarrierDealPromoShown, 0);
+}
+
 void DataPromoNotification::ShowOptionalMobileDataPromoNotification(
     NetworkLibrary* cros,
     views::View* host,
@@ -139,11 +138,11 @@ void DataPromoNotification::ShowOptionalMobileDataPromoNotification(
   // Display one-time notification for non-Guest users on first use
   // of Mobile Data connection or if there's a carrier deal defined
   // show that even if user has already seen generic promo.
-  if (StatusAreaViewChromeos::IsBrowserMode() &&
+  if (UserManager::Get()->IsUserLoggedIn() &&
       !UserManager::Get()->IsLoggedInAsGuest() &&
-      check_for_promo_ && BrowserList::GetLastActive() &&
+      check_for_promo_ &&
       cros->cellular_connected() && !cros->ethernet_connected() &&
-      !cros->wifi_connected()) {
+      !cros->wifi_connected() && !cros->wimax_connected()) {
     std::string deal_text;
     int carrier_deal_promo_pref = kNotificationCountPrefDefault;
     const MobileConfig::CarrierDeal* deal = NULL;
@@ -181,7 +180,7 @@ void DataPromoNotification::ShowOptionalMobileDataPromoNotification(
                 cros,
                 host,
                 listener),
-            kPromoShowDelayMs);
+            base::TimeDelta::FromMilliseconds(kPromoShowDelayMs));
       }
       return;
     }
@@ -204,11 +203,16 @@ void DataPromoNotification::ShowOptionalMobileDataPromoNotification(
     mobile_data_bubble_ = new MessageBubble(
         host,
         views::BubbleBorder::TOP_RIGHT,
-        ResourceBundle::GetSharedInstance().GetBitmapNamed(IDR_NOTIFICATION_3G),
+        ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
+            IDR_NOTIFICATION_3G),
         message,
         links);
     mobile_data_bubble_->set_link_listener(listener);
-    browser::CreateViewsBubbleAboveLockScreen(mobile_data_bubble_);
+    mobile_data_bubble_->set_parent_window(
+        ash::Shell::GetContainer(
+            ash::Shell::GetPrimaryRootWindow(),
+            ash::internal::kShellWindowId_SettingBubbleContainer));
+    views::BubbleDelegateView::CreateBubble(mobile_data_bubble_);
     mobile_data_bubble_->Show();
     mobile_data_bubble_->GetWidget()->AddObserver(this);
 

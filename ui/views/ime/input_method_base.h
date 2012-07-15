@@ -4,7 +4,6 @@
 
 #ifndef UI_VIEWS_IME_INPUT_METHOD_BASE_H_
 #define UI_VIEWS_IME_INPUT_METHOD_BASE_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
@@ -26,7 +25,7 @@ class View;
 
 // A helper class providing functionalities shared among InputMethod
 // implementations.
-class VIEWS_EXPORT InputMethodBase : public InputMethod,
+class VIEWS_EXPORT InputMethodBase : NON_EXPORTED_BASE(public InputMethod),
                                      public FocusChangeListener {
  public:
   InputMethodBase();

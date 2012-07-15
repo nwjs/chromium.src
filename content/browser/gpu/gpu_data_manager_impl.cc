@@ -4,15 +4,10 @@
 
 #include "content/browser/gpu/gpu_data_manager_impl.h"
 
-#if defined(OS_MACOSX)
-#include <CoreGraphics/CGDisplayConfiguration.h>
-#endif
-
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/file_util.h"
-#include "base/string_number_conversions.h"
 #include "base/stringprintf.h"
 #include "base/sys_info.h"
 #include "base/values.h"
@@ -24,33 +19,14 @@
 #include "content/public/browser/gpu_data_manager_observer.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_switches.h"
-#include "ui/gfx/gl/gl_implementation.h"
-#include "ui/gfx/gl/gl_switches.h"
+#include "ui/base/ui_base_switches.h"
+#include "ui/gl/gl_implementation.h"
+#include "ui/gl/gl_switches.h"
 #include "webkit/plugins/plugin_switches.h"
 
 using content::BrowserThread;
 using content::GpuDataManagerObserver;
 using content::GpuFeatureType;
-
-namespace {
-
-#if defined(OS_MACOSX)
-void DisplayReconfigCallback(CGDirectDisplayID display,
-                             CGDisplayChangeSummaryFlags flags,
-                             void* gpu_data_manager) {
-  // TODO(zmo): this logging is temporary for crbug 88008 and will be removed.
-  LOG(INFO) << "Display re-configuration: flags = 0x"
-            << base::StringPrintf("%04x", flags);
-  if (flags & kCGDisplayAddFlag) {
-    GpuDataManagerImpl* manager =
-        reinterpret_cast<GpuDataManagerImpl*>(gpu_data_manager);
-    DCHECK(manager);
-    manager->HandleGpuSwitch();
-  }
-}
-#endif
-
-}  // namespace anonymous
 
 // static
 content::GpuDataManager* content::GpuDataManager::GetInstance() {
@@ -88,16 +64,11 @@ void GpuDataManagerImpl::Initialize() {
       gpu_info_ = gpu_info;
     }
   }
-
-#if defined(OS_MACOSX)
-  CGDisplayRegisterReconfigurationCallback(DisplayReconfigCallback, this);
-#endif
+  if (command_line->HasSwitch(switches::kDisableGpu))
+    BlacklistCard();
 }
 
 GpuDataManagerImpl::~GpuDataManagerImpl() {
-#if defined(OS_MACOSX)
-  CGDisplayRemoveReconfigurationCallback(DisplayReconfigCallback, this);
-#endif
 }
 
 void GpuDataManagerImpl::RequestCompleteGpuInfoIfNeeded() {
@@ -120,14 +91,18 @@ bool GpuDataManagerImpl::IsCompleteGPUInfoAvailable() const {
 void GpuDataManagerImpl::UpdateGpuInfo(const content::GPUInfo& gpu_info) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  complete_gpu_info_available_ =
-      complete_gpu_info_available_ || gpu_info.finalized;
-  complete_gpu_info_already_requested_ =
-      complete_gpu_info_already_requested_ || gpu_info.finalized;
   {
     base::AutoLock auto_lock(gpu_info_lock_);
-    if (!Merge(&gpu_info_, gpu_info))
-      return;
+#if defined(ARCH_CPU_X86_FAMILY)
+    if (!gpu_info.gpu.vendor_id || !gpu_info.gpu.device_id)
+      gpu_info_.finalized = true;
+    else
+#endif
+      gpu_info_ = gpu_info;
+    complete_gpu_info_available_ =
+        complete_gpu_info_available_ || gpu_info_.finalized;
+    complete_gpu_info_already_requested_ =
+        complete_gpu_info_already_requested_ || gpu_info_.finalized;
     content::GetContentClient()->SetGpuInfo(gpu_info_);
   }
 
@@ -160,6 +135,12 @@ GpuFeatureType GpuDataManagerImpl::GetGpuFeatureType() {
 bool GpuDataManagerImpl::GpuAccessAllowed() {
   if (software_rendering_)
     return true;
+
+  if (!gpu_info_.gpu_accessible)
+    return false;
+
+  if (card_blacklisted_)
+    return false;
 
   // We only need to block GPU process if more features are disallowed other
   // than those in the preliminary gpu feature flags because the latter work
@@ -236,25 +217,56 @@ void GpuDataManagerImpl::AppendGpuCommandLine(
     base::AutoLock auto_lock(gpu_info_lock_);
     if (gpu_info_.optimus)
       command_line->AppendSwitch(switches::kReduceGpuSandbox);
+    if (gpu_info_.amd_switchable) {
+      // The image transport surface currently doesn't work with AMD Dynamic
+      // Switchable graphics.
+      command_line->AppendSwitch(switches::kReduceGpuSandbox);
+      command_line->AppendSwitch(switches::kDisableImageTransportSurface);
+    }
+    // Pass GPU and driver information to GPU process. We try to avoid full GPU
+    // info collection at GPU process startup, but we need gpu vendor_id,
+    // device_id, driver_vendor, driver_version for deciding whether we need to
+    // collect full info (on Linux) and for crash reporting purpose.
+    command_line->AppendSwitchASCII(switches::kGpuVendorID,
+        base::StringPrintf("0x%04x", gpu_info_.gpu.vendor_id));
+    command_line->AppendSwitchASCII(switches::kGpuDeviceID,
+        base::StringPrintf("0x%04x", gpu_info_.gpu.device_id));
+    command_line->AppendSwitchASCII(switches::kGpuDriverVendor,
+        gpu_info_.driver_vendor);
+    command_line->AppendSwitchASCII(switches::kGpuDriverVersion,
+        gpu_info_.driver_version);
   }
+}
+
+void GpuDataManagerImpl::AppendPluginCommandLine(
+    CommandLine* command_line) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  DCHECK(command_line);
+
+#if defined(OS_MACOSX)
+  uint32 flags = GetGpuFeatureType();
+  // TODO(jbauman): Add proper blacklist support for core animation plugins so
+  // special-casing this video card won't be necessary. See
+  // http://crbug.com/134015
+  if ((flags & content::GPU_FEATURE_TYPE_ACCELERATED_COMPOSITING) ||
+      (gpu_info_.gpu.vendor_id == 0x8086 &&  // Intel
+       gpu_info_.gpu.device_id == 0x0166) ||  // HD 4000
+      (gpu_info_.gpu.vendor_id == 0x10de &&  // NVidia
+       gpu_info_.gpu.device_id == 0x0fd5) ||  // GeForce GT 650M
+      CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kDisableAcceleratedCompositing)) {
+    if (!command_line->HasSwitch(
+           switches::kDisableCoreAnimationPlugins))
+      command_line->AppendSwitch(
+          switches::kDisableCoreAnimationPlugins);
+  }
+#endif
 }
 
 void GpuDataManagerImpl::SetGpuFeatureType(GpuFeatureType feature_type) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   UpdateGpuFeatureType(feature_type);
   preliminary_gpu_feature_type_ = gpu_feature_type_;
-}
-
-void GpuDataManagerImpl::HandleGpuSwitch() {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  content::GPUInfo gpu_info;
-  gpu_info_collector::CollectVideoCardInfo(&gpu_info);
-  LOG(INFO) << "Switching to use GPU: vendor_id = 0x"
-            << base::StringPrintf("%04x", gpu_info.vendor_id)
-            << ", device_id = 0x"
-            << base::StringPrintf("%04x", gpu_info.device_id);
-  // TODO(zmo): update gpu_info_, re-run blacklist logic, maybe close and
-  // relaunch GPU process.
 }
 
 void GpuDataManagerImpl::NotifyGpuInfoUpdate() {
@@ -312,81 +324,9 @@ bool GpuDataManagerImpl::ShouldUseSoftwareRendering() {
 void GpuDataManagerImpl::BlacklistCard() {
   card_blacklisted_ = true;
 
-  {
-    base::AutoLock auto_lock(gpu_info_lock_);
-    int flags = gpu_feature_type_;
-    flags |= content::GPU_FEATURE_TYPE_ACCELERATED_COMPOSITING |
-             content::GPU_FEATURE_TYPE_WEBGL;
-    gpu_feature_type_ = static_cast<GpuFeatureType>(flags);
-  }
+  gpu_feature_type_ = content::GPU_FEATURE_TYPE_ALL;
 
   EnableSoftwareRenderingIfNecessary();
   NotifyGpuInfoUpdate();
 }
 
-bool GpuDataManagerImpl::Merge(content::GPUInfo* object,
-                               const content::GPUInfo& other) {
-  if (object->device_id != other.device_id ||
-      object->vendor_id != other.vendor_id) {
-    *object = other;
-    return true;
-  }
-
-  bool changed = false;
-  if (!object->finalized) {
-    object->finalized = other.finalized;
-    object->initialization_time = other.initialization_time;
-    object->optimus |= other.optimus;
-
-    if (object->driver_vendor.empty()) {
-      changed |= object->driver_vendor != other.driver_vendor;
-      object->driver_vendor = other.driver_vendor;
-    }
-    if (object->driver_version.empty()) {
-      changed |= object->driver_version != other.driver_version;
-      object->driver_version = other.driver_version;
-    }
-    if (object->driver_date.empty()) {
-      changed |= object->driver_date != other.driver_date;
-      object->driver_date = other.driver_date;
-    }
-    if (object->pixel_shader_version.empty()) {
-      changed |= object->pixel_shader_version != other.pixel_shader_version;
-      object->pixel_shader_version = other.pixel_shader_version;
-    }
-    if (object->vertex_shader_version.empty()) {
-      changed |= object->vertex_shader_version != other.vertex_shader_version;
-      object->vertex_shader_version = other.vertex_shader_version;
-    }
-    if (object->gl_version.empty()) {
-      changed |= object->gl_version != other.gl_version;
-      object->gl_version = other.gl_version;
-    }
-    if (object->gl_version_string.empty()) {
-      changed |= object->gl_version_string != other.gl_version_string;
-      object->gl_version_string = other.gl_version_string;
-    }
-    if (object->gl_vendor.empty()) {
-      changed |= object->gl_vendor != other.gl_vendor;
-      object->gl_vendor = other.gl_vendor;
-    }
-    if (object->gl_renderer.empty()) {
-      changed |= object->gl_renderer != other.gl_renderer;
-      object->gl_renderer = other.gl_renderer;
-    }
-    if (object->gl_extensions.empty()) {
-      changed |= object->gl_extensions != other.gl_extensions;
-      object->gl_extensions = other.gl_extensions;
-    }
-    object->can_lose_context = other.can_lose_context;
-    object->software_rendering = other.software_rendering;
-#if defined(OS_WIN)
-    if (object->dx_diagnostics.values.size() == 0 &&
-        object->dx_diagnostics.children.size() == 0) {
-      object->dx_diagnostics = other.dx_diagnostics;
-      changed = true;
-    }
-#endif
-  }
-  return changed;
-}

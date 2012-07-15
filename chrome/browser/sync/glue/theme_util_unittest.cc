@@ -16,6 +16,8 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
+using extensions::Extension;
+
 namespace browser_sync {
 
 namespace {
@@ -53,8 +55,7 @@ scoped_refptr<Extension> MakeThemeExtension(const FilePath& extension_path,
   source.SetString(extension_manifest_keys::kVersion, "0.0.0.0");
   std::string error;
   scoped_refptr<Extension> extension = Extension::Create(
-      extension_path, Extension::INTERNAL, source,
-      Extension::STRICT_ERROR_CHECKS, &error);
+      extension_path, Extension::INTERNAL, source, Extension::NO_FLAGS, &error);
   EXPECT_TRUE(extension);
   EXPECT_EQ("", error);
   return extension;
@@ -229,7 +230,7 @@ TEST_F(SyncThemeUtilTest, SetCurrentThemeIfNecessaryDefaultThemeNotNecessary) {
       ThemeService::kDefaultThemeID));
   EXPECT_CALL(*mock_theme_service, UseDefaultTheme()).Times(AnyNumber());
 
-  // TODO(akalin): Mock out call to GetPrefs() under TOOLKIT_USES_GTK.
+  // TODO(akalin): Mock out call to GetPrefs() under TOOLKIT_GTK.
 
   sync_pb::ThemeSpecifics theme_specifics;
   SetCurrentThemeFromThemeSpecificsIfNecessary(theme_specifics,

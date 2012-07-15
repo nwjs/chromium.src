@@ -15,7 +15,6 @@
 #include "base/values.h"
 #include "chrome/browser/automation/automation_provider.h"
 #include "chrome/browser/automation/automation_provider_json.h"
-#include "chrome/browser/extensions/extension_host.h"
 #include "chrome/browser/extensions/extension_process_manager.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/printing/print_preview_tab_controller.h"
@@ -25,14 +24,16 @@
 #include "chrome/browser/ui/app_modal_dialogs/app_modal_dialog_queue.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/view_type_utils.h"
 #include "chrome/common/automation_id.h"
-#include "chrome/common/chrome_view_type.h"
 #include "chrome/common/extensions/extension.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
+#include "net/cookies/canonical_cookie.h"
 #include "net/cookies/cookie_monster.h"
 #include "net/cookies/cookie_store.h"
 #include "net/url_request/url_request_context.h"
@@ -101,7 +102,7 @@ void SetCookieOnIOThread(
 
 void SetCookieWithDetailsOnIOThread(
     const GURL& url,
-    const net::CookieMonster::CanonicalCookie& cookie,
+    const net::CanonicalCookie& cookie,
     const std::string& original_domain,
     const scoped_refptr<net::URLRequestContextGetter>& context_getter,
     base::WaitableEvent* event,
@@ -146,7 +147,7 @@ WebContents* GetWebContentsAt(int browser_index, int tab_index) {
   Browser* browser = GetBrowserAt(browser_index);
   if (!browser || tab_index >= browser->tab_count())
     return NULL;
-  return browser->GetWebContentsAt(tab_index);
+  return chrome::GetWebContentsAt(browser, tab_index);
 }
 
 Browser* GetBrowserForTab(WebContents* tab) {
@@ -154,7 +155,7 @@ Browser* GetBrowserForTab(WebContents* tab) {
   for (; browser_iter != BrowserList::end(); ++browser_iter) {
     Browser* browser = *browser_iter;
     for (int tab_index = 0; tab_index < browser->tab_count(); ++tab_index) {
-      if (browser->GetWebContentsAt(tab_index) == tab)
+      if (chrome::GetWebContentsAt(browser, tab_index) == tab)
         return browser;
     }
   }
@@ -255,7 +256,7 @@ void GetCookiesJSON(AutomationProvider* provider,
 
   ListValue* list = new ListValue();
   for (size_t i = 0; i < cookie_list.size(); ++i) {
-    const net::CookieMonster::CanonicalCookie& cookie = cookie_list[i];
+    const net::CanonicalCookie& cookie = cookie_list[i];
     DictionaryValue* cookie_dict = new DictionaryValue();
     cookie_dict->SetString("name", cookie.Name());
     cookie_dict->SetString("value", cookie.Value());
@@ -263,7 +264,7 @@ void GetCookiesJSON(AutomationProvider* provider,
     cookie_dict->SetString("domain", cookie.Domain());
     cookie_dict->SetBoolean("secure", cookie.IsSecure());
     cookie_dict->SetBoolean("http_only", cookie.IsHttpOnly());
-    if (cookie.DoesExpire())
+    if (cookie.IsPersistent())
       cookie_dict->SetDouble("expiry", cookie.ExpiryDate().ToDoubleT());
     list->Append(cookie_dict);
   }
@@ -364,11 +365,11 @@ void SetCookieJSON(AutomationProvider* provider,
     return;
   }
 
-  scoped_ptr<net::CookieMonster::CanonicalCookie> cookie(
-      net::CookieMonster::CanonicalCookie::Create(
+  scoped_ptr<net::CanonicalCookie> cookie(
+      net::CanonicalCookie::Create(
           GURL(url), name, value, domain, path,
           mac_key, mac_algorithm, base::Time(),
-          base::Time::FromDoubleT(expiry), secure, http_only, expiry != 0));
+          base::Time::FromDoubleT(expiry), secure, http_only));
   if (!cookie.get()) {
     reply.SendError("given 'cookie' parameters are invalid");
     return;
@@ -407,15 +408,17 @@ bool SendErrorIfModalDialogActive(AutomationProvider* provider,
   return active;
 }
 
-AutomationId GetIdForTab(const TabContentsWrapper* tab) {
+AutomationId GetIdForTab(const TabContents* tab) {
   return AutomationId(
       AutomationId::kTypeTab,
       base::IntToString(tab->restore_tab_helper()->session_id().id()));
 }
 
-AutomationId GetIdForExtensionView(const ExtensionHost* ext_host) {
+AutomationId GetIdForExtensionView(
+    const content::RenderViewHost* render_view_host) {
   AutomationId::Type type;
-  switch (ext_host->extension_host_type()) {
+  WebContents* web_contents = WebContents::FromRenderViewHost(render_view_host);
+  switch (chrome::GetViewType(web_contents)) {
     case chrome::VIEW_TYPE_EXTENSION_POPUP:
       type = AutomationId::kTypeExtensionPopup;
       break;
@@ -432,12 +435,12 @@ AutomationId GetIdForExtensionView(const ExtensionHost* ext_host) {
   // Since these extension views do not permit navigation, using the
   // renderer process and view ID should suffice.
   std::string id = base::StringPrintf("%d|%d",
-      ext_host->render_view_host()->GetRoutingID(),
-      ext_host->render_process_host()->GetID());
+      render_view_host->GetRoutingID(),
+      render_view_host->GetProcess()->GetID());
   return AutomationId(type, id);
 }
 
-AutomationId GetIdForExtension(const Extension* extension) {
+AutomationId GetIdForExtension(const extensions::Extension* extension) {
   return AutomationId(AutomationId::kTypeExtension, extension->id());
 }
 
@@ -451,20 +454,21 @@ bool GetTabForId(const AutomationId& id, WebContents** tab) {
   for (; iter != BrowserList::end(); ++iter) {
     Browser* browser = *iter;
     for (int tab_index = 0; tab_index < browser->tab_count(); ++tab_index) {
-      TabContentsWrapper* wrapper = browser->GetTabContentsWrapperAt(tab_index);
-      if (base::IntToString(wrapper->restore_tab_helper()->session_id().id()) ==
-              id.id()) {
-        *tab = wrapper->web_contents();
+      TabContents* tab_contents = chrome::GetTabContentsAt(browser, tab_index);
+      if (base::IntToString(
+              tab_contents->restore_tab_helper()->session_id().id()) ==
+                  id.id()) {
+        *tab = tab_contents->web_contents();
         return true;
       }
       if (preview_controller) {
-        TabContentsWrapper* preview_wrapper =
-            preview_controller->GetPrintPreviewForTab(wrapper);
-        if (preview_wrapper) {
+        TabContents* preview_tab_contents =
+            preview_controller->GetPrintPreviewForTab(tab_contents);
+        if (preview_tab_contents) {
           std::string preview_id = base::IntToString(
-              preview_wrapper->restore_tab_helper()->session_id().id());
+              preview_tab_contents->restore_tab_helper()->session_id().id());
           if (preview_id == id.id()) {
-            *tab = preview_wrapper->web_contents();
+            *tab = preview_tab_contents->web_contents();
             return true;
           }
         }
@@ -482,13 +486,14 @@ bool GetExtensionRenderViewForId(
     RenderViewHost** rvh) {
   ExtensionProcessManager* extension_mgr =
       profile->GetExtensionProcessManager();
-  ExtensionProcessManager::const_iterator iter;
-  for (iter = extension_mgr->begin(); iter != extension_mgr->end();
-       ++iter) {
-    ExtensionHost* host = *iter;
+  const ExtensionProcessManager::ViewSet view_set =
+      extension_mgr->GetAllViews();
+  for (ExtensionProcessManager::ViewSet::const_iterator iter = view_set.begin();
+       iter != view_set.end(); ++iter) {
+    content::RenderViewHost* host = *iter;
     AutomationId this_id = GetIdForExtensionView(host);
     if (id == this_id) {
-      *rvh = host->render_view_host();
+      *rvh = host;
       return true;
     }
   }
@@ -524,11 +529,11 @@ bool GetRenderViewForId(
 bool GetExtensionForId(
     const AutomationId& id,
     Profile* profile,
-    const Extension** extension) {
+    const extensions::Extension** extension) {
   if (id.type() != AutomationId::kTypeExtension)
     return false;
   ExtensionService* service = profile->GetExtensionService();
-  const Extension* installed_extension =
+  const extensions::Extension* installed_extension =
       service->GetInstalledExtension(id.id());
   if (installed_extension)
     *extension = installed_extension;
@@ -548,7 +553,7 @@ bool DoesObjectWithIdExist(const AutomationId& id, Profile* profile) {
       return GetExtensionRenderViewForId(id, profile, &rvh);
     }
     case AutomationId::kTypeExtension: {
-      const Extension* extension;
+      const extensions::Extension* extension;
       return GetExtensionForId(id, profile, &extension);
     }
     default:

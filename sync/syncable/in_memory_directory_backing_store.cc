@@ -4,6 +4,7 @@
 
 #include "sync/syncable/in_memory_directory_backing_store.h"
 
+namespace syncer {
 namespace syncable {
 
 InMemoryDirectoryBackingStore::InMemoryDirectoryBackingStore(
@@ -21,6 +22,8 @@ DirOpenResult InMemoryDirectoryBackingStore::Load(
   if (!InitializeTables())
     return FAILED_OPEN_DATABASE;
 
+  if (!DropDeletedEntries())
+    return FAILED_DATABASE_CORRUPT;
   if (!LoadEntries(entry_bucket))
     return FAILED_DATABASE_CORRUPT;
   if (!LoadInfo(kernel_load_info))
@@ -30,3 +33,4 @@ DirOpenResult InMemoryDirectoryBackingStore::Load(
 }
 
 }  // namespace syncable
+}  // namespace syncer

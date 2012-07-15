@@ -9,6 +9,7 @@
 #define GPU_COMMAND_BUFFER_COMMON_GLES2_CMD_UTILS_H_
 
 #include <string>
+#include <vector>
 
 #include "../common/types.h"
 #include "gpu/command_buffer/common/gles2_utils_export.h"
@@ -102,10 +103,21 @@ class GLES2_UTILS_EXPORT GLES2Util {
   // function is called. If 0 is returned the id is invalid.
   int GLGetNumValuesReturned(int id) const;
 
+  // Computes the size of a single group of elements from a format and type pair
+  static uint32 ComputeImageGroupSize(int format, int type);
+
+  // Computes the size of an image row including alignment padding
+  static bool ComputeImagePaddedRowSize(
+    int width, int format, int type, int unpack_alignment,
+    uint32* padded_row_size);
+
   // Computes the size of image data for TexImage2D and TexSubImage2D.
-  static bool ComputeImageDataSize(
+  // Optionally the unpadded and padded row sizes can be returned. If height < 2
+  // then the padded_row_size will be the same as the unpadded_row_size since
+  // padding is not necessary.
+  static bool ComputeImageDataSizes(
     int width, int height, int format, int type, int unpack_alignment,
-    uint32* size);
+    uint32* size, uint32* unpadded_row_size, uint32* padded_row_size);
 
   static size_t RenderbufferBytesPerPixel(int format);
 
@@ -145,6 +157,25 @@ class GLES2_UTILS_EXPORT GLES2Util {
 
   int num_compressed_texture_formats_;
   int num_shader_binary_formats_;
+};
+
+class GLES2_UTILS_EXPORT ContextCreationAttribParser {
+ public:
+  ContextCreationAttribParser();
+  bool Parse(const std::vector<int32>& attribs);
+
+  // -1 if invalid or unspecified.
+  int32 alpha_size_;
+  int32 blue_size_;
+  int32 green_size_;
+  int32 red_size_;
+  int32 depth_size_;
+  int32 stencil_size_;
+  int32 samples_;
+  int32 sample_buffers_;
+  bool buffer_preserved_;
+  bool share_resources_;
+  bool bind_generates_resource_;
 };
 
 }  // namespace gles2

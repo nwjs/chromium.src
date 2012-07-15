@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_BROWSER_RENDERER_HOST_RENDER_MESSAGE_FILTER_H_
 #define CONTENT_BROWSER_RENDERER_HOST_RENDER_MESSAGE_FILTER_H_
-#pragma once
 
 #if defined(OS_WIN)
 #include <windows.h>
@@ -15,7 +14,7 @@
 
 #include "base/file_path.h"
 #include "base/memory/linked_ptr.h"
-#include "base/message_loop_helpers.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "base/shared_memory.h"
 #include "base/string16.h"
 #include "build/build_config.h"
@@ -24,7 +23,11 @@
 #include "media/base/channel_layout.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebPopupType.h"
 #include "ui/gfx/native_widget_types.h"
-#include "ui/gfx/surface/transport_dib.h"
+#include "ui/surface/transport_dib.h"
+
+#if defined(OS_MACOSX)
+#include "content/common/mac/font_loader.h"
+#endif
 
 class DOMStorageContextImpl;
 class PluginServiceImpl;
@@ -39,6 +42,7 @@ struct WebScreenInfo;
 namespace content {
 class BrowserContext;
 class MediaObserver;
+struct Referrer;
 class ResourceContext;
 class ResourceDispatcherHostImpl;
 }
@@ -85,6 +89,9 @@ class RenderMessageFilter : public content::BrowserMessageFilter {
   virtual bool OnMessageReceived(const IPC::Message& message,
                                  bool* message_was_ok) OVERRIDE;
   virtual void OnDestruct() const OVERRIDE;
+  virtual void OverrideThreadForMessage(
+      const IPC::Message& message,
+      content::BrowserThread::ID* thread) OVERRIDE;
 
   bool OffTheRecord() const;
 
@@ -131,10 +138,9 @@ class RenderMessageFilter : public content::BrowserMessageFilter {
                         bool* cookies_enabled);
 
 #if defined(OS_MACOSX)
-  void OnLoadFont(const FontDescriptor& font,
-                  uint32* handle_size,
-                  base::SharedMemoryHandle* handle,
-                  uint32* font_id);
+  // Messages for OOP font loading.
+  void OnLoadFont(const FontDescriptor& font, IPC::Message* reply_msg);
+  void SendLoadFontReply(IPC::Message* reply, FontLoader::Result* result);
 #endif
 
 #if defined(OS_WIN) && !defined(USE_AURA)
@@ -167,7 +173,7 @@ class RenderMessageFilter : public content::BrowserMessageFilter {
   void OnGenerateRoutingID(int* route_id);
   void OnDownloadUrl(const IPC::Message& message,
                      const GURL& url,
-                     const GURL& referrer,
+                     const content::Referrer& referrer,
                      const string16& suggested_name);
   void OnCheckNotificationPermission(const GURL& source_origin,
                                      int* permission_level);
@@ -178,6 +184,9 @@ class RenderMessageFilter : public content::BrowserMessageFilter {
   void OnGetHardwareInputSampleRate(int* sample_rate);
   void OnGetHardwareSampleRate(int* sample_rate);
   void OnGetHardwareInputChannelLayout(ChannelLayout* layout);
+
+  // Used to look up the monitor color profile.
+  void OnGetMonitorColorProfile(std::vector<char>* profile);
 
   // Used to ask the browser to allocate a block of shared memory for the
   // renderer to send back data in, since shared memory can't be created
@@ -236,10 +245,7 @@ class RenderMessageFilter : public content::BrowserMessageFilter {
   // by the BrowserProcess, which has a wider scope than we do.
   content::ResourceDispatcherHostImpl* resource_dispatcher_host_;
   PluginServiceImpl* plugin_service_;
-
-  // The browser context associated with our renderer process.  This should only
-  // be accessed on the UI thread!
-  content::BrowserContext* browser_context_;
+  FilePath profile_data_directory_;
 
   // Contextual information to be used for requests created here.
   scoped_refptr<net::URLRequestContextGetter> request_context_;
@@ -249,7 +255,8 @@ class RenderMessageFilter : public content::BrowserMessageFilter {
 
   scoped_refptr<RenderWidgetHelper> render_widget_helper_;
 
-  // Whether this process is used for incognito tabs.
+  // Whether this process is used for incognito contents.
+  // This doesn't belong here; http://crbug.com/89628
   bool incognito_;
 
   // Initialized to 0, accessed on FILE thread only.

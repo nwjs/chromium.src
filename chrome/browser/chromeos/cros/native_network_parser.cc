@@ -35,6 +35,7 @@ EnumMapper<PropertyIndex>::Pair property_index_table[] = {
   { flimflam::kCellularApnProperty, PROPERTY_INDEX_CELLULAR_APN },
   { flimflam::kCellularLastGoodApnProperty,
     PROPERTY_INDEX_CELLULAR_LAST_GOOD_APN },
+  { flimflam::kCheckPortalProperty, PROPERTY_INDEX_CHECK_PORTAL },
   { flimflam::kCheckPortalListProperty, PROPERTY_INDEX_CHECK_PORTAL_LIST },
   { flimflam::kConnectableProperty, PROPERTY_INDEX_CONNECTABLE },
   { flimflam::kConnectedTechnologiesProperty,
@@ -181,8 +182,10 @@ EnumMapper<PropertyIndex>::Pair property_index_table[] = {
   { flimflam::kOpenVPNTLSRemoteProperty, PROPERTY_INDEX_OPEN_VPN_TLSREMOTE },
   { flimflam::kOpenVPNUserProperty, PROPERTY_INDEX_OPEN_VPN_USER },
   { flimflam::kPaymentPortalProperty, PROPERTY_INDEX_OLP },
+  { flimflam::kPaymentURLProperty, PROPERTY_INDEX_OLP_URL },
   { flimflam::kVPNDomainProperty, PROPERTY_INDEX_VPN_DOMAIN },
   { flimflam::kWifiAuthMode, PROPERTY_INDEX_WIFI_AUTH_MODE },
+  { flimflam::kWifiBSsid, PROPERTY_INDEX_WIFI_BSSID },
   { flimflam::kWifiFrequency, PROPERTY_INDEX_WIFI_FREQUENCY },
   { flimflam::kWifiHexSsid, PROPERTY_INDEX_WIFI_HEX_SSID },
   { flimflam::kWifiHiddenSsid, PROPERTY_INDEX_WIFI_HIDDEN_SSID },
@@ -546,13 +549,25 @@ bool NativeNetworkDeviceParser::ParseSimLockStateFromDictionary(
     int* out_retries,
     bool* out_enabled) {
   std::string state_string;
+  // Since RetriesLeft is sent as a uint32, which may overflow int32 range, from
+  // Flimflam, it may be stored as an integer or a double in DictionaryValue.
+  base::Value* retries_value = NULL;
   if (!info.GetString(flimflam::kSIMLockTypeProperty, &state_string) ||
-      !info.GetInteger(flimflam::kSIMLockRetriesLeftProperty, out_retries) ||
-      !info.GetBoolean(flimflam::kSIMLockEnabledProperty, out_enabled)) {
+      !info.GetBoolean(flimflam::kSIMLockEnabledProperty, out_enabled) ||
+      !info.Get(flimflam::kSIMLockRetriesLeftProperty, &retries_value) ||
+      (retries_value->GetType() != base::Value::TYPE_INTEGER &&
+       retries_value->GetType() != base::Value::TYPE_DOUBLE)) {
     LOG(ERROR) << "Error parsing SIMLock state";
     return false;
   }
   *out_state = ParseSimLockState(state_string);
+  if (retries_value->GetType() == base::Value::TYPE_INTEGER) {
+    retries_value->GetAsInteger(out_retries);
+  } else if (retries_value->GetType() == base::Value::TYPE_DOUBLE) {
+    double retries_double = 0;
+    retries_value->GetAsDouble(&retries_double);
+    *out_retries = retries_double;
+  }
   return true;
 }
 
@@ -635,6 +650,8 @@ Network* NativeNetworkParser::CreateNewNetwork(
       network->SetNetworkParser(new NativeEthernetNetworkParser());
     else if (type == TYPE_WIFI)
       network->SetNetworkParser(new NativeWifiNetworkParser());
+    else if (type == TYPE_WIMAX)
+      network->SetNetworkParser(new NativeWimaxNetworkParser());
     else if (type == TYPE_CELLULAR)
       network->SetNetworkParser(new NativeCellularNetworkParser());
     else if (type == TYPE_VPN)
@@ -692,7 +709,7 @@ bool NativeNetworkParser::ParseValue(PropertyIndex index,
     case PROPERTY_INDEX_ERROR: {
       std::string error_string;
       if (value.GetAsString(&error_string)) {
-        network->set_error(ParseError(error_string));
+        network->SetError(ParseError(error_string));
         return true;
       }
       break;
@@ -721,6 +738,9 @@ bool NativeNetworkParser::ParseValue(PropertyIndex index,
       network->set_save_credentials(save_credentials);
       return true;
     }
+    case PROPERTY_INDEX_CHECK_PORTAL:
+      // This property is ignored.
+      return true;
     default:
       return NetworkParser::ParseValue(index, value, network);
       break;
@@ -805,8 +825,10 @@ NativeWirelessNetworkParser::~NativeWirelessNetworkParser() {}
 bool NativeWirelessNetworkParser::ParseValue(PropertyIndex index,
                                              const base::Value& value,
                                              Network* network) {
-  DCHECK_NE(TYPE_ETHERNET, network->type());
-  DCHECK_NE(TYPE_VPN, network->type());
+  CHECK(network->type() == TYPE_WIFI ||
+        network->type() == TYPE_WIMAX ||
+        network->type() == TYPE_BLUETOOTH ||
+        network->type() == TYPE_CELLULAR);
   WirelessNetwork* wireless_network = static_cast<WirelessNetwork*>(network);
   switch (index) {
     case PROPERTY_INDEX_SIGNAL_STRENGTH: {
@@ -831,7 +853,7 @@ NativeCellularNetworkParser::~NativeCellularNetworkParser() {}
 bool NativeCellularNetworkParser::ParseValue(PropertyIndex index,
                                              const base::Value& value,
                                              Network* network) {
-  DCHECK_EQ(TYPE_CELLULAR, network->type());
+  CHECK_EQ(TYPE_CELLULAR, network->type());
   CellularNetwork* cellular_network = static_cast<CellularNetwork*>(network);
   switch (index) {
     case PROPERTY_INDEX_ACTIVATION_STATE: {
@@ -941,6 +963,9 @@ bool NativeCellularNetworkParser::ParseValue(PropertyIndex index,
       }
       break;
     }
+    case PROPERTY_INDEX_OLP_URL:
+      // This property is ignored.
+      return true;
     case PROPERTY_INDEX_STATE: {
       // Save previous state before calling WirelessNetwork::ParseValue.
       ConnectionState prev_state = cellular_network->state();
@@ -1004,6 +1029,46 @@ NetworkRoamingState NativeCellularNetworkParser::ParseRoamingState(
   return parser.Get(roaming_state);
 }
 
+// -------------------- NativeWimaxNetworkParser --------------------
+
+NativeWimaxNetworkParser::NativeWimaxNetworkParser() {}
+NativeWimaxNetworkParser::~NativeWimaxNetworkParser() {}
+
+
+bool NativeWimaxNetworkParser::ParseValue(PropertyIndex index,
+                                          const base::Value& value,
+                                          Network* network) {
+  CHECK_EQ(TYPE_WIMAX, network->type());
+  WimaxNetwork* wimax_network = static_cast<WimaxNetwork*>(network);
+  switch (index) {
+    case PROPERTY_INDEX_PASSPHRASE_REQUIRED: {
+      bool passphrase_required;
+      if (!value.GetAsBoolean(&passphrase_required))
+        break;
+      wimax_network->set_passphrase_required(passphrase_required);
+      return true;
+    }
+    case PROPERTY_INDEX_EAP_IDENTITY: {
+      std::string eap_identity;
+      if (!value.GetAsString(&eap_identity))
+        break;
+
+      wimax_network->set_eap_identity(eap_identity);
+    }
+    case PROPERTY_INDEX_EAP_PASSWORD: {
+      std::string passphrase;
+      if (!value.GetAsString(&passphrase))
+        break;
+
+      wimax_network->set_eap_passphrase(passphrase);
+      return true;
+    }
+    default:
+      return NativeWirelessNetworkParser::ParseValue(index, value, network);
+  }
+  return false;
+}
+
 // -------------------- NativeWifiNetworkParser --------------------
 
 NativeWifiNetworkParser::NativeWifiNetworkParser() {}
@@ -1012,23 +1077,37 @@ NativeWifiNetworkParser::~NativeWifiNetworkParser() {}
 bool NativeWifiNetworkParser::ParseValue(PropertyIndex index,
                                          const base::Value& value,
                                          Network* network) {
-  DCHECK_EQ(TYPE_WIFI, network->type());
+  CHECK_EQ(TYPE_WIFI, network->type());
   WifiNetwork* wifi_network = static_cast<WifiNetwork*>(network);
   switch (index) {
     case PROPERTY_INDEX_WIFI_HEX_SSID: {
       std::string ssid_hex;
       if (!value.GetAsString(&ssid_hex))
         return false;
-
       wifi_network->SetHexSsid(ssid_hex);
       return true;
     }
-    case PROPERTY_INDEX_WIFI_AUTH_MODE:
-    case PROPERTY_INDEX_WIFI_PHY_MODE:
-    case PROPERTY_INDEX_WIFI_HIDDEN_SSID:
-    case PROPERTY_INDEX_WIFI_FREQUENCY:
-      // These properties are currently not used in the UI.
+    case PROPERTY_INDEX_WIFI_BSSID: {
+      std::string bssid;
+      if (!value.GetAsString(&bssid))
+        return false;
+      wifi_network->set_bssid(bssid);
       return true;
+    }
+    case PROPERTY_INDEX_WIFI_HIDDEN_SSID: {
+      bool hidden_ssid;
+      if (!value.GetAsBoolean(&hidden_ssid))
+        return false;
+      wifi_network->set_hidden_ssid(hidden_ssid);
+      return true;
+    }
+    case PROPERTY_INDEX_WIFI_FREQUENCY: {
+      int frequency;
+      if (!value.GetAsInteger(&frequency))
+        return false;
+      wifi_network->set_frequency(frequency);
+      return true;
+    }
     case PROPERTY_INDEX_NAME: {
       // Does not change network name when it was already set by WiFi.HexSSID.
       if (!wifi_network->name().empty())
@@ -1054,15 +1133,13 @@ bool NativeWifiNetworkParser::ParseValue(PropertyIndex index,
       std::string passphrase;
       if (!value.GetAsString(&passphrase))
         break;
-      // Only store the passphrase if we are the owner.
-      // TODO(stevenjb): Remove this when chromium-os:12948 is resolved.
+
       if (chromeos::UserManager::Get()->IsCurrentUserOwner())
         wifi_network->set_passphrase(passphrase);
       return true;
     }
     case PROPERTY_INDEX_PASSPHRASE_REQUIRED: {
       bool passphrase_required;
-      value.GetAsBoolean(&passphrase_required);
       if (!value.GetAsBoolean(&passphrase_required))
         break;
       wifi_network->set_passphrase_required(passphrase_required);
@@ -1139,6 +1216,8 @@ bool NativeWifiNetworkParser::ParseValue(PropertyIndex index,
       wifi_network->set_eap_server_ca_cert_nss_nickname(eap_cert_nickname);
       return true;
     }
+    case PROPERTY_INDEX_WIFI_AUTH_MODE:
+    case PROPERTY_INDEX_WIFI_PHY_MODE:
     case PROPERTY_INDEX_EAP_CLIENT_CERT:
     case PROPERTY_INDEX_EAP_CLIENT_CERT_NSS:
     case PROPERTY_INDEX_EAP_PRIVATE_KEY:
@@ -1178,7 +1257,7 @@ NativeVirtualNetworkParser::~NativeVirtualNetworkParser() {}
 bool NativeVirtualNetworkParser::UpdateNetworkFromInfo(
     const DictionaryValue& info,
     Network* network) {
-  DCHECK_EQ(TYPE_VPN, network->type());
+  CHECK_EQ(TYPE_VPN, network->type());
   VirtualNetwork* virtual_network = static_cast<VirtualNetwork*>(network);
   if (!NativeNetworkParser::UpdateNetworkFromInfo(info, network))
     return false;
@@ -1196,11 +1275,16 @@ bool NativeVirtualNetworkParser::UpdateNetworkFromInfo(
 bool NativeVirtualNetworkParser::ParseValue(PropertyIndex index,
                                             const base::Value& value,
                                             Network* network) {
-  DCHECK_EQ(TYPE_VPN, network->type());
+  CHECK_EQ(TYPE_VPN, network->type());
   VirtualNetwork* virtual_network = static_cast<VirtualNetwork*>(network);
   switch (index) {
     case PROPERTY_INDEX_PROVIDER: {
-      DCHECK_EQ(value.GetType(), Value::TYPE_DICTIONARY);
+      // TODO(rkc): Figure out why is this ever not true and fix the root
+      // cause. 'value' comes to us all the way from the cros dbus call, the
+      // issue is likely on the cros side of things.
+      if (value.GetType() != Value::TYPE_DICTIONARY)
+        return false;
+
       const DictionaryValue& dict = static_cast<const DictionaryValue&>(value);
       for (DictionaryValue::key_iterator iter = dict.begin_keys();
            iter != dict.end_keys(); ++iter) {

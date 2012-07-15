@@ -17,13 +17,13 @@
 #include "chrome/browser/chromeos/cros/network_library.h"
 #include "chrome/browser/chromeos/cros_settings.h"
 #include "chrome/browser/chromeos/cros_settings_names.h"
-#include "chrome/browser/chromeos/login/ownership_service.h"
 #include "chrome/browser/chromeos/login/signed_settings_cache.h"
 #include "chrome/browser/chromeos/login/signed_settings_helper.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
 #include "chrome/browser/policy/app_pack_updater.h"
 #include "chrome/browser/policy/browser_policy_connector.h"
 #include "chrome/browser/policy/cloud_policy_constants.h"
+#include "chrome/browser/policy/proto/chrome_device_policy.pb.h"
 #include "chrome/browser/ui/options/options_util.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/installer/util/google_update_settings.h"
@@ -53,6 +53,7 @@ const char* kKnownSettings[] = {
   kReleaseChannelDelegated,
   kReportDeviceActivityTimes,
   kReportDeviceBootMode,
+  kReportDeviceLocation,
   kReportDeviceVersionInfo,
   kScreenSaverExtensionId,
   kScreenSaverTimeout,
@@ -92,7 +93,7 @@ DeviceSettingsProvider::DeviceSettingsProvider(
       ownership_status_(OwnershipService::GetSharedInstance()->GetStatus(true)),
       migration_helper_(new SignedSettingsMigrationHelper()),
       retries_left_(kNumRetriesLimit),
-      trusted_(false) {
+      trusted_status_(TEMPORARILY_UNTRUSTED) {
   // Register for notification when ownership is taken so that we can update
   // the |ownership_status_| and reload if needed.
   registrar_.Add(this, chrome::NOTIFICATION_OWNER_KEY_FETCH_ATTEMPT_SUCCEEDED,
@@ -108,7 +109,7 @@ DeviceSettingsProvider::~DeviceSettingsProvider() {
 
 void DeviceSettingsProvider::Reload() {
   // While fetching we can't trust the cache anymore.
-  trusted_ = false;
+  trusted_status_ = TEMPORARILY_UNTRUSTED;
   if (ownership_status_ == OwnershipService::OWNERSHIP_NONE) {
     RetrieveCachedData();
   } else {
@@ -188,7 +189,7 @@ void DeviceSettingsProvider::SetInPolicy() {
       values_cache_.SetValue(prop, value);
       NotifyObservers(prop);
       // We can't trust this value anymore until we reload the real username.
-      trusted_ = false;
+      trusted_status_ = TEMPORARILY_UNTRUSTED;
       pending_changes_.erase(pending_changes_.begin());
       if (!pending_changes_.empty())
         SetInPolicy();
@@ -198,7 +199,7 @@ void DeviceSettingsProvider::SetInPolicy() {
     return;
   }
 
-  if (!RequestTrustedEntity()) {
+  if (RequestTrustedEntity() != TRUSTED) {
     // Otherwise we should first reload and apply on top of that.
     signed_settings_helper_->StartRetrievePolicyOp(
         base::Bind(&DeviceSettingsProvider::FinishSetInPolicy,
@@ -206,7 +207,7 @@ void DeviceSettingsProvider::SetInPolicy() {
     return;
   }
 
-  trusted_ = false;
+  trusted_status_ = TEMPORARILY_UNTRUSTED;
   em::PolicyData data = policy();
   em::ChromeDeviceSettingsProto pol;
   pol.ParseFromString(data.policy_value());
@@ -287,14 +288,15 @@ void DeviceSettingsProvider::SetInPolicy() {
     // The remaining settings don't support Set(), since they are not
     // intended to be customizable by the user:
     //   kAppPack
-    //   kIdleLogoutTimeout,
-    //   kIdleLogoutWarningDuration,
-    //   kReleaseChannelDelegated,
+    //   kIdleLogoutTimeout
+    //   kIdleLogoutWarningDuration
+    //   kReleaseChannelDelegated
     //   kReportDeviceVersionInfo
     //   kReportDeviceActivityTimes
     //   kReportDeviceBootMode
-    //   kScreenSaverExtensionId,
-    //   kScreenSaverTimeout,
+    //   kReportDeviceLocation
+    //   kScreenSaverExtensionId
+    //   kScreenSaverTimeout
     //   kStartUpUrls
 
     NOTREACHED();
@@ -480,13 +482,23 @@ void DeviceSettingsProvider::DecodeReportingPolicies(
           kReportDeviceVersionInfo,
           policy.device_reporting().report_version_info());
     }
-    // TODO(dubroy): Re-add device activity time policy here when the UI
-    // to notify the user has been implemented (http://crosbug.com/26252).
+    if (policy.device_reporting().has_report_activity_times()) {
+      new_values_cache->SetBoolean(
+          kReportDeviceActivityTimes,
+          policy.device_reporting().report_activity_times());
+    }
     if (policy.device_reporting().has_report_boot_mode()) {
       new_values_cache->SetBoolean(
           kReportDeviceBootMode,
           policy.device_reporting().report_boot_mode());
     }
+    // Device location reporting needs to pass privacy review before it can be
+    // enabled. crosbug.com/24681
+    // if (policy.device_reporting().has_report_location()) {
+    //   new_values_cache->SetBoolean(
+    //       kReportDeviceLocation,
+    //       policy.device_reporting().report_location());
+    // }
   }
 }
 
@@ -626,7 +638,7 @@ bool DeviceSettingsProvider::MitigateMissingPolicy() {
   values_cache_.SetBoolean(kAccountsPrefAllowNewUser, true);
   values_cache_.SetBoolean(kAccountsPrefAllowGuest, true);
   values_cache_.SetBoolean(kPolicyMissingMitigationMode, true);
-  trusted_ = true;
+  trusted_status_ = TRUSTED;
   // Make sure we will recreate the policy once the owner logs in.
   // Any value not in this list will be left to the default which is fine as
   // we repopulate the whitelist with the owner and all other existing users
@@ -634,10 +646,6 @@ bool DeviceSettingsProvider::MitigateMissingPolicy() {
   migration_helper_->AddMigrationValue(
       kAccountsPrefAllowNewUser, base::Value::CreateBooleanValue(true));
   migration_helper_->MigrateValues();
-  // The last step is to pretend we loaded policy correctly and call everyone.
-  for (size_t i = 0; i < callbacks_.size(); ++i)
-    callbacks_[i].Run();
-  callbacks_.clear();
   return true;
 }
 
@@ -653,22 +661,23 @@ const base::Value* DeviceSettingsProvider::Get(const std::string& path) const {
   return NULL;
 }
 
-bool DeviceSettingsProvider::PrepareTrustedValues(const base::Closure& cb) {
-  if (RequestTrustedEntity())
-    return true;
-  if (!cb.is_null())
+DeviceSettingsProvider::TrustedStatus
+    DeviceSettingsProvider::PrepareTrustedValues(const base::Closure& cb) {
+  TrustedStatus status = RequestTrustedEntity();
+  if (status == TEMPORARILY_UNTRUSTED && !cb.is_null())
     callbacks_.push_back(cb);
-  return false;
+  return status;
 }
 
 bool DeviceSettingsProvider::HandlesSetting(const std::string& path) const {
   return IsControlledSetting(path);
 }
 
-bool DeviceSettingsProvider::RequestTrustedEntity() {
+DeviceSettingsProvider::TrustedStatus
+    DeviceSettingsProvider::RequestTrustedEntity() {
   if (ownership_status_ == OwnershipService::OWNERSHIP_NONE)
-    return true;
-  return trusted_;
+    return TRUSTED;
+  return trusted_status_;
 }
 
 void DeviceSettingsProvider::OnStorePolicyCompleted(
@@ -677,7 +686,7 @@ void DeviceSettingsProvider::OnStorePolicyCompleted(
   if (code != SignedSettings::SUCCESS)
     Reload();
   else
-    trusted_ = true;
+    trusted_status_ = TRUSTED;
 
   // Clear the finished task and proceed with any other stores that could be
   // pending by now.
@@ -691,7 +700,8 @@ void DeviceSettingsProvider::OnRetrievePolicyCompleted(
     SignedSettings::ReturnCode code,
     const em::PolicyFetchResponse& policy_data) {
   VLOG(1) << "OnRetrievePolicyCompleted. Error code: " << code
-          << ", trusted : " << trusted_ << ", status : " << ownership_status_;
+          << ", trusted status : " << trusted_status_
+          << ", ownership status : " << ownership_status_;
   switch (code) {
     case SignedSettings::SUCCESS: {
       DCHECK(policy_data.has_policy_data());
@@ -699,10 +709,7 @@ void DeviceSettingsProvider::OnRetrievePolicyCompleted(
       signed_settings_cache::Store(policy(),
                                    g_browser_process->local_state());
       UpdateValuesCache();
-      trusted_ = true;
-      for (size_t i = 0; i < callbacks_.size(); ++i)
-        callbacks_[i].Run();
-      callbacks_.clear();
+      trusted_status_ = TRUSTED;
       // TODO(pastarmovj): Make those side effects responsibility of the
       // respective subsystems.
       ApplySideEffects();
@@ -714,20 +721,28 @@ void DeviceSettingsProvider::OnRetrievePolicyCompleted(
     case SignedSettings::KEY_UNAVAILABLE: {
       if (ownership_status_ != OwnershipService::OWNERSHIP_TAKEN)
         NOTREACHED() << "No policies present yet, will use the temp storage.";
+      trusted_status_ = PERMANENTLY_UNTRUSTED;
       break;
     }
     case SignedSettings::BAD_SIGNATURE:
     case SignedSettings::OPERATION_FAILED: {
       LOG(ERROR) << "Failed to retrieve cros policies. Reason:" << code;
       if (retries_left_ > 0) {
+        trusted_status_ = TEMPORARILY_UNTRUSTED;
         retries_left_ -= 1;
         Reload();
         return;
       }
       LOG(ERROR) << "No retries left";
+      trusted_status_ = PERMANENTLY_UNTRUSTED;
       break;
     }
   }
+  // Notify the observers we are done.
+  std::vector<base::Closure> callbacks;
+  callbacks.swap(callbacks_);
+  for (size_t i = 0; i < callbacks.size(); ++i)
+    callbacks[i].Run();
 }
 
 }  // namespace chromeos

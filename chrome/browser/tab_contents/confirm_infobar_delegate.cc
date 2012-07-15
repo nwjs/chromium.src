@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,6 +7,11 @@
 #include "content/public/browser/navigation_details.h"
 #include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
+
+InfoBarDelegate::InfoBarAutomationType
+    ConfirmInfoBarDelegate::GetInfoBarAutomationType() const {
+  return CONFIRM_INFOBAR;
+}
 
 int ConfirmInfoBarDelegate::GetButtons() const {
   return BUTTON_OK | BUTTON_CANCEL;
@@ -50,11 +55,10 @@ bool ConfirmInfoBarDelegate::EqualsDelegate(InfoBarDelegate* delegate) const {
       (confirm_delegate->GetMessageText() == GetMessageText());
 }
 
-bool ConfirmInfoBarDelegate::ShouldExpire(
+bool ConfirmInfoBarDelegate::ShouldExpireInternal(
     const content::LoadCommittedDetails& details) const {
-  if (details.did_replace_entry)
-    return false;
-  return InfoBarDelegate::ShouldExpire(details);
+  return !details.did_replace_entry &&
+      InfoBarDelegate::ShouldExpireInternal(details);
 }
 
 ConfirmInfoBarDelegate* ConfirmInfoBarDelegate::AsConfirmInfoBarDelegate() {

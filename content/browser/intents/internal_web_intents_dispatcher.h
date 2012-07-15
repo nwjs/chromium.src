@@ -9,6 +9,7 @@
 
 #include "base/callback.h"
 #include "base/compiler_specific.h"
+#include "base/gtest_prod_util.h"
 #include "content/public/browser/web_intents_dispatcher.h"
 #include "webkit/glue/web_intent_data.h"
 
@@ -41,19 +42,23 @@ class CONTENT_EXPORT InternalWebIntentsDispatcher
 
   // WebIntentsDispatcher implementation.
   virtual const webkit_glue::WebIntentData& GetIntent() OVERRIDE;
-  virtual void DispatchIntent(content::WebContents* destination_tab) OVERRIDE;
+  virtual void DispatchIntent(
+      content::WebContents* destination_contents) OVERRIDE;
+  virtual void ResetDispatch() OVERRIDE;
   virtual void SendReplyMessage(webkit_glue::WebIntentReplyType reply_type,
                                 const string16& data) OVERRIDE;
   virtual void RegisterReplyNotification(
       const content::WebIntentsDispatcher::ReplyNotification& closure) OVERRIDE;
 
  private:
+  FRIEND_TEST_ALL_PREFIXES(InternalWebIntentsDispatcherTest,
+                           CancelAbandonsInjector);
   // The intent data to be delivered.
   webkit_glue::WebIntentData intent_;
 
   // Weak pointer to the internal object which delivers the intent to the
-  // newly-created service tab contents. This object is self-deleting
-  // (connected to the service TabContents).
+  // newly-created service WebContents. This object is self-deleting
+  // (connected to the service WebContents).
   IntentInjector* intent_injector_;
 
   // Callbacks to be notified when SendReplyMessage is called.

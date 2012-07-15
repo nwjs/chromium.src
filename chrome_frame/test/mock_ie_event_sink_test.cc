@@ -180,6 +180,7 @@ void MockIEEventSink::ExpectDocumentReadystate(int ready_state) {
 // MockIEEventSinkTest methods
 MockIEEventSinkTest::MockIEEventSinkTest() : server_mock_(1337, L"127.0.0.1",
                                                           GetTestDataFolder()) {
+  loop_.set_snapshot_on_timeout(true);
   EXPECT_CALL(server_mock_, Get(_, StrCaseEq(L"/favicon.ico"), _))
       .WillRepeatedly(SendFast("HTTP/1.1 404 Not Found", ""));
 }
@@ -187,20 +188,21 @@ MockIEEventSinkTest::MockIEEventSinkTest() : server_mock_(1337, L"127.0.0.1",
 MockIEEventSinkTest::MockIEEventSinkTest(int port, const std::wstring& address,
                                          const FilePath& root_dir)
     : server_mock_(port, address, root_dir) {
+  loop_.set_snapshot_on_timeout(true);
   EXPECT_CALL(server_mock_, Get(_, StrCaseEq(L"/favicon.ico"), _))
       .WillRepeatedly(SendFast("HTTP/1.1 404 Not Found", ""));
 }
 
 void MockIEEventSinkTest::LaunchIEAndNavigate(const std::wstring& url) {
-  LaunchIENavigateAndLoop(url, kChromeFrameLongNavigationTimeoutInSeconds);
+  LaunchIENavigateAndLoop(url, kChromeFrameLongNavigationTimeout);
 }
 
 void MockIEEventSinkTest::LaunchIENavigateAndLoop(const std::wstring& url,
-                                                  int timeout) {
+                                                  base::TimeDelta timeout) {
   if (GetInstalledIEVersion() >= IE_8) {
     chrome_frame_test::ClearIESessionHistory();
   }
-  hung_call_detector_ = HungCOMCallDetector::Setup(timeout);
+  hung_call_detector_ = HungCOMCallDetector::Setup(ceil(timeout.InSecondsF()));
   EXPECT_TRUE(hung_call_detector_ != NULL);
 
   IEEventSink::SetAbnormalShutdown(false);

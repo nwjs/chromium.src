@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CONTENT_BROWSER_DEBUGGER_DEVTOOLS_HTTP_HANDLER_IMPL_H_
 #define CONTENT_BROWSER_DEBUGGER_DEVTOOLS_HTTP_HANDLER_IMPL_H_
-#pragma once
 
 #include <map>
 #include <set>
@@ -15,11 +14,13 @@
 #include "base/memory/scoped_ptr.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/devtools_http_handler.h"
+#include "content/public/browser/devtools_http_handler_delegate.h"
 #include "net/server/http_server.h"
 #include "net/url_request/url_request.h"
 
 namespace net {
-class URLRequestContext;
+class StreamListenSocketFactory;
+class URLRequestContextGetter;
 }
 
 namespace content {
@@ -40,15 +41,18 @@ class DevToolsHttpHandlerImpl
 
   static bool SortPageListByTime(const PageInfo& info1, const PageInfo& info2);
 
-  DevToolsHttpHandlerImpl(const std::string& ip,
-                          int port,
+  // Takes ownership over |socket_factory|.
+  DevToolsHttpHandlerImpl(const net::StreamListenSocketFactory* socket_factory,
                           const std::string& frontend_url,
+                          net::URLRequestContextGetter* request_context_getter,
                           DevToolsHttpHandlerDelegate* delegate);
   virtual ~DevToolsHttpHandlerImpl();
   void Start();
 
   // DevToolsHttpHandler implementation.
   virtual void Stop() OVERRIDE;
+  virtual void SetRenderViewHostBinding(
+      RenderViewHostBinding* binding) OVERRIDE;
 
   // net::HttpServer::Delegate implementation.
   virtual void OnHttpRequest(int connection_id,
@@ -88,13 +92,9 @@ class DevToolsHttpHandlerImpl
                const std::string& message);
   void AcceptWebSocket(int connection_id,
                        const net::HttpServerRequestInfo& request);
-  size_t BindRenderViewHost(RenderViewHost* rvh);
-  RenderViewHost* GetBoundRenderViewHost(size_t id);
-  void ResetRenderViewHostBinding();
 
-  std::string ip_;
-  int port_;
   std::string overridden_frontend_url_;
+  scoped_ptr<const net::StreamListenSocketFactory> socket_factory_;
   scoped_refptr<net::HttpServer> server_;
   typedef std::map<net::URLRequest*, int>
       RequestToSocketMap;
@@ -108,9 +108,10 @@ class DevToolsHttpHandlerImpl
   typedef std::map<int, content::DevToolsClientHost*>
       ConnectionToClientHostMap;
   ConnectionToClientHostMap connection_to_client_host_ui_;
+  net::URLRequestContextGetter* request_context_getter_;
   scoped_ptr<DevToolsHttpHandlerDelegate> delegate_;
-  typedef std::pair<int, int> Target;
-  std::vector<Target> targets_;
+  RenderViewHostBinding* binding_;
+  scoped_ptr<RenderViewHostBinding> default_binding_;
   DISALLOW_COPY_AND_ASSIGN(DevToolsHttpHandlerImpl);
 };
 

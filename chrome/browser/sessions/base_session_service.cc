@@ -73,7 +73,6 @@ BaseSessionService::BaseSessionService(SessionType type,
                                        Profile* profile,
                                        const FilePath& path)
     : profile_(profile),
-      path_(path),
       ALLOW_THIS_IN_INITIALIZER_LIST(weak_factory_(this)),
       pending_reset_(false),
       commands_since_reset_(0),
@@ -85,12 +84,18 @@ BaseSessionService::BaseSessionService(SessionType type,
     save_post_data_ =
         !command_line->HasSwitch(switches::kDisableRestoreSessionState);
   }
-  backend_ = new SessionBackend(type,
-      profile_ ? profile_->GetPath() : path_);
+  backend_ = new SessionBackend(type, profile_ ? profile_->GetPath() : path);
   DCHECK(backend_.get());
 
-  RunTaskOnBackendThread(FROM_HERE,
-                         base::Bind(&SessionBackend::Init, backend_));
+  // SessionBackend::Init() cannot be scheduled to be called here. There are
+  // service processes which create the BaseSessionService, but they should not
+  // initialize the backend. If they do, the backend will cycle the session
+  // restore files. That in turn prevents the session restore from working when
+  // the normal chromium process is launched. Normally, the backend will be
+  // initialized before it's actually used. However, if we're running as a part
+  // of a test, it must be initialized now.
+  if (!RunningInProduction())
+    backend_->Init();
 }
 
 BaseSessionService::~BaseSessionService() {
@@ -189,7 +194,12 @@ SessionCommand* BaseSessionService::CreateUpdateTabNavigationCommand(
           entry.GetReferrer().url.spec() : std::string());
   pickle.WriteInt(entry.GetReferrer().policy);
 
-  // Adding more data? Be sure and update TabRestoreService too.
+  // Save info required to override the user agent.
+  WriteStringToPickle(pickle, &bytes_written, max_state_size,
+      entry.GetOriginalRequestURL().is_valid() ?
+          entry.GetOriginalRequestURL().spec() : std::string());
+  pickle.WriteBool(entry.GetIsOverridingUserAgent());
+
   return new SessionCommand(command_id, pickle);
 }
 
@@ -208,6 +218,27 @@ SessionCommand* BaseSessionService::CreateSetTabExtensionAppIDCommand(
   int bytes_written = 0;
 
   WriteStringToPickle(pickle, &bytes_written, max_id_size, extension_id);
+
+  return new SessionCommand(command_id, pickle);
+}
+
+SessionCommand* BaseSessionService::CreateSetTabUserAgentOverrideCommand(
+    SessionID::id_type command_id,
+    SessionID::id_type tab_id,
+    const std::string& user_agent_override) {
+  // Use pickle to handle marshalling.
+  Pickle pickle;
+  pickle.WriteInt(tab_id);
+
+  // Enforce a max for the user agent length.  They should never be anywhere
+  // near this size.
+  static const SessionCommand::size_type max_user_agent_size =
+      std::numeric_limits<SessionCommand::size_type>::max() - 1024;
+
+  int bytes_written = 0;
+
+  WriteStringToPickle(pickle, &bytes_written, max_user_agent_size,
+      user_agent_override);
 
   return new SessionCommand(command_id, pickle);
 }
@@ -268,6 +299,18 @@ bool BaseSessionService::RestoreUpdateTabNavigationCommand(
     navigation->referrer_ = content::Referrer(
         referrer_spec.empty() ? GURL() : GURL(referrer_spec),
         policy);
+
+    // If the original URL can't be found, leave it empty.
+    std::string url_spec;
+    if (!pickle->ReadString(&iterator, &url_spec))
+      url_spec = std::string();
+    navigation->set_original_request_url(GURL(url_spec));
+
+    // Default to not overriding the user agent if we don't have info.
+    bool override_user_agent;
+    if (!pickle->ReadBool(&iterator, &override_user_agent))
+      override_user_agent = false;
+    navigation->set_is_overriding_user_agent(override_user_agent);
   }
 
   navigation->virtual_url_ = GURL(url_spec);
@@ -285,6 +328,19 @@ bool BaseSessionService::RestoreSetTabExtensionAppIDCommand(
   PickleIterator iterator(*pickle);
   return pickle->ReadInt(&iterator, tab_id) &&
       pickle->ReadString(&iterator, extension_app_id);
+}
+
+bool BaseSessionService::RestoreSetTabUserAgentOverrideCommand(
+    const SessionCommand& command,
+    SessionID::id_type* tab_id,
+    std::string* user_agent_override) {
+  scoped_ptr<Pickle> pickle(command.PayloadAsPickle());
+  if (!pickle.get())
+    return false;
+
+  PickleIterator iterator(*pickle);
+  return pickle->ReadInt(&iterator, tab_id) &&
+      pickle->ReadString(&iterator, user_agent_override);
 }
 
 bool BaseSessionService::RestoreSetWindowAppNameCommand(
@@ -330,4 +386,8 @@ bool BaseSessionService::RunTaskOnBackendThread(
     task.Run();
     return true;
   }
+}
+
+bool BaseSessionService::RunningInProduction() const {
+  return profile_ && BrowserThread::IsMessageLoopValid(BrowserThread::FILE);
 }

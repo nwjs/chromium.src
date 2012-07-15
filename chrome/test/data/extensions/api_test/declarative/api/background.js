@@ -2,82 +2,66 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-var declarative = chrome.experimental.declarative;
+var declarative = chrome.declarative;
 
-function createTestCondition(opt_testParameter) {
-  var result = {
-    "instanceType": "experimental.webRequest.RequestMatcher"
-  };
-  if (opt_testParameter) {
-    result["url"] = opt_testParameter;
-  }
-  return result;
-}
-
-function createTestAction() {
-  var result = {
-    "instanceType": "experimental.webRequest.CancelRequest"
-  };
-  return result;
-}
-
-function createTestAction2() {
-  var result = {
-    "instanceType": "experimental.webRequest.ModifyRequest"
-  };
-  return result;
-}
+var RequestMatcher = chrome.declarativeWebRequest.RequestMatcher;
+var CancelRequest = chrome.declarativeWebRequest.CancelRequest;
+var RedirectRequest = chrome.declarativeWebRequest.RedirectRequest;
 
 var inputRule0 = {
   // No 'id', this should be filled by the API.
-  "conditions": [createTestCondition("test1"), createTestCondition("test2")],
-  "actions": [createTestAction(), createTestAction2()]
+  conditions: [new RequestMatcher({url: {hostPrefix: "test1"}}),
+               new RequestMatcher({url: {hostPrefix: "test2"}})],
+  actions: [new CancelRequest(),
+            new RedirectRequest({redirectUrl: "http://foobar.com"})]
   // No 'priority', this should be filled by the API.
 }
 
 var outputRule0 = {
-  "id": "_0_",
-  "conditions": [createTestCondition("test1"), createTestCondition("test2")],
-  "actions": [createTestAction(), createTestAction2()],
-  "priority": 100
+  id: "_0_",
+  conditions: [new RequestMatcher({url: {hostPrefix: "test1"}}),
+               new RequestMatcher({url: {hostPrefix: "test2"}})],
+  actions: [new CancelRequest(),
+            new RedirectRequest({redirectUrl: "http://foobar.com"})],
+  priority: 100
 }
 
 var inputRule1 = {
-  "id": "my_rule_id",
-  "conditions": [],
-  "actions": [],
-  "priority": 10
+  id: "my_rule_id",
+  conditions: [],
+  actions: [],
+  priority: 10
 }
 
 var outputRule1 = inputRule1;
 
 var inputRule2 = {
   // No 'id', this should be filled by the API.
-  "conditions": [createTestCondition("test3")],
-  "actions": [createTestAction()]
+  conditions: [new RequestMatcher({url: {hostPrefix: "test3"}})],
+  actions: [new CancelRequest()]
   // No 'priority', this should be filled by the API.
 }
 
 var outputRule2 = {
-  "id": "_1_",
-  "conditions": [createTestCondition("test3")],
-  "actions": [createTestAction()],
-  "priority": 100
+  id: "_1_",
+  conditions: [new RequestMatcher({url: {hostPrefix: "test3"}})],
+  actions: [new CancelRequest()],
+  priority: 100
 }
 
 var invalidRule0 = {
-  "conditions": [createTestCondition("test1")]
+  conditions: [new RequestMatcher({url: {hostPrefix: "test1"}})]
   // "actions" is missing but not optional.
 };
 
 var invalidRule1 = {
-  "conditions": [createTestCondition("test1")],
+  conditions: [new RequestMatcher({url: {hostPrefix: "test1"}})],
   // "actions" contains an invalid action (separate test because this validation
   // happens on a different code path).
-  "actions": [{"key": "value"}]
+  actions: [{key: "value"}]
 };
 
-var testEvent = chrome.experimental.webRequest.onRequest;
+var testEvent = chrome.declarativeWebRequest.onRequest;
 
 chrome.test.runTests([
   // Add adding two simple rules and check that their optional fields are set

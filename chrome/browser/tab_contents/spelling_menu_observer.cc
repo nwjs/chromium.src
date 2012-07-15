@@ -17,6 +17,7 @@
 #include "chrome/browser/spellchecker/spelling_service_client.h"
 #include "chrome/browser/tab_contents/render_view_context_menu.h"
 #include "chrome/browser/tab_contents/spelling_bubble_model.h"
+#include "chrome/browser/ui/confirm_bubble.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/spellcheck_result.h"
@@ -58,12 +59,9 @@ void SpellingMenuObserver::InitMenu(const content::ContextMenuParams& params) {
   }
 
   // Append a placeholder item for the suggestion from the Spelling serivce and
-  // send a request to the service if we have enabled the spellchecking and
-  // integrated the Spelling service.
-  PrefService* pref = profile->GetPrefs();
-  if (params.spellcheck_enabled &&
-      pref->GetBoolean(prefs::kEnableSpellCheck) &&
-      pref->GetBoolean(prefs::kSpellCheckUseSpellingService)) {
+  // send a request to the service if we can retrieve suggestions from it.
+  if (SpellingServiceClient::IsAvailable(profile,
+                                         SpellingServiceClient::SUGGEST)) {
     // Retrieve the misspelled word to be sent to the Spelling service.
     string16 text = params.misspelled_word;
     if (!text.empty()) {
@@ -88,7 +86,7 @@ void SpellingMenuObserver::InitMenu(const content::ContextMenuParams& params) {
       // it.
       client_.reset(new SpellingServiceClient);
       bool result = client_->RequestTextCheck(
-          profile, 0, text,
+          profile, 0, SpellingServiceClient::SUGGEST, text,
           base::Bind(&SpellingMenuObserver::OnTextCheckComplete,
                      base::Unretained(this)));
       if (result) {
@@ -232,9 +230,11 @@ void SpellingMenuObserver::ExecuteCommand(int command_id) {
     if (!integrate_spelling_service_) {
       content::RenderViewHost* rvh = proxy_->GetRenderViewHost();
       gfx::Rect rect = rvh->GetView()->GetViewBounds();
-      ConfirmBubbleModel::Show(rvh->GetView()->GetNativeView(),
-                               gfx::Point(rect.CenterPoint().x(), rect.y()),
-                               new SpellingBubbleModel(proxy_->GetProfile()));
+      chrome::ShowConfirmBubble(rvh->GetView()->GetNativeView(),
+                                gfx::Point(rect.CenterPoint().x(), rect.y()),
+                                new SpellingBubbleModel(
+                                    proxy_->GetProfile(),
+                                    proxy_->GetWebContents()));
     } else {
       Profile* profile = proxy_->GetProfile();
       if (profile)
@@ -246,6 +246,8 @@ void SpellingMenuObserver::ExecuteCommand(int command_id) {
 
 void SpellingMenuObserver::OnTextCheckComplete(
     int tag,
+    bool success,
+    const string16& text,
     const std::vector<SpellCheckResult>& results) {
   animation_timer_.Stop();
 
@@ -253,7 +255,7 @@ void SpellingMenuObserver::OnTextCheckComplete(
   // suggested words. If the replaced text is included in the suggestion list
   // provided by the local spellchecker, we show a "No suggestions from Google"
   // message.
-  succeeded_ = true;
+  succeeded_ = success;
   if (results.empty()) {
     succeeded_ = false;
   } else {

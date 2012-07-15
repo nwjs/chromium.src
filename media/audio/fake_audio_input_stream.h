@@ -13,9 +13,11 @@
 #include "base/threading/thread.h"
 #include "base/time.h"
 #include "media/audio/audio_io.h"
-#include "media/audio/audio_parameters.h"
+
+namespace media {
 
 class AudioManagerBase;
+class AudioParameters;
 
 class MEDIA_EXPORT FakeAudioInputStream
     : public AudioInputStream {
@@ -30,6 +32,8 @@ class MEDIA_EXPORT FakeAudioInputStream
   virtual double GetMaxVolume() OVERRIDE;
   virtual void SetVolume(double volume) OVERRIDE;
   virtual double GetVolume() OVERRIDE;
+  virtual void SetAutomaticGainControl(bool enabled) OVERRIDE;
+  virtual bool GetAutomaticGainControl() OVERRIDE;
 
  private:
   FakeAudioInputStream(AudioManagerBase* manager,
@@ -49,5 +53,7 @@ class MEDIA_EXPORT FakeAudioInputStream
 
   DISALLOW_COPY_AND_ASSIGN(FakeAudioInputStream);
 };
+
+}  // namespace media
 
 #endif  // MEDIA_AUDIO_FAKE_AUDIO_INPUT_STREAM_H_

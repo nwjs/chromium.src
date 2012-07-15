@@ -15,8 +15,6 @@
 
 #include <string>
 
-#include "base/memory/scoped_ptr.h"
-
 namespace remoting {
 namespace protocol {
 
@@ -63,10 +61,21 @@ class AuthenticationMethod {
 
  private:
   AuthenticationMethod();
-  AuthenticationMethod(HashFunction hash_function);
+  explicit AuthenticationMethod(HashFunction hash_function);
 
   bool invalid_;
   HashFunction hash_function_;
+};
+
+// SharedSecretHash stores hash of a host secret paired with the type
+// of the hashing function.
+struct SharedSecretHash {
+  AuthenticationMethod::HashFunction hash_function;
+  std::string value;
+
+  // Parse string representation of a shared secret hash. The |as_string|
+  // must be in form "<hash_function>:<hash_value_base64>".
+  bool Parse(const std::string& as_string);
 };
 
 }  // namespace protocol

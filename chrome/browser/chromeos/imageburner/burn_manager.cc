@@ -9,9 +9,10 @@
 #include "base/path_service.h"
 #include "base/string_util.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/chromeos/system/statistics_provider.h"
 #include "chrome/common/chrome_paths.h"
 #include "content/public/browser/browser_thread.h"
-#include "content/public/common/url_fetcher.h"
+#include "net/url_request/url_fetcher.h"
 #include "net/url_request/url_request_status.h"
 
 using content::BrowserThread;
@@ -20,6 +21,9 @@ namespace chromeos {
 namespace imageburner {
 
 namespace {
+
+// Name for hwid in machine statistics.
+const char kHwidStatistic[] = "hardware_class";
 
 const char kConfigFileUrl[] =
     "https://dl.google.com/dl/edgedl/chromeos/recovery/recovery.conf";
@@ -197,6 +201,7 @@ void StateMachine::OnCancelation() {
 BurnManager::BurnManager()
     : weak_ptr_factory_(this),
       config_file_url_(kConfigFileUrl),
+      config_file_fetched_(false),
       state_machine_(new StateMachine()),
       bytes_image_download_progress_last_reported_(0) {
 }
@@ -267,8 +272,8 @@ const FilePath& BurnManager::GetImageDir() {
 }
 
 void BurnManager::FetchConfigFile(Delegate* delegate) {
-  if (config_file_fetched()) {
-    delegate->OnConfigFileFetched(config_file_, true);
+  if (config_file_fetched_) {
+    delegate->OnConfigFileFetched(true, image_file_name_, image_download_url_);
     return;
   }
   downloaders_.push_back(delegate->AsWeakPtr());
@@ -276,8 +281,8 @@ void BurnManager::FetchConfigFile(Delegate* delegate) {
   if (config_fetcher_.get())
     return;
 
-  config_fetcher_.reset(content::URLFetcher::Create(
-      config_file_url_, content::URLFetcher::GET, this));
+  config_fetcher_.reset(net::URLFetcher::Create(
+      config_file_url_, net::URLFetcher::GET, this));
   config_fetcher_->SetRequestContext(
       g_browser_process->system_request_context());
   config_fetcher_->Start();
@@ -286,9 +291,9 @@ void BurnManager::FetchConfigFile(Delegate* delegate) {
 void BurnManager::FetchImage(const GURL& image_url, const FilePath& file_path) {
   tick_image_download_start_ = base::TimeTicks::Now();
   bytes_image_download_progress_last_reported_ = 0;
-  image_fetcher_.reset(content::URLFetcher::Create(image_url,
-                                                   content::URLFetcher::GET,
-                                                   this));
+  image_fetcher_.reset(net::URLFetcher::Create(image_url,
+                                               net::URLFetcher::GET,
+                                               this));
   image_fetcher_->SetRequestContext(
       g_browser_process->system_request_context());
   image_fetcher_->SaveResponseToFileAtPath(
@@ -301,7 +306,7 @@ void BurnManager::CancelImageFetch() {
   image_fetcher_.reset();
 }
 
-void BurnManager::OnURLFetchComplete(const content::URLFetcher* source) {
+void BurnManager::OnURLFetchComplete(const net::URLFetcher* source) {
   const bool success =
       source->GetStatus().status() == net::URLRequestStatus::SUCCESS;
   if (source == config_fetcher_.get()) {
@@ -318,7 +323,7 @@ void BurnManager::OnURLFetchComplete(const content::URLFetcher* source) {
   }
 }
 
-void BurnManager::OnURLFetchDownloadProgress(const content::URLFetcher* source,
+void BurnManager::OnURLFetchDownloadProgress(const net::URLFetcher* source,
                                              int64 current,
                                              int64 total) {
   if (source == image_fetcher_.get()) {
@@ -338,18 +343,32 @@ void BurnManager::OnURLFetchDownloadProgress(const content::URLFetcher* source,
 }
 
 void BurnManager::ConfigFileFetched(bool fetched, const std::string& content) {
-  if (config_file_fetched())
+  if (config_file_fetched_)
     return;
 
-  if (fetched) {
-    config_file_.reset(content);
+  // Get image file name and image download URL.
+  std::string hwid;
+  if (fetched && system::StatisticsProvider::GetInstance()->
+      GetMachineStatistic(kHwidStatistic, &hwid)) {
+    ConfigFile config_file(content);
+    image_file_name_ = config_file.GetProperty(kFileName, hwid);
+    image_download_url_ = GURL(config_file.GetProperty(kUrl, hwid));
+  }
+
+  // Error check.
+  if (fetched && !image_file_name_.empty() && !image_download_url_.is_empty()) {
+    config_file_fetched_ = true;
   } else {
-    config_file_.clear();
+    fetched = false;
+    image_file_name_.clear();
+    image_download_url_ = GURL();
   }
 
   for (size_t i = 0; i < downloaders_.size(); ++i) {
     if (downloaders_[i]) {
-      downloaders_[i]->OnConfigFileFetched(config_file_, fetched);
+      downloaders_[i]->OnConfigFileFetched(fetched,
+                                           image_file_name_,
+                                           image_download_url_);
     }
   }
   downloaders_.clear();

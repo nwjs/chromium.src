@@ -7,19 +7,21 @@
 #include <gdk/gdkkeysyms.h>
 #include <gtk/gtk.h>
 
+#include "base/command_line.h"
 #include "base/logging.h"
-#include "base/message_loop.h"
 #include "base/string_piece.h"
+#include "base/utf_string_conversions.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/native_web_keyboard_event.h"
-#include "content/browser/tab_contents/tab_contents.h"
-#include "content/browser/tab_contents/tab_contents_view_gtk.h"
+#include "content/public/browser/web_contents.h"
+#include "content/public/browser/web_contents_view.h"
+#include "content/public/common/renderer_preferences.h"
+#include "content/shell/shell_switches.h"
 #include "third_party/skia/include/core/SkColor.h"
 
 namespace content {
 
 void Shell::PlatformInitialize() {
-  gtk_init(NULL, NULL);
 }
 
 base::StringPiece Shell::PlatformResourceProvider(int key) {
@@ -143,18 +145,20 @@ void Shell::PlatformCreateWindow(int width, int height) {
   gtk_container_add(GTK_CONTAINER(window_), vbox_);
   gtk_widget_show_all(GTK_WIDGET(window_));
 
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kDumpRenderTree))
+    gtk_widget_set_uposition(GTK_WIDGET(window_), 10000, 10000);
+
   SizeTo(width, height);
 }
 
 void Shell::PlatformSetContents() {
-  TabContentsViewGtk* content_view =
-      static_cast<TabContentsViewGtk*>(tab_contents_->GetView());
+  WebContentsView* content_view = web_contents_->GetView();
   gtk_container_add(GTK_CONTAINER(vbox_), content_view->GetNativeView());
 
   // As an additional requirement on Linux, we must set the colors for the
   // render widgets in webkit.
   content::RendererPreferences* prefs =
-      tab_contents_->GetMutableRendererPrefs();
+      web_contents_->GetMutableRendererPrefs();
   prefs->focus_ring_color = SkColorSetARGB(255, 229, 151, 0);
   prefs->thumb_active_color = SkColorSetRGB(244, 244, 244);
   prefs->thumb_inactive_color = SkColorSetRGB(234, 234, 234);
@@ -169,13 +173,17 @@ void Shell::PlatformSetContents() {
 void Shell::SizeTo(int width, int height) {
   content_width_ = width;
   content_height_ = height;
-  if (tab_contents_.get()) {
-    gtk_widget_set_size_request(tab_contents_->GetNativeView(), width, height);
+  if (web_contents_.get()) {
+    gtk_widget_set_size_request(web_contents_->GetNativeView(), width, height);
   }
 }
 
 void Shell::PlatformResizeSubViews() {
   SizeTo(content_width_, content_height_);
+}
+
+void Shell::Close() {
+  gtk_widget_destroy(GTK_WIDGET(window_));
 }
 
 void Shell::OnBackButtonClicked(GtkWidget* widget) {
@@ -205,12 +213,6 @@ void Shell::OnURLEntryActivate(GtkWidget* entry) {
 // Callback for when the main window is destroyed.
 gboolean Shell::OnWindowDestroyed(GtkWidget* window) {
   delete this;
-
-  if (windows_.empty()) {
-    MessageLoop::current()->PostTask(FROM_HERE,
-                                     MessageLoop::QuitClosure());
-  }
-
   return FALSE;  // Don't stop this message.
 }
 
@@ -228,6 +230,11 @@ gboolean Shell::OnHighlightURLView(GtkAccelGroup* accel_group,
                                    GdkModifierType modifier) {
   gtk_widget_grab_focus(GTK_WIDGET(url_edit_view_));
   return TRUE;
+}
+
+void Shell::PlatformSetTitle(const string16& title) {
+  std::string title_utf8 = UTF16ToUTF8(title);
+  gtk_window_set_title(GTK_WINDOW(window_), title_utf8.c_str());
 }
 
 }  // namespace content

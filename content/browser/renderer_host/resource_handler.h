@@ -11,32 +11,36 @@
 
 #ifndef CONTENT_BROWSER_RENDERER_HOST_RESOURCE_HANDLER_H_
 #define CONTENT_BROWSER_RENDERER_HOST_RESOURCE_HANDLER_H_
-#pragma once
 
 #include <string>
 
-#include "base/message_loop_helpers.h"
+#include "base/sequenced_task_runner_helpers.h"
+#include "base/threading/non_thread_safe.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/browser_thread.h"
 
 class GURL;
-
-namespace content {
-struct ResourceResponse;
-}
 
 namespace net {
 class IOBuffer;
 class URLRequestStatus;
 }  // namespace net
 
-// The resource dispatcher host uses this interface to push load events to the
-// renderer, allowing for differences in the types of IPC messages generated.
-// See the implementations of this interface defined below.
+namespace content {
+class ResourceController;
+struct ResourceResponse;
+
+// The resource dispatcher host uses this interface to process network events
+// for an URLRequest instance.  A ResourceHandler's lifetime is bound to its
+// associated URLRequest.
 class CONTENT_EXPORT ResourceHandler
-    : public base::RefCountedThreadSafe<
-            ResourceHandler, content::BrowserThread::DeleteOnIOThread> {
+    : public NON_EXPORTED_BASE(base::NonThreadSafe) {
  public:
+  virtual ~ResourceHandler() {}
+
+  // Sets the controller for this handler.
+  virtual void SetController(ResourceController* controller);
+
   // Called as upload progress is made.  The return value is ignored.
   virtual bool OnUploadProgress(int request_id,
                                 uint64 position,
@@ -47,13 +51,16 @@ class CONTENT_EXPORT ResourceHandler
   // followed later on via ResourceDispatcherHost::FollowDeferredRedirect.  If
   // the handler returns false, then the request is cancelled.
   virtual bool OnRequestRedirected(int request_id, const GURL& url,
-                                   content::ResourceResponse* response,
+                                   ResourceResponse* response,
                                    bool* defer) = 0;
 
   // Response headers and meta data are available.  If the handler returns
-  // false, then the request is cancelled.
+  // false, then the request is cancelled.  Set |*defer| to true to defer
+  // processing of the response.  Call ResourceDispatcherHostImpl::
+  // ResumeDeferredRequest to continue processing the response.
   virtual bool OnResponseStarted(int request_id,
-                                 content::ResourceResponse* response) = 0;
+                                 ResourceResponse* response,
+                                 bool* defer) = 0;
 
   // Called before the net::URLRequest for |request_id| (whose url is |url|) is
   // to be started.  If the handler returns false, then the request is
@@ -68,10 +75,8 @@ class CONTENT_EXPORT ResourceHandler
   // out-params.  This call will be followed by either OnReadCompleted or
   // OnResponseCompleted, at which point the buffer may be recycled.
   //
-  // If this method returns false, then the request will not be read.  This is
-  // normally used in conjunction with ResourceDispatcherHost::PauseRequest to
-  // pause the processing of the request.  When the request is later resumed,
-  // OnWillRead will be called again.
+  // If the handler returns false, then the request is cancelled.  Otherwise,
+  // once data is available, OnReadCompleted will be called.
   virtual bool OnWillRead(int request_id,
                           net::IOBuffer** buf,
                           int* buf_size,
@@ -79,8 +84,11 @@ class CONTENT_EXPORT ResourceHandler
 
   // Data (*bytes_read bytes) was written into the buffer provided by
   // OnWillRead.  A return value of false cancels the request, true continues
-  // reading data.
-  virtual bool OnReadCompleted(int request_id, int* bytes_read) = 0;
+  // reading data.  Set |*defer| to true to defer reading more response data.
+  // Call ResourceDispatcherHostImpl::ResumeDeferredRequest to continue reading
+  // response data.
+  virtual bool OnReadCompleted(int request_id, int bytes_read,
+                               bool* defer) = 0;
 
   // The response is complete.  The final response status is given.  Returns
   // false if the handler is deferring the call to a later time.  Otherwise,
@@ -89,10 +97,6 @@ class CONTENT_EXPORT ResourceHandler
                                    const net::URLRequestStatus& status,
                                    const std::string& security_info) = 0;
 
-  // Signals that the request is closed (i.e. about to be deleted).  This is a
-  // signal that the associated net::URLRequest isn't valid anymore.
-  virtual void OnRequestClosed() = 0;
-
   // This notification is synthesized by the RedirectToFileResourceHandler
   // to indicate progress of 'download_to_file' requests. OnReadCompleted
   // calls are consumed by the RedirectToFileResourceHandler and replaced
@@ -100,12 +104,13 @@ class CONTENT_EXPORT ResourceHandler
   virtual void OnDataDownloaded(int request_id, int bytes_downloaded) {}
 
  protected:
-  friend class content::BrowserThread;
-  friend class base::RefCountedThreadSafe<
-      ResourceHandler, content::BrowserThread::DeleteOnIOThread>;
-  friend class base::DeleteHelper<ResourceHandler>;
+  ResourceHandler() : controller_(NULL) {}
+  ResourceController* controller() { return controller_; }
 
-  virtual ~ResourceHandler() {}
+ private:
+  ResourceController* controller_;
 };
+
+}  // namespace content
 
 #endif  // CONTENT_BROWSER_RENDERER_HOST_RESOURCE_HANDLER_H_

@@ -4,17 +4,15 @@
 
 #ifndef CHROME_BROWSER_SYNC_GLUE_DATA_TYPE_MANAGER_H__
 #define CHROME_BROWSER_SYNC_GLUE_DATA_TYPE_MANAGER_H__
-#pragma once
 
 #include <list>
 #include <set>
 #include <string>
 
-#include "base/memory/scoped_ptr.h"
-#include "chrome/browser/sync/api/sync_error.h"
 #include "chrome/browser/sync/glue/data_type_controller.h"
-#include "chrome/browser/sync/internal_api/configure_reason.h"
-#include "sync/syncable/model_type.h"
+#include "sync/api/sync_error.h"
+#include "sync/internal_api/public/base/model_type.h"
+#include "sync/internal_api/public/configure_reason.h"
 
 namespace browser_sync {
 
@@ -46,10 +44,12 @@ class DataTypeManager {
                          // all types were started.
     RETRY,               // Download failed due to a transient error and it
                          // is being retried.
+    CONFIGURE_BLOCKED,   // Configuration was blocked due to missing
+                         // passphrase.
     UNRECOVERABLE_ERROR  // We got an unrecoverable error during startup.
   };
 
-  typedef syncable::ModelTypeSet TypeSet;
+  typedef syncer::ModelTypeSet TypeSet;
 
   // Note: |errors| is only filled when status is not OK.
   struct ConfigureResult {
@@ -58,11 +58,21 @@ class DataTypeManager {
                     TypeSet requested_types);
     ConfigureResult(ConfigureStatus status,
                     TypeSet requested_types,
-                    const std::list<SyncError>& errors);
+                    const std::list<syncer::SyncError>& failed_data_types,
+                    syncer::ModelTypeSet waiting_to_start);
     ~ConfigureResult();
     ConfigureStatus status;
     TypeSet requested_types;
-    std::list<SyncError> errors;
+
+    // These types encountered a failure in association.
+    std::list<syncer::SyncError> failed_data_types;
+
+    // List of types that failed to start association with in our alloted
+    // time period(see kDataTypeLoadWaitTimeInSeconds). We move
+    // forward here and allow these types to continue loading in the
+    // background. When these types are loaded DataTypeManager will
+    // be informed and another configured cycle will be started.
+    syncer::ModelTypeSet waiting_to_start;
   };
 
   virtual ~DataTypeManager() {}
@@ -83,10 +93,10 @@ class DataTypeManager {
   // progress.  Configuration will be complete only when the
   // desired_types supplied in the last call to Configure is achieved.
   virtual void Configure(TypeSet desired_types,
-                         sync_api::ConfigureReason reason) = 0;
+                         syncer::ConfigureReason reason) = 0;
 
   virtual void ConfigureWithoutNigori(TypeSet desired_types,
-                                      sync_api::ConfigureReason reason) = 0;
+                                      syncer::ConfigureReason reason) = 0;
 
   // Synchronously stops all registered data types.  If called after
   // Configure() is called but before it finishes, it will abort the

@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -22,22 +22,24 @@ ImageView::ImageView()
 ImageView::~ImageView() {
 }
 
-void ImageView::SetImage(const SkBitmap& bm) {
-  image_ = bm;
-  PreferredSizeChanged();
+void ImageView::SetImage(const gfx::ImageSkia& img) {
+  gfx::Size pref_size(GetPreferredSize());
+  image_ = img;
+  if (pref_size != GetPreferredSize())
+    PreferredSizeChanged();
   SchedulePaint();
 }
 
-void ImageView::SetImage(const SkBitmap* bm) {
-  if (bm) {
-    SetImage(*bm);
+void ImageView::SetImage(const gfx::ImageSkia* image_skia) {
+  if (image_skia) {
+    SetImage(*image_skia);
   } else {
-    SkBitmap t;
+    gfx::ImageSkia t;
     SetImage(t);
   }
 }
 
-const SkBitmap& ImageView::GetImage() {
+const gfx::ImageSkia& ImageView::GetImage() {
   return image_;
 }
 
@@ -117,14 +119,13 @@ void ImageView::OnPaint(gfx::Canvas* canvas) {
 
   if (image_bounds.size() != gfx::Size(image_.width(), image_.height())) {
     // Resize case
-    image_.buildMipMap(false);
     SkPaint paint;
     paint.setFilterBitmap(true);
-    canvas->DrawBitmapInt(image_, 0, 0, image_.width(), image_.height(),
+    canvas->DrawImageInt(image_, 0, 0, image_.width(), image_.height(),
         image_bounds.x(), image_bounds.y(), image_bounds.width(),
         image_bounds.height(), true, paint);
   } else {
-    canvas->DrawBitmapInt(image_, image_bounds.x(), image_bounds.y());
+    canvas->DrawImageInt(image_, image_bounds.x(), image_bounds.y());
   }
 }
 

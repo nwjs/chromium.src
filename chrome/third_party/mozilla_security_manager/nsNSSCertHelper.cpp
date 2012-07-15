@@ -40,6 +40,7 @@
 
 #include "chrome/third_party/mozilla_security_manager/nsNSSCertHelper.h"
 
+#include <certdb.h>
 #include <keyhi.h>
 #include <prprf.h>
 #include <unicode/uidna.h>
@@ -51,9 +52,17 @@
 #include "chrome/common/net/x509_certificate_model.h"
 #include "crypto/scoped_nss_types.h"
 #include "grit/generated_resources.h"
+#include "net/base/ip_endpoint.h"
 #include "net/base/net_util.h"
-#include "net/third_party/mozilla_security_manager/nsNSSCertTrust.h"
 #include "ui/base/l10n/l10n_util.h"
+
+#if !defined(CERTDB_TERMINAL_RECORD)
+/* NSS 3.13 renames CERTDB_VALID_PEER to CERTDB_TERMINAL_RECORD
+ * and marks CERTDB_VALID_PEER as deprecated.
+ * If we're using an older version, rename it ourselves.
+ */
+#define CERTDB_TERMINAL_RECORD CERTDB_VALID_PEER
+#endif
 
 namespace {
 
@@ -528,26 +537,10 @@ std::string ProcessGeneralName(PRArenaPool* arena,
       break;
     case certIPAddress: {
       key = l10n_util::GetStringUTF8(IDS_CERT_GENERAL_NAME_IP_ADDRESS);
-      struct addrinfo addr = {0};
-      if (current->name.other.len == 4) {
-        struct sockaddr_in addr4 = {0};
-        addr.ai_addr = reinterpret_cast<sockaddr*>(&addr4);
-        addr.ai_addrlen = sizeof(addr4);
-        addr.ai_family = AF_INET;
-        addr4.sin_family = addr.ai_family;
-        memcpy(&addr4.sin_addr, current->name.other.data,
-               current->name.other.len);
-        value = net::NetAddressToString(&addr);
-      } else if (current->name.other.len == 16) {
-        struct sockaddr_in6 addr6 = {0};
-        addr.ai_addr = reinterpret_cast<sockaddr*>(&addr6);
-        addr.ai_addrlen = sizeof(addr6);
-        addr.ai_family = AF_INET6;
-        addr6.sin6_family = addr.ai_family;
-        memcpy(&addr6.sin6_addr, current->name.other.data,
-               current->name.other.len);
-        value = net::NetAddressToString(&addr);
-      }
+      net::IPAddressNumber ip(
+          current->name.other.data,
+          current->name.other.data + current->name.other.len);
+      value = net::IPEndPoint(ip, 0).ToStringWithoutPort();
       if (value.empty()) {
         // Invalid IP address.
         value = ProcessRawBytes(&current->name.other);
@@ -1053,15 +1046,19 @@ std::string ProcessSubjectPublicKeyInfo(CERTSubjectPublicKeyInfo* spki) {
 }
 
 net::CertType GetCertType(CERTCertificate *cert) {
-  nsNSSCertTrust trust(cert->trust);
-  if (cert->nickname && trust.HasAnyUser())
+  CERTCertTrust trust = {0};
+  CERT_GetCertTrust(cert, &trust);
+
+  unsigned all_flags = trust.sslFlags | trust.emailFlags |
+      trust.objectSigningFlags;
+
+  if (cert->nickname && (all_flags & CERTDB_USER))
     return net::USER_CERT;
-  if (trust.HasAnyCA())
+  if ((all_flags & CERTDB_VALID_CA) || CERT_IsCACert(cert, NULL))
     return net::CA_CERT;
-  if (trust.HasPeer(PR_TRUE, PR_FALSE, PR_FALSE))
+  // TODO(mattm): http://crbug.com/128633.
+  if (trust.sslFlags & CERTDB_TERMINAL_RECORD)
     return net::SERVER_CERT;
-  if (CERT_IsCACert(cert, NULL))
-    return net::CA_CERT;
   return net::UNKNOWN_CERT;
 }
 

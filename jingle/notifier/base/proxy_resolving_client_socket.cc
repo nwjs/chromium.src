@@ -44,6 +44,8 @@ ProxyResolvingClientSocket::ProxyResolvingClientSocket(
   net::URLRequestContext* request_context =
       request_context_getter->GetURLRequestContext();
   DCHECK(request_context);
+  DCHECK(!dest_host_port_pair_.host().empty());
+  DCHECK_GT(dest_host_port_pair_.port(), 0);
   net::HttpNetworkSession::Params session_params;
   session_params.client_socket_factory = socket_factory;
   session_params.host_resolver = request_context->host_resolver();
@@ -53,7 +55,6 @@ ProxyResolvingClientSocket::ProxyResolvingClientSocket(
   // transport_security_state is NULL because it's not thread safe.
   session_params.transport_security_state = NULL;
   session_params.proxy_service = request_context->proxy_service();
-  session_params.ssl_host_info_factory = NULL;
   session_params.ssl_config_service = request_context->ssl_config_service();
   session_params.http_auth_handler_factory =
       request_context->http_auth_handler_factory();
@@ -108,6 +109,7 @@ int ProxyResolvingClientSocket::Connect(
 
   // First we try and resolve the proxy.
   GURL url("http://" + dest_host_port_pair_.ToString());
+  DCHECK(url.is_valid());
   int status = network_session_->proxy_service()->ResolveProxy(
       url,
       &proxy_info_,
@@ -302,7 +304,7 @@ bool ProxyResolvingClientSocket::IsConnectedAndIdle() const {
 }
 
 int ProxyResolvingClientSocket::GetPeerAddress(
-    net::AddressList* address) const {
+    net::IPEndPoint* address) const {
   if (transport_.get() && transport_->socket())
     return transport_->socket()->GetPeerAddress(address);
   NOTREACHED();
@@ -364,6 +366,13 @@ base::TimeDelta ProxyResolvingClientSocket::GetConnectTimeMicros() const {
     return transport_->socket()->GetConnectTimeMicros();
   NOTREACHED();
   return base::TimeDelta::FromMicroseconds(-1);
+}
+
+net::NextProto ProxyResolvingClientSocket::GetNegotiatedProtocol() const {
+  if (transport_.get() && transport_->socket())
+    return transport_->socket()->GetNegotiatedProtocol();
+  NOTREACHED();
+  return net::kProtoUnknown;
 }
 
 void ProxyResolvingClientSocket::CloseTransportSocket() {

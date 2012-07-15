@@ -4,7 +4,6 @@
 
 #ifndef ASH_WM_BASE_LAYOUT_MANAGER_H_
 #define ASH_WM_BASE_LAYOUT_MANAGER_H_
-#pragma once
 
 #include <set>
 
@@ -14,6 +13,7 @@
 #include "base/compiler_specific.h"
 #include "ui/aura/layout_manager.h"
 #include "ui/aura/root_window_observer.h"
+#include "ui/base/ui_base_types.h"
 #include "ui/aura/window_observer.h"
 
 namespace aura {
@@ -45,6 +45,7 @@ class ASH_EXPORT BaseLayoutManager : public aura::LayoutManager,
   virtual void OnWindowResized() OVERRIDE;
   virtual void OnWindowAddedToLayout(aura::Window* child) OVERRIDE;
   virtual void OnWillRemoveWindowFromLayout(aura::Window* child) OVERRIDE;
+  virtual void OnWindowRemovedFromLayout(aura::Window* child) OVERRIDE;
   virtual void OnChildWindowVisibilityChanged(aura::Window* child,
                                               bool visible) OVERRIDE;
   virtual void SetChildBounds(aura::Window* child,
@@ -55,16 +56,27 @@ class ASH_EXPORT BaseLayoutManager : public aura::LayoutManager,
                                    const gfx::Size& old_size) OVERRIDE;
 
   // ash::ShellObserver overrides:
-  virtual void OnMonitorWorkAreaInsetsChanged() OVERRIDE;
+  virtual void OnDisplayWorkAreaInsetsChanged() OVERRIDE;
 
   // WindowObserver overrides:
   virtual void OnWindowPropertyChanged(aura::Window* window,
                                        const void* key,
                                        intptr_t old) OVERRIDE;
+  virtual void OnWindowDestroying(aura::Window* window) OVERRIDE;
+
+ protected:
+  // Invoked from OnWindowPropertyChanged() if |kShowStateKey| changes.
+  virtual void ShowStateChanged(aura::Window* window,
+                                ui::WindowShowState last_show_state);
 
  private:
   // Update window bounds based on a change in show state.
-  void UpdateBoundsFromShowState(aura::Window* window);
+  void UpdateBoundsFromShowState(aura::Window* window, bool animate);
+
+  // Updates window bounds and animates when requested and possible.
+  void MaybeAnimateToBounds(aura::Window* window,
+                            bool animate,
+                            const gfx::Rect& new_bounds);
 
   // Adjusts the window sizes when the screen changes its size or its
   // work area insets.

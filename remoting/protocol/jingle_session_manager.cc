@@ -12,6 +12,8 @@
 #include "remoting/protocol/content_description.h"
 #include "remoting/protocol/jingle_messages.h"
 #include "remoting/protocol/jingle_session.h"
+#include "remoting/protocol/transport.h"
+#include "remoting/protocol/transport_config.h"
 #include "third_party/libjingle/source/talk/base/socketaddress.h"
 #include "third_party/libjingle/source/talk/xmllite/xmlelement.h"
 
@@ -21,8 +23,10 @@ namespace remoting {
 namespace protocol {
 
 JingleSessionManager::JingleSessionManager(
-    scoped_ptr<TransportFactory> transport_factory)
+    scoped_ptr<TransportFactory> transport_factory,
+    bool fetch_stun_relay_config)
     : transport_factory_(transport_factory.Pass()),
+      fetch_stun_relay_config_(fetch_stun_relay_config),
       signal_strategy_(NULL),
       listener_(NULL),
       ready_(false) {
@@ -34,15 +38,10 @@ JingleSessionManager::~JingleSessionManager() {
 
 void JingleSessionManager::Init(
     SignalStrategy* signal_strategy,
-    SessionManager::Listener* listener,
-    const NetworkSettings& network_settings) {
+    SessionManager::Listener* listener) {
   listener_ = listener;
   signal_strategy_ = signal_strategy;
   iq_sender_.reset(new IqSender(signal_strategy_));
-
-  transport_config_.nat_traversal_mode = network_settings.nat_traversal_mode;
-  transport_config_.min_port = network_settings.min_port;
-  transport_config_.max_port = network_settings.max_port;
 
   signal_strategy_->AddListener(this);
 
@@ -57,12 +56,16 @@ void JingleSessionManager::OnJingleInfo(
 
   // TODO(sergeyu): Add support for multiple STUN/relay servers when
   // it's implemented in libjingle and P2P Transport API.
-  transport_config_.stun_server = stun_hosts[0].ToString();
-  transport_config_.relay_server = relay_hosts[0];
-  transport_config_.relay_token = relay_token;
-  VLOG(1) << "STUN server: " << transport_config_.stun_server
-          << " Relay server: " << transport_config_.relay_server
-          << " Relay token: " << transport_config_.relay_token;
+  TransportConfig config;
+  config.stun_server = stun_hosts[0].ToString();
+  config.relay_server = relay_hosts[0];
+  config.relay_token = relay_token;
+  transport_factory_->SetTransportConfig(config);
+
+  VLOG(1) << "STUN server: " << config.stun_server
+          << " Relay server: " << config.relay_server
+          << " Relay token: " << config.relay_token;
+
 
   if (!ready_) {
     ready_ = true;
@@ -73,11 +76,9 @@ void JingleSessionManager::OnJingleInfo(
 scoped_ptr<Session> JingleSessionManager::Connect(
     const std::string& host_jid,
     scoped_ptr<Authenticator> authenticator,
-    scoped_ptr<CandidateSessionConfig> config,
-    const Session::StateChangeCallback& state_change_callback) {
+    scoped_ptr<CandidateSessionConfig> config) {
   scoped_ptr<JingleSession> session(new JingleSession(this));
-  session->StartConnection(host_jid, authenticator.Pass(), config.Pass(),
-                           state_change_callback);
+  session->StartConnection(host_jid, authenticator.Pass(), config.Pass());
   sessions_[session->session_id_] = session.get();
   return session.PassAs<Session>();
 }
@@ -105,10 +106,9 @@ void JingleSessionManager::set_authenticator_factory(
 
 void JingleSessionManager::OnSignalStrategyStateChange(
     SignalStrategy::State state) {
-  // If NAT traversal is enabled then we need to request STUN/Relay info.
   if (state == SignalStrategy::CONNECTED) {
-    if (transport_config_.nat_traversal_mode ==
-        TransportConfig::NAT_TRAVERSAL_ENABLED) {
+    // Request STUN/Relay info if necessary.
+    if (fetch_stun_relay_config_) {
       jingle_info_request_.reset(new JingleInfoRequest(signal_strategy_));
       jingle_info_request_->Send(base::Bind(&JingleSessionManager::OnJingleInfo,
                                             base::Unretained(this)));
@@ -139,7 +139,8 @@ bool JingleSessionManager::OnSignalStrategyIncomingStanza(
 
     scoped_ptr<Authenticator> authenticator =
         authenticator_factory_->CreateAuthenticator(
-            message.from, message.description->authenticator_message());
+            signal_strategy_->GetLocalJid(), message.from,
+            message.description->authenticator_message());
 
     JingleSession* session = new JingleSession(this);
     session->InitializeIncomingConnection(message, authenticator.Pass());
@@ -151,7 +152,26 @@ bool JingleSessionManager::OnSignalStrategyIncomingStanza(
     if (response == SessionManager::ACCEPT) {
       session->AcceptIncomingConnection(message);
     } else {
-      session->Close();
+      ErrorCode error;
+      switch (response) {
+        case INCOMPATIBLE:
+          error = INCOMPATIBLE_PROTOCOL;
+          break;
+
+        case OVERLOAD:
+          error = HOST_OVERLOAD;
+          break;
+
+        case DECLINE:
+          error = SESSION_REJECTED;
+          break;
+
+        default:
+          NOTREACHED();
+          error = SESSION_REJECTED;
+      }
+
+      session->CloseInternal(error);
       delete session;
       DCHECK(sessions_.find(message.sid) == sessions_.end());
     }

@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,10 +11,11 @@
 #include "base/basictypes.h"
 #include "base/memory/ref_counted.h"
 #include "googleurl/src/gurl.h"
+#include "webkit/fileapi/fileapi_export.h"
 #include "webkit/fileapi/file_system_types.h"
 
 namespace base {
-class MessageLoopProxy;
+class SequencedTaskRunner;
 }
 
 namespace quota {
@@ -23,15 +24,17 @@ class QuotaManagerProxy;
 
 namespace fileapi {
 
+class FileSystemContext;
+
 // An abstract interface that provides common quota-related utility functions
 // for internal filesystem modules.  The main consumer of this class is
 // file_system_quota_client and quota_file_util.
 // All the methods of this class are synchronous and need to be called on
 // the thread that the method name implies.
-class FileSystemQuotaUtil {
+class FILEAPI_EXPORT FileSystemQuotaUtil {
  public:
   // Methods of this class can be called on any thread.
-  class Proxy : public base::RefCountedThreadSafe<Proxy> {
+  class FILEAPI_EXPORT Proxy : public base::RefCountedThreadSafe<Proxy> {
    public:
     void UpdateOriginUsage(quota::QuotaManagerProxy* proxy,
                            const GURL& origin_url,
@@ -46,13 +49,15 @@ class FileSystemQuotaUtil {
     friend class FileSystemQuotaUtil;
     friend class base::RefCountedThreadSafe<Proxy>;
     Proxy(FileSystemQuotaUtil* quota_handler,
-          base::MessageLoopProxy* file_thread);
+          base::SequencedTaskRunner* file_task_runner);
     ~Proxy();
 
     FileSystemQuotaUtil* quota_util_;  // Accessed only on the FILE thread.
-    scoped_refptr<base::MessageLoopProxy> file_thread_;
+    scoped_refptr<base::SequencedTaskRunner> file_task_runner_;
     DISALLOW_COPY_AND_ASSIGN(Proxy);
   };
+
+  virtual ~FileSystemQuotaUtil();
 
   // Called by quota client.
   virtual void GetOriginsForTypeOnFileThread(fileapi::FileSystemType type,
@@ -65,8 +70,10 @@ class FileSystemQuotaUtil {
 
   // Called by quota client.
   // Returns the amount of data used for the origin for usage tracking.
-  virtual int64 GetOriginUsageOnFileThread(const GURL& origin_url,
-                                           fileapi::FileSystemType type) = 0;
+  virtual int64 GetOriginUsageOnFileThread(
+      fileapi::FileSystemContext* file_system_context,
+      const GURL& origin_url,
+      fileapi::FileSystemType type) = 0;
 
   // Called by quota file util.
   virtual void UpdateOriginUsageOnFileThread(quota::QuotaManagerProxy* proxy,
@@ -97,8 +104,7 @@ class FileSystemQuotaUtil {
   Proxy* proxy() { return proxy_.get(); }
 
  protected:
-  explicit FileSystemQuotaUtil(base::MessageLoopProxy* file_thread);
-  virtual ~FileSystemQuotaUtil();
+  explicit FileSystemQuotaUtil(base::SequencedTaskRunner* file_task_runner);
 
  private:
   scoped_refptr<Proxy> proxy_;

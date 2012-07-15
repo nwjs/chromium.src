@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "content/test/mock_render_process_host.h"
+#include "content/public/test/mock_render_process_host.h"
 
 #include "base/lazy_instance.h"
 #include "base/message_loop.h"
@@ -42,7 +42,7 @@ MockRenderProcessHost::~MockRenderProcessHost() {
 void MockRenderProcessHost::EnableSendQueue() {
 }
 
-bool MockRenderProcessHost::Init(bool is_accessibility_enabled) {
+bool MockRenderProcessHost::Init() {
   return true;
 }
 
@@ -58,9 +58,10 @@ void MockRenderProcessHost::CrossSiteSwapOutACK(
     const ViewMsg_SwapOut_Params& params) {
 }
 
-bool MockRenderProcessHost::WaitForUpdateMsg(int render_widget_id,
-                                             const base::TimeDelta& max_delay,
-                                             IPC::Message* msg) {
+bool MockRenderProcessHost::WaitForBackingStoreMsg(
+    int render_widget_id,
+    const base::TimeDelta& max_delay,
+    IPC::Message* msg) {
   return false;
 }
 
@@ -76,6 +77,10 @@ void MockRenderProcessHost::WidgetHidden() {
 
 int MockRenderProcessHost::VisibleWidgetCount() const {
   return 1;
+}
+
+bool MockRenderProcessHost::IsGuest() const {
+  return false;
 }
 
 void MockRenderProcessHost::AddWord(const string16& word) {

@@ -4,16 +4,26 @@
 # found in the LICENSE file.
 
 import os
+from urlparse import urlparse
 
 import pyauto_functional  # Must be imported before pyauto
 import pyauto
 import test_utils
+from webdriver_pages import settings
 
 
 class PasswordTest(pyauto.PyUITest):
   """Tests that passwords work correctly."""
 
   INFOBAR_TYPE = 'password_infobar'
+  URL = 'https://accounts.google.com/ServiceLogin'
+  URL_HTTPS = 'https://accounts.google.com/Login'
+  URL_LOGOUT = 'https://accounts.google.com/Logout'
+  HOSTNAME = 'https://' + urlparse(URL).netloc + '/'
+  USERNAME_ELEM = 'Email'
+  PASSWORD_ELEM = 'Passwd'
+  USERNAME = 'test@google.com'
+  PASSWORD = 'test.password'
 
   def Debug(self):
     """Test method for experimentation.
@@ -76,47 +86,10 @@ class PasswordTest(pyauto.PyUITest):
       window.domAutomationController.send(value);
     """
     self.assertTrue(self.WaitUntil(
-        lambda: self.ExecuteJavascript(js_template % 'Email',
+        lambda: self.ExecuteJavascript(js_template % self.USERNAME_ELEM,
                                       tab_index, window_index) != '' and
-                self.ExecuteJavascript(js_template % 'Passwd',
+                self.ExecuteJavascript(js_template % self.PASSWORD_ELEM,
                                       tab_index, window_index) != ''))
-
-  def _GetInfobarIndexByType(self, infobar_type, windex, tab_index):
-    """Returns the index of the infobar of the given type.
-
-    Args:
-      infobar_type: The infobar type to look for.
-      windex: Window index.
-      tab_index: Tab index.
-
-    Returns:
-      Index of infobar for infobar type, or None if not found.
-    """
-    infobar_list = (
-        self.GetBrowserInfo()['windows'][windex]['tabs'][tab_index] \
-            ['infobars'])
-    for infobar in infobar_list:
-      if infobar_type == infobar['type']:
-        return infobar_list.index(infobar)
-    return None
-
-  def _GetIndexForSavePasswordInfobar(self, windex=0, tab_index=0):
-    """Waits for save password infobar to appear and returns its index.
-
-    Args:
-      windex: Window index. Defaults to 0 (first window).
-      tab_index: Tab index. Defaults to 0 (first tab).
-
-    Returns:
-      Index of infobar for infobar type.
-    """
-    self.assertTrue(
-        self.WaitUntil(lambda: self._GetInfobarIndexByType(
-            self.INFOBAR_TYPE, windex, tab_index) is not None),
-        msg='Save password infobar did not appear.')
-    # Return the infobar index.
-    return self._GetInfobarIndexByType(
-        self.INFOBAR_TYPE, windex, tab_index)
 
   def testSavePassword(self):
     """Test saving a password and getting saved passwords."""
@@ -152,20 +125,21 @@ class PasswordTest(pyauto.PyUITest):
   def testDisplayAndSavePasswordInfobar(self):
     """Verify password infobar displays and able to save password."""
     test_utils.ClearPasswords(self)
-    url_https = 'https://www.google.com/accounts/Login'
-    url_logout = 'https://www.google.com/accounts/Logout'
     creds = self.GetPrivateInfo()['test_google_account']
     username = creds['username']
     password = creds['password']
+    # Disable one-click login infobar for sync.
+    self.SetPrefs(pyauto.kReverseAutologinEnabled, False)
     test_utils.GoogleAccountsLogin(self, username, password)
     # Wait until page completes loading.
     self.WaitUntil(
         lambda: self.GetDOMValue('document.readyState'),
         expect_retval='complete')
     self.PerformActionOnInfobar(
-        'accept', infobar_index=self._GetIndexForSavePasswordInfobar())
-    self.NavigateToURL(url_logout)
-    self.NavigateToURL(url_https)
+        'accept', infobar_index=test_utils.WaitForInfobarTypeAndGetIndex(
+            self, self.INFOBAR_TYPE))
+    self.NavigateToURL(self.URL_LOGOUT)
+    self.NavigateToURL(self.URL_HTTPS)
     self._ClickOnLoginPage(0, 0)
     test_utils.VerifyGoogleAccountCredsFilled(self, username, password,
                                               tab_index=0, windex=0)
@@ -174,18 +148,22 @@ class PasswordTest(pyauto.PyUITest):
   def testNeverSavePasswords(self):
     """Verify passwords not saved/deleted when 'never for this site' chosen."""
     creds1 = self.GetPrivateInfo()['test_google_account']
+    # Disable one-click login infobar for sync.
+    self.SetPrefs(pyauto.kReverseAutologinEnabled, False)
     test_utils.GoogleAccountsLogin(
         self, creds1['username'], creds1['password'])
     self.PerformActionOnInfobar(
-        'accept', infobar_index=self._GetIndexForSavePasswordInfobar())
+        'accept', infobar_index=test_utils.WaitForInfobarTypeAndGetIndex(
+            self, self.INFOBAR_TYPE))
     self.assertEquals(1, len(self.GetSavedPasswords()))
     self.AppendTab(pyauto.GURL(creds1['logout_url']))
     creds2 = self.GetPrivateInfo()['test_google_account_2']
     test_utils.GoogleAccountsLogin(
         self, creds2['username'], creds2['password'], tab_index=1)
-    self._GetIndexForSavePasswordInfobar(tab_index=1)
     # Selecting 'Never for this site' option on password infobar.
-    self.PerformActionOnInfobar('cancel', infobar_index=0, tab_index=1)
+    self.PerformActionOnInfobar(
+        'cancel', infobar_index=test_utils.WaitForInfobarTypeAndGetIndex(
+            self, self.INFOBAR_TYPE, tab_index=1), tab_index=1)
 
     # TODO: GetSavedPasswords() doesn't return anything when empty.
     # http://crbug.com/64603
@@ -193,55 +171,103 @@ class PasswordTest(pyauto.PyUITest):
     # TODO: Check the exceptions list
 
   def testSavedPasswordInTabsAndWindows(self):
-    """Verify saved username/password shows in regular/incognito Window, NTP"""
-    url = 'https://www.google.com/accounts/ServiceLogin'
-    url_logout = 'https://www.google.com/accounts/Logout'
+    """Verify saved username/password shows in window and tab."""
     creds = self.GetPrivateInfo()['test_google_account']
     username = creds['username']
     password = creds['password']
+    # Disable one-click login infobar for sync.
+    self.SetPrefs(pyauto.kReverseAutologinEnabled, False)
     # Login to Google a/c
     test_utils.GoogleAccountsLogin(self, username, password)
     self.PerformActionOnInfobar(
-        'accept', infobar_index=self._GetIndexForSavePasswordInfobar())
-    self.NavigateToURL(url_logout)
-    self.NavigateToURL(url)
+        'accept', infobar_index=test_utils.WaitForInfobarTypeAndGetIndex(
+            self, self.INFOBAR_TYPE))
+    self.NavigateToURL(self.URL_LOGOUT)
+    self.NavigateToURL(self.URL)
     self._ClickOnLoginPage(0, 0)
     test_utils.VerifyGoogleAccountCredsFilled(self, username, password,
         tab_index=0, windex=0)
-    self.AppendTab(pyauto.GURL(url))
+    self.AppendTab(pyauto.GURL(self.URL))
     self._ClickOnLoginPage(0, 1)
     test_utils.VerifyGoogleAccountCredsFilled(self, username, password,
         tab_index=1, windex=0)
-    self.RunCommand(pyauto.IDC_NEW_INCOGNITO_WINDOW)
-    self.NavigateToURL(url, 1, 0)
-    self._ClickOnLoginPage(1, 0)
-    test_utils.VerifyGoogleAccountCredsFilled(self, username, password,
-        tab_index=0, windex=1)
     test_utils.ClearPasswords(self)
+
+  def testLoginCredsNotShownInIncognito(self):
+    """Verify login creds are not shown in Incognito mode."""
+    creds = self.GetPrivateInfo()['test_google_account']
+    username = creds['username']
+    password = creds['password']
+    # Disable one-click login infobar for sync.
+    self.SetPrefs(pyauto.kReverseAutologinEnabled, False)
+    # Login to Google account.
+    test_utils.GoogleAccountsLogin(self, username, password)
+    self.PerformActionOnInfobar(
+        'accept', infobar_index=test_utils.WaitForInfobarTypeAndGetIndex(
+            self, self.INFOBAR_TYPE))
+    self.NavigateToURL(self.URL_LOGOUT)
+    self.RunCommand(pyauto.IDC_NEW_INCOGNITO_WINDOW)
+    self.NavigateToURL(self.URL, 1, 0)
+    email_value = self.GetDOMValue('document.getElementById("Email").value',
+                                   tab_index=0, windex=1)
+    passwd_value = self.GetDOMValue('document.getElementById("Passwd").value',
+                                    tab_index=0, windex=1)
+    self.assertEqual(email_value, '',
+                    msg='Email creds displayed %s.' % email_value)
+    self.assertEqual(passwd_value, '', msg='Password creds displayed.')
+
+  def testPasswordAutofilledInIncognito(self):
+    """Verify saved password is autofilled in Incognito mode.
+
+    Saved passwords should be autofilled once the username is entered in
+    incognito mode.
+    """
+    action_target = self.HOSTNAME
+
+    driver = self.NewWebDriver()
+    password_dict = self._ConstructPasswordDictionary(
+        self.USERNAME, self.PASSWORD, self.HOSTNAME, self.URL,
+        self.USERNAME_ELEM, self.PASSWORD_ELEM, action_target)
+    self.AddSavedPassword(password_dict)
+    self.RunCommand(pyauto.IDC_NEW_INCOGNITO_WINDOW)
+    self.NavigateToURL(self.URL, 1, 0)
+    # Switch to window 1.
+    driver.switch_to_window(driver.window_handles[1])
+    driver.find_element_by_id(
+        self.USERNAME_ELEM).send_keys(self.USERNAME + '\t')
+    incognito_passwd = self.GetDOMValue(
+        'document.getElementById("Passwd").value', tab_index=0, windex=1)
+    self.assertEqual(incognito_passwd, self.PASSWORD,
+                     msg='Password creds did not autofill in incognito mode.')
 
   def testInfoBarDisappearByNavigatingPage(self):
     """Test password infobar is dismissed when navigating to different page."""
     creds = self.GetPrivateInfo()['test_google_account']
-    # Login to Google a/c
+    # Disable one-click login infobar for sync.
+    self.SetPrefs(pyauto.kReverseAutologinEnabled, False)
+    # Login to Google account.
     test_utils.GoogleAccountsLogin(self, creds['username'], creds['password'])
     self.PerformActionOnInfobar(
-        'accept', infobar_index=self._GetIndexForSavePasswordInfobar())
-    self.NavigateToURL('chrome://history')
+        'accept', infobar_index=test_utils.WaitForInfobarTypeAndGetIndex(
+            self, self.INFOBAR_TYPE))
+    self.NavigateToURL('chrome://version')
     self.assertTrue(self.WaitForInfobarCount(0))
-    # To make sure user is navigated to History page.
-    self.assertEqual('History', self.GetActiveTabTitle())
-    self.assertFalse(self.GetBrowserInfo()['windows'][0]['tabs'][0]['infobars'])
+    # To make sure user is navigated to Version page.
+    self.assertEqual('About Version', self.GetActiveTabTitle())
+    test_utils.AssertInfobarTypeDoesNotAppear(self, self.INFOBAR_TYPE)
 
   def testInfoBarDisappearByReload(self):
     """Test that Password infobar disappears by the page reload."""
     creds = self.GetPrivateInfo()['test_google_account']
+    # Disable one-click login infobar for sync.
+    self.SetPrefs(pyauto.kReverseAutologinEnabled, False)
     # Login to Google a/c
     test_utils.GoogleAccountsLogin(self, creds['username'], creds['password'])
     self.PerformActionOnInfobar(
-        'accept', infobar_index=self._GetIndexForSavePasswordInfobar())
+        'accept', infobar_index=test_utils.WaitForInfobarTypeAndGetIndex(
+            self, self.INFOBAR_TYPE))
     self.GetBrowserWindow(0).GetTab(0).Reload()
-    self.assertTrue(self.WaitForInfobarCount(0))
-    self.assertFalse(self.GetBrowserInfo()['windows'][0]['tabs'][0]['infobars'])
+    test_utils.AssertInfobarTypeDoesNotAppear(self, self.INFOBAR_TYPE)
 
   def testPasswdInfoNotStoredWhenAutocompleteOff(self):
     """Verify that password infobar does not appear when autocomplete is off.
@@ -249,9 +275,11 @@ class PasswordTest(pyauto.PyUITest):
     If the password field has autocomplete turned off, then the password infobar
     should not offer to save the password info.
     """
-    password_info = {'Email': 'test@google.com',
-                     'Passwd': 'test12345'}
+    password_info = {'Email': self.USERNAME,
+                     'Passwd': self.PASSWORD}
 
+    # Disable one-click login infobar for sync.
+    self.SetPrefs(pyauto.kReverseAutologinEnabled, False)
     url = self.GetHttpURLForDataPath(
         os.path.join('password', 'password_autocomplete_off_test.html'))
     self.NavigateToURL(url)
@@ -260,10 +288,7 @@ class PasswordTest(pyauto.PyUITest):
                 'window.domAutomationController.send("done");') % (key, value)
       self.ExecuteJavascript(script, 0, 0)
     self.assertTrue(self.SubmitForm('loginform'))
-    password_infobar = (
-        self.GetBrowserInfo()['windows'][0]['tabs'][0]['infobars'])
-    self.assertFalse(password_infobar,
-                     msg='Save password infobar offered to save password info.')
+    test_utils.AssertInfobarTypeDoesNotAppear(self, self.INFOBAR_TYPE)
 
   def _SendCharToPopulateField(self, char, tab_index=0, windex=0):
     """Simulate a char being typed into a field.
@@ -287,17 +312,18 @@ class PasswordTest(pyauto.PyUITest):
     This test requires sending key events rather than pasting a new username
     into the Email field.
     """
-    url = 'https://www.google.com/accounts/ServiceLogin'
-    url_logout = 'https://www.google.com/accounts/Logout'
     creds = self.GetPrivateInfo()['test_google_account']
     username = creds['username']
     password = creds['password']
+    # Disable one-click login infobar for sync.
+    self.SetPrefs(pyauto.kReverseAutologinEnabled, False)
     # Login to Google a/c
     test_utils.GoogleAccountsLogin(self, username, password)
     self.PerformActionOnInfobar(
-        'accept', infobar_index=self._GetIndexForSavePasswordInfobar())
-    self.NavigateToURL(url_logout)
-    self.NavigateToURL(url)
+        'accept', infobar_index=test_utils.WaitForInfobarTypeAndGetIndex(
+            self, self.INFOBAR_TYPE))
+    self.NavigateToURL(self.URL_LOGOUT)
+    self.NavigateToURL(self.URL)
     self._ClickOnLoginPage(0, 0)
     test_utils.VerifyGoogleAccountCredsFilled(self, username, password,
         tab_index=0, windex=0)
@@ -314,6 +340,21 @@ class PasswordTest(pyauto.PyUITest):
     self.assertFalse(passwd_value,
                      msg='Password field not empty for new username.')
     test_utils.ClearPasswords(self)
+
+  def testPasswordInfobarShowsForBlockedDomain(self):
+    """Verify that password infobar shows when cookies are blocked.
+
+    Password infobar should be shown if cookies are blocked for Google
+    accounts domain.
+    """
+    creds = self.GetPrivateInfo()['test_google_account']
+    username = creds['username']
+    password = creds['password']
+    # Block cookies for Google accounts domain.
+    self.SetPrefs(pyauto.kContentSettingsPatternPairs,
+                  {'https://accounts.google.com/': {'cookies': 2}})
+    test_utils.GoogleAccountsLogin(self, username, password)
+    test_utils.WaitForInfobarTypeAndGetIndex(self, self.INFOBAR_TYPE)
 
 
 if __name__ == '__main__':

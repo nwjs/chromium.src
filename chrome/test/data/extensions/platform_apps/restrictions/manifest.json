@@ -1,0 +1,17 @@
+{
+  "name": "Platform App Test: various document, window, and API restrictions",
+  "version": "1",
+  "manifest_version": 2,
+  "permissions": [
+    "experimental",
+    "appWindow"
+  ],
+  "app": {
+    "background": {
+      "scripts": ["test.js"]
+    }
+  },
+  "sandbox": {
+    "pages": ["sandboxed_iframe.html"]
+  }
+}

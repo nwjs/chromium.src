@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -31,10 +31,6 @@
 
 #ifndef NP_NO_CARBON
 #include "webkit/plugins/npapi/carbon_plugin_window_tracker_mac.h"
-#endif
-
-#ifndef NP_NO_QUICKDRAW
-#include "webkit/plugins/npapi/quickdraw_drawing_manager_mac.h"
 #endif
 
 #if defined(USE_SKIA)
@@ -256,7 +252,7 @@ int ExternalDragTracker::WebEventButtonModifierMask() {
 WebPluginDelegateImpl::WebPluginDelegateImpl(
     gfx::PluginWindowHandle containing_view,
     PluginInstance *instance)
-    : windowed_handle_(NULL),
+    : windowed_handle_(gfx::kNullPluginWindow),
       // all Mac plugins are "windowless" in the Windows/X11 sense
       windowless_(true),
       plugin_(NULL),
@@ -286,9 +282,6 @@ WebPluginDelegateImpl::WebPluginDelegateImpl(
 #ifndef NP_NO_CARBON
   memset(&np_cg_context_, 0, sizeof(np_cg_context_));
 #endif
-#ifndef NP_NO_QUICKDRAW
-  memset(&qd_port_, 0, sizeof(qd_port_));
-#endif
   instance->set_windowless(true);
 }
 
@@ -314,27 +307,6 @@ bool WebPluginDelegateImpl::PlatformInitialize() {
   // cleanly, so don't unload them at shutdown.
   instance()->plugin_lib()->PreventLibraryUnload();
 
-#ifndef NP_NO_QUICKDRAW
-  if (instance()->drawing_model() == NPDrawingModelQuickDraw) {
-    // For some QuickDraw plugins, we can sometimes get away with giving them
-    // a port pointing to a pixel buffer instead of a our actual dummy window.
-    // This gives us much better frame rates, because the window scraping we
-    // normally use is very slow.
-    // This breaks down if the plugin does anything complicated with the port
-    // (as QuickTime seems to during event handling, and sometimes when painting
-    // its controls), so we switch on the fly as necessary. (It might be
-    // possible to interpose sufficiently that we wouldn't have to switch back
-    // and forth, but the current approach gets us most of the benefit.)
-    // We can't do this at all with plugins that bypass the port entirely and
-    // attaches their own surface to the window.
-    // TODO(stuartmorgan): Test other QuickDraw plugins that we support and
-    // see if any others can use the fast path.
-    const WebPluginInfo& plugin_info = instance_->plugin_lib()->plugin_info();
-    if (plugin_info.name.find(ASCIIToUTF16("QuickTime")) != string16::npos)
-      quirks_ |= PLUGIN_QUIRK_ALLOW_FASTER_QUICKDRAW_PATH;
-  }
-#endif
-
 #ifndef NP_NO_CARBON
   if (instance()->event_model() == NPEventModelCarbon) {
     // Create a stand-in for the browser window so that the plugin will have
@@ -351,15 +323,7 @@ bool WebPluginDelegateImpl::PlatformInitialize() {
   switch (drawing_model) {
 #ifndef NP_NO_QUICKDRAW
     case NPDrawingModelQuickDraw:
-      if (instance()->event_model() != NPEventModelCarbon)
-        return false;
-      qd_manager_.reset(new QuickDrawDrawingManager());
-      qd_manager_->SetPluginWindow(
-          reinterpret_cast<WindowRef>(np_cg_context_.window));
-      qd_port_.port = qd_manager_->port();
-      window_.window = &qd_port_;
-      window_.type = NPWindowTypeDrawable;
-      break;
+      return false;
 #endif
     case NPDrawingModelCoreGraphics:
 #ifndef NP_NO_CARBON
@@ -426,23 +390,12 @@ bool WebPluginDelegateImpl::PlatformInitialize() {
   // calls SetWindow. Rendering breaks if SetWindow is called before
   // accelerated rendering is enabled.
   if (!layer_)
-    plugin_->SetWindow(NULL);
+    plugin_->SetWindow(gfx::kNullPluginWindow);
 
 #ifndef NP_NO_CARBON
   // If the plugin wants Carbon events, hook up to the source of idle events.
   if (instance()->event_model() == NPEventModelCarbon)
     UpdateIdleEventRate();
-#endif
-
-  // QuickTime (in QD mode only) can crash if it gets other calls (e.g.,
-  // NPP_Write) before it gets a SetWindow call, so call SetWindow (with a 0x0
-  // rect) immediately.
-#ifndef NP_NO_QUICKDRAW
-  if (instance()->drawing_model() == NPDrawingModelQuickDraw) {
-    const WebPluginInfo& plugin_info = instance_->plugin_lib()->plugin_info();
-    if (plugin_info.name.find(ASCIIToUTF16("QuickTime")) != string16::npos)
-      WindowlessSetWindow();
-  }
 #endif
 
   return true;
@@ -475,10 +428,6 @@ void WebPluginDelegateImpl::UpdateGeometryAndContext(
     np_cg_context_.context = context;
   }
 #endif
-#ifndef NP_NO_QUICKDRAW
-  if (instance()->drawing_model() == NPDrawingModelQuickDraw)
-    qd_manager_->SetTargetContext(context, window_rect.size());
-#endif
   UpdateGeometry(window_rect, clip_rect);
 }
 
@@ -496,14 +445,6 @@ void WebPluginDelegateImpl::Paint(WebKit::WebCanvas* canvas,
 void WebPluginDelegateImpl::CGPaint(CGContextRef context,
                                     const gfx::Rect& rect) {
   WindowlessPaint(context, rect);
-
-#ifndef NP_NO_QUICKDRAW
-  // Paint events are our cue to dump the current plugin bits into the buffer
-  // context if we are dealing with a QuickDraw plugin.
-  if (instance()->drawing_model() == NPDrawingModelQuickDraw) {
-    qd_manager_->UpdateContext();
-  }
-#endif
 }
 
 bool WebPluginDelegateImpl::PlatformHandleInputEvent(
@@ -519,6 +460,17 @@ bool WebPluginDelegateImpl::PlatformHandleInputEvent(
     return false;
   }
 #endif
+
+  // WebKit sometimes sends spurious mouse move events when the window doesn't
+  // have focus; Cocoa event model plugins don't expect to receive mouse move
+  // events when they are in a background window, so drop those events.
+  if (!containing_window_has_focus_ &&
+      instance()->event_model() == NPEventModelCocoa &&
+      (event.type == WebInputEvent::MouseMove ||
+       event.type == WebInputEvent::MouseEnter ||
+       event.type == WebInputEvent::MouseLeave)) {
+    return false;
+  }
 
   if (WebInputEvent::isMouseEventType(event.type) ||
       event.type == WebInputEvent::MouseWheel) {
@@ -556,37 +508,9 @@ bool WebPluginDelegateImpl::PlatformHandleInputEvent(
   }
 
 #ifndef NP_NO_CARBON
-  if (instance()->event_model() == NPEventModelCarbon) {
-#ifndef NP_NO_QUICKDRAW
-    if (instance()->drawing_model() == NPDrawingModelQuickDraw) {
-      if (quirks_ & PLUGIN_QUIRK_ALLOW_FASTER_QUICKDRAW_PATH) {
-        // Mouse event handling doesn't work correctly in the fast path mode,
-        // so any time we get a mouse event turn the fast path off, but set a
-        // time to switch it on again (we don't rely just on MouseLeave because
-        // we don't want poor performance in the case of clicking the play
-        // button and then leaving the mouse there).
-        // This isn't perfect (specifically, click-and-hold doesn't seem to work
-        // if the fast path is on), but the slight regression is worthwhile
-        // for the improved framerates.
-        if (WebInputEvent::isMouseEventType(event.type)) {
-          if (event.type == WebInputEvent::MouseLeave) {
-            SetQuickDrawFastPathEnabled(true);
-          } else {
-            SetQuickDrawFastPathEnabled(false);
-          }
-          // Make sure the plugin wasn't destroyed during the switch.
-          if (!instance())
-            return false;
-        }
-      }
-
-      qd_manager_->MakePortCurrent();
-    }
-#endif
-
-    if (event.type == WebInputEvent::MouseMove) {
-      return true;  // The recurring FireIdleEvent will send null events.
-    }
+  if (instance()->event_model() == NPEventModelCarbon &&
+      event.type == WebInputEvent::MouseMove) {
+    return true;  // The recurring FireIdleEvent will send null events.
   }
 #endif
 
@@ -672,17 +596,7 @@ void WebPluginDelegateImpl::WindowlessUpdateGeometry(
   bool clip_rect_changed = (clip_rect_ != old_clip_rect);
   bool window_size_changed = (window_rect.size() != window_rect_.size());
 
-  bool force_set_window = false;
-#ifndef NP_NO_QUICKDRAW
-  // In a QuickDraw plugin, a geometry update might have caused a port change;
-  // if so, we need to call SetWindow even if nothing else changed.
-  if (qd_manager_.get() && (qd_port_.port != qd_manager_->port())) {
-    qd_port_.port = qd_manager_->port();
-    force_set_window = true;
-  }
-#endif
-
-  if (window_rect == window_rect_ && !clip_rect_changed && !force_set_window)
+  if (window_rect == window_rect_ && !clip_rect_changed)
     return;
 
   if (old_clip_rect.IsEmpty() != clip_rect_.IsEmpty()) {
@@ -691,17 +605,7 @@ void WebPluginDelegateImpl::WindowlessUpdateGeometry(
 
   SetPluginRect(window_rect);
 
-#ifndef NP_NO_QUICKDRAW
-  if (window_size_changed && qd_manager_.get() &&
-      qd_manager_->IsFastPathEnabled()) {
-    // If the window size has changed, we need to turn off the fast path so that
-    // the full redraw goes to the window and we get a correct baseline paint.
-    SetQuickDrawFastPathEnabled(false);
-    return;  // SetQuickDrawFastPathEnabled will call SetWindow for us.
-  }
-#endif
-
-  if (window_size_changed || clip_rect_changed || force_set_window)
+  if (window_size_changed || clip_rect_changed)
     WindowlessSetWindow();
 }
 
@@ -729,11 +633,6 @@ void WebPluginDelegateImpl::WindowlessPaint(gfx::NativeDrawingContext context,
   }
 
   ScopedActiveDelegate active_delegate(this);
-
-#ifndef NP_NO_QUICKDRAW
-  if (instance()->drawing_model() == NPDrawingModelQuickDraw)
-    qd_manager_->MakePortCurrent();
-#endif
 
   CGContextSaveGState(context);
 
@@ -801,16 +700,6 @@ void WebPluginDelegateImpl::WindowlessSetWindow() {
     SetWindowHasFocus(initial_window_focus_);
   }
 
-#ifndef NP_NO_QUICKDRAW
-  if ((quirks_ & PLUGIN_QUIRK_ALLOW_FASTER_QUICKDRAW_PATH) &&
-      !qd_manager_->IsFastPathEnabled() && !clip_rect_.IsEmpty()) {
-    // Give the plugin a few seconds to stabilize so we get a good initial paint
-    // to use as a baseline, then switch to the fast path.
-    fast_path_enable_tick_ = base::TimeTicks::Now() +
-        base::TimeDelta::FromSeconds(3);
-  }
-#endif
-
   DCHECK(err == NPERR_NO_ERROR);
 }
 
@@ -858,12 +747,6 @@ void WebPluginDelegateImpl::SetWindowHasFocus(bool has_focus) {
   if (has_focus == containing_window_has_focus_)
     return;
   containing_window_has_focus_ = has_focus;
-
-#ifndef NP_NO_QUICKDRAW
-  // Make sure controls repaint with the correct look.
-  if (quirks_ & PLUGIN_QUIRK_ALLOW_FASTER_QUICKDRAW_PATH)
-    SetQuickDrawFastPathEnabled(false);
-#endif
 
   ScopedActiveDelegate active_delegate(this);
   switch (instance()->event_model()) {
@@ -1173,21 +1056,7 @@ void WebPluginDelegateImpl::FireIdleEvent() {
   if (!have_called_set_window_)
     return;
 
-#ifndef NP_NO_QUICKDRAW
-  // Check whether it's time to turn the QuickDraw fast path back on.
-  if (!fast_path_enable_tick_.is_null() &&
-      (base::TimeTicks::Now() > fast_path_enable_tick_)) {
-    SetQuickDrawFastPathEnabled(true);
-    fast_path_enable_tick_ = base::TimeTicks();
-  }
-#endif
-
   ScopedActiveDelegate active_delegate(this);
-
-#ifndef NP_NO_QUICKDRAW
-  if (instance()->drawing_model() == NPDrawingModelQuickDraw)
-    qd_manager_->MakePortCurrent();
-#endif
 
   // Send an idle event so that the plugin can do background work
   NPEvent np_event = {0};
@@ -1201,48 +1070,8 @@ void WebPluginDelegateImpl::FireIdleEvent() {
   np_event.where.h = mouse_location.x;
   np_event.where.v = mouse_location.y;
   instance()->NPP_HandleEvent(&np_event);
-
-#ifndef NP_NO_QUICKDRAW
-  // Quickdraw-based plugins can draw at any time, so tell the renderer to
-  // repaint.
-  if (instance() && instance()->drawing_model() == NPDrawingModelQuickDraw)
-    instance()->webplugin()->Invalidate();
-#endif
 }
 #endif  // !NP_NO_CARBON
-
-#pragma mark -
-#pragma mark QuickDraw Support
-
-#ifndef NP_NO_QUICKDRAW
-void WebPluginDelegateImpl::SetQuickDrawFastPathEnabled(bool enabled) {
-  if (!enabled) {
-    // Wait a couple of seconds, then turn the fast path back on. If we're
-    // turning it off for event handling, that ensures that the common case of
-    // move-mouse-then-click works (as well as making it likely that a second
-    // click attempt will work if the first one fails). If we're turning it
-    // off to force a new baseline image, this leaves plenty of time for the
-    // plugin to draw.
-    fast_path_enable_tick_ = base::TimeTicks::Now() +
-        base::TimeDelta::FromSeconds(2);
-  }
-
-  if (enabled == qd_manager_->IsFastPathEnabled())
-    return;
-  if (enabled && clip_rect_.IsEmpty()) {
-    // Don't switch to the fast path while the plugin is completely clipped;
-    // we can only switch when the window has an up-to-date image for us to
-    // scrape. We'll automatically switch after we become visible again.
-    return;
-  }
-
-  qd_manager_->SetFastPathEnabled(enabled);
-  qd_port_.port = qd_manager_->port();
-  WindowlessSetWindow();
-  // Send a paint event so that the new buffer gets updated immediately.
-  WindowlessPaint(buffer_context_, clip_rect_);
-}
-#endif  // !NP_NO_QUICKDRAW
 
 }  // namespace npapi
 }  // namespace webkit

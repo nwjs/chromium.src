@@ -10,15 +10,15 @@
 
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
-#include "base/message_loop_helpers.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "base/time.h"
 #include "base/timer.h"
 #include "build/build_config.h"
 #include "third_party/npapi/bindings/npapi.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/gfx/rect.h"
-#include "webkit/plugins/npapi/webplugin_delegate.h"
 #include "webkit/glue/webcursor.h"
+#include "webkit/plugins/npapi/webplugin_delegate.h"
 #include "webkit/plugins/webkit_plugins_export.h"
 
 #if defined(OS_WIN) && !defined(USE_AURA)
@@ -51,9 +51,6 @@ class PluginInstance;
 #if defined(OS_MACOSX)
 class WebPluginAcceleratedSurface;
 class ExternalDragTracker;
-#ifndef NP_NO_QUICKDRAW
-class QuickDrawDrawingManager;
-#endif  // NP_NO_QUICKDRAW
 #endif  // OS_MACOSX
 
 #if defined(OS_WIN) && !defined(USE_AURA)
@@ -78,7 +75,6 @@ class WEBKIT_PLUGINS_EXPORT WebPluginDelegateImpl : public WebPluginDelegate {
     PLUGIN_QUIRK_NO_WINDOWLESS = 1024,  // Windows
     PLUGIN_QUIRK_PATCH_REGENUMKEYEXW = 2048,  // Windows
     PLUGIN_QUIRK_ALWAYS_NOTIFY_SUCCESS = 4096,  // Windows
-    PLUGIN_QUIRK_ALLOW_FASTER_QUICKDRAW_PATH = 8192,  // Mac
     PLUGIN_QUIRK_HANDLE_MOUSE_CAPTURE = 16384,  // Windows
     PLUGIN_QUIRK_WINDOWLESS_NO_RIGHT_CLICK = 32768,  // Linux
     PLUGIN_QUIRK_IGNORE_FIRST_SETWINDOW_CALL = 65536,  // Windows.
@@ -95,6 +91,8 @@ class WEBKIT_PLUGINS_EXPORT WebPluginDelegateImpl : public WebPluginDelegate {
   static bool IsPluginDelegateWindow(gfx::NativeWindow window);
   static bool GetPluginNameFromWindow(gfx::NativeWindow window,
                                       string16* plugin_name);
+  static bool GetPluginVersionFromWindow(gfx::NativeWindow window,
+                                         string16* plugin_version);
 
   // Returns true if the window handle passed in is that of the dummy
   // activation window for windowless plugins.
@@ -352,7 +350,7 @@ class WEBKIT_PLUGINS_EXPORT WebPluginDelegateImpl : public WebPluginDelegate {
   XID windowless_shm_pixmap_;
 #endif
 
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
   // The pixmap we're drawing into, for a windowless plugin.
   GdkPixmap* pixmap_;
   double first_event_time_;
@@ -458,15 +456,6 @@ class WEBKIT_PLUGINS_EXPORT WebPluginDelegateImpl : public WebPluginDelegate {
   // Moves our dummy window to match the current screen location of the plugin.
   void UpdateDummyWindowBounds(const gfx::Point& plugin_origin);
 
-#ifndef NP_NO_QUICKDRAW
-  // Sets the mode used for QuickDraw plugin drawing. If enabled is true the
-  // plugin draws into a GWorld that's not connected to a window (the faster
-  // path), otherwise the plugin draws into our invisible dummy window (which is
-  // slower, since the call we use to scrape the window contents is much more
-  // expensive than copying between GWorlds).
-  void SetQuickDrawFastPathEnabled(bool enabled);
-#endif
-
   // Adjusts the idle event rate for a Carbon plugin based on its current
   // visibility.
   void UpdateIdleEventRate();
@@ -477,11 +466,6 @@ class WEBKIT_PLUGINS_EXPORT WebPluginDelegateImpl : public WebPluginDelegate {
 
 #ifndef NP_NO_CARBON
   NP_CGContext np_cg_context_;
-#endif
-#ifndef NP_NO_QUICKDRAW
-  NP_Port qd_port_;
-  scoped_ptr<QuickDrawDrawingManager> qd_manager_;
-  base::TimeTicks fast_path_enable_tick_;
 #endif
 
   CALayer* layer_;  // Used for CA drawing mode. Weak, retained by plug-in.

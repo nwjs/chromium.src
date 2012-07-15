@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,7 +16,7 @@ const uint32 kStunMagicCookie = 0x2112A442;
 
 namespace content {
 
-P2PSocketHost::P2PSocketHost(IPC::Message::Sender* message_sender,
+P2PSocketHost::P2PSocketHost(IPC::Sender* message_sender,
                              int routing_id, int id)
     : message_sender_(message_sender),
       routing_id_(routing_id),
@@ -34,15 +34,15 @@ bool P2PSocketHost::GetStunPacketType(
   if (data_size < kStunHeaderSize)
     return false;
 
-  uint32 cookie = ntohl(*reinterpret_cast<const uint32*>(data + 4));
+  uint32 cookie = base::NetToHost32(*reinterpret_cast<const uint32*>(data + 4));
   if (cookie != kStunMagicCookie)
     return false;
 
-  uint16 length = ntohs(*reinterpret_cast<const uint16*>(data + 2));
+  uint16 length = base::NetToHost16(*reinterpret_cast<const uint16*>(data + 2));
   if (length != data_size - kStunHeaderSize)
     return false;
 
-  int message_type = ntohs(*reinterpret_cast<const uint16*>(data));
+  int message_type = base::NetToHost16(*reinterpret_cast<const uint16*>(data));
 
   // Verify that the type is known:
   switch (message_type) {
@@ -75,7 +75,7 @@ bool P2PSocketHost::IsRequestOrResponse(StunMessageType type) {
 
 // static
 P2PSocketHost* P2PSocketHost::Create(
-    IPC::Message::Sender* message_sender, int routing_id, int id,
+    IPC::Sender* message_sender, int routing_id, int id,
     P2PSocketType type) {
   switch (type) {
     case P2P_SOCKET_UDP:

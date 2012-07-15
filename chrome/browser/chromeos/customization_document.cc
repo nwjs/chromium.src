@@ -22,7 +22,7 @@
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "content/public/browser/browser_thread.h"
-#include "content/public/common/url_fetcher.h"
+#include "net/url_request/url_fetcher.h"
 
 using content::BrowserThread;
 
@@ -92,9 +92,7 @@ bool CustomizationDocument::LoadManifestFromString(
   int error_code = 0;
   std::string error;
   scoped_ptr<Value> root(base::JSONReader::ReadAndReturnError(manifest,
-                                                              true,
-                                                              &error_code,
-                                                              &error));
+      base::JSON_ALLOW_TRAILING_COMMAS, &error_code, &error));
   if (error_code != base::JSONReader::JSON_NO_ERROR)
     LOG(ERROR) << error;
   DCHECK(root.get() != NULL);
@@ -297,15 +295,15 @@ void ServicesCustomizationDocument::ReadFileInBackground(const FilePath& file) {
 
 void ServicesCustomizationDocument::StartFileFetch() {
   DCHECK(url_.is_valid());
-  url_fetcher_.reset(content::URLFetcher::Create(
-      url_, content::URLFetcher::GET, this));
+  url_fetcher_.reset(net::URLFetcher::Create(
+      url_, net::URLFetcher::GET, this));
   url_fetcher_->SetRequestContext(
       ProfileManager::GetDefaultProfile()->GetRequestContext());
   url_fetcher_->Start();
 }
 
 void ServicesCustomizationDocument::OnURLFetchComplete(
-    const content::URLFetcher* source) {
+    const net::URLFetcher* source) {
   if (source->GetResponseCode() == 200) {
     std::string data;
     source->GetResponseAsString(&data);

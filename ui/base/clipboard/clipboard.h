@@ -4,7 +4,6 @@
 
 #ifndef UI_BASE_CLIPBOARD_CLIPBOARD_H_
 #define UI_BASE_CLIPBOARD_CLIPBOARD_H_
-#pragma once
 
 #include <map>
 #include <string>
@@ -18,7 +17,7 @@
 #include "base/threading/thread_checker.h"
 #include "ui/base/ui_export.h"
 
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
 #include <gdk/gdk.h>
 #endif
 
@@ -36,7 +35,7 @@ class Size;
 class FilePath;
 class SkBitmap;
 
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
 typedef struct _GtkClipboard GtkClipboard;
 #endif
 
@@ -55,6 +54,7 @@ class UI_EXPORT Clipboard : NON_EXPORTED_BASE(public base::ThreadChecker) {
   static const char kMimeTypeURIList[];
   static const char kMimeTypeDownloadURL[];
   static const char kMimeTypeHTML[];
+  static const char kMimeTypeRTF[];
   static const char kMimeTypePNG[];
 
   // Platform neutral holder for native data representation of a clipboard type.
@@ -93,7 +93,7 @@ class UI_EXPORT Clipboard : NON_EXPORTED_BASE(public base::ThreadChecker) {
     explicit FormatType(const std::string& native_format);
     const std::string& ToString() const { return data_; }
     std::string data_;
-#elif defined(TOOLKIT_USES_GTK)
+#elif defined(TOOLKIT_GTK)
     explicit FormatType(const std::string& native_format);
     explicit FormatType(const GdkAtom& native_format);
     const GdkAtom& ToGdkAtom() const { return data_; }
@@ -117,6 +117,7 @@ class UI_EXPORT Clipboard : NON_EXPORTED_BASE(public base::ThreadChecker) {
   enum ObjectType {
     CBF_TEXT,
     CBF_HTML,
+    CBF_RTF,
     CBF_BOOKMARK,
     CBF_FILES,
     CBF_WEBKIT,
@@ -135,6 +136,7 @@ class UI_EXPORT Clipboard : NON_EXPORTED_BASE(public base::ThreadChecker) {
   // CBF_TEXT      text         char array
   // CBF_HTML      html         char array
   //               url*         char array
+  // CBF_RTF       data         byte array
   // CBF_BOOKMARK  html         char array
   //               url          char array
   // CBF_LINK      html         char array
@@ -225,6 +227,10 @@ class UI_EXPORT Clipboard : NON_EXPORTED_BASE(public base::ThreadChecker) {
   void ReadHTML(Buffer buffer, string16* markup, std::string* src_url,
                 uint32* fragment_start, uint32* fragment_end) const;
 
+  // Reads RTF from the clipboard, if available. Stores the result as a byte
+  // vector.
+  void ReadRTF(Buffer buffer, std::string* result) const;
+
   // Reads an image from the clipboard, if available.
   SkBitmap ReadImage(Buffer buffer) const;
 
@@ -255,6 +261,7 @@ class UI_EXPORT Clipboard : NON_EXPORTED_BASE(public base::ThreadChecker) {
   static const FormatType& GetWebKitSmartPasteFormatType();
   // Win: MS HTML Format, Other: Generic HTML format
   static const FormatType& GetHtmlFormatType();
+  static const FormatType& GetRtfFormatType();
   static const FormatType& GetBitmapFormatType();
   static const FormatType& GetWebCustomDataFormatType();
 
@@ -286,6 +293,8 @@ class UI_EXPORT Clipboard : NON_EXPORTED_BASE(public base::ThreadChecker) {
                  size_t markup_len,
                  const char* url_data,
                  size_t url_len);
+
+  void WriteRTF(const char* rtf_data, size_t data_len);
 
   void WriteBookmark(const char* title_data,
                      size_t title_len,
@@ -322,7 +331,7 @@ class UI_EXPORT Clipboard : NON_EXPORTED_BASE(public base::ThreadChecker) {
 
   // True if we can create a window.
   bool create_window_;
-#elif defined(TOOLKIT_USES_GTK)
+#elif defined(TOOLKIT_GTK)
   // The public API is via WriteObjects() which dispatches to multiple
   // Write*() calls, but on GTK we must write all the clipboard types
   // in a single GTK call.  To support this we store the current set
@@ -346,30 +355,6 @@ class UI_EXPORT Clipboard : NON_EXPORTED_BASE(public base::ThreadChecker) {
   TargetMap* clipboard_data_;
   GtkClipboard* clipboard_;
   GtkClipboard* primary_selection_;
-#elif defined(OS_ANDROID)
-  // Returns whether some text is available from the Android Clipboard.
-  bool IsTextAvailableFromAndroid() const;
-
-  // Make sure that the Android Clipboard contents matches what we think it
-  // should contain. If it changed, a copy occured from another application and
-  // all internal data is dropped.
-  void ValidateInternalClipboard() const;
-
-  // Clear the Clipboard for all types. Both for Android and internal.
-  void Clear();
-
-  // Clear the internal clipboard.
-  void ClearInternalClipboard() const;
-
-  // This private method is used to set non text key/value.
-  void Set(const std::string& key, const std::string& value);
-
-  // Java class and methods for the Android ClipboardManager.
-  base::android::ScopedJavaGlobalRef<jobject> clipboard_manager_;
-  jmethodID set_text_;
-  jmethodID has_text_;
-  jmethodID get_text_;
-  jmethodID to_string_;
 #endif
 
   DISALLOW_COPY_AND_ASSIGN(Clipboard);

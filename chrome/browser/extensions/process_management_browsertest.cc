@@ -11,7 +11,8 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -63,7 +64,7 @@ IN_PROC_BROWSER_TEST_F(ProcessManagementTest, ProcessOverflow) {
   base_url = base_url.ReplaceComponents(replace_host);
 
   // Load an extension before adding tabs.
-  const Extension* extension1 = LoadExtension(
+  const extensions::Extension* extension1 = LoadExtension(
       test_data_dir_.AppendASCII("api_test/browser_action/basics"));
   ASSERT_TRUE(extension1);
   GURL extension1_url = extension1->url();
@@ -101,7 +102,7 @@ IN_PROC_BROWSER_TEST_F(ProcessManagementTest, ProcessOverflow) {
       NEW_FOREGROUND_TAB, ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
 
   // Load another extension.
-  const Extension* extension2 = LoadExtension(
+  const extensions::Extension* extension2 = LoadExtension(
       test_data_dir_.AppendASCII("api_test/browser_action/close_background"));
   ASSERT_TRUE(extension2);
   GURL extension2_url = extension2->url();
@@ -109,29 +110,29 @@ IN_PROC_BROWSER_TEST_F(ProcessManagementTest, ProcessOverflow) {
   // Get tab processes.
   ASSERT_EQ(9, browser()->tab_count());
   content::RenderProcessHost* isolated1_host =
-      browser()->GetWebContentsAt(0)->GetRenderProcessHost();
+      chrome::GetWebContentsAt(browser(), 0)->GetRenderProcessHost();
   content::RenderProcessHost* ntp1_host =
-      browser()->GetWebContentsAt(1)->GetRenderProcessHost();
+      chrome::GetWebContentsAt(browser(), 1)->GetRenderProcessHost();
   content::RenderProcessHost* hosted1_host =
-      browser()->GetWebContentsAt(2)->GetRenderProcessHost();
+      chrome::GetWebContentsAt(browser(), 2)->GetRenderProcessHost();
   content::RenderProcessHost* web1_host =
-      browser()->GetWebContentsAt(3)->GetRenderProcessHost();
+      chrome::GetWebContentsAt(browser(), 3)->GetRenderProcessHost();
 
   content::RenderProcessHost* isolated2_host =
-      browser()->GetWebContentsAt(4)->GetRenderProcessHost();
+      chrome::GetWebContentsAt(browser(), 4)->GetRenderProcessHost();
   content::RenderProcessHost* ntp2_host =
-      browser()->GetWebContentsAt(5)->GetRenderProcessHost();
+      chrome::GetWebContentsAt(browser(), 5)->GetRenderProcessHost();
   content::RenderProcessHost* hosted2_host =
-      browser()->GetWebContentsAt(6)->GetRenderProcessHost();
+      chrome::GetWebContentsAt(browser(), 6)->GetRenderProcessHost();
   content::RenderProcessHost* web2_host =
-      browser()->GetWebContentsAt(7)->GetRenderProcessHost();
+      chrome::GetWebContentsAt(browser(), 7)->GetRenderProcessHost();
 
   content::RenderProcessHost* second_isolated1_host =
-      browser()->GetWebContentsAt(8)->GetRenderProcessHost();
+      chrome::GetWebContentsAt(browser(), 8)->GetRenderProcessHost();
 
   // Get extension processes.
   ExtensionProcessManager* process_manager =
-    browser()->GetProfile()->GetExtensionProcessManager();
+    browser()->profile()->GetExtensionProcessManager();
   content::RenderProcessHost* extension1_host =
       process_manager->GetSiteInstanceForURL(extension1_url)->GetProcess();
   content::RenderProcessHost* extension2_host =
@@ -157,6 +158,8 @@ IN_PROC_BROWSER_TEST_F(ProcessManagementTest, ProcessOverflow) {
   EXPECT_NE(ntp1_host, extension1_host);
 
   // Hosted apps only share with each other.
+  // Note that hosted2_host's app has the background permission and will use
+  // process-per-site mode, but it should still share with hosted1_host's app.
   EXPECT_EQ(hosted1_host, hosted2_host);
   EXPECT_NE(hosted1_host, web1_host);
   EXPECT_NE(hosted1_host, extension1_host);
@@ -176,6 +179,9 @@ IN_PROC_BROWSER_TEST_F(ProcessManagementTest, ExtensionProcessBalancing) {
   // allocated.
   content::RenderProcessHost::SetMaxRendererProcessCount(6);
 
+  host_resolver()->AddRule("*", "127.0.0.1");
+  ASSERT_TRUE(test_server()->Start());
+
   // The app under test acts on URLs whose host is "localhost",
   // so the URLs we navigate to must have host "localhost".
   GURL base_url = test_server()->GetURL(
@@ -184,9 +190,6 @@ IN_PROC_BROWSER_TEST_F(ProcessManagementTest, ExtensionProcessBalancing) {
   std::string host_str("localhost");  // Must stay in scope with replace_host.
   replace_host.SetHostStr(host_str);
   base_url = base_url.ReplaceComponents(replace_host);
-
-  host_resolver()->AddRule("*", "127.0.0.1");
-  ASSERT_TRUE(test_server()->Start());
 
   ASSERT_TRUE(LoadExtension(
       test_data_dir_.AppendASCII("api_test/browser_action/none")));
@@ -212,21 +215,18 @@ IN_PROC_BROWSER_TEST_F(ProcessManagementTest, ExtensionProcessBalancing) {
       CURRENT_TAB, ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
 
   std::set<int> process_ids;
-  Profile* profile = browser()->GetProfile();
+  Profile* profile = browser()->profile();
   ExtensionProcessManager* epm = profile->GetExtensionProcessManager();
 
-  for (ExtensionProcessManager::const_iterator iter = epm->begin();
-       iter != epm->end();
-       ++iter) {
-    ExtensionHost* host = *iter;
-    if (host->extension()->has_background_page()) {
-      process_ids.insert(host->render_process_host()->GetID());
-    }
+  for (ExtensionProcessManager::const_iterator iter =
+           epm->background_hosts().begin();
+       iter != epm->background_hosts().end(); ++iter) {
+    process_ids.insert((*iter)->render_process_host()->GetID());
   }
 
   // We've loaded 5 extensions with background pages, 1 extension without
   // background page, and one isolated app. We expect only 2 unique processes
   // hosting those extensions.
-  ASSERT_EQ((size_t) 5, profile->GetExtensionService()->process_map()->size());
-  ASSERT_EQ((size_t) 2, process_ids.size());
+  EXPECT_GE((size_t) 6, profile->GetExtensionService()->process_map()->size());
+  EXPECT_EQ((size_t) 2, process_ids.size());
 }

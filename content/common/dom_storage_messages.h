@@ -3,18 +3,16 @@
 // found in the LICENSE file.
 
 // Multiply-included message file, no traditional include guard.
-#include "content/common/dom_storage_common.h"
 #include "content/public/common/common_param_traits.h"
 #include "googleurl/src/gurl.h"
 #include "ipc/ipc_message_macros.h"
 #include "ipc/ipc_param_traits.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebStorageArea.h"
+#include "webkit/dom_storage/dom_storage_types.h"
 
 #define IPC_MESSAGE_START DOMStorageMsgStart
 
-IPC_ENUM_TRAITS(DOMStorageType)
-
-// Signals a storage event.
+// Signals a local storage event.
 IPC_STRUCT_BEGIN(DOMStorageMsg_Event_Params)
   // The key that generated the storage event.  Null if clear() was called.
   IPC_STRUCT_MEMBER(NullableString16, key)
@@ -26,72 +24,72 @@ IPC_STRUCT_BEGIN(DOMStorageMsg_Event_Params)
   IPC_STRUCT_MEMBER(NullableString16, new_value)
 
   // The origin this is associated with.
-  IPC_STRUCT_MEMBER(string16, origin)
+  IPC_STRUCT_MEMBER(GURL, origin)
 
   // The URL of the page that caused the storage event.
-  IPC_STRUCT_MEMBER(GURL, url)
+  IPC_STRUCT_MEMBER(GURL, page_url)
 
-  // The storage type of this event.
-  IPC_STRUCT_MEMBER(DOMStorageType, storage_type)
+  // The non-zero connection_id which caused the event or 0 if the event
+  // was not caused by the target renderer process.
+  IPC_STRUCT_MEMBER(int, connection_id)
+
+  // The non-zero session namespace_id associated with the event or 0 if
+  // this is a local storage event.
+  IPC_STRUCT_MEMBER(int64, namespace_id)
 IPC_STRUCT_END()
 
 IPC_ENUM_TRAITS(WebKit::WebStorageArea::Result)
 
 // DOM Storage messages sent from the browser to the renderer.
 
-// Storage events are broadcast to renderer processes.
+// Storage events are broadcast to all renderer processes.
 IPC_MESSAGE_CONTROL1(DOMStorageMsg_Event,
                      DOMStorageMsg_Event_Params)
 
+// Completion notification sent in response to each async
+// load, set, remove, and clear operation.
+// Used to maintain the integrity  of the renderer-side cache.
+IPC_MESSAGE_CONTROL1(DOMStorageMsg_AsyncOperationComplete,
+                     bool /* success */)
 
 // DOM Storage messages sent from the renderer to the browser.
+// Note: The 'connection_id' must be the first parameter in these message.
 
 // Open the storage area for a particular origin within a namespace.
-IPC_SYNC_MESSAGE_CONTROL2_1(DOMStorageHostMsg_OpenStorageArea,
-                            int64 /* namespace_id */,
-                            string16 /* origin */,
-                            int64 /* storage_area_id */)
+IPC_MESSAGE_CONTROL3(DOMStorageHostMsg_OpenStorageArea,
+                     int /* connection_id */,
+                     int64 /* namespace_id */,
+                     GURL /* origin */)
 
 // Close a previously opened storage area.
 IPC_MESSAGE_CONTROL1(DOMStorageHostMsg_CloseStorageArea,
-                     int64 /* storage_area_id */)
+                     int /* connection_id */)
 
-// Get the length of a storage area.
-IPC_SYNC_MESSAGE_CONTROL1_1(DOMStorageHostMsg_Length,
-                            int64 /* storage_area_id */,
-                            unsigned /* length */)
-
-// Get a the ith key within a storage area.
-IPC_SYNC_MESSAGE_CONTROL2_1(DOMStorageHostMsg_Key,
-                            int64 /* storage_area_id */,
-                            unsigned /* index */,
-                            NullableString16 /* key */)
-
-// Get a value based on a key from a storage area.
-IPC_SYNC_MESSAGE_CONTROL2_1(DOMStorageHostMsg_GetItem,
-                            int64 /* storage_area_id */,
-                            string16 /* key */,
-                            NullableString16 /* value */)
+// Retrieves the set of key/value pairs for the area. Used to prime
+// the renderer-side cache. A completion notification is sent in response.
+IPC_SYNC_MESSAGE_CONTROL1_1(DOMStorageHostMsg_LoadStorageArea,
+                            int /* connection_id */,
+                            dom_storage::ValuesMap)
 
 // Set a value that's associated with a key in a storage area.
-IPC_SYNC_MESSAGE_CONTROL4_2(DOMStorageHostMsg_SetItem,
-                            int64 /* storage_area_id */,
-                            string16 /* key */,
-                            string16 /* value */,
-                            GURL /* url */,
-                            WebKit::WebStorageArea::Result /* result */,
-                            NullableString16 /* old_value */)
+// A completion notification is sent in response.
+IPC_MESSAGE_CONTROL4(DOMStorageHostMsg_SetItem,
+                     int /* connection_id */,
+                     string16 /* key */,
+                     string16 /* value */,
+                     GURL /* page_url */)
 
 // Remove the value associated with a key in a storage area.
-IPC_SYNC_MESSAGE_CONTROL3_1(DOMStorageHostMsg_RemoveItem,
-                            int64 /* storage_area_id */,
-                            string16 /* key */,
-                            GURL /* url */,
-                            NullableString16 /* old_value */)
+// A completion notification is sent in response.
+IPC_MESSAGE_CONTROL3(DOMStorageHostMsg_RemoveItem,
+                     int /* connection_id */,
+                     string16 /* key */,
+                     GURL /* page_url */)
 
-// Clear the storage area.
-IPC_SYNC_MESSAGE_CONTROL2_1(DOMStorageHostMsg_Clear,
-                            int64 /* storage_area_id */,
-                            GURL /* url */,
-                            bool /* something_cleared */)
+// Clear the storage area. A completion notification is sent in response.
+IPC_MESSAGE_CONTROL2(DOMStorageHostMsg_Clear,
+                     int /* connection_id */,
+                     GURL /* page_url */)
 
+// Used to flush the ipc message queue.
+IPC_SYNC_MESSAGE_CONTROL0_0(DOMStorageHostMsg_FlushMessages)

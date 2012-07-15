@@ -4,12 +4,12 @@
 
 #ifndef CHROME_BROWSER_IMPORTER_PROFILE_WRITER_H_
 #define CHROME_BROWSER_IMPORTER_PROFILE_WRITER_H_
-#pragma once
 
 #include <vector>
 
 #include "base/basictypes.h"
 #include "base/memory/ref_counted.h"
+#include "base/memory/scoped_vector.h"
 #include "base/string16.h"
 #include "base/time.h"
 #include "build/build_config.h"
@@ -98,7 +98,7 @@ class ProfileWriter : public base::RefCountedThreadSafe<ProfileWriter> {
   // If |unique_on_host_and_path| is true, a TemplateURL is only added if there
   // is not an existing TemplateURL that has a replaceable search url with the
   // same host+path combination.
-  virtual void AddKeywords(const std::vector<TemplateURL*>& template_urls,
+  virtual void AddKeywords(ScopedVector<TemplateURL> template_urls,
                            bool unique_on_host_and_path);
 
  protected:

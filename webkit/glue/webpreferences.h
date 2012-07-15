@@ -5,34 +5,37 @@
 // A struct for managing webkit's settings.
 //
 // Adding new values to this class probably involves updating
-// WebKit::WebSettings, common/render_messages.cc, browser/tab_contents/
+// WebKit::WebSettings, content/common/view_messages.h, browser/tab_contents/
 // render_view_host_delegate_helper.cc, and browser/profiles/profile.cc.
 
 #ifndef WEBKIT_GLUE_WEBPREFERENCES_H__
 #define WEBKIT_GLUE_WEBPREFERENCES_H__
 
+#include <map>
 #include <string>
 #include <vector>
 
 #include "base/string16.h"
 #include "googleurl/src/gurl.h"
 #include "webkit/glue/webkit_glue_export.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebCompositor.h"
 
 namespace WebKit {
 class WebView;
 }
 
+namespace webkit_glue {
+
 struct WEBKIT_GLUE_EXPORT WebPreferences {
   // Map of ISO 15924 four-letter script code to font family.  For example,
   // "Arab" to "My Arabic Font".
-  typedef std::vector<std::pair<std::string, string16> > ScriptFontFamilyMap;
+  typedef std::map<std::string, string16> ScriptFontFamilyMap;
 
-  string16 standard_font_family;
-  string16 fixed_font_family;
-  string16 serif_font_family;
-  string16 sans_serif_font_family;
-  string16 cursive_font_family;
-  string16 fantasy_font_family;
+  // The ISO 15924 script code for undetermined script aka Common. It's the
+  // default used on WebKit's side to get/set a font setting when no script is
+  // specified.
+  static const char kCommonScript[];
+
   ScriptFontFamilyMap standard_font_family_map;
   ScriptFontFamilyMap fixed_font_family_map;
   ScriptFontFamilyMap serif_font_family_map;
@@ -43,8 +46,8 @@ struct WEBKIT_GLUE_EXPORT WebPreferences {
   int default_fixed_font_size;
   int minimum_font_size;
   int minimum_logical_font_size;
-  int default_device_scale_factor;
   std::string default_encoding;
+  bool apply_default_device_scale_factor_in_compositor;
   bool javascript_enabled;
   bool web_security_enabled;
   bool javascript_can_open_windows_automatically;
@@ -85,18 +88,19 @@ struct WEBKIT_GLUE_EXPORT WebPreferences {
   bool allow_file_access_from_file_urls;
   bool webaudio_enabled;
   bool experimental_webgl_enabled;
+  bool flash_3d_enabled;
+  bool flash_stage3d_enabled;
   bool gl_multisampling_enabled;
   bool privileged_webgl_extensions_enabled;
   bool webgl_errors_to_console_enabled;
   bool show_composited_layer_borders;
   bool show_composited_layer_tree;
   bool show_fps_counter;
+  bool show_paint_rects;
   bool asynchronous_spell_checking_enabled;
   bool unified_textchecker_enabled;
-  bool threaded_animation_enabled;
   bool accelerated_compositing_enabled;
   bool force_compositing_mode;
-  bool composite_to_texture_enabled;
   bool fixed_position_compositing_enabled;
   bool accelerated_layers_enabled;
   bool accelerated_animation_enabled;
@@ -106,19 +110,38 @@ struct WEBKIT_GLUE_EXPORT WebPreferences {
   bool accelerated_painting_enabled;
   bool accelerated_filters_enabled;
   bool accelerated_plugins_enabled;
-  bool partial_swap_enabled;
   bool memory_info_enabled;
-  bool interactive_form_validation_enabled;
   bool fullscreen_enabled;
   bool allow_displaying_insecure_content;
   bool allow_running_insecure_content;
   bool password_echo_enabled;
   bool should_print_backgrounds;
   bool enable_scroll_animator;
-  bool hixie76_websocket_protocol_enabled;
   bool visual_word_movement_enabled;
-  bool per_tile_painting_enabled;
   bool css_regions_enabled;
+  bool css_shaders_enabled;
+  bool device_supports_touch;
+  bool device_supports_mouse;
+#if !defined(WEBCOMPOSITOR_OWNS_SETTINGS)
+  bool threaded_animation_enabled;
+  bool per_tile_painting_enabled;
+  bool partial_swap_enabled;
+#endif
+  int default_tile_width;
+  int default_tile_height;
+  int max_untiled_layer_width;
+  int max_untiled_layer_height;
+  bool fixed_position_creates_stacking_context;
+  bool sync_xhr_in_documents_enabled;
+  int number_of_cpu_cores;
+
+  // This flags corresponds to a Page's Settings' setCookieEnabled state. It
+  // only controls whether or not the "document.cookie" field is properly
+  // connected to the backing store, for instance if you wanted to be able to
+  // define custom getters and setters from within a unique security content
+  // without raising a DOM security exception.
+  bool cookie_enabled;
+
   // We try to keep the default values the same as the default values in
   // chrome, except for the cases where it would require lots of extra work for
   // the embedder to use the same default value.
@@ -127,5 +150,7 @@ struct WEBKIT_GLUE_EXPORT WebPreferences {
 
   void Apply(WebKit::WebView* web_view) const;
 };
+
+}  // namespace webkit_glue
 
 #endif  // WEBKIT_GLUE_WEBPREFERENCES_H__

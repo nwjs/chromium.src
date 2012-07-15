@@ -31,10 +31,13 @@
 #include "base/threading/thread.h"
 #include "crypto/nss_util.h"
 #include "net/base/network_change_notifier.h"
+#include "net/socket/ssl_server_socket.h"
 #include "remoting/base/constants.h"
+#include "remoting/host/audio_capturer.h"
 #include "remoting/host/capturer_fake.h"
 #include "remoting/host/chromoting_host.h"
 #include "remoting/host/chromoting_host_context.h"
+#include "remoting/host/constants.h"
 #include "remoting/host/desktop_environment.h"
 #include "remoting/host/event_executor.h"
 #include "remoting/host/heartbeat_sender.h"
@@ -43,14 +46,16 @@
 #include "remoting/host/it2me_host_user_interface.h"
 #include "remoting/host/json_host_config.h"
 #include "remoting/host/log_to_server.h"
+#include "remoting/host/network_settings.h"
 #include "remoting/host/register_support_host_request.h"
+#include "remoting/host/session_manager_factory.h"
 #include "remoting/host/signaling_connector.h"
 #include "remoting/jingle_glue/xmpp_signal_strategy.h"
 #include "remoting/proto/video.pb.h"
 #include "remoting/protocol/it2me_host_authenticator_factory.h"
 #include "remoting/protocol/me2me_host_authenticator_factory.h"
 
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
 #include "ui/gfx/gtk_util.h"
 #elif defined(OS_MACOSX)
 #include "base/mac/scoped_nsautorelease_pool.h"
@@ -62,7 +67,6 @@ HMODULE g_hModule = NULL;
 
 using remoting::protocol::CandidateSessionConfig;
 using remoting::protocol::ChannelConfig;
-using remoting::protocol::NetworkSettings;
 
 namespace {
 
@@ -83,36 +87,40 @@ const char kMaxPortSwitchName[] = "max-port";
 const char kVideoSwitchValueVerbatim[] = "verbatim";
 const char kVideoSwitchValueZip[] = "zip";
 const char kVideoSwitchValueVp8[] = "vp8";
-const char kVideoSwitchValueVp8Rtp[] = "vp8rtp";
 
 }  // namespace
 
 namespace remoting {
 
-class SimpleHost {
+class SimpleHost : public HeartbeatSender::Listener {
  public:
   SimpleHost()
       : message_loop_(MessageLoop::TYPE_UI),
-        file_io_thread_("FileIO"),
-        context_(NULL, message_loop_.message_loop_proxy()),
+        context_(message_loop_.message_loop_proxy()),
         fake_(false),
-        is_it2me_(false) {
+        is_it2me_(false),
+        shutting_down_(false),
+        exit_code_(kSuccessExitCode) {
     context_.Start();
-    file_io_thread_.Start();
     network_change_notifier_.reset(net::NetworkChangeNotifier::Create());
+  }
+
+  // Overridden from HeartbeatSender::Listener
+  virtual void OnUnknownHostIdError() OVERRIDE {
+    LOG(ERROR) << "Host ID not found.";
+    Shutdown(kInvalidHostIdExitCode);
   }
 
   int Run() {
     FilePath config_path = GetConfigPath();
-    scoped_refptr<JsonHostConfig> config = new JsonHostConfig(
-        config_path, file_io_thread_.message_loop_proxy());
-    if (!config->Read()) {
+    JsonHostConfig config(config_path);
+    if (!config.Read()) {
       LOG(ERROR) << "Failed to read configuration file "
                  << config_path.value();
       return 1;
     }
 
-    if (!config->GetString(kHostIdConfigPath, &host_id_)) {
+    if (!config.GetString(kHostIdConfigPath, &host_id_)) {
       LOG(ERROR) << "host_id is not defined in the config.";
       return 1;
     }
@@ -122,8 +130,8 @@ class SimpleHost {
     }
 
     std::string host_secret_hash_string;
-    if (!config->GetString(kHostSecretHashConfigPath,
-                           &host_secret_hash_string)) {
+    if (!config.GetString(kHostSecretHashConfigPath,
+                          &host_secret_hash_string)) {
       host_secret_hash_string = "plain:";
     }
 
@@ -133,12 +141,12 @@ class SimpleHost {
     }
 
     // Use an XMPP connection to the Talk network for session signalling.
-    if (!config->GetString(kXmppLoginConfigPath, &xmpp_login_) ||
-        !config->GetString(kXmppAuthTokenConfigPath, &xmpp_auth_token_)) {
+    if (!config.GetString(kXmppLoginConfigPath, &xmpp_login_) ||
+        !config.GetString(kXmppAuthTokenConfigPath, &xmpp_auth_token_)) {
       LOG(ERROR) << "XMPP credentials are not defined in the config.";
       return 1;
     }
-    if (!config->GetString(kXmppAuthServiceConfigPath, &xmpp_auth_service_)) {
+    if (!config.GetString(kXmppAuthServiceConfigPath, &xmpp_auth_service_)) {
       // For the simple host, we assume we always use the ClientLogin token for
       // chromiumsync because we do not have an HTTP stack with which we can
       // easily request an OAuth2 access token even if we had a RefreshToken for
@@ -146,12 +154,12 @@ class SimpleHost {
       xmpp_auth_service_ = kChromotingTokenDefaultServiceName;
     }
 
-    context_.network_message_loop()->PostTask(FROM_HERE, base::Bind(
+    context_.network_task_runner()->PostTask(FROM_HERE, base::Bind(
         &SimpleHost::StartHost, base::Unretained(this)));
 
     message_loop_.MessageLoop::Run();
 
-    return 0;
+    return exit_code_;
   }
 
   void set_config_path(const FilePath& config_path) {
@@ -212,30 +220,39 @@ class SimpleHost {
     signal_strategy_.reset(
         new XmppSignalStrategy(context_.jingle_thread(), xmpp_login_,
                                xmpp_auth_token_, xmpp_auth_service_));
-    signaling_connector_.reset(new SignalingConnector(signal_strategy_.get()));
+    signaling_connector_.reset(new SignalingConnector(
+        signal_strategy_.get(),
+        base::Bind(&SimpleHost::OnAuthFailed, base::Unretained(this))));
 
     if (fake_) {
       scoped_ptr<Capturer> capturer(new CapturerFake());
-      scoped_ptr<protocol::HostEventStub> event_executor =
-          EventExecutor::Create(
-              context_.desktop_message_loop(), capturer.get());
+      scoped_ptr<EventExecutor> event_executor = EventExecutor::Create(
+          context_.desktop_task_runner(),
+          context_.ui_task_runner(), capturer.get());
+      scoped_ptr<AudioCapturer> audio_capturer(NULL);
       desktop_environment_ = DesktopEnvironment::CreateFake(
-          &context_, capturer.Pass(), event_executor.Pass());
+          &context_,
+          capturer.Pass(),
+          event_executor.Pass(),
+          audio_capturer.Pass());
     } else {
       desktop_environment_ = DesktopEnvironment::Create(&context_);
     }
 
-    host_ = new ChromotingHost(&context_, signal_strategy_.get(),
-                               desktop_environment_.get(), network_settings_);
+    host_ = new ChromotingHost(
+        &context_, signal_strategy_.get(), desktop_environment_.get(),
+        CreateHostSessionManager(network_settings_,
+                                 context_.url_request_context_getter()));
 
     ServerLogEntry::Mode mode =
         is_it2me_ ? ServerLogEntry::IT2ME : ServerLogEntry::ME2ME;
     log_to_server_.reset(new LogToServer(host_, mode, signal_strategy_.get()));
 
     if (is_it2me_) {
-      it2me_host_user_interface_.reset(
-          new It2MeHostUserInterface(host_, &context_));
-      it2me_host_user_interface_->Init();
+      it2me_host_user_interface_.reset(new It2MeHostUserInterface(&context_));
+      it2me_host_user_interface_->Start(
+          host_,
+          base::Bind(&ChromotingHost::Shutdown, host_, base::Closure()));
     }
 
     if (protocol_config_.get()) {
@@ -247,8 +264,8 @@ class SimpleHost {
           signal_strategy_.get(), &key_pair_,
           base::Bind(&SimpleHost::SetIT2MeAccessCode, host_, &key_pair_)));
     } else {
-      heartbeat_sender_.reset(
-          new HeartbeatSender(host_id_, signal_strategy_.get(), &key_pair_));
+      heartbeat_sender_.reset(new HeartbeatSender(
+          this, host_id_, signal_strategy_.get(), &key_pair_));
     }
 
     host_->Start();
@@ -257,14 +274,42 @@ class SimpleHost {
     if (!is_it2me_) {
       scoped_ptr<protocol::AuthenticatorFactory> factory(
           new protocol::Me2MeHostAuthenticatorFactory(
-              xmpp_login_, key_pair_.GenerateCertificate(),
-              *key_pair_.private_key(), host_secret_hash_));
+              key_pair_.GenerateCertificate(), *key_pair_.private_key(),
+              host_secret_hash_));
       host_->SetAuthenticatorFactory(factory.Pass());
     }
   }
 
+  void OnAuthFailed() {
+    Shutdown(kInvalidOauthCredentialsExitCode);
+  }
+
+  void Shutdown(int exit_code) {
+    DCHECK(context_.network_task_runner()->BelongsToCurrentThread());
+
+    if (shutting_down_)
+      return;
+
+    shutting_down_ = true;
+    exit_code_ = exit_code;
+    host_->Shutdown(base::Bind(
+        &SimpleHost::OnShutdownFinished, base::Unretained(this)));
+  }
+
+  void OnShutdownFinished() {
+    DCHECK(context_.network_task_runner()->BelongsToCurrentThread());
+
+    // Destroy networking objects while we are on the network thread.
+    host_ = NULL;
+    log_to_server_.reset();
+    heartbeat_sender_.reset();
+    signaling_connector_.reset();
+    signal_strategy_.reset();
+
+    message_loop_.PostTask(FROM_HERE, MessageLoop::QuitClosure());
+  }
+
   MessageLoop message_loop_;
-  base::Thread file_io_thread_;
   ChromotingHostContext context_;
   scoped_ptr<net::NetworkChangeNotifier> network_change_notifier_;
 
@@ -281,7 +326,7 @@ class SimpleHost {
   std::string xmpp_auth_token_;
   std::string xmpp_auth_service_;
 
-  scoped_ptr<SignalStrategy> signal_strategy_;
+  scoped_ptr<XmppSignalStrategy> signal_strategy_;
   scoped_ptr<SignalingConnector> signaling_connector_;
   scoped_ptr<DesktopEnvironment> desktop_environment_;
   scoped_ptr<LogToServer> log_to_server_;
@@ -290,6 +335,9 @@ class SimpleHost {
   scoped_ptr<HeartbeatSender> heartbeat_sender_;
 
   scoped_refptr<ChromotingHost> host_;
+
+  bool shutting_down_;
+  int exit_code_;
 };
 
 } // namespace remoting
@@ -304,11 +352,27 @@ int main(int argc, char** argv) {
   const CommandLine* cmd_line = CommandLine::ForCurrentProcess();
 
   base::AtExitManager exit_manager;
-  crypto::EnsureNSPRInit();
 
-#if defined(TOOLKIT_USES_GTK)
+  // Initialize logging with an appropriate log-file location, and default to
+  // log to that on Windows, or to standard error output otherwise.
+  FilePath debug_log(FILE_PATH_LITERAL("debug.log"));
+  InitLogging(debug_log.value().c_str(),
+#if defined(OS_WIN)
+              logging::LOG_ONLY_TO_FILE,
+#else
+              logging::LOG_ONLY_TO_SYSTEM_DEBUG_LOG,
+#endif
+              logging::DONT_LOCK_LOG_FILE,
+              logging::APPEND_TO_OLD_LOG_FILE,
+              logging::DISABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS);
+
+#if defined(TOOLKIT_GTK)
   gfx::GtkInitFromCommandLine(*cmd_line);
-#endif  // TOOLKIT_USES_GTK
+#endif  // TOOLKIT_GTK
+
+  // Enable support for SSL server sockets, which must be done while still
+  // single-threaded.
+  net::EnableSSLServerSockets();
 
   remoting::SimpleHost simple_host;
 
@@ -325,7 +389,6 @@ int main(int argc, char** argv) {
         CandidateSessionConfig::CreateDefault());
     config->mutable_video_configs()->clear();
 
-    ChannelConfig::TransportType transport = ChannelConfig::TRANSPORT_STREAM;
     ChannelConfig::Codec codec;
     if (video_codec == kVideoSwitchValueVerbatim) {
       codec = ChannelConfig::CODEC_VERBATIM;
@@ -333,22 +396,20 @@ int main(int argc, char** argv) {
       codec = ChannelConfig::CODEC_ZIP;
     } else if (video_codec == kVideoSwitchValueVp8) {
       codec = ChannelConfig::CODEC_VP8;
-    } else if (video_codec == kVideoSwitchValueVp8Rtp) {
-      transport = ChannelConfig::TRANSPORT_SRTP;
-      codec = ChannelConfig::CODEC_VP8;
     } else {
       LOG(ERROR) << "Unknown video codec: " << video_codec;
       return 1;
     }
     config->mutable_video_configs()->push_back(ChannelConfig(
-        transport, remoting::protocol::kDefaultStreamVersion, codec));
+        ChannelConfig::TRANSPORT_STREAM,
+        remoting::protocol::kDefaultStreamVersion, codec));
     simple_host.set_protocol_config(config.release());
   }
 
   simple_host.network_settings()->nat_traversal_mode =
       cmd_line->HasSwitch(kDisableNatTraversalSwitchName) ?
-      remoting::protocol::TransportConfig::NAT_TRAVERSAL_DISABLED :
-      remoting::protocol::TransportConfig::NAT_TRAVERSAL_ENABLED;
+      remoting::NetworkSettings::NAT_TRAVERSAL_DISABLED :
+      remoting::NetworkSettings::NAT_TRAVERSAL_ENABLED;
 
   if (cmd_line->HasSwitch(kMinPortSwitchName)) {
     std::string min_port_str =

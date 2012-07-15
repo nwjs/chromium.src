@@ -1,24 +1,27 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef UI_VIEWS_EXAMPLES_NATIVE_THEME_BUTTON_EXAMPLE_H_
 #define UI_VIEWS_EXAMPLES_NATIVE_THEME_BUTTON_EXAMPLE_H_
-#pragma once
+
+#include <string>
 
 #include "base/basictypes.h"
-#include "ui/gfx/native_theme.h"
+#include "base/memory/scoped_ptr.h"
+#include "ui/base/native_theme/native_theme.h"
 #include "ui/views/controls/button/custom_button.h"
 #include "ui/views/controls/combobox/combobox_listener.h"
 #include "ui/views/examples/example_base.h"
 #include "ui/views/native_theme_delegate.h"
-#include "ui/views/native_theme_painter.h"
 
 namespace views {
 class Combobox;
 class NativeThemePainter;
 
 namespace examples {
+
+class ExampleComboboxModel;
 
 // A subclass of button to test native theme rendering.
 class ExampleNativeThemeButton : public CustomButton,
@@ -38,22 +41,20 @@ class ExampleNativeThemeButton : public CustomButton,
   virtual void OnPaintBackground(gfx::Canvas* canvas)  OVERRIDE;
 
   // Overridden from ComboboxListener:
-  virtual void ItemChanged(Combobox* combo_box,
-                           int prev_index,
-                           int new_index) OVERRIDE;
+  virtual void OnSelectedIndexChanged(Combobox* combobox) OVERRIDE;
 
-  // Overridden from NativeThemePainter::Delegate:
-  virtual gfx::NativeTheme::Part GetThemePart() const OVERRIDE;
+  // Overridden from NativeThemeDelegate:
+  virtual ui::NativeTheme::Part GetThemePart() const OVERRIDE;
   virtual gfx::Rect GetThemePaintRect() const OVERRIDE;
-  virtual gfx::NativeTheme::State GetThemeState(
-      gfx::NativeTheme::ExtraParams* params) const OVERRIDE;
+  virtual ui::NativeTheme::State GetThemeState(
+      ui::NativeTheme::ExtraParams* params) const OVERRIDE;
   virtual const ui::Animation* GetThemeAnimation() const OVERRIDE;
-  virtual gfx::NativeTheme::State GetBackgroundThemeState(
-      gfx::NativeTheme::ExtraParams* params) const OVERRIDE;
-  virtual gfx::NativeTheme::State GetForegroundThemeState(
-      gfx::NativeTheme::ExtraParams* params) const OVERRIDE;
+  virtual ui::NativeTheme::State GetBackgroundThemeState(
+      ui::NativeTheme::ExtraParams* params) const OVERRIDE;
+  virtual ui::NativeTheme::State GetForegroundThemeState(
+      ui::NativeTheme::ExtraParams* params) const OVERRIDE;
 
-  void GetExtraParams(gfx::NativeTheme::ExtraParams* params) const;
+  void GetExtraParams(ui::NativeTheme::ExtraParams* params) const;
 
   scoped_ptr<NativeThemePainter> painter_;
   Combobox* cb_part_;
@@ -79,8 +80,10 @@ class NativeThemeButtonExample : public ExampleBase, public ButtonListener {
   // Overridden from ButtonListener:
   virtual void ButtonPressed(Button* sender, const Event& event) OVERRIDE;
 
-  // The only control in this test.
   ExampleNativeThemeButton* button_;
+
+  scoped_ptr<ExampleComboboxModel> combobox_model_part_;
+  scoped_ptr<ExampleComboboxModel> combobox_model_state_;
 
   DISALLOW_COPY_AND_ASSIGN(NativeThemeButtonExample);
 };

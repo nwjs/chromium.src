@@ -14,8 +14,11 @@
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_manifest_constants.h"
 #include "grit/generated_resources.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/l10n/l10n_util.h"
+
+using extensions::Extension;
 
 namespace keys = extension_manifest_keys;
 
@@ -87,7 +90,7 @@ TEST(ExtensionFileUtil, LoadExtensionWithValidLocales) {
 
   std::string error;
   scoped_refptr<Extension> extension(extension_file_util::LoadExtension(
-      install_dir, Extension::LOAD, Extension::STRICT_ERROR_CHECKS, &error));
+      install_dir, Extension::LOAD, Extension::NO_FLAGS, &error));
   ASSERT_TRUE(extension != NULL);
   EXPECT_EQ("The first extension that I made.", extension->description());
 }
@@ -103,7 +106,7 @@ TEST(ExtensionFileUtil, LoadExtensionWithoutLocalesFolder) {
 
   std::string error;
   scoped_refptr<Extension> extension(extension_file_util::LoadExtension(
-      install_dir, Extension::LOAD, Extension::STRICT_ERROR_CHECKS, &error));
+      install_dir, Extension::LOAD, Extension::NO_FLAGS, &error));
   ASSERT_FALSE(extension == NULL);
   EXPECT_TRUE(error.empty());
 }
@@ -176,7 +179,7 @@ TEST(ExtensionFileUtil, LoadExtensionGivesHelpfullErrorOnMissingManifest) {
 
   std::string error;
   scoped_refptr<Extension> extension(extension_file_util::LoadExtension(
-      install_dir, Extension::LOAD, Extension::STRICT_ERROR_CHECKS, &error));
+      install_dir, Extension::LOAD, Extension::NO_FLAGS, &error));
   ASSERT_TRUE(extension == NULL);
   ASSERT_FALSE(error.empty());
   ASSERT_STREQ("Manifest file is missing or unreadable.", error.c_str());
@@ -193,7 +196,7 @@ TEST(ExtensionFileUtil, LoadExtensionGivesHelpfullErrorOnBadManifest) {
 
   std::string error;
   scoped_refptr<Extension> extension(extension_file_util::LoadExtension(
-      install_dir, Extension::LOAD, Extension::STRICT_ERROR_CHECKS, &error));
+      install_dir, Extension::LOAD, Extension::NO_FLAGS, &error));
   ASSERT_TRUE(extension == NULL);
   ASSERT_FALSE(error.empty());
   ASSERT_STREQ("Manifest is not valid JSON.  "
@@ -209,15 +212,14 @@ TEST(ExtensionFileUtil, FailLoadingNonUTF8Scripts) {
 
   std::string error;
   scoped_refptr<Extension> extension(extension_file_util::LoadExtension(
-      install_dir, Extension::LOAD, Extension::STRICT_ERROR_CHECKS, &error));
+      install_dir, Extension::LOAD, Extension::NO_FLAGS, &error));
   ASSERT_TRUE(extension == NULL);
   ASSERT_STREQ("Could not load file 'bad_encoding.js' for content script. "
                "It isn't UTF-8 encoded.", error.c_str());
 }
 
-#define URL_PREFIX "chrome-extension://extension-id/"
-
 TEST(ExtensionFileUtil, ExtensionURLToRelativeFilePath) {
+#define URL_PREFIX "chrome-extension://extension-id/"
   struct TestCase {
     const char* url;
     const char* expected_relative_path;
@@ -243,6 +245,7 @@ TEST(ExtensionFileUtil, ExtensionURLToRelativeFilePath) {
     { URL_PREFIX "\\\\foo\\simple.html",
       "foo/simple.html" },
   };
+#undef URL_PREFIX
 
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(test_cases); ++i) {
     GURL url(test_cases[i].url);
@@ -259,6 +262,72 @@ TEST(ExtensionFileUtil, ExtensionURLToRelativeFilePath) {
     EXPECT_EQ(expected_path.value(), actual_path.value()) <<
       " For the path " << url;
   }
+}
+
+TEST(ExtensionFileUtil, ExtensionResourceURLToFilePath) {
+  // Setup filesystem for testing.
+  FilePath root_path;
+  ASSERT_TRUE(file_util::CreateNewTempDirectory(
+        FILE_PATH_LITERAL(""), &root_path));
+  ASSERT_TRUE(file_util::AbsolutePath(&root_path));
+
+  FilePath api_path = root_path.Append(FILE_PATH_LITERAL("apiname"));
+  ASSERT_TRUE(file_util::CreateDirectory(api_path));
+
+  const char data[] = "Test Data";
+  FilePath resource_path = api_path.Append(FILE_PATH_LITERAL("test.js"));
+  ASSERT_TRUE(file_util::WriteFile(resource_path, data, sizeof(data)));
+  resource_path = api_path.Append(FILE_PATH_LITERAL("escape spaces.js"));
+  ASSERT_TRUE(file_util::WriteFile(resource_path, data, sizeof(data)));
+
+#ifdef FILE_PATH_USES_WIN_SEPARATORS
+#define SEP "\\"
+#else
+#define SEP "/"
+#endif
+#define URL_PREFIX "chrome-extension-resource://"
+  struct TestCase {
+    const char* url;
+    const FilePath::CharType* expected_path;
+  } test_cases[] = {
+    { URL_PREFIX "apiname/test.js",
+      FILE_PATH_LITERAL("test.js") },
+    { URL_PREFIX "/apiname/test.js",
+      FILE_PATH_LITERAL("test.js") },
+    // Test % escape
+    { URL_PREFIX "apiname/%74%65st.js",
+      FILE_PATH_LITERAL("test.js") },
+    { URL_PREFIX "apiname/escape%20spaces.js",
+      FILE_PATH_LITERAL("escape spaces.js") },
+    // Test file does not exist.
+    { URL_PREFIX "apiname/directory/to/file.js",
+      NULL },
+    // Test apiname/../../test.js
+    { URL_PREFIX "apiname/../../test.js",
+      FILE_PATH_LITERAL("test.js") },
+    { URL_PREFIX "apiname/..%2F../test.js",
+      NULL },
+    { URL_PREFIX "apiname/f/../../../test.js",
+      FILE_PATH_LITERAL("test.js") },
+    { URL_PREFIX "apiname/f%2F..%2F..%2F../test.js",
+      NULL },
+  };
+#undef SEP
+#undef URL_PREFIX
+
+  for (size_t i = 0; i < ARRAYSIZE_UNSAFE(test_cases); ++i) {
+    GURL url(test_cases[i].url);
+    FilePath expected_path;
+    if (test_cases[i].expected_path)
+      expected_path = root_path.Append(FILE_PATH_LITERAL("apiname")).Append(
+          test_cases[i].expected_path);
+    FilePath actual_path =
+        extension_file_util::ExtensionResourceURLToFilePath(url, root_path);
+    EXPECT_EQ(expected_path.value(), actual_path.value()) <<
+      " For the path " << url;
+  }
+  // Remove temp files.
+  ASSERT_TRUE(file_util::Delete(root_path, true));
 }
 
 static scoped_refptr<Extension> LoadExtensionManifest(
@@ -314,8 +383,11 @@ TEST(ExtensionFileUtil, ValidateThemeUTF8) {
       kManifest, temp.path(), Extension::LOAD, 0, &error);
   ASSERT_TRUE(extension.get()) << error;
 
-  EXPECT_TRUE(extension_file_util::ValidateExtension(extension, &error)) <<
+  Extension::InstallWarningVector warnings;
+  EXPECT_TRUE(extension_file_util::ValidateExtension(extension,
+                                                     &error, &warnings)) <<
       error;
+  EXPECT_EQ(0U, warnings.size());
 }
 
 #if defined(OS_WIN)
@@ -338,14 +410,17 @@ TEST(ExtensionFileUtil, MAYBE_BackgroundScriptsMustExist) {
   value->Set("background.scripts", scripts);
 
   std::string error;
+  Extension::InstallWarningVector warnings;
   scoped_refptr<Extension> extension = LoadExtensionManifest(
       value.get(), temp.path(), Extension::LOAD, 0, &error);
   ASSERT_TRUE(extension.get()) << error;
 
-  EXPECT_FALSE(extension_file_util::ValidateExtension(extension, &error));
+  EXPECT_FALSE(extension_file_util::ValidateExtension(extension,
+                                                      &error, &warnings));
   EXPECT_EQ(l10n_util::GetStringFUTF8(
       IDS_EXTENSION_LOAD_BACKGROUND_SCRIPT_FAILED, ASCIIToUTF16("foo.js")),
            error);
+  EXPECT_EQ(0U, warnings.size());
 
   scripts->Clear();
   scripts->Append(Value::CreateStringValue("http://google.com/foo.js"));
@@ -354,11 +429,103 @@ TEST(ExtensionFileUtil, MAYBE_BackgroundScriptsMustExist) {
                                     0, &error);
   ASSERT_TRUE(extension.get()) << error;
 
-  EXPECT_FALSE(extension_file_util::ValidateExtension(extension, &error));
+  warnings.clear();
+  EXPECT_FALSE(extension_file_util::ValidateExtension(extension,
+                                                      &error, &warnings));
   EXPECT_EQ(l10n_util::GetStringFUTF8(
       IDS_EXTENSION_LOAD_BACKGROUND_SCRIPT_FAILED,
       ASCIIToUTF16("http://google.com/foo.js")),
            error);
+  EXPECT_EQ(0U, warnings.size());
+}
+
+// Private key, generated by Chrome specifically for this test, and
+// never used elsewhere.
+const char private_key[] =
+    "-----BEGIN PRIVATE KEY-----\n"
+    "MIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAKt02SR0FYaYy6fpW\n"
+    "MAA+kU1BgK3d+OmmWfdr+JATIjhRkyeSF4lTd/71JQsyKqPzYkQPi3EeROWM+goTv\n"
+    "EhJqq07q63BolpsFmlV+S4ny+sBA2B4aWwRYXlBWikdrQSA0mJMzvEHc6nKzBgXik\n"
+    "QSVbyyBNAsxlDB9WaCxRVOpK3AgMBAAECgYBGvSPlrVtAOAQ2V8j9FqorKZA8SLPX\n"
+    "IeJC/yzU3RB2nPMjI17aMOvrUHxJUhzMeh4jwabVvSzzDtKFozPGupW3xaI8sQdi2\n"
+    "WWMTQIk/Q9HHDWoQ9qA6SwX2qWCc5SyjCKqVp78ye+000kqTJYjBsDgXeAlzKcx2B\n"
+    "4GAAeWonDdkQJBANNb8wrqNWFn7DqyQTfELzcRTRnqQ/r1pdeJo6obzbnwGnlqe3t\n"
+    "KhLjtJNIGrQg5iC0OVLWFuvPJs0t3z62A1ckCQQDPq2JZuwTwu5Pl4DJ0r9O1FdqN\n"
+    "JgqPZyMptokCDQ3khLLGakIu+TqB9YtrzI69rJMSG2Egb+6McaDX+dh3XmR/AkB9t\n"
+    "xJf6qDnmA2td/tMtTc0NOk8Qdg/fD8xbZ/YfYMnVoYYs9pQoilBaWRePDRNURMLYZ\n"
+    "vHAI0Llmw7tj7jv17pAkEAz44uXRpjRKtllUIvi5pUENAHwDz+HvdpGH68jpU3hmb\n"
+    "uOwrmnQYxaMReFV68Z2w9DcLZn07f7/R9Wn72z89CxwJAFsDoNaDes4h48bX7plct\n"
+    "s9ACjmTwcCigZjN2K7AGv7ntCLF3DnV5dK0dTHNaAdD3SbY3jl29Rk2CwiURSX6Ee\n"
+    "g==\n"
+    "-----END PRIVATE KEY-----\n";
+
+TEST(ExtensionFileUtil, FindPrivateKeyFiles) {
+  ScopedTempDir temp;
+  ASSERT_TRUE(temp.CreateUniqueTempDir());
+
+  FilePath src_path = temp.path().AppendASCII("some_dir");
+  ASSERT_TRUE(file_util::CreateDirectory(src_path));
+
+  ASSERT_TRUE(file_util::WriteFile(src_path.AppendASCII("a_key.pem"),
+                                   private_key, arraysize(private_key)));
+  ASSERT_TRUE(file_util::WriteFile(src_path.AppendASCII("second_key.pem"),
+                                   private_key, arraysize(private_key)));
+  // Shouldn't find a key with a different extension.
+  ASSERT_TRUE(file_util::WriteFile(src_path.AppendASCII("key.diff_ext"),
+                                   private_key, arraysize(private_key)));
+  // Shouldn't find a key that isn't parsable.
+  ASSERT_TRUE(file_util::WriteFile(src_path.AppendASCII("unparsable_key.pem"),
+                                   private_key, arraysize(private_key) - 30));
+  std::vector<FilePath> private_keys =
+      extension_file_util::FindPrivateKeyFiles(temp.path());
+  EXPECT_EQ(2U, private_keys.size());
+  EXPECT_THAT(private_keys,
+              testing::Contains(src_path.AppendASCII("a_key.pem")));
+  EXPECT_THAT(private_keys,
+              testing::Contains(src_path.AppendASCII("second_key.pem")));
+}
+
+TEST(ExtensionFileUtil, WarnOnPrivateKey) {
+  ScopedTempDir temp;
+  ASSERT_TRUE(temp.CreateUniqueTempDir());
+
+  FilePath ext_path = temp.path().AppendASCII("ext_root");
+  ASSERT_TRUE(file_util::CreateDirectory(ext_path));
+
+  const char manifest[] =
+      "{\n"
+      "  \"name\": \"Test Extension\",\n"
+      "  \"version\": \"1.0\",\n"
+      "  \"manifest_version\": 2,\n"
+      "  \"description\": \"The first extension that I made.\"\n"
+      "}\n";
+  ASSERT_TRUE(file_util::WriteFile(ext_path.AppendASCII("manifest.json"),
+                                   manifest, strlen(manifest)));
+  ASSERT_TRUE(file_util::WriteFile(ext_path.AppendASCII("a_key.pem"),
+                                   private_key, strlen(private_key)));
+
+  std::string error;
+  scoped_refptr<Extension> extension(extension_file_util::LoadExtension(
+      ext_path, "the_id", Extension::EXTERNAL_PREF,
+      Extension::NO_FLAGS, &error));
+  ASSERT_TRUE(extension.get()) << error;
+  ASSERT_EQ(1u, extension->install_warnings().size());
+  EXPECT_THAT(
+      extension->install_warnings(),
+      testing::ElementsAre(
+          testing::Field(
+              &Extension::InstallWarning::message,
+              testing::ContainsRegex(
+                  "extension includes the key file.*ext_root.a_key.pem"))));
+
+  // Turn the warning into an error with ERROR_ON_PRIVATE_KEY.
+  extension = extension_file_util::LoadExtension(
+      ext_path, "the_id", Extension::EXTERNAL_PREF,
+      Extension::ERROR_ON_PRIVATE_KEY, &error);
+  EXPECT_FALSE(extension.get());
+  EXPECT_THAT(error,
+              testing::ContainsRegex(
+                  "extension includes the key file.*ext_root.a_key.pem"));
 }
 
 // TODO(aa): More tests as motivation allows. Maybe steal some from

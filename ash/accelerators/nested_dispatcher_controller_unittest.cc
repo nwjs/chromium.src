@@ -15,6 +15,7 @@
 #include "ui/aura/test/test_windows.h"
 #include "ui/aura/window.h"
 #include "ui/base/accelerators/accelerator.h"
+#include "ui/base/events.h"
 
 #if defined(USE_X11)
 #include <X11/Xlib.h>
@@ -33,21 +34,13 @@ class MockDispatcher : public MessageLoop::Dispatcher {
 
   int num_key_events_dispatched() { return num_key_events_dispatched_; }
 
-#if defined(OS_WIN)
-  virtual bool Dispatch(const MSG& msg) OVERRIDE {
-    if (msg.message == WM_KEYUP)
+#if defined(OS_WIN) || defined(USE_X11)
+  virtual bool Dispatch(const base::NativeEvent& event) OVERRIDE {
+    if (ui::EventTypeFromNative(event) == ui::ET_KEY_RELEASED)
       num_key_events_dispatched_++;
-    return !ui::IsNoopEvent(msg);
+    return !ui::IsNoopEvent(event);
   }
-#elif defined(USE_X11)
-  virtual base::MessagePumpDispatcher::DispatchStatus Dispatch(
-      XEvent* xev) OVERRIDE {
-    if (xev->type == KeyRelease)
-      num_key_events_dispatched_++;
-    return ui::IsNoopEvent(xev) ? MessagePumpDispatcher::EVENT_QUIT :
-        MessagePumpDispatcher::EVENT_IGNORED;
-  }
-#endif
+#endif  //  defined(OS_WIN) || defined(USE_X11)
 
  private:
   int num_key_events_dispatched_;
@@ -85,25 +78,25 @@ void DispatchKeyReleaseA() {
   // ShouldHandle() in ui/base/accelerators/accelerator_manager.cc for details.
 #if defined(OS_WIN)
   MSG native_event_down = { NULL, WM_KEYDOWN, ui::VKEY_A, 0 };
-  ash::Shell::GetRootWindow()->PostNativeEvent(native_event_down);
+  ash::Shell::GetPrimaryRootWindow()->PostNativeEvent(native_event_down);
   MSG native_event_up = { NULL, WM_KEYUP, ui::VKEY_A, 0 };
-  ash::Shell::GetRootWindow()->PostNativeEvent(native_event_up);
+  ash::Shell::GetPrimaryRootWindow()->PostNativeEvent(native_event_up);
 #elif defined(USE_X11)
   XEvent native_event;
   ui::InitXKeyEventForTesting(ui::ET_KEY_PRESSED,
                               ui::VKEY_A,
                               0,
                               &native_event);
-  ash::Shell::GetRootWindow()->PostNativeEvent(&native_event);
+  ash::Shell::GetPrimaryRootWindow()->PostNativeEvent(&native_event);
   ui::InitXKeyEventForTesting(ui::ET_KEY_RELEASED,
                               ui::VKEY_A,
                               0,
                               &native_event);
-  ash::Shell::GetRootWindow()->PostNativeEvent(&native_event);
+  ash::Shell::GetPrimaryRootWindow()->PostNativeEvent(&native_event);
 #endif
 
   // Send noop event to signal dispatcher to exit.
-  ash::Shell::GetRootWindow()->PostNativeEvent(ui::CreateNoopEvent());
+  ash::Shell::GetPrimaryRootWindow()->PostNativeEvent(ui::CreateNoopEvent());
 }
 
 }  // namespace
@@ -113,14 +106,15 @@ typedef AshTestBase NestedDispatcherTest;
 // Aura window below lock screen in z order.
 TEST_F(NestedDispatcherTest, AssociatedWindowBelowLockScreen) {
   MockDispatcher inner_dispatcher;
-  aura::Window* default_container = Shell::GetInstance()->GetContainer(
+  aura::Window* default_container = Shell::GetContainer(
+      Shell::GetPrimaryRootWindow(),
       internal::kShellWindowId_DefaultContainer);
   scoped_ptr<aura::Window> associated_window(aura::test::CreateTestWindowWithId(
       0, default_container));
 
   Shell::GetInstance()->delegate()->LockScreen();
   DispatchKeyReleaseA();
-  aura::RootWindow* root_window = ash::Shell::GetInstance()->GetRootWindow();
+  aura::RootWindow* root_window = ash::Shell::GetPrimaryRootWindow();
   aura::client::GetDispatcherClient(root_window)->RunWithDispatcher(
       &inner_dispatcher,
       associated_window.get(),
@@ -133,7 +127,8 @@ TEST_F(NestedDispatcherTest, AssociatedWindowBelowLockScreen) {
 TEST_F(NestedDispatcherTest, AssociatedWindowAboveLockScreen) {
   MockDispatcher inner_dispatcher;
 
-  aura::Window* default_container = Shell::GetInstance()->GetContainer(
+  aura::Window* default_container = Shell::GetContainer(
+      Shell::GetPrimaryRootWindow(),
       internal::kShellWindowId_DefaultContainer);
   scoped_ptr<aura::Window>mock_lock_container(
       aura::test::CreateTestWindowWithId(0, default_container));
@@ -144,7 +139,7 @@ TEST_F(NestedDispatcherTest, AssociatedWindowAboveLockScreen) {
       mock_lock_container.get()));
 
   DispatchKeyReleaseA();
-  aura::RootWindow* root_window = ash::Shell::GetInstance()->GetRootWindow();
+  aura::RootWindow* root_window = ash::Shell::GetPrimaryRootWindow();
   aura::client::GetDispatcherClient(root_window)->RunWithDispatcher(
       &inner_dispatcher,
       associated_window.get(),
@@ -155,11 +150,10 @@ TEST_F(NestedDispatcherTest, AssociatedWindowAboveLockScreen) {
 // Test that the nested dispatcher handles accelerators.
 TEST_F(NestedDispatcherTest, AcceleratorsHandled) {
   MockDispatcher inner_dispatcher;
-  aura::RootWindow* root_window = ash::Shell::GetInstance()->GetRootWindow();
+  aura::RootWindow* root_window = ash::Shell::GetPrimaryRootWindow();
 
-  ui::Accelerator accelerator(ui::VKEY_A, false, false, false);
+  ui::Accelerator accelerator(ui::VKEY_A, ui::EF_NONE);
   accelerator.set_type(ui::ET_KEY_RELEASED);
-  // TODO(yusukes): Add a test for a ui::ET_TRANSLATED_KEY_RELEASE accelerator.
   TestTarget target;
   Shell::GetInstance()->accelerator_controller()->Register(accelerator,
                                                            &target);

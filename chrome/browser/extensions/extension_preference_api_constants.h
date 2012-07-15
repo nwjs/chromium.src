@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_PREFERENCE_API_CONSTANTS_H__
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_PREFERENCE_API_CONSTANTS_H__
-#pragma once
 
 namespace extension_preference_api_constants {
 
@@ -16,12 +15,6 @@ extern const char kScopeKey[];
 extern const char kIncognitoSpecific[];
 extern const char kLevelOfControl[];
 extern const char kValue[];
-
-// Values for levelOfControl.
-extern const char kNotControllable[];
-extern const char kControlledByOtherExtensions[];
-extern const char kControllableByThisExtension[];
-extern const char kControlledByThisExtension[];
 
 // Errors.
 extern const char kIncognitoErrorMessage[];

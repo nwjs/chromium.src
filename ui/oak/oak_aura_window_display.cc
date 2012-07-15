@@ -25,7 +25,7 @@ ROW_TRANSPARENT,
 ROW_LAYER,
 ROW_VISIBLE,
 ROW_BOUNDS,
-ROW_SCREENBOUNDS,
+ROW_BOUNDSINROOTWINDOW,
 ROW_TRANSFORM,
 ROW_PARENT,
 ROW_ROOTWINDOW,
@@ -34,7 +34,8 @@ ROW_TRANSIENTPARENT,
 ROW_USERDATA,
 ROW_IGNOREEVENTS,
 ROW_CANFOCUS,
-ROW_HITTESTBOUNDSOVERRIDE,
+ROW_HITTESTBOUNDSOVERRIDEOUTER,
+ROW_HITTESTBOUNDSOVERRIDEINNER,
 ROW_COUNT
 };
 
@@ -120,8 +121,9 @@ string16 OakAuraWindowDisplay::GetText(int row, int column_id) {
       return PropertyWithBool("Visible: ", window_->IsVisible());
     case ROW_BOUNDS:
       return PropertyWithBounds("Bounds: ", window_->bounds());
-    case ROW_SCREENBOUNDS:
-      return PropertyWithBounds("Screen Bounds: ", window_->GetScreenBounds());
+    case ROW_BOUNDSINROOTWINDOW:
+      return PropertyWithBounds("Bounds in Root Window: ",
+                                window_->GetRootWindowBounds());
     case ROW_TRANSFORM:
       return ASCIIToUTF16("Transform:");
     case ROW_PARENT:
@@ -141,13 +143,12 @@ string16 OakAuraWindowDisplay::GetText(int row, int column_id) {
                               window_->CanReceiveEvents());
     case ROW_CANFOCUS:
       return PropertyWithBool("Can Focus: ", window_->CanFocus());
-    case ROW_HITTESTBOUNDSOVERRIDE: {
-      int outer, inner;
-      window_->GetHitTestBoundsOverride(&outer, &inner);
-      return ASCIIToUTF16(
-          base::StringPrintf("Hit test bounds override: outer %d, inner %d",
-                             outer, inner));
-    }
+    case ROW_HITTESTBOUNDSOVERRIDEOUTER:
+      return PropertyWithInsets("Hit test bounds override outer: ",
+                                window_->hit_test_bounds_override_outer());
+    case ROW_HITTESTBOUNDSOVERRIDEINNER:
+      return PropertyWithInsets("Hit test bounds override inner: ",
+                                window_->hit_test_bounds_override_inner());
     default:
       NOTREACHED();
       break;

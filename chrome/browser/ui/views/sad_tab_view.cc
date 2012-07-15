@@ -6,14 +6,16 @@
 
 #include <string>
 
+#include "base/metrics/field_trial.h"
 #include "base/metrics/histogram.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/feedback/feedback_util.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/webui/feedback_ui.h"
 #include "chrome/common/url_constants.h"
-#include "content/public/browser/web_contents.h"
 #include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/web_contents.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -28,29 +30,45 @@
 using content::OpenURLParams;
 using content::WebContents;
 
-static const int kPadding = 20;
-static const float kMessageSize = 0.65f;
-static const SkColor kTextColor = SK_ColorWHITE;
-static const SkColor kCrashColor = SkColorSetRGB(35, 48, 64);
-static const SkColor kKillColor = SkColorSetRGB(57, 48, 88);
+namespace {
+
+const int kPadding = 20;
+const float kMessageSize = 0.65f;
+const SkColor kTextColor = SK_ColorWHITE;
+const SkColor kCrashColor = SkColorSetRGB(35, 48, 64);
+const SkColor kKillColor = SkColorSetRGB(57, 48, 88);
 
 const char kCategoryTagCrash[] = "Crash";
 
 // Font size correction.
 #if defined(CROS_FONTS_USING_BCI)
-static const int kTitleFontSizeDelta = 1;
-static const int kMessageFontSizeDelta = 0;
+const int kTitleFontSizeDelta = 1;
+const int kMessageFontSizeDelta = 0;
 #else
-static const int kTitleFontSizeDelta = 2;
-static const int kMessageFontSizeDelta = 1;
+const int kTitleFontSizeDelta = 2;
+const int kMessageFontSizeDelta = 1;
 #endif
 
-SadTabView::SadTabView(WebContents* web_contents, Kind kind)
+// Name of the experiment to run.
+const char kExperiment[] = "LowMemoryMargin";
+
+#define EXPERIMENT_CUSTOM_COUNTS(name, sample, min, max, buckets)          \
+    {                                                                      \
+      UMA_HISTOGRAM_CUSTOM_COUNTS(name, sample, min, max, buckets);        \
+      if (base::FieldTrialList::TrialExists(kExperiment))                  \
+        UMA_HISTOGRAM_CUSTOM_COUNTS(                                       \
+            base::FieldTrial::MakeName(name, kExperiment),                 \
+            sample, min, max, buckets);                                    \
+    }
+
+}  // namespace
+
+SadTabView::SadTabView(WebContents* web_contents, chrome::SadTabKind kind)
     : web_contents_(web_contents),
       kind_(kind),
       painted_(false),
-      base_font_(ResourceBundle::GetSharedInstance().GetFont(
-          ResourceBundle::BaseFont)),
+      base_font_(ui::ResourceBundle::GetSharedInstance().GetFont(
+          ui::ResourceBundle::BaseFont)),
       message_(NULL),
       help_link_(NULL),
       feedback_link_(NULL),
@@ -59,11 +77,36 @@ SadTabView::SadTabView(WebContents* web_contents, Kind kind)
 
   // Sometimes the user will never see this tab, so keep track of the total
   // number of creation events to compare to display events.
+  // TODO(jamescook): Remove this after R20 stable.  Keep it for now so we can
+  // compare R20 to earlier versions.
   UMA_HISTOGRAM_COUNTS("SadTab.Created", kind_);
+
+  // These stats should use the same counting approach and bucket size used for
+  // tab discard events in chrome/browser/oom_priority_manager.cc so they can be
+  // directly compared.
+  // TODO(jamescook): Maybe track time between sad tabs?
+  switch (kind_) {
+    case chrome::SAD_TAB_KIND_CRASHED: {
+      static int crashed = 0;
+      crashed++;
+      EXPERIMENT_CUSTOM_COUNTS(
+          "Tabs.SadTab.CrashCreated", crashed, 1, 1000, 50);
+      break;
+    }
+    case chrome::SAD_TAB_KIND_KILLED: {
+      static int killed = 0;
+      killed++;
+      EXPERIMENT_CUSTOM_COUNTS(
+          "Tabs.SadTab.KillCreated", killed, 1, 1000, 50);
+      break;
+    }
+    default:
+      NOTREACHED();
+  }
 
   // Set the background color.
   set_background(views::Background::CreateSolidBackground(
-      (kind_ == CRASHED) ? kCrashColor : kKillColor));
+      (kind_ == chrome::SAD_TAB_KIND_CRASHED) ? kCrashColor : kKillColor));
 }
 
 SadTabView::~SadTabView() {}
@@ -71,15 +114,15 @@ SadTabView::~SadTabView() {}
 void SadTabView::LinkClicked(views::Link* source, int event_flags) {
   DCHECK(web_contents_);
   if (source == help_link_) {
-    GURL help_url(
-        kind_ == CRASHED ? chrome::kCrashReasonURL : chrome::kKillReasonURL);
+    GURL help_url((kind_ == chrome::SAD_TAB_KIND_CRASHED) ?
+        chrome::kCrashReasonURL : chrome::kKillReasonURL);
     OpenURLParams params(
         help_url, content::Referrer(), CURRENT_TAB,
         content::PAGE_TRANSITION_LINK, false);
     web_contents_->OpenURL(params);
   } else if (source == feedback_link_) {
-    browser::ShowHtmlFeedbackView(
-        Browser::GetBrowserForController(&web_contents_->GetController(), NULL),
+    browser::ShowWebFeedbackView(
+        browser::FindBrowserWithWebContents(web_contents_),
         l10n_util::GetStringUTF8(IDS_KILLED_TAB_FEEDBACK_MESSAGE),
         std::string(kCategoryTagCrash));
   }
@@ -115,19 +158,21 @@ void SadTabView::ViewHierarchyChanged(bool is_add,
   columns->AddPaddingColumn(1, kPadding);
 
   views::ImageView* image = new views::ImageView();
-  image->SetImage(ResourceBundle::GetSharedInstance().GetBitmapNamed(
-      (kind_ == CRASHED) ? IDR_SAD_TAB : IDR_KILLED_TAB));
+  image->SetImage(ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
+      (kind_ == chrome::SAD_TAB_KIND_CRASHED) ? IDR_SAD_TAB : IDR_KILLED_TAB));
   layout->StartRowWithPadding(0, column_set_id, 1, kPadding);
   layout->AddView(image);
 
   views::Label* title = CreateLabel(l10n_util::GetStringUTF16(
-      (kind_ == CRASHED) ? IDS_SAD_TAB_TITLE : IDS_KILLED_TAB_TITLE));
+      (kind_ == chrome::SAD_TAB_KIND_CRASHED) ?
+          IDS_SAD_TAB_TITLE : IDS_KILLED_TAB_TITLE));
   title->SetFont(base_font_.DeriveFont(kTitleFontSizeDelta, gfx::Font::BOLD));
   layout->StartRowWithPadding(0, column_set_id, 0, kPadding);
   layout->AddView(title);
 
   message_ = CreateLabel(l10n_util::GetStringUTF16(
-      (kind_ == CRASHED) ? IDS_SAD_TAB_MESSAGE : IDS_KILLED_TAB_MESSAGE));
+      (kind_ == chrome::SAD_TAB_KIND_CRASHED) ?
+          IDS_SAD_TAB_MESSAGE : IDS_KILLED_TAB_MESSAGE));
   message_->SetMultiLine(true);
   layout->StartRowWithPadding(0, column_set_id, 0, kPadding);
   layout->AddView(message_);
@@ -142,9 +187,10 @@ void SadTabView::ViewHierarchyChanged(bool is_add,
     layout->AddView(reload_button_);
 
     help_link_ = CreateLink(l10n_util::GetStringUTF16(
-        (kind_ == CRASHED) ? IDS_SAD_TAB_HELP_LINK : IDS_LEARN_MORE));
+        (kind_ == chrome::SAD_TAB_KIND_CRASHED) ?
+            IDS_SAD_TAB_HELP_LINK : IDS_LEARN_MORE));
 
-    if (kind_ == CRASHED) {
+    if (kind_ == chrome::SAD_TAB_KIND_CRASHED) {
       size_t offset = 0;
       string16 help_text(l10n_util::GetStringFUTF16(IDS_SAD_TAB_HELP_MESSAGE,
                                                     string16(), &offset));
@@ -180,7 +226,29 @@ void SadTabView::ViewHierarchyChanged(bool is_add,
 void SadTabView::OnPaint(gfx::Canvas* canvas) {
   if (!painted_) {
     // User actually saw the error, keep track for user experience stats.
+    // TODO(jamescook): Remove this after R20 stable.  Keep it for now so we can
+    // compare R20 to earlier versions.
     UMA_HISTOGRAM_COUNTS("SadTab.Displayed", kind_);
+
+    // These stats should use the same counting approach and bucket size used
+    // for tab discard events in chrome/browser/oom_priority_manager.cc so they
+    // can be directly compared.
+    switch (kind_) {
+      case chrome::SAD_TAB_KIND_CRASHED: {
+        static int crashed = 0;
+        UMA_HISTOGRAM_CUSTOM_COUNTS(
+            "Tabs.SadTab.CrashDisplayed", ++crashed, 1, 1000, 50);
+        break;
+      }
+      case chrome::SAD_TAB_KIND_KILLED: {
+        static int killed = 0;
+        UMA_HISTOGRAM_CUSTOM_COUNTS(
+            "Tabs.SadTab.KillDisplayed", ++killed, 1, 1000, 50);
+        break;
+      }
+      default:
+        NOTREACHED();
+    }
     painted_ = true;
   }
   View::OnPaint(canvas);

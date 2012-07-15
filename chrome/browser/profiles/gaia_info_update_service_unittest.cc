@@ -75,8 +75,8 @@ TEST_F(GAIAInfoUpdateServiceTest, DownloadSuccess) {
   string16 name = ASCIIToUTF16("Pat Smith");
   EXPECT_CALL(downloader, GetProfileFullName()).WillOnce(Return(name));
   gfx::Image image = gfx::test::CreateImage();
-  SkBitmap bmp = image;
-  EXPECT_CALL(downloader, GetProfilePicture()).WillOnce(Return(bmp));
+  const SkBitmap* bmp = image.ToSkBitmap();
+  EXPECT_CALL(downloader, GetProfilePicture()).WillOnce(Return(*bmp));
   EXPECT_CALL(downloader, GetProfilePictureStatus()).
       WillOnce(Return(ProfileDownloader::PICTURE_SUCCESS));
   std::string url("foo.com");
@@ -85,7 +85,7 @@ TEST_F(GAIAInfoUpdateServiceTest, DownloadSuccess) {
   // No URL should be cached yet.
   EXPECT_EQ(std::string(), service.GetCachedPictureURL());
 
-  service.OnDownloadComplete(&downloader, true);
+  service.OnProfileDownloadSuccess(&downloader);
 
   // On success both the profile info and GAIA info should be updated.
   size_t index = GetCache()->GetIndexOfProfileWithPath(profile()->GetPath());
@@ -108,7 +108,7 @@ TEST_F(GAIAInfoUpdateServiceTest, DownloadFailure) {
   EXPECT_EQ(std::string(), service.GetCachedPictureURL());
   NiceMock<ProfileDownloaderMock> downloader(&service);
 
-  service.OnDownloadComplete(&downloader, false);
+  service.OnProfileDownloadFailure(&downloader);
 
   // On failure nothing should be updated.
   EXPECT_FALSE(GetCache()->GetHasMigratedToGAIAInfoOfProfileAtIndex(index));
@@ -133,13 +133,13 @@ TEST_F(GAIAInfoUpdateServiceTest, NoMigration) {
   string16 new_name = ASCIIToUTF16("Pat Smith");
   EXPECT_CALL(downloader, GetProfileFullName()).WillOnce(Return(new_name));
   gfx::Image new_image = gfx::test::CreateImage();
-  SkBitmap new_bmp = new_image;
-  EXPECT_CALL(downloader, GetProfilePicture()).WillOnce(Return(new_bmp));
+  const SkBitmap* new_bmp = new_image.ToSkBitmap();
+  EXPECT_CALL(downloader, GetProfilePicture()).WillOnce(Return(*new_bmp));
   EXPECT_CALL(downloader, GetProfilePictureStatus()).
       WillOnce(Return(ProfileDownloader::PICTURE_SUCCESS));
   EXPECT_CALL(downloader, GetProfilePictureURL()).WillOnce(Return(""));
 
-  service.OnDownloadComplete(&downloader, true);
+  service.OnProfileDownloadSuccess(&downloader);
 
   // On success with no migration the profile info should not be updated but
   // the GAIA info should be updated.

@@ -2,12 +2,8 @@
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file. */
 
-#clearBrowserDataOverlay {
+#clear-browser-data-overlay {
   min-width: 500px;
-}
-
-#clearBrowserDataOverlay > .content-area label {
-  margin: 5px 0;
 }
 
 #clear-data-checkboxes {
@@ -15,8 +11,12 @@
   margin: 5px 0;
 }
 
-#cbdThrobber {
+#cbd-throbber {
   margin: 4px 10px;
   vertical-align: middle;
   visibility: hidden;
+}
+
+#flash-storage-settings {
+  padding-top: 5px;
 }

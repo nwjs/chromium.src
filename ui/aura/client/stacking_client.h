@@ -4,9 +4,12 @@
 
 #ifndef UI_AURA_CLIENT_STACKING_CLIENT_H_
 #define UI_AURA_CLIENT_STACKING_CLIENT_H_
-#pragma once
 
 #include "ui/aura/aura_export.h"
+
+namespace gfx {
+class Rect;
+}
 
 namespace aura {
 class Window;
@@ -19,7 +22,7 @@ class AURA_EXPORT StackingClient {
 
   // Called by the Window when its parent is set to NULL, returns the window
   // that |window| should be added to instead.
-  virtual Window* GetDefaultParent(Window* window) = 0;
+  virtual Window* GetDefaultParent(Window* window, const gfx::Rect& bounds) = 0;
 };
 
 AURA_EXPORT void SetStackingClient(StackingClient* stacking_client);

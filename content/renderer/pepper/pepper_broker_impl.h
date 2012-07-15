@@ -11,8 +11,6 @@
 #include "webkit/plugins/ppapi/plugin_delegate.h"
 #include "webkit/plugins/ppapi/ppb_broker_impl.h"
 
-class PepperPluginDelegateImpl;
-
 namespace IPC {
 struct ChannelHandle;
 }
@@ -29,14 +27,17 @@ class PluginModule;
 }
 }
 
+namespace content {
+
+class PepperPluginDelegateImpl;
+
 // This object is NOT thread-safe.
 class CONTENT_EXPORT PepperBrokerDispatcherWrapper {
  public:
   PepperBrokerDispatcherWrapper();
   ~PepperBrokerDispatcherWrapper();
 
-  bool Init(base::ProcessHandle plugin_process_handle,
-            const IPC::ChannelHandle& channel_handle);
+  bool Init(const IPC::ChannelHandle& channel_handle);
 
   int32_t SendHandleToBroker(PP_Instance instance,
                              base::SyncSocket::Handle handle);
@@ -57,8 +58,7 @@ class PepperBrokerImpl : public webkit::ppapi::PluginDelegate::Broker,
   virtual void Disconnect(webkit::ppapi::PPB_Broker_Impl* client) OVERRIDE;
 
   // Called when the channel to the broker has been established.
-  void OnBrokerChannelConnected(base::ProcessHandle broker_process_handle,
-                                const IPC::ChannelHandle& channel_handle);
+  void OnBrokerChannelConnected(const IPC::ChannelHandle& channel_handle);
 
   // Connects the plugin to the broker via a pipe.
   void ConnectPluginToBroker(webkit::ppapi::PPB_Broker_Impl* client);
@@ -89,5 +89,7 @@ class PepperBrokerImpl : public webkit::ppapi::PluginDelegate::Broker,
 
   DISALLOW_COPY_AND_ASSIGN(PepperBrokerImpl);
 };
+
+}  // namespace content
 
 #endif  // CONTENT_RENDERER_PEPPER_PEPPER_BROKER_IMPL_H_

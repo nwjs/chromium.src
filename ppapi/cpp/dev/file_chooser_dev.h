@@ -1,11 +1,15 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef PPAPI_CPP_DEV_FILE_CHOOSER_DEV_H_
 #define PPAPI_CPP_DEV_FILE_CHOOSER_DEV_H_
 
+#include <vector>
+
 #include "ppapi/c/dev/ppb_file_chooser_dev.h"
+#include "ppapi/cpp/completion_callback.h"
+#include "ppapi/cpp/file_ref.h"
 #include "ppapi/cpp/resource.h"
 
 namespace pp {
@@ -32,40 +36,63 @@ class FileChooser_Dev : public Resource {
   /// In order to get the list of files in a directory, the
   /// PPB_DirectoryReader_Dev interface must be used.
   ///
-  /// @param accept_mime_types A comma-separated list of MIME types such as
-  /// "audio/ *,text/plain" (note there should be no space between the '/' and
-  /// the '*', but one is added to avoid confusing C++ comments).  The dialog
-  /// may restrict selectable files to the specified MIME types. An empty string
-  /// or an undefined var may be given to indicate that all types should be
+  /// @param accept_types A comma-separated list of MIME types and file
+  /// extensions such as "audio/ *,text/plain,.html" (note there should be
+  /// no space between the '/' and the '*', but one is added to avoid confusing
+  /// C++ comments). The dialog may restrict selectable files to the specified
+  /// MIME types and file extensions. If a string in the comma-separated list
+  /// begins with a period (.) then the string is interpreted as a file
+  /// extension, otherwise it is interpreted as a MIME-type. An empty string or
+  /// an undefined var may be given to indicate that all types should be
   /// accepted.
-  ///
-  /// TODO(darin): What if the mime type is unknown to the system?  The plugin
-  /// may wish to describe the mime type and provide a matching file extension.
-  /// It is more webby to use mime types here instead of file extensions.
   FileChooser_Dev(const InstanceHandle& instance,
                   PP_FileChooserMode_Dev mode,
-                  const Var& accept_mime_types);
+                  const Var& accept_types);
 
   FileChooser_Dev(const FileChooser_Dev& other);
 
   /// This function displays a previously created file chooser resource as a
-  /// dialog box, prompting the user to choose a file or files. The callback is
-  /// called with PP_OK on successful completion with a file (or files) selected
-  /// or PP_ERROR_USERCANCEL if the user selected no file.
+  /// dialog box, prompting the user to choose a file or files. This function
+  /// must be called in response to a user gesture, such as a mouse click or
+  /// touch event. The callback is called with PP_OK on successful completion
+  /// with a file (or files) selected, PP_ERROR_USERCANCEL if the user selected
+  /// no file, or another error code from pp_errors.h on failure.
+  ///
+  /// @param callback The completion callback that will be executed. On success,
+  /// the selected files will be passed to the given function.
+  ///
+  /// Normally you would use a CompletionCallbackFactory to allow callbacks to
+  /// be bound to your class. See completion_callback_factory.h for more
+  /// discussion on how to use this. Your callback will generally look like:
+  ///
+  /// @code
+  ///   void OnFilesSelected(int32_t result,
+  ///                        const std::vector<pp::FileRef>& files) {
+  ///     if (result == PP_OK)
+  ///       // use files...
+  ///   }
+  /// @endcode
   ///
   /// @return PP_OK_COMPLETIONPENDING if request to show the dialog was
   /// successful, another error code from pp_errors.h on failure.
-  virtual int32_t Show(const CompletionCallback& cc);
+  virtual int32_t Show(
+      const CompletionCallbackWithOutput< std::vector<FileRef> >& callback);
 
-  /// After a successful completion callback call from Show, this method may be
-  /// used to query the chosen files.  It should be called in a loop until it
-  /// returns an is_null() FileRef.  Depending on the PP_ChooseFileMode
-  /// requested when the FileChooser was created, the file refs will either
-  /// be readable or writable.  Their file system type will be
-  /// PP_FileSystemType_External.  If the user chose no files or cancelled the
-  /// dialog, then this method will simply return an is_null() FileRef the
-  /// first time it is called.
-  virtual FileRef GetNextChosenFile() const;
+ protected:
+  // Heap-allocated data passed to the CallbackConverter for backwards compat.
+  struct ChooseCallbackData0_5 {
+    PP_Resource file_chooser;
+    PP_ArrayOutput output;
+    PP_CompletionCallback original_callback;
+  };
+
+  // Provide backwards-compatability for older versions. Converts the old-style
+  // 0.5 "iterator" interface to the new-style 0.6 "array output" interface that
+  // the caller is expecting.
+  //
+  // This takes a heap-allocated ChooseCallbackData0_5 struct passed as the
+  // user data and deletes it when the call completes.
+  static void CallbackConverter(void* user_data, int32_t result);
 };
 
 }  // namespace pp

@@ -19,10 +19,10 @@
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
-#include "grit/theme_resources.h"
-#include "grit/theme_resources_standard.h"
-#include "ui/base/resource/resource_bundle.h"
 #include "googleurl/src/gurl.h"
+#include "grit/theme_resources.h"
+#include "ui/base/layout.h"
+#include "ui/base/resource/resource_bundle.h"
 
 using content::WebContents;
 
@@ -51,6 +51,8 @@ std::string BookmarksUIHTMLSource::GetMimeType(const std::string& path) const {
   return "text/html";
 }
 
+BookmarksUIHTMLSource::~BookmarksUIHTMLSource() {}
+
 ////////////////////////////////////////////////////////////////////////////////
 //
 // BookmarksUI
@@ -62,11 +64,12 @@ BookmarksUI::BookmarksUI(content::WebUI* web_ui) : WebUIController(web_ui) {
 
   // Set up the chrome://bookmarks/ source.
   Profile* profile = Profile::FromWebUI(web_ui);
-  profile->GetChromeURLDataManager()->AddDataSource(html_source);
+  ChromeURLDataManager::AddDataSource(profile, html_source);
 }
 
 // static
-RefCountedMemory* BookmarksUI::GetFaviconResourceBytes() {
+base::RefCountedMemory* BookmarksUI::GetFaviconResourceBytes() {
   return ResourceBundle::GetSharedInstance().
-      LoadDataResourceBytes(IDR_BOOKMARKS_FAVICON);
+      LoadDataResourceBytes(IDR_BOOKMARKS_FAVICON,
+                            ui::SCALE_FACTOR_100P);
 }

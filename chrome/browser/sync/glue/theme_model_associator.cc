@@ -8,14 +8,14 @@
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/sync/api/sync_error.h"
 #include "chrome/browser/sync/glue/sync_backend_host.h"
 #include "chrome/browser/sync/glue/theme_util.h"
-#include "chrome/browser/sync/internal_api/read_node.h"
-#include "chrome/browser/sync/internal_api/read_transaction.h"
-#include "chrome/browser/sync/internal_api/write_node.h"
-#include "chrome/browser/sync/internal_api/write_transaction.h"
 #include "chrome/browser/sync/profile_sync_service.h"
+#include "sync/api/sync_error.h"
+#include "sync/internal_api/public/read_node.h"
+#include "sync/internal_api/public/read_transaction.h"
+#include "sync/internal_api/public/write_node.h"
+#include "sync/internal_api/public/write_transaction.h"
 #include "sync/protocol/theme_specifics.pb.h"
 
 namespace browser_sync {
@@ -32,27 +32,31 @@ static const char kNoThemesFolderError[] =
 }  // namespace
 
 ThemeModelAssociator::ThemeModelAssociator(
-    ProfileSyncService* sync_service)
-    : sync_service_(sync_service) {
+    ProfileSyncService* sync_service,
+    DataTypeErrorHandler* error_handler)
+    : sync_service_(sync_service),
+      error_handler_(error_handler) {
   DCHECK(sync_service_);
 }
 
 ThemeModelAssociator::~ThemeModelAssociator() {}
 
-bool ThemeModelAssociator::AssociateModels(SyncError* error) {
-  sync_api::WriteTransaction trans(FROM_HERE, sync_service_->GetUserShare());
-  sync_api::ReadNode root(&trans);
-  if (!root.InitByTagLookup(kThemesTag)) {
-    error->Reset(FROM_HERE, kNoThemesFolderError, model_type());
-    return false;
+syncer::SyncError ThemeModelAssociator::AssociateModels() {
+  syncer::WriteTransaction trans(FROM_HERE, sync_service_->GetUserShare());
+  syncer::ReadNode root(&trans);
+  if (root.InitByTagLookup(kThemesTag) != syncer::BaseNode::INIT_OK) {
+    return error_handler_->CreateAndUploadError(FROM_HERE,
+                                                kNoThemesFolderError,
+                                                model_type());
   }
 
   Profile* profile = sync_service_->profile();
-  sync_api::WriteNode node(&trans);
+  syncer::WriteNode node(&trans);
   // TODO(akalin): When we have timestamps, we may want to do
   // something more intelligent than preferring the sync data over our
   // local data.
-  if (node.InitByClientTagLookup(syncable::THEMES, kCurrentThemeClientTag)) {
+  if (node.InitByClientTagLookup(syncer::THEMES, kCurrentThemeClientTag) ==
+      syncer::BaseNode::INIT_OK) {
     // Update the current theme from the sync data.
     // TODO(akalin): If the sync data does not have
     // use_system_theme_by_default and we do, update that flag on the
@@ -63,13 +67,15 @@ bool ThemeModelAssociator::AssociateModels(SyncError* error) {
       node.SetThemeSpecifics(theme_specifics);
   } else {
     // Set the sync data from the current theme.
-    sync_api::WriteNode node(&trans);
-    if (!node.InitUniqueByCreation(syncable::THEMES, root,
-                                   kCurrentThemeClientTag)) {
-      error->Reset(FROM_HERE,
-                   "Could not create current theme node.",
-                   model_type());
-      return false;
+    syncer::WriteNode node(&trans);
+    syncer::WriteNode::InitUniqueByCreationResult result =
+        node.InitUniqueByCreation(syncer::THEMES, root,
+                                  kCurrentThemeClientTag);
+    if (result != syncer::WriteNode::INIT_SUCCESS) {
+      return error_handler_->CreateAndUploadError(
+          FROM_HERE,
+          "Could not create current theme node.",
+          model_type());
     }
     node.SetIsFolder(false);
     node.SetTitle(UTF8ToWide(kCurrentThemeNodeTitle));
@@ -77,20 +83,20 @@ bool ThemeModelAssociator::AssociateModels(SyncError* error) {
     GetThemeSpecificsFromCurrentTheme(profile, &theme_specifics);
     node.SetThemeSpecifics(theme_specifics);
   }
-  return true;
+  return syncer::SyncError();
 }
 
-bool ThemeModelAssociator::DisassociateModels(SyncError* error) {
+syncer::SyncError ThemeModelAssociator::DisassociateModels() {
   // We don't maintain any association state, so nothing to do.
-  return true;
+  return syncer::SyncError();
 }
 
 bool ThemeModelAssociator::SyncModelHasUserCreatedNodes(bool* has_nodes) {
   DCHECK(has_nodes);
   *has_nodes = false;
-  sync_api::ReadTransaction trans(FROM_HERE, sync_service_->GetUserShare());
-  sync_api::ReadNode root(&trans);
-  if (!root.InitByTagLookup(kThemesTag)) {
+  syncer::ReadTransaction trans(FROM_HERE, sync_service_->GetUserShare());
+  syncer::ReadNode root(&trans);
+  if (root.InitByTagLookup(kThemesTag) != syncer::BaseNode::INIT_OK) {
     LOG(ERROR) << kNoThemesFolderError;
     return false;
   }
@@ -102,10 +108,10 @@ bool ThemeModelAssociator::SyncModelHasUserCreatedNodes(bool* has_nodes) {
 
 bool ThemeModelAssociator::CryptoReadyIfNecessary() {
   // We only access the cryptographer while holding a transaction.
-  sync_api::ReadTransaction trans(FROM_HERE, sync_service_->GetUserShare());
-  const syncable::ModelTypeSet encrypted_types =
-      sync_api::GetEncryptedTypes(&trans);
-  return !encrypted_types.Has(syncable::THEMES) ||
+  syncer::ReadTransaction trans(FROM_HERE, sync_service_->GetUserShare());
+  const syncer::ModelTypeSet encrypted_types =
+      syncer::GetEncryptedTypes(&trans);
+  return !encrypted_types.Has(syncer::THEMES) ||
          sync_service_->IsCryptographerReady(&trans);
 }
 

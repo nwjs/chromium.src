@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_EXTENSIONS_FILE_MANAGER_UTIL_H_
 #define CHROME_BROWSER_CHROMEOS_EXTENSIONS_FILE_MANAGER_UTIL_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -14,6 +13,7 @@
 #include "chrome/browser/ui/select_file_dialog.h"
 #include "googleurl/src/gurl.h"
 
+class Browser;
 class Profile;
 
 namespace base {
@@ -21,6 +21,8 @@ class ListValue;
 }
 
 extern const char kFileBrowserDomain[];
+extern const char kFileBrowserGalleryTaskId[];
+extern const char kFileBrowserWatchTaskId[];
 
 // File manager helper methods.
 namespace file_manager_util {
@@ -29,7 +31,7 @@ namespace file_manager_util {
 GURL GetFileBrowserExtensionUrl();
 GURL GetFileBrowserUrl();
 GURL GetMediaPlayerUrl();
-GURL GetMediaPlayerPlaylistUrl();
+GURL GetVideoPlayerUrl();
 
 // Converts |full_file_path| into external filesystem: url. Returns false
 // if |full_file_path| is not managed by the external filesystem provider.
@@ -54,25 +56,37 @@ GURL GetFileBrowserUrlWithParams(
 // Get file dialog title string from its type.
 string16 GetTitleFromType(SelectFileDialog::Type type);
 
-// Opens file browser UI on its own tab on drive location defined with
-// |dir|. Automatically closes this tab on |dir| unmount.
-void ViewRemovableDrive(const FilePath& dir);
+// Shows a freshly mounted removable drive.
+// If there is another File Browser instance open this call does nothing.
+// The mount event will cause file_manager.js to show the new drive in
+// the left panel, and that is all we want.
+// If there is no File Browser open, this call opens a new one pointing to
+// |path|. In this case the tab will automatically close on |path| unmount.
+void ViewRemovableDrive(const FilePath& path);
 
 // Opens file browser UI in its own tab on file system location defined with
 // |dir|.
 void ViewFolder(const FilePath& dir);
 
-// Opens file in the browser.
-// TODO(kaznacheev): remove the obsolete enqueue parameter.
-void ViewFile(const FilePath& full_path, bool enqueue);
+// Opens file with the default File Browser handler.
+void ViewFile(const FilePath& path);
 
-// Tries to open |file| directly in the browser. Returns false if the browser
-// can't directly handle this type of file.
-bool TryViewingFile(const FilePath& file);
+// Opens file browser on the folder containing the file, with the file selected.
+void ShowFileInFolder(const FilePath& path);
 
-void InstallCRX(Profile* profile, const FilePath& full_path);
+// Opens file browser application.
+void OpenApplication();
 
-bool ShouldBeOpenedWithPdfPlugin(const char* file_extension);
+// Executes the built-in File Manager handler or tries to open |file| directly
+// in the browser. Returns false if neither is possible.
+bool ExecuteBuiltinHandler(
+    Browser* browser,
+    const FilePath& path,
+    const std::string& internal_task_id);
+
+void InstallCRX(Browser* browser, const FilePath& path);
+
+bool ShouldBeOpenedWithPdfPlugin(Profile* profile, const char* file_extension);
 
 // Converts the vector of progress status to their JSON (Value) form.
 base::ListValue* ProgressStatusVectorToListValue(

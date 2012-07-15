@@ -8,32 +8,40 @@
 
 #include "base/bind.h"
 #include "base/command_line.h"
+#include "base/debug/trace_event.h"
 #include "base/logging.h"
 #include "base/message_loop.h"
 #include "ui/aura/aura_switches.h"
 #include "ui/aura/client/activation_client.h"
+#include "ui/aura/client/capture_client.h"
 #include "ui/aura/client/event_client.h"
 #include "ui/aura/env.h"
-#include "ui/aura/root_window_host.h"
-#include "ui/aura/root_window_observer.h"
 #include "ui/aura/event.h"
 #include "ui/aura/event_filter.h"
 #include "ui/aura/focus_manager.h"
-#include "ui/aura/gestures/gesture_recognizer.h"
-#include "ui/aura/monitor.h"
-#include "ui/aura/monitor_manager.h"
+#include "ui/aura/display_manager.h"
+#include "ui/aura/root_window_host.h"
+#include "ui/aura/root_window_observer.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_delegate.h"
+#include "ui/base/gestures/gesture_recognizer.h"
+#include "ui/base/gestures/gesture_types.h"
 #include "ui/base/hit_test.h"
-#include "ui/gfx/compositor/compositor.h"
-#include "ui/gfx/compositor/layer.h"
-#include "ui/gfx/compositor/layer_animator.h"
+#include "ui/compositor/compositor.h"
+#include "ui/compositor/dip_util.h"
+#include "ui/compositor/layer.h"
+#include "ui/compositor/layer_animator.h"
+#include "ui/gfx/display.h"
+#include "ui/gfx/point3.h"
+#include "ui/gfx/screen.h"
 
 using std::vector;
 
 namespace aura {
 
 namespace {
+
+const int kCompositorLockTimeoutMs = 67;
 
 // Returns true if |target| has a non-client (frame) component at |location|,
 // in window coordinates.
@@ -52,9 +60,19 @@ void GetEventFiltersToNotify(Window* target, EventFilters* filters) {
       filters->push_back(target->event_filter());
     target = target->parent();
   }
+  if (Env::GetInstance()->event_filter())
+    filters->push_back(Env::GetInstance()->event_filter());
 }
 
-const int kCompositorLockTimeoutMs = 67;
+float GetDeviceScaleFactorFromDisplay(const aura::Window* window) {
+  DisplayManager* display_manager = Env::GetInstance()->display_manager();
+  return display_manager->GetDisplayNearestWindow(window).device_scale_factor();
+}
+
+Window* ConsumerToWindow(ui::GestureConsumer* consumer) {
+  return consumer && !consumer->ignores_events() ?
+      static_cast<Window*>(consumer) : NULL;
+}
 
 }  // namespace
 
@@ -63,7 +81,7 @@ CompositorLock::CompositorLock(RootWindow* root_window)
   MessageLoop::current()->PostDelayedTask(
       FROM_HERE,
       base::Bind(&CompositorLock::CancelLock, AsWeakPtr()),
-      kCompositorLockTimeoutMs);
+      base::TimeDelta::FromMilliseconds(kCompositorLockTimeoutMs));
 }
 
 CompositorLock::~CompositorLock() {
@@ -84,37 +102,29 @@ bool RootWindow::hide_host_cursor_ = false;
 
 RootWindow::RootWindow(const gfx::Rect& initial_bounds)
     : Window(NULL),
-      host_(aura::RootWindowHost::Create(initial_bounds)),
+      host_(RootWindowHost::Create(initial_bounds)),
       ALLOW_THIS_IN_INITIALIZER_LIST(schedule_paint_factory_(this)),
       ALLOW_THIS_IN_INITIALIZER_LIST(event_factory_(this)),
       mouse_button_flags_(0),
-      last_cursor_(kCursorNull),
-      cursor_shown_(true),
-      capture_window_(NULL),
+      touch_ids_down_(0),
+      last_cursor_(ui::kCursorNull),
       mouse_pressed_handler_(NULL),
       mouse_moved_handler_(NULL),
-      focused_window_(NULL),
       ALLOW_THIS_IN_INITIALIZER_LIST(
-          gesture_recognizer_(GestureRecognizer::Create())),
+          gesture_recognizer_(ui::GestureRecognizer::Create(this))),
       synthesize_mouse_move_(false),
       waiting_on_compositing_end_(false),
       draw_on_compositing_end_(false),
       defer_draw_scheduling_(false),
       mouse_move_hold_count_(0),
-      should_hold_mouse_moves_(false),
+      ALLOW_THIS_IN_INITIALIZER_LIST(held_mouse_event_factory_(this)),
       compositor_lock_(NULL),
       draw_on_compositor_unlock_(false) {
   SetName("RootWindow");
-  last_mouse_location_ = host_->QueryMouseLocation();
 
-  should_hold_mouse_moves_ = !CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kAuraDisableHoldMouseMoves);
-
-  compositor_.reset(new ui::Compositor(this, host_->GetAcceleratedWidget(),
-      host_->GetBounds().size()));
+  compositor_.reset(new ui::Compositor(this, host_->GetAcceleratedWidget()));
   DCHECK(compositor_.get());
   compositor_->AddObserver(this);
-  Init();
 }
 
 RootWindow::~RootWindow() {
@@ -136,17 +146,38 @@ RootWindow::~RootWindow() {
   layer()->GetAnimator()->RemoveObserver(this);
 }
 
+// static
+RootWindow* RootWindow::GetForAcceleratedWidget(
+    gfx::AcceleratedWidget widget) {
+  RootWindowHost* host = RootWindowHost::GetForAcceleratedWidget(widget);
+  return host ? host->GetRootWindow() : NULL;
+}
+
+void RootWindow::Init() {
+  compositor()->SetScaleAndSize(GetDeviceScaleFactorFromDisplay(this),
+                                host_->GetBounds().size());
+  Window::Init(ui::LAYER_NOT_DRAWN);
+  last_mouse_location_ =
+      ui::ConvertPointToDIP(layer(), host_->QueryMouseLocation());
+  compositor()->SetRootLayer(layer());
+  SetBounds(
+      ui::ConvertRectToDIP(layer(), gfx::Rect(host_->GetBounds().size())));
+  Show();
+  host_->SetRootWindow(this);
+}
+
 void RootWindow::ShowRootWindow() {
   host_->Show();
 }
 
-void RootWindow::SetHostSize(const gfx::Size& size) {
+void RootWindow::SetHostSize(const gfx::Size& size_in_pixel) {
   DispatchHeldMouseMove();
   gfx::Rect bounds = host_->GetBounds();
-  bounds.set_size(size);
+  bounds.set_size(size_in_pixel);
   host_->SetBounds(bounds);
   // Requery the location to constrain it within the new root window size.
-  last_mouse_location_ = host_->QueryMouseLocation();
+  last_mouse_location_ =
+      ui::ConvertPointToDIP(layer(), host_->QueryMouseLocation());
   synthesize_mouse_move_ = false;
 }
 
@@ -154,12 +185,17 @@ gfx::Size RootWindow::GetHostSize() const {
   return host_->GetBounds().size();
 }
 
-void RootWindow::SetHostBounds(const gfx::Rect& bounds) {
+void RootWindow::SetHostBounds(const gfx::Rect& bounds_in_pixel) {
   DispatchHeldMouseMove();
-  host_->SetBounds(bounds);
+  host_->SetBounds(bounds_in_pixel);
   // Requery the location to constrain it within the new root window size.
-  last_mouse_location_ = host_->QueryMouseLocation();
+  last_mouse_location_ =
+      ui::ConvertPointToDIP(layer(), host_->QueryMouseLocation());
   synthesize_mouse_move_ = false;
+}
+
+gfx::Point RootWindow::GetHostOrigin() const {
+  return host_->GetBounds().origin();
 }
 
 void RootWindow::SetCursor(gfx::NativeCursor cursor) {
@@ -174,8 +210,11 @@ void RootWindow::ShowCursor(bool show) {
   host_->ShowCursor(show);
 }
 
-void RootWindow::MoveCursorTo(const gfx::Point& location) {
-  host_->MoveCursorTo(location);
+void RootWindow::MoveCursorTo(const gfx::Point& location_in_dip) {
+  gfx::Point location = location_in_dip;
+  layer()->transform().TransformPoint(location);
+  host_->MoveCursorTo(ui::ConvertPointToPixel(layer(), location));
+  last_mouse_location_ = location_in_dip;
 }
 
 bool RootWindow::ConfineCursorToWindow() {
@@ -187,20 +226,21 @@ bool RootWindow::ConfineCursorToWindow() {
 }
 
 void RootWindow::Draw() {
+  defer_draw_scheduling_ = false;
   if (waiting_on_compositing_end_) {
     draw_on_compositing_end_ = true;
-    defer_draw_scheduling_ = false;
     return;
   }
   if (compositor_lock_) {
     draw_on_compositor_unlock_ = true;
-    defer_draw_scheduling_ = false;
     return;
   }
   waiting_on_compositing_end_ = true;
 
+  TRACE_EVENT_ASYNC_BEGIN0("ui", "RootWindow::Draw",
+                           compositor_->last_started_frame() + 1);
+
   compositor_->Draw(false);
-  defer_draw_scheduling_ = false;
 }
 
 void RootWindow::ScheduleFullDraw() {
@@ -208,40 +248,48 @@ void RootWindow::ScheduleFullDraw() {
 }
 
 bool RootWindow::DispatchMouseEvent(MouseEvent* event) {
-  if (mouse_move_hold_count_) {
-    if (event->type() == ui::ET_MOUSE_DRAGGED ||
-        (event->flags() & ui::EF_IS_SYNTHESIZED)) {
+  if (event->type() == ui::ET_MOUSE_DRAGGED ||
+      (event->flags() & ui::EF_IS_SYNTHESIZED)) {
+    if (mouse_move_hold_count_) {
       held_mouse_move_.reset(new MouseEvent(*event, NULL, NULL));
       return true;
     } else {
-      DispatchHeldMouseMove();
+      // We may have a held event for a period between the time
+      // mouse_move_hold_count_ fell to 0 and the DispatchHeldMouseMove
+      // executes. Since we're going to dispatch the new event directly below,
+      // we can reset the old one.
+      held_mouse_move_.reset();
     }
   }
+  DispatchHeldMouseMove();
   return DispatchMouseEventImpl(event);
 }
 
 bool RootWindow::DispatchKeyEvent(KeyEvent* event) {
   DispatchHeldMouseMove();
-  KeyEvent translated_event(*event);
-  if (translated_event.key_code() == ui::VKEY_UNKNOWN)
+  if (event->key_code() == ui::VKEY_UNKNOWN)
     return false;
   client::EventClient* client = client::GetEventClient(GetRootWindow());
-  if (client && !client->CanProcessEventsWithinSubtree(focused_window_)) {
-    SetFocusedWindow(NULL, NULL);
+  Window* focused_window = focus_manager_->GetFocusedWindow();
+  if (client && !client->CanProcessEventsWithinSubtree(focused_window)) {
+    GetFocusManager()->SetFocusedWindow(NULL, NULL);
     return false;
   }
-  return ProcessKeyEvent(focused_window_, &translated_event);
+  return ProcessKeyEvent(focused_window, event);
 }
 
 bool RootWindow::DispatchScrollEvent(ScrollEvent* event) {
   DispatchHeldMouseMove();
-  event->UpdateForRootTransform(layer()->transform());
+  float scale = ui::GetDeviceScaleFactor(layer());
+  ui::Transform transform = layer()->transform();
+  transform.ConcatScale(scale, scale);
+  event->UpdateForRootTransform(transform);
 
   last_mouse_location_ = event->location();
   synthesize_mouse_move_ = false;
 
-  Window* target =
-      mouse_pressed_handler_ ? mouse_pressed_handler_ : capture_window_;
+  Window* target = mouse_pressed_handler_ ?
+      mouse_pressed_handler_ : client::GetCaptureWindow(this);
   if (!target)
     target = GetEventHandlerForPoint(event->location());
 
@@ -259,41 +307,77 @@ bool RootWindow::DispatchScrollEvent(ScrollEvent* event) {
 
 bool RootWindow::DispatchTouchEvent(TouchEvent* event) {
   DispatchHeldMouseMove();
-  event->UpdateForRootTransform(layer()->transform());
+  switch (event->type()) {
+    case ui::ET_TOUCH_PRESSED:
+      touch_ids_down_ |= (1 << event->touch_id());
+      Env::GetInstance()->set_touch_down(touch_ids_down_ != 0);
+      break;
+
+    // Don't handle ET_TOUCH_CANCELLED since we always get a ET_TOUCH_RELEASED.
+    case ui::ET_TOUCH_RELEASED:
+      touch_ids_down_ = (touch_ids_down_ | (1 << event->touch_id())) ^
+                        (1 << event->touch_id());
+      Env::GetInstance()->set_touch_down(touch_ids_down_ != 0);
+      break;
+
+    default:
+      break;
+  }
+  float scale = ui::GetDeviceScaleFactor(layer());
+  ui::Transform transform = layer()->transform();
+  transform.ConcatScale(scale, scale);
+  event->UpdateForRootTransform(transform);
   bool handled = false;
-  Window* target = capture_window_;
-  if (!target)
-      target = gesture_recognizer_->GetTargetForTouchEvent(event);
-  if (!target)
-    target = GetEventHandlerForPoint(event->location());
-  if (!target)
-    return false;
-
   ui::TouchStatus status = ui::TOUCH_STATUS_UNKNOWN;
-  TouchEvent translated_event(*event, this, target);
-  status = ProcessTouchEvent(target, &translated_event);
-  handled = status != ui::TOUCH_STATUS_UNKNOWN;
+  Window* target = client::GetCaptureWindow(this);
+  if (!target) {
+    target = ConsumerToWindow(
+        gesture_recognizer_->GetTouchLockedTarget(event));
+    if (!target) {
+      target = ConsumerToWindow(
+          gesture_recognizer_->GetTargetForLocation(event->GetLocation()));
+    }
+  }
 
-  if (status == ui::TOUCH_STATUS_QUEUED ||
-      status == ui::TOUCH_STATUS_QUEUED_END)
-    gesture_recognizer_->QueueTouchEventForGesture(target, *event);
+  if (!target && !bounds().Contains(event->location())) {
+    // If the initial touch is outside the root window, target the root.
+    target = this;
+  } else {
+    // We only come here when the first contact was within the root window.
+    if (!target) {
+      target = GetEventHandlerForPoint(event->location());
+      if (!target)
+        return false;
+    }
+
+    TouchEvent translated_event(*event, this, target);
+    status = ProcessTouchEvent(target, &translated_event);
+    handled = status != ui::TOUCH_STATUS_UNKNOWN;
+
+    if (status == ui::TOUCH_STATUS_QUEUED ||
+        status == ui::TOUCH_STATUS_QUEUED_END)
+      gesture_recognizer_->QueueTouchEventForGesture(target, *event);
+  }
 
   // Get the list of GestureEvents from GestureRecognizer.
-  scoped_ptr<GestureRecognizer::Gestures> gestures;
+  scoped_ptr<ui::GestureRecognizer::Gestures> gestures;
   gestures.reset(gesture_recognizer_->ProcessTouchEventForGesture(
       *event, status, target));
-  if (ProcessGestures(gestures.get()))
-    handled = true;
 
-  return handled;
+  return ProcessGestures(gestures.get()) ? true : handled;
 }
 
 bool RootWindow::DispatchGestureEvent(GestureEvent* event) {
   DispatchHeldMouseMove();
 
-  Window* target = capture_window_;
-  if (!target)
-    target = gesture_recognizer_->GetTargetForGestureEvent(event);
+  Window* target = client::GetCaptureWindow(this);
+  if (!target) {
+    target = ConsumerToWindow(
+        gesture_recognizer_->GetTargetForGestureEvent(event));
+    if (!target)
+      return false;
+  }
+
   if (target) {
     GestureEvent translated_event(*event, this, target);
     ui::GestureStatus status = ProcessGestureEvent(target, &translated_event);
@@ -303,16 +387,18 @@ bool RootWindow::DispatchGestureEvent(GestureEvent* event) {
   return false;
 }
 
-void RootWindow::OnHostResized(const gfx::Size& size) {
+void RootWindow::OnHostResized(const gfx::Size& size_in_pixel) {
   DispatchHeldMouseMove();
   // The compositor should have the same size as the native root window host.
-  compositor_->WidgetSizeChanged(size);
-  gfx::Size old = bounds().size();
+  // Get the latest scale from display because it might have been changed.
+  compositor_->SetScaleAndSize(GetDeviceScaleFactorFromDisplay(this),
+                               size_in_pixel);
+  gfx::Size old(bounds().size());
   // The layer, and all the observers should be notified of the
   // transformed size of the root window.
-  gfx::Rect bounds(size);
+  gfx::Rect bounds(ui::ConvertSizeToDIP(layer(), size_in_pixel));
   layer()->transform().TransformRect(&bounds);
-  SetBounds(gfx::Rect(bounds.size()));
+  SetBounds(bounds);
   FOR_EACH_OBSERVER(RootWindowObserver, observers_,
                     OnRootWindowResized(this, old));
 }
@@ -351,6 +437,16 @@ void RootWindow::OnWindowTransformed(Window* window, bool contained_mouse) {
   }
 }
 
+void RootWindow::OnKeyboardMappingChanged() {
+  FOR_EACH_OBSERVER(RootWindowObserver, observers_,
+                    OnKeyboardMappingChanged(this));
+}
+
+void RootWindow::OnRootWindowHostClosed() {
+  FOR_EACH_OBSERVER(RootWindowObserver, observers_,
+                    OnRootWindowHostClosed(this));
+}
+
 void RootWindow::AddRootWindowObserver(RootWindowObserver* observer) {
   observers_.AddObserver(observer);
 }
@@ -370,41 +466,13 @@ void RootWindow::ConvertPointToNativeScreen(gfx::Point* point) const {
   point->Offset(location.x(), location.y());
 }
 
-void RootWindow::SetCapture(Window* window) {
-  if (capture_window_ == window)
-    return;
-
-  aura::Window* old_capture_window = capture_window_;
-  capture_window_ = window;
-
-  HandleMouseCaptureChanged(old_capture_window);
-
-  if (capture_window_) {
-    // Make all subsequent mouse events and touch go to the capture window. We
-    // shouldn't need to send an event here as OnCaptureLost should take care of
-    // that.
-    if (mouse_moved_handler_ || mouse_button_flags_ != 0)
-      mouse_moved_handler_ = capture_window_;
-  } else {
-    // When capture is lost, we must reset the event handlers.
-    mouse_moved_handler_ = NULL;
-  }
-  mouse_pressed_handler_ = NULL;
-}
-
-void RootWindow::ReleaseCapture(Window* window) {
-  if (capture_window_ != window)
-    return;
-  SetCapture(NULL);
-}
-
 void RootWindow::AdvanceQueuedTouchEvent(Window* window, bool processed) {
-  scoped_ptr<GestureRecognizer::Gestures> gestures;
+  scoped_ptr<ui::GestureRecognizer::Gestures> gestures;
   gestures.reset(gesture_recognizer_->AdvanceTouchQueue(window, processed));
   ProcessGestures(gestures.get());
 }
 
-void RootWindow::SetGestureRecognizerForTesting(GestureRecognizer* gr) {
+void RootWindow::SetGestureRecognizerForTesting(ui::GestureRecognizer* gr) {
   gesture_recognizer_.reset(gr);
 }
 
@@ -412,23 +480,29 @@ gfx::AcceleratedWidget RootWindow::GetAcceleratedWidget() {
   return host_->GetAcceleratedWidget();
 }
 
-#if !defined(NDEBUG)
 void RootWindow::ToggleFullScreen() {
   host_->ToggleFullScreen();
 }
-#endif
 
 void RootWindow::HoldMouseMoves() {
-  if (should_hold_mouse_moves_)
-    ++mouse_move_hold_count_;
+  if (!mouse_move_hold_count_)
+    held_mouse_event_factory_.InvalidateWeakPtrs();
+  ++mouse_move_hold_count_;
 }
 
 void RootWindow::ReleaseMouseMoves() {
-  if (should_hold_mouse_moves_) {
-    --mouse_move_hold_count_;
-    DCHECK_GE(mouse_move_hold_count_, 0);
-    if (!mouse_move_hold_count_)
-      DispatchHeldMouseMove();
+  --mouse_move_hold_count_;
+  DCHECK_GE(mouse_move_hold_count_, 0);
+  if (!mouse_move_hold_count_ && held_mouse_move_.get()) {
+    // We don't want to call DispatchHeldMouseMove directly, because this might
+    // be called from a deep stack while another event, in which case
+    // dispatching another one may not be safe/expected.
+    // Instead we post a task, that we may cancel if HoldMouseMoves is called
+    // again before it executes.
+    MessageLoop::current()->PostTask(
+        FROM_HERE,
+        base::Bind(&RootWindow::DispatchHeldMouseMove,
+                   held_mouse_event_factory_.GetWeakPtr()));
   }
 }
 
@@ -440,6 +514,13 @@ scoped_refptr<CompositorLock> RootWindow::GetCompositorLock() {
 
 void RootWindow::SetFocusWhenShown(bool focused) {
   host_->SetFocusWhenShown(focused);
+}
+
+bool RootWindow::GrabSnapshot(const gfx::Rect& snapshot_bounds,
+                              std::vector<unsigned char>* png_representation) {
+  DCHECK(bounds().Contains(snapshot_bounds));
+  gfx::Rect snapshot_pixels = ui::ConvertRectToPixel(layer(), snapshot_bounds);
+  return host_->GrabSnapshot(snapshot_pixels, png_representation);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -479,10 +560,18 @@ void RootWindow::ScheduleDraw() {
 ////////////////////////////////////////////////////////////////////////////////
 // RootWindow, ui::CompositorObserver implementation:
 
+void RootWindow::OnCompositingDidCommit(ui::Compositor*) {
+}
+
+void RootWindow::OnCompositingWillStart(ui::Compositor*) {
+}
+
 void RootWindow::OnCompositingStarted(ui::Compositor*) {
 }
 
 void RootWindow::OnCompositingEnded(ui::Compositor*) {
+  TRACE_EVENT_ASYNC_END0("ui", "RootWindow::Draw",
+                         compositor_->last_ended_frame());
   waiting_on_compositing_end_ = false;
   if (draw_on_compositing_end_) {
     draw_on_compositing_end_ = false;
@@ -494,24 +583,87 @@ void RootWindow::OnCompositingEnded(ui::Compositor*) {
   }
 }
 
+void RootWindow::OnCompositingAborted(ui::Compositor*) {
+}
+
 ////////////////////////////////////////////////////////////////////////////////
-// RootWindow, private:
+// RootWindow, ui::LayerDelegate implementation:
 
-void RootWindow::HandleMouseCaptureChanged(Window* old_capture_window) {
-  if (capture_window_)
-    host_->SetCapture();
-  else
-    host_->ReleaseCapture();
+void RootWindow::OnDeviceScaleFactorChanged(
+    float device_scale_factor) {
+  if (cursor_shown_)
+    ShowCursor(false);
+  host_->OnDeviceScaleFactorChanged(device_scale_factor);
+  Window::OnDeviceScaleFactorChanged(device_scale_factor);
+  if (cursor_shown_)
+    ShowCursor(true);
+}
 
-  if (old_capture_window && old_capture_window->delegate()) {
+////////////////////////////////////////////////////////////////////////////////
+// RootWindow, overridden from aura::Window:
+
+bool RootWindow::CanFocus() const {
+  return IsVisible();
+}
+
+bool RootWindow::CanReceiveEvents() const {
+  return IsVisible();
+}
+
+FocusManager* RootWindow::GetFocusManager() {
+  return focus_manager_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// RootWindow, overridden from aura::client::CaptureDelegate:
+
+void RootWindow::UpdateCapture(Window* old_capture,
+                               Window* new_capture) {
+  if (old_capture && old_capture->GetRootWindow() == this &&
+      old_capture->delegate()) {
     // Send a capture changed event with bogus location data.
     MouseEvent event(
         ui::ET_MOUSE_CAPTURE_CHANGED, gfx::Point(), gfx::Point(), 0);
-    ProcessMouseEvent(old_capture_window, &event);
+    ProcessMouseEvent(old_capture, &event);
 
-    old_capture_window->delegate()->OnCaptureLost();
+    old_capture->delegate()->OnCaptureLost();
   }
+
+  // Reset the mouse_moved_handler_ if the mouse_moved_handler_ belongs
+  // to another root window when losing the capture.
+  if (mouse_moved_handler_ && old_capture &&
+      old_capture->Contains(mouse_moved_handler_) &&
+      old_capture->GetRootWindow() != this) {
+    mouse_moved_handler_ = NULL;
+  }
+
+  if (new_capture) {
+    // Make all subsequent mouse events and touch go to the capture window. We
+    // shouldn't need to send an event here as OnCaptureLost should take care of
+    // that.
+    if (mouse_moved_handler_ || Env::GetInstance()->is_mouse_button_down())
+      mouse_moved_handler_ = new_capture;
+  } else {
+    // Make sure mouse_moved_handler gets updated.
+    SynthesizeMouseMoveEvent();
+  }
+  mouse_pressed_handler_ = NULL;
 }
+
+void RootWindow::SetNativeCapture() {
+  host_->SetCapture();
+}
+
+void RootWindow::ReleaseNativeCapture() {
+  host_->ReleaseCapture();
+}
+
+gfx::Point RootWindow::QueryMouseLocationForTest() const {
+  return host_->QueryMouseLocation();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// RootWindow, private:
 
 void RootWindow::HandleMouseMoved(const MouseEvent& event, Window* target) {
   if (target == mouse_moved_handler_)
@@ -545,6 +697,8 @@ bool RootWindow::ProcessMouseEvent(Window* target, MouseEvent* event) {
       return true;
   }
 
+  if (!target->delegate())
+    return false;
   return target->delegate()->OnMouseEvent(event);
 }
 
@@ -580,7 +734,10 @@ ui::TouchStatus RootWindow::ProcessTouchEvent(Window* target,
     return ui::TOUCH_STATUS_UNKNOWN;
 
   EventFilters filters;
-  GetEventFiltersToNotify(target->parent(), &filters);
+  if (target == this)
+    GetEventFiltersToNotify(target, &filters);
+  else
+    GetEventFiltersToNotify(target->parent(), &filters);
   for (EventFilters::const_reverse_iterator it = filters.rbegin(),
            rend = filters.rend();
        it != rend; ++it) {
@@ -589,7 +746,10 @@ ui::TouchStatus RootWindow::ProcessTouchEvent(Window* target,
       return status;
   }
 
-  return target->delegate()->OnTouchEvent(event);
+  if (target->delegate())
+    return target->delegate()->OnTouchEvent(event);
+
+  return ui::TOUCH_STATUS_UNKNOWN;
 }
 
 ui::GestureStatus RootWindow::ProcessGestureEvent(Window* target,
@@ -598,7 +758,10 @@ ui::GestureStatus RootWindow::ProcessGestureEvent(Window* target,
     return ui::GESTURE_STATUS_UNKNOWN;
 
   EventFilters filters;
-  GetEventFiltersToNotify(target->parent(), &filters);
+  if (target == this)
+    GetEventFiltersToNotify(target, &filters);
+  else
+    GetEventFiltersToNotify(target->parent(), &filters);
   ui::GestureStatus status = ui::GESTURE_STATUS_UNKNOWN;
   for (EventFilters::const_reverse_iterator it = filters.rbegin(),
            rend = filters.rend();
@@ -608,50 +771,19 @@ ui::GestureStatus RootWindow::ProcessGestureEvent(Window* target,
       return status;
   }
 
-  status = target->delegate()->OnGestureEvent(event);
-  if (status == ui::GESTURE_STATUS_UNKNOWN) {
-    // The gesture was unprocessed. Generate corresponding mouse events here
-    // (e.g. tap to click).
-    switch (event->type()) {
-      case ui::ET_GESTURE_TAP:
-      case ui::ET_GESTURE_DOUBLE_TAP: {
-        // Tap should be processed as a click. So generate the following
-        // sequence of mouse events: MOUSE_ENTERED, MOUSE_PRESSED,
-        // MOUSE_RELEASED and MOUSE_EXITED.
-        // Double-tap generates a double click.
-        ui::EventType types[] = { ui::ET_MOUSE_ENTERED,
-                                  ui::ET_MOUSE_PRESSED,
-                                  ui::ET_MOUSE_RELEASED,
-                                  ui::ET_MOUSE_EXITED,
-                                  ui::ET_UNKNOWN
-                                };
-        for (ui::EventType* type = types; *type != ui::ET_UNKNOWN; ++type) {
-          int flags = event->flags();
-          if (event->type() == ui::ET_GESTURE_DOUBLE_TAP &&
-              *type == ui::ET_MOUSE_PRESSED)
-            flags |= ui::EF_IS_DOUBLE_CLICK;
-
-          MouseEvent synth(
-              *type, event->location(), event->root_location(), flags);
-          if (ProcessMouseEvent(target, &synth))
-            status = ui::GESTURE_STATUS_SYNTH_MOUSE;
-        }
-        break;
-      }
-      default:
-        break;
-    }
-  }
+  if (target->delegate())
+    status = target->delegate()->OnGestureEvent(event);
 
   return status;
 }
 
-bool RootWindow::ProcessGestures(GestureRecognizer::Gestures* gestures) {
+bool RootWindow::ProcessGestures(ui::GestureRecognizer::Gestures* gestures) {
   if (!gestures)
     return false;
   bool handled = false;
   for (unsigned int i = 0; i < gestures->size(); i++) {
-    GestureEvent* gesture = gestures->at(i).get();
+    GestureEvent* gesture =
+        static_cast<GestureEvent*>(gestures->get().at(i));
     if (DispatchGestureEvent(gesture) != ui::GESTURE_STATUS_UNKNOWN)
       handled = true;
   }
@@ -659,7 +791,7 @@ bool RootWindow::ProcessGestures(GestureRecognizer::Gestures* gestures) {
 }
 
 void RootWindow::OnWindowRemovedFromRootWindow(Window* detached) {
-  DCHECK(capture_window_ != this);
+  DCHECK(aura::client::GetCaptureWindow(this) != this);
 
   OnWindowHidden(detached, false);
 
@@ -672,7 +804,8 @@ void RootWindow::OnWindowRemovedFromRootWindow(Window* detached) {
 void RootWindow::OnWindowHidden(Window* invisible, bool destroyed) {
   // Update the focused window state if the invisible window contains
   // focused_window.
-  if (invisible->Contains(focused_window_)) {
+  Window* focused_window = focus_manager_->GetFocusedWindow();
+  if (invisible->Contains(focused_window)) {
     Window* focus_to = invisible->transient_parent();
     if (focus_to) {
       // Has to be removed from the transient parent before focusing, otherwise
@@ -686,17 +819,19 @@ void RootWindow::OnWindowHidden(Window* invisible, bool destroyed) {
     }
     if (focus_to &&
         (!focus_to->IsVisible() ||
+         !focus_to->CanFocus() ||
          (client::GetActivationClient(this) &&
           !client::GetActivationClient(this)->OnWillFocusWindow(focus_to,
                                                                 NULL)))) {
       focus_to = NULL;
     }
-    SetFocusedWindow(focus_to, NULL);
+    GetFocusManager()->SetFocusedWindow(focus_to, NULL);
   }
+  Window* capture_window = aura::client::GetCaptureWindow(this);
   // If the ancestor of the capture window is hidden,
   // release the capture.
-  if (invisible->Contains(capture_window_) && invisible != this)
-    ReleaseCapture(capture_window_);
+  if (invisible->Contains(capture_window) && invisible != this)
+    capture_window->ReleaseCapture();
 
   // If the ancestor of any event handler windows are invisible, release the
   // pointer to those windows.
@@ -713,16 +848,30 @@ void RootWindow::OnWindowAddedToRootWindow(Window* attached) {
     PostMouseMoveEventAfterWindowChange();
 }
 
-bool RootWindow::CanFocus() const {
-  return IsVisible();
+bool RootWindow::DispatchLongPressGestureEvent(ui::GestureEvent* event) {
+  return DispatchGestureEvent(static_cast<GestureEvent*>(event));
 }
 
-bool RootWindow::CanReceiveEvents() const {
-  return IsVisible();
+bool RootWindow::DispatchCancelTouchEvent(ui::TouchEvent* event) {
+  return DispatchTouchEvent(static_cast<TouchEvent*>(event));
 }
 
-internal::FocusManager* RootWindow::GetFocusManager() {
-  return this;
+ui::GestureEvent* RootWindow::CreateGestureEvent(ui::EventType type,
+    const gfx::Point& location,
+    int flags,
+    base::Time time,
+    float param_first,
+    float param_second,
+    unsigned int touch_id_bitfield) {
+  return new GestureEvent(type, location.x(), location.y(), flags, time,
+                          param_first, param_second, touch_id_bitfield);
+}
+
+ui::TouchEvent* RootWindow::CreateTouchEvent(ui::EventType type,
+                                             const gfx::Point& location,
+                                             int touch_id,
+                                             base::TimeDelta time_stamp) {
+  return new TouchEvent(type, location, touch_id, time_stamp);
 }
 
 void RootWindow::OnLayerAnimationEnded(
@@ -738,64 +887,26 @@ void RootWindow::OnLayerAnimationAborted(
     ui::LayerAnimationSequence* animation) {
 }
 
-void RootWindow::SetFocusedWindow(Window* focused_window,
-                                  const aura::Event* event) {
-  if (focused_window == focused_window_)
-    return;
-  if (focused_window && !focused_window->CanFocus())
-    return;
-  // The NULL-check of |focused_window| is essential here before asking the
-  // activation client, since it is valid to clear the focus by calling
-  // SetFocusedWindow() to NULL.
-  if (focused_window && client::GetActivationClient(this) &&
-      !client::GetActivationClient(this)->OnWillFocusWindow(focused_window,
-                                                            event)) {
-    return;
-  }
-
-  Window* old_focused_window = focused_window_;
-  focused_window_ = focused_window;
-  if (old_focused_window && old_focused_window->delegate())
-    old_focused_window->delegate()->OnBlur();
-  if (focused_window_ && focused_window_->delegate())
-    focused_window_->delegate()->OnFocus();
-  if (focused_window_) {
-    FOR_EACH_OBSERVER(RootWindowObserver, observers_,
-                      OnWindowFocused(focused_window_));
-  }
-}
-
-Window* RootWindow::GetFocusedWindow() {
-  return focused_window_;
-}
-
-bool RootWindow::IsFocusedWindow(const Window* window) const {
-  return focused_window_ == window;
-}
-
-void RootWindow::Init() {
-  Window::Init(ui::LAYER_NOT_DRAWN);
-  SetBounds(gfx::Rect(host_->GetBounds().size()));
-  Show();
-  compositor()->SetRootLayer(layer());
-  host_->SetRootWindow(this);
-}
-
 bool RootWindow::DispatchMouseEventImpl(MouseEvent* event) {
+  float scale = ui::GetDeviceScaleFactor(layer());
+  ui::Transform transform = layer()->transform();
+  transform.ConcatScale(scale, scale);
+  event->UpdateForRootTransform(transform);
+  Window* target = mouse_pressed_handler_ ?
+      mouse_pressed_handler_ : client::GetCaptureWindow(this);
+  if (!target)
+    target = GetEventHandlerForPoint(event->location());
+  return DispatchMouseEventToTarget(event, target);
+}
+
+bool RootWindow::DispatchMouseEventToTarget(MouseEvent* event,
+                                            Window* target) {
   static const int kMouseButtonFlagMask =
       ui::EF_LEFT_MOUSE_BUTTON |
       ui::EF_MIDDLE_MOUSE_BUTTON |
       ui::EF_RIGHT_MOUSE_BUTTON;
-
-  event->UpdateForRootTransform(layer()->transform());
-
   last_mouse_location_ = event->location();
   synthesize_mouse_move_ = false;
-
-  Window* target =
-      mouse_pressed_handler_ ? mouse_pressed_handler_ : capture_window_;
-  if (!target)
-    target = GetEventHandlerForPoint(event->location());
   switch (event->type()) {
     case ui::ET_MOUSE_MOVED:
       HandleMouseMoved(*event, target);
@@ -852,11 +963,15 @@ void RootWindow::SynthesizeMouseMoveEvent() {
   synthesize_mouse_move_ = false;
 #if !defined(OS_WIN)
   // Temporarily disabled for windows. See crbug.com/112222.
-  gfx::Point orig_mouse_location = last_mouse_location_;
-  layer()->transform().TransformPoint(orig_mouse_location);
+  gfx::Point3f point(last_mouse_location_);
+  ui::Transform transform = layer()->transform();
+  float scale = ui::GetDeviceScaleFactor(layer());
+  transform.ConcatScale(scale, scale);
+  transform.TransformPoint(point);
+  gfx::Point orig_mouse_location = point.AsPoint();
 
   // TODO(derat|oshima): Don't use mouse_button_flags_ as it's
-  // is currently broken. See/ crbug.com/107931.
+  // currently broken. See/ crbug.com/107931.
   MouseEvent event(ui::ET_MOUSE_MOVED,
                    orig_mouse_location,
                    orig_mouse_location,

@@ -5,11 +5,15 @@
 #include "ui/views/controls/menu/menu_image_util.h"
 
 #include "base/i18n/rtl.h"
+#include "base/logging.h"
 #include "grit/ui_resources.h"
 #include "third_party/skia/include/effects/SkGradientShader.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/canvas.h"
+#include "ui/gfx/image/canvas_image_source.h"
 #include "ui/gfx/image/image.h"
+#include "ui/gfx/image/image_skia.h"
+#include "ui/gfx/image/image_skia_source.h"
 #include "ui/gfx/point.h"
 #include "ui/gfx/size.h"
 
@@ -29,67 +33,103 @@ const SkColor kRadioButtonIndicatorGradient0 = SkColorSetRGB(0, 0, 0);
 const SkColor kRadioButtonIndicatorGradient1 = SkColorSetRGB(0x83, 0x83, 0x83);
 const SkColor kIndicatorStroke = SkColorSetRGB(0, 0, 0);
 
-SkBitmap* CreateRadioButtonImage(bool selected) {
-  // + 2 (1px on each side) to cover rounding error.
-  gfx::Canvas canvas(gfx::Size(kIndicatorSize + 2, kIndicatorSize + 2), false);
-  canvas.Translate(gfx::Point(1, 1));
+class RadioButtonImageSource : public gfx::CanvasImageSource {
+ public:
+  explicit RadioButtonImageSource(bool selected)
+      : CanvasImageSource(gfx::Size(kIndicatorSize + 2, kIndicatorSize + 2),
+                          false),
+        selected_(selected) {
+  }
+  virtual ~RadioButtonImageSource() {}
 
-  SkPoint gradient_points[3];
-  gradient_points[0].iset(0, 0);
-  gradient_points[1].iset(0, static_cast<int>(kIndicatorSize * kGradientStop));
-  gradient_points[2].iset(0, kIndicatorSize);
-  SkColor gradient_colors[3] = { kGradient0, kGradient1, kGradient2 };
-  SkShader* shader = SkGradientShader::CreateLinear(
-      gradient_points, gradient_colors, NULL, arraysize(gradient_points),
-      SkShader::kClamp_TileMode, NULL);
-  SkPaint paint;
-  paint.setStyle(SkPaint::kFill_Style);
-  paint.setAntiAlias(true);
-  paint.setShader(shader);
-  shader->unref();
-  int radius = kIndicatorSize / 2;
-  canvas.sk_canvas()->drawCircle(radius, radius, radius, paint);
+  virtual void Draw(gfx::Canvas* canvas) OVERRIDE {
+    canvas->Translate(gfx::Point(1, 1));
 
-  paint.setStrokeWidth(SkIntToScalar(0));
-  paint.setShader(NULL);
-  paint.setStyle(SkPaint::kStroke_Style);
-  paint.setColor(kBaseStroke);
-  canvas.sk_canvas()->drawCircle(radius, radius, radius, paint);
-
-  if (selected) {
-    SkPoint selected_gradient_points[2];
-    selected_gradient_points[0].iset(0, 0);
-    selected_gradient_points[1].iset(0, kSelectedIndicatorSize);
-    SkColor selected_gradient_colors[2] = { kRadioButtonIndicatorGradient0,
-                                            kRadioButtonIndicatorGradient1 };
-    shader = SkGradientShader::CreateLinear(
-        selected_gradient_points, selected_gradient_colors, NULL,
-        arraysize(selected_gradient_points), SkShader::kClamp_TileMode, NULL);
+    SkPoint gradient_points[3];
+    gradient_points[0].iset(0, 0);
+    gradient_points[1].iset(0,
+                            static_cast<int>(kIndicatorSize * kGradientStop));
+    gradient_points[2].iset(0, kIndicatorSize);
+    SkColor gradient_colors[3] = { kGradient0, kGradient1, kGradient2 };
+    SkShader* shader = SkGradientShader::CreateLinear(
+        gradient_points, gradient_colors, NULL, arraysize(gradient_points),
+        SkShader::kClamp_TileMode, NULL);
+    SkPaint paint;
+    paint.setStyle(SkPaint::kFill_Style);
+    paint.setAntiAlias(true);
     paint.setShader(shader);
     shader->unref();
-    paint.setStyle(SkPaint::kFill_Style);
-    canvas.sk_canvas()->drawCircle(radius, radius,
-                                   kSelectedIndicatorSize / 2, paint);
-
+    int radius = kIndicatorSize / 2;
+    canvas->sk_canvas()->drawCircle(radius, radius, radius, paint);
     paint.setStrokeWidth(SkIntToScalar(0));
     paint.setShader(NULL);
     paint.setStyle(SkPaint::kStroke_Style);
-    paint.setColor(kIndicatorStroke);
-    canvas.sk_canvas()->drawCircle(radius, radius,
-                                   kSelectedIndicatorSize / 2, paint);
+    paint.setColor(kBaseStroke);
+    canvas->sk_canvas()->drawCircle(radius, radius, radius, paint);
+
+    if (selected_) {
+      SkPoint selected_gradient_points[2];
+      selected_gradient_points[0].iset(0, 0);
+      selected_gradient_points[1].iset(0, kSelectedIndicatorSize);
+      SkColor selected_gradient_colors[2] = { kRadioButtonIndicatorGradient0,
+                                              kRadioButtonIndicatorGradient1 };
+      shader = SkGradientShader::CreateLinear(
+          selected_gradient_points, selected_gradient_colors, NULL,
+          arraysize(selected_gradient_points), SkShader::kClamp_TileMode, NULL);
+      paint.setShader(shader);
+      shader->unref();
+      paint.setStyle(SkPaint::kFill_Style);
+      canvas->sk_canvas()->drawCircle(radius, radius,
+                                      kSelectedIndicatorSize / 2, paint);
+
+      paint.setStrokeWidth(SkIntToScalar(0));
+      paint.setShader(NULL);
+      paint.setStyle(SkPaint::kStroke_Style);
+      paint.setColor(kIndicatorStroke);
+      canvas->sk_canvas()->drawCircle(radius, radius,
+                                      kSelectedIndicatorSize / 2, paint);
+    }
   }
-  return new SkBitmap(canvas.ExtractBitmap());
+
+ private:
+  bool selected_;
+
+  DISALLOW_COPY_AND_ASSIGN(RadioButtonImageSource);
+};
+
+gfx::ImageSkia* CreateRadioButtonImage(bool selected) {
+  RadioButtonImageSource* source = new RadioButtonImageSource(selected);
+  return new gfx::ImageSkia(source, source->size());
 }
 
-SkBitmap* GetRtlSubmenuArrowImage() {
-  static SkBitmap* kRtlArrow = NULL;
-  if (!kRtlArrow) {
+class SubmenuArrowImageSource : public gfx::CanvasImageSource {
+ public:
+  SubmenuArrowImageSource()
+      : gfx::CanvasImageSource(GetSubmenuArrowSize(), false) {
+  }
+  virtual ~SubmenuArrowImageSource() {}
+
+  virtual void Draw(gfx::Canvas* canvas) OVERRIDE {
     ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
-    const SkBitmap* r = rb.GetImageNamed(IDR_MENU_ARROW).ToSkBitmap();
-    gfx::Canvas canvas(gfx::Size(r->width(), r->height()), false);
-    canvas.Scale(-1, 1);
-    canvas.DrawBitmapInt(*r, - r->width(), 0);
-    kRtlArrow = new SkBitmap(canvas.ExtractBitmap());
+    const gfx::ImageSkia* r = rb.GetImageNamed(IDR_MENU_ARROW).ToImageSkia();
+    canvas->Scale(-1, 1);
+    canvas->DrawImageInt(*r, - r->width(), 0);
+  }
+
+ private:
+  static gfx::Size GetSubmenuArrowSize() {
+    return ui::ResourceBundle::GetSharedInstance()
+        .GetImageNamed(IDR_MENU_ARROW).ToImageSkia()->size();
+  }
+
+  DISALLOW_COPY_AND_ASSIGN(SubmenuArrowImageSource);
+};
+
+gfx::ImageSkia* GetRtlSubmenuArrowImage() {
+  static gfx::ImageSkia* kRtlArrow = NULL;
+  if (!kRtlArrow) {
+    SubmenuArrowImageSource* source = new SubmenuArrowImageSource();
+    kRtlArrow = new gfx::ImageSkia(source, source->size());
   }
   return kRtlArrow;
 }
@@ -98,17 +138,17 @@ SkBitmap* GetRtlSubmenuArrowImage() {
 
 namespace views {
 
-const SkBitmap* GetRadioButtonImage(bool selected) {
-  static const SkBitmap* kRadioOn = CreateRadioButtonImage(true);
-  static const SkBitmap* kRadioOff = CreateRadioButtonImage(false);
+const gfx::ImageSkia* GetRadioButtonImage(bool selected) {
+  static const gfx::ImageSkia* kRadioOn = CreateRadioButtonImage(true);
+  static const gfx::ImageSkia* kRadioOff = CreateRadioButtonImage(false);
 
   return selected ? kRadioOn : kRadioOff;
 }
 
-const SkBitmap* GetSubmenuArrowImage() {
+const gfx::ImageSkia* GetSubmenuArrowImage() {
   ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
   return base::i18n::IsRTL() ? GetRtlSubmenuArrowImage()
-                             : rb.GetImageNamed(IDR_MENU_ARROW).ToSkBitmap();
+                             : rb.GetImageNamed(IDR_MENU_ARROW).ToImageSkia();
 }
 
 }  // namespace views

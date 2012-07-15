@@ -4,7 +4,6 @@
 
 #ifndef CHROME_COMMON_AUTOMATION_CONSTANTS_H__
 #define CHROME_COMMON_AUTOMATION_CONSTANTS_H__
-#pragma once
 
 #include <string>
 
@@ -140,7 +139,7 @@ enum AutomationMsg_NavigationResponseValues {
 // Used in the AutomationMsg_GetExtensionProperty to identify which extension
 // property should be retrieved, instead of having separate messages for each
 // property.
-enum AutomationMsg_ExtensionProperty {
+enum AutomationMsg_DEPRECATED_ExtensionProperty {
   AUTOMATION_MSG_EXTENSION_ID = 0,
   AUTOMATION_MSG_EXTENSION_NAME,
   AUTOMATION_MSG_EXTENSION_VERSION,

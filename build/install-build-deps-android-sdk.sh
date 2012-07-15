@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 # Copyright (c) 2012 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -11,9 +11,11 @@ set -e
 
 # Using Android 4.0, API Level: 14 (ice cream sandwich). The SDK package is
 # about 25M.
-SDK_FILE_NAME="android-sdk_r16-linux.tgz"
+SDK_TARGET_VER=20
+
+SDK_FILE_NAME="android-sdk_r${SDK_TARGET_VER}-linux.tgz"
 SDK_DOWNLOAD_URL="http://dl.google.com/android/${SDK_FILE_NAME}"
-SDK_MD5SUM="3ba457f731d51da3741c29c8830a4583"
+SDK_MD5SUM="22a81cf1d4a951c62f71a8758290e9bb"
 
 # Using "ANDROID_SDK_ROOT/tools/android list targets" to get the matching target
 # id which will be loaded in simulator for testing.
@@ -25,7 +27,7 @@ SDK_MD5SUM="3ba457f731d51da3741c29c8830a4583"
 #     API level: 13
 #     Revision: 1
 #     Skins: WXGA (default)
-SDK_TARGET_ID=android-14
+SDK_TARGET_ID=android-15
 
 # Using NDK r7; The package is about 64M.
 # *** DO NOT UPDATE THE NDK without updating the 64-bit linker changes ***
@@ -74,7 +76,7 @@ install_dev_kit() {
   echo "Install ${local_file_name}"
   mv "${local_file_name}" "${install_path}"
   cd "${install_path}"
-  tar -xvf "${local_file_name}"
+  tar -xf "${local_file_name}"
 }
 
 if [[ -z "${ANDROID_SDK_ROOT}" ]]; then
@@ -96,27 +98,42 @@ if [[ ! -d "${ANDROID_SDK_ROOT}" ]]; then
                   $(dirname "${ANDROID_SDK_ROOT}"))
 fi
 
+# Check the installed SDK revision
+SDK_VER=$(sed '/^\#/d' ${ANDROID_SDK_ROOT}/tools/source.properties | \
+    grep 'Pkg.Revision' |tail -n 1 | cut -d "=" -f2- | \
+    sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
 # Install the target if it doesn't exist. The package installed above contains
 # no platform, platform-tool or tool, all those should be installed by
 # ${ANDROID_SDK_ROOT}/tools/android.
+# Also, if current SDK version is lower than ${SDK_TARGET_VER}, upgrade the SDK.
 found=$("${ANDROID_SDK_ROOT}/tools/android" list targets \
         | grep "${SDK_TARGET_ID}" | wc -l)
-if [[ "$found" = "0" ]]; then
+if [[ "$found" = "0" || ${SDK_VER} -lt ${SDK_TARGET_VER} ]]; then
   # Updates the SDK by installing the necessary components.
   # From current configuration, all android platforms will be installed.
   # This will take a little bit long time.
-  echo "Install platform, platform-tool and tool ..."
+  echo "Upgrade SDK and install platform, platform-tool and tool ..."
 
-  "${ANDROID_SDK_ROOT}"/tools/android update sdk -o --no-ui \
-      --filter platform,platform-tool,tool,system-image
+  if [[ ${SDK_VER} -lt 17 ]]; then
+    update_flag=" -o "
+  else
+    update_flag=" --all "
+  fi
+  # Updates the SDK to latest version firstly.
+    "${ANDROID_SDK_ROOT}"/tools/android update sdk ${update_flag} --no-ui \
+        --filter platform-tool,tool,system-image,${SDK_TARGET_ID}
 fi
 
 # Create a Android Virtual Device named 'buildbot' with default hardware
 # configuration and override the existing one, since there is no easy way to
 # check whether current AVD has correct configuration and it takes almost no
-# time to create a new one.
-"${ANDROID_SDK_ROOT}/tools/android" --silent create avd --name buildbot \
-  --target ${SDK_TARGET_ID} --force <<< "no"
+# time to create a new one.  Create one ARM AVD and one x86 AVD.
+"${ANDROID_SDK_ROOT}/tools/android" --silent create avd --name avd_armeabi \
+  --abi armeabi-v7a --target ${SDK_TARGET_ID} -c 64M --force <<< "no"
+
+"${ANDROID_SDK_ROOT}/tools/android" --silent create avd --name avd_x86 \
+  --abi x86 --target ${SDK_TARGET_ID} -c 64M --force <<< "no"
 
 # Install Android NDK if it doesn't exist.
 if [[ ! -d "${ANDROID_NDK_ROOT}" ]]; then

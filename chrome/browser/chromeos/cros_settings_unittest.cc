@@ -12,16 +12,16 @@
 #include "base/message_loop.h"
 #include "base/stl_util.h"
 #include "base/values.h"
+#include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chrome/browser/chromeos/cros_settings.h"
 #include "chrome/browser/chromeos/cros_settings_names.h"
-#include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chrome/browser/chromeos/login/mock_user_manager.h"
 #include "chrome/browser/chromeos/login/signed_settings_cache.h"
 #include "chrome/browser/policy/proto/chrome_device_policy.pb.h"
 #include "chrome/browser/policy/proto/device_management_backend.pb.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_pref_service.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using ::testing::AnyNumber;
@@ -64,7 +64,8 @@ class CrosSettingsTest : public testing::Test {
     if (expected_props_.find(pref) == expected_props_.end())
       return;
 
-    if (CrosSettings::Get()->PrepareTrustedValues(
+    if (CrosSettingsProvider::TRUSTED ==
+        CrosSettings::Get()->PrepareTrustedValues(
             base::Bind(&CrosSettingsTest::FetchPref,
                        pointer_factory_.GetWeakPtr(), pref))) {
       scoped_ptr<base::Value> expected_value(
@@ -239,6 +240,37 @@ TEST_F(CrosSettingsTest, SetEphemeralUsersEnabled) {
                  base::Value::CreateBooleanValue(true));
   SetPref(kAccountsPrefEphemeralUsersEnabled, &ephemeral_users_enabled);
   FetchPref(kAccountsPrefEphemeralUsersEnabled);
+}
+
+TEST_F(CrosSettingsTest, FindEmailInList) {
+  base::ListValue list;
+  list.Append(base::Value::CreateStringValue("user@example.com"));
+  list.Append(base::Value::CreateStringValue("nodomain"));
+  list.Append(base::Value::CreateStringValue("with.dots@gmail.com"));
+  list.Append(base::Value::CreateStringValue("Upper@example.com"));
+
+  CrosSettings* cs = CrosSettings::Get();
+  cs->Set(kAccountsPrefUsers, list);
+
+  EXPECT_TRUE(cs->FindEmailInList(kAccountsPrefUsers, "user@example.com"));
+  EXPECT_FALSE(cs->FindEmailInList(kAccountsPrefUsers, "us.er@example.com"));
+  EXPECT_TRUE(cs->FindEmailInList(kAccountsPrefUsers, "USER@example.com"));
+  EXPECT_FALSE(cs->FindEmailInList(kAccountsPrefUsers, "user"));
+
+  EXPECT_TRUE(cs->FindEmailInList(kAccountsPrefUsers, "nodomain"));
+  EXPECT_TRUE(cs->FindEmailInList(kAccountsPrefUsers, "nodomain@gmail.com"));
+  EXPECT_TRUE(cs->FindEmailInList(kAccountsPrefUsers, "no.domain@gmail.com"));
+  EXPECT_TRUE(cs->FindEmailInList(kAccountsPrefUsers, "NO.DOMAIN"));
+
+  EXPECT_TRUE(cs->FindEmailInList(kAccountsPrefUsers, "with.dots@gmail.com"));
+  EXPECT_TRUE(cs->FindEmailInList(kAccountsPrefUsers, "withdots@gmail.com"));
+  EXPECT_TRUE(cs->FindEmailInList(kAccountsPrefUsers, "WITH.DOTS@gmail.com"));
+  EXPECT_TRUE(cs->FindEmailInList(kAccountsPrefUsers, "WITHDOTS"));
+
+  EXPECT_TRUE(cs->FindEmailInList(kAccountsPrefUsers, "Upper@example.com"));
+  EXPECT_FALSE(cs->FindEmailInList(kAccountsPrefUsers, "U.pper@example.com"));
+  EXPECT_FALSE(cs->FindEmailInList(kAccountsPrefUsers, "Upper"));
+  EXPECT_TRUE(cs->FindEmailInList(kAccountsPrefUsers, "upper@example.com"));
 }
 
 }  // namespace chromeos

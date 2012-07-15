@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_UI_WEBUI_QUOTA_INTERNALS_PROXY_H_
 #define CHROME_BROWSER_UI_WEBUI_QUOTA_INTERNALS_PROXY_H_
-#pragma once
 
 #include <map>
 #include <set>
@@ -13,7 +12,7 @@
 
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
-#include "base/message_loop_helpers.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "content/public/browser/browser_thread.h"
 #include "webkit/quota/quota_manager.h"
 #include "webkit/quota/quota_types.h"
@@ -35,13 +34,19 @@ class QuotaInternalsProxy
           content::BrowserThread::DeleteOnIOThread> {
  public:
   explicit QuotaInternalsProxy(QuotaInternalsHandler* handler);
-  ~QuotaInternalsProxy();
 
   void RequestInfo(scoped_refptr<quota::QuotaManager> quota_manager);
 
  private:
+  friend class base::DeleteHelper<QuotaInternalsProxy>;
+  friend struct content::BrowserThread::DeleteOnThread<
+      content::BrowserThread::IO>;
+  friend class QuotaInternalsHandler;
+
   typedef quota::QuotaManager::QuotaTableEntries QuotaTableEntries;
   typedef quota::QuotaManager::OriginInfoTableEntries OriginInfoTableEntries;
+
+  virtual ~QuotaInternalsProxy();
 
   void ReportAvailableSpace(int64 available_space);
   void ReportGlobalInfo(const GlobalStorageInfo& data);
@@ -77,11 +82,6 @@ class QuotaInternalsProxy
   std::set<std::pair<std::string, quota::StorageType> >
       hosts_visited_, hosts_pending_;
   std::vector<PerHostStorageInfo> report_pending_;
-
-  friend class QuotaInternalsHandler;
-  friend struct content::BrowserThread::DeleteOnThread<
-      content::BrowserThread::IO>;
-  friend class base::DeleteHelper<QuotaInternalsProxy>;
 
   DISALLOW_COPY_AND_ASSIGN(QuotaInternalsProxy);
 };

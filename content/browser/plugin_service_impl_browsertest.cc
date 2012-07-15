@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -14,7 +14,7 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/resource_context.h"
 #include "content/public/common/content_switches.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "webkit/plugins/npapi/plugin_list.h"
 
@@ -34,7 +34,7 @@ void OpenChannel(PluginProcessHost::Client* client) {
 // Mock up of the Client and the Listener classes that would supply the
 // communication channel with the plugin.
 class MockPluginProcessHostClient : public PluginProcessHost::Client,
-                                    public IPC::Channel::Listener {
+                                    public IPC::Listener {
  public:
   MockPluginProcessHostClient(content::ResourceContext* context)
       : context_(context),
@@ -47,7 +47,7 @@ class MockPluginProcessHostClient : public PluginProcessHost::Client,
       BrowserThread::DeleteSoon(BrowserThread::IO, FROM_HERE, channel_);
   }
 
-  // Client implementation.
+  // PluginProcessHost::Client implementation.
   virtual int ID() OVERRIDE { return 42; }
   virtual bool OffTheRecord() OVERRIDE { return false; }
   virtual content::ResourceContext* GetResourceContext() OVERRIDE {
@@ -64,25 +64,47 @@ class MockPluginProcessHostClient : public PluginProcessHost::Client,
     ASSERT_TRUE(channel_->Connect());
   }
 
-  void SetPluginInfo(const webkit::WebPluginInfo& info) OVERRIDE {
+  virtual void SetPluginInfo(const webkit::WebPluginInfo& info) OVERRIDE {
     ASSERT_TRUE(info.mime_types.size());
     ASSERT_EQ(kNPAPITestPluginMimeType, info.mime_types[0].mime_type);
     set_plugin_info_called_ = true;
   }
 
-  MOCK_METHOD0(OnError, void());
+  virtual void OnError() OVERRIDE {
+    Fail();
+  }
 
-  // Listener implementation.
-  MOCK_METHOD1(OnMessageReceived, bool(const IPC::Message& message));
-  void OnChannelConnected(int32 peer_pid) OVERRIDE {
+  // IPC::Listener implementation.
+  virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE {
+    Fail();
+    return false;
+  }
+  virtual void OnChannelConnected(int32 peer_pid) OVERRIDE {
+    QuitMessageLoop();
+  }
+  virtual void OnChannelError() OVERRIDE {
+    Fail();
+  }
+#if defined(OS_POSIX)
+  virtual void OnChannelDenied() OVERRIDE {
+    Fail();
+  }
+  virtual void OnChannelListenError() OVERRIDE {
+    Fail();
+  }
+#endif
+
+ private:
+  void Fail() {
+    FAIL();
+    QuitMessageLoop();
+  }
+
+  void QuitMessageLoop() {
     BrowserThread::PostTask(BrowserThread::UI, FROM_HERE,
                             MessageLoop::QuitClosure());
   }
-  MOCK_METHOD0(OnChannelError, void());
-  MOCK_METHOD0(OnChannelDenied, void());
-  MOCK_METHOD0(OnChannelListenError, void());
 
- private:
   content::ResourceContext* context_;
   IPC::Channel* channel_;
   bool set_plugin_info_called_;
@@ -100,13 +122,19 @@ class PluginServiceTest : public InProcessBrowserTest {
     command_line->AppendSwitchPath(switches::kExtraPluginDir,
                                    browser_directory.AppendASCII("plugins"));
 #endif
+    // TODO(jam): since these plugin tests are running under Chrome, we need to
+    // tell it to disable its security features for old plugins. Once this is
+    // running under content_browsertests, these flags won't be needed.
+    // http://crbug.com/90448
+    // switches::kAlwaysAuthorizePlugins
+    command_line->AppendSwitch("always-authorize-plugins");
   }
 };
 
 // Try to open a channel to the test plugin. Minimal plugin process spawning
 // test for the PluginService interface.
 IN_PROC_BROWSER_TEST_F(PluginServiceTest, OpenChannelToPlugin) {
-  ::testing::StrictMock<MockPluginProcessHostClient> mock_client(
+  MockPluginProcessHostClient mock_client(
       browser()->profile()->GetResourceContext());
   BrowserThread::PostTask(
       BrowserThread::IO, FROM_HERE,
@@ -155,10 +183,7 @@ void QuitUIMessageLoopFromIOThread() {
 }
 
 void OpenChannelAndThenCancel(PluginProcessHost::Client* client) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-  // Start opening the channel
-  PluginServiceImpl::GetInstance()->OpenChannelToNpapiPlugin(
-      0, 0, GURL(), GURL(), kNPAPITestPluginMimeType, client);
+  OpenChannel(client);
   // Immediately cancel it. This is guaranteed to work since PluginService needs
   // to consult its filter on the FILE thread.
   PluginServiceImpl::GetInstance()->CancelOpenChannelToNpapiPlugin(client);

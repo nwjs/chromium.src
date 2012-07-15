@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_PASSWORD_MANAGER_PASSWORD_STORE_MAC_H_
 #define CHROME_BROWSER_PASSWORD_MANAGER_PASSWORD_STORE_MAC_H_
-#pragma once
 
 #include <vector>
 
@@ -41,7 +40,7 @@ class PasswordStoreMac : public PasswordStore {
  protected:
   virtual ~PasswordStoreMac();
 
-  virtual void ScheduleTask(const base::Closure& task) OVERRIDE;
+  virtual bool ScheduleTask(const base::Closure& task) OVERRIDE;
 
  private:
   virtual void ReportMetricsImpl() OVERRIDE;

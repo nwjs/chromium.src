@@ -45,45 +45,77 @@ class SpdySM : public BufferedSpdyFramerVisitorInterface,
                                 std::string remote_ip,
                                 bool use_ssl) OVERRIDE;
 
-  static bool disable_data_compression() { return disable_data_compression_; }
-  static void set_disable_data_compression(bool value) {
-    disable_data_compression_ = value;
-  }
-
  private:
   virtual void set_is_request() OVERRIDE {}
   SMInterface* NewConnectionInterface();
   SMInterface* FindOrMakeNewSMConnectionInterface(std::string server_ip,
                                                   std::string server_port);
-  int SpdyHandleNewStream(const SpdySynStreamControlFrame* frame,
-                          const linked_ptr<SpdyHeaderBlock>& headers,
+  int SpdyHandleNewStream(SpdyStreamId stream_id,
+                          SpdyPriority priority,
+                          const SpdyHeaderBlock& headers,
                           std::string& http_data,
                           bool* is_https_scheme);
 
   // BufferedSpdyFramerVisitorInterface:
-  virtual void OnError(int error_code) OVERRIDE {}
+  virtual void OnError(SpdyFramer::SpdyError error_code) OVERRIDE {}
   virtual void OnStreamError(SpdyStreamId stream_id,
                              const std::string& description) OVERRIDE {}
-  virtual void OnRstStream(
-      const SpdyRstStreamControlFrame& frame) OVERRIDE;
-  virtual void OnGoAway(const SpdyGoAwayControlFrame& frame) OVERRIDE {}
-  virtual void OnPing(const SpdyPingControlFrame& frame) OVERRIDE {}
-  virtual void OnWindowUpdate(
-      const SpdyWindowUpdateControlFrame& frame) OVERRIDE {}
+  // Called after all the header data for SYN_STREAM control frame is received.
+  virtual void OnSynStream(SpdyStreamId stream_id,
+                           SpdyStreamId associated_stream_id,
+                           SpdyPriority priority,
+                           uint8 credential_slot,
+                           bool fin,
+                           bool unidirectional,
+                           const SpdyHeaderBlock& headers) OVERRIDE;
+
+  // Called after all the header data for SYN_REPLY control frame is received.
+  virtual void OnSynReply(SpdyStreamId stream_id,
+                          bool fin,
+                          const SpdyHeaderBlock& headers) OVERRIDE;
+
+  // Called after all the header data for HEADERS control frame is received.
+  virtual void OnHeaders(SpdyStreamId stream_id,
+                         bool fin,
+                         const SpdyHeaderBlock& headers) OVERRIDE;
+
+  // Called when data is received.
+  // |stream_id| The stream receiving data.
+  // |data| A buffer containing the data received.
+  // |len| The length of the data buffer.
+  // When the other side has finished sending data on this stream,
+  // this method will be called with a zero-length buffer.
   virtual void OnStreamFrameData(SpdyStreamId stream_id,
                                  const char* data,
-                                 size_t len) OVERRIDE;
-  virtual void OnSetting(
-      SpdySettingsIds id, uint8 flags, uint32 value)  OVERRIDE {}
-  virtual void OnSynStream(
-      const SpdySynStreamControlFrame& frame,
-      const linked_ptr<SpdyHeaderBlock>& headers) OVERRIDE;
-  virtual void OnSynReply(
-      const SpdySynReplyControlFrame& frame,
-      const linked_ptr<SpdyHeaderBlock>& headers) OVERRIDE;
-  virtual void OnHeaders(
-      const SpdyHeadersControlFrame& frame,
-      const linked_ptr<SpdyHeaderBlock>& headers) OVERRIDE;
+                                 size_t len,
+                                 SpdyDataFlags flags) OVERRIDE;
+
+  // Called when an individual setting within a SETTINGS frame has been parsed
+  // and validated.
+  virtual void OnSetting(SpdySettingsIds id,
+                         uint8 flags,
+                         uint32 value) OVERRIDE {};
+
+  // Called when a PING frame has been parsed.
+  virtual void OnPing(uint32 unique_id) OVERRIDE {};
+
+  // Called when a RST_STREAM frame has been parsed.
+  virtual void OnRstStream(SpdyStreamId stream_id,
+                           SpdyStatusCodes status) OVERRIDE;
+
+  // Called when a GOAWAY frame has been parsed.
+  virtual void OnGoAway(SpdyStreamId last_accepted_stream_id,
+                        SpdyGoAwayStatus status) OVERRIDE {};
+
+  // Called when a WINDOW_UPDATE frame has been parsed.
+  virtual void OnWindowUpdate(SpdyStreamId stream_id,
+                              int delta_window_size) OVERRIDE {};
+
+  // Called after a control frame has been compressed to allow the visitor
+  // to record compression statistics.
+  virtual void OnControlFrameCompressed(
+      const SpdyControlFrame& uncompressed_frame,
+      const SpdyControlFrame& compressed_frame) OVERRIDE {};
 
  public:
   virtual size_t ProcessReadInput(const char* data, size_t len) OVERRIDE;
@@ -138,7 +170,6 @@ class SpdySM : public BufferedSpdyFramerVisitorInterface,
   void EnqueueDataFrame(DataFrame* df);
   virtual void GetOutput() OVERRIDE;
  private:
-  uint64 seq_num_;
   BufferedSpdyFramer* buffered_spdy_framer_;
   bool valid_spdy_session_;  // True if we have seen valid data on this session.
                              // Use this to fail fast when junk is sent to our
@@ -157,7 +188,6 @@ class SpdySM : public BufferedSpdyFramerVisitorInterface,
   StreamToSmif stream_to_smif_;
   bool close_on_error_;
 
-  static bool disable_data_compression_;
   static std::string forward_ip_header_;
 };
 

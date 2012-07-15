@@ -7,6 +7,7 @@
 #include "build/build_config.h"
 #include "content/renderer/pepper/pepper_plugin_delegate_impl.h"
 #include "content/renderer/pepper/pepper_proxy_channel_delegate_impl.h"
+#include "content/renderer/renderer_restrict_dispatch_group.h"
 #include "ipc/ipc_channel_handle.h"
 #include "ppapi/proxy/broker_dispatcher.h"
 #include "ppapi/proxy/ppapi_messages.h"
@@ -17,6 +18,8 @@
 #if defined(OS_WIN)
 #include <windows.h>
 #endif
+
+namespace content {
 
 namespace {
 
@@ -52,7 +55,6 @@ PepperBrokerDispatcherWrapper::~PepperBrokerDispatcherWrapper() {
 }
 
 bool PepperBrokerDispatcherWrapper::Init(
-    base::ProcessHandle broker_process_handle,
     const IPC::ChannelHandle& channel_handle) {
   if (channel_handle.name.empty())
     return false;
@@ -65,7 +67,7 @@ bool PepperBrokerDispatcherWrapper::Init(
 
   dispatcher_delegate_.reset(new PepperProxyChannelDelegateImpl);
   dispatcher_.reset(
-      new ppapi::proxy::BrokerHostDispatcher(broker_process_handle));
+      new ppapi::proxy::BrokerHostDispatcher());
 
   if (!dispatcher_->InitBrokerWithChannel(dispatcher_delegate_.get(),
                                           channel_handle,
@@ -74,7 +76,8 @@ bool PepperBrokerDispatcherWrapper::Init(
     dispatcher_delegate_.reset();
     return false;
   }
-  dispatcher_->channel()->SetRestrictDispatchToSameChannel(true);
+  dispatcher_->channel()->SetRestrictDispatchChannelGroup(
+      content::kRendererRestrictDispatchGroup_Pepper);
   return true;
 }
 
@@ -187,11 +190,10 @@ void PepperBrokerImpl::Disconnect(webkit::ppapi::PPB_Broker_Impl* client) {
 }
 
 void PepperBrokerImpl::OnBrokerChannelConnected(
-    base::ProcessHandle broker_process_handle,
     const IPC::ChannelHandle& channel_handle) {
   scoped_ptr<PepperBrokerDispatcherWrapper> dispatcher(
       new PepperBrokerDispatcherWrapper);
-  if (dispatcher->Init(broker_process_handle, channel_handle)) {
+  if (dispatcher->Init(channel_handle)) {
     dispatcher_.reset(dispatcher.release());
 
     // Process all pending channel requests from the plugins.
@@ -245,3 +247,4 @@ void PepperBrokerImpl::ConnectPluginToBroker(
   client->BrokerConnected(ppapi::PlatformFileToInt(plugin_handle), result);
 }
 
+}  // namespace content

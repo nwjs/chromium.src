@@ -8,13 +8,13 @@
       <div>
         <div class="radio">
           <label>
-            <input type="radio" name="cookies" value="allow" id="cookies-allow">
+            <input type="radio" name="cookies" value="allow">
             <span i18n-content="cookies_allow"></span>
           </label>
         </div>
         <div class="radio">
           <label>
-            <input type="radio" name="cookies" value="session" id="cookies-session">
+            <input type="radio" name="cookies" value="session">
             <span i18n-content="cookies_session_only"></span>
           </label>
         </div>
@@ -30,7 +30,9 @@
             <span i18n-content="cookies_block_3rd_party"></span>
           </label>
         </div>
-        <div class="checkbox" guest-visibility="disabled">
+        <!-- TODO(jochen): remove the div with the clear cookies on exit option
+                           once this has shipped. -->
+        <div class="checkbox" guest-visibility="disabled" hidden>
           <label>
             <input id="clear-cookies-on-exit"
                 pref="profile.clear_site_data_on_exit" type="checkbox">
@@ -44,6 +46,8 @@
             i18n-content="manage_exceptions"></button>
         <button id="show-cookies-button"
             i18n-content="cookies_show_cookies"></button>
+        <button id="show-app-cookies-button"
+            i18n-content="cookies_show_app_cookies"></button>
      </div>
     </section>
     <!-- Image filter -->
@@ -87,29 +91,27 @@
       </div>
     </section>
     <!-- Handlers settings -->
-    <if expr="pp_ifdef('enable_register_protocol_handler')">
-      <section id="handlers-section">
-        <h3 i18n-content="handlers_tab_label"></h3>
-        <div>
-          <div class="radio">
-            <label>
-              <input type="radio" name="handlers" value="allow"
-                  class="handler-radio">
-              <span i18n-content="handlers_allow"></span>
-            </label>
-          </div>
-          <div class="radio">
-            <label>
-              <input type="radio" name="handlers" value="block"
-                  class="handler-radio">
-              <span i18n-content="handlers_block"></span>
-            </label>
-          </div>
-          <button id="manage-handlers-button" contentType="handlers"
-              i18n-content="manage_handlers"></button>
+    <section id="handlers-section">
+      <h3 i18n-content="handlers_tab_label"></h3>
+      <div>
+        <div class="radio">
+          <label>
+            <input type="radio" name="handlers" value="allow"
+                class="handler-radio">
+            <span i18n-content="handlers_allow"></span>
+          </label>
         </div>
-      </section>
-    </if>
+        <div class="radio">
+          <label>
+            <input type="radio" name="handlers" value="block"
+                class="handler-radio">
+            <span i18n-content="handlers_block"></span>
+          </label>
+        </div>
+        <button id="manage-handlers-button" contentType="handlers"
+            i18n-content="manage_handlers"></button>
+      </div>
+    </section>
     <!-- Plug-ins filter -->
     <section>
       <h3 i18n-content="plugins_tab_label"></h3>
@@ -135,7 +137,7 @@
         <button class="exceptions-list-button" contentType="plugins"
             i18n-content="manage_exceptions"></button>
         <div id="disable-plugins-container">
-          <a href="about:plugins" i18n-content="disableIndividualPlugins"
+          <a href="chrome://plugins" i18n-content="disableIndividualPlugins"
               target="_blank"></a>
         </div>
       </div>
@@ -255,6 +257,72 @@
           <input pref="webintents.enabled" type="checkbox">
           <span i18n-content="allowWebIntents"></span>
         </label>
+      </div>
+    </section>
+    <!-- Pepper Flash camera and microphone filter -->
+    <section id="pepper-flash-cameramic-section" class="pepper-flash-settings">
+      <h3 i18n-content="pepperFlashCameramicTabLabel"></h3>
+      <div>
+        <div class="radio">
+          <label>
+            <input type="radio" name="pepper-flash-cameramic" value="ask">
+            <span i18n-content="pepperFlashCameramicAsk"></span>
+          </label>
+        </div>
+        <div class="radio">
+          <label>
+            <input type="radio" name="pepper-flash-cameramic" value="block">
+            <span i18n-content="pepperFlashCameramicBlock"></span>
+          </label>
+        </div>
+        <button class="exceptions-list-button"
+            contentType="pepper-flash-cameramic"
+            i18n-content="manage_exceptions"></button>
+      </div>
+    </section>
+<if expr="pp_ifdef('chromeos')">
+    <!-- Protected Content filter -->
+    <section guest-visibility="disabled">
+      <h3 i18n-content="protectedContentTabLabel"
+          class="content-settings-header"></h3>
+      <div>
+        <div class="settings-row">
+          <span i18n-content="protectedContentInfo"></span>
+        </div>
+        <div class="checkbox">
+          <label>
+            <input pref="settings.privacy.drm_enabled" type="checkbox">
+            <span i18n-content="protectedContentEnable"></span>
+          </label>
+        </div>
+      </div>
+    </section>
+</if>
+    <!-- Media Stream capture device filter -->
+    <section>
+      <h3 i18n-content="mediaStreamTabLabel"></h3>
+      <div>
+        <div class="radio">
+          <label>
+            <input type="radio" name="media-stream" value="ask">
+            <span i18n-content="mediaStreamAsk"></span>
+          </label>
+        </div>
+        <div class="radio">
+          <label>
+            <input type="radio" name="media-stream" value="block">
+            <span i18n-content="mediaStreamBlock"></span>
+          </label>
+        </div>
+        <button class="exceptions-list-button" contentType="media-stream"
+            i18n-content="manage_exceptions"></button>
+      </div>
+    </section>
+    <section id="media-gallery-section" hidden>
+      <h3 i18n-content="mediaGalleriesSectionLabel"></h3>
+      <div>
+        <button id="manage-galleries-button"
+            i18n-content="manageGalleriesButton"></button>
       </div>
     </section>
   </div>

@@ -14,13 +14,7 @@ namespace language_prefs {
 // For ibus-daemon
 // ---------------------------------------------------------------------------
 const char kGeneralSectionName[] = "general";
-const char kHotKeySectionName[] = "general/hotkey";
 const char kPreloadEnginesConfigName[] = "preload_engines";
-const char kNextEngineInMenuConfigName[] = "next_engine_in_menu";
-const char kPreviousEngineConfigName[] = "previous_engine";
-// The following two variables are for deleting ibus-daemon's default hotkeys.
-const char kHotkeyNextEngineInMenu[] = "";
-const char kHotkeyPreviousEngine[] = "";
 
 // ---------------------------------------------------------------------------
 // For Traditional Chinese input method (ibus-mozc-chewing)
@@ -164,12 +158,12 @@ COMPILE_ASSERT(kNumHangulKeyboardNameIDPairs ==
                TheSizeShouldMatch);
 
 // ---------------------------------------------------------------------------
-// For Simplified Chinese input method (ibus-pinyin)
+// For Simplified Chinese input method (ibus-mozc-pinyin)
 // ---------------------------------------------------------------------------
 const char kPinyinSectionName[] = "engine/Pinyin";
 
 // We have to sync the |ibus_config_name|s with those in
-// ibus-pinyin/files/src/Config.cc.
+// ibus-mozc-pinyin/files/languages/pinyin/unix/ibus/config_updater.cc.
 const LanguageBooleanPrefs kPinyinBooleanPrefs[] = {
   { prefs::kLanguagePinyinCorrectPinyin, true, "CorrectPinyin",
     IDS_OPTIONS_SETTINGS_LANGUAGES_PINYIN_SETTING_CORRECT_PINYIN,

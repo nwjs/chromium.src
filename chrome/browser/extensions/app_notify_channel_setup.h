@@ -13,9 +13,9 @@
 #include "chrome/browser/extensions/app_notify_channel_ui.h"
 #include "chrome/common/net/gaia/oauth2_access_token_consumer.h"
 #include "chrome/common/net/gaia/oauth2_access_token_fetcher.h"
-#include "content/public/common/url_fetcher.h"
-#include "content/public/common/url_fetcher_delegate.h"
 #include "googleurl/src/gurl.h"
+#include "net/url_request/url_fetcher.h"
+#include "net/url_request/url_fetcher_delegate.h"
 
 class AppNotifyChannelSetupTest;
 class Profile;
@@ -30,7 +30,7 @@ class Profile;
 // 4. Call the delegate passed in to the constructor with the results of
 //    the above steps.
 class AppNotifyChannelSetup
-    : public content::URLFetcherDelegate,
+    : public net::URLFetcherDelegate,
       public AppNotifyChannelUI::Delegate,
       public OAuth2AccessTokenConsumer,
       public base::RefCountedThreadSafe<AppNotifyChannelSetup> {
@@ -97,8 +97,8 @@ class AppNotifyChannelSetup
   int callback_id() const { return callback_id_; }
 
  protected:
-  // content::URLFetcherDelegate.
-  virtual void OnURLFetchComplete(const content::URLFetcher* source) OVERRIDE;
+  // net::URLFetcherDelegate.
+  virtual void OnURLFetchComplete(const net::URLFetcher* source) OVERRIDE;
 
   // AppNotifyChannelUI::Delegate.
   virtual void OnSyncSetupResult(bool enabled) OVERRIDE;
@@ -125,16 +125,16 @@ class AppNotifyChannelSetup
   // Creates an instance of URLFetcher that does not send or save cookies.
   // The URLFether's method will be GET if body is empty, POST otherwise.
   // Caller owns the returned instance.
-  content::URLFetcher* CreateURLFetcher(
+  net::URLFetcher* CreateURLFetcher(
     const GURL& url, const std::string& body, const std::string& auth_token);
   void BeginLogin();
   void EndLogin(bool success);
   void BeginGetAccessToken();
   void EndGetAccessToken(bool success);
   void BeginRecordGrant();
-  void EndRecordGrant(const content::URLFetcher* source);
+  void EndRecordGrant(const net::URLFetcher* source);
   void BeginGetChannelId();
-  void EndGetChannelId(const content::URLFetcher* source);
+  void EndGetChannelId(const net::URLFetcher* source);
 
   void ReportResult(const std::string& channel_id, SetupError error);
 
@@ -158,7 +158,7 @@ class AppNotifyChannelSetup
   int return_route_id_;
   int callback_id_;
   base::WeakPtr<Delegate> delegate_;
-  scoped_ptr<content::URLFetcher> url_fetcher_;
+  scoped_ptr<net::URLFetcher> url_fetcher_;
   scoped_ptr<OAuth2AccessTokenFetcher> oauth2_fetcher_;
   scoped_ptr<AppNotifyChannelUI> ui_;
   State state_;

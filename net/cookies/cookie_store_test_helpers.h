@@ -4,7 +4,6 @@
 
 #ifndef NET_COOKIES_COOKIE_STORE_TEST_HELPERS_H_
 #define NET_COOKIES_COOKIE_STORE_TEST_HELPERS_H_
-#pragma once
 
 #include "net/cookies/cookie_monster.h"
 
@@ -62,6 +61,8 @@ class DelayedCookieMonster : public CookieStore {
       const base::Time& delete_begin,
       const base::Time& delete_end,
       const DeleteCallback& callback) OVERRIDE;
+
+  virtual void DeleteSessionCookiesAsync(const DeleteCallback&) OVERRIDE;
 
   virtual CookieMonster* GetCookieMonster() OVERRIDE;
 

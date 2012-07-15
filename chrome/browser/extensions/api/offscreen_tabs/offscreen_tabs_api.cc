@@ -16,18 +16,18 @@
 #include "base/string_util.h"
 #include "base/values.h"
 #include "chrome/browser/extensions/api/offscreen_tabs/offscreen_tabs_constants.h"
+#include "chrome/browser/extensions/api/tabs/tabs.h"
+#include "chrome/browser/extensions/api/tabs/tabs_constants.h"
 #include "chrome/browser/extensions/extension_event_names.h"
 #include "chrome/browser/extensions/extension_event_router.h"
 #include "chrome/browser/extensions/extension_function_dispatcher.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
-#include "chrome/browser/extensions/extension_tabs_module.h"
-#include "chrome/browser/extensions/extension_tabs_module_constants.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
-#include "chrome/browser/ui/window_sizer.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/window_sizer/window_sizer.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_error_utils.h"
@@ -41,6 +41,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_view.h"
 
+using content::NativeWebKeyboardEvent;
 using content::NavigationController;
 using content::NotificationDetails;
 using content::NotificationSource;
@@ -48,7 +49,7 @@ using content::WebContents;
 using WebKit::WebInputEvent;
 
 namespace keys = extensions::offscreen_tabs_constants;
-namespace tabs_keys = extension_tabs_module_constants;
+namespace tabs_keys = extensions::tabs_constants;
 namespace events = extension_event_names;
 
 namespace {
@@ -66,8 +67,8 @@ class OffscreenTab : public content::NotificationObserver {
             Profile* profile,
             ParentTab* parent_tab);
 
-  TabContentsWrapper* tab_contents() const {
-    return tab_contents_wrapper_.get();
+  TabContents* tab_contents() const {
+    return tab_contents_.get();
   }
   WebContents* web_contents() const {
     return tab_contents()->web_contents();
@@ -97,7 +98,7 @@ class OffscreenTab : public content::NotificationObserver {
                        const NotificationDetails& details) OVERRIDE;
 
   content::NotificationRegistrar registrar_;
-  scoped_ptr<TabContentsWrapper> tab_contents_wrapper_;
+  scoped_ptr<TabContents> tab_contents_;
   ParentTab* parent_tab_;
 
   DISALLOW_COPY_AND_ASSIGN(OffscreenTab);
@@ -115,7 +116,7 @@ class ParentTab : public content::NotificationObserver {
   void Init(WebContents* web_contents,
             const std::string& extension_id);
 
-  TabContentsWrapper* tab_contents() { return tab_contents_wrapper_; }
+  TabContents* tab_contents() { return tab_contents_; }
   int GetID() { return ExtensionTabUtil::GetTabId(web_contents()); }
   WebContents* web_contents() {
     return tab_contents()->web_contents();
@@ -139,7 +140,7 @@ class ParentTab : public content::NotificationObserver {
 
   content::NotificationRegistrar registrar_;
 
-  TabContentsWrapper* tab_contents_wrapper_;
+  TabContents* tab_contents_;
   OffscreenTabs offscreen_tabs_;
   std::string extension_id_;
 
@@ -227,7 +228,7 @@ void OffscreenTab::Init(const GURL& url,
   // Create the offscreen tab.
   WebContents* web_contents = WebContents::Create(
       profile, NULL, MSG_ROUTING_NONE, NULL, NULL);
-  tab_contents_wrapper_.reset(new TabContentsWrapper(web_contents));
+  tab_contents_.reset(new TabContents(web_contents));
 
   // Setting the size starts the renderer.
   SetSize(width, height);
@@ -275,10 +276,11 @@ void OffscreenTab::Observe(int type,
   // event.
   Profile* profile = parent_tab_->tab_contents()->profile();
   profile->GetExtensionEventRouter()->DispatchEventToRenderers(
-      events::kOnOffscreenTabUpdated, json_args, profile, GURL());
+      events::kOnOffscreenTabUpdated, json_args, profile, GURL(),
+      extensions::EventFilteringInfo());
 }
 
-ParentTab::ParentTab() : tab_contents_wrapper_(NULL) {}
+ParentTab::ParentTab() : tab_contents_(NULL) {}
 ParentTab::~ParentTab() {}
 
 void ParentTab::Init(WebContents* web_contents,
@@ -286,10 +288,9 @@ void ParentTab::Init(WebContents* web_contents,
   CHECK(web_contents);
 
   extension_id_ = extension_id;
-  tab_contents_wrapper_ =
-      TabContentsWrapper::GetCurrentWrapperForContents(web_contents);
+  tab_contents_ = TabContents::FromWebContents(web_contents);
 
-  CHECK(tab_contents_wrapper_);
+  CHECK(tab_contents_);
 
   // Register for tab notifications.
   registrar_.Add(
@@ -437,7 +438,7 @@ bool CopyModifiers(const DictionaryValue* js_event,
   if (meta_key)
     event->modifiers |= WebInputEvent::MetaKey;
 
-  bool shift_key;
+  bool shift_key = false;
   if (js_event->HasKey(keys::kEventShiftKeyKey)) {
     if (!js_event->GetBoolean(keys::kEventShiftKeyKey, &shift_key))
       return false;
@@ -512,7 +513,7 @@ bool CreateOffscreenTabFunction::RunImpl() {
   // TODO(alexbost): Maybe the callback is called too soon. It should probably
   // be called once we have navigated to the url.
   if (has_callback()) {
-    result_.reset(offscreen_tab.CreateValue());
+    SetResult(offscreen_tab.CreateValue());
     SendResponse(true);
   }
 
@@ -534,7 +535,7 @@ bool GetOffscreenTabFunction::RunImpl() {
     return false;
   }
 
-  result_.reset(offscreen_tab->CreateValue());
+  SetResult(offscreen_tab->CreateValue());
   return true;
 }
 
@@ -544,7 +545,7 @@ GetAllOffscreenTabFunction::~GetAllOffscreenTabFunction() {}
 bool GetAllOffscreenTabFunction::RunImpl() {
   WebContents* web_contents = GetCurrentWebContents(this, &error_);
   if (!web_contents)
-    return NULL;
+    return false;
 
   ParentTab* parent_tab = GetMap()->GetParentTab(web_contents, extension_id());
   ListValue* tab_list = new ListValue();
@@ -554,7 +555,7 @@ bool GetAllOffscreenTabFunction::RunImpl() {
       tab_list->Append((*i)->CreateValue());
   }
 
-  result_.reset(tab_list);
+  SetResult(tab_list);
   return true;
 }
 
@@ -767,7 +768,7 @@ ToDataUrlOffscreenTabFunction::ToDataUrlOffscreenTabFunction() {}
 ToDataUrlOffscreenTabFunction::~ToDataUrlOffscreenTabFunction() {}
 
 bool ToDataUrlOffscreenTabFunction::GetTabToCapture(
-    WebContents** web_contents, TabContentsWrapper** wrapper) {
+    WebContents** web_contents, TabContents** tab_contents) {
   int offscreen_tab_id;
   EXTENSION_FUNCTION_VALIDATE(args_->GetInteger(0, &offscreen_tab_id));
 
@@ -780,7 +781,7 @@ bool ToDataUrlOffscreenTabFunction::GetTabToCapture(
     return false;
 
   *web_contents = offscreen_tab->web_contents();
-  *wrapper = offscreen_tab->tab_contents();
+  *tab_contents = offscreen_tab->tab_contents();
   return true;
 }
 
@@ -799,27 +800,30 @@ bool UpdateOffscreenTabFunction::RunImpl() {
   DictionaryValue* update_props;
   EXTENSION_FUNCTION_VALIDATE(args_->GetDictionary(1, &update_props));
 
-  web_contents_ = offscreen_tab->web_contents();
+  tab_contents_ = offscreen_tab->tab_contents();
   bool is_async = false;
-  if (!UpdateURLIfPresent(update_props, &is_async))
+  if (!UpdateURLIfPresent(update_props, offscreen_tab_id, &is_async))
     return false;
 
   // Update the width and height, if specified.
   if (update_props->HasKey(tabs_keys::kWidthKey) ||
       update_props->HasKey(tabs_keys::kHeightKey)) {
+    const gfx::Size& size =
+        tab_contents_->web_contents()->GetView()->GetContainerSize();
+
     int width;
     if (update_props->HasKey(tabs_keys::kWidthKey))
       EXTENSION_FUNCTION_VALIDATE(
           update_props->GetInteger(tabs_keys::kWidthKey, &width));
     else
-      web_contents_->GetView()->GetContainerSize().width();
+      width = size.width();
 
     int height;
     if (update_props->HasKey(tabs_keys::kHeightKey))
       EXTENSION_FUNCTION_VALIDATE(
           update_props->GetInteger(tabs_keys::kHeightKey, &height));
     else
-      web_contents_->GetView()->GetContainerSize().height();
+      height = size.height();
 
     offscreen_tab->SetSize(width, height);
   }

@@ -147,7 +147,7 @@ class NET_EXPORT_PRIVATE HttpStreamRequest {
   virtual bool was_npn_negotiated() const = 0;
 
   // Protocol negotiated with the server.
-  virtual SSLClientSocket::NextProto protocol_negotiated() const = 0;
+  virtual NextProto protocol_negotiated() const = 0;
 
   // Returns true if this stream is being fetched over SPDY.
   virtual bool using_spdy() const = 0;
@@ -179,9 +179,6 @@ class NET_EXPORT HttpStreamFactory {
                                  const HttpRequestInfo& info,
                                  const SSLConfig& server_ssl_config,
                                  const SSLConfig& proxy_ssl_config) = 0;
-
-  virtual void AddTLSIntolerantServer(const HostPortPair& server) = 0;
-  virtual bool IsTLSIntolerantServer(const HostPortPair& server) const = 0;
 
   // If pipelining is supported, creates a Value summary of the currently active
   // pipelines. Caller assumes ownership of the returned value. Otherwise,
@@ -230,15 +227,15 @@ class NET_EXPORT HttpStreamFactory {
   // Check if a HostPortPair is excluded from using spdy.
   static bool HasSpdyExclusion(const HostPortPair& endpoint);
 
-  // Sets http/1.1, spdy/2, spdy/2.1 and spdy/3 as the protocols supported.
-  static void EnableSPDY3();
+  // Sets http/1.1 as the only protocol supported via NPN.
+  static void EnableNpnHttpOnly();
 
-  // Sets http/1.1, spdy/2 and spdy/2.1 as the protocols supported.
-  // If flow-control is enabled, received WINDOW_UPDATE and SETTINGS messages
-  // are processed and outstanding window size is actually obeyed when sending
-  // data frames, and WINDOW_UPDATE messages are generated when data is
-  // consumed.
-  static void EnableFlowControl();
+  // Sets http/1.1 and spdy/2 (the default spdy protocol) as the protocols
+  // supported via NPN.
+  static void EnableNpnSpdy();
+
+  // Sets http/1.1, spdy/2, and spdy/3 as the protocols supported via NPN.
+  static void EnableNpnSpdy3();
 
   // Sets the protocols supported by NPN (next protocol negotiation) during the
   // SSL handshake as well as by HTTP Alternate-Protocol.

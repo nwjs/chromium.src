@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/webui/chromeos/proxy_settings_ui.h"
 
+#include "base/memory/ref_counted_memory.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
 #include "base/values.h"
@@ -11,14 +12,15 @@
 #include "chrome/browser/chromeos/proxy_config_service_impl.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/chrome_url_data_manager.h"
-#include "chrome/browser/ui/webui/options2/chromeos/core_chromeos_options_handler2.h"
-#include "chrome/browser/ui/webui/options2/chromeos/proxy_handler2.h"
+#include "chrome/browser/ui/webui/options2/chromeos/core_chromeos_options_handler.h"
+#include "chrome/browser/ui/webui/options2/chromeos/proxy_handler.h"
 #include "chrome/common/jstemplate_builder.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_message_handler.h"
 #include "grit/browser_resources.h"
+#include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 
 using content::WebContents;
@@ -34,10 +36,13 @@ class ProxySettingsHTMLSource : public ChromeURLDataManager::DataSource {
   // the path we registered.
   virtual void StartDataRequest(const std::string& path,
                                 bool is_incognito,
-                                int request_id);
-  virtual std::string GetMimeType(const std::string&) const {
+                                int request_id) OVERRIDE;
+  virtual std::string GetMimeType(const std::string&) const OVERRIDE {
     return "text/html";
   }
+
+ protected:
+  virtual ~ProxySettingsHTMLSource() {}
 
  private:
   scoped_ptr<DictionaryValue> localized_strings_;
@@ -58,7 +63,7 @@ void ProxySettingsHTMLSource::StartDataRequest(const std::string& path,
 
   static const base::StringPiece html(
       ResourceBundle::GetSharedInstance().GetRawDataResource(
-          IDR_PROXY_SETTINGS_HTML));
+          IDR_PROXY_SETTINGS_HTML, ui::SCALE_FACTOR_NONE));
   std::string full_html = jstemplate_builder::GetI18nTemplateHtml(
       html, localized_strings_.get());
 
@@ -86,7 +91,7 @@ ProxySettingsUI::ProxySettingsUI(content::WebUI* web_ui)
   ProxySettingsHTMLSource* source =
       new ProxySettingsHTMLSource(localized_strings);
   Profile* profile = Profile::FromWebUI(web_ui);
-  profile->GetChromeURLDataManager()->AddDataSource(source);
+  ChromeURLDataManager::AddDataSource(profile, source);
 }
 
 ProxySettingsUI::~ProxySettingsUI() {
@@ -106,7 +111,6 @@ void ProxySettingsUI::InitializeHandlers() {
   proxy_tracker->UIMakeActiveNetworkCurrent();
   std::string network_name;
   proxy_tracker->UIGetCurrentNetworkName(&network_name);
-  proxy_handler_->SetNetworkName(network_name);
 }
 
 }  // namespace chromeos

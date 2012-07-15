@@ -1,14 +1,12 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-
-localStrings = new LocalStrings();
 
 /**
  * Requests the list of crashes from the backend.
  */
 function requestCrashes() {
-  chrome.send('requestCrashList', [])
+  chrome.send('requestCrashList');
 }
 
 /**
@@ -18,7 +16,7 @@ function requestCrashes() {
  * @param {string} version The browser version.
  */
 function updateCrashList(enabled, crashes, version) {
-  $('countBanner').textContent = localStrings.getStringF('crashCountFormat',
+  $('countBanner').textContent = loadTimeData.getStringF('crashCountFormat',
                                                          crashes.length);
 
   var crashSection = $('crashList');
@@ -37,31 +35,46 @@ function updateCrashList(enabled, crashes, version) {
 
     var crashBlock = document.createElement('div');
     var title = document.createElement('h3');
-    title.textContent = localStrings.getStringF('crashHeaderFormat',
+    title.textContent = loadTimeData.getStringF('crashHeaderFormat',
                                                 crash['id']);
     crashBlock.appendChild(title);
     var date = document.createElement('p');
-    date.textContent = localStrings.getStringF('crashTimeFormat',
+    date.textContent = loadTimeData.getStringF('crashTimeFormat',
                                                crash['time']);
     crashBlock.appendChild(date);
     var linkBlock = document.createElement('p');
     var link = document.createElement('a');
-    link.href = 'http://code.google.com/p/chromium/issues/entry?' +
-        'template=Crash%20Report&comment=' +
-        'Chrome%20Version:%20' + version + '%0A' +
-        'Operating%20System:%20e.g.,%20"Windows%207",%20' +
-        '"Mac%20OS%20X%2010.6"%0A%0A' +
-        'URL%20(if%20applicable)%20where%20crash%20occurred:%20%0A%0A' +
-        'Can%20you%20reproduce%20this%20crash?%0A%0A' +
-        'What%20steps%20will%20reproduce%20this%20crash%20' +
-        '(or%20if%20it\'s%20not%20reproducible,%20what%20were%20you%20doing' +
-        '%20just%20before%20the%20crash)?%0A1.%0A2.%0A3.%0A%0A' +
-        '*Please%20note%20that%20issues%20filed%20with%20no%20information%20' +
-        'filled%20in%20above%20will%20be%20marked%20as%20WontFix*%0A%0A' +
-        '****DO%20NOT%20CHANGE%20BELOW%20THIS%20LINE****%0Areport_id:' +
-        crash['id'];
+    var commentLines = [
+      'Chrome Version: ' + version,
+      // TODO(tbreisacher): fill in the OS automatically?
+      'Operating System: e.g., "Windows 7", "Mac OSX 10.6"',
+      '',
+      'URL (if applicable) where crash occurred:',
+      '',
+      'Can you reproduce this crash?',
+      '',
+      'What steps will reproduce this crash? (or if it\'s not ' +
+      'reproducible, what were you doing just before the crash)?',
+      '',
+      '1.', '2.', '3.',
+      '',
+      '*Please note that issues filed with no information filled in ' +
+      'above will be marked as WontFix*',
+      '',
+      '****DO NOT CHANGE BELOW THIS LINE****',
+      'report_id:' + crash.id
+    ];
+    var params = {
+      template: 'Crash Report',
+      comment: commentLines.join('\n'),
+    };
+    var href = 'http://code.google.com/p/chromium/issues/entry';
+    for (var param in params) {
+      href = appendParam(href, param, params[param]);
+    }
+    link.href = href;
     link.target = '_blank';
-    link.textContent = localStrings.getString('bugLinkText');
+    link.textContent = loadTimeData.getString('bugLinkText');
     linkBlock.appendChild(link);
     crashBlock.appendChild(linkBlock);
     crashSection.appendChild(crashBlock);

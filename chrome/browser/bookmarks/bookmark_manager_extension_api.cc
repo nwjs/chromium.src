@@ -19,16 +19,19 @@
 #include "chrome/browser/extensions/extension_web_ui.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/webui/chrome_url_data_manager.h"
-#include "chrome/common/chrome_view_type.h"
+#include "chrome/browser/view_type_utils.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/render_view_host.h"
-#include "content/public/browser/render_view_host_delegate.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
+
+#if defined(OS_WIN)
+#include "base/win/metro.h"
+#endif  // OS_WIN
 
 namespace keys = bookmark_extension_api_constants;
 
@@ -151,7 +154,7 @@ void BookmarkNodeDataToJSON(Profile* profile, const BookmarkNodeData& data,
 }  // namespace
 
 BookmarkManagerExtensionEventRouter::BookmarkManagerExtensionEventRouter(
-    Profile* profile, TabContentsWrapper* tab)
+    Profile* profile, TabContents* tab)
     : profile_(profile),
     tab_(tab) {
   tab_->bookmark_tab_helper()->SetBookmarkDragDelegate(this);
@@ -170,7 +173,7 @@ void BookmarkManagerExtensionEventRouter::DispatchEvent(const char* event_name,
   std::string json_args;
   base::JSONWriter::Write(args, &json_args);
   profile_->GetExtensionEventRouter()->DispatchEventToRenderers(
-      event_name, json_args, NULL, GURL());
+      event_name, json_args, NULL, GURL(), extensions::EventFilteringInfo());
 }
 
 void BookmarkManagerExtensionEventRouter::DispatchDragEvent(
@@ -277,7 +280,7 @@ bool CanPasteBookmarkManagerFunction::RunImpl() {
     return false;
   }
   bool can_paste = bookmark_utils::CanPasteFromClipboard(parent_node);
-  result_.reset(Value::CreateBooleanValue(can_paste));
+  SetResult(Value::CreateBooleanValue(can_paste));
   return true;
 }
 
@@ -345,6 +348,8 @@ bool BookmarkManagerGetStringsFunction::RunImpl() {
       l10n_util::GetStringUTF16(IDS_CONTENT_CONTEXT_PASTE));
   localized_strings->SetString("delete",
       l10n_util::GetStringUTF16(IDS_CONTENT_CONTEXT_DELETE));
+  localized_strings->SetString("undo_delete",
+      l10n_util::GetStringUTF16(IDS_UNDO_DELETE));
   localized_strings->SetString("new_folder_name",
       l10n_util::GetStringUTF16(IDS_BOOKMARK_EDITOR_NEW_FOLDER_NAME));
   localized_strings->SetString("name_input_placeholder",
@@ -366,7 +371,7 @@ bool BookmarkManagerGetStringsFunction::RunImpl() {
 
   ChromeURLDataManager::DataSource::SetFontAndTextDirection(localized_strings);
 
-  result_.reset(localized_strings);
+  SetResult(localized_strings);
 
   // This is needed because unlike the rest of these functions, this class
   // inherits from AsyncFunction directly, rather than BookmarkFunction.
@@ -383,8 +388,9 @@ bool StartDragBookmarkManagerFunction::RunImpl() {
   EXTENSION_FUNCTION_VALIDATE(
       GetNodesFromArguments(model, args_.get(), 0, &nodes));
 
-  if (render_view_host_->GetDelegate()->GetRenderViewType() ==
-      content::VIEW_TYPE_TAB_CONTENTS) {
+  WebContents* web_contents =
+      WebContents::FromRenderViewHost(render_view_host_);
+  if (chrome::GetViewType(web_contents) == chrome::VIEW_TYPE_TAB_CONTENTS) {
     WebContents* web_contents =
         dispatcher()->delegate()->GetAssociatedWebContents();
     CHECK(web_contents);
@@ -425,8 +431,9 @@ bool DropBookmarkManagerFunction::RunImpl() {
   else
     drop_index = drop_parent->child_count();
 
-  if (render_view_host_->GetDelegate()->GetRenderViewType() ==
-      content::VIEW_TYPE_TAB_CONTENTS) {
+  WebContents* web_contents =
+      WebContents::FromRenderViewHost(render_view_host_);
+  if (chrome::GetViewType(web_contents) == chrome::VIEW_TYPE_TAB_CONTENTS) {
     WebContents* web_contents =
         dispatcher()->delegate()->GetAssociatedWebContents();
     CHECK(web_contents);
@@ -483,17 +490,29 @@ bool GetSubtreeBookmarkManagerFunction::RunImpl() {
   } else {
     bookmark_extension_helpers::AddNode(node, json.get(), true);
   }
-  result_.reset(json.release());
+  SetResult(json.release());
   return true;
 }
 
 bool CanEditBookmarkManagerFunction::RunImpl() {
-  result_.reset(Value::CreateBooleanValue(
+  SetResult(Value::CreateBooleanValue(
       profile_->GetPrefs()->GetBoolean(prefs::kEditBookmarksEnabled)));
   return true;
 }
 
 bool RecordLaunchBookmarkFunction::RunImpl() {
   bookmark_utils::RecordBookmarkLaunch(bookmark_utils::LAUNCH_MANAGER);
+  return true;
+}
+
+bool CanOpenNewWindowsBookmarkFunction::RunImpl() {
+  bool can_open_new_windows = true;
+
+#if defined(OS_WIN)
+  if (base::win::IsMetroProcess())
+    can_open_new_windows = false;
+#endif  // OS_WIN
+
+  SetResult(Value::CreateBooleanValue(can_open_new_windows));
   return true;
 }

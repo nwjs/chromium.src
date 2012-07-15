@@ -8,11 +8,10 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/toolbar_view.h"
-#include "chrome/browser/ui/views/window.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
-#include "grit/theme_resources_standard.h"
-#include "grit/ui_resources_standard.h"
+#include "grit/theme_resources.h"
+#include "grit/ui_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/views/bubble/bubble_delegate.h"
@@ -44,12 +43,9 @@ class BundleInstalledBubble : public views::BubbleDelegateView,
                               public views::ButtonListener {
  public:
   BundleInstalledBubble(const BundleInstaller* bundle,
-                        Browser* browser) {
-    BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
-
-    set_anchor_view(browser_view->GetToolbarView()->app_menu());
-    set_arrow_location(views::BubbleBorder::TOP_RIGHT);
-
+                        View* anchor_view,
+                        views::BubbleBorder::ArrowLocation arrow_location)
+      : views::BubbleDelegateView(anchor_view, arrow_location) {
     GridLayout* layout = GridLayout::CreatePanel(this);
     SetLayoutManager(layout);
     views::ColumnSet* column_set = layout->AddColumnSet(kColumnSetId);
@@ -109,7 +105,7 @@ class BundleInstalledBubble : public views::BubbleDelegateView,
           BundleInstaller::Item::STATE_FAILED));
     }
 
-    browser::CreateViewsBubble(this);
+    views::BubbleDelegateView::CreateBubble(this);
     StartFade(true);
   }
 
@@ -130,21 +126,21 @@ class BundleInstalledBubble : public views::BubbleDelegateView,
   }
 
   void AddCloseButton(GridLayout* layout, views::ButtonListener* listener) {
-    ResourceBundle& rb = ResourceBundle::GetSharedInstance();
+    ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
 
     views::ImageButton* button = new views::ImageButton(listener);
     button->SetImage(views::CustomButton::BS_NORMAL,
-                     rb.GetBitmapNamed(IDR_CLOSE_BAR));
+                     rb.GetImageSkiaNamed(IDR_CLOSE_BAR));
     button->SetImage(views::CustomButton::BS_HOT,
-                     rb.GetBitmapNamed(IDR_CLOSE_BAR_H));
+                     rb.GetImageSkiaNamed(IDR_CLOSE_BAR_H));
     button->SetImage(views::CustomButton::BS_PUSHED,
-                     rb.GetBitmapNamed(IDR_CLOSE_BAR_P));
+                     rb.GetImageSkiaNamed(IDR_CLOSE_BAR_P));
     layout->AddView(button);
   }
 
   void AddHeading(GridLayout* layout, const string16& heading) {
-    ResourceBundle& rb = ResourceBundle::GetSharedInstance();
-    gfx::Font bold_font = rb.GetFont(ResourceBundle::BaseFont).DeriveFont(
+    ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
+    gfx::Font bold_font = rb.GetFont(ui::ResourceBundle::BaseFont).DeriveFont(
         kHeadingFontSizeDelta, gfx::Font::BOLD);
 
     views::Label* heading_label = new views::Label(heading, bold_font);
@@ -167,5 +163,7 @@ class BundleInstalledBubble : public views::BubbleDelegateView,
 
 void BundleInstaller::ShowInstalledBubble(
     const BundleInstaller* bundle, Browser* browser) {
-  new BundleInstalledBubble(bundle, browser);
+  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
+  views::View* anchor = browser_view->GetToolbarView()->app_menu();
+  new BundleInstalledBubble(bundle, anchor, views::BubbleBorder::TOP_RIGHT);
 }

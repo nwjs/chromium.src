@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/webui/downloads_ui.h"
 
+#include "base/memory/ref_counted_memory.h"
 #include "base/memory/singleton.h"
 #include "base/string_piece.h"
 #include "base/threading/thread.h"
@@ -15,6 +16,7 @@
 #include "chrome/browser/ui/webui/chrome_url_data_manager.h"
 #include "chrome/browser/ui/webui/chrome_web_ui_data_source.h"
 #include "chrome/browser/ui/webui/downloads_dom_handler.h"
+#include "chrome/browser/ui/webui/theme_source.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/download_manager.h"
 #include "content/public/browser/web_contents.h"
@@ -22,9 +24,10 @@
 #include "grit/browser_resources.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
-#include "grit/theme_resources_standard.h"
+#include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 
+using content::BrowserContext;
 using content::DownloadManager;
 using content::WebContents;
 
@@ -43,11 +46,9 @@ ChromeWebUIDataSource* CreateDownloadsUIHTMLSource() {
                              IDS_DOWNLOAD_LINK_OPEN_DOWNLOADS_FOLDER);
 
   // Status.
-  source->AddLocalizedString("status_cancelled", IDS_DOWNLOAD_TAB_CANCELED);
+  source->AddLocalizedString("status_cancelled", IDS_DOWNLOAD_TAB_CANCELLED);
   source->AddLocalizedString("status_removed", IDS_DOWNLOAD_FILE_REMOVED);
   source->AddLocalizedString("status_paused", IDS_DOWNLOAD_PROGRESS_PAUSED);
-  source->AddLocalizedString("status_interrupted",
-                             IDS_DOWNLOAD_PROGRESS_INTERRUPTED);
 
   // Dangerous file.
   source->AddLocalizedString("danger_file_desc", IDS_PROMPT_DANGEROUS_DOWNLOAD);
@@ -89,19 +90,24 @@ ChromeWebUIDataSource* CreateDownloadsUIHTMLSource() {
 
 DownloadsUI::DownloadsUI(content::WebUI* web_ui) : WebUIController(web_ui) {
   Profile* profile = Profile::FromWebUI(web_ui);
-  DownloadManager* dlm =
-      DownloadServiceFactory::GetForProfile(profile)->GetDownloadManager();
+  DownloadManager* dlm = BrowserContext::GetDownloadManager(profile);
 
   DownloadsDOMHandler* handler = new DownloadsDOMHandler(dlm);
   web_ui->AddMessageHandler(handler);
 
   // Set up the chrome://downloads/ source.
-  profile->GetChromeURLDataManager()->AddDataSource(
-      CreateDownloadsUIHTMLSource());
+  ChromeWebUIDataSource* source = CreateDownloadsUIHTMLSource();
+  source->set_use_json_js_format_v2();
+  ChromeURLDataManager::AddDataSource(profile, source);
+#if defined(ENABLE_THEMES)
+  ThemeSource* theme = new ThemeSource(profile);
+  ChromeURLDataManager::AddDataSource(profile, theme);
+#endif
 }
 
 // static
-RefCountedMemory* DownloadsUI::GetFaviconResourceBytes() {
+base::RefCountedMemory* DownloadsUI::GetFaviconResourceBytes() {
   return ResourceBundle::GetSharedInstance().
-      LoadDataResourceBytes(IDR_DOWNLOADS_FAVICON);
+      LoadDataResourceBytes(IDR_DOWNLOADS_FAVICON,
+                            ui::SCALE_FACTOR_NONE);
 }

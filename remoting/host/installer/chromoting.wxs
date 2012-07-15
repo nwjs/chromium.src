@@ -1,17 +1,55 @@
 <?xml version="1.0"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
 
-  <?define ChromotingHost = "Chrome Remote Desktop Host" ?>
-  <?define EventSourceName = "remoting_me2me_host" ?>
-  <?define FirewallName = "remoting_me2me_host" ?>
-  <?define Manufacturer = "Google Inc." ?>
+  <?define EventSourceName = "chromoting" ?>
   <?define ServiceName = "chromoting" ?>
+
+  <!-- TODO(alexeypa): There strings should be localized,
+       see http://crbug.com/121785 -->
+  <?if $(var.Branding) ~= Chrome ?>
+    <?define ChromotingHost = "Chrome Remote Desktop Host" ?>
+    <?define ChromotingServiceName = "Chrome Remote Desktop Service" ?>
+    <?define ChromotingServiceDescription = "This service enables incoming connections from Chrome Remote Desktop clients." ?>
+    <?define Manufacturer = "Google Inc." ?>
+  <?else?>
+    <?define ChromotingHost = "Chromoting Host" ?>
+    <?define ChromotingServiceName = "Chromoting Service" ?>
+    <?define ChromotingServiceDescription = "This service enables incoming connections from Chromoting clients." ?>
+    <?define Manufacturer = "The Chromium Authors" ?>
+  <?endif?>
+
+  <?define FirewallName = "$(var.ChromotingHost)" ?>
 
   <?define OmahaAppid = "{b210701e-ffc4-49e3-932b-370728c72662}" ?>
   <?define UpgradeCode = "2b21f767-e157-4fa6-963c-55834c1433a6" ?>
 
+  <?define ControllerAppid = "{4ff35d5e-d226-4550-9248-03e7779e67de}" ?>
+  <?define ControllerBinary = "remoting_host_controller.exe" ?>
+  <?define ControllerClass = "ElevatedController Class" ?>
+  <?define ControllerClsid = "{430a9403-8176-4733-afdc-0b325a8fda84}" ?>
+  <?define ControllerProgid =
+    "ChromotingElevatedController.ElevatedController" ?>
+  <?define ControllerTypelib = "{9d9a5a2c-576e-4acd-9c75-aabff74b205d}" ?>
+
+  <!--
+    The long hex value below is a security descriptor that allows SYSTEM,
+    built-in administrators and interactive users to call methods of a COM
+    object (COM_RIGHTS_EXECUTE and COM_RIGHTS_EXECUTE_LOCAL). The security
+    descriptor was generated from SDDL definition using the PowerShell script
+    below:
+
+      $sddl = "O:BAG:BAD:(A;;0x3;;;IU)(A;;0x3;;;SY)(A;;0x3;;;BA)"
+      $i = ([wmiclass]"Win32_SecurityDescriptorHelper").SDDLToBinarySD($sddl).BinarySD
+      -join ($i | foreach {$_.ToString("X2")})
+  -->
+  <?define ControllerSd = "010004805C0000006C00000000000000140000000200480003000000000014000300000001010000000000050400000000001400030000000101000000000005120000000000180003000000010200000000000520000000200200000102000000000005200000002002000001020000000000052000000020020000" ?>
+
   <?ifndef FileSource ?>
     <?error FileSource must be defined ?>
+  <?endif?>
+
+  <?ifndef IconPath ?>
+    <?error IconPath must be defined ?>
   <?endif?>
 
   <?ifndef SasDllPath ?>
@@ -33,23 +71,44 @@
              Compressed="yes"
              Description="$(var.ChromotingHost) Package"
              InstallerVersion="200"
-             Manufacturer="$(var.Manufacturer)"/>
+             Manufacturer="$(var.Manufacturer)"
+             InstallScope="perMachine"/>
+
+    <Condition
+      Message="$(var.ChromotingHost) is only supported on Windows XP, Windows Server 2003, or higher.">
+      <![CDATA[Installed OR (VersionNT >= 501)]]>
+    </Condition>
 
     <MajorUpgrade
+      AllowSameVersionUpgrades="yes"
       DowngradeErrorMessage="A later version of [ProductName] is already installed. Setup will now exit."
       Schedule="afterInstallInitialize" />
 
     <Media Id="1" Cabinet="chromoting.cab" EmbedCab="yes"/>
 
     <Directory Id="TARGETDIR" Name="SourceDir">
-      <Directory Id="ProgramFilesFolder" Name="PFiles">
-        <Directory Id="chromoting" Name="Chrome Remote Desktop Host"/>
+      <Directory Id="ProgramFilesFolder">
+        <?ifdef OfficialBuild ?>
+          <Directory Id="program_files_google" Name="Google">
+            <Directory Id="binaries" Name="Chrome Remote Desktop"/>
+          </Directory>
+        <?else?>
+          <Directory Id="binaries" Name="Chromoting"/>
+        <?endif?>
+      </Directory>
+      <Directory Id="CommonAppDataFolder">
+        <?ifdef OfficialBuild ?>
+          <Directory Id="common_app_data_google" Name="Google">
+            <Directory Id="config_files" Name="Chrome Remote Desktop"/>
+          </Directory>
+        <?else?>
+          <Directory Id="config_files" Name="Chromoting"/>
+        <?endif?>
       </Directory>
     </Directory>
 
-    <DirectoryRef Id="chromoting" FileSource="$(var.FileSource)">
-      <Component Id="sas.dll"
-                 Guid="3c33dd97-3750-467f-8ec6-730611d346d4">
+    <DirectoryRef Id="binaries" FileSource="$(var.FileSource)">
+      <Component Id="sas.dll" Guid="*">
         <File Id="sas.dll"
               DiskId="1"
               Name="sas.dll"
@@ -57,8 +116,7 @@
               Vital="yes"/>
       </Component>
 
-      <Component Id="remoting_service.exe"
-                 Guid="23103839-bb02-4007-b149-998ddd8d7cba">
+      <Component Id="remoting_service" Guid="*">
         <File Id="remoting_service.exe"
               DiskId="1"
               KeyPath="yes"
@@ -69,24 +127,22 @@
                         Type="ownProcess"
                         Vital="yes"
                         Name="$(var.ServiceName)"
-                        DisplayName="@[chromoting]remoting_service.exe,-101"
-                        Description="@[chromoting]remoting_service.exe,-102"
-                        Arguments="--host-binary=&quot;[chromoting]remoting_me2me_host.exe&quot;"
-                        Start="auto"
+                        DisplayName="[chromoting_service_display_name]"
+                        Description="[chromoting_service_description]"
+                        Arguments="--host-binary=&quot;[binaries]remoting_me2me_host.exe&quot; --auth-config=&quot;[config_files]host.json&quot; --host-config=&quot;[config_files]host.json&quot;"
+                        Start="demand"
                         Account="LocalSystem"
                         ErrorControl="ignore"
                         Interactive="no" />
 
         <ServiceControl Id="start_service"
-                        Start="install"
                         Stop="both"
                         Remove="uninstall"
                         Name="$(var.ServiceName)"
                         Wait="yes" />
       </Component>
 
-      <Component Id="remoting_me2me_host.exe"
-                 Guid="0e1889af-f3f8-45a2-b2d0-c719d53c4474">
+      <Component Id="remoting_me2me_host" Guid="*">
         <File Id="remoting_me2me_host.exe"
               DiskId="1"
               Name="remoting_me2me_host.exe"
@@ -95,45 +151,265 @@
                           Name="$(var.EventSourceName)"
                           Log="Application"
                           CategoryCount="1"
-                          CategoryMessageFile="[chromoting]remoting_me2me_host.exe"
-                          EventMessageFile="[chromoting]remoting_me2me_host.exe"
+                          CategoryMessageFile="[#remoting_me2me_host.exe]"
+                          EventMessageFile="[#remoting_me2me_host.exe]"
                           SupportsErrors="yes"
                           SupportsInformationals="yes"/>
 
         <fire:FirewallException xmlns:fire="http://schemas.microsoft.com/wix/FirewallExtension"
                                 Id="me2me_firewall_exception"
-                                IgnoreFailure="no"
+                                IgnoreFailure="yes"
                                 Name="$(var.FirewallName)"
                                 Profile="all"
                                 Program="[#remoting_me2me_host.exe]"
                                 Scope="any" />
       </Component>
 
-      <Component Id="omaha_registration"
-                 Guid="9a14673d-9518-4cf3-b737-52f09f02a10b">
-        <RegistryKey Id="omaha_client_key"
-                     Root="HKLM"
-                     Key="SOFTWARE\Google\Update\Clients\$(var.OmahaAppid)"
-                     Action="createAndRemoveOnUninstall">
-          <RegistryValue Type="string"
-                         Name="pv"
-                         Value="$(var.Version)"/>
+      <?ifdef OfficialBuild ?>
+        <Component Id="omaha_registration" Guid="*">
+          <RegistryKey Id="omaha_client_key"
+                       Root="HKLM"
+                       Key="SOFTWARE\Google\Update\Clients\$(var.OmahaAppid)"
+                       Action="create">
+            <RegistryValue Type="string"
+                           Name="pv"
+                           Value="$(var.Version)"/>
 
-          <RegistryValue Type="string"
-                         Name="name"
-                         Value="$(var.ChromotingHost)"/>
+            <RegistryValue Type="string"
+                           Name="name"
+                           Value="$(var.ChromotingHost)"/>
+          </RegistryKey>
+        </Component>
+      <?endif?>
+
+      <Component Id="service_controller" Guid="*">
+        <File Id="$(var.ControllerBinary)"
+              DiskId="1"
+              Name="$(var.ControllerBinary)"
+              Vital="yes"/>
+
+        <RegistryKey Root="HKLM"
+                     Key="SOFTWARE\Classes">
+          <RegistryKey Key="AppId">
+            <RegistryKey Key="$(var.ControllerAppid)" Action="create">
+              <RegistryValue Type="string"
+                             Value="ChromotingElevatedController"/>
+              <RegistryValue Name="AccessPermission"
+                             Type="binary"
+                             Value="$(var.ControllerSd)"/>
+            </RegistryKey>
+
+            <RegistryKey Key="$(var.ControllerBinary)" Action="create">
+              <RegistryValue Type="string"
+                             Name="AppID"
+                             Value="$(var.ControllerAppid)"/>
+            </RegistryKey>
+          </RegistryKey>
+
+          <RegistryKey Key="$(var.ControllerProgid)" Action="create">
+            <RegistryValue Type="string"
+                           Value="$(var.ControllerClass)"/>
+
+            <RegistryKey Key="CLSID" Action="create">
+              <RegistryValue Type="string"
+                             Value="$(var.ControllerClsid)"/>
+            </RegistryKey>
+
+            <RegistryKey Key="CurVer" Action="create">
+              <RegistryValue Type="string"
+                             Value="$(var.ControllerProgid).1"/>
+            </RegistryKey>
+          </RegistryKey>
+
+          <RegistryKey Key="$(var.ControllerProgid).1" Action="create">
+            <RegistryValue Type="string"
+                           Value="$(var.ControllerClass)"/>
+
+            <RegistryKey Key="CLSID" Action="create">
+              <RegistryValue Type="string"
+                             Value="$(var.ControllerClsid)"/>
+            </RegistryKey>
+          </RegistryKey>
+
+          <RegistryKey Key="CLSID">
+            <RegistryKey Key="$(var.ControllerClsid)" Action="create">
+              <RegistryValue Type="string"
+                             Value="$(var.ControllerClass)"/>
+
+              <RegistryValue Type="string"
+                             Name="AppID"
+                             Value="$(var.ControllerAppid)"/>
+
+              <RegistryValue Type="string"
+                             Name="LocalizedString"
+                             Value="@[#$(var.ControllerBinary)],-100"/>
+
+              <RegistryKey Key="LocalServer32" Action="create">
+                <RegistryValue Type="string"
+                               Value="[#$(var.ControllerBinary)]"/>
+              </RegistryKey>
+
+              <RegistryKey Key="ProgID" Action="create">
+                <RegistryValue Type="string"
+                               Value="$(var.ControllerProgid).1"/>
+              </RegistryKey>
+
+              <RegistryKey Key="TypeLib" Action="create">
+                <RegistryValue Type="string"
+                               Value="$(var.ControllerTypelib)"/>
+              </RegistryKey>
+
+              <RegistryKey Key="VersionIndependentProgID" Action="create">
+                <RegistryValue Type="string"
+                               Value="$(var.ControllerProgid)"/>
+              </RegistryKey>
+
+              <RegistryKey Key="Elevation" Action="create">
+                <RegistryValue Type="integer"
+                               Name="Enabled"
+                               Value="1"/>
+                <RegistryValue Type="string"
+                               Name="IconReference"
+                               Value="@[#$(var.ControllerBinary)],-101"/>
+              </RegistryKey>
+            </RegistryKey>
+          </RegistryKey>
+
+          <RegistryKey Key="Interface">
+            <RegistryKey Key="{655bd819-c08c-4b04-80c2-f160739ff6ef}"
+                         Action="create">
+              <RegistryKey Key="ProxyStubClsid32" Action="create">
+                <RegistryValue Type="string"
+                               Value="{00020424-0000-0000-C000-000000000046}"/>
+              </RegistryKey>
+
+              <RegistryKey Key="TypeLib" Action="create">
+                <RegistryValue Type="string"
+                               Value="$(var.ControllerTypelib)"/>
+              </RegistryKey>
+            </RegistryKey>
+
+            <RegistryKey Key="{e051a481-6345-4ba1-bdb1-cf7929955268}"
+                         Action="create">
+              <RegistryKey Key="ProxyStubClsid32" Action="create">
+                <RegistryValue Type="string"
+                               Value="{00020424-0000-0000-C000-000000000046}"/>
+              </RegistryKey>
+
+              <RegistryKey Key="TypeLib" Action="create">
+                <RegistryValue Type="string"
+                               Value="$(var.ControllerTypelib)"/>
+              </RegistryKey>
+            </RegistryKey>
+          </RegistryKey>
+
+          <RegistryKey Key="Typelib">
+            <RegistryKey Key="$(var.ControllerTypelib)" Action="create">
+              <RegistryKey Key="1.1" Action="create">
+                <RegistryKey Key="0" Action="create">
+                  <RegistryKey Key="win32" Action="create">
+                    <RegistryValue Type="string"
+                                   Value="[#$(var.ControllerBinary)]"/>
+                  </RegistryKey>
+                </RegistryKey>
+
+                <RegistryKey Key="FLAGS" Action="create">
+                  <RegistryValue Type="string"
+                                 Value="0"/>
+                </RegistryKey>
+
+                <RegistryKey Key="HELPDIR" Action="create">
+                  <RegistryValue Type="string"
+                                 Value="[binaries]"/>
+                </RegistryKey>
+              </RegistryKey>
+            </RegistryKey>
+          </RegistryKey>
         </RegistryKey>
+
       </Component>
     </DirectoryRef>
+
+    <!-- The service is always installed in the stopped state with start type
+         set to 'manual'. This becomes a problem when upgrading an existing
+         installation that is configured to start the service automatically.
+
+         Here we check the startup type before making any changes, then restart
+         the service and change its startup type as needed once the installation
+         is finished. -->
+    <Property Id="CHROMOTING_SERVICE_START_TYPE">
+      <RegistrySearch Id="chromoting_service_start_type"
+                      Root="HKLM"
+                      Key="SYSTEM\CurrentControlSet\services\$(var.ServiceName)"
+                      Name="Start"
+                      Type="raw" />
+    </Property>
+
+    <CustomAction Id="query_auto_start_service"
+                  Property="auto_start_service"
+                  Value="[CHROMOTING_SERVICE_START_TYPE]" />
+
+    <CustomAction Id="set_auto_start_service"
+                  Impersonate="no"
+                  Execute="deferred"
+                  Script="jscript">
+      <![CDATA[
+        var controller = new ActiveXObject("$(var.ControllerProgid)");
+        controller.StartDaemon();
+      ]]>
+    </CustomAction>
+
+    <CustomAction Id="set_service_display_name"
+                  Property="chromoting_service_display_name"
+                  Value="@[binaries]remoting_service.exe,-101" />
+    <CustomAction Id="set_service_description"
+                  Property="chromoting_service_description"
+                  Value="@[binaries]remoting_service.exe,-102" />
+
+    <!-- XP does not support MUI strings in the service name and description, so
+         we fall back to plain strings on XP. -->
+    <CustomAction Id="set_service_display_name_xp"
+                  Property="chromoting_service_display_name"
+                  Value="$(var.ChromotingServiceName)" />
+    <CustomAction Id="set_service_description_xp"
+                  Property="chromoting_service_description"
+                  Value="$(var.ChromotingServiceDescription)" />
 
     <UIRef Id="WixUI_ErrorProgressText" />
 
     <Feature Id="chromoting_host" Level="1" Title="$(var.ChromotingHost)">
-      <ComponentRef Id="remoting_service.exe"/>
-      <ComponentRef Id="remoting_me2me_host.exe"/>
+      <?ifdef OfficialBuild ?>
+        <ComponentRef Id="omaha_registration"/>
+      <?endif?>
+      <ComponentRef Id="remoting_me2me_host"/>
+      <ComponentRef Id="remoting_service"/>
       <ComponentRef Id="sas.dll"/>
-      <ComponentRef Id="omaha_registration"/>
+      <ComponentRef Id="service_controller"/>
     </Feature>
 
+    <!-- Set the icon shown in Add/Remove Programs. -->
+    <Icon Id="chromoting.ico" SourceFile="$(var.IconPath)"/>
+    <Property Id="ARPPRODUCTICON" Value="chromoting.ico" />
+
+    <InstallExecuteSequence>
+      <Custom Action="query_auto_start_service" Before="InstallInitialize"/>
+      <Custom Action="set_auto_start_service" After="StartServices">
+        <![CDATA[NOT REMOVE AND (auto_start_service = "#2")]]>
+      </Custom>
+
+      <!-- Set the serivce name and description -->
+      <Custom Action="set_service_display_name_xp" Before="InstallInitialize">
+        <![CDATA[VersionNT < 600]]>
+      </Custom>
+      <Custom Action="set_service_description_xp" Before="InstallInitialize">
+        <![CDATA[VersionNT < 600]]>
+      </Custom>
+      <Custom Action="set_service_display_name" Before="InstallInitialize">
+        <![CDATA[VersionNT >= 600]]>
+      </Custom>
+      <Custom Action="set_service_description" Before="InstallInitialize">
+        <![CDATA[VersionNT >= 600]]>
+      </Custom>
+    </InstallExecuteSequence>
   </Product>
 </Wix>

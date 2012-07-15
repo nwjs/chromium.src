@@ -14,8 +14,10 @@
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_manifest_constants.h"
 #include "content/public/browser/notification_service.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
+
+using extensions::Extension;
 
 namespace browser_sync {
 
@@ -35,8 +37,7 @@ scoped_refptr<Extension> MakeExtension(const std::string& name) {
   value.SetString(keys::kName, name);
   std::string error;
   scoped_refptr<Extension> extension(Extension::Create(
-      path, Extension::INVALID, value, Extension::STRICT_ERROR_CHECKS,
-      &error));
+      path, Extension::INVALID, value, Extension::NO_FLAGS, &error));
   EXPECT_TRUE(error.empty());
   return extension;
 }
@@ -82,7 +83,7 @@ class SyncChromeExtensionsActivityMonitorTest : public testing::Test {
 // Fire some mutating bookmark API events with extension 1, then fire
 // some mutating and non-mutating bookmark API events with extension
 // 2.  Only the mutating events should be recorded by the
-// ExtensionsActivityMonitor.
+// syncer::ExtensionsActivityMonitor.
 TEST_F(SyncChromeExtensionsActivityMonitorTest, Basic) {
   FireBookmarksApiEvent<RemoveBookmarkFunction>(extension1_, 1);
   FireBookmarksApiEvent<MoveBookmarkFunction>(extension1_, 1);
@@ -97,7 +98,7 @@ TEST_F(SyncChromeExtensionsActivityMonitorTest, Basic) {
   FireBookmarksApiEvent<GetBookmarksFunction>(extension2_, 33);
   const uint32 writes_by_extension2 = 8;
 
-  ExtensionsActivityMonitor::Records results;
+  syncer::ExtensionsActivityMonitor::Records results;
   monitor_.GetAndClearRecords(&results);
 
   EXPECT_EQ(2U, results.size());
@@ -115,7 +116,7 @@ TEST_F(SyncChromeExtensionsActivityMonitorTest, Put) {
   FireBookmarksApiEvent<CreateBookmarkFunction>(extension1_, 5);
   FireBookmarksApiEvent<MoveBookmarkFunction>(extension2_, 8);
 
-  ExtensionsActivityMonitor::Records results;
+  syncer::ExtensionsActivityMonitor::Records results;
   monitor_.GetAndClearRecords(&results);
 
   EXPECT_EQ(2U, results.size());
@@ -128,7 +129,7 @@ TEST_F(SyncChromeExtensionsActivityMonitorTest, Put) {
   // Simulate a commit failure, which augments the active record set with the
   // refugee records.
   monitor_.PutRecords(results);
-  ExtensionsActivityMonitor::Records new_records;
+  syncer::ExtensionsActivityMonitor::Records new_records;
   monitor_.GetAndClearRecords(&new_records);
 
   EXPECT_EQ(2U, results.size());
@@ -144,7 +145,7 @@ TEST_F(SyncChromeExtensionsActivityMonitorTest, Put) {
 TEST_F(SyncChromeExtensionsActivityMonitorTest, MultiGet) {
   FireBookmarksApiEvent<CreateBookmarkFunction>(extension1_, 5);
 
-  ExtensionsActivityMonitor::Records results;
+  syncer::ExtensionsActivityMonitor::Records results;
   monitor_.GetAndClearRecords(&results);
 
   EXPECT_EQ(1U, results.size());

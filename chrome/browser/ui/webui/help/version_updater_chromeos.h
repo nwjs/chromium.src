@@ -4,11 +4,11 @@
 
 #ifndef CHROME_BROWSER_UI_WEBUI_HELP_VERSION_UPDATER_CHROMEOS_H_
 #define CHROME_BROWSER_UI_WEBUI_HELP_VERSION_UPDATER_CHROMEOS_H_
-#pragma once
 
 #include "base/compiler_specific.h"
-#include "chrome/browser/chromeos/dbus/update_engine_client.h"
+#include "base/memory/weak_ptr.h"
 #include "chrome/browser/ui/webui/help/version_updater.h"
+#include "chromeos/dbus/update_engine_client.h"
 
 class VersionUpdaterCros : public VersionUpdater,
                            public chromeos::UpdateEngineClient::Observer {
@@ -42,6 +42,11 @@ class VersionUpdaterCros : public VersionUpdater,
 
   // Callback used to communicate current channel to the client.
   ChannelCallback channel_callback_;
+
+  // Last state received via UpdateStatusChanged().
+  chromeos::UpdateEngineClient::UpdateStatusOperation last_operation_;
+
+  base::WeakPtrFactory<VersionUpdaterCros> weak_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(VersionUpdaterCros);
 };

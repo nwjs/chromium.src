@@ -5,10 +5,11 @@
 #include "ui/views/controls/textfield/native_textfield_views.h"
 
 #include <algorithm>
+#include <set>
 
 #include "base/bind.h"
-#include "base/command_line.h"
 #include "base/debug/trace_event.h"
+#include "base/i18n/case_conversion.h"
 #include "base/logging.h"
 #include "base/message_loop.h"
 #include "base/utf_string_conversions.h"
@@ -19,8 +20,8 @@
 #include "ui/base/dragdrop/drag_drop_types.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/range/range.h"
+#include "ui/compositor/layer.h"
 #include "ui/gfx/canvas.h"
-#include "ui/gfx/compositor/layer.h"
 #include "ui/gfx/insets.h"
 #include "ui/gfx/render_text.h"
 #include "ui/views/background.h"
@@ -37,9 +38,10 @@
 #include "ui/views/metrics.h"
 #include "ui/views/views_delegate.h"
 #include "ui/views/widget/widget.h"
+#include "unicode/uchar.h"
 
 #if defined(USE_AURA)
-#include "ui/aura/cursor.h"
+#include "ui/base/cursor/cursor.h"
 #endif
 
 namespace {
@@ -77,9 +79,6 @@ NativeTextfieldViews::NativeTextfieldViews(Textfield* parent)
           TouchSelectionController::create(this))) {
   set_border(text_border_);
 
-  // Lowercase is not supported.
-  DCHECK_NE(parent->style(), Textfield::STYLE_LOWERCASE);
-
 #if defined(OS_CHROMEOS)
   GetRenderText()->SetFontList(gfx::FontList(l10n_util::GetStringUTF8(
       IDS_UI_FONT_FAMILY_CROS)));
@@ -105,13 +104,10 @@ NativeTextfieldViews::~NativeTextfieldViews() {
 bool NativeTextfieldViews::OnMousePressed(const MouseEvent& event) {
   OnBeforeUserAction();
   TrackMouseClicks(event);
-
-  // Allow the textfield/omnibox to optionally handle the mouse pressed event.
-  // This should be removed once native textfield implementations are
-  // consolidated to textfield.
+  // TODO: Remove once NativeTextfield implementations are consolidated to
+  // Textfield.
   if (!textfield_->OnMousePressed(event))
     HandleMousePressEvent(event);
-
   OnAfterUserAction();
   return true;
 }
@@ -129,19 +125,58 @@ bool NativeTextfieldViews::OnMouseDragged(const MouseEvent& event) {
     return true;
 
   OnBeforeUserAction();
-  if (MoveCursorTo(event.location(), true))
-    SchedulePaint();
+  // TODO: Remove once NativeTextfield implementations are consolidated to
+  // Textfield.
+  if (!textfield_->OnMouseDragged(event)) {
+    if (MoveCursorTo(event.location(), true))
+      SchedulePaint();
+  }
   OnAfterUserAction();
   return true;
 }
 
 void NativeTextfieldViews::OnMouseReleased(const MouseEvent& event) {
   OnBeforeUserAction();
+  // TODO: Remove once NativeTextfield implementations are consolidated to
+  // Textfield.
+  textfield_->OnMouseReleased(event);
   // Cancel suspected drag initiations, the user was clicking in the selection.
   if (initiating_drag_ && MoveCursorTo(event.location(), false))
     SchedulePaint();
   initiating_drag_ = false;
   OnAfterUserAction();
+}
+
+ui::GestureStatus NativeTextfieldViews::OnGestureEvent(
+    const GestureEvent& event) {
+  ui::GestureStatus status = textfield_->OnGestureEvent(event);
+  if (status != ui::GESTURE_STATUS_UNKNOWN)
+    return status;
+
+  switch (event.type()) {
+    case ui::ET_GESTURE_TAP_DOWN:
+      OnBeforeUserAction();
+      textfield_->RequestFocus();
+      // We don't deselect if the point is in the selection
+      // because TAP_DOWN may turn into a LONG_PRESS.
+      if (!GetRenderText()->IsPointInSelection(event.location()) &&
+          MoveCursorTo(event.location(), false))
+        SchedulePaint();
+      OnAfterUserAction();
+      return ui::GESTURE_STATUS_CONSUMED;
+    case ui::ET_GESTURE_DOUBLE_TAP:
+      SelectAll(false);
+      return ui::GESTURE_STATUS_CONSUMED;
+    case ui::ET_GESTURE_SCROLL_UPDATE:
+      OnBeforeUserAction();
+      if (MoveCursorTo(event.location(), true))
+        SchedulePaint();
+      OnAfterUserAction();
+      return ui::GESTURE_STATUS_CONSUMED;
+    default:
+      break;
+  }
+  return TouchSelectionClientView::OnGestureEvent(event);
 }
 
 bool NativeTextfieldViews::OnKeyPressed(const KeyEvent& event) {
@@ -198,6 +233,7 @@ int NativeTextfieldViews::OnPerformDrop(const DropTargetEvent& event) {
       GetRenderText()->FindCursorPosition(event.location());
   string16 text;
   event.data().GetString(&text);
+  text = GetTextForDisplay(text);
 
   // We'll delete the current selection for a drag and drop within this view.
   bool move = initiating_drag_ && !event.IsControlDown() &&
@@ -265,7 +301,7 @@ gfx::NativeCursor NativeTextfieldViews::GetCursor(const MouseEvent& event) {
   bool drag_event = event.type() == ui::ET_MOUSE_DRAGGED;
   bool text_cursor = !initiating_drag_ && (drag_event || !in_selection);
 #if defined(USE_AURA)
-  return text_cursor ? aura::kCursorIBeam : aura::kCursorNull;
+  return text_cursor ? ui::kCursorIBeam : ui::kCursorNull;
 #elif defined(OS_WIN)
   static HCURSOR ibeam = LoadCursor(NULL, IDC_IBEAM);
   static HCURSOR arrow = LoadCursor(NULL, IDC_ARROW);
@@ -321,7 +357,7 @@ string16 NativeTextfieldViews::GetText() const {
 }
 
 void NativeTextfieldViews::UpdateText() {
-  model_->SetText(textfield_->text());
+  model_->SetText(GetTextForDisplay(textfield_->text()));
   OnCaretBoundsChanged();
   SchedulePaint();
   textfield_->GetWidget()->NotifyAccessibilityEvent(
@@ -331,7 +367,7 @@ void NativeTextfieldViews::UpdateText() {
 void NativeTextfieldViews::AppendText(const string16& text) {
   if (text.empty())
     return;
-  model_->Append(text);
+  model_->Append(GetTextForDisplay(text));
   OnCaretBoundsChanged();
   SchedulePaint();
 }
@@ -340,9 +376,9 @@ string16 NativeTextfieldViews::GetSelectedText() const {
   return model_->GetSelectedText();
 }
 
-void NativeTextfieldViews::SelectAll() {
+void NativeTextfieldViews::SelectAll(bool reversed) {
   OnBeforeUserAction();
-  model_->SelectAll();
+  model_->SelectAll(reversed);
   OnCaretBoundsChanged();
   SchedulePaint();
   OnAfterUserAction();
@@ -494,7 +530,7 @@ bool NativeTextfieldViews::HandleKeyPressed(const KeyEvent& e) {
 }
 
 bool NativeTextfieldViews::HandleKeyReleased(const KeyEvent& e) {
-  return true;
+  return false;  // crbug.com/127520
 }
 
 void NativeTextfieldViews::HandleFocus() {
@@ -507,7 +543,7 @@ void NativeTextfieldViews::HandleFocus() {
       FROM_HERE,
       base::Bind(&NativeTextfieldViews::UpdateCursor,
                  cursor_timer_.GetWeakPtr()),
-      kCursorVisibleTimeMs);
+      base::TimeDelta::FromMilliseconds(kCursorVisibleTimeMs));
 }
 
 void NativeTextfieldViews::HandleBlur() {
@@ -568,6 +604,16 @@ bool NativeTextfieldViews::GetAcceleratorForCommandId(int command_id,
   return false;
 }
 
+bool NativeTextfieldViews::IsItemForCommandIdDynamic(int command_id) const {
+  const TextfieldController* controller = textfield_->GetController();
+  return controller && controller->IsItemForCommandIdDynamic(command_id);
+}
+
+string16 NativeTextfieldViews::GetLabelForCommandId(int command_id) const {
+  const TextfieldController* controller = textfield_->GetController();
+  return controller ? controller->GetLabelForCommandId(command_id) : string16();
+}
+
 void NativeTextfieldViews::ExecuteCommand(int command_id) {
   if (!IsCommandIdEnabled(command_id))
     return;
@@ -588,7 +634,7 @@ void NativeTextfieldViews::ExecuteCommand(int command_id) {
       text_changed = model_->Delete();
       break;
     case IDS_APP_SELECT_ALL:
-      SelectAll();
+      SelectAll(false);
       break;
     default:
       textfield_->GetController()->ExecuteCommand(command_id);
@@ -669,9 +715,9 @@ void NativeTextfieldViews::InsertText(const string16& text) {
   OnBeforeUserAction();
   skip_input_method_cancel_composition_ = true;
   if (GetRenderText()->insert_mode())
-    model_->InsertText(text);
+    model_->InsertText(GetTextForDisplay(text));
   else
-    model_->ReplaceText(text);
+    model_->ReplaceText(GetTextForDisplay(text));
   skip_input_method_cancel_composition_ = false;
   UpdateAfterChange(true, true);
   OnAfterUserAction();
@@ -690,6 +736,9 @@ void NativeTextfieldViews::InsertChar(char16 ch, int flags) {
   else
     model_->ReplaceChar(ch);
   skip_input_method_cancel_composition_ = false;
+
+  model_->SetText(GetTextForDisplay(GetText()));
+
   UpdateAfterChange(true, true);
   OnAfterUserAction();
 }
@@ -704,6 +753,31 @@ bool NativeTextfieldViews::CanComposeInline() const {
 
 gfx::Rect NativeTextfieldViews::GetCaretBounds() {
   return GetRenderText()->GetUpdatedCursorBounds();
+}
+
+bool NativeTextfieldViews::GetCompositionCharacterBounds(uint32 index,
+                                                         gfx::Rect* rect) {
+  DCHECK(rect);
+  if (!HasCompositionText())
+    return false;
+  const ui::Range& composition_range = GetRenderText()->GetCompositionRange();
+  const uint32 left_cursor_pos = composition_range.start() + index;
+  const uint32 right_cursor_pos = composition_range.start() + index + 1;
+  DCHECK(!composition_range.is_empty());
+  if (composition_range.end() < right_cursor_pos)
+    return false;
+  const gfx::SelectionModel start_position(left_cursor_pos,
+                                           gfx::CURSOR_BACKWARD);
+  const gfx::SelectionModel end_position(right_cursor_pos,
+                                         gfx::CURSOR_BACKWARD);
+  gfx::Rect start_cursor = GetRenderText()->GetCursorBounds(start_position,
+                                                            false);
+  gfx::Rect end_cursor = GetRenderText()->GetCursorBounds(end_position, false);
+  *rect = gfx::Rect(start_cursor.x(),
+                    start_cursor.y(),
+                    end_cursor.x() - start_cursor.x(),
+                    start_cursor.height());
+  return true;
 }
 
 bool NativeTextfieldViews::HasCompositionText() {
@@ -792,6 +866,11 @@ gfx::RenderText* NativeTextfieldViews::GetRenderText() const {
   return model_->render_text();
 }
 
+string16 NativeTextfieldViews::GetTextForDisplay(const string16& text) {
+  return textfield_->style() & Textfield::STYLE_LOWERCASE ?
+      base::i18n::ToLower(text) : text;
+}
+
 void NativeTextfieldViews::UpdateCursor() {
   is_cursor_visible_ = !is_cursor_visible_;
   RepaintCursor();
@@ -799,7 +878,8 @@ void NativeTextfieldViews::UpdateCursor() {
       FROM_HERE,
       base::Bind(&NativeTextfieldViews::UpdateCursor,
                  cursor_timer_.GetWeakPtr()),
-      is_cursor_visible_ ? kCursorVisibleTimeMs : kCursorInvisibleTimeMs);
+      base::TimeDelta::FromMilliseconds(
+          is_cursor_visible_ ? kCursorVisibleTimeMs : kCursorInvisibleTimeMs));
 }
 
 void NativeTextfieldViews::RepaintCursor() {
@@ -822,6 +902,16 @@ void NativeTextfieldViews::PaintTextAndCursor(gfx::Canvas* canvas) {
           textfield_->cursor_color());
   // Draw the text, cursor, and selection.
   GetRenderText()->Draw(canvas);
+
+  // Draw placeholder text if needed.
+  if (model_->GetText().empty() &&
+      !textfield_->placeholder_text().empty()) {
+    canvas->DrawStringInt(
+        textfield_->placeholder_text(),
+        GetRenderText()->GetFont(),
+        textfield_->placeholder_text_color(),
+        GetRenderText()->display_rect());
+  }
   canvas->Restore();
 }
 
@@ -836,14 +926,16 @@ bool NativeTextfieldViews::HandleKeyEvent(const KeyEvent& key_event) {
     OnBeforeUserAction();
     bool editable = !textfield_->read_only();
     bool readable = !textfield_->IsObscured();
-    bool selection = key_event.IsShiftDown();
+    bool shift = key_event.IsShiftDown();
     bool control = key_event.IsControlDown();
     bool text_changed = false;
     bool cursor_changed = false;
     switch (key_code) {
       case ui::VKEY_Z:
-        if (control && editable)
+        if (control && !shift && editable)
           cursor_changed = text_changed = model_->Undo();
+        else if (control && shift && editable)
+          cursor_changed = text_changed = model_->Redo();
         break;
       case ui::VKEY_Y:
         if (control && editable)
@@ -851,7 +943,7 @@ bool NativeTextfieldViews::HandleKeyEvent(const KeyEvent& key_event) {
         break;
       case ui::VKEY_A:
         if (control) {
-          model_->SelectAll();
+          model_->SelectAll(false);
           cursor_changed = true;
         }
         break;
@@ -869,19 +961,24 @@ bool NativeTextfieldViews::HandleKeyEvent(const KeyEvent& key_event) {
         break;
       case ui::VKEY_RIGHT:
       case ui::VKEY_LEFT:
+        // We should ignore the alt-left/right keys because alt key doesn't make
+        // any special effects for them and they can be shortcut keys such like
+        // forward/back of the browser history.
+        if (key_event.IsAltDown())
+          break;
         model_->MoveCursor(
             control ? gfx::WORD_BREAK : gfx::CHARACTER_BREAK,
             (key_code == ui::VKEY_RIGHT) ? gfx::CURSOR_RIGHT : gfx::CURSOR_LEFT,
-            selection);
+            shift);
         cursor_changed = true;
         break;
       case ui::VKEY_END:
       case ui::VKEY_HOME:
         if ((key_code == ui::VKEY_HOME) ==
             (GetRenderText()->GetTextDirection() == base::i18n::RIGHT_TO_LEFT))
-          model_->MoveCursor(gfx::LINE_BREAK, gfx::CURSOR_RIGHT, selection);
+          model_->MoveCursor(gfx::LINE_BREAK, gfx::CURSOR_RIGHT, shift);
         else
-          model_->MoveCursor(gfx::LINE_BREAK, gfx::CURSOR_LEFT, selection);
+          model_->MoveCursor(gfx::LINE_BREAK, gfx::CURSOR_LEFT, shift);
         cursor_changed = true;
         break;
       case ui::VKEY_BACK:
@@ -891,7 +988,7 @@ bool NativeTextfieldViews::HandleKeyEvent(const KeyEvent& key_event) {
         if (!model_->HasSelection()) {
           gfx::VisualCursorDirection direction = (key_code == ui::VKEY_DELETE) ?
               gfx::CURSOR_RIGHT : gfx::CURSOR_LEFT;
-          if (selection && control) {
+          if (shift && control) {
             // If both shift and control are pressed, then erase up to the
             // beginning/end of the buffer in ChromeOS. In windows, do nothing.
 #if defined(OS_WIN)
@@ -904,8 +1001,15 @@ bool NativeTextfieldViews::HandleKeyEvent(const KeyEvent& key_event) {
             model_->MoveCursor(gfx::WORD_BREAK, direction, true);
           }
         }
-        cursor_changed = text_changed = (key_code == ui::VKEY_BACK) ?
-            model_->Backspace() : model_->Delete();
+        if (key_code == ui::VKEY_BACK)
+          model_->Backspace();
+        else
+          model_->Delete();
+
+        // We have to consume the backspace/delete keys here even if the edit
+        // did not make effects.  This is to prevent further handling of the key
+        // event that might have unintended side-effects.
+        text_changed = true;
         break;
       case ui::VKEY_INSERT:
         GetRenderText()->ToggleInsertMode();
@@ -1040,14 +1144,23 @@ bool NativeTextfieldViews::Copy() {
 }
 
 bool NativeTextfieldViews::Paste() {
+  const string16 original_text = GetText();
   const bool success = model_->Paste();
 
-  // Calls TextfieldController::ContentsChanged() explicitly if the paste action
-  // did not change the content at all. See http://crbug.com/79002
-  if (success && GetText() == textfield_->text()) {
-    TextfieldController* controller = textfield_->GetController();
-    if (controller)
-      controller->ContentsChanged(textfield_, textfield_->text());
+  if (success) {
+    // As Paste is handled in model_->Paste(), the RenderText may contain
+    // upper case characters. This is not consistent with other places
+    // which keeps RenderText only containing lower case characters.
+    string16 new_text = GetTextForDisplay(GetText());
+    model_->SetText(new_text);
+
+    // Calls TextfieldController::ContentsChanged() explicitly if the paste
+    // action did not change the content at all. See http://crbug.com/79002
+    if (new_text == original_text) {
+      TextfieldController* controller = textfield_->GetController();
+      if (controller)
+        controller->ContentsChanged(textfield_, textfield_->text());
+    }
   }
   return success;
 }
@@ -1073,7 +1186,7 @@ void NativeTextfieldViews::HandleMousePressEvent(const MouseEvent& event) {
     initiating_drag_ = false;
     bool can_drag = true;
 
-    switch(aggregated_clicks_) {
+    switch (aggregated_clicks_) {
       case 0:
         if (can_drag && GetRenderText()->IsPointInSelection(event.location()))
           initiating_drag_ = true;
@@ -1085,7 +1198,7 @@ void NativeTextfieldViews::HandleMousePressEvent(const MouseEvent& event) {
         OnCaretBoundsChanged();
         break;
       case 2:
-        model_->SelectAll();
+        model_->SelectAll(false);
         OnCaretBoundsChanged();
         break;
       default:
@@ -1112,13 +1225,5 @@ bool NativeTextfieldViews::ShouldInsertChar(char16 ch, int flags) {
   return ((ch >= 0x20 && ch < 0x7F) || ch > 0x9F) &&
       (flags & ~(ui::EF_SHIFT_DOWN | ui::EF_CAPS_LOCK_DOWN)) != ui::EF_ALT_DOWN;
 }
-
-#if defined(USE_AURA)
-// static
-NativeTextfieldWrapper* NativeTextfieldWrapper::CreateWrapper(
-    Textfield* field) {
-  return new NativeTextfieldViews(field);
-}
-#endif
 
 }  // namespace views

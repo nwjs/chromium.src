@@ -12,31 +12,22 @@
 #include "chrome/browser/ui/panels/panel.h"
 #include "chrome/browser/ui/panels/panel_browser_view.h"
 #include "chrome/browser/ui/panels/panel_manager.h"
-#include "chrome/browser/ui/panels/panel_settings_menu_model.h"
 #include "chrome/browser/ui/panels/panel_strip.h"
+#include "chrome/browser/ui/views/tab_icon_view.h"
 #include "chrome/common/extensions/extension.h"
 #include "content/public/browser/web_contents.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
-#include "grit/theme_resources_standard.h"
 #include "grit/ui_resources.h"
-#include "third_party/skia/include/effects/SkGradientShader.h"
 #include "ui/base/accessibility/accessible_view_state.h"
-#include "ui/base/animation/linear_animation.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/path.h"
 #include "ui/gfx/screen.h"
-#include "ui/gfx/skia_util.h"
 #include "ui/views/controls/button/image_button.h"
-#include "ui/views/controls/button/menu_button.h"
 #include "ui/views/controls/label.h"
-#include "ui/views/controls/menu/menu_item_view.h"
-#include "ui/views/controls/menu/menu_model_adapter.h"
-#include "ui/views/controls/menu/menu_runner.h"
-#include "ui/views/painter.h"
 #include "ui/views/widget/widget_delegate.h"
 
 #if defined(USE_AURA) && defined(USE_X11)
@@ -47,19 +38,23 @@ using content::WebContents;
 
 namespace {
 
-// The height in pixels of the titlebar.
-const int kTitlebarHeight = 24;
-
 // The thickness in pixels of the border.
 #if defined(USE_AURA)
 // No border inside the window frame; see comment in PaintFrameBorder().
-const int kBorderThickness = 0;
+const int kResizableBorderThickness = 0;
+const int kNonResizableBorderThickness = 0;
 #else
-const int kBorderThickness = 1;
+const int kResizableBorderThickness = 4;
+const int kNonResizableBorderThickness = 1;
 #endif
 
-// No client edge is present.
-const int kPanelClientEdgeThickness = 0;
+// In the window corners, the resize areas don't actually expand bigger, but the
+// 16 px at the end of each edge triggers diagonal resizing.
+const int kResizeAreaCornerSize = 16;
+
+// Colors used to draw client edges. These are experimental values.
+const SkColor kClientEdgeColor = SkColorSetRGB(210, 225, 246);
+const SkColor kContentsBorderShadow = SkColorSetARGB(51, 0, 0, 0);
 
 // The spacing in pixels between the icon and the left border.
 const int kIconAndBorderSpacing = 4;
@@ -67,77 +62,69 @@ const int kIconAndBorderSpacing = 4;
 // The height and width in pixels of the icon.
 const int kIconSize = 16;
 
+// The font to use to draw the title.
+const char* kTitleFontName = "Arial";
+const int kTitleFontSize = 14;
+
 // The spacing in pixels between the title and the icon on the left, or the
 // button on the right.
-const int kTitleSpacing = 8;
+const int kTitleSpacing = 11;
 
 // The spacing in pixels between the close button and the right border.
-const int kCloseButtonAndBorderSpacing = 8;
+const int kCloseButtonAndBorderSpacing = 11;
 
-// The spacing in pixels between the close button and the settings button.
-const int kSettingsButtonAndCloseButtonSpacing = 8;
+// The spacing in pixels between the close button and the minimize/restore
+// button.
+const int kMinimizeButtonAndCloseButtonSpacing = 5;
 
-// This value is experimental and subjective.
-const int kUpdateSettingsVisibilityAnimationMs = 120;
+// Colors used to draw titlebar background under default theme.
+const SkColor kActiveBackgroundDefaultColor = SkColorSetRGB(0x3a, 0x3d, 0x3d);
+const SkColor kInactiveBackgroundDefaultColor = SkColorSetRGB(0x7a, 0x7c, 0x7c);
+const SkColor kAttentionBackgroundDefaultColor =
+    SkColorSetRGB(0xff, 0xab, 0x57);
 
-// This value is experimental and subjective.
-const int kSettingsButtonAnimationFrameRate = 50;
+// Color used to draw the minimized panel.
+const SkColor kMinimizeBackgroundDefaultColor = SkColorSetRGB(0xf5, 0xf4, 0xf0);
+const SkColor kMinimizeBorderDefaultColor = SkColorSetRGB(0xc9, 0xc9, 0xc9);
 
-// Colors used to draw active titlebar under default theme.
-const SkColor kActiveTitleTextDefaultColor = SK_ColorBLACK;
-const SkColor kActiveBackgroundDefaultColorStart = 0xfff0f8fa;
-const SkColor kActiveBackgroundDefaultColorEnd = 0xffc1d2dd;
-
-// Colors used to draw inactive titlebar under default theme.
-const SkColor kInactiveTitleTextDefaultColor = 0x80888888;
-const SkColor kInactiveBackgroundDefaultColorStart = 0xffffffff;
-const SkColor kInactiveBackgroundDefaultColorEnd = 0xffe7edf1;
-
-// Alpha value used in drawing inactive titlebar under default theme.
-const U8CPU kInactiveAlphaBlending = 0x80;
-
-// Colors used to draw titlebar for drawing attention under default theme.
-// It is also used in non-default theme since attention color is not defined
-// in the theme.
-const SkColor kAttentionTitleTextDefaultColor = SK_ColorWHITE;
-const SkColor kAttentionBackgroundDefaultColorStart = 0xffffab57;
-const SkColor kAttentionBackgroundDefaultColorEnd = 0xfff59338;
-
-// Color used to draw the border.
-const SkColor kBorderColor = 0xc0000000;
+// Color used to draw the title text under default theme.
+const SkColor kTitleTextDefaultColor = SkColorSetRGB(0xf9, 0xf9, 0xf9);
 
 // Color used to draw the divider line between the titlebar and the client area.
-const SkColor kDividerColor = 0xffb5b5b5;
+#if defined(USE_AURA)
+const SkColor kDividerColor = SkColorSetRGB(0xb5, 0xb5, 0xb5);
+#else
+const SkColor kDividerColor = SkColorSetRGB(0x2a, 0x2c, 0x2c);
+#endif
 
 struct ButtonResources {
-  SkBitmap* normal_image;
-  SkBitmap* mask_image;
-  SkBitmap* hover_image;
-  SkBitmap* pushed_image;
+  gfx::ImageSkia* normal_image;
+  gfx::ImageSkia* hover_image;
+  gfx::ImageSkia* push_image;
+  string16 tooltip_text;
 
-  ButtonResources(int normal_image_id, int mask_image_id, int hover_image_id,
-                  int pushed_image_id)
+  ButtonResources(int normal_image_id, int hover_image_id, int push_image_id,
+                  int tooltip_id)
       : normal_image(NULL),
-        mask_image(NULL),
         hover_image(NULL),
-        pushed_image(NULL) {
+        push_image(NULL) {
     ResourceBundle& rb = ResourceBundle::GetSharedInstance();
-    normal_image = rb.GetBitmapNamed(normal_image_id);
-    mask_image = mask_image_id ? rb.GetBitmapNamed(mask_image_id) : NULL;
-    hover_image = rb.GetBitmapNamed(hover_image_id);
-    pushed_image = rb.GetBitmapNamed(pushed_image_id);
+    normal_image = rb.GetImageSkiaNamed(normal_image_id);
+    hover_image = rb.GetImageSkiaNamed(hover_image_id);
+    push_image = rb.GetImageSkiaNamed(push_image_id);
+    tooltip_text = l10n_util::GetStringUTF16(tooltip_id);
   }
 };
 
 struct EdgeResources {
-  SkBitmap* top_left;
-  SkBitmap* top;
-  SkBitmap* top_right;
-  SkBitmap* right;
-  SkBitmap* bottom_right;
-  SkBitmap* bottom;
-  SkBitmap* bottom_left;
-  SkBitmap* left;
+  gfx::ImageSkia* top_left;
+  gfx::ImageSkia* top;
+  gfx::ImageSkia* top_right;
+  gfx::ImageSkia* right;
+  gfx::ImageSkia* bottom_right;
+  gfx::ImageSkia* bottom;
+  gfx::ImageSkia* bottom_left;
+  gfx::ImageSkia* left;
 
   EdgeResources(int top_left_id, int top_id, int top_right_id, int right_id,
                 int bottom_right_id, int bottom_id, int bottom_left_id,
@@ -151,42 +138,52 @@ struct EdgeResources {
         bottom_left(NULL),
         left(NULL) {
     ResourceBundle& rb = ResourceBundle::GetSharedInstance();
-    top_left = rb.GetBitmapNamed(top_left_id);
-    top = rb.GetBitmapNamed(top_id);
-    top_right = rb.GetBitmapNamed(top_right_id);
-    right = rb.GetBitmapNamed(right_id);
-    bottom_right = rb.GetBitmapNamed(bottom_right_id);
-    bottom = rb.GetBitmapNamed(bottom_id);
-    bottom_left = rb.GetBitmapNamed(bottom_left_id);
-    left = rb.GetBitmapNamed(left_id);
+    top_left = rb.GetImageSkiaNamed(top_left_id);
+    top = rb.GetImageSkiaNamed(top_id);
+    top_right = rb.GetImageSkiaNamed(top_right_id);
+    right = rb.GetImageSkiaNamed(right_id);
+    bottom_right = rb.GetImageSkiaNamed(bottom_right_id);
+    bottom = rb.GetImageSkiaNamed(bottom_id);
+    bottom_left = rb.GetImageSkiaNamed(bottom_left_id);
+    left = rb.GetImageSkiaNamed(left_id);
   }
 };
 
-SkPaint* CreateGradientPaint(SkColor start_color, SkColor end_color) {
-  SkShader* shader = gfx::CreateGradientShader(
-      0, kTitlebarHeight, start_color, end_color);
-  SkPaint* paint = new SkPaint();
-  paint->setStyle(SkPaint::kFill_Style);
-  paint->setAntiAlias(true);
-  paint->setShader(shader);
-  shader->unref();
-  return paint;
-}
-
-const ButtonResources& GetSettingsButtonResources() {
-  static ButtonResources* buttons = NULL;
-  if (!buttons) {
-    buttons = new ButtonResources(IDR_BALLOON_WRENCH, 0,
-                                  IDR_BALLOON_WRENCH_H, IDR_BALLOON_WRENCH_P);
-  }
-  return *buttons;
+gfx::ImageSkia* CreateImageForColor(SkColor color) {
+  gfx::Canvas canvas(gfx::Size(1, 1), true);
+  canvas.DrawColor(color);
+  return new gfx::ImageSkia(canvas.ExtractBitmap());
 }
 
 const ButtonResources& GetCloseButtonResources() {
   static ButtonResources* buttons = NULL;
   if (!buttons) {
-    buttons = new ButtonResources(IDR_TAB_CLOSE, IDR_TAB_CLOSE_MASK,
-                                  IDR_TAB_CLOSE_H, IDR_TAB_CLOSE_P);
+    buttons = new ButtonResources(IDR_PANEL_CLOSE,
+                                  IDR_PANEL_CLOSE_H,
+                                  IDR_PANEL_CLOSE_C,
+                                  IDS_PANEL_CLOSE_TOOLTIP);
+  }
+  return *buttons;
+}
+
+const ButtonResources& GetMinimizeButtonResources() {
+  static ButtonResources* buttons = NULL;
+  if (!buttons) {
+    buttons = new ButtonResources(IDR_PANEL_MINIMIZE,
+                                  IDR_PANEL_MINIMIZE_H,
+                                  IDR_PANEL_MINIMIZE_C,
+                                  IDS_PANEL_MINIMIZE_TOOLTIP);
+  }
+  return *buttons;
+}
+
+const ButtonResources& GetRestoreButtonResources() {
+  static ButtonResources* buttons = NULL;
+  if (!buttons) {
+    buttons = new ButtonResources(IDR_PANEL_RESTORE,
+                                  IDR_PANEL_RESTORE_H,
+                                  IDR_PANEL_RESTORE_C,
+                                  IDS_PANEL_RESTORE_TOOLTIP);
   }
   return *buttons;
 }
@@ -203,161 +200,72 @@ const EdgeResources& GetFrameEdges() {
   return *edges;
 }
 
+const EdgeResources& GetClientEdges() {
+  static EdgeResources* edges = NULL;
+  if (!edges) {
+    edges = new EdgeResources(
+        IDR_APP_TOP_LEFT, IDR_APP_TOP_CENTER,
+        IDR_APP_TOP_RIGHT, IDR_CONTENT_RIGHT_SIDE,
+        IDR_CONTENT_BOTTOM_RIGHT_CORNER, IDR_CONTENT_BOTTOM_CENTER,
+        IDR_CONTENT_BOTTOM_LEFT_CORNER, IDR_CONTENT_LEFT_SIDE);
+  }
+  return *edges;
+}
+
 const gfx::Font& GetTitleFont() {
   static gfx::Font* font = NULL;
-  if (!font) {
-    ResourceBundle& rb = ResourceBundle::GetSharedInstance();
-    font = new gfx::Font(rb.GetFont(ResourceBundle::BoldFont));
-  }
+  if (!font)
+    font = new gfx::Font(kTitleFontName, kTitleFontSize);
   return *font;
 }
 
-const SkPaint& GetActiveBackgroundDefaultPaint() {
-  static SkPaint* paint = NULL;
-  if (!paint) {
-    paint = CreateGradientPaint(kActiveBackgroundDefaultColorStart,
-                                kActiveBackgroundDefaultColorEnd);
-  }
-  return *paint;
+const gfx::ImageSkia* GetActiveBackgroundDefaultImage() {
+  static gfx::ImageSkia* image = NULL;
+  if (!image)
+    image = CreateImageForColor(kActiveBackgroundDefaultColor);
+  return image;
 }
 
-const SkPaint& GetInactiveBackgroundDefaultPaint() {
-  static SkPaint* paint = NULL;
-  if (!paint) {
-    paint = CreateGradientPaint(kInactiveBackgroundDefaultColorStart,
-                                kInactiveBackgroundDefaultColorEnd);
-  }
-  return *paint;
+const gfx::ImageSkia* GetInactiveBackgroundDefaultImage() {
+  static gfx::ImageSkia* image = NULL;
+  if (!image)
+    image = CreateImageForColor(kInactiveBackgroundDefaultColor);
+  return image;
 }
 
-const SkPaint& GetAttentionBackgroundDefaultPaint() {
-  static SkPaint* paint = NULL;
-  if (!paint) {
-    paint = CreateGradientPaint(kAttentionBackgroundDefaultColorStart,
-                                kAttentionBackgroundDefaultColorEnd);
-  }
-  return *paint;
+const gfx::ImageSkia* GetAttentionBackgroundDefaultImage() {
+  static gfx::ImageSkia* image = NULL;
+  if (!image)
+    image = CreateImageForColor(kAttentionBackgroundDefaultColor);
+  return image;
+}
+
+const gfx::ImageSkia* GetMinimizeBackgroundDefaultImage() {
+  static gfx::ImageSkia* image = NULL;
+  if (!image)
+    image = CreateImageForColor(kMinimizeBackgroundDefaultColor);
+  return image;
+}
+
+bool IsHitTestValueForResizing(int hc) {
+  return hc == HTLEFT || hc == HTRIGHT || hc == HTTOP || hc == HTBOTTOM ||
+         hc == HTTOPLEFT || hc == HTTOPRIGHT || hc == HTBOTTOMLEFT ||
+         hc == HTBOTTOMRIGHT;
 }
 
 }  // namespace
-
-// Settings button animation.
-class SettingsButtonAnimation : public ui::LinearAnimation {
- public:
-  SettingsButtonAnimation(int duration,
-                          int frame_rate,
-                          ui::AnimationDelegate* delegate)
-      : ui::LinearAnimation(duration, frame_rate, delegate) {}
- protected:
-  virtual void AnimateToState(double state) OVERRIDE {}
-};
-
-// PanelBrowserFrameView::MouseWatcher -----------------------------------------
-
-PanelBrowserFrameView::MouseWatcher::MouseWatcher(PanelBrowserFrameView* view)
-    : view_(view),
-      is_mouse_within_(false) {
-  MessageLoopForUI::current()->AddObserver(this);
-}
-
-PanelBrowserFrameView::MouseWatcher::~MouseWatcher() {
-  MessageLoopForUI::current()->RemoveObserver(this);
-}
-
-bool PanelBrowserFrameView::MouseWatcher::IsCursorInViewBounds() const {
-  gfx::Point cursor_point = gfx::Screen::GetCursorScreenPoint();
-  return view_->browser_view()->GetBounds().Contains(cursor_point.x(),
-                                                     cursor_point.y());
-}
-
-#if defined(OS_WIN)
-base::EventStatus PanelBrowserFrameView::MouseWatcher::WillProcessEvent(
-    const base::NativeEvent& event) {
-  return base::EVENT_CONTINUE;
-}
-
-void PanelBrowserFrameView::MouseWatcher::DidProcessEvent(
-    const base::NativeEvent& event) {
-  switch (event.message) {
-    case WM_MOUSEMOVE:
-    case WM_NCMOUSEMOVE:
-    case WM_MOUSELEAVE:
-    case WM_NCMOUSELEAVE:
-      HandleGlobalMouseMoveEvent();
-      break;
-    default:
-      break;
-  }
-}
-#elif defined(USE_AURA) && defined(USE_X11)
-base::EventStatus PanelBrowserFrameView::MouseWatcher::WillProcessEvent(
-    XEvent* const& event) {
-  return base::EVENT_CONTINUE;
-}
-
-void PanelBrowserFrameView::MouseWatcher::DidProcessEvent(
-    XEvent* const& event) {
-  if (ui::IsMotionEvent(event))
-    HandleGlobalMouseMoveEvent();
-}
-#elif defined(TOOLKIT_USES_GTK)
-void PanelBrowserFrameView::MouseWatcher::WillProcessEvent(GdkEvent* event) {
-}
-
-void PanelBrowserFrameView::MouseWatcher::DidProcessEvent(GdkEvent* event) {
-  switch (event->type) {
-    case GDK_ENTER_NOTIFY:
-    case GDK_LEAVE_NOTIFY:
-    case GDK_MOTION_NOTIFY:
-      HandleGlobalMouseMoveEvent();
-      break;
-    default:
-      break;
-  }
-}
-#endif
-
-void PanelBrowserFrameView::MouseWatcher::HandleGlobalMouseMoveEvent() {
-  bool is_mouse_within = IsCursorInViewBounds();
-  if (is_mouse_within == is_mouse_within_)
-    return;
-  is_mouse_within_ = is_mouse_within;
-  view_->OnMouseEnterOrLeaveWindow(is_mouse_within_);
-}
-
-// PanelBrowserFrameView -------------------------------------------------------
 
 PanelBrowserFrameView::PanelBrowserFrameView(BrowserFrame* frame,
                                              PanelBrowserView* browser_view)
     : BrowserNonClientFrameView(frame, browser_view),
       panel_browser_view_(browser_view),
       paint_state_(NOT_PAINTED),
-      settings_button_(NULL),
       close_button_(NULL),
+      minimize_button_(NULL),
+      restore_button_(NULL),
       title_icon_(NULL),
-      title_label_(NULL),
-      is_settings_button_visible_(false),
-#if defined(USE_AURA)
-      has_settings_button_(panel_browser_view_->panel()->browser()->is_app()) {
-#else
-      has_settings_button_(true) {
-#endif
+      title_label_(NULL) {
   frame->set_frame_type(views::Widget::FRAME_TYPE_FORCE_CUSTOM);
-
-  const ButtonResources& settings_button_resources =
-      GetSettingsButtonResources();
-  settings_button_ =  new views::MenuButton(NULL, string16(), this, false);
-  settings_button_->SetIcon(*(settings_button_resources.normal_image));
-  settings_button_->SetHoverIcon(*(settings_button_resources.hover_image));
-  settings_button_->SetPushedIcon(*(settings_button_resources.pushed_image));
-  settings_button_->set_alignment(views::TextButton::ALIGN_CENTER);
-  settings_button_->set_border(NULL);
-  settings_button_->SetTooltipText(
-      l10n_util::GetStringUTF16(IDS_PANEL_WINDOW_SETTINGS_BUTTON_TOOLTIP));
-  settings_button_->SetAccessibleName(
-      l10n_util::GetStringUTF16(IDS_PANEL_WINDOW_SETTINGS_BUTTON_TOOLTIP));
-  settings_button_->SetVisible(is_settings_button_visible_);
-  AddChildView(settings_button_);
 
   const ButtonResources& close_button_resources = GetCloseButtonResources();
   close_button_ = new views::ImageButton(this);
@@ -366,12 +274,37 @@ PanelBrowserFrameView::PanelBrowserFrameView(BrowserFrame* frame,
   close_button_->SetImage(views::CustomButton::BS_HOT,
                           close_button_resources.hover_image);
   close_button_->SetImage(views::CustomButton::BS_PUSHED,
-                          close_button_resources.pushed_image);
-  close_button_->SetTooltipText(
-      l10n_util::GetStringUTF16(IDS_TOOLTIP_CLOSE_TAB));
-  close_button_->SetAccessibleName(
-      l10n_util::GetStringUTF16(IDS_ACCNAME_CLOSE));
+                          close_button_resources.push_image);
+  close_button_->SetTooltipText(close_button_resources.tooltip_text);
+  close_button_->SetAccessibleName(close_button_resources.tooltip_text);
   AddChildView(close_button_);
+
+  const ButtonResources& minimize_button_resources =
+      GetMinimizeButtonResources();
+  minimize_button_ = new views::ImageButton(this);
+  minimize_button_->SetImage(views::CustomButton::BS_NORMAL,
+                             minimize_button_resources.normal_image);
+  minimize_button_->SetImage(views::CustomButton::BS_HOT,
+                             minimize_button_resources.hover_image);
+  minimize_button_->SetImage(views::CustomButton::BS_PUSHED,
+                             minimize_button_resources.push_image);
+  minimize_button_->SetTooltipText(minimize_button_resources.tooltip_text);
+  minimize_button_->SetAccessibleName(minimize_button_resources.tooltip_text);
+  AddChildView(minimize_button_);
+
+  const ButtonResources& restore_button_resources =
+      GetRestoreButtonResources();
+  restore_button_ = new views::ImageButton(this);
+  restore_button_->SetImage(views::CustomButton::BS_NORMAL,
+                            restore_button_resources.normal_image);
+  restore_button_->SetImage(views::CustomButton::BS_HOT,
+                            restore_button_resources.hover_image);
+  restore_button_->SetImage(views::CustomButton::BS_PUSHED,
+                            restore_button_resources.push_image);
+  restore_button_->SetTooltipText(restore_button_resources.tooltip_text);
+  restore_button_->SetAccessibleName(restore_button_resources.tooltip_text);
+  restore_button_->SetVisible(false);  // only visible when panel is minimized
+  AddChildView(restore_button_);
 
   title_icon_ = new TabIconView(this);
   title_icon_->set_is_light(true);
@@ -382,9 +315,6 @@ PanelBrowserFrameView::PanelBrowserFrameView(BrowserFrame* frame,
   title_label_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
   title_label_->SetAutoColorReadabilityEnabled(false);
   AddChildView(title_label_);
-
-  if (has_settings_button_)
-    mouse_watcher_.reset(new MouseWatcher(this));
 }
 
 PanelBrowserFrameView::~PanelBrowserFrameView() {
@@ -424,6 +354,10 @@ gfx::Rect PanelBrowserFrameView::GetWindowBoundsForClientBounds(
 }
 
 int PanelBrowserFrameView::NonClientHitTest(const gfx::Point& point) {
+  PanelStrip* panel_strip = panel_browser_view_->panel()->panel_strip();
+  if (!panel_strip)
+    return HTNOWHERE;
+
   if (!bounds().Contains(point))
     return HTNOWHERE;
 
@@ -436,10 +370,29 @@ int PanelBrowserFrameView::NonClientHitTest(const gfx::Point& point) {
       close_button_->GetMirroredBounds().Contains(point))
     return HTCLOSE;
 
+  if (minimize_button_->visible() &&
+      minimize_button_->GetMirroredBounds().Contains(point))
+    return HTMINBUTTON;
+
+  if (restore_button_->visible() &&
+      restore_button_->GetMirroredBounds().Contains(point))
+    return HTMAXBUTTON;
+
   int window_component = GetHTComponentForFrame(point,
       NonClientBorderThickness(), NonClientBorderThickness(),
-      0, 0,
-      frame()->widget_delegate()->CanResize());
+      kResizeAreaCornerSize, kResizeAreaCornerSize,
+      CanResize());
+
+  // The bottom edge and corners cannot be used to resize in some scenarios,
+  // i.e docked panels.
+  panel::Resizability resizability = panel_strip->GetPanelResizability(
+      panel_browser_view_->panel());
+  if (resizability == panel::RESIZABLE_ALL_SIDES_EXCEPT_BOTTOM &&
+      (window_component == HTBOTTOM ||
+       window_component == HTBOTTOMLEFT ||
+       window_component == HTBOTTOMRIGHT))
+    return HTNOWHERE;
+
   // Fall back to the caption if no other component matches.
   return (window_component == HTNOWHERE) ? HTCAPTION : window_component;
 }
@@ -475,112 +428,76 @@ void PanelBrowserFrameView::OnPaint(gfx::Canvas* canvas) {
   PaintState paint_state;
   if (panel_browser_view_->panel()->IsDrawingAttention())
     paint_state = PAINT_FOR_ATTENTION;
-  else if (panel_browser_view_->focused())
+  else if (bounds().height() <= panel::kMinimizedPanelHeight)
+    paint_state = PAINT_AS_MINIMIZED;
+  else if (panel_browser_view_->focused() &&
+           !panel_browser_view_->force_to_paint_as_inactive())
     paint_state = PAINT_AS_ACTIVE;
   else
     paint_state = PAINT_AS_INACTIVE;
 
   UpdateControlStyles(paint_state);
-  PaintFrameBorder(canvas);
+  PaintFrameBackground(canvas);
+  PaintFrameEdge(canvas);
+  PaintDivider(canvas);
 }
 
 void PanelBrowserFrameView::OnThemeChanged() {
 }
 
 gfx::Size PanelBrowserFrameView::GetMinimumSize() {
-  // This makes the panel be able to shrink to very small, like 4-pixel lines.
-  // Since the panel cannot be resized by the user, we do not need to enforce
-  // the minimum size.
+  // This makes the panel be able to shrink to very small, like minimized panel.
+  return gfx::Size();
+}
+
+gfx::Size PanelBrowserFrameView::GetMaximumSize() {
+  // When the user resizes the panel, there is no max size limit.
   return gfx::Size();
 }
 
 void PanelBrowserFrameView::Layout() {
-  PanelStrip* panel_strip = panel_browser_view_->panel()->panel_strip();
+  Panel* panel = panel_browser_view_->panel();
+  PanelStrip* panel_strip = panel->panel_strip();
   if (!panel_strip)
     return;
 
-  // Check if the width is only enough to show only the icon, or both icon
-  // and title. Hide corresponding controls accordingly.
-  bool show_close_button = true;
-  bool show_settings_button = true;
-  bool show_title_label = true;
-  if (panel_strip->type() == PanelStrip::IN_OVERFLOW) {
-    if (width() <= IconOnlyWidth()) {
-      show_close_button = false;
-      show_settings_button = false;
-      show_title_label = false;
-    } else {
-      show_settings_button = false;
-    }
-  }
-
-  if (!has_settings_button_)
-    show_settings_button = false;
-
-  close_button_->SetVisible(show_close_button);
-  settings_button_->SetVisible(show_settings_button);
-  title_label_->SetVisible(show_title_label);
-
-  // Cancel the settings button animation if the layout of titlebar is being
-  // updated.
-  if (settings_button_animator_.get() &&
-      settings_button_animator_->is_animating()) {
-    settings_button_animator_->Stop();
-  }
-
   // Layout the close button.
   int right = width();
-  if (show_close_button) {
-    gfx::Size close_button_size = close_button_->GetPreferredSize();
-    close_button_->SetBounds(
-        width() - kBorderThickness - kCloseButtonAndBorderSpacing -
-            close_button_size.width(),
-        (NonClientTopBorderHeight() - close_button_size.height()) / 2,
-        close_button_size.width(),
-        close_button_size.height());
-    right = close_button_->x();
+  gfx::Size close_button_size = close_button_->GetPreferredSize();
+  close_button_->SetBounds(
+      width() - kCloseButtonAndBorderSpacing - close_button_size.width(),
+      (NonClientTopBorderHeight() - close_button_size.height()) / 2,
+      close_button_size.width(),
+      close_button_size.height());
+  right = close_button_->x();
 
-    // Layout the settings button.
-    if (show_settings_button) {
-      gfx::Size settings_button_size = settings_button_->GetPreferredSize();
-      settings_button_->SetBounds(
-          close_button_->x() - kSettingsButtonAndCloseButtonSpacing -
-              settings_button_size.width(),
-          (NonClientTopBorderHeight() - settings_button_size.height()) / 2,
-          settings_button_size.width(),
-          settings_button_size.height());
-      right = settings_button_->x();
-
-      // Trace the full bounds and zero-size bounds for animation purpose.
-      settings_button_full_bounds_ = settings_button_->bounds();
-      settings_button_zero_bounds_.SetRect(
-          settings_button_full_bounds_.x() +
-              settings_button_full_bounds_.width() / 2,
-          settings_button_full_bounds_.y() +
-              settings_button_full_bounds_.height() / 2,
-          0,
-          0);
-    }
-  }
+  // Layout the minimize and restore button. Both occupy the same space,
+  // but at most one is visible at any time.
+  gfx::Size button_size = minimize_button_->GetPreferredSize();
+  minimize_button_->SetBounds(
+      right - kMinimizeButtonAndCloseButtonSpacing - button_size.width(),
+      (NonClientTopBorderHeight() - button_size.height()) / 2,
+      button_size.width(),
+      button_size.height());
+  restore_button_->SetBoundsRect(minimize_button_->bounds());
+  right = minimize_button_->x();
 
   // Layout the icon.
   int icon_y = (NonClientTopBorderHeight() - kIconSize) / 2;
   title_icon_->SetBounds(
-      kBorderThickness + kIconAndBorderSpacing,
+      NonClientBorderThickness() + kIconAndBorderSpacing,
       icon_y,
       kIconSize,
       kIconSize);
 
   // Layout the title.
-  if (show_title_label) {
-    int title_x = title_icon_->bounds().right() + kTitleSpacing;
-    int title_height = BrowserFrame::GetTitleFont().GetHeight();
-    title_label_->SetBounds(
-        title_x,
-        icon_y + ((kIconSize - title_height - 1) / 2),
-        std::max(0, right - kTitleSpacing - title_x),
-        title_height);
-  }
+  int title_x = title_icon_->bounds().right() + kTitleSpacing;
+  int title_height = GetTitleFont().GetHeight();
+  title_label_->SetBounds(
+      title_x,
+      icon_y + ((kIconSize - title_height - 1) / 2),
+      std::max(0, right - kTitleSpacing - title_x),
+      title_height);
 
   // Calculate the client area bounds.
   int top_height = NonClientTopBorderHeight();
@@ -597,9 +514,14 @@ void PanelBrowserFrameView::GetAccessibleState(ui::AccessibleViewState* state) {
 }
 
 bool PanelBrowserFrameView::OnMousePressed(const views::MouseEvent& event) {
+  gfx::Point mouse_location = event.location();
+
+  if (CanResize() &&
+      IsHitTestValueForResizing(NonClientHitTest(mouse_location)))
+    return BrowserNonClientFrameView::OnMousePressed(event);
+
   // |event.location| is in the view's coordinate system. Convert it to the
   // screen coordinate system.
-  gfx::Point mouse_location = event.location();
   views::View::ConvertPointToScreen(this, &mouse_location);
 
   if (event.IsOnlyLeftMouseButton() &&
@@ -621,7 +543,8 @@ bool PanelBrowserFrameView::OnMouseDragged(const views::MouseEvent& event) {
 }
 
 void PanelBrowserFrameView::OnMouseReleased(const views::MouseEvent& event) {
-  if (panel_browser_view_->OnTitlebarMouseReleased())
+  if (panel_browser_view_->OnTitlebarMouseReleased(
+          event.IsControlDown() ? panel::APPLY_TO_ALL : panel::NO_MODIFIER))
     return;
   BrowserNonClientFrameView::OnMouseReleased(event);
 }
@@ -634,69 +557,39 @@ void PanelBrowserFrameView::OnMouseCaptureLost() {
 
 void PanelBrowserFrameView::ButtonPressed(views::Button* sender,
                                           const views::Event& event) {
-  if (sender == close_button_)
+  if (sender == close_button_) {
     frame()->Close();
-}
-
-void PanelBrowserFrameView::OnMenuButtonClicked(views::View* source,
-                                                const gfx::Point& point) {
-  if (!EnsureSettingsMenuCreated())
-    return;
-
-  DCHECK_EQ(settings_button_, source);
-  gfx::Point screen_point;
-  views::View::ConvertPointToScreen(source, &screen_point);
-  if (settings_menu_runner_->RunMenuAt(source->GetWidget(),
-          settings_button_, gfx::Rect(screen_point, source->size()),
-          views::MenuItemView::TOPRIGHT, views::MenuRunner::HAS_MNEMONICS) ==
-      views::MenuRunner::MENU_DELETED)
-    return;
+  } else {
+    panel::ClickModifier modifier =
+        event.IsControlDown() ? panel::APPLY_TO_ALL : panel::NO_MODIFIER;
+    if (sender == minimize_button_)
+      panel_browser_view_->panel()->OnMinimizeButtonClicked(modifier);
+    else if (sender == restore_button_)
+      panel_browser_view_->panel()->OnRestoreButtonClicked(modifier);
+  }
 }
 
 bool PanelBrowserFrameView::ShouldTabIconViewAnimate() const {
   // This function is queried during the creation of the window as the
   // TabIconView we host is initialized, so we need to NULL check the selected
-  // TabContents because in this condition there is not yet a selected tab.
-  WebContents* current_tab = browser_view()->GetSelectedWebContents();
+  // WebContents because in this condition there is not yet a selected tab.
+  WebContents* current_tab = browser_view()->GetActiveWebContents();
   return current_tab ? current_tab->IsLoading() : false;
 }
 
-SkBitmap PanelBrowserFrameView::GetFaviconForTabIconView() {
+gfx::ImageSkia PanelBrowserFrameView::GetFaviconForTabIconView() {
   return frame()->widget_delegate()->GetWindowIcon();
 }
 
-void PanelBrowserFrameView::AnimationEnded(const ui::Animation* animation) {
-  settings_button_->SetVisible(is_settings_button_visible_);
-}
-
-void PanelBrowserFrameView::AnimationProgressed(
-    const ui::Animation* animation) {
-  gfx::Rect animation_start_bounds, animation_end_bounds;
-  if (is_settings_button_visible_) {
-    animation_start_bounds = settings_button_zero_bounds_;
-    animation_end_bounds = settings_button_full_bounds_;
-  } else {
-    animation_start_bounds = settings_button_full_bounds_;
-    animation_end_bounds = settings_button_zero_bounds_;
-  }
-  gfx::Rect new_bounds = settings_button_animator_->CurrentValueBetween(
-      animation_start_bounds, animation_end_bounds);
-  if (new_bounds == animation_end_bounds)
-    AnimationEnded(animation);
-  else
-    settings_button_->SetBoundsRect(new_bounds);
-}
-
-void PanelBrowserFrameView::AnimationCanceled(const ui::Animation* animation) {
-  AnimationEnded(animation);
-}
-
 int PanelBrowserFrameView::NonClientBorderThickness() const {
-  return kBorderThickness + kPanelClientEdgeThickness;
+  if (CanResize())
+    return kResizableBorderThickness;
+  else
+    return kNonResizableBorderThickness;
 }
 
 int PanelBrowserFrameView::NonClientTopBorderHeight() const {
-  return kBorderThickness + kTitlebarHeight + kPanelClientEdgeThickness;
+  return panel::kTitlebarHeight;
 }
 
 gfx::Size PanelBrowserFrameView::NonClientAreaSize() const {
@@ -705,78 +598,64 @@ gfx::Size PanelBrowserFrameView::NonClientAreaSize() const {
 }
 
 int PanelBrowserFrameView::IconOnlyWidth() const {
-  return kBorderThickness * 2 + kIconAndBorderSpacing * 2 + kIconSize;
+  return NonClientBorderThickness() * 2 + kIconAndBorderSpacing * 2 + kIconSize;
 }
 
-gfx::Size PanelBrowserFrameView::IconOnlySize() const {
-  return gfx::Size(IconOnlyWidth(), NonClientTopBorderHeight());
-}
+bool PanelBrowserFrameView::UsingDefaultTheme(PaintState paint_state) const {
+  // No theme is provided for attention painting.
+  if (paint_state == PAINT_FOR_ATTENTION)
+    return true;
 
-bool PanelBrowserFrameView::UsingDefaultTheme() const {
   ThemeService* theme_service = ThemeServiceFactory::GetForProfile(
-      panel_browser_view_->panel()->browser()->profile());
+      panel_browser_view_->panel()->profile());
   return theme_service->UsingDefaultTheme();
+}
+
+SkColor PanelBrowserFrameView::GetTitleColor(PaintState paint_state) const {
+  return UsingDefaultTheme(paint_state) ?
+      GetDefaultTitleColor(paint_state) :
+      GetThemedTitleColor(paint_state);
 }
 
 SkColor PanelBrowserFrameView::GetDefaultTitleColor(
     PaintState paint_state) const {
-  switch (paint_state) {
-    case PAINT_AS_INACTIVE:
-      return kActiveTitleTextDefaultColor;
-    case PAINT_AS_ACTIVE:
-      return kInactiveTitleTextDefaultColor;
-    case PAINT_FOR_ATTENTION:
-      return kAttentionTitleTextDefaultColor;
-    default:
-      NOTREACHED();
-      return SkColor();
-  }
+  return kTitleTextDefaultColor;
 }
 
-SkColor PanelBrowserFrameView::GetTitleColor(PaintState paint_state) const {
-  switch (paint_state) {
-    case PAINT_AS_INACTIVE:
-      return SkColorSetA(
-          GetThemeProvider()->GetColor(ThemeService::COLOR_BACKGROUND_TAB_TEXT),
-          kInactiveAlphaBlending);
-    case PAINT_AS_ACTIVE:
-      return GetThemeProvider()->GetColor(ThemeService::COLOR_TAB_TEXT);
-    case PAINT_FOR_ATTENTION:
-      return kAttentionTitleTextDefaultColor;
-    default:
-      NOTREACHED();
-      return SkColor();
-  }
+SkColor PanelBrowserFrameView::GetThemedTitleColor(
+    PaintState paint_state) const {
+  return GetThemeProvider()->GetColor(paint_state == PAINT_AS_ACTIVE ?
+      ThemeService::COLOR_TAB_TEXT : ThemeService::COLOR_BACKGROUND_TAB_TEXT);
 }
 
-const SkPaint& PanelBrowserFrameView::GetDefaultFrameTheme(
+const gfx::ImageSkia* PanelBrowserFrameView::GetFrameBackground(
+    PaintState paint_state) const {
+  return UsingDefaultTheme(paint_state) ?
+      GetDefaultFrameBackground(paint_state) :
+      GetThemedFrameBackground(paint_state);
+}
+
+const gfx::ImageSkia* PanelBrowserFrameView::GetDefaultFrameBackground(
     PaintState paint_state) const {
   switch (paint_state) {
     case PAINT_AS_INACTIVE:
-      return GetInactiveBackgroundDefaultPaint();
+      return GetInactiveBackgroundDefaultImage();
     case PAINT_AS_ACTIVE:
-      return GetActiveBackgroundDefaultPaint();
+      return GetActiveBackgroundDefaultImage();
+    case PAINT_AS_MINIMIZED:
+      return GetMinimizeBackgroundDefaultImage();
     case PAINT_FOR_ATTENTION:
-      return GetAttentionBackgroundDefaultPaint();
+      return GetAttentionBackgroundDefaultImage();
     default:
       NOTREACHED();
-      return GetInactiveBackgroundDefaultPaint();
+      return GetInactiveBackgroundDefaultImage();
   }
 }
 
-SkBitmap* PanelBrowserFrameView::GetFrameTheme(PaintState paint_state) const {
-  switch (paint_state) {
-    case PAINT_AS_INACTIVE:
-      return GetThemeProvider()->GetBitmapNamed(IDR_THEME_TAB_BACKGROUND);
-    case PAINT_AS_ACTIVE:
-      return GetThemeProvider()->GetBitmapNamed(IDR_THEME_TOOLBAR);
-    case PAINT_FOR_ATTENTION:
-      // Background color for drawing attention is same regardless of the
-      // theme. GetDefaultFrameTheme should be used.
-    default:
-      NOTREACHED();
-      return NULL;
-  }
+const gfx::ImageSkia* PanelBrowserFrameView::GetThemedFrameBackground(
+    PaintState paint_state) const {
+  return GetThemeProvider()->GetImageSkiaNamed(paint_state == PAINT_AS_ACTIVE ?
+      IDR_THEME_TOOLBAR : IDR_THEME_TAB_BACKGROUND);
 }
 
 void PanelBrowserFrameView::UpdateControlStyles(PaintState paint_state) {
@@ -792,36 +671,59 @@ void PanelBrowserFrameView::UpdateControlStyles(PaintState paint_state) {
 
   close_button_->SetBackground(title_color,
                                GetCloseButtonResources().normal_image,
-                               GetCloseButtonResources().mask_image);
+                               NULL);
+
+  minimize_button_->SetBackground(title_color,
+                                  GetMinimizeButtonResources().normal_image,
+                                  NULL);
+
+  restore_button_->SetBackground(title_color,
+                                 GetRestoreButtonResources().normal_image,
+                                 NULL);
 }
 
-void PanelBrowserFrameView::PaintFrameBorder(gfx::Canvas* canvas) {
-  // Paint the background.
-  if (paint_state_ == PAINT_FOR_ATTENTION || UsingDefaultTheme()) {
-    const SkPaint& paint = GetDefaultFrameTheme(paint_state_);
-    canvas->DrawRect(gfx::Rect(0, 0, width(), kTitlebarHeight), paint);
-  } else {
-    SkBitmap* bitmap = GetFrameTheme(paint_state_);
-    canvas->TileImageInt(*bitmap, 0, 0, width(), kTitlebarHeight);
-  }
+void PanelBrowserFrameView::PaintFrameBackground(gfx::Canvas* canvas) {
+  int top_area_height = NonClientTopBorderHeight();
+  int thickness = NonClientBorderThickness();
+  const gfx::ImageSkia* image = GetFrameBackground(paint_state_);
 
-#if defined(USE_AURA)
-  // Aura recognizes aura::client::WINDOW_TYPE_PANEL and will draw the
-  // appropriate frame and shadow. See ash/wm/shadow_controller.h.
+  // Top area, including title-bar.
+  canvas->TileImageInt(*image, 0, 0, width(), top_area_height);
 
-  // Draw the divider between the titlebar and the client area.
-  if (height() > kTitlebarHeight) {
-    canvas->DrawRect(gfx::Rect(0, kTitlebarHeight, width() - 1, 1),
-                     kDividerColor);
-  }
-#else
+  // For all the non-client area below titlebar, we paint it by using the last
+  // line from the theme image, instead of using the frame color provided
+  // in the theme because the frame color in some themes is very different from
+  // the tab colors we use to render the titlebar and it can produce abrupt
+  // transition which looks bad.
+
+  // Left border, below title-bar.
+  canvas->DrawImageInt(*image, 0, top_area_height - 1, thickness, 1,
+      0, top_area_height, thickness, height() - top_area_height, false);
+
+  // Right border, below title-bar.
+  canvas->DrawImageInt(*image, (width() % image->width()) - thickness,
+      top_area_height - 1, thickness, 1,
+      width() - thickness, top_area_height,
+      thickness, height() - top_area_height, false);
+
+  // Bottom border.
+  canvas->DrawImageInt(*image, 0, top_area_height - 1, image->width(), 1,
+      0, height() - thickness, width(), thickness, false);
+}
+
+void PanelBrowserFrameView::PaintFrameEdge(gfx::Canvas* canvas) {
+#if !defined(USE_AURA)
+  // Border is not needed when panel is not shown as minimized.
+  if (paint_state_ != PAINT_AS_MINIMIZED)
+    return;
+
   // Draw the top border.
   const EdgeResources& frame_edges = GetFrameEdges();
-  canvas->DrawBitmapInt(*(frame_edges.top_left), 0, 0);
+  canvas->DrawImageInt(*(frame_edges.top_left), 0, 0);
   canvas->TileImageInt(
       *(frame_edges.top), frame_edges.top_left->width(), 0,
       width() - frame_edges.top_right->width(), frame_edges.top->height());
-  canvas->DrawBitmapInt(
+  canvas->DrawImageInt(
       *(frame_edges.top_right),
       width() - frame_edges.top_right->width(), 0);
 
@@ -833,7 +735,7 @@ void PanelBrowserFrameView::PaintFrameBorder(gfx::Canvas* canvas) {
           frame_edges.bottom_right->height());
 
   // Draw the bottom border.
-  canvas->DrawBitmapInt(
+  canvas->DrawImageInt(
       *(frame_edges.bottom_right),
       width() - frame_edges.bottom_right->width(),
       height() - frame_edges.bottom_right->height());
@@ -843,7 +745,7 @@ void PanelBrowserFrameView::PaintFrameBorder(gfx::Canvas* canvas) {
       width() - frame_edges.bottom_left->width() -
           frame_edges.bottom_right->width(),
       frame_edges.bottom->height());
-  canvas->DrawBitmapInt(
+  canvas->DrawImageInt(
       *(frame_edges.bottom_left), 0,
       height() - frame_edges.bottom_left->height());
 
@@ -853,12 +755,25 @@ void PanelBrowserFrameView::PaintFrameBorder(gfx::Canvas* canvas) {
       frame_edges.left->width(),
       height() - frame_edges.top_left->height() -
           frame_edges.bottom_left->height());
+#endif  // !defined(USE_AURA)
+}
+
+void PanelBrowserFrameView::PaintDivider(gfx::Canvas* canvas) {
+#if defined(USE_AURA)
+  // Aura recognizes aura::client::WINDOW_TYPE_PANEL and will draw the
+  // appropriate frame and shadow. See ash/wm/shadow_controller.h.
 
   // Draw the divider between the titlebar and the client area.
-  if (height() > kTitlebarHeight) {
-    canvas->DrawRect(gfx::Rect(kBorderThickness, kTitlebarHeight,
-                               width() - 1 - 2 * kBorderThickness,
-                               kBorderThickness), kDividerColor);
+  if (!IsShowingTitlebarOnly()) {
+    canvas->DrawRect(gfx::Rect(0, panel::kTitlebarHeight, width() - 1, 1),
+                     kDividerColor);
+  }
+#else
+  // Draw the divider between the titlebar and the client area.
+  if (!IsShowingTitlebarOnly()) {
+    canvas->DrawLine(gfx::Point(0, panel::kTitlebarHeight - 1),
+                     gfx::Point(width() - 1, panel::kTitlebarHeight - 1),
+                     kDividerColor);
   }
 #endif  // !defined(USE_AURA)
 }
@@ -871,74 +786,22 @@ void PanelBrowserFrameView::UpdateTitleBar() {
   title_label_->SetText(GetTitleText());
 }
 
-void PanelBrowserFrameView::OnFocusChanged(bool focused) {
-  if (!has_settings_button_)
-    return;
+void PanelBrowserFrameView::UpdateTitleBarMinimizeRestoreButtonVisibility() {
+  Panel* panel = panel_browser_view_->panel();
+  minimize_button_->SetVisible(panel->CanMinimize());
+  restore_button_->SetVisible(panel->CanRestore());
 
-  UpdateSettingsButtonVisibility(focused,
-                                 mouse_watcher_->IsCursorInViewBounds());
-  SchedulePaint();
+  // Reset the button states in case that the hover states are not cleared when
+  // mouse is clicked but not moved.
+  minimize_button_->SetState(views::CustomButton::BS_NORMAL);
+  restore_button_->SetState(views::CustomButton::BS_NORMAL);
 }
 
-void PanelBrowserFrameView::OnMouseEnterOrLeaveWindow(bool mouse_entered) {
-  // Panel might be closed when we still watch the mouse event.
-  if (!panel_browser_view_->panel())
-    return;
-
-  if (!has_settings_button_)
-    return;
-
-  UpdateSettingsButtonVisibility(panel_browser_view_->focused(),
-                                 mouse_entered);
+bool PanelBrowserFrameView::CanResize() const {
+  return panel_browser_view_->panel()->CanResizeByMouse() !=
+      panel::NOT_RESIZABLE;
 }
 
-void PanelBrowserFrameView::UpdateSettingsButtonVisibility(
-    bool focused, bool cursor_in_view) {
-  DCHECK(has_settings_button_);
-
-  PanelStrip* panel_strip = panel_browser_view_->panel()->panel_strip();
-  if (!panel_strip)
-    return;
-
-  // The settings button is not shown in the overflow state.
-  if (panel_strip->type() == PanelStrip::IN_OVERFLOW)
-    return;
-
-  bool is_settings_button_visible = focused || cursor_in_view;
-  if (is_settings_button_visible_ == is_settings_button_visible)
-    return;
-  is_settings_button_visible_ = is_settings_button_visible;
-
-  // Even if we're hiding the settings button, we still make it visible for the
-  // time period that the animation is running.
-  settings_button_->SetVisible(true);
-
-  if (settings_button_animator_.get()) {
-    if (settings_button_animator_->is_animating())
-      settings_button_animator_->Stop();
-  } else {
-    settings_button_animator_.reset(new SettingsButtonAnimation(
-        PanelManager::AdjustTimeInterval(kUpdateSettingsVisibilityAnimationMs),
-        kSettingsButtonAnimationFrameRate, this));
-  }
-
-  settings_button_animator_->Start();
-}
-
-bool PanelBrowserFrameView::EnsureSettingsMenuCreated() {
-  if (settings_menu_runner_.get())
-    return true;
-
-  const Extension* extension = panel_browser_view_->panel()->GetExtension();
-  if (!extension)
-    return false;
-
-  settings_menu_model_.reset(
-      new PanelSettingsMenuModel(panel_browser_view_->panel()));
-  settings_menu_adapter_.reset(
-      new views::MenuModelAdapter(settings_menu_model_.get()));
-  settings_menu_ = new views::MenuItemView(settings_menu_adapter_.get());
-  settings_menu_adapter_->BuildMenu(settings_menu_);
-  settings_menu_runner_.reset(new views::MenuRunner(settings_menu_));
-  return true;
+bool PanelBrowserFrameView::IsShowingTitlebarOnly() const {
+  return height() <= panel::kTitlebarHeight;
 }

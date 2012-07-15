@@ -4,31 +4,29 @@
 
 #ifndef CHROME_BROWSER_SYNC_GLUE_UI_MODEL_WORKER_H_
 #define CHROME_BROWSER_SYNC_GLUE_UI_MODEL_WORKER_H_
-#pragma once
 
 #include "base/callback.h"
 #include "base/compiler_specific.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/synchronization/lock.h"
-#include "sync/engine/model_safe_worker.h"
-#include "sync/util/unrecoverable_error_info.h"
+#include "sync/internal_api/public/engine/model_safe_worker.h"
+#include "sync/internal_api/public/util/unrecoverable_error_info.h"
 
 class MessageLoop;
 
 namespace browser_sync {
 
-// A ModelSafeWorker for UI models (e.g. bookmarks) that accepts work requests
-// from the syncapi that need to be fulfilled from the MessageLoop home to the
-// native model.
+// A syncer::ModelSafeWorker for UI models (e.g. bookmarks) that
+// accepts work requests from the syncapi that need to be fulfilled
+// from the MessageLoop home to the native model.
 //
 // Lifetime note: Instances of this class will generally be owned by the
 // SyncerThread. When the SyncerThread _object_ is destroyed, the
 // UIModelWorker will be destroyed. The SyncerThread object is destroyed
 // after the actual syncer pthread has exited.
-class UIModelWorker : public browser_sync::ModelSafeWorker {
+class UIModelWorker : public syncer::ModelSafeWorker {
  public:
   UIModelWorker();
-  virtual ~UIModelWorker();
 
   // Called by the UI thread on shutdown of the sync service. Blocks until
   // the UIModelWorker has safely met termination conditions, namely that
@@ -36,12 +34,12 @@ class UIModelWorker : public browser_sync::ModelSafeWorker {
   // processed and that syncapi will not schedule any further work for us to do.
   void Stop();
 
-  // ModelSafeWorker implementation. Called on syncapi SyncerThread.
-  virtual SyncerError DoWorkAndWaitUntilDone(
-      const WorkCallback& work) OVERRIDE;
-  virtual ModelSafeGroup GetModelSafeGroup() OVERRIDE;
+  // syncer::ModelSafeWorker implementation. Called on syncapi SyncerThread.
+  virtual syncer::SyncerError DoWorkAndWaitUntilDone(
+      const syncer::WorkCallback& work) OVERRIDE;
+  virtual syncer::ModelSafeGroup GetModelSafeGroup() OVERRIDE;
 
-  // Upon receiving this idempotent call, the ModelSafeWorker can
+  // Upon receiving this idempotent call, the syncer::ModelSafeWorker can
   // assume no work will ever be scheduled again from now on. If it has any work
   // that it has not yet completed, it must make sure to run it as soon as
   // possible as the Syncer is trying to shut down. Called from the CoreThread.
@@ -67,6 +65,8 @@ class UIModelWorker : public browser_sync::ModelSafeWorker {
     // will be scheduled from now until our destruction.
     STOPPED,
   };
+
+  virtual ~UIModelWorker();
 
   // This is set by the UI thread, but is not explicitly thread safe, so only
   // read this value from other threads when you know it is absolutely safe.

@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,9 +9,6 @@
 #include "base/logging.h"
 #include "base/rand_util.h"
 #include "base/time.h"
-#include "jingle/notifier/communicator/connection_options.h"
-#include "jingle/notifier/communicator/login_settings.h"
-#include "jingle/notifier/communicator/single_login_attempt.h"
 #include "net/base/host_port_pair.h"
 #include "talk/base/common.h"
 #include "talk/base/firewallsocketserver.h"
@@ -30,78 +27,90 @@ namespace notifier {
 // Redirect valid for 5 minutes.
 static const int kRedirectTimeoutMinutes = 5;
 
+Login::Delegate::~Delegate() {}
+
 Login::Login(Delegate* delegate,
              const buzz::XmppClientSettings& user_settings,
-             const ConnectionOptions& options,
              const scoped_refptr<net::URLRequestContextGetter>&
                 request_context_getter,
              const ServerList& servers,
              bool try_ssltcp_first,
              const std::string& auth_mechanism)
     : delegate_(delegate),
-      login_settings_(new LoginSettings(user_settings,
-                                        options,
-                                        request_context_getter,
-                                        servers,
-                                        try_ssltcp_first,
-                                        auth_mechanism)),
-      redirect_port_(0) {
+      login_settings_(user_settings,
+                      request_context_getter,
+                      servers,
+                      try_ssltcp_first,
+                      auth_mechanism) {
   net::NetworkChangeNotifier::AddIPAddressObserver(this);
+  net::NetworkChangeNotifier::AddConnectionTypeObserver(this);
+  // TODO(akalin): Add as DNSObserver once bug 130610 is fixed.
   ResetReconnectState();
 }
 
 Login::~Login() {
+  net::NetworkChangeNotifier::RemoveConnectionTypeObserver(this);
   net::NetworkChangeNotifier::RemoveIPAddressObserver(this);
 }
 
 void Login::StartConnection() {
-  // If there is a server redirect, use it.
-  if (base::Time::Now() <
-      (redirect_time_ +
-       base::TimeDelta::FromMinutes(kRedirectTimeoutMinutes))) {
-    // Override server/port with redirect values.
-    DCHECK_NE(redirect_port_, 0);
-    net::HostPortPair server_override(redirect_server_, redirect_port_);
-    login_settings_->set_server_override(server_override);
-  } else {
-    login_settings_->clear_server_override();
-  }
-
-  VLOG(1) << "Starting connection...";
-
-  single_attempt_.reset(new SingleLoginAttempt(login_settings_.get(), this));
+  DVLOG(1) << "Starting connection...";
+  single_attempt_.reset(new SingleLoginAttempt(login_settings_, this));
 }
 
 void Login::UpdateXmppSettings(const buzz::XmppClientSettings& user_settings) {
-  *(login_settings_->modifiable_user_settings()) = user_settings;
+  login_settings_.set_user_settings(user_settings);
 }
+
+// In the code below, we assume that calling a delegate method may end
+// up in ourselves being deleted, so we always call it last.
+//
+// TODO(akalin): Add unit tests to enforce the behavior above.
 
 void Login::OnConnect(base::WeakPtr<buzz::XmppTaskParentInterface> base_task) {
   ResetReconnectState();
   delegate_->OnConnect(base_task);
 }
 
-void Login::OnNeedReconnect() {
-  TryReconnect();
-}
-
-void Login::OnRedirect(const std::string& redirect_server, int redirect_port) {
-  DCHECK_NE(redirect_port_, 0);
-
-  redirect_time_ = base::Time::Now();
-  redirect_server_ = redirect_server;
-  redirect_port_ = redirect_port;
-
+void Login::OnRedirect(const ServerInformation& redirect_server) {
+  login_settings_.SetRedirectServer(redirect_server);
   // Drop the current connection, and start the login process again.
   StartConnection();
+  delegate_->OnTransientDisconnection();
+}
+
+void Login::OnCredentialsRejected() {
+  TryReconnect();
+  delegate_->OnCredentialsRejected();
+}
+
+void Login::OnSettingsExhausted() {
+  TryReconnect();
+  delegate_->OnTransientDisconnection();
 }
 
 void Login::OnIPAddressChanged() {
-  VLOG(1) << "Detected IP address change";
+  DVLOG(1) << "Detected IP address change";
+  OnNetworkEvent();
+}
+
+void Login::OnConnectionTypeChanged(
+    net::NetworkChangeNotifier::ConnectionType type) {
+  DVLOG(1) << "Detected connection type change";
+  OnNetworkEvent();
+}
+
+void Login::OnDNSChanged(unsigned detail) {
+  DVLOG(1) << "Detected DNS change";
+  OnNetworkEvent();
+}
+
+void Login::OnNetworkEvent() {
   // Reconnect in 1 to 9 seconds (vary the time a little to try to
   // avoid spikey behavior on network hiccups).
   reconnect_interval_ = base::TimeDelta::FromSeconds(base::RandInt(1, 9));
   TryReconnect();
+  delegate_->OnTransientDisconnection();
 }
 
 void Login::ResetReconnectState() {
@@ -114,11 +123,10 @@ void Login::TryReconnect() {
   DCHECK_GT(reconnect_interval_.InSeconds(), 0);
   single_attempt_.reset();
   reconnect_timer_.Stop();
-  VLOG(1) << "Reconnecting in "
-          << reconnect_interval_.InSeconds() << " seconds";
+  DVLOG(1) << "Reconnecting in "
+           << reconnect_interval_.InSeconds() << " seconds";
   reconnect_timer_.Start(
       FROM_HERE, reconnect_interval_, this, &Login::DoReconnect);
-  delegate_->OnDisconnect();
 }
 
 void Login::DoReconnect() {
@@ -128,7 +136,7 @@ void Login::DoReconnect() {
   reconnect_interval_ *= 2;
   if (reconnect_interval_ > kMaxReconnectInterval)
     reconnect_interval_ = kMaxReconnectInterval;
-  VLOG(1) << "Reconnecting...";
+  DVLOG(1) << "Reconnecting...";
   StartConnection();
 }
 

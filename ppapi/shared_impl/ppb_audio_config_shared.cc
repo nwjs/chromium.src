@@ -4,6 +4,7 @@
 
 #include "ppapi/shared_impl/ppb_audio_config_shared.h"
 #include "ppapi/thunk/enter.h"
+#include "ppapi/thunk/ppb_instance_api.h"
 
 namespace ppapi {
 
@@ -49,7 +50,7 @@ uint32_t PPB_AudioConfig_Shared::RecommendSampleFrameCount_1_1(
     uint32_t sample_frame_count) {
   // Version 1.1: Query the back-end hardware for sample rate and buffer size,
   // and recommend a best fit based on request.
-  thunk::EnterInstance enter(instance);
+  thunk::EnterInstanceNoLock enter(instance);
   if (enter.failed())
     return 0;
 
@@ -73,14 +74,14 @@ uint32_t PPB_AudioConfig_Shared::RecommendSampleFrameCount_1_1(
     return recommendation;
   }
 
-  // Otherwise, recommend a conservative 30ms buffer based on sample rate.
-  const uint32_t kDefault30msAt44100kHz = 1323;
-  const uint32_t kDefault30msAt48000kHz = 1440;
+  // Otherwise, recommend a conservative 50ms buffer based on sample rate.
+  const uint32_t kDefault50msAt44100kHz = 2205;
+  const uint32_t kDefault50msAt48000kHz = 2400;
   switch (sample_rate) {
     case PP_AUDIOSAMPLERATE_44100:
-      return kDefault30msAt44100kHz;
+      return kDefault50msAt44100kHz;
     case PP_AUDIOSAMPLERATE_48000:
-      return kDefault30msAt48000kHz;
+      return kDefault50msAt48000kHz;
     case PP_AUDIOSAMPLERATE_NONE:
       return 0;
   }
@@ -91,7 +92,7 @@ uint32_t PPB_AudioConfig_Shared::RecommendSampleFrameCount_1_1(
 // static
 PP_AudioSampleRate PPB_AudioConfig_Shared::RecommendSampleRate(
     PP_Instance instance) {
-  thunk::EnterInstance enter(instance);
+  thunk::EnterInstanceNoLock enter(instance);
   if (enter.failed())
     return PP_AUDIOSAMPLERATE_NONE;
   PP_AudioSampleRate hardware_sample_rate = static_cast<PP_AudioSampleRate>(

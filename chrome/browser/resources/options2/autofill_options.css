@@ -11,6 +11,10 @@
   position: absolute;
 }
 
+#autofill-options list {
+  min-height: 172px;
+}
+
 .autofill-list-item {
   -webkit-box-flex: 1;
   -webkit-padding-start: 8px;
@@ -42,6 +46,7 @@
   vertical-align: top;
 }
 
-#autofill-options div[role='listitem']:not(:hover) .list-inline-button {
+#autofill-options div[role='listitem']:not(:hover):not([selected])
+    .list-inline-button {
   display: none;
 }

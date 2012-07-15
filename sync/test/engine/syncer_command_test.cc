@@ -4,10 +4,13 @@
 
 #include "sync/test/engine/syncer_command_test.h"
 
-namespace browser_sync {
+namespace syncer {
 
+const unsigned int kMaxMessages = 10;
+const unsigned int kMaxMessageSize = 5 * 1024;
 
-SyncerCommandTestBase::SyncerCommandTestBase() {
+SyncerCommandTestBase::SyncerCommandTestBase()
+    : traffic_recorder_(kMaxMessages, kMaxMessageSize) {
 }
 
 SyncerCommandTestBase::~SyncerCommandTestBase() {
@@ -23,7 +26,7 @@ void SyncerCommandTestBase::SetUp() {
 void SyncerCommandTestBase::TearDown() {
 }
 
-Directory* SyncerCommandTest::directory() {
+syncable::Directory* SyncerCommandTest::directory() {
   return dir_maker_.directory();
 }
 
@@ -56,8 +59,8 @@ void MockDirectorySyncerCommandTest::SetUp() {
   ResetContext();
 }
 
-Directory* MockDirectorySyncerCommandTest::directory() {
+syncable::Directory* MockDirectorySyncerCommandTest::directory() {
   return &mock_directory_;
 }
 
-}  // namespace browser_sync
+}  // namespace syncer

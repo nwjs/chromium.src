@@ -1,10 +1,13 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "ui/gfx/screen.h"
 
 #include <windows.h>
+
+#include "base/logging.h"
+#include "ui/gfx/display.h"
 
 namespace {
 
@@ -15,9 +18,21 @@ MONITORINFO GetMonitorInfoForMonitor(HMONITOR monitor) {
   return monitor_info;
 }
 
+gfx::Display GetDisplay(MONITORINFO& monitor_info) {
+  // TODO(oshima): Implement ID and Observer.
+  gfx::Display display(0, gfx::Rect(monitor_info.rcMonitor));
+  display.set_work_area(gfx::Rect(monitor_info.rcWork));
+  return display;
+}
+
 }  // namespace
 
 namespace gfx {
+
+// static
+bool Screen::IsDIPEnabled() {
+  return false;
+}
 
 // static
 gfx::Point Screen::GetCursorScreenPoint() {
@@ -27,79 +42,52 @@ gfx::Point Screen::GetCursorScreenPoint() {
 }
 
 // static
-gfx::Rect Screen::GetMonitorWorkAreaNearestWindow(gfx::NativeWindow window) {
-  MONITORINFO monitor_info;
-  monitor_info.cbSize = sizeof(monitor_info);
-  GetMonitorInfo(MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST),
-                 &monitor_info);
-  return gfx::Rect(monitor_info.rcWork);
-}
-
-// static
-gfx::Rect Screen::GetMonitorAreaNearestWindow(gfx::NativeWindow window) {
-  MONITORINFO monitor_info;
-  monitor_info.cbSize = sizeof(monitor_info);
-  GetMonitorInfo(MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST),
-                 &monitor_info);
-  return gfx::Rect(monitor_info.rcMonitor);
-}
-
-static gfx::Rect GetMonitorAreaOrWorkAreaNearestPoint(const gfx::Point& point,
-                                                      bool work_area) {
-  POINT initial_loc = { point.x(), point.y() };
-  HMONITOR monitor = MonitorFromPoint(initial_loc, MONITOR_DEFAULTTONEAREST);
-  MONITORINFO mi = {0};
-  mi.cbSize = sizeof(mi);
-  if (monitor && GetMonitorInfo(monitor, &mi))
-    return gfx::Rect(work_area ? mi.rcWork : mi.rcMonitor);
-  return gfx::Rect();
-}
-
-// static
-gfx::Rect Screen::GetMonitorWorkAreaNearestPoint(const gfx::Point& point) {
-  return GetMonitorAreaOrWorkAreaNearestPoint(point, true);
-}
-
-// static
-gfx::Rect Screen::GetMonitorAreaNearestPoint(const gfx::Point& point) {
-  return GetMonitorAreaOrWorkAreaNearestPoint(point, false);
-}
-
-// static
-gfx::Rect Screen::GetPrimaryMonitorWorkArea() {
-  return gfx::Rect(GetMonitorInfoForMonitor(MonitorFromWindow(NULL,
-      MONITOR_DEFAULTTOPRIMARY)).rcWork);
-}
-
-// static
-gfx::Rect Screen::GetPrimaryMonitorBounds() {
-  return gfx::Rect(GetMonitorInfoForMonitor(MonitorFromWindow(NULL,
-      MONITOR_DEFAULTTOPRIMARY)).rcMonitor);
-}
-
-// static
-gfx::Rect Screen::GetMonitorWorkAreaMatching(const gfx::Rect& match_rect) {
-  RECT other_bounds_rect = match_rect.ToRECT();
-  MONITORINFO monitor_info = GetMonitorInfoForMonitor(MonitorFromRect(
-      &other_bounds_rect, MONITOR_DEFAULTTONEAREST));
-  return gfx::Rect(monitor_info.rcWork);
-}
-
-// static
 gfx::NativeWindow Screen::GetWindowAtCursorScreenPoint() {
   POINT location;
   return GetCursorPos(&location) ? WindowFromPoint(location) : NULL;
 }
 
 // static
-gfx::Size Screen::GetPrimaryMonitorSize() {
-  return gfx::Size(GetSystemMetrics(SM_CXSCREEN),
-                   GetSystemMetrics(SM_CYSCREEN));
+int Screen::GetNumDisplays() {
+  return GetSystemMetrics(SM_CMONITORS);
 }
 
 // static
-int Screen::GetNumMonitors() {
-  return GetSystemMetrics(SM_CMONITORS);
+gfx::Display Screen::GetDisplayNearestWindow(gfx::NativeView window) {
+  MONITORINFO monitor_info;
+  monitor_info.cbSize = sizeof(monitor_info);
+  GetMonitorInfo(MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST),
+                 &monitor_info);
+  return GetDisplay(monitor_info);
+}
+
+// static
+gfx::Display Screen::GetDisplayNearestPoint(const gfx::Point& point) {
+  POINT initial_loc = { point.x(), point.y() };
+  HMONITOR monitor = MonitorFromPoint(initial_loc, MONITOR_DEFAULTTONEAREST);
+  MONITORINFO mi = {0};
+  mi.cbSize = sizeof(mi);
+  if (monitor && GetMonitorInfo(monitor, &mi))
+    return GetDisplay(mi);
+  return gfx::Display();
+}
+
+// static
+gfx::Display Screen::GetDisplayMatching(const gfx::Rect& match_rect) {
+  RECT other_bounds_rect = match_rect.ToRECT();
+  MONITORINFO monitor_info = GetMonitorInfoForMonitor(MonitorFromRect(
+      &other_bounds_rect, MONITOR_DEFAULTTONEAREST));
+  return GetDisplay(monitor_info);
+}
+
+// static
+gfx::Display Screen::GetPrimaryDisplay() {
+  MONITORINFO mi = GetMonitorInfoForMonitor(
+      MonitorFromWindow(NULL, MONITOR_DEFAULTTOPRIMARY));
+  gfx::Display display = GetDisplay(mi);
+  DCHECK_EQ(GetSystemMetrics(SM_CXSCREEN), display.size().width());
+  DCHECK_EQ(GetSystemMetrics(SM_CYSCREEN), display.size().height());
+  return display;
 }
 
 }  // namespace gfx

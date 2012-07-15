@@ -12,7 +12,7 @@ cr.define('options', function() {
   function BluetoothOptions() {
     OptionsPage.call(this,
                      'bluetooth',
-                     templateData.bluetoothOptionsPageTabTitle,
+                     loadTimeData.getString('bluetoothOptionsPageTabTitle'),
                      'bluetooth-options');
   }
 
@@ -73,6 +73,16 @@ cr.define('options', function() {
       this.deviceList_.autoExpands = true;
     }
   };
+
+  /**
+   * Automatically start the device discovery process if the
+   * "Add device" dialog is visible.
+   */
+  BluetoothOptions.updateDiscovery = function() {
+    var page = BluetoothOptions.getInstance();
+    if (page && page.visible)
+      chrome.send('findBluetoothDevices');
+  }
 
   // Export
   return {

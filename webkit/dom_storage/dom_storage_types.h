@@ -4,7 +4,6 @@
 
 #ifndef WEBKIT_DOM_STORAGE_DOM_STORAGE_TYPES_H_
 #define WEBKIT_DOM_STORAGE_DOM_STORAGE_TYPES_H_
-#pragma once
 
 #include <map>
 
@@ -12,21 +11,23 @@
 #include "base/nullable_string16.h"
 #include "base/string16.h"
 
-// Note: This flag should remain undefined until we're
-// ready to use the new backend in chrome and test_shell/DRT.
-// This allows us to commit changes behind the flag incrementally
-// on trunk, and to enable it in interim snapshots for try runs,
-// but to not affect the real build until its ready.
-#undef ENABLE_NEW_DOM_STORAGE_BACKEND
-
 namespace dom_storage {
 
 // The quota for each storage area. Suggested by the spec.
+// This value is enforced in renderer processes.
 const size_t kPerAreaQuota = 5 * 1024 * 1024;
+
+// In the browser process we allow some overage to
+// accomodate concurrent writes from different renderers
+// that were allowed because the limit imposed in the renderer
+// wasn't exceeded.
+const size_t kPerAreaOverQuotaAllowance = 100 * 1024;
 
 // Value to indicate the localstorage namespace vs non-zero
 // values for sessionstorage namespaces.
 const int64 kLocalStorageNamespaceId = 0;
+
+const int64 kInvalidSessionStorageNamespaceId = kLocalStorageNamespaceId;
 
 // Value to indicate an area that not be opened.
 const int kInvalidAreaId = -1;

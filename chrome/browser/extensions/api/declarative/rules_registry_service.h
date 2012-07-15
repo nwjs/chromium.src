@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_API_DECLARATIVE_RULES_REGISTRY_SERVICE_H__
 #define CHROME_BROWSER_EXTENSIONS_API_DECLARATIVE_RULES_REGISTRY_SERVICE_H__
-#pragma once
 
 #include <map>
 #include <string>
@@ -23,6 +22,7 @@ class NotificationSource;
 
 namespace extensions {
 class RulesRegistry;
+class RulesRegistryStorageDelegate;
 }
 
 namespace extensions {
@@ -33,6 +33,13 @@ class RulesRegistryService : public content::NotificationObserver  {
  public:
   explicit RulesRegistryService(Profile* profile);
   virtual ~RulesRegistryService();
+
+  // Unregisters refptrs to concrete RulesRegistries at other objects that were
+  // created by us so that the RulesRegistries can be released.
+  void Shutdown();
+
+  // Registers the default RulesRegistries used in Chromium.
+  void RegisterDefaultRulesRegistries();
 
   // Registers a RulesRegistry and wraps it in an InitializingRulesRegistry.
   void RegisterRulesRegistry(const std::string& event_name,
@@ -61,7 +68,13 @@ class RulesRegistryService : public content::NotificationObserver  {
 
   RulesRegistryMap rule_registries_;
 
+  // These are weak pointers to the delegates owned by the RulesRegistry's. We
+  // keep track of them so we can tell them to do cleanup on shutdown.
+  std::vector<RulesRegistryStorageDelegate*> delegates_;
+
   content::NotificationRegistrar registrar_;
+
+  Profile* profile_;
 
   DISALLOW_COPY_AND_ASSIGN(RulesRegistryService);
 };

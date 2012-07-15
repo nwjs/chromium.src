@@ -4,7 +4,6 @@
 
 #ifndef ASH_LAUNCHER_LAUNCHER_MODEL_OBSERVER_H_
 #define ASH_LAUNCHER_LAUNCHER_MODEL_OBSERVER_H_
-#pragma once
 
 #include "ash/ash_export.h"
 #include "ash/launcher/launcher_types.h"
@@ -29,9 +28,6 @@ class ASH_EXPORT LauncherModelObserver {
   // Invoked when the the state of an item changes. |old_item| is the item
   // before the change.
   virtual void LauncherItemChanged(int index, const LauncherItem& old_item) = 0;
-
-  // Signals that LauncherItemChanged() is going to be sent in the near future.
-  virtual void LauncherItemWillChange(int index) = 0;
 
  protected:
   virtual ~LauncherModelObserver() {}

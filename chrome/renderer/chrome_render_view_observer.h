@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_RENDERER_CHROME_RENDER_VIEW_OBSERVER_H_
 #define CHROME_RENDERER_CHROME_RENDER_VIEW_OBSERVER_H_
-#pragma once
 
 #include <set>
 #include <string>
@@ -12,7 +11,8 @@
 
 #include "base/memory/linked_ptr.h"
 #include "base/memory/scoped_ptr.h"
-#include "base/memory/weak_ptr.h"
+#include "base/timer.h"
+#include "chrome/common/extensions/permissions/api_permission.h"
 #include "content/public/renderer/render_view_observer.h"
 #include "googleurl/src/gurl.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebPermissionClient.h"
@@ -104,6 +104,7 @@ class ChromeRenderViewObserver : public content::RenderViewObserver,
                                       bool default_value) OVERRIDE;
   virtual bool allowWriteToClipboard(WebKit::WebFrame* frame,
                                      bool default_value) OVERRIDE;
+  virtual bool allowWebComponents(const WebKit::WebDocument&, bool) OVERRIDE;
   virtual void didNotAllowPlugins(WebKit::WebFrame* frame) OVERRIDE;
   virtual void didNotAllowScript(WebKit::WebFrame* frame) OVERRIDE;
   virtual bool allowDisplayingInsecureContent(
@@ -137,11 +138,11 @@ class ChromeRenderViewObserver : public content::RenderViewObserver,
   void OnGetFPS();
   void OnAddStrictSecurityHost(const std::string& host);
 
+  void CapturePageInfoLater(bool preliminary_capture, base::TimeDelta delay);
+
   // Captures the thumbnail and text contents for indexing for the given load
-  // ID. If the view's load ID is different than the parameter, this call is
-  // a NOP. Typically called on a timer, so the load ID may have changed in the
-  // meantime.
-  void CapturePageInfo(int load_id, bool preliminary_capture);
+  // ID.  Kicks off analysis of the captured text.
+  void CapturePageInfo(bool preliminary_capture);
 
   // Retrieves the text from the given frame contents, the page text up to the
   // maximum amount kMaxIndexChars will be placed into the given buffer.
@@ -182,6 +183,11 @@ class ChromeRenderViewObserver : public content::RenderViewObserver,
   // Determines if a host is in the strict security host set.
   bool IsStrictSecurityHost(const std::string& host);
 
+  // Checks if |origin| correponds to an installed extension that has been
+  // granted the |permission|.
+  bool HasExtensionPermission(const WebKit::WebSecurityOrigin& origin,
+                              extensions::APIPermission::ID permission) const;
+
   // Save the JavaScript to preload if a ViewMsg_WebUIJavaScript is received.
   scoped_ptr<WebUIJavaScript> webui_javascript_;
 
@@ -210,8 +216,6 @@ class ChromeRenderViewObserver : public content::RenderViewObserver,
   // External host exposed through automation controller.
   scoped_ptr<ExternalHostBindings> external_host_bindings_;
 
-  base::WeakPtrFactory<ChromeRenderViewObserver> weak_factory_;
-
   typedef std::vector<linked_ptr<webkit_glue::ImageResourceFetcher> >
       ImageResourceFetcherList;
 
@@ -220,6 +224,9 @@ class ChromeRenderViewObserver : public content::RenderViewObserver,
 
   // A color page overlay when visually de-emaphasized.
   scoped_ptr<WebViewColorOverlay> dimmed_color_overlay_;
+
+  // Used to delay calling CapturePageInfo.
+  base::Timer capture_timer_;
 
   DISALLOW_COPY_AND_ASSIGN(ChromeRenderViewObserver);
 };

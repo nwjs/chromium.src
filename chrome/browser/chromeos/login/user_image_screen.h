@@ -1,12 +1,11 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_USER_IMAGE_SCREEN_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_USER_IMAGE_SCREEN_H_
-#pragma once
 
-#include "base/memory/scoped_ptr.h"
+#include "base/compiler_specific.h"
 #include "chrome/browser/chromeos/login/camera_controller.h"
 #include "chrome/browser/chromeos/login/user_image_screen_actor.h"
 #include "chrome/browser/chromeos/login/wizard_screen.h"
@@ -28,6 +27,7 @@ class UserImageScreen: public WizardScreen,
   virtual void PrepareToShow() OVERRIDE;
   virtual void Show() OVERRIDE;
   virtual void Hide() OVERRIDE;
+  virtual std::string GetName() const OVERRIDE;
 
   // CameraController::Delegate implementation:
   virtual void OnCaptureSuccess() OVERRIDE;
@@ -36,7 +36,7 @@ class UserImageScreen: public WizardScreen,
   // UserImageScreenActor::Delegate implementation:
   virtual void StartCamera() OVERRIDE;
   virtual void StopCamera() OVERRIDE;
-  virtual void OnPhotoTaken(const SkBitmap& image) OVERRIDE;
+  virtual void OnPhotoTaken(const gfx::ImageSkia& image) OVERRIDE;
   virtual void OnProfileImageSelected() OVERRIDE;
   virtual void OnDefaultImageSelected(int index) OVERRIDE;
   virtual void OnActorDestroyed(UserImageScreenActor* actor) OVERRIDE;

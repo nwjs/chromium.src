@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,8 +7,9 @@
 
 #include "base/memory/scoped_ptr.h"
 #include "base/process.h"
-#include "ipc/ipc_message.h"
+#include "ipc/ipc_listener.h"
 #include "ipc/ipc_platform_file.h"
+#include "ipc/ipc_sender.h"
 #include "ipc/ipc_sync_channel.h"
 #include "ppapi/proxy/ppapi_proxy_export.h"
 
@@ -25,11 +26,9 @@ namespace ppapi {
 namespace proxy {
 
 class PPAPI_PROXY_EXPORT ProxyChannel
-    : public IPC::Channel::Listener,
-      public IPC::Message::Sender {
+    : public IPC::Listener,
+      public IPC::Sender {
  public:
-  typedef void (*ShutdownModuleFunc)();
-
   class PPAPI_PROXY_EXPORT Delegate {
    public:
     virtual ~Delegate() {}
@@ -40,6 +39,16 @@ class PPAPI_PROXY_EXPORT ProxyChannel
     // Returns the event object that becomes signalled when the main thread's
     // message loop exits.
     virtual base::WaitableEvent* GetShutdownEvent() = 0;
+
+    // Duplicates a handle to the provided object, returning one that is valid
+    // on the other side of the channel. This is part of the delegate interface
+    // because both sides of the channel may not have sufficient permission to
+    // duplicate handles directly. The implementation must provide the same
+    // guarantees as ProxyChannel::ShareHandleWithRemote below.
+    virtual IPC::PlatformFileForTransit ShareHandleWithRemote(
+        base::PlatformFile handle,
+        const IPC::SyncChannel& channel,
+        bool should_close_source) = 0;
   };
 
   virtual ~ProxyChannel();
@@ -59,23 +68,23 @@ class PPAPI_PROXY_EXPORT ProxyChannel
       base::PlatformFile handle,
       bool should_close_source);
 
-  // IPC::Message::Sender implementation.
-  virtual bool Send(IPC::Message* msg);
+  // IPC::Sender implementation.
+  virtual bool Send(IPC::Message* msg) OVERRIDE;
 
-  // IPC::Channel::Listener implementation.
-  virtual void OnChannelError();
+  // IPC::Listener implementation.
+  virtual void OnChannelError() OVERRIDE;
 
   // Will be NULL in some unit tests and if the remote side has crashed.
   IPC::SyncChannel* channel() const {
     return channel_.get();
   }
 
-#if defined(OS_POSIX)
+#if defined(OS_POSIX) && !defined(OS_NACL)
   int TakeRendererFD();
 #endif
 
  protected:
-  explicit ProxyChannel(base::ProcessHandle remote_process_handle);
+  explicit ProxyChannel();
 
   // You must call this function before anything else. Returns true on success.
   // The delegate pointer must outlive this class, ownership is not
@@ -91,8 +100,6 @@ class PPAPI_PROXY_EXPORT ProxyChannel
  private:
   // Non-owning pointer. Guaranteed non-NULL after init is called.
   ProxyChannel::Delegate* delegate_;
-
-  base::ProcessHandle remote_process_handle_;  // See getter above.
 
   // When we're unit testing, this will indicate the sink for the messages to
   // be deposited so they can be inspected by the test. When non-NULL, this

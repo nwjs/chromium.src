@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    {{+partials.header_head}}
+    <link href="{{static}}/css/api.css" rel="stylesheet" type="text/css">
+    {{+partials.title}}
+  </head>
+  <body>
+    {{+partials.header_body}}
+    <div id="gc-container">
+      {{+partials.sidenav}}
+      <div id="gc-pagecontent">
+        <h1 class="page_title">chrome.{{api.name}}</h1>
+        {{+partials.table_of_contents toc:intro.toc}}
+{{- This is unindented because it contains <pre> tags -}}
+{{+intro.intro}}
+        {{+partials.api_reference}}
+      </div>
+    </div>
+  </body>
+  {{+partials.footer}}
+</html>

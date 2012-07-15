@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef WEBKIT_GLUE_WORKER_TASK_RUNNER_H_
 #define WEBKIT_GLUE_WORKER_TASK_RUNNER_H_
-#pragma once
 
 #include <map>
 
@@ -25,7 +24,7 @@ class WEBKIT_GLUE_EXPORT WorkerTaskRunner {
   int CurrentWorkerId();
   static WorkerTaskRunner* Instance();
 
-  class Observer {
+  class WEBKIT_GLUE_EXPORT Observer {
    public:
     virtual ~Observer() {}
     virtual void OnWorkerRunLoopStopped() = 0;

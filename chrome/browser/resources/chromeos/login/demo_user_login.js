@@ -9,6 +9,7 @@
 /**
  * Handles a user clicking anywhere on the screen. This will log the demo user
  * in. Yes, this actually _is the intention.
+ * @param {Event} e The click event that triggered this function.
  */
 onClick = function(e) {
   document.removeEventListener('click', onClick);
@@ -20,7 +21,13 @@ onClick = function(e) {
  * Initializes the click handler.
  */
 initialize = function() {
+  $('page').style.opacity = 1;
   document.addEventListener('click', onClick);
+  chrome.send('demoWebuiReady');
+  // Report back sign in UI being painted.
+  window.webkitRequestAnimationFrame(function() {
+    chrome.send('loginVisible');
+  });
 };
 
 disableTextSelectAndDrag();

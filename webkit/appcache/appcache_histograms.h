@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef WEBKIT_APPCACHE_APPCACHE_HISTOGRAMS_H_
 #define WEBKIT_APPCACHE_APPCACHE_HISTOGRAMS_H_
-#pragma once
 
 #include "base/basictypes.h"
 
@@ -33,6 +32,15 @@ class AppCacheHistograms {
   static void AddTaskRunTimeSample(const base::TimeDelta& duration);
   static void AddCompletionQueueTimeSample(const base::TimeDelta& duration);
   static void AddCompletionRunTimeSample(const base::TimeDelta& duration);
+
+  static void AddMissingManifestEntrySample();
+
+  enum MissingManifestCallsiteType {
+    CALLSITE_0, CALLSITE_1, CALLSITE_2, CALLSITE_3,
+    NUM_MISSING_MANIFEST_CALLSITE_TYPES
+  };
+  static void AddMissingManifestDetectedAtCallsite(
+      MissingManifestCallsiteType type);
 
  private:
   DISALLOW_IMPLICIT_CONSTRUCTORS(AppCacheHistograms);

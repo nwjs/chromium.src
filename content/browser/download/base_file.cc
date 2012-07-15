@@ -4,6 +4,7 @@
 
 #include "content/browser/download/base_file.h"
 
+#include "base/bind.h"
 #include "base/file_util.h"
 #include "base/format_macros.h"
 #include "base/logging.h"
@@ -71,8 +72,7 @@ net::Error LogError(const char* file,
 
   bound_net_log.AddEvent(
       net::NetLog::TYPE_DOWNLOAD_FILE_ERROR,
-      make_scoped_refptr(
-          new download_net_logs::FileErrorParameters(operation, net_error)));
+      base::Bind(&download_net_logs::FileErrorCallback, operation, net_error));
 
   return net_error;
 }
@@ -189,7 +189,7 @@ net::Error RenameFileAndResetSecurityDescriptor(
   int result = SHFileOperation(&move_info);
 
   if (result == 0)
-    return net::OK;
+    return (move_info.fAnyOperationsAborted) ? net::ERR_ABORTED : net::OK;
 
   return MapShFileOperationCodes(result);
 }
@@ -215,7 +215,6 @@ BaseFile::BaseFile(const FilePath& full_path,
       file_stream_(file_stream),
       bytes_so_far_(received_bytes),
       start_tick_(base::TimeTicks::Now()),
-      power_save_blocker_(PowerSaveBlocker::kPowerSaveBlockPreventSystemSleep),
       calculate_hash_(calculate_hash),
       detached_(false),
       bound_net_log_(bound_net_log) {
@@ -273,13 +272,6 @@ net::Error BaseFile::AppendDataToFile(const char* data, size_t data_len) {
         download_stats::APPEND_TO_DETACHED_FILE_COUNT);
   }
 
-  if (bound_net_log_.IsLoggingAllEvents()) {
-    bound_net_log_.AddEvent(
-        net::NetLog::TYPE_DOWNLOAD_FILE_WRITTEN,
-        make_scoped_refptr(new net::NetLogIntegerParameter(
-            "byte_count", data_len)));
-  }
-
   if (!file_stream_.get())
     return LOG_ERROR("get", net::ERR_INVALID_HANDLE);
 
@@ -333,9 +325,8 @@ net::Error BaseFile::Rename(const FilePath& new_path) {
 
   bound_net_log_.AddEvent(
       net::NetLog::TYPE_DOWNLOAD_FILE_RENAMED,
-      make_scoped_refptr(
-          new download_net_logs::FileRenamedParameters(
-              full_path_.AsUTF8Unsafe(), new_path.AsUTF8Unsafe())));
+      base::Bind(&download_net_logs::FileRenamedCallback,
+                 &full_path_, &new_path));
 
   // If the new path is same as the old one, there is no need to perform the
   // following renaming logic.
@@ -404,19 +395,19 @@ net::Error BaseFile::Rename(const FilePath& new_path) {
 
 void BaseFile::Detach() {
   detached_ = true;
-  bound_net_log_.AddEvent(net::NetLog::TYPE_DOWNLOAD_FILE_DETACHED, NULL);
+  bound_net_log_.AddEvent(net::NetLog::TYPE_DOWNLOAD_FILE_DETACHED);
 }
 
 void BaseFile::Cancel() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
   DCHECK(!detached_);
 
-  bound_net_log_.AddEvent(net::NetLog::TYPE_CANCELLED, NULL);
+  bound_net_log_.AddEvent(net::NetLog::TYPE_CANCELLED);
 
   Close();
 
   if (!full_path_.empty()) {
-    bound_net_log_.AddEvent(net::NetLog::TYPE_DOWNLOAD_FILE_DELETED, NULL);
+    bound_net_log_.AddEvent(net::NetLog::TYPE_DOWNLOAD_FILE_DELETED);
 
     file_util::Delete(full_path_, false);
   }
@@ -494,9 +485,8 @@ net::Error BaseFile::Open() {
 
   bound_net_log_.BeginEvent(
       net::NetLog::TYPE_DOWNLOAD_FILE_OPENED,
-      make_scoped_refptr(
-          new download_net_logs::FileOpenedParameters(
-              full_path_.AsUTF8Unsafe(), bytes_so_far_)));
+      base::Bind(&download_net_logs::FileOpenedCallback,
+                 &full_path_, bytes_so_far_));
 
   // Create a new file stream if it is not provided.
   if (!file_stream_.get()) {
@@ -510,16 +500,12 @@ net::Error BaseFile::Open() {
 
     // We may be re-opening the file after rename. Always make sure we're
     // writing at the end of the file.
-    int64 seek_result = file_stream_->Seek(net::FROM_END, 0);
+    int64 seek_result = file_stream_->SeekSync(net::FROM_END, 0);
     if (seek_result < 0)
       return ClearStream(LOG_ERROR("Seek", seek_result));
   } else {
     file_stream_->SetBoundNetLogSource(bound_net_log_);
   }
-
-#if defined(OS_WIN)
-  AnnotateWithSourceInformation();
-#endif
 
   return net::OK;
 }
@@ -527,7 +513,7 @@ net::Error BaseFile::Open() {
 void BaseFile::Close() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
 
-  bound_net_log_.AddEvent(net::NetLog::TYPE_DOWNLOAD_FILE_CLOSED, NULL);
+  bound_net_log_.AddEvent(net::NetLog::TYPE_DOWNLOAD_FILE_CLOSED);
 
   if (file_stream_.get()) {
 #if defined(OS_CHROMEOS)
@@ -544,7 +530,7 @@ net::Error BaseFile::ClearStream(net::Error net_error) {
   // This should only be called when we have a stream.
   DCHECK(file_stream_.get() != NULL);
   file_stream_.reset();
-  bound_net_log_.EndEvent(net::NetLog::TYPE_DOWNLOAD_FILE_OPENED, NULL);
+  bound_net_log_.EndEvent(net::NetLog::TYPE_DOWNLOAD_FILE_OPENED);
   return net_error;
 }
 

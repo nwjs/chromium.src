@@ -12,6 +12,7 @@
 #include "base/file_version_info_win.h"
 #include "base/logging.h"
 #include "base/path_service.h"
+#include "base/process.h"
 #include "base/process_util.h"
 #include "base/string16.h"
 #include "base/win/registry.h"
@@ -28,7 +29,7 @@ namespace {
 const wchar_t kVersionKey[] = L"pv";
 const wchar_t kNameKey[] = L"name";
 const wchar_t kNameValue[] = L"GCP Virtual Driver";
-const wchar_t kPpdName[] = L"GCP-DRIVER.PPD";
+const wchar_t kPpdName[] = L"gcp-driver.ppd";
 const wchar_t kDriverName[] = L"MXDWDRV.DLL";
 const wchar_t kUiDriverName[] = L"PS5UI.DLL";
 const wchar_t kHelpName[] = L"PSCRIPT.HLP";
@@ -47,7 +48,7 @@ void SetOmahaKeys() {
   }
 
   // Get the version from the resource file.
-  std::wstring version_string;
+  string16 version_string;
   scoped_ptr<FileVersionInfo> version_info(
       FileVersionInfo::CreateFileVersionInfoForCurrentModule());
 
@@ -120,14 +121,18 @@ HRESULT RegisterPortMonitor(bool install, const FilePath& install_path) {
   }
   string16 source;
   source = cloud_print::GetPortMonitorDllName();
+  FilePath source_path = install_path.Append(source);
   if (install) {
-    FilePath source_path = install_path.Append(source);
     if (!file_util::CopyFileW(source_path, target_path)) {
       LOG(ERROR) << "Unable copy port monitor dll from " <<
           source_path.value() << " to " << target_path.value();
       return ERROR_ACCESS_DENIED;
     }
+  } else if (!file_util::PathExists(source_path)) {
+    // Already removed.  Just "succeed" silently.
+    return S_OK;
   }
+
   FilePath regsvr32_path;
   result = GetRegsvr32Path(&regsvr32_path);
   if (!SUCCEEDED(result)) {
@@ -159,16 +164,17 @@ HRESULT RegisterPortMonitor(bool install, const FilePath& install_path) {
   base::win::ScopedHandle scoped_process_handle(process_handle);
 
   DWORD exit_code = S_OK;
-  if (!GetExitCodeProcess(scoped_process_handle, &exit_code)) {
-    HRESULT result = cloud_print::GetLastHResult();
-    LOG(ERROR) << "Unable to get regsvr32.exe exit code.";
-    return result;
-  }
-  if (exit_code != 0) {
-    LOG(ERROR) << "Regsvr32.exe failed with " << exit_code;
-    return HRESULT_FROM_WIN32(exit_code);
-  }
-  if (!install) {
+  if (install) {
+    if (!GetExitCodeProcess(scoped_process_handle, &exit_code)) {
+      HRESULT result = cloud_print::GetLastHResult();
+      LOG(ERROR) << "Unable to get regsvr32.exe exit code.";
+      return result;
+    }
+    if (exit_code != 0) {
+      LOG(ERROR) << "Regsvr32.exe failed with " << exit_code;
+      return HRESULT_FROM_WIN32(exit_code);
+    }
+  } else {
     if (!file_util::Delete(target_path, false)) {
       LOG(ERROR) << "Unable to delete " << target_path.value();
       return ERROR_ACCESS_DENIED;
@@ -187,7 +193,7 @@ DWORDLONG GetVersionNumber() {
     VS_FIXEDFILEINFO* fixed_file_info = version_info_win->fixed_file_info();
     retval = fixed_file_info->dwFileVersionMS;
     retval <<= 32;
-    retval |= fixed_file_info->dwFileVersionMS;
+    retval |= fixed_file_info->dwFileVersionLS;
   }
   return retval;
 }
@@ -451,7 +457,25 @@ HRESULT InstallVirtualDriver(const FilePath& install_path) {
   return S_OK;
 }
 
-HRESULT UninstallVirtualDriver(const FilePath& install_path) {
+void GetCurrentInstallPath(FilePath* install_path) {
+  base::win::RegKey key;
+  if (key.Open(HKEY_LOCAL_MACHINE, kUninstallRegistry,
+               KEY_QUERY_VALUE) != ERROR_SUCCESS) {
+    // Not installed.
+    *install_path = FilePath();
+    return;
+  }
+  string16 install_path_value;
+  key.ReadValue(L"InstallLocation", &install_path_value);
+  *install_path = FilePath(install_path_value);
+}
+
+HRESULT UninstallVirtualDriver() {
+  FilePath install_path;
+  GetCurrentInstallPath(&install_path);
+  if (install_path.value().empty()) {
+    return S_OK;
+  }
   HRESULT result = S_OK;
   result = UninstallPrinter();
   if (!SUCCEEDED(result)) {
@@ -461,6 +485,11 @@ HRESULT UninstallVirtualDriver(const FilePath& install_path) {
   result = UninstallPpd();
   if (!SUCCEEDED(result)) {
     LOG(ERROR) << "Unable to remove Ppd.";
+    // Put the printer back since we're not able to
+    // complete the uninstallation.
+    // TODO(abodenha@chromium.org) Figure out a better way to recover.
+    // See http://code.google.com/p/chromium/issues/detail?id=123039
+    InstallPrinter();
     return result;
   }
   result = RegisterPortMonitor(false, install_path);
@@ -474,24 +503,60 @@ HRESULT UninstallVirtualDriver(const FilePath& install_path) {
   return S_OK;
 }
 
-HRESULT LaunchChildForUninstall() {
-  FilePath installer_source;
-  if (PathService::Get(base::FILE_EXE, &installer_source)) {
-    FilePath temp_path;
-    if (file_util::CreateTemporaryFile(&temp_path)) {
-      file_util::Move(installer_source, temp_path);
-      file_util::DeleteAfterReboot(temp_path);
-      CommandLine command_line(temp_path);
-      command_line.AppendArg("--douninstall");
-      base::LaunchOptions options;
-      if (!base::LaunchProcess(command_line, options, NULL)) {
-        LOG(ERROR) << "Unable to launch child uninstall.";
-        return ERROR_NOT_SUPPORTED;
+HRESULT DoLaunchUninstall(const FilePath& installer_source, bool wait) {
+  FilePath temp_path;
+  if (file_util::CreateTemporaryFile(&temp_path)) {
+    file_util::CopyFile(installer_source, temp_path);
+    file_util::DeleteAfterReboot(temp_path);
+    CommandLine command_line(temp_path);
+    command_line.AppendArg("--douninstall");
+    base::LaunchOptions options;
+    options.wait = wait;
+    base::ProcessHandle process_handle;
+    if (!base::LaunchProcess(command_line, options, &process_handle)) {
+      LOG(ERROR) << "Unable to launch child uninstall.";
+      return ERROR_NOT_SUPPORTED;
+    }
+    if (wait) {
+      int exit_code = -1;
+      base::TerminationStatus status =
+          base::GetTerminationStatus(process_handle, &exit_code);
+      if (status == base::TERMINATION_STATUS_NORMAL_TERMINATION) {
+        return exit_code;
+      } else {
+        LOG(ERROR) << "Improper termination of uninstall. " << status;
+        return E_FAIL;
       }
     }
   }
   return S_OK;
 }
+
+HRESULT LaunchChildForUninstall() {
+  FilePath installer_source;
+  if (PathService::Get(base::FILE_EXE, &installer_source)) {
+    return DoLaunchUninstall(installer_source, false);
+  }
+  return S_OK;
+}
+
+HRESULT UninstallPreviousVersion() {
+  base::win::RegKey key;
+  if (key.Open(HKEY_LOCAL_MACHINE, kUninstallRegistry,
+               KEY_QUERY_VALUE) != ERROR_SUCCESS) {
+    // Not installed.
+    return S_OK;
+  }
+  string16 install_path;
+  key.ReadValue(L"InstallLocation", &install_path);
+  FilePath installer_source(install_path);
+  installer_source = installer_source.Append(kInstallerName);
+  if (file_util::PathExists(installer_source)) {
+    return DoLaunchUninstall(installer_source, true);
+  }
+  return S_OK;
+}
+
 }  // namespace
 
 int WINAPI WinMain(__in  HINSTANCE hInstance,
@@ -500,16 +565,19 @@ int WINAPI WinMain(__in  HINSTANCE hInstance,
             __in  int nCmdShow) {
   base::AtExitManager at_exit_manager;
   CommandLine::Init(0, NULL);
-
-  FilePath install_path;
-  HRESULT retval = PathService::Get(base::DIR_EXE, &install_path);
-  if (SUCCEEDED(retval)) {
-    if (CommandLine::ForCurrentProcess()->HasSwitch("douninstall")) {
-      retval = UninstallVirtualDriver(install_path);
-    } else if (CommandLine::ForCurrentProcess()->HasSwitch("uninstall")) {
-      retval = LaunchChildForUninstall();
-    } else {
-      retval = InstallVirtualDriver(install_path);
+  HRESULT retval = S_OK;
+  if (CommandLine::ForCurrentProcess()->HasSwitch("douninstall")) {
+    retval = UninstallVirtualDriver();
+  } else if (CommandLine::ForCurrentProcess()->HasSwitch("uninstall")) {
+    retval = LaunchChildForUninstall();
+  } else {
+    retval = UninstallPreviousVersion();
+    if (SUCCEEDED(retval)) {
+      FilePath install_path;
+      retval = PathService::Get(base::DIR_EXE, &install_path);
+      if (SUCCEEDED(retval)) {
+        retval = InstallVirtualDriver(install_path);
+      }
     }
   }
   // Installer is silent by default as required by Omaha.

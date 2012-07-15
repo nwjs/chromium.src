@@ -11,6 +11,7 @@
 #include "base/logging.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/browser/browsing_data_helper.h"
 #include "webkit/quota/quota_manager.h"
 
 using content::BrowserThread;
@@ -33,10 +34,6 @@ void BrowsingDataQuotaHelperImpl::StartFetching(
   is_fetching_ = true;
 
   FetchQuotaInfo();
-}
-
-void BrowsingDataQuotaHelperImpl::CancelNotification() {
-  callback_.Reset();
 }
 
 void BrowsingDataQuotaHelperImpl::RevokeHostQuota(const std::string& host) {
@@ -88,7 +85,7 @@ void BrowsingDataQuotaHelperImpl::GotOrigins(
   for (std::set<GURL>::const_iterator itr = origins.begin();
        itr != origins.end();
        ++itr)
-    if (!itr->SchemeIs(chrome::kExtensionScheme))
+    if (BrowsingDataHelper::HasWebScheme(*itr))
       pending_hosts_.insert(std::make_pair(itr->host(), type));
 
   DCHECK(type == quota::kStorageTypeTemporary ||
@@ -145,10 +142,6 @@ void BrowsingDataQuotaHelperImpl::GotHostUsage(const std::string& host,
 }
 
 void BrowsingDataQuotaHelperImpl::OnComplete() {
-  // Check if CancelNotification was called
-  if (callback_.is_null())
-    return;
-
   if (!ui_thread_->BelongsToCurrentThread()) {
     ui_thread_->PostTask(
         FROM_HERE,

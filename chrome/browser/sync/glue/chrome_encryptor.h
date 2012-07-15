@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SYNC_GLUE_CHROME_ENCRYPTOR_H_
 #define CHROME_BROWSER_SYNC_GLUE_CHROME_ENCRYPTOR_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "sync/util/encryptor.h"
@@ -12,7 +11,7 @@
 namespace browser_sync {
 
 // Encryptor that uses the Chrome password manager's encryptor.
-class ChromeEncryptor : public Encryptor {
+class ChromeEncryptor : public syncer::Encryptor {
  public:
   virtual ~ChromeEncryptor();
 

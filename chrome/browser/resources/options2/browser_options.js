@@ -12,7 +12,7 @@ cr.define('options', function() {
   // Encapsulated handling of browser options page.
   //
   function BrowserOptions() {
-    OptionsPage.call(this, 'settings', templateData.settingsTitle,
+    OptionsPage.call(this, 'settings', loadTimeData.getString('settingsTitle'),
                      'settings');
   }
 
@@ -32,22 +32,11 @@ cr.define('options', function() {
     instantConfirmDialogShown_: false,
 
     /**
-     * True if the default cookie settings is session only. Used for deciding
-     * whether to show the session restore info dialog. The value is undefined
-     * until the preference has been read.
+     * The cached value of the spellcheck.confirm_dialog_shown preference.
      * @type {bool}
      * @private
      */
-    sessionOnlyCookies_: undefined,
-
-    /**
-     * True if the "clear cookies and other site data on exit" setting is
-     * selected. Used for deciding whether to show the session restore info
-     * dialog. The value is undefined until the preference has been read.
-     * @type {bool}
-     * @private
-     */
-    clearCookiesOnExit_: undefined,
+    spellcheckConfirmDialogShown_: false,
 
     /**
      * Keeps track of whether |onShowHomeButtonChanged_| has been called. See
@@ -64,38 +53,68 @@ cr.define('options', function() {
       OptionsPage.prototype.initializePage.call(this);
       var self = this;
 
+      // Ensure that navigation events are unblocked on uber page. A reload of
+      // the settings page while an overlay is open would otherwise leave uber
+      // page in a blocked state, where tab switching is not possible.
+      uber.invokeMethodOnParent('stopInterceptingEvents');
+
       window.addEventListener('message', this.handleWindowMessage_.bind(this));
 
       $('advanced-settings-expander').onclick = function() {
         self.toggleSectionWithAnimation_(
             $('advanced-settings'),
             $('advanced-settings-container'));
+
+        // If the link was focused (i.e., it was activated using the keyboard)
+        // and it was used to show the section (rather than hiding it), focus
+        // the first element in the container.
+        if (document.activeElement === $('advanced-settings-expander') &&
+                $('advanced-settings').style.height === '') {
+          var focusElement = $('advanced-settings-container').querySelector(
+              'button, input, list, select, a[href]');
+          if (focusElement)
+            focusElement.focus();
+        }
       }
+
       $('advanced-settings').addEventListener('webkitTransitionEnd',
           this.updateAdvancedSettingsExpander_.bind(this));
 
       if (cr.isChromeOS)
-        AccountsOptions.applyGuestModeVisibility(document);
+        UIAccountTweaks.applyGuestModeVisibility(document);
 
       // Sync (Sign in) section.
-      this.updateSyncState_(templateData.syncData);
+      this.updateSyncState_(loadTimeData.getValue('syncData'));
 
       $('sync-action-link').onclick = function(event) {
-        SyncSetupOverlay.showErrorUI();
+        if (cr.isChromeOS) {
+          // On Chrome OS, sign out the user and sign in again to get fresh
+          // credentials on auth errors.
+          SyncSetupOverlay.doSignOutOnAuthError();
+        } else {
+          SyncSetupOverlay.showErrorUI();
+        }
       };
       $('start-stop-sync').onclick = function(event) {
         if (self.syncSetupCompleted)
           SyncSetupOverlay.showStopSyncingUI();
+        else if (cr.isChromeOS)
+          SyncSetupOverlay.showSetupUIWithoutLogin();
         else
           SyncSetupOverlay.showSetupUI();
       };
       $('customize-sync').onclick = function(event) {
-        SyncSetupOverlay.showSetupUI();
+        if (cr.isChromeOS)
+          SyncSetupOverlay.showSetupUIWithoutLogin();
+        else
+          SyncSetupOverlay.showSetupUI();
       };
 
       // Internet connection section (ChromeOS only).
       if (cr.isChromeOS) {
         options.network.NetworkList.decorate($('network-list'));
+        options.network.NetworkList.refreshNetworkData(
+            loadTimeData.getValue('networkData'));
       }
 
       // On Startup section.
@@ -105,19 +124,6 @@ cr.define('options', function() {
       $('startup-set-pages').onclick = function() {
         OptionsPage.navigateToPage('startup');
       };
-
-      // Session restore.
-      this.sessionRestoreEnabled_ = templateData.enable_restore_session_state;
-      if (this.sessionRestoreEnabled_) {
-        $('old-startup-last-text').hidden = true;
-        $('new-startup-last-text').hidden = false;
-        $('startup-restore-session').onchange = function(event) {
-          if (!BrowserOptions.getInstance().maybeShowSessionRestoreDialog_()) {
-            // The dialog is not shown; handle the event normally.
-            event.currentTarget.savePrefState();
-          }
-        };
-      }
 
       // Appearance section.
       Preferences.getInstance().addEventListener('browser.show_home_button',
@@ -134,12 +140,12 @@ cr.define('options', function() {
 
       if ($('set-wallpaper')) {
         $('set-wallpaper').onclick = function(event) {
-          OptionsPage.navigateToPage('setWallpaper');
+          chrome.send('openWallpaperManager');
         };
       }
 
       $('themes-gallery').onclick = function(event) {
-        window.open(localStrings.getString('themesGalleryURL'));
+        window.open(loadTimeData.getString('themesGalleryURL'));
       };
       $('themes-reset').onclick = function(event) {
         chrome.send('themesReset');
@@ -168,55 +174,42 @@ cr.define('options', function() {
           if (self.instantConfirmDialogShown_)
             chrome.send('enableInstant');
           else
-            OptionsPage.navigateToPage('instantConfirm');
+            OptionsPage.showPageByName('instantConfirm', false);
         } else {
           chrome.send('disableInstant');
         }
         return true;
       };
-      $('instant-field-trial-control').onchange = function(evt) {
-        this.checked = true;
-        chrome.send('disableInstant');
-      };
       Preferences.getInstance().addEventListener('instant.confirm_dialog_shown',
           this.onInstantConfirmDialogShownChanged_.bind(this));
-      Preferences.getInstance().addEventListener('instant.enabled',
-          this.onInstantEnabledChanged_.bind(this));
-      Preferences.getInstance().addEventListener(
-          'restore_session_state.dialog_shown',
-          this.onSessionRestoreDialogShownChanged_.bind(this));
-      var self = this;
-      Preferences.getInstance().addEventListener(
-          'profile.clear_site_data_on_exit',
-          function(event) {
-            if (event.value && typeof event.value['value'] != 'undefined') {
-              self.clearCookiesOnExit_ = event.value['value'] == true;
-            }
-          });
 
       // Users section.
-      var profilesList = $('profiles-list');
-      options.browser_options.ProfileList.decorate(profilesList);
-      profilesList.autoExpands = true;
+      if (loadTimeData.valueExists('profilesInfo')) {
+        $('profiles-section').hidden = false;
 
-      profilesList.addEventListener('change',
-          this.setProfileViewButtonsStatus_);
-      $('profiles-create').onclick = function(event) {
-        chrome.send('createProfile');
-      };
-      $('profiles-manage').onclick = function(event) {
-        var selectedProfile = self.getSelectedProfileItem_();
-        if (selectedProfile)
-          ManageProfileOverlay.showManageDialog(selectedProfile);
-      };
-      $('profiles-delete').onclick = function(event) {
-        var selectedProfile = self.getSelectedProfileItem_();
-        if (selectedProfile)
-          ManageProfileOverlay.showDeleteDialog(selectedProfile);
-      };
+        var profilesList = $('profiles-list');
+        options.browser_options.ProfileList.decorate(profilesList);
+        profilesList.autoExpands = true;
+
+        this.setProfilesInfo_(loadTimeData.getValue('profilesInfo'));
+
+        profilesList.addEventListener('change',
+            this.setProfileViewButtonsStatus_);
+        $('profiles-create').onclick = function(event) {
+          chrome.send('createProfileInfo');
+        };
+        $('profiles-manage').onclick = function(event) {
+          ManageProfileOverlay.showManageDialog();
+        };
+        $('profiles-delete').onclick = function(event) {
+          var selectedProfile = self.getSelectedProfileItem_();
+          if (selectedProfile)
+            ManageProfileOverlay.showDeleteDialog(selectedProfile);
+        };
+      }
 
       if (cr.isChromeOS) {
-        if (!AccountsOptions.loggedInAsGuest()) {
+        if (!UIAccountTweaks.loggedInAsGuest()) {
           $('account-picture-wrapper').onclick = function(event) {
             OptionsPage.navigateToPage('changePicture');
           };
@@ -224,7 +217,7 @@ cr.define('options', function() {
 
         // Username (canonical email) of the currently logged in user or
         // |kGuestUser| if a guest session is active.
-        this.username_ = localStrings.getString('username');
+        this.username_ = loadTimeData.getString('username');
 
         this.updateAccountPicture_();
 
@@ -266,6 +259,20 @@ cr.define('options', function() {
         OptionsPage.navigateToPage('clearBrowserData');
         chrome.send('coreOptionsUserMetricsAction', ['Options_ClearData']);
       };
+      // 'spelling-enabled-control' element is only present on Chrome branded
+      // builds.
+      if ($('spelling-enabled-control')) {
+        $('spelling-enabled-control').customChangeHandler = function(event) {
+          if (this.checked && !self.spellcheckConfirmDialogShown_) {
+            OptionsPage.showPageByName('spellingConfirm', false);
+            return true;
+          }
+          return false;
+        };
+        Preferences.getInstance().addEventListener(
+            'spellcheck.confirm_dialog_shown',
+            this.onSpellcheckConfirmDialogShownChanged_.bind(this));
+      }
       // 'metricsReportingEnabled' element is only present on Chrome branded
       // builds.
       if ($('metricsReportingEnabled')) {
@@ -321,7 +328,7 @@ cr.define('options', function() {
         chrome.send('coreOptionsUserMetricsAction',
             ['Options_ShowPasswordManager']);
       };
-      if (cr.isChromeOS && AccountsOptions.loggedInAsGuest()) {
+      if (cr.isChromeOS && UIAccountTweaks.loggedInAsGuest()) {
         // Disable and turn off Autofill in guest mode.
         var autofillEnabled = $('autofill-enabled');
         autofillEnabled.disabled = true;
@@ -337,8 +344,10 @@ cr.define('options', function() {
         $('manage-passwords').disabled = true;
       }
 
-      if (cr.isMac)
-        $('mac-passwords-warning').hidden = !templateData.multiple_profiles;
+      if (cr.isMac) {
+        $('mac-passwords-warning').hidden =
+            !loadTimeData.getBoolean('multiple_profiles');
+      }
 
       // Network section.
       if (!cr.isChromeOS) {
@@ -372,10 +381,12 @@ cr.define('options', function() {
       };
 
       // Downloads section.
+      Preferences.getInstance().addEventListener('download.default_directory',
+          this.onDefaultDownloadDirectoryChanged_.bind(this));
+      $('downloadLocationChangeButton').onclick = function(event) {
+        chrome.send('selectDownloadLocation');
+      };
       if (!cr.isChromeOS) {
-        $('downloadLocationChangeButton').onclick = function(event) {
-          chrome.send('selectDownloadLocation');
-        };
         $('autoOpenFileTypesResetToDefault').onclick = function(event) {
           chrome.send('autoOpenFileTypesAction');
         };
@@ -404,9 +415,9 @@ cr.define('options', function() {
       if (!cr.isChromeOS) {
         $('cloudPrintConnectorSetupButton').onclick = function(event) {
           if ($('cloudPrintManageButton').style.display == 'none') {
-            // Disable the button, set it's text to the intermediate state.
+            // Disable the button, set its text to the intermediate state.
             $('cloudPrintConnectorSetupButton').textContent =
-              localStrings.getString('cloudPrintConnectorEnablingButton');
+              loadTimeData.getString('cloudPrintConnectorEnablingButton');
             $('cloudPrintConnectorSetupButton').disabled = true;
             chrome.send('showCloudPrintSetupDialog');
           } else {
@@ -422,8 +433,27 @@ cr.define('options', function() {
       if (cr.isChromeOS) {
         $('accessibility-spoken-feedback-check').onchange = function(event) {
           chrome.send('spokenFeedbackChange',
-          [$('accessibility-spoken-feedback-check').checked]);
+                      [$('accessibility-spoken-feedback-check').checked]);
         };
+
+        $('accessibility-high-contrast-check').onchange = function(event) {
+          chrome.send('highContrastChange',
+                      [$('accessibility-high-contrast-check').checked]);
+        };
+
+        $('accessibility-screen-magnifier-check').onchange = function(event) {
+          chrome.send('screenMagnifierChange',
+                      [$('accessibility-screen-magnifier-check').checked]);
+        };
+      }
+
+      // Display management section (CrOS only).
+      if (cr.isChromeOS) {
+        $('display-options-button').onclick = function(event) {
+          OptionsPage.navigateToPage('display');
+          chrome.send('coreOptionsUserMetricsAction',
+                      ['Options_Display']);
+        }
       }
 
       // Background mode section.
@@ -578,9 +608,9 @@ cr.define('options', function() {
     updateAdvancedSettingsExpander_: function() {
       var expander = $('advanced-settings-expander');
       if ($('advanced-settings').style.height == '')
-        expander.textContent = localStrings.getString('showAdvancedSettings');
+        expander.textContent = loadTimeData.getString('showAdvancedSettings');
       else
-        expander.textContent = localStrings.getString('hideAdvancedSettings');
+        expander.textContent = loadTimeData.getString('hideAdvancedSettings');
     },
 
     /**
@@ -606,10 +636,10 @@ cr.define('options', function() {
           syncData.setupCompleted && cr.isChromeOS;
       startStopButton.textContent =
           syncData.setupCompleted ?
-              localStrings.getString('syncButtonTextStop') :
+              loadTimeData.getString('syncButtonTextStop') :
           syncData.setupInProgress ?
-              localStrings.getString('syncButtonTextInProgress') :
-              localStrings.getString('syncButtonTextStart');
+              loadTimeData.getString('syncButtonTextInProgress') :
+              loadTimeData.getString('syncButtonTextStart');
 
 
       // TODO(estade): can this just be textContent?
@@ -622,23 +652,18 @@ cr.define('options', function() {
       $('sync-action-link').hidden = syncData.actionLinkText.length == 0;
       $('sync-action-link').disabled = syncData.managed;
 
-      if (syncData.syncHasError)
+      if (syncData.hasError)
         $('sync-status').classList.add('sync-error');
       else
         $('sync-status').classList.remove('sync-error');
 
       $('customize-sync').disabled = syncData.hasUnrecoverableError;
+      // Move #enable-auto-login-checkbox to a different location on CrOS.
+      if (cr.isChromeOs) {
+        $('sync-general').insertBefore($('sync-status').nextSibling,
+                                       $('enable-auto-login-checkbox'));
+      }
       $('enable-auto-login-checkbox').hidden = !syncData.autoLoginVisible;
-    },
-
-    /**
-     * Display or hide the profiles section of the page. This is used for
-     * multi-profile settings.
-     * @param {boolean} visible True to show the section.
-     * @private
-     */
-    setProfilesSectionVisible_: function(visible) {
-      $('profiles-section').hidden = !visible;
     },
 
     /**
@@ -720,90 +745,29 @@ cr.define('options', function() {
     },
 
     /**
-     * Called when the value of the instant.enabled preference changes. Request
-     * the state of the Instant field trial experiment.
+     * Called when the value of the spellcheck.confirm_dialog_shown preference
+     * changes. Cache this value.
      * @param {Event} event Change event.
      * @private
      */
-    onInstantEnabledChanged_: function(event) {
-      chrome.send('getInstantFieldTrialStatus');
+    onSpellcheckConfirmDialogShownChanged_: function(event) {
+      this.spellcheckConfirmDialogShown_ = event.value['value'];
     },
 
     /**
-     * Called to set the Instant field trial status.
-     * @param {boolean} enabled If true, the experiment is enabled.
-     * @private
-     */
-    setInstantFieldTrialStatus_: function(enabled) {
-      $('instant-enabled-control').hidden = enabled;
-      $('instant-field-trial-control').hidden = !enabled;
-      $('instant-label').htmlFor = enabled ? 'instant-field-trial-control' :
-                                             'instant-enabled-control';
-    },
-
-    /**
-     * Called when the value of the restore_session_state.dialog_shown
-     * preference changes.
+     * Called when the value of the download.default_directory preference
+     * changes.
      * @param {Event} event Change event.
      * @private
      */
-    onSessionRestoreDialogShownChanged_: function(event) {
-      this.sessionRestoreDialogShown_ = event.value['value'];
-    },
-
-    /**
-     * Displays the session restore info dialog if options depending on sessions
-     * (session only cookies or clearning data on exit) are selected, and the
-     * dialog has never been shown.
-     * @private
-     * @return {boolean} True if the dialog is shown, false otherwise.
-     */
-    maybeShowSessionRestoreDialog_: function() {
-      // Don't show this dialog in Guest mode.
-      if (cr.isChromeOS && AccountsOptions.loggedInAsGuest())
-        return false;
-      // If some of the needed preferences haven't been read yet, the
-      // corresponding member variable will be undefined and we won't display
-      // the dialog yet.
-      if (this.userHasSelectedSessionContentSettings_() &&
-          this.sessionRestoreDialogShown_ === false) {
-        OptionsPage.navigateToPage('sessionRestoreOverlay');
-        return true;
+    onDefaultDownloadDirectoryChanged_: function(event) {
+      $('downloadLocationPath').value = event.value['value'];
+      if (cr.isChromeOS) {
+        // On ChromeOS, strip out /special for drive paths, and
+        // /home/chronos/user for local files.
+        $('downloadLocationPath').value = $('downloadLocationPath').value.
+            replace(/^\/(special|home\/chronos\/user)/, '');
       }
-      return false;
-    },
-
-    /**
-     * Called when the user clicks the "ok" button in the session restore
-     * dialog.
-     */
-    sessionRestoreDialogOk: function() {
-      // Set the preference.
-      $('startup-restore-session').savePrefState();
-      this.sessionRestoreDialogShown_ = true;
-      Preferences.setBooleanPref('restore_session_state.dialog_shown', true);
-    },
-
-    /**
-     * Called when the user clicks the "cancel" button in the session restore
-     * dialog.
-     */
-    sessionRestoreDialogCancel: function() {
-      // The preference was never set to "continue where I left off". Update the
-      // UI to reflect the preference.
-      $('startup-newtab').resetPrefState();
-      $('startup-restore-session').resetPrefState();
-      $('startup-show-pages').resetPrefState();
-    },
-
-    /**
-     * Returns true if the user has selected content settings which rely on
-     * sessions: clearning the browsing data on exit or defaulting the cookie
-     * content setting to session only.
-     * @private
-     */
-    userHasSelectedSessionContentSettings_: function() {
-      return this.clearCookiesOnExit_ || this.sessionOnlyCookies_;
     },
 
     /**
@@ -908,6 +872,10 @@ cr.define('options', function() {
       var hasSingleProfile = profilesList.dataModel.length == 1;
       $('profiles-manage').disabled = !hasSelection ||
           !selectedProfile.isCurrentProfile;
+      if (hasSelection && !selectedProfile.isCurrentProfile)
+        $('profiles-manage').title = loadTimeData.getString('currentUserOnly');
+      else
+        $('profiles-manage').title = '';
       $('profiles-delete').disabled = !hasSelection && !hasSingleProfile;
       var importData = $('import-data');
       if (importData) {
@@ -928,8 +896,8 @@ cr.define('options', function() {
       $('profiles-single-message').hidden = !hasSingleProfile;
       $('profiles-manage').hidden = hasSingleProfile;
       $('profiles-delete').textContent = hasSingleProfile ?
-          templateData.profilesDeleteSingle :
-          templateData.profilesDelete;
+          loadTimeData.getString('profilesDeleteSingle') :
+          loadTimeData.getString('profilesDelete');
     },
 
     /**
@@ -949,7 +917,33 @@ cr.define('options', function() {
       // add it to the list, even if the list is hidden so we can access it
       // later.
       $('profiles-list').dataModel = new ArrayDataModel(profiles);
+
+      // Received new data. If showing the "manage" overlay, keep it up to
+      // date. If showing the "delete" overlay, close it.
+      if (ManageProfileOverlay.getInstance().visible &&
+          !$('manage-profile-overlay-manage').hidden) {
+        ManageProfileOverlay.showManageDialog();
+      } else {
+        ManageProfileOverlay.getInstance().visible = false;
+      }
+
       this.setProfileViewButtonsStatus_();
+    },
+
+    /**
+     * Returns the currently active profile for this browser window.
+     * @return {Object} A profile info object.
+     * @private
+     */
+    getCurrentProfile_: function() {
+      for (var i = 0; i < $('profiles-list').dataModel.length; i++) {
+        var profile = $('profiles-list').dataModel.item(i);
+        if (profile.isCurrentProfile)
+          return profile;
+      }
+
+      assert(false,
+             'There should always be a current profile, but none found.');
     },
 
     setGtkThemeButtonEnabled_: function(enabled) {
@@ -1003,6 +997,17 @@ cr.define('options', function() {
     },
 
     /**
+     * Set the visibility of the password generation checkbox.
+     * @private
+     */
+    setPasswordGenerationSettingVisibility_: function(visible) {
+      if (visible)
+        $('password-generation-checkbox').style.display = 'block';
+      else
+        $('password-generation-checkbox').style.display = 'none';
+    },
+
+    /**
      * Set the font size selected item.
      * @private
      */
@@ -1019,7 +1024,7 @@ cr.define('options', function() {
 
       // Add/Select Custom Option in the font size label list.
       if (!$('Custom')) {
-        var option = new Option(localStrings.getString('fontSizeLabelCustom'),
+        var option = new Option(loadTimeData.getString('fontSizeLabelCustom'),
                                 -1, false, true);
         option.setAttribute('id', 'Custom');
         selectCtl.add(option);
@@ -1119,11 +1124,11 @@ cr.define('options', function() {
         $('cloudPrintConnectorLabel').textContent = label;
         if (disabled || !allowed) {
           $('cloudPrintConnectorSetupButton').textContent =
-            localStrings.getString('cloudPrintConnectorDisabledButton');
+            loadTimeData.getString('cloudPrintConnectorDisabledButton');
           $('cloudPrintManageButton').style.display = 'none';
         } else {
           $('cloudPrintConnectorSetupButton').textContent =
-            localStrings.getString('cloudPrintConnectorEnabledButton');
+            loadTimeData.getString('cloudPrintConnectorEnabledButton');
           $('cloudPrintManageButton').style.display = 'inline';
         }
         $('cloudPrintConnectorSetupButton').disabled = !allowed;
@@ -1154,7 +1159,7 @@ cr.define('options', function() {
      * @private
      */
     setHighContrastCheckboxState_: function(checked) {
-      // TODO(zork): Update UI
+      $('accessibility-high-contrast-check').checked = checked;
     },
 
     /**
@@ -1162,7 +1167,7 @@ cr.define('options', function() {
      * @private
      */
     setScreenMagnifierCheckboxState_: function(checked) {
-      // TODO(zork): Update UI
+      $('accessibility-screen-magnifier-check').checked = checked;
     },
 
     /**
@@ -1171,6 +1176,30 @@ cr.define('options', function() {
      */
     setVirtualKeyboardCheckboxState_: function(checked) {
       // TODO(zork): Update UI
+    },
+
+    /**
+     * Show/hide mouse settings slider.
+     * @private
+     */
+    showMouseControls_: function(show) {
+      $('mouse-settings').hidden = !show;
+    },
+
+    /**
+     * Show/hide touchpad settings slider.
+     * @private
+     */
+    showTouchpadControls_: function(show) {
+      $('touchpad-settings').hidden = !show;
+    },
+
+    /**
+     * Show/hide the display options button on the System settings page.
+     * @private
+     */
+    showDisplayOptions_: function(show) {
+      $('display-options-section').hidden = !show;
     },
 
     /**
@@ -1230,6 +1259,12 @@ cr.define('options', function() {
         if (index != undefined)
           $('bluetooth-unpaired-devices-list').deleteItemAtIndex(index);
         list = $('bluetooth-paired-devices-list');
+      } else {
+        // Test to see if the device is currently in the paired list, in which
+        // case it should be removed from that list.
+        var index = $('bluetooth-paired-devices-list').find(device.address);
+        if (index != undefined)
+          $('bluetooth-paired-devices-list').deleteItemAtIndex(index);
       }
       list.appendDevice(device);
 
@@ -1253,17 +1288,6 @@ cr.define('options', function() {
         if (index != undefined)
           $('bluetooth-paired-devices-list').deleteItemAtIndex(index);
       }
-    },
-
-    /**
-     * Called when the default content setting value for a content type changes.
-     * @param {Object} dict A mapping content setting types to the default
-     * value.
-     * @private
-     */
-    setContentFilterSettingsValue_: function(dict) {
-      if ('cookies' in dict && 'value' in dict['cookies'])
-        this.sessionOnlyCookies_ = dict['cookies']['value'] == 'session';
     }
 
   };
@@ -1271,6 +1295,7 @@ cr.define('options', function() {
   //Forward public APIs to private implementations.
   [
     'addBluetoothDevice',
+    'getCurrentProfile',
     'getStartStopSyncButton',
     'hideBluetoothSettings',
     'removeCloudPrintConnectorSection',
@@ -1279,15 +1304,13 @@ cr.define('options', function() {
     'setBackgroundModeCheckboxState',
     'setBluetoothState',
     'setCheckRevocationCheckboxState',
-    'setContentFilterSettingsValue',
     'setFontSize',
     'setGtkThemeButtonEnabled',
     'setHighContrastCheckboxState',
-    'setInstantFieldTrialStatus',
     'setMetricsReportingCheckboxState',
     'setMetricsReportingSettingVisibility',
+    'setPasswordGenerationSettingVisibility',
     'setProfilesInfo',
-    'setProfilesSectionVisible',
     'setScreenMagnifierCheckboxState',
     'setSpokenFeedbackCheckboxState',
     'setThemesResetButtonEnabled',
@@ -1296,6 +1319,9 @@ cr.define('options', function() {
     'setupProxySettingsSection',
     'setVirtualKeyboardCheckboxState',
     'showBluetoothSettings',
+    'showDisplayOptions',
+    'showMouseControls',
+    'showTouchpadControls',
     'updateAccountPicture',
     'updateAutoLaunchState',
     'updateDefaultBrowserState',

@@ -554,7 +554,7 @@ int SSLClientSocketMac::Connect(const CompletionCallback& callback) {
   DCHECK(next_handshake_state_ == STATE_NONE);
   DCHECK(user_connect_callback_.is_null());
 
-  net_log_.BeginEvent(NetLog::TYPE_SSL_CONNECT, NULL);
+  net_log_.BeginEvent(NetLog::TYPE_SSL_CONNECT);
 
   int rv = InitializeSSLContext();
   if (rv != OK) {
@@ -609,7 +609,7 @@ bool SSLClientSocketMac::IsConnectedAndIdle() const {
   return completed_handshake() && transport_->socket()->IsConnectedAndIdle();
 }
 
-int SSLClientSocketMac::GetPeerAddress(AddressList* address) const {
+int SSLClientSocketMac::GetPeerAddress(IPEndPoint* address) const {
   return transport_->socket()->GetPeerAddress(address);
 }
 
@@ -725,8 +725,9 @@ void SSLClientSocketMac::GetSSLInfo(SSLInfo* ssl_info) {
   ssl_info->public_key_hashes = server_cert_verify_result_.public_key_hashes;
   ssl_info->is_issued_by_known_root =
       server_cert_verify_result_.is_issued_by_known_root;
-  ssl_info->client_cert_sent = WasDomainBoundCertSent() ||
-      (ssl_config_.send_client_cert && ssl_config_.client_cert);
+  ssl_info->client_cert_sent =
+      ssl_config_.send_client_cert && ssl_config_.client_cert;
+  ssl_info->channel_id_sent = WasChannelIDSent();
 
   // security info
   SSLCipherSuite suite;
@@ -738,8 +739,8 @@ void SSLClientSocketMac::GetSSLInfo(SSLInfo* ssl_info) {
         SSL_CONNECTION_CIPHERSUITE_SHIFT;
   }
 
-  if (ssl_config_.ssl3_fallback)
-    ssl_info->connection_status |= SSL_CONNECTION_SSL3_FALLBACK;
+  if (ssl_config_.version_fallback)
+    ssl_info->connection_status |= SSL_CONNECTION_VERSION_FALLBACK;
 }
 
 void SSLClientSocketMac::GetSSLCertRequestInfo(
@@ -812,15 +813,23 @@ int SSLClientSocketMac::InitializeSSLContext() {
   if (status)
     return NetErrorFromOSStatus(status);
 
+  // If ssl_config_.version_max > SSL_PROTOCOL_VERSION_TLS1, it means the
+  // SSLConfigService::SetDefaultVersionMax(SSL_PROTOCOL_VERSION_TLS1) call
+  // in ClientSocketFactory::UseSystemSSL() is not effective.
+  DCHECK_LE(ssl_config_.version_max, SSL_PROTOCOL_VERSION_TLS1);
+
+  bool ssl3_enabled = (ssl_config_.version_min == SSL_PROTOCOL_VERSION_SSL3);
   status = SSLSetProtocolVersionEnabled(ssl_context_,
                                         kSSLProtocol3,
-                                        ssl_config_.ssl3_enabled);
+                                        ssl3_enabled);
   if (status)
     return NetErrorFromOSStatus(status);
 
+  bool tls1_enabled = (ssl_config_.version_min <= SSL_PROTOCOL_VERSION_TLS1 &&
+                       ssl_config_.version_max >= SSL_PROTOCOL_VERSION_TLS1);
   status = SSLSetProtocolVersionEnabled(ssl_context_,
                                         kTLSProtocol1,
-                                        ssl_config_.tls1_enabled);
+                                        tls1_enabled);
   if (status)
     return NetErrorFromOSStatus(status);
 
@@ -876,14 +885,13 @@ int SSLClientSocketMac::InitializeSSLContext() {
   // using the same hostname (i.e., localhost and 127.0.0.1 are considered
   // different peers, which puts us through certificate validation again
   // and catches hostname/certificate name mismatches.
-  AddressList address;
-  int rv = transport_->socket()->GetPeerAddress(&address);
+  IPEndPoint endpoint;
+  int rv = transport_->socket()->GetPeerAddress(&endpoint);
   if (rv != OK)
     return rv;
-  const struct addrinfo* ai = address.head();
   std::string peer_id(host_and_port_.ToString());
-  peer_id += std::string(reinterpret_cast<char*>(ai->ai_addr),
-                         ai->ai_addrlen);
+  peer_id += std::string(reinterpret_cast<const char*>(&endpoint.address()[0]),
+                         endpoint.address().size());
   // SSLSetPeerID() treats peer_id as a binary blob, and makes its
   // own copy.
   status = SSLSetPeerID(ssl_context_, peer_id.data(), peer_id.length());
@@ -1135,7 +1143,7 @@ int SSLClientSocketMac::DoHandshake() {
   }
 
   net_log_.AddEvent(NetLog::TYPE_SSL_HANDSHAKE_ERROR,
-                    new SSLErrorParams(net_error, status));
+                    CreateNetLogSSLErrorCallback(net_error, status));
   return net_error;
 }
 
@@ -1290,7 +1298,8 @@ int SSLClientSocketMac::DidCompleteHandshake() {
     return ERR_UNEXPECTED;
   net_log_.AddEvent(
       NetLog::TYPE_SSL_CERTIFICATES_RECEIVED,
-      make_scoped_refptr(new X509CertificateNetLogParam(new_server_cert)));
+      base::Bind(&NetLogX509CertificateCallback,
+                 base::Unretained(new_server_cert.get())));
 
   if (renegotiating_ &&
       X509Certificate::IsSameOSCert(server_cert_->os_cert_handle(),

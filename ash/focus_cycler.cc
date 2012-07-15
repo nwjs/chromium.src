@@ -5,15 +5,22 @@
 #include "ash/focus_cycler.h"
 
 #include "ash/shell.h"
-#include "ash/shell_delegate.h"
-#include "ui/views/widget/widget.h"
-#include "ui/views/focus/focus_search.h"
-#include "ui/aura/window.h"
+#include "ash/wm/window_cycle_controller.h"
 #include "ui/aura/client/activation_client.h"
-
+#include "ui/aura/window.h"
 #include "ui/views/accessible_pane_view.h"
+#include "ui/views/focus/focus_search.h"
+#include "ui/views/widget/widget.h"
 
 namespace ash {
+
+namespace {
+
+bool HasFocusableWindow() {
+  return !WindowCycleController::BuildWindowList().empty();
+}
+
+}  // namespace
 
 namespace internal {
 
@@ -25,21 +32,13 @@ FocusCycler::~FocusCycler() {
 
 void FocusCycler::AddWidget(views::Widget* widget) {
   widgets_.push_back(widget);
-
-  widget->GetFocusManager()->RegisterAccelerator(
-      ui::Accelerator(ui::VKEY_F2, false, true, false),
-      ui::AcceleratorManager::kNormalPriority,
-      this);
-  widget->GetFocusManager()->RegisterAccelerator(
-      ui::Accelerator(ui::VKEY_F1, false, true, false),
-      ui::AcceleratorManager::kNormalPriority,
-      this);
 }
 
 void FocusCycler::RotateFocus(Direction direction) {
+  const bool has_window = HasFocusableWindow();
   int index = 0;
   int count = static_cast<int>(widgets_.size());
-  int browser_index = count;
+  int browser_index = has_window ? count : -1;
 
   for (; index < count; ++index) {
     if (widgets_[index]->IsActive())
@@ -48,7 +47,8 @@ void FocusCycler::RotateFocus(Direction direction) {
 
   int start_index = index;
 
-  count = count + 1;
+  if (has_window)
+    ++count;
 
   for (;;) {
     if (direction == FORWARD)
@@ -61,46 +61,31 @@ void FocusCycler::RotateFocus(Direction direction) {
       break;
 
     if (index == browser_index) {
-      // Activate the browser window.
-      const std::vector<aura::Window*>& windows =
-          Shell::GetInstance()->delegate()->GetCycleWindowList(
-              ShellDelegate::SOURCE_LAUNCHER);
-      if (!windows.empty()) {
-        aura::client::GetActivationClient(windows[0]->GetRootWindow())->
-            ActivateWindow(windows[0]);
-        break;
-      }
+      // Activate the first window.
+      WindowCycleController::Direction window_direction =
+          direction == FORWARD ? WindowCycleController::FORWARD :
+                                 WindowCycleController::BACKWARD;
+      ash::Shell::GetInstance()->window_cycle_controller()->HandleCycleWindow(
+          window_direction, false);
+      break;
     } else {
-      views::Widget* widget = widgets_[index];
-
-      views::AccessiblePaneView* view =
-          static_cast<views::AccessiblePaneView*>(widget->GetContentsView());
-      if (view->SetPaneFocusAndFocusDefault()) {
-        widget_activating_ = widget;
-        widget->Activate();
-        widget_activating_ = NULL;
-        if (widget->IsActive())
-          break;
-      }
+      if (FocusWidget(widgets_[index]))
+        break;
     }
   }
 }
 
-bool FocusCycler::AcceleratorPressed(const ui::Accelerator& accelerator) {
-  switch (accelerator.key_code()) {
-    case ui::VKEY_F1:
-      RotateFocus(BACKWARD);
+bool FocusCycler::FocusWidget(views::Widget* widget) {
+  views::AccessiblePaneView* view =
+      static_cast<views::AccessiblePaneView*>(widget->GetContentsView());
+  if (view->SetPaneFocusAndFocusDefault()) {
+    widget_activating_ = widget;
+    widget->Activate();
+    widget_activating_ = NULL;
+    if (widget->IsActive())
       return true;
-    case ui::VKEY_F2:
-      RotateFocus(FORWARD);
-      return true;
-    default:
-      return false;
   }
-}
-
-bool FocusCycler::CanHandleAccelerators() const {
-  return true;
+  return false;
 }
 
 }  // namespace internal

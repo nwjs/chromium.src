@@ -38,15 +38,25 @@ html[dir='rtl'] .bubble-close {
 }
 
 .bubble-close {
-  background-image: url('../../../../../ui/resources/close_bar.png');
+  background-image: -webkit-image-set(
+      url('../../../../../ui/resources/default_100_percent/close_bar.png') 1x,
+      url('../../../../../ui/resources/default_200_percent/close_bar.png') 2x);
 }
 
 .bubble-close:hover {
-  background-image: url('../../../../../ui/resources/close_bar_h.png');
+  background-image: -webkit-image-set(
+      url('../../../../../ui/resources/default_100_percent/close_bar_hover.png')
+          1x,
+      url('../../../../../ui/resources/default_200_percent/close_bar_hover.png')
+          2x);
 }
 
 .bubble-close:active {
-  background-image: url('../../../../../ui/resources/close_bar_p.png');
+  background-image: -webkit-image-set(
+    url('../../../../../ui/resources/default_100_percent/close_bar_pressed.png')
+        1x,
+    url('../../../../../ui/resources/default_200_percent/close_bar_pressed.png')
+        2x);
 }
 
 .bubble-shadow {
@@ -59,6 +69,7 @@ html[dir='rtl'] .bubble-close {
 }
 
 .bubble-arrow {
+  -webkit-transform: rotate(45deg);
   /* The tip of the arrow.  */
   border-bottom-right-radius: 1px;
   /* No border on the right or top (inner sides of the rotated square) because
@@ -72,7 +83,6 @@ html[dir='rtl'] .bubble-close {
   right: 22px;
   width: 15px;
   z-index: 2;
-  -webkit-transform: rotate(45deg);
 }
 
 .bubble-contents,
@@ -96,7 +106,7 @@ html[dir='rtl'] .bubble-close {
 .bubble-shadow,
 .bubble-arrow {
   border: 1px solid rgba(0, 0, 0, 0.3);
-  -webkit-box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .bubble-shadow,

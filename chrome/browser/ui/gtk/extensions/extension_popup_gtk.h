@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_GTK_EXTENSIONS_EXTENSION_POPUP_GTK_H_
 #define CHROME_BROWSER_UI_GTK_EXTENSIONS_EXTENSION_POPUP_GTK_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
@@ -23,16 +22,15 @@ class ExtensionPopupGtk : public content::NotificationObserver,
                           public BubbleDelegateGtk,
                           public ExtensionViewGtk::Container {
  public:
-  ExtensionPopupGtk(Browser* browser,
-                    ExtensionHost* host,
-                    GtkWidget* anchor,
-                    bool inspect);
-  virtual ~ExtensionPopupGtk();
+  enum ShowAction {
+    SHOW,
+    SHOW_AND_INSPECT
+  };
 
   static void Show(const GURL& url,
                    Browser* browser,
                    GtkWidget* anchor,
-                   bool inspect);
+                   ShowAction show_action);
 
   // content::NotificationObserver implementation.
   virtual void Observe(int type,
@@ -69,6 +67,12 @@ class ExtensionPopupGtk : public content::NotificationObserver,
   static const int kMaxHeight;
 
  private:
+  ExtensionPopupGtk(Browser* browser,
+                    ExtensionHost* host,
+                    GtkWidget* anchor,
+                    ShowAction show_action);
+  virtual ~ExtensionPopupGtk();
+
   // Shows the popup widget. Called after loading completes.
   void ShowPopup();
 

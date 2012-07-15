@@ -4,7 +4,6 @@
 
 #ifndef WEBKIT_DOM_STORAGE_DOM_STORAGE_TASK_RUNNER_
 #define WEBKIT_DOM_STORAGE_DOM_STORAGE_TASK_RUNNER_
-#pragma once
 
 #include "base/memory/ref_counted.h"
 #include "base/sequenced_task_runner.h"
@@ -21,8 +20,9 @@ namespace dom_storage {
 // primary access from queuing up behind commits to disk.
 // * Initialization, shutdown, and administrative tasks are performed as
 //   shutdown-blocking primary sequence tasks.
-// * Methods that return values to the javascript'able interface are performed
-//   as non-shutdown-blocking primary sequence tasks.
+// * Tasks directly related to the javascript'able interface are performed
+//   as shutdown-blocking primary sequence tasks.
+//   TODO(michaeln): Skip tasks for reading during shutdown.
 // * Internal tasks related to committing changes to disk are performed as
 //   shutdown-blocking commit sequence tasks.
 class DomStorageTaskRunner : public base::TaskRunner {
@@ -33,7 +33,7 @@ class DomStorageTaskRunner : public base::TaskRunner {
   };
 
   // The PostTask() and PostDelayedTask() methods defined by TaskRunner
-  // post non-shutdown-blocking tasks on the primary sequence.
+  // post shutdown-blocking tasks on the primary sequence.
   virtual bool PostDelayedTask(
       const tracked_objects::Location& from_here,
       const base::Closure& task,
@@ -45,16 +45,21 @@ class DomStorageTaskRunner : public base::TaskRunner {
       SequenceID sequence_id,
       const base::Closure& task) = 0;
 
-  // Only here because base::TaskRunner requires it, the return
-  // value is hard coded to true, do not rely on this method.
+  // The TaskRunner override returns true if the current thread is running
+  // on the primary sequence.
   virtual bool RunsTasksOnCurrentThread() const OVERRIDE;
 
-  // DEPRECATED: Only here because base::TaskRunner requires it, implemented
-  // by calling the virtual PostDelayedTask(..., TimeDelta) variant.
-  virtual bool PostDelayedTask(
-      const tracked_objects::Location& from_here,
-      const base::Closure& task,
-      int64 delay_ms) OVERRIDE;
+  // Returns true if the current thread is running on the given |sequence_id|.
+  virtual bool IsRunningOnSequence(SequenceID sequence_id) const = 0;
+  bool IsRunningOnPrimarySequence() const {
+    return IsRunningOnSequence(PRIMARY_SEQUENCE);
+  }
+  bool IsRunningOnCommitSequence() const {
+    return IsRunningOnSequence(COMMIT_SEQUENCE);
+  }
+
+ protected:
+  virtual ~DomStorageTaskRunner() {}
 };
 
 // A derived class used in chromium that utilizes a SequenceWorkerPool
@@ -78,8 +83,15 @@ class DomStorageWorkerPoolTaskRunner : public DomStorageTaskRunner {
       SequenceID sequence_id,
       const base::Closure& task) OVERRIDE;
 
- private:
+  virtual bool IsRunningOnSequence(SequenceID sequence_id) const OVERRIDE;
+
+ protected:
   virtual ~DomStorageWorkerPoolTaskRunner();
+
+ private:
+
+  base::SequencedWorkerPool::SequenceToken IDtoToken(SequenceID id) const;
+
   const scoped_refptr<base::MessageLoopProxy> message_loop_;
   const scoped_refptr<base::SequencedWorkerPool> sequenced_worker_pool_;
   base::SequencedWorkerPool::SequenceToken primary_sequence_token_;
@@ -105,8 +117,12 @@ class MockDomStorageTaskRunner : public DomStorageTaskRunner {
       SequenceID sequence_id,
       const base::Closure& task) OVERRIDE;
 
- private:
+  virtual bool IsRunningOnSequence(SequenceID sequence_id) const OVERRIDE;
+
+ protected:
   virtual ~MockDomStorageTaskRunner();
+
+ private:
   const scoped_refptr<base::MessageLoopProxy> message_loop_;
 };
 

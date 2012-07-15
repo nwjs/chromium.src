@@ -20,6 +20,7 @@
 #include "content/public/renderer/render_thread.h"
 #include "content/public/renderer/render_view.h"
 #include "grit/renderer_resources.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebScopedMicrotaskSuppression.h"
 #include "v8/include/v8.h"
 
 // Message passing API example (in a content script):
@@ -39,8 +40,7 @@ namespace {
 struct ExtensionData {
   struct PortData {
     int ref_count;  // how many contexts have a handle to this port
-    bool disconnected;  // true if this port was forcefully disconnected
-    PortData() : ref_count(0), disconnected(false) {}
+    PortData() : ref_count(0) {}
   };
   std::map<int, PortData> ports;  // port ID -> data
 };
@@ -106,7 +106,7 @@ class ExtensionImpl : public ChromeV8Extension {
       bool notify_browser = args[1]->BooleanValue();
       if (notify_browser)
         content::RenderThread::Get()->Send(
-            new ExtensionHostMsg_CloseChannel(port_id));
+            new ExtensionHostMsg_CloseChannel(port_id, false));
       ClearPortData(port_id);
     }
     return v8::Undefined();
@@ -131,7 +131,7 @@ class ExtensionImpl : public ChromeV8Extension {
       if (HasPortData(port_id) && --GetPortData(port_id).ref_count == 0) {
         // Send via the RenderThread because the RenderView might be closing.
         content::RenderThread::Get()->Send(
-            new ExtensionHostMsg_CloseChannel(port_id));
+            new ExtensionHostMsg_CloseChannel(port_id, false));
         ClearPortData(port_id);
       }
     }
@@ -146,6 +146,7 @@ class ExtensionImpl : public ChromeV8Extension {
   static void GCCallback(v8::Persistent<v8::Value> object, void* parameter) {
     v8::HandleScope handle_scope;
     GCCallbackArgs* args = reinterpret_cast<GCCallbackArgs*>(parameter);
+    WebKit::WebScopedMicrotaskSuppression suppression;
     args->callback->Call(args->callback->CreationContext()->Global(), 0, NULL);
     args->callback.Dispose();
     args->object.Dispose();
@@ -176,6 +177,63 @@ ChromeV8Extension* MiscellaneousBindings::Get(ExtensionDispatcher* dispatcher) {
   return new ExtensionImpl(dispatcher);
 }
 
+// static
+void MiscellaneousBindings::DispatchOnConnect(
+    const ChromeV8ContextSet::ContextSet& contexts,
+    int target_port_id,
+    const std::string& channel_name,
+    const std::string& tab_json,
+    const std::string& source_extension_id,
+    const std::string& target_extension_id,
+    content::RenderView* restrict_to_render_view) {
+  v8::HandleScope handle_scope;
+
+  bool port_created = false;
+
+  for (ChromeV8ContextSet::ContextSet::const_iterator it = contexts.begin();
+       it != contexts.end(); ++it) {
+    if (restrict_to_render_view &&
+        restrict_to_render_view != (*it)->GetRenderView()) {
+      continue;
+    }
+
+    std::vector<v8::Handle<v8::Value> > arguments;
+    arguments.push_back(v8::Integer::New(target_port_id));
+    arguments.push_back(v8::String::New(channel_name.c_str(),
+                                        channel_name.size()));
+    arguments.push_back(v8::String::New(tab_json.c_str(),
+                                        tab_json.size()));
+    arguments.push_back(v8::String::New(source_extension_id.c_str(),
+                                        source_extension_id.size()));
+    arguments.push_back(v8::String::New(target_extension_id.c_str(),
+                                        target_extension_id.size()));
+    v8::Handle<v8::Value> retval;
+    v8::TryCatch try_catch;
+    if (!(*it)->CallChromeHiddenMethod("Port.dispatchOnConnect",
+                                      arguments.size(), &arguments[0],
+                                      &retval)) {
+      continue;
+    }
+
+    if (try_catch.HasCaught()) {
+      LOG(ERROR) << "Exception caught when calling Port.dispatchOnConnect.";
+      continue;
+    }
+
+    CHECK(!retval.IsEmpty() && retval->IsBoolean());
+    if (retval->BooleanValue())
+      port_created = true;
+  }
+
+  // If we didn't create a port, notify the other end of the channel (treat it
+  // as a disconnect).
+  if (!port_created) {
+    content::RenderThread::Get()->Send(
+        new ExtensionHostMsg_CloseChannel(target_port_id, true));
+  }
+}
+
+// static
 void MiscellaneousBindings::DeliverMessage(
     const ChromeV8ContextSet::ContextSet& contexts,
     int target_port_id,
@@ -185,7 +243,6 @@ void MiscellaneousBindings::DeliverMessage(
 
   for (ChromeV8ContextSet::ContextSet::const_iterator it = contexts.begin();
        it != contexts.end(); ++it) {
-
     if (restrict_to_render_view &&
         restrict_to_render_view != (*it)->GetRenderView()) {
       continue;
@@ -195,8 +252,14 @@ void MiscellaneousBindings::DeliverMessage(
     // the message.
     v8::Handle<v8::Value> port_id_handle = v8::Integer::New(target_port_id);
     v8::Handle<v8::Value> has_port;
+    v8::TryCatch try_catch;
     if (!(*it)->CallChromeHiddenMethod("Port.hasPort", 1, &port_id_handle,
                                        &has_port)) {
+      continue;
+    }
+
+    if (try_catch.HasCaught()) {
+      LOG(ERROR) << "Exception caught when calling Port.hasPort.";
       continue;
     }
 
@@ -211,6 +274,30 @@ void MiscellaneousBindings::DeliverMessage(
                                         arguments.size(),
                                         &arguments[0],
                                         NULL));
+  }
+}
+
+// static
+void MiscellaneousBindings::DispatchOnDisconnect(
+    const ChromeV8ContextSet::ContextSet& contexts,
+    int port_id,
+    bool connection_error,
+    content::RenderView* restrict_to_render_view) {
+  v8::HandleScope handle_scope;
+
+  for (ChromeV8ContextSet::ContextSet::const_iterator it = contexts.begin();
+       it != contexts.end(); ++it) {
+    if (restrict_to_render_view &&
+        restrict_to_render_view != (*it)->GetRenderView()) {
+      continue;
+    }
+
+    std::vector<v8::Handle<v8::Value> > arguments;
+    arguments.push_back(v8::Integer::New(port_id));
+    arguments.push_back(v8::Boolean::New(connection_error));
+    (*it)->CallChromeHiddenMethod("Port.dispatchOnDisconnect",
+                                  arguments.size(), &arguments[0],
+                                  NULL);
   }
 }
 

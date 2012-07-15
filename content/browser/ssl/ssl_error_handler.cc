@@ -7,8 +7,8 @@
 #include "base/bind.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
 #include "content/browser/ssl/ssl_cert_error_handler.h"
-#include "content/browser/tab_contents/navigation_controller_impl.h"
-#include "content/browser/tab_contents/tab_contents.h"
+#include "content/browser/web_contents/navigation_controller_impl.h"
+#include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/resource_request_info.h"
 #include "net/base/net_errors.h"
@@ -19,7 +19,7 @@ using content::RenderViewHostImpl;
 using content::WebContents;
 using net::SSLInfo;
 
-SSLErrorHandler::SSLErrorHandler(Delegate* delegate,
+SSLErrorHandler::SSLErrorHandler(const base::WeakPtr<Delegate>& delegate,
                                  const content::GlobalRequestID& id,
                                  ResourceType::Type resource_type,
                                  const GURL& url,
@@ -134,7 +134,8 @@ void SSLErrorHandler::CompleteCancelRequest(int error) {
   const SSLInfo* ssl_info = NULL;
   if (cert_error)
     ssl_info = &cert_error->ssl_info();
-  delegate_->CancelSSLRequest(request_id_, error, ssl_info);
+  if (delegate_)
+    delegate_->CancelSSLRequest(request_id_, error, ssl_info);
   request_has_been_notified_ = true;
 
   // We're done with this object on the IO thread.
@@ -151,7 +152,8 @@ void SSLErrorHandler::CompleteContinueRequest() {
   if (request_has_been_notified_)
     return;
 
-  delegate_->ContinueSSLRequest(request_id_);
+  if (delegate_)
+    delegate_->ContinueSSLRequest(request_id_);
   request_has_been_notified_ = true;
 
   // We're done with this object on the IO thread.

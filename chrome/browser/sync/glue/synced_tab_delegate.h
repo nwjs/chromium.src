@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SYNC_GLUE_SYNCED_TAB_DELEGATE_H__
 #define CHROME_BROWSER_SYNC_GLUE_SYNCED_TAB_DELEGATE_H__
-#pragma once
 
 #include <string>
 
@@ -19,19 +18,19 @@ class NavigationEntry;
 namespace browser_sync {
 
 // A SyncedTabDelegate is used to insulate the sync code from depending
-// directly on TabContents, TabContentsWrapper and NavigationController.
+// directly on WebContents, TabContents and NavigationController.
 class SyncedTabDelegate {
  public:
   virtual ~SyncedTabDelegate() {}
 
-  // Method from TabContentsWrapper.
+  // Method from TabContents.
 
   virtual SessionID::id_type GetWindowId() const = 0;
   virtual SessionID::id_type GetSessionId() const = 0;
   virtual bool IsBeingDestroyed() const = 0;
   virtual Profile* profile() const = 0;
 
-  // Method derived from TabContentsWrapper.
+  // Method derived from TabContents.
 
   virtual bool HasExtensionAppId() const = 0;
   virtual const std::string& GetExtensionAppId() const = 0;

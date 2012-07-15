@@ -4,13 +4,13 @@
 
 #ifndef CHROME_BROWSER_PRERENDER_PRERENDER_HISTOGRAMS_H_
 #define CHROME_BROWSER_PRERENDER_PRERENDER_HISTOGRAMS_H_
-#pragma once
 
 #include <string>
 
 #include "base/time.h"
 #include "chrome/browser/prerender/prerender_contents.h"
 #include "chrome/browser/prerender/prerender_final_status.h"
+#include "chrome/browser/prerender/prerender_local_predictor.h"
 #include "chrome/browser/prerender/prerender_origin.h"
 #include "googleurl/src/gurl.h"
 
@@ -46,6 +46,16 @@ class PrerenderHistograms {
   void RecordPageLoadTimeNotSwappedIn(base::TimeDelta page_load_time,
                                       const GURL& url) const;
 
+  // For simulated local browsing prerendering, records the PLT without
+  // any local browsing prerendering.
+  void RecordSimulatedLocalBrowsingBaselinePLT(base::TimeDelta page_load_time,
+                                               const GURL& url) const;
+
+  // For simulated local browsing prerendering, records the PLT with
+  // local browsing prerendering.
+  void RecordSimulatedLocalBrowsingPLT(base::TimeDelta page_load_time,
+                                       const GURL& url) const;
+
   // Records the time from when a page starts prerendering to when the user
   // navigates to it. This must be called on the UI thread.
   void RecordTimeUntilUsed(base::TimeDelta time_until_used,
@@ -74,6 +84,19 @@ class PrerenderHistograms {
 
   // Record the time since a page was recently visited.
   void RecordTimeSinceLastRecentVisit(base::TimeDelta time) const;
+
+  // Record a percentage of pixels of the final page already in place at
+  // swap-in.
+  void RecordFractionPixelsFinalAtSwapin(double fraction) const;
+
+  // Record the occurrence of an event from the local predictor.
+  void RecordLocalPredictorEvent(PrerenderLocalPredictor::Event event) const;
+
+  // For the local predictor, records the time from when a page starts
+  // prerendering to when the user navigates to it. This must be called on the
+  // UI thread.
+  void RecordLocalPredictorTimeUntilUsed(base::TimeDelta time_until_used,
+                                         base::TimeDelta max_age) const;
 
  private:
   base::TimeTicks GetCurrentTimeTicks() const;

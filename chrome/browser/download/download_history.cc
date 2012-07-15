@@ -1,12 +1,13 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/download/download_history.h"
 
 #include "base/logging.h"
-#include "chrome/browser/download/chrome_download_manager_delegate.h"
+#include "chrome/browser/download/download_crx_util.h"
 #include "chrome/browser/history/history_marshaling.h"
+#include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "content/public/browser/download_item.h"
 #include "content/public/browser/download_persistent_store_info.h"
@@ -24,7 +25,8 @@ DownloadHistory::~DownloadHistory() {}
 
 void DownloadHistory::GetNextId(
     const HistoryService::DownloadNextIdCallback& callback) {
-  HistoryService* hs = profile_->GetHistoryService(Profile::EXPLICIT_ACCESS);
+  HistoryService* hs =
+      HistoryServiceFactory::GetForProfile(profile_, Profile::EXPLICIT_ACCESS);
   if (!hs)
     return;
 
@@ -33,7 +35,8 @@ void DownloadHistory::GetNextId(
 
 void DownloadHistory::Load(
     const HistoryService::DownloadQueryCallback& callback) {
-  HistoryService* hs = profile_->GetHistoryService(Profile::EXPLICIT_ACCESS);
+  HistoryService* hs =
+      HistoryServiceFactory::GetForProfile(profile_, Profile::EXPLICIT_ACCESS);
   if (!hs)
     return;
 
@@ -48,17 +51,19 @@ void DownloadHistory::CheckVisitedReferrerBefore(
     const GURL& referrer_url,
     const VisitedBeforeDoneCallback& callback) {
   if (referrer_url.is_valid()) {
-    HistoryService* hs = profile_->GetHistoryService(Profile::EXPLICIT_ACCESS);
+    HistoryService* hs =
+        HistoryServiceFactory::GetForProfile(profile_,
+                                             Profile::EXPLICIT_ACCESS);
     if (hs) {
       HistoryService::Handle handle =
           hs->GetVisibleVisitCountToHost(referrer_url, &history_consumer_,
               base::Bind(&DownloadHistory::OnGotVisitCountToHost,
                          base::Unretained(this)));
-      visited_before_requests_[handle] = std::make_pair(download_id, callback);
+      visited_before_requests_[handle] = callback;
       return;
     }
   }
-  callback.Run(download_id, false);
+  callback.Run(false);
 }
 
 void DownloadHistory::AddEntry(
@@ -74,9 +79,10 @@ void DownloadHistory::AddEntry(
   // handles, so we use a negative value. Eventually, they could overlap, but
   // you'd have to do enough downloading that your ISP would likely stab you in
   // the neck first. YMMV.
-  HistoryService* hs = profile_->GetHistoryService(Profile::EXPLICIT_ACCESS);
+  HistoryService* hs =
+      HistoryServiceFactory::GetForProfile(profile_, Profile::EXPLICIT_ACCESS);
   if (download_item->IsOtr() ||
-      ChromeDownloadManagerDelegate::IsExtensionDownload(download_item) ||
+      download_crx_util::IsExtensionDownload(*download_item) ||
       download_item->IsTemporary() || !hs) {
     callback.Run(download_item->GetId(), GetNextFakeDbHandle());
     return;
@@ -94,7 +100,8 @@ void DownloadHistory::UpdateEntry(DownloadItem* download_item) {
   if (download_item->GetDbHandle() <= DownloadItem::kUninitializedHandle)
     return;
 
-  HistoryService* hs = profile_->GetHistoryService(Profile::EXPLICIT_ACCESS);
+  HistoryService* hs =
+      HistoryServiceFactory::GetForProfile(profile_, Profile::EXPLICIT_ACCESS);
   if (!hs)
     return;
   hs->UpdateDownload(download_item->GetPersistentStoreInfo());
@@ -106,7 +113,8 @@ void DownloadHistory::UpdateDownloadPath(DownloadItem* download_item,
   if (download_item->GetDbHandle() <= DownloadItem::kUninitializedHandle)
     return;
 
-  HistoryService* hs = profile_->GetHistoryService(Profile::EXPLICIT_ACCESS);
+  HistoryService* hs =
+      HistoryServiceFactory::GetForProfile(profile_, Profile::EXPLICIT_ACCESS);
   if (hs)
     hs->UpdateDownloadPath(new_path, download_item->GetDbHandle());
 }
@@ -116,14 +124,16 @@ void DownloadHistory::RemoveEntry(DownloadItem* download_item) {
   if (download_item->GetDbHandle() <= DownloadItem::kUninitializedHandle)
     return;
 
-  HistoryService* hs = profile_->GetHistoryService(Profile::EXPLICIT_ACCESS);
+  HistoryService* hs =
+      HistoryServiceFactory::GetForProfile(profile_, Profile::EXPLICIT_ACCESS);
   if (hs)
     hs->RemoveDownload(download_item->GetDbHandle());
 }
 
 void DownloadHistory::RemoveEntriesBetween(const base::Time remove_begin,
                                            const base::Time remove_end) {
-  HistoryService* hs = profile_->GetHistoryService(Profile::EXPLICIT_ACCESS);
+  HistoryService* hs =
+      HistoryServiceFactory::GetForProfile(profile_, Profile::EXPLICIT_ACCESS);
   if (hs)
     hs->RemoveDownloadsBetween(remove_begin, remove_end);
 }
@@ -139,9 +149,8 @@ void DownloadHistory::OnGotVisitCountToHost(HistoryService::Handle handle,
   VisitedBeforeRequestsMap::iterator request =
       visited_before_requests_.find(handle);
   DCHECK(request != visited_before_requests_.end());
-  int32 download_id = request->second.first;
-  VisitedBeforeDoneCallback callback = request->second.second;
+  VisitedBeforeDoneCallback callback = request->second;
   visited_before_requests_.erase(request);
-  callback.Run(download_id, found_visits && count &&
+  callback.Run(found_visits && count &&
       (first_visit.LocalMidnight() < base::Time::Now().LocalMidnight()));
 }

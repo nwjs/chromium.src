@@ -224,9 +224,24 @@
 }
 
 {
-  bug_84467 (Could be benign. See bug for details)
+  bug_84467a (Could be benign. See bug for details)
   ThreadSanitizer:Race
   fun:unixTempFileDir
+}
+
+{
+  bug_84467b
+  ThreadSanitizer:Race
+  fun:getenv
+  fun:unixTempFileDir
+}
+
+{
+  bug_84467c
+  ThreadSanitizer:Race
+  fun:__add_to_environ
+  fun:::EnvironmentImpl::SetVarImpl
+  fun:::EnvironmentImpl::SetVar
 }
 
 {
@@ -542,10 +557,10 @@
 {
   bug_93932_f
   ThreadSanitizer:Race
-  fun:update_context_from_thread
+  ...
   fun:ff_thread_flush
   ...
-  fun:media::FFmpegVideoDecoder::Flush
+  fun:media::FFmpegVideoDecoder::Reset
 }
 {
   bug_93932_g
@@ -562,6 +577,23 @@
   fun:render_slice
   fun:vp3_decode_frame
   fun:frame_worker_thread
+}
+{
+  bug_93932_i
+  ThreadSanitizer:Race
+  ...
+  fun:ff_thread_flush
+  ...
+  fun:media::FFmpegVideoDecoder::DoReset
+}
+{
+  bug_93932_j
+  ThreadSanitizer:Race
+  ...
+  fun:base::MD5Update
+  fun:media::VideoFrame::HashFrameForTesting
+  fun:media::PipelineIntegrationTestBase::OnVideoRendererPaint
+  fun:base::internal::RunnableAdapter::Run
 }
 {
   bug_100020
@@ -592,7 +624,23 @@
 {
   bug_102327_c
   ThreadSanitizer:Race
-  fun:tracked_objects::ThreadData::tracking_status
+  fun:tracked_objects::ThreadData::TrackingStatus
+}
+{
+  bug_102327_d
+  ThreadSanitizer:Race
+  fun:tracked_objects::ThreadData::SnapshotMaps
+}
+{
+  bug_102327_e
+  ThreadSanitizer:Race
+  fun:tracked_objects::Births::birth_count
+  fun:tracked_objects::ThreadData::SnapshotExecutedTasks
+}
+{
+  bug_102327_f
+  ThreadSanitizer:Race
+  fun:tracked_objects::DeathData::RecordDeath
 }
 {
   bug_103711a
@@ -674,6 +722,14 @@
   fun:StartThread
 }
 {
+  bug_103711j
+  ThreadSanitizer:Race
+  fun:webrtc::ProcessThreadImpl::Stop
+  fun:webrtc::VoEBaseImpl::TerminateInternal
+  fun:webrtc::VoEBaseImpl::Terminate
+  fun:WebRTCAudioDeviceTest_PlayLocalFile_Test::TestBody
+}
+{
    bug_104769
    ThreadSanitizer:Race
    fun:timeout_correct
@@ -681,7 +737,6 @@
    fun:base::MessagePumpLibevent::Run
    fun:MessageLoop::RunInternal
    fun:MessageLoop::RunHandler
-   fun:MessageLoop::Run
 }
 {
   bug_104776_maybe_benign
@@ -734,8 +789,8 @@
    bug_107903_b
    ThreadSanitizer:Race
    ...
-   fun:sync_api::SyncManager::SyncInternal::ShutdownOnSyncThread
-   fun:sync_api::SyncManager::ShutdownOnSyncThread
+   fun:syncer::SyncManager::SyncInternal::ShutdownOnSyncThread
+   fun:syncer::SyncManager::ShutdownOnSyncThread
    fun:browser_sync::SyncBackendHost::Core::DoShutdown
    fun:base::internal::RunnableAdapter::Run
 }
@@ -743,8 +798,8 @@
    bug_107903_c
    ThreadSanitizer:Race
    fun:syncable::DirectoryChangeDelegate::~DirectoryChangeDelegate
-   fun:sync_api::SyncManager::SyncInternal::~SyncInternal
-   fun:sync_api::SyncManager::~SyncManager
+   fun:syncer::SyncManager::SyncInternal::~SyncInternal
+   fun:syncer::SyncManager::~SyncManager
    fun:scoped_ptr::reset
    fun:browser_sync::SyncBackendHost::Core::DoShutdown
    fun:base::internal::RunnableAdapter::Run
@@ -773,18 +828,6 @@
   ...
   fun:pa_rtpoll_run
 }
-{
-  bug_112200
-  ThreadSanitizer:Race
-  ...
-  fun:ff_thread_flush
-  fun:avcodec_flush_buffers
-  fun:avcodec_flush_buffers
-  ...
-  fun:media::FFmpegVideoDecoder::Flush
-  fun:base::internal::RunnableAdapter::Run
-}
-
 {
   bug_112419
   ThreadSanitizer:Race
@@ -818,30 +861,6 @@
   fun:base::internal::RunnableAdapter::Run
 }
 {
-  bug_113771_a
-  ThreadSanitizer:Race
-  fun:tracked_objects::ThreadData::TrackingStatus
-  fun:tracked_objects::ThreadData::TallyABirthIfActive
-  fun:base::TrackingInfo::TrackingInfo
-  fun:base::PendingTask::PendingTask
-}
-{
-  bug_113771_b
-  ThreadSanitizer:Race
-  fun:tracked_objects::ThreadData::TrackingStatus
-  fun:tracked_objects::ThreadData::Now
-  fun:tracked_objects::ThreadData::NowForEndOfRun
-  fun:MessageLoop::RunTask
-}
-{
-  bug_113771_c
-  ThreadSanitizer:Race
-  fun:tracked_objects::ThreadData::TrackingStatus
-  fun:tracked_objects::ThreadData::Now
-  fun:tracked_objects::ThreadData::NowForStartOfRun
-  fun:MessageLoop::RunTask
-}
-{
   bug_115540
   ThreadSanitizer:Race
   fun:base::Thread::message_loop
@@ -849,11 +868,6 @@
   fun:content::BrowserThread::PostTask
   fun:AudioRendererHost::OnCreated
   fun:media::AudioOutputController::DoCreate
-}
-{
-  bug_116421
-  ThreadSanitizer:Race
-  fun:talk_base::Event::EnsureInitialized
 }
 {
   bug_116559
@@ -890,4 +904,100 @@
   ThreadSanitizer:Race
   fun:base::Thread::ThreadMain
   fun:base::::ThreadFunc
+}
+{
+  bug_125928_a
+  ThreadSanitizer:Race
+  fun:__alloc_dir
+  fun:opendir
+  fun:g_dir_open
+  fun:pango_find_map
+  fun:itemize_state_process_run
+  fun:pango_itemize_with_base_dir
+  fun:pango_layout_check_lines
+  fun:pango_layout_get_unknown_glyphs_count
+  fun:find_invisible_char
+  fun:gtk_entry_init
+  fun:g_type_create_instance
+  fun:g_object_constructor
+  fun:g_object_newv
+  fun:g_object_new
+  ...
+  fun:ThemeServiceFactory::BuildServiceInstanceFor
+  fun:ProfileKeyedServiceFactory::GetServiceForProfile
+  fun:ThemeServiceFactory::GetForProfile
+  fun:ExtensionService::GarbageCollectExtensions
+  fun:ExtensionService::InitAfterImport
+  fun:ExtensionService::Observe
+  fun:NotificationServiceImpl::Notify
+  fun:ProfileManager::OnImportFinished
+  fun:ChromeBrowserMainParts::PreMainMessageLoopRunImpl
+  fun:ChromeBrowserMainParts::PreMainMessageLoopRun
+  fun:content::BrowserMainLoop::CreateThreads
+  fun:::BrowserMainRunnerImpl::Initialize
+  fun:BrowserMain
+  fun:::RunNamedProcessTypeMain
+  fun:::ContentMainRunnerImpl::Run
+}
+{
+  bug_125928_b
+  ThreadSanitizer:Race
+  fun:__alloc_dir
+  fun:opendir
+  fun:file_util::FileEnumerator::ReadDirectory
+  fun:file_util::FileEnumerator::Next
+  fun:::GetPrefsCandidateFilesFromFolder
+  fun:ExternalPrefLoader::ReadStandaloneExtensionPrefFiles
+  fun:ExternalPrefLoader::LoadOnFileThread
+  fun:base::internal::RunnableAdapter::Run
+}
+{
+  bug_121574
+  ThreadSanitizer:Race
+  fun:base::Thread::message_loop
+  fun:content::BrowserThreadImpl::PostTaskHelper
+  fun:content::BrowserThread::PostTask
+  fun:ProcessSingleton::LinuxWatcher::SocketReader::FinishWithACK
+  fun:ProcessSingleton::LinuxWatcher::HandleMessage
+  fun:base::internal::RunnableAdapter::Run
+}
+{
+  bug_131001
+  ThreadSanitizer:Race
+  ...
+  fun:media::AudioOutputMixer::StopStream
+  fun:media::AudioOutputProxy::Stop
+  fun:media::AudioOutputController::DoStopCloseAndClearStream
+  fun:media::AudioOutputController::DoClose
+  fun:base::internal::RunnableAdapter::Run
+}
+{
+   bug_132230a
+   ThreadSanitizer:Race
+   ...
+   fun:ProtocolHandlerRegistry::DefaultClientObserver::~DefaultClientObserver
+   fun:::FakeClientObserver::~FakeClientObserver
+   fun:ProtocolHandlerRegistry::Finalize
+}
+{
+   bug_132230b
+   ThreadSanitizer:Race
+   fun:ShellIntegration::DefaultWebClientWorker::ExecuteSetAsDefault
+   fun:base::internal::RunnableAdapter::Run
+}
+{
+   bug_137701
+   ThreadSanitizer:Race
+   ...
+   fun:_vsnprintf_helper
+   ...
+   fun:disk_cache::BackendImpl::SyncInit
+   fun:disk_cache::BackendIO::ExecuteBackendOperation
+   fun:base::internal::RunnableAdapter::Run
+}
+{
+   bug_137973
+   ThreadSanitizer:Race
+   fun:media::Pipeline::OnVideoTimeUpdate
+   fun:base::internal::RunnableAdapter::Run
 }

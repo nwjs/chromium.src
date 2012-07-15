@@ -20,12 +20,10 @@
 #include "chrome/browser/history/query_parser.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/simple_message_box.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list.h"
-#include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/simple_message_box.h"
 #include "chrome/common/pref_names.h"
-#include "content/public/browser/page_navigator.h"
 #include "content/public/browser/web_contents.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
@@ -40,8 +38,8 @@
 #endif
 
 #if defined(TOOLKIT_VIEWS)
-#include "ui/base/dragdrop/drag_utils.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
+#include "ui/views/drag_utils.h"
 #include "ui/views/events/event.h"
 #include "ui/views/widget/native_widget.h"
 #include "ui/views/widget/widget.h"
@@ -57,41 +55,6 @@ using content::PageNavigator;
 using content::WebContents;
 
 namespace {
-
-// A PageNavigator implementation that creates a new Browser. This is used when
-// opening a url and there is no Browser open. The Browser is created the first
-// time the PageNavigator method is invoked.
-class NewBrowserPageNavigator : public PageNavigator {
- public:
-  explicit NewBrowserPageNavigator(Profile* profile)
-      : profile_(profile),
-        browser_(NULL) {}
-
-  virtual ~NewBrowserPageNavigator() {
-    if (browser_)
-      browser_->window()->Show();
-  }
-
-  Browser* browser() const { return browser_; }
-
-  virtual WebContents* OpenURL(const OpenURLParams& params) OVERRIDE {
-    if (!browser_) {
-      Profile* profile = (params.disposition == OFF_THE_RECORD) ?
-          profile_->GetOffTheRecordProfile() : profile_;
-      browser_ = Browser::Create(profile);
-    }
-
-    OpenURLParams forward_params = params;
-    forward_params.disposition = NEW_FOREGROUND_TAB;
-    return browser_->OpenURL(forward_params);
-  }
-
- private:
-  Profile* profile_;
-  Browser* browser_;
-
-  DISALLOW_COPY_AND_ASSIGN(NewBrowserPageNavigator);
-};
 
 void CloneBookmarkNodeImpl(BookmarkModel* model,
                            const BookmarkNodeData::Element& element,
@@ -140,7 +103,6 @@ int ChildURLCountTotal(const BookmarkNode* node) {
 void OpenAllImpl(const BookmarkNode* node,
                  WindowOpenDisposition initial_disposition,
                  PageNavigator** navigator,
-                 Profile* profile,
                  bool* opened_url) {
   if (node->is_url()) {
     WindowOpenDisposition disposition;
@@ -148,27 +110,21 @@ void OpenAllImpl(const BookmarkNode* node,
       disposition = NEW_BACKGROUND_TAB;
     else
       disposition = initial_disposition;
-    (*navigator)->OpenURL(OpenURLParams(node->url(), content::Referrer(),
-                          disposition, content::PAGE_TRANSITION_AUTO_BOOKMARK,
-                          false));
+    WebContents* opened_tab = (*navigator)->OpenURL(
+        OpenURLParams(node->url(), content::Referrer(), disposition,
+                      content::PAGE_TRANSITION_AUTO_BOOKMARK, false));
     if (!*opened_url) {
       *opened_url = true;
       // We opened the first URL which may have opened a new window or clobbered
       // the current page, reset the navigator just to be sure.
-      Browser* new_browser = BrowserList::GetLastActiveWithProfile(profile);
-      if (new_browser) {
-        WebContents* current_tab = new_browser->GetSelectedWebContents();
-        if (current_tab)
-          *navigator = current_tab;
-      }  // else, new_browser == NULL, which happens during testing.
+      *navigator = opened_tab;
     }
   } else {
     // For folders only open direct children.
     for (int i = 0; i < node->child_count(); ++i) {
       const BookmarkNode* child_node = node->GetChild(i);
       if (child_node->is_url())
-        OpenAllImpl(child_node, initial_disposition, navigator, profile,
-                    opened_url);
+        OpenAllImpl(child_node, initial_disposition, navigator, opened_url);
     }
   }
 }
@@ -181,11 +137,11 @@ bool ShouldOpenAll(gfx::NativeWindow parent,
   if (child_count < bookmark_utils::num_urls_before_prompting)
     return true;
 
-  string16 message = l10n_util::GetStringFUTF16(
-      IDS_BOOKMARK_BAR_SHOULD_OPEN_ALL,
-      base::IntToString16(child_count));
-  string16 title = l10n_util::GetStringUTF16(IDS_PRODUCT_NAME);
-  return browser::ShowYesNoBox(parent, title, message);
+  return chrome::ShowMessageBox(parent,
+      l10n_util::GetStringUTF16(IDS_PRODUCT_NAME),
+      l10n_util::GetStringFUTF16(IDS_BOOKMARK_BAR_SHOULD_OPEN_ALL,
+                                 base::IntToString16(child_count)),
+      chrome::MESSAGE_BOX_TYPE_QUESTION) == chrome::MESSAGE_BOX_RESULT_YES;
 }
 
 // Comparison function that compares based on date modified of the two nodes.
@@ -216,6 +172,10 @@ bool DoesBookmarkContainWords(const BookmarkNode* node,
           node->url(), languages, net::kFormatUrlOmitNothing,
           net::UnescapeRule::NORMAL, NULL, NULL, NULL), words);
 }
+
+#if defined(OS_WIN) || defined(OS_CHROMEOS) || defined(USE_AURA)
+bool g_bookmark_bar_view_animations_disabled = false;
+#endif
 
 }  // namespace
 
@@ -354,11 +314,16 @@ void DragBookmarks(Profile* profile,
   bool was_nested = MessageLoop::current()->IsNested();
   MessageLoop::current()->SetNestableTasksAllowed(true);
 
+  int operation =
+      ui::DragDropTypes::DRAG_COPY | ui::DragDropTypes::DRAG_MOVE |
+      ui::DragDropTypes::DRAG_LINK;
   views::Widget* widget = views::Widget::GetWidgetForNativeView(view);
   if (widget) {
-    widget->RunShellDrag(NULL, data, gfx::Point(),
-        ui::DragDropTypes::DRAG_COPY | ui::DragDropTypes::DRAG_MOVE |
-        ui::DragDropTypes::DRAG_LINK);
+    widget->RunShellDrag(NULL, data, gfx::Point(), operation);
+  } else {
+    // We hit this case when we're using WebContentsViewWin or
+    // WebContentsViewAura, instead of TabContentsViewViews.
+    views::RunShellDrag(view, data, gfx::Point(), operation);
   }
 
   MessageLoop::current()->SetNestableTasksAllowed(was_nested);
@@ -374,44 +339,24 @@ void DragBookmarks(Profile* profile,
 }
 
 void OpenAll(gfx::NativeWindow parent,
-             Profile* profile,
              PageNavigator* navigator,
              const std::vector<const BookmarkNode*>& nodes,
              WindowOpenDisposition initial_disposition) {
   if (!ShouldOpenAll(parent, nodes))
     return;
 
-  NewBrowserPageNavigator navigator_impl(profile);
-  if (!navigator) {
-    Browser* browser = BrowserList::FindTabbedBrowser(profile, false);
-    if (!browser || !browser->GetSelectedWebContents()) {
-      navigator = &navigator_impl;
-    } else {
-      if (initial_disposition != NEW_WINDOW &&
-          initial_disposition != OFF_THE_RECORD) {
-        browser->window()->Activate();
-      }
-      navigator = browser->GetSelectedWebContents();
-    }
-  }
-
   bool opened_url = false;
-  if (initial_disposition == OFF_THE_RECORD)
-    profile = profile->GetOffTheRecordProfile();
-
   for (size_t i = 0; i < nodes.size(); ++i)
-    OpenAllImpl(nodes[i], initial_disposition, &navigator, profile,
-                &opened_url);
+    OpenAllImpl(nodes[i], initial_disposition, &navigator, &opened_url);
 }
 
 void OpenAll(gfx::NativeWindow parent,
-             Profile* profile,
              PageNavigator* navigator,
              const BookmarkNode* node,
              WindowOpenDisposition initial_disposition) {
   std::vector<const BookmarkNode*> nodes;
   nodes.push_back(node);
-  OpenAll(parent, profile, navigator, nodes, initial_disposition);
+  OpenAll(parent, navigator, nodes, initial_disposition);
 }
 
 void CopyToClipboard(BookmarkModel* model,
@@ -658,23 +603,14 @@ void GetURLAndTitleToBookmark(WebContents* web_contents,
   *title = web_contents->GetTitle();
 }
 
-void GetURLAndTitleToBookmarkFromCurrentTab(Profile* profile,
-                                            GURL* url,
-                                            string16* title) {
-  Browser* browser = BrowserList::GetLastActiveWithProfile(profile);
-  WebContents* web_contents = browser ? browser->GetSelectedWebContents()
-                                        : NULL;
-  if (web_contents)
-    GetURLAndTitleToBookmark(web_contents, url, title);
-}
-
 void GetURLsForOpenTabs(
     Browser* browser,
     std::vector<std::pair<GURL, string16> >* urls) {
   for (int i = 0; i < browser->tab_count(); ++i) {
     std::pair<GURL, string16> entry;
-    GetURLAndTitleToBookmark(browser->GetWebContentsAt(i), &(entry.first),
-                             &(entry.second));
+    GetURLAndTitleToBookmark(
+        chrome::GetWebContentsAt(browser, i), &(entry.first),
+        &(entry.second));
     urls->push_back(entry);
   }
 }
@@ -720,10 +656,11 @@ bool NodeHasURLs(const BookmarkNode* node) {
 bool ConfirmDeleteBookmarkNode(const BookmarkNode* node,
                                gfx::NativeWindow window) {
   DCHECK(node && node->is_folder() && !node->empty());
-  return browser::ShowYesNoBox(window,
+  return chrome::ShowMessageBox(window,
       l10n_util::GetStringUTF16(IDS_PRODUCT_NAME),
       l10n_util::GetStringFUTF16Int(IDS_BOOKMARK_EDITOR_CONFIRM_DELETE,
-                                    ChildURLCountTotal(node)));
+                                    ChildURLCountTotal(node)),
+      chrome::MESSAGE_BOX_TYPE_QUESTION) == chrome::MESSAGE_BOX_RESULT_YES;
 }
 
 void DeleteBookmarkFolders(BookmarkModel* model,
@@ -774,5 +711,15 @@ void RecordBookmarkLaunch(BookmarkLaunchLocation location) {
   UMA_HISTOGRAM_ENUMERATION("Bookmarks.LaunchLocation", location, LAUNCH_LIMIT);
 #endif
 }
+
+#if defined(OS_WIN) || defined(OS_CHROMEOS) || defined(USE_AURA)
+void DisableBookmarkBarViewAnimationsForTesting(bool disabled) {
+  g_bookmark_bar_view_animations_disabled = disabled;
+}
+
+bool IsBookmarkBarViewAnimationsDisabled() {
+  return g_bookmark_bar_view_animations_disabled;
+}
+#endif
 
 }  // namespace bookmark_utils

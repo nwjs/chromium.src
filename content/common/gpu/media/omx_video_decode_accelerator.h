@@ -15,9 +15,9 @@
 
 #include "base/compiler_specific.h"
 #include "base/logging.h"
-#include "base/memory/ref_counted.h"
 #include "base/message_loop.h"
 #include "base/shared_memory.h"
+#include "content/common/content_export.h"
 #include "media/video/video_decode_accelerator.h"
 #include "third_party/angle/include/EGL/egl.h"
 #include "third_party/angle/include/EGL/eglext.h"
@@ -31,18 +31,18 @@ class Gles2TextureToEglImageTranslator;
 // The implementation assumes an OpenMAX IL 1.1.2 implementation conforming to
 // http://www.khronos.org/registry/omxil/specs/OpenMAX_IL_1_1_2_Specification.pdf
 //
-// This class lives on a single thread and DCHECKs that it is never accessed
-// from any other.  OMX callbacks are trampolined from the OMX component's
-// thread to maintain this invariant.  The only exception to thread-unsafety is
-// that references can be added from any thread (practically used only by the
-// OMX thread).
-class OmxVideoDecodeAccelerator : public media::VideoDecodeAccelerator {
+// This class lives on a single thread (the GPU process ChildThread) and DCHECKs
+// that it is never accessed from any other.  OMX callbacks are trampolined from
+// the OMX component's thread to maintain this invariant, using |weak_this()|.
+class CONTENT_EXPORT OmxVideoDecodeAccelerator :
+    public media::VideoDecodeAccelerator {
  public:
   // Does not take ownership of |client| which must outlive |*this|.
   OmxVideoDecodeAccelerator(media::VideoDecodeAccelerator::Client* client);
+  virtual ~OmxVideoDecodeAccelerator();
 
   // media::VideoDecodeAccelerator implementation.
-  bool Initialize(Profile profile) OVERRIDE;
+  bool Initialize(media::VideoCodecProfile profile) OVERRIDE;
   void Decode(const media::BitstreamBuffer& bitstream_buffer) OVERRIDE;
   virtual void AssignPictureBuffers(
       const std::vector<media::PictureBuffer>& buffers) OVERRIDE;
@@ -53,9 +53,9 @@ class OmxVideoDecodeAccelerator : public media::VideoDecodeAccelerator {
 
   void SetEglState(EGLDisplay egl_display, EGLContext egl_context);
 
- private:
-  virtual ~OmxVideoDecodeAccelerator();
+  base::WeakPtr<OmxVideoDecodeAccelerator> weak_this() { return weak_this_; }
 
+ private:
   // Because OMX state-transitions are described solely by the "state reached"
   // (3.1.2.9.1, table 3-7 of the spec), we track what transition was requested
   // using this enum.  Note that it is an error to request a transition while
@@ -112,7 +112,7 @@ class OmxVideoDecodeAccelerator : public media::VideoDecodeAccelerator {
   void OnReachedEOSInFlushing();
   void OnReachedInvalidInErroring();
   void ShutdownComponent();
-  void BusyLoopInDestroying();
+  void BusyLoopInDestroying(scoped_ptr<OmxVideoDecodeAccelerator> self);
 
   // Port-flushing helpers.
   void FlushIOPorts();
@@ -135,6 +135,15 @@ class OmxVideoDecodeAccelerator : public media::VideoDecodeAccelerator {
 
   // Decode bitstream buffers that were queued (see queued_bitstream_buffers_).
   void DecodeQueuedBitstreamBuffers();
+
+  // Weak pointer to |this|; used to safely trampoline calls from the OMX thread
+  // to the ChildThread.  Since |this| is kept alive until OMX is fully shut
+  // down, only the OMX->Child thread direction needs to be guarded this way.
+  base::WeakPtr<OmxVideoDecodeAccelerator> weak_this_;
+
+  // True once Initialize() has returned true; before this point there's never a
+  // point in calling client_->NotifyError().
+  bool init_begun_;
 
   // IL-client state.
   OMX_STATETYPE client_state_;

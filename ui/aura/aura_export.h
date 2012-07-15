@@ -4,7 +4,6 @@
 
 #ifndef UI_AURA_AURA_EXPORT_H
 #define UI_AURA_AURA_EXPORT_H
-#pragma once
 
 // Defines AURA_EXPORT so that functionality implemented by the aura module
 // can be exported to consumers.
@@ -19,7 +18,11 @@
 #endif  // defined(AURA_IMPLEMENTATION)
 
 #else  // defined(WIN32)
+#if defined(AURA_IMPLEMENTATION)
 #define AURA_EXPORT __attribute__((visibility("default")))
+#else
+#define AURA_EXPORT
+#endif
 #endif
 
 #else  // defined(COMPONENT_BUILD)

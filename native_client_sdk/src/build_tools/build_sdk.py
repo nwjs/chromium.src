@@ -15,26 +15,35 @@ BUILDBOT_BUILDERNAME to determine whether the script is run locally
 and whether it should upload an SDK to file storage (GSTORE)
 """
 
+
 # std python includes
+import copy
+import datetime
+import generate_make
 import optparse
 import os
+import platform
+import subprocess
 import sys
-import zipfile
 
 # local includes
 import buildbot_common
+import build_updater
 import build_utils
-import lastchange
+import manifest_util
+from tests import test_server
 
 # Create the various paths of interest
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SDK_SRC_DIR = os.path.dirname(SCRIPT_DIR)
 SDK_EXAMPLE_DIR = os.path.join(SDK_SRC_DIR, 'examples')
+SDK_LIBRARY_DIR = os.path.join(SDK_SRC_DIR, 'libraries')
 SDK_DIR = os.path.dirname(SDK_SRC_DIR)
 SRC_DIR = os.path.dirname(SDK_DIR)
 NACL_DIR = os.path.join(SRC_DIR, 'native_client')
 OUT_DIR = os.path.join(SRC_DIR, 'out')
 PPAPI_DIR = os.path.join(SRC_DIR, 'ppapi')
+SERVER_DIR = os.path.join(OUT_DIR, 'local_server')
 
 
 # Add SDK make tools scripts to the python path.
@@ -48,29 +57,6 @@ import oshelpers
 GSTORE = 'http://commondatastorage.googleapis.com/nativeclient-mirror/nacl/'
 MAKE = 'nacl_sdk/make_3_81/make.exe'
 CYGTAR = os.path.join(NACL_DIR, 'build', 'cygtar.py')
-
-
-def AddMakeBat(pepperdir, makepath):
-  """Create a simple batch file to execute Make.
-  
-  Creates a simple batch file named make.bat for the Windows platform at the
-  given path, pointing to the Make executable in the SDK."""
-  
-  makepath = os.path.abspath(makepath)
-  if not makepath.startswith(pepperdir):
-    buildbot_common.ErrorExit('Make.bat not relative to Pepper directory: ' +
-                              makepath)
-  
-  makeexe = os.path.abspath(os.path.join(pepperdir, 'tools'))
-  relpath = os.path.relpath(makeexe, makepath)
-
-  fp = open(os.path.join(makepath, 'make.bat'), 'wb')
-  outpath = os.path.join(relpath, 'make.exe')
-
-  # Since make.bat is only used by Windows, for Windows path style
-  outpath = outpath.replace(os.path.sep, '\\')
-  fp.write('@%s %%*\n' % outpath)
-  fp.close()
 
 
 def BuildOutputDir(*paths):
@@ -89,12 +75,14 @@ def GetNewlibToolchain(platform, arch):
   return os.path.join(tcdir, tcname)
 
 
-def GetPNaClToolchain(platform, arch):
+def GetPNaClToolchain(os_platform, arch):
   tcdir = os.path.join(NACL_DIR, 'toolchain', '.tars')
-  if arch == 'x86':
-    tcname = 'naclsdk_pnacl_%s_%s_64.tgz' % (platform, arch)
-  else:
-    buildbot_common.ErrorExit('Unknown architecture.')
+  # Refine the toolchain host arch.  For linux, we happen to have
+  # toolchains for 64-bit hosts.  For other OSes, we only have 32-bit binaries.
+  arch = 'x86_32'
+  if os_platform == 'linux' and platform.machine() == 'x86_64':
+    arch = 'x86_64'
+  tcname = 'naclsdk_pnacl_%s_%s.tgz' % (os_platform, arch)
   return os.path.join(tcdir, tcname)
 
 def GetScons():
@@ -176,6 +164,8 @@ HEADER_MAP = {
       'irt.h': 'src/untrusted/irt/irt.h',
       'irt_ppapi.h': 'src/untrusted/irt/irt_ppapi.h',
   },
+  'libs': {
+  },
 }
 
 
@@ -199,10 +189,12 @@ def InstallHeaders(tc_dst_inc, pepper_ver, tc_name):
   buildbot_common.CopyDir(os.path.join(PPAPI_DIR, 'c', 'dev', '*.h'),
           os.path.join(ppapi, 'c', 'dev'))
 
-  # Run the generator to overwrite IDL files  
-  buildbot_common.Run([sys.executable, 'generator.py', '--wnone', '--cgen',
-       '--release=M' + pepper_ver, '--verbose', '--dstroot=%s/c' % ppapi],
-       cwd=os.path.join(PPAPI_DIR, 'generators'))
+  # Run the generator to overwrite IDL files
+  generator_args = [sys.executable, 'generator.py', '--wnone', '--cgen',
+      '--verbose', '--dstroot=%s/c' % ppapi]
+  if pepper_ver:
+    generator_args.append('--release=M' + pepper_ver)
+  buildbot_common.Run(generator_args, cwd=os.path.join(PPAPI_DIR, 'generators'))
 
   # Remove private and trusted interfaces
   buildbot_common.RemoveDir(os.path.join(ppapi, 'c', 'private'))
@@ -215,10 +207,18 @@ def InstallHeaders(tc_dst_inc, pepper_ver, tc_name):
   buildbot_common.CopyDir(os.path.join(PPAPI_DIR, 'cpp', 'dev', '*.h'),
           os.path.join(ppapi, 'cpp', 'dev'))
   buildbot_common.MakeDir(os.path.join(ppapi, 'utility', 'graphics'))
+  buildbot_common.MakeDir(os.path.join(ppapi, 'utility', 'threading'))
+  buildbot_common.MakeDir(os.path.join(ppapi, 'utility', 'websocket'))
   buildbot_common.CopyDir(os.path.join(PPAPI_DIR, 'utility','*.h'),
           os.path.join(ppapi, 'utility'))
   buildbot_common.CopyDir(os.path.join(PPAPI_DIR, 'utility', 'graphics', '*.h'),
           os.path.join(ppapi, 'utility', 'graphics'))
+  buildbot_common.CopyDir(
+          os.path.join(PPAPI_DIR, 'utility', 'threading', '*.h'),
+          os.path.join(ppapi, 'utility', 'threading'))
+  buildbot_common.CopyDir(
+          os.path.join(PPAPI_DIR, 'utility', 'websocket', '*.h'),
+          os.path.join(ppapi, 'utility', 'websocket'))
 
   # Copy in the gles2 headers
   buildbot_common.MakeDir(os.path.join(ppapi, 'gles2'))
@@ -243,6 +243,10 @@ def InstallHeaders(tc_dst_inc, pepper_ver, tc_name):
           os.path.join(PPAPI_DIR,'lib','gl','include','KHR', '*.h'),
           os.path.join(tc_dst_inc, 'KHR'))
 
+  # Copy the lib files
+  buildbot_common.CopyDir(os.path.join(PPAPI_DIR,'lib'), 
+          os.path.join(tc_dst_inc, 'ppapi'))
+
 
 def UntarToolchains(pepperdir, platform, arch, toolchains):
   buildbot_common.BuildStep('Untar Toolchains')
@@ -256,7 +260,7 @@ def UntarToolchains(pepperdir, platform, arch, toolchains):
     tarfile = GetNewlibToolchain(platform, arch)
     buildbot_common.Run([sys.executable, CYGTAR, '-C', tmpdir, '-xf', tarfile],
                         cwd=NACL_DIR)
-  
+
     # Then rename/move it to the pepper toolchain directory
     srcdir = os.path.join(tmpdir, 'sdk', 'nacl-sdk')
     newlibdir = os.path.join(pepperdir, 'toolchain', tcname + '_newlib')
@@ -267,7 +271,7 @@ def UntarToolchains(pepperdir, platform, arch, toolchains):
     tarfile = GetGlibcToolchain(platform, arch)
     buildbot_common.Run([sys.executable, CYGTAR, '-C', tmpdir, '-xf', tarfile],
                         cwd=NACL_DIR)
-  
+
     # Then rename/move it to the pepper toolchain directory
     srcdir = os.path.join(tmpdir, 'toolchain', tcname)
     glibcdir = os.path.join(pepperdir, 'toolchain', tcname + '_glibc')
@@ -338,32 +342,37 @@ def BuildToolchains(pepperdir, platform, arch, pepper_ver, toolchains):
   else:
     buildbot_common.ErrorExit('Missing arch %s' % arch)
 
+EXAMPLE_LIST = [
+  'debugging',
+  'file_histogram',
+  'file_io',
+  'fullscreen_tumbler',
+  'gamepad',
+  'geturl',
+  'hello_world_interactive',
+  'hello_world',
+  'hello_world_gles',
+  'input_events',
+  'load_progress',
+  'mouselock',
+  'multithreaded_input_events',
+  'pi_generator',
+  'pong',
+  'sine_synth',
+  'tumbler',
+  'websocket',
+  'dlopen',
+]
 
-EXAMPLE_MAP = {
-  'newlib': [
-    'debugging',
-    'fullscreen_tumbler',
-    'gamepad',
-    'geturl',
-    'hello_world_interactive', 
-    'hello_world_newlib',
-    'input_events',
-    'load_progress',
-    'mouselock',
-    'multithreaded_input_events',
-    'pi_generator',
-    'pong',
-    'sine_synth',
-    'tumbler',
-    'websocket'
-  ],
-  'glibc': [
-    'dlopen',
-    'hello_world_glibc',
-  ],
-  'pnacl': [
-    'hello_world_pnacl',
-  ],
+LIBRARY_LIST = [
+  'ppapi_cpp',
+  'ppapi_gles2',
+]
+
+LIB_DICT = {
+  'linux': [],
+  'mac': [],
+  'win': ['x86_32']
 }
 
 def CopyExamples(pepperdir, toolchains):
@@ -377,87 +386,101 @@ def CopyExamples(pepperdir, toolchains):
   exampledir = os.path.join(pepperdir, 'examples')
   buildbot_common.RemoveDir(exampledir)
   buildbot_common.MakeDir(exampledir)
-  AddMakeBat(pepperdir, exampledir)
+
+  libdir = os.path.join(pepperdir, 'lib')
+  buildbot_common.RemoveDir(libdir)
+  buildbot_common.MakeDir(libdir)
+
+  plat = getos.GetPlatform()
+  for arch in LIB_DICT[plat]:
+    buildbot_common.MakeDir(os.path.join(libdir, '%s_%s_host' % (plat, arch)))
+
+  srcdir = os.path.join(pepperdir, 'src')
+  buildbot_common.RemoveDir(srcdir)
+  buildbot_common.MakeDir(srcdir)
+
 
   # Copy individual files
-  files = ['favicon.ico', 'httpd.cmd', 'httpd.py', 'index.html', 'Makefile']
+  files = ['favicon.ico', 'httpd.cmd', 'httpd.py', 'index.html']
   for filename in files:
     oshelpers.Copy(['-v', os.path.join(SDK_EXAMPLE_DIR, filename), exampledir])
 
-  # Add examples for supported toolchains
-  examples = []
-  for tc in toolchains:
-    examples.extend(EXAMPLE_MAP[tc])
-  for example in examples:
-    buildbot_common.CopyDir(os.path.join(SDK_EXAMPLE_DIR, example), exampledir)
-    AddMakeBat(pepperdir, os.path.join(exampledir, example))
+  args = ['--dstroot=%s' % pepperdir, '--master']
+  for toolchain in toolchains:
+    args.append('--' + toolchain)
+
+  for example in EXAMPLE_LIST:
+    dsc = os.path.join(SDK_EXAMPLE_DIR, example, 'example.dsc')
+    args.append(dsc)
+
+  for library in LIBRARY_LIST:
+    dsc = os.path.join(SDK_LIBRARY_DIR, library, 'library.dsc')
+    args.append(dsc)
+
+  if generate_make.main(args):
+    buildbot_common.ErrorExit('Failed to build examples.')
 
 
-def BuildUpdater():
-  buildbot_common.BuildStep('Create Updater')
+def GetWindowsEnvironment():
+  sys.path.append(os.path.join(NACL_DIR, 'buildbot'))
+  import buildbot_standard
 
-  naclsdkdir = os.path.join(OUT_DIR, 'nacl_sdk')
-  tooldir = os.path.join(naclsdkdir, 'sdk_tools')
-  cachedir = os.path.join(naclsdkdir, 'sdk_cache')
-  buildtoolsdir = os.path.join(SDK_SRC_DIR, 'build_tools')
+  # buildbot_standard.SetupWindowsEnvironment expects a "context" object. We'll
+  # fake enough of that here to work.
+  class FakeContext(object):
+    def __init__(self):
+      self.env = os.environ
 
-  # Build SDK directory
-  buildbot_common.RemoveDir(naclsdkdir)
-  buildbot_common.MakeDir(naclsdkdir)
-  buildbot_common.MakeDir(tooldir)
-  buildbot_common.MakeDir(cachedir)
+    def GetEnv(self, key):
+      return self.env[key]
 
-  # Copy launch scripts
-  buildbot_common.CopyFile(os.path.join(buildtoolsdir, 'naclsdk'), naclsdkdir)
-  buildbot_common.CopyFile(os.path.join(buildtoolsdir, 'naclsdk.bat'), 
-                           naclsdkdir)
+    def __getitem__(self, key):
+      return self.env[key]
+    
+    def SetEnv(self, key, value):
+      self.env[key] = value
 
-  # Copy base manifest
-  json = os.path.join(buildtoolsdir, 'json', 'naclsdk_manifest0.json')
-  buildbot_common.CopyFile(json, 
-                           os.path.join(cachedir, 'naclsdk_manifest2.json'))
+    def __setitem__(self, key, value):
+      self.env[key] = value
 
-  # Copy SDK tools
-  sdkupdate = os.path.join(SDK_SRC_DIR, 'build_tools',
-                           'sdk_tools', 'sdk_update.py')
-  license = os.path.join(SDK_SRC_DIR, 'LICENSE')
-  buildbot_common.CopyFile(sdkupdate, tooldir)
-  buildbot_common.CopyFile(license, tooldir)
-  buildbot_common.CopyFile(CYGTAR, tooldir)
+  context = FakeContext()
+  buildbot_standard.SetupWindowsEnvironment(context)
 
-  buildbot_common.RemoveFile(os.path.join(OUT_DIR, 'nacl_sdk.zip'))
-  buildbot_common.Run(['zip', '-r', 'nacl_sdk.zip',
-                      'nacl_sdk/naclsdk',
-                      'nacl_sdk/naclsdk.bat', 
-                      'nacl_sdk/sdk_tools/LICENSE',
-                      'nacl_sdk/sdk_tools/cygtar.py',
-                      'nacl_sdk/sdk_tools/sdk_update.py',
-                      'nacl_sdk/sdk_cache/naclsdk_manifest2.json'],
-                      cwd=OUT_DIR)
-  args = ['-v', sdkupdate, license, CYGTAR, tooldir]
-  tarname = os.path.join(OUT_DIR, 'sdk_tools.tgz')
+  # buildbot_standard.SetupWindowsEnvironment adds the directory which contains
+  # vcvarsall.bat to the path, but not the directory which contains cl.exe,
+  # link.exe, etc.
+  # Running vcvarsall.bat adds the correct directories to the path, which we
+  # extract below.
+  process = subprocess.Popen('vcvarsall.bat x86 > NUL && set',
+      stdout=subprocess.PIPE, env=context.env, shell=True)
+  stdout, _ = process.communicate()
 
-  buildbot_common.RemoveFile(tarname)
-  buildbot_common.Run([sys.executable, CYGTAR, '-C', tooldir, '-czf', tarname,
-       'sdk_update.py', 'LICENSE', 'cygtar.py'], cwd=NACL_DIR)
-  sys.stdout.write('\n')
+  # Parse environment from "set" command above.
+  # It looks like this:
+  # KEY1=VALUE1\r\n
+  # KEY2=VALUE2\r\n
+  # ...
+  return dict(line.split('=') for line in stdout.split('\r\n')[:-1])
 
 
 def main(args):
   parser = optparse.OptionParser()
   parser.add_option('--pnacl', help='Enable pnacl build.',
       action='store_true', dest='pnacl', default=False)
-  parser.add_option('--examples', help='Rebuild the examples.',
-      action='store_true', dest='examples', default=False)
-  parser.add_option('--update', help='Rebuild the updater.',
-      action='store_true', dest='update', default=False)
+  parser.add_option('--examples', help='Only build the examples.',
+      action='store_true', dest='only_examples', default=False)
+  parser.add_option('--update', help='Only build the updater.',
+      action='store_true', dest='only_updater', default=False)
+  parser.add_option('--test-examples',
+      help='Run the pyauto tests for examples.', action='store_true',
+      dest='test_examples', default=False)
   parser.add_option('--skip-tar', help='Skip generating a tarball.',
       action='store_true', dest='skip_tar', default=False)
   parser.add_option('--archive', help='Force the archive step.',
       action='store_true', dest='archive', default=False)
   parser.add_option('--release', help='PPAPI release version.',
       dest='release', default=None)
-  
+
   options, args = parser.parse_args(args[1:])
   platform = getos.GetPlatform()
   arch = 'x86'
@@ -466,28 +489,39 @@ def main(args):
   if builder_name.find('pnacl') >= 0 and builder_name.find('sdk') >= 0:
     options.pnacl = True
 
+  # TODO(binji) There is currently a hack in download_nacl_toolchains.py that
+  # won't download pnacl toolchains unless the BUILDBOT_BUILDERNAME has "pnacl"
+  # and "sdk" in it. Set that here, if not already set...
+  if options.pnacl and not os.getenv('BUILDBOT_BUILDERNAME'):
+    os.environ['BUILDBOT_BUILDERNAME'] = 'pnacl-sdk'
+
+  # TODO(binji) for now, only test examples on non-trybots. Trybots don't build
+  # pyauto Chrome.
+  if buildbot_common.IsSDKBuilder():
+    options.test_examples = True
+
   if options.pnacl:
     toolchains = ['pnacl']
   else:
-    toolchains = ['newlib', 'glibc']
+    toolchains = ['newlib', 'glibc', 'host']
   print 'Building: ' + ' '.join(toolchains)
-  skip = options.examples or options.update
+  skip = options.only_examples or options.only_updater
 
-  skip_examples = skip
-  skip_update = skip
+  skip_examples = skip and not options.only_examples
+  skip_update = skip and not options.only_updater
   skip_untar = skip
   skip_build = skip
+  skip_test_updater = skip
+  skip_test_examples = skip_examples or not options.test_examples
+  skip_test_build_tools = skip
   skip_tar = skip or options.skip_tar
 
-
-  if options.examples: skip_examples = False
-  skip_update = not options.update
-
-  if options.archive and (options.examples or options.skip_tar):
+  if options.archive and (options.only_examples or options.skip_tar):
     parser.error('Incompatible arguments with archive.')
 
   pepper_ver = str(int(build_utils.ChromeMajorVersion()))
-  clnumber = lastchange.FetchVersionInfo(None).revision
+  pepper_old = str(int(build_utils.ChromeMajorVersion()) - 1)
+  clnumber = build_utils.ChromeRevision()
   if options.release:
     pepper_ver = options.release
   print 'Building PEPPER %s at %s' % (pepper_ver, clnumber)
@@ -497,18 +531,35 @@ def main(args):
     buildbot_common.Run(['gclient', 'runhooks'],
                         cwd=SRC_DIR, shell=(platform=='win'))
 
-  buildbot_common.BuildStep('Clean Pepper Dir')
+  buildbot_common.BuildStep('Clean Pepper Dirs')
   pepperdir = os.path.join(SRC_DIR, 'out', 'pepper_' + pepper_ver)
+  pepperold = os.path.join(SRC_DIR, 'out', 'pepper_' + pepper_old)
+  buildbot_common.RemoveDir(pepperold)
   if not skip_untar:
     buildbot_common.RemoveDir(pepperdir)
+    buildbot_common.MakeDir(os.path.join(pepperdir, 'include'))
     buildbot_common.MakeDir(os.path.join(pepperdir, 'toolchain'))
     buildbot_common.MakeDir(os.path.join(pepperdir, 'tools'))
+  else:
+    buildbot_common.MakeDir(pepperdir)
 
-  buildbot_common.BuildStep('Add Text Files')
-  files = ['AUTHORS', 'COPYING', 'LICENSE', 'NOTICE', 'README']
-  files = [os.path.join(SDK_SRC_DIR, filename) for filename in files]
-  oshelpers.Copy(['-v'] + files + [pepperdir])
+  if not skip_build:
+    buildbot_common.BuildStep('Add Text Files')
+    files = ['AUTHORS', 'COPYING', 'LICENSE', 'NOTICE']
+    files = [os.path.join(SDK_SRC_DIR, filename) for filename in files]
+    oshelpers.Copy(['-v'] + files + [pepperdir])
 
+    # Replace a few placeholders in README
+    readme_text = open(os.path.join(SDK_SRC_DIR, 'README'), 'rt').read()
+    readme_text = readme_text.replace('${VERSION}', pepper_ver)
+    readme_text = readme_text.replace('${REVISION}', clnumber)
+
+    # Year/Month/Day Hour:Minute:Second
+    time_format = '%Y/%m/%d %H:%M:%S'
+    readme_text = readme_text.replace('${DATE}',
+        datetime.datetime.now().strftime(time_format))
+
+    open(os.path.join(pepperdir, 'README'), 'wt').write(readme_text)
 
   # Clean out the temporary toolchain untar directory
   if not skip_untar:
@@ -516,48 +567,187 @@ def main(args):
 
   if not skip_build:
     BuildToolchains(pepperdir, platform, arch, pepper_ver, toolchains)
+    InstallHeaders(os.path.join(pepperdir, 'include'), None, 'libs')
 
-  buildbot_common.BuildStep('Copy make OS helpers')
-  buildbot_common.CopyDir(os.path.join(SDK_SRC_DIR, 'tools', '*.py'),
-      os.path.join(pepperdir, 'tools'))
-  if platform == 'win':
-    buildbot_common.BuildStep('Add MAKE')
-    http_download.HttpDownload(GSTORE + MAKE,
-                             os.path.join(pepperdir, 'tools' ,'make.exe'))
+  if not skip_build:
+    buildbot_common.BuildStep('Copy make OS helpers')
+    buildbot_common.CopyDir(os.path.join(SDK_SRC_DIR, 'tools', '*.py'),
+        os.path.join(pepperdir, 'tools'))
+    if platform == 'win':
+      buildbot_common.BuildStep('Add MAKE')
+      http_download.HttpDownload(GSTORE + MAKE,
+                                 os.path.join(pepperdir, 'tools' ,'make.exe'))
+      rename_list = ['ncval_x86_32', 'ncval_x86_64',
+                     'sel_ldr_x86_32', 'sel_ldr_x86_64']
+      tools = os.path.join(pepperdir, 'tools')
+      for name in rename_list:
+          src = os.path.join(pepperdir, 'tools', name)
+          dst = os.path.join(pepperdir, 'tools', name + '.exe')
+          buildbot_common.Move(src, dst)
 
   if not skip_examples:
     CopyExamples(pepperdir, toolchains)
 
+  tarname = 'naclsdk_' + platform + '.tar.bz2'
+  if 'pnacl' in toolchains:
+    tarname = 'p' + tarname
+  tarfile = os.path.join(OUT_DIR, tarname)
+
+  # Ship with libraries prebuilt, so run that first
+  buildbot_common.BuildStep('Build Libraries')
+  src_dir = os.path.join(pepperdir, 'src')
+  makefile = os.path.join(src_dir, 'Makefile')
+  if os.path.isfile(makefile):
+    print "\n\nMake: " + src_dir
+    if platform == 'win':
+      # We need to modify the environment to build host on Windows.
+      env = GetWindowsEnvironment()
+    else:
+      env = os.environ
+
+    buildbot_common.Run(['make', '-j8'],
+                        cwd=os.path.abspath(src_dir), shell=True, env=env)
+    buildbot_common.Run(['make', '-j8', 'clean'],
+                        cwd=os.path.abspath(src_dir), shell=True)
+
   if not skip_tar:
     buildbot_common.BuildStep('Tar Pepper Bundle')
-    tarname = 'naclsdk_' + platform + '.bz2'
-    if 'pnacl' in toolchains:
-      tarname = 'p' + tarname
-    tarfile = os.path.join(OUT_DIR, tarname)
     buildbot_common.Run([sys.executable, CYGTAR, '-C', OUT_DIR, '-cjf', tarfile,
          'pepper_' + pepper_ver], cwd=NACL_DIR)
 
-  # Archive on non-trybots.
-  if options.archive or '-sdk' in os.environ.get('BUILDBOT_BUILDERNAME', ''):
-    buildbot_common.BuildStep('Archive build')
-    buildbot_common.Archive(tarname,
-        'nativeclient-mirror/nacl/nacl_sdk/%s' % build_utils.ChromeVersion(),
-        OUT_DIR)
+  # Run build tests
+  if not skip_test_build_tools:
+    buildbot_common.BuildStep('Run build_tools tests')
+    buildbot_common.Run([sys.executable,
+        os.path.join(SDK_SRC_DIR, 'build_tools', 'tests', 'test_all.py')])
 
-  if not skip_examples:
-    buildbot_common.BuildStep('Test Build Examples')
-    filelist = os.listdir(os.path.join(pepperdir, 'examples'))
-    for filenode in filelist:
-      dirnode = os.path.join(pepperdir, 'examples', filenode)
-      makefile = os.path.join(dirnode, 'Makefile')
-      if os.path.isfile(makefile):
-        print "\n\nMake: " + dirnode
-        buildbot_common.Run(['make', 'all', '-j8'],
-                            cwd=os.path.abspath(dirnode), shell=True)
-
-# Build SDK Tools
+  # build sdk update
   if not skip_update:
-    BuildUpdater()
+    build_updater.BuildUpdater(OUT_DIR)
+
+  # start local server sharing a manifest + the new bundle
+  if not skip_test_updater and not skip_tar:
+    buildbot_common.BuildStep('Move bundle to localserver dir')
+    buildbot_common.MakeDir(SERVER_DIR)
+    buildbot_common.Move(tarfile, SERVER_DIR)
+    tarfile = os.path.join(SERVER_DIR, tarname)
+
+    server = None
+    try:
+      buildbot_common.BuildStep('Run local server')
+      server = test_server.LocalHTTPServer(SERVER_DIR)
+
+      buildbot_common.BuildStep('Generate manifest')
+      with open(tarfile, 'rb') as tarfile_stream:
+        archive_sha1, archive_size = manifest_util.DownloadAndComputeHash(
+            tarfile_stream)
+      archive = manifest_util.Archive(manifest_util.GetHostOS())
+      archive.CopyFrom({'url': server.GetURL(tarname),
+                        'size': archive_size,
+                        'checksum': {'sha1': archive_sha1}})
+      bundle = manifest_util.Bundle('pepper_' + pepper_ver)
+      bundle.CopyFrom({
+          'revision': int(clnumber),
+          'repath': 'pepper_' + pepper_ver,
+          'version': int(pepper_ver),
+          'description': 'Chrome %s bundle, revision %s' % (
+              pepper_ver, clnumber),
+          'stability': 'dev',
+          'recommended': 'no',
+          'archives': [archive]})
+      manifest = manifest_util.SDKManifest()
+      manifest.SetBundle(bundle)
+      manifest_name = 'naclsdk_manifest2.json'
+      with open(os.path.join(SERVER_DIR, manifest_name), 'wb') as \
+          manifest_stream:
+        manifest_stream.write(manifest.GetDataAsString())
+
+      # use newly built sdk updater to pull this bundle
+      buildbot_common.BuildStep('Update from local server')
+      naclsdk_sh = os.path.join(OUT_DIR, 'nacl_sdk', 'naclsdk')
+      if platform == 'win':
+        naclsdk_sh += '.bat'
+      buildbot_common.Run([naclsdk_sh, '-U',
+          server.GetURL(manifest_name), 'update', 'pepper_' + pepper_ver])
+
+      # If we are testing examples, do it in the newly pulled directory.
+      pepperdir = os.path.join(OUT_DIR, 'nacl_sdk', 'pepper_' + pepper_ver)
+
+    # kill server
+    finally:
+      if server:
+        server.Shutdown()
+
+  # Build Examples (libraries built previously).
+  if not skip_examples:
+    buildbot_common.BuildStep('Build Examples')
+    example_dir = os.path.join(pepperdir, 'examples')
+    makefile = os.path.join(example_dir, 'Makefile')
+    if os.path.isfile(makefile):
+      print "\n\nMake: " + example_dir
+      if platform == 'win':
+        # We need to modify the environment to build host on Windows.
+        env = GetWindowsEnvironment()
+      else:
+        env = os.environ
+
+      buildbot_common.Run(['make', '-j8'],
+                          cwd=os.path.abspath(example_dir), shell=True, env=env)
+
+  # Test examples.
+  if not skip_examples and not skip_test_examples:
+    buildbot_common.BuildStep('Test Examples')
+    env = copy.copy(os.environ)
+    env['PEPPER_VER'] = pepper_ver
+    env['NACL_SDK_ROOT'] = pepperdir
+
+    pyauto_script = os.path.join(SRC_DIR, 'chrome', 'test', 'functional',
+        'nacl_sdk.py')
+    pyauto_script_args = ['nacl_sdk.NaClSDKTest.NaClSDKExamples']
+
+    if platform == 'linux' and buildbot_common.IsSDKBuilder():
+      # linux buildbots need to run the pyauto tests through xvfb. Running
+      # using runtest.py does this.
+      #env['PYTHON_PATH'] = '.:' + env.get('PYTHON_PATH', '.')
+      build_dir = os.path.dirname(SRC_DIR)
+      runtest_py = os.path.join(build_dir, '..', '..', '..', 'scripts', 'slave',
+          'runtest.py')
+      buildbot_common.Run([sys.executable, runtest_py, '--target', 'Release',
+          '--build-dir', 'src/build', sys.executable,
+          pyauto_script] + pyauto_script_args,
+          cwd=build_dir, env=env)
+    else:
+      buildbot_common.Run([sys.executable, 'nacl_sdk.py',
+        'nacl_sdk.NaClSDKTest.NaClSDKExamples'],
+        cwd=os.path.dirname(pyauto_script),
+        env=env)
+
+  # Archive on non-trybots.
+  if options.archive or buildbot_common.IsSDKBuilder():
+    buildbot_common.BuildStep('Archive build')
+    bucket_path = 'nativeclient-mirror/nacl/nacl_sdk/%s' % \
+        build_utils.ChromeVersion()
+    buildbot_common.Archive(tarname, bucket_path, os.path.dirname(tarfile))
+
+    if not skip_update:
+      # Only push up sdk_tools.tgz on the linux buildbot.
+      if builder_name == 'linux-sdk-multi':
+        sdk_tools = os.path.join(OUT_DIR, 'sdk_tools.tgz')
+        buildbot_common.Archive('sdk_tools.tgz', bucket_path, OUT_DIR,
+                                step_link=False)
+
+    # generate "manifest snippet" for this archive.
+    if not skip_test_updater:
+      archive = bundle.GetArchive(manifest_util.GetHostOS())
+      archive.url = 'https://commondatastorage.googleapis.com/' \
+          'nativeclient-mirror/nacl/nacl_sdk/%s/%s' % (
+              build_utils.ChromeVersion(), tarname)
+      manifest_snippet_file = os.path.join(OUT_DIR, tarname + '.json')
+      with open(manifest_snippet_file, 'wb') as manifest_snippet_stream:
+        manifest_snippet_stream.write(bundle.GetDataAsString())
+
+      buildbot_common.Archive(tarname + '.json', bucket_path, OUT_DIR,
+                              step_link=False)
 
   return 0
 

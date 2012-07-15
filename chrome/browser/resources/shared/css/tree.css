@@ -1,36 +1,52 @@
+/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
 tree {
+  display: block;
   outline: none;
   overflow: auto;
-  display: block;
 }
 
 .tree-item > .tree-row {
-  color: black;
   -webkit-user-select: none;
-  border: 1px solid rgba(255,255,255,0); /* transparent white */
-  background-color: rgba(255,255,255,0);
+  background-color: rgba(255, 255, 255, 0);
+  border: 1px solid rgba(255, 255, 255, 0); /* transparent white */
   border-radius: 2px;
-  padding: 0 3px;
-  line-height: 20px;
-  white-space: nowrap;
+  color: black;
   cursor: default;
+  line-height: 20px;
+  padding: 0 3px;
   position: relative;
-  margin: -1px 0;
+  white-space: nowrap;
+}
+
+@media (pointer:coarse) {
+  .tree-item > .tree-row {
+    line-height: 40px;
+  }
 }
 
 .expand-icon {
-  width: 16px;
-  height: 16px;
-  display: inline-block;
-  vertical-align: top;
-  position: relative;
-  top: 2px;
+  -webkit-transform: rotate(-90deg);
+  -webkit-transition: all 150ms;
   background-image: -webkit-canvas(tree-triangle);
   background-position: 50% 50%;
   background-repeat: no-repeat;
-  -webkit-transition: all .15s;
+  display: inline-block;
+  height: 16px;
   opacity: .6;
-  -webkit-transform: rotate(-90deg);
+  position: relative;
+  top: 2px;
+  vertical-align: top;
+  width: 16px;
+}
+
+@media (pointer:coarse) {
+  .expand-icon {
+    vertical-align: text-top;
+  }
 }
 
 html[dir=rtl] .expand-icon {
@@ -38,8 +54,8 @@ html[dir=rtl] .expand-icon {
 }
 
 .tree-item[expanded] > .tree-row > .expand-icon {
+  -webkit-transform: rotate(0);
   background-image: -webkit-canvas(tree-triangle);
-  -webkit-transform: rotate(0deg);
   opacity: .5;
 }
 
@@ -56,9 +72,9 @@ html[dir=rtl] .expand-icon {
 }
 
 .tree-row:hover {
+  background-color: hsl(214, 91%, 97%);
   border-color: hsl(214, 91%, 85%);
   z-index: 1;
-  background-color: hsl(214, 91%, 97%);
 }
 
 /*
@@ -74,15 +90,15 @@ html[dir=rtl] .expand-icon {
 }
 
 .tree-row[selected] {
-  border-color: hsl(0, 0%, 85%);
   background-color: hsl(0, 0%, 90%);
+  border-color: hsl(0, 0%, 85%);
   z-index: 2;
 }
 
 .tree-row[selected]:hover,
 tree:focus .tree-row[selected] {
   background-color: hsl(214, 91%, 89%);
-  border-color: #7da2ce;
+  border-color: rgb(125, 162, 206);
 }
 
 .tree-children[expanded] {
@@ -94,8 +110,8 @@ tree:focus .tree-row[selected] {
 }
 
 .tree-item > .tree-row > * {
-  display: inline-block;
   box-sizing: border-box;
+  display: inline-block;
 }
 
 .tree-label {
@@ -111,11 +127,13 @@ html[dir=rtl] .tree-label {
 
 html[dir=rtl] .tree-label,
 html[dir=rtl] .tree-row[may-have-children] > .tree-label {
-  background-image: url("../../../../../ui/resources/folder_closed_rtl.png");
+  background-image:
+   url('../../../../../ui/resources/default_100_percent/folder_closed_rtl.png');
 }
 
 html[dir=rtl] .tree-item[expanded] > .tree-row > .tree-label {
-  background-image: url("../../../../../ui/resources/folder_open_rtl.png");
+  background-image:
+     url('../../../../../ui/resources/default_100_percent/folder_open_rtl.png');
 }
 
 tree[icon-visibility=hidden] .tree-label {
@@ -130,22 +148,24 @@ tree[icon-visibility=parent] .tree-row[has-children=false] > .tree-label {
 
 .tree-label,
 .tree-row[may-have-children] > .tree-label {
-  background-image: url("../../../../../ui/resources/folder_closed.png");
+  background-image:
+      url('../../../../../ui/resources/default_100_percent/folder_closed.png');
 }
 
 .tree-item[expanded] > .tree-row > .tree-label {
-  background-image: url("../../../../../ui/resources/folder_open.png");
+  background-image:
+      url('../../../../../ui/resources/default_100_percent/folder_open.png');
 }
 
 /* We need to ensure that even empty labels take up space */
 .tree-label:empty:after {
-  content: " ";
+  content: ' ';
   white-space: pre;
 }
 
 .tree-rename > .tree-row > .tree-label {
-  -webkit-user-select: auto;
   -webkit-user-modify: read-write-plaintext-only;
+  -webkit-user-select: auto;
   background: white;
   color: black;
   outline: 1px solid black;
@@ -157,11 +177,10 @@ tree[icon-visibility=parent] .tree-row[has-children=false] > .tree-label {
   font-size: inherit;
   font-weight: inherit;
   margin: -2px -8px -2px -3px;
-  padding: 1px 7px 1px 1px;
-}
-
-html:not([os=mac]) .tree-item[editing] input {
+<if expr="not is_macosx">
   outline: none;
+</if>
+  padding: 1px 7px 1px 1px;
 }
 
 html[dir=rtl] .tree-item[editing] input {

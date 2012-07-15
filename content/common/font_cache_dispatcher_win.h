@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CONTENT_COMMON_FONT_CACHE_DISPATCHER_WIN_H_
 #define CONTENT_COMMON_FONT_CACHE_DISPATCHER_WIN_H_
-#pragma once
 
 #include <windows.h>
 
@@ -16,12 +15,12 @@
 // Windows can't load fonts into its kernel cache in sandboxed processes. So the
 // sandboxed process asks the browser process to do this for it.
 class FontCacheDispatcher : public IPC::ChannelProxy::MessageFilter,
-                            public IPC::Message::Sender {
+                            public IPC::Sender {
  public:
   FontCacheDispatcher();
   virtual ~FontCacheDispatcher();
 
-  // IPC::Message::Sender implementation:
+  // IPC::Sender implementation:
   virtual bool Send(IPC::Message* message) OVERRIDE;
 
  private:

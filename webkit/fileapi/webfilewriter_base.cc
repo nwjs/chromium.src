@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,7 +8,7 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebFileError.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebFileWriterClient.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebURL.h"
-#include "webkit/glue/webkit_glue.h"
+#include "webkit/fileapi/file_system_util.h"
 
 namespace fileapi {
 
@@ -54,7 +54,9 @@ void WebFileWriterBase::write(
 // thing to come back is the cancel response.  We only notify the
 // AsyncFileWriterClient when it's all over.
 void WebFileWriterBase::cancel() {
-  DCHECK(kOperationWrite == operation_ || kOperationTruncate == operation_);
+  // Check for the cancel passing the previous operation's return in-flight.
+  if (kOperationWrite != operation_ && kOperationTruncate != operation_)
+    return;
   if (kCancelNotInProgress != cancel_state_)
     return;
   cancel_state_ = kCancelSent;
@@ -94,7 +96,7 @@ void WebFileWriterBase::DidFail(base::PlatformFileError error_code) {
       // A write or truncate failed.
       operation_ = kOperationNone;
       client_->didFail(
-          webkit_glue::PlatformFileErrorToWebFileError(error_code));
+          PlatformFileErrorToWebFileError(error_code));
       break;
     case kCancelSent:
       // This is the failure of a write or truncate; the next message should be

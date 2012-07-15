@@ -60,10 +60,11 @@ cr.define('ntp', function() {
             '<span class="favicon"></span>' +
           '</span>' +
           '<div class="color-stripe"></div>' +
-          '<span class="title"></span>';
+          '<span class="title"></span>' +
+          '<span class="score"></span>';
 
       this.querySelector('.close-button').title =
-          templateData.removethumbnailtooltip;
+          loadTimeData.getString('removethumbnailtooltip');
 
       this.tabIndex = -1;
       this.data_ = null;
@@ -102,6 +103,9 @@ cr.define('ntp', function() {
       title.textContent = data.title;
       title.dir = data.direction;
 
+      var score = this.querySelector('.score');
+      score.textContent = data.score;
+
       // Sets the tooltip.
       this.title = data.title;
 
@@ -134,6 +138,8 @@ cr.define('ntp', function() {
         // Records the index of this tile.
         chrome.send('metricsHandler:recordInHistogram',
                     ['NewTabPage.SuggestedSite', this.index, 8]);
+        chrome.send('suggestedSitesAction',
+                    [ntp.NtpFollowAction.CLICKED_TILE]);
       }
     },
 
@@ -172,18 +178,19 @@ cr.define('ntp', function() {
 
       var undo = {
         action: doUndo,
-        text: templateData.undothumbnailremove,
+        text: loadTimeData.getString('undothumbnailremove'),
       };
 
       var undoAll = {
         action: function() {
           chrome.send('clearSuggestionsURLsBlacklist');
         },
-        text: templateData.restoreThumbnailsShort,
+        text: loadTimeData.getString('restoreThumbnailsShort'),
       };
 
-      ntp.showNotification(templateData.thumbnailremovednotification,
-                           [undo, undoAll]);
+      ntp.showNotification(
+          loadTimeData.getString('thumbnailremovednotification'),
+          [undo, undoAll]);
     },
 
     /**
@@ -260,8 +267,8 @@ cr.define('ntp', function() {
    * @return {number} The height.
    */
   function heightForWidth(width) {
-    // The 2s are for borders, the 31 is for the title.
-    return (width - 2) * 132 / 212 + 2 + 31;
+    // The 2s are for borders, the 36 is for the title and score.
+    return (width - 2) * 132 / 212 + 2 + 36;
   }
 
   var THUMBNAIL_COUNT = 8;
@@ -286,6 +293,9 @@ cr.define('ntp', function() {
       this.classList.add('suggestions-page');
       this.data_ = null;
       this.suggestionsTiles_ = this.getElementsByClassName('suggestions real');
+
+      this.addEventListener('carddeselected', this.handleCardDeselected_);
+      this.addEventListener('cardselected', this.handleCardSelected_);
     },
 
     /**
@@ -311,6 +321,28 @@ cr.define('ntp', function() {
         else
           tile.updateForData(page);
       }
+    },
+
+    /**
+     * Handles the 'card deselected' event (i.e. the user clicked to another
+     * pane).
+     * @param {Event} e The CardChanged event.
+     */
+    handleCardDeselected_: function(e) {
+      if (!document.documentElement.classList.contains('starting-up')) {
+        chrome.send('suggestedSitesAction',
+                    [ntp.NtpFollowAction.CLICKED_OTHER_NTP_PANE]);
+      }
+    },
+
+    /**
+     * Handles the 'card selected' event (i.e. the user clicked to select the
+     * Suggested pane).
+     * @param {Event} e The CardChanged event.
+     */
+    handleCardSelected_: function(e) {
+      if (!document.documentElement.classList.contains('starting-up'))
+        chrome.send('suggestedSitesSelected');
     },
 
     /**
@@ -343,6 +375,20 @@ cr.define('ntp', function() {
     /** @inheritDoc */
     heightForWidth: heightForWidth,
   };
+
+  /**
+   * Executed once the NTP has loaded. Checks if the Suggested pane is
+   * shown or not. If it is shown, the 'suggestedSitesSelected' message is sent
+   * to the C++ code, to record the fact that the user has seen this pane.
+   */
+  SuggestionsPage.onLoaded = function() {
+    if (ntp.getCardSlider() &&
+        ntp.getCardSlider().currentCardValue &&
+        ntp.getCardSlider().currentCardValue.classList
+        .contains('suggestions-page')) {
+      chrome.send('suggestedSitesSelected');
+    }
+  }
 
   /**
    * We've gotten additional data for Suggestions page. Update our old data with
@@ -421,3 +467,5 @@ cr.define('ntp', function() {
     refreshData: refreshData,
   };
 });
+
+document.addEventListener('ntpLoaded', ntp.SuggestionsPage.onLoaded);

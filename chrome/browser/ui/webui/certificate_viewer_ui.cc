@@ -5,7 +5,8 @@
 #include "chrome/browser/ui/webui/certificate_viewer_ui.h"
 
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/webui/chrome_url_data_manager.h"
 #include "chrome/browser/ui/webui/chrome_web_ui_data_source.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/web_contents.h"
@@ -13,8 +14,10 @@
 #include "grit/browser_resources.h"
 #include "grit/generated_resources.h"
 
+using ui::ConstrainedWebDialogUI;
+
 CertificateViewerUI::CertificateViewerUI(content::WebUI* web_ui)
-    : ConstrainedHtmlUI(web_ui) {
+    : ConstrainedWebDialogUI(web_ui) {
   // Set up the chrome://view-cert source.
   ChromeWebUIDataSource* html_source =
       new ChromeWebUIDataSource(chrome::kChromeUICertificateViewerHost);
@@ -58,7 +61,7 @@ CertificateViewerUI::CertificateViewerUI(content::WebUI* web_ui)
   html_source->set_default_resource(IDR_CERTIFICATE_VIEWER_HTML);
 
   Profile* profile = Profile::FromWebUI(web_ui);
-  profile->GetChromeURLDataManager()->AddDataSource(html_source);
+  ChromeURLDataManager::AddDataSource(profile, html_source);
 }
 
 CertificateViewerUI::~CertificateViewerUI() {

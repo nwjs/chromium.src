@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,7 +8,7 @@
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/image/image_unittest_util.h"
 
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
 #include <gtk/gtk.h>
 
 #include "ui/gfx/gtk_util.h"
@@ -30,12 +30,12 @@ TEST(UiGfxImageTest, ViewsImageView) {
   container->SetVisible(true);
 
   scoped_ptr<views::ImageView> image_view(new views::ImageView());
-  image_view->SetImage(*image.ToSkBitmap());
+  image_view->SetImage(*image.ToImageSkia());
   container->AddChildView(image_view.get());
 }
 #endif
 
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
 TEST(UiGfxImageTest, GtkImageView) {
   GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
   gtk_window_resize(GTK_WINDOW(window), 200, 200);

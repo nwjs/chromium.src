@@ -9,7 +9,7 @@ This package is the scripts used to run the unit test for Android and from
 Android Gingerbread.
 
 Local Modifications:
-This are no local modifications, all files were copied from
+There are no local modifications, all files were copied from
 <android_gingerbread_tree>/development/testrunner/
 
 Here is the detail steps

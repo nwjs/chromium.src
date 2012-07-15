@@ -4,14 +4,16 @@
 
 #ifndef UI_AURA_EVENT_H_
 #define UI_AURA_EVENT_H_
-#pragma once
 
 #include "base/basictypes.h"
+#include "base/compiler_specific.h"
 #include "base/event_types.h"
+#include "base/logging.h"
 #include "base/time.h"
 #include "ui/aura/aura_export.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
 #include "ui/base/events.h"
+#include "ui/base/gestures/gesture_types.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/gfx/point.h"
 
@@ -47,6 +49,10 @@ class AURA_EXPORT Event {
   const base::TimeDelta& time_stamp() const { return time_stamp_; }
   int flags() const { return flags_; }
 
+  // This is only intended to be used externally by classes that are modifying
+  // events in EventFilter::PreHandleKeyEvent().
+  void set_flags(int flags) { flags_ = flags; }
+
   // The following methods return true if the respective keys were pressed at
   // the time the event was created.
   bool IsShiftDown() const { return (flags_ & ui::EF_SHIFT_DOWN) != 0; }
@@ -62,7 +68,6 @@ class AURA_EXPORT Event {
   Event(const base::NativeEvent& native_event, ui::EventType type, int flags);
   Event(const Event& copy);
   void set_type(ui::EventType type) { type_ = type; }
-  void set_flags(int flags) { flags_ = flags; }
   void set_delete_native_event(bool delete_native_event) {
     delete_native_event_ = delete_native_event;
   }
@@ -100,13 +105,16 @@ class AURA_EXPORT LocatedEvent : public Event {
     LocatedEvent* located_event_;
   };
 
+  virtual ~LocatedEvent();
+
   int x() const { return location_.x(); }
   int y() const { return location_.y(); }
   gfx::Point location() const { return location_; }
   gfx::Point root_location() const { return root_location_; }
 
-  // Applies the |root_transform| to both |location_| and |root_location_|.
-  void UpdateForRootTransform(const ui::Transform& root_transform);
+  // Applies |root_transform| to the event.
+  // This is applied to both |location_| and |root_location_|.
+  virtual void UpdateForRootTransform(const ui::Transform& root_transform);
 
  protected:
   explicit LocatedEvent(const base::NativeEvent& native_event);
@@ -174,7 +182,8 @@ class AURA_EXPORT MouseEvent : public LocatedEvent {
   DISALLOW_COPY_AND_ASSIGN(MouseEvent);
 };
 
-class AURA_EXPORT TouchEvent : public LocatedEvent {
+class AURA_EXPORT TouchEvent : public LocatedEvent,
+                               public ui::TouchEvent {
  public:
   explicit TouchEvent(const base::NativeEvent& native_event);
 
@@ -183,10 +192,12 @@ class AURA_EXPORT TouchEvent : public LocatedEvent {
   // converted from |source| coordinate system to |target| coordinate system.
   TouchEvent(const TouchEvent& model, Window* source, Window* target);
 
-  // Used for synthetic events in testing.
   TouchEvent(ui::EventType type,
              const gfx::Point& root_location,
-             int touch_id);
+             int touch_id,
+             base::TimeDelta time_stamp);
+
+  virtual ~TouchEvent();
 
   int touch_id() const { return touch_id_; }
   float radius_x() const { return radius_x_; }
@@ -194,20 +205,35 @@ class AURA_EXPORT TouchEvent : public LocatedEvent {
   float rotation_angle() const { return rotation_angle_; }
   float force() const { return force_; }
 
-  // Returns a copy of this touch event. Used when queueing events for
-  // asynchronous gesture recognition.
-  TouchEvent* Copy() const;
+  // Used for unit tests.
+  void set_radius_x(const float r) { radius_x_ = r; }
+  void set_radius_y(const float r) { radius_y_ = r; }
+
+  // Overridden from LocatedEvent.
+  virtual void UpdateForRootTransform(
+      const ui::Transform& root_transform) OVERRIDE;
+
+  // Overridden from ui::TouchEvent.
+  virtual ui::EventType GetEventType() const OVERRIDE;
+  virtual gfx::Point GetLocation() const OVERRIDE;
+  virtual int GetTouchId() const OVERRIDE;
+  virtual int GetEventFlags() const OVERRIDE;
+  virtual base::TimeDelta GetTimestamp() const OVERRIDE;
+  virtual float RadiusX() const OVERRIDE;
+  virtual float RadiusY() const OVERRIDE;
+  virtual float RotationAngle() const OVERRIDE;
+  virtual float Force() const OVERRIDE;
 
  private:
   // The identity (typically finger) of the touch starting at 0 and incrementing
   // for each separable additional touch that the hardware can detect.
   const int touch_id_;
 
-  // Radius of the X (major) axis of the touch ellipse. 1.0 if unknown.
-  const float radius_x_;
+  // Radius of the X (major) axis of the touch ellipse. 0.0 if unknown.
+  float radius_x_;
 
-  // Radius of the Y (minor) axis of the touch ellipse. 1.0 if unknown.
-  const float radius_y_;
+  // Radius of the Y (minor) axis of the touch ellipse. 0.0 if unknown.
+  float radius_y_;
 
   // Angle of the major axis away from the X axis. Default 0.0.
   const float rotation_angle_;
@@ -250,6 +276,11 @@ class AURA_EXPORT KeyEvent : public Event {
   ui::KeyboardCode key_code() const { return key_code_; }
   bool is_char() const { return is_char_; }
 
+  // This is only intended to be used externally by classes that are modifying
+  // events in EventFilter::PreHandleKeyEvent().  set_character() should also be
+  // called.
+  void set_key_code(ui::KeyboardCode key_code) { key_code_ = key_code; }
+
  private:
   ui::KeyboardCode key_code_;
   // True if this is a translated character event (vs. a raw key down). Both
@@ -258,6 +289,26 @@ class AURA_EXPORT KeyEvent : public Event {
 
   uint16 character_;
   uint16 unmodified_character_;
+};
+
+// A key event which is translated by an input method (IME).
+// For example, if an IME receives a KeyEvent(ui::VKEY_SPACE), and it does not
+// consume the key, the IME usually generates and dispatches a
+// TranslatedKeyEvent(ui::VKEY_SPACE) event. If the IME receives a KeyEvent and
+// it does consume the event, it might dispatch a
+// TranslatedKeyEvent(ui::VKEY_PROCESSKEY) event as defined in the DOM spec.
+class AURA_EXPORT TranslatedKeyEvent : public aura::KeyEvent {
+ public:
+  TranslatedKeyEvent(const base::NativeEvent& native_event, bool is_char);
+
+  // Used for synthetic events such as a VKEY_PROCESSKEY key event.
+  TranslatedKeyEvent(bool is_press,
+                     ui::KeyboardCode key_code,
+                     int flags);
+
+  // Changes the type() of the object from ET_TRANSLATED_KEY_* to ET_KEY_* so
+  // that RenderWidgetHostViewAura and NativeWidgetAura could handle the event.
+  void ConvertToKeyEvent();
 };
 
 class AURA_EXPORT DropTargetEvent : public LocatedEvent {
@@ -307,7 +358,8 @@ class AURA_EXPORT ScrollEvent : public MouseEvent {
   DISALLOW_COPY_AND_ASSIGN(ScrollEvent);
 };
 
-class AURA_EXPORT GestureEvent : public LocatedEvent {
+class AURA_EXPORT GestureEvent : public LocatedEvent,
+                                 public ui::GestureEvent {
  public:
   GestureEvent(ui::EventType type,
                int x,
@@ -318,22 +370,22 @@ class AURA_EXPORT GestureEvent : public LocatedEvent {
                float delta_y,
                unsigned int touch_ids_bitfield);
 
-  // Create a new TouchEvent which is identical to the provided model.
+  // Create a new GestureEvent which is identical to the provided model.
   // If source / target windows are provided, the model location will be
   // converted from |source| coordinate system to |target| coordinate system.
   GestureEvent(const GestureEvent& model, Window* source, Window* target);
 
-  float delta_x() const { return delta_x_; }
-  float delta_y() const { return delta_y_; }
+  virtual ~GestureEvent();
+
+  const ui::GestureEventDetails& details() const { return details_; }
 
   // Returns the lowest touch-id of any of the touches which make up this
   // gesture.
   // If there are no touches associated with this gesture, returns -1.
-  int GetLowestTouchId() const;
+  virtual int GetLowestTouchId() const OVERRIDE;
 
  private:
-  float delta_x_;
-  float delta_y_;
+  ui::GestureEventDetails details_;
 
   // The set of indices of ones in the binary representation of
   // touch_ids_bitfield_ is the set of touch_ids associate with this gesture.

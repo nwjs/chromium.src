@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_BROWSER_GPU_GPU_PROCESS_HOST_UI_SHIM_H_
 #define CONTENT_BROWSER_GPU_GPU_PROCESS_HOST_UI_SHIM_H_
-#pragma once
 
 // This class lives on the UI thread and supports classes like the
 // BackingStoreProxy, which must live on the UI thread. The IO thread
@@ -21,6 +20,8 @@
 #include "content/common/content_export.h"
 #include "content/common/message_router.h"
 #include "content/public/common/gpu_info.h"
+#include "ipc/ipc_listener.h"
+#include "ipc/ipc_sender.h"
 
 struct GpuHostMsg_AcceleratedSurfaceBuffersSwapped_Params;
 struct GpuHostMsg_AcceleratedSurfacePostSubBuffer_Params;
@@ -38,8 +39,8 @@ class Message;
 void RouteToGpuProcessHostUIShimTask(int host_id, const IPC::Message& msg);
 
 class GpuProcessHostUIShim
-    : public IPC::Channel::Listener,
-      public IPC::Channel::Sender,
+    : public IPC::Listener,
+      public IPC::Sender,
       public base::NonThreadSafe {
  public:
   // Create a GpuProcessHostUIShim with the given ID.  The object can be found
@@ -60,10 +61,10 @@ class GpuProcessHostUIShim
   // Return NULL if none has been created.
   CONTENT_EXPORT static GpuProcessHostUIShim* GetOneInstance();
 
-  // IPC::Channel::Sender implementation.
+  // IPC::Sender implementation.
   virtual bool Send(IPC::Message* msg) OVERRIDE;
 
-  // IPC::Channel::Listener implementation.
+  // IPC::Listener implementation.
   // The GpuProcessHost causes this to be called on the UI thread to
   // dispatch the incoming messages from the GPU process, which are
   // actually received on the IO thread.
@@ -82,7 +83,7 @@ class GpuProcessHostUIShim
 
   void OnLogMessage(int level, const std::string& header,
       const std::string& message);
-#if defined(TOOLKIT_USES_GTK) || defined(OS_WIN)
+#if defined(TOOLKIT_GTK) || defined(OS_WIN)
   void OnResizeView(int32 surface_id,
                     int32 route_id,
                     gfx::Size size);

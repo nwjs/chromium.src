@@ -10,7 +10,7 @@
 
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "base/message_loop_helpers.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "ppapi/c/pp_var.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebPlugin.h"
 #include "ui/gfx/rect.h"
@@ -18,6 +18,7 @@
 
 namespace WebKit {
 struct WebPluginParams;
+struct WebPrintParams;
 }
 
 namespace webkit {
@@ -35,12 +36,10 @@ class WebPluginImpl : public WebKit::WebPlugin {
       const WebKit::WebPluginParams& params,
       const base::WeakPtr<PluginDelegate>& plugin_delegate);
 
- private:
-  friend class base::DeleteHelper<WebPluginImpl>;
-
-  WEBKIT_PLUGINS_EXPORT virtual ~WebPluginImpl();
+  PluginInstance* instance() { return instance_.get(); }
 
   // WebKit::WebPlugin implementation.
+  virtual WebKit::WebPluginContainer* container() const;
   virtual bool initialize(WebKit::WebPluginContainer* container);
   virtual void destroy();
   virtual NPObject* scriptableObject();
@@ -77,14 +76,19 @@ class WebPluginImpl : public WebKit::WebPlugin {
   virtual void stopFind();
   virtual bool supportsPaginatedPrint() OVERRIDE;
   virtual bool isPrintScalingDisabled() OVERRIDE;
-  virtual int printBegin(const WebKit::WebRect& printable_area,
-                         int printer_dpi) OVERRIDE;
+
+  virtual int printBegin(const WebKit::WebPrintParams& print_params) OVERRIDE;
   virtual bool printPage(int page_number, WebKit::WebCanvas* canvas) OVERRIDE;
   virtual void printEnd() OVERRIDE;
 
   virtual bool canRotateView() OVERRIDE;
   virtual void rotateView(RotationType type) OVERRIDE;
+  virtual bool isPlaceholder() OVERRIDE;
 
+ private:
+  friend class base::DeleteHelper<WebPluginImpl>;
+
+  WEBKIT_PLUGINS_EXPORT virtual ~WebPluginImpl();
   struct InitData;
 
   scoped_ptr<InitData> init_data_;  // Cleared upon successful initialization.
@@ -95,6 +99,7 @@ class WebPluginImpl : public WebKit::WebPlugin {
   scoped_refptr<PPB_URLLoader_Impl> document_loader_;
   gfx::Rect plugin_rect_;
   PP_Var instance_object_;
+  WebKit::WebPluginContainer* container_;
 
   DISALLOW_COPY_AND_ASSIGN(WebPluginImpl);
 };

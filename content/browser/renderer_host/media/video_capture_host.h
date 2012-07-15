@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -39,24 +39,17 @@
 #include <map>
 
 #include "base/memory/ref_counted.h"
-#include "base/message_loop_helpers.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "content/browser/renderer_host/media/video_capture_controller.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/browser_message_filter.h"
 #include "ipc/ipc_message.h"
 
-class AudioManager;
-
-namespace content {
-class ResourceContext;
-}  // namespace content
-
 class CONTENT_EXPORT VideoCaptureHost
     : public content::BrowserMessageFilter,
       public VideoCaptureControllerEventHandler {
  public:
-  explicit VideoCaptureHost(content::ResourceContext* resource_context,
-                            AudioManager* audio_manager);
+  VideoCaptureHost();
 
   // content::BrowserMessageFilter implementation.
   virtual void OnChannelClosing() OVERRIDE;
@@ -76,7 +69,7 @@ class CONTENT_EXPORT VideoCaptureHost
                            int width,
                            int height,
                            int frame_per_second) OVERRIDE;
-  virtual void OnReadyToDelete(const VideoCaptureControllerID& id) OVERRIDE;
+  virtual void OnPaused(const VideoCaptureControllerID& id) OVERRIDE;
 
  private:
   friend class content::BrowserThread;
@@ -109,43 +102,43 @@ class CONTENT_EXPORT VideoCaptureHost
   // referenced by |device_id|.
   void OnReceiveEmptyBuffer(int device_id, int buffer_id);
 
-
-  // Called on the IO thread when VideoCaptureController have
-  // reported that all DIBs have been returned.
-  void DoDeleteVideoCaptureController(const VideoCaptureControllerID& id);
-
   // Send a newly created buffer to the VideoCaptureMessageFilter.
-  void DoSendNewBuffer(int device_id,
-                       base::SharedMemoryHandle handle,
-                       int length,
-                       int buffer_id);
+  void DoSendNewBufferOnIOThread(
+      const VideoCaptureControllerID& controller_id,
+      base::SharedMemoryHandle handle,
+      int length,
+      int buffer_id);
 
   // Send a filled buffer to the VideoCaptureMessageFilter.
-  void DoSendFilledBuffer(int device_id,
-                          int buffer_id,
-                          base::Time timestamp);
+  void DoSendFilledBufferOnIOThread(
+      const VideoCaptureControllerID& controller_id,
+      int buffer_id,
+      base::Time timestamp);
 
-  // Send a information about frame resolution and frame rate
+  // Send information about frame resolution and frame rate
   // to the VideoCaptureMessageFilter.
-  void DoSendFrameInfo(int device_id,
-                       int width,
-                       int height,
-                       int frame_per_second);
+  void DoSendFrameInfoOnIOThread(
+      const VideoCaptureControllerID& controller_id,
+      int width,
+      int height,
+      int frame_per_second);
 
   // Handle error coming from VideoCaptureDevice.
-  void DoHandleError(int device_id);
+  void DoHandleErrorOnIOThread(const VideoCaptureControllerID& controller_id);
 
-  // Helpers.
-  media_stream::VideoCaptureManager* GetVideoCaptureManager();
+  void DoPausedOnIOThread(const VideoCaptureControllerID& controller_id);
+
+  void DeleteVideoCaptureControllerOnIOThread(
+      const VideoCaptureControllerID& controller_id);
+
+  // Returns the video capture manager. This is a virtual function so that
+  // the unit tests can inject their own MediaStreamManager.
+  virtual media_stream::VideoCaptureManager* GetVideoCaptureManager();
 
   struct Entry;
   typedef std::map<VideoCaptureControllerID, Entry*> EntryMap;
   // A map of VideoCaptureControllerID to its state and VideoCaptureController.
   EntryMap entries_;
-
-  // Used to get a pointer to VideoCaptureManager to start/stop capture devices.
-  content::ResourceContext* resource_context_;
-  AudioManager* audio_manager_;
 
   DISALLOW_COPY_AND_ASSIGN(VideoCaptureHost);
 };

@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -72,7 +72,9 @@ string16 TestWebKitPlatformSupport::GetLocalizedString(int message_id) {
   return string16(localized, length);
 }
 
-base::StringPiece TestWebKitPlatformSupport::GetDataResource(int resource_id) {
+base::StringPiece TestWebKitPlatformSupport::GetDataResource(
+    int resource_id,
+    ui::ScaleFactor scale_factor) {
   switch (resource_id) {
   case IDR_BROKENIMAGE: {
     // Use webkit's broken image icon (16x16)
@@ -100,5 +102,6 @@ base::StringPiece TestWebKitPlatformSupport::GetDataResource(int resource_id) {
   }
   }
 
+  // TODO(flackr): Pass scale_factor to ResourceProvider.
   return ResourceProvider(resource_id);
 }

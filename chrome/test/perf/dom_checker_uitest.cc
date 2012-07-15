@@ -229,7 +229,8 @@ class DomCheckerTest : public UITest {
   DISALLOW_COPY_AND_ASSIGN(DomCheckerTest);
 };
 
-TEST_F(DomCheckerTest, File) {
+// Always fails, see but http://crbug.com/21321
+TEST_F(DomCheckerTest, FAILS_File) {
   if (!CommandLine::ForCurrentProcess()->HasSwitch(kRunDomCheckerTest))
     return;
 

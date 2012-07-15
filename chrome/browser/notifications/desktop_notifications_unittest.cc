@@ -92,13 +92,13 @@ DesktopNotificationsTest::~DesktopNotificationsTest() {
 
 void DesktopNotificationsTest::SetUp() {
 #if defined(USE_ASH)
-  WebKit::initialize(&webkit_platform_support_);
+  WebKit::initialize(webkit_platform_support_.Get());
   // MockBalloonCollection retrieves information about the screen on creation.
   // So it is necessary to make sure the desktop gets created first.
   ash::Shell::CreateInstance(NULL);
 #endif
 
-  browser::RegisterLocalState(&local_state_);
+  chrome::RegisterLocalState(&local_state_);
   profile_.reset(new TestingProfile());
   balloon_collection_ = new MockBalloonCollection();
   ui_manager_.reset(NotificationUIManager::Create(&local_state_,

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_INPUT_METHOD_BROWSER_STATE_MONITOR_H_
 #define CHROME_BROWSER_CHROMEOS_INPUT_METHOD_BROWSER_STATE_MONITOR_H_
-#pragma once
 
 #include <string>
 
@@ -22,12 +21,15 @@ namespace input_method {
 // to the input method manager. The class also updates the appropriate Chrome
 // prefs (~/Local\ State or ~/Preferences) depending on the current browser
 // state.
-class BrowserStateMonitor
-    : public content::NotificationObserver,
-      public input_method::InputMethodManager::PreferenceObserver {
+class BrowserStateMonitor : public content::NotificationObserver,
+                            public InputMethodManager::Observer {
  public:
   explicit BrowserStateMonitor(InputMethodManager* manager);
   virtual ~BrowserStateMonitor();
+
+  InputMethodManager::State state() const { return state_; }
+
+  void SetPrefServiceForTesting(PrefService* pref_service);
 
  protected:
   // Updates ~/Local\ State file. protected: for testing.
@@ -35,35 +37,28 @@ class BrowserStateMonitor
   // Updates ~/Preferences file. protected: for testing.
   virtual void UpdateUserPreferences(const std::string& current_input_method);
 
- private:
-  // InputMethodManager::PreferenceObserver implementation.
-  // TODO(yusukes): On R20, use input_method::InputMethodManager::Observer and
-  // remove the PreferenceObserver interface from InputMethodManager.
-  virtual void PreferenceUpdateNeeded(
-      input_method::InputMethodManager* manager,
-      const input_method::InputMethodDescriptor& previous_input_method,
-      const input_method::InputMethodDescriptor& current_input_method) OVERRIDE;
-  virtual void FirstObserverIsAdded(
-      input_method::InputMethodManager* manager) OVERRIDE {}
+  // InputMethodManager::Observer overrides:
+  virtual void InputMethodChanged(InputMethodManager* manager,
+                                  bool show_message) OVERRIDE;
+  virtual void InputMethodPropertyChanged(InputMethodManager* manager) OVERRIDE;
 
   // content::NotificationObserver overrides:
   virtual void Observe(int type,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
+ private:
   void SetState(InputMethodManager::State new_state);
   void InitializePrefMembers();
 
   InputMethodManager* manager_;
   InputMethodManager::State state_;
 
-  // Objects for updating the Chrome prefs.
-  StringPrefMember previous_input_method_pref_;
-  StringPrefMember current_input_method_pref_;
-  bool initialized_;
-
   // This is used to register this object to some browser notifications.
   content::NotificationRegistrar notification_registrar_;
+
+  // For testing.
+  PrefService* pref_service_;
 
   DISALLOW_COPY_AND_ASSIGN(BrowserStateMonitor);
 };

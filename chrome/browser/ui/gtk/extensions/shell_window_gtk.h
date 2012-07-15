@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_GTK_EXTENSIONS_SHELL_WINDOW_GTK_H_
 #define CHROME_BROWSER_UI_GTK_EXTENSIONS_SHELL_WINDOW_GTK_H_
-#pragma once
 
 #include <gtk/gtk.h>
 
@@ -14,18 +13,27 @@
 #include "ui/base/x/active_window_watcher_x_observer.h"
 #include "ui/gfx/rect.h"
 
-class ExtensionHost;
+class Profile;
+
+namespace extensions {
+class Extension;
+}
 
 class ShellWindowGtk : public ShellWindow,
                        public ExtensionViewGtk::Container,
                        public ui::ActiveWindowWatcherXObserver {
  public:
-  explicit ShellWindowGtk(ExtensionHost* host);
+  ShellWindowGtk(Profile* profile,
+                 const extensions::Extension* extension,
+                 const GURL& url,
+                 const CreateParams& params);
 
   // BaseWindow implementation.
   virtual bool IsActive() const OVERRIDE;
   virtual bool IsMaximized() const OVERRIDE;
   virtual bool IsMinimized() const OVERRIDE;
+  virtual bool IsFullscreen() const OVERRIDE;
+  virtual gfx::NativeWindow GetNativeWindow() OVERRIDE;
   virtual gfx::Rect GetRestoredBounds() const OVERRIDE;
   virtual gfx::Rect GetBounds() const OVERRIDE;
   virtual void Show() OVERRIDE;
@@ -37,6 +45,7 @@ class ShellWindowGtk : public ShellWindow,
   virtual void Minimize() OVERRIDE;
   virtual void Restore() OVERRIDE;
   virtual void SetBounds(const gfx::Rect& bounds) OVERRIDE;
+  virtual void SetDraggableRegion(SkRegion* region) OVERRIDE;
   virtual void FlashFrame(bool flash) OVERRIDE;
   virtual bool IsAlwaysOnTop() const OVERRIDE;
 
@@ -44,6 +53,10 @@ class ShellWindowGtk : public ShellWindow,
   virtual void ActiveWindowChanged(GdkWindow* active_window) OVERRIDE;
 
  private:
+  // ShellWindow implementation.
+  virtual void SetFullscreen(bool fullscreen) OVERRIDE;
+  virtual bool IsFullscreenOrPending() const OVERRIDE;
+
   virtual ~ShellWindowGtk();
 
   CHROMEGTK_CALLBACK_1(ShellWindowGtk, gboolean, OnMainWindowDeleteEvent,
@@ -66,6 +79,10 @@ class ShellWindowGtk : public ShellWindow,
 
   // The position and size of the non-maximized, non-fullscreen window.
   gfx::Rect restored_bounds_;
+
+  // True if the RVH is in fullscreen mode. The window may not actually be in
+  // fullscreen, however: some WMs don't support fullscreen.
+  bool content_thinks_its_fullscreen_;
 
   DISALLOW_COPY_AND_ASSIGN(ShellWindowGtk);
 };

@@ -1,11 +1,14 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/autocomplete/builtin_provider.h"
+
 #include "base/message_loop.h"
 #include "base/utf_string_conversions.h"
+#include "chrome/browser/autocomplete/autocomplete_input.h"
 #include "chrome/browser/autocomplete/autocomplete_match.h"
-#include "chrome/browser/autocomplete/builtin_provider.h"
+#include "chrome/browser/autocomplete/autocomplete_provider.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "googleurl/src/gurl.h"
@@ -20,8 +23,8 @@ class BuiltinProviderTest : public testing::Test {
     const ResultType output[3];
   };
 
-  BuiltinProviderTest() : builtin_provider_(NULL) { }
-  virtual ~BuiltinProviderTest() { }
+  BuiltinProviderTest() : builtin_provider_(NULL) {}
+  virtual ~BuiltinProviderTest() {}
 
   virtual void SetUp();
   virtual void TearDown();
@@ -70,7 +73,7 @@ TEST_F(BuiltinProviderTest, TypingScheme) {
   const string16 kChrome = ASCIIToUTF16(chrome::kChromeUIScheme);
   const string16 kSeparator1 = ASCIIToUTF16(":");
   const string16 kSeparator2 = ASCIIToUTF16(":/");
-  const string16 kSeparator3 = ASCIIToUTF16(chrome::kStandardSchemeSeparator);
+  const string16 kSeparator3 = ASCIIToUTF16(content::kStandardSchemeSeparator);
 
   // These default URLs should correspond with those in BuiltinProvider::Start.
   const GURL kURL1 = GURL(chrome::kChromeUIChromeURLsURL);
@@ -136,7 +139,7 @@ TEST_F(BuiltinProviderTest, ChromeURLs) {
   const string16 kChrome = ASCIIToUTF16(chrome::kChromeUIScheme);
   const string16 kSeparator1 = ASCIIToUTF16(":");
   const string16 kSeparator2 = ASCIIToUTF16(":/");
-  const string16 kSeparator3 = ASCIIToUTF16(chrome::kStandardSchemeSeparator);
+  const string16 kSeparator3 = ASCIIToUTF16(content::kStandardSchemeSeparator);
 
   // This makes assumptions about the chrome URLs listed by the BuiltinProvider.
   // Currently they are derived from ChromePaths() in browser_about_handler.cc.
@@ -201,12 +204,12 @@ TEST_F(BuiltinProviderTest, ChromeSettingsSubpages) {
   // This makes assumptions about the chrome URLs listed by the BuiltinProvider.
   // Currently they are derived from ChromePaths() in browser_about_handler.cc.
   const string16 kSettings = ASCIIToUTF16(chrome::kChromeUISettingsURL);
-  const string16 kDefaultPage1 = ASCIIToUTF16(chrome::kAdvancedOptionsSubPage);
-  const string16 kDefaultPage2 = ASCIIToUTF16(chrome::kAutofillSubPage);
+  const string16 kDefaultPage1 = ASCIIToUTF16(chrome::kAutofillSubPage);
+  const string16 kDefaultPage2 = ASCIIToUTF16(chrome::kClearBrowserDataSubPage);
   const GURL kDefaultURL1 = GURL(kSettings + kDefaultPage1);
   const GURL kDefaultURL2 = GURL(kSettings + kDefaultPage2);
-  const string16 kPage1 = ASCIIToUTF16(chrome::kPersonalOptionsSubPage);
-  const string16 kPage2 = ASCIIToUTF16(chrome::kPasswordManagerSubPage);
+  const string16 kPage1 = ASCIIToUTF16(chrome::kSearchEnginesSubPage);
+  const string16 kPage2 = ASCIIToUTF16(chrome::kSyncSetupSubPage);
   const GURL kURL1 = GURL(kSettings + kPage1);
   const GURL kURL2 = GURL(kSettings + kPage2);
 

@@ -10,7 +10,6 @@
 
 #include "base/basictypes.h"
 #include "base/command_line.h"
-#include "base/linux_util.h"
 #include "base/memory/scoped_ptr.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkUnPreMultiply.h"
@@ -18,26 +17,25 @@
 
 namespace {
 
-// A process wide singleton that manages our usage of gdk
-// cursors. gdk_cursor_new() hits the disk in several places and GdkCursor
-// instances can be reused throughout the process.
+// A process wide singleton that manages our usage of gdk cursors.
+// gdk_cursor_new() hits the disk in several places and GdkCursor instances can
+// be reused throughout the process.
 class GdkCursorCache {
  public:
-   GdkCursorCache() {}
+  GdkCursorCache() {}
   ~GdkCursorCache() {
-    for (std::map<GdkCursorType, GdkCursor*>::iterator it =
-        cursor_cache_.begin(); it != cursor_cache_.end(); ++it) {
-      gdk_cursor_unref(it->second);
+    for (GdkCursorMap::iterator i(cursors_.begin()); i != cursors_.end(); ++i) {
+      gdk_cursor_unref(i->second);
     }
-    cursor_cache_.clear();
+    cursors_.clear();
   }
 
   GdkCursor* GetCursorImpl(GdkCursorType type) {
-    std::map<GdkCursorType, GdkCursor*>::iterator it = cursor_cache_.find(type);
+    GdkCursorMap::iterator it = cursors_.find(type);
     GdkCursor* cursor = NULL;
-    if (it == cursor_cache_.end()) {
+    if (it == cursors_.end()) {
       cursor = gdk_cursor_new(type);
-      cursor_cache_.insert(std::make_pair(type, cursor));
+      cursors_.insert(std::make_pair(type, cursor));
     } else {
       cursor = it->second;
     }
@@ -47,7 +45,9 @@ class GdkCursorCache {
     return cursor;
   }
 
-  std::map<GdkCursorType, GdkCursor*> cursor_cache_;
+ private:
+  typedef std::map<GdkCursorType, GdkCursor*> GdkCursorMap;
+  GdkCursorMap cursors_;
 
   DISALLOW_COPY_AND_ASSIGN(GdkCursorCache);
 };
@@ -60,7 +60,8 @@ void FreePixels(guchar* pixels, gpointer data) {
 
 namespace gfx {
 
-void GtkInitFromCommandLine(const CommandLine& command_line) {
+static void CommonInitFromCommandLine(
+    const CommandLine& command_line, void (*init_func)(gint*, gchar***)) {
   const std::vector<std::string>& args = command_line.argv();
   int argc = args.size();
   scoped_array<char *> argv(new char *[argc + 1]);
@@ -72,21 +73,29 @@ void GtkInitFromCommandLine(const CommandLine& command_line) {
   argv[argc] = NULL;
   char **argv_pointer = argv.get();
 
-  gtk_init(&argc, &argv_pointer);
+  init_func(&argc, &argv_pointer);
   for (size_t i = 0; i < args.size(); ++i) {
     free(argv[i]);
   }
 }
 
-GdkPixbuf* GdkPixbufFromSkBitmap(const SkBitmap* bitmap) {
-  if (bitmap->isNull())
+void GtkInitFromCommandLine(const CommandLine& command_line) {
+  CommonInitFromCommandLine(command_line, gtk_init);
+}
+
+void GdkInitFromCommandLine(const CommandLine& command_line) {
+  CommonInitFromCommandLine(command_line, gdk_init);
+}
+
+GdkPixbuf* GdkPixbufFromSkBitmap(const SkBitmap& bitmap) {
+  if (bitmap.isNull())
     return NULL;
 
-  bitmap->lockPixels();
+  SkAutoLockPixels lock_pixels(bitmap);
 
-  int width = bitmap->width();
-  int height = bitmap->height();
-  int stride = bitmap->rowBytes();
+  int width = bitmap.width();
+  int height = bitmap.height();
+  int stride = bitmap.rowBytes();
 
   // SkBitmaps are premultiplied, we need to unpremultiply them.
   const int kBytesPerPixel = 4;
@@ -94,7 +103,7 @@ GdkPixbuf* GdkPixbufFromSkBitmap(const SkBitmap* bitmap) {
 
   for (int y = 0, i = 0; y < height; y++) {
     for (int x = 0; x < width; x++) {
-      uint32 pixel = bitmap->getAddr32(0, y)[x];
+      uint32 pixel = bitmap.getAddr32(0, y)[x];
 
       int alpha = SkColorGetA(pixel);
       if (alpha != 0 && alpha != 255) {
@@ -122,7 +131,6 @@ GdkPixbuf* GdkPixbufFromSkBitmap(const SkBitmap* bitmap) {
       8,
       width, height, stride, &FreePixels, divided);
 
-  bitmap->unlockPixels();
   return pixbuf;
 }
 
@@ -169,6 +177,22 @@ void InitRCStyles() {
       "widget \"about-dialog\" style : application \"about-dialog\"\n";
 
   gtk_rc_parse_string(kRCText);
+}
+
+base::TimeDelta GetCursorBlinkCycle() {
+  // From http://library.gnome.org/devel/gtk/unstable/GtkSettings.html, this is
+  // the default value for gtk-cursor-blink-time.
+  static const gint kGtkDefaultCursorBlinkTime = 1200;
+
+  gint cursor_blink_time = kGtkDefaultCursorBlinkTime;
+  gboolean cursor_blink = TRUE;
+  g_object_get(gtk_settings_get_default(),
+               "gtk-cursor-blink-time", &cursor_blink_time,
+               "gtk-cursor-blink", &cursor_blink,
+               NULL);
+  return cursor_blink ?
+         base::TimeDelta::FromMilliseconds(cursor_blink_time) :
+         base::TimeDelta();
 }
 
 }  // namespace gfx

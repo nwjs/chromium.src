@@ -150,7 +150,6 @@
 
 #ifndef BASE_DEBUG_TRACE_EVENT_H_
 #define BASE_DEBUG_TRACE_EVENT_H_
-#pragma once
 
 #include <string>
 
@@ -388,6 +387,12 @@
 //   match. |id| must either be a pointer or an integer value up to 64 bits. If
 //   it's a pointer, the bits will be xored with a hash of the process ID so
 //   that the same pointer on two different processes will not collide.
+// An asynchronous operation can consist of multiple phases. The first phase is
+// defined by the ASYNC_BEGIN calls. Additional phases can be defined using the
+// ASYNC_STEP_BEGIN macros. When the operation completes, call ASYNC_END.
+// An async operation can span threads and processes, but all events in that
+// operation must use the same |name| and |id|. Each event can have its own
+// args.
 #define TRACE_EVENT_ASYNC_BEGIN0(category, name, id) \
     INTERNAL_TRACE_EVENT_ADD_WITH_ID(TRACE_EVENT_PHASE_ASYNC_BEGIN, \
         category, name, id, TRACE_EVENT_FLAG_NONE)
@@ -412,31 +417,27 @@
         category, name, id, TRACE_EVENT_FLAG_COPY, \
         arg1_name, arg1_val, arg2_name, arg2_val)
 
-// Records a single ASYNC_STEP event for "name" immediately. If the category
-// is not enabled, then this does nothing.
-#define TRACE_EVENT_ASYNC_STEP0(category, name, id) \
+// Records a single ASYNC_STEP event for |step| immediately. If the category
+// is not enabled, then this does nothing. The |name| and |id| must match the
+// ASYNC_BEGIN event above. The |step| param identifies this step within the
+// async event. This should be called at the beginning of the next phase of an
+// asynchronous operation.
+#define TRACE_EVENT_ASYNC_BEGIN_STEP0(category, name, id, step) \
     INTERNAL_TRACE_EVENT_ADD_WITH_ID(TRACE_EVENT_PHASE_ASYNC_STEP, \
-        category, name, id, TRACE_EVENT_FLAG_NONE)
-#define TRACE_EVENT_ASYNC_STEP1(category, name, id, arg1_name, arg1_val) \
+        category, name, id, TRACE_EVENT_FLAG_NONE, "step", step)
+#define TRACE_EVENT_ASYNC_BEGIN_STEP1(category, name, id, step, \
+                                      arg1_name, arg1_val) \
     INTERNAL_TRACE_EVENT_ADD_WITH_ID(TRACE_EVENT_PHASE_ASYNC_STEP, \
-        category, name, id, TRACE_EVENT_FLAG_NONE, arg1_name, arg1_val)
-#define TRACE_EVENT_ASYNC_STEP2(category, name, id, arg1_name, arg1_val, \
-        arg2_name, arg2_val) \
-    INTERNAL_TRACE_EVENT_ADD_WITH_ID(TRACE_EVENT_PHASE_ASYNC_STEP, \
-        category, name, id, TRACE_EVENT_FLAG_NONE, \
-        arg1_name, arg1_val, arg2_name, arg2_val)
-#define TRACE_EVENT_COPY_ASYNC_STEP0(category, name, id) \
-    INTERNAL_TRACE_EVENT_ADD_WITH_ID(TRACE_EVENT_PHASE_ASYNC_STEP, \
-        category, name, id, TRACE_EVENT_FLAG_COPY)
-#define TRACE_EVENT_COPY_ASYNC_STEP1(category, name, id, arg1_name, arg1_val) \
-    INTERNAL_TRACE_EVENT_ADD_WITH_ID(TRACE_EVENT_PHASE_ASYNC_STEP, \
-        category, name, id, TRACE_EVENT_FLAG_COPY, \
+        category, name, id, TRACE_EVENT_FLAG_NONE, "step", step, \
         arg1_name, arg1_val)
-#define TRACE_EVENT_COPY_ASYNC_STEP2(category, name, id, arg1_name, arg1_val, \
-        arg2_name, arg2_val) \
+#define TRACE_EVENT_COPY_ASYNC_BEGIN_STEP0(category, name, id, step) \
     INTERNAL_TRACE_EVENT_ADD_WITH_ID(TRACE_EVENT_PHASE_ASYNC_STEP, \
-        category, name, id, TRACE_EVENT_FLAG_COPY, \
-        arg1_name, arg1_val, arg2_name, arg2_val)
+        category, name, id, TRACE_EVENT_FLAG_COPY, "step", step)
+#define TRACE_EVENT_COPY_ASYNC_BEGIN_STEP1(category, name, id, step, \
+        arg1_name, arg1_val) \
+    INTERNAL_TRACE_EVENT_ADD_WITH_ID(TRACE_EVENT_PHASE_ASYNC_STEP, \
+        category, name, id, TRACE_EVENT_FLAG_COPY, "step", step, \
+        arg1_name, arg1_val)
 
 // Records a single ASYNC_END event for "name" immediately. If the category
 // is not enabled, then this does nothing.
@@ -530,12 +531,14 @@
 // Implementation detail: internal macro to create static category and add
 // event if the category is enabled.
 #define INTERNAL_TRACE_EVENT_ADD(phase, category, name, flags, ...) \
-    INTERNAL_TRACE_EVENT_GET_CATEGORY_INFO(category); \
-    if (*INTERNAL_TRACE_EVENT_UID(catstatic)) { \
-      trace_event_internal::AddTraceEvent( \
-          phase, INTERNAL_TRACE_EVENT_UID(catstatic), name, \
-          trace_event_internal::kNoEventId, flags, ##__VA_ARGS__); \
-    }
+    do { \
+      INTERNAL_TRACE_EVENT_GET_CATEGORY_INFO(category); \
+      if (*INTERNAL_TRACE_EVENT_UID(catstatic)) { \
+        trace_event_internal::AddTraceEvent( \
+            phase, INTERNAL_TRACE_EVENT_UID(catstatic), name, \
+            trace_event_internal::kNoEventId, flags, ##__VA_ARGS__); \
+      } \
+    } while (0)
 
 // Implementation detail: internal macro to create static category and add begin
 // event if the category is enabled. Also adds the end event when the scope
@@ -578,16 +581,18 @@
 // event if the category is enabled.
 #define INTERNAL_TRACE_EVENT_ADD_WITH_ID(phase, category, name, id, flags, \
                                          ...) \
-    INTERNAL_TRACE_EVENT_GET_CATEGORY_INFO(category); \
-    if (*INTERNAL_TRACE_EVENT_UID(catstatic)) { \
-      unsigned char trace_event_flags = flags | TRACE_EVENT_FLAG_HAS_ID; \
-      trace_event_internal::TraceID trace_event_trace_id( \
-          id, &trace_event_flags); \
-      trace_event_internal::AddTraceEvent( \
-          phase, INTERNAL_TRACE_EVENT_UID(catstatic), \
-          name, trace_event_trace_id.data(), trace_event_flags, \
-          ##__VA_ARGS__); \
-    }
+    do { \
+      INTERNAL_TRACE_EVENT_GET_CATEGORY_INFO(category); \
+      if (*INTERNAL_TRACE_EVENT_UID(catstatic)) { \
+        unsigned char trace_event_flags = flags | TRACE_EVENT_FLAG_HAS_ID; \
+        trace_event_internal::TraceID trace_event_trace_id( \
+            id, &trace_event_flags); \
+        trace_event_internal::AddTraceEvent( \
+            phase, INTERNAL_TRACE_EVENT_UID(catstatic), \
+            name, trace_event_trace_id.data(), trace_event_flags, \
+            ##__VA_ARGS__); \
+      } \
+    } while (0)
 
 // Notes regarding the following definitions:
 // New values can be added and propagated to third party libraries, but existing

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_CROS_SETTINGS_H_
 #define CHROME_BROWSER_CHROMEOS_CROS_SETTINGS_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -14,6 +13,7 @@
 #include "base/observer_list.h"
 #include "base/threading/non_thread_safe.h"
 #include "chrome/browser/chromeos/cros_settings_names.h"
+#include "chrome/browser/chromeos/cros_settings_provider.h"
 #include "content/public/browser/notification_observer.h"
 
 namespace base {
@@ -23,8 +23,6 @@ class Value;
 }
 
 namespace chromeos {
-
-class CrosSettingsProvider;
 
 // This class manages per-device/global settings.
 class CrosSettings : public base::NonThreadSafe {
@@ -46,7 +44,8 @@ class CrosSettings : public base::NonThreadSafe {
   // are trusted during the current loop cycle; otherwise returns false, and
   // |callback| will be invoked later when trusted values become available.
   // PrepareTrustedValues() should be tried again in that case.
-  virtual bool PrepareTrustedValues(const base::Closure& callback) const;
+  virtual CrosSettingsProvider::TrustedStatus PrepareTrustedValues(
+      const base::Closure& callback) const;
 
   // Convenience forms of Set().  These methods will replace any existing
   // value at that |path|, even if it has a different type.
@@ -55,7 +54,11 @@ class CrosSettings : public base::NonThreadSafe {
   void SetDouble(const std::string& path, double in_value);
   void SetString(const std::string& path, const std::string& in_value);
 
-  // Convenience functions for manipulating lists.
+  // Convenience functions for manipulating lists. Note that the following
+  // functions employs a read, modify and write pattern. If underlying settings
+  // provider updates its value asynchronously such as DeviceSettingsProvider,
+  // value cache they read from might not be fresh and multiple calls to those
+  // function would lose data. See http://crbug.com/127215
   void AppendToList(const std::string& path, const base::Value* value);
   void RemoveFromList(const std::string& path, const base::Value* value);
 
@@ -100,7 +103,8 @@ class CrosSettings : public base::NonThreadSafe {
 
   // A map from settings names to a list of observers. Observers get fired in
   // the order they are added.
-  typedef ObserverList<content::NotificationObserver> NotificationObserverList;
+  typedef ObserverList<content::NotificationObserver, true>
+      NotificationObserverList;
   typedef base::hash_map<std::string, NotificationObserverList*>
       SettingsObserverMap;
   SettingsObserverMap settings_observers_;

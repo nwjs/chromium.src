@@ -9,6 +9,7 @@
 #include "base/basictypes.h"
 #include "base/format_macros.h"
 #include "base/logging.h"
+#include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "dbus/object_path.h"
 #include "third_party/protobuf/src/google/protobuf/message_lite.h"
@@ -154,7 +155,17 @@ std::string Message::ToStringInternal(const std::string& indent,
         std::string value;
         if (!reader->PopString(&value))
           return kBrokenMessage;
-        output += indent + "string \"" + value + "\"\n";
+        // Truncate if the string is longer than the limit.
+        const size_t kTruncateLength = 100;
+        if (value.size() < kTruncateLength) {
+          output += indent + "string \"" + value + "\"\n";
+        } else {
+          std::string truncated;
+          TruncateUTF8ToByteSize(value, kTruncateLength, &truncated);
+          base::StringAppendF(&truncated, "... (%"PRIuS" bytes in total)",
+                              value.size());
+          output += indent + "string \"" + truncated + "\"\n";
+        }
         break;
       }
       case OBJECT_PATH: {
@@ -199,6 +210,16 @@ std::string Message::ToStringInternal(const std::string& indent,
         output += ToStringInternal(indent + "  ", &sub_reader);
         break;
       }
+      case UNIX_FD: {
+        CHECK(kDBusTypeUnixFdIsSupported);
+
+        FileDescriptor file_descriptor;
+        if (!reader->PopFileDescriptor(&file_descriptor))
+          return kBrokenMessage;
+        output += indent + "fd#" +
+                  base::StringPrintf("%d", file_descriptor.value()) + "\n";
+        break;
+      }
       default:
         LOG(FATAL) << "Unknown type: " << type;
     }
@@ -239,40 +260,28 @@ std::string Message::ToString() {
   return headers + "\n" + ToStringInternal("", &reader);
 }
 
-void Message::SetDestination(const std::string& destination) {
-  const bool success = dbus_message_set_destination(raw_message_,
-                                                    destination.c_str());
-  CHECK(success) << "Unable to allocate memory";
+bool Message::SetDestination(const std::string& destination) {
+  return dbus_message_set_destination(raw_message_, destination.c_str());
 }
 
-void Message::SetPath(const ObjectPath& path) {
-  const bool success = dbus_message_set_path(raw_message_,
-                                             path.value().c_str());
-  CHECK(success) << "Unable to allocate memory";
+bool Message::SetPath(const ObjectPath& path) {
+  return dbus_message_set_path(raw_message_, path.value().c_str());
 }
 
-void Message::SetInterface(const std::string& interface) {
-  const bool success = dbus_message_set_interface(raw_message_,
-                                                  interface.c_str());
-  CHECK(success) << "Unable to allocate memory";
+bool Message::SetInterface(const std::string& interface) {
+  return dbus_message_set_interface(raw_message_, interface.c_str());
 }
 
-void Message::SetMember(const std::string& member) {
-  const bool success = dbus_message_set_member(raw_message_,
-                                               member.c_str());
-  CHECK(success) << "Unable to allocate memory";
+bool Message::SetMember(const std::string& member) {
+  return dbus_message_set_member(raw_message_, member.c_str());
 }
 
-void Message::SetErrorName(const std::string& error_name) {
-  const bool success = dbus_message_set_error_name(raw_message_,
-                                                   error_name.c_str());
-  CHECK(success) << "Unable to allocate memory";
+bool Message::SetErrorName(const std::string& error_name) {
+  return dbus_message_set_error_name(raw_message_, error_name.c_str());
 }
 
-void Message::SetSender(const std::string& sender) {
-  const bool success = dbus_message_set_sender(raw_message_,
-                                               sender.c_str());
-  CHECK(success) << "Unable to allocate memory";
+bool Message::SetSender(const std::string& sender) {
+  return dbus_message_set_sender(raw_message_, sender.c_str());
 }
 
 void Message::SetSerial(uint32 serial) {
@@ -335,8 +344,8 @@ MethodCall::MethodCall(const std::string& interface_name,
     : Message() {
   Init(dbus_message_new(DBUS_MESSAGE_TYPE_METHOD_CALL));
 
-  SetInterface(interface_name);
-  SetMember(method_name);
+  CHECK(SetInterface(interface_name));
+  CHECK(SetMember(method_name));
 }
 
 MethodCall::MethodCall() : Message() {
@@ -358,8 +367,8 @@ Signal::Signal(const std::string& interface_name,
     : Message() {
   Init(dbus_message_new(DBUS_MESSAGE_TYPE_SIGNAL));
 
-  SetInterface(interface_name);
-  SetMember(method_name);
+  CHECK(SetInterface(interface_name));
+  CHECK(SetMember(method_name));
 }
 
 Signal::Signal() : Message() {
@@ -484,6 +493,8 @@ void MessageWriter::AppendDouble(double value) {
 }
 
 void MessageWriter::AppendString(const std::string& value) {
+  // D-Bus Specification (0.19) says a string "must be valid UTF-8".
+  CHECK(IsStringUTF8(value));
   const char* pointer = value.c_str();
   AppendBasic(DBUS_TYPE_STRING, &pointer);
   // TODO(satorux): It may make sense to return an error here, as the
@@ -492,6 +503,7 @@ void MessageWriter::AppendString(const std::string& value) {
 }
 
 void MessageWriter::AppendObjectPath(const ObjectPath& value) {
+  CHECK(value.IsValid());
   const char* pointer = value.value().c_str();
   AppendBasic(DBUS_TYPE_OBJECT_PATH, &pointer);
 }
@@ -675,6 +687,17 @@ void MessageWriter::AppendVariantOfBasic(int dbus_type, const void* value) {
   OpenVariant(signature, &variant_writer);
   variant_writer.AppendBasic(dbus_type, value);
   CloseContainer(&variant_writer);
+}
+
+void MessageWriter::AppendFileDescriptor(const FileDescriptor& value) {
+  CHECK(kDBusTypeUnixFdIsSupported);
+
+  if (!value.is_valid()) {
+    // NB: sending a directory potentially enables sandbox escape
+    LOG(FATAL) << "Attempt to pass invalid file descriptor";
+  }
+  int fd = value.value();
+  AppendBasic(DBUS_TYPE_UNIX_FD, &fd);
 }
 
 //
@@ -934,6 +957,19 @@ bool MessageReader::PopVariantOfBasic(int dbus_type, void* value) {
   if (!PopVariant(&variant_reader))
     return false;
   return variant_reader.PopBasic(dbus_type, value);
+}
+
+bool MessageReader::PopFileDescriptor(FileDescriptor* value) {
+  CHECK(kDBusTypeUnixFdIsSupported);
+
+  int fd = -1;
+  const bool success = PopBasic(DBUS_TYPE_UNIX_FD, &fd);
+  if (!success)
+    return false;
+
+  value->PutValue(fd);
+  // NB: the caller must check validity before using the value
+  return true;
 }
 
 }  // namespace dbus

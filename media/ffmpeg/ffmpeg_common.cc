@@ -5,8 +5,6 @@
 #include "media/ffmpeg/ffmpeg_common.h"
 
 #include "base/logging.h"
-#include "media/base/audio_decoder_config.h"
-#include "media/base/video_decoder_config.h"
 
 namespace media {
 
@@ -23,7 +21,7 @@ int64 ConvertToTimeBase(const AVRational& time_base,
   return av_rescale_q(timestamp.InMicroseconds(), kMicrosBase, time_base);
 }
 
-static AudioCodec CodecIDToAudioCodec(CodecID codec_id) {
+AudioCodec CodecIDToAudioCodec(CodecID codec_id) {
   switch (codec_id) {
     case CODEC_ID_AAC:
       return kCodecAAC;
@@ -33,7 +31,7 @@ static AudioCodec CodecIDToAudioCodec(CodecID codec_id) {
       return kCodecVorbis;
     case CODEC_ID_PCM_U8:
     case CODEC_ID_PCM_S16LE:
-    case CODEC_ID_PCM_S32LE:
+    case CODEC_ID_PCM_S24LE:
       return kCodecPCM;
     case CODEC_ID_FLAC:
       return kCodecFLAC;
@@ -63,7 +61,7 @@ static CodecID AudioCodecToCodecID(AudioCodec audio_codec,
         case 16:
           return CODEC_ID_PCM_S16LE;
         case 32:
-          return CODEC_ID_PCM_S32LE;
+          return CODEC_ID_PCM_S24LE;
         default:
           DVLOG(1) << "Unsupported bits per channel: " << bits_per_channel;
       }
@@ -84,7 +82,7 @@ static CodecID AudioCodecToCodecID(AudioCodec audio_codec,
   return CODEC_ID_NONE;
 }
 
-static VideoCodec CodecIDToVideoCodec(CodecID codec_id) {
+VideoCodec CodecIDToVideoCodec(CodecID codec_id) {
   switch (codec_id) {
     case CODEC_ID_VC1:
       return kCodecVC1;

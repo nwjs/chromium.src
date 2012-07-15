@@ -4,15 +4,21 @@
 
 #ifndef UI_VIEWS_WIDGET_NATIVE_WIDGET_DELEGATE_H_
 #define UI_VIEWS_WIDGET_NATIVE_WIDGET_DELEGATE_H_
-#pragma once
+
+#include <vector>
 
 #include "ui/base/events.h"
 #include "ui/views/views_export.h"
 
 namespace gfx {
 class Canvas;
+class Path;
 class Point;
 class Size;
+}
+
+namespace ui {
+class Layer;
 }
 
 namespace views {
@@ -72,6 +78,9 @@ class VIEWS_EXPORT NativeWidgetDelegate {
   // Returns the largest size the window can be resized to by the user.
   virtual gfx::Size GetMaximumSize() = 0;
 
+  // Called when the NativeWidget changed position.
+  virtual void OnNativeWidgetMove() = 0;
+
   // Called when the NativeWidget changed size to |new_size|.
   virtual void OnNativeWidgetSizeChanged(const gfx::Size& new_size) = 0;
 
@@ -109,6 +118,15 @@ class VIEWS_EXPORT NativeWidgetDelegate {
   // Note that this does not use the top level widget, so may return NULL
   // if the widget doesn't have input method.
   virtual InputMethod* GetInputMethodDirect() = 0;
+
+  // Returns the child Layers of the Widgets layer that were created by Views.
+  virtual const std::vector<ui::Layer*>& GetRootLayers() = 0;
+
+  // Returns true if window has a hit-test mask.
+  virtual bool HasHitTestMask() const = 0;
+
+  // Provides the hit-test mask if HasHitTestMask above returns true.
+  virtual void GetHitTestMask(gfx::Path* mask) const = 0;
 
   //
   virtual Widget* AsWidget() = 0;

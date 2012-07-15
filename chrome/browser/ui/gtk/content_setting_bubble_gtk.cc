@@ -14,8 +14,8 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/content_settings/content_setting_bubble_model.h"
 #include "chrome/browser/ui/gtk/gtk_chrome_link_button.h"
+#include "chrome/browser/ui/gtk/gtk_theme_service.h"
 #include "chrome/browser/ui/gtk/gtk_util.h"
-#include "chrome/browser/ui/gtk/theme_service_gtk.h"
 #include "chrome/common/content_settings.h"
 #include "content/public/browser/notification_source.h"
 #include "content/public/browser/notification_types.h"
@@ -91,7 +91,7 @@ void ContentSettingBubbleGtk::Observe(
 }
 
 void ContentSettingBubbleGtk::BuildBubble() {
-  ThemeServiceGtk* theme_provider = ThemeServiceGtk::GetFrom(profile_);
+  GtkThemeService* theme_provider = GtkThemeService::GetFrom(profile_);
 
   GtkWidget* bubble_content = gtk_vbox_new(FALSE, ui::kControlSpacing);
   gtk_container_set_border_width(GTK_CONTAINER(bubble_content), kContentBorder);
@@ -138,7 +138,7 @@ void ContentSettingBubbleGtk::BuildBubble() {
          i(popup_items.begin()); i != popup_items.end(); ++i, ++row) {
       GtkWidget* image = gtk_image_new();
       if (!i->bitmap.empty()) {
-        GdkPixbuf* icon_pixbuf = gfx::GdkPixbufFromSkBitmap(&i->bitmap);
+        GdkPixbuf* icon_pixbuf = gfx::GdkPixbufFromSkBitmap(i->bitmap);
         gtk_image_set_from_pixbuf(GTK_IMAGE(image), icon_pixbuf);
         g_object_unref(icon_pixbuf);
 
@@ -263,8 +263,9 @@ void ContentSettingBubbleGtk::BuildBubble() {
                             NULL,
                             bubble_content,
                             arrow_location,
-                            true,  // match_system_theme
-                            true,  // grab_input
+                            BubbleGtk::MATCH_SYSTEM_THEME |
+                                BubbleGtk::POPUP_WINDOW |
+                                BubbleGtk::GRAB_INPUT,
                             theme_provider,
                             this);
 }

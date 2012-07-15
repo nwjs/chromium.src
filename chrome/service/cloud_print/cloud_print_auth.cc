@@ -31,9 +31,6 @@ CloudPrintAuth::CloudPrintAuth(
   }
 }
 
-CloudPrintAuth::~CloudPrintAuth() {
-}
-
 void CloudPrintAuth::AuthenticateWithLsid(
     const std::string& lsid,
     const std::string& last_robot_refresh_token,
@@ -158,7 +155,7 @@ void CloudPrintAuth::OnNetworkError(int response_code) {
 }
 
 CloudPrintURLFetcher::ResponseAction CloudPrintAuth::HandleJSONData(
-    const content::URLFetcher* source,
+    const net::URLFetcher* source,
     const GURL& url,
     base::DictionaryValue* json_data,
     bool succeeded) {
@@ -202,4 +199,6 @@ std::string CloudPrintAuth::GetAuthHeader() {
   header += client_login_token_;
   return header;
 }
+
+CloudPrintAuth::~CloudPrintAuth() {}
 

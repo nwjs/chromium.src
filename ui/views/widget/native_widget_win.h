@@ -4,13 +4,13 @@
 
 #ifndef UI_VIEWS_WIDGET_NATIVE_WIDGET_WIN_H_
 #define UI_VIEWS_WIDGET_NATIVE_WIDGET_WIN_H_
-#pragma once
 
 #include <atlbase.h>
 #include <atlapp.h>
 #include <atlcrack.h>
 #include <atlmisc.h>
 
+#include <set>
 #include <string>
 #include <vector>
 
@@ -114,6 +114,13 @@ class VIEWS_EXPORT NativeWidgetWin : public ui::WindowImpl,
   // the top of the stack. See PushForceHidden.
   void PopForceHidden();
 
+  // Places the window in a pseudo-fullscreen mode where it looks and acts as
+  // like a fullscreen window except that it remains within the boundaries
+  // of the metro snap divider.
+  void SetMetroSnapFullscreen(bool metro_snap);
+
+  bool IsInMetroSnapMode() const;
+
   BOOL IsWindow() const {
     return ::IsWindow(GetNativeView());
   }
@@ -194,17 +201,17 @@ class VIEWS_EXPORT NativeWidgetWin : public ui::WindowImpl,
   virtual void SendNativeAccessibilityEvent(
       View* view,
       ui::AccessibilityTypes::Event event_type) OVERRIDE;
-  virtual void SetMouseCapture() OVERRIDE;
-  virtual void ReleaseMouseCapture() OVERRIDE;
-  virtual bool HasMouseCapture() const OVERRIDE;
+  virtual void SetCapture() OVERRIDE;
+  virtual void ReleaseCapture() OVERRIDE;
+  virtual bool HasCapture() const OVERRIDE;
   virtual InputMethod* CreateInputMethod() OVERRIDE;
   virtual void CenterWindow(const gfx::Size& size) OVERRIDE;
   virtual void GetWindowPlacement(
      gfx::Rect* bounds,
      ui::WindowShowState* show_state) const OVERRIDE;
   virtual void SetWindowTitle(const string16& title) OVERRIDE;
-  virtual void SetWindowIcons(const SkBitmap& window_icon,
-                              const SkBitmap& app_icon) OVERRIDE;
+  virtual void SetWindowIcons(const gfx::ImageSkia& window_icon,
+                              const gfx::ImageSkia& app_icon) OVERRIDE;
   virtual void SetAccessibleName(const string16& name) OVERRIDE;
   virtual void SetAccessibleRole(ui::AccessibilityTypes::Role role) OVERRIDE;
   virtual void SetAccessibleState(ui::AccessibilityTypes::State state) OVERRIDE;
@@ -249,7 +256,7 @@ class VIEWS_EXPORT NativeWidgetWin : public ui::WindowImpl,
   virtual void SetCursor(gfx::NativeCursor cursor) OVERRIDE;
   virtual void ClearNativeFocus() OVERRIDE;
   virtual void FocusNativeView(gfx::NativeView native_view) OVERRIDE;
-  virtual gfx::Rect GetWorkAreaBoundsInScreen() const OVERRIDE;
+  virtual gfx::Rect GetWorkAreaScreenBounds() const OVERRIDE;
   virtual void SetInactiveRenderingDisabled(bool value) OVERRIDE;
   virtual Widget::MoveLoopResult RunMoveLoop() OVERRIDE;
   virtual void EndMoveLoop() OVERRIDE;
@@ -318,6 +325,9 @@ class VIEWS_EXPORT NativeWidgetWin : public ui::WindowImpl,
     MESSAGE_HANDLER_EX(WM_SYSCHAR, OnImeMessages)
     MESSAGE_HANDLER_EX(WM_DEADCHAR, OnImeMessages)
     MESSAGE_HANDLER_EX(WM_SYSDEADCHAR, OnImeMessages)
+
+    // Touch Events.
+    MESSAGE_HANDLER_EX(WM_TOUCH, OnTouchEvent)
 
     // This list is in _ALPHABETICAL_ order! OR I WILL HURT YOU.
     MSG_WM_ACTIVATE(OnActivate)
@@ -416,12 +426,13 @@ class VIEWS_EXPORT NativeWidgetWin : public ui::WindowImpl,
   virtual LRESULT OnPowerBroadcast(DWORD power_event, DWORD data);
   virtual LRESULT OnReflectedMessage(UINT msg, WPARAM w_param, LPARAM l_param);
   virtual LRESULT OnSetCursor(UINT message, WPARAM w_param, LPARAM l_param);
-  virtual void OnSetFocus(HWND focused_window);
+  virtual void OnSetFocus(HWND old_focused_window);
   virtual LRESULT OnSetText(const wchar_t* text);
   virtual void OnSettingChange(UINT flags, const wchar_t* section);
   virtual void OnSize(UINT param, const CSize& size);
   virtual void OnSysCommand(UINT notification_code, CPoint click);
   virtual void OnThemeChanged();
+  virtual LRESULT OnTouchEvent(UINT message, WPARAM w_param, LPARAM l_param);
   virtual void OnVScroll(int scroll_type, short position, HWND scrollbar);
   virtual void OnWindowPosChanging(WINDOWPOS* window_pos);
   virtual void OnWindowPosChanged(WINDOWPOS* window_pos);
@@ -468,6 +479,7 @@ class VIEWS_EXPORT NativeWidgetWin : public ui::WindowImpl,
 
  private:
   typedef ScopedVector<ui::ViewProp> ViewProps;
+  typedef std::set<DWORD> TouchIDs;
 
   // Called after the WM_ACTIVATE message has been processed by the default
   // windows procedure.
@@ -486,8 +498,8 @@ class VIEWS_EXPORT NativeWidgetWin : public ui::WindowImpl,
   // Lock or unlock the window from being able to redraw itself in response to
   // updates to its invalid region.
   class ScopedRedrawLock;
-  void LockUpdates();
-  void UnlockUpdates();
+  void LockUpdates(bool force);
+  void UnlockUpdates(bool force);
 
   // Determines whether the delegate expects the client size or the window size.
   bool WidgetSizeIsClientSize() const;
@@ -519,8 +531,19 @@ class VIEWS_EXPORT NativeWidgetWin : public ui::WindowImpl,
 
   void SetInitialFocus();
 
+  // Notifies any owned windows that we're closing.
+  void NotifyOwnedWindowsParentClosing();
+
   // Overridden from internal::InputMethodDelegate
   virtual void DispatchKeyEventPostIME(const KeyEvent& key) OVERRIDE;
+
+  // Common implementation of fullscreen-related code. This method handles
+  // changing from windowed mode to a display mode (dubbed fullscreen mode)
+  // where the window occupies a fixed portion (possibly 100%) of the screen.
+  // |fullscreen| specifies whether we are entering or leaving fullscreen mode.
+  // |for_metro| specifies whether we are doing this at the behest of a metro
+  //             snap transition.
+  void SetFullscreenInternal(bool fullscreen, bool for_metro);
 
   // A delegate implementation that handles events received here.
   // See class documentation for Widget in widget.h for a note about ownership.
@@ -603,6 +626,9 @@ class VIEWS_EXPORT NativeWidgetWin : public ui::WindowImpl,
   // True if we're in fullscreen mode.
   bool fullscreen_;
 
+  // True if we're in metro snap mode.
+  bool metro_snap_;
+
   // If this is greater than zero, we should prevent attempts to make the window
   // visible when we handle WM_WINDOWPOSCHANGING. Some calls like
   // ShowWindow(SW_RESTORE) make the window visible in addition to restoring it,
@@ -650,6 +676,9 @@ class VIEWS_EXPORT NativeWidgetWin : public ui::WindowImpl,
   bool has_non_client_view_;
 
   bool remove_standard_frame_;
+
+  // The set of touch devices currently down.
+  TouchIDs touch_ids_;
 
   DISALLOW_COPY_AND_ASSIGN(NativeWidgetWin);
 };

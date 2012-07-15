@@ -3,7 +3,8 @@
 // found in the LICENSE file.
 
 // TODO(sail): Refactor options_page and remove this include.
-<include src="../options/options_page.js"/>
+<include src="../options2/options_page.js"/>
+<include src="../shared/js/util.js"/>
 <include src="../sync_setup_overlay.js"/>
 
 cr.define('sync_promo', function() {
@@ -15,12 +16,12 @@ cr.define('sync_promo', function() {
    */
   function SyncPromo() {
     options.SyncSetupOverlay.call(this, 'syncSetup',
-                                  templateData.syncSetupOverlayTabTitle,
-                                  'sync-setup-overlay');
+        loadTimeData.getString('syncSetupOverlayTabTitle'),
+        'sync-setup-overlay');
   }
 
   // Replicating enum from chrome/common/extensions/extension_constants.h.
-  const actions = (function() {
+  /** @const */ var actions = (function() {
     var i = 0;
     return {
       VIEWED: i++,
@@ -55,8 +56,6 @@ cr.define('sync_promo', function() {
 
     // Initializes the page.
     initializePage: function() {
-      localStrings = new LocalStrings();
-
       options.SyncSetupOverlay.prototype.initializePage.call(this);
 
       // Hide parts of the login UI and show the promo UI.
@@ -112,7 +111,7 @@ cr.define('sync_promo', function() {
 
       var encryptionHelpClickedAlready = false;
       $('encryption-help-link').addEventListener('click', function() {
-        if (!encryptionHelpClickedAlready )
+        if (!encryptionHelpClickedAlready)
           chrome.send('SyncPromo:UserFlowAction',
                       [actions.ENCRYPTION_HELP_CLICKED]);
         encryptionHelpClickedAlready = true;
@@ -132,6 +131,12 @@ cr.define('sync_promo', function() {
       };
       $('confirm-everything-cancel').addEventListener('click', cancelFunc);
       $('choose-datatypes-cancel').addEventListener('click', cancelFunc);
+
+      // Add the source parameter to the document so that it can be used to
+      // selectively show and hide elements using CSS.
+      var params = parseQueryParams(document.location);
+      if (params.source == '0')
+        document.documentElement.setAttribute('isstartup', '');
     },
 
     /**

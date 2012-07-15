@@ -7,6 +7,7 @@
 #include <string>
 
 #include "base/memory/ref_counted.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/memory/scoped_vector.h"
 #include "net/base/io_buffer.h"
 #include "net/base/net_errors.h"
@@ -27,6 +28,7 @@ namespace net {
 class DummySocketParams : public base::RefCounted<DummySocketParams> {
  private:
   friend class base::RefCounted<DummySocketParams>;
+  ~DummySocketParams() {}
 };
 
 REGISTER_SOCKET_PARAMS_FOR_POOL(MockTransportClientSocketPool,
@@ -79,8 +81,8 @@ class HttpPipelinedConnectionImplTest : public testing::Test {
 
   void Initialize(MockRead* reads, size_t reads_count,
                   MockWrite* writes, size_t writes_count) {
-    data_ = new DeterministicSocketData(reads, reads_count,
-                                        writes, writes_count);
+    data_.reset(new DeterministicSocketData(reads, reads_count,
+                                            writes, writes_count));
     data_->set_connect_data(MockConnect(SYNCHRONOUS, OK));
     if (reads_count || writes_count) {
       data_->StopAfter(reads_count + writes_count);
@@ -92,7 +94,7 @@ class HttpPipelinedConnectionImplTest : public testing::Test {
                      BoundNetLog());
     pipeline_.reset(new HttpPipelinedConnectionImpl(
         connection, &delegate_, origin_, ssl_config_, proxy_info_,
-        BoundNetLog(), false, SSLClientSocket::kProtoUnknown));
+        BoundNetLog(), false, kProtoUnknown));
   }
 
   HttpRequestInfo* GetRequestInfo(const std::string& filename) {
@@ -136,7 +138,8 @@ class HttpPipelinedConnectionImplTest : public testing::Test {
     HttpRequestHeaders headers;
     HttpResponseInfo response;
     EXPECT_EQ(OK, stream->SendRequest(
-        headers, NULL, &response, callback_.callback()));
+        headers, scoped_ptr<UploadDataStream>(), &response,
+        callback_.callback()));
     EXPECT_EQ(OK, stream->ReadResponseHeaders(callback_.callback()));
     ExpectResponse(filename, stream, false);
 
@@ -146,7 +149,7 @@ class HttpPipelinedConnectionImplTest : public testing::Test {
   DeterministicMockClientSocketFactory factory_;
   ClientSocketPoolHistograms histograms_;
   MockTransportClientSocketPool pool_;
-  scoped_refptr<DeterministicSocketData> data_;
+  scoped_ptr<DeterministicSocketData> data_;
 
   HostPortPair origin_;
   SSLConfig ssl_config_;
@@ -207,8 +210,9 @@ TEST_F(HttpPipelinedConnectionImplTest, AsyncSingleRequest) {
 
   HttpRequestHeaders headers;
   HttpResponseInfo response;
-  EXPECT_EQ(ERR_IO_PENDING, stream->SendRequest(headers, NULL, &response,
-                                                callback_.callback()));
+  EXPECT_EQ(ERR_IO_PENDING,
+            stream->SendRequest(headers, scoped_ptr<UploadDataStream>(),
+                                &response, callback_.callback()));
   data_->RunFor(1);
   EXPECT_LE(OK, callback_.WaitForResult());
 
@@ -241,13 +245,15 @@ TEST_F(HttpPipelinedConnectionImplTest, LockStepAsyncRequests) {
 
   HttpRequestHeaders headers1;
   HttpResponseInfo response1;
-  EXPECT_EQ(ERR_IO_PENDING, stream1->SendRequest(headers1, NULL, &response1,
-                                                 callback_.callback()));
+  EXPECT_EQ(ERR_IO_PENDING,
+            stream1->SendRequest(headers1, scoped_ptr<UploadDataStream>(),
+                                 &response1, callback_.callback()));
 
   HttpRequestHeaders headers2;
   HttpResponseInfo response2;
-  EXPECT_EQ(ERR_IO_PENDING, stream2->SendRequest(headers2, NULL, &response2,
-                                                 callback_.callback()));
+  EXPECT_EQ(ERR_IO_PENDING,
+            stream2->SendRequest(headers2, scoped_ptr<UploadDataStream>(),
+                                 &response2, callback_.callback()));
 
   data_->RunFor(1);
   EXPECT_LE(OK, callback_.WaitForResult());
@@ -293,12 +299,14 @@ TEST_F(HttpPipelinedConnectionImplTest, TwoResponsesInOnePacket) {
 
   HttpRequestHeaders headers1;
   HttpResponseInfo response1;
-  EXPECT_EQ(OK, stream1->SendRequest(headers1, NULL, &response1,
-                                     callback_.callback()));
+  EXPECT_EQ(OK,
+            stream1->SendRequest(headers1, scoped_ptr<UploadDataStream>(),
+                                 &response1, callback_.callback()));
   HttpRequestHeaders headers2;
   HttpResponseInfo response2;
-  EXPECT_EQ(OK, stream2->SendRequest(headers2, NULL, &response2,
-                                     callback_.callback()));
+  EXPECT_EQ(OK,
+            stream2->SendRequest(headers2, scoped_ptr<UploadDataStream>(),
+                                 &response2, callback_.callback()));
 
   EXPECT_EQ(OK, stream1->ReadResponseHeaders(callback_.callback()));
   ExpectResponse("ok.html", stream1, false);
@@ -351,13 +359,13 @@ TEST_F(HttpPipelinedConnectionImplTest, ReadOrderSwapped) {
 
   HttpRequestHeaders headers1;
   HttpResponseInfo response1;
-  EXPECT_EQ(OK, stream1->SendRequest(headers1, NULL, &response1,
-                                     callback_.callback()));
+  EXPECT_EQ(OK, stream1->SendRequest(headers1, scoped_ptr<UploadDataStream>(),
+                                     &response1, callback_.callback()));
 
   HttpRequestHeaders headers2;
   HttpResponseInfo response2;
-  EXPECT_EQ(OK, stream2->SendRequest(headers2, NULL, &response2,
-                                     callback_.callback()));
+  EXPECT_EQ(OK, stream2->SendRequest(headers2, scoped_ptr<UploadDataStream>(),
+                                     &response2, callback_.callback()));
 
   EXPECT_EQ(ERR_IO_PENDING, stream2->ReadResponseHeaders(callback_.callback()));
 
@@ -392,14 +400,14 @@ TEST_F(HttpPipelinedConnectionImplTest, SendWhileReading) {
 
   HttpRequestHeaders headers1;
   HttpResponseInfo response1;
-  EXPECT_EQ(OK, stream1->SendRequest(headers1, NULL, &response1,
-                                     callback_.callback()));
+  EXPECT_EQ(OK, stream1->SendRequest(headers1, scoped_ptr<UploadDataStream>(),
+                                     &response1, callback_.callback()));
   EXPECT_EQ(OK, stream1->ReadResponseHeaders(callback_.callback()));
 
   HttpRequestHeaders headers2;
   HttpResponseInfo response2;
-  EXPECT_EQ(OK, stream2->SendRequest(headers2, NULL, &response2,
-                                     callback_.callback()));
+  EXPECT_EQ(OK, stream2->SendRequest(headers2, scoped_ptr<UploadDataStream>(),
+                                     &response2, callback_.callback()));
 
   ExpectResponse("ok.html", stream1, false);
   stream1->Close(false);
@@ -429,8 +437,8 @@ TEST_F(HttpPipelinedConnectionImplTest, AsyncSendWhileAsyncReadBlocked) {
 
   HttpRequestHeaders headers1;
   HttpResponseInfo response1;
-  EXPECT_EQ(OK, stream1->SendRequest(headers1, NULL, &response1,
-                                     callback_.callback()));
+  EXPECT_EQ(OK, stream1->SendRequest(headers1, scoped_ptr<UploadDataStream>(),
+                                     &response1, callback_.callback()));
   EXPECT_EQ(OK, stream1->ReadResponseHeaders(callback_.callback()));
   TestCompletionCallback callback1;
   std::string expected = "ok.html";
@@ -443,8 +451,8 @@ TEST_F(HttpPipelinedConnectionImplTest, AsyncSendWhileAsyncReadBlocked) {
   HttpResponseInfo response2;
   TestCompletionCallback callback2;
   EXPECT_EQ(ERR_IO_PENDING,
-            stream2->SendRequest(headers2, NULL, &response2,
-                                 callback2.callback()));
+            stream2->SendRequest(headers2, scoped_ptr<UploadDataStream>(),
+                                 &response2, callback2.callback()));
 
   data_->RunFor(1);
   EXPECT_LE(OK, callback2.WaitForResult());
@@ -499,14 +507,17 @@ TEST_F(HttpPipelinedConnectionImplTest, UnsentStreamAllowsLaterUse) {
 
   HttpRequestHeaders headers;
   HttpResponseInfo response;
-  EXPECT_EQ(ERR_IO_PENDING, stream->SendRequest(headers, NULL, &response,
-                                                callback_.callback()));
+  EXPECT_EQ(ERR_IO_PENDING,
+            stream->SendRequest(headers, scoped_ptr<UploadDataStream>(),
+                                &response, callback_.callback()));
 
   scoped_ptr<HttpStream> unsent_stream(NewTestStream("unsent.html"));
   HttpRequestHeaders unsent_headers;
   HttpResponseInfo unsent_response;
   EXPECT_EQ(ERR_IO_PENDING,
-            unsent_stream->SendRequest(unsent_headers, NULL, &unsent_response,
+            unsent_stream->SendRequest(unsent_headers,
+                                       scoped_ptr<UploadDataStream>(),
+                                       &unsent_response,
                                        callback_.callback()));
   unsent_stream->Close(false);
 
@@ -541,14 +552,17 @@ TEST_F(HttpPipelinedConnectionImplTest, FailedSend) {
   HttpResponseInfo response;
   TestCompletionCallback failed_callback;
   EXPECT_EQ(ERR_IO_PENDING,
-            failed_stream->SendRequest(headers, NULL, &response,
-                                       failed_callback.callback()));
+            failed_stream->SendRequest(headers, scoped_ptr<UploadDataStream>(),
+                                       &response, failed_callback.callback()));
   TestCompletionCallback evicted_callback;
   EXPECT_EQ(ERR_IO_PENDING,
-            evicted_stream->SendRequest(headers, NULL, &response,
+            evicted_stream->SendRequest(headers,
+                                        scoped_ptr<UploadDataStream>(),
+                                        &response,
                                         evicted_callback.callback()));
   EXPECT_EQ(ERR_IO_PENDING,
-            closed_stream->SendRequest(headers, NULL, &response,
+            closed_stream->SendRequest(headers, scoped_ptr<UploadDataStream>(),
+                                       &response,
                                        callback_.callback()));
   closed_stream->Close(false);
 
@@ -556,8 +570,9 @@ TEST_F(HttpPipelinedConnectionImplTest, FailedSend) {
   EXPECT_EQ(ERR_FAILED, failed_callback.WaitForResult());
   EXPECT_EQ(ERR_PIPELINE_EVICTION, evicted_callback.WaitForResult());
   EXPECT_EQ(ERR_PIPELINE_EVICTION,
-            rejected_stream->SendRequest(headers, NULL, &response,
-                                         callback_.callback()));
+            rejected_stream->SendRequest(headers,
+                                         scoped_ptr<UploadDataStream>(),
+                                         &response, callback_.callback()));
 
   failed_stream->Close(true);
   evicted_stream->Close(true);
@@ -591,20 +606,27 @@ TEST_F(HttpPipelinedConnectionImplTest, ConnectionSuddenlyClosedAfterResponse) {
 
   HttpRequestHeaders headers;
   HttpResponseInfo response;
-  EXPECT_EQ(OK, closed_stream->SendRequest(headers, NULL, &response,
-                                           callback_.callback()));
-  EXPECT_EQ(OK, read_evicted_stream->SendRequest(headers, NULL, &response,
-                                                 callback_.callback()));
-  EXPECT_EQ(OK, read_rejected_stream->SendRequest(headers, NULL, &response,
-                                                  callback_.callback()));
+  EXPECT_EQ(OK,
+            closed_stream->SendRequest(headers, scoped_ptr<UploadDataStream>(),
+                                       &response, callback_.callback()));
+  EXPECT_EQ(OK,
+            read_evicted_stream->SendRequest(
+                headers, scoped_ptr<UploadDataStream>(), &response,
+                callback_.callback()));
+  EXPECT_EQ(OK,
+            read_rejected_stream->SendRequest(
+                headers, scoped_ptr<UploadDataStream>(), &response,
+                callback_.callback()));
   TestCompletionCallback send_closed_callback;
   EXPECT_EQ(ERR_IO_PENDING,
-            send_closed_stream->SendRequest(headers, NULL, &response,
-                                            send_closed_callback.callback()));
+            send_closed_stream->SendRequest(
+                headers, scoped_ptr<UploadDataStream>(), &response,
+                send_closed_callback.callback()));
   TestCompletionCallback send_evicted_callback;
   EXPECT_EQ(ERR_IO_PENDING,
-            send_evicted_stream->SendRequest(headers, NULL, &response,
-                                             send_evicted_callback.callback()));
+            send_evicted_stream->SendRequest(
+                headers, scoped_ptr<UploadDataStream>(), &response,
+                send_evicted_callback.callback()));
 
   TestCompletionCallback read_evicted_callback;
   EXPECT_EQ(ERR_IO_PENDING,
@@ -630,8 +652,9 @@ TEST_F(HttpPipelinedConnectionImplTest, ConnectionSuddenlyClosedAfterResponse) {
   send_evicted_stream->Close(true);
 
   EXPECT_EQ(ERR_PIPELINE_EVICTION,
-            send_rejected_stream->SendRequest(headers, NULL, &response,
-                                              callback_.callback()));
+            send_rejected_stream->SendRequest(
+                headers, scoped_ptr<UploadDataStream>(), &response,
+                callback_.callback()));
   send_rejected_stream->Close(true);
 }
 
@@ -648,12 +671,14 @@ TEST_F(HttpPipelinedConnectionImplTest, AbortWhileSending) {
   HttpResponseInfo response;
   TestCompletionCallback aborted_callback;
   EXPECT_EQ(ERR_IO_PENDING,
-            aborted_stream->SendRequest(headers, NULL, &response,
-                                        aborted_callback.callback()));
+            aborted_stream->SendRequest(
+                headers, scoped_ptr<UploadDataStream>(), &response,
+                aborted_callback.callback()));
   TestCompletionCallback evicted_callback;
   EXPECT_EQ(ERR_IO_PENDING,
-            evicted_stream->SendRequest(headers, NULL, &response,
-                                        evicted_callback.callback()));
+            evicted_stream->SendRequest(
+                headers, scoped_ptr<UploadDataStream>(), &response,
+                evicted_callback.callback()));
 
   aborted_stream->Close(true);
   EXPECT_EQ(ERR_PIPELINE_EVICTION, evicted_callback.WaitForResult());
@@ -676,16 +701,18 @@ TEST_F(HttpPipelinedConnectionImplTest, AbortWhileSendingSecondRequest) {
   HttpResponseInfo response;
   TestCompletionCallback ok_callback;
   EXPECT_EQ(ERR_IO_PENDING,
-            ok_stream->SendRequest(headers, NULL, &response,
-                                   ok_callback.callback()));
+            ok_stream->SendRequest(headers, scoped_ptr<UploadDataStream>(),
+                                   &response, ok_callback.callback()));
   TestCompletionCallback aborted_callback;
   EXPECT_EQ(ERR_IO_PENDING,
-            aborted_stream->SendRequest(headers, NULL, &response,
-                                        aborted_callback.callback()));
+            aborted_stream->SendRequest(
+                headers, scoped_ptr<UploadDataStream>(), &response,
+                aborted_callback.callback()));
   TestCompletionCallback evicted_callback;
   EXPECT_EQ(ERR_IO_PENDING,
-            evicted_stream->SendRequest(headers, NULL, &response,
-                                        evicted_callback.callback()));
+            evicted_stream->SendRequest(
+                headers, scoped_ptr<UploadDataStream>(), &response,
+                evicted_callback.callback()));
 
   data_->RunFor(1);
   EXPECT_LE(OK, ok_callback.WaitForResult());
@@ -713,10 +740,14 @@ TEST_F(HttpPipelinedConnectionImplTest, AbortWhileReadingHeaders) {
 
   HttpRequestHeaders headers;
   HttpResponseInfo response;
-  EXPECT_EQ(OK, aborted_stream->SendRequest(headers, NULL, &response,
-                                            callback_.callback()));
-  EXPECT_EQ(OK, evicted_stream->SendRequest(headers, NULL, &response,
-                                            callback_.callback()));
+  EXPECT_EQ(OK,
+            aborted_stream->SendRequest(
+                headers, scoped_ptr<UploadDataStream>(), &response,
+                callback_.callback()));
+  EXPECT_EQ(OK,
+            evicted_stream->SendRequest(
+                headers, scoped_ptr<UploadDataStream>(), &response,
+                callback_.callback()));
 
   EXPECT_EQ(ERR_IO_PENDING,
             aborted_stream->ReadResponseHeaders(callback_.callback()));
@@ -729,8 +760,9 @@ TEST_F(HttpPipelinedConnectionImplTest, AbortWhileReadingHeaders) {
   evicted_stream->Close(true);
 
   EXPECT_EQ(ERR_PIPELINE_EVICTION,
-            rejected_stream->SendRequest(headers, NULL, &response,
-                                         callback_.callback()));
+            rejected_stream->SendRequest(
+                headers, scoped_ptr<UploadDataStream>(), &response,
+                callback_.callback()));
   rejected_stream->Close(true);
 }
 
@@ -753,12 +785,17 @@ TEST_F(HttpPipelinedConnectionImplTest, PendingResponseAbandoned) {
 
   HttpRequestHeaders headers;
   HttpResponseInfo response;
-  EXPECT_EQ(OK, ok_stream->SendRequest(headers, NULL, &response,
-                                       callback_.callback()));
-  EXPECT_EQ(OK, abandoned_stream->SendRequest(headers, NULL, &response,
-                                              callback_.callback()));
-  EXPECT_EQ(OK, evicted_stream->SendRequest(headers, NULL, &response,
-                                            callback_.callback()));
+  EXPECT_EQ(OK,
+            ok_stream->SendRequest(headers, scoped_ptr<UploadDataStream>(),
+                                   &response, callback_.callback()));
+  EXPECT_EQ(OK,
+            abandoned_stream->SendRequest(
+                headers, scoped_ptr<UploadDataStream>(), &response,
+                callback_.callback()));
+  EXPECT_EQ(OK,
+            evicted_stream->SendRequest(
+                headers, scoped_ptr<UploadDataStream>(), &response,
+                callback_.callback()));
 
   EXPECT_EQ(OK, ok_stream->ReadResponseHeaders(callback_.callback()));
   TestCompletionCallback abandoned_callback;
@@ -800,10 +837,13 @@ TEST_F(HttpPipelinedConnectionImplTest, DisconnectedAfterOneRequestRecovery) {
 
   HttpRequestHeaders headers;
   HttpResponseInfo response;
-  EXPECT_EQ(OK, ok_stream->SendRequest(headers, NULL, &response,
-                                       callback_.callback()));
-  EXPECT_EQ(OK, rejected_read_stream->SendRequest(
-      headers, NULL, &response, callback_.callback()));
+  EXPECT_EQ(OK,
+            ok_stream->SendRequest(headers, scoped_ptr<UploadDataStream>(),
+                                   &response, callback_.callback()));
+  EXPECT_EQ(OK,
+            rejected_read_stream->SendRequest(
+                headers, scoped_ptr<UploadDataStream>(), &response,
+                callback_.callback()));
 
   EXPECT_EQ(OK, ok_stream->ReadResponseHeaders(callback_.callback()));
   ExpectResponse("ok.html", ok_stream, false);
@@ -811,16 +851,18 @@ TEST_F(HttpPipelinedConnectionImplTest, DisconnectedAfterOneRequestRecovery) {
 
   TestCompletionCallback read_callback;
   EXPECT_EQ(ERR_IO_PENDING,
-            evicted_send_stream->SendRequest(headers, NULL, &response,
-                                             read_callback.callback()));
+            evicted_send_stream->SendRequest(
+                headers, scoped_ptr<UploadDataStream>(), &response,
+                read_callback.callback()));
   data_->RunFor(1);
   EXPECT_EQ(ERR_PIPELINE_EVICTION, read_callback.WaitForResult());
 
   EXPECT_EQ(ERR_PIPELINE_EVICTION,
             rejected_read_stream->ReadResponseHeaders(callback_.callback()));
   EXPECT_EQ(ERR_PIPELINE_EVICTION,
-            rejected_send_stream->SendRequest(headers, NULL, &response,
-                                              callback_.callback()));
+            rejected_send_stream->SendRequest(
+                headers, scoped_ptr<UploadDataStream>(), &response,
+                callback_.callback()));
 
   rejected_read_stream->Close(true);
   rejected_send_stream->Close(true);
@@ -844,10 +886,13 @@ TEST_F(HttpPipelinedConnectionImplTest, DisconnectedPendingReadRecovery) {
 
   HttpRequestHeaders headers;
   HttpResponseInfo response;
-  EXPECT_EQ(OK, ok_stream->SendRequest(headers, NULL, &response,
-                                       callback_.callback()));
-  EXPECT_EQ(OK, evicted_stream->SendRequest(
-      headers, NULL, &response, callback_.callback()));
+  EXPECT_EQ(OK,
+            ok_stream->SendRequest(headers, scoped_ptr<UploadDataStream>(),
+                                   &response, callback_.callback()));
+  EXPECT_EQ(OK,
+            evicted_stream->SendRequest(
+                headers, scoped_ptr<UploadDataStream>(), &response,
+                callback_.callback()));
 
   EXPECT_EQ(OK, ok_stream->ReadResponseHeaders(callback_.callback()));
   ExpectResponse("ok.html", ok_stream, false);
@@ -880,10 +925,13 @@ TEST_F(HttpPipelinedConnectionImplTest, CloseCalledBeforeNextReadLoop) {
 
   HttpRequestHeaders headers;
   HttpResponseInfo response;
-  EXPECT_EQ(OK, ok_stream->SendRequest(headers, NULL, &response,
-                                       callback_.callback()));
-  EXPECT_EQ(OK, evicted_stream->SendRequest(
-      headers, NULL, &response, callback_.callback()));
+  EXPECT_EQ(OK,
+            ok_stream->SendRequest(headers, scoped_ptr<UploadDataStream>(),
+                                   &response, callback_.callback()));
+  EXPECT_EQ(OK,
+            evicted_stream->SendRequest(
+                headers, scoped_ptr<UploadDataStream>(), &response,
+                callback_.callback()));
 
   EXPECT_EQ(OK, ok_stream->ReadResponseHeaders(callback_.callback()));
   ExpectResponse("ok.html", ok_stream, false);
@@ -914,10 +962,13 @@ TEST_F(HttpPipelinedConnectionImplTest, CloseCalledBeforeReadCallback) {
 
   HttpRequestHeaders headers;
   HttpResponseInfo response;
-  EXPECT_EQ(OK, ok_stream->SendRequest(headers, NULL, &response,
-                                       callback_.callback()));
-  EXPECT_EQ(OK, evicted_stream->SendRequest(
-      headers, NULL, &response, callback_.callback()));
+  EXPECT_EQ(OK,
+            ok_stream->SendRequest(headers, scoped_ptr<UploadDataStream>(),
+                                   &response, callback_.callback()));
+  EXPECT_EQ(OK,
+            evicted_stream->SendRequest(
+                headers, scoped_ptr<UploadDataStream>(), &response,
+                callback_.callback()));
 
   EXPECT_EQ(OK, ok_stream->ReadResponseHeaders(callback_.callback()));
   ExpectResponse("ok.html", ok_stream, false);
@@ -967,8 +1018,9 @@ TEST_F(HttpPipelinedConnectionImplTest, CloseCalledDuringSendCallback) {
   StreamDeleter deleter(stream);
   HttpRequestHeaders headers;
   HttpResponseInfo response;
-  EXPECT_EQ(ERR_IO_PENDING, stream->SendRequest(headers, NULL, &response,
-                                                deleter.callback()));
+  EXPECT_EQ(ERR_IO_PENDING,
+            stream->SendRequest(headers, scoped_ptr<UploadDataStream>(),
+                                &response, deleter.callback()));
   data_->RunFor(1);
 }
 
@@ -986,8 +1038,8 @@ TEST_F(HttpPipelinedConnectionImplTest, CloseCalledDuringReadCallback) {
 
   HttpRequestHeaders headers;
   HttpResponseInfo response;
-  EXPECT_EQ(OK, stream->SendRequest(headers, NULL, &response,
-                                    callback_.callback()));
+  EXPECT_EQ(OK, stream->SendRequest(headers, scoped_ptr<UploadDataStream>(),
+                                    &response, callback_.callback()));
 
   StreamDeleter deleter(stream);
   EXPECT_EQ(ERR_IO_PENDING, stream->ReadResponseHeaders(deleter.callback()));
@@ -1011,10 +1063,13 @@ TEST_F(HttpPipelinedConnectionImplTest,
 
   HttpRequestHeaders headers;
   HttpResponseInfo response;
-  EXPECT_EQ(OK, failed_stream->SendRequest(headers, NULL, &response,
-                                           callback_.callback()));
-  EXPECT_EQ(OK, evicted_stream->SendRequest(headers, NULL, &response,
-                                            callback_.callback()));
+  EXPECT_EQ(OK,
+            failed_stream->SendRequest(headers, scoped_ptr<UploadDataStream>(),
+                                       &response, callback_.callback()));
+  EXPECT_EQ(OK,
+            evicted_stream->SendRequest(headers,
+                                        scoped_ptr<UploadDataStream>(),
+                                        &response, callback_.callback()));
 
   StreamDeleter failed_deleter(failed_stream);
   EXPECT_EQ(ERR_IO_PENDING,
@@ -1041,10 +1096,13 @@ TEST_F(HttpPipelinedConnectionImplTest, CloseOtherDuringReadCallback) {
 
   HttpRequestHeaders headers;
   HttpResponseInfo response;
-  EXPECT_EQ(OK, deleter_stream->SendRequest(headers, NULL, &response,
-                                            callback_.callback()));
-  EXPECT_EQ(OK, deleted_stream->SendRequest(headers, NULL, &response,
-                                            callback_.callback()));
+  EXPECT_EQ(OK, deleter_stream->SendRequest(headers,
+                                            scoped_ptr<UploadDataStream>(),
+                                            &response, callback_.callback()));
+  EXPECT_EQ(OK,
+            deleted_stream->SendRequest(headers,
+                                        scoped_ptr<UploadDataStream>(),
+                                        &response, callback_.callback()));
 
   StreamDeleter deleter(deleted_stream);
   EXPECT_EQ(ERR_IO_PENDING,
@@ -1068,8 +1126,9 @@ TEST_F(HttpPipelinedConnectionImplTest, CloseBeforeSendCallbackRuns) {
       new TestCompletionCallback);
   HttpRequestHeaders headers;
   HttpResponseInfo response;
-  EXPECT_EQ(ERR_IO_PENDING, close_stream->SendRequest(
-      headers, NULL, &response, close_callback->callback()));
+  EXPECT_EQ(ERR_IO_PENDING,
+            close_stream->SendRequest(headers, scoped_ptr<UploadDataStream>(),
+                                      &response, close_callback->callback()));
 
   data_->RunFor(1);
   EXPECT_FALSE(close_callback->have_result());
@@ -1097,8 +1156,9 @@ TEST_F(HttpPipelinedConnectionImplTest, CloseBeforeReadCallbackRuns) {
 
   HttpRequestHeaders headers;
   HttpResponseInfo response;
-  EXPECT_EQ(OK, close_stream->SendRequest(headers, NULL, &response,
-                                          callback_.callback()));
+  EXPECT_EQ(OK,
+            close_stream->SendRequest(headers, scoped_ptr<UploadDataStream>(),
+                                      &response, callback_.callback()));
 
   scoped_ptr<TestCompletionCallback> close_callback(
       new TestCompletionCallback);
@@ -1128,14 +1188,16 @@ TEST_F(HttpPipelinedConnectionImplTest, AbortWhileSendQueued) {
   HttpRequestHeaders headers1;
   HttpResponseInfo response1;
   TestCompletionCallback callback1;
-  EXPECT_EQ(ERR_IO_PENDING, stream1->SendRequest(headers1, NULL, &response1,
-                                                 callback1.callback()));
+  EXPECT_EQ(ERR_IO_PENDING,
+            stream1->SendRequest(headers1, scoped_ptr<UploadDataStream>(),
+                                 &response1, callback1.callback()));
 
   HttpRequestHeaders headers2;
   HttpResponseInfo response2;
   TestCompletionCallback callback2;
-  EXPECT_EQ(ERR_IO_PENDING, stream2->SendRequest(headers2, NULL, &response2,
-                                                 callback2.callback()));
+  EXPECT_EQ(ERR_IO_PENDING,
+            stream2->SendRequest(headers2, scoped_ptr<UploadDataStream>(),
+                                 &response2, callback2.callback()));
 
   stream2.reset();
   stream1->Close(true);
@@ -1159,15 +1221,17 @@ TEST_F(HttpPipelinedConnectionImplTest, NoGapBetweenCloseAndEviction) {
 
   HttpRequestHeaders headers;
   HttpResponseInfo response;
-  EXPECT_EQ(OK, close_stream->SendRequest(headers, NULL, &response,
-                                          callback_.callback()));
+  EXPECT_EQ(OK,
+            close_stream->SendRequest(headers, scoped_ptr<UploadDataStream>(),
+                                      &response, callback_.callback()));
 
   TestCompletionCallback close_callback;
   EXPECT_EQ(ERR_IO_PENDING,
             close_stream->ReadResponseHeaders(close_callback.callback()));
 
-  EXPECT_EQ(OK, dummy_stream->SendRequest(headers, NULL, &response,
-                                          callback_.callback()));
+  EXPECT_EQ(OK,
+            dummy_stream->SendRequest(headers, scoped_ptr<UploadDataStream>(),
+                                      &response, callback_.callback()));
 
   TestCompletionCallback dummy_callback;
   EXPECT_EQ(ERR_IO_PENDING,
@@ -1205,12 +1269,12 @@ TEST_F(HttpPipelinedConnectionImplTest, RecoverFromDrainOnRedirect) {
 
   HttpRequestHeaders headers1;
   HttpResponseInfo response1;
-  EXPECT_EQ(OK, stream1->SendRequest(headers1, NULL, &response1,
-                                     callback_.callback()));
+  EXPECT_EQ(OK, stream1->SendRequest(headers1, scoped_ptr<UploadDataStream>(),
+                                     &response1, callback_.callback()));
   HttpRequestHeaders headers2;
   HttpResponseInfo response2;
-  EXPECT_EQ(OK, stream2->SendRequest(headers2, NULL, &response2,
-                                     callback_.callback()));
+  EXPECT_EQ(OK, stream2->SendRequest(headers2, scoped_ptr<UploadDataStream>(),
+                                     &response2, callback_.callback()));
 
   EXPECT_EQ(OK, stream1->ReadResponseHeaders(callback_.callback()));
   stream1.release()->Drain(NULL);
@@ -1237,12 +1301,12 @@ TEST_F(HttpPipelinedConnectionImplTest, EvictAfterDrainOfUnknownSize) {
 
   HttpRequestHeaders headers1;
   HttpResponseInfo response1;
-  EXPECT_EQ(OK, stream1->SendRequest(headers1, NULL, &response1,
-                                     callback_.callback()));
+  EXPECT_EQ(OK, stream1->SendRequest(headers1, scoped_ptr<UploadDataStream>(),
+                                     &response1, callback_.callback()));
   HttpRequestHeaders headers2;
   HttpResponseInfo response2;
-  EXPECT_EQ(OK, stream2->SendRequest(headers2, NULL, &response2,
-                                     callback_.callback()));
+  EXPECT_EQ(OK, stream2->SendRequest(headers2, scoped_ptr<UploadDataStream>(),
+                                     &response2, callback_.callback()));
 
   EXPECT_EQ(OK, stream1->ReadResponseHeaders(callback_.callback()));
   stream1.release()->Drain(NULL);
@@ -1270,12 +1334,13 @@ TEST_F(HttpPipelinedConnectionImplTest, EvictAfterFailedDrain) {
 
   HttpRequestHeaders headers1;
   HttpResponseInfo response1;
-  EXPECT_EQ(OK, stream1->SendRequest(headers1, NULL, &response1,
-                                     callback_.callback()));
+  EXPECT_EQ(OK, stream1->SendRequest(headers1, scoped_ptr<UploadDataStream>(),
+                                     &response1, callback_.callback()));
   HttpRequestHeaders headers2;
   HttpResponseInfo response2;
-  EXPECT_EQ(OK, stream2->SendRequest(headers2, NULL, &response2,
-                                     callback_.callback()));
+  EXPECT_EQ(OK, stream2->SendRequest(headers2, scoped_ptr<UploadDataStream>(),
+                                     &response2, callback_.callback()));
+
 
   EXPECT_EQ(OK, stream1->ReadResponseHeaders(callback_.callback()));
   stream1.release()->Drain(NULL);
@@ -1304,12 +1369,13 @@ TEST_F(HttpPipelinedConnectionImplTest, EvictIfDrainingChunkedEncoding) {
 
   HttpRequestHeaders headers1;
   HttpResponseInfo response1;
-  EXPECT_EQ(OK, stream1->SendRequest(headers1, NULL, &response1,
-                                     callback_.callback()));
+  EXPECT_EQ(OK, stream1->SendRequest(headers1, scoped_ptr<UploadDataStream>(),
+                                     &response1, callback_.callback()));
   HttpRequestHeaders headers2;
   HttpResponseInfo response2;
-  EXPECT_EQ(OK, stream2->SendRequest(headers2, NULL, &response2,
-                                     callback_.callback()));
+  EXPECT_EQ(OK, stream2->SendRequest(headers2, scoped_ptr<UploadDataStream>(),
+                                     &response2, callback_.callback()));
+
 
   EXPECT_EQ(OK, stream1->ReadResponseHeaders(callback_.callback()));
   stream1.release()->Drain(NULL);
@@ -1338,12 +1404,17 @@ TEST_F(HttpPipelinedConnectionImplTest, EvictionDueToMissingContentLength) {
 
   HttpRequestHeaders headers;
   HttpResponseInfo response;
-  EXPECT_EQ(OK, ok_stream->SendRequest(headers, NULL, &response,
-                                       callback_.callback()));
-  EXPECT_EQ(OK, evicted_stream->SendRequest(headers, NULL, &response,
-                                            callback_.callback()));
-  EXPECT_EQ(OK, rejected_stream->SendRequest(headers, NULL, &response,
-                                             callback_.callback()));
+  EXPECT_EQ(OK,
+            ok_stream->SendRequest(headers, scoped_ptr<UploadDataStream>(),
+                                   &response, callback_.callback()));
+  EXPECT_EQ(OK,
+            evicted_stream->SendRequest(headers,
+                                        scoped_ptr<UploadDataStream>(),
+                                        &response, callback_.callback()));
+  EXPECT_EQ(OK,
+            rejected_stream->SendRequest(headers,
+                                         scoped_ptr<UploadDataStream>(),
+                                         &response, callback_.callback()));
 
   TestCompletionCallback ok_callback;
   EXPECT_EQ(ERR_IO_PENDING,
@@ -1385,8 +1456,8 @@ TEST_F(HttpPipelinedConnectionImplTest, FeedbackOnSocketError) {
   scoped_ptr<HttpStream> stream(NewTestStream("ok.html"));
   HttpRequestHeaders headers;
   HttpResponseInfo response;
-  EXPECT_EQ(OK, stream->SendRequest(headers, NULL, &response,
-                                    callback_.callback()));
+  EXPECT_EQ(OK, stream->SendRequest(headers, scoped_ptr<UploadDataStream>(),
+                                    &response, callback_.callback()));
   EXPECT_EQ(ERR_FAILED, stream->ReadResponseHeaders(callback_.callback()));
 }
 
@@ -1405,8 +1476,8 @@ TEST_F(HttpPipelinedConnectionImplTest, FeedbackOnNoInternetConnection) {
   scoped_ptr<HttpStream> stream(NewTestStream("ok.html"));
   HttpRequestHeaders headers;
   HttpResponseInfo response;
-  EXPECT_EQ(OK, stream->SendRequest(headers, NULL, &response,
-                                    callback_.callback()));
+  EXPECT_EQ(OK, stream->SendRequest(headers, scoped_ptr<UploadDataStream>(),
+                                     &response, callback_.callback()));
   EXPECT_EQ(ERR_INTERNET_DISCONNECTED,
             stream->ReadResponseHeaders(callback_.callback()));
 }
@@ -1508,8 +1579,8 @@ TEST_F(HttpPipelinedConnectionImplTest, OnPipelineHasCapacity) {
   EXPECT_CALL(delegate_, OnPipelineHasCapacity(pipeline_.get())).Times(1);
   HttpRequestHeaders headers;
   HttpResponseInfo response;
-  EXPECT_EQ(OK, stream->SendRequest(headers, NULL, &response,
-                                    callback_.callback()));
+  EXPECT_EQ(OK, stream->SendRequest(headers, scoped_ptr<UploadDataStream>(),
+                                     &response, callback_.callback()));
 
   EXPECT_CALL(delegate_, OnPipelineHasCapacity(pipeline_.get())).Times(0);
   MessageLoop::current()->RunAllPending();

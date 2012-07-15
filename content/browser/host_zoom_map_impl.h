@@ -1,17 +1,16 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CONTENT_BROWSER_HOST_ZOOM_MAP_IMPL_H_
 #define CONTENT_BROWSER_HOST_ZOOM_MAP_IMPL_H_
-#pragma once
 
 #include <map>
 #include <string>
 #include <vector>
 
 #include "base/compiler_specific.h"
-#include "base/message_loop_helpers.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "base/supports_user_data.h"
 #include "base/synchronization/lock.h"
 #include "content/public/browser/host_zoom_map.h"
@@ -31,20 +30,20 @@ class CONTENT_EXPORT HostZoomMapImpl
   // HostZoomMap implementation:
   virtual void CopyFrom(HostZoomMap* copy) OVERRIDE;
   virtual double GetZoomLevel(const std::string& host) const OVERRIDE;
-  virtual void SetZoomLevel(std::string host, double level) OVERRIDE;
+  virtual void SetZoomLevel(const std::string& host, double level) OVERRIDE;
   virtual double GetDefaultZoomLevel() const OVERRIDE;
   virtual void SetDefaultZoomLevel(double level) OVERRIDE;
 
   // Returns the temporary zoom level that's only valid for the lifetime of
-  // the given tab (i.e. isn't saved and doesn't affect other tabs) if it
-  // exists, the default zoom level otherwise.
+  // the given WebContents (i.e. isn't saved and doesn't affect other
+  // WebContentses) if it exists, the default zoom level otherwise.
   //
   // This may be called on any thread.
   double GetTemporaryZoomLevel(int render_process_id,
                                int render_view_id) const;
 
   // Sets the temporary zoom level that's only valid for the lifetime of this
-  // tab.
+  // WebContents.
   //
   // This should only be called on the UI thread.
   void SetTemporaryZoomLevel(int render_process_id,

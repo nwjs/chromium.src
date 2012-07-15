@@ -49,7 +49,7 @@
               {
                 "name": "callback",
                 "type": "function",
-                "description": "Callback with storage items, or on failure (in which case lastError will be set).",
+                "description": "Callback with storage items, or on failure (in which case <a href='extension.html#property-lastError'>chrome.extension.lastError</a> will be set).",
                 "parameters": [
                   {
                     "name": "items",
@@ -78,7 +78,7 @@
               {
                 "name": "callback",
                 "type": "function",
-                "description": "Callback with the amount of space being used by storage, or on failure (in which case lastError will be set).",
+                "description": "Callback with the amount of space being used by storage, or on failure (in which case <a href='extension.html#property-lastError'>chrome.extension.lastError</a> will be set).",
                 "parameters": [
                   {
                     "name": "bytesInUse",
@@ -103,7 +103,7 @@
               {
                 "name": "callback",
                 "type": "function",
-                "description": "Callback on success, or on failure (in which case lastError will be set).",
+                "description": "Callback on success, or on failure (in which case <a href='extension.html#property-lastError'>chrome.extension.lastError</a> will be set).",
                 "parameters": [],
                 "optional": true
               }
@@ -125,7 +125,7 @@
               {
                 "name": "callback",
                 "type": "function",
-                "description": "Callback on success, or on failure (in which case lastError will be set).",
+                "description": "Callback on success, or on failure (in which case <a href='extension.html#property-lastError'>chrome.extension.lastError</a> will be set).",
                 "parameters": [],
                 "optional": true
               }
@@ -139,7 +139,7 @@
               {
                 "name": "callback",
                 "type": "function",
-                "description": "Callback on success, or on failure (in which case lastError will be set).",
+                "description": "Callback on success, or on failure (in which case <a href='extension.html#property-lastError'>chrome.extension.lastError</a> will be set).",
                 "parameters": [],
                 "optional": true
               }
@@ -161,9 +161,9 @@
             "description": "Object mapping each key that changed to its corresponding <a href='#type-StorageChange'>StorageChange</a> for that item."
           },
           {
-            "name": "namespace",
+            "name": "areaName",
             "type": "string",
-            "description": "The namespace (\"sync\" or \"local\") of the storage area the changes are for."
+            "description": "The name of the storage area (\"sync\" or \"local\") the changes are for."
           }
         ]
       }
@@ -171,35 +171,39 @@
     "properties": {
       "sync": {
         "$ref": "StorageArea",
-        "description": "Items under the \"sync\" namespace are synced using Chrome Sync.",
+        "description": "Items under the \"sync\" storage area are synced using Chrome Sync.",
         "value": [ "sync" ],
         "properties": {
           "QUOTA_BYTES": {
-            "type": "integer",
-            "value": "102400",
-            "description": "The maximum total amount (in bytes) of data that can be stored in sync storage."
+            "value": 102400,
+            "description": "The maximum total amount (in bytes) of data that can be stored in sync storage. Updates that would cause this limit to be exceeded fail immediately and set chrome.extension.lastError."
           },
           "QUOTA_BYTES_PER_ITEM": {
-            "type": "integer",
-            "value": "2048",
-            "description": "The maximum size (in bytes) of each individual item in sync storage."
+            "value": 2048,
+            "description": "The maximum size (in bytes) of each individual item in sync storage. Updates containing items larger than this limit will fail."
           },
           "MAX_ITEMS": {
-            "type": "integer",
-            "value": "512",
-            "description": "The maximum number of items that can be stored in sync storage."
+            "value": 512,
+            "description": "The maximum number of items that can be stored in sync storage. Updates that would cause this limit to be exceeded will fail"
+          },
+          "MAX_WRITE_OPERATIONS_PER_HOUR": {
+            "value": 1000,
+            "description": "The maximum number of <code>set</code>, <code>remove</code>, or <code>clear</code> operations that can be performed each hour. Updates that would cause this limit to be exceeded fail."
+          },
+          "MAX_SUSTAINED_WRITE_OPERATIONS_PER_MINUTE": {
+            "value": 10,
+            "description": "The maximum number of <code>set</code>, <code>remove</code>, or <code>clear</code> operations that can be performed each minute, sustained over 10 minutes. Updates that would cause this limit to be exceeded fail."
           }
         }
       },
       "local": {
         "$ref": "StorageArea",
-        "description": "Items under the \"local\" namespace are local to each machine.",
+        "description": "Items under the \"local\" storage area are local to each machine.",
         "value": [ "local" ],
         "properties": {
           "QUOTA_BYTES": {
-            "type": "integer",
-            "value": "5120000",
-            "description": "The maximum amount (in bytes) of data that can be stored in local storage. This value may be ignored if the extension has the <code>unlimitedStorage</code> permission."
+            "value": 5242880,
+            "description": "The maximum amount (in bytes) of data that can be stored in local storage. This value will be ignored if the extension has the <code>unlimitedStorage</code> permission. Updates that would cause this limit to be exceeded fail."
           }
         }
       }

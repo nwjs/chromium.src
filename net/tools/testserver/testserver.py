@@ -133,11 +133,13 @@ class HTTPSServer(tlslite.api.TLSSocketServerMixIn,
 
   def __init__(self, server_address, request_hander_class, pem_cert_and_key,
                ssl_client_auth, ssl_client_cas, ssl_bulk_ciphers,
-               record_resume_info):
+               record_resume_info, tls_intolerant):
     self.cert_chain = tlslite.api.X509CertChain().parseChain(pem_cert_and_key)
     self.private_key = tlslite.api.parsePEMKey(pem_cert_and_key, private=True)
     self.ssl_client_auth = ssl_client_auth
     self.ssl_client_cas = []
+    self.tls_intolerant = tls_intolerant
+
     for ca_file in ssl_client_cas:
         s = open(ca_file).read()
         x509 = tlslite.api.X509()
@@ -163,7 +165,8 @@ class HTTPSServer(tlslite.api.TLSSocketServerMixIn,
                                     sessionCache=self.session_cache,
                                     reqCert=self.ssl_client_auth,
                                     settings=self.ssl_handshake_settings,
-                                    reqCAs=self.ssl_client_cas)
+                                    reqCAs=self.ssl_client_cas,
+                                    tlsIntolerant=self.tls_intolerant)
       tlsConnection.ignoreAbruptClose = True
       return True
     except tlslite.api.TLSAbruptCloseError:
@@ -177,7 +180,7 @@ class HTTPSServer(tlslite.api.TLSSocketServerMixIn,
 class SyncHTTPServer(ClientRestrictingServerMixIn, StoppableHTTPServer):
   """An HTTP server that handles sync commands."""
 
-  def __init__(self, server_address, request_handler_class):
+  def __init__(self, server_address, xmpp_port, request_handler_class):
     # We import here to avoid pulling in chromiumsync's dependencies
     # unless strictly necessary.
     import chromiumsync
@@ -186,7 +189,7 @@ class SyncHTTPServer(ClientRestrictingServerMixIn, StoppableHTTPServer):
     self._sync_handler = chromiumsync.TestServer()
     self._xmpp_socket_map = {}
     self._xmpp_server = xmppserver.XmppServer(
-      self._xmpp_socket_map, ('localhost', 0))
+      self._xmpp_socket_map, ('localhost', xmpp_port))
     self.xmpp_port = self._xmpp_server.getsockname()[1]
     self.authenticated = True
 
@@ -405,6 +408,8 @@ class TestPageHandler(BasePageHandler):
       self.GDataDocumentsFeedQueryHandler,
       self.FileHandler,
       self.SetCookieHandler,
+      self.SetManyCookiesHandler,
+      self.ExpectAndSetCookieHandler,
       self.SetHeaderHandler,
       self.AuthBasicHandler,
       self.AuthDigestHandler,
@@ -1075,6 +1080,58 @@ class TestPageHandler(BasePageHandler):
     self.end_headers()
     for cookie_value in cookie_values:
       self.wfile.write('%s' % cookie_value)
+    return True
+
+  def SetManyCookiesHandler(self):
+    """This handler just sets a given number of cookies, for testing handling
+       of large numbers of cookies."""
+
+    if not self._ShouldHandleRequest("/set-many-cookies"):
+      return False
+
+    query_char = self.path.find('?')
+    if query_char != -1:
+      num_cookies = int(self.path[query_char + 1:])
+    else:
+      num_cookies = 0
+    self.send_response(200)
+    self.send_header('', 'text/html')
+    for i in range(0, num_cookies):
+      self.send_header('Set-Cookie', 'a=')
+    self.end_headers()
+    self.wfile.write('%d cookies were sent' % num_cookies)
+    return True
+
+  def ExpectAndSetCookieHandler(self):
+    """Expects some cookies to be sent, and if they are, sets more cookies.
+
+    The expect parameter specifies a required cookie.  May be specified multiple
+    times.
+    The set parameter specifies a cookie to set if all required cookies are
+    preset.  May be specified multiple times.
+    The data parameter specifies the response body data to be returned."""
+
+    if not self._ShouldHandleRequest("/expect-and-set-cookie"):
+      return False
+
+    _, _, _, _, query, _ = urlparse.urlparse(self.path)
+    query_dict = cgi.parse_qs(query)
+    cookies = set()
+    if 'Cookie' in self.headers:
+      cookie_header = self.headers.getheader('Cookie')
+      cookies.update([s.strip() for s in cookie_header.split(';')])
+    got_all_expected_cookies = True
+    for expected_cookie in query_dict.get('expect', []):
+      if expected_cookie not in cookies:
+        got_all_expected_cookies = False
+    self.send_response(200)
+    self.send_header('Content-Type', 'text/html')
+    if got_all_expected_cookies:
+      for cookie_value in query_dict.get('set', []):
+        self.send_header('Set-Cookie', '%s' % cookie_value)
+    self.end_headers()
+    for data_value in query_dict.get('data', []):
+      self.wfile.write(data_value)
     return True
 
   def SetHeaderHandler(self):
@@ -2013,15 +2070,18 @@ def main(options, args):
             (host, ocsp_server.server_port))
 
         ocsp_der = None
-        ocsp_revoked = False
-        ocsp_invalid = False
+        ocsp_state = None
 
         if options.ocsp == 'ok':
-          pass
+          ocsp_state = minica.OCSP_STATE_GOOD
         elif options.ocsp == 'revoked':
-          ocsp_revoked = True
+          ocsp_state = minica.OCSP_STATE_REVOKED
         elif options.ocsp == 'invalid':
-          ocsp_invalid = True
+          ocsp_state = minica.OCSP_STATE_INVALID
+        elif options.ocsp == 'unauthorized':
+          ocsp_state = minica.OCSP_STATE_UNAUTHORIZED
+        elif options.ocsp == 'unknown':
+          ocsp_state = minica.OCSP_STATE_UNKNOWN
         else:
           print 'unknown OCSP status: ' + options.ocsp_status
           return
@@ -2031,10 +2091,7 @@ def main(options, args):
                 subject = "127.0.0.1",
                 ocsp_url = ("http://%s:%d/ocsp" %
                     (host, ocsp_server.server_port)),
-                ocsp_revoked = ocsp_revoked)
-
-        if ocsp_invalid:
-          ocsp_der = '3'
+                ocsp_state = ocsp_state)
 
         ocsp_server.ocsp_response = ocsp_der
 
@@ -2045,7 +2102,8 @@ def main(options, args):
           return
       server = HTTPSServer((host, port), TestPageHandler, pem_cert_and_key,
                            options.ssl_client_auth, options.ssl_client_ca,
-                           options.ssl_bulk_cipher, options.record_resume)
+                           options.ssl_bulk_cipher, options.record_resume,
+                           options.tls_intolerant)
       print 'HTTPS server started on %s:%d...' % (host, server.server_port)
     else:
       server = HTTPServer((host, port), TestPageHandler)
@@ -2059,7 +2117,8 @@ def main(options, args):
     server.policy_user = options.policy_user
     server.gdata_auth_token = options.auth_token
   elif options.server_type == SERVER_SYNC:
-    server = SyncHTTPServer((host, port), SyncPageHandler)
+    xmpp_port = options.xmpp_port
+    server = SyncHTTPServer((host, port), xmpp_port, SyncPageHandler)
     print 'Sync HTTP server started on port %d...' % server.server_port
     print 'Sync XMPP server started on port %d...' % server.xmpp_port
     server_data['port'] = server.server_port
@@ -2160,6 +2219,9 @@ if __name__ == '__main__':
   option_parser.add_option('', '--port', default='0', type='int',
                            help='Port used by the server. If unspecified, the '
                            'server will listen on an ephemeral port.')
+  option_parser.add_option('', '--xmpp-port', default='0', type='int',
+                           help='Port used by the XMPP server. If unspecified, '
+                           'the XMPP server will listen on an ephemeral port.')
   option_parser.add_option('', '--data-dir', dest='data_dir',
                            help='Directory from which to read the files.')
   option_parser.add_option('', '--https', action='store_true', dest='https',
@@ -2172,6 +2234,13 @@ if __name__ == '__main__':
                            help='The type of OCSP response generated for the '
                            'automatically generated certificate. One of '
                            '[ok,revoked,invalid]')
+  option_parser.add_option('', '--tls-intolerant', dest='tls_intolerant',
+                           default='0', type='int',
+                           help='If nonzero, certain TLS connections will be'
+                           ' aborted in order to test version fallback. 1'
+                           ' means all TLS versions will be aborted. 2 means'
+                           ' TLS 1.1 or higher will be aborted. 3 means TLS'
+                           ' 1.2 or higher will be aborted.')
   option_parser.add_option('', '--https-record-resume', dest='record_resume',
                            const=True, default=False, action='store_const',
                            help='Record resumption cache events rather than'

@@ -12,6 +12,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/synchronization/lock.h"
 #include "base/threading/non_thread_safe.h"
+#include "remoting/protocol/audio_writer.h"
 #include "remoting/protocol/session.h"
 #include "remoting/protocol/video_writer.h"
 
@@ -32,20 +33,23 @@ class HostEventDispatcher;
 // This class represents a remote viewer connection to the chromoting
 // host. It sets up all protocol channels and connects them to the
 // stubs.
-class ConnectionToClient : public base::NonThreadSafe {
+class ConnectionToClient : public base::NonThreadSafe,
+                           public Session::EventHandler {
  public:
   class EventHandler {
    public:
     virtual ~EventHandler() {}
 
-    // Called when the network connection is opened.
-    virtual void OnConnectionOpened(ConnectionToClient* connection) = 0;
+    // Called when the network connection is authenticated.
+    virtual void OnConnectionAuthenticated(ConnectionToClient* connection) = 0;
 
-    // Called when the network connection is closed.
-    virtual void OnConnectionClosed(ConnectionToClient* connection) = 0;
+    // Called when the network connection is authenticated and all
+    // channels are connected.
+    virtual void OnConnectionChannelsConnected(
+        ConnectionToClient* connection) = 0;
 
-    // Called when the network connection has failed.
-    virtual void OnConnectionFailed(ConnectionToClient* connection,
+    // Called when the network connection is closed or failed.
+    virtual void OnConnectionClosed(ConnectionToClient* connection,
                                     ErrorCode error) = 0;
 
     // Called when sequence number is updated.
@@ -81,27 +85,31 @@ class ConnectionToClient : public base::NonThreadSafe {
   // Send encoded update stream data to the viewer.
   virtual VideoStub* video_stub();
 
-  // Return pointer to ClientStub.
+  // Send audio stream data to the viewer.
+  // Returns NULL if audio is not enabled.
+  virtual AudioStub* audio_stub();
+
+  // Send control data to the viewer/client.
   virtual ClientStub* client_stub();
 
+  // Stubs for receiving data from the client.
   // These three setters should be called before Init().
   virtual void set_clipboard_stub(ClipboardStub* clipboard_stub);
   virtual void set_host_stub(HostStub* host_stub);
   virtual void set_input_stub(InputStub* input_stub);
 
+  // Session::EventHandler interface.
+  virtual void OnSessionStateChange(Session::State state) OVERRIDE;
+  virtual void OnSessionRouteChange(const std::string& channel_name,
+                                    const TransportRoute& route) OVERRIDE;
+
  private:
-  // Callback for protocol Session.
-  void OnSessionStateChange(Session::State state);
-
-  void OnSessionRouteChange(const std::string& channel_name,
-                            const TransportRoute& route);
-
   // Callback for channel initialization.
   void OnChannelInitialized(bool successful);
 
   void NotifyIfChannelsReady();
 
-  void CloseOnError();
+  void Close(ErrorCode error);
 
   // Stops writing in the channels.
   void CloseChannels();
@@ -120,6 +128,7 @@ class ConnectionToClient : public base::NonThreadSafe {
   scoped_ptr<HostControlDispatcher> control_dispatcher_;
   scoped_ptr<HostEventDispatcher> event_dispatcher_;
   scoped_ptr<VideoWriter> video_writer_;
+  scoped_ptr<AudioWriter> audio_writer_;
 
   DISALLOW_COPY_AND_ASSIGN(ConnectionToClient);
 };

@@ -1,4 +1,3 @@
-#!/usr/bin/python
 # Copyright (c) 2012 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -11,12 +10,29 @@ import os.path
 import re
 import hashlib
 import zipfile
-import simplejson as json
-import json_minify as minify
+import sys
+
+try:
+  import json
+except ImportError:
+  import simplejson as json
+
+_script_path = os.path.realpath(__file__)
+sys.path.insert(0, os.path.normpath(_script_path +
+                   "/../../../../../../tools"))
+import json_comment_eater
 
 # Make sure we get consistent string sorting behavior by explicitly using the
 # default C locale.
 locale.setlocale(locale.LC_ALL, 'C')
+
+import sys
+_script_path = os.path.realpath(__file__)
+_build_dir = os.path.dirname(_script_path)
+_base_dir = os.path.normpath(_build_dir + "/..")
+sys.path.insert(0, os.path.normpath(_base_dir +
+                   "/../../../../tools/json_schema_compiler"))
+import idl_schema
 
 def sorted_walk(path):
   """ A version of os.walk that yields results in order sorted by name.
@@ -50,7 +66,7 @@ def parse_json_file(path, encoding="utf-8"):
 
   try:
     json_str = json_file.read()
-    json_obj = json.loads(minify.json_minify(json_str), encoding)
+    json_obj = json.loads(json_comment_eater.Nom(json_str), encoding)
   except ValueError, msg:
     raise Exception("Failed to parse JSON out of file %s: %s" % (path, msg))
   finally:
@@ -58,18 +74,107 @@ def parse_json_file(path, encoding="utf-8"):
 
   return json_obj
 
+def parse_idl_file(path):
+  """ Load the specified file and parse it as IDL.
+
+  Args:
+    path: Path to a file containing JSON-encoded data.
+  """
+  api_def = idl_schema.Load(path)
+  for namespace_def in api_def:
+    namespace_dot = namespace_def['namespace'] + '.'
+    inline_types = dict((type_['id'], type_)
+                        for type_ in namespace_def.get('types', [])
+                        if type_ and type_.get('inline_doc', False))
+    def SubstituteInlineDoc(prop):
+      prop_ref_type = prop.get('$ref', '')
+      type_obj = inline_types.get(namespace_dot + prop_ref_type,
+                                  inline_types.get(prop_ref_type, {}))
+      if not type_obj:
+        return
+      if 'properties' in type_obj:
+        del prop['$ref']
+        prop['properties'] = dict(type_obj['properties'])
+        prop['type'] = 'object'
+        for sub_prop in prop['properties'].values():
+          if isinstance(sub_prop, dict):
+            if 'nodoc' in sub_prop:
+              del sub_prop['nodoc']
+            if 'name' in sub_prop:
+              del sub_prop['name']
+      elif 'enum' in type_obj and 'type' in type_obj:
+        del prop['$ref']
+        prop['type'] = type_obj['type']
+        prop['enum'] = type_obj['enum']
+    def FixReferences(prop):
+      # Strip namespace_dot from $ref names.
+      if prop.get('$ref', '').startswith(namespace_dot):
+        prop['$ref'] = prop['$ref'][len(namespace_dot):]
+      if (prop.get('type', '') == 'array' and
+          prop.get('items', {}).get('$ref', '').startswith(namespace_dot)):
+        prop['items']['$ref'] = prop['items']['$ref'][len(namespace_dot):]
+      SubstituteInlineDoc(prop)
+      if 'items' in prop:
+        SubstituteInlineDoc(prop['items'])
+
+    for type_ in namespace_def.get('types', []):
+      if type_.get('id', '').startswith(namespace_dot):
+        type_['id'] = type_['id'][len(namespace_dot):]
+      for prop in type_.get('properties', {}).values():
+        FixReferences(prop)
+      if type_.get('inline_doc', False):
+        del type_['inline_doc']
+        type_['nodoc'] = True
+    for func in namespace_def.get('functions', []):
+      for param in func.get('parameters', []):
+        FixReferences(param)
+        for cb_param in param.get('parameters', []):
+          FixReferences(cb_param)
+    for event in namespace_def.get('events', []):
+      for param in event.get('parameters', []):
+        FixReferences(param)
+  return api_def
+
+def write_json_to_file(manifest, path):
+  """ Writes the contents of this manifest file as a JSON-encoded text file.
+
+  Args:
+    manifest: The manifest structure to write.
+    path: The path to write the manifest file to.
+
+  Raises:
+    Exception: If the file could not be written.
+  """
+  manifest_text = json.dumps(manifest, indent=2,
+                             sort_keys=True, separators=(',', ': '))
+  output_path = os.path.realpath(path)
+  try:
+    output_file = open(output_path, 'w')
+  except IOError, msg:
+    raise Exception("Failed to write the samples manifest file."
+                    "The specific error was: %s." % msg)
+  output_file.write(manifest_text)
+  output_file.close()
+
 class ApiManifest(object):
   """ Represents the list of API methods contained in the extension API JSON """
 
-  def __init__(self, manifest_paths):
-    """ Read the supplied manifest file and parse its contents.
+  def __init__(self, json_paths, idl_paths):
+    """ Read the supplied json files and idl files and parse their contents.
 
     Args:
-      manifest_paths: Array of paths to API schemas.
+      json_paths: Array of paths to .json API schemas.
+      idl_paths: Array of paths to .idl API schemas.
     """
-    self._manifest = [];
-    for path in manifest_paths:
+    self._manifest = []
+    self._temporary_json_files = []
+    for path in json_paths:
       self._manifest.extend(parse_json_file(path))
+    for path in idl_paths:
+      module = parse_idl_file(path)
+      json_path = os.path.realpath(path.replace('.idl', '.json'))
+      self._temporary_json_files.append((module, json_path))
+      self._manifest.extend(module)
 
   def _parseModuleDocLinksByKeyTypes(self, module, key):
     """
@@ -89,8 +194,7 @@ class ApiManifest(object):
           "chrome.types.get": "types.html#method-ChromeSetting-get"
         }
 
-      If the API namespace is defined "nodoc" or "internal" then an empty dict
-      is returned.
+      If the API namespace is defined "nodoc" then an empty dict is returned.
     """
     api_dict = {}
     namespace = module['namespace']
@@ -132,8 +236,7 @@ class ApiManifest(object):
           "chrome.tabs.onDetached" : "tabs.html#event-onDetatched"
         }
 
-      If the API namespace is defined "nodoc" or "internal" then an empty dict
-      is returned.
+      If the API namespace is defined "nodoc" then an empty dict is returned.
 
     Raises:
       Exception: If the key supplied is not a member of _MODULE_DOC_KEYS.
@@ -166,10 +269,7 @@ class ApiManifest(object):
                if not self._disableDocs(module))
 
   def _disableDocs(self, obj):
-    for key in ['nodoc', 'internal']:
-      if key in obj and obj[key]:
-        return True
-    return False
+    return 'nodoc' in obj and obj['nodoc']
 
   def getDocumentationLinks(self):
     """ Parses the extension API JSON manifest and returns a dict of all
@@ -185,6 +285,22 @@ class ApiManifest(object):
       api_dict.update(self._parseModuleDocLinksByKey(module, 'events'))
       api_dict.update(self._parseModuleDocLinksByKeyTypes(module, 'events'))
     return api_dict
+
+  def generateJSONFromIDL(self):
+    """ Writes temporary .json files for every .idl file we have read, for
+    use by the documentation generator.
+    """
+    for (module, json_path) in self._temporary_json_files:
+      if os.path.exists(json_path):
+        print ("WARNING: Overwriting existing file '%s'"
+               " with generated content." % (json_path))
+      write_json_to_file(module, json_path)
+
+  def cleanupGeneratedFiles(self):
+    """ Removes the temporary .json files we generated from .idl before.
+    """
+    for (module, json_path) in self._temporary_json_files:
+      os.remove(json_path)
 
 class SamplesManifest(object):
   """ Represents a manifest file containing information about the sample
@@ -262,16 +378,7 @@ class SamplesManifest(object):
     Args:
       path: The path to write the samples manifest file to.
     """
-    manifest_text = json.dumps(self._manifest_data, indent=2,
-                               sort_keys=True, separators=(',', ': '))
-    output_path = os.path.realpath(path)
-    try:
-      output_file = open(output_path, 'w')
-    except IOError, msg:
-      raise Exception("Failed to write the samples manifest file."
-                      "The specific error was: %s." % msg)
-    output_file.write(manifest_text)
-    output_file.close()
+    write_json_to_file(self._manifest_data, path)
 
   def writeZippedSamples(self):
     """ For each sample in the current manifest, create a zip file with the
@@ -694,10 +801,12 @@ class Sample(dict):
     return has_b_popup or has_p_popup
 
   def is_hosted_app(self):
-    """ Returns true if the manifest has an app but not a local_path."""
+    """ Returns true if the manifest has an app but not a local_path (that's a
+    packaged app) nor a background (that's a platform app)."""
     return (self._manifest.has_key('app') and
             (not self._manifest['app'].has_key('launch') or
-             not self._manifest['app']['launch'].has_key('local_path')))
+             not self._manifest['app']['launch'].has_key('local_path')) and
+            not self._manifest['app'].has_key('background'))
 
   def is_packaged_app(self):
     """ Returns true if the manifest has an app/launch/local_path section."""
@@ -738,7 +847,7 @@ class Sample(dict):
       finally:
         old_zip_file.close()
 
-    zip_file = zipfile.ZipFile(zip_path, 'w')
+    zip_file = zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED)
 
     try:
       for root, dirs, files in sorted_walk(sample_path):

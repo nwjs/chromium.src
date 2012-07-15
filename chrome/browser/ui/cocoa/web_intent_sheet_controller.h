@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_COCOA_WEB_INTENT_SHEET_CONTROLLER_H_
 #define CHROME_BROWSER_UI_COCOA_WEB_INTENT_SHEET_CONTROLLER_H_
-#pragma once
 
 #import <Cocoa/Cocoa.h>
 
@@ -14,6 +13,7 @@
 
 class WebIntentPickerCocoa;
 class WebIntentPickerModel;
+@class SuggestionView;
 
 // Controller for intent picker constrained dialog. This dialog pops up
 // whenever a web page invokes ActivateIntent and lets the user choose which
@@ -24,22 +24,49 @@ class WebIntentPickerModel;
   WebIntentPickerCocoa* picker_;
 
   // Inline disposition tab contents. Weak reference.
-  TabContentsWrapper* contents_;
+  TabContents* contents_;
 
   // The intent picker data to be rendered. Weak reference.
   WebIntentPickerModel* model_;
+
+  // Indicator that we have neither suggested nor installed services.
+  BOOL isEmpty_;
+
+  scoped_nsobject<NSTextField> actionTextField_;
+  scoped_nsobject<SuggestionView> suggestionView_;
+  scoped_nsobject<NSButton> closeButton_;
+  scoped_nsobject<NSMutableArray> intentButtons_;
+  scoped_nsobject<NSView> flipView_;
+  scoped_nsobject<NSTextField> inlineDispositionTitleField_;
 }
+- (IBAction)installExtension:(id)sender;
 
 // Initialize the constrained dialog, and connect to picker.
 - (id)initWithPicker:(WebIntentPickerCocoa*)picker;
 
 // Set the contents for inline disposition intents.
-- (void)setInlineDispositionTabContents:(TabContentsWrapper*)wrapper;
+- (void)setInlineDispositionTabContents:(TabContents*)tabContents;
+
+// Set the size of the inline disposition view.
+- (void)setInlineDispositionFrameSize:(NSSize)size;
 
 - (void)performLayoutWithModel:(WebIntentPickerModel*)model;
 
+// Sets the action string of the picker, e.g.,
+// "Which service should be used for sharing?".
+- (void)setActionString:(NSString*)actionString;
+
+// Sets the service title for inline disposition.
+- (void)setInlineDispositionTitle:(NSString*)title;
+
+// Stop displaying throbber. Called when extension isntallation is complete.
+- (void)stopThrobber;
+
 // Close the current sheet (and by extension, the constrained dialog).
 - (void)closeSheet;
+
+// List of extensions/suggestions has been retrieved.
+- (void)pendingAsyncCompleted;
 
 // Notification handler - called when sheet has been closed.
 - (void)sheetDidEnd:(NSWindow*)sheet

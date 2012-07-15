@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,7 +12,6 @@
 #include "net/base/address_list.h"
 #include "net/base/net_errors.h"
 #include "net/base/net_util.h"
-#include "net/base/sys_addrinfo.h"
 #include "net/socket/stream_socket.h"
 
 namespace {
@@ -22,7 +21,7 @@ const int kListenBacklog = 5;
 namespace content {
 
 P2PSocketHostTcpServer::P2PSocketHostTcpServer(
-    IPC::Message::Sender* message_sender,
+    IPC::Sender* message_sender,
     int routing_id, int id)
     : P2PSocketHost(message_sender, routing_id, id),
       socket_(new net::TCPServerSocket(NULL, net::NetLog::Source())),
@@ -96,18 +95,15 @@ void P2PSocketHostTcpServer::HandleAcceptResult(int result) {
   }
 
   net::IPEndPoint address;
-  net::AddressList addr_list;
-  if (accept_socket_->GetPeerAddress(&addr_list) != net::OK ||
-      !address.FromSockAddr(addr_list.head()->ai_addr,
-                            addr_list.head()->ai_addrlen)) {
+  if (accept_socket_->GetPeerAddress(&address) != net::OK) {
     LOG(ERROR) << "Failed to get address of an accepted socket.";
     accept_socket_.reset();
     return;
   }
   AcceptedSocketsMap::iterator it = accepted_sockets_.find(address);
-  if (it != accepted_sockets_.end()) {
+  if (it != accepted_sockets_.end())
     delete it->second;
-    }
+
   accepted_sockets_[address] = accept_socket_.release();
   message_sender_->Send(
       new P2PMsg_OnIncomingTcpConnection(routing_id_, id_, address));

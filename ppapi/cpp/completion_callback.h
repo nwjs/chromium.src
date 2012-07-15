@@ -185,6 +185,8 @@ class CompletionCallbackWithOutput : public CompletionCallback {
   /// specializations for all of these cases.
   typedef typename internal::CallbackOutputTraits<T>::StorageType
       OutputStorageType;
+  typedef typename internal::CallbackOutputTraits<T>::APIArgType
+      APIArgType;
 
   /// The default constructor will create a blocking
   /// <code>CompletionCallback</code> that references the given output
@@ -203,10 +205,10 @@ class CompletionCallbackWithOutput : public CompletionCallback {
   /// A constructor for creating a <code>CompletionCallback</code> that
   /// references the given output data.
   ///
+  /// @param[in] func The function to be called on completion.
   /// @param[in] user_data The user data to be passed to the callback function.
   /// This is optional and is typically used to help track state in case of
   /// multiple pending callbacks.
-  ///
   /// @param[in] output A pointer to the data associated with the callback. The
   /// caller must ensure that this pointer outlives the completion callback.
   CompletionCallbackWithOutput(PP_CompletionCallback_Func func,
@@ -218,6 +220,8 @@ class CompletionCallbackWithOutput : public CompletionCallback {
 
   /// A constructor for creating a <code>CompletionCallback</code> that
   /// references the given output data.
+  ///
+  /// @param[in] func The function to be called on completion.
   ///
   /// @param[in] user_data The user data to be passed to the callback function.
   /// This is optional and is typically used to help track state in case of
@@ -237,7 +241,9 @@ class CompletionCallbackWithOutput : public CompletionCallback {
         output_(output) {
   }
 
-  OutputStorageType* output() const { return output_; }
+  APIArgType output() const {
+    return internal::CallbackOutputTraits<T>::StorageToAPIArg(*output_);
+  }
 
  private:
   OutputStorageType* output_;
@@ -249,7 +255,11 @@ class CompletionCallbackWithOutput : public CompletionCallback {
 /// allowed from background threads.
 ///
 /// @return A <code>CompletionCallback</code> corresponding to a NULL callback.
-CompletionCallback BlockUntilComplete();
+inline CompletionCallback BlockUntilComplete() {
+  // Note: Explicitly inlined to avoid link errors when included into
+  // ppapi_proxy and ppapi_cpp_objects.
+  return CompletionCallback();
+}
 
 }  // namespace pp
 

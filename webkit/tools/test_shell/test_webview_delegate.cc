@@ -128,6 +128,7 @@ using WebKit::WebWindowFeatures;
 using WebKit::WebWorker;
 using WebKit::WebVector;
 using WebKit::WebView;
+using webkit_glue::WebPreferences;
 
 namespace {
 
@@ -335,13 +336,7 @@ WebWidget* TestWebViewDelegate::createPopupMenu(WebPopupType popup_type) {
 
 WebStorageNamespace* TestWebViewDelegate::createSessionStorageNamespace(
     unsigned quota) {
-#ifdef ENABLE_NEW_DOM_STORAGE_BACKEND
   return SimpleDomStorageSystem::instance().CreateSessionStorageNamespace();
-#else
-  // Enforce quota, ignoring the parameter from WebCore as in Chrome.
-  return WebKit::WebStorageNamespace::createSessionStorageNamespace(
-      WebStorageNamespace::m_sessionStorageQuota);
-#endif
 }
 
 WebGraphicsContext3D* TestWebViewDelegate::createGraphicsContext3D(
@@ -508,6 +503,7 @@ void TestWebViewDelegate::setStatusText(const WebString& text) {
 }
 
 void TestWebViewDelegate::startDragging(
+    WebFrame* frame,
     const WebDragData& data,
     WebDragOperationsMask mask,
     const WebImage& image,
@@ -653,6 +649,7 @@ WebMediaPlayer* TestWebViewDelegate::createMediaPlayer(
       base::WeakPtr<webkit_media::WebMediaPlayerDelegate>(),
       collection.release(),
       NULL,
+      NULL,
       message_loop_factory.release(),
       NULL,
       new media::MediaLog());
@@ -702,8 +699,6 @@ WebNavigationPolicy TestWebViewDelegate::decidePolicyForNavigation(
     } else {
       result = WebKit::WebNavigationPolicyIgnore;
     }
-    if (policy_delegate_should_notify_done_)
-      shell_->layout_test_controller()->PolicyDelegateDone();
   } else {
     result = default_policy;
   }
@@ -764,11 +759,6 @@ void TestWebViewDelegate::didStartProvisionalLoad(WebFrame* frame) {
     top_loading_frame_ = frame;
   }
 
-  if (shell_->layout_test_controller()->StopProvisionalFrameLoads()) {
-    printf("%s - stopping load in didStartProvisionalLoadForFrame callback\n",
-           UTF16ToUTF8(GetFrameDescription(frame)).c_str());
-    frame->stopLoading();
-  }
   UpdateAddressBar(frame->view());
 }
 
@@ -821,10 +811,6 @@ void TestWebViewDelegate::didCommitProvisionalLoad(
   UpdateForCommittedLoad(frame, is_new_navigation);
 }
 
-void TestWebViewDelegate::didClearWindowObject(WebFrame* frame) {
-  shell_->BindJSObjectsToWindow(frame);
-}
-
 void TestWebViewDelegate::didReceiveTitle(
     WebFrame* frame, const WebString& title, WebTextDirection direction) {
   SetPageTitle(title);
@@ -873,7 +859,8 @@ void TestWebViewDelegate::willSendRequest(
   std::string request_url = url.possibly_invalid_spec();
 
   request.setExtraData(
-      new webkit_glue::WebURLRequestExtraDataImpl(frame->referrerPolicy()));
+      new webkit_glue::WebURLRequestExtraDataImpl(
+          frame->document().referrerPolicy(), WebString()));
 
   if (!redirect_response.isNull() && block_redirects_) {
     printf("Returning null for this redirect\n");
@@ -950,6 +937,11 @@ void TestWebViewDelegate::openFileSystem(
 
 // WebPluginPageDelegate -----------------------------------------------------
 
+WebKit::WebPlugin* TestWebViewDelegate::CreatePluginReplacement(
+    const FilePath& file_path) {
+  return NULL;
+}
+
 WebCookieJar* TestWebViewDelegate::GetCookieJar() {
   return WebKit::webKitPlatformSupport()->cookieJar();
 }
@@ -965,7 +957,7 @@ TestWebViewDelegate::TestWebViewDelegate(TestShell* shell)
       page_id_(-1),
       last_page_id_updated_(-1),
       using_fake_rect_(false),
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
       cursor_type_(GDK_X_CURSOR),
 #endif
       smart_insert_delete_enabled_(true),
@@ -1045,9 +1037,7 @@ void TestWebViewDelegate::UpdateAddressBar(WebView* webView) {
 void TestWebViewDelegate::LocationChangeDone(WebFrame* frame) {
   if (frame == top_loading_frame_) {
     top_loading_frame_ = NULL;
-
-    if (shell_->layout_test_mode())
-      shell_->layout_test_controller()->LocationChangeDone();
+    shell_->TestFinished();
   }
 }
 

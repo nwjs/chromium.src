@@ -14,6 +14,7 @@
 #include "base/sys_byteorder.h"
 #include "crypto/encryptor.h"
 #include "crypto/hmac.h"
+#include "crypto/symmetric_key.h"
 
 using base::Base64Encode;
 using base::Base64Decode;
@@ -22,7 +23,7 @@ using crypto::Encryptor;
 using crypto::HMAC;
 using crypto::SymmetricKey;
 
-namespace browser_sync {
+namespace syncer {
 
 // NigoriStream simplifies the concatenation operation of the Nigori protocol.
 class NigoriStream {
@@ -30,7 +31,7 @@ class NigoriStream {
   // Append the big-endian representation of the length of |value| with 32 bits,
   // followed by |value| itself to the stream.
   NigoriStream& operator<<(const std::string& value) {
-    uint32 size = htonl(value.size());
+    uint32 size = base::HostToNet32(value.size());
     stream_.write((char *) &size, sizeof(uint32));
     stream_ << value;
     return *this;
@@ -40,9 +41,9 @@ class NigoriStream {
   // followed by the big-endian representation of the value of |type|, with 32
   // bits, to the stream.
   NigoriStream& operator<<(const Nigori::Type type) {
-    uint32 size = htonl(sizeof(uint32));
+    uint32 size = base::HostToNet32(sizeof(uint32));
     stream_.write((char *) &size, sizeof(uint32));
-    uint32 value = htonl(type);
+    uint32 value = base::HostToNet32(type);
     stream_.write((char *) &value, sizeof(uint32));
     return *this;
   }
@@ -253,4 +254,4 @@ bool Nigori::ExportKeys(std::string* user_key,
       mac_key_->GetRawKey(mac_key);
 }
 
-}  // namespace browser_sync
+}  // namespace syncer

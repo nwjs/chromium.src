@@ -31,16 +31,22 @@
 #include "ui/gfx/size.h"
 
 #if defined(OS_FREEBSD)
-#include <sys/types.h>
 #include <sys/sysctl.h>
+#include <sys/types.h>
 #endif
 
-#if defined(TOOLKIT_USES_GTK)
+#if defined(USE_AURA)
+#include <X11/Xcursor/Xcursor.h>
+#include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/gfx/skia_util.h"
+#endif
+
+#if defined(TOOLKIT_GTK)
 #include <gdk/gdk.h>
 #include <gdk/gdkx.h>
 #include <gtk/gtk.h>
-#include "ui/base/gtk/gtk_compat.h"
 #include "ui/base/gtk/gdk_x_compat.h"
+#include "ui/base/gtk/gtk_compat.h"
 #else
 // TODO(sad): Use the new way of handling X errors when
 // http://codereview.chromium.org/7889040/ lands.
@@ -160,10 +166,10 @@ class XCursorCache {
     Clear();
   }
 
-  Cursor GetCursor(int cursor_shape) {
+  ::Cursor GetCursor(int cursor_shape) {
     // Lookup cursor by attempting to insert a null value, which avoids
     // a second pass through the map after a cache miss.
-    std::pair<std::map<int, Cursor>::iterator, bool> it = cache_.insert(
+    std::pair<std::map<int, ::Cursor>::iterator, bool> it = cache_.insert(
         std::make_pair(cursor_shape, 0));
     if (it.second) {
       Display* display = base::MessagePumpForUI::GetDefaultXDisplay();
@@ -174,7 +180,7 @@ class XCursorCache {
 
   void Clear() {
     Display* display = base::MessagePumpForUI::GetDefaultXDisplay();
-    for (std::map<int, Cursor>::iterator it =
+    for (std::map<int, ::Cursor>::iterator it =
         cache_.begin(); it != cache_.end(); ++it) {
       XFreeCursor(display, it->second);
     }
@@ -183,10 +189,88 @@ class XCursorCache {
 
  private:
   // Maps X11 font cursor shapes to Cursor IDs.
-  std::map<int, Cursor> cache_;
+  std::map<int, ::Cursor> cache_;
 
   DISALLOW_COPY_AND_ASSIGN(XCursorCache);
 };
+
+#if defined(USE_AURA)
+// A process wide singleton cache for custom X cursors.
+class XCustomCursorCache {
+ public:
+  static XCustomCursorCache* GetInstance() {
+    return Singleton<XCustomCursorCache>::get();
+  }
+
+  ::Cursor InstallCustomCursor(XcursorImage* image) {
+    XCustomCursor* custom_cursor = new XCustomCursor(image);
+    ::Cursor xcursor = custom_cursor->cursor();
+    cache_[xcursor] = custom_cursor;
+    return xcursor;
+  }
+
+  void Ref(::Cursor cursor) {
+    cache_[cursor]->Ref();
+  }
+
+  void Unref(::Cursor cursor) {
+    if (cache_[cursor]->Unref())
+      cache_.erase(cursor);
+  }
+
+  void Clear() {
+    cache_.clear();
+  }
+
+ private:
+  friend struct DefaultSingletonTraits<XCustomCursorCache>;
+
+  class XCustomCursor {
+   public:
+    // This takes ownership of the image.
+    XCustomCursor(XcursorImage* image)
+        : image_(image),
+          ref_(1) {
+      cursor_ = XcursorImageLoadCursor(GetXDisplay(), image);
+    }
+
+    ~XCustomCursor() {
+      XcursorImageDestroy(image_);
+      XFreeCursor(GetXDisplay(), cursor_);
+    }
+
+    ::Cursor cursor() const { return cursor_; }
+
+    void Ref() {
+      ++ref_;
+    }
+
+    // Returns true if the cursor was destroyed because of the unref.
+    bool Unref() {
+      if (--ref_ == 0) {
+        delete this;
+        return true;
+      }
+      return false;
+    }
+
+   private:
+    XcursorImage* image_;
+    int ref_;
+    ::Cursor cursor_;
+
+    DISALLOW_COPY_AND_ASSIGN(XCustomCursor);
+  };
+
+  XCustomCursorCache() {}
+  ~XCustomCursorCache() {
+    Clear();
+  }
+
+  std::map< ::Cursor, XCustomCursor*> cache_;
+  DISALLOW_COPY_AND_ASSIGN(XCustomCursorCache);
+};
+#endif  // defined(USE_AURA)
 
 // A singleton object that remembers remappings of mouse buttons.
 class XButtonMap {
@@ -306,7 +390,7 @@ int GetDefaultScreen(Display* display) {
   return XDefaultScreen(display);
 }
 
-Cursor GetXCursor(int cursor_shape) {
+::Cursor GetXCursor(int cursor_shape) {
   CR_DEFINE_STATIC_LOCAL(XCursorCache, cache, ());
 
   if (cursor_shape == kCursorClearXCursorCache) {
@@ -317,6 +401,39 @@ Cursor GetXCursor(int cursor_shape) {
   return cache.GetCursor(cursor_shape);
 }
 
+#if defined(USE_AURA)
+::Cursor CreateReffedCustomXCursor(XcursorImage* image) {
+  return XCustomCursorCache::GetInstance()->InstallCustomCursor(image);
+}
+
+void RefCustomXCursor(::Cursor cursor) {
+  XCustomCursorCache::GetInstance()->Ref(cursor);
+}
+
+void UnrefCustomXCursor(::Cursor cursor) {
+  XCustomCursorCache::GetInstance()->Unref(cursor);
+}
+
+XcursorImage* SkBitmapToXcursorImage(const SkBitmap* bitmap,
+                                     const gfx::Point& hotspot) {
+  DCHECK(bitmap->config() == SkBitmap::kARGB_8888_Config);
+  XcursorImage* image = XcursorImageCreate(bitmap->width(), bitmap->height());
+  image->xhot = hotspot.x();
+  image->yhot = hotspot.y();
+
+  if (bitmap->width() && bitmap->height()) {
+    bitmap->lockPixels();
+    // The |bitmap| contains ARGB image, so just copy it.
+    memcpy(image->pixels,
+           bitmap->getPixels(),
+           bitmap->width() * bitmap->height() * 4);
+    bitmap->unlockPixels();
+  }
+
+  return image;
+}
+#endif
+
 XID GetX11RootWindow() {
   return DefaultRootWindow(GetXDisplay());
 }
@@ -325,7 +442,7 @@ bool GetCurrentDesktop(int* desktop) {
   return GetIntProperty(GetX11RootWindow(), "_NET_CURRENT_DESKTOP", desktop);
 }
 
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
 XID GetX11WindowFromGtkWidget(GtkWidget* widget) {
   return GDK_WINDOW_XID(gtk_widget_get_window(widget));
 }
@@ -350,7 +467,19 @@ GtkWindow* GetGtkWindowFromX11Window(XID xid) {
 void* GetVisualFromGtkWidget(GtkWidget* widget) {
   return GDK_VISUAL_XVISUAL(gtk_widget_get_visual(widget));
 }
-#endif  // defined(TOOLKIT_USES_GTK)
+#endif  // defined(TOOLKIT_GTK)
+
+void SetHideTitlebarWhenMaximizedProperty(XID window) {
+  uint32 hide = 1;
+  XChangeProperty(GetXDisplay(),
+      window,
+      GetAtom("_GTK_HIDE_TITLEBAR_WHEN_MAXIMIZED"),
+      XA_CARDINAL,
+      32,  // size in bits
+      PropModeReplace,
+      reinterpret_cast<unsigned char*>(&hide),
+      1);
+}
 
 int BitsPerPixelForPixmapDepth(Display* dpy, int depth) {
   int count;
@@ -550,7 +679,7 @@ bool SetIntArrayProperty(XID window,
 }
 
 Atom GetAtom(const char* name) {
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
   return gdk_x11_get_xatom_by_name_for_display(
       gdk_display_get_default(), name);
 #else
@@ -638,6 +767,25 @@ bool EnumerateChildren(EnumerateWindowsDelegate* delegate, XID window,
 bool EnumerateAllWindows(EnumerateWindowsDelegate* delegate, int max_depth) {
   XID root = GetX11RootWindow();
   return EnumerateChildren(delegate, root, max_depth, 0);
+}
+
+void EnumerateTopLevelWindows(ui::EnumerateWindowsDelegate* delegate) {
+  std::vector<XID> stack;
+  if (!ui::GetXWindowStack(ui::GetX11RootWindow(), &stack)) {
+    // Window Manager doesn't support _NET_CLIENT_LIST_STACKING, so fall back
+    // to old school enumeration of all X windows.  Some WMs parent 'top-level'
+    // windows in unnamed actual top-level windows (ion WM), so extend the
+    // search depth to all children of top-level windows.
+    const int kMaxSearchDepth = 1;
+    ui::EnumerateAllWindows(delegate, kMaxSearchDepth);
+    return;
+  }
+
+  std::vector<XID>::iterator iter;
+  for (iter = stack.begin(); iter != stack.end(); iter++) {
+    if (delegate->ShouldStopIterating(*iter))
+      return;
+  }
 }
 
 bool GetXWindowStack(Window window, std::vector<XID>* windows) {
@@ -941,7 +1089,7 @@ bool IsX11WindowFullScreen(XID window) {
           != atom_properties.end())
     return true;
 
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
   // As the last resort, check if the window size is as large as the main
   // screen.
   GdkRectangle monitor_rect;

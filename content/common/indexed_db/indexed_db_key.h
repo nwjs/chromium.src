@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_COMMON_INDEXED_DB_INDEXED_DB_KEY_H_
 #define CONTENT_COMMON_INDEXED_DB_INDEXED_DB_KEY_H_
-#pragma once
 
 #include <vector>
 
@@ -12,6 +11,8 @@
 #include "base/string16.h"
 #include "content/common/content_export.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebIDBKey.h"
+
+namespace content {
 
 class CONTENT_EXPORT IndexedDBKey {
  public:
@@ -42,5 +43,7 @@ class CONTENT_EXPORT IndexedDBKey {
   double date_;
   double number_;
 };
+
+}  // namespace content
 
 #endif  // CONTENT_COMMON_INDEXED_DB_INDEXED_DB_KEY_H_

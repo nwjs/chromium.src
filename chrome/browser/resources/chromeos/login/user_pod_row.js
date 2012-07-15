@@ -7,24 +7,51 @@
  */
 
 cr.define('login', function() {
-  // Pod width. 170px Pod + 10px padding + 10px margin on both sides.
-  const POD_WIDTH = 170 + 2 * (10 + 10);
+  /**
+   * Pod width. 170px Pod + 10px padding + 10px margin on both sides.
+   * @type {number}
+   * @const
+   */
+  var POD_WIDTH = 170 + 2 * (10 + 10);
+
+  /**
+   * Whether to preselect the first pod automatically on login screen.
+   * @type {boolean}
+   * @const
+   */
+  var PRESELECT_FIRST_POD = true;
+
+  /**
+   * Wallpaper load delay in milliseconds.
+   * @type {number}
+   * @const
+   */
+  var WALLPAPER_LOAD_DELAY_MS = 500;
+
+  /**
+   * Wallpaper load delay in milliseconds. TODO(nkostylev): Tune this constant.
+   * @type {number}
+   * @const
+   */
+  var WALLPAPER_BOAT_LOAD_DELAY_MS = 500;
 
   /**
    * Oauth token status. These must match UserManager::OAuthTokenStatus.
    * @enum {number}
+   * @const
    */
-  const OAuthTokenStatus = {
+  var OAuthTokenStatus = {
     UNKNOWN: 0,
     INVALID: 1,
     VALID: 2
   };
 
   /**
-   * Tab order for user pods.  Update these when adding new controls.
+   * Tab order for user pods. Update these when adding new controls.
    * @enum {number}
+   * @const
    */
-  const UserPodTabOrder = {
+  var UserPodTabOrder = {
     POD_INPUT: 1,    // Password input fields (and whole pods themselves).
     HEADER_BAR: 2,   // Buttons on the header bar (Shutdown, Add User).
     REMOVE_USER: 3   // Remove ('X') buttons.
@@ -79,7 +106,7 @@ cr.define('login', function() {
       this.signinButtonElement.addEventListener('click',
           this.activate.bind(this));
 
-      this.removeUserButtonElement.addEventListener('mousedown', function (e) {
+      this.removeUserButtonElement.addEventListener('mousedown', function(e) {
         // Prevent default so that we don't trigger a 'focus' event.
         e.preventDefault();
         // Prevent the 'mousedown' event for the whole pod, which could result
@@ -99,23 +126,11 @@ cr.define('login', function() {
      * Initializes the pod after its properties set and added to a pod row.
      */
     initialize: function() {
-      // TODO(flackr): Get rid of multiple blur listeners. We should be able to
-      // use a single focusout listener on the pod or entire row but this is not
-      // being sent for some reason when you open the status area menus despite
-      // blur being sent.
       if (!this.isGuest) {
-        this.passwordEmpty = true;
         this.passwordElement.addEventListener('keydown',
             this.parentNode.handleKeyDown.bind(this.parentNode));
         this.passwordElement.addEventListener('keypress',
             this.handlePasswordKeyPress_.bind(this));
-        this.passwordElement.addEventListener('keyup',
-            this.handlePasswordKeyUp_.bind(this));
-        this.passwordElement.addEventListener('blur',
-            this.parentNode.handleBlur.bind(this.parentNode));
-      } else {
-        this.enterButtonElement.addEventListener('blur',
-            this.parentNode.handleBlur.bind(this.parentNode));
       }
 
       this.imageElement.addEventListener('load',
@@ -131,21 +146,17 @@ cr.define('login', function() {
     },
 
     /**
-     * Handles keyup event on password input.
-     * @param {Event} e Keyup Event object.
-     * @private
-     */
-    handlePasswordKeyUp_: function(e) {
-      this.passwordEmpty = !e.target.value;
-    },
-
-    /**
      * Handles keypress event (i.e. any textual input) on password input.
      * @param {Event} e Keypress Event object.
      * @private
      */
     handlePasswordKeyPress_: function(e) {
-      this.passwordEmpty = false;
+      // When tabbing from the system tray a tab key press is received. Suppress
+      // this so as not to type a tab character into the password field.
+      if (e.keyCode == 9) {
+        e.preventDefault();
+        return;
+      }
     },
 
     /**
@@ -178,14 +189,6 @@ cr.define('login', function() {
      */
     get passwordElement() {
       return this.nameElement.nextElementSibling;
-    },
-
-    /**
-     * Gets password hint label.
-     * @type {!HTMLDivElement}
-     */
-    get passwordHintElement() {
-      return this.passwordElement.nextElementSibling;
     },
 
     /**
@@ -231,13 +234,11 @@ cr.define('login', function() {
       this.signedInIndicatorElement.hidden = !this.user_.signedIn;
 
       if (this.isGuest) {
-        this.imageElement.title = this.user_.displayName;
         this.enterButtonElement.hidden = false;
         this.passwordElement.hidden = true;
         this.signinButtonElement.hidden = true;
       } else {
         var needSignin = this.needGaiaSignin;
-        this.imageElement.title = this.user_.nameTooltip || '';
         this.enterButtonElement.hidden = true;
         this.passwordElement.hidden = needSignin;
         this.removeUserButtonElement.setAttribute(
@@ -319,21 +320,13 @@ cr.define('login', function() {
     },
 
     /**
-     * Whether the password field is empty.
-     * @type {boolean}
-     */
-    set passwordEmpty(empty) {
-      this.passwordElement.classList[empty ? 'add' : 'remove']('empty');
-    },
-
-    /**
      * Updates the image element of the user.
      */
     updateUserImage: function() {
       this.imageElement.src = this.isGuest ?
           'chrome://theme/IDR_LOGIN_GUEST' :
           'chrome://userimage/' + this.user.username +
-              '?id=' + (new Date()).getTime();
+              '?id=' + (new Date()).getTime() + '&animated';
     },
 
     /**
@@ -445,11 +438,21 @@ cr.define('login', function() {
   PodRow.prototype = {
     __proto__: HTMLDivElement.prototype,
 
+    // Whether this user pod row is shown for the first time.
+    firstShown_: true,
+
+    // True if inside focusPod().
+    insideFocusPod_: false,
+
     // Focused pod.
-    focusedPod_ : undefined,
+    focusedPod_: undefined,
 
     // Activated pod, i.e. the pod of current login attempt.
     activatedPod_: undefined,
+
+    // When moving through users quickly at login screen, set a timeout to
+    // prevent loading intermediate wallpapers.
+    loadWallpaperTimeout_: null,
 
     // Pods whose initial images haven't been loaded yet.
     podsWithPendingImages_: [],
@@ -472,14 +475,28 @@ cr.define('login', function() {
      * @type {NodeList}
      */
     get pods() {
-      return this.children;
+      return this.childNodes;
+    },
+
+    hideTitles: function() {
+      for (var i = 0, pod; pod = this.pods[i]; ++i)
+        pod.imageElement.title = '';
+    },
+
+    updateTitles: function() {
+      for (var i = 0, pod; pod = this.pods[i]; ++i) {
+        if (pod.isGuest)
+          pod.imageElement.title = '';
+        else
+          pod.imageElement.title = pod.user.nameTooltip || '';
+      }
     },
 
     /**
      * Returns pod with the given username (null if there is no such pod).
      * @param {string} username Username to be matched.
      * @return {Object} Pod with the given username. null if pod hasn't been
-     *     found.
+     *                  found.
      */
     getPodWithUsername_: function(username) {
       for (var i = 0, pod; pod = this.pods[i]; ++i) {
@@ -493,7 +510,7 @@ cr.define('login', function() {
      * True if the the pod row is disabled (handles no user interaction).
      * @type {boolean}
      */
-    disabled_ : false,
+    disabled_: false,
     get disabled() {
       return this.disabled_;
     },
@@ -614,18 +631,25 @@ cr.define('login', function() {
       for (var i = 0, pod; pod = this.pods[i]; ++i) {
         this.podsWithPendingImages_.push(pod);
       }
+      this.focusPod(this.preselectedPod);
     },
 
     /**
      * Focuses a given user pod or clear focus when given null.
      * @param {UserPod=} podToFocus User pod to focus (undefined clears focus).
      * @param {boolean=} opt_force If true, forces focus update even when
-     *     podToFocus is already focused.
+     *                             podToFocus is already focused.
      */
     focusPod: function(podToFocus, opt_force) {
       if (this.focusedPod_ == podToFocus && !opt_force)
         return;
 
+      // Make sure there's only one focusPod operation happening at a time.
+      if (this.insideFocusPod_)
+        return;
+      this.insideFocusPod_ = true;
+
+      clearTimeout(this.loadWallpaperTimeout_);
       for (var i = 0, pod; pod = this.pods[i]; ++i) {
         pod.activeRemoveButton = false;
         if (pod != podToFocus) {
@@ -635,13 +659,40 @@ cr.define('login', function() {
         }
       }
 
+      var hadFocus = !!this.focusedPod_;
       this.focusedPod_ = podToFocus;
       if (podToFocus) {
         podToFocus.classList.remove('faded');
         podToFocus.classList.add('focused');
         podToFocus.reset(true);  // Reset and give focus.
         this.scrollPodIntoView(podToFocus);
+        if (hadFocus) {
+          // Delay wallpaper loading to let user tab through pods without lag.
+          this.loadWallpaperTimeout_ = window.setTimeout(
+              this.loadWallpaper_.bind(this), WALLPAPER_LOAD_DELAY_MS);
+        } else {
+          if (!this.firstShown_) {
+            // Load wallpaper immediately if there no pod was focused
+            // previously, and it is not a boot into user pod list case.
+            this.loadWallpaper_();
+          } else {
+            // Boot transition. Delay wallpaper load to remove jank
+            // happening when wallpaper load is competing for resources with
+            // login WebUI.
+            this.loadWallpaperTimeout_ = window.setTimeout(
+                this.loadWallpaper_.bind(this), WALLPAPER_BOAT_LOAD_DELAY_MS);
+            this.firstShown_ = false;
+          }
+        }
+      } else {
+        chrome.send('userDeselected');
       }
+      this.insideFocusPod_ = false;
+    },
+
+    loadWallpaper_: function() {
+      if (this.focusedPod_)
+        chrome.send('userSelectedDelayed', [this.focusedPod_.user.username]);
     },
 
     /**
@@ -669,6 +720,17 @@ cr.define('login', function() {
     },
 
     /**
+     * The pod that is preselected on user pod row show.
+     * @type {?UserPod}
+     */
+    get preselectedPod() {
+      var lockedPod = this.lockedPod;
+      var preselectedPod = PRESELECT_FIRST_POD ?
+          lockedPod || this.pods[0] : lockedPod;
+      return preselectedPod;
+    },
+
+    /**
      * Resets input UI.
      * @param {boolean} takeFocus True to take focus.
      */
@@ -683,6 +745,8 @@ cr.define('login', function() {
      * @param {string} email Email for signin UI.
      */
     showSigninUI: function(email) {
+      // Clear any error messages that might still be around.
+      Oobe.clearErrors();
       this.disabled = true;
       Oobe.showSigninUI(email);
     },
@@ -690,7 +754,6 @@ cr.define('login', function() {
     /**
      * Updates current image of a user.
      * @param {string} username User for which to update the image.
-     * @public
      */
     updateUserImage: function(username) {
       var pod = this.getPodWithUsername_(username);
@@ -699,10 +762,9 @@ cr.define('login', function() {
     },
 
     /**
-    * Resets OAuth token status (invalidates it).
-    * @param {string} username User for which to reset the status.
-    * @public
-    */
+     * Resets OAuth token status (invalidates it).
+     * @param {string} username User for which to reset the status.
+     */
     resetUserOAuthTokenStatus: function(username) {
       var pod = this.getPodWithUsername_(username);
       if (pod) {
@@ -723,8 +785,9 @@ cr.define('login', function() {
         return;
       // Clears focus if not clicked on a pod.
       if (e.target.parentNode != this &&
-          e.target.parentNode.parentNode != this)
+          e.target.parentNode.parentNode != this) {
         this.focusPod();
+      }
     },
 
     /**
@@ -756,18 +819,8 @@ cr.define('login', function() {
     },
 
     /**
-     * Handles a blur event.
-     * @param {Event} e Blur Event object.
-     */
-    handleBlur: function(e) {
-      // Clear focus when the pod input is blurred.
-      this.focusPod();
-    },
-
-    /**
      * Handler of keydown event.
      * @param {Event} e KeyDown Event object.
-     * @public
      */
     handleKeyDown: function(e) {
       if (this.disabled)
@@ -807,14 +860,34 @@ cr.define('login', function() {
     },
 
     /**
-     * Called when the element is shown.
+     * Called right after the pod row is shown.
      */
-    handleShow: function() {
+    handleAfterShow: function() {
+      // Force input focus for user pod on show and once transition ends.
+      if (this.focusedPod_) {
+        var focusedPod = this.focusedPod_;
+        var screen = this.parentNode;
+        focusedPod.addEventListener('webkitTransitionEnd', function f(e) {
+          if (e.target == focusedPod) {
+            focusedPod.removeEventListener('webkitTransitionEnd', f);
+            focusedPod.reset(true);
+            // Notify screen that it is ready.
+            screen.onShow();
+          }
+        });
+      }
+    },
+
+    /**
+     * Called right before the pod row is shown.
+     */
+    handleBeforeShow: function() {
       for (var event in this.listeners_) {
         this.ownerDocument.addEventListener(
             event, this.listeners_[event][0], this.listeners_[event][1]);
       }
       $('login-header-bar').buttonsTabIndex = UserPodTabOrder.HEADER_BAR;
+      $('pod-row').updateTitles();
     },
 
     /**
@@ -826,6 +899,7 @@ cr.define('login', function() {
             event, this.listeners_[event][0], this.listeners_[event][1]);
       }
       $('login-header-bar').buttonsTabIndex = 0;
+      $('pod-row').hideTitles();
     },
 
     /**
@@ -840,6 +914,10 @@ cr.define('login', function() {
       this.podsWithPendingImages_.splice(index, 1);
       if (this.podsWithPendingImages_.length == 0) {
         chrome.send('userImagesLoaded');
+        // Report back user pods being painted.
+        window.webkitRequestAnimationFrame(function() {
+          chrome.send('loginVisible');
+        });
       }
     }
   };

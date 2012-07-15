@@ -11,6 +11,7 @@
 #include "base/logging.h"
 #include "base/memory/singleton.h"
 #include "base/synchronization/waitable_event.h"
+#include "base/threading/thread_restrictions.h"
 #include "base/time.h"
 #include "base/chromeos/chromeos_version.h"
 #include "chrome/browser/chromeos/system/name_value_pairs_parser.h"
@@ -45,9 +46,9 @@ const char kMachineHardwareInfoDelim[] = " \n";
 
 // File to get ECHO coupon info from, and key/value delimiters of
 // the file.
-const char kOffersCouponFile[] = "/var/cache/offers/vpd_echo.txt";
-const char kOffersCouponEq[] = "=";
-const char kOffersCouponDelim[] = "\n";
+const char kEchoCouponFile[] = "/var/cache/echo/vpd_echo.txt";
+const char kEchoCouponEq[] = "=";
+const char kEchoCouponDelim[] = "\n";
 
 // File to get machine OS info from, and key/value delimiters of the file.
 const char kMachineOSInfoFile[] = "/etc/lsb-release";
@@ -106,7 +107,15 @@ bool StatisticsProviderImpl::GetMachineStatistic(
   if (!on_statistics_loaded_.IsSignaled()) {
     LOG(WARNING) << "Waiting to load statistics. Requested statistic: "
                  << name;
+    // http://crbug.com/125385
+    base::ThreadRestrictions::ScopedAllowWait allow_wait;
     on_statistics_loaded_.TimedWait(base::TimeDelta::FromSeconds(kTimeoutSecs));
+
+    if (!on_statistics_loaded_.IsSignaled()) {
+      LOG(ERROR) << "Statistics weren't loaded after waiting! "
+                 << "Requested statistic: " << name;
+      return false;
+    }
   }
 
   NameValuePairsParser::NameValueMap::iterator iter = machine_info_.find(name);
@@ -126,10 +135,7 @@ StatisticsProviderImpl::StatisticsProviderImpl()
 
 void StatisticsProviderImpl::StartLoadingMachineStatistics() {
   VLOG(1) << "Started loading statistics";
-  CHECK(BrowserThread::IsMessageLoopValid(BrowserThread::FILE))
-      << "StatisticsProvider must not be used before FILE thread is created";
-  BrowserThread::PostTask(
-      BrowserThread::FILE,
+  BrowserThread::PostBlockingPoolTask(
       FROM_HERE,
       base::Bind(&StatisticsProviderImpl::LoadMachineStatistics,
                  base::Unretained(this)));
@@ -139,9 +145,12 @@ void StatisticsProviderImpl::LoadMachineStatistics() {
   NameValuePairsParser parser(&machine_info_);
 
   // Parse all of the key/value pairs from the crossystem tool.
-  parser.ParseNameValuePairsFromTool(
-      arraysize(kCrosSystemTool), kCrosSystemTool, kCrosSystemEq,
-      kCrosSystemDelim, kCrosSystemCommentDelim);
+  if (!parser.ParseNameValuePairsFromTool(
+          arraysize(kCrosSystemTool), kCrosSystemTool, kCrosSystemEq,
+          kCrosSystemDelim, kCrosSystemCommentDelim)) {
+    LOG(WARNING) << "There were errors parsing the output of "
+                 << kCrosSystemTool << ".";
+  }
 
   // Ensure that the hardware class key is present with the expected
   // key name, and if it couldn't be retrieved, that the value is "unknown".
@@ -154,9 +163,9 @@ void StatisticsProviderImpl::LoadMachineStatistics() {
   parser.GetNameValuePairsFromFile(FilePath(kMachineHardwareInfoFile),
                                    kMachineHardwareInfoEq,
                                    kMachineHardwareInfoDelim);
-  parser.GetNameValuePairsFromFile(FilePath(kOffersCouponFile),
-                                   kOffersCouponEq,
-                                   kOffersCouponDelim);
+  parser.GetNameValuePairsFromFile(FilePath(kEchoCouponFile),
+                                   kEchoCouponEq,
+                                   kEchoCouponDelim);
   parser.GetNameValuePairsFromFile(FilePath(kMachineOSInfoFile),
                                    kMachineOSInfoEq,
                                    kMachineOSInfoDelim);

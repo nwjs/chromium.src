@@ -19,6 +19,7 @@
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/font.h"
+#include "ui/gfx/image/canvas_image_source.h"
 #include "ui/gfx/image/image.h"
 #include "ui/views/controls/button/custom_button.h"
 #include "ui/views/controls/button/image_button.h"
@@ -33,6 +34,7 @@ const int kItemHeight = 44;
 const int kItemMarginY = 4;
 const int kIconMarginX = 6;
 const int kSeparatorPaddingY = 5;
+const int kMaxItemTextWidth = 200;
 
 inline int Round(double x) {
   return static_cast<int>(x + 0.5);
@@ -59,6 +61,58 @@ gfx::Rect GetCenteredAndScaledRect(int src_width, int src_height,
   return gfx::Rect(x, y, scaled_width, scaled_height);
 }
 
+// BadgeImageSource -----------------------------------------------------------
+class BadgeImageSource: public gfx::CanvasImageSource {
+ public:
+  BadgeImageSource(const gfx::ImageSkia& icon,
+                   const gfx::Size& icon_size,
+                   const gfx::ImageSkia& badge);
+
+  ~BadgeImageSource();
+
+  // Overridden from CanvasImageSource:
+  void Draw(gfx::Canvas* canvas) OVERRIDE;
+
+ private:
+  gfx::Size ComputeSize(const gfx::ImageSkia& icon,
+                        const gfx::Size& size,
+                        const gfx::ImageSkia& badge);
+
+  const gfx::ImageSkia icon_;
+  gfx::Size icon_size_;
+  const gfx::ImageSkia badge_;
+
+  DISALLOW_COPY_AND_ASSIGN(BadgeImageSource);
+};
+
+BadgeImageSource::BadgeImageSource(const gfx::ImageSkia& icon,
+                                   const gfx::Size& icon_size,
+                                   const gfx::ImageSkia& badge)
+    : gfx::CanvasImageSource(ComputeSize(icon, icon_size, badge), false),
+      icon_(icon),
+      icon_size_(icon_size),
+      badge_(badge) {
+}
+
+BadgeImageSource::~BadgeImageSource() {
+}
+
+void BadgeImageSource::Draw(gfx::Canvas* canvas) {
+  canvas->DrawImageInt(icon_, 0, 0, icon_.width(), icon_.height(), 0, 0,
+                       icon_size_.width(), icon_size_.height(), true);
+  canvas->DrawImageInt(badge_, size().width() - badge_.width(),
+                       size().height() - badge_.height());
+}
+
+gfx::Size BadgeImageSource::ComputeSize(const gfx::ImageSkia& icon,
+                                        const gfx::Size& icon_size,
+                                        const gfx::ImageSkia& badge) {
+  const float kBadgeOverlapRatioX = 1.0f / 5.0f;
+  int width = icon_size.width() + badge.width() * kBadgeOverlapRatioX;
+  const float kBadgeOverlapRatioY = 1.0f / 3.0f;
+  int height = icon_size.height() + badge.height() * kBadgeOverlapRatioY;
+  return gfx::Size(width, height);
+}
 
 // HighlightDelegate ----------------------------------------------------------
 
@@ -127,7 +181,7 @@ void EditProfileLink::OnBlur() {
 // ProfileImageView -----------------------------------------------------------
 
 // A custom image view that ignores mouse events so that the parent can receive
-// them them instead.
+// them instead.
 class ProfileImageView : public views::ImageView {
  public:
   virtual bool HitTest(const gfx::Point& l) const OVERRIDE;
@@ -162,7 +216,7 @@ class ProfileItemView : public views::CustomButton,
   const AvatarMenuModel::Item& item() { return item_; }
 
  private:
-  static SkBitmap GetBadgedIcon(const SkBitmap& icon);
+  static gfx::ImageSkia GetBadgedIcon(const gfx::ImageSkia& icon);
 
   bool IsHighlighted();
 
@@ -179,28 +233,32 @@ ProfileItemView::ProfileItemView(const AvatarMenuModel::Item& item,
     : views::CustomButton(switch_profile_listener),
       item_(item) {
   image_view_ = new ProfileImageView();
-  SkBitmap profile_icon = item_.icon;
+  gfx::ImageSkia profile_icon = *item_.icon.ToImageSkia();
   if (item_.active) {
-    SkBitmap badged_icon(GetBadgedIcon(profile_icon));
-    image_view_->SetImage(&badged_icon);
+    gfx::ImageSkia badged_icon(GetBadgedIcon(profile_icon));
+    image_view_->SetImage(badged_icon);
   } else {
-    image_view_->SetImage(&profile_icon);
+    image_view_->SetImage(profile_icon);
   }
   AddChildView(image_view_);
 
   // Add a label to show the profile name.
-  name_label_ = new views::Label(item_.name);
-  ResourceBundle& rb = ResourceBundle::GetSharedInstance();
-  gfx::Font base_font = rb.GetFont(ResourceBundle::BaseFont);
-  int style = item_.active ? gfx::Font::BOLD : 0;
+  ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
+  const gfx::Font base_font = rb.GetFont(ui::ResourceBundle::BaseFont);
+  const int style = item_.active ? gfx::Font::BOLD : 0;
   const int kNameFontDelta = 1;
-  name_label_->SetFont(base_font.DeriveFont(kNameFontDelta, style));
+  name_label_ = new views::Label(item_.name,
+                                 base_font.DeriveFont(kNameFontDelta, style));
   name_label_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
   AddChildView(name_label_);
 
   // Add a label to show the sync state.
-  sync_state_label_ = new views::Label(item_.sync_state);
   const int kStateFontDelta = -1;
+  sync_state_label_ = new views::Label();
+  if (item_.signed_in)
+    sync_state_label_->SetEmail(item.sync_state);
+  else
+    sync_state_label_->SetText(item_.sync_state);
   sync_state_label_->SetFont(base_font.DeriveFont(kStateFontDelta));
   sync_state_label_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
   sync_state_label_->SetEnabled(false);
@@ -219,10 +277,11 @@ ProfileItemView::ProfileItemView(const AvatarMenuModel::Item& item,
 }
 
 gfx::Size ProfileItemView::GetPreferredSize() {
-  int width = std::max(name_label_->GetPreferredSize().width(),
-                       sync_state_label_->GetPreferredSize().width());
-  width = std::max(edit_link_->GetPreferredSize().width(), width);
-  return gfx::Size(profiles::kAvatarIconWidth + kIconMarginX + width,
+  int text_width = std::max(name_label_->GetPreferredSize().width(),
+                            sync_state_label_->GetPreferredSize().width());
+  text_width = std::max(edit_link_->GetPreferredSize().width(), text_width);
+  text_width = std::min(kMaxItemTextWidth, text_width);
+  return gfx::Size(profiles::kAvatarIconWidth + kIconMarginX + text_width,
                    kItemHeight);
 }
 
@@ -235,7 +294,7 @@ void ProfileItemView::Layout() {
     icon_rect.set_size(image_view_->GetPreferredSize());
     icon_rect.set_y((height() - icon_rect.height()) / 2);
   } else {
-    const SkBitmap& icon = image_view_->GetImage();
+    const gfx::ImageSkia& icon = image_view_->GetImage();
     icon_rect = GetCenteredAndScaledRect(icon.width(), icon.height(), 0, 0,
         profiles::kAvatarIconWidth, height());
   }
@@ -306,22 +365,16 @@ void ProfileItemView::OnFocusStateChanged(bool has_focus) {
 }
 
 // static
-SkBitmap ProfileItemView::GetBadgedIcon(const SkBitmap& icon) {
-  gfx::Rect icon_rect = GetCenteredAndScaledRect(icon.width(), icon.height(),
-      0, 0, profiles::kAvatarIconWidth, kItemHeight);
-
-  ResourceBundle& rb = ResourceBundle::GetSharedInstance();
-  SkBitmap badge = rb.GetImageNamed(IDR_PROFILE_SELECTED);
-  const float kBadgeOverlapRatioX = 1.0f / 5.0f;
-  int width = icon_rect.width() + badge.width() * kBadgeOverlapRatioX;
-  const float kBadgeOverlapRatioY = 1.0f / 3.0f;
-  int height = icon_rect.height() + badge.height() * kBadgeOverlapRatioY;
-
-  gfx::Canvas canvas(gfx::Size(width, height), false);
-  canvas.DrawBitmapInt(icon, 0, 0, icon.width(), icon.height(), 0, 0,
-                       icon_rect.width(), icon_rect.height(), true);
-  canvas.DrawBitmapInt(badge, width - badge.width(), height - badge.height());
-  return canvas.ExtractBitmap();
+gfx::ImageSkia ProfileItemView::GetBadgedIcon(const gfx::ImageSkia& icon) {
+  ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
+  const gfx::ImageSkia* badge = rb.GetImageNamed(
+      IDR_PROFILE_SELECTED).ToImageSkia();
+  gfx::Size icon_size = GetCenteredAndScaledRect(icon.width(), icon.height(),
+      0, 0, profiles::kAvatarIconWidth, kItemHeight).size();
+  gfx::CanvasImageSource* source =
+      new BadgeImageSource(icon, icon_size, *badge);
+  // ImageSkia takes ownership of |source|.
+  return gfx::ImageSkia(source, source->size());
 }
 
 bool ProfileItemView::IsHighlighted() {
@@ -404,9 +457,8 @@ void AvatarMenuBubbleView::Layout() {
 bool AvatarMenuBubbleView::AcceleratorPressed(
     const ui::Accelerator& accelerator) {
   if (accelerator.key_code() != ui::VKEY_DOWN &&
-      accelerator.key_code() != ui::VKEY_UP) {
-    return false;
-  }
+      accelerator.key_code() != ui::VKEY_UP)
+    return BubbleDelegateView::AcceleratorPressed(accelerator);
 
   if (item_views_.empty())
     return true;
@@ -439,7 +491,7 @@ void AvatarMenuBubbleView::ButtonPressed(views::Button* sender,
       // Clicking on the active profile shouldn't do anything.
       if (!item_view->item().active) {
         avatar_menu_model_->SwitchToProfile(
-            i, browser::DispositionFromEventFlags(event.flags()) == NEW_WINDOW);
+            i, chrome::DispositionFromEventFlags(event.flags()) == NEW_WINDOW);
       }
       break;
     }
@@ -468,8 +520,8 @@ gfx::Rect AvatarMenuBubbleView::GetAnchorRect() {
 void AvatarMenuBubbleView::Init() {
   // Build the menu for the first time.
   OnAvatarMenuModelChanged(avatar_menu_model_.get());
-  AddAccelerator(ui::Accelerator(ui::VKEY_DOWN, 0));
-  AddAccelerator(ui::Accelerator(ui::VKEY_UP, 0));
+  AddAccelerator(ui::Accelerator(ui::VKEY_DOWN, ui::EF_NONE));
+  AddAccelerator(ui::Accelerator(ui::VKEY_UP, ui::EF_NONE));
 }
 
 void AvatarMenuBubbleView::OnAvatarMenuModelChanged(

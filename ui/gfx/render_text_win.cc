@@ -7,15 +7,19 @@
 #include <algorithm>
 
 #include "base/i18n/break_iterator.h"
+#include "base/i18n/rtl.h"
 #include "base/logging.h"
-#include "base/stl_util.h"
+#include "base/string_split.h"
 #include "base/string_util.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/utf_string_conversions.h"
 #include "base/win/registry.h"
+#include "base/win/windows_version.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/font_smoothing_win.h"
-#include "ui/gfx/platform_font.h"
+#include "ui/gfx/platform_font_win.h"
+
+namespace gfx {
 
 namespace {
 
@@ -47,10 +51,10 @@ int CALLBACK MetaFileEnumProc(HDC hdc,
 // |true| if a fallback font was found.
 // Adapted from WebKit's |FontCache::GetFontDataForCharacters()|.
 bool ChooseFallbackFont(HDC hdc,
-                        const gfx::Font& font,
+                        const Font& font,
                         const wchar_t* text,
                         int text_length,
-                        gfx::Font* result) {
+                        Font* result) {
   // Use a meta file to intercept the fallback font chosen by Uniscribe.
   HDC meta_file_dc = CreateEnhMetaFile(hdc, NULL, NULL, NULL);
   if (!meta_file_dc)
@@ -76,7 +80,7 @@ bool ChooseFallbackFont(HDC hdc,
     log_font.lfFaceName[0] = 0;
     EnumEnhMetaFile(0, meta_file, MetaFileEnumProc, &log_font, NULL);
     if (log_font.lfFaceName[0]) {
-      *result = gfx::Font(UTF16ToUTF8(log_font.lfFaceName), font.GetFontSize());
+      *result = Font(UTF16ToUTF8(log_font.lfFaceName), font.GetFontSize());
       found_fallback = true;
     }
   }
@@ -85,9 +89,83 @@ bool ChooseFallbackFont(HDC hdc,
   return found_fallback;
 }
 
+// Queries the Registry to get a mapping from font filenames to font names.
+void QueryFontsFromRegistry(std::map<std::string, std::string>* map) {
+  const wchar_t* kFonts =
+      L"Software\\Microsoft\\Windows NT\\CurrentVersion\\Fonts";
+
+  base::win::RegistryValueIterator it(HKEY_LOCAL_MACHINE, kFonts);
+  for (; it.Valid(); ++it) {
+    const std::string filename = StringToLowerASCII(WideToUTF8(it.Value()));
+    (*map)[filename] = WideToUTF8(it.Name());
+  }
+}
+
+// Fills |font_names| with a list of font families found in the font file at
+// |filename|. Takes in a |font_map| from font filename to font families, which
+// is filled-in by querying the registry, if empty.
+void GetFontNamesFromFilename(const std::string& filename,
+                              std::map<std::string, std::string>* font_map,
+                              std::vector<std::string>* font_names) {
+  if (font_map->empty())
+    QueryFontsFromRegistry(font_map);
+
+  std::map<std::string, std::string>::const_iterator it =
+      font_map->find(StringToLowerASCII(filename));
+  if (it == font_map->end())
+    return;
+
+  // The family string is in the format "FamilyFoo & FamilyBar (TrueType)".
+  // Split by '&' and strip off the trailing parenthesized experession.
+  base::SplitString(it->second, '&', font_names);
+  if (!font_names->empty()) {
+    const size_t index = font_names->back().find('(');
+    if (index != std::string::npos) {
+      font_names->back().resize(index);
+      TrimWhitespace(font_names->back(), TRIM_TRAILING, &font_names->back());
+    }
+  }
+}
+
+// Returns true if |text| contains only ASCII digits.
+bool ContainsOnlyDigits(const std::string& text) {
+  return text.find_first_not_of("0123456789") == string16::npos;
+}
+
+// Parses the font's name and filename out of a SystemLink entry string, setting
+// |font_name| and |filename| respectively. If a field is not present or could
+// not be parsed, the corresponding param will be cleared.
+void ParseFontLinkEntry(const std::string& entry,
+                        std::string* filename,
+                        std::string* font_name) {
+  // Each entry is comma separated, having the font filename as the first value
+  // followed optionally by the font family name and a pair of integer scaling
+  // factors. See: http://msdn.microsoft.com/en-us/goglobal/bb688134.aspx
+  // TODO(asvitkine): Should we support these scaling factors?
+  std::vector<std::string> parts;
+  base::SplitString(entry, ',', &parts);
+  filename->clear();
+  font_name->clear();
+  if (parts.size() > 0)
+    *filename = parts[0];
+  // The second entry may be the font name or the first scaling factor, if the
+  // entry does not contain a font name. If it contains only digits, assume it
+  // is a scaling factor.
+  if (parts.size() > 1 && !ContainsOnlyDigits(parts[1]))
+    *font_name = parts[1];
+}
+
+// Appends a Font with the given |name| and |size| to |fonts| unless the last
+// entry is already a font with that name.
+void AppendFont(const std::string& name, int size, std::vector<Font>* fonts) {
+  if (fonts->empty() || fonts->back().GetFontName() != name)
+    fonts->push_back(Font(name, size));
+}
+
 // Queries the Registry to get a list of linked fonts for |font|.
-void QueryLinkedFontsFromRegistry(const gfx::Font& font,
-                                  std::vector<gfx::Font>* linked_fonts) {
+void QueryLinkedFontsFromRegistry(const Font& font,
+                                  std::map<std::string, std::string>* font_map,
+                                  std::vector<Font>* linked_fonts) {
   base::ThreadRestrictions::ScopedAllowIO allow_io;
   const wchar_t* kSystemLink =
       L"Software\\Microsoft\\Windows NT\\CurrentVersion\\FontLink\\SystemLink";
@@ -96,29 +174,69 @@ void QueryLinkedFontsFromRegistry(const gfx::Font& font,
   if (FAILED(key.Open(HKEY_LOCAL_MACHINE, kSystemLink, KEY_READ)))
     return;
 
-  const std::wstring font_name = UTF8ToWide(font.GetFontName());
+  const std::wstring original_font_name = UTF8ToWide(font.GetFontName());
   std::vector<std::wstring> values;
-  if (FAILED(key.ReadValues(font_name.c_str(), &values))) {
+  if (FAILED(key.ReadValues(original_font_name.c_str(), &values))) {
     key.Close();
     return;
   }
 
-  for (size_t i = 0; i < values.size(); i++) {
-    // The font name follows the comma in each entry.
-    const size_t index = values[i].find(',');
-    if ((index != string16::npos) && (index + 1 != values[i].length())) {
-      const std::string linked_name = UTF16ToUTF8(values[i].substr(index + 1));
-      const gfx::Font linked_font(linked_name, font.GetFontSize());
-      linked_fonts->push_back(linked_font);
+  std::string filename;
+  std::string font_name;
+  for (size_t i = 0; i < values.size(); ++i) {
+    ParseFontLinkEntry(WideToUTF8(values[i]), &filename, &font_name);
+    // If the font name is present, add that directly, otherwise add the
+    // font names corresponding to the filename.
+    if (!font_name.empty()) {
+      AppendFont(font_name, font.GetFontSize(), linked_fonts);
+    } else if (!filename.empty()) {
+      std::vector<std::string> font_names;
+      GetFontNamesFromFilename(filename, font_map, &font_names);
+      for (size_t i = 0; i < font_names.size(); ++i)
+        AppendFont(font_names[i], font.GetFontSize(), linked_fonts);
     }
   }
 
   key.Close();
 }
 
-}  // namespace
+// Changes |font| to have the specified |font_size| (or |font_height| on Windows
+// XP) and |font_style| if it is not the case already. Only considers bold and
+// italic styles, since the underlined style has no effect on glyph shaping.
+void DeriveFontIfNecessary(int font_size,
+                           int font_height,
+                           int font_style,
+                           Font* font) {
+  const int kStyleMask = (Font::BOLD | Font::ITALIC);
+  const int target_style = (font_style & kStyleMask);
 
-namespace gfx {
+  // On Windows XP, the font must be resized using |font_height| instead of
+  // |font_size| to match GDI behavior.
+  if (base::win::GetVersion() < base::win::VERSION_VISTA) {
+    PlatformFontWin* platform_font =
+        static_cast<PlatformFontWin*>(font->platform_font());
+    *font = platform_font->DeriveFontWithHeight(font_height, target_style);
+    return;
+  }
+
+  const int current_style = (font->GetStyle() & kStyleMask);
+  const int current_size = font->GetFontSize();
+  if (current_style != target_style || current_size != font_size)
+    *font = font->DeriveFont(font_size - current_size, font_style);
+}
+
+// Returns true if |c| is a Unicode BiDi control character.
+bool IsUnicodeBidiControlCharacter(char16 c) {
+  return c == base::i18n::kRightToLeftMark ||
+         c == base::i18n::kLeftToRightMark ||
+         c == base::i18n::kLeftToRightEmbeddingMark ||
+         c == base::i18n::kRightToLeftEmbeddingMark ||
+         c == base::i18n::kPopDirectionalFormatting ||
+         c == base::i18n::kLeftToRightOverride ||
+         c == base::i18n::kRightToLeftOverride;
+}
+
+}  // namespace
 
 namespace internal {
 
@@ -165,33 +283,39 @@ HDC RenderTextWin::cached_hdc_ = NULL;
 // static
 std::map<std::string, std::vector<Font> > RenderTextWin::cached_linked_fonts_;
 
+// static
+std::map<std::string, std::string> RenderTextWin::cached_system_fonts_;
+
+// static
+std::map<std::string, Font> RenderTextWin::successful_substitute_fonts_;
+
 RenderTextWin::RenderTextWin()
     : RenderText(),
-      string_width_(0),
+      common_baseline_(0),
       needs_layout_(false) {
   memset(&script_control_, 0, sizeof(script_control_));
   memset(&script_state_, 0, sizeof(script_state_));
-  script_control_.fMergeNeutralItems = true;
 
   MoveCursorTo(EdgeSelectionModel(CURSOR_LEFT));
 }
 
 RenderTextWin::~RenderTextWin() {
-  STLDeleteContainerPointers(runs_.begin(), runs_.end());
 }
 
 base::i18n::TextDirection RenderTextWin::GetTextDirection() {
-  // TODO(benrg): Code moved from RenderText::GetTextDirection. Needs to be
-  // replaced by a correct Windows implementation.
-  if (base::i18n::IsRTL())
-    return base::i18n::RIGHT_TO_LEFT;
-  return base::i18n::LEFT_TO_RIGHT;
+  EnsureLayout();
+  return (script_state_.uBidiLevel == 0) ?
+      base::i18n::LEFT_TO_RIGHT : base::i18n::RIGHT_TO_LEFT;
 }
 
 Size RenderTextWin::GetStringSize() {
   EnsureLayout();
-  // TODO(msw): Use the largest font instead of the default font?
-  return Size(string_width_, GetFont().GetHeight());
+  return string_size_;
+}
+
+int RenderTextWin::GetBaseline() {
+  EnsureLayout();
+  return common_baseline_;
 }
 
 SelectionModel RenderTextWin::FindCursorPosition(const Point& point) {
@@ -224,55 +348,14 @@ SelectionModel RenderTextWin::FindCursorPosition(const Point& point) {
   return SelectionModel(cursor, trailing ? CURSOR_BACKWARD : CURSOR_FORWARD);
 }
 
-size_t RenderTextWin::IndexOfAdjacentGrapheme(
-    size_t index,
-    LogicalCursorDirection direction) {
+std::vector<RenderText::FontSpan> RenderTextWin::GetFontSpansForTesting() {
   EnsureLayout();
 
-  if (text().empty())
-    return 0;
+  std::vector<RenderText::FontSpan> spans;
+  for (size_t i = 0; i < runs_.size(); ++i)
+    spans.push_back(RenderText::FontSpan(runs_[i]->font, runs_[i]->range));
 
-  if (index >= text().length()) {
-    if (direction == CURSOR_FORWARD || index > text().length()) {
-      return text().length();
-    } else {
-      // The requested |index| is at the end of the text. Use the index of the
-      // last character to find the grapheme.
-      index = text().length() - 1;
-      if (IsCursorablePosition(index))
-        return index;
-    }
-  }
-
-  size_t run_index =
-      GetRunContainingCaret(SelectionModel(index, CURSOR_FORWARD));
-  DCHECK(run_index < runs_.size());
-  internal::TextRun* run = runs_[run_index];
-  size_t start = run->range.start();
-  size_t ch = index - start;
-
-  if (direction == CURSOR_BACKWARD) {
-    // If |ch| is the start of the run, use the preceding run, if any.
-    if (ch == 0) {
-      if (run_index == 0)
-        return 0;
-      run = runs_[run_index - 1];
-      start = run->range.start();
-      ch = run->range.length();
-    }
-
-    // Loop to find the start of the grapheme.
-    WORD cluster = run->logical_clusters[ch - 1];
-    do {
-      ch--;
-    } while (ch > 0 && run->logical_clusters[ch - 1] == cluster);
-  } else {  // direction == CURSOR_FORWARD
-    WORD cluster = run->logical_clusters[ch];
-    while (ch < run->range.length() && run->logical_clusters[ch] == cluster)
-      ch++;
-  }
-
-  return start + ch;
+  return spans;
 }
 
 SelectionModel RenderTextWin::AdjacentCharSelectionModel(
@@ -281,12 +364,13 @@ SelectionModel RenderTextWin::AdjacentCharSelectionModel(
   DCHECK(!needs_layout_);
   internal::TextRun* run;
   size_t run_index = GetRunContainingCaret(selection);
-  if (run_index == runs_.size()) {
+  if (run_index >= runs_.size()) {
     // The cursor is not in any run: we're at the visual and logical edge.
     SelectionModel edge = EdgeSelectionModel(direction);
     if (edge.caret_pos() == selection.caret_pos())
       return edge;
-    run = direction == CURSOR_RIGHT ? runs_.front() : runs_.back();
+    int visual_index = (direction == CURSOR_RIGHT) ? 0 : runs_.size() - 1;
+    run = runs_[visual_to_logical_[visual_index]];
   } else {
     // If the cursor is moving within the current run, just move it by one
     // grapheme in the appropriate direction.
@@ -454,7 +538,10 @@ void RenderTextWin::EnsureLayout() {
 void RenderTextWin::DrawVisualText(Canvas* canvas) {
   DCHECK(!needs_layout_);
 
-  Point offset(GetOriginForSkiaDrawing());
+  Point offset(GetOriginForDrawing());
+  // Skia will draw glyphs with respect to the baseline.
+  offset.Offset(0, common_baseline_);
+
   SkScalar x = SkIntToScalar(offset.x());
   SkScalar y = SkIntToScalar(offset.y());
 
@@ -462,6 +549,7 @@ void RenderTextWin::DrawVisualText(Canvas* canvas) {
 
   internal::SkiaTextRenderer renderer(canvas);
   ApplyFadeEffects(&renderer);
+  ApplyTextShadows(&renderer);
 
   bool smoothing_enabled;
   bool cleartype_enabled;
@@ -486,8 +574,8 @@ void RenderTextWin::DrawVisualText(Canvas* canvas) {
       glyph_x += SkIntToScalar(run->advance_widths[glyph]);
     }
 
-    renderer.SetFont(run->font);
-    renderer.SetFontStyle(run->font_style);
+    renderer.SetTextSize(run->font.GetFontSize());
+    renderer.SetFontFamilyWithStyle(run->font.GetFontName(), run->font_style);
     renderer.SetForegroundColor(run->foreground);
     renderer.DrawPosText(&pos[0], run->glyphs.get(), run->glyph_count);
     // TODO(oshima|msw): Consider refactoring StyleRange into Style
@@ -505,9 +593,16 @@ void RenderTextWin::DrawVisualText(Canvas* canvas) {
 }
 
 void RenderTextWin::ItemizeLogicalText() {
-  STLDeleteContainerPointers(runs_.begin(), runs_.end());
   runs_.clear();
-  string_width_ = 0;
+  string_size_ = Size(0, GetFont().GetHeight());
+  common_baseline_ = 0;
+
+  // Use the first strong character direction as the base text direction.
+  // TODO(msw): Use the application text direction instead of LTR by default?
+  script_state_.uBidiLevel =
+      (base::i18n::GetFirstStrongCharacterDirection(text()) ==
+           base::i18n::RIGHT_TO_LEFT) ? 1 : 0;
+
   if (text().empty())
     return;
 
@@ -546,6 +641,8 @@ void RenderTextWin::ItemizeLogicalText() {
     run->range.set_start(run_break);
     run->font = GetFont();
     run->font_style = style->font_style;
+    DeriveFontIfNecessary(run->font.GetFontSize(), run->font.GetHeight(),
+                          run->font_style, &run->font);
     run->foreground = style->foreground;
     run->strike = style->strike;
     run->diagonal_strike = style->diagonal_strike;
@@ -566,25 +663,31 @@ void RenderTextWin::ItemizeLogicalText() {
 }
 
 void RenderTextWin::LayoutVisualText() {
-  HRESULT hr = E_FAIL;
+  DCHECK(!runs_.empty());
+
   if (!cached_hdc_)
     cached_hdc_ = CreateCompatibleDC(NULL);
-  std::vector<internal::TextRun*>::const_iterator run_iter;
-  for (run_iter = runs_.begin(); run_iter < runs_.end(); ++run_iter) {
-    internal::TextRun* run = *run_iter;
-    size_t run_length = run->range.length();
+
+  HRESULT hr = E_FAIL;
+  string_size_.set_height(0);
+  for (size_t i = 0; i < runs_.size(); ++i) {
+    internal::TextRun* run = runs_[i];
+    const size_t run_length = run->range.length();
     const wchar_t* run_text = &(text()[run->range.start()]);
+    bool tried_cached_font = false;
     bool tried_fallback = false;
     size_t linked_font_index = 0;
-    const std::vector<gfx::Font>* linked_fonts = NULL;
+    const std::vector<Font>* linked_fonts = NULL;
+    Font original_font = run->font;
+    // Keep track of the font that is able to display the greatest number of
+    // characters for which ScriptShape() returned S_OK. This font will be used
+    // in the case where no font is able to display the entire run.
+    int best_partial_font_missing_char_count = INT_MAX;
+    Font best_partial_font = run->font;
+    bool using_best_partial_font = false;
 
     // Select the font desired for glyph generation.
     SelectObject(cached_hdc_, run->font.GetNativeFont());
-
-    SCRIPT_FONTPROPERTIES font_properties;
-    memset(&font_properties, 0, sizeof(font_properties));
-    font_properties.cBytes = sizeof(SCRIPT_FONTPROPERTIES);
-    ScriptGetFontProperties(cached_hdc_, &run->script_cache, &font_properties);
 
     run->logical_clusters.reset(new WORD[run_length]);
     run->glyph_count = 0;
@@ -605,66 +708,115 @@ void RenderTextWin::LayoutVisualText() {
                        &(run->glyph_count));
       if (hr == E_OUTOFMEMORY) {
         max_glyphs *= 2;
+        continue;
+      }
+
+      bool glyphs_missing = false;
+      if (hr == USP_E_SCRIPT_NOT_IN_FONT) {
+        glyphs_missing = true;
       } else if (hr == S_OK) {
         // If |hr| is S_OK, there could still be missing glyphs in the output,
         // see: http://msdn.microsoft.com/en-us/library/windows/desktop/dd368564.aspx
-        //
-        // If there are missing glyphs, use font linking to try to find a
-        // matching font.
-        bool glyphs_missing = false;
-        for (int i = 0; i < run->glyph_count; i++) {
-          if (run->glyphs[i] == font_properties.wgDefault) {
-            glyphs_missing = true;
-            break;
-          }
+        const int missing_count = CountCharsWithMissingGlyphs(run);
+        // Track the font that produced the least missing glyphs.
+        if (missing_count < best_partial_font_missing_char_count) {
+          best_partial_font_missing_char_count = missing_count;
+          best_partial_font = run->font;
         }
-        // No glyphs missing - good to go.
-        if (!glyphs_missing)
-          break;
+        glyphs_missing = (missing_count != 0);
+      }
 
-        // First time through, get the linked fonts list.
-        if (linked_fonts == NULL)
-          linked_fonts = GetLinkedFonts(run->font);
-
-        // None of the linked fonts worked - break out of the loop.
-        if (linked_font_index == linked_fonts->size())
-          break;
-
-        // Try the next linked font.
-        run->font = linked_fonts->at(linked_font_index++);
-        ScriptFreeCache(&run->script_cache);
-        SelectObject(cached_hdc_, run->font.GetNativeFont());
-      } else if (hr == USP_E_SCRIPT_NOT_IN_FONT) {
-        // Only try font fallback if it hasn't yet been attempted for this run.
-        if (tried_fallback) {
-          // TODO(msw): Don't use SCRIPT_UNDEFINED. Apparently Uniscribe can
-          //            crash on certain surrogate pairs with SCRIPT_UNDEFINED.
-          //            See https://bugzilla.mozilla.org/show_bug.cgi?id=341500
-          //            And http://maxradi.us/documents/uniscribe/
-          run->script_analysis.eScript = SCRIPT_UNDEFINED;
-          // Reset |hr| to 0 to not trigger the DCHECK() below when a font is
-          // not found that can display the text. This is expected behavior
-          // under Windows XP without additional language packs installed and
-          // may also happen on newer versions when trying to display text in
-          // an obscure script that the system doesn't have the right font for.
-          hr = 0;
-          break;
-        }
-
-        // The run's font doesn't contain the required glyphs, use an alternate.
-        // TODO(msw): support RenderText's font_list().
-        if (ChooseFallbackFont(cached_hdc_, run->font, run_text, run_length,
-                               &run->font)) {
-          ScriptFreeCache(&run->script_cache);
-          SelectObject(cached_hdc_, run->font.GetNativeFont());
-        }
-
-        tried_fallback = true;
-      } else {
+      // Skip font substitution if there are no missing glyphs or if the font
+      // with the least missing glyphs is being used as a last resort.
+      if (!glyphs_missing || using_best_partial_font) {
+        // Save the successful fallback font that was chosen.
+        if (tried_fallback && !using_best_partial_font)
+          successful_substitute_fonts_[original_font.GetFontName()] = run->font;
         break;
       }
+
+      // First, try the cached font from previous runs, if any.
+      if (!tried_cached_font) {
+        tried_cached_font = true;
+        std::map<std::string, Font>::const_iterator it =
+            successful_substitute_fonts_.find(original_font.GetFontName());
+        if (it != successful_substitute_fonts_.end()) {
+          ApplySubstituteFont(run, it->second);
+          continue;
+        }
+      }
+
+      // If there are missing glyphs, first try finding a fallback font using a
+      // meta file, if it hasn't yet been attempted for this run.
+      // TODO(msw|asvitkine): Support RenderText's font_list()?
+      // TODO(msw|asvitkine): Cache previous successful replacement fonts?
+      if (!tried_fallback) {
+        tried_fallback = true;
+
+        Font fallback_font;
+        if (ChooseFallbackFont(cached_hdc_, run->font, run_text, run_length,
+                               &fallback_font)) {
+          ApplySubstituteFont(run, fallback_font);
+          continue;
+        }
+      }
+
+      // The meta file approach did not yield a replacement font, try to find
+      // one using font linking. First time through, get the linked fonts list.
+      if (linked_fonts == NULL) {
+        // First, try to get the list for the original font.
+        linked_fonts = GetLinkedFonts(original_font);
+
+        // If there are no linked fonts for the original font, try querying the
+        // ones for the Uniscribe fallback font. This may happen if the first
+        // font is a custom font that has no linked fonts in the Registry.
+        //
+        // Note: One possibility would be to always merge both lists of fonts,
+        //       but it is not clear whether there are any real world scenarios
+        //       where this would actually help.
+        if (linked_fonts->empty())
+          linked_fonts = GetLinkedFonts(run->font);
+      }
+
+      // None of the fallback fonts were able to display the entire run.
+      if (linked_font_index == linked_fonts->size()) {
+        // If a font was able to partially display the run, use that now.
+        if (best_partial_font_missing_char_count != INT_MAX) {
+          ApplySubstituteFont(run, best_partial_font);
+          using_best_partial_font = true;
+          continue;
+        }
+
+        // If no font was able to partially display the run, replace all glyphs
+        // with |wgDefault| to ensure they don't hold garbage values.
+        SCRIPT_FONTPROPERTIES properties;
+        memset(&properties, 0, sizeof(properties));
+        properties.cBytes = sizeof(properties);
+        ScriptGetFontProperties(cached_hdc_, &run->script_cache, &properties);
+        for (int i = 0; i < run->glyph_count; ++i)
+          run->glyphs[i] = properties.wgDefault;
+
+        // TODO(msw): Don't use SCRIPT_UNDEFINED. Apparently Uniscribe can
+        //            crash on certain surrogate pairs with SCRIPT_UNDEFINED.
+        //            See https://bugzilla.mozilla.org/show_bug.cgi?id=341500
+        //            And http://maxradi.us/documents/uniscribe/
+        run->script_analysis.eScript = SCRIPT_UNDEFINED;
+        // Reset |hr| to 0 to not trigger the DCHECK() below when a font is
+        // not found that can display the text. This is expected behavior
+        // under Windows XP without additional language packs installed and
+        // may also happen on newer versions when trying to display text in
+        // an obscure script that the system doesn't have the right font for.
+        hr = 0;
+        break;
+      }
+
+      // Try the next linked font.
+      ApplySubstituteFont(run, linked_fonts->at(linked_font_index++));
     }
     DCHECK(SUCCEEDED(hr));
+    string_size_.set_height(std::max(string_size_.height(),
+                                     run->font.GetHeight()));
+    common_baseline_ = std::max(common_baseline_, run->font.GetBaseline());
 
     if (run->glyph_count > 0) {
       run->advance_widths.reset(new int[run->glyph_count]);
@@ -682,21 +834,19 @@ void RenderTextWin::LayoutVisualText() {
     }
   }
 
-  if (runs_.size() > 0) {
-    // Build the array of bidirectional embedding levels.
-    scoped_array<BYTE> levels(new BYTE[runs_.size()]);
-    for (size_t i = 0; i < runs_.size(); ++i)
-      levels[i] = runs_[i]->script_analysis.s.uBidiLevel;
+  // Build the array of bidirectional embedding levels.
+  scoped_array<BYTE> levels(new BYTE[runs_.size()]);
+  for (size_t i = 0; i < runs_.size(); ++i)
+    levels[i] = runs_[i]->script_analysis.s.uBidiLevel;
 
-    // Get the maps between visual and logical run indices.
-    visual_to_logical_.reset(new int[runs_.size()]);
-    logical_to_visual_.reset(new int[runs_.size()]);
-    hr = ScriptLayout(runs_.size(),
-                      levels.get(),
-                      visual_to_logical_.get(),
-                      logical_to_visual_.get());
-    DCHECK(SUCCEEDED(hr));
-  }
+  // Get the maps between visual and logical run indices.
+  visual_to_logical_.reset(new int[runs_.size()]);
+  logical_to_visual_.reset(new int[runs_.size()]);
+  hr = ScriptLayout(runs_.size(),
+                    levels.get(),
+                    visual_to_logical_.get(),
+                    logical_to_visual_.get());
+  DCHECK(SUCCEEDED(hr));
 
   // Precalculate run width information.
   size_t preceding_run_widths = 0;
@@ -707,7 +857,51 @@ void RenderTextWin::LayoutVisualText() {
     run->width = abc.abcA + abc.abcB + abc.abcC;
     preceding_run_widths += run->width;
   }
-  string_width_ = preceding_run_widths;
+  string_size_.set_width(preceding_run_widths);
+}
+
+void RenderTextWin::ApplySubstituteFont(internal::TextRun* run,
+                                        const Font& font) {
+  const int font_size = run->font.GetFontSize();
+  const int font_height = run->font.GetHeight();
+  run->font = font;
+  DeriveFontIfNecessary(font_size, font_height, run->font_style, &run->font);
+  ScriptFreeCache(&run->script_cache);
+  SelectObject(cached_hdc_, run->font.GetNativeFont());
+}
+
+int RenderTextWin::CountCharsWithMissingGlyphs(internal::TextRun* run) const {
+  int chars_not_missing_glyphs = 0;
+  SCRIPT_FONTPROPERTIES properties;
+  memset(&properties, 0, sizeof(properties));
+  properties.cBytes = sizeof(properties);
+  ScriptGetFontProperties(cached_hdc_, &run->script_cache, &properties);
+
+  const wchar_t* run_text = &(text()[run->range.start()]);
+  for (size_t char_index = 0; char_index < run->range.length(); ++char_index) {
+    const int glyph_index = run->logical_clusters[char_index];
+    DCHECK_GE(glyph_index, 0);
+    DCHECK_LT(glyph_index, run->glyph_count);
+
+    if (run->glyphs[glyph_index] == properties.wgDefault)
+      continue;
+
+    // Windows Vista sometimes returns glyphs equal to wgBlank (instead of
+    // wgDefault), with fZeroWidth set. Treat such cases as having missing
+    // glyphs if the corresponding character is not whitespace.
+    // See: http://crbug.com/125629
+    if (run->glyphs[glyph_index] == properties.wgBlank &&
+        run->visible_attributes[glyph_index].fZeroWidth &&
+        !IsWhitespace(run_text[char_index]) &&
+        !IsUnicodeBidiControlCharacter(run_text[char_index])) {
+      continue;
+    }
+
+    ++chars_not_missing_glyphs;
+  }
+
+  DCHECK_LE(chars_not_missing_glyphs, static_cast<int>(run->range.length()));
+  return run->range.length() - chars_not_missing_glyphs;
 }
 
 const std::vector<Font>* RenderTextWin::GetLinkedFonts(const Font& font) const {
@@ -719,7 +913,7 @@ const std::vector<Font>* RenderTextWin::GetLinkedFonts(const Font& font) const {
 
   cached_linked_fonts_[font_name] = std::vector<Font>();
   std::vector<Font>* linked_fonts = &cached_linked_fonts_[font_name];
-  QueryLinkedFontsFromRegistry(font, linked_fonts);
+  QueryLinkedFontsFromRegistry(font, &cached_system_fonts_, linked_fonts);
   return linked_fonts;
 }
 
@@ -746,18 +940,18 @@ size_t RenderTextWin::GetRunContainingPoint(const Point& point) const {
 }
 
 SelectionModel RenderTextWin::FirstSelectionModelInsideRun(
-    internal::TextRun* run) {
+    const internal::TextRun* run) {
   size_t cursor = IndexOfAdjacentGrapheme(run->range.start(), CURSOR_FORWARD);
   return SelectionModel(cursor, CURSOR_BACKWARD);
 }
 
 SelectionModel RenderTextWin::LastSelectionModelInsideRun(
-    internal::TextRun* run) {
+    const internal::TextRun* run) {
   size_t caret = IndexOfAdjacentGrapheme(run->range.end(), CURSOR_BACKWARD);
   return SelectionModel(caret, CURSOR_FORWARD);
 }
 
-RenderText* RenderText::CreateRenderText() {
+RenderText* RenderText::CreateInstance() {
   return new RenderTextWin;
 }
 

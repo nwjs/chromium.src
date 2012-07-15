@@ -1,5 +1,5 @@
 <!DOCTYPE HTML>
-<html i18n-values="dir:textdirection">
+<html i18n-values="dir:textdirection;oobe:oobeType;screen:screenType;camera:cameraType">
 <head>
 <title i18n-content="title"></title>
 <link rel="stylesheet" href="chrome://resources/css/dialogs.css"></link>
@@ -16,8 +16,10 @@
 <link rel="stylesheet" href="screen_error_message.css">
 <link rel="stylesheet" href="user_pod_row.css">
 <script src="chrome://resources/js/cr.js"></script>
+<script src="chrome://resources/js/event_tracker.js"></script>
 <script src="chrome://resources/js/cr/event_target.js"></script>
 <script src="chrome://resources/js/cr/ui.js"></script>
+<script src="chrome://resources/js/cr/ui/touch_handler.js"></script>
 <script src="chrome://resources/js/cr/ui/array_data_model.js"></script>
 <script src="chrome://resources/js/cr/ui/dialogs.js"></script>
 <script src="chrome://resources/js/cr/ui/list_selection_controller.js"></script>
@@ -42,14 +44,10 @@
 <script src="user_pod_row.js"></script>
 </head>
 <body class="login-display" i18n-values=".style.fontFamily:fontfamily;">
-  <include src="header_bar.html">
+  <div id="background" class="background-initial"></div>
+  <include src="version.html">
   <div id="outer-container">
-    <div id="notification-area">
-      <div id="enterprise-info-container" class="butter-bar" hidden>
-        <span id="enterprise-info-message"></span>
-        <!-- TODO(dubroy): Add "Learn more" link here. -->
-      </div>
-    </div>
+    <include src="notification_area.html">
     <div id="oobe" class="faded">
       <div id="header">
         <span i18n-content="productName"></span>
@@ -68,10 +66,11 @@
         <div id="progress"></div>
         <div id="button-strip" class="button-strip"></div>
       </div>
+      <div id="progress-dots"></div>
     </div>
   </div>
   <div id="bubble" class="bubble faded" hidden></div>
-  <include src="version.html">
+  <include src="header_bar.html">
   <include src="user_pod_template.html">
 </body>
 </html>

@@ -4,13 +4,16 @@
 
 #ifndef CHROME_TEST_BASE_TEST_BROWSER_WINDOW_H_
 #define CHROME_TEST_BASE_TEST_BROWSER_WINDOW_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "build/build_config.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/test/base/test_location_bar.h"
+
+namespace extensions {
+class Extension;
+}
 
 // An implementation of BrowserWindow used for testing. TestBrowserWindow only
 // contains a valid LocationBar, all other getters return NULL.
@@ -30,10 +33,9 @@ class TestBrowserWindow : public BrowserWindow {
   virtual bool IsActive() const OVERRIDE;
   virtual void FlashFrame(bool flash) OVERRIDE {}
   virtual bool IsAlwaysOnTop() const OVERRIDE;
-  virtual gfx::NativeWindow GetNativeHandle() OVERRIDE;
+  virtual gfx::NativeWindow GetNativeWindow() OVERRIDE;
   virtual BrowserWindowTesting* GetBrowserWindowTesting() OVERRIDE;
   virtual StatusBubble* GetStatusBubble() OVERRIDE;
-  virtual void ToolbarSizeChanged(bool is_animating) OVERRIDE {}
   virtual void UpdateTitleBar() OVERRIDE {}
   virtual void BookmarkBarStateChanged(
       BookmarkBar::AnimateChangeType change_type) OVERRIDE {}
@@ -41,6 +43,9 @@ class TestBrowserWindow : public BrowserWindow {
   virtual void SetDevToolsDockSide(DevToolsDockSide side) OVERRIDE {}
   virtual void UpdateLoadingAnimations(bool should_animate) OVERRIDE {}
   virtual void SetStarredState(bool is_starred) OVERRIDE {}
+  virtual void SetZoomIconState(ZoomController::ZoomIconState state) OVERRIDE {}
+  virtual void SetZoomIconTooltipPercent(int zoom_percent) OVERRIDE {}
+  virtual void ShowZoomBubble(int zoom_percent) OVERRIDE {}
   virtual gfx::Rect GetRestoredBounds() const OVERRIDE;
   virtual gfx::Rect GetBounds() const OVERRIDE;
   virtual bool IsMaximized() const OVERRIDE;
@@ -55,27 +60,29 @@ class TestBrowserWindow : public BrowserWindow {
       const GURL& url,
       FullscreenExitBubbleType bubble_type) OVERRIDE {}
   virtual bool IsFullscreen() const OVERRIDE;
+#if defined(OS_WIN)
+  virtual void SetMetroSnapMode(bool enable) OVERRIDE {}
+  virtual bool IsInMetroSnapMode() const;
+#endif
   virtual bool IsFullscreenBubbleVisible() const OVERRIDE;
   virtual LocationBar* GetLocationBar() const OVERRIDE;
   virtual void SetFocusToLocationBar(bool select_all) OVERRIDE {}
   virtual void UpdateReloadStopState(bool is_loading, bool force) OVERRIDE {}
-  virtual void UpdateToolbar(TabContentsWrapper* contents,
+  virtual void UpdateToolbar(TabContents* contents,
                              bool should_restore_state) OVERRIDE {}
   virtual void FocusToolbar() OVERRIDE {}
   virtual void FocusAppMenu() OVERRIDE {}
   virtual void FocusBookmarksToolbar() OVERRIDE {}
-  virtual void FocusChromeOSStatus() OVERRIDE {}
   virtual void RotatePaneFocus(bool forwards) OVERRIDE {}
   virtual void ShowAppMenu() OVERRIDE {}
-  virtual bool PreHandleKeyboardEvent(const NativeWebKeyboardEvent& event,
-                                      bool* is_keyboard_shortcut) OVERRIDE;
+  virtual bool PreHandleKeyboardEvent(
+      const content::NativeWebKeyboardEvent& event,
+      bool* is_keyboard_shortcut) OVERRIDE;
   virtual void HandleKeyboardEvent(
-      const NativeWebKeyboardEvent& event) OVERRIDE {}
-  virtual void ShowCreateWebAppShortcutsDialog(
-      TabContentsWrapper* tab_contents) OVERRIDE {}
+      const content::NativeWebKeyboardEvent& event) OVERRIDE {}
   virtual void ShowCreateChromeAppShortcutsDialog(
       Profile* profile,
-      const Extension* app) OVERRIDE {}
+      const extensions::Extension* app) OVERRIDE {}
 
   virtual bool IsBookmarkBarVisible() const OVERRIDE;
   virtual bool IsBookmarkBarAnimating() const OVERRIDE;
@@ -83,7 +90,7 @@ class TestBrowserWindow : public BrowserWindow {
   virtual bool IsToolbarVisible() const OVERRIDE;
   virtual gfx::Rect GetRootWindowResizerRect() const OVERRIDE;
   virtual bool IsPanel() const OVERRIDE;
-  virtual void ConfirmAddSearchProvider(const TemplateURL* template_url,
+  virtual void ConfirmAddSearchProvider(TemplateURL* template_url,
                                         Profile* profile) OVERRIDE {}
   virtual void ToggleBookmarkBar() OVERRIDE {}
   virtual void ShowAboutChromeDialog() OVERRIDE;
@@ -93,18 +100,22 @@ class TestBrowserWindow : public BrowserWindow {
   virtual void ShowBookmarkBubble(const GURL& url,
                                   bool already_bookmarked) OVERRIDE {}
   virtual void ShowChromeToMobileBubble() OVERRIDE {}
+#if defined(ENABLE_ONE_CLICK_SIGNIN)
+  virtual void ShowOneClickSigninBubble(
+      const StartSyncCallback& start_sync_callback) OVERRIDE {}
+#endif
   virtual bool IsDownloadShelfVisible() const OVERRIDE;
   virtual DownloadShelf* GetDownloadShelf() OVERRIDE;
   virtual void ConfirmBrowserCloseWithPendingDownloads() OVERRIDE {}
   virtual void UserChangedTheme() OVERRIDE {}
   virtual int GetExtraRenderViewHeight() const OVERRIDE;
   virtual void WebContentsFocused(content::WebContents* contents) OVERRIDE {}
-  virtual void ShowPageInfo(Profile* profile,
+  virtual void ShowPageInfo(content::WebContents* web_contents,
                             const GURL& url,
                             const content::SSLStatus& ssl,
                             bool show_history) OVERRIDE {}
   virtual void ShowWebsiteSettings(Profile* profile,
-                                   TabContentsWrapper* wrapper,
+                                   TabContents* tab_contents,
                                    const GURL& url,
                                    const content::SSLStatus& ssl,
                                    bool show_history) OVERRIDE {}
@@ -120,7 +131,7 @@ class TestBrowserWindow : public BrowserWindow {
   virtual bool InPresentationMode() OVERRIDE;
 #endif
 
-  virtual void ShowInstant(TabContentsWrapper* preview_contents) OVERRIDE {}
+  virtual void ShowInstant(TabContents* preview_contents) OVERRIDE {}
   virtual void HideInstant() OVERRIDE {}
   virtual gfx::Rect GetInstantBounds() OVERRIDE;
   virtual WindowOpenDisposition GetDispositionForPopupBounds(
@@ -129,11 +140,6 @@ class TestBrowserWindow : public BrowserWindow {
   virtual void ShowAvatarBubble(content::WebContents* web_contents,
                                 const gfx::Rect& rect) OVERRIDE {}
   virtual void ShowAvatarBubbleFromAvatarButton() OVERRIDE {}
-
-#if defined(OS_CHROMEOS)
-  virtual void ShowMobileSetup() OVERRIDE {}
-  virtual void ShowKeyboardOverlay(gfx::NativeWindow owning_window) OVERRIDE {}
-#endif
 
  protected:
   virtual void DestroyBrowser() OVERRIDE {}

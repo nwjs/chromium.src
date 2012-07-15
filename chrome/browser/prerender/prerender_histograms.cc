@@ -9,10 +9,12 @@
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram.h"
 #include "base/stringprintf.h"
-#include "chrome/browser/autocomplete/network_action_predictor.h"
+#include "chrome/browser/predictors/autocomplete_action_predictor.h"
 #include "chrome/browser/prerender/prerender_field_trial.h"
 #include "chrome/browser/prerender/prerender_manager.h"
 #include "chrome/browser/prerender/prerender_util.h"
+
+using predictors::AutocompleteActionPredictor;
 
 namespace prerender {
 
@@ -46,10 +48,7 @@ std::string GetHistogramName(Origin origin, uint8 experiment_id,
 
   switch (origin) {
     case ORIGIN_OMNIBOX:
-      return ComposeHistogramName(
-          StringPrintf("omnibox_%.1f",
-                       NetworkActionPredictor::get_hit_weight()).c_str(),
-          name);
+      return ComposeHistogramName("omnibox", name);
     case ORIGIN_LINK_REL_PRERENDER:
       return ComposeHistogramName("web", name);
     case ORIGIN_GWS_PRERENDER:  // Handled above.
@@ -152,8 +151,7 @@ void PrerenderHistograms::RecordPrerender(Origin origin, const GURL& url) {
 void PrerenderHistograms::RecordPrerenderStarted(Origin origin) const {
   if (OriginIsOmnibox(origin)) {
     UMA_HISTOGRAM_COUNTS(
-        StringPrintf("Prerender.OmniboxPrerenderCount_%.1f%s",
-                     NetworkActionPredictor::get_hit_weight(),
+        StringPrintf("Prerender.OmniboxPrerenderCount%s",
                      PrerenderManager::GetModeString()).c_str(),
         1);
   }
@@ -162,8 +160,7 @@ void PrerenderHistograms::RecordPrerenderStarted(Origin origin) const {
 void PrerenderHistograms::RecordUsedPrerender(Origin origin) const {
   if (OriginIsOmnibox(origin)) {
     UMA_HISTOGRAM_COUNTS(
-        StringPrintf("Prerender.OmniboxNavigationsUsedPrerenderCount_%.1f%s",
-                     NetworkActionPredictor::get_hit_weight(),
+        StringPrintf("Prerender.OmniboxNavigationsUsedPrerenderCount%s",
                      PrerenderManager::GetModeString()).c_str(),
         1);
   }
@@ -174,6 +171,18 @@ void PrerenderHistograms::RecordTimeSinceLastRecentVisit(
   PREFIXED_HISTOGRAM(
       "TimeSinceLastRecentVisit",
       UMA_HISTOGRAM_TIMES(name, delta));
+}
+
+void PrerenderHistograms::RecordFractionPixelsFinalAtSwapin(
+    double fraction) const {
+  if (fraction < 0.0 || fraction > 1.0)
+    return;
+  int percentage = static_cast<int>(fraction * 100);
+  if (percentage < 0 || percentage > 100)
+    return;
+  PREFIXED_HISTOGRAM(
+      base::FieldTrial::MakeName("FractionPixelsFinalAtSwapin", "Prerender"),
+      UMA_HISTOGRAM_PERCENTAGE(name, percentage));
 }
 
 base::TimeTicks PrerenderHistograms::GetCurrentTimeTicks() const {
@@ -274,6 +283,22 @@ void PrerenderHistograms::RecordPageLoadTimeNotSwappedIn(
   RECORD_PLT("PrerenderNotSwappedInPLT", page_load_time);
 }
 
+void PrerenderHistograms::RecordSimulatedLocalBrowsingBaselinePLT(
+    base::TimeDelta page_load_time, const GURL& url) const {
+  // If the URL to be prerendered is not a http[s] URL do not record.
+  if (!IsWebURL(url))
+    return;
+  RECORD_PLT("SimulatedLocalBrowsingBaselinePLT", page_load_time);
+}
+
+void PrerenderHistograms::RecordSimulatedLocalBrowsingPLT(
+    base::TimeDelta page_load_time, const GURL& url) const {
+  // If the URL to be prerendered is not a http[s] URL do not record.
+  if (!IsWebURL(url))
+    return;
+  RECORD_PLT("SimulatedLocalBrowsingPLT", page_load_time);
+}
+
 void PrerenderHistograms::RecordPercentLoadDoneAtSwapin(double fraction)
     const {
   if (fraction < 0.0 || fraction > 1.0)
@@ -296,7 +321,6 @@ bool PrerenderHistograms::WithinWindow() const {
   return GetTimeSinceLastPrerender() <=
       base::TimeDelta::FromSeconds(kWindowDurationSeconds);
 }
-
 
 void PrerenderHistograms::RecordTimeUntilUsed(
     base::TimeDelta time_until_used, base::TimeDelta max_age) const {
@@ -330,24 +354,16 @@ void PrerenderHistograms::RecordFinalStatus(
     FinalStatus final_status) const {
   DCHECK(final_status != FINAL_STATUS_MAX);
 
-  // There are three cases for MatchCompleteStatus:
-  // MATCH_COMPLETE_DEFAULT:
-  // In this case, Match & MatchComplete line up.  So we record this in both
-  // histograms.
-  // MATCH_COMPLETE_REPLACED: The actual prerender was replaced by a dummy.
-  // So we only record it in (the actual) FinalStatus, but not MatchComplete.
-  // MATCH_COMPLETE_REPLACEMENT: This is a pseudo element to emulate what
-  // the control group would do.  Since it won't actually be swapped in,
-  // it may not go into FinalStatus.  Since in the control group it would be
-  // swapped in though, it must go into MatchComplete.
-
-  if (mc_status != PrerenderContents::MATCH_COMPLETE_REPLACEMENT) {
+  if (mc_status == PrerenderContents::MATCH_COMPLETE_DEFAULT ||
+      mc_status == PrerenderContents::MATCH_COMPLETE_REPLACED) {
     PREFIXED_HISTOGRAM_ORIGIN_EXPERIMENT(
         base::FieldTrial::MakeName("FinalStatus", "Prerender"),
         origin, experiment_id,
         UMA_HISTOGRAM_ENUMERATION(name, final_status, FINAL_STATUS_MAX));
   }
-  if (mc_status != PrerenderContents::MATCH_COMPLETE_REPLACED) {
+  if (mc_status == PrerenderContents::MATCH_COMPLETE_DEFAULT ||
+      mc_status == PrerenderContents::MATCH_COMPLETE_REPLACEMENT ||
+      mc_status == PrerenderContents::MATCH_COMPLETE_REPLACEMENT_PENDING) {
     PREFIXED_HISTOGRAM_ORIGIN_EXPERIMENT(
         base::FieldTrial::MakeName("FinalStatusMatchComplete", "Prerender"),
         origin, experiment_id,
@@ -371,6 +387,27 @@ bool PrerenderHistograms::IsOriginExperimentWash() const {
   if (!WithinWindow())
     return false;
   return origin_experiment_wash_;
+}
+
+void PrerenderHistograms::RecordLocalPredictorEvent(
+    PrerenderLocalPredictor::Event event) const {
+  UMA_HISTOGRAM_ENUMERATION(
+      ComposeHistogramName("", base::FieldTrial::MakeName(
+          "LocalPredictorEvent", "Prerender")),
+      event,
+      PrerenderLocalPredictor::EVENT_MAX_VALUE);
+}
+
+void PrerenderHistograms::RecordLocalPredictorTimeUntilUsed(
+    base::TimeDelta time_until_used, base::TimeDelta max_age) const {
+  PREFIXED_HISTOGRAM(
+      "LocalPredictorTimeUntilUsed",
+      UMA_HISTOGRAM_CUSTOM_TIMES(
+          name,
+          time_until_used,
+          base::TimeDelta::FromMilliseconds(10),
+          max_age,
+          50));
 }
 
 }  // namespace prerender

@@ -78,7 +78,7 @@ class Tab : public View {
     paint.setColor(kTabBorderColor);
     paint.setStrokeWidth(kTabBorderThickness * 2);
 
-    canvas->sk_canvas()->drawPath(path, paint);
+    canvas->DrawPath(path, paint);
   }
 
   void PaintTabTitle(gfx::Canvas* canvas, bool selected) {
@@ -300,7 +300,7 @@ void NativeTabbedPaneViews::AddTabAtIndex(int index,
                                           View* contents,
                                           bool select_if_first_tab) {
   DCHECK(index <= static_cast<int>(tab_strip_->child_count()));
-  contents->set_parent_owned(false);
+  contents->set_owned_by_client();
   contents->SetVisible(false);
 
   tab_strip_->AddChildViewAt(new Tab(tab_strip_, title, contents), index);
@@ -392,9 +392,8 @@ void NativeTabbedPaneViews::InitControl() {
 }
 
 void NativeTabbedPaneViews::InitializeTabs() {
-  for (std::vector<View*>::const_iterator tab = tab_strip_->children_begin();
-       tab != tab_strip_->children_end(); ++tab)
-    content_view_->AddChildView(Tab::GetContents(*tab));
+  for (int i = 0; i < tab_strip_->child_count(); ++i)
+    content_view_->AddChildView(Tab::GetContents(tab_strip_->child_at(i)));
 }
 
 ////////////////////////////////////////////////////////////////////////////////

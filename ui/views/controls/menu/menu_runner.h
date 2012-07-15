@@ -1,14 +1,12 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef UI_VIEWS_CONTROLS_MENU_MENU_RUNNER_H_
 #define UI_VIEWS_CONTROLS_MENU_MENU_RUNNER_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
-#include "base/memory/scoped_ptr.h"
 #include "ui/views/controls/menu/menu_item_view.h"
 
 namespace views {
@@ -17,6 +15,7 @@ class MenuButton;
 class Widget;
 
 namespace internal {
+class DisplayChangeListener;
 class MenuRunnerImpl;
 }
 
@@ -85,14 +84,39 @@ class VIEWS_EXPORT MenuRunner {
                       MenuItemView::AnchorPosition anchor,
                       int32 types) WARN_UNUSED_RESULT;
 
+  // Returns true if we're in a nested message loop running the menu.
+  bool IsRunning() const;
+
   // Hides and cancels the menu. This does nothing if the menu is not open.
   void Cancel();
 
  private:
   internal::MenuRunnerImpl* holder_;
 
+  scoped_ptr<internal::DisplayChangeListener> display_change_listener_;
+
   DISALLOW_COPY_AND_ASSIGN(MenuRunner);
 };
+
+namespace internal {
+
+// DisplayChangeListener is intended to listen for changes in the display size
+// and cancel the menu. DisplayChangeListener is created when the menu is
+// shown.
+class DisplayChangeListener {
+ public:
+  virtual ~DisplayChangeListener() {}
+
+  // Creates the platform specified DisplayChangeListener, or NULL if there
+  // isn't one. Caller owns the returned value.
+  static DisplayChangeListener* Create(Widget* parent,
+                                       MenuRunner* runner);
+
+ protected:
+  DisplayChangeListener() {}
+};
+
+}
 
 }  // namespace views
 

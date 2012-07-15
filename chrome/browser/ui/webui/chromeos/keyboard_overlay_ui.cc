@@ -13,14 +13,15 @@
 #include "chrome/browser/chromeos/input_method/xkeyboard.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/webui/chrome_url_data_manager.h"
 #include "chrome/browser/ui/webui/chrome_web_ui_data_source.h"
 #include "chrome/common/jstemplate_builder.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/page_navigator.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/browser/web_contents_delegate.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_message_handler.h"
 #include "grit/browser_resources.h"
@@ -30,6 +31,7 @@
 
 using chromeos::input_method::ModifierKey;
 using content::WebUIMessageHandler;
+using ui::WebDialogUI;
 
 namespace {
 
@@ -46,8 +48,8 @@ struct ModifierToLabel {
   const char* label;
 } kModifierToLabels[] = {
   {chromeos::input_method::kSearchKey, "search"},
-  {chromeos::input_method::kLeftControlKey, "ctrl"},
-  {chromeos::input_method::kLeftAltKey, "alt"},
+  {chromeos::input_method::kControlKey, "ctrl"},
+  {chromeos::input_method::kAltKey, "alt"},
   {chromeos::input_method::kVoidKey, "disabled"},
   {chromeos::input_method::kCapsLockKey, "caps lock"},
 };
@@ -88,18 +90,21 @@ struct I18nContentToMessage {
   { "keyboardOverlayBookmarkCurrentPage",
     IDS_KEYBOARD_OVERLAY_BOOKMARK_CURRENT_PAGE },
   { "keyboardOverlayBookmarkManager", IDS_KEYBOARD_OVERLAY_BOOKMARK_MANAGER },
+  { "keyboardOverlayCenterWindow", IDS_KEYBOARD_OVERLAY_CENTER_WINDOW },
   { "keyboardOverlayClearBrowsingDataDialog",
     IDS_KEYBOARD_OVERLAY_CLEAR_BROWSING_DATA_DIALOG },
   { "keyboardOverlayCloseTab", IDS_KEYBOARD_OVERLAY_CLOSE_TAB },
   { "keyboardOverlayCloseWindow", IDS_KEYBOARD_OVERLAY_CLOSE_WINDOW },
-  { "keyboardOverlayContentBrowser", IDS_KEYBOARD_OVERLAY_CONTENT_BROWSER },
   { "keyboardOverlayCopy", IDS_KEYBOARD_OVERLAY_COPY },
   { "keyboardOverlayCut", IDS_KEYBOARD_OVERLAY_CUT },
+  { "keyboardOverlayCycleMonitor", IDS_KEYBOARD_OVERLAY_CYCLE_MONITOR },
   { "keyboardOverlayCycleThroughInputMethods",
     IDS_KEYBOARD_OVERLAY_CYCLE_THROUGH_INPUT_METHODS },
   { "keyboardOverlayDelete", IDS_KEYBOARD_OVERLAY_DELETE },
   { "keyboardOverlayDeleteWord", IDS_KEYBOARD_OVERLAY_DELETE_WORD },
   { "keyboardOverlayDeveloperTools", IDS_KEYBOARD_OVERLAY_DEVELOPER_TOOLS },
+  { "keyboardOverlayDockWindowLeft", IDS_KEYBOARD_OVERLAY_DOCK_WINDOW_LEFT },
+  { "keyboardOverlayDockWindowRight", IDS_KEYBOARD_OVERLAY_DOCK_WINDOW_RIGHT },
   { "keyboardOverlayDomInspector", IDS_KEYBOARD_OVERLAY_DOM_INSPECTOR },
   { "keyboardOverlayDownloads", IDS_KEYBOARD_OVERLAY_DOWNLOADS },
   { "keyboardOverlayEnd", IDS_KEYBOARD_OVERLAY_END },
@@ -111,6 +116,7 @@ struct I18nContentToMessage {
   { "keyboardOverlayFocusAddressBarInSearchMode",
     IDS_KEYBOARD_OVERLAY_FOCUS_ADDRESS_BAR_IN_SEARCH_MODE },
   { "keyboardOverlayFocusBookmarks", IDS_KEYBOARD_OVERLAY_FOCUS_BOOKMARKS },
+  { "keyboardOverlayFocusLauncher", IDS_KEYBOARD_OVERLAY_FOCUS_LAUNCHER },
   { "keyboardOverlayFocusNextPane", IDS_KEYBOARD_OVERLAY_FOCUS_NEXT_PANE },
   { "keyboardOverlayFocusPreviousPane",
     IDS_KEYBOARD_OVERLAY_FOCUS_PREVIOUS_PANE },
@@ -128,6 +134,8 @@ struct I18nContentToMessage {
   { "keyboardOverlayLockScreen", IDS_KEYBOARD_OVERLAY_LOCK_SCREEN },
   { "keyboardOverlayLockScreenOrPowerOff",
     IDS_KEYBOARD_OVERLAY_LOCK_SCREEN_OR_POWER_OFF },
+  { "keyboardOverlayMaximizeWindow", IDS_KEYBOARD_OVERLAY_MAXIMIZE_WINDOW },
+  { "keyboardOverlayMinimizeWindow", IDS_KEYBOARD_OVERLAY_MINIMIZE_WINDOW },
   { "keyboardOverlayNewIncognitoWindow",
     IDS_KEYBOARD_OVERLAY_NEW_INCOGNITO_WINDOW },
   { "keyboardOverlayNewTab", IDS_KEYBOARD_OVERLAY_NEW_TAB },
@@ -136,7 +144,8 @@ struct I18nContentToMessage {
   { "keyboardOverlayNextWord", IDS_KEYBOARD_OVERLAY_NEXT_WORD },
   { "keyboardOverlayOpenAddressInNewTab",
     IDS_KEYBOARD_OVERLAY_OPEN_ADDRESS_IN_NEW_TAB },
-  { "keyboardOverlayOpenFileManager", IDS_KEYBOARD_OVERLAY_OPEN_FILE_MANAGER },
+  { "keyboardOverlayOpenDialog", IDS_KEYBOARD_OVERLAY_OPEN_DIALOG },
+  { "keyboardOverlayOpenFilesApp", IDS_KEYBOARD_OVERLAY_OPEN_FILES_APP },
   { "keyboardOverlayPageDown", IDS_KEYBOARD_OVERLAY_PAGE_DOWN },
   { "keyboardOverlayPageUp", IDS_KEYBOARD_OVERLAY_PAGE_UP },
   { "keyboardOverlayPaste", IDS_KEYBOARD_OVERLAY_PASTE },
@@ -169,7 +178,6 @@ struct I18nContentToMessage {
   { "keyboardOverlayTaskManager", IDS_KEYBOARD_OVERLAY_TASK_MANAGER },
   { "keyboardOverlayToggleAccessibilityFeatures",
     IDS_KEYBOARD_OVERLAY_TOGGLE_ACCESSIBILITY_FEATURES },
-  { "keyboardOverlayToggleAppList", IDS_KEYBOARD_OVERLAY_TOGGLE_APP_LIST },
   { "keyboardOverlayToggleBookmarkBar",
     IDS_KEYBOARD_OVERLAY_TOGGLE_BOOKMARK_BAR },
   { "keyboardOverlayToggleCapsLock", IDS_KEYBOARD_OVERLAY_TOGGLE_CAPS_LOCK },
@@ -204,6 +212,7 @@ ChromeWebUIDataSource* CreateKeyboardOverlayUIHTMLSource() {
 
   source->AddString("keyboardOverlayLearnMoreURL", UTF8ToUTF16(kLearnMoreURL));
   source->set_json_path("strings.js");
+  source->set_use_json_js_format_v2();
   source->add_resource_path("keyboard_overlay.js", IDR_KEYBOARD_OVERLAY_JS);
   source->set_default_resource(IDR_KEYBOARD_OVERLAY_HTML);
   return source;
@@ -279,10 +288,9 @@ void KeyboardOverlayHandler::GetLabelMap(const ListValue* args) {
   ModifierMap modifier_map;
   modifier_map[chromeos::input_method::kSearchKey] = static_cast<ModifierKey>(
       pref_service->GetInteger(prefs::kLanguageXkbRemapSearchKeyTo));
-  modifier_map[chromeos::input_method::kLeftControlKey] =
-      static_cast<ModifierKey>(
-          pref_service->GetInteger(prefs::kLanguageXkbRemapControlKeyTo));
-  modifier_map[chromeos::input_method::kLeftAltKey] = static_cast<ModifierKey>(
+  modifier_map[chromeos::input_method::kControlKey] = static_cast<ModifierKey>(
+      pref_service->GetInteger(prefs::kLanguageXkbRemapControlKeyTo));
+  modifier_map[chromeos::input_method::kAltKey] = static_cast<ModifierKey>(
       pref_service->GetInteger(prefs::kLanguageXkbRemapAltKeyTo));
 
   DictionaryValue dict;
@@ -295,10 +303,13 @@ void KeyboardOverlayHandler::GetLabelMap(const ListValue* args) {
 }
 
 void KeyboardOverlayHandler::OpenLearnMorePage(const ListValue* args) {
-  Browser* browser = BrowserList::GetLastActive();
-  DCHECK(browser);
-  browser->AddSelectedTabWithURL(GURL(kLearnMoreURL),
-                                 content::PAGE_TRANSITION_LINK);
+  web_ui()->GetWebContents()->GetDelegate()->OpenURLFromTab(
+      web_ui()->GetWebContents(),
+      content::OpenURLParams(GURL(kLearnMoreURL),
+                             content::Referrer(),
+                             NEW_FOREGROUND_TAB,
+                             content::PAGE_TRANSITION_LINK,
+                             false));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -308,12 +319,12 @@ void KeyboardOverlayHandler::OpenLearnMorePage(const ListValue* args) {
 ////////////////////////////////////////////////////////////////////////////////
 
 KeyboardOverlayUI::KeyboardOverlayUI(content::WebUI* web_ui)
-    : HtmlDialogUI(web_ui) {
+    : WebDialogUI(web_ui) {
   Profile* profile = Profile::FromWebUI(web_ui);
   KeyboardOverlayHandler* handler = new KeyboardOverlayHandler(profile);
   web_ui->AddMessageHandler(handler);
 
   // Set up the chrome://keyboardoverlay/ source.
-  profile->GetChromeURLDataManager()->AddDataSource(
+  ChromeURLDataManager::AddDataSource(profile,
       CreateKeyboardOverlayUIHTMLSource());
 }

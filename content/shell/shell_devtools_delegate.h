@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_SHELL_SHELL_DEVTOOLS_DELEGATE_H_
 #define CONTENT_SHELL_SHELL_DEVTOOLS_DELEGATE_H_
-#pragma once
 
 #include <vector>
 
@@ -30,7 +29,6 @@ class ShellDevToolsDelegate : public content::DevToolsHttpHandlerDelegate {
 
   // DevToolsHttpProtocolHandler::Delegate overrides.
   virtual std::string GetDiscoveryPageHTML() OVERRIDE;
-  virtual net::URLRequestContext* GetURLRequestContext() OVERRIDE;
   virtual bool BundlesFrontendResources() OVERRIDE;
   virtual std::string GetFrontendResourcesBaseURL() OVERRIDE;
 

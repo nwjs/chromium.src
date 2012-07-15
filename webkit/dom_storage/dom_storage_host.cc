@@ -13,8 +13,7 @@
 namespace dom_storage {
 
 DomStorageHost::DomStorageHost(DomStorageContext* context)
-    : last_connection_id_(0),
-      context_(context) {
+    : context_(context) {
 }
 
 DomStorageHost::~DomStorageHost() {
@@ -24,19 +23,23 @@ DomStorageHost::~DomStorageHost() {
   connections_.clear();  // Clear prior to releasing the context_
 }
 
-// TODO(michaeln): have the caller pass in the 'connection_id' value
-// instead of generating them here, avoids a sync ipc on open.
-int DomStorageHost::OpenStorageArea(int namespace_id, const GURL& origin) {
+bool DomStorageHost::OpenStorageArea(int connection_id, int namespace_id,
+                                     const GURL& origin) {
+  DCHECK(!GetOpenArea(connection_id));
+  if (GetOpenArea(connection_id))
+    return false;  // Indicates the renderer gave us very bad data.
   NamespaceAndArea references;
   references.namespace_ = context_->GetStorageNamespace(namespace_id);
-  if (!references.namespace_)
-    return kInvalidAreaId;
+  if (!references.namespace_) {
+    // TODO(michaeln): Fix crbug/134003 and return false here.
+    // Until then return true to avoid crashing the renderer for
+    // sending a bad message.
+    return true;
+  }
   references.area_ = references.namespace_->OpenStorageArea(origin);
-  if (!references.area_)
-    return kInvalidAreaId;
-  int id = ++last_connection_id_;
-  connections_[id] = references;
-  return id;
+  DCHECK(references.area_);
+  connections_[connection_id] = references;
+  return true;
 }
 
 void DomStorageHost::CloseStorageArea(int connection_id) {
@@ -46,6 +49,20 @@ void DomStorageHost::CloseStorageArea(int connection_id) {
   found->second.namespace_->CloseStorageArea(
       found->second.area_);
   connections_.erase(found);
+}
+
+bool DomStorageHost::ExtractAreaValues(
+    int connection_id, ValuesMap* map) {
+  map->clear();
+  DomStorageArea* area = GetOpenArea(connection_id);
+  if (!area) {
+    // TODO(michaeln): Fix crbug/134003 and return false here.
+    // Until then return true to avoid crashing the renderer
+    // for sending a bad message.
+    return true;
+  }
+  area->ExtractValues(map);
+  return true;
 }
 
 unsigned DomStorageHost::GetAreaLength(int connection_id) {
@@ -75,14 +92,16 @@ bool DomStorageHost::SetAreaItem(
     const string16& value, const GURL& page_url,
     NullableString16* old_value) {
   DomStorageArea* area = GetOpenArea(connection_id);
-  if (!area)
-    return false;
+  if (!area) {
+    // TODO(michaeln): Fix crbug/134003 and return false here.
+    // Until then return true to allow the renderer to operate
+    // to a limited degree out of its cache.
+    return true;
+  }
   if (!area->SetItem(key, value, old_value))
     return false;
-  if ((area->namespace_id() == kLocalStorageNamespaceId) &&
-      (old_value->is_null() || old_value->string() != value)) {
+  if (old_value->is_null() || old_value->string() != value)
     context_->NotifyItemSet(area, key, value, *old_value, page_url);
-  }
   return true;
 }
 
@@ -94,8 +113,7 @@ bool DomStorageHost::RemoveAreaItem(
     return false;
   if (!area->RemoveItem(key, old_value))
     return false;
-  if (area->namespace_id() == kLocalStorageNamespaceId)
-    context_->NotifyItemRemoved(area, key, *old_value, page_url);
+  context_->NotifyItemRemoved(area, key, *old_value, page_url);
   return true;
 }
 
@@ -105,9 +123,20 @@ bool DomStorageHost::ClearArea(int connection_id, const GURL& page_url) {
     return false;
   if (!area->Clear())
     return false;
-  if (area->namespace_id() == kLocalStorageNamespaceId)
-    context_->NotifyAreaCleared(area, page_url);
+  context_->NotifyAreaCleared(area, page_url);
   return true;
+}
+
+bool DomStorageHost::HasAreaOpen(
+    int namespace_id, const GURL& origin) const {
+  AreaMap::const_iterator it = connections_.begin();
+  for (; it != connections_.end(); ++it) {
+    if (namespace_id == it->second.namespace_->namespace_id() &&
+        origin == it->second.area_->origin()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 DomStorageArea* DomStorageHost::GetOpenArea(int connection_id) {

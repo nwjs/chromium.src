@@ -4,13 +4,14 @@
 
 #ifndef CHROME_COMMON_CHILD_PROCESS_LOGGING_H_
 #define CHROME_COMMON_CHILD_PROCESS_LOGGING_H_
-#pragma once
 
 #include <set>
 #include <string>
+#include <vector>
 
 #include "base/basictypes.h"
 #include "base/mac/crash_logging.h"
+#include "base/string16.h"
 #include "googleurl/src/gurl.h"
 
 class CommandLine;
@@ -23,6 +24,16 @@ struct GPUInfo;
 // Also used in chrome/app, but we define it here to avoid a common->app
 // dependency.
 static const int kMaxReportedActiveExtensions = 10;
+
+// The maximum number of experiment chunks we will report.
+// Also used in chrome/app, but we define it here to avoid a common->app
+// dependency.
+static const int kMaxReportedExperimentChunks = 15;
+
+// The maximum size of an experiment chunk. This size was picked to be
+// consistent between platforms and the value was chosen from the Windows
+// limit of google_breakpad::CustomInfoEntry::kValueMaxLength.
+static const size_t kMaxExperimentChunkSize = 64;
 
 // The maximum number of prn-info-* records.
 static const size_t kMaxReportedPrinterRecords = 4;
@@ -97,6 +108,9 @@ void SetPrinterInfo(const char* printer_info);
 // Sets the command line arguments to send along with crash reports to the
 // values in |command_line|.
 void SetCommandLine(const CommandLine* command_line);
+
+// Initialize the list of experiment info to send along with crash reports.
+void SetExperimentList(const std::vector<string16>& state);
 
 #if defined(OS_LINUX) || defined(OS_OPENBSD) || defined(OS_MACOSX)
 // Sets the product channel data to send along with crash reports to |channel|.

@@ -1,27 +1,32 @@
 /* Copyright (c) 2012 The Chromium Authors. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be
- * found in the LICENSE file.
- */
+ * found in the LICENSE file. */
 
 .autocomplete-results-table {
   margin-bottom: 1.5em;
-  border: 1px solid grey;
 }
 
 .autocomplete-results-table th {
-  border: 1px solid grey;
+  background-color: #C0C0C0;
 }
 
 .autocomplete-results-table td {
-  border: 1px solid grey;
+  background-color: #F0F0F0;
+}
+
+.group-separator {
+  display: block;
+  text-decoration: underline;
 }
 
 .check-mark {
   color: green;
+  text-align: center;
 }
 
 .x-mark {
   color: red;
+  text-align: center;
 }
 
 p {
@@ -30,4 +35,8 @@ p {
 
 .input-section {
   margin-bottom: 1em;
+}
+
+.table-header {
+  white-space: nowrap;
 }

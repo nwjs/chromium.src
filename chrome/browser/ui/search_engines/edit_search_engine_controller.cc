@@ -17,7 +17,7 @@
 using content::UserMetricsAction;
 
 EditSearchEngineController::EditSearchEngineController(
-    const TemplateURL* template_url,
+    TemplateURL* template_url,
     EditSearchEngineControllerDelegate* edit_keyword_delegate,
     Profile* profile)
     : template_url_(template_url),
@@ -37,8 +37,14 @@ bool EditSearchEngineController::IsURLValid(
   if (url.empty())
     return false;
 
-  // Use TemplateURLRef to extract the search placeholder.
-  TemplateURLRef template_ref(url, 0, 0);
+  // Convert |url| to a TemplateURLRef so we can check its validity even if it
+  // contains replacement strings.  We do this by constructing a dummy
+  // TemplateURL owner because |template_url_| might be NULL and we can't call
+  // TemplateURLRef::IsValid() when its owner is NULL.
+  TemplateURLData data;
+  data.SetURL(url);
+  TemplateURL t_url(profile_, data);
+  const TemplateURLRef& template_ref = t_url.url_ref();
   if (!template_ref.IsValid())
     return false;
 
@@ -51,8 +57,8 @@ bool EditSearchEngineController::IsURLValid(
 
   // Replace any search term with a placeholder string and make sure the
   // resulting URL is valid.
-  return GURL(template_ref.ReplaceSearchTerms(TemplateURL(), ASCIIToUTF16("x"),
-      TemplateURLRef::NO_SUGGESTIONS_AVAILABLE, string16())).is_valid();
+  return GURL(template_ref.ReplaceSearchTerms(
+      TemplateURLRef::SearchTermsArgs(ASCIIToUTF16("x")))).is_valid();
 }
 
 bool EditSearchEngineController::IsKeywordValid(
@@ -70,12 +76,13 @@ void EditSearchEngineController::AcceptAddOrEdit(
     const string16& title_input,
     const string16& keyword_input,
     const std::string& url_input) {
+  DCHECK(!keyword_input.empty());
   std::string url_string = GetFixedUpURL(url_input);
   DCHECK(!url_string.empty());
 
   TemplateURLService* template_url_service =
       TemplateURLServiceFactory::GetForProfile(profile_);
-  const TemplateURL* existing =
+  TemplateURL* existing =
       template_url_service->GetTemplateURLForKeyword(keyword_input);
   if (existing && (!edit_keyword_delegate_ || existing != template_url_)) {
     // An entry may have been added with the same keyword string while the
@@ -92,15 +99,9 @@ void EditSearchEngineController::AcceptAddOrEdit(
     // Confiming an entry we got from JS. We have a template_url_, but it
     // hasn't yet been added to the model.
     DCHECK(template_url_);
-    // const_cast is ugly, but this is the same thing the TemplateURLService
-    // does in a similar situation (updating an existing TemplateURL with
-    // data from a new one).
-    TemplateURL* modifiable_url = const_cast<TemplateURL*>(template_url_);
-    modifiable_url->set_short_name(title_input);
-    modifiable_url->set_keyword(keyword_input);
-    modifiable_url->SetURL(url_string, 0, 0);
     // TemplateURLService takes ownership of template_url_.
-    template_url_service->Add(modifiable_url);
+    template_url_service->AddWithOverrides(template_url_, title_input,
+                                           keyword_input, url_string);
     content::RecordAction(UserMetricsAction("KeywordEditor_AddKeywordJS"));
   } else {
     // Adding or modifying an entry via the Delegate.
@@ -129,10 +130,11 @@ std::string EditSearchEngineController::GetFixedUpURL(
   // Parse the string as a URL to determine the scheme. If we need to, add the
   // scheme. As the scheme may be expanded (as happens with {google:baseURL})
   // we need to replace the search terms before testing for the scheme.
-  TemplateURL t_url;
-  t_url.SetURL(url, 0, 0);
-  std::string expanded_url(t_url.url()->ReplaceSearchTerms(t_url,
-      ASCIIToUTF16("x"), TemplateURLRef::NO_SUGGESTIONS_AVAILABLE, string16()));
+  TemplateURLData data;
+  data.SetURL(url);
+  TemplateURL t_url(profile_, data);
+  std::string expanded_url(t_url.url_ref().ReplaceSearchTerms(
+      TemplateURLRef::SearchTermsArgs(ASCIIToUTF16("x"))));
   url_parse::Parsed parts;
   std::string scheme(URLFixerUpper::SegmentURL(expanded_url, &parts));
   if (!parts.scheme.is_valid())
@@ -140,4 +142,3 @@ std::string EditSearchEngineController::GetFixedUpURL(
 
   return url;
 }
-

@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_BROWSER_RENDERER_HOST_RENDER_VIEW_HOST_IMPL_H_
 #define CONTENT_BROWSER_RENDERER_HOST_RENDER_VIEW_HOST_IMPL_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -14,30 +13,30 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/observer_list.h"
 #include "base/process_util.h"
-#include "content/browser/in_process_webkit/session_storage_namespace_impl.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
 #include "content/browser/site_instance_impl.h"
+#include "content/common/accessibility_node_data.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/render_view_host.h"
+#include "content/public/common/javascript_message_type.h"
 #include "content/public/common/window_container_type.h"
 #include "net/base/load_states.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebConsoleMessage.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebPopupType.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebTextDirection.h"
-#include "ui/base/javascript_message_type.h"
-#include "webkit/glue/webaccessibility.h"
 #include "webkit/glue/window_open_disposition.h"
 
 class ChildProcessSecurityPolicyImpl;
-class PowerSaveBlocker;
 class SessionStorageNamespaceImpl;
 class SkBitmap;
 class ViewMsg_Navigate;
 struct AccessibilityHostMsg_NotificationParams;
 struct MediaPlayerAction;
 struct ViewHostMsg_CreateWindow_Params;
+struct ViewHostMsg_DidFailProvisionalLoadWithError_Params;
 struct ViewHostMsg_ShowPopup_Params;
 struct ViewMsg_Navigate_Params;
+struct ViewMsg_PostMessage_Params;
 struct ViewMsg_StopFinding_Params;
 
 namespace base {
@@ -46,23 +45,22 @@ class ListValue;
 
 namespace content {
 class TestRenderViewHost;
+class PowerSaveBlocker;
 }
 
 namespace ui {
 class Range;
-}
-
-namespace webkit_glue {
-struct WebAccessibility;
+struct SelectedFileInfo;
 }
 
 namespace content {
 
+class SessionStorageNamespace;
 class RenderViewHostObserver;
+class RenderWidgetHostDelegate;
 struct FileChooserParams;
 struct ContextMenuParams;
 struct Referrer;
-struct SelectedFileInfo;
 struct ShowDesktopNotificationHostMsgParams;
 
 // NotificationObserver used to listen for EXECUTE_JAVASCRIPT_RESULT
@@ -102,16 +100,16 @@ class ExecuteNotificationObserver : public NotificationObserver {
 // embedders of content, and adds things only visible to content.
 //
 // The exact API of this object needs to be more thoroughly designed. Right
-// now it mimics what TabContents exposed, which is a fairly large API and may
-// contain things that are not relevant to a common subset of views. See also
-// the comment in render_view_host_delegate.h about the size and scope of the
-// delegate API.
+// now it mimics what WebContentsImpl exposed, which is a fairly large API and
+// may contain things that are not relevant to a common subset of views. See
+// also the comment in render_view_host_delegate.h about the size and scope of
+// the delegate API.
 //
 // Right now, the concept of page navigation (both top level and frame) exists
-// in the TabContents still, so if you instantiate one of these elsewhere, you
-// will not be able to traverse pages back and forward. We need to determine
-// if we want to bring that and other functionality down into this object so
-// it can be shared by others.
+// in the WebContentsImpl still, so if you instantiate one of these elsewhere,
+// you will not be able to traverse pages back and forward. We need to determine
+// if we want to bring that and other functionality down into this object so it
+// can be shared by others.
 class CONTENT_EXPORT RenderViewHostImpl
     : public RenderViewHost,
       public RenderWidgetHostImpl {
@@ -119,17 +117,22 @@ class CONTENT_EXPORT RenderViewHostImpl
   // Convenience function, just like RenderViewHost::FromID.
   static RenderViewHostImpl* FromID(int render_process_id, int render_view_id);
 
-  // routing_id could be a valid route id, or it could be MSG_ROUTING_NONE, in
-  // which case RenderWidgetHost will create a new one.
+  // |routing_id| could be a valid route id, or it could be MSG_ROUTING_NONE, in
+  // which case RenderWidgetHost will create a new one.  |swapped_out| indicates
+  // whether the view should initially be swapped out (e.g., for an opener
+  // frame being rendered by another process).
   //
-  // The session storage namespace parameter allows multiple render views and
-  // tab contentses to share the same session storage (part of the WebStorage
-  // spec) space. This is useful when restoring tabs, but most callers should
-  // pass in NULL which will cause a new SessionStorageNamespace to be created.
+  // The |session_storage_namespace| parameter allows multiple render views and
+  // WebContentses to share the same session storage (part of the WebStorage
+  // spec) space. This is useful when restoring contentses, but most callers
+  // should pass in NULL which will cause a new SessionStorageNamespace to be
+  // created.
   RenderViewHostImpl(
       SiteInstance* instance,
       RenderViewHostDelegate* delegate,
+      RenderWidgetHostDelegate* widget_delegate,
       int routing_id,
+      bool swapped_out,
       SessionStorageNamespace* session_storage_namespace);
   virtual ~RenderViewHostImpl();
 
@@ -161,14 +164,17 @@ class CONTENT_EXPORT RenderViewHostImpl
       const WebDropData& drop_data,
       const gfx::Point& client_pt,
       const gfx::Point& screen_pt,
-      WebKit::WebDragOperationsMask operations_allowed) OVERRIDE;
+      WebKit::WebDragOperationsMask operations_allowed,
+      int key_modifiers) OVERRIDE;
   virtual void DragTargetDragOver(
       const gfx::Point& client_pt,
       const gfx::Point& screen_pt,
-      WebKit::WebDragOperationsMask operations_allowed) OVERRIDE;
+      WebKit::WebDragOperationsMask operations_allowed,
+      int key_modifiers) OVERRIDE;
   virtual void DragTargetDragLeave() OVERRIDE;
   virtual void DragTargetDrop(const gfx::Point& client_pt,
-                              const gfx::Point& screen_pt) OVERRIDE;
+                              const gfx::Point& screen_pt,
+                              int key_modifiers) OVERRIDE;
   virtual void EnableAutoResize(const gfx::Size& min_size,
                                 const gfx::Size& max_size) OVERRIDE;
   virtual void DisableAutoResize(const gfx::Size& new_size) OVERRIDE;
@@ -194,7 +200,7 @@ class CONTENT_EXPORT RenderViewHostImpl
   virtual void StopFinding(StopFindAction action) OVERRIDE;
   virtual void FirePageBeforeUnload(bool for_cross_site_transition) OVERRIDE;
   virtual void FilesSelectedInChooser(
-      const std::vector<SelectedFileInfo>& files,
+      const std::vector<ui::SelectedFileInfo>& files,
       int permissions) OVERRIDE;
   virtual RenderViewHostDelegate* GetDelegate() const OVERRIDE;
   virtual int GetEnabledBindings() const OVERRIDE;
@@ -215,7 +221,9 @@ class CONTENT_EXPORT RenderViewHostImpl
   virtual void Zoom(PageZoom zoom) OVERRIDE;
   virtual void SyncRendererPrefs() OVERRIDE;
   virtual void ToggleSpeechInput() OVERRIDE;
-  virtual void UpdateWebkitPreferences(const WebPreferences& prefs) OVERRIDE;
+  virtual webkit_glue::WebPreferences GetWebkitPreferences() OVERRIDE;
+  virtual void UpdateWebkitPreferences(
+      const webkit_glue::WebPreferences& prefs) OVERRIDE;
 
   void set_delegate(RenderViewHostDelegate* d) {
     CHECK(d);  // http://crbug.com/82827
@@ -224,9 +232,18 @@ class CONTENT_EXPORT RenderViewHostImpl
 
   // Set up the RenderView child process. Virtual because it is overridden by
   // TestRenderViewHost. If the |frame_name| parameter is non-empty, it is used
-  // as the name of the new top-level frame.  If |max_page_id| is larger than
-  // -1, the RenderView is told to start issuing page IDs at |max_page_id| + 1.
-  virtual bool CreateRenderView(const string16& frame_name, int32 max_page_id);
+  // as the name of the new top-level frame.
+  // The |opener_route_id| parameter indicates which RenderView created this
+  // (MSG_ROUTING_NONE if none). If |max_page_id| is larger than -1, the
+  // RenderView is told to start issuing page IDs at |max_page_id| + 1.
+  // If this RenderView is a guest, the embedder's process ID is also passed in
+  // so that the RenderView's process can establish a channel with its embedder
+  // if it's not already established.
+  virtual bool CreateRenderView(const string16& frame_name,
+                                int opener_route_id,
+                                int32 max_page_id,
+                                const std::string& embedder_channel_name,
+                                int embedder_container_id);
 
   base::TerminationStatus render_view_termination_status() const {
     return render_view_termination_status_;
@@ -340,8 +357,6 @@ class CONTENT_EXPORT RenderViewHostImpl
     sudden_termination_allowed_ = enabled;
   }
 
-  void set_guest(bool guest) { guest_ = guest; }
-
   // RenderWidgetHost public overrides.
   virtual void Shutdown() OVERRIDE;
   virtual bool IsRenderView() const OVERRIDE;
@@ -353,12 +368,14 @@ class CONTENT_EXPORT RenderViewHostImpl
       const WebKit::WebMouseEvent& mouse_event) OVERRIDE;
   virtual void OnMouseActivate() OVERRIDE;
   virtual void ForwardKeyboardEvent(
-      const NativeWebKeyboardEvent& key_event) OVERRIDE;
+      const content::NativeWebKeyboardEvent& key_event) OVERRIDE;
   virtual gfx::Rect GetRootWindowResizerRect() const OVERRIDE;
 
   // Creates a new RenderView with the given route id.
-  void CreateNewWindow(int route_id,
-                       const ViewHostMsg_CreateWindow_Params& params);
+  void CreateNewWindow(
+      int route_id,
+      const ViewHostMsg_CreateWindow_Params& params,
+      SessionStorageNamespace* session_storage_namespace);
 
   // Creates a new RenderWidget with the given route id.  |popup_type| indicates
   // if this widget is a popup and what kind of popup it is (select, autofill).
@@ -373,6 +390,14 @@ class CONTENT_EXPORT RenderViewHostImpl
   void DidCancelPopupMenu();
 #endif
 
+#if defined(OS_ANDROID)
+  void DidSelectPopupMenuItems(const std::vector<int>& selected_indices);
+  void DidCancelPopupMenu();
+#endif
+
+  // User rotated the screen. Calls the "onorientationchange" Javascript hook.
+  void SendOrientationChangeEvent(int orientation);
+
   void set_save_accessibility_tree_for_testing(bool save) {
     save_accessibility_tree_for_testing_ = save;
   }
@@ -381,7 +406,7 @@ class CONTENT_EXPORT RenderViewHostImpl
     send_accessibility_updated_notifications_ = send;
   }
 
-  const webkit_glue::WebAccessibility& accessibility_tree_for_testing() {
+  const AccessibilityNodeData& accessibility_tree_for_testing() {
     return accessibility_tree_;
   }
 
@@ -398,7 +423,9 @@ class CONTENT_EXPORT RenderViewHostImpl
                         GURL* url);
 
   // NOTE: Do not add functions that just send an IPC message that are called in
-  // one or two places.  Have the caller send the IPC message directly.
+  // one or two places. Have the caller send the IPC message directly (unless
+  // the caller places are in different platforms, in which case it's better
+  // to keep them consistent).
 
  protected:
   friend class RenderViewHostObserver;
@@ -409,15 +436,12 @@ class CONTENT_EXPORT RenderViewHostImpl
   void RemoveObserver(RenderViewHostObserver* observer);
 
   // RenderWidgetHost protected overrides.
-  virtual bool PreHandleKeyboardEvent(const NativeWebKeyboardEvent& event,
-                                      bool* is_keyboard_shortcut) OVERRIDE;
-  virtual void UnhandledKeyboardEvent(
-      const NativeWebKeyboardEvent& event) OVERRIDE;
   virtual void OnUserGesture() OVERRIDE;
   virtual void NotifyRendererUnresponsive() OVERRIDE;
   virtual void NotifyRendererResponsive() OVERRIDE;
   virtual void OnRenderAutoResized(const gfx::Size& size) OVERRIDE;
-  virtual void RequestToLockMouse() OVERRIDE;
+  virtual void RequestToLockMouse(bool user_gesture,
+                                  bool last_unlocked_by_target) OVERRIDE;
   virtual bool IsFullscreen() const OVERRIDE;
   virtual void OnMsgFocus() OVERRIDE;
   virtual void OnMsgBlur() OVERRIDE;
@@ -429,9 +453,19 @@ class CONTENT_EXPORT RenderViewHostImpl
                      bool user_gesture);
   void OnMsgShowWidget(int route_id, const gfx::Rect& initial_pos);
   void OnMsgShowFullscreenWidget(int route_id);
-  void OnMsgRunModal(IPC::Message* reply_msg);
+  void OnMsgRunModal(int opener_id, IPC::Message* reply_msg);
   void OnMsgRenderViewReady();
   void OnMsgRenderViewGone(int status, int error_code);
+  void OnMsgDidStartProvisionalLoadForFrame(int64 frame_id,
+                                            bool main_frame,
+                                            const GURL& opener_url,
+                                            const GURL& url);
+  void OnMsgDidRedirectProvisionalLoad(int32 page_id,
+                                       const GURL& opener_url,
+                                       const GURL& source_url,
+                                       const GURL& target_url);
+  void OnMsgDidFailProvisionalLoadWithError(
+      const ViewHostMsg_DidFailProvisionalLoadWithError_Params& params);
   void OnMsgNavigate(const IPC::Message& msg);
   void OnMsgUpdateState(int32 page_id,
                         const std::string& state);
@@ -465,10 +499,12 @@ class CONTENT_EXPORT RenderViewHostImpl
   void OnMsgSelectionBoundsChanged(const gfx::Rect& start_rect,
                                    const gfx::Rect& end_rect);
   void OnMsgPasteFromSelectionClipboard();
+  void OnMsgRouteCloseEvent();
+  void OnMsgRouteMessageEvent(const ViewMsg_PostMessage_Params& params);
   void OnMsgRunJavaScriptMessage(const string16& message,
                                  const string16& default_prompt,
                                  const GURL& frame_url,
-                                 ui::JavascriptMessageType type,
+                                 content::JavaScriptMessageType type,
                                  IPC::Message* reply_msg);
   void OnMsgRunBeforeUnloadConfirm(const GURL& frame_url,
                                    const string16& message,
@@ -476,8 +512,8 @@ class CONTENT_EXPORT RenderViewHostImpl
                                    IPC::Message* reply_msg);
   void OnMsgStartDragging(const WebDropData& drop_data,
                           WebKit::WebDragOperationsMask operations_allowed,
-                          const SkBitmap& image,
-                          const gfx::Point& image_offset);
+                          const SkBitmap& bitmap,
+                          const gfx::Point& bitmap_offset_in_dip);
   void OnUpdateDragCursor(WebKit::WebDragOperation drag_operation);
   void OnTargetDropACK();
   void OnTakeFocus(bool reverse);
@@ -507,13 +543,15 @@ class CONTENT_EXPORT RenderViewHostImpl
       const ShowDesktopNotificationHostMsgParams& params);
   void OnCancelDesktopNotification(int notification_id);
   void OnRunFileChooser(const FileChooserParams& params);
-  void OnWebUISend(const GURL& source_url, const std::string& name,
-                   const base::ListValue& args);
   void OnDomOperationResponse(const std::string& json_string,
                               int automation_id);
 
-#if defined(OS_MACOSX)
+#if defined(OS_MACOSX) || defined(OS_ANDROID)
   void OnMsgShowPopup(const ViewHostMsg_ShowPopup_Params& params);
+#endif
+
+#if defined(OS_ANDROID)
+  void OnStartContentIntent(const GURL& content_url);
 #endif
 
  private:
@@ -541,9 +579,6 @@ class CONTENT_EXPORT RenderViewHostImpl
   // See BindingsPolicy for details.
   int enabled_bindings_;
 
-  // Indicates whether or not this RenderViewHost refers to a guest RenderView.
-  bool guest_;
-
   // The request_id for the pending cross-site request. Set to -1 if
   // there is a pending request, but we have not yet started the unload
   // for the current page. Set to the request_id value of the pending
@@ -558,9 +593,9 @@ class CONTENT_EXPORT RenderViewHostImpl
   bool navigations_suspended_;
 
   // We only buffer a suspended navigation message while we a pending RVH for a
-  // TabContents.  There will only ever be one suspended navigation, because
-  // TabContents will destroy the pending RVH and create a new one if a second
-  // navigation occurs.
+  // WebContentsImpl.  There will only ever be one suspended navigation, because
+  // WebContentsImpl will destroy the pending RVH and create a new one if a
+  // second navigation occurs.
   scoped_ptr<ViewMsg_Navigate> suspended_nav_message_;
 
   // Whether this RenderViewHost is currently swapped out, such that the view is
@@ -570,6 +605,8 @@ class CONTENT_EXPORT RenderViewHostImpl
   // If we were asked to RunModal, then this will hold the reply_msg that we
   // must return to the renderer to unblock it.
   IPC::Message* run_modal_reply_msg_;
+  // This will hold the routing id of the RenderView that opened us.
+  int run_modal_opener_id_;
 
   // Set to true when there is a pending ViewMsg_ShouldClose message.  This
   // ensures we don't spam the renderer with multiple beforeunload requests.
@@ -604,14 +641,14 @@ class CONTENT_EXPORT RenderViewHostImpl
   bool send_accessibility_updated_notifications_;
 
   // The most recently received accessibility tree - for unit testing only.
-  webkit_glue::WebAccessibility accessibility_tree_;
+  AccessibilityNodeData accessibility_tree_;
 
   // The termination status of the last render view that terminated.
   base::TerminationStatus render_view_termination_status_;
 
   // Holds PowerSaveBlockers for the media players in use. Key is the
   // player_cookie passed to OnMediaNotification, value is the PowerSaveBlocker.
-  typedef std::map<int64, PowerSaveBlocker*> PowerSaveBlockerMap;
+  typedef std::map<int64, content::PowerSaveBlocker*> PowerSaveBlockerMap;
   PowerSaveBlockerMap power_save_blockers_;
 
   // A list of observers that filter messages.  Weak references.

@@ -6,11 +6,10 @@
 
 #include "chrome/browser/themes/theme_service.h"
 #include "grit/theme_resources.h"
-#include "grit/theme_resources_standard.h"
-#include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkShader.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/canvas.h"
+#include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/views/window/non_client_view.h"
 
@@ -26,21 +25,23 @@ const SkColor DetachableToolbarView::kMiddleDividerColor =
 void DetachableToolbarView::PaintBackgroundAttachedMode(
     gfx::Canvas* canvas,
     views::View* view,
-    const gfx::Point& background_origin) {
-  ui::ThemeProvider* tp = view->GetThemeProvider();
-  canvas->FillRect(view->GetLocalBounds(),
-                   tp->GetColor(ThemeService::COLOR_TOOLBAR));
-  canvas->TileImageInt(*tp->GetBitmapNamed(IDR_THEME_TOOLBAR),
+    const gfx::Point& background_origin,
+    SkColor toolbar_background_color,
+    gfx::ImageSkia* toolbar_background_image) {
+  canvas->FillRect(view->GetLocalBounds(), toolbar_background_color);
+  canvas->TileImageInt(*toolbar_background_image,
                        background_origin.x(), background_origin.y(), 0, 0,
                        view->width(), view->height());
 #if defined(USE_ASH)
   // Ash provides additional lightening at the edges of the toolbar.
-  SkBitmap* toolbar_left = tp->GetBitmapNamed(IDR_TOOLBAR_SHADE_LEFT);
+  ui::ThemeProvider* tp = view->GetThemeProvider();
+  gfx::ImageSkia* toolbar_left = tp->GetImageSkiaNamed(IDR_TOOLBAR_SHADE_LEFT);
   canvas->TileImageInt(*toolbar_left,
                        0, 0,
                        0, 0,
                        toolbar_left->width(), view->height());
-  SkBitmap* toolbar_right = tp->GetBitmapNamed(IDR_TOOLBAR_SHADE_RIGHT);
+  gfx::ImageSkia* toolbar_right =
+      tp->GetImageSkiaNamed(IDR_TOOLBAR_SHADE_RIGHT);
   canvas->TileImageInt(*toolbar_right,
                        0, 0,
                        view->width() - toolbar_right->width(), 0,
@@ -104,11 +105,13 @@ void DetachableToolbarView::PaintContentAreaBorder(
 }
 
 // static
-void DetachableToolbarView::PaintVerticalDivider(
-    gfx::Canvas* canvas, int x, int height, int vertical_padding,
-    const SkColor& top_color,
-    const SkColor& middle_color,
-    const SkColor& bottom_color) {
+void DetachableToolbarView::PaintVerticalDivider(gfx::Canvas* canvas,
+                                                 int x,
+                                                 int height,
+                                                 int vertical_padding,
+                                                 SkColor top_color,
+                                                 SkColor middle_color,
+                                                 SkColor bottom_color) {
   // Draw the upper half of the divider.
   SkPaint paint;
   SkSafeUnref(paint.setShader(gfx::CreateGradientShader(vertical_padding + 1,

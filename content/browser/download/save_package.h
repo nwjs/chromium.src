@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_BROWSER_DOWNLOAD_SAVE_PACKAGE_H_
 #define CONTENT_BROWSER_DOWNLOAD_SAVE_PACKAGE_H_
-#pragma once
 
 #include <queue>
 #include <string>
@@ -19,10 +18,14 @@
 #include "base/time.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/download_item.h"
+#include "content/public/browser/download_manager_delegate.h"
 #include "content/public/browser/save_page_type.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "content/public/common/referrer.h"
 #include "googleurl/src/gurl.h"
 
+class DownloadItemImpl;
+class DownloadManagerImpl;
 class GURL;
 class SaveFileManager;
 class SaveItem;
@@ -30,22 +33,23 @@ class SavePackage;
 struct SaveFileCreateInfo;
 
 namespace content {
-class DownloadManager;
 class WebContents;
 }
 
 // The SavePackage object manages the process of saving a page as only-html or
-// complete-html and providing the information for displaying saving status.
-// Saving page as only-html means means that we save web page to a single HTML
-// file regardless internal sub resources and sub frames.
-// Saving page as complete-html page means we save not only the main html file
-// the user told it to save but also a directory for the auxiliary files such
-// as all sub-frame html files, image files, css files and js files.
+// complete-html or MHTML and providing the information for displaying saving
+// status.  Saving page as only-html means means that we save web page to a
+// single HTML file regardless internal sub resources and sub frames.  Saving
+// page as complete-html page means we save not only the main html file the user
+// told it to save but also a directory for the auxiliary files such as all
+// sub-frame html files, image files, css files and js files.  Saving page as
+// MHTML means the same thing as complete-html, but it uses the MHTML format to
+// contain the html and all auxiliary files in a single text file.
 //
 // Each page saving job may include one or multiple files which need to be
 // saved. Each file is represented by a SaveItem, and all SaveItems are owned
 // by the SavePackage. SaveItems are created when a user initiates a page
-// saving job, and exist for the duration of one tab's life time.
+// saving job, and exist for the duration of one contents's life time.
 class CONTENT_EXPORT SavePackage
     : public base::RefCountedThreadSafe<SavePackage>,
       public content::WebContentsObserver,
@@ -74,7 +78,7 @@ class CONTENT_EXPORT SavePackage
   // Constructor for user initiated page saving. This constructor results in a
   // SavePackage that will generate and sanitize a suggested name for the user
   // in the "Save As" dialog box.
-  explicit SavePackage(TabContents* tab_contents);
+  explicit SavePackage(content::WebContents* web_contents);
 
   // This contructor is used only for testing. We can bypass the file and
   // directory name generation / sanitization by providing well known paths
@@ -84,11 +88,12 @@ class CONTENT_EXPORT SavePackage
               const FilePath& file_full_path,
               const FilePath& directory_full_path);
 
-  // Initialize the SavePackage. Returns true if it initializes properly.
-  // Need to make sure that this method must be called in the UI thread because
-  // using g_browser_process on a non-UI thread can cause crashes during
-  // shutdown.
-  bool Init();
+  // Initialize the SavePackage. Returns true if it initializes properly.  Need
+  // to make sure that this method must be called in the UI thread because using
+  // g_browser_process on a non-UI thread can cause crashes during shutdown.
+  // |cb| will be called when the DownloadItem is created, before data is
+  // written to disk.
+  bool Init(const content::SavePackageDownloadCreatedCallback& cb);
 
   // Cancel all in progress request, might be called by user or internal error.
   void Cancel(bool user_action);
@@ -109,9 +114,8 @@ class CONTENT_EXPORT SavePackage
   bool canceled() const { return user_canceled_ || disk_error_occurred_; }
   bool finished() const { return finished_; }
   content::SavePageType save_type() const { return save_type_; }
-  int tab_id() const { return tab_id_; }
+  int contents_id() const { return contents_id_; }
   int id() const { return unique_id_; }
-  TabContents* tab_contents() const;
   content::WebContents* web_contents() const;
 
   void GetSaveInfo();
@@ -119,8 +123,11 @@ class CONTENT_EXPORT SavePackage
  private:
   friend class base::RefCountedThreadSafe<SavePackage>;
 
+  // Callback for content::WebContents::GenerateMHTML().
+  void OnMHTMLGenerated(const FilePath& path, int64 size);
+
   // For testing only.
-  SavePackage(TabContents* tab_contents,
+  SavePackage(content::WebContents* web_contents,
               const FilePath& file_full_path,
               const FilePath& directory_full_path);
 
@@ -177,19 +184,23 @@ class CONTENT_EXPORT SavePackage
   // Remove SaveItem from in progress map and put it to saved map.
   void PutInProgressItemToSavedMap(SaveItem* save_item);
 
-  // Retrieves the URL to be saved from the TabContents.
+  // Retrieves the URL to be saved from the WebContents.
   GURL GetUrlToBeSaved();
 
   void CreateDirectoryOnFileThread(const FilePath& website_save_dir,
                                    const FilePath& download_save_dir,
+                                   bool skip_dir_check,
                                    const std::string& mime_type,
                                    const std::string& accept_langs);
   void ContinueGetSaveInfo(const FilePath& suggested_path,
                            bool can_save_as_complete);
-  void OnPathPicked(const FilePath& final_name, content::SavePageType type);
+  void OnPathPicked(
+      const FilePath& final_name,
+      content::SavePageType type,
+      const content::SavePackageDownloadCreatedCallback& cb);
   void OnReceivedSavableResourceLinksForCurrentPage(
       const std::vector<GURL>& resources_list,
-      const std::vector<GURL>& referrers_list,
+      const std::vector<content::Referrer>& referrers_list,
       const std::vector<GURL>& frames_list);
 
   void OnReceivedSerializedHtmlData(const GURL& frame_url,
@@ -254,8 +265,8 @@ class CONTENT_EXPORT SavePackage
   SaveFileManager* file_manager_;
 
   // DownloadManager owns the DownloadItem and handles history and UI.
-  content::DownloadManager* download_manager_;
-  content::DownloadItem* download_;
+  DownloadManagerImpl* download_manager_;
+  DownloadItemImpl* download_;
 
   // The URL of the page the user wants to save.
   GURL page_url_;
@@ -270,6 +281,9 @@ class CONTENT_EXPORT SavePackage
 
   // Indicates whether the actual saving job is finishing or not.
   bool finished_;
+
+  // Indicates whether a call to Finish() has been scheduled.
+  bool mhtml_finishing_;
 
   // Indicates whether user canceled the saving job.
   bool user_canceled_;
@@ -295,9 +309,9 @@ class CONTENT_EXPORT SavePackage
   // from outside.
   WaitState wait_state_;
 
-  // Since for one tab, it can only have one SavePackage in same time.
-  // Now we actually use render_process_id as tab's unique id.
-  const int tab_id_;
+  // Since for one contents, it can only have one SavePackage in same time.
+  // Now we actually use render_process_id as the contents's unique id.
+  const int contents_id_;
 
   // Unique ID for this SavePackage.
   const int unique_id_;

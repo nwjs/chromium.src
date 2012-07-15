@@ -6,19 +6,16 @@
 
 #include "ash/shell.h"
 #include "ash/wm/activation_controller.h"
+#include "ash/wm/window_properties.h"
 #include "ui/aura/client/activation_client.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
-#include "ui/aura/window_property.h"
 #include "ui/base/ui_base_types.h"
+#include "ui/gfx/display.h"
 #include "ui/gfx/screen.h"
 
-DECLARE_WINDOW_PROPERTY_TYPE(bool);
-
 namespace ash {
-DEFINE_WINDOW_PROPERTY_KEY(bool, kOpenWindowSplitKey, false);
-
 namespace wm {
 
 void ActivateWindow(aura::Window* window) {
@@ -45,12 +42,26 @@ bool IsActiveWindow(aura::Window* window) {
 }
 
 aura::Window* GetActiveWindow() {
-  return aura::client::GetActivationClient(Shell::GetRootWindow())->
+  return aura::client::GetActivationClient(Shell::GetPrimaryRootWindow())->
       GetActiveWindow();
 }
 
 aura::Window* GetActivatableWindow(aura::Window* window) {
   return internal::ActivationController::GetActivatableWindow(window, NULL);
+}
+
+bool CanActivateWindow(aura::Window* window) {
+  DCHECK(window);
+  if (!window->GetRootWindow())
+    return false;
+  aura::client::ActivationClient* client =
+      aura::client::GetActivationClient(window->GetRootWindow());
+  return client && client->CanActivateWindow(window);
+}
+
+internal::RootWindowController* GetRootWindowController(
+    aura::RootWindow* root_window) {
+  return root_window->GetProperty(internal::kRootWindowControllerKey);
 }
 
 bool IsWindowNormal(aura::Window* window) {
@@ -79,16 +90,18 @@ void MaximizeWindow(aura::Window* window) {
   window->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_MAXIMIZED);
 }
 
+void MinimizeWindow(aura::Window* window) {
+  window->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_MINIMIZED);
+}
+
 void RestoreWindow(aura::Window* window) {
   window->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_NORMAL);
 }
 
-void SetOpenWindowSplit(aura::Window* window, bool value) {
-  window->SetProperty(kOpenWindowSplitKey, value);
-}
-
-bool GetOpenWindowSplit(aura::Window* window) {
-  return window->GetProperty(kOpenWindowSplitKey);
+void CenterWindow(aura::Window* window) {
+  const gfx::Display display = gfx::Screen::GetDisplayNearestWindow(window);
+  gfx::Rect center = display.work_area().Center(window->bounds().size());
+  window->SetBounds(center);
 }
 
 }  // namespace wm

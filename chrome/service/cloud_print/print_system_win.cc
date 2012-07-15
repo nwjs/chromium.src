@@ -39,7 +39,8 @@ class PrinterChangeHandleTraits {
   typedef HANDLE Handle;
 
   static bool CloseHandle(HANDLE handle) {
-    return ::FindClosePrinterChangeNotification(handle) != FALSE;
+    ::FindClosePrinterChangeNotification(handle);
+    return true;
   }
 
   static bool IsHandleValid(HANDLE handle) {
@@ -54,7 +55,8 @@ class PrinterChangeHandleTraits {
   DISALLOW_IMPLICIT_CONSTRUCTORS(PrinterChangeHandleTraits);
 };
 
-typedef base::win::GenericScopedHandle<PrinterChangeHandleTraits>
+typedef base::win::GenericScopedHandle<PrinterChangeHandleTraits,
+                                       base::win::DummyVerifierTraits>
     ScopedPrinterChangeHandle;
 
 class DevMode {
@@ -290,6 +292,9 @@ class PrintSystemWin : public PrintSystem {
     virtual void OnPrinterChanged() OVERRIDE {}
     virtual void OnJobChanged() OVERRIDE {}
 
+   protected:
+    virtual ~PrintServerWatcherWin() {}
+
    private:
     PrintSystem::PrintServerWatcher::Delegate* delegate_;
     PrintSystemWatcherWin watcher_;
@@ -338,6 +343,9 @@ class PrintSystemWin : public PrintSystem {
       delegate_->OnJobChanged();
     }
 
+   protected:
+    virtual ~PrinterWatcherWin() {}
+
    private:
     std::string printer_name_;
     PrintSystem::PrinterWatcher::Delegate* delegate_;
@@ -367,6 +375,9 @@ class PrintSystemWin : public PrintSystem {
                           print_data_mime_type, printer_name, job_title,
                           delegate);
     }
+
+   protected:
+    virtual ~JobSpoolerWin() {}
 
    private:
     // We use a Core class because we want a separate RefCountedThreadSafe
@@ -651,7 +662,7 @@ class PrintSystemWin : public PrintSystem {
       base::win::ScopedComPtr<IXpsPrintJob> xps_print_job_;
       bool should_couninit_;
 
-      DISALLOW_COPY_AND_ASSIGN(JobSpoolerWin::Core);
+      DISALLOW_COPY_AND_ASSIGN(Core);
     };
     scoped_refptr<Core> core_;
 

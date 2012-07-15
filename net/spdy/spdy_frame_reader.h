@@ -2,9 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef NET_SPDY_FRAME_READER_H_
-#define NET_SPDY_FRAME_READER_H_
-#pragma once
+#ifndef NET_SPDY_SPDY_FRAME_READER_H_
+#define NET_SPDY_SPDY_FRAME_READER_H_
 
 #include "base/basictypes.h"
 #include "base/string_piece.h"
@@ -92,4 +91,4 @@ class NET_EXPORT_PRIVATE SpdyFrameReader {
 
 }  // namespace net
 
-#endif  // NET_SPDY_FRAME_READER_H_
+#endif  // NET_SPDY_SPDY_FRAME_READER_H_

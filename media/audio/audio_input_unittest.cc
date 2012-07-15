@@ -11,6 +11,8 @@
 #include "media/audio/audio_manager_base.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
+namespace media {
+
 static const int kSamplingRate = 8000;
 static const int kSamplesPerPacket = kSamplingRate / 20;
 
@@ -25,7 +27,7 @@ class TestInputCallback : public AudioInputStream::AudioInputCallback {
         max_data_bytes_(max_data_bytes) {
   }
   virtual void OnData(AudioInputStream* stream, const uint8* data,
-                      uint32 size, uint32 hardware_delay_bytes) {
+                      uint32 size, uint32 hardware_delay_bytes, double volume) {
     ++callback_count_;
     // Read the first byte to make sure memory is good.
     if (size) {
@@ -170,3 +172,5 @@ TEST(AudioInputTest, Record) {
   ais->Stop();
   ais->Close();
 }
+
+}  // namespace media

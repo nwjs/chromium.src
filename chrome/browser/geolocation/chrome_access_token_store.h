@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_GEOLOCATION_CHROME_ACCESS_TOKEN_STORE_H_
 #define CHROME_BROWSER_GEOLOCATION_CHROME_ACCESS_TOKEN_STORE_H_
-#pragma once
 
 #include "base/memory/ref_counted.h"
 #include "content/public/browser/access_token_store.h"
@@ -17,12 +16,13 @@ class ChromeAccessTokenStore : public content::AccessTokenStore {
   static void RegisterPrefs(PrefService* prefs);
 
   ChromeAccessTokenStore();
-  virtual ~ChromeAccessTokenStore();
 
   virtual void LoadAccessTokens(
       const LoadAccessTokensCallbackType& request) OVERRIDE;
 
  private:
+  virtual ~ChromeAccessTokenStore();
+
   // AccessTokenStore
   virtual void SaveAccessToken(
       const GURL& server_url, const string16& access_token) OVERRIDE;

@@ -24,6 +24,7 @@
 #include "webkit/plugins/ppapi/ppb_graphics_3d_impl.h"
 #include "webkit/plugins/ppapi/resource_helper.h"
 
+using ppapi::TrackedCallback;
 using ppapi::thunk::EnterResourceNoLock;
 using ppapi::thunk::PPB_Buffer_API;
 using ppapi::thunk::PPB_Graphics3D_API;
@@ -45,12 +46,40 @@ PPB_VideoDecoder_Impl::PPB_VideoDecoder_Impl(PP_Instance instance)
 PPB_VideoDecoder_Impl::~PPB_VideoDecoder_Impl() {
 }
 
-// Convert PP_VideoDecoder_Profile to media::VideoDecodeAccelerator::Profile.
-static media::VideoDecodeAccelerator::Profile PPToMediaProfile(
+// Convert PP_VideoDecoder_Profile to media::VideoCodecProfile.
+static media::VideoCodecProfile PPToMediaProfile(
     const PP_VideoDecoder_Profile pp_profile) {
-  // TODO(fischman,vrk): this assumes the enum values in the two Profile types
-  // match up exactly.  Add a COMPILE_ASSERT for this somewhere.
-  return static_cast<media::VideoDecodeAccelerator::Profile>(pp_profile);
+  switch (pp_profile) {
+    case PP_VIDEODECODER_H264PROFILE_NONE:
+      // HACK: PPAPI contains a bogus "none" h264 profile that doesn't
+      // correspond to anything in h.264; but a number of released chromium
+      // versions silently promoted this to Baseline profile, so we retain that
+      // behavior here.  Fall through.
+    case PP_VIDEODECODER_H264PROFILE_BASELINE:
+      return media::H264PROFILE_BASELINE;
+    case PP_VIDEODECODER_H264PROFILE_MAIN:
+      return media::H264PROFILE_MAIN;
+    case PP_VIDEODECODER_H264PROFILE_EXTENDED:
+      return media::H264PROFILE_EXTENDED;
+    case PP_VIDEODECODER_H264PROFILE_HIGH:
+      return media::H264PROFILE_HIGH;
+    case PP_VIDEODECODER_H264PROFILE_HIGH10PROFILE:
+      return media::H264PROFILE_HIGH10PROFILE;
+    case PP_VIDEODECODER_H264PROFILE_HIGH422PROFILE:
+      return media::H264PROFILE_HIGH422PROFILE;
+    case PP_VIDEODECODER_H264PROFILE_HIGH444PREDICTIVEPROFILE:
+      return media::H264PROFILE_HIGH444PREDICTIVEPROFILE;
+    case PP_VIDEODECODER_H264PROFILE_SCALABLEBASELINE:
+      return media::H264PROFILE_SCALABLEBASELINE;
+    case PP_VIDEODECODER_H264PROFILE_SCALABLEHIGH:
+      return media::H264PROFILE_SCALABLEHIGH;
+    case PP_VIDEODECODER_H264PROFILE_STEREOHIGH:
+      return media::H264PROFILE_STEREOHIGH;
+    case PP_VIDEODECODER_H264PROFILE_MULTIVIEWHIGH:
+      return media::H264PROFILE_MULTIVIEWHIGH;
+    default:
+      return media::VIDEO_CODEC_PROFILE_UNKNOWN;
+  }
 }
 
 // static
@@ -87,9 +116,9 @@ bool PPB_VideoDecoder_Impl::Init(
   if (!plugin_delegate)
     return false;
 
-  platform_video_decoder_ = plugin_delegate->CreateVideoDecoder(
-      this, command_buffer_route_id);
-  if (!platform_video_decoder_)
+  platform_video_decoder_.reset(plugin_delegate->CreateVideoDecoder(
+      this, command_buffer_route_id));
+  if (!platform_video_decoder_.get())
     return false;
 
   FlushCommandBuffer();
@@ -98,11 +127,8 @@ bool PPB_VideoDecoder_Impl::Init(
 
 int32_t PPB_VideoDecoder_Impl::Decode(
     const PP_VideoBitstreamBuffer_Dev* bitstream_buffer,
-    PP_CompletionCallback callback) {
-  if (!callback.func)
-    return PP_ERROR_BLOCKS_MAIN_THREAD;
-
-  if (!platform_video_decoder_)
+    scoped_refptr<TrackedCallback> callback) {
+  if (!platform_video_decoder_.get())
     return PP_ERROR_BADRESOURCE;
 
   EnterResourceNoLock<PPB_Buffer_API> enter(bitstream_buffer->data, true);
@@ -125,7 +151,7 @@ int32_t PPB_VideoDecoder_Impl::Decode(
 void PPB_VideoDecoder_Impl::AssignPictureBuffers(
     uint32_t no_of_buffers,
     const PP_PictureBuffer_Dev* buffers) {
-  if (!platform_video_decoder_)
+  if (!platform_video_decoder_.get())
     return;
 
   std::vector<media::PictureBuffer> wrapped_buffers;
@@ -143,18 +169,15 @@ void PPB_VideoDecoder_Impl::AssignPictureBuffers(
 }
 
 void PPB_VideoDecoder_Impl::ReusePictureBuffer(int32_t picture_buffer_id) {
-  if (!platform_video_decoder_)
+  if (!platform_video_decoder_.get())
     return;
 
   FlushCommandBuffer();
   platform_video_decoder_->ReusePictureBuffer(picture_buffer_id);
 }
 
-int32_t PPB_VideoDecoder_Impl::Flush(PP_CompletionCallback callback) {
-  if (!callback.func)
-    return PP_ERROR_BLOCKS_MAIN_THREAD;
-
-  if (!platform_video_decoder_)
+int32_t PPB_VideoDecoder_Impl::Flush(scoped_refptr<TrackedCallback> callback) {
+  if (!platform_video_decoder_.get())
     return PP_ERROR_BADRESOURCE;
 
   if (!SetFlushCallback(callback))
@@ -165,11 +188,8 @@ int32_t PPB_VideoDecoder_Impl::Flush(PP_CompletionCallback callback) {
   return PP_OK_COMPLETIONPENDING;
 }
 
-int32_t PPB_VideoDecoder_Impl::Reset(PP_CompletionCallback callback) {
-  if (!callback.func)
-    return PP_ERROR_BLOCKS_MAIN_THREAD;
-
-  if (!platform_video_decoder_)
+int32_t PPB_VideoDecoder_Impl::Reset(scoped_refptr<TrackedCallback> callback) {
+  if (!platform_video_decoder_.get())
     return PP_ERROR_BADRESOURCE;
 
   if (!SetResetCallback(callback))
@@ -181,24 +201,25 @@ int32_t PPB_VideoDecoder_Impl::Reset(PP_CompletionCallback callback) {
 }
 
 void PPB_VideoDecoder_Impl::Destroy() {
-  if (!platform_video_decoder_)
+  if (!platform_video_decoder_.get())
     return;
 
   FlushCommandBuffer();
-  platform_video_decoder_->Destroy();
+  platform_video_decoder_.release()->Destroy();
   ::ppapi::PPB_VideoDecoder_Shared::Destroy();
-  platform_video_decoder_ = NULL;
   ppp_videodecoder_ = NULL;
 }
 
 void PPB_VideoDecoder_Impl::ProvidePictureBuffers(
-    uint32 requested_num_of_buffers, const gfx::Size& dimensions) {
+    uint32 requested_num_of_buffers,
+    const gfx::Size& dimensions,
+    uint32 texture_target) {
   if (!ppp_videodecoder_)
     return;
 
   PP_Size out_dim = PP_MakeSize(dimensions.width(), dimensions.height());
   ppp_videodecoder_->ProvidePictureBuffers(pp_instance(), pp_resource(),
-                                           requested_num_of_buffers, &out_dim);
+      requested_num_of_buffers, &out_dim, texture_target);
 }
 
 void PPB_VideoDecoder_Impl::PictureReady(const media::Picture& picture) {

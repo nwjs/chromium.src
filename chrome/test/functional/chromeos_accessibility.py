@@ -6,9 +6,15 @@
 import logging
 import os
 import subprocess
+import sys
+import time
 
 import pyauto_functional
 import pyauto
+
+sys.path.append('/usr/local')  # To make autotest libs importable.
+from autotest.cros import cros_ui
+from autotest.cros import cryptohome
 
 
 class AccessibilityTest(pyauto.PyUITest):
@@ -20,10 +26,10 @@ class AccessibilityTest(pyauto.PyUITest):
 
   def setUp(self):
     # We want a clean session_manager instance for every run,
-    # so restart session_manager now.
-    assert self.WaitForSessionManagerRestart(
-        lambda: subprocess.call(['pkill', 'session_manager'])), \
-        'Timed out waiting for session_manager to start.'
+    # so restart ui now.
+    cros_ui.stop(allow_fail=True)
+    cryptohome.remove_all_vaults()
+    cros_ui.start(wait_for_login_prompt=False)
     pyauto.PyUITest.setUp(self)
 
   def tearDown(self):
@@ -69,6 +75,13 @@ class AccessibilityTest(pyauto.PyUITest):
     self.NavigateToURL(url)
     self.assertEqual(1, self.FindInPage('title')['match_count'],
         msg='Failed to load the page or find the page contents.')
+    # crbug.com/129218: adding a volume change functionality to automate this
+    # issue. Please note that we don't verify any functionality here.
+    default_volume = self.GetVolumeInfo()
+    for test_volume in (50.00, 77.00, 85.00, 20.00):
+      self.SetVolume(test_volume)
+      time.sleep(1)
+    self.SetVolume(default_volume.get('volume'))
 
   def testAccessibilityBeforeLogin(self):
     """Test Accessibility before login."""
@@ -78,8 +91,6 @@ class AccessibilityTest(pyauto.PyUITest):
                      msg='Still logged in when we should be logged out.')
     self.assertTrue(self.IsSpokenFeedbackEnabled(),
         msg='Spoken feedback accessibility mode disabled after loggin out.')
-    # For successive tests
-    self._Login()
 
   def testAccessibilityAfterLogin(self):
     """Test Accessibility after login."""

@@ -4,16 +4,20 @@
 
 #include "remoting/protocol/libjingle_transport_factory.h"
 
-#include "base/message_loop_proxy.h"
+#include "base/single_thread_task_runner.h"
+#include "base/thread_task_runner_handle.h"
 #include "jingle/glue/channel_socket_adapter.h"
 #include "jingle/glue/pseudotcp_adapter.h"
 #include "jingle/glue/utils.h"
 #include "net/base/net_errors.h"
+#include "remoting/base/constants.h"
 #include "remoting/protocol/channel_authenticator.h"
 #include "remoting/protocol/transport_config.h"
 #include "third_party/libjingle/source/talk/base/basicpacketsocketfactory.h"
 #include "third_party/libjingle/source/talk/base/network.h"
+#include "third_party/libjingle/source/talk/p2p/base/constants.h"
 #include "third_party/libjingle/source/talk/p2p/base/p2ptransportchannel.h"
+#include "third_party/libjingle/source/talk/p2p/client/basicportallocator.h"
 #include "third_party/libjingle/source/talk/p2p/client/httpportallocator.h"
 
 namespace remoting {
@@ -33,14 +37,13 @@ const int kTcpSendBufferSize = kTcpReceiveBufferSize + 30 * 1024;
 class LibjingleStreamTransport : public StreamTransport,
                                  public sigslot::has_slots<> {
  public:
-  LibjingleStreamTransport(talk_base::NetworkManager* network_manager,
-                           talk_base::PacketSocketFactory* socket_factory);
+  LibjingleStreamTransport(cricket::PortAllocator* port_allocator,
+                           bool incoming_only);
   virtual ~LibjingleStreamTransport();
 
   // StreamTransport interface.
   virtual void Initialize(
       const std::string& name,
-      const TransportConfig& config,
       Transport::EventHandler* event_handler,
       scoped_ptr<ChannelAuthenticator> authenticator) OVERRIDE;
   virtual void Connect(
@@ -65,17 +68,16 @@ class LibjingleStreamTransport : public StreamTransport,
   void NotifyConnected(scoped_ptr<net::StreamSocket> socket);
   void NotifyConnectFailed();
 
-  talk_base::NetworkManager* network_manager_;
-  talk_base::PacketSocketFactory* socket_factory_;
+  cricket::PortAllocator* port_allocator_;
+  bool incoming_only_;
 
   std::string name_;
-  TransportConfig config_;
   EventHandler* event_handler_;
   StreamTransport::ConnectedCallback callback_;
   scoped_ptr<ChannelAuthenticator> authenticator_;
+  std::string ice_username_fragment_;
+  std::string ice_password_;
 
-  scoped_ptr<cricket::PortAllocator> port_allocator_;
-  cricket::HttpPortAllocator* http_port_allocator_;
   scoped_ptr<cricket::P2PTransportChannel> channel_;
 
   // We own |socket_| until it is connected.
@@ -85,12 +87,14 @@ class LibjingleStreamTransport : public StreamTransport,
 };
 
 LibjingleStreamTransport::LibjingleStreamTransport(
-    talk_base::NetworkManager* network_manager,
-    talk_base::PacketSocketFactory* socket_factory)
-    : network_manager_(network_manager),
-      socket_factory_(socket_factory),
+    cricket::PortAllocator* port_allocator,
+    bool incoming_only)
+    : port_allocator_(port_allocator),
+      incoming_only_(incoming_only),
       event_handler_(NULL),
-      http_port_allocator_(NULL) {
+      ice_username_fragment_(
+          talk_base::CreateRandomString(cricket::ICE_UFRAG_LENGTH)),
+      ice_password_(talk_base::CreateRandomString(cricket::ICE_PWD_LENGTH)) {
 }
 
 LibjingleStreamTransport::~LibjingleStreamTransport() {
@@ -100,18 +104,13 @@ LibjingleStreamTransport::~LibjingleStreamTransport() {
   DCHECK(!is_connected() || socket_.get() == NULL);
 
   if (channel_.get()) {
-    base::MessageLoopProxy::current()->DeleteSoon(
+    base::ThreadTaskRunnerHandle::Get()->DeleteSoon(
         FROM_HERE, channel_.release());
-  }
-  if (port_allocator_.get()) {
-    base::MessageLoopProxy::current()->DeleteSoon(
-        FROM_HERE, port_allocator_.release());
   }
 }
 
 void LibjingleStreamTransport::Initialize(
     const std::string& name,
-    const TransportConfig& config,
     Transport::EventHandler* event_handler,
     scoped_ptr<ChannelAuthenticator> authenticator) {
   DCHECK(CalledOnValidThread());
@@ -123,7 +122,6 @@ void LibjingleStreamTransport::Initialize(
   DCHECK(name_.empty());
 
   name_ = name;
-  config_ = config;
   event_handler_ = event_handler;
   authenticator_ = authenticator.Pass();
 }
@@ -134,38 +132,21 @@ void LibjingleStreamTransport::Connect(
 
   callback_ = callback;
 
-  // Create port allocator first.
-
-  // We always use PseudoTcp to provide a reliable channel. However
-  // when it is used together with TCP the performance is very bad
-  // so we explicitly disable TCP connections.
-  int port_allocator_flags = cricket::PORTALLOCATOR_DISABLE_TCP;
-  if (config_.nat_traversal_mode == TransportConfig::NAT_TRAVERSAL_ENABLED) {
-    http_port_allocator_ = new cricket::HttpPortAllocator(
-        network_manager_, socket_factory_, "");
-    port_allocator_.reset(http_port_allocator_);
-  } else {
-    port_allocator_flags |= cricket::PORTALLOCATOR_DISABLE_STUN |
-        cricket::PORTALLOCATOR_DISABLE_RELAY;
-    port_allocator_.reset(
-        new cricket::BasicPortAllocator(network_manager_, socket_factory_));
-  }
-  port_allocator_->set_flags(port_allocator_flags);
-
-  port_allocator_->SetPortRange(config_.min_port, config_.max_port);
+  DCHECK(!channel_.get());
 
   // Create P2PTransportChannel, attach signal handlers and connect it.
-  DCHECK(!channel_.get());
+  // TODO(sergeyu): Specify correct component ID for the channel.
   channel_.reset(new cricket::P2PTransportChannel(
-      name_, "", NULL, port_allocator_.get()));
+      "", 0, NULL, port_allocator_));
+  channel_->SetIceUfrag(ice_username_fragment_);
+  channel_->SetIcePwd(ice_password_);
   channel_->SignalRequestSignaling.connect(
       this, &LibjingleStreamTransport::OnRequestSignaling);
   channel_->SignalCandidateReady.connect(
       this, &LibjingleStreamTransport::OnCandidateReady);
   channel_->SignalRouteChange.connect(
       this, &LibjingleStreamTransport::OnRouteChange);
-  if (config_.nat_traversal_mode == TransportConfig::NAT_TRAVERSAL_DISABLED)
-    channel_->set_incoming_only(true);
+  channel_->set_incoming_only(incoming_only_);
 
   channel_->Connect();
 
@@ -183,6 +164,12 @@ void LibjingleStreamTransport::Connect(
   socket_->SetReceiveBufferSize(kTcpReceiveBufferSize);
   socket_->SetNoDelay(true);
   socket_->SetAckDelay(kTcpAckDelayMilliseconds);
+
+  // TODO(sergeyu): This is a hack to improve latency of the video
+  // channel. Consider removing it once we have better flow control
+  // implemented.
+  if (name_ == kVideoChannelName)
+    socket_->SetWriteWaitsForSend(true);
 
   int result = socket_->Connect(
       base::Bind(&LibjingleStreamTransport::OnTcpConnected,
@@ -240,10 +227,9 @@ void LibjingleStreamTransport::OnRouteChange(
     LOG(FATAL) << "Failed to convert peer IP address.";
   }
 
-  DCHECK(channel->GetP2PChannel());
-  DCHECK(channel->GetP2PChannel()->best_connection());
+  DCHECK(channel_->best_connection());
   const cricket::Candidate& local_candidate =
-      channel->GetP2PChannel()->best_connection()->local_candidate();
+      channel_->best_connection()->local_candidate();
   if (!jingle_glue::SocketAddressToIPEndPoint(
           local_candidate.address(), &route.local_address)) {
     LOG(FATAL) << "Failed to convert local IP address.";
@@ -300,12 +286,8 @@ void LibjingleStreamTransport::NotifyConnectFailed() {
   // This method may be called in response to a libjingle signal, so
   // libjingle objects must be deleted asynchronously.
   if (channel_.get()) {
-    base::MessageLoopProxy::current()->DeleteSoon(
+    base::ThreadTaskRunnerHandle::Get()->DeleteSoon(
         FROM_HERE, channel_.release());
-  }
-  if (port_allocator_.get()) {
-    base::MessageLoopProxy::current()->DeleteSoon(
-        FROM_HERE, port_allocator_.release());
   }
 
   authenticator_.reset();
@@ -315,25 +297,56 @@ void LibjingleStreamTransport::NotifyConnectFailed() {
 
 }  // namespace
 
+LibjingleTransportFactory::LibjingleTransportFactory(
+    scoped_ptr<cricket::HttpPortAllocatorBase> port_allocator,
+    bool incoming_only)
+    : http_port_allocator_(port_allocator.get()),
+      port_allocator_(port_allocator.Pass()),
+      incoming_only_(incoming_only) {
+}
+
 LibjingleTransportFactory::LibjingleTransportFactory()
     : network_manager_(new talk_base::BasicNetworkManager()),
-      socket_factory_(new talk_base::BasicPacketSocketFactory(
-          talk_base::Thread::Current())) {
+      socket_factory_(new talk_base::BasicPacketSocketFactory()),
+      http_port_allocator_(NULL),
+      port_allocator_(new cricket::BasicPortAllocator(
+          network_manager_.get(), socket_factory_.get())),
+      incoming_only_(false) {
 }
 
 LibjingleTransportFactory::~LibjingleTransportFactory() {
   // This method may be called in response to a libjingle signal, so
   // libjingle objects must be deleted asynchronously.
-  base::MessageLoopProxy::current()->DeleteSoon(
-      FROM_HERE, socket_factory_.release());
-  base::MessageLoopProxy::current()->DeleteSoon(
-      FROM_HERE, network_manager_.release());
+  scoped_refptr<base::SingleThreadTaskRunner> task_runner =
+      base::ThreadTaskRunnerHandle::Get();
+  task_runner->DeleteSoon(FROM_HERE, port_allocator_.release());
+  task_runner->DeleteSoon(FROM_HERE, socket_factory_.release());
+  task_runner->DeleteSoon(FROM_HERE, network_manager_.release());
+}
+
+void LibjingleTransportFactory::SetTransportConfig(
+    const TransportConfig& config) {
+  if (http_port_allocator_) {
+    std::vector<talk_base::SocketAddress> stun_hosts;
+    talk_base::SocketAddress stun_address;
+    if (stun_address.FromString(config.stun_server)) {
+      stun_hosts.push_back(stun_address);
+      http_port_allocator_->SetStunHosts(stun_hosts);
+    } else {
+      LOG(ERROR) << "Failed to parse stun server address: "
+                 << config.stun_server;
+    }
+
+    std::vector<std::string> relay_hosts;
+    relay_hosts.push_back(config.relay_server);
+    http_port_allocator_->SetRelayHosts(relay_hosts);
+    http_port_allocator_->SetRelayToken(config.relay_token);
+  }
 }
 
 scoped_ptr<StreamTransport> LibjingleTransportFactory::CreateStreamTransport() {
   return scoped_ptr<StreamTransport>(
-      new LibjingleStreamTransport(network_manager_.get(),
-                                   socket_factory_.get()));
+      new LibjingleStreamTransport(port_allocator_.get(), incoming_only_));
 }
 
 scoped_ptr<DatagramTransport>
@@ -341,7 +354,6 @@ LibjingleTransportFactory::CreateDatagramTransport() {
   NOTIMPLEMENTED();
   return scoped_ptr<DatagramTransport>(NULL);
 }
-
 
 }  // namespace protocol
 }  // namespace remoting

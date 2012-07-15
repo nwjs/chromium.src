@@ -6,7 +6,7 @@
  * Test fixture for generated tests.
  * @extends {testing.Test}
  */
-function CertificateViewerUITest() {};
+function CertificateViewerUITest() {}
 
 CertificateViewerUITest.prototype = {
   __proto__: testing.Test.prototype,
@@ -31,7 +31,7 @@ CertificateViewerUITest.prototype = {
  * Test fixture for asynchronous tests.
  * @extends {CertificateViewerUITest}
  */
-function CertificateViewerUITestAsync() {};
+function CertificateViewerUITestAsync() {}
 
 CertificateViewerUITestAsync.prototype = {
   __proto__: CertificateViewerUITest.prototype,
@@ -44,17 +44,6 @@ CertificateViewerUITestAsync.prototype = {
 // Certificate viewer UI tests are disabled on platforms with native certificate
 // viewers.
 GEN('#include "chrome/test/data/webui/certificate_viewer_ui_test-inl.h"');
-GEN('')
-GEN('#if (!defined(USE_NSS) && !defined(USE_OPENSSL)) || \')
-GEN('    !defined(USE_AURA)')
-GEN('#define MAYBE_testDialogURL DISABLED_testDialogURL')
-GEN('#define MAYBE_testCN DISABLED_testCN')
-GEN('#define MAYBE_testDetails DISABLED_testDetails')
-GEN('#else')
-GEN('#define MAYBE_testDialogURL testDialogURL')
-GEN('#define MAYBE_testCN testCN')
-GEN('#define MAYBE_testDetails testDetails')
-GEN('#endif')
 GEN('');
 
 // Constructors and destructors must be provided in .cc to prevent clang errors.
@@ -64,14 +53,14 @@ GEN('CertificateViewerUITest::~CertificateViewerUITest() {}');
 /**
  * Tests that the dialog opened to the correct URL.
  */
-TEST_F('CertificateViewerUITest', 'MAYBE_testDialogURL', function() {
+TEST_F('CertificateViewerUITest', 'testDialogURL', function() {
   assertEquals(chrome.expectedUrl, window.location.href);
 });
 
 /**
  * Tests for the correct common name in the test certificate.
  */
-TEST_F('CertificateViewerUITest', 'MAYBE_testCN', function() {
+TEST_F('CertificateViewerUITest', 'testCN', function() {
   assertEquals('www.google.com', $('issued-cn').textContent);
 });
 
@@ -80,10 +69,13 @@ TEST_F('CertificateViewerUITest', 'MAYBE_testCN', function() {
  * certificate in the chain can be selected to view the fields. And that fields
  * can be selected to view their values.
  */
-TEST_F('CertificateViewerUITestAsync', 'MAYBE_testDetails', function() {
+TEST_F('CertificateViewerUITestAsync', 'testDetails', function() {
   var certHierarchy = $('hierarchy');
   var certFields = $('cert-fields');
   var certFieldVal = $('cert-field-value');
+
+  // Select the second tab, causing its data to be loaded if needed.
+  $('tabbox').selectedIndex = 1;
 
   // There must be at least one certificate in the hierarchy.
   assertLT(0, certHierarchy.childNodes.length);

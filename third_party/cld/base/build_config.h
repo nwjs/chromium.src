@@ -41,12 +41,6 @@
 #error Please add support for your platform in build/build_config.h
 #endif
 
-// A flag derived from the above flags, used to cover GTK code in
-// both TOOLKIT_GTK and TOOLKIT_VIEWS.
-#if defined(TOOLKIT_GTK) || (defined(TOOLKIT_VIEWS) && !defined(OS_WIN))
-#define TOOLKIT_USES_GTK 1
-#endif
-
 #if defined(OS_LINUX) || defined(OS_FREEBSD) || defined(OS_OPENBSD) || \
     defined(OS_ANDROID)
 #define USE_NSS 1  // Use NSS for crypto.
@@ -95,6 +89,11 @@
 #define ARCH_CPU_ARMEL 1
 #define ARCH_CPU_32_BITS 1
 #define WCHAR_T_IS_UNSIGNED 1
+#elif defined(__MIPSEL__)
+#define ARCH_CPU_MIPS_FAMILY 1
+#define ARCH_CPU_MIPSEL 1
+#define ARCH_CPU_32_BITS 1
+#define WCHAR_T_IS_UNSIGNED 0
 #else
 #error Please add support for your architecture in build/build_config.h
 #endif

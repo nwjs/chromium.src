@@ -6,17 +6,28 @@
 
 #ifndef UI_BASE_UI_BASE_SWITCHES_H_
 #define UI_BASE_UI_BASE_SWITCHES_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "ui/base/ui_export.h"
 
 namespace switches {
 
+UI_EXPORT extern const char kDisableScalingInImageSkiaOperations[];
+UI_EXPORT extern const char kEnableTextSubpixelPositioning[];
+UI_EXPORT extern const char kEnableTouchCalibration[];
+UI_EXPORT extern const char kEnableTouchEvents[];
+UI_EXPORT extern const char kEnableViewsTextfield[];
+UI_EXPORT extern const char kForceDeviceScaleFactor[];
+UI_EXPORT extern const char kHighlightMissing2xResources[];
 UI_EXPORT extern const char kLang[];
+UI_EXPORT extern const char kLoad2xResources[];
 UI_EXPORT extern const char kLocalePak[];
+UI_EXPORT extern const char kNewCheckboxStyle[];
 UI_EXPORT extern const char kNoMessageBox[];
 UI_EXPORT extern const char kTouchOptimizedUI[];
+UI_EXPORT extern const char kTouchOptimizedUIAuto[];
+UI_EXPORT extern const char kTouchOptimizedUIDisabled[];
+UI_EXPORT extern const char kTouchOptimizedUIEnabled[];
 
 #if defined(OS_MACOSX)
 // TODO(kbr): remove this and the associated old code path:
@@ -25,6 +36,11 @@ UI_EXPORT extern const char kTouchOptimizedUI[];
 // convenient place where it can be shared between
 // src/webkit/plugins/npapi/ and src/content/plugin/ .
 UI_EXPORT extern const char kDisableCompositedCoreAnimationPlugins[];
+UI_EXPORT extern const char kDisableCoreAnimationPlugins[];
+#endif
+
+#if defined(TOOLKIT_VIEWS) && defined(OS_LINUX)
+UI_EXPORT extern const char kTouchDevices[];
 #endif
 
 }  // namespace switches

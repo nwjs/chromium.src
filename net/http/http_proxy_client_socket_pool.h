@@ -4,7 +4,6 @@
 
 #ifndef NET_HTTP_HTTP_PROXY_CLIENT_SOCKET_POOL_H_
 #define NET_HTTP_HTTP_PROXY_CLIENT_SOCKET_POOL_H_
-#pragma once
 
 #include <string>
 
@@ -161,7 +160,7 @@ class HttpProxyConnectJob : public ConnectJob {
   scoped_ptr<ProxyClientSocket> transport_socket_;
   bool using_spdy_;
   // Protocol negotiated with the server.
-  SSLClientSocket::NextProto protocol_negotiated_;
+  NextProto protocol_negotiated_;
 
   HttpResponseInfo error_response_info_;
 

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_ICON_MANAGER_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_ICON_MANAGER_H_
-#pragma once
 
 #include <map>
 #include <set>
@@ -15,7 +14,9 @@
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/gfx/insets.h"
 
+namespace extensions {
 class Extension;
+}
 
 class ExtensionIconManager : public ImageLoadingTracker::Observer {
  public:
@@ -23,7 +24,7 @@ class ExtensionIconManager : public ImageLoadingTracker::Observer {
   virtual ~ExtensionIconManager();
 
   // Start loading the icon for the given extension.
-  void LoadIcon(const Extension* extension);
+  void LoadIcon(const extensions::Extension* extension);
 
   // This returns a bitmap of width/height kFaviconSize, loaded either from an
   // entry specified in the extension's 'icon' section of the manifest, or a

@@ -4,20 +4,20 @@
 
 #ifndef CHROME_COMMON_NET_GAIA_OAUTH2_ACCESS_TOKEN_FETCHER_H_
 #define CHROME_COMMON_NET_GAIA_OAUTH2_ACCESS_TOKEN_FETCHER_H_
-#pragma once
 
 #include <string>
+#include <vector>
 
 #include "base/gtest_prod_util.h"
 #include "base/memory/scoped_ptr.h"
 #include "chrome/common/net/gaia/oauth2_access_token_consumer.h"
-#include "content/public/common/url_fetcher.h"
-#include "content/public/common/url_fetcher_delegate.h"
 #include "googleurl/src/gurl.h"
+#include "net/url_request/url_fetcher_delegate.h"
 
 class OAuth2AccessTokenFetcherTest;
 
 namespace net {
+class URLFetcher;
 class URLRequestContextGetter;
 class URLRequestStatus;
 }
@@ -40,7 +40,7 @@ class URLRequestStatus;
 //
 // This class can handle one request at a time. To parallelize requests,
 // create multiple instances.
-class OAuth2AccessTokenFetcher : public content::URLFetcherDelegate {
+class OAuth2AccessTokenFetcher : public net::URLFetcherDelegate {
  public:
   OAuth2AccessTokenFetcher(OAuth2AccessTokenConsumer* consumer,
                            net::URLRequestContextGetter* getter);
@@ -59,8 +59,8 @@ class OAuth2AccessTokenFetcher : public content::URLFetcherDelegate {
 
   void CancelRequest();
 
-  // Implementation of content::URLFetcherDelegate
-  virtual void OnURLFetchComplete(const content::URLFetcher* source) OVERRIDE;
+  // Implementation of net::URLFetcherDelegate
+  virtual void OnURLFetchComplete(const net::URLFetcher* source) OVERRIDE;
 
  private:
   enum State {
@@ -72,7 +72,7 @@ class OAuth2AccessTokenFetcher : public content::URLFetcherDelegate {
 
   // Helper methods for the flow.
   void StartGetAccessToken();
-  void EndGetAccessToken(const content::URLFetcher* source);
+  void EndGetAccessToken(const net::URLFetcher* source);
 
   // Helper mehtods for reporting back results.
   void OnGetTokenSuccess(const std::string& access_token);
@@ -85,7 +85,7 @@ class OAuth2AccessTokenFetcher : public content::URLFetcherDelegate {
       const std::string& client_secret,
       const std::string& refresh_token,
       const std::vector<std::string>& scopes);
-  static bool ParseGetAccessTokenResponse(const content::URLFetcher* source,
+  static bool ParseGetAccessTokenResponse(const net::URLFetcher* source,
                                           std::string* access_token);
 
   // State that is set during construction.
@@ -94,7 +94,7 @@ class OAuth2AccessTokenFetcher : public content::URLFetcherDelegate {
   State state_;
 
   // While a fetch is in progress.
-  scoped_ptr<content::URLFetcher> fetcher_;
+  scoped_ptr<net::URLFetcher> fetcher_;
   std::string client_id_;
   std::string client_secret_;
   std::string refresh_token_;

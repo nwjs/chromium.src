@@ -11,7 +11,7 @@
 #include "base/threading/thread.h"
 #include "base/timer.h"
 #include "chrome/browser/sync/glue/browser_thread_model_worker.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using base::OneShotTimer;
@@ -39,27 +39,28 @@ class SyncBrowserThreadModelWorkerTest : public testing::Test {
   }
 
   // Schedule DoWork to be executed on the DB thread and have the test fail if
-  // DoWork hasn't executed within action_timeout_ms() ms.
+  // DoWork hasn't executed within action_timeout().
   void ScheduleWork() {
    // We wait until the callback is done. So it is safe to use unretained.
-   WorkCallback c = base::Bind(&SyncBrowserThreadModelWorkerTest::DoWork,
-                               base::Unretained(this));
+    syncer::WorkCallback c =
+        base::Bind(&SyncBrowserThreadModelWorkerTest::DoWork,
+                   base::Unretained(this));
     timer()->Start(
         FROM_HERE,
-        TimeDelta::FromMilliseconds(TestTimeouts::action_timeout_ms()),
+        TestTimeouts::action_timeout(),
         this,
         &SyncBrowserThreadModelWorkerTest::Timeout);
     worker()->DoWorkAndWaitUntilDone(c);
   }
 
   // This is the work that will be scheduled to be done on the DB thread.
-  SyncerError DoWork() {
+  syncer::SyncerError DoWork() {
     EXPECT_TRUE(BrowserThread::CurrentlyOn(BrowserThread::DB));
     timer_.Stop();  // Stop the failure timer so the test succeeds.
     BrowserThread::PostTask(
         BrowserThread::IO, FROM_HERE, MessageLoop::QuitClosure());
     did_do_work_ = true;
-    return SYNCER_OK;
+    return syncer::SYNCER_OK;
   }
 
   // This will be called by the OneShotTimer and make the test fail unless

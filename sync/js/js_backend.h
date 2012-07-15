@@ -4,13 +4,12 @@
 
 #ifndef SYNC_JS_JS_BACKEND_H_
 #define SYNC_JS_JS_BACKEND_H_
-#pragma once
 
 // See README.js for design comments.
 
 #include <string>
 
-namespace browser_sync {
+namespace syncer {
 
 class JsArgList;
 class JsEventHandler;
@@ -36,6 +35,6 @@ class JsBackend {
   virtual ~JsBackend() {}
 };
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_JS_JS_BACKEND_H_

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SEARCH_ENGINES_TEMPLATE_URL_PREPOPULATE_DATA_H_
 #define CHROME_BROWSER_SEARCH_ENGINES_TEMPLATE_URL_PREPOPULATE_DATA_H_
-#pragma once
 
 #include <stddef.h>
 #include <string>
@@ -15,11 +14,20 @@
 
 class GURL;
 class PrefService;
+class Profile;
 class TemplateURL;
 
 namespace TemplateURLPrepopulateData {
 
 extern const int kMaxPrepopulatedEngineID;
+
+#if defined(OS_ANDROID)
+
+// This must be called early only once. |country_code| is the country code at
+// install following the ISO-3166 specification.
+void InitCountryCode(const std::string& country_code);
+
+#endif
 
 void RegisterUserPrefs(PrefService* prefs);
 
@@ -32,27 +40,21 @@ int GetDataVersion(PrefService* prefs);
 // TemplateURLs is passed to the caller.  On return,
 // |default_search_provider_index| is set to the index of the default search
 // provider.
-void GetPrepopulatedEngines(PrefService* prefs,
+void GetPrepopulatedEngines(Profile* profile,
                             std::vector<TemplateURL*>* t_urls,
                             size_t* default_search_provider_index);
 
 // Returns the default search provider specified by the prepopulate data.
 // The caller owns the returned value, which may be NULL.
-// If |prefs| is NULL, any search provider overrides from the preferences are
+// If |profile| is NULL, any search provider overrides from the preferences are
 // not used.
-TemplateURL* GetPrepopulatedDefaultSearch(PrefService* prefs);
-
-// Both the next two functions use same-origin checks unless the |url| is a
-// Google seach URL, in which case we'll identify any valid Google hostname, or
-// the unsubstituted Google prepopulate URL, as "Google".
-
-// Returns the short name for the matching engine, or url.host() if no engines
-// match.  If no engines match and the |url| can't be converted to a valid GURL,
-// returns the string in IDS_UNKNOWN_SEARCH_ENGINE_NAME.
-string16 GetEngineName(const std::string& url);
+TemplateURL* GetPrepopulatedDefaultSearch(Profile* profile);
 
 // Returns the type of the matching engine, or SEARCH_ENGINE_OTHER if no engines
-// match.
+// match.  This uses same-origin checks unless the |url| is a Google seach URL,
+// in which case we'll identify any valid Google hostname as "Google".
+//
+// NOTE: Must be called on the UI thread.
 SearchEngineType GetEngineType(const std::string& url);
 
 }  // namespace TemplateURLPrepopulateData

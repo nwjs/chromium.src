@@ -4,26 +4,30 @@
 
 #ifndef CHROME_BROWSER_NET_SQLITE_SERVER_BOUND_CERT_STORE_H_
 #define CHROME_BROWSER_NET_SQLITE_SERVER_BOUND_CERT_STORE_H_
-#pragma once
 
 #include "base/callback_forward.h"
 #include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
 #include "net/base/default_server_bound_cert_store.h"
 
+class ClearOnExitPolicy;
 class FilePath;
 
 // Implements the net::DefaultServerBoundCertStore::PersistentStore interface
 // in terms of a SQLite database. For documentation about the actual member
 // functions consult the documentation of the parent class
 // |net::DefaultServerBoundCertStore::PersistentCertStore|.
+// If provided, a |ClearOnExitPolicy| is consulted when the SQLite database is
+// closed to decide which certificates to keep.
 class SQLiteServerBoundCertStore
     : public net::DefaultServerBoundCertStore::PersistentStore {
  public:
-  explicit SQLiteServerBoundCertStore(const FilePath& path);
-  virtual ~SQLiteServerBoundCertStore();
+  // If non-NULL, SQLiteServerBoundCertStore will keep a scoped_refptr to the
+  // |clear_on_exit_policy| throughout its lifetime.
+  SQLiteServerBoundCertStore(const FilePath& path,
+                             ClearOnExitPolicy* clear_on_exit_policy);
 
-  // net::DefaultServerBoundCertStore::PersistentStore implementation.
+  // net::DefaultServerBoundCertStore::PersistentStore:
   virtual bool Load(
       std::vector<net::DefaultServerBoundCertStore::ServerBoundCert*>* certs)
           OVERRIDE;
@@ -31,8 +35,11 @@ class SQLiteServerBoundCertStore
       const net::DefaultServerBoundCertStore::ServerBoundCert& cert) OVERRIDE;
   virtual void DeleteServerBoundCert(
       const net::DefaultServerBoundCertStore::ServerBoundCert& cert) OVERRIDE;
-  virtual void SetClearLocalStateOnExit(bool clear_local_state) OVERRIDE;
+  virtual void SetForceKeepSessionState() OVERRIDE;
   virtual void Flush(const base::Closure& completion_task) OVERRIDE;
+
+ protected:
+  virtual ~SQLiteServerBoundCertStore();
 
  private:
   class Backend;

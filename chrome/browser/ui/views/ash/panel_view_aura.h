@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_ASH_PANEL_VIEW_AURA_H_
 #define CHROME_BROWSER_UI_VIEWS_ASH_PANEL_VIEW_AURA_H_
-#pragma once
 
 #include <string>
 
@@ -15,12 +14,15 @@
 #include "ui/views/controls/native/native_view_host.h"
 #include "ui/views/widget/widget_delegate.h"
 
-class ExtensionWindowController;
 class GURL;
 class Profile;
 
 namespace content {
 class WebContents;
+}
+
+namespace extensions {
+class WindowController;
 }
 
 namespace views {
@@ -55,7 +57,7 @@ class PanelViewAura : public views::NativeViewHost,
   void SetContentPreferredSize(const gfx::Size& size);
 
   const SessionID& session_id() const { return session_id_; }
-  ExtensionWindowController* extension_window_controller() const {
+  extensions::WindowController* extension_window_controller() const {
     return extension_window_controller_.get();
   }
 
@@ -77,6 +79,8 @@ class PanelViewAura : public views::NativeViewHost,
   virtual bool IsActive() const OVERRIDE;
   virtual bool IsMaximized() const OVERRIDE;
   virtual bool IsMinimized() const OVERRIDE;
+  virtual bool IsFullscreen() const OVERRIDE;
+  virtual gfx::NativeWindow GetNativeWindow() OVERRIDE;
   virtual gfx::Rect GetRestoredBounds() const OVERRIDE;
   virtual gfx::Rect GetBounds() const OVERRIDE;
   virtual void Show() OVERRIDE;
@@ -88,6 +92,7 @@ class PanelViewAura : public views::NativeViewHost,
   virtual void Minimize() OVERRIDE;
   virtual void Restore() OVERRIDE;
   virtual void SetBounds(const gfx::Rect& bounds) OVERRIDE;
+  virtual void SetDraggableRegion(SkRegion* region) OVERRIDE;
   virtual void FlashFrame(bool flash) OVERRIDE;
   virtual bool IsAlwaysOnTop() const OVERRIDE;
 
@@ -99,7 +104,7 @@ class PanelViewAura : public views::NativeViewHost,
   scoped_ptr<internal::PanelHost> host_;
   // Unowned pointer to the widget.
   views::Widget* widget_;
-  scoped_ptr<ExtensionWindowController> extension_window_controller_;
+  scoped_ptr<extensions::WindowController> extension_window_controller_;
 
   DISALLOW_COPY_AND_ASSIGN(PanelViewAura);
 };

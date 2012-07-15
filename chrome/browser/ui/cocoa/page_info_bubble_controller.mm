@@ -21,6 +21,8 @@
 #import "chrome/browser/ui/cocoa/location_bar/location_bar_view_mac.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/cert_store.h"
+#include "content/public/browser/page_navigator.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/common/ssl_status.h"
 #include "grit/generated_resources.h"
 #include "grit/locale_settings.h"
@@ -34,6 +36,7 @@
 using content::OpenURLParams;
 using content::Referrer;
 using content::SSLStatus;
+using content::WebContents;
 
 @interface PageInfoBubbleController (Private)
 - (PageInfoModel*)model;
@@ -126,7 +129,7 @@ class PageInfoModelBubbleBridge : public PageInfoModelObserver {
     MessageLoop::current()->PostDelayedTask(FROM_HERE,
         base::Bind(&PageInfoModelBubbleBridge::PerformLayout,
                    weak_ptr_factory_.GetWeakPtr()),
-        1000 /* milliseconds */);
+        base::TimeDelta::FromSeconds(1));
   }
 
   // Sets the controller.
@@ -152,26 +155,30 @@ class PageInfoModelBubbleBridge : public PageInfoModelObserver {
 
 }  // namespace
 
-namespace browser {
+namespace chrome {
 
 void ShowPageInfoBubble(gfx::NativeWindow parent,
-                        Profile* profile,
+                        WebContents* web_contents,
                         const GURL& url,
                         const SSLStatus& ssl,
-                        bool show_history) {
+                        bool show_history,
+                        content::PageNavigator* navigator) {
   PageInfoModelBubbleBridge* bridge = new PageInfoModelBubbleBridge();
-  PageInfoModel* model =
-      new PageInfoModel(profile, url, ssl, show_history, bridge);
+  PageInfoModel* model = new PageInfoModel(
+      Profile::FromBrowserContext(web_contents->GetBrowserContext()), url, ssl,
+      show_history, bridge);
   PageInfoBubbleController* controller =
       [[PageInfoBubbleController alloc] initWithPageInfoModel:model
                                                 modelObserver:bridge
-                                                 parentWindow:parent];
+                                                 parentWindow:parent
+                                                  webContents:web_contents
+                                                    navigator:navigator];
   bridge->set_controller(controller);
   [controller setCertID:ssl.cert_id];
   [controller showWindow:nil];
 }
 
-}  // namespace browser
+}  // namespace chrome
 
 @implementation PageInfoBubbleController
 
@@ -179,11 +186,13 @@ void ShowPageInfoBubble(gfx::NativeWindow parent,
 
 - (id)initWithPageInfoModel:(PageInfoModel*)model
               modelObserver:(PageInfoModelObserver*)bridge
-               parentWindow:(NSWindow*)parentWindow {
+               parentWindow:(NSWindow*)parentWindow
+                webContents:(WebContents*)webContents
+                  navigator:(content::PageNavigator*)navigator {
   DCHECK(parentWindow);
 
   // Use an arbitrary height because it will be changed by the bridge.
-  NSRect contentRect = NSMakeRect(0, 0, kWindowWidth, 0);
+  NSRect contentRect = NSMakeRect(0, 0, kWindowWidth, 1);
   // Create an empty window into which content is placed.
   scoped_nsobject<InfoBubbleWindow> window(
       [[InfoBubbleWindow alloc] initWithContentRect:contentRect
@@ -196,6 +205,8 @@ void ShowPageInfoBubble(gfx::NativeWindow parent,
                          anchoredAt:NSZeroPoint])) {
     model_.reset(model);
     bridge_.reset(bridge);
+    webContents_ = webContents;
+    navigator_ = navigator;
     [[self bubble] setArrowLocation:info_bubble::kTopLeft];
     [self performLayout];
   }
@@ -208,15 +219,15 @@ void ShowPageInfoBubble(gfx::NativeWindow parent,
 
 - (IBAction)showCertWindow:(id)sender {
   DCHECK(certID_ != 0);
-  ShowCertificateViewerByID([self parentWindow], certID_);
+  ShowCertificateViewerByID(webContents_, [self parentWindow], certID_);
 }
 
 - (IBAction)showHelpPage:(id)sender {
-  Browser* browser = BrowserList::GetLastActive();
-  OpenURLParams params(
-      GURL(chrome::kPageInfoHelpCenterURL), Referrer(), NEW_FOREGROUND_TAB,
-      content::PAGE_TRANSITION_LINK, false);
-  browser->OpenURL(params);
+  navigator_->OpenURL(OpenURLParams(GURL(chrome::kPageInfoHelpCenterURL),
+                                    Referrer(),
+                                    NEW_FOREGROUND_TAB,
+                                    content::PAGE_TRANSITION_LINK,
+                                    false));
 }
 
 // This will create the subviews for the page info window. The general layout

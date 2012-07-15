@@ -9,7 +9,8 @@
 
 #ifndef NET_URL_REQUEST_URL_REQUEST_CONTEXT_H_
 #define NET_URL_REQUEST_URL_REQUEST_CONTEXT_H_
-#pragma once
+
+#include <set>
 
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
@@ -35,23 +36,20 @@ class ServerBoundCertService;
 class ProxyService;
 class URLRequest;
 class URLRequestJobFactory;
+class URLRequestThrottlerManager;
 
 // Subclass to provide application-specific context for URLRequest
 // instances. Note that URLRequestContext typically does not provide storage for
 // these member variables, since they may be shared. For the ones that aren't
 // shared, URLRequestContextStorage can be helpful in defining their storage.
 class NET_EXPORT URLRequestContext
-    : public base::RefCountedThreadSafe<URLRequestContext>,
-      NON_EXPORTED_BASE(public base::NonThreadSafe) {
+    : NON_EXPORTED_BASE(public base::NonThreadSafe) {
  public:
   URLRequestContext();
-
-  base::WeakPtr<URLRequestContext> GetWeakPtr() {
-    return weak_factory_.GetWeakPtr();
-  }
+  virtual ~URLRequestContext();
 
   // Copies the state from |other| into this context.
-  void CopyFrom(URLRequestContext* other);
+  void CopyFrom(const URLRequestContext* other);
 
   NetLog* net_log() const {
     return net_log_;
@@ -108,7 +106,7 @@ class NET_EXPORT URLRequestContext
 
   // Gets the HTTP Authentication Handler Factory for this context.
   // The factory is only valid for the lifetime of this URLRequestContext
-  HttpAuthHandlerFactory* http_auth_handler_factory() {
+  HttpAuthHandlerFactory* http_auth_handler_factory() const {
     return http_auth_handler_factory_;
   }
   void set_http_auth_handler_factory(HttpAuthHandlerFactory* factory) {
@@ -189,14 +187,23 @@ class NET_EXPORT URLRequestContext
     job_factory_ = job_factory;
   }
 
- protected:
-  friend class base::RefCountedThreadSafe<URLRequestContext>;
+  // May be NULL.
+  URLRequestThrottlerManager* throttler_manager() const {
+    return throttler_manager_;
+  }
+  void set_throttler_manager(URLRequestThrottlerManager* throttler_manager) {
+    throttler_manager_ = throttler_manager;
+  }
 
-  virtual ~URLRequestContext();
+  // Gets the URLRequest objects that hold a reference to this
+  // URLRequestContext.
+  std::set<const URLRequest*>* url_requests() const {
+    return url_requests_.get();
+  }
+
+  void AssertNoURLRequests() const;
 
  private:
-  base::WeakPtrFactory<URLRequestContext> weak_factory_;
-
   // ---------------------------------------------------------------------------
   // Important: When adding any new members below, consider whether they need to
   // be added to CopyFrom.
@@ -226,11 +233,14 @@ class NET_EXPORT URLRequestContext
   HttpTransactionFactory* http_transaction_factory_;
   FtpTransactionFactory* ftp_transaction_factory_;
   const URLRequestJobFactory* job_factory_;
+  URLRequestThrottlerManager* throttler_manager_;
 
   // ---------------------------------------------------------------------------
   // Important: When adding any new members below, consider whether they need to
   // be added to CopyFrom.
   // ---------------------------------------------------------------------------
+
+  scoped_ptr<std::set<const URLRequest*> > url_requests_;
 
   DISALLOW_COPY_AND_ASSIGN(URLRequestContext);
 };

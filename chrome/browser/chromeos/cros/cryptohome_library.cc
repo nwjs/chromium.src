@@ -4,23 +4,17 @@
 
 #include "chrome/browser/chromeos/cros/cryptohome_library.h"
 
-#include "base/command_line.h"
-#include "base/message_loop.h"
+#include <map>
+
+#include "base/memory/weak_ptr.h"
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
-#include "chrome/browser/chromeos/dbus/cryptohome_client.h"
-#include "chrome/browser/chromeos/dbus/dbus_thread_manager.h"
-#include "chrome/common/chrome_switches.h"
-#include "content/public/browser/browser_thread.h"
-#include "crypto/encryptor.h"
-#include "crypto/sha2.h"
-
-using content::BrowserThread;
+#include "chromeos/dbus/cryptohome_client.h"
+#include "chromeos/dbus/dbus_thread_manager.h"
 
 namespace {
 
 const char kStubSystemSalt[] = "stub_system_salt";
-const int kPassHashLen = 32;
 
 }
 
@@ -49,7 +43,8 @@ class CryptohomeLibraryImpl : public CryptohomeLibrary {
 
   virtual bool TpmIsEnabled() OVERRIDE {
     bool result = false;
-    DBusThreadManager::Get()->GetCryptohomeClient()->TpmIsEnabled(&result);
+    DBusThreadManager::Get()->GetCryptohomeClient()->CallTpmIsEnabledAndBlock(
+        &result);
     return result;
   }
 
@@ -128,21 +123,6 @@ class CryptohomeLibraryImpl : public CryptohomeLibrary {
     DBusThreadManager::Get()->GetCryptohomeClient()->
         InstallAttributesIsFirstInstall(&result);
     return result;
-  }
-
-  virtual std::string HashPassword(const std::string& password) OVERRIDE {
-    // Get salt, ascii encode, update sha with that, then update with ascii
-    // of password, then end.
-    std::string ascii_salt = GetSystemSalt();
-    char passhash_buf[kPassHashLen];
-
-    // Hash salt and password
-    crypto::SHA256HashString(ascii_salt + password,
-                             &passhash_buf, sizeof(passhash_buf));
-
-    return StringToLowerASCII(base::HexEncode(
-        reinterpret_cast<const void*>(passhash_buf),
-        sizeof(passhash_buf) / 2));
   }
 
   virtual std::string GetSystemSalt() OVERRIDE {
@@ -235,12 +215,6 @@ class CryptohomeLibraryStubImpl : public CryptohomeLibrary {
 
   virtual bool InstallAttributesIsFirstInstall() OVERRIDE {
     return !locked_;
-  }
-
-  virtual std::string HashPassword(const std::string& password) OVERRIDE {
-    return StringToLowerASCII(base::HexEncode(
-            reinterpret_cast<const void*>(password.data()),
-            password.length()));
   }
 
   virtual std::string GetSystemSalt() OVERRIDE {

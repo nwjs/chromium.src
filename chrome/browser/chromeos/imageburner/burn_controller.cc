@@ -11,7 +11,6 @@
 #include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chrome/browser/chromeos/cros/network_library.h"
 #include "chrome/browser/chromeos/imageburner/burn_manager.h"
-#include "chrome/browser/chromeos/system/statistics_provider.h"
 #include "grit/generated_resources.h"
 #include "googleurl/src/gurl.h"
 
@@ -20,9 +19,6 @@ namespace imageburner {
 
 namespace {
 
-// Name for hwid in machine statistics.
-const char kHwidStatistic[] = "hardware_class";
-
 const char kImageZipFileName[] = "chromeos_image.bin.zip";
 
 // 3.9GB. It is less than 4GB because true device size ussually varies a little.
@@ -30,7 +26,7 @@ const uint64 kMinDeviceSize = static_cast<uint64>(3.9 * 1000 * 1000 * 1000);
 
 // Returns true when |disk| is a device on which we can burn recovery image.
 bool IsBurnableDevice(const disks::DiskMountManager::Disk& disk) {
-  return disk.is_parent() && !disk.on_boot_device() &&
+  return disk.is_parent() && !disk.on_boot_device() && disk.has_media() &&
          (disk.device_type() == DEVICE_TYPE_USB ||
           disk.device_type() == DEVICE_TYPE_SD);
 }
@@ -182,12 +178,14 @@ class BurnControllerImpl
   }
 
   // Part of BurnManager::Delegate interface.
-  virtual void OnConfigFileFetched(const ConfigFile& config_file, bool success)
-      OVERRIDE {
-    if (!success || !ExtractInfoFromConfigFile(config_file)) {
+  virtual void OnConfigFileFetched(bool success,
+                                   const std::string& image_file_name,
+                                   const GURL& image_download_url) OVERRIDE {
+    if (!success) {
       DownloadCompleted(false);
       return;
     }
+    image_file_name_ = image_file_name;
 
     if (state_machine_->download_finished()) {
       BurnImage();
@@ -195,7 +193,7 @@ class BurnControllerImpl
     }
 
     if (!state_machine_->download_started()) {
-      burn_manager_->FetchImage(image_download_url_, zip_image_file_path_);
+      burn_manager_->FetchImage(image_download_url, zip_image_file_path_);
       state_machine_->OnDownloadStarted();
     }
   }
@@ -333,25 +331,6 @@ class BurnControllerImpl
     burn_manager_->ResetTargetPaths();
   }
 
-  bool ExtractInfoFromConfigFile(const ConfigFile& config_file) {
-    std::string hwid;
-    if (!system::StatisticsProvider::GetInstance()->
-        GetMachineStatistic(kHwidStatistic, &hwid))
-      return false;
-
-    image_file_name_ = config_file.GetProperty(kFileName, hwid);
-    if (image_file_name_.empty())
-      return false;
-
-    image_download_url_ = GURL(config_file.GetProperty(kUrl, hwid));
-    if (image_download_url_.is_empty()) {
-      image_file_name_.clear();
-      return false;
-    }
-
-    return true;
-  }
-
   int64 GetDeviceSize(const std::string& device_path) {
     disks::DiskMountManager* disk_mount_manager =
         disks::DiskMountManager::GetInstance();
@@ -364,7 +343,6 @@ class BurnControllerImpl
   }
 
   FilePath zip_image_file_path_;
-  GURL image_download_url_;
   std::string image_file_name_;
   BurnManager* burn_manager_;
   StateMachine* state_machine_;

@@ -24,12 +24,7 @@ ConnectionToClient::ConnectionToClient(protocol::Session* session)
       host_stub_(NULL),
       input_stub_(NULL),
       session_(session) {
-  session_->SetStateChangeCallback(
-      base::Bind(&ConnectionToClient::OnSessionStateChange,
-                 base::Unretained(this)));
-  session_->SetRouteChangeCallback(
-      base::Bind(&ConnectionToClient::OnSessionRouteChange,
-                 base::Unretained(this)));
+  session_->SetEventHandler(this);
 }
 
 ConnectionToClient::~ConnectionToClient() {
@@ -66,6 +61,11 @@ void ConnectionToClient::UpdateSequenceNumber(int64 sequence_number) {
 VideoStub* ConnectionToClient::video_stub() {
   DCHECK(CalledOnValidThread());
   return video_writer_.get();
+}
+
+AudioStub* ConnectionToClient::audio_stub() {
+  DCHECK(CalledOnValidThread());
+  return audio_writer_.get();
 }
 
 // Return pointer to ClientStub.
@@ -116,20 +116,27 @@ void ConnectionToClient::OnSessionStateChange(Session::State state) {
       event_dispatcher_->set_sequence_number_callback(base::Bind(
           &ConnectionToClient::UpdateSequenceNumber, base::Unretained(this)));
 
-      video_writer_.reset(VideoWriter::Create(
-          base::MessageLoopProxy::current(), session_->config()));
+      video_writer_ = VideoWriter::Create(session_->config());
       video_writer_->Init(session_.get(), base::Bind(
           &ConnectionToClient::OnChannelInitialized, base::Unretained(this)));
 
+      audio_writer_ = AudioWriter::Create(session_->config());
+      if (audio_writer_.get()) {
+        audio_writer_->Init(session_.get(), base::Bind(
+            &ConnectionToClient::OnChannelInitialized, base::Unretained(this)));
+      }
+
+      // Notify the handler after initializing the channels, so that
+      // ClientSession can get a client clipboard stub.
+      handler_->OnConnectionAuthenticated(this);
       break;
 
     case Session::CLOSED:
-      CloseChannels();
-      handler_->OnConnectionClosed(this);
+      Close(OK);
       break;
 
     case Session::FAILED:
-      CloseOnError();
+      Close(session_->error());
       break;
   }
 }
@@ -145,7 +152,7 @@ void ConnectionToClient::OnChannelInitialized(bool successful) {
 
   if (!successful) {
     LOG(ERROR) << "Failed to connect a channel";
-    CloseOnError();
+    Close(CHANNEL_CONNECTION_ERROR);
     return;
   }
 
@@ -155,22 +162,29 @@ void ConnectionToClient::OnChannelInitialized(bool successful) {
 void ConnectionToClient::NotifyIfChannelsReady() {
   DCHECK(CalledOnValidThread());
 
-  if (control_dispatcher_.get() && control_dispatcher_->is_connected() &&
-      event_dispatcher_.get() && event_dispatcher_->is_connected() &&
-      video_writer_.get() && video_writer_->is_connected()) {
-    handler_->OnConnectionOpened(this);
+  if (!control_dispatcher_.get() || !control_dispatcher_->is_connected())
+    return;
+  if (!event_dispatcher_.get() || !event_dispatcher_->is_connected())
+    return;
+  if (!video_writer_.get() || !video_writer_->is_connected())
+    return;
+  if ((!audio_writer_.get() || !audio_writer_->is_connected()) &&
+      session_->config().is_audio_enabled()) {
+    return;
   }
+  handler_->OnConnectionChannelsConnected(this);
 }
 
-void ConnectionToClient::CloseOnError() {
+void ConnectionToClient::Close(ErrorCode error) {
   CloseChannels();
-  handler_->OnConnectionFailed(this, session_->error());
+  handler_->OnConnectionClosed(this, error);
 }
 
 void ConnectionToClient::CloseChannels() {
   control_dispatcher_.reset();
   event_dispatcher_.reset();
   video_writer_.reset();
+  audio_writer_.reset();
 }
 
 }  // namespace protocol

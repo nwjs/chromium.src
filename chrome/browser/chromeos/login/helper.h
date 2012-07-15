@@ -6,7 +6,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_HELPER_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_HELPER_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "base/string16.h"
@@ -58,12 +57,16 @@ GURL GetAccountRecoveryHelpUrl();
 // Ethernet > WiFi > Cellular. Same for connecting network.
 string16 GetCurrentNetworkName(NetworkLibrary* network_library);
 
+// Returns the size of user image required for proper display under current DPI.
+int GetCurrentUserImageSize();
+
 // Define the constants in |login| namespace to avoid potential
 // conflict with other chromeos components.
 namespace login {
 
-// The size of user image.
-const int kUserImageSize = 256;
+// Maximum size of user image, in which it should be saved to be properly
+// displayed under all possible DPI values.
+const int kMaxUserImageSize = 512;
 
 // Default link color on login/OOBE controls.
 const SkColor kLinkColor = 0xFF0066CC;

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SYNC_PROFILE_SYNC_SERVICE_HARNESS_H_
 #define CHROME_BROWSER_SYNC_PROFILE_SYNC_SERVICE_HARNESS_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -15,14 +14,14 @@
 #include "chrome/browser/sync/profile_sync_service.h"
 #include "chrome/browser/sync/profile_sync_service_observer.h"
 #include "chrome/browser/sync/retry_verifier.h"
-#include "sync/syncable/model_type.h"
+#include "sync/internal_api/public/base/model_type.h"
 
 class Profile;
 
 namespace browser_sync {
-  namespace sessions {
-    struct SyncSessionSnapshot;
-  }
+namespace sessions {
+class SyncSessionSnapshot;
+}
 }
 
 // An instance of this class is basically our notion of a "sync client" for
@@ -59,7 +58,7 @@ class ProfileSyncServiceHarness
 
   // Same as the above method, but enables sync only for the datatypes contained
   // in |synced_datatypes|.
-  bool SetupSync(syncable::ModelTypeSet synced_datatypes);
+  bool SetupSync(syncer::ModelTypeSet synced_datatypes);
 
   // ProfileSyncServiceObserver implementation.
   virtual void OnStateChanged() OVERRIDE;
@@ -102,7 +101,7 @@ class ProfileSyncServiceHarness
   bool AwaitActionableError();
 
   // Blocks until the given set of data types are migrated.
-  bool AwaitMigration(syncable::ModelTypeSet expected_migrated_types);
+  bool AwaitMigration(syncer::ModelTypeSet expected_migrated_types);
 
   // Blocks the caller until this harness has observed that the sync engine
   // has downloaded all the changes seen by the |partner| harness's client.
@@ -149,10 +148,10 @@ class ProfileSyncServiceHarness
   bool ServiceIsPushingChanges() { return service_->ShouldPushChanges(); }
 
   // Enables sync for a particular sync datatype. Returns true on success.
-  bool EnableSyncForDatatype(syncable::ModelType datatype);
+  bool EnableSyncForDatatype(syncer::ModelType datatype);
 
   // Disables sync for a particular sync datatype. Returns true on success.
-  bool DisableSyncForDatatype(syncable::ModelType datatype);
+  bool DisableSyncForDatatype(syncer::ModelType datatype);
 
   // Enables sync for all sync datatypes. Returns true on success.
   bool EnableSyncForAllDatatypes();
@@ -161,30 +160,29 @@ class ProfileSyncServiceHarness
   bool DisableSyncForAllDatatypes();
 
   // Returns a snapshot of the current sync session.
-  const browser_sync::sessions::SyncSessionSnapshot*
-      GetLastSessionSnapshot() const;
+  syncer::sessions::SyncSessionSnapshot GetLastSessionSnapshot() const;
 
   // Encrypt the datatype |type|. This method will block while the sync backend
   // host performs the encryption or a timeout is reached.
   // PostCondition:
   //   returns: True if |type| was encrypted and we are fully synced.
   //            False if we timed out.
-  bool EnableEncryptionForType(syncable::ModelType type);
+  bool EnableEncryptionForType(syncer::ModelType type);
 
   // Wait until |type| is encrypted or we time out.
   // PostCondition:
   //   returns: True if |type| is currently encrypted and we are fully synced.
   //            False if we timed out.
-  bool WaitForTypeEncryption(syncable::ModelType type);
+  bool WaitForTypeEncryption(syncer::ModelType type);
 
   // Check if |type| is encrypted.
-  bool IsTypeEncrypted(syncable::ModelType type);
+  bool IsTypeEncrypted(syncer::ModelType type);
 
   // Check if |type| is registered and the controller is running.
-  bool IsTypeRunning(syncable::ModelType type);
+  bool IsTypeRunning(syncer::ModelType type);
 
   // Check if |type| is being synced.
-  bool IsTypePreferred(syncable::ModelType type);
+  bool IsTypePreferred(syncer::ModelType type);
 
   // Get the number of sync entries this client has. This includes all top
   // level or permanent items, and can include recently deleted entries.
@@ -290,7 +288,8 @@ class ProfileSyncServiceHarness
                                     const std::string& reason);
 
   // A helper for implementing IsDataSynced() and IsFullySynced().
-  bool IsDataSyncedImpl(const browser_sync::sessions::SyncSessionSnapshot*);
+  bool IsDataSyncedImpl(
+      const syncer::sessions::SyncSessionSnapshot& snapshot);
 
   // Returns true if the sync client has no unsynced items.
   bool IsDataSynced();
@@ -317,14 +316,14 @@ class ProfileSyncServiceHarness
 
   // Gets the current progress indicator of the current sync session
   // for a particular datatype.
-  std::string GetUpdatedTimestamp(syncable::ModelType model_type);
+  std::string GetUpdatedTimestamp(syncer::ModelType model_type);
 
   // Gets detailed status from |service_| in pretty-printable form.
   std::string GetServiceStatus();
 
   // When in WAITING_FOR_ENCRYPTION state, we check to see if this type is now
   // encrypted to determine if we're done.
-  syncable::ModelType waiting_for_encryption_type_;
+  syncer::ModelType waiting_for_encryption_type_;
 
   // The WaitState in which the sync client currently is. Helps determine what
   // action to take when RunStateChangeMachine() is called.
@@ -346,11 +345,11 @@ class ProfileSyncServiceHarness
 
   // The current set of data types pending migration.  Used by
   // AwaitMigration().
-  syncable::ModelTypeSet pending_migration_types_;
+  syncer::ModelTypeSet pending_migration_types_;
 
   // The set of data types that have undergone migration.  Used by
   // AwaitMigration().
-  syncable::ModelTypeSet migrated_types_;
+  syncer::ModelTypeSet migrated_types_;
 
   // Used for logging.
   const std::string profile_debug_name_;
@@ -358,6 +357,11 @@ class ProfileSyncServiceHarness
   // Keeps track of the number of attempts at exponential backoff and its
   // related bookkeeping information for verification.
   browser_sync::RetryVerifier retry_verifier_;
+
+  // Flag set to true when we're waiting for a status change to happen. Used to
+  // avoid triggering internal state machine logic on unexpected sync observer
+  // callbacks.
+  bool waiting_for_status_change_;
 
   DISALLOW_COPY_AND_ASSIGN(ProfileSyncServiceHarness);
 };

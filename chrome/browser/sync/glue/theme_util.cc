@@ -17,6 +17,8 @@
 #include "googleurl/src/gurl.h"
 #include "sync/protocol/theme_specifics.pb.h"
 
+using extensions::Extension;
+
 namespace browser_sync {
 
 const char kCurrentThemeClientTag[] = "current_theme";
@@ -25,7 +27,7 @@ namespace {
 
 // TODO(akalin): Remove this.
 bool IsSystemThemeDistinctFromDefaultTheme() {
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
   return true;
 #else
   return false;

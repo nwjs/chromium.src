@@ -4,15 +4,26 @@
 
 #ifndef IPC_IPC_CHANNEL_H_
 #define IPC_IPC_CHANNEL_H_
-#pragma once
 
 #include <string>
 
+#if defined(OS_POSIX)
+#include <sys/types.h>
+#endif
+
 #include "base/compiler_specific.h"
+#include "base/process.h"
 #include "ipc/ipc_channel_handle.h"
 #include "ipc/ipc_message.h"
+#include "ipc/ipc_sender.h"
+
+// TODO(brettw) remove this and update files that depend on this being included
+// from here.
+#include "ipc/ipc_listener.h"
 
 namespace IPC {
+
+class Listener;
 
 //------------------------------------------------------------------------------
 // See
@@ -31,39 +42,11 @@ namespace IPC {
 // the channel with the mode set to one of the NAMED modes. NAMED modes are
 // currently used by automation and service processes.
 
-class IPC_EXPORT Channel : public Message::Sender {
+class IPC_EXPORT Channel : public Sender {
   // Security tests need access to the pipe handle.
   friend class ChannelTest;
 
  public:
-  // Implemented by consumers of a Channel to receive messages.
-  class IPC_EXPORT Listener {
-   public:
-    virtual ~Listener() {}
-
-    // Called when a message is received.  Returns true iff the message was
-    // handled.
-    virtual bool OnMessageReceived(const Message& message) = 0;
-
-    // Called when the channel is connected and we have received the internal
-    // Hello message from the peer.
-    virtual void OnChannelConnected(int32 peer_pid) {}
-
-    // Called when an error is detected that causes the channel to close.
-    // This method is not called when a channel is closed normally.
-    virtual void OnChannelError() {}
-
-#if defined(OS_POSIX)
-    // Called on the server side when a channel that listens for connections
-    // denies an attempt to connect.
-    virtual void OnChannelDenied() {}
-
-    // Called on the server side when a channel that listens for connections
-    // has an error that causes the listening channel to close.
-    virtual void OnChannelListenError() {}
-#endif  // OS_POSIX
-  };
-
   // Flags to test modes
   enum ModeFlags {
     MODE_NO_FLAG = 0x0,
@@ -149,13 +132,17 @@ class IPC_EXPORT Channel : public Message::Sender {
   // Modify the Channel's listener.
   void set_listener(Listener* listener);
 
+  // Get the process ID for the connected peer.
+  // Returns base::kNullProcessId if the peer is not connected yet.
+  base::ProcessId peer_pid() const;
+
   // Send a message over the Channel to the listener on the other end.
   //
   // |message| must be allocated using operator new.  This object will be
   // deleted once the contents of the Message have been sent.
   virtual bool Send(Message* message) OVERRIDE;
 
-#if defined(OS_POSIX) && !defined(OS_NACL)
+#if defined(OS_POSIX)
   // On POSIX an IPC::Channel wraps a socketpair(), this method returns the
   // FD # for the client end of the socket.
   // This method may only be called on the server side of a channel.

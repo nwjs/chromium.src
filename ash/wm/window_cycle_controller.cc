@@ -4,8 +4,11 @@
 
 #include "ash/wm/window_cycle_controller.h"
 
+#include <algorithm>
+
 #include "ash/shell.h"
 #include "ash/shell_delegate.h"
+#include "ash/shell_window_ids.h"
 #include "ash/wm/window_cycle_list.h"
 #include "ash/wm/window_util.h"
 #include "ui/aura/event.h"
@@ -122,13 +125,46 @@ void WindowCycleController::AltKeyReleased() {
   StopCycling();
 }
 
+// static
+std::vector<aura::Window*> WindowCycleController::BuildWindowList() {
+  WindowCycleList::WindowList windows;
+  Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
+
+  for (Shell::RootWindowList::const_iterator iter = root_windows.begin();
+       iter != root_windows.end(); ++iter) {
+    if (*iter == Shell::GetActiveRootWindow())
+      continue;
+    aura::Window* default_container = Shell::GetContainer(
+        *iter, internal::kShellWindowId_DefaultContainer);
+    WindowCycleList::WindowList children = default_container->children();
+    windows.insert(windows.end(), children.begin(), children.end());
+  }
+  // Add windows in the active root windows last so that the topmost window
+  // in the active root window becomes the front of the list.
+  aura::Window* default_container = Shell::GetContainer(
+      Shell::GetActiveRootWindow(),
+      internal::kShellWindowId_DefaultContainer);
+
+  WindowCycleList::WindowList children = default_container->children();
+  windows.insert(windows.end(), children.begin(), children.end());
+
+  // Removes unfocusable windows.
+  WindowCycleList::WindowList::iterator last =
+      std::remove_if(
+          windows.begin(),
+          windows.end(),
+          std::not1(std::ptr_fun(ash::wm::CanActivateWindow)));
+  windows.erase(last, windows.end());
+  // Window cycling expects the topmost window at the front of the list.
+  std::reverse(windows.begin(), windows.end());
+  return windows;
+}
+
 //////////////////////////////////////////////////////////////////////////////
 // WindowCycleController, private:
 
 void WindowCycleController::StartCycling() {
-  windows_.reset(new WindowCycleList(
-      ash::Shell::GetInstance()->delegate()->GetCycleWindowList(
-          ShellDelegate::SOURCE_KEYBOARD)));
+  windows_.reset(new WindowCycleList(BuildWindowList()));
 }
 
 void WindowCycleController::Step(Direction direction) {
@@ -141,14 +177,14 @@ void WindowCycleController::StopCycling() {
   windows_.reset();
   // Remove our key event filter.
   if (event_filter_.get()) {
-    Shell::GetInstance()->RemoveRootWindowEventFilter(event_filter_.get());
+    Shell::GetInstance()->RemoveEnvEventFilter(event_filter_.get());
     event_filter_.reset();
   }
 }
 
 void WindowCycleController::InstallEventFilter() {
   event_filter_.reset(new WindowCycleEventFilter());
-  Shell::GetInstance()->AddRootWindowEventFilter(event_filter_.get());
+  Shell::GetInstance()->AddEnvEventFilter(event_filter_.get());
 }
 
 }  // namespace ash

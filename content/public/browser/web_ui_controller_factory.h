@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_PUBLIC_BROWSER_WEB_UI_CONTROLLER_FACTORY_H_
 #define CONTENT_PUBLIC_BROWSER_WEB_UI_CONTROLLER_FACTORY_H_
-#pragma once
 
 #include "content/common/content_export.h"
 #include "content/public/browser/web_ui.h"
@@ -48,7 +47,8 @@ class CONTENT_EXPORT WebUIControllerFactory {
   // URLs with WebUI types (as above) and also URLs that can be loaded by
   // normal tabs such as javascript: URLs or about:hang.
   virtual bool IsURLAcceptableForWebUI(BrowserContext* browser_context,
-                                       const GURL& url) const = 0;
+                                       const GURL& url,
+                                       bool data_urls_allowed) const = 0;
 };
 
 }  // namespace content

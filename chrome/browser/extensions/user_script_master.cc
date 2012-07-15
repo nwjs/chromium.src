@@ -29,6 +29,8 @@
 
 using content::BrowserThread;
 
+namespace extensions {
+
 // Helper function to parse greasesmonkey headers
 static bool GetDeclarationValue(const base::StringPiece& line,
                                 const base::StringPiece& prefix,
@@ -107,9 +109,9 @@ bool UserScriptMaster::ScriptReloader::ParseMetadataHeader(
       } else if (GetDeclarationValue(line, kNameDeclaration, &value)) {
         script->set_name(value);
       } else if (GetDeclarationValue(line, kVersionDeclaration, &value)) {
-        scoped_ptr<Version> version(Version::GetVersionFromString(value));
-        if (version.get())
-          script->set_version(version->GetString());
+        Version version(value);
+        if (version.IsValid())
+          script->set_version(version.GetString());
       } else if (GetDeclarationValue(line, kDescriptionDeclaration, &value)) {
         script->set_description(value);
       } else if (GetDeclarationValue(line, kMatchDeclaration, &value)) {
@@ -178,7 +180,8 @@ static bool LoadScriptContent(UserScript::File* script_file,
                               const SubstitutionMap* localization_messages) {
   std::string content;
   const FilePath& path = ExtensionResource::GetFilePath(
-      script_file->extension_root(), script_file->relative_path());
+      script_file->extension_root(), script_file->relative_path(),
+      ExtensionResource::SYMLINKS_MUST_RESOLVE_WITHIN_ROOT);
   if (path.empty()) {
     LOG(WARNING) << "Failed to get file path to "
                  << script_file->relative_path().value() << " from "
@@ -436,3 +439,5 @@ void UserScriptMaster::SendUpdate(content::RenderProcessHost* process,
   if (base::SharedMemory::IsHandleValid(handle_for_process))
     process->Send(new ExtensionMsg_UpdateUserScripts(handle_for_process));
 }
+
+}  // namespace extensions

@@ -1,17 +1,15 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CONTENT_BROWSER_DEBUGGER_WORKER_DEVTOOLS_MANAGER_H_
 #define CONTENT_BROWSER_DEBUGGER_WORKER_DEVTOOLS_MANAGER_H_
-#pragma once
 
 #include <list>
 #include <map>
 #include <string>
 
 #include "base/basictypes.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/memory/singleton.h"
 #include "content/common/content_export.h"
 #include "content/browser/worker_host/worker_process_host.h"

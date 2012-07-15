@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -82,7 +82,7 @@ enum {
 - (void)dealloc;
 
 // Can be called from any thread since it does not require an NSRunLoop. However
-// it is not threadsafe to receive concurrent calls until after it's first
+// it is not threadsafe to receive concurrent calls until after a first
 // successful call (to avoid |bundle_| being double initialized)
 - (BOOL)locationDataAvailable;
 
@@ -140,7 +140,7 @@ enum {
 - (void)locationManager:(CLLocationManager*)manager
     didUpdateToLocation:(CLLocation*)newLocation
            fromLocation:(CLLocation*)oldLocation {
-  Geoposition position;
+  content::Geoposition position;
   position.latitude  = [newLocation coordinate].latitude;
   position.longitude = [newLocation coordinate].longitude;
   position.altitude  = [newLocation altitude];
@@ -149,19 +149,20 @@ enum {
   position.speed = [newLocation speed];
   position.heading = [newLocation course];
   position.timestamp = base::Time::Now();
-  position.error_code = Geoposition::ERROR_CODE_NONE;
+  position.error_code = content::Geoposition::ERROR_CODE_NONE;
   dataProvider_->UpdatePosition(&position);
 }
 
 - (void)locationManager:(CLLocationManager*)manager
        didFailWithError:(NSError*)error {
-  Geoposition position;
+  content::Geoposition position;
   switch ([error code]) {
     case kCLErrorLocationUnknown:
-      position.error_code = Geoposition::ERROR_CODE_POSITION_UNAVAILABLE;
+      position.error_code =
+          content::Geoposition::ERROR_CODE_POSITION_UNAVAILABLE;
       break;
     case kCLErrorDenied:
-      position.error_code = Geoposition::ERROR_CODE_PERMISSION_DENIED;
+      position.error_code = content::Geoposition::ERROR_CODE_PERMISSION_DENIED;
       break;
     default:
       NOTREACHED() << "Unknown CoreLocation error: " << [error code];
@@ -223,7 +224,8 @@ void CoreLocationDataProviderMac::StopUpdating() {
       base::Bind(&CoreLocationDataProviderMac::StopUpdatingTask, this));
 }
 
-void CoreLocationDataProviderMac::UpdatePosition(Geoposition *position) {
+void CoreLocationDataProviderMac::UpdatePosition(
+    content::Geoposition *position) {
   GeolocationProvider::GetInstance()->message_loop()->PostTask(
       FROM_HERE,
       base::Bind(&CoreLocationDataProviderMac::PositionUpdated, this,
@@ -242,7 +244,8 @@ void CoreLocationDataProviderMac::StopUpdatingTask() {
   [wrapper_ stopLocation];
 }
 
-void CoreLocationDataProviderMac::PositionUpdated(Geoposition position) {
+void CoreLocationDataProviderMac::PositionUpdated(
+    content::Geoposition position) {
   DCHECK(MessageLoop::current() ==
          GeolocationProvider::GetInstance()->message_loop());
   if (provider_)

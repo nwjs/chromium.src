@@ -38,34 +38,11 @@ def Main(args):
     # See http://code.google.com/p/nativeclient/issues/detail?id=2124
     # TODO(mseaborn): Reenable when this issue is resolved.
     tests_to_disable.append('run_ppapi_ppb_var_browser_test')
-    # The behavior of the URLRequest changed slightly and this test needs to be
-    # updated. http://code.google.com/p/chromium/issues/detail?id=94352
-    tests_to_disable.append('run_ppapi_ppb_url_request_info_browser_test')
-    # This test failed and caused the build's gatekeep to close the tree.
-    # http://code.google.com/p/chromium/issues/detail?id=96434
-    tests_to_disable.append('run_ppapi_example_post_message_test')
-    # These tests are flakey on the chrome waterfall and need to be looked at.
-    # TODO(bsy): http://code.google.com/p/nativeclient/issues/detail?id=2509
-    tests_to_disable.append('run_pm_redir_stderr_fg_0_chrome_browser_test')
-    tests_to_disable.append('run_pm_redir_stderr_bg_0_chrome_browser_test')
-    tests_to_disable.append('run_pm_redir_stderr_bg_1000_chrome_browser_test')
-    tests_to_disable.append('run_pm_redir_stderr_bg_1000000_chrome_browser_test')
     # http://code.google.com/p/nativeclient/issues/detail?id=2511
     tests_to_disable.append('run_ppapi_ppb_image_data_browser_test')
-    # Font API is only exported to trusted plugins now, and this test should be
-    # removed.
-    tests_to_disable.append('run_ppapi_example_font_test')
 
-    # TODO(ncbray) why did these tests flake?
-    # http://code.google.com/p/nativeclient/issues/detail?id=2230
+    # TODO(ncbray) are these tests stable?
     tests_to_disable.extend([
-        'run_pm_manifest_file_chrome_browser_test',
-        'run_srpc_basic_chrome_browser_test',
-        'run_srpc_hw_data_chrome_browser_test',
-        'run_srpc_hw_chrome_browser_test',
-        'run_srpc_manifest_file_chrome_browser_test',
-        'run_srpc_nameservice_chrome_browser_test',
-        'run_srpc_nrd_xfer_chrome_browser_test',
         'run_no_fault_pm_nameservice_chrome_browser_test',
         'run_fault_pm_nameservice_chrome_browser_test',
         'run_fault_pq_os_pm_nameservice_chrome_browser_test',
@@ -77,14 +54,15 @@ def Main(args):
       # http://code.google.com/p/nativeclient/issues/detail?id=1835
       tests_to_disable.append('run_ppapi_crash_browser_test')
 
+    if sys.platform in ('win32', 'cygwin'):
+      # This one is only failing for nacl_glibc on x64 Windows
+      # but it is not clear how to disable only that limited case.
+      # See http://crbug.com/132395
+      tests_to_disable.append('run_inbrowser_test_runner')
+
+
   if sys.platform in ('win32', 'cygwin'):
     tests_to_disable.append('run_ppapi_ppp_input_event_browser_test')
-
-    # TODO(mseaborn): Enable this test for 32-bit Windows.
-    # See http://code.google.com/p/nativeclient/issues/detail?id=2602
-    if not ('64' in os.environ.get('PROCESSOR_ARCHITECTURE', '') or
-            '64' in os.environ.get('PROCESSOR_ARCHITEW6432', '')):
-      tests_to_disable.append('run_inbrowser_exception_test')
 
   script_dir = os.path.dirname(os.path.abspath(__file__))
   test_dir = os.path.dirname(script_dir)
@@ -99,11 +77,10 @@ def Main(args):
          '--build-dir=',
          '--',
          nacl_integration_script,
+         # TODO(ncbray) re-enable.
+         # https://code.google.com/p/chromium/issues/detail?id=133568
+         '--disable_glibc',
          '--disable_tests=%s' % ','.join(tests_to_disable)]
-  if not is_integration_bot:
-    if sys.platform in ('win32', 'cygwin'):
-      # http://code.google.com/p/nativeclient/issues/detail?id=2648
-      cmd.append('--disable_glibc')
   cmd += args
   sys.stdout.write('Running %s\n' % ' '.join(cmd))
   sys.stdout.flush()

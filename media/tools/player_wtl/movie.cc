@@ -9,23 +9,17 @@
 #include "base/threading/platform_thread.h"
 #include "base/utf_string_conversions.h"
 #include "media/audio/audio_manager.h"
+#include "media/audio/null_audio_sink.h"
 #include "media/base/filter_collection.h"
 #include "media/base/media_log.h"
 #include "media/base/message_loop_factory.h"
 #include "media/base/pipeline.h"
+#include "media/filters/audio_renderer_impl.h"
 #include "media/filters/ffmpeg_audio_decoder.h"
-#include "media/filters/ffmpeg_demuxer_factory.h"
+#include "media/filters/ffmpeg_demuxer.h"
 #include "media/filters/ffmpeg_video_decoder.h"
 #include "media/filters/file_data_source.h"
-#include "media/filters/null_audio_renderer.h"
 #include "media/filters/video_renderer_base.h"
-
-using media::FFmpegAudioDecoder;
-using media::FFmpegDemuxerFactory;
-using media::FFmpegVideoDecoder;
-using media::FileDataSource;
-using media::FilterCollection;
-using media::Pipeline;
 
 namespace media {
 
@@ -78,8 +72,7 @@ bool Movie::Open(const wchar_t* url, VideoRendererBase* video_renderer) {
 
   // Create filter collection.
   scoped_ptr<FilterCollection> collection(new FilterCollection());
-  collection->SetDemuxerFactory(scoped_ptr<DemuxerFactory>(
-      new FFmpegDemuxerFactory(data_source, pipeline_loop)));
+  collection->SetDemuxer(new FFmpegDemuxer(pipeline_loop, data_source));
   collection->AddAudioDecoder(new FFmpegAudioDecoder(
       base::Bind(&MessageLoopFactory::GetMessageLoop,
                  base::Unretained(message_loop_factory_.get()),
@@ -90,17 +83,16 @@ bool Movie::Open(const wchar_t* url, VideoRendererBase* video_renderer) {
                  "VideoDecoderThread")));
 
   // TODO(vrk): Re-enabled audio. (crbug.com/112159)
-  collection->AddAudioRenderer(new media::NullAudioRenderer());
+  collection->AddAudioRenderer(
+      new media::AudioRendererImpl(new media::NullAudioSink()));
   collection->AddVideoRenderer(video_renderer);
 
   // Create and start our pipeline.
   media::PipelineStatusNotification note;
   pipeline_->Start(
       collection.Pass(),
-      url_utf8,
       media::PipelineStatusCB(),
       media::PipelineStatusCB(),
-      media::NetworkEventCB(),
       note.Callback());
 
   // Wait until the pipeline is fully initialized.
@@ -186,7 +178,7 @@ bool Movie::GetDumpYuvFileEnable() {
 // Teardown.
 void Movie::Close() {
   if (pipeline_) {
-    pipeline_->Stop(media::PipelineStatusCB());
+    pipeline_->Stop(base::Closure());
     pipeline_ = NULL;
   }
 

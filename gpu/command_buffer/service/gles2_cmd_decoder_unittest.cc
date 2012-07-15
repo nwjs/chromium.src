@@ -5,20 +5,23 @@
 #include "gpu/command_buffer/service/gles2_cmd_decoder.h"
 
 #include "base/atomicops.h"
+#include "gpu/command_buffer/common/gl_mock.h"
 #include "gpu/command_buffer/common/gles2_cmd_format.h"
 #include "gpu/command_buffer/common/gles2_cmd_utils.h"
-#include "gpu/command_buffer/common/gl_mock.h"
 #include "gpu/command_buffer/common/id_allocator.h"
-#include "gpu/command_buffer/service/gles2_cmd_decoder_unittest_base.h"
 #include "gpu/command_buffer/service/cmd_buffer_engine.h"
 #include "gpu/command_buffer/service/context_group.h"
-#include "gpu/command_buffer/service/stream_texture_mock.h"
-#include "gpu/command_buffer/service/stream_texture_manager_mock.h"
+#include "gpu/command_buffer/service/gl_surface_mock.h"
+#include "gpu/command_buffer/service/gles2_cmd_decoder_unittest_base.h"
+#include "gpu/command_buffer/service/mailbox_manager.h"
 #include "gpu/command_buffer/service/program_manager.h"
+#include "gpu/command_buffer/service/stream_texture_manager_mock.h"
+#include "gpu/command_buffer/service/stream_texture_mock.h"
 #include "gpu/command_buffer/service/test_helper.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "ui/gfx/gl/gl_implementation.h"
-#include "ui/gfx/gl/gl_surface_stub.h"
+#include "ui/gl/gl_implementation.h"
+#include "ui/gl/gl_surface_stub.h"
+
 
 #if !defined(GL_DEPTH24_STENCIL8)
 #define GL_DEPTH24_STENCIL8 0x88F0
@@ -115,6 +118,13 @@ class GLES2DecoderManualInitTest : public GLES2DecoderWithShaderTest {
  public:
   GLES2DecoderManualInitTest() { }
 
+  // Override default setup so nothing gets setup.
+  virtual void SetUp() {
+  }
+};
+
+class GLES2DecoderANGLEManualInitTest : public GLES2DecoderANGLETest {
+ public:
   // Override default setup so nothing gets setup.
   virtual void SetUp() {
   }
@@ -1099,7 +1109,7 @@ TEST_F(GLES2DecoderWithShaderTest, GetUniformivSucceeds) {
   result->size = 0;
   GetUniformiv cmd;
   cmd.Init(client_program_id_,
-           program_manager()->SwizzleLocation(kUniform2FakeLocation),
+           kUniform2FakeLocation,
            kSharedMemoryId, kSharedMemoryOffset);
   EXPECT_CALL(*gl_, GetUniformiv(kServiceProgramId, kUniform2RealLocation, _))
       .Times(1);
@@ -1114,7 +1124,7 @@ TEST_F(GLES2DecoderWithShaderTest, GetUniformivArrayElementSucceeds) {
   result->size = 0;
   GetUniformiv cmd;
   cmd.Init(client_program_id_,
-           program_manager()->SwizzleLocation(kUniform2ElementFakeLocation),
+           kUniform2ElementFakeLocation,
            kSharedMemoryId, kSharedMemoryOffset);
   EXPECT_CALL(*gl_,
               GetUniformiv(kServiceProgramId, kUniform2ElementRealLocation, _))
@@ -1131,7 +1141,7 @@ TEST_F(GLES2DecoderWithShaderTest, GetUniformivBadProgramFails) {
   GetUniformiv cmd;
   // non-existant program
   cmd.Init(kInvalidClientId,
-           program_manager()->SwizzleLocation(kUniform2FakeLocation),
+           kUniform2FakeLocation,
            kSharedMemoryId, kSharedMemoryOffset);
   EXPECT_CALL(*gl_, GetUniformiv(_, _, _))
       .Times(0);
@@ -1143,7 +1153,7 @@ TEST_F(GLES2DecoderWithShaderTest, GetUniformivBadProgramFails) {
 #if GLES2_TEST_SHADER_VS_PROGRAM_IDS
   result->size = kInitialResult;
   cmd.Init(client_shader_id_,
-           program_manager()->SwizzleLocation(kUniform2FakeLocation),
+           kUniform2FakeLocation,
            kSharedMemoryId, kSharedMemoryOffset);
   EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
   EXPECT_EQ(0U, result->size);
@@ -1159,7 +1169,7 @@ TEST_F(GLES2DecoderWithShaderTest, GetUniformivBadProgramFails) {
   EXPECT_EQ(error::kNoError, ExecuteCmd(cmd2));
   result->size = kInitialResult;
   cmd.Init(kNewClientId,
-           program_manager()->SwizzleLocation(kUniform2FakeLocation),
+           kUniform2FakeLocation,
            kSharedMemoryId, kSharedMemoryOffset);
   EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
   EXPECT_EQ(0U, result->size);
@@ -1184,7 +1194,7 @@ TEST_F(GLES2DecoderWithShaderTest, GetUniformivBadLocationFails) {
 TEST_F(GLES2DecoderWithShaderTest, GetUniformivBadSharedMemoryFails) {
   GetUniformiv cmd;
   cmd.Init(client_program_id_,
-           program_manager()->SwizzleLocation(kUniform2FakeLocation),
+           kUniform2FakeLocation,
            kInvalidSharedMemoryId, kSharedMemoryOffset);
   EXPECT_CALL(*gl_, GetUniformiv(_, _, _))
       .Times(0);
@@ -1200,7 +1210,7 @@ TEST_F(GLES2DecoderWithShaderTest, GetUniformfvSucceeds) {
   result->size = 0;
   GetUniformfv cmd;
   cmd.Init(client_program_id_,
-           program_manager()->SwizzleLocation(kUniform2FakeLocation),
+           kUniform2FakeLocation,
            kSharedMemoryId, kSharedMemoryOffset);
   EXPECT_CALL(*gl_, GetUniformfv(kServiceProgramId, kUniform2RealLocation, _))
       .Times(1);
@@ -1215,7 +1225,7 @@ TEST_F(GLES2DecoderWithShaderTest, GetUniformfvArrayElementSucceeds) {
   result->size = 0;
   GetUniformfv cmd;
   cmd.Init(client_program_id_,
-           program_manager()->SwizzleLocation(kUniform2ElementFakeLocation),
+           kUniform2ElementFakeLocation,
            kSharedMemoryId, kSharedMemoryOffset);
   EXPECT_CALL(*gl_,
               GetUniformfv(kServiceProgramId, kUniform2ElementRealLocation, _))
@@ -1232,7 +1242,7 @@ TEST_F(GLES2DecoderWithShaderTest, GetUniformfvBadProgramFails) {
   GetUniformfv cmd;
   // non-existant program
   cmd.Init(kInvalidClientId,
-           program_manager()->SwizzleLocation(kUniform2FakeLocation),
+           kUniform2FakeLocation,
            kSharedMemoryId, kSharedMemoryOffset);
   EXPECT_CALL(*gl_, GetUniformfv(_, _, _))
       .Times(0);
@@ -1244,7 +1254,7 @@ TEST_F(GLES2DecoderWithShaderTest, GetUniformfvBadProgramFails) {
 #if GLES2_TEST_SHADER_VS_PROGRAM_IDS
   result->size = kInitialResult;
   cmd.Init(client_shader_id_,
-           program_manager()->SwizzleLocation(kUniform2FakeLocation),
+           kUniform2FakeLocation,
            kSharedMemoryId, kSharedMemoryOffset);
   EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
   EXPECT_EQ(0U, result->size);
@@ -1260,7 +1270,7 @@ TEST_F(GLES2DecoderWithShaderTest, GetUniformfvBadProgramFails) {
   EXPECT_EQ(error::kNoError, ExecuteCmd(cmd2));
   result->size = kInitialResult;
   cmd.Init(kNewClientId,
-           program_manager()->SwizzleLocation(kUniform2FakeLocation),
+           kUniform2FakeLocation,
            kSharedMemoryId, kSharedMemoryOffset);
   EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
   EXPECT_EQ(0U, result->size);
@@ -1285,7 +1295,7 @@ TEST_F(GLES2DecoderWithShaderTest, GetUniformfvBadLocationFails) {
 TEST_F(GLES2DecoderWithShaderTest, GetUniformfvBadSharedMemoryFails) {
   GetUniformfv cmd;
   cmd.Init(client_program_id_,
-           program_manager()->SwizzleLocation(kUniform2FakeLocation),
+           kUniform2FakeLocation,
            kInvalidSharedMemoryId, kSharedMemoryOffset);
   EXPECT_CALL(*gl_, GetUniformfv(_, _, _))
       .Times(0);
@@ -1361,9 +1371,9 @@ TEST_F(GLES2DecoderWithShaderTest, GetShaderPrecisionFormatSucceeds) {
            shared_memory_id_, shared_memory_offset_);
   EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
   EXPECT_NE(0, result->success);
-  EXPECT_EQ(-62, result->min_range);
-  EXPECT_EQ(62, result->max_range);
-  EXPECT_EQ(-16, result->precision);
+  EXPECT_EQ(127, result->min_range);
+  EXPECT_EQ(127, result->max_range);
+  EXPECT_EQ(23, result->precision);
   EXPECT_EQ(GL_NO_ERROR, GetGLError());
 }
 
@@ -1798,10 +1808,71 @@ TEST_F(GLES2DecoderTest, GenerateMipmapWrongFormatsFails) {
   EXPECT_EQ(GL_INVALID_OPERATION, GetGLError());
 }
 
+TEST_F(GLES2DecoderTest, GenerateMipmapHandlesOutOfMemory) {
+  DoBindTexture(GL_TEXTURE_2D, client_texture_id_, kServiceTextureId);
+  TextureManager* manager = group().texture_manager();
+  TextureManager::TextureInfo* info =
+      manager->GetTextureInfo(client_texture_id_);
+  ASSERT_TRUE(info != NULL);
+  GLint width = 0;
+  GLint height = 0;
+  EXPECT_FALSE(info->GetLevelSize(GL_TEXTURE_2D, 2, &width, &height));
+  DoTexImage2D(
+      GL_TEXTURE_2D, 0, GL_RGBA, 16, 16, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+      kSharedMemoryId, kSharedMemoryOffset);
+  EXPECT_CALL(*gl_, TexParameteri(
+      GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST))
+      .Times(1)
+      .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, GenerateMipmapEXT(GL_TEXTURE_2D))
+       .Times(1);
+  EXPECT_CALL(*gl_, TexParameteri(
+      GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR))
+      .Times(1)
+      .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, GetError())
+      .WillOnce(Return(GL_NO_ERROR))
+      .WillOnce(Return(GL_OUT_OF_MEMORY))
+      .RetiresOnSaturation();
+  GenerateMipmap cmd;
+  cmd.Init(GL_TEXTURE_2D);
+  EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
+  EXPECT_EQ(GL_OUT_OF_MEMORY, GetGLError());
+  EXPECT_FALSE(info->GetLevelSize(GL_TEXTURE_2D, 2, &width, &height));
+}
+
+TEST_F(GLES2DecoderTest, GenerateMipmapClearsUnclearedTexture) {
+  EXPECT_CALL(*gl_, GenerateMipmapEXT(_))
+       .Times(0);
+  DoBindTexture(GL_TEXTURE_2D, client_texture_id_, kServiceTextureId);
+  DoTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 2, 2, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+               0, 0);
+  SetupClearTextureExpections(
+      kServiceTextureId, kServiceTextureId, GL_TEXTURE_2D, GL_TEXTURE_2D,
+      0, GL_RGBA, GL_UNSIGNED_BYTE, 2, 2);
+  EXPECT_CALL(*gl_, TexParameteri(
+      GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST))
+      .Times(1)
+      .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, GenerateMipmapEXT(GL_TEXTURE_2D));
+  EXPECT_CALL(*gl_, TexParameteri(
+      GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR))
+      .Times(1)
+      .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, GetError())
+      .WillOnce(Return(GL_NO_ERROR))
+      .WillOnce(Return(GL_NO_ERROR))
+      .RetiresOnSaturation();
+  GenerateMipmap cmd;
+  cmd.Init(GL_TEXTURE_2D);
+  EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
+  EXPECT_EQ(GL_NO_ERROR, GetGLError());
+}
+
 TEST_F(GLES2DecoderWithShaderTest, Uniform1iValidArgs) {
   EXPECT_CALL(*gl_, Uniform1i(kUniform1RealLocation, 2));
   Uniform1i cmd;
-  cmd.Init(program_manager()->SwizzleLocation(kUniform1FakeLocation), 2);
+  cmd.Init(kUniform1FakeLocation, 2);
   EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
 }
 
@@ -1810,7 +1881,7 @@ TEST_F(GLES2DecoderWithShaderTest, Uniform1ivValidArgs) {
       *gl_, Uniform1iv(kUniform1RealLocation, 1,
           reinterpret_cast<const GLint*>(shared_memory_address_)));
   Uniform1iv cmd;
-  cmd.Init(program_manager()->SwizzleLocation(kUniform1FakeLocation),
+  cmd.Init(kUniform1FakeLocation,
            1, shared_memory_id_, shared_memory_offset_);
   EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
 }
@@ -1818,7 +1889,7 @@ TEST_F(GLES2DecoderWithShaderTest, Uniform1ivValidArgs) {
 TEST_F(GLES2DecoderWithShaderTest, Uniform1ivInvalidArgs2_0) {
   EXPECT_CALL(*gl_, Uniform1iv(_, _, _)).Times(0);
   Uniform1iv cmd;
-  cmd.Init(program_manager()->SwizzleLocation(kUniform1FakeLocation),
+  cmd.Init(kUniform1FakeLocation,
            1, kInvalidSharedMemoryId, 0);
   EXPECT_EQ(error::kOutOfBounds, ExecuteCmd(cmd));
 }
@@ -1826,7 +1897,7 @@ TEST_F(GLES2DecoderWithShaderTest, Uniform1ivInvalidArgs2_0) {
 TEST_F(GLES2DecoderWithShaderTest, Uniform1ivInvalidArgs2_1) {
   EXPECT_CALL(*gl_, Uniform1iv(_, _, _)).Times(0);
   Uniform1iv cmd;
-  cmd.Init(program_manager()->SwizzleLocation(kUniform1FakeLocation),
+  cmd.Init(kUniform1FakeLocation,
            1, shared_memory_id_, kInvalidSharedMemoryOffset);
   EXPECT_EQ(error::kOutOfBounds, ExecuteCmd(cmd));
 }
@@ -1838,7 +1909,7 @@ TEST_F(GLES2DecoderWithShaderTest, Uniform1ivImmediateValidArgs) {
       Uniform1iv(kUniform1RealLocation, 1,
           reinterpret_cast<GLint*>(ImmediateDataAddress(&cmd))));
   GLint temp[1 * 2] = { 0, };
-  cmd.Init(program_manager()->SwizzleLocation(kUniform1FakeLocation), 1,
+  cmd.Init(kUniform1FakeLocation, 1,
            &temp[0]);
   EXPECT_EQ(error::kNoError,
             ExecuteImmediateCmd(cmd, sizeof(temp)));
@@ -1847,7 +1918,7 @@ TEST_F(GLES2DecoderWithShaderTest, Uniform1ivImmediateValidArgs) {
 TEST_F(GLES2DecoderWithShaderTest, Uniform1ivInvalidValidArgs) {
   EXPECT_CALL(*gl_, Uniform1iv(_, _, _)).Times(0);
   Uniform1iv cmd;
-  cmd.Init(program_manager()->SwizzleLocation(kUniform1FakeLocation),
+  cmd.Init(kUniform1FakeLocation,
            2, shared_memory_id_, shared_memory_offset_);
   EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
   EXPECT_EQ(GL_INVALID_OPERATION, GetGLError());
@@ -1856,12 +1927,32 @@ TEST_F(GLES2DecoderWithShaderTest, Uniform1ivInvalidValidArgs) {
 TEST_F(GLES2DecoderWithShaderTest, Uniform1ivZeroCount) {
   EXPECT_CALL(*gl_, Uniform1iv(_, _, _)).Times(0);
   Uniform1iv cmd;
-  cmd.Init(program_manager()->SwizzleLocation(kUniform1FakeLocation),
+  cmd.Init(kUniform1FakeLocation,
            0, shared_memory_id_, shared_memory_offset_);
   EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
   EXPECT_EQ(GL_NO_ERROR, GetGLError());
 }
 
+TEST_F(GLES2DecoderWithShaderTest, Uniform1iSamplerIsLmited) {
+  EXPECT_CALL(*gl_, Uniform1i(_, _)).Times(0);
+  Uniform1i cmd;
+  cmd.Init(
+      kUniform1FakeLocation,
+      kNumTextureUnits);
+  EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
+  EXPECT_EQ(GL_INVALID_VALUE, GetGLError());
+}
+
+TEST_F(GLES2DecoderWithShaderTest, Uniform1ivSamplerIsLimited) {
+  EXPECT_CALL(*gl_, Uniform1iv(_, _, _)).Times(0);
+  Uniform1ivImmediate& cmd = *GetImmediateAs<Uniform1ivImmediate>();
+  GLint temp[] = { kNumTextureUnits };
+  cmd.Init(kUniform1FakeLocation, 1,
+           &temp[0]);
+  EXPECT_EQ(error::kNoError,
+            ExecuteImmediateCmd(cmd, sizeof(temp)));
+  EXPECT_EQ(GL_INVALID_VALUE, GetGLError());
+}
 
 TEST_F(GLES2DecoderWithShaderTest, BindBufferToDifferentTargetFails) {
   // Bind the buffer to GL_ARRAY_BUFFER
@@ -2721,7 +2812,7 @@ TEST_F(GLES2DecoderWithShaderTest, GetUniformLocation) {
            kSharedMemoryId, kSharedMemoryOffset,
            kNameSize);
   EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
-  EXPECT_EQ(program_manager()->SwizzleLocation(kUniform2FakeLocation), *result);
+  EXPECT_EQ(kUniform2FakeLocation, *result);
   memcpy(name, kNonExistentName, kNonExistentNameSize);
   *result = -1;
   cmd.Init(client_program_id_,
@@ -2802,7 +2893,7 @@ TEST_F(GLES2DecoderWithShaderTest, GetUniformLocationImmediate) {
   cmd.Init(client_program_id_, kUniform2Name,
            kSharedMemoryId, kSharedMemoryOffset);
   EXPECT_EQ(error::kNoError, ExecuteImmediateCmd(cmd, kNameSize));
-  EXPECT_EQ(program_manager()->SwizzleLocation(kUniform2FakeLocation), *result);
+  EXPECT_EQ(kUniform2FakeLocation, *result);
   *result = -1;
   cmd.Init(client_program_id_, kNonExistentName,
            kSharedMemoryId, kSharedMemoryOffset);
@@ -2844,7 +2935,7 @@ TEST_F(GLES2DecoderWithShaderTest, GetUniformLocationBucket) {
   cmd.Init(client_program_id_, kBucketId,
            kSharedMemoryId, kSharedMemoryOffset);
   EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
-  EXPECT_EQ(program_manager()->SwizzleLocation(kUniform2FakeLocation), *result);
+  EXPECT_EQ(kUniform2FakeLocation, *result);
   SetBucketAsCString(kBucketId, kNonExistentName);
   *result = -1;
   cmd.Init(client_program_id_, kBucketId,
@@ -3306,8 +3397,12 @@ TEST_F(GLES2DecoderTest, IsFramebuffer) {
 TEST_F(GLES2DecoderTest, IsProgram) {
   // IsProgram is true as soon as the program is created.
   EXPECT_TRUE(DoIsProgram(client_program_id_));
+  EXPECT_CALL(*gl_, DeleteProgram(kServiceProgramId))
+      .Times(1)
+      .RetiresOnSaturation();
   DoDeleteProgram(client_program_id_, kServiceProgramId);
   EXPECT_FALSE(DoIsProgram(client_program_id_));
+
 }
 
 TEST_F(GLES2DecoderTest, IsRenderbuffer) {
@@ -3521,7 +3616,10 @@ TEST_F(GLES2DecoderRGBBackbufferTest, RGBBackbufferColorMask) {
       false,   // depth enabled
       0,       // front stencil mask
       0,       // back stencil mask
-      false);  // stencil enabled
+      false,   // stencil enabled
+      false,   // cull_face_enabled
+      false,   // scissor_test_enabled
+      false);  // blend_enabled
 
   EXPECT_CALL(*gl_, DrawArrays(GL_TRIANGLES, 0, kNumVertices))
       .Times(1)
@@ -3575,7 +3673,10 @@ TEST_F(GLES2DecoderRGBBackbufferTest, RGBBackbufferDepthMask) {
       false,   // depth enabled
       0,       // front stencil mask
       0,       // back stencil mask
-      false);  // stencil enabled
+      false,   // stencil enabled
+      false,   // cull_face_enabled
+      false,   // scissor_test_enabled
+      false);  // blend_enabled
 
   EXPECT_CALL(*gl_, DrawArrays(GL_TRIANGLES, 0, kNumVertices))
       .Times(1)
@@ -3627,7 +3728,11 @@ TEST_F(GLES2DecoderRGBBackbufferTest, RGBBackbufferStencilMask) {
       false,   // depth enabled
       0,       // front stencil mask
       0,       // back stencil mask
-      false);  // stencil enabled
+      false,   // stencil enabled
+      false,   // cull_face_enabled
+      false,   // scissor_test_enabled
+      false);  // blend_enabled
+
   EXPECT_CALL(*gl_, DrawArrays(GL_TRIANGLES, 0, kNumVertices))
       .Times(1)
       .RetiresOnSaturation();
@@ -3679,7 +3784,10 @@ TEST_F(GLES2DecoderRGBBackbufferTest, RGBBackbufferColorMaskFBO) {
       false,   // depth enabled
       0,       // front stencil mask
       0,       // back stencil mask
-      false);  // stencil enabled
+      false,   // stencil enabled
+      false,   // cull_face_enabled
+      false,   // scissor_test_enabled
+      false);  // blend_enabled
 
   EXPECT_CALL(*gl_, DrawArrays(GL_TRIANGLES, 0, kNumVertices))
       .Times(1)
@@ -3725,7 +3833,11 @@ TEST_F(GLES2DecoderRGBBackbufferTest, RGBBackbufferColorMaskFBO) {
       false,   // depth enabled
       0,       // front stencil mask
       0,       // back stencil mask
-      false);  // stencil enabled
+      false,   // stencil enabled
+      false,   // cull_face_enabled
+      false,   // scissor_test_enabled
+      false);  // blend_enabled
+
   EXPECT_CALL(*gl_, DrawArrays(GL_TRIANGLES, 0, kNumVertices))
       .Times(1)
       .RetiresOnSaturation();
@@ -3751,7 +3863,10 @@ TEST_F(GLES2DecoderRGBBackbufferTest, RGBBackbufferColorMaskFBO) {
       false,   // depth enabled
       0,       // front stencil mask
       0,       // back stencil mask
-      false);  // stencil enabled
+      false,   // stencil enabled
+      false,   // cull_face_enabled
+      false,   // scissor_test_enabled
+      false);  // blend_enabled
 
   EXPECT_CALL(*gl_, DrawArrays(GL_TRIANGLES, 0, kNumVertices))
       .Times(1)
@@ -3974,7 +4089,12 @@ TEST_F(GLES2DecoderManualInitTest, DepthEnableWithDepth) {
       true,    // depth enabled
       0,       // front stencil mask
       0,       // back stencil mask
-      false);  // stencil enabled
+      false,   // stencil enabled
+      false,   // cull_face_enabled
+      false,   // scissor_test_enabled
+      false);  // blend_enabled
+
+
   EXPECT_CALL(*gl_, DrawArrays(GL_TRIANGLES, 0, kNumVertices))
       .Times(1)
       .RetiresOnSaturation();
@@ -4031,7 +4151,11 @@ TEST_F(GLES2DecoderManualInitTest, DepthEnableWithoutRequestedDepth) {
       false,   // depth enabled
       0,       // front stencil mask
       0,       // back stencil mask
-      false);  // stencil enabled
+      false,   // stencil enabled
+      false,   // cull_face_enabled
+      false,   // scissor_test_enabled
+      false);  // blend_enabled
+
   EXPECT_CALL(*gl_, DrawArrays(GL_TRIANGLES, 0, kNumVertices))
       .Times(1)
       .RetiresOnSaturation();
@@ -4088,7 +4212,11 @@ TEST_F(GLES2DecoderManualInitTest, StencilEnableWithStencil) {
       false,   // depth enabled
       -1,      // front stencil mask
       -1,      // back stencil mask
-      true);   // stencil enabled
+      true,    // stencil enabled
+      false,   // cull_face_enabled
+      false,   // scissor_test_enabled
+      false);  // blend_enabled
+
   EXPECT_CALL(*gl_, DrawArrays(GL_TRIANGLES, 0, kNumVertices))
       .Times(1)
       .RetiresOnSaturation();
@@ -4145,7 +4273,11 @@ TEST_F(GLES2DecoderManualInitTest, StencilEnableWithoutRequestedStencil) {
       false,   // depth enabled
       0,       // front stencil mask
       0,       // back stencil mask
-      false);  // stencil enabled
+      false,   // stencil enabled
+      false,   // cull_face_enabled
+      false,   // scissor_test_enabled
+      false);  // blend_enabled
+
   EXPECT_CALL(*gl_, DrawArrays(GL_TRIANGLES, 0, kNumVertices))
       .Times(1)
       .RetiresOnSaturation();
@@ -4955,6 +5087,169 @@ TEST_F(GLES2DecoderManualInitTest, CompressedTexImage2DBucketBadBucket) {
   EXPECT_NE(error::kNoError, ExecuteCmd(cmd));
 }
 
+namespace {
+
+struct S3TCTestData {
+  GLenum format;
+  size_t block_size;
+};
+
+}  // anonymous namespace.
+
+TEST_F(GLES2DecoderManualInitTest, CompressedTexImage2DS3TC) {
+  InitDecoder(
+      "GL_EXT_texture_compression_s3tc",  // extensions
+      false,   // has alpha
+      false,   // has depth
+      false,   // has stencil
+      false,   // request alpha
+      false,   // request depth
+      false,   // request stencil
+      true);   // bind generates resource
+  const uint32 kBucketId = 123;
+  CommonDecoder::Bucket* bucket = decoder_->CreateBucket(kBucketId);
+  ASSERT_TRUE(bucket != NULL);
+
+  DoBindTexture(GL_TEXTURE_2D, client_texture_id_, kServiceTextureId);
+
+  static const S3TCTestData test_data[] = {
+    { GL_COMPRESSED_RGB_S3TC_DXT1_EXT, 8, },
+    { GL_COMPRESSED_RGBA_S3TC_DXT1_EXT, 8, },
+    { GL_COMPRESSED_RGBA_S3TC_DXT3_EXT, 16, },
+    { GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, 16, },
+  };
+
+  for (size_t ii = 0; ii < arraysize(test_data); ++ii) {
+    const S3TCTestData& test = test_data[ii];
+    CompressedTexImage2DBucket cmd;
+    // test small width.
+    DoCompressedTexImage2D(
+        GL_TEXTURE_2D, 0, test.format, 2, 4, 0, test.block_size,
+        kBucketId);
+    EXPECT_EQ(GL_NO_ERROR, GetGLError());
+
+    // test bad width.
+    cmd.Init(
+        GL_TEXTURE_2D, 0, test.format, 5, 4, 0,
+        kBucketId);
+    bucket->SetSize(test.block_size * 2);
+    EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
+    EXPECT_EQ(GL_INVALID_OPERATION, GetGLError());
+
+    // test small height.
+    DoCompressedTexImage2D(
+        GL_TEXTURE_2D, 0, test.format, 4, 2, 0, test.block_size,
+        kBucketId);
+    EXPECT_EQ(GL_NO_ERROR, GetGLError());
+
+    // test too bad height.
+    cmd.Init(
+        GL_TEXTURE_2D, 0, test.format, 4, 5, 0,
+        kBucketId);
+    bucket->SetSize(test.block_size * 2);
+    EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
+    EXPECT_EQ(GL_INVALID_OPERATION, GetGLError());
+
+    // test small for level 0.
+    DoCompressedTexImage2D(
+        GL_TEXTURE_2D, 0, test.format, 1, 1, 0, test.block_size,
+        kBucketId);
+    EXPECT_EQ(GL_NO_ERROR, GetGLError());
+
+    // test small for level 0.
+    DoCompressedTexImage2D(
+        GL_TEXTURE_2D, 0, test.format, 2, 2, 0, test.block_size,
+        kBucketId);
+    EXPECT_EQ(GL_NO_ERROR, GetGLError());
+
+    // test size too large.
+    cmd.Init(
+        GL_TEXTURE_2D, 0, test.format, 4, 4, 0,
+        kBucketId);
+    bucket->SetSize(test.block_size * 2);
+    EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
+    EXPECT_EQ(GL_INVALID_VALUE, GetGLError());
+
+    // test size too small.
+    cmd.Init(
+        GL_TEXTURE_2D, 0, test.format, 4, 4, 0,
+        kBucketId);
+    bucket->SetSize(test.block_size / 2);
+    EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
+    EXPECT_EQ(GL_INVALID_VALUE, GetGLError());
+
+    // test with 3 mips.
+    DoCompressedTexImage2D(
+        GL_TEXTURE_2D, 0, test.format, 4, 4, 0, test.block_size, kBucketId);
+    DoCompressedTexImage2D(
+        GL_TEXTURE_2D, 1, test.format, 2, 2, 0, test.block_size, kBucketId);
+    DoCompressedTexImage2D(
+        GL_TEXTURE_2D, 2, test.format, 1, 1, 0, test.block_size, kBucketId);
+    EXPECT_EQ(GL_NO_ERROR, GetGLError());
+
+    // Test a 16x16
+    DoCompressedTexImage2D(
+        GL_TEXTURE_2D, 0, test.format, 16, 16, 0, test.block_size * 4 * 4,
+        kBucketId);
+    EXPECT_EQ(GL_NO_ERROR, GetGLError());
+
+    CompressedTexSubImage2DBucket sub_cmd;
+    bucket->SetSize(test.block_size);
+    // Test sub image bad xoffset
+    sub_cmd.Init(
+        GL_TEXTURE_2D, 0, 1, 0, 4, 4, test.format, kBucketId);
+    EXPECT_EQ(error::kNoError, ExecuteCmd(sub_cmd));
+    EXPECT_EQ(GL_INVALID_OPERATION, GetGLError());
+
+    // Test sub image bad yoffset
+    sub_cmd.Init(
+        GL_TEXTURE_2D, 0, 0, 2, 4, 4, test.format, kBucketId);
+    EXPECT_EQ(error::kNoError, ExecuteCmd(sub_cmd));
+    EXPECT_EQ(GL_INVALID_OPERATION, GetGLError());
+
+    // Test sub image bad width
+    bucket->SetSize(test.block_size * 2);
+    sub_cmd.Init(
+        GL_TEXTURE_2D, 0, 0, 0, 5, 4, test.format, kBucketId);
+    EXPECT_EQ(error::kNoError, ExecuteCmd(sub_cmd));
+    EXPECT_EQ(GL_INVALID_OPERATION, GetGLError());
+
+    // Test sub image bad height
+    sub_cmd.Init(
+        GL_TEXTURE_2D, 0, 0, 0, 4, 5, test.format, kBucketId);
+    EXPECT_EQ(error::kNoError, ExecuteCmd(sub_cmd));
+    EXPECT_EQ(GL_INVALID_OPERATION, GetGLError());
+
+    // Test sub image bad size
+    bucket->SetSize(test.block_size + 1);
+    sub_cmd.Init(
+        GL_TEXTURE_2D, 0, 0, 0, 4, 4, test.format, kBucketId);
+    EXPECT_EQ(error::kNoError, ExecuteCmd(sub_cmd));
+    EXPECT_EQ(GL_INVALID_VALUE, GetGLError());
+
+    for (GLint yoffset = 0; yoffset <= 8; yoffset += 4) {
+      for (GLint xoffset = 0; xoffset <= 8; xoffset += 4) {
+        for (GLsizei height = 4; height <= 8; height +=4 ) {
+          for (GLsizei width = 4; width <= 8; width += 4) {
+            GLsizei size = test.block_size * (width / 4) * (height / 4);
+            bucket->SetSize(size);
+            EXPECT_CALL(*gl_, CompressedTexSubImage2D(
+                GL_TEXTURE_2D, 0, xoffset, yoffset, width, height, test.format,
+                size, _))
+                .Times(1)
+                .RetiresOnSaturation();
+            sub_cmd.Init(
+                GL_TEXTURE_2D, 0, xoffset, yoffset, width, height, test.format,
+                kBucketId);
+            EXPECT_EQ(error::kNoError, ExecuteCmd(sub_cmd));
+            EXPECT_EQ(GL_NO_ERROR, GetGLError());
+          }
+        }
+      }
+    }
+  }
+}
+
 TEST_F(GLES2DecoderWithShaderTest, GetProgramInfoCHROMIUMValidArgs) {
   const uint32 kBucketId = 123;
   GetProgramInfoCHROMIUM cmd;
@@ -5199,23 +5494,19 @@ TEST_F(GLES2DecoderManualInitTest, BindGeneratesResourceFalse) {
 
   BindTexture cmd1;
   cmd1.Init(GL_TEXTURE_2D, kInvalidClientId);
-  EXPECT_EQ(error::kNoError, ExecuteCmd(cmd1));
-  EXPECT_EQ(GL_INVALID_VALUE, GetGLError());
+  EXPECT_NE(error::kNoError, ExecuteCmd(cmd1));
 
   BindBuffer cmd2;
   cmd2.Init(GL_ARRAY_BUFFER, kInvalidClientId);
-  EXPECT_EQ(error::kNoError, ExecuteCmd(cmd2));
-  EXPECT_EQ(GL_INVALID_VALUE, GetGLError());
+  EXPECT_NE(error::kNoError, ExecuteCmd(cmd2));
 
   BindFramebuffer cmd3;
   cmd3.Init(GL_FRAMEBUFFER, kInvalidClientId);
-  EXPECT_EQ(error::kNoError, ExecuteCmd(cmd3));
-  EXPECT_EQ(GL_INVALID_VALUE, GetGLError());
+  EXPECT_NE(error::kNoError, ExecuteCmd(cmd3));
 
   BindRenderbuffer cmd4;
   cmd4.Init(GL_RENDERBUFFER, kInvalidClientId);
-  EXPECT_EQ(error::kNoError, ExecuteCmd(cmd4));
-  EXPECT_EQ(GL_INVALID_VALUE, GetGLError());
+  EXPECT_NE(error::kNoError, ExecuteCmd(cmd4));
 }
 
 TEST_F(GLES2DecoderManualInitTest, CreateStreamTextureCHROMIUM) {
@@ -5901,7 +6192,11 @@ TEST_F(GLES2DecoderWithShaderTest, DrawClearsAfterTexImage2DNULLInFBO) {
       false,   // depth enabled
       0,       // front stencil mask
       0,       // back stencil mask
-      false);  // stencil enabled
+      false,   // stencil enabled
+      false,   // cull_face_enabled
+      false,   // scissor_test_enabled
+      false);  // blend_enabled
+
   EXPECT_CALL(*gl_, DrawArrays(GL_TRIANGLES, 0, kNumVertices))
       .Times(1)
       .RetiresOnSaturation();
@@ -6008,7 +6303,7 @@ TEST_F(GLES2DecoderManualInitTest, CompressedImage2DMarksTextureAsCleared) {
       .WillOnce(Return(GL_NO_ERROR))
       .RetiresOnSaturation();
   EXPECT_CALL(*gl_, CompressedTexImage2D(
-      GL_TEXTURE_2D, 0, GL_COMPRESSED_RGB_S3TC_DXT1_EXT, 4, 4, 0, 16, _))
+      GL_TEXTURE_2D, 0, GL_COMPRESSED_RGB_S3TC_DXT1_EXT, 4, 4, 0, 8, _))
       .Times(1)
       .RetiresOnSaturation();
   EXPECT_CALL(*gl_, GetError())
@@ -6016,7 +6311,7 @@ TEST_F(GLES2DecoderManualInitTest, CompressedImage2DMarksTextureAsCleared) {
       .RetiresOnSaturation();
   CompressedTexImage2D cmd;
   cmd.Init(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGB_S3TC_DXT1_EXT, 4, 4, 0,
-           16, kSharedMemoryId, kSharedMemoryOffset);
+           8, kSharedMemoryId, kSharedMemoryOffset);
   EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
   TextureManager* manager = group().texture_manager();
   TextureManager::TextureInfo* info =
@@ -6063,7 +6358,11 @@ TEST_F(GLES2DecoderWithShaderTest, UnClearedAttachmentsGetClearedOnClear) {
       false,   // depth enabled
       0,       // front stencil mask
       0,       // back stencil mask
-      false);  // stencil enabled
+      false,   // stencil enabled
+      false,   // cull_face_enabled
+      false,   // scissor_test_enabled
+      false);  // blend_enabled
+
   EXPECT_CALL(*gl_, Clear(GL_COLOR_BUFFER_BIT))
       .Times(1)
       .RetiresOnSaturation();
@@ -6216,7 +6515,11 @@ TEST_F(GLES2DecoderWithShaderTest, DrawClearsAfterRenderbufferStorageInFBO) {
       false,   // depth enabled
       0,       // front stencil mask
       0,       // back stencil mask
-      false);  // stencil enabled
+      false,   // stencil enabled
+      false,   // cull_face_enabled
+      false,   // scissor_test_enabled
+      false);  // blend_enabled
+
   EXPECT_CALL(*gl_, DrawArrays(GL_TRIANGLES, 0, kNumVertices))
       .Times(1)
       .RetiresOnSaturation();
@@ -6328,7 +6631,11 @@ TEST_F(GLES2DecoderWithShaderTest,
       false,   // depth enabled
       0,       // front stencil mask
       0,       // back stencil mask
-      false);  // stencil enabled
+      false,   // stencil enabled
+      false,   // cull_face_enabled
+      false,   // scissor_test_enabled
+      false);  // blend_enabled
+
   EXPECT_CALL(*gl_, DrawArrays(GL_TRIANGLES, 0, kNumVertices))
       .Times(1)
       .RetiresOnSaturation();
@@ -6545,7 +6852,11 @@ TEST_F(GLES2DecoderWithShaderTest,
       false,   // depth enabled
       0,       // front stencil mask
       0,       // back stencil mask
-      false);  // stencil enabled
+      false,   // stencil enabled
+      false,   // cull_face_enabled
+      false,   // scissor_test_enabled
+      false);  // blend_enabled
+
   EXPECT_CALL(*gl_, DrawArrays(GL_TRIANGLES, 0, kNumVertices))
       .Times(1)
       .RetiresOnSaturation();
@@ -6744,6 +7055,366 @@ TEST_F(GLES2DecoderTest, BeingEndQueryEXTCommandsIssuedCHROMIUM) {
   EXPECT_EQ(error::kNoError, ExecuteCmd(end_cmd));
   EXPECT_EQ(GL_NO_ERROR, GetGLError());
   EXPECT_FALSE(query->pending());
+}
+
+TEST_F(GLES2DecoderTest, GenMailboxCHROMIUM) {
+  const uint32 kBucketId = 123;
+
+  GenMailboxCHROMIUM gen_mailbox_cmd;
+  gen_mailbox_cmd.Init(kBucketId);
+  EXPECT_EQ(error::kNoError, ExecuteCmd(gen_mailbox_cmd));
+
+  CommonDecoder::Bucket* bucket = decoder_->GetBucket(kBucketId);
+  ASSERT_TRUE(bucket != NULL);
+  ASSERT_EQ(static_cast<uint32>(GL_MAILBOX_SIZE_CHROMIUM), bucket->size());
+
+  static const GLbyte zero[GL_MAILBOX_SIZE_CHROMIUM] = {
+    0
+  };
+  EXPECT_NE(0, memcmp(zero,
+                      bucket->GetData(0, GL_MAILBOX_SIZE_CHROMIUM),
+                      sizeof(zero)));
+}
+
+TEST_F(GLES2DecoderTest, ProduceAndConsumeTextureCHROMIUM) {
+  GLbyte mailbox[GL_MAILBOX_SIZE_CHROMIUM];
+  group().mailbox_manager()->GenerateMailboxName(
+      reinterpret_cast<MailboxName*>(mailbox));
+
+  memcpy(shared_memory_address_, mailbox, sizeof(mailbox));
+
+  DoBindTexture(GL_TEXTURE_2D, client_texture_id_, kServiceTextureId);
+  DoTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 3, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+               0, 0);
+  DoTexImage2D(GL_TEXTURE_2D, 1, GL_RGBA, 2, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+               0, 0);
+  TextureManager::TextureInfo* info =
+      group().texture_manager()->GetTextureInfo(client_texture_id_);
+  EXPECT_EQ(kServiceTextureId, info->service_id());
+
+  // Assigns and binds new service side texture ID and applies the texture
+  // objects' state to it.
+  EXPECT_CALL(*gl_, GenTextures(1, _))
+      .WillOnce(SetArgumentPointee<1>(kNewServiceId))
+      .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, BindTexture(GL_TEXTURE_2D, kNewServiceId))
+      .Times(1)
+      .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, TexParameteri(GL_TEXTURE_2D,
+                                  GL_TEXTURE_MIN_FILTER,
+                                  GL_NEAREST_MIPMAP_LINEAR));
+  EXPECT_CALL(*gl_, TexParameteri(GL_TEXTURE_2D,
+                                  GL_TEXTURE_MAG_FILTER,
+                                  GL_LINEAR));
+  EXPECT_CALL(*gl_, TexParameteri(GL_TEXTURE_2D,
+                                  GL_TEXTURE_WRAP_S,
+                                  GL_REPEAT));
+  EXPECT_CALL(*gl_, TexParameteri(GL_TEXTURE_2D,
+                                  GL_TEXTURE_WRAP_T,
+                                  GL_REPEAT));
+
+  ProduceTextureCHROMIUM produce_cmd;
+  produce_cmd.Init(GL_TEXTURE_2D, kSharedMemoryId, kSharedMemoryOffset);
+  EXPECT_EQ(error::kNoError, ExecuteCmd(produce_cmd));
+
+  // Texture is zero-by-zero.
+  GLsizei width;
+  GLsizei height;
+  GLenum type;
+  GLenum internal_format;
+
+  EXPECT_TRUE(info->GetLevelSize(GL_TEXTURE_2D, 0, &width, &height));
+  EXPECT_EQ(0, width);
+  EXPECT_EQ(0, height);
+  EXPECT_TRUE(info->GetLevelType(GL_TEXTURE_2D, 0, &type, &internal_format));
+  EXPECT_EQ(static_cast<GLenum>(GL_RGBA), internal_format);
+  EXPECT_EQ(static_cast<GLenum>(GL_UNSIGNED_BYTE), type);
+
+  EXPECT_TRUE(info->GetLevelSize(GL_TEXTURE_2D, 1, &width, &height));
+  EXPECT_EQ(0, width);
+  EXPECT_EQ(0, height);
+  EXPECT_TRUE(info->GetLevelType(GL_TEXTURE_2D, 1, &type, &internal_format));
+  EXPECT_EQ(static_cast<GLenum>(GL_RGBA), internal_format);
+  EXPECT_EQ(static_cast<GLenum>(GL_UNSIGNED_BYTE), type);
+
+  // Service ID has changed.
+  EXPECT_EQ(kNewServiceId, info->service_id());
+
+  // Assigns and binds original service side texture ID and applies the texture
+  // objects' state to it.
+  EXPECT_CALL(*gl_, DeleteTextures(1, _))
+      .Times(1)
+      .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, BindTexture(GL_TEXTURE_2D, kServiceTextureId))
+      .Times(1)
+      .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, TexParameteri(GL_TEXTURE_2D,
+                                  GL_TEXTURE_MIN_FILTER,
+                                  GL_NEAREST_MIPMAP_LINEAR));
+  EXPECT_CALL(*gl_, TexParameteri(GL_TEXTURE_2D,
+                                  GL_TEXTURE_MAG_FILTER,
+                                  GL_LINEAR));
+  EXPECT_CALL(*gl_, TexParameteri(GL_TEXTURE_2D,
+                                  GL_TEXTURE_WRAP_S,
+                                  GL_REPEAT));
+  EXPECT_CALL(*gl_, TexParameteri(GL_TEXTURE_2D,
+                                  GL_TEXTURE_WRAP_T,
+                                  GL_REPEAT));
+
+  ConsumeTextureCHROMIUM consume_cmd;
+  consume_cmd.Init(GL_TEXTURE_2D, kSharedMemoryId, kSharedMemoryOffset);
+  EXPECT_EQ(error::kNoError, ExecuteCmd(consume_cmd));
+
+  // Texture is redefined.
+  EXPECT_TRUE(info->GetLevelSize(GL_TEXTURE_2D, 0, &width, &height));
+  EXPECT_EQ(3, width);
+  EXPECT_EQ(1, height);
+  EXPECT_TRUE(info->GetLevelType(GL_TEXTURE_2D, 0, &type, &internal_format));
+  EXPECT_EQ(static_cast<GLenum>(GL_RGBA), internal_format);
+  EXPECT_EQ(static_cast<GLenum>(GL_UNSIGNED_BYTE), type);
+
+  EXPECT_TRUE(info->GetLevelSize(GL_TEXTURE_2D, 1, &width, &height));
+  EXPECT_EQ(2, width);
+  EXPECT_EQ(4, height);
+  EXPECT_TRUE(info->GetLevelType(GL_TEXTURE_2D, 1, &type, &internal_format));
+  EXPECT_EQ(static_cast<GLenum>(GL_RGBA), internal_format);
+  EXPECT_EQ(static_cast<GLenum>(GL_UNSIGNED_BYTE), type);
+
+  // Service ID is restored.
+  EXPECT_EQ(kServiceTextureId, info->service_id());
+}
+
+
+TEST_F(GLES2DecoderTest, CanChangeSurface) {
+  scoped_refptr<GLSurfaceMock> other_surface(new GLSurfaceMock);
+  EXPECT_CALL(*other_surface.get(), GetBackingFrameBufferObject()).
+      WillOnce(Return(7));
+  EXPECT_CALL(*gl_, BindFramebufferEXT(GL_FRAMEBUFFER_EXT, 7));
+
+  decoder_->SetSurface(other_surface);
+}
+
+TEST_F(GLES2DecoderTest, IsEnabledReturnsCachedValue) {
+  // NOTE: There are no expectations because no GL functions should be
+  // called for DEPTH_TEST or STENCIL_TEST
+  static const GLenum kStates[] = {
+    GL_DEPTH_TEST,
+    GL_STENCIL_TEST,
+  };
+  for (size_t ii = 0; ii < arraysize(kStates); ++ii) {
+    Enable enable_cmd;
+    GLenum state = kStates[ii];
+    enable_cmd.Init(state);
+    EXPECT_EQ(error::kNoError, ExecuteCmd(enable_cmd));
+    IsEnabled::Result* result =
+        static_cast<IsEnabled::Result*>(shared_memory_address_);
+    IsEnabled is_enabled_cmd;
+    is_enabled_cmd.Init(state, shared_memory_id_, shared_memory_offset_);
+    EXPECT_EQ(error::kNoError, ExecuteCmd(is_enabled_cmd));
+    EXPECT_NE(0u, *result);
+    Disable disable_cmd;
+    disable_cmd.Init(state);
+    EXPECT_EQ(error::kNoError, ExecuteCmd(disable_cmd));
+    EXPECT_EQ(error::kNoError, ExecuteCmd(is_enabled_cmd));
+    EXPECT_EQ(0u, *result);
+  }
+}
+
+TEST_F(GLES2DecoderManualInitTest, DepthTextureBadArgs) {
+  InitDecoder(
+      "GL_ANGLE_depth_texture",      // extensions
+      false,   // has alpha
+      true,    // has depth
+      true,    // has stencil
+      false,   // request alpha
+      true,    // request depth
+      true,    // request stencil
+      true);   // bind generates resource
+
+  DoBindTexture(GL_TEXTURE_2D, client_texture_id_, kServiceTextureId);
+  // Check trying to upload data fails.
+  TexImage2D tex_cmd;
+  tex_cmd.Init(
+      GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT,
+      1, 1, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT,
+      kSharedMemoryId, kSharedMemoryOffset);
+  EXPECT_EQ(error::kNoError, ExecuteCmd(tex_cmd));
+  EXPECT_EQ(GL_INVALID_OPERATION, GetGLError());
+  // Try level > 0.
+  tex_cmd.Init(
+      GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT,
+      1, 1, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, 0, 0);
+  EXPECT_EQ(error::kNoError, ExecuteCmd(tex_cmd));
+  EXPECT_EQ(GL_INVALID_OPERATION, GetGLError());
+  // Make a 1 pixel depth texture.
+  DoTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT,
+               1, 1, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, 0, 0);
+  EXPECT_EQ(GL_NO_ERROR, GetGLError());
+
+  // Check that trying to update it fails.
+  TexSubImage2D tex_sub_cmd;
+  tex_sub_cmd.Init(
+      GL_TEXTURE_2D, 0, 0, 0, 1, 1, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT,
+      kSharedMemoryId, kSharedMemoryOffset, GL_FALSE);
+  EXPECT_EQ(error::kNoError, ExecuteCmd(tex_sub_cmd));
+  EXPECT_EQ(GL_INVALID_OPERATION, GetGLError());
+
+  // Check that trying to CopyTexImage2D fails
+  CopyTexImage2D copy_tex_cmd;
+  copy_tex_cmd.Init(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, 0, 0, 1, 1, 0);
+  EXPECT_EQ(error::kNoError, ExecuteCmd(copy_tex_cmd));
+  EXPECT_EQ(GL_INVALID_OPERATION, GetGLError());
+
+  // Check that trying to CopyTexSubImage2D fails
+  CopyTexSubImage2D copy_sub_cmd;
+  copy_sub_cmd.Init(GL_TEXTURE_2D, 0, 0, 0, 0, 0, 1, 1);
+  EXPECT_EQ(error::kNoError, ExecuteCmd(copy_sub_cmd));
+  EXPECT_EQ(GL_INVALID_OPERATION, GetGLError());
+}
+
+TEST_F(GLES2DecoderManualInitTest, GenerateMipmapDepthTexture) {
+  InitDecoder(
+      "GL_ANGLE_depth_texture",      // extensions
+      false,   // has alpha
+      true,    // has depth
+      true,    // has stencil
+      false,   // request alpha
+      true,    // request depth
+      true,    // request stencil
+      true);   // bind generates resource
+  DoBindTexture(GL_TEXTURE_2D, client_texture_id_, kServiceTextureId);
+  DoTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT,
+               2, 2, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT,
+               0, 0);
+  GenerateMipmap cmd;
+  cmd.Init(GL_TEXTURE_2D);
+  EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
+  EXPECT_EQ(GL_INVALID_OPERATION, GetGLError());
+}
+
+TEST_F(GLES2DecoderANGLEManualInitTest, DrawClearsDepthTexture) {
+  InitDecoder(
+      "GL_ANGLE_depth_texture",      // extensions
+      true,    // has alpha
+      true,    // has depth
+      false,   // has stencil
+      true,    // request alpha
+      true,    // request depth
+      false,   // request stencil
+      true);   // bind generates resource
+
+  SetupDefaultProgram();
+  SetupAllNeededVertexBuffers();
+  const GLenum attachment = GL_DEPTH_ATTACHMENT;
+  const GLenum target = GL_TEXTURE_2D;
+  const GLint level = 0;
+  DoBindTexture(target, client_texture_id_, kServiceTextureId);
+
+  // Create a depth texture.
+  DoTexImage2D(target, level, GL_DEPTH_COMPONENT, 1, 1, 0,
+               GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, 0, 0);
+
+  EXPECT_CALL(*gl_, GenFramebuffersEXT(1, _))
+      .Times(1)
+      .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, BindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, _))
+      .Times(1)
+      .RetiresOnSaturation();
+
+  EXPECT_CALL(*gl_, FramebufferTexture2DEXT(
+      GL_DRAW_FRAMEBUFFER_EXT, attachment, target, kServiceTextureId, level))
+      .Times(1)
+      .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, CheckFramebufferStatusEXT(GL_DRAW_FRAMEBUFFER_EXT))
+      .WillOnce(Return(GL_FRAMEBUFFER_COMPLETE))
+      .RetiresOnSaturation();
+
+  EXPECT_CALL(*gl_, ClearStencil(0))
+      .Times(1)
+      .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, StencilMask(-1))
+      .Times(1)
+      .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, ClearDepth(1.0f))
+      .Times(1)
+      .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, DepthMask(true))
+      .Times(1)
+      .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, Disable(GL_SCISSOR_TEST))
+      .Times(1)
+      .RetiresOnSaturation();
+
+  EXPECT_CALL(*gl_, Clear(GL_DEPTH_BUFFER_BIT))
+      .Times(1)
+      .RetiresOnSaturation();
+
+  SetupExpectationsForRestoreClearState(
+      0.0f, 0.0f, 0.0f, 0.0f, 0, 1.0f, false);
+
+  EXPECT_CALL(*gl_, DeleteFramebuffersEXT(1, _))
+      .Times(1)
+      .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, BindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, 0))
+      .Times(1)
+      .RetiresOnSaturation();
+
+  SetupExpectationsForApplyingDefaultDirtyState();
+  EXPECT_CALL(*gl_, DrawArrays(GL_TRIANGLES, 0, kNumVertices))
+      .Times(1)
+      .RetiresOnSaturation();
+  DrawArrays cmd;
+  cmd.Init(GL_TRIANGLES, 0, kNumVertices);
+  EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
+  EXPECT_EQ(GL_NO_ERROR, GetGLError());
+}
+
+TEST_F(GLES2DecoderWithShaderTest, BindUniformLocationCHROMIUM) {
+  const GLint kLocation = 2;
+  const char* kName = "testing";
+  const uint32 kNameSize = strlen(kName);
+  const char* kBadName1 = "gl_testing";
+  const uint32 kBadName1Size = strlen(kBadName1);
+  const char* kBadName2 = "testing[1]";
+  const uint32 kBadName2Size = strlen(kBadName2);
+  memcpy(shared_memory_address_, kName, kNameSize);
+  BindUniformLocationCHROMIUM cmd;
+  cmd.Init(client_program_id_, kLocation, kSharedMemoryId, kSharedMemoryOffset,
+           kNameSize);
+  EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
+  EXPECT_EQ(GL_NO_ERROR, GetGLError());
+  // check negative location
+  memcpy(shared_memory_address_, kName, kNameSize);
+  cmd.Init(client_program_id_, -1, kSharedMemoryId, kSharedMemoryOffset,
+           kNameSize);
+  EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
+  EXPECT_EQ(GL_INVALID_VALUE, GetGLError());
+  // check highest location
+  memcpy(shared_memory_address_, kName, kNameSize);
+  GLint kMaxLocation =
+      (kMaxFragmentUniformVectors + kMaxVertexUniformVectors) * 4 - 1;
+  cmd.Init(client_program_id_, kMaxLocation, kSharedMemoryId,
+           kSharedMemoryOffset, kNameSize);
+  EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
+  EXPECT_EQ(GL_NO_ERROR, GetGLError());
+  // check too high location
+  memcpy(shared_memory_address_, kName, kNameSize);
+  cmd.Init(client_program_id_, kMaxLocation + 1, kSharedMemoryId,
+           kSharedMemoryOffset, kNameSize);
+  EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
+  EXPECT_EQ(GL_INVALID_VALUE, GetGLError());
+  // check bad name "gl_..."
+  memcpy(shared_memory_address_, kBadName1, kBadName1Size);
+  cmd.Init(client_program_id_, kLocation, kSharedMemoryId, kSharedMemoryOffset,
+           kBadName1Size);
+  EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
+  EXPECT_EQ(GL_INVALID_OPERATION, GetGLError());
+  // check bad name "name[1]" non zero
+  memcpy(shared_memory_address_, kBadName2, kBadName2Size);
+  cmd.Init(client_program_id_, kLocation, kSharedMemoryId, kSharedMemoryOffset,
+           kBadName2Size);
+  EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
+  EXPECT_EQ(GL_INVALID_VALUE, GetGLError());
 }
 
 

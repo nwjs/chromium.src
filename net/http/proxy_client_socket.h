@@ -4,7 +4,6 @@
 
 #ifndef NET_HTTP_PROXY_CLIENT_SOCKET_H_
 #define NET_HTTP_PROXY_CLIENT_SOCKET_H_
-#pragma once
 
 #include <string>
 
@@ -50,7 +49,7 @@ class NET_EXPORT_PRIVATE ProxyClientSocket : public StreamSocket {
   virtual bool IsUsingSpdy() const = 0;
 
   // Returns the protocol negotiated with the proxy.
-  virtual SSLClientSocket::NextProto GetProtocolNegotiated() const = 0;
+  virtual NextProto GetProtocolNegotiated() const = 0;
 
  protected:
   // The HTTP CONNECT method for establishing a tunnel connection is documented

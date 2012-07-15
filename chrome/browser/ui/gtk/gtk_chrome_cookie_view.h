@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_GTK_GTK_CHROME_COOKIE_VIEW_H_
 #define CHROME_BROWSER_UI_GTK_GTK_CHROME_COOKIE_VIEW_H_
-#pragma once
 
 #include <gtk/gtk.h>
 
@@ -14,9 +13,12 @@
 #include "chrome/browser/browsing_data_database_helper.h"
 #include "chrome/browser/browsing_data_indexed_db_helper.h"
 #include "chrome/browser/browsing_data_local_storage_helper.h"
-#include "net/cookies/cookie_monster.h"
 
 class GURL;
+
+namespace net {
+class CanonicalCookie;
+}
 
 G_BEGIN_DECLS
 
@@ -140,7 +142,7 @@ G_END_DECLS
 void gtk_chrome_cookie_view_display_cookie(
     GtkChromeCookieView* widget,
     const std::string& domain,
-    const net::CookieMonster::CanonicalCookie& cookie);
+    const net::CanonicalCookie& cookie);
 
 // Looks up the cookie_line in CookieMonster and displays that.
 void gtk_chrome_cookie_view_display_cookie_string(

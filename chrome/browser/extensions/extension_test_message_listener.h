@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_TEST_MESSAGE_LISTENER_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_TEST_MESSAGE_LISTENER_H_
-#pragma once
 
 #include <string>
 
@@ -12,7 +11,9 @@
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 
-class ExtensionTestSendMessageFunction;
+namespace extensions {
+class TestSendMessageFunction;
+}
 
 // This class helps us wait for incoming messages sent from javascript via
 // chrome.test.sendMessage(). A sample usage would be:
@@ -87,7 +88,7 @@ class ExtensionTestMessageListener : public content::NotificationObserver {
   bool will_reply_;
 
   // The function we need to reply to.
-  ExtensionTestSendMessageFunction* function_;
+  extensions::TestSendMessageFunction* function_;
 };
 
 #endif  // CHROME_BROWSER_EXTENSIONS_EXTENSION_TEST_MESSAGE_LISTENER_H_

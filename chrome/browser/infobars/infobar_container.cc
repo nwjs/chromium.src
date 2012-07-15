@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,6 +11,7 @@
 
 #include <algorithm>
 
+#include "base/logging.h"
 #include "chrome/browser/infobars/infobar.h"
 #include "chrome/browser/infobars/infobar_delegate.h"
 #include "chrome/browser/infobars/infobar_tab_helper.h"
@@ -116,7 +117,7 @@ void InfoBarContainer::RemoveAllInfoBarsForDestruction() {
   // and at worst disastrous to call that.
   delegate_ = NULL;
 
-  // TODO(pkasting): Remove this once TabContentsWrapper calls CloseSoon().
+  // TODO(pkasting): Remove this once TabContents calls CloseSoon().
   for (size_t i = infobars_.size(); i > 0; --i)
     infobars_[i - 1]->CloseSoon();
 

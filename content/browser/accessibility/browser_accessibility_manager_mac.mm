@@ -8,10 +8,12 @@
 #import "content/browser/accessibility/browser_accessibility_cocoa.h"
 #include "content/common/accessibility_messages.h"
 
+using content::AccessibilityNodeData;
+
 // static
 BrowserAccessibilityManager* BrowserAccessibilityManager::Create(
     gfx::NativeView parent_view,
-    const WebAccessibility& src,
+    const AccessibilityNodeData& src,
     BrowserAccessibilityDelegate* delegate,
     BrowserAccessibilityFactory* factory) {
   return new BrowserAccessibilityManagerMac(
@@ -20,7 +22,7 @@ BrowserAccessibilityManager* BrowserAccessibilityManager::Create(
 
 BrowserAccessibilityManagerMac::BrowserAccessibilityManagerMac(
     gfx::NativeView parent_window,
-    const webkit_glue::WebAccessibility& src,
+    const AccessibilityNodeData& src,
     BrowserAccessibilityDelegate* delegate,
     BrowserAccessibilityFactory* factory)
         : BrowserAccessibilityManager(parent_window, src, delegate, factory) {
@@ -29,16 +31,22 @@ BrowserAccessibilityManagerMac::BrowserAccessibilityManagerMac(
 void BrowserAccessibilityManagerMac::NotifyAccessibilityEvent(
     int type,
     BrowserAccessibility* node) {
+  if (!node->IsNative())
+    return;
+
   // Refer to AXObjectCache.mm (webkit).
   NSString* event_id = @"";
   switch (type) {
     case AccessibilityNotificationActiveDescendantChanged:
-      if (node->role() == WebAccessibility::ROLE_TREE)
+      if (node->role() == AccessibilityNodeData::ROLE_TREE)
         event_id = NSAccessibilitySelectedRowsChangedNotification;
       else
         event_id = NSAccessibilityFocusedUIElementChangedNotification;
     case AccessibilityNotificationAlert:
       // Not used on Mac.
+      return;
+    case AccessibilityNotificationBlur:
+      // A no-op on Mac.
       return;
     case AccessibilityNotificationCheckStateChanged:
       // Not used on Mac.
@@ -91,11 +99,11 @@ void BrowserAccessibilityManagerMac::NotifyAccessibilityEvent(
     case AccessibilityNotificationTextRemoved:
       // Not used on Mac.
       return;
-    case AccessibilityNotificationValueChangedD:
+    case AccessibilityNotificationValueChanged:
       event_id = NSAccessibilityValueChangedNotification;
       break;
   }
-  BrowserAccessibilityCocoa* native_node = node->toBrowserAccessibilityCocoa();
+  BrowserAccessibilityCocoa* native_node = node->ToBrowserAccessibilityCocoa();
   DCHECK(native_node);
   NSAccessibilityPostNotification(native_node, event_id);
 }

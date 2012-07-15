@@ -13,7 +13,6 @@
 #import "chrome/browser/ui/cocoa/view_id_util.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
-#include "grit/theme_resources_standard.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/scoped_ns_graphics_context_save_gstate_mac.h"
 
@@ -213,9 +212,7 @@ const CGFloat kRapidCloseDist = 2.5;
   }
 
   // Fire the action to select the tab.
-  if ([[controller_ target] respondsToSelector:[controller_ action]])
-    [[controller_ target] performSelector:[controller_ action]
-                               withObject:self];
+  [controller_ selectTab:self];
 
   // Messaging the drag controller with |-endDrag:| would seem like the right
   // thing to do here. But, when a tab has been detached, the controller's
@@ -255,6 +252,7 @@ const CGFloat kRapidCloseDist = 2.5;
   NSRect rect = [self bounds];
   NSBezierPath* path = [self bezierPathForRect:rect];
 
+  BOOL active = [[self window] isKeyWindow] || [[self window] isMainWindow];
   BOOL selected = [self state];
   // Don't draw the window/tab bar background when selected, since the tab
   // background overlay drawn over it (see below) will be fully opaque.
@@ -276,11 +274,11 @@ const CGFloat kRapidCloseDist = 2.5;
       [backgroundImageColor set];
       [path fill];
     } else {
-      // Use the window's background color rather than |[NSColor
-      // windowBackgroundColor]|, which gets confused by the fullscreen window.
-      // (The result is the same for normal, non-fullscreen windows.)
-      [[[self window] backgroundColor] set];
-      [path fill];
+      CGFloat grey = active ? 0.8 : 0.9;
+      scoped_nsobject<NSGradient> gradient([[NSGradient alloc]
+          initWithStartingColor:[NSColor colorWithCalibratedWhite:grey alpha:1]
+            endingColor:[NSColor colorWithCalibratedWhite:0.9 * grey alpha:1]]);
+      [gradient drawInBezierPath:path angle:270];
 
       gfx::ScopedNSGraphicsContextSaveGState drawBackgroundState;
       NSGraphicsContext* context = [NSGraphicsContext currentContext];
@@ -294,8 +292,9 @@ const CGFloat kRapidCloseDist = 2.5;
     }
   }
 
-  BOOL active = [[self window] isKeyWindow] || [[self window] isMainWindow];
-  CGFloat borderAlpha = selected ? (active ? 0.3 : 0.2) : 0.2;
+  CGFloat borderAlpha = selected ? (active ? 0.3 : 0.2) : (active ? 0.2 : 0.15);
+  borderAlpha /= lineWidth;
+
   NSColor* borderColor = [NSColor colorWithDeviceWhite:0.0 alpha:borderAlpha];
   NSColor* highlightColor = themeProvider ? themeProvider->GetNSColor(
       themeProvider->UsingDefaultTheme() ?
@@ -357,26 +356,22 @@ const CGFloat kRapidCloseDist = 2.5;
 
     // Draw the top inner highlight within the tab if using the default theme.
     if (themeProvider && themeProvider->UsingDefaultTheme()) {
+      [highlightColor setStroke];
+      scoped_nsobject<NSBezierPath> highlightPath([path copy]);
+      [highlightPath setLineWidth:lineWidth];
+
+      if (!selected)
+        NSRectClip(NSOffsetRect(rect, 0, 2 * lineWidth));
+
       NSAffineTransform* highlightTransform = [NSAffineTransform transform];
       [highlightTransform translateXBy:lineWidth yBy:-lineWidth];
-      if (selected) {
-        scoped_nsobject<NSBezierPath> highlightPath([path copy]);
-        [highlightPath transformUsingAffineTransform:highlightTransform];
-        [highlightColor setStroke];
-        [highlightPath setLineWidth:lineWidth];
-        [highlightPath stroke];
-        highlightTransform = [NSAffineTransform transform];
-        [highlightTransform translateXBy:-2 * lineWidth yBy:0.0];
-        [highlightPath transformUsingAffineTransform:highlightTransform];
-        [highlightPath stroke];
-      } else {
-        NSBezierPath* topHighlightPath =
-            [self topHighlightBezierPathForRect:[self bounds]];
-        [topHighlightPath transformUsingAffineTransform:highlightTransform];
-        [highlightColor setStroke];
-        [topHighlightPath setLineWidth:lineWidth];
-        [topHighlightPath stroke];
-      }
+      [highlightPath transformUsingAffineTransform:highlightTransform];
+      [highlightPath stroke];
+
+      highlightTransform = [NSAffineTransform transform];
+      [highlightTransform translateXBy:-2 * lineWidth yBy:0.0];
+      [highlightPath transformUsingAffineTransform:highlightTransform];
+      [highlightPath stroke];
     }
   }
 

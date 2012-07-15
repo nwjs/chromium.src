@@ -4,13 +4,11 @@
 
 #ifndef NET_SPDY_SPDY_STREAM_H_
 #define NET_SPDY_SPDY_STREAM_H_
-#pragma once
 
 #include <string>
 #include <vector>
 
 #include "base/basictypes.h"
-#include "base/memory/linked_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "googleurl/src/gurl.h"
@@ -18,9 +16,9 @@
 #include "net/base/io_buffer.h"
 #include "net/base/net_export.h"
 #include "net/base/net_log.h"
+#include "net/base/request_priority.h"
 #include "net/base/server_bound_cert_service.h"
 #include "net/base/ssl_client_cert_type.h"
-#include "net/base/upload_data.h"
 #include "net/socket/ssl_client_socket.h"
 #include "net/spdy/spdy_framer.h"
 #include "net/spdy/spdy_protocol.h"
@@ -41,8 +39,7 @@ class SSLInfo;
 // initiated by the server, only the SpdySession will maintain any reference,
 // until such a time as a client object requests a stream for the path.
 class NET_EXPORT_PRIVATE SpdyStream
-    : public base::RefCounted<SpdyStream>,
-      public ChunkCallback {
+    : public base::RefCounted<SpdyStream> {
  public:
   // Delegate handles protocol specific behavior of spdy stream.
   class NET_EXPORT_PRIVATE Delegate {
@@ -82,9 +79,6 @@ class NET_EXPORT_PRIVATE SpdyStream
     // Called when SpdyStream is closed.
     virtual void OnClose(int status) = 0;
 
-    // Sets the callback to be invoked when a new chunk is available to upload.
-    virtual void set_chunk_callback(ChunkCallback* callback) = 0;
-
    protected:
     friend class base::RefCounted<Delegate>;
     virtual ~Delegate() {}
@@ -122,8 +116,8 @@ class NET_EXPORT_PRIVATE SpdyStream
   const std::string& path() const { return path_; }
   void set_path(const std::string& path) { path_ = path; }
 
-  int priority() const { return priority_; }
-  void set_priority(int priority) { priority_ = priority; }
+  RequestPriority priority() const { return priority_; }
+  void set_priority(RequestPriority priority) { priority_ = priority; }
 
   int32 send_window_size() const { return send_window_size_; }
   void set_send_window_size(int32 window_size) {
@@ -138,11 +132,15 @@ class NET_EXPORT_PRIVATE SpdyStream
   // Set session_'s initial_recv_window_size. Used by unittests.
   void set_initial_recv_window_size(int32 window_size);
 
+  bool stalled_by_flow_control() { return stalled_by_flow_control_; }
+
   void set_stalled_by_flow_control(bool stalled) {
     stalled_by_flow_control_ = stalled;
   }
 
-  // Adjust the |send_window_size_| by |delta_window_size|.
+  // Adjusts the |send_window_size_| by |delta_window_size|. |delta_window_size|
+  // is the difference between the SETTINGS_INITIAL_WINDOW_SIZE in SETTINGS
+  // frame and the previous initial_send_window_size.
   void AdjustSendWindowSize(int32 delta_window_size);
 
   // Increases |send_window_size_| with delta extracted from a WINDOW_UPDATE
@@ -153,7 +151,7 @@ class NET_EXPORT_PRIVATE SpdyStream
   // Decreases |send_window_size_| by the given number of bytes.
   void DecreaseSendWindowSize(int32 delta_window_size);
 
-  int GetPeerAddress(AddressList* address) const;
+  int GetPeerAddress(IPEndPoint* address) const;
   int GetLocalAddress(IPEndPoint* address) const;
 
   // Returns true if the underlying transport socket ever had any reads or
@@ -172,8 +170,8 @@ class NET_EXPORT_PRIVATE SpdyStream
 
   const BoundNetLog& net_log() const { return net_log_; }
 
-  const linked_ptr<SpdyHeaderBlock>& spdy_headers() const;
-  void set_spdy_headers(const linked_ptr<SpdyHeaderBlock>& headers);
+  const SpdyHeaderBlock& spdy_headers() const;
+  void set_spdy_headers(scoped_ptr<SpdyHeaderBlock> headers);
   base::Time GetRequestTime() const;
   void SetRequestTime(base::Time t);
 
@@ -231,7 +229,7 @@ class NET_EXPORT_PRIVATE SpdyStream
   // Fills SSL info in |ssl_info| and returns true when SSL is in use.
   bool GetSSLInfo(SSLInfo* ssl_info,
                   bool* was_npn_negotiated,
-                  SSLClientSocket::NextProto* protocol_negotiated);
+                  NextProto* protocol_negotiated);
 
   // Fills SSL Certificate Request info |cert_request_info| and returns
   // true when SSL is in use.
@@ -249,9 +247,6 @@ class NET_EXPORT_PRIVATE SpdyStream
   // Get the URL associated with this stream.  Only valid when has_url() is
   // true.
   GURL GetUrl() const;
-
-  // ChunkCallback methods.
-  virtual void OnChunkAvailable() OVERRIDE;
 
   int GetProtocolVersion() const;
 
@@ -272,7 +267,12 @@ class NET_EXPORT_PRIVATE SpdyStream
   };
 
   friend class base::RefCounted<SpdyStream>;
+
   virtual ~SpdyStream();
+
+  // If the stream is stalled and if |send_window_size_| is positive, then set
+  // |stalled_by_flow_control_| to false and unstall the stream.
+  void PossiblyResumeIfStalled();
 
   void OnGetDomainBoundCertComplete(int result);
 
@@ -300,10 +300,6 @@ class NET_EXPORT_PRIVATE SpdyStream
   // the MessageLoop to replay all the data that the server has already sent.
   void PushedStreamReplayData();
 
-  // Extracts the URL from the various fields in |headers|.
-  GURL GetUrlFromHeaderBlock(
-      const linked_ptr<SpdyHeaderBlock>& headers) const;
-
   // There is a small period of time between when a server pushed stream is
   // first created, and the pushed data is replayed. Any data received during
   // this time should continue to be buffered.
@@ -311,7 +307,7 @@ class NET_EXPORT_PRIVATE SpdyStream
 
   SpdyStreamId stream_id_;
   std::string path_;
-  int priority_;
+  RequestPriority priority_;
   size_t slot_;
 
   // Flow control variables.
@@ -330,13 +326,13 @@ class NET_EXPORT_PRIVATE SpdyStream
   SpdyStream::Delegate* delegate_;
 
   // The request to send.
-  linked_ptr<SpdyHeaderBlock> request_;
+  scoped_ptr<SpdyHeaderBlock> request_;
 
   // The time at which the request was made that resulted in this response.
   // For cached responses, this time could be "far" in the past.
   base::Time request_time_;
 
-  linked_ptr<SpdyHeaderBlock> response_;
+  scoped_ptr<SpdyHeaderBlock> response_;
   base::Time response_time_;
 
   State io_state_;
@@ -364,25 +360,6 @@ class NET_EXPORT_PRIVATE SpdyStream
   ServerBoundCertService::RequestHandle domain_bound_cert_request_handle_;
 
   DISALLOW_COPY_AND_ASSIGN(SpdyStream);
-};
-
-class NetLogSpdyStreamErrorParameter : public NetLog::EventParameters {
- public:
-  NetLogSpdyStreamErrorParameter(SpdyStreamId stream_id,
-                                 int status,
-                                 const std::string& description);
-
-  SpdyStreamId stream_id() const { return stream_id_; }
-  virtual base::Value* ToValue() const OVERRIDE;
-
- private:
-  virtual ~NetLogSpdyStreamErrorParameter();
-
-  const SpdyStreamId stream_id_;
-  const int status_;
-  const std::string description_;
-
-  DISALLOW_COPY_AND_ASSIGN(NetLogSpdyStreamErrorParameter);
 };
 
 }  // namespace net

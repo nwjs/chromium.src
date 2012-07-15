@@ -1,18 +1,28 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/extensions/extension_toolbar_model.h"
 
+#include "chrome/browser/extensions/extension_browser_event_router.h"
 #include "chrome/browser/extensions/extension_prefs.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/tab_helper.h"
+#include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
+#include "content/public/browser/web_contents.h"
+
+using extensions::Extension;
+using extensions::ExtensionList;
 
 ExtensionToolbarModel::ExtensionToolbarModel(ExtensionService* service)
     : service_(service),
@@ -28,7 +38,7 @@ ExtensionToolbarModel::ExtensionToolbarModel(ExtensionService* service)
                  content::Source<Profile>(service_->profile()));
   registrar_.Add(
       this, chrome::NOTIFICATION_EXTENSION_BROWSER_ACTION_VISIBILITY_CHANGED,
-      content::Source<ExtensionPrefs>(service_->extension_prefs()));
+      content::Source<extensions::ExtensionPrefs>(service_->extension_prefs()));
 
   visible_icon_count_ = prefs_->GetInteger(prefs::kExtensionToolbarSize);
 }
@@ -75,6 +85,38 @@ void ExtensionToolbarModel::MoveBrowserAction(const Extension* extension,
   UpdatePrefs();
 }
 
+ExtensionToolbarModel::Action ExtensionToolbarModel::ExecuteBrowserAction(
+    const Extension* extension,
+    Browser* browser,
+    GURL* popup_url_out) {
+  TabContents* tab_contents = chrome::GetActiveTabContents(browser);
+  if (!tab_contents)
+    return ACTION_NONE;
+
+  int tab_id = ExtensionTabUtil::GetTabId(tab_contents->web_contents());
+  if (tab_id < 0)
+    return ACTION_NONE;
+
+  ExtensionAction* browser_action = extension->browser_action();
+
+  // For browser actions, visibility == enabledness.
+  if (!browser_action->GetIsVisible(tab_id))
+    return ACTION_NONE;
+
+  tab_contents->extension_tab_helper()->active_tab_permission_manager()->
+      GrantIfRequested(extension);
+
+  if (browser_action->HasPopup(tab_id)) {
+    if (popup_url_out)
+      *popup_url_out = browser_action->GetPopupUrl(tab_id);
+    return ACTION_SHOW_POPUP;
+  }
+
+  service_->browser_event_router()->BrowserActionExecuted(
+      *browser_action, browser);
+  return ACTION_NONE;
+}
+
 void ExtensionToolbarModel::SetVisibleIconCount(int count) {
   visible_icon_count_ = count == static_cast<int>(size()) ? -1 : count;
   prefs_->SetInteger(prefs::kExtensionToolbarSize, visible_icon_count_);
@@ -94,7 +136,8 @@ void ExtensionToolbarModel::Observe(
 
   const Extension* extension = NULL;
   if (type == chrome::NOTIFICATION_EXTENSION_UNLOADED) {
-    extension = content::Details<UnloadedExtensionInfo>(details)->extension;
+    extension = content::Details<extensions::UnloadedExtensionInfo>(
+        details)->extension;
   } else {
     extension = content::Details<const Extension>(details).ptr();
   }
@@ -106,14 +149,14 @@ void ExtensionToolbarModel::Observe(
       if (toolitems_[i].get() == extension)
         return;  // Already exists.
     }
-    if (service_->GetBrowserActionVisibility(extension))
+    if (service_->extension_prefs()->GetBrowserActionVisibility(extension))
       AddExtension(extension);
   } else if (type == chrome::NOTIFICATION_EXTENSION_UNLOADED) {
     RemoveExtension(extension);
   } else if (
         type ==
         chrome::NOTIFICATION_EXTENSION_BROWSER_ACTION_VISIBILITY_CHANGED) {
-    if (service_->GetBrowserActionVisibility(extension))
+    if (service_->extension_prefs()->GetBrowserActionVisibility(extension))
       AddExtension(extension);
     else
       RemoveExtension(extension);
@@ -185,7 +228,7 @@ void ExtensionToolbarModel::InitializeExtensionList() {
     const Extension* extension = *it;
     if (!extension->browser_action())
       continue;
-    if (!service_->GetBrowserActionVisibility(extension))
+    if (!service_->extension_prefs()->GetBrowserActionVisibility(extension))
       continue;
 
     std::vector<std::string>::iterator pos =

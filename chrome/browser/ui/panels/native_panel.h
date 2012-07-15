@@ -4,15 +4,16 @@
 
 #ifndef CHROME_BROWSER_UI_PANELS_NATIVE_PANEL_H_
 #define CHROME_BROWSER_UI_PANELS_NATIVE_PANEL_H_
-#pragma once
 
 #include "chrome/browser/ui/panels/panel.h"
 #include "ui/gfx/native_widget_types.h"
 
+class Browser;
 class FindBar;
 class NativePanelTesting;
 
 namespace content {
+struct NativeWebKeyboardEvent;
 class WebContents;
 }
 
@@ -31,8 +32,12 @@ class Rect;
 // still use the BrowserWindow interface as part of their implementation so we
 // use Panel in all the method names to avoid collisions.
 class NativePanel {
+  friend class BasePanelBrowserTest;  // for CreateNativePanelTesting
   friend class Panel;
+  friend class PanelBrowserWindow;
   friend class PanelBrowserTest;
+  friend class OldBasePanelBrowserTest;  // for CreateNativePanelTesting
+  friend class OldPanelBrowserTest;
 
  protected:
   virtual ~NativePanel() {}
@@ -50,23 +55,29 @@ class NativePanel {
   virtual gfx::NativeWindow GetNativePanelHandle() = 0;
   virtual void UpdatePanelTitleBar() = 0;
   virtual void UpdatePanelLoadingAnimations(bool should_animate) = 0;
-  virtual void ShowTaskManagerForPanel() = 0;
-  virtual FindBar* CreatePanelFindBar() = 0;
+  virtual void ShowTaskManagerForPanel() {}  // legacy
+  virtual FindBar* CreatePanelFindBar() = 0;  // legacy
   virtual void NotifyPanelOnUserChangedTheme() = 0;
-  virtual void PanelWebContentsFocused(content::WebContents* contents) = 0;
+  virtual void PanelWebContentsFocused(content::WebContents* contents) {}
   virtual void PanelCut() = 0;
   virtual void PanelCopy() = 0;
   virtual void PanelPaste() = 0;
   virtual void DrawAttention(bool draw_attention) = 0;
   virtual bool IsDrawingAttention() const = 0;
   virtual bool PreHandlePanelKeyboardEvent(
-      const NativeWebKeyboardEvent& event, bool* is_keyboard_shortcut) = 0;
+      const content::NativeWebKeyboardEvent& event,
+      bool* is_keyboard_shortcut) = 0;
   virtual void HandlePanelKeyboardEvent(
-      const NativeWebKeyboardEvent& event) = 0;
+      const content::NativeWebKeyboardEvent& event) = 0;
   virtual void FullScreenModeChanged(bool is_full_screen) = 0;
+  virtual void PanelExpansionStateChanging(Panel::ExpansionState old_state,
+                                           Panel::ExpansionState new_state) = 0;
+  // TODO(jennb): Make these new methods pure virtual after panel refactor.
+  virtual void AttachWebContents(content::WebContents* contents) {}
+  virtual void DetachWebContents(content::WebContents* contents) {}
 
-  virtual Browser* GetPanelBrowser() const = 0;
-  virtual void DestroyPanelBrowser() = 0;
+  virtual Browser* GetPanelBrowser() const = 0;  // legacy
+  virtual void DestroyPanelBrowser() {}  // legacy
 
   // Returns the exterior size of the panel window given the client content
   // size and vice versa.
@@ -77,30 +88,28 @@ class NativePanel {
 
   virtual int TitleOnlyHeight() const = 0;
 
-  // Returns the size of the iconified panel. This is the size we use to draw
-  // the panel put in the overflow area.
-  virtual gfx::Size IconOnlySize() const = 0;
-
   // Brings the panel to the top of the z-order without activating it. This
   // will make sure that the panel is not obscured by other top-most windows.
   virtual void EnsurePanelFullyVisible() = 0;
-
-  // Sets whether the panel app icon is visible (usually refers to the app icons
-  // in the desktop bar).
-  virtual void SetPanelAppIconVisibility(bool visible) = 0;
 
   // Sets whether the panel window is always on top.
   virtual void SetPanelAlwaysOnTop(bool on_top) = 0;
 
   // Enables resizing by dragging edges/corners.
   virtual void EnableResizeByMouse(bool enable) = 0;
+
+  // Updates the visibility of the minimize and restore buttons.
+  virtual void UpdatePanelMinimizeRestoreButtonVisibility() = 0;
+
+  // Create testing interface for native panel. (Keep this last to separate
+  // it from regular API.)
+  virtual NativePanelTesting* CreateNativePanelTesting() = 0;
 };
 
 // A NativePanel utility interface used for accessing elements of the
 // native panel used only by test automation.
 class NativePanelTesting {
  public:
-  static NativePanelTesting* Create(NativePanel* native_panel);
   virtual ~NativePanelTesting() {}
 
   // Wrappers for the common cases when no modifier is needed.
@@ -129,6 +138,7 @@ class NativePanelTesting {
 
   virtual bool IsWindowSizeKnown() const = 0;
   virtual bool IsAnimatingBounds() const = 0;
+  virtual bool IsButtonVisible(panel::TitlebarButtonType button_type) const = 0;
 };
 
 #endif  // CHROME_BROWSER_UI_PANELS_NATIVE_PANEL_H_

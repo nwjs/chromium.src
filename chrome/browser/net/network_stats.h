@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_NET_NETWORK_STATS_H_
 #define CHROME_BROWSER_NET_NETWORK_STATS_H_
-#pragma once
 
 #include <string>
 
@@ -21,8 +20,8 @@
 #include "net/base/io_buffer.h"
 #include "net/base/ip_endpoint.h"
 #include "net/base/test_data_stream.h"
+#include "net/proxy/proxy_info.h"
 #include "net/socket/socket.h"
-
 namespace chrome_browser_net {
 
 // This class is used for live experiment of network connectivity (either TCP or
@@ -60,8 +59,36 @@ class NetworkStats {
     WRITE_FAILED,            // Sending an echo message to the server failed.
     READ_TIMED_OUT,          // Reading the reply from the server timed out.
     READ_FAILED,             // Reading the reply from the server failed.
-    READ_VERIFY_FAILED,      // Verification of data failed.
+    ZERO_LENGTH_ERROR,       // Zero length message.
+    NO_CHECKSUM_ERROR,       // Message doesn't have a checksum.
+    NO_KEY_ERROR,            // Message doesn't have a key.
+    NO_PAYLOAD_SIZE_ERROR,   // Message doesn't have a payload size.
+    NO_PAYLOAD_ERROR,        // Message doesn't have a payload.
+    INVALID_KEY_ERROR,       // Invalid key in the message.
+    TOO_SHORT_PAYLOAD,       // Message is shorter than payload.
+    TOO_LONG_PAYLOAD,        // Message is longer than payload.
+    INVALID_CHECKSUM,        // Checksum verification failed.
+    PATTERN_CHANGED,         // Pattern in payload has changed.
+    INVALID_PACKET_NUMBER,   // Packet number didn't match.
+    TOO_MANY_PACKETS,        // Received more packets than the packets sent.
     STATUS_MAX,              // Bounding value.
+  };
+
+  // |ProtocolValue| enumerates different protocols that are being tested.
+  enum ProtocolValue {
+    PROTOCOL_TCP,
+    PROTOCOL_UDP,
+  };
+
+  // |HistogramPortSelector| enumerates list of ports that are used for network
+  // connectivity tests (either TCP or UDP).
+  enum HistogramPortSelector {
+    PORT_53 = 0,  // DNS
+    PORT_80,      // HTTP
+    PORT_587,     // SMTP Submission.
+    PORT_6121,    // SPDY
+    PORT_8080,    // High order webserver.
+    HISTOGRAM_PORT_MAX,
   };
 
   // Starts the client, connecting to |server|.
@@ -73,29 +100,35 @@ class NetworkStats {
   // Returns true if successful in starting the client.
   bool Start(net::HostResolver* host_resolver,
              const net::HostPortPair& server,
+             HistogramPortSelector histogram_port,
+             bool has_proxy_server,
              uint32 bytes_to_send,
+             uint32 packets_to_send,
              const net::CompletionCallback& callback);
 
  protected:
   // Constructs an NetworkStats object that collects metrics for network
   // connectivity (either TCP or UDP).
   NetworkStats();
+  // NetworkStats is deleted when Finish() is called.
   virtual ~NetworkStats();
 
   // Initializes |finished_callback_| and the number of bytes to send to the
   // server. |finished_callback| is called when we are done with the test.
   // |finished_callback| is mainly useful for unittests.
   void Initialize(uint32 bytes_to_send,
+                  HistogramPortSelector histogram_port,
+                  bool has_proxy_server,
+                  uint32 packets_to_send,
                   const net::CompletionCallback& finished_callback);
 
   // Called after host is resolved. UDPStatsClient and TCPStatsClient implement
   // this method. They create the socket and connect to the server.
   virtual bool DoConnect(int result) = 0;
 
-  // This method is called after socket connection is completed. It will send
-  // |bytes_to_send| bytes to |server| by calling SendData(). After successfully
-  // sending data to the |server|, it calls ReadData() to read/verify the data
-  // from the |server|. Returns true if successful.
+  // This method is called after socket connection is completed. It will start
+  // the process of sending packets to |server| by calling SendPacket(). Returns
+  // false if connection is not established (result is less than 0).
   bool ConnectComplete(int result);
 
   // Collects network connectivity stats. This is called when all the data from
@@ -121,11 +154,37 @@ class NetworkStats {
   base::TimeTicks start_time() const { return start_time_; }
 
   // Returns |addresses_|.
-  net::AddressList GetAddressList() const { return addresses_; }
+  const net::AddressList& addresses() const { return addresses_; }
+
+  // Returns packets_received_mask_ (used by unit tests).
+  uint32 packets_received_mask() const { return packets_received_mask_; }
+
+  // Collect the following network connectivity stats.
+  // a) What percentage of users can get a message end-to-end to a TCP/UDP
+  // server and if connectivity failed, at what stage (Connect or Write or Read)
+  // did it fail?
+  // b) What is RTT for the echo message.
+  // c) Packet loss correlation and other network connectivity data by calling
+  // RecordAcksReceivedHistograms() and RecordStatusAndRTTHistograms().
+  void RecordHistograms(const ProtocolValue& protocol,
+                        const Status& status,
+                        int result);
 
  private:
+  friend class NetworkStatsTest;
+
+  // Allow tests to access our innards for testing purposes.
+  FRIEND_TEST_ALL_PREFIXES(NetworkStatsTest, GetHistogramNames);
+  FRIEND_TEST_ALL_PREFIXES(NetworkStatsTestTCP, VerifyBytes);
+
   // Callback that is called when host resolution is completed.
   void OnResolveComplete(int result);
+
+  // This method is called whenever we need to send a packet. It is called from
+  // either ConnectComplete or OnWriteComplete. It will send a packet, based on
+  // load_size_, to |server| by calling SendData(). If there are no more packets
+  // to send, it calls ReadData() to read/verify the data from the |server|.
+  void SendPacket();
 
   // Callbacks when an internal IO is completed.
   void OnReadComplete(int result);
@@ -137,21 +196,68 @@ class NetworkStats {
   // Sends data to server until an error occurs.
   int SendData();
 
+  // Determine the size of the packet from |load_size_|. The packet size
+  // includes |load_size_| plus the header size.
+  uint32 SendingPacketSize() const;
+  uint32 ReceivingPacketSize() const;
+
+  // This method decrements the |bytes_to_send_| by the |bytes_sent| and updates
+  // |packets_sent_| if all the bytes are sent. It also informs |write_buffer_|
+  // that data has been consumed.
+  void DidSendData(int bytes_sent);
+
   // We set a timeout for responses from the echo servers.
   void StartReadDataTimer(int milliseconds);
   void OnReadDataTimeout();   // Called when the ReadData Timer fires.
 
+  // Returns the checksum for the message.
+  uint32 GetChecksum(const char* message, uint32 message_length);
+
+  // Encrypts/decrypts the data with the key and returns encrypted/decrypted
+  // data in |encoded_data|.
+  void Crypt(const char* key,
+             uint32 key_length,
+             const char* data,
+             uint32 data_length,
+             char* encoded_data);
+
   // Fills the |io_buffer| with the "echo request" message. This gets the
   // <payload> from |stream_| and calculates the <checksum> of the <payload> and
   // returns the "echo request" that has <version>, <checksum>, <payload_size>
-  // and <payload>.
-  void GetEchoRequest(net::IOBuffer* io_buffer);
+  // and <payload>. Every <payload> has a unique packet number stored in it.
+  void GetEchoRequest(net::IOBufferWithSize* io_buffer);
 
-  // This method parses the "echo response" message in the |encoded_message_| to
-  // verify that the <payload> is same as what we had sent in "echo request"
-  // message.
-  bool VerifyBytes();
+  // This method verifies that we have received all the packets we have sent. It
+  // verifies the |encoded_message_| by calling VerifyBytes() for each packet
+  // that is in it. It returns SUCCESS, if all the packets are verified.
+  NetworkStats::Status VerifyPackets();
 
+  // This method parses the "echo response" message in the |response| to verify
+  // that the <payload> is same as what we had sent in "echo request" message.
+  // As it verifies the response in each packet, it also extracts the packet
+  // number, and records that said packet number responded. It returns SUCCESS,
+  // if all the bytes are verified.
+  NetworkStats::Status VerifyBytes(const std::string& response);
+
+  // Collect the following network connectivity stats when
+  // kMaximumSequentialPackets (21) packets are sent.
+  // a) Received the "echo response" for at least one packet.
+  // b) Received the "echo response" for the nth packet.
+  // c) Count the number of "echo responses" received for each of the initial
+  // sequences of packets 1...n.
+  void RecordAcksReceivedHistograms(const char* load_size_string);
+
+  // Collect the following network connectivity stats.
+  // a) What percentage of users can get a message end-to-end to a TCP/UDP
+  // server and if connectivity failed, at what stage (Connect or Write or Read)
+  // did it fail?
+  // b) What is RTT for the echo message.
+  // c) Records if there is a probabalistic dependency in packet loss when
+  // kMaximumCorrelationPackets packets are sent consecutively.
+  void RecordPacketLossSeriesHistograms(const ProtocolValue& protocol,
+                                        const Status& status,
+                                        const char* load_size_string,
+                                        int result);
   // The socket handle for this session.
   scoped_ptr<net::Socket> socket_;
 
@@ -163,8 +269,8 @@ class NetworkStats {
 
   // Some counters for the session.
   uint32 load_size_;
-  int bytes_to_read_;
-  int bytes_to_send_;
+  uint32 bytes_to_read_;
+  uint32 bytes_to_send_;
 
   // The encoded message read from the server.
   std::string encoded_message_;
@@ -172,6 +278,13 @@ class NetworkStats {
   // |stream_| is used to generate data to be sent to the server and it is also
   // used to verify the data received from the server.
   net::TestDataStream stream_;
+
+  // |histogram_port_| specifies the port for which we are testing the network
+  // connectivity.
+  HistogramPortSelector histogram_port_;
+
+  // |has_proxy_server_| specifies if there is a proxy server or not.
+  bool has_proxy_server_;
 
   // HostResolver fills out the |addresses_| after host resolution is completed.
   net::AddressList addresses_;
@@ -184,6 +297,13 @@ class NetworkStats {
   // The time when the session was started.
   base::TimeTicks start_time_;
 
+  // Data to track number of packets to send to the server and the packets we
+  // have received from the server.
+  uint32 packets_to_send_;
+  uint32 packets_sent_;
+  uint32 base_packet_number_;
+  uint32 packets_received_mask_;
+
   // We use this factory to create timeout tasks for socket's ReadData.
   base::WeakPtrFactory<NetworkStats> weak_factory_;
 };
@@ -193,6 +313,7 @@ class UDPStatsClient : public NetworkStats {
   // Constructs an UDPStatsClient object that collects metrics for UDP
   // connectivity.
   UDPStatsClient();
+  // UDPStatsClient is deleted when Finish() is called.
   virtual ~UDPStatsClient();
 
  protected:
@@ -210,7 +331,8 @@ class UDPStatsClient : public NetworkStats {
   virtual bool ReadComplete(int result) OVERRIDE;
 
   // Collects stats for UDP connectivity. This is called when all the data from
-  // server is read or when there is a failure during connect/read/write.
+  // server is read or when there is a failure during connect/read/write. This
+  // object is deleted at the end of this method.
   virtual void Finish(Status status, int result) OVERRIDE;
 };
 
@@ -219,6 +341,7 @@ class TCPStatsClient : public NetworkStats {
   // Constructs a TCPStatsClient object that collects metrics for TCP
   // connectivity.
   TCPStatsClient();
+  // TCPStatsClient is deleted when Finish() is called.
   virtual ~TCPStatsClient();
 
  protected:
@@ -234,7 +357,8 @@ class TCPStatsClient : public NetworkStats {
   virtual bool ReadComplete(int result) OVERRIDE;
 
   // Collects stats for TCP connectivity. This is called when all the data from
-  // server is read or when there is a failure during connect/read/write.
+  // server is read or when there is a failure during connect/read/write. This
+  // object is deleted at the end of this method.
   virtual void Finish(Status status, int result) OVERRIDE;
 
  private:
@@ -243,12 +367,64 @@ class TCPStatsClient : public NetworkStats {
   void OnConnectComplete(int result);
 };
 
+class ProxyDetector {
+ public:
+  // Used for the callback that is called from |OnResolveProxyComplete|.
+  typedef base::Callback<void(bool)> OnResolvedCallback;
+
+  // Constructs a ProxyDetector object that finds out if access to
+  // |server_address| goes through a proxy server or not. Calls the |callback|
+  // after proxy resolution is completed by currying the proxy resolution
+  // status.
+  ProxyDetector(net::ProxyService* proxy_service,
+                const net::HostPortPair& server_address,
+                OnResolvedCallback callback);
+
+  // This method uses |proxy_service_| to resolve the proxy for
+  // |server_address_|.
+  void StartResolveProxy();
+
+ private:
+  // This object is deleted from |OnResolveProxyComplete|.
+  ~ProxyDetector();
+
+  // Calls the |callback_| by currying the proxy resolution status.
+  void OnResolveProxyComplete(int result);
+
+  // |proxy_service_| specifies the proxy service that is to be used to find
+  // if access to |server_address_| goes through proxy server or not.
+  net::ProxyService* proxy_service_;
+
+  // |server_address_| specifies the server host and port pair for which we are
+  // trying to see if access to it, goes through proxy or not.
+  net::HostPortPair server_address_;
+
+  // |callback_| will be called after proxy resolution is completed.
+  OnResolvedCallback callback_;
+
+  // |proxy_info_| holds proxy information returned by ResolveProxy.
+  net::ProxyInfo proxy_info_;
+
+  // Indicates if there is a pending a proxy resolution. We use this to assert
+  // that there is no in-progress proxy resolution request.
+  bool has_pending_proxy_resolution_;
+};
+
 // This collects the network connectivity stats for UDP and TCP for small
 // percentage of users who are participating in the experiment. All users must
 // have enabled "UMA upload". This method gets called only if UMA upload to the
 // server has succeeded.
 void CollectNetworkStats(const std::string& network_stats_server_url,
                          IOThread* io_thread);
+
+// This starts a test randomly selected among "TCP test with small packet size",
+// "TCP test with large packet size", "UDP test with small packet size", "UDP
+// test with large packet size" and "UDP multi packet loss" tests to collect the
+// network connectivity stats.
+void StartNetworkStatsTest(net::HostResolver* host_resolver,
+                           const net::HostPortPair& server_address,
+                           NetworkStats::HistogramPortSelector histogram_port,
+                           bool has_proxy_server);
 
 }  // namespace chrome_browser_net
 

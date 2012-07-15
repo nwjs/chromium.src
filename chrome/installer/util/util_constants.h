@@ -7,7 +7,6 @@
 
 #ifndef CHROME_INSTALLER_UTIL_UTIL_CONSTANTS_H_
 #define CHROME_INSTALLER_UTIL_UTIL_CONSTANTS_H_
-#pragma once
 
 #include "base/basictypes.h"
 
@@ -113,12 +112,13 @@ enum InstallerStage {
   REMOVING_OLD_VERSIONS,       // 14: Deleting old version directories.
   FINISHING,                   // 15: Finishing the install.
   CONFIGURE_AUTO_LAUNCH,       // 16: Configuring Chrome to auto-launch.
-  NUM_STAGES                   // 17: The number of stages.
+  CREATING_VISUAL_MANIFEST,    // 17: Creating VisualElementsManifest.xml
+  NUM_STAGES                   // 18: The number of stages.
 };
 
 // When we start reporting the numerical values from the enum, the order
 // above MUST be preserved.
-COMPILE_ASSERT(CONFIGURE_AUTO_LAUNCH == 16,
+COMPILE_ASSERT(CREATING_VISUAL_MANIFEST == 17,
                never_ever_ever_change_InstallerStage_values_bang);
 
 namespace switches {
@@ -135,7 +135,6 @@ extern const char kCreateAllShortcuts[];
 extern const char kCriticalUpdateVersion[];
 extern const char kDeleteProfile[];
 extern const char kDisableLogging[];
-extern const char kDoNotCreateShortcuts[];
 extern const char kDoNotLaunchChrome[];
 extern const char kDoNotRegisterForUpdateLaunch[];
 extern const char kDoNotRemoveSharedItems[];
@@ -176,6 +175,7 @@ extern const wchar_t kChromeLauncherExe[];
 extern const wchar_t kChromeOldExe[];
 extern const wchar_t kChromeNewExe[];
 extern const wchar_t kCmdQuickEnableCf[];
+extern const wchar_t kDelegateExecuteExe[];
 extern const wchar_t kGoogleChromeInstallSubDir1[];
 extern const wchar_t kGoogleChromeInstallSubDir2[];
 extern const wchar_t kInstallBinaryDir[];
@@ -183,6 +183,7 @@ extern const wchar_t kInstallerDir[];
 extern const wchar_t kInstallTempDir[];
 extern const wchar_t kInstallUserDataDir[];
 extern const wchar_t kNaClExe[];
+extern const wchar_t kPSOAInterfaceUuid[];
 extern const wchar_t kSetupExe[];
 extern const wchar_t kSxSSuffix[];
 extern const wchar_t kUninstallArgumentsField[];
@@ -214,6 +215,8 @@ extern const wchar_t kChromeChannelCanary[];
 extern const wchar_t kChromeChannelDev[];
 extern const wchar_t kChromeChannelBeta[];
 extern const wchar_t kChromeChannelStable[];
+
+extern const size_t kMaxAppModelIdLength;
 
 }  // namespace installer
 

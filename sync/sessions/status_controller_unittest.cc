@@ -6,63 +6,17 @@
 #include "sync/test/engine/test_id_factory.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-namespace browser_sync {
+namespace syncer {
 namespace sessions {
 
 class StatusControllerTest : public testing::Test {
  public:
   virtual void SetUp() {
-    routes_[syncable::BOOKMARKS] = GROUP_UI;
+    routes_[syncer::BOOKMARKS] = GROUP_UI;
   }
  protected:
   ModelSafeRoutingInfo routes_;
 };
-
-TEST_F(StatusControllerTest, GetsDirty) {
-  StatusController status(routes_);
-  status.set_num_server_changes_remaining(30);
-  EXPECT_TRUE(status.TestAndClearIsDirty());
-
-  status.set_invalid_store(true);
-  EXPECT_TRUE(status.TestAndClearIsDirty());
-  status.set_invalid_store(false);
-  EXPECT_TRUE(status.TestAndClearIsDirty());
-
-  status.increment_num_successful_commits();
-  EXPECT_TRUE(status.TestAndClearIsDirty());
-  status.increment_num_successful_commits();
-  EXPECT_TRUE(status.TestAndClearIsDirty());
-
-  {
-    ScopedModelSafeGroupRestriction r(&status, GROUP_UI);
-    status.mutable_conflict_progress()->
-        AddSimpleConflictingItemById(syncable::Id());
-  }
-  EXPECT_TRUE(status.TestAndClearIsDirty());
-
-  std::vector<int64> v;
-  v.push_back(1);
-  status.set_unsynced_handles(v);
-  EXPECT_TRUE(status.TestAndClearIsDirty());
-  std::vector<int64> v2;
-  v2.push_back(1);
-  status.set_unsynced_handles(v2);
-  EXPECT_FALSE(status.TestAndClearIsDirty());  // Test for deep comparison.
-}
-
-TEST_F(StatusControllerTest, StaysClean) {
-  StatusController status(routes_);
-  status.update_conflicts_resolved(true);
-  EXPECT_FALSE(status.TestAndClearIsDirty());
-
-  status.set_items_committed();
-  EXPECT_FALSE(status.TestAndClearIsDirty());
-
-  OrderedCommitSet commits(routes_);
-  commits.AddCommitItem(0, syncable::Id(), syncable::BOOKMARKS);
-  status.set_commit_set(commits);
-  EXPECT_FALSE(status.TestAndClearIsDirty());
-}
 
 // This test is useful, as simple as it sounds, due to the copy-paste prone
 // nature of status_controller.cc (we have had bugs in the past where a set_foo
@@ -72,32 +26,20 @@ TEST_F(StatusControllerTest, ReadYourWrites) {
   status.set_num_server_changes_remaining(13);
   EXPECT_EQ(13, status.num_server_changes_remaining());
 
-  EXPECT_FALSE(status.syncer_status().invalid_store);
-  status.set_invalid_store(true);
-  EXPECT_TRUE(status.syncer_status().invalid_store);
-
   EXPECT_FALSE(status.conflicts_resolved());
   status.update_conflicts_resolved(true);
   EXPECT_TRUE(status.conflicts_resolved());
 
   status.set_last_download_updates_result(SYNCER_OK);
-  EXPECT_EQ(SYNCER_OK, status.error().last_download_updates_result);
+  EXPECT_EQ(SYNCER_OK,
+            status.model_neutral_state().last_download_updates_result);
 
-  status.set_last_post_commit_result(SYNC_AUTH_ERROR);
-  EXPECT_EQ(SYNC_AUTH_ERROR, status.error().last_post_commit_result);
-
-  status.set_last_process_commit_response_result(SYNC_SERVER_ERROR);
-  EXPECT_EQ(SYNC_SERVER_ERROR,
-            status.error().last_process_commit_response_result);
+  status.set_commit_result(SYNC_AUTH_ERROR);
+  EXPECT_EQ(SYNC_AUTH_ERROR, status.model_neutral_state().commit_result);
 
   for (int i = 0; i < 14; i++)
     status.increment_num_successful_commits();
-  EXPECT_EQ(14, status.syncer_status().num_successful_commits);
-
-  std::vector<int64> v;
-  v.push_back(16);
-  status.set_unsynced_handles(v);
-  EXPECT_EQ(16, v[0]);
+  EXPECT_EQ(14, status.model_neutral_state().num_successful_commits);
 }
 
 TEST_F(StatusControllerTest, HasConflictingUpdates) {
@@ -140,7 +82,7 @@ TEST_F(StatusControllerTest, HasConflictingUpdates_NonBlockingUpdates) {
 TEST_F(StatusControllerTest, CountUpdates) {
   StatusController status(routes_);
   EXPECT_EQ(0, status.CountUpdates());
-  ClientToServerResponse* response(status.mutable_updates_response());
+  sync_pb::ClientToServerResponse* response(status.mutable_updates_response());
   sync_pb::SyncEntity* entity1 = response->mutable_get_updates()->add_entries();
   sync_pb::SyncEntity* entity2 = response->mutable_get_updates()->add_entries();
   ASSERT_TRUE(entity1 != NULL && entity2 != NULL);
@@ -179,20 +121,11 @@ TEST_F(StatusControllerTest, Unrestricted) {
   const UpdateProgress* progress =
       status.GetUnrestrictedUpdateProgress(GROUP_UI);
   EXPECT_FALSE(progress);
-  status.mutable_commit_message();
-  status.commit_response();
-  status.mutable_commit_response();
-  status.updates_response();
-  status.mutable_updates_response();
-  status.error();
-  status.syncer_status();
-  status.num_server_changes_remaining();
-  status.commit_ids();
-  status.HasBookmarkCommitActivity();
+  status.model_neutral_state();
   status.download_updates_succeeded();
   status.ServerSaysNothingMoreToDownload();
   status.group_restriction();
 }
 
 }  // namespace sessions
-}  // namespace browser_sync
+}  // namespace syncer

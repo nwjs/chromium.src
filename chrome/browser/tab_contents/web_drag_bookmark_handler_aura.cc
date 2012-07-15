@@ -6,9 +6,10 @@
 
 #include "chrome/browser/bookmarks/bookmark_node_data.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/bookmarks/bookmark_tab_helper.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
 #include "ui/base/dragdrop/os_exchange_data_provider_aura.h"
@@ -24,13 +25,13 @@ WebDragBookmarkHandlerAura::~WebDragBookmarkHandlerAura() {
 }
 
 void WebDragBookmarkHandlerAura::DragInitialize(WebContents* contents) {
-  // Ideally we would want to initialize the the TabContentsWrapper member in
+  // Ideally we would want to initialize the the TabContents member in
   // the constructor. We cannot do that as the WebDragDest object is
-  // created during the construction of the TabContents object.  The
-  // TabContentsWrapper is created much later.
+  // created during the construction of the WebContents object.  The
+  // TabContents is created much later.
   DCHECK(tab_ ? (tab_->web_contents() == contents) : true);
   if (!tab_)
-    tab_ = TabContentsWrapper::GetCurrentWrapperForContents(contents);
+    tab_ = TabContents::FromWebContents(contents);
 }
 
 void WebDragBookmarkHandlerAura::OnDragOver() {
@@ -68,8 +69,8 @@ void WebDragBookmarkHandlerAura::OnDrop() {
     }
 
     // Focus the target browser.
-    Browser* browser = Browser::GetBrowserForController(
-        &tab_->web_contents()->GetController(), NULL);
+    Browser* browser = browser::FindBrowserWithWebContents(
+        tab_->web_contents());
     if (browser)
       browser->window()->Show();
   }

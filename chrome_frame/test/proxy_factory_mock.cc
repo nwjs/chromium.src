@@ -9,6 +9,7 @@
 #include "chrome_frame/test/chrome_frame_test_utils.h"
 #include "chrome_frame/test/proxy_factory_mock.h"
 #include "chrome_frame/test/test_scrubber.h"
+#include "chrome_frame/utils.h"
 
 #define GMOCK_MUTANT_INCLUDE_LATE_OBJECT_BINDING
 #include "testing/gmock_mutant.h"
@@ -33,7 +34,8 @@ void ProxyFactoryTest::SetUp() {
 ChromeFrameLaunchParams* ProxyFactoryTest::MakeLaunchParams(
     const wchar_t* profile_name) {
   GURL empty;
-  FilePath profile_path(chrome_frame_test::GetProfilePath(profile_name));
+  FilePath profile_path;
+  GetChromeFrameProfilePath(profile_name, &profile_path);
   chrome_frame_test::OverrideDataDirectoryForThisTest(profile_path.value());
   ChromeFrameLaunchParams* params =
       new ChromeFrameLaunchParams(empty, empty, profile_path,
@@ -77,8 +79,11 @@ TEST_F(ProxyFactoryTest, CreateSameProfile) {
 }
 
 TEST_F(ProxyFactoryTest, CreateDifferentProfiles) {
+  LaunchDelegateMock d2;
+
   EXPECT_CALL(launch_delegate_mock_,
-              LaunchComplete(testing::NotNull(), testing::_)).Times(2);
+              LaunchComplete(testing::NotNull(), testing::_));
+  EXPECT_CALL(d2, LaunchComplete(testing::NotNull(), testing::_));
 
   scoped_refptr<ChromeFrameLaunchParams> params1(
       MakeLaunchParams(L"Adam.N.Epilinter"));
@@ -89,10 +94,10 @@ TEST_F(ProxyFactoryTest, CreateDifferentProfiles) {
   void* i2 = NULL;
 
   proxy_factory_.GetAutomationServer(&launch_delegate_mock_, params1, &i1);
-  proxy_factory_.GetAutomationServer(&launch_delegate_mock_, params2, &i2);
+  proxy_factory_.GetAutomationServer(&d2, params2, &i2);
 
   EXPECT_NE(i1, i2);
-  proxy_factory_.ReleaseAutomationServer(i2, &launch_delegate_mock_);
+  proxy_factory_.ReleaseAutomationServer(i2, &d2);
   proxy_factory_.ReleaseAutomationServer(i1, &launch_delegate_mock_);
 }
 

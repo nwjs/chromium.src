@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_COCOA_IMAGE_BUTTON_CELL_H_
 #define CHROME_BROWSER_UI_COCOA_IMAGE_BUTTON_CELL_H_
-#pragma once
 
 #import <Cocoa/Cocoa.h>
 
@@ -23,7 +22,7 @@ enum ButtonState {
 
 @protocol ImageButton
 @optional
-// Sent from an ImageButtonCell to it's view when the mouse enters or exits the
+// Sent from an ImageButtonCell to its view when the mouse enters or exits the
 // cell.
 - (void)mouseInsideStateDidChange:(BOOL)isInside;
 @end

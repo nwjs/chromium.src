@@ -4,23 +4,26 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_BROWSER_EXTENSION_WINDOW_CONTROLLER_H_
 #define CHROME_BROWSER_EXTENSIONS_BROWSER_EXTENSION_WINDOW_CONTROLLER_H_
-#pragma once
 
-#include "chrome/browser/extensions/extension_window_controller.h"
+#include "chrome/browser/extensions/window_controller.h"
 
 class Browser;
 
-class BrowserExtensionWindowController : public ExtensionWindowController {
+class BrowserExtensionWindowController : public extensions::WindowController {
  public:
   explicit BrowserExtensionWindowController(Browser* browser);
 
-  // ExtensionWindowController implementation.
-  virtual const SessionID& GetSessionId() const OVERRIDE;
+  // extensions::WindowController implementation.
+  virtual int GetWindowId() const OVERRIDE;
+  virtual std::string GetWindowTypeText() const OVERRIDE;
   virtual base::DictionaryValue* CreateWindowValue() const OVERRIDE;
   virtual base::DictionaryValue* CreateWindowValueWithTabs() const OVERRIDE;
   virtual bool CanClose(Reason* reason) const OVERRIDE;
   virtual void SetFullscreenMode(bool is_fullscreen,
                                  const GURL& extension_url) const OVERRIDE;
+  virtual Browser* GetBrowser() const OVERRIDE;
+  virtual bool IsVisibleToExtension(
+      const extensions::Extension* extension) const OVERRIDE;
 
  private:
   Browser* browser_;

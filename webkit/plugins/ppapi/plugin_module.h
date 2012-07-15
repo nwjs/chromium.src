@@ -21,6 +21,7 @@
 #include "ppapi/c/pp_module.h"
 #include "ppapi/c/ppb.h"
 #include "ppapi/c/ppb_core.h"
+#include "ppapi/shared_impl/ppapi_permissions.h"
 #include "webkit/plugins/ppapi/plugin_delegate.h"
 #include "webkit/plugins/webkit_plugins_export.h"
 
@@ -70,7 +71,8 @@ class WEBKIT_PLUGINS_EXPORT PluginModule :
   // tracks which modules are alive.
   PluginModule(const std::string& name,
                const FilePath& path,
-               PluginDelegate::ModuleLifetime* lifetime_delegate);
+               PluginDelegate::ModuleLifetime* lifetime_delegate,
+               const ::ppapi::PpapiPermissions& perms);
 
   ~PluginModule();
 
@@ -87,6 +89,12 @@ class WEBKIT_PLUGINS_EXPORT PluginModule :
   // ownership of the given pointer, even in the failure case.
   void InitAsProxied(PluginDelegate::OutOfProcessProxy* out_of_process_proxy);
 
+  // Initializes this module for the given NaCl proxy. This takes
+  // ownership of the given pointer, even in the failure case.
+  void InitAsProxiedNaCl(
+      scoped_ptr<PluginDelegate::OutOfProcessProxy> out_of_process_proxy,
+      PP_Instance instance);
+
   static const PPB_Core* GetCore();
 
   // Returns a pointer to the local GetInterface function for retrieving
@@ -99,6 +107,7 @@ class WEBKIT_PLUGINS_EXPORT PluginModule :
 
   const std::string& name() const { return name_; }
   const FilePath& path() const { return path_; }
+  const ::ppapi::PpapiPermissions permissions() const { return permissions_; }
 
   PluginInstance* CreateInstance(PluginDelegate* delegate);
 
@@ -191,11 +200,15 @@ class WEBKIT_PLUGINS_EXPORT PluginModule :
   const std::string name_;
   const FilePath path_;
 
+  ::ppapi::PpapiPermissions permissions_;
+
   // Non-owning pointers to all instances associated with this module. When
   // there are no more instances, this object should be deleted.
   PluginInstanceSet instances_;
 
   PP_Bool (*reserve_instance_id_)(PP_Module, PP_Instance);
+
+  bool nacl_ipc_proxy_;
 
   DISALLOW_COPY_AND_ASSIGN(PluginModule);
 };

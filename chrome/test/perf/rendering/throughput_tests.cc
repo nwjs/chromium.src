@@ -8,14 +8,16 @@
 #include "base/json/json_reader.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/path_service.h"
-#include "base/stringprintf.h"
+#include "base/run_loop.h"
 #include "base/string_number_conversions.h"
+#include "base/stringprintf.h"
 #include "base/test/trace_event_analyzer.h"
 #include "base/values.h"
 #include "chrome/browser/net/url_fixer_upper.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/window_snapshot/window_snapshot.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
@@ -26,6 +28,7 @@
 #include "chrome/test/perf/perf_test.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_switches.h"
+#include "content/test/gpu/gpu_test_config.h"
 #include "googleurl/src/gurl.h"
 #include "net/base/mock_host_resolver.h"
 #include "net/base/net_util.h"
@@ -33,14 +36,19 @@
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/codec/png_codec.h"
-#include "ui/gfx/gl/gl_switches.h"
+#include "ui/gl/gl_switches.h"
+
+#if defined(OS_WIN)
+#include "base/win/windows_version.h"
+#endif
 
 namespace {
 
 enum RunTestFlags {
   kNone = 0,
-  kInternal = 1 << 0,  // Test uses internal test data.
-  kAllowExternalDNS = 1 << 1  // Test needs external DNS lookup.
+  kInternal = 1 << 0,         // Test uses internal test data.
+  kAllowExternalDNS = 1 << 1, // Test needs external DNS lookup.
+  kIsGpuCanvasTest = 1 << 2   // Test uses GPU accelerated canvas features.
 };
 
 enum ThroughputTestFlags {
@@ -59,6 +67,7 @@ class ThroughputTest : public BrowserPerfTest {
       spinup_time_ms_(kSpinUpTimeMs),
       run_time_ms_(kRunTimeMs) {}
 
+  // This indicates running on GPU bots, not necessarily using the GPU.
   bool IsGpuAvailable() const {
     return CommandLine::ForCurrentProcess()->HasSwitch("enable-gpu");
   }
@@ -68,7 +77,7 @@ class ThroughputTest : public BrowserPerfTest {
                           const std::string& json,
                           int index) {
     scoped_ptr<base::Value> root;
-    root.reset(base::JSONReader::Read(json, false));
+    root.reset(base::JSONReader::Read(json));
 
     ListValue* root_list = NULL;
     if (!root.get() || !root->GetAsList(&root_list)) {
@@ -179,7 +188,6 @@ class ThroughputTest : public BrowserPerfTest {
     command_line->AppendSwitch(switches::kAllowFileAccessFromFiles);
     // Enable or disable GPU acceleration.
     if (use_gpu_) {
-      command_line->AppendSwitch(switches::kEnableAccelerated2dCanvas);
       command_line->AppendSwitch(switches::kForceCompositingMode);
     } else {
       command_line->AppendSwitch(switches::kDisableAcceleratedCompositing);
@@ -189,11 +197,11 @@ class ThroughputTest : public BrowserPerfTest {
   }
 
   void Wait(int ms) {
+    base::RunLoop run_loop;
     MessageLoop::current()->PostDelayedTask(
-        FROM_HERE,
-        MessageLoop::QuitClosure(),
+        FROM_HERE, run_loop.QuitClosure(),
         base::TimeDelta::FromMilliseconds(ms));
-    ui_test_utils::RunMessageLoop();
+    ui_test_utils::RunThisRunLoop(&run_loop);
   }
 
   // Take snapshot of the current tab, encode it as PNG, and save to a SkBitmap.
@@ -203,7 +211,7 @@ class ThroughputTest : public BrowserPerfTest {
 
     gfx::Rect root_bounds = browser()->window()->GetBounds();
     gfx::Rect tab_contents_bounds;
-    browser()->GetSelectedWebContents()->GetContainerBounds(
+    chrome::GetActiveWebContents(browser())->GetContainerBounds(
         &tab_contents_bounds);
 
     gfx::Rect snapshot_bounds(tab_contents_bounds.x() - root_bounds.x(),
@@ -211,7 +219,7 @@ class ThroughputTest : public BrowserPerfTest {
                               tab_contents_bounds.width(),
                               tab_contents_bounds.height());
 
-    gfx::NativeWindow native_window = browser()->window()->GetNativeHandle();
+    gfx::NativeWindow native_window = browser()->window()->GetNativeWindow();
     if (!browser::GrabWindowSnapshot(native_window, &png, snapshot_bounds)) {
       LOG(ERROR) << "browser::GrabWindowSnapShot() failed";
       return false;
@@ -239,7 +247,8 @@ class ThroughputTest : public BrowserPerfTest {
     }
   }
 
-  void RunTest(const std::string& test_name, RunTestFlags flags) {
+  // flags is one or more of RunTestFlags OR'd together.
+  void RunTest(const std::string& test_name, int flags) {
     // Set path to test html.
     FilePath test_path;
     ASSERT_TRUE(PathService::Get(chrome::DIR_TEST_DATA, &test_path));
@@ -257,7 +266,8 @@ class ThroughputTest : public BrowserPerfTest {
     RunTestWithURL(test_name, flags);
   }
 
-  void RunCanvasBenchTest(const std::string& test_name, RunTestFlags flags) {
+  // flags is one or more of RunTestFlags OR'd together.
+  void RunCanvasBenchTest(const std::string& test_name, int flags) {
     // Set path to test html.
     FilePath test_path;
     ASSERT_TRUE(PathService::Get(chrome::DIR_TEST_DATA, &test_path));
@@ -271,14 +281,25 @@ class ThroughputTest : public BrowserPerfTest {
     RunTestWithURL(test_name, flags);
   }
 
-  void RunTestWithURL(RunTestFlags flags) {
+  // flags is one or more of RunTestFlags OR'd together.
+  void RunTestWithURL(int flags) {
     RunTestWithURL(gurl_.possibly_invalid_spec(), flags);
   }
 
-  void RunTestWithURL(const std::string& test_name, RunTestFlags flags) {
+  // flags is one or more of RunTestFlags OR'd together.
+  void RunTestWithURL(const std::string& test_name, int flags) {
     using trace_analyzer::Query;
     using trace_analyzer::TraceAnalyzer;
     using trace_analyzer::TraceEventVector;
+
+#if defined(OS_WIN)
+    if (use_gpu_ && (flags & kIsGpuCanvasTest) &&
+        base::win::OSInfo::GetInstance()->version() == base::win::VERSION_XP) {
+      // crbug.com/128208
+      LOG(WARNING) << "Test skipped: GPU canvas tests do not run on XP.";
+      return;
+    }
+#endif
 
     if (use_gpu_ && !IsGpuAvailable()) {
       LOG(WARNING) << "Test skipped: requires gpu. Pass --enable-gpu on the "
@@ -296,7 +317,7 @@ class ThroughputTest : public BrowserPerfTest {
     LOG(INFO) << gurl_.possibly_invalid_spec();
     ui_test_utils::NavigateToURLWithDisposition(
         browser(), gurl_, CURRENT_TAB, ui_test_utils::BROWSER_TEST_NONE);
-    ui_test_utils::WaitForLoadStop(browser()->GetSelectedWebContents());
+    ui_test_utils::WaitForLoadStop(chrome::GetActiveWebContents(browser()));
 
     // Let the test spin up.
     LOG(INFO) << "Spinning up test...";
@@ -354,6 +375,10 @@ class ThroughputTest : public BrowserPerfTest {
 
     if (flags & kAllowExternalDNS)
       ResetAllowExternalDNS();
+
+    // Close the tab so that we can quit without timing out during the
+    // wait-for-idle stage in browser_test framework.
+    chrome::GetActiveWebContents(browser())->Close();
   }
 
  private:
@@ -458,21 +483,18 @@ IN_PROC_BROWSER_TEST_F(ThroughputTestSW, CanvasDemoSW) {
 }
 
 IN_PROC_BROWSER_TEST_F(ThroughputTestGPU, CanvasDemoGPU) {
-  RunTest("canvas-demo", kInternal);
+  RunTest("canvas-demo", kInternal | kIsGpuCanvasTest);
 }
 
 // CompositingHugeDivSW timed out on Mac Intel Release GPU bot
 // See crbug.com/114781
-#if defined(OS_MACOSX)
-#define MAYBE_CompositingHugeDivSW DISABLED_CompositingHugeDivSW
-#else
-#define MAYBE_CompositingHugeDivSW CompositingHugeDivSW
-#endif
-IN_PROC_BROWSER_TEST_F(ThroughputTestSW, MAYBE_CompositingHugeDivSW) {
+// Stopped producing results in SW: crbug.com/127621
+IN_PROC_BROWSER_TEST_F(ThroughputTestSW, DISABLED_CompositingHugeDivSW) {
   RunTest("compositing_huge_div", kNone);
 }
 
-IN_PROC_BROWSER_TEST_F(ThroughputTestGPU, CompositingHugeDivGPU) {
+// Failing with insufficient frames: crbug.com/127595
+IN_PROC_BROWSER_TEST_F(ThroughputTestGPU, DISABLED_CompositingHugeDivGPU) {
   RunTest("compositing_huge_div", kNone);
 }
 
@@ -481,23 +503,32 @@ IN_PROC_BROWSER_TEST_F(ThroughputTestSW, DrawImageShadowSW) {
 }
 
 IN_PROC_BROWSER_TEST_F(ThroughputTestGPU, DrawImageShadowGPU) {
-  RunTest("canvas2d_balls_with_shadow", kNone);
+  RunTest("canvas2d_balls_with_shadow", kNone | kIsGpuCanvasTest);
 }
 
 IN_PROC_BROWSER_TEST_F(ThroughputTestSW, CanvasToCanvasDrawSW) {
+  if (IsGpuAvailable() &&
+      GPUTestBotConfig::CurrentConfigMatches("MAC AMD"))
+    return;
   RunTest("canvas2d_balls_draw_from_canvas", kNone);
 }
 
 IN_PROC_BROWSER_TEST_F(ThroughputTestGPU, CanvasToCanvasDrawGPU) {
-  RunTest("canvas2d_balls_draw_from_canvas", kNone);
+  if (IsGpuAvailable() &&
+      GPUTestBotConfig::CurrentConfigMatches("MAC AMD"))
+    return;
+  RunTest("canvas2d_balls_draw_from_canvas", kNone | kIsGpuCanvasTest);
 }
 
 IN_PROC_BROWSER_TEST_F(ThroughputTestSW, CanvasTextSW) {
+  if (IsGpuAvailable() &&
+      GPUTestBotConfig::CurrentConfigMatches("MAC AMD"))
+    return;
   RunTest("canvas2d_balls_text", kNone);
 }
 
 IN_PROC_BROWSER_TEST_F(ThroughputTestGPU, CanvasTextGPU) {
-  RunTest("canvas2d_balls_text", kNone);
+  RunTest("canvas2d_balls_text", kNone | kIsGpuCanvasTest);
 }
 
 IN_PROC_BROWSER_TEST_F(ThroughputTestSW, CanvasFillPathSW) {
@@ -505,7 +536,7 @@ IN_PROC_BROWSER_TEST_F(ThroughputTestSW, CanvasFillPathSW) {
 }
 
 IN_PROC_BROWSER_TEST_F(ThroughputTestGPU, CanvasFillPathGPU) {
-  RunTest("canvas2d_balls_fill_path", kNone);
+  RunTest("canvas2d_balls_fill_path", kNone | kIsGpuCanvasTest);
 }
 
 IN_PROC_BROWSER_TEST_F(ThroughputTestSW, CanvasSingleImageSW) {
@@ -513,7 +544,10 @@ IN_PROC_BROWSER_TEST_F(ThroughputTestSW, CanvasSingleImageSW) {
 }
 
 IN_PROC_BROWSER_TEST_F(ThroughputTestGPU, CanvasSingleImageGPU) {
-  RunCanvasBenchTest("single_image", kNone);
+  if (IsGpuAvailable() &&
+      GPUTestBotConfig::CurrentConfigMatches("MAC AMD"))
+    return;
+  RunCanvasBenchTest("single_image", kNone | kIsGpuCanvasTest);
 }
 
 IN_PROC_BROWSER_TEST_F(ThroughputTestSW, CanvasManyImagesSW) {
@@ -521,7 +555,7 @@ IN_PROC_BROWSER_TEST_F(ThroughputTestSW, CanvasManyImagesSW) {
 }
 
 IN_PROC_BROWSER_TEST_F(ThroughputTestGPU, CanvasManyImagesGPU) {
-  RunCanvasBenchTest("many_images", kNone);
+  RunCanvasBenchTest("many_images", kNone | kIsGpuCanvasTest);
 }
 
 }  // namespace

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_CROS_NATIVE_NETWORK_PARSER_H_
 #define CHROME_BROWSER_CHROMEOS_CROS_NATIVE_NETWORK_PARSER_H_
-#pragma once
 
 #include <string>
 
@@ -120,6 +119,18 @@ class NativeWifiNetworkParser : public NativeWirelessNetworkParser {
   EAPPhase2Auth ParseEAPPhase2Auth(const std::string& auth);
  private:
   DISALLOW_COPY_AND_ASSIGN(NativeWifiNetworkParser);
+};
+
+class NativeWimaxNetworkParser : public NativeWifiNetworkParser {
+ public:
+  NativeWimaxNetworkParser();
+  virtual ~NativeWimaxNetworkParser();
+  virtual bool ParseValue(PropertyIndex index,
+                          const base::Value& value,
+                          Network* network) OVERRIDE;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(NativeWimaxNetworkParser);
 };
 
 class NativeCellularNetworkParser : public NativeWirelessNetworkParser {

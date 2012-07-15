@@ -5,8 +5,10 @@
 #include "chrome/browser/profiles/off_the_record_profile_io_data.h"
 
 #include "base/bind.h"
+#include "base/command_line.h"
 #include "base/logging.h"
 #include "base/stl_util.h"
+#include "base/threading/worker_pool.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/io_thread.h"
@@ -14,6 +16,7 @@
 #include "chrome/browser/net/chrome_network_delegate.h"
 #include "chrome/browser/net/chrome_url_request_context.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
@@ -24,6 +27,8 @@
 #include "net/ftp/ftp_network_layer.h"
 #include "net/http/http_cache.h"
 #include "net/http/http_server_properties_impl.h"
+#include "net/url_request/ftp_protocol_handler.h"
+#include "net/url_request/url_request_job_factory.h"
 #include "webkit/database/database_tracker.h"
 
 using content::BrowserThread;
@@ -146,7 +151,9 @@ void OffTheRecordProfileIOData::Handle::LazyInitialize() const {
 
 OffTheRecordProfileIOData::OffTheRecordProfileIOData()
     : ProfileIOData(true) {}
-OffTheRecordProfileIOData::~OffTheRecordProfileIOData() {}
+OffTheRecordProfileIOData::~OffTheRecordProfileIOData() {
+  DestroyResourceContext();
+}
 
 void OffTheRecordProfileIOData::LazyInitializeInternal(
     ProfileParams* profile_params) const {
@@ -155,6 +162,7 @@ void OffTheRecordProfileIOData::LazyInitializeInternal(
 
   IOThread* const io_thread = profile_params->io_thread;
   IOThread::Globals* const io_thread_globals = io_thread->globals();
+  const CommandLine& command_line = *CommandLine::ForCurrentProcess();
 
   ApplyProfileParamsToContext(main_context);
   ApplyProfileParamsToContext(extensions_context);
@@ -177,6 +185,11 @@ void OffTheRecordProfileIOData::LazyInitializeInternal(
       fraudulent_certificate_reporter());
   main_context->set_proxy_service(proxy_service());
 
+  main_context->set_throttler_manager(
+      io_thread_globals->throttler_manager.get());
+  extensions_context->set_throttler_manager(
+      io_thread_globals->throttler_manager.get());
+
   // For incognito, we use the default non-persistent HttpServerPropertiesImpl.
   http_server_properties_.reset(new net::HttpServerPropertiesImpl);
   main_context->set_http_server_properties(http_server_properties_.get());
@@ -184,7 +197,8 @@ void OffTheRecordProfileIOData::LazyInitializeInternal(
   // For incognito, we use a non-persistent server bound cert store.
   net::ServerBoundCertService* server_bound_cert_service =
       new net::ServerBoundCertService(
-          new net::DefaultServerBoundCertStore(NULL));
+          new net::DefaultServerBoundCertStore(NULL),
+          base::WorkerPool::GetTaskRunner(true));
   set_server_bound_cert_service(server_bound_cert_service);
   main_context->set_server_bound_cert_service(server_bound_cert_service);
 
@@ -203,6 +217,13 @@ void OffTheRecordProfileIOData::LazyInitializeInternal(
 
   net::HttpCache::BackendFactory* main_backend =
       net::HttpCache::DefaultBackend::InMemory(0);
+
+  std::string trusted_spdy_proxy;
+  if (command_line.HasSwitch(switches::kTrustedSpdyProxy)) {
+    trusted_spdy_proxy = command_line.GetSwitchValueASCII(
+        switches::kTrustedSpdyProxy);
+  }
+
   net::HttpCache* cache =
       new net::HttpCache(main_context->host_resolver(),
                          main_context->cert_verifier(),
@@ -215,7 +236,8 @@ void OffTheRecordProfileIOData::LazyInitializeInternal(
                          main_context->network_delegate(),
                          main_context->http_server_properties(),
                          main_context->net_log(),
-                         main_backend);
+                         main_backend,
+                         trusted_spdy_proxy);
 
   main_http_factory_.reset(cache);
   main_context->set_http_transaction_factory(cache);
@@ -226,13 +248,29 @@ void OffTheRecordProfileIOData::LazyInitializeInternal(
   main_context->set_chrome_url_data_manager_backend(
       chrome_url_data_manager_backend());
 
-  main_context->set_job_factory(job_factory());
-  extensions_context->set_job_factory(job_factory());
+  main_job_factory_.reset(new net::URLRequestJobFactory);
+  extensions_job_factory_.reset(new net::URLRequestJobFactory);
+
+  net::URLRequestJobFactory* job_factories[2];
+  job_factories[0] = main_job_factory_.get();
+  job_factories[1] = extensions_job_factory_.get();
+
+  net::FtpAuthCache* ftp_auth_caches[2];
+  ftp_auth_caches[0] = main_context->ftp_auth_cache();
+  ftp_auth_caches[1] = extensions_context->ftp_auth_cache();
+
+  for (int i = 0; i < 2; i++) {
+    SetUpJobFactoryDefaults(job_factories[i]);
+    CreateFtpProtocolHandler(job_factories[i], ftp_auth_caches[i]);
+  }
+
+  main_context->set_job_factory(main_job_factory_.get());
+  extensions_context->set_job_factory(extensions_job_factory_.get());
 }
 
-scoped_refptr<ChromeURLRequestContext>
+ChromeURLRequestContext*
 OffTheRecordProfileIOData::InitializeAppRequestContext(
-    scoped_refptr<ChromeURLRequestContext> main_context,
+    ChromeURLRequestContext* main_context,
     const std::string& app_id) const {
   AppRequestContext* context = new AppRequestContext;
 
@@ -256,19 +294,29 @@ OffTheRecordProfileIOData::InitializeAppRequestContext(
   return context;
 }
 
-scoped_refptr<ChromeURLRequestContext>
+ChromeURLRequestContext*
 OffTheRecordProfileIOData::AcquireMediaRequestContext() const {
   NOTREACHED();
   return NULL;
 }
 
-scoped_refptr<ChromeURLRequestContext>
+ChromeURLRequestContext*
 OffTheRecordProfileIOData::AcquireIsolatedAppRequestContext(
-    scoped_refptr<ChromeURLRequestContext> main_context,
+    ChromeURLRequestContext* main_context,
     const std::string& app_id) const {
   // We create per-app contexts on demand, unlike the others above.
-  scoped_refptr<ChromeURLRequestContext> app_request_context =
+  ChromeURLRequestContext* app_request_context =
       InitializeAppRequestContext(main_context, app_id);
   DCHECK(app_request_context);
   return app_request_context;
 }
+
+void OffTheRecordProfileIOData::CreateFtpProtocolHandler(
+    net::URLRequestJobFactory* job_factory,
+    net::FtpAuthCache* ftp_auth_cache) const {
+  job_factory->SetProtocolHandler(
+      chrome::kFtpScheme,
+      new net::FtpProtocolHandler(
+          network_delegate(), ftp_factory_.get(), ftp_auth_cache));
+}
+

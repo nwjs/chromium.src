@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,19 +12,31 @@
 #include "grit/locale_settings.h"
 #include "grit/ui_resources.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 
 FaviconSource::FaviconSource(Profile* profile, IconType type)
     : DataSource(type == FAVICON ? chrome::kChromeUIFaviconHost :
                      chrome::kChromeUITouchIconHost,
-                 MessageLoop::current()),
-      profile_(profile->GetOriginalProfile()),
-      icon_types_(type == FAVICON ? history::FAVICON :
-          history::TOUCH_PRECOMPOSED_ICON | history::TOUCH_ICON |
-          history::FAVICON) {
+                 MessageLoop::current()) {
+  Init(profile, type);
+}
+
+FaviconSource::FaviconSource(Profile* profile,
+                             IconType type,
+                             const std::string& source_name)
+    : DataSource(source_name, MessageLoop::current()) {
+  Init(profile, type);
 }
 
 FaviconSource::~FaviconSource() {
+}
+
+void FaviconSource::Init(Profile* profile, IconType type) {
+  profile_ = profile->GetOriginalProfile();
+  icon_types_ = type == FAVICON ? history::FAVICON :
+      history::TOUCH_PRECOMPOSED_ICON | history::TOUCH_ICON |
+      history::FAVICON;
 }
 
 void FaviconSource::StartDataRequest(const std::string& path,
@@ -58,8 +70,24 @@ void FaviconSource::StartDataRequest(const std::string& path,
       request_size_map_[request_id] = pixel_size;
       url = GURL(path.substr(slash + 1));
     } else {
+      // URL requests prefixed with "origin/" are converted to a form with an
+      // empty path and a valid scheme. (e.g., example.com -->
+      // http://example.com/ or http://example.com/a --> http://example.com/)
+      if (path.size() > 7 && path.substr(0, 7) == "origin/") {
+        std::string originalUrl = path.substr(7);
+
+        // If the original URL does not specify a scheme (e.g., example.com
+        // instead of http://example.com), add "http://" as a default.
+        if (!GURL(originalUrl).has_scheme())
+          originalUrl = "http://" + originalUrl;
+
+        // Strip the path beyond the top-level domain.
+        url = GURL(originalUrl).GetOrigin();
+      } else {
+        url = GURL(path);
+      }
+
       request_size_map_[request_id] = 16;
-      url = GURL(path);
     }
 
     // Intercept requests for prepopulated pages.
@@ -69,7 +97,8 @@ void FaviconSource::StartDataRequest(const std::string& path,
         request_size_map_.erase(request_id);
         SendResponse(request_id,
             ResourceBundle::GetSharedInstance().LoadDataResourceBytes(
-                history::kPrepopulatedPages[i].favicon_id));
+                history::kPrepopulatedPages[i].favicon_id,
+                ui::SCALE_FACTOR_100P));
         return;
       }
     }
@@ -116,19 +145,19 @@ void FaviconSource::OnFaviconDataAvailable(
 }
 
 void FaviconSource::SendDefaultResponse(int request_id) {
-  RefCountedMemory* bytes = NULL;
+  base::RefCountedMemory* bytes = NULL;
   if (request_size_map_[request_id] == 32) {
     if (!default_favicon_large_.get()) {
       default_favicon_large_ =
           ResourceBundle::GetSharedInstance().LoadDataResourceBytes(
-              IDR_DEFAULT_LARGE_FAVICON);
+              IDR_DEFAULT_LARGE_FAVICON, ui::SCALE_FACTOR_100P);
     }
     bytes = default_favicon_large_;
   } else {
     if (!default_favicon_.get()) {
       default_favicon_ =
           ResourceBundle::GetSharedInstance().LoadDataResourceBytes(
-              IDR_DEFAULT_FAVICON);
+              IDR_DEFAULT_FAVICON, ui::SCALE_FACTOR_100P);
     }
     bytes = default_favicon_;
   }

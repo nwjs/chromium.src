@@ -38,13 +38,17 @@ def load_schema(schema):
   else:
     sys.exit("Did not recognize file extension %s for schema %s" %
              (schema_extension, schema))
+  if len(api_defs) != 1:
+    sys.exit("File %s has multiple schemas. Files are only allowed to contain a"
+             " single schema." % schema)
 
   return api_defs
 
 def handle_single_schema(filename, dest_dir, root, root_namespace):
   schema = os.path.normpath(filename)
   schema_filename, schema_extension = os.path.splitext(schema)
-  api_defs = load_schema(schema)
+  path, short_filename = os.path.split(schema_filename)
+  api_defs = json_schema.DeleteNocompileNodes(load_schema(schema))
 
   api_model = model.Model()
 
@@ -53,6 +57,13 @@ def handle_single_schema(filename, dest_dir, root, root_namespace):
     # Load type dependencies into the model.
     # TODO(miket): do we need this in IDL?
     for referenced_schema in referenced_schemas:
+      split_schema = referenced_schema.split(':', 1)
+      if len(split_schema) > 1:
+        if split_schema[0] != 'api':
+          continue
+        else:
+          referenced_schema = split_schema[1]
+
       referenced_schema_path = os.path.join(
           os.path.dirname(schema), referenced_schema + '.json')
       referenced_api_defs = json_schema.Load(referenced_schema_path)
@@ -68,12 +79,18 @@ def handle_single_schema(filename, dest_dir, root, root_namespace):
     if not namespace:
       continue
 
+    if short_filename != namespace.unix_name:
+      sys.exit("Filename %s is illegal. Name files using unix_hacker style." %
+               filename)
+
     # The output filename must match the input filename for gyp to deal with it
     # properly.
-    out_file = namespace.name
+    out_file = namespace.unix_name
     type_generator = cpp_type_generator.CppTypeGenerator(
         root_namespace, namespace, namespace.unix_name)
     for referenced_namespace in api_model.namespaces.values():
+      if referenced_namespace == namespace:
+        continue
       type_generator.AddNamespace(
           referenced_namespace,
           referenced_namespace.unix_name)
@@ -111,8 +128,18 @@ def handle_bundle_schema(filenames, dest_dir, root, root_namespace):
 
   api_model = model.Model()
   relpath = os.path.relpath(os.path.normpath(filenames[0]), root)
-  for target_namespace in api_defs:
-    api_model.AddNamespace(target_namespace, relpath)
+
+  for target_namespace, schema_filename in zip(api_defs, filenames):
+    namespace = api_model.AddNamespace(target_namespace, relpath)
+    path, filename = os.path.split(schema_filename)
+    short_filename, extension = os.path.splitext(filename)
+
+    # Filenames are checked against the unix_names of the namespaces they
+    # generate because the gyp uses the names of the JSON files to generate
+    # the names of the .cc and .h files. We want these to be using unix_names.
+    if namespace.unix_name != short_filename:
+      sys.exit("Filename %s is illegal. Name files using unix_hacker style." %
+               schema_filename)
 
   type_generator = cpp_type_generator.CppTypeGenerator(root_namespace)
   for referenced_namespace in api_model.namespaces.values():

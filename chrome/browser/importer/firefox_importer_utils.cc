@@ -200,14 +200,14 @@ void ParseSearchEnginesFromXMLFiles(const std::vector<FilePath>& xml_files,
        file_iter != xml_files.end(); ++file_iter) {
     file_util::ReadFileToString(*file_iter, &content);
     FirefoxURLParameterFilter param_filter;
-    TemplateURL* template_url = TemplateURLParser::Parse(NULL, content.data(),
-        content.length(), &param_filter);
+    TemplateURL* template_url = TemplateURLParser::Parse(NULL, true,
+        content.data(), content.length(), &param_filter);
     if (template_url) {
-      std::string url = template_url->url()->url();
-      SearchEnginesMap::iterator iter = search_engine_for_url.find(url);
+      SearchEnginesMap::iterator iter =
+          search_engine_for_url.find(template_url->url());
       if (iter == search_engine_for_url.end()) {
         iter = search_engine_for_url.insert(
-            std::make_pair(url, template_url)).first;
+            std::make_pair(template_url->url(), template_url)).first;
       } else {
         // We have already found a search engine with the same URL.  We give
         // priority to the latest one found, as GetSearchEnginesXMLFiles()
@@ -216,7 +216,6 @@ void ParseSearchEnginesFromXMLFiles(const std::vector<FilePath>& xml_files,
         delete iter->second;
         iter->second = template_url;
       }
-      iter->second->set_show_in_default_list(true);
       if (default_turl == search_engine_for_url.end())
         default_turl = iter;
     }

@@ -8,20 +8,21 @@
 
 #include <algorithm>
 #include <string>
+#include <vector>
 
 #include "base/lazy_instance.h"
 #include "base/logging.h"
-#include "base/string_split.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/string_split.h"
 #include "base/synchronization/lock.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebString.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
-#include "ui/gfx/gl/gl_bindings.h"
-#include "ui/gfx/gl/gl_bindings_skia_in_process.h"
-#include "ui/gfx/gl/gl_context.h"
-#include "ui/gfx/gl/gl_implementation.h"
-#include "ui/gfx/gl/gl_surface.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebString.h"
+#include "ui/gl/gl_bindings.h"
+#include "ui/gl/gl_bindings_skia_in_process.h"
+#include "ui/gl/gl_context.h"
+#include "ui/gl/gl_implementation.h"
+#include "ui/gl/gl_surface.h"
 
 namespace webkit {
 namespace gpu {
@@ -347,7 +348,7 @@ void WebGraphicsContext3DInProcessImpl::prepareTexture() {
 
 void WebGraphicsContext3DInProcessImpl::postSubBufferCHROMIUM(
     int x, int y, int width, int height) {
-  DCHECK(gl_context_->HasExtension("GL_CHROMIUM_post_sub_buffer"));
+  DCHECK(gl_surface_->HasExtension("GL_CHROMIUM_post_sub_buffer"));
   gl_surface_->PostSubBuffer(x, y, width, height);
 }
 
@@ -743,6 +744,11 @@ void WebGraphicsContext3DInProcessImpl::ensureFramebufferCHROMIUM() {
 
 void WebGraphicsContext3DInProcessImpl::copyTextureToParentTextureCHROMIUM(
     WebGLId id, WebGLId id2) {
+  NOTIMPLEMENTED();
+}
+
+void WebGraphicsContext3DInProcessImpl::bindUniformLocationCHROMIUM(
+    WebGLId program, WGC3Dint location, const WGC3Dchar* uniform) {
   NOTIMPLEMENTED();
 }
 
@@ -1223,6 +1229,9 @@ void WebGraphicsContext3DInProcessImpl::getShaderiv(
   glGetShaderiv(shader, pname, value);
 }
 
+DELEGATE_TO_GL_4(getShaderPrecisionFormat, GetShaderPrecisionFormat,
+                 WGC3Denum, WGC3Denum, WGC3Dint*, WGC3Dint*)
+
 WebString WebGraphicsContext3DInProcessImpl::getShaderInfoLog(WebGLId shader) {
   makeContextCurrent();
 
@@ -1291,6 +1300,9 @@ WebString WebGraphicsContext3DInProcessImpl::getString(WGC3Denum name) {
         result += " GL_EXT_texture_format_BGRA8888 GL_EXT_read_format_bgra";
       }
     }
+    std::string surface_extensions = gl_surface_->GetExtensions();
+    if (!surface_extensions.empty())
+      result += " " + surface_extensions;
   } else {
     result = reinterpret_cast<const char*>(glGetString(name));
   }
@@ -1647,16 +1659,14 @@ void WebGraphicsContext3DInProcessImpl::texImageIOSurface2DCHROMIUM(
 DELEGATE_TO_GL_5(texStorage2DEXT, TexStorage2DEXT,
                  WGC3Denum, WGC3Dint, WGC3Duint, WGC3Dint, WGC3Dint)
 
-WebGLId WebGraphicsContext3DInProcessImpl::createQueryEXT()
-{
+WebGLId WebGraphicsContext3DInProcessImpl::createQueryEXT() {
   makeContextCurrent();
   GLuint o = 0;
   glGenQueriesARB(1, &o);
   return o;
 }
 
-void WebGraphicsContext3DInProcessImpl::deleteQueryEXT(WebGLId query)
-{
+void WebGraphicsContext3DInProcessImpl::deleteQueryEXT(WebGLId query) {
   makeContextCurrent();
   glDeleteQueriesARB(1, &query);
 }
@@ -1668,11 +1678,14 @@ DELEGATE_TO_GL_3(getQueryivEXT, GetQueryivARB, WGC3Denum, WGC3Denum, WGC3Dint*)
 DELEGATE_TO_GL_3(getQueryObjectuivEXT, GetQueryObjectuivARB,
                  WebGLId, WGC3Denum, WGC3Duint*)
 
-#if WEBKIT_USING_SKIA
+void WebGraphicsContext3DInProcessImpl::copyTextureCHROMIUM(
+    WGC3Denum, WGC3Duint, WGC3Duint, WGC3Dint, WGC3Denum) {
+  NOTIMPLEMENTED();
+}
+
 GrGLInterface* WebGraphicsContext3DInProcessImpl::onCreateGrGLInterface() {
   return gfx::CreateInProcessSkiaGLBinding();
 }
-#endif
 
 bool WebGraphicsContext3DInProcessImpl::AngleCreateCompilers() {
   if (!ShInitialize())

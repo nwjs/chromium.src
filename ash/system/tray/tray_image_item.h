@@ -4,7 +4,6 @@
 
 #ifndef ASH_SYSTEM_TRAY_TRAY_IMAGE_ITEM_H_
 #define ASH_SYSTEM_TRAY_TRAY_IMAGE_ITEM_H_
-#pragma once
 
 #include "ash/system/tray/system_tray_item.h"
 
@@ -15,12 +14,14 @@ class ImageView;
 namespace ash {
 namespace internal {
 
+class TrayItemView;
+
 class TrayImageItem : public SystemTrayItem {
  public:
   explicit TrayImageItem(int resource_id);
   virtual ~TrayImageItem();
 
-  views::ImageView* image_view() { return image_view_.get(); }
+  views::View* tray_view();
 
  protected:
   virtual bool GetInitialVisibility() = 0;
@@ -32,10 +33,11 @@ class TrayImageItem : public SystemTrayItem {
   virtual void DestroyTrayView() OVERRIDE;
   virtual void DestroyDefaultView() OVERRIDE;
   virtual void DestroyDetailedView() OVERRIDE;
+  virtual void UpdateAfterLoginStatusChange(user::LoginStatus status) OVERRIDE;
 
  private:
   int resource_id_;
-  scoped_ptr<views::ImageView> image_view_;
+  TrayItemView* tray_view_;
 
   DISALLOW_COPY_AND_ASSIGN(TrayImageItem);
 };

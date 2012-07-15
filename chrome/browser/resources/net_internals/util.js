@@ -86,35 +86,6 @@ function addNodeWithText(parentNode, tagName, text) {
 }
 
 /**
- * Adds or removes a CSS class to |node|.
- * @param {!HtmlNode} node The node to be modified.
- * @param {string} classNameToAddOrRemove The class name.
- * @param {boolean} isAdd True to add, false to remove.
- */
-// TODO(tbreisacher): make this shorter (and faster) using .classList
-function changeClassName(node, classNameToAddOrRemove, isAdd) {
-  // Multiple classes can be separated by spaces.
-  var currentNames = node.className.split(' ');
-
-  if (isAdd) {
-    for (var i = 0; i < currentNames.length; ++i) {
-      if (currentNames[i] == classNameToAddOrRemove)
-        return;
-    }
-    currentNames.push(classNameToAddOrRemove);
-  } else {
-    for (var i = 0; i < currentNames.length; ++i) {
-      if (currentNames[i] == classNameToAddOrRemove) {
-        currentNames.splice(i, 1);
-        break;
-      }
-    }
-  }
-
-  node.className = currentNames.join(' ');
-}
-
-/**
  * Returns the key such that map[key] == value, or the string '?' if
  * there is no such key.
  * @param {!Object} map The object being used as a lookup table.
@@ -127,6 +98,19 @@ function getKeyWithValue(map, value) {
       return key;
   }
   return '?';
+}
+
+/**
+ * Returns a new map with the keys and values of the input map inverted.
+ * @param {!Object} map The object to have its keys and values reversed.  Not
+ *     modified by the function call.
+ * @return {Object} The new map with the reversed keys and values.
+ */
+function makeInverseMap(map) {
+  var reversed = {};
+  for (var key in map)
+    reversed[map[key]] = key;
+  return reversed;
 }
 
 /**

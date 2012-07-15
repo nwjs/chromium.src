@@ -87,12 +87,7 @@ ACTION_P(ExitMessageLoop, message_loop) {
 
 class AudioInputDeviceManagerTest : public testing::Test {
  public:
-  AudioInputDeviceManagerTest()
-      : message_loop_(),
-        io_thread_(),
-        manager_(),
-        audio_input_listener_() {
-  }
+  AudioInputDeviceManagerTest() {}
 
   // Returns true iff machine has an audio input device.
   bool CanRunAudioInputDeviceTests() {
@@ -100,27 +95,28 @@ class AudioInputDeviceManagerTest : public testing::Test {
   }
 
  protected:
-  virtual void SetUp() {
+  virtual void SetUp() OVERRIDE {
     // The test must run on Browser::IO.
     message_loop_.reset(new MessageLoop(MessageLoop::TYPE_IO));
     io_thread_.reset(new BrowserThreadImpl(BrowserThread::IO,
                                            message_loop_.get()));
-    audio_manager_.reset(AudioManager::Create());
 
+    audio_manager_.reset(media::AudioManager::Create());
     manager_ = new AudioInputDeviceManager(audio_manager_.get());
     audio_input_listener_.reset(new MockAudioInputDeviceManagerListener());
-    manager_->Register(audio_input_listener_.get());
+    manager_->Register(audio_input_listener_.get(),
+                       message_loop_->message_loop_proxy());
 
     // Gets the enumerated device list from the AudioInputDeviceManager.
     manager_->EnumerateDevices();
     EXPECT_CALL(*audio_input_listener_, DevicesEnumerated(_))
         .Times(1);
 
-    // Waits for the callback.
+    // Wait until we get the list.
     message_loop_->RunAllPending();
   }
 
-  virtual void TearDown() {
+  virtual void TearDown() OVERRIDE {
     manager_->Unregister();
     io_thread_.reset();
   }
@@ -129,7 +125,7 @@ class AudioInputDeviceManagerTest : public testing::Test {
   scoped_ptr<BrowserThreadImpl> io_thread_;
   scoped_refptr<AudioInputDeviceManager> manager_;
   scoped_ptr<MockAudioInputDeviceManagerListener> audio_input_listener_;
-  scoped_ptr<AudioManager> audio_manager_;
+  scoped_ptr<media::AudioManager> audio_manager_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(AudioInputDeviceManagerTest);
@@ -414,11 +410,11 @@ TEST_F(AudioInputDeviceManagerTest, StartDeviceTwice) {
   manager_->Start(second_session_id, second_event_handler.get());
   EXPECT_CALL(*first_event_handler,
               DeviceStarted(first_session_id,
-                            AudioManagerBase::kDefaultDeviceId))
+                            media::AudioManagerBase::kDefaultDeviceId))
       .Times(1);
   EXPECT_CALL(*second_event_handler,
               DeviceStarted(second_session_id,
-                            AudioManagerBase::kDefaultDeviceId))
+                            media::AudioManagerBase::kDefaultDeviceId))
       .Times(1);
   message_loop_->RunAllPending();
 
@@ -502,7 +498,7 @@ TEST_F(AudioInputDeviceManagerTest, StartSessionTwice) {
   manager_->Start(session_id, audio_input_event_handler.get());
   EXPECT_CALL(*audio_input_event_handler,
               DeviceStarted(session_id,
-                            AudioManagerBase::kDefaultDeviceId))
+                            media::AudioManagerBase::kDefaultDeviceId))
       .Times(1);
   message_loop_->RunAllPending();
 

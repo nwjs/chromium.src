@@ -12,8 +12,8 @@ static void LogAndRunStopClosure(const base::Closure& closure) {
 }
 
 static void LogAndRunReadCB(
-    int64 position, size_t size,
-    const media::DataSource::ReadCB& read_cb, size_t result) {
+    int64 position, int size,
+    const media::DataSource::ReadCB& read_cb, int result) {
   VLOG(1) << "Read(" << position << ", " << size << ") -> " << result;
   read_cb.Run(result);
 }
@@ -24,8 +24,6 @@ DataSourceLogger::DataSourceLogger(
     : data_source_(data_source),
       streaming_(streaming) {
 }
-
-DataSourceLogger::~DataSourceLogger() {}
 
 void DataSourceLogger::set_host(media::DataSourceHost* host) {
   VLOG(1) << "set_host(" << host << ")";
@@ -38,7 +36,7 @@ void DataSourceLogger::Stop(const base::Closure& closure) {
 }
 
 void DataSourceLogger::Read(
-    int64 position, size_t size, uint8* data,
+    int64 position, int size, uint8* data,
     const media::DataSource::ReadCB& read_cb) {
   VLOG(1) << "Read(" << position << ", " << size << ")";
   data_source_->Read(position, size, data, base::Bind(
@@ -63,12 +61,9 @@ bool DataSourceLogger::IsStreaming() {
   return streaming;
 }
 
-void DataSourceLogger::SetPreload(media::Preload preload) {
-  VLOG(1) << "SetPreload(" << preload << ")";
-  data_source_->SetPreload(preload);
-}
-
 void DataSourceLogger::SetBitrate(int bitrate) {
   VLOG(1) << "SetBitrate(" << bitrate << ")";
   data_source_->SetBitrate(bitrate);
 }
+
+DataSourceLogger::~DataSourceLogger() {}

@@ -16,8 +16,11 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebPluginContainer.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebPluginParams.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPrintParams.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPrintScalingOption.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebPoint.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebRect.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebSize.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 #include "webkit/plugins/ppapi/message_channel.h"
 #include "webkit/plugins/ppapi/npobject_var.h"
@@ -27,10 +30,13 @@
 
 using ppapi::NPObjectVar;
 using WebKit::WebCanvas;
+using WebKit::WebPlugin;
 using WebKit::WebPluginContainer;
 using WebKit::WebPluginParams;
 using WebKit::WebPoint;
+using WebKit::WebPrintParams;
 using WebKit::WebRect;
+using WebKit::WebSize;
 using WebKit::WebString;
 using WebKit::WebURL;
 using WebKit::WebVector;
@@ -53,7 +59,8 @@ WebPluginImpl::WebPluginImpl(
     const base::WeakPtr<PluginDelegate>& plugin_delegate)
     : init_data_(new InitData()),
       full_frame_(params.loadManually),
-      instance_object_(PP_MakeUndefined()) {
+      instance_object_(PP_MakeUndefined()),
+      container_(NULL) {
   DCHECK(plugin_module);
   init_data_->module = plugin_module;
   init_data_->delegate = plugin_delegate;
@@ -65,6 +72,10 @@ WebPluginImpl::WebPluginImpl(
 }
 
 WebPluginImpl::~WebPluginImpl() {
+}
+
+WebKit::WebPluginContainer* WebPluginImpl::container() const {
+  return container_;
 }
 
 bool WebPluginImpl::initialize(WebPluginContainer* container) {
@@ -84,10 +95,19 @@ bool WebPluginImpl::initialize(WebPluginContainer* container) {
   if (!success) {
     instance_->Delete();
     instance_ = NULL;
-    return false;
+
+    WebKit::WebPlugin* replacement_plugin =
+        init_data_->delegate->CreatePluginReplacement(
+            init_data_->module->path());
+    if (!replacement_plugin || !replacement_plugin->initialize(container))
+      return false;
+
+    container->setPlugin(replacement_plugin);
+    return true;
   }
 
   init_data_.reset();
+  container_ = container;
   return true;
 }
 
@@ -249,9 +269,8 @@ bool WebPluginImpl::isPrintScalingDisabled() {
   return instance_->IsPrintScalingDisabled();
 }
 
-int WebPluginImpl::printBegin(const WebKit::WebRect& printable_area,
-                              int printer_dpi) {
-  return instance_->PrintBegin(printable_area, printer_dpi);
+int WebPluginImpl::printBegin(const WebPrintParams& print_params) {
+  return instance_->PrintBegin(print_params);
 }
 
 bool WebPluginImpl::printPage(int page_number,
@@ -269,6 +288,10 @@ bool WebPluginImpl::canRotateView() {
 
 void WebPluginImpl::rotateView(RotationType type) {
   instance_->RotateView(type);
+}
+
+bool WebPluginImpl::isPlaceholder() {
+  return false;
 }
 
 }  // namespace ppapi

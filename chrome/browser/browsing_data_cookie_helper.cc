@@ -1,24 +1,30 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/browsing_data_cookie_helper.h"
 
+#include "utility"
+
 #include "base/bind.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/stl_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "content/public/browser/browser_thread.h"
 #include "googleurl/src/gurl.h"
+#include "net/base/registry_controlled_domain.h"
+#include "net/cookies/canonical_cookie.h"
+#include "net/cookies/parsed_cookie.h"
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_context_getter.h"
 
 using content::BrowserThread;
 
-BrowsingDataCookieHelper::BrowsingDataCookieHelper(Profile* profile)
-  : is_fetching_(false),
-    profile_(profile),
-    request_context_getter_(profile->GetRequestContext()) {
+BrowsingDataCookieHelper::BrowsingDataCookieHelper(
+    net::URLRequestContextGetter* request_context_getter)
+    : is_fetching_(false),
+      request_context_getter_(request_context_getter) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 }
 
@@ -38,13 +44,8 @@ void BrowsingDataCookieHelper::StartFetching(
       base::Bind(&BrowsingDataCookieHelper::FetchCookiesOnIOThread, this));
 }
 
-void BrowsingDataCookieHelper::CancelNotification() {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  completion_callback_.Reset();
-}
-
 void BrowsingDataCookieHelper::DeleteCookie(
-    const net::CookieMonster::CanonicalCookie& cookie) {
+    const net::CanonicalCookie& cookie) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   BrowserThread::PostTask(
       BrowserThread::IO, FROM_HERE,
@@ -77,14 +78,12 @@ void BrowsingDataCookieHelper::NotifyInUIThread(
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(is_fetching_);
   is_fetching_ = false;
-  if (!completion_callback_.is_null()) {
-    completion_callback_.Run(cookies);
-    completion_callback_.Reset();
-  }
+  completion_callback_.Run(cookies);
+  completion_callback_.Reset();
 }
 
 void BrowsingDataCookieHelper::DeleteCookieOnIOThread(
-    const net::CookieMonster::CanonicalCookie& cookie) {
+    const net::CanonicalCookie& cookie) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   scoped_refptr<net::CookieMonster> cookie_monster =
       request_context_getter_->GetURLRequestContext()->
@@ -96,85 +95,136 @@ void BrowsingDataCookieHelper::DeleteCookieOnIOThread(
 }
 
 CannedBrowsingDataCookieHelper::CannedBrowsingDataCookieHelper(
-    Profile* profile)
-    : BrowsingDataCookieHelper(profile),
-    profile_(profile) {
+    net::URLRequestContextGetter* request_context_getter)
+    : BrowsingDataCookieHelper(request_context_getter) {
 }
 
-CannedBrowsingDataCookieHelper::~CannedBrowsingDataCookieHelper() {}
+CannedBrowsingDataCookieHelper::~CannedBrowsingDataCookieHelper() {
+  Reset();
+}
 
 CannedBrowsingDataCookieHelper* CannedBrowsingDataCookieHelper::Clone() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   CannedBrowsingDataCookieHelper* clone =
-      new CannedBrowsingDataCookieHelper(profile_);
+      new CannedBrowsingDataCookieHelper(request_context_getter());
 
-  clone->cookie_list_ = cookie_list_;
+  for (OriginCookieListMap::iterator it = origin_cookie_list_map_.begin();
+       it != origin_cookie_list_map_.end();
+       ++it) {
+    net::CookieList* cookies = clone->GetCookiesFor(it->first);
+    cookies->insert(cookies->begin(), it->second->begin(), it->second->end());
+  }
   return clone;
 }
 
 void CannedBrowsingDataCookieHelper::AddReadCookies(
+    const GURL& frame_url,
     const GURL& url,
     const net::CookieList& cookie_list) {
   typedef net::CookieList::const_iterator cookie_iterator;
   for (cookie_iterator add_cookie = cookie_list.begin();
        add_cookie != cookie_list.end(); ++add_cookie) {
-    DeleteMetchingCookie(*add_cookie);
-    cookie_list_.push_back(*add_cookie);
+    AddCookie(frame_url, *add_cookie);
   }
 }
 
 void CannedBrowsingDataCookieHelper::AddChangedCookie(
+    const GURL& frame_url,
     const GURL& url,
     const std::string& cookie_line,
     const net::CookieOptions& options) {
-  typedef net::CookieList::iterator cookie_iterator;
-
-  net::CookieMonster::ParsedCookie pc(cookie_line);
-  if (options.exclude_httponly() && pc.IsHttpOnly()) {
+  net::ParsedCookie parsed_cookie(cookie_line);
+  if (options.exclude_httponly() && parsed_cookie.IsHttpOnly()) {
     // Return if a Javascript cookie illegally specified the HTTP only flag.
     return;
   }
 
-  scoped_ptr<net::CookieMonster::CanonicalCookie> cc;
   // This fails to create a canonical cookie, if the normalized cookie domain
   // form cookie line and the url don't have the same domain+registry, or url
   // host isn't cookie domain or one of its subdomains.
-  cc.reset(net::CookieMonster::CanonicalCookie::Create(url, pc));
-
-  if (cc.get()) {
-    DeleteMetchingCookie(*cc);
-    cookie_list_.push_back(*cc);
-  }
+  scoped_ptr<net::CanonicalCookie> cookie(
+      net::CanonicalCookie::Create(url, parsed_cookie));
+  if (cookie.get())
+    AddCookie(frame_url, *cookie);
 }
 
 void CannedBrowsingDataCookieHelper::Reset() {
-  cookie_list_.clear();
+  STLDeleteContainerPairSecondPointers(origin_cookie_list_map_.begin(),
+                                       origin_cookie_list_map_.end());
+  origin_cookie_list_map_.clear();
 }
 
 bool CannedBrowsingDataCookieHelper::empty() const {
-  return cookie_list_.empty();
+  for (OriginCookieListMap::const_iterator it =
+           origin_cookie_list_map_.begin();
+       it != origin_cookie_list_map_.end();
+       ++it) {
+    if (!it->second->empty())
+      return false;
+  }
+  return true;
 }
+
+
+size_t CannedBrowsingDataCookieHelper::GetCookieCount() const {
+  size_t count = 0;
+  for (OriginCookieListMap::const_iterator it = origin_cookie_list_map_.begin();
+       it != origin_cookie_list_map_.end();
+       ++it) {
+    count += it->second->size();
+  }
+  return count;
+}
+
 
 void CannedBrowsingDataCookieHelper::StartFetching(
     const net::CookieMonster::GetCookieListCallback& callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  if (!callback.is_null())
-    callback.Run(cookie_list_);
+  net::CookieList cookie_list;
+  for (OriginCookieListMap::iterator it = origin_cookie_list_map_.begin();
+       it != origin_cookie_list_map_.end();
+       ++it) {
+    cookie_list.insert(cookie_list.begin(),
+                       it->second->begin(),
+                       it->second->end());
+  }
+  callback.Run(cookie_list);
 }
 
-void CannedBrowsingDataCookieHelper::CancelNotification() {}
-
-bool CannedBrowsingDataCookieHelper::DeleteMetchingCookie(
-    const net::CookieMonster::CanonicalCookie& add_cookie) {
+bool CannedBrowsingDataCookieHelper::DeleteMatchingCookie(
+    const net::CanonicalCookie& add_cookie,
+    net::CookieList* cookie_list) {
   typedef net::CookieList::iterator cookie_iterator;
-  for (cookie_iterator cookie = cookie_list_.begin();
-      cookie != cookie_list_.end(); ++cookie) {
+  for (cookie_iterator cookie = cookie_list->begin();
+      cookie != cookie_list->end(); ++cookie) {
     if (cookie->Name() == add_cookie.Name() &&
         cookie->Domain() == add_cookie.Domain()&&
         cookie->Path() == add_cookie.Path()) {
-      cookie_list_.erase(cookie);
+      cookie_list->erase(cookie);
       return true;
     }
   }
   return false;
+}
+
+net::CookieList* CannedBrowsingDataCookieHelper::GetCookiesFor(
+    const GURL& first_party_origin) {
+  OriginCookieListMap::iterator it =
+      origin_cookie_list_map_.find(first_party_origin);
+  if (it == origin_cookie_list_map_.end()) {
+    net::CookieList* cookies = new net::CookieList();
+    origin_cookie_list_map_.insert(
+        std::pair<GURL, net::CookieList*>(first_party_origin, cookies));
+    return cookies;
+  }
+  return it->second;
+}
+
+void CannedBrowsingDataCookieHelper::AddCookie(
+    const GURL& frame_url,
+    const net::CanonicalCookie& cookie) {
+  net::CookieList* cookie_list =
+      GetCookiesFor(frame_url.GetOrigin());
+  DeleteMatchingCookie(cookie, cookie_list);
+  cookie_list->push_back(cookie);
 }

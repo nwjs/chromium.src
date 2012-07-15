@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_NET_NET_LOG_LOGGER_H_
 #define CHROME_BROWSER_NET_NET_LOG_LOGGER_H_
-#pragma once
 
 #include "base/memory/scoped_handle.h"
 #include "net/base/net_log.h"
@@ -34,11 +33,7 @@ class NetLogLogger : public net::NetLog::ThreadSafeObserver {
   void StartObserving(net::NetLog* net_log);
 
   // net::NetLog::ThreadSafeObserver implementation:
-  virtual void OnAddEntry(net::NetLog::EventType type,
-                          const base::TimeTicks& time,
-                          const net::NetLog::Source& source,
-                          net::NetLog::EventPhase phase,
-                          net::NetLog::EventParameters* params) OVERRIDE;
+  virtual void OnAddEntry(const net::NetLog::Entry& entry) OVERRIDE;
 
  private:
   ScopedStdioHandle file_;

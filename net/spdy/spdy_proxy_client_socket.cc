@@ -16,7 +16,6 @@
 #include "net/base/net_util.h"
 #include "net/http/http_auth_cache.h"
 #include "net/http/http_auth_handler_factory.h"
-#include "net/http/http_net_log_params.h"
 #include "net/http/http_response_headers.h"
 #include "net/spdy/spdy_http_utils.h"
 
@@ -77,12 +76,11 @@ bool SpdyProxyClientSocket::IsUsingSpdy() const {
   return true;
 }
 
-SSLClientSocket::NextProto
-SpdyProxyClientSocket::GetProtocolNegotiated() const {
+NextProto SpdyProxyClientSocket::GetProtocolNegotiated() const {
   // Save the negotiated protocol
   SSLInfo ssl_info;
   bool was_npn_negotiated;
-  SSLClientSocket::NextProto protocol_negotiated;
+  NextProto protocol_negotiated;
   spdy_stream_->GetSSLInfo(&ssl_info, &was_npn_negotiated,
                            &protocol_negotiated);
   return protocol_negotiated;
@@ -168,6 +166,10 @@ int64 SpdyProxyClientSocket::NumBytesRead() const {
 
 base::TimeDelta SpdyProxyClientSocket::GetConnectTimeMicros() const {
   return base::TimeDelta::FromMicroseconds(-1);
+}
+
+NextProto SpdyProxyClientSocket::GetNegotiatedProtocol() const {
+  return kProtoUnknown;
 }
 
 int SpdyProxyClientSocket::Read(IOBuffer* buf, int buf_len,
@@ -272,7 +274,7 @@ bool SpdyProxyClientSocket::SetSendBufferSize(int32 size) {
   return false;
 }
 
-int SpdyProxyClientSocket::GetPeerAddress(AddressList* address) const {
+int SpdyProxyClientSocket::GetPeerAddress(IPEndPoint* address) const {
   if (!IsConnected())
     return ERR_SOCKET_NOT_CONNECTED;
   return spdy_stream_->GetPeerAddress(address);
@@ -311,7 +313,7 @@ int SpdyProxyClientSocket::DoLoop(int last_io_result) {
       case STATE_SEND_REQUEST:
         DCHECK_EQ(OK, rv);
         net_log_.BeginEvent(
-            NetLog::TYPE_HTTP_TRANSACTION_TUNNEL_SEND_REQUEST, NULL);
+            NetLog::TYPE_HTTP_TRANSACTION_TUNNEL_SEND_REQUEST);
         rv = DoSendRequest();
         break;
       case STATE_SEND_REQUEST_COMPLETE:
@@ -362,15 +364,15 @@ int SpdyProxyClientSocket::DoSendRequest() {
   HttpRequestHeaders request_headers;
   BuildTunnelRequest(request_, authorization_headers, endpoint_, &request_line,
                      &request_headers);
-  if (net_log_.IsLoggingAllEvents()) {
-    net_log_.AddEvent(
-        NetLog::TYPE_HTTP_TRANSACTION_SEND_TUNNEL_HEADERS,
-        make_scoped_refptr(new NetLogHttpRequestParameter(
-            request_line, request_headers)));
-  }
+
+  net_log_.AddEvent(
+      NetLog::TYPE_HTTP_TRANSACTION_SEND_TUNNEL_HEADERS,
+      base::Bind(&HttpRequestHeaders::NetLogCallback,
+                 base::Unretained(&request_headers),
+                 &request_line));
 
   request_.extra_headers.MergeFrom(request_headers);
-  linked_ptr<SpdyHeaderBlock> headers(new SpdyHeaderBlock());
+  scoped_ptr<SpdyHeaderBlock> headers(new SpdyHeaderBlock());
   CreateSpdyHeadersFromHttpRequest(request_, request_headers, headers.get(),
                                    spdy_stream_->GetProtocolVersion(), true);
   // Reset the URL to be the endpoint of the connection
@@ -381,7 +383,7 @@ int SpdyProxyClientSocket::DoSendRequest() {
     (*headers)["url"] = endpoint_.ToString();
     headers->erase("scheme");
   }
-  spdy_stream_->set_spdy_headers(headers);
+  spdy_stream_->set_spdy_headers(headers.Pass());
 
   return spdy_stream_->SendRequest(true);
 }
@@ -407,11 +409,9 @@ int SpdyProxyClientSocket::DoReadReplyComplete(int result) {
     return ERR_TUNNEL_CONNECTION_FAILED;
 
   next_state_ = STATE_OPEN;
-  if (net_log_.IsLoggingAllEvents()) {
-    net_log_.AddEvent(
-        NetLog::TYPE_HTTP_TRANSACTION_READ_TUNNEL_RESPONSE_HEADERS,
-        make_scoped_refptr(new NetLogHttpResponseParameter(response_.headers)));
-  }
+  net_log_.AddEvent(
+      NetLog::TYPE_HTTP_TRANSACTION_READ_TUNNEL_RESPONSE_HEADERS,
+      base::Bind(&HttpResponseHeaders::NetLogCallback, response_.headers));
 
   if (response_.headers->response_code() == 200) {
     return OK;
@@ -469,9 +469,9 @@ int SpdyProxyClientSocket::OnResponseReceived(
     return OK;
 
   // Save the response
-  int rv = SpdyHeadersToHttpResponse(response, &response_);
-  if (rv == ERR_INCOMPLETE_SPDY_HEADERS)
-    return rv;  // More headers are coming.
+  if (!SpdyHeadersToHttpResponse(
+          response, spdy_stream_->GetProtocolVersion(), &response_))
+      return ERR_INCOMPLETE_SPDY_HEADERS;
 
   OnIOComplete(status);
   return OK;
@@ -545,9 +545,6 @@ void SpdyProxyClientSocket::OnClose(int status)  {
   // This may have been deleted by read_callback_, so check first.
   if (weak_ptr && !write_callback.is_null())
     write_callback.Run(ERR_CONNECTION_CLOSED);
-}
-
-void SpdyProxyClientSocket::set_chunk_callback(ChunkCallback* /*callback*/) {
 }
 
 }  // namespace net

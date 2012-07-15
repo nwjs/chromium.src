@@ -11,6 +11,7 @@
 #include "base/string16.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/browser/accessibility/browser_accessibility.h"
@@ -35,6 +36,9 @@ namespace {
 // Required to enter html content into a url.
   static const std::string kUrlPreamble = "data:text/html,\n<!doctype html>";
   static const char kCommentToken = '#';
+  static const char* kMarkSkipFile = "#<skip";
+  static const char* kMarkEndOfFile = "<-- End-of-file -->";
+  static const char* kSignalDiff = "*";
 } // namespace
 
 // This test takes a snapshot of the platform BrowserAccessibility tree and
@@ -50,40 +54,43 @@ namespace {
 class DumpAccessibilityTreeTest : public InProcessBrowserTest {
  public:
   // Utility helper that does a comment aware equality check.
-  bool EqualsWithComments(std::string& expected, std::string& actual) {
-    std::vector<std::string> actual_lines, expected_lines;
-    int actual_lines_count = Tokenize(actual, "\n", &actual_lines);
-    int expected_lines_count = Tokenize(expected, "\n", &expected_lines);
-    int i = actual_lines_count - 1, j = expected_lines_count - 1;
-    while (i >= 0 && j >= 0) {
-      if (expected_lines[j].size() > 0 &&
+  // Returns array of lines from expected file which are different.
+  std::vector<int> DiffLines(std::vector<std::string>& expected_lines,
+                              std::vector<std::string>& actual_lines) {
+    int actual_lines_count = actual_lines.size();
+    int expected_lines_count = expected_lines.size();
+    std::vector<int> diff_lines;
+    int i = 0, j = 0;
+    while (i < actual_lines_count && j < expected_lines_count) {
+      if (expected_lines[j].size() == 0 ||
           expected_lines[j][0] == kCommentToken) {
-        --j;
+        // Skip comment lines and blank lines in expected output.
+        ++j;
         continue;
       }
 
       if (actual_lines[i] != expected_lines[j])
-        return false;
-      --i;
-      --j;
+        diff_lines.push_back(j);
+      ++i;
+      ++j;
     }
 
     // Actual file has been fully checked.
-    return i < 0;
+    return diff_lines;
   }
 
   DumpAccessibilityTreeHelper helper_;
 };
 
 IN_PROC_BROWSER_TEST_F(DumpAccessibilityTreeTest,
-                       PlatformTreeDifferenceTest) {
+                       DISABLED_PlatformTreeDifferenceTest) {
   RenderWidgetHostViewPort* host_view = static_cast<RenderWidgetHostViewPort*>(
-          browser()->GetSelectedWebContents()->GetRenderWidgetHostView());
+      chrome::GetActiveWebContents(browser())->GetRenderWidgetHostView());
   RenderWidgetHost* host = host_view->GetRenderWidgetHost();
   RenderViewHostImpl* view_host =
       static_cast<RenderViewHostImpl*>(RenderWidgetHostImpl::From(host));
   view_host->set_save_accessibility_tree_for_testing(true);
-  view_host->EnableRendererAccessibility();
+  view_host->SetAccessibilityMode(AccessibilityModeComplete);
 
   // Setup test paths.
   FilePath dir_test_data;
@@ -106,8 +113,6 @@ IN_PROC_BROWSER_TEST_F(DumpAccessibilityTreeTest,
   FilePath html_file(file_enumerator.Next());
   ASSERT_FALSE(html_file.empty());
   do {
-    printf("Testing %s\n", html_file.BaseName().MaybeAsASCII().c_str());
-
     std::string html_contents;
     file_util::ReadFileToString(html_file, &html_contents);
 
@@ -124,6 +129,13 @@ IN_PROC_BROWSER_TEST_F(DumpAccessibilityTreeTest,
     // normalize by deleting all \r from the file (if any) to leave only \n.
     std::string expected_contents;
     RemoveChars(expected_contents_raw, "\r", &expected_contents);
+
+    if (!expected_contents.compare(0, strlen(kMarkSkipFile), kMarkSkipFile)) {
+      printf("Skipping %s\n", html_file.BaseName().MaybeAsASCII().c_str());
+      continue;
+    }
+
+    printf("Testing %s\n", html_file.BaseName().MaybeAsASCII().c_str());
 
     // Load the page.
     ui_test_utils::WindowedNotificationObserver tree_updated_observer(
@@ -144,10 +156,36 @@ IN_PROC_BROWSER_TEST_F(DumpAccessibilityTreeTest,
         host_view->GetBrowserAccessibilityManager()->GetRoot(),
         &actual_contents_utf16);
     std::string actual_contents = UTF16ToUTF8(actual_contents_utf16);
-    EXPECT_TRUE(EqualsWithComments(expected_contents, actual_contents));
-    if (expected_contents != actual_contents) {
-      printf("*** EXPECTED: ***\n%s\n", expected_contents.c_str());
-      printf("*** ACTUAL: ***\n%s\n", actual_contents.c_str());
+    std::vector<std::string> actual_lines, expected_lines;
+    Tokenize(actual_contents, "\n", &actual_lines);
+    Tokenize(expected_contents, "\n", &expected_lines);
+    // Marking the end of the file with a line of text ensures that
+    // file length differences are found.
+    expected_lines.push_back(kMarkEndOfFile);
+    actual_lines.push_back(kMarkEndOfFile);
+
+    std::vector<int> diff_lines = DiffLines(expected_lines, actual_lines);
+    bool is_different = diff_lines.size() > 0;
+    EXPECT_FALSE(is_different);
+    if (is_different) {
+      // Mark the expected lines which did not match actual output with a *.
+      printf("* Line Expected\n");
+      printf("- ---- --------\n");
+      for (int line = 0, diff_index = 0;
+           line < static_cast<int>(expected_lines.size());
+           ++line) {
+        bool is_diff = false;
+        if (diff_index < static_cast<int>(diff_lines.size()) &&
+            diff_lines[diff_index] == line) {
+          is_diff = true;
+          ++ diff_index;
+        }
+        printf("%1s %4d %s\n", is_diff? kSignalDiff : "", line + 1,
+            expected_lines[line].c_str());
+      }
+      printf("\nActual\n");
+      printf("------\n");
+      printf("%s\n", actual_contents.c_str());
     }
 
     if (!file_util::PathExists(expected_file)) {
@@ -164,4 +202,3 @@ IN_PROC_BROWSER_TEST_F(DumpAccessibilityTreeTest,
     }
   } while (!(html_file = file_enumerator.Next()).empty());
 }
-

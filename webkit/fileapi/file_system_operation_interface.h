@@ -5,6 +5,8 @@
 #ifndef WEBKIT_FILEAPI_FILE_SYSTEM_OPERATION_INTERFACE_H_
 #define WEBKIT_FILEAPI_FILE_SYSTEM_OPERATION_INTERFACE_H_
 
+#include <vector>
+
 #include "base/file_util_proxy.h"
 #include "base/platform_file.h"
 #include "base/process.h"
@@ -27,6 +29,7 @@ class GURL;
 
 namespace fileapi {
 
+class FileSystemURL;
 class FileSystemOperation;
 
 // The interface class for FileSystemOperation implementations.
@@ -60,24 +63,24 @@ class FileSystemOperationInterface {
   // Used for GetMetadata(). |result| is the return code of the operation,
   // |file_info| is the obtained file info, and |platform_path| is the path
   // of the file.
-  typedef base::Callback<void(
-      base::PlatformFileError result,
-      const base::PlatformFileInfo& file_info,
-      const FilePath& platform_path)> GetMetadataCallback;
+  typedef base::Callback<
+      void(base::PlatformFileError result,
+           const base::PlatformFileInfo& file_info,
+           const FilePath& platform_path)> GetMetadataCallback;
 
   // Used for OpenFile(). |result| is the return code of the operation.
-  typedef base::Callback<void(
-      base::PlatformFileError result,
-      base::PlatformFile file,
-      base::ProcessHandle peer_handle)> OpenFileCallback;
+  typedef base::Callback<
+      void(base::PlatformFileError result,
+           base::PlatformFile file,
+           base::ProcessHandle peer_handle)> OpenFileCallback;
 
   // Used for ReadDirectory(). |result| is the return code of the operation,
   // |file_list| is the list of files read, and |has_more| is true if some files
   // are yet to be read.
-  typedef base::Callback<void(
-      base::PlatformFileError result,
-      const std::vector<base::FileUtilProxy::Entry>& file_list,
-      bool has_more)> ReadDirectoryCallback;
+  typedef base::Callback<
+      void(base::PlatformFileError result,
+           const std::vector<base::FileUtilProxy::Entry>& file_list,
+           bool has_more)> ReadDirectoryCallback;
 
   // Used for CreateSnapshotFile(). (Please see the comment at
   // CreateSnapshotFile() below for how the method is called)
@@ -100,12 +103,12 @@ class FileSystemOperationInterface {
   // longer necessary in the javascript world.
   // Please see the comment for ShareableFileReference for details.
   //
-  typedef base::Callback<void(
-      base::PlatformFileError result,
-      const base::PlatformFileInfo& file_info,
-      const FilePath& platform_path,
-      const scoped_refptr<webkit_blob::ShareableFileReference>& file_ref
-      )> SnapshotFileCallback;
+  typedef base::Callback<
+      void(base::PlatformFileError result,
+           const base::PlatformFileInfo& file_info,
+           const FilePath& platform_path,
+           const scoped_refptr<webkit_blob::ShareableFileReference>& file_ref)>
+          SnapshotFileCallback;
 
   // Used for Write().
   typedef base::Callback<void(base::PlatformFileError result,
@@ -114,7 +117,7 @@ class FileSystemOperationInterface {
 
   // Creates a file at |path|. If |exclusive| is true, an error is raised
   // in case a file is already present at the URL.
-  virtual void CreateFile(const GURL& path,
+  virtual void CreateFile(const FileSystemURL& path,
                           bool exclusive,
                           const StatusCallback& callback) = 0;
 
@@ -122,7 +125,7 @@ class FileSystemOperationInterface {
   // raised in case a directory is already present at the URL. If
   // |recursive| is true, create parent directories as needed just like
   // mkdir -p does.
-  virtual void CreateDirectory(const GURL& path,
+  virtual void CreateDirectory(const FileSystemURL& path,
                                bool exclusive,
                                bool recursive,
                                const StatusCallback& callback) = 0;
@@ -131,41 +134,41 @@ class FileSystemOperationInterface {
   // |src_path| is a directory, the contents of |src_path| are copied to
   // |dest_path| recursively. A new file or directory is created at
   // |dest_path| as needed.
-  virtual void Copy(const GURL& src_path,
-                    const GURL& dest_path,
+  virtual void Copy(const FileSystemURL& src_path,
+                    const FileSystemURL& dest_path,
                     const StatusCallback& callback) = 0;
 
   // Moves a file or directory from |src_path| to |dest_path|. A new file
   // or directory is created at |dest_path| as needed.
-  virtual void Move(const GURL& src_path,
-                    const GURL& dest_path,
+  virtual void Move(const FileSystemURL& src_path,
+                    const FileSystemURL& dest_path,
                     const StatusCallback& callback) = 0;
 
   // Checks if a directory is present at |path|.
-  virtual void DirectoryExists(const GURL& path,
+  virtual void DirectoryExists(const FileSystemURL& path,
                                const StatusCallback& callback) = 0;
 
   // Checks if a file is present at |path|.
-  virtual void FileExists(const GURL& path,
+  virtual void FileExists(const FileSystemURL& path,
                           const StatusCallback& callback) = 0;
 
   // Gets the metadata of a file or directory at |path|.
-  virtual void GetMetadata(const GURL& path,
+  virtual void GetMetadata(const FileSystemURL& path,
                            const GetMetadataCallback& callback) = 0;
 
   // Reads contents of a directory at |path|.
-  virtual void ReadDirectory(const GURL& path,
+  virtual void ReadDirectory(const FileSystemURL& path,
                              const ReadDirectoryCallback& callback) = 0;
 
   // Removes a file or directory at |path|. If |recursive| is true, remove
   // all files and directories under the directory at |path| recursively.
-  virtual void Remove(const GURL& path, bool recursive,
+  virtual void Remove(const FileSystemURL& path, bool recursive,
                       const StatusCallback& callback) = 0;
 
   // Writes contents of |blob_url| to |path| at |offset|.
   // |url_request_context| is used to read contents in |blob_url|.
   virtual void Write(const net::URLRequestContext* url_request_context,
-                     const GURL& path,
+                     const FileSystemURL& path,
                      const GURL& blob_url,
                      int64 offset,
                      const WriteCallback& callback) = 0;
@@ -173,7 +176,7 @@ class FileSystemOperationInterface {
   // Truncates a file at |path| to |length|. If |length| is larger than
   // the original file size, the file will be extended, and the extended
   // part is filled with null bytes.
-  virtual void Truncate(const GURL& path, int64 length,
+  virtual void Truncate(const FileSystemURL& path, int64 length,
                         const StatusCallback& callback) = 0;
 
   // Tries to cancel the current operation [we support cancelling write or
@@ -206,7 +209,7 @@ class FileSystemOperationInterface {
   // create a file unlike 'touch' command on Linux.
   //
   // This function is used only by Pepper as of writing.
-  virtual void TouchFile(const GURL& path,
+  virtual void TouchFile(const FileSystemURL& path,
                          const base::Time& last_access_time,
                          const base::Time& last_modified_time,
                          const StatusCallback& callback) = 0;
@@ -218,10 +221,17 @@ class FileSystemOperationInterface {
   // is necessary for underlying IPC calls with Pepper plugins.
   //
   // This function is used only by Pepper as of writing.
-  virtual void OpenFile(const GURL& path,
+  virtual void OpenFile(const FileSystemURL& path,
                         int file_flags,
                         base::ProcessHandle peer_handle,
                         const OpenFileCallback& callback) = 0;
+
+  // Notifies a file at |path| opened by OpenFile is closed in plugin process.
+  // File system will run some cleanup task such as uploading the modified file
+  // content to a remote storage.
+  //
+  // This function is used only by Pepper as of writing.
+  virtual void NotifyCloseFile(const FileSystemURL& path) = 0;
 
   // For downcasting to FileSystemOperation.
   // TODO(kinuko): this hack should go away once appropriate upload-stream
@@ -236,7 +246,7 @@ class FileSystemOperationInterface {
   // into a temporary snapshot file and return the metadata of the
   // temporary file.  Or if the implementaiton already has the local cache
   // data for |path| it can simply return the path to the cache.
-  virtual void CreateSnapshotFile(const GURL& path,
+  virtual void CreateSnapshotFile(const FileSystemURL& path,
                                   const SnapshotFileCallback& callback) = 0;
 
  protected:
@@ -257,6 +267,7 @@ class FileSystemOperationInterface {
     kOperationTruncate,
     kOperationTouchFile,
     kOperationOpenFile,
+    kOperationCloseFile,
     kOperationGetLocalPath,
     kOperationCancel,
   };

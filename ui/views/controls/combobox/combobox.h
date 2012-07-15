@@ -1,16 +1,19 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef UI_VIEWS_CONTROLS_COMBOBOX_COMBOBOX_H_
 #define UI_VIEWS_CONTROLS_COMBOBOX_COMBOBOX_H_
-#pragma once
 
 #include <string>
 
 #include "ui/gfx/native_widget_types.h"
 #include "ui/views/controls/combobox/native_combobox_wrapper.h"
 #include "ui/views/view.h"
+
+namespace gfx {
+class Font;
+}
 
 namespace ui {
 class ComboboxModel;
@@ -20,35 +23,36 @@ namespace views {
 
 class ComboboxListener;
 
-// A non-editable combo-box (aka a drop-down list)
+// A non-editable combobox (aka a drop-down list).
 class VIEWS_EXPORT Combobox : public View {
  public:
   // The combobox's class name.
   static const char kViewClassName[];
 
-  // |model| is not owned by the combo box.
+  // |model| is not owned by the combobox.
   explicit Combobox(ui::ComboboxModel* model);
   virtual ~Combobox();
 
-  // Register |listener| for item change events.
+  static const gfx::Font& GetFont();
+
+  // Sets the listener which will be called when a selection has been made.
   void set_listener(ComboboxListener* listener) {
     listener_ = listener;
   }
 
-  // Inform the combo box that its model changed.
+  // Informs the combobox that its model changed.
   void ModelChanged();
 
-  // Gets/Sets the selected item.
-  int selected_item() const { return selected_item_; }
-  void SetSelectedItem(int index);
+  // Gets/Sets the selected index.
+  int selected_index() const { return selected_index_; }
+  void SetSelectedIndex(int index);
 
-  // Called when the combo box's selection is changed by the user.
+  // Called when the combobox's selection is changed by the user.
   void SelectionChanged();
 
-  // Accessor for |model_|.
   ui::ComboboxModel* model() const { return model_; }
 
-  // Set the accessible name of the combo box.
+  // Set the accessible name of the combobox.
   void SetAccessibleName(const string16& name);
 
   // Provided only for testing:
@@ -82,16 +86,16 @@ class VIEWS_EXPORT Combobox : public View {
   NativeComboboxWrapper* native_wrapper_;
 
  private:
-  // Our model.
+  // Our model. Not owned.
   ui::ComboboxModel* model_;
 
-  // The combobox's listener. Notified when the selected item change.
+  // Our listener. Not owned. Notified when the selected index change.
   ComboboxListener* listener_;
 
-  // The current selection.
-  int selected_item_;
+  // The current selected index.
+  int selected_index_;
 
-  // The accessible name of the text field.
+  // The accessible name of this combobox.
   string16 accessible_name_;
 
   DISALLOW_COPY_AND_ASSIGN(Combobox);

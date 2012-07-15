@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_FRAME_BROWSER_NON_CLIENT_FRAME_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_FRAME_BROWSER_NON_CLIENT_FRAME_VIEW_H_
-#pragma once
 
 #include "base/memory/scoped_ptr.h"
 #include "ui/views/window/non_client_view.h"
@@ -35,13 +34,9 @@ class BrowserNonClientFrameView : public views::NonClientFrameView {
   // Updates the throbber.
   virtual void UpdateThrobber(bool running) = 0;
 
-#if defined(OS_WIN)
-  // Overriden from views::View. For some reason just the do-nothing override
-  // causes view's gtk version to crash. TODO(cpu): remove ifdef when
-  // views:gtk is gone.
+  // Overriden from views::View.
   virtual void VisibilityChanged(views::View* starting_from,
                                  bool is_visible) OVERRIDE;
-#endif
 
  protected:
   BrowserView* browser_view() const { return browser_view_; }
@@ -62,12 +57,12 @@ class BrowserNonClientFrameView : public views::NonClientFrameView {
   scoped_ptr<AvatarMenuButton> avatar_button_;
 };
 
-namespace browser {
+namespace chrome {
 
 // Provided by a browser_non_client_frame_view_factory_*.cc implementation
 BrowserNonClientFrameView* CreateBrowserNonClientFrameView(
     BrowserFrame* frame, BrowserView* browser_view);
 
-}  // browser
+}  // namespace chrome
 
 #endif  // CHROME_BROWSER_UI_VIEWS_FRAME_BROWSER_NON_CLIENT_FRAME_VIEW_H_

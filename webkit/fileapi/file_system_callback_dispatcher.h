@@ -1,15 +1,17 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef WEBKIT_FILEAPI_FILE_SYSTEM_CALLBACK_DISPATCHER_H_
 #define WEBKIT_FILEAPI_FILE_SYSTEM_CALLBACK_DISPATCHER_H_
 
+#include <string>
 #include <vector>
 
 #include "base/file_util_proxy.h"
 #include "base/platform_file.h"
 #include "base/process.h"
+#include "webkit/fileapi/fileapi_export.h"
 
 class GURL;
 
@@ -18,7 +20,7 @@ namespace fileapi {
 // This class mirrors the callbacks in
 // third_party/WebKit/Source/WebKit/chromium/public/WebFileSystemCallbacks.h,
 // but uses chromium types.
-class FileSystemCallbackDispatcher {
+class FILEAPI_EXPORT FileSystemCallbackDispatcher {
  public:
   virtual ~FileSystemCallbackDispatcher();
 
@@ -57,8 +59,7 @@ class FileSystemCallbackDispatcher {
   // for Pepper.
   // The method will be responsible for closing |file|.
   virtual void DidOpenFile(
-      base::PlatformFile file,
-      base::ProcessHandle peer_handle);
+      base::PlatformFile file);
 };
 
 }  // namespace fileapi

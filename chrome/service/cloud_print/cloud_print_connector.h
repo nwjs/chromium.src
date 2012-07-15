@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_SERVICE_CLOUD_PRINT_CLOUD_PRINT_CONNECTOR_H_
 #define CHROME_SERVICE_CLOUD_PRINT_CLOUD_PRINT_CONNECTOR_H_
-#pragma once
 
 #include <list>
 #include <map>
@@ -39,11 +38,13 @@ class CloudPrintConnector
                       const std::string& proxy_id,
                       const GURL& cloud_print_server_url,
                       const DictionaryValue* print_system_settings);
-  virtual ~CloudPrintConnector();
 
   bool Start();
   void Stop();
   bool IsRunning();
+
+  // Return list of printer ids registered with CloudPrint.
+  void GetPrinterIds(std::list<std::string>* printer_ids);
 
   // Register printer from the list.
   void RegisterPrinters(const printing::PrinterList& printers);
@@ -60,12 +61,11 @@ class CloudPrintConnector
 
   // CloudPrintURLFetcher::Delegate implementation.
   virtual CloudPrintURLFetcher::ResponseAction HandleRawData(
-      const content::URLFetcher* source,
+      const net::URLFetcher* source,
       const GURL& url,
       const std::string& data) OVERRIDE;
-
   virtual CloudPrintURLFetcher::ResponseAction HandleJSONData(
-      const content::URLFetcher* source,
+      const net::URLFetcher* source,
       const GURL& url,
       base::DictionaryValue* json_data,
       bool succeeded) OVERRIDE;
@@ -73,29 +73,51 @@ class CloudPrintConnector
   virtual std::string GetAuthHeader() OVERRIDE;
 
  private:
+  friend class base::RefCountedThreadSafe<CloudPrintConnector>;
+
   // Prototype for a response handler.
   typedef CloudPrintURLFetcher::ResponseAction
       (CloudPrintConnector::*ResponseHandler)(
-          const content::URLFetcher* source,
+          const net::URLFetcher* source,
           const GURL& url,
           DictionaryValue* json_data,
           bool succeeded);
 
+  enum PendingTaskType {
+    PENDING_PRINTERS_NONE,
+    PENDING_PRINTERS_AVAILABLE,
+    PENDING_PRINTER_REGISTER,
+    PENDING_PRINTER_DELETE
+  };
+
+  // TODO(jhawkins): This name conflicts with base::PendingTask.
+  struct PendingTask {
+    PendingTaskType type;
+    // Optional members, depending on type.
+    std::string printer_id;  // For pending delete.
+    printing::PrinterBasicInfo printer_info;  // For pending registration.
+
+    PendingTask() : type(PENDING_PRINTERS_NONE) {}
+    ~PendingTask() {}
+  };
+
+  virtual ~CloudPrintConnector();
+
   // Begin response handlers
   CloudPrintURLFetcher::ResponseAction HandlePrinterListResponse(
-      const content::URLFetcher* source,
+      const net::URLFetcher* source,
       const GURL& url,
       DictionaryValue* json_data,
       bool succeeded);
 
   CloudPrintURLFetcher::ResponseAction HandlePrinterDeleteResponse(
-      const content::URLFetcher* source,
+      const net::URLFetcher* source,
       const GURL& url,
       DictionaryValue* json_data,
       bool succeeded);
 
   CloudPrintURLFetcher::ResponseAction HandleRegisterPrinterResponse(
-      const content::URLFetcher* source,
+      const net::URLFetcher* source,
       const GURL& url,
       DictionaryValue* json_data,
       bool succeeded);
@@ -119,24 +141,6 @@ class CloudPrintConnector
                              printing::PrinterList* printer_list);
 
   void InitJobHandlerForPrinter(DictionaryValue* printer_data);
-
-  enum PendingTaskType {
-    PENDING_PRINTERS_NONE,
-    PENDING_PRINTERS_AVAILABLE,
-    PENDING_PRINTER_REGISTER,
-    PENDING_PRINTER_DELETE
-  };
-
-  // TODO(jhawkins): This name conflicts with base::PendingTask.
-  struct PendingTask {
-    PendingTaskType type;
-    // Optional members, depending on type.
-    std::string printer_id;  // For pending delete.
-    printing::PrinterBasicInfo printer_info;  // For pending registration.
-
-    PendingTask() : type(PENDING_PRINTERS_NONE) {}
-    ~PendingTask() {}
-  };
 
   void AddPendingAvailableTask();
   void AddPendingDeleteTask(const std::string& id);

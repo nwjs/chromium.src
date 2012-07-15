@@ -4,13 +4,11 @@
 
 #ifndef CONTENT_RENDERER_MEDIA_AUDIO_DEVICE_THREAD_H_
 #define CONTENT_RENDERER_MEDIA_AUDIO_DEVICE_THREAD_H_
-#pragma once
 
 #include <vector>
 
 #include "base/basictypes.h"
 #include "base/memory/ref_counted.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/shared_memory.h"
 #include "base/sync_socket.h"
 #include "base/synchronization/lock.h"
@@ -35,7 +33,7 @@ class CONTENT_EXPORT AudioDeviceThread {
   // AudioDevice thread.
   class Callback {
    public:
-    Callback(const AudioParameters& audio_parameters,
+    Callback(const media::AudioParameters& audio_parameters,
              base::SharedMemoryHandle memory,
              int memory_length);
     virtual ~Callback();
@@ -54,7 +52,7 @@ class CONTENT_EXPORT AudioDeviceThread {
     // Protected so that derived classes can access directly.
     // The variables are 'const' since values are calculated/set in the
     // constructor and must never change.
-    const AudioParameters audio_parameters_;
+    const media::AudioParameters audio_parameters_;
     const int samples_per_ms_;
     const int bytes_per_ms_;
 

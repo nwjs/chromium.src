@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_GTK_TABS_TAB_STRIP_GTK_H_
 #define CHROME_BROWSER_UI_GTK_TABS_TAB_STRIP_GTK_H_
-#pragma once
 
 #include <gtk/gtk.h>
 #include <vector>
@@ -13,11 +12,11 @@
 #include "base/compiler_specific.h"
 #include "base/memory/weak_ptr.h"
 #include "base/message_loop.h"
-#include "chrome/browser/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/gtk/tabs/tab_gtk.h"
 #include "chrome/browser/ui/gtk/tabstrip_origin_provider.h"
 #include "chrome/browser/ui/gtk/view_id_util.h"
 #include "chrome/browser/ui/tabs/hover_tab_selector.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "ui/base/gtk/gtk_signal.h"
@@ -27,7 +26,8 @@
 class BrowserWindowGtk;
 class CustomDrawButton;
 class DraggedTabControllerGtk;
-class ThemeServiceGtk;
+class GtkThemeService;
+class TabContents;
 
 namespace gfx {
 class Image;
@@ -109,29 +109,29 @@ class TabStripGtk : public TabStripModelObserver,
 
  protected:
   // TabStripModelObserver implementation:
-  virtual void TabInsertedAt(TabContentsWrapper* contents,
+  virtual void TabInsertedAt(TabContents* contents,
                              int index,
                              bool foreground) OVERRIDE;
-  virtual void TabDetachedAt(TabContentsWrapper* contents, int index) OVERRIDE;
-  virtual void TabMoved(TabContentsWrapper* contents,
+  virtual void TabDetachedAt(TabContents* contents, int index) OVERRIDE;
+  virtual void TabMoved(TabContents* contents,
                         int from_index,
                         int to_index) OVERRIDE;
-  virtual void ActiveTabChanged(TabContentsWrapper* old_contents,
-                                TabContentsWrapper* new_contents,
+  virtual void ActiveTabChanged(TabContents* old_contents,
+                                TabContents* new_contents,
                                 int index,
                                 bool user_gesture) OVERRIDE;
   virtual void TabSelectionChanged(
       TabStripModel* tab_strip_model,
       const TabStripSelectionModel& old_model) OVERRIDE;
-  virtual void TabChangedAt(TabContentsWrapper* contents, int index,
+  virtual void TabChangedAt(TabContents* contents, int index,
                             TabChangeType change_type) OVERRIDE;
   virtual void TabReplacedAt(TabStripModel* tab_strip_model,
-                             TabContentsWrapper* old_contents,
-                             TabContentsWrapper* new_contents,
+                             TabContents* old_contents,
+                             TabContents* new_contents,
                              int index) OVERRIDE;
-  virtual void TabMiniStateChanged(TabContentsWrapper* contents,
+  virtual void TabMiniStateChanged(TabContents* contents,
                                    int index) OVERRIDE;
-  virtual void TabBlockedStateChanged(TabContentsWrapper* contents,
+  virtual void TabBlockedStateChanged(TabContents* contents,
                                       int index) OVERRIDE;
 
   // TabGtk::TabDelegate implementation:
@@ -157,7 +157,7 @@ class TabStripGtk : public TabStripModelObserver,
   virtual void ContinueDrag(GdkDragContext* context) OVERRIDE;
   virtual bool EndDrag(bool canceled) OVERRIDE;
   virtual bool HasAvailableDragActions() const OVERRIDE;
-  virtual ThemeServiceGtk* GetThemeProvider() OVERRIDE;
+  virtual GtkThemeService* GetThemeProvider() OVERRIDE;
   virtual TabStripMenuController* GetTabStripMenuControllerForTab(
       TabGtk* tab) OVERRIDE;
 
@@ -354,7 +354,7 @@ class TabStripGtk : public TabStripModelObserver,
   // Calculates the available width for tabs, assuming a Tab is to be closed.
   int GetAvailableWidthForTabs(TabGtk* last_tab) const;
 
-  // Finds the index of the TabContents corresponding to |tab| in our
+  // Finds the index of the WebContents corresponding to |tab| in our
   // associated TabStripModel, or -1 if there is none (e.g. the specified |tab|
   // is being animated closed).
   int GetIndexOfTab(const TabGtk* tab) const;
@@ -463,7 +463,7 @@ class TabStripGtk : public TabStripModelObserver,
   BrowserWindowGtk* window_;
 
   // Theme resources.
-  ThemeServiceGtk* theme_service_;
+  GtkThemeService* theme_service_;
 
   // The currently running animation.
   scoped_ptr<TabAnimation> active_animation_;

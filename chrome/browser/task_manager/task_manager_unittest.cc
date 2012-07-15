@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,8 +12,8 @@
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/gfx/image/image_skia.h"
 
 namespace {
 
@@ -36,9 +36,14 @@ class TestResource : public TaskManager::Resource {
   virtual string16 GetProfileName() const OVERRIDE {
     return ASCIIToUTF16("test profile");
   }
-  virtual SkBitmap GetIcon() const { return SkBitmap(); }
+  virtual gfx::ImageSkia GetIcon() const { return gfx::ImageSkia(); }
   virtual base::ProcessHandle GetProcess() const {
     return base::GetCurrentProcessHandle();
+  }
+  virtual int GetUniqueChildProcessId() const OVERRIDE {
+    // In reality the unique child process ID is not the actual process ID,
+    // but for testing purposes it shouldn't make difference.
+    return static_cast<int>(base::GetCurrentProcId());
   }
   virtual Type GetType() const { return RENDERER; }
   virtual bool SupportNetworkUsage() const { return false; }

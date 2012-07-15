@@ -10,8 +10,8 @@
 #include "base/basictypes.h"
 #include "base/bind.h"
 #include "base/command_line.h"
-#include "base/message_loop.h"
 #include "base/json/json_reader.h"
+#include "base/message_loop.h"
 #include "base/metrics/histogram.h"
 #include "base/stringprintf.h"
 #include "chrome/browser/prefs/pref_service.h"
@@ -25,16 +25,16 @@
 #include "chrome/common/net/gaia/gaia_urls.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/browser_thread.h"
-#include "content/public/common/url_fetcher.h"
 #include "net/base/escape.h"
 #include "net/base/load_flags.h"
 #include "net/http/http_request_headers.h"
 #include "net/http/http_status_code.h"
+#include "net/url_request/url_fetcher.h"
 #include "net/url_request/url_request_status.h"
 
 using base::StringPrintf;
 using content::BrowserThread;
-using content::URLFetcher;
+using net::URLFetcher;
 
 namespace {
 
@@ -126,7 +126,7 @@ void AppNotifyChannelSetup::OnSyncSetupResult(bool enabled) {
   EndLogin(enabled);
 }
 
-void AppNotifyChannelSetup::OnURLFetchComplete(const URLFetcher* source) {
+void AppNotifyChannelSetup::OnURLFetchComplete(const net::URLFetcher* source) {
   CHECK(source);
   switch (state_) {
     case RECORD_GRANT_STARTED:
@@ -147,7 +147,7 @@ URLFetcher* AppNotifyChannelSetup::CreateURLFetcher(
   CHECK(url.is_valid());
   URLFetcher::RequestType type =
       body.empty() ? URLFetcher::GET : URLFetcher::POST;
-  URLFetcher* fetcher = URLFetcher::Create(0, url, type, this);
+  URLFetcher* fetcher = net::URLFetcher::Create(0, url, type, this);
   fetcher->SetRequestContext(profile_->GetRequestContext());
   // Always set flags to neither send nor save cookies.
   fetcher->SetLoadFlags(
@@ -269,7 +269,7 @@ void AppNotifyChannelSetup::BeginRecordGrant() {
   url_fetcher_->Start();
 }
 
-void AppNotifyChannelSetup::EndRecordGrant(const URLFetcher* source) {
+void AppNotifyChannelSetup::EndRecordGrant(const net::URLFetcher* source) {
   CHECK_EQ(RECORD_GRANT_STARTED, state_);
 
   net::URLRequestStatus status = source->GetStatus();
@@ -300,7 +300,7 @@ void AppNotifyChannelSetup::BeginGetChannelId() {
   url_fetcher_->Start();
 }
 
-void AppNotifyChannelSetup::EndGetChannelId(const URLFetcher* source) {
+void AppNotifyChannelSetup::EndGetChannelId(const net::URLFetcher* source) {
   CHECK_EQ(CHANNEL_ID_SETUP_STARTED, state_);
   net::URLRequestStatus status = source->GetStatus();
 
@@ -402,8 +402,7 @@ std::string AppNotifyChannelSetup::MakeAuthorizationHeader(
 // static
 bool AppNotifyChannelSetup::ParseCWSChannelServiceResponse(
     const std::string& data, std::string* result) {
-  base::JSONReader reader;
-  scoped_ptr<base::Value> value(reader.Read(data, false));
+  scoped_ptr<base::Value> value(base::JSONReader::Read(data));
   if (!value.get() || value->GetType() != base::Value::TYPE_DICTIONARY)
     return false;
 

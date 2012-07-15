@@ -12,31 +12,6 @@ TestWebContentsView::TestWebContentsView() {
 TestWebContentsView::~TestWebContentsView() {
 }
 
-void TestWebContentsView::CreateNewWindow(
-    int route_id,
-    const ViewHostMsg_CreateWindow_Params& params) {
-}
-
-void TestWebContentsView::CreateNewWidget(int route_id,
-                                          WebKit::WebPopupType popup_type) {
-}
-
-void TestWebContentsView::CreateNewFullscreenWidget(int route_id) {
-}
-
-void TestWebContentsView::ShowCreatedWindow(int route_id,
-                                            WindowOpenDisposition disposition,
-                                            const gfx::Rect& initial_pos,
-                                            bool user_gesture) {
-}
-
-void TestWebContentsView::ShowCreatedWidget(int route_id,
-                                            const gfx::Rect& initial_pos) {
-}
-
-void TestWebContentsView::ShowCreatedFullscreenWidget(int route_id) {
-}
-
 void TestWebContentsView::ShowContextMenu(
     const ContextMenuParams& params) {
 }
@@ -46,13 +21,14 @@ void TestWebContentsView::ShowPopupMenu(const gfx::Rect& bounds,
                                         double item_font_size,
                                         int selected_item,
                                         const std::vector<WebMenuItem>& items,
-                                        bool right_aligned) {
+                                        bool right_aligned,
+                                        bool allow_multiple_selection) {
 }
 
 void TestWebContentsView::StartDragging(
     const WebDropData& drop_data,
     WebKit::WebDragOperationsMask allowed_ops,
-    const SkBitmap& image,
+    const gfx::ImageSkia& image,
     const gfx::Point& image_offset) {
 }
 
@@ -120,6 +96,10 @@ bool TestWebContentsView::IsDoingDrag() const {
 void TestWebContentsView::CancelDragAndCloseTab() {
 }
 
+WebDropData* TestWebContentsView::GetDropData() const {
+  return NULL;
+}
+
 bool TestWebContentsView::IsEventTracking() const {
   return false;
 }
@@ -127,7 +107,8 @@ bool TestWebContentsView::IsEventTracking() const {
 void TestWebContentsView::CloseTabAfterEventTracking() {
 }
 
-void TestWebContentsView::GetViewBounds(gfx::Rect* out) const {
+gfx::Rect TestWebContentsView::GetViewBounds() const {
+  return gfx::Rect();
 }
 
 }  // namespace content

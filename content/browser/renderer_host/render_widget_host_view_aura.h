@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_BROWSER_RENDERER_HOST_RENDER_WIDGET_HOST_VIEW_AURA_H_
 #define CONTENT_BROWSER_RENDERER_HOST_RENDER_WIDGET_HOST_VIEW_AURA_H_
-#pragma once
 
 #include <map>
 #include <vector>
@@ -18,12 +17,15 @@
 #include "ui/aura/client/activation_delegate.h"
 #include "ui/aura/window_delegate.h"
 #include "ui/base/ime/text_input_client.h"
-#include "ui/gfx/compositor/compositor_observer.h"
+#include "ui/compositor/compositor_observer.h"
 #include "ui/gfx/rect.h"
 #include "webkit/glue/webcursor.h"
 
+namespace aura {
+class CompositorLock;
+}
+
 namespace content {
-class GLHelper;
 class RenderWidgetHostImpl;
 class RenderWidgetHostView;
 }
@@ -34,14 +36,14 @@ class Canvas;
 
 namespace ui {
 class InputMethod;
+class Texture;
 }
 
 namespace WebKit {
 class WebTouchEvent;
 }
 
-class ImageTransportClient;
-
+// RenderWidgetHostView class hierarchy described in render_widget_host_view.h.
 class RenderWidgetHostViewAura
     : public content::RenderWidgetHostViewBase,
       public ui::CompositorObserver,
@@ -50,8 +52,6 @@ class RenderWidgetHostViewAura
       public aura::client::ActivationDelegate,
       public ImageTransportFactoryObserver {
  public:
-  virtual ~RenderWidgetHostViewAura();
-
   // RenderWidgetHostView implementation.
   virtual void InitAsChild(gfx::NativeView parent_view) OVERRIDE;
   virtual content::RenderWidgetHost* GetRenderWidgetHost() const OVERRIDE;
@@ -61,21 +61,19 @@ class RenderWidgetHostViewAura
   virtual gfx::NativeViewId GetNativeViewId() const OVERRIDE;
   virtual gfx::NativeViewAccessible GetNativeViewAccessible() OVERRIDE;
   virtual bool HasFocus() const OVERRIDE;
+  virtual bool IsSurfaceAvailableForCopy() const OVERRIDE;
   virtual void Show() OVERRIDE;
   virtual void Hide() OVERRIDE;
   virtual bool IsShowing() OVERRIDE;
   virtual gfx::Rect GetViewBounds() const OVERRIDE;
   virtual void SetBackground(const SkBitmap& background) OVERRIDE;
-  virtual bool CopyFromCompositingSurface(
-      const gfx::Size& size,
-      skia::PlatformCanvas* output) OVERRIDE;
 
   // Overridden from RenderWidgetHostViewPort:
   virtual void InitAsPopup(content::RenderWidgetHostView* parent_host_view,
                            const gfx::Rect& pos) OVERRIDE;
   virtual void InitAsFullscreen(
       content::RenderWidgetHostView* reference_host_view) OVERRIDE;
-  virtual void DidBecomeSelected() OVERRIDE;
+  virtual void WasRestored() OVERRIDE;
   virtual void WasHidden() OVERRIDE;
   virtual void MovePluginWindows(
       const std::vector<webkit::npapi::WebPluginGeometry>& moves) OVERRIDE;
@@ -86,6 +84,9 @@ class RenderWidgetHostViewAura
   virtual void TextInputStateChanged(ui::TextInputType type,
                                      bool can_compose_inline) OVERRIDE;
   virtual void ImeCancelComposition() OVERRIDE;
+  virtual void ImeCompositionRangeChanged(
+      const ui::Range& range,
+      const std::vector<gfx::Rect>& character_bounds) OVERRIDE;
   virtual void DidUpdateBackingStore(
       const gfx::Rect& scroll_rect, int scroll_dx, int scroll_dy,
       const std::vector<gfx::Rect>& copy_rects) OVERRIDE;
@@ -96,19 +97,23 @@ class RenderWidgetHostViewAura
   virtual void SelectionBoundsChanged(const gfx::Rect& start_rect,
                                       const gfx::Rect& end_rect) OVERRIDE;
   virtual BackingStore* AllocBackingStore(const gfx::Size& size) OVERRIDE;
+  virtual void CopyFromCompositingSurface(
+      const gfx::Size& size,
+      const base::Callback<void(bool)>& callback,
+      skia::PlatformCanvas* output) OVERRIDE;
   virtual void OnAcceleratedCompositingStateChange() OVERRIDE;
   virtual void AcceleratedSurfaceBuffersSwapped(
-      const GpuHostMsg_AcceleratedSurfaceBuffersSwapped_Params& params,
+      const GpuHostMsg_AcceleratedSurfaceBuffersSwapped_Params& params_in_pixel,
       int gpu_host_id) OVERRIDE;
   virtual void AcceleratedSurfacePostSubBuffer(
-      const GpuHostMsg_AcceleratedSurfacePostSubBuffer_Params& params,
+      const GpuHostMsg_AcceleratedSurfacePostSubBuffer_Params& params_in_pixel,
       int gpu_host_id) OVERRIDE;
   virtual void AcceleratedSurfaceSuspend() OVERRIDE;
+  virtual bool HasAcceleratedSurface(const gfx::Size& desired_size) OVERRIDE;
   virtual void AcceleratedSurfaceNew(
-      int32 width,
-      int32 height,
-      uint64* surface_id,
-      TransportDIB::Handle* surface_handle) OVERRIDE;
+      int32 width_in_pixel,
+      int32 height_in_pixel,
+      uint64 surface_id) OVERRIDE;
   virtual void AcceleratedSurfaceRelease(uint64 surface_id) OVERRIDE;
   virtual void GetScreenInfo(WebKit::WebScreenInfo* results) OVERRIDE;
   virtual gfx::Rect GetRootWindowBounds() OVERRIDE;
@@ -132,6 +137,8 @@ class RenderWidgetHostViewAura
   virtual ui::TextInputType GetTextInputType() const OVERRIDE;
   virtual bool CanComposeInline() const OVERRIDE;
   virtual gfx::Rect GetCaretBounds() OVERRIDE;
+  virtual bool GetCompositionCharacterBounds(uint32 index,
+                                             gfx::Rect* rect) OVERRIDE;
   virtual bool HasCompositionText() OVERRIDE;
   virtual bool GetTextRange(ui::Range* range) OVERRIDE;
   virtual bool GetCompositionTextRange(ui::Range* range) OVERRIDE;
@@ -148,20 +155,26 @@ class RenderWidgetHostViewAura
   virtual gfx::Size GetMinimumSize() const OVERRIDE;
   virtual void OnBoundsChanged(const gfx::Rect& old_bounds,
                                const gfx::Rect& new_bounds) OVERRIDE;
-  virtual void OnFocus() OVERRIDE;
+  virtual void OnFocus(aura::Window* old_focused_window) OVERRIDE;
   virtual void OnBlur() OVERRIDE;
   virtual bool OnKeyEvent(aura::KeyEvent* event) OVERRIDE;
   virtual gfx::NativeCursor GetCursor(const gfx::Point& point) OVERRIDE;
   virtual int GetNonClientComponent(const gfx::Point& point) const OVERRIDE;
+  virtual bool ShouldDescendIntoChildForEventHandling(
+      aura::Window* child,
+      const gfx::Point& location) OVERRIDE;
   virtual bool OnMouseEvent(aura::MouseEvent* event) OVERRIDE;
   virtual ui::TouchStatus OnTouchEvent(aura::TouchEvent* event) OVERRIDE;
   virtual ui::GestureStatus OnGestureEvent(aura::GestureEvent* event) OVERRIDE;
   virtual bool CanFocus() OVERRIDE;
   virtual void OnCaptureLost() OVERRIDE;
   virtual void OnPaint(gfx::Canvas* canvas) OVERRIDE;
+  virtual void OnDeviceScaleFactorChanged(float device_scale_factor) OVERRIDE;
   virtual void OnWindowDestroying() OVERRIDE;
   virtual void OnWindowDestroyed() OVERRIDE;
   virtual void OnWindowVisibilityChanged(bool visible) OVERRIDE;
+  virtual bool HasHitTestMask() const OVERRIDE;
+  virtual void GetHitTestMask(gfx::Path* mask) const OVERRIDE;
 
   // Overridden from aura::client::ActivationDelegate:
   virtual bool ShouldActivate(const aura::Event* event) OVERRIDE;
@@ -179,11 +192,16 @@ class RenderWidgetHostViewAura
   friend class WindowObserver;
 
   // Overridden from ui::CompositorObserver:
+  virtual void OnCompositingDidCommit(ui::Compositor* compositor) OVERRIDE;
+  virtual void OnCompositingWillStart(ui::Compositor* compositor) OVERRIDE;
   virtual void OnCompositingStarted(ui::Compositor* compositor) OVERRIDE;
   virtual void OnCompositingEnded(ui::Compositor* compositor) OVERRIDE;
+  virtual void OnCompositingAborted(ui::Compositor* compositor) OVERRIDE;
 
   // Overridden from ImageTransportFactoryObserver:
   virtual void OnLostResources(ui::Compositor* compositor) OVERRIDE;
+
+  virtual ~RenderWidgetHostViewAura();
 
   void UpdateCursorIfOverSelf();
   void UpdateExternalTexture();
@@ -209,21 +227,37 @@ class RenderWidgetHostViewAura
   bool ShouldMoveToCenter();
 
   // Run the compositing callbacks.
-  void RunCompositingCallbacks();
+  void RunCompositingDidCommitCallbacks(ui::Compositor* compositor);
+  void RunCompositingWillStartCallbacks(ui::Compositor* compositor);
+
+  // Insert a sync point into the compositor's command stream and acknowledge
+  // that we have presented the accelerated surface buffer.
+  static void InsertSyncPointAndACK(int32 route_id,
+                                    int gpu_host_id,
+                                    ui::Compositor* compositor);
 
   // Called when window_ is removed from the window tree.
   void RemovingFromRootWindow();
 
   ui::Compositor* GetCompositor();
 
+  // Detaches |this| from the input method object.
+  void DetachFromInputMethod();
+
+  // Converts |rect| from window coordinate to screen coordinate.
+  gfx::Rect ConvertRectToScreen(const gfx::Rect& rect);
+
   // The model object.
   content::RenderWidgetHostImpl* host_;
-
-  scoped_ptr<content::GLHelper> gl_helper_;
 
   aura::Window* window_;
 
   scoped_ptr<WindowObserver> window_observer_;
+
+  // Are we in the process of closing?  Tracked so fullscreen views can avoid
+  // sending a second shutdown request to the host when they lose the focus
+  // after requesting shutdown for another reason (e.g. Escape key).
+  bool in_shutdown_;
 
   // Is this a fullscreen view?
   bool is_fullscreen_;
@@ -253,15 +287,22 @@ class RenderWidgetHostViewAura
   gfx::Rect selection_start_rect_;
   gfx::Rect selection_end_rect_;
 
+  // The current composition character bounds.
+  std::vector<gfx::Rect> composition_character_bounds_;
+
   // Indicates if there is onging composition text.
   bool has_composition_text_;
 
   // Current tooltip text.
   string16 tooltip_;
 
-  std::vector< base::Callback<void(void)> > on_compositing_ended_callbacks_;
+  std::vector< base::Callback<void(ui::Compositor*)> >
+      on_compositing_did_commit_callbacks_;
 
-  std::map<uint64, scoped_refptr<ImageTransportClient> >
+  std::vector< base::Callback<void(ui::Compositor*)> >
+      on_compositing_will_start_callbacks_;
+
+  std::map<uint64, scoped_refptr<ui::Texture> >
       image_transport_clients_;
 
   uint64 current_surface_;
@@ -286,9 +327,10 @@ class RenderWidgetHostViewAura
   // events vs. normal mouse move events.
   bool synthetic_move_sent_;
 
-  // Signals we need to switch off the external texture as soon as the software
-  // backing store is updated.
-  bool needs_update_texture_;
+  // Signals that the accelerated compositing has been turned on or off.
+  // This is used to signal to turn off the external texture as soon as the
+  // software backing store is updated.
+  bool accelerated_compositing_state_changed_;
 
   // Used to prevent further resizes while a resize is pending.
   class ResizeLock;
@@ -297,6 +339,9 @@ class RenderWidgetHostViewAura
   std::vector<linked_ptr<ResizeLock> > resize_locks_;
   // These locks are the ones waiting for a frame to be drawn.
   std::vector<linked_ptr<ResizeLock> > locks_pending_draw_;
+
+  // This lock is for waiting for a front surface to become available to draw.
+  scoped_refptr<aura::CompositorLock> released_front_lock_;
 
   DISALLOW_COPY_AND_ASSIGN(RenderWidgetHostViewAura);
 };

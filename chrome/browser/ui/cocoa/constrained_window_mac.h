@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_COCOA_CONSTRAINED_WINDOW_MAC_H_
 #define CHROME_BROWSER_UI_COCOA_CONSTRAINED_WINDOW_MAC_H_
-#pragma once
 
 #import <Cocoa/Cocoa.h>
 
@@ -17,7 +16,7 @@
 @class GTMWindowSheetController;
 @class NSView;
 @class NSWindow;
-class TabContentsWrapper;
+class TabContents;
 
 // Base class for constrained dialog delegates. Never inherit from this
 // directly.
@@ -110,7 +109,7 @@ class ConstrainedWindowMacDelegateCustomSheet
 //    deleted.
 class ConstrainedWindowMac : public ConstrainedWindow {
  public:
-  ConstrainedWindowMac(TabContentsWrapper* wrapper,
+  ConstrainedWindowMac(TabContents* tab_contents,
                        ConstrainedWindowMacDelegate* delegate);
   virtual ~ConstrainedWindowMac();
 
@@ -118,8 +117,8 @@ class ConstrainedWindowMac : public ConstrainedWindow {
   virtual void ShowConstrainedWindow() OVERRIDE;
   virtual void CloseConstrainedWindow() OVERRIDE;
 
-  // Returns the TabContentsWrapper that constrains this Constrained Window.
-  TabContentsWrapper* owner() const { return wrapper_; }
+  // Returns the TabContents that constrains this Constrained Window.
+  TabContents* owner() const { return tab_contents_; }
 
   // Returns the window's delegate.
   ConstrainedWindowMacDelegate* delegate() { return delegate_; }
@@ -130,8 +129,8 @@ class ConstrainedWindowMac : public ConstrainedWindow {
  private:
   friend class ConstrainedWindow;
 
-  // The TabContentsWrapper that owns and constrains this ConstrainedWindow.
-  TabContentsWrapper* wrapper_;
+  // The TabContents that owns and constrains this ConstrainedWindow.
+  TabContents* tab_contents_;
 
   // Delegate that provides the contents of this constrained window.
   ConstrainedWindowMacDelegate* delegate_;

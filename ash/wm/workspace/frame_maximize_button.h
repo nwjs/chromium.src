@@ -7,6 +7,7 @@
 
 #include "ash/ash_export.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/timer.h"
 #include "ui/views/controls/button/image_button.h"
 
 namespace views {
@@ -34,15 +35,13 @@ class ASH_EXPORT FrameMaximizeButton : public views::ImageButton {
   virtual bool OnMouseDragged(const views::MouseEvent& event) OVERRIDE;
   virtual void OnMouseReleased(const views::MouseEvent& event) OVERRIDE;
   virtual void OnMouseCaptureLost() OVERRIDE;
-
-  // Sets is_left_right_enabled_ and updates tooltip.
-  void SetIsLeftRightEnabled(bool e);
-
-  void set_is_maximize_enabled(bool e) { is_maximize_enabled_ = e; }
+  virtual ui::GestureStatus OnGestureEvent(
+      const views::GestureEvent& event) OVERRIDE;
 
  protected:
   // ImageButton overrides:
-  virtual SkBitmap GetImageToPaint() OVERRIDE;
+  virtual gfx::ImageSkia GetImageToPaint(
+      ui::ScaleFactor scale_factor) OVERRIDE;
 
  private:
   class EscapeEventFilter;
@@ -53,8 +52,20 @@ class ASH_EXPORT FrameMaximizeButton : public views::ImageButton {
     SNAP_RIGHT,
     SNAP_MAXIMIZE,
     SNAP_MINIMIZE,
+    SNAP_RESTORE,
     SNAP_NONE
   };
+
+  // Initializes the snap-gesture based on the event. This should only be called
+  // when the event is confirmed to have started a snap gesture.
+  void ProcessStartEvent(const views::LocatedEvent& event);
+
+  // Updates the snap-state based on the current event. This should only be
+  // called after the snap gesture has already started.
+  void ProcessUpdateEvent(const views::LocatedEvent& event);
+
+  // Returns true if the window was snapped. Returns false otherwise.
+  bool ProcessEndEvent(const views::LocatedEvent& event);
 
   // Cancels snap behavior.
   void Cancel();
@@ -63,17 +74,18 @@ class ASH_EXPORT FrameMaximizeButton : public views::ImageButton {
   void InstallEventFilter();
   void UninstallEventFilter();
 
+  // Updates the snap position from the event location. This is invoked by
+  // |update_timer_|.
+  void UpdateSnapFromEventLocation();
+
   // Updates |snap_type_| based on a mouse drag.
   void UpdateSnap(const gfx::Point& location);
-
-  // Returns true if maximizing is allowed.
-  bool AllowMaximize() const;
 
   // Returns the type of snap based on the specified location.
   SnapType SnapTypeForLocation(const gfx::Point& location) const;
 
   // Returns the bounds of the resulting window for the specified type.
-  gfx::Rect BoundsForType(SnapType type) const;
+  gfx::Rect ScreenBoundsForType(SnapType type) const;
 
   // Converts location to screen coordinates and returns it. These are the
   // coordinates used by the SnapSizer.
@@ -92,10 +104,6 @@ class ASH_EXPORT FrameMaximizeButton : public views::ImageButton {
   // should show the snap locations.
   bool is_snap_enabled_;
 
-  // Selectively enable/disable button functionality.
-  bool is_left_right_enabled_;
-  bool is_maximize_enabled_;
-
   // Did the user drag far enough to trigger snapping?
   bool exceeded_drag_threshold_;
 
@@ -108,6 +116,8 @@ class ASH_EXPORT FrameMaximizeButton : public views::ImageButton {
   scoped_ptr<internal::SnapSizer> snap_sizer_;
 
   scoped_ptr<EscapeEventFilter> escape_event_filter_;
+
+  base::OneShotTimer<FrameMaximizeButton> update_timer_;
 
   DISALLOW_COPY_AND_ASSIGN(FrameMaximizeButton);
 };

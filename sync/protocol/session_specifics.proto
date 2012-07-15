@@ -14,12 +14,18 @@ option retain_unknown_fields = true;
 
 package sync_pb;
 
+import "sync_enums.proto";
+
 message SessionSpecifics {
   // Unique id for the client.
   optional string session_tag = 1;
   optional SessionHeader header = 2;
   optional SessionTab tab = 3;
+  
+  // The local tab id used by sync. Unique across all nodes for that client.
+  optional int32 tab_node_id = 4 [default = -1];
 }
+
 // Properties of session sync objects.
 message SessionHeader {
   // Each session is composed of windows.
@@ -38,6 +44,7 @@ message SessionHeader {
   }
   optional DeviceType device_type = 4;
 }
+
 message SessionWindow {
   // Unique (to the owner) id for this window.
   optional int32 window_id = 1;
@@ -53,6 +60,7 @@ message SessionWindow {
   // The tabs that compose a window (correspond to tab id's).
   repeated int32 tab = 4;
 }
+
 message SessionTab {
   // Unique (to the owner) id for this tab.
   optional int32 tab_id = 1;
@@ -70,11 +78,22 @@ message SessionTab {
   optional string extension_app_id = 6;
   // Tabs are navigated, and the navigation data is here.
   repeated TabNavigation navigation = 7;
+  // The favicon for the current url the tab is displaying. Either empty
+  // or a valid PNG encoded favicon.
+  optional bytes favicon = 8;
+  // The type of favicon. For now only normal web favicons are supported.
+  enum FaviconType {
+    TYPE_WEB_FAVICON = 1;
+  }
+  optional FaviconType favicon_type = 9;
+  // The url of the actual favicon (as opposed to the page using the favicon).
+  optional string favicon_source = 11;
 }
+
 message TabNavigation {
   // The index in the NavigationController. If this is -1, it means this
   // TabNavigation is bogus.
-  optional int32 index = 1 [default = -1];
+  // optional int32 index = 1 [default = -1];  // obsolete.
   // The virtual URL, when nonempty, will override the actual URL of the page
   // when we display it to the user.
   optional string virtual_url = 2;
@@ -86,28 +105,12 @@ message TabNavigation {
   // state of the page. This includes form entries and scroll position for each
   // frame.
   optional string state = 5;
-  // Types of transitions between pages.
-  enum PageTransition {
-    LINK = 0;
-    TYPED = 1;
-    AUTO_BOOKMARK = 2;
-    AUTO_SUBFRAME = 3;
-    MANUAL_SUBFRAME = 4;
-    GENERATED = 5;
-    START_PAGE = 6;
-    FORM_SUBMIT = 7;
-    RELOAD = 8;
-    KEYWORD = 9;
-    KEYWORD_GENERATED = 10;
-    CHAIN_START = 12;
-    CHAIN_END = 13;
-  }
-  // These qualifiers further define the transition.
-  enum PageTransitionQualifier {
-    CLIENT_REDIRECT = 1;
-    SERVER_REDIRECT = 2;
-  }
-  optional PageTransition page_transition = 6 [default = TYPED];
-  optional PageTransitionQualifier navigation_qualifier = 7;
+  optional SyncEnums.PageTransition page_transition = 6 [default = TYPED];
+  optional SyncEnums.PageTransitionQualifier navigation_qualifier = 7;
+  // The unique navigation id (within this client).
+  optional int32 unique_id = 8;
+  // Timestamp for when this navigation last occurred (in client time).
+  // If the user goes back/foward in history the timestamp may refresh.
+  optional int64 timestamp = 9;
 }
 

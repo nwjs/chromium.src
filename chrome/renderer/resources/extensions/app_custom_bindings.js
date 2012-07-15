@@ -5,13 +5,14 @@
 // Custom bindings for the app API.
 
 var appNatives = requireNative('app');
-var chromeHidden = requireNative('chrome_hidden').GetChromeHidden();
 
-chrome.app = {
+// This becomes chrome.app
+var app = {
   getIsInstalled: appNatives.GetIsInstalled,
   install: appNatives.Install,
   getDetails: appNatives.GetDetails,
-  getDetailsForFrame: appNatives.GetDetailsForFrame
+  getDetailsForFrame: appNatives.GetDetailsForFrame,
+  runningState: appNatives.GetRunningState
 };
 
 // Tricky; "getIsInstalled" is actually exposed as the getter "isInstalled",
@@ -20,13 +21,21 @@ chrome.app = {
 //
 // So, define it manually, and let the getIsInstalled function act as its
 // documentation.
-chrome.app.__defineGetter__('isInstalled', appNatives.GetIsInstalled);
+app.__defineGetter__('isInstalled', appNatives.GetIsInstalled);
 
 // Called by app_bindings.cc.
-chromeHidden.app = {
+// This becomes chromeHidden.app
+var chromeHiddenApp = {
   onGetAppNotifyChannelResponse: function(channelId, error, callbackId) {
     if (callbackId) {
       callbacks[callbackId](channelId, error);
+      delete callbacks[callbackId];
+    }
+  },
+
+  onInstallStateResponse: function(state, callbackId) {
+    if (callbackId) {
+      callbacks[callbackId](state);
       delete callbacks[callbackId];
     }
   }
@@ -40,7 +49,8 @@ chromeHidden.app = {
 var callbacks = {};
 var nextCallbackId = 1;
 
-chrome.appNotifications = {
+// This becomes chrome.appNotifications.
+var appNotifications = {
   getChannel: function getChannel(clientId, callback) {
     var callbackId = 0;
     if (callback) {
@@ -50,3 +60,15 @@ chrome.appNotifications = {
     appNatives.GetAppNotifyChannel(clientId, callbackId);
   }
 };
+
+app.installState = function getInstallState(callback) {
+  var callbackId = nextCallbackId++;
+  callbacks[callbackId] = callback;
+  appNatives.GetInstallState(callbackId);
+};
+
+// These must match the names in InstallAppBindings() in
+// extension_dispatcher.cc.
+exports.chromeApp = app;
+exports.chromeAppNotifications = appNotifications;
+exports.chromeHiddenApp = chromeHiddenApp;

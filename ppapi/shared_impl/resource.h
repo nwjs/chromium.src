@@ -35,9 +35,9 @@
   F(PPB_FileRef_API) \
   F(PPB_FileSystem_API) \
   F(PPB_Find_API) \
+  F(PPB_Flash_DeviceID_API) \
   F(PPB_Flash_Menu_API) \
   F(PPB_Flash_MessageLoop_API) \
-  F(PPB_Flash_NetConnector_API) \
   F(PPB_Graphics2D_API) \
   F(PPB_Graphics3D_API) \
   F(PPB_HostResolver_Private_API) \
@@ -53,7 +53,6 @@
   F(PPB_Talk_Private_API) \
   F(PPB_TCPServerSocket_Private_API) \
   F(PPB_TCPSocket_Private_API) \
-  F(PPB_Transport_API) \
   F(PPB_UDPSocket_Private_API) \
   F(PPB_URLLoader_API) \
   F(PPB_URLRequestInfo_API) \
@@ -63,7 +62,12 @@
   F(PPB_VideoLayer_API) \
   F(PPB_View_API) \
   F(PPB_WebSocket_API) \
-  F(PPB_Widget_API)
+  F(PPB_Widget_API) \
+  F(PPB_X509Certificate_Private_API)
+
+namespace IPC {
+class Message;
+}
 
 namespace ppapi {
 
@@ -160,6 +164,22 @@ class PPAPI_SHARED_EXPORT Resource : public base::RefCounted<Resource> {
 
   // Template-based dynamic casting. See specializations below.
   template <typename T> T* GetAs() { return NULL; }
+
+  // Called when a PpapiPluginMsg_ResourceReply reply is received for a
+  // previous CallRenderer. The sequence number is the value returned the
+  // send function for the given request. The message is the nested reply
+  // message, which may be an empty message (depending on what the host
+  // sends).
+  //
+  // The default implementation will assert (if you send a request, you should
+  // override this function).
+  //
+  // (This function would make more conceptual sense on PluginResource but we
+  // need to call this function from general code that doesn't know how to
+  // distinguish the classes.)
+  virtual void OnReplyReceived(int sequence,
+                               int32_t result,
+                               const IPC::Message& msg);
 
  protected:
   // Logs a message to the console from this resource.

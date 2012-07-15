@@ -11,14 +11,14 @@
 
 #include "base/file_path.h"
 #include "base/file_util_proxy.h"
-#include "base/memory/ref_counted.h"
 #include "base/platform_file.h"
 #include "base/timer.h"
 #include "webkit/fileapi/file_system_directory_database.h"
 #include "webkit/fileapi/file_system_file_util.h"
 #include "webkit/fileapi/file_system_origin_database.h"
-#include "webkit/fileapi/file_system_path.h"
 #include "webkit/fileapi/file_system_types.h"
+#include "webkit/fileapi/file_system_url.h"
+#include "webkit/fileapi/fileapi_export.h"
 
 namespace base {
 struct PlatformFileInfo;
@@ -37,14 +37,9 @@ class FileSystemOperationContext;
 // doing FSCK operations, if you find a loose backing file with no reference,
 // you may safely delete it.
 //
-// This class is RefCountedThreadSafe because it may gain a reference on the IO
-// thread, but must be deleted on the FILE thread because that's where
-// DropDatabases needs to be called.  References will be held by the
-// SandboxMountPointProvider [and the task it uses to drop the reference] and
-// SandboxMountPointProvider::GetFileSystemRootPathTask.  Without that last one,
-// we wouldn't need ref counting.
-class ObfuscatedFileUtil : public FileSystemFileUtil,
-    public base::RefCountedThreadSafe<ObfuscatedFileUtil> {
+// This class must be deleted on the FILE thread, because that's where
+// DropDatabases needs to be called.
+class FILEAPI_EXPORT_PRIVATE ObfuscatedFileUtil : public FileSystemFileUtil {
  public:
   // Origin enumerator interface.
   // An instance of this interface is assumed to be called on the file thread.
@@ -59,99 +54,101 @@ class ObfuscatedFileUtil : public FileSystemFileUtil,
     virtual bool HasFileSystemType(FileSystemType type) const = 0;
   };
 
-  // |underlying_file_util| is owned by the instance.  It will be deleted by
-  // the owner instance.  For example, it can be instanciated as follows:
-  // FileSystemFileUtil* file_util =
-  //     new ObfuscatedFileUtil(new NativeFileUtil());
-  ObfuscatedFileUtil(const FilePath& file_system_directory,
-                     FileSystemFileUtil* underlying_file_util);
+  explicit ObfuscatedFileUtil(const FilePath& file_system_directory);
   virtual ~ObfuscatedFileUtil();
 
   virtual base::PlatformFileError CreateOrOpen(
       FileSystemOperationContext* context,
-      const FileSystemPath& path,
+      const FileSystemURL& url,
       int file_flags,
       base::PlatformFile* file_handle,
       bool* created) OVERRIDE;
 
+  virtual PlatformFileError Close(
+      FileSystemOperationContext* context,
+      PlatformFile file) OVERRIDE;
+
   virtual base::PlatformFileError EnsureFileExists(
       FileSystemOperationContext* context,
-      const FileSystemPath& path, bool* created) OVERRIDE;
+      const FileSystemURL& url, bool* created) OVERRIDE;
 
   virtual base::PlatformFileError CreateDirectory(
       FileSystemOperationContext* context,
-      const FileSystemPath& path,
+      const FileSystemURL& url,
       bool exclusive,
       bool recursive) OVERRIDE;
 
   virtual base::PlatformFileError GetFileInfo(
       FileSystemOperationContext* context,
-      const FileSystemPath& path,
+      const FileSystemURL& url,
       base::PlatformFileInfo* file_info,
       FilePath* platform_file) OVERRIDE;
 
-  virtual base::PlatformFileError ReadDirectory(
-      FileSystemOperationContext* context,
-      const FileSystemPath& path,
-      std::vector<base::FileUtilProxy::Entry>* entries) OVERRIDE;
-
   virtual AbstractFileEnumerator* CreateFileEnumerator(
       FileSystemOperationContext* context,
-      const FileSystemPath& root_path,
+      const FileSystemURL& root_url,
       bool recursive) OVERRIDE;
 
   virtual base::PlatformFileError GetLocalFilePath(
       FileSystemOperationContext* context,
-      const FileSystemPath& file_system_path,
-      FilePath* local_file_path) OVERRIDE;
+      const FileSystemURL& file_system_url,
+      FilePath* local_path) OVERRIDE;
 
   virtual base::PlatformFileError Touch(
       FileSystemOperationContext* context,
-      const FileSystemPath& path,
+      const FileSystemURL& url,
       const base::Time& last_access_time,
       const base::Time& last_modified_time) OVERRIDE;
 
   virtual base::PlatformFileError Truncate(
       FileSystemOperationContext* context,
-      const FileSystemPath& path,
+      const FileSystemURL& url,
       int64 length) OVERRIDE;
 
   virtual bool PathExists(
       FileSystemOperationContext* context,
-      const FileSystemPath& path) OVERRIDE;
+      const FileSystemURL& url) OVERRIDE;
 
   virtual bool DirectoryExists(
       FileSystemOperationContext* context,
-      const FileSystemPath& path) OVERRIDE;
+      const FileSystemURL& url) OVERRIDE;
 
   virtual bool IsDirectoryEmpty(
       FileSystemOperationContext* context,
-      const FileSystemPath& path) OVERRIDE;
+      const FileSystemURL& url) OVERRIDE;
 
   virtual base::PlatformFileError CopyOrMoveFile(
       FileSystemOperationContext* context,
-      const FileSystemPath& src_path,
-      const FileSystemPath& dest_path,
+      const FileSystemURL& src_url,
+      const FileSystemURL& dest_url,
       bool copy) OVERRIDE;
 
   virtual PlatformFileError CopyInForeignFile(
         FileSystemOperationContext* context,
-        const FileSystemPath& underlying_src_path,
-        const FileSystemPath& dest_path) OVERRIDE;
+        const FilePath& src_file_path,
+        const FileSystemURL& dest_url) OVERRIDE;
 
   virtual base::PlatformFileError DeleteFile(
       FileSystemOperationContext* context,
-      const FileSystemPath& path) OVERRIDE;
+      const FileSystemURL& url) OVERRIDE;
 
   virtual base::PlatformFileError DeleteSingleDirectory(
       FileSystemOperationContext* context,
-      const FileSystemPath& path) OVERRIDE;
+      const FileSystemURL& url) OVERRIDE;
 
   // Gets the topmost directory specific to this origin and type.  This will
   // contain both the directory database's files and all the backing file
   // subdirectories.
+  // Returns an empty path if the directory is undefined (e.g. because |type|
+  // is invalid). If the directory is defined, it will be returned, even if
+  // there is a file system error (e.g. the directory doesn't exist on disk and
+  // |create| is false). Callers should always check |error_code| to make sure
+  // the returned path is usable.
   FilePath GetDirectoryForOriginAndType(
-      const GURL& origin, FileSystemType type, bool create);
+      const GURL& origin,
+      FileSystemType type,
+      bool create,
+      base::PlatformFileError* error_code);
 
   // Deletes the topmost directory specific to this origin and type.  This will
   // delete its directory database.
@@ -195,6 +192,8 @@ class ObfuscatedFileUtil : public FileSystemFileUtil,
   typedef FileSystemDirectoryDatabase::FileId FileId;
   typedef FileSystemDirectoryDatabase::FileInfo FileInfo;
 
+  friend class ObfuscatedFileEnumerator;
+
   base::PlatformFileError GetFileInfoInternal(
       FileSystemDirectoryDatabase* db,
       FileSystemOperationContext* context,
@@ -218,28 +217,20 @@ class ObfuscatedFileUtil : public FileSystemFileUtil,
   // DCHECK and handle will hold base::kInvalidPlatformFileValue.
   base::PlatformFileError CreateFile(
       FileSystemOperationContext* context,
-      const FileSystemPath& source_path,
+      const FilePath& source_file_path,
       const GURL& dest_origin,
       FileSystemType dest_type,
       FileInfo* dest_file_info,
       int file_flags,
       base::PlatformFile* handle);
 
-  // Given a virtual path, produces a real, full local path to the
-  // underlying data file.  This does a database lookup (by
-  // calling DataPathToLocalPath()), and verifies that the file exists.
-  FileSystemPath GetLocalPath(const FileSystemPath& virtual_path);
-
   // This converts from a relative path [as is stored in the FileInfo.data_path
-  // field] to an absolute local path that can be given to the underlying
-  // filesystem (as of now the returned path is assumed to be a platform path).
-  FileSystemPath DataPathToLocalPath(
+  // field] to an absolute platform path that can be given to the native
+  // filesystem.
+  FilePath DataPathToLocalPath(
       const GURL& origin,
       FileSystemType type,
       const FilePath& data_file_path);
-
-  // This does the reverse of DataPathToLocalPath.
-  FilePath LocalPathToDataPath(const FileSystemPath& local_path);
 
   // This returns NULL if |create| flag is false and a filesystem does not
   // exist for the given |origin_url| and |type|.
@@ -249,11 +240,24 @@ class ObfuscatedFileUtil : public FileSystemFileUtil,
 
   // Gets the topmost directory specific to this origin.  This will
   // contain both the filesystem type subdirectories.
-  FilePath GetDirectoryForOrigin(const GURL& origin, bool create);
+  FilePath GetDirectoryForOrigin(const GURL& origin,
+                                 bool create,
+                                 base::PlatformFileError* error_code);
+
+  void InvalidateUsageCache(FileSystemOperationContext* context,
+                            const GURL& origin,
+                            FileSystemType type);
 
   void MarkUsed();
   void DropDatabases();
   bool InitOriginDatabase(bool create);
+
+  base::PlatformFileError GenerateNewLocalPath(
+      FileSystemDirectoryDatabase* db,
+      FileSystemOperationContext* context,
+      const GURL& origin,
+      FileSystemType type,
+      FilePath* local_path);
 
   typedef std::map<std::string, FileSystemDirectoryDatabase*> DirectoryMap;
   DirectoryMap directories_;

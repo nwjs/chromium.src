@@ -4,7 +4,7 @@
 
 cr.define('cr.ui', function() {
 
-  const Menu = cr.ui.Menu;
+  /** @const */ var Menu = cr.ui.Menu;
 
   /**
    * Handles context menus.
@@ -25,14 +25,14 @@ cr.define('cr.ui', function() {
 
     /**
      * Shows a menu as a context menu.
-     * @param {!Event} e The event triggering the show (usally a contextmenu
+     * @param {!Event} e The event triggering the show (usually a contextmenu
      *     event).
      * @param {!cr.ui.Menu} menu The menu to show.
      */
     showMenu: function(e, menu) {
       this.menu_ = menu;
+      menu.hidden = false;
 
-      menu.style.display = 'block';
       // when the menu is shown we steal all keyboard events.
       var doc = menu.ownerDocument;
       doc.addEventListener('keydown', this, true);
@@ -52,7 +52,7 @@ cr.define('cr.ui', function() {
       if (!menu)
         return;
 
-      menu.style.display = 'none';
+      menu.hidden = true;
       var doc = menu.ownerDocument;
       doc.removeEventListener('keydown', this, true);
       doc.removeEventListener('mousedown', this, true);

@@ -4,7 +4,6 @@
 
 #ifndef ASH_WM_PARTIAL_SCREENSHOT_VIEW_H_
 #define ASH_WM_PARTIAL_SCREENSHOT_VIEW_H_
-#pragma once
 
 #include "ash/ash_export.h"
 #include "base/compiler_specific.h"
@@ -34,10 +33,9 @@ class ASH_EXPORT PartialScreenshotView : public views::WidgetDelegateView {
  private:
   gfx::Rect GetScreenshotRect() const;
 
-  void set_window(aura::Window* window) { window_ = window; }
-
   // Overridden from View:
   virtual void OnPaint(gfx::Canvas* canvas) OVERRIDE;
+  virtual void OnMouseCaptureLost() OVERRIDE;
   virtual bool OnMousePressed(const views::MouseEvent& event) OVERRIDE;
   virtual bool OnMouseDragged(const views::MouseEvent& event) OVERRIDE;
   virtual bool OnMouseWheel(const views::MouseWheelEvent& event) OVERRIDE;
@@ -47,7 +45,6 @@ class ASH_EXPORT PartialScreenshotView : public views::WidgetDelegateView {
   gfx::Point start_position_;
   gfx::Point current_position_;
   ScreenshotDelegate* screenshot_delegate_;
-  aura::Window* window_;
 
   DISALLOW_COPY_AND_ASSIGN(PartialScreenshotView);
 };

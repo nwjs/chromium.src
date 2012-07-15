@@ -5,10 +5,9 @@
 #include "chrome/test/base/testing_browser_process.h"
 
 #include "base/string_util.h"
-#include "chrome/browser/google/google_url_tracker.h"
 #include "chrome/browser/notifications/notification_ui_manager.h"
 #include "chrome/browser/policy/browser_policy_connector.h"
-#include "chrome/browser/policy/policy_service_stub.h"
+#include "chrome/browser/policy/policy_service.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/prerender/prerender_tracker.h"
 #include "chrome/browser/printing/background_printing_manager.h"
@@ -19,6 +18,10 @@
 #include "net/url_request/url_request_context_getter.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "testing/gtest/include/gtest/gtest.h"
+
+#if !defined(ENABLE_CONFIGURATION_POLICY)
+#include "chrome/browser/policy/policy_service_stub.h"
+#endif  // defined(ENABLE_CONFIGURATION_POLICY)
 
 TestingBrowserProcess::TestingBrowserProcess()
     : notification_service_(content::NotificationService::Create()),
@@ -62,6 +65,11 @@ PrefService* TestingBrowserProcess::local_state() {
   return local_state_;
 }
 
+chrome_variations::VariationsService*
+    TestingBrowserProcess::variations_service() {
+  return NULL;
+}
+
 policy::BrowserPolicyConnector*
     TestingBrowserProcess::browser_policy_connector() {
 #if defined(ENABLE_CONFIGURATION_POLICY)
@@ -72,13 +80,15 @@ policy::BrowserPolicyConnector*
 }
 
 policy::PolicyService* TestingBrowserProcess::policy_service() {
+  if (!policy_service_.get()) {
 #if defined(ENABLE_CONFIGURATION_POLICY)
-  return browser_policy_connector()->GetPolicyService();
+    policy_service_.reset(
+        browser_policy_connector()->CreatePolicyService(NULL));
 #else
-  if (!policy_service_.get())
     policy_service_.reset(new policy::PolicyServiceStub());
-  return policy_service_.get();
 #endif
+  }
+  return policy_service_.get();
 }
 
 IconManager* TestingBrowserProcess::icon_manager() {
@@ -86,10 +96,6 @@ IconManager* TestingBrowserProcess::icon_manager() {
 }
 
 ThumbnailGenerator* TestingBrowserProcess::GetThumbnailGenerator() {
-  return NULL;
-}
-
-TabCloseableStateWatcher* TestingBrowserProcess::tab_closeable_state_watcher() {
   return NULL;
 }
 
@@ -115,7 +121,7 @@ net::URLRequestContextGetter* TestingBrowserProcess::system_request_context() {
 }
 
 #if defined(OS_CHROMEOS)
-browser::OomPriorityManager* TestingBrowserProcess::oom_priority_manager() {
+chromeos::OomPriorityManager* TestingBrowserProcess::oom_priority_manager() {
   return NULL;
 }
 #endif  // defined(OS_CHROMEOS)
@@ -143,10 +149,6 @@ NotificationUIManager* TestingBrowserProcess::notification_ui_manager() {
   NOTIMPLEMENTED();
   return NULL;
 #endif
-}
-
-GoogleURLTracker* TestingBrowserProcess::google_url_tracker() {
-  return google_url_tracker_.get();
 }
 
 IntranetRedirectDetector* TestingBrowserProcess::intranet_redirect_detector() {
@@ -183,27 +185,27 @@ printing::PrintJobManager* TestingBrowserProcess::print_job_manager() {
 
 printing::PrintPreviewTabController*
 TestingBrowserProcess::print_preview_tab_controller() {
-#if defined(OS_ANDROID)
-  NOTIMPLEMENTED();
-  return NULL;
-#else
+#if defined(ENABLE_PRINTING)
   if (!print_preview_tab_controller_.get())
     print_preview_tab_controller_ = new printing::PrintPreviewTabController();
   return print_preview_tab_controller_.get();
+#else
+  NOTIMPLEMENTED();
+  return NULL;
 #endif
 }
 
 printing::BackgroundPrintingManager*
 TestingBrowserProcess::background_printing_manager() {
-#if defined(OS_ANDROID)
-  NOTIMPLEMENTED();
-  return NULL;
-#else
+#if defined(ENABLE_PRINTING)
   if (!background_printing_manager_.get()) {
     background_printing_manager_.reset(
         new printing::BackgroundPrintingManager());
   }
   return background_printing_manager_.get();
+#else
+  NOTIMPLEMENTED();
+  return NULL;
 #endif
 }
 
@@ -250,11 +252,6 @@ void TestingBrowserProcess::SetLocalState(PrefService* local_state) {
   if (!local_state && notification_ui_manager_.get())
     notification_ui_manager_.reset();  // Used local_state_.
   local_state_ = local_state;
-}
-
-void TestingBrowserProcess::SetGoogleURLTracker(
-    GoogleURLTracker* google_url_tracker) {
-  google_url_tracker_.reset(google_url_tracker);
 }
 
 void TestingBrowserProcess::SetIOThread(IOThread* io_thread) {

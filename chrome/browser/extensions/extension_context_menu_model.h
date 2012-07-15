@@ -1,20 +1,23 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_CONTEXT_MENU_MODEL_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_CONTEXT_MENU_MODEL_H_
-#pragma once
 
 #include <string>
 
+#include "base/memory/scoped_ptr.h"
 #include "chrome/browser/extensions/extension_uninstall_dialog.h"
 #include "ui/base/models/simple_menu_model.h"
 
 class Browser;
-class Extension;
 class ExtensionAction;
 class Profile;
+
+namespace extensions {
+class Extension;
+}
 
 // The menu model for the context menu for extension action icons (browser and
 // page actions).
@@ -24,6 +27,16 @@ class ExtensionContextMenuModel
       public ui::SimpleMenuModel::Delegate,
       public ExtensionUninstallDialog::Delegate {
  public:
+  enum MenuEntries {
+    NAME = 0,
+    CONFIGURE,
+    HIDE,
+    DISABLE,
+    UNINSTALL,
+    MANAGE,
+    INSPECT_POPUP
+  };
+
   // Delegate to handle showing an ExtensionAction popup.
   class PopupDelegate {
    public:
@@ -39,10 +52,14 @@ class ExtensionContextMenuModel
   // prefs::kExtensionsUIDeveloperMode is enabled then a menu item
   // will be shown for "Inspect Popup" which, when selected, will cause
   // ShowPopupForDevToolsWindow() to be called on |delegate|.
-  ExtensionContextMenuModel(const Extension* extension,
+  ExtensionContextMenuModel(const extensions::Extension* extension,
                             Browser* browser,
                             PopupDelegate* delegate);
-  virtual ~ExtensionContextMenuModel();
+
+  // Create a menu model for the given extension action, without support
+  // for the "Inspect Popup" command.
+  ExtensionContextMenuModel(const extensions::Extension* extension,
+                            Browser* browser);
 
   // SimpleMenuModel::Delegate overrides.
   virtual bool IsCommandIdChecked(int command_id) const OVERRIDE;
@@ -57,11 +74,14 @@ class ExtensionContextMenuModel
   virtual void ExtensionUninstallCanceled() OVERRIDE;
 
  private:
-  void InitCommonCommands();
+  friend class base::RefCounted<ExtensionContextMenuModel>;
+  virtual ~ExtensionContextMenuModel();
+
+  void InitMenu(const extensions::Extension* extension);
 
   // Gets the extension we are displaying the menu for. Returns NULL if the
   // extension has been uninstalled and no longer exists.
-  const Extension* GetExtension() const;
+  const extensions::Extension* GetExtension() const;
 
   // A copy of the extension's id.
   std::string extension_id_;

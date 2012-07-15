@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,9 +16,11 @@
 #include "base/string_number_conversions.h"
 #include "base/string_split.h"
 #include "base/string_util.h"
+#include "base/win/metro.h"
 #include "base/win/pe_image.h"
 #include "base/win/registry.h"
 #include "base/win/scoped_handle.h"
+#include "base/win/windows_version.h"
 #include "webkit/plugins/npapi/plugin_constants_win.h"
 #include "webkit/plugins/npapi/plugin_lib.h"
 #include "webkit/plugins/plugin_switches.h"
@@ -77,11 +79,19 @@ bool GetInstalledPath(const char16* app, FilePath* out) {
   reg_path.append(L"\\");
   reg_path.append(app);
 
-  base::win::RegKey key(HKEY_LOCAL_MACHINE, reg_path.c_str(), KEY_READ);
+  base::win::RegKey hkcu_key(HKEY_CURRENT_USER, reg_path.c_str(), KEY_READ);
   std::wstring path;
-  if (key.ReadValue(kRegistryPath, &path) == ERROR_SUCCESS) {
+  // As of Win7 AppPaths can also be registered in HKCU: http://goo.gl/UgFOf.
+  if (base::win::GetVersion() >= base::win::VERSION_WIN7 &&
+      hkcu_key.ReadValue(kRegistryPath, &path) == ERROR_SUCCESS) {
     *out = FilePath(path);
     return true;
+  } else {
+    base::win::RegKey hklm_key(HKEY_LOCAL_MACHINE, reg_path.c_str(), KEY_READ);
+    if (hklm_key.ReadValue(kRegistryPath, &path) == ERROR_SUCCESS) {
+      *out = FilePath(path);
+      return true;
+    }
   }
 
   return false;
@@ -165,26 +175,6 @@ void GetWindowsMediaDirectory(std::set<FilePath>* plugin_dirs) {
   FilePath path;
   if (GetInstalledPath(kRegistryWindowsMedia, &path))
     plugin_dirs->insert(path);
-
-  // If the Windows Media Player Firefox plugin is installed before Firefox,
-  // the plugin will get written under PFiles\Plugins on one the drives
-  // (usually, but not always, the last letter).
-  int size = GetLogicalDriveStrings(0, NULL);
-  if (size) {
-    scoped_array<wchar_t> strings(new wchar_t[size]);
-    if (GetLogicalDriveStrings(size, strings.get())) {
-      wchar_t* next_drive = strings.get();
-      while (*next_drive) {
-        if (GetDriveType(next_drive) == DRIVE_FIXED) {
-          FilePath pfiles(next_drive);
-          pfiles = pfiles.Append(L"PFiles\\Plugins");
-          if (file_util::PathExists(pfiles))
-            plugin_dirs->insert(pfiles);
-        }
-        next_drive = &next_drive[wcslen(next_drive) + 1];
-      }
-    }
-  }
 }
 
 // Hardcoded logic to detect Java plugin location.
@@ -327,8 +317,6 @@ bool IsNewerVersion(const std::wstring& a, const std::wstring& b) {
   base::SplitString(a, ',', &a_ver);
   base::SplitString(b, ',', &b_ver);
   if (a_ver.size() == 1 && b_ver.size() == 1) {
-    a_ver.clear();
-    b_ver.clear();
     base::SplitString(a, '.', &a_ver);
     base::SplitString(b, '.', &b_ver);
   }
@@ -364,7 +352,6 @@ bool PluginList::ShouldLoadPlugin(const webkit::WebPluginInfo& info,
           (plugin1 == kJavaDeploy2 && plugin2 == kJavaDeploy1)) {
         if (!IsNewerVersion(plugins[j].version, info.version))
           return false;  // We have loaded a plugin whose version is newer.
-
         (*plugin_groups)[i]->RemovePlugin(plugins[j].path);
         break;
       }
@@ -404,6 +391,12 @@ bool PluginList::ShouldLoadPlugin(const webkit::WebPluginInfo& info,
       if (major == 6 && minor == 0 && update < 120)
         return false;  // Java SE6 Update 11 or older.
     }
+  }
+
+  if (base::win::IsMetroProcess()) {
+    // In metro mode we only allow pepper plugins.
+    if (info.type == WebPluginInfo::PLUGIN_TYPE_NPAPI)
+      return false;
   }
 
   // Special WMP handling

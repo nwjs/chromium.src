@@ -6,7 +6,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_EVENT_NAMES_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_EVENT_NAMES_H_
-#pragma once
 
 namespace extension_event_names {
 
@@ -39,9 +38,16 @@ extern const char kOnFileBrowserDiskChanged[];
 extern const char kOnFileChanged[];
 extern const char kOnFileBrowserMountCompleted[];
 extern const char kOnFileTransfersUpdated[];
+extern const char kOnDocumentFeedFetched[];
+extern const char kOnFileBrowserGDataPreferencesChanged[];
+extern const char kOnFileBrowserNetworkConnectionChanged[];
 
 // InputMethod.
 extern const char kOnInputMethodChanged[];
+
+// Context menus.
+extern const char kOnContextMenus[];
+extern const char kOnContextMenuClicked[];
 
 // Downloads.
 extern const char kOnDownloadCreated[];
@@ -60,6 +66,7 @@ extern const char kOnOffscreenTabUpdated[];
 #if defined(OS_CHROMEOS)
 // Bluetooth.
 extern const char kBluetoothOnAvailabilityChanged[];
+extern const char kBluetoothOnDeviceDiscovered[];
 extern const char kBluetoothOnPowerChanged[];
 #endif
 

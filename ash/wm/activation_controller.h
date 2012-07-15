@@ -4,16 +4,22 @@
 
 #ifndef ASH_WM_ACTIVATION_CONTROLLER_H_
 #define ASH_WM_ACTIVATION_CONTROLLER_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
-#include "base/memory/scoped_ptr.h"
+#include "base/observer_list.h"
+#include "base/scoped_observer.h"
 #include "ui/aura/client/activation_client.h"
 #include "ui/aura/env_observer.h"
-#include "ui/aura/root_window_observer.h"
+#include "ui/aura/focus_change_observer.h"
 #include "ui/aura/window_observer.h"
 #include "ash/ash_export.h"
+
+namespace aura {
+namespace client {
+class ActivationChangeObserver;
+}
+}
 
 namespace ash {
 namespace internal {
@@ -23,9 +29,9 @@ class ASH_EXPORT ActivationController
     : public aura::client::ActivationClient,
       public aura::WindowObserver,
       public aura::EnvObserver,
-      public aura::RootWindowObserver {
+      public aura::FocusChangeObserver {
  public:
-  ActivationController();
+  explicit ActivationController(aura::FocusManager* focus_manager);
   virtual ~ActivationController();
 
   // Returns true if |window| exists within a container that supports
@@ -35,11 +41,16 @@ class ASH_EXPORT ActivationController
                                             const aura::Event* event);
 
   // Overridden from aura::client::ActivationClient:
+  virtual void AddObserver(
+      aura::client::ActivationChangeObserver* observer) OVERRIDE;
+  virtual void RemoveObserver(
+      aura::client::ActivationChangeObserver* observer) OVERRIDE;
   virtual void ActivateWindow(aura::Window* window) OVERRIDE;
   virtual void DeactivateWindow(aura::Window* window) OVERRIDE;
   virtual aura::Window* GetActiveWindow() OVERRIDE;
   virtual bool OnWillFocusWindow(aura::Window* window,
                                  const aura::Event* event) OVERRIDE;
+  virtual bool CanActivateWindow(aura::Window* window) const OVERRIDE;
 
   // Overridden from aura::WindowObserver:
   virtual void OnWindowVisibilityChanged(aura::Window* window,
@@ -49,7 +60,7 @@ class ASH_EXPORT ActivationController
   // Overridden from aura::EnvObserver:
   virtual void OnWindowInitialized(aura::Window* window) OVERRIDE;
 
-  // Overridden from aura::RootWindowObserver:
+  // Overridden from aura::FocusChangeObserver:
   virtual void OnWindowFocused(aura::Window* window) OVERRIDE;
 
  private:
@@ -70,9 +81,17 @@ class ASH_EXPORT ActivationController
       aura::Window* container,
       aura::Window* ignore) const;
 
+  aura::FocusManager* focus_manager_;
+
   // True inside ActivateWindow(). Used to prevent recursion of focus
   // change notifications causing activation.
   bool updating_activation_;
+
+  aura::Window* active_window_;
+
+  ObserverList<aura::client::ActivationChangeObserver> observers_;
+
+  ScopedObserver<aura::Window, aura::WindowObserver> observer_manager_;
 
   DISALLOW_COPY_AND_ASSIGN(ActivationController);
 };

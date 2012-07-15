@@ -4,7 +4,6 @@
 
 #ifndef UI_VIEWS_CONTROLS_LABEL_H_
 #define UI_VIEWS_CONTROLS_LABEL_H_
-#pragma once
 
 #include <string>
 
@@ -57,23 +56,23 @@ class VIEWS_EXPORT Label : public View {
   Label(const string16& text, const gfx::Font& font);
   virtual ~Label();
 
-  // Set the font.
+  // Sets the font.
   virtual void SetFont(const gfx::Font& font);
 
-  // Set the label text.
+  // Sets the label text.
   void SetText(const string16& text);
 
-  // Return the font used by this label.
-  gfx::Font font() const { return font_; }
+  // Sets the label text to |email|.  Emails have a custom eliding algorithm.
+  void SetEmail(const string16& email);
 
-  // Return the label text.
-  const string16 GetText() const;
-
-  // Set URL Value - text_ is set to spec().
+  // Sets URL Value - text_ is set to spec().
   void SetURL(const GURL& url);
 
-  // Return the label URL.
-  const GURL GetURL() const;
+  // Returns the font used by this label.
+  gfx::Font font() const { return font_; }
+
+  // Returns the label text.
+  string16 text() const { return text_; };
 
   // Enables or disables auto-color-readability (enabled by default).  If this
   // is enabled, then calls to set any foreground or background color will
@@ -81,18 +80,27 @@ class VIEWS_EXPORT Label : public View {
   // ensure that the foreground colors are readable over the background color.
   void SetAutoColorReadabilityEnabled(bool enabled);
 
-  // Set the color.  This will automatically force the color to be readable
+  // Sets the color.  This will automatically force the color to be readable
   // over the current background color.
-  virtual void SetEnabledColor(const SkColor& color);
-  void SetDisabledColor(const SkColor& color);
+  virtual void SetEnabledColor(SkColor color);
+  void SetDisabledColor(SkColor color);
 
   SkColor enabled_color() const { return actual_enabled_color_; }
 
-  // Set the background color.  This won't be explicitly drawn, but the label
+  // Sets the background color.  This won't be explicitly drawn, but the label
   // will force the text color to be readable over it.
-  void SetBackgroundColor(const SkColor& color);
+  void SetBackgroundColor(SkColor color);
 
-  // Set horizontal alignment. If the locale is RTL, and the directionality
+  // Enables a drop shadow underneath the text.
+  void SetShadowColors(SkColor enabled_color, SkColor disabled_color);
+
+  // Sets the drop shadow's offset from the text.
+  void SetShadowOffset(int x, int y);
+
+  // Disables shadows.
+  void ClearEmbellishing();
+
+  // Sets horizontal alignment. If the locale is RTL, and the directionality
   // mode is USE_UI_DIRECTIONALITY, the alignment is flipped around.
   //
   // Caveat: for labels originating from a web page, the directionality mode
@@ -103,7 +111,7 @@ class VIEWS_EXPORT Label : public View {
 
   Alignment horizontal_alignment() const { return horiz_alignment_; }
 
-  // Set the directionality mode. The directionality mode is initialized to
+  // Sets the directionality mode. The directionality mode is initialized to
   // USE_UI_DIRECTIONALITY when the label is constructed. USE_UI_DIRECTIONALITY
   // applies to every label that originates from the Chrome UI. However, if the
   // label originates from a web page, its directionality is auto-detected.
@@ -115,18 +123,18 @@ class VIEWS_EXPORT Label : public View {
     return directionality_mode_;
   }
 
-  // Set whether the label text can wrap on multiple lines.
+  // Sets whether the label text can wrap on multiple lines.
   // Default is false.
   void SetMultiLine(bool multi_line);
 
-  // Return whether the label text can wrap on multiple lines.
+  // Returns whether the label text can wrap on multiple lines.
   bool is_multi_line() const { return is_multi_line_; }
 
-  // Set whether the label text can be split on words.
+  // Sets whether the label text can be split on words.
   // Default is false. This only works when is_multi_line is true.
   void SetAllowCharacterBreak(bool allow_character_break);
 
-  // Set whether the label text should be elided in the middle (if necessary).
+  // Sets whether the label text should be elided in the middle (if necessary).
   // The default is to elide at the end.
   // NOTE: This is not supported for multi-line strings.
   void SetElideInMiddle(bool elide_in_middle);
@@ -169,7 +177,7 @@ class VIEWS_EXPORT Label : public View {
   virtual int GetBaseline() const OVERRIDE;
   // Overridden to compute the size required to display this label.
   virtual gfx::Size GetPreferredSize() OVERRIDE;
-  // Return the height necessary to display this label with the provided width.
+  // Returns the height necessary to display this label with the provided width.
   // This method is used to layout multi-line labels. It is equivalent to
   // GetPreferredSize().height() if the receiver is not multi-line.
   virtual int GetHeightForWidth(int w) OVERRIDE;
@@ -263,7 +271,7 @@ class VIEWS_EXPORT Label : public View {
   bool is_multi_line_;
   bool allow_character_break_;
   bool elide_in_middle_;
-  bool url_set_;
+  bool is_email_;
   Alignment horiz_alignment_;
   string16 tooltip_text_;
   // Whether the mouse is over this label.
@@ -282,6 +290,17 @@ class VIEWS_EXPORT Label : public View {
   // allows this view to reserve space for a focus border that it otherwise
   // might not have because it is not itself focusable.
   bool has_focus_border_;
+
+  // Colors for shadow.
+  SkColor enabled_shadow_color_;
+  SkColor disabled_shadow_color_;
+
+  // Space between text and shadow.
+  gfx::Point shadow_offset_;
+
+  // Should a shadow be drawn behind the text?
+  bool has_shadow_;
+
 
   DISALLOW_COPY_AND_ASSIGN(Label);
 };

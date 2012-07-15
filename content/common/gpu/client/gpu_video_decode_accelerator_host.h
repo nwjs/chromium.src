@@ -9,7 +9,7 @@
 
 #include "base/memory/weak_ptr.h"
 #include "base/threading/non_thread_safe.h"
-#include "ipc/ipc_channel.h"
+#include "ipc/ipc_listener.h"
 #include "media/video/video_decode_accelerator.h"
 
 class GpuChannelHost;
@@ -17,10 +17,9 @@ class GpuChannelHost;
 // This class is used to talk to VideoDecodeAccelerator in the Gpu process
 // through IPC messages.
 class GpuVideoDecodeAcceleratorHost
-    : public IPC::Channel::Listener,
+    : public IPC::Listener,
       public media::VideoDecodeAccelerator,
-      public base::NonThreadSafe,
-      public base::SupportsWeakPtr<GpuVideoDecodeAcceleratorHost> {
+      public base::NonThreadSafe {
  public:
   // |channel| is used to send IPC messages to GPU process.
   GpuVideoDecodeAcceleratorHost(GpuChannelHost* channel,
@@ -28,12 +27,12 @@ class GpuVideoDecodeAcceleratorHost
                                 media::VideoDecodeAccelerator::Client* client);
   virtual ~GpuVideoDecodeAcceleratorHost();
 
-  // IPC::Channel::Listener implementation.
+  // IPC::Listener implementation.
   virtual void OnChannelError() OVERRIDE;
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
 
   // media::VideoDecodeAccelerator implementation.
-  virtual bool Initialize(Profile profile) OVERRIDE;
+  virtual bool Initialize(media::VideoCodecProfile profile) OVERRIDE;
   virtual void Decode(const media::BitstreamBuffer& bitstream_buffer) OVERRIDE;
   virtual void AssignPictureBuffers(
       const std::vector<media::PictureBuffer>& buffers) OVERRIDE;
@@ -46,8 +45,9 @@ class GpuVideoDecodeAcceleratorHost
   void Send(IPC::Message* message);
 
   void OnBitstreamBufferProcessed(int32 bitstream_buffer_id);
-  void OnProvidePictureBuffer(
-    uint32 num_requested_buffers, const gfx::Size& buffer_size);
+  void OnProvidePictureBuffer(uint32 num_requested_buffers,
+                              const gfx::Size& buffer_size,
+                              uint32 texture_target);
   void OnDismissPictureBuffer(int32 picture_buffer_id);
   void OnPictureReady(int32 picture_buffer_id, int32 bitstream_buffer_id);
   void OnFlushDone();

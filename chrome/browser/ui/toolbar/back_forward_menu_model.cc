@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,7 +13,10 @@
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/singleton_tabs.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/favicon_status.h"
@@ -23,7 +26,6 @@
 #include "content/public/browser/web_contents.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
-#include "grit/theme_resources_standard.h"
 #include "net/base/registry_controlled_domain.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -131,12 +133,12 @@ int BackForwardMenuModel::GetGroupIdAt(int index) const {
   return false;
 }
 
-bool BackForwardMenuModel::GetIconAt(int index, SkBitmap* icon) {
+bool BackForwardMenuModel::GetIconAt(int index, gfx::ImageSkia* icon) {
   if (!ItemHasIcon(index))
     return false;
 
   if (index == GetItemCount() - 1) {
-    *icon = *ResourceBundle::GetSharedInstance().GetBitmapNamed(
+    *icon = *ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
         IDR_HISTORY_FAVICON);
   } else {
     NavigationEntry* entry = GetNavigationEntry(index);
@@ -175,9 +177,9 @@ void BackForwardMenuModel::ActivatedAt(int index, int event_flags) {
   // Execute the command for the last item: "Show Full History".
   if (index == GetItemCount() - 1) {
     content::RecordComputedAction(BuildActionName("ShowFullHistory", -1));
-    browser_->ShowSingletonTabOverwritingNTP(
-        browser_->GetSingletonTabNavigateParams(
-            GURL(chrome::kChromeUIHistoryURL)));
+    chrome::ShowSingletonTabOverwritingNTP(browser_,
+        chrome::GetSingletonTabNavigateParams(
+            browser_, GURL(chrome::kChromeUIHistoryURL)));
     return;
   }
 
@@ -192,9 +194,12 @@ void BackForwardMenuModel::ActivatedAt(int index, int event_flags) {
 
   int controller_index = MenuIndexToNavEntryIndex(index);
   WindowOpenDisposition disposition =
-      browser::DispositionFromEventFlags(event_flags);
-  if (!browser_->NavigateToIndexWithDisposition(controller_index, disposition))
+      chrome::DispositionFromEventFlags(event_flags);
+  if (!chrome::NavigateToIndexWithDisposition(browser_,
+                                              controller_index,
+                                              disposition)) {
     NOTREACHED();
+  }
 }
 
 void BackForwardMenuModel::MenuWillShow() {
@@ -411,7 +416,7 @@ WebContents* BackForwardMenuModel::GetWebContents() const {
   // We use the test web contents if the unit test has specified it.
   return test_web_contents_ ?
       test_web_contents_ :
-      browser_->GetSelectedTabContentsWrapper()->web_contents();
+      chrome::GetActiveWebContents(browser_);
 }
 
 int BackForwardMenuModel::MenuIndexToNavEntryIndex(int index) const {

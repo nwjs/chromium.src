@@ -12,7 +12,7 @@ const bool kOSSupportsOtherBrowsers = false;
 const bool kOSSupportsOtherBrowsers = true;
 #endif
 
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
 const bool kShowCancelButtonInTaskManager = true;
 #else
 const bool kShowCancelButtonInTaskManager = false;
@@ -25,18 +25,21 @@ const int kAutocompleteEditFontPixelSize = 15;
 
 const int kAutocompleteEditFontPixelSizeInPopup = 10;
 
-const int kMiniTabWidth = 64;
 const bool kCanToggleSystemTitleBar = false;
 const bool kRestorePopups = false;
 const bool kShowImportOnBookmarkBar = false;
-const bool kShowExitMenuItem = true;
+const bool kShowExitMenuItem = false;
+const bool kShowFeedbackMenuItem = true;
+const bool kShowHelpMenuItemIcon = true;
+const bool kShowSyncSetupMenuItem = false;
+const bool kShowUpgradeMenuItem = false;
 const bool kDownloadPageHasShowInFolder = true;
-const bool kSizeTabButtonToTopOfTabStrip = true;
+const bool kSizeTabButtonToTopOfTabStrip = false;
 const bool kSyncAutoStarts = true;
 const bool kShowOtherBrowsersInAboutMemory = false;
 const bool kAlwaysOpenIncognitoWindow = true;
 
-#elif defined(TOOLKIT_USES_GTK)
+#elif defined(TOOLKIT_GTK)
 
 // 14px = 10.5pt @ 96dpi.
 const int kAutocompleteEditFontPixelSize = 14;
@@ -54,9 +57,15 @@ const bool kCanToggleSystemTitleBar = true;
 
 #endif  // defined(OS_CHROMEOS)
 
+#if defined(TOOLKIT_VIEWS)
+// Windows and Chrome OS have bigger shadows in the tab art.
+const int kMiniTabWidth = 64;
+#else
+const int kMiniTabWidth = 56;
+#endif  // defined(TOOLKIT_VIEWS)
+
 #if !defined(OS_CHROMEOS)
 
-const int kMiniTabWidth = 56;
 const bool kRestorePopups = false;
 const bool kShowImportOnBookmarkBar = true;
 const bool kDownloadPageHasShowInFolder = true;
@@ -65,13 +74,17 @@ const bool kShowExitMenuItem = false;
 #else
 const bool kShowExitMenuItem = true;
 #endif
+const bool kShowFeedbackMenuItem = false;
+const bool kShowHelpMenuItemIcon = false;
+const bool kShowSyncSetupMenuItem = true;
+const bool kShowUpgradeMenuItem = true;
 const bool kSizeTabButtonToTopOfTabStrip = false;
 const bool kSyncAutoStarts = false;
 const bool kShowOtherBrowsersInAboutMemory = true;
 const bool kAlwaysOpenIncognitoWindow = false;
 #endif
 
-#if defined(OS_MACOSX)
+#if defined(OS_CHROMEOS) || defined(OS_MACOSX)
 const bool kBrowserAliveWithNoWindows = true;
 #else
 const bool kBrowserAliveWithNoWindows = false;
@@ -89,6 +102,12 @@ const int kInfoBarBorderPaddingVertical = 5;
 const bool kPasswordEchoEnabled = true;
 #else
 const bool kPasswordEchoEnabled = false;
+#endif
+
+#if defined(OS_CHROMEOS)
+const bool kAppRestoreSession = true;
+#else
+const bool kAppRestoreSession = false;
 #endif
 
 bool bookmarks_enabled = true;

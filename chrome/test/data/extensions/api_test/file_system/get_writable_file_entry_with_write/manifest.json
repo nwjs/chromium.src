@@ -1,0 +1,16 @@
+{
+  "name": "chrome.fileSystem get writable file entry with write.",
+  "version": "0.1",
+  "manifest_version": 2,
+  "description": "Test for chrome.fileSystem.getWritableFileEntry.",
+  "app": {
+    "background": {
+      "scripts": ["background.js"]
+    }
+  },
+  "permissions": [
+    "experimental",
+    "fileSystem",
+    "fileSystemWrite"
+  ]
+}

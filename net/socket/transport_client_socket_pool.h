@@ -4,7 +4,6 @@
 
 #ifndef NET_SOCKET_TRANSPORT_CLIENT_SOCKET_POOL_H_
 #define NET_SOCKET_TRANSPORT_CLIENT_SOCKET_POOL_H_
-#pragma once
 
 #include <string>
 
@@ -24,16 +23,27 @@ namespace net {
 
 class ClientSocketFactory;
 
+typedef base::Callback<int(const AddressList&, const BoundNetLog& net_log)>
+OnHostResolutionCallback;
+
 class NET_EXPORT_PRIVATE TransportSocketParams
     : public base::RefCounted<TransportSocketParams> {
  public:
-  TransportSocketParams(const HostPortPair& host_port_pair,
-                        RequestPriority priority,
-                        bool disable_resolver_cache,
-                        bool ignore_limits);
+  // |host_resolution_callback| will be invoked after the the hostname is
+  // resolved.  If |host_resolution_callback| does not return OK, then the
+  // connection will be aborted with that value.
+  TransportSocketParams(
+      const HostPortPair& host_port_pair,
+      RequestPriority priority,
+      bool disable_resolver_cache,
+      bool ignore_limits,
+      const OnHostResolutionCallback& host_resolution_callback);
 
   const HostResolver::RequestInfo& destination() const { return destination_; }
   bool ignore_limits() const { return ignore_limits_; }
+  const OnHostResolutionCallback& host_resolution_callback() const {
+    return host_resolution_callback_;
+  }
 
  private:
   friend class base::RefCounted<TransportSocketParams>;
@@ -43,6 +53,7 @@ class NET_EXPORT_PRIVATE TransportSocketParams
 
   HostResolver::RequestInfo destination_;
   bool ignore_limits_;
+  const OnHostResolutionCallback host_resolution_callback_;
 
   DISALLOW_COPY_AND_ASSIGN(TransportSocketParams);
 };
@@ -69,12 +80,9 @@ class NET_EXPORT_PRIVATE TransportConnectJob : public ConnectJob {
   // ConnectJob methods.
   virtual LoadState GetLoadState() const OVERRIDE;
 
-  // Makes |addrlist| start with an IPv4 address if |addrlist| contains any
-  // IPv4 address.
-  //
-  // WARNING: this method should only be used to implement the prefer-IPv4
-  // hack.  It is a public method for the unit tests.
-  static void MakeAddrListStartWithIPv4(AddressList* addrlist);
+  // Rolls |addrlist| forward until the first IPv4 address, if any.
+  // WARNING: this method should only be used to implement the prefer-IPv4 hack.
+  static void MakeAddressListStartWithIPv4(AddressList* addrlist);
 
   static const int kIPv6FallbackTimerInMs;
 

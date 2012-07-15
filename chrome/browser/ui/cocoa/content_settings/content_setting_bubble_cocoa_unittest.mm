@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,10 +11,10 @@
 #include "base/memory/scoped_nsobject.h"
 #import "chrome/browser/ui/cocoa/cocoa_test_helper.h"
 #include "chrome/browser/ui/content_settings/content_setting_bubble_model.h"
-#include "chrome/browser/ui/tab_contents/test_tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/test_tab_contents.h"
 #include "chrome/common/content_settings_types.h"
 #include "chrome/test/base/testing_profile.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using content::BrowserThread;
@@ -23,7 +23,7 @@ namespace {
 
 class DummyContentSettingBubbleModel : public ContentSettingBubbleModel {
  public:
-  DummyContentSettingBubbleModel(TabContentsWrapper* tab_contents,
+  DummyContentSettingBubbleModel(TabContents* tab_contents,
                                  Profile* profile,
                                  ContentSettingsType content_type)
       : ContentSettingBubbleModel(tab_contents, profile, content_type) {
@@ -35,7 +35,7 @@ class DummyContentSettingBubbleModel : public ContentSettingBubbleModel {
 };
 
 class ContentSettingBubbleControllerTest
-    : public TabContentsWrapperTestHarness {
+    : public TabContentsTestHarness {
  public:
   ContentSettingBubbleControllerTest();
   virtual ~ContentSettingBubbleControllerTest();
@@ -47,7 +47,7 @@ class ContentSettingBubbleControllerTest
 };
 
 ContentSettingBubbleControllerTest::ContentSettingBubbleControllerTest()
-    : TabContentsWrapperTestHarness(),
+    : TabContentsTestHarness(),
       browser_thread_(BrowserThread::UI, &message_loop_) {
 }
 
@@ -61,8 +61,9 @@ TEST_F(ContentSettingBubbleControllerTest, Init) {
         i == CONTENT_SETTINGS_TYPE_INTENTS ||
         i == CONTENT_SETTINGS_TYPE_AUTO_SELECT_CERTIFICATE ||
         i == CONTENT_SETTINGS_TYPE_FULLSCREEN ||
-        i == CONTENT_SETTINGS_TYPE_MOUSELOCK) {
-      // Notifications, web intents and auto select certificate have no bubble.
+        i == CONTENT_SETTINGS_TYPE_MOUSELOCK ||
+        i == CONTENT_SETTINGS_TYPE_MEDIASTREAM) {
+      // These types have no bubble.
       continue;
     }
 
@@ -80,11 +81,11 @@ TEST_F(ContentSettingBubbleControllerTest, Init) {
       [parent.get() orderBack:nil];
 
     ContentSettingBubbleController* controller = [ContentSettingBubbleController
-        showForModel:new DummyContentSettingBubbleModel(contents_wrapper(),
+        showForModel:new DummyContentSettingBubbleModel(tab_contents(),
                                                         profile(),
                                                         settingsType)
         parentWindow:parent
-         anchoredAt:NSMakePoint(50, 20)];
+          anchoredAt:NSMakePoint(50, 20)];
     EXPECT_TRUE(controller != nil);
     EXPECT_TRUE([[controller window] isVisible]);
     [parent.get() close];

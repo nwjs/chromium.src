@@ -4,39 +4,45 @@
 
 #include "chrome/browser/chromeos/gdata/gdata_operations.h"
 
-#include "base/bind.h"
-#include "base/json/json_reader.h"
 #include "base/string_number_conversions.h"
+#include "base/stringprintf.h"
 #include "base/values.h"
-#include "chrome/browser/chromeos/gdata/gdata_util.h"
-#include "chrome/browser/net/browser_url_util.h"
-#include "chrome/common/libxml_utils.h"
-#include "chrome/common/net/gaia/gaia_urls.h"
+#include "chrome/browser/chromeos/gdata/gdata_wapi_parser.h"
+#include "chrome/common/net/url_util.h"
+#include "content/public/browser/browser_thread.h"
 #include "net/base/escape.h"
 #include "net/http/http_util.h"
+#include "third_party/libxml/chromium/libxml_utils.h"
 
-using content::BrowserThread;
-using content::URLFetcher;
+using net::URLFetcher;
 
 namespace {
-
-// Template for optional OAuth2 authorization HTTP header.
-const char kAuthorizationHeaderFormat[] = "Authorization: Bearer %s";
-// Template for GData API version HTTP header.
-const char kGDataVersionHeader[] = "GData-Version: 3.0";
 
 // etag matching header.
 const char kIfMatchAllHeader[] = "If-Match: *";
 const char kIfMatchHeaderFormat[] = "If-Match: %s";
 
 // URL requesting documents list that belong to the authenticated user only
-// (handled with '-/mine' part).
-const char kGetDocumentListURL[] =
+// (handled with '/-/mine' part).
+const char kGetDocumentListURLForAllDocuments[] =
     "https://docs.google.com/feeds/default/private/full/-/mine";
+
+// URL requesting documents list in a particular directory specified by "%s"
+// that belong to the authenticated user only (handled with '/-/mine' part).
+const char kGetDocumentListURLForDirectoryFormat[] =
+    "https://docs.google.com/feeds/default/private/full/%s/contents/-/mine";
+
+// URL requesting documents list of changes to documents collections.
+const char kGetChangesListURL[] =
+    "https://docs.google.com/feeds/default/private/changes";
 
 // Root document list url.
 const char kDocumentListRootURL[] =
     "https://docs.google.com/feeds/default/private/full";
+
+// URL requesting single document entry whose resource id is specified by "%s".
+const char kGetDocumentEntryURLFormat[] =
+    "https://docs.google.com/feeds/default/private/full/%s";
 
 // Metadata feed with things like user quota.
 const char kAccountMetadataURL[] =
@@ -55,9 +61,6 @@ const int kMaxDocumentsPerFeed = 1000;
 const int kMaxDocumentsPerFeed = 1000;
 #endif
 
-// Maximum number of attempts for re-authentication per operation.
-const int kMaxReAuthenticateAttemptsPerOperation = 1;
-
 const char kFeedField[] = "feed";
 
 // Templates for file uploading.
@@ -66,342 +69,87 @@ const char kUploadParamConvertValue[] = "false";
 const char kUploadResponseLocation[] = "location";
 const char kUploadResponseRange[] = "range";
 
-// OAuth scope for the documents API.
-const char kDocsListScope[] = "https://docs.google.com/feeds/";
-const char kSpreadsheetsScope[] = "https://spreadsheets.google.com/feeds/";
-const char kUserContentScope[] = "https://docs.googleusercontent.com/";
-
 // Adds additional parameters for API version, output content type and to show
 // folders in the feed are added to document feed URLs.
 GURL AddStandardUrlParams(const GURL& url) {
-  GURL result = chrome_browser_net::AppendQueryParameter(url, "v", "3");
-  result = chrome_browser_net::AppendQueryParameter(result, "alt", "json");
+  GURL result =
+      chrome_common_net::AppendOrReplaceQueryParameter(url, "v", "3");
+  result =
+      chrome_common_net::AppendOrReplaceQueryParameter(result, "alt", "json");
+  return result;
+}
+
+// Adds additional parameters to metadata feed to include installed 3rd party
+// applications.
+GURL AddMetadataUrlParams(const GURL& url) {
+  GURL result = AddStandardUrlParams(url);
+  result = chrome_common_net::AppendOrReplaceQueryParameter(
+      result, "include-installed-apps", "true");
   return result;
 }
 
 // Adds additional parameters for API version, output content type and to show
 // folders in the feed are added to document feed URLs.
-GURL AddFeedUrlParams(const GURL& url) {
+GURL AddFeedUrlParams(const GURL& url,
+                      int num_items_to_fetch,
+                      int changestamp,
+                      const std::string& search_string) {
   GURL result = AddStandardUrlParams(url);
-  result = chrome_browser_net::AppendQueryParameter(result,
-                                                    "showfolders",
-                                                    "true");
-  result = chrome_browser_net::AppendQueryParameter(
+  result = chrome_common_net::AppendOrReplaceQueryParameter(
+      result,
+      "showfolders",
+      "true");
+  result = chrome_common_net::AppendOrReplaceQueryParameter(
       result,
       "max-results",
-      base::StringPrintf("%d", kMaxDocumentsPerFeed));
+      base::StringPrintf("%d", num_items_to_fetch));
+  result = chrome_common_net::AppendOrReplaceQueryParameter(
+      result, "include-installed-apps", "true");
+
+  if (changestamp) {
+    result = chrome_common_net::AppendQueryParameter(
+        result,
+        "start-index",
+        base::StringPrintf("%d", changestamp));
+  }
+
+  if (!search_string.empty()) {
+    result = chrome_common_net::AppendOrReplaceQueryParameter(
+        result, "q", search_string);
+  }
   return result;
+}
+
+// Formats a URL for getting document list. If |directory_resource_id| is
+// empty, returns a URL for fetching all documents. If it's given, returns a
+// URL for fetching documents in a particular directory.
+GURL FormatDocumentListURL(const std::string& directory_resource_id) {
+  if (directory_resource_id.empty())
+    return GURL(kGetDocumentListURLForAllDocuments);
+
+  return GURL(base::StringPrintf(kGetDocumentListURLForDirectoryFormat,
+                                 net::EscapePath(
+                                     directory_resource_id).c_str()));
 }
 
 }  // namespace
 
 namespace gdata {
 
-//================================ AuthOperation ===============================
-
-AuthOperation::AuthOperation(GDataOperationRegistry* registry,
-                             Profile* profile,
-                             const AuthStatusCallback& callback,
-                             const std::string& refresh_token)
-    : GDataOperationRegistry::Operation(registry),
-      profile_(profile), token_(refresh_token), callback_(callback) {
-}
-
-AuthOperation::~AuthOperation() {}
-
-void AuthOperation::Start() {
-  DCHECK(!token_.empty());
-  std::vector<std::string> scopes;
-  scopes.push_back(kDocsListScope);
-  scopes.push_back(kSpreadsheetsScope);
-  scopes.push_back(kUserContentScope);
-  oauth2_access_token_fetcher_.reset(new OAuth2AccessTokenFetcher(
-      this, profile_->GetRequestContext()));
-  NotifyStart();
-  oauth2_access_token_fetcher_->Start(
-      GaiaUrls::GetInstance()->oauth2_chrome_client_id(),
-      GaiaUrls::GetInstance()->oauth2_chrome_client_secret(),
-      token_,
-      scopes);
-}
-
-void AuthOperation::DoCancel() {
-  oauth2_access_token_fetcher_->CancelRequest();
-  if (!callback_.is_null())
-    callback_.Run(GDATA_CANCELLED, std::string());
-}
-
-// Callback for OAuth2AccessTokenFetcher on success. |access_token| is the token
-// used to start fetching user data.
-void AuthOperation::OnGetTokenSuccess(const std::string& access_token) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  callback_.Run(HTTP_SUCCESS, access_token);
-  NotifyFinish(GDataOperationRegistry::OPERATION_COMPLETED);
-}
-
-// Callback for OAuth2AccessTokenFetcher on failure.
-void AuthOperation::OnGetTokenFailure(const GoogleServiceAuthError& error) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  LOG(WARNING) << "AuthOperation: token request using refresh token failed";
-  callback_.Run(HTTP_UNAUTHORIZED, std::string());
-  NotifyFinish(GDataOperationRegistry::OPERATION_FAILED);
-}
-
-//============================ UrlFetchOperationBase ===========================
-
-UrlFetchOperationBase::UrlFetchOperationBase(GDataOperationRegistry* registry,
-                                             Profile* profile)
-    : GDataOperationRegistry::Operation(registry),
-      profile_(profile),
-      // MessageLoopProxy is used to run |callback| on the origin thread.
-      relay_proxy_(base::MessageLoopProxy::current()),
-      re_authenticate_count_(0),
-      save_temp_file_(false),
-      started_(false) {
-}
-
-UrlFetchOperationBase::UrlFetchOperationBase(
-    GDataOperationRegistry* registry,
-    GDataOperationRegistry::OperationType type,
-    const FilePath& path,
-    Profile* profile)
-    : GDataOperationRegistry::Operation(registry, type, path),
-      profile_(profile),
-      relay_proxy_(base::MessageLoopProxy::current()),
-      re_authenticate_count_(0),
-      save_temp_file_(false) {
-}
-
-UrlFetchOperationBase::~UrlFetchOperationBase() {}
-
-void UrlFetchOperationBase::Start(const std::string& auth_token) {
-  DCHECK(!auth_token.empty());
-
-  GURL url = GetURL();
-  DCHECK(!url.is_empty());
-  DVLOG(1) << "URL: " << url.spec();
-
-  url_fetcher_.reset(URLFetcher::Create(url, GetRequestType(), this));
-  url_fetcher_->SetRequestContext(profile_->GetRequestContext());
-  // Always set flags to neither send nor save cookies.
-  url_fetcher_->SetLoadFlags(
-      net::LOAD_DO_NOT_SEND_COOKIES | net::LOAD_DO_NOT_SAVE_COOKIES |
-      net::LOAD_DISABLE_CACHE);
-  if (save_temp_file_) {
-    url_fetcher_->SaveResponseToTemporaryFile(
-        BrowserThread::GetMessageLoopProxyForThread(BrowserThread::FILE));
-  } else if (!output_file_path_.empty()) {
-    url_fetcher_->SaveResponseToFileAtPath(output_file_path_,
-        BrowserThread::GetMessageLoopProxyForThread(BrowserThread::FILE));
-  }
-
-  // Add request headers.
-  // Note that SetExtraRequestHeaders clears the current headers and sets it
-  // to the passed-in headers, so calling it for each header will result in
-  // only the last header being set in request headers.
-  url_fetcher_->AddExtraRequestHeader(kGDataVersionHeader);
-  url_fetcher_->AddExtraRequestHeader(
-        base::StringPrintf(kAuthorizationHeaderFormat, auth_token.data()));
-  std::vector<std::string> headers = GetExtraRequestHeaders();
-  for (size_t i = 0; i < headers.size(); ++i) {
-    url_fetcher_->AddExtraRequestHeader(headers[i]);
-    DVLOG(1) << "Extra header: " << headers[i];
-  }
-
-  // Set upload data if available.
-  std::string upload_content_type;
-  std::string upload_content;
-  if (GetContentData(&upload_content_type, &upload_content)) {
-    url_fetcher_->SetUploadData(upload_content_type, upload_content);
-  }
-
-  // Register to operation registry.
-  NotifyStart();
-
-  url_fetcher_->Start();
-  started_ = true;
-}
-
-void UrlFetchOperationBase::SetReAuthenticateCallback(
-    const ReAuthenticateCallback& callback) {
-  DCHECK(re_authenticate_callback_.is_null());
-
-  re_authenticate_callback_ = callback;
-}
-
-URLFetcher::RequestType UrlFetchOperationBase::GetRequestType() const {
-  return URLFetcher::GET;
-}
-
-std::vector<std::string> UrlFetchOperationBase::GetExtraRequestHeaders() const {
-  return std::vector<std::string>();
-}
-
-bool UrlFetchOperationBase::GetContentData(std::string* upload_content_type,
-                                           std::string* upload_content) {
-  return false;
-}
-
-void UrlFetchOperationBase::DoCancel() {
-  url_fetcher_.reset(NULL);
-  RunCallbackOnPrematureFailure(GDATA_CANCELLED);
-}
-
-void UrlFetchOperationBase::OnURLFetchComplete(const URLFetcher* source) {
-  GDataErrorCode code =
-      static_cast<GDataErrorCode>(source->GetResponseCode());
-  DVLOG(1) << "Response headers:\n" << GetResponseHeadersAsString(source);
-
-  if (code == HTTP_UNAUTHORIZED) {
-    if (!re_authenticate_callback_.is_null() &&
-        ++re_authenticate_count_ <= kMaxReAuthenticateAttemptsPerOperation) {
-      re_authenticate_callback_.Run(this);
-      return;
-    }
-
-    OnAuthFailed(code);
-    return;
-  }
-
-  // Overridden by each specialization
-  bool success = ProcessURLFetchResults(source);
-  NotifyFinish(success ? GDataOperationRegistry::OPERATION_COMPLETED
-                       : GDataOperationRegistry::OPERATION_FAILED);
-}
-
-void UrlFetchOperationBase::OnAuthFailed(GDataErrorCode code) {
-  RunCallbackOnPrematureFailure(code);
-  // Check if this failed before we even started fetching. If so, register
-  // for start so we can properly unregister with finish.
-  if (!started_)
-    NotifyStart();
-
-  NotifyFinish(GDataOperationRegistry::OPERATION_FAILED);
-}
-
-std::string UrlFetchOperationBase::GetResponseHeadersAsString(
-    const URLFetcher* url_fetcher) {
-  // net::HttpResponseHeaders::raw_headers(), as the name implies, stores
-  // all headers in their raw format, i.e each header is null-terminated.
-  // So logging raw_headers() only shows the first header, which is probably
-  // the status line.  GetNormalizedHeaders, on the other hand, will show all
-  // the headers, one per line, which is probably what we want.
-  std::string headers;
-  // Check that response code indicates response headers are valid (i.e. not
-  // malformed) before we retrieve the headers.
-  if (url_fetcher->GetResponseCode() == URLFetcher::RESPONSE_CODE_INVALID) {
-    headers.assign("Response headers are malformed!!");
-  } else {
-    url_fetcher->GetResponseHeaders()->GetNormalizedHeaders(&headers);
-  }
-  return headers;
-}
-
-//============================ EntryActionOperation ============================
-
-EntryActionOperation::EntryActionOperation(GDataOperationRegistry* registry,
-                                           Profile* profile,
-                                           const EntryActionCallback& callback,
-                                           const GURL& document_url)
-    : UrlFetchOperationBase(registry, profile),
-      callback_(callback),
-      document_url_(document_url) {
-}
-
-EntryActionOperation::~EntryActionOperation() {}
-
-// Overridden from UrlFetchOperationBase.
-GURL EntryActionOperation::GetURL() const {
-  return AddStandardUrlParams(document_url_);
-}
-
-bool EntryActionOperation::ProcessURLFetchResults(const URLFetcher* source) {
-  if (!callback_.is_null()) {
-    GDataErrorCode code =
-        static_cast<GDataErrorCode>(source->GetResponseCode());
-    relay_proxy_->PostTask(FROM_HERE,
-                           base::Bind(callback_, code, document_url_));
-  }
-  return true;
-}
-
-void EntryActionOperation::RunCallbackOnPrematureFailure(GDataErrorCode code) {
-  if (!callback_.is_null()) {
-    relay_proxy_->PostTask(FROM_HERE,
-                           base::Bind(callback_, code, document_url_));
-  }
-}
-
-//============================== GetDataOperation ==============================
-
-GetDataOperation::GetDataOperation(GDataOperationRegistry* registry,
-                                   Profile* profile,
-                                   const GetDataCallback& callback)
-    : UrlFetchOperationBase(registry, profile), callback_(callback) {
-}
-
-GetDataOperation::~GetDataOperation() {}
-
-bool GetDataOperation::ProcessURLFetchResults(const URLFetcher* source) {
-  std::string data;
-  source->GetResponseAsString(&data);
-  scoped_ptr<base::Value> root_value;
-  GDataErrorCode code = static_cast<GDataErrorCode>(source->GetResponseCode());
-
-  switch (code) {
-    case HTTP_SUCCESS:
-    case HTTP_CREATED: {
-      root_value.reset(ParseResponse(data));
-      if (!root_value.get())
-        code = GDATA_PARSE_ERROR;
-
-      break;
-    }
-    default:
-      break;
-  }
-
-  if (!callback_.is_null()) {
-    relay_proxy_->PostTask(
-        FROM_HERE,
-        base::Bind(callback_, code, base::Passed(&root_value)));
-  }
-  return root_value.get() != NULL;
-}
-
-void GetDataOperation::RunCallbackOnPrematureFailure(GDataErrorCode code) {
-  if (!callback_.is_null()) {
-    scoped_ptr<base::Value> root_value;
-    relay_proxy_->PostTask(
-        FROM_HERE,
-        base::Bind(callback_, code, base::Passed(&root_value)));
-  }
-}
-
-// static
-base::Value* GetDataOperation::ParseResponse(const std::string& data) {
-  int error_code = -1;
-  std::string error_message;
-  scoped_ptr<base::Value> root_value(base::JSONReader::ReadAndReturnError(
-      data, false, &error_code, &error_message));
-  if (!root_value.get()) {
-    LOG(ERROR) << "Error while parsing entry response: "
-               << error_message
-               << ", code: "
-               << error_code
-               << ", data:\n"
-               << data;
-    return NULL;
-  }
-  return root_value.release();
-}
-
 //============================ GetDocumentsOperation ===========================
 
-GetDocumentsOperation::GetDocumentsOperation(GDataOperationRegistry* registry,
-                                             Profile* profile,
-                                             const GetDataCallback& callback)
-    : GetDataOperation(registry, profile, callback) {
+GetDocumentsOperation::GetDocumentsOperation(
+    GDataOperationRegistry* registry,
+    Profile* profile,
+    int start_changestamp,
+    const std::string& search_string,
+    const std::string& directory_resource_id,
+
+    const GetDataCallback& callback)
+    : GetDataOperation(registry, profile, callback),
+      start_changestamp_(start_changestamp),
+      search_string_(search_string),
+      directory_resource_id_(directory_resource_id) {
 }
 
 GetDocumentsOperation::~GetDocumentsOperation() {}
@@ -412,9 +160,41 @@ void GetDocumentsOperation::SetUrl(const GURL& url) {
 
 GURL GetDocumentsOperation::GetURL() const {
   if (!override_url_.is_empty())
-    return AddFeedUrlParams(override_url_);
+    return AddFeedUrlParams(override_url_,
+                            kMaxDocumentsPerFeed,
+                            0,
+                            std::string());
 
-  return AddFeedUrlParams(GURL(kGetDocumentListURL));
+  if (start_changestamp_ == 0) {
+    return AddFeedUrlParams(FormatDocumentListURL(directory_resource_id_),
+                            kMaxDocumentsPerFeed,
+                            0,
+                            search_string_);
+  }
+
+  return AddFeedUrlParams(GURL(kGetChangesListURL),
+                          kMaxDocumentsPerFeed,
+                          start_changestamp_,
+                          std::string());
+}
+
+//============================ GetDocumentEntryOperation =======================
+
+GetDocumentEntryOperation::GetDocumentEntryOperation(
+    GDataOperationRegistry* registry,
+    Profile* profile,
+    const std::string& resource_id,
+    const GetDataCallback& callback)
+    : GetDataOperation(registry, profile, callback),
+      resource_id_(resource_id) {
+}
+
+GetDocumentEntryOperation::~GetDocumentEntryOperation() {}
+
+GURL GetDocumentEntryOperation::GetURL() const {
+  GURL result = GURL(base::StringPrintf(kGetDocumentEntryURLFormat,
+                                        net::EscapePath(resource_id_).c_str()));
+  return AddStandardUrlParams(result);
 }
 
 //========================= GetAccountMetadataOperation ========================
@@ -429,7 +209,7 @@ GetAccountMetadataOperation::GetAccountMetadataOperation(
 GetAccountMetadataOperation::~GetAccountMetadataOperation() {}
 
 GURL GetAccountMetadataOperation::GetURL() const {
-  return AddStandardUrlParams(GURL(kAccountMetadataURL));
+  return AddMetadataUrlParams(GURL(kAccountMetadataURL));
 }
 
 //============================ DownloadFileOperation ===========================
@@ -437,7 +217,8 @@ GURL GetAccountMetadataOperation::GetURL() const {
 DownloadFileOperation::DownloadFileOperation(
     GDataOperationRegistry* registry,
     Profile* profile,
-    const DownloadActionCallback& callback,
+    const DownloadActionCallback& download_action_callback,
+    const GetDownloadDataCallback& get_download_data_callback,
     const GURL& document_url,
     const FilePath& virtual_path,
     const FilePath& output_file_path)
@@ -445,7 +226,8 @@ DownloadFileOperation::DownloadFileOperation(
                             GDataOperationRegistry::OPERATION_DOWNLOAD,
                             virtual_path,
                             profile),
-      callback_(callback),
+      download_action_callback_(download_action_callback),
+      get_download_data_callback_(get_download_data_callback),
       document_url_(document_url) {
   // Make sure we download the content into a temp file.
   if (output_file_path.empty())
@@ -461,14 +243,27 @@ GURL DownloadFileOperation::GetURL() const {
   return document_url_;
 }
 
-void DownloadFileOperation::OnURLFetchDownloadProgress(const URLFetcher* source,
-                                                       int64 current,
-                                                       int64 total) {
+void DownloadFileOperation::OnURLFetchDownloadProgress(
+    const URLFetcher* source,
+    int64 current,
+    int64 total) {
   NotifyProgress(current, total);
 }
 
-bool DownloadFileOperation::ProcessURLFetchResults(const URLFetcher* source) {
-  GDataErrorCode code = static_cast<GDataErrorCode>(source->GetResponseCode());
+bool DownloadFileOperation::ShouldSendDownloadData() {
+  return !get_download_data_callback_.is_null();
+}
+
+void DownloadFileOperation::OnURLFetchDownloadData(
+    const URLFetcher* source,
+    scoped_ptr<std::string> download_data) {
+  if (!get_download_data_callback_.is_null())
+    get_download_data_callback_.Run(HTTP_SUCCESS, download_data.Pass());
+}
+
+bool DownloadFileOperation::ProcessURLFetchResults(
+    const URLFetcher* source) {
+  GDataErrorCode code = GetErrorCode(source);
 
   // Take over the ownership of the the downloaded temp file.
   FilePath temp_file;
@@ -478,20 +273,14 @@ bool DownloadFileOperation::ProcessURLFetchResults(const URLFetcher* source) {
     code = GDATA_FILE_ERROR;
   }
 
-  if (!callback_.is_null()) {
-    relay_proxy_->PostTask(
-        FROM_HERE,
-        base::Bind(callback_, code, document_url_, temp_file));
-  }
+  if (!download_action_callback_.is_null())
+    download_action_callback_.Run(code, document_url_, temp_file);
   return code == HTTP_SUCCESS;
 }
 
 void DownloadFileOperation::RunCallbackOnPrematureFailure(GDataErrorCode code) {
-  if (!callback_.is_null()) {
-    relay_proxy_->PostTask(
-        FROM_HERE,
-        base::Bind(callback_, code, document_url_, FilePath()));
-  }
+  if (!download_action_callback_.is_null())
+    download_action_callback_.Run(code, document_url_, FilePath());
 }
 
 //=========================== DeleteDocumentOperation ==========================
@@ -505,6 +294,10 @@ DeleteDocumentOperation::DeleteDocumentOperation(
 }
 
 DeleteDocumentOperation::~DeleteDocumentOperation() {}
+
+GURL DeleteDocumentOperation::GetURL() const {
+  return AddStandardUrlParams(document_url());
+}
 
 URLFetcher::RequestType DeleteDocumentOperation::GetRequestType() const {
   return URLFetcher::DELETE_REQUEST;
@@ -636,6 +429,10 @@ RenameResourceOperation::GetExtraRequestHeaders() const {
   return headers;
 }
 
+GURL RenameResourceOperation::GetURL() const {
+  return AddStandardUrlParams(document_url());
+}
+
 bool RenameResourceOperation::GetContentData(std::string* upload_content_type,
                                              std::string* upload_content) {
   upload_content_type->assign("application/atom+xml");
@@ -652,6 +449,93 @@ bool RenameResourceOperation::GetContentData(std::string* upload_content_type,
   DVLOG(1) << "RenameResourceOperation data: " << *upload_content_type << ", ["
            << *upload_content << "]";
   return true;
+}
+
+//=========================== AuthorizeAppOperation ==========================
+
+AuthorizeAppsOperation::AuthorizeAppsOperation(
+    GDataOperationRegistry* registry,
+    Profile* profile,
+    const GetDataCallback& callback,
+    const GURL& document_url,
+    const std::string& app_id)
+    : GetDataOperation(registry, profile, callback),
+      app_id_(app_id),
+      document_url_(document_url) {
+}
+
+AuthorizeAppsOperation::~AuthorizeAppsOperation() {}
+
+URLFetcher::RequestType AuthorizeAppsOperation::GetRequestType() const {
+  return URLFetcher::PUT;
+}
+
+std::vector<std::string>
+AuthorizeAppsOperation::GetExtraRequestHeaders() const {
+  std::vector<std::string> headers;
+  headers.push_back(kIfMatchAllHeader);
+  return headers;
+}
+
+bool AuthorizeAppsOperation::ProcessURLFetchResults(
+    const URLFetcher* source) {
+  std::string data;
+  source->GetResponseAsString(&data);
+  return GetDataOperation::ProcessURLFetchResults(source);
+}
+
+bool AuthorizeAppsOperation::GetContentData(std::string* upload_content_type,
+                                            std::string* upload_content) {
+  upload_content_type->assign("application/atom+xml");
+  XmlWriter xml_writer;
+  xml_writer.StartWriting();
+  xml_writer.StartElement("entry");
+  xml_writer.AddAttribute("xmlns", "http://www.w3.org/2005/Atom");
+  xml_writer.AddAttribute("xmlns:docs", "http://schemas.google.com/docs/2007");
+  xml_writer.WriteElement("docs:authorizedApp", app_id_);
+
+  xml_writer.EndElement();  // Ends "entry" element.
+  xml_writer.StopWriting();
+  upload_content->assign(xml_writer.GetWrittenString());
+  DVLOG(1) << "AuthorizeAppOperation data: " << *upload_content_type << ", ["
+           << *upload_content << "]";
+  return true;
+}
+
+base::Value* AuthorizeAppsOperation::ParseResponse(const std::string& data) {
+  // Parse entry XML.
+  XmlReader xml_reader;
+  scoped_ptr<DocumentEntry> entry;
+  if (xml_reader.Load(data)) {
+    while (xml_reader.Read()) {
+      if (xml_reader.NodeName() == DocumentEntry::GetEntryNodeName()) {
+        entry.reset(DocumentEntry::CreateFromXml(&xml_reader));
+        break;
+      }
+    }
+  }
+
+  // From the response, we create a list of the links returned, since those
+  // are the only things we are interested in.
+  scoped_ptr<base::ListValue> link_list(new ListValue);
+  const ScopedVector<Link>& feed_links = entry->links();
+  for (ScopedVector<Link>::const_iterator iter = feed_links.begin();
+       iter != feed_links.end(); ++iter) {
+    if ((*iter)->type() == Link::OPEN_WITH) {
+      base::DictionaryValue* link = new DictionaryValue;
+      link->SetString(std::string("href"), (*iter)->href().spec());
+      link->SetString(std::string("mime_type"), (*iter)->mime_type());
+      link->SetString(std::string("title"), (*iter)->title());
+      link->SetString(std::string("app_id"), (*iter)->app_id());
+      link_list->Append(link);
+    }
+  }
+
+  return link_list.release();
+}
+
+GURL AuthorizeAppsOperation::GetURL() const {
+  return document_url_;
 }
 
 //======================= AddResourceToDirectoryOperation ======================
@@ -748,8 +632,8 @@ InitiateUploadOperation::InitiateUploadOperation(
                             profile),
       callback_(callback),
       params_(params),
-      initiate_upload_url_(chrome_browser_net::AppendQueryParameter(
-          params.resumable_create_media_link,
+      initiate_upload_url_(chrome_common_net::AppendOrReplaceQueryParameter(
+          params.upload_location,
           kUploadParamConvertKey,
           kUploadParamConvertValue)) {
 }
@@ -760,9 +644,9 @@ GURL InitiateUploadOperation::GetURL() const {
   return initiate_upload_url_;
 }
 
-bool InitiateUploadOperation::ProcessURLFetchResults(const URLFetcher* source) {
-  GDataErrorCode code =
-      static_cast<GDataErrorCode>(source->GetResponseCode());
+bool InitiateUploadOperation::ProcessURLFetchResults(
+    const URLFetcher* source) {
+  GDataErrorCode code = GetErrorCode(source);
 
   std::string upload_location;
   if (code == HTTP_SUCCESS) {
@@ -775,23 +659,27 @@ bool InitiateUploadOperation::ProcessURLFetchResults(const URLFetcher* source) {
           << "]: code=" << code
           << ", location=[" << upload_location << "]";
 
-  if (!callback_.is_null()) {
-    relay_proxy_->PostTask(FROM_HERE,
-                           base::Bind(callback_, code, GURL(upload_location)));
-  }
+  if (!callback_.is_null())
+    callback_.Run(code, GURL(upload_location));
   return code == HTTP_SUCCESS;
+}
+
+void InitiateUploadOperation::NotifySuccessToOperationRegistry() {
+  NotifySuspend();
 }
 
 void InitiateUploadOperation::RunCallbackOnPrematureFailure(
     GDataErrorCode code) {
-  if (!callback_.is_null()) {
-    relay_proxy_->PostTask(FROM_HERE,
-                           base::Bind(callback_, code, GURL()));
-  }
+  if (!callback_.is_null())
+    callback_.Run(code, GURL());
 }
 
 URLFetcher::RequestType InitiateUploadOperation::GetRequestType() const {
-  return URLFetcher::POST;
+  if (params_.upload_mode == UPLOAD_NEW_FILE)
+    return URLFetcher::POST;
+
+  DCHECK_EQ(UPLOAD_EXISTING_FILE, params_.upload_mode);
+  return URLFetcher::PUT;
 }
 
 std::vector<std::string>
@@ -802,11 +690,26 @@ InitiateUploadOperation::GetExtraRequestHeaders() const {
 
   headers.push_back(
       kUploadContentLength + base::Int64ToString(params_.content_length));
+
+  if (params_.upload_mode == UPLOAD_EXISTING_FILE)
+    headers.push_back("If-Match: *");
+
   return headers;
 }
 
 bool InitiateUploadOperation::GetContentData(std::string* upload_content_type,
                                              std::string* upload_content) {
+  if (params_.upload_mode == UPLOAD_EXISTING_FILE) {
+    // When uploading an existing file, the body is empty as we don't modify
+    // the metadata.
+    *upload_content = "";
+    // Even though the body is empty, Content-Type should be set to
+    // "text/plain". Otherwise, the server won't accept.
+    *upload_content_type = "text/plain";
+    return true;
+  }
+
+  DCHECK_EQ(UPLOAD_NEW_FILE, params_.upload_mode);
   upload_content_type->assign("application/atom+xml");
   XmlWriter xml_writer;
   xml_writer.StartWriting();
@@ -819,7 +722,7 @@ bool InitiateUploadOperation::GetContentData(std::string* upload_content_type,
   xml_writer.StopWriting();
   upload_content->assign(xml_writer.GetWrittenString());
   DVLOG(1) << "Upload data: " << *upload_content_type << ", ["
-          << *upload_content << "]";
+           << *upload_content << "]";
   return true;
 }
 
@@ -835,7 +738,8 @@ ResumeUploadOperation::ResumeUploadOperation(
                           params.virtual_path,
                           profile),
       callback_(callback),
-      params_(params) {
+      params_(params),
+      last_chunk_completed_(false) {
 }
 
 ResumeUploadOperation::~ResumeUploadOperation() {}
@@ -844,8 +748,9 @@ GURL ResumeUploadOperation::GetURL() const {
   return params_.upload_location;
 }
 
-bool ResumeUploadOperation::ProcessURLFetchResults(const URLFetcher* source) {
-  GDataErrorCode code = static_cast<GDataErrorCode>(source->GetResponseCode());
+bool ResumeUploadOperation::ProcessURLFetchResults(
+    const URLFetcher* source) {
+  GDataErrorCode code = GetErrorCode(source);
   net::HttpResponseHeaders* hdrs = source->GetResponseHeaders();
   int64 start_range_received = -1;
   int64 end_range_received = -1;
@@ -864,24 +769,24 @@ bool ResumeUploadOperation::ProcessURLFetchResults(const URLFetcher* source) {
         end_range_received = ranges[0].last_byte_position();
       }
     }
-    DVLOG(1) << "Got response for [" << params_.title
-            << "]: code=" << code
-            << ", range_hdr=[" << range_received
-            << "], range_parsed=" << start_range_received
-            << "," << end_range_received;
+    DVLOG(1) << "Got response for [" << params_.virtual_path.value()
+             << "]: code=" << code
+             << ", range_hdr=[" << range_received
+             << "], range_parsed=" << start_range_received
+             << "," << end_range_received;
   } else {
     // There might be explanation of unexpected error code in response.
     std::string response_content;
     source->GetResponseAsString(&response_content);
-    DVLOG(1) << "Got response for [" << params_.title
-            << "]: code=" << code
-            << ", content=[\n" << response_content << "\n]";
+    DVLOG(1) << "Got response for [" << params_.virtual_path.value()
+             << "]: code=" << code
+             << ", content=[\n" << response_content << "\n]";
 
     // Parse entry XML.
     XmlReader xml_reader;
     if (xml_reader.Load(response_content)) {
       while (xml_reader.Read()) {
-        if (xml_reader.NodeName() == DocumentEntry::kEntryNode) {
+        if (xml_reader.NodeName() == DocumentEntry::GetEntryNodeName()) {
           entry.reset(DocumentEntry::CreateFromXml(&xml_reader));
           break;
         }
@@ -892,25 +797,37 @@ bool ResumeUploadOperation::ProcessURLFetchResults(const URLFetcher* source) {
   }
 
   if (!callback_.is_null()) {
-    relay_proxy_->PostTask(
-        FROM_HERE,
-        base::Bind(callback_,
-                   ResumeUploadResponse(code,
-                                        start_range_received,
-                                        end_range_received),
-                   base::Passed(&entry)));
+    callback_.Run(ResumeUploadResponse(code,
+                                       start_range_received,
+                                       end_range_received),
+                  entry.Pass());
   }
-  return code == HTTP_CREATED || code == HTTP_RESUME_INCOMPLETE;
+
+  // For a new file, HTTP_CREATED is returned.
+  // For an existing file, HTTP_SUCCESS is returned.
+  if ((params_.upload_mode == UPLOAD_NEW_FILE && code == HTTP_CREATED) ||
+      (params_.upload_mode == UPLOAD_EXISTING_FILE && code == HTTP_SUCCESS)) {
+    last_chunk_completed_ = true;
+  }
+
+  return last_chunk_completed_ || code == HTTP_RESUME_INCOMPLETE;
+}
+
+void ResumeUploadOperation::NotifyStartToOperationRegistry() {
+  NotifyResume();
+}
+
+void ResumeUploadOperation::NotifySuccessToOperationRegistry() {
+  if (last_chunk_completed_)
+    NotifyFinish(GDataOperationRegistry::OPERATION_COMPLETED);
+  else
+    NotifySuspend();
 }
 
 void ResumeUploadOperation::RunCallbackOnPrematureFailure(GDataErrorCode code) {
   scoped_ptr<DocumentEntry> entry;
-  if (!callback_.is_null()) {
-    relay_proxy_->PostTask(FROM_HERE,
-                           base::Bind(callback_,
-                                      ResumeUploadResponse(code, 0, 0),
-                                      base::Passed(&entry)));
-  }
+  if (!callback_.is_null())
+    callback_.Run(ResumeUploadResponse(code, 0, 0), entry.Pass());
 }
 
 URLFetcher::RequestType ResumeUploadOperation::GetRequestType() const {
@@ -918,6 +835,13 @@ URLFetcher::RequestType ResumeUploadOperation::GetRequestType() const {
 }
 
 std::vector<std::string> ResumeUploadOperation::GetExtraRequestHeaders() const {
+  if (params_.content_length == 0) {
+    // For uploading an empty document, just PUT an empty content.
+    DCHECK_EQ(params_.start_range, 0);
+    DCHECK_EQ(params_.end_range, -1);
+    return std::vector<std::string>();
+  }
+
   // The header looks like
   // Content-Range: bytes <start_range>-<end_range>/<content_length>
   // for example:
@@ -946,10 +870,9 @@ bool ResumeUploadOperation::GetContentData(std::string* upload_content_type,
 }
 
 void ResumeUploadOperation::OnURLFetchUploadProgress(
-    const content::URLFetcher* source, int64 current, int64 total) {
+    const URLFetcher* source, int64 current, int64 total) {
   // Adjust the progress values according to the range currently uploaded.
   NotifyProgress(params_.start_range + current, params_.content_length);
 }
-
 
 }  // namespace gdata

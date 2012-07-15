@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef UI_AURA_LAYOUT_MANAGER_H_
 #define UI_AURA_LAYOUT_MANAGER_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "ui/aura/aura_export.h"
@@ -30,6 +29,9 @@ class AURA_EXPORT LayoutManager {
 
   // Invoked prior to removing |window|.
   virtual void OnWillRemoveWindowFromLayout(Window* child) = 0;
+
+  // Invoked after removing |window|.
+  virtual void OnWindowRemovedFromLayout(Window* child) = 0;
 
   // Invoked when the |SetVisible()| is invoked on the window |child|.
   // |visible| is the value supplied to |SetVisible()|. If |visible| is true,

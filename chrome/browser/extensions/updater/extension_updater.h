@@ -4,9 +4,8 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_UPDATER_EXTENSION_UPDATER_H_
 #define CHROME_BROWSER_EXTENSIONS_UPDATER_EXTENSION_UPDATER_H_
-#pragma once
 
-#include <set>
+#include <list>
 #include <stack>
 #include <string>
 
@@ -23,14 +22,15 @@
 #include "content/public/browser/notification_registrar.h"
 #include "googleurl/src/gurl.h"
 
-class ExtensionPrefs;
 class ExtensionServiceInterface;
+class ExtensionSet;
 class PrefService;
 class Profile;
 
 namespace extensions {
 
 class ExtensionDownloader;
+class ExtensionPrefs;
 class ExtensionUpdaterTest;
 
 // A class for doing auto-updates of installed Extensions. Used like this:
@@ -109,6 +109,11 @@ class ExtensionUpdater : public ExtensionDownloaderDelegate,
   // browser restart.
   void ScheduleNextCheck(const base::TimeDelta& target_delay);
 
+  // Add fetch records for extensions that are installed to the downloader,
+  // ignoring |pending_ids| so the extension isn't fetched again.
+  void AddToDownloader(const ExtensionSet* extensions,
+                       const std::list<std::string>& pending_ids);
+
   // BaseTimer::ReceiverMethod callback.
   void TimerFired();
 
@@ -178,7 +183,7 @@ class ExtensionUpdater : public ExtensionDownloaderDelegate,
   bool blacklist_checks_enabled_;
 
   // The ids of extensions that have in-progress update checks.
-  std::set<std::string> in_progress_ids_;
+  std::list<std::string> in_progress_ids_;
 
   // Observes CRX installs we initiate.
   content::NotificationRegistrar registrar_;

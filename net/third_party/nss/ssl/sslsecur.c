@@ -615,6 +615,7 @@ DoRecv(sslSocket *ss, unsigned char *out, int len, int flags)
     if (!(flags & PR_MSG_PEEK)) {
 	ss->gs.readOffset += amount;
     }
+    PORT_Assert(ss->gs.readOffset <= ss->gs.writeOffset);
     rv = amount;
 
     SSL_TRC(30, ("%d: SSL[%d]: amount=%d available=%d",
@@ -1532,6 +1533,42 @@ SSL_RestartHandshakeAfterCertReq(PRFileDesc *        fd,
 
     ssl_Release1stHandshakeLock(ss);  /************************************/
     return ret;
+}
+
+SECStatus
+SSL_RestartHandshakeAfterChannelIDReq(PRFileDesc *      fd,
+				      SECKEYPublicKey * channelIDPub,
+				      SECKEYPrivateKey *channelID)
+{
+    sslSocket *   ss = ssl_FindSocket(fd);
+    SECStatus     ret;
+
+    if (!ss) {
+	SSL_DBG(("%d: SSL[%d]: bad socket in"
+		 " SSL_RestartHandshakeAfterChannelIDReq",
+		 SSL_GETPID(), fd));
+	goto loser;
+    }
+
+
+    ssl_Get1stHandshakeLock(ss);
+
+    if (ss->version < SSL_LIBRARY_VERSION_3_0) {
+	PORT_SetError(SSL_ERROR_FEATURE_NOT_SUPPORTED_FOR_SSL2);
+	ssl_Release1stHandshakeLock(ss);
+	goto loser;
+    }
+
+    ret = ssl3_RestartHandshakeAfterChannelIDReq(ss, channelIDPub,
+						 channelID);
+    ssl_Release1stHandshakeLock(ss);
+
+    return ret;
+
+loser:
+    SECKEY_DestroyPublicKey(channelIDPub);
+    SECKEY_DestroyPrivateKey(channelID);
+    return SECFailure;
 }
 
 /* DO NOT USE. This function was exported in ssl.def with the wrong signature;

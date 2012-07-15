@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -59,7 +59,14 @@ class CaptureData : public base::RefCountedThreadSafe<CaptureData> {
     client_sequence_number_ = client_sequence_number;
   }
 
+  SkIPoint dpi() const { return dpi_; }
+
+  void set_dpi(const SkIPoint& dpi) { dpi_ = dpi; }
+
  private:
+  friend class base::RefCountedThreadSafe<CaptureData>;
+  virtual ~CaptureData();
+
   const DataPlanes data_planes_;
   SkRegion dirty_region_;
   SkISize size_;
@@ -71,8 +78,8 @@ class CaptureData : public base::RefCountedThreadSafe<CaptureData> {
   // Sequence number supplied by client for performance tracking.
   int64 client_sequence_number_;
 
-  friend class base::RefCountedThreadSafe<CaptureData>;
-  virtual ~CaptureData();
+  // DPI for this frame.
+  SkIPoint dpi_;
 };
 
 }  // namespace remoting

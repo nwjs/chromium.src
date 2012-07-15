@@ -4,23 +4,22 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_POWER_SCREEN_LOCK_OBSERVER_H_
 #define CHROME_BROWSER_CHROMEOS_POWER_SCREEN_LOCK_OBSERVER_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
-#include "chrome/browser/chromeos/dbus/power_manager_client.h"
+#include "chromeos/dbus/session_manager_client.h"
 
 namespace chromeos {
 
 // A class to observe screen lock events and dispatch onScreenUnlocked extension
 // API events.
-class ScreenLockObserver : public PowerManagerClient::Observer {
+class ScreenLockObserver : public SessionManagerClient::Observer {
  public:
   // This class registers/unregisters itself as an observer in ctor/dtor.
   ScreenLockObserver();
   virtual ~ScreenLockObserver();
 
-  // PowerManagerClient::Observer override.
+  // SessionManagerClient::Observer override.
   virtual void UnlockScreen() OVERRIDE;
  private:
   DISALLOW_COPY_AND_ASSIGN(ScreenLockObserver);

@@ -10,11 +10,9 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/ntp/new_tab_ui.h"
 
-GetTopSitesFunction::GetTopSitesFunction() {
-}
+GetTopSitesFunction::GetTopSitesFunction() {}
 
-GetTopSitesFunction::~GetTopSitesFunction() {
-}
+GetTopSitesFunction::~GetTopSitesFunction() {}
 
 bool GetTopSitesFunction::RunImpl() {
   history::TopSites* ts = profile()->GetTopSites();
@@ -32,8 +30,8 @@ void GetTopSitesFunction::OnMostVisitedURLsAvailable(
   scoped_ptr<base::ListValue> pages_value(new ListValue);
   for (size_t i = 0; i < data.size(); i++) {
     const history::MostVisitedURL& url = data[i];
-    DictionaryValue* page_value = new DictionaryValue();
     if (!url.url.is_empty()) {
+      DictionaryValue* page_value = new DictionaryValue();
       page_value->SetString("url", url.url.spec());
       if (url.title.empty())
         page_value->SetString("title", url.url.spec());
@@ -43,6 +41,6 @@ void GetTopSitesFunction::OnMostVisitedURLsAvailable(
     }
   }
 
-  result_.reset(pages_value.release());
+  SetResult(pages_value.release());
   SendResponse(true);
 }

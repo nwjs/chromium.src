@@ -6,7 +6,11 @@
 // gpu/command_buffer/build_gles2_cmd_buffer.py
 // DO NOT EDIT!
 
+#ifndef GL_GLEXT_PROTOTYPES
+#define GL_GLEXT_PROTOTYPES
+#endif
 #include <GLES2/gl2.h>
+#include <GLES2/gl2ext.h>
 #include "ppapi/lib/gl/gles2/gl2ext_ppapi.h"
 
 void GL_APIENTRY glActiveTexture(GLenum texture) {
@@ -756,7 +760,7 @@ void GL_APIENTRY glViewport(GLint x, GLint y, GLsizei width, GLsizei height) {
 void GL_APIENTRY glBlitFramebufferEXT(
     GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0,
     GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter) {
-  const struct PPB_OpenGLES2FramebufferBlit_Dev* ext =
+  const struct PPB_OpenGLES2FramebufferBlit* ext =
       glGetFramebufferBlitInterfacePPAPI();
   if (ext)
     ext->BlitFramebufferEXT(
@@ -767,7 +771,7 @@ void GL_APIENTRY glBlitFramebufferEXT(
 void GL_APIENTRY glRenderbufferStorageMultisampleEXT(
     GLenum target, GLsizei samples, GLenum internalformat, GLsizei width,
     GLsizei height) {
-  const struct PPB_OpenGLES2FramebufferMultisample_Dev* ext =
+  const struct PPB_OpenGLES2FramebufferMultisample* ext =
       glGetFramebufferMultisampleInterfacePPAPI();
   if (ext)
     ext->RenderbufferStorageMultisampleEXT(
@@ -776,51 +780,51 @@ void GL_APIENTRY glRenderbufferStorageMultisampleEXT(
 }
 
 void GL_APIENTRY glGenQueriesEXT(GLsizei n, GLuint* queries) {
-  const struct PPB_OpenGLES2Query_Dev* ext = glGetQueryInterfacePPAPI();
+  const struct PPB_OpenGLES2Query* ext = glGetQueryInterfacePPAPI();
   if (ext)
     ext->GenQueriesEXT(glGetCurrentContextPPAPI(), n, queries);
 }
 
 void GL_APIENTRY glDeleteQueriesEXT(GLsizei n, const GLuint* queries) {
-  const struct PPB_OpenGLES2Query_Dev* ext = glGetQueryInterfacePPAPI();
+  const struct PPB_OpenGLES2Query* ext = glGetQueryInterfacePPAPI();
   if (ext)
     ext->DeleteQueriesEXT(glGetCurrentContextPPAPI(), n, queries);
 }
 
 GLboolean GL_APIENTRY glIsQueryEXT(GLuint id) {
-  const struct PPB_OpenGLES2Query_Dev* ext = glGetQueryInterfacePPAPI();
+  const struct PPB_OpenGLES2Query* ext = glGetQueryInterfacePPAPI();
   if (ext)
     return ext->IsQueryEXT(glGetCurrentContextPPAPI(), id);
   return 0;
 }
 
 void GL_APIENTRY glBeginQueryEXT(GLenum target, GLuint id) {
-  const struct PPB_OpenGLES2Query_Dev* ext = glGetQueryInterfacePPAPI();
+  const struct PPB_OpenGLES2Query* ext = glGetQueryInterfacePPAPI();
   if (ext)
     ext->BeginQueryEXT(glGetCurrentContextPPAPI(), target, id);
 }
 
 void GL_APIENTRY glEndQueryEXT(GLenum target) {
-  const struct PPB_OpenGLES2Query_Dev* ext = glGetQueryInterfacePPAPI();
+  const struct PPB_OpenGLES2Query* ext = glGetQueryInterfacePPAPI();
   if (ext)
     ext->EndQueryEXT(glGetCurrentContextPPAPI(), target);
 }
 
 void GL_APIENTRY glGetQueryivEXT(GLenum target, GLenum pname, GLint* params) {
-  const struct PPB_OpenGLES2Query_Dev* ext = glGetQueryInterfacePPAPI();
+  const struct PPB_OpenGLES2Query* ext = glGetQueryInterfacePPAPI();
   if (ext)
     ext->GetQueryivEXT(glGetCurrentContextPPAPI(), target, pname, params);
 }
 
 void GL_APIENTRY glGetQueryObjectuivEXT(
     GLuint id, GLenum pname, GLuint* params) {
-  const struct PPB_OpenGLES2Query_Dev* ext = glGetQueryInterfacePPAPI();
+  const struct PPB_OpenGLES2Query* ext = glGetQueryInterfacePPAPI();
   if (ext)
     ext->GetQueryObjectuivEXT(glGetCurrentContextPPAPI(), id, pname, params);
 }
 
 GLboolean GL_APIENTRY glEnableFeatureCHROMIUM(const char* feature) {
-  const struct PPB_OpenGLES2ChromiumEnableFeature_Dev* ext =
+  const struct PPB_OpenGLES2ChromiumEnableFeature* ext =
       glGetChromiumEnableFeatureInterfacePPAPI();
   if (ext)
     return ext->EnableFeatureCHROMIUM(glGetCurrentContextPPAPI(), feature);
@@ -829,7 +833,7 @@ GLboolean GL_APIENTRY glEnableFeatureCHROMIUM(const char* feature) {
 
 void* GL_APIENTRY glMapBufferSubDataCHROMIUM(
     GLuint target, GLintptr offset, GLsizeiptr size, GLenum access) {
-  const struct PPB_OpenGLES2ChromiumMapSub_Dev* ext =
+  const struct PPB_OpenGLES2ChromiumMapSub* ext =
       glGetChromiumMapSubInterfacePPAPI();
   if (ext)
     return ext->MapBufferSubDataCHROMIUM(
@@ -838,7 +842,7 @@ void* GL_APIENTRY glMapBufferSubDataCHROMIUM(
 }
 
 void GL_APIENTRY glUnmapBufferSubDataCHROMIUM(const void* mem) {
-  const struct PPB_OpenGLES2ChromiumMapSub_Dev* ext =
+  const struct PPB_OpenGLES2ChromiumMapSub* ext =
       glGetChromiumMapSubInterfacePPAPI();
   if (ext)
     ext->UnmapBufferSubDataCHROMIUM(glGetCurrentContextPPAPI(), mem);
@@ -847,7 +851,7 @@ void GL_APIENTRY glUnmapBufferSubDataCHROMIUM(const void* mem) {
 void* GL_APIENTRY glMapTexSubImage2DCHROMIUM(
     GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width,
     GLsizei height, GLenum format, GLenum type, GLenum access) {
-  const struct PPB_OpenGLES2ChromiumMapSub_Dev* ext =
+  const struct PPB_OpenGLES2ChromiumMapSub* ext =
       glGetChromiumMapSubInterfacePPAPI();
   if (ext)
     return ext->MapTexSubImage2DCHROMIUM(
@@ -857,7 +861,7 @@ void* GL_APIENTRY glMapTexSubImage2DCHROMIUM(
 }
 
 void GL_APIENTRY glUnmapTexSubImage2DCHROMIUM(const void* mem) {
-  const struct PPB_OpenGLES2ChromiumMapSub_Dev* ext =
+  const struct PPB_OpenGLES2ChromiumMapSub* ext =
       glGetChromiumMapSubInterfacePPAPI();
   if (ext)
     ext->UnmapTexSubImage2DCHROMIUM(glGetCurrentContextPPAPI(), mem);
@@ -865,7 +869,7 @@ void GL_APIENTRY glUnmapTexSubImage2DCHROMIUM(const void* mem) {
 
 void GL_APIENTRY glDrawArraysInstancedANGLE(
     GLenum mode, GLint first, GLsizei count, GLsizei primcount) {
-  const struct PPB_OpenGLES2InstancedArrays_Dev* ext =
+  const struct PPB_OpenGLES2InstancedArrays* ext =
       glGetInstancedArraysInterfacePPAPI();
   if (ext)
     ext->DrawArraysInstancedANGLE(
@@ -875,7 +879,7 @@ void GL_APIENTRY glDrawArraysInstancedANGLE(
 void GL_APIENTRY glDrawElementsInstancedANGLE(
     GLenum mode, GLsizei count, GLenum type, const void* indices,
     GLsizei primcount) {
-  const struct PPB_OpenGLES2InstancedArrays_Dev* ext =
+  const struct PPB_OpenGLES2InstancedArrays* ext =
       glGetInstancedArraysInterfacePPAPI();
   if (ext)
     ext->DrawElementsInstancedANGLE(
@@ -883,7 +887,7 @@ void GL_APIENTRY glDrawElementsInstancedANGLE(
 }
 
 void GL_APIENTRY glVertexAttribDivisorANGLE(GLuint index, GLuint divisor) {
-  const struct PPB_OpenGLES2InstancedArrays_Dev* ext =
+  const struct PPB_OpenGLES2InstancedArrays* ext =
       glGetInstancedArraysInterfacePPAPI();
   if (ext)
     ext->VertexAttribDivisorANGLE(glGetCurrentContextPPAPI(), index, divisor);

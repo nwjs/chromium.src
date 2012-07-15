@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_PREFS_OVERLAY_USER_PREF_STORE_H_
 #define CHROME_BROWSER_PREFS_OVERLAY_USER_PREF_STORE_H_
-#pragma once
 
 #include <map>
 #include <string>
@@ -23,7 +22,6 @@ class OverlayUserPrefStore : public PersistentPrefStore,
                              public PrefStore::Observer {
  public:
   explicit OverlayUserPrefStore(PersistentPrefStore* underlay);
-  virtual ~OverlayUserPrefStore();
 
   // Returns true if a value has been set for the |key| in this
   // OverlayUserPrefStore, i.e. if it potentially overrides a value
@@ -45,6 +43,7 @@ class OverlayUserPrefStore : public PersistentPrefStore,
   virtual void SetValueSilently(const std::string& key,
                                 base::Value* value) OVERRIDE;
   virtual void RemoveValue(const std::string& key) OVERRIDE;
+  virtual void MarkNeedsEmptyValue(const std::string& key) OVERRIDE;
   virtual bool ReadOnly() const OVERRIDE;
   virtual PrefReadError GetReadError() const OVERRIDE;
   virtual PrefReadError ReadPrefs() OVERRIDE;
@@ -52,16 +51,19 @@ class OverlayUserPrefStore : public PersistentPrefStore,
   virtual void CommitPendingWrite() OVERRIDE;
   virtual void ReportValueChanged(const std::string& key) OVERRIDE;
 
+  // Methods of PrefStore::Observer.
+  virtual void OnPrefValueChanged(const std::string& key) OVERRIDE;
+  virtual void OnInitializationCompleted(bool succeeded) OVERRIDE;
+
   void RegisterOverlayPref(const std::string& key);
   void RegisterOverlayPref(const std::string& overlay_key,
                            const std::string& underlay_key);
 
+ protected:
+  virtual ~OverlayUserPrefStore();
+
  private:
   typedef std::map<std::string, std::string> NamesMap;
-
-  // Methods of PrefStore::Observer.
-  virtual void OnPrefValueChanged(const std::string& key) OVERRIDE;
-  virtual void OnInitializationCompleted(bool succeeded) OVERRIDE;
 
   const std::string& GetOverlayKey(const std::string& underlay_key) const;
   const std::string& GetUnderlayKey(const std::string& overlay_key) const;

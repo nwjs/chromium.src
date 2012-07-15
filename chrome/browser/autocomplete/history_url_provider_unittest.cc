@@ -12,12 +12,15 @@
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/autocomplete/autocomplete_match.h"
+#include "chrome/browser/autocomplete/autocomplete_provider.h"
+#include "chrome/browser/autocomplete/autocomplete_provider_listener.h"
 #include "chrome/browser/autocomplete/history_quick_provider.h"
 #include "chrome/browser/history/history.h"
+#include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/net/url_fixer_upper.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using base::Time;
@@ -46,6 +49,13 @@ struct TestURLInfo {
   // If a host has a match, we should pick it up during host synthesis.
   {"http://news.google.com/?ned=us&topic=n", "Google News - U.S.", 2, 2},
   {"http://news.google.com/", "Google News", 1, 1},
+
+  // Matches that are normally not inline-autocompletable should be
+  // autocompleted if they are shorter substitutes for longer matches that would
+  // have been inline autocompleted.
+  {"http://synthesisatest.com/foo/", "Test A", 1, 1},
+  {"http://synthesisbtest.com/foo/", "Test B", 1, 1},
+  {"http://synthesisbtest.com/foo/bar.html", "Test B Bar", 2, 2},
 
   // Suggested short URLs must be "good enough" and must match user input.
   {"http://foo.com/", "Dir", 5, 5},
@@ -117,7 +127,7 @@ struct TestURLInfo {
 };
 
 class HistoryURLProviderTest : public testing::Test,
-                               public ACProviderListener {
+                               public AutocompleteProviderListener {
  public:
   HistoryURLProviderTest()
       : ui_thread_(BrowserThread::UI, &message_loop_),
@@ -130,8 +140,8 @@ class HistoryURLProviderTest : public testing::Test,
     HistoryQuickProvider::set_disabled(false);
   }
 
-  // ACProviderListener
-  virtual void OnProviderUpdate(bool updated_matches);
+  // AutocompleteProviderListener:
+  virtual void OnProviderUpdate(bool updated_matches) OVERRIDE;
 
  protected:
   // testing::Test
@@ -182,7 +192,9 @@ void HistoryURLProviderTest::OnProviderUpdate(bool updated_matches) {
 void HistoryURLProviderTest::SetUpImpl(bool no_db) {
   profile_.reset(new TestingProfile());
   profile_->CreateHistoryService(true, no_db);
-  history_service_ = profile_->GetHistoryService(Profile::EXPLICIT_ACCESS);
+  history_service_ =
+      HistoryServiceFactory::GetForProfile(profile_.get(),
+                                           Profile::EXPLICIT_ACCESS);
 
   autocomplete_ = new HistoryURLProvider(this, profile_.get(), "en-US,en,ko");
 
@@ -280,6 +292,25 @@ TEST_F(HistoryURLProviderTest, PromoteShorterURLs) {
 
   // Test that unpopular pages are ignored completely.
   RunTest(ASCIIToUTF16("fresh"), string16(), true, NULL, 0);
+
+  // Test that if we create or promote shorter suggestions that would not
+  // normally be inline autocompletable, we make them inline autocompletable if
+  // the original suggestion (that we replaced as "top") was inline
+  // autocompletable.
+  const std::string expected_synthesisa[] = {
+    "http://synthesisatest.com/",
+    "http://synthesisatest.com/foo/",
+  };
+  RunTest(ASCIIToUTF16("synthesisa"), string16(), false, expected_synthesisa,
+          arraysize(expected_synthesisa));
+  EXPECT_LT(matches_.front().relevance, 1200);
+  const std::string expected_synthesisb[] = {
+    "http://synthesisbtest.com/foo/",
+    "http://synthesisbtest.com/foo/bar.html",
+  };
+  RunTest(ASCIIToUTF16("synthesisb"), string16(), false, expected_synthesisb,
+          arraysize(expected_synthesisb));
+  EXPECT_GE(matches_.front().relevance, 1410);
 
   // Test that if we have a synthesized host that matches a suggestion, they
   // get combined into one.
@@ -556,12 +587,13 @@ TEST_F(HistoryURLProviderTest, DontAutocompleteOnTrailingWhitespace) {
 
 TEST_F(HistoryURLProviderTest, TreatEmailsAsSearches) {
   // Visiting foo.com should not make this string be treated as a navigation.
-  // That means the result should be scored at 1200 ("what you typed") and not
-  // 1400+.
+  // That means the result should be scored around 1200 ("what you typed")
+  // and not 1400+.
   const std::string expected[] = {"http://user@foo.com/"};
   ASSERT_NO_FATAL_FAILURE(RunTest(ASCIIToUTF16("user@foo.com"), string16(),
                                   false, expected, arraysize(expected)));
-  EXPECT_EQ(1200, matches_[0].relevance);
+  EXPECT_LE(1200, matches_[0].relevance);
+  EXPECT_LT(matches_[0].relevance, 1210);
 }
 
 TEST_F(HistoryURLProviderTest, IntranetURLsWithPaths) {
@@ -588,7 +620,10 @@ TEST_F(HistoryURLProviderTest, IntranetURLsWithPaths) {
       };
       ASSERT_NO_FATAL_FAILURE(RunTest(ASCIIToUTF16(test_cases[i].input),
                               string16(), false, output, arraysize(output)));
-      EXPECT_EQ(test_cases[i].relevance, matches_[0].relevance);
+      // Actual relevance should be at least what test_cases expects and
+      // and no more than 10 more.
+      EXPECT_LE(test_cases[i].relevance, matches_[0].relevance);
+      EXPECT_LT(matches_[0].relevance, test_cases[i].relevance + 10);
     }
   }
 }
@@ -604,8 +639,9 @@ TEST_F(HistoryURLProviderTest, IntranetURLCompletion) {
   };
   ASSERT_NO_FATAL_FAILURE(RunTest(ASCIIToUTF16("intra/t"), string16(), false,
                                   expected1, arraysize(expected1)));
-  EXPECT_EQ(1410, matches_[0].relevance);
-  EXPECT_EQ(900, matches_[1].relevance);
+  EXPECT_LE(1410, matches_[0].relevance);
+  EXPECT_LT(matches_[0].relevance, 1420);
+  EXPECT_EQ(matches_[0].relevance - 1, matches_[1].relevance);
 
   const std::string expected2[] = {
     "http://moo/b",
@@ -613,9 +649,10 @@ TEST_F(HistoryURLProviderTest, IntranetURLCompletion) {
   };
   ASSERT_NO_FATAL_FAILURE(RunTest(ASCIIToUTF16("moo/b"), string16(), false,
                                   expected2, arraysize(expected2)));
-  // The what you typed match should be 1400, otherwise the search what you
-  // typed match is going to be first.
-  EXPECT_EQ(1400, matches_[0].relevance);
+  // The url what you typed match should be around 1400, otherwise the
+  // search what you typed match is going to be first.
+  EXPECT_LE(1400, matches_[0].relevance);
+  EXPECT_LT(matches_[0].relevance, 1410);
 
   const std::string expected3[] = {
     "http://intra/one",
@@ -638,21 +675,24 @@ TEST_F(HistoryURLProviderTest, IntranetURLCompletion) {
   };
   ASSERT_NO_FATAL_FAILURE(RunTest(ASCIIToUTF16("intra/o"), string16(), false,
                                   expected5, arraysize(expected5)));
-  EXPECT_EQ(1410, matches_[0].relevance);
+  EXPECT_LE(1410, matches_[0].relevance);
+  EXPECT_LT(matches_[0].relevance, 1420);
 
   const std::string expected6[] = {
     "http://intra/x",
   };
   ASSERT_NO_FATAL_FAILURE(RunTest(ASCIIToUTF16("intra/x"), string16(), false,
                                   expected6, arraysize(expected6)));
-  EXPECT_EQ(1400, matches_[0].relevance);
+  EXPECT_LE(1400, matches_[0].relevance);
+  EXPECT_LT(matches_[0].relevance, 1410);
 
   const std::string expected7[] = {
     "http://typedhost/untypedpath",
   };
   ASSERT_NO_FATAL_FAILURE(RunTest(ASCIIToUTF16("typedhost/untypedpath"),
       string16(), false, expected7, arraysize(expected7)));
-  EXPECT_EQ(1400, matches_[0].relevance);
+  EXPECT_LE(1400, matches_[0].relevance);
+  EXPECT_LT(matches_[0].relevance, 1410);
 }
 
 TEST_F(HistoryURLProviderTest, CrashDueToFixup) {

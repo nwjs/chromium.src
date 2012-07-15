@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_COMPONENT_UPDATER_COMPONENT_UPDATER_SERVICE_H_
 #define CHROME_BROWSER_COMPONENT_UPDATER_COMPONENT_UPDATER_SERVICE_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -27,8 +26,6 @@ class DictionaryValue;
 // given to ComponentUpdateService::RegisterComponent().
 class ComponentInstaller {
  public :
-  virtual ~ComponentInstaller() {}
-
   // Called by the component updater on the UI thread when there was a
   // problem unpacking or verifying the component. |error| is a non-zero
   // value which is only meaninful to the component updater.
@@ -40,6 +37,9 @@ class ComponentInstaller {
   // with all the unpacked CRX files.
   virtual bool Install(base::DictionaryValue* manifest,
                        const FilePath& unpack_path) = 0;
+
+ protected:
+  virtual ~ComponentInstaller() {}
 };
 
 // Describes a particular component that can be installed or updated. This

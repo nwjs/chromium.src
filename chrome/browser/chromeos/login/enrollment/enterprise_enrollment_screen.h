@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_ENROLLMENT_ENTERPRISE_ENROLLMENT_SCREEN_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_ENROLLMENT_ENTERPRISE_ENROLLMENT_SCREEN_H_
-#pragma once
 
 #include <string>
 
@@ -37,6 +36,7 @@ class EnterpriseEnrollmentScreen
   virtual void PrepareToShow() OVERRIDE;
   virtual void Show() OVERRIDE;
   virtual void Hide() OVERRIDE;
+  virtual std::string GetName() const OVERRIDE;
 
   // EnterpriseEnrollmentScreenActor::Controller implementation:
   virtual void OnOAuthTokenAvailable(const std::string& user,
@@ -65,6 +65,7 @@ class EnterpriseEnrollmentScreen
   bool is_auto_enrollment_;
   bool is_showing_;
   std::string user_;
+  int lockbox_init_duration_;
   scoped_ptr<policy::CloudPolicySubsystem::ObserverRegistrar> registrar_;
   base::WeakPtrFactory<EnterpriseEnrollmentScreen> weak_ptr_factory_;
 

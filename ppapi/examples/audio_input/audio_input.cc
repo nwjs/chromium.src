@@ -20,6 +20,12 @@
 #include "ppapi/cpp/size.h"
 #include "ppapi/utility/completion_callback_factory.h"
 
+// When compiling natively on Windows, PostMessage can be #define-d to
+// something else.
+#ifdef PostMessage
+#undef PostMessage
+#endif
+
 class MyInstance : public pp::Instance {
  public:
   explicit MyInstance(PP_Instance instance)
@@ -93,9 +99,10 @@ class MyInstance : public pp::Instance {
     if (message_data.is_string()) {
       std::string event = message_data.AsString();
       if (event == "PageInitialized") {
-        pp::CompletionCallback callback = callback_factory_.NewCallback(
-            &MyInstance::EnumerateDevicesFinished);
-        int32_t result = audio_input_.EnumerateDevices(&devices_, callback);
+        pp::CompletionCallbackWithOutput<std::vector<pp::DeviceRef_Dev> >
+            callback = callback_factory_.NewCallbackWithOutput(
+                &MyInstance::EnumerateDevicesFinished);
+        int32_t result = audio_input_.EnumerateDevices(callback);
         if (result != PP_OK_COMPLETIONPENDING)
           PostMessage(pp::Var("EnumerationFailed"));
       } else if (event == "UseDefault") {
@@ -208,9 +215,13 @@ class MyInstance : public pp::Instance {
                               uint32_t num_bytes,
                               void* ctx) {
     MyInstance* thiz = static_cast<MyInstance*>(ctx);
-    PP_DCHECK(num_bytes ==
-              thiz->sample_count_ * thiz->channel_count_ * sizeof(int16_t));
+    uint32_t buffer_size =
+        thiz->sample_count_ * thiz->channel_count_ * sizeof(int16_t);
+    PP_DCHECK(num_bytes <= buffer_size);
+    PP_DCHECK(num_bytes % (thiz->channel_count_ * sizeof(int16_t)) == 0);
     memcpy(thiz->samples_, samples, num_bytes);
+    memset(reinterpret_cast<char*>(thiz->samples_) + num_bytes, 0,
+           buffer_size - num_bytes);
   }
 
   void Open(const pp::DeviceRef_Dev& device) {
@@ -241,10 +252,12 @@ class MyInstance : public pp::Instance {
     }
   }
 
-  void EnumerateDevicesFinished(int32_t result) {
+  void EnumerateDevicesFinished(int32_t result,
+                                std::vector<pp::DeviceRef_Dev>& devices) {
     static const char* const kDelimiter = "#__#";
 
     if (result == PP_OK) {
+      devices_.swap(devices);
       std::string device_names;
       for (size_t index = 0; index < devices_.size(); ++index) {
         pp::Var name = devices_[index].GetName();

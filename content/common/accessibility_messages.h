@@ -6,7 +6,9 @@
 // Multiply-included message file, hence no include guard.
 
 #include "base/basictypes.h"
+#include "content/common/accessibility_node_data.h"
 #include "content/common/content_export.h"
+#include "content/common/view_message_enums.h"
 #include "content/public/common/common_param_traits.h"
 #include "ipc/ipc_message_macros.h"
 #include "ipc/ipc_message_utils.h"
@@ -14,7 +16,6 @@
 #include "ipc/param_traits_macros.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebPoint.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebRect.h"
-#include "webkit/glue/webaccessibility.h"
 
 #undef IPC_MESSAGE_EXPORT
 #define IPC_MESSAGE_EXPORT CONTENT_EXPORT
@@ -30,6 +31,9 @@ enum AccessibilityNotification {
 
   // An alert appeared.
   AccessibilityNotificationAlert,
+
+  // A node has lost focus.
+  AccessibilityNotificationBlur,
 
   // The node checked state has changed.
   AccessibilityNotificationCheckStateChanged,
@@ -48,6 +52,9 @@ enum AccessibilityNotification {
 
   // The document node has loaded.
   AccessibilityNotificationLoadComplete,
+
+  // A menu list selection changed.
+  AccessibilityNotificationMenuListItemSelected,
 
   // A menu list value changed.
   AccessibilityNotificationMenuListValueChanged,
@@ -83,21 +90,21 @@ enum AccessibilityNotification {
   AccessibilityNotificationTextRemoved,
 
   // The node value has changed.
-  AccessibilityNotificationValueChangedD,
+  AccessibilityNotificationValueChanged,
 };
 
 #endif  // CONTENT_COMMON_ACCESSIBILITY_MESSAGES_H_
 
 IPC_ENUM_TRAITS(AccessibilityNotification)
 
-IPC_ENUM_TRAITS(webkit_glue::WebAccessibility::BoolAttribute)
-IPC_ENUM_TRAITS(webkit_glue::WebAccessibility::FloatAttribute)
-IPC_ENUM_TRAITS(webkit_glue::WebAccessibility::IntAttribute)
-IPC_ENUM_TRAITS(webkit_glue::WebAccessibility::Role)
-IPC_ENUM_TRAITS(webkit_glue::WebAccessibility::State)
-IPC_ENUM_TRAITS(webkit_glue::WebAccessibility::StringAttribute)
+IPC_ENUM_TRAITS(content::AccessibilityNodeData::BoolAttribute)
+IPC_ENUM_TRAITS(content::AccessibilityNodeData::FloatAttribute)
+IPC_ENUM_TRAITS(content::AccessibilityNodeData::IntAttribute)
+IPC_ENUM_TRAITS(content::AccessibilityNodeData::Role)
+IPC_ENUM_TRAITS(content::AccessibilityNodeData::State)
+IPC_ENUM_TRAITS(content::AccessibilityNodeData::StringAttribute)
 
-IPC_STRUCT_TRAITS_BEGIN(webkit_glue::WebAccessibility)
+IPC_STRUCT_TRAITS_BEGIN(content::AccessibilityNodeData)
   IPC_STRUCT_TRAITS_MEMBER(id)
   IPC_STRUCT_TRAITS_MEMBER(name)
   IPC_STRUCT_TRAITS_MEMBER(value)
@@ -124,7 +131,7 @@ IPC_STRUCT_BEGIN(AccessibilityHostMsg_NotificationParams)
   IPC_STRUCT_MEMBER(int, id)
 
   // The accessibility node tree.
-  IPC_STRUCT_MEMBER(webkit_glue::WebAccessibility, acc_tree)
+  IPC_STRUCT_MEMBER(content::AccessibilityNodeData, acc_tree)
 
   // Whether children are included in this tree, otherwise it's just an
   // update to this one node and existing children are left in place.
@@ -132,9 +139,6 @@ IPC_STRUCT_BEGIN(AccessibilityHostMsg_NotificationParams)
 IPC_STRUCT_END()
 
 // Messages sent from the browser to the renderer.
-
-// Enable accessibility in the renderer process.
-IPC_MESSAGE_ROUTED0(AccessibilityMsg_Enable)
 
 // Relay a request from assistive technology to set focus to a given node.
 IPC_MESSAGE_ROUTED1(AccessibilityMsg_SetFocus,
@@ -155,8 +159,8 @@ IPC_MESSAGE_ROUTED2(AccessibilityMsg_ScrollToMakeVisible,
                     gfx::Rect /* subfocus */)
 
 // Relay a request from assistive technology to move a given object
-// to a specific location, in the tab content area coordinate space, i.e.
-// (0, 0) is the top-left corner of the tab contents.
+// to a specific location, in the WebContents area coordinate space, i.e.
+// (0, 0) is the top-left corner of the WebContents.
 IPC_MESSAGE_ROUTED2(AccessibilityMsg_ScrollToPoint,
                     int /* object id */,
                     gfx::Point /* new location */)

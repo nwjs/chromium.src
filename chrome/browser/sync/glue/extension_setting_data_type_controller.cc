@@ -6,18 +6,20 @@
 
 #include "base/bind.h"
 #include "base/metrics/histogram.h"
+#include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/sync/api/syncable_service.h"
 #include "chrome/browser/sync/glue/generic_change_processor.h"
 #include "chrome/browser/sync/profile_sync_components_factory.h"
 #include "content/public/browser/browser_thread.h"
+#include "sync/api/syncable_service.h"
 
 using content::BrowserThread;
 
 namespace browser_sync {
 
 ExtensionSettingDataTypeController::ExtensionSettingDataTypeController(
-    syncable::ModelType type,
+    syncer::ModelType type,
     ProfileSyncComponentsFactory* profile_sync_factory,
     Profile* profile,
     ProfileSyncService* profile_sync_service)
@@ -28,20 +30,19 @@ ExtensionSettingDataTypeController::ExtensionSettingDataTypeController(
       profile_(profile),
       profile_sync_service_(profile_sync_service) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DCHECK(type == syncable::EXTENSION_SETTINGS ||
-         type == syncable::APP_SETTINGS);
+  DCHECK(type == syncer::EXTENSION_SETTINGS || type == syncer::APP_SETTINGS);
 }
 
-ExtensionSettingDataTypeController::~ExtensionSettingDataTypeController() {}
-
-syncable::ModelType ExtensionSettingDataTypeController::type() const {
+syncer::ModelType ExtensionSettingDataTypeController::type() const {
   return type_;
 }
 
-browser_sync::ModelSafeGroup
+syncer::ModelSafeGroup
 ExtensionSettingDataTypeController::model_safe_group() const {
-  return browser_sync::GROUP_FILE;
+  return syncer::GROUP_FILE;
 }
+
+ExtensionSettingDataTypeController::~ExtensionSettingDataTypeController() {}
 
 bool ExtensionSettingDataTypeController::PostTaskOnBackendThread(
     const tracked_objects::Location& from_here,
@@ -52,7 +53,7 @@ bool ExtensionSettingDataTypeController::PostTaskOnBackendThread(
 
 bool ExtensionSettingDataTypeController::StartModels() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  profile_->InitExtensions(true);
+  extensions::ExtensionSystem::Get(profile_)->Init(true);
   return true;
 }
 

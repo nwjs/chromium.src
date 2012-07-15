@@ -23,6 +23,7 @@
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "content/browser/browser_child_process_host_impl.h"
+#include "content/browser/gpu/gpu_data_manager_impl.h"
 #include "content/browser/plugin_service_impl.h"
 #include "content/common/child_process_host_impl.h"
 #include "content/common/plugin_messages.h"
@@ -35,8 +36,8 @@
 #include "content/public/common/process_type.h"
 #include "ipc/ipc_switches.h"
 #include "ui/base/ui_base_switches.h"
-#include "ui/gfx/gl/gl_switches.h"
 #include "ui/gfx/native_widget_types.h"
+#include "ui/gl/gl_switches.h"
 
 using content::BrowserThread;
 using content::ChildProcessData;
@@ -112,7 +113,7 @@ void PluginProcessHost::OnReportExecutableMemory(size_t size) {
 }
 #endif  // defined(OS_WIN)
 
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
 void PluginProcessHost::OnMapNativeViewId(gfx::NativeViewId id,
                                           gfx::PluginWindowHandle* output) {
   *output = 0;
@@ -120,7 +121,7 @@ void PluginProcessHost::OnMapNativeViewId(gfx::NativeViewId id,
   GtkNativeViewManager::GetInstance()->GetXIDForId(output, id);
 #endif
 }
-#endif  // defined(TOOLKIT_USES_GTK)
+#endif  // defined(TOOLKIT_GTK)
 
 PluginProcessHost::PluginProcessHost()
 #if defined(OS_MACOSX)
@@ -220,6 +221,7 @@ bool PluginProcessHost::Init(const webkit::WebPluginInfo& info) {
     switches::kDisableBreakpad,
 #if defined(OS_MACOSX)
     switches::kDisableCompositedCoreAnimationPlugins,
+    switches::kDisableCoreAnimationPlugins,
 #endif
     switches::kDisableLogging,
     switches::kEnableDCHECK,
@@ -239,6 +241,8 @@ bool PluginProcessHost::Init(const webkit::WebPluginInfo& info) {
 
   cmd_line->CopySwitchesFrom(browser_command_line, kSwitchNames,
                              arraysize(kSwitchNames));
+
+  GpuDataManagerImpl::GetInstance()->AppendPluginCommandLine(cmd_line);
 
   // If specified, prepend a launcher program to the command line.
   if (!plugin_launcher.empty())
@@ -312,7 +316,7 @@ bool PluginProcessHost::OnMessageReceived(const IPC::Message& msg) {
     IPC_MESSAGE_HANDLER(PluginProcessHostMsg_ReportExecutableMemory,
                         OnReportExecutableMemory)
 #endif
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
     IPC_MESSAGE_HANDLER(PluginProcessHostMsg_MapNativeViewId,
                         OnMapNativeViewId)
 #endif

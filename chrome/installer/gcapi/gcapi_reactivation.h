@@ -4,13 +4,11 @@
 
 #ifndef CHROME_INSTALLER_GCAPI_GCAPI_REACTIVATION_H_
 #define CHROME_INSTALLER_GCAPI_GCAPI_REACTIVATION_H_
-#pragma once
 
 #include <string>
 #include <vector>
 
-bool HasBeenReactivatedByBrandCodes(
-    const std::vector<std::wstring>& brand_codes);
+bool HasBeenReactivated();
 
 bool SetReactivationBrandCode(const std::wstring& brand_code, int shell_mode);
 

@@ -11,9 +11,9 @@
 
 namespace extension_webkit_preferences {
 
-void SetPreferences(const Extension* extension,
-                    content::ViewType render_view_type,
-                    WebPreferences* webkit_prefs) {
+void SetPreferences(const extensions::Extension* extension,
+                    chrome::ViewType render_view_type,
+                    webkit_glue::WebPreferences* webkit_prefs) {
   if (!extension)
     return;
 
@@ -26,11 +26,20 @@ void SetPreferences(const Extension* extension,
     // Tabs aren't typically allowed to close windows. But extensions shouldn't
     // be subject to that.
     webkit_prefs->allow_scripts_to_close_windows = true;
+
+    // Disable force-compositing-mode for extension background pages, to reduce
+    // memory impact of extensions. See crbug.com/123935. This also "works
+    // around" crbug.com/123935
+    if (render_view_type == chrome::VIEW_TYPE_EXTENSION_BACKGROUND_PAGE) {
+      webkit_prefs->force_compositing_mode = false;
+    }
   }
 
   if (extension->is_platform_app()) {
     webkit_prefs->databases_enabled = false;
     webkit_prefs->local_storage_enabled = false;
+    webkit_prefs->sync_xhr_in_documents_enabled = false;
+    webkit_prefs->cookie_enabled = false;
   }
 
   // Enable WebGL features that regular pages can't access, since they add
@@ -39,12 +48,12 @@ void SetPreferences(const Extension* extension,
 
   // If this is a component extension, then apply the same poliy for
   // accelerated compositing as for chrome: URLs (from
-  // TabContents::GetWebkitPrefs).  This is important for component extensions
+  // WebContents::GetWebkitPrefs).  This is important for component extensions
   // like the file manager which are sometimes loaded using chrome: URLs and
   // sometimes loaded with chrome-extension: URLs - we should expect the
   // performance characteristics to be similar in both cases.
   const CommandLine& command_line = *CommandLine::ForCurrentProcess();
-  if (extension->location() == Extension::COMPONENT &&
+  if (extension->location() == extensions::Extension::COMPONENT &&
       !command_line.HasSwitch(switches::kAllowWebUICompositing)) {
     webkit_prefs->accelerated_compositing_enabled = false;
     webkit_prefs->accelerated_2d_canvas_enabled = false;

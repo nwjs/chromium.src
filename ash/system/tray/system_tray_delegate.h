@@ -4,18 +4,17 @@
 
 #ifndef ASH_SYSTEM_TRAY_SYSTEM_TRAY_DELEGATE_H_
 #define ASH_SYSTEM_TRAY_SYSTEM_TRAY_DELEGATE_H_
-#pragma once
 
 #include <string>
 #include <vector>
 
 #include "ash/ash_export.h"
+#include "ash/system/power/power_supply_status.h"
 #include "ash/system/user/login_status.h"
+#include "base/file_path.h"
 #include "base/i18n/time_formatting.h"
 #include "base/string16.h"
-#include "third_party/skia/include/core/SkBitmap.h"
-
-class SkBitmap;
+#include "ui/gfx/image/image_skia.h"
 
 namespace ash {
 
@@ -25,7 +24,7 @@ struct ASH_EXPORT NetworkIconInfo {
 
   bool highlight;
   bool tray_icon_visible;
-  SkBitmap image;
+  gfx::ImageSkia image;
   string16 name;
   string16 description;
   std::string service_path;
@@ -41,6 +40,37 @@ struct ASH_EXPORT BluetoothDeviceInfo {
 };
 
 typedef std::vector<BluetoothDeviceInfo> BluetoothDeviceList;
+
+// Structure that packs progress information of each operation.
+struct ASH_EXPORT DriveOperationStatus {
+  enum OperationType {
+    OPERATION_UPLOAD,
+    OPERATION_DOWNLOAD,
+    OPERATION_OTHER,
+  };
+
+  enum OperationState {
+    OPERATION_NOT_STARTED,
+    OPERATION_STARTED,
+    OPERATION_IN_PROGRESS,
+    OPERATION_COMPLETED,
+    OPERATION_FAILED,
+    OPERATION_SUSPENDED,
+  };
+
+  DriveOperationStatus();
+  ~DriveOperationStatus();
+
+  // File path.
+  FilePath file_path;
+  // Current operation completion progress [0.0 - 1.0].
+  double progress;
+  OperationType type;
+  OperationState state;
+};
+
+typedef std::vector<DriveOperationStatus> DriveOperationStatusList;
+
 
 struct ASH_EXPORT IMEPropertyInfo {
   IMEPropertyInfo();
@@ -58,14 +88,13 @@ struct ASH_EXPORT IMEInfo {
   ~IMEInfo();
 
   bool selected;
+  bool third_party;
   std::string id;
   string16 name;
   string16 short_name;
 };
 
 typedef std::vector<IMEInfo> IMEInfoList;
-
-struct PowerSupplyStatus;
 
 class SystemTrayDelegate {
  public:
@@ -75,22 +104,22 @@ class SystemTrayDelegate {
   virtual bool GetTrayVisibilityOnStartup() = 0;
 
   // Gets information about the logged in user.
-  virtual const std::string GetUserDisplayName() const = 0;
+  virtual const string16 GetUserDisplayName() const = 0;
   virtual const std::string GetUserEmail() const = 0;
-  virtual const SkBitmap& GetUserImage() const = 0;
+  virtual const gfx::ImageSkia& GetUserImage() const = 0;
   virtual user::LoginStatus GetUserLoginStatus() const = 0;
 
   // Returns whether a system upgrade is available.
   virtual bool SystemShouldUpgrade() const = 0;
-
-  // Returns the resource id for the icon to show for the update notification.
-  virtual int GetSystemUpdateIconResource() const = 0;
 
   // Returns the desired hour clock type.
   virtual base::HourClockType GetHourClockType() const = 0;
 
   // Gets the current power supply status.
   virtual PowerSupplyStatus GetPowerSupplyStatus() const = 0;
+
+  // Requests a status update.
+  virtual void RequestStatusUpdate() const = 0;
 
   // Shows settings.
   virtual void ShowSettings() = 0;
@@ -103,6 +132,9 @@ class SystemTrayDelegate {
 
   // Shows the settings related to bluetooth.
   virtual void ShowBluetoothSettings() = 0;
+
+  // Shows settings related to Google Drive.
+  virtual void ShowDriveSettings() = 0;
 
   // Shows settings related to input methods.
   virtual void ShowIMESettings() = 0;
@@ -125,8 +157,8 @@ class SystemTrayDelegate {
   // Gets whether the caps lock is on.
   virtual bool IsCapsLockOn() const = 0;
 
-  // Gets whether accessibility mode is turned on.
-  virtual bool IsInAccessibilityMode() const = 0;
+  // Sets the caps lock status to |enabled|.
+  virtual void SetCapsLockEnabled(bool enabled) = 0;
 
   // Attempts to shut down the system.
   virtual void ShutDown() = 0;
@@ -136,6 +168,9 @@ class SystemTrayDelegate {
 
   // Attempts to lock the screen.
   virtual void RequestLockScreen() = 0;
+
+  // Attempts to restart the system.
+  virtual void RequestRestart() = 0;
 
   // Returns a list of available bluetooth devices.
   virtual void GetAvailableBluetoothDevices(BluetoothDeviceList* devices) = 0;
@@ -158,6 +193,13 @@ class SystemTrayDelegate {
   // Activates an IME property.
   virtual void ActivateIMEProperty(const std::string& key) = 0;
 
+  // Cancels ongoing drive operation.
+  virtual void CancelDriveOperation(const FilePath& file_path) = 0;
+
+  // Returns information about the ongoing drive operations.
+  virtual void GetDriveOperationStatusList(
+      DriveOperationStatusList* list) = 0;
+
   // Returns information about the most relevant network. Relevance is
   // determined by the implementor (e.g. a connecting network may be more
   // relevant over a connected network etc.)
@@ -176,6 +218,9 @@ class SystemTrayDelegate {
                                    std::string* ethernet_mac_address,
                                    std::string* wifi_mac_address) = 0;
 
+  // Requests network scan when list of networks is opened.
+  virtual void RequestNetworkScan() = 0;
+
   // Shous UI to add a new bluetooth device.
   virtual void AddBluetoothDevice() = 0;
 
@@ -185,8 +230,8 @@ class SystemTrayDelegate {
   // Toggles wifi network.
   virtual void ToggleWifi() = 0;
 
-  // Toggles cellular network.
-  virtual void ToggleCellular() = 0;
+  // Toggles mobile network.
+  virtual void ToggleMobile() = 0;
 
   // Toggles bluetooth.
   virtual void ToggleBluetooth() = 0;
@@ -197,11 +242,14 @@ class SystemTrayDelegate {
   // Shows UI to search for cellular networks.
   virtual void ShowOtherCellular() = 0;
 
+  // Returns whether the system is connected to any network.
+  virtual bool IsNetworkConnected() = 0;
+
   // Returns whether wifi is available.
   virtual bool GetWifiAvailable() = 0;
 
-  // Returns whether cellular networking is available.
-  virtual bool GetCellularAvailable() = 0;
+  // Returns whether mobile networking (cellular or wimax) is available.
+  virtual bool GetMobileAvailable() = 0;
 
   // Returns whether bluetooth capability is available.
   virtual bool GetBluetoothAvailable() = 0;
@@ -209,22 +257,24 @@ class SystemTrayDelegate {
   // Returns whether wifi is enabled.
   virtual bool GetWifiEnabled() = 0;
 
-  // Returns whether cellular networking is enabled.
-  virtual bool GetCellularEnabled() = 0;
+  // Returns whether mobile (cellular or wimax) networking is enabled.
+  virtual bool GetMobileEnabled() = 0;
 
   // Returns whether bluetooth is enabled.
   virtual bool GetBluetoothEnabled() = 0;
 
-  // Returns whether cellular scanning is supported.
-  virtual bool GetCellularScanSupported() = 0;
+  // Returns whether mobile scanning is supported.
+  virtual bool GetMobileScanSupported() = 0;
 
-  // Retrieves information about the carrier. If the information cannot be
-  // retrieved, returns false.
+  // Retrieves information about the carrier and locale specific |setup_url|.
+  // If none of the carrier info/setup URL cannot be retrieved, returns false.
+  // Note: |setup_url| is returned when carrier is not defined (no SIM card).
   virtual bool GetCellularCarrierInfo(std::string* carrier_id,
-                                      std::string* toup_url) = 0;
+                                      std::string* topup_url,
+                                      std::string* setup_url) = 0;
 
-  // Opens the top up url.
-  virtual void ShowCellularTopupURL(const std::string& topup_url) = 0;
+  // Opens the cellular network specific URL.
+  virtual void ShowCellularURL(const std::string& url) = 0;
 
   // Shows UI for changing proxy settings.
   virtual void ChangeProxySettings() = 0;

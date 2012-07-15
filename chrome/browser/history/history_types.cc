@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,6 +8,7 @@
 
 #include "base/logging.h"
 #include "base/stl_util.h"
+#include "chrome/browser/history/page_usage_data.h"
 
 namespace history {
 
@@ -326,6 +327,26 @@ MostVisitedURL::MostVisitedURL(const GURL& url,
 }
 
 MostVisitedURL::~MostVisitedURL() {}
+
+// FilteredURL -----------------------------------------------------------------
+
+FilteredURL::FilteredURL() : score(0.0) {}
+
+FilteredURL::FilteredURL(const PageUsageData& page_data)
+    : url(page_data.GetURL()),
+      title(page_data.GetTitle()),
+      score(page_data.GetScore()) {
+}
+
+FilteredURL::~FilteredURL() {}
+
+// FilteredURL::ExtendedInfo ---------------------------------------------------
+
+FilteredURL::ExtendedInfo::ExtendedInfo()
+    : total_visits(0),
+      visits(0),
+      duration_opened(0) {
+}
 
 // Images ---------------------------------------------------------------------
 

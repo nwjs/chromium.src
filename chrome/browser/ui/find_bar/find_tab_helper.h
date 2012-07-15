@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_FIND_BAR_FIND_TAB_HELPER_H_
 #define CHROME_BROWSER_UI_FIND_BAR_FIND_TAB_HELPER_H_
-#pragma once
 
 #include "chrome/browser/ui/find_bar/find_bar_controller.h"
 #include "chrome/browser/ui/find_bar/find_notification_details.h"
@@ -46,7 +45,7 @@ class FindTabHelper : public content::WebContentsObserver {
     current_find_request_id_ = current_find_request_id;
   }
 
-  // Accessor for find_text_. Used to determine if this TabContents has any
+  // Accessor for find_text_. Used to determine if this WebContents has any
   // active searches.
   string16 find_text() const { return find_text_; }
 

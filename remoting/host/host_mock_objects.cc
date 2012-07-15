@@ -6,6 +6,7 @@
 
 #include "base/message_loop_proxy.h"
 #include "net/base/ip_endpoint.h"
+#include "remoting/base/capture_data.h"
 #include "remoting/proto/event.pb.h"
 #include "remoting/protocol/transport.h"
 
@@ -15,17 +16,23 @@ MockCapturer::MockCapturer() {}
 
 MockCapturer::~MockCapturer() {}
 
-MockCurtain::MockCurtain() {}
+MockCaptureCompletedCallback::MockCaptureCompletedCallback() {}
 
-MockCurtain::~MockCurtain() {}
+MockCaptureCompletedCallback::~MockCaptureCompletedCallback() {}
 
-Curtain* Curtain::Create() {
-  return new MockCurtain();
+void MockCaptureCompletedCallback::CaptureCompleted(
+    scoped_refptr<CaptureData> capture_data) {
+  CaptureCompletedPtr(capture_data.get());
 }
 
 MockEventExecutor::MockEventExecutor() {}
 
 MockEventExecutor::~MockEventExecutor() {}
+
+void MockEventExecutor::OnSessionStarted(
+    scoped_ptr<protocol::ClipboardStub> client_clipboard) {
+  OnSessionStartedPtr(client_clipboard.get());
+}
 
 MockDisconnectWindow::MockDisconnectWindow() {}
 
@@ -52,7 +59,7 @@ scoped_ptr<LocalInputMonitor> LocalInputMonitor::Create() {
 }
 
 MockChromotingHostContext::MockChromotingHostContext()
-    : ChromotingHostContext(NULL, base::MessageLoopProxy::current()) {
+    : ChromotingHostContext(base::MessageLoopProxy::current()) {
 }
 
 MockChromotingHostContext::~MockChromotingHostContext() {}
@@ -60,6 +67,10 @@ MockChromotingHostContext::~MockChromotingHostContext() {}
 MockClientSessionEventHandler::MockClientSessionEventHandler() {}
 
 MockClientSessionEventHandler::~MockClientSessionEventHandler() {}
+
+MockHostStatusObserver::MockHostStatusObserver() {}
+
+MockHostStatusObserver::~MockHostStatusObserver() {}
 
 MockUserAuthenticator::MockUserAuthenticator() {}
 

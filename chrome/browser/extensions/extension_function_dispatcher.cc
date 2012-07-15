@@ -7,6 +7,7 @@
 #include <map>
 
 #include "base/json/json_string_value_serializer.h"
+#include "base/lazy_instance.h"
 #include "base/memory/ref_counted.h"
 #include "base/process_util.h"
 #include "base/values.h"
@@ -21,8 +22,6 @@
 #include "chrome/browser/external_protocol/external_protocol_handler.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/renderer_host/chrome_render_message_filter.h"
-#include "chrome/browser/ui/browser_list.h"
-#include "chrome/browser/ui/browser_window.h"
 #include "chrome/common/extensions/api/extension_api.h"
 #include "chrome/common/extensions/extension_messages.h"
 #include "chrome/common/extensions/extension_set.h"
@@ -32,12 +31,14 @@
 #include "ipc/ipc_message.h"
 #include "ipc/ipc_message_macros.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebSecurityOrigin.h"
-#include "third_party/skia/include/core/SkBitmap.h"
 #include "webkit/glue/resource_type.h"
 
+using extensions::Extension;
 using extensions::ExtensionAPI;
 using content::RenderViewHost;
 using WebKit::WebSecurityOrigin;
+
+namespace {
 
 const char kAccessDenied[] = "access denied";
 const char kQuotaExceeded[] = "quota exceeded";
@@ -80,6 +81,30 @@ void LogFailure(const Extension* extension,
   }
 }
 
+// Separate copy of ExtensionAPI used for IO thread extension functions. We need
+// this because ExtensionAPI has mutable data. It should be possible to remove
+// this once all the extension APIs are updated to the feature system.
+struct Static {
+  Static()
+      : api(extensions::ExtensionAPI::CreateWithDefaultConfiguration()) {
+  }
+  scoped_ptr<extensions::ExtensionAPI> api;
+};
+base::LazyInstance<Static> g_global_io_data = LAZY_INSTANCE_INITIALIZER;
+
+}  // namespace
+
+extensions::WindowController*
+ExtensionFunctionDispatcher::Delegate::GetExtensionWindowController()
+    const {
+  return NULL;
+}
+
+content::WebContents*
+ExtensionFunctionDispatcher::Delegate::GetAssociatedWebContents() const {
+  return NULL;
+}
+
 void ExtensionFunctionDispatcher::GetAllFunctionNames(
     std::vector<std::string>* names) {
   ExtensionFunctionRegistry::GetInstance()->GetAllNames(names);
@@ -108,7 +133,9 @@ void ExtensionFunctionDispatcher::DispatchOnIOThread(
 
   scoped_refptr<ExtensionFunction> function(
       CreateExtensionFunction(params, extension, render_process_id,
-                              extension_info_map->process_map(), profile,
+                              extension_info_map->process_map(),
+                              g_global_io_data.Get().api.get(),
+                              profile,
                               ipc_sender, routing_id));
   if (!function) {
     LogFailure(extension, params.name, kAccessDenied);
@@ -146,32 +173,6 @@ ExtensionFunctionDispatcher::ExtensionFunctionDispatcher(Profile* profile,
 ExtensionFunctionDispatcher::~ExtensionFunctionDispatcher() {
 }
 
-Browser* ExtensionFunctionDispatcher::GetCurrentBrowser(
-    RenderViewHost* render_view_host, bool include_incognito) {
-  Browser* browser = delegate_->GetBrowser();
-
-  // If the delegate has an associated browser, that is always the right answer.
-  if (browser)
-    return browser;
-
-  // Otherwise, try to default to a reasonable browser. If |include_incognito|
-  // is true, we will also search browsers in the incognito version of this
-  // profile. Note that the profile may already be incognito, in which case
-  // we will search the incognito version only, regardless of the value of
-  // |include_incognito|.
-  Profile* profile = Profile::FromBrowserContext(
-      render_view_host->GetProcess()->GetBrowserContext());
-  browser = BrowserList::FindAnyBrowser(profile, include_incognito);
-
-  // NOTE(rafaelw): This can return NULL in some circumstances. In particular,
-  // a background_page onload chrome.tabs api call can make it into here
-  // before the browser is sufficiently initialized to return here.
-  // A similar situation may arise during shutdown.
-  // TODO(rafaelw): Delay creation of background_page until the browser
-  // is available. http://code.google.com/p/chromium/issues/detail?id=13284
-  return browser;
-}
-
 void ExtensionFunctionDispatcher::Dispatch(
     const ExtensionHostMsg_Request_Params& params,
     RenderViewHost* render_view_host) {
@@ -191,6 +192,7 @@ void ExtensionFunctionDispatcher::Dispatch(
       CreateExtensionFunction(params, extension,
                               render_view_host->GetProcess()->GetID(),
                               *(service->process_map()),
+                              extensions::ExtensionAPI::GetSharedInstance(),
                               profile(), render_view_host,
                               render_view_host->GetRoutingID()));
   if (!function) {
@@ -222,6 +224,10 @@ void ExtensionFunctionDispatcher::Dispatch(
     LogFailure(extension, params.name, kQuotaExceeded);
   }
 
+  // Check if extension was uninstalled by management.uninstall.
+  if (!service->extensions()->GetByID(params.extension_id))
+    return;
+
   // We only adjust the keepalive count for UIThreadExtensionFunction for
   // now, largely for simplicity's sake. This is OK because currently, only
   // the webRequest API uses IOThreadExtensionFunction, and that API is not
@@ -242,8 +248,9 @@ ExtensionFunction* ExtensionFunctionDispatcher::CreateExtensionFunction(
     const Extension* extension,
     int requesting_process_id,
     const extensions::ProcessMap& process_map,
+    extensions::ExtensionAPI* api,
     void* profile,
-    IPC::Message::Sender* ipc_sender,
+    IPC::Sender* ipc_sender,
     int routing_id) {
   if (!extension) {
     LOG(ERROR) << "Specified extension does not exist.";
@@ -251,7 +258,7 @@ ExtensionFunction* ExtensionFunctionDispatcher::CreateExtensionFunction(
     return NULL;
   }
 
-  if (ExtensionAPI::GetInstance()->IsPrivileged(params.name) &&
+  if (api->IsPrivileged(params.name) &&
       !process_map.Contains(extension->id(), requesting_process_id)) {
     LOG(ERROR) << "Extension API called from incorrect process "
                << requesting_process_id
@@ -281,8 +288,9 @@ ExtensionFunction* ExtensionFunctionDispatcher::CreateExtensionFunction(
 
 // static
 void ExtensionFunctionDispatcher::SendAccessDenied(
-    IPC::Message::Sender* ipc_sender, int routing_id, int request_id) {
+    IPC::Sender* ipc_sender, int routing_id, int request_id) {
+  ListValue empty_list;
   ipc_sender->Send(new ExtensionMsg_Response(
-      routing_id, request_id, false, std::string(),
+      routing_id, request_id, false, empty_list,
       "Access to extension API denied."));
 }

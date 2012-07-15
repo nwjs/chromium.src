@@ -1,27 +1,26 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_MOCK_BROWSING_DATA_COOKIE_HELPER_H_
 #define CHROME_BROWSER_MOCK_BROWSING_DATA_COOKIE_HELPER_H_
-#pragma once
 
 #include <map>
 #include <string>
 
 #include "chrome/browser/browsing_data_cookie_helper.h"
+#include "net/cookies/canonical_cookie.h"
 
 // Mock for BrowsingDataCookieHelper.
 class MockBrowsingDataCookieHelper : public BrowsingDataCookieHelper {
  public:
-  explicit MockBrowsingDataCookieHelper(Profile* profile);
+  explicit MockBrowsingDataCookieHelper(
+      net::URLRequestContextGetter* request_context_getter);
 
   // BrowsingDataCookieHelper methods.
   virtual void StartFetching(
       const net::CookieMonster::GetCookieListCallback &callback) OVERRIDE;
-  virtual void CancelNotification() OVERRIDE;
-  virtual void DeleteCookie(
-      const net::CookieMonster::CanonicalCookie& cookie) OVERRIDE;
+  virtual void DeleteCookie(const net::CanonicalCookie& cookie) OVERRIDE;
 
   // Adds some cookie samples.
   void AddCookieSamples(const GURL& url, const std::string& cookie_line);
@@ -39,7 +38,6 @@ class MockBrowsingDataCookieHelper : public BrowsingDataCookieHelper {
  private:
   virtual ~MockBrowsingDataCookieHelper();
 
-  Profile* profile_;
   net::CookieMonster::GetCookieListCallback callback_;
 
   net::CookieList cookie_list_;

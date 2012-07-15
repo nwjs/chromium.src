@@ -4,15 +4,15 @@
 
 #ifndef SYNC_SYNCABLE_SYNCABLE_ENUM_CONVERSIONS_H_
 #define SYNC_SYNCABLE_SYNCABLE_ENUM_CONVERSIONS_H_
-#pragma once
 
-// Keep this file in sync with syncable.h.
+// Keep this file in sync with entry_kernel.h.
 
-#include "sync/syncable/syncable.h"
+#include "sync/syncable/entry_kernel.h"
 
 // Utility functions to get the string equivalent for some syncable
 // enums.
 
+namespace syncer {
 namespace syncable {
 
 // The returned strings (which don't have to be freed) are in ASCII.
@@ -41,5 +41,6 @@ const char* GetProtoFieldString(ProtoField proto_field);
 const char* GetBitTempString(BitTemp bit_temp);
 
 }  // namespace syncable
+}  // namespace syncer
 
 #endif  // SYNC_SYNCABLE_SYNCABLE_ENUM_CONVERSIONS_H_

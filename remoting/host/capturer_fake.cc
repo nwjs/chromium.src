@@ -1,8 +1,10 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "remoting/host/capturer_fake.h"
+
+#include "remoting/base/capture_data.h"
 
 namespace remoting {
 
@@ -34,6 +36,13 @@ CapturerFake::CapturerFake()
 }
 
 CapturerFake::~CapturerFake() {
+}
+
+void CapturerFake::Start(
+    const CursorShapeChangedCallback& callback) {
+}
+
+void CapturerFake::Stop() {
 }
 
 void CapturerFake::ScreenConfigurationChanged() {
@@ -110,7 +119,7 @@ void CapturerFake::GenerateImage() {
   if (box_pos_y_ + kBoxHeight >= size_.height() || box_pos_y_ == 0)
     box_speed_y_ = -box_speed_y_;
 
-  // Draw rectangle with the following colors in it's corners:
+  // Draw rectangle with the following colors in its corners:
   //     cyan....yellow
   //     ..............
   //     blue.......red

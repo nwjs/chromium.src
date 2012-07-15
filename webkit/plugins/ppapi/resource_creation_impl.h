@@ -7,22 +7,19 @@
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
-#include "ppapi/shared_impl/function_group_base.h"
 #include "ppapi/thunk/resource_creation_api.h"
+#include "webkit/plugins/webkit_plugins_export.h"
 
 namespace webkit {
 namespace ppapi {
 
 class PluginInstance;
 
-class ResourceCreationImpl : public ::ppapi::FunctionGroupBase,
-                             public ::ppapi::thunk::ResourceCreationAPI {
+class WEBKIT_PLUGINS_EXPORT ResourceCreationImpl
+    : public NON_EXPORTED_BASE(::ppapi::thunk::ResourceCreationAPI) {
  public:
   explicit ResourceCreationImpl(PluginInstance* instance);
   virtual ~ResourceCreationImpl();
-
-  // FunctionGroupBase implementation.
-  virtual ::ppapi::thunk::ResourceCreationAPI* AsResourceCreationAPI();
 
   // ResourceCreationAPI implementation.
   virtual PP_Resource CreateAudio(PP_Instance instance,
@@ -46,19 +43,15 @@ class ResourceCreationImpl : public ::ppapi::FunctionGroupBase,
   virtual PP_Resource CreateBuffer(PP_Instance instance,
                                    uint32_t size) OVERRIDE;
   virtual PP_Resource CreateDirectoryReader(PP_Resource directory_ref) OVERRIDE;
-  virtual PP_Resource CreateFileChooser(
-      PP_Instance instance,
-      PP_FileChooserMode_Dev mode,
-      const char* accept_mime_types) OVERRIDE;
   virtual PP_Resource CreateFileIO(PP_Instance instance) OVERRIDE;
   virtual PP_Resource CreateFileRef(PP_Resource file_system,
                                     const char* path) OVERRIDE;
   virtual PP_Resource CreateFileSystem(PP_Instance instance,
                                        PP_FileSystemType type) OVERRIDE;
+  virtual PP_Resource CreateFlashDeviceID(PP_Instance instance) OVERRIDE;
   virtual PP_Resource CreateFlashMenu(PP_Instance instance,
                                       const PP_Flash_Menu* menu_data) OVERRIDE;
   virtual PP_Resource CreateFlashMessageLoop(PP_Instance instance) OVERRIDE;
-  virtual PP_Resource CreateFlashNetConnector(PP_Instance instance) OVERRIDE;
   virtual PP_Resource CreateGraphics2D(PP_Instance pp_instance,
                                        const PP_Size& size,
                                        PP_Bool is_always_opaque) OVERRIDE;
@@ -73,6 +66,15 @@ class ResourceCreationImpl : public ::ppapi::FunctionGroupBase,
                                       PP_ImageDataFormat format,
                                       const PP_Size& size,
                                       PP_Bool init_to_zero) OVERRIDE;
+  virtual PP_Resource CreateIMEInputEvent(PP_Instance instance,
+                                          PP_InputEvent_Type type,
+                                          PP_TimeTicks time_stamp,
+                                          struct PP_Var text,
+                                          uint32_t segment_number,
+                                          const uint32_t* segment_offsets,
+                                          int32_t target_segment,
+                                          uint32_t selection_start,
+                                          uint32_t selection_end) OVERRIDE;
   virtual PP_Resource CreateKeyboardInputEvent(
       PP_Instance instance,
       PP_InputEvent_Type type,
@@ -89,6 +91,11 @@ class ResourceCreationImpl : public ::ppapi::FunctionGroupBase,
       const PP_Point* mouse_position,
       int32_t click_count,
       const PP_Point* mouse_movement) OVERRIDE;
+  virtual PP_Resource CreateTouchInputEvent(
+      PP_Instance instance,
+      PP_InputEvent_Type type,
+      PP_TimeTicks time_stamp,
+      uint32_t modifiers) OVERRIDE;
   virtual PP_Resource CreateNetworkMonitor(
       PP_Instance instance,
       PPB_NetworkMonitor_Callback callback,
@@ -103,9 +110,6 @@ class ResourceCreationImpl : public ::ppapi::FunctionGroupBase,
       PP_Instance instance) OVERRIDE;
   virtual PP_Resource CreateTCPSocketPrivate(PP_Instance instance) OVERRIDE;
 
-  virtual PP_Resource CreateTransport(PP_Instance instance,
-                                      const char* name,
-                                      PP_TransportType type) OVERRIDE;
   virtual PP_Resource CreateUDPSocketPrivate(PP_Instance instance) OVERRIDE;
   virtual PP_Resource CreateURLLoader(PP_Instance instance) OVERRIDE;
   virtual PP_Resource CreateURLRequestInfo(
@@ -126,6 +130,8 @@ class ResourceCreationImpl : public ::ppapi::FunctionGroupBase,
       const PP_FloatPoint* wheel_delta,
       const PP_FloatPoint* wheel_ticks,
       PP_Bool scroll_by_page) OVERRIDE;
+  virtual PP_Resource CreateX509CertificatePrivate(
+      PP_Instance instance) OVERRIDE;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(ResourceCreationImpl);

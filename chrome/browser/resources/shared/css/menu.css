@@ -8,7 +8,6 @@ menu {
   background: white;
   color: black;
   cursor: default;
-  display: none;
   left: 0;
   margin: 0;
   outline: 1px solid rgba(0, 0, 0, 0.2);
@@ -18,12 +17,16 @@ menu {
   z-index: 3;
 }
 
+menu:not(.decorated) {
+  display: none;
+}
+
 menu > * {
   box-sizing: border-box;
   display: block;
   margin: 0;
-  width: 100%;
   text-align: start;
+  width: 100%;
 }
 
 menu > :not(hr) {
@@ -50,28 +53,21 @@ menu > [disabled] {
   color: rgba(0, 0, 0, .3);
 }
 
-/* Text alpha doesn't work on Linux/GTK and ChromeOs/views.
- * TODO(estade): http://crbug.com/88688. */
-html[toolkit=gtk] menu > [disabled],
-html[os=chromeos] menu > [disabled] {
-  color: #969696;
-}
-
 menu > [hidden] {
   display: none;
 }
 
 menu > :not(hr)[selected] {
-  background-color: #dce5fa;
+  background-color: rgb(220, 229, 250);
 }
 
 menu > :not(hr)[selected]:active {
-  background-color: #426dc9;
+  background-color: rgb(66, 109, 201);
   color: #fff;
 }
 
 menu > [checked]:before {
-  content: url("../images/checkbox_black.png");
+  content: url('../images/checkbox_black.png');
   display: inline-block;
   height: 9px;
   margin: 0 5px;
@@ -84,5 +80,5 @@ menu > [checked] {
 }
 
 menu > [selected][checked]:active:before {
-  content: url("../images/checkbox_white.png");
+  content: url('../images/checkbox_white.png');
 }

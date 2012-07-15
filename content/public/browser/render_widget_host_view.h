@@ -4,19 +4,20 @@
 
 #ifndef CONTENT_PUBLIC_BROWSER_RENDER_WIDGET_HOST_VIEW_H_
 #define CONTENT_PUBLIC_BROWSER_RENDER_WIDGET_HOST_VIEW_H_
-#pragma once
 
-#if defined(TOOLKIT_USES_GTK)
-#include <gdk/gdk.h>
-#endif
-
+#include "base/basictypes.h"
 #include "content/common/content_export.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkRegion.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
 #include "ui/gfx/native_widget_types.h"
 
+#if defined(TOOLKIT_GTK)
+#include <gdk/gdk.h>
+#endif
+
 class BrowserAccessibilityManager;
+class GURL;
 
 namespace gfx {
 class Rect;
@@ -34,6 +35,12 @@ class RenderWidgetHost;
 // the surrounding environment and passing them to the RenderWidgetHost, and
 // for actually displaying the content of the RenderWidgetHost when it
 // changes.
+//
+// RenderWidgetHostView Class Hierarchy:
+//   RenderWidgetHostView - Public interface.
+//   RenderWidgetHostViewPort - Private interface for content/ and ports.
+//   RenderWidgetHostViewBase - Common implementation between platforms.
+//   RenderWidgetHostViewWin, ... - Platform specific implementations.
 class CONTENT_EXPORT RenderWidgetHostView {
  public:
   virtual ~RenderWidgetHostView() {}
@@ -76,6 +83,8 @@ class CONTENT_EXPORT RenderWidgetHostView {
   virtual void Focus() = 0;
   // Returns true if the View currently has the focus.
   virtual bool HasFocus() const = 0;
+  // Returns true is the current display surface is available.
+  virtual bool IsSurfaceAvailableForCopy() const = 0;
 
   // Shows/hides the view.  These must always be called together in pairs.
   // It is not legal to call Hide() multiple times in a row.
@@ -109,21 +118,23 @@ class CONTENT_EXPORT RenderWidgetHostView {
   // TODO(stuartmorgan): This is a temporary plugin-specific workaround for
   // <http://crbug.com/34266>. Once that is fixed, this (and the corresponding
   // message and renderer-side handling) can be removed in favor of using
-  // WasHidden/DidBecomeSelected.
+  // WasHidden/WasRestored.
   virtual void SetWindowVisibility(bool visible) = 0;
 
   // Informs the view that its containing window's frame changed.
   virtual void WindowFrameChanged() = 0;
 #endif  // defined(OS_MACOSX)
 
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
   // Gets the event for the last mouse down.
   virtual GdkEventButton* GetLastMouseDown() = 0;
-#if !defined(TOOLKIT_VIEWS)
   // Builds a submenu containing all the gtk input method commands.
   virtual gfx::NativeView BuildInputMethodsGtkMenu() = 0;
-#endif  // !defined(TOOLKIT_VIEWS)
-#endif  // defined(TOOLKIT_USES_GTK)
+#endif  // defined(TOOLKIT_GTK)
+
+#if defined(OS_ANDROID)
+  virtual void StartContentIntent(const GURL& content_url) = 0;
+#endif
 
   // Subclasses should override this method to do what is appropriate to set
   // the custom background for their platform.
@@ -134,10 +145,14 @@ class CONTENT_EXPORT RenderWidgetHostView {
   // The region specified will be transparent to mouse clicks.
   virtual void SetClickthroughRegion(SkRegion* region) {}
 #endif
+
+  // Return value indicates whether the mouse is locked successfully or not.
+  virtual bool LockMouse() = 0;
+  virtual void UnlockMouse() = 0;
+  // Returns true if the mouse pointer is currently locked.
+  virtual bool IsMouseLocked() = 0;
 };
 
 }  // namespace content
 
 #endif  // CONTENT_PUBLIC_BROWSER_RENDER_WIDGET_HOST_VIEW_H_
-
-

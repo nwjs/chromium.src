@@ -4,7 +4,6 @@
 
 #ifndef NET_SOCKET_SSL_SERVER_SOCKET_NSS_H_
 #define NET_SOCKET_SSL_SERVER_SOCKET_NSS_H_
-#pragma once
 
 #include <certt.h>
 #include <keyt.h>
@@ -52,7 +51,7 @@ class SSLServerSocketNSS : public SSLServerSocket {
   virtual void Disconnect() OVERRIDE;
   virtual bool IsConnected() const OVERRIDE;
   virtual bool IsConnectedAndIdle() const OVERRIDE;
-  virtual int GetPeerAddress(AddressList* address) const OVERRIDE;
+  virtual int GetPeerAddress(IPEndPoint* address) const OVERRIDE;
   virtual int GetLocalAddress(IPEndPoint* address) const OVERRIDE;
   virtual const BoundNetLog& NetLog() const OVERRIDE;
   virtual void SetSubresourceSpeculation() OVERRIDE;
@@ -61,6 +60,7 @@ class SSLServerSocketNSS : public SSLServerSocket {
   virtual bool UsingTCPFastOpen() const OVERRIDE;
   virtual int64 NumBytesRead() const OVERRIDE;
   virtual base::TimeDelta GetConnectTimeMicros() const OVERRIDE;
+  virtual NextProto GetNegotiatedProtocol() const OVERRIDE;
 
  private:
   enum State {

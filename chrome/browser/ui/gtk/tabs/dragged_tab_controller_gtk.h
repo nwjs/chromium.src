@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_UI_GTK_TABS_DRAGGED_TAB_CONTROLLER_GTK_H_
 #define CHROME_BROWSER_UI_GTK_TABS_DRAGGED_TAB_CONTROLLER_GTK_H_
-#pragma once
 
 #include <gtk/gtk.h>
 
@@ -26,7 +25,7 @@ class DraggedViewGtk;
 class TabGtk;
 class TabStripGtk;
 class TabStripModel;
-class TabContentsWrapper;
+class TabContents;
 
 class DraggedTabControllerGtk : public content::NotificationObserver,
                                 public content::WebContentsDelegate {
@@ -64,7 +63,7 @@ class DraggedTabControllerGtk : public content::NotificationObserver,
   bool IsDraggingTab(const TabGtk* tab);
 
   // Returns true if |tab_contents| matches any tab contents being dragged.
-  bool IsDraggingTabContents(const TabContentsWrapper* tab_contents);
+  bool IsDraggingTabContents(const TabContents* tab_contents);
 
   // Returns true if the specified tab is detached.
   bool IsTabDetached(const TabGtk* tab);
@@ -144,7 +143,7 @@ class DraggedTabControllerGtk : public content::NotificationObserver,
   // TabStrip, given location of the dragged tab in screen coordinates.
   gfx::Rect GetDraggedViewTabStripBounds(const gfx::Point& screen_point);
 
-  // Returns the index where the dragged TabContents should be inserted into
+  // Returns the index where the dragged WebContents should be inserted into
   // the attached TabStripModel given the DraggedTabView's bounds
   // |dragged_bounds| in coordinates relative to the attached TabStrip.
   int GetInsertionIndexForDraggedBounds(const gfx::Rect& dragged_bounds);
@@ -156,7 +155,7 @@ class DraggedTabControllerGtk : public content::NotificationObserver,
   // Finds the Tab within the specified TabStrip that corresponds to the
   // dragged TabContents.
   TabGtk* GetTabMatchingDraggedContents(TabStripGtk* tabstrip,
-                                        TabContentsWrapper* contents);
+                                        TabContents* contents);
 
   // Finds all the tabs within the specified TabStrip that correspond to the
   // dragged TabContents.

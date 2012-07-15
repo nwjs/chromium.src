@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_TEST_AUTOMATION_JAVASCRIPT_EXECUTION_CONTROLLER_H_
 #define CHROME_TEST_AUTOMATION_JAVASCRIPT_EXECUTION_CONTROLLER_H_
-#pragma once
 
 #include <map>
 #include <string>
@@ -23,7 +22,6 @@ class JavaScriptExecutionController
     : public base::SupportsWeakPtr<JavaScriptExecutionController> {
  public:
   JavaScriptExecutionController();
-  virtual ~JavaScriptExecutionController();
 
   // Executes |script| and parse the return value. Returns whether the
   // execution and parsing succeeded.
@@ -76,6 +74,8 @@ class JavaScriptExecutionController
   static void set_timeout(int timeout_ms) { timeout_ms_ = timeout_ms; }
 
  protected:
+  virtual ~JavaScriptExecutionController();
+
   // Executes |script| and sets the JSON response |json|. Returns true
   // on success.
   virtual bool ExecuteJavaScriptAndGetJSON(const std::string& script,

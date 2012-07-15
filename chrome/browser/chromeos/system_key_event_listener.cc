@@ -10,15 +10,10 @@
 #include <X11/XKBlib.h>
 #undef Status
 
+#include "base/message_loop.h"
 #include "chrome/browser/chromeos/input_method/input_method_manager.h"
 #include "chrome/browser/chromeos/input_method/xkeyboard.h"
 #include "ui/base/x/x11_util.h"
-
-#if defined(USE_WAYLAND)
-#include "base/message_pump_wayland.h"
-#else
-#include "base/message_pump_x.h"
-#endif
 
 namespace chromeos {
 
@@ -43,8 +38,6 @@ void SystemKeyEventListener::Shutdown() {
 
 // static
 SystemKeyEventListener* SystemKeyEventListener::GetInstance() {
-  VLOG_IF(1, !g_system_key_event_listener)
-      << "SystemKeyEventListener::GetInstance() with NULL global instance.";
   return g_system_key_event_listener;
 }
 
@@ -136,8 +129,11 @@ bool SystemKeyEventListener::ProcessedXEvent(XEvent* xevent) {
       enabled = (xkey_event->state.locked_mods) & num_lock_mask_;
       if (num_lock_is_on_ != enabled) {
         num_lock_is_on_ = enabled;
-        new_num_lock_state =
-            enabled ? input_method::kEnableLock : input_method::kDisableLock;
+        if (num_lock_is_on_) {
+          // TODO(yusukes,adlr): Let the user know that num lock is unsupported.
+        }
+        // Force turning off Num Lock. crosbug.com/29169
+        new_num_lock_state = input_method::kDisableLock;
       }
 
       // Propagate the keyboard LED change to _ALL_ keyboards

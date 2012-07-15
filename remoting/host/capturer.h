@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,17 +7,27 @@
 
 #include "base/basictypes.h"
 #include "base/callback.h"
-#include "remoting/base/capture_data.h"
+#include "media/base/video_frame.h"
 #include "third_party/skia/include/core/SkRegion.h"
 
 namespace remoting {
+
+namespace protocol {
+class CursorShapeInfo;
+}
+
+class CaptureData;
 
 // A class to perform the task of capturing the image of a window.
 // The capture action is asynchronous to allow maximum throughput.
 //
 // The full capture process is as follows:
 //
-// (1) InvalidateRects
+// (1) Start
+//     This is when pre-capture steps are executed, such as flagging the
+//     display to prevent it from sleeping during a session.
+//
+// (2) InvalidateRects
 //     This is an optional step where regions of the screen are marked as
 //     invalid. Some platforms (Windows, for now) won't use this and will
 //     instead calculate the diff-regions later (in step (2). Other
@@ -25,12 +35,16 @@ namespace remoting {
 //     screen. Some limited rect-merging (e.g., to eliminate exact
 //     duplicates) may be done here.
 //
-// (2) CaptureInvalidRects
+// (3) CaptureInvalidRects
 //     This is where the bits for the invalid rects are packaged up and sent
 //     to the encoder.
 //     A screen capture is performed if needed. For example, Windows requires
 //     a capture to calculate the diff from the previous screen, whereas the
 //     Mac version does not.
+//
+// (4) Stop
+//     This is when post-capture steps are executed, such as releasing the
+//     assertion that prevents the display from sleeping.
 //
 // Implementation has to ensure the following guarantees:
 // 1. Double buffering
@@ -41,7 +55,11 @@ class Capturer {
   typedef base::Callback<void(scoped_refptr<CaptureData>)>
       CaptureCompletedCallback;
 
-  virtual ~Capturer() {};
+  // CursorShapeChangedCallback is called when the cursor shape has changed.
+  typedef base::Callback<void(scoped_ptr<protocol::CursorShapeInfo>)>
+      CursorShapeChangedCallback;
+
+  virtual ~Capturer() {}
 
   // Create platform-specific capturer.
   static Capturer* Create();
@@ -59,6 +77,13 @@ class Capturer {
   // http://crbug.com/104544
   static void EnableXDamage(bool enable);
 #endif  // defined(OS_LINUX)
+
+  // Called at the beginning of a capturing session.
+  virtual void Start(
+      const CursorShapeChangedCallback& callback) = 0;
+
+  // Called at the end of a capturing session.
+  virtual void Stop() = 0;
 
   // Called when the screen configuration is changed.
   virtual void ScreenConfigurationChanged() = 0;

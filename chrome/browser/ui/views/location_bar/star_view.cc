@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,7 +11,6 @@
 #include "chrome/browser/ui/views/browser_dialogs.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
-#include "grit/theme_resources_standard.h"
 #include "ui/base/accessibility/accessible_view_state.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -21,6 +20,7 @@ StarView::StarView(CommandUpdater* command_updater)
   set_id(VIEW_ID_STAR_BUTTON);
   SetToggled(false);
   set_accessibility_focusable(true);
+  TouchableLocationBarView::Init(this);
 }
 
 StarView::~StarView() {
@@ -29,8 +29,12 @@ StarView::~StarView() {
 void StarView::SetToggled(bool on) {
   SetTooltipText(l10n_util::GetStringUTF16(
       on ? IDS_TOOLTIP_STARRED : IDS_TOOLTIP_STAR));
-  SetImage(ResourceBundle::GetSharedInstance().GetBitmapNamed(
+  SetImage(ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
       on ? IDR_STAR_LIT : IDR_STAR));
+}
+
+int StarView::GetBuiltInHorizontalPadding() const {
+  return GetBuiltInHorizontalPaddingImpl();
 }
 
 void StarView::GetAccessibleState(ui::AccessibleViewState* state) {
@@ -40,10 +44,10 @@ void StarView::GetAccessibleState(ui::AccessibleViewState* state) {
 
 bool StarView::GetTooltipText(const gfx::Point& p, string16* tooltip) const {
   // Don't show tooltip to distract user if BookmarkBubbleView is showing.
-  if (browser::IsBookmarkBubbleViewShowing())
+  if (chrome::IsBookmarkBubbleViewShowing())
     return false;
 
-  return ImageView::GetTooltipText(p, tooltip);
+  return views::ImageView::GetTooltipText(p, tooltip);
 }
 
 bool StarView::OnMousePressed(const views::MouseEvent& event) {
@@ -55,6 +59,14 @@ bool StarView::OnMousePressed(const views::MouseEvent& event) {
 void StarView::OnMouseReleased(const views::MouseEvent& event) {
   if (event.IsOnlyLeftMouseButton() && HitTest(event.location()))
     command_updater_->ExecuteCommand(IDC_BOOKMARK_PAGE);
+}
+
+ui::GestureStatus StarView::OnGestureEvent(const views::GestureEvent& event) {
+  if (event.type() == ui::ET_GESTURE_TAP) {
+    command_updater_->ExecuteCommand(IDC_BOOKMARK_PAGE);
+    return ui::GESTURE_STATUS_CONSUMED;
+  }
+  return ui::GESTURE_STATUS_UNKNOWN;
 }
 
 bool StarView::OnKeyPressed(const views::KeyEvent& event) {

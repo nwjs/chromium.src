@@ -466,6 +466,12 @@ EVENT_TYPE(SSL_CLIENT_CERT_REQUESTED)
 //   }
 EVENT_TYPE(SSL_GET_DOMAIN_BOUND_CERT)
 
+// The SSL server requested a channel id.
+EVENT_TYPE(SSL_CHANNEL_ID_REQUESTED)
+
+// A channel ID was provided to the SSL library to be sent to the SSL server.
+EVENT_TYPE(SSL_CHANNEL_ID_PROVIDED)
+
 // A client certificate (or none) was provided to the SSL library to be sent
 // to the SSL server.
 // The following parameters are attached to the event:
@@ -487,15 +493,19 @@ EVENT_TYPE(SSL_HANDSHAKE_ERROR)
 EVENT_TYPE(SSL_READ_ERROR)
 EVENT_TYPE(SSL_WRITE_ERROR)
 
-// An SSL Snap Start was attempted
+// An SSL connection needs to be retried with a lower protocol version because
+// the server may be intolerant of the protocol version we offered.
 // The following parameters are attached to the event:
 //   {
-//     "type": <Integer code for the Snap Start result>,
+//     "host_and_port": <String encoding the host and port>,
+//     "net_error": <Net integer error code>,
+//     "version_before": <SSL version before the fallback>,
+//     "version_after": <SSL version after the fallback>,
 //   }
-EVENT_TYPE(SSL_SNAP_START)
+EVENT_TYPE(SSL_VERSION_FALLBACK)
 
 // We found that our prediction of the server's certificates was correct and
-// we merged the verification with the SSLHostInfo.
+// we merged the verification with the SSLHostInfo. (Note: now obsolete.)
 EVENT_TYPE(SSL_VERIFICATION_MERGED)
 
 // An SSL error occurred while calling an NSS function not directly related to
@@ -527,6 +537,15 @@ EVENT_TYPE(SSL_SOCKET_BYTES_SENT)
 //   }
 EVENT_TYPE(SOCKET_BYTES_RECEIVED)
 EVENT_TYPE(SSL_SOCKET_BYTES_RECEIVED)
+
+// A socket error occurred while trying to do the indicated activity.
+// The following parameters are attached to the event:
+//   {
+//     "net_error": <Integer code for the specific error type>,
+//     "os_error": <Integer error code the operating system returned>
+//   }
+EVENT_TYPE(SOCKET_READ_ERROR)
+EVENT_TYPE(SOCKET_WRITE_ERROR)
 
 // Certificates were received from the SSL server (during a handshake or
 // renegotiation). This event is only present when logging at LOG_ALL.
@@ -971,7 +990,7 @@ EVENT_TYPE(SPDY_SESSION_SYN_REPLY)
 // On sending a SPDY SETTINGS frame.
 // The following parameters are attached:
 //   {
-//     "settings": <The list of setting id:value pairs>,
+//     "settings": <The list of setting id, flags and value>,
 //   }
 EVENT_TYPE(SPDY_SESSION_SEND_SETTINGS)
 
@@ -1035,7 +1054,7 @@ EVENT_TYPE(SPDY_SESSION_SENT_WINDOW_UPDATE)
 // Sending of a SPDY CREDENTIAL frame (which sends a certificate or
 // certificate chain to the server).
 //   {
-//     "slot"     : <The slot that this certificate should be stored in >,
+//     "slot"     : <The slot that this certificate should be stored in>,
 //     "origin"   : <The origin this certificate should be used for>,
 //   }
 EVENT_TYPE(SPDY_SESSION_SEND_CREDENTIAL)
@@ -1051,8 +1070,8 @@ EVENT_TYPE(SPDY_SESSION_SEND_DATA)
 // Receiving a data frame
 //   {
 //     "stream_id": <The stream ID for the window update>,
-//     "length"   : <The size of data sent>,
-//     "flags"    : <Send data flags>,
+//     "length"   : <The size of data received>,
+//     "flags"    : <Receive data flags>,
 //   }
 EVENT_TYPE(SPDY_SESSION_RECV_DATA)
 
@@ -1061,7 +1080,7 @@ EVENT_TYPE(SPDY_SESSION_STALLED_ON_SEND_WINDOW)
 
 // Session is closing
 //   {
-//     "status"     : <The error status of the closure>,
+//     "net_error"  : <The error status of the closure>,
 //     "description": <The textual description for the closure>,
 //   }
 EVENT_TYPE(SPDY_SESSION_CLOSE)
@@ -1070,38 +1089,50 @@ EVENT_TYPE(SPDY_SESSION_CLOSE)
 // the maximum number of concurrent streams.
 EVENT_TYPE(SPDY_SESSION_STALLED_MAX_STREAMS)
 
+// Received a negative value for initial window size in SETTINGS frame.
+//   {
+//     "initial_window_size"  : <The initial window size>,
+//   }
+EVENT_TYPE(SPDY_SESSION_NEGATIVE_INITIAL_WINDOW_SIZE)
+
+// Updating streams send window size by the delta window size.
+//   {
+//     "delta_window_size"    : <The delta window size>,
+//   }
+EVENT_TYPE(SPDY_SESSION_UPDATE_STREAMS_SEND_WINDOW_SIZE)
+
 // ------------------------------------------------------------------------
 // SpdySessionPool
 // ------------------------------------------------------------------------
 
 // This event indicates the pool is reusing an existing session
 //   {
-//     "id": <The session id>,
+//     "source_dependency": <The session id>,
 //   }
 EVENT_TYPE(SPDY_SESSION_POOL_FOUND_EXISTING_SESSION)
 
 // This event indicates the pool is reusing an existing session from an
 // IP pooling match.
 //   {
-//     "id": <The session id>,
+//     "source_dependency": <The session id>,
 //   }
 EVENT_TYPE(SPDY_SESSION_POOL_FOUND_EXISTING_SESSION_FROM_IP_POOL)
 
 // This event indicates the pool created a new session
 //   {
-//     "id": <The session id>,
+//     "source_dependency": <The session id>,
 //   }
 EVENT_TYPE(SPDY_SESSION_POOL_CREATED_NEW_SESSION)
 
 // This event indicates that a SSL socket has been upgraded to a SPDY session.
 //   {
-//     "id": <The session id>,
+//     "source_dependency": <The session id>,
 //   }
 EVENT_TYPE(SPDY_SESSION_POOL_IMPORTED_SESSION_FROM_SOCKET)
 
 // This event indicates that the session has been removed.
 //   {
-//     "id": <The session id>,
+//     "source_dependency": <The session id>,
 //   }
 EVENT_TYPE(SPDY_SESSION_POOL_REMOVE_SESSION)
 
@@ -1273,13 +1304,6 @@ EVENT_TYPE(THROTTLING_DISABLED_FOR_HOST)
 //     "release_after_ms": <Number of milliseconds until URL will be unblocked>
 //   }
 EVENT_TYPE(THROTTLING_REJECTED_REQUEST)
-
-// Emitted when throttling entry receives an X-Retry-After header.
-//   {
-//     "url":               <URL that was being requested>,
-//     "retry_after_ms":    <Milliseconds until retry-after expires>
-//   }
-EVENT_TYPE(THROTTLING_GOT_CUSTOM_RETRY_AFTER)
 
 // ------------------------------------------------------------------------
 // DnsTransaction
@@ -1570,11 +1594,13 @@ EVENT_TYPE(DOWNLOAD_ITEM_CANCELED)
 //   }
 EVENT_TYPE(DOWNLOAD_FILE_OPENED)
 
-// This event is created when a download file is written to.
+// This event is created when the stream between download source
+// and download file is drained.
 //   {
-//     "byte_count": <Number of bytes written in this call>,
+//     "stream_size": <Total size of all bytes drained from the stream>
+//     "num_buffers": <How many separate buffers those bytes were in>
 //   }
-EVENT_TYPE(DOWNLOAD_FILE_WRITTEN)
+EVENT_TYPE(DOWNLOAD_STREAM_DRAINED)
 
 // This event is created when a download file is renamed.
 //   {
@@ -1599,6 +1625,10 @@ EVENT_TYPE(DOWNLOAD_FILE_DELETED)
 //     "net_error": <net::Error code>,
 //   }
 EVENT_TYPE(DOWNLOAD_FILE_ERROR)
+
+// This event is created when a download file is annotating with source
+// information (for Mark Of The Web and anti-virus integration).
+EVENT_TYPE(DOWNLOAD_FILE_ANNOTATED)
 
 // ------------------------------------------------------------------------
 // FileStream events.

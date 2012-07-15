@@ -51,6 +51,9 @@ ChromotingInstance::ConnectionError ConvertConnectionError(
     case protocol::INCOMPATIBLE_PROTOCOL:
       return ChromotingInstance::ERROR_INCOMPATIBLE_PROTOCOL;
 
+    case protocol::HOST_OVERLOAD:
+      return ChromotingInstance::ERROR_HOST_OVERLOAD;
+
     case protocol::CHANNEL_CONNECTION_ERROR:
     case protocol::SIGNALING_ERROR:
     case protocol::SIGNALING_TIMEOUT:
@@ -75,7 +78,8 @@ PepperView::PepperView(ChromotingInstance* instance,
     clip_area_(SkIRect::MakeEmpty()),
     source_size_(SkISize::Make(0, 0)),
     flush_pending_(false),
-    is_initialized_(false) {
+    is_initialized_(false),
+    frame_received_(false) {
 }
 
 PepperView::~PepperView() {
@@ -92,7 +96,7 @@ bool PepperView::Initialize() {
 }
 
 void PepperView::TearDown() {
-  DCHECK(context_->main_message_loop()->BelongsToCurrentThread());
+  DCHECK(context_->main_task_runner()->BelongsToCurrentThread());
   DCHECK(is_initialized_);
 
   is_initialized_ = false;
@@ -113,7 +117,7 @@ void PepperView::TearDown() {
 
 void PepperView::SetConnectionState(protocol::ConnectionToHost::State state,
                                     protocol::ErrorCode error) {
-  DCHECK(context_->main_message_loop()->BelongsToCurrentThread());
+  DCHECK(context_->main_task_runner()->BelongsToCurrentThread());
 
   switch (state) {
     case protocol::ConnectionToHost::CONNECTING:
@@ -140,6 +144,14 @@ void PepperView::SetConnectionState(protocol::ConnectionToHost::State state,
           ConvertConnectionError(error));
       break;
   }
+}
+
+protocol::ClipboardStub* PepperView::GetClipboardStub() {
+  return instance_;
+}
+
+protocol::CursorShapeStub* PepperView::GetCursorShapeStub() {
+  return instance_;
 }
 
 void PepperView::SetView(const SkISize& view_size, const SkIRect& clip_area) {
@@ -176,8 +188,12 @@ void PepperView::ApplyBuffer(const SkISize& view_size,
                              const SkIRect& clip_area,
                              pp::ImageData* buffer,
                              const SkRegion& region) {
-  DCHECK(context_->main_message_loop()->BelongsToCurrentThread());
+  DCHECK(context_->main_task_runner()->BelongsToCurrentThread());
 
+  if (!frame_received_) {
+    instance_->OnFirstFrameReceived();
+    frame_received_ = true;
+  }
   // Currently we cannot use the data in the buffer is scale factor has changed
   // already.
   // TODO(alexeypa): We could rescale and draw it (or even draw it without
@@ -192,7 +208,7 @@ void PepperView::ApplyBuffer(const SkISize& view_size,
 }
 
 void PepperView::ReturnBuffer(pp::ImageData* buffer) {
-  DCHECK(context_->main_message_loop()->BelongsToCurrentThread());
+  DCHECK(context_->main_task_runner()->BelongsToCurrentThread());
 
   // Free the buffer if there is nothing to paint.
   if (!is_initialized_) {
@@ -212,7 +228,7 @@ void PepperView::ReturnBuffer(pp::ImageData* buffer) {
 }
 
 void PepperView::SetSourceSize(const SkISize& source_size) {
-  DCHECK(context_->main_message_loop()->BelongsToCurrentThread());
+  DCHECK(context_->main_task_runner()->BelongsToCurrentThread());
 
   if (source_size_ == source_size)
     return;
@@ -224,22 +240,23 @@ void PepperView::SetSourceSize(const SkISize& source_size) {
 }
 
 pp::ImageData* PepperView::AllocateBuffer() {
-  pp::ImageData* buffer = NULL;
-  if (buffers_.size() < kMaxPendingBuffersCount) {
-    pp::Size pp_size = pp::Size(clip_area_.width(), clip_area_.height());
-    buffer =  new pp::ImageData(instance_,
-                                PP_IMAGEDATAFORMAT_BGRA_PREMUL,
-                                pp_size,
-                                false);
-    if (buffer->is_null()) {
-      LOG(WARNING) << "Not enough memory for frame buffers.";
-      delete buffer;
-      buffer = NULL;
-    } else {
-      buffers_.push_back(buffer);
-    }
+  if (buffers_.size() >= kMaxPendingBuffersCount)
+    return NULL;
+
+  pp::Size pp_size = pp::Size(clip_area_.width(), clip_area_.height());
+  if (pp_size.IsEmpty())
+    return NULL;
+
+  // Create an image buffer of the required size, but don't zero it.
+  pp::ImageData* buffer =  new pp::ImageData(
+      instance_, PP_IMAGEDATAFORMAT_BGRA_PREMUL, pp_size, false);
+  if (buffer->is_null()) {
+    LOG(WARNING) << "Not enough memory for frame buffers.";
+    delete buffer;
+    return NULL;
   }
 
+  buffers_.push_back(buffer);
   return buffer;
 }
 
@@ -310,46 +327,17 @@ void PepperView::FlushBuffer(const SkIRect& clip_area,
   }
 
   // Flush the updated areas to the screen.
-  scoped_ptr<base::Closure> task(
-      new base::Closure(
-          base::Bind(&PepperView::OnFlushDone, AsWeakPtr(), start_time,
-                     buffer)));
-
-  // Flag needs to be set here in order to get a proper error code for Flush().
-  // Otherwise Flush() will always return PP_OK_COMPLETIONPENDING and the error
-  // would be hidden.
-  //
-  // Note that we can also handle this by providing an actual callback which
-  // takes the result code. Right now everything goes to the task that doesn't
-  // result value.
-  pp::CompletionCallback pp_callback(&CompletionCallbackClosureAdapter,
-                                     task.get(),
-                                     PP_COMPLETIONCALLBACK_FLAG_OPTIONAL);
-  int error = graphics2d_.Flush(pp_callback);
-
-  // If Flush() returns asynchronously then release the task.
-  flush_pending_ = (error == PP_OK_COMPLETIONPENDING);
-  if (flush_pending_) {
-    ignore_result(task.release());
-  } else {
-    instance_->GetStats()->video_paint_ms()->Record(
-        (base::Time::Now() - start_time).InMilliseconds());
-
-    ReturnBuffer(buffer);
-
-    // Resume painting for the buffer that was previoulsy postponed because of
-    // pending flush.
-    if (merge_buffer_ != NULL) {
-      buffer = merge_buffer_;
-      merge_buffer_ = NULL;
-      FlushBuffer(merge_clip_area_, buffer, merge_region_);
-    }
-  }
+  int error = graphics2d_.Flush(
+      PpCompletionCallback(base::Bind(
+          &PepperView::OnFlushDone, AsWeakPtr(), start_time, buffer)));
+  CHECK(error == PP_OK_COMPLETIONPENDING);
+  flush_pending_ = true;
 }
 
 void PepperView::OnFlushDone(base::Time paint_start,
-                             pp::ImageData* buffer) {
-  DCHECK(context_->main_message_loop()->BelongsToCurrentThread());
+                             pp::ImageData* buffer,
+                             int result) {
+  DCHECK(context_->main_task_runner()->BelongsToCurrentThread());
   DCHECK(flush_pending_);
 
   instance_->GetStats()->video_paint_ms()->Record(
@@ -358,8 +346,7 @@ void PepperView::OnFlushDone(base::Time paint_start,
   flush_pending_ = false;
   ReturnBuffer(buffer);
 
-  // Resume painting for the buffer that was previoulsy postponed because of
-  // pending flush.
+  // If there is a buffer queued for rendering then render it now.
   if (merge_buffer_ != NULL) {
     buffer = merge_buffer_;
     merge_buffer_ = NULL;

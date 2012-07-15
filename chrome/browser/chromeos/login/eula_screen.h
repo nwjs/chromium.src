@@ -1,15 +1,13 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_EULA_SCREEN_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_EULA_SCREEN_H_
-#pragma once
 
 #include <string>
 
 #include "base/compiler_specific.h"
-#include "base/memory/scoped_ptr.h"
 #include "chrome/browser/chromeos/login/eula_screen_actor.h"
 #include "chrome/browser/chromeos/login/tpm_password_fetcher.h"
 #include "chrome/browser/chromeos/login/wizard_screen.h"
@@ -30,6 +28,7 @@ class EulaScreen : public WizardScreen,
   virtual void PrepareToShow() OVERRIDE;
   virtual void Show() OVERRIDE;
   virtual void Hide() OVERRIDE;
+  virtual std::string GetName() const OVERRIDE;
 
   // EulaScreenActor::Delegate implementation:
   virtual bool IsTpmEnabled() const OVERRIDE;

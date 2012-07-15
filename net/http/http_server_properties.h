@@ -18,12 +18,15 @@ namespace net {
 enum AlternateProtocol {
   NPN_SPDY_1 = 0,
   NPN_SPDY_2,
-  NPN_SPDY_21,
   NPN_SPDY_3,
   NUM_ALTERNATE_PROTOCOLS,
   ALTERNATE_PROTOCOL_BROKEN,  // The alternate protocol is known to be broken.
   UNINITIALIZED_ALTERNATE_PROTOCOL,
 };
+
+NET_EXPORT const char* AlternateProtocolToString(AlternateProtocol protocol);
+NET_EXPORT AlternateProtocol AlternateProtocolFromString(
+    const std::string& protocol);
 
 struct NET_EXPORT PortAlternateProtocolPair {
   bool Equals(const PortAlternateProtocolPair& other) const {

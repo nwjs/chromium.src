@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef UI_VIEWS_CONTROLS_BUTTON_BUTTON_DROPDOWN_H_
 #define UI_VIEWS_CONTROLS_BUTTON_BUTTON_DROPDOWN_H_
-#pragma once
 
 #include "base/memory/weak_ptr.h"
 #include "ui/views/controls/button/image_button.h"
@@ -50,7 +49,7 @@ class VIEWS_EXPORT ButtonDropDown : public ImageButton {
   // pressed when a user holds the mouse down over the button. For this
   // implementation, both left and right mouse buttons can trigger a change
   // to the PUSHED state.
-  virtual bool ShouldEnterPushedState(const MouseEvent& event) OVERRIDE;
+  virtual bool ShouldEnterPushedState(const Event& event) OVERRIDE;
 
  private:
   // Internal function to show the dropdown menu

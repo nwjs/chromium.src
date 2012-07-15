@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_THEME_INSTALLED_INFOBAR_DELEGATE_H_
 #define CHROME_BROWSER_EXTENSIONS_THEME_INSTALLED_INFOBAR_DELEGATE_H_
-#pragma once
 
 #include <string>
 
@@ -13,9 +12,12 @@
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 
-class Extension;
 class ExtensionService;
 class ThemeService;
+
+namespace extensions {
+class Extension;
+}
 
 // When a user installs a theme, we display it immediately, but provide an
 // infobar allowing them to cancel.
@@ -25,13 +27,13 @@ class ThemeInstalledInfoBarDelegate : public ConfirmInfoBarDelegate,
   ThemeInstalledInfoBarDelegate(InfoBarTabHelper* infobar_helper,
                                 ExtensionService* extension_service,
                                 ThemeService* theme_service,
-                                const Extension* new_theme,
+                                const extensions::Extension* new_theme,
                                 const std::string& previous_theme_id,
                                 bool previous_using_native_theme);
 
   // Returns true if the given theme is the same as the one associated with this
   // info bar.
-  bool MatchesTheme(const Extension* theme) const;
+  bool MatchesTheme(const extensions::Extension* theme) const;
 
  protected:
   virtual ~ThemeInstalledInfoBarDelegate();

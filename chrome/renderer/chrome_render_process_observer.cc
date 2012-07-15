@@ -4,6 +4,7 @@
 
 #include "chrome/renderer/chrome_render_process_observer.h"
 
+#include "base/allocator/allocator_extension.h"
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/file_util.h"
@@ -11,13 +12,16 @@
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram.h"
+#include "base/metrics/statistics_recorder.h"
 #include "base/native_library.h"
 #include "base/path_service.h"
 #include "base/process_util.h"
 #include "base/threading/platform_thread.h"
+#include "chrome/common/child_process_logging.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension_localization_peer.h"
+#include "chrome/common/metrics/experiments_helper.h"
 #include "chrome/common/net/net_resource_provider.h"
 #include "chrome/common/render_messages.h"
 #include "chrome/renderer/chrome_content_renderer_client.h"
@@ -32,8 +36,6 @@
 #include "net/base/net_errors.h"
 #include "net/base/net_module.h"
 #include "third_party/sqlite/sqlite3.h"
-#include "third_party/tcmalloc/chromium/src/gperftools/heap-profiler.h"
-#include "third_party/tcmalloc/chromium/src/gperftools/malloc_extension.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebCache.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebCrossOriginPreflightResultCache.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebDocument.h"
@@ -43,8 +45,16 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 #include "v8/include/v8.h"
 
+#if defined(OS_ANDROID)
+#include "webkit/media/android/webmediaplayer_android.h"
+#endif
+
 #if defined(OS_WIN)
 #include "base/win/iat_patch_function.h"
+#endif
+
+#if defined(USE_TCMALLOC)
+#include "third_party/tcmalloc/chromium/src/gperftools/heap-profiler.h"
 #endif
 
 using WebKit::WebCache;
@@ -144,29 +154,6 @@ DWORD WINAPI GetFontDataPatch(HDC hdc,
 }
 #endif  // OS_WIN
 
-#if defined(OS_POSIX)
-class SuicideOnChannelErrorFilter : public IPC::ChannelProxy::MessageFilter {
-  void OnChannelError() {
-    // On POSIX, at least, one can install an unload handler which loops
-    // forever and leave behind a renderer process which eats 100% CPU forever.
-    //
-    // This is because the terminate signals (ViewMsg_ShouldClose and the error
-    // from the IPC channel) are routed to the main message loop but never
-    // processed (because that message loop is stuck in V8).
-    //
-    // One could make the browser SIGKILL the renderers, but that leaves open a
-    // large window where a browser failure (or a user, manually terminating
-    // the browser because "it's stuck") will leave behind a process eating all
-    // the CPU.
-    //
-    // So, we install a filter on the channel so that we can process this event
-    // here and kill the process.
-
-    _exit(0);
-  }
-};
-#endif  // OS_POSIX
-
 }  // namespace
 
 bool ChromeRenderProcessObserver::is_incognito_process_ = false;
@@ -188,10 +175,6 @@ ChromeRenderProcessObserver::ChromeRenderProcessObserver(
   resource_delegate_.reset(new RendererResourceDelegate());
   thread->SetResourceDispatcherDelegate(resource_delegate_.get());
 
-#if defined(OS_POSIX)
-  thread->AddFilter(new SuicideOnChannelErrorFilter());
-#endif
-
   // Configure modules that need access to resources.
   net::NetModule::SetResourceProvider(chrome_common_net::NetResourceProvider);
 
@@ -208,7 +191,7 @@ ChromeRenderProcessObserver::ChromeRenderProcessObserver(
 #endif
 
 #if defined(OS_POSIX) && !defined(OS_MACOSX) && defined(USE_NSS)
-  // Remoting requires NSS to function properly.
+  // On platforms where we use system NSS libraries, the .so's must be loaded.
   if (!command_line.HasSwitch(switches::kSingleProcess)) {
     // We are going to fork to engage the sandbox and we have not loaded
     // any security modules so it is safe to disable the fork check in NSS.
@@ -222,6 +205,8 @@ ChromeRenderProcessObserver::ChromeRenderProcessObserver(
   std::string error;
   base::LoadNativeLibrary(FilePath(L"crypt32.dll"), &error);
 #endif
+  // Setup initial set of crash dump data for Field Trials in this renderer.
+  experiments_helper::SetChildProcessLoggingExperimentList();
 }
 
 ChromeRenderProcessObserver::~ChromeRenderProcessObserver() {
@@ -237,8 +222,6 @@ bool ChromeRenderProcessObserver::OnControlMessageReceived(
     IPC_MESSAGE_HANDLER(ChromeViewMsg_ClearCache, OnClearCache)
     IPC_MESSAGE_HANDLER(ChromeViewMsg_SetFieldTrialGroup, OnSetFieldTrialGroup)
 #if defined(USE_TCMALLOC)
-    IPC_MESSAGE_HANDLER(ChromeViewMsg_GetRendererTcmalloc,
-                        OnGetRendererTcmalloc)
     IPC_MESSAGE_HANDLER(ChromeViewMsg_SetTcmallocHeapProfiling,
                         OnSetTcmallocHeapProfiling)
     IPC_MESSAGE_HANDLER(ChromeViewMsg_WriteTcmallocHeapProfile,
@@ -258,6 +241,9 @@ bool ChromeRenderProcessObserver::OnControlMessageReceived(
 void ChromeRenderProcessObserver::OnSetIsIncognitoProcess(
     bool is_incognito_process) {
   is_incognito_process_ = is_incognito_process;
+#if defined(OS_ANDROID)
+  webkit_media::WebMediaPlayerAndroid::InitIncognito(is_incognito_process_);
+#endif
 }
 
 void ChromeRenderProcessObserver::OnSetContentSettingRules(
@@ -287,14 +273,6 @@ void ChromeRenderProcessObserver::OnGetCacheResourceStats() {
 }
 
 #if defined(USE_TCMALLOC)
-void ChromeRenderProcessObserver::OnGetRendererTcmalloc() {
-  std::string result;
-  char buffer[1024 * 32];
-  MallocExtension::instance()->GetStats(buffer, sizeof(buffer));
-  result.append(buffer);
-  RenderThread::Get()->Send(new ChromeViewHostMsg_RendererTcmalloc(result));
-}
-
 void ChromeRenderProcessObserver::OnSetTcmallocHeapProfiling(
     bool profiling, const std::string& filename_prefix) {
 #if !defined(OS_WIN)
@@ -332,6 +310,7 @@ void ChromeRenderProcessObserver::OnSetFieldTrialGroup(
     const std::string& field_trial_name,
     const std::string& group_name) {
   base::FieldTrialList::CreateFieldTrial(field_trial_name, group_name);
+  experiments_helper::SetChildProcessLoggingExperimentList();
 }
 
 void ChromeRenderProcessObserver::OnGetV8HeapStats() {
@@ -361,10 +340,8 @@ void ChromeRenderProcessObserver::OnPurgeMemory() {
 
   v8::V8::LowMemoryNotification();
 
-#if !defined(OS_MACOSX) && defined(USE_TCMALLOC)
-  // Tell tcmalloc to release any free pages it's still holding.
-  MallocExtension::instance()->ReleaseFreeMemory();
-#endif
+  // Tell our allocator to release any free pages it's still holding.
+  base::allocator::ReleaseFreeMemory();
 
   if (client_)
     client_->OnPurgeMemory();

@@ -22,18 +22,19 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/singleton.h"
 #include "base/pickle.h"
+#include "base/posix/unix_domain_socket.h"
 #include "base/process_util.h"
 #include "base/shared_memory.h"
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
 #include "content/common/font_config_ipc_linux.h"
 #include "content/common/sandbox_methods_linux.h"
-#include "content/common/unix_domain_socket_posix.h"
 #include "content/common/webkitplatformsupport_impl.h"
 #include "skia/ext/SkFontHost_fontconfig_direct.h"
 #include "third_party/npapi/bindings/npapi_extensions.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebKit.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/linux/WebFontInfo.h"
+#include "ui/gfx/font_render_params_linux.h"
 
 using WebKit::WebCString;
 using WebKit::WebFontInfo;
@@ -62,6 +63,21 @@ class SandboxIPCProcess  {
       sandbox_cmd_.push_back(sandbox_cmd);
       sandbox_cmd_.push_back(base::kFindInodeSwitch);
     }
+
+    // FontConfig doesn't provide a standard property to control subpixel
+    // positioning, so we pass the current setting through to WebKit.
+    WebFontInfo::setSubpixelPositioning(
+#if defined(TOOLKIT_GTK)
+        // The GTK implementation of GetDefaultFontRenderParams() uses
+        // GtkSettings, which requires a connection to the X server (as it uses
+        // XSETTINGS).  When running tests, X may not be ready at this point,
+        // though.  GTK doesn't currently provide a way to enable subpixel
+        // positioning, so just pass false here to avoid the issue.
+        false
+#else
+        gfx::GetDefaultFontRenderParams().subpixel_positioning
+#endif
+        );
   }
 
   ~SandboxIPCProcess();
@@ -300,7 +316,8 @@ class SandboxIPCProcess  {
     reply.WriteInt(style.useHinting);
     reply.WriteInt(style.hintStyle);
     reply.WriteInt(style.useAntiAlias);
-    reply.WriteInt(style.useSubpixel);
+    reply.WriteInt(style.useSubpixelRendering);
+    reply.WriteInt(style.useSubpixelPositioning);
 
     SendRendererReply(fds, reply, -1);
   }

@@ -10,24 +10,24 @@
 #include "base/i18n/rtl.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
+#include "base/win/metro.h"
 #include "base/win/windows_version.h"
 #include "grit/ui_strings.h"
 #include "skia/ext/skia_utils_win.h"
 #include "ui/base/accessibility/accessible_view_state.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
-#include "ui/base/keycodes/keyboard_code_conversion_win.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/l10n/l10n_util_win.h"
+#include "ui/base/native_theme/native_theme_win.h"
 #include "ui/base/range/range.h"
 #include "ui/base/win/mouse_wheel_util.h"
-#include "ui/gfx/native_theme_win.h"
 #include "ui/views/controls/label.h"
-#include "ui/views/controls/menu/menu_2.h"
-#include "ui/views/controls/menu/menu_win.h"
+#include "ui/views/controls/menu/menu_item_view.h"
+#include "ui/views/controls/menu/menu_model_adapter.h"
+#include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/controls/native/native_view_host.h"
-#include "ui/views/controls/textfield/native_textfield_views.h"
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/controls/textfield/textfield_controller.h"
 #include "ui/views/focus/focus_manager.h"
@@ -123,6 +123,13 @@ NativeTextfieldWin::NativeTextfieldWin(Textfield* textfield)
   if (ole_interface)
     text_object_model_.QueryFrom(ole_interface);
 
+  if (base::win::GetVersion() >= base::win::VERSION_WIN8 &&
+      !base::win::IsMetroProcess()) {
+    keyboard_.CreateInstance(__uuidof(TextInputPanel), NULL, CLSCTX_INPROC);
+    if (keyboard_ != NULL)
+      keyboard_->put_AttachedEditWindow(m_hWnd);
+  }
+
   InitializeAccessibilityInfo();
 }
 
@@ -212,10 +219,11 @@ string16 NativeTextfieldWin::GetSelectedText() const {
   return str;
 }
 
-void NativeTextfieldWin::SelectAll() {
-  // Select from the end to the front so that the first part of the text is
-  // always visible.
-  SetSel(GetTextLength(), 0);
+void NativeTextfieldWin::SelectAll(bool reversed) {
+  if (reversed)
+    SetSel(GetTextLength(), 0);
+  else
+    SetSel(0, GetTextLength());
 }
 
 void NativeTextfieldWin::ClearSelection() {
@@ -339,23 +347,30 @@ bool NativeTextfieldWin::IsIMEComposing() const {
 }
 
 void NativeTextfieldWin::GetSelectedRange(ui::Range* range) const {
-  NOTREACHED();
+  // TODO(tommi): Implement.
+  NOTIMPLEMENTED();
+  range->set_start(0);
+  range->set_end(0);
 }
 
 void NativeTextfieldWin::SelectRange(const ui::Range& range) {
-  NOTREACHED();
+  // TODO(tommi): Implement.
+  NOTIMPLEMENTED();
 }
 
 void NativeTextfieldWin::GetSelectionModel(gfx::SelectionModel* sel) const {
-  NOTREACHED();
+  // TODO(tommi): Implement.
+  NOTIMPLEMENTED();
 }
 
 void NativeTextfieldWin::SelectSelectionModel(const gfx::SelectionModel& sel) {
-  NOTREACHED();
+  // TODO(tommi): Implement.
+  NOTIMPLEMENTED();
 }
 
 size_t NativeTextfieldWin::GetCursorPosition() const {
-  NOTREACHED();
+  // TODO(tommi): Implement.
+  NOTIMPLEMENTED();
   return 0U;
 }
 
@@ -419,13 +434,13 @@ bool NativeTextfieldWin::GetAcceleratorForCommandId(int command_id,
   // anywhere so we need to check for them explicitly here.
   switch (command_id) {
     case IDS_APP_CUT:
-      *accelerator = ui::Accelerator(ui::VKEY_X, false, true, false);
+      *accelerator = ui::Accelerator(ui::VKEY_X, ui::EF_CONTROL_DOWN);
       return true;
     case IDS_APP_COPY:
-      *accelerator = ui::Accelerator(ui::VKEY_C, false, true, false);
+      *accelerator = ui::Accelerator(ui::VKEY_C, ui::EF_CONTROL_DOWN);
       return true;
     case IDS_APP_PASTE:
-      *accelerator = ui::Accelerator(ui::VKEY_V, false, true, false);
+      *accelerator = ui::Accelerator(ui::VKEY_V, ui::EF_CONTROL_DOWN);
       return true;
   }
   return container_view_->GetWidget()->GetAccelerator(command_id, accelerator);
@@ -435,12 +450,12 @@ void NativeTextfieldWin::ExecuteCommand(int command_id) {
   ScopedFreeze freeze(this, GetTextObjectModel());
   OnBeforePossibleChange();
   switch (command_id) {
-    case IDS_APP_UNDO:       Undo();       break;
-    case IDS_APP_CUT:        Cut();        break;
-    case IDS_APP_COPY:       Copy();       break;
-    case IDS_APP_PASTE:      Paste();      break;
-    case IDS_APP_SELECT_ALL: SelectAll();  break;
-    default:                 NOTREACHED(); break;
+    case IDS_APP_UNDO:       Undo();           break;
+    case IDS_APP_CUT:        Cut();            break;
+    case IDS_APP_COPY:       Copy();           break;
+    case IDS_APP_PASTE:      Paste();          break;
+    case IDS_APP_SELECT_ALL: SelectAll(false); break;
+    default:                 NOTREACHED();     break;
   }
   OnAfterPossibleChange(true);
 }
@@ -527,7 +542,13 @@ void NativeTextfieldWin::OnContextMenu(HWND window, const POINT& point) {
     MapWindowPoints(HWND_DESKTOP, &p, 1);
   }
   BuildContextMenu();
-  context_menu_->RunContextMenuAt(gfx::Point(p));
+
+  MenuModelAdapter adapter(context_menu_contents_.get());
+  context_menu_runner_.reset(new MenuRunner(adapter.CreateMenu()));
+
+  ignore_result(context_menu_runner_->RunMenuAt(textfield_->GetWidget(), NULL,
+      gfx::Rect(gfx::Point(p), gfx::Size()), MenuItemView::TOPLEFT,
+      MenuRunner::HAS_MNEMONICS));
 }
 
 void NativeTextfieldWin::OnCopy() {
@@ -552,6 +573,17 @@ void NativeTextfieldWin::OnCut() {
   // This replace selection will have no effect (even on the undo stack) if the
   // current selection is empty.
   ReplaceSel(L"", true);
+}
+
+LRESULT NativeTextfieldWin::OnGetObject(UINT message,
+                                        WPARAM wparam,
+                                        LPARAM lparam) {
+  LRESULT ret = 0;
+  if (lparam == OBJID_CLIENT) {
+    ret = LresultFromObject(IID_IAccessible, wparam,
+        textfield_->GetNativeViewAccessible());
+  }
+  return ret;
 }
 
 LRESULT NativeTextfieldWin::OnImeChar(UINT message,
@@ -630,6 +662,22 @@ LRESULT NativeTextfieldWin::OnImeEndComposition(UINT message,
   // finished or canceled.
   textfield_->SyncText();
   return DefWindowProc(message, wparam, lparam);
+}
+
+LRESULT NativeTextfieldWin::OnPointerDown(UINT message, WPARAM wparam,
+                                          LPARAM lparam) {
+  SetFocus();
+  SetMsgHandled(FALSE);
+  return 0;
+}
+
+LRESULT NativeTextfieldWin::OnPointerUp(UINT message, WPARAM wparam,
+                                        LPARAM lparam) {
+  // ITextInputPanel is not supported on all platforms.  NULL is fine.
+  if (keyboard_ != NULL)
+    keyboard_->SetInPlaceVisibility(TRUE);
+  SetMsgHandled(FALSE);
+  return 0;
 }
 
 void NativeTextfieldWin::OnKeyDown(TCHAR key, UINT repeat_count, UINT flags) {
@@ -895,7 +943,7 @@ void NativeTextfieldWin::OnNCPaint(HRGN region) {
   int classic_state =
       (!textfield_->enabled() || textfield_->read_only()) ? DFCS_INACTIVE : 0;
 
-  gfx::NativeThemeWin::instance()->PaintTextField(hdc, part, state,
+  ui::NativeThemeWin::instance()->PaintTextField(hdc, part, state,
                                                   classic_state, &window_rect,
                                                   bg_color_, false, true);
 
@@ -1048,7 +1096,7 @@ void NativeTextfieldWin::OnAfterPossibleChange(bool should_redraw_text) {
       string16 text(GetText());
       ScopedSuspendUndo suspend_undo(GetTextObjectModel());
 
-      SelectAll();
+      SelectAll(true);
       ReplaceSel(reinterpret_cast<LPCTSTR>(text.c_str()), true);
       SetSel(original_sel);
     }
@@ -1155,18 +1203,6 @@ void NativeTextfieldWin::BuildContextMenu() {
   context_menu_contents_->AddSeparator();
   context_menu_contents_->AddItemWithStringId(IDS_APP_SELECT_ALL,
                                               IDS_APP_SELECT_ALL);
-  context_menu_.reset(new Menu2(context_menu_contents_.get()));
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// NativeTextfieldWrapper, public:
-
-// static
-NativeTextfieldWrapper* NativeTextfieldWrapper::CreateWrapper(
-    Textfield* field) {
-  if (views::Widget::IsPureViews())
-    return new NativeTextfieldViews(field);
-  return new NativeTextfieldWin(field);
 }
 
 }  // namespace views

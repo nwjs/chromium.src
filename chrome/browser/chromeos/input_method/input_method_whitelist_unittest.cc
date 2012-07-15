@@ -6,13 +6,6 @@
 #include "chrome/browser/chromeos/input_method/input_method_whitelist.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-#if defined(USE_VIRTUAL_KEYBOARD)
-// Since USE_VIRTUAL_KEYBOARD build only supports a few keyboard layouts, we
-// skip the tests for now.
-#define TestInputMethodIdIsWhitelisted DISABLED_TestInputMethodIdIsWhitelisted
-#define TestXkbLayoutIsSupported DISABLED_TestXkbLayoutIsSupported
-#endif  // USE_VIRTUAL_KEYBOARD
-
 namespace chromeos {
 namespace input_method {
 
@@ -33,18 +26,6 @@ TEST_F(InputMethodWhitelistTest, TestInputMethodIdIsWhitelisted) {
   EXPECT_FALSE(whitelist_.InputMethodIdIsWhitelisted("not-supported-id"));
   EXPECT_FALSE(whitelist_.InputMethodIdIsWhitelisted(","));
   EXPECT_FALSE(whitelist_.InputMethodIdIsWhitelisted(""));
-}
-
-TEST_F(InputMethodWhitelistTest, TestXkbLayoutIsSupported) {
-  EXPECT_TRUE(whitelist_.XkbLayoutIsSupported("us"));
-  EXPECT_TRUE(whitelist_.XkbLayoutIsSupported("us(dvorak)"));
-  EXPECT_TRUE(whitelist_.XkbLayoutIsSupported("fr"));
-  EXPECT_FALSE(whitelist_.XkbLayoutIsSupported("us,"));
-  EXPECT_FALSE(whitelist_.XkbLayoutIsSupported("us,fr"));
-  EXPECT_FALSE(whitelist_.XkbLayoutIsSupported("xkb:us:dvorak:eng"));
-  EXPECT_FALSE(whitelist_.XkbLayoutIsSupported("mozc"));
-  EXPECT_FALSE(whitelist_.XkbLayoutIsSupported(","));
-  EXPECT_FALSE(whitelist_.XkbLayoutIsSupported(""));
 }
 
 }  // namespace input_method

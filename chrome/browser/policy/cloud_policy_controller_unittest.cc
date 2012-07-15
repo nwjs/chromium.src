@@ -15,7 +15,7 @@
 #include "chrome/browser/policy/proto/cloud_policy.pb.h"
 #include "chrome/browser/policy/proto/device_management_backend.pb.h"
 #include "chrome/browser/policy/user_policy_cache.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "policy/policy_constants.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -40,6 +40,7 @@ class MockDeviceTokenFetcher : public DeviceTokenFetcher {
   MOCK_METHOD0(FetchToken, void());
   MOCK_METHOD0(SetUnmanagedState, void());
   MOCK_METHOD0(SetSerialNumberInvalidState, void());
+  MOCK_METHOD0(SetMissingLicensesState, void());
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockDeviceTokenFetcher);
@@ -76,7 +77,7 @@ class CloudPolicyControllerTest : public testing::Test {
         temp_user_data_dir_.path().AppendASCII("CloudPolicyControllerTest"),
         false  /* wait_for_policy_fetch */));
     token_fetcher_.reset(new MockDeviceTokenFetcher(cache_.get()));
-    EXPECT_CALL(service_, StartJob(_)).Times(AnyNumber());
+    EXPECT_CALL(service_, StartJob(_, _, _, _, _, _, _)).Times(AnyNumber());
     data_store_.reset(CloudPolicyDataStore::CreateForUserPolicies());
   }
 
@@ -265,6 +266,20 @@ TEST_F(CloudPolicyControllerTest, InvalidSerialNumber) {
               CreateJob(DeviceManagementRequestJob::TYPE_POLICY_FETCH))
       .WillOnce(service_.FailJob(DM_STATUS_SERVICE_INVALID_SERIAL_NUMBER));
   EXPECT_CALL(*token_fetcher_.get(), SetSerialNumberInvalidState()).Times(1);
+  CreateNewController();
+  loop_.RunAllPending();
+}
+
+// If the backend reports that the domain has run out of licenses, the
+// controller should instruct the token fetcher not to fetch a new token
+// (which will in turn set and persist the correct 'missing licenses' state).
+TEST_F(CloudPolicyControllerTest, MissingLicenses) {
+  data_store_->SetupForTesting("device_token", "device_id",
+                               "who@what.com", "auth", true);
+  EXPECT_CALL(service_,
+              CreateJob(DeviceManagementRequestJob::TYPE_POLICY_FETCH))
+      .WillOnce(service_.FailJob(DM_STATUS_MISSING_LICENSES));
+  EXPECT_CALL(*token_fetcher_.get(), SetMissingLicensesState()).Times(1);
   CreateNewController();
   loop_.RunAllPending();
 }

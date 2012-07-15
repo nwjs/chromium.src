@@ -1,4 +1,4 @@
-# Copyright (c) 2012 The Native Client Authors. All rights reserved.
+# Copyright (c) 2012 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -7,10 +7,7 @@
 #   http://www.gnu.org/software/make/manual/make.html
 #
 
-PROJECTS:=dlopen fullscreen_tumbler gamepad geturl hello_world_glibc
-PROJECTS+=hello_world_interactive hello_world_newlib input_events load_progress
-PROJECTS+=mouselock multithreaded_input_events pi_generator pong sine_synth
-PROJECTS+=tumbler websocket
+__PROJECT_LIST__
 
 # Define the default target
 all:
@@ -26,6 +23,11 @@ TARGET_LIST+=$(1)_TARGET
 .PHONY: $(1)_TARGET
 $(1)_TARGET:
 	+$(MAKE) -C $(1)
+
+CLEAN_LIST+=$(1)_CLEAN
+.PHONY: $(1)_CLEAN
+$(1)_CLEAN:
+	+$(MAKE) -C $(1) clean
 endef
 
 
@@ -35,6 +37,9 @@ $(foreach proj,$(PROJECTS),$(eval $(call TARGET,$(proj))))
 
 all: $(TARGET_LIST)
 	echo "Done building targets."
+
+clean: $(CLEAN_LIST)
+	echo "Done cleaning targets."
 
 RUN: all
 	echo "Staring up python webserver."

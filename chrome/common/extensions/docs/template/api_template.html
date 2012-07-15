@@ -1,3 +1,5 @@
+  <link href="../css/ApiRefStyles.css" rel="stylesheet" type="text/css">
+  <link href="../css/shared.css" rel="stylesheet" type="text/css">
   <div id="devModeWarning" class="displayModeWarning">
     You are viewing extension docs in chrome via the 'file:' scheme: are you expecting to see local changes when you refresh? You'll need run chrome with --allow-file-access-from-files.
   </div>
@@ -103,6 +105,20 @@
 
         </div> <!-- /VALUE -->
 
+        <div id="conditionAndActionTemplate">
+          <dt>
+            <a jsvalues=".href: typeModule[$this].namespace + '.html#type-' + $this"
+               jscontent="getPrettyTypeId($this)">condition name</a>
+          </dt>
+          <dd class="todo" jsdisplay="!typeModule[$this].description">
+            Undocumented.
+          </dd>
+          <dd jsdisplay="getDescription($this)"
+              jsvalues=".innerHTML:substituteTypeRefs(getDescription($this))">
+            Description of this parameter from the json schema.
+          </dd>
+        </div>
+
         <div id="functionParametersTemplate" jsdisplay="$this.parameters.length > 0">
           <h5>Parameters</h5>
           <dl>
@@ -149,7 +165,7 @@
             <a href="#types">Types</a>
             <ol>
               <li jsselect="filterDocumented(types).sort(sortByName)">
-                <a jscontent="id"
+                <a jscontent="getPrettyTypeId(id)"
                    jsvalues=".href:'#type-' + id"
                    href="#id-anchor">id</a>
                 <ol jsvalues="$type:id">
@@ -171,7 +187,7 @@
     <table id="header" width="100%" cellspacing="0" border="0">
       <tr>
         <td valign="middle"
-          ><a href="http://code.google.com/"><img src="images/code_labs_logo.gif" height="43" width="161" alt="Google Code Labs"
+          ><a href="http://code.google.com/"><img src="../images/code_labs_logo.gif" height="43" width="161" alt="Google Code Labs"
             style="border:0; margin:0;"
         ></a></td>
         <td valign="middle" width="100%" style="padding-left:0.6em;">
@@ -345,6 +361,22 @@
           For information on how to use experimental APIs, see the <a href="experimental.html">chrome.experimental.* APIs</a> page.
         </p>
 
+        <p jsdisplay="!isPermittedOnChannel('stable');" class="warning">
+          <!-- Standard content lead-in for APIs that are not yet available on
+          the stable channel. -->
+          <em>Warning:</em> This API is still under development. It is only
+          available for Chrome users on the
+          <span jsdisplay="isPermittedOnChannel('beta');">
+            <strong>dev</strong> and <strong>beta</strong>
+              <a href="http://www.chromium.org/getting-involved/dev-channel">early
+              release channels</a>.</span>
+          <span jsdisplay="!isPermittedOnChannel('beta');">
+            <strong>dev</strong>
+              <a href="http://www.chromium.org/getting-involved/dev-channel">early
+              release channel</a>.</span>
+          <a href="TODO">Learn more</a>.
+        </p>
+
         <!-- STATIC CONTENT PLACEHOLDER -->
         <div id="static"></div>
 
@@ -384,7 +416,7 @@
 
               <div class="summary"><span jsdisplay="returns" jscontent="getTypeName(returns)">void</span>
                   <!-- Note: intentionally longer 80 columns -->
-                  <span jscontent="getFullyQualifiedFunctionName($scope, $this)">chrome.module.methodName</span>(<span jsselect="parameters" jsvalues="class:optional ? 'optional' : ''"><span jsdisplay="$index">, </span><span jscontent="getTypeName($this)"></span>
+                  <span jscontent="getFullyQualifiedFunctionName($scope, $this)">chrome.module.methodName</span>(<span jsselect="filterDocumented(parameters)" jsvalues="class:optional ? 'optional' : ''"><span jsdisplay="$index">, </span><span jscontent="getTypeName($this)"></span>
                       <var><span jscontent="$this.name"></span></var></span>)</div>
 
               <div class="description">
@@ -394,9 +426,9 @@
                 </p>
 
                 <!-- PARAMETERS -->
-                <h4 jsdisplay="$this.parameters && $this.parameters.length > 0">Parameters</h4>
+                <h4 jsdisplay="$this.parameters && filterDocumented($this.parameters).length > 0">Parameters</h4>
                 <dl>
-                  <div jsselect="parameters">
+                  <div jsselect="filterDocumented(parameters)">
                     <div transclude="valueTemplate">
                     </div>
                   </div>
@@ -412,11 +444,11 @@
                 </dl>
 
                 <!-- CALLBACK -->
-                <div jsdisplay="hasCallback(parameters)">
+                <div jsdisplay="hasFullyDefinedCallback(parameters)">
                   <div jsselect="getCallbackParameters(parameters)">
                   <h4>Callback function</h4>
                   <p jsdisplay="!$this.optional">
-                    The callback <em>parameter</em> should specify a function
+                    The <em>callback</em> parameter should specify a function
                     that looks like this:
                   </p>
                   <p jsdisplay="$this.optional">
@@ -458,12 +490,12 @@
               <a jsvalues=".name:getAnchorName('event', name, $scope)"></a>
               <h4 jscontent="name">event name</h4>
 
-              <div class="summary">
+              <div class="summary" jsdisplay="!($this.options && $this.options.supportsListeners === false)">
                 <!-- Note: intentionally longer 80 columns -->
                 <span jscontent="(getObjectName($scope) || getModuleName()) + '.'" class="subdued">chrome.bookmarks</span><span jscontent="name">onEvent</span><span class="subdued">.addListener</span>(function(<span jscontent="getSignatureString($this.parameters)">Type param1, Type param2</span>) <span class="subdued">{...}</span><span jscontent="getOptionalSignatureSubstring($this.extraParameters)">, Type opt_param1, Type opt_param2</span>);
               </div>
 
-              <div class="description">
+              <div class="description" jsdisplay="!($this.options && $this.options.supportsListeners === false)">
                 <p class="todo" jsdisplay="!description">Undocumented.</p>
                 <p jsdisplay="description" jsvalues=".innerHTML:description">
                   A description from the json schema def of the event goes here.
@@ -501,6 +533,43 @@
                 </dl>
 
               </div> <!-- /description -->
+
+              <div class="summary" jsdisplay="$this.options && $this.options.supportsRules === true">
+                <span jscontent="(getObjectName($scope) || getModuleName()) + '.'" class="subdued">chrome.bookmarks</span><span jscontent="name">onEvent</span><span class="subdued">.addRules</span>(...);
+              </div>
+
+              <div class="description" jsdisplay="$this.options && $this.options.supportsRules === true">
+                <p class="todo" jsdisplay="!description">Undocumented.</p>
+                <p jsdisplay="description" jsvalues=".innerHTML:description">
+                  A description from the json schema def of the event goes here.
+                </p>
+
+                <p>See <a href="events.html#method-Event-addRules"><code>chrome.events.Event.addRules()</code></a>.
+                </p>
+
+                <!-- CONDITIONS -->
+                <div jsdisplay="options && options.conditions && options.conditions.length > 0">
+                  <h4>Supported conditions</h4>
+                  <dl>
+                    <div jsselect="options.conditions">
+                      <div transclude="conditionAndActionTemplate">
+                      </div>
+                    </div>
+                  </dl>
+                </div> <!-- /conditions -->
+
+                <!-- ACTIONS -->
+                <div jsdisplay="options && options.actions && options.actions.length > 0">
+                  <h4>Supported actions</h4>
+                  <dl>
+                    <div jsselect="options.actions">
+                      <div transclude="conditionAndActionTemplate">
+                      </div>
+                    </div>
+                  </dl>
+                </div> <!-- /actions -->
+              </div> <!-- /description -->
+
             </div> <!-- /apiItem -->
 
           </div> <!-- /apiGroup -->

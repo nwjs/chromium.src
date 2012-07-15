@@ -12,12 +12,12 @@
 #include "base/threading/thread_restrictions.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
-#include "chrome/browser/chromeos/dbus/dbus_thread_manager.h"
-#include "chrome/browser/chromeos/dbus/session_manager_client.h"
 #include "chrome/browser/chromeos/login/authenticator.h"
 #include "chrome/browser/chromeos/login/ownership_service.h"
 #include "chrome/browser/policy/proto/chrome_device_policy.pb.h"
 #include "chrome/browser/policy/proto/device_management_backend.pb.h"
+#include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/dbus/session_manager_client.h"
 #include "content/public/browser/browser_thread.h"
 
 namespace em = enterprise_management;
@@ -58,15 +58,19 @@ class StorePolicyOp : public SignedSettings {
  public:
   StorePolicyOp(em::PolicyFetchResponse* policy,
                 SignedSettings::Delegate<bool>* d);
-  virtual ~StorePolicyOp();
-  void Execute();
-  void Fail(SignedSettings::ReturnCode code);
   void Succeed(bool value);
   // Implementation of OwnerManager::Delegate
-  void OnKeyOpComplete(const OwnerManager::KeyOpCode return_code,
-                       const std::vector<uint8>& payload);
+  virtual void Execute() OVERRIDE;
+  virtual void Fail(SignedSettings::ReturnCode code) OVERRIDE;
+  virtual void OnKeyOpComplete(const OwnerManager::KeyOpCode return_code,
+                               const std::vector<uint8>& payload) OVERRIDE;
+
+ protected:
+  virtual ~StorePolicyOp();
 
  private:
+  void RequestStorePolicy();
+
   void OnBoolComplete(bool success);
   // Always call d_->OnSettingOpCompleted() via this call.
   // It guarantees that the callback will not be triggered until _after_
@@ -76,21 +80,21 @@ class StorePolicyOp : public SignedSettings {
 
   em::PolicyFetchResponse* policy_;
   SignedSettings::Delegate<bool>* d_;
-
-  void RequestStorePolicy();
 };
 
 class RetrievePolicyOp : public SignedSettings {
  public:
   explicit RetrievePolicyOp(
       SignedSettings::Delegate<const em::PolicyFetchResponse&>* d);
-  virtual ~RetrievePolicyOp();
-  void Execute();
-  void Fail(SignedSettings::ReturnCode code);
   void Succeed(const em::PolicyFetchResponse& value);
   // Implementation of OwnerManager::Delegate
-  void OnKeyOpComplete(const OwnerManager::KeyOpCode return_code,
-                       const std::vector<uint8>& payload);
+  virtual void Execute() OVERRIDE;
+  virtual void Fail(SignedSettings::ReturnCode code) OVERRIDE;
+  virtual void OnKeyOpComplete(const OwnerManager::KeyOpCode return_code,
+                               const std::vector<uint8>& payload) OVERRIDE;
+
+ protected:
+  virtual ~RetrievePolicyOp();
 
  private:
   void OnStringComplete(const std::string& serialized_proto);
@@ -130,13 +134,18 @@ StorePolicyOp::StorePolicyOp(em::PolicyFetchResponse* policy,
       d_(d) {
 }
 
-StorePolicyOp::~StorePolicyOp() {}
-
-void StorePolicyOp::OnBoolComplete(bool success) {
-  if (success)
-    Succeed(true);
-  else
-    Fail(NOT_FOUND);
+void StorePolicyOp::Succeed(bool ignored) {
+  SignedSettings::ReturnCode code = SUCCESS;
+  bool to_ret = true;
+  em::PolicyData poldata;
+  if (SignedSettings::PolicyIsSane(*policy_, &poldata)) {
+  } else {
+    code = NOT_FOUND;
+    to_ret = false;
+  }
+  BrowserThread::PostTask(
+      BrowserThread::UI, FROM_HERE,
+      base::Bind(&StorePolicyOp::PerformCallback, this, code, to_ret));
 }
 
 void StorePolicyOp::Execute() {
@@ -153,20 +162,6 @@ void StorePolicyOp::Fail(SignedSettings::ReturnCode code) {
   BrowserThread::PostTask(
       BrowserThread::UI, FROM_HERE,
       base::Bind(&StorePolicyOp::PerformCallback, this, code, false));
-}
-
-void StorePolicyOp::Succeed(bool ignored) {
-  SignedSettings::ReturnCode code = SUCCESS;
-  bool to_ret = true;
-  em::PolicyData poldata;
-  if (SignedSettings::PolicyIsSane(*policy_, &poldata)) {
-  } else {
-    code = NOT_FOUND;
-    to_ret = false;
-  }
-  BrowserThread::PostTask(
-      BrowserThread::UI, FROM_HERE,
-      base::Bind(&StorePolicyOp::PerformCallback, this, code, to_ret));
 }
 
 void StorePolicyOp::OnKeyOpComplete(const OwnerManager::KeyOpCode return_code,
@@ -190,15 +185,24 @@ void StorePolicyOp::OnKeyOpComplete(const OwnerManager::KeyOpCode return_code,
   Fail(SignedSettings::MapKeyOpCode(return_code));
 }
 
+StorePolicyOp::~StorePolicyOp() {}
+
 void StorePolicyOp::RequestStorePolicy() {
   std::string serialized;
   if (policy_->SerializeToString(&serialized)) {
-    DBusThreadManager::Get()->GetSessionManagerClient()->StorePolicy(
+    DBusThreadManager::Get()->GetSessionManagerClient()->StoreDevicePolicy(
         serialized,
         base::Bind(&StorePolicyOp::OnBoolComplete, this));
   } else {
     Fail(OPERATION_FAILED);
   }
+}
+
+void StorePolicyOp::OnBoolComplete(bool success) {
+  if (success)
+    Succeed(true);
+  else
+    Fail(NOT_FOUND);
 }
 
 void StorePolicyOp::PerformCallback(SignedSettings::ReturnCode code,
@@ -211,21 +215,6 @@ RetrievePolicyOp::RetrievePolicyOp(
     : d_(d) {
 }
 
-RetrievePolicyOp::~RetrievePolicyOp() {}
-
-void RetrievePolicyOp::Execute() {
-  DBusThreadManager::Get()->GetSessionManagerClient()->RetrievePolicy(
-      base::Bind(&RetrievePolicyOp::OnStringComplete, this));
-}
-
-void RetrievePolicyOp::Fail(SignedSettings::ReturnCode code) {
-  VLOG(2) << "RetrievePolicyOp::Execute() failed with " << code;
-  BrowserThread::PostTask(
-      BrowserThread::UI, FROM_HERE,
-      base::Bind(&RetrievePolicyOp::PerformCallback, this, code,
-                 em::PolicyFetchResponse()));
-}
-
 void RetrievePolicyOp::Succeed(const em::PolicyFetchResponse& value) {
   em::PolicyData poldata;
   if (SignedSettings::PolicyIsSane(value, &poldata)) {
@@ -235,6 +224,19 @@ void RetrievePolicyOp::Succeed(const em::PolicyFetchResponse& value) {
   } else {
     Fail(NOT_FOUND);
   }
+}
+
+void RetrievePolicyOp::Execute() {
+  DBusThreadManager::Get()->GetSessionManagerClient()->RetrieveDevicePolicy(
+      base::Bind(&RetrievePolicyOp::OnStringComplete, this));
+}
+
+void RetrievePolicyOp::Fail(SignedSettings::ReturnCode code) {
+  VLOG(2) << "RetrievePolicyOp::Execute() failed with " << code;
+  BrowserThread::PostTask(
+      BrowserThread::UI, FROM_HERE,
+      base::Bind(&RetrievePolicyOp::PerformCallback, this, code,
+                 em::PolicyFetchResponse()));
 }
 
 void RetrievePolicyOp::OnKeyOpComplete(
@@ -253,6 +255,8 @@ void RetrievePolicyOp::OnKeyOpComplete(
   else
     Fail(SignedSettings::MapKeyOpCode(return_code));
 }
+
+RetrievePolicyOp::~RetrievePolicyOp() {}
 
 void RetrievePolicyOp::OnStringComplete(const std::string& serialized_proto) {
   ProcessPolicy(serialized_proto);

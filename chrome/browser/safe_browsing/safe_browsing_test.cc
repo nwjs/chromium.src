@@ -31,20 +31,20 @@
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/safe_browsing/protocol_manager.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
-#include "content/public/common/url_fetcher.h"
-#include "content/public/common/url_fetcher_delegate.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/browser/browser_context.h"
+#include "content/public/test/test_browser_thread.h"
 #include "net/base/host_resolver.h"
 #include "net/base/load_flags.h"
 #include "net/base/net_log.h"
 #include "net/test/python_utils.h"
+#include "net/url_request/url_fetcher.h"
+#include "net/url_request/url_fetcher_delegate.h"
 #include "net/url_request/url_request_status.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -52,7 +52,8 @@ using content::BrowserThread;
 
 namespace {
 
-const FilePath::CharType kDataFile[] = FILE_PATH_LITERAL("testing_input.dat");
+const FilePath::CharType kDataFile[] =
+    FILE_PATH_LITERAL("testing_input_nomac.dat");
 const char kUrlVerifyPath[] = "/safebrowsing/verify_urls";
 const char kDBVerifyPath[] = "/safebrowsing/verify_database";
 const char kDBResetPath[] = "/reset";
@@ -145,6 +146,9 @@ class SafeBrowsingTestServer {
     FilePath python_runtime;
     EXPECT_TRUE(GetPythonRunTime(&python_runtime));
     CommandLine cmd_line(python_runtime);
+    // Make python stdout and stderr unbuffered, to prevent incomplete stderr on
+    // win bots, and also fix mixed up ordering of stdout and stderr.
+    cmd_line.AppendSwitch("-u");
     FilePath datafile = testserver_path.Append(datafile_);
     cmd_line.AppendArgPath(testserver);
     cmd_line.AppendArg(base::StringPrintf("--port=%d", kPort_));
@@ -169,7 +173,7 @@ class SafeBrowsingTestServer {
       return true;
 
     // First check if the process has already terminated.
-    if (!base::WaitForSingleProcess(server_handle_, 0) &&
+    if (!base::WaitForSingleProcess(server_handle_, base::TimeDelta()) &&
         !base::KillProcess(server_handle_, 1, true)) {
       VLOG(1) << "Kill failed?";
       return false;
@@ -206,7 +210,6 @@ class SafeBrowsingServiceTest : public InProcessBrowserTest {
   SafeBrowsingServiceTest()
     : safe_browsing_service_(NULL),
       is_database_ready_(true),
-      is_initial_request_(false),
       is_update_scheduled_(false),
       is_checked_url_in_db_(false),
       is_checked_url_safe_(false) {
@@ -218,8 +221,6 @@ class SafeBrowsingServiceTest : public InProcessBrowserTest {
   void UpdateSafeBrowsingStatus() {
     ASSERT_TRUE(safe_browsing_service_);
     base::AutoLock lock(update_status_mutex_);
-    is_initial_request_ =
-        safe_browsing_service_->protocol_manager_->is_initial_request();
     last_update_ = safe_browsing_service_->protocol_manager_->last_update();
     is_update_scheduled_ =
         safe_browsing_service_->protocol_manager_->update_timer_.IsRunning();
@@ -270,11 +271,6 @@ class SafeBrowsingServiceTest : public InProcessBrowserTest {
     return is_database_ready_;
   }
 
-  bool is_initial_request() {
-    base::AutoLock l(update_status_mutex_);
-    return is_initial_request_;
-  }
-
   base::Time last_update() {
     base::AutoLock l(update_status_mutex_);
     return last_update_;
@@ -314,15 +310,12 @@ class SafeBrowsingServiceTest : public InProcessBrowserTest {
     command_line->AppendSwitch(
         switches::kDisableClientSidePhishingDetection);
 
-    // In this test, we fetch SafeBrowsing data and Mac key from the same
-    // server. Although in real production, they are served from different
-    // servers.
+    // Point to the testing server for all SafeBrowsing requests.
     std::string url_prefix =
         base::StringPrintf("http://%s:%d/safebrowsing",
                            SafeBrowsingTestServer::Host(),
                            SafeBrowsingTestServer::Port());
-    command_line->AppendSwitchASCII(switches::kSbInfoURLPrefix, url_prefix);
-    command_line->AppendSwitchASCII(switches::kSbMacKeyURLPrefix, url_prefix);
+    command_line->AppendSwitchASCII(switches::kSbURLPrefix, url_prefix);
   }
 
   void SetTestStep(int step) {
@@ -339,7 +332,6 @@ class SafeBrowsingServiceTest : public InProcessBrowserTest {
 
   // States associated with safebrowsing service updates.
   bool is_database_ready_;
-  bool is_initial_request_;
   base::Time last_update_;
   bool is_update_scheduled_;
   // Indicates if there is a match between a URL's prefix and safebrowsing
@@ -356,12 +348,13 @@ class SafeBrowsingServiceTest : public InProcessBrowserTest {
 class SafeBrowsingServiceTestHelper
     : public base::RefCountedThreadSafe<SafeBrowsingServiceTestHelper>,
       public SafeBrowsingService::Client,
-      public content::URLFetcherDelegate {
+      public net::URLFetcherDelegate {
  public:
-  explicit SafeBrowsingServiceTestHelper(
-      SafeBrowsingServiceTest* safe_browsing_test)
+  SafeBrowsingServiceTestHelper(SafeBrowsingServiceTest* safe_browsing_test,
+                                net::URLRequestContextGetter* request_context)
       : safe_browsing_test_(safe_browsing_test),
-        response_status_(net::URLRequestStatus::FAILED) {
+        response_status_(net::URLRequestStatus::FAILED),
+        request_context_(request_context) {
   }
 
   // Callbacks for SafeBrowsingService::Client.
@@ -452,13 +445,13 @@ class SafeBrowsingServiceTestHelper
   }
 
   // Wait for a given period to get safebrowsing status updated.
-  void WaitForStatusUpdate(int64 wait_time_msec) {
+  void WaitForStatusUpdate(base::TimeDelta wait_time) {
     BrowserThread::PostDelayedTask(
         BrowserThread::IO,
         FROM_HERE,
         base::Bind(&SafeBrowsingServiceTestHelper::CheckStatusOnIOThread,
                    this),
-        base::TimeDelta::FromMilliseconds(wait_time_msec));
+        wait_time);
     // Will continue after OnWaitForStatusUpdateDone().
     ui_test_utils::RunMessageLoop();
   }
@@ -512,7 +505,7 @@ class SafeBrowsingServiceTestHelper
   }
 
   // Callback for URLFetcher.
-  virtual void OnURLFetchComplete(const content::URLFetcher* source) {
+  virtual void OnURLFetchComplete(const net::URLFetcher* source) {
     source->GetResponseAsString(&response_data_);
     response_status_ = source->GetStatus().status();
     StopUILoop();
@@ -523,6 +516,9 @@ class SafeBrowsingServiceTestHelper
   }
 
  private:
+  friend class base::RefCountedThreadSafe<SafeBrowsingServiceTestHelper>;
+  virtual ~SafeBrowsingServiceTestHelper() {}
+
   // Stops UI loop after desired status is updated.
   void StopUILoop() {
     EXPECT_TRUE(BrowserThread::CurrentlyOn(BrowserThread::UI));
@@ -532,11 +528,10 @@ class SafeBrowsingServiceTestHelper
   // Fetch a URL. If message_loop_started is true, starts the message loop
   // so the caller could wait till OnURLFetchComplete is called.
   net::URLRequestStatus::Status FetchUrl(const GURL& url) {
-    url_fetcher_.reset(content::URLFetcher::Create(
-        url, content::URLFetcher::GET, this));
+    url_fetcher_.reset(net::URLFetcher::Create(
+        url, net::URLFetcher::GET, this));
     url_fetcher_->SetLoadFlags(net::LOAD_DISABLE_CACHE);
-    url_fetcher_->SetRequestContext(
-        Profile::Deprecated::GetDefaultRequestContext());
+    url_fetcher_->SetRequestContext(request_context_);
     url_fetcher_->Start();
     ui_test_utils::RunMessageLoop();
     return response_status_;
@@ -544,9 +539,10 @@ class SafeBrowsingServiceTestHelper
 
   base::OneShotTimer<SafeBrowsingServiceTestHelper> check_update_timer_;
   SafeBrowsingServiceTest* safe_browsing_test_;
-  scoped_ptr<content::URLFetcher> url_fetcher_;
+  scoped_ptr<net::URLFetcher> url_fetcher_;
   std::string response_data_;
   net::URLRequestStatus::Status response_status_;
+  net::URLRequestContextGetter* request_context_;
   DISALLOW_COPY_AND_ASSIGN(SafeBrowsingServiceTestHelper);
 };
 
@@ -558,8 +554,10 @@ IN_PROC_BROWSER_TEST_F(SafeBrowsingServiceTest,
   int server_port = SafeBrowsingTestServer::Port();
   ASSERT_TRUE(InitSafeBrowsingService());
 
+  net::URLRequestContextGetter* request_context =
+      GetBrowserContext()->GetRequestContext();
   scoped_refptr<SafeBrowsingServiceTestHelper> safe_browsing_helper(
-      new SafeBrowsingServiceTestHelper(this));
+      new SafeBrowsingServiceTestHelper(this, request_context));
   int last_step = 0;
   FilePath datafile_path = FilePath(kDataFile);
   SafeBrowsingTestServer test_server(datafile_path);
@@ -572,9 +570,8 @@ IN_PROC_BROWSER_TEST_F(SafeBrowsingServiceTest,
   // The wait will stop once OnWaitForStatusUpdateDone in
   // safe_browsing_helper is called and status from safe_browsing_service_
   // is checked.
-  safe_browsing_helper->WaitForStatusUpdate(0);
+  safe_browsing_helper->WaitForStatusUpdate(base::TimeDelta());
   EXPECT_TRUE(is_database_ready());
-  EXPECT_TRUE(is_initial_request());
   EXPECT_FALSE(is_update_scheduled());
   EXPECT_TRUE(last_update().is_null());
   // Starts updates. After each update, the test will fetch a list of URLs with
@@ -594,12 +591,12 @@ IN_PROC_BROWSER_TEST_F(SafeBrowsingServiceTest,
     SetTestStep(step);
     safe_browsing_helper->ForceUpdate();
 
+    // TODO(mattm): use NOTIFICATION_SAFE_BROWSING_UPDATE_COMPLETE instead.
     do {
       // Periodically pull the status.
       safe_browsing_helper->WaitForStatusUpdate(
-          TestTimeouts::tiny_timeout_ms());
-    } while (is_update_scheduled() || is_initial_request() ||
-             !is_database_ready());
+          TestTimeouts::tiny_timeout());
+    } while (is_update_scheduled() || !is_database_ready());
 
 
     if (last_update() < now) {

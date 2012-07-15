@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_BOOKMARKS_BOOKMARK_EDITOR_H_
 #define CHROME_BROWSER_BOOKMARKS_BOOKMARK_EDITOR_H_
-#pragma once
 
 #include <utility>
 #include <vector>
@@ -13,9 +12,9 @@
 #include "chrome/browser/bookmarks/bookmark_model.h"
 #include "ui/gfx/native_widget_types.h"
 
+class Browser;
 class GURL;
 class Profile;
-class Browser;
 
 // Small, cross platform interface that shows the correct platform specific
 // bookmark editor dialog.
@@ -43,7 +42,9 @@ class BookmarkEditor {
     // Returns an EditDetails instance for the user adding a bookmark within
     // a given parent node with a specified index.
     static EditDetails AddNodeInFolder(const BookmarkNode* parent_node,
-                                       int index);
+                                       int index,
+                                       const GURL& url,
+                                       const string16& title);
 
     // Returns an EditDetails instance for the user adding a folder within a
     // given parent node with a specified index.
@@ -80,6 +81,10 @@ class BookmarkEditor {
     // If type == NEW_URL or type == NEW_FOLDER this gives the index to insert
     // the new node at.
     int index;
+
+    // If type == NEW_URL this gives the URL/title.
+    GURL url;
+    string16 title;
 
     // If type == NEW_FOLDER, this is the urls/title pairs to add to the
     // folder.

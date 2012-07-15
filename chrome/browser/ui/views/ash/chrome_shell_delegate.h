@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_ASH_CHROME_SHELL_DELEGATE_H_
 #define CHROME_BROWSER_UI_VIEWS_ASH_CHROME_SHELL_DELEGATE_H_
-#pragma once
 
 #include "ash/launcher/launcher_types.h"
 #include "ash/shell_delegate.h"
@@ -14,8 +13,6 @@
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 
-class StatusAreaHostAura;
-class StatusAreaView;
 class WindowPositioner;
 
 namespace views {
@@ -30,25 +27,28 @@ class ChromeShellDelegate : public ash::ShellDelegate,
 
   static ChromeShellDelegate* instance() { return instance_; }
 
-  StatusAreaHostAura* status_area_host() {
-    return status_area_host_.get();
-  }
-
-  StatusAreaView* GetStatusArea();
-
   WindowPositioner* window_positioner() { return window_positioner_.get(); }
 
   // ash::ShellDelegate overrides;
-  virtual views::Widget* CreateStatusArea() OVERRIDE;
   virtual bool IsUserLoggedIn() OVERRIDE;
   virtual void LockScreen() OVERRIDE;
   virtual void UnlockScreen() OVERRIDE;
   virtual bool IsScreenLocked() const OVERRIDE;
+  virtual void Shutdown() OVERRIDE;
   virtual void Exit() OVERRIDE;
+  virtual void NewTab() OVERRIDE;
   virtual void NewWindow(bool is_incognito) OVERRIDE;
-  virtual ash::AppListViewDelegate* CreateAppListViewDelegate() OVERRIDE;
-  virtual std::vector<aura::Window*> GetCycleWindowList(
-      CycleSource source) const OVERRIDE;
+  virtual void OpenFileManager(bool as_dialog) OVERRIDE;
+  virtual void OpenCrosh() OVERRIDE;
+  virtual void OpenMobileSetup(const std::string& service_path) OVERRIDE;
+  virtual void RestoreTab() OVERRIDE;
+  virtual bool RotatePaneFocus(ash::Shell::Direction direction) OVERRIDE;
+  virtual void ShowKeyboardOverlay() OVERRIDE;
+  virtual void ShowTaskManager() OVERRIDE;
+  virtual content::BrowserContext* GetCurrentBrowserContext() OVERRIDE;
+  virtual void ToggleSpokenFeedback() OVERRIDE;
+  virtual bool IsSpokenFeedbackEnabled() const OVERRIDE;
+  virtual app_list::AppListViewDelegate* CreateAppListViewDelegate() OVERRIDE;
   virtual void StartPartialScreenshot(
       ash::ScreenshotDelegate* screenshot_delegate) OVERRIDE;
   virtual ash::LauncherDelegate* CreateLauncherDelegate(
@@ -56,6 +56,8 @@ class ChromeShellDelegate : public ash::ShellDelegate,
   virtual ash::SystemTrayDelegate* CreateSystemTrayDelegate(
       ash::SystemTray* tray) OVERRIDE;
   virtual ash::UserWallpaperDelegate* CreateUserWallpaperDelegate() OVERRIDE;
+  virtual aura::client::UserActionClient* CreateUserActionClient() OVERRIDE;
+  virtual void OpenFeedbackPage() OVERRIDE;
 
   // content::NotificationObserver override:
   virtual void Observe(int type,
@@ -67,8 +69,9 @@ class ChromeShellDelegate : public ash::ShellDelegate,
 
   content::NotificationRegistrar registrar_;
 
-  scoped_ptr<StatusAreaHostAura> status_area_host_;
   scoped_ptr<WindowPositioner> window_positioner_;
+
+  base::WeakPtrFactory<ChromeShellDelegate> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(ChromeShellDelegate);
 };

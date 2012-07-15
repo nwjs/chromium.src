@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_PROCESS_SINGLETON_H_
 #define CHROME_BROWSER_PROCESS_SINGLETON_H_
-#pragma once
 
 #include "build/build_config.h"
 
@@ -16,10 +15,12 @@
 #include <vector>
 
 #include "base/basictypes.h"
+#include "base/callback.h"
 #include "base/command_line.h"
 #include "base/file_path.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted.h"
+#include "base/process.h"
 #include "base/threading/non_thread_safe.h"
 #include "ui/gfx/native_widget_types.h"
 
@@ -54,6 +55,15 @@ class ProcessSingleton : public base::NonThreadSafe {
     LOCK_ERROR,
   };
 
+  // Implement this callback to handle notifications from other processes. The
+  // callback will receive the command line and directory with which the other
+  // Chrome process was launched. Return true if the command line will be
+  // handled within the current browser instance or false if the remote process
+  // should handle it (i.e., because the current process is shutting down).
+  typedef base::Callback<
+      bool(const CommandLine& command_line, const FilePath& current_directory)>
+      NotificationCallback;
+
   explicit ProcessSingleton(const FilePath& user_data_dir);
   ~ProcessSingleton();
 
@@ -67,10 +77,12 @@ class ProcessSingleton : public base::NonThreadSafe {
   // first one, so this function won't find it.
   NotifyResult NotifyOtherProcess();
 
-  // Notify another process, if available.  Otherwise sets ourselves as the
-  // singleton instance.  Returns PROCESS_NONE if we became the singleton
+  // Notify another process, if available. Otherwise sets ourselves as the
+  // singleton instance and stores the provided callback for notification from
+  // future processes. Returns PROCESS_NONE if we became the singleton
   // instance.
-  NotifyResult NotifyOtherProcessOrCreate();
+  NotifyResult NotifyOtherProcessOrCreate(
+      const NotificationCallback& notification_callback);
 
 #if defined(OS_LINUX) || defined(OS_OPENBSD)
   // Exposed for testing.  We use a timeout on Linux, and in tests we want
@@ -80,7 +92,11 @@ class ProcessSingleton : public base::NonThreadSafe {
                                              bool kill_unresponsive);
   NotifyResult NotifyOtherProcessWithTimeoutOrCreate(
       const CommandLine& command_line,
+      const NotificationCallback& notification_callback,
       int timeout_seconds);
+  void OverrideCurrentPidForTesting(base::ProcessId pid);
+  void OverrideKillCallbackForTesting(const base::Callback<void(int)>& callback);
+  static void DisablePromptForTesting();
 #endif  // defined(OS_LINUX) || defined(OS_OPENBSD)
 
 #if defined(OS_WIN) && !defined(USE_AURA)
@@ -96,8 +112,10 @@ class ProcessSingleton : public base::NonThreadSafe {
 
   // Sets ourself up as the singleton instance.  Returns true on success.  If
   // false is returned, we are not the singleton instance and the caller must
-  // exit.
-  bool Create();
+  // exit. Otherwise, stores the provided callback for notification from
+  // future processes.
+  bool Create(
+      const NotificationCallback& notification_callback);
 
   // Clear any lock state during shutdown.
   void Cleanup();
@@ -132,8 +150,6 @@ class ProcessSingleton : public base::NonThreadSafe {
 
  private:
   typedef std::pair<CommandLine::StringVector, FilePath> DelayedStartupMessage;
-  void ProcessCommandLine(const CommandLine& command_line,
-                          const FilePath& current_directory);
 
 #if !defined(OS_MACOSX)
   // Timeout for the current browser process to respond. 20 seconds should be
@@ -143,6 +159,7 @@ class ProcessSingleton : public base::NonThreadSafe {
 
   bool locked_;
   gfx::NativeWindow foreground_window_;
+  NotificationCallback notification_callback_;  // Handler for notifications.
 
 #if defined(OS_WIN)
   // This ugly behemoth handles startup commands sent from another process.
@@ -153,7 +170,30 @@ class ProcessSingleton : public base::NonThreadSafe {
   HWND remote_window_;  // The HWND_MESSAGE of another browser.
   HWND window_;  // The HWND_MESSAGE window.
   bool is_virtualized_;  // Stuck inside Microsoft Softricity VM environment.
+  HANDLE lock_file_;
 #elif defined(OS_LINUX) || defined(OS_OPENBSD)
+  // Return true if the given pid is one of our child processes.
+  // Assumes that the current pid is the root of all pids of the current
+  // instance.
+  bool IsSameChromeInstance(pid_t pid);
+
+  // Extract the process's pid from a symbol link path and if it is on
+  // the same host, kill the process, unlink the lock file and return true.
+  // If the process is part of the same chrome instance, unlink the lock file
+  // and return true without killing it.
+  // If the process is on a different host, return false.
+  bool KillProcessByLockPath();
+
+  // Default function to kill a process, overridable by tests.
+  void KillProcess(int pid);
+
+  // Allow overriding for tests.
+  base::ProcessId current_pid_;
+
+  // Function to call when the other process is hung and needs to be killed.
+  // Allows overriding for tests.
+  base::Callback<void(int)> kill_callback_;
+
   // Path in file system to the socket.
   FilePath socket_path_;
 

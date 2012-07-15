@@ -14,6 +14,8 @@
 #include "chrome/browser/cookies_tree_model.h"
 #include "grit/generated_resources.h"
 #include "grit/locale_settings.h"
+#include "net/cookies/canonical_cookie.h"
+#include "net/cookies/parsed_cookie.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/color_utils.h"
@@ -24,8 +26,12 @@
 #include "ui/views/layout/grid_layout.h"
 #include "ui/views/layout/layout_constants.h"
 
-static const int kCookieInfoViewBorderSize = 1;
-static const int kCookieInfoViewInsetSize = 3;
+namespace {
+
+const int kCookieInfoViewBorderSize = 1;
+const int kCookieInfoViewInsetSize = 3;
+
+}  // namespace
 
 ///////////////////////////////////////////////////////////////////////////////
 // CookieInfoView, public:
@@ -54,9 +60,8 @@ CookieInfoView::CookieInfoView(bool editable_expiration_date)
 CookieInfoView::~CookieInfoView() {
 }
 
-void CookieInfoView::SetCookie(
-    const std::string& domain,
-    const net::CookieMonster::CanonicalCookie& cookie) {
+void CookieInfoView::SetCookie(const std::string& domain,
+                               const net::CanonicalCookie& cookie) {
   name_value_field_->SetText(UTF8ToUTF16(cookie.Name()));
   content_value_field_->SetText(UTF8ToUTF16(cookie.Value()));
   domain_value_field_->SetText(UTF8ToUTF16(domain));
@@ -64,18 +69,18 @@ void CookieInfoView::SetCookie(
   created_value_field_->SetText(
       base::TimeFormatFriendlyDateAndTime(cookie.CreationDate()));
 
-  string16 expire_text = cookie.DoesExpire() ?
+  string16 expire_text = cookie.IsPersistent() ?
       base::TimeFormatFriendlyDateAndTime(cookie.ExpiryDate()) :
       l10n_util::GetStringUTF16(IDS_COOKIES_COOKIE_EXPIRES_SESSION);
 
   if (editable_expiration_date_) {
     expire_combo_values_.clear();
-    if (cookie.DoesExpire())
+    if (cookie.IsPersistent())
       expire_combo_values_.push_back(expire_text);
     expire_combo_values_.push_back(
         l10n_util::GetStringUTF16(IDS_COOKIES_COOKIE_EXPIRES_SESSION));
     expires_value_combobox_->ModelChanged();
-    expires_value_combobox_->SetSelectedItem(0);
+    expires_value_combobox_->SetSelectedIndex(0);
     expires_value_combobox_->SetEnabled(true);
     expires_value_combobox_->set_listener(this);
   } else {
@@ -91,8 +96,8 @@ void CookieInfoView::SetCookie(
 
 void CookieInfoView::SetCookieString(const GURL& url,
                                      const std::string& cookie_line) {
-  net::CookieMonster::ParsedCookie pc(cookie_line);
-  net::CookieMonster::CanonicalCookie cookie(url, pc);
+  net::ParsedCookie pc(cookie_line);
+  net::CanonicalCookie cookie(url, pc);
   SetCookie(pc.HasDomain() ? pc.Domain() : url.host(), cookie);
 }
 
@@ -135,17 +140,15 @@ void CookieInfoView::ViewHierarchyChanged(bool is_add,
 ///////////////////////////////////////////////////////////////////////////////
 // CookieInfoView, views::ComboboxListener overrides.
 
-void CookieInfoView::ItemChanged(views::Combobox* combo_box,
-                                 int prev_index,
-                                 int new_index) {
-  DCHECK(combo_box == expires_value_combobox_);
+void CookieInfoView::OnSelectedIndexChanged(views::Combobox* combobox) {
+  DCHECK_EQ(combobox, expires_value_combobox_);
   if (delegate_)
-    delegate_->ModifyExpireDate(new_index != 0);
+    delegate_->ModifyExpireDate(combobox->selected_index() != 0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // CookieInfoView, ui::ComboboxModel overrides.
-int CookieInfoView::GetItemCount() {
+int CookieInfoView::GetItemCount() const {
   return static_cast<int>(expire_combo_values_.size());
 }
 

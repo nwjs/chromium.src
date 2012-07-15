@@ -11,6 +11,8 @@
 #include <sys/utsname.h>
 #endif
 
+#include <limits>
+
 #include "base/lazy_instance.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
@@ -24,23 +26,27 @@
 #include "base/sys_string_conversions.h"
 #include "base/utf_string_conversions.h"
 #include "net/base/escape.h"
+#include "net/url_request/url_request.h"
 #include "skia/ext/platform_canvas.h"
 #if defined(OS_MACOSX)
 #include "skia/ext/skia_utils_mac.h"
 #endif
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebData.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/WebDevToolsAgent.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/WebDocument.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/WebElement.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/WebGlyphCache.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/WebHistoryItem.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebImage.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/WebKit.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebRect.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebSize.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebString.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebVector.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDevToolsAgent.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDocument.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebElement.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFileInfo.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebGlyphCache.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebHistoryItem.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebKit.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPrintParams.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 #if defined(OS_WIN)
 #include "third_party/WebKit/Source/WebKit/chromium/public/win/WebInputEventFactory.h"
@@ -57,6 +63,8 @@ using WebKit::WebFrame;
 using WebKit::WebGlyphCache;
 using WebKit::WebHistoryItem;
 using WebKit::WebImage;
+using WebKit::WebPrintParams;
+using WebKit::WebRect;
 using WebKit::WebSize;
 using WebKit::WebString;
 using WebKit::WebVector;
@@ -131,17 +139,6 @@ string16 DumpRenderer(WebFrame* web_frame) {
   return web_frame->renderTreeAsText();
 }
 
-bool CounterValueForElementById(WebFrame* web_frame, const std::string& id,
-                                string16* counter_value) {
-  WebString result =
-      web_frame->counterValueForElementById(WebString::fromUTF8(id));
-  if (result.isNull())
-    return false;
-
-  *counter_value = result;
-  return true;
-}
-
 int PageNumberForElementById(WebFrame* web_frame,
                              const std::string& id,
                              float page_width_in_pixels,
@@ -156,7 +153,13 @@ int NumberOfPages(WebFrame* web_frame,
                   float page_height_in_pixels) {
   WebSize size(static_cast<int>(page_width_in_pixels),
                static_cast<int>(page_height_in_pixels));
-  int number_of_pages = web_frame->printBegin(size);
+
+  WebPrintParams print_params;
+  print_params.paperSize = size;
+  print_params.printContentArea = WebRect(0, 0, size.width, size.height);
+  print_params.printableArea = WebRect(0, 0, size.width, size.height);
+
+  int number_of_pages = web_frame->printBegin(print_params);
   web_frame->printEnd();
   return number_of_pages;
 }
@@ -311,31 +314,20 @@ WebString FilePathToWebString(const FilePath& file_path) {
   return FilePathStringToWebString(file_path.value());
 }
 
-WebKit::WebFileError PlatformFileErrorToWebFileError(
-    base::PlatformFileError error_code) {
-  switch (error_code) {
-    case base::PLATFORM_FILE_ERROR_NOT_FOUND:
-      return WebKit::WebFileErrorNotFound;
-    case base::PLATFORM_FILE_ERROR_INVALID_OPERATION:
-    case base::PLATFORM_FILE_ERROR_EXISTS:
-    case base::PLATFORM_FILE_ERROR_NOT_EMPTY:
-      return WebKit::WebFileErrorInvalidModification;
-    case base::PLATFORM_FILE_ERROR_NOT_A_DIRECTORY:
-    case base::PLATFORM_FILE_ERROR_NOT_A_FILE:
-      return WebKit::WebFileErrorTypeMismatch;
-    case base::PLATFORM_FILE_ERROR_ACCESS_DENIED:
-      return WebKit::WebFileErrorNoModificationAllowed;
-    case base::PLATFORM_FILE_ERROR_FAILED:
-      return WebKit::WebFileErrorInvalidState;
-    case base::PLATFORM_FILE_ERROR_ABORT:
-      return WebKit::WebFileErrorAbort;
-    case base::PLATFORM_FILE_ERROR_SECURITY:
-      return WebKit::WebFileErrorSecurity;
-    case base::PLATFORM_FILE_ERROR_NO_SPACE:
-      return WebKit::WebFileErrorQuotaExceeded;
-    default:
-      return WebKit::WebFileErrorInvalidModification;
-  }
+void PlatformFileInfoToWebFileInfo(
+    const base::PlatformFileInfo& file_info,
+    WebKit::WebFileInfo* web_file_info) {
+  DCHECK(web_file_info);
+  // WebKit now expects NaN as uninitialized/null Date.
+  if (file_info.last_modified.is_null())
+    web_file_info->modificationTime = std::numeric_limits<double>::quiet_NaN();
+  else
+    web_file_info->modificationTime = file_info.last_modified.ToDoubleT();
+  web_file_info->length = file_info.size;
+  if (file_info.is_directory)
+    web_file_info->type = WebKit::WebFileInfo::TypeDirectory;
+  else
+    web_file_info->type = WebKit::WebFileInfo::TypeFile;
 }
 
 namespace {
@@ -417,7 +409,8 @@ bool IsYahooSiteThatNeedsSpoofingForSilverlight(const GURL& url) {
 #elif defined(OS_WIN)
   if ((url.host() == "weather.yahoo.co.jp" &&
         StartsWithASCII(url.path(), "/weather/zoomradar/", true)) ||
-      url.host() == "promotion.shopping.yahoo.co.jp") {
+      url.host() == "promotion.shopping.yahoo.co.jp" ||
+      url.host() == "pokemon.kids.yahoo.co.jp") {
     return true;
   }
 #endif
@@ -475,14 +468,7 @@ bool ShouldForcefullyTerminatePluginProcess() {
 }
 
 WebCanvas* ToWebCanvas(skia::PlatformCanvas* canvas) {
-#if WEBKIT_USING_SKIA
   return canvas;
-#elif WEBKIT_USING_CG
-  return skia::GetBitmapContext(skia::GetTopDevice(*canvas));
-#else
-  NOTIMPLEMENTED();
-  return NULL;
-#endif
 }
 
 int GetGlyphPageCount() {
@@ -497,5 +483,26 @@ bool IsInspectorProtocolVersionSupported(const std::string& version) {
   return WebDevToolsAgent::supportsInspectorProtocolVersion(
       WebString::fromUTF8(version));
 }
+
+void ConfigureURLRequestForReferrerPolicy(
+    net::URLRequest* request, WebKit::WebReferrerPolicy referrer_policy) {
+  net::URLRequest::ReferrerPolicy net_referrer_policy =
+      net::URLRequest::CLEAR_REFERRER_ON_TRANSITION_FROM_SECURE_TO_INSECURE;
+  switch (referrer_policy) {
+    case WebKit::WebReferrerPolicyDefault:
+      net_referrer_policy =
+          net::URLRequest::CLEAR_REFERRER_ON_TRANSITION_FROM_SECURE_TO_INSECURE;
+      break;
+
+    case WebKit::WebReferrerPolicyAlways:
+    case WebKit::WebReferrerPolicyNever:
+    case WebKit::WebReferrerPolicyOrigin:
+      net_referrer_policy = net::URLRequest::NEVER_CLEAR_REFERRER;
+      break;
+  }
+  request->set_referrer_policy(net_referrer_policy);
+}
+
+COMPILE_ASSERT(std::numeric_limits<double>::has_quiet_NaN, has_quiet_NaN);
 
 } // namespace webkit_glue

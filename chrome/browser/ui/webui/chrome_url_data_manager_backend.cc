@@ -10,8 +10,10 @@
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
+#include "base/debug/trace_event.h"
 #include "base/file_util.h"
 #include "base/lazy_instance.h"
+#include "base/memory/ref_counted.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/memory/weak_ptr.h"
 #include "base/message_loop.h"
@@ -29,6 +31,7 @@
 #include "net/base/net_errors.h"
 #include "net/http/http_response_headers.h"
 #include "net/url_request/url_request.h"
+#include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_file_job.h"
 #include "net/url_request/url_request_job.h"
 #include "net/url_request/url_request_job_factory.h"
@@ -76,9 +79,6 @@ class ChromeURLContentSecurityPolicyExceptionSet
     insert(chrome::kChromeUIRegisterPageHost);
     insert(chrome::kChromeUISimUnlockHost);
     insert(chrome::kChromeUISystemInfoHost);
-#endif
-#if defined(USE_VIRTUAL_KEYBOARD)
-    insert(chrome::kChromeUIKeyboardHost);
 #endif
 #if defined(OS_CHROMEOS) || defined(USE_AURA)
     insert(chrome::kChromeUICollectedCookiesHost);
@@ -158,7 +158,8 @@ void URLToRequest(const GURL& url, std::string* source_name,
 // chrome-internal resource requests asynchronously.
 // It hands off URL requests to ChromeURLDataManager, which asynchronously
 // calls back once the data is available.
-class URLRequestChromeJob : public net::URLRequestJob {
+class URLRequestChromeJob : public net::URLRequestJob,
+                            public base::SupportsWeakPtr<URLRequestChromeJob> {
  public:
   URLRequestChromeJob(net::URLRequest* request,
                       ChromeURLDataManagerBackend* backend);
@@ -172,12 +173,19 @@ class URLRequestChromeJob : public net::URLRequestJob {
   virtual bool GetMimeType(std::string* mime_type) const OVERRIDE;
   virtual void GetResponseInfo(net::HttpResponseInfo* info) OVERRIDE;
 
+  // Used to notify that the requested data's |mime_type| is ready.
+  void MimeTypeAvailable(const std::string& mime_type);
+
   // Called by ChromeURLDataManager to notify us that the data blob is ready
   // for us.
-  void DataAvailable(RefCountedMemory* bytes);
+  void DataAvailable(base::RefCountedMemory* bytes);
 
-  void SetMimeType(const std::string& mime_type) {
+  void set_mime_type(const std::string& mime_type) {
     mime_type_ = mime_type;
+  }
+
+  void set_allow_caching(bool allow_caching) {
+    allow_caching_ = allow_caching;
   }
 
  private:
@@ -192,7 +200,7 @@ class URLRequestChromeJob : public net::URLRequestJob {
   void CompleteRead(net::IOBuffer* buf, int buf_size, int* bytes_read);
 
   // The actual data we're serving.  NULL until it's been fetched.
-  scoped_refptr<RefCountedMemory> data_;
+  scoped_refptr<base::RefCountedMemory> data_;
   // The current offset into the data that we're handing off to our
   // callers via the Read interfaces.
   int data_offset_;
@@ -202,6 +210,9 @@ class URLRequestChromeJob : public net::URLRequestJob {
   scoped_refptr<net::IOBuffer> pending_buf_;
   int pending_buf_size_;
   std::string mime_type_;
+
+  // If true, set a header in the response to prevent it from being cached.
+  bool allow_caching_;
 
   // The backend is owned by ChromeURLRequestContext and always outlives us.
   ChromeURLDataManagerBackend* backend_;
@@ -213,9 +224,10 @@ class URLRequestChromeJob : public net::URLRequestJob {
 
 URLRequestChromeJob::URLRequestChromeJob(net::URLRequest* request,
                                          ChromeURLDataManagerBackend* backend)
-    : net::URLRequestJob(request),
+    : net::URLRequestJob(request, request->context()->network_delegate()),
       data_offset_(0),
       pending_buf_size_(0),
+      allow_caching_(true),
       backend_(backend),
       ALLOW_THIS_IN_INITIALIZER_LIST(weak_factory_(this)) {
   DCHECK(backend);
@@ -232,6 +244,9 @@ void URLRequestChromeJob::Start() {
       FROM_HERE,
       base::Bind(&URLRequestChromeJob::StartAsync,
                  weak_factory_.GetWeakPtr()));
+
+  TRACE_EVENT_ASYNC_BEGIN1("browser", "DataManager:Request", this, "URL",
+      request_->url().possibly_invalid_spec());
 }
 
 void URLRequestChromeJob::Kill() {
@@ -250,9 +265,17 @@ void URLRequestChromeJob::GetResponseInfo(net::HttpResponseInfo* info) {
   // indistiguishable from other error types. Instant relies on getting a 200.
   info->headers = new net::HttpResponseHeaders("HTTP/1.1 200 OK");
   AddContentSecurityPolicyHeader(request_->url(), info->headers);
+  if (!allow_caching_)
+    info->headers->AddHeader("Cache-Control: no-cache");
 }
 
-void URLRequestChromeJob::DataAvailable(RefCountedMemory* bytes) {
+void URLRequestChromeJob::MimeTypeAvailable(const std::string& mime_type) {
+  set_mime_type(mime_type);
+  NotifyHeadersComplete();
+}
+
+void URLRequestChromeJob::DataAvailable(base::RefCountedMemory* bytes) {
+  TRACE_EVENT_ASYNC_END0("browser", "DataManager:Request", this);
   if (bytes) {
     // The request completed, and we have all the data.
     // Clear any IO pending status.
@@ -305,13 +328,29 @@ void URLRequestChromeJob::StartAsync() {
   if (!request_)
     return;
 
-  if (backend_->StartRequest(request_->url(), this)) {
-    NotifyHeadersComplete();
-  } else {
+  if (!backend_->StartRequest(request_->url(), this)) {
     NotifyStartError(net::URLRequestStatus(net::URLRequestStatus::FAILED,
                                            net::ERR_INVALID_URL));
   }
 }
+
+namespace {
+
+// Gets mime type for data that is available from |source| by |path|.
+// After that, notifies |job| that mime type is available. This method
+// should be called on the UI thread, but notification is performed on
+// the IO thread.
+void GetMimeTypeOnUI(ChromeURLDataManager::DataSource* source,
+                     const std::string& path,
+                     const base::WeakPtr<URLRequestChromeJob>& job) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  std::string mime_type = source->GetMimeType(path);
+  BrowserThread::PostTask(
+      BrowserThread::IO, FROM_HERE,
+      base::Bind(&URLRequestChromeJob::MimeTypeAvailable, job, mime_type));
+}
+
+}  // namespace
 
 namespace {
 
@@ -409,10 +448,7 @@ bool ChromeURLDataManagerBackend::StartRequest(const GURL& url,
   RequestID request_id = next_request_id_++;
   pending_requests_.insert(std::make_pair(request_id, job));
 
-  // TODO(eroman): would be nicer if the mimetype were set at the same time
-  // as the data blob. For now do it here, since NotifyHeadersComplete() is
-  // going to get called once we return.
-  job->SetMimeType(source->GetMimeType(path));
+  job->set_allow_caching(source->AllowCaching());
 
   const ChromeURLRequestContext* context =
       static_cast<const ChromeURLRequestContext*>(job->request()->context());
@@ -420,11 +456,23 @@ bool ChromeURLDataManagerBackend::StartRequest(const GURL& url,
   // Forward along the request to the data source.
   MessageLoop* target_message_loop = source->MessageLoopForRequestPath(path);
   if (!target_message_loop) {
+    job->MimeTypeAvailable(source->GetMimeType(path));
+
     // The DataSource is agnostic to which thread StartDataRequest is called
     // on for this path.  Call directly into it from this thread, the IO
     // thread.
     source->StartDataRequest(path, context->is_incognito(), request_id);
   } else {
+    // URLRequestChromeJob should receive mime type before data. This
+    // is guaranteed because request for mime type is placed in the
+    // message loop before request for data. And correspondingly their
+    // replies are put on the IO thread in the same order.
+    target_message_loop->PostTask(
+        FROM_HERE,
+        base::Bind(&GetMimeTypeOnUI,
+                   scoped_refptr<ChromeURLDataManager::DataSource>(source),
+                   path, job->AsWeakPtr()));
+
     // The DataSource wants StartDataRequest to be called on a specific thread,
     // usually the UI thread, for this path.
     target_message_loop->PostTask(
@@ -449,7 +497,7 @@ void ChromeURLDataManagerBackend::RemoveRequest(URLRequestChromeJob* job) {
 }
 
 void ChromeURLDataManagerBackend::DataAvailable(RequestID request_id,
-                                                RefCountedMemory* bytes) {
+                                                base::RefCountedMemory* bytes) {
   // Forward this data on to the pending net::URLRequest, if it exists.
   PendingRequestMap::iterator i = pending_requests_.find(request_id);
   if (i != pending_requests_.end()) {

@@ -1,15 +1,18 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CONTENT_PUBLIC_RENDERER_RENDER_VIEW_OBSERVER_H_
 #define CONTENT_PUBLIC_RENDERER_RENDER_VIEW_OBSERVER_H_
-#pragma once
 
 #include "base/basictypes.h"
+#include "base/compiler_specific.h"
 #include "content/common/content_export.h"
-#include "ipc/ipc_channel.h"
+#include "ipc/ipc_listener.h"
+#include "ipc/ipc_sender.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebIconURL.h"
+
+class RenderViewImpl;
 
 namespace WebKit {
 class WebDataSource;
@@ -29,8 +32,8 @@ class RenderView;
 
 // Base class for objects that want to filter incoming IPCs, and also get
 // notified of changes to the frame.
-class CONTENT_EXPORT RenderViewObserver : public IPC::Channel::Listener,
-                                          public IPC::Message::Sender {
+class CONTENT_EXPORT RenderViewObserver : public IPC::Listener,
+                                          public IPC::Sender {
  public:
   // By default, observers will be deleted when the RenderView goes away.  If
   // they want to outlive it, they can override this function.
@@ -68,6 +71,8 @@ class CONTENT_EXPORT RenderViewObserver : public IPC::Channel::Listener,
   virtual void FocusedNodeChanged(const WebKit::WebNode& node) {}
   virtual void WillCreateMediaPlayer(WebKit::WebFrame* frame,
                                      WebKit::WebMediaPlayerClient* client) {}
+  virtual void ZoomLevelChanged() {};
+  virtual void DidChangeScrollOffset(WebKit::WebFrame* frame) {}
 
   // These match the RenderView methods.
   virtual void DidHandleMouseEvent(const WebKit::WebMouseEvent& event) {}
@@ -78,24 +83,26 @@ class CONTENT_EXPORT RenderViewObserver : public IPC::Channel::Listener,
   virtual void Navigate(const GURL& url) {}
   virtual void ClosePage() {}
 
-  // IPC::Channel::Listener implementation.
+  // IPC::Listener implementation.
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
-
-  // This is called by the RenderView when it's going away so that this object
-  // can null out its pointer.
-  void RenderViewGone();
 
  protected:
   explicit RenderViewObserver(RenderView* render_view);
   virtual ~RenderViewObserver();
 
-  // IPC::Message::Sender implementation.
+  // IPC::Sender implementation.
   virtual bool Send(IPC::Message* message) OVERRIDE;
 
   RenderView* render_view();
   int routing_id() { return routing_id_; }
 
  private:
+  friend class ::RenderViewImpl;
+
+  // This is called by the RenderView when it's going away so that this object
+  // can null out its pointer.
+  void RenderViewGone();
+
   RenderView* render_view_;
   // The routing ID of the associated RenderView.
   int routing_id_;

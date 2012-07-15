@@ -4,7 +4,12 @@
 
 #include "chrome/app/hard_error_handler_win.h"
 
-#include <delayimp.h>
+#if defined(_WIN32_WINNT_WIN8)
+// The Windows 8 SDK defines FACILITY_VISUALCPP in winerror.h.
+#undef FACILITY_VISUALCPP
+#endif
+#include <DelayIMP.h>
+
 #include <ntsecapi.h>
 #include <string>
 

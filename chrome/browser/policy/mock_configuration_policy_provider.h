@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_POLICY_MOCK_CONFIGURATION_POLICY_PROVIDER_H_
 #define CHROME_BROWSER_POLICY_MOCK_CONFIGURATION_POLICY_PROVIDER_H_
-#pragma once
 
 #include "chrome/browser/policy/configuration_policy_provider.h"
 #include "chrome/browser/policy/policy_map.h"
@@ -19,24 +18,15 @@ class MockConfigurationPolicyProvider : public ConfigurationPolicyProvider {
   MockConfigurationPolicyProvider();
   virtual ~MockConfigurationPolicyProvider();
 
-  void AddMandatoryPolicy(const std::string& policy, Value* value);
-  void AddRecommendedPolicy(const std::string& policy, Value* value);
-  void RemovePolicy(const std::string& policy);
-
-  void SetInitializationComplete(bool initialization_complete);
-
-  // ConfigurationPolicyProvider method overrides.
-  virtual bool ProvideInternal(PolicyMap* policies) OVERRIDE;
-  virtual bool IsInitializationComplete() const OVERRIDE;
-  virtual void RefreshPolicies() OVERRIDE;
+  MOCK_CONST_METHOD0(IsInitializationComplete, bool());
+  MOCK_METHOD0(RefreshPolicies, void());
 
   // Make public for tests.
-  using ConfigurationPolicyProvider::NotifyPolicyUpdated;
+  using ConfigurationPolicyProvider::UpdatePolicy;
 
- private:
-
-  PolicyMap policy_map_;
-  bool initialization_complete_;
+  // Utility method that invokes UpdatePolicy() with a PolicyBundle that maps
+  // the Chrome namespace to a copy of |policy|.
+  void UpdateChromePolicy(const PolicyMap& policy);
 };
 
 class MockConfigurationPolicyObserver

@@ -62,6 +62,8 @@ cr.define('cr.ui', function() {
      * @private
      */
     showContentAt_: function(pos, content, attachment) {
+      this.style.top = this.style.left = this.style.right = this.style.bottom =
+          'auto';
       for (var k in pos) {
         if (typeof pos[k] == 'number')
           this.style[k] = pos[k] + 'px';
@@ -83,7 +85,7 @@ cr.define('cr.ui', function() {
      *     left (for vertical attachment) or top (for horizontal attachment)
      *     side of the element. If not specified, the bubble is positioned to
      *     be aligned with the left/top side of the element but not farther than
-     *     half of it's weight/height.
+     *     half of its weight/height.
      * @param {number=} opt_padding Optional padding of the bubble.
      * @public
      */
@@ -156,7 +158,7 @@ cr.define('cr.ui', function() {
      *     left (for vertical attachment) or top (for horizontal attachment)
      *     side of the element. If not specified, the bubble is positioned to
      *     be aligned with the left/top side of the element but not farther than
-     *     half of it's weight/height.
+     *     half of its weight/height.
      * @param {number=} opt_padding Optional padding of the bubble.
      * @public
      */

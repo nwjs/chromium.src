@@ -4,11 +4,10 @@
 
 #ifndef CHROME_BROWSER_SYNC_GLUE_FAKE_GENERIC_CHANGE_PROCESSOR_H_
 #define CHROME_BROWSER_SYNC_GLUE_FAKE_GENERIC_CHANGE_PROCESSOR_H_
-#pragma once
 
 #include "chrome/browser/sync/glue/generic_change_processor.h"
 
-#include "chrome/browser/sync/api/sync_error.h"
+#include "sync/api/sync_error.h"
 
 namespace browser_sync {
 
@@ -19,29 +18,30 @@ class FakeGenericChangeProcessor : public GenericChangeProcessor {
   virtual ~FakeGenericChangeProcessor();
 
   // Setters for GenericChangeProcessor implementation results.
-  void set_process_sync_changes_error(const SyncError& error);
-  void set_get_sync_data_for_type_error(const SyncError& error);
+  void set_process_sync_changes_error(const syncer::SyncError& error);
+  void set_get_sync_data_for_type_error(const syncer::SyncError& error);
   void set_sync_model_has_user_created_nodes(bool has_nodes);
   void set_sync_model_has_user_created_nodes_success(bool success);
   void set_crypto_ready_if_necessary(bool crypto_ready);
 
   // GenericChangeProcessor implementations.
-  virtual SyncError ProcessSyncChanges(
+  virtual syncer::SyncError ProcessSyncChanges(
       const tracked_objects::Location& from_here,
-      const SyncChangeList& change_list) OVERRIDE;
-  virtual SyncError GetSyncDataForType(
-      syncable::ModelType type, SyncDataList* current_sync_data) OVERRIDE;
-  virtual bool SyncModelHasUserCreatedNodes(syncable::ModelType type,
+      const syncer::SyncChangeList& change_list) OVERRIDE;
+  virtual syncer::SyncError GetSyncDataForType(
+      syncer::ModelType type,
+      syncer::SyncDataList* current_sync_data) OVERRIDE;
+  virtual bool SyncModelHasUserCreatedNodes(syncer::ModelType type,
                                             bool* has_nodes) OVERRIDE;
-  virtual bool CryptoReadyIfNecessary(syncable::ModelType type) OVERRIDE;
+  virtual bool CryptoReadyIfNecessary(syncer::ModelType type) OVERRIDE;
 
  private:
-  SyncError process_sync_changes_error_;
-  SyncError get_sync_data_for_type_error_;
+  syncer::SyncError process_sync_changes_error_;
+  syncer::SyncError get_sync_data_for_type_error_;
   bool sync_model_has_user_created_nodes_;
   bool sync_model_has_user_created_nodes_success_;
   bool crypto_ready_if_necessary_;
-  syncable::ModelType type_;
+  syncer::ModelType type_;
 };
 
 }  // namespace browser_sync

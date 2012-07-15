@@ -15,6 +15,7 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebFileSystem.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebFileSystemCallbacks.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebString.h"
+#include "webkit/fileapi/file_system_util.h"
 #include "webkit/glue/webkit_glue.h"
 
 using WebKit::WebFileInfo;
@@ -36,14 +37,8 @@ void WebFileSystemCallbackDispatcher::DidSucceed() {
 void WebFileSystemCallbackDispatcher::DidReadMetadata(
     const base::PlatformFileInfo& file_info, const FilePath& platform_path) {
   WebFileInfo web_file_info;
-  web_file_info.modificationTime = file_info.last_modified.ToDoubleT();
-  web_file_info.length = file_info.size;
-  if (file_info.is_directory)
-    web_file_info.type = WebFileInfo::TypeDirectory;
-  else
-    web_file_info.type = WebFileInfo::TypeFile;
-  web_file_info.platformPath =
-    webkit_glue::FilePathToWebString(platform_path);
+  webkit_glue::PlatformFileInfoToWebFileInfo(file_info, &web_file_info);
+  web_file_info.platformPath = webkit_glue::FilePathToWebString(platform_path);
   callbacks_->didReadMetadata(web_file_info);
 }
 
@@ -66,7 +61,7 @@ void WebFileSystemCallbackDispatcher::DidOpenFileSystem(
 void WebFileSystemCallbackDispatcher::DidFail(
     base::PlatformFileError error_code) {
     callbacks_->didFail(
-        webkit_glue::PlatformFileErrorToWebFileError(error_code));
+        fileapi::PlatformFileErrorToWebFileError(error_code));
 }
 
 void WebFileSystemCallbackDispatcher::DidWrite(int64 bytes, bool complete) {

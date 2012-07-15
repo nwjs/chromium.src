@@ -10,12 +10,14 @@
 #include "base/scoped_temp_dir.h"
 #include "base/stl_util.h"
 #include "base/test/thread_test_helper.h"
+#include "chrome/browser/net/clear_on_exit_policy.h"
 #include "chrome/browser/net/sqlite_server_bound_cert_store.h"
 #include "chrome/common/chrome_constants.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "net/base/cert_test_util.h"
 #include "sql/statement.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "webkit/quota/mock_special_storage_policy.h"
 
 using content::BrowserThread;
 
@@ -61,7 +63,7 @@ class SQLiteServerBoundCertStoreTest : public testing::Test {
     db_thread_.Start();
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
     store_ = new SQLiteServerBoundCertStore(
-        temp_dir_.path().Append(chrome::kOBCertFilename));
+        temp_dir_.path().Append(chrome::kOBCertFilename), NULL);
     ScopedVector<net::DefaultServerBoundCertStore::ServerBoundCert> certs;
     ASSERT_TRUE(store_->Load(&certs.get()));
     ASSERT_EQ(0u, certs.size());
@@ -80,37 +82,6 @@ class SQLiteServerBoundCertStoreTest : public testing::Test {
   scoped_refptr<SQLiteServerBoundCertStore> store_;
 };
 
-TEST_F(SQLiteServerBoundCertStoreTest, KeepOnDestruction) {
-  store_->SetClearLocalStateOnExit(false);
-  store_ = NULL;
-  // Make sure we wait until the destructor has run.
-  scoped_refptr<base::ThreadTestHelper> helper(
-      new base::ThreadTestHelper(
-          BrowserThread::GetMessageLoopProxyForThread(BrowserThread::DB)));
-  ASSERT_TRUE(helper->Run());
-
-  ASSERT_TRUE(file_util::PathExists(
-      temp_dir_.path().Append(chrome::kOBCertFilename)));
-  ASSERT_TRUE(file_util::Delete(
-      temp_dir_.path().Append(chrome::kOBCertFilename), false));
-}
-
-TEST_F(SQLiteServerBoundCertStoreTest, RemoveOnDestruction) {
-  store_->SetClearLocalStateOnExit(true);
-  // Replace the store effectively destroying the current one and forcing it
-  // to write it's data to disk. Then we can see if after loading it again it
-  // is still there.
-  store_ = NULL;
-  // Make sure we wait until the destructor has run.
-  scoped_refptr<base::ThreadTestHelper> helper(
-      new base::ThreadTestHelper(
-          BrowserThread::GetMessageLoopProxyForThread(BrowserThread::DB)));
-  ASSERT_TRUE(helper->Run());
-
-  ASSERT_FALSE(file_util::PathExists(
-      temp_dir_.path().Append(chrome::kOBCertFilename)));
-}
-
 // Test if data is stored as expected in the SQLite database.
 TEST_F(SQLiteServerBoundCertStoreTest, TestPersistence) {
   store_->AddServerBoundCert(
@@ -123,7 +94,7 @@ TEST_F(SQLiteServerBoundCertStoreTest, TestPersistence) {
 
   ScopedVector<net::DefaultServerBoundCertStore::ServerBoundCert> certs;
   // Replace the store effectively destroying the current one and forcing it
-  // to write it's data to disk. Then we can see if after loading it again it
+  // to write its data to disk. Then we can see if after loading it again it
   // is still there.
   store_ = NULL;
   scoped_refptr<base::ThreadTestHelper> helper(
@@ -132,7 +103,7 @@ TEST_F(SQLiteServerBoundCertStoreTest, TestPersistence) {
   // Make sure we wait until the destructor has run.
   ASSERT_TRUE(helper->Run());
   store_ = new SQLiteServerBoundCertStore(
-      temp_dir_.path().Append(chrome::kOBCertFilename));
+      temp_dir_.path().Append(chrome::kOBCertFilename), NULL);
 
   // Reload and test for persistence
   ASSERT_TRUE(store_->Load(&certs.get()));
@@ -165,9 +136,9 @@ TEST_F(SQLiteServerBoundCertStoreTest, TestPersistence) {
   store_ = NULL;
   // Make sure we wait until the destructor has run.
   ASSERT_TRUE(helper->Run());
-  certs.reset();
+  certs.clear();
   store_ = new SQLiteServerBoundCertStore(
-      temp_dir_.path().Append(chrome::kOBCertFilename));
+      temp_dir_.path().Append(chrome::kOBCertFilename), NULL);
 
   // Reload and check if the cert has been removed.
   ASSERT_TRUE(store_->Load(&certs.get()));
@@ -218,7 +189,7 @@ TEST_F(SQLiteServerBoundCertStoreTest, TestUpgradeV1) {
     SCOPED_TRACE(i);
 
     ScopedVector<net::DefaultServerBoundCertStore::ServerBoundCert> certs;
-    store_ = new SQLiteServerBoundCertStore(v1_db_path);
+    store_ = new SQLiteServerBoundCertStore(v1_db_path, NULL);
 
     // Load the database and ensure the certs can be read and are marked as RSA.
     ASSERT_TRUE(store_->Load(&certs.get()));
@@ -306,7 +277,7 @@ TEST_F(SQLiteServerBoundCertStoreTest, TestUpgradeV2) {
     SCOPED_TRACE(i);
 
     ScopedVector<net::DefaultServerBoundCertStore::ServerBoundCert> certs;
-    store_ = new SQLiteServerBoundCertStore(v2_db_path);
+    store_ = new SQLiteServerBoundCertStore(v2_db_path, NULL);
 
     // Load the database and ensure the certs can be read and are marked as RSA.
     ASSERT_TRUE(store_->Load(&certs.get()));
@@ -396,7 +367,7 @@ TEST_F(SQLiteServerBoundCertStoreTest, TestUpgradeV3) {
     SCOPED_TRACE(i);
 
     ScopedVector<net::DefaultServerBoundCertStore::ServerBoundCert> certs;
-    store_ = new SQLiteServerBoundCertStore(v3_db_path);
+    store_ = new SQLiteServerBoundCertStore(v3_db_path, NULL);
 
     // Load the database and ensure the certs can be read and are marked as RSA.
     ASSERT_TRUE(store_->Load(&certs.get()));
@@ -489,6 +460,8 @@ class CallbackCounter : public base::RefCountedThreadSafe<CallbackCounter> {
 
  private:
   friend class base::RefCountedThreadSafe<CallbackCounter>;
+  ~CallbackCounter() {}
+
   volatile int callback_count_;
 };
 
@@ -507,4 +480,118 @@ TEST_F(SQLiteServerBoundCertStoreTest, TestFlushCompletionCallback) {
   ASSERT_TRUE(helper->Run());
 
   ASSERT_EQ(1, counter->callback_count());
+}
+
+namespace {
+
+bool CertificateExistsInList(
+    std::vector<net::DefaultServerBoundCertStore::ServerBoundCert*>* certs,
+    const std::string& server,
+    int type,
+    const std::string& key,
+    const std::string& cert,
+    int creation_time,
+    int expiration_time) {
+  for (unsigned i = 0; i < certs->size(); ++i) {
+    if ((*certs)[i]->server_identifier() == server &&
+        (*certs)[i]->type() == type &&
+        (*certs)[i]->private_key() == key &&
+        (*certs)[i]->cert() == cert &&
+        (*certs)[i]->creation_time().ToInternalValue() == creation_time &&
+        (*certs)[i]->expiration_time().ToInternalValue() == expiration_time) {
+      return true;
+    }
+  }
+  return false;
+}
+
+}  // namespace
+
+// Tests the interaction with the clear on exit policy.
+TEST_F(SQLiteServerBoundCertStoreTest, TestClearOnExitPolicy) {
+  // Create a new store with three certificates in it.
+  store_ = new SQLiteServerBoundCertStore(
+      temp_dir_.path().AppendASCII("ClearOnExitDB"), NULL);
+
+  ScopedVector<net::DefaultServerBoundCertStore::ServerBoundCert> certs;
+  ASSERT_TRUE(store_->Load(&certs.get()));
+  ASSERT_EQ(0U, certs.size());
+
+  store_->AddServerBoundCert(
+      net::DefaultServerBoundCertStore::ServerBoundCert(
+          "other.com",
+          net::CLIENT_CERT_RSA_SIGN,
+          base::Time::FromInternalValue(1),
+          base::Time::FromInternalValue(2),
+          "a", "b"));
+  store_->AddServerBoundCert(
+      net::DefaultServerBoundCertStore::ServerBoundCert(
+          "session.com",
+          net::CLIENT_CERT_RSA_SIGN,
+          base::Time::FromInternalValue(3),
+          base::Time::FromInternalValue(4),
+          "x", "y"));
+  store_->AddServerBoundCert(
+      net::DefaultServerBoundCertStore::ServerBoundCert(
+          "protected.com",
+          net::CLIENT_CERT_RSA_SIGN,
+          base::Time::FromInternalValue(5),
+          base::Time::FromInternalValue(6),
+          "n", "m"));
+
+  // Write out the certificates to disk.
+  store_ = NULL;
+  scoped_refptr<base::ThreadTestHelper> helper(
+      new base::ThreadTestHelper(
+          BrowserThread::GetMessageLoopProxyForThread(BrowserThread::DB)));
+  ASSERT_TRUE(helper->Run());
+
+  // Load the store again with a clear on exit policy.
+  scoped_refptr<quota::MockSpecialStoragePolicy> storage_policy =
+      new quota::MockSpecialStoragePolicy;
+  scoped_refptr<ClearOnExitPolicy> clear_policy =
+      new ClearOnExitPolicy(storage_policy.get());
+  storage_policy->AddSessionOnly(GURL("https://session.com"));
+  storage_policy->AddSessionOnly(GURL("https://protected.com"));
+  storage_policy->AddProtected(GURL("https://protected.com"));
+  store_ = new SQLiteServerBoundCertStore(
+      temp_dir_.path().AppendASCII("ClearOnExitDB"), clear_policy.get());
+  ASSERT_TRUE(store_->Load(&certs.get()));
+  ASSERT_EQ(3U, certs.size());
+
+  // We've put a exit policy in place, but force the state to be saved.
+  store_->SetForceKeepSessionState();
+  store_ = NULL;
+  ASSERT_TRUE(helper->Run());
+
+  // Reload the store and check that the certs are still there.
+  store_ = new SQLiteServerBoundCertStore(
+      temp_dir_.path().AppendASCII("ClearOnExitDB"), clear_policy.get());
+
+  // Reload and test for persistence
+  certs.clear();
+  ASSERT_TRUE(store_->Load(&certs.get()));
+  ASSERT_EQ(3U, certs.size());
+
+  // Delete the store. This time, the exit policy should be in place.
+  store_ = NULL;
+  // Make sure we wait until the destructor has run.
+  ASSERT_TRUE(helper->Run());
+
+  store_ = new SQLiteServerBoundCertStore(
+      temp_dir_.path().AppendASCII("ClearOnExitDB"), clear_policy.get());
+
+  // Reload and test for persistence
+  certs.clear();
+  ASSERT_TRUE(store_->Load(&certs.get()));
+  ASSERT_EQ(2U, certs.size());
+
+  ASSERT_TRUE(CertificateExistsInList(&certs.get(),
+                                      "other.com",
+                                      net::CLIENT_CERT_RSA_SIGN,
+                                      "a", "b", 1, 2));
+  ASSERT_TRUE(CertificateExistsInList(&certs.get(),
+                                      "protected.com",
+                                      net::CLIENT_CERT_RSA_SIGN,
+                                      "n", "m", 5, 6));
 }

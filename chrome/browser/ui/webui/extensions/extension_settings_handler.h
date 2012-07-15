@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_WEBUI_EXTENSIONS_EXTENSION_SETTINGS_HANDLER_H_
 #define CHROME_BROWSER_UI_WEBUI_EXTENSIONS_EXTENSION_SETTINGS_HANDLER_H_
-#pragma once
 
 #include <set>
 #include <string>
@@ -14,23 +13,30 @@
 #include "chrome/browser/extensions/extension_install_ui.h"
 #include "chrome/browser/extensions/extension_uninstall_dialog.h"
 #include "chrome/browser/extensions/extension_warning_set.h"
+#include "chrome/browser/prefs/pref_change_registrar.h"
 #include "chrome/browser/ui/select_file_dialog.h"
 #include "chrome/common/extensions/extension_resource.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/render_view_host.h"
+#include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_ui_message_handler.h"
 #include "googleurl/src/gurl.h"
 
-class Extension;
+class ExtensionHost;
 class ExtensionService;
 class FilePath;
 class PrefService;
-class UserScript;
 
 namespace base {
 class DictionaryValue;
 class ListValue;
+}
+
+namespace extensions {
+class Extension;
+class ManagementPolicy;
 }
 
 // Information about a page running in an extension, for example a popup bubble,
@@ -38,10 +44,10 @@ class ListValue;
 struct ExtensionPage {
   ExtensionPage(const GURL& url, int render_process_id, int render_view_id,
                 bool incognito)
-    : url(url),
-      render_process_id(render_process_id),
-      render_view_id(render_view_id),
-      incognito(incognito) {}
+      : url(url),
+        render_process_id(render_process_id),
+        render_view_id(render_view_id),
+        incognito(incognito) {}
   GURL url;
   int render_process_id;
   int render_view_id;
@@ -51,6 +57,7 @@ struct ExtensionPage {
 // Extension Settings UI handler.
 class ExtensionSettingsHandler : public content::WebUIMessageHandler,
                                  public content::NotificationObserver,
+                                 public content::WebContentsObserver,
                                  public SelectFileDialog::Listener,
                                  public ExtensionUninstallDialog::Delegate {
  public:
@@ -59,19 +66,29 @@ class ExtensionSettingsHandler : public content::WebUIMessageHandler,
 
   static void RegisterUserPrefs(PrefService* prefs);
 
-  // Extension Detail JSON Struct for page. (static for ease of testing).
-  // Note: |service| and |warnings| can be NULL in unit tests.
-  static base::DictionaryValue* CreateExtensionDetailValue(
-      ExtensionService* service,
-      const Extension* extension,
+  // Extension Detail JSON Struct for page. |pages| is injected for unit
+  // testing.
+  // Note: |warning_set| can be NULL in unit tests.
+  base::DictionaryValue* CreateExtensionDetailValue(
+      const extensions::Extension* extension,
       const std::vector<ExtensionPage>& pages,
-      const ExtensionWarningSet* warnings,
-      bool enabled,
-      bool terminated);
+      const ExtensionWarningSet* warning_set);
 
   void GetLocalizedValues(base::DictionaryValue* localized_strings);
 
+  // content::WebContentsObserver implementation, which reloads all unpacked
+  // extensions whenever chrome://extensions is reloaded.
+  virtual void NavigateToPendingEntry(
+      const GURL& url,
+      content::NavigationController::ReloadType reload_type) OVERRIDE;
+
  private:
+  friend class ExtensionUITest;
+
+  // Allows injection for testing by friend classes.
+  ExtensionSettingsHandler(ExtensionService* service,
+                           extensions::ManagementPolicy* policy);
+
   // WebUIMessageHandler implementation.
   virtual void RegisterMessages() OVERRIDE;
 
@@ -91,6 +108,9 @@ class ExtensionSettingsHandler : public content::WebUIMessageHandler,
   // notification about uninstall confirmation dialog selections.
   virtual void ExtensionUninstallAccepted() OVERRIDE;
   virtual void ExtensionUninstallCanceled() OVERRIDE;
+
+  // Helper method that reloads all unpacked extensions.
+  void ReloadUnpackedExtensions();
 
   // Callback for "requestExtensionsData" message.
   void HandleRequestExtensionsData(const base::ListValue* args);
@@ -132,7 +152,8 @@ class ExtensionSettingsHandler : public content::WebUIMessageHandler,
   void ShowAlert(const std::string& message);
 
   // Utility for callbacks that get an extension ID as the sole argument.
-  const Extension* GetExtension(const base::ListValue* args);
+  // Returns NULL if the extension isn't active.
+  const extensions::Extension* GetActiveExtension(const base::ListValue* args);
 
   // Forces a UI update if appropriate after a notification is received.
   void MaybeUpdateAfterNotification();
@@ -140,10 +161,10 @@ class ExtensionSettingsHandler : public content::WebUIMessageHandler,
   // Register for notifications that we need to reload the page.
   void MaybeRegisterForNotifications();
 
-  // Helper that lists the current active html pages for an extension.
-  std::vector<ExtensionPage> GetActivePagesForExtension(
-      const Extension* extension);
-  void GetActivePagesForExtensionProcess(
+  // Helper that lists the current inspectable html pages for an extension.
+  std::vector<ExtensionPage> GetInspectablePagesForExtension(
+      const extensions::Extension* extension, bool extension_is_enabled);
+  void GetInspectablePagesForExtensionProcess(
       const std::set<content::RenderViewHost*>& views,
       std::vector<ExtensionPage> *result);
 
@@ -151,11 +172,21 @@ class ExtensionSettingsHandler : public content::WebUIMessageHandler,
   // needed.
   ExtensionUninstallDialog* GetExtensionUninstallDialog();
 
+  // Helper to inspect an ExtensionHost after it has been loaded.
+  void InspectExtensionHost(ExtensionHost* host);
+
   // Our model.  Outlives us since it's owned by our containing profile.
   ExtensionService* extension_service_;
 
+  // A convenience member, filled once the extension_service_ is known.
+  extensions::ManagementPolicy* management_policy_;
+
   // Used to pick the directory when loading an extension.
   scoped_refptr<SelectFileDialog> load_extension_dialog_;
+
+  // Used to start the |load_extension_dialog_| in the last directory that was
+  // loaded.
+  FilePath last_unpacked_directory_;
 
   // Used to show confirmation UI for uninstalling extensions in incognito mode.
   scoped_ptr<ExtensionUninstallDialog> extension_uninstall_dialog_;
@@ -182,6 +213,9 @@ class ExtensionSettingsHandler : public content::WebUIMessageHandler,
   bool registered_for_notifications_;
 
   content::NotificationRegistrar registrar_;
+
+  PrefChangeRegistrar pref_registrar_;
+  PrefChangeRegistrar local_state_pref_registrar_;
 
   DISALLOW_COPY_AND_ASSIGN(ExtensionSettingsHandler);
 };

@@ -35,7 +35,6 @@
 #include "v8/include/v8.h"
 #include "webkit/appcache/web_application_cache_host_impl.h"
 #include "webkit/database/vfs_backend.h"
-#include "webkit/extensions/v8/gc_extension.h"
 #include "webkit/glue/simple_webmimeregistry_impl.h"
 #include "webkit/glue/webclipboard_impl.h"
 #include "webkit/glue/webkit_glue.h"
@@ -44,6 +43,7 @@
 #include "webkit/gpu/webgraphicscontext3d_in_process_impl.h"
 #include "webkit/plugins/npapi/plugin_list.h"
 #include "webkit/support/simple_database_system.h"
+#include "webkit/support/gc_extension.h"
 #include "webkit/support/test_webmessageportchannel.h"
 #include "webkit/support/webkit_support.h"
 #include "webkit/support/weburl_loader_mock_factory.h"
@@ -68,8 +68,10 @@
 
 using WebKit::WebScriptController;
 
-TestWebKitPlatformSupport::TestWebKitPlatformSupport(bool unit_test_mode)
-      : unit_test_mode_(unit_test_mode) {
+TestWebKitPlatformSupport::TestWebKitPlatformSupport(bool unit_test_mode,
+    WebKit::Platform* shadow_platform_delegate)
+    : unit_test_mode_(unit_test_mode),
+      shadow_platform_delegate_(shadow_platform_delegate) {
   v8::V8::SetCounterFunction(base::StatsTable::FindLocation);
 
   WebKit::initialize(this);
@@ -321,37 +323,70 @@ WebKit::WebString TestWebKitPlatformSupport::defaultLocale() {
 WebKit::WebStorageNamespace*
 TestWebKitPlatformSupport::createLocalStorageNamespace(
     const WebKit::WebString& path, unsigned quota) {
-#ifdef ENABLE_NEW_DOM_STORAGE_BACKEND
   return dom_storage_system_.CreateLocalStorageNamespace();
-#else
-  return WebKit::WebStorageNamespace::createLocalStorageNamespace(path, quota);
-#endif
 }
 
-void TestWebKitPlatformSupport::dispatchStorageEvent(
-    const WebKit::WebString& key,
-    const WebKit::WebString& old_value, const WebKit::WebString& new_value,
-    const WebKit::WebString& origin, const WebKit::WebURL& url,
-    bool is_local_storage) {
-  // All events are dispatched by the WebCore::StorageAreaProxy in the
-  // simple single process case.
-#ifdef ENABLE_NEW_DOM_STORAGE_BACKEND
-  NOTREACHED();
-#endif
-}
+// Wrap a WebKit::WebIDBFactory to rewrite the data directory to
+// a scoped temp directory. In multiprocess Chromium this is rewritten
+// to a real profile directory during IPC.
+class TestWebIDBFactory : public WebKit::WebIDBFactory {
+ public:
+  TestWebIDBFactory()
+      : factory_(WebKit::WebIDBFactory::create()) {
+    // Create a new temp directory for Indexed DB storage, specific to this
+    // factory. If this fails, WebKit uses in-memory storage.
+    if (!indexed_db_dir_.CreateUniqueTempDir()) {
+      LOG(WARNING) << "Failed to create a temp dir for Indexed DB, "
+          "using in-memory storage.";
+      DCHECK(indexed_db_dir_.path().empty());
+    }
+    data_dir_ = webkit_support::GetAbsoluteWebStringFromUTF8Path(
+      indexed_db_dir_.path().AsUTF8Unsafe());
+  }
+
+  virtual void getDatabaseNames(WebKit::WebIDBCallbacks* callbacks,
+                                const WebKit::WebSecurityOrigin& origin,
+                                WebKit::WebFrame* frame,
+                                const WebString& dataDir) {
+    factory_->getDatabaseNames(callbacks, origin, frame,
+                               dataDir.isEmpty() ? data_dir_ : dataDir);
+  }
+
+  virtual void open(const WebString& name,
+                    WebKit::WebIDBCallbacks* callbacks,
+                    const WebKit::WebSecurityOrigin& origin,
+                    WebKit::WebFrame* frame,
+                    const WebString& dataDir) {
+    factory_->open(name, callbacks, origin, frame,
+                   dataDir.isEmpty() ? data_dir_ : dataDir);
+  }
+
+  virtual void deleteDatabase(const WebString& name,
+                              WebKit::WebIDBCallbacks* callbacks,
+                              const WebKit::WebSecurityOrigin& origin,
+                              WebKit::WebFrame* frame,
+                              const WebString& dataDir) {
+    factory_->deleteDatabase(name, callbacks, origin, frame,
+                             dataDir.isEmpty() ? data_dir_ : dataDir);
+  }
+ private:
+  scoped_ptr<WebIDBFactory> factory_;
+  ScopedTempDir indexed_db_dir_;
+  WebString data_dir_;
+};
 
 WebKit::WebIDBFactory* TestWebKitPlatformSupport::idbFactory() {
-  return WebKit::WebIDBFactory::create();
+  return new TestWebIDBFactory();
 }
 
 void TestWebKitPlatformSupport::createIDBKeysFromSerializedValuesAndKeyPath(
       const WebKit::WebVector<WebKit::WebSerializedScriptValue>& values,
-      const WebKit::WebString& keyPath,
+      const WebKit::WebIDBKeyPath& keyPath,
       WebKit::WebVector<WebKit::WebIDBKey>& keys_out) {
   WebKit::WebVector<WebKit::WebIDBKey> keys(values.size());
   for (size_t i = 0; i < values.size(); ++i) {
     keys[i] = WebKit::WebIDBKey::createFromValueAndKeyPath(
-        values[i], WebKit::WebIDBKeyPath::create(keyPath));
+        values[i], keyPath);
   }
   keys_out.swap(keys);
 }
@@ -360,9 +395,9 @@ WebKit::WebSerializedScriptValue
 TestWebKitPlatformSupport::injectIDBKeyIntoSerializedValue(
     const WebKit::WebIDBKey& key,
     const WebKit::WebSerializedScriptValue& value,
-    const WebKit::WebString& keyPath) {
+    const WebKit::WebIDBKeyPath& keyPath) {
   return WebKit::WebIDBKey::injectIDBKeyIntoSerializedValue(
-      key, value, WebKit::WebIDBKeyPath::create(keyPath));
+      key, value, keyPath);
 }
 
 #if defined(OS_WIN) || defined(OS_MACOSX)
@@ -463,4 +498,14 @@ TestWebKitPlatformSupport::CreateWebSocketBridge(
     WebKit::WebSocketStreamHandle* handle,
     webkit_glue::WebSocketStreamHandleDelegate* delegate) {
   return SimpleSocketStreamBridge::Create(handle, delegate);
+}
+
+WebKit::WebMediaStreamCenter*
+TestWebKitPlatformSupport::createMediaStreamCenter(
+    WebKit::WebMediaStreamCenterClient* client) {
+  if (shadow_platform_delegate_)
+    return shadow_platform_delegate_->createMediaStreamCenter(client);
+  else
+    return webkit_glue::WebKitPlatformSupportImpl::createMediaStreamCenter(
+        client);
 }

@@ -17,8 +17,14 @@
 #if defined(USE_PULSEAUDIO)
 #include "media/audio/pulse/pulse_output.h"
 #endif
+#if defined(USE_CRAS)
+#include "media/audio/linux/cras_input.h"
+#include "media/audio/linux/cras_output.h"
+#endif
 #include "media/base/limits.h"
 #include "media/base/media_switches.h"
+
+namespace media {
 
 // Maximum number of output streams that can be open simultaneously.
 static const int kMaxOutputStreams = 50;
@@ -66,11 +72,20 @@ void AudioManagerLinux::UnMuteAll() {
 
 bool AudioManagerLinux::CanShowAudioInputSettings() {
   scoped_ptr<base::Environment> env(base::Environment::Create());
-  base::nix::DesktopEnvironment desktop = base::nix::GetDesktopEnvironment(
-      env.get());
-  return (desktop == base::nix::DESKTOP_ENVIRONMENT_GNOME ||
-          desktop == base::nix::DESKTOP_ENVIRONMENT_KDE3 ||
-          desktop == base::nix::DESKTOP_ENVIRONMENT_KDE4);
+
+  switch (base::nix::GetDesktopEnvironment(env.get())) {
+    case base::nix::DESKTOP_ENVIRONMENT_GNOME:
+    case base::nix::DESKTOP_ENVIRONMENT_KDE3:
+    case base::nix::DESKTOP_ENVIRONMENT_KDE4:
+      return true;
+    case base::nix::DESKTOP_ENVIRONMENT_OTHER:
+    case base::nix::DESKTOP_ENVIRONMENT_UNITY:
+    case base::nix::DESKTOP_ENVIRONMENT_XFCE:
+      return false;
+  }
+  // Unless GetDesktopEnvironment() badly misbehaves, this should never happen.
+  NOTREACHED();
+  return false;
 }
 
 void AudioManagerLinux::ShowAudioInputSettings() {
@@ -262,28 +277,34 @@ AudioInputStream* AudioManagerLinux::MakeLowLatencyInputStream(
 
 AudioOutputStream* AudioManagerLinux::MakeOutputStream(
     const AudioParameters& params) {
-  AudioOutputStream* stream = NULL;
-#if defined(USE_PULSEAUDIO)
-  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kUsePulseAudio)) {
-    stream = new PulseAudioOutputStream(params, this);
-  } else {
-#endif
-    std::string device_name = AlsaPcmOutputStream::kAutoSelectDevice;
-    if (CommandLine::ForCurrentProcess()->HasSwitch(
-            switches::kAlsaOutputDevice)) {
-      device_name = CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
-          switches::kAlsaOutputDevice);
-    }
-    stream = new AlsaPcmOutputStream(device_name, params, wrapper_.get(), this);
-#if defined(USE_PULSEAUDIO)
+#if defined(USE_CRAS)
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kUseCras)) {
+    return new CrasOutputStream(params, this);
   }
 #endif
-  DCHECK(stream);
-  return stream;
+
+#if defined(USE_PULSEAUDIO)
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kUsePulseAudio)) {
+    return new PulseAudioOutputStream(params, this);
+  }
+#endif
+
+  std::string device_name = AlsaPcmOutputStream::kAutoSelectDevice;
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kAlsaOutputDevice)) {
+    device_name = CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+        switches::kAlsaOutputDevice);
+  }
+  return new AlsaPcmOutputStream(device_name, params, wrapper_.get(), this);
 }
 
 AudioInputStream* AudioManagerLinux::MakeInputStream(
     const AudioParameters& params, const std::string& device_id) {
+#if defined(USE_CRAS)
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kUseCras)) {
+    return new CrasInputStream(params, this);
+  }
+#endif
 
   std::string device_name = (device_id == AudioManagerBase::kDefaultDeviceId) ?
       AlsaPcmInputStream::kAutoSelectDevice : device_id;
@@ -298,3 +319,5 @@ AudioInputStream* AudioManagerLinux::MakeInputStream(
 AudioManager* CreateAudioManager() {
   return new AudioManagerLinux();
 }
+
+}  // namespace media

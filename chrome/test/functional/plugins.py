@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (c) 2011 The Chromium Authors. All rights reserved.
+# Copyright (c) 2012 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -27,7 +27,7 @@ class PluginsTest(pyauto.PyUITest):
   def setUp(self):
     pyauto.PyUITest.setUp(self)
     self._flash_plugin_type = 'Plug-in'
-    if (self.IsChromeOS() and
+    if ((self.IsLinux() or self.IsWin()) and
         self.GetBrowserInfo()['properties']['branding'] == 'Google Chrome'):
       self._flash_plugin_type = 'Pepper Plugin'
 
@@ -206,7 +206,7 @@ class PluginsTest(pyauto.PyUITest):
                      msg='Plug-in not blocked.')
 
     # Add an exception to allow plugins on hulu.com.
-    self.SetPrefs(pyauto.kContentSettingsPatterns,
+    self.SetPrefs(pyauto.kContentSettingsPatternPairs,
                  {'[*.]hulu.com,*': {'plugins': 1}})
     self.AppendTab(pyauto.GURL('http://www.hulu.com'))
     self.assertTrue(self._GetPluginPID('Shockwave Flash'),
@@ -227,7 +227,7 @@ class PluginsTest(pyauto.PyUITest):
         msg='Expected Shockwave Flash plugin to die after killing')
 
     # Add an exception to block plugins on localhost.
-    self.SetPrefs(pyauto.kContentSettingsPatterns,
+    self.SetPrefs(pyauto.kContentSettingsPatternPairs,
                  {'[*.]hulu.com,*': {'plugins': 2}})
     self.GetBrowserWindow(0).GetTab(0).Reload()
     self.assertFalse(self._GetPluginPID('Shockwave Flash'),

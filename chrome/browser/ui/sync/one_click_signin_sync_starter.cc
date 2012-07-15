@@ -10,27 +10,35 @@
 #include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/browser/sync/profile_sync_service.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/sync/one_click_signin_histogram.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
 
 OneClickSigninSyncStarter::OneClickSigninSyncStarter(
-    Profile* profile,
+    Browser* browser,
     const std::string& session_index,
     const std::string& email,
     const std::string& password,
-    bool use_default_settings)
-    : profile_(profile),
-      signin_tracker_(profile, this),
-      use_default_settings_(use_default_settings) {
-  DCHECK(profile_);
+    StartSyncMode start_mode)
+    : browser_(browser),
+      signin_tracker_(browser_->profile(), this),
+      start_mode_(start_mode) {
+  DCHECK(browser_);
 
-  int action = use_default_settings ? one_click_signin::HISTOGRAM_WITH_DEFAULTS
-                                    : one_click_signin::HISTOGRAM_WITH_ADVANCED;
+  int action = start_mode_ == SYNC_WITH_DEFAULT_SETTINGS ?
+      one_click_signin::HISTOGRAM_WITH_DEFAULTS :
+      one_click_signin::HISTOGRAM_WITH_ADVANCED;
   UMA_HISTOGRAM_ENUMERATION("AutoLogin.Reverse", action,
                             one_click_signin::HISTOGRAM_MAX);
 
-  SigninManager* manager = SigninManagerFactory::GetForProfile(profile_);
+  ProfileSyncService* profile_sync_service =
+      ProfileSyncServiceFactory::GetForProfile(browser_->profile());
+  // Let the sync service know that setup is in progress so it doesn't start
+  // syncing until the user has finished any configuration.
+  profile_sync_service->SetSetupInProgress(true);
+  SigninManager* manager = SigninManagerFactory::GetForProfile(
+      browser_->profile());
   manager->StartSignInWithCredentials(session_index, email, password);
 }
 
@@ -42,20 +50,28 @@ void OneClickSigninSyncStarter::GaiaCredentialsValid() {
 
 void OneClickSigninSyncStarter::SigninFailed(
     const GoogleServiceAuthError& error) {
+  ProfileSyncService* profile_sync_service =
+      ProfileSyncServiceFactory::GetForProfile(browser_->profile());
+  profile_sync_service->SetSetupInProgress(false);
   delete this;
 }
 
 void OneClickSigninSyncStarter::SigninSuccess() {
   ProfileSyncService* profile_sync_service =
-      ProfileSyncServiceFactory::GetForProfile(profile_);
+      ProfileSyncServiceFactory::GetForProfile(browser_->profile());
 
-  if (use_default_settings_) {
+  if (start_mode_ == SYNC_WITH_DEFAULT_SETTINGS) {
     // Just kick off the sync machine, no need to configure it first.
     profile_sync_service->SetSyncSetupCompleted();
+    profile_sync_service->SetSetupInProgress(false);
     profile_sync_service->UnsuppressAndStart();
   } else {
-    // Give the user a chance to configure things.
-    LoginUIServiceFactory::GetForProfile(profile_)->ShowLoginUI(false);
+    // Give the user a chance to configure things. We don't clear the
+    // ProfileSyncService::setup_in_progress flag because we don't want sync
+    // to start up until after the configure UI is displayed (the configure UI
+    // will clear the flag when the user is done setting up sync).
+    LoginUIServiceFactory::GetForProfile(browser_->profile())->ShowLoginUI(
+        browser_);
   }
 
   delete this;

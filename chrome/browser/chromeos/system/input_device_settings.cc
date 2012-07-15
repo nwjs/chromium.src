@@ -83,15 +83,6 @@ bool DeviceExists(const char* script) {
 
 }  // namespace
 
-namespace pointer_settings {
-
-void SetSensitivity(int value) {
-  SetPointerSensitivity(kTpControl, value);
-  SetPointerSensitivity(kMouseControl, value);
-}
-
-}  // namespace pointer_settings
-
 namespace touchpad_settings {
 
 bool TouchpadExists() {
@@ -107,8 +98,20 @@ bool TouchpadExists() {
   return exists;
 }
 
+// Sets the touchpad sensitivity in the range [1, 5].
+void SetSensitivity(int value) {
+  SetPointerSensitivity(kTpControl, value);
+}
+
 void SetTapToClick(bool enabled) {
   ExecuteScript(3, kTpControl, "taptoclick", enabled ? "on" : "off");
+}
+
+void SetThreeFingerClick(bool enabled) {
+  ExecuteScript(3, kTpControl, "three_finger_click", enabled ? "on" : "off");
+  // For Alex/ZGB.
+  ExecuteScript(3, kTpControl, "t5r2_three_finger_click",
+      enabled ? "on" : "off");
 }
 
 }  // namespace touchpad_settings
@@ -117,6 +120,11 @@ namespace mouse_settings {
 
 bool MouseExists() {
   return DeviceExists(kMouseControl);
+}
+
+// Sets the touchpad sensitivity in the range [1, 5].
+void SetSensitivity(int value) {
+  SetPointerSensitivity(kMouseControl, value);
 }
 
 void SetPrimaryButtonRight(bool right) {

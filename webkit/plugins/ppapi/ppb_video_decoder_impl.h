@@ -5,11 +5,9 @@
 #ifndef WEBKIT_PLUGINS_PPAPI_PPB_VIDEO_DECODER_IMPL_H_
 #define WEBKIT_PLUGINS_PPAPI_PPB_VIDEO_DECODER_IMPL_H_
 
-#include <vector>
-
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
-#include "base/memory/scoped_ptr.h"
+#include "base/memory/ref_counted.h"
 #include "ppapi/c/dev/pp_video_dev.h"
 #include "ppapi/c/dev/ppp_video_decoder_dev.h"
 #include "ppapi/c/pp_var.h"
@@ -41,18 +39,22 @@ class PPB_VideoDecoder_Impl : public ::ppapi::PPB_VideoDecoder_Shared,
                             PP_VideoDecoder_Profile profile);
 
   // PPB_VideoDecoder_API implementation.
-  virtual int32_t Decode(const PP_VideoBitstreamBuffer_Dev* bitstream_buffer,
-                         PP_CompletionCallback callback) OVERRIDE;
+  virtual int32_t Decode(
+      const PP_VideoBitstreamBuffer_Dev* bitstream_buffer,
+      scoped_refptr< ::ppapi::TrackedCallback> callback) OVERRIDE;
   virtual void AssignPictureBuffers(
       uint32_t no_of_buffers, const PP_PictureBuffer_Dev* buffers) OVERRIDE;
   virtual void ReusePictureBuffer(int32_t picture_buffer_id) OVERRIDE;
-  virtual int32_t Flush(PP_CompletionCallback callback) OVERRIDE;
-  virtual int32_t Reset(PP_CompletionCallback callback) OVERRIDE;
+  virtual int32_t Flush(
+      scoped_refptr< ::ppapi::TrackedCallback> callback) OVERRIDE;
+  virtual int32_t Reset(
+      scoped_refptr< ::ppapi::TrackedCallback> callback) OVERRIDE;
   virtual void Destroy() OVERRIDE;
 
   // media::VideoDecodeAccelerator::Client implementation.
-  virtual void ProvidePictureBuffers(
-      uint32 requested_num_of_buffers, const gfx::Size& dimensions) OVERRIDE;
+  virtual void ProvidePictureBuffers(uint32 requested_num_of_buffers,
+                                     const gfx::Size& dimensions,
+                                     uint32 texture_target) OVERRIDE;
   virtual void DismissPictureBuffer(int32 picture_buffer_id) OVERRIDE;
   virtual void PictureReady(const media::Picture& picture) OVERRIDE;
   virtual void NotifyInitializeDone() OVERRIDE;
@@ -71,7 +73,7 @@ class PPB_VideoDecoder_Impl : public ::ppapi::PPB_VideoDecoder_Shared,
 
   // This is NULL before initialization, and if this PPB_VideoDecoder_Impl is
   // swapped with another.
-  scoped_refptr<PluginDelegate::PlatformVideoDecoder> platform_video_decoder_;
+  scoped_ptr<PluginDelegate::PlatformVideoDecoder> platform_video_decoder_;
 
   // Reference to the plugin requesting this interface.
   const PPP_VideoDecoder_Dev* ppp_videodecoder_;

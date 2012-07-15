@@ -16,6 +16,7 @@
 #include "base/time.h"
 #include "remoting/base/capture_data.h"
 #include "remoting/proto/control.pb.h"
+#include "remoting/proto/internal.pb.h"
 #include "remoting/proto/video.pb.h"
 #include "remoting/protocol/client_stub.h"
 #include "remoting/protocol/connection_to_client.h"
@@ -31,64 +32,60 @@ namespace remoting {
 static const int kMaxRecordings = 2;
 
 ScreenRecorder::ScreenRecorder(
-    MessageLoop* capture_loop,
-    MessageLoop* encode_loop,
-    base::MessageLoopProxy* network_loop,
+    scoped_refptr<base::SingleThreadTaskRunner> capture_task_runner,
+    scoped_refptr<base::SingleThreadTaskRunner> encode_task_runner,
+    scoped_refptr<base::SingleThreadTaskRunner> network_task_runner,
     Capturer* capturer,
     Encoder* encoder)
-    : capture_loop_(capture_loop),
-      encode_loop_(encode_loop),
-      network_loop_(network_loop),
+    : capture_task_runner_(capture_task_runner),
+      encode_task_runner_(encode_task_runner),
+      network_task_runner_(network_task_runner),
       capturer_(capturer),
       encoder_(encoder),
-      is_recording_(false),
       network_stopped_(false),
       encoder_stopped_(false),
       max_recordings_(kMaxRecordings),
       recordings_(0),
       frame_skipped_(false),
       sequence_number_(0) {
-  DCHECK(capture_loop_);
-  DCHECK(encode_loop_);
-  DCHECK(network_loop_);
-}
-
-ScreenRecorder::~ScreenRecorder() {
+  DCHECK(capture_task_runner_);
+  DCHECK(encode_task_runner_);
+  DCHECK(network_task_runner_);
 }
 
 // Public methods --------------------------------------------------------------
 
 void ScreenRecorder::Start() {
-  capture_loop_->PostTask(
+  capture_task_runner_->PostTask(
       FROM_HERE, base::Bind(&ScreenRecorder::DoStart, this));
 }
 
 void ScreenRecorder::Stop(const base::Closure& done_task) {
-  if (MessageLoop::current() != capture_loop_) {
-    capture_loop_->PostTask(FROM_HERE, base::Bind(
+  if (!capture_task_runner_->BelongsToCurrentThread()) {
+    capture_task_runner_->PostTask(FROM_HERE, base::Bind(
         &ScreenRecorder::Stop, this, done_task));
     return;
   }
 
   DCHECK(!done_task.is_null());
 
-  capture_timer_.Stop();
-  is_recording_ = false;
+  capturer()->Stop();
+  capture_timer_.reset();
 
-  network_loop_->PostTask(FROM_HERE, base::Bind(
+  network_task_runner_->PostTask(FROM_HERE, base::Bind(
       &ScreenRecorder::DoStopOnNetworkThread, this, done_task));
 }
 
 void ScreenRecorder::AddConnection(ConnectionToClient* connection) {
-  DCHECK(network_loop_->BelongsToCurrentThread());
+  DCHECK(network_task_runner_->BelongsToCurrentThread());
   connections_.push_back(connection);
 
-  capture_loop_->PostTask(
+  capture_task_runner_->PostTask(
       FROM_HERE, base::Bind(&ScreenRecorder::DoInvalidateFullScreen, this));
 }
 
 void ScreenRecorder::RemoveConnection(ConnectionToClient* connection) {
-  DCHECK(network_loop_->BelongsToCurrentThread());
+  DCHECK(network_task_runner_->BelongsToCurrentThread());
 
   ConnectionToClientList::iterator it =
       std::find(connections_.begin(), connections_.end(), connection);
@@ -98,14 +95,14 @@ void ScreenRecorder::RemoveConnection(ConnectionToClient* connection) {
 }
 
 void ScreenRecorder::RemoveAllConnections() {
-  DCHECK(network_loop_->BelongsToCurrentThread());
+  DCHECK(network_task_runner_->BelongsToCurrentThread());
   connections_.clear();
 }
 
 void ScreenRecorder::UpdateSequenceNumber(int64 sequence_number) {
   // Sequence number is used and written only on the capture thread.
-  if (MessageLoop::current() != capture_loop_) {
-    capture_loop_->PostTask(
+  if (!capture_task_runner_->BelongsToCurrentThread()) {
+    capture_task_runner_->PostTask(
         FROM_HERE, base::Bind(&ScreenRecorder::UpdateSequenceNumber,
                               this, sequence_number));
     return;
@@ -114,51 +111,62 @@ void ScreenRecorder::UpdateSequenceNumber(int64 sequence_number) {
   sequence_number_ = sequence_number;
 }
 
-// Private accessors -----------------------------------------------------------
+// Private methods -----------------------------------------------------------
+
+ScreenRecorder::~ScreenRecorder() {
+}
 
 Capturer* ScreenRecorder::capturer() {
-  DCHECK_EQ(capture_loop_, MessageLoop::current());
+  DCHECK(capture_task_runner_->BelongsToCurrentThread());
   DCHECK(capturer_);
   return capturer_;
 }
 
 Encoder* ScreenRecorder::encoder() {
-  DCHECK_EQ(encode_loop_, MessageLoop::current());
+  DCHECK(encode_task_runner_->BelongsToCurrentThread());
   DCHECK(encoder_.get());
   return encoder_.get();
+}
+
+bool ScreenRecorder::is_recording() {
+  DCHECK(capture_task_runner_->BelongsToCurrentThread());
+  return capture_timer_.get() != NULL;
 }
 
 // Capturer thread -------------------------------------------------------------
 
 void ScreenRecorder::DoStart() {
-  DCHECK_EQ(capture_loop_, MessageLoop::current());
+  DCHECK(capture_task_runner_->BelongsToCurrentThread());
 
-  if (is_recording_) {
+  if (is_recording()) {
     NOTREACHED() << "Record session already started.";
     return;
   }
 
-  is_recording_ = true;
+  capturer()->Start(
+      base::Bind(&ScreenRecorder::CursorShapeChangedCallback, this));
+
+  capture_timer_.reset(new base::OneShotTimer<ScreenRecorder>());
 
   // Capture first frame immedately.
   DoCapture();
 }
 
 void ScreenRecorder::StartCaptureTimer() {
-  DCHECK_EQ(capture_loop_, MessageLoop::current());
+  DCHECK(capture_task_runner_->BelongsToCurrentThread());
 
-  capture_timer_.Start(FROM_HERE,
-                       scheduler_.NextCaptureDelay(),
-                       this,
-                       &ScreenRecorder::DoCapture);
+  capture_timer_->Start(FROM_HERE,
+                        scheduler_.NextCaptureDelay(),
+                        this,
+                        &ScreenRecorder::DoCapture);
 }
 
 void ScreenRecorder::DoCapture() {
-  DCHECK_EQ(capture_loop_, MessageLoop::current());
+  DCHECK(capture_task_runner_->BelongsToCurrentThread());
   // Make sure we have at most two oustanding recordings. We can simply return
   // if we can't make a capture now, the next capture will be started by the
   // end of an encode operation.
-  if (recordings_ >= max_recordings_ || !is_recording_) {
+  if (recordings_ >= max_recordings_ || !is_recording()) {
     frame_skipped_ = true;
     return;
   }
@@ -171,11 +179,11 @@ void ScreenRecorder::DoCapture() {
   DCHECK_LE(recordings_, max_recordings_);
 
   // Before doing a capture schedule for the next one.
-  capture_timer_.Stop();
-  capture_timer_.Start(FROM_HERE,
-                       scheduler_.NextCaptureDelay(),
-                       this,
-                       &ScreenRecorder::DoCapture);
+  capture_timer_->Stop();
+  capture_timer_->Start(FROM_HERE,
+                        scheduler_.NextCaptureDelay(),
+                        this,
+                        &ScreenRecorder::DoCapture);
 
   // And finally perform one capture.
   capture_start_time_ = base::Time::Now();
@@ -185,9 +193,9 @@ void ScreenRecorder::DoCapture() {
 
 void ScreenRecorder::CaptureDoneCallback(
     scoped_refptr<CaptureData> capture_data) {
-  DCHECK_EQ(capture_loop_, MessageLoop::current());
+  DCHECK(capture_task_runner_->BelongsToCurrentThread());
 
-  if (!is_recording_)
+  if (!is_recording())
     return;
 
   if (capture_data) {
@@ -205,14 +213,26 @@ void ScreenRecorder::CaptureDoneCallback(
     capture_data->set_client_sequence_number(sequence_number_);
   }
 
-  encode_loop_->PostTask(
+  encode_task_runner_->PostTask(
       FROM_HERE, base::Bind(&ScreenRecorder::DoEncode, this, capture_data));
 }
 
-void ScreenRecorder::DoFinishOneRecording() {
-  DCHECK_EQ(capture_loop_, MessageLoop::current());
+void ScreenRecorder::CursorShapeChangedCallback(
+    scoped_ptr<protocol::CursorShapeInfo> cursor_shape) {
+  DCHECK(capture_task_runner_->BelongsToCurrentThread());
 
-  if (!is_recording_)
+  if (!is_recording())
+    return;
+
+  network_task_runner_->PostTask(
+      FROM_HERE, base::Bind(&ScreenRecorder::DoSendCursorShape, this,
+                            base::Passed(cursor_shape.Pass())));
+}
+
+void ScreenRecorder::DoFinishOneRecording() {
+  DCHECK(capture_task_runner_->BelongsToCurrentThread());
+
+  if (!is_recording())
     return;
 
   // Decrement the number of recording in process since we have completed
@@ -227,7 +247,7 @@ void ScreenRecorder::DoFinishOneRecording() {
 }
 
 void ScreenRecorder::DoInvalidateFullScreen() {
-  DCHECK_EQ(capture_loop_, MessageLoop::current());
+  DCHECK(capture_task_runner_->BelongsToCurrentThread());
 
   capturer_->InvalidateFullScreen();
 }
@@ -235,35 +255,33 @@ void ScreenRecorder::DoInvalidateFullScreen() {
 // Network thread --------------------------------------------------------------
 
 void ScreenRecorder::DoSendVideoPacket(scoped_ptr<VideoPacket> packet) {
-  DCHECK(network_loop_->BelongsToCurrentThread());
+  DCHECK(network_task_runner_->BelongsToCurrentThread());
 
   if (network_stopped_ || connections_.empty())
     return;
 
-  VideoPacket* packet_ptr = packet.get();
+  base::Closure callback;
+  if ((packet->flags() & VideoPacket::LAST_PARTITION) != 0)
+    callback = base::Bind(&ScreenRecorder::VideoFrameSentCallback, this);
 
   // TODO(sergeyu): Currently we send the data only to the first
   // connection. Send it to all connections if necessary.
   connections_.front()->video_stub()->ProcessVideoPacket(
-      packet_ptr, base::Bind(
-          &ScreenRecorder::VideoPacketSentCallback, this,
-          base::Passed(packet.Pass())));
+      packet.Pass(), callback);
 }
 
-void ScreenRecorder::VideoPacketSentCallback(scoped_ptr<VideoPacket> packet) {
+void ScreenRecorder::VideoFrameSentCallback() {
+  DCHECK(network_task_runner_->BelongsToCurrentThread());
+
   if (network_stopped_)
     return;
 
-  if ((packet->flags() & VideoPacket::LAST_PARTITION) != 0) {
-    // Post DoFinishOneRecording() if that was the last packet for the
-    // frame.
-    capture_loop_->PostTask(
-        FROM_HERE, base::Bind(&ScreenRecorder::DoFinishOneRecording, this));
-  }
+  capture_task_runner_->PostTask(
+      FROM_HERE, base::Bind(&ScreenRecorder::DoFinishOneRecording, this));
 }
 
 void ScreenRecorder::DoStopOnNetworkThread(const base::Closure& done_task) {
-  DCHECK(network_loop_->BelongsToCurrentThread());
+  DCHECK(network_task_runner_->BelongsToCurrentThread());
 
   // There could be tasks on the network thread when this method is being
   // executed. By setting the flag we'll not post anymore tasks from network
@@ -273,23 +291,38 @@ void ScreenRecorder::DoStopOnNetworkThread(const base::Closure& done_task) {
   // sequence.
   network_stopped_ = true;
 
-  encode_loop_->PostTask(
+  encode_task_runner_->PostTask(
       FROM_HERE, base::Bind(&ScreenRecorder::DoStopOnEncodeThread,
                             this, done_task));
+}
+
+void ScreenRecorder::DoSendCursorShape(
+    scoped_ptr<protocol::CursorShapeInfo> cursor_shape) {
+  DCHECK(network_task_runner_->BelongsToCurrentThread());
+
+  if (network_stopped_ || connections_.empty())
+    return;
+
+  // TODO(sergeyu): Currently we send the data only to the first
+  // connection. Send it to all connections if necessary.
+  connections_.front()->client_stub()->SetCursorShape(*cursor_shape);
 }
 
 // Encoder thread --------------------------------------------------------------
 
 void ScreenRecorder::DoEncode(
     scoped_refptr<CaptureData> capture_data) {
-  DCHECK_EQ(encode_loop_, MessageLoop::current());
+  DCHECK(encode_task_runner_->BelongsToCurrentThread());
+
+  if (encoder_stopped_)
+    return;
 
   // Early out if there's nothing to encode.
   if (!capture_data || capture_data->dirty_region().isEmpty()) {
     // Send an empty video packet to keep network active.
     scoped_ptr<VideoPacket> packet(new VideoPacket());
     packet->set_flags(VideoPacket::LAST_PARTITION);
-    network_loop_->PostTask(
+    network_task_runner_->PostTask(
         FROM_HERE, base::Bind(&ScreenRecorder::DoSendVideoPacket,
                               this, base::Passed(packet.Pass())));
     return;
@@ -302,19 +335,19 @@ void ScreenRecorder::DoEncode(
 }
 
 void ScreenRecorder::DoStopOnEncodeThread(const base::Closure& done_task) {
-  DCHECK_EQ(encode_loop_, MessageLoop::current());
+  DCHECK(encode_task_runner_->BelongsToCurrentThread());
 
   encoder_stopped_ = true;
 
   // When this method is being executed there are no more tasks on encode thread
   // for this object. We can then post a task to capture thread to finish the
   // stop sequence.
-  capture_loop_->PostTask(FROM_HERE, done_task);
+  capture_task_runner_->PostTask(FROM_HERE, done_task);
 }
 
 void ScreenRecorder::EncodedDataAvailableCallback(
     scoped_ptr<VideoPacket> packet) {
-  DCHECK_EQ(encode_loop_, MessageLoop::current());
+  DCHECK(encode_task_runner_->BelongsToCurrentThread());
 
   if (encoder_stopped_)
     return;
@@ -328,7 +361,7 @@ void ScreenRecorder::EncodedDataAvailableCallback(
     scheduler_.RecordEncodeTime(encode_time);
   }
 
-  network_loop_->PostTask(
+  network_task_runner_->PostTask(
       FROM_HERE, base::Bind(&ScreenRecorder::DoSendVideoPacket, this,
                             base::Passed(packet.Pass())));
 }

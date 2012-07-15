@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -42,7 +42,7 @@ class PseudoTcpAdapter : public net::StreamSocket, base::NonThreadSafe {
   virtual void Disconnect() OVERRIDE;
   virtual bool IsConnected() const OVERRIDE;
   virtual bool IsConnectedAndIdle() const OVERRIDE;
-  virtual int GetPeerAddress(net::AddressList* address) const OVERRIDE;
+  virtual int GetPeerAddress(net::IPEndPoint* address) const OVERRIDE;
   virtual int GetLocalAddress(net::IPEndPoint* address) const OVERRIDE;
   virtual const net::BoundNetLog& NetLog() const OVERRIDE;
   virtual void SetSubresourceSpeculation() OVERRIDE;
@@ -51,12 +51,31 @@ class PseudoTcpAdapter : public net::StreamSocket, base::NonThreadSafe {
   virtual bool UsingTCPFastOpen() const OVERRIDE;
   virtual int64 NumBytesRead() const OVERRIDE;
   virtual base::TimeDelta GetConnectTimeMicros() const OVERRIDE;
+  virtual net::NextProto GetNegotiatedProtocol() const OVERRIDE;
 
   // Set the delay for sending ACK.
   void SetAckDelay(int delay_ms);
 
   // Set whether Nagle's algorithm is enabled.
   void SetNoDelay(bool no_delay);
+
+  // When write_waits_for_send flag is set to true the Write() method
+  // will wait until the data is sent to the remote end before the
+  // write completes (it still doesn't wait until the data is received
+  // and acknowledged by the remote end). Otherwise write completes
+  // after the data has been copied to the send buffer.
+  //
+  // This flag is useful in cases when the sender needs to get
+  // feedback from the connection when it is congested. E.g. remoting
+  // host uses this feature to adjust screen capturing rate according
+  // to the available bandwidth. In the same time it may negatively
+  // impact performance in some cases. E.g. when the sender writes one
+  // byte at a time then each byte will always be sent in a separate
+  // packet.
+  //
+  // TODO(sergeyu): Remove this flag once remoting has a better
+  // flow-control solution.
+  void SetWriteWaitsForSend(bool write_waits_for_send);
 
  private:
   class Core;

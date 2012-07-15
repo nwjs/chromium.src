@@ -12,10 +12,11 @@ SSLClientSocket::SSLClientSocket()
     : was_npn_negotiated_(false),
       was_spdy_negotiated_(false),
       protocol_negotiated_(kProtoUnknown),
-      domain_bound_cert_type_(CLIENT_CERT_INVALID_TYPE) {
+      channel_id_sent_(false) {
 }
 
-SSLClientSocket::NextProto SSLClientSocket::NextProtoFromString(
+// static
+NextProto SSLClientSocket::NextProtoFromString(
     const std::string& proto_string) {
   if (proto_string == "http1.1" || proto_string == "http/1.1") {
     return kProtoHTTP11;
@@ -23,8 +24,6 @@ SSLClientSocket::NextProto SSLClientSocket::NextProtoFromString(
     return kProtoSPDY1;
   } else if (proto_string == "spdy/2") {
     return kProtoSPDY2;
-  } else if (proto_string == "spdy/2.1") {
-    return kProtoSPDY21;
   } else if (proto_string == "spdy/3") {
     return kProtoSPDY3;
   } else {
@@ -32,8 +31,8 @@ SSLClientSocket::NextProto SSLClientSocket::NextProtoFromString(
   }
 }
 
-const char* SSLClientSocket::NextProtoToString(
-    SSLClientSocket::NextProto next_proto) {
+// static
+const char* SSLClientSocket::NextProtoToString(NextProto next_proto) {
   switch (next_proto) {
     case kProtoHTTP11:
       return "http/1.1";
@@ -41,8 +40,6 @@ const char* SSLClientSocket::NextProtoToString(
       return "spdy/1";
     case kProtoSPDY2:
       return "spdy/2";
-    case kProtoSPDY21:
-      return "spdy/2.1";
     case kProtoSPDY3:
       return "spdy/3";
     default:
@@ -80,6 +77,10 @@ std::string SSLClientSocket::ServerProtosToString(
   return JoinString(server_protos_with_commas, ',');
 }
 
+NextProto SSLClientSocket::GetNegotiatedProtocol() const {
+  return protocol_negotiated_;
+}
+
 bool SSLClientSocket::IgnoreCertError(int error, int load_flags) {
   if (error == OK || load_flags & LOAD_IGNORE_ALL_CERT_ERRORS)
     return true;
@@ -115,26 +116,16 @@ bool SSLClientSocket::set_was_spdy_negotiated(bool negotiated) {
   return was_spdy_negotiated_ = negotiated;
 }
 
-SSLClientSocket::NextProto SSLClientSocket::protocol_negotiated() const {
-  return protocol_negotiated_;
-}
-
-void SSLClientSocket::set_protocol_negotiated(
-    SSLClientSocket::NextProto protocol_negotiated) {
+void SSLClientSocket::set_protocol_negotiated(NextProto protocol_negotiated) {
   protocol_negotiated_ = protocol_negotiated;
 }
 
-bool SSLClientSocket::WasDomainBoundCertSent() const {
-  return domain_bound_cert_type_ != CLIENT_CERT_INVALID_TYPE;
+bool SSLClientSocket::WasChannelIDSent() const {
+  return channel_id_sent_;
 }
 
-SSLClientCertType SSLClientSocket::domain_bound_cert_type() const {
-  return domain_bound_cert_type_;
-}
-
-SSLClientCertType SSLClientSocket::set_domain_bound_cert_type(
-    SSLClientCertType type) {
-  return domain_bound_cert_type_ = type;
+void SSLClientSocket::set_channel_id_sent(bool channel_id_sent) {
+  channel_id_sent_ = channel_id_sent;
 }
 
 }  // namespace net

@@ -6,11 +6,5 @@
 
 # gcl wrapper to kick off nacl-sdk try jobs.
 
-gcl try $* \
-  -b naclsdkm-mac \
-  -b naclsdkm-linux \
-  -b naclsdkm-linux \
-  -b naclsdkm-pnacl-linux \
-  -b naclsdkm-windows32 \
-  -b naclsdkm-windows64 \
-  -S svn://svn.chromium.org/chrome-try/try-nacl
+readonly script_dir=$(dirname $0)
+gcl try $* $(${script_dir}/sdktry-list.sh)

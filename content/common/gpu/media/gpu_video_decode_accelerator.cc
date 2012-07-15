@@ -10,25 +10,25 @@
 #include "base/logging.h"
 #include "base/stl_util.h"
 
-#if defined(OS_WIN)
-#include "base/win/windows_version.h"
-#endif  // OS_WIN
-
+#include "content/common/gpu/gpu_channel.h"
+#include "content/common/gpu/gpu_messages.h"
 #include "gpu/command_buffer/common/command_buffer.h"
 #include "ipc/ipc_message_macros.h"
 #include "ipc/ipc_message_utils.h"
-#include "content/common/gpu/gpu_channel.h"
-#include "content/common/gpu/gpu_command_buffer_stub.h"
-#include "content/common/gpu/gpu_messages.h"
+#include "ui/gl/gl_context.h"
+#include "ui/gl/gl_surface_egl.h"
 
-#if (defined(OS_CHROMEOS) && defined(ARCH_CPU_ARMEL)) || defined(OS_WIN)
 #if defined(OS_WIN)
+#include "base/win/windows_version.h"
 #include "content/common/gpu/media/dxva_video_decode_accelerator.h"
-#else  // OS_WIN
+#elif defined(OS_CHROMEOS) && defined(ARCH_CPU_ARMEL)
 #include "content/common/gpu/media/omx_video_decode_accelerator.h"
-#endif  // OS_WIN
-#include "ui/gfx/gl/gl_context.h"
-#include "ui/gfx/gl/gl_surface_egl.h"
+#elif defined(OS_CHROMEOS) && defined(ARCH_CPU_X86_FAMILY)
+#include "ui/gl/gl_context_glx.h"
+#include "content/common/gpu/media/vaapi_video_decode_accelerator.h"
+#elif defined(OS_MACOSX)
+#include "gpu/command_buffer/service/texture_manager.h"
+#include "content/common/gpu/media/mac_video_decode_accelerator.h"
 #endif
 
 #include "gpu/command_buffer/service/texture_manager.h"
@@ -36,23 +36,47 @@
 
 using gpu::gles2::TextureManager;
 
+static bool MakeDecoderContextCurrent(
+    const base::WeakPtr<GpuCommandBufferStub> stub) {
+  if (!stub) {
+    DLOG(ERROR) << "Stub is gone; won't MakeCurrent().";
+    return false;
+  }
+
+  if (!stub->decoder()->MakeCurrent()) {
+    DLOG(ERROR) << "Failed to MakeCurrent()";
+    return false;
+  }
+
+  return true;
+}
+
 GpuVideoDecodeAccelerator::GpuVideoDecodeAccelerator(
-    IPC::Message::Sender* sender,
+    IPC::Sender* sender,
     int32 host_route_id,
     GpuCommandBufferStub* stub)
     : sender_(sender),
       init_done_msg_(NULL),
       host_route_id_(host_route_id),
-      stub_(stub),
+      stub_(stub->AsWeakPtr()),
       video_decode_accelerator_(NULL) {
+  if (!stub_)
+    return;
+  stub_->AddDestructionObserver(this);
+  make_context_current_ =
+      base::Bind(&MakeDecoderContextCurrent, stub_->AsWeakPtr());
 }
 
 GpuVideoDecodeAccelerator::~GpuVideoDecodeAccelerator() {
-  if (video_decode_accelerator_)
-    video_decode_accelerator_->Destroy();
+  if (stub_)
+    stub_->RemoveDestructionObserver(this);
+  if (video_decode_accelerator_.get())
+    video_decode_accelerator_.release()->Destroy();
 }
 
 bool GpuVideoDecodeAccelerator::OnMessageReceived(const IPC::Message& msg) {
+  if (!stub_ || !video_decode_accelerator_.get())
+    return false;
   bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(GpuVideoDecodeAccelerator, msg)
     IPC_MESSAGE_HANDLER(AcceleratedVideoDecoderMsg_Decode, OnDecode)
@@ -69,9 +93,12 @@ bool GpuVideoDecodeAccelerator::OnMessageReceived(const IPC::Message& msg) {
 }
 
 void GpuVideoDecodeAccelerator::ProvidePictureBuffers(
-    uint32 requested_num_of_buffers, const gfx::Size& dimensions) {
+    uint32 requested_num_of_buffers,
+    const gfx::Size& dimensions,
+    uint32 texture_target) {
   if (!Send(new AcceleratedVideoDecoderHostMsg_ProvidePictureBuffers(
-          host_route_id_, requested_num_of_buffers, dimensions))) {
+          host_route_id_, requested_num_of_buffers, dimensions,
+          texture_target))) {
     DLOG(ERROR) << "Send(AcceleratedVideoDecoderHostMsg_ProvidePictureBuffers) "
                 << "failed";
   }
@@ -102,10 +129,12 @@ void GpuVideoDecodeAccelerator::NotifyError(
   if (init_done_msg_) {
     // If we get an error while we're initializing, NotifyInitializeDone won't
     // be called, so we need to send the reply (with an error) here.
-    init_done_msg_->set_reply_error();
+    GpuCommandBufferMsg_CreateVideoDecoder::WriteReplyParams(
+        init_done_msg_, -1);
     if (!Send(init_done_msg_))
       DLOG(ERROR) << "Send(init_done_msg_) failed";
     init_done_msg_ = NULL;
+    return;
   }
   if (!Send(new AcceleratedVideoDecoderHostMsg_ErrorNotification(
           host_route_id_, error))) {
@@ -115,16 +144,24 @@ void GpuVideoDecodeAccelerator::NotifyError(
 }
 
 void GpuVideoDecodeAccelerator::Initialize(
-    const media::VideoDecodeAccelerator::Profile profile,
-    IPC::Message* init_done_msg,
-    base::ProcessHandle renderer_process) {
+    const media::VideoCodecProfile profile,
+    IPC::Message* init_done_msg) {
   DCHECK(!video_decode_accelerator_.get());
   DCHECK(!init_done_msg_);
   DCHECK(init_done_msg);
   init_done_msg_ = init_done_msg;
+  if (!stub_)
+    return;
 
-#if (defined(OS_CHROMEOS) && defined(ARCH_CPU_ARMEL)) || defined(OS_WIN)
-  DCHECK(stub_ && stub_->decoder());
+#if !defined(OS_WIN)
+  // Ensure we will be able to get a GL context at all before initializing
+  // non-Windows VDAs.
+  if (!make_context_current_.Run()) {
+    NotifyError(media::VideoDecodeAccelerator::PLATFORM_FAILURE);
+    return;
+  }
+#endif
+
 #if defined(OS_WIN)
   if (base::win::GetVersion() < base::win::VERSION_WIN7) {
     NOTIMPLEMENTED() << "HW video decode acceleration not available.";
@@ -132,22 +169,39 @@ void GpuVideoDecodeAccelerator::Initialize(
     return;
   }
   DLOG(INFO) << "Initializing DXVA HW decoder for windows.";
-  DXVAVideoDecodeAccelerator* video_decoder =
-      new DXVAVideoDecodeAccelerator(this, renderer_process);
-#else  // OS_WIN
-  OmxVideoDecodeAccelerator* video_decoder =
-      new OmxVideoDecodeAccelerator(this);
+  scoped_ptr<DXVAVideoDecodeAccelerator> video_decoder(
+      new DXVAVideoDecodeAccelerator(this));
+  video_decode_accelerator_ = video_decoder.Pass();
+#elif defined(OS_CHROMEOS) && defined(ARCH_CPU_ARMEL)
+  scoped_ptr<OmxVideoDecodeAccelerator> video_decoder(
+      new OmxVideoDecodeAccelerator(this));
   video_decoder->SetEglState(
       gfx::GLSurfaceEGL::GetHardwareDisplay(),
       stub_->decoder()->GetGLContext()->GetHandle());
-#endif  // OS_WIN
-  video_decode_accelerator_ = video_decoder;
-  if (!video_decode_accelerator_->Initialize(profile))
-    NotifyError(media::VideoDecodeAccelerator::PLATFORM_FAILURE);
-#else  // Update RenderViewImpl::createMediaPlayer when adding clauses.
+  video_decode_accelerator_ = video_decoder.Pass();
+#elif defined(OS_CHROMEOS) && defined(ARCH_CPU_X86_FAMILY)
+  scoped_ptr<VaapiVideoDecodeAccelerator> video_decoder(
+      new VaapiVideoDecodeAccelerator(this, make_context_current_));
+  gfx::GLContextGLX* glx_context =
+      static_cast<gfx::GLContextGLX*>(stub_->decoder()->GetGLContext());
+  GLXContext glx_context_handle =
+      static_cast<GLXContext>(glx_context->GetHandle());
+  video_decoder->SetGlxState(glx_context->display(), glx_context_handle);
+  video_decode_accelerator_ = video_decoder.Pass();
+#elif defined(OS_MACOSX)
+  scoped_ptr<MacVideoDecodeAccelerator> video_decoder(
+      new MacVideoDecodeAccelerator(this));
+  video_decoder->SetCGLContext(static_cast<CGLContextObj>(
+      stub_->decoder()->GetGLContext()->GetHandle()));
+  video_decode_accelerator_ = video_decoder.Pass();
+#else
   NOTIMPLEMENTED() << "HW video decode acceleration not available.";
   NotifyError(media::VideoDecodeAccelerator::PLATFORM_FAILURE);
-#endif  // defined(OS_CHROMEOS) && defined(ARCH_CPU_ARMEL)
+  return;
+#endif
+
+  if (!video_decode_accelerator_->Initialize(profile))
+    NotifyError(media::VideoDecodeAccelerator::PLATFORM_FAILURE);
 }
 
 void GpuVideoDecodeAccelerator::OnDecode(
@@ -160,7 +214,6 @@ void GpuVideoDecodeAccelerator::OnAssignPictureBuffers(
       const std::vector<int32>& buffer_ids,
       const std::vector<uint32>& texture_ids,
       const std::vector<gfx::Size>& sizes) {
-  DCHECK(stub_ && stub_->decoder());  // Ensure already Initialize()'d.
   gpu::gles2::GLES2Decoder* command_decoder = stub_->decoder();
   gpu::gles2::TextureManager* texture_manager =
       command_decoder->GetContextGroup()->texture_manager();
@@ -210,7 +263,7 @@ void GpuVideoDecodeAccelerator::OnReset() {
 
 void GpuVideoDecodeAccelerator::OnDestroy() {
   DCHECK(video_decode_accelerator_.get());
-  video_decode_accelerator_->Destroy();
+  video_decode_accelerator_.release()->Destroy();
 }
 
 void GpuVideoDecodeAccelerator::NotifyEndOfBitstreamBuffer(
@@ -224,6 +277,8 @@ void GpuVideoDecodeAccelerator::NotifyEndOfBitstreamBuffer(
 }
 
 void GpuVideoDecodeAccelerator::NotifyInitializeDone() {
+  GpuCommandBufferMsg_CreateVideoDecoder::WriteReplyParams(
+      init_done_msg_, host_route_id_);
   if (!Send(init_done_msg_))
     DLOG(ERROR) << "Send(init_done_msg_) failed";
   init_done_msg_ = NULL;
@@ -237,6 +292,16 @@ void GpuVideoDecodeAccelerator::NotifyFlushDone() {
 void GpuVideoDecodeAccelerator::NotifyResetDone() {
   if (!Send(new AcceleratedVideoDecoderHostMsg_ResetDone(host_route_id_)))
     DLOG(ERROR) << "Send(AcceleratedVideoDecoderHostMsg_ResetDone) failed";
+}
+
+void GpuVideoDecodeAccelerator::OnWillDestroyStub(GpuCommandBufferStub* stub) {
+  DCHECK_EQ(stub, stub_.get());
+  if (video_decode_accelerator_.get())
+    video_decode_accelerator_.release()->Destroy();
+  if (stub_) {
+    stub_->RemoveDestructionObserver(this);
+    stub_.reset();
+  }
 }
 
 bool GpuVideoDecodeAccelerator::Send(IPC::Message* message) {

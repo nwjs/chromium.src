@@ -4,23 +4,22 @@
 
 #include "chrome/test/base/browser_with_test_window_test.h"
 
-#include "chrome/browser/tabs/tab_strip_model.h"
+#include "base/synchronization/waitable_event.h"
+#include "chrome/browser/profiles/profile_destroyer.h"
 #include "chrome/browser/ui/browser_navigator.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/render_messages.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/page_transition_types.h"
-#include "content/test/test_renderer_host.h"
+#include "content/public/test/test_renderer_host.h"
 
 #if defined(USE_AURA)
-#include "ui/aura/monitor_manager.h"
-#include "ui/aura/root_window.h"
-#include "ui/aura/test/test_activation_client.h"
-#include "ui/aura/test/test_screen.h"
-#include "ui/aura/test/test_stacking_client.h"
+#include "ui/aura/test/aura_test_helper.h"
 #endif
 
 using content::BrowserThread;
@@ -31,52 +30,61 @@ using content::WebContents;
 
 BrowserWithTestWindowTest::BrowserWithTestWindowTest()
     : ui_thread_(BrowserThread::UI, message_loop()),
+      db_thread_(BrowserThread::DB),
       file_thread_(BrowserThread::FILE, message_loop()),
       file_user_blocking_thread_(
           BrowserThread::FILE_USER_BLOCKING, message_loop()) {
+  db_thread_.Start();
 }
 
 void BrowserWithTestWindowTest::SetUp() {
   testing::Test::SetUp();
 
-  profile_.reset(CreateProfile());
+  set_profile(CreateProfile());
   browser_.reset(new Browser(Browser::TYPE_TABBED, profile()));
   window_.reset(new TestBrowserWindow(browser()));
   browser_->SetWindowForTesting(window_.get());
 #if defined(USE_AURA)
-  root_window_.reset(aura::MonitorManager::CreateRootWindowForPrimaryMonitor());
-  gfx::Screen::SetInstance(new aura::TestScreen(root_window_.get()));
-  test_activation_client_.reset(
-      new aura::test::TestActivationClient(root_window_.get()));
-  test_stacking_client_.reset(
-      new aura::test::TestStackingClient(root_window_.get()));
-#endif
+  aura_test_helper_.reset(new aura::test::AuraTestHelper(&ui_loop_));
+  aura_test_helper_->SetUp();
+#endif  // USE_AURA
 }
 
 void BrowserWithTestWindowTest::TearDown() {
   testing::Test::TearDown();
 #if defined(USE_AURA)
-  test_activation_client_.reset();
-  test_stacking_client_.reset();
-  root_window_.reset();
+  aura_test_helper_->TearDown();
 #endif
 }
 
 BrowserWithTestWindowTest::~BrowserWithTestWindowTest() {
   // A Task is leaked if we don't destroy everything, then run the message
   // loop.
-  DestroyBrowser();
-  profile_.reset(NULL);
+  DestroyBrowserAndProfile();
 
+  // Schedule another task on the DB thread to notify us that it's safe to
+  // carry on with the test.
+  base::WaitableEvent done(false, false);
+  BrowserThread::PostTask(BrowserThread::DB, FROM_HERE,
+      base::Bind(&base::WaitableEvent::Signal, base::Unretained(&done)));
+  done.Wait();
+  db_thread_.Stop();
   MessageLoop::current()->PostTask(FROM_HERE, MessageLoop::QuitClosure());
   MessageLoop::current()->Run();
 }
 
+void BrowserWithTestWindowTest::set_profile(TestingProfile* profile) {
+  if (profile_.get() != NULL)
+    ProfileDestroyer::DestroyProfileWhenAppropriate(profile_.release());
+
+  profile_.reset(profile);
+}
+
 void BrowserWithTestWindowTest::AddTab(Browser* browser, const GURL& url) {
-  browser::NavigateParams params(browser, url, content::PAGE_TRANSITION_TYPED);
+  chrome::NavigateParams params(browser, url, content::PAGE_TRANSITION_TYPED);
   params.tabstrip_index = 0;
   params.disposition = NEW_FOREGROUND_TAB;
-  browser::Navigate(&params);
+  chrome::Navigate(&params);
   CommitPendingLoad(&params.target_contents->web_contents()->GetController());
 }
 
@@ -130,18 +138,23 @@ void BrowserWithTestWindowTest::NavigateAndCommit(
 }
 
 void BrowserWithTestWindowTest::NavigateAndCommitActiveTab(const GURL& url) {
-  NavigateAndCommit(&browser()->GetSelectedTabContentsWrapper()->
-      web_contents()->GetController(), url);
+  NavigateAndCommit(&chrome::GetActiveWebContents(browser())->GetController(),
+                    url);
 }
 
-void BrowserWithTestWindowTest::DestroyBrowser() {
-  if (!browser_.get())
-    return;
-  // Make sure we close all tabs, otherwise Browser isn't happy in its
-  // destructor.
-  browser()->CloseAllTabs();
-  browser_.reset(NULL);
+void BrowserWithTestWindowTest::DestroyBrowserAndProfile() {
+  if (browser_.get()) {
+    // Make sure we close all tabs, otherwise Browser isn't happy in its
+    // destructor.
+    chrome::CloseAllTabs(browser());
+    browser_.reset(NULL);
+  }
   window_.reset(NULL);
+  // Destroy the profile here - otherwise, if the profile is freed in the
+  // destructor, and a test subclass owns a resource that the profile depends
+  // on (such as g_browser_process()->local_state()) there's no way for the
+  // subclass to free it after the profile.
+  profile_.reset(NULL);
 }
 
 TestingProfile* BrowserWithTestWindowTest::CreateProfile() {

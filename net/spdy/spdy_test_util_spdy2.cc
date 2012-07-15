@@ -10,7 +10,7 @@
 #include "base/compiler_specific.h"
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
-#include "net/base/cert_verifier.h"
+#include "net/base/mock_cert_verifier.h"
 #include "net/http/http_network_session.h"
 #include "net/http/http_network_transaction.h"
 #include "net/http/http_server_properties_impl.h"
@@ -20,6 +20,24 @@
 
 namespace net {
 namespace test_spdy2 {
+
+namespace {
+
+// Parses a URL into the scheme, host, and path components required for a
+// SPDY request.
+void ParseUrl(const char* const url, std::string* scheme, std::string* host,
+              std::string* path) {
+  GURL gurl(url);
+  path->assign(gurl.PathForRequest());
+  scheme->assign(gurl.scheme());
+  host->assign(gurl.host());
+  if (gurl.has_port()) {
+    host->append(":");
+    host->append(gurl.port());
+  }
+}
+
+}  // namespace
 
 // Chop a frame into an array of MockWrites.
 // |data| is the frame to chop.
@@ -194,8 +212,7 @@ SpdyFrame* ConstructSpdyPacket(const SpdyHeaderInfo& header_info,
 // Construct an expected SPDY SETTINGS frame.
 // |settings| are the settings to set.
 // Returns the constructed frame.  The caller takes ownership of the frame.
-SpdyFrame* ConstructSpdySettings(
-    const SpdySettings& settings) {
+SpdyFrame* ConstructSpdySettings(const SettingsMap& settings) {
   BufferedSpdyFramer framer(2);
   return framer.CreateSettings(settings);
 }
@@ -314,7 +331,7 @@ SpdyFrame* ConstructSpdyControlFrame(const char* const extra_headers[],
     type,                         // Kind = Syn
     stream_id,                    // Stream ID
     associated_stream_id,         // Associated stream ID
-    ConvertRequestPriorityToSpdyPriority(request_priority),
+    ConvertRequestPriorityToSpdyPriority(request_priority, 2),
                                   // Priority
     flags,                        // Control Flags
     compressed,                   // Compressed
@@ -343,7 +360,7 @@ SpdyFrame* ConstructSpdyGet(const char* const url,
     SYN_STREAM,             // Kind = Syn
     stream_id,                    // Stream ID
     0,                            // Associated stream ID
-    net::ConvertRequestPriorityToSpdyPriority(request_priority),
+    ConvertRequestPriorityToSpdyPriority(request_priority, 2),
                                   // Priority
     CONTROL_FLAG_FIN,       // Control Flags
     compressed,                   // Compressed
@@ -353,37 +370,14 @@ SpdyFrame* ConstructSpdyGet(const char* const url,
     DATA_FLAG_NONE          // Data Flags
   };
 
-  GURL gurl(url);
-
-  // This is so ugly.  Why are we using char* in here again?
-  std::string str_path = gurl.PathForRequest();
-  std::string str_scheme = gurl.scheme();
-  std::string str_host = gurl.host();
-  if (gurl.has_port()) {
-    str_host += ":";
-    str_host += gurl.port();
-  }
-  scoped_array<char> req(new char[str_path.size() + 1]);
-  scoped_array<char> scheme(new char[str_scheme.size() + 1]);
-  scoped_array<char> host(new char[str_host.size() + 1]);
-  memcpy(req.get(), str_path.c_str(), str_path.size());
-  memcpy(scheme.get(), str_scheme.c_str(), str_scheme.size());
-  memcpy(host.get(), str_host.c_str(), str_host.size());
-  req.get()[str_path.size()] = '\0';
-  scheme.get()[str_scheme.size()] = '\0';
-  host.get()[str_host.size()] = '\0';
-
+  std::string scheme, host, path;
+  ParseUrl(url, &scheme, &host, &path);
   const char* const headers[] = {
-    "method",
-    "GET",
-    "url",
-    req.get(),
-    "host",
-    host.get(),
-    "scheme",
-    scheme.get(),
-    "version",
-    "HTTP/1.1"
+    "method",  "GET",
+    "url",     path.c_str(),
+    "host",    host.c_str(),
+    "scheme",  scheme.c_str(),
+    "version", "HTTP/1.1"
   };
   return ConstructSpdyPacket(
       kSynStartHeader,
@@ -905,7 +899,7 @@ int CombineFrames(const SpdyFrame** frames, int num_frames,
 
 SpdySessionDependencies::SpdySessionDependencies()
     : host_resolver(new MockCachingHostResolver),
-      cert_verifier(CertVerifier::CreateDefault()),
+      cert_verifier(new MockCertVerifier),
       proxy_service(ProxyService::CreateDirect()),
       ssl_config_service(new SSLConfigServiceDefaults),
       socket_factory(new MockClientSocketFactory),
@@ -923,7 +917,7 @@ SpdySessionDependencies::SpdySessionDependencies()
 
 SpdySessionDependencies::SpdySessionDependencies(ProxyService* proxy_service)
     : host_resolver(new MockHostResolver),
-      cert_verifier(CertVerifier::CreateDefault()),
+      cert_verifier(new MockCertVerifier),
       proxy_service(proxy_service),
       ssl_config_service(new SSLConfigServiceDefaults),
       socket_factory(new MockClientSocketFactory),
@@ -945,7 +939,12 @@ HttpNetworkSession* SpdySessionDependencies::SpdyCreateSession(
   params.http_auth_handler_factory =
       session_deps->http_auth_handler_factory.get();
   params.http_server_properties = &session_deps->http_server_properties;
-  return new HttpNetworkSession(params);
+  params.trusted_spdy_proxy =
+      session_deps->trusted_spdy_proxy;
+  HttpNetworkSession* http_session = new HttpNetworkSession(params);
+  SpdySessionPoolPeer pool_peer(http_session->spdy_session_pool());
+  pool_peer.EnableSendingInitialSettings(false);
+  return http_session;
 }
 
 // static
@@ -961,13 +960,16 @@ HttpNetworkSession* SpdySessionDependencies::SpdyCreateSessionDeterministic(
   params.http_auth_handler_factory =
       session_deps->http_auth_handler_factory.get();
   params.http_server_properties = &session_deps->http_server_properties;
-  return new HttpNetworkSession(params);
+  HttpNetworkSession* http_session = new HttpNetworkSession(params);
+  SpdySessionPoolPeer pool_peer(http_session->spdy_session_pool());
+  pool_peer.EnableSendingInitialSettings(false);
+  return http_session;
 }
 
 SpdyURLRequestContext::SpdyURLRequestContext()
     : ALLOW_THIS_IN_INITIALIZER_LIST(storage_(this)) {
   storage_.set_host_resolver(new MockHostResolver());
-  storage_.set_cert_verifier(CertVerifier::CreateDefault());
+  storage_.set_cert_verifier(new MockCertVerifier);
   storage_.set_proxy_service(ProxyService::CreateDirect());
   storage_.set_ssl_config_service(new SSLConfigServiceDefaults);
   storage_.set_http_auth_handler_factory(HttpAuthHandlerFactory::CreateDefault(
@@ -984,6 +986,8 @@ SpdyURLRequestContext::SpdyURLRequestContext()
   params.http_server_properties = http_server_properties();
   scoped_refptr<HttpNetworkSession> network_session(
       new HttpNetworkSession(params));
+  SpdySessionPoolPeer pool_peer(network_session->spdy_session_pool());
+  pool_peer.EnableSendingInitialSettings(false);
   storage_.set_http_transaction_factory(new HttpCache(
       network_session,
       HttpCache::DefaultBackend::InMemory(0)));
@@ -997,7 +1001,7 @@ const SpdyHeaderInfo MakeSpdyHeader(SpdyControlType type) {
     type,                         // Kind = Syn
     1,                            // Stream ID
     0,                            // Associated stream ID
-    2,                            // Priority
+    ConvertRequestPriorityToSpdyPriority(LOWEST, 2),  // Priority
     CONTROL_FLAG_FIN,       // Control Flags
     false,                        // Compressed
     INVALID,                // Status
@@ -1013,13 +1017,13 @@ SpdyTestStateHelper::SpdyTestStateHelper() {
   SpdySession::set_enable_ping_based_connection_checking(false);
   // Compression is per-session which makes it impossible to create
   // SPDY frames with static methods.
-  SpdyFramer::set_enable_compression_default(false);
+  BufferedSpdyFramer::set_enable_compression_default(false);
 }
 
 SpdyTestStateHelper::~SpdyTestStateHelper() {
   SpdySession::ResetStaticSettingsToInit();
   // TODO(rch): save/restore this value
-  SpdyFramer::set_enable_compression_default(true);
+  BufferedSpdyFramer::set_enable_compression_default(true);
 }
 
 }  // namespace test_spdy2

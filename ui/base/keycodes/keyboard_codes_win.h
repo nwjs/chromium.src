@@ -4,14 +4,13 @@
 
 #ifndef UI_BASE_KEYCODES_KEYBOARD_CODES_WIN_H_
 #define UI_BASE_KEYCODES_KEYBOARD_CODES_WIN_H_
-#pragma once
 
 #include <windows.h>
 #include <ime.h>
 
 namespace ui {
 
-typedef enum {
+enum KeyboardCode {
   VKEY_BACK = VK_BACK,
   VKEY_TAB = VK_TAB,
   VKEY_CLEAR = VK_CLEAR,
@@ -182,7 +181,7 @@ typedef enum {
   VKEY_PA1 = VK_PA1,
   VKEY_OEM_CLEAR = VK_OEM_CLEAR,
   VKEY_UNKNOWN = 0
-} KeyboardCode;
+};
 
 }  // namespace ui
 

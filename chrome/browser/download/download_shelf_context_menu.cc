@@ -5,24 +5,30 @@
 #include "chrome/browser/download/download_shelf_context_menu.h"
 
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/download/download_crx_util.h"
 #include "chrome/browser/download/download_item_model.h"
 #include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/safe_browsing/download_protection_service.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/common/extensions/extension.h"
+#include "chrome/common/extensions/extension_switch_utils.h"
 #include "content/public/browser/download_item.h"
 #include "content/public/browser/download_manager.h"
+#include "content/public/browser/page_navigator.h"
 #include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
 using content::DownloadItem;
+using extensions::Extension;
 
 DownloadShelfContextMenu::~DownloadShelfContextMenu() {}
 
 DownloadShelfContextMenu::DownloadShelfContextMenu(
-    BaseDownloadItemModel* download_model)
+    BaseDownloadItemModel* download_model,
+    content::PageNavigator* navigator)
     : download_model_(download_model),
-      download_item_(download_model->download()) {
+      download_item_(download_model->download()),
+      navigator_(navigator) {
 }
 
 ui::SimpleMenuModel* DownloadShelfContextMenu::GetMenuModel() {
@@ -43,18 +49,19 @@ ui::SimpleMenuModel* DownloadShelfContextMenu::GetMenuModel() {
 bool DownloadShelfContextMenu::IsCommandIdEnabled(int command_id) const {
   switch (command_id) {
     case SHOW_IN_FOLDER:
-    case OPEN_WHEN_COMPLETE:
-      // Don't enable "Open when complete" if the download is no longer
-      // available or if it is temporary. We explicitly ignore "Open when
-      // complete" for temporary downloads.
       return download_item_->CanShowInFolder() &&
           !download_item_->IsTemporary();
+    case OPEN_WHEN_COMPLETE:
+      return download_item_->CanShowInFolder() &&
+          !download_item_->IsTemporary() &&
+          (!download_crx_util::IsExtensionDownload(*download_item_) ||
+           download_item_->IsComplete());
     case ALWAYS_OPEN_TYPE:
       // For temporary downloads, the target filename might be a temporary
       // filename. Don't base an "Always open" decision based on it. Also
       // exclude extensions.
       return download_item_->CanOpenDownload() &&
-          !Extension::IsExtension(download_item_->GetTargetName()) &&
+          !download_crx_util::IsExtensionDownload(*download_item_) &&
           !download_item_->IsTemporary();
     case CANCEL:
       return download_item_->IsPartialDownload();
@@ -68,7 +75,8 @@ bool DownloadShelfContextMenu::IsCommandIdEnabled(int command_id) const {
 bool DownloadShelfContextMenu::IsCommandIdChecked(int command_id) const {
   switch (command_id) {
     case OPEN_WHEN_COMPLETE:
-      return download_item_->GetOpenWhenComplete();
+      return download_item_->GetOpenWhenComplete() ||
+          download_crx_util::IsExtensionDownload(*download_item_);
     case ALWAYS_OPEN_TYPE:
       return download_item_->ShouldOpenFileBasedOnExtension();
     case TOGGLE_PAUSE:
@@ -121,7 +129,8 @@ void DownloadShelfContextMenu::ExecuteCommand(int command_id) {
       if (protection_service) {
         protection_service->ShowDetailsForDownload(
             DownloadProtectionService::DownloadInfo::FromDownloadItem(
-                *download_item_));
+                *download_item_),
+            navigator_);
       }
 #else
       // Should only be getting invoked if we are using safe browsing.

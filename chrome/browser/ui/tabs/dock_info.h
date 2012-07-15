@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_TABS_DOCK_INFO_H_
 #define CHROME_BROWSER_UI_TABS_DOCK_INFO_H_
-#pragma once
 
 #include <set>
 
@@ -24,20 +23,6 @@
 // DockInfos are cheap and explicitly allow copy and assignment operators.
 class DockInfo {
  public:
-  class Factory {
-   public:
-    virtual DockInfo GetDockInfoAtPoint(
-        const gfx::Point& screen_point,
-        const std::set<gfx::NativeView>& ignore) = 0;
-
-    virtual gfx::NativeWindow GetLocalProcessWindowAtPoint(
-        const gfx::Point& screen_point,
-        const std::set<gfx::NativeView>& ignore) = 0;
-
-   protected:
-    virtual ~Factory() {}
-  };
-
   // Possible dock positions.
   enum Type {
     // Indicates there is no valid dock position for the current location.
@@ -76,9 +61,6 @@ class DockInfo {
                                     DockInfo::Type type,
                                     bool* in_enable_area);
 
-  // Sets the factory.
-  static void set_factory(Factory* factory) { factory_ = factory; }
-
   // Size of the popup window shown to indicate a valid dock location.
   static int popup_width();
   static int popup_height();
@@ -89,9 +71,6 @@ class DockInfo {
   //
   // If there is no docking position for the specified location the returned
   // DockInfo has a type of NONE.
-  //
-  // If a Factory has been set, the method of the same name is invoked on the
-  // Factory to determine the DockInfo.
   static DockInfo GetDockInfoAtPoint(const gfx::Point& screen_point,
                                      const std::set<gfx::NativeView>& ignore);
 
@@ -99,12 +78,11 @@ class DockInfo {
   // See GetDockInfoAtPoint for a description of |ignore|. This returns NULL if
   // there is no window from the current process at |screen_point|, or another
   // window obscures the topmost window from our process at |screen_point|.
-  //
-  // If a Factory has been set, the method of the same name is invoked on the
-  // Factory to determine the DockInfo.
   static gfx::NativeWindow GetLocalProcessWindowAtPoint(
       const gfx::Point& screen_point,
       const std::set<gfx::NativeView>& ignore);
+
+  static int GetHotSpotDeltaY();
 
   // Returns true if this DockInfo is valid for the specified point. This
   // resets in_enable_area based on the new location.
@@ -183,10 +161,6 @@ class DockInfo {
   gfx::Point hot_spot_;
   gfx::Rect monitor_bounds_;
   bool in_enable_area_;
-
-  // Factory that creates DockInfos. By default this is NULL, which gives the
-  // default behavior.
-  static Factory* factory_;
 };
 
 #endif  // CHROME_BROWSER_UI_TABS_DOCK_INFO_H_

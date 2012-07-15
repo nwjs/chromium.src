@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_PLUGIN_WEBPLUGIN_PROXY_H_
 #define CONTENT_PLUGIN_WEBPLUGIN_PROXY_H_
-#pragma once
 
 #include <string>
 
@@ -23,8 +22,8 @@
 #if defined(USE_X11)
 #include "ui/base/x/x11_util.h"
 #endif
-#include "ui/gfx/gl/gpu_preference.h"
-#include "ui/gfx/surface/transport_dib.h"
+#include "ui/gl/gpu_preference.h"
+#include "ui/surface/transport_dib.h"
 #include "webkit/plugins/npapi/webplugin.h"
 
 class PluginChannel;

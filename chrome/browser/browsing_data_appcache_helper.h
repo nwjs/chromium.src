@@ -1,13 +1,12 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_BROWSING_DATA_APPCACHE_HELPER_H_
 #define CHROME_BROWSER_BROWSING_DATA_APPCACHE_HELPER_H_
-#pragma once
 
 #include "base/callback.h"
-#include "base/memory/scoped_ptr.h"
+#include "base/memory/ref_counted.h"
 #include "net/base/completion_callback.h"
 #include "googleurl/src/gurl.h"
 #include "webkit/appcache/appcache_service.h"
@@ -23,10 +22,11 @@ class ResourceContext;
 class BrowsingDataAppCacheHelper
     : public base::RefCountedThreadSafe<BrowsingDataAppCacheHelper> {
  public:
+  typedef std::map<GURL, appcache::AppCacheInfoVector> OriginAppCacheInfoMap;
+
   explicit BrowsingDataAppCacheHelper(Profile* profile);
 
   virtual void StartFetching(const base::Closure& completion_callback);
-  virtual void CancelNotification();
   virtual void DeleteAppCacheGroup(const GURL& manifest_url);
 
   appcache::AppCacheInfoCollection* info_collection() const {
@@ -73,9 +73,14 @@ class CannedBrowsingDataAppCacheHelper : public BrowsingDataAppCacheHelper {
   // True if no appcaches are currently stored.
   bool empty() const;
 
+  // Returns the number of app cache resources.
+  size_t GetAppCacheCount() const;
+
+  // Returns a current map with the |AppCacheInfoVector|s per origin.
+  const OriginAppCacheInfoMap& GetOriginAppCacheInfoMap() const;
+
   // BrowsingDataAppCacheHelper methods.
   virtual void StartFetching(const base::Closure& completion_callback) OVERRIDE;
-  virtual void CancelNotification() OVERRIDE {}
 
  private:
   virtual ~CannedBrowsingDataAppCacheHelper();

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_INPUT_METHOD_INPUT_METHOD_WHITELIST_H_
 #define CHROME_BROWSER_CHROMEOS_INPUT_METHOD_INPUT_METHOD_WHITELIST_H_
-#pragma once
 
 #include <set>
 #include <string>
@@ -26,8 +25,6 @@ class InputMethodWhitelist {
 
   // Returns true if |input_method_id| is whitelisted.
   bool InputMethodIdIsWhitelisted(const std::string& input_method_id) const;
-  // Returns true if |xkb_layout| is supported.
-  bool XkbLayoutIsSupported(const std::string& xkb_layout) const;
 
   // Returns all input methods that are supported, including ones not active.
   // Caller has to delete the returned list. This function never returns NULL.
@@ -36,7 +33,6 @@ class InputMethodWhitelist {
 
  private:
   std::set<std::string> supported_input_methods_;
-  std::set<std::string> supported_layouts_;
 
   DISALLOW_COPY_AND_ASSIGN(InputMethodWhitelist);
 };

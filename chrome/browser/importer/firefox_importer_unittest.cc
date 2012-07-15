@@ -181,7 +181,7 @@ class FirefoxObserver : public ProfileWriter,
     }
   }
 
-  virtual void AddKeywords(const std::vector<TemplateURL*>& template_urls,
+  virtual void AddKeywords(ScopedVector<TemplateURL> template_urls,
                            bool unique_on_host_and_path) {
     for (size_t i = 0; i < template_urls.size(); ++i) {
       // The order might not be deterministic, look in the expected list for
@@ -191,7 +191,7 @@ class FirefoxObserver : public ProfileWriter,
       for (size_t j = 0; j < arraysize(kFirefox2Keywords); ++j) {
         if (template_urls[i]->keyword() ==
             WideToUTF16Hack(kFirefox2Keywords[j].keyword)) {
-          EXPECT_EQ(kFirefox2Keywords[j].url, template_urls[i]->url()->url());
+          EXPECT_EQ(kFirefox2Keywords[j].url, template_urls[i]->url());
           found = true;
           break;
         }
@@ -199,8 +199,6 @@ class FirefoxObserver : public ProfileWriter,
       EXPECT_TRUE(found);
       ++keyword_count_;
     }
-
-    STLDeleteContainerPointers(template_urls.begin(), template_urls.end());
   }
 
   void AddFavicons(const std::vector<history::ImportedFaviconUsage>& favicons) {
@@ -333,7 +331,7 @@ class Firefox3Observer : public ProfileWriter,
     }
   }
 
-  void AddKeywords(const std::vector<TemplateURL*>& template_urls,
+  void AddKeywords(ScopedVector<TemplateURL> template_urls,
                    bool unique_on_host_and_path) {
     for (size_t i = 0; i < template_urls.size(); ++i) {
       // The order might not be deterministic, look in the expected list for
@@ -343,7 +341,7 @@ class Firefox3Observer : public ProfileWriter,
       for (size_t j = 0; j < arraysize(kFirefox3Keywords); ++j) {
         if (template_urls[i]->keyword() ==
             WideToUTF16Hack(kFirefox3Keywords[j].keyword)) {
-          EXPECT_EQ(kFirefox3Keywords[j].url, template_urls[i]->url()->url());
+          EXPECT_EQ(kFirefox3Keywords[j].url, template_urls[i]->url());
           found = true;
           break;
         }
@@ -351,8 +349,6 @@ class Firefox3Observer : public ProfileWriter,
       EXPECT_TRUE(found);
       ++keyword_count_;
     }
-
-    STLDeleteContainerPointers(template_urls.begin(), template_urls.end());
   }
 
   void AddFavicons(const std::vector<history::ImportedFaviconUsage>& favicons) {

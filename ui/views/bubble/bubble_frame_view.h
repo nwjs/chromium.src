@@ -1,28 +1,26 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef UI_VIEWS_BUBBLE_BUBBLE_FRAME_VIEW_H_
 #define UI_VIEWS_BUBBLE_BUBBLE_FRAME_VIEW_H_
-#pragma once
 
+#include "base/basictypes.h"
+#include "base/compiler_specific.h"
 #include "base/gtest_prod_util.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "ui/gfx/insets.h"
 #include "ui/views/bubble/bubble_border.h"
 #include "ui/views/window/non_client_view.h"
 
 namespace views {
 
-class BorderContentsView;
-
-//  BubbleFrameView to render BubbleBorder.
-//
-////////////////////////////////////////////////////////////////////////////////
+// This is a NonClientFrameView used to render the BubbleBorder.
 class VIEWS_EXPORT BubbleFrameView : public NonClientFrameView {
  public:
   BubbleFrameView(BubbleBorder::ArrowLocation arrow_location,
                   SkColor color,
-                  int margin);
+                  const gfx::Insets& margins);
   virtual ~BubbleFrameView();
 
   // NonClientFrameView overrides:
@@ -48,6 +46,8 @@ class VIEWS_EXPORT BubbleFrameView : public NonClientFrameView {
   gfx::Rect GetUpdatedWindowBounds(const gfx::Rect& anchor_rect,
                                    gfx::Size client_size,
                                    bool try_mirroring_arrow);
+
+  void SetBubbleBorder(BubbleBorder* border);
 
  protected:
   // Returns the bounds for the monitor showing the specified |rect|.

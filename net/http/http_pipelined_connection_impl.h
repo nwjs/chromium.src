@@ -4,7 +4,6 @@
 
 #ifndef NET_HTTP_HTTP_PIPELINED_CONNECTION_IMPL_H_
 #define NET_HTTP_HTTP_PIPELINED_CONNECTION_IMPL_H_
-#pragma once
 
 #include <map>
 #include <queue>
@@ -56,7 +55,7 @@ class NET_EXPORT_PRIVATE HttpPipelinedConnectionImpl
         const ProxyInfo& used_proxy_info,
         const BoundNetLog& net_log,
         bool was_npn_negotiated,
-        SSLClientSocket::NextProto protocol_negotiated) OVERRIDE {
+        NextProto protocol_negotiated) OVERRIDE {
       return new HttpPipelinedConnectionImpl(connection, delegate, origin,
                                              used_ssl_config, used_proxy_info,
                                              net_log, was_npn_negotiated,
@@ -71,7 +70,7 @@ class NET_EXPORT_PRIVATE HttpPipelinedConnectionImpl
                               const ProxyInfo& used_proxy_info,
                               const BoundNetLog& net_log,
                               bool was_npn_negotiated,
-                              SSLClientSocket::NextProto protocol_negotiated);
+                              NextProto protocol_negotiated);
   virtual ~HttpPipelinedConnectionImpl();
 
   // HttpPipelinedConnection interface.
@@ -89,7 +88,7 @@ class NET_EXPORT_PRIVATE HttpPipelinedConnectionImpl
   virtual const ProxyInfo& used_proxy_info() const OVERRIDE;
   virtual const BoundNetLog& net_log() const OVERRIDE;
   virtual bool was_npn_negotiated() const OVERRIDE;
-  virtual SSLClientSocket::NextProto protocol_negotiated() const OVERRIDE;
+  virtual NextProto protocol_negotiated() const OVERRIDE;
 
   // Used by HttpPipelinedStream.
 
@@ -106,7 +105,7 @@ class NET_EXPORT_PRIVATE HttpPipelinedConnectionImpl
   int SendRequest(int pipeline_id,
                   const std::string& request_line,
                   const HttpRequestHeaders& headers,
-                  UploadDataStream* request_body,
+                  scoped_ptr<UploadDataStream> request_body,
                   HttpResponseInfo* response,
                   const CompletionCallback& callback);
 
@@ -182,7 +181,7 @@ class NET_EXPORT_PRIVATE HttpPipelinedConnectionImpl
     int pipeline_id;
     std::string request_line;
     HttpRequestHeaders headers;
-    UploadDataStream* request_body;
+    scoped_ptr<UploadDataStream> request_body;
     HttpResponseInfo* response;
     CompletionCallback callback;
   };
@@ -307,7 +306,7 @@ class NET_EXPORT_PRIVATE HttpPipelinedConnectionImpl
   BoundNetLog net_log_;
   bool was_npn_negotiated_;
   // Protocol negotiated with the server.
-  SSLClientSocket::NextProto protocol_negotiated_;
+  NextProto protocol_negotiated_;
   scoped_refptr<GrowableIOBuffer> read_buf_;
   int next_pipeline_id_;
   bool active_;

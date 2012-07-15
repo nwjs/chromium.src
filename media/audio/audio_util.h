@@ -80,15 +80,16 @@ MEDIA_EXPORT bool DeinterleaveAudioChannel(void* source,
                                            int bytes_per_sample,
                                            size_t number_of_frames);
 
-// InterleaveFloatToInt16 scales, clips, and interleaves the planar
-// floating-point audio contained in |source| to the int16 |destination|.
+// InterleaveFloatToInt scales, clips, and interleaves the planar
+// floating-point audio contained in |source| to the |destination|.
 // The floating-point data is in a canonical range of -1.0 -> +1.0.
 // The size of the |source| vector determines the number of channels.
 // The |destination| buffer is assumed to be large enough to hold the
 // result. Thus it must be at least size: number_of_frames * source.size()
-MEDIA_EXPORT void InterleaveFloatToInt16(const std::vector<float*>& source,
-                                         int16* destination,
-                                         size_t number_of_frames);
+MEDIA_EXPORT void InterleaveFloatToInt(const std::vector<float*>& source,
+                                       void* destination,
+                                       size_t number_of_frames,
+                                       int bytes_per_sample);
 
 // Returns the default audio output hardware sample-rate.
 MEDIA_EXPORT int GetAudioHardwareSampleRate();
@@ -105,6 +106,10 @@ MEDIA_EXPORT size_t GetAudioHardwareBufferSize();
 // Returns the channel layout for the specified audio input device.
 MEDIA_EXPORT ChannelLayout GetAudioInputHardwareChannelLayout(
     const std::string& device_id);
+
+// Computes a buffer size based on the given |sample_rate|. Must be used in
+// conjunction with AUDIO_PCM_LINEAR.
+MEDIA_EXPORT size_t GetHighLatencyOutputBufferSize(int sample_rate);
 
 // Functions that handle data buffer passed between processes in the shared
 // memory. Called on both IPC sides.
@@ -126,6 +131,9 @@ MEDIA_EXPORT bool IsUnknownDataSize(base::SharedMemory* shared_memory,
 // Does Windows support WASAPI? We are checking in lot of places, and
 // sometimes check was written incorrectly, so move into separate function.
 MEDIA_EXPORT bool IsWASAPISupported();
+
+// Returns number of buffers to be used by wave out.
+MEDIA_EXPORT int NumberOfWaveOutBuffers();
 
 #endif  // defined(OS_WIN)
 

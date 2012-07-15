@@ -27,11 +27,10 @@
 #include "chrome/browser/webdata/web_intents_table.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_paths.h"
-#include "chrome/common/guid.h"
 #include "chrome/test/base/thread_observer_helper.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_service.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "webkit/forms/form_field.h"
@@ -57,6 +56,8 @@ ACTION_P(SignalEvent, event) {
 
 class AutofillDBThreadObserverHelper : public DBThreadObserverHelper {
  protected:
+  virtual ~AutofillDBThreadObserverHelper() {}
+
   virtual void RegisterObservers() {
     registrar_.Add(&observer_,
                    chrome::NOTIFICATION_AUTOFILL_ENTRIES_CHANGED,
@@ -86,8 +87,12 @@ class WebDataServiceTest : public testing::Test {
   }
 
   virtual void TearDown() {
-    if (wds_.get())
-      wds_->Shutdown();
+    wds_->ShutdownOnUIThread();
+    wds_ = NULL;
+    base::WaitableEvent done(false, false);
+    BrowserThread::PostTask(BrowserThread::DB, FROM_HERE,
+        base::Bind(&base::WaitableEvent::Signal, base::Unretained(&done)));
+    done.Wait();
 
     db_thread_.Stop();
     MessageLoop::current()->PostTask(FROM_HERE, MessageLoop::QuitClosure());
@@ -741,7 +746,6 @@ TEST_F(WebDataServiceTest, WebIntentsGetAll) {
   EXPECT_EQ(service, consumer.services_[1]);
 }
 
-#if defined(ENABLE_WEB_INTENTS)
 TEST_F(WebDataServiceTest, WebIntentsDefaultsTest) {
   WebIntentsDefaultsConsumer consumer;
 
@@ -787,7 +791,6 @@ TEST_F(WebDataServiceTest, WebIntentsDefaultsTest) {
   ASSERT_EQ(1U, consumer.services_.size());
   EXPECT_EQ("service_url_2", consumer.services_[0].service_url);
 }
-#endif // defined(ENABLE_WEB_INTENTS)
 
 TEST_F(WebDataServiceTest, DidDefaultSearchProviderChangeOnNewProfile) {
   KeywordsConsumer consumer;
@@ -795,5 +798,5 @@ TEST_F(WebDataServiceTest, DidDefaultSearchProviderChangeOnNewProfile) {
   WaitUntilCalled();
   ASSERT_TRUE(consumer.load_succeeded);
   EXPECT_FALSE(consumer.keywords_result.did_default_search_provider_change);
-  EXPECT_EQ(NULL, consumer.keywords_result.default_search_provider_backup);
+  EXPECT_FALSE(consumer.keywords_result.backup_valid);
 }

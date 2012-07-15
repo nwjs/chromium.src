@@ -4,13 +4,11 @@
 
 #ifndef CHROME_BROWSER_HISTORY_THUMBNAIL_DATABASE_H_
 #define CHROME_BROWSER_HISTORY_THUMBNAIL_DATABASE_H_
-#pragma once
 
 #include <vector>
 
 #include "base/gtest_prod_util.h"
 #include "base/memory/ref_counted.h"
-#include "base/memory/scoped_ptr.h"
 #include "chrome/browser/history/history_types.h"
 #include "sql/connection.h"
 #include "sql/init_status.h"
@@ -18,11 +16,11 @@
 #include "sql/statement.h"
 
 class FilePath;
-class RefCountedMemory;
 struct ThumbnailScore;
 class SkBitmap;
 
 namespace base {
+class RefCountedMemory;
 class Time;
 }
 
@@ -66,6 +64,7 @@ class ThumbnailDatabase {
   int transaction_nesting() const {
     return db_.transaction_nesting();
   }
+  void RollbackTransaction();
 
   // Vacuums the database. This will cause sqlite to defragment and collect
   // unused space in the file. It can be VERY SLOW.
@@ -104,7 +103,7 @@ class ThumbnailDatabase {
   // The time indicates the access time, and is used to detect when the favicon
   // should be refreshed.
   bool SetFavicon(FaviconID icon_id,
-                  scoped_refptr<RefCountedMemory> icon_data,
+                  scoped_refptr<base::RefCountedMemory> icon_data,
                   base::Time time);
 
   // Sets the time the favicon was last updated.
@@ -121,12 +120,13 @@ class ThumbnailDatabase {
                                       int required_icon_type,
                                       IconType* icon_type);
 
-  // Gets the png encoded favicon and last updated time for the specified
-  // favicon id.
+  // Gets the png encoded favicon, last updated time, icon_url and icon_type for
+  // the specified favicon id.
   bool GetFavicon(FaviconID icon_id,
                   base::Time* last_updated,
                   std::vector<unsigned char>* png_icon_data,
-                  GURL* icon_url);
+                  GURL* icon_url,
+                  IconType* icon_type);
 
   // Adds the favicon URL and icon type to the favicon db, returning its id.
   FaviconID AddFavicon(const GURL& icon_url, IconType icon_type);

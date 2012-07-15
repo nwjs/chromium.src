@@ -30,8 +30,19 @@
 // TODO(gman): GetTranslatedShaderSourceANGLE
 // TODO(gman): PostSubBufferCHROMIUM
 // TODO(gman): TexImageIOSurface2DCHROMIUM
+// TODO(gman): CopyTextureCHROMIUM
 // TODO(gman): DrawArraysInstancedANGLE
 // TODO(gman): DrawElementsInstancedANGLE
 // TODO(gman): VertexAttribDivisorANGLE
+// TODO(gman): GenMailboxCHROMIUM
+// TODO(gman): ProduceTextureCHROMIUM
+// TODO(gman): ProduceTextureCHROMIUMImmediate
+// TODO(gman): ConsumeTextureCHROMIUM
+// TODO(gman): ConsumeTextureCHROMIUMImmediate
+// TODO(gman): BindUniformLocationCHROMIUM
+
+// TODO(gman): BindUniformLocationCHROMIUMImmediate
+
+// TODO(gman): BindUniformLocationCHROMIUMBucket
 #endif  // GPU_COMMAND_BUFFER_SERVICE_GLES2_CMD_DECODER_UNITTEST_3_AUTOGEN_H_
 

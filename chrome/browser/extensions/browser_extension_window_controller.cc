@@ -4,34 +4,40 @@
 
 #include "chrome/browser/extensions/browser_extension_window_controller.h"
 
+#include "chrome/browser/extensions/api/tabs/tabs_constants.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
-#include "chrome/browser/extensions/extension_tabs_module_constants.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sessions/session_id.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/common/extensions/extension.h"
 
 BrowserExtensionWindowController::BrowserExtensionWindowController(
     Browser* browser)
-    : ExtensionWindowController(browser->window(), browser->profile()),
+    : extensions::WindowController(browser->window(), browser->profile()),
       browser_(browser) {
 }
 
-const SessionID& BrowserExtensionWindowController::GetSessionId() const {
-  return browser_->session_id();
+int BrowserExtensionWindowController::GetWindowId() const {
+  return static_cast<int>(browser_->session_id().id());
 }
 
-namespace keys = extension_tabs_module_constants;
+namespace keys = extensions::tabs_constants;
+
+std::string BrowserExtensionWindowController::GetWindowTypeText() const {
+  if (browser_->is_type_popup())
+    return keys::kWindowTypeValuePopup;
+  if (browser_->is_type_panel())
+    return keys::kWindowTypeValuePanel;
+  if (browser_->is_app())
+    return keys::kWindowTypeValueApp;
+  return keys::kWindowTypeValueNormal;
+}
 
 base::DictionaryValue*
 BrowserExtensionWindowController::CreateWindowValue() const {
-  DictionaryValue* result = ExtensionWindowController::CreateWindowValue();
-
-  result->SetString(keys::kWindowTypeKey,
-                    ExtensionTabUtil::GetWindowTypeText(browser_));
-  result->SetString(keys::kShowStateKey,
-                    ExtensionTabUtil::GetWindowShowStateText(browser_));
-
+  DictionaryValue* result = extensions::WindowController::CreateWindowValue();
   return result;
 }
 
@@ -44,12 +50,11 @@ BrowserExtensionWindowController::CreateWindowValueWithTabs() const {
   return result;
 }
 
-bool BrowserExtensionWindowController::CanClose(
-    ExtensionWindowController::Reason* reason) const {
+bool BrowserExtensionWindowController::CanClose(Reason* reason) const {
   // Don't let an extension remove the window if the user is dragging tabs
   // in that window.
-  if (!browser_->IsTabStripEditable()) {
-    *reason = ExtensionWindowController::REASON_TAB_STRIP_NOT_EDITABLE;
+  if (!chrome::IsTabStripEditable(browser_)) {
+    *reason = extensions::WindowController::REASON_NOT_EDITABLE;
     return false;
   }
   return true;
@@ -60,4 +65,15 @@ void BrowserExtensionWindowController::SetFullscreenMode(
     const GURL& extension_url) const {
   if (browser_->window()->IsFullscreen() != is_fullscreen)
     browser_->ToggleFullscreenModeWithExtension(extension_url);
+}
+
+Browser* BrowserExtensionWindowController::GetBrowser() const {
+  return browser_;
+}
+
+bool BrowserExtensionWindowController::IsVisibleToExtension(
+    const extensions::Extension* extension) const {
+  // Platform apps can only see their own windows.
+  // TODO(mihaip): what about non-Aura panels?
+  return !extension->is_platform_app();
 }

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_COMMON_EXTENSIONS_EXTENSION_SET_H_
 #define CHROME_COMMON_EXTENSIONS_EXTENSION_SET_H_
-#pragma once
 
 #include <iterator>
 #include <map>
@@ -43,13 +42,14 @@ class ExtensionURLInfo {
 class ExtensionSet {
  public:
   typedef std::pair<FilePath, std::string> ExtensionPathAndDefaultLocale;
-  typedef std::map<std::string, scoped_refptr<const Extension> > ExtensionMap;
+  typedef std::map<std::string, scoped_refptr<const extensions::Extension> >
+      ExtensionMap;
 
   // Iteration over the values of the map (given that it's an ExtensionSet,
   // it should iterate like a set iterator).
   class const_iterator :
       public std::iterator<std::input_iterator_tag,
-                           scoped_refptr<const Extension> > {
+                           scoped_refptr<const extensions::Extension> > {
    public:
     const_iterator() {}
     explicit const_iterator(ExtensionMap::const_iterator it) :
@@ -58,7 +58,7 @@ class ExtensionSet {
       ++it_;
       return *this;
     }
-    const scoped_refptr<const Extension> operator*() {
+    const scoped_refptr<const extensions::Extension> operator*() {
       return it_->second;
     }
     bool operator!=(const const_iterator& other) { return it_ != other.it_; }
@@ -83,7 +83,7 @@ class ExtensionSet {
 
   // Adds the specified extension to the set. The set becomes an owner. Any
   // previous extension with the same ID is removed.
-  void Insert(const scoped_refptr<const Extension>& extension);
+  void Insert(const scoped_refptr<const extensions::Extension>& extension);
 
   // Copies different items from |extensions| to the current set and returns
   // whether anything changed.
@@ -104,14 +104,16 @@ class ExtensionSet {
   // NOTE: This can return NULL if called before UpdateExtensions receives
   // bulk extension data (e.g. if called from
   // EventBindings::HandleContextCreated)
-  const Extension* GetExtensionOrAppByURL(const ExtensionURLInfo& info) const;
+  const extensions::Extension* GetExtensionOrAppByURL(
+      const ExtensionURLInfo& info) const;
 
   // Returns the hosted app whose web extent contains the URL.
-  const Extension* GetHostedAppByURL(const ExtensionURLInfo& info) const;
+  const extensions::Extension* GetHostedAppByURL(
+      const ExtensionURLInfo& info) const;
 
   // Returns a hosted app that contains any URL that overlaps with the given
   // extent, if one exists.
-  const Extension* GetHostedAppByOverlappingWebExtent(
+  const extensions::Extension* GetHostedAppByOverlappingWebExtent(
       const URLPatternSet& extent) const;
 
   // Returns true if |new_url| is in the extent of the same extension as
@@ -119,12 +121,16 @@ class ExtensionSet {
   bool InSameExtent(const GURL& old_url, const GURL& new_url) const;
 
   // Look up an Extension object by id.
-  const Extension* GetByID(const std::string& id) const;
+  const extensions::Extension* GetByID(const std::string& id) const;
 
   // Returns true if |info| should get extension api bindings and be permitted
   // to make api calls. Note that this is independent of what extension
   // permissions the given extension has been granted.
   bool ExtensionBindingsAllowed(const ExtensionURLInfo& info) const;
+
+  // Returns true if |info| is an extension page that is to be served in a
+  // unique sandboxed origin.
+  bool IsSandboxedPage(const ExtensionURLInfo& info) const;
 
  private:
   FRIEND_TEST_ALL_PREFIXES(ExtensionSetTest, ExtensionSet);

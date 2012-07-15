@@ -9,13 +9,12 @@
 # SHERIFF: there should be no need to disable this bot.
 # The FYI waterfall does not close the tree.
 
-ROOT=$(cd "$(dirname $0)"; pwd)
-. "${ROOT}"/buildbot_functions.sh
+BB_SRC_ROOT="$(cd "$(dirname $0)/../.."; pwd)"
+. "${BB_SRC_ROOT}/build/android/buildbot_functions.sh"
 
-bb_baseline_setup "${ROOT}"/../..
-bb_install_build_deps "${ROOT}"/../..
+bb_baseline_setup "$BB_SRC_ROOT" "$@"
+bb_install_build_deps "$BB_SRC_ROOT"
 bb_compile
 bb_compile_experimental
+bb_run_content_shell_test
 bb_run_tests
-
-

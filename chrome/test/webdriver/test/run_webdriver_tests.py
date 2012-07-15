@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (c) 2011 The Chromium Authors. All rights reserved.
+# Copyright (c) 2012 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -129,7 +129,8 @@ class Main(object):
     def _GetTestsFromTestCase(class_obj):
       """Return all test method names from given class object."""
       return [class_obj.__name__ + '.' + x for x in dir(class_obj) if
-              x.startswith('test')]
+              x.startswith('test') and
+              not hasattr(getattr(class_obj, x), 'should_skip')]
 
     def _GetTestsFromModule(module):
       """Return all test method names from the given module object."""
@@ -199,10 +200,15 @@ class Main(object):
     run all the tests that do not depend on it. Those depending on it are
     disabled.
     """
+    def skip(func):
+      func.should_skip = True
+      return func
+
     import imp
     sys.modules['pytest'] = imp.new_module('pytest')
     sys.modules['pytest'].mark = imp.new_module('mark')
-    sys.modules['pytest'].mark.ignore_chrome = lambda x: x
+    sys.modules['pytest'].mark.ignore_chrome = skip
+    sys.modules['pytest'].mark.ignore_opera = lambda x: x
 
   def _Run(self):
     """Run the tests."""

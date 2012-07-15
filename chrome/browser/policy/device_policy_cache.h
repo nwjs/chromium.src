@@ -4,16 +4,20 @@
 
 #ifndef CHROME_BROWSER_POLICY_DEVICE_POLICY_CACHE_H_
 #define CHROME_BROWSER_POLICY_DEVICE_POLICY_CACHE_H_
-#pragma once
 
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/chromeos/login/signed_settings.h"
 #include "chrome/browser/policy/cloud_policy_cache_base.h"
-#include "chrome/browser/policy/proto/chrome_device_policy.pb.h"
 
 namespace chromeos {
 class SignedSettingsHelper;
 }  // namespace chromeos
+
+namespace enterprise_management {
+class ChromeDeviceSettingsProto;
+class PolicyData;
+class PolicyFetchResponse;
+}  // namespace enterprise_management
 
 namespace policy {
 
@@ -34,6 +38,7 @@ class DevicePolicyCache : public CloudPolicyCacheBase {
   virtual bool SetPolicy(
       const enterprise_management::PolicyFetchResponse& policy) OVERRIDE;
   virtual void SetUnmanaged() OVERRIDE;
+  virtual void SetFetchingDone() OVERRIDE;
 
   void OnRetrievePolicyCompleted(
       chromeos::SignedSettings::ReturnCode code,
@@ -68,24 +73,39 @@ class DevicePolicyCache : public CloudPolicyCacheBase {
       const enterprise_management::PolicyFetchResponse& policy,
       std::string* device_token);
 
+  // Ensures that CrosSettings has established trust on the reporting prefs and
+  // publishes the |device_token| loaded from the cache. It's important that we
+  // have fully-initialized device settings s.t. device status uploads get the
+  // correct reporting policy flags.
+  void SetTokenAndFlagReady(const std::string& device_token);
+
+  // Checks whether a policy fetch is pending and sends out a notification if
+  // that is the case.
+  void CheckFetchingDone();
+
+  void DecodeDevicePolicy(
+      const enterprise_management::ChromeDeviceSettingsProto& policy,
+      PolicyMap* policies);
+
   // Decode the various groups of policies.
   static void DecodeLoginPolicies(
       const enterprise_management::ChromeDeviceSettingsProto& policy,
       PolicyMap* policies);
   static void DecodeKioskPolicies(
       const enterprise_management::ChromeDeviceSettingsProto& policy,
-      PolicyMap* policies);
+      PolicyMap* policies,
+      EnterpriseInstallAttributes* install_attributes);
   static void DecodeNetworkPolicies(
       const enterprise_management::ChromeDeviceSettingsProto& policy,
-      PolicyMap* policies);
+      PolicyMap* policies,
+      EnterpriseInstallAttributes* install_attributes);
   static void DecodeReportingPolicies(
       const enterprise_management::ChromeDeviceSettingsProto& policy,
       PolicyMap* policies);
-  static void DecodeGenericPolicies(
+  static void DecodeAutoUpdatePolicies(
       const enterprise_management::ChromeDeviceSettingsProto& policy,
       PolicyMap* policies);
-
-  static void DecodeDevicePolicy(
+  static void DecodeGenericPolicies(
       const enterprise_management::ChromeDeviceSettingsProto& policy,
       PolicyMap* policies);
 
@@ -95,6 +115,8 @@ class DevicePolicyCache : public CloudPolicyCacheBase {
   chromeos::SignedSettingsHelper* signed_settings_helper_;
 
   base::WeakPtrFactory<DevicePolicyCache> weak_ptr_factory_;
+
+  bool policy_fetch_pending_;
 
   DISALLOW_COPY_AND_ASSIGN(DevicePolicyCache);
 };

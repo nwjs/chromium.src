@@ -19,6 +19,7 @@
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/history/history.h"
+#include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/history/top_sites.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/thumbnail_score.h"
@@ -114,7 +115,7 @@ void InsertURLBatch(Profile* profile,
                     int batch_size,
                     int types) {
   HistoryService* history_service =
-      profile->GetHistoryService(Profile::EXPLICIT_ACCESS);
+      HistoryServiceFactory::GetForProfile(profile, Profile::EXPLICIT_ACCESS);
 
   // Probability of following a link on the current "page"
   // (vs randomly jumping to a new page).
@@ -181,9 +182,9 @@ void InsertURLBatch(Profile* profile,
     if (types & FULL_TEXT)
       history_service->SetPageContents(url, ConstructRandomPage());
     if (types & TOP_SITES && top_sites) {
-      SkBitmap* bitmap = (RandomInt(0, 2) == 0) ? google_bitmap.get() :
-                                                  weewar_bitmap.get();
-      gfx::Image image(new SkBitmap(*bitmap));
+      const SkBitmap& bitmap = (RandomInt(0, 2) == 0) ? *google_bitmap :
+                                                        *weewar_bitmap;
+      gfx::Image image(bitmap);
       top_sites->SetPageThumbnail(url, &image, score);
     }
 
@@ -234,7 +235,7 @@ int main(int argc, const char* argv[]) {
 
   chrome::RegisterPathProvider();
   ui::RegisterPathProvider();
-  ResourceBundle::InitSharedInstanceWithLocale("en-US");
+  ResourceBundle::InitSharedInstanceWithLocale("en-US", NULL);
   scoped_ptr<content::NotificationService> notification_service(
       content::NotificationService::Create());
   MessageLoopForUI message_loop;

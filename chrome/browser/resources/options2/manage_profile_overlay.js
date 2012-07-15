@@ -6,8 +6,6 @@ cr.define('options', function() {
   var OptionsPage = options.OptionsPage;
   var ArrayDataModel = cr.ui.ArrayDataModel;
 
-  /** @const */ var localStrings = new LocalStrings();
-
   /**
    * ManageProfileOverlay class
    * Encapsulated handling of the 'Manage profile...' overlay page.
@@ -15,7 +13,8 @@ cr.define('options', function() {
    * @class
    */
   function ManageProfileOverlay() {
-    OptionsPage.call(this, 'manageProfile', templateData.manageProfileTabTitle,
+    OptionsPage.call(this, 'manageProfile',
+                     loadTimeData.getString('manageProfileTabTitle'),
                      'manage-profile-overlay');
   };
 
@@ -43,14 +42,25 @@ cr.define('options', function() {
 
       var self = this;
       var iconGrid = $('manage-profile-icon-grid');
+      var createIconGrid = $('create-profile-icon-grid');
       options.ProfilesIconGrid.decorate(iconGrid);
+      options.ProfilesIconGrid.decorate(createIconGrid);
       iconGrid.addEventListener('change', function(e) {
-        self.onIconGridSelectionChanged_();
+        self.onIconGridSelectionChanged_('manage');
+      });
+      createIconGrid.addEventListener('change', function(e) {
+        self.onIconGridSelectionChanged_('create');
       });
 
-      $('manage-profile-name').oninput = this.onNameChanged_.bind(this);
+      $('manage-profile-name').oninput = function(event) {
+        self.onNameChanged_(event, 'manage');
+      };
+      $('create-profile-name').oninput = function(event) {
+        self.onNameChanged_(event, 'create');
+      };
       $('manage-profile-cancel').onclick =
-          $('delete-profile-cancel').onclick = function(event) {
+          $('delete-profile-cancel').onclick =
+              $('create-profile-cancel').onclick = function(event) {
         OptionsPage.closeOverlay();
       };
       $('manage-profile-ok').onclick = function(event) {
@@ -61,23 +71,27 @@ cr.define('options', function() {
         OptionsPage.closeOverlay();
         chrome.send('deleteProfile', [self.profileInfo_.filePath]);
       };
+      $('create-profile-ok').onclick = function(event) {
+        OptionsPage.closeOverlay();
+        // Get the user's chosen name and icon, or default if they do not
+        // wish to customize their profile.
+        var name = $('create-profile-name').value;
+        var icon_url = createIconGrid.selectedItem;
+        chrome.send('createProfile', [name, icon_url]);
+      };
     },
 
     /** @inheritDoc */
     didShowPage: function() {
       chrome.send('requestDefaultProfileIcons');
 
-      // Use the hash to specify the profile index.
-      var hash = location.hash;
-      if (hash) {
-        $('manage-profile-overlay-manage').hidden = false;
-        $('manage-profile-overlay-delete').hidden = true;
-        ManageProfileOverlay.getInstance().hideErrorBubble_();
-
-        chrome.send('requestProfileInfo', [parseInt(hash.slice(1), 10)]);
-      }
+      // Use the hash to specify the profile index. Note: the actual index
+      // is ignored. Only the current profile may be edited.
+      if (window.location.hash.length > 1)
+        ManageProfileOverlay.getInstance().prepareForManageDialog_();
 
       $('manage-profile-name').focus();
+      $('create-profile-name').focus();
     },
 
     /**
@@ -89,13 +103,16 @@ cr.define('options', function() {
      *       filePath: "/path/to/profile/data/on/disk"
      *       isCurrentProfile: false,
      *     };
+     * @param {String} mode A label that specifies the type of dialog
+     *     box which is currently being viewed (i.e. 'create' or
+     *     'manage').
      * @private
      */
-    setProfileInfo_: function(profileInfo) {
+    setProfileInfo_: function(profileInfo, mode) {
       this.iconGridSelectedURL_ = profileInfo.iconURL;
       this.profileInfo_ = profileInfo;
-      $('manage-profile-name').value = profileInfo.name;
-      $('manage-profile-icon-grid').selectedItem = profileInfo.iconURL;
+      $(mode + '-profile-name').value = profileInfo.name;
+      $(mode + '-profile-icon-grid').selectedItem = profileInfo.iconURL;
     },
 
     /**
@@ -109,20 +126,17 @@ cr.define('options', function() {
     },
 
     /**
-     * Set an array of default icon URLs. These will be added to the grid that
      * the user will use to choose their profile icon.
      * @param {Array.<string>} iconURLs An array of icon URLs.
      * @private
      */
-    receiveDefaultProfileIcons_: function(iconURLs) {
-      $('manage-profile-icon-grid').dataModel = new ArrayDataModel(iconURLs);
+    receiveDefaultProfileIcons_: function(iconGrid, iconURLs) {
+      $(iconGrid).dataModel = new ArrayDataModel(iconURLs);
 
-      // Changing the dataModel resets the selectedItem. Re-select it, if there
-      // is one.
       if (this.profileInfo_)
-        $('manage-profile-icon-grid').selectedItem = this.profileInfo_.iconURL;
+        $(iconGrid).selectedItem = this.profileInfo_.iconURL;
 
-      var grid = $('manage-profile-icon-grid');
+      var grid = $(iconGrid);
       // Recalculate the measured item size.
       grid.measured_ = null;
       grid.columns = 0;
@@ -142,43 +156,52 @@ cr.define('options', function() {
     /**
      * Display the error bubble, with |errorText| in the bubble.
      * @param {string} errorText The localized string id to display as an error.
+     * @param {String} mode A label that specifies the type of dialog
+     *     box which is currently being viewed (i.e. 'create' or
+     *     'manage').
      * @private
      */
-    showErrorBubble_: function(errorText) {
-      var nameErrorEl = $('manage-profile-error-bubble');
+    showErrorBubble_: function(errorText, mode) {
+      var nameErrorEl = $(mode + '-profile-error-bubble');
       nameErrorEl.hidden = false;
-      nameErrorEl.textContent = localStrings.getString(errorText);
+      nameErrorEl.textContent = loadTimeData.getString(errorText);
 
-      $('manage-profile-ok').disabled = true;
+      $(mode + '-profile-ok').disabled = true;
     },
 
     /**
      * Hide the error bubble.
+     * @param {String} mode A label that specifies the type of dialog
+     *     box which is currently being viewed (i.e. 'create' or
+     *     'manage').
      * @private
      */
-    hideErrorBubble_: function() {
-      $('manage-profile-error-bubble').hidden = true;
-      $('manage-profile-ok').disabled = false;
+    hideErrorBubble_: function(mode) {
+      $(mode + '-profile-error-bubble').hidden = true;
+      $(mode + '-profile-ok').disabled = false;
     },
 
     /**
      * oninput callback for <input> field.
      * @param {Event} event The event object.
+     * @param {String} mode A label that specifies the type of dialog
+     *     box which is currently being viewed (i.e. 'create' or
+     *     'manage').
      * @private
      */
-    onNameChanged_: function(event) {
+    onNameChanged_: function(event, mode) {
       var newName = event.target.value;
       var oldName = this.profileInfo_.name;
 
       if (newName == oldName) {
-        this.hideErrorBubble_();
+        this.hideErrorBubble_(mode);
       } else if (this.profileNames_[newName] != undefined) {
-        this.showErrorBubble_('manageProfilesDuplicateNameError');
+        this.showErrorBubble_('manageProfilesDuplicateNameError', mode);
       } else {
-        this.hideErrorBubble_();
+        this.hideErrorBubble_(mode);
 
-        var nameIsValid = $('manage-profile-name').validity.valid;
-        $('manage-profile-ok').disabled = !nameIsValid;
+        var nameIsValid = $(mode + '-profile-name').validity.valid;
+        $(mode + '-profile-ok').disabled = !nameIsValid;
       }
     },
 
@@ -195,10 +218,13 @@ cr.define('options', function() {
 
     /**
      * Called when the selected icon in the icon grid changes.
+     * @param {String} mode A label that specifies the type of dialog
+     *     box which is currently being viewed (i.e. 'create' or
+     *     'manage').
      * @private
      */
-    onIconGridSelectionChanged_: function() {
-      var iconURL = $('manage-profile-icon-grid').selectedItem;
+    onIconGridSelectionChanged_: function(mode) {
+      var iconURL = $(mode + '-profile-icon-grid').selectedItem;
       if (!iconURL || iconURL == this.iconGridSelectedURL_)
         return;
       this.iconGridSelectedURL_ = iconURL;
@@ -207,16 +233,25 @@ cr.define('options', function() {
     },
 
     /**
-     * Display the "Manage Profile" dialog.
-     * @param {Object} profileInfo The profile object of the profile to manage.
+     * Updates the contents of the "Manage Profile" section of the dialog,
+     * and shows that section.
      * @private
      */
-    showManageDialog_: function(profileInfo) {
-      ManageProfileOverlay.setProfileInfo(profileInfo);
+    prepareForManageDialog_: function() {
+      var profileInfo = BrowserOptions.getCurrentProfile();
+      ManageProfileOverlay.setProfileInfo(profileInfo, 'manage');
+      $('manage-profile-overlay-create').hidden = true;
       $('manage-profile-overlay-manage').hidden = false;
       $('manage-profile-overlay-delete').hidden = true;
-      ManageProfileOverlay.getInstance().hideErrorBubble_();
+      this.hideErrorBubble_('manage');
+    },
 
+    /**
+     * Display the "Manage Profile" dialog.
+     * @private
+     */
+    showManageDialog_: function() {
+      this.prepareForManageDialog_();
       OptionsPage.navigateToPage('manageProfile');
     },
 
@@ -226,16 +261,38 @@ cr.define('options', function() {
      * @private
      */
     showDeleteDialog_: function(profileInfo) {
-      ManageProfileOverlay.setProfileInfo(profileInfo);
+      ManageProfileOverlay.setProfileInfo(profileInfo, 'manage');
+      $('manage-profile-overlay-create').hidden = true;
       $('manage-profile-overlay-manage').hidden = true;
       $('manage-profile-overlay-delete').hidden = false;
       $('delete-profile-message').textContent =
-          localStrings.getStringF('deleteProfileMessage', profileInfo.name);
+          loadTimeData.getStringF('deleteProfileMessage', profileInfo.name);
       $('delete-profile-message').style.backgroundImage = 'url("' +
           profileInfo.iconURL + '")';
 
+      // Because this dialog isn't useful when refreshing or as part of the
+      // history, don't create a history entry for it when showing.
+      OptionsPage.showPageByName('manageProfile', false);
+    },
+
+    /**
+     * Display the "Create Profile" dialog.
+     * @param {Object} profileInfo The profile object of the profile to
+     *     create. Upon creation, this object only needs a name and an avatar.
+     * @private
+     */
+    showCreateDialog_: function(profileInfo) {
+      ManageProfileOverlay.setProfileInfo(profileInfo, 'create');
+      $('manage-profile-overlay-create').hidden = false;
+      $('manage-profile-overlay-manage').hidden = true;
+      $('manage-profile-overlay-delete').hidden = true;
+      $('create-profile-instructions').textContent =
+         loadTimeData.getStringF('createProfileInstructions');
+      ManageProfileOverlay.getInstance().hideErrorBubble_('create');
+
       OptionsPage.navigateToPage('manageProfile');
     },
+
   };
 
   // Forward public APIs to private implementations.
@@ -246,6 +303,7 @@ cr.define('options', function() {
     'setProfileName',
     'showManageDialog',
     'showDeleteDialog',
+    'showCreateDialog',
   ].forEach(function(name) {
     ManageProfileOverlay[name] = function() {
       var instance = ManageProfileOverlay.getInstance();

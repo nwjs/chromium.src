@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,8 +13,11 @@
 #include "base/logging.h"
 #include "base/message_loop.h"
 #include "base/string_util.h"
+#include "base/win/scoped_hdc.h"
+#include "base/win/scoped_select_object.h"
 #include "ui/base/l10n/l10n_util_win.h"
 #include "ui/base/win/hwnd_util.h"
+#include "ui/base/win/scoped_set_map_mode.h"
 #include "ui/gfx/font.h"
 #include "ui/gfx/screen.h"
 #include "ui/views/view.h"
@@ -58,7 +61,7 @@ gfx::Font TooltipManager::GetDefaultFont() {
 // static
 int TooltipManager::GetMaxWidth(int x, int y) {
   gfx::Rect monitor_bounds =
-      gfx::Screen::GetMonitorAreaNearestPoint(gfx::Point(x, y));
+      gfx::Screen::GetDisplayNearestPoint(gfx::Point(x, y)).bounds();
   // Allow the tooltip to be almost as wide as the screen.
   // Otherwise, we would truncate important text, since we're not word-wrapping
   // the text onto multiple lines.
@@ -243,21 +246,17 @@ bool TooltipManagerWin::SetTooltipPosition(int text_x, int text_y) {
 }
 
 int TooltipManagerWin::CalcTooltipHeight() {
-  // Ask the tooltip for it's font.
+  // Ask the tooltip for its font.
   int height;
   HFONT hfont = reinterpret_cast<HFONT>(
       SendMessage(tooltip_hwnd_, WM_GETFONT, 0, 0));
   if (hfont != NULL) {
-    HDC dc = GetDC(tooltip_hwnd_);
-    HFONT previous_font = static_cast<HFONT>(SelectObject(dc, hfont));
-    int last_map_mode = SetMapMode(dc, MM_TEXT);
+    base::win::ScopedGetDC dc(tooltip_hwnd_);
+    base::win::ScopedSelectObject font(dc, hfont);
+    ui::ScopedSetMapMode mode(dc, MM_TEXT);
     TEXTMETRIC font_metrics;
     GetTextMetrics(dc, &font_metrics);
     height = font_metrics.tmHeight;
-    // To avoid the DC referencing font_handle_, select the previous font.
-    SelectObject(dc, previous_font);
-    SetMapMode(dc, last_map_mode);
-    ReleaseDC(NULL, dc);
   } else {
     // Tooltip is using the system font. Use gfx::Font, which should pick
     // up the system font.
@@ -373,7 +372,7 @@ void TooltipManagerWin::ShowKeyboardTooltip(View* focused_view) {
       base::Bind(&TooltipManagerWin::DestroyKeyboardTooltipWindow,
                  keyboard_tooltip_factory_.GetWeakPtr(),
                  keyboard_tooltip_hwnd_),
-      kDefaultTimeout);
+      base::TimeDelta::FromMilliseconds(kDefaultTimeout));
 }
 
 void TooltipManagerWin::HideKeyboardTooltip() {

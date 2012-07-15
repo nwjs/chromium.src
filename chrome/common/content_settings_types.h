@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_COMMON_CONTENT_SETTINGS_TYPES_H_
 #define CHROME_COMMON_CONTENT_SETTINGS_TYPES_H_
-#pragma once
 
 // A particular type of content to care about.  We give the user various types
 // of controls over each of these.
@@ -23,7 +22,10 @@ enum ContentSettingsType {
   CONTENT_SETTINGS_TYPE_AUTO_SELECT_CERTIFICATE,
   CONTENT_SETTINGS_TYPE_FULLSCREEN,
   CONTENT_SETTINGS_TYPE_MOUSELOCK,
-  CONTENT_SETTINGS_NUM_TYPES
+  CONTENT_SETTINGS_TYPE_MIXEDSCRIPT,
+  CONTENT_SETTINGS_TYPE_MEDIASTREAM,
+  CONTENT_SETTINGS_TYPE_PROTOCOL_HANDLERS,
+  CONTENT_SETTINGS_NUM_TYPES,
 };
 
 #endif  // CHROME_COMMON_CONTENT_SETTINGS_TYPES_H_

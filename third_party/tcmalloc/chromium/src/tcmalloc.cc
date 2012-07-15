@@ -178,13 +178,13 @@ using tcmalloc::StackTrace;
 using tcmalloc::Static;
 using tcmalloc::ThreadCache;
 
-// ---- Double free debug declarations
+// ---- Functions doing validation with an extra mark.
 static size_t ExcludeSpaceForMark(size_t size);
 static void AddRoomForMark(size_t* size);
 static void ExcludeMarkFromSize(size_t* new_size);
 static void MarkAllocatedRegion(void* ptr);
 static void ValidateAllocatedRegion(void* ptr, size_t cl);
-// ---- End Double free debug declarations
+// ---- End validation functions.
 
 DECLARE_int64(tcmalloc_sample_parameter);
 DECLARE_double(tcmalloc_release_rate);
@@ -316,6 +316,8 @@ struct TCMallocStats {
   uint64_t central_bytes;     // Bytes in central cache
   uint64_t transfer_bytes;    // Bytes in central transfer cache
   uint64_t metadata_bytes;    // Bytes alloced for metadata
+  uint64_t metadata_unmapped_bytes;    // Address space reserved for metadata
+                                       // but is not committed.
   PageHeap::Stats pageheap;   // Stats from page heap
 };
 
@@ -342,6 +344,7 @@ static void ExtractStats(TCMallocStats* r, uint64_t* class_count,
     SpinLockHolder h(Static::pageheap_lock());
     ThreadCache::GetThreadStats(&r->thread_bytes, class_count);
     r->metadata_bytes = tcmalloc::metadata_system_bytes();
+    r->metadata_unmapped_bytes = tcmalloc::metadata_unmapped_bytes();
     r->pageheap = Static::pageheap()->stats();
     if (small_spans != NULL) {
       Static::pageheap()->GetSmallSpanStats(small_spans);
@@ -370,24 +373,30 @@ static void DumpStats(TCMalloc_Printer* out, int level) {
 
   static const double MiB = 1048576.0;
 
+  const uint64_t physical_memory_used_by_metadata =
+      stats.metadata_bytes - stats.metadata_unmapped_bytes;
+  const uint64_t unmapped_bytes =
+      stats.pageheap.unmapped_bytes + stats.metadata_unmapped_bytes;
+
   const uint64_t virtual_memory_used = (stats.pageheap.system_bytes
                                         + stats.metadata_bytes);
-  const uint64_t physical_memory_used = (virtual_memory_used
-                                         - stats.pageheap.unmapped_bytes);
+  const uint64_t physical_memory_used = virtual_memory_used - unmapped_bytes;
   const uint64_t bytes_in_use_by_app = (physical_memory_used
-                                        - stats.metadata_bytes
+                                        - physical_memory_used_by_metadata
                                         - stats.pageheap.free_bytes
                                         - stats.central_bytes
                                         - stats.transfer_bytes
                                         - stats.thread_bytes);
 
   out->printf(
-      "WASTE: %7.1f MiB committed but not used\n"
-      "WASTE: %7.1f MiB bytes committed, %7.1f MiB bytes in use\n"
+      "WASTE:   %7.1f MiB bytes in use\n"
+      "WASTE: + %7.1f MiB committed but not used\n"
+      "WASTE:   ------------\n"
+      "WASTE: = %7.1f MiB bytes committed\n"
       "WASTE: committed/used ratio of %f\n",
+      bytes_in_use_by_app / MiB,
       (stats.pageheap.committed_bytes - bytes_in_use_by_app) / MiB,
       stats.pageheap.committed_bytes / MiB,
-      bytes_in_use_by_app / MiB,
       stats.pageheap.committed_bytes / static_cast<double>(bytes_in_use_by_app)
       );
 #ifdef TCMALLOC_SMALL_BUT_SLOW
@@ -397,11 +406,12 @@ static void DumpStats(TCMalloc_Printer* out, int level) {
   out->printf(
       "------------------------------------------------\n"
       "MALLOC:   %12" PRIu64 " (%7.1f MiB) Bytes in use by application\n"
-      "MALLOC: %12" PRIu64 " (%7.1f MB) Bytes committed\n"
       "MALLOC: + %12" PRIu64 " (%7.1f MiB) Bytes in page heap freelist\n"
       "MALLOC: + %12" PRIu64 " (%7.1f MiB) Bytes in central cache freelist\n"
       "MALLOC: + %12" PRIu64 " (%7.1f MiB) Bytes in transfer cache freelist\n"
       "MALLOC: + %12" PRIu64 " (%7.1f MiB) Bytes in thread cache freelists\n"
+      "MALLOC:   ------------\n"
+      "MALLOC: = %12" PRIu64 " (%7.1f MiB) Bytes committed\n"
       "MALLOC: + %12" PRIu64 " (%7.1f MiB) Bytes in malloc metadata\n"
       "MALLOC:   ------------\n"
       "MALLOC: = %12" PRIu64 " (%7.1f MiB) Actual memory used (physical + swap)\n"
@@ -418,14 +428,14 @@ static void DumpStats(TCMalloc_Printer* out, int level) {
       "Bytes released to the OS take up virtual address space"
       " but no physical memory.\n",
       bytes_in_use_by_app, bytes_in_use_by_app / MiB,
-      stats.pageheap.committed_bytes, stats.pageheap.committed_bytes / MiB,
       stats.pageheap.free_bytes, stats.pageheap.free_bytes / MiB,
       stats.central_bytes, stats.central_bytes / MiB,
       stats.transfer_bytes, stats.transfer_bytes / MiB,
       stats.thread_bytes, stats.thread_bytes / MiB,
-      stats.metadata_bytes, stats.metadata_bytes / MiB,
+      stats.pageheap.committed_bytes, stats.pageheap.committed_bytes / MiB,
+      physical_memory_used_by_metadata , physical_memory_used_by_metadata / MiB,
       physical_memory_used, physical_memory_used / MiB,
-      stats.pageheap.unmapped_bytes, stats.pageheap.unmapped_bytes / MiB,
+      unmapped_bytes, unmapped_bytes / MiB,
       virtual_memory_used, virtual_memory_used / MiB,
       uint64_t(Static::span_allocator()->inuse()),
       uint64_t(ThreadCache::HeapsInUse()),
@@ -950,7 +960,7 @@ static inline bool CheckCachedSizeClass(void *ptr) {
       cached_value == Static::pageheap()->GetDescriptor(p)->sizeclass;
 }
 
-static inline void* CheckedMallocResult(void *result) {
+static inline void* CheckMallocResult(void *result) {
   ASSERT(result == NULL || CheckCachedSizeClass(result));
   MarkAllocatedRegion(result);
   return result;
@@ -959,7 +969,7 @@ static inline void* CheckedMallocResult(void *result) {
 static inline void* SpanToMallocResult(Span *span) {
   Static::pageheap()->CacheSizeClass(span->start, 0);
   return
-      CheckedMallocResult(reinterpret_cast<void*>(span->start << kPageShift));
+      CheckMallocResult(reinterpret_cast<void*>(span->start << kPageShift));
 }
 
 static void* DoSampledAllocation(size_t size) {
@@ -1096,7 +1106,7 @@ inline void* do_malloc(size_t size) {
     } else {
       // The common case, and also the simplest.  This just pops the
       // size-appropriate freelist, after replenishing it if it's empty.
-      ret = CheckedMallocResult(heap->Allocate(size, cl));
+      ret = CheckMallocResult(heap->Allocate(size, cl));
     }
   } else {
     ret = do_malloc_pages(heap, size);
@@ -1156,7 +1166,15 @@ inline void do_free_with_callback(void* ptr, void (*invalid_free_fn)(void*)) {
     cl = span->sizeclass;
     Static::pageheap()->CacheSizeClass(p, cl);
   }
+  if (cl == 0) {
+    // Check to see if the object is in use.
+    CHECK_CONDITION_PRINT(span->location == Span::IN_USE,
+                          "Object was not in-use");
 
+    CHECK_CONDITION_PRINT(
+        span->start << kPageShift == reinterpret_cast<uintptr_t>(ptr),
+        "Pointer is not pointing to the start of a span");
+  }
   ValidateAllocatedRegion(ptr, cl);
 
   if (cl != 0) {
@@ -1276,7 +1294,7 @@ inline void* do_realloc(void* old_ptr, size_t new_size) {
 void* do_memalign(size_t align, size_t size) {
   ASSERT((align & (align - 1)) == 0);
   ASSERT(align > 0);
-  // Marked in CheckMallocResult(), which is also inside SpanToMallocResult(). 
+  // Marked in CheckMallocResult(), which is also inside SpanToMallocResult().
   AddRoomForMark(&size);
   if (size + align < size) return NULL;         // Overflow
 
@@ -1307,7 +1325,7 @@ void* do_memalign(size_t align, size_t size) {
     if (cl < kNumClasses) {
       ThreadCache* heap = ThreadCache::GetCache();
       size = Static::sizemap()->class_to_size(cl);
-      return CheckedMallocResult(heap->Allocate(size, cl));
+      return CheckMallocResult(heap->Allocate(size, cl));
     }
   }
 
@@ -1698,7 +1716,7 @@ extern "C" PERFTOOLS_DLL_DECL size_t tc_malloc_size(void* ptr) __THROW {
 
 #endif  // TCMALLOC_USING_DEBUGALLOCATION
 
-// ---Double free() debugging implementation -----------------------------------
+// --- Validation implementation with an extra mark ----------------------------
 // We will put a mark at the extreme end of each allocation block.  We make
 // sure that we always allocate enough "extra memory" that we can fit in the
 // mark, and still provide the requested usable region.  If ever that mark is
@@ -1741,22 +1759,11 @@ static void ValidateAllocatedRegion(void* ptr, size_t cl) {}
 #else  // TCMALLOC_VALIDATION
 
 static void DieFromDoubleFree() {
-  char* p = NULL;
-  p++;
-  *p += 1;  // Segv.
-}
-
-static size_t DieFromBadFreePointer(const void* unused) {
-  char* p = NULL;
-  p += 2;
-  *p += 2;  // Segv.
-  return 0;
+  Log(kCrash, __FILE__, __LINE__, "Attempt to double free");
 }
 
 static void DieFromMemoryCorruption() {
-  char* p = NULL;
-  p += 3;
-  *p += 3;  // Segv.
+  Log(kCrash, __FILE__, __LINE__, "Memory corrupted");
 }
 
 // We can either do byte marking, or whole word marking based on the following
@@ -1770,7 +1777,7 @@ static void DieFromMemoryCorruption() {
 typedef char MarkType;  // char saves memory... int is more complete.
 static const MarkType kAllocationMarkMask = static_cast<MarkType>(0x36);
 
-#else 
+#else
 
 typedef int MarkType;  // char saves memory... int is more complete.
 static const MarkType kAllocationMarkMask = static_cast<MarkType>(0xE1AB9536);
@@ -1793,9 +1800,9 @@ inline static size_t ExcludeSpaceForMark(size_t size) {
 }
 
 inline static MarkType* GetMarkLocation(void* ptr) {
-  size_t class_size = GetSizeWithCallback(ptr, DieFromBadFreePointer);
-  ASSERT(class_size % sizeof(kAllocationMarkMask) == 0);
-  size_t last_index = (class_size / sizeof(kAllocationMarkMask)) - 1;
+  size_t size = GetSizeWithCallback(ptr, &InvalidGetAllocatedSize);
+  ASSERT(size % sizeof(kAllocationMarkMask) == 0);
+  size_t last_index = (size / sizeof(kAllocationMarkMask)) - 1;
   return static_cast<MarkType*>(ptr) + last_index;
 }
 

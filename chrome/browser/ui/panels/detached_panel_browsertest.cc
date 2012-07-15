@@ -9,6 +9,9 @@
 #include "chrome/browser/ui/panels/panel.h"
 #include "chrome/browser/ui/panels/panel_manager.h"
 
+// Refactor has only been done for Win and Mac panels so far.
+#if defined(OS_WIN) || defined(OS_MACOSX)
+
 class DetachedPanelBrowserTest : public BasePanelBrowserTest {
 };
 
@@ -16,27 +19,25 @@ IN_PROC_BROWSER_TEST_F(DetachedPanelBrowserTest, CheckDetachedPanelProperties) {
   PanelManager* panel_manager = PanelManager::GetInstance();
   DetachedPanelStrip* detached_strip = panel_manager->detached_strip();
 
-  // Create 2 panels.
-  Panel* panel1 = CreateDetachedPanel("1", gfx::Rect(300, 200, 250, 200));
-  Panel* panel2 = CreateDetachedPanel("2", gfx::Rect(350, 180, 300, 200));
+  Panel* panel = CreateDetachedPanel("1", gfx::Rect(300, 200, 250, 200));
+  scoped_ptr<NativePanelTesting> panel_testing(
+      CreateNativePanelTesting(panel));
 
-  EXPECT_EQ(2, panel_manager->num_panels());
-  EXPECT_EQ(2, detached_strip->num_panels());
+  EXPECT_EQ(1, panel_manager->num_panels());
+  EXPECT_TRUE(detached_strip->HasPanel(panel));
 
-  EXPECT_TRUE(detached_strip->HasPanel(panel1));
-  EXPECT_TRUE(detached_strip->HasPanel(panel2));
+  EXPECT_FALSE(panel->always_on_top());
 
-  EXPECT_TRUE(panel1->draggable());
-  EXPECT_TRUE(panel2->draggable());
+  EXPECT_TRUE(panel_testing->IsButtonVisible(panel::CLOSE_BUTTON));
+  EXPECT_FALSE(panel_testing->IsButtonVisible(panel::MINIMIZE_BUTTON));
+  EXPECT_FALSE(panel_testing->IsButtonVisible(panel::RESTORE_BUTTON));
 
-  EXPECT_TRUE(panel1->CanResizeByMouse());
-  EXPECT_TRUE(panel2->CanResizeByMouse());
+  EXPECT_EQ(panel::RESIZABLE_ALL_SIDES, panel->CanResizeByMouse());
 
   Panel::AttentionMode expected_attention_mode =
       static_cast<Panel::AttentionMode>(Panel::USE_PANEL_ATTENTION |
                                          Panel::USE_SYSTEM_ATTENTION);
-  EXPECT_EQ(expected_attention_mode, panel1->attention_mode());
-  EXPECT_EQ(expected_attention_mode, panel2->attention_mode());
+  EXPECT_EQ(expected_attention_mode, panel->attention_mode());
 
   panel_manager->CloseAll();
 }
@@ -45,7 +46,7 @@ IN_PROC_BROWSER_TEST_F(DetachedPanelBrowserTest, DrawAttentionOnActive) {
   // Create a detached panel that is initially active.
   Panel* panel = CreateDetachedPanel("1", gfx::Rect(300, 200, 250, 200));
   scoped_ptr<NativePanelTesting> native_panel_testing(
-      NativePanelTesting::Create(panel->native_panel()));
+      CreateNativePanelTesting(panel));
 
   // Test that the attention should not be drawn if the detached panel is in
   // focus.
@@ -66,7 +67,7 @@ IN_PROC_BROWSER_TEST_F(DetachedPanelBrowserTest, DrawAttentionOnInactive) {
   WaitForPanelActiveState(panel, SHOW_AS_INACTIVE);
 
   scoped_ptr<NativePanelTesting> native_panel_testing(
-      NativePanelTesting::Create(panel->native_panel()));
+      CreateNativePanelTesting(panel));
 
   // Test that the attention is drawn when the detached panel is not in focus.
   EXPECT_FALSE(panel->IsActive());
@@ -86,27 +87,28 @@ IN_PROC_BROWSER_TEST_F(DetachedPanelBrowserTest, DrawAttentionOnInactive) {
 }
 
 IN_PROC_BROWSER_TEST_F(DetachedPanelBrowserTest, DrawAttentionResetOnActivate) {
-  // Create an inactive detached panel.
-  Panel* panel = CreateDetachedPanel("1", gfx::Rect(300, 200, 250, 200));
-  panel->Deactivate();
-  WaitForPanelActiveState(panel, SHOW_AS_INACTIVE);
+  // Create 2 panels so we end up with an inactive panel that can
+  // be made to draw attention.
+  Panel* panel1 = CreatePanel("test panel1");
+  Panel* panel2 = CreatePanel("test panel2");
 
   scoped_ptr<NativePanelTesting> native_panel_testing(
-      NativePanelTesting::Create(panel->native_panel()));
+      CreateNativePanelTesting(panel1));
 
   // Test that the attention is drawn when the detached panel is not in focus.
-  panel->FlashFrame(true);
-  EXPECT_TRUE(panel->IsDrawingAttention());
+  panel1->FlashFrame(true);
+  EXPECT_TRUE(panel1->IsDrawingAttention());
   MessageLoop::current()->RunAllPending();
   EXPECT_TRUE(native_panel_testing->VerifyDrawingAttention());
 
   // Test that the attention is cleared when panel gets focus.
-  panel->Activate();
-  WaitForPanelActiveState(panel, SHOW_AS_ACTIVE);
-  EXPECT_FALSE(panel->IsDrawingAttention());
+  panel1->Activate();
+  WaitForPanelActiveState(panel1, SHOW_AS_ACTIVE);
+  EXPECT_FALSE(panel1->IsDrawingAttention());
   EXPECT_FALSE(native_panel_testing->VerifyDrawingAttention());
 
-  panel->Close();
+  panel1->Close();
+  panel2->Close();
 }
 
 IN_PROC_BROWSER_TEST_F(DetachedPanelBrowserTest, ClickTitlebar) {
@@ -119,7 +121,7 @@ IN_PROC_BROWSER_TEST_F(DetachedPanelBrowserTest, ClickTitlebar) {
   // Clicking on an active detached panel's titlebar has no effect, regardless
   // of modifier.
   scoped_ptr<NativePanelTesting> test_panel(
-      NativePanelTesting::Create(panel->native_panel()));
+      CreateNativePanelTesting(panel));
   test_panel->PressLeftMouseButtonTitlebar(panel->GetBounds().origin());
   test_panel->ReleaseMouseButtonTitlebar();
   EXPECT_TRUE(panel->IsActive());
@@ -133,7 +135,7 @@ IN_PROC_BROWSER_TEST_F(DetachedPanelBrowserTest, ClickTitlebar) {
 
   // Create a second panel to cause the first to become inactive.
   CreateDetachedPanel("2", gfx::Rect(100, 200, 230, 345));
-  EXPECT_FALSE(panel->IsActive());
+  WaitForPanelActiveState(panel, SHOW_AS_INACTIVE);
 
   // Clicking on an inactive detached panel's titlebar activates it.
   test_panel->PressLeftMouseButtonTitlebar(panel->GetBounds().origin());
@@ -143,3 +145,5 @@ IN_PROC_BROWSER_TEST_F(DetachedPanelBrowserTest, ClickTitlebar) {
 
   panel_manager->CloseAll();
 }
+
+#endif // OS_WIN || OS_MACOSX

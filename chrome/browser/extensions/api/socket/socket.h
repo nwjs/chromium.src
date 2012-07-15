@@ -4,62 +4,105 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_API_SOCKET_SOCKET_H_
 #define CHROME_BROWSER_EXTENSIONS_API_SOCKET_SOCKET_H_
-#pragma once
 
+#include <queue>
 #include <string>
+#include <utility>
 
-#include "base/memory/scoped_ptr.h"
+#include "base/callback.h"
+#include "base/memory/ref_counted.h"
 #include "chrome/browser/extensions/api/api_resource.h"
+#include "net/base/completion_callback.h"
 #include "net/base/io_buffer.h"
 
 namespace net {
+class AddressList;
+class IPEndPoint;
 class Socket;
 }
 
 namespace extensions {
+
+typedef base::Callback<void(int)> CompletionCallback;
+typedef base::Callback<void(int, scoped_refptr<net::IOBuffer> io_buffer)>
+    ReadCompletionCallback;
+typedef base::Callback<
+  void(int, scoped_refptr<net::IOBuffer> io_buffer, const std::string&, int)>
+      RecvFromCompletionCallback;
 
 // A Socket wraps a low-level socket and includes housekeeping information that
 // we need to manage it in the context of an extension.
 class Socket : public APIResource {
  public:
   virtual ~Socket();
-
-  // Returns true iff the socket was able to properly initialize itself.
-  virtual bool IsValid() = 0;
-
-  // Returns net::OK if successful, or an error code otherwise.
-  virtual int Connect() = 0;
+  virtual void Connect(const std::string& address,
+                       int port,
+                       const CompletionCallback& callback) = 0;
   virtual void Disconnect() = 0;
+  virtual int Bind(const std::string& address, int port) = 0;
 
-  // Returns a string representing what was able to be read without blocking.
-  // If it reads an empty string, or blocks... the behavior is
-  // indistinguishable! TODO(miket): this is awful. We should be returning a
-  // blob, and we should be giving the caller all needed information about
-  // what's happening with the read operation.
-  virtual std::string Read();
+  // The |callback| will be called with the number of bytes read into the
+  // buffer, or a negative number if an error occurred.
+  virtual void Read(int count,
+                    const ReadCompletionCallback& callback) = 0;
 
-  // Returns the number of bytes successfully written, or a negative error
-  // code. Note that ERR_IO_PENDING means that the operation blocked, in which
-  // case |event_notifier| will eventually be called with the final result
-  // (again, either a nonnegative number of bytes written, or a negative
-  // error).
-  virtual int Write(const std::string message);
+  // The |callback| will be called with |byte_count| or a negative number if an
+  // error occurred.
+  void Write(scoped_refptr<net::IOBuffer> io_buffer,
+             int byte_count,
+             const CompletionCallback& callback);
 
-  virtual void OnDataRead(int result);
-  virtual void OnWriteComplete(int result);
+  virtual void RecvFrom(int count,
+                        const RecvFromCompletionCallback& callback) = 0;
+  virtual void SendTo(scoped_refptr<net::IOBuffer> io_buffer,
+                      int byte_count,
+                      const std::string& address,
+                      int port,
+                      const CompletionCallback& callback) = 0;
+
+  virtual bool SetKeepAlive(bool enable, int delay);
+  virtual bool SetNoDelay(bool no_delay);
+
+  static bool StringAndPortToAddressList(const std::string& ip_address_str,
+                                         int port,
+                                         net::AddressList* address_list);
+  static bool StringAndPortToIPEndPoint(const std::string& ip_address_str,
+                                        int port,
+                                        net::IPEndPoint* ip_end_point);
+  static void IPEndPointToStringAndPort(const net::IPEndPoint& address,
+                                        std::string* ip_address_str,
+                                        int* port);
 
  protected:
-  Socket(const std::string& address, int port,
-         APIResourceEventNotifier* event_notifier);
-  virtual net::Socket* socket() = 0;
+  explicit Socket(APIResourceEventNotifier* event_notifier);
+
+  void WriteData();
+  virtual int WriteImpl(net::IOBuffer* io_buffer,
+                        int io_buffer_size,
+                        const net::CompletionCallback& callback) = 0;
+  virtual void OnWriteComplete(int result);
 
   const std::string address_;
   int port_;
   bool is_connected_;
 
  private:
-  static const int kMaxRead = 1024;
-  scoped_refptr<net::IOBufferWithSize> read_buffer_;
+  struct WriteRequest {
+    WriteRequest(scoped_refptr<net::IOBuffer> io_buffer,
+                 int byte_count,
+                 const CompletionCallback& callback)
+      : io_buffer(io_buffer),
+        byte_count(byte_count),
+        callback(callback),
+        bytes_written(0) { }
+    ~WriteRequest() { }
+    scoped_refptr<net::IOBuffer> io_buffer;
+    int byte_count;
+    CompletionCallback callback;
+    int bytes_written;
+  };
+  std::queue<WriteRequest> write_queue_;
+  scoped_refptr<net::IOBuffer> io_buffer_write_;
 };
 
 }  //  namespace extensions

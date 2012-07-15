@@ -16,13 +16,11 @@
 #include "webkit/plugins/ppapi/ppb_broker_impl.h"
 #include "webkit/plugins/ppapi/ppb_buffer_impl.h"
 #include "webkit/plugins/ppapi/ppb_directory_reader_impl.h"
-#include "webkit/plugins/ppapi/ppb_file_chooser_impl.h"
 #include "webkit/plugins/ppapi/ppb_file_io_impl.h"
 #include "webkit/plugins/ppapi/ppb_file_ref_impl.h"
 #include "webkit/plugins/ppapi/ppb_file_system_impl.h"
 #include "webkit/plugins/ppapi/ppb_flash_menu_impl.h"
 #include "webkit/plugins/ppapi/ppb_flash_message_loop_impl.h"
-#include "webkit/plugins/ppapi/ppb_flash_net_connector_impl.h"
 #include "webkit/plugins/ppapi/ppb_graphics_2d_impl.h"
 #include "webkit/plugins/ppapi/ppb_graphics_3d_impl.h"
 #include "webkit/plugins/ppapi/ppb_host_resolver_private_impl.h"
@@ -31,7 +29,6 @@
 #include "webkit/plugins/ppapi/ppb_scrollbar_impl.h"
 #include "webkit/plugins/ppapi/ppb_tcp_server_socket_private_impl.h"
 #include "webkit/plugins/ppapi/ppb_tcp_socket_private_impl.h"
-#include "webkit/plugins/ppapi/ppb_transport_impl.h"
 #include "webkit/plugins/ppapi/ppb_udp_socket_private_impl.h"
 #include "webkit/plugins/ppapi/ppb_url_loader_impl.h"
 #include "webkit/plugins/ppapi/ppb_url_request_info_impl.h"
@@ -39,6 +36,7 @@
 #include "webkit/plugins/ppapi/ppb_video_decoder_impl.h"
 #include "webkit/plugins/ppapi/ppb_video_layer_impl.h"
 #include "webkit/plugins/ppapi/ppb_websocket_impl.h"
+#include "webkit/plugins/ppapi/ppb_x509_certificate_private_impl.h"
 #include "webkit/plugins/ppapi/resource_helper.h"
 
 using ppapi::InputEventData;
@@ -53,11 +51,6 @@ ResourceCreationImpl::ResourceCreationImpl(PluginInstance* instance) {
 }
 
 ResourceCreationImpl::~ResourceCreationImpl() {
-}
-
-::ppapi::thunk::ResourceCreationAPI*
-ResourceCreationImpl::AsResourceCreationAPI() {
-  return this;
 }
 
 PP_Resource ResourceCreationImpl::CreateAudio(
@@ -121,13 +114,6 @@ PP_Resource ResourceCreationImpl::CreateDirectoryReader(
   return PPB_DirectoryReader_Impl::Create(directory_ref);
 }
 
-PP_Resource ResourceCreationImpl::CreateFileChooser(
-    PP_Instance instance,
-    PP_FileChooserMode_Dev mode,
-    const char* accept_mime_types) {
-  return PPB_FileChooser_Impl::Create(instance, mode, accept_mime_types);
-}
-
 PP_Resource ResourceCreationImpl::CreateFileIO(PP_Instance instance) {
   return (new PPB_FileIO_Impl(instance))->GetReference();
 }
@@ -144,6 +130,10 @@ PP_Resource ResourceCreationImpl::CreateFileSystem(
   return PPB_FileSystem_Impl::Create(instance, type);
 }
 
+PP_Resource ResourceCreationImpl::CreateFlashDeviceID(PP_Instance instance) {
+  return 0;  // Not supported in-process.
+}
+
 PP_Resource ResourceCreationImpl::CreateFlashMenu(
     PP_Instance instance,
     const PP_Flash_Menu* menu_data) {
@@ -152,11 +142,6 @@ PP_Resource ResourceCreationImpl::CreateFlashMenu(
 
 PP_Resource ResourceCreationImpl::CreateFlashMessageLoop(PP_Instance instance) {
   return PPB_Flash_MessageLoop_Impl::Create(instance);
-}
-
-PP_Resource ResourceCreationImpl::CreateFlashNetConnector(
-    PP_Instance instance) {
-  return (new PPB_Flash_NetConnector_Impl(instance))->GetReference();
 }
 
 PP_Resource ResourceCreationImpl::CreateGraphics2D(
@@ -192,6 +177,21 @@ PP_Resource ResourceCreationImpl::CreateImageData(PP_Instance instance,
   return PPB_ImageData_Impl::Create(instance, format, size, init_to_zero);
 }
 
+PP_Resource ResourceCreationImpl::CreateIMEInputEvent(
+    PP_Instance instance,
+    PP_InputEvent_Type type,
+    PP_TimeTicks time_stamp,
+    struct PP_Var text,
+    uint32_t segment_number,
+    const uint32_t* segment_offsets,
+    int32_t target_segment,
+    uint32_t selection_start,
+    uint32_t selection_end) {
+  return PPB_InputEvent_Shared::CreateIMEInputEvent(
+      ::ppapi::OBJECT_IS_IMPL, instance, type, time_stamp, text, segment_number,
+      segment_offsets, target_segment, selection_start, selection_end);
+}
+
 PP_Resource ResourceCreationImpl::CreateKeyboardInputEvent(
     PP_Instance instance,
     PP_InputEvent_Type type,
@@ -199,26 +199,9 @@ PP_Resource ResourceCreationImpl::CreateKeyboardInputEvent(
     uint32_t modifiers,
     uint32_t key_code,
     struct PP_Var character_text) {
-  if (type != PP_INPUTEVENT_TYPE_RAWKEYDOWN &&
-      type != PP_INPUTEVENT_TYPE_KEYDOWN &&
-      type != PP_INPUTEVENT_TYPE_KEYUP &&
-      type != PP_INPUTEVENT_TYPE_CHAR)
-    return 0;
-
-  InputEventData data;
-  data.event_type = type;
-  data.event_time_stamp = time_stamp;
-  data.event_modifiers = modifiers;
-  data.key_code = key_code;
-  if (character_text.type == PP_VARTYPE_STRING) {
-    StringVar* string_var = StringVar::FromPPVar(character_text);
-    if (!string_var)
-      return 0;
-    data.character_text = string_var->value();
-  }
-
-  return (new PPB_InputEvent_Shared(::ppapi::OBJECT_IS_IMPL,
-                                    instance, data))->GetReference();
+  return PPB_InputEvent_Shared::CreateKeyboardInputEvent(
+      ::ppapi::OBJECT_IS_IMPL, instance, type, time_stamp, modifiers, key_code,
+      character_text);
 }
 
 PP_Resource ResourceCreationImpl::CreateMouseInputEvent(
@@ -230,24 +213,18 @@ PP_Resource ResourceCreationImpl::CreateMouseInputEvent(
     const PP_Point* mouse_position,
     int32_t click_count,
     const PP_Point* mouse_movement) {
-  if (type != PP_INPUTEVENT_TYPE_MOUSEDOWN &&
-      type != PP_INPUTEVENT_TYPE_MOUSEUP &&
-      type != PP_INPUTEVENT_TYPE_MOUSEMOVE &&
-      type != PP_INPUTEVENT_TYPE_MOUSEENTER &&
-      type != PP_INPUTEVENT_TYPE_MOUSELEAVE)
-    return 0;
+  return PPB_InputEvent_Shared::CreateMouseInputEvent(
+      ::ppapi::OBJECT_IS_IMPL, instance, type, time_stamp, modifiers,
+      mouse_button, mouse_position, click_count, mouse_movement);
+}
 
-  InputEventData data;
-  data.event_type = type;
-  data.event_time_stamp = time_stamp;
-  data.event_modifiers = modifiers;
-  data.mouse_button = mouse_button;
-  data.mouse_position = *mouse_position;
-  data.mouse_click_count = click_count;
-  data.mouse_movement = *mouse_movement;
-
-  return (new PPB_InputEvent_Shared(::ppapi::OBJECT_IS_IMPL,
-                                    instance, data))->GetReference();
+PP_Resource ResourceCreationImpl::CreateTouchInputEvent(
+    PP_Instance instance,
+    PP_InputEvent_Type type,
+    PP_TimeTicks time_stamp,
+    uint32_t modifiers) {
+  return PPB_InputEvent_Shared::CreateTouchInputEvent(
+      ::ppapi::OBJECT_IS_IMPL, instance, type, time_stamp, modifiers);
 }
 
 PP_Resource ResourceCreationImpl::CreateNetworkMonitor(
@@ -283,16 +260,6 @@ PP_Resource ResourceCreationImpl::CreateTCPServerSocketPrivate(
 
 PP_Resource ResourceCreationImpl::CreateTCPSocketPrivate(PP_Instance instance) {
   return PPB_TCPSocket_Private_Impl::CreateResource(instance);
-}
-
-PP_Resource ResourceCreationImpl::CreateTransport(PP_Instance instance,
-                                                  const char* name,
-                                                  PP_TransportType type) {
-#if defined(ENABLE_P2P_APIS)
-  return PPB_Transport_Impl::Create(instance, name, type);
-#else
-  return 0;
-#endif
 }
 
 PP_Resource ResourceCreationImpl::CreateUDPSocketPrivate(PP_Instance instance) {
@@ -340,16 +307,14 @@ PP_Resource ResourceCreationImpl::CreateWheelInputEvent(
     const PP_FloatPoint* wheel_delta,
     const PP_FloatPoint* wheel_ticks,
     PP_Bool scroll_by_page) {
-  InputEventData data;
-  data.event_type = PP_INPUTEVENT_TYPE_WHEEL;
-  data.event_time_stamp = time_stamp;
-  data.event_modifiers = modifiers;
-  data.wheel_delta = *wheel_delta;
-  data.wheel_ticks = *wheel_ticks;
-  data.wheel_scroll_by_page = PP_ToBool(scroll_by_page);
+  return PPB_InputEvent_Shared::CreateWheelInputEvent(
+      ::ppapi::OBJECT_IS_IMPL, instance, time_stamp, modifiers,
+      wheel_delta, wheel_ticks, scroll_by_page);
+}
 
-  return (new PPB_InputEvent_Shared(::ppapi::OBJECT_IS_IMPL,
-                                    instance, data))->GetReference();
+PP_Resource ResourceCreationImpl::CreateX509CertificatePrivate(
+    PP_Instance instance) {
+  return PPB_X509Certificate_Private_Impl::CreateResource(instance);
 }
 
 }  // namespace ppapi

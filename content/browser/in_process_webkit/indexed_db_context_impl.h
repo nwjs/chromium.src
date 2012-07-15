@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CONTENT_BROWSER_IN_PROCESS_WEBKIT_INDEXED_DB_CONTEXT_IMPL_H_
 #define CONTENT_BROWSER_IN_PROCESS_WEBKIT_INDEXED_DB_CONTEXT_IMPL_H_
-#pragma once
 
 #include <map>
 #include <set>
@@ -42,8 +41,6 @@ class CONTENT_EXPORT IndexedDBContextImpl
                        quota::QuotaManagerProxy* quota_manager_proxy,
                        base::MessageLoopProxy* webkit_thread_loop);
 
-  virtual ~IndexedDBContextImpl();
-
   WebKit::WebIDBFactory* GetIDBFactory();
 
   // The indexed db directory.
@@ -52,13 +49,9 @@ class CONTENT_EXPORT IndexedDBContextImpl
   // The indexed db file extension.
   static const FilePath::CharType kIndexedDBExtension[];
 
-  void set_clear_local_state_on_exit(bool clear_local_state) {
-    clear_local_state_on_exit_ = clear_local_state;
-  }
-
-  // Disables the exit-time deletion for all data (also session-only data).
-  void SaveSessionState() {
-    save_session_state_ = true;
+  // Disables the exit-time deletion of session-only data.
+  void SetForceKeepSessionState() {
+    force_keep_session_state_ = true;
   }
 
   // IndexedDBContext implementation:
@@ -85,10 +78,13 @@ class CONTENT_EXPORT IndexedDBContextImpl
     data_path_ = data_path;
   }
 
+ protected:
+  virtual ~IndexedDBContextImpl();
+
  private:
-  FRIEND_TEST_ALL_PREFIXES(IndexedDBBrowserTest, ClearLocalState);
-  FRIEND_TEST_ALL_PREFIXES(IndexedDBBrowserTest, ClearSessionOnlyDatabases);
-  FRIEND_TEST_ALL_PREFIXES(IndexedDBBrowserTest, SaveSessionState);
+  FRIEND_TEST_ALL_PREFIXES(IndexedDBTest, ClearLocalState);
+  FRIEND_TEST_ALL_PREFIXES(IndexedDBTest, ClearSessionOnlyDatabases);
+  FRIEND_TEST_ALL_PREFIXES(IndexedDBTest, SetForceKeepSessionState);
   friend class IndexedDBQuotaClientTest;
 
   typedef std::map<GURL, int64> OriginToSizeMap;
@@ -120,9 +116,8 @@ class CONTENT_EXPORT IndexedDBContextImpl
 
   scoped_ptr<WebKit::WebIDBFactory> idb_factory_;
   FilePath data_path_;
-  bool clear_local_state_on_exit_;
   // If true, nothing (not even session-only data) should be deleted on exit.
-  bool save_session_state_;
+  bool force_keep_session_state_;
   scoped_refptr<quota::SpecialStoragePolicy> special_storage_policy_;
   scoped_refptr<quota::QuotaManagerProxy> quota_manager_proxy_;
   scoped_ptr<std::set<GURL> > origin_set_;

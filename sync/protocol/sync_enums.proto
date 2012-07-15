@@ -35,6 +35,29 @@ message SyncEnums {
     ACTIONABLE_ERROR = 8; // Client received an actionable error.
   }
 
+  // Types of transitions between pages.
+  enum PageTransition {
+    LINK = 0;
+    TYPED = 1;
+    AUTO_BOOKMARK = 2;
+    AUTO_SUBFRAME = 3;
+    MANUAL_SUBFRAME = 4;
+    GENERATED = 5;
+    START_PAGE = 6;
+    FORM_SUBMIT = 7;
+    RELOAD = 8;
+    KEYWORD = 9;
+    KEYWORD_GENERATED = 10;
+    CHAIN_START = 12;
+    CHAIN_END = 13;
+  }
+
+  // These qualifiers further define the transition.
+  enum PageTransitionQualifier {
+    CLIENT_REDIRECT = 1;
+    SERVER_REDIRECT = 2;
+  }
+
   enum ErrorType {
     SUCCESS            = 0;
     ACCESS_DENIED      = 1;   // Returned when the user doesn't have access to
@@ -60,5 +83,17 @@ message SyncEnums {
                               // used; it is the default value when an
                               // out-of-date client parses a value it doesn't
                               // recognize.
+  }
+
+  enum Action {
+    UPGRADE_CLIENT              = 0; // Upgrade the client to latest version.
+    CLEAR_USER_DATA_AND_RESYNC  = 1; // Clear user data from dashboard and
+                                     // setup sync again.
+    ENABLE_SYNC_ON_ACCOUNT      = 2; // The administrator needs to enable sync
+                                     // on the account.
+    STOP_AND_RESTART_SYNC       = 3; // Stop sync and set up sync again.
+    DISABLE_SYNC_ON_CLIENT      = 4; // Wipe the client of all sync data and
+                                     // stop syncing.
+    UNKNOWN_ACTION              = 5; // This is the default.
   }
 }

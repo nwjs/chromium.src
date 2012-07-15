@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_TAB_CONTENTS_SPELLING_MENU_OBSERVER_H_
 #define CHROME_BROWSER_TAB_CONTENTS_SPELLING_MENU_OBSERVER_H_
-#pragma once
 
 #include <vector>
 
@@ -23,7 +22,7 @@ class SpellingServiceClient;
 // while we show it. This class implements two interfaces:
 // * RenderViewContextMenuObserver
 //   This interface is used for adding a menu item and update it while showing.
-// * content::URLFetcherDelegate
+// * net::URLFetcherDelegate
 //   This interface is used for sending a JSON_RPC request to the Spelling
 //   service and retrieving its response.
 // These interfaces allow this class to make a JSON-RPC call to the Spelling
@@ -53,6 +52,8 @@ class SpellingMenuObserver : public RenderViewContextMenuObserver {
   // misspelled word.
   void OnTextCheckComplete(
       int tag,
+      bool success,
+      const string16& text,
       const std::vector<SpellCheckResult>& results);
 
  private:

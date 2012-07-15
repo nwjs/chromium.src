@@ -32,6 +32,7 @@
 namespace keys = extension_manifest_keys;
 
 using base::Time;
+using extensions::Extension;
 
 namespace {
 
@@ -173,7 +174,7 @@ scoped_refptr<Extension> ConvertWebAppToExtension(
 
   // Finally, create the extension object to represent the unpacked directory.
   std::string error;
-  int extension_flags = Extension::STRICT_ERROR_CHECKS;
+  int extension_flags = Extension::NO_FLAGS;
   if (web_app.is_bookmark_app)
     extension_flags |= Extension::FROM_BOOKMARK;
   scoped_refptr<Extension> extension = Extension::Create(

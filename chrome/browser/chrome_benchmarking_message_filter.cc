@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -19,6 +19,7 @@
 #include "net/disk_cache/disk_cache.h"
 #include "net/http/http_cache.h"
 #include "net/http/http_network_layer.h"
+#include "net/http/http_stream_factory.h"
 
 namespace {
 
@@ -28,57 +29,6 @@ void ClearCacheCallback(ChromeBenchmarkingMessageFilter* filter,
   ChromeViewHostMsg_ClearCache::WriteReplyParams(reply_msg, result);
   filter->Send(reply_msg);
 }
-
-// Class to assist with clearing out the cache when we want to preserve
-// the sslhostinfo entries.  It's not very efficient, but its just for debug.
-class DoomEntriesHelper {
- public:
-  explicit DoomEntriesHelper(disk_cache::Backend* backend)
-      : backend_(backend),
-        entry_(NULL),
-        iter_(NULL),
-        ALLOW_THIS_IN_INITIALIZER_LIST(callback_(
-            base::Bind(&DoomEntriesHelper::CacheCallback,
-                       base::Unretained(this)))) {
-  }
-
-  void ClearCache(const net::CompletionCallback& callback) {
-    clear_cache_callback_ = callback;
-    return CacheCallback(net::OK);  // Start clearing the cache.
-  }
-
-  const net::CompletionCallback& callback() { return callback_; }
-
- private:
-  void CacheCallback(int result) {
-    do {
-      if (result != net::OK) {
-        clear_cache_callback_.Run(result);
-        delete this;
-        return;
-      }
-
-      if (entry_) {
-        // Doom all entries except those with snapstart information.
-        std::string key = entry_->GetKey();
-        if (key.find("sslhostinfo:") != 0) {
-          entry_->Doom();
-          backend_->EndEnumeration(&iter_);
-          iter_ = NULL;  // We invalidated our iterator - start from the top!
-        }
-        entry_->Close();
-        entry_ = NULL;
-      }
-      result = backend_->OpenNextEntry(&iter_, &entry_, callback_);
-    } while (result != net::ERR_IO_PENDING);
-  }
-
-  disk_cache::Backend* backend_;
-  disk_cache::Entry* entry_;
-  void* iter_;
-  net::CompletionCallback callback_;
-  net::CompletionCallback clear_cache_callback_;
-};
 
 }  // namespace
 
@@ -112,8 +62,7 @@ bool ChromeBenchmarkingMessageFilter::OnMessageReceived(
   return handled;
 }
 
-void ChromeBenchmarkingMessageFilter::OnClearCache(bool preserve_ssl_host_info,
-                                                   IPC::Message* reply_msg) {
+void ChromeBenchmarkingMessageFilter::OnClearCache(IPC::Message* reply_msg) {
   // This function is disabled unless the user has enabled
   // benchmarking extensions.
   if (!CheckBenchmarkingEnabled()) {
@@ -127,16 +76,10 @@ void ChromeBenchmarkingMessageFilter::OnClearCache(bool preserve_ssl_host_info,
   if (backend) {
     net::CompletionCallback callback =
         base::Bind(&ClearCacheCallback, make_scoped_refptr(this), reply_msg);
-    if (preserve_ssl_host_info) {
-      DoomEntriesHelper* helper = new DoomEntriesHelper(backend);
-      helper->ClearCache(callback);  // Will self clean.
+    rv = backend->DoomAllEntries(callback);
+    if (rv == net::ERR_IO_PENDING) {
+      // The callback will send the reply.
       return;
-    } else {
-      rv = backend->DoomAllEntries(callback);
-      if (rv == net::ERR_IO_PENDING) {
-        // The callback will send the reply.
-        return;
-      }
     }
   }
   ChromeViewHostMsg_ClearCache::WriteReplyParams(reply_msg, rv);
@@ -169,9 +112,10 @@ void ChromeBenchmarkingMessageFilter::OnEnableSpdy(bool enable) {
     return;
   }
   if (enable) {
-    net::HttpNetworkLayer::EnableSpdy("npn,force-alt-protocols");
+    net::HttpStreamFactory::EnableNpnSpdy();
+    net::HttpNetworkLayer::EnableSpdy("force-alt-protocols");
   } else {
-    net::HttpNetworkLayer::EnableSpdy("npn-http");
+    net::HttpStreamFactory::EnableNpnHttpOnly();
   }
 }
 

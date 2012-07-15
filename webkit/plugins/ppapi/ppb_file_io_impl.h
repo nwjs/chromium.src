@@ -13,8 +13,6 @@
 #include "ppapi/shared_impl/ppb_file_io_shared.h"
 #include "webkit/plugins/ppapi/plugin_delegate.h"
 
-struct PP_CompletionCallback;
-
 namespace webkit {
 namespace ppapi {
 
@@ -29,34 +27,43 @@ class PPB_FileIO_Impl : public ::ppapi::PPB_FileIO_Shared {
   // as the "Validated" versions below).
   virtual void Close() OVERRIDE;
   virtual int32_t GetOSFileDescriptor() OVERRIDE;
-  virtual int32_t WillWrite(int64_t offset,
-                            int32_t bytes_to_write,
-                            PP_CompletionCallback callback) OVERRIDE;
-  virtual int32_t WillSetLength(int64_t length,
-                                PP_CompletionCallback callback) OVERRIDE;
+  virtual int32_t WillWrite(
+      int64_t offset,
+      int32_t bytes_to_write,
+      scoped_refptr< ::ppapi::TrackedCallback> callback) OVERRIDE;
+  virtual int32_t WillSetLength(
+      int64_t length,
+      scoped_refptr< ::ppapi::TrackedCallback> callback) OVERRIDE;
 
  private:
   // FileIOImpl overrides.
-  virtual int32_t OpenValidated(PP_Resource file_ref_resource,
-                                ::ppapi::thunk::PPB_FileRef_API* file_ref_api,
-                                int32_t open_flags,
-                                PP_CompletionCallback callback) OVERRIDE;
-  virtual int32_t QueryValidated(PP_FileInfo* info,
-                                 PP_CompletionCallback callback) OVERRIDE;
-  virtual int32_t TouchValidated(PP_Time last_access_time,
-                                 PP_Time last_modified_time,
-                                 PP_CompletionCallback callback) OVERRIDE;
-  virtual int32_t ReadValidated(int64_t offset,
-                                char* buffer,
-                                int32_t bytes_to_read,
-                                PP_CompletionCallback callback) OVERRIDE;
-  virtual int32_t WriteValidated(int64_t offset,
-                                 const char* buffer,
-                                 int32_t bytes_to_write,
-                                 PP_CompletionCallback callback) OVERRIDE;
-  virtual int32_t SetLengthValidated(int64_t length,
-                                     PP_CompletionCallback callback) OVERRIDE;
-  virtual int32_t FlushValidated(PP_CompletionCallback callback) OVERRIDE;
+  virtual int32_t OpenValidated(
+      PP_Resource file_ref_resource,
+      ::ppapi::thunk::PPB_FileRef_API* file_ref_api,
+      int32_t open_flags,
+      scoped_refptr< ::ppapi::TrackedCallback> callback) OVERRIDE;
+  virtual int32_t QueryValidated(
+      PP_FileInfo* info,
+      scoped_refptr< ::ppapi::TrackedCallback> callback) OVERRIDE;
+  virtual int32_t TouchValidated(
+      PP_Time last_access_time,
+      PP_Time last_modified_time,
+      scoped_refptr< ::ppapi::TrackedCallback> callback) OVERRIDE;
+  virtual int32_t ReadValidated(
+      int64_t offset,
+      char* buffer,
+      int32_t bytes_to_read,
+      scoped_refptr< ::ppapi::TrackedCallback> callback) OVERRIDE;
+  virtual int32_t WriteValidated(
+      int64_t offset,
+      const char* buffer,
+      int32_t bytes_to_write,
+      scoped_refptr< ::ppapi::TrackedCallback> callback) OVERRIDE;
+  virtual int32_t SetLengthValidated(
+      int64_t length,
+      scoped_refptr< ::ppapi::TrackedCallback> callback) OVERRIDE;
+  virtual int32_t FlushValidated(
+      scoped_refptr< ::ppapi::TrackedCallback> callback) OVERRIDE;
 
   // Returns the plugin delegate for this resource if it exists, or NULL if it
   // doesn't. Calling code should always check for NULL.
@@ -67,6 +74,10 @@ class PPB_FileIO_Impl : public ::ppapi::PPB_FileIO_Shared {
   void ExecutePlatformGeneralCallback(base::PlatformFileError error_code);
   void ExecutePlatformOpenFileCallback(base::PlatformFileError error_code,
                                        base::PassPlatformFile file);
+  void ExecutePlatformOpenFileSystemURLCallback(
+      base::PlatformFileError error_code,
+      base::PassPlatformFile file,
+      const PluginDelegate::NotifyCloseFileCallback& callback);
   void ExecutePlatformQueryCallback(base::PlatformFileError error_code,
                                     const base::PlatformFileInfo& file_info);
   void ExecutePlatformReadCallback(base::PlatformFileError error_code,
@@ -80,6 +91,9 @@ class PPB_FileIO_Impl : public ::ppapi::PPB_FileIO_Shared {
 
   // Valid only for PP_FILESYSTEMTYPE_LOCAL{PERSISTENT,TEMPORARY}.
   GURL file_system_url_;
+
+  // Callback function for notifying when the file handle is closed.
+  PluginDelegate::NotifyCloseFileCallback notify_close_file_callback_;
 
   // Pointer to a QuotaFileIO instance, which is valid only while a file
   // of type PP_FILESYSTEMTYPE_LOCAL{PERSISTENT,TEMPORARY} is opened.

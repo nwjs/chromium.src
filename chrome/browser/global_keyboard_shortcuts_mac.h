@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_GLOBAL_KEYBOARD_SHORTCUTS_MAC_H_
 #define CHROME_BROWSER_GLOBAL_KEYBOARD_SHORTCUTS_MAC_H_
-#pragma once
 
 #include "base/basictypes.h"
 
@@ -25,8 +24,8 @@ struct KeyboardShortcutData {
 
 // Check if a given keycode + modifiers (or keychar + modifiers if the
 // |key_char| is specified) correspond to a given Chrome command.
-// returns: Command number (as passed to Browser::ExecuteCommand) or -1 if there
-// was no match.
+// returns: Command number (as passed to
+// BrowserCommandController::ExecuteCommand) or -1 if there was no match.
 //
 // |performKeyEquivalent:| bubbles events up from the window to the views.  If
 // we let it bubble up to the Omnibox, then the Omnibox handles cmd-left/right

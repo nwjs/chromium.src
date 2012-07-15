@@ -3,10 +3,17 @@
 // found in the LICENSE file.
 
 var chrome = chrome || {};
+
 // TODO(akalin): Add mocking code for e.g. chrome.send() so that we
 // can test this without rebuilding chrome.
+
+/**
+ * Organize sync event listeners and asynchronous requests.
+ * This object is one of a kind; its constructor is not public.
+ * @type {Object}
+ */
 chrome.sync = chrome.sync || {};
-(function () {
+(function() {
 
 // This Event class is a simplified version of the one from
 // event_bindings.js.
@@ -87,7 +94,7 @@ chrome.sync.events = {
     'onClearServerDataFailed',
     'onEncryptedTypesChanged',
     'onEncryptionComplete',
-    'onActionableError'
+    'onActionableError',
   ],
 
   'transaction': [
@@ -136,13 +143,16 @@ var syncFunctions = [
   'getNotificationState',
   'getNotificationInfo',
 
+  // Client server communication logging functions.
+  'getClientServerTraffic',
+
   // Node lookup functions.  See chrome/browser/sync/engine/syncapi.h
   // for docs.
   'getRootNodeDetails',
   'getNodeSummariesById',
   'getNodeDetailsById',
   'getChildNodeIds',
-  'findNodesContainingString'
+  'getAllNodes',
 ];
 
 for (var i = 0; i < syncFunctions.length; ++i) {

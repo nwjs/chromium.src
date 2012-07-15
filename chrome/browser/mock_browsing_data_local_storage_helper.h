@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_MOCK_BROWSING_DATA_LOCAL_STORAGE_HELPER_H_
 #define CHROME_BROWSER_MOCK_BROWSING_DATA_LOCAL_STORAGE_HELPER_H_
-#pragma once
 
 #include <list>
 #include <map>
@@ -25,8 +24,7 @@ class MockBrowsingDataLocalStorageHelper
   virtual void StartFetching(
       const base::Callback<void(const std::list<LocalStorageInfo>&)>& callback)
           OVERRIDE;
-  virtual void CancelNotification() OVERRIDE;
-  virtual void DeleteLocalStorageFile(const FilePath& file_path) OVERRIDE;
+  virtual void DeleteOrigin(const GURL& origin) OVERRIDE;
 
   // Adds some LocalStorageInfo samples.
   void AddLocalStorageSamples();
@@ -41,16 +39,14 @@ class MockBrowsingDataLocalStorageHelper
   // invocation.
   bool AllDeleted();
 
-  FilePath last_deleted_file_;
+  GURL last_deleted_origin_;
 
  private:
   virtual ~MockBrowsingDataLocalStorageHelper();
 
-  Profile* profile_;
-
   base::Callback<void(const std::list<LocalStorageInfo>&)> callback_;
 
-  std::map<const FilePath::StringType, bool> files_;
+  std::map<const GURL, bool> origins_;
 
   std::list<LocalStorageInfo> response_;
 };

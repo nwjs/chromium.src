@@ -1,14 +1,13 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_UI_TOOLBAR_WRENCH_MENU_MODEL_H_
 #define CHROME_BROWSER_UI_TOOLBAR_WRENCH_MENU_MODEL_H_
-#pragma once
 
 #include "base/file_path.h"
 #include "base/memory/scoped_ptr.h"
-#include "chrome/browser/tabs/tab_strip_model_observer.h"
+#include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/toolbar/bookmark_sub_menu_model.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
@@ -88,7 +87,7 @@ class WrenchMenuModel : public ui::SimpleMenuModel,
   virtual bool IsItemForCommandIdDynamic(int command_id) const OVERRIDE;
   virtual string16 GetLabelForCommandId(int command_id) const OVERRIDE;
   virtual bool GetIconForCommandId(int command_id,
-                                   SkBitmap* icon) const OVERRIDE;
+                                   gfx::ImageSkia* icon) const OVERRIDE;
   virtual void ExecuteCommand(int command_id) OVERRIDE;
   virtual bool IsCommandIdChecked(int command_id) const OVERRIDE;
   virtual bool IsCommandIdEnabled(int command_id) const OVERRIDE;
@@ -98,13 +97,13 @@ class WrenchMenuModel : public ui::SimpleMenuModel,
       ui::Accelerator* accelerator) OVERRIDE;
 
   // Overridden from TabStripModelObserver:
-  virtual void ActiveTabChanged(TabContentsWrapper* old_contents,
-                                TabContentsWrapper* new_contents,
+  virtual void ActiveTabChanged(TabContents* old_contents,
+                                TabContents* new_contents,
                                 int index,
                                 bool user_gesture) OVERRIDE;
   virtual void TabReplacedAt(TabStripModel* tab_strip_model,
-                             TabContentsWrapper* old_contents,
-                             TabContentsWrapper* new_contents,
+                             TabContents* old_contents,
+                             TabContents* new_contents,
                              int index) OVERRIDE;
   virtual void TabStripModelDeleted() OVERRIDE;
 
@@ -132,10 +131,15 @@ class WrenchMenuModel : public ui::SimpleMenuModel,
 
   void AddGlobalErrorMenuItems();
 
-  // Adds custom items to the menu. Deprecated in favor of a cross platform
-  // model for button items.
-  void CreateCutCopyPaste();
-  void CreateZoomFullscreen();
+  // Appends everything needed for the clipboard menu: a menu break, the
+  // clipboard menu content and the finalizing menu break. If the last break
+  // is not needed it can be suppressed by setting |append_final_separator|
+  // to false.
+  void CreateCutCopyPasteMenu(bool append_final_separator);
+
+  // Appends everything needed for the zoom menu: a menu break, then the zoom
+  // menu content and then another menu break.
+  void CreateZoomMenu();
 
   string16 GetSyncMenuLabel() const;
 
@@ -155,7 +159,7 @@ class WrenchMenuModel : public ui::SimpleMenuModel,
   ui::AcceleratorProvider* provider_;  // weak
 
   Browser* browser_;  // weak
-  TabStripModel* tabstrip_model_; // weak
+  TabStripModel* tab_strip_model_; // weak
 
   content::NotificationRegistrar registrar_;
 

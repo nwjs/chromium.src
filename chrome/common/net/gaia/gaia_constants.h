@@ -16,7 +16,6 @@ extern const char kChromeSource[];
 // Gaia services for requesting
 extern const char kGaiaService[];  // uber token
 extern const char kPicasaService[];
-extern const char kTalkService[];
 extern const char kSyncService[];
 extern const char kRemotingService[];
 extern const char kCloudPrintService[];
@@ -34,6 +33,20 @@ extern const char kGaiaOAuthSecret[];
 extern const char kGaiaOAuthDuration[];
 extern const char kGaiaOAuth2LoginRefreshToken[];
 extern const char kGaiaOAuth2LoginAccessToken[];
+
+// Used to build ClientOAuth requests.  These are the names of keys used in
+// the json dictionaries that are sent in the protocol.
+extern const char kClientOAuthEmailKey[];
+extern const char kClientOAuthPasswordKey[];
+extern const char kClientOAuthScopesKey[];
+extern const char kClientOAuthOAuth2ClientIdKey[];
+extern const char kClientOAuthFriendlyDeviceNameKey[];
+extern const char kClientOAuthAcceptsChallengesKey[];
+extern const char kClientOAuthLocaleKey[];
+extern const char kClientOAuthFallbackNameKey[];
+extern const char kClientOAuthNameKey[];
+extern const char kClientOAuthChallengeTokenKey[];
+extern const char kClientOAuthchallengeReplyKey[];
 
 }  // namespace GaiaConstants
 

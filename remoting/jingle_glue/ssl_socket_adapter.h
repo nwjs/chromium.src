@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -17,6 +17,7 @@
 
 namespace net {
 class CertVerifier;
+class TransportSecurityState;
 }  // namespace net
 
 namespace remoting {
@@ -44,7 +45,7 @@ class TransportSocket : public net::StreamSocket, public sigslot::has_slots<> {
   virtual void Disconnect() OVERRIDE;
   virtual bool IsConnected() const OVERRIDE;
   virtual bool IsConnectedAndIdle() const OVERRIDE;
-  virtual int GetPeerAddress(net::AddressList* address) const OVERRIDE;
+  virtual int GetPeerAddress(net::IPEndPoint* address) const OVERRIDE;
   virtual int GetLocalAddress(net::IPEndPoint* address) const OVERRIDE;
   virtual const net::BoundNetLog& NetLog() const OVERRIDE;
   virtual void SetSubresourceSpeculation() OVERRIDE;
@@ -53,6 +54,7 @@ class TransportSocket : public net::StreamSocket, public sigslot::has_slots<> {
   virtual bool UsingTCPFastOpen() const OVERRIDE;
   virtual int64 NumBytesRead() const OVERRIDE;
   virtual base::TimeDelta GetConnectTimeMicros() const OVERRIDE;
+  virtual net::NextProto GetNegotiatedProtocol() const OVERRIDE;
 
   // net::Socket implementation.
   virtual int Read(net::IOBuffer* buf, int buf_len,
@@ -115,17 +117,14 @@ class SSLSocketAdapter : public talk_base::SSLAdapter {
     SSLSTATE_NONE,
     SSLSTATE_WAIT,
     SSLSTATE_CONNECTED,
-  };
-
-  enum IOState {
-    IOSTATE_NONE,
-    IOSTATE_PENDING,
-    IOSTATE_COMPLETE,
+    SSLSTATE_ERROR,
   };
 
   void OnConnected(int result);
   void OnRead(int result);
-  void OnWrite(int result);
+  void OnWritten(int result);
+
+  void DoWrite();
 
   virtual void OnConnectEvent(talk_base::AsyncSocket* socket) OVERRIDE;
 
@@ -138,13 +137,16 @@ class SSLSocketAdapter : public talk_base::SSLAdapter {
   // |cert_verifier_| must be defined before |ssl_socket_|, so that
   // it's destroyed after |ssl_socket_|.
   scoped_ptr<net::CertVerifier> cert_verifier_;
+  scoped_ptr<net::TransportSecurityState> transport_security_state_;
   scoped_ptr<net::SSLClientSocket> ssl_socket_;
 
   SSLState ssl_state_;
-  IOState read_state_;
-  IOState write_state_;
-  scoped_refptr<net::IOBuffer> transport_buf_;
-  int data_transferred_;
+
+  bool read_pending_;
+  scoped_refptr<net::GrowableIOBuffer> read_buffer_;
+
+  bool write_pending_;
+  scoped_refptr<net::DrainableIOBuffer> write_buffer_;
 
   DISALLOW_COPY_AND_ASSIGN(SSLSocketAdapter);
 };

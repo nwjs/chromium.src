@@ -230,6 +230,11 @@ bool FileSystemDispatcher::OpenFile(
   return true;
 }
 
+bool FileSystemDispatcher::NotifyCloseFile(const GURL& file_path) {
+  return ChildThread::current()->Send(
+      new FileSystemHostMsg_NotifyCloseFile(file_path));
+}
+
 bool FileSystemDispatcher::CreateSnapshotFile(
     const GURL& blob_url,
     const GURL& file_path,
@@ -308,7 +313,6 @@ void FileSystemDispatcher::OnDidOpenFile(
   fileapi::FileSystemCallbackDispatcher* dispatcher =
       dispatchers_.Lookup(request_id);
   DCHECK(dispatcher);
-  dispatcher->DidOpenFile(IPC::PlatformFileForTransitToPlatformFile(file),
-      base::kNullProcessHandle);
+  dispatcher->DidOpenFile(IPC::PlatformFileForTransitToPlatformFile(file));
   dispatchers_.Remove(request_id);
 }

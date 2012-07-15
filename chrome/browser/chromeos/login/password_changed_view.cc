@@ -34,14 +34,17 @@ const int kPasswordFieldWidthChars = 20;
 }  // namespace
 
 PasswordChangedView::PasswordChangedView(Delegate* delegate,
-                                         bool full_sync_disabled)
+                                         bool full_sync_disabled,
+                                         bool show_invalid_old_password_error)
     : title_label_(NULL),
       description_label_(NULL),
       full_sync_radio_(NULL),
       delta_sync_radio_(NULL),
       old_password_field_(NULL),
+      password_error_label_(NULL),
       delegate_(delegate),
-      full_sync_disabled_(full_sync_disabled) {
+      full_sync_disabled_(full_sync_disabled),
+      show_invalid_old_password_error_(show_invalid_old_password_error) {
 }
 
 bool PasswordChangedView::Accept() {
@@ -50,6 +53,12 @@ bool PasswordChangedView::Accept() {
 
 int PasswordChangedView::GetDialogButtons() const {
   return ui::DIALOG_BUTTON_OK;
+}
+
+bool PasswordChangedView::IsDialogButtonEnabled(ui::DialogButton button) const {
+  if (ui::DIALOG_BUTTON_OK == button)
+    return full_sync_radio_->checked() || !old_password_field_->text().empty();
+  return views::DialogDelegate::IsDialogButtonEnabled(button);
 }
 
 views::View* PasswordChangedView::GetInitiallyFocusedView() {
@@ -114,10 +123,20 @@ void PasswordChangedView::Init() {
   delta_sync_radio_->SetMultiLine(true);
 
   old_password_field_ = new TextfieldWithMargin(Textfield::STYLE_OBSCURED);
-  old_password_field_->set_text_to_display_when_empty(
+  old_password_field_->set_placeholder_text(
       l10n_util::GetStringUTF16(IDS_LOGIN_PREVIOUS_PASSWORD));
   old_password_field_->set_default_width_in_chars(kPasswordFieldWidthChars);
   old_password_field_->SetController(this);
+
+  if (show_invalid_old_password_error_) {
+    password_error_label_ = new Label();
+    // TODO(nkostylev): Add separate string on TOT.
+    password_error_label_->SetText(
+        l10n_util::GetStringUTF16(IDS_NETWORK_CONFIG_ERROR_INCORRECT_PASSWORD));
+    password_error_label_->SetMultiLine(true);
+    password_error_label_->SetHorizontalAlignment(Label::ALIGN_LEFT);
+    password_error_label_->SetEnabledColor(SK_ColorRED);
+  }
 
   // Define controls layout.
   GridLayout* layout = GridLayout::CreatePanel(this);
@@ -147,6 +166,13 @@ void PasswordChangedView::Init() {
   layout->StartRow(0, 1);
   layout->AddView(
       old_password_field_, 1, 1, GridLayout::LEADING, GridLayout::CENTER);
+
+  if (show_invalid_old_password_error_) {
+    layout->AddPaddingRow(0, views::kRelatedControlSmallVerticalSpacing);
+    layout->StartRow(0, 1);
+    layout->AddView(
+        password_error_label_, 1, 1, GridLayout::LEADING, GridLayout::CENTER);
+  }
   layout->AddPaddingRow(0, views::kUnrelatedControlVerticalSpacing);
 
   layout->StartRow(0, 0);
@@ -181,6 +207,12 @@ void PasswordChangedView::ButtonPressed(Button* sender,
     old_password_field_->SetEnabled(true);
     old_password_field_->RequestFocus();
   }
+  GetDialogClientView()->UpdateDialogButtons();
+}
+
+void PasswordChangedView::ContentsChanged(views::Textfield* sender,
+                                          const string16& new_contents) {
+  GetDialogClientView()->UpdateDialogButtons();
 }
 
 bool PasswordChangedView::HandleKeyEvent(views::Textfield* sender,

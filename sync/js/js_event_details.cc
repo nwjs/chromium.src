@@ -6,7 +6,7 @@
 
 #include "base/json/json_writer.h"
 
-namespace browser_sync {
+namespace syncer {
 
 JsEventDetails::JsEventDetails() {}
 
@@ -24,4 +24,4 @@ std::string JsEventDetails::ToString() const {
   return str;
 }
 
-}  // namespace browser_sync
+}  // namespace syncer

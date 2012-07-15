@@ -149,20 +149,30 @@ bool HttpStreamFactory::HasSpdyExclusion(const HostPortPair& endpoint) {
 }
 
 // static
-void HttpStreamFactory::EnableFlowControl() {
+void HttpStreamFactory::EnableNpnSpdy() {
+  set_use_alternate_protocols(true);
   std::vector<std::string> next_protos;
   next_protos.push_back("http/1.1");
   next_protos.push_back("spdy/2");
-  next_protos.push_back("spdy/2.1");
   SetNextProtos(next_protos);
 }
 
 // static
-void HttpStreamFactory::EnableSPDY3() {
+void HttpStreamFactory::EnableNpnHttpOnly() {
+  // Avoid alternate protocol in this case. Otherwise, browser will try SSL
+  // and then fallback to http. This introduces extra load.
+  set_use_alternate_protocols(false);
+  std::vector<std::string> next_protos;
+  next_protos.push_back("http/1.1");
+  next_protos.push_back("http1.1");
+  SetNextProtos(next_protos);
+}
+
+// static
+void HttpStreamFactory::EnableNpnSpdy3() {
   std::vector<std::string> next_protos;
   next_protos.push_back("http/1.1");
   next_protos.push_back("spdy/2");
-  next_protos.push_back("spdy/2.1");
   next_protos.push_back("spdy/3");
   SetNextProtos(next_protos);
 }
@@ -184,8 +194,6 @@ void HttpStreamFactory::SetNextProtos(const std::vector<std::string>& value) {
       enabled_protocols_[NPN_SPDY_1] = true;
     } else if (value[i] == "spdy/2") {
       enabled_protocols_[NPN_SPDY_2] = true;
-    } else if (value[i] == "spdy/2.1") {
-      enabled_protocols_[NPN_SPDY_21] = true;
     } else if (value[i] == "spdy/3") {
       enabled_protocols_[NPN_SPDY_3] = true;
     }

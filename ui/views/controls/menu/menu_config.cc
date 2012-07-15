@@ -1,10 +1,11 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "ui/views/controls/menu/menu_config.h"
 
 #include "build/build_config.h"
+#include "ui/base/layout.h"
 
 namespace views {
 
@@ -12,6 +13,9 @@ static MenuConfig* config_instance = NULL;
 
 MenuConfig::MenuConfig()
     : text_color(SK_ColorBLACK),
+      submenu_horizontal_margin_size(3),
+      submenu_vertical_margin_size(3),
+      submenu_horizontal_inset(3),
       item_top_margin(3),
       item_bottom_margin(4),
       item_no_icon_top_margin(1),
@@ -33,7 +37,15 @@ MenuConfig::MenuConfig()
       show_mnemonics(false),
       scroll_arrow_height(3),
       label_to_accelerator_padding(10),
-      show_accelerators(true) {
+      item_min_height(0),
+      show_accelerators(true),
+      always_use_icon_to_label_padding(false),
+      align_arrow_and_shortcut(false) {
+  // Use 40px tall menu items when running in touch optimized mode.
+  if (ui::GetDisplayLayout() == ui::LAYOUT_TOUCH) {
+    item_top_margin = item_no_icon_top_margin = 12;
+    item_bottom_margin = item_no_icon_bottom_margin = 13;
+  }
 }
 
 MenuConfig::~MenuConfig() {}

@@ -16,11 +16,12 @@
 #include "net/base/escape.h"
 #include "net/base/load_flags.h"
 #include "net/http/http_status_code.h"
+#include "net/url_request/url_fetcher.h"
 #include "net/url_request/url_request_context_getter.h"
 #include "net/url_request/url_request_status.h"
 
-using content::URLFetcher;
-using content::URLFetcherDelegate;
+using net::URLFetcher;
+using net::URLFetcherDelegate;
 using net::ResponseCookies;
 using net::URLRequestContextGetter;
 using net::URLRequestStatus;
@@ -53,7 +54,7 @@ static URLFetcher* CreateFetcher(URLRequestContextGetter* getter,
                                  const std::string& body,
                                  URLFetcherDelegate* delegate) {
   bool empty_body = body.empty();
-  URLFetcher* result = URLFetcher::Create(
+  URLFetcher* result = net::URLFetcher::Create(
       0, url,
       empty_body ? URLFetcher::GET : URLFetcher::POST,
       delegate);
@@ -109,7 +110,7 @@ void OAuth2MintTokenFetcher::StartMintToken() {
   fetcher_->Start();  // OnURLFetchComplete will be called.
 }
 
-void OAuth2MintTokenFetcher::EndMintToken(const URLFetcher* source) {
+void OAuth2MintTokenFetcher::EndMintToken(const net::URLFetcher* source) {
   CHECK_EQ(MINT_TOKEN_STARTED, state_);
   state_ = MINT_TOKEN_DONE;
 
@@ -143,7 +144,7 @@ void OAuth2MintTokenFetcher::OnMintTokenFailure(
   consumer_->OnMintTokenFailure(error);
 }
 
-void OAuth2MintTokenFetcher::OnURLFetchComplete(const URLFetcher* source) {
+void OAuth2MintTokenFetcher::OnURLFetchComplete(const net::URLFetcher* source) {
   CHECK(source);
   CHECK_EQ(MINT_TOKEN_STARTED, state_);
   EndMintToken(source);
@@ -174,14 +175,13 @@ std::string OAuth2MintTokenFetcher::MakeMintTokenBody(
 
 // static
 bool OAuth2MintTokenFetcher::ParseMintTokenResponse(
-    const URLFetcher* source,
+    const net::URLFetcher* source,
     std::string* access_token) {
   CHECK(source);
   CHECK(access_token);
   std::string data;
   source->GetResponseAsString(&data);
-  base::JSONReader reader;
-  scoped_ptr<base::Value> value(reader.Read(data, false));
+  scoped_ptr<base::Value> value(base::JSONReader::Read(data));
   if (!value.get() || value->GetType() != base::Value::TYPE_DICTIONARY)
     return false;
 

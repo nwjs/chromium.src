@@ -17,9 +17,7 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/ui/gtk/select_file_dialog_impl.h"
 #include "chrome/browser/ui/select_file_dialog.h"
-#include "content/public/browser/browser_thread.h"
 #include "grit/generated_resources.h"
-#include "net/base/mime_util.h"
 #include "ui/base/gtk/gtk_signal.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -27,9 +25,12 @@
 // choosing a file or folder. This acts as a modal dialog.
 class SelectFileDialogImplGTK : public SelectFileDialogImpl {
  public:
-  explicit SelectFileDialogImplGTK(Listener* listener);
+  explicit SelectFileDialogImplGTK(Listener* listener,
+                                   ui::SelectFilePolicy* policy);
 
  protected:
+  virtual ~SelectFileDialogImplGTK();
+
   // SelectFileDialog implementation.
   // |params| is user data we pass back via the Listener interface.
   virtual void SelectFileImpl(Type type,
@@ -42,8 +43,6 @@ class SelectFileDialogImplGTK : public SelectFileDialogImpl {
                               void* params) OVERRIDE;
 
  private:
-  virtual ~SelectFileDialogImplGTK();
-
   virtual bool HasMultipleFileTypeChoicesImpl() OVERRIDE;
 
   // Add the filters from |file_types_| to |chooser|.
@@ -134,12 +133,13 @@ static const int kPreviewWidth = 256;
 static const int kPreviewHeight = 512;
 
 SelectFileDialogImpl* SelectFileDialogImpl::NewSelectFileDialogImplGTK(
-    Listener* listener) {
-  return new SelectFileDialogImplGTK(listener);
+    Listener* listener, ui::SelectFilePolicy* policy) {
+  return new SelectFileDialogImplGTK(listener, policy);
 }
 
-SelectFileDialogImplGTK::SelectFileDialogImplGTK(Listener* listener)
-    : SelectFileDialogImpl(listener),
+SelectFileDialogImplGTK::SelectFileDialogImplGTK(Listener* listener,
+                                                 ui::SelectFilePolicy* policy)
+    : SelectFileDialogImpl(listener, policy),
       preview_(NULL) {
 }
 
@@ -228,27 +228,11 @@ void SelectFileDialogImplGTK::AddFilters(GtkFileChooser* chooser) {
     for (size_t j = 0; j < file_types_.extensions[i].size(); ++j) {
       const std::string& current_extension = file_types_.extensions[i][j];
       if (!current_extension.empty()) {
-        std::string mime_type;
-        bool found_valid_mime_type;
-        {
-          // Allow IO in the file dialog. (http://crbug.com/72637)
-          base::ThreadRestrictions::ScopedAllowIO allow_io;
-          found_valid_mime_type = net::GetMimeTypeFromExtension(
-            current_extension, &mime_type);
-        }
         if (!filter)
           filter = gtk_file_filter_new();
-
-        // Try to add a mime-type filter instead of an extension filter if
-        // possible. (http://crbug.com/12347)
-        if (found_valid_mime_type) {
-          gtk_file_filter_add_mime_type(filter, mime_type.c_str());
-          fallback_labels.insert(mime_type);
-        } else {
-          std::string pattern = "*." + current_extension;
-          gtk_file_filter_add_pattern(filter, pattern.c_str());
-          fallback_labels.insert(pattern);
-        }
+        std::string pattern = "*." + current_extension;
+        gtk_file_filter_add_pattern(filter, pattern.c_str());
+        fallback_labels.insert(pattern);
       }
     }
     // We didn't find any non-empty extensions to filter on.
@@ -262,7 +246,7 @@ void SelectFileDialogImplGTK::AddFilters(GtkFileChooser* chooser) {
           file_types_.extension_description_overrides[i]).c_str());
     } else {
       // There is no system default filter description so we use
-      // the MIME types themselves if the description is blank.
+      // the extensions themselves if the description is blank.
       std::vector<std::string> fallback_labels_vector(fallback_labels.begin(),
                                                       fallback_labels.end());
       std::string fallback_label = JoinString(fallback_labels_vector, ',');

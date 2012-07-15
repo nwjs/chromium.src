@@ -42,6 +42,10 @@ const size_t kMaxRecvBufferSize = 4096;
 const int kSessionCacheTimeoutSeconds = 60 * 60;
 const size_t kSessionCacheMaxEntires = 1024;
 
+// If a client doesn't have a list of protocols that it supports, but
+// the server supports NPN, choosing "http/1.1" is the best answer.
+const char kDefaultSupportedNPNProtocol[] = "http/1.1";
+
 // This method doesn't seemed to have made it into the OpenSSL headers.
 unsigned long SSL_CIPHER_get_id(const SSL_CIPHER* cipher) { return cipher->id; }
 
@@ -416,6 +420,7 @@ SSLClientSocketOpenSSL::SSLClientSocketOpenSSL(
     const SSLClientSocketContext& context)
     : transport_send_busy_(false),
       transport_recv_busy_(false),
+      transport_recv_eof_(false),
       completed_handshake_(false),
       client_auth_cert_needed_(false),
       cert_verifier_(context.cert_verifier),
@@ -466,13 +471,29 @@ bool SSLClientSocketOpenSSL::Init() {
   // set everything we care about to an absolute value.
   SslSetClearMask options;
   options.ConfigureFlag(SSL_OP_NO_SSLv2, true);
-  options.ConfigureFlag(SSL_OP_NO_SSLv3, !ssl_config_.ssl3_enabled);
-  options.ConfigureFlag(SSL_OP_NO_TLSv1, !ssl_config_.tls1_enabled);
+  bool ssl3_enabled = (ssl_config_.version_min == SSL_PROTOCOL_VERSION_SSL3);
+  options.ConfigureFlag(SSL_OP_NO_SSLv3, !ssl3_enabled);
+  bool tls1_enabled = (ssl_config_.version_min <= SSL_PROTOCOL_VERSION_TLS1 &&
+                       ssl_config_.version_max >= SSL_PROTOCOL_VERSION_TLS1);
+  options.ConfigureFlag(SSL_OP_NO_TLSv1, !tls1_enabled);
+#if defined(SSL_OP_NO_TLSv1_1)
+  bool tls1_1_enabled =
+      (ssl_config_.version_min <= SSL_PROTOCOL_VERSION_TLS1_1 &&
+       ssl_config_.version_max >= SSL_PROTOCOL_VERSION_TLS1_1);
+  options.ConfigureFlag(SSL_OP_NO_TLSv1_1, !tls1_1_enabled);
+#endif
+#if defined(SSL_OP_NO_TLSv1_2)
+  bool tls1_2_enabled =
+      (ssl_config_.version_min <= SSL_PROTOCOL_VERSION_TLS1_2 &&
+       ssl_config_.version_max >= SSL_PROTOCOL_VERSION_TLS1_2);
+  options.ConfigureFlag(SSL_OP_NO_TLSv1_2, !tls1_2_enabled);
+#endif
 
 #if defined(SSL_OP_NO_COMPRESSION)
   // If TLS was disabled also disable compression, to provide maximum site
   // compatibility in the case of protocol fallback. See http://crbug.com/31628
-  options.ConfigureFlag(SSL_OP_NO_COMPRESSION, !ssl_config_.tls1_enabled);
+  options.ConfigureFlag(SSL_OP_NO_COMPRESSION,
+                        ssl_config_.version_max < SSL_PROTOCOL_VERSION_TLS1);
 #endif
 
   // TODO(joth): Set this conditionally, see http://crbug.com/55410
@@ -483,13 +504,6 @@ bool SSLClientSocketOpenSSL::Init() {
 
   // Same as above, this time for the SSL mode.
   SslSetClearMask mode;
-
-#if defined(SSL_MODE_HANDSHAKE_CUTTHROUGH)
-  mode.ConfigureFlag(SSL_MODE_HANDSHAKE_CUTTHROUGH,
-                     ssl_config_.false_start_enabled &&
-                     !SSLConfigService::IsKnownFalseStartIncompatibleServer(
-                         host_and_port_.host()));
-#endif
 
 #if defined(SSL_MODE_RELEASE_BUFFERS)
   mode.ConfigureFlag(SSL_MODE_RELEASE_BUFFERS, true);
@@ -588,8 +602,9 @@ void SSLClientSocketOpenSSL::GetSSLInfo(SSLInfo* ssl_info) {
       server_cert_verify_result_.is_issued_by_known_root;
   ssl_info->public_key_hashes =
     server_cert_verify_result_.public_key_hashes;
-  ssl_info->client_cert_sent = WasDomainBoundCertSent() ||
-      (ssl_config_.send_client_cert && ssl_config_.client_cert);
+  ssl_info->client_cert_sent =
+      ssl_config_.send_client_cert && ssl_config_.client_cert;
+  ssl_info->channel_id_sent = WasChannelIDSent();
 
   const SSL_CIPHER* cipher = SSL_get_current_cipher(ssl_);
   CHECK(cipher);
@@ -607,8 +622,8 @@ void SSLClientSocketOpenSSL::GetSSLInfo(SSLInfo* ssl_info) {
   UMA_HISTOGRAM_ENUMERATION("Net.RenegotiationExtensionSupported",
                             implicit_cast<int>(peer_supports_renego_ext), 2);
 
-  if (ssl_config_.ssl3_fallback)
-    ssl_info->connection_status |= SSL_CONNECTION_SSL3_FALLBACK;
+  if (ssl_config_.version_fallback)
+    ssl_info->connection_status |= SSL_CONNECTION_VERSION_FALLBACK;
 
   DVLOG(3) << "Encoded connection status: cipher suite = "
       << SSLConnectionStatusToCipherSuite(ssl_info->connection_status)
@@ -681,7 +696,7 @@ void SSLClientSocketOpenSSL::DoWriteCallback(int rv) {
 
 // StreamSocket implementation.
 int SSLClientSocketOpenSSL::Connect(const CompletionCallback& callback) {
-  net_log_.BeginEvent(NetLog::TYPE_SSL_CONNECT, NULL);
+  net_log_.BeginEvent(NetLog::TYPE_SSL_CONNECT);
 
   // Set up new ssl object.
   if (!Init()) {
@@ -725,6 +740,7 @@ void SSLClientSocketOpenSSL::Disconnect() {
   transport_send_busy_ = false;
   send_buffer_ = NULL;
   transport_recv_busy_ = false;
+  transport_recv_eof_ = false;
   recv_buffer_ = NULL;
 
   user_connect_callback_.Reset();
@@ -811,7 +827,8 @@ int SSLClientSocketOpenSSL::DoHandshake() {
     DCHECK(got_cert);
     net_log_.AddEvent(
         NetLog::TYPE_SSL_CERTIFICATES_RECEIVED,
-        make_scoped_refptr(new X509CertificateNetLogParam(server_cert_)));
+        base::Bind(&NetLogX509CertificateCallback,
+                   base::Unretained(server_cert_.get())));
     GotoState(STATE_VERIFY_CERT);
   } else {
     int ssl_error = SSL_get_error(ssl_, rv);
@@ -826,7 +843,7 @@ int SSLClientSocketOpenSSL::DoHandshake() {
                  << ", net_error " << net_error;
       net_log_.AddEvent(
           NetLog::TYPE_SSL_HANDSHAKE_ERROR,
-          make_scoped_refptr(new SSLErrorParams(net_error, ssl_error)));
+          CreateNetLogSSLErrorCallback(net_error, ssl_error));
     }
   }
   return net_error;
@@ -842,16 +859,15 @@ int SSLClientSocketOpenSSL::SelectNextProtoCallback(unsigned char** out,
                                                     unsigned int inlen) {
 #if defined(OPENSSL_NPN_NEGOTIATED)
   if (ssl_config_.next_protos.empty()) {
-    *out = reinterpret_cast<uint8*>(const_cast<char*>("http/1.1"));
-    *outlen = 8;
-    npn_status_ = SSLClientSocket::kNextProtoUnsupported;
+    *out = reinterpret_cast<uint8*>(
+        const_cast<char*>(kDefaultSupportedNPNProtocol));
+    *outlen = arraysize(kDefaultSupportedNPNProtocol) - 1;
+    npn_status_ = kNextProtoUnsupported;
     return SSL_TLSEXT_ERR_OK;
   }
 
   // Assume there's no overlap between our protocols and the server's list.
-  int status = OPENSSL_NPN_NO_OVERLAP;
-  *out = const_cast<unsigned char*>(in) + 1;
-  *outlen = in[0];
+  npn_status_ = kNextProtoNoOverlap;
 
   // For each protocol in server preference order, see if we support it.
   for (unsigned int i = 0; i < inlen; i += in[i] + 1) {
@@ -860,30 +876,26 @@ int SSLClientSocketOpenSSL::SelectNextProtoCallback(unsigned char** out,
          j != ssl_config_.next_protos.end(); ++j) {
       if (in[i] == j->size() &&
           memcmp(&in[i + 1], j->data(), in[i]) == 0) {
-        // We find a match.
+        // We found a match.
         *out = const_cast<unsigned char*>(in) + i + 1;
         *outlen = in[i];
-        status = OPENSSL_NPN_NEGOTIATED;
+        npn_status_ = kNextProtoNegotiated;
         break;
       }
     }
-    if (status == OPENSSL_NPN_NEGOTIATED)
+    if (npn_status_ == kNextProtoNegotiated)
       break;
+  }
+
+  // If we didn't find a protocol, we select the first one from our list.
+  if (npn_status_ == kNextProtoNoOverlap) {
+    *out = reinterpret_cast<uint8*>(const_cast<char*>(
+        ssl_config_.next_protos[0].data()));
+    *outlen = ssl_config_.next_protos[0].size();
   }
 
   npn_proto_.assign(reinterpret_cast<const char*>(*out), *outlen);
   server_protos_.assign(reinterpret_cast<const char*>(in), inlen);
-  switch (status) {
-    case OPENSSL_NPN_NEGOTIATED:
-      npn_status_ = SSLClientSocket::kNextProtoNegotiated;
-      break;
-    case OPENSSL_NPN_NO_OVERLAP:
-      npn_status_ = SSLClientSocket::kNextProtoNoOverlap;
-      break;
-    default:
-      NOTREACHED() << status;
-      break;
-  }
   DVLOG(2) << "next protocol: '" << npn_proto_ << "' status: " << npn_status_;
 #endif
   return SSL_TLSEXT_ERR_OK;
@@ -962,9 +974,10 @@ X509Certificate* SSLClientSocketOpenSSL::UpdateServerCert() {
 
 bool SSLClientSocketOpenSSL::DoTransportIO() {
   bool network_moved = false;
-  int nsent = BufferSend();
-  int nreceived = BufferRecv();
-  network_moved = (nsent > 0 || nreceived >= 0);
+  if (BufferSend() > 0)
+    network_moved = true;
+  if (!transport_recv_eof_ && BufferRecv() >= 0)
+    network_moved = true;
   return network_moved;
 }
 
@@ -1057,6 +1070,8 @@ void SSLClientSocketOpenSSL::TransportReadComplete(int result) {
     // Received 0 (end of file) or an error. Either way, bubble it up to the
     // SSL layer via the BIO. TODO(joth): consider stashing the error code, to
     // relay up to the SSL socket client (i.e. via DoReadCallback).
+    if (result == 0)
+      transport_recv_eof_ = true;
     BIO_set_mem_eof_return(transport_bio_, 0);
     (void)BIO_shutdown_wr(transport_bio_);
   } else {
@@ -1105,6 +1120,7 @@ void SSLClientSocketOpenSSL::OnSendComplete(int result) {
       network_moved = DoTransportIO();
   } while (rv_read == ERR_IO_PENDING &&
            rv_write == ERR_IO_PENDING &&
+           (user_read_buf_ || user_write_buf_) &&
            network_moved);
 
   if (user_read_buf_ && rv_read != ERR_IO_PENDING)
@@ -1140,7 +1156,7 @@ bool SSLClientSocketOpenSSL::IsConnectedAndIdle() const {
   return ret;
 }
 
-int SSLClientSocketOpenSSL::GetPeerAddress(AddressList* addressList) const {
+int SSLClientSocketOpenSSL::GetPeerAddress(IPEndPoint* addressList) const {
   return transport_->socket()->GetPeerAddress(addressList);
 }
 

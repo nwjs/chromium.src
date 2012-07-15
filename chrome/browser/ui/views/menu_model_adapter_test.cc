@@ -4,8 +4,8 @@
 
 #include "base/callback.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/test/base/view_event_test_base.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "chrome/test/base/view_event_test_base.h"
 #include "ui/base/models/menu_model.h"
 #include "ui/ui_controls/ui_controls.h"
 #include "ui/views/controls/button/menu_button.h"
@@ -88,6 +88,19 @@ class TestViewsDelegate : public views::ViewsDelegate {
     return 0;
   }
 
+#if defined(USE_AURA)
+  virtual views::NativeWidgetHelperAura* CreateNativeWidgetHelper(
+      views::NativeWidgetAura* native_widget) OVERRIDE {
+    return NULL;
+  }
+#endif
+
+  content::WebContents* CreateWebContents(
+      content::BrowserContext* browser_context,
+      content::SiteInstance* site_instance) OVERRIDE {
+    return NULL;
+  }
+
  private:
   DISALLOW_COPY_AND_ASSIGN(TestViewsDelegate);
 };
@@ -130,7 +143,7 @@ class CommonMenuModel : public ui::MenuModel {
     return 0;
   }
 
-  virtual bool GetIconAt(int index, SkBitmap* icon) OVERRIDE {
+  virtual bool GetIconAt(int index, gfx::ImageSkia* icon) OVERRIDE {
     return false;
   }
 
@@ -376,4 +389,9 @@ class MenuModelAdapterTest : public ViewEventTestBase,
   scoped_ptr<views::MenuRunner> menu_runner_;
 };
 
-VIEW_TEST(MenuModelAdapterTest, RebuildMenu)
+#if defined(OS_WIN)
+#define MAYBE_RebuildMenu DISABLED_RebuildMenu
+#else
+#define MAYBE_RebuildMenu RebuildMenu
+#endif
+VIEW_TEST(MenuModelAdapterTest, MAYBE_RebuildMenu)

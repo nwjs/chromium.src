@@ -6,27 +6,20 @@
 
 #ifndef CHROME_BROWSER_PROFILES_PROFILE_H_
 #define CHROME_BROWSER_PROFILES_PROFILE_H_
-#pragma once
 
 #include <string>
 
 #include "base/basictypes.h"
 #include "base/hash_tables.h"
 #include "base/logging.h"
-#include "chrome/browser/net/preconnect.h" // TODO: remove this.
 #include "chrome/browser/net/pref_proxy_config_tracker.h"
-#include "chrome/common/extensions/extension_constants.h"
+#include "chrome/browser/ui/webui/chrome_url_data_manager_factory.h"
 #include "content/public/browser/browser_context.h"
 
-class AutocompleteClassifier;
 class BookmarkModel;
 class ChromeAppCacheService;
 class ChromeURLDataManager;
-class Extension;
-class ExtensionDevToolsManager;
 class ExtensionEventRouter;
-class ExtensionInfoMap;
-class ExtensionMessageService;
 class ExtensionProcessManager;
 class ExtensionService;
 class ExtensionSpecialStoragePolicy;
@@ -34,20 +27,24 @@ class FaviconService;
 class GAIAInfoUpdateService;
 class HistoryService;
 class HostContentSettingsMap;
-class LazyBackgroundTaskQueue;
 class PasswordStore;
 class PrefService;
 class PromoCounter;
 class ProtocolHandlerRegistry;
-class TemplateURLFetcher;
 class TestingProfile;
-class UserScriptMaster;
-class UserStyleSheetWatcher;
 class VisitedLinkMaster;
 class WebDataService;
 
+namespace android {
+class TabContentsProvider;
+}
+
 namespace base {
 class Time;
+}
+
+namespace chrome_browser_net {
+class Predictor;
 }
 
 namespace chromeos {
@@ -55,17 +52,12 @@ class LibCrosServiceLibraryImpl;
 class ResetDefaultProxyConfigServiceTask;
 }
 
-namespace chrome_browser_net {
-class Predictor;
-}
-
 namespace content {
-class SpeechRecognitionPreferences;
 class WebUI;
 }
 
-namespace android {
-class TabContentsProvider;
+namespace extensions {
+class UserScriptMaster;
 }
 
 namespace fileapi {
@@ -79,6 +71,10 @@ class ShortcutsBackend;
 
 namespace net {
 class SSLConfigService;
+}
+
+namespace policy {
+class PolicyService;
 }
 
 class Profile : public content::BrowserContext {
@@ -130,26 +126,6 @@ class Profile : public content::BrowserContext {
                                   bool is_new_profile) = 0;
   };
 
-  // Whitelist access to deprecated API in order to prevent new regressions.
-  class Deprecated {
-   private:
-    friend bool IsGoogleGAIACookieInstalled();
-
-    friend class AutofillDownloadManager;
-    friend class BrowserListTabContentsProvider;
-    friend class MetricsService;
-    friend class SafeBrowsingServiceTestHelper;
-    friend class Toolbar5Importer;
-    friend class TranslateManager;
-    friend class android::TabContentsProvider;
-    friend class chromeos::LibCrosServiceLibraryImpl;
-    friend class chromeos::ResetDefaultProxyConfigServiceTask;
-
-    static net::URLRequestContextGetter* GetDefaultRequestContext() {
-      return Profile::GetDefaultRequestContext();
-    }
-  };
-
   // Key used to bind profile to the widget with which it is associated.
   static const char* const kProfileKey;
 
@@ -160,8 +136,8 @@ class Profile : public content::BrowserContext {
   // time.
   static void RegisterUserPrefs(PrefService* prefs);
 
-  // Create a new profile given a path. If |async| is true then the profile is
-  // initialized asynchronously.
+  // Create a new profile given a path. If |create_mode| is
+  // CREATE_MODE_ASYNCHRONOUS then the profile is initialized asynchronously.
   static Profile* CreateProfile(const FilePath& path,
                                 Delegate* delegate,
                                 CreateMode create_mode);
@@ -212,37 +188,33 @@ class Profile : public content::BrowserContext {
   // that this method is called.
   virtual VisitedLinkMaster* GetVisitedLinkMaster() = 0;
 
+  // DEPRECATED. Instead, use ExtensionSystem::extension_service().
   // Retrieves a pointer to the ExtensionService associated with this
   // profile. The ExtensionService is created at startup.
+  // TODO(yoz): remove this accessor (bug 104095).
   virtual ExtensionService* GetExtensionService() = 0;
 
-  // Retrieves a pointer to the UserScriptMaster associated with this
-  // profile.  The UserScriptMaster is lazily created the first time
-  // that this method is called.
-  virtual UserScriptMaster* GetUserScriptMaster() = 0;
+  // DEPRECATED. Instead, use ExtensionSystem::user_script_master().
+  // Retrieves a pointer to the extensions::UserScriptMaster associated with
+  // this profile.  The extensions::UserScriptMaster is lazily created the first
+  // time that this method is called.
+  // TODO(yoz): remove this accessor (bug 104095).
+  virtual extensions::UserScriptMaster* GetUserScriptMaster() = 0;
 
-  // Retrieves a pointer to the ExtensionDevToolsManager associated with this
-  // profile.  The instance is created at startup.
-  virtual ExtensionDevToolsManager* GetExtensionDevToolsManager() = 0;
-
+  // DEPRECATED. Instead, use ExtensionSystem::process_manager().
   // Retrieves a pointer to the ExtensionProcessManager associated with this
   // profile.  The instance is created at startup.
+  // TODO(yoz): remove this accessor (bug 104095).
   virtual ExtensionProcessManager* GetExtensionProcessManager() = 0;
 
-  // Retrieves a pointer to the ExtensionMessageService associated with this
-  // profile.  The instance is created at startup.
-  virtual ExtensionMessageService* GetExtensionMessageService() = 0;
-
+  // DEPRECATED. Instead, use ExtensionSystem::event_router().
   // Accessor. The instance is created at startup.
+  // TODO(yoz): remove this accessor (bug 104095).
   virtual ExtensionEventRouter* GetExtensionEventRouter() = 0;
 
   // Accessor. The instance is created upon first access.
   virtual ExtensionSpecialStoragePolicy*
       GetExtensionSpecialStoragePolicy() = 0;
-
-  // Accessor. The instance is created at startup.
-  // TODO(yoz): this belongs with the ExtensionSystem.
-  virtual LazyBackgroundTaskQueue* GetLazyBackgroundTaskQueue() = 0;
 
   // Retrieves a pointer to the FaviconService associated with this
   // profile.  The FaviconService is lazily created the first time
@@ -277,31 +249,11 @@ class Profile : public content::BrowserContext {
   // doesn't already exist.
   virtual HistoryService* GetHistoryServiceWithoutCreating() = 0;
 
-  // Retrieves a pointer to the AutocompleteClassifier associated with this
-  // profile. The AutocompleteClassifier is lazily created the first time that
-  // this method is called.
-  virtual AutocompleteClassifier* GetAutocompleteClassifier() = 0;
-
-  // Returns the ShortcutsBackend for this profile. This is owned by
-  // the Profile and created on the first call. Callers that outlive the life of
-  // this profile need to be sure they refcount the returned value.
-  virtual history::ShortcutsBackend* GetShortcutsBackend() = 0;
-
-  // Returns the WebDataService for this profile. This is owned by
-  // the Profile. Callers that outlive the life of this profile need to be
-  // sure they refcount the returned value.
-  //
-  // |access| defines what the caller plans to do with the service. See
-  // the ServiceAccessType definition above.
-  virtual WebDataService* GetWebDataService(ServiceAccessType access) = 0;
-
-  // Similar to GetWebDataService(), but won't create the web data service if it
-  // doesn't already exist.
-  virtual WebDataService* GetWebDataServiceWithoutCreating() = 0;
+  // Returns the PolicyService that provides policies for this profile.
+  virtual policy::PolicyService* GetPolicyService() = 0;
 
   // Retrieves a pointer to the PrefService that manages the preferences
-  // for this user profile.  The PrefService is lazily created the first
-  // time that this method is called.
+  // for this user profile.
   virtual PrefService* GetPrefs() = 0;
 
   // Retrieves a pointer to the PrefService that manages the preferences
@@ -309,9 +261,8 @@ class Profile : public content::BrowserContext {
   // time that this method is called.
   virtual PrefService* GetOffTheRecordPrefs() = 0;
 
-  // Returns the TemplateURLFetcher for this profile. This is owned by the
-  // profile.
-  virtual TemplateURLFetcher* GetTemplateURLFetcher() = 0;
+  // Returns the main request context.
+  virtual net::URLRequestContextGetter* GetRequestContext() = 0;
 
   // Returns the request context used for extension-related requests.  This
   // is only used for a separate cookie store currently.
@@ -322,29 +273,11 @@ class Profile : public content::BrowserContext {
   virtual net::URLRequestContextGetter* GetRequestContextForIsolatedApp(
       const std::string& app_id) = 0;
 
-  // Called by the ExtensionService that lives in this profile. Gives the
-  // profile a chance to react to the load event before the EXTENSION_LOADED
-  // notification has fired. The purpose for handling this event first is to
-  // avoid race conditions by making sure URLRequestContexts learn about new
-  // extensions before anything else needs them to know.
-  virtual void RegisterExtensionWithRequestContexts(
-      const Extension* extension) {}
-
-  // Called by the ExtensionService that lives in this profile. Lets the
-  // profile clean up its RequestContexts once all the listeners to the
-  // EXTENSION_UNLOADED notification have finished running.
-  virtual void UnregisterExtensionWithRequestContexts(
-      const std::string& extension_id,
-      const extension_misc::UnloadedExtensionReason) {}
-
   // Returns the SSLConfigService for this profile.
   virtual net::SSLConfigService* GetSSLConfigService() = 0;
 
   // Returns the Hostname <-> Content settings map for this profile.
   virtual HostContentSettingsMap* GetHostContentSettingsMap() = 0;
-
-  // Returns the user style sheet watcher.
-  virtual UserStyleSheetWatcher* GetUserStyleSheetWatcher() = 0;
 
   // Returns the BookmarkModel, creating if not yet created.
   virtual BookmarkModel* GetBookmarkModel() = 0;
@@ -370,11 +303,6 @@ class Profile : public content::BrowserContext {
   // that it can be invoked when the user logs out/powers down (WM_ENDSESSION).
   virtual void MarkAsCleanShutdown() = 0;
 
-  // Initializes extensions machinery.
-  // Component extensions are always enabled, external and user extensions
-  // are controlled by |extensions_enabled|.
-  virtual void InitExtensions(bool extensions_enabled) = 0;
-
   // Start up service that gathers data from a promo resource feed.
   virtual void InitPromoResources() = 0;
 
@@ -385,15 +313,6 @@ class Profile : public content::BrowserContext {
   // Returns the last directory that was chosen for uploading or opening a file.
   virtual FilePath last_selected_directory() = 0;
   virtual void set_last_selected_directory(const FilePath& path) = 0;
-
-  // Returns the IO-thread-accessible profile data for this profile.
-  virtual ExtensionInfoMap* GetExtensionInfoMap() = 0;
-
-  // Returns the PromoCounter for Instant, or NULL if not applicable.
-  virtual PromoCounter* GetInstantPromoCounter() = 0;
-
-  // Returns the ChromeURLDataManager for this profile.
-  virtual ChromeURLDataManager* GetChromeURLDataManager() = 0;
 
 #if defined(OS_CHROMEOS)
   enum AppLocaleChangedVia {
@@ -446,13 +365,6 @@ class Profile : public content::BrowserContext {
   // Returns whether it is a guest session.
   static bool IsGuestSession();
 
-#ifdef UNIT_TEST
-  // Use with caution.  GetDefaultRequestContext may be called on any thread!
-  static void set_default_request_context(net::URLRequestContextGetter* c) {
-    default_request_context_ = c;
-  }
-#endif
-
   // Did the user restore the last session? This is set by SessionRestore.
   void set_restored_last_session(bool restored_last_session) {
     restored_last_session_ = restored_last_session;
@@ -469,7 +381,7 @@ class Profile : public content::BrowserContext {
   }
 
   void ResumeAccessibilityEvents() {
-    DCHECK(accessibility_pause_level_ > 0);
+    DCHECK_GT(accessibility_pause_level_, 0);
     accessibility_pause_level_--;
   }
 
@@ -485,20 +397,19 @@ class Profile : public content::BrowserContext {
   Profile* CreateOffTheRecordProfile();
 
  protected:
+  // TODO(erg, willchan): Remove friendship once |ProfileIOData| is made into
+  //     a |ProfileKeyedService|.
+  friend class ChromeURLDataManagerFactory;
   friend class OffTheRecordProfileImpl;
 
-  static net::URLRequestContextGetter* default_request_context_;
+  // Returns a callback to a method returning a |ChromeURLDataManagerBackend|.
+  // Used to create a |ChromeURLDataManager| for this |Profile|.
+  // TODO(erg, willchan): Remove this once |ProfileIOData| is made into a
+  //     |ProfileKeyedService|.
+  virtual base::Callback<ChromeURLDataManagerBackend*(void)>
+      GetChromeURLDataManagerBackendGetter() const = 0;
 
  private:
-  // ***DEPRECATED**: You should be passing in the specific profile's
-  // URLRequestContextGetter or using the system URLRequestContextGetter.
-  //
-  // Returns the request context for the "default" profile.  This may be called
-  // from any thread.  This CAN return NULL if a first request context has not
-  // yet been created.  If necessary, listen on the UI thread for
-  // NOTIFY_DEFAULT_REQUEST_CONTEXT_AVAILABLE.
-  static net::URLRequestContextGetter* GetDefaultRequestContext();
-
   bool restored_last_session_;
 
   // Accessibility events will only be propagated when the pause

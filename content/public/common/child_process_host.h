@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CONTENT_PULIC_COMMON_CHILD_PROCESS_HOST_H_
 #define CONTENT_PULIC_COMMON_CHILD_PROCESS_HOST_H_
-#pragma once
 
 #include "build/build_config.h"
 #include "content/common/content_export.h"
@@ -19,7 +18,7 @@ class ChildProcessHostDelegate;
 // This represents a non-browser process. This can include traditional child
 // processes like plugins, or an embedder could even use this for long lived
 // processes that run independent of the browser process.
-class CONTENT_EXPORT ChildProcessHost : public IPC::Message::Sender {
+class CONTENT_EXPORT ChildProcessHost : public IPC::Sender {
  public:
   virtual ~ChildProcessHost() {}
 

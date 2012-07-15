@@ -8,7 +8,9 @@
 #include "base/memory/scoped_nsobject.h"
 #include "chrome/app/chrome_command_ids.h"
 #import "chrome/browser/app_controller_mac.h"
-#import "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #import "chrome/common/chrome_switches.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -18,12 +20,9 @@ namespace {
 
 class AppControllerPlatformAppBrowserTest : public InProcessBrowserTest {
  protected:
-  AppControllerPlatformAppBrowserTest() {
-    set_initial_window_required(false);
-  }
+  AppControllerPlatformAppBrowserTest() {}
 
   virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE {
-    InProcessBrowserTest::SetUpCommandLine(command_line);
     command_line->AppendSwitchASCII(switches::kAppId,
                                     "1234");
   }
@@ -35,24 +34,20 @@ IN_PROC_BROWSER_TEST_F(AppControllerPlatformAppBrowserTest,
                        PlatformAppReopenWithWindows) {
   scoped_nsobject<AppController> ac([[AppController alloc] init]);
   NSUInteger old_window_count = [[NSApp windows] count];
-  EXPECT_EQ(0u, BrowserList::size());
+  EXPECT_EQ(1u, BrowserList::size());
   BOOL result = [ac applicationShouldHandleReopen:NSApp hasVisibleWindows:YES];
 
   EXPECT_TRUE(result);
   EXPECT_EQ(old_window_count, [[NSApp windows] count]);
-  EXPECT_EQ(0u, BrowserList::size());
+  EXPECT_EQ(1u, BrowserList::size());
 }
 
 class AppControllerWebAppBrowserTest : public InProcessBrowserTest {
  protected:
-  AppControllerWebAppBrowserTest() {
-    set_initial_window_required(false);
-  }
+  AppControllerWebAppBrowserTest() {}
 
   virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE {
-    InProcessBrowserTest::SetUpCommandLine(command_line);
-    command_line->AppendSwitchASCII(switches::kApp,
-                                    GetAppURL());
+    command_line->AppendSwitchASCII(switches::kApp, GetAppURL());
   }
 
   std::string GetAppURL() const {
@@ -64,14 +59,14 @@ class AppControllerWebAppBrowserTest : public InProcessBrowserTest {
 IN_PROC_BROWSER_TEST_F(AppControllerWebAppBrowserTest,
                        WebAppReopenWithNoWindows) {
   scoped_nsobject<AppController> ac([[AppController alloc] init]);
-  EXPECT_EQ(0u, BrowserList::size());
+  EXPECT_EQ(1u, BrowserList::size());
   BOOL result = [ac applicationShouldHandleReopen:NSApp hasVisibleWindows:NO];
 
   EXPECT_FALSE(result);
-  EXPECT_EQ(1u, BrowserList::size());
+  EXPECT_EQ(2u, BrowserList::size());
 
   Browser* browser = *(BrowserList::begin());
-  GURL current_url = browser->GetSelectedWebContents()->GetURL();
+  GURL current_url = chrome::GetActiveWebContents(browser)->GetURL();
   EXPECT_EQ(GetAppURL(), current_url.spec());
 }
 

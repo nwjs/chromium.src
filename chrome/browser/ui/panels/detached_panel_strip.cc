@@ -18,15 +18,41 @@ DetachedPanelStrip::~DetachedPanelStrip() {
   DCHECK(panels_.empty());
 }
 
+gfx::Rect DetachedPanelStrip::GetDisplayArea() const  {
+  return display_area_;
+}
+
 void DetachedPanelStrip::SetDisplayArea(const gfx::Rect& display_area) {
   if (display_area_ == display_area)
     return;
+  gfx::Rect old_display_area = display_area_;
   display_area_ = display_area;
 
   if (panels_.empty())
     return;
 
-  RefreshLayout();
+  for (Panels::const_iterator iter = panels_.begin();
+       iter != panels_.end(); ++iter) {
+    Panel* panel = *iter;
+
+    // If the detached panel is outside the main display area, don't change it.
+    if (!old_display_area.Intersects(panel->GetBounds()))
+      continue;
+
+    // Update size if needed.
+    panel->LimitSizeToDisplayArea(display_area_);
+
+    // Update bounds if needed.
+    gfx::Rect bounds = panel->GetBounds();
+    if (panel->full_size() != bounds.size()) {
+      bounds.set_size(panel->full_size());
+      if (bounds.right() > display_area_.right())
+        bounds.set_x(display_area_.right() - bounds.width());
+      if (bounds.bottom() > display_area_.bottom())
+        bounds.set_y(display_area_.bottom() - bounds.height());
+      panel->SetPanelBoundsInstantly(bounds);
+    }
+  }
 }
 
 void DetachedPanelStrip::RefreshLayout() {
@@ -38,13 +64,13 @@ void DetachedPanelStrip::AddPanel(Panel* panel,
                                   PositioningMask positioning_mask) {
   // positioning_mask is ignored since the detached panel is free-floating.
   DCHECK_NE(this, panel->panel_strip());
-  panel->SetPanelStrip(this);
+  panel->set_panel_strip(this);
   panels_.insert(panel);
 }
 
 void DetachedPanelStrip::RemovePanel(Panel* panel) {
   DCHECK_EQ(this, panel->panel_strip());
-  panel->SetPanelStrip(NULL);
+  panel->set_panel_strip(NULL);
   panels_.erase(panel);
 }
 
@@ -77,11 +103,11 @@ void DetachedPanelStrip::ResizePanelWindow(
   // Make sure the new size does not violate panel's size restrictions.
   gfx::Size new_size(preferred_window_size.width(),
                      preferred_window_size.height());
-  panel->ClampSize(&new_size);
+  new_size = panel->ClampSize(new_size);
 
   // Update restored size.
-  if (new_size != panel->restored_size())
-    panel->set_restored_size(new_size);
+  if (new_size != panel->full_size())
+    panel->set_full_size(new_size);
 
   gfx::Rect bounds = panel->GetBounds();
 
@@ -91,7 +117,6 @@ void DetachedPanelStrip::ResizePanelWindow(
 
   if (bounds != panel->GetBounds())
     panel->SetPanelBounds(bounds);
-
 }
 
 void DetachedPanelStrip::ActivatePanel(Panel* panel) {
@@ -111,15 +136,26 @@ void DetachedPanelStrip::RestorePanel(Panel* panel) {
   // regardless of which strip the panel is in. So we just quietly return.
 }
 
-bool DetachedPanelStrip::IsPanelMinimized(const Panel* panel) const {
+void DetachedPanelStrip::MinimizeAll() {
+  // Detached panels do not minimize.
+  NOTREACHED();
+}
+
+void DetachedPanelStrip::RestoreAll() {
+  // Detached panels do not minimize.
+  NOTREACHED();
+}
+
+bool DetachedPanelStrip::CanMinimizePanel(const Panel* panel) const {
   DCHECK_EQ(this, panel->panel_strip());
   // Detached panels do not minimize.
   return false;
 }
 
-bool DetachedPanelStrip::CanShowPanelAsActive(const Panel* panel) const {
-  // All detached panels can be shown as active.
-  return true;
+bool DetachedPanelStrip::IsPanelMinimized(const Panel* panel) const {
+  DCHECK_EQ(this, panel->panel_strip());
+  // Detached panels do not minimize.
+  return false;
 }
 
 void DetachedPanelStrip::SavePanelPlacement(Panel* panel) {
@@ -143,20 +179,15 @@ void DetachedPanelStrip::DiscardSavedPanelPlacement() {
   saved_panel_placement_.panel = NULL;
 }
 
-bool DetachedPanelStrip::CanDragPanel(const Panel* panel) const {
-  // All detached panels are draggable.
-  return true;
-}
-
 void DetachedPanelStrip::StartDraggingPanelWithinStrip(Panel* panel) {
   DCHECK(HasPanel(panel));
 }
 
-void DetachedPanelStrip::DragPanelWithinStrip(Panel* panel,
-                                              int delta_x,
-                                              int delta_y) {
+void DetachedPanelStrip::DragPanelWithinStrip(
+    Panel* panel,
+    const gfx::Point& target_position) {
   gfx::Rect new_bounds(panel->GetBounds());
-  new_bounds.Offset(delta_x, delta_y);
+  new_bounds.set_origin(target_position);
   panel->SetPanelBoundsInstantly(new_bounds);
 }
 
@@ -164,16 +195,22 @@ void DetachedPanelStrip::EndDraggingPanelWithinStrip(Panel* panel,
                                                      bool aborted) {
 }
 
-bool DetachedPanelStrip::CanResizePanel(const Panel* panel) const {
-  return true;
+void DetachedPanelStrip::ClearDraggingStateWhenPanelClosed() {
 }
 
-void DetachedPanelStrip::SetPanelBounds(Panel* panel,
-                                        const gfx::Rect& new_bounds) {
+
+panel::Resizability DetachedPanelStrip::GetPanelResizability(
+    const Panel* panel) const {
+  return panel::RESIZABLE_ALL_SIDES;
+}
+
+void DetachedPanelStrip::OnPanelResizedByMouse(Panel* panel,
+                                               const gfx::Rect& new_bounds) {
   DCHECK_EQ(this, panel->panel_strip());
+  panel->set_full_size(new_bounds.size());
+
   panel->SetPanelBoundsInstantly(new_bounds);
 }
-
 
 bool DetachedPanelStrip::HasPanel(Panel* panel) const {
   return panels_.find(panel) != panels_.end();
@@ -185,4 +222,9 @@ void DetachedPanelStrip::UpdatePanelOnStripChange(Panel* panel) {
                                         Panel::USE_SYSTEM_ATTENTION));
   panel->SetAlwaysOnTop(false);
   panel->EnableResizeByMouse(true);
+  panel->UpdateMinimizeRestoreButtonVisibility();
 }
+
+void DetachedPanelStrip::OnPanelActiveStateChanged(Panel* panel) {
+}
+

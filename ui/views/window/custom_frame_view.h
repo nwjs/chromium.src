@@ -4,7 +4,6 @@
 
 #ifndef UI_VIEWS_WINDOW_CUSTOM_FRAME_VIEW_H_
 #define UI_VIEWS_WINDOW_CUSTOM_FRAME_VIEW_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
@@ -12,7 +11,9 @@
 #include "ui/views/controls/button/button.h"
 #include "ui/views/window/non_client_view.h"
 
-class SkBitmap;
+namespace gfx {
+class ImageSkia;
+}
 
 namespace views {
 
@@ -83,7 +84,7 @@ class CustomFrameView : public NonClientFrameView,
   gfx::Rect IconBounds() const;
 
   // Returns true if the client edge should be drawn. This is true if
-  // the window delegate wants a client edge and we are not maxmized.
+  // the window is not maximized.
   bool ShouldShowClientEdge() const;
 
   // Paint various sub-components of this view.
@@ -94,7 +95,7 @@ class CustomFrameView : public NonClientFrameView,
 
   // Compute aspects of the frame needed to paint the frame background.
   SkColor GetFrameColor() const;
-  const SkBitmap* GetFrameBitmap() const;
+  const gfx::ImageSkia* GetFrameImage() const;
 
   // Layout various sub-components of this view.
   void LayoutWindowControls();
@@ -114,17 +115,21 @@ class CustomFrameView : public NonClientFrameView,
   // The layout rect of the title, if visible.
   gfx::Rect title_bounds_;
 
-  // The window that owns this view. Not owned.
+  // Not owned.
   Widget* frame_;
 
-  // Window controls.
+  // The icon of this window. May be NULL.
+  ImageButton* window_icon_;
+
+  // Window caption buttons.
   ImageButton* minimize_button_;
   ImageButton* maximize_button_;
   ImageButton* restore_button_;
   ImageButton* close_button_;
-  ImageButton* window_icon_;
+
+  // Should minimize and maximize buttons be shown? This is true when the
+  // window can be maximized.
   bool should_show_minmax_buttons_;
-  bool should_show_client_edge_;
 
   // Background painter for the window frame.
   scoped_ptr<FrameBackground> frame_background_;

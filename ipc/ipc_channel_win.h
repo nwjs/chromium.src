@@ -4,7 +4,6 @@
 
 #ifndef IPC_IPC_CHANNEL_WIN_H_
 #define IPC_IPC_CHANNEL_WIN_H_
-#pragma once
 
 #include "ipc/ipc_channel.h"
 
@@ -17,7 +16,7 @@
 #include "ipc/ipc_channel_reader.h"
 
 namespace base {
-class NonThreadSafe;
+class ThreadChecker;
 }
 
 namespace IPC {
@@ -33,6 +32,7 @@ class Channel::ChannelImpl : public internal::ChannelReader,
   void Close();
   bool Send(Message* message);
   static bool IsNamedServerInitialized(const std::string& channel_id);
+  base::ProcessId peer_pid() const { return peer_pid_; }
 
  private:
   // ChannelReader implementation.
@@ -67,6 +67,8 @@ class Channel::ChannelImpl : public internal::ChannelReader,
 
   HANDLE pipe_;
 
+  base::ProcessId peer_pid_;
+
   // Messages to be sent are queued here.
   std::queue<Message*> output_queue_;
 
@@ -92,7 +94,7 @@ class Channel::ChannelImpl : public internal::ChannelReader,
 
   base::WeakPtrFactory<ChannelImpl> weak_factory_;
 
-  scoped_ptr<base::NonThreadSafe> thread_check_;
+  scoped_ptr<base::ThreadChecker> thread_check_;
 
   DISALLOW_COPY_AND_ASSIGN(ChannelImpl);
 };

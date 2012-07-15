@@ -10,7 +10,6 @@
 
 #ifndef CHROME_BROWSER_UI_GTK_CHROME_TO_MOBILE_BUBBLE_GTK_H_
 #define CHROME_BROWSER_UI_GTK_CHROME_TO_MOBILE_BUBBLE_GTK_H_
-#pragma once
 
 #include <map>
 #include <vector>
@@ -27,7 +26,7 @@
 #include "ui/base/animation/animation_delegate.h"
 #include "ui/base/gtk/gtk_signal.h"
 
-class Profile;
+class Browser;
 
 namespace base {
 class DictionaryValue;
@@ -46,7 +45,7 @@ class ChromeToMobileBubbleGtk : public BubbleDelegateGtk,
  public:
   // Shows the Chrome to Mobile bubble, pointing at |anchor_widget|.
   // |anchor_image| is updated to show the lit icon during the bubble lifetime.
-  static void Show(GtkImage* anchor_image, Profile* profile);
+  static void Show(GtkImage* anchor_image, Browser* browser);
 
   // BubbleDelegateGtk:
   virtual void BubbleClosing(BubbleGtk* bubble, bool closed_by_escape) OVERRIDE;
@@ -64,21 +63,26 @@ class ChromeToMobileBubbleGtk : public BubbleDelegateGtk,
   virtual void OnSendComplete(bool success) OVERRIDE;
 
  private:
-  ChromeToMobileBubbleGtk(GtkImage* anchor_image, Profile* profile);
+  ChromeToMobileBubbleGtk(GtkImage* anchor_image, Browser* browser);
   virtual ~ChromeToMobileBubbleGtk();
 
   // Notified when |content_| is destroyed so we can delete our instance.
   CHROMEGTK_CALLBACK_0(ChromeToMobileBubbleGtk, void, OnDestroy);
   CHROMEGTK_CALLBACK_0(ChromeToMobileBubbleGtk, void, OnRadioToggled);
+  CHROMEGTK_CALLBACK_0(ChromeToMobileBubbleGtk, void, OnLearnClicked);
   CHROMEGTK_CALLBACK_0(ChromeToMobileBubbleGtk, void, OnCancelClicked);
   CHROMEGTK_CALLBACK_0(ChromeToMobileBubbleGtk, void, OnSendClicked);
 
   base::WeakPtrFactory<ChromeToMobileBubbleGtk> weak_ptr_factory_;
 
-  Profile* profile_;
+  // The browser that opened this bubble.
+  Browser* browser_;
+
+  // The Chrome To Mobile service associated with this bubble.
+  ChromeToMobileService* service_;
 
   // Support members for getting theme colors and theme change notifications.
-  ThemeServiceGtk* theme_service_;
+  GtkThemeService* theme_service_;
   content::NotificationRegistrar registrar_;
 
   // The file path for the MHTML page snapshot.
@@ -98,6 +102,7 @@ class ChromeToMobileBubbleGtk : public BubbleDelegateGtk,
   std::vector<GtkWidget*> labels_;
 
   GtkWidget* send_copy_;
+  GtkWidget* learn_;
   GtkWidget* cancel_;
   GtkWidget* send_;
   GtkWidget* error_;

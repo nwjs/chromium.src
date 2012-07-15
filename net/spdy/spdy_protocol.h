@@ -6,7 +6,6 @@
 
 #ifndef NET_SPDY_SPDY_PROTOCOL_H_
 #define NET_SPDY_SPDY_PROTOCOL_H_
-#pragma once
 
 #include <limits>
 
@@ -149,15 +148,6 @@ const int32 kSpdyStreamInitialWindowSize = 64 * 1024;  // 64 KBytes
 
 // Maximum window size for a Spdy stream
 const int32 kSpdyStreamMaximumWindowSize = 0x7FFFFFFF;  // Max signed 32bit int
-
-// HTTP-over-SPDY header constants
-const char kMethod[] = "method";
-const char kStatus[] = "status";
-const char kUrl[] = "url";
-const char kVersion[] = "version";
-// When we server push, we will add [path: fully/qualified/url] to the server
-// push headers so that the client will know what url the data corresponds to.
-const char kPath[] = "path";
 
 // SPDY 2 dictionary.
 // This is just a hacked dictionary to use for shrinking HTTP-like headers.
@@ -383,8 +373,6 @@ enum SpdyControlType {
 enum SpdyDataFlags {
   DATA_FLAG_NONE = 0,
   DATA_FLAG_FIN = 1,
-  // TODO(hkhalil): Remove.
-  DATA_FLAG_COMPRESSED = 2
 };
 
 // Flags on control packets
@@ -422,6 +410,7 @@ enum SpdySettingsIds {
 };
 
 // Status codes, as used in control frames (primarily RST_STREAM).
+// TODO(hkhalil): Rename to SpdyRstStreamStatus
 enum SpdyStatusCodes {
   INVALID = 0,
   PROTOCOL_ERROR = 1,
@@ -431,8 +420,11 @@ enum SpdyStatusCodes {
   CANCEL = 5,
   INTERNAL_ERROR = 6,
   FLOW_CONTROL_ERROR = 7,
-  INVALID_ASSOCIATED_STREAM = 8,
-  NUM_STATUS_CODES = 9
+  STREAM_IN_USE = 8,
+  STREAM_ALREADY_CLOSED = 9,
+  INVALID_CREDENTIALS = 10,
+  FRAME_TOO_LARGE = 11,
+  NUM_STATUS_CODES = 12
 };
 
 enum SpdyGoAwayStatus {
@@ -450,10 +442,6 @@ typedef uint32 SpdyStreamId;
 // SPDY priority range is version-dependant. For SPDY 2 and below, priority is a
 // number between 0 and 3.
 typedef uint8 SpdyPriority;
-
-// SPDY Priorities. (there are only 2 bits)
-#define SPDY_PRIORITY_LOWEST 3
-#define SPDY_PRIORITY_HIGHEST 0
 
 // -------------------------------------------------------------------------
 // These structures mirror the protocol structure definitions.
@@ -947,7 +935,7 @@ class SpdyGoAwayControlFrame : public SpdyControlFrame {
   }
 
   SpdyGoAwayStatus status() const {
-    if (version() < 2) {
+    if (version() < 3) {
       LOG(DFATAL) << "Attempted to access status of SPDY 2 GOAWAY.";
       return GOAWAY_INVALID;
     } else {

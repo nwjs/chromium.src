@@ -2,9 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "content/test/mock_render_thread.h"
+#include "content/public/test/mock_render_thread.h"
 
 #include "base/process_util.h"
+#include "base/message_loop_proxy.h"
 #include "content/common/view_messages.h"
 #include "ipc/ipc_message_utils.h"
 #include "ipc/ipc_sync_message.h"
@@ -71,8 +72,12 @@ IPC::SyncMessageFilter* MockRenderThread::GetSyncMessageFilter() {
   return NULL;
 }
 
-void MockRenderThread::AddRoute(int32 routing_id,
-                                IPC::Channel::Listener* listener) {
+scoped_refptr<base::MessageLoopProxy>
+    MockRenderThread::GetIOMessageLoopProxy() {
+  return scoped_refptr<base::MessageLoopProxy>();
+}
+
+void MockRenderThread::AddRoute(int32 routing_id, IPC::Listener* listener) {
   // We may hear this for views created from OnMsgCreateWindow as well,
   // in which case we don't want to track the new widget.
   if (routing_id_ == routing_id)
@@ -168,6 +173,9 @@ void MockRenderThread::ReleaseCachedFonts() {
 }
 
 #endif  // OS_WIN
+
+void MockRenderThread::UpdateHistograms(int sequence_number) {
+}
 
 void MockRenderThread::SendCloseMessage() {
   ViewMsg_Close msg(routing_id_);

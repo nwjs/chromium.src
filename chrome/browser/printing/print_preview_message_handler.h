@@ -4,13 +4,12 @@
 
 #ifndef CHROME_BROWSER_PRINTING_PRINT_PREVIEW_MESSAGE_HANDLER_H_
 #define CHROME_BROWSER_PRINTING_PRINT_PREVIEW_MESSAGE_HANDLER_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "content/public/browser/web_contents_observer.h"
 
 class PrintPreviewUI;
-class TabContentsWrapper;
+class TabContents;
 struct PrintHostMsg_DidGetPreviewPageCount_Params;
 struct PrintHostMsg_DidPreviewDocument_Params;
 struct PrintHostMsg_DidPreviewPage_Params;
@@ -38,10 +37,10 @@ class PrintPreviewMessageHandler : public content::WebContentsObserver {
 
  private:
   // Gets the print preview tab associated with the WebContents being observed.
-  TabContentsWrapper* GetPrintPreviewTab();
+  TabContents* GetPrintPreviewTab();
 
-  // Helper function to return the TabContentsWrapper for web_contents().
-  TabContentsWrapper* tab_contents_wrapper();
+  // Helper function to return the TabContents for web_contents().
+  TabContents* tab_contents();
 
   // Gets the PrintPreviewUI associated with the WebContents being observed.
   PrintPreviewUI* GetPrintPreviewUI();
@@ -60,6 +59,7 @@ class PrintPreviewMessageHandler : public content::WebContentsObserver {
   void OnPrintPreviewFailed(int document_cookie);
   void OnPrintPreviewCancelled(int document_cookie);
   void OnInvalidPrinterSettings(int document_cookie);
+  void OnPrintPreviewScalingDisabled();
 
   DISALLOW_COPY_AND_ASSIGN(PrintPreviewMessageHandler);
 };

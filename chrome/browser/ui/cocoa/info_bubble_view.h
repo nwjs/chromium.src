@@ -1,18 +1,18 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_UI_COCOA_INFO_BUBBLE_VIEW_H_
 #define CHROME_BROWSER_UI_COCOA_INFO_BUBBLE_VIEW_H_
-#pragma once
 
 #import <Cocoa/Cocoa.h>
 
 namespace info_bubble {
 
+// These values are in view coordinates.
 const CGFloat kBubbleArrowHeight = 8.0;
 const CGFloat kBubbleArrowWidth = 15.0;
-const CGFloat kBubbleCornerRadius = 8.0;
+const CGFloat kBubbleCornerRadius = 2.0;
 const CGFloat kBubbleArrowXOffset = kBubbleArrowWidth + kBubbleCornerRadius;
 
 enum BubbleArrowLocation {

@@ -8,20 +8,20 @@
 
 #include "base/bind.h"
 #include "base/lazy_instance.h"
-#include "base/message_loop.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/message_loop.h"
 #include "base/metrics/histogram.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
-#include "chrome/browser/extensions/extension_install_ui.h"
+#include "chrome/browser/extensions/extension_install_prompt.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_uninstall_dialog.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/global_error.h"
-#include "chrome/browser/ui/global_error_service.h"
-#include "chrome/browser/ui/global_error_service_factory.h"
+#include "chrome/browser/ui/global_error/global_error.h"
+#include "chrome/browser/ui/global_error/global_error_service.h"
+#include "chrome/browser/ui/global_error/global_error_service_factory.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/extensions/extension.h"
 #include "content/public/browser/notification_details.h"
@@ -30,7 +30,10 @@
 #include "content/public/browser/notification_source.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
+#include "grit/theme_resources.h"
 #include "ui/base/l10n/l10n_util.h"
+
+using extensions::Extension;
 
 namespace {
 
@@ -65,10 +68,10 @@ void ReleaseMenuCommandID(int id) {
 // ExtensionDisabledDialogDelegate --------------------------------------------
 
 class ExtensionDisabledDialogDelegate
-    : public ExtensionInstallUI::Delegate,
+    : public ExtensionInstallPrompt::Delegate,
       public base::RefCountedThreadSafe<ExtensionDisabledDialogDelegate> {
  public:
-  ExtensionDisabledDialogDelegate(Profile* profile,
+  ExtensionDisabledDialogDelegate(Browser* browser,
                                   ExtensionService* service,
                                   const Extension* extension);
 
@@ -77,25 +80,25 @@ class ExtensionDisabledDialogDelegate
 
   virtual ~ExtensionDisabledDialogDelegate();
 
-  // ExtensionInstallUI::Delegate:
+  // ExtensionInstallPrompt::Delegate:
   virtual void InstallUIProceed() OVERRIDE;
   virtual void InstallUIAbort(bool user_initiated) OVERRIDE;
 
   // The UI for showing the install dialog when enabling.
-  scoped_ptr<ExtensionInstallUI> install_ui_;
+  scoped_ptr<ExtensionInstallPrompt> install_ui_;
 
   ExtensionService* service_;
   const Extension* extension_;
 };
 
 ExtensionDisabledDialogDelegate::ExtensionDisabledDialogDelegate(
-    Profile* profile,
+    Browser* browser,
     ExtensionService* service,
     const Extension* extension)
     : service_(service), extension_(extension) {
   AddRef();  // Balanced in Proceed or Abort.
 
-  install_ui_.reset(new ExtensionInstallUI(profile));
+  install_ui_.reset(chrome::CreateExtensionInstallPromptWithBrowser(browser));
   install_ui_->ConfirmReEnable(this, extension_);
 }
 
@@ -103,7 +106,8 @@ ExtensionDisabledDialogDelegate::~ExtensionDisabledDialogDelegate() {
 }
 
 void ExtensionDisabledDialogDelegate::InstallUIProceed() {
-  service_->GrantPermissionsAndEnableExtension(extension_);
+  service_->GrantPermissionsAndEnableExtension(
+      extension_, install_ui_->record_oauth2_grant());
   Release();
 }
 
@@ -130,9 +134,11 @@ class ExtensionDisabledGlobalError : public GlobalError,
 
   // GlobalError implementation.
   virtual bool HasBadge() OVERRIDE;
+  virtual int GetBadgeResourceID() OVERRIDE;
   virtual bool HasMenuItem() OVERRIDE;
   virtual int MenuItemCommandID() OVERRIDE;
   virtual string16 MenuItemLabel() OVERRIDE;
+  virtual int MenuItemIconResourceID() OVERRIDE;
   virtual void ExecuteMenuItem(Browser* browser) OVERRIDE;
   virtual bool HasBubbleView() OVERRIDE;
   virtual string16 GetBubbleViewTitle() OVERRIDE;
@@ -188,12 +194,17 @@ ExtensionDisabledGlobalError::ExtensionDisabledGlobalError(
 }
 
 ExtensionDisabledGlobalError::~ExtensionDisabledGlobalError() {
-  HISTOGRAM_ENUMERATION("Extension.DisabledUIUserResponse",
+  ReleaseMenuCommandID(menu_command_id_);
+  HISTOGRAM_ENUMERATION("Extensions.DisabledUIUserResponse",
                         user_response_, EXTENSION_DISABLED_UI_BUCKET_BOUNDARY);
 }
 
 bool ExtensionDisabledGlobalError::HasBadge() {
   return true;
+}
+
+int ExtensionDisabledGlobalError::GetBadgeResourceID() {
+  return IDR_UPDATE_BADGE;
 }
 
 bool ExtensionDisabledGlobalError::HasMenuItem() {
@@ -202,6 +213,10 @@ bool ExtensionDisabledGlobalError::HasMenuItem() {
 
 int ExtensionDisabledGlobalError::MenuItemCommandID() {
   return menu_command_id_;
+}
+
+int ExtensionDisabledGlobalError::MenuItemIconResourceID() {
+  return IDR_UPDATE_MENU;
 }
 
 string16 ExtensionDisabledGlobalError::MenuItemLabel() {
@@ -242,15 +257,20 @@ void ExtensionDisabledGlobalError::OnBubbleViewDidClose(Browser* browser) {
 
 void ExtensionDisabledGlobalError::BubbleViewAcceptButtonPressed(
     Browser* browser) {
-  new ExtensionDisabledDialogDelegate(service_->profile(), service_,
-                                      extension_);
+  new ExtensionDisabledDialogDelegate(browser, service_, extension_);
 }
 
 void ExtensionDisabledGlobalError::BubbleViewCancelButtonPressed(
     Browser* browser) {
+#if !defined(OS_ANDROID)
   uninstall_dialog_.reset(
-      ExtensionUninstallDialog::Create(service_->profile(), this));
-  uninstall_dialog_->ConfirmUninstall(extension_);
+      ExtensionUninstallDialog::Create(browser, this));
+  // Delay showing the uninstall dialog, so that this function returns
+  // immediately, to close the bubble properly. See crbug.com/121544.
+  MessageLoop::current()->PostTask(FROM_HERE,
+      base::Bind(&ExtensionUninstallDialog::ConfirmUninstall,
+                 uninstall_dialog_->AsWeakPtr(), extension_));
+#endif  // !defined(OS_ANDROID)
 }
 
 void ExtensionDisabledGlobalError::ExtensionUninstallAccepted() {
@@ -272,14 +292,13 @@ void ExtensionDisabledGlobalError::Observe(
     extension = content::Details<const Extension>(details).ptr();
   } else {
     DCHECK_EQ(chrome::NOTIFICATION_EXTENSION_UNLOADED, type);
-    UnloadedExtensionInfo* info =
-        content::Details<UnloadedExtensionInfo>(details).ptr();
+    extensions::UnloadedExtensionInfo* info =
+        content::Details<extensions::UnloadedExtensionInfo>(details).ptr();
     extension = info->extension;
   }
   if (extension == extension_) {
     GlobalErrorServiceFactory::GetForProfile(service_->profile())->
         RemoveGlobalError(this);
-    ReleaseMenuCommandID(menu_command_id_);
 
     if (type == chrome::NOTIFICATION_EXTENSION_LOADED)
       user_response_ = REENABLE;
@@ -293,17 +312,16 @@ void ExtensionDisabledGlobalError::Observe(
 
 namespace extensions {
 
-void ShowExtensionDisabledUI(ExtensionService* service,
-                             Profile* profile,
-                             const Extension* extension) {
+void AddExtensionDisabledError(ExtensionService* service,
+                               const Extension* extension) {
   GlobalErrorServiceFactory::GetForProfile(service->profile())->
       AddGlobalError(new ExtensionDisabledGlobalError(service, extension));
 }
 
-void ShowExtensionDisabledDialog(ExtensionService* service, Profile* profile,
+void ShowExtensionDisabledDialog(ExtensionService* service, Browser* browser,
                                  const Extension* extension) {
   // This object manages its own lifetime.
-  new ExtensionDisabledDialogDelegate(profile, service, extension);
+  new ExtensionDisabledDialogDelegate(browser, service, extension);
 }
 
 }  // namespace extensions

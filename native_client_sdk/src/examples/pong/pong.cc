@@ -40,6 +40,14 @@ namespace AsyncCallbacks {
 void FlushCallback(void*, int32_t) {
 }
 
+// Callback that is called as a result of pp::FileIO::SetLength
+void SetLengthCallback(void* data, int32_t result) {
+  if (result != PP_OK)
+    return;
+  Pong* pong = static_cast<Pong*>(data);
+  pong->file_io_->Flush(pp::CompletionCallback(FlushCallback, NULL));
+}
+
 // Callback that is called as a result of pp::FileIO::Write
 void WriteCallback(void* data, int32_t bytes_written) {
   if (bytes_written < 0)
@@ -47,7 +55,9 @@ void WriteCallback(void* data, int32_t bytes_written) {
   Pong* pong = static_cast<Pong*>(data);
   pong->offset_ += bytes_written;
   if (pong->offset_ == pong->bytes_buffer_.length()) {
-    pong->file_io_->Flush(pp::CompletionCallback(FlushCallback, NULL));
+    // Truncate the file.
+    pong->file_io_->SetLength(pong->offset_,
+                              pp::CompletionCallback(SetLengthCallback, pong));
   } else {
     // Not all the bytes to be written have been written, so call
     // pp::FileIO::Write again.
@@ -93,7 +103,7 @@ void QueryCallback(void* data, int32_t result) {
   pong->bytes_buffer_.resize(pong->bytes_to_read_);
 
   // Check if there is anything to read.
-  if (pong->bytes_to_read_ == 0) {
+  if (pong->bytes_to_read_ != 0) {
     pong->file_io_->Read(pong->offset_,
                          &pong->bytes_buffer_[0],
                          pong->bytes_to_read_,
@@ -179,11 +189,10 @@ bool Pong::Init(uint32_t argc, const char* argn[], const char* argv[]) {
   return true;
 }
 
-void Pong::DidChangeView(const pp::Rect& position,
-                         const pp::Rect& clip) {
+void Pong::DidChangeView(const pp::View& view) {
   pp::Size view_size = view_->GetSize();
   const bool view_was_empty = view_size.IsEmpty();
-  view_->UpdateView(position, clip, this);
+  view_->UpdateView(view.GetRect(), view.GetClipRect(), this);
   if (view_was_empty)
     ResetPositions();
 }
@@ -341,11 +350,9 @@ void Pong::WriteScoreToFile() {
   if (file_io_ == NULL)
     return;
   // Write the score in <player score>:<computer score> format.
-  size_t score_string_length = 1 + (player_score_ ? log(player_score_) : 1) + 1
-      + (computer_score_ ? log(computer_score_) : 1) + 1;
-  bytes_buffer_.resize(score_string_length);
-  snprintf(&bytes_buffer_[0], bytes_buffer_.length(), "%i:%i", player_score_,
-           computer_score_);
+  char buffer[100];
+  snprintf(&buffer[0], sizeof(buffer), "%d:%d", player_score_, computer_score_);
+  bytes_buffer_ = std::string(&buffer[0]);
   offset_ = 0;  // overwrite score in file.
   file_io_->Write(offset_,
                   bytes_buffer_.c_str(),
@@ -405,15 +412,10 @@ Pong::BallDirection Pong::RightPaddleNextMove() const {
 }
 
 void Pong::UpdateScoreDisplay() {
-  if (file_io_ == NULL)
-    PostMessage(pp::Var("Could not save score (incognito?)."));
-    return;  //  Since we cant't save the score to file, do nothing and return.
-  size_t message_length = 18 + (player_score_ ? log(player_score_) : 1) + 1
-      + (computer_score_ ? log(computer_score_) : 1) + 1;
-  std::string score_message(message_length, '\0');
-  snprintf(&score_message[0], score_message.length(),
-           "You: %i   Computer: %i", player_score_, computer_score_);
-  PostMessage(pp::Var(score_message));
+  char buffer[100];
+  snprintf(&buffer[0], sizeof(buffer), "You %d:  Computer %d", player_score_,
+      computer_score_);
+  PostMessage(pp::Var(buffer));
 }
 
 }  // namespace pong

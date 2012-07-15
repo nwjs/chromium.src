@@ -111,6 +111,7 @@ Error* Session::Init(const DictionaryValue* capabilities_dict) {
   browser_options.user_data_dir = capabilities_.profile;
   if (!capabilities_.no_website_testing_defaults) {
     browser_options.ignore_certificate_errors = true;
+    browser_options.disable_popup_blocking = true;
   }
   RunSessionTask(base::Bind(
       &Session::InitOnSessionThread,
@@ -653,14 +654,8 @@ Error* Session::SwitchToFrameWithNameOrId(const std::string& name_or_id) {
       "  var xpath = '(/html/body//iframe|/html/frameset/frame)';"
       "  var sub = function(s) { return s.replace(/\\$/g, arg); };"
       "  xpath += sub('[@name=\"$\" or @id=\"$\"]');"
-      "  var frame = document.evaluate(xpath, document, null, "
+      "  return document.evaluate(xpath, document, null, "
       "      XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;"
-      "  if (!frame) { return null; }"
-      "  xpath = frame.tagName == 'IFRAME' ? '/html/body//iframe'"
-      "                                    : '/html/frameset/frame';"
-      "  frame_xpath = xpath + "
-      "      sub('[@' + (frame.id == arg ? 'id' : 'name') + '=\"$\"]');"
-      "  return [frame, frame_xpath];"
       "}";
   return SwitchToFrameWithJavaScriptLocatedFrame(
       script, CreateListValueFrom(name_or_id));
@@ -671,7 +666,7 @@ Error* Session::SwitchToFrameWithIndex(int index) {
   // tagName of the frameElement. If child frame N is from another domain, then
   // the following will run afoul of the same origin policy:
   //   window.frames[N].frameElement;
-  // Instead of indexing window.frames, we use a an XPath expression to index
+  // Instead of indexing window.frames, we use an XPath expression to index
   // into the list of all IFRAME and FRAME elements on the page - if we find
   // something, then that XPath expression can be used as the new frame's XPath.
   std::string script =
@@ -679,12 +674,8 @@ Error* Session::SwitchToFrameWithIndex(int index) {
       "  var xpathIndex = '[' + (index + 1) + ']';"
       "  var xpath = '(/html/body//iframe|/html/frameset/frame)' + "
       "              xpathIndex;"
-      "  var frame = document.evaluate(xpath, document, null, "
-      "  XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;"
-      "  if (!frame) { return null; }"
-      "  frame_xpath = ((frame.tagName == 'IFRAME' ? "
-      "      '(/html/body//iframe)' : '/html/frameset/frame') + xpathIndex);"
-      "  return [frame, frame_xpath];"
+      "  return document.evaluate(xpath, document, null, "
+      "      XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;"
       "}";
   return SwitchToFrameWithJavaScriptLocatedFrame(
       script, CreateListValueFrom(index));
@@ -700,7 +691,7 @@ Error* Session::SwitchToFrameWithElement(const ElementId& element) {
       "  }"
       "  for (var i = 0; i < window.frames.length; i++) {"
       "    if (elem.contentWindow == window.frames[i]) {"
-      "      return [elem, '(//iframe|//frame)[' + (i + 1) + ']'];"
+      "      return elem;"
       "    }"
       "  }"
       "  console.info('Frame is not connected to this DOM tree');"
@@ -797,6 +788,16 @@ Error* Session::SetWindowBounds(
       window,
       bounds,
       &error));
+  return error;
+}
+
+Error* Session::MaximizeWindow(const WebViewId& window) {
+  Error* error = NULL;
+  RunSessionTask(base::Bind(
+        &Automation::MaximizeView,
+        base::Unretained(automation_.get()),
+        window,
+        &error));
   return error;
 }
 
@@ -1160,16 +1161,6 @@ Error* Session::WaitForAllViewsToStopLoading() {
   return error;
 }
 
-Error* Session::InstallExtensionDeprecated(const FilePath& path) {
-  Error* error = NULL;
-  RunSessionTask(base::Bind(
-      &Automation::InstallExtensionDeprecated,
-      base::Unretained(automation_.get()),
-      path,
-      &error));
-  return error;
-}
-
 Error* Session::InstallExtension(
     const FilePath& path, std::string* extension_id) {
   Error* error = NULL;
@@ -1373,6 +1364,26 @@ Error* Session::RemoveStorageItem(StorageType type,
       CreateDirectValueParser(value));
 }
 
+Error* Session::GetGeolocation(scoped_ptr<base::DictionaryValue>* geolocation) {
+  Error* error = NULL;
+  RunSessionTask(base::Bind(
+      &Automation::GetGeolocation,
+      base::Unretained(automation_.get()),
+      geolocation,
+      &error));
+  return error;
+}
+
+Error* Session::OverrideGeolocation(base::DictionaryValue* geolocation) {
+  Error* error = NULL;
+  RunSessionTask(base::Bind(
+      &Automation::OverrideGeolocation,
+      base::Unretained(automation_.get()),
+      geolocation,
+      &error));
+  return error;
+}
+
 const std::string& Session::id() const {
   return id_;
 }
@@ -1471,7 +1482,7 @@ Error* Session::ExecuteScriptAndParseValue(const FrameId& frame_id,
     return error;
 
   scoped_ptr<Value> value(base::JSONReader::ReadAndReturnError(
-      response_json, true, NULL, NULL));
+      response_json, base::JSON_ALLOW_TRAILING_COMMAS, NULL, NULL));
   if (!value.get())
     return new Error(kUnknownError, "Failed to parse script result");
   if (value->GetType() != Value::TYPE_DICTIONARY)
@@ -1577,8 +1588,8 @@ Error* Session::SwitchToFrameWithJavaScriptLocatedFrame(
   class SwitchFrameValueParser : public ValueParser {
    public:
     SwitchFrameValueParser(
-        bool* found_frame, ElementId* frame, std::string* xpath)
-        : found_frame_(found_frame), frame_(frame), xpath_(xpath) { }
+        bool* found_frame, ElementId* frame)
+        : found_frame_(found_frame), frame_(frame) { }
 
     virtual ~SwitchFrameValueParser() { }
 
@@ -1587,33 +1598,44 @@ Error* Session::SwitchToFrameWithJavaScriptLocatedFrame(
         *found_frame_ = false;
         return true;
       }
-      ListValue* list;
-      if (!value->GetAsList(&list))
+      ElementId id(value);
+      if (!id.is_valid()) {
         return false;
+      }
+      *frame_ = id;
       *found_frame_ = true;
-      return SetFromListValue(list, frame_, xpath_);
+      return true;
     }
 
    private:
     bool* found_frame_;
     ElementId* frame_;
-    std::string* xpath_;
   };
 
   bool found_frame;
   ElementId new_frame_element;
-  std::string xpath;
   Error* error = ExecuteScriptAndParse(
       current_target_, script, "switchFrame", args,
-      new SwitchFrameValueParser(&found_frame, &new_frame_element, &xpath));
+      new SwitchFrameValueParser(&found_frame, &new_frame_element));
   if (error)
     return error;
 
   if (!found_frame)
     return new Error(kNoSuchFrame);
 
+  std::string frame_id = GenerateRandomID();
+  error = ExecuteScriptAndParse(
+      current_target_,
+      "function(elem, id) { elem.setAttribute('wd_frame_id_', id); }",
+      "setFrameId",
+      CreateListValueFrom(new_frame_element, frame_id),
+      CreateDirectValueParser(kSkipParsing));
+  if (error)
+    return error;
+
   frame_elements_.push_back(new_frame_element);
-  current_target_.frame_path = current_target_.frame_path.Append(xpath);
+  current_target_.frame_path = current_target_.frame_path.Append(
+      base::StringPrintf("//*[@wd_frame_id_ = '%s']", frame_id.c_str()));
   return NULL;
 }
 
@@ -1824,6 +1846,20 @@ Error* Session::GetScreenShot(std::string* png) {
   return NULL;
 }
 
+#if !defined(NO_TCMALLOC) && (defined(OS_LINUX) || defined(OS_CHROMEOS))
+Error* Session::HeapProfilerDump(const std::string& reason) {
+  // TODO(dmikurube): Support browser processes.
+  Error* error = NULL;
+  RunSessionTask(base::Bind(
+      &Automation::HeapProfilerDump,
+      base::Unretained(automation_.get()),
+      current_target_.view_id,
+      reason,
+      &error));
+  return error;
+}
+#endif  // !defined(NO_TCMALLOC) && (defined(OS_LINUX) || defined(OS_CHROMEOS))
+
 Error* Session::PostBrowserStartInit() {
   Error* error = NULL;
   if (!capabilities_.no_website_testing_defaults)
@@ -1835,7 +1871,8 @@ Error* Session::PostBrowserStartInit() {
 
   // Install extensions.
   for (size_t i = 0; i < capabilities_.extensions.size(); ++i) {
-    error = InstallExtensionDeprecated(capabilities_.extensions[i]);
+    std::string extension_id;
+    error = InstallExtension(capabilities_.extensions[i], &extension_id);
     if (error)
       return error;
   }

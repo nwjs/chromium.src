@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CONTENT_PUBLIC_COMMON_PEPPER_PLUGIN_INFO_H_
 #define CONTENT_PUBLIC_COMMON_PEPPER_PLUGIN_INFO_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -44,6 +43,9 @@ struct CONTENT_EXPORT PepperPluginInfo {
   // When is_internal is set, this contains the function pointers to the
   // entry points for the internal plugins.
   webkit::ppapi::PluginModule::EntryPoints internal_entry_points;
+
+  // Permission bits from ppapi::Permission.
+  uint32 permissions;
 };
 
 }  // namespace content

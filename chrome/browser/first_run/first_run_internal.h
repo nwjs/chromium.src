@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_FIRST_RUN_FIRST_RUN_INTERNAL_H_
 #define CHROME_BROWSER_FIRST_RUN_FIRST_RUN_INTERNAL_H_
-#pragma once
 
 #include <vector>
 
@@ -63,8 +62,14 @@ void SetShowWelcomePagePrefIfNeeded(
 
 void SetDefaultBrowser(installer::MasterPreferences* install_prefs);
 
-// Returns true if the first-run-ui process should be skipped.
+// Returns true if first run ui should be skipped, which is the case that
+// skip_first_run_ui setting is set to true. In the case the setting is
+// not found or specified, it returns false by default.
 bool SkipFirstRunUI(installer::MasterPreferences* install_prefs);
+
+// Sets ping_delay.
+void SetRLZPref(first_run::MasterPrefs* out_prefs,
+                installer::MasterPreferences* install_prefs);
 
 // -- Platform-specific functions --
 

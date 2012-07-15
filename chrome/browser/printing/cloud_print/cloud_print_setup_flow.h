@@ -10,13 +10,13 @@
 
 #include "base/memory/weak_ptr.h"
 #include "base/time.h"
-#include "chrome/browser/ui/webui/html_dialog_ui.h"
 #include "chrome/common/net/gaia/gaia_auth_consumer.h"
 #include "chrome/common/net/gaia/gaia_auth_fetcher.h"
 #include "chrome/common/net/gaia/google_service_auth_error.h"
 #include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/native_widget_types.h"
+#include "ui/web_dialogs/web_dialog_delegate.h"
 
 class CloudPrintServiceProcessHelper;
 class CloudPrintSetupMessageHandler;
@@ -27,6 +27,10 @@ class ServiceProcessControl;
 
 namespace base {
 class DictionaryValue;
+}
+
+namespace content {
+class WebUI;
 }
 
 // This class is responsible for showing a cloud print setup dialog
@@ -45,7 +49,7 @@ class DictionaryValue;
 // handler and this class. In order to centralize all the flow control and
 // content in the WebUI, the WebUI object is given to this object by the
 // message handler through the Attach(WebUI*) method.
-class CloudPrintSetupFlow : public HtmlDialogUIDelegate,
+class CloudPrintSetupFlow : public ui::WebDialogDelegate,
                             public GaiaAuthConsumer {
  public:
   class Delegate {
@@ -68,7 +72,7 @@ class CloudPrintSetupFlow : public HtmlDialogUIDelegate,
   // obscured by a browser window.
   void Focus();
 
-  // HtmlDialogUIDelegate implementation.
+  // ui::WebDialogDelegate implementation.
   virtual GURL GetDialogContentURL() const OVERRIDE;
   virtual void GetWebUIMessageHandlers(
       std::vector<content::WebUIMessageHandler*>* handlers) const OVERRIDE;
@@ -94,7 +98,8 @@ class CloudPrintSetupFlow : public HtmlDialogUIDelegate,
   friend class CloudPrintSetupMessageHandler;
 
   // Use static Run method to get an instance.
-  CloudPrintSetupFlow(const std::string& args, Profile* profile,
+  CloudPrintSetupFlow(const std::string& args,
+                      Profile* profile,
                       const base::WeakPtr<Delegate>& delegate, bool setup_done);
 
   // Called CloudPrintSetupMessageHandler when a DOM is attached. This method
@@ -123,7 +128,7 @@ class CloudPrintSetupFlow : public HtmlDialogUIDelegate,
                                  const string16& js);
 
   // Pointer to the Web UI. This is provided by CloudPrintSetupMessageHandler
-  // when attached. We do not own the pointer, instead WebUI owns it's delegate
+  // when attached. We do not own the pointer, instead WebUI owns its delegate
   // (us) and controls our lifetime.
   content::WebUI* web_ui_;
 

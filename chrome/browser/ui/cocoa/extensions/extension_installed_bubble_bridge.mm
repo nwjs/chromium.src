@@ -12,10 +12,10 @@
 #include "chrome/browser/tab_contents/simple_alert_infobar_delegate.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_dialogs.h"
-#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #import "chrome/browser/ui/cocoa/extensions/extension_installed_bubble_controller.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_action.h"
 #include "grit/chromium_strings.h"
@@ -28,15 +28,11 @@ using extensions::BundleInstaller;
 // When an extension is installed on Mac with neither browser action nor
 // page action icons, show an infobar instead of a popup bubble.
 static void ShowGenericExtensionInstalledInfoBar(
-    const Extension* new_extension,
-    const SkBitmap& icon,
-    Profile* profile) {
-  Browser* browser = BrowserList::GetLastActiveWithProfile(profile);
-  if (!browser)
-    return;
-
-  TabContentsWrapper* wrapper = browser->GetSelectedTabContentsWrapper();
-  if (!wrapper)
+    const extensions::Extension* new_extension,
+    Browser* browser,
+    const SkBitmap& icon) {
+  TabContents* tab_contents = chrome::GetActiveTabContents(browser);
+  if (!tab_contents)
     return;
 
   string16 extension_name = UTF8ToUTF16(new_extension->name());
@@ -46,26 +42,24 @@ static void ShowGenericExtensionInstalledInfoBar(
                  + UTF8ToUTF16(" ")
                  + l10n_util::GetStringUTF16(
                        IDS_EXTENSION_INSTALLED_MANAGE_INFO_MAC);
-  InfoBarTabHelper* infobar_helper = wrapper->infobar_tab_helper();
+  InfoBarTabHelper* infobar_helper = tab_contents->infobar_tab_helper();
   InfoBarDelegate* delegate = new SimpleAlertInfoBarDelegate(
       infobar_helper, new gfx::Image(icon), msg, true);
   infobar_helper->AddInfoBar(delegate);
 }
 
-namespace browser {
+namespace chrome {
 
-void ShowExtensionInstalledBubble(
-    const Extension* extension,
-    Browser* browser,
-    const SkBitmap& icon,
-    Profile* profile) {
+void ShowExtensionInstalledBubble(const extensions::Extension* extension,
+                                  Browser* browser,
+                                  const SkBitmap& icon) {
   if ((extension->browser_action()) || !extension->omnibox_keyword().empty() ||
       (extension->page_action() &&
       !extension->page_action()->default_icon_path().empty())) {
     // The controller is deallocated when the window is closed, so no need to
     // worry about it here.
     [[ExtensionInstalledBubbleController alloc]
-        initWithParentWindow:browser->window()->GetNativeHandle()
+        initWithParentWindow:browser->window()->GetNativeWindow()
                    extension:extension
                       bundle:NULL
                      browser:browser
@@ -74,18 +68,18 @@ void ShowExtensionInstalledBubble(
     // If the extension is of type GENERIC, meaning it doesn't have a UI
     // surface to display for this window, launch infobar instead of popup
     // bubble, because we have no guaranteed wrench menu button to point to.
-    ShowGenericExtensionInstalledInfoBar(extension, icon, profile);
+    ShowGenericExtensionInstalledInfoBar(extension, browser, icon);
   }
 }
 
-} // namespace browser
+}  // namespace chrome
 
 void extensions::BundleInstaller::ShowInstalledBubble(
     const BundleInstaller* bundle, Browser* browser) {
   // The controller is deallocated when the window is closed, so no need to
   // worry about it here.
   [[ExtensionInstalledBubbleController alloc]
-        initWithParentWindow:browser->window()->GetNativeHandle()
+        initWithParentWindow:browser->window()->GetNativeWindow()
                    extension:NULL
                       bundle:bundle
                      browser:browser

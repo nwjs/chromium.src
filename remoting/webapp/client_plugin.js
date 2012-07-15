@@ -42,7 +42,27 @@ remoting.ClientPlugin.prototype.initialize = function(onDone) {};
 remoting.ClientPlugin.prototype.isSupportedVersion = function() {};
 
 /**
- * @return {Element} HTML element that correspods to the plugin.
+ * Set of features for which hasFeature() can be used to test.
+ *
+ * @enum {string}
+ */
+remoting.ClientPlugin.Feature = {
+  HIGH_QUALITY_SCALING: 'highQualityScaling',
+  INJECT_KEY_EVENT: 'injectKeyEvent',
+  NOTIFY_CLIENT_DIMENSIONS: 'notifyClientDimensions',
+  PAUSE_VIDEO: 'pauseVideo',
+  REMAP_KEY: 'remapKey',
+  SEND_CLIPBOARD_ITEM: 'sendClipboardItem'
+};
+
+/**
+ * @param {remoting.ClientPlugin.Feature} feature The feature to test for.
+ * @return {boolean} True if the plugin supports the named feature.
+ */
+remoting.ClientPlugin.prototype.hasFeature = function(feature) {};
+
+/**
+ * @return {HTMLEmbedElement} HTML element that corresponds to the plugin.
  */
 remoting.ClientPlugin.prototype.element = function() {};
 
@@ -50,12 +70,6 @@ remoting.ClientPlugin.prototype.element = function() {};
  * Deletes the plugin.
  */
 remoting.ClientPlugin.prototype.cleanup = function() {};
-
-/**
- * @return {boolean} True if the plugin supports high-quality scaling.
- */
-remoting.ClientPlugin.prototype.isHiQualityScalingSupported =
-    function() {};
 
 /**
  * Must be called for each incoming stanza received from the host.
@@ -80,15 +94,27 @@ remoting.ClientPlugin.prototype.connect = function(
     authenticationMethods, authenticationTag) {};
 
 /**
- * @param {boolean} scaleToFit True if scale-to-fit should be enabled.
- */
-remoting.ClientPlugin.prototype.setScaleToFit =
-    function(scaleToFit) {};
-
-/**
  * Release all currently pressed keys.
  */
 remoting.ClientPlugin.prototype.releaseAllKeys = function() {};
+
+/**
+ * Send a key event to the host.
+ *
+ * @param {number} usbKeycode The USB-style code of the key to inject.
+ * @param {boolean} pressed True to inject a key press, False for a release.
+ */
+remoting.ClientPlugin.prototype.injectKeyEvent =
+    function(usbKeycode, pressed) {};
+
+/**
+ * Remap one USB keycode to another in all subsequent key events.
+ *
+ * @param {number} fromKeycode The USB-style code of the key to remap.
+ * @param {number} toKeycode The USB-style code to remap the key to.
+ */
+remoting.ClientPlugin.prototype.remapKey =
+    function(fromKeycode, toKeycode) {};
 
 /**
  * Returns an associative array with a set of stats for this connection.
@@ -96,3 +122,28 @@ remoting.ClientPlugin.prototype.releaseAllKeys = function() {};
  * @return {remoting.ClientSession.PerfStats} The connection statistics.
  */
 remoting.ClientPlugin.prototype.getPerfStats = function() {};
+
+/**
+ * Sends a clipboard item to the host.
+ *
+ * @param {string} mimeType The MIME type of the clipboard item.
+ * @param {string} item The clipboard item.
+ */
+remoting.ClientPlugin.prototype.sendClipboardItem = function(mimeType, item) {};
+
+/**
+ * Notifies the host that the client has the specified dimensions.
+ *
+ * @param {number} width The available client width.
+ * @param {number} height The available client height.
+ */
+remoting.ClientPlugin.prototype.notifyClientDimensions =
+    function(width, height) {};
+
+/**
+ * Requests that the host pause or resume sending video updates.
+ *
+ * @param {boolean} pause True to suspend video updates, false otherwise.
+ */
+remoting.ClientPlugin.prototype.pauseVideo =
+    function(pause) {};

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_NOTIFICATIONS_BALLOON_HOST_H_
 #define CHROME_BROWSER_NOTIFICATIONS_BALLOON_HOST_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -13,7 +12,6 @@
 #include "base/memory/scoped_ptr.h"
 #include "chrome/browser/extensions/extension_function_dispatcher.h"
 #include "content/public/browser/notification_registrar.h"
-#include "content/public/browser/render_view_host_delegate.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/browser/web_contents_observer.h"
 
@@ -37,7 +35,8 @@ class BalloonHost : public content::WebContentsDelegate,
   void Shutdown();
 
   // ExtensionFunctionDispatcher::Delegate overrides.
-  virtual Browser* GetBrowser() OVERRIDE;
+  virtual extensions::WindowController* GetExtensionWindowController()
+      const OVERRIDE;
   virtual content::WebContents* GetAssociatedWebContents() const OVERRIDE;
 
   const string16& GetSource() const;
@@ -49,6 +48,9 @@ class BalloonHost : public content::WebContentsDelegate,
 
   // Returns whether the associated render view is ready. Used only for testing.
   bool IsRenderViewReady() const;
+
+  // content::WebContentsDelegate implementation:
+  virtual bool CanLoadDataURLsInWebUI() const OVERRIDE;
 
  protected:
   virtual ~BalloonHost();

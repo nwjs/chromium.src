@@ -7,10 +7,12 @@
 #include <algorithm>
 
 #include "base/bind.h"
-#include "base/debug/trace_event.h"
+#include "base/command_line.h"
 #include "base/id_map.h"
 #include "base/lazy_instance.h"
 #include "base/process_util.h"
+#include "base/string_number_conversions.h"
+#include "base/debug/trace_event.h"
 #include "content/browser/gpu/gpu_data_manager_impl.h"
 #include "content/browser/gpu/gpu_process_host.h"
 #include "content/browser/gpu/gpu_surface_tracker.h"
@@ -19,8 +21,9 @@
 #include "content/common/gpu/gpu_messages.h"
 #include "content/port/browser/render_widget_host_view_port.h"
 #include "content/public/browser/browser_thread.h"
+#include "ui/gl/gl_switches.h"
 
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
 // These two #includes need to come after gpu_messages.h.
 #include "ui/base/x/x11_util.h"
 #include "ui/gfx/size.h"
@@ -176,6 +179,12 @@ void GpuProcessHostUIShim::SimulateHang() {
 GpuProcessHostUIShim::~GpuProcessHostUIShim() {
   DCHECK(CalledOnValidThread());
   g_hosts_by_id.Pointer()->Remove(host_id_);
+
+  DictionaryValue* dict = new DictionaryValue();
+  dict->SetInteger("level", logging::LOG_ERROR);
+  dict->SetString("header", "GpuProcessHostUIShim");
+  dict->SetString("message", "GPU Process Crashed.");
+  GpuDataManagerImpl::GetInstance()->AddLogMessage(dict);
 }
 
 bool GpuProcessHostUIShim::OnControlMessageReceived(
@@ -195,11 +204,11 @@ bool GpuProcessHostUIShim::OnControlMessageReceived(
     IPC_MESSAGE_HANDLER(GpuHostMsg_GraphicsInfoCollected,
                         OnGraphicsInfoCollected)
 
-#if defined(TOOLKIT_USES_GTK) || defined(OS_WIN)
+#if defined(TOOLKIT_GTK) || defined(OS_WIN)
     IPC_MESSAGE_HANDLER(GpuHostMsg_ResizeView, OnResizeView)
 #endif
 
-#if defined(OS_MACOSX) || defined(USE_AURA)
+#if defined(USE_AURA)
     IPC_MESSAGE_HANDLER(GpuHostMsg_AcceleratedSurfaceNew,
                         OnAcceleratedSurfaceNew)
 #endif
@@ -235,7 +244,7 @@ void GpuProcessHostUIShim::OnGraphicsInfoCollected(
   GpuDataManagerImpl::GetInstance()->UpdateGpuInfo(gpu_info);
 }
 
-#if defined(TOOLKIT_USES_GTK) || defined(OS_WIN)
+#if defined(TOOLKIT_GTK) || defined(OS_WIN)
 
 void GpuProcessHostUIShim::OnResizeView(int32 surface_id,
                                         int32 route_id,
@@ -257,7 +266,7 @@ void GpuProcessHostUIShim::OnResizeView(int32 surface_id,
   // Resize the window synchronously. The GPU process must not issue GL
   // calls on the command buffer until the window is the size it expects it
   // to be.
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
   GdkWindow* window = reinterpret_cast<GdkWindow*>(
       gdk_xid_table_lookup(surface.handle));
   if (window) {
@@ -280,62 +289,29 @@ void GpuProcessHostUIShim::OnResizeView(int32 surface_id,
 
 #endif
 
-#if defined(OS_MACOSX) || defined(USE_AURA)
+#if defined(USE_AURA)
 
 void GpuProcessHostUIShim::OnAcceleratedSurfaceNew(
     const GpuHostMsg_AcceleratedSurfaceNew_Params& params) {
-  ScopedSendOnIOThread delayed_send(
-      host_id_,
-      new AcceleratedSurfaceMsg_NewACK(
-          params.route_id,
-          params.surface_handle,
-          TransportDIB::DefaultHandleValue()));
-
   RenderWidgetHostViewPort* view = GetRenderWidgetHostViewFromSurfaceID(
       params.surface_id);
   if (!view)
     return;
-
-  uint64 surface_handle = params.surface_handle;
-  TransportDIB::Handle shm_handle = TransportDIB::DefaultHandleValue();
-
-#if defined(OS_MACOSX)
-  if (params.create_transport_dib) {
-    scoped_ptr<base::SharedMemory> shared_memory(new base::SharedMemory());
-    if (shared_memory->CreateAnonymous(params.width * params.height * 4)) {
-      // Create a local handle for RWHVMac to map the SHM.
-      TransportDIB::Handle local_handle;
-      if (!shared_memory->ShareToProcess(0 /* pid, not needed */,
-                                         &local_handle)) {
-        return;
-      } else {
-        view->AcceleratedSurfaceSetTransportDIB(params.window,
-                                                params.width,
-                                                params.height,
-                                                local_handle);
-        // Create a remote handle for the GPU process to map the SHM.
-        if (!shared_memory->ShareToProcess(0 /* pid, not needed */,
-                                           &shm_handle)) {
-          return;
-        }
-      }
-    }
-  } else {
-    view->AcceleratedSurfaceSetIOSurface(params.window,
-                                         params.width,
-                                         params.height,
-                                         surface_handle);
-  }
-#else  // defined(USE_AURA)
   view->AcceleratedSurfaceNew(
-      params.width, params.height, &surface_handle, &shm_handle);
-#endif
-  delayed_send.Cancel();
-  Send(new AcceleratedSurfaceMsg_NewACK(
-      params.route_id, surface_handle, shm_handle));
+      params.width, params.height, params.surface_handle);
 }
 
 #endif
+
+static base::TimeDelta GetSwapDelay() {
+  CommandLine* cmd_line = CommandLine::ForCurrentProcess();
+  int delay = 0;
+  if (cmd_line->HasSwitch(switches::kGpuSwapDelay)) {
+    base::StringToInt(cmd_line->GetSwitchValueNative(
+        switches::kGpuSwapDelay).c_str(), &delay);
+  }
+  return base::TimeDelta::FromMilliseconds(delay);
+}
 
 void GpuProcessHostUIShim::OnAcceleratedSurfaceBuffersSwapped(
     const GpuHostMsg_AcceleratedSurfaceBuffersSwapped_Params& params) {
@@ -344,7 +320,7 @@ void GpuProcessHostUIShim::OnAcceleratedSurfaceBuffersSwapped(
 
   ScopedSendOnIOThread delayed_send(
       host_id_,
-      new AcceleratedSurfaceMsg_BuffersSwappedACK(params.route_id));
+      new AcceleratedSurfaceMsg_BufferPresented(params.route_id, 0));
 
   RenderWidgetHostViewPort* view = GetRenderWidgetHostViewFromSurfaceID(
       params.surface_id);
@@ -352,6 +328,10 @@ void GpuProcessHostUIShim::OnAcceleratedSurfaceBuffersSwapped(
     return;
 
   delayed_send.Cancel();
+
+  static const base::TimeDelta swap_delay = GetSwapDelay();
+  if (swap_delay.ToInternalValue())
+    base::PlatformThread::Sleep(swap_delay);
 
   // View must send ACK message after next composite.
   view->AcceleratedSurfaceBuffersSwapped(params, host_id_);
@@ -364,7 +344,7 @@ void GpuProcessHostUIShim::OnAcceleratedSurfacePostSubBuffer(
 
   ScopedSendOnIOThread delayed_send(
       host_id_,
-      new AcceleratedSurfaceMsg_PostSubBufferACK(params.route_id));
+      new AcceleratedSurfaceMsg_BufferPresented(params.route_id, 0));
 
   RenderWidgetHostViewPort* view =
       GetRenderWidgetHostViewFromSurfaceID(params.surface_id);

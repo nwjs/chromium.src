@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_GPU_BLACKLIST_H_
 #define CHROME_BROWSER_GPU_BLACKLIST_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -122,7 +121,9 @@ class GpuBlacklist : public content::GpuDataManagerObserver {
 
   class VersionInfo {
    public:
+    // If version_style is empty, it defaults to kNumerical.
     VersionInfo(const std::string& version_op,
+                const std::string& version_style,
                 const std::string& version_string,
                 const std::string& version_string2);
     ~VersionInfo();
@@ -130,11 +131,23 @@ class GpuBlacklist : public content::GpuDataManagerObserver {
     // Determines if a given version is included in the VersionInfo range.
     bool Contains(const Version& version) const;
 
+    // Determine if the version_style is lexical.
+    bool IsLexical() const;
+
     // Determines if the VersionInfo contains valid information.
     bool IsValid() const;
 
    private:
+    enum VersionStyle {
+      kVersionStyleNumerical,
+      kVersionStyleLexical,
+      kVersionStyleUnknown
+    };
+
+    static VersionStyle StringToVersionStyle(const std::string& version_style);
+
     NumericOp op_;
+    VersionStyle version_style_;
     scoped_ptr<Version> version_;
     scoped_ptr<Version> version2_;
   };
@@ -253,6 +266,12 @@ class GpuBlacklist : public content::GpuDataManagerObserver {
    private:
     friend class base::RefCounted<GpuBlacklistEntry>;
 
+    enum MultiGpuStyle {
+      kMultiGpuStyleOptimus,
+      kMultiGpuStyleAMDSwitchable,
+      kMultiGpuStyleNone
+    };
+
     GpuBlacklistEntry();
     ~GpuBlacklistEntry() { }
 
@@ -269,10 +288,13 @@ class GpuBlacklist : public content::GpuDataManagerObserver {
 
     bool AddDeviceId(const std::string& device_id_string);
 
+    bool SetMultiGpuStyle(const std::string& multi_gpu_style_string);
+
     bool SetDriverVendorInfo(const std::string& vendor_op,
                              const std::string& vendor_value);
 
     bool SetDriverVersionInfo(const std::string& version_op,
+                              const std::string& version_style,
                               const std::string& version_string,
                               const std::string& version_string2);
 
@@ -303,6 +325,8 @@ class GpuBlacklist : public content::GpuDataManagerObserver {
 
     void AddException(ScopedGpuBlacklistEntry exception);
 
+    static MultiGpuStyle StringToMultiGpuStyle(const std::string& style);
+
     uint32 id_;
     bool disabled_;
     std::string description_;
@@ -311,6 +335,7 @@ class GpuBlacklist : public content::GpuDataManagerObserver {
     scoped_ptr<OsInfo> os_info_;
     uint32 vendor_id_;
     std::vector<uint32> device_id_list_;
+    MultiGpuStyle multi_gpu_style_;
     scoped_ptr<StringInfo> driver_vendor_info_;
     scoped_ptr<VersionInfo> driver_version_info_;
     scoped_ptr<VersionInfo> driver_date_info_;

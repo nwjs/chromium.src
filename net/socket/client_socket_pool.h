@@ -4,7 +4,6 @@
 
 #ifndef NET_SOCKET_CLIENT_SOCKET_POOL_H_
 #define NET_SOCKET_CLIENT_SOCKET_POOL_H_
-#pragma once
 
 #include <deque>
 #include <string>
@@ -33,7 +32,7 @@ class StreamSocket;
 // socket pools to communicate with higher layer pools.
 class NET_EXPORT LayeredPool {
  public:
-  virtual ~LayeredPool() {}
+  virtual ~LayeredPool() {};
 
   // Instructs the LayeredPool to close an idle connection. Return true if one
   // was closed.

@@ -5,7 +5,9 @@
 #include "chrome/browser/favicon/favicon_tab_helper.h"
 
 #include "chrome/browser/favicon/favicon_handler.h"
+#include "chrome/browser/favicon/favicon_util.h"
 #include "chrome/browser/history/history.h"
+#include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_notification_types.h"
@@ -93,11 +95,11 @@ void FaviconTabHelper::SaveFavicon() {
 
   // Make sure the page is in history, otherwise adding the favicon does
   // nothing.
-  HistoryService* history = profile_->
-      GetOriginalProfile()->GetHistoryService(Profile::IMPLICIT_ACCESS);
+  HistoryService* history = HistoryServiceFactory::GetForProfile(
+      profile_->GetOriginalProfile(), Profile::IMPLICIT_ACCESS);
   if (!history)
     return;
-  history->AddPageNoVisitForBookmark(entry->GetURL());
+  history->AddPageNoVisitForBookmark(entry->GetURL(), entry->GetTitle());
 
   FaviconService* service = profile_->
       GetOriginalProfile()->GetFaviconService(Profile::IMPLICIT_ACCESS);
@@ -139,10 +141,10 @@ NavigationEntry* FaviconTabHelper::GetActiveEntry() {
   return web_contents()->GetController().GetActiveEntry();
 }
 
-void FaviconTabHelper::StartDownload(int id, const GURL& url, int image_size) {
+int FaviconTabHelper::StartDownload(const GURL& url, int image_size) {
   content::RenderViewHost* host = web_contents()->GetRenderViewHost();
-  host->Send(new IconMsg_DownloadFavicon(
-                 host->GetRoutingID(), id, url, image_size));
+  int id = FaviconUtil::DownloadFavicon(host, url, image_size);
+  return id;
 }
 
 void FaviconTabHelper::NotifyFaviconUpdated() {
@@ -186,7 +188,7 @@ void FaviconTabHelper::OnDidDownloadFavicon(int id,
                                             const GURL& image_url,
                                             bool errored,
                                             const SkBitmap& image) {
-  gfx::Image favicon(new SkBitmap(image));
+  gfx::Image favicon(image);
   favicon_handler_->OnDidDownloadFavicon(id, image_url, errored, favicon);
   if (touch_icon_handler_.get())
     touch_icon_handler_->OnDidDownloadFavicon(id, image_url, errored, favicon);

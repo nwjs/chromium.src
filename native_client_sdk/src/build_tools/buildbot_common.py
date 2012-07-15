@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # Copyright (c) 2012 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -19,6 +18,22 @@ sys.path.append(os.path.join(SDK_SRC_DIR, 'tools'))
 
 import oshelpers
 
+def IsSDKBuilder():
+  """Returns True if this script is running on an SDK builder.
+
+  False means it is either running on a trybot, or a user's machine.
+
+  Trybot names:
+    naclsdkm-((pnacl-)?linux|mac|windows(32|64))
+
+  Builder names:
+    (pnacl-)?(windows|mac|linux)-sdk-multi(rel)?
+
+    except there are currently no pnacl multirel bots, and
+    pnacl-windows-sdk-multi is actually called pnacl-win-sdk-multi."""
+  return '-sdk-multi' in os.getenv('BUILDBOT_BUILDERNAME', '')
+
+
 def ErrorExit(msg):
   """Write and error to stderr, then exit with 1 signaling failure."""
   sys.stderr.write(msg + '\n')
@@ -32,7 +47,7 @@ def BuildStep(name):
   sys.stdout.flush()
 
 
-def Run(args, cwd=None, shell=False):
+def Run(args, cwd=None, env=None, shell=False):
   """Start a process with the provided arguments.
   
   Starts a process in the provided directory given the provided arguments. If
@@ -42,7 +57,7 @@ def Run(args, cwd=None, shell=False):
   print 'Running: ' + ' '.join(args)
   sys.stdout.flush()
   sys.stderr.flush()
-  subprocess.check_call(args, cwd=cwd, shell=shell)
+  subprocess.check_call(args, cwd=cwd, env=env, shell=shell)
   sys.stdout.flush()
   sys.stderr.flush()
 
@@ -53,11 +68,15 @@ def CopyDir(src, dst, excludes=['.svn', '*/.svn']):
   for exc in excludes:
     args.append('--exclude=' + exc)
   print 'cp -r %s %s' % (src, dst)
+  if os.path.abspath(src) == os.path.abspath(dst):
+    ErrorExit('ERROR: Copying directory onto itself: ' + src)
   oshelpers.Copy(args)
 
 
 def CopyFile(src, dst):
   print 'cp -r %s %s' % (src, dst)
+  if os.path.abspath(src) == os.path.abspath(dst):
+    ErrorExit('ERROR: Copying file onto itself: ' + src)
   args = [src, dst]
   oshelpers.Copy(args)
 
@@ -97,7 +116,7 @@ def GetGsutil():
     return LOCAL_GSUTIL
 
 
-def Archive(filename, bucket_path, cwd=None):
+def Archive(filename, bucket_path, cwd=None, step_link=True):
   """Upload the given filename to Google Store."""
   full_dst = 'gs://%s/%s' % (bucket_path, filename)
 
@@ -107,5 +126,6 @@ def Archive(filename, bucket_path, cwd=None):
       cwd=cwd)
   url = 'https://commondatastorage.googleapis.com/'\
         '%s/%s' % (bucket_path, filename)
-  print '@@@STEP_LINK@download@%s@@@' % url
-  sys.stdout.flush()
+  if step_link:
+    print '@@@STEP_LINK@download@%s@@@' % url
+    sys.stdout.flush()

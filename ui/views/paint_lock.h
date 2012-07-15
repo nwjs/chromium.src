@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef UI_VIEWS_PAINT_LOCK_H_
 #define UI_VIEWS_PAINT_LOCK_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "ui/views/views_export.h"
@@ -22,7 +21,7 @@ class VIEWS_EXPORT PaintLock {
  public:
   // The paint lock does not own the view. It is an error for the view to be
   // destroyed before the lock.
-  PaintLock(View* view);
+  explicit PaintLock(View* view);
   ~PaintLock();
 
  private:

@@ -6,6 +6,8 @@
 
 #include "ui/gfx/rect.h"
 
+using content::NativeWebKeyboardEvent;
+
 TestBrowserWindow::TestBrowserWindow(Browser* browser) {}
 
 TestBrowserWindow::~TestBrowserWindow() {}
@@ -18,7 +20,7 @@ bool TestBrowserWindow::IsAlwaysOnTop() const {
   return false;
 }
 
-gfx::NativeWindow TestBrowserWindow::GetNativeHandle() {
+gfx::NativeWindow TestBrowserWindow::GetNativeWindow() {
   return NULL;
 }
 
@@ -49,6 +51,12 @@ bool TestBrowserWindow::IsMinimized() const {
 bool TestBrowserWindow::IsFullscreen() const {
   return false;
 }
+
+#if defined(OS_WIN)
+bool TestBrowserWindow::IsInMetroSnapMode() const {
+  return false;
+}
+#endif
 
 bool TestBrowserWindow::IsFullscreenBubbleVisible() const {
   return false;

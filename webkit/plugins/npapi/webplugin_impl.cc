@@ -86,6 +86,7 @@ const char kOctetStreamMimeType[] = "application/octet-stream";
 const char kHTMLMimeType[] = "text/html";
 const char kPlainTextMimeType[] = "text/plain";
 const char kPluginFlashMimeType[] = "Plugin.FlashMIMEType";
+const char kPluginFlashVersion[] = "Plugin.FlashVersion";
 
 enum {
   MIME_TYPE_OK = 0,
@@ -244,6 +245,7 @@ struct WebPluginImpl::ClientInfo {
   linked_ptr<WebKit::WebURLLoader> loader;
   bool notify_redirects;
   bool is_plugin_src_load;
+  bool check_flash_version;
 };
 
 bool WebPluginImpl::initialize(WebPluginContainer* container) {
@@ -254,10 +256,8 @@ bool WebPluginImpl::initialize(WebPluginContainer* container) {
 
   WebPluginDelegate* plugin_delegate = page_delegate_->CreatePluginDelegate(
       file_path_, mime_type_);
-  if (!plugin_delegate) {
-    LOG(ERROR) << "Couldn't create plug-in delegate";
+  if (!plugin_delegate)
     return false;
-  }
 
   // Set the container before Initialize because the plugin may
   // synchronously call NPN_GetValue to get its container during its
@@ -268,7 +268,15 @@ bool WebPluginImpl::initialize(WebPluginContainer* container) {
   if (!ok) {
     LOG(ERROR) << "Couldn't initialize plug-in";
     plugin_delegate->PluginDestroyed();
-    return false;
+
+    WebKit::WebPlugin* replacement_plugin =
+        page_delegate_->CreatePluginReplacement(file_path_);
+    if (!replacement_plugin || !replacement_plugin->initialize(container))
+      return false;
+
+    container->setPlugin(replacement_plugin);
+    destroy();
+    return true;
   }
 
   delegate_ = plugin_delegate;
@@ -282,6 +290,9 @@ void WebPluginImpl::destroy() {
 }
 
 NPObject* WebPluginImpl::scriptableObject() {
+  if (!delegate_)
+    return NULL;
+
   return delegate_->GetPluginScriptableObject();
 }
 
@@ -459,6 +470,10 @@ void WebPluginImpl::didFailLoadingFrameRequest(
   // See comment in didFinishLoadingFrameRequest about the cast here.
   delegate_->DidFinishLoadWithReason(
       url, reason, reinterpret_cast<intptr_t>(notify_data));
+}
+
+bool WebPluginImpl::isPlaceholder() {
+  return false;
 }
 
 // -----------------------------------------------------------------------------
@@ -891,12 +906,14 @@ void WebPluginImpl::didReceiveResponse(WebURLLoader* loader,
   // Defend against content confusion by the Flash plug-in.
   if (client_info->is_plugin_src_load &&
       mime_type_ == kFlashMimeType) {
+    client_info->check_flash_version = true;
     std::string sniff =
         response.httpHeaderField("X-Content-Type-Options").utf8();
     std::string content_type =
         response.httpHeaderField("Content-Type").utf8();
     StringToLowerASCII(&sniff);
     StringToLowerASCII(&content_type);
+    // TODO(cevans): remove when we no longer need these.
     if (content_type.find(kFlashMimeType) != std::string::npos) {
       UMA_HISTOGRAM_ENUMERATION(kPluginFlashMimeType,
                                 MIME_TYPE_OK,
@@ -1012,6 +1029,21 @@ void WebPluginImpl::didReceiveData(WebURLLoader* loader,
   WebPluginResourceClient* client = GetClientFromLoader(loader);
   if (!client)
     return;
+
+  ClientInfo* client_info = GetClientInfoFromLoader(loader);
+  if (client_info && client_info->check_flash_version) {
+    client_info->check_flash_version = false;
+    if (data_length >= 4 &&
+        (buffer[0] == 'C' || buffer[1] == 'F') &&
+        buffer[1] == 'W' &&
+        buffer[2] == 'S') {
+      unsigned char version = static_cast<unsigned char>(buffer[3]);
+      // TODO(cevans): remove when we no longer need this.
+      UMA_HISTOGRAM_ENUMERATION(kPluginFlashVersion,
+                                version,
+                                256);
+    }
+  }
 
   MultiPartResponseHandlerMap::iterator index =
       multi_part_response_map_.find(client);
@@ -1203,6 +1235,7 @@ bool WebPluginImpl::InitiateHTTPRequest(unsigned long resource_id,
   info.pending_failure_notification = false;
   info.notify_redirects = notify_redirects;
   info.is_plugin_src_load = is_plugin_src_load;
+  info.check_flash_version = false;
 
   if (range_info) {
     info.request.addHTTPHeaderField(WebString::fromUTF8("Range"),

@@ -4,17 +4,16 @@
 
 #ifndef SYNC_JS_JS_TEST_UTIL_H_
 #define SYNC_JS_JS_TEST_UTIL_H_
-#pragma once
 
 #include <ostream>
 #include <string>
 
 #include "base/memory/weak_ptr.h"
+#include "sync/internal_api/public/util/weak_handle.h"
 #include "sync/js/js_backend.h"
 #include "sync/js/js_controller.h"
 #include "sync/js/js_event_handler.h"
 #include "sync/js/js_reply_handler.h"
-#include "sync/util/weak_handle.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
 namespace base {
@@ -22,7 +21,7 @@ class DictionaryValue;
 class ListValue;
 }
 
-namespace browser_sync {
+namespace syncer {
 
 class JsArgList;
 class JsEventDetails;
@@ -104,6 +103,6 @@ class MockJsReplyHandler
                void(const ::std::string&, const JsArgList&));
 };
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_JS_JS_TEST_UTIL_H_

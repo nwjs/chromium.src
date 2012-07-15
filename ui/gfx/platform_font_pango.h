@@ -4,7 +4,6 @@
 
 #ifndef UI_GFX_PLATFORM_FONT_PANGO_H_
 #define UI_GFX_PLATFORM_FONT_PANGO_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
@@ -19,7 +18,6 @@ namespace gfx {
 class UI_EXPORT PlatformFontPango : public PlatformFont {
  public:
   PlatformFontPango();
-  explicit PlatformFontPango(const Font& other);
   explicit PlatformFontPango(NativeFont native_font);
   PlatformFontPango(const std::string& font_name, int font_size);
 

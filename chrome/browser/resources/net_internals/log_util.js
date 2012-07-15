@@ -176,11 +176,12 @@ log_util = (function() {
     var numDeprecatedPassiveEvents = 0;
     for (var eventIndex = 0; eventIndex < logDump.events.length; ++eventIndex) {
       var event = logDump.events[eventIndex];
-      if (typeof(event) == 'object' && typeof(event.source) == 'object' &&
-          typeof(event.time) == 'string' &&
-          getKeyWithValue(LogEventType, event.type) != '?' &&
-          getKeyWithValue(LogSourceType, event.source.type) != '?' &&
-          getKeyWithValue(LogEventPhase, event.phase) != '?') {
+      if (typeof event == 'object' &&
+          typeof event.source == 'object' &&
+          typeof event.time == 'string' &&
+          typeof EventTypeNames[event.type] == 'string' &&
+          typeof EventSourceTypeNames[event.source.type] == 'string' &&
+          getKeyWithValue(EventPhase, event.phase) != '?') {
         if (event.wasPassivelyCaptured) {
           // NOTE: Up until Chrome 18, log dumps included "passively captured"
           // events. These are no longer supported, so skip past them

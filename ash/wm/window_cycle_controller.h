@@ -4,7 +4,8 @@
 
 #ifndef ASH_WM_WINDOW_CYCLE_CONTROLLER_H_
 #define ASH_WM_WINDOW_CYCLE_CONTROLLER_H_
-#pragma once
+
+#include <vector>
 
 #include "ash/ash_export.h"
 #include "base/basictypes.h"
@@ -48,6 +49,15 @@ class ASH_EXPORT WindowCycleController {
 
   // Returns true if we are in the middle of a window cycling gesture.
   bool IsCycling() const { return windows_.get() != NULL; }
+
+  // Returns the WindowCycleList. Really only useful for testing.
+  const WindowCycleList* windows() const { return windows_.get(); }
+
+  // Returns the set of windows to cycle through. This method creates
+  // the vector based on the current set of windows across all valid root
+  // windows. As a result it is not necessarily the same as the set of
+  // windows being iterated over.
+  static std::vector<aura::Window*> BuildWindowList();
 
  private:
   // Call to start cycling windows.  You must call StopCycling() when done.

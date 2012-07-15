@@ -4,7 +4,6 @@
 
 #ifndef UI_AURA_TEST_TEST_STACKING_CLIENT_H_
 #define UI_AURA_TEST_TEST_STACKING_CLIENT_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
@@ -21,7 +20,8 @@ class TestStackingClient : public client::StackingClient {
   virtual ~TestStackingClient();
 
   // Overridden from client::StackingClient:
-  virtual Window* GetDefaultParent(Window* window) OVERRIDE;
+  virtual Window* GetDefaultParent(Window* window,
+                                   const gfx::Rect& bounds) OVERRIDE;
 
  private:
   RootWindow* root_window_;

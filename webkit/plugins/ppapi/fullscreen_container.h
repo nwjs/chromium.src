@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,6 +6,8 @@
 #define WEBKIT_PLUGINS_PPAPI_PPB_FULLSCREEN_CONTAINER_IMPL_H_
 
 #include "webkit/plugins/ppapi/plugin_delegate.h"
+
+class MouseLockDispatcher;
 
 namespace WebKit {
 struct WebCursorInfo;
@@ -19,8 +21,6 @@ namespace ppapi {
 // plugins, that only handles painting.
 class FullscreenContainer {
  public:
-  virtual ~FullscreenContainer() {}
-
   // Invalidates the full plugin region.
   virtual void Invalidate() = 0;
 
@@ -38,6 +38,12 @@ class FullscreenContainer {
   virtual void DidChangeCursor(const WebKit::WebCursorInfo& cursor) = 0;
 
   virtual PluginDelegate::PlatformContext3D* CreateContext3D() = 0;
+
+  // The returned object is owned by FullscreenContainer.
+  virtual MouseLockDispatcher* GetMouseLockDispatcher() = 0;
+
+ protected:
+  virtual ~FullscreenContainer() {}
 };
 
 }  // namespace ppapi

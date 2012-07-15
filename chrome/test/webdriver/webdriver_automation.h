@@ -68,6 +68,9 @@ class Automation {
 
     // True if the browser should ignore certificate related errors.
     bool ignore_certificate_errors;
+
+    // True if the browser should disable popup blocking.
+    bool disable_popup_blocking;
   };
 
   explicit Automation(const Logger& logger);
@@ -118,6 +121,12 @@ class Automation {
   // on the  screen.
   void CaptureEntirePageAsPNG(
       const WebViewId& view_id, const FilePath& path, Error** error);
+
+#if !defined(NO_TCMALLOC) && (defined(OS_LINUX) || defined(OS_CHROMEOS))
+  // Dumps a heap profile of the process of the tab.
+  void HeapProfilerDump(
+      const WebViewId& view_id, const std::string& reason, Error** error);
+#endif  // !defined(NO_TCMALLOC) && (defined(OS_LINUX) || defined(OS_CHROMEOS))
 
   void NavigateToURL(
       const WebViewId& view_id, const std::string& url, Error** error);
@@ -176,6 +185,9 @@ class Automation {
                      const Rect& bounds,
                      Error** error);
 
+  // Maximizes the given view.
+  void MaximizeView(const WebViewId& view_id, Error** error);
+
   // Gets the active JavaScript modal dialog's message.
   void GetAppModalDialogMessage(std::string* message, Error** error);
 
@@ -196,9 +208,6 @@ class Automation {
 
   // Waits for all views to stop loading.
   void WaitForAllViewsToStopLoading(Error** error);
-
-  // Install packed extension.
-  void InstallExtensionDeprecated(const FilePath& path, Error** error);
 
   // Install a packed or unpacked extension. If the path ends with '.crx',
   // the extension is assumed to be packed.
@@ -240,6 +249,14 @@ class Automation {
                      base::Value* value,
                      Error** error);
 
+  // Gets the current geolocation.
+  void GetGeolocation(scoped_ptr<base::DictionaryValue>* geolocation,
+                      Error** error);
+
+  // Overrides the current geolocation.
+  void OverrideGeolocation(base::DictionaryValue* geolocation,
+                           Error** error);
+
  private:
   AutomationProxy* automation() const;
   Error* ConvertViewIdToLocator(const WebViewId& view_id,
@@ -250,11 +267,14 @@ class Automation {
   Error* CheckAlertsSupported();
   Error* CheckAdvancedInteractionsSupported();
   Error* CheckNewExtensionInterfaceSupported();
+  Error* CheckGeolocationSupported();
+  Error* CheckMaximizeSupported();
   Error* IsNewMouseApiSupported(bool* supports_new_api);
 
   const Logger& logger_;
   scoped_ptr<ProxyLauncher> launcher_;
   int build_no_;
+  scoped_ptr<base::DictionaryValue> geolocation_;
 
   DISALLOW_COPY_AND_ASSIGN(Automation);
 };

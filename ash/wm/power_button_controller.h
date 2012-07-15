@@ -4,9 +4,9 @@
 
 #ifndef ASH_WM_POWER_BUTTON_CONTROLLER_H_
 #define ASH_WM_POWER_BUTTON_CONTROLLER_H_
-#pragma once
 
 #include "ash/ash_export.h"
+#include "ash/shell_observer.h"
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/time.h"
@@ -14,6 +14,7 @@
 #include "ui/aura/root_window_observer.h"
 
 namespace gfx {
+class Rect;
 class Size;
 }
 
@@ -38,7 +39,8 @@ class ASH_EXPORT PowerButtonControllerDelegate {
 
 // Displays onscreen animations and locks or suspends the system in response to
 // the power button being pressed or released.
-class ASH_EXPORT PowerButtonController : public aura::RootWindowObserver {
+class ASH_EXPORT PowerButtonController : public aura::RootWindowObserver,
+                                         public ShellObserver {
  public:
   // Animations that can be applied to groups of containers.
   // Exposed here for TestApi::ContainerGroupIsAnimated().
@@ -118,6 +120,10 @@ class ASH_EXPORT PowerButtonController : public aura::RootWindowObserver {
     // Returns true if |background_layer_| is non-NULL and visible.
     bool BackgroundLayerIsVisible() const;
 
+    // Returns |background_layer_|'s bounds, or an empty rect if the layer is
+    // NULL.
+    gfx::Rect GetBackgroundLayerBounds() const;
+
    private:
     PowerButtonController* controller_;  // not owned
 
@@ -135,15 +141,8 @@ class ASH_EXPORT PowerButtonController : public aura::RootWindowObserver {
     has_legacy_power_button_ = legacy;
   }
 
-  // Called when the user logs in.
-  void OnLoginStateChange(bool logged_in, bool is_guest);
-
-  // Called when the application is exiting.
-  void OnExit();
-
-  // Called when the screen is locked (after the lock window is visible) or
-  // unlocked.
-  void OnLockStateChange(bool locked);
+  // Called when the current screen brightness changes.
+  void OnScreenBrightnessChanged(double percent);
 
   // Called when Chrome gets a request to display the lock screen.
   void OnStartingLock();
@@ -159,8 +158,13 @@ class ASH_EXPORT PowerButtonController : public aura::RootWindowObserver {
   virtual void OnRootWindowResized(const aura::RootWindow* root,
                                    const gfx::Size& old_size) OVERRIDE;
 
+  // ShellObserver overrides:
+  virtual void OnLoginStateChanged(user::LoginStatus status) OVERRIDE;
+  virtual void OnAppTerminating() OVERRIDE;
+  virtual void OnLockStateChanged(bool locked) OVERRIDE;
+
  private:
-  bool logged_in_as_non_guest() const { return logged_in_ && !is_guest_; }
+  bool LoggedInAsNonGuest() const;
 
   // Requests that the screen be locked and starts |lock_fail_timer_|.
   void OnLockTimeout();
@@ -191,19 +195,18 @@ class ASH_EXPORT PowerButtonController : public aura::RootWindowObserver {
 
   scoped_ptr<PowerButtonControllerDelegate> delegate_;
 
-  // True if the user is currently logged in.
-  bool logged_in_;
+  // The current login status.
+  user::LoginStatus login_status_;
 
-  // True if a guest user is currently logged in.  Unused if |logged_in_| is
-  // false.
-  bool is_guest_;
-
-  // True if the screen is currently locked.
-  bool locked_;
+  // Original login status during locked.  LOGGED_IN_NONE if it's not locked.
+  user::LoginStatus unlocked_login_status_;
 
   // Are the power or lock buttons currently held?
   bool power_button_down_;
   bool lock_button_down_;
+
+  // Is the screen currently turned off?
+  bool screen_is_off_;
 
   // Are we in the process of shutting the machine down?
   bool shutting_down_;

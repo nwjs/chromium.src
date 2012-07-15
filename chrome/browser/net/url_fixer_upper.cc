@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -412,6 +412,13 @@ std::string URLFixerUpper::SegmentURL(const std::string& text,
            url_parse::Component(0, static_cast<int>(scheme.length())))))
     return scheme;
 
+  if (scheme == chrome::kFileSystemScheme) {
+    // Have the GURL parser do the heavy lifting for us.
+    url_parse::ParseFileSystemURL(text.data(),
+        static_cast<int>(text.length()), parts);
+    return scheme;
+  }
+
   if (parts->scheme.is_valid()) {
     // Have the GURL parser do the heavy lifting for us.
     url_parse::ParseStandardURL(text.data(), static_cast<int>(text.length()),
@@ -427,7 +434,7 @@ std::string URLFixerUpper::SegmentURL(const std::string& text,
 
   // Construct the text to parse by inserting the scheme.
   std::string inserted_text(scheme);
-  inserted_text.append(chrome::kStandardSchemeSeparator);
+  inserted_text.append(content::kStandardSchemeSeparator);
   std::string text_to_parse(text.begin(), first_nonwhite);
   text_to_parse.append(inserted_text);
   text_to_parse.append(first_nonwhite, text.end());
@@ -478,6 +485,13 @@ GURL URLFixerUpper::FixupURL(const std::string& text,
   if (scheme == chrome::kFileScheme)
     return GURL(parts.scheme.is_valid() ? text : FixupPath(text));
 
+  // We handle the filesystem scheme separately.
+  if (scheme == chrome::kFileSystemScheme) {
+    if (parts.inner_parsed() && parts.inner_parsed()->scheme.is_valid())
+      return GURL(text);
+    return GURL();
+  }
+
   // Parse and rebuild about: and chrome: URLs, except about:blank.
   bool chrome_url = !LowerCaseEqualsASCII(trimmed, chrome::kAboutBlankURL) &&
       ((scheme == chrome::kAboutScheme) || (scheme == chrome::kChromeUIScheme));
@@ -487,7 +501,7 @@ GURL URLFixerUpper::FixupURL(const std::string& text,
           url_parse::Component(0, static_cast<int>(scheme.length())))) {
     // Replace the about: scheme with the chrome: scheme.
     std::string url(chrome_url ? chrome::kChromeUIScheme : scheme);
-    url.append(chrome::kStandardSchemeSeparator);
+    url.append(content::kStandardSchemeSeparator);
 
     // We need to check whether the |username| is valid because it is our
     // responsibility to append the '@' to delineate the user information from
@@ -512,7 +526,7 @@ GURL URLFixerUpper::FixupURL(const std::string& text,
   // In the worst-case, we insert a scheme if the URL lacks one.
   if (!parts.scheme.is_valid()) {
     std::string fixed_scheme(scheme);
-    fixed_scheme.append(chrome::kStandardSchemeSeparator);
+    fixed_scheme.append(content::kStandardSchemeSeparator);
     trimmed.insert(0, fixed_scheme);
   }
 

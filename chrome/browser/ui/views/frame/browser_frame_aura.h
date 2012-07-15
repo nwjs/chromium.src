@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_FRAME_BROWSER_FRAME_AURA_H_
 #define CHROME_BROWSER_UI_VIEWS_FRAME_BROWSER_FRAME_AURA_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
@@ -30,7 +29,6 @@ class BrowserFrameAura : public views::ContextMenuController,
                          public NativeBrowserFrame {
  public:
   BrowserFrameAura(BrowserFrame* browser_frame, BrowserView* browser_view);
-  virtual ~BrowserFrameAura();
 
   BrowserView* browser_view() const { return browser_view_; }
 
@@ -51,6 +49,8 @@ class BrowserFrameAura : public views::ContextMenuController,
 
  private:
   class WindowPropertyWatcher;
+
+  virtual ~BrowserFrameAura();
 
   // The BrowserView is our ClientView. This is a pointer to it.
   BrowserView* browser_view_;

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_INPUT_METHOD_INPUT_METHOD_PROPERTY_H_
 #define CHROME_BROWSER_CHROMEOS_INPUT_METHOD_INPUT_METHOD_PROPERTY_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -22,6 +21,9 @@ struct InputMethodProperty {
 
   InputMethodProperty();
   ~InputMethodProperty();
+
+  bool operator==(const InputMethodProperty& other) const;
+  bool operator!=(const InputMethodProperty& other) const;
 
   // Debug print function.
   std::string ToString() const;

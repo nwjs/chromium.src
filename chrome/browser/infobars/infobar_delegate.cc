@@ -19,6 +19,11 @@ using content::NavigationEntry;
 InfoBarDelegate::~InfoBarDelegate() {
 }
 
+InfoBarDelegate::InfoBarAutomationType
+    InfoBarDelegate::GetInfoBarAutomationType() const {
+  return UNKNOWN_INFOBAR;
+}
+
 bool InfoBarDelegate::EqualsDelegate(InfoBarDelegate* delegate) const {
   return false;
 }
@@ -46,6 +51,10 @@ InfoBarDelegate::Type InfoBarDelegate::GetInfoBarType() const {
   return WARNING_TYPE;
 }
 
+AutoLoginInfoBarDelegate* InfoBarDelegate::AsAutoLoginInfoBarDelegate() {
+  return NULL;
+}
+
 ConfirmInfoBarDelegate* InfoBarDelegate::AsConfirmInfoBarDelegate() {
   return NULL;
 }
@@ -63,11 +72,7 @@ LinkInfoBarDelegate* InfoBarDelegate::AsLinkInfoBarDelegate() {
   return NULL;
 }
 
-MediaStreamInfoBarDelegate* InfoBarDelegate::AsMediaStreamInfobarDelegate() {
-  return NULL;
-}
-
-SavePasswordInfoBarDelegate* InfoBarDelegate::AsSavePasswordInfoBarDelegate() {
+MediaStreamInfoBarDelegate* InfoBarDelegate::AsMediaStreamInfoBarDelegate() {
   return NULL;
 }
 

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_COMMON_EXTENSIONS_EXTENSION_CONSTANTS_H_
 #define CHROME_COMMON_EXTENSIONS_EXTENSION_CONSTANTS_H_
-#pragma once
 
 #include <string>
 
@@ -14,15 +13,18 @@
 namespace extension_urls {
   // Returns the URL prefix for the extension/apps gallery. Can be set via the
   // --apps-gallery-url switch. The URL returned will not contain a trailing
-  // slash. Do not use this as a prefix/extent for the store.  Instead see
-  // ExtensionService::GetWebStoreApp or
-  // ExtensionService::IsDownloadFromGallery
+  // slash. Do not use this as a prefix/extent for the store.
   std::string GetWebstoreLaunchURL();
 
   // Returns the URL prefix for an item in the extension/app gallery. This URL
   // will contain a trailing slash and should be concatenated with an item ID
   // to get the item detail URL.
   std::string GetWebstoreItemDetailURLPrefix();
+
+  // Returns the URL leading to a search page for Web Intents. The search is
+  // specific to intents with the given |action| and |type|.
+  GURL GetWebstoreIntentQueryURL(const std::string& action,
+                                 const std::string& type);
 
   // Returns the URL used to get webstore data (ratings, manifest, icon URL,
   // etc.) about an extension from the webstore as JSON.
@@ -59,6 +61,18 @@ namespace extension_filenames {
   // The filename to use for a background page generated from
   // background.scripts.
   extern const char kGeneratedBackgroundPageFilename[];
+}
+
+// Keys in the dictionary returned by Extension::GetBasicInfo().
+namespace extension_info_keys {
+  extern const char kDescriptionKey[];
+  extern const char kEnabledKey[];
+  extern const char kHomepageUrlKey[];
+  extern const char kIdKey[];
+  extern const char kNameKey[];
+  extern const char kOfflineEnabledKey[];
+  extern const char kOptionsUrlKey[];
+  extern const char kVersionKey[];
 }
 
 namespace extension_misc {
@@ -98,6 +112,9 @@ namespace extension_misc {
   // The extension id of the Cloud Print component application.
   extern const char kCloudPrintAppId[];
 
+  // The extension id of the Chrome component application.
+  extern const char kChromeAppId[];
+
   // Note: this structure is an ASN.1 which encodes the algorithm used
   // with its parameters. This is defined in PKCS #1 v2.1 (RFC 3447).
   // It is encoding: { OID sha1WithRSAEncryption      PARAMETERS NULL }
@@ -112,7 +129,9 @@ namespace extension_misc {
     LAUNCH_WINDOW,
     LAUNCH_PANEL,
     LAUNCH_TAB,
-    LAUNCH_SHELL
+    // For platform apps, which don't actually have a container (they just get a
+    // "onLaunched" event).
+    LAUNCH_NONE
   };
 
   // The name of the apps promo histogram.
@@ -223,6 +242,15 @@ namespace extension_misc {
     UNLOAD_REASON_UNINSTALL,  // Extension is being uninstalled.
     UNLOAD_REASON_TERMINATE,  // Extension has terminated.
   };
+
+  // The states that an app can be in, as reported by chrome.app.installState
+  // and chrome.app.runningState.
+  extern const char kAppStateNotInstalled[];
+  extern const char kAppStateInstalled[];
+  extern const char kAppStateDisabled[];
+  extern const char kAppStateRunning[];
+  extern const char kAppStateCannotRun[];
+  extern const char kAppStateReadyToRun[];
 
   // Error indicating that the app notifications API is not accessible by split
   // mode extensions in incognito windows.

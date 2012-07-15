@@ -29,6 +29,82 @@ PpapiCommandBufferProxy::~PpapiCommandBufferProxy() {
   }
 }
 
+void PpapiCommandBufferProxy::ReportChannelError() {
+  if (!channel_error_callback_.is_null()) {
+    channel_error_callback_.Run();
+    channel_error_callback_.Reset();
+  }
+}
+
+int PpapiCommandBufferProxy::GetRouteID() const {
+  NOTIMPLEMENTED();
+  return 0;
+}
+
+bool PpapiCommandBufferProxy::Echo(const base::Closure& callback) {
+  return false;
+}
+
+bool PpapiCommandBufferProxy::SetSurfaceVisible(bool visible) {
+  NOTIMPLEMENTED();
+  return true;
+}
+
+bool PpapiCommandBufferProxy::DiscardBackbuffer() {
+  NOTIMPLEMENTED();
+  return true;
+}
+
+bool PpapiCommandBufferProxy::EnsureBackbuffer() {
+  NOTIMPLEMENTED();
+  return true;
+}
+
+uint32 PpapiCommandBufferProxy::InsertSyncPoint() {
+  NOTIMPLEMENTED();
+  return 0;
+}
+
+void PpapiCommandBufferProxy::WaitSyncPoint(uint32 sync_point) {
+  NOTIMPLEMENTED();
+}
+
+bool PpapiCommandBufferProxy::SignalSyncPoint(uint32 sync_point,
+                                              const base::Closure& callback) {
+  NOTIMPLEMENTED();
+  return false;
+}
+
+void PpapiCommandBufferProxy::SetMemoryAllocationChangedCallback(
+      const base::Callback<void(const GpuMemoryAllocationForRenderer&)>&
+          callback) {
+  NOTIMPLEMENTED();
+}
+
+bool PpapiCommandBufferProxy::SetParent(
+    CommandBufferProxy* parent_command_buffer,
+    uint32 parent_texture_id) {
+  // TODO(fsamuel): Need a proper implementation of this to support offscreen
+  // contexts in the guest renderer (WebGL, canvas, etc).
+  NOTIMPLEMENTED();
+  return false;
+}
+
+void PpapiCommandBufferProxy::SetChannelErrorCallback(
+    const base::Closure& callback) {
+  channel_error_callback_ = callback;
+}
+
+void PpapiCommandBufferProxy::SetNotifyRepaintTask(
+    const base::Closure& callback) {
+  NOTIMPLEMENTED();
+}
+
+void PpapiCommandBufferProxy::SetOnConsoleMessageCallback(
+    const GpuConsoleMessageCallback& callback) {
+  NOTIMPLEMENTED();
+}
+
 bool PpapiCommandBufferProxy::Initialize() {
   return Send(new PpapiHostMsg_PPBGraphics3D_InitCommandBuffer(
       ppapi::API_ID_PPB_GRAPHICS_3D, resource_));
@@ -38,9 +114,10 @@ gpu::CommandBuffer::State PpapiCommandBufferProxy::GetState() {
   // Send will flag state with lost context if IPC fails.
   if (last_state_.error == gpu::error::kNoError) {
     gpu::CommandBuffer::State state;
+    bool success = false;
     if (Send(new PpapiHostMsg_PPBGraphics3D_GetState(
-             ppapi::API_ID_PPB_GRAPHICS_3D, resource_, &state))) {
-      UpdateState(state);
+             ppapi::API_ID_PPB_GRAPHICS_3D, resource_, &state, &success))) {
+      UpdateState(state, success);
     }
   }
 
@@ -71,10 +148,11 @@ gpu::CommandBuffer::State PpapiCommandBufferProxy::FlushSync(int32 put_offset,
     // Send will flag state with lost context if IPC fails.
     if (last_state_.error == gpu::error::kNoError) {
       gpu::CommandBuffer::State state;
+      bool success = false;
       if (Send(new PpapiHostMsg_PPBGraphics3D_Flush(
                ppapi::API_ID_PPB_GRAPHICS_3D, resource_, put_offset,
-              last_known_get, &state))) {
-        UpdateState(state);
+              last_known_get, &state, &success))) {
+        UpdateState(state, success);
       }
     }
   } else {
@@ -198,13 +276,19 @@ bool PpapiCommandBufferProxy::Send(IPC::Message* msg) {
 }
 
 void PpapiCommandBufferProxy::UpdateState(
-    const gpu::CommandBuffer::State& state) {
+    const gpu::CommandBuffer::State& state,
+    bool success) {
   // Handle wraparound. It works as long as we don't have more than 2B state
   // updates in flight across which reordering occurs.
-  if (state.generation - last_state_.generation < 0x80000000U)
-    last_state_ = state;
+  if (success) {
+    if (state.generation - last_state_.generation < 0x80000000U) {
+      last_state_ = state;
+    }
+  } else {
+    last_state_.error = gpu::error::kLostContext;
+    ++last_state_.generation;
+  }
 }
 
 }  // namespace proxy
 }  // namespace ppapi
-

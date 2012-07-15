@@ -21,6 +21,8 @@
 #import "third_party/ocmock/OCMock/OCMock.h"
 #include "webkit/glue/image_decoder.h"
 
+using extensions::Extension;
+
 // ExtensionInstalledBubbleController with removePageActionPreview overridden
 // to a no-op, because pageActions are not yet hooked up in the test browser.
 @interface ExtensionInstalledBubbleControllerForTest :
@@ -47,7 +49,7 @@ class ExtensionInstalledBubbleControllerTest : public CocoaProfileTest {
   virtual void SetUp() {
     CocoaProfileTest::SetUp();
     ASSERT_TRUE(browser());
-    window_ = CreateBrowserWindow()->GetNativeHandle();
+    window_ = CreateBrowserWindow()->GetNativeWindow();
     icon_ = LoadTestIcon();
   }
 
@@ -98,7 +100,7 @@ class ExtensionInstalledBubbleControllerTest : public CocoaProfileTest {
 
     std::string error;
     return Extension::Create(path, Extension::INVALID, extension_input_value,
-                             Extension::STRICT_ERROR_CHECKS, &error);
+                             Extension::NO_FLAGS, &error);
   }
 
   // Required to initialize the extension installed bubble.

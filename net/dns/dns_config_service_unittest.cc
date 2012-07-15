@@ -29,9 +29,7 @@ class DnsConfigServiceTest : public testing::Test {
  protected:
   class TestDnsConfigService : public DnsConfigService {
    public:
-    virtual void Watch(const CallbackType& callback) OVERRIDE {
-      set_callback(callback);
-    }
+    virtual void OnDNSChanged(unsigned detail) OVERRIDE {}
 
     // Expose the protected methods to this test suite.
     void InvalidateConfig() {
@@ -116,6 +114,7 @@ TEST_F(DnsConfigServiceTest, FirstConfig) {
 TEST_F(DnsConfigServiceTest, Timeout) {
   DnsConfig config = MakeConfig(1);
   config.hosts = MakeHosts(1);
+  ASSERT_TRUE(config.IsValid());
 
   service_->OnConfigRead(config);
   service_->OnHostsRead(config.hosts);
@@ -133,6 +132,14 @@ TEST_F(DnsConfigServiceTest, Timeout) {
   WaitForConfig(TestTimeouts::action_timeout());
   EXPECT_FALSE(last_config_.IsValid());
 
+  service_->InvalidateConfig();
+  // We don't expect an update. This should time out. If we get an update,
+  // we'll detect unchanged config.
+  WaitForConfig(base::TimeDelta::FromMilliseconds(100) +
+                TestTimeouts::tiny_timeout());
+  EXPECT_FALSE(last_config_.IsValid());
+
+  service_->OnConfigRead(config);
   service_->OnHostsRead(config.hosts);
   EXPECT_TRUE(last_config_.Equals(config));
 }
@@ -182,23 +189,19 @@ TEST_F(DnsConfigServiceTest, DifferentConfig) {
   EXPECT_TRUE(last_config_.Equals(config3));
 }
 
-#if defined(OS_POSIX) || defined(OS_WIN)
+#if (defined(OS_POSIX) && !defined(OS_ANDROID)) || defined(OS_WIN)
 // TODO(szym): This is really an integration test and can time out if HOSTS is
 // huge. http://crbug.com/107810
 TEST_F(DnsConfigServiceTest, FLAKY_GetSystemConfig) {
   service_.reset();
   scoped_ptr<DnsConfigService> service(DnsConfigService::CreateSystemService());
 
-  service->Watch(base::Bind(&DnsConfigServiceTest::OnConfigChanged,
-                            base::Unretained(this)));
+  service->Read(base::Bind(&DnsConfigServiceTest::OnConfigChanged,
+                           base::Unretained(this)));
   base::TimeDelta kTimeout = TestTimeouts::action_max_timeout();
   WaitForConfig(kTimeout);
   ASSERT_TRUE(last_config_.IsValid()) << "Did not receive DnsConfig in " <<
       kTimeout.InSecondsF() << "s";
-
-  // Restart watch to confirm it's allowed.
-  service->Watch(base::Bind(&DnsConfigServiceTest::OnConfigChanged,
-                            base::Unretained(this)));
 }
 #endif  // OS_POSIX || OS_WIN
 

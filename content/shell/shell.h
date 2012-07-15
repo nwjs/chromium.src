@@ -5,35 +5,40 @@
 #ifndef CONTENT_SHELL_SHELL_H_
 #define CONTENT_SHELL_SHELL_H_
 
-#pragma once
 
 #include <vector>
 
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/string_piece.h"
+#include "content/public/browser/notification_registrar.h"
+#include "content/public/browser/notification_observer.h"
 #include "content/public/browser/web_contents_delegate.h"
-#include "content/public/browser/web_contents_observer.h"
+#include "ipc/ipc_channel.h"
 #include "ui/gfx/native_widget_types.h"
 
-#if defined(OS_LINUX)
+#if defined(TOOLKIT_GTK)
 #include <gtk/gtk.h>
 #include "ui/base/gtk/gtk_signal.h"
 
 typedef struct _GtkToolItem GtkToolItem;
+#elif defined(OS_ANDROID)
+#include "base/android/scoped_java_ref.h"
 #endif
 
 class GURL;
-class TabContents;
+class WebContents;
 
 namespace content {
+
 class BrowserContext;
+class ShellJavaScriptDialogCreator;
 class SiteInstance;
 
 // This represents one window of the Content Shell, i.e. all the UI including
 // buttons and url bar, as well as the web content area.
 class Shell : public WebContentsDelegate,
-              public WebContentsObserver {
+              public NotificationObserver {
  public:
   virtual ~Shell();
 
@@ -42,6 +47,7 @@ class Shell : public WebContentsDelegate,
   void Reload();
   void Stop();
   void UpdateNavigationControls();
+  void Close();
 
   // Do one time initialization at application startup.
   static void PlatformInitialize();
@@ -53,23 +59,26 @@ class Shell : public WebContentsDelegate,
                                 const GURL& url,
                                 SiteInstance* site_instance,
                                 int routing_id,
-                                TabContents* base_tab_contents);
+                                WebContents* base_web_contents);
 
   // Returns the Shell object corresponding to the given RenderViewHost.
   static Shell* FromRenderViewHost(RenderViewHost* rvh);
 
+  // Closes all windows and returns. This runs a message loop.
+  static void CloseAllWindows();
+
   // Closes all windows and exits.
   static void PlatformExit();
 
-  TabContents* tab_contents() const { return tab_contents_.get(); }
-
-  // layoutTestController related methods.
-  void set_wait_until_done() { wait_until_done_ = true; }
+  WebContents* web_contents() const { return web_contents_.get(); }
 
 #if defined(OS_MACOSX)
   // Public to be called by an ObjC bridge object.
   void ActionPerformed(int control);
   void URLEntered(std::string url_string);
+#elif defined(OS_ANDROID)
+  // Registers the Android Java to native methods.
+  static bool Register(JNIEnv* env);
 #endif
 
  private:
@@ -79,10 +88,10 @@ class Shell : public WebContentsDelegate,
     STOP_BUTTON
   };
 
-  explicit Shell(TabContents* tab_contents);
+  explicit Shell(WebContents* web_contents);
 
-  // Helper to create a new Shell given a newly created TabContents.
-  static Shell* CreateShell(TabContents* tab_contents);
+  // Helper to create a new Shell given a newly created WebContents.
+  static Shell* CreateShell(WebContents* web_contents);
 
   // All the methods that begin with Platform need to be implemented by the
   // platform specific Shell implementation.
@@ -90,7 +99,7 @@ class Shell : public WebContentsDelegate,
   void PlatformCleanUp();
   // Creates the main window GUI.
   void PlatformCreateWindow(int width, int height);
-  // Links the TabContents into the newly created window.
+  // Links the WebContents into the newly created window.
   void PlatformSetContents();
   // Resize the content area and GUI.
   void PlatformResizeSubViews();
@@ -100,8 +109,10 @@ class Shell : public WebContentsDelegate,
   void PlatformSetAddressBarURL(const GURL& url);
   // Sets whether the spinner is spinning.
   void PlatformSetIsLoading(bool loading);
+  // Set the title of shell window
+  void PlatformSetTitle(const string16& title);
 
-#if defined(OS_WIN) || defined(OS_LINUX)
+#if (defined(OS_WIN) && !defined(USE_AURA)) || defined(TOOLKIT_GTK)
   // Resizes the main window to the given dimensions.
   void SizeTo(int width, int height);
 #endif
@@ -110,22 +121,36 @@ class Shell : public WebContentsDelegate,
 
   // content::WebContentsDelegate
   virtual void LoadingStateChanged(WebContents* source) OVERRIDE;
+#if defined(OS_ANDROID)
+  virtual void LoadProgressChanged(double progress) OVERRIDE;
+#endif
   virtual void WebContentsCreated(WebContents* source_contents,
                                   int64 source_frame_id,
                                   const GURL& target_url,
                                   WebContents* new_contents) OVERRIDE;
-  virtual void DidNavigateMainFramePostCommit(WebContents* tab) OVERRIDE;
+  virtual void DidNavigateMainFramePostCommit(
+      WebContents* web_contents) OVERRIDE;
+  virtual JavaScriptDialogCreator* GetJavaScriptDialogCreator() OVERRIDE;
+#if defined(OS_MACOSX)
+  virtual void HandleKeyboardEvent(
+      const NativeWebKeyboardEvent& event) OVERRIDE;
+#endif
+  virtual bool AddMessageToConsole(WebContents* source,
+                                   int32 level,
+                                   const string16& message,
+                                   int32 line_no,
+                                   const string16& source_id) OVERRIDE;
 
-  // content::WebContentsObserver
-  virtual void DidFinishLoad(int64 frame_id,
-                             const GURL& validated_url,
-                             bool is_main_frame) OVERRIDE;
+  // content::NotificationObserver
+  virtual void Observe(int type,
+                       const NotificationSource& source,
+                       const NotificationDetails& details) OVERRIDE;
 
-#if defined(OS_WIN)
+#if defined(OS_WIN) && !defined(USE_AURA)
   static ATOM RegisterWindowClass();
   static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
   static LRESULT CALLBACK EditWndProc(HWND, UINT, WPARAM, LPARAM);
-#elif defined(OS_LINUX)
+#elif defined(TOOLKIT_GTK)
   CHROMEGTK_CALLBACK_0(Shell, void, OnBackButtonClicked);
   CHROMEGTK_CALLBACK_0(Shell, void, OnForwardButtonClicked);
   CHROMEGTK_CALLBACK_0(Shell, void, OnReloadButtonClicked);
@@ -139,18 +164,20 @@ class Shell : public WebContentsDelegate,
                      GObject*, guint, GdkModifierType);
 #endif
 
-  scoped_ptr<TabContents> tab_contents_;
+  scoped_ptr<ShellJavaScriptDialogCreator> dialog_creator_;
 
-  // layoutTestController related variables.
-  bool wait_until_done_;
+  scoped_ptr<WebContents> web_contents_;
 
   gfx::NativeWindow window_;
   gfx::NativeEditView url_edit_view_;
 
-#if defined(OS_WIN)
+  // Notification manager
+  NotificationRegistrar registrar_;
+
+#if defined(OS_WIN) && !defined(USE_AURA)
   WNDPROC default_edit_wnd_proc_;
   static HINSTANCE instance_handle_;
-#elif defined(OS_LINUX)
+#elif defined(TOOLKIT_GTK)
   GtkWidget* vbox_;
 
   GtkToolItem* back_button_;
@@ -163,11 +190,17 @@ class Shell : public WebContentsDelegate,
 
   int content_width_;
   int content_height_;
+#elif defined(OS_ANDROID)
+  base::android::ScopedJavaGlobalRef<jobject> java_object_;
 #endif
 
   // A container of all the open windows. We use a vector so we can keep track
   // of ordering.
   static std::vector<Shell*> windows_;
+
+  // True if the destructur of Shell should post a quit closure on the current
+  // message loop if the destructed Shell object was the last one.
+  static bool quit_message_loop_;
 };
 
 }  // namespace content

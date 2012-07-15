@@ -8,14 +8,14 @@
 #include "base/string_number_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/accessibility/accessibility_extension_api_constants.h"
+#include "chrome/browser/extensions/api/tabs/tabs_constants.h"
 #include "chrome/browser/extensions/extension_event_router.h"
-#include "chrome/browser/extensions/extension_tabs_module_constants.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/infobars/infobar_delegate.h"
 #include "chrome/browser/infobars/infobar_tab_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_contents/confirm_infobar_delegate.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/extensions/extension_error_utils.h"
 #include "content/public/browser/notification_service.h"
@@ -164,7 +164,7 @@ void ExtensionAccessibilityEventRouter::DispatchEvent(
     const std::string& json_args) {
   if (enabled_ && profile && profile->GetExtensionEventRouter()) {
     profile->GetExtensionEventRouter()->DispatchEventToRenderers(
-        event_name, json_args, NULL, GURL());
+        event_name, json_args, NULL, GURL(), extensions::EventFilteringInfo());
   }
 }
 
@@ -185,9 +185,9 @@ bool GetFocusedControlFunction::RunImpl() {
   DictionaryValue *last_focused_control_dict =
       accessibility_event_router->last_focused_control_dict();
   if (last_focused_control_dict->size()) {
-    result_.reset(last_focused_control_dict->DeepCopyWithoutEmptyChildren());
+    SetResult(last_focused_control_dict->DeepCopyWithoutEmptyChildren());
   } else {
-    result_.reset(Value::CreateNullValue());
+    SetResult(Value::CreateNullValue());
   }
   return true;
 }
@@ -197,12 +197,12 @@ bool GetAlertsForTabFunction::RunImpl() {
   EXTENSION_FUNCTION_VALIDATE(args_->GetInteger(0, &tab_id));
 
   TabStripModel* tab_strip = NULL;
-  TabContentsWrapper* contents = NULL;
+  TabContents* contents = NULL;
   int tab_index = -1;
   if (!ExtensionTabUtil::GetTabById(tab_id, profile(), include_incognito(),
                                     NULL, &tab_strip, &contents, &tab_index)) {
     error_ = ExtensionErrorUtils::FormatErrorMessage(
-        extension_tabs_module_constants::kTabNotFoundError,
+        extensions::tabs_constants::kTabNotFoundError,
         base::IntToString(tab_id));
     return false;
   }
@@ -223,6 +223,6 @@ bool GetAlertsForTabFunction::RunImpl() {
     }
   }
 
-  result_.reset(alerts_value);
+  SetResult(alerts_value);
   return true;
 }

@@ -4,13 +4,17 @@
 
 #include "webkit/fileapi/file_system_url_request_job.h"
 
+#include <vector>
+
 #include "base/bind.h"
 #include "base/compiler_specific.h"
 #include "base/file_path.h"
 #include "base/file_util_proxy.h"
 #include "base/message_loop.h"
+#include "base/message_loop_proxy.h"
 #include "base/platform_file.h"
 #include "base/threading/thread_restrictions.h"
+#include "base/time.h"
 #include "build/build_config.h"
 #include "googleurl/src/gurl.h"
 #include "net/base/file_stream.h"
@@ -22,7 +26,8 @@
 #include "net/http/http_response_info.h"
 #include "net/http/http_util.h"
 #include "net/url_request/url_request.h"
-#include "webkit/blob/shareable_file_reference.h"
+#include "net/url_request/url_request_context.h"
+#include "webkit/blob/file_stream_reader.h"
 #include "webkit/fileapi/file_system_context.h"
 #include "webkit/fileapi/file_system_operation.h"
 #include "webkit/fileapi/file_system_util.h"
@@ -32,10 +37,6 @@ using net::URLRequestJob;
 using net::URLRequestStatus;
 
 namespace fileapi {
-
-static const int kFileFlags = base::PLATFORM_FILE_OPEN |
-                              base::PLATFORM_FILE_READ |
-                              base::PLATFORM_FILE_ASYNC;
 
 static net::HttpResponseHeaders* CreateHttpResponseHeaders() {
   // HttpResponseHeaders expects its input string to be terminated by two NULs.
@@ -54,26 +55,15 @@ static net::HttpResponseHeaders* CreateHttpResponseHeaders() {
 }
 
 FileSystemURLRequestJob::FileSystemURLRequestJob(
-    URLRequest* request, FileSystemContext* file_system_context,
-    scoped_refptr<base::MessageLoopProxy> file_thread_proxy)
-    : URLRequestJob(request),
+    URLRequest* request, FileSystemContext* file_system_context)
+    : URLRequestJob(request, request->context()->network_delegate()),
       file_system_context_(file_system_context),
-      file_thread_proxy_(file_thread_proxy),
       ALLOW_THIS_IN_INITIALIZER_LIST(weak_factory_(this)),
-      stream_(NULL),
       is_directory_(false),
       remaining_bytes_(0) {
 }
 
-FileSystemURLRequestJob::~FileSystemURLRequestJob() {
-  // Since we use the two-arg constructor of FileStream, we need to call Close()
-  // manually: ~FileStream won't call it for us.
-  if (stream_ != NULL) {
-    // Close() performs file IO: crbug.com/113300.
-    base::ThreadRestrictions::ScopedAllowIO allow_io;
-    stream_->CloseSync();
-  }
-}
+FileSystemURLRequestJob::~FileSystemURLRequestJob() {}
 
 void FileSystemURLRequestJob::Start() {
   MessageLoop::current()->PostTask(
@@ -83,12 +73,7 @@ void FileSystemURLRequestJob::Start() {
 }
 
 void FileSystemURLRequestJob::Kill() {
-  if (stream_ != NULL) {
-    // Close() performs file IO: crbug.com/113300.
-    base::ThreadRestrictions::ScopedAllowIO allow_io;
-    stream_->CloseSync();
-    stream_.reset(NULL);
-  }
+  reader_.reset();
   URLRequestJob::Kill();
   weak_factory_.InvalidateWeakPtrs();
 }
@@ -99,7 +84,7 @@ bool FileSystemURLRequestJob::ReadRawData(net::IOBuffer* dest, int dest_size,
   DCHECK(bytes_read);
   DCHECK_GE(remaining_bytes_, 0);
 
-  if (stream_ == NULL)
+  if (reader_.get() == NULL)
     return false;
 
   if (remaining_bytes_ < dest_size)
@@ -110,9 +95,9 @@ bool FileSystemURLRequestJob::ReadRawData(net::IOBuffer* dest, int dest_size,
     return true;
   }
 
-  int rv = stream_->Read(dest, dest_size,
-                         base::Bind(&FileSystemURLRequestJob::DidRead,
-                                    base::Unretained(this)));
+  const int rv = reader_->Read(dest, dest_size,
+                               base::Bind(&FileSystemURLRequestJob::DidRead,
+                                          weak_factory_.GetWeakPtr()));
   if (rv >= 0) {
     // Data is immediately available.
     *bytes_read = rv;
@@ -120,8 +105,6 @@ bool FileSystemURLRequestJob::ReadRawData(net::IOBuffer* dest, int dest_size,
     DCHECK_GE(remaining_bytes_, 0);
     return true;
   }
-
-  // Otherwise, a read error occured.  We may just need to wait...
   if (rv == net::ERR_IO_PENDING)
     SetStatus(URLRequestStatus(URLRequestStatus::IO_PENDING, 0));
   else
@@ -131,14 +114,11 @@ bool FileSystemURLRequestJob::ReadRawData(net::IOBuffer* dest, int dest_size,
 
 bool FileSystemURLRequestJob::GetMimeType(std::string* mime_type) const {
   DCHECK(request_);
-  FilePath virtual_path;
-  if (CrackFileSystemURL(request_->url(), NULL, NULL, &virtual_path)) {
-    FilePath::StringType extension = virtual_path.Extension();
-    if (!extension.empty())
-      extension = extension.substr(1);
-    return net::GetWellKnownMimeTypeFromExtension(extension, mime_type);
-  }
-  return false;
+  DCHECK(url_.is_valid());
+  FilePath::StringType extension = url_.path().Extension();
+  if (!extension.empty())
+    extension = extension.substr(1);
+  return net::GetWellKnownMimeTypeFromExtension(extension, mime_type);
 }
 
 void FileSystemURLRequestJob::SetExtraRequestHeaders(
@@ -147,9 +127,9 @@ void FileSystemURLRequestJob::SetExtraRequestHeaders(
   if (headers.GetHeader(net::HttpRequestHeaders::kRange, &range_header)) {
     std::vector<net::HttpByteRange> ranges;
     if (net::HttpUtil::ParseRangeHeader(range_header, &ranges)) {
-      if (ranges.size() == 1)
+      if (ranges.size() == 1) {
         byte_range_ = ranges[0];
-      else {
+      } else {
         // We don't support multiple range requests in one single URL request.
         // TODO(adamk): decide whether we want to support multiple range
         // requests.
@@ -173,25 +153,25 @@ int FileSystemURLRequestJob::GetResponseCode() const {
 void FileSystemURLRequestJob::StartAsync() {
   if (!request_)
     return;
+  DCHECK(!reader_.get());
+  url_ = FileSystemURL(request_->url());
   FileSystemOperationInterface* operation =
-      file_system_context_->CreateFileSystemOperation(
-          request_->url(),
-          file_thread_proxy_);
+      file_system_context_->CreateFileSystemOperation(url_);
   if (!operation) {
     NotifyDone(URLRequestStatus(URLRequestStatus::FAILED,
                                 net::ERR_INVALID_URL));
     return;
   }
-  operation->CreateSnapshotFile(
-      request_->url(),
-      base::Bind(&FileSystemURLRequestJob::DidCreateSnapshot, this));
+  operation->GetMetadata(
+      url_,
+      base::Bind(&FileSystemURLRequestJob::DidGetMetadata,
+                 weak_factory_.GetWeakPtr()));
 }
 
-void FileSystemURLRequestJob::DidCreateSnapshot(
+void FileSystemURLRequestJob::DidGetMetadata(
     base::PlatformFileError error_code,
     const base::PlatformFileInfo& file_info,
-    const FilePath& platform_path,
-    const scoped_refptr<webkit_blob::ShareableFileReference>& file_ref) {
+    const FilePath& platform_path) {
   if (error_code != base::PLATFORM_FILE_OK) {
     NotifyFailed(error_code == base::PLATFORM_FILE_ERROR_INVALID_URL ?
                  net::ERR_INVALID_URL : net::ERR_FILE_NOT_FOUND);
@@ -204,54 +184,29 @@ void FileSystemURLRequestJob::DidCreateSnapshot(
 
   is_directory_ = file_info.is_directory;
 
-  // Keep the reference (if it's non-null) so that the file won't go away.
-  snapshot_ref_ = file_ref;
-
   if (!byte_range_.ComputeBounds(file_info.size)) {
     NotifyFailed(net::ERR_REQUEST_RANGE_NOT_SATISFIABLE);
     return;
   }
 
-  if (!is_directory_) {
-    base::FileUtilProxy::CreateOrOpen(
-        file_thread_proxy_, platform_path, kFileFlags,
-        base::Bind(&FileSystemURLRequestJob::DidOpen,
-                   weak_factory_.GetWeakPtr()));
-  } else {
+  if (is_directory_) {
     NotifyHeadersComplete();
-  }
-}
-
-void FileSystemURLRequestJob::DidOpen(base::PlatformFileError error_code,
-                                      base::PassPlatformFile file,
-                                      bool created) {
-  if (error_code != base::PLATFORM_FILE_OK) {
-    NotifyFailed(error_code);
     return;
   }
-
-  stream_.reset(new net::FileStream(file.ReleaseValue(), kFileFlags, NULL));
 
   remaining_bytes_ = byte_range_.last_byte_position() -
                      byte_range_.first_byte_position() + 1;
   DCHECK_GE(remaining_bytes_, 0);
 
-  // TODO(adamk): Please remove this ScopedAllowIO once we support async seek
-  // on FileStream. crbug.com/113300
-  base::ThreadRestrictions::ScopedAllowIO allow_io;
-  // Do the seek at the beginning of the request.
-  if (remaining_bytes_ > 0 &&
-      byte_range_.first_byte_position() != 0 &&
-      byte_range_.first_byte_position() !=
-          stream_->Seek(net::FROM_BEGIN, byte_range_.first_byte_position())) {
-    NotifyFailed(net::ERR_REQUEST_RANGE_NOT_SATISFIABLE);
-    return;
-  }
+  DCHECK(!reader_.get());
+  reader_.reset(
+      file_system_context_->CreateFileStreamReader(
+          url_,
+          byte_range_.first_byte_position()));
 
   set_expected_content_size(remaining_bytes_);
   response_info_.reset(new net::HttpResponseInfo());
   response_info_->headers = CreateHttpResponseHeaders();
-
   NotifyHeadersComplete();
 }
 

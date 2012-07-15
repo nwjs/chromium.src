@@ -24,9 +24,9 @@ PlatformVideoDecoderImpl::PlatformVideoDecoderImpl(
 
 PlatformVideoDecoderImpl::~PlatformVideoDecoderImpl() {}
 
-bool PlatformVideoDecoderImpl::Initialize(Profile profile) {
+bool PlatformVideoDecoderImpl::Initialize(media::VideoCodecProfile profile) {
   // TODO(vrk): Support multiple decoders.
-  if (decoder_)
+  if (decoder_.get())
     return true;
 
   RenderThreadImpl* render_thread = RenderThreadImpl::current();
@@ -43,43 +43,43 @@ bool PlatformVideoDecoderImpl::Initialize(Profile profile) {
   DCHECK_EQ(channel->state(), GpuChannelHost::kConnected);
 
   // Send IPC message to initialize decoder in GPU process.
-  decoder_ = channel->CreateVideoDecoder(
-      command_buffer_route_id_, profile, this);
+  decoder_.reset(channel->CreateVideoDecoder(
+      command_buffer_route_id_, profile, this));
   return decoder_.get() != NULL;
 }
 
 void PlatformVideoDecoderImpl::Decode(const BitstreamBuffer& bitstream_buffer) {
-  DCHECK(decoder_);
+  DCHECK(decoder_.get());
   decoder_->Decode(bitstream_buffer);
 }
 
 void PlatformVideoDecoderImpl::AssignPictureBuffers(
     const std::vector<media::PictureBuffer>& buffers) {
-  DCHECK(decoder_);
+  DCHECK(decoder_.get());
   decoder_->AssignPictureBuffers(buffers);
 }
 
 void PlatformVideoDecoderImpl::ReusePictureBuffer(
     int32 picture_buffer_id) {
-  DCHECK(decoder_);
+  DCHECK(decoder_.get());
   decoder_->ReusePictureBuffer(picture_buffer_id);
 }
 
 void PlatformVideoDecoderImpl::Flush() {
-  DCHECK(decoder_);
+  DCHECK(decoder_.get());
   decoder_->Flush();
 }
 
 void PlatformVideoDecoderImpl::Reset() {
-  DCHECK(decoder_);
+  DCHECK(decoder_.get());
   decoder_->Reset();
 }
 
 void PlatformVideoDecoderImpl::Destroy() {
-  DCHECK(decoder_);
-  decoder_->Destroy();
+  DCHECK(decoder_.get());
+  decoder_.release()->Destroy();
   client_ = NULL;
-  decoder_ = NULL;
+  delete this;
 }
 
 void PlatformVideoDecoderImpl::NotifyError(
@@ -90,9 +90,11 @@ void PlatformVideoDecoderImpl::NotifyError(
 
 void PlatformVideoDecoderImpl::ProvidePictureBuffers(
     uint32 requested_num_of_buffers,
-    const gfx::Size& dimensions) {
+    const gfx::Size& dimensions,
+    uint32 texture_target) {
   DCHECK(RenderThreadImpl::current());
-  client_->ProvidePictureBuffers(requested_num_of_buffers, dimensions);
+  client_->ProvidePictureBuffers(requested_num_of_buffers, dimensions,
+                                 texture_target);
 }
 
 void PlatformVideoDecoderImpl::DismissPictureBuffer(int32 picture_buffer_id) {

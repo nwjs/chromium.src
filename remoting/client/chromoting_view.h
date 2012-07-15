@@ -10,6 +10,11 @@
 
 namespace remoting {
 
+namespace protocol {
+class ClipboardStub;
+class CursorShapeStub;
+}  // namespace protocol
+
 // ChromotingView defines the behavior of an object that draws a view of the
 // remote desktop. Its main function is to render the update stream onto the
 // screen.
@@ -26,6 +31,12 @@ class ChromotingView {
   // Record the update the state of the connection, updating the UI as needed.
   virtual void SetConnectionState(protocol::ConnectionToHost::State state,
                                   protocol::ErrorCode error) = 0;
+
+  // Get the view's ClipboardStub implementation.
+  virtual protocol::ClipboardStub* GetClipboardStub() = 0;
+
+  // Get the view's CursorShapeStub implementation.
+  virtual protocol::CursorShapeStub* GetCursorShapeStub() = 0;
 };
 
 }  // namespace remoting

@@ -27,7 +27,8 @@ bool GetGURLFromValue(const Value* in_value, GURL* out_value) {
   if (!in_value || !out_value)
     return false;
   std::string url;
-  in_value->GetAsString(&url);
+  if (!in_value->GetAsString(&url))
+    return false;
   GURL gurl(url);
   *out_value = gurl;
   return true;
@@ -145,8 +146,6 @@ void MasterPreferences::InitializeFromCommandLine(const CommandLine& cmd_line) {
       installer::master_preferences::kCreateAllShortcuts },
     { installer::switches::kDisableLogging,
       installer::master_preferences::kDisableLogging },
-    { installer::switches::kDoNotCreateShortcuts,
-      installer::master_preferences::kDoNotCreateShortcuts },
     { installer::switches::kMsi,
       installer::master_preferences::kMsi },
     { installer::switches::kMultiInstall,

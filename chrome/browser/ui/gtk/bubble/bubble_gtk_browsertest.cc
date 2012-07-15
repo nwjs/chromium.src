@@ -9,8 +9,8 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/gtk/browser_window_gtk.h"
 #include "chrome/browser/ui/gtk/bubble/bubble_gtk.h"
+#include "chrome/browser/ui/gtk/gtk_theme_service.h"
 #include "chrome/browser/ui/gtk/gtk_util.h"
-#include "chrome/browser/ui/gtk/theme_service_gtk.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "ui/base/gtk/gtk_hig_constants.h"
 
@@ -34,7 +34,7 @@ class BubbleGtkTest : public InProcessBrowserTest,
 
   GtkWidget* GetNativeBrowserWindow() {
     if (!browser_window_)
-      browser_window_ = GTK_WIDGET(browser()->window()->GetNativeHandle());
+      browser_window_ = GTK_WIDGET(browser()->window()->GetNativeWindow());
     return browser_window_;
   }
 
@@ -72,7 +72,7 @@ IN_PROC_BROWSER_TEST_F(BubbleGtkTest, ArrowLocation) {
   };
 
   GtkWidget* anchor = GetNativeBrowserWindow();
-  ThemeServiceGtk* theme_service = ThemeServiceGtk::GetFrom(GetProfile());
+  GtkThemeService* theme_service = GtkThemeService::GetFrom(GetProfile());
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(points); ++i) {
     for (size_t j = 0; j < arraysize(kPreferredLocations); ++j) {
       static const char kText[] =
@@ -84,8 +84,9 @@ IN_PROC_BROWSER_TEST_F(BubbleGtkTest, ArrowLocation) {
                                           &rect,
                                           label,
                                           kPreferredLocations[j],
-                                          true,
-                                          true,
+                                          BubbleGtk::MATCH_SYSTEM_THEME |
+                                              BubbleGtk::POPUP_WINDOW |
+                                              BubbleGtk::GRAB_INPUT,
                                           theme_service,
                                           this);
       EXPECT_EQ(points[i].expected, bubble->current_arrow_location_);
@@ -112,7 +113,7 @@ IN_PROC_BROWSER_TEST_F(BubbleGtkTest, NoArrow) {
   };
 
   GtkWidget* anchor = GetNativeBrowserWindow();
-  ThemeServiceGtk* theme_service = ThemeServiceGtk::GetFrom(GetProfile());
+  GtkThemeService* theme_service = GtkThemeService::GetFrom(GetProfile());
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(points); ++i) {
     for (size_t j = 0; j < arraysize(kPreferredLocations); ++j) {
       static const char kText[] =
@@ -124,8 +125,9 @@ IN_PROC_BROWSER_TEST_F(BubbleGtkTest, NoArrow) {
                                           &rect,
                                           label,
                                           kPreferredLocations[j],
-                                          true,
-                                          true,
+                                          BubbleGtk::MATCH_SYSTEM_THEME |
+                                              BubbleGtk::POPUP_WINDOW |
+                                              BubbleGtk::GRAB_INPUT,
                                           theme_service,
                                           this);
       EXPECT_EQ(points[i].expected, bubble->current_arrow_location_);

@@ -12,8 +12,10 @@ chrome/test/functional/special_tabs.py. -->
 
 <script src="chrome://resources/css/tree.css.js"></script>
 
+<script src="chrome://resources/js/event_tracker.js"></script>
 <script src="chrome://resources/js/cr.js"></script>
 <script src="chrome://resources/js/cr/event_target.js"></script>
+<script src="chrome://resources/js/cr/ui/touch_handler.js"></script>
 <script src="chrome://resources/js/cr/ui.js"></script>
 <script src="chrome://resources/js/cr/ui/focus_outline_manager.js"></script>
 <script src="chrome://resources/js/cr/ui/splitter.js"></script>
@@ -41,6 +43,10 @@ chrome/test/functional/special_tabs.py. -->
      same height no matter which tab is selected. */
   min-height: 650px;
 }
+
+#traffic-dump {
+ font-size: 120%;
+}
 </style>
 
 <tabbox id="sync-page">
@@ -51,6 +57,7 @@ chrome/test/functional/special_tabs.py. -->
     <tab>Events</tab>
     <tab>Sync Node Browser</tab>
     <tab>Search</tab>
+    <tab>Traffic</tab>
   </tabs>
   <tabpanels>
     <tabpanel>
@@ -70,6 +77,9 @@ chrome/test/functional/special_tabs.py. -->
     </tabpanel>
     <tabpanel>
       <include src="search.html" />
+    </tabpanel>
+    <tabpanel>
+      <include src="traffic.html" />
     </tabpanel>
   </tabpanels>
 </tabbox>

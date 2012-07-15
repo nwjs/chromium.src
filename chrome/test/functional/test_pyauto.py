@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (c) 2011 The Chromium Authors. All rights reserved.
+# Copyright (c) 2012 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -7,6 +7,7 @@ import unittest
 
 import pyauto_functional  # Must be imported before pyauto
 import pyauto
+import pyauto_errors
 
 
 class PyAutoTest(pyauto.PyUITest):
@@ -25,7 +26,7 @@ class PyAutoTest(pyauto.PyUITest):
     Overrides the default list of extra flags passed to Chrome.  See
     ExtraChromeFlags() in pyauto.py.
     """
-    return self._EXTRA_CHROME_FLAGS
+    return pyauto.PyUITest.ExtraChromeFlags(self) + self._EXTRA_CHROME_FLAGS
 
   def testSetCustomChromeFlags(self):
     """Ensures that Chrome can be launched with custom flags."""
@@ -33,6 +34,22 @@ class PyAutoTest(pyauto.PyUITest):
     for flag in self._EXTRA_CHROME_FLAGS:
       self.assertEqual(self.FindInPage(flag)['match_count'], 1,
                        msg='Missing expected Chrome flag "%s"' % flag)
+
+  def testCallOnInvalidWindow(self):
+    """Verify that exception is raised when a browser is missing/invalid."""
+    self.assertEqual(1, self.GetBrowserWindowCount())
+    self.assertRaises(
+        pyauto_errors.JSONInterfaceError,
+        lambda: self.FindInPage('some text', windex=1))  # invalid window
+
+  def testJSONInterfaceTimeout(self):
+    """Verify that an exception is raised when the JSON interface times out."""
+    self.ClearEventQueue()
+    self.AddDomEventObserver('foo')
+    self.assertRaises(
+        pyauto_errors.JSONInterfaceError,
+        lambda: self.GetNextEvent(timeout=2000))  # event queue is empty
+
 
 
 if __name__ == '__main__':

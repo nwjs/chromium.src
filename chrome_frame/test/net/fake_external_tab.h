@@ -4,15 +4,16 @@
 
 #ifndef CHROME_FRAME_TEST_NET_FAKE_EXTERNAL_TAB_H_
 #define CHROME_FRAME_TEST_NET_FAKE_EXTERNAL_TAB_H_
-#pragma once
 
 #include <string>
 
+#include "base/cancelable_callback.h"
 #include "base/file_path.h"
 #include "base/message_loop.h"
 #include "base/process.h"
 #include "base/win/scoped_handle.h"
 #include "chrome/browser/browser_process_impl.h"
+#include "chrome_frame/test/ie_configurator.h"
 #include "chrome_frame/test/net/process_singleton_subclass.h"
 #include "chrome_frame/test/net/test_automation_provider.h"
 #include "chrome_frame/test/test_server.h"
@@ -27,7 +28,11 @@ class ProcessSingleton;
 
 namespace content {
 class NotificationService;
-}
+}  // namespace content
+
+namespace logging_win {
+class FileLogger;
+}  // namespace logging_win
 
 class FakeExternalTab {
  public:
@@ -89,7 +94,7 @@ class CFUrlRequestUnittestRunner
   void StartTests();
 
   // Borrowed from TestSuite::Initialize().
-  static void InitializeLogging();
+  void InitializeLogging();
 
   int test_result() const {
     return test_result_;
@@ -101,11 +106,6 @@ class CFUrlRequestUnittestRunner
 
   // content::BrowserMainParts implementation.
   virtual void PreEarlyInitialization() OVERRIDE;
-  virtual void PostEarlyInitialization() OVERRIDE {}
-  virtual void PreMainMessageLoopStart() OVERRIDE {}
-  virtual MessageLoop* GetMainMessageLoop() OVERRIDE;
-  virtual void PostMainMessageLoopStart() OVERRIDE {}
-  virtual void ToolkitInitialized() OVERRIDE {}
   virtual int PreCreateThreads() OVERRIDE;
   virtual void PreMainMessageLoopRun() OVERRIDE;
   virtual bool MainMessageLoopRun(int* result_code) OVERRIDE;
@@ -140,10 +140,21 @@ class CFUrlRequestUnittestRunner
   // Causes HTTP tests to run over an external address rather than 127.0.0.1.
   // See http://crbug.com/114369 .
   void OverrideHttpHost();
+  void StartFileLogger();
+  void StopFileLogger(bool print);
+  void OnIEShutdownFailure();
+
+  void CancelInitializationTimeout();
+  void StartInitializationTimeout();
+  void OnInitializationTimeout();
 
   bool launch_browser_;
   bool prompt_after_setup_;
   bool tests_ran_;
+  base::CancelableClosure timeout_closure_;
+  scoped_ptr<logging_win::FileLogger> file_logger_;
+  FilePath log_file_;
+  scoped_ptr<chrome_frame_test::IEConfigurator> ie_configurator_;
 
   DISALLOW_COPY_AND_ASSIGN(CFUrlRequestUnittestRunner);
 };

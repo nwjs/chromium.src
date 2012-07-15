@@ -39,9 +39,16 @@ TEST_F(EnterpriseInstallAttributesTest, Lock) {
                 kTestUser,
                 DEVICE_MODE_ENTERPRISE,
                 kTestDeviceId));
-  EXPECT_EQ(EnterpriseInstallAttributes::LOCK_WRONG_USER,
+  // Another user from the4 same domain should also succeed.
+  EXPECT_EQ(EnterpriseInstallAttributes::LOCK_SUCCESS,
             install_attributes_.LockDevice(
                 "test1@example.com",
+                DEVICE_MODE_ENTERPRISE,
+                kTestDeviceId));
+  // But another domain should fail.
+  EXPECT_EQ(EnterpriseInstallAttributes::LOCK_WRONG_USER,
+            install_attributes_.LockDevice(
+                "test@bluebears.com",
                 DEVICE_MODE_ENTERPRISE,
                 kTestDeviceId));
 }
@@ -87,7 +94,7 @@ TEST_F(EnterpriseInstallAttributesTest, GetDeviceId) {
 }
 
 TEST_F(EnterpriseInstallAttributesTest, GetMode) {
-  EXPECT_EQ(DEVICE_MODE_UNKNOWN,
+  EXPECT_EQ(DEVICE_MODE_NOT_SET,
             install_attributes_.GetMode());
   ASSERT_EQ(EnterpriseInstallAttributes::LOCK_SUCCESS,
             install_attributes_.LockDevice(
@@ -99,7 +106,7 @@ TEST_F(EnterpriseInstallAttributesTest, GetMode) {
 }
 
 TEST_F(EnterpriseInstallAttributesTest, ConsumerDevice) {
-  EXPECT_EQ(DEVICE_MODE_UNKNOWN,
+  EXPECT_EQ(DEVICE_MODE_NOT_SET,
             install_attributes_.GetMode());
   // Lock the attributes empty.
   ASSERT_TRUE(cryptohome_->InstallAttributesFinalize());
@@ -109,7 +116,7 @@ TEST_F(EnterpriseInstallAttributesTest, ConsumerDevice) {
 }
 
 TEST_F(EnterpriseInstallAttributesTest, DeviceLockedFromOlderVersion) {
-  EXPECT_EQ(DEVICE_MODE_UNKNOWN,
+  EXPECT_EQ(DEVICE_MODE_NOT_SET,
             install_attributes_.GetMode());
   // Lock the attributes as if it was done from older Chrome version.
   ASSERT_TRUE(cryptohome_->InstallAttributesSet(kAttrEnterpriseOwned, "true"));

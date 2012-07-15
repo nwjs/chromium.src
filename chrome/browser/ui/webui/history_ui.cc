@@ -19,11 +19,14 @@
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/bookmarks/bookmark_model.h"
+#include "chrome/browser/bookmarks/bookmark_utils.h"
 #include "chrome/browser/history/history_notifications.h"
 #include "chrome/browser/history/history_types.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/chrome_pages.h"
+#include "chrome/browser/ui/webui/chrome_url_data_manager.h"
 #include "chrome/browser/ui/webui/chrome_web_ui_data_source.h"
 #include "chrome/browser/ui/webui/favicon_source.h"
 #include "chrome/common/chrome_notification_types.h"
@@ -40,9 +43,9 @@
 #include "grit/generated_resources.h"
 #include "grit/locale_settings.h"
 #include "grit/theme_resources.h"
-#include "grit/theme_resources_standard.h"
 #include "net/base/escape.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 
 using content::UserMetricsAction;
@@ -53,6 +56,21 @@ using content::WebContents;
 static const int kMaxSearchResults = 100;
 static const char kStringsJsFile[] = "strings.js";
 static const char kHistoryJsFile[] = "history.js";
+
+namespace {
+
+#if defined(OS_MACOSX)
+const char kIncognitoModeShortcut[] = "("
+    "\xE2\x87\xA7"  // Shift symbol (U+21E7 'UPWARDS WHITE ARROW').
+    "\xE2\x8C\x98"  // Command symbol (U+2318 'PLACE OF INTEREST SIGN').
+    "N)";
+#elif defined(OS_WIN)
+const char kIncognitoModeShortcut[] = "(Ctrl+Shift+N)";
+#else
+const char kIncognitoModeShortcut[] = "(Shift+Ctrl+N)";
+#endif
+
+};  // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -95,8 +113,9 @@ HistoryUIHTMLSource::HistoryUIHTMLSource()
   AddLocalizedString("removeselected", IDS_HISTORY_REMOVE_SELECTED_ITEMS);
   AddLocalizedString("clearallhistory",
                      IDS_HISTORY_OPEN_CLEAR_BROWSING_DATA_DIALOG);
-  AddLocalizedString("deletewarning",
-                     IDS_HISTORY_DELETE_PRIOR_VISITS_WARNING);
+  AddString("deletewarning",
+      l10n_util::GetStringFUTF16(IDS_HISTORY_DELETE_PRIOR_VISITS_WARNING,
+                                 UTF8ToUTF16(kIncognitoModeShortcut)));
   AddLocalizedString("actionMenuDescription",
                      IDS_HISTORY_ACTION_MENU_DESCRIPTION);
   AddLocalizedString("removeFromHistory", IDS_HISTORY_REMOVE_PAGE);
@@ -141,7 +160,7 @@ BrowsingHistoryHandler::~BrowsingHistoryHandler() {
 void BrowsingHistoryHandler::RegisterMessages() {
   // Create our favicon data source.
   Profile* profile = Profile::FromWebUI(web_ui());
-  profile->GetChromeURLDataManager()->AddDataSource(
+  ChromeURLDataManager::AddDataSource(profile,
       new FaviconSource(profile, FaviconSource::FAVICON));
 
   // Get notifications when history is cleared.
@@ -159,6 +178,9 @@ void BrowsingHistoryHandler::RegisterMessages() {
                  base::Unretained(this)));
   web_ui()->RegisterMessageCallback("clearBrowsingData",
       base::Bind(&BrowsingHistoryHandler::HandleClearBrowsingData,
+                 base::Unretained(this)));
+  web_ui()->RegisterMessageCallback("removeBookmark",
+      base::Bind(&BrowsingHistoryHandler::HandleRemoveBookmark,
                  base::Unretained(this)));
 }
 
@@ -259,12 +281,22 @@ void BrowsingHistoryHandler::HandleRemoveURLsOnOneDay(const ListValue* args) {
 }
 
 void BrowsingHistoryHandler::HandleClearBrowsingData(const ListValue* args) {
+#if defined(OS_ANDROID)
+  NOTIMPLEMENTED() << "TODO(yfriedman): Upstream the Android version.";
+#else
   // TODO(beng): This is an improper direct dependency on Browser. Route this
   // through some sort of delegate.
+  Browser* browser = browser::FindBrowserWithWebContents(
+      web_ui()->GetWebContents());
+  chrome::ShowClearBrowsingDataDialog(browser);
+#endif
+}
+
+void BrowsingHistoryHandler::HandleRemoveBookmark(const ListValue* args) {
+  string16 url = ExtractStringValue(args);
   Profile* profile = Profile::FromWebUI(web_ui());
-  Browser* browser = BrowserList::FindBrowserWithProfile(profile);
-  if (browser)
-    browser->OpenClearBrowsingDataDialog();
+  BookmarkModel* model = profile->GetBookmarkModel();
+  bookmark_utils::RemoveAllBookmarks(model, GURL(url));
 }
 
 void BrowsingHistoryHandler::QueryComplete(
@@ -400,6 +432,20 @@ history::QueryOptions BrowsingHistoryHandler::CreateMonthQueryOptions(
   return options;
 }
 
+// Helper function for Observe that determines if there are any differences
+// between the URLs noticed for deletion and the ones we are expecting.
+static bool DeletionsDiffer(const history::URLRows& deleted_rows,
+                            const std::set<GURL>& urls_to_be_deleted) {
+  if (deleted_rows.size() != urls_to_be_deleted.size())
+    return true;
+  for (history::URLRows::const_iterator i = deleted_rows.begin();
+       i != deleted_rows.end(); ++i) {
+    if (urls_to_be_deleted.find(i->url()) == urls_to_be_deleted.end())
+      return true;
+  }
+  return false;
+}
+
 void BrowsingHistoryHandler::Observe(
     int type,
     const content::NotificationSource& source,
@@ -410,11 +456,9 @@ void BrowsingHistoryHandler::Observe(
   }
   history::URLsDeletedDetails* deletedDetails =
       content::Details<history::URLsDeletedDetails>(details).ptr();
-  if (deletedDetails->urls != urls_to_be_deleted_ ||
-      deletedDetails->all_history) {
-    // Notify the page that someone else deleted from the history.
+  if (deletedDetails->all_history ||
+      DeletionsDiffer(deletedDetails->rows, urls_to_be_deleted_))
     web_ui()->CallJavascriptFunction("historyDeleted");
-  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -426,11 +470,10 @@ void BrowsingHistoryHandler::Observe(
 HistoryUI::HistoryUI(content::WebUI* web_ui) : WebUIController(web_ui) {
   web_ui->AddMessageHandler(new BrowsingHistoryHandler());
 
-  HistoryUIHTMLSource* html_source = new HistoryUIHTMLSource();
-
   // Set up the chrome://history-frame/ source.
-  Profile* profile = Profile::FromWebUI(web_ui);
-  profile->GetChromeURLDataManager()->AddDataSource(html_source);
+  HistoryUIHTMLSource* html_source = new HistoryUIHTMLSource();
+  html_source->set_use_json_js_format_v2();
+  ChromeURLDataManager::AddDataSource(Profile::FromWebUI(web_ui), html_source);
 }
 
 // static
@@ -440,7 +483,8 @@ const GURL HistoryUI::GetHistoryURLWithSearchText(const string16& text) {
 }
 
 // static
-RefCountedMemory* HistoryUI::GetFaviconResourceBytes() {
+base::RefCountedMemory* HistoryUI::GetFaviconResourceBytes() {
   return ResourceBundle::GetSharedInstance().
-      LoadDataResourceBytes(IDR_HISTORY_FAVICON);
+      LoadDataResourceBytes(IDR_HISTORY_FAVICON,
+                            ui::SCALE_FACTOR_100P);
 }

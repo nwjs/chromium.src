@@ -4,7 +4,8 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_AUTHENTICATOR_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_AUTHENTICATOR_H_
-#pragma once
+
+#include <string>
 
 #include "base/basictypes.h"
 #include "base/memory/ref_counted.h"
@@ -23,11 +24,7 @@ namespace chromeos {
 // consumer_->OnPasswordChangeDetected() on the UI thread.
 class Authenticator : public base::RefCountedThreadSafe<Authenticator> {
  public:
-  // A domain which requires special-case parsing in canonicalization.
-  static const char kSpecialCaseDomain[];
-
   explicit Authenticator(LoginStatusConsumer* consumer);
-  virtual ~Authenticator();
 
   // Given externally authenticated |username| and |password|, this method
   // attempts to complete authentication process.
@@ -93,18 +90,15 @@ class Authenticator : public base::RefCountedThreadSafe<Authenticator> {
   // authentication process.
   Profile* authentication_profile() { return authentication_profile_; }
 
-  // Perform basic canonicalization of |email_address|, taking into account
-  // that gmail does not consider '.' or caps inside a username to matter.
-  // It also ignores everything after a '+'.
-  // For example, c.masone+abc@gmail.com == cMaSone@gmail.com, per
-  // http://mail.google.com/support/bin/answer.py?hl=en&ctx=mail&answer=10313#
-  static std::string Canonicalize(const std::string& email_address);
-
  protected:
+  virtual ~Authenticator();
+
   LoginStatusConsumer* consumer_;
   Profile* authentication_profile_;
 
  private:
+  friend class base::RefCountedThreadSafe<Authenticator>;
+
   DISALLOW_COPY_AND_ASSIGN(Authenticator);
 };
 

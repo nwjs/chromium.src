@@ -7,79 +7,103 @@
 #include "ash/shell.h"
 #include "ash/wm/shelf_layout_manager.h"
 #include "base/logging.h"
+#include "ui/aura/client/screen_position_client.h"
 #include "ui/aura/env.h"
-#include "ui/aura/monitor.h"
-#include "ui/aura/monitor_manager.h"
+#include "ui/aura/display_manager.h"
 #include "ui/aura/root_window.h"
+#include "ui/gfx/display.h"
+#include "ui/gfx/screen.h"
 
 namespace ash {
 
-// TODO(oshima): For m19, the origin of work area/monitor bounds for
-// views/aura is (0,0) because it's simple and enough. Fix this when
-// real multi monitor support is implemented.
-
 namespace {
-aura::MonitorManager* GetMonitorManager() {
-  return aura::Env::GetInstance()->monitor_manager();
+aura::DisplayManager* GetDisplayManager() {
+  return aura::Env::GetInstance()->display_manager();
 }
 }  // namespace
 
-ScreenAsh::ScreenAsh(aura::RootWindow* root_window)
-    : root_window_(root_window) {
+ScreenAsh::ScreenAsh() {
 }
 
 ScreenAsh::~ScreenAsh() {
 }
 
 // static
-gfx::Rect ScreenAsh::GetMaximizedWindowBounds(aura::Window* window) {
-  return Shell::GetInstance()->shelf()->GetMaximizedWindowBounds(window);
+gfx::Rect ScreenAsh::GetMaximizedWindowParentBounds(aura::Window* window) {
+  if (window->GetRootWindow() == Shell::GetPrimaryRootWindow())
+    return Shell::GetInstance()->shelf()->GetMaximizedWindowBounds(window);
+  else
+    return GetDisplayParentBounds(window);
 }
 
 // static
-gfx::Rect ScreenAsh::GetUnmaximizedWorkAreaBounds(aura::Window* window) {
-  return Shell::GetInstance()->shelf()->GetUnmaximizedWorkAreaBounds(window);
+gfx::Rect ScreenAsh::GetUnmaximizedWorkAreaParentBounds(aura::Window* window) {
+  if (window->GetRootWindow() == Shell::GetPrimaryRootWindow())
+    return Shell::GetInstance()->shelf()->GetUnmaximizedWorkAreaBounds(window);
+  else
+    return GetDisplayWorkAreaParentBounds(window);
 }
 
-gfx::Point ScreenAsh::GetCursorScreenPointImpl() {
-  return root_window_->last_mouse_location();
+// static
+gfx::Rect ScreenAsh::GetDisplayParentBounds(aura::Window* window) {
+  return ConvertRectFromScreen(
+      window->parent(),
+      gfx::Screen::GetDisplayNearestWindow(window).bounds());
 }
 
-gfx::Rect ScreenAsh::GetMonitorWorkAreaNearestWindowImpl(
-    gfx::NativeWindow window) {
-  return GetMonitorManager()->GetMonitorNearestWindow(window)->
-      GetWorkAreaBounds();
+// static
+gfx::Rect ScreenAsh::GetDisplayWorkAreaParentBounds(aura::Window* window) {
+  return ConvertRectFromScreen(
+      window->parent(),
+      gfx::Screen::GetDisplayNearestWindow(window).work_area());
 }
 
-gfx::Rect ScreenAsh::GetMonitorAreaNearestWindowImpl(
-    gfx::NativeWindow window) {
-  // See the comment at the top.
-  return gfx::Rect(
-      GetMonitorManager()->GetMonitorNearestWindow(window)->size());
+// static
+gfx::Rect ScreenAsh::ConvertRectToScreen(aura::Window* window,
+                                         const gfx::Rect& rect) {
+  gfx::Point point = rect.origin();
+  aura::client::GetScreenPositionClient(window->GetRootWindow())->
+      ConvertPointToScreen(window, &point);
+  return gfx::Rect(point, rect.size());
 }
 
-gfx::Rect ScreenAsh::GetMonitorWorkAreaNearestPointImpl(
-    const gfx::Point& point) {
-  return GetMonitorManager()->GetMonitorNearestPoint(point)->
-      GetWorkAreaBounds();
+// static
+gfx::Rect ScreenAsh::ConvertRectFromScreen(aura::Window* window,
+                                           const gfx::Rect& rect) {
+  gfx::Point point = rect.origin();
+  aura::client::GetScreenPositionClient(window->GetRootWindow())->
+      ConvertPointFromScreen(window, &point);
+  return gfx::Rect(point, rect.size());
 }
 
-gfx::Rect ScreenAsh::GetMonitorAreaNearestPointImpl(const gfx::Point& point) {
-  // See the comment at the top.
-  return gfx::Rect(GetMonitorManager()->GetMonitorNearestPoint(point)->size());
+gfx::Point ScreenAsh::GetCursorScreenPoint() {
+  // TODO(oshima): Support multiple root window.
+  return Shell::GetPrimaryRootWindow()->last_mouse_location();
 }
 
-gfx::NativeWindow ScreenAsh::GetWindowAtCursorScreenPointImpl() {
-  const gfx::Point point = GetCursorScreenPoint();
-  return root_window_->GetTopWindowContainingPoint(point);
+gfx::NativeWindow ScreenAsh::GetWindowAtCursorScreenPoint() {
+  const gfx::Point point = gfx::Screen::GetCursorScreenPoint();
+  return Shell::GetRootWindowAt(point)->GetTopWindowContainingPoint(point);
 }
 
-gfx::Size ScreenAsh::GetPrimaryMonitorSizeImpl() {
-  return GetMonitorManager()->GetMonitorAt(0)->size();
+int ScreenAsh::GetNumDisplays() {
+  return GetDisplayManager()->GetNumDisplays();
 }
 
-int ScreenAsh::GetNumMonitorsImpl() {
-  return GetMonitorManager()->GetNumMonitors();
+gfx::Display ScreenAsh::GetDisplayNearestWindow(gfx::NativeView window) const {
+  return GetDisplayManager()->GetDisplayNearestWindow(window);
+}
+
+gfx::Display ScreenAsh::GetDisplayNearestPoint(const gfx::Point& point) const {
+  return GetDisplayManager()->GetDisplayNearestPoint(point);
+}
+
+gfx::Display ScreenAsh::GetDisplayMatching(const gfx::Rect& match_rect) const {
+  return GetDisplayManager()->GetDisplayMatching(match_rect);
+}
+
+gfx::Display ScreenAsh::GetPrimaryDisplay() const {
+  return *GetDisplayManager()->GetDisplayAt(0);
 }
 
 }  // namespace ash

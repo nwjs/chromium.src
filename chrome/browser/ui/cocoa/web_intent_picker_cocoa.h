@@ -4,18 +4,18 @@
 
 #ifndef CHROME_BROWSER_UI_COCOA_WEB_INTENT_PICKER_COCOA_H_
 #define CHROME_BROWSER_UI_COCOA_WEB_INTENT_PICKER_COCOA_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/string16.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/ui/intents/web_intent_picker.h"
 #include "chrome/browser/ui/intents/web_intent_picker_model.h"
 #include "chrome/browser/ui/intents/web_intent_picker_model_observer.h"
 
 class ConstrainedWindow;
-class TabContentsWrapper;
+class TabContents;
 @class WebIntentPickerSheetController;
 class WebIntentInlineDispositionDelegate;
 
@@ -23,22 +23,32 @@ class WebIntentInlineDispositionDelegate;
 class WebIntentPickerCocoa : public WebIntentPicker,
                              public WebIntentPickerModelObserver {
  public:
-  // |wrapper|, and |delegate| must not be NULL.
+  // |tab_contents| and |delegate| must not be NULL.
   // |browser| should only be NULL for testing purposes.
-  WebIntentPickerCocoa(Browser* browser,
-                       TabContentsWrapper* wrapper,
+  WebIntentPickerCocoa(TabContents* tab_contents,
                        WebIntentPickerDelegate* delegate,
                        WebIntentPickerModel* model);
   virtual ~WebIntentPickerCocoa();
 
   void OnSheetDidEnd(NSWindow* sheet);
 
+  WebIntentPickerModel* model() { return model_; }
+
   // WebIntentPickerDelegate forwarding API.
   void OnCancelled();
   void OnServiceChosen(size_t index);
+  void OnExtensionInstallRequested(const std::string& extension_id);
+  void OnExtensionLinkClicked(const std::string& extension_id);
+  void OnSuggestionsLinkClicked();
+  void OnChooseAnotherService();
 
-  // WebIntentPicker:
+  // WebIntentPicker implementation.
   virtual void Close() OVERRIDE;
+  virtual void SetActionString(const string16& action) OVERRIDE;
+  virtual void OnExtensionInstallSuccess(const std::string& id) OVERRIDE;
+  virtual void OnExtensionInstallFailure(const std::string& id) OVERRIDE;
+  virtual void OnInlineDispositionAutoResize(const gfx::Size& size) OVERRIDE;
+  virtual void OnPendingAsyncCompleted() OVERRIDE;
 
   // WebIntentPickerModelObserver implementation.
   virtual void OnModelChanged(WebIntentPickerModel* model) OVERRIDE;
@@ -46,7 +56,7 @@ class WebIntentPickerCocoa : public WebIntentPicker,
                                 size_t index) OVERRIDE;
   virtual void OnExtensionIconChanged(WebIntentPickerModel* model,
                                       const string16& extension_id) OVERRIDE;
-  virtual void OnInlineDisposition(WebIntentPickerModel* model,
+  virtual void OnInlineDisposition(const string16& title,
                                    const GURL& url) OVERRIDE;
 
  private:
@@ -58,12 +68,13 @@ class WebIntentPickerCocoa : public WebIntentPicker,
   // The picker model. Weak reference.
   WebIntentPickerModel* model_;
 
-  Browser* browser_;  // The browser we're in. Weak Reference.
+  // TabContents we're in. Weak Reference.
+  TabContents* tab_contents_;
 
   WebIntentPickerSheetController* sheet_controller_;  // Weak reference.
 
-  // Tab contents wrapper to hold intent page if inline disposition is used.
-  scoped_ptr<TabContentsWrapper> inline_disposition_tab_contents_;
+  // TabContents to hold intent page if inline disposition is used.
+  scoped_ptr<TabContents> inline_disposition_tab_contents_;
 
   // Delegate for inline disposition tab contents.
   scoped_ptr<WebIntentInlineDispositionDelegate> inline_disposition_delegate_;
@@ -78,7 +89,7 @@ class WebIntentPickerCocoa : public WebIntentPicker,
   WebIntentPickerCocoa();
 
   // For testing access.
-  friend class WebIntentPickerSheetControllerTest;
+  friend class WebIntentSheetControllerBrowserTest;
 
   DISALLOW_COPY_AND_ASSIGN(WebIntentPickerCocoa);
 };

@@ -6,12 +6,11 @@
 #define ASH_DESKTOP_BACKGROUND_DESKTOP_BACKGROUND_RESOURCES_H_
 
 #include "ash/ash_export.h"
-
-class SkBitmap;
+#include "third_party/skia/include/core/SkColor.h"
 
 namespace ash {
 
-enum ImageLayout {
+enum WallpaperLayout {
   CENTER,
   CENTER_CROPPED,
   STRETCH,
@@ -21,18 +20,21 @@ enum ImageLayout {
 struct ASH_EXPORT WallpaperInfo {
   int id;
   int thumb_id;
-  ImageLayout layout;
+  WallpaperLayout layout;
   // TODO(bshe): author member should be encoded to UTF16. We need to use i18n
   // string for this member after M19.
   const char* author;
   const char* website;
 };
 
+const SkColor kLoginWallpaperColor = 0xFEFEFE;
+
 ASH_EXPORT int GetDefaultWallpaperIndex();
 ASH_EXPORT int GetGuestWallpaperIndex();
+ASH_EXPORT int GetInvalidWallpaperIndex();
+ASH_EXPORT int GetNextWallpaperIndex(int index);
+ASH_EXPORT int GetSolidColorIndex();
 ASH_EXPORT int GetWallpaperCount();
-ASH_EXPORT const SkBitmap& GetWallpaper(int index);
-ASH_EXPORT const SkBitmap& GetWallpaperThumbnail(int index);
 ASH_EXPORT const WallpaperInfo& GetWallpaperInfo(int index);
 
 }  // namespace ash

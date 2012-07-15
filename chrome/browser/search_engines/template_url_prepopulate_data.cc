@@ -9,6 +9,7 @@
 #endif
 
 #include "base/command_line.h"
+#include "base/logging.h"
 #include "base/memory/scoped_vector.h"
 #include "base/string16.h"
 #include "base/string_piece.h"
@@ -24,6 +25,7 @@
 #include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
+#include "content/public/browser/browser_thread.h"
 #include "googleurl/src/gurl.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
@@ -44,9 +46,6 @@ namespace {
 
 struct PrepopulatedEngine {
   const wchar_t* const name;
-  // If empty, we'll autogenerate a keyword based on the search_url every time
-  // someone asks.  Only entries which need keywords to auto-track a dynamically
-  // generated search URL should use this.
   const wchar_t* const keyword;
   const char* const favicon_url;  // If NULL, there is no favicon.
   const char* const search_url;
@@ -73,9 +72,8 @@ struct PrepopulatedEngine {
   // must use two different unique IDs (and different keywords).
   //
   // The following unique IDs are available:
-  //    33, 34, 36, 39, 40, 42, 43, 47, 48, 49, 50, 52, 53, 56, 58, 60, 61, 64,
-  //    65, 66, 70, 74, 78, 79, 80, 81, 84, 86, 88, 91, 92, 93, 94, 95, 96, 97,
-  //    98, 99, 102+
+  //    53, 56, 58, 60, 61, 64, 65, 66, 70, 74, 78, 79, 80, 81, 84, 86, 88, 91,
+  //    92, 93, 94, 95, 96, 97, 98, 99, 102+
   //
   // IDs > 1000 are reserved for distribution custom engines.
   //
@@ -85,6 +83,11 @@ struct PrepopulatedEngine {
   //       of the current range or it will not be counted in stats.
   const int id;
 };
+
+// Prepopulated engines ////////////////////////////////////////////////////////
+
+// The following engines are included in country lists and are added to the list
+// of search engines on the first run depending on user's country.
 
 const PrepopulatedEngine abcsok = {
   L"ABC S\x00f8k",
@@ -1085,19 +1088,17 @@ const PrepopulatedEngine goo = {
 
 const PrepopulatedEngine google = {
   L"Google",
-  L"",
+  L"google.com",  // This will be dynamically updated by the TemplateURL system.
   "http://www.google.com/favicon.ico",
-  "{google:baseURL}search?{google:RLZ}{google:acceptedSuggestion}"
-      "{google:originalQueryForSuggestion}{google:searchFieldtrialParameter}"
-      "{google:instantFieldTrialGroupParameter}sourceid=chrome&"
-      "ie={inputEncoding}&q={searchTerms}",
+  "{google:baseURL}search?q={searchTerms}&{google:RLZ}"
+      "{google:acceptedSuggestion}{google:originalQueryForSuggestion}"
+      "{google:assistedQueryStats}{google:searchFieldtrialParameter}"
+      "sourceid=chrome&ie={inputEncoding}",
   "UTF-8",
   "{google:baseSuggestURL}search?{google:searchFieldtrialParameter}"
-      "{google:instantFieldTrialGroupParameter}client=chrome&hl={language}&"
-      "q={searchTerms}",
+      "client=chrome&hl={language}&q={searchTerms}",
   "{google:baseURL}webhp?{google:RLZ}sourceid=chrome-instant&"
-      "{google:instantFieldTrialGroupParameter}ie={inputEncoding}"
-      "{google:instantEnabledParameter}{searchTerms}",
+      "ie={inputEncoding}{google:instantEnabledParameter}{searchTerms}",
   SEARCH_ENGINE_GOOGLE,
   1,
 };
@@ -2102,6 +2103,168 @@ const PrepopulatedEngine zoznam = {
   85,
 };
 
+// UMA-only engines ////////////////////////////////////////////////////////////
+
+// The following engines are not included in any of the country lists. They
+// are listed in |kAllEngines|, however, so that GetEngineType can find them
+// for UMA reporting purposes.
+
+const PrepopulatedEngine all_by = {
+  L"ALL.BY",
+  L"all.by",
+  NULL,
+  "http://www.all.by/cgi-bin/search.cgi?mode=by&query={searchTerms}",
+  "UTF-8",
+  NULL,
+  NULL,
+  SEARCH_ENGINE_ALL_BY,
+  33,
+};
+
+const PrepopulatedEngine aport = {
+  L"Aport",
+  L"aport.ru",
+  NULL,
+  "http://www.aport.ru/search/?r={searchTerms}",
+  "UTF-8",
+  NULL,
+  NULL,
+  SEARCH_ENGINE_APORT,
+  34,
+};
+
+const PrepopulatedEngine avg = {
+  L"AVG Secure Search",
+  L"search.avg.com",
+  NULL,
+  "http://search.avg.com/route/?q={searchTerms}&lng={language}",
+  "UTF-8",
+  NULL,
+  NULL,
+  SEARCH_ENGINE_AVG,
+  50,
+};
+
+const PrepopulatedEngine avg_i = {
+  L"AVG Secure Search",
+  L"isearch.avg.com",
+  NULL,
+  "http://isearch.avg.com/search?q={searchTerms}&lng={language}",
+  "UTF-8",
+  NULL,
+  NULL,
+  SEARCH_ENGINE_AVG,
+  52,
+};
+
+const PrepopulatedEngine conduit = {
+  L"Conduit",
+  L"conduit.com",
+  NULL,
+  "http://search.conduit.com/Results.aspx?q={searchTerms}",
+  "UTF-8",
+  NULL,
+  NULL,
+  SEARCH_ENGINE_CONDUIT,
+  36,
+};
+
+const PrepopulatedEngine icq = {
+  L"ICQ",
+  L"icq.com",
+  NULL,
+  "http://search.icq.com/search/results.php?q={searchTerms}",
+  "UTF-8",
+  NULL,
+  NULL,
+  SEARCH_ENGINE_ICQ,
+  39,
+};
+
+const PrepopulatedEngine meta_ua = {
+  L"Meta-Ukraine",
+  L"meta.ua",
+  NULL,
+  "http://meta.ua/search.asp?q={searchTerms}",
+  "UTF-8",
+  NULL,
+  NULL,
+  SEARCH_ENGINE_META_UA,
+  40,
+};
+
+const PrepopulatedEngine metabot_ru = {
+  L"Metabot",
+  L"metabot.ru",
+  NULL,
+  "http://results.metabot.ru/?st={searchTerms}",
+  "UTF-8",
+  NULL,
+  NULL,
+  SEARCH_ENGINE_METABOT_RU,
+  42,
+};
+
+const PrepopulatedEngine nigma = {
+  L"Nigma",
+  L"nigma.ru",
+  NULL,
+  "http://www.nigma.ru/?s={searchTerms}",
+  "UTF-8",
+  NULL,
+  NULL,
+  SEARCH_ENGINE_NIGMA,
+  43,
+};
+
+const PrepopulatedEngine qip = {
+  L"QIP",
+  L"qip.ru",
+  NULL,
+  "http://search.qip.ru/?query={searchTerms}",
+  "UTF-8",
+  NULL,
+  NULL,
+  SEARCH_ENGINE_QIP,
+  47,
+};
+
+const PrepopulatedEngine ukr_net = {
+  L"Ukr.net",
+  L"ukr.net",
+  NULL,
+  "http://search.ukr.net/google/search.php?q={searchTerms}",
+  "UTF-8",
+  NULL,
+  NULL,
+  SEARCH_ENGINE_UKR_NET,
+  48,
+};
+
+const PrepopulatedEngine webalta = {
+  L"Webalta",
+  L"webalta.ru",
+  NULL,
+  "http://webalta.ru/search?q={searchTerms}",
+  "UTF-8",
+  NULL,
+  NULL,
+  SEARCH_ENGINE_WEBALTA,
+  49,
+};
+
+const PrepopulatedEngine yandex_tr = {
+  L"Yandex",
+  L"yandex.com.tr",
+  "http://yandex.com.tr/favicon.ico",
+  "http://yandex.com.tr/yandsearch?text={searchTerms}",
+  "UTF-8",
+  "http://suggest.yandex.net/suggest-ff.cgi?part={searchTerms}",
+  NULL,
+  SEARCH_ENGINE_YANDEX,
+  15,
+};
+
 // Lists of engines per country ////////////////////////////////////////////////
 
 // Put these in order with most interesting/important first.  The default will
@@ -2543,7 +2706,8 @@ const PrepopulatedEngine* engines_ZW[] =
 
 // A list of all the engines that we know about.
 const PrepopulatedEngine* kAllEngines[] =
-    { &abcsok, &altavista, &altavista_ar, &altavista_se, &aol, &araby, &ask,
+    { // Prepopulated engines:
+      &abcsok, &altavista, &altavista_ar, &altavista_se, &aol, &araby, &ask,
       &ask_de, &ask_es, &ask_it, &ask_nl, &ask_uk, &atlas_cz, &atlas_sk, &baidu,
       &bing, &bing_ar_XA, &bing_bg_BG, &bing_cs_CZ, &bing_da_DK, &bing_de_AT,
       &bing_de_CH, &bing_de_DE, &bing_el_GR, &bing_en_AU, &bing_en_CA,
@@ -2569,7 +2733,10 @@ const PrepopulatedEngine* kAllEngines[] =
       &yahoo_jp, &yahoo_kr, &yahoo_malaysia, &yahoo_mx, &yahoo_nl, &yahoo_no,
       &yahoo_nz, &yahoo_pe, &yahoo_ph, &yahoo_qc, &yahoo_ru, &yahoo_se,
       &yahoo_sg, &yahoo_th, &yahoo_tw, &yahoo_uk, &yahoo_ve, &yahoo_vn, &yamli,
-      &yandex_ru, &yandex_ua, &zoznam };
+      &yandex_ru, &yandex_ua, &zoznam,
+      // UMA-only engines:
+      &all_by, &aport, &avg, &avg_i, &conduit, &icq, &meta_ua, &metabot_ru,
+      &nigma, &qip, &ukr_net, &webalta, &yandex_tr };
 
 
 // Geographic mappings /////////////////////////////////////////////////////////
@@ -2580,6 +2747,7 @@ const PrepopulatedEngine* kAllEngines[] =
 // value we call the CountryID.
 
 const int kCountryIDUnknown = -1;
+const int kCountryIDNotSet = 0;
 
 inline int CountryCharsToCountryID(char c1, char c2) {
   return c1 << 8 | c2;
@@ -2687,9 +2855,12 @@ int GetCurrentCountryID() {
 
 #elif defined(OS_ANDROID)
 
+// Initialized by InitCountryCode().
+int g_country_code_at_install = kCountryIDNotSet;
+
 int GetCurrentCountryID() {
-  NOTIMPLEMENTED();
-  return kCountryIDUnknown;
+  DCHECK(g_country_code_at_install != kCountryIDNotSet);
+  return g_country_code_at_install;
 }
 
 #elif defined(OS_POSIX)
@@ -3140,52 +3311,45 @@ void RegisterUserPrefs(PrefService* prefs) {
 int GetDataVersion(PrefService* prefs) {
   // Increment this if you change the above data in ways that mean users with
   // existing data should get a new version.
-  const int kCurrentDataVersion = 38;
-  if (!prefs)
-    return kCurrentDataVersion;
-  // If a version number exist in the preferences file, it overrides the
-  // version of the built-in data.
-  int version =
-    prefs->GetInteger(prefs::kSearchProviderOverridesVersion);
-  return (version >= 0) ? version : kCurrentDataVersion;
+  const int kCurrentDataVersion = 40;
+  // Allow tests to override the local version.
+  return (prefs && prefs->HasPrefPath(prefs::kSearchProviderOverridesVersion)) ?
+      prefs->GetInteger(prefs::kSearchProviderOverridesVersion) :
+      kCurrentDataVersion;
 }
 
-TemplateURL* MakePrepopulatedTemplateURL(const string16& name,
+TemplateURL* MakePrepopulatedTemplateURL(Profile* profile,
+                                         const string16& name,
                                          const string16& keyword,
                                          const base::StringPiece& search_url,
-                                         const base::StringPiece& favicon_url,
                                          const base::StringPiece& suggest_url,
                                          const base::StringPiece& instant_url,
+                                         const base::StringPiece& favicon_url,
                                          const base::StringPiece& encoding,
                                          int id) {
-  TemplateURL* new_turl = new TemplateURL();
-  new_turl->SetURL(search_url.as_string(), 0, 0);
-  new_turl->SetFaviconURL(GURL(favicon_url.as_string()));
-  new_turl->SetSuggestionsURL(suggest_url.as_string(), 0, 0);
-  new_turl->SetInstantURL(instant_url.as_string(), 0, 0);
-  new_turl->set_short_name(name);
-  if (keyword.empty())
-    new_turl->set_autogenerate_keyword(true);
-  else
-    new_turl->set_keyword(keyword);
-  new_turl->set_show_in_default_list(true);
-  new_turl->set_safe_for_autoreplace(true);
-  new_turl->set_date_created(base::Time());
-  new_turl->set_last_modified(base::Time());
-  std::vector<std::string> turl_encodings;
-  turl_encodings.push_back(encoding.as_string());
-  new_turl->set_input_encodings(turl_encodings);
-  new_turl->SetPrepopulateId(id);
-  return new_turl;
+  TemplateURLData data;
+  data.short_name = name;
+  data.SetKeyword(keyword);
+  data.SetURL(search_url.as_string());
+  data.suggestions_url = suggest_url.as_string();
+  data.instant_url = instant_url.as_string();
+  data.favicon_url = GURL(favicon_url.as_string());
+  data.show_in_default_list = true;
+  data.safe_for_autoreplace = true;
+  data.input_encodings.push_back(encoding.as_string());
+  data.date_created = base::Time();
+  data.last_modified = base::Time();
+  data.prepopulate_id = id;
+  return new TemplateURL(profile, data);
 }
 
-void GetPrepopulatedTemplateFromPrefs(PrefService* prefs,
+void GetPrepopulatedTemplateFromPrefs(Profile* profile,
                                       std::vector<TemplateURL*>* t_urls) {
-  if (!prefs)
+  if (!profile)
     return;
 
   const ListValue* list =
-      prefs->GetList(prefs::kSearchProviderOverrides);
+      profile->GetPrefs()->GetList(prefs::kSearchProviderOverrides);
   if (!list)
     return;
 
@@ -3212,52 +3376,54 @@ void GetPrepopulatedTemplateFromPrefs(PrefService* prefs,
         engine->Get("encoding", &val) && val->GetAsString(&encoding) &&
         engine->Get("id", &val) && val->GetAsInteger(&id)) {
       // These next fields are not allowed to be empty.
-      if (name.empty() || search_url.empty() || favicon_url.empty() ||
-          encoding.empty())
+      if (name.empty() || keyword.empty() || search_url.empty() ||
+          favicon_url.empty() || encoding.empty())
         return;
     } else {
       // Got a parsing error. No big deal.
       continue;
     }
-    t_urls->push_back(MakePrepopulatedTemplateURL(name, keyword, search_url,
-        favicon_url, suggest_url, instant_url, encoding, id));
+    t_urls->push_back(MakePrepopulatedTemplateURL(profile, name, keyword,
+        search_url, suggest_url, instant_url, favicon_url, encoding, id));
   }
 }
 
 // The caller owns the returned TemplateURL.
 TemplateURL* MakePrepopulatedTemplateURLFromPrepopulateEngine(
+    Profile* profile,
     const PrepopulatedEngine& engine) {
-  return MakePrepopulatedTemplateURL(WideToUTF16(engine.name),
-      WideToUTF16(engine.keyword), engine.search_url, engine.favicon_url,
-      engine.suggest_url, engine.instant_url, engine.encoding, engine.id);
+  return MakePrepopulatedTemplateURL(profile, WideToUTF16(engine.name),
+      WideToUTF16(engine.keyword), engine.search_url, engine.suggest_url,
+      engine.instant_url, engine.favicon_url, engine.encoding, engine.id);
 }
 
-void GetPrepopulatedEngines(PrefService* prefs,
+void GetPrepopulatedEngines(Profile* profile,
                             std::vector<TemplateURL*>* t_urls,
                             size_t* default_search_provider_index) {
   // If there is a set of search engines in the preferences file, it overrides
   // the built-in set.
   *default_search_provider_index = 0;
-  GetPrepopulatedTemplateFromPrefs(prefs, t_urls);
+  GetPrepopulatedTemplateFromPrefs(profile, t_urls);
   if (!t_urls->empty())
     return;
 
   const PrepopulatedEngine** engines;
   size_t num_engines;
-  GetPrepopulationSetFromCountryID(prefs, &engines, &num_engines);
+  GetPrepopulationSetFromCountryID(profile ? profile->GetPrefs() : NULL,
+                                   &engines, &num_engines);
   for (size_t i = 0; i != num_engines; ++i) {
     t_urls->push_back(
-        MakePrepopulatedTemplateURLFromPrepopulateEngine(*engines[i]));
+        MakePrepopulatedTemplateURLFromPrepopulateEngine(profile, *engines[i]));
   }
 }
 
-TemplateURL* GetPrepopulatedDefaultSearch(PrefService* prefs) {
+TemplateURL* GetPrepopulatedDefaultSearch(Profile* profile) {
   TemplateURL* default_search_provider = NULL;
   ScopedVector<TemplateURL> loaded_urls;
   size_t default_search_index;
   // This could be more efficient.  We are loading all the URLs to only keep
   // the first one.
-  GetPrepopulatedEngines(prefs, &loaded_urls.get(), &default_search_index);
+  GetPrepopulatedEngines(profile, &loaded_urls.get(), &default_search_index);
   if (default_search_index < loaded_urls.size()) {
     default_search_provider = loaded_urls[default_search_index];
     loaded_urls.weak_erase(loaded_urls.begin() + default_search_index);
@@ -3265,51 +3431,58 @@ TemplateURL* GetPrepopulatedDefaultSearch(PrefService* prefs) {
   return default_search_provider;
 }
 
-static const PrepopulatedEngine* GetEngineForURL(const std::string& url) {
-  // We may get a valid URL, or we may get the Google prepopulate URL which
-  // can't be converted to a GURL.  Instead of forcing callers to substitute to
-  // ensure the provided URL is valid, just detect the second case directly
-  // here.
-  GURL as_gurl(url);
-  if (!as_gurl.is_valid()) {
-    // We only need to check Google, the other engines should all be valid URLs
-    // and thus won't ever string-compare successfully against |url|.
-    return (url == google.search_url) ? &google : NULL;
-  }
+SearchEngineType GetEngineType(const std::string& url) {
+  // Restricted to UI thread because ReplaceSearchTerms() is so restricted.
+  using content::BrowserThread;
+  DCHECK(!BrowserThread::IsWellKnownThread(BrowserThread::UI) ||
+         BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  // For all other cases, check using origins, in order to more aggressively
-  // match search engine types for data imported from other browsers.
+  // We may get a valid URL, or we may get the Google prepopulate URL which
+  // can't be converted directly to a GURL.  To handle the latter, we first
+  // construct a TemplateURL from the provided |url|, then call
+  // ReplaceSearchTerms().  This should return a valid URL even when the input
+  // has Google base URLs.
+  TemplateURLData data;
+  data.SetURL(url);
+  TemplateURL turl(NULL, data);
+  GURL as_gurl(turl.url_ref().ReplaceSearchTerms(
+      TemplateURLRef::SearchTermsArgs(ASCIIToUTF16("x"))));
+  if (!as_gurl.is_valid())
+    return SEARCH_ENGINE_OTHER;
+
+  // Check using origins, in order to more aggressively match search engine
+  // types for data imported from other browsers.
   //
   // First special-case Google, because the prepopulate URL for it will not
   // convert to a GURL and thus won't have an origin.  Instead see if the
   // incoming URL's host is "[*.]google.<TLD>".
-  if (google_util::IsGoogleHostname(as_gurl.host()))
-    return &google;
+  if (google_util::IsGoogleHostname(as_gurl.host(),
+                                    google_util::DISALLOW_SUBDOMAIN))
+    return google.type;
 
   // Now check the rest of the prepopulate data.
   GURL origin(as_gurl.GetOrigin());
   for (size_t i = 0; i < arraysize(kAllEngines); ++i) {
     GURL engine_url(kAllEngines[i]->search_url);
     if (engine_url.is_valid() && (origin == engine_url.GetOrigin()))
-      return kAllEngines[i];
+      return kAllEngines[i]->type;
   }
 
-  return NULL;
+  return SEARCH_ENGINE_OTHER;
 }
 
-string16 GetEngineName(const std::string& url) {
-  const PrepopulatedEngine* engine = GetEngineForURL(url);
-  if (engine)
-    return WideToUTF16(engine->name);
-  GURL as_gurl(url);
-  return (as_gurl.is_valid() && !as_gurl.host().empty()) ?
-      UTF8ToUTF16(as_gurl.host()) :
-      l10n_util::GetStringUTF16(IDS_UNKNOWN_SEARCH_ENGINE_NAME);
+#if defined(OS_ANDROID)
+
+void InitCountryCode(const std::string& country_code) {
+  if (country_code.size() != 2) {
+    DLOG(ERROR) << "Invalid country code: " << country_code;
+    g_country_code_at_install = kCountryIDUnknown;
+  } else {
+    g_country_code_at_install =
+        CountryCharsToCountryIDWithUpdate(country_code[0], country_code[1]);
+  }
 }
 
-SearchEngineType GetEngineType(const std::string& url) {
-  const PrepopulatedEngine* engine = GetEngineForURL(url);
-  return engine ? engine->type : SEARCH_ENGINE_OTHER;
-}
+#endif
 
 }  // namespace TemplateURLPrepopulateData

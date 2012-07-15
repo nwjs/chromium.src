@@ -73,15 +73,17 @@
 #include "base/win/scoped_com_initializer.h"
 #include "base/win/scoped_comptr.h"
 #include "base/win/scoped_handle.h"
-#include "media/audio/audio_io.h"
+#include "media/audio/audio_input_stream_impl.h"
 #include "media/audio/audio_parameters.h"
 #include "media/base/media_export.h"
+
+namespace media {
 
 class AudioManagerWin;
 
 // AudioInputStream implementation using Windows Core Audio APIs.
 class MEDIA_EXPORT WASAPIAudioInputStream
-    : public AudioInputStream,
+    : public AudioInputStreamImpl,
       public base::DelegateSimpleThread::Delegate,
       NON_EXPORTED_BASE(public base::NonThreadSafe) {
  public:
@@ -209,5 +211,7 @@ class MEDIA_EXPORT WASAPIAudioInputStream
 
   DISALLOW_COPY_AND_ASSIGN(WASAPIAudioInputStream);
 };
+
+}  // namespace media
 
 #endif  // MEDIA_AUDIO_WIN_AUDIO_LOW_LATENCY_INPUT_WIN_H_

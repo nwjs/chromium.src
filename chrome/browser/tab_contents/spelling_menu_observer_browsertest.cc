@@ -16,6 +16,7 @@
 #include "chrome/test/base/testing_profile.h"
 
 using content::RenderViewHost;
+using content::WebContents;
 
 namespace {
 
@@ -55,6 +56,7 @@ class MockRenderViewContextMenu : public RenderViewContextMenuProxy {
                               bool hidden,
                               const string16& title) OVERRIDE;
   virtual RenderViewHost* GetRenderViewHost() const OVERRIDE;
+  virtual WebContents* GetWebContents() const OVERRIDE;
   virtual Profile* GetProfile() const OVERRIDE;
 
   // Attaches a RenderViewContextMenuObserver to be tested.
@@ -154,6 +156,10 @@ void MockRenderViewContextMenu::UpdateMenuItem(int command_id,
 }
 
 RenderViewHost* MockRenderViewContextMenu::GetRenderViewHost() const {
+  return NULL;
+}
+
+WebContents* MockRenderViewContextMenu::GetWebContents() const {
   return NULL;
 }
 
@@ -287,6 +293,7 @@ IN_PROC_BROWSER_TEST_F(SpellingMenuObserverTest, EnableSpellingService) {
       new SpellingMenuObserver(menu.get()));
   menu->SetObserver(observer.get());
   menu->GetPrefs()->SetBoolean(prefs::kSpellCheckUseSpellingService, true);
+  menu->GetPrefs()->SetString(prefs::kSpellCheckDictionary, "");
 
   content::ContextMenuParams params;
   params.is_editable = true;

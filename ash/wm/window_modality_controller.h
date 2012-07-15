@@ -4,11 +4,18 @@
 
 #ifndef ASH_WM_WINDOW_MODALITY_CONTROLLER_H_
 #define ASH_WM_WINDOW_MODALITY_CONTROLLER_H_
-#pragma once
+
+#include <vector>
 
 #include "ash/ash_export.h"
 #include "base/compiler_specific.h"
+#include "ui/aura/env_observer.h"
 #include "ui/aura/event_filter.h"
+#include "ui/aura/window_observer.h"
+
+namespace aura {
+class LocatedEvent;
+}
 
 namespace ash {
 
@@ -22,8 +29,10 @@ namespace internal {
 
 // WindowModalityController is an event filter that consumes events sent to
 // windows that are the transient parents of window-modal windows. This filter
-// must be added to the RootWindowEventFilter so that activation works properly.
-class WindowModalityController : public aura::EventFilter {
+// must be added to the CompoundEventFilter so that activation works properly.
+class WindowModalityController : public aura::EventFilter,
+                                 public aura::EnvObserver,
+                                 public aura::WindowObserver {
  public:
   WindowModalityController();
   virtual ~WindowModalityController();
@@ -39,7 +48,22 @@ class WindowModalityController : public aura::EventFilter {
       aura::Window* target,
       aura::GestureEvent* event) OVERRIDE;
 
+  // Overridden from aura::EnvObserver:
+  virtual void OnWindowInitialized(aura::Window* window) OVERRIDE;
+
+  // Overridden from aura::WindowObserver:
+  virtual void OnWindowVisibilityChanged(aura::Window* window,
+                                         bool visible) OVERRIDE;
+  virtual void OnWindowDestroyed(aura::Window* window) OVERRIDE;
+
  private:
+  // Processes a mouse/touch event, and returns true if the event should be
+  // consumed.
+  bool ProcessLocatedEvent(aura::Window* target,
+                           aura::LocatedEvent* event);
+
+  std::vector<aura::Window*> windows_;
+
   DISALLOW_COPY_AND_ASSIGN(WindowModalityController);
 };
 

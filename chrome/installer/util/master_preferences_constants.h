@@ -7,7 +7,6 @@
 
 #ifndef CHROME_INSTALLER_UTIL_MASTER_PREFERENCES_CONSTANTS_H_
 #define CHROME_INSTALLER_UTIL_MASTER_PREFERENCES_CONSTANTS_H_
-#pragma once
 
 namespace installer {
 namespace master_preferences {
@@ -52,8 +51,6 @@ extern const char kDistroShowWelcomePage[];
 extern const char kDistroSkipFirstRunPref[];
 // Boolean. Do not show first run bubble, even if it would otherwise be shown.
 extern const char kDistroSuppressFirstRunBubble[];
-// Boolean. Do not create Chrome desktop shortcuts. Cmd line override present.
-extern const char kDoNotCreateShortcuts[];
 // Boolean. Do not launch Chrome after first install. Cmd line override present.
 extern const char kDoNotLaunchChrome[];
 // Boolean. Do not register with Google Update to have Chrome launched after

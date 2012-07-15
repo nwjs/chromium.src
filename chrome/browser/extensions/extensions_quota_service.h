@@ -13,7 +13,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSIONS_QUOTA_SERVICE_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSIONS_QUOTA_SERVICE_H_
-#pragma once
 
 #include <list>
 #include <map>
@@ -30,6 +29,10 @@
 class ExtensionFunction;
 class QuotaLimitHeuristic;
 typedef std::list<QuotaLimitHeuristic*> QuotaLimitHeuristics;
+
+namespace extensions {
+class TestResetQuotaFunction;
+}
 
 // The ExtensionsQuotaService takes care that calls to certain extension
 // functions do not exceed predefined quotas.
@@ -54,7 +57,7 @@ class ExtensionsQuotaService : public base::NonThreadSafe {
   bool Assess(const std::string& extension_id, ExtensionFunction* function,
               const ListValue* args, const base::TimeTicks& event_time);
  private:
-  friend class ExtensionTestQuotaResetFunction;
+  friend class extensions::TestResetQuotaFunction;
   typedef std::string ExtensionId;
   typedef std::string FunctionName;
   // All QuotaLimitHeuristic instances in this map are owned by us.

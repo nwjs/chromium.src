@@ -4,12 +4,11 @@
 
 #ifndef CHROME_BROWSER_NET_CRL_SET_FETCHER_H_
 #define CHROME_BROWSER_NET_CRL_SET_FETCHER_H_
-#pragma once
 
 #include <string>
 
+#include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/time.h"
 #include "chrome/browser/component_updater/component_updater_service.h"
 
@@ -29,7 +28,6 @@ class CRLSetFetcher : public ComponentInstaller,
                       public base::RefCountedThreadSafe<CRLSetFetcher> {
  public:
   CRLSetFetcher();
-  virtual ~CRLSetFetcher();
 
   void StartInitialLoad(ComponentUpdateService* cus);
 
@@ -39,6 +37,10 @@ class CRLSetFetcher : public ComponentInstaller,
                        const FilePath& unpack_path) OVERRIDE;
 
  private:
+  friend class base::RefCountedThreadSafe<CRLSetFetcher>;
+
+  virtual ~CRLSetFetcher();
+
   // GetCRLSetFilePath gets the path of the CRL set file in the user data
   // dir.
   bool GetCRLSetFilePath(FilePath* path) const;

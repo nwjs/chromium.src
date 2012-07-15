@@ -4,14 +4,13 @@
 
 #ifndef CHROME_BROWSER_UI_GTK_TABS_TAB_GTK_H_
 #define CHROME_BROWSER_UI_GTK_TABS_TAB_GTK_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/memory/weak_ptr.h"
 #include "base/message_loop.h"
-#include "chrome/browser/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/gtk/tabs/tab_renderer_gtk.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "ui/base/gtk/gtk_signal.h"
 
 class TabStripMenuController;
@@ -84,7 +83,7 @@ class TabGtk : public TabRendererGtk,
     virtual bool HasAvailableDragActions() const = 0;
 
     // Returns the theme provider for icons and colors.
-    virtual ThemeServiceGtk* GetThemeProvider() = 0;
+    virtual GtkThemeService* GetThemeProvider() = 0;
 
     // Returns a context menu controller for |tab|. Caller takes ownership of
     // the pointed object.

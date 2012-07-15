@@ -12,18 +12,18 @@
 #include "base/scoped_temp_dir.h"
 #include "base/stl_util.h"
 #include "base/string_number_conversions.h"
-#include "sync/syncable/directory_backing_store.h"
-#include "sync/syncable/on_disk_directory_backing_store.h"
-#include "sync/syncable/syncable-inl.h"
-#include "sync/syncable/syncable.h"
-#include "sync/test/test_directory_backing_store.h"
-#include "sync/util/time.h"
 #include "sql/connection.h"
 #include "sql/statement.h"
 #include "sync/protocol/bookmark_specifics.pb.h"
 #include "sync/protocol/sync.pb.h"
+#include "sync/syncable/directory_backing_store.h"
+#include "sync/syncable/on_disk_directory_backing_store.h"
+#include "sync/syncable/syncable-inl.h"
+#include "sync/test/test_directory_backing_store.h"
+#include "sync/util/time.h"
 #include "testing/gtest/include/gtest/gtest-param-test.h"
 
+namespace syncer {
 namespace syncable {
 
 extern const int32 kCurrentDBVersion;
@@ -288,7 +288,7 @@ std::map<int64, base::Time> GetExpectedMetaTimes() {
            expected_meta_proto_times.begin();
        it != expected_meta_proto_times.end(); ++it) {
     expected_meta_times[it->first] =
-        browser_sync::ProtoTimeToTime(it->second);
+        syncer::ProtoTimeToTime(it->second);
   }
   return expected_meta_times;
 }
@@ -328,8 +328,8 @@ std::map<int64, int64> GetMetaProtoTimes(sql::Connection *db) {
       << t1_expr << " and " << t2_expr
       << " (internal values: " << t1.ToInternalValue()
       << " and " << t2.ToInternalValue()
-      << ") (proto time: " << browser_sync::TimeToProtoTime(t1)
-      << " and " << browser_sync::TimeToProtoTime(t2)
+      << ") (proto time: " << syncer::TimeToProtoTime(t1)
+      << " and " << syncer::TimeToProtoTime(t2)
       << ") do not match";
 }
 
@@ -1952,25 +1952,25 @@ TEST_P(MigrationTest, ToCurrentVersion) {
 
   // Check download_progress state (v75 migration)
   ASSERT_EQ(694,
-      dir_info.kernel_info.download_progress[syncable::BOOKMARKS]
+      dir_info.kernel_info.download_progress[syncer::BOOKMARKS]
       .timestamp_token_for_migration());
   ASSERT_FALSE(
-      dir_info.kernel_info.download_progress[syncable::BOOKMARKS]
+      dir_info.kernel_info.download_progress[syncer::BOOKMARKS]
       .has_token());
   ASSERT_EQ(32904,
-      dir_info.kernel_info.download_progress[syncable::BOOKMARKS]
+      dir_info.kernel_info.download_progress[syncer::BOOKMARKS]
       .data_type_id());
   ASSERT_FALSE(
-      dir_info.kernel_info.download_progress[syncable::THEMES]
+      dir_info.kernel_info.download_progress[syncer::THEMES]
       .has_timestamp_token_for_migration());
   ASSERT_TRUE(
-      dir_info.kernel_info.download_progress[syncable::THEMES]
+      dir_info.kernel_info.download_progress[syncer::THEMES]
       .has_token());
   ASSERT_TRUE(
-      dir_info.kernel_info.download_progress[syncable::THEMES]
+      dir_info.kernel_info.download_progress[syncer::THEMES]
       .token().empty());
   ASSERT_EQ(41210,
-      dir_info.kernel_info.download_progress[syncable::THEMES]
+      dir_info.kernel_info.download_progress[syncer::THEMES]
       .data_type_id());
 
   // Check metas
@@ -2160,3 +2160,4 @@ TEST_F(DirectoryBackingStoreTest, GenerateCacheGUID) {
 }
 
 }  // namespace syncable
+}  // namespace syncer

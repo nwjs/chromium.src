@@ -80,8 +80,9 @@ void EncoderRowBased::Encode(
 
 void EncoderRowBased::EncodeRect(const SkIRect& rect, bool last) {
   CHECK(capture_data_->data_planes().data[0]);
+  CHECK_EQ(capture_data_->pixel_format(), media::VideoFrame::RGB32);
   const int strides = capture_data_->data_planes().strides[0];
-  const int bytes_per_pixel = GetBytesPerPixel(capture_data_->pixel_format());
+  const int bytes_per_pixel = 4;
   const int row_size = bytes_per_pixel * rect.width();
 
   compressor_->Reset();
@@ -123,6 +124,11 @@ void EncoderRowBased::EncodeRect(const SkIRect& rect, bool last) {
       packet->set_capture_time_ms(capture_data_->capture_time_ms());
       packet->set_client_sequence_number(
           capture_data_->client_sequence_number());
+      SkIPoint dpi(capture_data_->dpi());
+      if (dpi.x())
+        packet->mutable_format()->set_x_dpi(dpi.x());
+      if (dpi.y())
+        packet->mutable_format()->set_y_dpi(dpi.y());
       if (last)
         packet->set_flags(packet->flags() | VideoPacket::LAST_PARTITION);
       DCHECK(row_pos == row_size);

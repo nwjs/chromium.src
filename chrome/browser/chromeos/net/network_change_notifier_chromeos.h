@@ -4,13 +4,12 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_NET_NETWORK_CHANGE_NOTIFIER_CHROMEOS_H_
 #define CHROME_BROWSER_CHROMEOS_NET_NETWORK_CHANGE_NOTIFIER_CHROMEOS_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/chromeos/cros/network_library.h"
-#include "chrome/browser/chromeos/dbus/power_manager_client.h"
+#include "chromeos/dbus/power_manager_client.h"
 #include "net/base/network_change_notifier.h"
 
 namespace chromeos {
@@ -43,7 +42,8 @@ class NetworkChangeNotifierChromeos
   virtual void SystemResumed() OVERRIDE;
 
   // NetworkChangeNotifier overrides.
-  virtual bool IsCurrentlyOffline() const OVERRIDE;
+  virtual net::NetworkChangeNotifier::ConnectionType
+      GetCurrentConnectionType() const OVERRIDE;
 
   // NetworkManagerObserver overrides:
   virtual void OnNetworkManagerChanged(chromeos::NetworkLibrary* obj) OVERRIDE;
@@ -53,8 +53,8 @@ class NetworkChangeNotifierChromeos
                                 const chromeos::Network* network) OVERRIDE;
 
   // Initiate online status change reporting.
-  void ReportOnlineStateChange(bool is_online);
-  void ReportOnlineStateChangeOnUIThread();
+  void ReportConnectionChange(bool is_online);
+  void ReportConnectionChangeOnUIThread();
   // Callback from online_notification_task_ when online state notification
   // is actually scheduled.
   void OnOnlineStateNotificationFired();
@@ -69,10 +69,16 @@ class NetworkChangeNotifierChromeos
   // manager.
   static void UpdateInitialState(NetworkChangeNotifierChromeos* self);
 
+  // Gets connection type for given |network|.
+  static net::NetworkChangeNotifier::ConnectionType GetNetworkConnectionType(
+      const chromeos::Network* network);
+
   // True if we previously had an active network around.
   bool has_active_network_;
   // Current active network's connection state.
   chromeos::ConnectionState connection_state_;
+  // Current active network's connection type.
+  net::NetworkChangeNotifier::ConnectionType connection_type_;
   // Current active network's service path.
   std::string service_path_;
   // Current active network's IP address.

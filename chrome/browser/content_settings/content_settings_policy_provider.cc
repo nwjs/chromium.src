@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -24,7 +24,7 @@ using content::BrowserThread;
 namespace {
 
 // The preferences used to manage ContentSettingsTypes.
-const char* kPrefToManageType[CONTENT_SETTINGS_NUM_TYPES] = {
+const char* kPrefToManageType[] = {
   prefs::kManagedDefaultCookiesSetting,
   prefs::kManagedDefaultImagesSetting,
   prefs::kManagedDefaultJavaScriptSetting,
@@ -35,7 +35,13 @@ const char* kPrefToManageType[CONTENT_SETTINGS_NUM_TYPES] = {
   NULL,  // No policy for default value of content type intents
   NULL,  // No policy for default value of content type auto-select-certificate
   NULL,  // No policy for default value of fullscreen requests
+  NULL,  // No policy for default value of mouse lock requests
+  NULL,  // No policy for default value of mixed script blocking
+  prefs::kManagedDefaultMediaStreamSetting,
+  NULL,  // No policy for default value of protocol handlers
 };
+COMPILE_ASSERT(arraysize(kPrefToManageType) == CONTENT_SETTINGS_NUM_TYPES,
+               managed_content_settings_pref_names_array_size_incorrect);
 
 struct PrefsForManagedContentSettingsMapEntry {
   const char* pref_name;
@@ -157,11 +163,12 @@ void PolicyProvider::RegisterUserPrefs(PrefService* prefs) {
   prefs->RegisterIntegerPref(prefs::kManagedDefaultNotificationsSetting,
                              CONTENT_SETTING_DEFAULT,
                              PrefService::UNSYNCABLE_PREF);
+  prefs->RegisterIntegerPref(prefs::kManagedDefaultMediaStreamSetting,
+                             CONTENT_SETTING_DEFAULT,
+                             PrefService::UNSYNCABLE_PREF);
 }
 
 PolicyProvider::PolicyProvider(PrefService* prefs) : prefs_(prefs) {
-  DCHECK_EQ(arraysize(kPrefToManageType),
-            static_cast<size_t>(CONTENT_SETTINGS_NUM_TYPES));
   ReadManagedDefaultSettings();
   ReadManagedContentSettings(false);
 
@@ -194,6 +201,7 @@ PolicyProvider::PolicyProvider(PrefService* prefs) : prefs_(prefs) {
   pref_change_registrar_.Add(prefs::kManagedDefaultPopupsSetting, this);
   pref_change_registrar_.Add(prefs::kManagedDefaultGeolocationSetting, this);
   pref_change_registrar_.Add(prefs::kManagedDefaultNotificationsSetting, this);
+  pref_change_registrar_.Add(prefs::kManagedDefaultMediaStreamSetting, this);
 }
 
 PolicyProvider::~PolicyProvider() {
@@ -229,7 +237,11 @@ void PolicyProvider::GetContentSettingsFromPreferences(
 
     for (size_t j = 0; j < pattern_str_list->GetSize(); ++j) {
       std::string original_pattern_str;
-      pattern_str_list->GetString(j, &original_pattern_str);
+      if (!pattern_str_list->GetString(j, &original_pattern_str)) {
+        NOTREACHED();
+        continue;
+      }
+
       PatternPair pattern_pair = ParsePatternString(original_pattern_str);
       // Ignore invalid patterns.
       if (!pattern_pair.first.IsValid()) {
@@ -294,10 +306,13 @@ void PolicyProvider::GetAutoSelectCertificateSettingsFromPreferences(
   // }
   for (size_t j = 0; j < pattern_filter_str_list->GetSize(); ++j) {
     std::string pattern_filter_json;
-    pattern_filter_str_list->GetString(j, &pattern_filter_json);
+    if (!pattern_filter_str_list->GetString(j, &pattern_filter_json)) {
+      NOTREACHED();
+      continue;
+    }
 
-    scoped_ptr<base::Value> value(
-        base::JSONReader::Read(pattern_filter_json, true));
+    scoped_ptr<base::Value> value(base::JSONReader::Read(pattern_filter_json,
+        base::JSON_ALLOW_TRAILING_COMMAS));
     if (!value.get()) {
       VLOG(1) << "Ignoring invalid certificate auto select setting. Reason:"
                  " Invalid JSON format: " << pattern_filter_json;
@@ -428,6 +443,8 @@ void PolicyProvider::Observe(int type,
       UpdateManagedDefaultSetting(CONTENT_SETTINGS_TYPE_GEOLOCATION);
     } else if (*name == prefs::kManagedDefaultNotificationsSetting) {
       UpdateManagedDefaultSetting(CONTENT_SETTINGS_TYPE_NOTIFICATIONS);
+    } else if (*name == prefs::kManagedDefaultMediaStreamSetting) {
+      UpdateManagedDefaultSetting(CONTENT_SETTINGS_TYPE_MEDIASTREAM);
     } else if (*name == prefs::kManagedAutoSelectCertificateForUrls ||
         *name == prefs::kManagedCookiesAllowedForUrls ||
         *name == prefs::kManagedCookiesBlockedForUrls ||

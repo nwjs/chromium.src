@@ -17,6 +17,8 @@ using media::VideoFrame;
 
 namespace remoting {
 
+enum { kBytesPerPixelRGB32 = 4 };
+
 // Do not write LOG messages in this routine since it is called from within
 // our LOG message handler. Bad things will happen.
 std::string GetTimestampString() {
@@ -28,32 +30,16 @@ std::string GetTimestampString() {
                       tex.hour, tex.minute, tex.second);
 }
 
-int GetBytesPerPixel(VideoFrame::Format format) {
-  // Note: The order is important here for performance. This is sorted from the
-  // most common to the less common (PIXEL_FORMAT_ASCII is mostly used
-  // just for testing).
-  switch (format) {
-    case VideoFrame::RGB24:  return 3;
-    case VideoFrame::RGB565: return 2;
-    case VideoFrame::RGB32:  return 4;
-    case VideoFrame::ASCII:  return 1;
-    default:
-      NOTREACHED() << "Pixel format not supported";
-      return 0;
-  }
+int CalculateRGBOffset(int x, int y, int stride) {
+  return stride * y + kBytesPerPixelRGB32 * x;
 }
 
-// Helper methods to calculate plane offset given the coordinates.
-static int CalculateRGBOffset(int x, int y, int stride) {
-  return stride * y + GetBytesPerPixel(media::VideoFrame::RGB32) * x;
-}
-
-static int CalculateYOffset(int x, int y, int stride) {
+int CalculateYOffset(int x, int y, int stride) {
   DCHECK(((x & 1) == 0) && ((y & 1) == 0));
   return stride * y + x;
 }
 
-static int CalculateUVOffset(int x, int y, int stride) {
+int CalculateUVOffset(int x, int y, int stride) {
   DCHECK(((x & 1) == 0) && ((y & 1) == 0));
   return stride * y / 2 + x / 2;
 }
@@ -274,8 +260,46 @@ void CopyRGB32Rect(const uint8* source_buffer,
            source_stride,
            dest_buffer + dest_offset,
            dest_stride,
-           GetBytesPerPixel(media::VideoFrame::RGB32),
+           kBytesPerPixelRGB32,
            SkIRect::MakeWH(dest_rect.width(), dest_rect.height()));
+}
+
+std::string ReplaceLfByCrLf(const std::string& in) {
+  std::string out;
+  out.resize(2 * in.size());
+  char* out_p_begin = &out[0];
+  char* out_p = out_p_begin;
+  const char* in_p_begin = &in[0];
+  const char* in_p_end = &in[in.size()];
+  for (const char* in_p = in_p_begin; in_p < in_p_end; ++in_p) {
+    char c = *in_p;
+    if (c == '\n') {
+      *out_p++ = '\r';
+    }
+    *out_p++ = c;
+  }
+  out.resize(out_p - out_p_begin);
+  return out;
+}
+
+std::string ReplaceCrLfByLf(const std::string& in) {
+  std::string out;
+  out.resize(in.size());
+  char* out_p_begin = &out[0];
+  char* out_p = out_p_begin;
+  const char* in_p_begin = &in[0];
+  const char* in_p_end = &in[in.size()];
+  for (const char* in_p = in_p_begin; in_p < in_p_end; ++in_p) {
+    char c = *in_p;
+    if ((c == '\r') && (in_p + 1 < in_p_end) && (*(in_p + 1) == '\n')) {
+      *out_p++ = '\n';
+      ++in_p;
+    } else {
+      *out_p++ = c;
+    }
+  }
+  out.resize(out_p - out_p_begin);
+  return out;
 }
 
 }  // namespace remoting

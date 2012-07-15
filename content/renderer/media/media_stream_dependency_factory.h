@@ -8,9 +8,9 @@
 #include <string>
 
 #include "base/basictypes.h"
-#include "base/memory/scoped_ptr.h"
+#include "base/memory/ref_counted.h"
 #include "content/common/content_export.h"
-#include "third_party/libjingle/source/talk/app/webrtc/peerconnection.h"
+#include "third_party/libjingle/source/talk/app/webrtc/peerconnectioninterface.h"
 #include "webkit/glue/p2p_transport.h"
 
 namespace content {
@@ -34,10 +34,12 @@ class PeerConnection;
 class VideoCaptureModule;
 }
 
+class VideoCaptureImplManager;
+
 // Object factory for MediaStreamImpl and PeerConnectionHandler.
 class CONTENT_EXPORT MediaStreamDependencyFactory {
  public:
-  MediaStreamDependencyFactory();
+  explicit MediaStreamDependencyFactory(VideoCaptureImplManager* vc_manager);
   virtual ~MediaStreamDependencyFactory();
 
   // Creates and deletes |pc_factory_|, which in turn is used for
@@ -67,15 +69,23 @@ class CONTENT_EXPORT MediaStreamDependencyFactory {
   // Asks the PeerConnection factory to create a Local VideoTrack object.
   virtual talk_base::scoped_refptr<webrtc::LocalVideoTrackInterface>
       CreateLocalVideoTrack(const std::string& label,
-                            cricket::VideoCapturer* video_device);
+                            int video_session_id);
+
 
   // Asks the PeerConnection factory to create a Local AudioTrack object.
   virtual talk_base::scoped_refptr<webrtc::LocalAudioTrackInterface>
       CreateLocalAudioTrack(const std::string& label,
                             webrtc::AudioDeviceModule* audio_device);
 
+  virtual webrtc::SessionDescriptionInterface* CreateSessionDescription(
+      const std::string& sdp);
+  virtual webrtc::IceCandidateInterface* CreateIceCandidate(
+      const std::string& label,
+      const std::string& sdp);
+
  private:
   talk_base::scoped_refptr<webrtc::PeerConnectionFactoryInterface> pc_factory_;
+  scoped_refptr<VideoCaptureImplManager> vc_manager_;
 
   DISALLOW_COPY_AND_ASSIGN(MediaStreamDependencyFactory);
 };

@@ -4,12 +4,11 @@
 
 #ifndef CHROME_BROWSER_PREFS_TESTING_PREF_STORE_H_
 #define CHROME_BROWSER_PREFS_TESTING_PREF_STORE_H_
-#pragma once
 
 #include <string>
 
 #include "base/basictypes.h"
-#include "base/memory/scoped_ptr.h"
+#include "base/compiler_specific.h"
 #include "base/observer_list.h"
 #include "chrome/browser/prefs/pref_value_map.h"
 #include "chrome/common/persistent_pref_store.h"
@@ -20,7 +19,6 @@
 class TestingPrefStore : public PersistentPrefStore {
  public:
   TestingPrefStore();
-  virtual ~TestingPrefStore();
 
   // Overriden from PrefStore.
   virtual ReadResult GetValue(const std::string& key,
@@ -38,6 +36,7 @@ class TestingPrefStore : public PersistentPrefStore {
   virtual void SetValueSilently(const std::string& key,
                                 base::Value* value) OVERRIDE;
   virtual void RemoveValue(const std::string& key) OVERRIDE;
+  virtual void MarkNeedsEmptyValue(const std::string& key) OVERRIDE;
   virtual bool ReadOnly() const OVERRIDE;
   virtual PrefReadError GetReadError() const OVERRIDE;
   virtual PersistentPrefStore::PrefReadError ReadPrefs() OVERRIDE;
@@ -64,15 +63,15 @@ class TestingPrefStore : public PersistentPrefStore {
   // |TestingPrefStore|.
   virtual void set_read_only(bool read_only);
 
+ protected:
+  virtual ~TestingPrefStore();
+
  private:
   // Stores the preference values.
   PrefValueMap prefs_;
 
   // Flag that indicates if the PrefStore is read-only
   bool read_only_;
-
-  // Flag that indicates if the method WritePrefs was called.
-  bool prefs_written_;
 
   // Whether initialization has been completed.
   bool init_complete_;

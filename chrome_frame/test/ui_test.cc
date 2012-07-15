@@ -93,22 +93,28 @@ TEST_P(FullTabUITest, DISABLED_KeyboardBackForward) {
   EXPECT_CALL(ie_mock_, OnLoad(in_cf, StrEq(page2)))
       .WillOnce(testing::DoAll(
           SetFocusToRenderer(&ie_mock_),
-          DelaySendScanCode(&loop_, 1000, bkspace, simulate_input::NONE)));
+          DelaySendScanCode(&loop_,
+                            base::TimeDelta::FromSeconds(1),
+                            bkspace,
+                            simulate_input::NONE)));
 
   EXPECT_CALL(ie_mock_, OnLoad(in_cf, StrEq(page1)))
       .WillOnce(testing::DoAll(
           SetFocusToRenderer(&ie_mock_),
-          DelaySendScanCode(&loop_, 1000, bkspace, simulate_input::SHIFT)));
+          DelaySendScanCode(&loop_,
+                            base::TimeDelta::FromSeconds(1),
+                            bkspace,
+                            simulate_input::SHIFT)));
 
   EXPECT_CALL(ie_mock_, OnLoad(in_cf, StrEq(page2)))
       .WillOnce(CloseBrowserMock(&ie_mock_));
 
-  LaunchIENavigateAndLoop(page1,
-                          kChromeFrameVeryLongNavigationTimeoutInSeconds);
+  LaunchIENavigateAndLoop(page1, kChromeFrameVeryLongNavigationTimeout);
 }
 
 // Tests new window behavior with ctrl+N.
-TEST_P(FullTabUITest, CtrlN) {
+// Flaky due to DelaySendChar; see http://crbug.com/124244.
+TEST_P(FullTabUITest, FLAKY_CtrlN) {
   if (IsWorkstationLocked()) {
     LOG(ERROR) << "This test cannot be run in a locked workstation.";
     return;
@@ -129,7 +135,10 @@ TEST_P(FullTabUITest, CtrlN) {
       .WillOnce(testing::DoAll(
           WatchWindow(&win_observer_mock, kNewWindowTitlePattern, ""),
           SetFocusToRenderer(&ie_mock_),
-          DelaySendChar(&loop_, 1000, 'n', simulate_input::CONTROL)));
+          DelaySendChar(&loop_,
+                        base::TimeDelta::FromSeconds(1),
+                        'n',
+                        simulate_input::CONTROL)));
 
   // Watch for new window. It appears that the window close message cannot be
   // reliably delivered immediately upon receipt of the window open event.
@@ -142,11 +151,12 @@ TEST_P(FullTabUITest, CtrlN) {
       .Times(testing::AtMost(2));
 
   LaunchIENavigateAndLoop(GetSimplePageUrl(),
-                          kChromeFrameVeryLongNavigationTimeoutInSeconds);
+                          kChromeFrameVeryLongNavigationTimeout);
 }
 
 // Test that Ctrl+F opens the Find dialog.
-TEST_P(FullTabUITest, CtrlF) {
+// Flaky due to DelaySendChar; see http://crbug.com/124244.
+TEST_P(FullTabUITest, FLAKY_CtrlF) {
   if (IsWorkstationLocked()) {
     LOG(ERROR) << "This test cannot be run in a locked workstation.";
     return;
@@ -166,17 +176,21 @@ TEST_P(FullTabUITest, CtrlF) {
       .WillOnce(testing::DoAll(
           WatchWindow(&win_observer_mock, kFindDialogCaption, ""),
           SetFocusToRenderer(&ie_mock_),
-          DelaySendChar(&loop_, 1500, 'f', simulate_input::CONTROL)));
+          DelaySendChar(&loop_,
+                        base::TimeDelta::FromMilliseconds(1500),
+                        'f',
+                        simulate_input::CONTROL)));
 
   EXPECT_CALL(win_observer_mock, OnWindowOpen(_))
       .WillOnce(CloseBrowserMock(&ie_mock_));
 
   LaunchIENavigateAndLoop(GetSimplePageUrl(),
-                          kChromeFrameVeryLongNavigationTimeoutInSeconds);
+                          kChromeFrameVeryLongNavigationTimeout);
 }
 
 // Test that ctrl+r does cause a refresh.
-TEST_P(FullTabUITest, CtrlR) {
+// Flaky due to DelaySendChar; see http://crbug.com/124244.
+TEST_P(FullTabUITest, FLAKY_CtrlR) {
   if (IsWorkstationLocked()) {
     LOG(ERROR) << "This test cannot be run in a locked workstation.";
     return;
@@ -191,16 +205,21 @@ TEST_P(FullTabUITest, CtrlR) {
       .Times(testing::AtMost(2))
       .WillOnce(testing::DoAll(
           SetFocusToRenderer(&ie_mock_),
-          DelaySendChar(&loop_, 1000, 'r', simulate_input::CONTROL),
-          DelayCloseBrowserMock(&loop_, 4000, &ie_mock_)))
+          DelaySendChar(&loop_,
+                        base::TimeDelta::FromSeconds(1),
+                        'r',
+                        simulate_input::CONTROL),
+          DelayCloseBrowserMock(
+              &loop_, base::TimeDelta::FromSeconds(4), &ie_mock_)))
       .WillRepeatedly(testing::Return());
 
   LaunchIENavigateAndLoop(GetSimplePageUrl(),
-                          kChromeFrameVeryLongNavigationTimeoutInSeconds);
+                          kChromeFrameVeryLongNavigationTimeout);
 }
 
 // Test window close with ctrl+w.
-TEST_P(FullTabUITest, CtrlW) {
+// Flaky due to DelaySendChar; see http://crbug.com/124244.
+TEST_P(FullTabUITest, FLAKY_CtrlW) {
   if (IsWorkstationLocked()) {
     LOG(ERROR) << "This test cannot be run in a locked workstation.";
     return;
@@ -210,14 +229,18 @@ TEST_P(FullTabUITest, CtrlW) {
                                StrEq(GetSimplePageUrl())))
       .WillOnce(testing::DoAll(
           SetFocusToRenderer(&ie_mock_),
-          DelaySendChar(&loop_, 1000, 'w', simulate_input::CONTROL)));
+          DelaySendChar(&loop_,
+                        base::TimeDelta::FromSeconds(1),
+                        'w',
+                        simulate_input::CONTROL)));
 
   LaunchIENavigateAndLoop(GetSimplePageUrl(),
-                          kChromeFrameVeryLongNavigationTimeoutInSeconds);
+                          kChromeFrameVeryLongNavigationTimeout);
 }
 
 // Test address bar navigation with Alt+d and URL.
-TEST_P(FullTabUITest, AltD) {
+// Flaky due to TypeUrlInAddressBar; see http://crbug.com/124244.
+TEST_P(FullTabUITest, FLAKY_AltD) {
   if (IsWorkstationLocked()) {
     LOG(ERROR) << "This test cannot be run in a locked workstation.";
     return;
@@ -227,14 +250,16 @@ TEST_P(FullTabUITest, AltD) {
                                StrEq(GetSimplePageUrl())))
       .WillOnce(testing::DoAll(
           SetFocusToRenderer(&ie_mock_),
-          TypeUrlInAddressBar(&loop_, GetLinkPageUrl(), 1500)));
+          TypeUrlInAddressBar(&loop_,
+                              GetLinkPageUrl(),
+                              base::TimeDelta::FromMilliseconds(1500))));
 
   EXPECT_CALL(ie_mock_, OnLoad(GetParam().invokes_cf(),
                                StrEq(GetLinkPageUrl())))
       .WillOnce(CloseBrowserMock(&ie_mock_));
 
   LaunchIENavigateAndLoop(GetSimplePageUrl(),
-                          kChromeFrameVeryLongNavigationTimeoutInSeconds);
+                          kChromeFrameVeryLongNavigationTimeout);
 }
 
 // Tests that the renderer has focus after navigation.
@@ -272,9 +297,10 @@ TEST_P(FullTabUITest, ViewSource) {
   VARIANT empty = base::win::ScopedVariant::kEmptyVariant;
   EXPECT_CALL(ie_mock_, OnLoad(in_cf,
                                StrEq(GetSimplePageUrl())))
-      .WillOnce(DelayExecCommand(&ie_mock_, &loop_, 0, &CGID_MSHTML,
-                                 static_cast<OLECMDID>(IDM_VIEWSOURCE),
-                                 OLECMDEXECOPT_DONTPROMPTUSER, &empty, &empty));
+      .WillOnce(DelayExecCommand(
+          &ie_mock_, &loop_, base::TimeDelta(), &CGID_MSHTML,
+          static_cast<OLECMDID>(IDM_VIEWSOURCE),
+          OLECMDEXECOPT_DONTPROMPTUSER, &empty, &empty));
 
   // Expect notification for view-source window, handle new window event
   // and attach a new ie_mock_ to the received web browser
@@ -338,7 +364,8 @@ TEST_P(FullTabUITest, TabCrashReload) {
   EXPECT_CALL(prop_listener, OnChanged(DISPID_READYSTATE))
       .WillOnce(DoAll(
           ExpectDocumentReadystate(&ie_mock_, READYSTATE_UNINITIALIZED),
-          DelayNavigateToCurrentUrl(&ie_mock_, &loop_, 10)));
+          DelayNavigateToCurrentUrl(
+              &ie_mock_, &loop_, base::TimeDelta::FromMilliseconds(10))));
 
   EXPECT_CALL(ie_mock_, OnLoad(_, StrEq(GetSimplePageUrl())))
       .WillOnce(CloseBrowserMock(&ie_mock_));
@@ -372,8 +399,9 @@ TEST_P(FullTabUITest, DISABLED_TabCrashRefresh) {
       .WillOnce(DoAll(
           DisconnectDocPropNotifySink(&prop_listener),
           ExpectDocumentReadystate(&ie_mock_, READYSTATE_UNINITIALIZED),
-          DelayExecCommand(&ie_mock_, &loop_, 10, static_cast<GUID*>(NULL),
-              OLECMDID_REFRESH, 0, &empty, &empty)));
+          DelayExecCommand(
+              &ie_mock_, &loop_, base::TimeDelta::FromMilliseconds(10),
+              static_cast<GUID*>(NULL), OLECMDID_REFRESH, 0, &empty, &empty)));
 
   EXPECT_CALL(ie_mock_, OnLoad(_, StrEq(GetSimplePageUrl())))
       .WillOnce(CloseBrowserMock(&ie_mock_));
@@ -459,7 +487,7 @@ class ContextMenuTest : public MockIEEventSinkTest, public testing::Test {
         .WillOnce(CloseWhenFileSaved(&ie_mock_, temp_file_path, 8000));
 
     LaunchIENavigateAndLoop(GetTestUrl(L"save_as_context_menu.html"),
-                            kChromeFrameVeryLongNavigationTimeoutInSeconds);
+                            kChromeFrameVeryLongNavigationTimeout);
     ASSERT_TRUE(file_util::DieFileDie(temp_file_path, false));
   }
 
@@ -585,7 +613,7 @@ TEST_F(ContextMenuTest, CFInspector) {
       .WillOnce(CloseBrowserMock(&ie_mock_));
 
   LaunchIENavigateAndLoop(GetSimplePageUrl(),
-                          kChromeFrameVeryLongNavigationTimeoutInSeconds);
+                          kChromeFrameVeryLongNavigationTimeout);
 }
 
 // http://code.google.com/p/chromium/issues/detail?id=83114
@@ -960,7 +988,9 @@ TEST_F(ContextMenuTest, FLAKY_CFTxtFieldRedo) {
   LaunchIEAndNavigate(context_menu_page_url);
 }
 
-TEST_F(ContextMenuTest, CFBackForward) {
+// Disabled because it seems to hang, causing the test process to timeout and
+// be killed; see http://crbug.com/121097.
+TEST_F(ContextMenuTest, DISABLED_CFBackForward) {
   std::wstring page1 = GetLinkPageUrl();
   std::wstring title1 = GetLinkPageTitle();
   std::wstring page2 = GetSimplePageUrl();
@@ -1030,8 +1060,7 @@ TEST_F(ContextMenuTest, CFBackForward) {
   EXPECT_CALL(ie_mock_, OnLoad(IN_CF, StrEq(page3)))
       .WillOnce(CloseBrowserMock(&ie_mock_));
 
-  LaunchIENavigateAndLoop(page1,
-                          kChromeFrameVeryLongNavigationTimeoutInSeconds);
+  LaunchIENavigateAndLoop(page1, kChromeFrameVeryLongNavigationTimeout);
 }
 
 }  // namespace chrome_frame_test

@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_MOCK_BROWSING_DATA_QUOTA_HELPER_H_
 #define CHROME_BROWSER_MOCK_BROWSING_DATA_QUOTA_HELPER_H_
-#pragma once
 
 #include <list>
 #include <string>
@@ -17,7 +16,6 @@ class MockBrowsingDataQuotaHelper : public BrowsingDataQuotaHelper {
   explicit MockBrowsingDataQuotaHelper(Profile* profile);
 
   virtual void StartFetching(const FetchResultCallback& callback) OVERRIDE;
-  virtual void CancelNotification() OVERRIDE;
   virtual void RevokeHostQuota(const std::string& host) OVERRIDE;
 
   void AddHost(const std::string& host,
@@ -31,7 +29,6 @@ class MockBrowsingDataQuotaHelper : public BrowsingDataQuotaHelper {
 
   FetchResultCallback callback_;
   std::list<QuotaInfo> response_;
-  Profile* profile_;
 };
 
 #endif  // CHROME_BROWSER_MOCK_BROWSING_DATA_QUOTA_HELPER_H_

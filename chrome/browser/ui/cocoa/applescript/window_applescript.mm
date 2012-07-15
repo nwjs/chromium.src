@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,15 +11,17 @@
 #import "chrome/browser/app_controller_mac.h"
 #import "chrome/browser/chrome_browser_application_mac.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_navigator.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/cocoa/applescript/constants_applescript.h"
 #include "chrome/browser/ui/cocoa/applescript/error_applescript.h"
 #import "chrome/browser/ui/cocoa/applescript/tab_applescript.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/web_contents.h"
 
@@ -69,7 +71,7 @@
 
   if ((self = [super init])) {
     browser_ = Browser::Create(aProfile);
-    browser_->NewTab();
+    chrome::NewTab(browser_);
     browser_->window()->Show();
     scoped_nsobject<NSNumber> numID(
         [[NSNumber alloc] initWithInt:browser_->session_id().id()]);
@@ -99,7 +101,7 @@
 - (NSWindow*)nativeHandle {
   // window() can be NULL during startup.
   if (browser_->window())
-    return browser_->window()->GetNativeHandle();
+    return browser_->window()->GetNativeWindow();
   return nil;
 }
 
@@ -116,7 +118,7 @@
   // Note: applescript is 1-based, that is lists begin with index 1.
   int atIndex = [anActiveTabIndex intValue] - 1;
   if (atIndex >= 0 && atIndex < browser_->tab_count())
-    browser_->ActivateTabAt(atIndex, true);
+    chrome::ActivateTabAt(browser_, atIndex, true);
   else
     AppleScript::SetError(AppleScript::errInvalidTabIndex);
 }
@@ -138,7 +140,7 @@
 - (TabAppleScript*)activeTab {
   TabAppleScript* currentTab =
       [[[TabAppleScript alloc]
-          initWithTabContent:browser_->GetSelectedTabContentsWrapper()]
+          initWithTabContent:chrome::GetActiveTabContents(browser_)]
               autorelease];
   [currentTab setContainer:self
                   property:AppleScript::kTabsProperty];
@@ -151,13 +153,13 @@
 
   for (int i = 0; i < browser_->tab_count(); ++i) {
     // Check to see if tab is closing.
-    if (browser_->GetWebContentsAt(i)->IsBeingDestroyed()) {
+    TabContents* tab_contents = chrome::GetTabContentsAt(browser_, i);
+    if (tab_contents->in_destructor()) {
       continue;
     }
 
     scoped_nsobject<TabAppleScript> tab(
-        [[TabAppleScript alloc]
-            initWithTabContent:(browser_->GetTabContentsWrapperAt(i))]);
+        [[TabAppleScript alloc] initWithTabContent:tab_contents]);
     [tab setContainer:self
              property:AppleScript::kTabsProperty];
     [tabs addObject:tab];
@@ -173,9 +175,10 @@
 
   // Set how long it takes a tab to be created.
   base::TimeTicks newTabStartTime = base::TimeTicks::Now();
-  TabContentsWrapper* contents =
-      browser_->AddSelectedTabWithURL(GURL(chrome::kChromeUINewTabURL),
-                                      content::PAGE_TRANSITION_TYPED);
+  TabContents* contents = chrome::AddSelectedTabWithURL(
+      browser_,
+      GURL(chrome::kChromeUINewTabURL),
+      content::PAGE_TRANSITION_TYPED);
   contents->web_contents()->SetNewTabStartTime(newTabStartTime);
   [aTab setTabContent:contents];
 }
@@ -188,12 +191,11 @@
 
   // Set how long it takes a tab to be created.
   base::TimeTicks newTabStartTime = base::TimeTicks::Now();
-  browser::NavigateParams params(browser_,
-                                 GURL(chrome::kChromeUINewTabURL),
-                                 content::PAGE_TRANSITION_TYPED);
+  chrome::NavigateParams params(browser_, GURL(chrome::kChromeUINewTabURL),
+                                content::PAGE_TRANSITION_TYPED);
   params.disposition = NEW_FOREGROUND_TAB;
   params.tabstrip_index = index;
-  browser::Navigate(&params);
+  chrome::Navigate(&params);
   params.target_contents->web_contents()->SetNewTabStartTime(
       newTabStartTime);
 
@@ -201,7 +203,7 @@
 }
 
 - (void)removeFromTabsAtIndex:(int)index {
-  browser_->CloseTabContents(browser_->GetWebContentsAt(index));
+  chrome::CloseWebContents(browser_, chrome::GetWebContentsAt(browser_, index));
 }
 
 - (NSNumber*)orderedIndex {

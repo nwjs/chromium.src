@@ -10,7 +10,6 @@
 #include "base/file_path.h"
 #include "base/memory/singleton.h"
 #include "base/observer_list.h"
-#include "base/string16.h"
 #include "base/synchronization/waitable_event.h"
 
 #include "remoting/host/wts_console_monitor_win.h"
@@ -44,12 +43,6 @@ class HostService : public WtsConsoleMonitor {
   // Notifies the service of changes in session state.
   void OnSessionChange();
 
-  // This routine registers the service with the service control manager.
-  int Install();
-
-  // This routine uninstalls the service previously regerested by Install().
-  int Remove();
-
   // This is a common entry point to the main service loop called by both
   // RunAsService() and RunInConsole().
   void RunMessageLoop();
@@ -63,7 +56,6 @@ class HostService : public WtsConsoleMonitor {
   int RunInConsole();
 
   static BOOL WINAPI ConsoleControlHandler(DWORD event);
-  static VOID CALLBACK OnServiceStopped(PVOID context);
 
   // The control handler of the service.
   static DWORD WINAPI ServiceControlHandler(DWORD control,
@@ -96,10 +88,7 @@ class HostService : public WtsConsoleMonitor {
   int (HostService::*run_routine_)();
 
   // The service name.
-  string16 service_name_;
-
-  // The service status structure.
-  SERVICE_STATUS service_status_;
+  std::wstring service_name_;
 
   // The service status handle.
   SERVICE_STATUS_HANDLE service_status_handle_;

@@ -9,15 +9,20 @@
 #include <vector>
 
 #include "base/json/json_reader.h"
+#include "base/json/json_writer.h"
+#include "base/lazy_instance.h"
 #include "base/logging.h"
+#include "base/string_number_conversions.h"
 #include "base/string_split.h"
 #include "base/string_util.h"
 #include "base/values.h"
 #include "chrome/common/extensions/api/generated_schemas.h"
 #include "chrome/common/extensions/extension.h"
-#include "chrome/common/extensions/extension_permission_set.h"
+#include "chrome/common/extensions/features/simple_feature_provider.h"
 #include "googleurl/src/gurl.h"
 #include "grit/common_resources.h"
+#include "grit/extensions_api_resources.h"
+#include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 
 using base::DictionaryValue;
@@ -30,76 +35,233 @@ using api::GeneratedSchemas;
 
 namespace {
 
+const char* kChildKinds[] = {
+  "functions",
+  "events"
+};
+
+// Returns true if |dict| has an unprivileged "true" property.
+bool IsUnprivileged(const DictionaryValue* dict) {
+  bool unprivileged = false;
+  return dict->GetBoolean("unprivileged", &unprivileged) && unprivileged;
+}
+
 // Returns whether the list at |name_space_node|.|child_kind| contains any
 // children with an { "unprivileged": true } property.
 bool HasUnprivilegedChild(const DictionaryValue* name_space_node,
                           const std::string& child_kind) {
   ListValue* child_list = NULL;
-  name_space_node->GetList(child_kind, &child_list);
-  if (!child_list)
-    return false;
+  DictionaryValue* child_dict = NULL;
 
-  for (size_t i = 0; i < child_list->GetSize(); ++i) {
-    DictionaryValue* item = NULL;
-    CHECK(child_list->GetDictionary(i, &item));
-    bool unprivileged = false;
-    if (item->GetBoolean("unprivileged", &unprivileged))
-      return unprivileged;
+  if (name_space_node->GetList(child_kind, &child_list)) {
+    for (size_t i = 0; i < child_list->GetSize(); ++i) {
+      DictionaryValue* item = NULL;
+      CHECK(child_list->GetDictionary(i, &item));
+      if (IsUnprivileged(item))
+        return true;
+    }
+  } else if (name_space_node->GetDictionary(child_kind, &child_dict)) {
+    for (DictionaryValue::Iterator it(*child_dict); it.HasNext();
+         it.Advance()) {
+      const DictionaryValue* item = NULL;
+      CHECK(it.value().GetAsDictionary(&item));
+      if (IsUnprivileged(item))
+        return true;
+    }
   }
 
   return false;
 }
 
 base::StringPiece ReadFromResource(int resource_id) {
-  return ResourceBundle::GetSharedInstance().GetRawDataResource(resource_id);
+  return ResourceBundle::GetSharedInstance().GetRawDataResource(
+      resource_id, ui::SCALE_FACTOR_NONE);
 }
 
-scoped_ptr<ListValue> LoadSchemaList(const base::StringPiece& schema) {
+scoped_ptr<ListValue> LoadSchemaList(const std::string& name,
+                                     const base::StringPiece& schema) {
   std::string error_message;
   scoped_ptr<Value> result(
       base::JSONReader::ReadAndReturnError(
-          schema.as_string(),
-          false, // allow trailing commas
+          schema,
+          base::JSON_PARSE_RFC | base::JSON_DETACHABLE_CHILDREN,  // options
           NULL,  // error code
           &error_message));
-  CHECK(result.get()) << error_message;
-  CHECK(result->IsType(Value::TYPE_LIST));
+
+  // Tracking down http://crbug.com/121424
+  char buf[128];
+  base::snprintf(buf, arraysize(buf), "%s: (%d) '%s'",
+      name.c_str(),
+      result.get() ? result->GetType() : -1,
+      error_message.c_str());
+
+  CHECK(result.get()) << error_message << " for schema " << schema;
+  CHECK(result->IsType(Value::TYPE_LIST)) << " for schema " << schema;
   return scoped_ptr<ListValue>(static_cast<ListValue*>(result.release()));
+}
+
+DictionaryValue* FindListItem(const ListValue* list,
+                              const std::string& property_name,
+                              const std::string& property_value) {
+  for (size_t i = 0; i < list->GetSize(); ++i) {
+    DictionaryValue* item = NULL;
+    CHECK(list->GetDictionary(i, &item))
+        << property_value << "/" << property_name;
+    std::string value;
+    if (item->GetString(property_name, &value) && value == property_value)
+      return item;
+  }
+
+  return NULL;
+}
+
+const DictionaryValue* GetSchemaChild(const DictionaryValue* schema_node,
+                                      const std::string& child_name) {
+  DictionaryValue* child_node = NULL;
+  for (size_t i = 0; i < arraysize(kChildKinds); ++i) {
+    ListValue* list_node = NULL;
+    if (!schema_node->GetList(kChildKinds[i], &list_node))
+      continue;
+    child_node = FindListItem(list_node, "name", child_name);
+    if (child_node)
+      return child_node;
+  }
+
+  return NULL;
+}
+
+struct Static {
+  Static()
+      : api(ExtensionAPI::CreateWithDefaultConfiguration()) {
+  }
+  scoped_ptr<ExtensionAPI> api;
+};
+
+base::LazyInstance<Static> g_lazy_instance = LAZY_INSTANCE_INITIALIZER;
+
+// If it exists and does not already specify a namespace, then the value stored
+// with key |key| in |schema| will be updated to |schema_namespace| + "." +
+// |schema[key]|.
+void MaybePrefixFieldWithNamespace(const std::string& schema_namespace,
+                                   DictionaryValue* schema,
+                                   const std::string& key) {
+  if (!schema->HasKey(key))
+    return;
+
+  std::string old_id;
+  CHECK(schema->GetString(key, &old_id));
+  if (old_id.find(".") == std::string::npos)
+    schema->SetString(key, schema_namespace + "." + old_id);
+}
+
+// Modify all "$ref" keys anywhere in |schema| to be prefxied by
+// |schema_namespace| if they do not already specify a namespace.
+void PrefixRefsWithNamespace(const std::string& schema_namespace,
+                             Value* value) {
+  if (value->IsType(Value::TYPE_LIST)) {
+    ListValue* list;
+    CHECK(value->GetAsList(&list));
+    for (ListValue::iterator i = list->begin(); i != list->end(); ++i) {
+      PrefixRefsWithNamespace(schema_namespace, *i);
+    }
+  } else if (value->IsType(Value::TYPE_DICTIONARY)) {
+    DictionaryValue* dict;
+    CHECK(value->GetAsDictionary(&dict));
+    MaybePrefixFieldWithNamespace(schema_namespace, dict, "$ref");
+    for (DictionaryValue::key_iterator i = dict->begin_keys();
+        i != dict->end_keys(); ++i) {
+      Value* next_value;
+      CHECK(dict->GetWithoutPathExpansion(*i, &next_value));
+      PrefixRefsWithNamespace(schema_namespace, next_value);
+    }
+  }
+}
+
+// Modify all objects in the "types" section of the schema to be prefixed by
+// |schema_namespace| if they do not already specify a namespace.
+void PrefixTypesWithNamespace(const std::string& schema_namespace,
+                              DictionaryValue* schema) {
+  if (!schema->HasKey("types"))
+    return;
+
+  // Add the namespace to all of the types defined in this schema
+  ListValue *types;
+  CHECK(schema->GetList("types", &types));
+  for (size_t i = 0; i < types->GetSize(); ++i) {
+    DictionaryValue *type;
+    CHECK(types->GetDictionary(i, &type));
+    MaybePrefixFieldWithNamespace(schema_namespace, type, "id");
+    MaybePrefixFieldWithNamespace(schema_namespace, type, "customBindings");
+  }
+}
+
+// Modify the schema so that all types are fully qualified.
+void PrefixWithNamespace(const std::string& schema_namespace,
+                         DictionaryValue* schema) {
+  PrefixTypesWithNamespace(schema_namespace, schema);
+  PrefixRefsWithNamespace(schema_namespace, schema);
 }
 
 }  // namespace
 
 // static
-ExtensionAPI* ExtensionAPI::GetInstance() {
-  return Singleton<ExtensionAPI>::get();
+ExtensionAPI* ExtensionAPI::GetSharedInstance() {
+  return g_lazy_instance.Get().api.get();
 }
 
-void ExtensionAPI::LoadSchema(const base::StringPiece& schema) {
-  scoped_ptr<ListValue> schema_list(LoadSchemaList(schema));
+// static
+ExtensionAPI* ExtensionAPI::CreateWithDefaultConfiguration() {
+  ExtensionAPI* api = new ExtensionAPI();
+  api->InitDefaultConfiguration();
+  return api;
+}
+
+// static
+void ExtensionAPI::SplitDependencyName(const std::string& full_name,
+                                       std::string* feature_type,
+                                       std::string* feature_name) {
+  size_t colon_index = full_name.find(':');
+  if (colon_index == std::string::npos) {
+    // TODO(aa): Remove this code when all API descriptions have been updated.
+    *feature_type = "api";
+    *feature_name = full_name;
+    return;
+  }
+
+  *feature_type = full_name.substr(0, colon_index);
+  *feature_name = full_name.substr(colon_index + 1);
+}
+
+void ExtensionAPI::LoadSchema(const std::string& name,
+                              const base::StringPiece& schema) {
+  scoped_ptr<ListValue> schema_list(LoadSchemaList(name, schema));
   std::string schema_namespace;
 
   while (!schema_list->empty()) {
-    const DictionaryValue* schema = NULL;
+    DictionaryValue* schema = NULL;
     {
       Value* value = NULL;
       schema_list->Remove(schema_list->GetSize() - 1, &value);
       CHECK(value->IsType(Value::TYPE_DICTIONARY));
-      schema = static_cast<const DictionaryValue*>(value);
+      schema = static_cast<DictionaryValue*>(value);
     }
 
     CHECK(schema->GetString("namespace", &schema_namespace));
+    PrefixWithNamespace(schema_namespace, schema);
     schemas_[schema_namespace] = make_linked_ptr(schema);
-    unloaded_schemas_.erase(schema_namespace);
+    CHECK_EQ(1u, unloaded_schemas_.erase(schema_namespace));
 
     // Populate |{completely,partially}_unprivileged_apis_|.
     //
     // For "partially", only need to look at functions/events; even though
     // there are unprivileged properties (e.g. in extensions), access to those
     // never reaches C++ land.
-    if (schema->HasKey("unprivileged")) {
+    bool unprivileged = false;
+    if (schema->GetBoolean("unprivileged", &unprivileged) && unprivileged) {
       completely_unprivileged_apis_.insert(schema_namespace);
     } else if (HasUnprivilegedChild(schema, "functions") ||
-               HasUnprivilegedChild(schema, "events")) {
+               HasUnprivilegedChild(schema, "events") ||
+               HasUnprivilegedChild(schema, "properties")) {
       partially_unprivileged_apis_.insert(schema_namespace);
     }
 
@@ -115,237 +277,338 @@ void ExtensionAPI::LoadSchema(const base::StringPiece& schema) {
       }
       url_matching_apis_[schema_namespace] = pattern_set;
     }
+
+    // Populate feature maps.
+    // TODO(aa): Consider not storing features that can never run on the current
+    // machine (e.g., because of platform restrictions).
+    bool uses_feature_system = false;
+    schema->GetBoolean("uses_feature_system", &uses_feature_system);
+    if (!uses_feature_system)
+      continue;
+
+    Feature* feature = new Feature();
+    feature->set_name(schema_namespace);
+    feature->Parse(schema);
+
+    FeatureMap* schema_features = new FeatureMap();
+    CHECK(features_.insert(
+        std::make_pair(schema_namespace,
+                       make_linked_ptr(schema_features))).second);
+    CHECK(schema_features->insert(
+        std::make_pair("", make_linked_ptr(feature))).second);
+
+    for (size_t i = 0; i < arraysize(kChildKinds); ++i) {
+      ListValue* child_list = NULL;
+      schema->GetList(kChildKinds[i], &child_list);
+      if (!child_list)
+        continue;
+
+      for (size_t j = 0; j < child_list->GetSize(); ++j) {
+        DictionaryValue* child = NULL;
+        CHECK(child_list->GetDictionary(j, &child));
+
+        scoped_ptr<Feature> child_feature(new Feature(*feature));
+        child_feature->Parse(child);
+        if (child_feature->Equals(*feature))
+          continue;  // no need to store no-op features
+
+        std::string child_name;
+        CHECK(child->GetString("name", &child_name));
+        child_feature->set_name(schema_namespace + "." + child_name);
+        CHECK(schema_features->insert(
+            std::make_pair(child_name,
+                           make_linked_ptr(child_feature.release()))).second);
+      }
+    }
   }
 }
 
 ExtensionAPI::ExtensionAPI() {
-  // Schemas to be loaded from resources.
-  unloaded_schemas_["app"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_APP);
-  unloaded_schemas_["bookmarks"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_BOOKMARKS);
-  unloaded_schemas_["browserAction"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_BROWSERACTION);
-  unloaded_schemas_["browsingData"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_BROWSINGDATA);
-  unloaded_schemas_["chromeAuthPrivate"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_CHROMEAUTHPRIVATE);
-  unloaded_schemas_["chromeosInfoPrivate"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_CHROMEOSINFOPRIVATE);
-  unloaded_schemas_["chromePrivate"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_CHROMEPRIVATE);
-  unloaded_schemas_["contentSettings"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_CONTENTSETTINGS);
-  unloaded_schemas_["contextMenus"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_CONTEXTMENUS);
-  unloaded_schemas_["cookies"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_COOKIES);
-  unloaded_schemas_["debugger"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_DEBUGGER);
-  unloaded_schemas_["devtools"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_DEVTOOLS);
-  unloaded_schemas_["experimental.accessibility"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_EXPERIMENTAL_ACCESSIBILITY);
-  unloaded_schemas_["experimental.app"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_EXPERIMENTAL_APP);
-  unloaded_schemas_["experimental.bookmarkManager"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_EXPERIMENTAL_BOOKMARKMANAGER);
-  unloaded_schemas_["experimental.declarative"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_EXPERIMENTAL_DECLARATIVE);
-  unloaded_schemas_["experimental.downloads"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_EXPERIMENTAL_DOWNLOADS);
-  unloaded_schemas_["experimental.extension"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_EXPERIMENTAL_EXTENSION);
-  unloaded_schemas_["experimental.fontSettings"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_EXPERIMENTAL_FONTSSETTINGS);
-  unloaded_schemas_["experimental.identity"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_EXPERIMENTAL_IDENTITY);
-  unloaded_schemas_["experimental.infobars"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_EXPERIMENTAL_INFOBARS);
-  unloaded_schemas_["experimental.input.ui"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_EXPERIMENTAL_INPUT_UI);
-  unloaded_schemas_["experimental.input.virtualKeyboard"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_EXPERIMENTAL_INPUT_VIRTUALKEYBOARD);
-  unloaded_schemas_["experimental.keybinding"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_EXPERIMENTAL_KEYBINDING);
-  unloaded_schemas_["experimental.managedMode"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_EXPERIMENTAL_MANAGEDMODE);
-  unloaded_schemas_["experimental.offscreenTabs"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_EXPERIMENTAL_OFFSCREENTABS);
-  unloaded_schemas_["experimental.processes"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_EXPERIMENTAL_PROCESSES);
-  unloaded_schemas_["experimental.rlz"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_EXPERIMENTAL_RLZ);
-  unloaded_schemas_["experimental.serial"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_EXPERIMENTAL_SERIAL);
-  unloaded_schemas_["experimental.socket"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_EXPERIMENTAL_SOCKET);
-  unloaded_schemas_["experimental.speechInput"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_EXPERIMENTAL_SPEECHINPUT);
-  unloaded_schemas_["experimental.webRequest"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_EXPERIMENTAL_WEBREQUEST);
-  unloaded_schemas_["extension"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_EXTENSION);
-  unloaded_schemas_["fileBrowserHandler"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_FILEBROWSERHANDLER);
-  unloaded_schemas_["fileBrowserPrivate"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_FILEBROWSERPRIVATE);
-  unloaded_schemas_["history"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_HISTORY);
-  unloaded_schemas_["i18n"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_I18N);
-  unloaded_schemas_["idle"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_IDLE);
-  unloaded_schemas_["input.ime"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_INPUT_IME);
-  unloaded_schemas_["inputMethodPrivate"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_INPUTMETHODPRIVATE);
-  unloaded_schemas_["management"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_MANAGEMENT);
-  unloaded_schemas_["mediaPlayerPrivate"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_MEDIAPLAYERPRIVATE);
-  unloaded_schemas_["metricsPrivate"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_METRICSPRIVATE);
-  unloaded_schemas_["offersPrivate"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_OFFERSPRIVATE);
-  unloaded_schemas_["omnibox"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_OMNIBOX);
-  unloaded_schemas_["pageAction"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_PAGEACTION);
-  unloaded_schemas_["pageActions"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_PAGEACTIONS);
-  unloaded_schemas_["pageCapture"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_PAGECAPTURE);
-  unloaded_schemas_["permissions"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_PERMISSIONS);
-  unloaded_schemas_["privacy"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_PRIVACY);
-  unloaded_schemas_["proxy"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_PROXY);
-  unloaded_schemas_["storage"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_STORAGE);
-  unloaded_schemas_["systemPrivate"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_SYSTEMPRIVATE);
-  unloaded_schemas_["tabs"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_TABS);
-  unloaded_schemas_["terminalPrivate"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_TERMINALPRIVATE);
-  unloaded_schemas_["test"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_TEST);
-  unloaded_schemas_["topSites"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_TOPSITES);
-  unloaded_schemas_["ttsEngine"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_TTSENGINE);
-  unloaded_schemas_["tts"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_TTS);
-  unloaded_schemas_["types"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_TYPES);
-  unloaded_schemas_["webNavigation"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_WEBNAVIGATION);
-  unloaded_schemas_["webRequest"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_WEBREQUEST);
-  unloaded_schemas_["webSocketProxyPrivate"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_WEBSOCKETPROXYPRIVATE);
-  unloaded_schemas_["webstore"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_WEBSTORE);
-  unloaded_schemas_["webstorePrivate"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_WEBSTOREPRIVATE);
-  unloaded_schemas_["windows"] = ReadFromResource(
-      IDR_EXTENSION_API_JSON_WINDOWS);
+  RegisterDependencyProvider("api", this);
 
-  // Schemas to be loaded via JSON generated from IDL files.
-  GeneratedSchemas::Get(&unloaded_schemas_);
+  // TODO(aa): Can remove this when all JSON files are converted.
+  RegisterDependencyProvider("", this);
 }
 
 ExtensionAPI::~ExtensionAPI() {
 }
 
-bool ExtensionAPI::IsPrivileged(const std::string& full_name) {
-  std::string api_name;
-  std::string child_name;
+void ExtensionAPI::InitDefaultConfiguration() {
+  RegisterDependencyProvider(
+      "manifest", SimpleFeatureProvider::GetManifestFeatures());
+  RegisterDependencyProvider(
+      "permission", SimpleFeatureProvider::GetPermissionFeatures());
 
-  {
-    std::vector<std::string> split;
-    base::SplitString(full_name, '.', &split);
-    std::reverse(split.begin(), split.end());
+  // Schemas to be loaded from resources.
+  CHECK(unloaded_schemas_.empty());
+  RegisterSchema("app", ReadFromResource(
+      IDR_EXTENSION_API_JSON_APP));
+  RegisterSchema("bookmarks", ReadFromResource(
+      IDR_EXTENSION_API_JSON_BOOKMARKS));
+  RegisterSchema("browserAction", ReadFromResource(
+      IDR_EXTENSION_API_JSON_BROWSERACTION));
+  RegisterSchema("browsingData", ReadFromResource(
+      IDR_EXTENSION_API_JSON_BROWSINGDATA));
+  RegisterSchema("chromeAuthPrivate", ReadFromResource(
+      IDR_EXTENSION_API_JSON_CHROMEAUTHPRIVATE));
+  RegisterSchema("chromeosInfoPrivate", ReadFromResource(
+      IDR_EXTENSION_API_JSON_CHROMEOSINFOPRIVATE));
+  RegisterSchema("contentSettings", ReadFromResource(
+      IDR_EXTENSION_API_JSON_CONTENTSETTINGS));
+  RegisterSchema("contextMenus", ReadFromResource(
+      IDR_EXTENSION_API_JSON_CONTEXTMENUS));
+  RegisterSchema("cookies", ReadFromResource(
+      IDR_EXTENSION_API_JSON_COOKIES));
+  RegisterSchema("debugger", ReadFromResource(
+      IDR_EXTENSION_API_JSON_DEBUGGER));
+  RegisterSchema("declarativeWebRequest", ReadFromResource(
+      IDR_EXTENSION_API_JSON_DECLARATIVE_WEBREQUEST));
+  RegisterSchema("devtools", ReadFromResource(
+      IDR_EXTENSION_API_JSON_DEVTOOLS));
+  RegisterSchema("events", ReadFromResource(
+      IDR_EXTENSION_API_JSON_EVENTS));
+  RegisterSchema("experimental.accessibility", ReadFromResource(
+      IDR_EXTENSION_API_JSON_EXPERIMENTAL_ACCESSIBILITY));
+  RegisterSchema("experimental.app", ReadFromResource(
+      IDR_EXTENSION_API_JSON_EXPERIMENTAL_APP));
+  RegisterSchema("experimental.bookmarkManager", ReadFromResource(
+      IDR_EXTENSION_API_JSON_EXPERIMENTAL_BOOKMARKMANAGER));
+  RegisterSchema("experimental.fontSettings", ReadFromResource(
+      IDR_EXTENSION_API_JSON_EXPERIMENTAL_FONTSSETTINGS));
+  RegisterSchema("experimental.identity", ReadFromResource(
+      IDR_EXTENSION_API_JSON_EXPERIMENTAL_IDENTITY));
+  RegisterSchema("experimental.infobars", ReadFromResource(
+      IDR_EXTENSION_API_JSON_EXPERIMENTAL_INFOBARS));
+  RegisterSchema("experimental.input.virtualKeyboard", ReadFromResource(
+      IDR_EXTENSION_API_JSON_EXPERIMENTAL_INPUT_VIRTUALKEYBOARD));
+  RegisterSchema("experimental.keybinding", ReadFromResource(
+      IDR_EXTENSION_API_JSON_EXPERIMENTAL_KEYBINDING));
+  RegisterSchema("experimental.mediaGalleries", ReadFromResource(
+      IDR_EXTENSION_API_JSON_EXPERIMENTAL_MEDIAGALLERIES));
+  RegisterSchema("experimental.offscreenTabs", ReadFromResource(
+      IDR_EXTENSION_API_JSON_EXPERIMENTAL_OFFSCREENTABS));
+  RegisterSchema("experimental.processes", ReadFromResource(
+      IDR_EXTENSION_API_JSON_EXPERIMENTAL_PROCESSES));
+  RegisterSchema("experimental.record", ReadFromResource(
+      IDR_EXTENSION_API_JSON_EXPERIMENTAL_RECORD));
+  RegisterSchema("experimental.rlz", ReadFromResource(
+      IDR_EXTENSION_API_JSON_EXPERIMENTAL_RLZ));
+  RegisterSchema("runtime", ReadFromResource(
+      IDR_EXTENSION_API_JSON_RUNTIME));
+  RegisterSchema("experimental.speechInput", ReadFromResource(
+      IDR_EXTENSION_API_JSON_EXPERIMENTAL_SPEECHINPUT));
+  RegisterSchema("extension", ReadFromResource(
+      IDR_EXTENSION_API_JSON_EXTENSION));
+  RegisterSchema("fileBrowserHandler", ReadFromResource(
+      IDR_EXTENSION_API_JSON_FILEBROWSERHANDLER));
+  RegisterSchema("fileBrowserHandlerInternal", ReadFromResource(
+      IDR_EXTENSION_API_JSON_FILEBROWSERHANDLERINTERNAL));
+  RegisterSchema("fileBrowserPrivate", ReadFromResource(
+      IDR_EXTENSION_API_JSON_FILEBROWSERPRIVATE));
+  RegisterSchema("history", ReadFromResource(
+      IDR_EXTENSION_API_JSON_HISTORY));
+  RegisterSchema("i18n", ReadFromResource(
+      IDR_EXTENSION_API_JSON_I18N));
+  RegisterSchema("idle", ReadFromResource(
+      IDR_EXTENSION_API_JSON_IDLE));
+  RegisterSchema("input.ime", ReadFromResource(
+      IDR_EXTENSION_API_JSON_INPUT_IME));
+  RegisterSchema("inputMethodPrivate", ReadFromResource(
+      IDR_EXTENSION_API_JSON_INPUTMETHODPRIVATE));
+  RegisterSchema("managedModePrivate", ReadFromResource(
+      IDR_EXTENSION_API_JSON_MANAGEDMODEPRIVATE));
+  RegisterSchema("management", ReadFromResource(
+      IDR_EXTENSION_API_JSON_MANAGEMENT));
+  RegisterSchema("mediaPlayerPrivate", ReadFromResource(
+      IDR_EXTENSION_API_JSON_MEDIAPLAYERPRIVATE));
+  RegisterSchema("metricsPrivate", ReadFromResource(
+      IDR_EXTENSION_API_JSON_METRICSPRIVATE));
+  RegisterSchema("echoPrivate", ReadFromResource(
+      IDR_EXTENSION_API_JSON_ECHOPRIVATE));
+  RegisterSchema("omnibox", ReadFromResource(
+      IDR_EXTENSION_API_JSON_OMNIBOX));
+  RegisterSchema("pageAction", ReadFromResource(
+      IDR_EXTENSION_API_JSON_PAGEACTION));
+  RegisterSchema("pageActions", ReadFromResource(
+      IDR_EXTENSION_API_JSON_PAGEACTIONS));
+  RegisterSchema("pageCapture", ReadFromResource(
+      IDR_EXTENSION_API_JSON_PAGECAPTURE));
+  RegisterSchema("permissions", ReadFromResource(
+      IDR_EXTENSION_API_JSON_PERMISSIONS));
+  RegisterSchema("privacy", ReadFromResource(
+      IDR_EXTENSION_API_JSON_PRIVACY));
+  RegisterSchema("proxy", ReadFromResource(
+      IDR_EXTENSION_API_JSON_PROXY));
+  RegisterSchema("scriptBadge", ReadFromResource(
+      IDR_EXTENSION_API_JSON_SCRIPTBADGE));
+  RegisterSchema("storage", ReadFromResource(
+      IDR_EXTENSION_API_JSON_STORAGE));
+  RegisterSchema("systemPrivate", ReadFromResource(
+      IDR_EXTENSION_API_JSON_SYSTEMPRIVATE));
+  RegisterSchema("tabs", ReadFromResource(
+      IDR_EXTENSION_API_JSON_TABS));
+  RegisterSchema("terminalPrivate", ReadFromResource(
+      IDR_EXTENSION_API_JSON_TERMINALPRIVATE));
+  RegisterSchema("test", ReadFromResource(
+      IDR_EXTENSION_API_JSON_TEST));
+  RegisterSchema("topSites", ReadFromResource(
+      IDR_EXTENSION_API_JSON_TOPSITES));
+  RegisterSchema("ttsEngine", ReadFromResource(
+      IDR_EXTENSION_API_JSON_TTSENGINE));
+  RegisterSchema("tts", ReadFromResource(
+      IDR_EXTENSION_API_JSON_TTS));
+  RegisterSchema("types", ReadFromResource(
+      IDR_EXTENSION_API_JSON_TYPES));
+  RegisterSchema("webNavigation", ReadFromResource(
+      IDR_EXTENSION_API_JSON_WEBNAVIGATION));
+  RegisterSchema("webRequest", ReadFromResource(
+      IDR_EXTENSION_API_JSON_WEBREQUEST));
+  RegisterSchema("webRequestInternal", ReadFromResource(
+      IDR_EXTENSION_API_JSON_WEBREQUESTINTERNAL));
+  RegisterSchema("webSocketProxyPrivate", ReadFromResource(
+      IDR_EXTENSION_API_JSON_WEBSOCKETPROXYPRIVATE));
+  RegisterSchema("webstore", ReadFromResource(
+      IDR_EXTENSION_API_JSON_WEBSTORE));
+  RegisterSchema("webstorePrivate", ReadFromResource(
+      IDR_EXTENSION_API_JSON_WEBSTOREPRIVATE));
+  RegisterSchema("windows", ReadFromResource(
+      IDR_EXTENSION_API_JSON_WINDOWS));
 
-    api_name = split.back();
-    split.pop_back();
-    if (api_name == "experimental") {
-      api_name += "." + split.back();
-      split.pop_back();
-    }
+  // Schemas to be loaded via JSON generated from IDL files.
+  GeneratedSchemas::Get(&unloaded_schemas_);
+}
 
-    // This only really works properly if split.size() == 1, however:
-    //  - if it's empty, it's ok to leave child_name empty; presumably there's
-    //    no functions or events with empty names.
-    //  - if it's > 1, we can just do our best.
-    if (split.size() > 0)
-      child_name = split[0];
-  }
+void ExtensionAPI::RegisterSchema(const std::string& name,
+                                  const base::StringPiece& source) {
+  unloaded_schemas_[name] = source;
+}
 
-  // GetSchema to ensure that it gets loaded before any checks.
-  const DictionaryValue* schema = GetSchema(api_name);
+void ExtensionAPI::RegisterDependencyProvider(const std::string& name,
+                                              FeatureProvider* provider) {
+  dependency_providers_[name] = provider;
+}
 
-  if (completely_unprivileged_apis_.count(api_name))
-    return false;
+bool ExtensionAPI::IsAvailable(const std::string& full_name,
+                               const Extension* extension,
+                               Feature::Context context) {
+  std::set<std::string> dependency_names;
+  dependency_names.insert(full_name);
+  ResolveDependencies(&dependency_names);
 
-  if (partially_unprivileged_apis_.count(api_name)) {
-    return IsChildNamePrivileged(schema, "functions", child_name) &&
-           IsChildNamePrivileged(schema, "events", child_name);
+  for (std::set<std::string>::iterator iter = dependency_names.begin();
+       iter != dependency_names.end(); ++iter) {
+    Feature* feature = GetFeatureDependency(full_name);
+    CHECK(feature) << *iter;
+
+    Feature::Availability availability =
+        feature->IsAvailableToContext(extension, context);
+    if (availability != Feature::IS_AVAILABLE)
+      return false;
   }
 
   return true;
 }
 
-DictionaryValue* ExtensionAPI::FindListItem(
-    const ListValue* list,
-    const std::string& property_name,
-    const std::string& property_value) {
-  for (size_t i = 0; i < list->GetSize(); ++i) {
-    DictionaryValue* item = NULL;
-    CHECK(list->GetDictionary(i, &item))
-        << property_value << "/" << property_name;
-    std::string value;
-    if (item->GetString(property_name, &value) && value == property_value)
-      return item;
+bool ExtensionAPI::IsPrivileged(const std::string& full_name) {
+  std::string child_name;
+  std::string api_name = GetAPINameFromFullName(full_name, &child_name);
+
+  // First try to use the feature system.
+  Feature* feature(GetFeature(full_name));
+  if (feature) {
+    // An API is 'privileged' if it or any of its dependencies can only be run
+    // in a blessed context.
+    std::set<std::string> resolved_dependencies;
+    resolved_dependencies.insert(full_name);
+    ResolveDependencies(&resolved_dependencies);
+    for (std::set<std::string>::iterator iter = resolved_dependencies.begin();
+         iter != resolved_dependencies.end(); ++iter) {
+      Feature* dependency = GetFeatureDependency(*iter);
+      for (std::set<Feature::Context>::iterator context =
+               dependency->contexts()->begin();
+           context != dependency->contexts()->end(); ++context) {
+        if (*context != Feature::BLESSED_EXTENSION_CONTEXT)
+          return false;
+      }
+    }
+    return true;
   }
 
-  return NULL;
+  // If this API hasn't been converted yet, fall back to the old system.
+  if (completely_unprivileged_apis_.count(api_name))
+    return false;
+
+  const DictionaryValue* schema = GetSchema(api_name);
+  if (partially_unprivileged_apis_.count(api_name))
+    return IsChildNamePrivileged(schema, child_name);
+
+  return true;
 }
 
 bool ExtensionAPI::IsChildNamePrivileged(const DictionaryValue* name_space_node,
-                                         const std::string& child_kind,
                                          const std::string& child_name) {
-  ListValue* child_list = NULL;
-  name_space_node->GetList(child_kind, &child_list);
-  if (!child_list)
-    return true;
-
   bool unprivileged = false;
-  DictionaryValue* child = FindListItem(child_list, "name", child_name);
+  const DictionaryValue* child = GetSchemaChild(name_space_node, child_name);
   if (!child || !child->GetBoolean("unprivileged", &unprivileged))
     return true;
 
   return !unprivileged;
 }
 
-const DictionaryValue* ExtensionAPI::GetSchema(const std::string& api_name) {
-  SchemaMap::const_iterator maybe_schema = schemas_.find(api_name);
-  if (maybe_schema != schemas_.end())
-    return maybe_schema->second.get();
+const DictionaryValue* ExtensionAPI::GetSchema(const std::string& full_name) {
+  std::string child_name;
+  std::string api_name = GetAPINameFromFullName(full_name, &child_name);
 
-  // Might not have loaded yet; or might just not exist.
-  std::map<std::string, base::StringPiece>::iterator maybe_schema_resource =
-      unloaded_schemas_.find(api_name);
-  if (maybe_schema_resource == unloaded_schemas_.end())
-    return NULL;
+  const DictionaryValue* result = NULL;
+  SchemaMap::iterator maybe_schema = schemas_.find(api_name);
+  if (maybe_schema != schemas_.end()) {
+    result = maybe_schema->second.get();
+  } else {
+    // Might not have loaded yet; or might just not exist.
+    std::map<std::string, base::StringPiece>::iterator maybe_schema_resource =
+        unloaded_schemas_.find(api_name);
+    if (maybe_schema_resource == unloaded_schemas_.end())
+      return NULL;
 
-  LoadSchema(maybe_schema_resource->second);
-  maybe_schema = schemas_.find(api_name);
-  CHECK(schemas_.end() != maybe_schema);
-  return maybe_schema->second.get();
+    LoadSchema(maybe_schema_resource->first, maybe_schema_resource->second);
+    maybe_schema = schemas_.find(api_name);
+    CHECK(schemas_.end() != maybe_schema);
+    result = maybe_schema->second.get();
+  }
+
+  if (!child_name.empty())
+    result = GetSchemaChild(result, child_name);
+
+  return result;
 }
+
+namespace {
+
+bool IsFeatureAllowedForExtension(const std::string& feature,
+                                  const extensions::Extension& extension) {
+  if (extension.is_platform_app() &&
+      (feature == "app" || feature == "extension"))
+    return false;
+  return true;
+}
+
+// Removes APIs from |apis| that should not be allowed for |extension|.
+// TODO(kalman/asargent) - Make it possible to specify these rules
+// declaratively.
+void RemoveDisallowedAPIs(const Extension& extension,
+                          std::set<std::string>* apis) {
+  CHECK(apis);
+  std::set<std::string>::iterator i = apis->begin();
+  while (i != apis->end()) {
+    if (!IsFeatureAllowedForExtension(*i, extension)) {
+      apis->erase(i++);
+    } else {
+      ++i;
+    }
+  }
+}
+
+}  // namespace
 
 scoped_ptr<std::set<std::string> > ExtensionAPI::GetAPIsForContext(
     Feature::Context context, const Extension* extension, const GURL& url) {
@@ -356,45 +619,152 @@ scoped_ptr<std::set<std::string> > ExtensionAPI::GetAPIsForContext(
   // schemas.
   LoadAllSchemas();
 
-  scoped_ptr<std::set<std::string> > result(new std::set<std::string>());
+  std::set<std::string> temp_result;
 
+  // First handle all the APIs that have been converted to the feature system.
+  if (extension) {
+    for (APIFeatureMap::iterator iter = features_.begin();
+         iter != features_.end(); ++iter) {
+      if (IsAvailable(iter->first, extension, context))
+        temp_result.insert(iter->first);
+    }
+  }
+
+  // Second, fall back to the old way.
+  // TODO(aa): Remove this when all APIs have been converted.
   switch (context) {
     case Feature::UNSPECIFIED_CONTEXT:
       break;
 
     case Feature::BLESSED_EXTENSION_CONTEXT:
-      // Availability is determined by the permissions of the extension.
-      CHECK(extension);
-      GetAllowedAPIs(extension, result.get());
-      ResolveDependencies(result.get());
+      if (extension) {
+        // Availability is determined by the permissions of the extension.
+        GetAllowedAPIs(extension, &temp_result);
+        ResolveDependencies(&temp_result);
+        RemoveDisallowedAPIs(*extension, &temp_result);
+      }
       break;
 
     case Feature::UNBLESSED_EXTENSION_CONTEXT:
     case Feature::CONTENT_SCRIPT_CONTEXT:
-      // Same as BLESSED_EXTENSION_CONTEXT, but only those APIs that are
-      // unprivileged.
-      CHECK(extension);
-      GetAllowedAPIs(extension, result.get());
-      // Resolving dependencies before removing unprivileged APIs means that
-      // some unprivileged APIs may have unrealised dependencies. Too bad!
-      ResolveDependencies(result.get());
-      RemovePrivilegedAPIs(result.get());
+      if (extension) {
+        // Same as BLESSED_EXTENSION_CONTEXT, but only those APIs that are
+        // unprivileged.
+        GetAllowedAPIs(extension, &temp_result);
+        // Resolving dependencies before removing unprivileged APIs means that
+        // some unprivileged APIs may have unrealised dependencies. Too bad!
+        ResolveDependencies(&temp_result);
+        RemovePrivilegedAPIs(&temp_result);
+      }
       break;
 
     case Feature::WEB_PAGE_CONTEXT:
-      // Availablility is determined by the url.
-      CHECK(url.is_valid());
-      GetAPIsMatchingURL(url, result.get());
+      if (url.is_valid()) {
+        // Availablility is determined by the url.
+        GetAPIsMatchingURL(url, &temp_result);
+      }
       break;
   }
 
+  // Filter out all non-API features and remove the feature type part of the
+  // name.
+  scoped_ptr<std::set<std::string> > result(new std::set<std::string>());
+  for (std::set<std::string>::iterator iter = temp_result.begin();
+       iter != temp_result.end(); ++iter) {
+    std::string feature_type;
+    std::string feature_name;
+    SplitDependencyName(*iter, &feature_type, &feature_name);
+    if (feature_type == "api")
+      result->insert(feature_name);
+  }
+
   return result.Pass();
+}
+
+Feature* ExtensionAPI::GetFeature(const std::string& full_name) {
+  // Ensure it's loaded.
+  GetSchema(full_name);
+
+  std::string child_name;
+  std::string api_namespace = GetAPINameFromFullName(full_name, &child_name);
+
+  APIFeatureMap::iterator feature_map = features_.find(api_namespace);
+  if (feature_map == features_.end())
+    return NULL;
+
+  Feature* result = NULL;
+  FeatureMap::iterator child_feature = feature_map->second->find(child_name);
+  if (child_feature != feature_map->second->end()) {
+    result = child_feature->second.get();
+  } else {
+    FeatureMap::iterator parent_feature = feature_map->second->find("");
+    CHECK(parent_feature != feature_map->second->end());
+    result = parent_feature->second.get();
+  }
+
+  if (result->contexts()->empty()) {
+    LOG(ERROR) << "API feature '" << full_name
+               << "' must specify at least one context.";
+    return NULL;
+  }
+
+  return result;
+}
+
+Feature* ExtensionAPI::GetFeatureDependency(const std::string& full_name) {
+  std::string feature_type;
+  std::string feature_name;
+  SplitDependencyName(full_name, &feature_type, &feature_name);
+
+  FeatureProviderMap::iterator provider =
+      dependency_providers_.find(feature_type);
+  CHECK(provider != dependency_providers_.end()) << full_name;
+
+  Feature* feature = provider->second->GetFeature(feature_name);
+  CHECK(feature) << full_name;
+
+  return feature;
+}
+
+std::string ExtensionAPI::GetAPINameFromFullName(const std::string& full_name,
+                                                 std::string* child_name) {
+  std::string api_name_candidate = full_name;
+  while (true) {
+    if (features_.find(api_name_candidate) != features_.end() ||
+        schemas_.find(api_name_candidate) != schemas_.end() ||
+        unloaded_schemas_.find(api_name_candidate) != unloaded_schemas_.end()) {
+      std::string result = api_name_candidate;
+
+      if (child_name) {
+        if (result.length() < full_name.length())
+          *child_name = full_name.substr(result.length() + 1);
+        else
+          *child_name = "";
+      }
+
+      return result;
+    }
+
+    size_t last_dot_index = api_name_candidate.rfind('.');
+    if (last_dot_index == std::string::npos)
+      break;
+
+    api_name_candidate = api_name_candidate.substr(0, last_dot_index);
+  }
+
+  *child_name = "";
+  return "";
 }
 
 void ExtensionAPI::GetAllowedAPIs(
     const Extension* extension, std::set<std::string>* out) {
   for (SchemaMap::const_iterator i = schemas_.begin(); i != schemas_.end();
       ++i) {
+    if (features_.find(i->first) != features_.end()) {
+      // This API is controlled by the feature system. Nothing to do here.
+      continue;
+    }
+
     if (extension->required_permission_set()->HasAnyAccessToAPI(i->first) ||
         extension->optional_permission_set()->HasAnyAccessToAPI(i->first)) {
       out->insert(i->first);
@@ -419,17 +789,27 @@ void ExtensionAPI::GetMissingDependencies(
     const std::string& api_name,
     const std::set<std::string>& excluding,
     std::set<std::string>* out) {
-  const DictionaryValue* schema = GetSchema(api_name);
-  CHECK(schema) << "Schema for " << api_name << " not found";
+  std::string feature_type;
+  std::string feature_name;
+  SplitDependencyName(api_name, &feature_type, &feature_name);
+
+  // Only API features can have dependencies for now.
+  if (feature_type != "api")
+    return;
+
+  const DictionaryValue* schema = GetSchema(feature_name);
+  CHECK(schema) << "Schema for " << feature_name << " not found";
 
   ListValue* dependencies = NULL;
   if (!schema->GetList("dependencies", &dependencies))
     return;
 
   for (size_t i = 0; i < dependencies->GetSize(); ++i) {
-    std::string api_name;
-    if (dependencies->GetString(i, &api_name) && !excluding.count(api_name))
-      out->insert(api_name);
+    std::string dependency_name;
+    if (dependencies->GetString(i, &dependency_name) &&
+        !excluding.count(dependency_name)) {
+      out->insert(dependency_name);
+    }
   }
 }
 
@@ -452,6 +832,11 @@ void ExtensionAPI::GetAPIsMatchingURL(const GURL& url,
                                       std::set<std::string>* out) {
   for (std::map<std::string, URLPatternSet>::const_iterator i =
       url_matching_apis_.begin(); i != url_matching_apis_.end(); ++i) {
+    if (features_.find(i->first) != features_.end()) {
+      // This API is controlled by the feature system. Nothing to do.
+      continue;
+    }
+
     if (i->second.MatchesURL(url))
       out->insert(i->first);
   }
@@ -459,7 +844,9 @@ void ExtensionAPI::GetAPIsMatchingURL(const GURL& url,
 
 void ExtensionAPI::LoadAllSchemas() {
   while (unloaded_schemas_.size()) {
-    LoadSchema(unloaded_schemas_.begin()->second);
+    std::map<std::string, base::StringPiece>::iterator it =
+        unloaded_schemas_.begin();
+    LoadSchema(it->first, it->second);
   }
 }
 

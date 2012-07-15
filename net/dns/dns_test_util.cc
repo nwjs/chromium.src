@@ -86,7 +86,8 @@ class MockTransaction : public DnsTransaction,
       size_t answer_size = 12 + rdata_size;
 
       // Write answer with loopback IP address.
-      reinterpret_cast<dns_protocol::Header*>(buffer)->ancount = htons(1);
+      reinterpret_cast<dns_protocol::Header*>(buffer)->ancount =
+          base::HostToNet16(1);
       BigEndianWriter writer(buffer + nbytes, answer_size);
       writer.WriteU16(kPointerToQueryName);
       writer.WriteU16(qtype_);
@@ -162,9 +163,18 @@ scoped_ptr<DnsClient> CreateMockDnsClient(const DnsConfig& config) {
   return scoped_ptr<DnsClient>(new MockDnsClient(config));
 }
 
-void MockDnsConfigService::Watch(const CallbackType& callback) {
-  set_callback(callback);
+MockDnsConfigService::~MockDnsConfigService() {
+}
+
+void MockDnsConfigService::OnDNSChanged(unsigned detail) {
+}
+
+void MockDnsConfigService::ChangeConfig(const DnsConfig& config) {
+  DnsConfigService::OnConfigRead(config);
+}
+
+void MockDnsConfigService::ChangeHosts(const DnsHosts& hosts) {
+  DnsConfigService::OnHostsRead(hosts);
 }
 
 }  // namespace net
-

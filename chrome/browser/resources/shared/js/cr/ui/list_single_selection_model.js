@@ -1,10 +1,10 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 cr.define('cr.ui', function() {
-  const Event = cr.Event;
-  const EventTarget = cr.EventTarget;
+  /** @const */ var Event = cr.Event;
+  /** @const */ var EventTarget = cr.EventTarget;
 
   /**
    * Creates a new selection model that is to be used with lists. This only
@@ -18,6 +18,9 @@ cr.define('cr.ui', function() {
   function ListSingleSelectionModel(opt_length) {
     this.length_ = opt_length || 0;
     this.selectedIndex = -1;
+
+    // True if any item could be lead or anchor. False if only selected ones.
+    this.independentLeadItem_ = !cr.isMac && !cr.isChromeOS;
   }
 
   ListSingleSelectionModel.prototype = {
@@ -54,8 +57,7 @@ cr.define('cr.ui', function() {
       if (i != oldSelectedIndex) {
         this.beginChange();
         this.selectedIndex_ = i;
-        if (i >= 0)
-          this.leadIndex = i;
+        this.leadIndex = i >= 0 ? i : this.leadIndex;
         this.endChange();
       }
     },
@@ -167,13 +169,20 @@ cr.define('cr.ui', function() {
       return this.leadIndex_;
     },
     set leadIndex(leadIndex) {
-      var li = Math.max(-1, Math.min(this.length_ - 1, leadIndex));
+      var li = this.adjustIndex_(leadIndex);
       if (li != this.leadIndex_) {
         var oldLeadIndex = this.leadIndex_;
         this.leadIndex_ = li;
         cr.dispatchPropertyChange(this, 'leadIndex', li, oldLeadIndex);
         cr.dispatchPropertyChange(this, 'anchorIndex', li, oldLeadIndex);
       }
+    },
+
+    adjustIndex_: function(index) {
+      index = Math.max(-1, Math.min(this.length_ - 1, index));
+      if (!this.independentLeadItem_)
+        index = this.selectedIndex;
+      return index;
     },
 
     /**

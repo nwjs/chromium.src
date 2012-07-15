@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_BROWSING_DATA_QUOTA_HELPER_IMPL_H_
 #define CHROME_BROWSER_BROWSING_DATA_QUOTA_HELPER_IMPL_H_
-#pragma once
 
 #include <map>
 #include <set>
@@ -13,7 +12,6 @@
 
 #include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time.h"
 #include "chrome/browser/browsing_data_quota_helper.h"
@@ -30,7 +28,6 @@ class QuotaManager;
 class BrowsingDataQuotaHelperImpl : public BrowsingDataQuotaHelper {
  public:
   virtual void StartFetching(const FetchResultCallback& callback) OVERRIDE;
-  virtual void CancelNotification() OVERRIDE;
   virtual void RevokeHostQuota(const std::string& host) OVERRIDE;
 
  private:

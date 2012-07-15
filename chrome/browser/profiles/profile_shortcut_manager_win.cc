@@ -150,8 +150,8 @@ void CreateChromeDesktopShortcutForProfile(
       icon_path.empty() ? chrome_exe.value() : icon_path.value(),
       icon_path.empty() ? dist->GetIconIndex() : 0,
       ShellUtil::CURRENT_USER,
-      false,  // Use alternate text.
-      create);  // Create if it doesn't already exist.
+      create ? ShellUtil::SHORTCUT_CREATE_ALWAYS :
+               ShellUtil::SHORTCUT_NO_OPTIONS);
 }
 
 // Renames an existing Chrome desktop profile shortcut. Must be called on the
@@ -203,15 +203,16 @@ void UpdateChromeDesktopShortcutForProfile(
       description,
       icon_path.empty() ? chrome_exe.value() : icon_path.value(),
       icon_path.empty() ? dist->GetIconIndex() : 0,
-      false);
+      ShellUtil::SHORTCUT_NO_OPTIONS);
 }
 
 void DeleteAutoLaunchValueForProfile(
     const FilePath& profile_path) {
-  if (auto_launch_util::WillLaunchAtLogin(FilePath(),
-                                          profile_path.BaseName().value())) {
-      auto_launch_util::SetWillLaunchAtLogin(
-          false, FilePath(), profile_path.BaseName().value());
+  if (auto_launch_util::AutoStartRequested(profile_path.BaseName().value(),
+                                           true,  // Window requested.
+                                           FilePath())) {
+    auto_launch_util::DisableForegroundStartAtLogin(
+        profile_path.BaseName().value());
   }
 }
 

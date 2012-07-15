@@ -20,9 +20,9 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/gtk/bookmarks/bookmark_tree_model.h"
 #include "chrome/browser/ui/gtk/bookmarks/bookmark_utils_gtk.h"
+#include "chrome/browser/ui/gtk/gtk_theme_service.h"
 #include "chrome/browser/ui/gtk/gtk_util.h"
 #include "chrome/browser/ui/gtk/menu_gtk.h"
-#include "chrome/browser/ui/gtk/theme_service_gtk.h"
 #include "googleurl/src/gurl.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
@@ -344,10 +344,8 @@ void BookmarkEditorGtk::Init(GtkWindow* parent_window) {
   } else if (details_.type == EditDetails::NEW_FOLDER) {
     title = l10n_util::GetStringUTF8(IDS_BOOKMARK_EDITOR_NEW_FOLDER_NAME);
   } else if (details_.type == EditDetails::NEW_URL) {
-    string16 title16;
-    bookmark_utils::GetURLAndTitleToBookmarkFromCurrentTab(profile_,
-        &url, &title16);
-    title = UTF16ToUTF8(title16);
+    url = details_.url;
+    title = UTF16ToUTF8(details_.title);
   }
   gtk_entry_set_text(GTK_ENTRY(name_entry_), title.c_str());
   g_signal_connect(name_entry_, "changed",
@@ -574,7 +572,7 @@ void BookmarkEditorGtk::AddNewFolder(GtkTreeIter* parent, GtkTreeIter* child) {
   gtk_tree_store_set(
       tree_store_, child,
       bookmark_utils::FOLDER_ICON,
-      ThemeServiceGtk::GetFolderIcon(true)->ToGdkPixbuf(),
+      GtkThemeService::GetFolderIcon(true).ToGdkPixbuf(),
       bookmark_utils::FOLDER_NAME,
           l10n_util::GetStringUTF8(IDS_BOOKMARK_EDITOR_NEW_FOLDER_NAME).c_str(),
       bookmark_utils::ITEM_ID, static_cast<int64>(0),
@@ -612,26 +610,16 @@ void BookmarkEditorGtk::OnWindowDestroy(GtkWidget* widget) {
 
 void BookmarkEditorGtk::OnEntryChanged(GtkWidget* entry) {
   gboolean can_close = TRUE;
-  if (details_.GetNodeType() == BookmarkNode::FOLDER) {
-    if (GetInputTitle().empty()) {
-      gtk_widget_modify_base(name_entry_, GTK_STATE_NORMAL,
-                             &kErrorColor);
-      can_close = FALSE;
-    } else {
-      gtk_widget_modify_base(name_entry_, GTK_STATE_NORMAL, NULL);
-    }
-  } else {
-    GURL url(GetInputURL());
-    if (!url.is_valid()) {
-      gtk_widget_modify_base(url_entry_, GTK_STATE_NORMAL,
-                             &kErrorColor);
-      can_close = FALSE;
-    } else {
+  if (details_.GetNodeType() != BookmarkNode::FOLDER) {
+    if (GetInputURL().is_valid()) {
       gtk_widget_modify_base(url_entry_, GTK_STATE_NORMAL, NULL);
+    } else {
+      gtk_widget_modify_base(url_entry_, GTK_STATE_NORMAL, &kErrorColor);
+      can_close = FALSE;
     }
   }
-  gtk_dialog_set_response_sensitive(GTK_DIALOG(dialog_),
-                                    GTK_RESPONSE_ACCEPT, can_close);
+  gtk_dialog_set_response_sensitive(GTK_DIALOG(dialog_), GTK_RESPONSE_ACCEPT,
+                                    can_close);
 }
 
 void BookmarkEditorGtk::OnNewFolderClicked(GtkWidget* button) {

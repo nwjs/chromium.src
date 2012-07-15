@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,7 +6,8 @@
 
 #include "base/file_path.h"
 
-namespace SpellCheckCommon {
+namespace chrome {
+namespace spellcheck_common {
 
 static const struct {
   // The language.
@@ -17,6 +18,7 @@ static const struct {
 } g_supported_spellchecker_languages[] = {
   // Several languages are not to be included in the spellchecker list:
   // th-TH, uk-UA
+  {"af", "af-ZA"},
   {"bg", "bg-BG"},
   {"ca", "ca-ES"},
   {"cs", "cs-CZ"},
@@ -29,6 +31,7 @@ static const struct {
   {"en-US", "en-US"},
   {"es", "es-ES"},
   {"et", "et-EE"},
+  {"fo", "fo-FO"},
   {"fr", "fr-FR"},
   {"he", "he-IL"},
   {"hi", "hi-IN"},
@@ -100,10 +103,16 @@ FilePath GetVersionedFileName(const std::string& input_language,
     {"bg-BG", "-2-0"},
     {"sr",    "-2-0"},
     {"uk-UA", "-2-0"},
-    {"en-US", "-2-1"},  // 2-1 (Mar 2011): upgraded dictionaries.
-    {"en-CA", "-2-1"},
     {"pt-BR", "-2-2"},  // 2-2 (Mar 2011): upgraded a dictionary.
     {"sh",    "-2-2"},  // 2-2 (Mar 2011): added a dictionary.
+    {"en-US", "-2-3"},  // 2-3 (May 2012): fixed affixes + more words.
+    {"en-CA", "-2-3"},
+    {"en-GB", "-2-3"},
+    {"en-AU", "-2-3"},
+    {"ca-ES", "-2-3"},  // 2-3 (May 2012): upgraded a dictionary.
+    {"sv-SE", "-2-3"},  // 2-3 (May 2012): upgraded a dictionary.
+    {"af-ZA", "-2-3"},  // 2-3 (May 2012): added a dictionary.
+    {"fo-FO", "-2-3"},  // 2-3 (May 2012): added a dictionary.
   };
 
   // Generate the bdict file name using default version string or special
@@ -169,4 +178,5 @@ void SpellCheckLanguages(std::vector<std::string>* languages) {
   }
 }
 
-}  // namespace SpellCheckCommon
+}  // namespace spellcheck_common
+}  // namespace chrome

@@ -76,6 +76,10 @@ html[dir=rtl] #account-picture-wrapper {
   height: 40px;
 }
 
+#profiles-list:focus {
+  border-color: rgb(77, 144, 254);
+}
+
 .profile-img {
   height: 31px;
   padding: 3px;
@@ -145,11 +149,12 @@ list:not([disabled]) > .network-group[selected] {
 }
 
 .network-icon {
+  -webkit-margin-end: 8px;
   background-position: left top;
+  background-size: 25px;
   display: -webkit-box;
-  height: 23px;
-  margin-right: 8px;
-  width: 23px;
+  height: 25px;
+  width: 25px;
 }
 
 @-webkit-keyframes connecting-animation {
@@ -181,14 +186,22 @@ list:not([disabled]) > .network-group[selected] {
 
 .network-wifi {
   background-image: url('chrome://theme/IDR_STATUSBAR_NETWORK_ARCS_DARK');
+  background-size: 25px;
+}
+
+.network-wimax {
+  background-image: url('chrome://theme/IDR_STATUSBAR_NETWORK_BARS_DARK');
+  background-size: 25px;
 }
 
 .network-cellular {
   background-image: url('chrome://theme/IDR_STATUSBAR_NETWORK_BARS_DARK');
+  background-size: 25px;
 }
 
 .network-vpn {
   background-image: url('chrome://theme/IDR_STATUSBAR_VPN');
+  background-size: 25px;
 }
 
 .network-add-connection,
@@ -200,6 +213,7 @@ list:not([disabled]) > .network-group[selected] {
 
 .network-add-connection {
   background-image: url('chrome://theme/IDR_SIDETABS_NEW_TAB');
+  background-size: 16px;
 }
 
 .network-control-inactive {
@@ -208,6 +222,7 @@ list:not([disabled]) > .network-group[selected] {
 
 .network-control-active {
   background-image: url('chrome://theme/IDR_PROFILE_SELECTED');
+  background-size: 16px;
 }
 
 .network-options-button {
@@ -223,6 +238,7 @@ list:not([disabled]) > .network-group[selected] {
 
 .network-menu-item:hover .network-options-button {
   background-image: url('chrome://theme/IDR_STATUSBAR_EDIT');
+  background-size: 25px;
 }
 
 .network-group > .controlled-setting-indicator,
@@ -299,11 +315,18 @@ list:not([disabled]) > .network-group[selected] {
 .network-menu-item {
   -webkit-padding-start: 32px;
   background: left center no-repeat;
+  background-size: 25px;
   display: -webkit-box;
   height: 32px;
   margin-left: 4px;
   margin-right: 4px;
   vertical-align: middle;
+}
+
+@media (pointer:coarse) {
+  network-menu-item {
+    height: 40px;
+  }
 }
 
 .network-menu-item-label {
@@ -315,6 +338,12 @@ list:not([disabled]) > .network-group[selected] {
   text-overflow: ellipsis;
   vertical-align: middle;
   white-space: nowrap;
+}
+
+@media (pointer:coarse) {
+  .network-menu-item-label {
+    padding-top: 14px;
+  }
 }
 
 .network-disabled-control {
@@ -337,7 +366,13 @@ list:not([disabled]) > .network-group[selected] {
     text-overflow: ellipsis;
 }
 
-.network-menu-item[dir=rtl] {
+@media (pointer:coarse) {
+  .network-menu-group {
+    max-height: 200px;
+  }
+}
+
+html[dir=rtl] .network-menu-item {
   background: right center no-repeat;
 }
 
@@ -385,8 +420,4 @@ list:not([disabled]) > .network-group[selected] {
 .sliding {
   -webkit-transition: height 200ms;
   overflow-y: hidden;
-}
-
-#sessionRestoreOverlay {
-  width: 500px;
 }

@@ -6,7 +6,6 @@
 
 #ifndef NET_COOKIES_COOKIE_STORE_H_
 #define NET_COOKIES_COOKIE_STORE_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -98,6 +97,8 @@ class NET_EXPORT CookieStore : public base::RefCountedThreadSafe<CookieStore> {
   virtual void DeleteAllCreatedBetweenAsync(const base::Time& delete_begin,
                                             const base::Time& delete_end,
                                             const DeleteCallback& callback) = 0;
+
+  virtual void DeleteSessionCookiesAsync(const DeleteCallback&) = 0;
 
   // Returns the underlying CookieMonster.
   virtual CookieMonster* GetCookieMonster() = 0;

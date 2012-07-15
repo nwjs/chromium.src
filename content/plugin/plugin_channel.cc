@@ -41,13 +41,6 @@ const int kPluginReleaseTimeMinutes = 5;
 class PluginChannel::MessageFilter : public IPC::ChannelProxy::MessageFilter {
  public:
   MessageFilter() : channel_(NULL) { }
-  ~MessageFilter() {
-    // Clean up in case of renderer crash.
-    for (ModalDialogEventMap::iterator i = modal_dialog_event_map_.begin();
-        i != modal_dialog_event_map_.end(); ++i) {
-      delete i->second.event;
-    }
-  }
 
   base::WaitableEvent* GetModalDialogEvent(
       gfx::NativeViewId containing_window) {
@@ -83,7 +76,7 @@ class PluginChannel::MessageFilter : public IPC::ChannelProxy::MessageFilter {
     return channel_->Send(message);
   }
 
- private:
+  // IPC::ChannelProxy::MessageFilter:
   void OnFilterAdded(IPC::Channel* channel) { channel_ = channel; }
 
   bool OnMessageReceived(const IPC::Message& message) {
@@ -98,6 +91,18 @@ class PluginChannel::MessageFilter : public IPC::ChannelProxy::MessageFilter {
            message.type() == PluginMsg_ResetModalDialogEvent::ID;
   }
 
+
+
+ protected:
+  virtual ~MessageFilter() {
+    // Clean up in case of renderer crash.
+    for (ModalDialogEventMap::iterator i = modal_dialog_event_map_.begin();
+        i != modal_dialog_event_map_.end(); ++i) {
+      delete i->second.event;
+    }
+  }
+
+ private:
   void OnInit(const PluginMsg_Init_Params& params, IPC::Message* reply_msg) {
     base::AutoLock auto_lock(modal_dialog_event_map_lock_);
     if (modal_dialog_event_map_.count(params.containing_window)) {
@@ -160,28 +165,6 @@ void PluginChannel::NotifyRenderersOfPendingShutdown() {
   Broadcast(new PluginHostMsg_PluginShuttingDown());
 }
 
-PluginChannel::PluginChannel()
-    : renderer_handle_(0),
-      renderer_id_(-1),
-      in_send_(0),
-      incognito_(false),
-      filter_(new MessageFilter()) {
-  set_send_unblocking_only_during_unblock_dispatch();
-  ChildProcess::current()->AddRefProcess();
-  const CommandLine* command_line = CommandLine::ForCurrentProcess();
-  log_messages_ = command_line->HasSwitch(switches::kLogPluginMessages);
-}
-
-PluginChannel::~PluginChannel() {
-  if (renderer_handle_)
-    base::CloseProcessHandle(renderer_handle_);
-
-  MessageLoop::current()->PostDelayedTask(
-      FROM_HERE,
-      base::Bind(&PluginReleaseCallback),
-      base::TimeDelta::FromMinutes(kPluginReleaseTimeMinutes));
-}
-
 bool PluginChannel::Send(IPC::Message* msg) {
   in_send_++;
   if (log_messages_) {
@@ -199,6 +182,65 @@ bool PluginChannel::OnMessageReceived(const IPC::Message& msg) {
             << " with type " << msg.type();
   }
   return NPChannelBase::OnMessageReceived(msg);
+}
+
+void PluginChannel::OnChannelError() {
+  NPChannelBase::OnChannelError();
+  CleanUp();
+}
+
+int PluginChannel::GenerateRouteID() {
+  static int last_id = 0;
+  return ++last_id;
+}
+
+base::WaitableEvent* PluginChannel::GetModalDialogEvent(
+    gfx::NativeViewId containing_window) {
+  return filter_->GetModalDialogEvent(containing_window);
+}
+
+PluginChannel::~PluginChannel() {
+  MessageLoop::current()->PostDelayedTask(
+      FROM_HERE,
+      base::Bind(&PluginReleaseCallback),
+      base::TimeDelta::FromMinutes(kPluginReleaseTimeMinutes));
+}
+
+void PluginChannel::CleanUp() {
+  // We need to clean up the stubs so that they call NPPDestroy.  This will
+  // also lead to them releasing their reference on this object so that it can
+  // be deleted.
+  for (size_t i = 0; i < plugin_stubs_.size(); ++i)
+    RemoveRoute(plugin_stubs_[i]->instance_id());
+
+  // Need to addref this object temporarily because otherwise removing the last
+  // stub will cause the destructor of this object to be called, however at
+  // that point plugin_stubs_ will have one element and its destructor will be
+  // called twice.
+  scoped_refptr<PluginChannel> me(this);
+
+  plugin_stubs_.clear();
+}
+
+bool PluginChannel::Init(base::MessageLoopProxy* ipc_message_loop,
+                         bool create_pipe_now,
+                         base::WaitableEvent* shutdown_event) {
+  if (!NPChannelBase::Init(ipc_message_loop, create_pipe_now, shutdown_event))
+    return false;
+
+  channel_->AddFilter(filter_.get());
+  return true;
+}
+
+PluginChannel::PluginChannel()
+    : renderer_id_(-1),
+      in_send_(0),
+      incognito_(false),
+      filter_(new MessageFilter()) {
+  set_send_unblocking_only_during_unblock_dispatch();
+  ChildProcess::current()->AddRefProcess();
+  const CommandLine* command_line = CommandLine::ForCurrentProcess();
+  log_messages_ = command_line->HasSwitch(switches::kLogPluginMessages);
 }
 
 bool PluginChannel::OnControlMessageReceived(const IPC::Message& msg) {
@@ -251,14 +293,9 @@ void PluginChannel::OnGenerateRouteID(int* route_id) {
   *route_id = GenerateRouteID();
 }
 
-int PluginChannel::GenerateRouteID() {
-  static int last_id = 0;
-  return ++last_id;
-}
-
 void PluginChannel::OnClearSiteData(const std::string& site,
                                     uint64 flags,
-                                    base::Time begin_time) {
+                                    uint64 max_age) {
   bool success = false;
   CommandLine* command_line = CommandLine::ForCurrentProcess();
   FilePath path = command_line->GetSwitchValuePath(switches::kPluginPath);
@@ -268,13 +305,6 @@ void PluginChannel::OnClearSiteData(const std::string& site,
     NPError err = plugin_lib->NP_Initialize();
     if (err == NPERR_NO_ERROR) {
       const char* site_str = site.empty() ? NULL : site.c_str();
-      uint64 max_age;
-      if (begin_time > base::Time()) {
-        base::TimeDelta delta = base::Time::Now() - begin_time;
-        max_age = delta.InSeconds();
-      } else {
-        max_age = kuint64max;
-      }
       err = plugin_lib->NP_ClearSiteData(site_str, flags, max_age);
       std::string site_name =
           site.empty() ? "NULL"
@@ -286,51 +316,3 @@ void PluginChannel::OnClearSiteData(const std::string& site,
   }
   Send(new PluginHostMsg_ClearSiteDataResult(success));
 }
-
-base::WaitableEvent* PluginChannel::GetModalDialogEvent(
-    gfx::NativeViewId containing_window) {
-  return filter_->GetModalDialogEvent(containing_window);
-}
-
-void PluginChannel::OnChannelConnected(int32 peer_pid) {
-  base::ProcessHandle handle;
-  if (!base::OpenProcessHandle(peer_pid, &handle)) {
-    NOTREACHED();
-  }
-  renderer_handle_ = handle;
-  NPChannelBase::OnChannelConnected(peer_pid);
-}
-
-void PluginChannel::OnChannelError() {
-  base::CloseProcessHandle(renderer_handle_);
-  renderer_handle_ = 0;
-  NPChannelBase::OnChannelError();
-  CleanUp();
-}
-
-void PluginChannel::CleanUp() {
-  // We need to clean up the stubs so that they call NPPDestroy.  This will
-  // also lead to them releasing their reference on this object so that it can
-  // be deleted.
-  for (size_t i = 0; i < plugin_stubs_.size(); ++i)
-    RemoveRoute(plugin_stubs_[i]->instance_id());
-
-  // Need to addref this object temporarily because otherwise removing the last
-  // stub will cause the destructor of this object to be called, however at
-  // that point plugin_stubs_ will have one element and its destructor will be
-  // called twice.
-  scoped_refptr<PluginChannel> me(this);
-
-  plugin_stubs_.clear();
-}
-
-bool PluginChannel::Init(base::MessageLoopProxy* ipc_message_loop,
-                         bool create_pipe_now,
-                         base::WaitableEvent* shutdown_event) {
-  if (!NPChannelBase::Init(ipc_message_loop, create_pipe_now, shutdown_event))
-    return false;
-
-  channel_->AddFilter(filter_.get());
-  return true;
-}
-

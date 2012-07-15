@@ -1,15 +1,16 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_DEBUGGER_DEVTOOLS_WINDOW_H_
 #define CHROME_BROWSER_DEBUGGER_DEVTOOLS_WINDOW_H_
-#pragma once
 
 #include <string>
 #include <vector>
 
 #include "base/basictypes.h"
+#include "base/memory/scoped_ptr.h"
+#include "chrome/browser/debugger/devtools_file_helper.h"
 #include "chrome/browser/debugger/devtools_toggle_action.h"
 #include "content/public/browser/devtools_client_host.h"
 #include "content/public/browser/devtools_frontend_host_delegate.h"
@@ -25,7 +26,7 @@ class Browser;
 class BrowserWindow;
 class PrefService;
 class Profile;
-class TabContentsWrapper;
+class TabContents;
 
 namespace base {
 class Value;
@@ -34,18 +35,19 @@ class Value;
 namespace content {
 class DevToolsAgentHost;
 class DevToolsClientHost;
+struct FileChooserParams;
 class RenderViewHost;
 class WebContents;
 }
 
 class DevToolsWindow : private content::NotificationObserver,
                        private content::WebContentsDelegate,
-                       private content::DevToolsFrontendHostDelegate {
+                       private content::DevToolsFrontendHostDelegate,
+                       private DevToolsFileHelper::Delegate {
  public:
   static const char kDevToolsApp[];
   static void RegisterUserPrefs(PrefService* prefs);
-  static TabContentsWrapper* GetDevToolsContents(
-      content::WebContents* inspected_tab);
+  static TabContents* GetDevToolsContents(content::WebContents* inspected_tab);
   static bool IsDevToolsWindow(content::RenderViewHost* window_rvh);
 
   static DevToolsWindow* OpenDevToolsWindowForWorker(
@@ -63,13 +65,13 @@ class DevToolsWindow : private content::NotificationObserver,
   virtual ~DevToolsWindow();
 
   // Overridden from DevToolsClientHost.
-  virtual void InspectedTabClosing() OVERRIDE;
-  virtual void TabReplaced(content::WebContents* new_tab) OVERRIDE;
+  virtual void InspectedContentsClosing() OVERRIDE;
+  virtual void ContentsReplaced(content::WebContents* new_contents) OVERRIDE;
   content::RenderViewHost* GetRenderViewHost();
 
   void Show(DevToolsToggleAction action);
 
-  TabContentsWrapper* tab_contents() { return tab_contents_; }
+  TabContents* tab_contents() { return tab_contents_; }
   Browser* browser() { return browser_; }  // For tests.
   bool is_docked() { return docked_; }
   content::DevToolsClientHost* devtools_client_host() {
@@ -80,7 +82,7 @@ class DevToolsWindow : private content::NotificationObserver,
   static DevToolsWindow* Create(Profile* profile,
                                 content::RenderViewHost* inspected_rvh,
                                 bool docked, bool shared_worker_frontend);
-  DevToolsWindow(TabContentsWrapper* tab_contents, Profile* profile,
+  DevToolsWindow(TabContents* tab_contents, Profile* profile,
                  content::RenderViewHost* inspected_rvh, bool docked);
 
   void CreateDevToolsBrowser();
@@ -100,8 +102,8 @@ class DevToolsWindow : private content::NotificationObserver,
                              bool shared_worker_frontend);
   void UpdateTheme();
   void AddDevToolsExtensionsToClient();
-  void CallClientFunction(const string16& function_name,
-                          const base::Value& arg);
+  void CallClientFunction(const std::string& function_name,
+                          const base::Value* arg);
   // Overridden from content::WebContentsDelegate.
   virtual content::WebContents* OpenURLFromTab(
       content::WebContents* source,
@@ -112,13 +114,16 @@ class DevToolsWindow : private content::NotificationObserver,
                               const gfx::Rect& initial_pos,
                               bool user_gesture) OVERRIDE;
   virtual void CloseContents(content::WebContents* source) OVERRIDE {}
-  virtual bool CanReloadContents(content::WebContents* source) const OVERRIDE;
-  virtual bool PreHandleKeyboardEvent(const NativeWebKeyboardEvent& event,
-                                      bool* is_keyboard_shortcut) OVERRIDE;
+  virtual bool PreHandleKeyboardEvent(
+      const content::NativeWebKeyboardEvent& event,
+      bool* is_keyboard_shortcut) OVERRIDE;
   virtual void HandleKeyboardEvent(
-      const NativeWebKeyboardEvent& event) OVERRIDE;
+      const content::NativeWebKeyboardEvent& event) OVERRIDE;
   virtual content::JavaScriptDialogCreator*
       GetJavaScriptDialogCreator() OVERRIDE;
+  virtual void RunFileChooser(
+      content::WebContents* web_contents,
+      const content::FileChooserParams& params) OVERRIDE;
 
   virtual void FrameNavigating(const std::string& url) OVERRIDE {}
 
@@ -136,20 +141,28 @@ class DevToolsWindow : private content::NotificationObserver,
   virtual void UndockWindow() OVERRIDE;
   virtual void SetDockSide(const std::string& side) OVERRIDE;
   virtual void OpenInNewTab(const std::string& url) OVERRIDE;
-  virtual void SaveToFile(const std::string& suggested_file_name,
-                          const std::string& content) OVERRIDE;
+  virtual void SaveToFile(const std::string& url,
+                          const std::string& content,
+                          bool save_as) OVERRIDE;
+  virtual void AppendToFile(const std::string& url,
+                            const std::string& content) OVERRIDE;
+
+  // Overridden from DevToolsFileHelper::Delegate
+  virtual void FileSavedAs(const std::string& url)  OVERRIDE;
+  virtual void AppendedTo(const std::string& url)  OVERRIDE;
 
   void RequestSetDocked(bool docked);
 
   Profile* profile_;
-  TabContentsWrapper* inspected_tab_;
-  TabContentsWrapper* tab_contents_;
+  TabContents* inspected_tab_;
+  TabContents* tab_contents_;
   Browser* browser_;
   bool docked_;
   bool is_loaded_;
   DevToolsToggleAction action_on_load_;
   content::NotificationRegistrar registrar_;
   content::DevToolsClientHost* frontend_host_;
+  scoped_ptr<DevToolsFileHelper> file_helper_;
   DISALLOW_COPY_AND_ASSIGN(DevToolsWindow);
 };
 

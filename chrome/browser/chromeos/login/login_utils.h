@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_LOGIN_UTILS_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_LOGIN_UTILS_H_
-#pragma once
 
 #include <string>
 
@@ -47,9 +46,9 @@ class LoginUtils {
 
   virtual ~LoginUtils() {}
 
-  // Thin wrapper around BrowserInit::LaunchBrowser().  Meant to be used in a
-  // Task posted to the UI thread.  Once the browser is launched the login
-  // host is deleted.
+  // Thin wrapper around StartupBrowserCreator::LaunchBrowser().  Meant to be
+  // used in a Task posted to the UI thread.  Once the browser is launched the
+  // login host is deleted.
   virtual void DoBrowserLaunch(Profile* profile,
                                LoginDisplayHost* login_host) = 0;
 

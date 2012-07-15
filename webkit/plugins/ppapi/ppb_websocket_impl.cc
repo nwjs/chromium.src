@@ -107,7 +107,7 @@ PPB_WebSocket_API* PPB_WebSocket_Impl::AsPPB_WebSocket_API() {
 int32_t PPB_WebSocket_Impl::Connect(PP_Var url,
                                     const PP_Var protocols[],
                                     uint32_t protocol_count,
-                                    PP_CompletionCallback callback) {
+                                    scoped_refptr<TrackedCallback> callback) {
   // Check mandatory interfaces.
   PluginInstance* plugin_instance = ResourceHelper::GetPluginInstance(this);
   DCHECK(plugin_instance);
@@ -181,10 +181,6 @@ int32_t PPB_WebSocket_Impl::Connect(PP_Var url,
   }
   WebString web_protocols = WebString::fromUTF8(protocol_string);
 
-  // Validate |callback| (Doesn't support blocking callback)
-  if (!callback.func)
-    return PP_ERROR_BLOCKS_MAIN_THREAD;
-
   // Create WebKit::WebSocket object and connect.
   WebDocument document = plugin_instance->container()->element().document();
   websocket_.reset(WebSocket::create(document, this));
@@ -199,48 +195,57 @@ int32_t PPB_WebSocket_Impl::Connect(PP_Var url,
   state_ = PP_WEBSOCKETREADYSTATE_CONNECTING;
 
   // Install callback.
-  connect_callback_ = new TrackedCallback(this, callback);
+  connect_callback_ = callback;
 
   return PP_OK_COMPLETIONPENDING;
 }
 
 int32_t PPB_WebSocket_Impl::Close(uint16_t code,
                                   PP_Var reason,
-                                  PP_CompletionCallback callback) {
+                                  scoped_refptr<TrackedCallback> callback) {
   // Check mandarory interfaces.
   if (!websocket_.get())
     return PP_ERROR_FAILED;
 
-  // Validate |code|. Need to cast |CloseEventCodeNotSpecified| which is -1 to
-  // uint16_t for the comparison to work.
-  if (code != static_cast<uint16_t>(WebSocket::CloseEventCodeNotSpecified)) {
-    if (!(code == WebSocket::CloseEventCodeNormalClosure ||
-        (WebSocket::CloseEventCodeMinimumUserDefined <= code &&
-        code <= WebSocket::CloseEventCodeMaximumUserDefined)))
-    // RFC 6455 limits applications to use reserved connection close code in
-    // section 7.4.2.. The WebSocket API (http://www.w3.org/TR/websockets/)
-    // defines this out of range error as InvalidAccessError in JavaScript.
-    return PP_ERROR_NOACCESS;
+  // Validate |code| and |reason|.
+  scoped_refptr<StringVar> reason_string;
+  WebString web_reason;
+  WebSocket::CloseEventCode event_code =
+      static_cast<WebSocket::CloseEventCode>(code);
+  if (code == PP_WEBSOCKETSTATUSCODE_NOT_SPECIFIED) {
+    // PP_WEBSOCKETSTATUSCODE_NOT_SPECIFIED and CloseEventCodeNotSpecified are
+    // assigned to different values. A conversion is needed if
+    // PP_WEBSOCKETSTATUSCODE_NOT_SPECIFIED is specified.
+    event_code = WebSocket::CloseEventCodeNotSpecified;
+  } else {
+    if (!(code == PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE ||
+        (PP_WEBSOCKETSTATUSCODE_USER_REGISTERED_MIN <= code &&
+        code <= PP_WEBSOCKETSTATUSCODE_USER_PRIVATE_MAX)))
+      // RFC 6455 limits applications to use reserved connection close code in
+      // section 7.4.2.. The WebSocket API (http://www.w3.org/TR/websockets/)
+      // defines this out of range error as InvalidAccessError in JavaScript.
+      return PP_ERROR_NOACCESS;
+
+    // |reason| must be ignored if it is PP_VARTYPE_UNDEFINED or |code| is
+    // PP_WEBSOCKETSTATUSCODE_NOT_SPECIFIED.
+    if (reason.type != PP_VARTYPE_UNDEFINED) {
+      // Validate |reason|.
+      reason_string = StringVar::FromPPVar(reason);
+      if (!reason_string ||
+          reason_string->value().size() > kMaxReasonSizeInBytes)
+        return PP_ERROR_BADARGUMENT;
+      web_reason = WebString::fromUTF8(reason_string->value());
+    }
   }
 
-  // Validate |reason|.
-  // TODO(toyoshim): Returns PP_ERROR_BADARGUMENT if |reason| contains any
-  // surrogates.
-  scoped_refptr<StringVar> reason_string = StringVar::FromPPVar(reason);
-  if (!reason_string || reason_string->value().size() > kMaxReasonSizeInBytes)
-    return PP_ERROR_BADARGUMENT;
-
   // Check state.
-  if (state_ == PP_WEBSOCKETREADYSTATE_CLOSING ||
-      state_ == PP_WEBSOCKETREADYSTATE_CLOSED)
+  if (state_ == PP_WEBSOCKETREADYSTATE_CLOSING)
     return PP_ERROR_INPROGRESS;
-
-  // Validate |callback| (Doesn't support blocking callback)
-  if (!callback.func)
-    return PP_ERROR_BLOCKS_MAIN_THREAD;
+  if (state_ == PP_WEBSOCKETREADYSTATE_CLOSED)
+    return PP_OK;
 
   // Install |callback|.
-  close_callback_ = new TrackedCallback(this, callback);
+  close_callback_ = callback;
 
   // Abort ongoing connect.
   if (state_ == PP_WEBSOCKETREADYSTATE_CONNECTING) {
@@ -265,14 +270,14 @@ int32_t PPB_WebSocket_Impl::Close(uint16_t code,
 
   // Close connection.
   state_ = PP_WEBSOCKETREADYSTATE_CLOSING;
-  WebString web_reason = WebString::fromUTF8(reason_string->value());
-  websocket_->close(code, web_reason);
+  websocket_->close(event_code, web_reason);
 
   return PP_OK_COMPLETIONPENDING;
 }
 
-int32_t PPB_WebSocket_Impl::ReceiveMessage(PP_Var* message,
-                                           PP_CompletionCallback callback) {
+int32_t PPB_WebSocket_Impl::ReceiveMessage(
+    PP_Var* message,
+    scoped_refptr<TrackedCallback> callback) {
   // Check state.
   if (state_ == PP_WEBSOCKETREADYSTATE_INVALID ||
       state_ == PP_WEBSOCKETREADYSTATE_CONNECTING)
@@ -293,14 +298,10 @@ int32_t PPB_WebSocket_Impl::ReceiveMessage(PP_Var* message,
   if (error_was_received_)
     return PP_ERROR_FAILED;
 
-  // Validate |callback| (Doesn't support blocking callback)
-  if (!callback.func)
-    return PP_ERROR_BLOCKS_MAIN_THREAD;
-
   // Or retain |message| as buffer to store and install |callback|.
   wait_for_receive_ = true;
   receive_callback_var_ = message;
-  receive_callback_ = new TrackedCallback(this, callback);
+  receive_callback_ = callback;
 
   return PP_OK_COMPLETIONPENDING;
 }
@@ -501,16 +502,20 @@ void PPB_WebSocket_Impl::didClose(unsigned long unhandled_buffered_amount,
   PP_WebSocketReadyState state = state_;
   state_ = PP_WEBSOCKETREADYSTATE_CLOSED;
 
+  // User handlers may release WebSocket PP_Resource in the following
+  // completion callbacks. Retain |this| here to assure that this object
+  // keep on being valid in this function.
+  scoped_refptr<PPB_WebSocket_Impl> retain_this(this);
   if (state == PP_WEBSOCKETREADYSTATE_CONNECTING)
     TrackedCallback::ClearAndRun(&connect_callback_, PP_ERROR_FAILED);
 
   if (wait_for_receive_) {
     wait_for_receive_ = false;
     receive_callback_var_ = NULL;
-    TrackedCallback::ClearAndAbort(&receive_callback_);
+    TrackedCallback::ClearAndRun(&receive_callback_, PP_ERROR_FAILED);
   }
 
-  if (state == PP_WEBSOCKETREADYSTATE_CLOSING)
+  if ((state == PP_WEBSOCKETREADYSTATE_CLOSING) && close_callback_.get())
     TrackedCallback::ClearAndRun(&close_callback_, PP_OK);
 
   // Disconnect.

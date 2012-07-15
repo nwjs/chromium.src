@@ -6,7 +6,6 @@
 
 #include <algorithm>
 
-#include "base/debug/trace_event.h"
 #include "base/i18n/break_iterator.h"
 #include "base/logging.h"
 #include "base/stl_util.h"
@@ -14,7 +13,8 @@
 #include "third_party/skia/include/effects/SkGradientShader.h"
 #include "ui/base/text/utf16_indexing.h"
 #include "ui/gfx/canvas.h"
-#include "ui/gfx/native_theme.h"
+#include "ui/gfx/insets.h"
+#include "ui/gfx/skia_util.h"
 
 namespace {
 
@@ -26,6 +26,12 @@ const char16 kPasswordReplacementChar = '*';
 // Default color used for the cursor.
 const SkColor kDefaultCursorColor = SK_ColorBLACK;
 
+// Default color used for drawing selection text.
+const SkColor kDefaultSelectionColor = SK_ColorBLACK;
+
+// Default color used for drawing selection background.
+const SkColor kDefaultSelectionBackgroundColor = SK_ColorGRAY;
+
 #ifndef NDEBUG
 // Check StyleRanges invariant conditions: sorted and non-overlapping ranges.
 void CheckStyleRanges(const gfx::StyleRanges& style_ranges, size_t length) {
@@ -36,11 +42,14 @@ void CheckStyleRanges(const gfx::StyleRanges& style_ranges, size_t length) {
   for (gfx::StyleRanges::size_type i = 0; i < style_ranges.size() - 1; i++) {
     const ui::Range& former = style_ranges[i].range;
     const ui::Range& latter = style_ranges[i + 1].range;
-    DCHECK(!former.is_empty()) << "Empty range at " << i << ":" << former;
-    DCHECK(former.IsValid()) << "Invalid range at " << i << ":" << former;
-    DCHECK(!former.is_reversed()) << "Reversed range at " << i << ":" << former;
+    DCHECK(!former.is_empty()) << "Empty range at " << i << ":" <<
+        former.ToString();
+    DCHECK(former.IsValid()) << "Invalid range at " << i << ":" <<
+        former.ToString();
+    DCHECK(!former.is_reversed()) << "Reversed range at " << i << ":" <<
+        former.ToString();
     DCHECK(former.end() == latter.start()) << "Ranges gap/overlap/unsorted." <<
-        "former:" << former << ", latter:" << latter;
+        "former:" << former.ToString() << ", latter:" << latter.ToString();
   }
   const gfx::StyleRange& end_style = *style_ranges.rbegin();
   DCHECK(!end_style.range.is_empty()) << "Empty range at end.";
@@ -170,17 +179,41 @@ namespace gfx {
 
 namespace internal {
 
+// Value of |underline_thickness_| that indicates that underline metrics have
+// not been set explicitly.
+const SkScalar kUnderlineMetricsNotSet = -1.0f;
+
 SkiaTextRenderer::SkiaTextRenderer(Canvas* canvas)
-    : canvas_skia_(canvas->sk_canvas()) {
+    : canvas_skia_(canvas->sk_canvas()),
+      started_drawing_(false),
+      underline_thickness_(kUnderlineMetricsNotSet),
+      underline_position_(0.0f) {
   DCHECK(canvas_skia_);
   paint_.setTextEncoding(SkPaint::kGlyphID_TextEncoding);
   paint_.setStyle(SkPaint::kFill_Style);
   paint_.setAntiAlias(true);
   paint_.setSubpixelText(true);
   paint_.setLCDRenderText(true);
+  bounds_.setEmpty();
 }
 
 SkiaTextRenderer::~SkiaTextRenderer() {
+  // Work-around for http://crbug.com/122743, where non-ClearType text is
+  // rendered with incorrect gamma when using the fade shader. Draw the text
+  // to a layer and restore it faded by drawing a rect in kDstIn_Mode mode.
+  //
+  // TODO(asvitkine): Remove this work-around once the Skia bug is fixed.
+  //                  http://code.google.com/p/skia/issues/detail?id=590
+  if (deferred_fade_shader_.get()) {
+    paint_.setShader(deferred_fade_shader_.get());
+    paint_.setXfermodeMode(SkXfermode::kDstIn_Mode);
+    canvas_skia_->drawRect(bounds_, paint_);
+    canvas_skia_->restore();
+  }
+}
+
+void SkiaTextRenderer::SetDrawLooper(SkDrawLooper* draw_looper) {
+  paint_.setLooper(draw_looper);
 }
 
 void SkiaTextRenderer::SetFontSmoothingSettings(bool enable_smoothing,
@@ -194,7 +227,7 @@ void SkiaTextRenderer::SetTypeface(SkTypeface* typeface) {
   paint_.setTypeface(typeface);
 }
 
-void SkiaTextRenderer::SetTextSize(int size) {
+void SkiaTextRenderer::SetTextSize(SkScalar size) {
   paint_.setTextSize(size);
 }
 
@@ -203,58 +236,58 @@ void SkiaTextRenderer::SetFontFamilyWithStyle(const std::string& family,
   DCHECK(!family.empty());
 
   SkTypeface::Style skia_style = ConvertFontStyleToSkiaTypefaceStyle(style);
-  SkAutoTUnref<SkTypeface> typeface(
-      SkTypeface::CreateFromName(family.c_str(), skia_style));
-  if (typeface.get()) {
+  SkTypeface* typeface = SkTypeface::CreateFromName(family.c_str(), skia_style);
+  SkAutoUnref auto_unref(typeface);
+  if (typeface) {
     // |paint_| adds its own ref. So don't |release()| it from the ref ptr here.
-    SetTypeface(typeface.get());
+    SetTypeface(typeface);
 
     // Enable fake bold text if bold style is needed but new typeface does not
     // have it.
     paint_.setFakeBoldText((skia_style & SkTypeface::kBold) &&
-                           !typeface.get()->isBold());
+                           !typeface->isBold());
   }
-}
-
-void SkiaTextRenderer::SetFontStyle(int style) {
-  SkTypeface::Style skia_style = ConvertFontStyleToSkiaTypefaceStyle(style);
-  SkTypeface* current_typeface = paint_.getTypeface();
-
-  if (current_typeface->style() == skia_style)
-    return;
-
-  SkAutoTUnref<SkTypeface> typeface(
-      SkTypeface::CreateFromTypeface(current_typeface, skia_style));
-  if (typeface.get()) {
-    // |paint_| adds its own ref. So don't |release()| it from the ref ptr here.
-    SetTypeface(typeface.get());
-  }
-}
-
-void SkiaTextRenderer::SetFont(const gfx::Font& font) {
-  SkTypeface::Style skia_style =
-      ConvertFontStyleToSkiaTypefaceStyle(font.GetStyle());
-  SkAutoTUnref<SkTypeface> typeface(
-      SkTypeface::CreateFromName(font.GetFontName().c_str(), skia_style));
-  if (typeface.get()) {
-    // |paint_| adds its own ref. So don't |release()| it from the ref ptr here.
-    SetTypeface(typeface.get());
-  }
-  SetTextSize(font.GetFontSize());
 }
 
 void SkiaTextRenderer::SetForegroundColor(SkColor foreground) {
   paint_.setColor(foreground);
 }
 
-void SkiaTextRenderer::SetShader(SkShader* shader) {
+void SkiaTextRenderer::SetShader(SkShader* shader, const Rect& bounds) {
+  bounds_ = RectToSkRect(bounds);
   paint_.setShader(shader);
+}
+
+void SkiaTextRenderer::SetUnderlineMetrics(SkScalar thickness,
+                                           SkScalar position) {
+  underline_thickness_ = thickness;
+  underline_position_ = position;
 }
 
 void SkiaTextRenderer::DrawPosText(const SkPoint* pos,
                                    const uint16* glyphs,
                                    size_t glyph_count) {
-  size_t byte_length = glyph_count * sizeof(glyphs[0]);
+  if (!started_drawing_) {
+    started_drawing_ = true;
+    // Work-around for http://crbug.com/122743, where non-ClearType text is
+    // rendered with incorrect gamma when using the fade shader. Draw the text
+    // to a layer and restore it faded by drawing a rect in kDstIn_Mode mode.
+    //
+    // Skip this when there is a looper which seems not working well with
+    // deferred paint. Currently a looper is only used for text shadows.
+    //
+    // TODO(asvitkine): Remove this work-around once the Skia bug is fixed.
+    //                  http://code.google.com/p/skia/issues/detail?id=590
+    if (!paint_.isLCDRenderText() &&
+        paint_.getShader() &&
+        !paint_.getLooper()) {
+      deferred_fade_shader_ = paint_.getShader();
+      paint_.setShader(NULL);
+      canvas_skia_->saveLayer(&bounds_, NULL);
+    }
+  }
+
+  const size_t byte_length = glyph_count * sizeof(glyphs[0]);
   canvas_skia_->drawPosText(&glyphs[0], byte_length, &pos[0], paint_);
 }
 
@@ -283,9 +316,13 @@ void SkiaTextRenderer::DrawDecorations(int x, int y, int width,
   r.fRight = x + width;
 
   if (style.underline) {
-    SkScalar offset = SkScalarMulAdd(text_size, kUnderlineOffset, y);
-    r.fTop = offset;
-    r.fBottom = offset + height;
+    if (underline_thickness_ == kUnderlineMetricsNotSet) {
+      r.fTop = SkScalarMulAdd(text_size, kUnderlineOffset, y);
+      r.fBottom = r.fTop + height;
+    } else {
+      r.fTop = y + underline_position_;
+      r.fBottom = r.fTop + underline_thickness_;
+    }
     canvas_skia_->drawRect(r, paint_);
   }
   if (style.strike) {
@@ -403,9 +440,10 @@ void RenderText::SetObscured(bool obscured) {
 }
 
 void RenderText::SetDisplayRect(const Rect& r) {
+  if (r.width() != display_rect_.width())
+    ResetLayout();
   display_rect_ = r;
   cached_bounds_and_offset_valid_ = false;
-  ResetLayout();
 }
 
 void RenderText::SetCursorPosition(size_t position) {
@@ -483,18 +521,16 @@ void RenderText::ClearSelection() {
                                    selection_model_.caret_affinity()));
 }
 
-void RenderText::SelectAll() {
-  SelectionModel all;
-  if (GetTextDirection() == base::i18n::LEFT_TO_RIGHT)
-    all = SelectionModel(ui::Range(0, text().length()), CURSOR_FORWARD);
-  else
-    all = SelectionModel(ui::Range(text().length(), 0), CURSOR_BACKWARD);
-  SetSelectionModel(all);
+void RenderText::SelectAll(bool reversed) {
+  const size_t length = text().length();
+  const ui::Range all = reversed ? ui::Range(length, 0) : ui::Range(0, length);
+  const bool success = SelectRange(all);
+  DCHECK(success);
 }
 
 void RenderText::SelectWord() {
   if (obscured_) {
-    SelectAll();
+    SelectAll(false);
     return;
   }
 
@@ -566,25 +602,26 @@ VisualCursorDirection RenderText::GetVisualDirectionOfLogicalEnd() {
 }
 
 void RenderText::Draw(Canvas* canvas) {
-  TRACE_EVENT0("gfx", "RenderText::Draw");
-  {
-    TRACE_EVENT0("gfx", "RenderText::EnsureLayout");
-    EnsureLayout();
-  }
+  EnsureLayout();
 
-  canvas->Save();
-  canvas->ClipRect(display_rect());
+  if (clip_to_display_rect()) {
+    gfx::Rect clip_rect(display_rect());
+    clip_rect.Inset(ShadowValue::GetMargin(text_shadows_));
+
+    canvas->Save();
+    canvas->ClipRect(clip_rect);
+  }
 
   if (!text().empty())
     DrawSelection(canvas);
 
   DrawCursor(canvas);
 
-  if (!text().empty()) {
-    TRACE_EVENT0("gfx", "RenderText::Draw draw text");
+  if (!text().empty())
     DrawVisualText(canvas);
-  }
-  canvas->Restore();
+
+  if (clip_to_display_rect())
+    canvas->Restore();
 }
 
 Rect RenderText::GetCursorBounds(const SelectionModel& caret,
@@ -626,6 +663,30 @@ const Rect& RenderText::GetUpdatedCursorBounds() {
   return cursor_bounds_;
 }
 
+size_t RenderText::IndexOfAdjacentGrapheme(size_t index,
+    LogicalCursorDirection direction) {
+  if (index > text().length())
+    return text().length();
+
+  EnsureLayout();
+
+  if (direction == CURSOR_FORWARD) {
+    while (index < text().length()) {
+      index++;
+      if (IsCursorablePosition(index))
+        return index;
+    }
+    return text().length();
+  }
+
+  while (index > 0) {
+    index--;
+    if (IsCursorablePosition(index))
+      return index;
+  }
+  return 0;
+}
+
 SelectionModel RenderText::GetSelectionModelForSelectionStart() {
   const ui::Range& sel = selection();
   if (sel.is_empty())
@@ -634,18 +695,26 @@ SelectionModel RenderText::GetSelectionModelForSelectionStart() {
                         sel.is_reversed() ? CURSOR_BACKWARD : CURSOR_FORWARD);
 }
 
+void RenderText::SetTextShadows(const ShadowValues& shadows) {
+  text_shadows_ = shadows;
+}
+
 RenderText::RenderText()
     : horizontal_alignment_(base::i18n::IsRTL() ? ALIGN_RIGHT : ALIGN_LEFT),
       cursor_enabled_(true),
       cursor_visible_(false),
       insert_mode_(true),
       cursor_color_(kDefaultCursorColor),
+      selection_color_(kDefaultSelectionColor),
+      selection_background_focused_color_(kDefaultSelectionBackgroundColor),
+      selection_background_unfocused_color_(kDefaultSelectionBackgroundColor),
       focused_(false),
       composition_range_(ui::Range::InvalidRange()),
       obscured_(false),
       fade_head_(false),
       fade_tail_(false),
       background_is_transparent_(false),
+      clip_to_display_rect_(true),
       cached_bounds_and_offset_valid_(false) {
 }
 
@@ -703,8 +772,7 @@ void RenderText::ApplyCompositionAndSelectionStyles(
   // Apply a selection style override to a copy of the style ranges.
   if (!selection().is_empty()) {
     StyleRange selection_style(default_style_);
-    selection_style.foreground = NativeTheme::instance()->GetSystemColor(
-        NativeTheme::kColorId_TextfieldSelectionColor);
+    selection_style.foreground = selection_color_;
     selection_style.range = ui::Range(selection().GetMin(),
                                       selection().GetMax());
     ApplyStyleRangeImpl(style_ranges, selection_style);
@@ -719,8 +787,7 @@ void RenderText::ApplyCompositionAndSelectionStyles(
   // http://crbug.com/110109
   if (!insert_mode_ && cursor_visible() && focused()) {
     StyleRange replacement_mode_style(default_style_);
-    replacement_mode_style.foreground = NativeTheme::instance()->GetSystemColor(
-        NativeTheme::kColorId_TextfieldSelectionColor);
+    replacement_mode_style.foreground = selection_color_;
     size_t cursor = cursor_position();
     replacement_mode_style.range.set_start(cursor);
     replacement_mode_style.range.set_end(
@@ -758,16 +825,11 @@ Point RenderText::GetAlignmentOffset() {
   return Point();
 }
 
-Point RenderText::GetOriginForSkiaDrawing() {
+Point RenderText::GetOriginForDrawing() {
   Point origin(GetTextOrigin());
-  // TODO(msw): Establish a vertical baseline for strings of mixed font heights.
-  const Font& font = GetFont();
-  int height = font.GetHeight();
-  DCHECK_LE(height, display_rect().height());
+  const int height = GetStringSize().height();
   // Center the text vertically in the display area.
   origin.Offset(0, (display_rect().height() - height) / 2);
-  // Offset by the font size to account for Skia expecting y to be the bottom.
-  origin.Offset(0, font.GetFontSize());
   return origin;
 }
 
@@ -789,7 +851,10 @@ void RenderText::ApplyFadeEffects(internal::SkiaTextRenderer* renderer) {
   bool fade_left = fade_head();
   bool fade_right = fade_tail();
   // Under RTL, |fade_right| == |fade_head|.
-  if (GetTextDirection() == base::i18n::RIGHT_TO_LEFT)
+  // TODO(asvitkine): This is currently not based on GetTextDirection() because
+  //                  RenderTextWin does not return a direction that's based on
+  //                  the text content.
+  if (horizontal_alignment() == ALIGN_RIGHT)
     std::swap(fade_left, fade_right);
 
   gfx::Rect solid_part = display_rect();
@@ -810,12 +875,18 @@ void RenderText::ApplyFadeEffects(internal::SkiaTextRenderer* renderer) {
   text_rect.Inset(GetAlignmentOffset().x(), 0, 0, 0);
 
   const SkColor color = default_style().foreground;
-  SkAutoTUnref<SkShader> shader(
-      CreateFadeShader(text_rect, left_part, right_part, color));
-  if (shader.get()) {
+  SkShader* shader = CreateFadeShader(text_rect, left_part, right_part, color);
+  SkAutoUnref auto_unref(shader);
+  if (shader) {
     // |renderer| adds its own ref. So don't |release()| it from the ref ptr.
-    renderer->SetShader(shader.get());
+    renderer->SetShader(shader, display_rect());
   }
+}
+
+void RenderText::ApplyTextShadows(internal::SkiaTextRenderer* renderer) {
+  SkDrawLooper* looper = gfx::CreateShadowDrawLooper(text_shadows_);
+  SkAutoUnref auto_unref(looper);
+  renderer->SetDrawLooper(looper);
 }
 
 // static
@@ -882,11 +953,9 @@ void RenderText::UpdateCachedBoundsAndOffset() {
 }
 
 void RenderText::DrawSelection(Canvas* canvas) {
-  std::vector<Rect> sel = GetSubstringBounds(selection());
-  NativeTheme::ColorId color_id = focused() ?
-      NativeTheme::kColorId_TextfieldSelectionBackgroundFocused :
-      NativeTheme::kColorId_TextfieldSelectionBackgroundUnfocused;
-  SkColor color = NativeTheme::instance()->GetSystemColor(color_id);
+  const SkColor color = focused() ? selection_background_focused_color_ :
+                                    selection_background_unfocused_color_;
+  const std::vector<Rect> sel = GetSubstringBounds(selection());
   for (std::vector<Rect>::const_iterator i = sel.begin(); i < sel.end(); ++i)
     canvas->FillRect(*i, color);
 }

@@ -2,11 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "content/test/test_launcher.h"
+#include "content/public/test/test_launcher.h"
 
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/scoped_temp_dir.h"
+#include "base/test/test_file_util.h"
 #include "chrome/app/chrome_main_delegate.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/chrome_constants.h"
@@ -19,7 +20,7 @@
 
 #if defined(OS_WIN)
 #include "content/public/app/startup_helper_win.h"
-#include "sandbox/src/sandbox_types.h"
+#include "sandbox/win/src/sandbox_types.h"
 #endif  // defined(OS_WIN)
 
 class ChromeTestLauncherDelegate : public test_launcher::TestLauncherDelegate {
@@ -37,9 +38,14 @@ class ChromeTestLauncherDelegate : public test_launcher::TestLauncherDelegate {
   }
 
   virtual bool Run(int argc, char** argv, int* return_code) OVERRIDE {
-#if defined(OS_WIN)
+#if defined(OS_WIN) || defined(OS_LINUX)
     CommandLine* command_line = CommandLine::ForCurrentProcess();
-    if (command_line->HasSwitch(switches::kProcessType)) {
+    bool launch_chrome =
+        command_line->HasSwitch(switches::kProcessType) ||
+        command_line->HasSwitch(ChromeTestSuite::kLaunchAsBrowser);
+#endif
+#if defined(OS_WIN)
+    if (launch_chrome) {
       sandbox::SandboxInterfaceInfo sandbox_info = {0};
       content::InitializeSandboxInfo(&sandbox_info);
       ChromeMainDelegate chrome_main_delegate;
@@ -49,8 +55,7 @@ class ChromeTestLauncherDelegate : public test_launcher::TestLauncherDelegate {
       return true;
     }
 #elif defined(OS_LINUX)
-    CommandLine* command_line = CommandLine::ForCurrentProcess();
-    if (command_line->HasSwitch(switches::kProcessType)) {
+    if (launch_chrome) {
       ChromeMainDelegate chrome_main_delegate;
       *return_code = content::ContentMain(argc,
                                           const_cast<const char**>(argv),
@@ -79,13 +84,20 @@ class ChromeTestLauncherDelegate : public test_launcher::TestLauncherDelegate {
       new_command_line.AppendSwitchNative((*iter).first, (*iter).second);
     }
 
+    // Clean up previous temp dir.
+    // We Take() the directory and delete it ourselves so that the next
+    // CreateUniqueTempDir will succeed even if deleting the directory fails.
+    if (!temp_dir_.path().empty() &&
+        !file_util::DieFileDie(temp_dir_.Take(), true)) {
+      LOG(ERROR) << "Error deleting previous temp profile directory";
+    }
+
     // Create a new user data dir and pass it to the child.
-    ScopedTempDir temp_dir;
-    if (!temp_dir.CreateUniqueTempDir() || !temp_dir.IsValid()) {
+    if (!temp_dir_.CreateUniqueTempDir() || !temp_dir_.IsValid()) {
       LOG(ERROR) << "Error creating temp profile directory";
       return false;
     }
-    new_command_line.AppendSwitchPath(switches::kUserDataDir, temp_dir.path());
+    new_command_line.AppendSwitchPath(switches::kUserDataDir, temp_dir_.path());
 
     // file:// access for ChromeOS.
     new_command_line.AppendSwitch(switches::kAllowFileAccess);
@@ -95,6 +107,8 @@ class ChromeTestLauncherDelegate : public test_launcher::TestLauncherDelegate {
   }
 
  private:
+  ScopedTempDir temp_dir_;
+
   DISALLOW_COPY_AND_ASSIGN(ChromeTestLauncherDelegate);
 };
 

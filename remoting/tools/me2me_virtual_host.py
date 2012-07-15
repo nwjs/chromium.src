@@ -33,6 +33,14 @@ import uuid
 import gaia_auth
 import keygen
 
+# By default this script will try to determine the most appropriate X session
+# command for the system.  To use a specific session instead, set this variable
+# to the executable filename, or a list containing the executable and any
+# arguments, for example:
+# XSESSION_COMMAND = "/usr/bin/gnome-session-fallback"
+# XSESSION_COMMAND = ["/usr/bin/gnome-session", "--session=ubuntu-2d"]
+XSESSION_COMMAND = None
+
 REMOTING_COMMAND = "remoting_me2me_host"
 
 # Command-line switch for passing the config path to remoting_me2me_host.
@@ -190,19 +198,10 @@ class Host:
     logging.info("Done")
 
   def ask_pin(self):
-    print \
-"""Chromoting host supports PIN-based authentication, but it doesn't
-work with Chrome 16 and Chrome 17 clients. Leave the PIN empty if you
-need to use Chrome 16 or Chrome 17 clients. If you only use Chrome 18
-or above, please set a non-empty PIN. You can change PIN later using
--p flag."""
     while 1:
       pin = getpass.getpass("Host PIN: ")
-      if len(pin) == 0:
-        print "Using empty PIN"
-        break
-      if len(pin) < 4:
-        print "PIN must be at least 4 characters long."
+      if len(pin) < 6:
+        print "PIN must be at least 6 characters long."
         continue
       pin2 = getpass.getpass("Confirm host PIN: ")
       if pin2 != pin:
@@ -255,12 +254,11 @@ or above, please set a non-empty PIN. You can change PIN later using
 class Desktop:
   """Manage a single virtual desktop"""
 
-  def __init__(self, width, height):
+  def __init__(self, sizes):
     self.x_proc = None
     self.session_proc = None
     self.host_proc = None
-    self.width = width
-    self.height = height
+    self.sizes = sizes
     g_desktops.append(self)
 
   @staticmethod
@@ -273,15 +271,20 @@ class Desktop:
     return display
 
   def launch_x_server(self, extra_x_args):
+    devnull = open(os.devnull, "rw")
     display = self.get_unused_display_number()
     ret_code = subprocess.call("xauth add :%d . `mcookie`" % display,
                                shell=True)
     if ret_code != 0:
       raise Exception("xauth failed with code %d" % ret_code)
 
+    max_width = max([width for width, height in self.sizes])
+    max_height = max([height for width, height in self.sizes])
+
     logging.info("Starting Xvfb on display :%d" % display);
-    screen_option = "%dx%dx24" % (self.width, self.height)
+    screen_option = "%dx%dx24" % (max_width, max_height)
     self.x_proc = subprocess.Popen(["Xvfb", ":%d" % display,
+                                    "-noreset",
                                     "-auth", X_AUTH_FILE,
                                     "-nolisten", "tcp",
                                     "-screen", "0", screen_option
@@ -307,8 +310,7 @@ class Desktop:
 
     # Wait for X to be active.
     for test in range(5):
-      proc = subprocess.Popen("xdpyinfo > /dev/null", env=self.child_env,
-                              shell=True)
+      proc = subprocess.Popen("xdpyinfo", env=self.child_env, stdout=devnull)
       pid, retcode = os.waitpid(proc.pid, 0)
       if retcode == 0:
         break
@@ -318,16 +320,53 @@ class Desktop:
     else:
       logging.info("Xvfb is active.")
 
+    # The remoting host expects the server to use "evdev" keycodes, but Xvfb
+    # starts configured to use the "base" ruleset, resulting in XKB configuring
+    # for "xfree86" keycodes, and screwing up some keys. See crbug.com/119013.
+    # Reconfigure the X server to use "evdev" keymap rules.  The X server must
+    # be started with -noreset otherwise it'll reset as soon as the command
+    # completes, since there are no other X clients running yet.
+    proc = subprocess.Popen("setxkbmap -rules evdev", env=self.child_env,
+                            shell=True)
+    pid, retcode = os.waitpid(proc.pid, 0)
+    if retcode != 0:
+      logging.error("Failed to set XKB to 'evdev'")
+
+    # Register the screen sizes if the X server's RANDR extension supports it.
+    # Errors here are non-fatal; the X server will continue to run with the
+    # dimensions from the "-screen" option.
+    for width, height in self.sizes:
+      label = "%dx%d" % (width, height)
+      args = ["xrandr", "--newmode", label, "0", str(width), "0", "0", "0",
+              str(height), "0", "0", "0"]
+      proc = subprocess.Popen(args, env=self.child_env, stdout=devnull,
+                              stderr=devnull)
+      proc.wait()
+      args = ["xrandr", "--addmode", "screen", label]
+      proc = subprocess.Popen(args, env=self.child_env, stdout=devnull,
+                              stderr=devnull)
+      proc.wait()
+
+    # Set the initial mode to the first size specified, otherwise the X server
+    # would default to (max_width, max_height), which might not even be in the
+    # list.
+    label = "%dx%d" % self.sizes[0]
+    args = ["xrandr", "-s", label]
+    proc = subprocess.Popen(args, env=self.child_env, stdout=devnull,
+                            stderr=devnull)
+    proc.wait()
+
+    devnull.close()
+
   def launch_x_session(self):
     # Start desktop session
-    # The /dev/null input redirection is necessary to prevent Xsession from
+    # The /dev/null input redirection is necessary to prevent the X session
     # reading from stdin.  If this code runs as a shell background job in a
     # terminal, any reading from stdin causes the job to be suspended.
     # Daemonization would solve this problem by separating the process from the
     # controlling terminal.
-    #
-    # This assumes that GDM is installed and configured on the system.
-    self.session_proc = subprocess.Popen("/etc/gdm/Xsession",
+    logging.info("Launching X session: %s" % XSESSION_COMMAND)
+    self.session_proc = subprocess.Popen(XSESSION_COMMAND,
                                          stdin=open(os.devnull, "r"),
                                          cwd=HOME_DIR,
                                          env=self.child_env)
@@ -424,6 +463,38 @@ class PidFile:
     """
     if self.created:
       os.remove(self.filename)
+
+
+def choose_x_session():
+  """Chooses the most appropriate X session command for this system.
+
+  If XSESSION_COMMAND is already set, its value is returned directly.
+  Otherwise, a session is chosen for this system.
+
+  Returns:
+    A string containing the command to run, or a list of strings containing
+    the executable program and its arguments, which is suitable for passing as
+    the first parameter of subprocess.Popen().  If a suitable session cannot
+    be found, returns None.
+  """
+  if XSESSION_COMMAND is not None:
+    return XSESSION_COMMAND
+
+  # Unity-2d would normally be the preferred choice on Ubuntu 12.04.  At the
+  # time of writing, this session does not work properly (missing launcher and
+  # panel), so gnome-session-fallback is used in preference.
+  # "unity-2d-panel" was chosen here simply because it appears in the TryExec
+  # line of the session's .desktop file; other choices might be just as good.
+  for test_file, command in [
+    ("/usr/bin/gnome-session-fallback", "/usr/bin/gnome-session-fallback"),
+    ("/etc/gdm/Xsession", "/etc/gdm/Xsession"),
+    ("/usr/bin/unity-2d-panel",
+      ["/usr/bin/gnome-session", "--session=ubuntu-2d"]),
+  ]:
+    if os.path.exists(test_file):
+      return command
+
+  return None
 
 
 def locate_executable(exe_name):
@@ -524,10 +595,14 @@ def signal_handler(signum, stackframe):
 
 
 def main():
+  DEFAULT_SIZE = "1280x1024"
   parser = optparse.OptionParser(
       "Usage: %prog [options] [ -- [ X server options ] ]")
-  parser.add_option("-s", "--size", dest="size", default="1280x1024",
-                    help="dimensions of virtual desktop (default: %default)")
+  parser.add_option("-s", "--size", dest="size", action="append",
+                    help="dimensions of virtual desktop (default: %s). "
+                    "This can be specified multiple times to make multiple "
+                    "screen resolutions available (if the Xvfb server "
+                    "supports this)" % DEFAULT_SIZE)
   parser.add_option("-f", "--foreground", dest="foreground", default=False,
                     action="store_true",
                     help="don't run as a background daemon")
@@ -540,13 +615,9 @@ def main():
   parser.add_option("", "--check-running", dest="check_running", default=False,
                     action="store_true",
                     help="return 0 if the daemon is running, or 1 otherwise")
-  parser.add_option("", "--explicit-pin", dest="explicit_pin", default=None,
-                    help="set or unset the pin on the command line")
+  parser.add_option("", "--explicit-config", dest="explicit_config",
+                    help="explicitly specify content of the config")
   (options, args) = parser.parse_args()
-
-  size_components = options.size.split("x")
-  if len(size_components) != 2:
-    parser.error("Incorrect size format, should be WIDTHxHEIGHT");
 
   host_hash = hashlib.md5(socket.gethostname()).hexdigest()
   pid_filename = os.path.join(CONFIG_DIR, "host#%s.pid" % host_hash)
@@ -564,16 +635,39 @@ def main():
       os.kill(pid, signal.SIGTERM)
     return 0
 
-  try:
-    width = int(size_components[0])
-    height = int(size_components[1])
+  if not options.size:
+    options.size = [DEFAULT_SIZE]
 
-    # Enforce minimum desktop size, as a sanity-check.  The limit of 100 will
-    # detect typos of 2 instead of 3 digits.
-    if width < 100 or height < 100:
-      raise ValueError
-  except ValueError:
-    parser.error("Width and height should be 100 pixels or greater")
+  sizes = []
+  for size in options.size:
+    size_components = size.split("x")
+    if len(size_components) != 2:
+      parser.error("Incorrect size format '%s', should be WIDTHxHEIGHT" % size)
+
+    try:
+      width = int(size_components[0])
+      height = int(size_components[1])
+
+      # Enforce minimum desktop size, as a sanity-check.  The limit of 100 will
+      # detect typos of 2 instead of 3 digits.
+      if width < 100 or height < 100:
+        raise ValueError
+    except ValueError:
+      parser.error("Width and height should be 100 pixels or greater")
+
+    sizes.append((width, height))
+
+  global XSESSION_COMMAND
+  XSESSION_COMMAND = choose_x_session()
+  if XSESSION_COMMAND is None:
+    print >> sys.stderr, "Unable to choose suitable X session command."
+    return 1
+
+  if "--session=ubuntu-2d" in XSESSION_COMMAND:
+    print >> sys.stderr, (
+      "The Unity 2D desktop session will be used.\n"
+      "If you encounter problems with this choice of desktop, please install\n"
+      "the gnome-session-fallback package, and restart this script.\n")
 
   atexit.register(cleanup)
 
@@ -584,19 +678,17 @@ def main():
   if not os.path.exists(CONFIG_DIR):
     os.makedirs(CONFIG_DIR, mode=0700)
 
+  if options.explicit_config:
+    for file_name in ["auth.json", "host#%s.json" % host_hash]:
+      settings_file = open(os.path.join(CONFIG_DIR, file_name), 'w')
+      settings_file.write(options.explicit_config)
+      settings_file.close()
+
   auth = Authentication(os.path.join(CONFIG_DIR, "auth.json"))
   need_auth_tokens = not auth.load_config()
 
   host = Host(os.path.join(CONFIG_DIR, "host#%s.json" % host_hash))
   register_host = not host.load_config()
-
-  if options.explicit_pin != None:
-    host.set_pin(options.explicit_pin)
-    host.save_config()
-    running, pid = PidFile(pid_filename).check()
-    if running and pid != 0:
-      os.kill(pid, signal.SIGUSR1)
-    return 0
 
   # Outside the loop so user doesn't get asked twice.
   if register_host:
@@ -610,36 +702,37 @@ def main():
       print "The running instance has been updated with the new PIN."
       return 0
 
-  # The loop is to deal with the case of registering a new Host with
-  # previously-saved auth tokens (from a previous run of this script), which
-  # may require re-prompting for username & password.
-  while True:
-    try:
-      if need_auth_tokens:
-        auth.generate_tokens()
-        auth.save_config()
-        need_auth_tokens = False
-    except Exception:
-      logging.error("Authentication failed")
-      return 1
-
-    try:
-      if register_host:
-        host.register(auth)
-        host.save_config()
-    except urllib2.HTTPError, err:
-      if err.getcode() == 401:
-        # Authentication failed - re-prompt for username & password.
-        need_auth_tokens = True
-        continue
-      else:
-        # Not an authentication error.
-        logging.error("Directory returned error: " + str(err))
-        logging.error(err.read())
+  if not options.explicit_config:
+    # The loop is to deal with the case of registering a new Host with
+    # previously-saved auth tokens (from a previous run of this script), which
+    # may require re-prompting for username & password.
+    while True:
+      try:
+        if need_auth_tokens:
+          auth.generate_tokens()
+          auth.save_config()
+          need_auth_tokens = False
+      except Exception:
+        logging.error("Authentication failed")
         return 1
 
-    # |auth| and |host| are both set up, so break out of the loop.
-    break
+      try:
+        if register_host:
+          host.register(auth)
+          host.save_config()
+      except urllib2.HTTPError, err:
+        if err.getcode() == 401:
+          # Authentication failed - re-prompt for username & password.
+          need_auth_tokens = True
+          continue
+        else:
+          # Not an authentication error.
+          logging.error("Directory returned error: " + str(err))
+          logging.error(err.read())
+          return 1
+
+      # |auth| and |host| are both set up, so break out of the loop.
+      break
 
   global g_pidfile
   g_pidfile = PidFile(pid_filename)
@@ -664,7 +757,7 @@ def main():
 
   logging.info("Using host_id: " + host.host_id)
 
-  desktop = Desktop(width, height)
+  desktop = Desktop(sizes)
 
   # Remember the time when the last session was launched, in order to enforce
   # a minimum time between launches.  This avoids spinning in case of a
@@ -732,14 +825,24 @@ def main():
       logging.info("Host process terminated")
       desktop.host_proc = None
 
-      # The exit-code must match the one used in HeartbeatSender.
-      if os.WEXITSTATUS(status) == 100:
-        logging.info("Host ID has been deleted - exiting.")
-        # Host config is no longer valid.  Delete it, so the next time this
-        # script is run, a new Host ID will be created and registered.
+      # These exit-codes must match the ones used by the host.
+      # See remoting/host/constants.h.
+      # Delete the host or auth configuration depending on the returned error
+      # code, so the next time this script is run, a new configuration
+      # will be created and registered.
+      if os.WEXITSTATUS(status) == 2:
+        logging.info("Host configuration is invalid - exiting.")
+        os.remove(auth.config_file)
         os.remove(host.config_file)
         return 0
-
+      elif os.WEXITSTATUS(status) == 3:
+        logging.info("Host ID has been deleted - exiting.")
+        os.remove(host.config_file)
+        return 0
+      elif os.WEXITSTATUS(status) == 4:
+        logging.info("OAuth credentials are invalid - exiting.")
+        os.remove(auth.config_file)
+        return 0
 
 if __name__ == "__main__":
   logging.basicConfig(level=logging.DEBUG)

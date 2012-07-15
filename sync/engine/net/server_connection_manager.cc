@@ -16,10 +16,10 @@
 #include "net/http/http_status_code.h"
 #include "sync/engine/net/url_translator.h"
 #include "sync/engine/syncer.h"
-#include "sync/engine/syncproto.h"
 #include "sync/protocol/sync.pb.h"
+#include "sync/syncable/directory.h"
 
-namespace browser_sync {
+namespace syncer {
 
 using std::ostream;
 using std::string;
@@ -167,11 +167,9 @@ ScopedServerStatusWatcher::~ScopedServerStatusWatcher() {
 ServerConnectionManager::ServerConnectionManager(
     const string& server,
     int port,
-    bool use_ssl,
-    const string& user_agent)
+    bool use_ssl)
     : sync_server_(server),
       sync_server_port_(port),
-      user_agent_(user_agent),
       use_ssl_(use_ssl),
       proto_sync_path_(kSyncServerSyncPath),
       get_time_path_(kSyncServerGetTimePath),
@@ -327,8 +325,9 @@ bool FillMessageWithShareDetails(sync_pb::ClientToServerMessage* csm,
 std::ostream& operator << (std::ostream& s, const struct HttpResponse& hr) {
   s << " Response Code (bogus on error): " << hr.response_code;
   s << " Content-Length (bogus on error): " << hr.content_length;
-  s << " Server Status: " << hr.server_status;
+  s << " Server Status: "
+    << HttpResponse::GetServerConnectionCodeString(hr.server_status);
   return s;
 }
 
-}  // namespace browser_sync
+}  // namespace syncer

@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,21 +16,6 @@
 #include "chrome/browser/ui/view_ids.h"
 #include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util_mac.h"
-
-void TestingAutomationProvider::ActivateWindow(int handle) {
-  NOTIMPLEMENTED();
-}
-
-void TestingAutomationProvider::IsWindowMaximized(int handle,
-                                                  bool* is_maximized,
-                                                  bool* success) {
-  *success = false;
-  NSWindow* window = window_tracker_->GetResource(handle);
-  if (!window)
-    return;
-  *is_maximized = [window isZoomed];
-  *success = true;
-}
 
 void TestingAutomationProvider::TerminateSession(int handle, bool* success) {
   *success = false;
@@ -65,7 +50,7 @@ void TestingAutomationProvider::WindowGetViewBounds(int handle,
   if (!tab)
     return;
 
-  NSRect rect = [tab convertRectToBase:[tab bounds]];
+  NSRect rect = [tab convertRect:[tab bounds] toView:nil];
   // The origin of the bounding box should be the top left of the tab contents,
   // not bottom left, to match other platforms.
   rect.origin.y += rect.size.height;
@@ -81,24 +66,6 @@ void TestingAutomationProvider::WindowGetViewBounds(int handle,
   rect.origin.y = coord_sys_height - rect.origin.y;
   *bounds = gfx::Rect(NSRectToCGRect(rect));
   *success = true;
-}
-
-void TestingAutomationProvider::GetWindowBounds(int handle,
-                                                gfx::Rect* bounds,
-                                                bool* success) {
-  *success = false;
-  NSWindow* window = window_tracker_->GetResource(handle);
-  if (window) {
-    // Move rect to reflect flipped coordinate system.
-    if ([[NSScreen screens] count] > 0) {
-      NSRect rect = [window frame];
-      rect.origin.y =
-          [[[NSScreen screens] objectAtIndex:0] frame].size.height -
-              rect.origin.y - rect.size.height;
-      *bounds = gfx::Rect(NSRectToCGRect(rect));
-      *success = true;
-    }
-  }
 }
 
 void TestingAutomationProvider::SetWindowBounds(int handle,
@@ -118,39 +85,4 @@ void TestingAutomationProvider::SetWindowBounds(int handle,
     [window setFrame:new_bounds display:NO];
     *success = true;
   }
-}
-
-void TestingAutomationProvider::SetWindowVisible(int handle,
-                                                 bool visible,
-                                                 bool* result) {
-  *result = false;
-  NSWindow* window = window_tracker_->GetResource(handle);
-  if (window) {
-    if (visible) {
-      [window orderFront:nil];
-    } else {
-      [window orderOut:nil];
-    }
-    *result = true;
-  }
-}
-
-void TestingAutomationProvider::GetWindowTitle(int handle, string16* text) {
-  gfx::NativeWindow window = window_tracker_->GetResource(handle);
-  NSString* title = nil;
-  if ([[window delegate] isKindOfClass:[TabWindowController class]]) {
-    TabWindowController* delegate =
-        reinterpret_cast<TabWindowController*>([window delegate]);
-    title = [delegate activeTabTitle];
-  } else {
-    title = [window title];
-  }
-  // If we don't yet have a title, use "Untitled".
-  if (![title length]) {
-    text->assign(l10n_util::GetStringUTF16(
-        IDS_BROWSER_WINDOW_MAC_TAB_UNTITLED));
-    return;
-  }
-
-  text->assign(base::SysNSStringToUTF16(title));
 }

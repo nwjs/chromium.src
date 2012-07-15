@@ -4,16 +4,17 @@
 
 #ifndef CHROME_BROWSER_AUTOCOMPLETE_AUTOCOMPLETE_MATCH_H_
 #define CHROME_BROWSER_AUTOCOMPLETE_AUTOCOMPLETE_MATCH_H_
-#pragma once
 
-#include <vector>
 #include <string>
+#include <vector>
 
 #include "base/memory/scoped_ptr.h"
+#include "chrome/browser/search_engines/template_url.h"
 #include "content/public/common/page_transition_types.h"
 #include "googleurl/src/gurl.h"
 
 class AutocompleteProvider;
+class Profile;
 class TemplateURL;
 
 // AutocompleteMatch ----------------------------------------------------------
@@ -168,8 +169,11 @@ struct AutocompleteMatch {
   // to the associated keyword and |is_keyword_hint| will be set to true.  Note
   // that only one of these states can be in effect at once.  In all other
   // cases, |keyword| will be cleared, even when our member variable |keyword|
-  // is non-empty.  See also GetSubstitutingExplicitlyInvokedKeyword().
-  void GetKeywordUIState(string16* keyword,
+  // is non-empty -- such as with non-substituting keywords or matches that
+  // represent searches using the default search engine.  See also
+  // GetSubstitutingExplicitlyInvokedKeyword().
+  void GetKeywordUIState(Profile* profile,
+                         string16* keyword,
                          bool* is_keyword_hint) const;
 
   // Returns |keyword|, but only if it represents a substituting keyword that
@@ -178,10 +182,12 @@ struct AutocompleteMatch {
   // invoke its keyword), this returns the empty string.  The result is that
   // this function returns a non-empty string in the same cases as when the UI
   // should show up as being "in keyword mode".
-  string16 GetSubstitutingExplicitlyInvokedKeyword() const;
+  string16 GetSubstitutingExplicitlyInvokedKeyword(Profile* profile) const;
 
-  // Returns the TemplateURL associated with this match.
-  const TemplateURL* GetTemplateURL() const;
+  // Returns the TemplateURL associated with this match.  This may be NULL if
+  // the match has no keyword OR if the keyword no longer corresponds to a valid
+  // TemplateURL.  See comments on |keyword| below.
+  TemplateURL* GetTemplateURL(Profile* profile) const;
 
   // The provider of this match, used to remember which provider the user had
   // selected when the input changes. This may be NULL, in which case there is
@@ -196,6 +202,12 @@ struct AutocompleteMatch {
   // TODO(pkasting): http://b/1111299 This should be calculated algorithmically,
   // rather than being a fairly fixed value defined by the table above.
   int relevance;
+
+  // How many times this result was typed in / selected from the omnibox.
+  // Only set for some providers and result_types.  If it is not set,
+  // its value is -1.  At the time of writing this comment, it is only
+  // set for matches from HistoryURL and HistoryQuickProvider.
+  int typed_count;
 
   // True if the user should be able to delete this match.
   bool deletable;
@@ -243,26 +255,33 @@ struct AutocompleteMatch {
   // |associated_keyword| could be a KeywordProvider match for "amazon.com".
   scoped_ptr<AutocompleteMatch> associated_keyword;
 
-  // For matches that correspond to valid substituting keywords ("search
-  // engines" that aren't the default engine, or extension keywords), this
-  // is the keyword.  If this is set, then when displaying this match, the
-  // edit will use the "keyword mode" UI that shows a blue
-  // "Search <engine name>" chit before the user's typing.  This should be
-  // set for any match that's an |associated_keyword| of a match in the main
-  // result list, as well as any other matches in the main result list that
-  // are direct keyword matches (e.g. if the user types in a keyword name and
-  // some search terms directly).
+  // The keyword of the TemplateURL the match originated from.  This is nonempty
+  // for both explicit "keyword mode" matches as well as matches for the default
+  // search provider (so, any match for which we're doing substitution); it
+  // doesn't imply (alone) that the UI is going to show a keyword hint or
+  // keyword mode.  For that, see GetKeywordUIState() or
+  // GetSubstitutingExplicitlyInvokedKeyword().
+  //
+  // CAUTION: The TemplateURL associated with this keyword may be deleted or
+  // modified while the AutocompleteMatch is alive.  This means anyone who
+  // accesses it must perform any necessary sanity checks before blindly using
+  // it!
   string16 keyword;
-
-  // Indicates the TemplateURL the match originated from. This is set for
-  // keywords as well as matches for the default search provider.
-  const TemplateURL* template_url;
 
   // True if the user has starred the destination URL.
   bool starred;
 
   // True if this match is from a previous result.
   bool from_previous;
+
+  // Optional search terms args.  If present,
+  // AutocompleteController::UpdateAssistedQueryStats() will incorporate this
+  // data with additional data it calculates and pass the completed struct to
+  // TemplateURLRef::ReplaceSearchTerms() to reset the match's |destination_url|
+  // after the complete set of matches in the AutocompleteResult has been chosen
+  // and sorted.  Most providers will leave this as NULL, which will cause the
+  // AutocompleteController to do no additional transformations.
+  scoped_ptr<TemplateURLRef::SearchTermsArgs> search_terms_args;
 
 #ifndef NDEBUG
   // Does a data integrity check on this match.
@@ -277,5 +296,6 @@ struct AutocompleteMatch {
 
 typedef AutocompleteMatch::ACMatchClassification ACMatchClassification;
 typedef std::vector<ACMatchClassification> ACMatchClassifications;
+typedef std::vector<AutocompleteMatch> ACMatches;
 
 #endif  // CHROME_BROWSER_AUTOCOMPLETE_AUTOCOMPLETE_MATCH_H_

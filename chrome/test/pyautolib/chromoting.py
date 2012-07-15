@@ -1,4 +1,4 @@
-# Copyright (c) 2011 The Chromium Authors. All rights reserved.
+# Copyright (c) 2012 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -14,10 +14,9 @@ class ChromotingMixIn(object):
   Example usage:
     class ChromotingExample(chromoting.ChromotingMixIn, pyauto.PyUITest):
       def testShare(self):
-        app = self.InstallApp(self.GetIT2MeAppPath())
+        app = self.InstallApp(self.GetWebappPath())
         self.LaunchApp(app)
         self.Authenticate()
-        self.SetHostMode()
         self.assertTrue(self.Share())
   """
 
@@ -50,12 +49,12 @@ class ChromotingMixIn(object):
         'remoting.getMajorMode() == remoting.AppMode.%s' % mode,
         tab_index, windex)
 
-  def GetIT2MeAppPath(self):
-    """Returns the path to the IT2Me App.
+  def GetWebappPath(self):
+    """Returns the path to the webapp.
 
-    Expects the IT2Me webapp to be in the same place as the pyautolib binaries.
+    Expects the webapp to be in the same place as the pyautolib binaries.
     """
-    return os.path.join(self.BrowserPath(), 'remoting', 'it2me.webapp')
+    return os.path.join(self.BrowserPath(), 'remoting', 'remoting.webapp')
 
   def Authenticate(self, email=None, password=None, otp=None,
                    tab_index=1, windex=0):
@@ -101,6 +100,18 @@ class ChromotingMixIn(object):
                               'document.getElementById("smsVerifyPin").click();'
                               % otp, tab_index, windex)
 
+    # If the account adder screen appears, then skip it.
+    self.assertTrue(
+        self._WaitForJavascriptCondition(
+            'document.getElementById("skip") || '
+            'document.getElementById("submit_approve_access")',
+            tab_index, windex),
+        msg='No "skip adding account" or "approve access" link.')
+    self._ExecuteJavascript(
+        'if (document.getElementById("skip")) '
+        '{ document.getElementById("skip").click(); }',
+        tab_index, windex)
+
     # Approve access.
     self.assertTrue(
         self._WaitForJavascriptCondition(
@@ -124,26 +135,6 @@ class ChromotingMixIn(object):
             tab_index, windex),
         msg='Chromoting app did not reload after authentication.')
 
-  def SetHostMode(self, tab_index=1, windex=0):
-    """Sets the Chromoting app to host mode, perfect for sharing!
-
-    Returns:
-      True on success; False otherwise.
-    """
-    return self._ExecuteAndWaitForMajorMode(
-        'remoting.setAppMode(remoting.AppMode.HOST);',
-        'HOST', tab_index, windex)
-
-  def SetClientMode(self, tab_index=1, windex=0):
-    """Sets the Chromoting app to client mode, perfect for connecting to a host!
-
-    Returns:
-      True on success; False otherwise.
-    """
-    return self._ExecuteAndWaitForMajorMode(
-        'remoting.setAppMode(remoting.AppMode.CLIENT);',
-        'CLIENT', tab_index, windex)
-
   def Share(self, tab_index=1, windex=0):
     """Generates an access code and waits for incoming connections.
 
@@ -157,16 +148,23 @@ class ChromotingMixIn(object):
         'document.getElementById("access-code-display").innerText',
         tab_index, windex)
 
-  def Connect(self, access_code, tab_index=1, windex=0):
+  def Connect(self, access_code, wait_for_frame, tab_index=1, windex=0):
     """Connects to a Chromoting host and starts the session.
 
     Returns:
       True on success; False otherwise.
     """
-    return self._ExecuteAndWaitForMode(
+    if not self._ExecuteAndWaitForMode(
         'document.getElementById("access-code-entry").value = "%s";'
-        'remoting.tryConnect();' % access_code,
-        'IN_SESSION', tab_index, windex)
+        'remoting.connectIt2Me();' % access_code,
+        'IN_SESSION', tab_index, windex):
+      return False
+
+    if wait_for_frame and not self._WaitForJavascriptCondition(
+        'remoting.clientSession && remoting.clientSession.hasReceivedFrame()',
+        tab_index, windex):
+      return False
+    return True
 
   def CancelShare(self, tab_index=1, windex=0):
     """Stops sharing the desktop on the host side.
@@ -186,4 +184,4 @@ class ChromotingMixIn(object):
     """
     return self._ExecuteAndWaitForMode(
         'remoting.disconnect();',
-        'CLIENT_SESSION_FINISHED', tab_index, windex)
+        'CLIENT_SESSION_FINISHED_IT2ME', tab_index, windex)

@@ -29,6 +29,8 @@
 #include "ui/gfx/scoped_ns_graphics_context_save_gstate_mac.h"
 #include "ui/gfx/size.h"
 
+using extensions::Extension;
+
 NSString* const kBrowserActionButtonUpdatedNotification =
     @"BrowserActionButtonUpdatedNotification";
 
@@ -126,7 +128,7 @@ class ExtensionImageTrackerBridge : public content::NotificationObserver,
 
 - (id)initWithFrame:(NSRect)frame
           extension:(const Extension*)extension
-            profile:(Profile*)profile
+            browser:(Browser*)browser
               tabId:(int)tabId {
   if ((self = [super initWithFrame:frame])) {
     BrowserActionCell* cell = [[[BrowserActionCell alloc] init] autorelease];
@@ -148,7 +150,7 @@ class ExtensionImageTrackerBridge : public content::NotificationObserver,
 
     [self setMenu:[[[ExtensionActionContextMenu alloc]
         initWithExtension:extension
-                  profile:profile
+                  browser:browser
           extensionAction:extension->browser_action()] autorelease]];
 
     tabId_ = tabId;
@@ -270,6 +272,9 @@ class ExtensionImageTrackerBridge : public content::NotificationObserver,
   }
 
   [[self cell] setTabId:tabId_];
+
+  bool enabled = extension_->browser_action()->GetIsVisible(tabId_);
+  [self setEnabled:enabled ? YES : NO];
 
   [self setNeedsDisplay:YES];
 

@@ -1,17 +1,17 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_TEST_BASE_THREAD_OBSERVER_HELPER_H_
 #define CHROME_TEST_BASE_THREAD_OBSERVER_HELPER_H_
-#pragma once
 
 #include "base/bind.h"
 #include "base/memory/ref_counted.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "base/synchronization/waitable_event.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_registrar.h"
-#include "content/test/notification_observer_mock.h"
+#include "content/public/test/mock_notification_observer.h"
 
 // Helper class to add and remove observers on a non-UI thread from
 // the UI thread.
@@ -36,7 +36,7 @@ class ThreadObserverHelper : public base::RefCountedThreadSafe<T, Traits> {
     registrar_.RemoveAll();
   }
 
-  content::NotificationObserverMock* observer() {
+  content::MockNotificationObserver* observer() {
     return &observer_;
   }
 
@@ -46,7 +46,7 @@ class ThreadObserverHelper : public base::RefCountedThreadSafe<T, Traits> {
   virtual void RegisterObservers() = 0;
 
   content::NotificationRegistrar registrar_;
-  content::NotificationObserverMock observer_;
+  content::MockNotificationObserver observer_;
 
  private:
   void RegisterObserversTask() {
@@ -68,6 +68,13 @@ class DBThreadObserverHelper : public DBThreadObserverHelperBase {
  public:
   DBThreadObserverHelper() :
       DBThreadObserverHelperBase(content::BrowserThread::DB) {}
+
+ protected:
+  friend struct content::BrowserThread::DeleteOnThread<
+      content::BrowserThread::DB>;
+  friend class base::DeleteHelper<DBThreadObserverHelper>;
+
+  virtual ~DBThreadObserverHelper() {}
 };
 
 #endif  // CHROME_TEST_BASE_THREAD_OBSERVER_HELPER_H_

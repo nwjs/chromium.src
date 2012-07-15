@@ -24,9 +24,11 @@
 #include "base/threading/thread_restrictions.h"
 #include "base/time.h"
 #include "chrome/browser/diagnostics/sqlite_diagnostics.h"
+#include "chrome/browser/net/clear_on_exit_policy.h"
 #include "content/public/browser/browser_thread.h"
 #include "googleurl/src/gurl.h"
 #include "net/base/registry_controlled_domain.h"
+#include "net/cookies/canonical_cookie.h"
 #include "sql/meta_table.h"
 #include "sql/statement.h"
 #include "sql/transaction.h"
@@ -59,13 +61,16 @@ using content::BrowserThread;
 class SQLitePersistentCookieStore::Backend
     : public base::RefCountedThreadSafe<SQLitePersistentCookieStore::Backend> {
  public:
-  Backend(const FilePath& path, bool restore_old_session_cookies)
+  Backend(const FilePath& path,
+          bool restore_old_session_cookies,
+          ClearOnExitPolicy* clear_on_exit_policy)
       : path_(path),
         db_(NULL),
         num_pending_(0),
-        clear_local_state_on_exit_(false),
+        force_keep_session_state_(false),
         initialized_(false),
         restore_old_session_cookies_(restore_old_session_cookies),
+        clear_on_exit_policy_(clear_on_exit_policy),
         num_cookies_read_(0),
         num_priority_waiting_(0),
         total_priority_requests_(0) {
@@ -79,13 +84,13 @@ class SQLitePersistentCookieStore::Backend
       const LoadedCallback& loaded_callback);
 
   // Batch a cookie addition.
-  void AddCookie(const net::CookieMonster::CanonicalCookie& cc);
+  void AddCookie(const net::CanonicalCookie& cc);
 
   // Batch a cookie access time update.
-  void UpdateCookieAccessTime(const net::CookieMonster::CanonicalCookie& cc);
+  void UpdateCookieAccessTime(const net::CanonicalCookie& cc);
 
   // Batch a cookie deletion.
-  void DeleteCookie(const net::CookieMonster::CanonicalCookie& cc);
+  void DeleteCookie(const net::CanonicalCookie& cc);
 
   // Commit pending operations as soon as possible.
   void Flush(const base::Closure& callback);
@@ -94,7 +99,7 @@ class SQLitePersistentCookieStore::Backend
   // before the object is destructed.
   void Close();
 
-  void SetClearLocalStateOnExit(bool clear_local_state);
+  void SetForceKeepSessionState();
 
  private:
   friend class base::RefCountedThreadSafe<SQLitePersistentCookieStore::Backend>;
@@ -116,16 +121,15 @@ class SQLitePersistentCookieStore::Backend
       COOKIE_DELETE,
     } OperationType;
 
-    PendingOperation(OperationType op,
-                     const net::CookieMonster::CanonicalCookie& cc)
+    PendingOperation(OperationType op, const net::CanonicalCookie& cc)
         : op_(op), cc_(cc) { }
 
     OperationType op() const { return op_; }
-    const net::CookieMonster::CanonicalCookie& cc() const { return cc_; }
+    const net::CanonicalCookie& cc() const { return cc_; }
 
    private:
     OperationType op_;
-    net::CookieMonster::CanonicalCookie cc_;
+    net::CanonicalCookie cc_;
   };
 
  private:
@@ -175,13 +179,15 @@ class SQLitePersistentCookieStore::Backend
 
   // Batch a cookie operation (add or delete)
   void BatchOperation(PendingOperation::OperationType op,
-                      const net::CookieMonster::CanonicalCookie& cc);
+                      const net::CanonicalCookie& cc);
   // Commit our pending operations to the database.
   void Commit();
   // Close() executed on the background thread.
   void InternalBackgroundClose();
 
-  void DeleteSessionCookies();
+  void DeleteSessionCookiesOnStartup();
+
+  void DeleteSessionCookiesOnShutdown();
 
   FilePath path_;
   scoped_ptr<sql::Connection> db_;
@@ -190,24 +196,33 @@ class SQLitePersistentCookieStore::Backend
   typedef std::list<PendingOperation*> PendingOperationsList;
   PendingOperationsList pending_;
   PendingOperationsList::size_type num_pending_;
-  // True if the persistent store should be deleted upon destruction.
-  bool clear_local_state_on_exit_;
-  // Guard |cookies_|, |pending_|, |num_pending_|, |clear_local_state_on_exit_|
+  // True if the persistent store should skip delete on exit rules.
+  bool force_keep_session_state_;
+  // Guard |cookies_|, |pending_|, |num_pending_|, |force_keep_session_state_|
   base::Lock lock_;
 
   // Temporary buffer for cookies loaded from DB. Accumulates cookies to reduce
   // the number of messages sent to the IO thread. Sent back in response to
   // individual load requests for domain keys or when all loading completes.
-  std::vector<net::CookieMonster::CanonicalCookie*> cookies_;
+  std::vector<net::CanonicalCookie*> cookies_;
 
   // Map of domain keys(eTLD+1) to domains/hosts that are to be loaded from DB.
   std::map<std::string, std::set<std::string> > keys_to_load_;
+
+  // Map of (domain keys(eTLD+1), is secure cookie) to number of cookies in the
+  // database.
+  typedef std::pair<std::string, bool> CookieOrigin;
+  typedef std::map<CookieOrigin, int> CookiesPerOriginMap;
+  CookiesPerOriginMap cookies_per_origin_;
 
   // Indicates if DB has been initialized.
   bool initialized_;
 
   // If false, we should filter out session cookies when reading the DB.
   bool restore_old_session_cookies_;
+
+  // Policy defining what data is deleted on shutdown.
+  scoped_refptr<ClearOnExitPolicy> clear_on_exit_policy_;
 
   // The cumulative time spent loading the cookies on the DB thread. Incremented
   // and reported from the DB thread.
@@ -238,7 +253,7 @@ class SQLitePersistentCookieStore::Backend
 // database can store session cookies as well as persistent cookies. Databases
 // of version 5 are incompatible with older versions of code. If a database of
 // version 5 is read by older code, session cookies will be treated as normal
-// cookies.
+// cookies. Currently, these fields are written, but not read anymore.
 //
 // In version 4, we migrated the time epoch.  If you open the DB with an older
 // version on Mac or Linux, the times will look wonky, but the file will likely
@@ -447,7 +462,7 @@ void SQLitePersistentCookieStore::Backend::Notify(
     bool load_success) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
 
-  std::vector<net::CookieMonster::CanonicalCookie*> cookies;
+  std::vector<net::CanonicalCookie*> cookies;
   {
     base::AutoLock locked(lock_);
     cookies.swap(cookies_);
@@ -462,7 +477,7 @@ bool SQLitePersistentCookieStore::Backend::InitializeDatabase() {
   if (initialized_) {
     // Return false if we were previously initialized but the DB has since been
     // closed.
-    return db_.get() ? true : false;
+    return db_ != NULL;
   }
 
   base::Time start = base::Time::Now();
@@ -565,7 +580,7 @@ void SQLitePersistentCookieStore::Backend::ChainLoadCookies(
       base::Bind(&SQLitePersistentCookieStore::Backend::CompleteLoadOnIOThread,
                  this, loaded_callback, load_success));
     if (load_success && !restore_old_session_cookies_)
-      DeleteSessionCookies();
+      DeleteSessionCookiesOnStartup();
   }
 }
 
@@ -593,13 +608,13 @@ bool SQLitePersistentCookieStore::Backend::LoadCookiesForDomains(
     return false;
   }
 
-  std::vector<net::CookieMonster::CanonicalCookie*> cookies;
+  std::vector<net::CanonicalCookie*> cookies;
   std::set<std::string>::const_iterator it = domains.begin();
   for (; it != domains.end(); ++it) {
     smt.BindString(0, *it);
     while (smt.Step()) {
-      scoped_ptr<net::CookieMonster::CanonicalCookie> cc(
-          new net::CookieMonster::CanonicalCookie(
+      scoped_ptr<net::CanonicalCookie> cc(
+          new net::CanonicalCookie(
               // The "source" URL is not used with persisted cookies.
               GURL(),                                         // Source
               smt.ColumnString(2),                            // name
@@ -612,15 +627,14 @@ bool SQLitePersistentCookieStore::Backend::LoadCookiesForDomains(
               Time::FromInternalValue(smt.ColumnInt64(5)),    // expires_utc
               Time::FromInternalValue(smt.ColumnInt64(8)),    // last_access_utc
               smt.ColumnInt(6) != 0,                          // secure
-              smt.ColumnInt(7) != 0,                          // httponly
-              smt.ColumnInt(9) != 0,                          // has_expires
-              smt.ColumnInt(10) != 0));                       // is_persistent
+              smt.ColumnInt(7) != 0));                        // httponly
       DLOG_IF(WARNING,
               cc->CreationDate() > Time::Now()) << L"CreationDate too recent";
+      cookies_per_origin_[CookieOrigin(cc->Domain(), cc->IsSecure())]++;
       cookies.push_back(cc.release());
       ++num_cookies_read_;
     }
-    smt.Reset();
+    smt.Reset(true);
   }
   {
     base::AutoLock locked(lock_);
@@ -737,23 +751,23 @@ bool SQLitePersistentCookieStore::Backend::EnsureDatabaseVersion() {
 }
 
 void SQLitePersistentCookieStore::Backend::AddCookie(
-    const net::CookieMonster::CanonicalCookie& cc) {
+    const net::CanonicalCookie& cc) {
   BatchOperation(PendingOperation::COOKIE_ADD, cc);
 }
 
 void SQLitePersistentCookieStore::Backend::UpdateCookieAccessTime(
-    const net::CookieMonster::CanonicalCookie& cc) {
+    const net::CanonicalCookie& cc) {
   BatchOperation(PendingOperation::COOKIE_UPDATEACCESS, cc);
 }
 
 void SQLitePersistentCookieStore::Backend::DeleteCookie(
-    const net::CookieMonster::CanonicalCookie& cc) {
+    const net::CanonicalCookie& cc) {
   BatchOperation(PendingOperation::COOKIE_DELETE, cc);
 }
 
 void SQLitePersistentCookieStore::Backend::BatchOperation(
     PendingOperation::OperationType op,
-    const net::CookieMonster::CanonicalCookie& cc) {
+    const net::CanonicalCookie& cc) {
   // Commit every 30 seconds.
   static const int kCommitIntervalMs = 30 * 1000;
   // Commit right away if we have more than 512 outstanding operations.
@@ -826,7 +840,9 @@ void SQLitePersistentCookieStore::Backend::Commit() {
     scoped_ptr<PendingOperation> po(*it);
     switch (po->op()) {
       case PendingOperation::COOKIE_ADD:
-        add_smt.Reset();
+        cookies_per_origin_[
+            CookieOrigin(po->cc().Domain(), po->cc().IsSecure())]++;
+        add_smt.Reset(true);
         add_smt.BindInt64(0, po->cc().CreationDate().ToInternalValue());
         add_smt.BindString(1, po->cc().Domain());
         add_smt.BindString(2, po->cc().Name());
@@ -836,14 +852,14 @@ void SQLitePersistentCookieStore::Backend::Commit() {
         add_smt.BindInt(6, po->cc().IsSecure());
         add_smt.BindInt(7, po->cc().IsHttpOnly());
         add_smt.BindInt64(8, po->cc().LastAccessDate().ToInternalValue());
-        add_smt.BindInt(9, po->cc().DoesExpire());
+        add_smt.BindInt(9, po->cc().IsPersistent());
         add_smt.BindInt(10, po->cc().IsPersistent());
         if (!add_smt.Run())
           NOTREACHED() << "Could not add a cookie to the DB.";
         break;
 
       case PendingOperation::COOKIE_UPDATEACCESS:
-        update_access_smt.Reset();
+        update_access_smt.Reset(true);
         update_access_smt.BindInt64(0,
             po->cc().LastAccessDate().ToInternalValue());
         update_access_smt.BindInt64(1,
@@ -853,7 +869,9 @@ void SQLitePersistentCookieStore::Backend::Commit() {
         break;
 
       case PendingOperation::COOKIE_DELETE:
-        del_smt.Reset();
+        cookies_per_origin_[
+            CookieOrigin(po->cc().Domain(), po->cc().IsSecure())]--;
+        del_smt.Reset(true);
         del_smt.BindInt64(0, po->cc().CreationDate().ToInternalValue());
         if (!del_smt.Run())
           NOTREACHED() << "Could not delete a cookie from the DB.";
@@ -901,19 +919,61 @@ void SQLitePersistentCookieStore::Backend::InternalBackgroundClose() {
   // Commit any pending operations
   Commit();
 
+  if (!force_keep_session_state_ && clear_on_exit_policy_.get() &&
+      clear_on_exit_policy_->HasClearOnExitOrigins()) {
+    DeleteSessionCookiesOnShutdown();
+  }
+
   db_.reset();
-
-  if (clear_local_state_on_exit_)
-    file_util::Delete(path_, false);
 }
 
-void SQLitePersistentCookieStore::Backend::SetClearLocalStateOnExit(
-    bool clear_local_state) {
+void SQLitePersistentCookieStore::Backend::DeleteSessionCookiesOnShutdown() {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::DB));
+
+  if (!db_.get())
+    return;
+
+  sql::Statement del_smt(db_->GetCachedStatement(
+      SQL_FROM_HERE, "DELETE FROM cookies WHERE host_key=? AND secure=?"));
+  if (!del_smt.is_valid()) {
+    LOG(WARNING) << "Unable to delete cookies on shutdown.";
+    return;
+  }
+
+  sql::Transaction transaction(db_.get());
+  if (!transaction.Begin()) {
+    LOG(WARNING) << "Unable to delete cookies on shutdown.";
+    return;
+  }
+
+  for (CookiesPerOriginMap::iterator it = cookies_per_origin_.begin();
+       it != cookies_per_origin_.end(); ++it) {
+    if (it->second <= 0) {
+      DCHECK_EQ(0, it->second);
+      continue;
+    }
+    if (!clear_on_exit_policy_->ShouldClearOriginOnExit(it->first.first,
+                                                        it->first.second)) {
+      continue;
+    }
+
+    del_smt.Reset(true);
+    del_smt.BindString(0, it->first.first);
+    del_smt.BindInt(1, it->first.second);
+    if (!del_smt.Run())
+      NOTREACHED() << "Could not delete a cookie from the DB.";
+  }
+
+  if (!transaction.Commit())
+    LOG(WARNING) << "Unable to delete cookies on shutdown.";
+}
+
+void SQLitePersistentCookieStore::Backend::SetForceKeepSessionState() {
   base::AutoLock locked(lock_);
-  clear_local_state_on_exit_ = clear_local_state;
+  force_keep_session_state_ = true;
 }
 
-void SQLitePersistentCookieStore::Backend::DeleteSessionCookies() {
+void SQLitePersistentCookieStore::Backend::DeleteSessionCookiesOnStartup() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::DB));
   if (!db_->Execute("DELETE FROM cookies WHERE persistent == 0"))
     LOG(WARNING) << "Unable to delete session cookies.";
@@ -921,17 +981,10 @@ void SQLitePersistentCookieStore::Backend::DeleteSessionCookies() {
 
 SQLitePersistentCookieStore::SQLitePersistentCookieStore(
     const FilePath& path,
-    bool restore_old_session_cookies)
-    : backend_(new Backend(path, restore_old_session_cookies)) {
-}
-
-SQLitePersistentCookieStore::~SQLitePersistentCookieStore() {
-  if (backend_.get()) {
-    backend_->Close();
-    // Release our reference, it will probably still have a reference if the
-    // background thread has not run Close() yet.
-    backend_ = NULL;
-  }
+    bool restore_old_session_cookies,
+    ClearOnExitPolicy* clear_on_exit_policy)
+    : backend_(
+        new Backend(path, restore_old_session_cookies, clear_on_exit_policy)) {
 }
 
 void SQLitePersistentCookieStore::Load(const LoadedCallback& loaded_callback) {
@@ -944,28 +997,25 @@ void SQLitePersistentCookieStore::LoadCookiesForKey(
   backend_->LoadCookiesForKey(key, loaded_callback);
 }
 
-void SQLitePersistentCookieStore::AddCookie(
-    const net::CookieMonster::CanonicalCookie& cc) {
+void SQLitePersistentCookieStore::AddCookie(const net::CanonicalCookie& cc) {
   if (backend_.get())
     backend_->AddCookie(cc);
 }
 
 void SQLitePersistentCookieStore::UpdateCookieAccessTime(
-    const net::CookieMonster::CanonicalCookie& cc) {
+    const net::CanonicalCookie& cc) {
   if (backend_.get())
     backend_->UpdateCookieAccessTime(cc);
 }
 
-void SQLitePersistentCookieStore::DeleteCookie(
-    const net::CookieMonster::CanonicalCookie& cc) {
+void SQLitePersistentCookieStore::DeleteCookie(const net::CanonicalCookie& cc) {
   if (backend_.get())
     backend_->DeleteCookie(cc);
 }
 
-void SQLitePersistentCookieStore::SetClearLocalStateOnExit(
-    bool clear_local_state) {
+void SQLitePersistentCookieStore::SetForceKeepSessionState() {
   if (backend_.get())
-    backend_->SetClearLocalStateOnExit(clear_local_state);
+    backend_->SetForceKeepSessionState();
 }
 
 void SQLitePersistentCookieStore::Flush(const base::Closure& callback) {
@@ -973,4 +1023,13 @@ void SQLitePersistentCookieStore::Flush(const base::Closure& callback) {
     backend_->Flush(callback);
   else if (!callback.is_null())
     MessageLoop::current()->PostTask(FROM_HERE, callback);
+}
+
+SQLitePersistentCookieStore::~SQLitePersistentCookieStore() {
+  if (backend_.get()) {
+    backend_->Close();
+    // Release our reference, it will probably still have a reference if the
+    // background thread has not run Close() yet.
+    backend_ = NULL;
+  }
 }

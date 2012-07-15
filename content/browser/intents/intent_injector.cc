@@ -6,48 +6,64 @@
 
 #include "base/bind.h"
 #include "base/command_line.h"
+#include "base/file_path.h"
 #include "base/logging.h"
 #include "base/string16.h"
+#include "base/stringprintf.h"
+#include "content/browser/child_process_security_policy_impl.h"
+#include "content/browser/intents/web_intents_dispatcher_impl.h"
+#include "content/browser/renderer_host/render_process_host_impl.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
-#include "content/browser/tab_contents/tab_contents.h"
+#include "content/browser/web_contents/web_contents_impl.h"
 #include "content/common/intents_messages.h"
-#include "content/public/browser/web_intents_dispatcher.h"
 #include "content/public/common/content_switches.h"
+#include "webkit/fileapi/file_system_util.h"
+#include "webkit/fileapi/isolated_context.h"
 #include "webkit/glue/web_intent_data.h"
 #include "webkit/glue/web_intent_reply_data.h"
 
+using content::ChildProcessSecurityPolicy;
 using content::RenderViewHost;
 using content::WebContents;
+using content::WebIntentsDispatcher;
 
 IntentInjector::IntentInjector(WebContents* web_contents)
     : content::WebContentsObserver(web_contents),
-      intents_dispatcher_(NULL) {
+      intents_dispatcher_(NULL),
+      ALLOW_THIS_IN_INITIALIZER_LIST(weak_factory_(this)) {
   DCHECK(web_contents);
 }
 
 IntentInjector::~IntentInjector() {
 }
 
-void IntentInjector::WebContentsDestroyed(content::WebContents* tab) {
+void IntentInjector::WebContentsDestroyed(WebContents* contents) {
   if (intents_dispatcher_) {
     intents_dispatcher_->SendReplyMessage(
-        webkit_glue::WEB_INTENT_SERVICE_TAB_CLOSED, string16());
+        webkit_glue::WEB_INTENT_SERVICE_CONTENTS_CLOSED, string16());
   }
 
   delete this;
 }
 
-void IntentInjector::SourceWebContentsDestroyed(WebContents* tab) {
+void IntentInjector::SourceWebContentsDestroyed(WebContents* contents) {
   intents_dispatcher_ = NULL;
 }
 
 void IntentInjector::SetIntent(
-    content::WebIntentsDispatcher* intents_dispatcher,
+    WebIntentsDispatcher* intents_dispatcher,
     const webkit_glue::WebIntentData& intent) {
   intents_dispatcher_ = intents_dispatcher;
   intents_dispatcher_->RegisterReplyNotification(
-      base::Bind(&IntentInjector::OnSendReturnMessage, base::Unretained(this)));
+      base::Bind(&IntentInjector::OnSendReturnMessage,
+                 weak_factory_.GetWeakPtr()));
   source_intent_.reset(new webkit_glue::WebIntentData(intent));
+  initial_url_ = web_contents()->GetPendingSiteInstance()->GetSite();
+}
+
+void IntentInjector::Abandon() {
+  intents_dispatcher_ = NULL;
+  delete this;
 }
 
 void IntentInjector::OnSendReturnMessage(
@@ -56,11 +72,37 @@ void IntentInjector::OnSendReturnMessage(
 }
 
 void IntentInjector::RenderViewCreated(RenderViewHost* render_view_host) {
-  if (source_intent_.get() == NULL ||
-      CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kDisableWebIntents) ||
-      web_contents()->GetRenderViewHost() == NULL) {
+  if (source_intent_.get() == NULL || !web_contents()->GetRenderViewHost())
     return;
+
+  // Only deliver the intent to the renderer if it has the same origin
+  // as the initial delivery target.
+  if (initial_url_.GetOrigin() !=
+      render_view_host->GetSiteInstance()->GetSite().GetOrigin()) {
+    return;
+  }
+
+  if (source_intent_->data_type == webkit_glue::WebIntentData::BLOB) {
+    // Grant read permission on the blob file to the delivered context.
+    const int child_id = render_view_host->GetProcess()->GetID();
+    ChildProcessSecurityPolicy* policy =
+         ChildProcessSecurityPolicy::GetInstance();
+    if (!policy->CanReadFile(child_id, source_intent_->blob_file))
+      policy->GrantReadFile(child_id, source_intent_->blob_file);
+  } else if (source_intent_->data_type ==
+             webkit_glue::WebIntentData::FILESYSTEM) {
+    const int child_id = render_view_host->GetProcess()->GetID();
+    std::vector<fileapi::IsolatedContext::FileInfo> files;
+    const bool valid =
+        fileapi::IsolatedContext::GetInstance()->GetRegisteredFileInfo(
+            source_intent_->filesystem_id, &files);
+    DCHECK(valid);
+    DCHECK_EQ(1U, files.size());
+    ChildProcessSecurityPolicy* policy =
+         ChildProcessSecurityPolicy::GetInstance();
+    if (!policy->CanReadFile(child_id, files[0].path))
+      policy->GrantReadFile(child_id, files[0].path);
+    policy->GrantReadFileSystem(child_id, source_intent_->filesystem_id);
   }
 
   render_view_host->Send(new IntentsMsg_SetWebIntentData(
@@ -78,13 +120,11 @@ bool IntentInjector::OnMessageReceived(const IPC::Message& message) {
 
 void IntentInjector::OnReply(webkit_glue::WebIntentReplyType reply_type,
                              const string16& data) {
-  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kDisableWebIntents))
-    NOTREACHED();
+  if (!intents_dispatcher_)
+    return;
 
-  if (intents_dispatcher_) {
-    // Ensure we only call SendReplyMessage once.
-    content::WebIntentsDispatcher* intents_dispatcher = intents_dispatcher_;
-    intents_dispatcher_ = NULL;
-    intents_dispatcher->SendReplyMessage(reply_type, data);
-  }
+  // Ensure SendReplyMessage is only called once.
+  WebIntentsDispatcher* intents_dispatcher = intents_dispatcher_;
+  intents_dispatcher_ = NULL;
+  intents_dispatcher->SendReplyMessage(reply_type, data);
 }

@@ -16,11 +16,11 @@
 #include "chrome/browser/prefs/scoped_user_pref_update.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/extensions/extension_manifest_constants.h"
-#include "chrome/common/extensions/extension_permission_set.h"
+#include "chrome/common/extensions/permissions/permission_set.h"
 #include "chrome/common/string_ordinal.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
-#include "content/test/notification_observer_mock.h"
+#include "content/public/test/mock_notification_observer.h"
 
 using base::Time;
 using base::TimeDelta;
@@ -40,6 +40,8 @@ const char kDefaultPref3[] = "default pref 3";
 const char kDefaultPref4[] = "default pref 4";
 
 }  // namespace
+
+namespace extensions {
 
 static void AddPattern(URLPatternSet* extent, const std::string& pattern) {
   int schemes = URLPattern::SCHEME_ALL;
@@ -166,10 +168,10 @@ class ExtensionPrefsGrantedPermissions : public ExtensionPrefsTest {
   virtual void Initialize() {
     extension_id_ = prefs_.AddExtensionAndReturnId("test");
 
-    api_perm_set1_.insert(ExtensionAPIPermission::kTab);
-    api_perm_set1_.insert(ExtensionAPIPermission::kBookmark);
+    api_perm_set1_.insert(APIPermission::kTab);
+    api_perm_set1_.insert(APIPermission::kBookmark);
 
-    api_perm_set2_.insert(ExtensionAPIPermission::kHistory);
+    api_perm_set2_.insert(APIPermission::kHistory);
 
     AddPattern(&ehost_perm_set1_, "http://*.google.com/*");
     AddPattern(&ehost_perm_set1_, "http://example.com/*");
@@ -184,7 +186,7 @@ class ExtensionPrefsGrantedPermissions : public ExtensionPrefsTest {
     AddPattern(&shost_perm_set2_, "http://somesite.com/*");
     AddPattern(&shost_perm_set2_, "http://example.com/*");
 
-    ExtensionAPIPermissionSet expected_apis = api_perm_set1_;
+    APIPermissionSet expected_apis = api_perm_set1_;
 
     AddPattern(&ehost_permissions_, "http://*.google.com/*");
     AddPattern(&ehost_permissions_, "http://example.com/*");
@@ -195,17 +197,17 @@ class ExtensionPrefsGrantedPermissions : public ExtensionPrefsTest {
     AddPattern(&shost_permissions_, "http://somesite.com/*");
     AddPattern(&shost_permissions_, "http://example.com/*");
 
-    ExtensionAPIPermissionSet empty_set;
+    APIPermissionSet empty_set;
     URLPatternSet empty_extent;
-    scoped_refptr<ExtensionPermissionSet> permissions;
-    scoped_refptr<ExtensionPermissionSet> granted_permissions;
+    scoped_refptr<PermissionSet> permissions;
+    scoped_refptr<PermissionSet> granted_permissions;
 
     // Make sure both granted api and host permissions start empty.
     granted_permissions =
         prefs()->GetGrantedPermissions(extension_id_);
     EXPECT_TRUE(granted_permissions->IsEmpty());
 
-    permissions = new ExtensionPermissionSet(
+    permissions = new PermissionSet(
         api_perm_set1_, empty_extent, empty_extent);
 
     // Add part of the api permissions.
@@ -219,7 +221,7 @@ class ExtensionPrefsGrantedPermissions : public ExtensionPrefsTest {
     granted_permissions = NULL;
 
     // Add part of the explicit host permissions.
-    permissions = new ExtensionPermissionSet(
+    permissions = new PermissionSet(
         empty_set, ehost_perm_set1_, empty_extent);
     prefs()->AddGrantedPermissions(extension_id_, permissions.get());
     granted_permissions = prefs()->GetGrantedPermissions(extension_id_);
@@ -232,7 +234,7 @@ class ExtensionPrefsGrantedPermissions : public ExtensionPrefsTest {
               granted_permissions->effective_hosts());
 
     // Add part of the scriptable host permissions.
-    permissions = new ExtensionPermissionSet(
+    permissions = new PermissionSet(
         empty_set, empty_extent, shost_perm_set1_);
     prefs()->AddGrantedPermissions(extension_id_, permissions.get());
     granted_permissions = prefs()->GetGrantedPermissions(extension_id_);
@@ -248,9 +250,9 @@ class ExtensionPrefsGrantedPermissions : public ExtensionPrefsTest {
                                &effective_permissions_);
     EXPECT_EQ(effective_permissions_, granted_permissions->effective_hosts());
 
-    // Add the rest of both the permissions.
-    permissions = new ExtensionPermissionSet(
-       api_perm_set2_, ehost_perm_set2_, shost_perm_set2_);
+    // Add the rest of the permissions.
+    permissions = new PermissionSet(
+        api_perm_set2_, ehost_perm_set2_, shost_perm_set2_);
 
     std::set_union(expected_apis.begin(), expected_apis.end(),
                    api_perm_set2_.begin(), api_perm_set2_.end(),
@@ -272,7 +274,7 @@ class ExtensionPrefsGrantedPermissions : public ExtensionPrefsTest {
   }
 
   virtual void Verify() {
-    scoped_refptr<ExtensionPermissionSet> permissions(
+    scoped_refptr<PermissionSet> permissions(
         prefs()->GetGrantedPermissions(extension_id_));
     EXPECT_TRUE(permissions.get());
     EXPECT_FALSE(permissions->HasEffectiveFullAccess());
@@ -285,14 +287,14 @@ class ExtensionPrefsGrantedPermissions : public ExtensionPrefsTest {
 
  private:
   std::string extension_id_;
-  ExtensionAPIPermissionSet api_perm_set1_;
-  ExtensionAPIPermissionSet api_perm_set2_;
+  APIPermissionSet api_perm_set1_;
+  APIPermissionSet api_perm_set2_;
   URLPatternSet ehost_perm_set1_;
   URLPatternSet ehost_perm_set2_;
   URLPatternSet shost_perm_set1_;
   URLPatternSet shost_perm_set2_;
 
-  ExtensionAPIPermissionSet api_permissions_;
+  APIPermissionSet api_permissions_;
   URLPatternSet ehost_permissions_;
   URLPatternSet shost_permissions_;
   URLPatternSet effective_permissions_;
@@ -305,10 +307,10 @@ class ExtensionPrefsActivePermissions : public ExtensionPrefsTest {
   virtual void Initialize() {
     extension_id_ = prefs_.AddExtensionAndReturnId("test");
 
-    ExtensionAPIPermissionSet api_perms;
-    api_perms.insert(ExtensionAPIPermission::kTab);
-    api_perms.insert(ExtensionAPIPermission::kBookmark);
-    api_perms.insert(ExtensionAPIPermission::kHistory);
+    APIPermissionSet api_perms;
+    api_perms.insert(APIPermission::kTab);
+    api_perms.insert(APIPermission::kBookmark);
+    api_perms.insert(APIPermission::kHistory);
 
     URLPatternSet ehosts;
     AddPattern(&ehosts, "http://*.google.com/*");
@@ -319,10 +321,10 @@ class ExtensionPrefsActivePermissions : public ExtensionPrefsTest {
     AddPattern(&shosts, "https://*.google.com/*");
     AddPattern(&shosts, "http://reddit.com/r/test/*");
 
-    active_perms_ = new ExtensionPermissionSet(api_perms, ehosts, shosts);
+    active_perms_ = new PermissionSet(api_perms, ehosts, shosts);
 
     // Make sure the active permissions start empty.
-    scoped_refptr<ExtensionPermissionSet> active(
+    scoped_refptr<PermissionSet> active(
         prefs()->GetActivePermissions(extension_id_));
     EXPECT_TRUE(active->IsEmpty());
 
@@ -336,14 +338,14 @@ class ExtensionPrefsActivePermissions : public ExtensionPrefsTest {
   }
 
   virtual void Verify() {
-    scoped_refptr<ExtensionPermissionSet> permissions(
+    scoped_refptr<PermissionSet> permissions(
         prefs()->GetActivePermissions(extension_id_));
     EXPECT_EQ(*active_perms_, *permissions);
   }
 
  private:
   std::string extension_id_;
-  scoped_refptr<ExtensionPermissionSet> active_perms_;
+  scoped_refptr<PermissionSet> active_perms_;
 };
 TEST_F(ExtensionPrefsActivePermissions, SetAndGetActivePermissions) {}
 
@@ -677,8 +679,7 @@ class ExtensionPrefsFlags : public ExtensionPrefsTest {
       dictionary.SetString(extension_manifest_keys::kName, "from_webstore");
       dictionary.SetString(extension_manifest_keys::kVersion, "0.1");
       webstore_extension_ = prefs_.AddExtensionWithManifestAndFlags(
-          dictionary, Extension::INTERNAL,
-          Extension::STRICT_ERROR_CHECKS | Extension::FROM_WEBSTORE);
+          dictionary, Extension::INTERNAL, Extension::FROM_WEBSTORE);
     }
 
     {
@@ -686,8 +687,7 @@ class ExtensionPrefsFlags : public ExtensionPrefsTest {
       dictionary.SetString(extension_manifest_keys::kName, "from_bookmark");
       dictionary.SetString(extension_manifest_keys::kVersion, "0.1");
       bookmark_extension_ = prefs_.AddExtensionWithManifestAndFlags(
-          dictionary, Extension::INTERNAL,
-          Extension::STRICT_ERROR_CHECKS | Extension::FROM_BOOKMARK);
+          dictionary, Extension::INTERNAL, Extension::FROM_BOOKMARK);
     }
   }
 
@@ -722,16 +722,16 @@ ExtensionPrefsPrepopulatedTest::ExtensionPrefsPrepopulatedTest()
 
   ext1_scoped_ = Extension::Create(
       prefs_.temp_dir().AppendASCII("ext1_"), Extension::EXTERNAL_PREF,
-      simple_dict, Extension::STRICT_ERROR_CHECKS, &error);
+      simple_dict, Extension::NO_FLAGS, &error);
   ext2_scoped_ = Extension::Create(
       prefs_.temp_dir().AppendASCII("ext2_"), Extension::EXTERNAL_PREF,
-      simple_dict, Extension::STRICT_ERROR_CHECKS, &error);
+      simple_dict, Extension::NO_FLAGS, &error);
   ext3_scoped_ = Extension::Create(
       prefs_.temp_dir().AppendASCII("ext3_"), Extension::EXTERNAL_PREF,
-      simple_dict, Extension::STRICT_ERROR_CHECKS, &error);
+      simple_dict, Extension::NO_FLAGS, &error);
   ext4_scoped_ = Extension::Create(
       prefs_.temp_dir().AppendASCII("ext4_"), Extension::EXTERNAL_PREF,
-      simple_dict, Extension::STRICT_ERROR_CHECKS, &error);
+      simple_dict, Extension::NO_FLAGS, &error);
 
   ext1_ = ext1_scoped_.get();
   ext2_ = ext2_scoped_.get();
@@ -896,7 +896,7 @@ class ExtensionPrefsUninstallExtension : public ExtensionPrefsPrepopulatedTest {
   virtual void Initialize() {
     InstallExtControlledPref(ext1_, kPref1, Value::CreateStringValue("val1"));
     InstallExtControlledPref(ext1_, kPref2, Value::CreateStringValue("val2"));
-    ExtensionContentSettingsStore* store = prefs()->content_settings_store();
+    ContentSettingsStore* store = prefs()->content_settings_store();
     ContentSettingsPattern pattern =
         ContentSettingsPattern::FromString("http://[*.]example.com");
     store->SetExtensionContentSetting(ext1_->id(),
@@ -928,12 +928,12 @@ class ExtensionPrefsNotifyWhenNeeded : public ExtensionPrefsPrepopulatedTest {
     using testing::Mock;
     using testing::StrEq;
 
-    content::NotificationObserverMock observer;
+    content::MockNotificationObserver observer;
     PrefChangeRegistrar registrar;
     registrar.Init(prefs()->pref_service());
     registrar.Add(kPref1, &observer);
 
-    content::NotificationObserverMock incognito_observer;
+    content::MockNotificationObserver incognito_observer;
     scoped_ptr<PrefService> incog_prefs(prefs_.CreateIncognitoPrefService());
     PrefChangeRegistrar incognito_registrar;
     incognito_registrar.Init(incog_prefs.get());
@@ -1099,3 +1099,72 @@ class ExtensionPrefsDisableExtensions : public ExtensionPrefsPrepopulatedTest {
   int iteration_;
 };
 TEST_F(ExtensionPrefsDisableExtensions, ExtensionPrefsDisableExtensions) {}
+
+// Parent class for testing the ManagementPolicy provider methods.
+class ExtensionPrefsManagementPolicyProvider : public ExtensionPrefsTest {
+ public:
+  virtual void Initialize() {}
+  virtual void Verify() {}
+
+  void InitializeWithLocation(Extension::Location location, bool required) {
+    ASSERT_EQ(required, Extension::IsRequired(location));
+
+    DictionaryValue values;
+    values.SetString(keys::kName, "test");
+    values.SetString(keys::kVersion, "0.1");
+    std::string error;
+    extension_ = Extension::Create(FilePath(), location, values,
+                                   Extension::NO_FLAGS, &error);
+    ASSERT_TRUE(extension_.get());
+  }
+
+ protected:
+  scoped_refptr<Extension> extension_;
+};
+
+// Tests the behavior of the ManagementPolicy provider methods for an
+// extension required by policy.
+class ExtensionPrefsRequiredExtension
+    : public ExtensionPrefsManagementPolicyProvider {
+ public:
+  virtual void Initialize() {
+    InitializeWithLocation(Extension::EXTERNAL_POLICY_DOWNLOAD, true);
+  }
+
+  virtual void Verify() {
+    string16 error16;
+    EXPECT_TRUE(prefs()->UserMayLoad(extension_.get(), &error16));
+    EXPECT_EQ(string16(), error16);
+
+    // We won't check the exact wording of the error, but it should say
+    // something.
+    EXPECT_FALSE(prefs()->UserMayModifySettings(extension_.get(), &error16));
+    EXPECT_NE(string16(), error16);
+    EXPECT_TRUE(prefs()->MustRemainEnabled(extension_.get(), &error16));
+    EXPECT_NE(string16(), error16);
+  }
+};
+TEST_F(ExtensionPrefsRequiredExtension, RequiredExtension) {}
+
+// Tests the behavior of the ManagementPolicy provider methods for an
+// extension required by policy.
+class ExtensionPrefsNotRequiredExtension
+    : public ExtensionPrefsManagementPolicyProvider {
+ public:
+  virtual void Initialize() {
+    InitializeWithLocation(Extension::INTERNAL, false);
+  }
+
+  virtual void Verify() {
+  string16 error16;
+    EXPECT_TRUE(prefs()->UserMayLoad(extension_.get(), &error16));
+    EXPECT_EQ(string16(), error16);
+    EXPECT_TRUE(prefs()->UserMayModifySettings(extension_.get(), &error16));
+    EXPECT_EQ(string16(), error16);
+    EXPECT_FALSE(prefs()->MustRemainEnabled(extension_.get(), &error16));
+    EXPECT_EQ(string16(), error16);
+  }
+};
+TEST_F(ExtensionPrefsNotRequiredExtension, NotRequiredExtension) {}
+
+}  // namespace extensions

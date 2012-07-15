@@ -9,6 +9,7 @@
 
   require('json_schema');
   require('event_bindings');
+  var lastError = require('lastError');
   var miscNatives = requireNative('miscellaneous_bindings');
   var CloseChannel = miscNatives.CloseChannel;
   var PortAddRef = miscNatives.PortAddRef;
@@ -20,8 +21,10 @@
   var manifestVersion;
   var extensionId;
 
-  // The reserved channel name for the sendRequest API.
+  // The reserved channel name for the sendRequest/sendMessage APIs.
+  // Note: sendRequest is deprecated.
   chromeHidden.kRequestChannel = "chrome.extension.sendRequest";
+  chromeHidden.kMessageChannel = "chrome.extension.sendMessage";
 
   // Map of port IDs to port object.
   var ports = {};
@@ -95,6 +98,84 @@
     return port;
   };
 
+  // Helper function for dispatchOnRequest.
+  function handleSendRequestError(isSendMessage, responseCallbackPreserved,
+                                  sourceExtensionId, targetExtensionId) {
+    var errorMsg;
+    var eventName = (isSendMessage  ?
+        "chrome.extension.onMessage" : "chrome.extension.onRequest");
+    if (isSendMessage && !responseCallbackPreserved) {
+      errorMsg =
+          "The " + eventName + " listener must return true if you want to" +
+          " send a response after the listener returns ";
+    } else {
+      errorMsg =
+          "Cannot send a response more than once per " + eventName +
+          " listener per document";
+    }
+    errorMsg += " (message was sent by extension " + sourceExtensionId;
+    if (sourceExtensionId != targetExtensionId)
+      errorMsg += " for extension " + targetExtensionId;
+    errorMsg += ").";
+    lastError.set(errorMsg);
+    console.error("Could not send response: " + errorMsg);
+  }
+
+  // Helper function for dispatchOnConnect
+  function dispatchOnRequest(portId, channelName, sender,
+                             sourceExtensionId, targetExtensionId,
+                             isExternal) {
+    var isSendMessage = channelName == chromeHidden.kMessageChannel;
+    var requestEvent = (isSendMessage ?
+       (isExternal ?
+           chrome.extension.onMessageExternal : chrome.extension.onMessage) :
+       (isExternal ?
+           chrome.extension.onRequestExternal : chrome.extension.onRequest));
+    if (requestEvent.hasListeners()) {
+      var port = chromeHidden.Port.createPort(portId, channelName);
+      port.onMessage.addListener(function(request) {
+        var responseCallbackPreserved = false;
+        var responseCallback = function(response) {
+          if (port) {
+            port.postMessage(response);
+            port.destroy_();
+            port = null;
+          } else {
+            // We nulled out port when sending the response, and now the page
+            // is trying to send another response for the same request.
+              handleSendRequestError(isSendMessage, responseCallbackPreserved,
+                                     sourceExtensionId, targetExtensionId);
+          }
+        };
+        // In case the extension never invokes the responseCallback, and also
+        // doesn't keep a reference to it, we need to clean up the port. Do
+        // so by attaching to the garbage collection of the responseCallback
+        // using some native hackery.
+        BindToGC(responseCallback, function() {
+          if (port) {
+            port.destroy_();
+            port = null;
+          }
+        });
+          if (!isSendMessage) {
+            requestEvent.dispatch(request, sender, responseCallback);
+          } else {
+            var rv = requestEvent.dispatch(request, sender, responseCallback);
+            responseCallbackPreserved =
+                rv && rv.results && rv.results.indexOf(true) > -1;
+            if (!responseCallbackPreserved && port) {
+              // If they didn't access the response callback, they're not
+              // going to send a response, so clean up the port immediately.
+              port.destroy_();
+              port = null;
+            }
+          }
+      });
+      return true;
+    }
+    return false;
+  }
+
   // Called by native code when a channel has been opened to this context.
   chromeHidden.Port.dispatchOnConnect = function(portId, channelName, tab,
                                                  sourceExtensionId,
@@ -104,9 +185,9 @@
     // channels were opened to and from the same process, closing one would
     // close both.
     if (targetExtensionId != extensionId)
-      return;  // not for us
+      return false;  // not for us
     if (ports[getOppositePortId(portId)])
-      return;  // this channel was opened by us, so ignore it
+      return false;  // this channel was opened by us, so ignore it
 
     // Determine whether this is coming from another extension, so we can use
     // the right event.
@@ -116,46 +197,12 @@
       tab = chromeHidden.JSON.parse(tab);
     var sender = {tab: tab, id: sourceExtensionId};
 
-    // Special case for sendRequest/onRequest.
-    if (channelName == chromeHidden.kRequestChannel) {
-      var requestEvent = (isExternal ?
-          chrome.extension.onRequestExternal : chrome.extension.onRequest);
-      if (requestEvent.hasListeners()) {
-        var port = chromeHidden.Port.createPort(portId, channelName);
-        port.onMessage.addListener(function(request) {
-          var responseCallback = function(response) {
-            if (port) {
-              port.postMessage(response);
-              port = null;
-            } else {
-              // We nulled out port when sending the response, and now the page
-              // is trying to send another response for the same request.
-              var errorMsg =
-                  "Cannot send a response more than once per " +
-                  "chrome.extension.onRequest listener per document (message " +
-                  "was sent by extension " + sourceExtensionId;
-              if (sourceExtensionId != targetExtensionId) {
-                errorMsg += " for extension " + targetExtensionId;
-              }
-              errorMsg += ").";
-              chrome.extension.lastError = {"message": errorMsg};
-              console.error("Could not send response: " + errorMsg);
-            }
-          };
-          // In case the extension never invokes the responseCallback, and also
-          // doesn't keep a reference to it, we need to clean up the port. Do
-          // so by attaching to the garbage collection of the responseCallback
-          // using some native hackery.
-          BindToGC(responseCallback, function() {
-            if (port) {
-              port.disconnect();
-              port = null;
-            }
-          });
-          requestEvent.dispatch(request, sender, responseCallback);
-        });
-      }
-      return;
+    // Special case for sendRequest/onRequest and sendMessage/onMessage.
+    if (channelName == chromeHidden.kRequestChannel ||
+        channelName == chromeHidden.kMessageChannel) {
+      return dispatchOnRequest(portId, channelName, sender,
+                               sourceExtensionId, targetExtensionId,
+                               isExternal);
     }
 
     var connectEvent = (isExternal ?
@@ -167,7 +214,9 @@
         port.tab = port.sender.tab;
 
       connectEvent.dispatch(port);
+      return true;
     }
+    return false;
   };
 
   // Called by native code when a channel has been closed.
@@ -180,14 +229,14 @@
       if (connectionInvalid) {
         var errorMsg =
             "Could not establish connection. Receiving end does not exist.";
-        chrome.extension.lastError = {"message": errorMsg};
+        lastError.set(errorMsg);
         console.error("Port error: " + errorMsg);
       }
       try {
         port.onDisconnect.dispatch(port);
       } finally {
         port.destroy_();
-        delete chrome.extension.lastError;
+        lastError.clear();
       }
     }
   };
@@ -202,6 +251,43 @@
       port.onMessage.dispatch(msg, port);
     }
   };
+
+  // Shared implementation used by tabs.sendMessage and extension.sendMessage.
+  chromeHidden.Port.sendMessageImpl = function(port, request,
+                                               responseCallback) {
+    port.postMessage(request);
+
+    if (port.name == chromeHidden.kMessageChannel && !responseCallback) {
+      // TODO(mpcomplete): Do this for the old sendRequest API too, after
+      // verifying it doesn't break anything.
+      // Go ahead and disconnect immediately if the sender is not expecting
+      // a response.
+      port.disconnect();
+      return;
+    }
+
+    // Ensure the callback exists for the older sendRequest API.
+    if (!responseCallback)
+      responseCallback = function() {};
+
+    port.onDisconnect.addListener(function() {
+      // For onDisconnects, we only notify the callback if there was an error
+      try {
+        if (chrome.runtime.lastError)
+          responseCallback();
+      } finally {
+        port = null;
+      }
+    });
+    port.onMessage.addListener(function(response) {
+      try {
+        responseCallback(response);
+      } finally {
+        port.disconnect();
+        port = null;
+      }
+    });
+  }
 
   // This function is called on context initialization for both content scripts
   // and extension contexts.

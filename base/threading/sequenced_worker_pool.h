@@ -4,7 +4,6 @@
 
 #ifndef BASE_THREADING_SEQUENCED_WORKER_POOL_H_
 #define BASE_THREADING_SEQUENCED_WORKER_POOL_H_
-#pragma once
 
 #include <cstddef>
 #include <string>
@@ -25,6 +24,8 @@ namespace base {
 class MessageLoopProxy;
 
 template <class T> class DeleteHelper;
+
+class SequencedTaskRunner;
 
 // A worker thread pool that enforces ordering between sets of tasks. It also
 // allows you to specify what should happen to your tasks on shutdown.
@@ -152,6 +153,22 @@ class BASE_EXPORT SequencedWorkerPool : public TaskRunner {
   // will be created.
   SequenceToken GetNamedSequenceToken(const std::string& name);
 
+  // Returns a SequencedTaskRunner wrapper which posts to this
+  // SequencedWorkerPool using the given sequence token.
+  scoped_refptr<SequencedTaskRunner> GetSequencedTaskRunner(
+      SequenceToken token);
+
+  // Returns a SequencedTaskRunner wrapper which posts to this
+  // SequencedWorkerPool using the given sequence token and shutdown behavior.
+  scoped_refptr<SequencedTaskRunner> GetSequencedTaskRunnerWithShutdownBehavior(
+      SequenceToken token,
+      WorkerShutdown shutdown_behavior);
+
+  // Returns a TaskRunner wrapper which posts to this SequencedWorkerPool using
+  // the given shutdown behavior.
+  scoped_refptr<TaskRunner> GetTaskRunnerWithShutdownBehavior(
+      WorkerShutdown shutdown_behavior);
+
   // Posts the given task for execution in the worker pool. Tasks posted with
   // this function will execute in an unspecified order on a background thread.
   // Returns true if the task was posted. If your tasks have ordering
@@ -213,11 +230,12 @@ class BASE_EXPORT SequencedWorkerPool : public TaskRunner {
   // TaskRunner implementation.  Forwards to PostWorkerTask().
   virtual bool PostDelayedTask(const tracked_objects::Location& from_here,
                                const Closure& task,
-                               int64 delay_ms) OVERRIDE;
-  virtual bool PostDelayedTask(const tracked_objects::Location& from_here,
-                               const Closure& task,
                                TimeDelta delay) OVERRIDE;
   virtual bool RunsTasksOnCurrentThread() const OVERRIDE;
+
+  // Returns true if the current thread is processing a task with the given
+  // sequence_token.
+  bool IsRunningSequenceOnCurrentThread(SequenceToken sequence_token) const;
 
   // Blocks until all pending tasks are complete. This should only be called in
   // unit tests when you want to validate something that should have happened.

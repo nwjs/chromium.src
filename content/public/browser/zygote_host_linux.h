@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_PUBLIC_BROWSER_ZYGOTE_HOST_LINUX_H_
 #define CONTENT_PUBLIC_BROWSER_ZYGOTE_HOST_LINUX_H_
-#pragma once
 
 #include <unistd.h>
 
@@ -22,23 +21,14 @@ class ZygoteHost {
   // Returns the singleton instance.
   CONTENT_EXPORT static ZygoteHost* GetInstance();
 
-  // These form a bitmask which describes the conditions of the sandbox that
-  // the zygote finds itself in.
-  enum {
-    kSandboxSUID = 1 << 0,     // SUID sandbox active
-    kSandboxPIDNS = 1 << 1,    // SUID sandbox is using the PID namespace
-    kSandboxNetNS = 1 << 2,    // SUID sandbox is using the network namespace
-    kSandboxSeccomp = 1 << 3,  // seccomp sandbox active.
-  };
-
   // Returns the pid of the Zygote process.
   virtual pid_t GetPid() const = 0;
 
   // Returns the pid of the Sandbox Helper process.
   virtual pid_t GetSandboxHelperPid() const = 0;
 
-  // Returns an int which is a bitmask of kSandbox* values. Only valid after
-  // the first render has been forked.
+  // Returns an int which is a bitmask of kSandboxLinux* values. Only valid
+  // after the first render has been forked.
   virtual int GetSandboxStatus() const = 0;
 
   // Adjust the OOM score of the given renderer's PID.  The allowed
@@ -46,6 +36,12 @@ class ZygoteHost {
   // likely to be killed by the OOM killer.
   virtual void AdjustRendererOOMScore(base::ProcessHandle process_handle,
                                       int score) = 0;
+
+  // Adjust the point at which the low memory notifier in the kernel tells
+  // us that we're low on memory.  When there is less than |margin_mb| left,
+  // then the notifier will notify us.  Set |margin_mb| to -1 to turn off
+  // low memory notification altogether.
+  virtual void AdjustLowMemoryMargin(int64 margin_mb) = 0;
 };
 
 }  // namespace content

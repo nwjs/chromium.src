@@ -4,7 +4,6 @@
 
 #ifndef BASE_MAC_AUTHORIZATION_UTIL_H_
 #define BASE_MAC_AUTHORIZATION_UTIL_H_
-#pragma once
 
 // AuthorizationExecuteWithPrivileges fork()s and exec()s the tool, but it
 // does not wait() for it.  It also doesn't provide the caller with access to
@@ -29,6 +28,8 @@
 #include <stdio.h>
 #include <sys/types.h>
 
+#include "base/base_export.h"
+
 namespace base {
 namespace mac {
 
@@ -37,6 +38,7 @@ namespace mac {
 // |prompt| will be used as the prompt string and an icon appropriate for the
 // application will be displayed in a prompt dialog.  Note that the system
 // appends its own text to the prompt string.  Returns NULL on failure.
+BASE_EXPORT
 AuthorizationRef AuthorizationCreateToRunAsRoot(CFStringRef prompt);
 
 // Calls straight through to AuthorizationExecuteWithPrivileges.  If that
@@ -44,6 +46,7 @@ AuthorizationRef AuthorizationCreateToRunAsRoot(CFStringRef prompt);
 // pid can't be determined, |pid| will be set to -1.  |pid| must not be NULL.
 // |pipe| may be NULL, but the tool will always be executed with a pipe in
 // order to read the pid from its stdout.
+BASE_EXPORT
 OSStatus ExecuteWithPrivilegesAndGetPID(AuthorizationRef authorization,
                                         const char* tool_path,
                                         AuthorizationFlags options,
@@ -56,6 +59,7 @@ OSStatus ExecuteWithPrivilegesAndGetPID(AuthorizationRef authorization,
 // exit status is placed in |exit_status|, otherwise, -1 is stored.
 // |exit_status| may be NULL and this function will still wait for the process
 // to exit.
+BASE_EXPORT
 OSStatus ExecuteWithPrivilegesAndWait(AuthorizationRef authorization,
                                       const char* tool_path,
                                       AuthorizationFlags options,

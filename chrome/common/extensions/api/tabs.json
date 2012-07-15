@@ -86,15 +86,16 @@
           }
         ],
         "returns": {
-          "$ref": "Port",
+          "$ref": "extension.Port",
           "description": "A port that can be used to communicate with the content scripts running in the specified tab. The port's <a href='extension.html#type-Port'>onDisconnect</a> event is fired if the tab closes or does not exist. "
         }
       },
       {
         "name": "sendRequest",
+        "nodoc": true,
         "nocompile": true,
         "type": "function",
-        "description": "Sends a single request to the content script(s) in the specified tab, with an optional callback to run when a response is sent back.  The <a href='extension.html#event-onRequest'>chrome.extension.onRequest</a> event is fired in each content script running in the specified tab for the current extension.",
+        "description": "Deprecated: Please use sendMessage.",
         "parameters": [
           {
             "type": "integer",
@@ -114,6 +115,35 @@
                 "name": "response",
                 "type": "any",
                 "description": "The JSON response object sent by the handler of the request. If an error occurs while connecting to the specified tab, the callback will be called with no arguments and <a href='extension.html#property-lastError'>chrome.extension.lastError</a> will be set to the error message."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "sendMessage",
+        "nocompile": true,
+        "type": "function",
+        "description": "Sends a single message to the content script(s) in the specified tab, with an optional callback to run when a response is sent back.  The <a href='extension.html#event-onMessage'>chrome.extension.onMessage</a> event is fired in each content script running in the specified tab for the current extension.",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "tabId",
+            "minimum": 0
+          },
+          {
+            "type": "any",
+            "name": "message"
+          },
+          {
+            "type": "function",
+            "name": "responseCallback",
+            "optional": true,
+            "parameters": [
+              {
+                "name": "response",
+                "type": "any",
+                "description": "The JSON response object sent by the handler of the message. If an error occurs while connecting to the specified tab, the callback will be called with no arguments and <a href='extension.html#property-lastError'>chrome.extension.lastError</a> will be set to the error message."
               }
             ]
           }
@@ -323,6 +353,7 @@
             "properties": {
                "windowId": {
                  "type": "integer",
+                 "optional": true,
                  "description": "The window that contains the tabs.",
                  "minimum": -2
                },
@@ -341,7 +372,7 @@
              "parameters": [
                {
                  "name": "window",
-                 "$ref": "Window",
+                 "$ref": "windows.Window",
                  "description": "Contains details about the window whose tabs were highlighted."
                }
              ]
@@ -438,8 +469,8 @@
               },
               "index": {
                 "type": "integer",
-                "minimum": 0,
-                "description": "The position to move the window to. The provided value will be clamped to between zero and the number of tabs in the window."
+                "minimum": -1,
+                "description": "The position to move the window to. -1 will place the tab at the end of the window."
               }
             }
           },
@@ -575,7 +606,13 @@
             "properties": {
               "code": {"type": "string", "optional": true, "description": "JavaScript code to execute."},
               "file": {"type": "string", "optional": true, "description": "JavaScript file to execute."},
-              "allFrames": {"type": "boolean", "optional": true, "description": "If allFrames is true, this function injects script into all frames of current page. By default, it's false and script is injected only into the top main frame."}
+              "allFrames": {"type": "boolean", "optional": true, "description": "If allFrames is true, this function injects script into all frames of current page. By default, it's false and script is injected only into the top main frame."},
+              "runAt": {
+                "type": "string",
+                "optional": true,
+                "enum": ["document_start", "document_end", "document_idle"],
+                "description": "The soonest that the script will be injected into the tab. Defaults to \"document_idle\"."
+              }
             }
           },
           {
@@ -600,7 +637,13 @@
             "properties": {
               "code": {"type": "string", "optional": true, "description": "CSS code to be injected."},
               "file": {"type": "string", "optional": true, "description": "CSS file to be injected."},
-              "allFrames": {"type": "boolean", "optional": true, "description": "If allFrames is true, this function injects CSS text into all frames of current page. By default, it's false and CSS is injected only into the top main frame."}
+              "allFrames": {"type": "boolean", "optional": true, "description": "If allFrames is true, this function injects CSS text into all frames of current page. By default, it's false and CSS is injected only into the top main frame."},
+              "runAt": {
+                "type": "string",
+                "optional": true,
+                "enum": ["document_start", "document_end", "document_idle"],
+                "description": "The soonest that the CSS will be injected into the tab. Defaults to \"document_idle\"."
+              }
             }
           },
           {

@@ -6,14 +6,20 @@
 
 #include "base/logging.h"
 #include "chrome/common/prerender_messages.h"
+#include "chrome/renderer/prerender/prerendering_support.h"
 #include "googleurl/src/gurl.h"
+#include "third_party/WebKit/Source/Platform/chromium/public/WebPrerenderingSupport.h"
 
 namespace prerender {
 
-PrerenderDispatcher::PrerenderDispatcher() {
+PrerenderDispatcher::PrerenderDispatcher()
+    : prerendering_support_(new PrerenderingSupport()) {
+  WebKit::WebPrerenderingSupport::initialize(prerendering_support_.get());
 }
 
 PrerenderDispatcher::~PrerenderDispatcher() {
+  if (prerendering_support_.get())
+    WebKit::WebPrerenderingSupport::shutdown();
 }
 
 bool PrerenderDispatcher::IsPrerenderURL(const GURL& url) const {

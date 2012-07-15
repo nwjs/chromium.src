@@ -19,7 +19,6 @@
 #include "ppapi/thunk/resource_creation_api.h"
 #include "ppapi/thunk/thunk.h"
 
-using ppapi::thunk::EnterFunctionNoLock;
 using ppapi::thunk::PPB_FileSystem_API;
 using ppapi::thunk::ResourceCreationAPI;
 
@@ -47,7 +46,7 @@ class FileSystem : public Resource, public PPB_FileSystem_API {
 
   // PPB_FileSystem_APi implementation.
   virtual int32_t Open(int64_t expected_size,
-                       PP_CompletionCallback callback) OVERRIDE;
+                       scoped_refptr<TrackedCallback> callback) OVERRIDE;
   virtual PP_FileSystemType GetType() OVERRIDE;
 
   // Called when the host has responded to our open request.
@@ -76,13 +75,13 @@ PPB_FileSystem_API* FileSystem::AsPPB_FileSystem_API() {
 }
 
 int32_t FileSystem::Open(int64_t expected_size,
-                         PP_CompletionCallback callback) {
+                         scoped_refptr<TrackedCallback> callback) {
   if (TrackedCallback::IsPending(current_open_callback_))
     return PP_ERROR_INPROGRESS;
   if (called_open_)
     return PP_ERROR_FAILED;
 
-  current_open_callback_ = new TrackedCallback(this, callback);
+  current_open_callback_ = callback;
   called_open_ = true;
   PluginDispatcher::GetForResource(this)->Send(
       new PpapiHostMsg_PPBFileSystem_Open(

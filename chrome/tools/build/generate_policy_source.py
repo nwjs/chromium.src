@@ -12,7 +12,9 @@ template is the path to a .json policy template file.'''
 
 from __future__ import with_statement
 from optparse import OptionParser
+import re
 import sys
+import textwrap
 
 
 CHROME_MANDATORY_SUBKEY = 'SOFTWARE\\\\Policies\\\\Google\\\\Chrome'
@@ -73,6 +75,38 @@ def _OutputGeneratedWarningForC(f, template_file_path):
             '//\n\n')
 
 
+COMMENT_WRAPPER = textwrap.TextWrapper()
+COMMENT_WRAPPER.width = 80
+COMMENT_WRAPPER.initial_indent = '// '
+COMMENT_WRAPPER.subsequent_indent = '// '
+COMMENT_WRAPPER.replace_whitespace = False
+
+
+# Writes a comment, each line prefixed by // and wrapped to 80 spaces.
+def _OutputComment(f, comment):
+  for line in comment.splitlines():
+    if len(line) == 0:
+      f.write('//')
+    else:
+      f.write(COMMENT_WRAPPER.fill(line))
+    f.write('\n')
+
+
+PH_PATTERN = re.compile('<ph[^>]*>([^<]*|[^<]*<ex>([^<]*)</ex>[^<]*)</ph>')
+
+
+# Simplistic grit placeholder stripper.
+def _RemovePlaceholders(text):
+  result = ''
+  pos = 0
+  for m in PH_PATTERN.finditer(text):
+    result += text[pos:m.start(0)]
+    result += m.group(2) or m.group(1)
+    pos = m.end(0)
+  result += text[pos:]
+  return result;
+
+
 # Returns a tuple with details about the given policy:
 # (name, type, list_of_platforms, is_deprecated, is_device_policy)
 def _GetPolicyDetails(policy):
@@ -84,8 +118,8 @@ def _GetPolicyDetails(policy):
   # platforms is a list of 'chrome', 'chrome_os' and/or 'chrome_frame'.
   platforms = [ x.split(':')[0] for x in policy['supported_on'] ]
   is_deprecated = policy.get('deprecated', False)
-  return (name, vtype, platforms, is_deprecated)
-
+  is_device_policy = policy.get('device_only', False)
+  return (name, vtype, platforms, is_deprecated, is_device_policy)
 
 def _GetPolicyList(template_file_contents):
   policies = []
@@ -102,16 +136,16 @@ def _GetPolicyList(template_file_contents):
 
 
 def _GetPolicyNameList(template_file_contents):
-  return [name for (name, _, _, _) in _GetPolicyList(template_file_contents)]
-
+  return [name for (name, _, _, _, _) in _GetPolicyList(template_file_contents)]
 
 def _GetChromePolicyList(template_file_contents):
-  return [(name, platforms, vtype) for (name, vtype, platforms, _)
-                                   in _GetPolicyList(template_file_contents)]
+  return [(name, platforms, vtype, is_device_policy)
+      for (name, vtype, platforms, _, is_device_policy)
+      in _GetPolicyList(template_file_contents)]
 
 
 def _GetDeprecatedPolicyList(template_file_contents):
-  return [name for (name, _, _, is_deprecated)
+  return [name for (name, _, _, is_deprecated, _)
                in _GetPolicyList(template_file_contents)
                if is_deprecated]
 
@@ -130,7 +164,6 @@ def _WritePolicyConstantHeader(template_file_contents, args, opts):
 
     f.write('#ifndef CHROME_COMMON_POLICY_CONSTANTS_H_\n'
             '#define CHROME_COMMON_POLICY_CONSTANTS_H_\n'
-            '#pragma once\n'
             '\n'
             '#include <string>\n'
             '\n'
@@ -152,6 +185,7 @@ def _WritePolicyConstantHeader(template_file_contents, args, opts):
             '  struct Entry {\n'
             '    const char* name;\n'
             '    base::Value::Type value_type;\n'
+            '    bool device_policy;\n'
             '  };\n'
             '\n'
             '  const Entry* begin;\n'
@@ -196,9 +230,10 @@ def _WritePolicyConstantSource(template_file_contents, args, opts):
 
     f.write('const PolicyDefinitionList::Entry kEntries[] = {\n')
     policy_list = _GetChromePolicyList(template_file_contents)
-    for (name, platforms, vtype) in policy_list:
+    for (name, platforms, vtype, device_policy) in policy_list:
       if (platform in platforms) or (platform_wildcard in platforms):
-        f.write('  { key::k%s, Value::%s },\n' % (name, vtype))
+        f.write('  { key::k%s, Value::%s, %s },\n' %
+            (name, vtype, 'true' if device_policy else 'false'))
     f.write('};\n\n')
 
     f.write('const PolicyDefinitionList kChromePolicyList = {\n'
@@ -294,6 +329,9 @@ RESERVED_IDS = 2
 def _WritePolicyProto(file, policy, fields):
   if policy.get('device_only', False):
     return
+  desc = '\n'.join(map(str.strip,
+                       _RemovePlaceholders(policy['desc']).splitlines()))
+  _OutputComment(file, _RemovePlaceholders(policy['caption']) + '\n\n' + desc)
   file.write('message %sProto {\n' % policy['name'])
   file.write('  optional PolicyOptions policy_options = 1;\n')
   file.write('  optional %s %s = 2;\n' %

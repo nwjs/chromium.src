@@ -28,6 +28,7 @@
 #include "content/public/browser/notification_source.h"
 #include "googleurl/src/gurl.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/gfx/codec/jpeg_codec.h"
 #include "ui/gfx/image/image.h"
 
@@ -64,6 +65,8 @@ class HistoryBackendTestDelegate : public HistoryBackend::Delegate {
                                       HistoryDetails* details) OVERRIDE;
   virtual void DBLoaded(int backend_id) OVERRIDE;
   virtual void StartTopSitesMigration(int backend_id) OVERRIDE;
+  virtual void NotifyVisitDBObserversOnAddVisit(
+      const BriefVisitInfo& info) OVERRIDE {}
 
  private:
   // Not owned by us.
@@ -111,8 +114,18 @@ class HistoryBackendTest : public testing::Test {
     most_visited_list_.swap(data);
   }
 
+  // Callback for QueryFiltered.
+  void OnQueryFiltered(CancelableRequestProvider::Handle handle,
+                       const history::FilteredURLList& data) {
+    filtered_list_ = data;
+  }
+
   const history::MostVisitedURLList& get_most_visited_list() const {
     return most_visited_list_;
+  }
+
+  const history::FilteredURLList& get_filtered_list() const {
+    return filtered_list_;
   }
 
  protected:
@@ -238,6 +251,7 @@ class HistoryBackendTest : public testing::Test {
   MessageLoop message_loop_;
   FilePath test_dir_;
   history::MostVisitedURLList most_visited_list_;
+  history::FilteredURLList filtered_list_;
 };
 
 void HistoryBackendTestDelegate::SetInMemoryBackend(int backend_id,
@@ -287,11 +301,11 @@ TEST_F(HistoryBackendTest, DeleteAll) {
   std::vector<unsigned char> data;
   data.push_back('1');
   EXPECT_TRUE(backend_->thumbnail_db_->SetFavicon(favicon1,
-      new RefCountedBytes(data), Time::Now()));
+      new base::RefCountedBytes(data), Time::Now()));
 
   data[0] = '2';
   EXPECT_TRUE(backend_->thumbnail_db_->SetFavicon(
-                  favicon2, new RefCountedBytes(data), Time::Now()));
+                  favicon2, new base::RefCountedBytes(data), Time::Now()));
 
   // First visit two URLs.
   URLRow row1(GURL("http://www.google.com/"));
@@ -333,16 +347,19 @@ TEST_F(HistoryBackendTest, DeleteAll) {
   // Add thumbnails for each page. The |Images| take ownership of SkBitmap
   // created from decoding the images.
   ThumbnailScore score(0.25, true, true);
-  gfx::Image google_bitmap(
+  scoped_ptr<SkBitmap> google_bitmap(
       gfx::JPEGCodec::Decode(kGoogleThumbnail, sizeof(kGoogleThumbnail)));
+
+  gfx::Image google_image(*google_bitmap);
 
   Time time;
   GURL gurl;
-  backend_->thumbnail_db_->SetPageThumbnail(gurl, row1_id, &google_bitmap,
+  backend_->thumbnail_db_->SetPageThumbnail(gurl, row1_id, &google_image,
                                             score, time);
-  gfx::Image weewar_bitmap(
+  scoped_ptr<SkBitmap> weewar_bitmap(
      gfx::JPEGCodec::Decode(kWeewarThumbnail, sizeof(kWeewarThumbnail)));
-  backend_->thumbnail_db_->SetPageThumbnail(gurl, row2_id, &weewar_bitmap,
+  gfx::Image weewar_image(*weewar_bitmap);
+  backend_->thumbnail_db_->SetPageThumbnail(gurl, row2_id, &weewar_image,
                                             score, time);
 
   // Star row1.
@@ -476,11 +493,11 @@ TEST_F(HistoryBackendTest, URLsNoLongerBookmarked) {
   std::vector<unsigned char> data;
   data.push_back('1');
   EXPECT_TRUE(backend_->thumbnail_db_->SetFavicon(
-                  favicon1, new RefCountedBytes(data), Time::Now()));
+                  favicon1, new base::RefCountedBytes(data), Time::Now()));
 
   data[0] = '2';
   EXPECT_TRUE(backend_->thumbnail_db_->SetFavicon(
-                  favicon2, new RefCountedBytes(data), Time::Now()));
+                  favicon2, new base::RefCountedBytes(data), Time::Now()));
 
   // First visit two URLs.
   URLRow row1(GURL("http://www.google.com/"));
@@ -650,7 +667,7 @@ TEST_F(HistoryBackendTest, ImportedFaviconsTest) {
   std::vector<unsigned char> data;
   data.push_back('1');
   EXPECT_TRUE(backend_->thumbnail_db_->SetFavicon(favicon1,
-      RefCountedBytes::TakeVector(&data), Time::Now()));
+      base::RefCountedBytes::TakeVector(&data), Time::Now()));
   URLRow row1(GURL("http://www.google.com/"));
   row1.set_visit_count(1);
   row1.set_last_visit(Time::Now());
@@ -1069,7 +1086,7 @@ TEST_F(HistoryBackendTest, SetFaviconMapping) {
   std::vector<unsigned char> data(blob1, blob1 + sizeof(blob1));
   // Add a favicon
   backend_->SetFavicon(
-      url1, icon_url, RefCountedBytes::TakeVector(&data), FAVICON);
+      url1, icon_url, base::RefCountedBytes::TakeVector(&data), FAVICON);
   EXPECT_TRUE(backend_->thumbnail_db_->GetIconMappingForPageURL(
       url1, FAVICON, NULL));
   EXPECT_TRUE(backend_->thumbnail_db_->GetIconMappingForPageURL(
@@ -1077,7 +1094,7 @@ TEST_F(HistoryBackendTest, SetFaviconMapping) {
 
   // Add a touch_icon
   backend_->SetFavicon(
-      url1, icon_url, RefCountedBytes::TakeVector(&data), TOUCH_ICON);
+      url1, icon_url, base::RefCountedBytes::TakeVector(&data), TOUCH_ICON);
   EXPECT_TRUE(backend_->thumbnail_db_->GetIconMappingForPageURL(
       url1, TOUCH_ICON, NULL));
   EXPECT_TRUE(backend_->thumbnail_db_->GetIconMappingForPageURL(
@@ -1088,7 +1105,7 @@ TEST_F(HistoryBackendTest, SetFaviconMapping) {
   // Add a TOUCH_PRECOMPOSED_ICON
   backend_->SetFavicon(url1,
                        icon_url,
-                       RefCountedBytes::TakeVector(&data),
+                       base::RefCountedBytes::TakeVector(&data),
                        TOUCH_PRECOMPOSED_ICON);
   // The touch_icon was replaced.
   EXPECT_FALSE(backend_->thumbnail_db_->GetIconMappingForPageURL(
@@ -1102,7 +1119,7 @@ TEST_F(HistoryBackendTest, SetFaviconMapping) {
 
   // Add a touch_icon
   backend_->SetFavicon(
-      url1, icon_url, RefCountedBytes::TakeVector(&data), TOUCH_ICON);
+      url1, icon_url, base::RefCountedBytes::TakeVector(&data), TOUCH_ICON);
   EXPECT_TRUE(backend_->thumbnail_db_->GetIconMappingForPageURL(
       url1, TOUCH_ICON, NULL));
   EXPECT_TRUE(backend_->thumbnail_db_->GetIconMappingForPageURL(
@@ -1114,7 +1131,7 @@ TEST_F(HistoryBackendTest, SetFaviconMapping) {
   // Add a favicon
   const GURL icon_url2("http://www.google.com/icon2");
   backend_->SetFavicon(
-      url1, icon_url2, RefCountedBytes::TakeVector(&data), FAVICON);
+      url1, icon_url2, base::RefCountedBytes::TakeVector(&data), FAVICON);
   FaviconID icon_id = backend_->thumbnail_db_->GetFaviconIDForFaviconURL(
       icon_url2, FAVICON, NULL);
   EXPECT_NE(0, icon_id);
@@ -1134,7 +1151,7 @@ TEST_F(HistoryBackendTest, AddOrUpdateIconMapping) {
   std::vector<unsigned char> data(blob1, blob1 + sizeof(blob1));
 
   backend_->SetFavicon(
-      url, icon_url, RefCountedBytes::TakeVector(&data), FAVICON);
+      url, icon_url, base::RefCountedBytes::TakeVector(&data), FAVICON);
   FaviconID icon_id = backend_->thumbnail_db_->GetFaviconIDForFaviconURL(
       icon_url, FAVICON, NULL);
 
@@ -1156,7 +1173,7 @@ TEST_F(HistoryBackendTest, GetFaviconForURL) {
   const GURL url("http://www.google.com/");
   const GURL icon_url("http://www.google.com/icon");
   std::vector<unsigned char> data(blob1, blob1 + sizeof(blob1));
-  scoped_refptr<RefCountedBytes> bytes(new RefCountedBytes(data));
+  scoped_refptr<base::RefCountedBytes> bytes(new base::RefCountedBytes(data));
   // Used for testing the icon data after getting from DB
   std::string blob_data(bytes->front(),
                         bytes->front() + bytes->size());
@@ -1203,7 +1220,7 @@ TEST_F(HistoryBackendTest, CloneFaviconIsRestrictedToSameDomain) {
 
   // Add a favicon
   std::vector<unsigned char> data(blob1, blob1 + sizeof(blob1));
-  scoped_refptr<RefCountedBytes> bytes(new RefCountedBytes(data));
+  scoped_refptr<base::RefCountedBytes> bytes(new base::RefCountedBytes(data));
   backend_->SetFavicon(
       url, icon_url, bytes.get(), FAVICON);
   EXPECT_TRUE(backend_->thumbnail_db_->GetIconMappingForPageURL(
@@ -1235,6 +1252,7 @@ TEST_F(HistoryBackendTest, QueryFilteredURLs) {
   const char* yahoo_sports_with_article2 =
       "http://sports.yahoo.com/article2.htm";
   const char* yahoo_sports_soccer = "http://sports.yahoo.com/soccer";
+  const char* apple = "http://www.apple.com/";
 
   // Clear all history.
   backend_->DeleteAllHistory();
@@ -1242,10 +1260,13 @@ TEST_F(HistoryBackendTest, QueryFilteredURLs) {
   Time tested_time = Time::Now().LocalMidnight() +
                      base::TimeDelta::FromHours(4);
   base::TimeDelta half_an_hour = base::TimeDelta::FromMinutes(30);
+  base::TimeDelta one_hour = base::TimeDelta::FromHours(1);
   base::TimeDelta one_day = base::TimeDelta::FromDays(1);
 
   const content::PageTransition kTypedTransition =
       content::PAGE_TRANSITION_TYPED;
+  const content::PageTransition kKeywordGeneratedTransition =
+      content::PAGE_TRANSITION_KEYWORD_GENERATED;
 
   const char* redirect_sequence[2];
   redirect_sequence[1] = NULL;
@@ -1260,13 +1281,22 @@ TEST_F(HistoryBackendTest, QueryFilteredURLs) {
   AddRedirectChainWithTransitionAndTime(
       redirect_sequence, 0,
       kTypedTransition, tested_time - half_an_hour / 2);
-  AddRedirectChainWithTransitionAndTime(redirect_sequence, 0,
-                                        kTypedTransition, tested_time);
+  AddRedirectChainWithTransitionAndTime(
+      redirect_sequence, 0,
+      kTypedTransition, tested_time);
+
+  // Add a visit with a transition that will make sure that no segment gets
+  // created for this page (so the subsequent entries will have different URLIDs
+  // and SegmentIDs).
+  redirect_sequence[0] = apple;
+  AddRedirectChainWithTransitionAndTime(
+      redirect_sequence, 0, kKeywordGeneratedTransition,
+      tested_time - one_day + one_hour * 6);
 
   redirect_sequence[0] = yahoo;
-  AddRedirectChainWithTransitionAndTime(redirect_sequence, 0,
-                                        kTypedTransition,
-                                        tested_time - one_day + half_an_hour);
+  AddRedirectChainWithTransitionAndTime(
+      redirect_sequence, 0, kTypedTransition,
+      tested_time - one_day + half_an_hour);
   AddRedirectChainWithTransitionAndTime(
       redirect_sequence, 0, kTypedTransition,
       tested_time - one_day + half_an_hour * 2);
@@ -1275,8 +1305,9 @@ TEST_F(HistoryBackendTest, QueryFilteredURLs) {
   AddRedirectChainWithTransitionAndTime(
       redirect_sequence, 0, kTypedTransition,
       tested_time - one_day - half_an_hour * 2);
-  AddRedirectChainWithTransitionAndTime(redirect_sequence, 0, kTypedTransition,
-                                        tested_time - one_day);
+  AddRedirectChainWithTransitionAndTime(
+      redirect_sequence, 0, kTypedTransition,
+      tested_time - one_day);
   int transition1, transition2;
   AddClientRedirect(GURL(yahoo_sports), GURL(yahoo_sports_with_article1), false,
                     tested_time - one_day + half_an_hour,
@@ -1293,96 +1324,253 @@ TEST_F(HistoryBackendTest, QueryFilteredURLs) {
                                         tested_time - half_an_hour);
   backend_->Commit();
 
-  scoped_refptr<QueryMostVisitedURLsRequest> request1 =
-      new history::QueryMostVisitedURLsRequest(
-          base::Bind(&HistoryBackendTest::OnQueryMostVisited,
+  scoped_refptr<QueryFilteredURLsRequest> request1 =
+      new history::QueryFilteredURLsRequest(
+          base::Bind(&HistoryBackendTest::OnQueryFiltered,
                      base::Unretained(static_cast<HistoryBackendTest*>(this))));
   HistoryBackendCancelableRequest cancellable_request;
-  cancellable_request.MockScheduleOfRequest<QueryMostVisitedURLsRequest>(
+  cancellable_request.MockScheduleOfRequest<QueryFilteredURLsRequest>(
       request1);
 
   VisitFilter filter;
   // Time limit is |tested_time| +/- 45 min.
   base::TimeDelta three_quarters_of_an_hour = base::TimeDelta::FromMinutes(45);
-  filter.SetTimeInRangeFilter(tested_time - three_quarters_of_an_hour,
-                              tested_time + three_quarters_of_an_hour);
-  backend_->QueryFilteredURLs(request1, 100, filter);
+  filter.SetFilterTime(tested_time);
+  filter.SetFilterWidth(three_quarters_of_an_hour);
+  backend_->QueryFilteredURLs(request1, 100, filter, false);
 
-  ASSERT_EQ(4U, get_most_visited_list().size());
-  EXPECT_EQ(std::string(google), get_most_visited_list()[0].url.spec());
+  ASSERT_EQ(4U, get_filtered_list().size());
+  EXPECT_EQ(std::string(google), get_filtered_list()[0].url.spec());
   EXPECT_EQ(std::string(yahoo_sports_soccer),
-            get_most_visited_list()[1].url.spec());
-  EXPECT_EQ(std::string(yahoo), get_most_visited_list()[2].url.spec());
+            get_filtered_list()[1].url.spec());
+  EXPECT_EQ(std::string(yahoo), get_filtered_list()[2].url.spec());
   EXPECT_EQ(std::string(yahoo_sports),
-            get_most_visited_list()[3].url.spec());
+            get_filtered_list()[3].url.spec());
 
   // Time limit is between |tested_time| and |tested_time| + 2 hours.
-  scoped_refptr<QueryMostVisitedURLsRequest> request2 =
-      new history::QueryMostVisitedURLsRequest(
-          base::Bind(&HistoryBackendTest::OnQueryMostVisited,
+  scoped_refptr<QueryFilteredURLsRequest> request2 =
+      new history::QueryFilteredURLsRequest(
+          base::Bind(&HistoryBackendTest::OnQueryFiltered,
                      base::Unretained(static_cast<HistoryBackendTest*>(this))));
-  cancellable_request.MockScheduleOfRequest<QueryMostVisitedURLsRequest>(
+  cancellable_request.MockScheduleOfRequest<QueryFilteredURLsRequest>(
       request2);
-  filter.SetTimeInRangeFilter(tested_time,
-                              tested_time + base::TimeDelta::FromHours(2));
-  backend_->QueryFilteredURLs(request2, 100, filter);
+  filter.SetFilterTime(tested_time + one_hour);
+  filter.SetFilterWidth(one_hour);
+  backend_->QueryFilteredURLs(request2, 100, filter, false);
 
-  ASSERT_EQ(3U, get_most_visited_list().size());
-  EXPECT_EQ(std::string(google), get_most_visited_list()[0].url.spec());
-  EXPECT_EQ(std::string(yahoo), get_most_visited_list()[1].url.spec());
-  EXPECT_EQ(std::string(yahoo_sports), get_most_visited_list()[2].url.spec());
+  ASSERT_EQ(3U, get_filtered_list().size());
+  EXPECT_EQ(std::string(google), get_filtered_list()[0].url.spec());
+  EXPECT_EQ(std::string(yahoo), get_filtered_list()[1].url.spec());
+  EXPECT_EQ(std::string(yahoo_sports), get_filtered_list()[2].url.spec());
 
   // Time limit is between |tested_time| - 2 hours and |tested_time|.
-  scoped_refptr<QueryMostVisitedURLsRequest> request3 =
-      new history::QueryMostVisitedURLsRequest(
-          base::Bind(&HistoryBackendTest::OnQueryMostVisited,
+  scoped_refptr<QueryFilteredURLsRequest> request3 =
+      new history::QueryFilteredURLsRequest(
+          base::Bind(&HistoryBackendTest::OnQueryFiltered,
                      base::Unretained(static_cast<HistoryBackendTest*>(this))));
-  cancellable_request.MockScheduleOfRequest<QueryMostVisitedURLsRequest>(
+  cancellable_request.MockScheduleOfRequest<QueryFilteredURLsRequest>(
       request3);
-  filter.SetTimeInRangeFilter(tested_time - base::TimeDelta::FromHours(2),
-                              tested_time);
-  backend_->QueryFilteredURLs(request3, 100, filter);
+  filter.SetFilterTime(tested_time - one_hour);
+  filter.SetFilterWidth(one_hour);
+  backend_->QueryFilteredURLs(request3, 100, filter, false);
 
-  ASSERT_EQ(3U, get_most_visited_list().size());
-  EXPECT_EQ(std::string(google), get_most_visited_list()[0].url.spec());
+  ASSERT_EQ(3U, get_filtered_list().size());
+  EXPECT_EQ(std::string(google), get_filtered_list()[0].url.spec());
   EXPECT_EQ(std::string(yahoo_sports_soccer),
-            get_most_visited_list()[1].url.spec());
-  EXPECT_EQ(std::string(yahoo_sports), get_most_visited_list()[2].url.spec());
+            get_filtered_list()[1].url.spec());
+  EXPECT_EQ(std::string(yahoo_sports), get_filtered_list()[2].url.spec());
 
   filter.ClearFilters();
   base::Time::Exploded exploded_time;
   tested_time.LocalExplode(&exploded_time);
 
   // Today.
-  scoped_refptr<QueryMostVisitedURLsRequest> request4 =
-      new history::QueryMostVisitedURLsRequest(
-          base::Bind(&HistoryBackendTest::OnQueryMostVisited,
+  scoped_refptr<QueryFilteredURLsRequest> request4 =
+      new history::QueryFilteredURLsRequest(
+          base::Bind(&HistoryBackendTest::OnQueryFiltered,
                      base::Unretained(static_cast<HistoryBackendTest*>(this))));
-  cancellable_request.MockScheduleOfRequest<QueryMostVisitedURLsRequest>(
+  cancellable_request.MockScheduleOfRequest<QueryFilteredURLsRequest>(
       request4);
-  filter.SetDayOfTheWeekFilter(static_cast<int>(exploded_time.day_of_week),
-                               tested_time);
-  backend_->QueryFilteredURLs(request4, 100, filter);
+  filter.SetFilterTime(tested_time);
+  filter.SetDayOfTheWeekFilter(static_cast<int>(exploded_time.day_of_week));
+  backend_->QueryFilteredURLs(request4, 100, filter, false);
 
-  ASSERT_EQ(2U, get_most_visited_list().size());
-  EXPECT_EQ(std::string(google), get_most_visited_list()[0].url.spec());
+  ASSERT_EQ(2U, get_filtered_list().size());
+  EXPECT_EQ(std::string(google), get_filtered_list()[0].url.spec());
   EXPECT_EQ(std::string(yahoo_sports_soccer),
-            get_most_visited_list()[1].url.spec());
+            get_filtered_list()[1].url.spec());
 
   // Today + time limit - only yahoo_sports_soccer should fit.
-  scoped_refptr<QueryMostVisitedURLsRequest> request5 =
-      new history::QueryMostVisitedURLsRequest(
-          base::Bind(&HistoryBackendTest::OnQueryMostVisited,
+  scoped_refptr<QueryFilteredURLsRequest> request5 =
+      new history::QueryFilteredURLsRequest(
+          base::Bind(&HistoryBackendTest::OnQueryFiltered,
                      base::Unretained(static_cast<HistoryBackendTest*>(this))));
-  cancellable_request.MockScheduleOfRequest<QueryMostVisitedURLsRequest>(
+  cancellable_request.MockScheduleOfRequest<QueryFilteredURLsRequest>(
       request5);
-  filter.SetTimeInRangeFilter(tested_time - base::TimeDelta::FromHours(1),
-                              tested_time - base::TimeDelta::FromMinutes(20));
-  backend_->QueryFilteredURLs(request5, 100, filter);
+  filter.SetFilterTime(tested_time - base::TimeDelta::FromMinutes(40));
+  filter.SetFilterWidth(base::TimeDelta::FromMinutes(20));
+  backend_->QueryFilteredURLs(request5, 100, filter, false);
 
-  ASSERT_EQ(1U, get_most_visited_list().size());
+  ASSERT_EQ(1U, get_filtered_list().size());
   EXPECT_EQ(std::string(yahoo_sports_soccer),
-            get_most_visited_list()[0].url.spec());
+            get_filtered_list()[0].url.spec());
+
+  // Make sure we get debug data if we request it.
+  scoped_refptr<QueryFilteredURLsRequest> request6 =
+      new history::QueryFilteredURLsRequest(
+          base::Bind(&HistoryBackendTest::OnQueryFiltered,
+                     base::Unretained(static_cast<HistoryBackendTest*>(this))));
+  cancellable_request.MockScheduleOfRequest<QueryFilteredURLsRequest>(
+      request6);
+  filter.SetFilterTime(tested_time);
+  filter.SetFilterWidth(one_hour * 2);
+  backend_->QueryFilteredURLs(request6, 100, filter, true);
+
+  // If the SegmentID is used by QueryFilteredURLs when generating the debug
+  // data instead of the URLID, the |total_visits| for the |yahoo_sports_soccer|
+  // entry will be zero instead of 1.
+  ASSERT_GE(get_filtered_list().size(), 2U);
+  EXPECT_EQ(std::string(google), get_filtered_list()[0].url.spec());
+  EXPECT_EQ(std::string(yahoo_sports_soccer),
+      get_filtered_list()[1].url.spec());
+  EXPECT_EQ(4U, get_filtered_list()[0].extended_info.total_visits);
+  EXPECT_EQ(1U, get_filtered_list()[1].extended_info.total_visits);
+}
+
+TEST_F(HistoryBackendTest, UpdateVisitDuration) {
+  // This unit test will test adding and deleting visit details information.
+  ASSERT_TRUE(backend_.get());
+
+  GURL url1("http://www.cnn.com");
+  std::vector<VisitInfo> visit_info1, visit_info2;
+  Time start_ts = Time::Now() - base::TimeDelta::FromDays(5);
+  Time end_ts = start_ts + base::TimeDelta::FromDays(2);
+  visit_info1.push_back(VisitInfo(start_ts, content::PAGE_TRANSITION_LINK));
+
+  GURL url2("http://www.example.com");
+  visit_info2.push_back(VisitInfo(Time::Now() - base::TimeDelta::FromDays(10),
+                                  content::PAGE_TRANSITION_LINK));
+
+  // Clear all history.
+  backend_->DeleteAllHistory();
+
+  // Add the visits.
+  backend_->AddVisits(url1, visit_info1, history::SOURCE_BROWSED);
+  backend_->AddVisits(url2, visit_info2, history::SOURCE_BROWSED);
+
+  // Verify the entries for both visits were added in visit_details.
+  VisitVector visits1, visits2;
+  URLRow row;
+  URLID url_id1 = backend_->db()->GetRowForURL(url1, &row);
+  ASSERT_TRUE(backend_->db()->GetVisitsForURL(url_id1, &visits1));
+  ASSERT_EQ(1U, visits1.size());
+  EXPECT_EQ(0, visits1[0].visit_duration.ToInternalValue());
+
+  URLID url_id2 = backend_->db()->GetRowForURL(url2, &row);
+  ASSERT_TRUE(backend_->db()->GetVisitsForURL(url_id2, &visits2));
+  ASSERT_EQ(1U, visits2.size());
+  EXPECT_EQ(0, visits2[0].visit_duration.ToInternalValue());
+
+  // Update the visit to cnn.com.
+  backend_->UpdateVisitDuration(visits1[0].visit_id, end_ts);
+
+  // Check the duration for visiting cnn.com was correctly updated.
+  ASSERT_TRUE(backend_->db()->GetVisitsForURL(url_id1, &visits1));
+  ASSERT_EQ(1U, visits1.size());
+  base::TimeDelta expected_duration = end_ts - start_ts;
+  EXPECT_EQ(expected_duration.ToInternalValue(),
+            visits1[0].visit_duration.ToInternalValue());
+
+  // Remove the visit to cnn.com.
+  ASSERT_TRUE(backend_->RemoveVisits(visits1));
+}
+
+// Test for migration of adding visit_duration column.
+TEST_F(HistoryBackendTest, MigrationVisitDuration) {
+  ASSERT_TRUE(backend_.get());
+  backend_->Closing();
+  backend_ = NULL;
+
+  FilePath old_history_path, old_history, old_archived;
+  ASSERT_TRUE(PathService::Get(chrome::DIR_TEST_DATA, &old_history_path));
+  old_history_path = old_history_path.AppendASCII("History");
+  old_history = old_history_path.AppendASCII("HistoryNoDuration");
+  old_archived = old_history_path.AppendASCII("ArchivedNoDuration");
+
+  // Copy history database file to current directory so that it will be deleted
+  // in Teardown.
+  FilePath new_history_path(getTestDir());
+  file_util::Delete(new_history_path, true);
+  file_util::CreateDirectory(new_history_path);
+  FilePath new_history_file = new_history_path.Append(chrome::kHistoryFilename);
+  FilePath new_archived_file =
+      new_history_path.Append(chrome::kArchivedHistoryFilename);
+  ASSERT_TRUE(file_util::CopyFile(old_history, new_history_file));
+  ASSERT_TRUE(file_util::CopyFile(old_archived, new_archived_file));
+
+  backend_ = new HistoryBackend(new_history_path,
+                                0,
+                                new HistoryBackendTestDelegate(this),
+                                &bookmark_model_);
+  backend_->Init(std::string(), false);
+  backend_->Closing();
+  backend_ = NULL;
+
+  // Now both history and archived_history databases should already be migrated.
+
+  // Check version in history database first.
+  int cur_version = HistoryDatabase::GetCurrentVersion();
+  sql::Connection db;
+  ASSERT_TRUE(db.Open(new_history_file));
+  sql::Statement s(db.GetUniqueStatement(
+      "SELECT value FROM meta WHERE key = 'version'"));
+  ASSERT_TRUE(s.Step());
+  int file_version = s.ColumnInt(0);
+  EXPECT_EQ(cur_version, file_version);
+
+  // Check visit_duration column in visits table is created and set to 0.
+  s.Assign(db.GetUniqueStatement(
+      "SELECT visit_duration FROM visits LIMIT 1"));
+  ASSERT_TRUE(s.Step());
+  EXPECT_EQ(0, s.ColumnInt(0));
+
+  // Repeat version and visit_duration checks in archived history database
+  // also.
+  cur_version = ArchivedDatabase::GetCurrentVersion();
+  sql::Connection archived_db;
+  ASSERT_TRUE(archived_db.Open(new_archived_file));
+  sql::Statement s1(archived_db.GetUniqueStatement(
+      "SELECT value FROM meta WHERE key = 'version'"));
+  ASSERT_TRUE(s1.Step());
+  file_version = s1.ColumnInt(0);
+  EXPECT_EQ(cur_version, file_version);
+
+  // Check visit_duration column in visits table is created and set to 0.
+  s1.Assign(archived_db.GetUniqueStatement(
+      "SELECT visit_duration FROM visits LIMIT 1"));
+  ASSERT_TRUE(s1.Step());
+  EXPECT_EQ(0, s1.ColumnInt(0));
+}
+
+TEST_F(HistoryBackendTest, AddPageNoVisitForBookmark) {
+    ASSERT_TRUE(backend_.get());
+
+    GURL url("http://www.google.com");
+    string16 title(UTF8ToUTF16("Bookmark title"));
+    backend_->AddPageNoVisitForBookmark(url, title);
+
+    URLRow row;
+    backend_->GetURL(url, &row);
+    EXPECT_EQ(url, row.url());
+    EXPECT_EQ(title, row.title());
+    EXPECT_EQ(0, row.visit_count());
+
+    backend_->DeleteURL(url);
+    backend_->AddPageNoVisitForBookmark(url, string16());
+    backend_->GetURL(url, &row);
+    EXPECT_EQ(url, row.url());
+    EXPECT_EQ(UTF8ToUTF16(url.spec()), row.title());
+    EXPECT_EQ(0, row.visit_count());
 }
 
 }  // namespace history

@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_BROWSER_RENDERER_HOST_MEDIA_MOCK_MEDIA_OBSERVER_H_
 #define CONTENT_BROWSER_RENDERER_HOST_MEDIA_MOCK_MEDIA_OBSERVER_H_
-#pragma once
 
 #include <string>
 
@@ -28,6 +27,12 @@ class MockMediaObserver : public content::MediaObserver {
                void(void* host, int stream_id, double volume));
   MOCK_METHOD2(OnMediaEvent,
                void(int source, const media::MediaLogEvent& event));
+  MOCK_METHOD3(OnCaptureDevicesOpened,
+               void(int render_process_id, int render_view_id,
+                    const content::MediaStreamDevices& devices));
+  MOCK_METHOD3(OnCaptureDevicesClosed,
+               void(int render_process_id, int render_view_id,
+                    const content::MediaStreamDevices& devices));
 };
 
 #endif  // CONTENT_BROWSER_RENDERER_HOST_MEDIA_MOCK_MEDIA_OBSERVER_H_

@@ -4,16 +4,15 @@
 
 #ifndef SYNC_JS_JS_ARG_LIST_H_
 #define SYNC_JS_JS_ARG_LIST_H_
-#pragma once
 
 // See README.js for design comments.
 
 #include <string>
 
 #include "base/values.h"
-#include "sync/util/immutable.h"
+#include "sync/internal_api/public/util/immutable.h"
 
-namespace browser_sync {
+namespace syncer {
 
 // A thin wrapper around Immutable<ListValue>.  Used for passing
 // around argument lists to different threads.
@@ -39,6 +38,6 @@ class JsArgList {
   ImmutableListValue args_;
 };
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_JS_JS_ARG_LIST_H_

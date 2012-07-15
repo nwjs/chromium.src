@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_WEBDATA_KEYWORD_TABLE_H_
 #define CHROME_BROWSER_WEBDATA_KEYWORD_TABLE_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -15,7 +14,7 @@
 #include "chrome/browser/webdata/web_database_table.h"
 #include "chrome/browser/search_engines/template_url_id.h"
 
-class TemplateURL;
+struct TemplateURLData;
 
 namespace sql {
 class Statement;
@@ -27,7 +26,7 @@ class Statement;
 // Note: The database stores time in seconds, UTC.
 //
 // keywords                 Most of the columns mirror that of a field in
-//                          TemplateURL. See TemplateURL for more details.
+//                          TemplateURLData.  See that struct for more details.
 //   id
 //   short_name
 //   keyword
@@ -43,16 +42,14 @@ class Statement;
 //   input_encodings        Semicolon separated list of supported input
 //                          encodings, may be empty.
 //   suggest_url
-//   prepopulate_id         See TemplateURL::prepopulate_id.
-//   autogenerate_keyword
-//   logo_id                Deprecated, to be removed; see crbug.com/113248.
-//   created_by_policy      See TemplateURL::created_by_policy.  This was added
-//                          in version 26.
-//   instant_url            See TemplateURL::instant_url.  This was added
-//                          in version 29.
-//   last_modified          See TemplateURL::last_modified.  This was added in
-//                          version 38.
-//   sync_guid              See TemplateURL::sync_guid. This was added in
+//   prepopulate_id         See TemplateURLData::prepopulate_id.
+//   created_by_policy      See TemplateURLData::created_by_policy.  This was
+//                          added in version 26.
+//   instant_url            See TemplateURLData::instant_url.  This was added in
+//                          version 29.
+//   last_modified          See TemplateURLData::last_modified.  This was added
+//                          in version 38.
+//   sync_guid              See TemplateURLData::sync_guid. This was added in
 //                          version 39.
 //
 // keywords_backup          The full copy of the |keywords| table. Added in
@@ -81,7 +78,7 @@ class Statement;
 //
 class KeywordTable : public WebDatabaseTable {
  public:
-  typedef std::vector<TemplateURL*> Keywords;
+  typedef std::vector<TemplateURLData> Keywords;
 
   // Constants exposed for the benefit of test code:
 
@@ -95,15 +92,14 @@ class KeywordTable : public WebDatabaseTable {
   // Comma-separated list of keyword table column names, in order.
   static const char kKeywordColumns[];
 
-  KeywordTable(sql::Connection* db, sql::MetaTable* meta_table)
-      : WebDatabaseTable(db, meta_table) {}
+  KeywordTable(sql::Connection* db, sql::MetaTable* meta_table);
   virtual ~KeywordTable();
   virtual bool Init() OVERRIDE;
   virtual bool IsSyncable() OVERRIDE;
 
   // Adds a new keyword, updating the id field on success.
   // Returns true if successful.
-  bool AddKeyword(const TemplateURL& url);
+  bool AddKeyword(const TemplateURLData& data);
 
   // Removes the specified keyword.
   // Returns true if successful.
@@ -116,15 +112,15 @@ class KeywordTable : public WebDatabaseTable {
 
   // Updates the database values for the specified url.
   // Returns true on success.
-  bool UpdateKeyword(const TemplateURL& url);
+  bool UpdateKeyword(const TemplateURLData& data);
 
-  // ID (TemplateURL->id) of the default search provider.
+  // ID (TemplateURLData->id) of the default search provider.
   bool SetDefaultSearchProviderID(int64 id);
   int64 GetDefaultSearchProviderID();
 
-  // Backup of the default search provider. NULL if the backup is invalid. The
-  // returned TemplateURL is owned by the caller.
-  TemplateURL* GetDefaultSearchProviderBackup();
+  // If the default search provider backup is valid, returns true and copies the
+  // backup into |backup|.  Otherwise returns false.
+  bool GetDefaultSearchProviderBackup(TemplateURLData* backup);
 
   // Returns true if the default search provider has been changed out from under
   // us. This can happen if another process modifies our database or the file
@@ -144,32 +140,47 @@ class KeywordTable : public WebDatabaseTable {
   bool MigrateToVersion38AddLastModifiedColumn();
   bool MigrateToVersion39AddSyncGUIDColumn();
   bool MigrateToVersion44AddDefaultSearchProviderBackup();
+  bool MigrateToVersion45RemoveLogoIDAndAutogenerateColumns();
 
  private:
   FRIEND_TEST_ALL_PREFIXES(KeywordTableTest, DefaultSearchProviderBackup);
   FRIEND_TEST_ALL_PREFIXES(KeywordTableTest, GetTableContents);
   FRIEND_TEST_ALL_PREFIXES(KeywordTableTest, GetTableContentsOrdering);
+  FRIEND_TEST_ALL_PREFIXES(KeywordTableTest, SanitizeURLs);
+  FRIEND_TEST_ALL_PREFIXES(WebDatabaseMigrationTest, MigrateVersion44ToCurrent);
 
-  // Returns a new TemplateURL from the data in |s|.  The caller owns the
-  // returned pointer.
-  static TemplateURL* GetKeywordDataFromStatement(const sql::Statement& s);
+  // NOTE: Since the table columns have changed in different versions, many
+  // functions below take a |table_version| argument which dictates which
+  // version number's column set to use.
+
+  // Fills |data| with the data in |s|.  Returns false if we couldn't fill
+  // |data| for some reason, e.g. |s| tried to set one of the fields to an
+  // illegal value.
+  static bool GetKeywordDataFromStatement(const sql::Statement& s,
+                                          TemplateURLData* data);
 
   // Returns contents of |keywords_backup| table and default search provider
   // id backup as a string through |data|. Return value is true on success,
   // false otherwise.
-  bool GetSignatureData(std::string* data);
+  bool GetSignatureData(int table_version, std::string* data);
 
   // Returns contents of selected table as a string in |contents| parameter.
   // Returns true on success, false otherwise.
-  bool GetTableContents(const char* table_name, std::string* contents);
+  bool GetTableContents(const char* table_name,
+                        int table_version,
+                        std::string* contents);
 
   // Updates settings backup, signs it and stores the signature in the
   // database. Returns true on success.
-  bool UpdateBackupSignature();
+  bool UpdateBackupSignature(int table_version);
+
+  // Signs the backup table.  This is a subset of what UpdateBackupSignature()
+  // does.
+  bool SignBackup(int table_version);
 
   // Checks the signature for the current settings backup. Returns true
   // if signature is valid, false otherwise.
-  bool IsBackupSignatureValid();
+  bool IsBackupSignatureValid(int table_version);
 
   // Gets a string representation for keyword with id specified.
   // Used to store its result in |meta| table or to compare with another
@@ -181,6 +192,13 @@ class KeywordTable : public WebDatabaseTable {
   // Updates default search provider id backup in |meta| table. Returns
   // true on success. The id is returned back via |id| parameter.
   bool UpdateDefaultSearchProviderIDBackup(TemplateURLID* id);
+
+  // Migrates table |name| (which should be either "keywords" or
+  // "keywords_backup" from version 44 to version 45.
+  bool MigrateKeywordsTableForVersion45(const std::string& name);
+
+  // Whether the backup was overwritten during migration.
+  bool backup_overwritten_;
 
   DISALLOW_COPY_AND_ASSIGN(KeywordTable);
 };

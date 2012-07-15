@@ -7,6 +7,7 @@
 #include "chrome/browser/chromeos/accessibility/accessibility_util.h"
 #include "chrome/browser/chromeos/input_method/input_method_manager.h"
 #include "chrome/browser/chromeos/input_method/xkeyboard.h"
+#include "chrome/browser/chromeos/login/wallpaper_manager.h"
 #include "chrome/browser/chromeos/login/webui_login_view.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -20,6 +21,8 @@ namespace chromeos {
 // WebUILoginDisplay, public: --------------------------------------------------
 
 WebUILoginDisplay::~WebUILoginDisplay() {
+  if (webui_handler_)
+    webui_handler_->ResetSigninScreenHandlerDelegate();
 }
 
 // LoginDisplay implementation: ------------------------------------------------
@@ -59,24 +62,25 @@ void WebUILoginDisplay::OnBeforeUserRemoved(const std::string& username) {
 }
 
 void WebUILoginDisplay::OnUserImageChanged(const User& user) {
-  DCHECK(webui_handler_);
-  webui_handler_->OnUserImageChanged(user);
+  if (webui_handler_)
+    webui_handler_->OnUserImageChanged(user);
 }
 
 void WebUILoginDisplay::OnUserRemoved(const std::string& username) {
-  DCHECK(webui_handler_);
-  webui_handler_->OnUserRemoved(username);
+  if (webui_handler_)
+    webui_handler_->OnUserRemoved(username);
 }
 
 void WebUILoginDisplay::OnFadeOut() {
 }
 
 void WebUILoginDisplay::OnLoginSuccess(const std::string& username) {
-  webui_handler_->OnLoginSuccess(username);
+  if (webui_handler_)
+    webui_handler_->OnLoginSuccess(username);
 }
 
 void WebUILoginDisplay::SetUIEnabled(bool is_enabled) {
-  if (is_enabled)
+  if (webui_handler_ && is_enabled)
     webui_handler_->ClearAndEnablePassword();
 }
 
@@ -86,13 +90,17 @@ void WebUILoginDisplay::SelectPod(int index) {
 void WebUILoginDisplay::ShowError(int error_msg_id,
                                   int login_attempts,
                                   HelpAppLauncher::HelpTopic help_topic_id) {
-  DCHECK(webui_handler_);
+  VLOG(1) << "Show error, error_id: " << error_msg_id
+          << ", attempts:" << login_attempts
+          <<  ", help_topic_id: " << help_topic_id;
+  if (!webui_handler_)
+    return;
 
   std::string error_text;
   switch (error_msg_id) {
     case IDS_LOGIN_ERROR_AUTHENTICATING_HOSTED:
       error_text = l10n_util::GetStringFUTF8(
-          error_msg_id, l10n_util::GetStringUTF16(IDS_PRODUCT_OS_NAME));
+          error_msg_id, l10n_util::GetStringUTF16(IDS_SHORT_PRODUCT_OS_NAME));
       break;
     case IDS_LOGIN_ERROR_CAPTIVE_PORTAL:
       error_text = l10n_util::GetStringFUTF8(
@@ -103,29 +111,30 @@ void WebUILoginDisplay::ShowError(int error_msg_id,
       break;
   }
 
-  // Display a warning if Caps Lock is on and error is authentication-related.
-  input_method::InputMethodManager* ime_manager =
-      input_method::InputMethodManager::GetInstance();
-  if (ime_manager->GetXKeyboard()->CapsLockIsEnabled() &&
-      error_msg_id != IDS_LOGIN_ERROR_WHITELIST) {
-    // TODO(ivankr): use a format string instead of concatenation.
-    error_text += "\n" +
-        l10n_util::GetStringUTF8(IDS_LOGIN_ERROR_CAPS_LOCK_HINT);
-  }
+  // Only display hints about keyboard layout if the error is authentication-
+  // related.
+  if (error_msg_id != IDS_LOGIN_ERROR_WHITELIST &&
+      error_msg_id != IDS_LOGIN_ERROR_OWNER_KEY_LOST &&
+      error_msg_id != IDS_LOGIN_ERROR_OWNER_REQUIRED) {
+    // Display a warning if Caps Lock is on.
+    input_method::InputMethodManager* ime_manager =
+        input_method::InputMethodManager::GetInstance();
+    if (ime_manager->GetXKeyboard()->CapsLockIsEnabled()) {
+      // TODO(ivankr): use a format string instead of concatenation.
+      error_text += "\n" +
+          l10n_util::GetStringUTF8(IDS_LOGIN_ERROR_CAPS_LOCK_HINT);
+    }
 
-  // Display a hint to switch keyboards if there are other active input methods.
-  if (ime_manager->GetNumActiveInputMethods() > 1)
-    error_text += "\n" +
-        l10n_util::GetStringUTF8(IDS_LOGIN_ERROR_KEYBOARD_SWITCH_HINT);
+    // Display a hint to switch keyboards if there are other active input
+    // methods.
+    if (ime_manager->GetNumActiveInputMethods() > 1) {
+      error_text += "\n" +
+          l10n_util::GetStringUTF8(IDS_LOGIN_ERROR_KEYBOARD_SWITCH_HINT);
+    }
+  }
 
   std::string help_link;
   switch (error_msg_id) {
-    case IDS_LOGIN_ERROR_CAPTIVE_PORTAL:
-      help_link = l10n_util::GetStringUTF8(IDS_LOGIN_FIX_CAPTIVE_PORTAL);
-      break;
-    case IDS_LOGIN_ERROR_CAPTIVE_PORTAL_NO_GUEST_MODE:
-      // No help link is needed.
-      break;
     case IDS_LOGIN_ERROR_AUTHENTICATING_HOSTED:
       help_link = l10n_util::GetStringUTF8(IDS_LEARN_MORE);
       break;
@@ -141,10 +150,15 @@ void WebUILoginDisplay::ShowError(int error_msg_id,
 }
 
 void WebUILoginDisplay::ShowGaiaPasswordChanged(const std::string& username) {
-  webui_handler_->ShowGaiaPasswordChanged(username);
+  if (webui_handler_)
+    webui_handler_->ShowGaiaPasswordChanged(username);
 }
 
 // WebUILoginDisplay, SigninScreenHandlerDelegate implementation: --------------
+gfx::NativeWindow WebUILoginDisplay::GetNativeWindow() const {
+  return parent_window();
+}
+
 void WebUILoginDisplay::CompleteLogin(const std::string& username,
                                       const std::string& password) {
   DCHECK(delegate_);
@@ -175,16 +189,18 @@ void WebUILoginDisplay::Signout() {
   delegate_->Signout();
 }
 
-void WebUILoginDisplay::FixCaptivePortal() {
-  DCHECK(delegate_);
-  if (delegate_)
-    delegate_->FixCaptivePortal();
-}
-
 void WebUILoginDisplay::CreateAccount() {
   DCHECK(delegate_);
   if (delegate_)
     delegate_->CreateAccount();
+}
+
+void WebUILoginDisplay::UserDeselected() {
+  WallpaperManager::Get()->UserDeselected();
+}
+
+void WebUILoginDisplay::UserSelected(const std::string& username) {
+  UserManager::Get()->UserSelected(username);
 }
 
 void WebUILoginDisplay::RemoveUser(const std::string& username) {
@@ -204,8 +220,8 @@ void WebUILoginDisplay::SetWebUIHandler(
 void WebUILoginDisplay::ShowSigninScreenForCreds(
     const std::string& username,
     const std::string& password) {
-  DCHECK(webui_handler_);
-  webui_handler_->ShowSigninScreenForCreds(username, password);
+  if (webui_handler_)
+    webui_handler_->ShowSigninScreenForCreds(username, password);
 }
 
 const UserList& WebUILoginDisplay::GetUsers() const {

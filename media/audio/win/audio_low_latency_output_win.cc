@@ -16,6 +16,8 @@
 using base::win::ScopedComPtr;
 using base::win::ScopedCOMInitializer;
 
+namespace media {
+
 WASAPIAudioOutputStream::WASAPIAudioOutputStream(AudioManagerWin* manager,
                                                  const AudioParameters& params,
                                                  ERole device_role)
@@ -217,6 +219,24 @@ void WASAPIAudioOutputStream::Stop() {
     render_thread_ = NULL;
   }
 
+  // Flush all pending data and reset the audio clock stream position to 0.
+  hr = audio_client_->Reset();
+  if (FAILED(hr)) {
+    DLOG_IF(ERROR, hr != AUDCLNT_E_NOT_INITIALIZED)
+        << "Failed to reset streaming: " << std::hex << hr;
+  }
+
+  // Extra safety check to ensure that the buffers are cleared.
+  // If the buffers are not cleared correctly, the next call to Start()
+  // would fail with AUDCLNT_E_BUFFER_ERROR at IAudioRenderClient::GetBuffer().
+  UINT32 num_queued_frames = 0;
+  audio_client_->GetCurrentPadding(&num_queued_frames);
+  DCHECK_EQ(0u, num_queued_frames);
+
+  // Ensure that we don't quit the main thread loop immediately next
+  // time Start() is called.
+  ResetEvent(stop_render_event_.Get());
+
   started_ = false;
 }
 
@@ -241,6 +261,7 @@ void WASAPIAudioOutputStream::Close() {
 }
 
 void WASAPIAudioOutputStream::SetVolume(double volume) {
+  DVLOG(1) << "SetVolume(volume=" << volume << ")";
   float volume_float = static_cast<float>(volume);
   if (volume_float < 0.0f || volume_float > 1.0f) {
     return;
@@ -249,6 +270,7 @@ void WASAPIAudioOutputStream::SetVolume(double volume) {
 }
 
 void WASAPIAudioOutputStream::GetVolume(double* volume) {
+  DVLOG(1) << "GetVolume()";
   *volume = static_cast<double>(volume_);
 }
 
@@ -436,7 +458,7 @@ void WASAPIAudioOutputStream::Run() {
             // the delay between the usage of the delay value and the time
             // of generation.
             uint32 num_filled_bytes = source_->OnMoreData(
-                this, audio_data, packet_size_bytes_,
+                audio_data, packet_size_bytes_,
                 AudioBuffersState(0, audio_delay_bytes));
 
             // Perform in-place, software-volume adjustments.
@@ -806,3 +828,5 @@ bool WASAPIAudioOutputStream::RestartRenderingUsingNewDefaultDevice() {
   restart_rendering_mode_ = false;
   return SUCCEEDED(hr);
 }
+
+}  // namespace media

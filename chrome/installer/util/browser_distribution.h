@@ -6,13 +6,12 @@
 
 #ifndef CHROME_INSTALLER_UTIL_BROWSER_DISTRIBUTION_H_
 #define CHROME_INSTALLER_UTIL_BROWSER_DISTRIBUTION_H_
-#pragma once
 
 #include <string>
-#include <vector>
 
 #include "base/basictypes.h"
 #include "base/file_path.h"
+#include "base/string16.h"
 #include "base/version.h"
 #include "chrome/installer/util/util_constants.h"
 
@@ -37,7 +36,7 @@ class BrowserDistribution {
   // experiments we show toasts to the user if they are inactive for a certain
   // amount of time.
   struct UserExperiment {
-    std::wstring prefix;  // The experiment code prefix for this experiment,
+    string16 prefix;      // The experiment code prefix for this experiment,
                           // also known as the 'TV' part in 'TV80'.
     int flavor;           // The flavor index for this experiment.
     int heading;          // The heading resource ID to use for this experiment.
@@ -63,50 +62,57 @@ class BrowserDistribution {
 
   virtual void DoPostUninstallOperations(const Version& version,
                                          const FilePath& local_data_path,
-                                         const std::wstring& distribution_data);
+                                         const string16& distribution_data);
 
-  virtual std::wstring GetAppGuid();
+  virtual string16 GetAppGuid();
 
-  // Returns the name by which the program is registered with Default Programs.
-  // This is not a localized string suitable for presenting to a user.
-  virtual std::wstring GetApplicationName();
+  // Returns the unsuffixed application name of this program.
+  // This is the base of the name registered with Default Programs on Windows.
+  // IMPORTANT: This should only be called by the installer which needs to make
+  // decisions on the suffixing of the upcoming install, not by external callers
+  // at run-time.
+  virtual string16 GetBaseAppName();
 
   // Returns the localized name of the program.
-  virtual std::wstring GetAppShortCutName();
+  virtual string16 GetAppShortCutName();
 
-  virtual std::wstring GetAlternateApplicationName();
+  virtual string16 GetAlternateApplicationName();
 
-  virtual std::wstring GetBrowserAppId();
+  // Returns the unsuffixed appid of this program.
+  // The AppUserModelId is a property of Windows programs.
+  // IMPORTANT: This should only be called by ShellUtil::GetAppId as the appid
+  // should be suffixed in all scenarios.
+  virtual string16 GetBaseAppId();
 
-  virtual std::wstring GetInstallSubDir();
+  virtual string16 GetInstallSubDir();
 
-  virtual std::wstring GetPublisherName();
+  virtual string16 GetPublisherName();
 
-  virtual std::wstring GetAppDescription();
+  virtual string16 GetAppDescription();
 
-  virtual std::wstring GetLongAppDescription();
+  virtual string16 GetLongAppDescription();
 
   virtual std::string GetSafeBrowsingName();
 
-  virtual std::wstring GetStateKey();
+  virtual string16 GetStateKey();
 
-  virtual std::wstring GetStateMediumKey();
+  virtual string16 GetStateMediumKey();
 
-  virtual std::wstring GetStatsServerURL();
+  virtual string16 GetStatsServerURL();
 
   virtual std::string GetNetworkStatsServer() const;
 
   virtual std::string GetHttpPipeliningTestServer() const;
 
 #if defined(OS_WIN)
-  virtual std::wstring GetDistributionData(HKEY root_key);
+  virtual string16 GetDistributionData(HKEY root_key);
 #endif
 
-  virtual std::wstring GetUninstallLinkName();
+  virtual string16 GetUninstallLinkName();
 
-  virtual std::wstring GetUninstallRegPath();
+  virtual string16 GetUninstallRegPath();
 
-  virtual std::wstring GetVersionKey();
+  virtual string16 GetVersionKey();
 
   virtual bool CanSetAsDefault();
 
@@ -114,7 +120,18 @@ class BrowserDistribution {
 
   virtual int GetIconIndex();
 
-  virtual bool GetChromeChannel(std::wstring* channel);
+  virtual bool GetChromeChannel(string16* channel);
+
+  // Returns true if the distribution includes a DelegateExecute verb handler,
+  // and provides the COM registration data if so:
+  // |handler_class_uuid| is the CommandExecuteImpl class UUID.
+  // |type_lib_uuid| and |type_lib_version| identify its type library.
+  // |interface_uuid| is the ICommandExecuteImpl interface UUID.
+  // Only non-null parameters will be set, others will be ignored.
+  virtual bool GetDelegateExecuteHandlerData(string16* handler_class_uuid,
+                                             string16* type_lib_uuid,
+                                             string16* type_lib_version,
+                                             string16* interface_uuid);
 
   virtual void UpdateInstallStatus(bool system_install,
       installer::ArchiveType archive_type,
@@ -138,7 +155,7 @@ class BrowserDistribution {
   // The user has qualified for the inactive user toast experiment and this
   // function just performs it.
   virtual void InactiveUserToastExperiment(int flavor,
-      const std::wstring& experiment_group,
+      const string16& experiment_group,
       const installer::Product& installation,
       const FilePath& application_path);
 

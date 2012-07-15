@@ -46,6 +46,7 @@ typedef pthread_mutex_t* MutexHandle;
 
 #include "base/base_switches.h"
 #include "base/command_line.h"
+#include "base/debug/alias.h"
 #include "base/debug/debugger.h"
 #include "base/debug/stack_trace.h"
 #include "base/eintr_wrapper.h"
@@ -636,6 +637,12 @@ LogMessage::~LogMessage() {
   }
 
   if (severity_ == LOG_FATAL) {
+    // Ensure the first characters of the string are on the stack so they
+    // are contained in minidumps for diagnostic purposes.
+    char str_stack[1024];
+    str_newline.copy(str_stack, arraysize(str_stack));
+    base::debug::Alias(str_stack);
+
     // display a message or break into the debugger on a fatal error
     if (base::debug::BeingDebugged()) {
       base::debug::BreakDebugger();
@@ -783,6 +790,10 @@ Win32ErrorLogMessage::~Win32ErrorLogMessage() {
     stream() << ": Error " << GetLastError() << " while retrieving error "
         << err_;
   }
+  // We're about to crash (CHECK). Put |err_| on the stack (by placing it in a
+  // field) and use Alias in hopes that it makes it into crash dumps.
+  DWORD last_error = err_;
+  base::debug::Alias(&last_error);
 }
 #elif defined(OS_POSIX)
 ErrnoLogMessage::ErrnoLogMessage(const char* file,

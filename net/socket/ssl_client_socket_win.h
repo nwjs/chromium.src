@@ -4,7 +4,6 @@
 
 #ifndef NET_SOCKET_SSL_CLIENT_SOCKET_WIN_H_
 #define NET_SOCKET_SSL_CLIENT_SOCKET_WIN_H_
-#pragma once
 
 #define SECURITY_WIN32  // Needs to be defined before including security.h
 
@@ -62,7 +61,7 @@ class SSLClientSocketWin : public SSLClientSocket {
   virtual void Disconnect() OVERRIDE;
   virtual bool IsConnected() const OVERRIDE;
   virtual bool IsConnectedAndIdle() const OVERRIDE;
-  virtual int GetPeerAddress(AddressList* address) const OVERRIDE;
+  virtual int GetPeerAddress(IPEndPoint* address) const OVERRIDE;
   virtual int GetLocalAddress(IPEndPoint* address) const OVERRIDE;
   virtual const BoundNetLog& NetLog() const  OVERRIDE{ return net_log_; }
   virtual void SetSubresourceSpeculation() OVERRIDE;

@@ -8,6 +8,7 @@
 #include "base/stl_util.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/debugger/devtools_window.h"
+#include "chrome/browser/notifications/balloon.h"
 #include "chrome/browser/notifications/balloon_collection.h"
 #include "chrome/browser/notifications/balloon_host.h"
 #include "chrome/browser/notifications/notification_ui_manager.h"
@@ -18,26 +19,27 @@
 #include "content/public/browser/web_contents.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
-#include "grit/theme_resources_standard.h"
-#include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/gfx/image/image_skia.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 // TaskManagerNotificationResource class
 ////////////////////////////////////////////////////////////////////////////////
 
-SkBitmap* TaskManagerNotificationResource::default_icon_ = NULL;
+gfx::ImageSkia* TaskManagerNotificationResource::default_icon_ = NULL;
 
 TaskManagerNotificationResource::TaskManagerNotificationResource(
     BalloonHost* balloon_host)
     : balloon_host_(balloon_host) {
   if (!default_icon_) {
     ResourceBundle& rb = ResourceBundle::GetSharedInstance();
-    default_icon_ = rb.GetBitmapNamed(IDR_PLUGIN);
+    default_icon_ = rb.GetImageSkiaNamed(IDR_PLUGIN);
   }
   process_handle_ =
       balloon_host_->web_contents()->GetRenderProcessHost()->GetHandle();
+  unique_process_id_ =
+      balloon_host_->web_contents()->GetRenderProcessHost()->GetID();
   pid_ = base::GetProcId(process_handle_);
   title_ = l10n_util::GetStringFUTF16(IDS_TASK_MANAGER_NOTIFICATION_PREFIX,
                                       balloon_host_->GetSource());
@@ -54,12 +56,16 @@ string16 TaskManagerNotificationResource::GetProfileName() const {
   return string16();
 }
 
-SkBitmap TaskManagerNotificationResource::GetIcon() const {
+gfx::ImageSkia TaskManagerNotificationResource::GetIcon() const {
   return *default_icon_;
 }
 
 base::ProcessHandle TaskManagerNotificationResource::GetProcess() const {
   return process_handle_;
+}
+
+int TaskManagerNotificationResource::GetUniqueChildProcessId() const {
+  return unique_process_id_;
 }
 
 TaskManager::Resource::Type TaskManagerNotificationResource::GetType() const {
@@ -117,7 +123,9 @@ void TaskManagerNotificationResourceProvider::StartUpdating() {
   const BalloonCollection::Balloons& balloons = collection->GetActiveBalloons();
   for (BalloonCollection::Balloons::const_iterator it = balloons.begin();
        it != balloons.end(); ++it) {
-    AddToTaskManager((*it)->view()->GetHost());
+    BalloonHost* balloon_host = (*it)->balloon_view()->GetHost();
+    if (balloon_host)
+      AddToTaskManager(balloon_host);
   }
 
   // Register for notifications about extension process changes.

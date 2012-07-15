@@ -98,6 +98,8 @@ class DownloadsTest(pyauto.PyUITest):
     os.lseek(fd, size, 0)
     os.write(fd, 'a')
     os.close(fd)
+    # Make it readable by chronos on chromeos
+    os.chmod(file_path, 0755)
     logging.debug('Created temporary file %s of size %d' % (file_path, size))
     self._DeleteAfterShutdown(file_path)
     return file_path
@@ -428,22 +430,6 @@ class DownloadsTest(pyauto.PyUITest):
     self.assertEqual('a_zip_file.zip', downloads[0]['file_name'])
     self.assertEqual(file_url, downloads[0]['url'])
     self._DeleteAfterShutdown(downloaded_pkg)
-
-  def testDownloadTheme(self):
-    """Verify downloading and saving a theme file installs the theme."""
-    test_dir = os.path.join(os.path.abspath(self.DataDir()), 'extensions')
-    file_url = self.GetFileURLForPath(os.path.join(test_dir, 'theme.crx'))
-    downloaded_pkg = os.path.join(self.GetDownloadDirectory().value(),
-                                  'theme.crx')
-    self._ClearLocalDownloadState(downloaded_pkg)
-
-    self.DownloadAndWaitForStart(file_url)
-    self.PerformActionOnDownload(self._GetDownloadId(),
-                                 'save_dangerous_download')
-    # Wait for the theme to be set automatically.
-    self.assertTrue(self.WaitUntilDownloadedThemeSet('camo theme'))
-    self.assertTrue(self.WaitUntil(lambda path: not os.path.exists(path),
-                                   args=[downloaded_pkg]))
 
   def testExtendedAttributesOnMac(self):
     """Verify that Chrome sets the extended attributes on a file.

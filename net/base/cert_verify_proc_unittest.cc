@@ -129,17 +129,17 @@ TEST_F(CertVerifyProcTest, PaypalNullCertParsing) {
   CertVerifyResult verify_result;
   int error = Verify(paypal_null_cert, "www.paypal.com", flags, NULL,
                      &verify_result);
-#if defined(USE_OPENSSL) || defined(OS_MACOSX) || defined(OS_WIN)
+#if defined(USE_NSS)
+  EXPECT_EQ(ERR_CERT_COMMON_NAME_INVALID, error);
+#else
   // TOOD(bulach): investigate why macosx and win aren't returning
   // ERR_CERT_INVALID or ERR_CERT_COMMON_NAME_INVALID.
   EXPECT_EQ(ERR_CERT_AUTHORITY_INVALID, error);
-#else
-  EXPECT_EQ(ERR_CERT_COMMON_NAME_INVALID, error);
 #endif
   // Either the system crypto library should correctly report a certificate
   // name mismatch, or our certificate blacklist should cause us to report an
   // invalid certificate.
-#if !defined(OS_MACOSX) && !defined(USE_OPENSSL)
+#if defined(USE_NSS) || defined(OS_WIN)
   EXPECT_TRUE(verify_result.cert_status &
               (CERT_STATUS_COMMON_NAME_INVALID | CERT_STATUS_INVALID));
 #endif
@@ -297,6 +297,8 @@ TEST_F(CertVerifyProcTest, RejectWeakKeys) {
         EXPECT_NE(OK, error);
         EXPECT_EQ(CERT_STATUS_WEAK_KEY,
                   verify_result.cert_status & CERT_STATUS_WEAK_KEY);
+        EXPECT_NE(CERT_STATUS_INVALID,
+                  verify_result.cert_status & CERT_STATUS_INVALID);
       } else {
         EXPECT_EQ(OK, error);
         EXPECT_EQ(0U, verify_result.cert_status & CERT_STATUS_WEAK_KEY);
@@ -467,7 +469,7 @@ TEST_F(CertVerifyProcTest, DISABLED_PublicKeyHashes) {
   EXPECT_EQ(OK, error);
   EXPECT_EQ(0U, verify_result.cert_status);
   ASSERT_LE(2u, verify_result.public_key_hashes.size());
-  EXPECT_EQ(HexEncode(nistSPKIHash, base::kSHA1Length),
+  EXPECT_EQ(HexEncode(kNistSPKIHash, base::kSHA1Length),
       HexEncode(verify_result.public_key_hashes[0].data, base::kSHA1Length));
   EXPECT_EQ("83244223D6CBF0A26FC7DE27CEBCA4BDA32612AD",
       HexEncode(verify_result.public_key_hashes[1].data, base::kSHA1Length));
@@ -855,7 +857,8 @@ TEST_P(CertVerifyProcWeakDigestTest, Verify) {
 const WeakDigestTestData kVerifyRootCATestData[] = {
   { "weak_digest_md5_root.pem", "weak_digest_sha1_intermediate.pem",
     "weak_digest_sha1_ee.pem", false, false, false, false, false },
-#if !defined(OS_MACOSX)  // MD4 is not supported.
+#if defined(USE_OPENSSL) || defined(OS_WIN)
+  // MD4 is not supported by OS X / NSS
   { "weak_digest_md4_root.pem", "weak_digest_sha1_intermediate.pem",
     "weak_digest_sha1_ee.pem", false, false, false, false, false },
 #endif
@@ -869,7 +872,8 @@ INSTANTIATE_TEST_CASE_P(VerifyRoot, CertVerifyProcWeakDigestTest,
 const WeakDigestTestData kVerifyIntermediateCATestData[] = {
   { "weak_digest_sha1_root.pem", "weak_digest_md5_intermediate.pem",
     "weak_digest_sha1_ee.pem", true, false, false, true, false },
-#if !defined(USE_NSS) && !defined(OS_MACOSX)  // MD4 is not supported.
+#if defined(USE_OPENSSL) || defined(OS_WIN)
+  // MD4 is not supported by OS X / NSS
   { "weak_digest_sha1_root.pem", "weak_digest_md4_intermediate.pem",
     "weak_digest_sha1_ee.pem", false, true, false, false, false },
 #endif
@@ -885,7 +889,8 @@ INSTANTIATE_TEST_CASE_P(VerifyIntermediate, CertVerifyProcWeakDigestTest,
 const WeakDigestTestData kVerifyEndEntityTestData[] = {
   { "weak_digest_sha1_root.pem", "weak_digest_sha1_intermediate.pem",
     "weak_digest_md5_ee.pem", true, false, false, false, false },
-#if !defined(USE_NSS) && !defined(OS_MACOSX)  // MD4 is not supported.
+#if defined(USE_OPENSSL) || defined(OS_WIN)
+  // MD4 is not supported by OS X / NSS
   { "weak_digest_sha1_root.pem", "weak_digest_sha1_intermediate.pem",
     "weak_digest_md4_ee.pem", false, true, false, false, false },
 #endif
@@ -910,7 +915,8 @@ WRAPPED_INSTANTIATE_TEST_CASE_P(MAYBE_VerifyEndEntity,
 const WeakDigestTestData kVerifyIncompleteIntermediateTestData[] = {
   { NULL, "weak_digest_md5_intermediate.pem", "weak_digest_sha1_ee.pem",
     true, false, false, true, false },
-#if !defined(OS_MACOSX)  // MD4 is not supported.
+#if defined(USE_OPENSSL) || defined(OS_WIN)
+  // MD4 is not supported by OS X / NSS
   { NULL, "weak_digest_md4_intermediate.pem", "weak_digest_sha1_ee.pem",
     false, true, false, false, false },
 #endif
@@ -934,7 +940,8 @@ WRAPPED_INSTANTIATE_TEST_CASE_P(
 const WeakDigestTestData kVerifyIncompleteEETestData[] = {
   { NULL, "weak_digest_sha1_intermediate.pem", "weak_digest_md5_ee.pem",
     true, false, false, false, false },
-#if !defined(OS_MACOSX)  // MD4 is not supported.
+#if defined(USE_OPENSSL) || defined(OS_WIN)
+  // MD4 is not supported by OS X / NSS
   { NULL, "weak_digest_sha1_intermediate.pem", "weak_digest_md4_ee.pem",
     false, true, false, false, false },
 #endif
@@ -960,7 +967,8 @@ const WeakDigestTestData kVerifyMixedTestData[] = {
     "weak_digest_md2_ee.pem", true, false, true, true, false },
   { "weak_digest_sha1_root.pem", "weak_digest_md2_intermediate.pem",
     "weak_digest_md5_ee.pem", true, false, true, false, true },
-#if !defined(OS_MACOSX)  // MD4 is not supported.
+#if defined(USE_OPENSSL) || defined(OS_WIN)
+  // MD4 is not supported by OS X / NSS
   { "weak_digest_sha1_root.pem", "weak_digest_md4_intermediate.pem",
     "weak_digest_md2_ee.pem", false, true, true, false, false },
 #endif

@@ -5,10 +5,16 @@
 #include "sync/syncable/syncable_mock.h"
 
 #include "base/location.h"
+#include "sync/syncable/in_memory_directory_backing_store.h"
+
 #include "sync/test/null_transaction_observer.h"
 
-MockDirectory::MockDirectory(browser_sync::UnrecoverableErrorHandler* handler)
-    : Directory(&encryptor_, handler, NULL) {
+namespace syncer {
+namespace syncable {
+
+MockDirectory::MockDirectory(syncer::UnrecoverableErrorHandler* handler)
+    : Directory(&encryptor_, handler, NULL,
+                new syncable::InMemoryDirectoryBackingStore("store")) {
   InitKernelForTest("myk", &delegate_, syncable::NullTransactionObserver());
 }
 
@@ -18,3 +24,6 @@ MockSyncableWriteTransaction::MockSyncableWriteTransaction(
     const tracked_objects::Location& from_here, Directory *directory)
     : WriteTransaction(from_here, syncable::UNITTEST, directory) {
 }
+
+}  // namespace syncable
+}  // namespace syncer

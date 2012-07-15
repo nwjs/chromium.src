@@ -2,47 +2,44 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-const socket = chrome.experimental.socket;
-const message = "helloECHO";
-const address = "127.0.0.1";
-var protocol = "none";
-var port = -1;
-var socketId = 0;
-var dataRead = "";
-var succeeded = false;
-var waitCount = 0;
-
-var testSocketCreation = function() {
-  function onCreate(socketInfo) {
-    chrome.test.assertTrue(socketInfo.socketId > 0);
-
-    // TODO(miket): this doesn't work yet. It's possible this will become
-    // automatic, but either way we can't forget to clean up.
-    //socket.destroy(socketInfo.socketId);
-
-    chrome.test.succeed();
-  }
-
-  socket.create(protocol, address, port, {}, onCreate);
-};
-
-// net/tools/testserver/testserver.py is picky about the format of what
-// it calls its "echo" messages. One might go so far as to mutter to
-// oneself that it isn't an echo server at all.
+// net/tools/testserver/testserver.py is picky about the format of what it
+// calls its "echo" messages. One might go so far as to mutter to oneself that
+// it isn't an echo server at all.
 //
-// The response is based on the request but obfuscated using a random
-// key.
+// The response is based on the request but obfuscated using a random key.
 const request = "0100000005320000005hello";
 var expectedResponsePattern = /0100000005320000005.{11}/;
 
+const socket = chrome.experimental.socket;
 var address;
-var protocol;
-var port;
-var socketId = 0;
 var bytesWritten = 0;
-var dataRead = "";
+var dataAsString;
+var dataRead = [];
+var port = -1;
+var protocol = "none";
+var socketId = 0;
 var succeeded = false;
 var waitCount = 0;
+
+// Many thanks to Dennis for his StackOverflow answer: http://goo.gl/UDanx
+// Since amended to handle BlobBuilder deprecation.
+function string2ArrayBuffer(string, callback) {
+  var blob = new Blob([string]);
+  var f = new FileReader();
+  f.onload = function(e) {
+    callback(e.target.result);
+  };
+  f.readAsArrayBuffer(blob);
+}
+
+function arrayBuffer2String(buf, callback) {
+  var blob = new Blob([new Uint8Array(buf)]);
+  var f = new FileReader();
+  f.onload = function(e) {
+    callback(e.target.result);
+  };
+  f.readAsText(blob);
+}
 
 var testSocketCreation = function() {
   function onCreate(socketInfo) {
@@ -50,75 +47,77 @@ var testSocketCreation = function() {
 
     // TODO(miket): this doesn't work yet. It's possible this will become
     // automatic, but either way we can't forget to clean up.
+    //
     //socket.destroy(socketInfo.socketId);
 
     chrome.test.succeed();
   }
 
-  socket.create(protocol, address, port, {}, onCreate);
+  socket.create(protocol, {}, onCreate);
 };
 
 function onDataRead(readInfo) {
-  dataRead += readInfo.message;
-  if (dataRead.match(expectedResponsePattern)) {
-    succeeded = true;
-    chrome.test.succeed();
+  if (readInfo.resultCode > 0 || readInfo.data.byteLength > 0) {
+    chrome.test.assertEq(readInfo.resultCode, readInfo.data.byteLength);
   }
-  // Blocked. Wait for onEvent.
+
+  arrayBuffer2String(readInfo.data, function(s) {
+      dataAsString = s;  // save this for error reporting
+      var match = !!s.match(expectedResponsePattern);
+      chrome.test.assertTrue(match, "Received data does not match.");
+      succeeded = true;
+      chrome.test.succeed();
+  });
 }
 
-function onWriteComplete(writeInfo) {
+function onWriteOrSendToComplete(writeInfo) {
   bytesWritten += writeInfo.bytesWritten;
   if (bytesWritten == request.length) {
-    socket.read(socketId, onDataRead);
+    if (protocol == "tcp")
+      socket.read(socketId, onDataRead);
+    else
+      socket.recvFrom(socketId, onDataRead);
   }
-  // Blocked. Wait for onEvent.
 }
 
-function onConnectComplete(connectResult) {
-  if (connectResult == 0) {
-    socket.write(socketId, request, onWriteComplete);
+function onSetKeepAlive(result) {
+  if (protocol == "tcp")
+    chrome.test.assertTrue(result, "setKeepAlive failed for TCP.");
+  else
+    chrome.test.assertFalse(result, "setKeepAlive did not fail for UDP.");
+
+  string2ArrayBuffer(request, function(arrayBuffer) {
+      if (protocol == "tcp")
+        socket.write(socketId, arrayBuffer, onWriteOrSendToComplete);
+      else
+        socket.sendTo(socketId, arrayBuffer, address, port,
+                      onWriteOrSendToComplete);
+    });
+}
+
+function onSetNoDelay(result) {
+  if (protocol == "tcp")
+    chrome.test.assertTrue(result, "setNoDelay failed for TCP.");
+  else
+    chrome.test.assertFalse(result, "setNoDelay did not fail for UDP.");
+  socket.setKeepAlive(socketId, true, 1000, onSetKeepAlive);
+}
+
+function onConnectOrBindComplete(result) {
+  chrome.test.assertEq(0, result,
+                       "Connect or bind failed with error " + result);
+  if (result == 0) {
+    socket.setNoDelay(socketId, true, onSetNoDelay);
   }
-  // Blocked. Wait for onEvent.
 }
 
 function onCreate(socketInfo) {
   socketId = socketInfo.socketId;
   chrome.test.assertTrue(socketId > 0, "failed to create socket");
-  socket.connect(socketId, onConnectComplete);
-}
-
-function onEvent(socketEvent) {
-  if (socketEvent.type == "connectComplete") {
-    onConnectComplete(socketEvent.resultCode);
-  } else if (socketEvent.type == "dataRead") {
-    // TODO(miket): why one "message" and the other "data"?
-    onDataRead({message: socketEvent.data});
-  } else if (socketEvent.type == "writeComplete") {
-    onWriteComplete(socketEvent.resultCode);
-  } else {
-    console.log("Received unhandled socketEvent of type " + socketEvent.type);
-  }
-};
-
-function onRead(readInfo) {
-  if (readInfo.message == message) {
-    succeeded = true;
-    chrome.test.succeed();
-  } else {
-    // The read blocked. Save what we've got so far, and wait for onEvent.
-    dataRead = readInfo.message;
-  }
-}
-
-function onWrite(writeInfo) {
-  chrome.test.assertTrue(writeInfo.bytesWritten == message.length);
-  socket.read(socketId, onRead);
-}
-
-function onConnect(connectResult) {
-  chrome.test.assertTrue(connectResult);
-  socket.write(socketId, message, onWrite);
+  if (protocol == "tcp")
+    socket.connect(socketId, address, port, onConnectOrBindComplete);
+  else
+    socket.bind(socketId, "0.0.0.0", 0, onConnectOrBindComplete);
 }
 
 function waitForBlockingOperation() {
@@ -127,7 +126,7 @@ function waitForBlockingOperation() {
   } else {
     // We weren't able to succeed in the given time.
     chrome.test.fail("Operations didn't complete after " + waitCount + " " +
-                     "seconds. Response so far was <" + dataRead + ">.");
+                     "seconds. Response so far was <" + dataAsString + ">.");
   }
 }
 
@@ -137,7 +136,7 @@ var testSending = function() {
   waitCount = 0;
 
   setTimeout(waitForBlockingOperation, 1000);
-  socket.create(protocol, address, port, { onEvent: onEvent }, onCreate);
+  socket.create(protocol, {}, onCreate);
 };
 
 var onMessageReply = function(message) {

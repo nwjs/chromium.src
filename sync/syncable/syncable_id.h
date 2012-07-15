@@ -4,7 +4,6 @@
 
 #ifndef SYNC_SYNCABLE_SYNCABLE_ID_H_
 #define SYNC_SYNCABLE_SYNCABLE_ID_H_
-#pragma once
 
 #include <iosfwd>
 #include <limits>
@@ -23,12 +22,10 @@ namespace sql {
 class Statement;
 }
 
+namespace syncer {
 namespace syncable {
 struct EntryKernel;
 class Id;
-}
-
-namespace syncable {
 
 std::ostream& operator<<(std::ostream& out, const Id& id);
 
@@ -97,9 +94,6 @@ class Id {
   // by operator<.
   Id GetLexicographicSuccessor() const;
 
-  // Note: |lowercase_query| should be passed in as lower case.
-  bool ContainsStringCaseInsensitive(const std::string& lowercase_query) const;
-
   // Dumps the ID as a value and returns it.  Transfers ownership of
   // the StringValue to the caller.
   base::StringValue* ToValue() const;
@@ -130,5 +124,6 @@ class Id {
 Id GetNullId();
 
 }  // namespace syncable
+}  // namespace syncer
 
 #endif  // SYNC_SYNCABLE_SYNCABLE_ID_H_

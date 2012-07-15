@@ -12,7 +12,7 @@ cr.define('options', function() {
   function SearchBubble(text) {
     var el = cr.doc.createElement('div');
     SearchBubble.decorate(el);
-    el.textContent = text;
+    el.content = text;
     return el;
   }
 
@@ -27,17 +27,28 @@ cr.define('options', function() {
     decorate: function() {
       this.className = 'search-bubble';
 
+      this.innards_ = cr.doc.createElement('div');
+      this.innards_.className = 'search-bubble-innards';
+      this.appendChild(this.innards_);
+
       // We create a timer to periodically update the position of the bubbles.
       // While this isn't all that desirable, it's the only sure-fire way of
       // making sure the bubbles stay in the correct location as sections
       // may dynamically change size at any time.
-      var self = this;
       this.intervalId = setInterval(this.updatePosition.bind(this), 250);
     },
 
-  /**
-   * Attach the bubble to the element.
-   */
+    /**
+     * Sets the text message in the bubble.
+     * @param {string} text The text the bubble will show.
+     */
+    set content(text) {
+      this.innards_.textContent = text;
+    },
+
+    /**
+     * Attach the bubble to the element.
+     */
     attachTo: function(element) {
       var parent = element.parentElement;
       if (!parent)
@@ -103,8 +114,9 @@ cr.define('options', function() {
    * @constructor
    */
   function SearchPage() {
-    OptionsPage.call(this, 'search', templateData.searchPageTabTitle,
-        'searchPage');
+    OptionsPage.call(this, 'search',
+                     loadTimeData.getString('searchPageTabTitle'),
+                     'searchPage');
   }
 
   cr.addSingletonGetter(SearchPage);
@@ -127,43 +139,13 @@ cr.define('options', function() {
       // Call base class implementation to start preference initialization.
       OptionsPage.prototype.initializePage.call(this);
 
-      var self = this;
-
-      var searchField = $('search-field');
-      this.searchField = searchField;
+      this.searchField = $('search-field');
 
       // Handle search events. (No need to throttle, WebKit's search field
       // will do that automatically.)
-      searchField.onsearch = function(e) {
-        self.setSearchText_(this.value);
-      };
-
-      // We update the history stack every time the search field blurs. This way
-      // we get a history entry for each search, roughly, but not each letter
-      // typed.
-      searchField.onblur = function(e) {
-        var query = SearchPage.canonicalizeQuery(searchField.value);
-        if (!query)
-          return;
-
-        // Don't push the same page onto the history stack more than once (if
-        // the user clicks in the search field and away several times).
-        var currentHash = location.hash;
-        var newHash = '#' + escape(query);
-        if (currentHash == newHash)
-          return;
-
-        // If there is no hash on the current URL, the history entry has no
-        // search query. Replace the history entry with no search with an entry
-        // that does have a search. Otherwise, add it onto the history stack.
-        var historyFunction = currentHash ? window.history.pushState :
-                                            window.history.replaceState;
-        historyFunction.call(
-            window.history,
-            {pageName: self.name},
-            self.title,
-            '/' + self.name + newHash);
-      };
+      this.searchField.onsearch = function(e) {
+        this.setSearchText_(e.currentTarget.value);
+      }.bind(this);
 
       // Install handler for key presses.
       document.addEventListener('keydown',
@@ -216,6 +198,11 @@ cr.define('options', function() {
         if (hash) {
           this.searchField.value =
               decodeURIComponent(hash.slice(1).replace(/\+/g, ' '));
+        } else if (!this.searchField.value) {
+          // This should only happen if the user goes directly to
+          // chrome://settings-frame/search
+          OptionsPage.showDefaultPage();
+          return;
         }
 
         // Move 'advanced' sections into the main settings page to allow
@@ -226,9 +213,6 @@ cr.define('options', function() {
           for (var i = 0, section; section = this.advancedSections_[i]; i++)
             $('settings').appendChild(section);
         }
-      } else {
-        // Just wipe out any active search text since it's no longer relevant.
-        this.searchField.value = '';
       }
 
       var pagesToSearch = this.getSearchablePages_();
@@ -259,11 +243,8 @@ cr.define('options', function() {
 
       if (active) {
         this.setSearchText_(this.searchField.value);
-        $('search-page-search-field-container').appendChild(this.searchField);
         this.searchField.focus();
       } else {
-        $('browser-options-search-field-container').appendChild(
-            this.searchField);
         // After hiding all page content, remove any search results.
         this.unhighlightMatches_();
         this.removeSearchBubbles_();
@@ -290,13 +271,18 @@ cr.define('options', function() {
       // Cleanup the search query string.
       text = SearchPage.canonicalizeQuery(text);
 
+      // Set the hash on the current page, and the enclosing uber page
+      var hash = text ? '#' + encodeURIComponent(text) : '';
+      window.location.hash = hash;
+      uber.invokeMethodOnParent('setPath', {path: this.name + hash});
+
       // Toggle the search page if necessary.
-      if (text.length) {
+      if (text) {
         if (!this.searchActive_)
-          OptionsPage.navigateToPage(this.name);
+          OptionsPage.showPageByName(this.name, false);
       } else {
         if (this.searchActive_)
-          OptionsPage.showDefaultPage();
+          OptionsPage.showPageByName(OptionsPage.getDefaultPage().name, false);
 
         this.insideSetSearchText_ = false;
         return;
@@ -324,8 +310,7 @@ cr.define('options', function() {
         page = pagesToSearch[key];
         var elements = page.pageDiv.querySelectorAll('section');
         for (var i = 0, node; node = elements[i]; i++) {
-          if (!node.hidden)
-            node.classList.add('search-hidden');
+          node.classList.add('search-hidden');
         }
       }
 
@@ -338,11 +323,10 @@ cr.define('options', function() {
           var elements =
               page.pageDiv.querySelectorAll('section');
           for (var i = 0, node; node = elements[i]; i++) {
-            if (!node.hidden) {
-              if (this.performReplace_(regEx, replaceString, node)) {
-                node.classList.remove('search-hidden');
+            if (this.performReplace_(regEx, replaceString, node)) {
+              node.classList.remove('search-hidden');
+              if (!node.hidden)
                 foundMatches = true;
-              }
             }
           }
         }

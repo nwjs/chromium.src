@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_EXTENSIONS_FILE_BROWSER_EVENT_ROUTER_H_
 #define CHROME_BROWSER_CHROMEOS_EXTENSIONS_FILE_BROWSER_EVENT_ROUTER_H_
-#pragma once
 
 #include <map>
 #include <set>
@@ -15,22 +14,29 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/string16.h"
 #include "base/synchronization/lock.h"
+#include "chrome/browser/chromeos/cros/network_library.h"
 #include "chrome/browser/chromeos/disks/disk_mount_manager.h"
-#include "chrome/browser/chromeos/gdata/gdata_file_system.h"
+#include "chrome/browser/chromeos/gdata/gdata_file_system_interface.h"
 #include "chrome/browser/chromeos/gdata/gdata_operation_registry.h"
 #include "chrome/browser/profiles/refcounted_profile_keyed_service.h"
 #include "chrome/browser/profiles/refcounted_profile_keyed_service_factory.h"
+#include "content/public/browser/notification_details.h"
+#include "content/public/browser/notification_observer.h"
+#include "content/public/browser/notification_source.h"
 
 class FileBrowserNotifications;
+class PrefChangeRegistrar;
 class Profile;
 
-// Used to monitor disk mount changes and signal when new mounted usb device is
-// found.
+// Monitors changes in disk mounts, network connection state and preferences
+// affecting File Manager. Dispatches appropriate File Browser events.
 class FileBrowserEventRouter
     : public RefcountedProfileKeyedService,
       public chromeos::disks::DiskMountManager::Observer,
+      public chromeos::NetworkLibrary::NetworkManagerObserver,
+      public content::NotificationObserver,
       public gdata::GDataOperationRegistry::Observer,
-      public gdata::GDataFileSystem::Observer {
+      public gdata::GDataFileSystemInterface::Observer {
  public:
   // RefcountedProfileKeyedService overrides.
   virtual void ShutdownOnUIThread() OVERRIDE;
@@ -58,13 +64,24 @@ class FileBrowserEventRouter
       const chromeos::disks::DiskMountManager::MountPointInfo& mount_info)
       OVERRIDE;
 
+  // chromeos::NetworkLibrary::NetworkManagerObserver override.
+  virtual void OnNetworkManagerChanged(
+      chromeos::NetworkLibrary* network_library) OVERRIDE;
+
+  // Overridden from content::NotificationObserver:
+  virtual void Observe(int type,
+                       const content::NotificationSource& source,
+                       const content::NotificationDetails& details) OVERRIDE;
+
   // GDataOperationRegistry::Observer overrides.
   virtual void OnProgressUpdate(
       const std::vector<gdata::GDataOperationRegistry::ProgressStatus>& list)
           OVERRIDE;
+  virtual void OnAuthenticationFailed() OVERRIDE;
 
-  // gdata::GDataFileSystem::Observer overrides.
+  // gdata::GDataFileSystemInterface::Observer overrides.
   virtual void OnDirectoryChanged(const FilePath& directory_path) OVERRIDE;
+  virtual void OnDocumentFeedFetched(int num_accumulated_entries) OVERRIDE;
 
  private:
   friend class FileBrowserEventRouterFactory;
@@ -73,6 +90,9 @@ class FileBrowserEventRouter
   class FileWatcherDelegate : public base::files::FilePathWatcher::Delegate {
    public:
     explicit FileWatcherDelegate(FileBrowserEventRouter* router);
+
+   protected:
+    virtual ~FileWatcherDelegate() {}
 
    private:
     // base::files::FilePathWatcher::Delegate overrides.
@@ -156,20 +176,28 @@ class FileBrowserEventRouter
                       const std::string& device_path,
                       bool small);
 
-  // Process GData operation list updates.
-  void HandleProgressUpdateForExtensionAPI(
-      const std::vector<gdata::GDataOperationRegistry::ProgressStatus>& list);
-  void HandleProgressUpdateForSystemNotification(
-      const std::vector<gdata::GDataOperationRegistry::ProgressStatus>& list);
+  // Returns the GDataFileSystem for the current profile.
+  gdata::GDataFileSystemInterface* GetRemoteFileSystem() const;
+
+  // Handles requests to start and stop periodic updates on remote file system.
+  // When |start| is set to true, this function starts periodic updates only if
+  // it is not yet started; when |start| is set to false, this function stops
+  // periodic updates only if the number of outstanding update requests reaches
+  // zero.
+  void HandleRemoteUpdateRequestOnUIThread(bool start);
 
   scoped_refptr<FileWatcherDelegate> delegate_;
   WatcherMap file_watchers_;
   scoped_ptr<FileBrowserNotifications> notifications_;
+  scoped_ptr<PrefChangeRegistrar> pref_change_registrar_;
   Profile* profile_;
   base::Lock lock_;
 
   bool current_gdata_operation_failed_;
   int last_active_gdata_operation_count_;
+
+  // Number of active update requests on the remote file system.
+  int num_remote_update_requests_;
 
   DISALLOW_COPY_AND_ASSIGN(FileBrowserEventRouter);
 };

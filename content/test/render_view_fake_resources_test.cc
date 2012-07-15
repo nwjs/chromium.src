@@ -2,19 +2,19 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "content/test/render_view_fake_resources_test.h"
+#include "content/public/test/render_view_fake_resources_test.h"
 
 #include <string.h>
 
 #include "base/process.h"
 #include "base/shared_memory.h"
 #include "base/time.h"
-#include "content/common/dom_storage_common.h"
 #include "content/common/resource_messages.h"
 #include "content/common/view_messages.h"
 #include "content/public/common/resource_response.h"
 #include "content/renderer/render_thread_impl.h"
 #include "content/renderer/render_view_impl.h"
+#include "content/renderer/renderer_webkitplatformsupport_impl.h"
 #include "content/test/mock_render_process.h"
 #include "googleurl/src/gurl.h"
 #include "net/base/upload_data.h"
@@ -25,8 +25,11 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebString.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebURLRequest.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
+#include "webkit/dom_storage/dom_storage_types.h"
 #include "webkit/glue/glue_serialize.h"
 #include "webkit/glue/webkit_glue.h"
+
+namespace content {
 
 const int32 RenderViewFakeResourcesTest::kViewId = 5;
 
@@ -43,7 +46,7 @@ bool RenderViewFakeResourcesTest::OnMessageReceived(
   return true;
 }
 
-bool RenderViewFakeResourcesTest::Visit(content::RenderView* render_view) {
+bool RenderViewFakeResourcesTest::Visit(RenderView* render_view) {
   view_ = render_view;
   return false;
 }
@@ -55,15 +58,20 @@ void RenderViewFakeResourcesTest::SetUp() {
   // but we use a real RenderThread so that we can use the ResourceDispatcher
   // to fetch network resources.  These are then served canned content
   // in OnRequestResource().
-  content::GetContentClient()->set_renderer(&content_renderer_client_);
-  static const char kThreadName[] = "RenderViewFakeResourcesTest";
-  channel_.reset(new IPC::Channel(kThreadName,
+  GetContentClient()->set_renderer_for_testing(&content_renderer_client_);
+  // Generate a unique channel id so that multiple instances of the test can
+  // run in parallel.
+  std::string channel_id = IPC::Channel::GenerateVerifiedChannelID(
+      std::string());
+  channel_.reset(new IPC::Channel(channel_id,
                                   IPC::Channel::MODE_SERVER, this));
   ASSERT_TRUE(channel_->Connect());
 
   webkit_glue::SetJavaScriptFlags("--expose-gc");
   mock_process_.reset(new MockRenderProcess);
-  render_thread_ = new RenderThreadImpl(kThreadName);
+  sandbox_was_enabled_ =
+      RendererWebKitPlatformSupportImpl::SetSandboxEnabledForTesting(false);
+  render_thread_ = new RenderThreadImpl(channel_id);
 
   // Tell the renderer to create a view, then wait until it's ready.
   // We can't call View::Create() directly here or else we won't get
@@ -72,7 +80,9 @@ void RenderViewFakeResourcesTest::SetUp() {
   ViewMsg_New_Params params;
   params.parent_window = 0;
   params.view_id = kViewId;
-  params.session_storage_namespace_id = kInvalidSessionStorageNamespaceId;
+  params.opener_route_id = MSG_ROUTING_NONE;
+  params.session_storage_namespace_id =
+      dom_storage::kInvalidSessionStorageNamespaceId;
   ASSERT_TRUE(channel_->Send(new ViewMsg_New(params)));
   message_loop_.Run();
 }
@@ -86,13 +96,15 @@ void RenderViewFakeResourcesTest::TearDown() {
   do {
     message_loop_.RunAllPending();
     view_ = NULL;
-    content::RenderView::ForEach(this);
+    RenderView::ForEach(this);
   } while (view_);
 
   mock_process_.reset();
+  RendererWebKitPlatformSupportImpl::SetSandboxEnabledForTesting(
+      sandbox_was_enabled_);
 }
 
-content::RenderView* RenderViewFakeResourcesTest::view() {
+RenderView* RenderViewFakeResourcesTest::view() {
   return view_;
 }
 
@@ -142,7 +154,7 @@ void RenderViewFakeResourcesTest::OnRequestResource(
     body = it->second;
   }
 
-  content::ResourceResponseHead response_head;
+  ResourceResponseHead response_head;
   response_head.headers = new net::HttpResponseHeaders(headers);
   response_head.mime_type = "text/html";
   ASSERT_TRUE(channel_->Send(new ResourceMsg_ReceivedResponse(
@@ -173,7 +185,7 @@ void RenderViewFakeResourcesTest::OnRequestResource(
 void RenderViewFakeResourcesTest::OnRenderViewReady() {
   // Grab a pointer to the new view using RenderViewVisitor.
   ASSERT_TRUE(!view_);
-  content::RenderView::ForEach(this);
+  RenderView::ForEach(this);
   ASSERT_TRUE(view_);
   message_loop_.Quit();
 }
@@ -190,10 +202,12 @@ void RenderViewFakeResourcesTest::GoToOffset(
   params.current_history_list_length = (impl->historyBackListCount() +
                                         impl->historyForwardListCount() + 1);
   params.url = GURL(history_item.urlString());
-  params.transition = content::PAGE_TRANSITION_FORWARD_BACK;
+  params.transition = PAGE_TRANSITION_FORWARD_BACK;
   params.state = webkit_glue::HistoryItemToString(history_item);
   params.navigation_type = ViewMsg_Navigate_Type::NORMAL;
   params.request_time = base::Time::Now();
   channel_->Send(new ViewMsg_Navigate(impl->routing_id(), params));
   message_loop_.Run();
 }
+
+}  // namespace content

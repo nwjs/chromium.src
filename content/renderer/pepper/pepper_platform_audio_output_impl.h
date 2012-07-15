@@ -10,19 +10,21 @@
 #include "content/renderer/media/audio_message_filter.h"
 #include "webkit/plugins/ppapi/plugin_delegate.h"
 
+namespace media{
 class AudioParameters;
+}
 
 namespace base {
 class MessageLoopProxy;
 }
+
+namespace content {
 
 class PepperPlatformAudioOutputImpl
     : public webkit::ppapi::PluginDelegate::PlatformAudioOutput,
       public AudioMessageFilter::Delegate,
       public base::RefCountedThreadSafe<PepperPlatformAudioOutputImpl> {
  public:
-  virtual ~PepperPlatformAudioOutputImpl();
-
   // Factory function, returns NULL on failure. StreamCreated() will be called
   // when the stream is created.
   static PepperPlatformAudioOutputImpl* Create(
@@ -35,7 +37,18 @@ class PepperPlatformAudioOutputImpl
   virtual bool StopPlayback() OVERRIDE;
   virtual void ShutDown() OVERRIDE;
 
+  // AudioMessageFilter::Delegate.
+  virtual void OnStateChanged(AudioStreamState state) OVERRIDE;
+  virtual void OnStreamCreated(base::SharedMemoryHandle handle,
+                               base::SyncSocket::Handle socket_handle,
+                               uint32 length) OVERRIDE;
+
+ protected:
+  virtual ~PepperPlatformAudioOutputImpl();
+
  private:
+  friend class base::RefCountedThreadSafe<PepperPlatformAudioOutputImpl>;
+
   PepperPlatformAudioOutputImpl();
 
   bool Initialize(
@@ -44,16 +57,10 @@ class PepperPlatformAudioOutputImpl
       webkit::ppapi::PluginDelegate::PlatformAudioOutputClient* client);
 
   // I/O thread backends to above functions.
-  void InitializeOnIOThread(const AudioParameters& params);
+  void InitializeOnIOThread(const media::AudioParameters& params);
   void StartPlaybackOnIOThread();
   void StopPlaybackOnIOThread();
   void ShutDownOnIOThread();
-
-  // AudioMessageFilter::Delegate.
-  virtual void OnStateChanged(AudioStreamState state) OVERRIDE;
-  virtual void OnStreamCreated(base::SharedMemoryHandle handle,
-                               base::SyncSocket::Handle socket_handle,
-                               uint32 length) OVERRIDE;
 
   // The client to notify when the stream is created. THIS MUST ONLY BE
   // ACCESSED ON THE MAIN THREAD.
@@ -71,5 +78,7 @@ class PepperPlatformAudioOutputImpl
 
   DISALLOW_COPY_AND_ASSIGN(PepperPlatformAudioOutputImpl);
 };
+
+}  // namespace content
 
 #endif  // CONTENT_RENDERER_PEPPER_PEPPER_PLATFORM_AUDIO_OUTPUT_IMPL_H_

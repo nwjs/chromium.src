@@ -4,10 +4,8 @@
 
 #ifndef NET_DNS_DNS_SESSION_H_
 #define NET_DNS_DNS_SESSION_H_
-#pragma once
 
 #include "base/memory/ref_counted.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/time.h"
 #include "net/base/net_export.h"
 #include "net/base/rand_callback.h"
@@ -67,4 +65,3 @@ class NET_EXPORT_PRIVATE DnsSession
 }  // namespace net
 
 #endif  // NET_DNS_DNS_SESSION_H_
-

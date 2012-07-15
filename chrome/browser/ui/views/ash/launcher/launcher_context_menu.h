@@ -4,22 +4,13 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_ASH_LAUNCHER_LAUNCHER_CONTEXT_MENU_H_
 #define CHROME_BROWSER_UI_VIEWS_ASH_LAUNCHER_LAUNCHER_CONTEXT_MENU_H_
-#pragma once
 
+#include "ash/launcher/launcher_alignment_menu.h"
 #include "ash/launcher/launcher_types.h"
 #include "base/basictypes.h"
 #include "ui/base/models/simple_menu_model.h"
 
-namespace gfx {
-class Point;
-}
-
-namespace views {
-class MenuRunner;
-class View;
-}
-
-class ChromeLauncherDelegate;
+class ChromeLauncherController;
 
 // Context menu shown for a launcher item.
 class LauncherContextMenu : public ui::SimpleMenuModel,
@@ -27,7 +18,7 @@ class LauncherContextMenu : public ui::SimpleMenuModel,
  public:
   // |item| is NULL if the context menu is for the launcher (the user right
   // |clicked on an area with no icons).
-  LauncherContextMenu(ChromeLauncherDelegate* delegate,
+  LauncherContextMenu(ChromeLauncherController* controller,
                       const ash::LauncherItem* item);
   virtual ~LauncherContextMenu();
 
@@ -47,17 +38,25 @@ class LauncherContextMenu : public ui::SimpleMenuModel,
     MENU_OPEN,
     MENU_CLOSE,
     MENU_PIN,
+    LAUNCH_TYPE_PINNED_TAB,
     LAUNCH_TYPE_REGULAR_TAB,
+    LAUNCH_TYPE_FULLSCREEN,
     LAUNCH_TYPE_WINDOW,
     MENU_AUTO_HIDE,
+    MENU_NEW_WINDOW,
+    MENU_NEW_INCOGNITO_WINDOW,
+    MENU_ALIGNMENT_MENU,
   };
 
   // Does |item_| represent a valid item? See description of constructor for
   // details on why it may not be valid.
   bool is_valid_item() const { return item_.id != 0; }
 
-  ChromeLauncherDelegate* delegate_;
+  ChromeLauncherController* controller_;
+
   ash::LauncherItem item_;
+
+  ash::LauncherAlignmentMenu alignment_menu_;
 
   DISALLOW_COPY_AND_ASSIGN(LauncherContextMenu);
 };

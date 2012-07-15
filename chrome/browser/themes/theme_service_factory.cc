@@ -12,8 +12,8 @@
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/common/pref_names.h"
 
-#if defined(TOOLKIT_USES_GTK)
-#include "chrome/browser/ui/gtk/theme_service_gtk.h"
+#if defined(TOOLKIT_GTK)
+#include "chrome/browser/ui/gtk/gtk_theme_service.h"
 #endif
 
 // static
@@ -23,7 +23,8 @@ ThemeService* ThemeServiceFactory::GetForProfile(Profile* profile) {
 }
 
 // static
-const Extension* ThemeServiceFactory::GetThemeForProfile(Profile* profile) {
+const extensions::Extension* ThemeServiceFactory::GetThemeForProfile(
+    Profile* profile) {
   std::string id = GetForProfile(profile)->GetThemeID();
   if (id == ThemeService::kDefaultThemeID)
     return NULL;
@@ -38,16 +39,15 @@ ThemeServiceFactory* ThemeServiceFactory::GetInstance() {
 
 ThemeServiceFactory::ThemeServiceFactory()
     : ProfileKeyedServiceFactory("ThemeService",
-                                 ProfileDependencyManager::GetInstance())
-{}
+                                 ProfileDependencyManager::GetInstance()) {}
 
 ThemeServiceFactory::~ThemeServiceFactory() {}
 
 ProfileKeyedService* ThemeServiceFactory::BuildServiceInstanceFor(
     Profile* profile) const {
   ThemeService* provider = NULL;
-#if defined(TOOLKIT_USES_GTK)
-  provider = new ThemeServiceGtk;
+#if defined(TOOLKIT_GTK)
+  provider = new GtkThemeService;
 #else
   provider = new ThemeService;
 #endif
@@ -57,9 +57,9 @@ ProfileKeyedService* ThemeServiceFactory::BuildServiceInstanceFor(
 }
 
 void ThemeServiceFactory::RegisterUserPrefs(PrefService* prefs) {
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
   prefs->RegisterBooleanPref(prefs::kUsesSystemTheme,
-                             ThemeServiceGtk::DefaultUsesSystemTheme(),
+                             GtkThemeService::DefaultUsesSystemTheme(),
                              PrefService::UNSYNCABLE_PREF);
 #endif
   prefs->RegisterFilePathPref(prefs::kCurrentThemePackFilename,

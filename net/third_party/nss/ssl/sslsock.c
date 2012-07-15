@@ -187,17 +187,24 @@ static sslOptions ssl_defaults = {
     PR_FALSE,   /* enableFalseStart   */
     PR_TRUE,    /* cbcRandomIV        */
     PR_FALSE,   /* enableOCSPStapling */
-    PR_FALSE,   /* enableOBCerts */
-    PR_FALSE,   /* encryptClientCerts */
 };
 
 /*
  * default range of enabled SSL/TLS protocols
  */
-static SSLVersionRange versions_defaults = {
+static SSLVersionRange versions_defaults_stream = {
     SSL_LIBRARY_VERSION_3_0,
     SSL_LIBRARY_VERSION_TLS_1_0
 };
+
+static SSLVersionRange versions_defaults_datagram = {
+    SSL_LIBRARY_VERSION_TLS_1_1,
+    SSL_LIBRARY_VERSION_TLS_1_1
+};
+
+#define VERSIONS_DEFAULTS(variant) \
+    (variant == ssl_variant_stream ? &versions_defaults_stream : \
+                                     &versions_defaults_datagram)
 
 sslSessionIDLookupFunc  ssl_sid_lookup;
 sslSessionIDCacheFunc   ssl_sid_cache;
@@ -216,8 +223,15 @@ FILE *                  ssl_keylog_iob;
 char lockStatus[] = "Locks are ENABLED.  ";
 #define LOCKSTATUS_OFFSET 10 /* offset of ENABLED */
 
+/* SRTP_NULL_HMAC_SHA1_80 and SRTP_NULL_HMAC_SHA1_32 are not implemented. */
+static const PRUint16 srtpCiphers[] = {
+    SRTP_AES128_CM_HMAC_SHA1_80,
+    SRTP_AES128_CM_HMAC_SHA1_32,
+    0
+};
+
 /* forward declarations. */
-static sslSocket *ssl_NewSocket(PRBool makeLocks);
+static sslSocket *ssl_NewSocket(PRBool makeLocks, SSLProtocolVariant variant);
 static SECStatus  ssl_MakeLocks(sslSocket *ss);
 static void       ssl_SetDefaultsFromEnvironment(void);
 static PRStatus   ssl_PushIOLayer(sslSocket *ns, PRFileDesc *stack, 
@@ -281,7 +295,7 @@ ssl_DupSocket(sslSocket *os)
     sslSocket *ss;
     SECStatus rv;
 
-    ss = ssl_NewSocket((PRBool)(!os->opt.noLocks));
+    ss = ssl_NewSocket((PRBool)(!os->opt.noLocks), os->protocolVariant);
     if (ss) {
 	ss->opt                = os->opt;
 	ss->opt.useSocks       = PR_FALSE;
@@ -301,6 +315,9 @@ ssl_DupSocket(sslSocket *os)
 	ss->maybeAllowedByPolicy= os->maybeAllowedByPolicy;
 	ss->chosenPreference 	= os->chosenPreference;
 	PORT_Memcpy(ss->cipherSuites, os->cipherSuites, sizeof os->cipherSuites);
+	PORT_Memcpy(ss->ssl3.dtlsSRTPCiphers, os->ssl3.dtlsSRTPCiphers,
+		    sizeof(PRUint16) * os->ssl3.dtlsSRTPCipherCount);
+	ss->ssl3.dtlsSRTPCipherCount = os->ssl3.dtlsSRTPCipherCount;
 
 	if (os->cipherSpecs) {
 	    ss->cipherSpecs  = (unsigned char*)PORT_Alloc(os->sizeCipherSpecs);
@@ -361,6 +378,8 @@ ssl_DupSocket(sslSocket *os)
 	    ss->handshakeCallback     = os->handshakeCallback;
 	    ss->handshakeCallbackData = os->handshakeCallbackData;
 	    ss->pkcs11PinArg          = os->pkcs11PinArg;
+	    ss->getChannelID          = os->getChannelID;
+	    ss->getChannelIDArg       = os->getChannelIDArg;
     
 	    /* Create security data */
 	    rv = ssl_CopySecurityInfo(ss, os);
@@ -698,6 +717,13 @@ SSL_OptionSet(PRFileDesc *fd, PRInt32 which, PRBool on)
 	break;
 
       case SSL_ENABLE_TLS:
+        if (IS_DTLS(ss)) {
+	    if (on) {
+		PORT_SetError(SEC_ERROR_INVALID_ARGS);
+		rv = SECFailure; /* not allowed */
+	    }
+	    break;
+	}
 	ssl_EnableTLS(&ss->vrange, on);
 	ss->preferredCipher     = NULL;
 	if (ss->cipherSpecs) {
@@ -708,6 +734,13 @@ SSL_OptionSet(PRFileDesc *fd, PRInt32 which, PRBool on)
 	break;
 
       case SSL_ENABLE_SSL3:
+        if (IS_DTLS(ss)) {
+	    if (on) {
+		PORT_SetError(SEC_ERROR_INVALID_ARGS);
+		rv = SECFailure; /* not allowed */
+	    }
+	    break;
+	}
 	ssl_EnableSSL3(&ss->vrange, on);
 	ss->preferredCipher     = NULL;
 	if (ss->cipherSpecs) {
@@ -718,6 +751,13 @@ SSL_OptionSet(PRFileDesc *fd, PRInt32 which, PRBool on)
 	break;
 
       case SSL_ENABLE_SSL2:
+        if (IS_DTLS(ss)) {
+	    if (on) {
+		PORT_SetError(SEC_ERROR_INVALID_ARGS);
+		rv = SECFailure; /* not allowed */
+	    }
+	    break;
+	}
 	ss->opt.enableSSL2       = on;
 	if (on) {
 	    ss->opt.v2CompatibleHello = on;
@@ -743,6 +783,13 @@ SSL_OptionSet(PRFileDesc *fd, PRInt32 which, PRBool on)
 	break;
 
       case SSL_V2_COMPATIBLE_HELLO:
+        if (IS_DTLS(ss)) {
+	    if (on) {
+		PORT_SetError(SEC_ERROR_INVALID_ARGS);
+		rv = SECFailure; /* not allowed */
+	    }
+	    break;
+	}
       	ss->opt.v2CompatibleHello = on;
 	if (!on) {
 	    ss->opt.enableSSL2    = on;
@@ -823,14 +870,6 @@ SSL_OptionSet(PRFileDesc *fd, PRInt32 which, PRBool on)
 	ss->opt.enableOCSPStapling = on;
 	break;
 
-      case SSL_ENABLE_OB_CERTS:
-	ss->opt.enableOBCerts = on;
-	break;
-
-      case SSL_ENCRYPT_CLIENT_CERTS:
-	ss->opt.encryptClientCerts = on;
-	break;
-
       default:
 	PORT_SetError(SEC_ERROR_INVALID_ARGS);
 	rv = SECFailure;
@@ -901,9 +940,6 @@ SSL_OptionGet(PRFileDesc *fd, PRInt32 which, PRBool *pOn)
     case SSL_ENABLE_FALSE_START:  on = ss->opt.enableFalseStart;   break;
     case SSL_CBC_RANDOM_IV:       on = ss->opt.cbcRandomIV;        break;
     case SSL_ENABLE_OCSP_STAPLING: on = ss->opt.enableOCSPStapling; break;
-    case SSL_ENABLE_OB_CERTS:     on = ss->opt.enableOBCerts;      break;
-    case SSL_ENCRYPT_CLIENT_CERTS:
-                                  on = ss->opt.encryptClientCerts; break;
 
     default:
 	PORT_SetError(SEC_ERROR_INVALID_ARGS);
@@ -938,10 +974,10 @@ SSL_OptionGetDefault(PRInt32 which, PRBool *pOn)
     case SSL_HANDSHAKE_AS_CLIENT: on = ssl_defaults.handshakeAsClient;  break;
     case SSL_HANDSHAKE_AS_SERVER: on = ssl_defaults.handshakeAsServer;  break;
     case SSL_ENABLE_TLS:
-	on = versions_defaults.max >= SSL_LIBRARY_VERSION_TLS_1_0;
+	on = versions_defaults_stream.max >= SSL_LIBRARY_VERSION_TLS_1_0;
 	break;
     case SSL_ENABLE_SSL3:
-	on = versions_defaults.min == SSL_LIBRARY_VERSION_3_0;
+	on = versions_defaults_stream.min == SSL_LIBRARY_VERSION_3_0;
 	break;
     case SSL_ENABLE_SSL2:         on = ssl_defaults.enableSSL2;         break;
     case SSL_NO_CACHE:            on = ssl_defaults.noCache;		break;
@@ -965,9 +1001,6 @@ SSL_OptionGetDefault(PRInt32 which, PRBool *pOn)
     case SSL_ENABLE_OCSP_STAPLING:
 	on = ssl_defaults.enableOCSPStapling;
 	break;
-    case SSL_ENABLE_OB_CERTS:     on = ssl_defaults.enableOBCerts;      break;
-    case SSL_ENCRYPT_CLIENT_CERTS:
-                                  on = ssl_defaults.encryptClientCerts; break;
 
     default:
 	PORT_SetError(SEC_ERROR_INVALID_ARGS);
@@ -1034,11 +1067,11 @@ SSL_OptionSetDefault(PRInt32 which, PRBool on)
 	break;
 
       case SSL_ENABLE_TLS:
-	ssl_EnableTLS(&versions_defaults, on);
+	ssl_EnableTLS(&versions_defaults_stream, on);
 	break;
 
       case SSL_ENABLE_SSL3:
-	ssl_EnableSSL3(&versions_defaults, on);
+	ssl_EnableSSL3(&versions_defaults_stream, on);
 	break;
 
       case SSL_ENABLE_SSL2:
@@ -1129,14 +1162,6 @@ SSL_OptionSetDefault(PRInt32 which, PRBool on)
 
       case SSL_ENABLE_OCSP_STAPLING:
 	ssl_defaults.enableOCSPStapling = on;
-	break;
-
-      case SSL_ENABLE_OB_CERTS:
-	ssl_defaults.enableOBCerts = on;
-	break;
-
-      case SSL_ENCRYPT_CLIENT_CERTS:
-	ssl_defaults.encryptClientCerts = on;
 	break;
 
       default:
@@ -1357,11 +1382,32 @@ NSS_SetFrancePolicy(void)
     return NSS_SetDomesticPolicy();
 }
 
+SECStatus
+SSL_GetChannelBinding(PRFileDesc *fd,
+		      SSLChannelBindingType binding_type,
+		      unsigned char *out,
+		      unsigned int *outLen,
+		      unsigned int outLenMax) {
+    sslSocket *ss = ssl_FindSocket(fd);
+
+    if (!ss) {
+	SSL_DBG(("%d: SSL[%d]: bad socket in SSL_GetChannelBinding",
+		 SSL_GETPID(), fd));
+	return SECFailure;
+    }
+
+    if (binding_type != SSL_CHANNEL_BINDING_TLS_UNIQUE) {
+	PORT_SetError(PR_INVALID_ARGUMENT_ERROR);
+	return SECFailure;
+    }
+
+    return ssl3_GetTLSUniqueChannelBinding(ss, out, outLen, outLenMax);
+}
 
 
 /* LOCKS ??? XXX */
-PRFileDesc *
-SSL_ImportFD(PRFileDesc *model, PRFileDesc *fd)
+static PRFileDesc *
+ssl_ImportFD(PRFileDesc *model, PRFileDesc *fd, SSLProtocolVariant variant)
 {
     sslSocket * ns = NULL;
     PRStatus    rv;
@@ -1374,10 +1420,10 @@ SSL_ImportFD(PRFileDesc *model, PRFileDesc *fd)
 
     if (model == NULL) {
 	/* Just create a default socket if we're given NULL for the model */
-	ns = ssl_NewSocket((PRBool)(!ssl_defaults.noLocks));
+	ns = ssl_NewSocket((PRBool)(!ssl_defaults.noLocks), variant);
     } else {
 	sslSocket * ss = ssl_FindSocket(model);
-	if (ss == NULL) {
+	if (ss == NULL || ss->protocolVariant != variant) {
 	    SSL_DBG(("%d: SSL[%d]: bad model socket in ssl_ImportFD", 
 	    	      SSL_GETPID(), model));
 	    return NULL;
@@ -1401,6 +1447,18 @@ SSL_ImportFD(PRFileDesc *model, PRFileDesc *fd)
     if (ns)
 	ns->TCPconnected = (PR_SUCCESS == ssl_DefGetpeername(ns, &addr));
     return fd;
+}
+
+PRFileDesc *
+SSL_ImportFD(PRFileDesc *model, PRFileDesc *fd)
+{
+    return ssl_ImportFD(model, fd, ssl_variant_stream);
+}
+
+PRFileDesc *
+DTLS_ImportFD(PRFileDesc *model, PRFileDesc *fd)
+{
+    return ssl_ImportFD(model, fd, ssl_variant_datagram);
 }
 
 SECStatus
@@ -1541,6 +1599,75 @@ SSL_GetNextProto(PRFileDesc *fd, SSLNextProtoState *state, unsigned char *buf,
     return SECSuccess;
 }
 
+SECStatus SSL_SetSRTPCiphers(PRFileDesc *fd,
+			     const PRUint16 *ciphers,
+			     unsigned int numCiphers)
+{
+    sslSocket *ss;
+    int i;
+
+    ss = ssl_FindSocket(fd);
+    if (!ss || !IS_DTLS(ss)) {
+	SSL_DBG(("%d: SSL[%d]: bad socket in SSL_SetSRTPCiphers",
+		 SSL_GETPID(), fd));
+	PORT_SetError(SEC_ERROR_INVALID_ARGS);
+	return SECFailure;
+    }
+
+    if (numCiphers > MAX_DTLS_SRTP_CIPHER_SUITES) {
+	PORT_SetError(SEC_ERROR_INVALID_ARGS);
+	return SECFailure;
+    }
+
+    ss->ssl3.dtlsSRTPCipherCount = 0;
+    for (i = 0; i < numCiphers; i++) {
+	const PRUint16 *srtpCipher = srtpCiphers;
+
+	while (*srtpCipher) {
+	    if (ciphers[i] == *srtpCipher)
+		break;
+	    srtpCipher++;
+	}
+	if (*srtpCipher) {
+	    ss->ssl3.dtlsSRTPCiphers[ss->ssl3.dtlsSRTPCipherCount++] =
+		ciphers[i];
+	} else {
+	    SSL_DBG(("%d: SSL[%d]: invalid or unimplemented SRTP cipher "
+		    "suite specified: 0x%04hx", SSL_GETPID(), fd,
+		    ciphers[i]));
+	}
+    }
+
+    if (ss->ssl3.dtlsSRTPCipherCount == 0) {
+	PORT_SetError(SEC_ERROR_INVALID_ARGS);
+	return SECFailure;
+    }
+
+    return SECSuccess;
+}
+
+SECStatus
+SSL_GetSRTPCipher(PRFileDesc *fd, PRUint16 *cipher)
+{
+    sslSocket * ss;
+
+    ss = ssl_FindSocket(fd);
+    if (!ss) {
+	SSL_DBG(("%d: SSL[%d]: bad socket in SSL_GetSRTPCipher",
+		 SSL_GETPID(), fd));
+	PORT_SetError(SEC_ERROR_INVALID_ARGS);
+	return SECFailure;
+    }
+
+    if (!ss->ssl3.dtlsSRTPCipherSuite) {
+	PORT_SetError(SEC_ERROR_INVALID_ARGS);
+	return SECFailure;
+    }
+
+    *cipher = ss->ssl3.dtlsSRTPCipherSuite;
+    return SECSuccess;
+}
+
 PRFileDesc *
 SSL_ReconfigFD(PRFileDesc *model, PRFileDesc *fd)
 {
@@ -1574,6 +1701,9 @@ SSL_ReconfigFD(PRFileDesc *model, PRFileDesc *fd)
     ss->opt  = sm->opt;
     ss->vrange = sm->vrange;
     PORT_Memcpy(ss->cipherSuites, sm->cipherSuites, sizeof sm->cipherSuites);
+    PORT_Memcpy(ss->ssl3.dtlsSRTPCiphers, sm->ssl3.dtlsSRTPCiphers,
+                sizeof(PRUint16) * sm->ssl3.dtlsSRTPCipherCount);
+    ss->ssl3.dtlsSRTPCipherCount = sm->ssl3.dtlsSRTPCipherCount;
 
     if (!ss->opt.useSecurity) {
         PORT_SetError(SEC_ERROR_INVALID_ARGS);
@@ -1657,6 +1787,10 @@ SSL_ReconfigFD(PRFileDesc *model, PRFileDesc *fd)
         ss->handshakeCallbackData = sm->handshakeCallbackData;
     if (sm->pkcs11PinArg)
         ss->pkcs11PinArg          = sm->pkcs11PinArg;
+    if (sm->getChannelID)
+        ss->getChannelID          = sm->getChannelID;
+    if (sm->getChannelIDArg)
+        ss->getChannelIDArg       = sm->getChannelIDArg;
     return fd;
 loser:
     return NULL;
@@ -1667,9 +1801,18 @@ PRBool
 ssl3_VersionIsSupported(SSLProtocolVariant protocolVariant,
 			SSL3ProtocolVersion version)
 {
-    return protocolVariant == ssl_variant_stream &&
-	   version >= SSL_LIBRARY_VERSION_3_0 &&
-	   version <= SSL_LIBRARY_VERSION_MAX_SUPPORTED;
+    switch (protocolVariant) {
+    case ssl_variant_stream:
+	return (version >= SSL_LIBRARY_VERSION_3_0 &&
+		version <= SSL_LIBRARY_VERSION_MAX_SUPPORTED);
+    case ssl_variant_datagram:
+	return (version >= SSL_LIBRARY_VERSION_TLS_1_1 &&
+		version <= SSL_LIBRARY_VERSION_MAX_SUPPORTED);
+    default:
+	/* Can't get here */
+	PORT_Assert(PR_FALSE);
+	return PR_FALSE;
+    }
 }
 
 /* Returns PR_TRUE if the given version range is valid and
@@ -1689,13 +1832,24 @@ SECStatus
 SSL_VersionRangeGetSupported(SSLProtocolVariant protocolVariant,
 			     SSLVersionRange *vrange)
 {
-    if (protocolVariant != ssl_variant_stream || !vrange) {
+    if (!vrange) {
 	PORT_SetError(SEC_ERROR_INVALID_ARGS);
 	return SECFailure;
     }
 
-    vrange->min = SSL_LIBRARY_VERSION_3_0;
-    vrange->max = SSL_LIBRARY_VERSION_MAX_SUPPORTED;
+    switch (protocolVariant) {
+    case ssl_variant_stream:
+	vrange->min = SSL_LIBRARY_VERSION_3_0;
+	vrange->max = SSL_LIBRARY_VERSION_MAX_SUPPORTED;
+	break;
+    case ssl_variant_datagram:
+	vrange->min = SSL_LIBRARY_VERSION_TLS_1_1;
+	vrange->max = SSL_LIBRARY_VERSION_MAX_SUPPORTED;
+	break;
+    default:
+	PORT_SetError(SEC_ERROR_INVALID_ARGS);
+	return SECFailure;
+    }
 
     return SECSuccess;
 }
@@ -1704,12 +1858,13 @@ SECStatus
 SSL_VersionRangeGetDefault(SSLProtocolVariant protocolVariant,
 			   SSLVersionRange *vrange)
 {
-    if (protocolVariant != ssl_variant_stream || !vrange) {
+    if ((protocolVariant != ssl_variant_stream &&
+	 protocolVariant != ssl_variant_datagram) || !vrange) {
 	PORT_SetError(SEC_ERROR_INVALID_ARGS);
 	return SECFailure;
     }
 
-    *vrange = versions_defaults;
+    *vrange = *VERSIONS_DEFAULTS(protocolVariant);
 
     return SECSuccess;
 }
@@ -1723,7 +1878,7 @@ SSL_VersionRangeSetDefault(SSLProtocolVariant protocolVariant,
 	return SECFailure;
     }
 
-    versions_defaults = *vrange;
+    *VERSIONS_DEFAULTS(protocolVariant) = *vrange;
 
     return SECSuccess;
 }
@@ -2769,15 +2924,6 @@ ssl_SetDefaultsFromEnvironment(void)
 	    ssl_trace = atoi(ev);
 	    SSL_TRACE(("SSL: tracing set to %d", ssl_trace));
 	}
-	ev = getenv("SSLKEYLOGFILE");
-	if (ev && ev[0]) {
-	    ssl_keylog_iob = fopen(ev, "a");
-	    if (ftell(ssl_keylog_iob) == 0) {
-		fputs("# pre-master secret log file, generated by NSS\n",
-		      ssl_keylog_iob);
-	    }
-	    SSL_TRACE(("SSL: logging pre-master secrets to %s", ev));
-	}
 #endif /* TRACE */
 	ev = getenv("SSLDEBUG");
 	if (ev && ev[0]) {
@@ -2785,6 +2931,19 @@ ssl_SetDefaultsFromEnvironment(void)
 	    SSL_TRACE(("SSL: debugging set to %d", ssl_debug));
 	}
 #endif /* DEBUG */
+	ev = getenv("SSLKEYLOGFILE");
+	if (ev && ev[0]) {
+	    ssl_keylog_iob = fopen(ev, "a");
+	    if (!ssl_keylog_iob) {
+		SSL_TRACE(("Failed to open key log file"));
+	    } else {
+		if (ftell(ssl_keylog_iob) == 0) {
+		    fputs("# SSL/TLS secrets log file, generated by NSS\n",
+			  ssl_keylog_iob);
+		}
+		SSL_TRACE(("SSL: logging pre-master secrets to %s", ev));
+	    }
+	}
 	ev = getenv("SSLBYPASS");
 	if (ev && ev[0]) {
 	    ssl_defaults.bypassPKCS11 = (ev[0] == '1');
@@ -2830,7 +2989,7 @@ ssl_SetDefaultsFromEnvironment(void)
 ** Create a newsocket structure for a file descriptor.
 */
 static sslSocket *
-ssl_NewSocket(PRBool makeLocks)
+ssl_NewSocket(PRBool makeLocks, SSLProtocolVariant protocolVariant)
 {
     sslSocket *ss;
 
@@ -2851,7 +3010,7 @@ ssl_NewSocket(PRBool makeLocks)
 	ss->opt                = ssl_defaults;
 	ss->opt.useSocks       = PR_FALSE;
 	ss->opt.noLocks        = !makeLocks;
-	ss->vrange             = versions_defaults;
+	ss->vrange             = *VERSIONS_DEFAULTS(protocolVariant);
 
 	ss->peerID             = NULL;
 	ss->rTimeout	       = PR_INTERVAL_NO_TIMEOUT;
@@ -2886,6 +3045,8 @@ ssl_NewSocket(PRBool makeLocks)
 	ss->handleBadCert      = NULL;
 	ss->badCertArg         = NULL;
 	ss->pkcs11PinArg       = NULL;
+	ss->getChannelID       = NULL;
+	ss->getChannelIDArg    = NULL;
 
 	ssl_ChooseOps(ss);
 	ssl2_InitSocketPolicy(ss);
@@ -2907,6 +3068,7 @@ loser:
 	    PORT_Free(ss);
 	    ss = NULL;
 	}
+	ss->protocolVariant = protocolVariant;
     }
     return ss;
 }

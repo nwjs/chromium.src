@@ -8,10 +8,13 @@
 #include "chrome/browser/browsing_data_database_helper.h"
 #include "chrome/browser/browsing_data_indexed_db_helper.h"
 #include "chrome/browser/browsing_data_local_storage_helper.h"
-#include "net/cookies/cookie_monster.h"
 #include "webkit/appcache/appcache_service.h"
 
 class CookieTreeNode;
+
+namespace net {
+class CanonicalCookie;
+}
 
 // This enum specifies the type of information contained in the
 // cookie details.
@@ -161,8 +164,7 @@ enum CocoaCookieDetailsType {
 - (id)initAsFolder;
 
 // Used for cookie details in both the cookie tree and the cookie prompt dialog.
-- (id)initWithCookie:(const net::CookieMonster::CanonicalCookie*)treeNode
-              origin:(NSString*)origin
+- (id)initWithCookie:(const net::CanonicalCookie*)treeNode
    canEditExpiration:(BOOL)canEditExpiration;
 
 // Used for database details in the cookie tree.
@@ -181,7 +183,7 @@ enum CocoaCookieDetailsType {
 
 // -initWithAppCacheInfo: creates a cookie details with the manifest URL plus
 // all of this additional information that is available after an appcache is
-// actually created, including it's creation date, size and last accessed time.
+// actually created, including its creation date, size and last accessed time.
 - (id)initWithAppCacheInfo:(const appcache::AppCacheInfo*)appcacheInfo;
 
 // Used for local storage details in the cookie prompt dialog.

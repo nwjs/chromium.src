@@ -10,11 +10,14 @@
 #include "base/bind_helpers.h"
 #include "base/utf_string_conversions.h"
 #include "base/win/windows_version.h"
-#include "chrome/browser/extensions/extension_tab_helper.h"
+#include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/favicon/favicon_tab_helper.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/web_applications/web_app_ui.h"
 #include "chrome/browser/ui/webui/extensions/extension_icon_source.h"
 #include "chrome/common/chrome_constants.h"
@@ -97,8 +100,8 @@ void AppInfoView::Init(const string16& title_text,
   title_ = new views::Label(title_text);
   title_->SetMultiLine(true);
   title_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
-  title_->SetFont(ResourceBundle::GetSharedInstance().GetFont(
-      ResourceBundle::BaseFont).DeriveFont(0, gfx::Font::BOLD));
+  title_->SetFont(ui::ResourceBundle::GetSharedInstance().GetFont(
+      ui::ResourceBundle::BaseFont).DeriveFont(0, gfx::Font::BOLD));
 
   if (!description_text.empty()) {
     PrepareDescriptionLabel(description_text);
@@ -161,7 +164,7 @@ void AppInfoView::UpdateText(const string16& title,
 
 void AppInfoView::UpdateIcon(const gfx::Image& image) {
   if (!image.IsEmpty())
-    icon_->SetImage(image.ToSkBitmap());
+    icon_->SetImage(image.ToImageSkia());
 }
 
 void AppInfoView::OnPaint(gfx::Canvas* canvas) {
@@ -197,10 +200,10 @@ void AppInfoView::OnPaint(gfx::Canvas* canvas) {
 
 }  // namespace
 
-namespace browser {
+namespace chrome {
 
 void ShowCreateWebAppShortcutsDialog(gfx::NativeWindow parent_window,
-                                     TabContentsWrapper* tab_contents) {
+                                     TabContents* tab_contents) {
   views::Widget::CreateWindowWithParent(
       new CreateUrlApplicationShortcutView(tab_contents),
       parent_window)->Show();
@@ -208,13 +211,13 @@ void ShowCreateWebAppShortcutsDialog(gfx::NativeWindow parent_window,
 
 void ShowCreateChromeAppShortcutsDialog(gfx::NativeWindow parent_window,
                                         Profile* profile,
-                                        const Extension* app) {
+                                        const extensions::Extension* app) {
   views::Widget::CreateWindowWithParent(
       new CreateChromeApplicationShortcutView(profile, app),
       parent_window)->Show();
 }
 
-}  // namespace browser
+}  // namespace chrome
 
 class CreateUrlApplicationShortcutView::IconDownloadCallbackFunctor {
  public:
@@ -412,7 +415,7 @@ void CreateApplicationShortcutView::ButtonPressed(views::Button* sender,
 }
 
 CreateUrlApplicationShortcutView::CreateUrlApplicationShortcutView(
-    TabContentsWrapper* tab_contents)
+    TabContents* tab_contents)
     : CreateApplicationShortcutView(tab_contents->profile()),
       tab_contents_(tab_contents),
       pending_download_(NULL)  {
@@ -440,10 +443,10 @@ bool CreateUrlApplicationShortcutView::Accept() {
   tab_contents_->extension_tab_helper()->SetAppIcon(
       shortcut_info_.favicon.IsEmpty() ? SkBitmap() :
                                          *shortcut_info_.favicon.ToSkBitmap());
-  if (tab_contents_->web_contents()->GetDelegate()) {
-    tab_contents_->web_contents()->GetDelegate()->ConvertContentsToApplication(
-        tab_contents_->web_contents());
-  }
+  Browser* browser =
+      browser::FindBrowserWithWebContents(tab_contents_->web_contents());
+  if (browser)
+    chrome::ConvertTabToAppWindow(browser, tab_contents_->web_contents());
   return true;
 }
 
@@ -482,7 +485,7 @@ void CreateUrlApplicationShortcutView::OnIconDownloaded(bool errored,
 
 CreateChromeApplicationShortcutView::CreateChromeApplicationShortcutView(
     Profile* profile,
-    const Extension* app) :
+    const extensions::Extension* app) :
       CreateApplicationShortcutView(profile),
       app_(app),
       ALLOW_THIS_IN_INITIALIZER_LIST(tracker_(this)) {
@@ -492,6 +495,7 @@ CreateChromeApplicationShortcutView::CreateChromeApplicationShortcutView(
   shortcut_info_.description = UTF8ToUTF16(app_->description());
   shortcut_info_.is_platform_app = app_->is_platform_app();
   shortcut_info_.extension_path = app_->path();
+  shortcut_info_.profile_path = profile->GetPath();
 
   // The icon will be resized to |max_size|.
   const gfx::Size max_size(kAppIconSize, kAppIconSize);

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SYNC_GLUE_THEME_CHANGE_PROCESSOR_H_
 #define CHROME_BROWSER_SYNC_GLUE_THEME_CHANGE_PROCESSOR_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
@@ -21,7 +20,7 @@ namespace browser_sync {
 class DataTypeErrorHandler;
 
 // This class is responsible for taking changes from the
-// ThemeService and applying them to the sync_api 'syncable'
+// ThemeService and applying them to the sync API 'syncable'
 // model, and vice versa. All operations and use of this class are
 // from the UI thread.
 class ThemeChangeProcessor : public ChangeProcessor,
@@ -31,16 +30,16 @@ class ThemeChangeProcessor : public ChangeProcessor,
   virtual ~ThemeChangeProcessor();
 
   // content::NotificationObserver implementation.
-  // ThemeService -> sync_api model change application.
+  // ThemeService -> sync API model change application.
   virtual void Observe(int type,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
   // ChangeProcessor implementation.
-  // sync_api model -> ThemeService change application.
+  // sync API model -> ThemeService change application.
   virtual void ApplyChangesFromSyncModel(
-      const sync_api::BaseTransaction* trans,
-      const sync_api::ImmutableChangeRecordList& changes) OVERRIDE;
+      const syncer::BaseTransaction* trans,
+      const syncer::ImmutableChangeRecordList& changes) OVERRIDE;
 
  protected:
   // ChangeProcessor implementation.

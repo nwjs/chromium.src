@@ -17,6 +17,7 @@
 #include "native_client/src/shared/platform/nacl_sync.h"
 #include "native_client/src/shared/srpc/nacl_srpc.h"
 #include "native_client/src/trusted/desc/nacl_desc_wrapper.h"
+#include "native_client/src/trusted/nonnacl_util/sel_ldr_launcher.h"
 #include "native_client/src/trusted/plugin/utility.h"
 #include "native_client/src/trusted/reverse_service/reverse_service.h"
 #include "native_client/src/trusted/weak_ref/weak_ref.h"
@@ -26,7 +27,6 @@
 
 namespace nacl {
 class DescWrapper;
-struct SelLdrLauncher;
 }  // namespace
 
 namespace pp {
@@ -224,7 +224,6 @@ class ServiceRuntime {
   // Starts the application channel to the nexe.
   SrpcClient* SetupAppChannel();
 
-  bool Kill();
   bool Log(int severity, nacl::string msg);
   Plugin* plugin() const { return plugin_; }
   void Shutdown();
@@ -248,7 +247,7 @@ class ServiceRuntime {
   Plugin* plugin_;
   bool should_report_uma_;
   nacl::ReverseService* reverse_service_;
-  nacl::scoped_ptr<nacl::SelLdrLauncher> subprocess_;
+  nacl::scoped_ptr<nacl::SelLdrLauncherBase> subprocess_;
 
   nacl::WeakRefAnchor* anchor_;
 

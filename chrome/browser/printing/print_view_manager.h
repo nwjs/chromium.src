@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_PRINTING_PRINT_VIEW_MANAGER_H_
 #define CHROME_BROWSER_PRINTING_PRINT_VIEW_MANAGER_H_
-#pragma once
 
 #include "base/memory/ref_counted.h"
 #include "base/string16.h"
@@ -13,7 +12,7 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "printing/printed_pages_source.h"
 
-class TabContentsWrapper;
+class TabContents;
 struct PrintHostMsg_DidPrintPage_Params;
 
 namespace content {
@@ -27,13 +26,14 @@ class PrintJob;
 class PrintJobWorkerOwner;
 class PrintViewManagerObserver;
 
-// Manages the print commands in relation to a TabContents. TabContents
-// delegates a few printing related commands to this instance.
+// Manages the print commands in relation to a TabContents.
+// TabContents delegates a few printing related commands to this
+// instance.
 class PrintViewManager : public content::NotificationObserver,
                          public PrintedPagesSource,
                          public content::WebContentsObserver {
  public:
-  explicit PrintViewManager(TabContentsWrapper* tab);
+  explicit PrintViewManager(TabContents* tab);
   virtual ~PrintViewManager();
 
   // Prints the current document immediately. Since the rendering is
@@ -50,6 +50,11 @@ class PrintViewManager : public content::NotificationObserver,
   // preview tab.
   bool AdvancedPrintNow();
 
+  // Same as PrintNow(), but for the case where we want to send the result to
+  // another destination.
+  // TODO(mad) Add an argument so we can pass the destination interface.
+  bool PrintToDestination();
+
   // Initiate print preview of the current document by first notifying the
   // renderer. Since this happens asynchronous, the print preview tab creation
   // will not be completed on the return of this function. Returns false if
@@ -63,9 +68,6 @@ class PrintViewManager : public content::NotificationObserver,
   // Notify PrintViewManager that print preview has finished. Unfreeze the
   // renderer in the case of scripted print preview.
   void PrintPreviewDone();
-
-  // Handles cancelled preview printing request.
-  void PreviewPrintingRequestCancelled();
 
   // Whether to block scripted printing or not.
   void SetScriptedPrintingBlocked(bool blocked);
@@ -164,8 +166,8 @@ class PrintViewManager : public content::NotificationObserver,
   // Release the PrinterQuery associated with our |cookie_|.
   void ReleasePrinterQuery();
 
-  // TabContentsWrapper we're associated with.
-  TabContentsWrapper* tab_;
+  // TabContents we're associated with.
+  TabContents* tab_;
 
   content::NotificationRegistrar registrar_;
 

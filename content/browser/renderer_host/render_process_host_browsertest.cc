@@ -7,10 +7,13 @@
 #include "base/command_line.h"
 #include "base/process.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/browser/renderer_host/render_process_host_impl.h"
-#include "content/browser/tab_contents/tab_contents.h"
+#include "content/browser/web_contents/web_contents_impl.h"
 #include "content/common/test_url_constants.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/common/content_switches.h"
@@ -23,9 +26,7 @@ void PostQuit(MessageLoop* loop) {
 
 class RenderProcessHostTest : public InProcessBrowserTest {
  public:
-  RenderProcessHostTest() {
-    EnableDOMAutomation();
-  }
+  RenderProcessHostTest() {}
 
   int RenderProcessHostCount() {
     content::RenderProcessHost::iterator hosts =
@@ -43,8 +44,8 @@ class RenderProcessHostTest : public InProcessBrowserTest {
   // the renderer process to be created or foregrounded, returning the process
   // handle.
   base::ProcessHandle ShowSingletonTab(const GURL& page) {
-    browser()->ShowSingletonTab(page);
-    WebContents* wc = browser()->GetSelectedWebContents();
+    chrome::ShowSingletonTab(browser(), page);
+    WebContents* wc = chrome::GetActiveWebContents(browser());
     CHECK(wc->GetURL() == page);
 
     // Ensure that the backgrounding / foregrounding gets a chance to run.
@@ -69,28 +70,24 @@ class RenderProcessHostTest : public InProcessBrowserTest {
     content::RenderProcessHost* rph2 = NULL;
     content::RenderProcessHost* rph3 = NULL;
 
-#if defined(USE_VIRTUAL_KEYBOARD)
-    ++host_count;  // For the virtual keyboard.
-#endif
-
     // Change the first tab to be the new tab page (TYPE_WEBUI).
-    GURL newtab(chrome::kTestNewTabURL);
+    GURL newtab(content::kTestNewTabURL);
     ui_test_utils::NavigateToURL(browser(), newtab);
     EXPECT_EQ(tab_count, browser()->tab_count());
-    tab1 = browser()->GetWebContentsAt(tab_count - 1);
+    tab1 = chrome::GetWebContentsAt(browser(), tab_count - 1);
     rph1 = tab1->GetRenderProcessHost();
     EXPECT_EQ(tab1->GetURL(), newtab);
     EXPECT_EQ(host_count, RenderProcessHostCount());
 
     // Create a new TYPE_TABBED tab.  It should be in its own process.
     GURL page1("data:text/html,hello world1");
-    browser()->ShowSingletonTab(page1);
+    chrome::ShowSingletonTab(browser(), page1);
     if (browser()->tab_count() == tab_count)
       ui_test_utils::WaitForNewTab(browser());
     tab_count++;
     host_count++;
     EXPECT_EQ(tab_count, browser()->tab_count());
-    tab1 = browser()->GetWebContentsAt(tab_count - 1);
+    tab1 = chrome::GetWebContentsAt(browser(), tab_count - 1);
     rph2 = tab1->GetRenderProcessHost();
     EXPECT_EQ(tab1->GetURL(), page1);
     EXPECT_EQ(host_count, RenderProcessHostCount());
@@ -98,12 +95,12 @@ class RenderProcessHostTest : public InProcessBrowserTest {
 
     // Create another TYPE_TABBED tab.  It should share the previous process.
     GURL page2("data:text/html,hello world2");
-    browser()->ShowSingletonTab(page2);
+    chrome::ShowSingletonTab(browser(), page2);
     if (browser()->tab_count() == tab_count)
       ui_test_utils::WaitForNewTab(browser());
     tab_count++;
     EXPECT_EQ(tab_count, browser()->tab_count());
-    tab2 = browser()->GetWebContentsAt(tab_count - 1);
+    tab2 = chrome::GetWebContentsAt(browser(), tab_count - 1);
     EXPECT_EQ(tab2->GetURL(), page2);
     EXPECT_EQ(host_count, RenderProcessHostCount());
     EXPECT_EQ(tab2->GetRenderProcessHost(), rph2);
@@ -112,31 +109,27 @@ class RenderProcessHostTest : public InProcessBrowserTest {
     // Note: intentionally create this tab after the TYPE_TABBED tabs to
     // exercise bug 43448 where extension and WebUI tabs could get combined into
     // normal renderers.
-    GURL history(chrome::kTestHistoryURL);
-    browser()->ShowSingletonTab(history);
+    GURL history(content::kTestHistoryURL);
+    chrome::ShowSingletonTab(browser(), history);
     if (browser()->tab_count() == tab_count)
       ui_test_utils::WaitForNewTab(browser());
     tab_count++;
     EXPECT_EQ(tab_count, browser()->tab_count());
-    tab2 = browser()->GetWebContentsAt(tab_count - 1);
+    tab2 = chrome::GetWebContentsAt(browser(), tab_count - 1);
     EXPECT_EQ(tab2->GetURL(), history);
     EXPECT_EQ(host_count, RenderProcessHostCount());
     EXPECT_EQ(tab2->GetRenderProcessHost(), rph1);
 
     // Create a TYPE_EXTENSION tab.  It should be in its own process.
     // (the bookmark manager is implemented as an extension)
-    GURL bookmarks(chrome::kTestBookmarksURL);
-    browser()->ShowSingletonTab(bookmarks);
+    GURL bookmarks(content::kTestBookmarksURL);
+    chrome::ShowSingletonTab(browser(), bookmarks);
     if (browser()->tab_count() == tab_count)
       ui_test_utils::WaitForNewTab(browser());
     tab_count++;
-#if !defined(USE_VIRTUAL_KEYBOARD)
-    // The virtual keyboard already creates an extension process. So this
-    // should not increase the process count.
     host_count++;
-#endif
     EXPECT_EQ(tab_count, browser()->tab_count());
-    tab1 = browser()->GetWebContentsAt(tab_count - 1);
+    tab1 = chrome::GetWebContentsAt(browser(), tab_count - 1);
     rph3 = tab1->GetRenderProcessHost();
     EXPECT_EQ(tab1->GetURL(), bookmarks);
     EXPECT_EQ(host_count, RenderProcessHostCount());
@@ -149,7 +142,6 @@ class RenderProcessHostTest : public InProcessBrowserTest {
 class RenderProcessHostTestWithCommandLine : public RenderProcessHostTest {
  protected:
   virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE {
-    InProcessBrowserTest::SetUpCommandLine(command_line);
     command_line->AppendSwitchASCII(switches::kRendererProcessLimit, "1");
   }
 };
@@ -164,19 +156,15 @@ IN_PROC_BROWSER_TEST_F(RenderProcessHostTest, ProcessPerTab) {
   int tab_count = 1;
   int host_count = 1;
 
-#if defined(USE_VIRTUAL_KEYBOARD)
-  ++host_count;  // For the virtual keyboard.
-#endif
-
   // Change the first tab to be the new tab page (TYPE_WEBUI).
-  GURL newtab(chrome::kTestNewTabURL);
+  GURL newtab(content::kTestNewTabURL);
   ui_test_utils::NavigateToURL(browser(), newtab);
   EXPECT_EQ(tab_count, browser()->tab_count());
   EXPECT_EQ(host_count, RenderProcessHostCount());
 
   // Create a new TYPE_TABBED tab.  It should be in its own process.
   GURL page1("data:text/html,hello world1");
-  browser()->ShowSingletonTab(page1);
+  chrome::ShowSingletonTab(browser(), page1);
   if (browser()->tab_count() == tab_count)
     ui_test_utils::WaitForNewTab(browser());
   tab_count++;
@@ -186,7 +174,7 @@ IN_PROC_BROWSER_TEST_F(RenderProcessHostTest, ProcessPerTab) {
 
   // Create another TYPE_TABBED tab.  It should share the previous process.
   GURL page2("data:text/html,hello world2");
-  browser()->ShowSingletonTab(page2);
+  chrome::ShowSingletonTab(browser(), page2);
   if (browser()->tab_count() == tab_count)
     ui_test_utils::WaitForNewTab(browser());
   tab_count++;
@@ -194,7 +182,7 @@ IN_PROC_BROWSER_TEST_F(RenderProcessHostTest, ProcessPerTab) {
   EXPECT_EQ(host_count, RenderProcessHostCount());
 
   // Create another new tab.  It should share the process with the other WebUI.
-  browser()->NewTab();
+  chrome::NewTab(browser());
   if (browser()->tab_count() == tab_count)
     ui_test_utils::WaitForNewTab(browser());
   tab_count++;
@@ -202,7 +190,7 @@ IN_PROC_BROWSER_TEST_F(RenderProcessHostTest, ProcessPerTab) {
   EXPECT_EQ(host_count, RenderProcessHostCount());
 
   // Create another new tab.  It should share the process with the other WebUI.
-  browser()->NewTab();
+  chrome::NewTab(browser());
   if (browser()->tab_count() == tab_count)
     ui_test_utils::WaitForNewTab(browser());
   tab_count++;
@@ -222,7 +210,7 @@ IN_PROC_BROWSER_TEST_F(RenderProcessHostTest, Backgrounding) {
   parsed_command_line.AppendSwitch(switches::kProcessPerTab);
 
   // Change the first tab to be the new tab page (TYPE_WEBUI).
-  GURL newtab(chrome::kTestNewTabURL);
+  GURL newtab(content::kTestNewTabURL);
   ui_test_utils::NavigateToURL(browser(), newtab);
 
   // Create a new tab. It should be foreground.

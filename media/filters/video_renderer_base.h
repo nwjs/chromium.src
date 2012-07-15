@@ -7,13 +7,14 @@
 
 #include <deque>
 
-#include "base/memory/scoped_ptr.h"
+#include "base/memory/ref_counted.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/synchronization/lock.h"
 #include "base/threading/platform_thread.h"
-#include "media/base/filters.h"
 #include "media/base/pipeline_status.h"
+#include "media/base/video_decoder.h"
 #include "media/base/video_frame.h"
+#include "media/base/video_renderer.h"
 
 namespace media {
 
@@ -44,9 +45,9 @@ class MEDIA_EXPORT VideoRendererBase
   VideoRendererBase(const base::Closure& paint_cb,
                     const SetOpaqueCB& set_opaque_cb,
                     bool drop_frames);
-  virtual ~VideoRendererBase();
 
   // Filter implementation.
+  virtual void SetHost(FilterHost* host) OVERRIDE;
   virtual void Play(const base::Closure& callback) OVERRIDE;
   virtual void Pause(const base::Closure& callback) OVERRIDE;
   virtual void Flush(const base::Closure& callback) OVERRIDE;
@@ -73,13 +74,21 @@ class MEDIA_EXPORT VideoRendererBase
   void GetCurrentFrame(scoped_refptr<VideoFrame>* frame_out);
   void PutCurrentFrame(scoped_refptr<VideoFrame> frame);
 
+ protected:
+  virtual ~VideoRendererBase();
+
  private:
-  // Callback from the video decoder delivering decoded video frames.
-  void FrameReady(scoped_refptr<VideoFrame> frame);
+  // Callback from the video decoder delivering decoded video frames and
+  // reporting video decoder status.
+  void FrameReady(VideoDecoder::DecoderStatus status,
+                  const scoped_refptr<VideoFrame>& frame);
 
   // Helper method that schedules an asynchronous read from the decoder as long
   // as there isn't a pending read and we have capacity.
   void AttemptRead_Locked();
+
+  // Called when the VideoDecoder Flush() completes.
+  void OnDecoderFlushDone();
 
   // Attempts to complete flushing and transition into the flushed state.
   void AttemptFlush_Locked();
@@ -100,6 +109,8 @@ class MEDIA_EXPORT VideoRendererBase
 
   // Return the number of frames currently held by this class.
   int NumFrames_Locked() const;
+
+  FilterHost* host_;
 
   // Used for accessing data members.
   base::Lock lock_;
@@ -133,11 +144,11 @@ class MEDIA_EXPORT VideoRendererBase
   //              |
   //              | Initialize()
   //              V        All frames returned
-  //   +------[kFlushed]<----------------------[kFlushing]
+  //   +------[kFlushed]<-----[kFlushing]<--- OnDecoderFlushDone()
   //   |          | Seek() or upon                  ^
-  //   |          V got first frame                 |
-  //   |      [kSeeking]                            | Flush()
-  //   |          |                                 |
+  //   |          V got first frame           [kFlushingDecoder]
+  //   |      [kSeeking]                            ^
+  //   |          |                                 | Flush()
   //   |          V Got enough frames               |
   //   |      [kPrerolled]---------------------->[kPaused]
   //   |          |                Pause()          ^
@@ -156,6 +167,7 @@ class MEDIA_EXPORT VideoRendererBase
     kUninitialized,
     kPrerolled,
     kPaused,
+    kFlushingDecoder,
     kFlushing,
     kFlushed,
     kSeeking,
@@ -193,8 +205,6 @@ class MEDIA_EXPORT VideoRendererBase
   TimeCB time_cb_;
 
   base::TimeDelta seek_timestamp_;
-
-  VideoDecoder::ReadCB read_cb_;
 
   // Embedder callback for notifying a new frame is available for painting.
   base::Closure paint_cb_;

@@ -29,7 +29,8 @@ namespace WebKit {
 class TestWebKitPlatformSupport :
     public webkit_glue::WebKitPlatformSupportImpl {
  public:
-  explicit TestWebKitPlatformSupport(bool unit_test_mode);
+  TestWebKitPlatformSupport(bool unit_test_mode,
+                            WebKit::Platform* shadow_platform_delegate);
   virtual ~TestWebKitPlatformSupport();
 
   virtual WebKit::WebMimeRegistry* mimeRegistry() OVERRIDE;
@@ -71,19 +72,15 @@ class TestWebKitPlatformSupport :
   virtual WebKit::WebStorageNamespace* createLocalStorageNamespace(
       const WebKit::WebString& path, unsigned quota) OVERRIDE;
 
-  virtual void dispatchStorageEvent(const WebKit::WebString& key,
-      const WebKit::WebString& old_value, const WebKit::WebString& new_value,
-      const WebKit::WebString& origin, const WebKit::WebURL& url,
-      bool is_local_storage) OVERRIDE;
   virtual WebKit::WebIDBFactory* idbFactory() OVERRIDE;
   virtual void createIDBKeysFromSerializedValuesAndKeyPath(
       const WebKit::WebVector<WebKit::WebSerializedScriptValue>& values,
-      const WebKit::WebString& keyPath,
+      const WebKit::WebIDBKeyPath& keyPath,
       WebKit::WebVector<WebKit::WebIDBKey>& keys_out) OVERRIDE;
   virtual WebKit::WebSerializedScriptValue injectIDBKeyIntoSerializedValue(
       const WebKit::WebIDBKey& key,
       const WebKit::WebSerializedScriptValue& value,
-      const WebKit::WebString& keyPath) OVERRIDE;
+      const WebKit::WebIDBKeyPath& keyPath) OVERRIDE;
 
 #if defined(OS_WIN) || defined(OS_MACOSX)
   void SetThemeEngine(WebKit::WebThemeEngine* engine);
@@ -115,7 +112,9 @@ class TestWebKitPlatformSupport :
   void setGamepadData(const WebKit::WebGamepads& data);
 
   virtual string16 GetLocalizedString(int message_id) OVERRIDE;
-  virtual base::StringPiece GetDataResource(int resource_id) OVERRIDE;
+  virtual base::StringPiece GetDataResource(
+      int resource_id,
+      ui::ScaleFactor scale_factor) OVERRIDE;
   virtual void GetPlugins(bool refresh,
                           std::vector<webkit::WebPluginInfo>* plugins) OVERRIDE;
   virtual webkit_glue::ResourceLoaderBridge* CreateResourceLoader(
@@ -124,6 +123,9 @@ class TestWebKitPlatformSupport :
   virtual webkit_glue::WebSocketStreamHandleBridge* CreateWebSocketBridge(
       WebKit::WebSocketStreamHandle* handle,
       webkit_glue::WebSocketStreamHandleDelegate* delegate) OVERRIDE;
+
+  virtual WebKit::WebMediaStreamCenter* createMediaStreamCenter(
+      WebKit::WebMediaStreamCenterClient* client) OVERRIDE;
 
  private:
   TestShellWebMimeRegistryImpl mime_registry_;
@@ -140,6 +142,7 @@ class TestWebKitPlatformSupport :
   WebURLLoaderMockFactory url_loader_factory_;
   bool unit_test_mode_;
   WebKit::WebGamepads gamepad_data_;
+  WebKit::Platform* shadow_platform_delegate_;
 
 #if defined(OS_WIN) || defined(OS_MACOSX)
   WebKit::WebThemeEngine* active_theme_engine_;

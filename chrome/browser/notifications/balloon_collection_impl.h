@@ -6,7 +6,6 @@
 
 #ifndef CHROME_BROWSER_NOTIFICATIONS_BALLOON_COLLECTION_IMPL_H_
 #define CHROME_BROWSER_NOTIFICATIONS_BALLOON_COLLECTION_IMPL_H_
-#pragma once
 
 #include <deque>
 
@@ -67,7 +66,7 @@ class BalloonCollectionImpl : public BalloonCollection,
   virtual base::EventStatus WillProcessEvent(
       const base::NativeEvent& event) OVERRIDE;
   virtual void DidProcessEvent(const base::NativeEvent& event) OVERRIDE;
-#elif defined(TOOLKIT_USES_GTK)
+#elif defined(TOOLKIT_GTK)
   virtual void WillProcessEvent(GdkEvent* event) OVERRIDE;
   virtual void DidProcessEvent(GdkEvent* event) OVERRIDE;
 #endif
@@ -146,7 +145,7 @@ class BalloonCollectionImpl : public BalloonCollection,
 
     // Returns true if there is change to the offset that requires the balloons
     // to be repositioned.
-    bool ComputeOffsetToMoveAbovePanels(const gfx::Rect& panel_bounds);
+    bool ComputeOffsetToMoveAbovePanels();
 
     void enable_computing_panel_offset() {
       need_to_compute_panel_offset_ = true;

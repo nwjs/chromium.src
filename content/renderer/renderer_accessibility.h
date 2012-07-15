@@ -4,12 +4,8 @@
 
 #ifndef CONTENT_RENDERER_RENDERER_ACCESSIBILITY_H_
 #define CONTENT_RENDERER_RENDERER_ACCESSIBILITY_H_
-#pragma once
 
-#include <vector>
-
-#include "base/hash_tables.h"
-#include "base/memory/weak_ptr.h"
+#include "content/common/accessibility_messages.h"
 #include "content/public/renderer/render_view_observer.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebAccessibilityNotification.h"
 
@@ -18,111 +14,71 @@ class RenderViewImpl;
 namespace WebKit {
 class WebAccessibilityObject;
 class WebDocument;
-class WebNode;
 };
 
-namespace webkit_glue {
-struct WebAccessibility;
-};
+namespace content {
 
-// RendererAccessibility belongs to the RenderView. It's responsible for
-// sending a serialized representation of WebKit's accessibility tree from
-// the renderer to the browser and sending updates whenever it changes, and
-// handling requests from the browser to perform accessibility actions on
-// nodes in the tree (e.g., change focus, or click on a button).
-class RendererAccessibility : public content::RenderViewObserver {
+// The browser process implement native accessibility APIs, allowing
+// assistive technology (e.g., screen readers, magnifiers) to access and
+// control the web contents with high-level APIs. These APIs are also used
+// by automation tools, and Windows 8 uses them to determine when the
+// on-screen keyboard should be shown.
+//
+// An instance of this class (or rather, a subclass) belongs to RenderViewImpl.
+// Accessibility is initialized based on the AccessibilityMode of
+// RenderViewImpl; it lazily starts as Off or EditableTextOnly depending on
+// the operating system, and switches to Complete if assistive technology is
+// detected or a flag is set.
+//
+// A tree of accessible objects is built here and sent to the browser process;
+// the browser process maintains this as a tree of platform-native
+// accessible objects that can be used to respond to accessibility requests
+// from other processes.
+//
+// This base class just contains common code and will not do anything by itself.
+// The two subclasses are:
+//
+//   RendererAccessibilityComplete - turns on WebKit accessibility and
+//       provides a full accessibility implementation for when
+//       assistive technology is running.
+//
+//   RendererAccessibilityFocusOnly - does not turn on WebKit
+//       accessibility. Only sends a minimal accessible tree to the
+//       browser whenever focus changes. This mode is currently used
+//       to support opening the on-screen keyboard in response to
+//       touch events on Windows 8 in Metro mode.
+//
+// What both subclasses have in common is that they are responsible for
+//
+class RendererAccessibility : public RenderViewObserver {
  public:
-  RendererAccessibility(RenderViewImpl* render_view);
+  explicit RendererAccessibility(RenderViewImpl* render_view);
   virtual ~RendererAccessibility();
 
-  // RenderView::Observer implementation.
-  virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
-  virtual void FocusedNodeChanged(const WebKit::WebNode& node) OVERRIDE;
-  virtual void DidFinishLoad(WebKit::WebFrame* frame) OVERRIDE;
-
   // Called when an accessibility notification occurs in WebKit.
-  virtual void PostAccessibilityNotification(
+  virtual void HandleWebAccessibilityNotification(
       const WebKit::WebAccessibilityObject& obj,
-      WebKit::WebAccessibilityNotification notification);
+      WebKit::WebAccessibilityNotification notification) = 0;
 
- private:
-  // One accessibility notification from WebKit. These are queued up and
-  // used to send tree updates and notification messages from the
-  // renderer to the browser.
-  struct Notification {
-   public:
-    // The id of the accessibility object.
-    int32 id;
-
-    // The accessibility notification type.
-    WebKit::WebAccessibilityNotification type;
-  };
-
-  // In order to keep track of what nodes the browser knows about, we keep a
-  // representation of the browser tree - just IDs and parent/child
-  // relationships.
-  struct BrowserTreeNode {
-    BrowserTreeNode() : id(0) {}
-    ~BrowserTreeNode() {}
-    int32 id;
-    std::vector<BrowserTreeNode*> children;
-  };
-
-  // Send queued notifications from the renderer to the browser.
-  void SendPendingAccessibilityNotifications();
-
-  // Update our representation of what nodes the browser has, given a
-  // tree of nodes.
-  void UpdateBrowserTree(const webkit_glue::WebAccessibility& renderer_node);
-
-  // Clear the given node and recursively delete all of its descendants
-  // from the browser tree. (Does not delete |browser_node|).
-  void ClearBrowserTreeNode(BrowserTreeNode* browser_node);
-
-  // Handlers for messages from the browser to the renderer.
-  void OnDoDefaultAction(int acc_obj_id);
-  void OnNotificationsAck();
-  void OnChangeScrollPosition(int acc_obj_id, int scroll_x, int scroll_y);
-  void OnScrollToMakeVisible(int acc_obj_id, gfx::Rect subfocus);
-  void OnScrollToPoint(int acc_obj_id, gfx::Point point);
-  void OnEnable();
-  void OnSetFocus(int acc_obj_id);
-
-  void OnSetTextSelection(int acc_obj_id, int start_offset, int end_offset);
-
-  // Whether or not this notification typically needs to send
-  // updates to its children, too.
-  bool ShouldIncludeChildren(const Notification& notification);
-
+ protected:
   // Returns the main top-level document for this page, or NULL if there's
   // no view or frame.
   WebKit::WebDocument GetMainDocument();
 
-  // So we can queue up tasks to be executed later.
-  base::WeakPtrFactory<RendererAccessibility> weak_factory_;
+#ifndef NDEBUG
+  const std::string AccessibilityNotificationToString(
+      AccessibilityNotification notification);
+#endif
 
-  // Notifications from WebKit are collected until they are ready to be
-  // sent to the browser.
-  std::vector<Notification> pending_notifications_;
-
-  // Our representation of the browser tree.
-  BrowserTreeNode* browser_root_;
-
-  // A map from IDs to nodes in the browser tree.
-  base::hash_map<int32, BrowserTreeNode*> browser_id_map_;
-
-  // The most recently observed scroll offset of the root document element.
-  // TODO(dmazzoni): remove once https://bugs.webkit.org/show_bug.cgi?id=73460
-  // is fixed.
-  gfx::Size last_scroll_offset_;
-
-  // Set if we are waiting for an accessibility notification ack.
-  bool ack_pending_;
+  // The RenderViewImpl that owns us.
+  RenderViewImpl* render_view_;
 
   // True if verbose logging of accessibility events is on.
   bool logging_;
 
   DISALLOW_COPY_AND_ASSIGN(RendererAccessibility);
 };
+
+}  // namespace content
 
 #endif  // CONTENT_RENDERER_RENDERER_ACCESSIBILITY_H_

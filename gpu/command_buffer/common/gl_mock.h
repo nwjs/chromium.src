@@ -7,10 +7,9 @@
 
 #ifndef GPU_COMMAND_BUFFER_COMMON_GL_MOCK_H_
 #define GPU_COMMAND_BUFFER_COMMON_GL_MOCK_H_
-#pragma once
 
 #include "testing/gmock/include/gmock/gmock.h"
-#include "ui/gfx/gl/gl_interface.h"
+#include "ui/gl/gl_interface.h"
 
 namespace gfx {
 
@@ -214,6 +213,10 @@ class MockGLInterface : public GLInterface {
 
   MOCK_METHOD2(GetIntegerv, void(GLenum pname, GLint* params));
 
+  MOCK_METHOD5(GetProgramBinary, void(
+      GLuint program, GLsizei bufSize, GLsizei* length, GLenum* binaryFormat,
+      GLvoid* binary));
+
   MOCK_METHOD3(GetProgramiv, void(GLuint program, GLenum pname, GLint* params));
 
   MOCK_METHOD4(GetProgramInfoLog, void(
@@ -304,7 +307,13 @@ class MockGLInterface : public GLInterface {
 
   MOCK_METHOD2(PixelStorei, void(GLenum pname, GLint param));
 
+  MOCK_METHOD2(PointParameteri, void(GLenum pname, GLint param));
+
   MOCK_METHOD2(PolygonOffset, void(GLfloat factor, GLfloat units));
+
+  MOCK_METHOD4(ProgramBinary, void(
+      GLuint program, GLenum binaryFormat, const GLvoid* binary,
+      GLsizei length));
 
   MOCK_METHOD2(QueryCounter, void(GLuint id, GLenum target));
 

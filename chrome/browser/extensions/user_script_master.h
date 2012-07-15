@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_EXTENSIONS_USER_SCRIPT_MASTER_H_
 #define CHROME_BROWSER_EXTENSIONS_USER_SCRIPT_MASTER_H_
-#pragma once
 
 #include <map>
 #include <string>
@@ -31,6 +30,8 @@ class Profile;
 
 typedef std::map<std::string, ExtensionSet::ExtensionPathAndDefaultLocale>
     ExtensionsInfo;
+
+namespace extensions {
 
 // Manages a segment of shared memory that contains the user scripts the user
 // has installed.  Lives on the UI thread.
@@ -167,5 +168,7 @@ class UserScriptMaster : public base::RefCountedThreadSafe<UserScriptMaster>,
 
   DISALLOW_COPY_AND_ASSIGN(UserScriptMaster);
 };
+
+}  // namespace extensions
 
 #endif  // CHROME_BROWSER_EXTENSIONS_USER_SCRIPT_MASTER_H_

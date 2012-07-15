@@ -3,7 +3,7 @@
  * found in the LICENSE file.
  */
 
-/* From ppb_websocket.idl modified Wed Mar 14 01:49:27 2012. */
+/* From ppb_websocket.idl modified Thu May 31 15:47:38 2012. */
 
 #ifndef PPAPI_C_PPB_WEBSOCKET_H_
 #define PPAPI_C_PPB_WEBSOCKET_H_
@@ -71,6 +71,14 @@ PP_COMPILE_ASSERT_SIZE_IN_BYTES(PP_WebSocketReadyState, 4);
  * <code>PP_WEBSOCKETSTATUSCODE_USER_PRIVATE_MAX</code> are valid for Close().
  */
 typedef enum {
+  /**
+   * Indicates to request closing connection without status code and reason.
+   *
+   * (Note that the code 1005 is forbidden to send in actual close frames by
+   * the RFC. PP_WebSocket reuses this code internally and the code will never
+   * appear in the actual close frames.)
+   */
+  PP_WEBSOCKETSTATUSCODE_NOT_SPECIFIED = 1005,
   /**
    * Status codes in the range 0-999 are not used.
    */
@@ -226,10 +234,10 @@ struct PPB_WebSocket_1_0 {
    * WebSocket API specification.
    * Returns <code>PP_ERROR_NOACCESS</code> if the protocol specified in the
    * <code>url</code> is not a secure protocol, but the origin of the caller
-   * has a secure scheme. Also returns <code>PP_ERROR_NOACCESS</CODE> if the
+   * has a secure scheme. Also returns <code>PP_ERROR_NOACCESS</code> if the
    * port specified in the <code>url</code> is a port that the user agent
    * is configured to block access to because it is a well-known port like
-   * SMTP. <code>PP_ERROR_NOACCESS</code> corresponds to SecurityError of the
+   * SMTP. <code>PP_ERROR_NOACCESS</code> corresponds to a SecurityError of the
    * specification.
    * Returns <code>PP_ERROR_INPROGRESS</code> if this is not the first call to
    * Connect().
@@ -246,7 +254,8 @@ struct PPB_WebSocket_1_0 {
    * @param[in] web_socket A <code>PP_Resource</code> corresponding to a
    * WebSocket.
    *
-   * @param[in] code The WebSocket close code. Ignored if it is 0.
+   * @param[in] code The WebSocket close code. This is ignored if it is
+   * <code>PP_WEBSOCKETSTATUSCODE_NOT_SPECIFIED</code>.
    * <code>PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE</code> must be used for the
    * usual case. To indicate some specific error cases, codes in the range
    * <code>PP_WEBSOCKETSTATUSCODE_USER_REGISTERED_MIN</code> to
@@ -270,9 +279,9 @@ struct PPB_WebSocket_1_0 {
    * in the WebSocket API specification.
    * Returns <code>PP_ERROR_NOACCESS</code> if the code is not an integer
    * equal to 1000 or in the range 3000 to 4999. <code>PP_ERROR_NOACCESS</code>
-   * corresponds to InvalidAccessError of the specification. Returns
-   * <code>PP_ERROR_INPROGRESS</code> if this is not the first call to
-   * Close().
+   * corresponds to an InvalidAccessError in the WebSocket API specification.
+   * Returns <code>PP_ERROR_INPROGRESS</code> if a previous call to Close() is
+   * not finished.
    */
   int32_t (*Close)(PP_Resource web_socket,
                    uint16_t code,
@@ -319,11 +328,11 @@ struct PPB_WebSocket_1_0 {
    * @return An int32_t containing an error code from <code>pp_errors.h</code>.
    * Returns <code>PP_ERROR_FAILED</code> if the ReadyState is
    * <code>PP_WEBSOCKETREADYSTATE_CONNECTING</code>.
-   * <code>PP_ERROR_FAILED</code> corresponds to the JavaScript
+   * <code>PP_ERROR_FAILED</code> corresponds to a JavaScript
    * InvalidStateError in the WebSocket API specification.
    * Returns <code>PP_ERROR_BADARGUMENT</code> if the provided
    * <code>message</code> contains an invalid character as a UTF-8 string.
-   * <code>PP_ERROR_BADARGUMENT</code> corresponds to the JavaScript
+   * <code>PP_ERROR_BADARGUMENT</code> corresponds to a JavaScript
    * SyntaxError in the WebSocket API specification.
    * Otherwise, returns <code>PP_OK</code>, which doesn't necessarily mean
    * that the server received the message.

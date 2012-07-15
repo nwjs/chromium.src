@@ -20,7 +20,6 @@ namespace internal {
 
 TrayItemMore::TrayItemMore(SystemTrayItem* owner)
     : owner_(owner) {
-  set_focusable(true);
   SetLayoutManager(new views::BoxLayout(views::BoxLayout::kHorizontal,
       kTrayPopupPaddingHorizontal, 0, kTrayPopupPaddingBetweenItems));
 
@@ -31,8 +30,9 @@ TrayItemMore::TrayItemMore(SystemTrayItem* owner)
   AddChildView(label_);
 
   more_ = new views::ImageView;
+  more_->EnableCanvasFlippingForRTLUI(true);
   more_->SetImage(ui::ResourceBundle::GetSharedInstance().GetImageNamed(
-      IDR_AURA_UBER_TRAY_MORE).ToSkBitmap());
+      IDR_AURA_UBER_TRAY_MORE).ToImageSkia());
   AddChildView(more_);
 }
 
@@ -45,8 +45,8 @@ void TrayItemMore::SetLabel(const string16& label) {
   SchedulePaint();
 }
 
-void TrayItemMore::SetImage(const SkBitmap* bitmap) {
-  icon_->SetImage(bitmap);
+void TrayItemMore::SetImage(const gfx::ImageSkia* image_skia) {
+  icon_->SetImage(image_skia);
   SchedulePaint();
 }
 
@@ -58,6 +58,11 @@ void TrayItemMore::ReplaceIcon(views::View* view) {
   delete icon_;
   icon_ = NULL;
   AddChildViewAt(view, 0);
+}
+
+bool TrayItemMore::PerformAction(const views::Event& event) {
+  owner_->TransitionDetailedView();
+  return true;
 }
 
 void TrayItemMore::Layout() {
@@ -74,22 +79,10 @@ void TrayItemMore::Layout() {
 
   // Adjust the label's bounds in case it got cut off by |more_|.
   if (label_->bounds().Intersects(more_->bounds())) {
-    label_->SetBoundsRect(label_->bounds().Subtract(more_->bounds()));
+    gfx::Rect bounds = label_->bounds();
+    bounds.set_width(more_->x() - kTrayPopupPaddingBetweenItems - label_->x());
+    label_->SetBoundsRect(bounds);
   }
-}
-
-bool TrayItemMore::OnKeyPressed(const views::KeyEvent& event) {
-  if (event.key_code() == ui::VKEY_SPACE ||
-      event.key_code() == ui::VKEY_RETURN) {
-    owner_->PopupDetailedView(0, true);
-    return true;
-  }
-  return false;
-}
-
-bool TrayItemMore::OnMousePressed(const views::MouseEvent& event) {
-  owner_->PopupDetailedView(0, true);
-  return true;
 }
 
 void TrayItemMore::GetAccessibleState(ui::AccessibleViewState* state) {

@@ -4,16 +4,15 @@
 
 #ifndef SYNC_JS_JS_EVENT_DETAILS_H_
 #define SYNC_JS_JS_EVENT_DETAILS_H_
-#pragma once
 
 // See README.js for design comments.
 
 #include <string>
 
 #include "base/values.h"
-#include "sync/util/immutable.h"
+#include "sync/internal_api/public/util/immutable.h"
 
-namespace browser_sync {
+namespace syncer {
 
 // A thin wrapper around Immutable<DictionaryValue>.  Used for passing
 // around event details to different threads.
@@ -40,6 +39,6 @@ class JsEventDetails {
   ImmutableDictionaryValue details_;
 };
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_JS_JS_EVENT_DETAILS_H_

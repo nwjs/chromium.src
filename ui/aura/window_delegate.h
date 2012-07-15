@@ -4,7 +4,6 @@
 
 #ifndef UI_AURA_WINDOW_DELEGATE_H_
 #define UI_AURA_WINDOW_DELEGATE_H_
-#pragma once
 
 #include "ui/aura/aura_export.h"
 #include "ui/base/events.h"
@@ -12,6 +11,7 @@
 
 namespace gfx {
 class Canvas;
+class Path;
 class Point;
 class Rect;
 class Size;
@@ -36,7 +36,7 @@ class AURA_EXPORT WindowDelegate {
                                const gfx::Rect& new_bounds) = 0;
 
   // Sent to the Window's delegate when the Window gains or loses focus.
-  virtual void OnFocus() = 0;
+  virtual void OnFocus(aura::Window* old_focused_window) = 0;
   virtual void OnBlur() = 0;
 
   virtual bool OnKeyEvent(KeyEvent* event) = 0;
@@ -48,6 +48,12 @@ class AURA_EXPORT WindowDelegate {
   // Returns the non-client component (see hit_test.h) containing |point|, in
   // window coordinates.
   virtual int GetNonClientComponent(const gfx::Point& point) const = 0;
+
+  // Returns true if event handling should descend into |child|. |location| is
+  // in terms of the Window.
+  virtual bool ShouldDescendIntoChildForEventHandling(
+      Window* child,
+      const gfx::Point& location) = 0;
 
   virtual bool OnMouseEvent(MouseEvent* event) = 0;
 
@@ -64,6 +70,9 @@ class AURA_EXPORT WindowDelegate {
   // Asks the delegate to paint window contents into the supplied canvas.
   virtual void OnPaint(gfx::Canvas* canvas) = 0;
 
+  // Called when the window's device scale factor has changed.
+  virtual void OnDeviceScaleFactorChanged(float device_scale_factor) = 0;
+
   // Called from Window's destructor before OnWindowDestroyed and before the
   // children have been destroyed and the window has been removed from its
   // parent.
@@ -75,8 +84,21 @@ class AURA_EXPORT WindowDelegate {
   // The delegate can use this as an opportunity to delete itself if necessary.
   virtual void OnWindowDestroyed() = 0;
 
-  // Called when the visibility of a Window changed.
+  // Called when the visibility of a Window changes. See description in
+  // WindowObserver::OnWindowDestroyed() for details.
+  // TODO: this should be renamed to OnWindowTargetVisibilityChanged() to
+  // match when it's sent.
   virtual void OnWindowVisibilityChanged(bool visible) = 0;
+
+  // Called from Window::HitTest to check if the window has a custom hit test
+  // mask. It works similar to the views counterparts. That is, if the function
+  // returns true, GetHitTestMask below will be called to get the mask.
+  // Otherwise, Window will hit-test against its bounds.
+  virtual bool HasHitTestMask() const = 0;
+
+  // Called from Window::HitTest to retrieve hit test mask when HasHitTestMask
+  // above returns true.
+  virtual void GetHitTestMask(gfx::Path* mask) const = 0;
 
  protected:
   virtual ~WindowDelegate() {}

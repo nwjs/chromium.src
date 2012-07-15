@@ -12,6 +12,8 @@
 #include "media/audio/audio_util.h"
 #include "media/audio/mac/audio_manager_mac.h"
 
+namespace media {
+
 // Reorder PCM from AAC layout to Core Audio 5.1 layout.
 // TODO(fbarchard): Switch layout when ffmpeg is updated.
 template<class Format>
@@ -50,7 +52,8 @@ AUAudioOutputStream::AUAudioOutputStream(
       output_unit_(0),
       output_device_id_(kAudioObjectUnknown),
       volume_(1),
-      hardware_latency_frames_(0) {
+      hardware_latency_frames_(0),
+      stopped_(false) {
   // We must have a manager.
   DCHECK(manager_);
   // A frame is one sample across all channels. In interleaved audio the per
@@ -178,6 +181,7 @@ void AUAudioOutputStream::Start(AudioSourceCallback* callback) {
   if (!output_unit_)
     return;
 
+  stopped_ = false;
   source_ = callback;
 
   AudioOutputUnitStart(output_unit_);
@@ -186,9 +190,13 @@ void AUAudioOutputStream::Start(AudioSourceCallback* callback) {
 void AUAudioOutputStream::Stop() {
   // We request a synchronous stop, so the next call can take some time. In
   // the windows implementation we block here as well.
-  source_ = NULL;
+  if (stopped_)
+    return;
 
   AudioOutputUnitStop(output_unit_);
+
+  source_ = NULL;
+  stopped_ = true;
 }
 
 void AUAudioOutputStream::SetVolume(double volume) {
@@ -219,7 +227,7 @@ OSStatus AUAudioOutputStream::Render(UInt32 number_of_frames,
   uint32 hardware_pending_bytes = static_cast<uint32>
       ((playout_latency_frames + 0.5) * format_.mBytesPerFrame);
   uint32 filled = source_->OnMoreData(
-      this, audio_data, buffer.mDataByteSize,
+      audio_data, buffer.mDataByteSize,
       AudioBuffersState(0, hardware_pending_bytes));
 
   // Handle channel order for 5.1 audio.
@@ -344,3 +352,5 @@ double AUAudioOutputStream::GetPlayoutLatency(
 
   return (delay_frames + hardware_latency_frames_);
 }
+
+}  // namespace media

@@ -39,13 +39,14 @@ class PPAPI_SHARED_EXPORT PPB_AudioInput_Shared
   virtual thunk::PPB_AudioInput_API* AsPPB_AudioInput_API() OVERRIDE;
 
   // Implementation of PPB_AudioInput_API non-trusted methods.
-  virtual int32_t EnumerateDevices(PP_Resource* devices,
-                                   PP_CompletionCallback callback) OVERRIDE;
+  virtual int32_t EnumerateDevices(
+      PP_Resource* devices,
+      scoped_refptr<TrackedCallback> callback) OVERRIDE;
   virtual int32_t Open(const std::string& device_id,
                        PP_Resource config,
                        PPB_AudioInput_Callback audio_input_callback,
                        void* user_data,
-                       PP_CompletionCallback callback) OVERRIDE;
+                       scoped_refptr<TrackedCallback> callback) OVERRIDE;
   virtual PP_Resource GetCurrentConfig() OVERRIDE;
   virtual PP_Bool StartCapture() OVERRIDE;
   virtual PP_Bool StopCapture() OVERRIDE;
@@ -58,7 +59,8 @@ class PPAPI_SHARED_EXPORT PPB_AudioInput_Shared
                       size_t shared_memory_size,
                       base::SyncSocket::Handle socket_handle);
 
-  static PP_CompletionCallback MakeIgnoredCompletionCallback();
+  static scoped_refptr<TrackedCallback> MakeIgnoredCompletionCallback(
+      Resource* resource);
 
  protected:
   enum OpenState {
@@ -69,12 +71,13 @@ class PPAPI_SHARED_EXPORT PPB_AudioInput_Shared
 
   // Subclasses should implement these methods to do impl- and proxy-specific
   // work.
-  virtual int32_t InternalEnumerateDevices(PP_Resource* devices,
-                                           PP_CompletionCallback callback) = 0;
+  virtual int32_t InternalEnumerateDevices(
+      PP_Resource* devices,
+      scoped_refptr<TrackedCallback> callback) = 0;
   virtual int32_t InternalOpen(const std::string& device_id,
                                PP_AudioSampleRate sample_rate,
                                uint32_t sample_frame_count,
-                               PP_CompletionCallback callback) = 0;
+                               scoped_refptr<TrackedCallback> callback) = 0;
   virtual PP_Bool InternalStartCapture() = 0;
   virtual PP_Bool InternalStopCapture() = 0;
   virtual void InternalClose() = 0;
@@ -99,6 +102,9 @@ class PPAPI_SHARED_EXPORT PPB_AudioInput_Shared
   // Starts execution of the audio input thread.
   void StartThread();
 
+  // Stops execution of the audio input thread.
+  void StopThread();
+
   // DelegateSimpleThread::Delegate implementation.
   // Run on the audio input thread.
   virtual void Run();
@@ -113,7 +119,7 @@ class PPAPI_SHARED_EXPORT PPB_AudioInput_Shared
                      PP_Resource config,
                      PPB_AudioInput_Callback audio_input_callback,
                      void* user_data,
-                     PP_CompletionCallback callback);
+                     scoped_refptr<TrackedCallback> callback);
 
   OpenState open_state_;
 
@@ -122,7 +128,7 @@ class PPAPI_SHARED_EXPORT PPB_AudioInput_Shared
 
   // Socket used to notify us when new samples are available. This pointer is
   // created in SetStreamInfo().
-  scoped_ptr<base::SyncSocket> socket_;
+  scoped_ptr<base::CancelableSyncSocket> socket_;
 
   // Sample buffer in shared memory. This pointer is created in
   // SetStreamInfo(). The memory is only mapped when the audio thread is

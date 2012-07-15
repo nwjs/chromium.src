@@ -11,19 +11,17 @@ var css = [
   'list.css',
   'table.css',
   'menu.css',
-  'widgets.css',
 ];
 
 var script = [
-  'local_strings.js',
-  'i18n_template.js',
+  'load_time_data.js',
+  'i18n_template_no_process.js',
 
   'event_tracker.js',
   'util.js',
   'cr.js',
   'cr/ui.js',
   'cr/event_target.js',
-  'cr/ui/touch_handler.js',
   'cr/ui/array_data_model.js',
   'cr/ui/list_item.js',
   'cr/ui/list_selection_model.js',
@@ -33,6 +31,7 @@ var script = [
 
   'cr/ui/splitter.js',
   'cr/ui/table/table_splitter.js',
+  'cr/ui/touch_handler.js',
 
   'cr/ui/table/table_column.js',
   'cr/ui/table/table_column_model.js',

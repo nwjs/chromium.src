@@ -13,8 +13,11 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time.h"
+#include "media/audio/audio_input_stream_impl.h"
 #include "media/audio/audio_io.h"
 #include "media/audio/audio_parameters.h"
+
+namespace media {
 
 class AlsaWrapper;
 class AudioManagerLinux;
@@ -22,7 +25,7 @@ class AudioManagerLinux;
 // Provides an input stream for audio capture based on the ALSA PCM interface.
 // This object is not thread safe and all methods should be invoked in the
 // thread that created the object.
-class AlsaPcmInputStream : public AudioInputStream {
+class AlsaPcmInputStream : public AudioInputStreamImpl {
  public:
   // Pass this to the constructor if you want to attempt auto-selection
   // of the audio recording device.
@@ -83,5 +86,7 @@ class AlsaPcmInputStream : public AudioInputStream {
 
   DISALLOW_COPY_AND_ASSIGN(AlsaPcmInputStream);
 };
+
+}  // namespace media
 
 #endif  // MEDIA_AUDIO_LINUX_ALSA_INPUT_H_

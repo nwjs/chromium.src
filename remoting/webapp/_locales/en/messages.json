@@ -17,10 +17,6 @@
     "message": "All connections",
     "description": "In the connection history dialog, clicking this button shows all recent connections unfiltered."
   },
-  "ASK_PIN_DIALOG_DESCRIPTION": {
-    "message": "To protect access to this computer, please choose a PIN. This PIN will be required when connecting from another location.",
-    "description": "Explanatory text displayed when the user enables remote access or changes the PIN."
-  },
   "ASK_PIN_DIALOG_LABEL": {
     "message": "PIN",
     "description": "Label next to the PIN entry edit box. The user must enter a PIN before enabling remote access to their computer."
@@ -98,7 +94,7 @@
     "placeholders": {
       "url": {
         "content": "$1",
-        "example": "<a href=http://g.co/remote>g.co/remote</a>"
+        "example": "<a href=http://chrome.google.com/remotedesktop>chrome.google.com/remotedesktop</a>"
       }
     }
   },
@@ -131,16 +127,16 @@
     "description": "Column header in the connection history table showing the length of time for which a connection was active, if available."
   },
   "ERROR_AUTHENTICATION_FAILED": {
-    "message": "Authentication failed. Please sign out of Chromoting and try again.",
+    "message": "Authentication failed. Please sign in to Chromoting again.",
     "description": "Error displayed if authentication fails. This can be caused by stale credentials, in which logging out of the web-app and retrying can fix the problem."
   },
   "ERROR_BAD_PLUGIN_VERSION": {
     "message": "Some components required for Chromoting are missing. Please make sure you have installed the latest version and try again.",
     "description": "Error displayed if the host or client plugin are missing or if they could not be loaded."
   },
-  "ERROR_GENERIC": {
-    "message": "An unknown error occurred. Please sign out of Chromoting and try again.",
-    "description": "Generic error message, displayed if something went wrong, but we aren't able to determine what, or the cause is too technical to be of use to a typical user."
+  "ERROR_HOST_OVERLOAD": {
+    "message": "Connections to the remote computer are temporarily blocked because somebody was trying to connect to it with invalid PIN. Please try again later.",
+    "description": "Error that is shown on the client side when the host is blocking all connections due to failed authentication attempts."
   },
   "ERROR_HOST_IS_OFFLINE": {
     "message": "The remote computer is not responding to connection requests. Please verify that it is online and try again.",
@@ -158,6 +154,10 @@
     "message": "Unable to reach the host. This is probably due to the configuration of the network you are using.",
     "description": "Error displayed when the host is online, but we are unable to connect to it due to network configuration."
   },
+  "ERROR_NOT_AUTHENTICATED": {
+    "message": "You are not signed in to Chromoting. Please sign in and try again.",
+    "description": "Error displayed when an operation is attempted that requires a signed-in user, but no-one is currently signed in."
+  },
   "ERROR_MISSING_PLUGIN": {
     "message": "Some components required for Chromoting are missing. Please make sure you're running the latest version of Chromium and try again.",
     "description": "Error displayed if the client plugin fails to load."
@@ -174,9 +174,21 @@
     "message": "An unexpected error occurred. Please report this problem to the developers.",
     "description": "Error displayed in situations where things go wrong in ways not anticipated by the developers. There is typically no user-workaround to suggest, other than reporting the error so that we can investigate further."
   },
+  "FOOTER_CONNECTING": {
+    "message": "Connecting\u2026",
+    "description": "Text displayed while a client is connecting to a host, but before the connection is established."
+  },
   "FOOTER_WAITING": {
     "message": "waiting for connection\u2026",
     "description": "Footer text displayed at the host after an access code has been generated, but before a client connects."
+  },
+  "FULL_SCREEN": {
+    "message": "Full screen",
+    "description": "Menu option for toggle full-screen mode. Equivalent to using the Wrench menu to do the same thing."
+  },
+  "GET_STARTED": {
+    "message": "Get started",
+    "description": "Button displayed underneath explanatory text for app features. Clicking causes the text, infographic and the button itself to be replaced by the actual UI for that feature."
   },
   "HELP": {
     "message": "Help",
@@ -191,7 +203,7 @@
     "description": "Description of the 'access' or 'client' functionality, displayed next to a button that instigates an access operation."
   },
   "HOME_DAEMON_ACTIVE_MESSAGE": {
-    "message": "You may securely access this computer from anywhere you sign in to Chromoting.",
+    "message": "You may securely access this computer using Chromoting.",
     "description": "Message displayed when the current computer is accepting remote connections."
   },
   "HOME_DAEMON_CHANGE_PIN_LINK": {
@@ -207,8 +219,98 @@
     "description": "Button displayed when the current computer is not accepting remote connections. Clicking this button causes it to start accepting remote connections."
   },
   "HOME_DAEMON_START_MESSAGE": {
-    "message": "To securely access this computer from anywhere you sign in to Chromoting, you must first enable remote connections.",
+    "message": "You must enable remote connections if you want to use Chromoting to access this computer.",
     "description": "Message displayed when the current computer is not accepting remote connections, instructing the user how to enable them."
+  },
+  "HOST_LIST_EMPTY_HOSTING_SUPPORTED": {
+    "message": "To enable remote connections to a different computer, install Chromoting there and click \u201c$buttonName$\u201d.",
+    "description": "Message displayed to the user if there are no hosts registered to their account, informing them how to set up a host on another computer.",
+    "placeholders": {
+      "buttonName": {
+        "content": "$1",
+        "example": "Enable remote connections"
+      }
+    }
+  },
+  "HOST_LIST_EMPTY_HOSTING_UNSUPPORTED": {
+    "message": "You have no computers registered. To enable remote connections to a computer, install Chromoting there and click \u201c$buttonName$\u201d.",
+    "description": "Message displayed to the user if there are no hosts registered to their account, informing them how to set up a host on another computer.",
+    "placeholders": {
+      "buttonName": {
+        "content": "$1",
+        "example": "Enable remote connections"
+      }
+    }
+  },
+  "HOST_SETUP_CRASH_REPORTING_MESSAGE": {
+    "message": "Help us improve Chromoting by allowing us to collect usage statistics and crash reports.",
+    "description": "Message displayed next to the checkbox that the user can select to allow crash dump collection and reporting."
+  },
+  "HOST_SETUP_DIALOG_DESCRIPTION": {
+    "message": "To protect access to this computer, please choose a PIN of $boldStart$at least six digits$boldEnd$. This PIN will be required when connecting from another location.",
+    "description": "Explanatory text displayed when the user enables remote access or changes the PIN.",
+    "placeholders": {
+      "boldStart": {
+        "content": "$1",
+        "example": "<b>"
+      },
+      "boldEnd": {
+        "content": "$2",
+        "example": "</b>"
+      }
+    }
+  },
+  "HOST_SETUP_HOST_FAILED": {
+    "message": "Failed to start remote access service.",
+    "description": "Message shown when host service fails to start when enabling the host on local computer."
+  },
+  "HOST_SETUP_INSTALL": {
+    "message": "Chrome is downloading the Chrome Remote Desktop Host installer.  Once the download is complete, please run the installer before continuing.",
+    "description": "Message shown when user is asked to manually install the Host components."
+  },
+  "HOST_SETUP_INSTALL_PENDING": {
+    "message": "Please run the installer before continuing.",
+    "description": "Message shown when user has attempted to continue past the manual install dialog, but the Host components are not yet installed."
+  },
+  "HOST_SETUP_REGISTRATION_FAILED": {
+    "message": "Failed to register this computer.",
+    "description": "Message shown when host registration fails when enabling the host on local computer."
+  },
+  "HOST_SETUP_STARTED": {
+    "message": "Remote connections for this computer have been enabled.",
+    "description": "Message shown after access to local computer has been enabled successfully."
+  },
+  "HOST_SETUP_STARTED_DISABLE_SLEEP": {
+    "message": "Please check your computer's power management settings and ensure that it is not configured to sleep when idle.",
+    "description": "Instructions to the user to ask them to disable power management for the computer in order to be able to connect to it."
+  },
+  "HOST_SETUP_STARTING": {
+    "message": "Enabling remote connections for this computer\u2026",
+    "description": "Message shown when local machine is being registered in the directory and when starting the host."
+  },
+  "HOST_SETUP_STOP_FAILED": {
+    "message": "Failed to disable remote access to this computer. Please try again later.",
+    "description": "Message shown after we've failed to stop the host."
+  },
+  "HOST_SETUP_STOPPED": {
+    "message": "Remote connections for this computer have been disabled.",
+    "description": "Message shown after host has been stopped."
+  },
+  "HOST_SETUP_STOPPING": {
+    "message": "Disabling remote connections for this computer\u2026",
+    "description": "Message shown when host is being stopped on the local machine."
+  },
+  "HOST_SETUP_UPDATED_PIN": {
+    "message": "Your PIN has been updated.",
+    "description": "Message shown after changing PIN for the local computer."
+  },
+  "HOST_SETUP_UPDATING_PIN": {
+    "message": "The PIN for this computer is being updated\u2026",
+    "description": "Message shown while changing PIN for the local computer."
+  },
+  "HOST_SETUP_UPDATE_PIN_FAILED": {
+    "message": "Failed to update the PIN. Please try again later.",
+    "description": "Message shown we fail to update PIN for the local computer."
   },
   "HOME_SHARE_BUTTON": {
     "message": "Share",
@@ -234,9 +336,21 @@
     "message": "Once they enter the code your sharing session will begin.",
     "description": "Instructions shown below the access code when it is ready to be conveyed to the client."
   },
+  "INVALID_PIN": {
+    "message": "Please enter a PIN consisting of six or more digits.",
+    "description": "An error message displayed if the user enters an invalid PIN while setting up a host."
+  },
+  "IT2ME_FIRST_RUN": {
+    "message": "User-to-user screen sharing, perfect for remote technical support.",
+    "description": "Description of the 'IT2Me' remote support functionality, displayed until the user clicks a 'get started' button, at which point it is replaced by the actual UI for that functionality."
+  },
   "LABEL_CONNECTED": {
     "message": "Connected:",
     "description": "String displayed in front of the host when a connection is active informing the client user who they are connected to."
+  },
+  "ME2ME_FIRST_RUN": {
+    "message": "Access your own computer from anywhere.",
+    "description": "Description of the 'Me2Me' remote access functionality, displayed until the user clicks a 'get started' button, at which point it is replaced by the actual UI for that functionality."
   },
   "MESSAGE_GENERATING": {
     "message": "Generating access code\u2026",
@@ -282,6 +396,10 @@
       }
     }
   },
+  "ORIGINAL_SIZE": {
+    "message": "Original size",
+    "description": "Menu option for disabling shrink-to-fit. When clicked, the remote desktop will be displayed at 1:1 scale."
+  },
   "OUTGOING_CONNECTIONS": {
     "message": "From this computer",
     "description": "In the connection history dialog, clicking this button shows only recent connections from this computer."
@@ -300,6 +418,10 @@
       }
     }
   },
+  "PINS_NOT_EQUAL": {
+    "message": "Please enter the same PIN in both boxes.",
+    "description": "Error message displayed to the user if they enter different PINs in the boxes marked 'PIN' and 'retype PIN'."
+  },
   "PRODUCT_DESCRIPTION": {
     "message": "Access other computers or allow another user to access your computer securely over the Internet.",
     "description": "Web-app description. Displayed in Chromium's extensions page."
@@ -315,6 +437,26 @@
   "RETRY": {
     "message": "Retry",
     "description": "Label for button to retry connecting to a Me2Me host, after failing to connect to that host. This button appears on the 'session-finished' page."
+  },
+  "SCREEN_OPTIONS": {
+    "message": "Screen options",
+    "description": "Tool-bar button used to access the Full-screen and shrink-to-fit features ('screen' in this context refers to the fact that the options are related to how the remote screen is displayed)."
+  },
+  "SEND_CTRL_ALT_DEL": {
+    "message": "Ctrl-Alt-Del",
+    "description": "Label for the client-side menu button that sends a Ctrl-Alt-Del sequence to the host. Clicking this button behaves as if Ctrl, Alt and Del were pressed and then released at the host."
+  },
+  "SEND_KEYS": {
+    "message": "Send keys",
+    "description": "Tool-bar button used to access buttons for pressing and releasing keys or sequences of keys that might not otherwise be available. These are currently limited to Ctrl-Alt-Del, which if pressed at a client would take effect there, rather than being sent to the host as the user expected."
+  },
+  "SHRINK_TO_FIT": {
+    "message": "Shrink to fit",
+    "description": "Menu option for enabling shrink-to-fit. When clicked, the remote desktop will be scaled down so that it fits in the browser window."
+  },
+  "SIGN_IN_BUTTON": {
+    "message": "Sign in",
+    "description": "Sign in button, visible if the user's authentication token is corrupt, in which case the user has to sign in (authenticate) to the app again."
   },
   "SIGN_OUT_BUTTON": {
     "message": "Sign out",
@@ -342,10 +484,6 @@
     "message": "Disable remote connections to this computer",
     "description": "The tool-tip shown when the user hovers over the 'delete host' button. Clicking this button removes the host from the list and disables connections to it."
   },
-  "TOOLTIP_SCALING": {
-    "message": "Scale to fit",
-    "description": "The tool-tip shown when the user hovers over the scale to fit button. Clicking this button toggles between scaling down the remote desktop to fit it inside the Chromium browser window and displaying it at 1:1 scale."
-  },
   "TOOLTIP_RENAME": {
     "message": "Edit computer name",
     "description": "The tool-tip shown when the user hovers over the 'rename host' button. Clicking this button allows the host name to be edited in-place."
@@ -353,5 +491,9 @@
   "WARNING_NAT_DISABLED": {
     "message": "NOTE: Policy settings permit connections only between computers within your network.",
     "description": "Message displayed at the bottom of the host screen if local policy dictates that NAT traversal is disabled, meaning that connections outside the local network will not work."
+  },
+  "WHY_IS_THIS_SAFE": {
+    "message": "Why is this safe?",
+    "description": "Help link displayed when the user enables the host on this computer. Clicking this link opens a page that explains why this operation is safe. This string appears in a UI with limited horizontal space. Please try to keep translations no more than about 30 characters."
   }
 }

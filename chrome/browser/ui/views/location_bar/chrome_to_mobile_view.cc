@@ -6,11 +6,12 @@
 
 #include "base/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
+#include "chrome/browser/command_updater.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/browser_dialogs.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "grit/generated_resources.h"
-#include "grit/theme_resources_standard.h"
+#include "grit/theme_resources.h"
 #include "ui/base/accessibility/accessible_view_state.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -22,11 +23,13 @@ ChromeToMobileView::ChromeToMobileView(
       command_updater_(command_updater) {
   set_id(VIEW_ID_CHROME_TO_MOBILE_BUTTON);
   set_accessibility_focusable(true);
-  SetImage(ResourceBundle::GetSharedInstance().GetBitmapNamed(IDR_MOBILE));
+  SetImage(
+      ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(IDR_MOBILE));
   SetTooltipText(
       l10n_util::GetStringUTF16(IDS_CHROME_TO_MOBILE_BUBBLE_TOOLTIP));
   SetVisible(command_updater_->IsCommandEnabled(IDC_CHROME_TO_MOBILE_PAGE));
   command_updater_->AddCommandObserver(IDC_CHROME_TO_MOBILE_PAGE, this);
+  TouchableLocationBarView::Init(this);
 }
 
 ChromeToMobileView::~ChromeToMobileView() {
@@ -41,6 +44,10 @@ void ChromeToMobileView::EnabledStateChangedForCommand(int id, bool enabled) {
   }
 }
 
+int ChromeToMobileView::GetBuiltInHorizontalPadding() const {
+  return GetBuiltInHorizontalPaddingImpl();
+}
+
 void ChromeToMobileView::GetAccessibleState(ui::AccessibleViewState* state) {
   state->name = l10n_util::GetStringUTF16(IDS_ACCNAME_CHROME_TO_MOBILE);
   state->role = ui::AccessibilityTypes::ROLE_PUSHBUTTON;
@@ -49,10 +56,10 @@ void ChromeToMobileView::GetAccessibleState(ui::AccessibleViewState* state) {
 bool ChromeToMobileView::GetTooltipText(const gfx::Point& p,
                                         string16* tooltip) const {
   // Don't show tooltip to distract user if ChromeToMobileBubbleView is showing.
-  if (browser::IsChromeToMobileBubbleViewShowing())
+  if (chrome::IsChromeToMobileBubbleViewShowing())
     return false;
 
-  return ImageView::GetTooltipText(p, tooltip);
+  return views::ImageView::GetTooltipText(p, tooltip);
 }
 
 bool ChromeToMobileView::OnMousePressed(const views::MouseEvent& event) {

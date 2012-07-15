@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROME_BENCHMARKING_MESSAGE_FILTER_H_
 #define CHROME_BROWSER_CHROME_BENCHMARKING_MESSAGE_FILTER_H_
-#pragma once
 
 #include "content/public/browser/browser_message_filter.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebCache.h"
@@ -33,7 +32,7 @@ class ChromeBenchmarkingMessageFilter : public content::BrowserMessageFilter {
 
   // Message handlers.
   void OnCloseCurrentConnections();
-  void OnClearCache(bool preserve_ssl_host_info, IPC::Message* reply_msg);
+  void OnClearCache(IPC::Message* reply_msg);
   void OnClearHostResolverCache(int* result);
   void OnEnableSpdy(bool enable);
   void OnSetCacheMode(bool enabled);

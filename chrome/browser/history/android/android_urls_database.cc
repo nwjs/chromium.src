@@ -140,4 +140,34 @@ bool AndroidURLsDatabase::UpdateAndroidURLRow(AndroidURLID id,
   return true;
 }
 
+bool AndroidURLsDatabase::ClearAndroidURLRows() {
+  // The android_urls table might not exist if the Android content provider is
+  // never used, especially in the unit tests. See http://b/6385692.
+  if (GetDB().DoesTableExist("android_urls"))
+    return GetDB().Execute("DELETE FROM android_urls");
+
+  return true;
+}
+
+bool AndroidURLsDatabase::MigrateToVersion22() {
+  if (!GetDB().DoesTableExist("android_urls"))
+    return true;
+
+  if (!GetDB().Execute("ALTER TABLE android_urls RENAME TO android_urls_tmp"))
+    return false;
+
+  if (!CreateAndroidURLsTable())
+    return false;
+
+  if (!GetDB().Execute(
+      "INSERT INTO android_urls (id, raw_url, url_id) "
+      "SELECT id, raw_url, url_id FROM android_urls_tmp"))
+    return false;
+
+  if (!GetDB().Execute("DROP TABLE android_urls_tmp"))
+    return false;
+
+  return true;
+}
+
 }  // namespace history

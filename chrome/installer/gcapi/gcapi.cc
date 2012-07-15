@@ -33,6 +33,7 @@
 #include "base/win/scoped_handle.h"
 #include "chrome/installer/gcapi/gcapi_omaha_experiment.h"
 #include "chrome/installer/gcapi/gcapi_reactivation.h"
+#include "chrome/installer/launcher_support/chrome_launcher_support.h"
 #include "chrome/installer/util/google_update_constants.h"
 #include "chrome/installer/util/util_constants.h"
 #include "google_update/google_update_idl.h"
@@ -373,30 +374,8 @@ BOOL __stdcall LaunchGoogleChrome() {
 
   // Now grab the uninstall string from the appropriate ClientState key
   // and use that as the base for a path to chrome.exe.
-  FilePath chrome_exe_path;
-  RegKey client_state(install_key, kChromeRegClientStateKey, KEY_QUERY_VALUE);
-  if (client_state.Valid()) {
-    std::wstring uninstall_string;
-    if (client_state.ReadValue(installer::kUninstallStringField,
-                               &uninstall_string) == ERROR_SUCCESS) {
-      // The uninstall path contains the path to setup.exe which is two levels
-      // down from chrome.exe. Move up two levels (plus one to drop the file
-      // name) and look for chrome.exe from there.
-      FilePath uninstall_path(uninstall_string);
-      chrome_exe_path = uninstall_path.DirName()
-                                      .DirName()
-                                      .DirName()
-                                      .Append(installer::kChromeExe);
-      if (!file_util::PathExists(chrome_exe_path)) {
-        // By way of mild future proofing, look up one to see if there's a
-        // chrome.exe in the version directory
-        chrome_exe_path =
-            uninstall_path.DirName().DirName().Append(installer::kChromeExe);
-      }
-    }
-  }
-
-  if (!file_util::PathExists(chrome_exe_path)) {
+  FilePath chrome_exe_path(chrome_launcher_support::GetAnyChromePath());
+  if (chrome_exe_path.empty()) {
     return false;
   }
 
@@ -556,25 +535,13 @@ int __stdcall GoogleChromeDaysSinceLastRun() {
 }
 
 BOOL __stdcall CanOfferReactivation(const wchar_t* brand_code,
-                                    int previous_brand_codes_length,
-                                    const wchar_t** previous_brand_codes,
                                     int shell_mode,
                                     DWORD* error_code) {
   DCHECK(error_code);
 
-  if (!brand_code ||
-      (previous_brand_codes_length > 0 && previous_brand_codes == NULL)) {
+  if (!brand_code) {
     if (error_code)
       *error_code = REACTIVATE_ERROR_INVALID_INPUT;
-    return FALSE;
-  }
-
-  bool has_system_install = IsChromeInstalled(HKEY_LOCAL_MACHINE);
-  bool has_user_install = IsChromeInstalled(HKEY_CURRENT_USER);
-
-  if (!has_system_install && !has_user_install) {
-    if (error_code)
-      *error_code = REACTIVATE_ERROR_NOTINSTALLED;
     return FALSE;
   }
 
@@ -586,21 +553,20 @@ BOOL __stdcall CanOfferReactivation(const wchar_t* brand_code,
     return FALSE;
   }
 
-  // Make sure we haven't previously been reactivated by this brand code
-  // or any of the previous brand codes from this partner.
-  // Since this function is invoked by ReactivateChrome, and since
-  // ReactivateChrome is called first in non-elevated shell and
-  // second in UAC-elevated shell, we only want to execute this block
-  // of code the first time, in non-elevated mode.
+  // Only run the code below when this function is invoked from a standard,
+  // non-elevated cmd shell.  This is because this section of code looks at
+  // values in HKEY_CURRENT_USER, and we only want to look at the logged-in
+  // user's HKCU, not the admin user's HKCU.
   if (shell_mode == GCAPI_INVOKED_STANDARD_SHELL) {
-    std::vector<std::wstring> reactivation_brands;
-    reactivation_brands.push_back(brand_code);
-    if (previous_brand_codes_length > 0 && previous_brand_codes != NULL) {
-      std::copy(previous_brand_codes,
-                previous_brand_codes + previous_brand_codes_length,
-                std::back_inserter(reactivation_brands));
+
+    if (!IsChromeInstalled(HKEY_LOCAL_MACHINE) &&
+        !IsChromeInstalled(HKEY_CURRENT_USER)) {
+      if (error_code)
+        *error_code = REACTIVATE_ERROR_NOTINSTALLED;
+      return FALSE;
     }
-    if (HasBeenReactivatedByBrandCodes(reactivation_brands)) {
+
+    if (HasBeenReactivated()) {
       if (error_code)
         *error_code = REACTIVATE_ERROR_ALREADY_REACTIVATED;
       return FALSE;
@@ -611,14 +577,10 @@ BOOL __stdcall CanOfferReactivation(const wchar_t* brand_code,
 }
 
 BOOL __stdcall ReactivateChrome(wchar_t* brand_code,
-                                int previous_brand_codes_length,
-                                const wchar_t** previous_brand_codes,
                                 int shell_mode,
                                 DWORD* error_code) {
   BOOL result = FALSE;
   if (CanOfferReactivation(brand_code,
-                           previous_brand_codes_length,
-                           previous_brand_codes,
                            shell_mode,
                            error_code)) {
     if (SetReactivationBrandCode(brand_code, shell_mode)) {

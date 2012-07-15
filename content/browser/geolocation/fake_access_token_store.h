@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CONTENT_BROWSER_GEOLOCATION_FAKE_ACCESS_TOKEN_STORE_H_
 #define CONTENT_BROWSER_GEOLOCATION_FAKE_ACCESS_TOKEN_STORE_H_
-#pragma once
 
 #include "base/message_loop_proxy.h"
 #include "content/public/browser/access_token_store.h"
@@ -34,9 +33,11 @@ class FakeAccessTokenStore : public AccessTokenStore {
   AccessTokenSet access_token_set_;
   LoadAccessTokensCallbackType callback_;
 
- private:
+ protected:
+  // Protected instead of private so we can have NiceMocks.
   virtual ~FakeAccessTokenStore();
 
+ private:
   // In some tests, NotifyDelegateTokensLoaded() is called on a thread
   // other than the originating thread, in which case we must post
   // back to it.

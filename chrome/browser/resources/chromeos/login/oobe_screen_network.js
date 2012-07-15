@@ -43,6 +43,8 @@ cr.define('oobe', function() {
 
       this.dropdown_ = $('networks-list');
       cr.ui.DropDown.decorate(this.dropdown_);
+      this.dropdown_.setAttribute('aria-label',
+                                  localStrings.getString('selectNetwork'));
     },
 
     onBeforeShow: function(data) {
@@ -72,7 +74,7 @@ cr.define('oobe', function() {
       continueButton.id = 'continue-button';
       continueButton.textContent = localStrings.getString('continueButton');
       continueButton.addEventListener('click', function(e) {
-        chrome.send('networkOnExit', []);
+        chrome.send('networkOnExit');
         e.stopPropagation();
       });
       buttons.push(continueButton);
@@ -94,13 +96,6 @@ cr.define('oobe', function() {
 
     $('bubble').showContentForElement($('networks-list'), error,
                                       cr.ui.Bubble.Attachment.BOTTOM);
-  };
-
-  /**
-   * Hides the error notification bubble (if any).
-   */
-  NetworkScreen.clearErrors = function() {
-    $('bubble').hide();
   };
 
   return {

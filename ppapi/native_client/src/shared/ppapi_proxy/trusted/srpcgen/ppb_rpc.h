@@ -19,27 +19,6 @@
 #include "ppapi/c/pp_module.h"
 #include "ppapi/c/pp_resource.h"
 
-class NaClFileRpcServer {
- public:
-  static void StreamAsFile(
-      NaClSrpcRpc* rpc,
-      NaClSrpcClosure* done,
-      PP_Instance instance,
-      const char* url,
-      int32_t callback_id);
-  static void GetFileDesc(
-      NaClSrpcRpc* rpc,
-      NaClSrpcClosure* done,
-      PP_Instance instance,
-      const char* url,
-      NaClSrpcImcDescType* file_desc);
-
- private:
-  NaClFileRpcServer();
-  NaClFileRpcServer(const NaClFileRpcServer&);
-  void operator=(const NaClFileRpcServer);
-};  // class NaClFileRpcServer
-
 class PpbRpcServer {
  public:
   static void PPB_GetInterface(
@@ -173,43 +152,6 @@ class PpbCoreRpcServer {
   PpbCoreRpcServer(const PpbCoreRpcServer&);
   void operator=(const PpbCoreRpcServer);
 };  // class PpbCoreRpcServer
-
-class PpbCursorControlRpcServer {
- public:
-  static void PPB_CursorControl_SetCursor(
-      NaClSrpcRpc* rpc,
-      NaClSrpcClosure* done,
-      PP_Instance instance,
-      int32_t type,
-      PP_Resource custom_image,
-      nacl_abi_size_t hot_spot_bytes, char* hot_spot,
-      int32_t* success);
-  static void PPB_CursorControl_LockCursor(
-      NaClSrpcRpc* rpc,
-      NaClSrpcClosure* done,
-      PP_Instance instance,
-      int32_t* success);
-  static void PPB_CursorControl_UnlockCursor(
-      NaClSrpcRpc* rpc,
-      NaClSrpcClosure* done,
-      PP_Instance instance,
-      int32_t* success);
-  static void PPB_CursorControl_HasCursorLock(
-      NaClSrpcRpc* rpc,
-      NaClSrpcClosure* done,
-      PP_Instance instance,
-      int32_t* success);
-  static void PPB_CursorControl_CanLockCursor(
-      NaClSrpcRpc* rpc,
-      NaClSrpcClosure* done,
-      PP_Instance instance,
-      int32_t* success);
-
- private:
-  PpbCursorControlRpcServer();
-  PpbCursorControlRpcServer(const PpbCursorControlRpcServer&);
-  void operator=(const PpbCursorControlRpcServer);
-};  // class PpbCursorControlRpcServer
 
 class PpbFileIORpcServer {
  public:
@@ -846,6 +788,23 @@ class PpbMessagingRpcServer {
   void operator=(const PpbMessagingRpcServer);
 };  // class PpbMessagingRpcServer
 
+class PpbMouseCursorRpcServer {
+ public:
+  static void PPB_MouseCursor_SetCursor(
+      NaClSrpcRpc* rpc,
+      NaClSrpcClosure* done,
+      PP_Instance instance,
+      int32_t type,
+      PP_Resource custom_image,
+      nacl_abi_size_t hot_spot_bytes, char* hot_spot,
+      int32_t* success);
+
+ private:
+  PpbMouseCursorRpcServer();
+  PpbMouseCursorRpcServer(const PpbMouseCursorRpcServer&);
+  void operator=(const PpbMouseCursorRpcServer);
+};  // class PpbMouseCursorRpcServer
+
 class PpbMouseLockRpcServer {
  public:
   static void PPB_MouseLock_LockMouse(
@@ -914,6 +873,24 @@ class PpbNetAddressPrivateRpcServer {
       nacl_abi_size_t addr_bytes, char* addr,
       nacl_abi_size_t* address_bytes, char* address,
       int32_t* success);
+  static void PPB_NetAddress_Private_GetScopeID(
+      NaClSrpcRpc* rpc,
+      NaClSrpcClosure* done,
+      nacl_abi_size_t addr_bytes, char* addr,
+      int32_t* scope_id);
+  static void PPB_NetAddress_Private_CreateFromIPv4Address(
+      NaClSrpcRpc* rpc,
+      NaClSrpcClosure* done,
+      nacl_abi_size_t ip_bytes, char* ip,
+      int32_t port,
+      nacl_abi_size_t* addr_bytes, char* addr);
+  static void PPB_NetAddress_Private_CreateFromIPv6Address(
+      NaClSrpcRpc* rpc,
+      NaClSrpcClosure* done,
+      nacl_abi_size_t ip_bytes, char* ip,
+      int32_t scope_id,
+      int32_t port,
+      nacl_abi_size_t* addr_bytes, char* addr);
 
  private:
   PpbNetAddressPrivateRpcServer();
@@ -1432,7 +1409,8 @@ class PpbWebSocketRpcServer {
       NaClSrpcClosure* done,
       PP_Resource ws,
       int32_t callback_id,
-      int32_t* pp_error);
+      int32_t* pp_error,
+      nacl_abi_size_t* sync_read_buffer_bytes, char* sync_read_buffer);
   static void PPB_WebSocket_SendMessage(
       NaClSrpcRpc* rpc,
       NaClSrpcClosure* done,

@@ -9,14 +9,16 @@
 #include "ash/wm/window_modality_controller.h"
 #include "ash/wm/window_util.h"
 #include "base/auto_reset.h"
+#include "ui/aura/client/activation_change_observer.h"
 #include "ui/aura/client/activation_delegate.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/env.h"
+#include "ui/aura/focus_manager.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_delegate.h"
 #include "ui/base/ui_base_types.h"
-#include "ui/gfx/compositor/layer.h"
+#include "ui/compositor/layer.h"
 
 namespace ash {
 namespace internal {
@@ -26,12 +28,12 @@ namespace {
 // that need to be activated in the order that they should be activated.
 const int kWindowContainerIds[] = {
     kShellWindowId_LockSystemModalContainer,
+    kShellWindowId_SettingBubbleContainer,
     kShellWindowId_LockScreenContainer,
     kShellWindowId_SystemModalContainer,
     kShellWindowId_AlwaysOnTopContainer,
-    kShellWindowId_SettingBubbleContainer,
-    kShellWindowId_DefaultContainer,
     kShellWindowId_AppListContainer,
+    kShellWindowId_DefaultContainer,
 
     // Panel, launcher and status are intentionally checked after other
     // containers even though these layers are higher. The user expects their
@@ -40,10 +42,6 @@ const int kWindowContainerIds[] = {
     kShellWindowId_LauncherContainer,
     kShellWindowId_StatusContainer,
 };
-
-aura::Window* GetContainer(int id) {
-  return Shell::GetInstance()->GetContainer(id);
-}
 
 // Returns true if children of |window| can be activated.
 // These are the only containers in which windows can receive focus.
@@ -55,12 +53,42 @@ bool SupportsChildActivation(aura::Window* window) {
   return false;
 }
 
+bool HasModalTransientChild(aura::Window* window) {
+  aura::Window::Windows::const_iterator it;
+  for (it = window->transient_children().begin();
+       it != window->transient_children().end();
+       ++it) {
+    if ((*it)->GetProperty(aura::client::kModalKey) == ui::MODAL_TYPE_WINDOW)
+      return true;
+  }
+  return false;
+}
+
+// See description in VisibilityMatches.
+enum ActivateVisibilityType {
+  TARGET_VISIBILITY,
+  CURRENT_VISIBILITY,
+};
+
+// Used by CanActivateWindowWithEvent() to test the visibility of a window.
+// This is used by two distinct code paths:
+// . when activating from an event we only care about the actual visibility.
+// . when activating because of a keyboard accelerator, in which case we
+//   care about the TargetVisibility.
+bool VisibilityMatches(aura::Window* window, ActivateVisibilityType type) {
+  bool visible = (type == CURRENT_VISIBILITY) ? window->IsVisible() :
+      window->TargetVisibility();
+  return visible || wm::IsWindowMinimized(window);
+}
+
 // Returns true if |window| can be activated or deactivated.
 // A window manager typically defines some notion of "top level window" that
 // supports activation/deactivation.
-bool CanActivateWindow(aura::Window* window, const aura::Event* event) {
+bool CanActivateWindowWithEvent(aura::Window* window,
+                                const aura::Event* event,
+                                ActivateVisibilityType visibility_type) {
   return window &&
-      window->IsVisible() &&
+      VisibilityMatches(window, visibility_type) &&
       (!aura::client::GetActivationDelegate(window) ||
         aura::client::GetActivationDelegate(window)->ShouldActivate(event)) &&
       SupportsChildActivation(window->parent());
@@ -85,16 +113,18 @@ void StackTransientParentsBelowModalWindow(aura::Window* window) {
 ////////////////////////////////////////////////////////////////////////////////
 // ActivationController, public:
 
-ActivationController::ActivationController()
-    : updating_activation_(false) {
-  aura::client::SetActivationClient(Shell::GetRootWindow(), this);
+ActivationController::ActivationController(aura::FocusManager* focus_manager)
+    : focus_manager_(focus_manager),
+      updating_activation_(false),
+      active_window_(NULL),
+      ALLOW_THIS_IN_INITIALIZER_LIST(observer_manager_(this)) {
   aura::Env::GetInstance()->AddObserver(this);
-  Shell::GetRootWindow()->AddRootWindowObserver(this);
+  focus_manager_->AddObserver(this);
 }
 
 ActivationController::~ActivationController() {
-  Shell::GetRootWindow()->RemoveRootWindowObserver(this);
   aura::Env::GetInstance()->RemoveObserver(this);
+  focus_manager_->RemoveObserver(this);
 }
 
 // static
@@ -104,7 +134,7 @@ aura::Window* ActivationController::GetActivatableWindow(
   aura::Window* parent = window->parent();
   aura::Window* child = window;
   while (parent) {
-    if (CanActivateWindow(child, event))
+    if (CanActivateWindowWithEvent(child, event, CURRENT_VISIBILITY))
       return child;
     // If |child| isn't activatable, but has transient parent, trace
     // that path instead.
@@ -116,8 +146,23 @@ aura::Window* ActivationController::GetActivatableWindow(
   return NULL;
 }
 
+bool ActivationController::CanActivateWindow(aura::Window* window) const {
+  return CanActivateWindowWithEvent(window, NULL, TARGET_VISIBILITY) &&
+         !HasModalTransientChild(window);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // ActivationController, aura::client::ActivationClient implementation:
+
+void ActivationController::AddObserver(
+    aura::client::ActivationChangeObserver* observer) {
+  observers_.AddObserver(observer);
+}
+
+void ActivationController::RemoveObserver(
+    aura::client::ActivationChangeObserver* observer) {
+  observers_.RemoveObserver(observer);
+}
 
 void ActivationController::ActivateWindow(aura::Window* window) {
   ActivateWindowWithEvent(window, NULL);
@@ -129,13 +174,13 @@ void ActivationController::DeactivateWindow(aura::Window* window) {
 }
 
 aura::Window* ActivationController::GetActiveWindow() {
-  return Shell::GetRootWindow()->GetProperty(
-      aura::client::kRootWindowActiveWindowKey);
+  return active_window_;
 }
 
 bool ActivationController::OnWillFocusWindow(aura::Window* window,
                                              const aura::Event* event) {
-  return CanActivateWindow(GetActivatableWindow(window, event), event);
+  return CanActivateWindowWithEvent(
+      GetActivatableWindow(window, event), event, CURRENT_VISIBILITY);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -155,22 +200,23 @@ void ActivationController::OnWindowVisibilityChanged(aura::Window* window,
 }
 
 void ActivationController::OnWindowDestroying(aura::Window* window) {
-  if (wm::IsActiveWindow(window)) {
-    // Clear the property before activating something else, since
-    // ActivateWindow() will attempt to notify the window stored in this value
-    // otherwise.
-    Shell::GetRootWindow()->ClearProperty(
-        aura::client::kRootWindowActiveWindowKey);
+  // Don't use wm::IsActiveWidnow in case the |window| has already been
+  // removed from the root tree.
+  if (active_window_ == window) {
+    active_window_ = NULL;
+    FOR_EACH_OBSERVER(aura::client::ActivationChangeObserver,
+                      observers_,
+                      OnWindowActivated(NULL, window));
     ActivateWindow(GetTopmostWindowToActivate(window));
   }
-  window->RemoveObserver(this);
+  observer_manager_.Remove(window);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // ActivationController, aura::EnvObserver implementation:
 
 void ActivationController::OnWindowInitialized(aura::Window* window) {
-  window->AddObserver(this);
+  observer_manager_.Add(window);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -197,13 +243,18 @@ void ActivationController::ActivateWindowWithEvent(aura::Window* window,
 
   AutoReset<bool> in_activate_window(&updating_activation_, true);
   // Nothing may actually have changed.
-  aura::Window* old_active = GetActiveWindow();
-  if (old_active == window)
+  if (active_window_ == window)
     return;
   // The stacking client may impose rules on what window configurations can be
   // activated or deactivated.
-  if (window && !CanActivateWindow(window, event))
+  if (window && !CanActivateWindowWithEvent(window, event, CURRENT_VISIBILITY))
     return;
+
+  // Restore minimized window. This needs to be done before CanReceiveEvents()
+  // is called as that function checks window visibility.
+  if (window && wm::IsWindowMinimized(window))
+    window->Show();
+
   // If the screen is locked, just bring the window to top so that
   // it will be activated when the lock window is destroyed.
   if (window && !window->CanReceiveEvents()) {
@@ -215,8 +266,18 @@ void ActivationController::ActivateWindowWithEvent(aura::Window* window,
       !window->Contains(window->GetFocusManager()->GetFocusedWindow())) {
     window->GetFocusManager()->SetFocusedWindow(window, event);
   }
-  Shell::GetRootWindow()->SetProperty(aura::client::kRootWindowActiveWindowKey,
-                                      window);
+
+  aura::Window* old_active = active_window_;
+  active_window_ = window;
+  if (window) {
+    DCHECK(window->GetRootWindow());
+    Shell::GetInstance()->set_active_root_window(window->GetRootWindow());
+  }
+
+  FOR_EACH_OBSERVER(aura::client::ActivationChangeObserver,
+                    observers_,
+                    OnWindowActivated(window, old_active));
+
   // Invoke OnLostActive after we've changed the active window. That way if the
   // delegate queries for active state it doesn't think the window is still
   // active.
@@ -245,8 +306,11 @@ aura::Window* ActivationController::GetTopmostWindowToActivate(
   size_t current_container_index = 0;
   // If the container of the window losing focus is in the list, start from that
   // container.
+  aura::RootWindow* root = ignore->GetRootWindow();
+  if (!root)
+    root = Shell::GetActiveRootWindow();
   for (size_t i = 0; ignore && i < arraysize(kWindowContainerIds); i++) {
-    aura::Window* container = GetContainer(kWindowContainerIds[i]);
+    aura::Window* container = Shell::GetContainer(root, kWindowContainerIds[i]);
     if (container && container->Contains(ignore)) {
       current_container_index = i;
       break;
@@ -257,10 +321,14 @@ aura::Window* ActivationController::GetTopmostWindowToActivate(
   aura::Window* window = NULL;
   for (; !window && current_container_index < arraysize(kWindowContainerIds);
        current_container_index++) {
-    aura::Window* container =
-        GetContainer(kWindowContainerIds[current_container_index]);
-    if (container)
-      window = GetTopmostWindowToActivateInContainer(container, ignore);
+
+    aura::Window::Windows containers =
+        Shell::GetAllContainers(kWindowContainerIds[current_container_index]);
+    for (aura::Window::Windows::const_iterator iter = containers.begin();
+         iter != containers.end();
+         ++iter) {
+      window = GetTopmostWindowToActivateInContainer((*iter), ignore);
+    }
   }
   return window;
 }
@@ -272,7 +340,9 @@ aura::Window* ActivationController::GetTopmostWindowToActivateInContainer(
            container->children().rbegin();
        i != container->children().rend();
        ++i) {
-    if (*i != ignore && CanActivateWindow(*i, NULL))
+    if (*i != ignore &&
+        CanActivateWindowWithEvent(*i, NULL, CURRENT_VISIBILITY) &&
+        !wm::IsWindowMinimized(*i))
       return *i;
   }
   return NULL;

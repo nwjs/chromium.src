@@ -9,11 +9,12 @@
 #include "base/metrics/histogram.h"
 #include "base/process_util.h"
 #include "base/string_util.h"
+#include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/extensions/extension_process_manager.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/common/chrome_view_type.h"
+#include "chrome/browser/view_type_utils.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/browser_child_process_host_iterator.h"
@@ -23,7 +24,6 @@
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
-#include "content/public/browser/render_view_host_delegate.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/bindings_policy.h"
 #include "content/public/common/process_type.h"
@@ -35,12 +35,14 @@
 #include "content/public/browser/zygote_host_linux.h"
 #endif
 
+using base::StringPrintf;
 using content::BrowserChildProcessHostIterator;
 using content::BrowserThread;
 using content::NavigationEntry;
 using content::RenderViewHost;
 using content::RenderWidgetHost;
 using content::WebContents;
+using extensions::Extension;
 
 // static
 std::string ProcessMemoryInformation::GetRendererTypeNameInEnglish(
@@ -86,6 +88,11 @@ ProcessMemoryInformation::ProcessMemoryInformation()
 
 ProcessMemoryInformation::~ProcessMemoryInformation() {}
 
+bool ProcessMemoryInformation::operator<(
+    const ProcessMemoryInformation& rhs) const {
+  return working_set.priv < rhs.working_set.priv;
+}
+
 ProcessData::ProcessData() {}
 
 ProcessData::ProcessData(const ProcessData& rhs)
@@ -107,7 +114,7 @@ ProcessData& ProcessData::operator=(const ProcessData& rhs) {
 //
 // This operation will hit no fewer than 3 threads.
 //
-// The ChildProcessInfo::Iterator can only be accessed from the IO thread.
+// The BrowserChildProcessHostIterator can only be accessed from the IO thread.
 //
 // The RenderProcessHostIterator can only be accessed from the UI thread.
 //
@@ -115,10 +122,11 @@ ProcessData& ProcessData::operator=(const ProcessData& rhs) {
 // one task run for that long on the UI or IO threads.  So, we run the
 // expensive parts of this operation over on the file thread.
 //
-void MemoryDetails::StartFetch() {
+void MemoryDetails::StartFetch(UserMetricsMode user_metrics_mode) {
   // This might get called from the UI or FILE threads, but should not be
   // getting called from the IO thread.
   DCHECK(!BrowserThread::CurrentlyOn(BrowserThread::IO));
+  user_metrics_mode_ = user_metrics_mode;
 
   // In order to process this request, we need to use the plugin information.
   // However, plugin process information is only available from the IO thread.
@@ -128,6 +136,37 @@ void MemoryDetails::StartFetch() {
 }
 
 MemoryDetails::~MemoryDetails() {}
+
+std::string MemoryDetails::ToLogString() {
+  std::string log;
+  log.reserve(4096);
+  ProcessMemoryInformationList processes = ChromeBrowser()->processes;
+  // Sort by memory consumption, low to high.
+  std::sort(processes.begin(), processes.end());
+  // Print from high to low.
+  for (ProcessMemoryInformationList::reverse_iterator iter1 =
+          processes.rbegin();
+       iter1 != processes.rend();
+       ++iter1) {
+    log += ProcessMemoryInformation::GetFullTypeNameInEnglish(
+            iter1->type, iter1->renderer_type);
+    if (!iter1->titles.empty()) {
+      log += " [";
+      for (std::vector<string16>::const_iterator iter2 =
+               iter1->titles.begin();
+           iter2 != iter1->titles.end(); ++iter2) {
+        if (iter2 != iter1->titles.begin())
+          log += "|";
+        log += UTF16ToUTF8(*iter2);
+      }
+      log += "]";
+    }
+    log += StringPrintf(" %d MB private, %d MB shared\n",
+                        static_cast<int>(iter1->working_set.priv) / 1024,
+                        static_cast<int>(iter1->working_set.shared) / 1024);
+  }
+  return log;
+}
 
 void MemoryDetails::CollectChildInfoOnIOThread() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
@@ -191,7 +230,7 @@ void MemoryDetails::CollectChildInfoOnUIThread() {
       extensions::ProcessMap* extension_process_map =
           extension_service->process_map();
 
-      // The RenderProcessHost may host multiple TabContents.  Any
+      // The RenderProcessHost may host multiple WebContentses.  Any
       // of them which contain diagnostics information make the whole
       // process be considered a diagnostics process.
       content::RenderProcessHost::RenderWidgetHostsIterator iter(
@@ -202,19 +241,15 @@ void MemoryDetails::CollectChildInfoOnUIThread() {
         if (!widget || !widget->IsRenderView())
           continue;
 
-        const RenderViewHost* host =
+        RenderViewHost* host =
             RenderViewHost::From(const_cast<RenderWidgetHost*>(widget));
-        content::RenderViewHostDelegate* host_delegate = host->GetDelegate();
-        DCHECK(host_delegate);
-        GURL url = host_delegate->GetURL();
-        content::ViewType type = host_delegate->GetRenderViewType();
+        WebContents* contents = WebContents::FromRenderViewHost(host);
+        GURL url;
+        if (contents)
+          url = contents->GetURL();
+        chrome::ViewType type = chrome::GetViewType(contents);
         if (host->GetEnabledBindings() & content::BINDINGS_POLICY_WEB_UI) {
-          // TODO(erikkay) the type for devtools doesn't actually appear to
-          // be set.
-          if (type == content::VIEW_TYPE_DEV_TOOLS_UI)
-            process.renderer_type = ProcessMemoryInformation::RENDERER_DEVTOOLS;
-          else
-            process.renderer_type = ProcessMemoryInformation::RENDERER_CHROME;
+          process.renderer_type = ProcessMemoryInformation::RENDERER_CHROME;
         } else if (extension_process_map->Contains(
             host->GetProcess()->GetID())) {
           // For our purposes, don't count processes containing only hosted apps
@@ -233,41 +268,37 @@ void MemoryDetails::CollectChildInfoOnUIThread() {
             }
           }
         }
-        WebContents* contents = host_delegate->GetAsWebContents();
-        if (!contents) {
-          if (extension_process_map->Contains(host->GetProcess()->GetID())) {
-            const Extension* extension =
-                extension_service->extensions()->GetByID(url.host());
-            if (extension) {
-              string16 title = UTF8ToUTF16(extension->name());
-              process.titles.push_back(title);
-            }
-          } else if (process.renderer_type ==
-                     ProcessMemoryInformation::RENDERER_UNKNOWN) {
-            process.titles.push_back(UTF8ToUTF16(url.spec()));
-            switch (type) {
-              case chrome::VIEW_TYPE_BACKGROUND_CONTENTS:
-                process.renderer_type =
-                    ProcessMemoryInformation::RENDERER_BACKGROUND_APP;
-                break;
-              case content::VIEW_TYPE_INTERSTITIAL_PAGE:
-                process.renderer_type =
-                    ProcessMemoryInformation::RENDERER_INTERSTITIAL;
-                break;
-              case chrome::VIEW_TYPE_NOTIFICATION:
-                process.renderer_type =
-                    ProcessMemoryInformation::RENDERER_NOTIFICATION;
-                break;
-              default:
-                process.renderer_type =
-                    ProcessMemoryInformation::RENDERER_UNKNOWN;
-                break;
-            }
+        if (extension_process_map->Contains(host->GetProcess()->GetID())) {
+          const Extension* extension =
+              extension_service->extensions()->GetByID(url.host());
+          if (extension) {
+            string16 title = UTF8ToUTF16(extension->name());
+            process.titles.push_back(title);
           }
           continue;
         }
 
-        // Since We have a WebContents and and the renderer type hasn't been
+        if (!contents) {
+          process.renderer_type =
+                ProcessMemoryInformation::RENDERER_INTERSTITIAL;
+          continue;
+        }
+
+        if (type == chrome::VIEW_TYPE_BACKGROUND_CONTENTS) {
+          process.titles.push_back(UTF8ToUTF16(url.spec()));
+          process.renderer_type =
+                    ProcessMemoryInformation::RENDERER_BACKGROUND_APP;
+          continue;
+        }
+
+        if (type == chrome::VIEW_TYPE_NOTIFICATION) {
+          process.titles.push_back(UTF8ToUTF16(url.spec()));
+          process.renderer_type =
+                    ProcessMemoryInformation::RENDERER_NOTIFICATION;
+          continue;
+        }
+
+        // Since we have a WebContents and and the renderer type hasn't been
         // set yet, it must be a normal tabbed renderer.
         if (process.renderer_type == ProcessMemoryInformation::RENDERER_UNKNOWN)
           process.renderer_type = ProcessMemoryInformation::RENDERER_NORMAL;
@@ -322,7 +353,8 @@ void MemoryDetails::CollectChildInfoOnUIThread() {
     }
   }
 
-  UpdateHistograms();
+  if (user_metrics_mode_ == UPDATE_USER_METRICS)
+    UpdateHistograms();
 
   OnDetailsAvailable();
 }

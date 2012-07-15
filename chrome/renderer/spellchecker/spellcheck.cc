@@ -4,8 +4,10 @@
 
 #include "chrome/renderer/spellchecker/spellcheck.h"
 
+#include "base/bind.h"
 #include "base/file_util.h"
 #include "base/metrics/histogram.h"
+#include "base/message_loop_proxy.h"
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/common/render_messages.h"
@@ -14,15 +16,62 @@
 #include "chrome/common/spellcheck_result.h"
 #include "content/public/renderer/render_thread.h"
 #include "third_party/hunspell/src/hunspell/hunspell.hxx"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebTextCheckingCompletion.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebTextCheckingResult.h"
 
 using base::TimeTicks;
 using content::RenderThread;
+using WebKit::WebVector;
+using WebKit::WebTextCheckingResult;
+using WebKit::WebTextCheckingType;
+
+class SpellCheck::SpellCheckRequestParam
+    : public base::RefCountedThreadSafe<SpellCheck::SpellCheckRequestParam> {
+ public:
+  SpellCheckRequestParam(const string16& text,
+                         int offset,
+                         WebKit::WebTextCheckingCompletion* completion)
+      : text_(text),
+        offset_(offset),
+        completion_(completion) {
+    DCHECK(completion);
+  }
+
+  string16 text() {
+    return text_;
+  }
+
+  int offset() {
+    return offset_;
+  }
+
+  WebKit::WebTextCheckingCompletion* completion() {
+    return completion_;
+  }
+
+ private:
+  friend class base::RefCountedThreadSafe<SpellCheckRequestParam>;
+
+  ~SpellCheckRequestParam() {}
+
+  // Text to be checked in this task.
+  string16 text_;
+
+  // The text offset from the beginning.
+  int offset_;
+
+  // The interface to send the misspelled ranges to WebKit.
+  WebKit::WebTextCheckingCompletion* completion_;
+
+  DISALLOW_COPY_AND_ASSIGN(SpellCheckRequestParam);
+};
 
 SpellCheck::SpellCheck()
     : file_(base::kInvalidPlatformFileValue),
       auto_spell_correct_turned_on_(false),
       is_using_platform_spelling_engine_(false),
-      initialized_(false) {
+      initialized_(false),
+      dictionary_requested_(false) {
   // Wait till we check the first word before doing any initializing.
 }
 
@@ -49,6 +98,8 @@ void SpellCheck::OnInit(IPC::PlatformFileForTransit bdict_file,
   Init(IPC::PlatformFileForTransitToPlatformFile(bdict_file),
        custom_words, language);
   auto_spell_correct_turned_on_ = auto_spell_correct;
+
+  PostDelayedSpellCheckTask();
 }
 
 void SpellCheck::OnWordAdded(const std::string& word) {
@@ -147,13 +198,11 @@ bool SpellCheck::SpellCheckWord(
 
 bool SpellCheck::SpellCheckParagraph(
     const string16& text,
-    int tag,
-    std::vector<SpellCheckResult>* results) {
+    WebKit::WebVector<WebKit::WebTextCheckingResult>* results) {
 #if !defined(OS_MACOSX)
   // Mac has its own spell checker, so this method will not be used.
-
   DCHECK(results);
-
+  std::vector<WebKit::WebTextCheckingResult> textcheck_results;
   size_t length = text.length();
   size_t offset = 0;
 
@@ -171,18 +220,19 @@ bool SpellCheck::SpellCheckParagraph(
                        &misspelling_start,
                        &misspelling_length,
                        NULL)) {
+      results->assign(textcheck_results);
       return true;
     }
 
-    if (results) {
-      results->push_back(SpellCheckResult(
-          SpellCheckResult::SPELLING,
-          misspelling_start + offset,
-          misspelling_length));
-    }
+    string16 replacement;
+    textcheck_results.push_back(WebKit::WebTextCheckingResult(
+        WebKit::WebTextCheckingTypeSpelling,
+        misspelling_start + offset,
+        misspelling_length,
+        replacement));
     offset += misspelling_start + misspelling_length;
   }
-
+  results->assign(textcheck_results);
   return false;
 #else
   return true;
@@ -195,15 +245,18 @@ string16 SpellCheck::GetAutoCorrectionWord(const string16& word, int tag) {
     return autocorrect_word;  // Return the empty string.
 
   int word_length = static_cast<int>(word.size());
-  if (word_length < 2 || word_length > SpellCheckCommon::kMaxAutoCorrectWordSize)
+  if (word_length < 2 ||
+      word_length > chrome::spellcheck_common::kMaxAutoCorrectWordSize)
     return autocorrect_word;
 
   if (InitializeIfNeeded())
     return autocorrect_word;
 
-  char16 misspelled_word[SpellCheckCommon::kMaxAutoCorrectWordSize + 1];
+  char16 misspelled_word[
+      chrome::spellcheck_common::kMaxAutoCorrectWordSize + 1];
   const char16* word_char = word.c_str();
-  for (int i = 0; i <= SpellCheckCommon::kMaxAutoCorrectWordSize; i++) {
+  for (int i = 0; i <= chrome::spellcheck_common::kMaxAutoCorrectWordSize;
+       ++i) {
     if (i >= word_length)
       misspelled_word[i] = 0;
     else
@@ -236,6 +289,39 @@ string16 SpellCheck::GetAutoCorrectionWord(const string16& word, int tag) {
     std::swap(misspelled_word[i], misspelled_word[i + 1]);
   }
   return autocorrect_word;
+}
+
+void SpellCheck::RequestTextChecking(
+    const string16& text,
+    int offset,
+    WebKit::WebTextCheckingCompletion* completion) {
+#if !defined(OS_MACOSX)
+  // Commented out on Mac, because SpellCheckRequest::PerformSpellCheck is not
+  // implemented on Mac. Mac uses its own spellchecker, so this method
+  // will not be used.
+  DCHECK(!is_using_platform_spelling_engine_);
+
+  // Clean up the previous request before starting a new request.
+  if (pending_request_param_.get()) {
+    pending_request_param_->completion()->didCancelCheckingText();
+    pending_request_param_ = NULL;
+  }
+
+  if (InitializeIfNeeded()) {
+    // We will check this text after we finish loading the hunspell dictionary.
+    // Save parameters so that we can use them when we receive an init message
+    // from the browser process.
+    pending_request_param_ = new SpellCheckRequestParam(
+        text, offset, completion);
+    return;
+  }
+
+  requested_params_.push(new SpellCheckRequestParam(text, offset, completion));
+  base::MessageLoopProxy::current()->PostTask(FROM_HERE,
+      base::Bind(&SpellCheck::PerformSpellCheck, AsWeakPtr()));
+#else
+  NOTREACHED();
+#endif
 }
 
 void SpellCheck::InitializeHunspell() {
@@ -272,9 +358,11 @@ bool SpellCheck::InitializeIfNeeded() {
   if (is_using_platform_spelling_engine_)
     return false;
 
-  if (!initialized_) {
-    RenderThread::Get()->Send(new SpellCheckHostMsg_RequestDictionary);
-    initialized_ = true;
+  if (!initialized_ && !dictionary_requested_) {
+    // RenderThread will not exist in test.
+    if (RenderThread::Get())
+      RenderThread::Get()->Send(new SpellCheckHostMsg_RequestDictionary);
+    dictionary_requested_ = true;
     return true;
   }
 
@@ -282,7 +370,7 @@ bool SpellCheck::InitializeIfNeeded() {
   if (file_ != base::kInvalidPlatformFileValue)
     InitializeHunspell();
 
-  return false;
+  return !initialized_;
 }
 
 // When called, relays the request to check the spelling to the proper
@@ -314,6 +402,39 @@ bool SpellCheck::CheckSpelling(const string16& word_to_check, int tag) {
   return word_correct;
 }
 
+void SpellCheck::PostDelayedSpellCheckTask() {
+  if (!pending_request_param_)
+    return;
+
+  if (file_ == base::kInvalidPlatformFileValue) {
+    pending_request_param_->completion()->didCancelCheckingText();
+  } else {
+    requested_params_.push(pending_request_param_);
+    base::MessageLoopProxy::current()->PostTask(FROM_HERE,
+        base::Bind(&SpellCheck::PerformSpellCheck, AsWeakPtr()));
+  }
+
+  pending_request_param_ = NULL;
+}
+
+void SpellCheck::PerformSpellCheck() {
+#if !defined(OS_MACOSX)
+  DCHECK(!requested_params_.empty());
+  scoped_refptr<SpellCheckRequestParam> param = requested_params_.front();
+  DCHECK(param);
+  requested_params_.pop();
+
+  WebKit::WebVector<WebKit::WebTextCheckingResult> results;
+  SpellCheckParagraph(param->text(), &results);
+  param->completion()->didFinishCheckingText(results);
+#else
+  // SpellCheck::SpellCheckParagraph is not implemented on Mac,
+  // so we return without spellchecking. Note that Mac uses its own
+  // spellchecker, this function won't be used.
+  NOTREACHED();
+#endif
+}
+
 void SpellCheck::FillSuggestionList(
     const string16& wrong_word,
     std::vector<string16>* optional_suggestions) {
@@ -335,8 +456,8 @@ void SpellCheck::FillSuggestionList(
       hunspell_->suggest(&suggestions, UTF16ToUTF8(wrong_word).c_str());
 
   // Populate the vector of WideStrings.
-  for (int i = 0; i < number_of_suggestions; i++) {
-    if (i < SpellCheckCommon::kMaxSuggestions)
+  for (int i = 0; i < number_of_suggestions; ++i) {
+    if (i < chrome::spellcheck_common::kMaxSuggestions)
       optional_suggestions->push_back(UTF8ToUTF16(suggestions[i]));
     free(suggestions[i]);
   }
@@ -367,3 +488,36 @@ bool SpellCheck::IsValidContraction(const string16& contraction, int tag) {
   }
   return true;
 }
+
+#if !defined(OS_MACOSX)
+void SpellCheck::CreateTextCheckingResults(
+    int line_offset,
+    const string16& line_text,
+    const std::vector<SpellCheckResult>& spellcheck_results,
+    WebVector<WebTextCheckingResult>* textcheck_results) {
+  // Double-check misspelled words with our spellchecker and attach grammar
+  // markers to them if our spellchecker tells they are correct words, i.e. they
+  // are probably contextually-misspelled words.
+  const char16* text = line_text.c_str();
+  WebVector<WebTextCheckingResult> list(spellcheck_results.size());
+  for (size_t i = 0; i < spellcheck_results.size(); ++i) {
+    WebTextCheckingType type =
+        static_cast<WebTextCheckingType>(spellcheck_results[i].type);
+    int word_location = spellcheck_results[i].location;
+    int word_length = spellcheck_results[i].length;
+    if (type == WebKit::WebTextCheckingTypeSpelling) {
+      int misspelling_start = 0;
+      int misspelling_length = 0;
+      if (SpellCheckWord(text + word_location, word_length, 0,
+                         &misspelling_start, &misspelling_length, NULL)) {
+        type = WebKit::WebTextCheckingTypeGrammar;
+      }
+    }
+    list[i] = WebKit::WebTextCheckingResult(type,
+                                            word_location + line_offset,
+                                            word_length,
+                                            spellcheck_results[i].replacement);
+  }
+  textcheck_results->swap(list);
+}
+#endif

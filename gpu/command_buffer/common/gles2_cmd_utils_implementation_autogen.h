@@ -289,9 +289,12 @@ static GLES2Util::EnumToString enum_to_string_table[] = {
   { 0x8DF2, "GL_HIGH_FLOAT", },
   { 0x8826, "GL_DRAW_BUFFER1_NV", },
   { 0x8827, "GL_DRAW_BUFFER2_NV", },
+  { 0x9243, "GL_UNPACK_COLORSPACE_CONVERSION_CHROMIUM", },
   { 0x8DF3, "GL_LOW_INT", },
+  { 0x9242, "GL_UNPACK_UNPREMULTIPLY_ALPHA_CHROMIUM", },
   { 0x8B53, "GL_INT_VEC2", },
   { 0x0C02, "GL_READ_BUFFER_NV", },
+  { 0x9241, "GL_UNPACK_PREMULTIPLY_ALPHA_CHROMIUM", },
   { 0x8B52, "GL_FLOAT_VEC4", },
   { 0x9240, "GL_UNPACK_FLIP_Y_CHROMIUM", },
   { 0x8B51, "GL_FLOAT_VEC3", },
@@ -376,6 +379,7 @@ static GLES2Util::EnumToString enum_to_string_table[] = {
   { 0x0502, "GL_INVALID_OPERATION", },
   { 0x0501, "GL_INVALID_VALUE", },
   { 0x0500, "GL_INVALID_ENUM", },
+  { 64, "GL_MAILBOX_SIZE_CHROMIUM", },
   { 0x0506, "GL_INVALID_FRAMEBUFFER_OPERATION", },
   { 0x0505, "GL_OUT_OF_MEMORY", },
   { 0x8B5F, "GL_SAMPLER_3D_OES", },
@@ -618,10 +622,10 @@ std::string GLES2Util::GetStringBufferUsage(uint32 value) {
 
 std::string GLES2Util::GetStringCapability(uint32 value) {
   static EnumToString string_table[] = {
+    { GL_DITHER, "GL_DITHER" },
     { GL_BLEND, "GL_BLEND" },
     { GL_CULL_FACE, "GL_CULL_FACE" },
     { GL_DEPTH_TEST, "GL_DEPTH_TEST" },
-    { GL_DITHER, "GL_DITHER" },
     { GL_POLYGON_OFFSET_FILL, "GL_POLYGON_OFFSET_FILL" },
     { GL_SAMPLE_ALPHA_TO_COVERAGE, "GL_SAMPLE_ALPHA_TO_COVERAGE" },
     { GL_SAMPLE_COVERAGE, "GL_SAMPLE_COVERAGE" },
@@ -826,6 +830,11 @@ std::string GLES2Util::GetStringGLState(uint32 value) {
     { GL_TEXTURE_BINDING_2D, "GL_TEXTURE_BINDING_2D" },
     { GL_TEXTURE_BINDING_CUBE_MAP, "GL_TEXTURE_BINDING_CUBE_MAP" },
     { GL_UNPACK_ALIGNMENT, "GL_UNPACK_ALIGNMENT" },
+    { GL_UNPACK_FLIP_Y_CHROMIUM, "GL_UNPACK_FLIP_Y_CHROMIUM" },
+    { GL_UNPACK_PREMULTIPLY_ALPHA_CHROMIUM,
+    "GL_UNPACK_PREMULTIPLY_ALPHA_CHROMIUM" },
+    { GL_UNPACK_UNPREMULTIPLY_ALPHA_CHROMIUM,
+    "GL_UNPACK_UNPREMULTIPLY_ALPHA_CHROMIUM" },
     { GL_VIEWPORT, "GL_VIEWPORT" },
   };
   return GLES2Util::GetQualifiedEnumString(
@@ -845,12 +854,7 @@ std::string GLES2Util::GetStringGetMaxIndexType(uint32 value) {
 std::string GLES2Util::GetStringGetTexParamTarget(uint32 value) {
   static EnumToString string_table[] = {
     { GL_TEXTURE_2D, "GL_TEXTURE_2D" },
-    { GL_TEXTURE_CUBE_MAP_POSITIVE_X, "GL_TEXTURE_CUBE_MAP_POSITIVE_X" },
-    { GL_TEXTURE_CUBE_MAP_NEGATIVE_X, "GL_TEXTURE_CUBE_MAP_NEGATIVE_X" },
-    { GL_TEXTURE_CUBE_MAP_POSITIVE_Y, "GL_TEXTURE_CUBE_MAP_POSITIVE_Y" },
-    { GL_TEXTURE_CUBE_MAP_NEGATIVE_Y, "GL_TEXTURE_CUBE_MAP_NEGATIVE_Y" },
-    { GL_TEXTURE_CUBE_MAP_POSITIVE_Z, "GL_TEXTURE_CUBE_MAP_POSITIVE_Z" },
-    { GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, "GL_TEXTURE_CUBE_MAP_NEGATIVE_Z" },
+    { GL_TEXTURE_CUBE_MAP, "GL_TEXTURE_CUBE_MAP" },
   };
   return GLES2Util::GetQualifiedEnumString(
       string_table, arraysize(string_table), value);
@@ -887,6 +891,11 @@ std::string GLES2Util::GetStringPixelStore(uint32 value) {
   static EnumToString string_table[] = {
     { GL_PACK_ALIGNMENT, "GL_PACK_ALIGNMENT" },
     { GL_UNPACK_ALIGNMENT, "GL_UNPACK_ALIGNMENT" },
+    { GL_UNPACK_FLIP_Y_CHROMIUM, "GL_UNPACK_FLIP_Y_CHROMIUM" },
+    { GL_UNPACK_PREMULTIPLY_ALPHA_CHROMIUM,
+    "GL_UNPACK_PREMULTIPLY_ALPHA_CHROMIUM" },
+    { GL_UNPACK_UNPREMULTIPLY_ALPHA_CHROMIUM,
+    "GL_UNPACK_UNPREMULTIPLY_ALPHA_CHROMIUM" },
   };
   return GLES2Util::GetQualifiedEnumString(
       string_table, arraysize(string_table), value);
@@ -952,6 +961,17 @@ std::string GLES2Util::GetStringReadPixelFormat(uint32 value) {
     { GL_ALPHA, "GL_ALPHA" },
     { GL_RGB, "GL_RGB" },
     { GL_RGBA, "GL_RGBA" },
+  };
+  return GLES2Util::GetQualifiedEnumString(
+      string_table, arraysize(string_table), value);
+}
+
+std::string GLES2Util::GetStringReadPixelType(uint32 value) {
+  static EnumToString string_table[] = {
+    { GL_UNSIGNED_BYTE, "GL_UNSIGNED_BYTE" },
+    { GL_UNSIGNED_SHORT_5_6_5, "GL_UNSIGNED_SHORT_5_6_5" },
+    { GL_UNSIGNED_SHORT_4_4_4_4, "GL_UNSIGNED_SHORT_4_4_4_4" },
+    { GL_UNSIGNED_SHORT_5_5_5_1, "GL_UNSIGNED_SHORT_5_5_5_1" },
   };
   return GLES2Util::GetQualifiedEnumString(
       string_table, arraysize(string_table), value);

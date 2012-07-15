@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_EXTENSIONS_CRX_INSTALLER_H_
 #define CHROME_BROWSER_EXTENSIONS_CRX_INSTALLER_H_
-#pragma once
 
 #include <string>
 
@@ -13,8 +12,10 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/version.h"
-#include "chrome/browser/extensions/extension_install_ui.h"
-#include "chrome/browser/extensions/sandboxed_extension_unpacker.h"
+#include "chrome/browser/extensions/crx_installer_error.h"
+#include "chrome/browser/extensions/extension_install_prompt.h"
+#include "chrome/browser/extensions/sandboxed_unpacker.h"
+#include "chrome/browser/extensions/webstore_installer.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/string_ordinal.h"
 #include "chrome/common/web_apps.h"
@@ -50,62 +51,31 @@ class ExtensionUpdaterTest;
 // installer->set_bar();
 // installer->InstallCrx(...);
 class CrxInstaller
-    : public SandboxedExtensionUnpackerClient,
-      public ExtensionInstallUI::Delegate {
+    : public extensions::SandboxedUnpackerClient,
+      public ExtensionInstallPrompt::Delegate {
  public:
-  // Extensions will be installed into frontend->install_directory(),
-  // then registered with |frontend|. Any install UI will be displayed
-  // using |client|. Pass NULL for |client| for silent install.
-  static scoped_refptr<CrxInstaller> Create(
-      ExtensionService* frontend,
-      ExtensionInstallUI* client);
-
-  // This is pretty lame, but given the difficulty of connecting a particular
-  // ExtensionFunction to a resulting download in the download manager, it's
-  // currently necessary. This is the |id| of an extension to be installed
-  // *by the web store only* which should not get the permissions install
-  // prompt. This should only be called on the UI thread.
-  // crbug.com/54916
-  // TODO(asargent): This should be removed now that SetWhitelistEntry exists
-  // http://crbug.com/100584
-  static void SetWhitelistedInstallId(const std::string& id);
-
-  struct WhitelistEntry {
-    WhitelistEntry();
-    ~WhitelistEntry();
-
-    scoped_ptr<base::DictionaryValue> parsed_manifest;
-    std::string localized_name;
-
-    // Whether to use a bubble notification when an app is installed, instead of
-    // the default behavior of transitioning to the new tab page.
-    bool use_app_installed_bubble;
-
-    // Whether to skip the post install UI like the extension installed bubble.
-    bool skip_post_install_ui;
+  // Used in histograms; do not change order.
+  enum OffStoreInstallAllowReason {
+    OffStoreInstallDisallowed,
+    OffStoreInstallAllowedFromSettingsPage,
+    OffStoreInstallAllowedBecausePref,
+    OffStoreInstallAllowedInTest,
+    NumOffStoreInstallAllowReasons
   };
 
-  // Exempt the next extension install with |id| from displaying a confirmation
-  // prompt, since the user already agreed to the install via
-  // beginInstallWithManifest3. We require that the extension manifest matches
-  // the manifest in |entry|, which is what was used to prompt with. Ownership
-  // of |entry| is transferred here.
-  static void SetWhitelistEntry(const std::string& id, WhitelistEntry* entry);
+  // Extensions will be installed into frontend->install_directory(),
+  // then registered with |frontend|. Any install UI will be displayed
+  // using |client|. Pass NULL for |client| for silent install
+  static scoped_refptr<CrxInstaller> Create(
+      ExtensionService* frontend,
+      ExtensionInstallPrompt* client);
 
-  // Returns the previously stored manifest from a call to SetWhitelistEntry.
-  static const CrxInstaller::WhitelistEntry* GetWhitelistEntry(
-      const std::string& id);
-
-  // Removes any whitelist data for |id| and returns it. The caller owns
-  // the return value and is responsible for deleting it.
-  static WhitelistEntry* RemoveWhitelistEntry(const std::string& id);
-
-  // Returns whether |id| is whitelisted - only call this on the UI thread.
-  static bool IsIdWhitelisted(const std::string& id);
-
-  // Returns whether |id| was found and removed (was whitelisted). This should
-  // only be called on the UI thread.
-  static bool ClearWhitelistedInstallId(const std::string& id);
+  // Same as the previous method, except use the |approval| to bypass the
+  // prompt. Note that the caller retains ownership of |approval|.
+  static scoped_refptr<CrxInstaller> Create(
+      ExtensionService* frontend,
+      ExtensionInstallPrompt* client,
+      const extensions::WebstoreInstaller::Approval* approval);
 
   // Install the crx in |source_file|.
   void InstallCrx(const FilePath& source_file);
@@ -117,7 +87,7 @@ class CrxInstaller
   // Convert the specified web app into an extension and install it.
   void InstallWebApp(const WebApplicationInfo& web_app);
 
-  // Overridden from ExtensionInstallUI::Delegate:
+  // Overridden from ExtensionInstallPrompt::Delegate:
   virtual void InstallUIProceed() OVERRIDE;
   virtual void InstallUIAbort(bool user_initiated) OVERRIDE;
 
@@ -127,8 +97,12 @@ class CrxInstaller
   const GURL& download_url() const { return download_url_; }
   void set_download_url(const GURL& val) { download_url_ = val; }
 
-  Extension::Location install_source() const { return install_source_; }
-  void set_install_source(Extension::Location source) {
+  const FilePath& source_file() const { return source_file_; }
+
+  extensions::Extension::Location install_source() const {
+    return install_source_;
+  }
+  void set_install_source(extensions::Extension::Location source) {
     install_source_ = source;
   }
 
@@ -136,7 +110,7 @@ class CrxInstaller
   void set_expected_id(const std::string& val) { expected_id_ = val; }
 
   void set_expected_version(const Version& val) {
-    expected_version_.reset(val.Clone());
+    expected_version_.reset(new Version(val));
   }
 
   bool delete_source() const { return delete_source_; }
@@ -146,13 +120,13 @@ class CrxInstaller
   void set_allow_silent_install(bool val) { allow_silent_install_ = val; }
 
   bool is_gallery_install() const {
-    return (creation_flags_ & Extension::FROM_WEBSTORE) > 0;
+    return (creation_flags_ & extensions::Extension::FROM_WEBSTORE) > 0;
   }
   void set_is_gallery_install(bool val) {
     if (val)
-      creation_flags_ |= Extension::FROM_WEBSTORE;
+      creation_flags_ |= extensions::Extension::FROM_WEBSTORE;
     else
-      creation_flags_ &= ~Extension::FROM_WEBSTORE;
+      creation_flags_ &= ~extensions::Extension::FROM_WEBSTORE;
   }
 
   // The original download URL should be set when the WebstoreInstaller is
@@ -177,22 +151,32 @@ class CrxInstaller
   extension_misc::CrxInstallCause install_cause() const {
     return install_cause_;
   }
-
   void set_install_cause(extension_misc::CrxInstallCause install_cause) {
     install_cause_ = install_cause;
+  }
+
+  OffStoreInstallAllowReason off_store_install_allow_reason() const {
+    return off_store_install_allow_reason_;
+  }
+  void set_off_store_install_allow_reason(OffStoreInstallAllowReason reason) {
+    off_store_install_allow_reason_ = reason;
   }
 
   void set_page_ordinal(const StringOrdinal& page_ordinal) {
     page_ordinal_ = page_ordinal;
   }
 
+  bool did_handle_successfully() const { return did_handle_successfully_; }
+
   Profile* profile() { return profile_; }
 
  private:
   friend class extensions::ExtensionUpdaterTest;
+  friend class ExtensionCrxInstallerTest;
 
   CrxInstaller(base::WeakPtr<ExtensionService> frontend_weak,
-               ExtensionInstallUI* client);
+               ExtensionInstallPrompt* client,
+               const extensions::WebstoreInstaller::Approval* approval);
   virtual ~CrxInstaller();
 
   // Converts the source user script to an extension.
@@ -203,21 +187,21 @@ class CrxInstaller
 
   // Called after OnUnpackSuccess as a last check to see whether the install
   // should complete.
-  bool AllowInstall(const Extension* extension, string16* error);
+  CrxInstallerError AllowInstall(const extensions::Extension* extension);
 
-  // SandboxedExtensionUnpackerClient
+  // SandboxedUnpackerClient
   virtual void OnUnpackFailure(const string16& error_message) OVERRIDE;
   virtual void OnUnpackSuccess(const FilePath& temp_dir,
                                const FilePath& extension_dir,
                                const base::DictionaryValue* original_manifest,
-                               const Extension* extension) OVERRIDE;
+                               const extensions::Extension* extension) OVERRIDE;
 
   // Returns true if we can skip confirmation because the install was
   // whitelisted.
   bool CanSkipConfirmation();
 
-  // Runs on the UI thread. Confirms with the user (via ExtensionInstallUI) that
-  // it is OK to install this extension.
+  // Runs on the UI thread. Confirms with the user (via ExtensionInstallPrompt)
+  // that it is OK to install this extension.
   void ConfirmInstall();
 
   // Runs on File thread. Install the unpacked extension into the profile and
@@ -225,11 +209,11 @@ class CrxInstaller
   void CompleteInstall();
 
   // Result reporting.
-  void ReportFailureFromFileThread(const string16& error);
-  void ReportFailureFromUIThread(const string16& error);
+  void ReportFailureFromFileThread(const CrxInstallerError& error);
+  void ReportFailureFromUIThread(const CrxInstallerError& error);
   void ReportSuccessFromFileThread();
   void ReportSuccessFromUIThread();
-  void NotifyCrxInstallComplete(const Extension* extension);
+  void NotifyCrxInstallComplete(const extensions::Extension* extension);
 
   // The file we're installing.
   FilePath source_file_;
@@ -243,11 +227,21 @@ class CrxInstaller
   // The location the installation came from (bundled with Chromium, registry,
   // manual install, etc). This metadata is saved with the installation if
   // successful. Defaults to INTERNAL.
-  Extension::Location install_source_;
+  extensions::Extension::Location install_source_;
 
-  // For updates and external installs we have an ID we're expecting the
-  // extension to contain.
+  // Indicates whether the user has already approved the extension to be
+  // installed. If true, |expected_manifest_| and |expected_id_| must match
+  // those of the CRX.
+  bool approved_;
+
+  // For updates, external and webstore installs we have an ID we're expecting
+  // the extension to contain.
   std::string expected_id_;
+
+  // A parsed copy of the expected manifest, before any transformations like
+  // localization have taken place. If |approved_| is true, then the
+  // extension's manifest must match this for the install to proceed.
+  scoped_ptr<base::DictionaryValue> expected_manifest_;
 
   // If non-NULL, contains the expected version of the extension we're
   // installing.  Important for external sources, where claiming the wrong
@@ -274,7 +268,7 @@ class CrxInstaller
 
   // The extension we're installing. We own this and either pass it off to
   // ExtensionService on success, or delete it on failure.
-  scoped_refptr<const Extension> extension_;
+  scoped_refptr<const extensions::Extension> extension_;
 
   // The ordinal of the NTP apps page |extension_| will be shown on.
   StringOrdinal page_ordinal_;
@@ -304,7 +298,7 @@ class CrxInstaller
   // which case the install is silent.
   // NOTE: we may be deleted on the file thread. To ensure the UI is deleted on
   // the main thread we don't use a scoped_ptr here.
-  ExtensionInstallUI* client_;
+  ExtensionInstallPrompt* client_;
 
   // The root of the unpacked extension directory. This is a subdirectory of
   // temp_dir_, so we don't have to delete it explicitly.
@@ -332,6 +326,19 @@ class CrxInstaller
   // Creation flags to use for the extension.  These flags will be used
   // when calling Extenion::Create() by the crx installer.
   int creation_flags_;
+
+  // Whether to allow off store installation.
+  OffStoreInstallAllowReason off_store_install_allow_reason_;
+
+  // Whether the installation was handled successfully. This is used to
+  // indicate to the client whether the file should be removed and any UI
+  // initiating the installation can be removed. This is different than whether
+  // there was an error; if there was an error that rejects installation we
+  // still consider the installation 'handled'.
+  bool did_handle_successfully_;
+
+  // Whether we should record an oauth2 grant upon successful install.
+  bool record_oauth2_grant_;
 
   DISALLOW_COPY_AND_ASSIGN(CrxInstaller);
 };

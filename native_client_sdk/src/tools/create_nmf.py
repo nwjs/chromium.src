@@ -36,6 +36,12 @@ ARCH_LOCATION = {
     'x86-64': 'lib64',
 }
 
+NAME_ARCH_MAP = {
+    '32.nexe': 'x86-32',
+    '64.nexe': 'x86-64',
+    'arm.nexe': 'arm'
+}
+
 # These constants are used within nmf files.
 RUNNABLE_LD = 'runnable-ld.so'  # Name of the dynamic loader
 MAIN_NEXE = 'main.nexe'  # Name of entry point for execution
@@ -93,7 +99,8 @@ class NmfUtils(object):
   '''
 
   def __init__(self, main_files=None, objdump='x86_64-nacl-objdump',
-               lib_path=None, extra_files=None, lib_prefix=None):
+               lib_path=None, extra_files=None, lib_prefix=None,
+               toolchain=None, remap={}):
     ''' Constructor
 
     Args:
@@ -104,7 +111,11 @@ class NmfUtils(object):
       extra_files: List of extra files to include in the nmf
       lib_prefix: A list of path components to prepend to the library paths,
           both for staging the libraries and for inclusion into the nmf file.
-          Examples:  ['..'], ['lib_dir'] '''
+          Examples:  ['..'], ['lib_dir']
+      toolchain: Specify which toolchain newlib|glibc|pnacl which can require
+          different forms of the NMF.
+      remap: Remaps the library name in the manifest.
+      '''
     self.objdump = objdump
     self.main_files = main_files or []
     self.extra_files = extra_files or []
@@ -112,6 +123,8 @@ class NmfUtils(object):
     self.manifest = None
     self.needed = None
     self.lib_prefix = lib_prefix or []
+    self.toolchain = toolchain
+    self.remap = remap
 
 
   def GleanFromObjdump(self, files):
@@ -188,8 +201,12 @@ class NmfUtils(object):
           Includes the input files as well, with arch filled in if absent.
           Example: { '/path/to/my.nexe': ArchFile(my.nexe),
                      '/path/to/libfoo.so': ArchFile(libfoo.so) }'''
-    if not self.needed:
-      DebugPrint('GetNeeded(%s)' % self.main_files)
+    if self.needed:
+      return self.needed
+
+    runnable = (self.toolchain != 'newlib' and self.toolchain != 'pnacl')
+    DebugPrint('GetNeeded(%s)' % self.main_files)
+    if runnable:    
       examined = set()
       all_files, unexamined = self.GleanFromObjdump(
           dict([(file, None) for file in self.main_files]))
@@ -214,6 +231,15 @@ class NmfUtils(object):
         if arch_map.name in ldso:
           del all_files[name]
       self.needed = all_files
+    else:
+      need = {}
+      for filename in self.main_files:
+        arch = filename.split('_')[-1]
+        arch = NAME_ARCH_MAP[arch]
+        url = os.path.split(filename)[1]
+        need[filename] = ArchFile(arch=arch, name=os.path.basename(filename),
+                                  path=filename, url=url)
+      self.needed = need        
     return self.needed
 
   def StageDependencies(self, destination_dir):
@@ -237,19 +263,20 @@ class NmfUtils(object):
           os.path.normcase(os.path.abspath(destination))):
         shutil.copy2(source, destination)
 
-  def _GenerateManifest(self, runnable=True):
+  def _GenerateManifest(self):
     '''Create a JSON formatted dict containing the files
-    
+
     NaCl will map url requests based on architecture.  The startup NEXE
     can always be found under the top key PROGRAM.  Additional files are under
     the FILES key further mapped by file name.  In the case of 'runnable' the
     PROGRAM key is populated with urls pointing the runnable-ld.so which acts
-    as the startup nexe.  The application itself, is then placed under the 
+    as the startup nexe.  The application itself, is then placed under the
     FILES key mapped as 'main.exe' instead of it's original name so that the
     loader can find it.'''
     manifest = { FILES_KEY: {}, PROGRAM_KEY: {} }
-    needed = self.GetNeeded()
+    runnable = (self.toolchain != 'newlib' and self.toolchain != 'pnacl')
 
+    needed = self.GetNeeded()
     for need in needed:
       archinfo = needed[need]
       urlinfo = { URL_KEY: archinfo.url }
@@ -263,6 +290,10 @@ class NmfUtils(object):
 
       # For the main nexes:
       if need.endswith('.nexe') and need in self.main_files:
+        # Ensure that the nexe name is relative, not absolute.
+        # We assume that the nexe and the corresponding nmf file are
+        # installed in the same directory.
+        urlinfo[URL_KEY] = os.path.basename(urlinfo[URL_KEY])
         # Place it under program if we aren't using the runnable-ld.so.
         if not runnable:
           manifest[PROGRAM_KEY][archinfo.arch] = urlinfo
@@ -270,10 +301,10 @@ class NmfUtils(object):
         # Otherwise, treat it like another another file named main.nexe.
         name = MAIN_NEXE
 
+      name = self.remap.get(name, name)
       fileinfo = manifest[FILES_KEY].get(name, {})
       fileinfo[archinfo.arch] = urlinfo
       manifest[FILES_KEY][name] = fileinfo
-
     self.manifest = manifest
 
   def GetManifest(self):
@@ -290,6 +321,24 @@ class NmfUtils(object):
     # a newline at the end.  This code fixes these problems.
     pretty_lines = pretty_string.split('\n')
     return '\n'.join([line.rstrip() for line in pretty_lines]) + '\n'
+
+
+def ErrorOut(text):
+  sys.stderr.write(text + '\n')
+  sys.exit(1)
+
+
+def DetermineToolchain(objdump):
+  objdump = objdump.replace('\\', '/')
+  paths = objdump.split('/')
+  count = len(paths)
+  for index in range(count - 2, 0, -1):
+    if paths[index] == 'toolchain':
+      if paths[index + 1].endswith('newlib'):
+        return 'newlib'
+      if paths[index + 1].endswith('glibc'):
+        return 'glibc'
+  ErrorOut('Could not deternime which toolchain to use.')
 
 
 def Main(argv):
@@ -311,18 +360,38 @@ def Main(argv):
   parser.add_option('-r', '--remove', dest='remove',
                     help='Remove the prefix from the files.',
                     metavar='PATH')
+  parser.add_option('-t', '--toolchain', dest='toolchain',
+                    help='Add DIRECTORY to library search path',
+                    default=None, metavar='TOOLCHAIN')
+  parser.add_option('-n', '--name', dest='name',
+                    help='Rename FOO as BAR',
+                    action='append', default=[], metavar='FOO,BAR')
   (options, args) = parser.parse_args(argv)
+  
+  if not options.toolchain:
+    options.toolchain = DetermineToolchain(os.path.abspath(options.objdump))
+
+  if options.toolchain not in ['newlib', 'glibc', 'pnacl']:
+    ErrorOut('Unknown toolchain: ' + str(options.toolchain))
 
   if len(args) < 1:
     parser.print_usage()
     sys.exit(1)
 
+  remap = {}
+  for ren in options.name:
+    parts = ren.split(',')
+    if len(parts) != 2:
+      ErrorOut('Expecting --name=<orig_arch.so>,<new_name.so>')
+    remap[parts[0]] = parts[1]
+
   nmf = NmfUtils(objdump=options.objdump,
                  main_files=args,
-                 lib_path=options.lib_path)
+                 lib_path=options.lib_path,
+                 toolchain=options.toolchain,
+                 remap=remap)
 
   manifest = nmf.GetManifest()
-
   if options.output is None:
     sys.stdout.write(nmf.GetJson())
   else:

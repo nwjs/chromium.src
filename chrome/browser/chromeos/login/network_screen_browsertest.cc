@@ -12,8 +12,6 @@
 #include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chrome/browser/chromeos/cros/mock_network_library.h"
 #include "chrome/browser/chromeos/cros/network_library.h"
-#include "chrome/browser/chromeos/dbus/mock_dbus_thread_manager.h"
-#include "chrome/browser/chromeos/dbus/mock_session_manager_client.h"
 #include "chrome/browser/chromeos/login/mock_screen_observer.h"
 #include "chrome/browser/chromeos/login/network_screen.h"
 #include "chrome/browser/chromeos/login/view_screen.h"
@@ -21,6 +19,8 @@
 #include "chrome/browser/chromeos/login/wizard_in_process_browser_test.h"
 #include "chrome/browser/chromeos/login/wizard_screen.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "chromeos/dbus/mock_dbus_thread_manager.h"
+#include "chromeos/dbus/mock_session_manager_client.h"
 #include "grit/generated_resources.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -28,12 +28,12 @@
 #include "ui/views/controls/button/text_button.h"
 
 namespace chromeos {
+using ::testing::A;
 using ::testing::AnyNumber;
 using ::testing::InvokeWithoutArgs;
 using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::_;
-using ::testing::A;
 using views::Button;
 
 class DummyButtonListener : public views::ButtonListener {
@@ -60,12 +60,14 @@ class NetworkScreenTest : public WizardInProcessBrowserTest {
     cellular_.reset(new NetworkDevice("cellular"));
     EXPECT_CALL(*mock_session_manager_client, EmitLoginPromptReady())
         .Times(1);
-    EXPECT_CALL(*mock_session_manager_client, RetrievePolicy(_))
+    EXPECT_CALL(*mock_session_manager_client, RetrieveDevicePolicy(_))
         .Times(AnyNumber());
 
     // Minimal set of expectations needed on NetworkScreen initialization.
     // Status bar expectations are defined with RetiresOnSaturation() so
     // these mocks will be active once status bar is initialized.
+    EXPECT_CALL(*mock_network_library_, AddUserActionObserver(_))
+        .Times(AnyNumber());
     EXPECT_CALL(*mock_network_library_, wifi_connected())
         .Times(1)
         .WillRepeatedly(Return(false));
@@ -104,6 +106,18 @@ class NetworkScreenTest : public WizardInProcessBrowserTest {
     EXPECT_CALL(*mock_network_library_, cellular_connecting())
         .Times(AnyNumber())
         .WillRepeatedly((Return(false)));
+    EXPECT_CALL(*mock_network_library_, wimax_available())
+        .Times(AnyNumber())
+        .WillRepeatedly((Return(true)));
+    EXPECT_CALL(*mock_network_library_, wimax_enabled())
+        .Times(AnyNumber())
+        .WillRepeatedly((Return(true)));
+    EXPECT_CALL(*mock_network_library_, wimax_connected())
+        .Times(AnyNumber())
+        .WillRepeatedly((Return(false)));
+    EXPECT_CALL(*mock_network_library_, wimax_connecting())
+        .Times(AnyNumber())
+        .WillRepeatedly((Return(false)));
 
     EXPECT_CALL(*mock_network_library_, FindCellularDevice())
         .Times(AnyNumber())
@@ -111,6 +125,7 @@ class NetworkScreenTest : public WizardInProcessBrowserTest {
   }
 
   virtual void SetUpOnMainThread() {
+    WizardInProcessBrowserTest::SetUpOnMainThread();
     mock_screen_observer_.reset(new MockScreenObserver());
     ASSERT_TRUE(WizardController::default_controller() != NULL);
     network_screen_ =

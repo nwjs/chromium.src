@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SESSIONS_SESSION_TYPES_H_
 #define CHROME_BROWSER_SESSIONS_SESSION_TYPES_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -45,7 +44,7 @@ class TabNavigation {
                 const std::string& state,
                 content::PageTransition transition);
   TabNavigation(const TabNavigation& tab);
-  ~TabNavigation();
+  virtual ~TabNavigation();
   TabNavigation& operator=(const TabNavigation& tab);
 
   // Converts this TabNavigation into a NavigationEntry with a page id of
@@ -89,6 +88,18 @@ class TabNavigation {
   void set_index(int index) { index_ = index; }
   int index() const { return index_; }
 
+  // The URL that initially spawned the NavigationEntry.
+  const GURL& original_request_url() const { return original_request_url_; }
+  void set_original_request_url(const GURL& url) {
+    original_request_url_ = url;
+  }
+
+  // Whether or not we're overriding the standard user agent.
+  bool is_overriding_user_agent() const { return is_overriding_user_agent_; }
+  void set_is_overriding_user_agent(bool state) {
+    is_overriding_user_agent_ = state;
+  }
+
   // Converts a set of TabNavigations into a set of NavigationEntrys. The
   // caller owns the NavigationEntrys.
   static void CreateNavigationEntriesFromTabNavigations(
@@ -108,6 +119,8 @@ class TabNavigation {
   int64 post_id_;
 
   int index_;
+  GURL original_request_url_;
+  bool is_overriding_user_agent_;
 };
 
 // SessionTab ----------------------------------------------------------------
@@ -115,7 +128,7 @@ class TabNavigation {
 // SessionTab corresponds to a NavigationController.
 struct SessionTab {
   SessionTab();
-  ~SessionTab();
+  virtual ~SessionTab();
 
   // Unique id of the window.
   SessionID window_id;
@@ -149,10 +162,17 @@ struct SessionTab {
   // If non-empty, this tab is an app tab and this is the id of the extension.
   std::string extension_app_id;
 
+  // If non-empty, this string is used as the user agent whenever the tab's
+  // NavigationEntries need it overridden.
+  std::string user_agent_override;
+
   // Timestamp for when this tab was last modified.
   base::Time timestamp;
 
   std::vector<TabNavigation> navigations;
+
+  // For reassociating sessionStorage.
+  std::string session_storage_persistent_id;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(SessionTab);

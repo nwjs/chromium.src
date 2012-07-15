@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -53,7 +53,7 @@ AutomationResourceMessageFilter::AutomationDetails::~AutomationDetails() {}
 
 struct AutomationResourceMessageFilter::CookieCompletionInfo {
   scoped_refptr<BrowserMessageFilter> filter;
-  scoped_refptr<net::URLRequestContext> context;
+  net::URLRequestContext* context;
   int render_process_id;
   IPC::Message* reply_msg;
   scoped_refptr<AutomationResourceMessageFilter> automation_message_filter;
@@ -145,12 +145,6 @@ bool AutomationResourceMessageFilter::OnMessageReceived(
   IPC_BEGIN_MESSAGE_MAP_EX(AutomationResourceMessageFilter,
                            message,
                            deserialize_success)
-    IPC_MESSAGE_HANDLER(AutomationMsg_SetFilteredInet,
-                        OnSetFilteredInet)
-    IPC_MESSAGE_HANDLER(AutomationMsg_GetFilteredInetHitCount,
-                        OnGetFilteredInetHitCount)
-    IPC_MESSAGE_HANDLER(AutomationMsg_RecordHistograms,
-                        OnRecordHistograms)
     IPC_MESSAGE_HANDLER(AutomationMsg_GetCookiesHostResponse,
                         OnGetCookiesHostResponse)
     IPC_MESSAGE_UNHANDLED(handled = false)
@@ -379,22 +373,6 @@ bool AutomationResourceMessageFilter::SendDownloadRequestToHost(
 
   return Send(new AutomationMsg_DownloadRequestInHost(tab_handle,
                                                       automation_request_id));
-}
-
-void AutomationResourceMessageFilter::OnSetFilteredInet(bool enable) {
-  chrome_browser_net::SetUrlRequestMocksEnabled(enable);
-}
-
-void AutomationResourceMessageFilter::OnGetFilteredInetHitCount(
-    int* hit_count) {
-  *hit_count = net::URLRequestFilter::GetInstance()->hit_count();
-}
-
-void AutomationResourceMessageFilter::OnRecordHistograms(
-    const std::vector<std::string>& histogram_list) {
-  for (size_t index = 0; index < histogram_list.size(); ++index) {
-    base::Histogram::DeserializeHistogramInfo(histogram_list[index]);
-  }
 }
 
 bool AutomationResourceMessageFilter::ShouldFilterCookieMessages(

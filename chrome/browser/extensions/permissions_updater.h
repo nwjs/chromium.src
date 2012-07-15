@@ -4,21 +4,22 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_PERMISSIONS_UPDATER_H__
 #define CHROME_BROWSER_EXTENSIONS_PERMISSIONS_UPDATER_H__
-#pragma once
 
 #include <string>
 
 #include "base/memory/ref_counted.h"
 
+class Profile;
+
 namespace base {
 class DictionaryValue;
 }
-class Extension;
-class ExtensionPermissionSet;
-class ExtensionPrefs;
-class Profile;
 
 namespace extensions {
+
+class Extension;
+class ExtensionPrefs;
+class PermissionSet;
 
 // Updates an Extension's active and granted permissions in persistent storage
 // and notifies interested parties of the changes.
@@ -31,20 +32,21 @@ class PermissionsUpdater {
   // and sends the relevant messages and notifications. This method assumes the
   // user has already been prompted, if necessary, for the extra permissions.
   void AddPermissions(const Extension* extension,
-                      const ExtensionPermissionSet* permissions);
+                      const PermissionSet* permissions);
 
   // Removes the set of |permissions| from the |extension|'s active permission
   // set and sends the relevant messages and notifications.
   void RemovePermissions(const Extension* extension,
-                         const ExtensionPermissionSet* permissions);
+                         const PermissionSet* permissions);
 
   // Adds all permissions in the |extension|'s active permissions to its
   // granted permission set.
-  void GrantActivePermissions(const Extension* extension);
+  void GrantActivePermissions(const Extension* extension,
+                              bool record_oauth2_grant);
 
   // Sets the |extension|'s active permissions to |permissions|.
   void UpdateActivePermissions(const Extension* extension,
-                               const ExtensionPermissionSet* permissions);
+                               const PermissionSet* permissions);
 
  private:
   enum EventType {
@@ -52,10 +54,13 @@ class PermissionsUpdater {
     REMOVED,
   };
 
+  // Records the oauth2 grant for the scopes specified in |permissions|.
+  void RecordOAuth2Grant(const Extension* extension);
+
   // Dispatches specified event to the extension.
   void DispatchEvent(const std::string& extension_id,
                      const char* event_name,
-                     const ExtensionPermissionSet* changed_permissions);
+                     const PermissionSet* changed_permissions);
 
   // Issues the relevant events, messages and notifications when the
   // |extension|'s permissions have |changed| (|changed| is the delta).
@@ -64,7 +69,7 @@ class PermissionsUpdater {
   // onAdded/onRemoved events in the extension.
   void NotifyPermissionsUpdated(EventType event_type,
                                 const Extension* extension,
-                                const ExtensionPermissionSet* changed);
+                                const PermissionSet* changed);
 
   // Gets the ExtensionPrefs for the associated profile.
   ExtensionPrefs* GetExtensionPrefs();

@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -19,8 +19,9 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_contents/confirm_infobar_delegate.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/cocoa/last_active_browser_cocoa.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/navigation_details.h"
@@ -49,13 +50,13 @@ class KeystonePromotionInfoBarDelegate : public ConfirmInfoBarDelegate {
   void SetCanExpire() { can_expire_ = true; }
 
   // ConfirmInfoBarDelegate
-  virtual bool ShouldExpire(
-      const content::LoadCommittedDetails& details) const OVERRIDE;
   virtual gfx::Image* GetIcon() const OVERRIDE;
   virtual string16 GetMessageText() const OVERRIDE;
   virtual string16 GetButtonLabel(InfoBarButton button) const OVERRIDE;
   virtual bool Accept() OVERRIDE;
   virtual bool Cancel() OVERRIDE;
+  virtual bool ShouldExpireInternal(
+      const content::LoadCommittedDetails& details) const OVERRIDE;
 
   // The prefs to use.
   PrefService* prefs_;  // weak
@@ -76,19 +77,15 @@ KeystonePromotionInfoBarDelegate::KeystonePromotionInfoBarDelegate(
       prefs_(prefs),
       can_expire_(false),
       ALLOW_THIS_IN_INITIALIZER_LIST(weak_ptr_factory_(this)) {
-  const int kCanExpireOnNavigationAfterMilliseconds = 8 * 1000;
+  const base::TimeDelta kCanExpireOnNavigationAfterDelay =
+      base::TimeDelta::FromSeconds(8);
   MessageLoop::current()->PostDelayedTask(FROM_HERE,
       base::Bind(&KeystonePromotionInfoBarDelegate::SetCanExpire,
                  weak_ptr_factory_.GetWeakPtr()),
-      kCanExpireOnNavigationAfterMilliseconds);
+      kCanExpireOnNavigationAfterDelay);
 }
 
 KeystonePromotionInfoBarDelegate::~KeystonePromotionInfoBarDelegate() {
-}
-
-bool KeystonePromotionInfoBarDelegate::ShouldExpire(
-    const content::LoadCommittedDetails& details) const {
-  return details.is_navigation_to_different_page() && can_expire_;
 }
 
 gfx::Image* KeystonePromotionInfoBarDelegate::GetIcon() const {
@@ -115,6 +112,11 @@ bool KeystonePromotionInfoBarDelegate::Accept() {
 bool KeystonePromotionInfoBarDelegate::Cancel() {
   prefs_->SetBoolean(prefs::kShowUpdatePromotionInfoBar, false);
   return true;
+}
+
+bool KeystonePromotionInfoBarDelegate::ShouldExpireInternal(
+    const content::LoadCommittedDetails& details) const {
+  return can_expire_;
 }
 
 }  // namespace
@@ -188,19 +190,19 @@ bool KeystonePromotionInfoBarDelegate::Cancel() {
 
   if (status != kAutoupdateRegisterFailed &&
       [[KeystoneGlue defaultKeystoneGlue] needsPromotion]) {
-    Browser* browser = BrowserList::GetLastActive();
+    Browser* browser = browser::GetLastActiveBrowser();
     if (browser) {
-      TabContentsWrapper* wrapper = browser->GetSelectedTabContentsWrapper();
+      TabContents* tabContents = chrome::GetActiveTabContents(browser);
 
       // Only show if no other info bars are showing, because that's how the
       // default browser info bar works.
-      if (wrapper) {
-        InfoBarTabHelper* infobar_helper = wrapper->infobar_tab_helper();
+      if (tabContents) {
+        InfoBarTabHelper* infobar_helper = tabContents->infobar_tab_helper();
         if (infobar_helper->infobar_count() == 0) {
           infobar_helper->AddInfoBar(
               new KeystonePromotionInfoBarDelegate(
                   infobar_helper,
-                  wrapper->profile()->GetPrefs()));
+                  tabContents->profile()->GetPrefs()));
         }
       }
     }

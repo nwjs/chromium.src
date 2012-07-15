@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_COCOA_PROFILE_TEST_H_
 #define CHROME_BROWSER_UI_COCOA_PROFILE_TEST_H_
-#pragma once
 
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
@@ -13,7 +12,7 @@
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 
 // Base class which contains a valid Browser*.  Lots of boilerplate to
 // recycle between unit test classes.

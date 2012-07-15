@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_WORKER_WORKER_WEBKITPLATFORMSUPPORT_IMPL_H_
 #define CONTENT_WORKER_WORKER_WEBKITPLATFORMSUPPORT_IMPL_H_
-#pragma once
 
 #include "base/memory/scoped_ptr.h"
 #include "content/common/webkitplatformsupport_impl.h"
@@ -72,8 +71,13 @@ class WorkerWebKitPlatformSupportImpl
       const WebKit::WebString&);
   virtual WebKit::WebMimeRegistry::SupportsType supportsJavaScriptMIMEType(
       const WebKit::WebString&);
+  // TODO(ddorwin): Remove after http://webk.it/82983 lands.
   virtual WebKit::WebMimeRegistry::SupportsType supportsMediaMIMEType(
       const WebKit::WebString&, const WebKit::WebString&);
+  virtual WebKit::WebMimeRegistry::SupportsType supportsMediaMIMEType(
+      const WebKit::WebString&,
+      const WebKit::WebString&,
+      const WebKit::WebString&);
   virtual WebKit::WebMimeRegistry::SupportsType supportsNonImageMIMEType(
       const WebKit::WebString&);
   virtual WebKit::WebString mimeTypeForExtension(const WebKit::WebString&);

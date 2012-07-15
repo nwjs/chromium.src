@@ -23,8 +23,12 @@
 #include "chrome/browser/ui/panels/panel.h"
 
 @class FindBarCocoaController;
-class PanelBrowserWindowCocoa;
+class NativePanelCocoa;
 @class PanelTitlebarViewCocoa;
+
+@interface PanelWindowCocoaImpl : ChromeBrowserWindow {
+}
+@end
 
 @interface PanelWindowControllerCocoa : NSWindowController
                                             <NSWindowDelegate,
@@ -32,32 +36,36 @@ class PanelBrowserWindowCocoa;
                                              BrowserCommandExecutor> {
  @private
   IBOutlet PanelTitlebarViewCocoa* titlebar_view_;
-  scoped_ptr<PanelBrowserWindowCocoa> windowShim_;
+  scoped_ptr<NativePanelCocoa> windowShim_;
   scoped_nsobject<NSString> pendingWindowTitle_;
   scoped_nsobject<TabContentsController> contentsController_;
   NSViewAnimation* boundsAnimation_;  // Lifetime controlled manually, needs
                                       // more then just |release| to terminate.
   BOOL animateOnBoundsChange_;
-  ScopedCrTrackingArea windowTrackingArea_;
   BOOL throbberShouldSpin_;
   BOOL playingMinimizeAnimation_;
   float animationStopToShowTitlebarOnly_;
   BOOL canBecomeKeyWindow_;
+  // Allow a panel to become key if activated via Panel logic, as opposed
+  // to by default system selection. The system will prefer a panel
+  // window over other application windows due to panels having a higher
+  // priority NSWindowLevel, so we distinguish between the two scenarios.
+  BOOL activationRequestedByPanel_;
   scoped_nsobject<NSView> overlayView_;
 }
 
-// Load the browser window nib and do any Cocoa-specific initialization.
-- (id)initWithBrowserWindow:(PanelBrowserWindowCocoa*)window;
+// Load the window nib and do any Cocoa-specific initialization.
+- (id)initWithPanel:(NativePanelCocoa*)window;
 
 - (ui::ThemeProvider*)themeProvider;
 - (ThemedWindowStyle)themedWindowStyle;
 - (NSPoint)themePatternPhase;
 
-- (void)tabInserted:(content::WebContents*)contents;
-- (void)tabDetached:(content::WebContents*)contents;
+- (void)webContentsInserted:(content::WebContents*)contents;
+- (void)webContentsDetached:(content::WebContents*)contents;
 
 // Sometimes (when we animate the size of the window) we want to stop resizing
-// the TabContents' cocoa view to avoid unnecessary rendering and issues
+// the WebContents's Cocoa view to avoid unnecessary rendering and issues
 // that can be caused by sizes near 0.
 - (void)disableTabContentsViewAutosizing;
 - (void)enableTabContentsViewAutosizing;
@@ -68,6 +76,7 @@ class PanelBrowserWindowCocoa;
 - (void)updateTitleBar;
 - (void)updateIcon;
 - (void)updateThrobber:(BOOL)shouldSpin;
+- (void)updateTitleBarMinimizeRestoreButtonVisibility;
 
 // Adds the FindBar controller's view to this Panel. Must only be
 // called once per PanelWindowControllerCocoa.
@@ -77,6 +86,11 @@ class PanelBrowserWindowCocoa;
 // layer. This will take care of PanelManager, other panels and close the
 // native window at the end.
 - (void)closePanel;
+
+// Minimize/Restore the panel or all panels, depending on the modifier.
+// Invoked when the minimize/restore button is clicked.
+- (void)minimizeButtonClicked:(int)modifierFlags;
+- (void)restoreButtonClicked:(int)modifierFlags;
 
 // Uses nonblocking animation for moving the Panels. It's especially
 // important in case of dragging a Panel when other Panels should 'slide out',
@@ -88,7 +102,6 @@ class PanelBrowserWindowCocoa;
 
 // Used by PanelTitlebarViewCocoa when user rearranges the Panels by dragging.
 // |mouseLocation| is in Cocoa's screen coordinates.
-- (BOOL)isDraggable;
 - (void)startDrag:(NSPoint)mouseLocation;
 - (void)endDrag:(BOOL)cancelled;
 - (void)drag:(NSPoint)mouseLocation;
@@ -108,9 +121,6 @@ class PanelBrowserWindowCocoa;
 // "chrome/app/chrome_command_ids.h" file.
 - (void)executeCommand:(int)command;
 
-// Invokes the settings menu when the settings button is pressed.
-- (void)runSettingsMenu:(NSView*)button;
-
 // NSAnimationDelegate method, invoked when bounds animation is finished.
 - (void)animationDidEnd:(NSAnimation*)animation;
 // Terminates current bounds animation, if any.
@@ -118,7 +128,8 @@ class PanelBrowserWindowCocoa;
 
 - (BOOL)isAnimatingBounds;
 
-// Removes the Key status from the panel to some other window.
+// Sets/Removes the Key status from the panel to some other window.
+- (void)activate;
 - (void)deactivate;
 
 // Changes the canBecomeKeyWindow state
@@ -131,18 +142,23 @@ class PanelBrowserWindowCocoa;
 // are not un-minimized when another panel is minimized.
 - (BOOL)canBecomeKeyWindow;
 
-// Returns true if browser window requested activation of the window.
-- (BOOL)activationRequestedByBrowser;
-
-// Returns width of titlebar when shown in "icon only" mode.
-- (int)titlebarIconOnlyWidthInScreenCoordinates;
+// Returns true if Panel requested activation of the window.
+- (BOOL)activationRequestedByPanel;
 
 - (void)ensureFullyVisible;
 
+// Adjust NSStatusWindowLevel based on whether panel is always on top
+// and whether the panel is minimized. The first version wraps the second
+// version using the current panel expanstion state.
 - (void)updateWindowLevel;
+- (void)updateWindowLevel:(BOOL)panelIsMinimized;
 
 // Turns on user-resizable corners/sides indications and enables live resize.
 - (void)enableResizeByMouse:(BOOL)enable;
+
+- (NSRect)frameRectForContentRect:(NSRect)contentRect;
+- (NSRect)contentRectForFrameRect:(NSRect)frameRect;
+
 @end  // @interface PanelWindowController
 
 #endif  // CHROME_BROWSER_UI_PANELS_PANEL_WINDOW_CONTROLLER_COCOA_H_

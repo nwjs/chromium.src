@@ -1,0 +1,11 @@
+Name: Handlebar, logic-less templating system
+Short Name: handlebar
+URL: https://github.com/kalman/templates
+Version: 0
+Date: July 13, 2012
+Revision: commit d69e6b7e2bcad0f9defd446ab531e875ebf56499
+License: Apache License, Version 2.0
+Security Critical: no
+
+Description:
+A python logic-less templating system, based on mustache.

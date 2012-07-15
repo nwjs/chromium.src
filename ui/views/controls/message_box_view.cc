@@ -21,9 +21,9 @@
 #include "ui/views/widget/widget.h"
 #include "ui/views/window/client_view.h"
 
-const int kDefaultMessageWidth = 320;
-
 namespace {
+
+const int kDefaultMessageWidth = 320;
 
 // Paragraph separators are defined in
 // http://www.unicode.org/Public/6.0.0/ucd/extracted/DerivedBidiClass.txt
@@ -40,23 +40,21 @@ bool IsParagraphSeparator(char16 c) {
            c == 0x001E || c == 0x0085 || c == 0x2029);
 }
 
-// Splits |str| into a vector of paragraphs. Append the results into |r|. Each
-// paragraph separator is not included in the split result. If several
-// paragraph separators are contiguous, or if |str| begins with or ends with
-// paragraph separator, then an empty string is inserted.
-void SplitStringIntoParagraphs(const string16& str,
-                               std::vector<string16>* r) {
-  size_t str_len = str.length();
-  for (size_t i = 0, start = 0; i < str_len; ++i) {
-    bool paragraph_separator = IsParagraphSeparator(str[i]);
-    if (paragraph_separator || i == str_len - 1) {
-      size_t len = i - start;
-      if (!paragraph_separator)
-        ++len;
-      r->push_back(str.substr(start, len));
+// Splits |text| into a vector of paragraphs.
+// Given an example "\nabc\ndef\n\n\nhij\n", the split results should be:
+// "", "abc", "def", "", "", "hij", and "".
+void SplitStringIntoParagraphs(const string16& text,
+                               std::vector<string16>* paragraphs) {
+  paragraphs->clear();
+
+  size_t start = 0;
+  for (size_t i = 0; i < text.length(); ++i) {
+    if (IsParagraphSeparator(text[i])) {
+      paragraphs->push_back(text.substr(start, i - start));
       start = i + 1;
     }
   }
+  paragraphs->push_back(text.substr(start, text.length() - start));
 }
 
 }  // namespace
@@ -66,25 +64,21 @@ namespace views {
 ///////////////////////////////////////////////////////////////////////////////
 // MessageBoxView, public:
 
-MessageBoxView::MessageBoxView(int options,
-                               const string16& message,
-                               const string16& default_prompt,
-                               int message_width)
-    : prompt_field_(NULL),
-      icon_(NULL),
-      checkbox_(NULL),
-      message_width_(message_width) {
-  Init(options, message, default_prompt);
+MessageBoxView::InitParams::InitParams(const string16& message)
+    : options(NO_OPTIONS),
+      message(message),
+      message_width(kDefaultMessageWidth) {
 }
 
-MessageBoxView::MessageBoxView(int options,
-                               const string16& message,
-                               const string16& default_prompt)
+MessageBoxView::InitParams::~InitParams() {
+}
+
+MessageBoxView::MessageBoxView(const InitParams& params)
     : prompt_field_(NULL),
       icon_(NULL),
       checkbox_(NULL),
-      message_width_(kDefaultMessageWidth) {
-  Init(options, message, default_prompt);
+      message_width_(params.message_width) {
+  Init(params);
 }
 
 MessageBoxView::~MessageBoxView() {}
@@ -97,7 +91,7 @@ bool MessageBoxView::IsCheckBoxSelected() {
   return checkbox_ ? checkbox_->checked() : false;
 }
 
-void MessageBoxView::SetIcon(const SkBitmap& icon) {
+void MessageBoxView::SetIcon(const gfx::ImageSkia& icon) {
   if (!icon_)
     icon_ = new ImageView();
   icon_->SetImage(icon);
@@ -131,7 +125,7 @@ void MessageBoxView::ViewHierarchyChanged(bool is_add,
                                           View* child) {
   if (child == this && is_add) {
     if (prompt_field_)
-      prompt_field_->SelectAll();
+      prompt_field_->SelectAll(true);
 
     GetWidget()->NotifyAccessibilityEvent(
         this, ui::AccessibilityTypes::EVENT_ALERT, true);
@@ -154,9 +148,9 @@ bool MessageBoxView::AcceleratorPressed(const ui::Accelerator& accelerator) {
     return false;
 
   ui::ScopedClipboardWriter scw(clipboard, ui::Clipboard::BUFFER_STANDARD);
-  string16 text = message_labels_[0]->GetText();
+  string16 text = message_labels_[0]->text();
   for (size_t i = 1; i < message_labels_.size(); ++i)
-    text += message_labels_[i]->GetText();
+    text += message_labels_[i]->text();
   scw.WriteText(text);
   return true;
 }
@@ -164,38 +158,38 @@ bool MessageBoxView::AcceleratorPressed(const ui::Accelerator& accelerator) {
 ///////////////////////////////////////////////////////////////////////////////
 // MessageBoxView, private:
 
-void MessageBoxView::Init(int options,
-                          const string16& message,
-                          const string16& prompt) {
-  if (options & DETECT_DIRECTIONALITY) {
+void MessageBoxView::Init(const InitParams& params) {
+  if (params.options & DETECT_DIRECTIONALITY) {
     std::vector<string16> texts;
-    SplitStringIntoParagraphs(message, &texts);
+    SplitStringIntoParagraphs(params.message, &texts);
     // If the text originates from a web page, its alignment is based on its
     // first character with strong directionality.
     base::i18n::TextDirection message_direction =
-        base::i18n::GetFirstStrongCharacterDirection(message);
+        base::i18n::GetFirstStrongCharacterDirection(params.message);
     Label::Alignment alignment =
         (message_direction == base::i18n::RIGHT_TO_LEFT) ?
         Label::ALIGN_RIGHT : Label::ALIGN_LEFT;
     for (size_t i = 0; i < texts.size(); ++i) {
       Label* message_label = new Label(texts[i]);
-      message_label->SetMultiLine(true);
+      // Don't set multi-line to true if the text is empty, else the label will
+      // have a height of 0.
+      message_label->SetMultiLine(!texts[i].empty());
       message_label->SetAllowCharacterBreak(true);
       message_label->set_directionality_mode(Label::AUTO_DETECT_DIRECTIONALITY);
       message_label->SetHorizontalAlignment(alignment);
       message_labels_.push_back(message_label);
     }
   } else {
-    Label* message_label = new Label(message);
+    Label* message_label = new Label(params.message);
     message_label->SetMultiLine(true);
     message_label->SetAllowCharacterBreak(true);
     message_label->SetHorizontalAlignment(Label::ALIGN_LEFT);
     message_labels_.push_back(message_label);
   }
 
-  if (options & HAS_PROMPT_FIELD) {
+  if (params.options & HAS_PROMPT_FIELD) {
     prompt_field_ = new Textfield;
-    prompt_field_->SetText(prompt);
+    prompt_field_->SetText(params.default_prompt);
   }
 
   ResetLayoutManager();

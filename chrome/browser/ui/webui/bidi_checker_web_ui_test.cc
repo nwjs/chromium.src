@@ -6,8 +6,11 @@
 
 #include "base/base_paths.h"
 #include "base/i18n/rtl.h"
+#include "base/message_loop.h"
 #include "base/path_service.h"
+#include "base/synchronization/waitable_event.h"
 #include "base/utf_string_conversions.h"
+#include "base/threading/platform_thread.h"
 #include "base/values.h"
 #include "chrome/browser/autofill/autofill_common_test.h"
 #include "chrome/browser/autofill/autofill_profile.h"
@@ -20,9 +23,10 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "content/public/browser/browser_thread.h"
 #include "ui/base/resource/resource_bundle.h"
 
-#if defined(OS_POSIX) && defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
 #include <gtk/gtk.h>
 #endif
 
@@ -36,7 +40,39 @@ FilePath WebUIBidiCheckerLibraryJSPath() {
     LOG(ERROR) << "Couldn't find source root";
   return src_root.Append(kWebUIBidiCheckerLibraryJS);
 }
+
+// Since synchronization isn't complete for the ResourceBundle class, reload
+// locale resources on the IO thread.
+// crbug.com/95425, crbug.com/132752
+void ReloadLocaleResourcesOnIOThread(const std::string& new_locale) {
+  if (!content::BrowserThread::CurrentlyOn(content::BrowserThread::IO)) {
+    LOG(ERROR)
+        << content::BrowserThread::IO
+        << " != " << base::PlatformThread::CurrentId();
+    NOTREACHED();
+  }
+
+  std::string locale;
+  {
+    base::ThreadRestrictions::ScopedAllowIO allow_io_scope;
+    locale.assign(
+        ResourceBundle::GetSharedInstance().ReloadLocaleResources(new_locale));
+  }
+  ASSERT_FALSE(locale.empty());
 }
+
+// Since synchronization isn't complete for the ResourceBundle class, reload
+// locale resources on the IO thread.
+// crbug.com/95425, crbug.com/132752
+void ReloadLocaleResources(const std::string& new_locale) {
+  content::BrowserThread::PostTaskAndReply(
+      content::BrowserThread::IO, FROM_HERE,
+      base::Bind(&ReloadLocaleResourcesOnIOThread, base::ConstRef(new_locale)),
+      MessageLoop::QuitClosure());
+  ui_test_utils::RunMessageLoop();
+}
+
+}  // namespace
 
 static const FilePath::CharType* kBidiCheckerTestsJS =
     FILE_PATH_LITERAL("bidichecker_tests.js");
@@ -79,21 +115,22 @@ void WebUIBidiCheckerBrowserTestRTL::SetUpOnMainThread() {
   pak_path = pak_path.AppendASCII("fake-bidi");
   pak_path = pak_path.ReplaceExtension(FILE_PATH_LITERAL("pak"));
   ResourceBundle::GetSharedInstance().OverrideLocalePakForTest(pak_path);
-  ResourceBundle::GetSharedInstance().ReloadLocaleResources("he");
+  ReloadLocaleResources("he");
   base::i18n::SetICUDefaultLocale("he");
-#if defined(OS_POSIX) && defined(TOOLKIT_USES_GTK)
+#if defined(OS_POSIX) && defined(TOOLKIT_GTK)
   gtk_widget_set_default_direction(GTK_TEXT_DIR_RTL);
 #endif
 }
 
 void WebUIBidiCheckerBrowserTestRTL::CleanUpOnMainThread() {
   WebUIBidiCheckerBrowserTest::CleanUpOnMainThread();
-#if defined(OS_POSIX) && defined(TOOLKIT_USES_GTK)
+#if defined(OS_POSIX) && defined(TOOLKIT_GTK)
   gtk_widget_set_default_direction(GTK_TEXT_DIR_LTR);
 #endif
+
   base::i18n::SetICUDefaultLocale(app_locale_);
   ResourceBundle::GetSharedInstance().OverrideLocalePakForTest(FilePath());
-  ResourceBundle::GetSharedInstance().ReloadLocaleResources(app_locale_);
+  ReloadLocaleResources(app_locale_);
 }
 
 // Tests
@@ -114,7 +151,7 @@ static void SetupHistoryPageTest(Browser* browser,
 
 // TODO(estade): fix this test: http://crbug.com/119595
 IN_PROC_BROWSER_TEST_F(WebUIBidiCheckerBrowserTestLTR,
-                       DISABLED_TestHistoryPage) {
+                       TestHistoryPage) {
   // Test an Israeli news site with a Hebrew title.
   SetupHistoryPageTest(browser(),
                        "http://www.ynet.co.il",
@@ -124,7 +161,7 @@ IN_PROC_BROWSER_TEST_F(WebUIBidiCheckerBrowserTestLTR,
 
 // TODO(estade): fix this test: http://crbug.com/119595
 IN_PROC_BROWSER_TEST_F(WebUIBidiCheckerBrowserTestRTL,
-                       DISABLED_TestHistoryPage) {
+                       TestHistoryPage) {
   SetupHistoryPageTest(browser(), "http://www.google.com", "Google");
   RunBidiCheckerOnPage(chrome::kChromeUIHistoryFrameURL);
 }
@@ -141,24 +178,22 @@ IN_PROC_BROWSER_TEST_F(WebUIBidiCheckerBrowserTestLTR, TestAboutPage) {
 //==============================
 // chrome://bugreport
 //==============================
-// TestFeedbackPage fails on chromeos Debug build. crbug.com/105631
+
+IN_PROC_BROWSER_TEST_F(WebUIBidiCheckerBrowserTestLTR, TestFeedbackPage) {
+  // The bugreport page receives its contents as GET arguments. Here we provide
+  // a custom, Hebrew typed, description message.
+  RunBidiCheckerOnPage(
+      "chrome://feedback?session_id=1&tab_index=0&description=%D7%91%D7%93%D7%99%D7%A7%D7%94");
+}
+
+// Test disabled because it is flaky (http://crbug.com/134434)
 #if defined(OS_CHROMEOS)
 #define MAYBE_TestFeedbackPage DISABLED_TestFeedbackPage
 #else
 #define MAYBE_TestFeedbackPage TestFeedbackPage
 #endif
-
-IN_PROC_BROWSER_TEST_F(WebUIBidiCheckerBrowserTestLTR,
-                       MAYBE_TestFeedbackPage) {
-  // The bugreport page receives its contents as GET arguments. Here we provide
-  // a custom, Hebrew typed, description message.
-  RunBidiCheckerOnPage(
-      "chrome://feedback#0?description=%D7%91%D7%93%D7%99%D7%A7%D7%94");
-}
-
-IN_PROC_BROWSER_TEST_F(WebUIBidiCheckerBrowserTestRTL,
-                       MAYBE_TestFeedbackPage) {
-  RunBidiCheckerOnPage("chrome://feedback#0?description=test");
+IN_PROC_BROWSER_TEST_F(WebUIBidiCheckerBrowserTestRTL, MAYBE_TestFeedbackPage) {
+  RunBidiCheckerOnPage("chrome://feedback?session_id=1&tab_index=0&description=test");
 }
 
 //==============================
@@ -258,7 +293,6 @@ static void SetupSettingsAutofillPageTest(Profile* profile,
 }
 
 // http://crbug.com/94642
-// http://crbug.com/95425
 IN_PROC_BROWSER_TEST_F(WebUIBidiCheckerBrowserTestLTR,
                        DISABLED_TestSettingsAutofillPage) {
   SetupSettingsAutofillPageTest(browser()->profile(),
@@ -284,7 +318,6 @@ IN_PROC_BROWSER_TEST_F(WebUIBidiCheckerBrowserTestLTR,
 }
 
 // http://crbug.com/94642
-// http://crbug.com/95425
 IN_PROC_BROWSER_TEST_F(WebUIBidiCheckerBrowserTestRTL,
                        DISABLED_TestSettingsAutofillPage) {
   SetupSettingsAutofillPageTest(browser()->profile(),
@@ -354,9 +387,8 @@ IN_PROC_BROWSER_TEST_F(WebUIBidiCheckerBrowserTestLTR,
   RunBidiCheckerOnPage(url);
 }
 
-// http://crbug.com/117871
 IN_PROC_BROWSER_TEST_F(WebUIBidiCheckerBrowserTestRTL,
-                       DISABLED_TestSettingsLanguageOptionsPage) {
+                       TestSettingsLanguageOptionsPage) {
   std::string url(chrome::kChromeUISettingsFrameURL);
   url += std::string(chrome::kLanguageOptionsSubPage);
   RunBidiCheckerOnPage(url);
@@ -380,17 +412,15 @@ IN_PROC_BROWSER_TEST_F(WebUIBidiCheckerBrowserTestRTL,
 // chrome://settings-frame/syncSetup
 //===================================
 
-// TODO(estade): fix this test: http://crbug.com/119595
 IN_PROC_BROWSER_TEST_F(WebUIBidiCheckerBrowserTestLTR,
-                       DISABLED_TestSettingsFrameSyncSetup) {
+                       TestSettingsFrameSyncSetup) {
   std::string url(chrome::kChromeUISettingsFrameURL);
   url += std::string(chrome::kSyncSetupSubPage);
   RunBidiCheckerOnPage(url);
 }
 
-// TODO(estade): fix this test: http://crbug.com/119595
 IN_PROC_BROWSER_TEST_F(WebUIBidiCheckerBrowserTestRTL,
-                       DISABLED_TestSettingsFrameSyncSetup) {
+                       TestSettingsFrameSyncSetup) {
   std::string url(chrome::kChromeUISettingsFrameURL);
   url += std::string(chrome::kSyncSetupSubPage);
   RunBidiCheckerOnPage(url);
@@ -621,8 +651,15 @@ IN_PROC_BROWSER_TEST_F(WebUIBidiCheckerBrowserTestLTR,
   RunBidiCheckerOnPage(url);
 }
 
+// Fails on chromeos. http://crbug.com/125367
+#if defined(OS_CHROMEOS)
+#define MAYBE_TestSettingsFrameHandler DISABLED_TestSettingsFrameHandler
+#else
+#define MAYBE_TestSettingsFrameHandler TestSettingsFrameHandler
+#endif
+
 IN_PROC_BROWSER_TEST_F(WebUIBidiCheckerBrowserTestRTL,
-                       TestSettingsFrameHandler) {
+                       MAYBE_TestSettingsFrameHandler) {
   std::string url(chrome::kChromeUISettingsFrameURL);
   url += chrome::kHandlerSettingsSubPage;
   RunBidiCheckerOnPage(url);
@@ -675,9 +712,8 @@ IN_PROC_BROWSER_TEST_F(WebUIBidiCheckerBrowserTestLTR,
   RunBidiCheckerOnPage(url);
 }
 
-// http://crbug.com/118420
 IN_PROC_BROWSER_TEST_F(WebUIBidiCheckerBrowserTestRTL,
-                       DISABLED_TestSettingsFrameFonts) {
+                       TestSettingsFrameFonts) {
   std::string url(chrome::kChromeUISettingsFrameURL);
   url += "fonts";
   RunBidiCheckerOnPage(url);
@@ -693,9 +729,8 @@ IN_PROC_BROWSER_TEST_F(WebUIBidiCheckerBrowserTestLTR, TestExtensionsFrame) {
   RunBidiCheckerOnPage(chrome::kChromeUIExtensionsFrameURL);
 }
 
-// TODO(estade): fix this test: http://crbug.com/119595
 IN_PROC_BROWSER_TEST_F(WebUIBidiCheckerBrowserTestRTL,
-                       DISABLED_TestExtensionsFrame) {
+                       TestExtensionsFrame) {
   RunBidiCheckerOnPage(chrome::kChromeUIExtensionsFrameURL);
 }
 
@@ -703,18 +738,11 @@ IN_PROC_BROWSER_TEST_F(WebUIBidiCheckerBrowserTestRTL,
 // chrome://help-frame
 //==============================
 
-// http://crbug.com/118477
-#if defined(OS_CHROMEOS)
-#define MAYBE_TestHelpFrame DISABLED_TestHelpFrame
-#else
-#define MAYBE_TestHelpFrame TestHelpFrame
-#endif  // defined(OS_CHROMEOS)
-
 IN_PROC_BROWSER_TEST_F(WebUIBidiCheckerBrowserTestLTR, TestHelpFrame) {
   RunBidiCheckerOnPage(chrome::kChromeUIHelpFrameURL);
 }
 
-IN_PROC_BROWSER_TEST_F(WebUIBidiCheckerBrowserTestRTL, MAYBE_TestHelpFrame) {
+IN_PROC_BROWSER_TEST_F(WebUIBidiCheckerBrowserTestRTL, TestHelpFrame) {
   RunBidiCheckerOnPage(chrome::kChromeUIHelpFrameURL);
 }
 

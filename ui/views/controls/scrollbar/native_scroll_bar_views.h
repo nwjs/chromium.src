@@ -1,13 +1,12 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef UI_VIEWS_CONTROLS_SCROLLBAR_NATIVE_SCROLL_BAR_VIEWS_H_
 #define UI_VIEWS_CONTROLS_SCROLLBAR_NATIVE_SCROLL_BAR_VIEWS_H_
-#pragma once
 
 #include "base/compiler_specific.h"
-#include "ui/gfx/native_theme.h"
+#include "ui/base/native_theme/native_theme.h"
 #include "ui/gfx/point.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/scrollbar/base_scroll_bar.h"
@@ -69,9 +68,9 @@ class VIEWS_EXPORT NativeScrollBarViews : public BaseScrollBar,
   Button* prev_button_;
   Button* next_button_;
 
-  gfx::NativeTheme::ExtraParams params_;
-  gfx::NativeTheme::Part part_;
-  gfx::NativeTheme::State state_;
+  ui::NativeTheme::ExtraParams params_;
+  ui::NativeTheme::Part part_;
+  ui::NativeTheme::State state_;
 
   DISALLOW_COPY_AND_ASSIGN(NativeScrollBarViews);
 };

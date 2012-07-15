@@ -12,11 +12,12 @@
 #include "base/test/thread_test_helper.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/browser/in_process_webkit/indexed_db_context_impl.h"
-#include "content/browser/tab_contents/tab_contents.h"
+#include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/common/content_paths.h"
 #include "content/public/common/content_switches.h"
 #include "net/base/net_util.h"
@@ -34,9 +35,7 @@ using webkit_database::DatabaseUtil;
 // the actual implementation that lives in the browser side (in_process_webkit).
 class IndexedDBBrowserTest : public InProcessBrowserTest {
  public:
-  IndexedDBBrowserTest() {
-    EnableDOMAutomation();
-  }
+  IndexedDBBrowserTest() {}
 
   GURL GetTestURL(const FilePath& file_path) {
     FilePath dir;
@@ -54,11 +53,12 @@ class IndexedDBBrowserTest : public InProcessBrowserTest {
     ui_test_utils::NavigateToURLBlockUntilNavigationsComplete(
         the_browser, test_url, 2);
     LOG(INFO) << "Navigation done.";
-    std::string result = the_browser->GetSelectedWebContents()->GetURL().ref();
+    std::string result =
+        chrome::GetActiveWebContents(the_browser)->GetURL().ref();
     if (result != "pass") {
       std::string js_result;
       ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractString(
-          the_browser->GetSelectedWebContents()->GetRenderViewHost(), L"",
+          chrome::GetActiveWebContents(the_browser)->GetRenderViewHost(), L"",
           L"window.domAutomationController.send(getLog())", &js_result));
       FAIL() << "Failed: " << js_result;
     }
@@ -107,10 +107,15 @@ IN_PROC_BROWSER_TEST_F(IndexedDBBrowserTest, TransactionTest) {
   SimpleTest(GetTestURL(FilePath(FILE_PATH_LITERAL("transaction_test.html"))));
 }
 
+// Appears flaky/slow, see: http://crbug.com/120298
+IN_PROC_BROWSER_TEST_F(IndexedDBBrowserTest, DISABLED_ValueSizeTest) {
+  SimpleTest(GetTestURL(FilePath(FILE_PATH_LITERAL("value_size_test.html"))));
+}
+
 IN_PROC_BROWSER_TEST_F(IndexedDBBrowserTest, DoesntHangTest) {
   SimpleTest(GetTestURL(FilePath(
       FILE_PATH_LITERAL("transaction_run_forever.html"))));
-  ui_test_utils::CrashTab(browser()->GetSelectedWebContents());
+  ui_test_utils::CrashTab(chrome::GetActiveWebContents(browser()));
   SimpleTest(GetTestURL(FilePath(FILE_PATH_LITERAL("transaction_test.html"))));
 }
 
@@ -133,179 +138,6 @@ IN_PROC_BROWSER_TEST_F(IndexedDBBrowserTest, Bug109187Test) {
 
   // Just navigate to the URL. Test will crash if it fails.
   ui_test_utils::NavigateToURLBlockUntilNavigationsComplete(browser(), url, 1);
-}
-
-#if defined(OS_MACOSX)
-// http://crbug.com/115188. On Mac, failure rate is about 18% currently.
-#define MAYBE_ClearLocalState DISABLED_ClearLocalState
-#else
-#define MAYBE_ClearLocalState ClearLocalState
-#endif
-
-// In proc browser test is needed here because ClearLocalState indirectly calls
-// WebKit's isMainThread through WebSecurityOrigin->SecurityOrigin.
-IN_PROC_BROWSER_TEST_F(IndexedDBBrowserTest, MAYBE_ClearLocalState) {
-  ScopedTempDir temp_dir;
-  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
-
-  FilePath protected_path;
-  FilePath unprotected_path;
-
-  // Create the scope which will ensure we run the destructor of the webkit
-  // context which should trigger the clean up.
-  {
-    TestingProfile profile;
-
-    // Test our assumptions about what is protected and what is not.
-    const GURL kProtectedOrigin("chrome-extension://foo/");
-    const GURL kUnprotectedOrigin("http://foo/");
-    quota::SpecialStoragePolicy* policy = profile.GetSpecialStoragePolicy();
-    ASSERT_TRUE(policy->IsStorageProtected(kProtectedOrigin));
-    ASSERT_FALSE(policy->IsStorageProtected(kUnprotectedOrigin));
-
-    // Create some indexedDB paths.
-    // With the levelDB backend, these are directories.
-    IndexedDBContextImpl* idb_context =
-        static_cast<IndexedDBContextImpl*>(
-            BrowserContext::GetIndexedDBContext(&profile));
-    idb_context->set_data_path_for_testing(temp_dir.path());
-    protected_path = idb_context->GetFilePathForTesting(
-        DatabaseUtil::GetOriginIdentifier(kProtectedOrigin));
-    unprotected_path = idb_context->GetFilePathForTesting(
-        DatabaseUtil::GetOriginIdentifier(kUnprotectedOrigin));
-    ASSERT_TRUE(file_util::CreateDirectory(protected_path));
-    ASSERT_TRUE(file_util::CreateDirectory(unprotected_path));
-
-    // Setup to clear all unprotected origins on exit.
-    idb_context->set_clear_local_state_on_exit(true);
-  }
-
-  // Make sure we wait until the destructor has run.
-  scoped_refptr<base::ThreadTestHelper> helper_io(
-      new base::ThreadTestHelper(
-          BrowserThread::GetMessageLoopProxyForThread(BrowserThread::IO)));
-  ASSERT_TRUE(helper_io->Run());
-  scoped_refptr<base::ThreadTestHelper> helper_webkit(
-      new base::ThreadTestHelper(
-          BrowserThread::GetMessageLoopProxyForThread(
-              BrowserThread::WEBKIT_DEPRECATED)));
-  ASSERT_TRUE(helper_webkit->Run());
-
-  ASSERT_TRUE(file_util::DirectoryExists(protected_path));
-  ASSERT_FALSE(file_util::DirectoryExists(unprotected_path));
-}
-
-// In proc browser test is needed here because ClearLocalState indirectly calls
-// WebKit's isMainThread through WebSecurityOrigin->SecurityOrigin.
-// http://crbug.com/115307
-IN_PROC_BROWSER_TEST_F(IndexedDBBrowserTest,
-    DISABLED_ClearSessionOnlyDatabases) {
-  ScopedTempDir temp_dir;
-  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
-
-  FilePath normal_path;
-  FilePath session_only_path;
-
-  // Create the scope which will ensure we run the destructor of the webkit
-  // context which should trigger the clean up.
-  {
-    TestingProfile profile;
-
-    const GURL kNormalOrigin("http://normal/");
-    const GURL kSessionOnlyOrigin("http://session-only/");
-    scoped_refptr<quota::MockSpecialStoragePolicy> special_storage_policy =
-        new quota::MockSpecialStoragePolicy;
-    special_storage_policy->AddSessionOnly(kSessionOnlyOrigin);
-
-    // Create some indexedDB paths.
-    // With the levelDB backend, these are directories.
-    IndexedDBContextImpl* idb_context =
-        static_cast<IndexedDBContextImpl*>(
-            BrowserContext::GetIndexedDBContext(&profile));
-
-    // Override the storage policy with our own.
-    idb_context->special_storage_policy_ = special_storage_policy;
-    idb_context->set_data_path_for_testing(temp_dir.path());
-
-    normal_path = idb_context->GetFilePathForTesting(
-        DatabaseUtil::GetOriginIdentifier(kNormalOrigin));
-    session_only_path = idb_context->GetFilePathForTesting(
-        DatabaseUtil::GetOriginIdentifier(kSessionOnlyOrigin));
-    ASSERT_TRUE(file_util::CreateDirectory(normal_path));
-    ASSERT_TRUE(file_util::CreateDirectory(session_only_path));
-  }
-
-  scoped_refptr<base::ThreadTestHelper> helper_io(
-      new base::ThreadTestHelper(
-          BrowserThread::GetMessageLoopProxyForThread(BrowserThread::IO)));
-  ASSERT_TRUE(helper_io->Run());
-  scoped_refptr<base::ThreadTestHelper> helper_webkit(
-      new base::ThreadTestHelper(
-          BrowserThread::GetMessageLoopProxyForThread(
-              BrowserThread::WEBKIT_DEPRECATED)));
-  ASSERT_TRUE(helper_webkit->Run());
-
-  EXPECT_TRUE(file_util::DirectoryExists(normal_path));
-  EXPECT_FALSE(file_util::DirectoryExists(session_only_path));
-}
-
-#if defined(OS_MACOSX)
-// http://crbug.com/115188. On Mac, failure rate is about 18% currently.
-#define MAYBE_SaveSessionState DISABLED_SaveSessionState
-#else
-#define MAYBE_SaveSessionState SaveSessionState
-#endif
-
-IN_PROC_BROWSER_TEST_F(IndexedDBBrowserTest, MAYBE_SaveSessionState) {
-  ScopedTempDir temp_dir;
-  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
-
-  FilePath normal_path;
-  FilePath session_only_path;
-
-  // Create the scope which will ensure we run the destructor of the webkit
-  // context.
-  {
-    TestingProfile profile;
-
-    const GURL kNormalOrigin("http://normal/");
-    const GURL kSessionOnlyOrigin("http://session-only/");
-    scoped_refptr<quota::MockSpecialStoragePolicy> special_storage_policy =
-        new quota::MockSpecialStoragePolicy;
-    special_storage_policy->AddSessionOnly(kSessionOnlyOrigin);
-
-    // Create some indexedDB paths.
-    // With the levelDB backend, these are directories.
-    IndexedDBContextImpl* idb_context =
-        static_cast<IndexedDBContextImpl*>(
-            BrowserContext::GetIndexedDBContext(&profile));
-
-    // Override the storage policy with our own.
-    idb_context->special_storage_policy_ = special_storage_policy;
-    idb_context->set_clear_local_state_on_exit(true);
-    idb_context->set_data_path_for_testing(temp_dir.path());
-
-    // Save session state. This should bypass the destruction-time deletion.
-    idb_context->SaveSessionState();
-
-    normal_path = idb_context->GetFilePathForTesting(
-        DatabaseUtil::GetOriginIdentifier(kNormalOrigin));
-    session_only_path = idb_context->GetFilePathForTesting(
-        DatabaseUtil::GetOriginIdentifier(kSessionOnlyOrigin));
-    ASSERT_TRUE(file_util::CreateDirectory(normal_path));
-    ASSERT_TRUE(file_util::CreateDirectory(session_only_path));
-  }
-
-  // Make sure we wait until the destructor has run.
-  scoped_refptr<base::ThreadTestHelper> helper(
-      new base::ThreadTestHelper(
-          BrowserThread::GetMessageLoopProxyForThread(
-              BrowserThread::WEBKIT_DEPRECATED)));
-  ASSERT_TRUE(helper->Run());
-
-  // No data was cleared because of SaveSessionState.
-  EXPECT_TRUE(file_util::DirectoryExists(normal_path));
-  EXPECT_TRUE(file_util::DirectoryExists(session_only_path));
 }
 
 class IndexedDBBrowserTestWithLowQuota : public IndexedDBBrowserTest {

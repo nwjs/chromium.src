@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CONTENT_RENDERER_DEVTOOLS_CLIENT_H_
 #define CONTENT_RENDERER_DEVTOOLS_CLIENT_H_
-#pragma once
 
 #include <string>
 
@@ -46,7 +45,10 @@ class DevToolsClient : public content::RenderViewObserver,
   virtual void requestUndockWindow() OVERRIDE;
   virtual void requestSetDockSide(const WebKit::WebString& side) OVERRIDE;
   virtual void openInNewTab(const WebKit::WebString& side) OVERRIDE;
-  virtual void saveAs(const WebKit::WebString& file_name,
+  virtual void save(const WebKit::WebString& url,
+                    const WebKit::WebString& content,
+                    bool save_as) OVERRIDE;
+  virtual void append(const WebKit::WebString& url,
                       const WebKit::WebString& content) OVERRIDE;
 
   void OnDispatchOnInspectorFrontend(const std::string& message);

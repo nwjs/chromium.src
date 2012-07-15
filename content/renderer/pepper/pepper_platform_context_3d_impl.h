@@ -4,11 +4,12 @@
 
 #ifndef CONTENT_RENDERER_PEPPER_PEPPER_PLATFORM_CONTEXT_3D_IMPL_H_
 #define CONTENT_RENDERER_PEPPER_PEPPER_PLATFORM_CONTEXT_3D_IMPL_H_
-#pragma once
 
 #include "base/callback.h"
-#include "base/memory/scoped_ptr.h"
+#include "base/compiler_specific.h"
+#include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
+#include "content/common/gpu/client/webgraphicscontext3d_command_buffer_impl.h"
 #include "webkit/plugins/ppapi/plugin_delegate.h"
 
 #ifdef ENABLE_GPU
@@ -21,8 +22,11 @@ class CommandBuffer;
 
 class CommandBufferProxy;
 class GpuChannelHost;
-class PepperParentContextProvider;
 class ContentGLContext;
+
+namespace content {
+
+class PepperParentContextProvider;
 
 class PlatformContext3DImpl
     : public webkit::ppapi::PluginDelegate::PlatformContext3D {
@@ -31,7 +35,8 @@ class PlatformContext3DImpl
       PepperParentContextProvider* parent_context_provider);
   virtual ~PlatformContext3DImpl();
 
-  virtual bool Init(const int32* attrib_list) OVERRIDE;
+  virtual bool Init(const int32* attrib_list,
+                    PlatformContext3D* share_context) OVERRIDE;
   virtual unsigned GetBackingTextureId() OVERRIDE;
   virtual bool IsOpaque() OVERRIDE;
   virtual gpu::CommandBuffer* GetCommandBuffer() OVERRIDE;
@@ -48,7 +53,7 @@ class PlatformContext3DImpl
 
   // Implicitly weak pointer; must outlive this instance.
   PepperParentContextProvider* parent_context_provider_;
-  base::WeakPtr<ContentGLContext> parent_context_;
+  base::WeakPtr<WebGraphicsContext3DCommandBufferImpl> parent_context_;
   scoped_refptr<GpuChannelHost> channel_;
   unsigned int parent_texture_id_;
   bool has_alpha_;
@@ -57,6 +62,8 @@ class PlatformContext3DImpl
   ConsoleMessageCallback console_message_callback_;
   base::WeakPtrFactory<PlatformContext3DImpl> weak_ptr_factory_;
 };
+
+}  // namespace content
 
 #endif  // ENABLE_GPU
 

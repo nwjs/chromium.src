@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SESSIONS_BASE_SESSION_SERVICE_H_
 #define CHROME_BROWSER_SESSIONS_BASE_SESSION_SERVICE_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/callback.h"
@@ -125,6 +124,13 @@ class BaseSessionService : public CancelableRequestProvider,
       SessionID::id_type tab_id,
       const std::string& extension_id);
 
+  // Creates a SessionCommand that containing user agent override used by a
+  // tab's navigations.
+  SessionCommand* CreateSetTabUserAgentOverrideCommand(
+      SessionID::id_type command_id,
+      SessionID::id_type tab_id,
+      const std::string& user_agent_override);
+
   // Creates a SessionCommand stores a browser window's app name.
   SessionCommand* CreateSetWindowAppNameCommand(
       SessionID::id_type command_id,
@@ -145,6 +151,13 @@ class BaseSessionService : public CancelableRequestProvider,
       const SessionCommand& command,
       SessionID::id_type* tab_id,
       std::string* extension_app_id);
+
+  // Extracts a SessionCommand as previously created by
+  // CreateSetTabUserAgentOverrideCommand into the tab id and user agent.
+  bool RestoreSetTabUserAgentOverrideCommand(
+      const SessionCommand& command,
+      SessionID::id_type* tab_id,
+      std::string* user_agent_override);
 
   // Extracts a SessionCommand as previously created by
   // CreateSetWindowAppNameCommand into the window id and application name.
@@ -168,6 +181,10 @@ class BaseSessionService : public CancelableRequestProvider,
   bool RunTaskOnBackendThread(const tracked_objects::Location& from_here,
                               const base::Closure& task);
 
+  // Returns true if we appear to be running in production, false if we appear
+  // to be running as part of a unit test or if the FILE thread has gone away.
+  bool RunningInProduction() const;
+
   // Max number of navigation entries in each direction we'll persist.
   static const int max_persist_navigation_count;
 
@@ -178,9 +195,6 @@ class BaseSessionService : public CancelableRequestProvider,
 
   // The profile. This may be null during testing.
   Profile* profile_;
-
-  // Path to read from. This is only used if profile_ is NULL.
-  const FilePath& path_;
 
   // The backend.
   scoped_refptr<SessionBackend> backend_;

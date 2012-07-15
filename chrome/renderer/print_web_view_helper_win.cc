@@ -108,14 +108,15 @@ void PrintWebViewHelper::PrintPageInternal(
 
   int page_number = params.page_number;
 
-  // Calculate scaling.
-  double actual_shrink = gfx::CalculatePageScale(
-      metafile->context(),
-      params.params.content_size.width(),
-      params.params.content_size.height());
-
+  // Calculate the dpi adjustment.
+  // Browser will render context using desired_dpi, so we need to calculate
+  // adjustment factor to play content on the printer DC later during the
+  // actual printing.
+  double actual_shrink = static_cast<float>(params.params.desired_dpi /
+                                            params.params.dpi);
   gfx::Size page_size_in_dpi;
   gfx::Rect content_area_in_dpi;
+
   // Render page for printing.
   metafile.reset(RenderPage(params.params, page_number, frame, false,
                             metafile.get(), &actual_shrink, &page_size_in_dpi,
@@ -187,8 +188,8 @@ Metafile* PrintWebViewHelper::RenderPage(
   printing::PageSizeMargins page_layout_in_points;
   double css_scale_factor = 1.0f;
   ComputePageLayoutInPointsForCss(frame, page_number, params,
-                                  ignore_css_margins_, fit_to_page_,
-                                  &css_scale_factor, &page_layout_in_points);
+                                  ignore_css_margins_, &css_scale_factor,
+                                  &page_layout_in_points);
   gfx::Size page_size;
   gfx::Rect content_area;
   GetPageSizeAndContentAreaFromPageLayout(page_layout_in_points, &page_size,
@@ -254,9 +255,18 @@ Metafile* PrintWebViewHelper::RenderPage(
   if (*actual_shrink <= 0 || webkit_scale_factor <= 0) {
     NOTREACHED() << "Printing page " << page_number << " failed.";
   } else {
-    // Update the dpi adjustment with the "page |actual_shrink|" calculated in
-    // webkit.
-    *actual_shrink /= (webkit_scale_factor * css_scale_factor);
+    // While rendering certain plugins (PDF) to metafile, we might need to
+    // set custom scale factor. Update |actual_shrink| with custom scale
+    // if it is set on canvas.
+    // TODO(gene): We should revisit this solution for the next versions.
+    // Consider creating metafile of the right size (or resizable)
+    // https://code.google.com/p/chromium/issues/detail?id=126037
+    if (!printing::MetafileSkiaWrapper::GetCustomScaleOnCanvas(
+            *canvas, actual_shrink)) {
+      // Update the dpi adjustment with the "page |actual_shrink|" calculated in
+      // webkit.
+      *actual_shrink /= (webkit_scale_factor * css_scale_factor);
+    }
   }
 
   bool result = metafile->FinishPage();

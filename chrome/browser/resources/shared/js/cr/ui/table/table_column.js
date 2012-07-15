@@ -7,8 +7,8 @@
  */
 
 cr.define('cr.ui.table', function() {
-  const EventTarget = cr.EventTarget;
-  const Event = cr.Event;
+  /** @const */ var EventTarget = cr.EventTarget;
+  /** @const */ var Event = cr.Event;
 
   /**
    * A table column that wraps column ids and settings.
@@ -32,7 +32,9 @@ cr.define('cr.ui.table', function() {
 
     width_: null,
 
-    endAlign_ : false,
+    endAlign_: false,
+
+    defaultOrder_: 'asc',
 
     /**
      * Clones column.
@@ -43,6 +45,7 @@ cr.define('cr.ui.table', function() {
                                         this.endAlign_);
       tableColumn.renderFunction = this.renderFunction_;
       tableColumn.headerRenderFunction = this.headerRenderFunction_;
+      tableColumn.defaultOrder = this.defaultOrder_;
       return tableColumn;
     },
 
@@ -104,6 +107,12 @@ cr.define('cr.ui.table', function() {
    * @type {Function(cr.ui.Table): HTMLElement}
    */
   cr.defineProperty(TableColumn, 'headerRenderFunction');
+
+  /**
+   * Default sorting order for the column ('asc' or 'desc').
+   * @type {string}
+   */
+  cr.defineProperty(TableColumn, 'defaultOrder');
 
   return {
     TableColumn: TableColumn

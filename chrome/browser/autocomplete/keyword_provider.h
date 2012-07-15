@@ -7,18 +7,16 @@
 // (e.g.  "imdb Godzilla") and then fixing them up into valid URLs.  An
 // instance of it gets created and managed by the autocomplete controller.
 // KeywordProvider uses a TemplateURLService to find the set of keywords.
-//
-// For more information on the autocomplete system in general, including how
-// the autocomplete controller and autocomplete providers work, see
-// chrome/browser/autocomplete.h.
 
 #ifndef CHROME_BROWSER_AUTOCOMPLETE_KEYWORD_PROVIDER_H_
 #define CHROME_BROWSER_AUTOCOMPLETE_KEYWORD_PROVIDER_H_
-#pragma once
 
 #include <string>
 
-#include "chrome/browser/autocomplete/autocomplete.h"
+#include "base/basictypes.h"
+#include "base/compiler_specific.h"
+#include "chrome/browser/autocomplete/autocomplete_input.h"
+#include "chrome/browser/autocomplete/autocomplete_provider.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 
@@ -51,9 +49,10 @@ class TemplateURLService;
 class KeywordProvider : public AutocompleteProvider,
                         public content::NotificationObserver {
  public:
-  KeywordProvider(ACProviderListener* listener, Profile* profile);
+  KeywordProvider(AutocompleteProviderListener* listener, Profile* profile);
   // For testing.
-  KeywordProvider(ACProviderListener* listener, TemplateURLService* model);
+  KeywordProvider(AutocompleteProviderListener* listener,
+                  TemplateURLService* model);
 
   // Extracts the next whitespace-delimited token from input and returns it.
   // Sets |remaining_input| to everything after the first token (skipping over
@@ -89,7 +88,7 @@ class KeywordProvider : public AutocompleteProvider,
                                             const string16& keyword,
                                             const AutocompleteInput& input);
 
-  // AutocompleteProvider
+  // AutocompleteProvider:
   virtual void Start(const AutocompleteInput& input,
                      bool minimal_changes) OVERRIDE;
   virtual void Stop() OVERRIDE;
@@ -113,8 +112,7 @@ class KeywordProvider : public AutocompleteProvider,
 
   // Fills in the "destination_url" and "contents" fields of |match| with the
   // provided user input and keyword data.
-  static void FillInURLAndContents(Profile* profile,
-                                   const string16& remaining_input,
+  static void FillInURLAndContents(const string16& remaining_input,
                                    const TemplateURL* element,
                                    AutocompleteMatch* match);
 

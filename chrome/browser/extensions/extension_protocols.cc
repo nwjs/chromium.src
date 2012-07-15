@@ -27,14 +27,16 @@
 #include "grit/component_extension_resources_map.h"
 #include "net/base/mime_util.h"
 #include "net/base/net_errors.h"
-#include "net/http/http_response_info.h"
 #include "net/http/http_response_headers.h"
+#include "net/http/http_response_info.h"
 #include "net/url_request/url_request_error_job.h"
 #include "net/url_request/url_request_file_job.h"
 #include "net/url_request/url_request_simple_job.h"
+#include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 
 using content::ResourceRequestInfo;
+using extensions::Extension;
 
 namespace {
 
@@ -73,7 +75,8 @@ class URLRequestResourceBundleJob : public net::URLRequestSimpleJob {
                        std::string* charset,
                        std::string* data) const OVERRIDE {
     const ResourceBundle& rb = ResourceBundle::GetSharedInstance();
-    *data = rb.GetRawDataResource(resource_id_).as_string();
+    *data = rb.GetRawDataResource(
+        resource_id_, ui::SCALE_FACTOR_NONE).as_string();
 
     // Requests should not block on the disk!  On Windows this goes to the
     // registry.
@@ -143,6 +146,8 @@ class GeneratedBackgroundPageJob : public net::URLRequestSimpleJob {
   }
 
  private:
+  virtual ~GeneratedBackgroundPageJob() {}
+
   scoped_refptr<const Extension> extension_;
   net::HttpResponseInfo response_info_;
 };
@@ -161,6 +166,9 @@ class URLRequestExtensionJob : public net::URLRequestFileJob {
   virtual void GetResponseInfo(net::HttpResponseInfo* info) OVERRIDE {
     *info = response_info_;
   }
+
+ private:
+  virtual ~URLRequestExtensionJob() {}
 
   net::HttpResponseInfo response_info_;
 };
@@ -270,10 +278,12 @@ ExtensionProtocolHandler::MaybeCreateJob(net::URLRequest* request) const {
   std::string content_security_policy;
   bool send_cors_header = false;
   if (extension) {
-    content_security_policy = extension->content_security_policy();
+    std::string resource_path = request->url().path();
+    content_security_policy =
+        extension->GetResourceContentSecurityPolicy(resource_path);
     if ((extension->manifest_version() >= 2 ||
              extension->HasWebAccessibleResources()) &&
-        extension->IsResourceWebAccessible(request->url().path()))
+        extension->IsResourceWebAccessible(resource_path))
       send_cors_header = true;
   }
 
@@ -285,9 +295,16 @@ ExtensionProtocolHandler::MaybeCreateJob(net::URLRequest* request) const {
   }
 
   FilePath resources_path;
+  FilePath relative_path;
+  // Try to load extension resources from chrome resource file if
+  // directory_path is a descendant of resources_path. resources_path
+  // corresponds to src/chrome/browser/resources in source tree.
   if (PathService::Get(chrome::DIR_RESOURCES, &resources_path) &&
-      directory_path.DirName() == resources_path) {
-    FilePath relative_path = directory_path.BaseName().Append(
+      // Since component extension resources are included in
+      // component_extension_resources.pak file in resources_path, calculate
+      // extension relative path against resources_path.
+      resources_path.AppendRelativePath(directory_path, &relative_path)) {
+    relative_path = relative_path.Append(
         extension_file_util::ExtensionURLToRelativeFilePath(request->url()));
     relative_path = relative_path.NormalizePathSeparators();
 

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_INPUT_METHOD_INPUT_METHOD_DESCRIPTOR_H_
 #define CHROME_BROWSER_CHROMEOS_INPUT_METHOD_INPUT_METHOD_DESCRIPTOR_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -20,16 +19,15 @@ class InputMethodWhitelist;
 class InputMethodDescriptor {
  public:
   InputMethodDescriptor();
-  InputMethodDescriptor(const InputMethodWhitelist& whitelist,
-                        const std::string& in_id,
-                        const std::string& in_name,
-                        const std::string& in_raw_layout,
-                        const std::string& in_language_code);
+  InputMethodDescriptor(const std::string& id,
+                        const std::string& name,
+                        const std::string& keyboard_layout,
+                        const std::string& language_code,
+                        bool third_party);
   ~InputMethodDescriptor();
 
-  bool operator==(const InputMethodDescriptor& other) const {
-    return id() == other.id();
-  }
+  bool operator==(const InputMethodDescriptor& other) const;
+  bool operator!=(const InputMethodDescriptor& other) const;
 
   // Debug print function.
   std::string ToString() const;
@@ -37,10 +35,8 @@ class InputMethodDescriptor {
   const std::string& id() const { return id_; }
   const std::string& name() const { return name_; }
   const std::string& keyboard_layout() const { return keyboard_layout_; }
-  const std::vector<std::string>& virtual_keyboard_layouts() const {
-    return virtual_keyboard_layouts_;
-  }
   const std::string& language_code() const { return language_code_; }
+  bool third_party() const { return third_party_; }
 
   // Returns the fallback input method descriptor (the very basic US
   // keyboard). This function is mostly used for testing, but may be used
@@ -48,13 +44,6 @@ class InputMethodDescriptor {
   static InputMethodDescriptor GetFallbackInputMethodDescriptor();
 
  private:
-  // For GetFallbackInputMethodDescriptor(). Use the public constructor instead.
-  InputMethodDescriptor(const std::string& in_id,
-                        const std::string& in_name,
-                        const std::string& in_keyboard_layout,
-                        const std::string& in_virtual_keyboard_layouts,
-                        const std::string& in_language_code);
-
   // An ID that identifies an input method engine (e.g., "t:latn-post",
   // "pinyin", "hangul").
   std::string id_;
@@ -64,11 +53,10 @@ class InputMethodDescriptor {
   // A preferred physical keyboard layout for the input method (e.g., "us",
   // "us(dvorak)", "jp"). Comma separated layout names do NOT appear.
   std::string keyboard_layout_;
-  // Preferred virtual keyboard layouts for the input method. Comma separated
-  // layout names in order of priority, such as "handwriting,us", could appear.
-  std::vector<std::string> virtual_keyboard_layouts_;
   // Language code like "ko", "ja", "en-US", and "zh-CN".
   std::string language_code_;
+  // Indicates if this is a third party ime
+  bool third_party_;
 };
 
 typedef std::vector<InputMethodDescriptor> InputMethodDescriptors;

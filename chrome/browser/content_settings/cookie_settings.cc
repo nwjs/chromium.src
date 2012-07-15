@@ -98,9 +98,6 @@ CookieSettings::CookieSettings(
   pref_change_registrar_.Add(prefs::kBlockThirdPartyCookies, this);
 }
 
-CookieSettings::~CookieSettings() {
-}
-
 ContentSetting
 CookieSettings::GetDefaultCookieSetting(std::string* provider_id) const {
   return host_content_settings_map_->GetDefaultContentSetting(
@@ -203,8 +200,8 @@ ContentSetting CookieSettings::GetCookieSetting(
 
   // If no explicit exception has been made and third-party cookies are blocked
   // by default, apply that rule.
-  if (info.primary_pattern == ContentSettingsPattern::Wildcard() &&
-      info.secondary_pattern == ContentSettingsPattern::Wildcard() &&
+  if (info.primary_pattern.MatchesAllHosts() &&
+      info.secondary_pattern.MatchesAllHosts() &&
       ShouldBlockThirdPartyCookies() &&
       !first_party_url.SchemeIs(chrome::kExtensionScheme)) {
     bool not_strict = CommandLine::ForCurrentProcess()->HasSwitch(
@@ -226,6 +223,8 @@ ContentSetting CookieSettings::GetCookieSetting(
   DCHECK(value.get());
   return content_settings::ValueToContentSetting(value.get());
 }
+
+CookieSettings::~CookieSettings() {}
 
 bool CookieSettings::ShouldBlockThirdPartyCookies() const {
   base::AutoLock auto_lock(lock_);

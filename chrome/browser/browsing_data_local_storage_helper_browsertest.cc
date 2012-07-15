@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,6 +12,7 @@
 #include "base/file_util.h"
 #include "base/memory/ref_counted.h"
 #include "base/test/thread_test_helper.h"
+#include "base/threading/sequenced_worker_pool.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browsing_data_helper_browsertest.h"
 #include "chrome/browser/browsing_data_local_storage_helper.h"
@@ -34,6 +35,8 @@ typedef
 const FilePath::CharType kTestFile0[] =
     FILE_PATH_LITERAL("http_www.chromium.org_0.localstorage");
 
+const char kOriginOfTestFile0[] = "http://www.chromium.org/";
+
 const FilePath::CharType kTestFile1[] =
     FILE_PATH_LITERAL("http_www.google.com_0.localstorage");
 
@@ -47,6 +50,8 @@ const FilePath::CharType kTestFileExtension[] = FILE_PATH_LITERAL(
 class BrowsingDataLocalStorageHelperTest : public InProcessBrowserTest {
  protected:
   void CreateLocalStorageFilesForTest() {
+    // Note: This helper depends on details of how the dom_storage library
+    // stores data in the host file system.
     FilePath storage_path = GetLocalStoragePathForTestingProfile();
     file_util::CreateDirectory(storage_path);
     const FilePath::CharType* kFilesToCreate[] = {
@@ -59,8 +64,7 @@ class BrowsingDataLocalStorageHelperTest : public InProcessBrowserTest {
   }
 
   FilePath GetLocalStoragePathForTestingProfile() {
-    return BrowserContext::GetDOMStorageContext(browser()->profile())->
-        GetFilePath(ASCIIToUTF16("blah")).DirName();
+    return browser()->profile()->GetPath().AppendASCII("Local Storage");
   }
 };
 
@@ -88,8 +92,8 @@ class StopTestOnCallback {
       for (LocalStorageInfoList::const_iterator info =
            local_storage_info.begin(); info != local_storage_info.end();
            ++info) {
-        ASSERT_EQ("http", info->protocol);
-        if (info->host == kTestHosts[i]) {
+        ASSERT_TRUE(info->origin_url.SchemeIs("http"));
+        if (info->origin_url.host() == kTestHosts[i]) {
           ASSERT_FALSE(test_hosts_found[i]);
           test_hosts_found[i] = true;
         }
@@ -121,13 +125,9 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataLocalStorageHelperTest, DeleteSingleFile) {
   scoped_refptr<BrowsingDataLocalStorageHelper> local_storage_helper(
       new BrowsingDataLocalStorageHelper(browser()->profile()));
   CreateLocalStorageFilesForTest();
-  local_storage_helper->DeleteLocalStorageFile(
-      GetLocalStoragePathForTestingProfile().Append(FilePath(kTestFile0)));
-  scoped_refptr<base::ThreadTestHelper> wait_for_webkit_thread(
-      new base::ThreadTestHelper(
-          BrowserThread::GetMessageLoopProxyForThread(
-              BrowserThread::WEBKIT_DEPRECATED)));
-  ASSERT_TRUE(wait_for_webkit_thread->Run());
+  local_storage_helper->DeleteOrigin(GURL(kOriginOfTestFile0));
+  BrowserThread::GetBlockingPool()->FlushForTesting();
+
   // Ensure the file has been deleted.
   file_util::FileEnumerator file_enumerator(
       GetLocalStoragePathForTestingProfile(),
@@ -147,10 +147,6 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataLocalStorageHelperTest,
                        CannedAddLocalStorage) {
   const GURL origin1("http://host1:1/");
   const GURL origin2("http://host2:1/");
-  const FilePath::CharType file1[] =
-      FILE_PATH_LITERAL("http_host1_1.localstorage");
-  const FilePath::CharType file2[] =
-      FILE_PATH_LITERAL("http_host2_1.localstorage");
 
   scoped_refptr<CannedBrowsingDataLocalStorageHelper> helper(
       new CannedBrowsingDataLocalStorageHelper(browser()->profile()));
@@ -168,15 +164,13 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataLocalStorageHelperTest,
   ASSERT_EQ(2u, result.size());
   std::list<BrowsingDataLocalStorageHelper::LocalStorageInfo>::iterator info =
       result.begin();
-  EXPECT_EQ(FilePath(file1).value(), info->file_path.BaseName().value());
+  EXPECT_EQ(origin1, info->origin_url);
   info++;
-  EXPECT_EQ(FilePath(file2).value(), info->file_path.BaseName().value());
+  EXPECT_EQ(origin2, info->origin_url);
 }
 
 IN_PROC_BROWSER_TEST_F(BrowsingDataLocalStorageHelperTest, CannedUnique) {
   const GURL origin("http://host1:1/");
-  const FilePath::CharType file[] =
-      FILE_PATH_LITERAL("http_host1_1.localstorage");
 
   scoped_refptr<CannedBrowsingDataLocalStorageHelper> helper(
       new CannedBrowsingDataLocalStorageHelper(browser()->profile()));
@@ -192,7 +186,6 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataLocalStorageHelperTest, CannedUnique) {
       callback.result();
 
   ASSERT_EQ(1u, result.size());
-  EXPECT_EQ(FilePath(file).value(),
-            result.begin()->file_path.BaseName().value());
+  EXPECT_EQ(origin, result.begin()->origin_url);
 }
 }  // namespace

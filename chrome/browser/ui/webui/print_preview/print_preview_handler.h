@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_WEBUI_PRINT_PREVIEW_PRINT_PREVIEW_HANDLER_H_
 #define CHROME_BROWSER_UI_WEBUI_PRINT_PREVIEW_PRINT_PREVIEW_HANDLER_H_
-#pragma once
 
 #include <string>
 
@@ -20,11 +19,15 @@
 
 class FilePath;
 class PrintSystemTaskProxy;
-class RefCountedBytes;
-class TabContentsWrapper;
+class TabContents;
 
 namespace base {
 class DictionaryValue;
+class RefCountedBytes;
+}
+
+namespace content {
+class WebContents;
 }
 
 namespace printing {
@@ -71,6 +74,8 @@ class PrintPreviewHandler : public content::WebUIMessageHandler,
 
  private:
   friend class PrintPreviewHandlerTest;
+  // TODO(abodenha@chromium.org) See http://crbug.com/136843
+  // PrintSystemTaskProxy should not need to be a friend.
   friend class PrintSystemTaskProxy;
   FRIEND_TEST_ALL_PREFIXES(PrintPreviewHandlerTest, StickyMarginsCustom);
   FRIEND_TEST_ALL_PREFIXES(PrintPreviewHandlerTest, StickyMarginsDefault);
@@ -81,8 +86,8 @@ class PrintPreviewHandler : public content::WebUIMessageHandler,
   FRIEND_TEST_ALL_PREFIXES(PrintPreviewHandlerTest,
                            GetLastUsedMarginSettingsDefault);
 
-  TabContentsWrapper* preview_tab_wrapper() const;
-  content::WebContents* preview_tab() const;
+  TabContents* preview_tab_contents() const;
+  content::WebContents* preview_web_contents() const;
 
   // Gets the list of printers. |args| is unused.
   void HandleGetPrinters(const base::ListValue* args);
@@ -138,12 +143,15 @@ class PrintPreviewHandler : public content::WebUIMessageHandler,
   // |args| is unused.
   void HandleManagePrinters(const base::ListValue* args);
 
-  // Asks the browser to show the cloud print dialog.
-  void HandlePrintWithCloudPrint();
+  // Asks the browser to show the cloud print dialog. |args| is unused.
+  void HandlePrintWithCloudPrint(const base::ListValue* args);
 
   // Asks the browser for several settings that are needed before the first
   // preview is displayed.
   void HandleGetInitialSettings(const base::ListValue* args);
+
+  // Reports histogram data for the print destination UI.
+  void HandleReportDestinationEvent(const base::ListValue* args);
 
   void SendInitialSettings(
       const std::string& default_printer,
@@ -164,7 +172,7 @@ class PrintPreviewHandler : public content::WebUIMessageHandler,
                          std::string print_ticket);
 
   // Gets the initiator tab for the print preview tab.
-  TabContentsWrapper* GetInitiatorTab() const;
+  TabContents* GetInitiatorTab() const;
 
   // Activates the initiator tab and close the preview tab.
   void ActivateInitiatorTabAndClosePreviewTab();
@@ -176,7 +184,7 @@ class PrintPreviewHandler : public content::WebUIMessageHandler,
   void ClearInitiatorTabDetails();
 
   // Posts a task to save |data| to pdf at |print_to_pdf_path_|.
-  void PostPrintToPdfTask(scoped_refptr<RefCountedBytes> data);
+  void PostPrintToPdfTask(base::RefCountedBytes* data);
 
   // Populates |settings| according to the current locale.
   void GetNumberFormatAndMeasurementSystem(base::DictionaryValue* settings);
@@ -195,6 +203,7 @@ class PrintPreviewHandler : public content::WebUIMessageHandler,
 
   // A count of how many requests received to show manage printers dialog.
   int manage_printers_dialog_request_count_;
+  int manage_cloud_printers_dialog_request_count_;
 
   // Whether we have already logged a failed print preview.
   bool reported_failed_preview_;

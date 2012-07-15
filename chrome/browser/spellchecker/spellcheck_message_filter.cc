@@ -14,18 +14,18 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/common/spellcheck_messages.h"
 #include "content/public/browser/render_process_host.h"
-#include "content/public/common/url_fetcher.h"
+#include "net/url_request/url_fetcher.h"
 
 using content::BrowserThread;
 
 SpellCheckMessageFilter::SpellCheckMessageFilter(int render_process_id)
-    : render_process_id_(render_process_id),
+    : render_process_id_(render_process_id)
+#if !defined(OS_MACOSX)
+      ,
       route_id_(0),
-      identifier_(0),
-      document_tag_(0) {
-}
-
-SpellCheckMessageFilter::~SpellCheckMessageFilter() {
+      identifier_(0)
+#endif
+      {
 }
 
 void SpellCheckMessageFilter::OverrideThreadForMessage(
@@ -55,6 +55,8 @@ bool SpellCheckMessageFilter::OnMessageReceived(const IPC::Message& message,
   IPC_END_MESSAGE_MAP()
   return handled;
 }
+
+SpellCheckMessageFilter::~SpellCheckMessageFilter() {}
 
 void SpellCheckMessageFilter::OnSpellCheckerRequestDictionary() {
   content::RenderProcessHost* host =
@@ -102,11 +104,14 @@ void SpellCheckMessageFilter::OnCallSpellingService(
     int document_tag,
     const string16& text) {
   DCHECK(!text.empty());
+  DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
   if (!CallSpellingService(route_id, identifier, document_tag, text)) {
     std::vector<SpellCheckResult> results;
     Send(new SpellCheckMsg_RespondSpellingService(route_id,
                                                   identifier,
                                                   document_tag,
+                                                  false,
+                                                  text,
                                                   results));
     return;
   }
@@ -116,10 +121,14 @@ void SpellCheckMessageFilter::OnCallSpellingService(
 
 void SpellCheckMessageFilter::OnTextCheckComplete(
     int tag,
+    bool success,
+    const string16& text,
     const std::vector<SpellCheckResult>& results) {
   Send(new SpellCheckMsg_RespondSpellingService(route_id_,
                                                 identifier_,
                                                 tag,
+                                                success,
+                                                text,
                                                 results));
   client_.reset();
 }
@@ -138,7 +147,7 @@ bool SpellCheckMessageFilter::CallSpellingService(
     return false;
   client_.reset(new SpellingServiceClient);
   return client_->RequestTextCheck(
-      profile, document_tag, text,
+      profile, document_tag, SpellingServiceClient::SPELLCHECK, text,
       base::Bind(&SpellCheckMessageFilter::OnTextCheckComplete,
                  base::Unretained(this)));
 }

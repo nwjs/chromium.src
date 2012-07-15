@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_PREFS_SESSION_STARTUP_PREF_H__
 #define CHROME_BROWSER_PREFS_SESSION_STARTUP_PREF_H__
-#pragma once
 
 #include <vector>
 
@@ -34,6 +33,13 @@ struct SessionStartupPref {
     TYPE_COUNT
   };
 
+  // For historical reasons the enum and value registered in the prefs don't
+  // line up. These are the values registered in prefs.
+  static const int kPrefValueHomePage = 0;  // Deprecated
+  static const int kPrefValueLast = 1;
+  static const int kPrefValueURLs = 4;
+  static const int kPrefValueNewTab = 5;
+
   static void RegisterUserPrefs(PrefService* prefs);
 
   // Returns the default value for |type|.
@@ -46,9 +52,21 @@ struct SessionStartupPref {
   static SessionStartupPref GetStartupPref(Profile* profile);
   static SessionStartupPref GetStartupPref(PrefService* prefs);
 
+  // If the user had the "restore on startup" property set to the deprecated
+  // "Open the home page" value, this migrates them to a value that will have
+  // the same effect.
+  static void MigrateIfNecessary(PrefService* prefs);
+
+  // The default startup pref for Mac used to be LAST, now it's DEFAULT. This
+  // migrates old users by writing out the preference explicitly.
+  static void MigrateMacDefaultPrefIfNecessary(PrefService* prefs);
+
   // Whether the startup type and URLs are managed via policy.
   static bool TypeIsManaged(PrefService* prefs);
   static bool URLsAreManaged(PrefService* prefs);
+
+  // Whether the startup type has not been overridden from its default.
+  static bool TypeIsDefault(PrefService* prefs);
 
   // Converts an integer pref value to a SessionStartupPref::Type.
   static SessionStartupPref::Type PrefValueToType(int pref_value);

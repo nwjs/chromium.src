@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -57,10 +57,8 @@ KeywordHintDecoration::~KeywordHintDecoration() {
 
 NSImage* KeywordHintDecoration::GetHintImage() {
   if (!hint_image_) {
-    SkBitmap* skiaBitmap = ResourceBundle::GetSharedInstance().
-        GetBitmapNamed(IDR_LOCATION_BAR_KEYWORD_HINT_TAB);
-    if (skiaBitmap)
-      hint_image_.reset([gfx::SkBitmapToNSImage(*skiaBitmap) retain]);
+    hint_image_.reset([ResourceBundle::GetSharedInstance().
+        GetNativeImageNamed(IDR_LOCATION_BAR_KEYWORD_HINT_TAB) retain]);
   }
   return hint_image_;
 }

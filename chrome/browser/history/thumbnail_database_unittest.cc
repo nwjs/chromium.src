@@ -116,7 +116,7 @@ TEST_F(ThumbnailDatabaseTest, GetFaviconAfterMigrationToTopSites) {
   db.BeginTransaction();
 
   std::vector<unsigned char> data(blob1, blob1 + sizeof(blob1));
-  scoped_refptr<RefCountedBytes> favicon(new RefCountedBytes(data));
+  scoped_refptr<base::RefCountedBytes> favicon(new base::RefCountedBytes(data));
 
   GURL url("http://google.com");
   FaviconID id = db.AddFavicon(url, FAVICON);
@@ -128,13 +128,16 @@ TEST_F(ThumbnailDatabaseTest, GetFaviconAfterMigrationToTopSites) {
   base::Time time_out;
   std::vector<unsigned char> favicon_out;
   GURL url_out;
-  EXPECT_TRUE(db.GetFavicon(id, &time_out, &favicon_out, &url_out));
+  IconType icon_type_out;
+  EXPECT_TRUE(db.GetFavicon(id, &time_out, &favicon_out, &url_out,
+                            &icon_type_out));
   EXPECT_EQ(url, url_out);
   EXPECT_EQ(time.ToTimeT(), time_out.ToTimeT());
   ASSERT_EQ(data.size(), favicon_out.size());
   EXPECT_TRUE(std::equal(data.begin(),
                          data.end(),
                          favicon_out.begin()));
+  EXPECT_EQ(FAVICON, icon_type_out);
 }
 
 TEST_F(ThumbnailDatabaseTest, AddIconMapping) {
@@ -143,7 +146,7 @@ TEST_F(ThumbnailDatabaseTest, AddIconMapping) {
   db.BeginTransaction();
 
   std::vector<unsigned char> data(blob1, blob1 + sizeof(blob1));
-  scoped_refptr<RefCountedBytes> favicon(new RefCountedBytes(data));
+  scoped_refptr<base::RefCountedBytes> favicon(new base::RefCountedBytes(data));
 
   GURL url("http://google.com");
   FaviconID id = db.AddFavicon(url, TOUCH_ICON);
@@ -165,7 +168,7 @@ TEST_F(ThumbnailDatabaseTest, UpdateIconMapping) {
   db.BeginTransaction();
 
   std::vector<unsigned char> data(blob1, blob1 + sizeof(blob1));
-  scoped_refptr<RefCountedBytes> favicon(new RefCountedBytes(data));
+  scoped_refptr<base::RefCountedBytes> favicon(new base::RefCountedBytes(data));
 
   GURL url("http://google.com");
   FaviconID id = db.AddFavicon(url, TOUCH_ICON);
@@ -197,7 +200,7 @@ TEST_F(ThumbnailDatabaseTest, DeleteIconMappings) {
   db.BeginTransaction();
 
   std::vector<unsigned char> data(blob1, blob1 + sizeof(blob1));
-  scoped_refptr<RefCountedBytes> favicon(new RefCountedBytes(data));
+  scoped_refptr<base::RefCountedBytes> favicon(new base::RefCountedBytes(data));
 
   GURL url("http://google.com");
   FaviconID id = db.AddFavicon(url, TOUCH_ICON);
@@ -228,7 +231,7 @@ TEST_F(ThumbnailDatabaseTest, GetIconMappingsForPageURL) {
   db.BeginTransaction();
 
   std::vector<unsigned char> data(blob1, blob1 + sizeof(blob1));
-  scoped_refptr<RefCountedBytes> favicon(new RefCountedBytes(data));
+  scoped_refptr<base::RefCountedBytes> favicon(new base::RefCountedBytes(data));
 
   GURL url("http://google.com");
 
@@ -273,7 +276,7 @@ TEST_F(ThumbnailDatabaseTest, UpgradeToVersion4) {
   EXPECT_TRUE(db.UpgradeToVersion4());
 
   std::vector<unsigned char> data(blob1, blob1 + sizeof(blob1));
-  scoped_refptr<RefCountedBytes> favicon(new RefCountedBytes(data));
+  scoped_refptr<base::RefCountedBytes> favicon(new base::RefCountedBytes(data));
 
   GURL url("http://google.com");
   FaviconID id = db.AddFavicon(url, TOUCH_ICON);
@@ -325,7 +328,7 @@ TEST_F(ThumbnailDatabaseTest, TemporayIconMapping) {
   EXPECT_TRUE(db.InitTemporaryIconMappingTable());
 
   std::vector<unsigned char> data(blob1, blob1 + sizeof(blob1));
-  scoped_refptr<RefCountedBytes> favicon(new RefCountedBytes(data));
+  scoped_refptr<base::RefCountedBytes> favicon(new base::RefCountedBytes(data));
 
   GURL url("http://google.com");
   FaviconID id = db.AddFavicon(url, FAVICON);
@@ -347,7 +350,7 @@ TEST_F(ThumbnailDatabaseTest, GetIconMappingsForPageURLForReturnOrder) {
 
   // Add a favicon
   std::vector<unsigned char> data(blob1, blob1 + sizeof(blob1));
-  scoped_refptr<RefCountedBytes> favicon(new RefCountedBytes(data));
+  scoped_refptr<base::RefCountedBytes> favicon(new base::RefCountedBytes(data));
 
   GURL url("http://google.com");
   FaviconID id = db.AddFavicon(url, FAVICON);
@@ -364,7 +367,8 @@ TEST_F(ThumbnailDatabaseTest, GetIconMappingsForPageURLForReturnOrder) {
 
   // Add a touch icon
   std::vector<unsigned char> data2(blob2, blob2 + sizeof(blob2));
-  scoped_refptr<RefCountedBytes> favicon2(new RefCountedBytes(data));
+  scoped_refptr<base::RefCountedBytes> favicon2 =
+      new base::RefCountedBytes(data);
 
   FaviconID id2 = db.AddFavicon(url, TOUCH_ICON);
   db.SetFavicon(id2, favicon2, time);
@@ -378,7 +382,8 @@ TEST_F(ThumbnailDatabaseTest, GetIconMappingsForPageURLForReturnOrder) {
   EXPECT_EQ(TOUCH_ICON, icon_mapping.front().icon_type);
 
   // Add a touch precomposed icon
-  scoped_refptr<RefCountedBytes> favicon3(new RefCountedBytes(data2));
+  scoped_refptr<base::RefCountedBytes> favicon3 =
+      new base::RefCountedBytes(data2);
 
   FaviconID id3 = db.AddFavicon(url, TOUCH_PRECOMPOSED_ICON);
   db.SetFavicon(id3, favicon3, time);
@@ -398,7 +403,7 @@ TEST_F(ThumbnailDatabaseTest, HasMappingFor) {
   db.BeginTransaction();
 
   std::vector<unsigned char> data(blob1, blob1 + sizeof(blob1));
-  scoped_refptr<RefCountedBytes> favicon(new RefCountedBytes(data));
+  scoped_refptr<base::RefCountedBytes> favicon(new base::RefCountedBytes(data));
 
   // Add a favicon which will have icon_mappings
   FaviconID id1 = db.AddFavicon(GURL("http://google.com"), FAVICON);
@@ -440,7 +445,7 @@ TEST_F(ThumbnailDatabaseTest, CloneIconMapping) {
   db.BeginTransaction();
 
   std::vector<unsigned char> data(blob1, blob1 + sizeof(blob1));
-  scoped_refptr<RefCountedBytes> favicon(new RefCountedBytes(data));
+  scoped_refptr<base::RefCountedBytes> favicon(new base::RefCountedBytes(data));
 
   // Add a favicon which will have icon_mappings
   FaviconID id1 = db.AddFavicon(GURL("http://google.com"), FAVICON);
@@ -521,7 +526,7 @@ TEST_F(IconMappingMigrationTest, TestIconMappingMigration) {
   std::vector<unsigned char> out_data;
   GURL out_icon_url;
   ASSERT_TRUE(db.GetFavicon(
-      icon_mappings[0].icon_id, &time, &out_data, &out_icon_url));
+      icon_mappings[0].icon_id, &time, &out_data, &out_icon_url, NULL));
   EXPECT_EQ(icon1, out_icon_url);
 
   // Test a page which has the same icon.
@@ -542,7 +547,7 @@ TEST_F(IconMappingMigrationTest, TestIconMappingMigration) {
   EXPECT_EQ(page_url2, icon_mappings[0].page_url);
   EXPECT_EQ(2, icon_mappings[0].icon_id);
   ASSERT_TRUE(db.GetFavicon(
-      icon_mappings[0].icon_id, &time, &out_data, &out_icon_url));
+      icon_mappings[0].icon_id, &time, &out_data, &out_icon_url, NULL));
   EXPECT_EQ(icon2, out_icon_url);
 
   // Test a page without icon
@@ -556,7 +561,7 @@ TEST_F(ThumbnailDatabaseTest, IconMappingEnumerator) {
   db.BeginTransaction();
 
   std::vector<unsigned char> data(blob1, blob1 + sizeof(blob1));
-  scoped_refptr<RefCountedBytes> favicon(new RefCountedBytes(data));
+  scoped_refptr<base::RefCountedBytes> favicon(new base::RefCountedBytes(data));
 
   GURL url("http://google.com");
   FaviconID touch_icon_id1 = db.AddFavicon(url, TOUCH_ICON);

@@ -5,7 +5,8 @@
 #include "chrome/browser/ui/views/ash/launcher/launcher_favicon_loader.h"
 
 #include "base/logging.h"
-#include "chrome/browser/ui/views/ash/launcher/launcher_updater.h"
+#include "chrome/browser/favicon/favicon_util.h"
+#include "chrome/browser/ui/views/ash/launcher/browser_launcher_item_controller.h"
 #include "chrome/common/favicon_url.h"
 #include "chrome/common/icon_messages.h"
 #include "content/public/browser/render_view_host.h"
@@ -20,7 +21,7 @@ const int kMaxBitmapSize = 256;
 
 ////////////////////////////////////////////////////////////////////////////////
 // FaviconBitmapHandler fetchs all bitmaps with the 'icon' (or 'shortcut icon')
-// link tag, storing the one that best matches ash::kLauncherPreferredHeight.
+// link tag, storing the one that best matches ash::kLauncherPreferredSize.
 // These icon bitmaps are not resized and are not cached beyond the lifetime
 // of the class. Bitmaps larger than kMaxBitmapSize are ignored.
 
@@ -106,12 +107,9 @@ void FaviconBitmapHandler::OnUpdateFaviconURL(
 
 void FaviconBitmapHandler::DownloadFavicon(const GURL& image_url) {
   int image_size = 0;  // Request the full sized image.
-  static int next_id = 1;
-  int id = next_id++;
   pending_requests_.insert(image_url);
   content::RenderViewHost* host = web_contents_->GetRenderViewHost();
-  host->Send(new IconMsg_DownloadFavicon(
-      host->GetRoutingID(), id, image_url, image_size));
+  FaviconUtil::DownloadFavicon(host, image_url, image_size);
 }
 
 void FaviconBitmapHandler::OnDidDownloadFavicon(int id,
@@ -135,7 +133,7 @@ void FaviconBitmapHandler::AddFavicon(const GURL& image_url,
   if (new_bitmap.height() > kMaxBitmapSize ||
       new_bitmap.width() > kMaxBitmapSize)
     return;
-  if (new_bitmap.height() < ash::kLauncherPreferredHeight)
+  if (new_bitmap.height() < ash::kLauncherPreferredSize)
     return;
   if (!bitmap_.isNull()) {
     // We want the smallest icon that is large enough.

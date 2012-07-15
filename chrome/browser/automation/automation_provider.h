@@ -10,7 +10,6 @@
 
 #ifndef CHROME_BROWSER_AUTOMATION_AUTOMATION_PROVIDER_H_
 #define CHROME_BROWSER_AUTOMATION_AUTOMATION_PROVIDER_H_
-#pragma once
 
 #include <list>
 #include <map>
@@ -21,8 +20,8 @@
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "base/message_loop_helpers.h"
 #include "base/observer_list.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "base/string16.h"
 #include "chrome/browser/autofill/field_types.h"
 #include "chrome/browser/cancelable_request.h"
@@ -32,6 +31,8 @@
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/trace_subscriber.h"
 #include "ipc/ipc_channel.h"
+#include "ipc/ipc_listener.h"
+#include "ipc/ipc_sender.h"
 
 #if defined(OS_WIN) && !defined(USE_AURA)
 #include "ui/gfx/native_widget_types.h"
@@ -39,19 +40,18 @@
 #endif  // defined(OS_WIN) && !defined(USE_AURA)
 
 class AutomationBrowserTracker;
-class AutomationExtensionTracker;
 class AutomationResourceMessageFilter;
 class AutomationTabTracker;
 class AutomationWindowTracker;
 class Browser;
-class Extension;
-class ExtensionTestResultNotificationObserver;
 class ExternalTabContainer;
 class FilePath;
+class FindInPageNotificationObserver;
 class InitialLoadObserver;
 class LoginHandler;
 class MetricEventDurationObserver;
 class NavigationControllerRestoredObserver;
+class NewTabUILoadObserver;
 class Profile;
 struct AutomationMsg_Find_Params;
 struct Reposition_Params;
@@ -80,8 +80,8 @@ class Point;
 }
 
 class AutomationProvider
-    : public IPC::Channel::Listener,
-      public IPC::Message::Sender,
+    : public IPC::Listener,
+      public IPC::Sender,
       public base::SupportsWeakPtr<AutomationProvider>,
       public base::RefCountedThreadSafe<
           AutomationProvider, content::BrowserThread::DeleteOnUIThread>,
@@ -90,6 +90,8 @@ class AutomationProvider
   explicit AutomationProvider(Profile* profile);
 
   Profile* profile() const { return profile_; }
+
+  void set_profile(Profile* profile);
 
   // Initializes a channel for a connection to an AutomationProxy.
   // If channel_id starts with kNamedInterfacePrefix, it will act
@@ -113,8 +115,8 @@ class AutomationProvider
   // Called when the ChromeOS network library has finished its first update.
   void OnNetworkLibraryInit();
 
-  // Called when the chromeos WebUI login is ready.
-  void OnLoginWebuiReady();
+  // Called when the chromeos WebUI OOBE/Login is ready.
+  void OnOOBEWebuiReady();
 
   // Checks all of the initial load conditions, then sends the
   // InitialLoadsComplete message over the automation channel.
@@ -132,20 +134,10 @@ class AutomationProvider
       const content::NavigationController* controller,
       const Browser* parent) const;
 
-  // Add or remove a non-owning reference to a tab's LoginHandler.  This is for
-  // when a login prompt is shown for HTTP/FTP authentication.
-  // TODO(mpcomplete): The login handling is a fairly special purpose feature.
-  // Eventually we'll probably want ways to interact with the ChromeView of the
-  // login window in a generic manner, such that it can be used for anything,
-  // not just logins.
-  void AddLoginHandler(content::NavigationController* tab,
-                       LoginHandler* handler);
-  void RemoveLoginHandler(content::NavigationController* tab);
-
-  // IPC::Channel::Sender implementation.
+  // IPC::Sender implementation.
   virtual bool Send(IPC::Message* msg) OVERRIDE;
 
-  // IPC::Channel::Listener implementation.
+  // IPC::Listener implementation.
   virtual void OnChannelConnected(int pid) OVERRIDE;
   virtual bool OnMessageReceived(const IPC::Message& msg) OVERRIDE;
   virtual void OnChannelError() OVERRIDE;
@@ -155,11 +147,6 @@ class AutomationProvider
     reply_message_ = NULL;
     return reply_message;
   }
-
-  // Adds the extension passed in to the extension tracker, and returns
-  // the associated handle. If the tracker already contains the extension,
-  // the handle is simply returned.
-  int AddExtension(const Extension* extension);
 
 #if defined(OS_WIN) && !defined(USE_AURA)
   // Adds the external tab passed in to the tab tracker.
@@ -205,10 +192,6 @@ class AutomationProvider
   scoped_ptr<NavigationControllerRestoredObserver> restore_tracker_;
   scoped_ptr<AutomationTabTracker> tab_tracker_;
   scoped_ptr<AutomationWindowTracker> window_tracker_;
-
-  typedef std::map<content::NavigationController*, LoginHandler*>
-      LoginHandlerMap;
-  LoginHandlerMap login_handler_map_;
 
   Profile* profile_;
 
@@ -260,7 +243,6 @@ class AutomationProvider
                           bool press_escape_en_route,
                           IPC::Message* reply_message);
   void HandleUnused(const IPC::Message& message, int handle);
-  void SetFilteredInet(const IPC::Message& message, bool enabled);
   void GetFilteredInetHitCount(int* hit_count);
   void SetProxyConfig(const std::string& new_proxy_config);
 
@@ -285,36 +267,6 @@ class AutomationProvider
   void EndTracing(IPC::Message* reply_message);
   void GetTracingOutput(std::string* chunk, bool* success);
 
-  void WaitForExtensionTestResult(IPC::Message* reply_message);
-
-  void InstallExtension(const FilePath& extension_path,
-                        bool with_ui,
-                        IPC::Message* reply_message);
-
-  void UninstallExtension(int extension_handle,
-                          bool* success);
-
-  void ReloadExtension(int extension_handle,
-                       IPC::Message* reply_message);
-
-  void EnableExtension(int extension_handle,
-                       IPC::Message* reply_message);
-
-  void DisableExtension(int extension_handle,
-                        bool* success);
-
-  void ExecuteExtensionActionInActiveTabAsync(int extension_handle,
-                                              int browser_handle,
-                                              IPC::Message* reply_message);
-
-  void MoveExtensionBrowserAction(int extension_handle, int index,
-                                  bool* success);
-
-  void GetExtensionProperty(int extension_handle,
-                            AutomationMsg_ExtensionProperty type,
-                            bool* success,
-                            std::string* value);
-
   // Asynchronous request for printing the current tab.
   void PrintAsync(int tab_handle);
 
@@ -335,18 +287,6 @@ class AutomationProvider
   void ReloadAsync(int tab_handle);
   void StopAsync(int tab_handle);
   void SaveAsAsync(int tab_handle);
-
-  // Returns the extension for the given handle. Returns NULL if there is
-  // no extension for the handle.
-  const Extension* GetExtension(int extension_handle);
-
-  // Returns the extension for the given handle, if the handle is valid and
-  // the associated extension is enabled. Returns NULL otherwise.
-  const Extension* GetEnabledExtension(int extension_handle);
-
-  // Returns the extension for the given handle, if the handle is valid and
-  // the associated extension is disabled. Returns NULL otherwise.
-  const Extension* GetDisabledExtension(int extension_handle);
 
   // Method called by the popup menu tracker when a popup menu is opened.
   void NotifyPopupMenuOpened();
@@ -404,11 +344,8 @@ class AutomationProvider
 #endif  // defined(OS_WIN) && !defined(USE_AURA)
 
   scoped_ptr<IPC::ChannelProxy> channel_;
-  scoped_ptr<content::NotificationObserver> new_tab_ui_load_observer_;
-  scoped_ptr<content::NotificationObserver> find_in_page_observer_;
-  scoped_ptr<ExtensionTestResultNotificationObserver>
-      extension_test_result_observer_;
-  scoped_ptr<AutomationExtensionTracker> extension_tracker_;
+  scoped_ptr<NewTabUILoadObserver> new_tab_ui_load_observer_;
+  scoped_ptr<FindInPageNotificationObserver> find_in_page_observer_;
 
   // True iff we should enable observers that check for initial load conditions.
   bool use_initial_load_observers_;

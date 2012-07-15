@@ -4,13 +4,13 @@
 
 #ifndef CONTENT_BROWSER_GPU_GPU_DATA_MANAGER_IMPL_H_
 #define CONTENT_BROWSER_GPU_GPU_DATA_MANAGER_IMPL_H_
-#pragma once
 
 #include <set>
 #include <string>
 
+#include "base/compiler_specific.h"
 #include "base/file_path.h"
-#include "base/memory/scoped_ptr.h"
+#include "base/memory/ref_counted.h"
 #include "base/memory/singleton.h"
 #include "base/observer_list_threadsafe.h"
 #include "base/synchronization/lock.h"
@@ -45,13 +45,17 @@ class CONTENT_EXPORT GpuDataManagerImpl
 
   void AddLogMessage(Value* msg);
 
-  // Inserting disable-feature switches into renderer process command-line
-  // in correspondence to preliminary gpu feature flags.
+  // Insert disable-feature switches corresponding to preliminary gpu feature
+  // flags into the renderer process command line.
   void AppendRendererCommandLine(CommandLine* command_line);
 
-  // Inserting switches into gpu process command-line: kUseGL,
+  // Insert switches into gpu process command line: kUseGL,
   // kDisableGLMultisampling.
   void AppendGpuCommandLine(CommandLine* command_line);
+
+  // Insert switches into plugin process command line:
+  // kDisableCoreAnimationPlugins.
+  void AppendPluginCommandLine(CommandLine* command_line);
 
   // This gets called when switching GPU might have happened.
   void HandleGpuSwitch();
@@ -81,15 +85,6 @@ class CONTENT_EXPORT GpuDataManagerImpl
   // If use-gl switch is osmesa or any, return true.
   bool UseGLIsOSMesaOrAny();
 
-  // Merges the second GPUInfo object with the first.
-  // If it's the same GPU, i.e., device id and vendor id are the same, then
-  // copy over the fields that are not set yet and ignore the rest.
-  // If it's a different GPU, then reset and copy over everything.
-  // Return true if something changes that may affect blacklisting; currently
-  // they are device_id, vendor_id, driver_vendor, driver_version, driver_date,
-  // and gl_renderer.
-  static bool Merge(content::GPUInfo* object, const content::GPUInfo& other);
-
   // Try to switch to software rendering, if possible and necessary.
   void EnableSoftwareRenderingIfNecessary();
 
@@ -110,7 +105,8 @@ class CONTENT_EXPORT GpuDataManagerImpl
 
   FilePath swiftshader_path_;
 
-  // Current card force-blacklisted due to GPU crashes.
+  // Current card force-blacklisted due to GPU crashes, or disabled through
+  // the --disable-gpu commandline switch.
   bool card_blacklisted_;
 
   DISALLOW_COPY_AND_ASSIGN(GpuDataManagerImpl);

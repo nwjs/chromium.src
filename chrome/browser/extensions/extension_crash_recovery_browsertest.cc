@@ -8,14 +8,18 @@
 #include "chrome/browser/extensions/extension_host.h"
 #include "chrome/browser/extensions/extension_process_manager.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/notifications/balloon.h"
+#include "chrome/browser/notifications/balloon_collection.h"
 #include "chrome/browser/notifications/balloon_host.h"
 #include "chrome/browser/notifications/notification.h"
 #include "chrome/browser/notifications/notification_delegate.h"
 #include "chrome/browser/notifications/notification_ui_manager.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/render_process_host.h"
@@ -25,6 +29,7 @@
 
 using content::NavigationController;
 using content::WebContents;
+using extensions::Extension;
 
 class ExtensionCrashRecoveryTest : public ExtensionBrowserTest {
  protected:
@@ -90,7 +95,11 @@ class ExtensionCrashRecoveryTest : public ExtensionBrowserTest {
     ExtensionHost* extension_host = GetExtensionProcessManager()->
         GetBackgroundHostForExtension(extension_id);
     ASSERT_TRUE(extension_host);
-    ASSERT_TRUE(GetExtensionProcessManager()->HasExtensionHost(extension_host));
+    ExtensionProcessManager::ViewSet all_views =
+        GetExtensionProcessManager()->GetAllViews();
+    ExtensionProcessManager::ViewSet::const_iterator it =
+        all_views.find(extension_host->host_contents()->GetRenderViewHost());
+    ASSERT_FALSE(it == all_views.end());
     ASSERT_TRUE(extension_host->IsRenderViewLive());
     extensions::ProcessMap* process_map =
         browser()->profile()->GetExtensionService()->process_map();
@@ -168,7 +177,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest, ReloadIndependently) {
   SCOPED_TRACE("after reloading");
   CheckExtensionConsistency(first_extension_id_);
 
-  WebContents* current_tab = browser()->GetSelectedWebContents();
+  WebContents* current_tab = chrome::GetActiveWebContents(browser());
   ASSERT_TRUE(current_tab);
 
   // The balloon should automatically hide after the extension is successfully
@@ -183,13 +192,13 @@ IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest,
   CrashExtension(first_extension_id_);
   ASSERT_EQ(size_before, GetExtensionService()->extensions()->size());
 
-  WebContents* original_tab = browser()->GetSelectedWebContents();
+  WebContents* original_tab = chrome::GetActiveWebContents(browser());
   ASSERT_TRUE(original_tab);
   ASSERT_EQ(1U, CountBalloons());
 
   // Open a new tab, but the balloon will still be there.
-  browser()->NewTab();
-  WebContents* new_current_tab = browser()->GetSelectedWebContents();
+  chrome::NewTab(browser());
+  WebContents* new_current_tab = chrome::GetActiveWebContents(browser());
   ASSERT_TRUE(new_current_tab);
   ASSERT_NE(new_current_tab, original_tab);
   ASSERT_EQ(1U, CountBalloons());
@@ -211,7 +220,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest,
   CrashExtension(first_extension_id_);
   ASSERT_EQ(size_before, GetExtensionService()->extensions()->size());
 
-  WebContents* current_tab = browser()->GetSelectedWebContents();
+  WebContents* current_tab = chrome::GetActiveWebContents(browser());
   ASSERT_TRUE(current_tab);
   ASSERT_EQ(1U, CountBalloons());
 
@@ -384,7 +393,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest,
 
   {
     SCOPED_TRACE("first: reload");
-    WebContents* current_tab = browser()->GetSelectedWebContents();
+    WebContents* current_tab = chrome::GetActiveWebContents(browser());
     ASSERT_TRUE(current_tab);
     // At the beginning we should have one balloon displayed for each extension.
     ASSERT_EQ(2U, CountBalloons());
@@ -452,14 +461,14 @@ IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest, MAYBE_CrashAndUnloadAll) {
 // Regression test for issue 71629.
 IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest,
                        ReloadTabsWithBackgroundPage) {
-  TabStripModel* tab_strip = browser()->tabstrip_model();
+  TabStripModel* tab_strip = browser()->tab_strip_model();
   const size_t size_before = GetExtensionService()->extensions()->size();
   const size_t crash_size_before =
       GetExtensionService()->terminated_extensions()->size();
   LoadTestExtension();
 
   // Open a tab extension.
-  browser()->NewTab();
+  chrome::NewTab(browser());
   ui_test_utils::NavigateToURL(
       browser(),
       GURL("chrome-extension://" + first_extension_id_ + "/background.html"));
@@ -477,9 +486,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest,
     ui_test_utils::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::Source<NavigationController>(
-            &browser()->GetSelectedTabContentsWrapper()->web_contents()->
-                GetController()));
-    browser()->Reload(CURRENT_TAB);
+            &chrome::GetActiveWebContents(browser())->GetController()));
+    chrome::Reload(browser(), CURRENT_TAB);
     observer.Wait();
   }
   // Extension should now be loaded.

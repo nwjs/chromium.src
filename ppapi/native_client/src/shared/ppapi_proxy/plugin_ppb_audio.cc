@@ -24,9 +24,22 @@
 namespace ppapi_proxy {
 namespace {
 
-// round size up to next 64k
+// Round size up to next 64k; required for NaCl's version of mmap().
 size_t ceil64k(size_t n) {
   return (n + 0xFFFF) & (~0xFFFF);
+}
+
+// The following function SetAudioActualDataSizeInBytes, is copied & similar
+// to the one in audio_util.cc.
+void SetAudioActualDataSizeInBytes(void* audio_buffer,
+                                   uint32_t buffer_size_in_bytes,
+                                   uint32_t actual_size_in_bytes) {
+  char* end = static_cast<char*>(audio_buffer) + buffer_size_in_bytes;
+  DCHECK(0 == (reinterpret_cast<size_t>(end) & 3));
+  volatile uint32_t* end32 = reinterpret_cast<volatile uint32_t*>(end);
+  // Set actual data size at the end of the buffer.
+  __sync_synchronize();
+  *end32 = actual_size_in_bytes;
 }
 
 }  // namespace
@@ -52,7 +65,7 @@ PluginAudio::~PluginAudio() {
     GetInterface()->StopPlayback(resource_);
   // Unmap the shared memory buffer, if present.
   if (shm_buffer_) {
-    munmap(shm_buffer_, ceil64k(shm_size_));
+    munmap(shm_buffer_, ceil64k(TotalAudioSharedMemorySizeInBytes(shm_size_)));
     shm_buffer_ = NULL;
     shm_size_ = 0;
   }
@@ -79,15 +92,20 @@ void PluginAudio::AudioThread(void* self) {
   DebugPrintf("PluginAudio::AudioThread: self=%p\n", self);
   while (true) {
     int32_t sync_value;
-    // block on socket read
+    // Block on socket read.
     ssize_t r = read(audio->socket_, &sync_value, sizeof(sync_value));
-    // StopPlayback() will send a value of -1 over the sync_socket
+    // StopPlayback() will send a value of -1 over the sync_socket.
     if ((sizeof(sync_value) != r) || (-1 == sync_value))
       break;
-    // invoke user callback, get next buffer of audio data
+    // Invoke user callback, get next buffer of audio data.
     audio->user_callback_(audio->shm_buffer_,
                           audio->shm_size_,
                           audio->user_data_);
+    // Signal audio backend by writing buffer length at end of buffer.
+    // (Note: NaCl applications will always write the entire buffer.)
+    SetAudioActualDataSizeInBytes(audio->shm_buffer_,
+                                  audio->shm_size_,
+                                  audio->shm_size_);
   }
 }
 
@@ -99,7 +117,7 @@ void PluginAudio::StreamCreated(NaClSrpcImcDescType socket,
   shm_ = shm;
   shm_size_ = shm_size;
   shm_buffer_ = mmap(NULL,
-                     ceil64k(shm_size),
+                     ceil64k(TotalAudioSharedMemorySizeInBytes(shm_size)),
                      PROT_READ | PROT_WRITE,
                      MAP_SHARED,
                      shm,
@@ -156,6 +174,9 @@ PP_Resource Create(PP_Instance instance,
   DebugPrintf("PPB_Audio::Create: instance=%"NACL_PRId32" config=%"NACL_PRId32
               " user_callback=%p user_data=%p\n",
               instance, config, user_callback, user_data);
+  if (NULL == user_callback) {
+    return kInvalidResourceId;
+  }
   PP_Resource audio_resource;
   // Proxy to browser Create, get audio PP_Resource
   NaClSrpcError srpc_result = PpbAudioRpcClient::PPB_Audio_Create(

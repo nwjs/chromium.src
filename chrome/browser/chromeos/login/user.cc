@@ -5,6 +5,7 @@
 #include "chrome/browser/chromeos/login/user.h"
 
 #include "base/stringprintf.h"
+#include "base/utf_string_conversions.h"
 #include "chrome/browser/chromeos/login/default_user_images.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
 #include "grit/theme_resources.h"
@@ -30,6 +31,8 @@ std::string GetUserName(const std::string& email) {
 
 User::User(const std::string& email, bool is_guest)
     : email_(email),
+      user_image_(*ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
+          kDefaultImageResources[0])),
       oauth_token_status_(OAUTH_TOKEN_STATUS_UNKNOWN),
       image_index_(kInvalidImageIndex),
       image_is_stub_(false),
@@ -42,50 +45,43 @@ User::User(const std::string& email, bool is_guest)
   } else {
     is_demo_user_ = true;
   }
-  image_ = *ResourceBundle::GetSharedInstance().GetBitmapNamed(
-      kDefaultImageResources[0]);
 }
 
 User::~User() {}
 
-void User::SetImage(const SkBitmap& image, int image_index) {
-  image_ = image;
+void User::SetImage(const UserImage& user_image, int image_index) {
+  user_image_ = user_image;
   image_index_ = image_index;
   image_is_stub_ = false;
 }
 
+void User::SetImageURL(const GURL& image_url) {
+  user_image_.set_url(image_url);
+}
+
 void User::SetStubImage(int image_index) {
-  image_ = *ResourceBundle::GetSharedInstance().
-      GetBitmapNamed(kStubImageResourceID);
+  user_image_.SetImage(*ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
+      kStubImageResourceID));
   image_index_ = image_index;
   image_is_stub_ = true;
 }
 
-std::string User::GetAccountName() const {
-  return GetUserName(email_);
+void User::SetWallpaperThumbnail(const SkBitmap& wallpaper_thumbnail) {
+  wallpaper_thumbnail_ = wallpaper_thumbnail;
 }
 
-std::string User::GetDisplayName() const {
-  return GetUserName(display_email_);
+std::string User::GetAccountName(bool use_display_email) const {
+  if (use_display_email && !display_email_.empty())
+    return GetUserName(display_email_);
+  else
+    return GetUserName(email_);
 }
 
-bool User::NeedsNameTooltip() const {
-  return !UserManager::Get()->IsDisplayNameUnique(GetDisplayName());
-}
-
-std::string User::GetNameTooltip() const {
-  const std::string& user_email = display_email_;
-  size_t at_pos = user_email.rfind('@');
-  if (at_pos == std::string::npos) {
-    NOTREACHED();
-    return std::string();
-  }
-  size_t domain_start = at_pos + 1;
-  std::string domain = user_email.substr(domain_start,
-                                         user_email.length() - domain_start);
-  return base::StringPrintf("%s (%s)",
-                            GetDisplayName().c_str(),
-                            domain.c_str());
+string16 User::GetDisplayName() const {
+  // Fallback to the email account name in case display name haven't been set.
+  return display_name_.empty() ?
+      UTF8ToUTF16(GetAccountName(true)) :
+      display_name_;
 }
 
 }  // namespace chromeos

@@ -6,30 +6,90 @@
 
 #include <algorithm>
 
-#include "base/memory/scoped_ptr.h"
+#include "base/bind.h"
+#include "base/memory/weak_ptr.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/chromeos/input_method/input_method_manager.h"
-#include "chrome/browser/ui/views/html_dialog_view.h"
-#include "chrome/browser/ui/webui/html_dialog_ui.h"
+#include "base/values.h"
+#include "chrome/browser/ui/views/web_dialog_view.h"
 #include "chrome/common/url_constants.h"
+#include "content/public/browser/web_ui.h"
+#include "content/public/browser/web_ui_message_handler.h"
+#include "googleurl/src/gurl.h"
 #include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/screen.h"
+#include "ui/views/widget/widget.h"
 
 using content::WebContents;
 using content::WebUIMessageHandler;
 
-static const int kBaseWidth = 1252;
-static const int kBaseHeight = 516;
-static const int kHorizontalMargin = 28;
+namespace {
 
-KeyboardOverlayDelegate::KeyboardOverlayDelegate(
-    const std::wstring& title)
-    : title_(WideToUTF16Hack(title)),
+const int kBaseWidth = 1252;
+const int kBaseHeight = 516;
+const int kHorizontalMargin = 28;
+
+// A message handler for detecting the timing when the web contents is painted.
+class PaintMessageHandler
+    : public WebUIMessageHandler,
+      public base::SupportsWeakPtr<PaintMessageHandler> {
+ public:
+  explicit PaintMessageHandler(views::Widget* widget) : widget_(widget) {}
+  virtual ~PaintMessageHandler() {}
+
+  // WebUIMessageHandler implementation.
+  virtual void RegisterMessages() OVERRIDE;
+
+ private:
+  void DidPaint(const ListValue* args);
+
+  views::Widget* widget_;
+
+  DISALLOW_COPY_AND_ASSIGN(PaintMessageHandler);
+};
+
+void PaintMessageHandler::RegisterMessages() {
+  web_ui()->RegisterMessageCallback(
+      "didPaint",
+      base::Bind(&PaintMessageHandler::DidPaint, base::Unretained(this)));
+}
+
+void PaintMessageHandler::DidPaint(const ListValue* args) {
+  // Show the widget after the web content has been painted.
+  widget_->Show();
+}
+
+}  // namespace
+
+KeyboardOverlayDelegate::KeyboardOverlayDelegate(const string16& title)
+    : title_(title),
       view_(NULL) {
 }
 
 KeyboardOverlayDelegate::~KeyboardOverlayDelegate() {
+}
+
+void KeyboardOverlayDelegate::Show(WebDialogView* view) {
+  view_ = view;
+
+  views::Widget* widget = new views::Widget;
+  views::Widget::InitParams params(
+      views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
+  params.delegate = view;
+  widget->Init(params);
+
+  // Show the widget at the bottom of the work area.
+  gfx::Size size;
+  GetDialogSize(&size);
+  const gfx::Rect& rect = gfx::Screen::GetDisplayNearestWindow(
+      widget->GetNativeView()).work_area();
+  gfx::Rect bounds((rect.width() - size.width()) / 2,
+                   rect.height() - size.height(),
+                   size.width(),
+                   size.height());
+  widget->SetBounds(bounds);
+
+  // The widget will be shown when the web contents gets ready to display.
 }
 
 ui::ModalType KeyboardOverlayDelegate::GetDialogModalType() const {
@@ -47,14 +107,15 @@ GURL KeyboardOverlayDelegate::GetDialogContentURL() const {
 
 void KeyboardOverlayDelegate::GetWebUIMessageHandlers(
     std::vector<WebUIMessageHandler*>* handlers) const {
+  handlers->push_back(new PaintMessageHandler(view_->GetWidget()));
 }
 
 void KeyboardOverlayDelegate::GetDialogSize(
     gfx::Size* size) const {
   using std::min;
   DCHECK(view_);
-  gfx::Rect rect = gfx::Screen::GetMonitorAreaNearestWindow(
-      view_->native_view());
+  gfx::Rect rect = gfx::Screen::GetDisplayNearestWindow(
+      view_->GetWidget()->GetNativeView()).bounds();
   const int width = min(kBaseWidth, rect.width() - kHorizontalMargin);
   const int height = width * kBaseHeight / kBaseWidth;
   size->SetSize(width, height);
@@ -66,8 +127,6 @@ std::string KeyboardOverlayDelegate::GetDialogArgs() const {
 
 void KeyboardOverlayDelegate::OnDialogClosed(
     const std::string& json_retval) {
-  // Re-enable Shift+Alt. crosbug.com/17208.
-  chromeos::input_method::InputMethodManager::GetInstance()->EnableHotkeys();
   delete this;
   return;
 }

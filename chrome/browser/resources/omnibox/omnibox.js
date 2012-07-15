@@ -23,14 +23,11 @@ cr.define('omniboxDebug', function() {
    * Register our event handlers.
    */
   function initialize() {
-    document.getElementById('omnibox-input-form').addEventListener(
+    $('omnibox-input-form').addEventListener(
         'submit', startOmniboxQuery, false);
-    document.getElementById('show-details').addEventListener(
-        'change', refresh);
-    document.getElementById('show-incomplete-results').addEventListener(
-        'change', refresh);
-    document.getElementById('show-all-providers').addEventListener(
-        'change', refresh);
+    $('show-details').addEventListener('change', refresh);
+    $('show-incomplete-results').addEventListener('change', refresh);
+    $('show-all-providers').addEventListener('change', refresh);
   }
 
   /**
@@ -50,8 +47,7 @@ cr.define('omniboxDebug', function() {
     // First, clear the results of past calls (if any).
     progressiveAutocompleteResults = [];
     // Then, call chrome with a one-element list: the value in the text box.
-    chrome.send('startOmniboxQuery',
-                [document.getElementById('input-text').value]);
+    chrome.send('startOmniboxQuery', [$('input-text').value]);
     // Cancel the submit action.  i.e., don't submit the form.  (We handle
     // display the results solely with Javascript.)
     event.preventDefault();
@@ -85,16 +81,16 @@ cr.define('omniboxDebug', function() {
    * @const
    */
   var PROPERTY_OUTPUT_ORDER = [
-    new PresentationInfoRecord('URL', '', 'destination_url', true),
-    new PresentationInfoRecord('Provider Name', '', 'provider_name', true),
+    new PresentationInfoRecord('Provider', '', 'provider_name', true),
     new PresentationInfoRecord('Type', '', 'type', true),
     new PresentationInfoRecord('Relevance', '', 'relevance', true),
+    new PresentationInfoRecord('Contents', '', 'contents', true),
     new PresentationInfoRecord('Starred', '', 'starred', false),
     new PresentationInfoRecord(
         'Is History What You Typed Match', '',
         'is_history_what_you_typed_match', false),
     new PresentationInfoRecord('Description', '', 'description', false),
-    new PresentationInfoRecord('Contents', '', 'contents', false),
+    new PresentationInfoRecord('URL', '', 'destination_url', true),
     new PresentationInfoRecord('Fill Into Edit', '', 'fill_into_edit', false),
     new PresentationInfoRecord(
         'Inline Autocomplete Offset', '', 'inline_autocomplete_offset', false),
@@ -106,7 +102,11 @@ cr.define('omniboxDebug', function() {
         'common/page_transition_types.h&exact_package=chromium&l=24',
         'transition', false),
     new PresentationInfoRecord(
-        'Is This Provider Done', '', 'provider_done', false)
+        'Is This Provider Done', '', 'provider_done', false),
+    new PresentationInfoRecord(
+        'Template URL', '', 'template_url', false),
+    new PresentationInfoRecord(
+        'Associated Keyword', '', 'associated_keyword', false)
   ];
 
   /**
@@ -117,7 +117,7 @@ cr.define('omniboxDebug', function() {
    */
   function createAutocompleteResultTableHeader() {
     var row = document.createElement('tr');
-    var inDetailedMode = document.getElementById('show-details').checked;
+    var inDetailedMode = $('show-details').checked;
     for (var i = 0; i < PROPERTY_OUTPUT_ORDER.length; i++) {
       if (inDetailedMode || PROPERTY_OUTPUT_ORDER[i].displayAlways) {
         var headerCell = document.createElement('th');
@@ -130,6 +130,7 @@ cr.define('omniboxDebug', function() {
         } else {
           // Output header text without a URL.
           headerCell.textContent = PROPERTY_OUTPUT_ORDER[i].header;
+          headerCell.className = 'table-header';
         }
         row.appendChild(headerCell);
       }
@@ -160,9 +161,19 @@ cr.define('omniboxDebug', function() {
           cell.textContent = '✗';
         }
       } else {
-        // All other data types (integer, strings, etc.) display their
-        // normal toString() output.
-        cell.textContent = autocompleteSuggestion[propertyName];
+        var text = String(autocompleteSuggestion[propertyName]);
+        // If it's a URL wrap it in an href.
+        var re = /^(http|https|ftp|chrome|file):\/\//;
+        if (re.test(text)) {
+          var aCell = document.createElement('a');
+          aCell.textContent = text;
+          aCell.href = text;
+          cell.appendChild(aCell);
+        } else {
+          // All other data types (integer, strings, etc.) display their
+          // normal toString() output.
+          cell.textContent = autocompleteSuggestion[propertyName];
+        }
       }
     }  // else: if propertyName is undefined, we leave the cell blank
     return cell;
@@ -222,12 +233,10 @@ cr.define('omniboxDebug', function() {
    * corresponding code in chrome/browser/ui/webui/omnibox_ui.cc
    */
   function addResultToOutput(result) {
-    var output = document.getElementById('omnibox-debug-text');
-    var inDetailedMode = document.getElementById('show-details').checked;
-    var showIncompleteResults =
-        document.getElementById('show-incomplete-results').checked;
-    var showPerProviderResults =
-        document.getElementById('show-all-providers').checked;
+    var output = $('omnibox-debug-text');
+    var inDetailedMode = $('show-details').checked;
+    var showIncompleteResults = $('show-incomplete-results').checked;
+    var showPerProviderResults = $('show-all-providers').checked;
 
     // Output the result-level features in detailed mode and in
     // show incomplete results mode.  We do the latter because without
@@ -243,23 +252,40 @@ cr.define('omniboxDebug', function() {
       output.appendChild(p2);
     }
 
+    // Combined results go after the lines below.
+    var group = document.createElement('a');
+    group.className = 'group-separator';
+    group.textContent = 'Combined results.';
+    output.appendChild(group);
+
+    // Add combined/merged result table.
+    var p = document.createElement('p');
+    p.appendChild(addResultTableToOutput(result.combined_results));
+    output.appendChild(p);
+
+    // Move forward only if you want to display per provider results.
     if (!showPerProviderResults) {
-      // Add combined/merged result table (without label).
-      output.appendChild(addResultTableToOutput(result.combined_results));
-    } else {
-      // Add combined/merged result table with label.
-      var p = document.createElement('p');
-      p.textContent = 'combined results:';
-      p.appendChild(addResultTableToOutput(result.combined_results));
-      output.appendChild(p);
-      // Add the pre-provider result tables with labels.
-      for (var provider in result.results_by_provider) {
-        p = document.createElement('p');
-        p.appendChild(document.createTextNode(provider + ' provider results:'));
-        p.appendChild(addResultTableToOutput(
-            result.results_by_provider[provider]));
-        output.appendChild(p);
+      return;
+    }
+
+    // Individual results go after the lines below.
+    var group = document.createElement('a');
+    group.className = 'group-separator';
+    group.textContent = 'Results for individual providers.';
+    output.appendChild(group);
+
+    // Add the per-provider result tables with labels. We do not append the
+    // combined/merged result table since we already have the per provider
+    // results.
+    for (var provider in result.results_by_provider) {
+      var results = result.results_by_provider[provider];
+      // If we have no results we do not display anything.
+      if (results.num_items == 0) {
+        continue;
       }
+      var p = document.createElement('p');
+      p.appendChild(addResultTableToOutput(results));
+      output.appendChild(p);
     }
   }
 
@@ -267,12 +293,12 @@ cr.define('omniboxDebug', function() {
    * @param {Object} result either the combined_results component of
    *     the structure described in the comment by addResultToOutput()
    *     above or one of the per-provider results in the structure.
-   *     (Both have the same format.)
+   *     (Both have the same format).
    * @return {HTMLTableCellElement} that is a user-readable HTML
    *     representation of this object.
    */
   function addResultTableToOutput(result) {
-    var inDetailedMode = document.getElementById('show-details').checked;
+    var inDetailedMode = $('show-details').checked;
     // Create a table to hold all the autocomplete items.
     var table = document.createElement('table');
     table.className = 'autocomplete-results-table';
@@ -324,13 +350,12 @@ cr.define('omniboxDebug', function() {
    */
   function refresh() {
     // Erase whatever is currently being displayed.
-    var output = document.getElementById('omnibox-debug-text');
+    var output = $('omnibox-debug-text');
     output.innerHTML = '';
 
     if (progressiveAutocompleteResults.length > 0) {  // if we have results
       // Display the results.
-      var showIncompleteResults =
-          document.getElementById('show-incomplete-results').checked;
+      var showIncompleteResults = $('show-incomplete-results').checked;
       var startIndex = showIncompleteResults ? 0 :
           progressiveAutocompleteResults.length - 1;
       for (var i = startIndex; i < progressiveAutocompleteResults.length; i++) {

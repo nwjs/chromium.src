@@ -10,6 +10,7 @@
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/image/image.h"
+#include "ui/oak/oak.h"
 #include "ui/oak/oak_aura_window_display.h"
 #include "ui/views/controls/table/table_view.h"
 #include "ui/views/controls/tree/tree_view.h"
@@ -56,9 +57,9 @@ views::View* OakWindow::GetContentsView() {
   return this;
 }
 
-SkBitmap OakWindow::GetWindowIcon() {
+gfx::ImageSkia OakWindow::GetWindowIcon() {
   ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
-  return *rb.GetImageNamed(IDR_OAK).ToSkBitmap();
+  return *rb.GetImageNamed(IDR_OAK).ToImageSkia();
 }
 
 bool OakWindow::ShouldShowWindowIcon() const {
@@ -73,7 +74,7 @@ void OakWindow::DeleteDelegate() {
 // OakWindow, views::View overrides:
 
 void OakWindow::OnPaint(gfx::Canvas* canvas) {
-  canvas->sk_canvas()->drawColor(SK_ColorWHITE);
+  canvas->DrawColor(SK_ColorWHITE);
   canvas->FillRect(separator_rect_, kBorderColor);
 }
 
@@ -120,7 +121,7 @@ void OakWindow::Init() {
   tree_model_.reset(
       GenerateModel(GetWidget()->GetNativeView()->GetRootWindow()));
   tree_.reset(new views::TreeView);
-  tree_->set_parent_owned(false);
+  tree_->set_owned_by_client();
   tree_->SetController(this);
   tree_->SetModel(tree_model_.get());
   tree_container_ = tree_->CreateParentIfNecessary();
@@ -135,7 +136,7 @@ void OakWindow::Init() {
                                       true,
                                       false,
                                       false));
-  details_->set_parent_owned(false);
+  details_->set_owned_by_client();
   details_container_ = details_->CreateParentIfNecessary();
   details_->SetModel(details_model_.get());
   AddChildView(details_container_);

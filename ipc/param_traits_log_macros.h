@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef IPC_PARAM_TRAITS_LOG_MACROS_H_
 #define IPC_PARAM_TRAITS_LOG_MACROS_H_
-#pragma once
 
 #include <string>
 
@@ -19,7 +18,7 @@
 #define IPC_STRUCT_BEGIN_WITH_PARENT(struct_name, parent) \
   IPC_STRUCT_BEGIN(struct_name)
 #define IPC_STRUCT_BEGIN(struct_name) IPC_STRUCT_TRAITS_BEGIN(struct_name)
-#define IPC_STRUCT_MEMBER(type, name) IPC_STRUCT_TRAITS_MEMBER(name)
+#define IPC_STRUCT_MEMBER(type, name, ...) IPC_STRUCT_TRAITS_MEMBER(name)
 #define IPC_STRUCT_END() IPC_STRUCT_TRAITS_END()
 
 // Set up so next include will generate log methods.

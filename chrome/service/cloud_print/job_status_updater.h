@@ -1,15 +1,14 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_SERVICE_CLOUD_PRINT_JOB_STATUS_UPDATER_H_
 #define CHROME_SERVICE_CLOUD_PRINT_JOB_STATUS_UPDATER_H_
-#pragma once
 
 #include <string>
 
+#include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/threading/thread.h"
 #include "chrome/service/cloud_print/cloud_print_url_fetcher.h"
 #include "chrome/service/cloud_print/print_system.h"
@@ -38,7 +37,6 @@ class JobStatusUpdater : public base::RefCountedThreadSafe<JobStatusUpdater>,
                    const GURL& cloud_print_server_url,
                    cloud_print::PrintSystem* print_system,
                    Delegate* delegate);
-  virtual ~JobStatusUpdater();
 
   // Checks the status of the local print job and sends an update.
   void UpdateStatus();
@@ -46,7 +44,7 @@ class JobStatusUpdater : public base::RefCountedThreadSafe<JobStatusUpdater>,
 
   // CloudPrintURLFetcher::Delegate implementation.
   virtual CloudPrintURLFetcher::ResponseAction HandleJSONData(
-      const content::URLFetcher* source,
+      const net::URLFetcher* source,
       const GURL& url,
       base::DictionaryValue* json_data,
       bool succeeded) OVERRIDE;
@@ -54,6 +52,9 @@ class JobStatusUpdater : public base::RefCountedThreadSafe<JobStatusUpdater>,
   virtual std::string GetAuthHeader() OVERRIDE;
 
  private:
+  friend class base::RefCountedThreadSafe<JobStatusUpdater>;
+  virtual ~JobStatusUpdater();
+
   std::string printer_name_;
   std::string job_id_;
   cloud_print::PlatformJobId local_job_id_;

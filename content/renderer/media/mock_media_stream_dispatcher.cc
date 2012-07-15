@@ -4,11 +4,11 @@
 
 #include "content/renderer/media/mock_media_stream_dispatcher.h"
 
+#include "base/stringprintf.h"
+
 MockMediaStreamDispatcher::MockMediaStreamDispatcher()
     : MediaStreamDispatcher(NULL),
       request_id_(-1),
-      event_handler_(NULL),
-      components_(NULL),
       stop_stream_counter_(0) {
 }
 
@@ -16,15 +16,35 @@ MockMediaStreamDispatcher::~MockMediaStreamDispatcher() {}
 
 void MockMediaStreamDispatcher::GenerateStream(
     int request_id,
-    MediaStreamDispatcherEventHandler* event_handler,
+    const base::WeakPtr<MediaStreamDispatcherEventHandler>& event_handler,
     media_stream::StreamOptions components,
-    const std::string& security_origin) {
+    const GURL& security_origin) {
   request_id_ = request_id;
   event_handler_ = event_handler;
-  delete components_;
-  components_ = new media_stream::StreamOptions(components.audio,
-                                                components.video_option);
+  components_ = media_stream::StreamOptions(components.audio,
+                                            components.video);
   security_origin_ = security_origin;
+
+  stream_label_ = StringPrintf("%s%d","local_stream",request_id);
+  audio_array_.clear();
+  video_array_.clear();
+
+  if (components.audio) {
+    media_stream::StreamDeviceInfo audio;
+    audio.device_id= "audio_device_id";
+    audio.name ="audio microphone";
+    audio.stream_type = content::MEDIA_STREAM_DEVICE_TYPE_AUDIO_CAPTURE;
+    audio.session_id = request_id;
+    audio_array_.push_back(audio);
+  }
+  if (components.video) {
+    media_stream::StreamDeviceInfo video;
+    video.device_id= "video_device_id";
+    video.name ="usb video camera";
+    video.stream_type = content::MEDIA_STREAM_DEVICE_TYPE_VIDEO_CAPTURE;
+    video.session_id = request_id;
+    video_array_.push_back(video);
+  }
 }
 
 void MockMediaStreamDispatcher::StopStream(const std::string& label) {
@@ -32,18 +52,15 @@ void MockMediaStreamDispatcher::StopStream(const std::string& label) {
 }
 
 bool MockMediaStreamDispatcher::IsStream(const std::string& label) {
-  NOTIMPLEMENTED();
-  return false;
+  return true;
 }
 
 int MockMediaStreamDispatcher::video_session_id(const std::string& label,
                                                 int index) {
-  NOTIMPLEMENTED();
   return -1;
 }
 
 int MockMediaStreamDispatcher::audio_session_id(const std::string& label,
                                                 int index) {
-  NOTIMPLEMENTED();
   return -1;
 }

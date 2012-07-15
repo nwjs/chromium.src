@@ -4,7 +4,6 @@
 
 #ifndef UI_BASE_ACCELERATORS_ACCELERATOR_MANAGER_H_
 #define UI_BASE_ACCELERATORS_ACCELERATOR_MANAGER_H_
-#pragma once
 
 #include <list>
 #include <map>
@@ -33,8 +32,8 @@ class UI_EXPORT AcceleratorManager {
   // higher priority.
   // |accelerator| is the accelerator to register.
   // |priority| denotes the priority of the handler.
-  // NOTE: In almost all cases, you should specify kPriorityNormal for this
-  // parameter. Setting it to kPriorityHigh prevents Chrome from sending the
+  // NOTE: In almost all cases, you should specify kNormalPriority for this
+  // parameter. Setting it to kHighPriority prevents Chrome from sending the
   // shortcut to the webpage if the renderer has focus, which is not desirable
   // except for very isolated cases.
   // |target| is the AcceleratorTarget that handles the event once the
@@ -71,9 +70,10 @@ class UI_EXPORT AcceleratorManager {
   // Whether the given |accelerator| has a priority handler associated with it.
   bool HasPriorityHandler(const Accelerator& accelerator) const;
 
- private:
+  // Returns false when Process() should never handle the |accelerator|.
   bool ShouldHandle(const Accelerator& accelerator) const;
 
+ private:
   // The accelerators and associated targets.
   typedef std::list<AcceleratorTarget*> AcceleratorTargetList;
   // This construct pairs together a |bool| (denoting whether the list contains

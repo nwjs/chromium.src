@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_TEST_BASE_TESTING_PREF_SERVICE_H_
 #define CHROME_TEST_BASE_TESTING_PREF_SERVICE_H_
-#pragma once
 
 #include "base/memory/ref_counted.h"
 #include "chrome/browser/prefs/pref_service.h"
@@ -46,9 +45,9 @@ class TestingPrefServiceBase : public PrefService {
 
  protected:
   TestingPrefServiceBase(
-      TestingPrefStore* managed_platform_prefs,
+      TestingPrefStore* managed_prefs,
       TestingPrefStore* user_prefs,
-      TestingPrefStore* recommended_platform_prefs,
+      TestingPrefStore* recommended_prefs,
       DefaultPrefStore* default_store,
       PrefModelAssociator* pref_sync_associator,
       PrefNotifierImpl* pref_notifier);
@@ -65,9 +64,9 @@ class TestingPrefServiceBase : public PrefService {
   void RemovePref(TestingPrefStore* pref_store, const char* path);
 
   // Pointers to the pref stores our value store uses.
-  scoped_refptr<TestingPrefStore> managed_platform_prefs_;
+  scoped_refptr<TestingPrefStore> managed_prefs_;
   scoped_refptr<TestingPrefStore> user_prefs_;
-  scoped_refptr<TestingPrefStore> recommended_platform_prefs_;
+  scoped_refptr<TestingPrefStore> recommended_prefs_;
 
   DISALLOW_COPY_AND_ASSIGN(TestingPrefServiceBase);
 };

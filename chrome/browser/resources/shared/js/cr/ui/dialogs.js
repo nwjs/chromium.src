@@ -39,11 +39,15 @@ cr.define('cr.ui.dialogs', function() {
     this.container_.className = 'cr-dialog-container';
     this.container_.addEventListener('keydown',
                                      this.onContainerKeyDown_.bind(this));
+    this.shield_ = doc.createElement('div');
+    this.shield_.className = 'cr-dialog-shield';
+    this.container_.appendChild(this.shield_);
     this.container_.addEventListener('mousedown',
                                      this.onContainerMouseDown_.bind(this));
 
     this.frame_ = doc.createElement('div');
     this.frame_.className = 'cr-dialog-frame';
+    this.frame_.tabIndex = 0;
     this.container_.appendChild(this.frame_);
 
     this.title_ = doc.createElement('div');
@@ -97,6 +101,7 @@ cr.define('cr.ui.dialogs', function() {
       // Start 'pulse' animation.
       classList.remove('pulse');
       setTimeout(classList.add.bind(classList, 'pulse'), 0);
+      event.preventDefault();
     }
   };
 
@@ -174,29 +179,15 @@ cr.define('cr.ui.dialogs', function() {
       this.title_.textContent = title;
       this.title_.hidden = false;
     } else {
-      this.title_.textContent = "";
+      this.title_.textContent = '';
       this.title_.hidden = true;
     }
 
-    var top = (this.document_.body.clientHeight -
-               this.frame_.clientHeight) / 2;
-    var left = (this.document_.body.clientWidth -
-                this.frame_.clientWidth) / 2;
-
-    // Disable transitions so that we can set the initial position of the
-    // dialog right away.
-    this.frame_.style.webkitTransitionProperty = '';
-    this.frame_.style.top = (top - 50) + 'px';
-    this.frame_.style.left = (left + 10) + 'px';
-
     var self = this;
-    setTimeout(function () {
+    setTimeout(function() {
       // Note that we control the opacity of the *container*, but the top/left
       // of the *frame*.
-      self.container_.style.opacity = '1';
-      self.frame_.style.top = top + 'px';
-      self.frame_.style.left = left + 'px';
-      self.frame_.style.webkitTransitionProperty = 'left, top';
+      self.container_.classList.add('shown');
       self.initialFocusElement_.focus();
       setTimeout(function() {
         if (onShow)
@@ -210,7 +201,7 @@ cr.define('cr.ui.dialogs', function() {
     for (var i = 0; i < this.deactivatedNodes_.length; i++) {
       var node = this.deactivatedNodes_[i];
       if (this.tabIndexes_[i] === null)
-        node.removeAttribute('tabidex');
+        node.removeAttribute('tabindex');
       else
         node.setAttribute('tabindex', this.tabIndexes_[i]);
     }
@@ -219,9 +210,7 @@ cr.define('cr.ui.dialogs', function() {
 
     // Note that we control the opacity of the *container*, but the top/left
     // of the *frame*.
-    this.container_.style.opacity = '0';
-    this.frame_.style.top = (parseInt(this.frame_.style.top) + 50) + 'px';
-    this.frame_.style.left = (parseInt(this.frame_.style.left) - 10) + 'px';
+    this.container_.classList.remove('shown');
 
     if (this.previousActiveElement_) {
       this.previousActiveElement_.focus();

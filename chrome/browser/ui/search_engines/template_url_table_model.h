@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_SEARCH_ENGINES_TEMPLATE_URL_TABLE_MODEL_H_
 #define CHROME_BROWSER_UI_SEARCH_ENGINES_TEMPLATE_URL_TABLE_MODEL_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -15,9 +14,12 @@
 #include "ui/base/models/table_model.h"
 
 class ModelEntry;
-class SkBitmap;
 class TemplateURL;
 class TemplateURLService;
+
+namespace gfx {
+class ImageSkia;
+}
 
 // TemplateURLTableModel is the TableModel implementation used by
 // KeywordEditorView to show the keywords in a TableView.
@@ -45,7 +47,7 @@ class TemplateURLTableModel : public ui::TableModel,
   // ui::TableModel overrides.
   virtual int RowCount() OVERRIDE;
   virtual string16 GetText(int row, int column) OVERRIDE;
-  virtual SkBitmap GetIcon(int row) OVERRIDE;
+  virtual gfx::ImageSkia GetIcon(int row) OVERRIDE;
   virtual void SetObserver(ui::TableModelObserver* observer) OVERRIDE;
   virtual bool HasGroups() OVERRIDE;
   virtual Groups GetGroups() OVERRIDE;
@@ -70,7 +72,7 @@ class TemplateURLTableModel : public ui::TableModel,
   void ReloadIcon(int index);
 
   // Returns the TemplateURL at the specified index.
-  const TemplateURL* GetTemplateURL(int index);
+  TemplateURL* GetTemplateURL(int index);
 
   // Returns the index of the TemplateURL, or -1 if it the TemplateURL is not
   // found.

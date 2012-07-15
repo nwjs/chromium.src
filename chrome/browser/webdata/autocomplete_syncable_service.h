@@ -3,9 +3,9 @@
 // found in the LICENSE file.
 #ifndef CHROME_BROWSER_WEBDATA_AUTOCOMPLETE_SYNCABLE_SERVICE_H_
 #define CHROME_BROWSER_WEBDATA_AUTOCOMPLETE_SYNCABLE_SERVICE_H_
-#pragma once
 
 #include <map>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -13,22 +13,25 @@
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/threading/non_thread_safe.h"
-#include "chrome/browser/sync/api/sync_change.h"
-#include "chrome/browser/sync/api/sync_data.h"
-#include "chrome/browser/sync/api/sync_error.h"
-#include "chrome/browser/sync/api/syncable_service.h"
 #include "chrome/browser/webdata/autofill_change.h"
 #include "chrome/browser/webdata/autofill_entry.h"
 #include "chrome/browser/webdata/web_data_service.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
+#include "sync/api/sync_change.h"
+#include "sync/api/sync_data.h"
+#include "sync/api/sync_error.h"
+#include "sync/api/syncable_service.h"
 
 class ProfileSyncServiceAutofillTest;
+
+namespace syncer {
+class SyncErrorFactory;
+}
 
 namespace sync_pb {
 class AutofillSpecifics;
 }
-
 
 // The sync implementation for autocomplete.
 // MergeDataAndStartSyncing() called first, it does cloud->local and
@@ -37,25 +40,27 @@ class AutofillSpecifics;
 // TODO(georgey) : remove reliance on the notifications and make it to be called
 // from web_data_service directly.
 class AutocompleteSyncableService
-    : public SyncableService,
+    : public syncer::SyncableService,
       public content::NotificationObserver,
       public base::NonThreadSafe {
  public:
   explicit AutocompleteSyncableService(WebDataService* web_data_service);
   virtual ~AutocompleteSyncableService();
 
-  static syncable::ModelType model_type() { return syncable::AUTOFILL; }
+  static syncer::ModelType model_type() { return syncer::AUTOFILL; }
 
-  // SyncableService implementation.
-  virtual SyncError MergeDataAndStartSyncing(
-      syncable::ModelType type,
-      const SyncDataList& initial_sync_data,
-      scoped_ptr<SyncChangeProcessor> sync_processor) OVERRIDE;
-  virtual void StopSyncing(syncable::ModelType type) OVERRIDE;
-  virtual SyncDataList GetAllSyncData(syncable::ModelType type) const OVERRIDE;
-  virtual SyncError ProcessSyncChanges(
+  // syncer::SyncableService implementation.
+  virtual syncer::SyncError MergeDataAndStartSyncing(
+      syncer::ModelType type,
+      const syncer::SyncDataList& initial_sync_data,
+      scoped_ptr<syncer::SyncChangeProcessor> sync_processor,
+      scoped_ptr<syncer::SyncErrorFactory> error_handler) OVERRIDE;
+  virtual void StopSyncing(syncer::ModelType type) OVERRIDE;
+  virtual syncer::SyncDataList GetAllSyncData(
+      syncer::ModelType type) const OVERRIDE;
+  virtual syncer::SyncError ProcessSyncChanges(
       const tracked_objects::Location& from_here,
-      const SyncChangeList& change_list) OVERRIDE;
+      const syncer::SyncChangeList& change_list) OVERRIDE;
 
   // NotificationObserver implementation.
   virtual void Observe(int type,
@@ -88,23 +93,29 @@ class AutocompleteSyncableService
   // of the iterator is longer than the map object. The bool in the pair is used
   // to indicate if the item needs to be added (true) or updated (false).
   typedef std::map<AutofillKey,
-                  std::pair<SyncChange::SyncChangeType,
+                  std::pair<syncer::SyncChange::SyncChangeType,
                             std::vector<AutofillEntry>::iterator> >
       AutocompleteEntryMap;
 
   // Creates or updates an autocomplete entry based on |data|.
-  void CreateOrUpdateEntry(const SyncData& data,
+  // |data| -  an entry for sync.
+  // |loaded_data| - entries that were loaded from local storage.
+  // |new_entries| - entries that came from the sync.
+  // |ignored_entries| - entries that came from the sync, but too old to be
+  // stored and immediately discarded.
+  void CreateOrUpdateEntry(const syncer::SyncData& data,
                            AutocompleteEntryMap* loaded_data,
-                           std::vector<AutofillEntry>* bundle);
+                           std::vector<AutofillEntry>* new_entries);
 
   // Writes |entry| data into supplied |autofill_specifics|.
   static void WriteAutofillEntry(const AutofillEntry& entry,
                                  sync_pb::EntitySpecifics* autofill_specifics);
 
   // Deletes the database entry corresponding to the |autofill| specifics.
-  SyncError AutofillEntryDelete(const sync_pb::AutofillSpecifics& autofill);
+  syncer::SyncError AutofillEntryDelete(
+      const sync_pb::AutofillSpecifics& autofill);
 
-  SyncData CreateSyncData(const AutofillEntry& entry) const;
+  syncer::SyncData CreateSyncData(const AutofillEntry& entry) const;
 
   // Syncs |changes| to the cloud.
   void ActOnChanges(const AutofillChangeList& changes);
@@ -114,18 +125,23 @@ class AutocompleteSyncableService
 
   // For unit-tests.
   AutocompleteSyncableService();
-  void set_sync_processor(SyncChangeProcessor* sync_processor) {
+  void set_sync_processor(syncer::SyncChangeProcessor* sync_processor) {
     sync_processor_.reset(sync_processor);
   }
 
   // Lifetime of AutocompleteSyncableService object is shorter than
   // |web_data_service_| passed to it.
   WebDataService* web_data_service_;
+
   content::NotificationRegistrar notification_registrar_;
 
   // We receive ownership of |sync_processor_| in MergeDataAndStartSyncing() and
   // destroy it in StopSyncing().
-  scoped_ptr<SyncChangeProcessor> sync_processor_;
+  scoped_ptr<syncer::SyncChangeProcessor> sync_processor_;
+
+  // We receive ownership of |error_handler_| in MergeDataAndStartSyncing() and
+  // destroy it in StopSyncing().
+  scoped_ptr<syncer::SyncErrorFactory> error_handler_;
 
   DISALLOW_COPY_AND_ASSIGN(AutocompleteSyncableService);
 };

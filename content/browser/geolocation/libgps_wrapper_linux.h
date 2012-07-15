@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,14 +7,16 @@
 
 #ifndef CONTENT_BROWSER_GEOLOCATION_LIBGPS_WRAPPER_LINUX_H_
 #define CONTENT_BROWSER_GEOLOCATION_LIBGPS_WRAPPER_LINUX_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
 #include "content/common/content_export.h"
 
 struct gps_data_t;
+
+namespace content {
 struct Geoposition;
+}
 
 class CONTENT_EXPORT LibGps {
  public:
@@ -25,7 +27,7 @@ class CONTENT_EXPORT LibGps {
 
   bool Start();
   void Stop();
-  bool Read(Geoposition* position);
+  bool Read(content::Geoposition* position);
 
  protected:
   typedef int (*gps_open_fn)(const char*, const char*, struct gps_data_t*);
@@ -38,7 +40,7 @@ class CONTENT_EXPORT LibGps {
                   gps_read_fn gps_read);
 
   // Returns false if there is not fix available.
-  virtual bool GetPositionIfFixed(Geoposition* position);
+  virtual bool GetPositionIfFixed(content::Geoposition* position);
 
  private:
   void* dl_handle_;

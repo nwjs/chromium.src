@@ -371,9 +371,9 @@ TEST_F(GLES2ImplementationTest, Disable) {
     Disable cmd;
   };
   Cmds expected;
-  expected.cmd.Init(GL_BLEND);
+  expected.cmd.Init(GL_DITHER);
 
-  gl_->Disable(GL_BLEND);
+  gl_->Disable(GL_DITHER);
   EXPECT_EQ(0, memcmp(&expected, commands_, sizeof(expected)));
 }
 
@@ -404,9 +404,9 @@ TEST_F(GLES2ImplementationTest, Enable) {
     Enable cmd;
   };
   Cmds expected;
-  expected.cmd.Init(GL_BLEND);
+  expected.cmd.Init(GL_DITHER);
 
-  gl_->Enable(GL_BLEND);
+  gl_->Enable(GL_DITHER);
   EXPECT_EQ(0, memcmp(&expected, commands_, sizeof(expected)));
 }
 
@@ -1634,6 +1634,17 @@ TEST_F(GLES2ImplementationTest, TexImageIOSurface2DCHROMIUM) {
   EXPECT_EQ(0, memcmp(&expected, commands_, sizeof(expected)));
 }
 
+TEST_F(GLES2ImplementationTest, CopyTextureCHROMIUM) {
+  struct Cmds {
+    CopyTextureCHROMIUM cmd;
+  };
+  Cmds expected;
+  expected.cmd.Init(1, 2, 3, 4, GL_ALPHA);
+
+  gl_->CopyTextureCHROMIUM(1, 2, 3, 4, GL_ALPHA);
+  EXPECT_EQ(0, memcmp(&expected, commands_, sizeof(expected)));
+}
+
 TEST_F(GLES2ImplementationTest, DrawArraysInstancedANGLE) {
   struct Cmds {
     DrawArraysInstancedANGLE cmd;
@@ -1655,5 +1666,36 @@ TEST_F(GLES2ImplementationTest, VertexAttribDivisorANGLE) {
   gl_->VertexAttribDivisorANGLE(1, 2);
   EXPECT_EQ(0, memcmp(&expected, commands_, sizeof(expected)));
 }
+
+TEST_F(GLES2ImplementationTest, ProduceTextureCHROMIUM) {
+  struct Cmds {
+    ProduceTextureCHROMIUMImmediate cmd;
+    GLbyte data[64];
+  };
+
+  Cmds expected;
+  for (int jj = 0; jj < 64; ++jj) {
+    expected.data[jj] = static_cast<GLbyte>(jj);
+  }
+  expected.cmd.Init(GL_TEXTURE_2D, &expected.data[0]);
+  gl_->ProduceTextureCHROMIUM(GL_TEXTURE_2D, &expected.data[0]);
+  EXPECT_EQ(0, memcmp(&expected, commands_, sizeof(expected)));
+}
+
+TEST_F(GLES2ImplementationTest, ConsumeTextureCHROMIUM) {
+  struct Cmds {
+    ConsumeTextureCHROMIUMImmediate cmd;
+    GLbyte data[64];
+  };
+
+  Cmds expected;
+  for (int jj = 0; jj < 64; ++jj) {
+    expected.data[jj] = static_cast<GLbyte>(jj);
+  }
+  expected.cmd.Init(GL_TEXTURE_2D, &expected.data[0]);
+  gl_->ConsumeTextureCHROMIUM(GL_TEXTURE_2D, &expected.data[0]);
+  EXPECT_EQ(0, memcmp(&expected, commands_, sizeof(expected)));
+}
+// TODO: Implement unit test for BindUniformLocationCHROMIUM
 #endif  // GPU_COMMAND_BUFFER_CLIENT_GLES2_IMPLEMENTATION_UNITTEST_AUTOGEN_H_
 

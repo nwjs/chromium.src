@@ -41,6 +41,7 @@
 #include "chrome/test/webdriver/commands/execute_command.h"
 #include "chrome/test/webdriver/commands/file_upload_command.h"
 #include "chrome/test/webdriver/commands/find_element_commands.h"
+#include "chrome/test/webdriver/commands/html5_location_commands.h"
 #include "chrome/test/webdriver/commands/html5_storage_commands.h"
 #include "chrome/test/webdriver/commands/keys_command.h"
 #include "chrome/test/webdriver/commands/log_command.h"
@@ -145,6 +146,8 @@ void InitCallbacks(Dispatcher* dispatcher,
   dispatcher->Add<WindowSizeCommand>(   "/session/*/window/*/size");
   dispatcher->Add<WindowPositionCommand>(
                                         "/session/*/window/*/position");
+  dispatcher->Add<WindowMaximizeCommand>(
+                                        "/session/*/window/*/maximize");
   dispatcher->Add<SetAsyncScriptTimeoutCommand>(
                                         "/session/*/timeouts/async_script");
   dispatcher->Add<ImplicitWaitCommand>( "/session/*/timeouts/implicit_wait");
@@ -162,8 +165,13 @@ void InitCallbacks(Dispatcher* dispatcher,
   dispatcher->Add<ExtensionsCommand>("/session/*/chrome/extensions");
   dispatcher->Add<ExtensionCommand>("/session/*/chrome/extension/*");
   dispatcher->Add<ViewsCommand>("/session/*/chrome/views");
+#if !defined(NO_TCMALLOC) && (defined(OS_LINUX) || defined(OS_CHROMEOS))
+  dispatcher->Add<HeapProfilerDumpCommand>(
+      "/session/*/chrome/heapprofilerdump");
+#endif  // !defined(NO_TCMALLOC) && (defined(OS_LINUX) || defined(OS_CHROMEOS))
 
   // HTML5 functions.
+  dispatcher->Add<HTML5LocationCommand>("/session/*/location");
   dispatcher->Add<LocalStorageCommand>("/session/*/local_storage");
   dispatcher->Add<LocalStorageSizeCommand>("/session/*/local_storage/size");
   dispatcher->Add<LocalStorageKeyCommand>("/session/*/local_storage/key*");
@@ -232,7 +240,7 @@ int RunChromeDriver() {
   std::string root;
   std::string url_base;
   int http_threads = 4;
-  bool enable_keep_alive = true;
+  bool enable_keep_alive = false;
   if (cmd_line->HasSwitch("port"))
     port = cmd_line->GetSwitchValueASCII("port");
   if (cmd_line->HasSwitch("log-path"))
@@ -251,8 +259,8 @@ int RunChromeDriver() {
       return 1;
     }
   }
-  if (cmd_line->HasSwitch("disable-keep-alive"))
-    enable_keep_alive = false;
+  if (cmd_line->HasSwitch("enable-keep-alive"))
+    enable_keep_alive = true;
 
   bool logging_success = InitWebDriverLogging(log_path, kAllLogLevel);
   std::string chromedriver_info = base::StringPrintf(
@@ -287,6 +295,7 @@ int RunChromeDriver() {
                                     &dispatcher,
                                     options.get());
   if (ctx == NULL) {
+    std::cerr << "Port already in use. Exiting..." << std::endl;
 #if defined(OS_WIN)
     return WSAEADDRINUSE;
 #else
@@ -316,5 +325,5 @@ int RunChromeDriver() {
 
 int main(int argc, char *argv[]) {
   CommandLine::Init(argc, argv);
-  webdriver::RunChromeDriver();
+  return webdriver::RunChromeDriver();
 }

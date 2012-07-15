@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_RENDERER_EXTENSIONS_USER_SCRIPT_SLAVE_H_
 #define CHROME_RENDERER_EXTENSIONS_USER_SCRIPT_SLAVE_H_
-#pragma once
 
 #include <map>
 #include <set>
@@ -18,7 +17,6 @@
 #include "chrome/common/extensions/user_script.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebScriptSource.h"
 
-class Extension;
 class ExtensionSet;
 class GURL;
 
@@ -28,12 +26,15 @@ class WebFrame;
 
 using WebKit::WebScriptSource;
 
+namespace extensions {
+class Extension;
+
 // Manages installed UserScripts for a render process.
 class UserScriptSlave {
  public:
   // Utility to get the URL we will match against for a frame. If the frame has
   // committed, this is the commited URL. Otherwise it is the provisional URL.
-  static GURL GetDataSourceURLForFrame(WebKit::WebFrame* frame);
+  static GURL GetDataSourceURLForFrame(const WebKit::WebFrame* frame);
 
   explicit UserScriptSlave(const ExtensionSet* extensions);
   ~UserScriptSlave();
@@ -84,5 +85,7 @@ class UserScriptSlave {
 
   DISALLOW_COPY_AND_ASSIGN(UserScriptSlave);
 };
+
+}  // namespace extensions
 
 #endif  // CHROME_RENDERER_EXTENSIONS_USER_SCRIPT_SLAVE_H_

@@ -11,7 +11,6 @@ tfoot, thead, tr, th, td, button {
   margin: 0;
   padding: 0;
   border: 0;
-  outline: 0;
   font-weight: inherit;
   font-style: inherit;
   font-size: 100%;
@@ -59,22 +58,38 @@ button {
   height: 27px;
   padding: 0 8px;
   line-height: 27px;
-  -webkit-border-radius:2px;
+  border-radius:2px;
   -webkit-transition: all 0.218s;
   background-image: -webkit-gradient(linear, left top, left bottom,
                                      from(#f5f5f5), to(#f1f1f1));
-  -webkit-box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-button:hover:not([disabled]) {
+button:hover {
   border: 1px solid #C6C6C6;
   color: #222;
-  -webkit-transition: all 0.0s;
   transition: all 0.0s;
-  background-color: #f8f8f8;
   background-image: -webkit-gradient(linear, left top, left bottom,
                                      from(#f8f8f8), to(#f1f1f1));
-  -webkit-box-shadow: 0px 1px 1px rgba(0,0,0,0.1);
+  box-shadow: 0px 1px 1px rgba(0, 0, 0, 0.1);
+}
+
+button:active {
+  background: #f6f6f6 -webkit-gradient(linear,left top,left bottom,
+                                       from(#f6f6f6),to(#f1f1f1));
+  box-shadow: inset 0px 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+button:focus {
+  outline: none;
+  border: 1px solid #4d90fe;
+}
+
+button[disabled], button[disabled]:hover, button[disabled]:active {
+  background: linear-gradient(#fafafa, #f4f4f4 40%, #e5e5e5);
+  border-color: #aaa;
+  color: #888;
+  box-shadow: none;
 }
 
 /* Colored Buttons */
@@ -82,30 +97,41 @@ button:hover:not([disabled]) {
   border: 1px solid #29691d;
   color: #FFF;
   text-shadow: 0px 1px rgba(0,0,0,0.1);
-  background-image: -webkit-gradient(linear, left top, left bottom,
-                                     from(#3d9400), to(#398a00));
+  background-image: -webkit-gradient(linear,left top,left bottom,
+                                     from(#3d9400),to(#398a00));
 }
 
-.kd-button-share:hover:not([disabled]) {
+.kd-button-share:hover {
   border: 1px solid #404040;
   color: #FFF;
   text-shadow: 0px 1px rgba(0,0,0,0.3);
-  border-color: #2D6200;
-  background-image: -webkit-gradient(linear, left top, left bottom,
-                                     from(#3d9400), to(#368200));
-}
-
-.kd-button-share:focus {
-  border-color:#404040;
-  -webkit-box-shadow:inset 0 0 0 1px rgba(255,255,255,0.5);
-}
-
-.kd-button-share:focus:hover {
-  -webkit-box-shadow:inset 0 0 0 1px #fff, 0px 1px 1px rgba(0,0,0,0.1);
+  background-image: -webkit-gradient(linear,left top,left bottom,
+                                     from(#3d9400),to(#368200));
 }
 
 .kd-button-share:active, .kd-button-share:focus:active {
-  -webkit-box-shadow: inset 0px 1px 2px rgba(0,0,0,0.3);
+  box-shadow: inset 0px 1px 2px rgba(0,0,0,0.3);
+  background-image: -webkit-gradient(linear,left top,left bottom,
+                                     from(#3d9400),to(#368200));
+}
+
+.kd-button-share:focus {
+  border-color:#29691d;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,0.5);
+}
+
+.kd-button-share:focus:hover {
+  box-shadow:inset 0 0 0 1px #fff, 0px 1px 1px rgba(0,0,0,0.1);
+}
+
+.kd-button-share[disabled], .kd-button-share[disabled]:hover,
+.kd-button-share[disabled]:active {
+  border: 1px solid #505050;
+  color: #FFF;
+  opacity: 0.5;
+  text-shadow: 0px 1px rgba(0,0,0,0.1);
+  background-image: -webkit-gradient(linear,left top,left bottom,
+                                     from(#3d9400),to(#398a00));
 }
 
 ::-webkit-scrollbar {
@@ -155,22 +181,24 @@ button:hover:not([disabled]) {
 /*------------------------------------------------------------------
 Component: Text Field
 ------------------------------------------------------------------*/
-input[type=text] {
+input[type=text],
+input[type=password] {
     height: 29px;
-    line-height: 27px;
-    padding-left: 8px;
+    padding-__MSG_@@bidi_start_edge__: 8px;
     color: #333;
     border: 1px solid #d9d9d9;
     border-top: 1px solid #c0c0c0;
     vertical-align: top;
     -webkit-border-radius: 1px;
 }
-input[type=text]:hover {
+input[type=text]:hover,
+input[type=password]:hover {
     border: 1px solid #b9b9b9;
     border-top: 1px solid #a0a0a0;
     -webkit-box-shadow: inset 0px 1px 2px rgba(0,0,0,0.1);
 }
-input[type=text]:focus {
+input[type=text]:focus,
+input[type=password]:focus {
     -webkit-box-shadow: inset 0px 1px 2px rgba(0,0,0,0.3);
     outline: none;
     border: 1px solid #4d90fe;
@@ -198,27 +226,16 @@ Component: Modal Dialog
   -webkit-transition: all 0.218s;
 }
 
-button:active, .toggle-button-active {
-  background: #ebebeb -webkit-linear-gradient(#f4f4f4, #efefef 40%, #dcdcdc);
-  color: #333;
-  -webkit-box-shadow: inset 0px 1px 3px rgba(0, 0, 0, 0.2);
-}
-
-button[disabled], button[disabled]:hover, button[disabled]:active {
-  background: -webkit-linear-gradient(#fafafa, #f4f4f4 40%, #e5e5e5);
-  border-color: #aaa;
-  color: #888;
-  -webkit-box-shadow: none;
-}
-
 h1.icon-label {
   vertical-align: 14px;
   margin-bottom: 60px;
   font-size: 28px;
   font-weight: 300;
-  color: #aaa;
+  color: #999;
   font-family: "Open sans", "Ariel", sans-serif;
   line-height: 24px;
+  display: inline-block;
+  margin-__MSG_@@bidi_start_edge__: 10px;
 }
 
 h2 {
@@ -226,6 +243,7 @@ h2 {
   line-height:24px;
   font-weight: normal;
   color: #222;
+  margin-bottom: 10px;
 }
 
 section > h2 {
@@ -242,21 +260,19 @@ html {
   cursor: default;
 }
 
-label {
-  color: black;
-  font-weight: bold;
-}
-
 section {
   width: 690px;
   margin: 30px auto;
+}
+
+section {
   border: 1px solid #e5e5e5;
   background: #f9f9f9;
   padding: 20px 30px 20px 30px;
   border-radius: 3px;
   box-shadow: 0 2px 5px rgba(0,0,0,0.07);
+  position: relative;
 }
-
 
 .access-code-digit-group {
   /*
@@ -278,6 +294,25 @@ section {
   cursor: pointer;
 }
 
+.box {
+  display: -webkit-box;
+}
+
+.host-list-empty-instructions {
+  padding-__MSG_@@bidi_start_edge__: 36px;
+  color: #666;
+  background-image: url('host_setup_instructions.png');
+  background-repeat: no-repeat;
+  background-position: -3px -2px;
+}
+
+#host-list-empty-hosting-supported {
+  margin-top: 14px;
+  padding-top: 20px;
+  border-top: 1px solid #E5E5E5;
+  background-position-y: 18px;
+}
+
 .selectable {
   -webkit-user-select: text;
   cursor: text;
@@ -290,8 +325,18 @@ section {
   border-top: 1px solid #EBEBEB;
 }
 
-.section-row:first-child {
+.section-row button {
+  margin-__MSG_@@bidi_start_edge__: 20px;
+}
+
+.section-row:first-child,
+.section-row.no-non-local-hosts {
   border-top: none;
+}
+
+.editbox-label {
+  line-height: 29px;
+  font-weight: bold;
 }
 
 .error-state {
@@ -304,13 +349,19 @@ section {
 }
 
 .expiring {
-    color: #900 !important;
+  color: #900 !important;
 }
 
-.icon-label {
-  display: inline-block;
-  vertical-align: top;
-  margin-__MSG_@@bidi_start_edge__: 10px;
+.infographic {
+  position: absolute;
+  __MSG_@@bidi_end_edge__: 22px;
+  top: 24px;
+}
+
+.infographic-description {
+  height: 80px;
+  width: 400px;
+  padding-top: 2em;
 }
 
 .information-box {
@@ -336,28 +387,27 @@ section {
   min-width: 72px;
 }
 
-.host-list-table {
-  width: 100%;
-  border-spacing: 0;
-}
-
 td {
   vertical-align: middle;
 }
 
-.host-online:hover {
+.host-online.clickable:hover,
+.host-online.clickable.child-focused {
   background-color: #f2f2f2;
 }
 
-.host-list-rename-icon, .host-list-remove-icon {
+.host-list-rename-icon,
+.host-list-remove-icon {
   opacity: 0;
 }
 
-.section-row:hover .host-list-rename-icon {
+.section-row:hover .host-list-rename-icon,
+.section-row.child-focused .host-list-rename-icon {
   opacity: 0.6;
 }
 
-.section-row:hover .host-list-remove-icon {
+.section-row:hover .host-list-remove-icon,
+.section-row.child-focused .host-list-remove-icon {
   opacity: 0.3;
 }
 
@@ -374,7 +424,7 @@ td {
 }
 
 .host-list-main-icon {
-  margin-right: 10px;
+  margin-__MSG_@@bidi_end_edge__: 10px;
   vertical-align: middle;
 }
 
@@ -392,24 +442,23 @@ button {
   color: #AAA;
 }
 
-.waiting:before {
-  content: url('spinner.gif');
-  position: absolute;
-  left: 0px;
-  top: -3px;
-}
-
 .waiting {
+  background-image: url('spinner.gif');
+  background-repeat: no-repeat;
+  background-position: top __MSG_@@bidi_start_edge__;
+  padding-__MSG_@@bidi_start_edge__: 30px;
+  padding-top: 2px;
+  padding-bottom: 4px;
   color: rgb(180, 180, 180);
-  margin-left: 30px;
+  line-height: 27px; /* Same as line-height for buttons */
 }
 
-.waiting-container {
-  position: relative;
+.prominent {
+  color: #222;
 }
 
 .space-before {
-  margin-top: 30px;
+  margin-top: 20px;
 }
 
 
@@ -430,20 +479,27 @@ button {
   margin-top: 24px;
 }
 
-#ask-pin-dialog {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 380px;
-  height: 180px;
-  margin-left: -200px;
-  border: 1px solid black;
-  background-color: #fff;
-  padding: 0 20px;
+#ask-pin-form .table-label {
+  min-width: 120px;
+  text-align: __MSG_@@bidi_end_edge__;
+  display: inline-block;
 }
 
-#cancel-connect-button, #cancel-share-button {
-  float: __MSG_@@bidi_end_edge__;
+#ask-pin-form > div {
+  margin-bottom: 8px;
+}
+
+.checkbox-label {
+  display: block;
+  padding-__MSG_@@bidi_start_edge__: 20px;
+}
+
+.checkbox-label input[type=checkbox] {
+  float: __MSG_@@bidi_start_edge__;
+  margin-__MSG_@@bidi_start_edge__: -20px;
+  margin-__MSG_@@bidi_end_edge__: 0;
+  width: 20px;
+  margin-top: 2px;
 }
 
 #current-email {
@@ -456,7 +512,7 @@ button {
 }
 
 #dialog-container {
-  position: absolute;
+  position: fixed;
   top: 200px;
   left: 0;
   width: 100%;
@@ -464,7 +520,7 @@ button {
 }
 
 #dialog-screen {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   width: 100%;
@@ -472,6 +528,13 @@ button {
   background-color: #fff;
   opacity: 0.75;
 }
+
+/* TODO(jamiewalch): Reinstate this if we're able to get translations for
+ *     "Why is this safe?" that don't overflow in any language.
+#host-setup-dialog {
+  width: 460px;
+}
+*/
 
 #host-plugin-container {
   width: 0;
@@ -499,15 +562,22 @@ button {
   display: block;
 }
 
-#toggle-scaling {
-  margin: 1px 0 0 0;
-  padding: 1px;
-  min-width: 0;
-  line-height: 0;
+#set-pin-table td {
+  border-bottom: 6px solid transparent;
+  text-align: right;
 }
 
 #top-secondary {
   margin-top: 10px
+}
+
+#webapp-description {
+  margin-bottom: 10px;
+}
+
+#why-is-this-safe {
+  display: inline-block;
+  margin-top: 7px;
 }
 
 * {

@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -25,6 +25,7 @@
 #include "base/string_util.h"
 #include "base/threading/thread_restrictions.h"
 #include "chrome/browser/history/history.h"
+#include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "content/public/browser/browser_thread.h"
 
@@ -289,10 +290,10 @@ void VisitedLinkMaster::DeleteAllURLs() {
   listener_->Reset();
 }
 
-void VisitedLinkMaster::DeleteURLs(const std::set<GURL>& urls) {
+void VisitedLinkMaster::DeleteURLs(const history::URLRows& rows) {
   typedef std::set<GURL>::const_iterator SetIterator;
 
-  if (urls.empty())
+  if (rows.empty())
     return;
 
   listener_->Reset();
@@ -300,12 +301,14 @@ void VisitedLinkMaster::DeleteURLs(const std::set<GURL>& urls) {
   if (table_builder_) {
     // A rebuild is in progress, save this deletion in the temporary list so
     // it can be added once rebuild is complete.
-    for (SetIterator i = urls.begin(); i != urls.end(); ++i) {
-      if (!i->is_valid())
+    for (history::URLRows::const_iterator i = rows.begin(); i != rows.end();
+         ++i) {
+      const GURL& url(i->url());
+      if (!url.is_valid())
         continue;
 
       Fingerprint fingerprint =
-          ComputeURLFingerprint(i->spec().data(), i->spec().size(), salt_);
+          ComputeURLFingerprint(url.spec().data(), url.spec().size(), salt_);
       deleted_since_rebuild_.insert(fingerprint);
 
       // If the URL was just added and now we're deleting it, it may be in the
@@ -324,11 +327,13 @@ void VisitedLinkMaster::DeleteURLs(const std::set<GURL>& urls) {
 
   // Compute the deleted URLs' fingerprints and delete them
   std::set<Fingerprint> deleted_fingerprints;
-  for (SetIterator i = urls.begin(); i != urls.end(); ++i) {
-    if (!i->is_valid())
+  for (history::URLRows::const_iterator i = rows.begin(); i != rows.end();
+       ++i) {
+    const GURL& url(i->url());
+    if (!url.is_valid())
       continue;
     deleted_fingerprints.insert(
-        ComputeURLFingerprint(i->spec().data(), i->spec().size(), salt_));
+        ComputeURLFingerprint(url.spec().data(), url.spec().size(), salt_));
   }
   DeleteFingerprintsFromCurrentTable(deleted_fingerprints);
 }
@@ -782,7 +787,9 @@ bool VisitedLinkMaster::RebuildTableFromHistory() {
 
   HistoryService* history_service = history_service_override_;
   if (!history_service && profile_) {
-    history_service = profile_->GetHistoryService(Profile::EXPLICIT_ACCESS);
+    history_service =
+        HistoryServiceFactory::GetForProfile(profile_,
+                                             Profile::EXPLICIT_ACCESS);
   }
 
   if (!history_service) {

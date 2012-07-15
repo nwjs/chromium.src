@@ -12,21 +12,33 @@
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
 
+namespace {
+
 // Amount of padding at the edges of the bubble.
-static const int kBubbleOuterPadding = LocationBarView::kEdgeItemPadding -
-    LocationBarView::kBubbleHorizontalPadding;
+//
+// This can't be statically initialized because
+// LocationBarView::GetEdgeItemPadding() depends on whether we are
+// using desktop or touch layout, and this in turn depends on the
+// command line.
+int GetBubbleOuterPadding() {
+  return LocationBarView::GetEdgeItemPadding() -
+      LocationBarView::kBubbleHorizontalPadding;
+}
 
 // Amount of padding after the label.
-static const int kLabelPadding = 5;
+const int kLabelPadding = 5;
+
+}  // namespace
 
 IconLabelBubbleView::IconLabelBubbleView(const int background_images[],
                                          int contained_image,
-                                         const SkColor& color)
+                                         SkColor color)
     : background_painter_(background_images),
       is_extension_icon_(false) {
   image_ = new views::ImageView();
   image_->SetImage(
-      ResourceBundle::GetSharedInstance().GetBitmapNamed(contained_image));
+      ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
+          contained_image));
   AddChildView(image_);
 
   label_ = new views::Label();
@@ -46,8 +58,12 @@ void IconLabelBubbleView::SetLabel(const string16& label) {
   label_->SetText(label);
 }
 
-void IconLabelBubbleView::SetImage(const SkBitmap& bitmap) {
-  image_->SetImage(bitmap);
+void IconLabelBubbleView::SetImage(const gfx::ImageSkia& image_skia) {
+  image_->SetImage(image_skia);
+}
+
+void IconLabelBubbleView::SetLabelBackgroundColor(SkColor color) {
+  label_->SetBackgroundColor(color);
 }
 
 void IconLabelBubbleView::OnPaint(gfx::Canvas* canvas) {
@@ -61,7 +77,7 @@ gfx::Size IconLabelBubbleView::GetPreferredSize() {
 }
 
 void IconLabelBubbleView::Layout() {
-  image_->SetBounds(kBubbleOuterPadding +
+  image_->SetBounds(GetBubbleOuterPadding() +
       (is_extension_icon_ ? LocationBarView::kIconInternalPadding : 0), 0,
       image_->GetPreferredSize().width(), height());
   const int label_height = label_->GetPreferredSize().height();
@@ -78,11 +94,12 @@ gfx::Size IconLabelBubbleView::GetNonLabelSize() const {
 }
 
 int IconLabelBubbleView::GetPreLabelWidth() const {
-  return kBubbleOuterPadding + ResourceBundle::GetSharedInstance().
-      GetBitmapNamed(IDR_OMNIBOX_SEARCH)->width() +
-      LocationBarView::kItemPadding;
+  ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
+  return GetBubbleOuterPadding() +
+      rb.GetImageSkiaNamed(IDR_OMNIBOX_SEARCH)->width() +
+      LocationBarView::GetItemPadding();
 }
 
 int IconLabelBubbleView::GetNonLabelWidth() const {
-  return GetPreLabelWidth() + kBubbleOuterPadding;
+  return GetPreLabelWidth() + GetBubbleOuterPadding();
 }

@@ -1,27 +1,33 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_COMMON_EXTENSIONS_EXTENSION_ACTION_H_
 #define CHROME_COMMON_EXTENSIONS_EXTENSION_ACTION_H_
-#pragma once
 
 #include <map>
 #include <string>
 #include <vector>
 
 #include "base/basictypes.h"
+#include "base/memory/linked_ptr.h"
+#include "base/memory/scoped_ptr.h"
+#include "base/memory/weak_ptr.h"
+#include "base/observer_list.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "ui/base/animation/linear_animation.h"
+
+class GURL;
+class SkBitmap;
+class SkDevice;
 
 namespace gfx {
 class Canvas;
 class Rect;
 }
 
-class GURL;
-class SkBitmap;
-
-// ExtensionAction encapsulates the state of a browser or page action.
+// ExtensionAction encapsulates the state of a browser action, page action, or
+// script badge.
 // Instances can have both global and per-tab state. If a property does not have
 // a per-tab value, the global value is used instead.
 class ExtensionAction {
@@ -30,14 +36,82 @@ class ExtensionAction {
   // parameter.
   static const int kDefaultTabId;
 
-  ExtensionAction();
+  // The types of extension actions.
+  enum Type {
+    TYPE_BROWSER,
+    TYPE_PAGE,
+    TYPE_SCRIPT_BADGE,
+  };
+
+  // A fade-in animation.
+  class IconAnimation : public ui::LinearAnimation,
+                        public base::SupportsWeakPtr<IconAnimation> {
+   public:
+    // Observes changes to icon animation state.
+    class Observer {
+     public:
+      virtual void OnIconChanged(const IconAnimation& animation) = 0;
+
+     protected:
+      virtual ~Observer() {}
+    };
+
+    // A holder for an IconAnimation with a scoped observer.
+    class ScopedObserver {
+     public:
+      ScopedObserver(const base::WeakPtr<IconAnimation>& icon_animation,
+                     Observer* observer);
+      ~ScopedObserver();
+
+      // Gets the icon animation, or NULL if the reference has expired.
+      const IconAnimation* icon_animation() const {
+        return icon_animation_.get();
+      }
+
+     private:
+      base::WeakPtr<IconAnimation> icon_animation_;
+      Observer* observer_;
+
+      DISALLOW_COPY_AND_ASSIGN(ScopedObserver);
+    };
+
+    virtual ~IconAnimation();
+
+    // Returns the icon derived from the current animation state applied to
+    // |icon|. Ownership remains with this.
+    const SkBitmap& Apply(const SkBitmap& icon) const;
+
+    void AddObserver(Observer* observer);
+    void RemoveObserver(Observer* observer);
+
+   private:
+    // Construct using ExtensionAction::RunIconAnimation().
+    friend class ExtensionAction;
+    explicit IconAnimation(ui::AnimationDelegate* delegate);
+
+    // ui::LinearAnimation implementation.
+    virtual void AnimateToState(double state) OVERRIDE;
+
+    // Device we use to paint icons to.
+    mutable scoped_ptr<SkDevice> device_;
+
+    ObserverList<Observer> observers_;
+
+    DISALLOW_COPY_AND_ASSIGN(IconAnimation);
+  };
+
+  ExtensionAction(const std::string& extension_id, Type action_type);
   ~ExtensionAction();
 
+  // Gets a copy of this, ownership passed to caller.
+  // It doesn't make sense to copy of an ExtensionAction except in tests.
+  scoped_ptr<ExtensionAction> CopyForTest() const;
+
   // extension id
-  std::string extension_id() const { return extension_id_; }
-  void set_extension_id(const std::string& extension_id) {
-    extension_id_ = extension_id;
-  }
+  const std::string& extension_id() const { return extension_id_; }
+
+  // What kind of action is this?
+  Type action_type() const { return action_type_; }
 
   // action id -- only used with legacy page actions API
   std::string id() const { return id_; }
@@ -51,10 +125,10 @@ class ExtensionAction {
   void SetPopupUrl(int tab_id, const GURL& url);
 
   // Use HasPopup() to see if a popup should be displayed.
-  bool HasPopup(int tab_id);
+  bool HasPopup(int tab_id) const;
 
   // Get the URL to display in a popup.
-  GURL GetPopupUrl(int tab_id);
+  GURL GetPopupUrl(int tab_id) const;
 
   // Set this action's title on a specific tab.
   void SetTitle(int tab_id, const std::string& title) {
@@ -63,7 +137,7 @@ class ExtensionAction {
 
   // If tab |tab_id| has a set title, return it.  Otherwise, return
   // the default title.
-  std::string GetTitle(int tab_id) { return GetValue(&title_, tab_id); }
+  std::string GetTitle(int tab_id) const { return GetValue(&title_, tab_id); }
 
   // Icons are a bit different because the default value can be set to either a
   // bitmap or a path. However, conceptually, there is only one default icon.
@@ -76,7 +150,7 @@ class ExtensionAction {
   void SetIcon(int tab_id, const SkBitmap& bitmap);
 
   // Get the icon for a tab, or the default if no icon was set.
-  SkBitmap GetIcon(int tab_id);
+  SkBitmap GetIcon(int tab_id) const;
 
   // Set this action's icon index for a specific tab.  For use with
   // icon_paths(), only used in page actions.
@@ -84,7 +158,7 @@ class ExtensionAction {
 
   // Get this action's icon index for a tab, or the default if no icon index
   // was set.
-  int GetIconIndex(int tab_id) {
+  int GetIconIndex(int tab_id) const {
     return GetValue(&icon_index_, tab_id);
   }
 
@@ -93,7 +167,7 @@ class ExtensionAction {
   void set_default_icon_path(const std::string& path) {
     default_icon_path_ = path;
   }
-  std::string default_icon_path() {
+  std::string default_icon_path() const {
     return default_icon_path_;
   }
 
@@ -102,27 +176,27 @@ class ExtensionAction {
     SetValue(&badge_text_, tab_id, text);
   }
   // Get the badge text for a tab, or the default if no badge text was set.
-  std::string GetBadgeText(int tab_id) {
+  std::string GetBadgeText(int tab_id) const {
     return GetValue(&badge_text_, tab_id);
   }
 
   // Set this action's badge text color on a specific tab.
-  void SetBadgeTextColor(int tab_id, const SkColor& text_color) {
+  void SetBadgeTextColor(int tab_id, SkColor text_color) {
     SetValue(&badge_text_color_, tab_id, text_color);
   }
   // Get the text color for a tab, or the default color if no text color
   // was set.
-  SkColor GetBadgeTextColor(int tab_id) {
+  SkColor GetBadgeTextColor(int tab_id) const {
     return GetValue(&badge_text_color_, tab_id);
   }
 
   // Set this action's badge background color on a specific tab.
-  void SetBadgeBackgroundColor(int tab_id, const SkColor& color) {
+  void SetBadgeBackgroundColor(int tab_id, SkColor color) {
     SetValue(&badge_background_color_, tab_id, color);
   }
   // Get the badge background color for a tab, or the default if no color
   // was set.
-  SkColor GetBadgeBackgroundColor(int tab_id) {
+  SkColor GetBadgeBackgroundColor(int tab_id) const {
     return GetValue(&badge_background_color_, tab_id);
   }
 
@@ -132,7 +206,7 @@ class ExtensionAction {
   }
   // Get the badge visibility for a tab, or the default badge visibility
   // if none was set.
-  bool GetIsVisible(int tab_id) {
+  bool GetIsVisible(int tab_id) const {
     return GetValue(&visible_, tab_id);
   }
 
@@ -141,6 +215,13 @@ class ExtensionAction {
 
   // If the specified tab has a badge, paint it into the provided bounds.
   void PaintBadge(gfx::Canvas* canvas, const gfx::Rect& bounds, int tab_id);
+
+  // Gets a weak reference to the icon animation for a tab, if any. The
+  // reference will only have a value while the animation is running.
+  base::WeakPtr<IconAnimation> GetIconAnimation(int tab_id) const;
+
+  // Runs an animation on a tab.
+  void RunIconAnimation(int tab_id);
 
  private:
   template <class T>
@@ -156,8 +237,8 @@ class ExtensionAction {
   }
 
   template<class T>
-  T GetValue(std::map<int, T>* map, int tab_id) {
-    typename std::map<int, T>::iterator iter = map->find(tab_id);
+  T GetValue(const std::map<int, T>* map, int tab_id) const {
+    typename std::map<int, T>::const_iterator iter = map->find(tab_id);
     if (iter != map->end()) {
       return iter->second;
     } else {
@@ -168,7 +249,9 @@ class ExtensionAction {
 
   // The id for the extension this action belongs to (as defined in the
   // extension manifest).
-  std::string extension_id_;
+  const std::string extension_id_;
+
+  const Type action_type_;
 
   // Each of these data items can have both a global state (stored with the key
   // kDefaultTabId), or tab-specific state (stored with the tab_id as the key).
@@ -181,6 +264,9 @@ class ExtensionAction {
   std::map<int, SkColor> badge_text_color_;
   std::map<int, bool> visible_;
 
+  class IconAnimationWrapper;
+  std::map<int, linked_ptr<IconAnimationWrapper> > icon_animation_;
+
   std::string default_icon_path_;
 
   // The id for the ExtensionAction, for example: "RssPageAction". This is
@@ -190,6 +276,8 @@ class ExtensionAction {
   // A list of paths to icons this action might show. This is needed to support
   // the legacy setIcon({iconIndex:...} method of the page actions API.
   std::vector<std::string> icon_paths_;
+
+  DISALLOW_COPY_AND_ASSIGN(ExtensionAction);
 };
 
 template<>

@@ -4,11 +4,11 @@
 
 #ifndef CONTENT_BROWSER_RENDERER_HOST_SOCKET_STREAM_DISPATCHER_HOST_H_
 #define CONTENT_BROWSER_RENDERER_HOST_SOCKET_STREAM_DISPATCHER_HOST_H_
-#pragma once
 
 #include <vector>
 
 #include "base/id_map.h"
+#include "base/memory/weak_ptr.h"
 #include "content/browser/renderer_host/resource_message_filter.h"
 #include "content/browser/ssl/ssl_error_handler.h"
 #include "content/public/browser/browser_message_filter.h"
@@ -17,28 +17,28 @@
 class GURL;
 class SocketStreamHost;
 
-namespace content {
-class ResourceContext;
-}
-
 namespace net {
 class SSLInfo;
 }
 
+namespace content {
+class ResourceContext;
+
 // Dispatches ViewHostMsg_SocketStream_* messages sent from renderer.
 // It also acts as SocketStream::Delegate so that it sends
 // ViewMsg_SocketStream_* messages back to renderer.
-class SocketStreamDispatcherHost : public content::BrowserMessageFilter,
-                                   public net::SocketStream::Delegate,
-                                   public SSLErrorHandler::Delegate {
+class SocketStreamDispatcherHost
+    : public BrowserMessageFilter,
+      public net::SocketStream::Delegate,
+      public SSLErrorHandler::Delegate,
+      public base::SupportsWeakPtr<SocketStreamDispatcherHost> {
  public:
   SocketStreamDispatcherHost(
       int render_process_id,
       ResourceMessageFilter::URLRequestContextSelector* selector,
-      content::ResourceContext* resource_context);
-  virtual ~SocketStreamDispatcherHost();
+      ResourceContext* resource_context);
 
-  // content::BrowserMessageFilter:
+  // BrowserMessageFilter:
   virtual bool OnMessageReceived(const IPC::Message& message,
                                  bool* message_was_ok) OVERRIDE;
 
@@ -63,10 +63,13 @@ class SocketStreamDispatcherHost : public content::BrowserMessageFilter,
                             net::CookieOptions* options) OVERRIDE;
 
   // SSLErrorHandler::Delegate methods:
-  virtual void CancelSSLRequest(const content::GlobalRequestID& id,
+  virtual void CancelSSLRequest(const GlobalRequestID& id,
                                 int error,
                                 const net::SSLInfo* ssl_info) OVERRIDE;
-  virtual void ContinueSSLRequest(const content::GlobalRequestID& id) OVERRIDE;
+  virtual void ContinueSSLRequest(const GlobalRequestID& id) OVERRIDE;
+
+ protected:
+  virtual ~SocketStreamDispatcherHost();
 
  private:
   // Message handlers called by OnMessageReceived.
@@ -82,9 +85,11 @@ class SocketStreamDispatcherHost : public content::BrowserMessageFilter,
   int render_process_id_;
   const scoped_ptr<ResourceMessageFilter::URLRequestContextSelector>
       url_request_context_selector_;
-  content::ResourceContext* resource_context_;
+  ResourceContext* resource_context_;
 
   DISALLOW_COPY_AND_ASSIGN(SocketStreamDispatcherHost);
 };
+
+}  // namespace content
 
 #endif  // CONTENT_BROWSER_RENDERER_HOST_SOCKET_STREAM_DISPATCHER_HOST_H_

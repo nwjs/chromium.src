@@ -6,6 +6,7 @@ from code import Code
 from model import PropertyType
 import any_helper
 import cpp_util
+import schema_util
 
 class CppTypeGenerator(object):
   """Manages the types of properties and provides utilities for getting the
@@ -28,27 +29,36 @@ class CppTypeGenerator(object):
     beneath the root namespace.
     """
     for type_ in namespace.types:
-      if self._type_namespaces.get(type_, namespace) != namespace:
+      if type_ in self._type_namespaces:
         raise ValueError('Type %s is declared in both %s and %s' %
             (type_, namespace.name, self._type_namespaces[type_].name))
       self._type_namespaces[type_] = namespace
     self._cpp_namespaces[namespace] = cpp_namespace
 
-  def GetExpandedChoicesInParams(self, params):
+  def ExpandParams(self, params):
     """Returns the given parameters with PropertyType.CHOICES parameters
-    expanded so that each choice is a separate parameter and sets a unix_name
-    for each choice.
+    expanded so that each choice is a separate parameter.
     """
     expanded = []
     for param in params:
       if param.type_ == PropertyType.CHOICES:
         for choice in param.choices.values():
-          choice.unix_name = (
-              param.unix_name + '_' + choice.type_.name.lower())
           expanded.append(choice)
       else:
         expanded.append(param)
     return expanded
+
+  def GetAllPossibleParameterLists(self, params):
+    """Returns all possible parameter lists for the given set of parameters.
+    Every combination of arguments passed to any of the PropertyType.CHOICES
+    parameters will have a corresponding parameter list returned here.
+    """
+    if not params:
+      return [[]]
+    partial_parameter_lists = self.GetAllPossibleParameterLists(params[1:])
+    return [[param] + partial_list
+            for param in self.ExpandParams(params[:1])
+            for partial_list in partial_parameter_lists]
 
   def GetCppNamespaceName(self, namespace):
     """Gets the mapped C++ namespace name for the given namespace relative to
@@ -117,15 +127,16 @@ class CppTypeGenerator(object):
     optional.
     """
     cpp_type = None
+    force_wrapping = False
     if prop.type_ == PropertyType.REF:
-      dependency_namespace = self._type_namespaces.get(prop.ref_type)
+      dependency_namespace = self._ResolveTypeNamespace(prop.ref_type)
       if not dependency_namespace:
         raise KeyError('Cannot find referenced type: %s' % prop.ref_type)
       if self._namespace != dependency_namespace:
         cpp_type = '%s::%s' % (self._cpp_namespaces[dependency_namespace],
-                               prop.ref_type)
+            schema_util.StripSchemaNamespace(prop.ref_type))
       else:
-        cpp_type = prop.ref_type
+        cpp_type = schema_util.StripSchemaNamespace(prop.ref_type)
     elif prop.type_ == PropertyType.BOOLEAN:
       cpp_type = 'bool'
     elif prop.type_ == PropertyType.INTEGER:
@@ -137,25 +148,34 @@ class CppTypeGenerator(object):
     elif prop.type_ == PropertyType.ENUM:
       cpp_type = cpp_util.Classname(prop.name)
     elif prop.type_ == PropertyType.ADDITIONAL_PROPERTIES:
-      cpp_type = 'DictionaryValue'
+      cpp_type = 'base::DictionaryValue'
     elif prop.type_ == PropertyType.ANY:
       cpp_type = any_helper.ANY_CLASS
     elif prop.type_ == PropertyType.OBJECT:
       cpp_type = cpp_util.Classname(prop.name)
     elif prop.type_ == PropertyType.ARRAY:
-      if prop.item_type.type_ in (
+      item_type = prop.item_type
+      if item_type.type_ == PropertyType.REF:
+        item_type = self.GetReferencedProperty(item_type)
+      if item_type.type_ in (
           PropertyType.REF, PropertyType.ANY, PropertyType.OBJECT):
         cpp_type = 'std::vector<linked_ptr<%s> > '
       else:
         cpp_type = 'std::vector<%s> '
       cpp_type = cpp_type % self.GetType(
           prop.item_type, pad_for_generics=True)
+    elif prop.type_ == PropertyType.BINARY:
+      # Since base::BinaryValue's are immutable, we wrap them in a scoped_ptr to
+      # allow them to be modified after the fact.
+      force_wrapping = True
+      cpp_type = 'base::BinaryValue'
     else:
       raise NotImplementedError(prop.type_)
 
     # Enums aren't wrapped because C++ won't allow it. Optional enums have a
     # NONE value generated instead.
-    if wrap_optional and prop.optional and prop.type_ != PropertyType.ENUM:
+    if force_wrapping or (wrap_optional and prop.optional and prop.type_ !=
+                          PropertyType.ENUM):
       cpp_type = 'scoped_ptr<%s> ' % cpp_type
     if pad_for_generics:
       return cpp_type
@@ -168,22 +188,62 @@ class CppTypeGenerator(object):
     self._root_namespace.
     """
     c = Code()
-    for namespace, types in sorted(self._NamespaceTypeDependencies().items()):
+    namespace_type_dependencies = self._NamespaceTypeDependencies()
+    for namespace in sorted(namespace_type_dependencies.keys(),
+                            key=lambda ns: ns.name):
       c.Append('namespace %s {' % namespace.name)
-      for type_ in types:
-        c.Append('struct %s;' % type_)
+      for type_ in sorted(namespace_type_dependencies[namespace],
+                          key=schema_util.StripSchemaNamespace):
+        type_name = schema_util.StripSchemaNamespace(type_)
+        if namespace.types[type_].type_ == PropertyType.STRING:
+          c.Append('typedef std::string %s;' % type_name)
+        elif namespace.types[type_].type_ == PropertyType.ARRAY:
+          c.Append('typedef std::vector<%(item_type)s> %(name)s;')
+          c.Substitute({
+            'name': type_name,
+            'item_type': self.GetType(namespace.types[type_].item_type,
+                                      wrap_optional=True)})
+        else:
+          c.Append('struct %s;' % type_name)
       c.Append('}')
+    c.Concat(self.GetNamespaceStart())
+    for (name, type_) in self._namespace.types.items():
+      if not type_.functions and type_.type_ == PropertyType.OBJECT:
+        c.Append('struct %s;' % schema_util.StripSchemaNamespace(name))
+    c.Concat(self.GetNamespaceEnd())
     return c
 
   def GenerateIncludes(self):
     """Returns the #include lines for self._namespace.
     """
     c = Code()
-    for dependency in sorted(self._NamespaceTypeDependencies().keys()):
-      c.Append('#include "%s/%s.h"' % (
-            dependency.source_file_dir,
-            self._cpp_namespaces[dependency]))
+    for header in sorted(
+        ['%s/%s.h' % (dependency.source_file_dir,
+                      self._cpp_namespaces[dependency])
+         for dependency in self._NamespaceTypeDependencies().keys()]):
+      c.Append('#include "%s"' % header)
     return c
+
+  def _ResolveTypeNamespace(self, ref_type):
+    """Resolves a type, which must be explicitly qualified, to its enclosing
+    namespace.
+    """
+    if ref_type in self._type_namespaces:
+      return self._type_namespaces[ref_type]
+    raise KeyError(('Cannot resolve type: %s.' % ref_type) +
+        'Maybe it needs a namespace prefix if it comes from another namespace?')
+    return None
+
+  def GetReferencedProperty(self, prop):
+    """Returns the property a property of type REF is referring to.
+
+    If the property passed in is not of type PropertyType.REF, it will be
+    returned unchanged.
+    """
+    if prop.type_ != PropertyType.REF:
+      return prop
+    return self._ResolveTypeNamespace(prop.ref_type).types.get(prop.ref_type,
+        None)
 
   def _NamespaceTypeDependencies(self):
     """Returns a dict containing a mapping of model.Namespace to the C++ type
@@ -202,7 +262,7 @@ class CppTypeGenerator(object):
 
     dependency_namespaces = dict()
     for dependency in dependencies:
-      namespace = self._type_namespaces[dependency]
+      namespace = self._ResolveTypeNamespace(dependency)
       if namespace != self._namespace:
         dependency_namespaces.setdefault(namespace, [])
         dependency_namespaces[namespace].append(dependency)
@@ -221,3 +281,45 @@ class CppTypeGenerator(object):
         for p in prop.properties.values():
           deps |= self._PropertyTypeDependencies(p)
     return deps
+
+  def GeneratePropertyValues(self, property, line, nodoc=False):
+    """Generates the Code to display all value-containing properties.
+    """
+    c = Code()
+    if not nodoc:
+      c.Comment(property.description)
+
+    if property.has_value:
+      c.Append(line % {
+          "type": self._GetPrimitiveType(property.type_),
+          "name": property.name,
+          "value": property.value
+        })
+    else:
+      has_child_code = False
+      c.Sblock('namespace %s {' % property.name)
+      for child_property in property.properties.values():
+        child_code = self.GeneratePropertyValues(
+            child_property,
+            line,
+            nodoc=nodoc)
+        if child_code:
+          has_child_code = True
+          c.Concat(child_code)
+      c.Eblock('}  // namespace %s' % property.name)
+      if not has_child_code:
+        c = None
+    return c
+
+  def _GetPrimitiveType(self, type_):
+    """Like |GetType| but only accepts and returns C++ primitive types.
+    """
+    if type_ == PropertyType.BOOLEAN:
+      return 'bool'
+    elif type_ == PropertyType.INTEGER:
+      return 'int'
+    elif type_ == PropertyType.DOUBLE:
+      return 'double'
+    elif type_ == PropertyType.STRING:
+      return 'char*'
+    raise Exception(type_ + ' is not primitive')

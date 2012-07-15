@@ -1,0 +1,169 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// File-level comment to appease parser. Eventually this will not be necessary.
+
+namespace experimental.socket {
+  enum SocketType {
+    tcp,
+    udp
+  };
+
+  // The socket options.
+  dictionary CreateOptions {
+    // The schema generator does not support dictionaries without any fields.
+    // Ignore this field.
+    [nodoc] long? dummyValue;
+  };
+
+  dictionary CreateInfo {
+    // The id of the newly created socket.
+    long socketId;
+  };
+
+  callback CreateCallback = void (CreateInfo createInfo);
+
+  callback ConnectCallback = void (long result);
+
+  callback BindCallback = void (long result);
+
+  dictionary ReadInfo {
+    // The resultCode returned from the underlying read() call.
+    long resultCode;
+
+    ArrayBuffer data;
+  };
+
+  callback ReadCallback = void (ReadInfo readInfo);
+
+  dictionary WriteInfo {
+    // The number of bytes sent, or a negative error code.
+    long bytesWritten;
+  };
+
+  callback WriteCallback = void (WriteInfo writeInfo);
+
+  dictionary RecvFromInfo {
+    // The resultCode returned from the underlying read() call.
+    long resultCode;
+
+    ArrayBuffer data;
+    DOMString address;
+    long port;
+  };
+
+  callback RecvFromCallback = void (RecvFromInfo recvFromInfo);
+
+  callback SendToCallback = void (WriteInfo writeInfo);
+
+  callback SetKeepAliveCallback = void (boolean result);
+
+  callback SetNoDelayCallback = void (boolean result);
+
+  interface Functions {
+    // Creates a socket of the specified type that will connect to the specified
+    // remote machine.
+    // |type| : The type of socket to create. Must be <code>tcp</code> or
+    // <code>udp</code>.
+    // |options| : The socket options.
+    // |callback| : Called when the socket has been created.
+    static void create(SocketType type,
+                       optional CreateOptions options,
+                       CreateCallback callback);
+
+    // Destroys the socket. Each socket created should be destroyed after use.
+    // |socketId| : The socketId.
+    static void destroy(long socketId);
+
+    // Connects the socket to the remote machine.
+    // |socketId| : The socketId.
+    // |hostname| : The hostname or IP address of the remote machine.
+    // |port| : The port of the remote machine.
+    // |callback| : Called when the connection attempt is complete.
+    static void connect(long socketId,
+                        DOMString hostname,
+                        long port,
+                        ConnectCallback callback);
+
+    // Binds the local address for socket. Currently, it does not support
+    // TCP socket.
+    // |socketId| : The socketId.
+    // |address| : The address of the local machine.
+    // |port| : The port of the local machine.
+    // |callback| : Called when the bind attempt is complete.
+    static void bind(long socketId,
+                     DOMString address,
+                     long port,
+                     BindCallback callback);
+
+    // Disconnects the socket. For UDP sockets, <code>disconnect</code> is a
+    // non-operation but is safe to call.
+    // |socketId| : The socketId.
+    static void disconnect(long socketId);
+
+    // Reads data from the given socket.
+    // |socketId| : The socketId.
+    // |bufferSize| : The read buffer size.
+    // |callback| : Delivers data that was available to be read without
+    // blocking.
+    static void read(long socketId,
+                     optional long bufferSize,
+                     ReadCallback callback);
+
+    // Writes data on the given socket.
+    // |socketId| : The socketId.
+    // |data| : The data to write.
+    // |callback| : Called when the first of any of the following happens: the
+    // write operation completes without blocking, the write operation blocked
+    // before completion (in which case onEvent() will eventually be called with
+    // a <code>writeComplete</code> event), or an error occurred.
+    static void write(long socketId,
+                      ArrayBuffer data,
+                      WriteCallback callback);
+
+    // Reads data from the given socket.
+    // |socketId| : The socketId.
+    // |bufferSize| : The receive buffer size.
+    // |callback| : Delivers data that was available to be read without
+    // blocking.
+    static void recvFrom(long socketId,
+                         optional long bufferSize,
+                         RecvFromCallback callback);
+
+    // Writes data on the given socket.
+    // |socketId| : The socketId.
+    // |data| : The data to write.
+    // |address| : The address of the remote machine.
+    // |port| : The port of the remote machine.
+    // |callback| : Called when the first of any of the following happens: the
+    // write operation completes without blocking, the write operation blocked
+    // before completion (in which case onEvent() will eventually be called with
+    // a <code>writeComplete</code> event), or an error occurred.
+    static void sendTo(long socketId,
+                       ArrayBuffer data,
+                       DOMString address,
+                       long port,
+                       SendToCallback callback);
+
+    // Enable/disable keep-alive functionality for a TCP connection.
+    // |socketId| : The socketId.
+    // |enable| : If true, enable keep-alive functionality.
+    // |delay| : Set the delay seconds between the last data packet received
+    // and the first keepalive probe. Default is 0.
+    // |callback| : Called when the setKeepAlive attempt is complete.
+    static void setKeepAlive(long socketId,
+                             boolean enable,
+                             optional long delay,
+                             SetKeepAliveCallback callback);
+
+    // Enable/disable Nagle algorithm.
+    // |socketId| : The socketId.
+    // |noDelay| : If true, disable Nagle algorithm.
+    // |callback| : Called when the setNoDelay attempt is complete.
+    static void setNoDelay(long socketId,
+                           boolean noDelay,
+                           SetNoDelayCallback callback);
+  };
+
+};

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_GTK_EXTENSIONS_BUNDLE_INSTALLED_BUBBLE_GTK_H_
 #define CHROME_BROWSER_UI_GTK_EXTENSIONS_BUNDLE_INSTALLED_BUBBLE_GTK_H_
-#pragma once
 
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
@@ -24,10 +23,11 @@ class BundleInstalledBubbleGtk
   // Displays an installed bubble in the |browser| for the |bundle|.
   BundleInstalledBubbleGtk(const extensions::BundleInstaller* bundle,
                            Browser* browser);
-  virtual ~BundleInstalledBubbleGtk();
 
  private:
   friend class base::RefCounted<BundleInstalledBubbleGtk>;
+
+  virtual ~BundleInstalledBubbleGtk();
 
   // Assembles the content area of the bubble.
   void ShowInternal(const extensions::BundleInstaller* bundle);

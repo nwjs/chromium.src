@@ -165,7 +165,7 @@ This file contains the strings for ash.
       nontranslateable parts and create placeholders for them. -->
       <!-- TODO(zork): Only include these in Aura builds -->
       <message name="IDS_AURA_APP_LIST_TITLE" desc="The title used for the Aura app list in the launcher">
-        Applications
+        Apps
       </message>
       <message name="IDS_AURA_NEW_TAB" desc="The text label of the New Tab menu item">
         New tab
@@ -173,25 +173,39 @@ This file contains the strings for ash.
       <message name="IDS_AURA_LAUNCHER_OVERFLOW_NAME" desc="The title used for the Aura overflow button in the launcher">
         Overflow Button
       </message>
+      <message name="IDS_AURA_LAUNCHER_CONTEXT_MENU_AUTO_HIDE_MAXIMIZED" desc="Title of the menu item in the context menu for auto-hiding the launcher when the current window is maximized">
+        Autohide launcher when maximized
+      </message>
+      <message name="IDS_AURA_LAUNCHER_CONTEXT_MENU_AUTO_HIDE_NOT_MAXIMIZED" desc="Title of the menu item in the context menu for auto-hiding the launcher when the current window is not maximized">
+        Autohide launcher
+      </message>
+      <message name="IDS_AURA_LAUNCHER_CONTEXT_MENU_POSITION" desc="Title of the menu item in the context menu for aligning the launcher">
+        Launcher position
+      </message>
+      <message name="IDS_AURA_LAUNCHER_CONTEXT_MENU_ALIGN_BOTTOM" desc="Title of the menu item in the context menu for aligning the launcher to the bottom of the screen">
+        Bottom
+      </message>
+      <message name="IDS_AURA_LAUNCHER_CONTEXT_MENU_ALIGN_LEFT" desc="Title of the menu item in the context menu for aligning the launcher to the left of the screen">
+        Left
+      </message>
+      <message name="IDS_AURA_LAUNCHER_CONTEXT_MENU_ALIGN_RIGHT" desc="Title of the menu item in the context menu for aligning the launcher to the right of the screen">
+        Right
+      </message>
 
       <message name="IDS_AURA_SET_DESKTOP_WALLPAPER" desc="The label used for change wallpaper in context menu">
-        Set Wallpaper...
+        Set wallpaper...
       </message>
 
       <message name="IDS_FRAME_MAXIMIZE_BUTTON_TOOLTIP" desc="Tooltip for the maximize/restore button in window frames in aura">
         Pull down to minimize, left or right to tile
       </message>
 
-      <message name="IDS_FRAME_MAXIMIZE_BUTTON_NO_SIDE_SNAP_TOOLTIP" desc="Tooltip for the maximize/restore button in window frames in aura when side snap is not allowed">
-        Pull down to minimize
-      </message>
-
       <!-- Status tray items -->
       <message name="IDS_ASH_STATUS_TRAY_ACCESSIBLE_NAME" desc="The accessible name of the status tray.">
         Status tray
       </message>
-      <message name="IDS_ASH_STATUS_TRAY_SETTINGS_AND_HELP" desc="The label used for the help-and-settings item in the status tray.">
-        Settings and Help
+      <message name="IDS_ASH_STATUS_TRAY_SETTINGS" desc="The label used for the settings item in the status tray.">
+        Settings
       </message>
       <message name="IDS_ASH_STATUS_TRAY_SHUT_DOWN" desc="The label used for the button in the status tray to shut down the system.">
         Shut down
@@ -215,31 +229,49 @@ This file contains the strings for ash.
         Network
       </message>
       <message name="IDS_ASH_STATUS_TRAY_NETWORK_SETTINGS" desc="The label used in the settings entry in the network dialog.">
-        Network settings ...
+        Settings...
       </message>
       <message name="IDS_ASH_STATUS_TRAY_NETWORK_PROXY_SETTINGS" desc="The label used in the proxy settings entry in the network dialog in the login screen.">
-        Change proxy settings ...
+        Proxy...
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_SMS" desc="The label used in the status tray for SMS.">
+        SMS
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_SMS_MESSAGES" desc="The label used in the default status tray view for SMS with the number of messages.">
+        SMS messages: <ph name="MESSAGE_COUNT">$1<ex>3</ex></ph>
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_SMS_NUMBER" desc="Sender for SMS messagees in the system tray.">
+        SMS from <ph name="PHONE_NUMBER">$1<ex>08700 776655</ex></ph>
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_LOCALE_CHANGE_MESSAGE" desc="The message used for locale change notifications in the system tray.">
+        The language has changed from "<ph name="FROM_LOCALE">$1<ex>Italian</ex></ph>" to "<ph name="TO_LOCALE">$2<ex>English (United States)</ex></ph>" after syncing your settings.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_LOCALE_REVERT_MESSAGE" desc="Link to revert a change.">
+        Change back to "<ph name="FROM_LOCALE">$1<ex>Italian</ex></ph>" (requires restart)
       </message>
       <message name="IDS_ASH_STATUS_TRAY_AIRPLANE_MODE" desc="The label used in the network dialog to turn on airplane mode.">
         Airplane mode
       </message>
       <message name="IDS_ASH_STATUS_TRAY_ENABLE_WIFI" desc="The label used for the item to enable wifi.">
-        Enable Wi-fi
+        Enable Wi-Fi
       </message>
       <message name="IDS_ASH_STATUS_TRAY_DISABLE_WIFI" desc="The label used for the item to disable wifi.">
-        Disable Wi-fi
+        Disable Wi-Fi
       </message>
       <message name="IDS_ASH_STATUS_TRAY_OTHER_WIFI" desc="The label used for the item to display other Wi-Fi networks.">
-        Other Wi-fi network...
+        Join other ...
       </message>
       <message name="IDS_ASH_STATUS_TRAY_ENABLE_MOBILE" desc="The label used for the item to enable cellular networks.">
-        Enable cellular
+        Enable mobile data
       </message>
       <message name="IDS_ASH_STATUS_TRAY_DISABLE_MOBILE" desc="The label used for the item to disable cellular networks.">
-        Disable cellular
+        Disable mobile data
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_SETUP_MOBILE" desc="The label used for the item to setup cellular network when no SIM card in installed.">
+        Setup mobile data
       </message>
       <message name="IDS_ASH_STATUS_TRAY_OTHER_MOBILE" desc="The label used for the item to display other cellular networks.">
-        Other mobile network...
+        Mobile ...
       </message>
       <message name="IDS_ASH_STATUS_TRAY_MOBILE_VIEW_ACCOUNT" desc="In the network popup bubble, the text of the top-up URL link.">
         View mobile account
@@ -277,22 +309,73 @@ This file contains the strings for ash.
       <message name="IDS_ASH_STATUS_TRAY_BLUETOOTH_ADD_DEVICE" desc="The label used in the tray popup to add a bluetooth device.">
         Add device...
       </message>
+      <message name="IDS_ASH_STATUS_TRAY_DRIVE_SYNCING" desc="The label in the tray to indicate onoing file sync operations.">
+        Syncing <ph name="count">$1<ex>3</ex></ph> file(s)
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_DRIVE" desc="The label used for Google Drive tray details header.">
+        Google Drive
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_DRIVE_SETTINGS" desc="The label used for Google Drive settings entry.">
+        Google Drive settings...
+      </message>
       <message name="IDS_ASH_STATUS_TRAY_IME" desc="The label used as the header in the IME popup.">
         Input methods
       </message>
       <message name="IDS_ASH_STATUS_TRAY_IME_SETTINGS" desc="The label used for IME settings entry.">
         Customize languages and input...
       </message>
+      <message name="IDS_ASH_STATUS_TRAY_CAPS_LOCK_ENABLED" desc="The label used for the tray item to indicate caps lock is on and to toggle caps lock by the click.">
+        CAPS LOCK is on
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_CAPS_LOCK_DISABLED" desc="The label used for the tray item to indicate caps lock is on and to toggle caps lock by the click.">
+        CAPS LOCK is off
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_CAPS_LOCK_SHORTCUT_SEARCH" desc="The shortcut text used for the caps lock tray item.">
+        Search
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_CAPS_LOCK_SHORTCUT_SHIFT_SEARCH" desc="The shortcut text used for the caps lock tray item.">
+        Shift+Search
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_CAPS_LOCK_ENABLED_PRESS_SHIFT_AND_SEARCH_KEYS" desc="The tooltip for the caps lock indicator button.">
+CAPS LOCK is on.
+Press Shift + Search key to cancel.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_CAPS_LOCK_ENABLED_PRESS_SEARCH" desc="The tooltip for the caps lock indicator button.">
+CAPS LOCK is on.
+Press Search key to cancel.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_IME_TURNED_ON_BUBBLE" desc="The message shown on a bubble when an IME is enabled">
+        Your input method has changed to <ph name="INPUT_METHOD_ID">$1<ex>EN</ex></ph>.
+        Press Shift + Alt to switch.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_THIRD_PARTY_IME_TURNED_ON_BUBBLE" desc="The message shown on a bubble when a third party IME is enabled">
+        Your input method has changed to <ph name="INPUT_METHOD_ID">$1<ex>EN</ex></ph>*(<ph name="BEGIN_LINK">&lt;a target="_blank" href="$2"&gt;</ph>3rd party<ph name="END_LINK">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>).
+        Press Shift + Alt to switch.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_DISABLE_SPOKEN_FEEDBACK" desc="The label used in the tray popup to disable spoken feedback.">
+        Disable spoken feedback
+      </message>
       <message name="IDS_ASH_STATUS_TRAY_BATTERY_FULL" desc="The label in the tray dialog to indicate that the battery is full.">
         Battery full
       </message>
-      <message name="IDS_ASH_STATUS_TRAY_BATTERY_LOW" desc="The label in the tray dialog to indicate that the battery is low.">
-        Battery low
+      <message name="IDS_ASH_STATUS_TRAY_BATTERY_PERCENT" desc="The label in the tray dialog to show the remaining battery power as a percent.">
+        Battery: <ph name="percentage">$1<ex>56</ex></ph>%
       </message>
-      <message name="IDS_ASH_STATUS_TRAY_BATTERY_STATUS" desc="The label in the tray dialog to show the status of the battery power.">
-Battery: <ph name="percentage">$1<ex>56</ex></ph>%
-<ph name="hour">$2</ph>h <ph name="minute">$3</ph>m
+      <message name="IDS_ASH_STATUS_TRAY_BATTERY_PERCENT_ONLY" desc="The label in the tray bubble setting row to show the remaining battery power as a percent.">
+        <ph name="percentage">$1<ex>56</ex></ph>%
+      </message>      
+      <message name="IDS_ASH_STATUS_TRAY_BATTERY_TIME_UNTIL_FULL" desc="The label in the tray dialog to show a time estimate until the battery is fully charged.">
+        <ph name="hour">$1<ex>2</ex></ph>h <ph name="minute">$2<ex>53</ex></ph>m until full
       </message>
+      <message name="IDS_ASH_STATUS_TRAY_BATTERY_TIME_UNTIL_EMPTY" desc="The label in the tray dialog to show a time estimate until the battery is empty.">
+        <ph name="hour">$1<ex>2</ex></ph>h <ph name="minute">$2<ex>53</ex></ph>m remaining
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_BATTERY_CALCULATING" desc="The label in the tray dialog indicating that the time to charge or discharge the battery is being calculated.">
+        Calculating...
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_BATTERY_TIME_ONLY" desc="The label in the tray bubble settings row to show a time estimate until the battery is empty.">
+        <ph name="hour">$1<ex>2</ex></ph>h<ph name="minute">$2<ex>53</ex></ph>m
+      </message>      
       <message name="IDS_ASH_STATUS_TRAY_IP" desc="The label for the IP address of the network:">
         IP Address
       </message>
@@ -302,6 +385,9 @@ Battery: <ph name="percentage">$1<ex>56</ex></ph>%
       <message name="IDS_ASH_STATUS_TRAY_WIFI" desc="The wifi network device.">
         Wi-Fi
       </message>
+      <message name="IDS_ASH_STATUS_TRAY_NO_NETWORKS" desc="The message to display in the network info bubble when it is otherwise empty.">
+        No network information available
+      </message>
       <message name="IDS_ASH_SECONDARY_MONITOR" desc="The message shown on the secondary monitors.">
         This screen intentionally left blank
       </message>
@@ -310,6 +396,18 @@ Battery: <ph name="percentage">$1<ex>56</ex></ph>%
       </message>
       <message name="IDS_ASH_STATUS_TRAY_PREVIOUS_MENU" desc="The accessible text for header entries for detailed versions of status tray items.">
         Previous menu
+      </message>
+      <message name="IDS_ASH_WEB_NOTFICATION_TRAY_EXTENSIONS_DISABLE" desc="The menu entry for disabling extensions from a notification.">
+        Disable extension
+      </message>
+      <message name="IDS_ASH_WEB_NOTFICATION_TRAY_SITE_DISABLE" desc="The menu entry for disabling notification from a site.">
+        Disable notifications from <ph name="site">$1<ex>mail.google.com</ex></ph>
+      </message>
+      <message name="IDS_ASH_WEB_NOTFICATION_TRAY_SETTINGS" desc="The menu entry or button for visiting the appropriate settings page.">
+        Settings...
+      </message>
+      <message name="IDS_ASH_WEB_NOTFICATION_TRAY_CLOSE_ALL" desc="The button for closing all notifications.">
+        Close All
       </message>
     </messages>
   </release>

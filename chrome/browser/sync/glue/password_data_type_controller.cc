@@ -9,11 +9,11 @@
 #include "chrome/browser/password_manager/password_store.h"
 #include "chrome/browser/password_manager/password_store_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/sync/api/sync_error.h"
 #include "chrome/browser/sync/profile_sync_components_factory.h"
 #include "chrome/browser/sync/profile_sync_service.h"
 #include "chrome/browser/webdata/web_data_service.h"
 #include "content/public/browser/browser_thread.h"
+#include "sync/api/sync_error.h"
 
 using content::BrowserThread;
 
@@ -28,16 +28,23 @@ PasswordDataTypeController::PasswordDataTypeController(
                                     sync_service) {
 }
 
-PasswordDataTypeController::~PasswordDataTypeController() {
+syncer::ModelType PasswordDataTypeController::type() const {
+  return syncer::PASSWORDS;
 }
+
+syncer::ModelSafeGroup PasswordDataTypeController::model_safe_group()
+    const {
+  return syncer::GROUP_PASSWORD;
+}
+
+PasswordDataTypeController::~PasswordDataTypeController() {}
 
 bool PasswordDataTypeController::PostTaskOnBackendThread(
       const tracked_objects::Location& from_here,
       const base::Closure& task) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(password_store_.get());
-  password_store_->ScheduleTask(task);
-  return true;
+  return password_store_->ScheduleTask(task);
 }
 
 bool PasswordDataTypeController::StartModels() {
@@ -46,7 +53,7 @@ bool PasswordDataTypeController::StartModels() {
   password_store_ = PasswordStoreFactory::GetForProfile(
       profile(), Profile::EXPLICIT_ACCESS);
   if (!password_store_.get()) {
-    SyncError error(
+    syncer::SyncError error(
         FROM_HERE,
         "PasswordStore not initialized, password datatype controller aborting.",
         type());
@@ -66,15 +73,6 @@ void PasswordDataTypeController::CreateSyncComponents() {
           this);
   set_model_associator(sync_components.model_associator);
   set_change_processor(sync_components.change_processor);
-}
-
-syncable::ModelType PasswordDataTypeController::type() const {
-  return syncable::PASSWORDS;
-}
-
-browser_sync::ModelSafeGroup PasswordDataTypeController::model_safe_group()
-    const {
-  return browser_sync::GROUP_PASSWORD;
 }
 
 }  // namespace browser_sync

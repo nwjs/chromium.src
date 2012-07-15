@@ -4,42 +4,71 @@
 
 #include "chrome/browser/extensions/api/serial/serial_connection.h"
 
-#include <errno.h>
-#include <fcntl.h>
-#include <stdio.h>
-#include <string>
+#include <sys/ioctl.h>
 #include <termios.h>
-#include <unistd.h>
 
 namespace extensions {
 
-SerialConnection::SerialConnection(const std::string& port,
-                                   APIResourceEventNotifier* event_notifier)
-    : APIResource(APIResource::SerialConnectionResource, event_notifier),
-      port_(port), fd_(0) {
-}
+bool SerialConnection::PostOpen() {
+  struct termios options;
 
-SerialConnection::~SerialConnection() {
-}
+  // Start with existing options and modify.
+  tcgetattr(file_, &options);
 
-bool SerialConnection::Open() {
-  fd_ = open(port_.c_str(), O_RDWR | O_NOCTTY | O_NDELAY);
-  return (fd_ > 0);
-}
-
-void SerialConnection::Close() {
-  if (fd_ > 0) {
-    close(fd_);
-    fd_ = 0;
+  // Bitrate (sometimes erroneously referred to as baud rate).
+  if (bitrate_ >= 0) {
+    options.c_ispeed = bitrate_;
+    options.c_ospeed = bitrate_;
   }
+
+  // 8N1
+  options.c_cflag &= ~PARENB;
+  options.c_cflag &= ~CSTOPB;
+  options.c_cflag &= ~CSIZE;
+  options.c_cflag |= CS8;
+  options.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
+
+  // Enable receiver and set local mode
+  // See http://www.easysw.com/~mike/serial/serial.html to understand.
+  options.c_cflag |= (CLOCAL | CREAD);
+
+  // Write the options.
+  tcsetattr(file_, TCSANOW, &options);
+
+  return true;
 }
 
-int SerialConnection::Read(unsigned char* byte) {
-  return read(fd_, byte, 1);
+bool SerialConnection::GetControlSignals(ControlSignals &control_signals) {
+  int status;
+  if (ioctl(file_, TIOCMGET, &status) == 0) {
+    control_signals.dcd = (status & TIOCM_CAR) != 0;
+    control_signals.cts = (status & TIOCM_CTS) != 0;
+    return true;
+  }
+  return false;
 }
 
-int SerialConnection::Write(const std::string& data) {
-  return write(fd_, data.c_str(), data.length());
+bool SerialConnection::
+SetControlSignals(const ControlSignals &control_signals) {
+  int status;
+
+  if (ioctl(file_, TIOCMGET, &status) != 0)
+    return false;
+
+  if (control_signals.should_set_dtr) {
+    if (control_signals.dtr)
+      status |= TIOCM_DTR;
+    else
+      status &= ~TIOCM_DTR;
+  }
+  if (control_signals.should_set_rts) {
+    if (control_signals.rts)
+      status |= TIOCM_RTS;
+    else
+      status &= ~TIOCM_RTS;
+  }
+
+  return ioctl(file_, TIOCMSET, &status) == 0;
 }
 
 }  // namespace extensions

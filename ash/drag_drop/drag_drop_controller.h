@@ -4,16 +4,16 @@
 
 #ifndef ASH_DRAG_DROP_DRAG_DROP_CONTROLLER_H_
 #define ASH_DRAG_DROP_DRAG_DROP_CONTROLLER_H_
-#pragma once
 
 #include "ash/ash_export.h"
+#include "base/callback.h"
 #include "ui/aura/client/drag_drop_client.h"
 #include "ui/aura/event.h"
 #include "ui/aura/event_filter.h"
 #include "ui/aura/window_observer.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
 #include "ui/base/events.h"
-#include "ui/gfx/compositor/layer_animation_observer.h"
+#include "ui/compositor/layer_animation_observer.h"
 #include "ui/gfx/point.h"
 
 namespace aura {
@@ -39,7 +39,7 @@ class ASH_EXPORT DragDropController
       public aura::EventFilter,
       public ui::ImplicitAnimationObserver,
       public aura::WindowObserver {
-public:
+ public:
   DragDropController();
   virtual ~DragDropController();
 
@@ -85,6 +85,7 @@ public:
   void Cleanup();
 
   scoped_ptr<DragImageView> drag_image_;
+  gfx::Point drag_image_offset_;
   const ui::OSExchangeData* drag_data_;
   int drag_operation_;
 
@@ -97,6 +98,9 @@ public:
   // Indicates whether the caller should be blocked on a drag/drop session.
   // Only be used for tests.
   bool should_block_during_drag_drop_;
+
+  // Closure for quitting nested message loop.
+  base::Closure quit_closure_;
 
   DISALLOW_COPY_AND_ASSIGN(DragDropController);
 };

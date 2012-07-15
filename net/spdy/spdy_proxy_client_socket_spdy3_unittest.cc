@@ -66,7 +66,7 @@ class SpdyProxyClientSocketSpdy3Test : public PlatformTest {
 
  protected:
   virtual void SetUp() {
-    SpdySession::set_default_protocol(SSLClientSocket::kProtoSPDY3);
+    SpdySession::set_default_protocol(kProtoSPDY3);
   }
 
   void Initialize(MockRead* reads, size_t reads_count, MockWrite* writes,
@@ -110,7 +110,7 @@ class SpdyProxyClientSocketSpdy3Test : public PlatformTest {
   scoped_ptr<SpdyProxyClientSocket> sock_;
   TestCompletionCallback read_callback_;
   TestCompletionCallback write_callback_;
-  scoped_refptr<DeterministicSocketData> data_;
+  scoped_ptr<DeterministicSocketData> data_;
 
  private:
   scoped_refptr<HttpNetworkSession> session_;
@@ -150,9 +150,10 @@ SpdyProxyClientSocketSpdy3Test::SpdyProxyClientSocketSpdy3Test()
       proxy_(ProxyServer::SCHEME_HTTPS, proxy_host_port_),
       endpoint_host_port_proxy_pair_(endpoint_host_port_pair_, proxy_),
       transport_params_(new TransportSocketParams(proxy_host_port_,
-                                            LOWEST,
-                                            false,
-                                            false)) {
+                                                  LOWEST,
+                                                  false,
+                                                  false,
+                                                  OnHostResolutionCallback())) {
 }
 
 void SpdyProxyClientSocketSpdy3Test::TearDown() {
@@ -169,7 +170,8 @@ void SpdyProxyClientSocketSpdy3Test::Initialize(MockRead* reads,
                                            size_t reads_count,
                                            MockWrite* writes,
                                            size_t writes_count) {
-  data_ = new DeterministicSocketData(reads, reads_count, writes, writes_count);
+  data_.reset(new DeterministicSocketData(reads, reads_count,
+                                          writes, writes_count));
   data_->set_connect_data(connect_data_);
   data_->SetStop(2);
 
@@ -318,7 +320,7 @@ SpdyProxyClientSocketSpdy3Test::ConstructConnectRequestFrame() {
     SYN_STREAM,
     kStreamId,
     0,
-    net::ConvertRequestPriorityToSpdyPriority(LOWEST),
+    net::ConvertRequestPriorityToSpdyPriority(LOWEST, 3),
     0,
     CONTROL_FLAG_NONE,
     false,
@@ -346,7 +348,7 @@ SpdyProxyClientSocketSpdy3Test::ConstructConnectAuthRequestFrame() {
     SYN_STREAM,
     kStreamId,
     0,
-    net::ConvertRequestPriorityToSpdyPriority(LOWEST),
+    net::ConvertRequestPriorityToSpdyPriority(LOWEST, 3),
     0,
     CONTROL_FLAG_NONE,
     false,
@@ -370,8 +372,8 @@ SpdyProxyClientSocketSpdy3Test::ConstructConnectAuthRequestFrame() {
 // Constructs a standard SPDY SYN_REPLY frame to match the SPDY CONNECT.
 SpdyFrame* SpdyProxyClientSocketSpdy3Test::ConstructConnectReplyFrame() {
   const char* const kStandardReplyHeaders[] = {
-      "status", "200 Connection Established",
-      "version", "HTTP/1.1"
+      ":status", "200 Connection Established",
+      ":version", "HTTP/1.1"
   };
   return ConstructSpdyControlFrame(NULL,
                                    0,
@@ -388,8 +390,8 @@ SpdyFrame* SpdyProxyClientSocketSpdy3Test::ConstructConnectReplyFrame() {
 SpdyFrame*
 SpdyProxyClientSocketSpdy3Test::ConstructConnectAuthReplyFrame() {
   const char* const kStandardReplyHeaders[] = {
-      "status", "407 Proxy Authentication Required",
-      "version", "HTTP/1.1",
+      ":status", "407 Proxy Authentication Required",
+      ":version", "HTTP/1.1",
       "proxy-authenticate", "Basic realm=\"MyRealm1\"",
   };
 
@@ -408,8 +410,8 @@ SpdyProxyClientSocketSpdy3Test::ConstructConnectAuthReplyFrame() {
 SpdyFrame*
 SpdyProxyClientSocketSpdy3Test::ConstructConnectErrorReplyFrame() {
   const char* const kStandardReplyHeaders[] = {
-      "status", "500 Internal Server Error",
-      "version", "HTTP/1.1",
+      ":status", "500 Internal Server Error",
+      ":version", "HTTP/1.1",
   };
 
   return ConstructSpdyControlFrame(NULL,
@@ -554,7 +556,7 @@ TEST_F(SpdyProxyClientSocketSpdy3Test, GetPeerAddressReturnsCorrectValues) {
 
   Initialize(reads, arraysize(reads), writes, arraysize(writes));
 
-  net::AddressList addr;
+  net::IPEndPoint addr;
   EXPECT_EQ(ERR_SOCKET_NOT_CONNECTED, sock_->GetPeerAddress(&addr));
 
   AssertConnectSucceeds();

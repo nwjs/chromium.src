@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_CAPTIVE_PORTAL_WINDOW_PROXY_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_CAPTIVE_PORTAL_WINDOW_PROXY_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
@@ -40,7 +39,12 @@ class CaptivePortalWindowProxy : public views::Widget::Observer {
   // Shows captive portal window only after a redirection has happened. So it is
   // safe to call this method, when the caller isn't 100% sure that the network
   // is in the captive portal state.
+  // Subsequent call to this method would reuses existing view
+  // but reloads test page (generate_204).
   void ShowIfRedirected();
+
+  // Forces captive portal window show.
+  void Show();
 
   // Closes the window.
   void Close();

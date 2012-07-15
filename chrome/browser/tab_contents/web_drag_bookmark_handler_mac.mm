@@ -1,13 +1,14 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/tab_contents/web_drag_bookmark_handler_mac.h"
 
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/bookmarks/bookmark_tab_helper.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "content/public/browser/web_contents.h"
 
 using content::WebContents;
@@ -21,7 +22,7 @@ WebDragBookmarkHandlerMac::~WebDragBookmarkHandlerMac() {}
 void WebDragBookmarkHandlerMac::DragInitialize(WebContents* contents) {
   DCHECK(tab_ ? (tab_->web_contents() == contents) : true);
   if (!tab_)
-    tab_ = TabContentsWrapper::GetCurrentWrapperForContents(contents);
+    tab_ = TabContents::FromWebContents(contents);
 
   bookmark_drag_data_.ReadFromDragClipboard();
 }
@@ -50,8 +51,8 @@ void WebDragBookmarkHandlerMac::OnDrop() {
     }
 
     // Focus the target browser.
-    Browser* browser = Browser::GetBrowserForController(
-        &tab_->web_contents()->GetController(), NULL);
+    Browser* browser = browser::FindBrowserWithWebContents(
+        tab_->web_contents());
     if (browser)
       browser->window()->Show();
   }

@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -28,8 +28,8 @@ void JavaBridgeDispatcher::EnsureChannelIsSetUp() {
   IPC::ChannelHandle channel_handle;
   Send(new JavaBridgeHostMsg_GetChannelHandle(routing_id(), &channel_handle));
 
-  channel_.reset(JavaBridgeChannel::GetJavaBridgeChannel(
-      channel_handle, ChildProcess::current()->io_message_loop_proxy()));
+  channel_ = JavaBridgeChannel::GetJavaBridgeChannel(
+      channel_handle, ChildProcess::current()->io_message_loop_proxy());
 }
 
 JavaBridgeDispatcher::~JavaBridgeDispatcher() {
@@ -51,10 +51,6 @@ bool JavaBridgeDispatcher::OnMessageReceived(const IPC::Message& msg) {
 }
 
 void JavaBridgeDispatcher::DidClearWindowObject(WebKit::WebFrame* web_frame) {
-  // We only inject objects into the main frame.
-  if (web_frame != render_view()->GetWebView()->mainFrame())
-    return;
-
   // Note that we have to (re)bind all objects, as they will have been unbound
   // when the window object was cleared.
   for (ObjectMap::const_iterator iter = objects_.begin();

@@ -4,8 +4,8 @@
 
 #ifndef CHROME_BROWSER_BROWSING_DATA_COOKIE_HELPER_H_
 #define CHROME_BROWSER_BROWSING_DATA_COOKIE_HELPER_H_
-#pragma once
 
+#include <map>
 #include <string>
 
 #include "base/basictypes.h"
@@ -14,9 +14,9 @@
 #include "net/cookies/cookie_monster.h"
 
 class GURL;
-class Profile;
 
 namespace net {
+class CanonicalCookie;
 class URLRequestContextGetter;
 }
 
@@ -25,12 +25,11 @@ class URLRequestContextGetter;
 // A client of this class need to call StartFetching from the UI thread to
 // initiate the flow, and it'll be notified by the callback in its UI
 // thread at some later point.
-// The client must call CancelNotification() if it's destroyed before the
-// callback is notified.
 class BrowsingDataCookieHelper
     : public base::RefCountedThreadSafe<BrowsingDataCookieHelper> {
  public:
-  explicit BrowsingDataCookieHelper(Profile* profile);
+  explicit BrowsingDataCookieHelper(
+      net::URLRequestContextGetter* request_context_getter);
 
   // Starts the fetching process, which will notify its completion via
   // callback.
@@ -38,18 +37,17 @@ class BrowsingDataCookieHelper
   virtual void StartFetching(
       const base::Callback<void(const net::CookieList& cookies)>& callback);
 
-  // Cancels the notification callback (i.e., the window that created it no
-  // longer exists).
-  // This must be called only in the UI thread.
-  virtual void CancelNotification();
-
   // Requests a single cookie to be deleted in the IO thread. This must be
   // called in the UI thread.
-  virtual void DeleteCookie(const net::CookieMonster::CanonicalCookie& cookie);
+  virtual void DeleteCookie(const net::CanonicalCookie& cookie);
 
  protected:
   friend class base::RefCountedThreadSafe<BrowsingDataCookieHelper>;
   virtual ~BrowsingDataCookieHelper();
+
+  net::URLRequestContextGetter* request_context_getter() {
+    return request_context_getter_;
+  }
 
  private:
   // Fetch the cookies. This must be called in the IO thread.
@@ -62,16 +60,13 @@ class BrowsingDataCookieHelper
   void NotifyInUIThread(const net::CookieList& cookies);
 
   // Delete a single cookie. This must be called in IO thread.
-  void DeleteCookieOnIOThread(
-      const net::CookieMonster::CanonicalCookie& cookie);
+  void DeleteCookieOnIOThread(const net::CanonicalCookie& cookie);
 
   // Indicates whether or not we're currently fetching information:
   // it's true when StartFetching() is called in the UI thread, and it's reset
   // after we notify the callback in the UI thread.
   // This only mutates on the UI thread.
   bool is_fetching_;
-
-  Profile* profile_;
 
   scoped_refptr<net::URLRequestContextGetter> request_context_getter_;
 
@@ -86,7 +81,10 @@ class BrowsingDataCookieHelper
 // as a parameter during construction.
 class CannedBrowsingDataCookieHelper : public BrowsingDataCookieHelper {
  public:
-  explicit CannedBrowsingDataCookieHelper(Profile* profile);
+  typedef std::map<GURL, net::CookieList*> OriginCookieListMap;
+
+  explicit CannedBrowsingDataCookieHelper(
+      net::URLRequestContextGetter* request_context);
 
   // Return a copy of the cookie helper. Only one consumer can use the
   // StartFetching method at a time, so we need to create a copy of the helper
@@ -95,12 +93,14 @@ class CannedBrowsingDataCookieHelper : public BrowsingDataCookieHelper {
 
   // Adds cookies and delete the current cookies with the same Name, Domain,
   // and Path as the newly created ones.
-  void AddReadCookies(const GURL& url,
+  void AddReadCookies(const GURL& frame_url,
+                      const GURL& request_url,
                       const net::CookieList& cookie_list);
 
   // Adds cookies that will be stored by the CookieMonster. Designed to mirror
   // the logic of SetCookieWithOptions.
-  void AddChangedCookie(const GURL& url,
+  void AddChangedCookie(const GURL& frame_url,
+                        const GURL& request_url,
                         const std::string& cookie_line,
                         const net::CookieOptions& options);
 
@@ -113,20 +113,33 @@ class CannedBrowsingDataCookieHelper : public BrowsingDataCookieHelper {
   // BrowsingDataCookieHelper methods.
   virtual void StartFetching(
       const net::CookieMonster::GetCookieListCallback& callback) OVERRIDE;
-  virtual void CancelNotification() OVERRIDE;
+
+  // Returns the number of stored cookies.
+  size_t GetCookieCount() const;
+
+  // Returns the map that contains the cookie lists for all frame urls.
+  const OriginCookieListMap& origin_cookie_list_map() {
+    return origin_cookie_list_map_;
+  }
 
  private:
   // Check if the cookie list contains a cookie with the same name,
   // domain, and path as the newly created cookie. Delete the old cookie
   // if does.
-  bool DeleteMetchingCookie(
-      const net::CookieMonster::CanonicalCookie& add_cookie);
+  bool DeleteMatchingCookie(const net::CanonicalCookie& add_cookie,
+                            net::CookieList* cookie_list);
 
   virtual ~CannedBrowsingDataCookieHelper();
 
-  net::CookieList cookie_list_;
+  // Returns the |CookieList| for the given |origin|.
+  net::CookieList* GetCookiesFor(const GURL& origin);
 
-  Profile* profile_;
+  // Adds the |cookie| to the cookie list for the given |frame_url|.
+  void AddCookie(const GURL& frame_url,
+                 const net::CanonicalCookie& cookie);
+
+  // Map that contains the cookie lists for all frame origins.
+  OriginCookieListMap origin_cookie_list_map_;
 
   DISALLOW_COPY_AND_ASSIGN(CannedBrowsingDataCookieHelper);
 };

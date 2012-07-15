@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_DOWNLOAD_DOWNLOAD_SHELF_CONTEXT_MENU_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_DOWNLOAD_DOWNLOAD_SHELF_CONTEXT_MENU_VIEW_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
@@ -12,6 +11,10 @@
 #include "chrome/browser/download/download_shelf_context_menu.h"
 
 class BaseDownloadItemModel;
+
+namespace content {
+class PageNavigator;
+}
 
 namespace gfx {
 class Rect;
@@ -24,7 +27,8 @@ class Widget;
 
 class DownloadShelfContextMenuView : public DownloadShelfContextMenu {
  public:
-  explicit DownloadShelfContextMenuView(BaseDownloadItemModel* model);
+  DownloadShelfContextMenuView(BaseDownloadItemModel* model,
+                               content::PageNavigator* navigator);
   virtual ~DownloadShelfContextMenuView();
 
   // |rect| is the bounding area for positioning the menu in screen coordinates.

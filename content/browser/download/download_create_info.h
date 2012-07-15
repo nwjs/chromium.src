@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_BROWSER_DOWNLOAD_DOWNLOAD_CREATE_INFO_H_
 #define CONTENT_BROWSER_DOWNLOAD_DOWNLOAD_CREATE_INFO_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -13,6 +12,7 @@
 #include "base/file_path.h"
 #include "base/time.h"
 #include "content/browser/download/download_file.h"
+#include "content/browser/download/download_request_handle.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/download_id.h"
 #include "content/public/browser/download_save_info.h"
@@ -103,6 +103,9 @@ struct CONTENT_EXPORT DownloadCreateInfo {
   // The remote IP address where the download was fetched from.  Copied from
   // UrlRequest::GetSocketAddress().
   std::string remote_address;
+
+  // The handle to the URLRequest sourcing this download.
+  DownloadRequestHandle request_handle;
 
   // The request's |BoundNetLog|, for "source_dependency" linking with the
   // download item's.

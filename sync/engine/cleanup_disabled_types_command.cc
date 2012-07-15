@@ -6,20 +6,20 @@
 
 #include <algorithm>
 
+#include "sync/internal_api/public/base/model_type.h"
 #include "sync/sessions/sync_session.h"
 #include "sync/sessions/sync_session_context.h"
-#include "sync/syncable/model_type.h"
-#include "sync/syncable/syncable.h"
+#include "sync/syncable/directory.h"
 
-namespace browser_sync {
+namespace syncer {
 
 CleanupDisabledTypesCommand::CleanupDisabledTypesCommand() {}
 CleanupDisabledTypesCommand::~CleanupDisabledTypesCommand() {}
 
 SyncerError CleanupDisabledTypesCommand::ExecuteImpl(
     sessions::SyncSession* session) {
-  using syncable::ModelTypeSet;
-  using syncable::ModelTypeSetToString;
+  using syncer::ModelTypeSet;
+  using syncer::ModelTypeSetToString;
   // Because a full directory purge is slow, we avoid purging
   // undesired types unless we have reason to believe they were
   // previously enabled.  Because purging could theoretically fail on
@@ -66,5 +66,4 @@ SyncerError CleanupDisabledTypesCommand::ExecuteImpl(
   return SYNCER_OK;
 }
 
-}  // namespace browser_sync
-
+}  // namespace syncer

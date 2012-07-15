@@ -13,7 +13,6 @@
 
 #ifndef SYNC_SESSIONS_SYNC_SESSION_H_
 #define SYNC_SESSIONS_SYNC_SESSION_H_
-#pragma once
 
 #include <map>
 #include <set>
@@ -24,20 +23,21 @@
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/time.h"
-#include "sync/engine/model_safe_worker.h"
+#include "sync/internal_api/public/base/model_type.h"
+#include "sync/internal_api/public/engine/model_safe_worker.h"
+#include "sync/internal_api/public/sessions/sync_session_snapshot.h"
 #include "sync/sessions/ordered_commit_set.h"
 #include "sync/sessions/session_state.h"
 #include "sync/sessions/status_controller.h"
 #include "sync/sessions/sync_session_context.h"
-#include "sync/syncable/model_type.h"
 #include "sync/util/extensions_activity_monitor.h"
+
+namespace syncer {
+class ModelSafeWorker;
 
 namespace syncable {
 class WriteTransaction;
 }
-
-namespace browser_sync {
-class ModelSafeWorker;
 
 namespace sessions {
 
@@ -112,7 +112,7 @@ class SyncSession {
   // engine again.
   bool HasMoreToSync() const;
 
-  // Returns true if there we did not detect any errors in this session.
+  // Returns true if we completely ran the session without errors.
   //
   // There are many errors that could prevent a sync cycle from succeeding.
   // These include invalid local state, inability to contact the server,
@@ -127,6 +127,10 @@ class SyncSession {
   // session yet, or if ResetTransientState() has been called on this session
   // since the last call to SyncShare.
   bool Succeeded() const;
+
+  // Returns true if we reached the server successfully and the server did not
+  // return any error codes. Returns false if no connection was attempted.
+  bool SuccessfullyReachedServer() const;
 
   // Collects all state pertaining to how and why |s| originated and unions it
   // with corresponding state in |this|, leaving |s| unchanged.  Allows |this|
@@ -176,6 +180,9 @@ class SyncSession {
   // Returns the set of enabled groups that have verified updates.
   std::set<ModelSafeGroup> GetEnabledGroupsWithVerifiedUpdates() const;
 
+  // Mark the session has having finished all the sync steps it needed.
+  void SetFinished();
+
  private:
   // Extend the encapsulation boundary to utilities for internal member
   // assignments. This way, the scope of these actions is explicit, they can't
@@ -213,6 +220,10 @@ class SyncSession {
   // |routing_info_|.
   std::set<ModelSafeGroup> enabled_groups_;
 
+  // Whether this session has reached its last step or not. Gets reset on each
+  // new cycle (via PrepareForAnotherSyncCycle).
+  bool finished_;
+
   DISALLOW_COPY_AND_ASSIGN(SyncSession);
 };
 
@@ -235,6 +246,6 @@ class ScopedSetSessionWriteTransaction {
 };
 
 }  // namespace sessions
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_SESSIONS_SYNC_SESSION_H_

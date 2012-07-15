@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -34,8 +34,9 @@ class FileUtilitiesMessageFilter : public content::BrowserMessageFilter {
   typedef void (*FileInfoWriteFunc)(IPC::Message* reply_msg,
                                     const base::PlatformFileInfo& file_info);
 
-  void OnGetFileSize(const FilePath& path, int64* result);
-  void OnGetFileModificationTime(const FilePath& path, base::Time* result);
+  void OnGetFileInfo(const FilePath& path,
+                     base::PlatformFileInfo* result,
+                     base::PlatformFileError* status);
   void OnOpenFile(const FilePath& path,
                   int mode,
                   IPC::PlatformFileForTransit* result);

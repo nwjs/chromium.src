@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_POLICY_POLICY_ERROR_MAP_H_
 #define CHROME_BROWSER_POLICY_POLICY_ERROR_MAP_H_
-#pragma once
 
 #include <map>
 #include <string>
@@ -39,6 +38,12 @@ class PolicyErrorMap {
                 const std::string& subkey,
                 int message_id);
 
+  // Adds an entry with key |policy|, list index |index|, and the error message
+  // corresponding to |message_id| in grit/generated_resources.h to the map.
+  void AddError(const std::string& policy,
+                int index,
+                int message_id);
+
   // Adds an entry with key |policy| and the error message corresponding to
   // |message_id| in grit/generated_resources.h to the map and replaces the
   // placeholder within the error message with |replacement_string|.
@@ -51,6 +56,14 @@ class PolicyErrorMap {
   // Replaces the placeholder in the error message with |replacement_string|.
   void AddError(const std::string& policy,
                 const std::string& subkey,
+                int message_id,
+                const std::string& replacement_string);
+
+  // Adds an entry with key |policy|, list index |index| and the error message
+  // corresponding to |message_id| in grit/generated_resources.h to the map.
+  // Replaces the placeholder in the error message with |replacement_string|.
+  void AddError(const std::string& policy,
+                int index,
                 int message_id,
                 const std::string& replacement_string);
 

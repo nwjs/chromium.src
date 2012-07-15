@@ -15,6 +15,8 @@
 #import "chrome/browser/ui/cocoa/tabs/tab_strip_controller.h"
 #include "content/public/browser/native_web_keyboard_event.h"
 
+using content::NativeWebKeyboardEvent;
+
 @interface MenuWalker : NSObject
 + (NSMenuItem*)itemForKeyEquivalent:(NSEvent*)key
                                menu:(NSMenu*)menu;
@@ -64,7 +66,8 @@
 
   // "Close window" doesn't use the |commandDispatch:| mechanism. Menu items
   // that do not correspond to IDC_ constants need no special treatment however,
-  // as they can't be blacklisted in |Browser::IsReservedCommandOrKey()| anyhow.
+  // as they can't be blacklisted in
+  // |BrowserCommandController::IsReservedCommandOrKey()| anyhow.
   if (item && [item action] == @selector(performClose:))
     return IDC_CLOSE_WINDOW;
 

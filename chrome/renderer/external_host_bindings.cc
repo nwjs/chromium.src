@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,9 +13,10 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
 
 using WebKit::WebBindings;
+using webkit_glue::CppArgumentList;
+using webkit_glue::CppVariant;
 
-ExternalHostBindings::ExternalHostBindings(IPC::Message::Sender* sender,
-                                           int routing_id)
+ExternalHostBindings::ExternalHostBindings(IPC::Sender* sender, int routing_id)
     : frame_(NULL), sender_(sender), routing_id_(routing_id) {
   BindCallback("postMessage", base::Bind(&ExternalHostBindings::PostMessage,
                                          base::Unretained(this)));

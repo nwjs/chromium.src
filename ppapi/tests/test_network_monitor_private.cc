@@ -21,37 +21,31 @@ namespace {
 
 struct CallbackData {
   explicit CallbackData(PP_Instance instance)
-      : call_counter(0),
-        completion_callback(instance),
-        list_resource(0),
+      : event(instance),
+        call_counter(0),
         delete_monitor(false),
         monitor(NULL) {
   }
   ~CallbackData() {
-    if (list_resource)
-      pp::Module::Get()->core()->ReleaseResource(list_resource);
   }
+  NestedEvent event;
   int call_counter;
-  TestCompletionCallback completion_callback;
-  PP_Resource list_resource;
+  pp::NetworkListPrivate network_list;
   bool delete_monitor;
   pp::NetworkMonitorPrivate* monitor;
 };
 
-void TestCallback(void* user_data, PP_Resource network_list) {
+void TestCallback(void* user_data, PP_Resource pp_network_list) {
   CallbackData* data = static_cast<CallbackData*>(user_data);
   data->call_counter++;
 
-  if (data->list_resource)
-    pp::Module::Get()->core()->ReleaseResource(data->list_resource);
-  data->list_resource = network_list;
+  data->network_list = pp::NetworkListPrivate(pp::PASS_REF, pp_network_list);
 
   if (data->delete_monitor)
     delete data->monitor;
 
-  // Invoke completion callback only for the first change notification.
   if (data->call_counter == 1)
-    static_cast<pp::CompletionCallback>(data->completion_callback).Run(PP_OK);
+    data->event.Signal();
 }
 
 
@@ -59,15 +53,15 @@ class TestNetworkListObserver : public pp::NetworkListObserverPrivate {
  public:
   explicit TestNetworkListObserver(const pp::InstanceHandle& instance)
       : pp::NetworkListObserverPrivate(instance),
-        completion_callback(instance.pp_instance()) {
+        event(instance.pp_instance()) {
   }
   virtual void OnNetworkListChanged(const pp::NetworkListPrivate& list) {
     current_list = list;
-    static_cast<pp::CompletionCallback>(completion_callback).Run(PP_OK);
+    event.Signal();
   }
 
   pp::NetworkListPrivate current_list;
-  TestCompletionCallback completion_callback;
+  NestedEvent event;
 };
 
 }  // namespace
@@ -80,7 +74,7 @@ bool TestNetworkMonitorPrivate::Init() {
   if (!pp::NetworkMonitorPrivate::IsAvailable())
     return false;
 
-  return true;
+  return CheckTestingInterface();
 }
 
 void TestNetworkMonitorPrivate::RunTests(const std::string& filter) {
@@ -88,12 +82,6 @@ void TestNetworkMonitorPrivate::RunTests(const std::string& filter) {
   RUN_TEST_FORCEASYNC_AND_NOT(2Monitors, filter);
   RUN_TEST_FORCEASYNC_AND_NOT(DeleteInCallback, filter);
   RUN_TEST_FORCEASYNC_AND_NOT(ListObserver, filter);
-}
-
-std::string TestNetworkMonitorPrivate::VerifyNetworkListResource(
-    PP_Resource network_list_resource) {
-  pp::NetworkListPrivate network_list(network_list_resource);
-  return VerifyNetworkList(network_list);
 }
 
 std::string TestNetworkMonitorPrivate::VerifyNetworkList(
@@ -180,11 +168,10 @@ std::string TestNetworkMonitorPrivate::TestBasic() {
 
   pp::NetworkMonitorPrivate network_monitor(
       instance_, &TestCallback, &callback_data);
-  ASSERT_EQ(callback_data.completion_callback.WaitForResult(), PP_OK);
+  callback_data.event.Wait();
   ASSERT_EQ(callback_data.call_counter, 1);
 
-  ASSERT_SUBTEST_SUCCESS(
-      VerifyNetworkListResource(callback_data.list_resource));
+  ASSERT_SUBTEST_SUCCESS(VerifyNetworkList(callback_data.network_list));
 
   PASS();
 }
@@ -194,21 +181,19 @@ std::string TestNetworkMonitorPrivate::Test2Monitors() {
 
   pp::NetworkMonitorPrivate network_monitor(
       instance_, &TestCallback, &callback_data);
-  ASSERT_EQ(callback_data.completion_callback.WaitForResult(), PP_OK);
+  callback_data.event.Wait();
   ASSERT_EQ(callback_data.call_counter, 1);
 
-  ASSERT_SUBTEST_SUCCESS(
-      VerifyNetworkListResource(callback_data.list_resource));
+  ASSERT_SUBTEST_SUCCESS(VerifyNetworkList(callback_data.network_list));
 
   CallbackData callback_data_2(instance_->pp_instance());
 
   pp::NetworkMonitorPrivate network_monitor_2(
       instance_, &TestCallback, &callback_data_2);
-  ASSERT_EQ(callback_data_2.completion_callback.WaitForResult(), PP_OK);
+  callback_data_2.event.Wait();
   ASSERT_EQ(callback_data_2.call_counter, 1);
 
-  ASSERT_SUBTEST_SUCCESS(
-      VerifyNetworkListResource(callback_data_2.list_resource));
+  ASSERT_SUBTEST_SUCCESS(VerifyNetworkList(callback_data_2.network_list));
 
   PASS();
 }
@@ -221,18 +206,17 @@ std::string TestNetworkMonitorPrivate::TestDeleteInCallback() {
   callback_data.delete_monitor = true;
   callback_data.monitor = network_monitor;
 
-  ASSERT_EQ(callback_data.completion_callback.WaitForResult(), PP_OK);
+  callback_data.event.Wait();
   ASSERT_EQ(callback_data.call_counter, 1);
 
-  ASSERT_SUBTEST_SUCCESS(
-      VerifyNetworkListResource(callback_data.list_resource));
+  ASSERT_SUBTEST_SUCCESS(VerifyNetworkList(callback_data.network_list));
 
   PASS();
 }
 
 std::string TestNetworkMonitorPrivate::TestListObserver() {
   TestNetworkListObserver observer(instance_);
-  ASSERT_EQ(observer.completion_callback.WaitForResult(), PP_OK);
+  observer.event.Wait();
   ASSERT_SUBTEST_SUCCESS(VerifyNetworkList(observer.current_list));
   PASS();
 }

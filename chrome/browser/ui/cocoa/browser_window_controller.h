@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_COCOA_BROWSER_WINDOW_CONTROLLER_H_
 #define CHROME_BROWSER_UI_COCOA_BROWSER_WINDOW_CONTROLLER_H_
-#pragma once
 
 // A class acting as the Objective-C controller for the Browser
 // object. Handles interactions between Cocoa and the cross-platform
@@ -31,6 +30,7 @@
 class Browser;
 class BrowserWindow;
 class BrowserWindowCocoa;
+@class ChromeToMobileBubbleController;
 class ConstrainedWindowMac;
 @class DevToolsController;
 @class DownloadShelfController;
@@ -86,6 +86,8 @@ class WebContents;
   BOOL initializing_;  // YES while we are currently in initWithBrowser:
   BOOL ownsBrowser_;  // Only ever NO when testing
 
+  ChromeToMobileBubbleController* chromeToMobileBubbleController_;  // Weak.
+
   // The total amount by which we've grown the window up or down (to display a
   // bookmark bar and/or download shelf), respectively; reset to 0 when moved
   // away from the bottom/top or resized (or zoomed).
@@ -107,10 +109,6 @@ class WebContents;
   // avatar icon. The view is always in the view hierarchy, but will be hidden
   // unless it's appropriate to show it.
   scoped_nsobject<AvatarButtonController> avatarButtonController_;
-
-  // The view that shows the presentation mode toggle when in Lion fullscreen
-  // mode.  Nil if not in fullscreen mode or not on Lion.
-  scoped_nsobject<NSButton> presentationModeToggleButton_;
 
   // Lazily created view which draws the background for the floating set of bars
   // in presentation mode (for window types having a floating bar; it remains
@@ -276,6 +274,9 @@ class WebContents;
 - (void)showBookmarkBubbleForURL:(const GURL&)url
                alreadyBookmarked:(BOOL)alreadyBookmarked;
 
+// Show the Chrome To Mobile bubble (e.g. user just clicked on the icon)
+- (void)showChromeToMobileBubble;
+
 // Returns the (lazily created) window sheet controller of this window. Used
 // for the per-tab sheets.
 - (GTMWindowSheetController*)sheetController;
@@ -303,8 +304,13 @@ class WebContents;
 // Gets the pattern phase for the window.
 - (NSPoint)themePatternPhase;
 
-// Return the point to which a bubble window's arrow should point.
+// Return the point to which a bubble window's arrow should point, in window
+// coordinates.
 - (NSPoint)bookmarkBubblePoint;
+
+// Return the Chrome To Mobile bubble window's arrow anchor point, in window
+// coordinates.
+- (NSPoint)chromeToMobileBubblePoint;
 
 // Shows or hides the Instant preview contents.
 - (void)showInstant:(content::WebContents*)previewContents;
@@ -381,11 +387,6 @@ class WebContents;
 
 // Returns fullscreen state.  This method is safe to call on all OS versions.
 - (BOOL)isFullscreen;
-
-// Toggles presentation mode without exiting fullscreen mode.  Should only be
-// called by the presentation mode toggle button.  This method should not be
-// called on Snow Leopard or earlier.
-- (void)togglePresentationModeForLionOrLater:(id)sender;
 
 // Enters (or exits) presentation mode.  Also enters fullscreen mode if this
 // window is not already fullscreen.  This method is safe to call on all OS

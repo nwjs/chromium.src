@@ -4,11 +4,14 @@
 
 #ifndef UI_AURA_TEST_EVENT_GENERATOR_H_
 #define UI_AURA_TEST_EVENT_GENERATOR_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/gfx/point.h"
+
+namespace base {
+class TimeDelta;
+}
 
 namespace aura {
 class Event;
@@ -105,6 +108,26 @@ class EventGenerator {
   // Generates press, move and release events to move touch
   // to the center of the window.
   void PressMoveAndReleaseTouchToCenterOf(Window* window);
+
+  // Generates and dispatches touch-events required to generate a TAP gesture.
+  // Note that this can generate a number of other gesture events at the same
+  // time (e.g. GESTURE_BEGIN, TAP_DOWN, END).
+  void GestureTapAt(const gfx::Point& point);
+
+  // Generates press and release touch-events to generate a TAP_DOWN event, but
+  // without generating any scroll or tap events. This can also generate a few
+  // other gesture events (e.g. GESTURE_BEGIN, END).
+  void GestureTapDownAndUp(const gfx::Point& point);
+
+  // Generates press, move, release touch-events to generate a sequence of
+  // scroll events. |duration| and |steps| affect the velocity of the scroll,
+  // and depending on these values, this may also generate FLING scroll
+  // gestures. If velocity/fling is irrelevant for the test, then any non-zero
+  // values for these should be sufficient.
+  void GestureScrollSequence(const gfx::Point& start,
+                             const gfx::Point& end,
+                             const base::TimeDelta& duration,
+                             int steps);
 
   // Generates a key press event. On platforms except Windows and X11, a key
   // event without native_event() is generated. Note that ui::EF_ flags should

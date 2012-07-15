@@ -8,7 +8,9 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
 #include "chrome/common/autofill_messages.h"
+#include "chrome/renderer/autofill/form_autofill_util.h"
 #include "content/public/renderer/render_view.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebAutofillClient.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebDocument.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebElement.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebFormElement.h"
@@ -204,6 +206,7 @@ namespace autofill {
 PasswordAutofillManager::PasswordAutofillManager(
     content::RenderView* render_view)
     : content::RenderViewObserver(render_view),
+      disable_popup_(false),
       ALLOW_THIS_IN_INITIALIZER_LIST(weak_ptr_factory_(this)) {
 }
 
@@ -279,20 +282,18 @@ bool PasswordAutofillManager::TextDidChangeInTextField(
   if (element.value().length() > kMaximumTextSizeForAutocomplete)
     return false;
 
-  // We post a task for doing the autocomplete as the caret position is not set
-  // properly at this point (http://bugs.webkit.org/show_bug.cgi?id=16976) and
-  // we need it to determine whether or not to trigger autocomplete.
-  MessageLoop::current()->PostTask(
-      FROM_HERE,
-      base::Bind(&PasswordAutofillManager::PerformInlineAutocomplete,
-                 weak_ptr_factory_.GetWeakPtr(),
-                 element, password, iter->second.fill_data));
+  // The caret position should have already been updated.
+  PerformInlineAutocomplete(element, password, iter->second.fill_data);
   return true;
 }
 
 bool PasswordAutofillManager::TextFieldHandlingKeyDown(
     const WebKit::WebInputElement& element,
     const WebKit::WebKeyboardEvent& event) {
+  // If using the new Autofill UI that lives in the browser, it will handle
+  // keypresses before this function. This is not currently an issue but if
+  // the keys handled there or here change, this issue may appear.
+
   LoginToPasswordInfoMap::iterator iter = login_to_password_info_.find(element);
   if (iter == login_to_password_info_.end())
     return false;
@@ -313,7 +314,7 @@ bool PasswordAutofillManager::DidAcceptAutofillSuggestion(
 
   // Set the incoming |value| in the text field and |FillUserNameAndPassword|
   // will do the rest.
-  input.setValue(value);
+  input.setValue(value, true);
   return FillUserNameAndPassword(&input, &password.password_field,
                                  password.fill_data, true, true);
 }
@@ -349,16 +350,24 @@ void PasswordAutofillManager::SendPasswordForms(WebKit::WebFrame* frame,
     // Respect autocomplete=off.
     if (!form.autoComplete())
       continue;
+
+    // If requested, ignore non-rendered forms, e.g. those styled with
+    // display:none.
     if (only_visible && !form.hasNonEmptyBoundingBox())
       continue;
+
     scoped_ptr<webkit::forms::PasswordForm> password_form(
         webkit::forms::PasswordFormDomManager::CreatePasswordForm(form));
     if (password_form.get())
       password_forms.push_back(*password_form);
   }
 
-  if (password_forms.empty())
+  if (password_forms.empty() && !only_visible) {
+    // We need to send the PasswordFormsRendered message regardless of whether
+    // there are any forms visible, as this is also the code path that triggers
+    // showing the infobar.
     return;
+  }
 
   if (only_visible) {
     Send(new AutofillHostMsg_PasswordFormsRendered(
@@ -378,10 +387,17 @@ bool PasswordAutofillManager::OnMessageReceived(const IPC::Message& message) {
 }
 
 void PasswordAutofillManager::DidFinishDocumentLoad(WebKit::WebFrame* frame) {
+  // The |frame| contents have been parsed, but not yet rendered.  Let the
+  // PasswordManager know that forms are loaded, even though we can't yet tell
+  // whether they're visible.
   SendPasswordForms(frame, false);
 }
 
 void PasswordAutofillManager::DidFinishLoad(WebKit::WebFrame* frame) {
+  // The |frame| contents have been rendered.  Let the PasswordManager know
+  // which of the loaded frames are actually visible to the user.  This also
+  // triggers the "Save password?" infobar if the user just submitted a password
+  // form.
   SendPasswordForms(frame, true);
 }
 
@@ -410,7 +426,10 @@ bool PasswordAutofillManager::InputElementLostFocus() {
 }
 
 void PasswordAutofillManager::OnFillPasswordForm(
-    const webkit::forms::PasswordFormFillData& form_data) {
+    const webkit::forms::PasswordFormFillData& form_data,
+    bool disable_popup) {
+  disable_popup_ = disable_popup;
+
   FormElementsList forms;
   // We own the FormElements* in forms.
   FindFormElements(render_view()->GetWebView(), form_data.basic_data, &forms);
@@ -443,6 +462,15 @@ void PasswordAutofillManager::OnFillPasswordForm(
     password_info.fill_data = form_data;
     password_info.password_field = password_element;
     login_to_password_info_[username_element] = password_info;
+
+    webkit::forms::FormData form;
+    webkit::forms::FormField field;
+    FindFormAndFieldForInputElement(
+        username_element, &form, &field, REQUIRE_NONE);
+    Send(new AutofillHostMsg_AddPasswordFormMapping(
+        routing_id(),
+        field,
+        form_data));
   }
 }
 
@@ -477,6 +505,23 @@ bool PasswordAutofillManager::ShowSuggestionPopup(
 
   std::vector<string16> suggestions;
   GetSuggestions(fill_data, user_input.value(), &suggestions);
+
+  if (disable_popup_) {
+    webkit::forms::FormData form;
+    webkit::forms::FormField field;
+    FindFormAndFieldForInputElement(
+        user_input, &form, &field, REQUIRE_NONE);
+
+    WebKit::WebInputElement selected_element = user_input;
+    gfx::Rect bounding_box(selected_element.boundsInViewportSpace());
+    Send(new AutofillHostMsg_ShowPasswordSuggestions(routing_id(),
+                                                     field,
+                                                     bounding_box,
+                                                     suggestions));
+    return !suggestions.empty();
+  }
+
+
   if (suggestions.empty()) {
     webview->hidePopups();
     return false;
@@ -484,9 +529,10 @@ bool PasswordAutofillManager::ShowSuggestionPopup(
 
   std::vector<string16> labels(suggestions.size());
   std::vector<string16> icons(suggestions.size());
-  std::vector<int> ids(suggestions.size(), 0);
+  std::vector<int> ids(suggestions.size(),
+                       WebKit::WebAutofillClient::MenuItemIDPasswordEntry);
   webview->applyAutofillSuggestions(
-      user_input, suggestions, labels, icons, ids, -1);
+      user_input, suggestions, labels, icons, ids);
   return true;
 }
 

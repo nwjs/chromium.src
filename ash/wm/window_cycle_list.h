@@ -4,7 +4,6 @@
 
 #ifndef ASH_WM_WINDOW_CYCLE_LIST_H_
 #define ASH_WM_WINDOW_CYCLE_LIST_H_
-#pragma once
 
 #include <vector>
 
@@ -33,6 +32,8 @@ class ASH_EXPORT WindowCycleList : public aura::WindowObserver {
 
   // Cycles to the next or previous window based on |direction|.
   void Step(Direction direction);
+
+  const WindowList& windows() const { return windows_; }
 
  private:
   // Returns the index of |window| in |windows_| or -1 if it isn't there.

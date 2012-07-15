@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_BROWSING_DATA_FILE_SYSTEM_HELPER_H_
 #define CHROME_BROWSER_BROWSING_DATA_FILE_SYSTEM_HELPER_H_
-#pragma once
 
 #include <list>
 #include <string>
@@ -13,7 +12,6 @@
 #include "base/compiler_specific.h"
 #include "base/file_path.h"
 #include "base/memory/ref_counted.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/synchronization/lock.h"
 #include "base/time.h"
 #include "chrome/common/url_constants.h"
@@ -29,9 +27,7 @@ class Profile;
 // system data when a client calls StartFetching from the UI thread, and will
 // notify the client via a supplied callback when the data is available.
 // Only one StartFetching task can run at a time: executing StartFetching while
-// another StartFetching task is running will DCHECK. If the client must abort
-// the process before completion (it's destroyed, for example) then it must call
-// CancelNotification.
+// another StartFetching task is running will DCHECK.
 //
 // The client's callback is passed a list of FileSystemInfo objects containing
 // usage information for each origin's temporary and persistent file systems.
@@ -86,11 +82,6 @@ class BrowsingDataFileSystemHelper
   virtual void StartFetching(const base::Callback<
       void(const std::list<FileSystemInfo>&)>& callback) = 0;
 
-  // Cancels the notification callback associated with StartFetching. Clients
-  // that are destroyed before the callback is triggered must call this, and
-  // it must be called only on the UI thread.
-  virtual void CancelNotification() = 0;
-
   // Deletes any temporary or persistent file systems associated with |origin|
   // from the disk. Deletion will occur asynchronously on the FILE thread, but
   // this function must be called only on the UI thread.
@@ -137,10 +128,17 @@ class CannedBrowsingDataFileSystemHelper
   // True if no filesystems are currently stored.
   bool empty() const;
 
+  // Returns the number of currently stored filesystems.
+  size_t GetFileSystemCount() const;
+
+  // Returns the current list of filesystems.
+  const std::list<FileSystemInfo>& GetFileSystemInfo() {
+    return file_system_info_;
+  }
+
   // BrowsingDataFileSystemHelper implementation.
   virtual void StartFetching(const base::Callback<
       void(const std::list<FileSystemInfo>&)>& callback) OVERRIDE;
-  virtual void CancelNotification() OVERRIDE;
 
   // Note that this doesn't actually have an implementation for this canned
   // class. It hasn't been necessary for anything that uses the canned
@@ -157,8 +155,11 @@ class CannedBrowsingDataFileSystemHelper
   // must be called on the UI thread.
   void NotifyOnUIThread();
 
-  // Holds the current list of file systems returned to the client after
-  // StartFetching is called.
+  // Holds the current list of filesystems returned to the client. Access to
+  // |file_system_info_| is triggered indirectly via the UI thread and guarded
+  // by |is_fetching_|. This means |file_system_info_| is only accessed while
+  // |is_fetching_| is true. The flag |is_fetching_| is only accessed on the UI
+  // thread.
   std::list<FileSystemInfo> file_system_info_;
 
   // The callback passed in at the beginning of the StartFetching workflow so

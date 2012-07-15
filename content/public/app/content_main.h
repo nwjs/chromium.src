@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_PUBLIC_APP_CONTENT_MAIN_H_
 #define CONTENT_PUBLIC_APP_CONTENT_MAIN_H_
-#pragma once
 
 #include "build/build_config.h"
 #include "content/common/content_export.h"
@@ -32,11 +31,18 @@ class ContentMainDelegate;
 CONTENT_EXPORT int ContentMain(HINSTANCE instance,
                                sandbox::SandboxInterfaceInfo* sandbox_info,
                                ContentMainDelegate* delegate);
+#elif defined(OS_ANDROID)
+// In the Android, the content main starts from ContentMain.java, This function
+// provides a way to set the |delegate| as ContentMainDelegate for
+// ContentMainRunner.
+// This should only be called once before ContentMainRunner actually running.
+// The ownership of |delegate| is transferred.
+void SetContentMainDelegate(ContentMainDelegate* delegate);
 #else
 CONTENT_EXPORT int ContentMain(int argc,
                                const char** argv,
                                ContentMainDelegate* delegate);
-#endif
+#endif  // defined(OS_WIN)
 
 }  // namespace content
 

@@ -4,16 +4,16 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_BROWSER_EVENT_ROUTER_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_BROWSER_EVENT_ROUTER_H_
-#pragma once
 
 #include <map>
 #include <string>
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
-#include "chrome/browser/extensions/extension_tabs_module.h"
-#include "chrome/browser/tabs/tab_strip_model_observer.h"
-#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/extensions/api/tabs/tabs.h"
+#include "chrome/browser/extensions/extension_toolbar_model.h"
+#include "chrome/browser/ui/browser_list_observer.h"
+#include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #if defined(TOOLKIT_VIEWS)
 #include "ui/views/focus/widget_focus_manager.h"
@@ -36,7 +36,7 @@ class ExtensionBrowserEventRouter : public TabStripModelObserver,
 #elif defined(TOOLKIT_GTK)
                                     public ui::ActiveWindowWatcherXObserver,
 #endif
-                                    public BrowserList::Observer,
+                                    public chrome::BrowserListObserver,
                                     public content::NotificationObserver {
  public:
   explicit ExtensionBrowserEventRouter(Profile* profile);
@@ -45,10 +45,10 @@ class ExtensionBrowserEventRouter : public TabStripModelObserver,
   // Must be called once. Subsequent calls have no effect.
   void Init();
 
-  // BrowserList::Observer
-  virtual void OnBrowserAdded(const Browser* browser) OVERRIDE;
-  virtual void OnBrowserRemoved(const Browser* browser) OVERRIDE;
-  virtual void OnBrowserSetLastActive(const Browser* browser) OVERRIDE;
+  // chrome::BrowserListObserver
+  virtual void OnBrowserAdded(Browser* browser) OVERRIDE;
+  virtual void OnBrowserRemoved(Browser* browser) OVERRIDE;
+  virtual void OnBrowserSetLastActive(Browser* browser) OVERRIDE;
 
 #if defined(TOOLKIT_VIEWS)
   virtual void OnNativeFocusChange(gfx::NativeView focused_before,
@@ -58,45 +58,49 @@ class ExtensionBrowserEventRouter : public TabStripModelObserver,
 #endif
 
   // Called from Observe() on BROWSER_WINDOW_READY (not a part of
-  // BrowserList::Observer).
-  void OnBrowserWindowReady(const Browser* browser);
+  // chrome::BrowserListObserver).
+  void OnBrowserWindowReady(Browser* browser);
 
   // TabStripModelObserver
-  virtual void TabInsertedAt(TabContentsWrapper* contents, int index,
+  virtual void TabInsertedAt(TabContents* contents, int index,
                              bool active) OVERRIDE;
   virtual void TabClosingAt(TabStripModel* tab_strip_model,
-                            TabContentsWrapper* contents,
+                            TabContents* contents,
                             int index) OVERRIDE;
-  virtual void TabDetachedAt(TabContentsWrapper* contents, int index) OVERRIDE;
-  virtual void ActiveTabChanged(TabContentsWrapper* old_contents,
-                                TabContentsWrapper* new_contents,
+  virtual void TabDetachedAt(TabContents* contents, int index) OVERRIDE;
+  virtual void ActiveTabChanged(TabContents* old_contents,
+                                TabContents* new_contents,
                                 int index,
                                 bool user_gesture) OVERRIDE;
   virtual void TabSelectionChanged(
       TabStripModel* tab_strip_model,
       const TabStripSelectionModel& old_model) OVERRIDE;
-  virtual void TabMoved(TabContentsWrapper* contents, int from_index,
+  virtual void TabMoved(TabContents* contents, int from_index,
                         int to_index) OVERRIDE;
-  virtual void TabChangedAt(TabContentsWrapper* contents, int index,
+  virtual void TabChangedAt(TabContents* contents, int index,
                             TabChangeType change_type) OVERRIDE;
   virtual void TabReplacedAt(TabStripModel* tab_strip_model,
-                             TabContentsWrapper* old_contents,
-                             TabContentsWrapper* new_contents,
+                             TabContents* old_contents,
+                             TabContents* new_contents,
                              int index) OVERRIDE;
-  virtual void TabPinnedStateChanged(TabContentsWrapper* contents,
+  virtual void TabPinnedStateChanged(TabContents* contents,
                                      int index) OVERRIDE;
   virtual void TabStripEmpty() OVERRIDE;
 
-  // Page Action execute event.
+  // Fires the onClicked event for page_action.
   void PageActionExecuted(Profile* profile,
-                          const std::string& extension_id,
-                          const std::string& page_action_id,
+                          const ExtensionAction& page_action,
                           int tab_id,
                           const std::string& url,
                           int button);
-  // Browser Actions execute event.
-  void BrowserActionExecuted(Profile* profile,
-                             const std::string& extension_id,
+
+  // Fires the onClicked event for script_badge.
+  void ScriptBadgeExecuted(Profile* profile,
+                           const ExtensionAction& script_badge,
+                           int tab_id);
+
+  // Fires the onClicked event for browser_action.
+  void BrowserActionExecuted(const ExtensionAction& browser_action,
                              Browser* browser);
 
   // A keyboard shortcut resulted in an extension command.
@@ -160,7 +164,7 @@ class ExtensionBrowserEventRouter : public TabStripModelObserver,
 
   // Register ourselves to receive the various notifications we are interested
   // in for a browser.
-  void RegisterForBrowserNotifications(const Browser* browser);
+  void RegisterForBrowserNotifications(Browser* browser);
 
   // Register ourselves to receive the various notifications we are interested
   // in for a tab.
@@ -200,7 +204,7 @@ class ExtensionBrowserEventRouter : public TabStripModelObserver,
 
    private:
     // Whether we are waiting to fire the 'complete' status change. This will
-    // occur the first time the TabContents stops loading after the
+    // occur the first time the WebContents stops loading after the
     // NAV_ENTRY_COMMITTED was fired. The tab may go back into and out of the
     // loading state subsequently, but we will ignore those changes.
     bool complete_waiting_on_load_;
@@ -211,6 +215,12 @@ class ExtensionBrowserEventRouter : public TabStripModelObserver,
   // Gets the TabEntry for the given |contents|. Returns TabEntry* if
   // found, NULL if not.
   TabEntry* GetTabEntry(const content::WebContents* contents);
+
+  // Called when either a browser or page action is executed. Figures out which
+  // event to send based on what the extension wants.
+  void ExtensionActionExecuted(Profile* profile,
+                               const ExtensionAction& extension_action,
+                               TabContents* tab_contents);
 
   std::map<int, TabEntry> tab_entries_;
 

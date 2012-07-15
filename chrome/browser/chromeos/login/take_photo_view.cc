@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -70,22 +70,22 @@ class CameraImageView : public views::ImageView {
 
   void SetInitializingState() {
     ShowThrobber();
-    SetMessage(std::wstring());
+    SetMessage(string16());
     SetImage(
-        ResourceBundle::GetSharedInstance().GetBitmapNamed(
+        ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
             IDR_USER_IMAGE_INITIALIZING));
   }
 
   void SetNormalState() {
     HideThrobber();
-    SetMessage(std::wstring());
+    SetMessage(string16());
   }
 
   void SetErrorState() {
     HideThrobber();
-    SetMessage(UTF16ToWide(l10n_util::GetStringUTF16(IDS_USER_IMAGE_NO_VIDEO)));
+    SetMessage(l10n_util::GetStringUTF16(IDS_USER_IMAGE_NO_VIDEO));
     SetImage(
-        ResourceBundle::GetSharedInstance().GetBitmapNamed(
+        ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
             IDR_USER_IMAGE_NO_VIDEO));
   }
 
@@ -106,9 +106,9 @@ class CameraImageView : public views::ImageView {
     throbber_->SetVisible(false);
   }
 
-  void SetMessage(const std::wstring& message) {
+  void SetMessage(const string16& message) {
     DCHECK(message_);
-    message_->SetText(WideToUTF16Hack(message));
+    message_->SetText(message);
     message_->SetVisible(!message.empty());
     Layout();
   }
@@ -158,7 +158,7 @@ TakePhotoView::TakePhotoView(Delegate* delegate)
 TakePhotoView::~TakePhotoView() {
 }
 
-void TakePhotoView::Init() {
+void TakePhotoView::Init(int image_width, int image_height) {
   if (show_title_) {
     title_label_ = new views::Label(
         l10n_util::GetStringUTF16(IDS_USER_IMAGE_SCREEN_TITLE));
@@ -168,18 +168,17 @@ void TakePhotoView::Init() {
   }
 
   user_image_ = new CameraImageView();
-  user_image_->SetImageSize(
-      gfx::Size(login::kUserImageSize, login::kUserImageSize));
+  user_image_->SetImageSize(gfx::Size(image_width, image_height));
   user_image_->Init();
 
   snapshot_button_ = new views::ImageButton(this);
   snapshot_button_->set_focusable(true);
   snapshot_button_->SetImage(views::CustomButton::BS_NORMAL,
-                             ResourceBundle::GetSharedInstance().GetBitmapNamed(
-                                 IDR_USER_IMAGE_CAPTURE));
+      ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
+          IDR_USER_IMAGE_CAPTURE));
   snapshot_button_->SetImage(views::CustomButton::BS_DISABLED,
-                             ResourceBundle::GetSharedInstance().GetBitmapNamed(
-                                 IDR_USER_IMAGE_CAPTURE_DISABLED));
+      ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
+          IDR_USER_IMAGE_CAPTURE_DISABLED));
   snapshot_button_->SetAccessibleName(l10n_util::GetStringUTF16(
       IDS_CHROMEOS_ACC_ACCOUNT_PICTURE));
 
@@ -229,21 +228,15 @@ void TakePhotoView::UpdateVideoFrame(const SkBitmap& frame) {
     snapshot_button_->SetEnabled(true);
     snapshot_button_->RequestFocus();
   }
-  SkBitmap user_image =
-      skia::ImageOperations::Resize(
-          frame,
-          skia::ImageOperations::RESIZE_BOX,
-          login::kUserImageSize,
-          login::kUserImageSize);
-
+  gfx::ImageSkia user_image(frame);
   user_image_->SetImage(&user_image);
 }
 
 void TakePhotoView::ShowCameraInitializing() {
   is_capturing_ = true;
   snapshot_button_->SetImage(views::CustomButton::BS_NORMAL,
-                             ResourceBundle::GetSharedInstance().GetBitmapNamed(
-                                 IDR_USER_IMAGE_CAPTURE));
+      ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
+          IDR_USER_IMAGE_CAPTURE));
   snapshot_button_->SetVisible(true);
   snapshot_button_->SetEnabled(false);
   user_image_->SetInitializingState();
@@ -256,11 +249,11 @@ void TakePhotoView::ShowCameraError() {
   user_image_->SetErrorState();
 }
 
-const SkBitmap& TakePhotoView::GetImage() const {
+const gfx::ImageSkia& TakePhotoView::GetImage() const {
   return user_image_->GetImage();
 }
 
-void TakePhotoView::SetImage(SkBitmap* image) {
+void TakePhotoView::SetImage(gfx::ImageSkia* image) {
   is_capturing_ = false;
   snapshot_button_->SetVisible(false);
   snapshot_button_->SetEnabled(false);
@@ -275,7 +268,7 @@ void TakePhotoView::CaptureImage() {
     is_capturing_ = false;
     snapshot_button_->SetImage(
         views::CustomButton::BS_NORMAL,
-        ResourceBundle::GetSharedInstance().GetBitmapNamed(
+        ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
             IDR_USER_IMAGE_RECYCLE));
     delegate_->OnCapturingStopped();
     snapshot_button_->SchedulePaint();
@@ -300,7 +293,7 @@ void TakePhotoView::FlipCapturingState() {
     is_capturing_ = true;
     snapshot_button_->SetImage(
         views::CustomButton::BS_NORMAL,
-        ResourceBundle::GetSharedInstance().GetBitmapNamed(
+        ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
             IDR_USER_IMAGE_CAPTURE));
     delegate_->OnCapturingStarted();
     snapshot_button_->SchedulePaint();

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_DEVICE_SETTINGS_PROVIDER_H_
 #define CHROME_BROWSER_CHROMEOS_DEVICE_SETTINGS_PROVIDER_H_
-#pragma once
 
 #include <string>
 #include <utility>
@@ -15,7 +14,6 @@
 #include "chrome/browser/chromeos/cros_settings_provider.h"
 #include "chrome/browser/chromeos/login/ownership_service.h"
 #include "chrome/browser/chromeos/signed_settings_migration_helper.h"
-#include "chrome/browser/policy/proto/chrome_device_policy.pb.h"
 #include "chrome/browser/policy/proto/device_management_backend.pb.h"
 #include "chrome/browser/prefs/pref_value_map.h"
 #include "content/public/browser/notification_registrar.h"
@@ -24,27 +22,26 @@ namespace base {
 class Value;
 }
 
+namespace enterprise_management {
+class ChromeDeviceSettingsProto;
+}  // namespace enterprise_management
+
 namespace chromeos {
 
 // CrosSettingsProvider implementation that works with SignedSettings.
 class DeviceSettingsProvider : public CrosSettingsProvider,
                                public content::NotificationObserver {
  public:
-  explicit DeviceSettingsProvider(const NotifyObserversCallback& notify_cb,
-                                  SignedSettingsHelper* signed_settings_helper);
+  DeviceSettingsProvider(const NotifyObserversCallback& notify_cb,
+                         SignedSettingsHelper* signed_settings_helper);
   virtual ~DeviceSettingsProvider();
 
   // CrosSettingsProvider implementation.
   virtual const base::Value* Get(const std::string& path) const OVERRIDE;
-  virtual bool PrepareTrustedValues(const base::Closure& callback) OVERRIDE;
+  virtual TrustedStatus PrepareTrustedValues(
+      const base::Closure& callback) OVERRIDE;
   virtual bool HandlesSetting(const std::string& path) const OVERRIDE;
   virtual void Reload() OVERRIDE;
-
- protected:
-  // For test use only.
-  void set_ownership_status(OwnershipService::Status status) {
-    ownership_status_ = status;
-  }
 
  private:
   // CrosSettingsProvider implementation:
@@ -114,7 +111,7 @@ class DeviceSettingsProvider : public CrosSettingsProvider,
 
   // Checks if the current cache value can be trusted for being representative
   // for the disk cache.
-  bool RequestTrustedEntity();
+  TrustedStatus RequestTrustedEntity();
 
   // Called right after signed value was checked.
   void OnPropertyRetrieve(const std::string& path,
@@ -128,6 +125,17 @@ class DeviceSettingsProvider : public CrosSettingsProvider,
   void OnRetrievePolicyCompleted(
       SignedSettings::ReturnCode code,
       const enterprise_management::PolicyFetchResponse& policy);
+
+  // These setters are for test use only.
+  void set_ownership_status(OwnershipService::Status status) {
+    ownership_status_ = status;
+  }
+  void set_trusted_status(TrustedStatus status) {
+    trusted_status_ = status;
+  }
+  void set_retries_left(int retries) {
+    retries_left_ = retries;
+  }
 
   // Pending callbacks that need to be invoked after settings verification.
   std::vector<base::Closure> callbacks_;
@@ -143,7 +151,7 @@ class DeviceSettingsProvider : public CrosSettingsProvider,
   int retries_left_;
 
   enterprise_management::PolicyData policy_;
-  bool trusted_;
+  TrustedStatus trusted_status_;
 
   PrefValueMap values_cache_;
 
@@ -154,6 +162,9 @@ class DeviceSettingsProvider : public CrosSettingsProvider,
   friend class DeviceSettingsProviderTest;
   FRIEND_TEST_ALL_PREFIXES(DeviceSettingsProviderTest,
                            InitializationTestUnowned);
+  FRIEND_TEST_ALL_PREFIXES(DeviceSettingsProviderTest,
+                           PolicyFailedPermanentlyNotification);
+  FRIEND_TEST_ALL_PREFIXES(DeviceSettingsProviderTest, PolicyLoadNotification);
   DISALLOW_COPY_AND_ASSIGN(DeviceSettingsProvider);
 };
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -41,15 +41,14 @@ namespace views {
 
 BubbleFrameView::BubbleFrameView(BubbleBorder::ArrowLocation arrow_location,
                                  SkColor color,
-                                 int margin)
+                                 const gfx::Insets& margins)
     : bubble_border_(NULL),
-      content_margins_(margin, margin, margin, margin) {
+      content_margins_(margins) {
   if (base::i18n::IsRTL())
     arrow_location = BubbleBorder::horizontal_mirror(arrow_location);
   // TODO(alicet): Expose the shadow option in BorderContentsView when we make
   // the fullscreen exit bubble use the new bubble code.
-  bubble_border_ = new BubbleBorder(arrow_location, BubbleBorder::NO_SHADOW);
-  set_border(bubble_border_);
+  SetBubbleBorder(new BubbleBorder(arrow_location, BubbleBorder::NO_SHADOW));
   set_background(new BubbleBackground(bubble_border_));
   bubble_border()->set_background_color(color);
 }
@@ -96,8 +95,13 @@ gfx::Rect BubbleFrameView::GetUpdatedWindowBounds(const gfx::Rect& anchor_rect,
   return bubble_border_->GetBounds(anchor_rect, client_size);
 }
 
+void BubbleFrameView::SetBubbleBorder(BubbleBorder* border) {
+  bubble_border_ = border;
+  set_border(bubble_border_);
+}
+
 gfx::Rect BubbleFrameView::GetMonitorBounds(const gfx::Rect& rect) {
-  return gfx::Screen::GetMonitorWorkAreaNearestPoint(rect.CenterPoint());
+  return gfx::Screen::GetDisplayNearestPoint(rect.CenterPoint()).work_area();
 }
 
 void BubbleFrameView::MirrorArrowIfOffScreen(
@@ -117,9 +121,10 @@ void BubbleFrameView::MirrorArrowIfOffScreen(
         bubble_border_->GetBounds(anchor_rect, client_size);
     // Restore the original arrow if mirroring doesn't show more of the bubble.
     if (GetOffScreenLength(monitor_rect, mirror_bounds, vertical) >=
-        GetOffScreenLength(monitor_rect, window_bounds, vertical)) {
+        GetOffScreenLength(monitor_rect, window_bounds, vertical))
       bubble_border_->set_arrow_location(arrow);
-    }
+    else
+      SchedulePaint();
   }
 }
 

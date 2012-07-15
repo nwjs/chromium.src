@@ -49,7 +49,10 @@ class PPB_Graphics2D_Impl : public ::ppapi::Resource,
   virtual void Scroll(const PP_Rect* clip_rect,
                       const PP_Point* amount) OVERRIDE;
   virtual void ReplaceContents(PP_Resource image_data) OVERRIDE;
-  virtual int32_t Flush(PP_CompletionCallback callback) OVERRIDE;
+  virtual int32_t Flush(
+      scoped_refptr< ::ppapi::TrackedCallback> callback) OVERRIDE;
+  virtual bool SetScale(float scale) OVERRIDE;
+  virtual float GetScale() OVERRIDE;
 
   bool ReadImageData(PP_Resource image, const PP_Point* top_left);
 
@@ -183,6 +186,10 @@ class PPB_Graphics2D_Impl : public ::ppapi::Resource,
   // Set to true if the plugin declares that this device will always be opaque.
   // This allows us to do more optimized painting in some cases.
   bool is_always_opaque_;
+
+  // Set to the scale between what the plugin considers to be one pixel and one
+  // DIP
+  float scale_;
 
   base::WeakPtrFactory<PPB_Graphics2D_Impl> weak_ptr_factory_;
 

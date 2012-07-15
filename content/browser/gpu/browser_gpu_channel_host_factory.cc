@@ -5,6 +5,7 @@
 #include "content/browser/gpu/browser_gpu_channel_host_factory.h"
 
 #include "base/bind.h"
+#include "base/threading/thread_restrictions.h"
 #include "content/browser/gpu/gpu_data_manager_impl.h"
 #include "content/browser/gpu/gpu_process_host.h"
 #include "content/browser/gpu/gpu_surface_tracker.h"
@@ -26,8 +27,7 @@ BrowserGpuChannelHostFactory::CreateRequest::~CreateRequest() {
 }
 
 BrowserGpuChannelHostFactory::EstablishRequest::EstablishRequest()
-    : event(false, false),
-      gpu_process_handle(base::kNullProcessHandle) {
+    : event(false, false) {
 }
 
 BrowserGpuChannelHostFactory::EstablishRequest::~EstablishRequest() {
@@ -123,7 +123,8 @@ int32 BrowserGpuChannelHostFactory::CreateViewCommandBuffer(
   // We're blocking the UI thread, which is generally undesirable.
   // In this case we need to wait for this before we can show any UI /anyway/,
   // so it won't cause additional jank.
-  // TODO(piman): Make this asynchronous.
+  // TODO(piman): Make this asynchronous (http://crbug.com/125248).
+  base::ThreadRestrictions::ScopedAllowWait allow_wait;
   request.event.Wait();
   return request.route_id;
 }
@@ -153,10 +154,8 @@ void BrowserGpuChannelHostFactory::EstablishGpuChannelOnIO(
 void BrowserGpuChannelHostFactory::GpuChannelEstablishedOnIO(
     EstablishRequest* request,
     const IPC::ChannelHandle& channel_handle,
-    base::ProcessHandle gpu_process_handle,
     const GPUInfo& gpu_info) {
   request->channel_handle = channel_handle;
-  request->gpu_process_handle = gpu_process_handle;
   request->gpu_info = gpu_info;
   request->event.Signal();
 }
@@ -181,36 +180,25 @@ GpuChannelHost* BrowserGpuChannelHostFactory::EstablishGpuChannelSync(
           base::Unretained(this),
           &request,
           cause_for_gpu_launch));
-  // We're blocking the UI thread, which is generally undesirable.
-  // In this case we need to wait for this before we can show any UI /anyway/,
-  // so it won't cause additional jank.
-  // TODO(piman): Make this asynchronous.
-  request.event.Wait();
 
-  if (request.channel_handle.name.empty() ||
-      request.gpu_process_handle == base::kNullProcessHandle)
+  {
+    // We're blocking the UI thread, which is generally undesirable.
+    // In this case we need to wait for this before we can show any UI /anyway/,
+    // so it won't cause additional jank.
+    // TODO(piman): Make this asynchronous (http://crbug.com/125248).
+    base::ThreadRestrictions::ScopedAllowWait allow_wait;
+    request.event.Wait();
+  }
+
+  if (request.channel_handle.name.empty())
     return NULL;
-
-  base::ProcessHandle browser_process_for_gpu;
-#if defined(OS_WIN)
-  // Create a process handle that the GPU process can use to access our handles.
-  DuplicateHandle(base::GetCurrentProcessHandle(),
-      base::GetCurrentProcessHandle(),
-      request.gpu_process_handle,
-      &browser_process_for_gpu,
-      PROCESS_DUP_HANDLE,
-      FALSE,
-      0);
-#else
-  browser_process_for_gpu = base::GetCurrentProcessHandle();
-#endif
 
   gpu_channel_ = new GpuChannelHost(this, gpu_host_id_, gpu_client_id_);
   gpu_channel_->set_gpu_info(request.gpu_info);
   content::GetContentClient()->SetGpuInfo(request.gpu_info);
 
   // Connect to the GPU process if a channel name was received.
-  gpu_channel_->Connect(request.channel_handle, browser_process_for_gpu);
+  gpu_channel_->Connect(request.channel_handle);
 
   return gpu_channel_.get();
 }

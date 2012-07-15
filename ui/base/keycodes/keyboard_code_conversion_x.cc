@@ -52,6 +52,7 @@ KeyboardCode KeyboardCodeFromXKeysym(unsigned int keysym) {
     case XK_ISO_Enter:
       return VKEY_RETURN;
     case XK_Clear:
+    case XK_KP_Begin:  // NumPad 5 without Num Lock, for crosbug.com/29169.
       return VKEY_CLEAR;
     case XK_KP_Space:
     case XK_space:
@@ -329,19 +330,12 @@ KeyboardCode KeyboardCodeFromXKeysym(unsigned int keysym) {
     case XK_F24:
       return static_cast<KeyboardCode>(VKEY_F1 + (keysym - XK_F1));
 
-#if defined(TOOLKIT_USES_GTK)
-    case XF86XK_HomePage:
-    case XF86XK_Search:
-    case XF86XK_Back:
-    case XF86XK_Forward:
-    case XF86XK_Stop:
+#if defined(TOOLKIT_GTK)
     case XF86XK_Refresh:
-    case XF86XK_Favorites:
     case XF86XK_History:
     case XF86XK_OpenURL:
     case XF86XK_AddFavorite:
     case XF86XK_Go:
-    case XF86XK_Reload:
     case XF86XK_ZoomIn:
     case XF86XK_ZoomOut:
       // ui::AcceleratorGtk tries to convert the XF86XK_ keysyms on Chrome
@@ -351,16 +345,49 @@ KeyboardCode KeyboardCodeFromXKeysym(unsigned int keysym) {
 #endif
 
     // For supporting multimedia buttons on a USB keyboard.
+    case XF86XK_Back:
+      return VKEY_BROWSER_BACK;
+    case XF86XK_Forward:
+      return VKEY_BROWSER_FORWARD;
+    case XF86XK_Reload:
+      return VKEY_BROWSER_REFRESH;
+    case XF86XK_Stop:
+      return VKEY_BROWSER_STOP;
+    case XF86XK_Search:
+      return VKEY_BROWSER_SEARCH;
+    case XF86XK_Favorites:
+      return VKEY_BROWSER_FAVORITES;
+    case XF86XK_HomePage:
+      return VKEY_BROWSER_HOME;
     case XF86XK_AudioMute:
       return VKEY_VOLUME_MUTE;
     case XF86XK_AudioLowerVolume:
       return VKEY_VOLUME_DOWN;
     case XF86XK_AudioRaiseVolume:
       return VKEY_VOLUME_UP;
+    case XF86XK_AudioNext:
+      return VKEY_MEDIA_NEXT_TRACK;
+    case XF86XK_AudioPrev:
+      return VKEY_MEDIA_PREV_TRACK;
+    case XF86XK_AudioStop:
+      return VKEY_MEDIA_STOP;
+    case XF86XK_AudioPlay:
+      return VKEY_MEDIA_PLAY_PAUSE;
+    case XF86XK_Mail:
+      return VKEY_MEDIA_LAUNCH_MAIL;
+    case XF86XK_LaunchA:  // F3 on an Apple keyboard.
+      return VKEY_MEDIA_LAUNCH_APP1;
+    case XF86XK_LaunchB:  // F4 on an Apple keyboard.
+    case XF86XK_Calculator:
+      return VKEY_MEDIA_LAUNCH_APP2;
     case XF86XK_MonBrightnessDown:
       return VKEY_BRIGHTNESS_DOWN;
     case XF86XK_MonBrightnessUp:
       return VKEY_BRIGHTNESS_UP;
+    case XF86XK_KbdBrightnessDown:
+      return VKEY_KBD_BRIGHTNESS_DOWN;
+    case XF86XK_KbdBrightnessUp:
+      return VKEY_KBD_BRIGHTNESS_UP;
 
     // TODO(sad): some keycodes are still missing.
   }
@@ -673,16 +700,48 @@ int XKeysymForWindowsKeyCode(KeyboardCode keycode, bool shift) {
     case VKEY_F24:
       return XK_F1 + (keycode - VKEY_F1);
 
+    case VKEY_BROWSER_BACK:
+      return XF86XK_Back;
+    case VKEY_BROWSER_FORWARD:
+      return XF86XK_Forward;
+    case VKEY_BROWSER_REFRESH:
+      return XF86XK_Reload;
+    case VKEY_BROWSER_STOP:
+      return XF86XK_Stop;
+    case VKEY_BROWSER_SEARCH:
+      return XF86XK_Search;
+    case VKEY_BROWSER_FAVORITES:
+      return XF86XK_Favorites;
+    case VKEY_BROWSER_HOME:
+      return XF86XK_HomePage;
     case VKEY_VOLUME_MUTE:
       return XF86XK_AudioMute;
     case VKEY_VOLUME_DOWN:
       return XF86XK_AudioLowerVolume;
     case VKEY_VOLUME_UP:
       return XF86XK_AudioRaiseVolume;
+    case VKEY_MEDIA_NEXT_TRACK:
+      return XF86XK_AudioNext;
+    case VKEY_MEDIA_PREV_TRACK:
+      return XF86XK_AudioPrev;
+    case VKEY_MEDIA_STOP:
+      return XF86XK_AudioStop;
+    case VKEY_MEDIA_PLAY_PAUSE:
+      return XF86XK_AudioPlay;
+    case VKEY_MEDIA_LAUNCH_MAIL:
+      return XF86XK_Mail;
+    case VKEY_MEDIA_LAUNCH_APP1:
+      return XF86XK_LaunchA;
+    case VKEY_MEDIA_LAUNCH_APP2:
+      return XF86XK_LaunchB;
     case VKEY_BRIGHTNESS_DOWN:
       return XF86XK_MonBrightnessDown;
     case VKEY_BRIGHTNESS_UP:
       return XF86XK_MonBrightnessUp;
+    case VKEY_KBD_BRIGHTNESS_DOWN:
+      return XF86XK_KbdBrightnessDown;
+    case VKEY_KBD_BRIGHTNESS_UP:
+      return XF86XK_KbdBrightnessUp;
 
     default:
       LOG(WARNING) << "Unknown keycode:" << keycode;

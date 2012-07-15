@@ -11,7 +11,6 @@
 #include "base/i18n/time_formatting.h"
 #include "base/json/json_writer.h"  // for debug output only.
 #include "base/string_number_conversions.h"
-#include "base/string_tokenizer.h"
 #include "base/utf_string_conversion_utils.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/chromeos/cros/certificate_pattern.h"
@@ -20,14 +19,12 @@
 #include "chrome/browser/chromeos/cros/native_network_parser.h"
 #include "chrome/browser/chromeos/cros/network_library_impl_cros.h"
 #include "chrome/browser/chromeos/cros/network_library_impl_stub.h"
-#include "chrome/browser/net/browser_url_util.h"
-#include "chrome/common/time_format.h"
+#include "chrome/common/net/url_util.h"
 #include "chrome/common/net/x509_certificate_model.h"
 #include "content/public/browser/browser_thread.h"
 #include "grit/generated_resources.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/base/text/bytes_formatting.h"
 
 using content::BrowserThread;
 
@@ -137,6 +134,38 @@ void ValidateUTF8(const std::string& str, std::string* output) {
   }
 }
 
+std::string ConnectionStateString(ConnectionState state) {
+  switch (state) {
+    case STATE_UNKNOWN:
+      return l10n_util::GetStringUTF8(IDS_CHROMEOS_NETWORK_STATE_UNKNOWN);
+    case STATE_IDLE:
+      return l10n_util::GetStringUTF8(IDS_CHROMEOS_NETWORK_STATE_IDLE);
+    case STATE_CARRIER:
+      return l10n_util::GetStringUTF8(IDS_CHROMEOS_NETWORK_STATE_CARRIER);
+    case STATE_ASSOCIATION:
+      return l10n_util::GetStringUTF8(IDS_CHROMEOS_NETWORK_STATE_ASSOCIATION);
+    case STATE_CONFIGURATION:
+      return l10n_util::GetStringUTF8(IDS_CHROMEOS_NETWORK_STATE_CONFIGURATION);
+    case STATE_READY:
+      return l10n_util::GetStringUTF8(IDS_CHROMEOS_NETWORK_STATE_READY);
+    case STATE_DISCONNECT:
+      return l10n_util::GetStringUTF8(IDS_CHROMEOS_NETWORK_STATE_DISCONNECT);
+    case STATE_FAILURE:
+      return l10n_util::GetStringUTF8(IDS_CHROMEOS_NETWORK_STATE_FAILURE);
+    case STATE_ACTIVATION_FAILURE:
+      return l10n_util::GetStringUTF8(
+          IDS_CHROMEOS_NETWORK_STATE_ACTIVATION_FAILURE);
+    case STATE_PORTAL:
+      return l10n_util::GetStringUTF8(IDS_CHROMEOS_NETWORK_STATE_PORTAL);
+    case STATE_ONLINE:
+      return l10n_util::GetStringUTF8(IDS_CHROMEOS_NETWORK_STATE_ONLINE);
+    case STATE_CONNECT_REQUESTED:
+      return l10n_util::GetStringUTF8(
+          IDS_CHROMEOS_NETWORK_STATE_CONNECT_REQUESTED);
+  }
+  return l10n_util::GetStringUTF8(IDS_CHROMEOS_NETWORK_STATE_UNRECOGNIZED);
+}
+
 }  // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -228,12 +257,12 @@ void Network::UpdatePropertyMap(PropertyIndex index, const base::Value* value) {
   Value*& entry = property_map_[index];
   delete entry;
   entry = value->DeepCopy();
-  if (VLOG_IS_ON(2)) {
+  if (VLOG_IS_ON(3)) {
     std::string value_json;
     base::JSONWriter::WriteWithOptions(value,
                                        base::JSONWriter::OPTIONS_PRETTY_PRINT,
                                        &value_json);
-    VLOG(2) << "Updated property map on network: "
+    VLOG(3) << "Updated property map on network: "
             << unique_id() << "[" << index << "] = " << value_json;
   }
 }
@@ -248,16 +277,26 @@ bool Network::GetProperty(PropertyIndex index,
   return true;
 }
 
+// static
+Network* Network::CreateForTesting(ConnectionType type) {
+  return new Network("fake_service_path", type);
+}
+
 void Network::SetState(ConnectionState new_state) {
   if (new_state == state_)
     return;
+  if (state_ == STATE_CONNECT_REQUESTED && new_state == STATE_IDLE) {
+    // CONNECT_REQUESTED is set internally. Shill/flimflam do not update the
+    // state immediately, so ignore any Idle state updates sent while a
+    // connection attempt is in progress.
+    return;
+  }
   ConnectionState old_state = state_;
   state_ = new_state;
   if (!IsConnectingState(new_state))
     set_connection_started(false);
   if (new_state == STATE_FAILURE) {
-    if (old_state != STATE_UNKNOWN &&
-        old_state != STATE_IDLE) {
+    if (old_state != STATE_UNKNOWN && old_state != STATE_IDLE) {
       // New failure, the user needs to be notified.
       // Transition STATE_IDLE -> STATE_FAILURE sometimes happens on resume
       // but is not an actual failure as network device is not ready yet.
@@ -267,12 +306,20 @@ void Network::SetState(ConnectionState new_state) {
       if (error_ == ERROR_NO_ERROR)
         error_ = ERROR_UNKNOWN;
     }
-  } else {
+  } else if (new_state != STATE_UNKNOWN) {
+    notify_failure_ = false;
     // State changed, so refresh IP address.
     // Note: blocking DBus call. TODO(stevenjb): refactor this.
     InitIPAddress();
   }
-  VLOG(1) << name() << ".State = " << GetStateString();
+  VLOG(1) << name() << ".State [" << service_path() << "]: " << GetStateString()
+          << " (was: " << ConnectionStateString(old_state) << ")";
+}
+
+void Network::SetError(ConnectionError error) {
+  error_ = error;
+  if (error == ERROR_NO_ERROR)
+    notify_failure_ = false;
 }
 
 void Network::SetName(const std::string& name) {
@@ -305,17 +352,14 @@ void Network::SetValueProperty(const char* prop, Value* value) {
   DCHECK(value);
   if (!EnsureCrosLoaded())
     return;
-  scoped_ptr<GValue> gvalue(
-      NetworkLibraryImplCros::ConvertValueToGValue(value));
-  CrosSetNetworkServicePropertyGValue(
-      service_path_.c_str(), prop, gvalue.get());
+  CrosSetNetworkServiceProperty(service_path_, prop, *value);
 }
 
 void Network::ClearProperty(const char* prop) {
   DCHECK(prop);
   if (!EnsureCrosLoaded())
     return;
-  CrosClearNetworkServiceProperty(service_path_.c_str(), prop);
+  CrosClearNetworkServiceProperty(service_path_, prop);
 }
 
 void Network::SetStringProperty(
@@ -352,11 +396,6 @@ void Network::SetIntegerProperty(const char* prop, int i, int* dest) {
   SetValueProperty(prop, value.get());
 }
 
-// Not inline so we can forward declare CertificatePattern.
-void Network::init_client_cert_pattern() {
-  client_cert_pattern_.reset(new CertificatePattern);
-}
-
 void Network::SetPreferred(bool preferred) {
   if (preferred) {
     SetIntegerProperty(
@@ -378,7 +417,7 @@ void Network::SetSaveCredentials(bool save_credentials) {
 }
 
 void Network::ClearUIData() {
-  ui_data_.Clear();
+  ui_data_ = NetworkUIData();
   ClearProperty(flimflam::kUIDataProperty);
 }
 
@@ -395,32 +434,7 @@ void Network::SetProfilePath(const std::string& profile_path) {
 }
 
 std::string Network::GetStateString() const {
-  switch (state_) {
-    case STATE_UNKNOWN:
-      return l10n_util::GetStringUTF8(IDS_CHROMEOS_NETWORK_STATE_UNKNOWN);
-    case STATE_IDLE:
-      return l10n_util::GetStringUTF8(IDS_CHROMEOS_NETWORK_STATE_IDLE);
-    case STATE_CARRIER:
-      return l10n_util::GetStringUTF8(IDS_CHROMEOS_NETWORK_STATE_CARRIER);
-    case STATE_ASSOCIATION:
-      return l10n_util::GetStringUTF8(IDS_CHROMEOS_NETWORK_STATE_ASSOCIATION);
-    case STATE_CONFIGURATION:
-      return l10n_util::GetStringUTF8(IDS_CHROMEOS_NETWORK_STATE_CONFIGURATION);
-    case STATE_READY:
-      return l10n_util::GetStringUTF8(IDS_CHROMEOS_NETWORK_STATE_READY);
-    case STATE_DISCONNECT:
-      return l10n_util::GetStringUTF8(IDS_CHROMEOS_NETWORK_STATE_DISCONNECT);
-    case STATE_FAILURE:
-      return l10n_util::GetStringUTF8(IDS_CHROMEOS_NETWORK_STATE_FAILURE);
-    case STATE_ACTIVATION_FAILURE:
-      return l10n_util::GetStringUTF8(
-          IDS_CHROMEOS_NETWORK_STATE_ACTIVATION_FAILURE);
-    case STATE_PORTAL:
-      return l10n_util::GetStringUTF8(IDS_CHROMEOS_NETWORK_STATE_PORTAL);
-    case STATE_ONLINE:
-      return l10n_util::GetStringUTF8(IDS_CHROMEOS_NETWORK_STATE_ONLINE);
-  }
-  return l10n_util::GetStringUTF8(IDS_CHROMEOS_NETWORK_STATE_UNRECOGNIZED);
+  return ConnectionStateString(state_);
 }
 
 std::string Network::GetErrorString() const {
@@ -488,16 +502,15 @@ void Network::InitIPAddress() {
     return;
   // If connected, get ip config.
   if (connected() && !device_path_.empty()) {
-    IPConfigStatus* ipconfig_status = CrosListIPConfigs(device_path_.c_str());
-    if (ipconfig_status) {
-      for (int i = 0; i < ipconfig_status->size; ++i) {
-        IPConfig ipconfig = ipconfig_status->ips[i];
-        if (strlen(ipconfig.address) > 0) {
+    NetworkIPConfigVector ipconfigs;
+    if (CrosListIPConfigs(device_path_, &ipconfigs, NULL, NULL)) {
+      for (size_t i = 0; i < ipconfigs.size(); ++i) {
+        const NetworkIPConfig& ipconfig = ipconfigs[i];
+        if (ipconfig.address.size() > 0) {
           ip_address_ = ipconfig.address;
           break;
         }
       }
-      CrosFreeIPConfigStatus(ipconfig_status);
     }
   }
 }
@@ -526,8 +539,7 @@ VirtualNetwork::VirtualNetwork(const std::string& service_path)
       // Assume PSK and user passphrase are not available initially
       psk_passphrase_required_(true),
       user_passphrase_required_(true),
-      client_cert_type_(CLIENT_CERT_TYPE_NONE) {
-  init_client_cert_pattern();
+      ALLOW_THIS_IN_INITIALIZER_LIST(weak_pointer_factory_(this)) {
 }
 
 VirtualNetwork::~VirtualNetwork() {}
@@ -548,12 +560,16 @@ bool VirtualNetwork::RequiresUserProfile() const {
   return true;
 }
 
-void VirtualNetwork::AttemptConnection(const base::Closure& closure) {
-  MatchCertificatePattern(closure);
+void VirtualNetwork::AttemptConnection(const base::Closure& connect) {
+  if (client_cert_type() == CLIENT_CERT_TYPE_PATTERN) {
+    MatchCertificatePattern(true, connect);
+  } else {
+    connect.Run();
+  }
 }
 
 void VirtualNetwork::CopyCredentialsFromRemembered(Network* remembered) {
-  DCHECK_EQ(remembered->type(), TYPE_VPN);
+  CHECK_EQ(remembered->type(), TYPE_VPN);
   VirtualNetwork* remembered_vpn = static_cast<VirtualNetwork*>(remembered);
   VLOG(1) << "Copy VPN credentials: " << name()
           << " username: " << remembered_vpn->username();
@@ -581,7 +597,8 @@ bool VirtualNetwork::NeedMoreInfoToConnect() const {
         return true;
       break;
     case PROVIDER_TYPE_L2TP_IPSEC_USER_CERT:
-      if (client_cert_id_.empty())
+      if (client_cert_id_.empty() &&
+          client_cert_type() != CLIENT_CERT_TYPE_PATTERN)
         return true;
       break;
     case PROVIDER_TYPE_OPEN_VPN:
@@ -701,16 +718,17 @@ void VirtualNetwork::SetCertificateSlotAndPin(
   }
 }
 
-void VirtualNetwork::MatchCertificatePattern(const base::Closure& closure) {
-  DCHECK(client_cert_type_ == CLIENT_CERT_TYPE_PATTERN);
-  DCHECK(!client_cert_pattern()->Empty());
-  if (client_cert_pattern()->Empty()) {
-    closure.Run();
+void VirtualNetwork::MatchCertificatePattern(bool allow_enroll,
+                                             const base::Closure& connect) {
+  DCHECK(client_cert_type() == CLIENT_CERT_TYPE_PATTERN);
+  DCHECK(!client_cert_pattern().Empty());
+  if (client_cert_pattern().Empty()) {
+    connect.Run();
     return;
   }
 
   scoped_refptr<net::X509Certificate> matching_cert =
-      client_cert_pattern()->GetMatch();
+      client_cert_pattern().GetMatch();
   if (matching_cert.get()) {
     std::string client_cert_id =
         x509_certificate_model::GetPkcs11Id(matching_cert->os_cert_handle());
@@ -722,158 +740,27 @@ void VirtualNetwork::MatchCertificatePattern(const base::Closure& closure) {
                         client_cert_id, &client_cert_id_);
     }
   } else {
-    if (enrollment_handler()) {
-      enrollment_handler()->Enroll(client_cert_pattern()->enrollment_uri_list(),
-                                   closure);
-      // Enrollment handler will take care of running the closure at the
+    if (allow_enroll && enrollment_delegate()) {
+      // Wrap the closure in another callback so that we can retry the
+      // certificate match again before actually connecting.
+      base::Closure wrapped_connect =
+          base::Bind(&VirtualNetwork::MatchCertificatePattern,
+                     weak_pointer_factory_.GetWeakPtr(),
+                     false,
+                     connect);
+
+     enrollment_delegate()->Enroll(client_cert_pattern().enrollment_uri_list(),
+                                   wrapped_connect);
+      // Enrollment delegate will take care of running the closure at the
       // appropriate time, if the user doesn't cancel.
       return;
     }
   }
-  closure.Run();
+  connect.Run();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // WirelessNetwork
-
-////////////////////////////////////////////////////////////////////////////////
-// CellularDataPlan
-
-CellularDataPlan::CellularDataPlan()
-    : plan_name("Unknown"),
-      plan_type(CELLULAR_DATA_PLAN_UNLIMITED),
-      plan_data_bytes(0),
-      data_bytes_used(0) {
-}
-
-CellularDataPlan::CellularDataPlan(const CellularDataPlanInfo &plan)
-    : plan_name(plan.plan_name ? plan.plan_name : ""),
-      plan_type(plan.plan_type),
-      update_time(base::Time::FromInternalValue(plan.update_time)),
-      plan_start_time(base::Time::FromInternalValue(plan.plan_start_time)),
-      plan_end_time(base::Time::FromInternalValue(plan.plan_end_time)),
-      plan_data_bytes(plan.plan_data_bytes),
-      data_bytes_used(plan.data_bytes_used) {
-}
-
-CellularDataPlan::~CellularDataPlan() {}
-
-string16 CellularDataPlan::GetPlanDesciption() const {
-  switch (plan_type) {
-    case chromeos::CELLULAR_DATA_PLAN_UNLIMITED: {
-      return l10n_util::GetStringFUTF16(
-          IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_PURCHASE_UNLIMITED_DATA,
-          base::TimeFormatFriendlyDate(plan_start_time));
-      break;
-    }
-    case chromeos::CELLULAR_DATA_PLAN_METERED_PAID: {
-      return l10n_util::GetStringFUTF16(
-                IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_PURCHASE_DATA,
-                ui::FormatBytes(plan_data_bytes),
-                base::TimeFormatFriendlyDate(plan_start_time));
-    }
-    case chromeos::CELLULAR_DATA_PLAN_METERED_BASE: {
-      return l10n_util::GetStringFUTF16(
-                IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_RECEIVED_FREE_DATA,
-                ui::FormatBytes(plan_data_bytes),
-                base::TimeFormatFriendlyDate(plan_start_time));
-    default:
-      break;
-    }
-  }
-  return string16();
-}
-
-string16 CellularDataPlan::GetRemainingWarning() const {
-  if (plan_type == chromeos::CELLULAR_DATA_PLAN_UNLIMITED) {
-    // Time based plan. Show nearing expiration and data expiration.
-    if (remaining_time().InSeconds() <= chromeos::kCellularDataVeryLowSecs) {
-      return GetPlanExpiration();
-    }
-  } else if (plan_type == chromeos::CELLULAR_DATA_PLAN_METERED_PAID ||
-             plan_type == chromeos::CELLULAR_DATA_PLAN_METERED_BASE) {
-    // Metered plan. Show low data and out of data.
-    if (remaining_data() <= chromeos::kCellularDataVeryLowBytes) {
-      int64 remaining_mbytes = remaining_data() / (1024 * 1024);
-      return l10n_util::GetStringFUTF16(
-          IDS_NETWORK_DATA_REMAINING_MESSAGE,
-          UTF8ToUTF16(base::Int64ToString(remaining_mbytes)));
-    }
-  }
-  return string16();
-}
-
-string16 CellularDataPlan::GetDataRemainingDesciption() const {
-  int64 remaining_bytes = remaining_data();
-  switch (plan_type) {
-    case chromeos::CELLULAR_DATA_PLAN_UNLIMITED: {
-      return l10n_util::GetStringUTF16(
-          IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_UNLIMITED);
-    }
-    case chromeos::CELLULAR_DATA_PLAN_METERED_PAID: {
-      return ui::FormatBytes(remaining_bytes);
-    }
-    case chromeos::CELLULAR_DATA_PLAN_METERED_BASE: {
-      return ui::FormatBytes(remaining_bytes);
-    }
-    default:
-      break;
-  }
-  return string16();
-}
-
-string16 CellularDataPlan::GetUsageInfo() const {
-  if (plan_type == chromeos::CELLULAR_DATA_PLAN_UNLIMITED) {
-    // Time based plan. Show nearing expiration and data expiration.
-    return GetPlanExpiration();
-  } else if (plan_type == chromeos::CELLULAR_DATA_PLAN_METERED_PAID ||
-             plan_type == chromeos::CELLULAR_DATA_PLAN_METERED_BASE) {
-    // Metered plan. Show low data and out of data.
-    int64 remaining_bytes = remaining_data();
-    if (remaining_bytes == 0) {
-      return l10n_util::GetStringUTF16(
-          IDS_NETWORK_DATA_NONE_AVAILABLE_MESSAGE);
-    } else if (remaining_bytes < 1024 * 1024) {
-      return l10n_util::GetStringUTF16(
-          IDS_NETWORK_DATA_LESS_THAN_ONE_MB_AVAILABLE_MESSAGE);
-    } else {
-      int64 remaining_mb = remaining_bytes / (1024 * 1024);
-      return l10n_util::GetStringFUTF16(
-          IDS_NETWORK_DATA_MB_AVAILABLE_MESSAGE,
-          UTF8ToUTF16(base::Int64ToString(remaining_mb)));
-    }
-  }
-  return string16();
-}
-
-std::string CellularDataPlan::GetUniqueIdentifier() const {
-  // A cellular plan is uniquely described by the union of name, type,
-  // start time, end time, and max bytes.
-  // So we just return a union of all these variables.
-  return plan_name + "|" +
-      base::Int64ToString(plan_type) + "|" +
-      base::Int64ToString(plan_start_time.ToInternalValue()) + "|" +
-      base::Int64ToString(plan_end_time.ToInternalValue()) + "|" +
-      base::Int64ToString(plan_data_bytes);
-}
-
-base::TimeDelta CellularDataPlan::remaining_time() const {
-  base::TimeDelta time = plan_end_time - base::Time::Now();
-  return time.InMicroseconds() < 0 ? base::TimeDelta() : time;
-}
-
-int64 CellularDataPlan::remaining_minutes() const {
-  return remaining_time().InMinutes();
-}
-
-int64 CellularDataPlan::remaining_data() const {
-  int64 data = plan_data_bytes - data_bytes_used;
-  return data < 0 ? 0 : data;
-}
-
-string16 CellularDataPlan::GetPlanExpiration() const {
-  return TimeFormat::TimeRemaining(remaining_time());
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 // CellTower
@@ -884,68 +771,6 @@ CellTower::CellTower() {}
 // WifiAccessPoint
 
 WifiAccessPoint::WifiAccessPoint() {}
-
-////////////////////////////////////////////////////////////////////////////////
-// NetworkIPConfig
-
-NetworkIPConfig::NetworkIPConfig(
-    const std::string& device_path, IPConfigType type,
-    const std::string& address, const std::string& netmask,
-    const std::string& gateway, const std::string& name_servers)
-    : device_path(device_path),
-      type(type),
-      address(address),
-      netmask(netmask),
-      gateway(gateway),
-      name_servers(name_servers) {
-}
-
-NetworkIPConfig::~NetworkIPConfig() {}
-
-int32 NetworkIPConfig::GetPrefixLength() const {
-  int count = 0;
-  int prefixlen = 0;
-  StringTokenizer t(netmask, ".");
-  while (t.GetNext()) {
-    // If there are more than 4 numbers, then it's invalid.
-    if (count == 4) {
-      return -1;
-    }
-    std::string token = t.token();
-    // If we already found the last mask and the current one is not
-    // "0" then the netmask is invalid. For example, 255.224.255.0
-    if (prefixlen / 8 != count) {
-      if (token != "0") {
-        return -1;
-      }
-    } else if (token == "255") {
-      prefixlen += 8;
-    } else if (token == "254") {
-      prefixlen += 7;
-    } else if (token == "252") {
-      prefixlen += 6;
-    } else if (token == "248") {
-      prefixlen += 5;
-    } else if (token == "240") {
-      prefixlen += 4;
-    } else if (token == "224") {
-      prefixlen += 3;
-    } else if (token == "192") {
-      prefixlen += 2;
-    } else if (token == "128") {
-      prefixlen += 1;
-    } else if (token == "0") {
-      prefixlen += 0;
-    } else {
-      // mask is not a valid number.
-      return -1;
-    }
-    count++;
-  }
-  if (count < 4)
-    return -1;
-  return prefixlen;
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 // CellularApn
@@ -1001,7 +826,7 @@ CellularNetwork::~CellularNetwork() {
 bool CellularNetwork::StartActivation() {
   if (!EnsureCrosLoaded())
     return false;
-  if (!CrosActivateCellularModem(service_path().c_str(), NULL))
+  if (!CrosActivateCellularModem(service_path(), ""))
     return false;
   // Don't wait for flimflam to tell us that we are really activating since
   // other notifications in the message loop might cause us to think that
@@ -1014,7 +839,7 @@ void CellularNetwork::RefreshDataPlansIfNeeded() const {
   if (!EnsureCrosLoaded())
     return;
   if (connected() && activated())
-    CrosRequestCellularDataPlanUpdate(service_path().c_str());
+    CrosRequestCellularDataPlanUpdate(service_path());
 }
 
 void CellularNetwork::SetApn(const CellularApn& apn) {
@@ -1052,10 +877,10 @@ GURL CellularNetwork::GetAccountInfoUrl() const {
     return GURL(payment_url());
 
   GURL base_url(kRedirectExtensionPage);
-  GURL temp_url = chrome_browser_net::AppendQueryParameter(base_url,
+  GURL temp_url = chrome_common_net::AppendQueryParameter(base_url,
                                                            "post_data",
                                                            post_data_);
-  GURL redir_url = chrome_browser_net::AppendQueryParameter(temp_url,
+  GURL redir_url = chrome_common_net::AppendQueryParameter(temp_url,
                                                             "formUrl",
                                                             payment_url());
   return redir_url;
@@ -1155,10 +980,13 @@ WifiNetwork::WifiNetwork(const std::string& service_path)
     : WirelessNetwork(service_path, TYPE_WIFI),
       encryption_(SECURITY_NONE),
       passphrase_required_(false),
+      hidden_ssid_(false),
+      frequency_(0),
       eap_method_(EAP_METHOD_UNKNOWN),
       eap_phase_2_auth_(EAP_PHASE_2_AUTH_AUTO),
-      eap_use_system_cas_(true) {
-  init_client_cert_pattern();
+      eap_use_system_cas_(true),
+      eap_save_credentials_(false),
+      ALLOW_THIS_IN_INITIALIZER_LIST(weak_pointer_factory_(this)) {
 }
 
 WifiNetwork::~WifiNetwork() {}
@@ -1239,6 +1067,10 @@ void WifiNetwork::EraseCredentials() {
 
 void WifiNetwork::SetIdentity(const std::string& identity) {
   SetStringProperty(flimflam::kIdentityProperty, identity, &identity_);
+}
+
+void WifiNetwork::SetHiddenSSID(bool hidden_ssid) {
+  SetBooleanProperty(flimflam::kWifiHiddenSsid, hidden_ssid, &hidden_ssid_);
 }
 
 void WifiNetwork::SetEAPMethod(EAPMethod method) {
@@ -1379,9 +1211,14 @@ bool WifiNetwork::IsPassphraseRequired() const {
   // (http://crosbug.com/10135).
   if (error() == ERROR_BAD_PASSPHRASE || error() == ERROR_BAD_WEPKEY)
     return true;
-  // For 802.1x networks, configuration is required if connectable is false.
-  if (encryption_ == SECURITY_8021X)
-    return !connectable();
+  // For 802.1x networks, configuration is required if connectable is false
+  // unless we're using a certificate pattern.
+  if (encryption_ == SECURITY_8021X) {
+    if (eap_method_ != EAP_METHOD_TLS ||
+        client_cert_type() != CLIENT_CERT_TYPE_PATTERN)
+      return !connectable();
+    return false;
+  }
   return passphrase_required_;
 }
 
@@ -1394,43 +1231,87 @@ bool WifiNetwork::RequiresUserProfile() const {
     return false;
 
   if (eap_client_cert_pkcs11_id().empty() &&
-      eap_client_cert_type_ != CLIENT_CERT_TYPE_PATTERN)
+      client_cert_type() != CLIENT_CERT_TYPE_PATTERN)
         return false;
 
   return true;
 }
 
-void WifiNetwork::AttemptConnection(const base::Closure& closure) {
-  MatchCertificatePattern(closure);
+void WifiNetwork::AttemptConnection(const base::Closure& connect) {
+  if (client_cert_type() == CLIENT_CERT_TYPE_PATTERN) {
+    MatchCertificatePattern(true, connect);
+  } else {
+    connect.Run();
+  }
 }
 
 void WifiNetwork::SetCertificatePin(const std::string& pin) {
   SetOrClearStringProperty(flimflam::kEapPinProperty, pin, NULL);
 }
 
-void WifiNetwork::MatchCertificatePattern(const base::Closure& closure) {
-  DCHECK(eap_client_cert_type_ == CLIENT_CERT_TYPE_PATTERN);
-  DCHECK(!client_cert_pattern()->Empty());
-  if (client_cert_pattern()->Empty()) {
-    closure.Run();
+void WifiNetwork::MatchCertificatePattern(bool allow_enroll,
+                                          const base::Closure& connect) {
+  DCHECK(client_cert_type() == CLIENT_CERT_TYPE_PATTERN);
+  DCHECK(!client_cert_pattern().Empty());
+  if (client_cert_pattern().Empty()) {
+    connect.Run();
     return;
   }
 
   scoped_refptr<net::X509Certificate> matching_cert =
-      client_cert_pattern()->GetMatch();
+      client_cert_pattern().GetMatch();
   if (matching_cert.get()) {
     SetEAPClientCertPkcs11Id(
         x509_certificate_model::GetPkcs11Id(matching_cert->os_cert_handle()));
   } else {
-    if (enrollment_handler()) {
-      enrollment_handler()->Enroll(client_cert_pattern()->enrollment_uri_list(),
-                                   closure);
-      // Enrollment handler will take care of running the closure at the
+    if (allow_enroll && enrollment_delegate()) {
+      // Wrap the closure in another callback so that we can retry the
+      // certificate match again before actually connecting.
+      base::Closure wrapped_connect =
+          base::Bind(&WifiNetwork::MatchCertificatePattern,
+                     weak_pointer_factory_.GetWeakPtr(),
+                     false,
+                     connect);
+
+      enrollment_delegate()->Enroll(client_cert_pattern().enrollment_uri_list(),
+                                    wrapped_connect);
+      // Enrollment delegate should take care of running the closure at the
       // appropriate time, if the user doesn't cancel.
       return;
     }
   }
-  closure.Run();
+  connect.Run();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// WimaxNetwork
+
+WimaxNetwork::WimaxNetwork(const std::string& service_path)
+    : WirelessNetwork(service_path, TYPE_WIMAX),
+      passphrase_required_(false),
+      ALLOW_THIS_IN_INITIALIZER_LIST(weak_pointer_factory_(this)) {
+}
+
+WimaxNetwork::~WimaxNetwork() {
+}
+
+void WimaxNetwork::EraseCredentials() {
+  WipeString(&eap_passphrase_);
+  WipeString(&eap_identity_);
+}
+
+void WimaxNetwork::SetEAPPassphrase(const std::string& passphrase) {
+  SetOrClearStringProperty(
+      flimflam::kEapPasswordProperty, passphrase, &eap_passphrase_);
+}
+
+void WimaxNetwork::SetEAPIdentity(const std::string& identity) {
+  SetOrClearStringProperty(
+      flimflam::kEapIdentityProperty, identity, &eap_identity_);
+}
+
+void WimaxNetwork::CalculateUniqueId() {
+  set_unique_id(name() + "|" + eap_identity());
 }
 
 // static

@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,6 +6,7 @@
 #define WEBFILEUTILITIES_IMPL_H_
 
 #include "base/platform_file.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFileInfo.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebFileUtilities.h"
 #include "webkit/glue/webkit_glue_export.h"
 
@@ -18,14 +19,12 @@ class WEBKIT_GLUE_EXPORT WebFileUtilitiesImpl :
   virtual ~WebFileUtilitiesImpl();
 
   // WebFileUtilities methods:
-  virtual void revealFolderInOS(const WebKit::WebString& path);
   virtual bool fileExists(const WebKit::WebString& path);
   virtual bool deleteFile(const WebKit::WebString& path);
   virtual bool deleteEmptyDirectory(const WebKit::WebString& path);
-  virtual bool getFileSize(const WebKit::WebString& path, long long& result);
-  virtual bool getFileModificationTime(
+  virtual bool getFileInfo(
       const WebKit::WebString& path,
-      double& result);
+      WebKit::WebFileInfo& result);
   virtual WebKit::WebString directoryName(const WebKit::WebString& path);
   virtual WebKit::WebString pathByAppendingComponent(
       const WebKit::WebString& path, const WebKit::WebString& component);

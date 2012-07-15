@@ -1,0 +1,201 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+[
+  {
+    "namespace": "declarativeWebRequest",
+    "documentation_permissions_required": ["declarative", "declarativeWebRequest"],
+    "types": [
+      {
+        "id": "RequestMatcher",
+        "type": "object",
+        "description": "Matches network events by various criteria.",
+        "properties": {
+          "url": {
+            "$ref": "events.UrlFilter",
+            "description": "Matches if the condition of the UrlFilter are fulfilled for the URL of the request.",
+            "optional": true
+          },
+          "resourceType": {
+            "type": "array",
+            "optional": true,
+            "description": "Matches if the request type of a request is contained in the list. Requests that cannot match any of the types will be filtered out.",
+            "items": { "type": "string", "enum": ["main_frame", "sub_frame", "stylesheet", "script", "image", "object", "xmlhttprequest", "other"] }
+          },
+          "instanceType": { "type": "string", "enum": ["declarativeWebRequest.RequestMatcher"] }
+        }
+      },
+      {
+        "id": "CancelRequest",
+        "description": "Declarative event action that cancels a network request.",
+        "type": "object",
+        "properties": {
+          "instanceType": { "type": "string", "enum": ["declarativeWebRequest.CancelRequest"] }
+        }
+      },
+      {
+        "id": "RedirectRequest",
+        "description": "Declarative event action that redirects a network request.",
+        "type": "object",
+        "properties": {
+          "instanceType": { "type": "string", "enum": ["declarativeWebRequest.RedirectRequest"] },
+          "redirectUrl": { "type": "string", "description": "Destination to where the request is redirected."}
+        }
+      },
+      {
+        "id": "declarativeWebRequest.RedirectToTransparentImage",
+        "description": "Declarative event action that redirects a network request to a transparent image.",
+        "type": "object",
+        "properties": {
+          "instanceType": {
+            "type": "string", "enum": ["declarativeWebRequest.RedirectToTransparentImage"],
+            "nodoc": true
+          }
+        }
+      },
+      {
+        "id": "declarativeWebRequest.RedirectToEmptyDocument",
+        "description": "Declarative event action that redirects a network request to an empty document.",
+        "type": "object",
+        "properties": {
+          "instanceType": {
+            "type": "string", "enum": ["declarativeWebRequest.RedirectToEmptyDocument"],
+            "nodoc": true
+          }
+        }
+      },
+      {
+        "id": "declarativeWebRequest.RedirectByRegEx",
+        "description": "Redirects a request by applying a regular expression on the URL. The regular expressions use the <a href=\"http://code.google.com/p/re2/wiki/Syntax\">RE2 syntax</a>.",
+        "type": "object",
+        "properties": {
+          "instanceType": {
+            "type": "string", "enum": ["declarativeWebRequest.RedirectByRegEx"],
+            "nodoc": true
+          },
+          "from": {
+            "type": "string",
+            "description": "A match pattern that may contain capture groups. Capture groups are referenced in the Perl syntax ($1, $2, ...) instead of the RE2 syntax (\\1, \\2, ...) in order to be closer to JavaScript Regular Expressions."
+          },
+          "to": {
+            "type": "string",
+            "description": "Destination pattern."
+          }
+        }
+      },
+      {
+        "id": "declarativeWebRequest.SetRequestHeader",
+        "description": "Sets the request header of the specified name to the specified value. If a header with the specified name did not exist before, a new one is created. Header name comparison is always case-insensitive. Each request header name occurs only once in each request.",
+        "type": "object",
+        "properties": {
+          "instanceType": {
+            "type": "string", "enum": ["declarativeWebRequest.SetRequestHeader"],
+            "nodoc": true
+          },
+          "name": {
+            "type": "string",
+            "description": "HTTP request header name."
+          },
+          "value": {
+            "type": "string",
+            "description": "HTTP request header value."
+          }
+        }
+      },
+      {
+        "id": "declarativeWebRequest.RemoveRequestHeader",
+        "description": "Removes the request header of the specified name. Do not use SetRequestHeader and RemoveRequestHeader with the same header name on the same request. Each request header name occurs only once in each request.",
+        "type": "object",
+        "properties": {
+          "instanceType": {
+            "type": "string", "enum": ["declarativeWebRequest.RemoveRequestHeader"],
+            "nodoc": true
+          },
+          "name": {
+            "type": "string",
+            "description": "HTTP request header name (case-insensitive)."
+          }
+        }
+      },
+      {
+        "id": "declarativeWebRequest.AddResponseHeader",
+        "description": "Adds the response header to the response of this web request. As multiple response headers may share the same name, you need to first remove and then add a new response header in order to replace one.",
+        "type": "object",
+        "properties": {
+          "instanceType": {
+            "type": "string", "enum": ["declarativeWebRequest.AddResponseHeader"],
+            "nodoc": true
+          },
+          "name": {
+            "type": "string",
+            "description": "HTTP response header name."
+          },
+          "value": {
+            "type": "string",
+            "description": "HTTP response header value."
+          }
+        }
+      },
+      {
+        "id": "declarativeWebRequest.RemoveResponseHeader",
+        "description": "Removes all response headers of the specified names and values.",
+        "type": "object",
+        "properties": {
+          "instanceType": {
+            "type": "string", "enum": ["declarativeWebRequest.RemoveResponseHeader"],
+            "nodoc": true
+          },
+          "name": {
+            "type": "string",
+            "description": "HTTP request header name (case-insensitive)."
+          },
+          "value": {
+            "type": "string",
+            "description": "HTTP request header value (case-insensitive).",
+            "optional": true
+          }
+        }
+      },
+      {
+        "id": "declarativeWebRequest.IgnoreRules",
+        "description": "Masks all rules that match the specified criteria.",
+        "type": "object",
+        "properties": {
+          "instanceType": {
+            "type": "string", "enum": ["declarativeWebRequest.IgnoreRules"],
+            "nodoc": true
+          },
+          "lowerPriorityThan": {
+            "type": "integer",
+            "description": "If set, rules with a lower priority than the specified value are ignored. This boundary is not persited, it affects only rules and their actions of the same network request stage. TODO(battre): Explain network request stages."
+          }
+        }
+      }
+    ],
+    "functions": [
+    ],
+    "events": [
+      {
+        "name": "onRequest",
+        "options": {
+          "supportsListeners": false,
+          "supportsRules": true,
+          "conditions": ["declarativeWebRequest.RequestMatcher"],
+          "actions": [
+            "declarativeWebRequest.AddResponseHeader",
+            "declarativeWebRequest.CancelRequest",
+            "declarativeWebRequest.RedirectRequest",
+            "declarativeWebRequest.RedirectToTransparentImage",
+            "declarativeWebRequest.RedirectToEmptyDocument",
+            "declarativeWebRequest.RedirectByRegEx",
+            "declarativeWebRequest.SetRequestHeader",
+            "declarativeWebRequest.RemoveRequestHeader",
+            "declarativeWebRequest.RemoveResponseHeader",
+            "declarativeWebRequest.IgnoreRules"
+          ]
+        }
+      }
+    ]
+  }
+]

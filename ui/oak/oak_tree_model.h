@@ -4,10 +4,8 @@
 
 #ifndef UI_OAK_OAK_TREE_MODEL_H_
 #define UI_OAK_OAK_TREE_MODEL_H_
-#pragma once
 
 #include "base/compiler_specific.h"
-#include "base/memory/scoped_ptr.h"
 #include "ui/base/models/tree_node_model.h"
 
 namespace aura {

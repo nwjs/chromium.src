@@ -50,6 +50,10 @@ function isInstanceOfClass(instance, className) {
   return isInstanceOfClass(Object.getPrototypeOf(instance), className);
 }
 
+function isOptionalValue(value) {
+  return typeof(value) === 'undefined' || value === null;
+}
+
 /**
  * Validates an instance against a schema and accumulates errors. Usage:
  *
@@ -120,6 +124,9 @@ chromeHidden.JSONSchemaValidator.getType = function(value) {
       return "null";
     } else if (Object.prototype.toString.call(value) == "[object Array]") {
       return "array";
+    } else if (typeof(ArrayBuffer) != "undefined" &&
+               value.constructor == ArrayBuffer) {
+      return "binary";
     }
   } else if (s == "number") {
     if (value % 1 == 0) {
@@ -137,8 +144,8 @@ chromeHidden.JSONSchemaValidator.getType = function(value) {
  */
 chromeHidden.JSONSchemaValidator.prototype.addTypes = function(typeOrTypeList) {
   function addType(validator, type) {
-    if(!type.id)
-      throw "Attempt to addType with missing 'id' property";
+    if (!type.id)
+      throw new Error("Attempt to addType with missing 'id' property");
     validator.types[type.id] = type;
   }
 
@@ -177,6 +184,10 @@ chromeHidden.JSONSchemaValidator.prototype.getAllTypesForSchema =
  */
 chromeHidden.JSONSchemaValidator.prototype.isValidSchemaType =
     function(type, schema) {
+  if (type == 'any')
+    return true;
+
+  // TODO(kalman): I don't understand this code. How can type be "null"?
   if (schema.optional && (type == "null" || type == "undefined"))
     return true;
 
@@ -185,7 +196,8 @@ chromeHidden.JSONSchemaValidator.prototype.isValidSchemaType =
     if (schemaTypes[i] == "any" || type == schemaTypes[i])
       return true;
   }
-  return type == "any";
+
+  return false;
 };
 
 /**
@@ -328,7 +340,7 @@ chromeHidden.JSONSchemaValidator.prototype.validateObject =
       var propPath = path ? path + "." + prop : prop;
       if (schema.properties[prop] == undefined) {
         this.addError(propPath, "invalidPropertyType");
-      } else if (prop in instance && instance[prop] !== undefined) {
+      } else if (prop in instance && !isOptionalValue(instance[prop])) {
         this.validate(instance[prop], schema.properties[prop], propPath);
       } else if (!schema.properties[prop].optional) {
         this.addError(propPath, "propertyRequired");
@@ -397,7 +409,7 @@ chromeHidden.JSONSchemaValidator.prototype.validateArray =
     // validate against the corresponding schema.
     for (var i = 0; i < schema.items.length; i++) {
       var itemPath = path ? path + "." + i : String(i);
-      if (i in instance && instance[i] !== null && instance[i] !== undefined) {
+      if (i in instance && !isOptionalValue(instance[i])) {
         this.validate(instance[i], schema.items[i], itemPath);
       } else if (!schema.items[i].optional) {
         this.addError(itemPath, "itemRequired");

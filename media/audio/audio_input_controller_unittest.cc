@@ -25,10 +25,13 @@ static const int kChannels = 2;
 static const ChannelLayout kChannelLayout = CHANNEL_LAYOUT_STEREO;
 static const int kSamplesPerPacket = kSampleRate / 10;
 
+// Posts MessageLoop::QuitClosure() on specified message loop.
 ACTION_P(QuitMessageLoop, loop_or_proxy) {
   loop_or_proxy->PostTask(FROM_HERE, MessageLoop::QuitClosure());
 }
 
+// Posts MessageLoop::QuitClosure() on specified message loop after a certain
+// number of calls given by |limit|.
 ACTION_P3(CheckCountAndPostQuitTask, count, limit, loop_or_proxy) {
   if (++*count >= limit) {
     loop_or_proxy->PostTask(FROM_HERE, MessageLoop::QuitClosure());
@@ -63,7 +66,7 @@ class AudioInputControllerTest : public testing::Test {
   virtual ~AudioInputControllerTest() {}
 
  protected:
-  MessageLoopForIO message_loop_;
+  MessageLoop message_loop_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(AudioInputControllerTest);
@@ -75,7 +78,7 @@ TEST_F(AudioInputControllerTest, CreateAndClose) {
 
   // OnCreated() will be posted once.
   EXPECT_CALL(event_handler, OnCreated(NotNull()))
-      .WillOnce(QuitMessageLoop(message_loop_.message_loop_proxy()));
+      .WillOnce(QuitMessageLoop(&message_loop_));
 
   scoped_ptr<AudioManager> audio_manager(AudioManager::Create());
   AudioParameters params(AudioParameters::AUDIO_MOCK, kChannelLayout,
@@ -83,6 +86,9 @@ TEST_F(AudioInputControllerTest, CreateAndClose) {
   scoped_refptr<AudioInputController> controller =
       AudioInputController::Create(audio_manager.get(), &event_handler, params);
   ASSERT_TRUE(controller.get());
+
+  // Wait for OnCreated() to fire.
+  message_loop_.Run();
 
   // Close the AudioInputController synchronously.
   CloseAudioController(controller);
@@ -151,7 +157,7 @@ TEST_F(AudioInputControllerTest, RecordAndError) {
   // controller is in a recording state.
   EXPECT_CALL(event_handler, OnError(NotNull(), 0))
       .Times(Exactly(1))
-      .WillOnce(QuitMessageLoop(message_loop_.message_loop_proxy()));
+      .WillOnce(QuitMessageLoop(&message_loop_));
 
   scoped_ptr<AudioManager> audio_manager(AudioManager::Create());
   AudioParameters params(AudioParameters::AUDIO_MOCK, kChannelLayout,

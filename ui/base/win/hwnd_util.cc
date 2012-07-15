@@ -6,6 +6,7 @@
 
 #include "base/i18n/rtl.h"
 #include "base/string_util.h"
+#include "base/win/metro.h"
 #include "ui/gfx/rect.h"
 #include "ui/gfx/size.h"
 
@@ -13,7 +14,7 @@ namespace ui {
 
 namespace {
 
-// Adjust the window to fit, returning true if the window was resized or moved.
+// Adjust the window to fit.
 void AdjustWindowToFit(HWND hwnd, const RECT& bounds, bool fit_to_monitor) {
   if (fit_to_monitor) {
     // Get the monitor.
@@ -134,11 +135,19 @@ void CenterAndSizeWindow(HWND parent,
       NOTREACHED() << "Unable to get default monitor";
     }
   }
-  window_bounds.left = center_bounds.left +
-      (center_bounds.right - center_bounds.left - pref.width()) / 2;
+
+  window_bounds.left = center_bounds.left;
+  if (pref.width() < (center_bounds.right - center_bounds.left)) {
+    window_bounds.left +=
+        (center_bounds.right - center_bounds.left - pref.width()) / 2;
+  }
   window_bounds.right = window_bounds.left + pref.width();
-  window_bounds.top = center_bounds.top +
-      (center_bounds.bottom - center_bounds.top - pref.height()) / 2;
+
+  window_bounds.top = center_bounds.top;
+  if (pref.height() < (center_bounds.bottom - center_bounds.top)) {
+    window_bounds.top +=
+        (center_bounds.bottom - center_bounds.top - pref.height()) / 2;
+  }
   window_bounds.bottom = window_bounds.top + pref.height();
 
   // If we're centering a child window, we are positioning in client
@@ -171,6 +180,20 @@ void ShowSystemMenu(HWND window, int screen_x, int screen_y) {
                                window, NULL);
   if (command)
     SendMessage(window, WM_SYSCOMMAND, command, 0);
+}
+
+extern "C" {
+  typedef HWND (*RootWindow)();
+}
+
+HWND GetWindowToParentTo(bool get_real_hwnd) {
+  HMODULE metro = base::win::GetMetroModule();
+  if (!metro)
+    return get_real_hwnd ? ::GetDesktopWindow() : HWND_DESKTOP;
+  // In windows 8 metro-mode the root window is not the desktop.
+  RootWindow root_window =
+      reinterpret_cast<RootWindow>(::GetProcAddress(metro, "GetRootWindow"));
+  return root_window();
 }
 
 }  // namespace ui

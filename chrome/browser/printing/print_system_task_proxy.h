@@ -4,15 +4,13 @@
 
 #ifndef CHROME_BROWSER_PRINTING_PRINT_SYSTEM_TASK_PROXY_H_
 #define CHROME_BROWSER_PRINTING_PRINT_SYSTEM_TASK_PROXY_H_
-#pragma once
 
 #include <string>
 
 #include "base/gtest_prod_util.h"
 #include "base/memory/ref_counted.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "base/message_loop_helpers.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "build/build_config.h"
 #include "content/public/browser/browser_thread.h"
 
@@ -64,9 +62,6 @@ class PrintSystemTaskProxy
 #if defined(UNIT_TEST) && defined(USE_CUPS)
   FRIEND_TEST_ALL_PREFIXES(PrintSystemTaskProxyTest, DetectDuplexModeCUPS);
   FRIEND_TEST_ALL_PREFIXES(PrintSystemTaskProxyTest, DetectNoDuplexModeCUPS);
-
-  // Only used for testing.
-  PrintSystemTaskProxy();
 #endif
 
 #if defined(USE_CUPS)

@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_SPELLCHECKER_SPELLCHECK_HOST_IMPL_H_
 #define CHROME_BROWSER_SPELLCHECKER_SPELLCHECK_HOST_IMPL_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -13,12 +12,16 @@
 #include "base/file_path.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "base/message_loop_helpers.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "chrome/browser/spellchecker/spellcheck_host.h"
 #include "chrome/browser/spellchecker/spellcheck_profile_provider.h"
-#include "content/public/common/url_fetcher_delegate.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
+#include "net/url_request/url_fetcher_delegate.h"
+
+namespace net {
+class URLFetcher;
+}  // namespace net
 
 // This class implements the SpellCheckHost interface to provide the
 // functionalities listed below:
@@ -41,7 +44,7 @@
 // Available languages for the checker, which we need to specify via Create(),
 // can be listed using SpellCheckHost::GetAvailableLanguages() static method.
 class SpellCheckHostImpl : public SpellCheckHost,
-                           public content::URLFetcherDelegate,
+                           public net::URLFetcherDelegate,
                            public content::NotificationObserver {
  public:
   SpellCheckHostImpl(SpellCheckProfileProvider* profile,
@@ -107,9 +110,9 @@ class SpellCheckHostImpl : public SpellCheckHost,
   // Returns true if the dictionary is ready to use.
   virtual bool IsReady() const OVERRIDE;
 
-  // content::URLFetcherDelegate implementation.  Called when we finish
+  // net::URLFetcherDelegate implementation.  Called when we finish
   // downloading the spellcheck dictionary; saves the dictionary to |data_|.
-  virtual void OnURLFetchComplete(const content::URLFetcher* source) OVERRIDE;
+  virtual void OnURLFetchComplete(const net::URLFetcher* source) OVERRIDE;
 
   // NotificationProfile implementation.
   virtual void Observe(int type,
@@ -159,7 +162,7 @@ class SpellCheckHostImpl : public SpellCheckHost,
   net::URLRequestContextGetter* request_context_getter_;
 
   // Used for downloading the dictionary file.
-  scoped_ptr<content::URLFetcher> fetcher_;
+  scoped_ptr<net::URLFetcher> fetcher_;
 
   content::NotificationRegistrar registrar_;
 

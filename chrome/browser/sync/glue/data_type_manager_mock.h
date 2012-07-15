@@ -4,31 +4,30 @@
 
 #ifndef CHROME_BROWSER_SYNC_GLUE_DATA_TYPE_MANAGER_MOCK_H__
 #define CHROME_BROWSER_SYNC_GLUE_DATA_TYPE_MANAGER_MOCK_H__
-#pragma once
 
-#include "chrome/browser/sync/api/sync_error.h"
 #include "chrome/browser/sync/glue/data_type_manager.h"
 #include "chrome/browser/sync/profile_sync_test_util.h"
-#include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_details.h"
+#include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_types.h"
+#include "sync/api/sync_error.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
 ACTION_P2(InvokeCallback, datatype, callback_result) {
   if (callback_result != browser_sync::DataTypeController::OK) {
-    SyncError error(FROM_HERE, "Error message", datatype);
+    syncer::SyncError error(FROM_HERE, "Error message", datatype);
     arg0.Run(callback_result, error);
   } else {
-    arg0.Run(callback_result, SyncError());
+    arg0.Run(callback_result, syncer::SyncError());
   }
 }
 
 ACTION_P3(InvokeCallbackPointer, callback, datatype, callback_result) {
   if (callback_result != browser_sync::DataTypeController::OK) {
-    SyncError error(FROM_HERE, "Error message", datatype);
+    syncer::SyncError error(FROM_HERE, "Error message", datatype);
     callback.Run(callback_result, error);
   } else {
-    callback.Run(callback_result, SyncError());
+    callback.Run(callback_result, syncer::SyncError());
   }
 }
 
@@ -53,9 +52,9 @@ class DataTypeManagerMock : public DataTypeManager {
   DataTypeManagerMock();
   virtual ~DataTypeManagerMock();
 
-  MOCK_METHOD2(Configure, void(TypeSet, sync_api::ConfigureReason));
+  MOCK_METHOD2(Configure, void(TypeSet, syncer::ConfigureReason));
   MOCK_METHOD2(ConfigureWithoutNigori,
-               void(TypeSet, sync_api::ConfigureReason));
+               void(TypeSet, syncer::ConfigureReason));
   MOCK_METHOD0(Stop, void());
   MOCK_METHOD0(controllers, const DataTypeController::TypeMap&());
   MOCK_CONST_METHOD0(state, State());

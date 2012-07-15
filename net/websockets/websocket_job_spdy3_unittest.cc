@@ -18,7 +18,6 @@
 #include "net/base/mock_host_resolver.h"
 #include "net/base/net_errors.h"
 #include "net/base/ssl_config_service.h"
-#include "net/base/sys_addrinfo.h"
 #include "net/base/test_completion_callback.h"
 #include "net/base/transport_security_state.h"
 #include "net/cookies/cookie_store.h"
@@ -43,8 +42,8 @@ namespace {
 class MockSocketStream : public net::SocketStream {
  public:
   MockSocketStream(const GURL& url, net::SocketStream::Delegate* delegate)
-      : SocketStream(url, delegate) {}
-  virtual ~MockSocketStream() {}
+      : SocketStream(url, delegate) {
+  }
 
   virtual void Connect() OVERRIDE {}
   virtual bool SendData(const char* data, int len) OVERRIDE {
@@ -65,6 +64,9 @@ class MockSocketStream : public net::SocketStream {
     return sent_data_;
   }
 
+ protected:
+  virtual ~MockSocketStream() {}
+
  private:
   std::string sent_data_;
 };
@@ -72,7 +74,10 @@ class MockSocketStream : public net::SocketStream {
 class MockSocketStreamDelegate : public net::SocketStream::Delegate {
  public:
   MockSocketStreamDelegate()
-      : amount_sent_(0), allow_all_cookies_(true) {}
+      : amount_sent_(0),
+      allow_all_cookies_(true) {
+  }
+
   void set_allow_all_cookies(bool allow_all_cookies) {
     allow_all_cookies_ = allow_all_cookies;
   }
@@ -94,24 +99,26 @@ class MockSocketStreamDelegate : public net::SocketStream::Delegate {
     on_close_ = callback;
   }
 
-  virtual int OnStartOpenConnection(net::SocketStream* socket,
-                                    const net::CompletionCallback& callback) {
+  virtual int OnStartOpenConnection(
+      net::SocketStream* socket,
+      const net::CompletionCallback& callback) OVERRIDE {
     if (!on_start_open_connection_.is_null())
       on_start_open_connection_.Run();
     return net::OK;
   }
   virtual void OnConnected(net::SocketStream* socket,
-                           int max_pending_send_allowed) {
+                           int max_pending_send_allowed) OVERRIDE {
     if (!on_connected_.is_null())
       on_connected_.Run();
   }
-  virtual void OnSentData(net::SocketStream* socket, int amount_sent) {
+  virtual void OnSentData(net::SocketStream* socket,
+                          int amount_sent) OVERRIDE {
     amount_sent_ += amount_sent;
     if (!on_sent_data_.is_null())
       on_sent_data_.Run();
   }
   virtual void OnReceivedData(net::SocketStream* socket,
-                              const char* data, int len) {
+                              const char* data, int len) OVERRIDE {
     received_data_ += std::string(data, len);
     if (!on_received_data_.is_null())
       on_received_data_.Run();
@@ -120,13 +127,14 @@ class MockSocketStreamDelegate : public net::SocketStream::Delegate {
     if (!on_close_.is_null())
       on_close_.Run();
   }
-  virtual bool CanGetCookies(net::SocketStream* socket, const GURL& url) {
+  virtual bool CanGetCookies(net::SocketStream* socket,
+                             const GURL& url) OVERRIDE {
     return allow_all_cookies_;
   }
   virtual bool CanSetCookie(net::SocketStream* request,
                             const GURL& url,
                             const std::string& cookie_line,
-                            net::CookieOptions* options) {
+                            net::CookieOptions* options) OVERRIDE {
     return allow_all_cookies_;
   }
 
@@ -151,11 +159,12 @@ class MockCookieStore : public net::CookieStore {
     std::string cookie_line;
     net::CookieOptions options;
   };
+
   MockCookieStore() {}
 
-  virtual bool SetCookieWithOptions(const GURL& url,
-                                    const std::string& cookie_line,
-                                    const net::CookieOptions& options) {
+  bool SetCookieWithOptions(const GURL& url,
+                            const std::string& cookie_line,
+                            const net::CookieOptions& options) {
     Entry entry;
     entry.url = url;
     entry.cookie_line = cookie_line;
@@ -164,21 +173,11 @@ class MockCookieStore : public net::CookieStore {
     return true;
   }
 
-  virtual void SetCookieWithOptionsAsync(
-      const GURL& url,
-      const std::string& cookie_line,
-      const net::CookieOptions& options,
-      const SetCookiesCallback& callback) {
-    bool result = SetCookieWithOptions(url, cookie_line, options);
-    if (!callback.is_null())
-      callback.Run(result);
-  }
-  virtual std::string GetCookiesWithOptions(
-      const GURL& url,
-      const net::CookieOptions& options) {
+  std::string GetCookiesWithOptions(const GURL& url,
+                                    const net::CookieOptions& options) {
     std::string result;
     for (size_t i = 0; i < entries_.size(); i++) {
-      Entry &entry = entries_[i];
+      Entry& entry = entries_[i];
       if (url == entry.url) {
         if (!result.empty()) {
           result += "; ";
@@ -188,41 +187,51 @@ class MockCookieStore : public net::CookieStore {
     }
     return result;
   }
+
+  // CookieStore:
+  virtual void SetCookieWithOptionsAsync(
+      const GURL& url,
+      const std::string& cookie_line,
+      const net::CookieOptions& options,
+      const SetCookiesCallback& callback) OVERRIDE {
+    bool result = SetCookieWithOptions(url, cookie_line, options);
+    if (!callback.is_null())
+      callback.Run(result);
+  }
+
   virtual void GetCookiesWithOptionsAsync(
       const GURL& url,
       const net::CookieOptions& options,
-      const GetCookiesCallback& callback) {
-  if (!callback.is_null())
-    callback.Run(GetCookiesWithOptions(url, options));
+      const GetCookiesCallback& callback) OVERRIDE {
+    if (!callback.is_null())
+      callback.Run(GetCookiesWithOptions(url, options));
   }
-  virtual void GetCookiesWithInfo(const GURL& url,
-                                  const net::CookieOptions& options,
-                                  std::string* cookie_line,
-                                  std::vector<CookieInfo>* cookie_infos) {
-    ADD_FAILURE();
-  }
+
   virtual void GetCookiesWithInfoAsync(
       const GURL& url,
       const net::CookieOptions& options,
-      const GetCookieInfoCallback& callback) {
-    ADD_FAILURE();
-  }
-  virtual void DeleteCookie(const GURL& url,
-                            const std::string& cookie_name) {
-    ADD_FAILURE();
-  }
-  virtual void DeleteCookieAsync(const GURL& url,
-                                 const std::string& cookie_name,
-                                 const base::Closure& callback) {
-    ADD_FAILURE();
-  }
-  virtual void DeleteAllCreatedBetweenAsync(const base::Time& delete_begin,
-                                            const base::Time& delete_end,
-                                            const DeleteCallback& callback) {
+      const GetCookieInfoCallback& callback) OVERRIDE {
     ADD_FAILURE();
   }
 
-  virtual net::CookieMonster* GetCookieMonster() { return NULL; }
+  virtual void DeleteCookieAsync(const GURL& url,
+                                 const std::string& cookie_name,
+                                 const base::Closure& callback) OVERRIDE {
+    ADD_FAILURE();
+  }
+
+  virtual void DeleteAllCreatedBetweenAsync(
+      const base::Time& delete_begin,
+      const base::Time& delete_end,
+      const DeleteCallback& callback) OVERRIDE {
+    ADD_FAILURE();
+  }
+
+  virtual void DeleteSessionCookiesAsync(const DeleteCallback&) OVERRIDE {
+    ADD_FAILURE();
+  }
+
+  virtual net::CookieMonster* GetCookieMonster() OVERRIDE { return NULL; }
 
   const std::vector<Entry>& entries() const { return entries_; }
 
@@ -235,30 +244,33 @@ class MockCookieStore : public net::CookieStore {
 
 class MockSSLConfigService : public net::SSLConfigService {
  public:
-  virtual void GetSSLConfig(net::SSLConfig* config) {};
+  virtual void GetSSLConfig(net::SSLConfig* config) OVERRIDE {}
+
+ protected:
+  virtual ~MockSSLConfigService() {}
 };
 
 class MockURLRequestContext : public net::URLRequestContext {
  public:
   explicit MockURLRequestContext(net::CookieStore* cookie_store)
-      : transport_security_state_(std::string()) {
+      : transport_security_state_() {
     set_cookie_store(cookie_store);
     set_transport_security_state(&transport_security_state_);
     net::TransportSecurityState::DomainState state;
-    state.expiry = base::Time::Now() + base::TimeDelta::FromSeconds(1000);
+    state.upgrade_expiry = base::Time::Now() +
+        base::TimeDelta::FromSeconds(1000);
     transport_security_state_.EnableHost("upgrademe.com", state);
   }
 
- private:
-  friend class base::RefCountedThreadSafe<MockURLRequestContext>;
   virtual ~MockURLRequestContext() {}
 
+ private:
   net::TransportSecurityState transport_security_state_;
 };
 
 class MockHttpTransactionFactory : public net::HttpTransactionFactory {
  public:
-  MockHttpTransactionFactory(net::OrderedSocketData* data) {
+  explicit MockHttpTransactionFactory(net::OrderedSocketData* data) {
     data_ = data;
     net::MockConnect connect_data(net::SYNCHRONOUS, net::OK);
     data_->set_connect_data(connect_data);
@@ -278,10 +290,12 @@ class MockHttpTransactionFactory : public net::HttpTransactionFactory {
         spdy_session_pool->Get(host_port_proxy_pair_, net::BoundNetLog());
     EXPECT_TRUE(spdy_session_pool->HasSession(host_port_proxy_pair_));
 
-    transport_params_ = new net::TransportSocketParams(host_port_pair_,
-                                                       net::MEDIUM,
-                                                       false,
-                                                       false);
+    transport_params_ =
+        new net::TransportSocketParams(host_port_pair_,
+                                       net::MEDIUM,
+                                       false,
+                                       false,
+                                       net::OnHostResolutionCallback());
     net::ClientSocketHandle* connection = new net::ClientSocketHandle;
     EXPECT_EQ(net::OK,
               connection->Init(host_port_pair_.ToString(), transport_params_,
@@ -319,14 +333,14 @@ namespace net {
 class WebSocketJobSpdy3Test : public PlatformTest {
  public:
   virtual void SetUp() {
-    SpdySession::set_default_protocol(SSLClientSocket::kProtoSPDY3);
+    SpdySession::set_default_protocol(kProtoSPDY3);
     stream_type_ = STREAM_INVALID;
     cookie_store_ = new MockCookieStore;
-    context_ = new MockURLRequestContext(cookie_store_.get());
+    context_.reset(new MockURLRequestContext(cookie_store_.get()));
   }
   virtual void TearDown() {
     cookie_store_ = NULL;
-    context_ = NULL;
+    context_.reset();
     websocket_ = NULL;
     socket_ = NULL;
   }
@@ -391,16 +405,9 @@ class WebSocketJobSpdy3Test : public PlatformTest {
 
     websocket_->InitSocketStream(socket_.get());
     websocket_->set_context(context_.get());
-    struct addrinfo addr;
-    memset(&addr, 0, sizeof(struct addrinfo));
-    addr.ai_family = AF_INET;
-    addr.ai_addrlen = sizeof(struct sockaddr_in);
-    struct sockaddr_in sa_in;
-    memset(&sa_in, 0, sizeof(struct sockaddr_in));
-    memcpy(&sa_in.sin_addr, "\x7f\0\0\1", 4);
-    addr.ai_addr = reinterpret_cast<sockaddr*>(&sa_in);
-    addr.ai_next = NULL;
-    websocket_->addresses_ = AddressList::CreateByCopying(&addr);
+    IPAddressNumber ip;
+    ParseIPLiteralToNumber("127.0.0.1", &ip);
+    websocket_->addresses_ = AddressList::CreateFromIPAddress(ip, 0);
   }
   void SkipToConnecting() {
     websocket_->state_ = WebSocketJob::CONNECTING;
@@ -447,7 +454,6 @@ class WebSocketJobSpdy3Test : public PlatformTest {
 
   StreamType stream_type_;
   scoped_refptr<MockCookieStore> cookie_store_;
-  scoped_refptr<MockURLRequestContext> context_;
   scoped_refptr<WebSocketJob> websocket_;
   scoped_refptr<SocketStream> socket_;
   scoped_ptr<MockClientSocketFactory> socket_factory_;
@@ -457,6 +463,7 @@ class WebSocketJobSpdy3Test : public PlatformTest {
   scoped_ptr<net::ProxyService> proxy_service_;
   scoped_ptr<net::MockHostResolver> host_resolver_;
   scoped_ptr<MockHttpTransactionFactory> http_factory_;
+  scoped_ptr<MockURLRequestContext> context_;
 
   static const char kHandshakeRequestWithoutCookie[];
   static const char kHandshakeRequestWithCookie[];
@@ -482,80 +489,71 @@ class WebSocketJobSpdy3Test : public PlatformTest {
 const char WebSocketJobSpdy3Test::kHandshakeRequestWithoutCookie[] =
     "GET /demo HTTP/1.1\r\n"
     "Host: example.com\r\n"
-    "Connection: Upgrade\r\n"
-    "Sec-WebSocket-Key2: 12998 5 Y3 1  .P00\r\n"
-    "Sec-WebSocket-Protocol: sample\r\n"
     "Upgrade: WebSocket\r\n"
-    "Sec-WebSocket-Key1: 4 @1  46546xW%0l 1 5\r\n"
+    "Connection: Upgrade\r\n"
+    "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
     "Origin: http://example.com\r\n"
-    "\r\n"
-    "^n:ds[4U";
+    "Sec-WebSocket-Protocol: sample\r\n"
+    "Sec-WebSocket-Version: 13\r\n"
+    "\r\n";
 
 const char WebSocketJobSpdy3Test::kHandshakeRequestWithCookie[] =
     "GET /demo HTTP/1.1\r\n"
     "Host: example.com\r\n"
-    "Connection: Upgrade\r\n"
-    "Sec-WebSocket-Key2: 12998 5 Y3 1  .P00\r\n"
-    "Sec-WebSocket-Protocol: sample\r\n"
     "Upgrade: WebSocket\r\n"
-    "Sec-WebSocket-Key1: 4 @1  46546xW%0l 1 5\r\n"
+    "Connection: Upgrade\r\n"
+    "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
     "Origin: http://example.com\r\n"
+    "Sec-WebSocket-Protocol: sample\r\n"
+    "Sec-WebSocket-Version: 13\r\n"
     "Cookie: WK-test=1\r\n"
-    "\r\n"
-    "^n:ds[4U";
+    "\r\n";
 
 const char WebSocketJobSpdy3Test::kHandshakeRequestWithFilteredCookie[] =
     "GET /demo HTTP/1.1\r\n"
     "Host: example.com\r\n"
-    "Connection: Upgrade\r\n"
-    "Sec-WebSocket-Key2: 12998 5 Y3 1  .P00\r\n"
-    "Sec-WebSocket-Protocol: sample\r\n"
     "Upgrade: WebSocket\r\n"
-    "Sec-WebSocket-Key1: 4 @1  46546xW%0l 1 5\r\n"
+    "Connection: Upgrade\r\n"
+    "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
     "Origin: http://example.com\r\n"
+    "Sec-WebSocket-Protocol: sample\r\n"
+    "Sec-WebSocket-Version: 13\r\n"
     "Cookie: CR-test=1; CR-test-httponly=1\r\n"
-    "\r\n"
-    "^n:ds[4U";
+    "\r\n";
 
 const char WebSocketJobSpdy3Test::kHandshakeResponseWithoutCookie[] =
-    "HTTP/1.1 101 WebSocket Protocol Handshake\r\n"
-    "Upgrade: WebSocket\r\n"
+    "HTTP/1.1 101 Switching Protocols\r\n"
+    "Upgrade: websocket\r\n"
     "Connection: Upgrade\r\n"
-    "Sec-WebSocket-Origin: http://example.com\r\n"
-    "Sec-WebSocket-Location: ws://example.com/demo\r\n"
+    "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
     "Sec-WebSocket-Protocol: sample\r\n"
-    "\r\n"
-    "8jKS'y:G*Co,Wxa-";
+    "\r\n";
 
 const char WebSocketJobSpdy3Test::kHandshakeResponseWithCookie[] =
-    "HTTP/1.1 101 WebSocket Protocol Handshake\r\n"
-    "Upgrade: WebSocket\r\n"
+    "HTTP/1.1 101 Switching Protocols\r\n"
+    "Upgrade: websocket\r\n"
     "Connection: Upgrade\r\n"
-    "Sec-WebSocket-Origin: http://example.com\r\n"
-    "Sec-WebSocket-Location: ws://example.com/demo\r\n"
+    "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
     "Sec-WebSocket-Protocol: sample\r\n"
     "Set-Cookie: CR-set-test=1\r\n"
-    "\r\n"
-    "8jKS'y:G*Co,Wxa-";
+    "\r\n";
 
 const char WebSocketJobSpdy3Test::kDataHello[] = "Hello, ";
 
 const char WebSocketJobSpdy3Test::kDataWorld[] = "World!\n";
 
-// TODO(toyoshim): I should clarify which WebSocket headers for handshake must
-// be exported to SPDY SYN_STREAM and SYN_REPLY.
-// Because it depends on HyBi versions, just define it as follow for now.
 const char* const WebSocketJobSpdy3Test::kHandshakeRequestForSpdy[] = {
+  "path", "/demo",
+  "version", "WebSocket/13",
+  "scheme", "ws",
   "host", "example.com",
   "origin", "http://example.com",
-  "sec-websocket-protocol", "sample",
-  "url", "ws://example.com/demo"
+  "sec-websocket-protocol", "sample"
 };
 
 const char* const WebSocketJobSpdy3Test::kHandshakeResponseForSpdy[] = {
-  "sec-websocket-origin", "http://example.com",
-  "sec-websocket-location", "ws://example.com/demo",
-  "sec-websocket-protocol", "sample",
+  "status", "101 Switching Protocols",
+  "sec-websocket-protocol", "sample"
 };
 
 const size_t WebSocketJobSpdy3Test::kHandshakeRequestWithoutCookieLength =
@@ -626,9 +624,7 @@ void WebSocketJobSpdy3Test::TestSlowHandshake() {
   }
   websocket_->OnReceivedData(socket_.get(), "\r\n", 2);
   MessageLoop::current()->RunAllPending();
-  EXPECT_TRUE(delegate.received_data().empty());
-  EXPECT_EQ(WebSocketJob::CONNECTING, GetWebSocketJobState());
-  websocket_->OnReceivedData(socket_.get(), "8jKS'y:G*Co,Wxa-", 16);
+  EXPECT_FALSE(delegate.received_data().empty());
   EXPECT_EQ(kHandshakeResponseWithoutCookie, delegate.received_data());
   EXPECT_EQ(WebSocketJob::OPEN, GetWebSocketJobState());
   CloseWebSocketJob();

@@ -5,10 +5,12 @@
 #include "content/renderer/gpu/compositor_thread.h"
 
 #include "base/bind.h"
+#include "base/debug/trace_event.h"
 #include "content/renderer/gpu/input_event_filter.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/WebCompositor.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/WebCompositorClient.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebActiveWheelFlingParameters.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebCompositorInputHandlerClient.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebCompositorInputHandler.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 
 using WebKit::WebCompositorInputHandler;
 using WebKit::WebInputEvent;
@@ -16,19 +18,28 @@ using WebKit::WebInputEvent;
 //------------------------------------------------------------------------------
 
 class CompositorThread::InputHandlerWrapper
-    : public WebKit::WebCompositorClient {
+    : public WebKit::WebCompositorInputHandlerClient,
+      public base::RefCountedThreadSafe<InputHandlerWrapper> {
  public:
   InputHandlerWrapper(CompositorThread* compositor_thread,
                       int routing_id,
-                      WebKit::WebCompositorInputHandler* input_handler)
+                      WebKit::WebCompositorInputHandler* input_handler,
+                      scoped_refptr<base::MessageLoopProxy> main_loop,
+                      const base::WeakPtr<RenderViewImpl>& render_view_impl)
       : compositor_thread_(compositor_thread),
         routing_id_(routing_id),
-        input_handler_(input_handler) {
+        input_handler_(input_handler),
+        main_loop_(main_loop),
+        render_view_impl_(render_view_impl) {
     input_handler_->setClient(this);
   }
 
-  virtual ~InputHandlerWrapper() {
-    input_handler_->setClient(NULL);
+  virtual void transferActiveWheelFlingAnimation(
+      const WebKit::WebActiveWheelFlingParameters& params) {
+    main_loop_->PostTask(
+        FROM_HERE,
+        base::Bind(&RenderViewImpl::TransferActiveWheelFlingAnimation,
+                   render_view_impl_, params));
   }
 
   int routing_id() const { return routing_id_; }
@@ -36,7 +47,7 @@ class CompositorThread::InputHandlerWrapper
     return input_handler_;
   }
 
-  // WebCompositorClient methods:
+  // WebCompositorInputHandlerClient methods:
 
   virtual void willShutdown() {
     compositor_thread_->RemoveInputHandler(routing_id_);
@@ -51,16 +62,26 @@ class CompositorThread::InputHandlerWrapper
   }
 
  private:
+  friend class base::RefCountedThreadSafe<InputHandlerWrapper>;
+
+  virtual ~InputHandlerWrapper() {
+    input_handler_->setClient(NULL);
+  }
+
   CompositorThread* compositor_thread_;
   int routing_id_;
   WebKit::WebCompositorInputHandler* input_handler_;
+  scoped_refptr<base::MessageLoopProxy> main_loop_;
+
+  // Can only be accessed on the main thread.
+  base::WeakPtr<RenderViewImpl> render_view_impl_;
 
   DISALLOW_COPY_AND_ASSIGN(InputHandlerWrapper);
 };
 
 //------------------------------------------------------------------------------
 
-CompositorThread::CompositorThread(IPC::Channel::Listener* main_listener)
+CompositorThread::CompositorThread(IPC::Listener* main_listener)
     : thread_("Compositor") {
   filter_ =
       new InputEventFilter(main_listener,
@@ -76,14 +97,27 @@ IPC::ChannelProxy::MessageFilter* CompositorThread::GetMessageFilter() const {
   return filter_;
 }
 
-void CompositorThread::AddInputHandler(int routing_id, int input_handler_id) {
-  if (thread_.message_loop() != MessageLoop::current()) {
-    thread_.message_loop()->PostTask(
-        FROM_HERE,
-        base::Bind(&CompositorThread::AddInputHandler, base::Unretained(this),
-                   routing_id, input_handler_id));
-    return;
-  }
+void CompositorThread::AddInputHandler(
+    int routing_id, int input_handler_id,
+    const base::WeakPtr<RenderViewImpl>& render_view_impl) {
+  DCHECK_NE(thread_.message_loop(), MessageLoop::current());
+
+  thread_.message_loop()->PostTask(
+      FROM_HERE,
+      base::Bind(&CompositorThread::AddInputHandlerOnCompositorThread,
+                 base::Unretained(this),
+                 routing_id,
+                 input_handler_id,
+                 base::MessageLoopProxy::current(),
+                 render_view_impl));
+}
+
+void CompositorThread::AddInputHandlerOnCompositorThread(
+    int routing_id, int input_handler_id,
+    scoped_refptr<base::MessageLoopProxy> main_loop,
+    const base::WeakPtr<RenderViewImpl>& render_view_impl) {
+
+  DCHECK_EQ(thread_.message_loop(), MessageLoop::current());
 
   WebCompositorInputHandler* input_handler =
       WebCompositorInputHandler::fromIdentifier(input_handler_id);
@@ -98,13 +132,17 @@ void CompositorThread::AddInputHandler(int routing_id, int input_handler_id) {
     return;
   }
 
+  TRACE_EVENT0("CompositorThread::AddInputHandler", "AddingRoute");
   filter_->AddRoute(routing_id);
   input_handlers_[routing_id] =
-      make_linked_ptr(new InputHandlerWrapper(this, routing_id, input_handler));
+      make_scoped_refptr(new InputHandlerWrapper(this,
+          routing_id, input_handler, main_loop, render_view_impl));
 }
 
 void CompositorThread::RemoveInputHandler(int routing_id) {
-  DCHECK(thread_.message_loop() == MessageLoop::current());
+  DCHECK_EQ(MessageLoop::current(), thread_.message_loop());
+
+  TRACE_EVENT0("CompositorThread::RemoveInputHandler", "RemovingRoute");
 
   filter_->RemoveRoute(routing_id);
   input_handlers_.erase(routing_id);
@@ -117,6 +155,7 @@ void CompositorThread::HandleInputEvent(
 
   InputHandlerMap::iterator it = input_handlers_.find(routing_id);
   if (it == input_handlers_.end()) {
+    TRACE_EVENT0("CompositorThread::HandleInputEvent", "NoInputHandlerFound");
     // Oops, we no longer have an interested input handler..
     filter_->DidNotHandleInputEvent(true);
     return;

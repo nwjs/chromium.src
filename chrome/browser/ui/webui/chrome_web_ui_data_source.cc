@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,17 +10,20 @@
 #include "base/string_util.h"
 #include "chrome/common/jstemplate_builder.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 
 ChromeWebUIDataSource::ChromeWebUIDataSource(const std::string& source_name)
     : DataSource(source_name, MessageLoop::current()),
-      default_resource_(-1) {
+      default_resource_(-1),
+      json_js_format_v2_(false) {
 }
 
 ChromeWebUIDataSource::ChromeWebUIDataSource(const std::string& source_name,
                                              MessageLoop* loop)
     : DataSource(source_name, loop),
-      default_resource_(-1) {
+      default_resource_(-1),
+      json_js_format_v2_(false) {
 }
 
 ChromeWebUIDataSource::~ChromeWebUIDataSource() {
@@ -73,12 +76,18 @@ void ChromeWebUIDataSource::StartDataRequest(const std::string& path,
 void ChromeWebUIDataSource::SendLocalizedStringsAsJSON(int request_id) {
   std::string template_data;
   SetFontAndTextDirection(&localized_strings_);
+
+  scoped_ptr<jstemplate_builder::UseVersion2> version2;
+  if (json_js_format_v2_)
+    version2.reset(new jstemplate_builder::UseVersion2);
+
   jstemplate_builder::AppendJsonJS(&localized_strings_, &template_data);
   SendResponse(request_id, base::RefCountedString::TakeString(&template_data));
 }
 
 void ChromeWebUIDataSource::SendFromResourceBundle(int request_id, int idr) {
-  scoped_refptr<RefCountedStaticMemory> response(
-      ResourceBundle::GetSharedInstance().LoadDataResourceBytes(idr));
+  scoped_refptr<base::RefCountedStaticMemory> response(
+      ResourceBundle::GetSharedInstance().LoadDataResourceBytes(
+          idr, ui::SCALE_FACTOR_NONE));
   SendResponse(request_id, response);
 }

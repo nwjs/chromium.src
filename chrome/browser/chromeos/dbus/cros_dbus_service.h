@@ -4,12 +4,10 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_DBUS_CROS_DBUS_SERVICE_H_
 #define CHROME_BROWSER_CHROMEOS_DBUS_CROS_DBUS_SERVICE_H_
-#pragma once
 
 #include <vector>
 
 #include "base/memory/ref_counted.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/threading/platform_thread.h"
 
 namespace dbus {

@@ -4,7 +4,6 @@
 
 #ifndef NET_BASE_X509_CERT_TYPES_H_
 #define NET_BASE_X509_CERT_TYPES_H_
-#pragma once
 
 #include <string.h>
 
@@ -36,6 +35,13 @@ struct NET_EXPORT SHA1Fingerprint {
 
   unsigned char data[20];
 };
+
+// In the future there will be a generic Fingerprint type, with at least two
+// implementations: SHA1 and SHA256. See http://crbug.com/117914. Until that
+// work is done (in a separate patch) this typedef bridges the gap.
+typedef SHA1Fingerprint Fingerprint;
+
+typedef std::vector<Fingerprint> FingerprintVector;
 
 class NET_EXPORT SHA1FingerprintLessThan {
  public:

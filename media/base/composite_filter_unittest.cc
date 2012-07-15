@@ -134,14 +134,14 @@ class CompositeFilterTest : public testing::Test {
   // Callback passed to |filter_2_| during last Seek() call.
   PipelineStatusCB filter_2_status_cb_;
 
-  // FilterHost implementation passed to |composite_| via set_host().
+  // FilterHost implementation passed to |composite_| via SetHost().
   scoped_ptr<StrictMock<MockFilterHost> > mock_filter_host_;
 
   DISALLOW_COPY_AND_ASSIGN(CompositeFilterTest);
 };
 
 CompositeFilterTest::CompositeFilterTest() :
-    composite_(new CompositeFilter(&message_loop_)),
+    composite_(new CompositeFilter(message_loop_.message_loop_proxy())),
     filter_1_status_(PIPELINE_OK),
     filter_2_status_(PIPELINE_OK),
     mock_filter_host_(new StrictMock<MockFilterHost>()) {
@@ -151,8 +151,8 @@ CompositeFilterTest::~CompositeFilterTest() {}
 
 void CompositeFilterTest::SetupAndAdd2Filters() {
   mock_filter_host_.reset(new StrictMock<MockFilterHost>());
-  composite_ = new CompositeFilter(&message_loop_);
-  composite_->set_host(mock_filter_host_.get());
+  composite_ = new CompositeFilter(message_loop_.message_loop_proxy());
+  composite_->SetHost(mock_filter_host_.get());
 
   // Setup |filter_1_| and arrange for methods to set
   // |filter_1_cb_| when they are called.
@@ -368,40 +368,36 @@ void CompositeFilterTest::RunFilter2Callback() {
   callback.Run();
 }
 
-// Test AddFilter() failure cases.
-TEST_F(CompositeFilterTest, TestAddFilterFailCases) {
-  // Test adding a null pointer.
-  EXPECT_FALSE(composite_->AddFilter(NULL));
-
-  scoped_refptr<StrictMock<MockFilter> > filter = new StrictMock<MockFilter>();
-  EXPECT_EQ(NULL, filter->host());
-
-  // Test failing because set_host() hasn't been called yet.
-  EXPECT_FALSE(composite_->AddFilter(filter));
-}
-
-// Test successful {Add,Remove}Filter() cases.
-TEST_F(CompositeFilterTest, TestAddRemoveFilter) {
-  composite_->set_host(mock_filter_host_.get());
+// Test successful AddFilter() cases.
+TEST_F(CompositeFilterTest, TestAddFilter) {
+  composite_->SetHost(mock_filter_host_.get());
 
   // Add a filter.
   scoped_refptr<StrictMock<MockFilter> > filter = new StrictMock<MockFilter>();
   EXPECT_EQ(NULL, filter->host());
 
-  EXPECT_TRUE(composite_->AddFilter(filter));
+  composite_->AddFilter(filter);
   EXPECT_TRUE(filter->host() != NULL);
-  composite_->RemoveFilter(filter);
-  EXPECT_TRUE(filter->host() == NULL);
 }
 
-class CompositeFilterDeathTest : public CompositeFilterTest {};
+class CompositeFilterDeathTest : public CompositeFilterTest {
+ public:
+  virtual void SetUp() {
+    // To avoid googletest warning in "fast" mode.
+    ::testing::FLAGS_gtest_death_test_style = "threadsafe";
+  }
+};
 
-// Test failure of RemoveFilter() on an unknown filter.
-TEST_F(CompositeFilterDeathTest, TestRemoveUnknownFilter) {
-  composite_->set_host(mock_filter_host_.get());
-  // Remove unknown filter.
+// Test AddFilter() failure cases.
+TEST_F(CompositeFilterDeathTest, TestAddFilterFailCases) {
+  // Test adding a null pointer.
+  EXPECT_DEATH_IF_SUPPORTED(composite_->AddFilter(NULL), "");
+
   scoped_refptr<StrictMock<MockFilter> > filter = new StrictMock<MockFilter>();
-  EXPECT_DEATH_IF_SUPPORTED(composite_->RemoveFilter(filter), "");
+  EXPECT_EQ(NULL, filter->host());
+
+  // Test failing because SetHost() hasn't been called yet.
+  EXPECT_DEATH_IF_SUPPORTED(composite_->AddFilter(filter), "");
 }
 
 TEST_F(CompositeFilterTest, TestPlay) {
@@ -458,10 +454,10 @@ TEST_F(CompositeFilterTest, TestPlayErrors) {
 
   // At this point Play() has been called on |filter_2_|. Simulate an
   // error by calling SetError() on its FilterHost interface.
-  filter_2_->host()->SetError(PIPELINE_ERROR_OUT_OF_MEMORY);
+  filter_2_->host()->SetError(PIPELINE_ERROR_DECODE);
 
   // Expect error to be reported and "play done" callback to be called.
-  EXPECT_CALL(*mock_filter_host_, SetError(PIPELINE_ERROR_OUT_OF_MEMORY));
+  EXPECT_CALL(*mock_filter_host_, SetError(PIPELINE_ERROR_DECODE));
   EXPECT_CALL(*callback, Run());
 
   // Run callback to indicate that |filter_2_|'s Play() has completed.
@@ -532,10 +528,10 @@ TEST_F(CompositeFilterTest, TestPauseErrors) {
 
   // Simulate an error by calling SetError() on |filter_1_|'s FilterHost
   // interface.
-  filter_1_->host()->SetError(PIPELINE_ERROR_OUT_OF_MEMORY);
+  filter_1_->host()->SetError(PIPELINE_ERROR_DECODE);
 
   // Expect error to be reported and "pause done" callback to be called.
-  EXPECT_CALL(*mock_filter_host_, SetError(PIPELINE_ERROR_OUT_OF_MEMORY));
+  EXPECT_CALL(*mock_filter_host_, SetError(PIPELINE_ERROR_DECODE));
   EXPECT_CALL(*callback, Run());
 
   RunFilter1Callback();
@@ -599,12 +595,12 @@ TEST_F(CompositeFilterTest, TestFlushErrors) {
 
   // Simulate an error by calling SetError() on |filter_1_|'s FilterHost
   // interface.
-  filter_1_->host()->SetError(PIPELINE_ERROR_OUT_OF_MEMORY);
+  filter_1_->host()->SetError(PIPELINE_ERROR_DECODE);
 
   RunFilter1Callback();
 
   // Expect error to be reported and "pause done" callback to be called.
-  EXPECT_CALL(*mock_filter_host_, SetError(PIPELINE_ERROR_OUT_OF_MEMORY));
+  EXPECT_CALL(*mock_filter_host_, SetError(PIPELINE_ERROR_DECODE));
   EXPECT_CALL(*callback, Run());
 
   RunFilter2Callback();
@@ -752,8 +748,8 @@ TEST_F(CompositeFilterTest, TestErrorWhilePlaying) {
   DoPlay();
 
   // Simulate an error on |filter_2_| while playing.
-  EXPECT_CALL(*mock_filter_host_, SetError(PIPELINE_ERROR_OUT_OF_MEMORY));
-  filter_2_->host()->SetError(PIPELINE_ERROR_OUT_OF_MEMORY);
+  EXPECT_CALL(*mock_filter_host_, SetError(PIPELINE_ERROR_DECODE));
+  filter_2_->host()->SetError(PIPELINE_ERROR_DECODE);
 
   DoPause();
 
@@ -773,7 +769,7 @@ TEST_F(CompositeFilterTest, TestErrorWhilePlaying) {
 TEST_F(CompositeFilterTest, TestEmptyComposite) {
   InSequence sequence;
 
-  composite_->set_host(mock_filter_host_.get());
+  composite_->SetHost(mock_filter_host_.get());
 
   // Issue a Play() and expect no errors.
   composite_->Play(NewExpectedClosure());

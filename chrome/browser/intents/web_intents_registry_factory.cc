@@ -2,10 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/intents/web_intents_registry.h"
 #include "chrome/browser/intents/web_intents_registry_factory.h"
+
+#include "base/memory/singleton.h"
+#include "chrome/browser/extensions/extension_system_factory.h"
+#include "chrome/browser/intents/web_intents_registry.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_dependency_manager.h"
+#include "chrome/browser/webdata/web_data_service_factory.h"
 
 // static
 WebIntentsRegistry* WebIntentsRegistryFactory::GetForProfile(Profile* profile) {
@@ -16,9 +20,8 @@ WebIntentsRegistry* WebIntentsRegistryFactory::GetForProfile(Profile* profile) {
 WebIntentsRegistryFactory::WebIntentsRegistryFactory()
     : ProfileKeyedServiceFactory("WebIntentsRegistry",
                                  ProfileDependencyManager::GetInstance()) {
-  // TODO(erg): For Shutdown() order, we need to:
-  //     DependsOn(WebDataServiceFactory::GetInstance());
-  //     DependsOn(ExtensionServiceFactory::GetInstance());
+  DependsOn(WebDataServiceFactory::GetInstance());
+  DependsOn(extensions::ExtensionSystemFactory::GetInstance());
 }
 
 WebIntentsRegistryFactory::~WebIntentsRegistryFactory() {
@@ -32,7 +35,8 @@ WebIntentsRegistryFactory* WebIntentsRegistryFactory::GetInstance() {
 ProfileKeyedService* WebIntentsRegistryFactory::BuildServiceInstanceFor(
     Profile* profile) const {
   WebIntentsRegistry* registry = new WebIntentsRegistry;
-  registry->Initialize(profile->GetWebDataService(Profile::EXPLICIT_ACCESS),
+  registry->Initialize(WebDataServiceFactory::GetForProfile(
+                           profile, Profile::EXPLICIT_ACCESS),
                        profile->GetExtensionService());
   return registry;
 }

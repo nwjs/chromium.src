@@ -4,7 +4,6 @@
 
 #ifndef NET_HTTP_HTTP_PIPELINED_HOST_IMPL_H_
 #define NET_HTTP_HTTP_PIPELINED_HOST_IMPL_H_
-#pragma once
 
 #include <map>
 #include <string>
@@ -49,7 +48,7 @@ class NET_EXPORT_PRIVATE HttpPipelinedHostImpl
       const ProxyInfo& used_proxy_info,
       const BoundNetLog& net_log,
       bool was_npn_negotiated,
-      SSLClientSocket::NextProto protocol_negotiated) OVERRIDE;
+      NextProto protocol_negotiated) OVERRIDE;
 
   virtual HttpPipelinedStream* CreateStreamOnExistingPipeline() OVERRIDE;
 

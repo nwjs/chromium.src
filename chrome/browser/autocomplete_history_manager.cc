@@ -13,6 +13,7 @@
 #include "chrome/browser/autofill/credit_card.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/webdata/web_data_service_factory.h"
 #include "chrome/common/autofill_messages.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/render_view_host.h"
@@ -115,7 +116,8 @@ AutocompleteHistoryManager::AutocompleteHistoryManager(
       external_delegate_(NULL) {
   profile_ = Profile::FromBrowserContext(web_contents->GetBrowserContext());
   // May be NULL in unit tests.
-  web_data_service_ = profile_->GetWebDataService(Profile::EXPLICIT_ACCESS);
+  web_data_service_ = WebDataServiceFactory::GetForProfile(
+      profile_, Profile::EXPLICIT_ACCESS);
   autofill_enabled_.Init(prefs::kAutofillEnabled, profile_->GetPrefs(), NULL);
 }
 
@@ -132,6 +134,59 @@ bool AutocompleteHistoryManager::OnMessageReceived(
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
   return handled;
+}
+
+void AutocompleteHistoryManager::OnWebDataServiceRequestDone(
+    WebDataService::Handle h,
+    const WDTypedResult* result) {
+  DCHECK(pending_query_handle_);
+  pending_query_handle_ = 0;
+
+  if (!*autofill_enabled_) {
+    SendSuggestions(NULL);
+    return;
+  }
+
+  DCHECK(result);
+  // Returning early here if |result| is NULL.  We've seen this happen on
+  // Linux due to NFS dismounting and causing sql failures.
+  // See http://crbug.com/68783.
+  if (!result) {
+    SendSuggestions(NULL);
+    return;
+  }
+
+  DCHECK_EQ(AUTOFILL_VALUE_RESULT, result->GetType());
+  const WDResult<std::vector<string16> >* autofill_result =
+      static_cast<const WDResult<std::vector<string16> >*>(result);
+  std::vector<string16> suggestions = autofill_result->GetValue();
+  SendSuggestions(&suggestions);
+}
+
+void AutocompleteHistoryManager::OnGetAutocompleteSuggestions(
+    int query_id,
+    const string16& name,
+    const string16& prefix,
+    const std::vector<string16>& autofill_values,
+    const std::vector<string16>& autofill_labels,
+    const std::vector<string16>& autofill_icons,
+    const std::vector<int>& autofill_unique_ids) {
+  CancelPendingQuery();
+
+  query_id_ = query_id;
+  autofill_values_ = autofill_values;
+  autofill_labels_ = autofill_labels;
+  autofill_icons_ = autofill_icons;
+  autofill_unique_ids_ = autofill_unique_ids;
+  if (!*autofill_enabled_) {
+    SendSuggestions(NULL);
+    return;
+  }
+
+  if (web_data_service_.get()) {
+    pending_query_handle_ = web_data_service_->GetFormValuesForElementName(
+        name, prefix, kMaxAutocompleteMenuItems, this);
+  }
 }
 
 void AutocompleteHistoryManager::OnFormSubmitted(const FormData& form) {
@@ -172,59 +227,6 @@ void AutocompleteHistoryManager::OnRemoveAutocompleteEntry(
     const string16& name, const string16& value) {
   if (web_data_service_.get())
     web_data_service_->RemoveFormValueForElementName(name, value);
-}
-
-void AutocompleteHistoryManager::OnGetAutocompleteSuggestions(
-    int query_id,
-    const string16& name,
-    const string16& prefix,
-    const std::vector<string16>& autofill_values,
-    const std::vector<string16>& autofill_labels,
-    const std::vector<string16>& autofill_icons,
-    const std::vector<int>& autofill_unique_ids) {
-  CancelPendingQuery();
-
-  query_id_ = query_id;
-  autofill_values_ = autofill_values;
-  autofill_labels_ = autofill_labels;
-  autofill_icons_ = autofill_icons;
-  autofill_unique_ids_ = autofill_unique_ids;
-  if (!*autofill_enabled_) {
-    SendSuggestions(NULL);
-    return;
-  }
-
-  if (web_data_service_.get()) {
-    pending_query_handle_ = web_data_service_->GetFormValuesForElementName(
-        name, prefix, kMaxAutocompleteMenuItems, this);
-  }
-}
-
-void AutocompleteHistoryManager::OnWebDataServiceRequestDone(
-    WebDataService::Handle h,
-    const WDTypedResult* result) {
-  DCHECK(pending_query_handle_);
-  pending_query_handle_ = 0;
-
-  if (!*autofill_enabled_) {
-    SendSuggestions(NULL);
-    return;
-  }
-
-  DCHECK(result);
-  // Returning early here if |result| is NULL.  We've seen this happen on
-  // Linux due to NFS dismounting and causing sql failures.
-  // See http://crbug.com/68783.
-  if (!result) {
-    SendSuggestions(NULL);
-    return;
-  }
-
-  DCHECK_EQ(AUTOFILL_VALUE_RESULT, result->GetType());
-  const WDResult<std::vector<string16> >* autofill_result =
-      static_cast<const WDResult<std::vector<string16> >*>(result);
-  std::vector<string16> suggestions = autofill_result->GetValue();
-  SendSuggestions(&suggestions);
 }
 
 void AutocompleteHistoryManager::SetExternalDelegate(

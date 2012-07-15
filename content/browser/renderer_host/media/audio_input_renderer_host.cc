@@ -24,10 +24,10 @@ AudioInputRendererHost::AudioEntry::AudioEntry()
 AudioInputRendererHost::AudioEntry::~AudioEntry() {}
 
 AudioInputRendererHost::AudioInputRendererHost(
-    content::ResourceContext* resource_context,
-    AudioManager* audio_manager)
-    : resource_context_(resource_context),
-      audio_manager_(audio_manager) {
+    media::AudioManager* audio_manager,
+    media_stream::MediaStreamManager* media_stream_manager)
+    : audio_manager_(audio_manager),
+      media_stream_manager_(media_stream_manager) {
 }
 
 AudioInputRendererHost::~AudioInputRendererHost() {
@@ -114,8 +114,8 @@ void AudioInputRendererHost::DoCompleteCreation(
     return;
   }
 
-  AudioInputSyncWriter* writer =
-      static_cast<AudioInputSyncWriter*>(entry->writer.get());
+  media::AudioInputSyncWriter* writer =
+      static_cast<media::AudioInputSyncWriter*>(entry->writer.get());
 
 #if defined(OS_WIN)
   base::SyncSocket::Handle foreign_socket_handle;
@@ -139,15 +139,13 @@ void AudioInputRendererHost::DoCompleteCreation(
 void AudioInputRendererHost::DoSendRecordingMessage(
     media::AudioInputController* controller) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-
-  // TODO(henrika): TBI?
-  NOTIMPLEMENTED();
+  // TODO(henrika): See crbug.com/115262 for details on why this method
+  // should be implemented.
 }
 
 void AudioInputRendererHost::DoSendPausedMessage(
     media::AudioInputController* controller) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-
   // TODO(henrika): TBI?
   NOTREACHED();
 }
@@ -174,7 +172,6 @@ bool AudioInputRendererHost::OnMessageReceived(const IPC::Message& message,
     IPC_MESSAGE_HANDLER(AudioInputHostMsg_CreateStream, OnCreateStream)
     IPC_MESSAGE_HANDLER(AudioInputHostMsg_RecordStream, OnRecordStream)
     IPC_MESSAGE_HANDLER(AudioInputHostMsg_CloseStream, OnCloseStream)
-    IPC_MESSAGE_HANDLER(AudioInputHostMsg_GetVolume, OnGetVolume)
     IPC_MESSAGE_HANDLER(AudioInputHostMsg_SetVolume, OnSetVolume)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP_EX()
@@ -185,28 +182,23 @@ void AudioInputRendererHost::OnStartDevice(int stream_id, int session_id) {
   VLOG(1) << "AudioInputRendererHost::OnStartDevice(stream_id="
           << stream_id << ", session_id = " << session_id << ")";
 
-  // Get access to the AudioInputDeviceManager to start the device.
-  media_stream::AudioInputDeviceManager* audio_input_man =
-      media_stream::MediaStreamManager::GetForResourceContext(
-          resource_context_, audio_manager_)->audio_input_device_manager();
-
   // Add the session entry to the map.
   session_entries_[session_id] = stream_id;
 
   // Start the device with the session_id. If the device is started
   // successfully, OnDeviceStarted() callback will be triggered.
-  audio_input_man->Start(session_id, this);
+  media_stream_manager_->audio_input_device_manager()->Start(session_id, this);
 }
 
-void AudioInputRendererHost::OnCreateStream(int stream_id,
-                                            const AudioParameters& params,
-                                            const std::string& device_id) {
+void AudioInputRendererHost::OnCreateStream(
+    int stream_id, const media::AudioParameters& params,
+    const std::string& device_id, bool automatic_gain_control) {
   VLOG(1) << "AudioInputRendererHost::OnCreateStream(stream_id="
           << stream_id << ")";
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   DCHECK(LookupById(stream_id) == NULL);
 
-  AudioParameters audio_params(params);
+  media::AudioParameters audio_params(params);
 
   DCHECK_GT(audio_params.frames_per_buffer(), 0);
   uint32 buffer_size = audio_params.GetBytesPerBuffer();
@@ -214,16 +206,18 @@ void AudioInputRendererHost::OnCreateStream(int stream_id,
   // Create a new AudioEntry structure.
   scoped_ptr<AudioEntry> entry(new AudioEntry());
 
+  uint32 mem_size = sizeof(media::AudioInputBufferParameters) + buffer_size;
+
   // Create the shared memory and share it with the renderer process
   // using a new SyncWriter object.
-  if (!entry->shared_memory.CreateAndMapAnonymous(buffer_size)) {
+  if (!entry->shared_memory.CreateAndMapAnonymous(mem_size)) {
     // If creation of shared memory failed then send an error message.
     SendErrorMessage(stream_id);
     return;
   }
 
-  scoped_ptr<AudioInputSyncWriter> writer(
-      new AudioInputSyncWriter(&entry->shared_memory));
+  scoped_ptr<media::AudioInputSyncWriter> writer(
+      new media::AudioInputSyncWriter(&entry->shared_memory));
 
   if (!writer->Init()) {
     SendErrorMessage(stream_id);
@@ -247,6 +241,9 @@ void AudioInputRendererHost::OnCreateStream(int stream_id,
     SendErrorMessage(stream_id);
     return;
   }
+
+  // Set the initial AGC state for the audio input stream.
+  entry->controller->SetAutomaticGainControl(automatic_gain_control);
 
   // If we have created the controller successfully create a entry and add it
   // to the map.
@@ -290,21 +287,7 @@ void AudioInputRendererHost::OnSetVolume(int stream_id, double volume) {
     return;
   }
 
-  // TODO(henrika): TBI.
-  NOTIMPLEMENTED();
-}
-
-void AudioInputRendererHost::OnGetVolume(int stream_id) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-
-  AudioEntry* entry = LookupById(stream_id);
-  if (!entry) {
-    SendErrorMessage(stream_id);
-    return;
-  }
-
-  // TODO(henrika): TBI.
-  NOTIMPLEMENTED();
+  entry->controller->SetVolume(volume);
 }
 
 void AudioInputRendererHost::SendErrorMessage(int stream_id) {
@@ -361,10 +344,7 @@ void AudioInputRendererHost::OnDeviceStopped(int session_id) {
 void AudioInputRendererHost::StopAndDeleteDevice(int session_id) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
 
-  media_stream::AudioInputDeviceManager* audio_input_man =
-      media_stream::MediaStreamManager::GetForResourceContext(
-          resource_context_, audio_manager_)->audio_input_device_manager();
-  audio_input_man->Stop(session_id);
+  media_stream_manager_->audio_input_device_manager()->Stop(session_id);
 
   // Delete the session entry.
   session_entries_.erase(session_id);

@@ -26,10 +26,6 @@ FileDataSource::FileDataSource(bool disable_file_size)
       disable_file_size_(disable_file_size) {
 }
 
-FileDataSource::~FileDataSource() {
-  DCHECK(!file_);
-}
-
 PipelineStatus FileDataSource::Initialize(const std::string& url) {
   DCHECK(!file_);
 #if defined(OS_WIN)
@@ -54,13 +50,6 @@ void FileDataSource::set_host(DataSourceHost* host) {
   UpdateHostBytes();
 }
 
-void FileDataSource::UpdateHostBytes() {
-  if (host() && file_) {
-    host()->SetTotalBytes(file_size_);
-    host()->SetBufferedBytes(file_size_);
-  }
-}
-
 void FileDataSource::Stop(const base::Closure& callback) {
   base::AutoLock l(lock_);
   if (file_) {
@@ -72,7 +61,7 @@ void FileDataSource::Stop(const base::Closure& callback) {
     callback.Run();
 }
 
-void FileDataSource::Read(int64 position, size_t size, uint8* data,
+void FileDataSource::Read(int64 position, int size, uint8* data,
                           const DataSource::ReadCB& read_cb) {
   DCHECK(file_);
   base::AutoLock l(lock_);
@@ -90,7 +79,7 @@ void FileDataSource::Read(int64 position, size_t size, uint8* data,
       return;
     }
 #endif
-    size_t size_read = fread(data, 1, size, file_);
+    int size_read = fread(data, 1, size, file_);
     if (size_read == size || !ferror(file_)) {
       read_cb.Run(size_read);
       return;
@@ -112,10 +101,17 @@ bool FileDataSource::IsStreaming() {
   return false;
 }
 
-void FileDataSource::SetPreload(Preload preload) {
+void FileDataSource::SetBitrate(int bitrate) {}
+
+FileDataSource::~FileDataSource() {
+  DCHECK(!file_);
 }
 
-void FileDataSource::SetBitrate(int bitrate) {
+void FileDataSource::UpdateHostBytes() {
+  if (host() && file_) {
+    host()->SetTotalBytes(file_size_);
+    host()->AddBufferedByteRange(0, file_size_);
+  }
 }
 
 }  // namespace media

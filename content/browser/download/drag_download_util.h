@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_BROWSER_DOWNLOAD_DRAG_DOWNLOAD_UTIL_H_
 #define CONTENT_BROWSER_DOWNLOAD_DRAG_DOWNLOAD_UTIL_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/memory/ref_counted.h"
@@ -45,11 +44,13 @@ net::FileStream* CreateFileStreamForDrop(
 class PromiseFileFinalizer : public ui::DownloadFileObserver {
  public:
   explicit PromiseFileFinalizer(DragDownloadFile* drag_file_downloader);
-  virtual ~PromiseFileFinalizer();
 
   // DownloadFileObserver methods.
   virtual void OnDownloadCompleted(const FilePath& file_path) OVERRIDE;
   virtual void OnDownloadAborted() OVERRIDE;
+
+ protected:
+  virtual ~PromiseFileFinalizer();
 
  private:
   void Cleanup();

@@ -4,21 +4,20 @@
 
 #ifndef SYNC_ENGINE_DOWNLOAD_UPDATES_COMMAND_H_
 #define SYNC_ENGINE_DOWNLOAD_UPDATES_COMMAND_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/gtest_prod_util.h"
-#include "sync/engine/model_safe_worker.h"
 #include "sync/engine/syncer_command.h"
+#include "sync/internal_api/public/base/model_type.h"
+#include "sync/internal_api/public/engine/model_safe_worker.h"
 #include "sync/protocol/sync.pb.h"
-#include "sync/syncable/model_type.h"
 
 namespace sync_pb {
 class EntitySpecifics;
 }
 
-namespace browser_sync {
+namespace syncer {
 
 // Determine the enabled datatypes, download a batch of updates for them
 // from the server, place the result in the SyncSession for further processing.
@@ -59,7 +58,6 @@ class DownloadUpdatesCommand : public SyncerCommand {
   DISALLOW_COPY_AND_ASSIGN(DownloadUpdatesCommand);
 };
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_ENGINE_DOWNLOAD_UPDATES_COMMAND_H_
-

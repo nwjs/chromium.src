@@ -6,6 +6,7 @@
 #define MEDIA_AUDIO_AUDIO_MANAGER_BASE_H_
 
 #include <map>
+#include <string>
 
 #include "base/atomic_ref_count.h"
 #include "base/compiler_specific.h"
@@ -13,11 +14,13 @@
 #include "base/synchronization/lock.h"
 #include "media/audio/audio_manager.h"
 
-class AudioOutputDispatcher;
-
 namespace base {
 class Thread;
 }
+
+namespace media {
+
+class AudioOutputDispatcher;
 
 // AudioManagerBase provides AudioManager functions common for all platforms.
 class MEDIA_EXPORT AudioManagerBase : public AudioManager {
@@ -123,5 +126,7 @@ class MEDIA_EXPORT AudioManagerBase : public AudioManager {
 
   DISALLOW_COPY_AND_ASSIGN(AudioManagerBase);
 };
+
+}  // namespace media
 
 #endif  // MEDIA_AUDIO_AUDIO_MANAGER_BASE_H_

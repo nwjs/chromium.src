@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -24,13 +24,13 @@ const int kMovementThresholdMeters = 20;
 // The arbitrary delta is decreased (Gears used 100 meters); if we need to
 // decrease it any further we'll likely want to do some smarter filtering to
 // remove GPS location jitter noise.
-bool PositionsDifferSiginificantly(const Geoposition& position_1,
-                                   const Geoposition& position_2) {
-  const bool pos_1_valid = position_1.IsValidFix();
-  if (pos_1_valid != position_2.IsValidFix())
+bool PositionsDifferSiginificantly(const content::Geoposition& position_1,
+                                   const content::Geoposition& position_2) {
+  const bool pos_1_valid = position_1.Validate();
+  if (pos_1_valid != position_2.Validate())
     return true;
   if (!pos_1_valid) {
-    DCHECK(!position_2.IsValidFix());
+    DCHECK(!position_2.Validate());
     return false;
   }
   double delta = std::sqrt(
@@ -66,7 +66,7 @@ void Win7LocationProvider::StopProvider() {
   weak_factory_.InvalidateWeakPtrs();
 }
 
-void Win7LocationProvider::GetPosition(Geoposition* position) {
+void Win7LocationProvider::GetPosition(content::Geoposition* position) {
   DCHECK(position);
   *position = position_;
 }
@@ -75,17 +75,14 @@ void Win7LocationProvider::UpdatePosition() {
   ScheduleNextPoll(0);
 }
 
-void Win7LocationProvider::OnPermissionGranted(
-  const GURL& requesting_frame) {
-}
-
 void Win7LocationProvider::DoPollTask() {
-  Geoposition new_position;
+  content::Geoposition new_position;
   api_->GetPosition(&new_position);
   const bool differ = PositionsDifferSiginificantly(position_, new_position);
   ScheduleNextPoll(differ ? kPollPeriodMovingMillis :
                             kPollPeriodStationaryMillis);
-  if (differ || new_position.error_code != Geoposition::ERROR_CODE_NONE) {
+  if (differ ||
+      new_position.error_code != content::Geoposition::ERROR_CODE_NONE) {
     // Update if the new location is interesting or we have an error to report
     position_ = new_position;
     UpdateListeners();
@@ -96,7 +93,7 @@ void Win7LocationProvider::ScheduleNextPoll(int interval) {
   MessageLoop::current()->PostDelayedTask(
       FROM_HERE,
       base::Bind(&Win7LocationProvider::DoPollTask, weak_factory_.GetWeakPtr()),
-      interval);
+      base::TimeDelta::FromMilliseconds(interval));
 }
 
 LocationProviderBase* NewSystemLocationProvider() {

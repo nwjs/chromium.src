@@ -1,11 +1,10 @@
 
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef SKIA_EXT_CANVAS_PAINT_MAC_H_
 #define SKIA_EXT_CANVAS_PAINT_MAC_H_
-#pragma once
 
 #include "skia/ext/canvas_paint_common.h"
 #include "skia/ext/platform_canvas.h"
@@ -42,24 +41,24 @@ class CanvasPaintT : public T {
 
       // Blit the dirty rect to the current context.
       CGImageRef image = CGBitmapContextCreateImage(context_);
-      CGRect destRect = NSRectToCGRect(rectangle_);
+      CGRect dest_rect = NSRectToCGRect(rectangle_);
 
-      CGContextRef destinationContext =
+      CGContextRef destination_context =
           (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
-      CGContextSaveGState(destinationContext);
+      CGContextSaveGState(destination_context);
       CGContextSetBlendMode(
-          destinationContext,
+          destination_context,
           composite_alpha_ ? kCGBlendModeNormal : kCGBlendModeCopy);
 
       if ([[NSGraphicsContext currentContext] isFlipped]) {
         // Mirror context on the target's rect middle scanline.
-        CGContextTranslateCTM(destinationContext, 0.0, NSMidY(rectangle_));
-        CGContextScaleCTM(destinationContext, 1.0, -1.0);
-        CGContextTranslateCTM(destinationContext, 0.0, -NSMidY(rectangle_));
+        CGContextTranslateCTM(destination_context, 0.0, NSMidY(rectangle_));
+        CGContextScaleCTM(destination_context, 1.0, -1.0);
+        CGContextTranslateCTM(destination_context, 0.0, -NSMidY(rectangle_));
       }
 
-      CGContextDrawImage(destinationContext, destRect, image);
-      CGContextRestoreGState(destinationContext);
+      CGContextDrawImage(destination_context, dest_rect, image);
+      CGContextRestoreGState(destination_context);
 
       CFRelease(image);
     }
@@ -74,7 +73,7 @@ class CanvasPaintT : public T {
   // Returns true if the invalid region is empty. The caller should call this
   // function to determine if anything needs painting.
   bool is_empty() const {
-    return rectangle_.size.width == 0 || rectangle_.size.height == 0;
+    return NSIsEmptyRect(rectangle_);
   }
 
   const NSRect& rectangle() const {
@@ -83,19 +82,22 @@ class CanvasPaintT : public T {
 
  private:
   void init(bool opaque) {
+    CGContextRef destination_context =
+        (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
+    CGRect scaled_unit_rect = CGContextConvertRectToDeviceSpace(
+        destination_context, CGRectMake(0, 0, 1, 1));
+    // Assume that the x scale and the y scale are the same.
+    CGFloat scale = scaled_unit_rect.size.width;
+
+    RecreateBackingCanvas(this,
+        NSWidth(rectangle_), NSHeight(rectangle_), scale, opaque);
     PlatformCanvas* canvas = GetPlatformCanvas(this);
-    if (!canvas->initialize(rectangle_.size.width,
-                            rectangle_.size.height,
-                            opaque, NULL)) {
-      // Cause a deliberate crash;
-      *(volatile char*) 0 = 0;
-    }
     canvas->clear(SkColorSetARGB(0, 0, 0, 0));
 
     // Need to translate so that the dirty region appears at the origin of the
     // surface.
-    canvas->translate(-SkDoubleToScalar(rectangle_.origin.x),
-                      -SkDoubleToScalar(rectangle_.origin.y));
+    canvas->translate(-SkDoubleToScalar(NSMinX(rectangle_)),
+                      -SkDoubleToScalar(NSMinY(rectangle_)));
 
     context_ = GetBitmapContext(GetTopDevice(*canvas));
   }

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SYNC_GLUE_AUTOFILL_PROFILE_DATA_TYPE_CONTROLLER_H_
 #define CHROME_BROWSER_SYNC_GLUE_AUTOFILL_PROFILE_DATA_TYPE_CONTROLLER_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
@@ -27,11 +26,10 @@ class AutofillProfileDataTypeController
       ProfileSyncComponentsFactory* profile_sync_factory,
       Profile* profile,
       ProfileSyncService* sync_service);
-  virtual ~AutofillProfileDataTypeController();
 
   // NewNonFrontendDataTypeController implementation.
-  virtual syncable::ModelType type() const OVERRIDE;
-  virtual browser_sync::ModelSafeGroup model_safe_group() const OVERRIDE;
+  virtual syncer::ModelType type() const OVERRIDE;
+  virtual syncer::ModelSafeGroup model_safe_group() const OVERRIDE;
 
   // content::NotificationObserver implementation.
   virtual void Observe(int type,
@@ -42,14 +40,14 @@ class AutofillProfileDataTypeController
   virtual void OnPersonalDataChanged() OVERRIDE;
 
  protected:
+  virtual ~AutofillProfileDataTypeController();
+
   // NewNonFrontendDataTypeController implementation.
   virtual bool PostTaskOnBackendThread(
       const tracked_objects::Location& from_here,
       const base::Closure& task) OVERRIDE;
   virtual bool StartModels() OVERRIDE;
   virtual void StopModels() OVERRIDE;
-
-  void DoStartAssociationAsync();
 
  private:
   PersonalDataManager* personal_data_;

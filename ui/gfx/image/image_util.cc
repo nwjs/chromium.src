@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,22 +13,30 @@
 namespace gfx {
 
 Image* ImageFromPNGEncodedData(const unsigned char* input, size_t input_size) {
-  scoped_ptr<SkBitmap> favicon_bitmap(new SkBitmap());
-  if (gfx::PNGCodec::Decode(input, input_size, favicon_bitmap.get()))
-    return new Image(favicon_bitmap.release());
+  SkBitmap bitmap;
+  if (gfx::PNGCodec::Decode(input, input_size, &bitmap))
+    return new Image(bitmap);
 
   return NULL;
 }
 
+Image ImageFromJPEGEncodedData(const unsigned char* input, size_t input_size) {
+  scoped_ptr<SkBitmap> bitmap(gfx::JPEGCodec::Decode(input, input_size));
+  if (bitmap.get())
+    return Image(*bitmap);
+
+  return Image();
+}
+
 bool PNGEncodedDataFromImage(const Image& image,
                              std::vector<unsigned char>* dst) {
-  const SkBitmap& bitmap = image;
+  const SkBitmap& bitmap = *image.ToSkBitmap();
   return gfx::PNGCodec::EncodeBGRASkBitmap(bitmap, false, dst);
 }
 
 bool JPEGEncodedDataFromImage(const Image& image, int quality,
                               std::vector<unsigned char>* dst) {
-  const SkBitmap& bitmap = image;
+  const SkBitmap& bitmap = *image.ToSkBitmap();
   SkAutoLockPixels bitmap_lock(bitmap);
 
   if (!bitmap.readyToDraw())

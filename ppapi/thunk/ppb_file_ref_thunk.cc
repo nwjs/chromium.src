@@ -7,6 +7,7 @@
 #include "ppapi/c/pp_completion_callback.h"
 #include "ppapi/c/pp_errors.h"
 #include "ppapi/c/private/ppb_file_ref_private.h"
+#include "ppapi/shared_impl/tracked_callback.h"
 #include "ppapi/thunk/enter.h"
 #include "ppapi/thunk/thunk.h"
 #include "ppapi/thunk/ppb_file_ref_api.h"
@@ -20,7 +21,11 @@ namespace {
 typedef EnterResource<PPB_FileRef_API> EnterFileRef;
 
 PP_Resource Create(PP_Resource file_system, const char* path) {
-  EnterFunctionGivenResource<ResourceCreationAPI> enter(file_system, true);
+  Resource* object =
+      PpapiGlobals::Get()->GetResourceTracker()->GetResource(file_system);
+  if (!object)
+    return 0;
+  EnterResourceCreation enter(object->pp_instance());
   if (enter.failed())
     return 0;
   return enter.functions()->CreateFileRef(file_system, path);
@@ -66,7 +71,7 @@ int32_t MakeDirectory(PP_Resource directory_ref,
   if (enter.failed())
     return enter.retval();
   return enter.SetResult(enter.object()->MakeDirectory(make_ancestors,
-                                                       callback));
+                                                       enter.callback()));
 }
 
 int32_t Touch(PP_Resource file_ref,
@@ -77,7 +82,7 @@ int32_t Touch(PP_Resource file_ref,
   if (enter.failed())
     return enter.retval();
   return enter.SetResult(enter.object()->Touch(
-      last_access_time, last_modified_time, callback));
+      last_access_time, last_modified_time, enter.callback()));
 }
 
 int32_t Delete(PP_Resource file_ref,
@@ -85,7 +90,7 @@ int32_t Delete(PP_Resource file_ref,
   EnterFileRef enter(file_ref, callback, true);
   if (enter.failed())
     return enter.retval();
-  return enter.SetResult(enter.object()->Delete(callback));
+  return enter.SetResult(enter.object()->Delete(enter.callback()));
 }
 
 int32_t Rename(PP_Resource file_ref,
@@ -94,7 +99,8 @@ int32_t Rename(PP_Resource file_ref,
   EnterFileRef enter(file_ref, callback, true);
   if (enter.failed())
     return enter.retval();
-  return enter.SetResult(enter.object()->Rename(new_file_ref, callback));
+  return enter.SetResult(enter.object()->Rename(new_file_ref,
+                                                enter.callback()));
 }
 
 PP_Var GetAbsolutePath(PP_Resource file_ref) {

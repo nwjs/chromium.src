@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -19,6 +19,7 @@
 
 #include <set>
 
+#include "base/memory/singleton.h"
 #include "base/string_util.h"
 #include "base/threading/thread.h"
 #include "base/time.h"
@@ -96,7 +97,7 @@ void InitDialog(HWND hwnd) {
   messages->InsertColumn(0, L"id", LVCFMT_LEFT, 230);
 
   LogFunctionMap* log_functions = IPC::Logging::log_function_map();
-  for (LogFunctionMap::iterator i = log_functions->begin();
+  for (LogFunctionMap::iterator i(log_functions->begin());
        i != log_functions->end(); ++i) {
     std::string name;
     (*i->second)(&name, NULL, NULL);
@@ -262,8 +263,7 @@ views::View* AboutIPCDialog::GetContentsView() {
 }
 
 int AboutIPCDialog::GetDialogButtons() const {
-  // Don't want OK or Cancel.
-  return 0;
+  return ui::DIALOG_BUTTON_NONE;
 }
 
 string16 AboutIPCDialog::GetWindowTitle() const {
@@ -366,12 +366,12 @@ void AboutIPCDialog::ButtonPressed(
   }
 }
 
-namespace browser {
+namespace chrome {
 
 void ShowAboutIPCDialog() {
   AboutIPCDialog::RunDialog();
 }
 
-} // namespace browser
+}  // namespace chrome
 
 #endif  // IPC_MESSAGE_LOG_ENABLED

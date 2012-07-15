@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROME_BROWSER_MAIN_H_
 #define CHROME_BROWSER_CHROME_BROWSER_MAIN_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/gtest_prod_util.h"
@@ -15,18 +14,17 @@
 #include "chrome/browser/first_run/first_run.h"
 #include "chrome/browser/process_singleton.h"
 #include "chrome/browser/task_profiler/auto_tracking.h"
-#include "chrome/browser/ui/browser_init.h"
+#include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "content/public/browser/browser_main_parts.h"
 #include "content/public/browser/browser_thread.h"
 
-class BrowserInit;
 class BrowserProcessImpl;
 class ChromeBrowserMainExtraParts;
 class FieldTrialSynchronizer;
-class HistogramSynchronizer;
 class MetricsService;
 class PrefService;
 class Profile;
+class StartupBrowserCreator;
 class StartupTimeBomb;
 class ShutdownWatcherHelper;
 class TranslateManager;
@@ -64,7 +62,6 @@ class ChromeBrowserMainParts : public content::BrowserMainParts {
   virtual void PostEarlyInitialization() OVERRIDE;
   virtual void ToolkitInitialized() OVERRIDE;
   virtual void PreMainMessageLoopStart() OVERRIDE;
-  virtual MessageLoop* GetMainMessageLoop() OVERRIDE;
   virtual void PostMainMessageLoopStart() OVERRIDE;
   virtual int PreCreateThreads() OVERRIDE;
   virtual void PreMainMessageLoopRun() OVERRIDE;
@@ -73,11 +70,17 @@ class ChromeBrowserMainParts : public content::BrowserMainParts {
   virtual void PostDestroyThreads() OVERRIDE;
 
   // Additional stages for ChromeBrowserMainExtraParts. These stages are called
-  // in order from PreMainMessageLoopStart(). See implementation for details.
+  // in order from PreMainMessageLoopRun(). See implementation for details.
   virtual void PreProfileInit();
   virtual void PostProfileInit();
   virtual void PreBrowserStart();
   virtual void PostBrowserStart();
+
+  // Runs the PageCycler; called if the switch kVisitURLs is present.
+  virtual void RunPageCycler();
+
+  // Override this in subclasses to initialize platform specific field trials.
+  virtual void SetupPlatformFieldTrials();
 
   // Displays a warning message that we can't find any locale data files.
   virtual void ShowMissingLocaleMessageBox() = 0;
@@ -90,6 +93,8 @@ class ChromeBrowserMainParts : public content::BrowserMainParts {
   }
 
   Profile* profile() { return profile_; }
+
+  const PrefService* local_state() const { return local_state_; }
 
  private:
   // Methods for |EarlyInitialization()| ---------------------------------------
@@ -125,9 +130,16 @@ class ChromeBrowserMainParts : public content::BrowserMainParts {
   // computer startup has on retention and usage of Chrome.
   void AutoLaunchChromeFieldTrial();
 
-  // A field trial to test the viability of a DNS based, certificate revocation
-  // system.
-  void ComodoDNSExperimentFieldTrial();
+  // A collection of one-time-randomized and session-randomized field trials
+  // intended to test the uniformity and correctness of the field trial control,
+  // bucketing and reporting systems.
+  void SetupUniformityFieldTrials();
+
+  // Disables the new tab field trial if not running in desktop mode.
+  void DisableNewTabFieldTrialIfNecesssary();
+
+  // Field trial for testing TLS channel id.
+  void ChannelIDFieldTrial();
 
   // Methods for |SetupMetricsAndFieldTrials()| --------------------------------
 
@@ -137,8 +149,7 @@ class ChromeBrowserMainParts : public content::BrowserMainParts {
   void SetupMetricsAndFieldTrials();
 
   // Add an invocation of your field trial init function to this method.
-  void SetupFieldTrials(bool metrics_recording_enabled,
-                        bool proxy_policy_is_set);
+  void SetupFieldTrials(bool proxy_policy_is_set);
 
   // Starts recording of metrics. This can only be called after we have a file
   // thread.
@@ -181,9 +192,8 @@ class ChromeBrowserMainParts : public content::BrowserMainParts {
 
   // Members initialized after / released before main_message_loop_ ------------
 
-  scoped_ptr<BrowserInit> browser_init_;
+  scoped_ptr<StartupBrowserCreator> browser_creator_;
   scoped_ptr<BrowserProcessImpl> browser_process_;
-  scoped_refptr<HistogramSynchronizer> histogram_synchronizer_;
   scoped_refptr<chrome_browser_metrics::TrackingSynchronizer>
       tracking_synchronizer_;
   scoped_ptr<ProcessSingleton> process_singleton_;
@@ -207,6 +217,11 @@ class ChromeBrowserMainParts : public content::BrowserMainParts {
   // Members needed across shutdown methods.
   bool restart_last_session_;
 
+  // Tests can set this to true to disable restricting cookie access in the
+  // network stack, as this can only be done once.
+  static bool disable_enforcing_cookie_policies_for_tests_;
+
+  friend class BrowserMainTest;
   FRIEND_TEST_ALL_PREFIXES(BrowserMainTest,
                            WarmConnectionFieldTrial_WarmestSocket);
   FRIEND_TEST_ALL_PREFIXES(BrowserMainTest, WarmConnectionFieldTrial_Random);
@@ -225,7 +240,7 @@ void RecordBreakpadStatusUMA(MetricsService* metrics);
 void WarnAboutMinimumSystemRequirements();
 
 // Records the time from our process' startup to the present time in
-// the UMA histogram |metric_name|.
+// the Startup.BrowserMessageLoopStartTime UMA histogram.
 void RecordBrowserStartupTime();
 
 // Records a time value to an UMA histogram in the context of the

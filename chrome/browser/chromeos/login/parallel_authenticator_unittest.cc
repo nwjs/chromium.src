@@ -6,31 +6,27 @@
 
 #include <string>
 
-#include "base/bind.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
-#include "base/path_service.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
-#include "base/test/thread_test_helper.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
+#include "chrome/browser/chromeos/cros/mock_cert_library.h"
 #include "chrome/browser/chromeos/cros/mock_cryptohome_library.h"
-#include "chrome/browser/chromeos/cros/mock_library_loader.h"
 #include "chrome/browser/chromeos/cros_settings.h"
 #include "chrome/browser/chromeos/cryptohome/mock_async_method_caller.h"
-#include "chrome/browser/chromeos/dbus/mock_dbus_thread_manager.h"
-#include "chrome/browser/chromeos/dbus/mock_cryptohome_client.h"
 #include "chrome/browser/chromeos/login/mock_login_status_consumer.h"
 #include "chrome/browser/chromeos/login/mock_url_fetchers.h"
 #include "chrome/browser/chromeos/login/mock_user_manager.h"
 #include "chrome/browser/chromeos/login/test_attempt_state.h"
 #include "chrome/browser/chromeos/stub_cros_settings_provider.h"
-#include "chrome/common/chrome_paths.h"
 #include "chrome/common/net/gaia/mock_url_fetcher_factory.h"
 #include "chrome/test/base/testing_profile.h"
-#include "content/test/test_browser_thread.h"
+#include "chromeos/dbus/mock_cryptohome_client.h"
+#include "chromeos/dbus/mock_dbus_thread_manager.h"
+#include "content/public/test/test_browser_thread.h"
 #include "googleurl/src/gurl.h"
 #include "net/base/net_errors.h"
 #include "net/url_request/url_request_status.h"
@@ -39,11 +35,6 @@
 #include "third_party/cros_system_api/dbus/service_constants.h"
 
 using content::BrowserThread;
-using file_util::CloseFile;
-using file_util::CreateAndOpenTemporaryFile;
-using file_util::CreateAndOpenTemporaryFileInDir;
-using file_util::Delete;
-using file_util::WriteFile;
 using ::testing::AnyNumber;
 using ::testing::DoAll;
 using ::testing::Invoke;
@@ -85,20 +76,14 @@ class ParallelAuthenticatorTest : public testing::Test {
     chromeos::CrosLibrary::TestApi* test_api =
         chromeos::CrosLibrary::Get()->GetTestApi();
 
-    loader_ = new MockLibraryLoader();
-    ON_CALL(*loader_, Load(_))
-        .WillByDefault(Return(true));
-    EXPECT_CALL(*loader_, Load(_))
-        .Times(AnyNumber());
+    mock_cryptohome_library_ = new MockCryptohomeLibrary();
+    test_api->SetCryptohomeLibrary(mock_cryptohome_library_, true);
 
-    test_api->SetLibraryLoader(loader_, true);
+    mock_cert_library_ = new MockCertLibrary();
+    EXPECT_CALL(*mock_cert_library_, LoadKeyStore()).Times(AnyNumber());
+    test_api->SetCertLibrary(mock_cert_library_, true);
 
-    mock_library_ = new MockCryptohomeLibrary();
-    test_api->SetCryptohomeLibrary(mock_library_, true);
     io_thread_.Start();
-
-    EXPECT_CALL(*mock_user_manager_.user_manager(), LoadKeyStore())
-        .Times(AnyNumber());
 
     auth_ = new ParallelAuthenticator(&consumer_);
     auth_->set_using_oauth(false);
@@ -115,7 +100,6 @@ class ParallelAuthenticatorTest : public testing::Test {
     // Prevent bogus gMock leak check from firing.
     chromeos::CrosLibrary::TestApi* test_api =
         chromeos::CrosLibrary::Get()->GetTestApi();
-    test_api->SetLibraryLoader(NULL, false);
     test_api->SetCryptohomeLibrary(NULL, false);
 
     cryptohome::AsyncMethodCaller::Shutdown();
@@ -124,10 +108,10 @@ class ParallelAuthenticatorTest : public testing::Test {
 
   FilePath PopulateTempFile(const char* data, int data_len) {
     FilePath out;
-    FILE* tmp_file = CreateAndOpenTemporaryFile(&out);
+    FILE* tmp_file = file_util::CreateAndOpenTemporaryFile(&out);
     EXPECT_NE(tmp_file, static_cast<FILE*>(NULL));
-    EXPECT_EQ(WriteFile(out, data, data_len), data_len);
-    EXPECT_TRUE(CloseFile(tmp_file));
+    EXPECT_EQ(file_util::WriteFile(out, data, data_len), data_len);
+    EXPECT_TRUE(file_util::CloseFile(tmp_file));
     return out;
   }
 
@@ -228,8 +212,8 @@ class ParallelAuthenticatorTest : public testing::Test {
   chromeos::ScopedStubCrosEnabler stub_cros_enabler_;
 
   // Mocks, destroyed by CrosLibrary class.
-  MockCryptohomeLibrary* mock_library_;
-  MockLibraryLoader* loader_;
+  MockCertLibrary* mock_cert_library_;
+  MockCryptohomeLibrary* mock_cryptohome_library_;
   ScopedMockUserManagerEnabler mock_user_manager_;
 
   cryptohome::MockAsyncMethodCaller* mock_caller_;
@@ -506,7 +490,7 @@ TEST_F(ParallelAuthenticatorTest, DriveDataRecover) {
   EXPECT_CALL(*mock_caller_, AsyncMount(username_, hash_ascii_, false, _))
       .Times(1)
       .RetiresOnSaturation();
-  EXPECT_CALL(*mock_library_, HashPassword(_))
+  EXPECT_CALL(*mock_cryptohome_library_, GetSystemSalt())
       .WillOnce(Return(std::string()))
       .RetiresOnSaturation();
 
@@ -527,7 +511,7 @@ TEST_F(ParallelAuthenticatorTest, DriveDataRecoverButFail) {
   EXPECT_CALL(*mock_caller_, AsyncMigrateKey(username_, _, hash_ascii_, _))
       .Times(1)
       .RetiresOnSaturation();
-  EXPECT_CALL(*mock_library_, HashPassword(_))
+  EXPECT_CALL(*mock_cryptohome_library_, GetSystemSalt())
       .WillOnce(Return(std::string()))
       .RetiresOnSaturation();
 
@@ -644,7 +628,7 @@ TEST_F(ParallelAuthenticatorTest, DriveOfflineLoginGetNewPassword) {
                                               _))
       .Times(1)
       .RetiresOnSaturation();
-  EXPECT_CALL(*mock_library_, HashPassword(_))
+  EXPECT_CALL(*mock_cryptohome_library_, GetSystemSalt())
       .WillOnce(Return(std::string()))
       .RetiresOnSaturation();
 
@@ -682,7 +666,7 @@ TEST_F(ParallelAuthenticatorTest, DriveOfflineLoginGetNewPassword) {
 TEST_F(ParallelAuthenticatorTest, DriveOfflineLoginGetCaptchad) {
   ExpectLoginSuccess(username_, password_, true);
   FailOnLoginFailure();
-  EXPECT_CALL(*mock_library_, HashPassword(_))
+  EXPECT_CALL(*mock_cryptohome_library_, GetSystemSalt())
       .WillOnce(Return(std::string()))
       .RetiresOnSaturation();
 
@@ -704,7 +688,7 @@ TEST_F(ParallelAuthenticatorTest, DriveOfflineLoginGetCaptchad) {
 
   // After the request below completes, OnLoginSuccess gets called again.
   failure = LoginFailure::FromNetworkAuthFailure(
-      GoogleServiceAuthError::FromCaptchaChallenge(
+      GoogleServiceAuthError::FromClientLoginCaptchaChallenge(
           CaptchaFetcher::GetCaptchaToken(),
           GURL(CaptchaFetcher::GetCaptchaUrl()),
           GURL(CaptchaFetcher::GetUnlockUrl())));
@@ -764,7 +748,7 @@ TEST_F(ParallelAuthenticatorTest, DriveUnlock) {
   EXPECT_CALL(*mock_caller_, AsyncCheckKey(username_, _, _))
       .Times(1)
       .RetiresOnSaturation();
-  EXPECT_CALL(*mock_library_, HashPassword(_))
+  EXPECT_CALL(*mock_cryptohome_library_, GetSystemSalt())
       .WillOnce(Return(std::string()))
       .RetiresOnSaturation();
 

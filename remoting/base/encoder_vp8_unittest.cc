@@ -62,27 +62,35 @@ TEST(EncoderVp8Test, TestSizeChangeNoLeak) {
                             base::Unretained(&callback)));
 }
 
-TEST(EncoderVp8Test, AlignAndClipRect) {
-  // Simple test case (no clipping).
-  SkIRect r1(SkIRect::MakeXYWH(100, 200, 300, 400));
-  EXPECT_EQ(EncoderVp8::AlignAndClipRect(r1, kIntMax, kIntMax), r1);
+class EncoderDpiCallback {
+ public:
+  void DataAvailable(scoped_ptr<VideoPacket> packet) {
+    EXPECT_EQ(packet->format().x_dpi(), 96);
+    EXPECT_EQ(packet->format().y_dpi(), 97);
+  }
+};
 
-  // Should expand outward to r1.
-  SkIRect r2(SkIRect::MakeXYWH(101, 201, 298, 398));
-  EXPECT_EQ(EncoderVp8::AlignAndClipRect(r2, kIntMax, kIntMax), r1);
+// Test that the DPI information is correctly propagated from the CaptureData
+// to the VideoPacket.
+TEST(EncoderVp8Test, TestDpiPropagation) {
+  int height = 1;
+  int width = 1;
+  const int kBytesPerPixel = 4;
 
-  // Test clipping to screen size.
-  EXPECT_EQ(EncoderVp8::AlignAndClipRect(r1, 110, 220),
-            SkIRect::MakeXYWH(100, 200, 10, 20));
+  EncoderVp8 encoder;
+  EncoderDpiCallback callback;
 
-  // Rectangle completely off-screen.
-  EXPECT_TRUE(EncoderVp8::AlignAndClipRect(r1, 50, 50).isEmpty());
+  std::vector<uint8> buffer(width * height * kBytesPerPixel);
+  DataPlanes planes;
+  planes.data[0] = &buffer.front();
+  planes.strides[0] = width;
 
-  // Clipping to odd-sized screen.  An unlikely case, and we might not deal
-  // with it cleanly in the encoder (we possibly lose 1px at right & bottom
-  // of screen).
-  EXPECT_EQ(EncoderVp8::AlignAndClipRect(r1, 199, 299),
-            SkIRect::MakeXYWH(100, 200, 98, 98));
+  scoped_refptr<CaptureData> capture_data(new CaptureData(
+      planes, SkISize::Make(width, height), media::VideoFrame::RGB32));
+  capture_data->set_dpi(SkIPoint::Make(96, 97));
+  encoder.Encode(capture_data, false,
+                 base::Bind(&EncoderDpiCallback::DataAvailable,
+                            base::Unretained(&callback)));
 }
 
 }  // namespace remoting

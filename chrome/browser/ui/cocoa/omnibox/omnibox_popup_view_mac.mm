@@ -8,23 +8,16 @@
 
 #include "base/stl_util.h"
 #include "base/sys_string_conversions.h"
-#include "base/utf_string_conversions.h"
-#include "chrome/browser/autocomplete/autocomplete_edit.h"
 #include "chrome/browser/autocomplete/autocomplete_match.h"
-#include "chrome/browser/autocomplete/autocomplete_popup_model.h"
-#include "chrome/browser/instant/instant_confirm_dialog.h"
-#include "chrome/browser/instant/promo_counter.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/cocoa/event_utils.h"
 #include "chrome/browser/ui/cocoa/image_utils.h"
-#import "chrome/browser/ui/cocoa/location_bar/instant_opt_in_controller.h"
-#import "chrome/browser/ui/cocoa/location_bar/instant_opt_in_view.h"
-#import "chrome/browser/ui/cocoa/location_bar/omnibox_popup_view.h"
 #include "chrome/browser/ui/cocoa/omnibox/omnibox_view_mac.h"
+#include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
+#include "chrome/browser/ui/omnibox/omnibox_popup_model.h"
 #include "grit/theme_resources.h"
 #include "skia/ext/skia_utils_mac.h"
 #import "third_party/GTM/AppKit/GTMNSAnimation+Duration.h"
-#import "third_party/GTM/AppKit/GTMNSBezierPath+RoundRect.h"
+#include "ui/base/cocoa/window_size_constants.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/text/text_elider.h"
 #include "ui/gfx/rect.h"
@@ -120,14 +113,24 @@ NSMutableAttributedString* OmniboxPopupViewMac::DecorateMatchedString(
                                               attributes:attributes]
         autorelease];
 
+  // As a protective measure, bail if the length of the match string is not
+  // the same as the length of the converted NSString. http://crbug.com/121703
+  if ([s length] != matchString.size())
+    return as;
+
   // Mark up the runs which differ from the default.
   for (ACMatchClassifications::const_iterator i = classifications.begin();
        i != classifications.end(); ++i) {
     const BOOL isLast = (i+1) == classifications.end();
-    const size_t nextOffset = (isLast ? matchString.length() : (i + 1)->offset);
+    const NSInteger nextOffset =
+        (isLast ? [s length] : static_cast<NSInteger>((i + 1)->offset));
     const NSInteger location = static_cast<NSInteger>(i->offset);
-    const NSInteger length = static_cast<NSInteger>(nextOffset - i->offset);
-    const NSRange range = NSMakeRange(location, length);
+    const NSInteger length = nextOffset - static_cast<NSInteger>(i->offset);
+    // Guard against bad, off-the-end classification ranges.
+    if (i->offset >= [s length] || length <= 0)
+      break;
+    const NSRange range = NSMakeRange(location,
+        MIN(length, static_cast<NSInteger>([s length]) - location));
 
     if (0 != (i->style & ACMatchClassification::URL)) {
       [as addAttribute:NSForegroundColorAttributeName
@@ -259,15 +262,9 @@ NSAttributedString* OmniboxPopupViewMac::MatchText(
 
 @interface AutocompleteMatrix : NSMatrix {
  @private
-  // If YES, the matrix draws itself with rounded corners at the bottom.
-  // Otherwise, the bottom corners will be square.
-  BOOL bottomCornersRounded_;
-
   // Target for click and middle-click.
   OmniboxPopupViewMac* popupView_;  // weak, owns us.
 }
-
-@property(assign, nonatomic) BOOL bottomCornersRounded;
 
 // Create a zero-size matrix initializing |popupView_|.
 - (id)initWithPopupView:(OmniboxPopupViewMac*)popupView;
@@ -281,20 +278,16 @@ NSAttributedString* OmniboxPopupViewMac::MatchText(
 
 @end
 
-OmniboxPopupViewMac::OmniboxPopupViewMac(OmniboxViewMac* omnibox_view,
-                                         AutocompleteEditModel* edit_model,
-                                         Profile* profile,
+OmniboxPopupViewMac::OmniboxPopupViewMac(OmniboxView* omnibox_view,
+                                         OmniboxEditModel* edit_model,
                                          NSTextField* field)
     : omnibox_view_(omnibox_view),
-      model_(new AutocompletePopupModel(this, edit_model)),
-      profile_(profile),
+      model_(new OmniboxPopupModel(this, edit_model)),
       field_(field),
       popup_(nil),
-      opt_in_controller_(nil),
       targetPopupFrame_(NSZeroRect) {
   DCHECK(omnibox_view);
   DCHECK(edit_model);
-  DCHECK(profile);
 }
 
 OmniboxPopupViewMac::~OmniboxPopupViewMac() {
@@ -304,20 +297,9 @@ OmniboxPopupViewMac::~OmniboxPopupViewMac() {
 
   // Break references to |this| because the popup may not be
   // deallocated immediately.
-  AutocompleteMatrix* matrix = GetAutocompleteMatrix();
+  AutocompleteMatrix* matrix = [popup_ contentView];
   DCHECK(matrix == nil || [matrix isKindOfClass:[AutocompleteMatrix class]]);
   [matrix setPopupView:NULL];
-}
-
-AutocompleteMatrix* OmniboxPopupViewMac::GetAutocompleteMatrix() {
-  // The AutocompleteMatrix will always be the first subview of the popup's
-  // content view.
-  if (popup_ && [[[popup_ contentView] subviews] count]) {
-    NSArray* subviews = [[popup_ contentView] subviews];
-    DCHECK_GE([subviews count], 0U);
-    return (AutocompleteMatrix*)[subviews objectAtIndex:0];
-  }
-  return nil;
 }
 
 bool OmniboxPopupViewMac::IsOpen() const {
@@ -326,12 +308,13 @@ bool OmniboxPopupViewMac::IsOpen() const {
 
 void OmniboxPopupViewMac::CreatePopupIfNeeded() {
   if (!popup_) {
-    popup_.reset([[NSWindow alloc] initWithContentRect:NSZeroRect
-                                             styleMask:NSBorderlessWindowMask
-                                               backing:NSBackingStoreBuffered
-                                                 defer:YES]);
+    popup_.reset(
+        [[NSWindow alloc] initWithContentRect:ui::kWindowSizeDeterminedLater
+                                    styleMask:NSBorderlessWindowMask
+                                      backing:NSBackingStoreBuffered
+                                        defer:YES]);
     [popup_ setMovableByWindowBackground:NO];
-    // The window shape is determined by the content view (OmniboxPopupView).
+    // The window shape is determined by the content view.
     [popup_ setAlphaValue:1.0];
     [popup_ setOpaque:NO];
     [popup_ setBackgroundColor:[NSColor clearColor]];
@@ -340,11 +323,7 @@ void OmniboxPopupViewMac::CreatePopupIfNeeded() {
 
     scoped_nsobject<AutocompleteMatrix> matrix(
         [[AutocompleteMatrix alloc] initWithPopupView:this]);
-    scoped_nsobject<OmniboxPopupView> contentView(
-        [[OmniboxPopupView alloc] initWithFrame:NSZeroRect]);
-
-    [contentView addSubview:matrix];
-    [popup_ setContentView:contentView];
+    [popup_ setContentView:matrix];
 
     // TODO(dtseng): Ignore until we provide NSAccessibility support.
     [popup_ accessibilitySetOverrideValue:NSAccessibilityUnknownRole
@@ -438,7 +417,7 @@ void OmniboxPopupViewMac::UpdatePopupAppearance() {
 
     // Break references to |this| because the popup may not be
     // deallocated immediately.
-    AutocompleteMatrix* matrix = GetAutocompleteMatrix();
+    AutocompleteMatrix* matrix = [popup_ contentView];
     DCHECK(matrix == nil || [matrix isKindOfClass:[AutocompleteMatrix class]]);
     [matrix setPopupView:NULL];
 
@@ -457,7 +436,7 @@ void OmniboxPopupViewMac::UpdatePopupAppearance() {
   gfx::Font resultFont(base::SysNSStringToUTF8([fieldFont fontName]),
                        static_cast<int>(resultFontSize));
 
-  AutocompleteMatrix* matrix = GetAutocompleteMatrix();
+  AutocompleteMatrix* matrix = [popup_ contentView];
 
   // Calculate the width of the matrix based on backing out the
   // popup's border from the width of the field.  Would prefer to use
@@ -487,22 +466,6 @@ void OmniboxPopupViewMac::UpdatePopupAppearance() {
   const CGFloat cellHeight = cellSize.height + kCellHeightAdjust;
   [matrix setCellSize:NSMakeSize(matrixWidth, cellHeight)];
 
-  // Add in the instant view if needed and not already present.
-  CGFloat instantHeight = 0;
-  if (ShouldShowInstantOptIn()) {
-    if (!opt_in_controller_.get()) {
-      opt_in_controller_.reset(
-          [[InstantOptInController alloc] initWithDelegate:this]);
-    }
-    [[popup_ contentView] addSubview:[opt_in_controller_ view]];
-    [GetAutocompleteMatrix() setBottomCornersRounded:NO];
-    instantHeight = NSHeight([[opt_in_controller_ view] frame]);
-  } else {
-    [[opt_in_controller_ view] removeFromSuperview];
-    opt_in_controller_.reset(nil);
-    [GetAutocompleteMatrix() setBottomCornersRounded:YES];
-  }
-
   // Update the selection before placing (and displaying) the window.
   PaintUpdatesNow();
 
@@ -510,8 +473,7 @@ void OmniboxPopupViewMac::UpdatePopupAppearance() {
   // because actually resizing the matrix messed up the popup size
   // animation.
   DCHECK_EQ([matrix intercellSpacing].height, 0.0);
-  CGFloat matrixHeight = rows * cellHeight;
-  PositionPopup(matrixHeight + instantHeight);
+  PositionPopup(rows * cellHeight);
 }
 
 gfx::Rect OmniboxPopupViewMac::GetTargetBounds() {
@@ -530,7 +492,7 @@ void OmniboxPopupViewMac::SetSelectedLine(size_t line) {
 // This is only called by model in SetSelectedLine() after updating
 // everything.  Popup should already be visible.
 void OmniboxPopupViewMac::PaintUpdatesNow() {
-  AutocompleteMatrix* matrix = GetAutocompleteMatrix();
+  AutocompleteMatrix* matrix = [popup_ contentView];
   [matrix selectCellAtRow:model_->selected_line() column:0];
 }
 
@@ -549,23 +511,6 @@ void OmniboxPopupViewMac::OpenURLForRow(int row, bool force_background) {
   // completes.
   AutocompleteMatch match = model_->result().match_at(row);
   omnibox_view_->OpenMatch(match, disposition, GURL(), row);
-}
-
-void OmniboxPopupViewMac::UserPressedOptIn(bool opt_in) {
-  PromoCounter* counter = profile_->GetInstantPromoCounter();
-  DCHECK(counter);
-  counter->Hide();
-  if (opt_in) {
-    browser::ShowInstantConfirmDialogIfNecessary([field_ window], profile_);
-  }
-
-  // This call will remove and delete |opt_in_controller_|.
-  UpdatePopupAppearance();
-}
-
-bool OmniboxPopupViewMac::ShouldShowInstantOptIn() {
-  PromoCounter* counter = profile_->GetInstantPromoCounter();
-  return (counter && counter->ShouldShow(base::Time::Now()));
 }
 
 @implementation AutocompleteButtonCell
@@ -627,8 +572,6 @@ bool OmniboxPopupViewMac::ShouldShowInstantOptIn() {
 @end
 
 @implementation AutocompleteMatrix
-
-@synthesize bottomCornersRounded = bottomCornersRounded_;
 
 // Remove all tracking areas and initialize the one we want.  Removing
 // all might be overkill, but it's unclear why there would be others
@@ -811,16 +754,10 @@ bool OmniboxPopupViewMac::ShouldShowInstantOptIn() {
 // This handles drawing the decorations of the rounded popup window,
 // calling on NSMatrix to draw the actual contents.
 - (void)drawRect:(NSRect)rect {
-  CGFloat bottomCornerRadius =
-      (bottomCornersRounded_ ? kPopupRoundingRadius : 0);
-
-  // "Top" really means "bottom" here, since the view is flipped.
   NSBezierPath* path =
-     [NSBezierPath gtm_bezierPathWithRoundRect:[self bounds]
-                           topLeftCornerRadius:bottomCornerRadius
-                          topRightCornerRadius:bottomCornerRadius
-                        bottomLeftCornerRadius:kPopupRoundingRadius
-                       bottomRightCornerRadius:kPopupRoundingRadius];
+     [NSBezierPath bezierPathWithRoundedRect:[self bounds]
+                                     xRadius:kPopupRoundingRadius
+                                     yRadius:kPopupRoundingRadius];
 
   // Draw the matrix clipped to our border.
   gfx::ScopedNSGraphicsContextSaveGState scopedGState;

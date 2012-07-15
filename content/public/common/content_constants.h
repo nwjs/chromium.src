@@ -6,7 +6,6 @@
 
 #ifndef CONTENT_PUBLIC_COMMON_CONTENT_CONSTANTS_H_
 #define CONTENT_PUBLIC_COMMON_CONTENT_CONSTANTS_H_
-#pragma once
 
 #include <stddef.h>         // For size_t
 
@@ -18,6 +17,12 @@ namespace content {
 // The name of the directory under BrowserContext::GetPath where the AppCache is
 // put.
 CONTENT_EXPORT extern const FilePath::CharType kAppCacheDirname[];
+// The name of the directory under BrowserContext::GetPath where Pepper plugin
+// data is put.
+CONTENT_EXPORT extern const FilePath::CharType kPepperDataDirname[];
+
+// The MIME type used for the browser plugin.
+CONTENT_EXPORT extern const char kBrowserPluginMimeType[];
 
 CONTENT_EXPORT extern const size_t kMaxRendererProcessCount;
 
@@ -40,6 +45,13 @@ CONTENT_EXPORT extern const size_t kMaxURLDisplayChars;
 extern const char kStatsFilename[];
 extern const int kStatsMaxThreads;
 extern const int kStatsMaxCounters;
+
+// Most sequence numbers are used by a renderer when responding to a browser
+// request for histogram data.  This reserved number is used when a renderer
+// sends an unprovoked update, such as after a page has been loaded.  Using
+// this reserved constant avoids any chance of confusion with a response having
+// a browser-supplied sequence number.
+CONTENT_EXPORT extern const int kHistogramSynchronizerReservedSequenceNumber;
 
 }  // namespace content
 

@@ -11,7 +11,6 @@
 #include "base/callback.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
-#include "base/message_loop.h"
 #include "base/time.h"
 #include "base/timer.h"
 #include "remoting/base/encoder.h"
@@ -20,13 +19,14 @@
 #include "remoting/proto/video.pb.h"
 
 namespace base {
-class MessageLoopProxy;
+class SingleThreadTaskRunner;
 }  // namespace base
 
 namespace remoting {
 
 namespace protocol {
 class ConnectionToClient;
+class CursorShapeInfo;
 }  // namespace protocol
 
 class CaptureData;
@@ -69,8 +69,8 @@ class CaptureData;
 // 3. Distribute tasks on three threads on a timely fashion to minimize latency.
 //
 // This class has the following state variables:
-// |is_recording_| - If this is set to false there should be no activity on
-//                      the capture thread by this object.
+// |capture_timer_| - If this is set to NULL there should be no activity on
+//                    the capture thread by this object.
 // |network_stopped_| - This state is to prevent activity on the network thread
 //                      if set to false.
 class ScreenRecorder : public base::RefCountedThreadSafe<ScreenRecorder> {
@@ -78,13 +78,12 @@ class ScreenRecorder : public base::RefCountedThreadSafe<ScreenRecorder> {
 
   // Construct a ScreenRecorder. Message loops and threads are provided.
   // This object does not own capturer but owns encoder.
-  ScreenRecorder(MessageLoop* capture_loop,
-                 MessageLoop* encode_loop,
-                 base::MessageLoopProxy* network_loop,
-                 Capturer* capturer,
-                 Encoder* encoder);
-
-  virtual ~ScreenRecorder();
+  ScreenRecorder(
+      scoped_refptr<base::SingleThreadTaskRunner> capture_task_runner,
+      scoped_refptr<base::SingleThreadTaskRunner> encode_task_runner,
+      scoped_refptr<base::SingleThreadTaskRunner> network_task_runner,
+      Capturer* capturer,
+      Encoder* encoder);
 
   // Start recording.
   void Start();
@@ -106,9 +105,14 @@ class ScreenRecorder : public base::RefCountedThreadSafe<ScreenRecorder> {
   void UpdateSequenceNumber(int64 sequence_number);
 
  private:
+  friend class base::RefCountedThreadSafe<ScreenRecorder>;
+  virtual ~ScreenRecorder();
+
   // Getters for capturer and encoder.
   Capturer* capturer();
   Encoder* encoder();
+
+  bool is_recording();
 
   // Capturer thread ----------------------------------------------------------
 
@@ -120,6 +124,8 @@ class ScreenRecorder : public base::RefCountedThreadSafe<ScreenRecorder> {
 
   void DoCapture();
   void CaptureDoneCallback(scoped_refptr<CaptureData> capture_data);
+  void CursorShapeChangedCallback(
+      scoped_ptr<protocol::CursorShapeInfo> cursor_data);
   void DoFinishOneRecording();
   void DoInvalidateFullScreen();
 
@@ -133,8 +139,12 @@ class ScreenRecorder : public base::RefCountedThreadSafe<ScreenRecorder> {
   // Signal network thread to cease activities.
   void DoStopOnNetworkThread(const base::Closure& done_task);
 
-  // Callback for VideoStub::ProcessVideoPacket().
-  void VideoPacketSentCallback(scoped_ptr<VideoPacket> packet);
+  // Callback for VideoStub::ProcessVideoPacket() that is used for
+  // each last packet in a frame.
+  void VideoFrameSentCallback();
+
+  // Send updated cursor shape to client.
+  void DoSendCursorShape(scoped_ptr<protocol::CursorShapeInfo> cursor_shape);
 
   // Encoder thread -----------------------------------------------------------
 
@@ -146,10 +156,10 @@ class ScreenRecorder : public base::RefCountedThreadSafe<ScreenRecorder> {
   void EncodedDataAvailableCallback(scoped_ptr<VideoPacket> packet);
   void SendVideoPacket(VideoPacket* packet);
 
-  // Message loops used by this class.
-  MessageLoop* capture_loop_;
-  MessageLoop* encode_loop_;
-  scoped_refptr<base::MessageLoopProxy> network_loop_;
+  // Task runners used by this class.
+  scoped_refptr<base::SingleThreadTaskRunner> capture_task_runner_;
+  scoped_refptr<base::SingleThreadTaskRunner> encode_task_runner_;
+  scoped_refptr<base::SingleThreadTaskRunner> network_task_runner_;
 
   // Reference to the capturer. This member is always accessed on the capture
   // thread.
@@ -164,17 +174,13 @@ class ScreenRecorder : public base::RefCountedThreadSafe<ScreenRecorder> {
   typedef std::vector<protocol::ConnectionToClient*> ConnectionToClientList;
   ConnectionToClientList connections_;
 
-  // Flag that indicates recording has been started. This variable should only
-  // be used on the capture thread.
-  bool is_recording_;
+  // Timer that calls DoCapture. Set to NULL when not recording.
+  scoped_ptr<base::OneShotTimer<ScreenRecorder> > capture_timer_;
 
   // Per-thread flags that are set when the ScreenRecorder is
   // stopped. They must be used on the corresponding threads only.
   bool network_stopped_;
   bool encoder_stopped_;
-
-  // Timer that calls DoCapture.
-  base::OneShotTimer<ScreenRecorder> capture_timer_;
 
   // Maximum simultaneous recordings allowed.
   int max_recordings_;

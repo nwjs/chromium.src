@@ -4,7 +4,6 @@
 
 #ifndef NET_SOCKET_SOCKET_TEST_UTIL_H_
 #define NET_SOCKET_SOCKET_TEST_UTIL_H_
-#pragma once
 
 #include <cstring>
 #include <deque>
@@ -50,7 +49,6 @@ class AsyncSocket;
 class MockClientSocket;
 class ServerBoundCertService;
 class SSLClientSocket;
-class SSLHostInfo;
 class StreamSocket;
 
 enum IoMode {
@@ -60,11 +58,18 @@ enum IoMode {
 
 struct MockConnect {
   // Asynchronous connection success.
-  MockConnect() : mode(ASYNC), result(OK) { }
-  MockConnect(IoMode io_mode, int r) : mode(io_mode), result(r) { }
+  // Creates a MockConnect with |mode| ASYC, |result| OK, and
+  // |peer_addr| 192.0.2.33.
+  MockConnect();
+  // Creates a MockConnect with the specified mode and result, with
+  // |peer_addr| 192.0.2.33.
+  MockConnect(IoMode io_mode, int r);
+  MockConnect(IoMode io_mode, int r, IPEndPoint addr);
+  ~MockConnect();
 
   IoMode mode;
   int result;
+  IPEndPoint peer_addr;
 };
 
 struct MockRead {
@@ -269,18 +274,18 @@ struct SSLSocketDataProvider {
   SSLSocketDataProvider(IoMode mode, int result);
   ~SSLSocketDataProvider();
 
-  void SetNextProto(SSLClientSocket::NextProto proto);
+  void SetNextProto(NextProto proto);
 
   MockConnect connect;
   SSLClientSocket::NextProtoStatus next_proto_status;
   std::string next_proto;
   std::string server_protos;
   bool was_npn_negotiated;
-  SSLClientSocket::NextProto protocol_negotiated;
+  NextProto protocol_negotiated;
   bool client_cert_sent;
   SSLCertRequestInfo* cert_request_info;
   scoped_refptr<X509Certificate> cert;
-  SSLClientCertType domain_bound_cert_type;
+  bool channel_id_sent;
   ServerBoundCertService* server_bound_cert_service;
 };
 
@@ -433,8 +438,8 @@ class DeterministicMockTCPClientSocket;
 //
 // For examples of how to use this class, see:
 //   deterministic_socket_data_unittests.cc
-class DeterministicSocketData : public StaticSocketDataProvider,
-    public base::RefCounted<DeterministicSocketData> {
+class DeterministicSocketData
+    : public StaticSocketDataProvider {
  public:
   // |reads| the list of MockRead completions.
   // |writes| the list of MockWrite completions.
@@ -496,8 +501,7 @@ class DeterministicSocketData : public StaticSocketDataProvider,
 template<typename T>
 class SocketDataProviderArray {
  public:
-  SocketDataProviderArray() : next_index_(0) {
-  }
+  SocketDataProviderArray() : next_index_(0) {}
 
   T* GetNext() {
     DCHECK_LT(next_index_, data_providers_.size());
@@ -558,7 +562,6 @@ class MockClientSocketFactory : public ClientSocketFactory {
       ClientSocketHandle* transport_socket,
       const HostPortPair& host_and_port,
       const SSLConfig& ssl_config,
-      SSLHostInfo* ssl_host_info,
       const SSLClientSocketContext& context) OVERRIDE;
   virtual void ClearSSLSessionCache() OVERRIDE;
 
@@ -585,7 +588,7 @@ class MockClientSocket : public SSLClientSocket {
   virtual void Disconnect() OVERRIDE;
   virtual bool IsConnected() const OVERRIDE;
   virtual bool IsConnectedAndIdle() const OVERRIDE;
-  virtual int GetPeerAddress(AddressList* address) const OVERRIDE;
+  virtual int GetPeerAddress(IPEndPoint* address) const OVERRIDE;
   virtual int GetLocalAddress(IPEndPoint* address) const OVERRIDE;
   virtual const BoundNetLog& NetLog() const OVERRIDE;
   virtual void SetSubresourceSpeculation() OVERRIDE {}
@@ -614,6 +617,9 @@ class MockClientSocket : public SSLClientSocket {
   // True if Connect completed successfully and Disconnect hasn't been called.
   bool connected_;
 
+  // Address of the "remote" peer we're connected to.
+  IPEndPoint peer_addr_;
+
   BoundNetLog net_log_;
 };
 
@@ -623,7 +629,7 @@ class MockTCPClientSocket : public MockClientSocket, public AsyncSocket {
                       SocketDataProvider* socket);
   virtual ~MockTCPClientSocket();
 
-  AddressList addresses() const { return addresses_; }
+  const AddressList& addresses() const { return addresses_; }
 
   // Socket implementation.
   virtual int Read(IOBuffer* buf, int buf_len,
@@ -636,7 +642,7 @@ class MockTCPClientSocket : public MockClientSocket, public AsyncSocket {
   virtual void Disconnect() OVERRIDE;
   virtual bool IsConnected() const OVERRIDE;
   virtual bool IsConnectedAndIdle() const OVERRIDE;
-  virtual int GetPeerAddress(AddressList* address) const OVERRIDE;
+  virtual int GetPeerAddress(IPEndPoint* address) const OVERRIDE;
   virtual bool WasEverUsed() const OVERRIDE;
   virtual bool UsingTCPFastOpen() const OVERRIDE;
   virtual int64 NumBytesRead() const OVERRIDE;
@@ -668,9 +674,10 @@ class MockTCPClientSocket : public MockClientSocket, public AsyncSocket {
   bool was_used_to_convey_data_;
 };
 
-class DeterministicMockTCPClientSocket : public MockClientSocket,
-    public AsyncSocket,
-    public base::SupportsWeakPtr<DeterministicMockTCPClientSocket> {
+class DeterministicMockTCPClientSocket
+    : public MockClientSocket,
+      public AsyncSocket,
+      public base::SupportsWeakPtr<DeterministicMockTCPClientSocket> {
  public:
   DeterministicMockTCPClientSocket(net::NetLog* net_log,
                                    DeterministicSocketData* data);
@@ -723,7 +730,6 @@ class MockSSLClientSocket : public MockClientSocket, public AsyncSocket {
       ClientSocketHandle* transport_socket,
       const HostPortPair& host_and_port,
       const SSLConfig& ssl_config,
-      SSLHostInfo* ssl_host_info,
       SSLSocketDataProvider* socket);
   virtual ~MockSSLClientSocket();
 
@@ -740,6 +746,7 @@ class MockSSLClientSocket : public MockClientSocket, public AsyncSocket {
   virtual bool WasEverUsed() const OVERRIDE;
   virtual bool UsingTCPFastOpen() const OVERRIDE;
   virtual int64 NumBytesRead() const OVERRIDE;
+  virtual int GetPeerAddress(IPEndPoint* address) const OVERRIDE;
   virtual base::TimeDelta GetConnectTimeMicros() const OVERRIDE;
 
   // SSLClientSocket implementation.
@@ -750,17 +757,15 @@ class MockSSLClientSocket : public MockClientSocket, public AsyncSocket {
                                        std::string* server_protos) OVERRIDE;
   virtual bool was_npn_negotiated() const OVERRIDE;
   virtual bool set_was_npn_negotiated(bool negotiated) OVERRIDE;
-  virtual SSLClientSocket::NextProto protocol_negotiated() const OVERRIDE;
   virtual void set_protocol_negotiated(
-      SSLClientSocket::NextProto protocol_negotiated) OVERRIDE;
+      NextProto protocol_negotiated) OVERRIDE;
+  virtual NextProto GetNegotiatedProtocol() const OVERRIDE;
 
   // This MockSocket does not implement the manual async IO feature.
   virtual void OnReadComplete(const MockRead& data) OVERRIDE;
 
-  virtual bool WasDomainBoundCertSent() const OVERRIDE;
-  virtual SSLClientCertType domain_bound_cert_type() const OVERRIDE;
-  virtual SSLClientCertType set_domain_bound_cert_type(
-      SSLClientCertType type) OVERRIDE;
+  virtual bool WasChannelIDSent() const OVERRIDE;
+  virtual void set_channel_id_sent(bool channel_id_sent) OVERRIDE;
   virtual ServerBoundCertService* GetServerBoundCertService() const OVERRIDE;
 
  private:
@@ -772,13 +777,13 @@ class MockSSLClientSocket : public MockClientSocket, public AsyncSocket {
   SSLSocketDataProvider* data_;
   bool is_npn_state_set_;
   bool new_npn_value_;
-  bool was_used_to_convey_data_;
   bool is_protocol_negotiated_set_;
-  SSLClientSocket::NextProto protocol_negotiated_;
+  NextProto protocol_negotiated_;
 };
 
-class MockUDPClientSocket : public DatagramClientSocket,
-    public AsyncSocket {
+class MockUDPClientSocket
+    : public DatagramClientSocket,
+      public AsyncSocket {
  public:
   MockUDPClientSocket(SocketDataProvider* data, net::NetLog* net_log);
   virtual ~MockUDPClientSocket();
@@ -992,7 +997,6 @@ class DeterministicMockClientSocketFactory : public ClientSocketFactory {
       ClientSocketHandle* transport_socket,
       const HostPortPair& host_and_port,
       const SSLConfig& ssl_config,
-      SSLHostInfo* ssl_host_info,
       const SSLClientSocketContext& context) OVERRIDE;
   virtual void ClearSSLSessionCache() OVERRIDE;
 

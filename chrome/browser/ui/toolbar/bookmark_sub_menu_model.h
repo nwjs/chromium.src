@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_TOOLBAR_BOOKMARK_SUB_MENU_MODEL_H_
 #define CHROME_BROWSER_UI_TOOLBAR_BOOKMARK_SUB_MENU_MODEL_H_
-#pragma once
 
 // For views and cocoa, we have complex delegate systems to handle
 // injecting the bookmarks to the bookmark submenu. This is done to support
@@ -12,11 +11,11 @@
 // For the time being on GTK systems, we have a dedicated bookmark menu model in
 // chrome/browser/ui/gtk/bookmark_sub_menu_model_gtk.h instead.
 
-#if defined(TOOLKIT_USES_GTK) && !defined(TOOLKIT_VIEWS)
+#if defined(TOOLKIT_GTK)
 
 #include "chrome/browser/ui/gtk/bookmarks/bookmark_sub_menu_model_gtk.h"
 
-#else  // defined(TOOLKIT_USES_GTK) && !defined(TOOLKIT_VIEWS)
+#else  // defined(TOOLKIT_GTK)
 
 #include "ui/base/models/simple_menu_model.h"
 
@@ -34,6 +33,6 @@ class BookmarkSubMenuModel : public ui::SimpleMenuModel {
   DISALLOW_COPY_AND_ASSIGN(BookmarkSubMenuModel);
 };
 
-#endif  // defined(TOOLKIT_USES_GTK) && !defined(TOOLKIT_VIEWS)
+#endif  // defined(TOOLKIT_GTK)
 
 #endif  // CHROME_BROWSER_UI_TOOLBAR_BOOKMARK_SUB_MENU_MODEL_H_

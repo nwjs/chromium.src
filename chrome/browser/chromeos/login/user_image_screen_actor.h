@@ -4,9 +4,12 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_USER_IMAGE_SCREEN_ACTOR_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_USER_IMAGE_SCREEN_ACTOR_H_
-#pragma once
 
 class SkBitmap;
+
+namespace gfx {
+class ImageSkia;
+}
 
 namespace chromeos {
 
@@ -23,7 +26,7 @@ class UserImageScreenActor {
     // Called when UI needs to start video capture.
     virtual void StartCamera() = 0;
     // Called when user accepts photo as login user image.
-    virtual void OnPhotoTaken(const SkBitmap& image) = 0;
+    virtual void OnPhotoTaken(const gfx::ImageSkia& image) = 0;
     // Called when user accepts Profile image as login user image.
     virtual void OnProfileImageSelected() = 0;
     // Called when user accepts one of the default images as login user
@@ -66,7 +69,7 @@ class UserImageScreenActor {
   virtual bool IsCapturing() const = 0;
 
   // Inserts profile image in the list for user to select.
-  virtual void AddProfileImage(const SkBitmap& image) {}
+  virtual void AddProfileImage(const gfx::ImageSkia& image) {}
 
   // Indicates that there is no custom profile image for the user.
   virtual void OnProfileImageAbsent() {}

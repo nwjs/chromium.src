@@ -11,6 +11,7 @@
 #include "chrome/browser/cancelable_request.h"
 #include "chrome/browser/history/history.h"
 #include "chrome/browser/history/history_backend.h"
+#include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/history/history_types.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/test/integration/sync_datatype_helper.h"
@@ -31,7 +32,10 @@ class FlushHistoryDBQueueTask : public HistoryDBTask {
   }
 
   virtual void DoneRunOnMainThread() OVERRIDE {}
+
  private:
+  virtual ~FlushHistoryDBQueueTask() {}
+
   base::WaitableEvent* wait_event_;
 };
 
@@ -49,7 +53,10 @@ class GetTypedUrlsTask : public HistoryDBTask {
   }
 
   virtual void DoneRunOnMainThread() OVERRIDE {}
+
  private:
+  virtual ~GetTypedUrlsTask() {}
+
   history::URLRows* rows_;
   base::WaitableEvent* wait_event_;
 };
@@ -71,7 +78,10 @@ class GetUrlTask : public HistoryDBTask {
   }
 
   virtual void DoneRunOnMainThread() OVERRIDE {}
+
  private:
+  virtual ~GetUrlTask() {}
+
   GURL url_;
   history::URLRow* row_;
   base::WaitableEvent* wait_event_;
@@ -94,7 +104,10 @@ class GetVisitsTask : public HistoryDBTask {
   }
 
   virtual void DoneRunOnMainThread() OVERRIDE {}
+
  private:
+  virtual ~GetVisitsTask() {}
+
   history::URLID id_;
   history::VisitVector* visits_;
   base::WaitableEvent* wait_event_;
@@ -115,7 +128,10 @@ class RemoveVisitsTask : public HistoryDBTask {
   }
 
   virtual void DoneRunOnMainThread() OVERRIDE {}
+
  private:
+  virtual ~RemoveVisitsTask() {}
+
   const history::VisitVector& visits_;
   base::WaitableEvent* wait_event_;
 };
@@ -124,8 +140,8 @@ class RemoveVisitsTask : public HistoryDBTask {
 // tasks.
 void WaitForHistoryDBThread(int index) {
   CancelableRequestConsumer cancelable_consumer;
-  HistoryService* service =
-      test()->GetProfile(index)->GetHistoryServiceWithoutCreating();
+  HistoryService* service = HistoryServiceFactory::GetForProfileWithoutCreating(
+      test()->GetProfile(index));
   base::WaitableEvent wait_event(true, false);
   service->ScheduleDBTask(new FlushHistoryDBQueueTask(&wait_event),
                           &cancelable_consumer);
@@ -199,26 +215,26 @@ static base::Time* timestamp = NULL;
 namespace typed_urls_helper {
 
 history::URLRows GetTypedUrlsFromClient(int index) {
-  HistoryService* service =
-      test()->GetProfile(index)->GetHistoryServiceWithoutCreating();
+  HistoryService* service = HistoryServiceFactory::GetForProfileWithoutCreating(
+      test()->GetProfile(index));
   return GetTypedUrlsFromHistoryService(service);
 }
 
 bool GetUrlFromClient(int index, const GURL& url, history::URLRow* row) {
-  HistoryService* service =
-      test()->GetProfile(index)->GetHistoryServiceWithoutCreating();
+  HistoryService* service = HistoryServiceFactory::GetForProfileWithoutCreating(
+      test()->GetProfile(index));
   return GetUrlFromHistoryService(service, url, row);
 }
 
 history::VisitVector GetVisitsFromClient(int index, history::URLID id) {
-  HistoryService* service =
-      test()->GetProfile(index)->GetHistoryServiceWithoutCreating();
+  HistoryService* service = HistoryServiceFactory::GetForProfileWithoutCreating(
+      test()->GetProfile(index));
   return GetVisitsFromHistoryService(service, id);
 }
 
 void RemoveVisitsFromClient(int index, const history::VisitVector& visits) {
-  HistoryService* service =
-      test()->GetProfile(index)->GetHistoryServiceWithoutCreating();
+  HistoryService* service = HistoryServiceFactory::GetForProfileWithoutCreating(
+      test()->GetProfile(index));
   RemoveVisitsFromHistoryService(service, visits);
 }
 
@@ -250,14 +266,16 @@ void AddUrlToHistoryWithTimestamp(int index,
                                   content::PageTransition transition,
                                   history::VisitSource source,
                                   const base::Time& timestamp) {
-  AddToHistory(test()->GetProfile(index)->GetHistoryServiceWithoutCreating(),
+  AddToHistory(HistoryServiceFactory::GetForProfileWithoutCreating(
+                   test()->GetProfile(index)),
                url,
                transition,
                source,
                timestamp);
   if (test()->use_verifier())
     AddToHistory(
-        test()->verifier()->GetHistoryService(Profile::IMPLICIT_ACCESS),
+        HistoryServiceFactory::GetForProfile(test()->verifier(),
+                                             Profile::IMPLICIT_ACCESS),
         url,
         transition,
         source,
@@ -270,18 +288,21 @@ void AddUrlToHistoryWithTimestamp(int index,
 }
 
 void DeleteUrlFromHistory(int index, const GURL& url) {
-  test()->GetProfile(index)->GetHistoryServiceWithoutCreating()->DeleteURL(url);
+  HistoryServiceFactory::GetForProfileWithoutCreating(
+      test()->GetProfile(index))->DeleteURL(url);
   if (test()->use_verifier())
-    test()->verifier()->GetHistoryService(Profile::IMPLICIT_ACCESS)->
+    HistoryServiceFactory::GetForProfile(test()->verifier(),
+                                         Profile::IMPLICIT_ACCESS)->
         DeleteURL(url);
   WaitForHistoryDBThread(index);
 }
 
 void DeleteUrlsFromHistory(int index, const std::vector<GURL>& urls) {
-  test()->GetProfile(index)->GetHistoryServiceWithoutCreating()->
-      DeleteURLsForTest(urls);
+  HistoryServiceFactory::GetForProfileWithoutCreating(
+      test()->GetProfile(index))->DeleteURLsForTest(urls);
   if (test()->use_verifier())
-    test()->verifier()->GetHistoryService(Profile::IMPLICIT_ACCESS)->
+    HistoryServiceFactory::GetForProfile(test()->verifier(),
+                                         Profile::IMPLICIT_ACCESS)->
         DeleteURLsForTest(urls);
   WaitForHistoryDBThread(index);
 }
@@ -339,7 +360,8 @@ void AssertURLRowsAreEqual(
 
 void AssertAllProfilesHaveSameURLsAsVerifier() {
   HistoryService* verifier_service =
-      test()->verifier()->GetHistoryService(Profile::IMPLICIT_ACCESS);
+      HistoryServiceFactory::GetForProfile(test()->verifier(),
+                                           Profile::IMPLICIT_ACCESS);
   history::URLRows verifier_urls =
       GetTypedUrlsFromHistoryService(verifier_service);
   for (int i = 0; i < test()->num_clients(); ++i) {

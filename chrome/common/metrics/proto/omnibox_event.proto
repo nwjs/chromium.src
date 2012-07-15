@@ -10,7 +10,7 @@ option optimize_for = LITE_RUNTIME;
 
 package metrics;
 
-// Next tag: 10
+// Next tag: 13
 message OmniboxEventProto {
   // The timestamp for the event, in seconds since the epoch.
   optional int64 time = 1;
@@ -23,6 +23,10 @@ message OmniboxEventProto {
 
   // The number of characters the user had typed before autocompleting.
   optional int32 typed_length = 3;
+
+  // Whether the user deleted text immediately before selecting an omnibox
+  // suggestion.  This is usually the result of pressing backspace or delete.
+  optional bool just_deleted_text = 11;
 
   // The number of terms that the user typed in the omnibox.
   optional int32 num_typed_terms = 4;
@@ -43,6 +47,20 @@ message OmniboxEventProto {
   // from the time of the second series of modification.
   optional int64 typing_duration_ms = 7;
 
+  // The type of page currently displayed when the user used the omnibox.
+  enum PageClassification {
+    INVALID_SPEC = 0;   // invalid URI; shouldn't happen
+    NEW_TAB_PAGE = 1;   // chrome://newtab/
+    // Note that chrome://newtab/ doesn't have to be the built-in
+    // version; it could be replaced by an extension.
+    BLANK = 2;          // about:blank
+    HOMEPAGE = 3;       // user switched settings to "open this page" mode.
+    // Note that if the homepage is set to the new tab page or about blank,
+    // then we'll classify the web page into those categories, not HOMEPAGE.
+    OTHER = 4;          // everything else
+  }
+  optional PageClassification current_page_classification = 10;
+
   // What kind of input the user provided.
   enum InputType {
     INVALID = 0;        // Empty input (should not reach here)
@@ -55,21 +73,24 @@ message OmniboxEventProto {
   }
   optional InputType input_type = 8;
 
+  // An enum used in multiple places below.
+  enum ProviderType {
+    UNKNOWN_PROVIDER = 0;  // Unknown provider (should not reach here)
+    HISTORY_URL = 1;       // URLs in history, or user-typed URLs
+    HISTORY_CONTENTS = 2;  // Matches for page contents of pages in history
+    HISTORY_QUICK = 3;     // Matches for recently or frequently visited pages
+                           // in history
+    SEARCH = 4;            // Search suggestions for the default search engine
+    KEYWORD = 5;           // Keyword-triggered searches
+    BUILTIN = 6;           // Built-in URLs, such as chrome://version
+    SHORTCUTS = 7;         // Recently selected omnibox suggestions
+    EXTENSION_APPS = 8;    // Custom suggestions from extensions and/or apps
+  }
+
   // The result set displayed on the completion popup
+  // Next tag: 6
   message Suggestion {
     // Where does this result come from?
-    enum ProviderType {
-      UNKNOWN_PROVIDER = 0;  // Unknown provider (should not reach here)
-      URL = 1;               // URLs in history, or user-typed URLs
-      HISTORY_CONTENTS = 2;  // Matches for page contents of pages in history
-      HISTORY_QUICK = 3;     // Matches for recently or frequently visited pages
-                             // in history
-      SEARCH = 4;            // Search suggestions for the default search engine
-      KEYWORD = 5;           // Keyword-triggered searches
-      BUILTIN = 6;           // Built-in URLs, such as chrome://version
-      SHORTCUTS = 7;         // Recently selected omnibox suggestions
-      EXTENSION_APPS = 8;    // Custom suggestions from extensions and/or apps
-    }
     optional ProviderType provider = 1;
 
     // What kind of result this is.
@@ -99,8 +120,29 @@ message OmniboxEventProto {
     // The relevance score for this suggestion.
     optional int32 relevance = 3;
 
+    // How many times this result was typed in / selected from the omnibox.
+    // Only set for some providers and result_types.  At the time of
+    // writing this comment, it is only set for HistoryURL and
+    // HistoryQuickProvider matches.
+    optional int32 typed_count = 5;
+
     // Whether this item is starred (bookmarked) or not.
     optional bool is_starred = 4;
   }
   repeated Suggestion suggestion = 9;
+
+  // A data structure that holds per-provider information, general information
+  // not associated with a particular result.
+  message ProviderInfo {
+    // Which provider generated this ProviderInfo entry.
+    optional ProviderType provider = 1;
+
+    // The provider's done() value, i.e., whether it's completed processing
+    // the query.  Providers which don't do any asynchronous processing
+    // will always be done.
+    optional bool provider_done = 2;
+  }
+  // A list of diagnostic information about each provider.  Providers
+  // will appear at most once in this list.
+  repeated ProviderInfo provider_info = 12;
 }

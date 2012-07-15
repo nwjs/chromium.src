@@ -24,6 +24,7 @@ using ::testing::AtLeast;
 using ::testing::AnyNumber;
 using ::testing::DeleteArg;
 using ::testing::DoAll;
+using ::testing::Expectation;
 using ::testing::InSequence;
 using ::testing::InvokeWithoutArgs;
 using ::testing::Return;
@@ -76,7 +77,7 @@ class ScreenRecorderTest : public testing::Test {
     encoder_ = new MockEncoder();
 
     session_ = new MockSession();
-    EXPECT_CALL(*session_, SetStateChangeCallback(_));
+    EXPECT_CALL(*session_, SetEventHandler(_));
     EXPECT_CALL(*session_, Close())
         .Times(AnyNumber());
     connection_.reset(new MockConnectionToClient(
@@ -84,9 +85,8 @@ class ScreenRecorderTest : public testing::Test {
     connection_->SetEventHandler(&handler_);
 
     record_ = new ScreenRecorder(
-        &message_loop_, &message_loop_,
-        base::MessageLoopProxy::current(),
-        &capturer_, encoder_);
+        message_loop_.message_loop_proxy(), message_loop_.message_loop_proxy(),
+        message_loop_.message_loop_proxy(), &capturer_, encoder_);
   }
 
   virtual void TearDown() OVERRIDE {
@@ -126,12 +126,15 @@ TEST_F(ScreenRecorderTest, StartAndStop) {
     planes.strides[i] = kWidth * 4;
   }
 
+  Expectation capturer_start = EXPECT_CALL(capturer_, Start(_));
+
   SkISize size(SkISize::Make(kWidth, kHeight));
   scoped_refptr<CaptureData> data(new CaptureData(planes, size, kFormat));
   EXPECT_CALL(capturer_, InvalidateFullScreen());
 
   // First the capturer is called.
-  EXPECT_CALL(capturer_, CaptureInvalidRegion(_))
+  Expectation capturer_capture = EXPECT_CALL(capturer_, CaptureInvalidRegion(_))
+      .After(capturer_start)
       .WillRepeatedly(RunCallback(update_region, data));
 
   // Expect the encoder be called.
@@ -143,17 +146,20 @@ TEST_F(ScreenRecorderTest, StartAndStop) {
       .WillRepeatedly(Return(&video_stub));
 
   // By default delete the arguments when ProcessVideoPacket is received.
-  EXPECT_CALL(video_stub, ProcessVideoPacket(_, _))
+  EXPECT_CALL(video_stub, ProcessVideoPacketPtr(_, _))
       .WillRepeatedly(FinishSend());
 
   // For the first time when ProcessVideoPacket is received we stop the
   // ScreenRecorder.
-  EXPECT_CALL(video_stub, ProcessVideoPacket(_, _))
+  EXPECT_CALL(video_stub, ProcessVideoPacketPtr(_, _))
       .WillOnce(DoAll(
           FinishSend(),
           StopScreenRecorder(record_,
                              base::Bind(&QuitMessageLoop, &message_loop_))))
       .RetiresOnSaturation();
+
+  EXPECT_CALL(capturer_, Stop())
+      .After(capturer_capture);
 
   // Add the mock client connection to the session.
   record_->AddConnection(connection_.get());
@@ -164,6 +170,7 @@ TEST_F(ScreenRecorderTest, StartAndStop) {
 }
 
 TEST_F(ScreenRecorderTest, StopWithoutStart) {
+  EXPECT_CALL(capturer_, Stop());
   record_->Stop(base::Bind(&QuitMessageLoop, &message_loop_));
   message_loop_.Run();
 }

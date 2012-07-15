@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -302,7 +302,7 @@ bool FakeSSLClientSocket::IsConnectedAndIdle() const {
   return handshake_completed_ && transport_socket_->IsConnectedAndIdle();
 }
 
-int FakeSSLClientSocket::GetPeerAddress(net::AddressList* address) const {
+int FakeSSLClientSocket::GetPeerAddress(net::IPEndPoint* address) const {
   return transport_socket_->GetPeerAddress(address);
 }
 
@@ -336,6 +336,10 @@ int64 FakeSSLClientSocket::NumBytesRead() const {
 
 base::TimeDelta FakeSSLClientSocket::GetConnectTimeMicros() const {
   return transport_socket_->GetConnectTimeMicros();
+}
+
+net::NextProto FakeSSLClientSocket::GetNegotiatedProtocol() const {
+  return transport_socket_->GetNegotiatedProtocol();
 }
 
 }  // namespace notifier

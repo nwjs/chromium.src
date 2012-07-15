@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CONTENT_BROWSER_RENDERER_HOST_SAVE_FILE_RESOURCE_HANDLER_H_
 #define CONTENT_BROWSER_RENDERER_HOST_SAVE_FILE_RESOURCE_HANDLER_H_
-#pragma once
 
 #include <string>
 
@@ -14,12 +13,13 @@
 class SaveFileManager;
 
 // Forwards data to the save thread.
-class SaveFileResourceHandler : public ResourceHandler {
+class SaveFileResourceHandler : public content::ResourceHandler {
  public:
   SaveFileResourceHandler(int render_process_host_id,
                           int render_view_id,
                           const GURL& url,
                           SaveFileManager* manager);
+  virtual ~SaveFileResourceHandler();
 
   // ResourceHandler Implementation:
   virtual bool OnUploadProgress(int request_id,
@@ -35,7 +35,8 @@ class SaveFileResourceHandler : public ResourceHandler {
 
   // Sends the download creation information to the download thread.
   virtual bool OnResponseStarted(int request_id,
-                                 content::ResourceResponse* response) OVERRIDE;
+                                 content::ResourceResponse* response,
+                                 bool* defer) OVERRIDE;
 
   // Pass-through implementation.
   virtual bool OnWillStart(int request_id,
@@ -50,13 +51,12 @@ class SaveFileResourceHandler : public ResourceHandler {
                           int min_size) OVERRIDE;
 
   // Passes the buffer to the download file writer.
-  virtual bool OnReadCompleted(int request_id, int* bytes_read) OVERRIDE;
+  virtual bool OnReadCompleted(int request_id, int bytes_read,
+                               bool* defer) OVERRIDE;
 
   virtual bool OnResponseCompleted(int request_id,
                                    const net::URLRequestStatus& status,
                                    const std::string& security_info) OVERRIDE;
-
-  virtual void OnRequestClosed() OVERRIDE;
 
   // If the content-length header is not present (or contains something other
   // than numbers), StringToInt64 returns 0, which indicates 'unknown size' and
@@ -68,8 +68,6 @@ class SaveFileResourceHandler : public ResourceHandler {
   }
 
  private:
-  virtual ~SaveFileResourceHandler();
-
   int save_id_;
   int render_process_id_;
   int render_view_id_;

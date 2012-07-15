@@ -4,11 +4,10 @@
 
 #ifndef SYNC_UTIL_GET_SESSION_NAME_MAC_H_
 #define SYNC_UTIL_GET_SESSION_NAME_MAC_H_
-#pragma once
 
 #include <string>
 
-namespace browser_sync {
+namespace syncer {
 namespace internal {
 
 // Returns the Hardware model name, without trailing numbers, if
@@ -18,6 +17,6 @@ namespace internal {
 std::string GetHardwareModelName();
 
 }  // namespace internal
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_UTIL_GET_SESSION_NAME_MAC_H_

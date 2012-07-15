@@ -9,6 +9,7 @@
 #include "grit/ui_strings.h"
 #include "ui/base/accessibility/accessible_view_state.h"
 #include "ui/base/dragdrop/drag_drop_types.h"
+#include "ui/base/events.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/canvas.h"
@@ -56,7 +57,7 @@ MenuButton::MenuButton(ButtonListener* listener,
       listener_(menu_button_listener),
       show_menu_marker_(show_menu_marker),
       menu_marker_(ui::ResourceBundle::GetSharedInstance().GetImageNamed(
-          IDR_MENU_DROPARROW).ToSkBitmap()),
+          IDR_MENU_DROPARROW).ToImageSkia()),
       destroyed_flag_(NULL) {
   set_alignment(TextButton::ALIGN_LEFT);
 }
@@ -153,7 +154,7 @@ void MenuButton::PaintButton(gfx::Canvas* canvas, PaintButtonMode mode) {
                            menu_marker_->width(),
                            menu_marker_->height());
     arrow_bounds.set_x(GetMirroredXForRect(arrow_bounds));
-    canvas->DrawBitmapInt(*menu_marker_, arrow_bounds.x(), arrow_bounds.y());
+    canvas->DrawImageInt(*menu_marker_, arrow_bounds.x(), arrow_bounds.y());
   }
 }
 
@@ -219,6 +220,14 @@ void MenuButton::OnMouseExited(const MouseEvent& event) {
   }
 }
 
+ui::GestureStatus MenuButton::OnGestureEvent(const GestureEvent& event) {
+  if (state() != BS_DISABLED && event.type() == ui::ET_GESTURE_TAP) {
+    if (Activate())
+      return ui::GESTURE_STATUS_CONSUMED;
+  }
+  return TextButton::OnGestureEvent(event);
+}
+
 bool MenuButton::OnKeyPressed(const KeyEvent& event) {
   switch (event.key_code()) {
     case ui::VKEY_SPACE:
@@ -257,7 +266,7 @@ int MenuButton::GetMaximumScreenXCoordinate() {
     return 0;
   }
 
-  gfx::Rect monitor_bounds = GetWidget()->GetWorkAreaBoundsInScreen();
+  gfx::Rect monitor_bounds = GetWidget()->GetWorkAreaScreenBounds();
   return monitor_bounds.right() - 1;
 }
 

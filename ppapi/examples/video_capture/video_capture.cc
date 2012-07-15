@@ -25,6 +25,12 @@
 #include "ppapi/lib/gl/include/GLES2/gl2.h"
 #include "ppapi/utility/completion_callback_factory.h"
 
+// When compiling natively on Windows, PostMessage can be #define-d to
+// something else.
+#ifdef PostMessage
+#undef PostMessage
+#endif
+
 // Assert |context_| isn't holding any GL Errors.  Done as a macro instead of a
 // function to preserve line number information in the failure message.
 #define assertNoGLError() \
@@ -118,7 +124,8 @@ class VCDemoInstance : public pp::Instance,
   void CreateYUVTextures();
 
   void Open(const pp::DeviceRef_Dev& device);
-  void EnumerateDevicesFinished(int32_t result);
+  void EnumerateDevicesFinished(int32_t result,
+                                std::vector<pp::DeviceRef_Dev>& devices);
   void OpenFinished(int32_t result);
 
   pp::Size position_size_;
@@ -185,9 +192,10 @@ void VCDemoInstance::HandleMessage(const pp::Var& message_data) {
   if (message_data.is_string()) {
     std::string event = message_data.AsString();
     if (event == "PageInitialized") {
-      pp::CompletionCallback callback = callback_factory_.NewCallback(
-          &VCDemoInstance::EnumerateDevicesFinished);
-      video_capture_.EnumerateDevices(&devices_, callback);
+      pp::CompletionCallbackWithOutput<std::vector<pp::DeviceRef_Dev> >
+          callback = callback_factory_.NewCallbackWithOutput(
+              &VCDemoInstance::EnumerateDevicesFinished);
+      video_capture_.EnumerateDevices(callback);
     } else if (event == "UseDefault") {
       Open(pp::DeviceRef_Dev());
     } else if (event == "UseDefault(v0.1)") {
@@ -403,10 +411,13 @@ void VCDemoInstance::Open(const pp::DeviceRef_Dev& device) {
   video_capture_.Open(device, capture_info_, 4, callback);
 }
 
-void VCDemoInstance::EnumerateDevicesFinished(int32_t result) {
+void VCDemoInstance::EnumerateDevicesFinished(
+    int32_t result,
+    std::vector<pp::DeviceRef_Dev>& devices) {
   static const char* const kDelimiter = "#__#";
 
   if (result == PP_OK) {
+    devices_.swap(devices);
     std::string device_names;
     for (size_t index = 0; index < devices_.size(); ++index) {
       pp::Var name = devices_[index].GetName();

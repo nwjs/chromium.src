@@ -17,16 +17,17 @@
 #include "chrome/browser/debugger/devtools_window.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser_list.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/tab_contents/tab_contents_iterator.h"
+#include "chrome/browser/ui/webui/chrome_url_data_manager.h"
 #include "chrome/browser/ui/webui/chrome_url_data_manager_backend.h"
 #include "chrome/browser/ui/webui/chrome_web_ui_data_source.h"
 #include "chrome/common/url_constants.h"
+#include "content/public/browser/browser_thread.h"
 #include "content/public/browser/child_process_data.h"
 #include "content/public/browser/devtools_agent_host_registry.h"
 #include "content/public/browser/devtools_client_host.h"
 #include "content/public/browser/devtools_manager.h"
-#include "content/public/browser/browser_thread.h"
 #include "content/public/browser/favicon_status.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/notification_service.h"
@@ -34,14 +35,12 @@
 #include "content/public/browser/notification_types.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
-#include "content/public/browser/render_view_host_delegate.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
+#include "content/public/browser/web_ui_message_handler.h"
 #include "content/public/browser/worker_service.h"
 #include "content/public/browser/worker_service_observer.h"
-#include "content/public/browser/web_contents.h"
-#include "content/public/browser/web_ui_message_handler.h"
 #include "content/public/common/process_type.h"
 #include "grit/browser_resources.h"
 #include "grit/generated_resources.h"
@@ -115,8 +114,7 @@ bool HasClientHost(RenderViewHost* rvh) {
 }
 
 DictionaryValue* BuildTargetDescriptor(RenderViewHost* rvh, bool is_tab) {
-  RenderViewHostDelegate* rvh_delegate = rvh->GetDelegate();
-  WebContents* web_contents = rvh_delegate->GetAsWebContents();
+  WebContents* web_contents = WebContents::FromRenderViewHost(rvh);
   std::string title;
   std::string target_type = is_tab ? kPageTargetType : "";
   GURL favicon_url;
@@ -131,8 +129,8 @@ DictionaryValue* BuildTargetDescriptor(RenderViewHost* rvh, bool is_tab) {
         web_contents->GetBrowserContext());
     if (profile) {
       ExtensionService* extension_service = profile->GetExtensionService();
-      const Extension* extension = extension_service->extensions()->GetByID(
-          web_contents->GetURL().host());
+      const extensions::Extension* extension = extension_service->
+          extensions()->GetByID(web_contents->GetURL().host());
       if (extension) {
         target_type = kExtensionTargetType;
         title = extension->name();
@@ -142,7 +140,7 @@ DictionaryValue* BuildTargetDescriptor(RenderViewHost* rvh, bool is_tab) {
 
   return BuildTargetDescriptor(target_type,
                                HasClientHost(rvh),
-                               rvh_delegate->GetURL(),
+                               web_contents->GetURL(),
                                title,
                                favicon_url,
                                rvh->GetProcess()->GetID(),
@@ -382,7 +380,7 @@ InspectUI::InspectUI(content::WebUI* web_ui)
   InspectDataSource* html_source = new InspectDataSource();
 
   Profile* profile = Profile::FromWebUI(web_ui);
-  profile->GetChromeURLDataManager()->AddDataSource(html_source);
+  ChromeURLDataManager::AddDataSource(profile, html_source);
 
   registrar_.Add(this,
                  content::NOTIFICATION_WEB_CONTENTS_CONNECTED,
@@ -396,8 +394,7 @@ InspectUI::InspectUI(content::WebUI* web_ui)
 }
 
 InspectUI::~InspectUI() {
-  observer_->InspectUIDestroyed();
-  observer_ = NULL;
+  StopListeningNotifications();
 }
 
 void InspectUI::RefreshUI() {
@@ -407,5 +404,19 @@ void InspectUI::RefreshUI() {
 void InspectUI::Observe(int type,
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
+  if (source == content::Source<WebContents>(web_ui()->GetWebContents())) {
+    if (type == content::NOTIFICATION_WEB_CONTENTS_DISCONNECTED)
+        StopListeningNotifications();
+    return;
+  }
   RefreshUI();
+}
+
+void InspectUI::StopListeningNotifications()
+{
+  if (!observer_)
+    return;
+  observer_->InspectUIDestroyed();
+  observer_ = NULL;
+  registrar_.RemoveAll();
 }

@@ -1,11 +1,11 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_INSTALLER_UTIL_GOOGLE_CHROME_SXS_DISTRIBUTION_H_
 #define CHROME_INSTALLER_UTIL_GOOGLE_CHROME_SXS_DISTRIBUTION_H_
-#pragma once
 
+#include "base/string16.h"
 #include "chrome/installer/util/browser_distribution.h"
 #include "chrome/installer/util/google_chrome_distribution.h"
 #include "chrome/installer/util/l10n_string_util.h"
@@ -19,16 +19,20 @@
 // system level install and setting as default browser.
 class GoogleChromeSxSDistribution : public GoogleChromeDistribution {
  public:
-  virtual std::wstring GetApplicationName() OVERRIDE;
-  virtual std::wstring GetAppShortCutName() OVERRIDE;
-  virtual std::wstring GetBrowserAppId() OVERRIDE;
-  virtual std::wstring GetInstallSubDir() OVERRIDE;
-  virtual std::wstring GetUninstallRegPath() OVERRIDE;
+  virtual string16 GetBaseAppName() OVERRIDE;
+  virtual string16 GetAppShortCutName() OVERRIDE;
+  virtual string16 GetBaseAppId() OVERRIDE;
+  virtual string16 GetInstallSubDir() OVERRIDE;
+  virtual string16 GetUninstallRegPath() OVERRIDE;
   virtual bool CanSetAsDefault() OVERRIDE;
   virtual int GetIconIndex() OVERRIDE;
-  virtual bool GetChromeChannel(std::wstring* channel) OVERRIDE;
+  virtual bool GetChromeChannel(string16* channel) OVERRIDE;
+  virtual bool GetDelegateExecuteHandlerData(string16* handler_class_uuid,
+                                             string16* type_lib_uuid,
+                                             string16* type_lib_version,
+                                             string16* interface_uuid) OVERRIDE;
   // returns the channel name for GoogleChromeSxSDistribution
-  static std::wstring ChannelName();
+  static string16 ChannelName();
  private:
   friend class BrowserDistribution;
 

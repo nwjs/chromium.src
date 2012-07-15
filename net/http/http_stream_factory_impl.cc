@@ -119,15 +119,6 @@ void HttpStreamFactoryImpl::PreconnectStreams(
   job->Preconnect(num_streams);
 }
 
-void HttpStreamFactoryImpl::AddTLSIntolerantServer(const HostPortPair& server) {
-  tls_intolerant_servers_.insert(server);
-}
-
-bool HttpStreamFactoryImpl::IsTLSIntolerantServer(
-    const HostPortPair& server) const {
-  return ContainsKey(tls_intolerant_servers_, server);
-}
-
 base::Value* HttpStreamFactoryImpl::PipelineInfoToValue() const {
   return http_pipelined_host_pool_.PipelineInfoToValue();
 }
@@ -195,7 +186,7 @@ void HttpStreamFactoryImpl::OnSpdySessionReady(
     const SSLConfig& used_ssl_config,
     const ProxyInfo& used_proxy_info,
     bool was_npn_negotiated,
-    SSLClientSocket::NextProto protocol_negotiated,
+    NextProto protocol_negotiated,
     bool using_spdy,
     const BoundNetLog& net_log) {
   const HostPortProxyPair& spdy_session_key =

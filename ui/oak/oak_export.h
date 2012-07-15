@@ -4,7 +4,6 @@
 
 #ifndef UI_OAK_OAK_EXPORT_H_
 #define UI_OAK_OAK_EXPORT_H_
-#pragma once
 
 // Defines AURA_EXPORT so that functionality implemented by the aura module
 // can be exported to consumers.
@@ -19,7 +18,11 @@
 #endif  // defined(OAK_IMPLEMENTATION)
 
 #else  // defined(WIN32)
+#if defined(OAK_IMPLEMENTATION)
 #define OAK_EXPORT __attribute__((visibility("default")))
+#else
+#define OAK_EXPORT
+#endif
 #endif
 
 #else  // defined(COMPONENT_BUILD)

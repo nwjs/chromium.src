@@ -8,8 +8,14 @@
 
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
+#include "chrome/browser/chromeos/login/base_login_display_host.h"
 #include "chrome/browser/chromeos/options/vpn_config_view.h"
 #include "chrome/browser/chromeos/options/wifi_config_view.h"
+#include "chrome/browser/chromeos/options/wimax_config_view.h"
+#include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_window.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
 #include "grit/locale_settings.h"
@@ -25,6 +31,36 @@
 #include "ui/views/layout/layout_constants.h"
 #include "ui/views/widget/widget.h"
 
+namespace {
+
+gfx::NativeWindow GetDialogParent() {
+  if (chromeos::BaseLoginDisplayHost::default_host()) {
+    return chromeos::BaseLoginDisplayHost::default_host()->GetNativeWindow();
+  } else {
+    Browser* browser = browser::FindTabbedBrowser(
+        ProfileManager::GetDefaultProfileOrOffTheRecord(), true);
+    if (browser)
+      return browser->window()->GetNativeWindow();
+  }
+  return NULL;
+}
+
+// Avoid global static initializer.
+chromeos::NetworkConfigView** GetActiveDialogPointer() {
+  static chromeos::NetworkConfigView* active_dialog = NULL;
+  return &active_dialog;
+}
+
+chromeos::NetworkConfigView* GetActiveDialog() {
+  return *(GetActiveDialogPointer());
+}
+
+void SetActiveDialog(chromeos::NetworkConfigView* dialog) {
+  *(GetActiveDialogPointer()) = dialog;
+}
+
+}  // namespace
+
 namespace chromeos {
 
 // static
@@ -34,9 +70,14 @@ NetworkConfigView::NetworkConfigView(Network* network)
     : delegate_(NULL),
       advanced_button_(NULL),
       advanced_button_container_(NULL) {
+  DCHECK(GetActiveDialog() == NULL);
+  SetActiveDialog(this);
   if (network->type() == TYPE_WIFI) {
     child_config_view_ =
         new WifiConfigView(this, static_cast<WifiNetwork*>(network));
+  } else if (network->type() == TYPE_WIMAX) {
+    child_config_view_ =
+        new WimaxConfigView(this, static_cast<WimaxNetwork*>(network));
   } else if (network->type() == TYPE_VPN) {
     child_config_view_ =
         new VPNConfigView(this, static_cast<VirtualNetwork*>(network));
@@ -50,6 +91,8 @@ NetworkConfigView::NetworkConfigView(ConnectionType type)
     : delegate_(NULL),
       advanced_button_(NULL),
       advanced_button_container_(NULL) {
+  DCHECK(GetActiveDialog() == NULL);
+  SetActiveDialog(this);
   if (type == TYPE_WIFI) {
     child_config_view_ = new WifiConfigView(this, false /* show_8021x */);
     CreateAdvancedButton();
@@ -59,6 +102,38 @@ NetworkConfigView::NetworkConfigView(ConnectionType type)
     NOTREACHED();
     child_config_view_ = NULL;
   }
+}
+
+NetworkConfigView::~NetworkConfigView() {
+  DCHECK(GetActiveDialog() == this);
+  SetActiveDialog(NULL);
+}
+
+// static
+bool NetworkConfigView::Show(Network* network, gfx::NativeWindow parent) {
+  if (GetActiveDialog() != NULL)
+    return false;
+  NetworkConfigView* view = new NetworkConfigView(network);
+  if (parent == NULL)
+    parent = GetDialogParent();
+  views::Widget* window = views::Widget::CreateWindowWithParent(view, parent);
+  window->SetAlwaysOnTop(true);
+  window->Show();
+  return true;
+}
+
+// static
+bool NetworkConfigView::ShowForType(ConnectionType type,
+                                    gfx::NativeWindow parent) {
+  if (GetActiveDialog() != NULL)
+    return false;
+  NetworkConfigView* view = new NetworkConfigView(type);
+  if (parent == NULL)
+    parent = GetDialogParent();
+  views::Widget* window = views::Widget::CreateWindowWithParent(view, parent);
+  window->SetAlwaysOnTop(true);
+  window->Show();
+  return true;
 }
 
 gfx::NativeWindow NetworkConfigView::GetNativeWindow() const {
@@ -110,10 +185,6 @@ ui::ModalType NetworkConfigView::GetModalType() const {
 
 views::View* NetworkConfigView::GetContentsView() {
   return this;
-}
-
-string16 NetworkConfigView::GetWindowTitle() const {
-  return child_config_view_->GetTitle();
 }
 
 void NetworkConfigView::GetAccessibleState(ui::AccessibleViewState* state) {
@@ -240,9 +311,9 @@ void ControlledSettingIndicatorView::OnMouseExited(
 
 void ControlledSettingIndicatorView::Init() {
   color_image_ = ResourceBundle::GetSharedInstance().GetImageNamed(
-      IDR_CONTROLLED_SETTING_MANDATORY).ToSkBitmap();
+      IDR_CONTROLLED_SETTING_MANDATORY).ToImageSkia();
   gray_image_ = ResourceBundle::GetSharedInstance().GetImageNamed(
-      IDR_CONTROLLED_SETTING_MANDATORY_GRAY).ToSkBitmap();
+      IDR_CONTROLLED_SETTING_MANDATORY_GRAY).ToImageSkia();
   image_view_ = new views::ImageView();
   // Disable |image_view_| so mouse events propagate to the parent.
   image_view_->SetEnabled(false);

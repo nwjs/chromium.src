@@ -9,15 +9,29 @@
 #include "base/time.h"
 #include "content/common/child_process.h"
 #include "content/common/media/audio_messages.h"
+#include "content/renderer/render_thread_impl.h"
 #include "ipc/ipc_logging.h"
+
+AudioMessageFilter* AudioMessageFilter::filter_ = NULL;
+
+// static
+AudioMessageFilter* AudioMessageFilter::Get() {
+  return filter_;
+}
 
 AudioMessageFilter::AudioMessageFilter()
     : channel_(NULL) {
   VLOG(1) << "AudioMessageFilter::AudioMessageFilter()";
+  DCHECK(!filter_);
+  filter_ = this;
 }
 
-AudioMessageFilter::~AudioMessageFilter() {
-  VLOG(1) << "AudioMessageFilter::~AudioMessageFilter()";
+int32 AudioMessageFilter::AddDelegate(Delegate* delegate) {
+  return delegates_.Add(delegate);
+}
+
+void AudioMessageFilter::RemoveDelegate(int32 id) {
+  delegates_.Remove(id);
 }
 
 bool AudioMessageFilter::Send(IPC::Message* message) {
@@ -63,6 +77,12 @@ void AudioMessageFilter::OnChannelClosing() {
   channel_ = NULL;
 }
 
+AudioMessageFilter::~AudioMessageFilter() {
+  VLOG(1) << "AudioMessageFilter::~AudioMessageFilter()";
+  DCHECK(filter_);
+  filter_ = NULL;
+}
+
 void AudioMessageFilter::OnStreamCreated(
     int stream_id,
     base::SharedMemoryHandle handle,
@@ -95,12 +115,4 @@ void AudioMessageFilter::OnStreamStateChanged(
     return;
   }
   delegate->OnStateChanged(state);
-}
-
-int32 AudioMessageFilter::AddDelegate(Delegate* delegate) {
-  return delegates_.Add(delegate);
-}
-
-void AudioMessageFilter::RemoveDelegate(int32 id) {
-  delegates_.Remove(id);
 }

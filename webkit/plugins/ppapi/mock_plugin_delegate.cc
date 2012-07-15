@@ -37,6 +37,16 @@ void MockPluginDelegate::PluginRequestedCancelComposition(
 void MockPluginDelegate::PluginSelectionChanged(PluginInstance* instance) {
 }
 
+void MockPluginDelegate::SimulateImeSetComposition(
+    const string16& text,
+    const std::vector<WebKit::WebCompositionUnderline>& underlines,
+    int selection_start,
+    int selection_end) {
+}
+
+void MockPluginDelegate::SimulateImeConfirmComposition(const string16& text) {
+}
+
 void MockPluginDelegate::PluginCrashed(PluginInstance* instance) {
 }
 
@@ -46,7 +56,17 @@ void MockPluginDelegate::InstanceCreated(PluginInstance* instance) {
 void MockPluginDelegate::InstanceDeleted(PluginInstance* instance) {
 }
 
+scoped_ptr< ::ppapi::thunk::ResourceCreationAPI>
+MockPluginDelegate::CreateResourceCreationAPI(PluginInstance* instance) {
+  return scoped_ptr< ::ppapi::thunk::ResourceCreationAPI>();
+}
+
 SkBitmap* MockPluginDelegate::GetSadPluginBitmap() {
+  return NULL;
+}
+
+WebKit::WebPlugin* MockPluginDelegate::CreatePluginReplacement(
+    const FilePath& file_path) {
   return NULL;
 }
 
@@ -110,12 +130,6 @@ void MockPluginDelegate::NumberOfFindResultsChanged(int identifier,
 void MockPluginDelegate::SelectedFindResultChanged(int identifier, int index) {
 }
 
-bool MockPluginDelegate::RunFileChooser(
-    const WebKit::WebFileChooserParams& params,
-    WebKit::WebFileChooserCompletion* chooser_completion) {
-  return false;
-}
-
 bool MockPluginDelegate::AsyncOpenFile(const FilePath& path,
                                        int flags,
                                        const AsyncOpenFileCallback& callback) {
@@ -123,12 +137,14 @@ bool MockPluginDelegate::AsyncOpenFile(const FilePath& path,
 }
 
 bool MockPluginDelegate::AsyncOpenFileSystemURL(
-    const GURL& path, int flags, const AsyncOpenFileCallback& callback) {
+    const GURL& path,
+    int flags,
+    const AsyncOpenFileSystemURLCallback& callback) {
   return false;
 }
 
 bool MockPluginDelegate::OpenFileSystem(
-    const GURL& url,
+    const GURL& origin_url,
     fileapi::FileSystemType type,
     long long size,
     fileapi::FileSystemCallbackDispatcher* dispatcher) {
@@ -187,38 +203,43 @@ void MockPluginDelegate::DidUpdateFile(const GURL& file_path, int64_t delta) {
 }
 
 base::PlatformFileError MockPluginDelegate::OpenFile(
-    const PepperFilePath& path,
+    const ::ppapi::PepperFilePath& path,
     int flags,
     base::PlatformFile* file) {
   return base::PLATFORM_FILE_ERROR_FAILED;
 }
 
 base::PlatformFileError MockPluginDelegate::RenameFile(
-    const PepperFilePath& from_path,
-    const PepperFilePath& to_path) {
+    const ::ppapi::PepperFilePath& from_path,
+    const ::ppapi::PepperFilePath& to_path) {
   return base::PLATFORM_FILE_ERROR_FAILED;
 }
 
 base::PlatformFileError MockPluginDelegate::DeleteFileOrDir(
-    const PepperFilePath& path,
+    const ::ppapi::PepperFilePath& path,
     bool recursive) {
   return base::PLATFORM_FILE_ERROR_FAILED;
 }
 
 base::PlatformFileError MockPluginDelegate::CreateDir(
-    const PepperFilePath& path) {
+    const ::ppapi::PepperFilePath& path) {
   return base::PLATFORM_FILE_ERROR_FAILED;
 }
 
 base::PlatformFileError MockPluginDelegate::QueryFile(
-    const PepperFilePath& path,
+    const ::ppapi::PepperFilePath& path,
     base::PlatformFileInfo* info) {
   return base::PLATFORM_FILE_ERROR_FAILED;
 }
 
 base::PlatformFileError MockPluginDelegate::GetDirContents(
-    const PepperFilePath& path,
-    DirContents* contents) {
+    const ::ppapi::PepperFilePath& path,
+    ::ppapi::DirContents* contents) {
+  return base::PLATFORM_FILE_ERROR_FAILED;
+}
+
+base::PlatformFileError MockPluginDelegate::CreateTemporaryFile(
+    base::PlatformFile* file) {
   return base::PLATFORM_FILE_ERROR_FAILED;
 }
 
@@ -232,19 +253,6 @@ void MockPluginDelegate::SyncGetFileSystemPlatformPath(
 scoped_refptr<base::MessageLoopProxy>
 MockPluginDelegate::GetFileThreadMessageLoopProxy() {
   return scoped_refptr<base::MessageLoopProxy>();
-}
-
-int32_t MockPluginDelegate::ConnectTcp(
-    webkit::ppapi::PPB_Flash_NetConnector_Impl* connector,
-    const char* host,
-    uint16_t port) {
-  return PP_ERROR_FAILED;
-}
-
-int32_t MockPluginDelegate::ConnectTcpAddress(
-    webkit::ppapi::PPB_Flash_NetConnector_Impl* connector,
-    const PP_NetAddress_Private* addr) {
-  return PP_ERROR_FAILED;
 }
 
 uint32 MockPluginDelegate::TCPSocketCreate() {
@@ -263,9 +271,12 @@ void MockPluginDelegate::TCPSocketConnectWithNetAddress(
     const PP_NetAddress_Private& addr) {
 }
 
-void MockPluginDelegate::TCPSocketSSLHandshake(uint32 socket_id,
-                                               const std::string& server_name,
-                                               uint16_t server_port) {
+void MockPluginDelegate::TCPSocketSSLHandshake(
+    uint32 socket_id,
+    const std::string& server_name,
+    uint16_t server_port,
+    const std::vector<std::vector<char> >& trusted_certs,
+    const std::vector<std::vector<char> >& untrusted_certs) {
 }
 
 void MockPluginDelegate::TCPSocketRead(uint32 socket_id,
@@ -341,6 +352,12 @@ void MockPluginDelegate::RemoveNetworkListObserver(
     webkit_glue::NetworkListObserver* observer) {
 }
 
+bool MockPluginDelegate::X509CertificateParseDER(
+    const std::vector<char>& der,
+    ::ppapi::PPB_X509Certificate_Fields* fields) {
+  return false;
+}
+
 int32_t MockPluginDelegate::ShowContextMenu(
     PluginInstance* instance,
     webkit::ppapi::PPB_Flash_Menu_Impl* menu,
@@ -387,10 +404,6 @@ webkit_glue::P2PTransport* MockPluginDelegate::CreateP2PTransport() {
 
 double MockPluginDelegate::GetLocalTimeZoneOffset(base::Time t) {
   return 0.0;
-}
-
-std::string MockPluginDelegate::GetFlashCommandLineArgs() {
-  return std::string();
 }
 
 base::SharedMemory* MockPluginDelegate::CreateAnonymousSharedMemory(
@@ -441,6 +454,10 @@ int MockPluginDelegate::EnumerateDevices(
 webkit_glue::ClipboardClient*
 MockPluginDelegate::CreateClipboardClient() const {
   return NULL;
+}
+
+std::string MockPluginDelegate::GetDeviceID() {
+  return std::string();
 }
 
 }  // namespace ppapi

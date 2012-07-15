@@ -423,3 +423,18 @@ ER3(SSL_ERROR_INVALID_VERSION_RANGE,           (SSL_ERROR_BASE + 120),
 
 ER3(SSL_ERROR_RX_UNEXPECTED_CERT_STATUS,       (SSL_ERROR_BASE + 121),
 "SSL received an unexpected Certificate Status handshake message.")
+
+ER3(SSL_ERROR_RX_MALFORMED_HELLO_VERIFY_REQUEST, (SSL_ERROR_BASE + 122),
+"SSL received a malformed Hello Verify Request handshake message.")
+
+ER3(SSL_ERROR_RX_UNEXPECTED_HELLO_VERIFY_REQUEST, (SSL_ERROR_BASE + 123),
+"SSL received an unexpected Hello Verify Request handshake message.")
+
+ER3(SSL_ERROR_BAD_CHANNEL_ID_DATA, (SSL_ERROR_BASE + 124),
+"SSL received a malformed TLS Channel ID extension.")
+
+ER3(SSL_ERROR_INVALID_CHANNEL_ID_KEY, (SSL_ERROR_BASE + 125),
+"The application provided an invalid TLS Channel ID key.")
+
+ER3(SSL_ERROR_GET_CHANNEL_ID_FAILED, (SSL_ERROR_BASE + 126),
+"The application could not get a TLS Channel ID.")

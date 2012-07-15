@@ -4,7 +4,6 @@
 
 #ifndef WEBKIT_DOM_STORAGE_DOM_STORAGE_MAP_H_
 #define WEBKIT_DOM_STORAGE_DOM_STORAGE_MAP_H_
-#pragma once
 
 #include <map>
 
@@ -21,7 +20,7 @@ namespace dom_storage {
 class DomStorageMap
     : public base::RefCountedThreadSafe<DomStorageMap> {
  public:
-  DomStorageMap(size_t quota);
+  explicit DomStorageMap(size_t quota);
 
   unsigned Length() const;
   NullableString16 Key(unsigned index);
@@ -35,11 +34,16 @@ class DomStorageMap
   // this method does not do quota checking.
   void SwapValues(ValuesMap* map);
 
+  // Writes a copy of the current set of values_ to the |map|.
+  void ExtractValues(ValuesMap* map) const { *map = values_; }
+
   // Creates a new instance of DomStorageMap containing
   // a deep copy of values_.
   DomStorageMap* DeepCopy() const;
 
   size_t bytes_used() const { return bytes_used_; }
+  size_t quota() const { return quota_; }
+  void set_quota(size_t quota) { quota_ = quota; }
 
  private:
   friend class base::RefCountedThreadSafe<DomStorageMap>;

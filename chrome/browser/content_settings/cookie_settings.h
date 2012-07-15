@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CONTENT_SETTINGS_COOKIE_SETTINGS_H_
 #define CHROME_BROWSER_CONTENT_SETTINGS_COOKIE_SETTINGS_H_
-#pragma once
 
 #include <string>
 
@@ -36,8 +35,6 @@ class CookieSettings
   CookieSettings(
       HostContentSettingsMap* host_content_settings_map,
       PrefService* prefs);
-
-  virtual ~CookieSettings();
 
   // Returns the default content setting (CONTENT_SETTING_ALLOW,
   // CONTENT_SETTING_BLOCK, or CONTENT_SETTING_SESSION_ONLY) for cookies. If
@@ -136,6 +133,8 @@ class CookieSettings
   };
 
  private:
+  virtual ~CookieSettings();
+
   // Returns true if the "block third party cookies" preference is set.
   //
   // This method may be called on any thread.

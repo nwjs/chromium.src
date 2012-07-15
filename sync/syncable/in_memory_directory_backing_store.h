@@ -4,10 +4,10 @@
 
 #ifndef SYNC_SYNCABLE_IN_MEMORY_DIRECTORY_BACKING_STORE_H_
 #define SYNC_SYNCABLE_IN_MEMORY_DIRECTORY_BACKING_STORE_H_
-#pragma once
 
 #include "sync/syncable/directory_backing_store.h"
 
+namespace syncer {
 namespace syncable {
 
 // This implementation of DirectoryBackingStore is used in tests that do not
@@ -28,5 +28,6 @@ class InMemoryDirectoryBackingStore : public DirectoryBackingStore {
 };
 
 }  // namespace syncable
+}  // namespace syncer
 
 #endif  // SYNC_SYNCABLE_IN_MEMORY_DIRECTORY_BACKING_STORE_H_

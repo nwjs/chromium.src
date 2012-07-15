@@ -4,7 +4,6 @@
 
 #ifndef UI_VIEWS_CONTROLS_TEXTFIELD_NATIVE_TEXTFIELD_WRAPPER_H_
 #define UI_VIEWS_CONTROLS_TEXTFIELD_NATIVE_TEXTFIELD_WRAPPER_H_
-#pragma once
 
 #include "base/string16.h"
 #include "ui/gfx/native_widget_types.h"
@@ -48,9 +47,10 @@ class VIEWS_EXPORT NativeTextfieldWrapper {
   // Gets the text that is selected in the wrapped native text field.
   virtual string16 GetSelectedText() const = 0;
 
-  // Selects all the text in the edit.  Use this in place of SetSelAll() to
-  // avoid selecting the "phantom newline" at the end of the edit.
-  virtual void SelectAll() = 0;
+  // Select the entire text range. If |reversed| is true, the range will end at
+  // the logical beginning of the text; this generally shows the leading portion
+  // of text that overflows its display area.
+  virtual void SelectAll(bool reversed) = 0;
 
   // Clears the selection within the edit field and sets the caret to the end.
   virtual void ClearSelection() = 0;

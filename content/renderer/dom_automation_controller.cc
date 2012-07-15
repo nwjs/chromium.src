@@ -10,6 +10,9 @@
 #include "base/string_util.h"
 #include "content/common/view_messages.h"
 
+using webkit_glue::CppArgumentList;
+using webkit_glue::CppVariant;
+
 DomAutomationController::DomAutomationController()
     : sender_(NULL),
       routing_id_(MSG_ROUTING_NONE),
@@ -21,6 +24,8 @@ DomAutomationController::DomAutomationController()
                           base::Unretained(this)));
   BindCallback("sendJSON", base::Bind(&DomAutomationController::SendJSON,
                                       base::Unretained(this)));
+  BindCallback("sendWithId", base::Bind(&DomAutomationController::SendWithId,
+                                        base::Unretained(this)));
 }
 
 void DomAutomationController::Send(const CppArgumentList& args,
@@ -119,6 +124,29 @@ void DomAutomationController::SendJSON(const CppArgumentList& args,
       new ViewHostMsg_DomOperationResponse(routing_id_, json, automation_id_)));
 
   automation_id_ = MSG_ROUTING_NONE;
+}
+
+void DomAutomationController::SendWithId(const CppArgumentList& args,
+                                         CppVariant* result) {
+  if (args.size() != 2) {
+    result->SetNull();
+    return;
+  }
+
+  if (!sender_) {
+    NOTREACHED();
+    result->SetNull();
+    return;
+  }
+
+  if (!args[0].isNumber() || args[1].type != NPVariantType_String) {
+    result->SetNull();
+    return;
+  }
+
+  result->Set(sender_->Send(
+      new ViewHostMsg_DomOperationResponse(routing_id_, args[1].ToString(),
+                                           args[0].ToInt32())));
 }
 
 void DomAutomationController::SetAutomationId(

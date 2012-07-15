@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -76,14 +76,11 @@ bool CustomButton::IsMouseHovered() const {
   return HitTest(cursor_pos);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// CustomButton, View overrides:
-
-void CustomButton::SetHotTracked(bool flag) {
+void CustomButton::SetHotTracked(bool is_hot_tracked) {
   if (state_ != BS_DISABLED)
-    SetState(flag ? BS_HOT : BS_NORMAL);
+    SetState(is_hot_tracked ? BS_HOT : BS_NORMAL);
 
-  if (flag && GetWidget()) {
+  if (is_hot_tracked && GetWidget()) {
     GetWidget()->NotifyAccessibilityEvent(
         this, ui::AccessibilityTypes::EVENT_FOCUS, true);
   }
@@ -92,6 +89,9 @@ void CustomButton::SetHotTracked(bool flag) {
 bool CustomButton::IsHotTracked() const {
   return state_ == BS_HOT;
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// CustomButton, View overrides:
 
 void CustomButton::OnEnabledChanged() {
   if (enabled() ? (state_ != BS_DISABLED) : (state_ == BS_DISABLED))
@@ -193,6 +193,30 @@ bool CustomButton::OnKeyReleased(const KeyEvent& event) {
   return true;
 }
 
+ui::GestureStatus CustomButton::OnGestureEvent(const GestureEvent& event) {
+  if (state_ == BS_DISABLED)
+    return Button::OnGestureEvent(event);
+
+  if (event.type() == ui::ET_GESTURE_TAP && IsTriggerableEvent(event)) {
+    // Set the button state to hot and start the animation fully faded in. The
+    // TAP_UP event issued immediately after will set the state to BS_NORMAL
+    // beginning the fade out animation. See http://crbug.com/131184.
+    SetState(BS_HOT);
+    hover_animation_->Reset(1.0);
+    NotifyClick(event);
+    return ui::GESTURE_STATUS_CONSUMED;
+  } else if (event.type() == ui::ET_GESTURE_TAP_DOWN &&
+             ShouldEnterPushedState(event)) {
+    SetState(BS_PUSHED);
+    if (request_focus_on_press_)
+      RequestFocus();
+    return ui::GESTURE_STATUS_CONSUMED;
+  } else {
+    SetState(BS_NORMAL);
+  }
+  return Button::OnGestureEvent(event);
+}
+
 bool CustomButton::AcceleratorPressed(const ui::Accelerator& accelerator) {
   SetState(BS_NORMAL);
   KeyEvent key_event(ui::ET_KEY_RELEASED, accelerator.key_code(),
@@ -259,11 +283,14 @@ CustomButton::CustomButton(ButtonListener* listener)
 void CustomButton::StateChanged() {
 }
 
-bool CustomButton::IsTriggerableEvent(const MouseEvent& event) {
-  return (triggerable_event_flags_ & event.flags()) != 0;
+bool CustomButton::IsTriggerableEvent(const Event& event) {
+  return event.type() == ui::ET_GESTURE_TAP_DOWN ||
+         event.type() == ui::ET_GESTURE_TAP ||
+         (event.IsMouseEvent() &&
+             (triggerable_event_flags_ & event.flags()) != 0);
 }
 
-bool CustomButton::ShouldEnterPushedState(const MouseEvent& event) {
+bool CustomButton::ShouldEnterPushedState(const Event& event) {
   return IsTriggerableEvent(event);
 }
 

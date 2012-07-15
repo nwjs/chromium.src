@@ -4,14 +4,13 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_API_DECLARATIVE_RULES_REGISTRY_H__
 #define CHROME_BROWSER_EXTENSIONS_API_DECLARATIVE_RULES_REGISTRY_H__
-#pragma once
 
 #include <string>
 #include <vector>
 
 #include "base/memory/linked_ptr.h"
 #include "base/memory/ref_counted.h"
-#include "chrome/common/extensions/api/experimental.declarative.h"
+#include "chrome/common/extensions/api/events.h"
 #include "content/public/browser/browser_thread.h"
 
 namespace base {
@@ -37,7 +36,7 @@ class RulesRegistry
     : public base::RefCountedThreadSafe<RulesRegistry,
                                         RulesRegistryDeleteTraits> {
  public:
-  typedef extensions::api::experimental_declarative::Rule Rule;
+  typedef extensions::api::events::Rule Rule;
 
   // Registers |rules|, owned by |extension_id| to this RulesRegistry.
   // If a concrete RuleRegistry does not support some of the rules,

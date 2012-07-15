@@ -70,14 +70,7 @@ void PaintCircle(const Circle& circle, gfx::Canvas* canvas) {
   paint.setAntiAlias(true);
   paint.setStyle(SkPaint::kFill_Style);
   paint.setColor(circle.color);
-  SkPath path;
-  gfx::Rect bounds(circle.center.x() - circle.radius,
-                   circle.center.y() - circle.radius,
-                   circle.radius * 2,
-                   circle.radius * 2);
-  SkScalar radius = SkIntToScalar(circle.radius);
-  path.addRoundRect(gfx::RectToSkRect(bounds), radius, radius);
-  canvas->sk_canvas()->drawPath(path, paint);
+  canvas->DrawCircle(circle.center, circle.radius, paint);
 }
 
 // The points may not match exactly, since the selection range computation may
@@ -96,14 +89,14 @@ namespace views {
 // A View that displays the text selection handle.
 class TouchSelectionControllerImpl::SelectionHandleView : public View {
  public:
-  SelectionHandleView(TouchSelectionControllerImpl* controller)
+  explicit SelectionHandleView(TouchSelectionControllerImpl* controller)
       : controller_(controller) {
     widget_.reset(CreateTouchSelectionPopupWidget());
     widget_->SetContentsView(this);
     widget_->SetAlwaysOnTop(true);
 
     // We are owned by the TouchSelectionController.
-    set_parent_owned(false);
+    set_owned_by_client();
   }
 
   virtual ~SelectionHandleView() {
@@ -207,14 +200,14 @@ class TouchSelectionControllerImpl::TouchContextMenuView
     : public ButtonListener,
       public View {
  public:
-  TouchContextMenuView(TouchSelectionControllerImpl* controller)
+  explicit TouchContextMenuView(TouchSelectionControllerImpl* controller)
       : controller_(controller) {
     widget_.reset(CreateTouchSelectionPopupWidget());
     widget_->SetContentsView(this);
     widget_->SetAlwaysOnTop(true);
 
     // We are owned by the TouchSelectionController.
-    set_parent_owned(false);
+    set_owned_by_client();
     SetLayoutManager(new BoxLayout(BoxLayout::kHorizontal, kContextMenuPadding,
         kContextMenuPadding, kContextMenuPadding));
   }
@@ -274,7 +267,7 @@ class TouchSelectionControllerImpl::TouchContextMenuView
 
     canvas->DrawRect(GetLocalBounds(), paint);
 #else
-    canvas->sk_canvas()->drawColor(SkColorSetRGB(210, 225, 246),
+    canvas->DrawColor(SkColorSetRGB(210, 225, 246),
                                    SkXfermode::kSrc_Mode);
 #endif
   }
@@ -318,7 +311,7 @@ class TouchSelectionControllerImpl::TouchContextMenuView
                             total_width,
                             height);
     gfx::Rect monitor_bounds =
-        gfx::Screen::GetMonitorAreaNearestPoint(position);
+        gfx::Screen::GetDisplayNearestPoint(position).bounds();
     widget_->SetBounds(widget_bounds.AdjustToFit(monitor_bounds));
     Layout();
   }

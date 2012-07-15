@@ -4,17 +4,20 @@
 
 #ifndef CHROME_BROWSER_SYNC_RETRY_VERIFIER_H_
 #define CHROME_BROWSER_SYNC_RETRY_VERIFIER_H_
-#pragma once
 
 #include "base/time.h"
 
-namespace browser_sync {
+// TODO(akalin): Move this to somewhere in sync/ and make
+// sync/engine/polling_constants.h private.
+
+namespace syncer {
 namespace sessions {
-struct SyncSessionSnapshot;
+class SyncSessionSnapshot;
 }  // namespace sessions
-}  // namespace browser_sync
+}  // namespace syncer
 
 namespace browser_sync {
+
 // The minimum and maximum wait times for a retry. The actual retry would take
 // place somewhere in this range. The algorithm that calculates the retry wait
 // time uses rand functions.
@@ -33,9 +36,9 @@ class RetryVerifier {
 
   // Initialize with the current sync session snapshot. Using the snapshot
   // we will figure out when the first retry sync happened.
-  void Initialize(const browser_sync::sessions::SyncSessionSnapshot& snap);
+  void Initialize(const syncer::sessions::SyncSessionSnapshot& snap);
   void VerifyRetryInterval(
-      const browser_sync::sessions::SyncSessionSnapshot& snap);
+      const syncer::sessions::SyncSessionSnapshot& snap);
   bool done() const { return done_; }
   bool Succeeded() const { return done() && success_; }
 
@@ -47,5 +50,7 @@ class RetryVerifier {
   bool done_;
   DISALLOW_COPY_AND_ASSIGN(RetryVerifier);
 };
+
 }  // namespace browser_sync
+
 #endif  // CHROME_BROWSER_SYNC_RETRY_VERIFIER_H_

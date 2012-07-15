@@ -7,6 +7,7 @@
 #include "base/bind.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/webui/chrome_url_data_manager.h"
 #include "chrome/browser/ui/webui/chrome_web_ui_data_source.h"
 #include "chrome/browser/ui/webui/extensions/extension_icon_source.h"
 #include "chrome/browser/ui/webui/shared_resources_data_source.h"
@@ -31,21 +32,21 @@ ExtensionActivityUI::ExtensionActivityUI(content::WebUI* web_ui)
                              IDS_EXTENSION_ACTIVITY_API_CALL);
   source->AddLocalizedString("extensionActivityApiBlock",
                              IDS_EXTENSION_ACTIVITY_API_BLOCK);
+  source->set_use_json_js_format_v2();
   source->set_json_path("strings.js");
 
   // Resources.
   source->add_resource_path("extension_activity.js", IDR_EXTENSION_ACTIVITY_JS);
   source->set_default_resource(IDR_EXTENSION_ACTIVITY_HTML);
 
+  Profile* profile = Profile::FromWebUI(web_ui);
+  ChromeURLDataManager::AddDataSource(profile, source);
+  ChromeURLDataManager::AddDataSource(profile, new SharedResourcesDataSource());
+
   // Callback handlers.
   web_ui->RegisterMessageCallback("requestExtensionData",
       base::Bind(&ExtensionActivityUI::HandleRequestExtensionData,
                  base::Unretained(this)));
-
-  Profile* profile = Profile::FromWebUI(web_ui);
-  profile->GetChromeURLDataManager()->AddDataSource(source);
-  profile->GetChromeURLDataManager()->AddDataSource(
-      new SharedResourcesDataSource());
 }
 
 ExtensionActivityUI::~ExtensionActivityUI() {
@@ -90,7 +91,7 @@ void ExtensionActivityUI::HandleRequestExtensionData(
 }
 
 void ExtensionActivityUI::OnExtensionActivity(
-      const Extension* extension,
+      const extensions::Extension* extension,
       ExtensionActivityLog::Activity activity,
       const std::string& msg) {
   DictionaryValue result;

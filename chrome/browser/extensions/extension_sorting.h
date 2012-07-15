@@ -4,8 +4,8 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_SORTING_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_SORTING_H_
-#pragma once
 
+#include <map>
 #include <string>
 
 #include "base/basictypes.h"
@@ -15,11 +15,12 @@
 
 class ExtensionScopedPrefs;
 class ExtensionServiceInterface;
+class PrefService;
 
 class ExtensionSorting {
  public:
-  explicit ExtensionSorting(ExtensionScopedPrefs* extension_scoped_prefs,
-                            PrefService* pref_service);
+  ExtensionSorting(ExtensionScopedPrefs* extension_scoped_prefs,
+                   PrefService* pref_service);
   ~ExtensionSorting();
 
   // Set up the ExtensionService to inform of changes that require syncing.
@@ -27,7 +28,8 @@ class ExtensionSorting {
 
   // Properly initialize ExtensionSorting internal values that require
   // |extension_ids|.
-  void Initialize(const ExtensionPrefs::ExtensionIdSet& extension_ids);
+  void Initialize(
+      const extensions::ExtensionPrefs::ExtensionIdSet& extension_ids);
 
   // Resolves any conflicts the might be created as a result of syncing that
   // results in two icons having the same page and app launch ordinal. After
@@ -93,7 +95,7 @@ class ExtensionSorting {
 
   // Converts the page index integer to its StringOrdinal equivalent. This takes
   // O(# of apps) worst-case.
-  StringOrdinal PageIntegerAsStringOrdinal(size_t page_index) const;
+  StringOrdinal PageIntegerAsStringOrdinal(size_t page_index);
 
  private:
   // Unit tests.
@@ -117,10 +119,11 @@ class ExtensionSorting {
   // Initialize the |page_ordinal_map_| with the page ordinals used by the
   // given extensions.
   void InitializePageOrdinalMap(
-      const ExtensionPrefs::ExtensionIdSet& extension_ids);
+      const extensions::ExtensionPrefs::ExtensionIdSet& extension_ids);
 
   // Migrates the app launcher and page index values.
-  void MigrateAppIndex(const ExtensionPrefs::ExtensionIdSet& extension_ids);
+  void MigrateAppIndex(
+      const extensions::ExtensionPrefs::ExtensionIdSet& extension_ids);
 
   // Called to add a new mapping value for |extension_id| with a page ordinal
   // of |page_ordinal| and a app launch ordinal of |app_launch_ordinal|. This
@@ -128,6 +131,9 @@ class ExtensionSorting {
   void AddOrdinalMapping(const std::string& extension_id,
                          const StringOrdinal& page_ordinal,
                          const StringOrdinal& app_launch_ordinal);
+
+  // Ensures |ntp_ordinal_map_| is of |minimum_size| number of entries.
+  void CreateOrdinalsIfNecessary(size_t minimum_size);
 
   // Removes the mapping for |extension_id| with a page ordinal of
   // |page_ordinal| and a app launch ordinal of |app_launch_ordinal|. If there

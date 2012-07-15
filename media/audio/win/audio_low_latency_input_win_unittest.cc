@@ -15,16 +15,20 @@
 #include "base/win/scoped_com_initializer.h"
 #include "media/audio/audio_io.h"
 #include "media/audio/audio_manager_base.h"
+#include "media/audio/audio_util.h"
 #include "media/audio/win/audio_low_latency_input_win.h"
 #include "media/base/seekable_buffer.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using base::win::ScopedCOMInitializer;
+using ::testing::_;
 using ::testing::AnyNumber;
 using ::testing::AtLeast;
 using ::testing::Gt;
 using ::testing::NotNull;
+
+namespace media {
 
 ACTION_P3(CheckCountAndPostQuitTask, count, limit, loop) {
   if (++*count >= limit) {
@@ -34,9 +38,9 @@ ACTION_P3(CheckCountAndPostQuitTask, count, limit, loop) {
 
 class MockAudioInputCallback : public AudioInputStream::AudioInputCallback {
  public:
-  MOCK_METHOD4(OnData, void(AudioInputStream* stream,
+  MOCK_METHOD5(OnData, void(AudioInputStream* stream,
       const uint8* src, uint32 size,
-      uint32 hardware_delay_bytes));
+      uint32 hardware_delay_bytes, double volume));
   MOCK_METHOD1(OnClose, void(AudioInputStream* stream));
   MOCK_METHOD2(OnError, void(AudioInputStream* stream, int code));
 };
@@ -65,7 +69,7 @@ class WriteToFileAudioSink : public AudioInputStream::AudioInputCallback {
     size_t bytes_written = 0;
     while (bytes_written < bytes_to_write_) {
       const uint8* chunk;
-      size_t chunk_size;
+      int chunk_size;
 
       // Stop writing if no more data is available.
       if (!buffer_.GetCurrentChunk(&chunk, &chunk_size))
@@ -83,7 +87,8 @@ class WriteToFileAudioSink : public AudioInputStream::AudioInputCallback {
   virtual void OnData(AudioInputStream* stream,
                       const uint8* src,
                       uint32 size,
-                      uint32 hardware_delay_bytes) {
+                      uint32 hardware_delay_bytes,
+                      double volume) {
     // Store data data in a temporary buffer to avoid making blocking
     // fwrite() calls in the audio callback. The complete buffer will be
     // written to file in the destructor.
@@ -102,8 +107,14 @@ class WriteToFileAudioSink : public AudioInputStream::AudioInputCallback {
 };
 
 // Convenience method which ensures that we are not running on the build
-// bots and that at least one valid input device can be found.
+// bots and that at least one valid input device can be found. We also
+// verify that we are not running on XP since the low-latency (WASAPI-
+// based) version requires Windows Vista or higher.
 static bool CanRunAudioTests(AudioManager* audio_man) {
+  if (!media::IsWASAPISupported()) {
+    LOG(WARNING) << "This tests requires Windows Vista or higher.";
+    return false;
+  }
   // TODO(henrika): note that we use Wave today to query the number of
   // existing input devices.
   bool input = audio_man->HasAudioInputDevices();
@@ -250,7 +261,7 @@ TEST(WinAudioInputTest, WASAPIAudioInputStreamOpenStartStopAndClose) {
 }
 
 // Test some additional calling sequences.
-TEST(MacAudioInputTest, WASAPIAudioInputStreamMiscCallingSequences) {
+TEST(WinAudioInputTest, WASAPIAudioInputStreamMiscCallingSequences) {
   scoped_ptr<AudioManager> audio_manager(AudioManager::Create());
   if (!CanRunAudioTests(audio_manager.get()))
     return;
@@ -306,7 +317,7 @@ TEST(WinAudioInputTest, WASAPIAudioInputStreamTestPacketSizes) {
   // All should contain valid packets of the same size and a valid delay
   // estimate.
   EXPECT_CALL(sink, OnData(
-      ais, NotNull(), bytes_per_packet, Gt(bytes_per_packet)))
+      ais, NotNull(), bytes_per_packet, Gt(bytes_per_packet), _))
       .Times(AtLeast(10))
       .WillRepeatedly(CheckCountAndPostQuitTask(&count, 10, &loop));
   ais->Start(&sink);
@@ -329,7 +340,7 @@ TEST(WinAudioInputTest, WASAPIAudioInputStreamTestPacketSizes) {
       (aisw.bits_per_sample() / 8);
 
   EXPECT_CALL(sink, OnData(
-      ais, NotNull(), bytes_per_packet, Gt(bytes_per_packet)))
+      ais, NotNull(), bytes_per_packet, Gt(bytes_per_packet), _))
       .Times(AtLeast(10))
       .WillRepeatedly(CheckCountAndPostQuitTask(&count, 10, &loop));
   ais->Start(&sink);
@@ -349,7 +360,7 @@ TEST(WinAudioInputTest, WASAPIAudioInputStreamTestPacketSizes) {
     (aisw.bits_per_sample() / 8);
 
   EXPECT_CALL(sink, OnData(
-      ais, NotNull(), bytes_per_packet, Gt(bytes_per_packet)))
+      ais, NotNull(), bytes_per_packet, Gt(bytes_per_packet), _))
       .Times(AtLeast(10))
       .WillRepeatedly(CheckCountAndPostQuitTask(&count, 10, &loop));
   ais->Start(&sink);
@@ -385,8 +396,10 @@ TEST(WinAudioInputTest, DISABLED_WASAPIAudioInputStreamRecordToFile) {
   WriteToFileAudioSink file_sink(file_name);
   LOG(INFO) << ">> Speak into the default microphone while recording.";
   ais->Start(&file_sink);
-  base::PlatformThread::Sleep(TestTimeouts::action_timeout_ms());
+  base::PlatformThread::Sleep(TestTimeouts::action_timeout());
   ais->Stop();
   LOG(INFO) << ">> Recording has stopped.";
   ais->Close();
 }
+
+}  // namespace media

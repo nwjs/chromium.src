@@ -7,42 +7,44 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/location.h"
-#include "chrome/browser/sync/internal_api/write_transaction.h"
 #include "chrome/browser/sync/test_profile_sync_service.h"
+#include "sync/internal_api/public/write_transaction.h"
 #include "sync/protocol/sync.pb.h"
-#include "sync/syncable/syncable.h"
+#include "sync/syncable/entry.h"
+#include "sync/syncable/mutable_entry.h"
+#include "sync/syncable/write_transaction.h"
 #include "sync/test/engine/test_id_factory.h"
 #include "sync/util/cryptographer.h"
 
-using browser_sync::TestIdFactory;
+using syncer::TestIdFactory;
 using content::BrowserThread;
-using sync_api::UserShare;
-using syncable::BASE_VERSION;
-using syncable::CREATE;
-using syncable::IS_DEL;
-using syncable::IS_DIR;
-using syncable::IS_UNAPPLIED_UPDATE;
-using syncable::IS_UNSYNCED;
-using syncable::ModelType;
-using syncable::MutableEntry;
-using syncable::SERVER_IS_DIR;
-using syncable::SERVER_VERSION;
-using syncable::SPECIFICS;
-using syncable::UNIQUE_SERVER_TAG;
-using syncable::UNITTEST;
-using syncable::WriteTransaction;
+using syncer::ModelType;
+using syncer::UserShare;
+using syncer::syncable::BASE_VERSION;
+using syncer::syncable::CREATE;
+using syncer::syncable::IS_DEL;
+using syncer::syncable::IS_DIR;
+using syncer::syncable::IS_UNAPPLIED_UPDATE;
+using syncer::syncable::IS_UNSYNCED;
+using syncer::syncable::MutableEntry;
+using syncer::syncable::SERVER_IS_DIR;
+using syncer::syncable::SERVER_VERSION;
+using syncer::syncable::SPECIFICS;
+using syncer::syncable::UNIQUE_SERVER_TAG;
+using syncer::syncable::UNITTEST;
+using syncer::syncable::WriteTransaction;
 
 /* static */
 const std::string ProfileSyncServiceTestHelper::GetTagForType(
     ModelType model_type) {
-  return syncable::ModelTypeToRootTag(model_type);
+  return syncer::ModelTypeToRootTag(model_type);
 }
 
 /* static */
 bool ProfileSyncServiceTestHelper::CreateRoot(ModelType model_type,
                                               UserShare* user_share,
                                               TestIdFactory* ids) {
-  syncable::Directory* directory = user_share->directory.get();
+  syncer::syncable::Directory* directory = user_share->directory.get();
 
   std::string tag_name = GetTagForType(model_type);
 
@@ -59,35 +61,35 @@ bool ProfileSyncServiceTestHelper::CreateRoot(ModelType model_type,
   node.Put(SERVER_VERSION, 20);
   node.Put(BASE_VERSION, 20);
   node.Put(IS_DEL, false);
-  node.Put(syncable::ID, ids->MakeServer(tag_name));
+  node.Put(syncer::syncable::ID, ids->MakeServer(tag_name));
   sync_pb::EntitySpecifics specifics;
-  syncable::AddDefaultFieldValue(model_type, &specifics);
+  syncer::AddDefaultFieldValue(model_type, &specifics);
   node.Put(SPECIFICS, specifics);
 
   return true;
 }
 
 /* static */
-sync_api::ImmutableChangeRecordList
+syncer::ImmutableChangeRecordList
     ProfileSyncServiceTestHelper::MakeSingletonChangeRecordList(
-        int64 node_id, sync_api::ChangeRecord::Action action) {
-  sync_api::ChangeRecord record;
+        int64 node_id, syncer::ChangeRecord::Action action) {
+  syncer::ChangeRecord record;
   record.action = action;
   record.id = node_id;
-  sync_api::ChangeRecordList records(1, record);
-  return sync_api::ImmutableChangeRecordList(&records);
+  syncer::ChangeRecordList records(1, record);
+  return syncer::ImmutableChangeRecordList(&records);
 }
 
 /* static */
-sync_api::ImmutableChangeRecordList
+syncer::ImmutableChangeRecordList
     ProfileSyncServiceTestHelper::MakeSingletonDeletionChangeRecordList(
         int64 node_id, const sync_pb::EntitySpecifics& specifics) {
-  sync_api::ChangeRecord record;
-  record.action = sync_api::ChangeRecord::ACTION_DELETE;
+  syncer::ChangeRecord record;
+  record.action = syncer::ChangeRecord::ACTION_DELETE;
   record.id = node_id;
   record.specifics = specifics;
-  sync_api::ChangeRecordList records(1, record);
-  return sync_api::ImmutableChangeRecordList(&records);
+  syncer::ChangeRecordList records(1, record);
+  return syncer::ImmutableChangeRecordList(&records);
 }
 
 AbstractProfileSyncServiceTest::AbstractProfileSyncServiceTest()

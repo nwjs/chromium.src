@@ -1,18 +1,18 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CONTENT_BROWSER_DEBUGGER_DEVTOOLS_FRONTEND_HOST_H_
 #define CONTENT_BROWSER_DEBUGGER_DEVTOOLS_FRONTEND_HOST_H_
-#pragma once
 
 #include <string>
 
 #include "base/basictypes.h"
+#include "base/compiler_specific.h"
 #include "content/public/browser/devtools_client_host.h"
 #include "content/public/browser/render_view_host_observer.h"
 
-class TabContents;
+class WebContentsImpl;
 
 namespace content {
 
@@ -25,7 +25,7 @@ class DevToolsFrontendHostDelegate;
 class DevToolsFrontendHost : public DevToolsClientHost,
                              public RenderViewHostObserver {
  public:
-  DevToolsFrontendHost(TabContents* tab_contents,
+  DevToolsFrontendHost(WebContentsImpl* web_contents,
                        DevToolsFrontendHostDelegate* delegate);
 
  private:
@@ -33,9 +33,9 @@ class DevToolsFrontendHost : public DevToolsClientHost,
 
   // DevToolsFrontendHost implementation.
   virtual void DispatchOnInspectorFrontend(const std::string& message) OVERRIDE;
-  virtual void InspectedTabClosing() OVERRIDE;
+  virtual void InspectedContentsClosing() OVERRIDE;
   virtual void FrameNavigating(const std::string& url) OVERRIDE;
-  virtual void TabReplaced(WebContents* new_tab) OVERRIDE;
+  virtual void ContentsReplaced(WebContents* new_contents) OVERRIDE;
 
   // content::RenderViewHostObserver overrides.
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
@@ -48,10 +48,10 @@ class DevToolsFrontendHost : public DevToolsClientHost,
   void OnRequestUndockWindow();
   void OnRequestSetDockSide(const std::string& side);
   void OnOpenInNewTab(const std::string& url);
-  void OnSaveAs(const std::string& file_name,
-                const std::string& content);
+  void OnSave(const std::string& url, const std::string& content, bool save_as);
+  void OnAppend(const std::string& url, const std::string& content);
 
-  TabContents* tab_contents_;
+  WebContentsImpl* web_contents_;
   DevToolsFrontendHostDelegate* delegate_;
   DISALLOW_COPY_AND_ASSIGN(DevToolsFrontendHost);
 };

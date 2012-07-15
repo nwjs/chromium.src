@@ -14,10 +14,9 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_to_mobile_service.h"
 #include "chrome/browser/chrome_to_mobile_service_factory.h"
-#include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/views/window.h"
+#include "chrome/browser/ui/browser.h"
 #include "grit/generated_resources.h"
-#include "grit/theme_resources_standard.h"
+#include "grit/theme_resources.h"
 #include "ui/base/animation/throb_animation.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -28,6 +27,7 @@
 #include "ui/views/controls/button/text_button.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
+#include "ui/views/controls/link.h"
 #include "ui/views/events/event.h"
 #include "ui/views/layout/grid_layout.h"
 #include "ui/views/layout/layout_constants.h"
@@ -73,17 +73,18 @@ void CheckboxNativeThemeBorder::GetInsets(gfx::Insets* insets) const {
 void SetImageViewToId(views::View* image_view, int id) {
   views::ImageView* image = static_cast<views::ImageView*>(image_view);
   if (image)
-    image->SetImage(ResourceBundle::GetSharedInstance().GetBitmapNamed(id));
+    image->SetImage(
+        ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(id));
 }
 
 }  // namespace
 
 // Declared in browser_dialogs.h so callers don't have to depend on our header.
 
-namespace browser {
+namespace chrome {
 
-void ShowChromeToMobileBubbleView(views::View* anchor_view, Profile* profile) {
-  ChromeToMobileBubbleView::ShowBubble(anchor_view, profile);
+void ShowChromeToMobileBubbleView(views::View* anchor_view, Browser* browser) {
+  ChromeToMobileBubbleView::ShowBubble(anchor_view, browser);
 }
 
 void HideChromeToMobileBubbleView() {
@@ -94,7 +95,7 @@ bool IsChromeToMobileBubbleViewShowing() {
   return ChromeToMobileBubbleView::IsShowing();
 }
 
-}  // namespace browser
+}  // namespace chrome
 
 // ChromeToMobileBubbleView ----------------------------------------------------
 
@@ -104,14 +105,14 @@ ChromeToMobileBubbleView::~ChromeToMobileBubbleView() {}
 
 // static
 void ChromeToMobileBubbleView::ShowBubble(views::View* anchor_view,
-                                          Profile* profile) {
+                                          Browser* browser) {
   if (IsShowing())
     return;
 
   // Show the lit mobile device icon during the bubble's lifetime.
   SetImageViewToId(anchor_view, IDR_MOBILE_LIT);
-  bubble_ = new ChromeToMobileBubbleView(anchor_view, profile);
-  browser::CreateViewsBubble(bubble_);
+  bubble_ = new ChromeToMobileBubbleView(anchor_view, browser);
+  views::BubbleDelegateView::CreateBubble(bubble_);
   bubble_->Show();
 }
 
@@ -141,6 +142,9 @@ void ChromeToMobileBubbleView::WindowClosing() {
   // destroyed asynchronously and the shown state will be checked before then.
   DCHECK(bubble_ == this);
   bubble_ = NULL;
+
+  // Instruct the service to delete the snapshot file.
+  service_->DeleteSnapshot(snapshot_path_);
 
   // Restore the resting state mobile device icon.
   SetImageViewToId(anchor_view(), IDR_MOBILE);
@@ -183,12 +187,14 @@ void ChromeToMobileBubbleView::ButtonPressed(views::Button* sender,
 
 void ChromeToMobileBubbleView::SnapshotGenerated(const FilePath& path,
                                                  int64 bytes) {
+  snapshot_path_ = path;
   if (bytes > 0) {
-    snapshot_path_ = path;
+    service_->LogMetric(ChromeToMobileService::SNAPSHOT_GENERATED);
     send_copy_->SetText(l10n_util::GetStringFUTF16(
         IDS_CHROME_TO_MOBILE_BUBBLE_SEND_COPY, ui::FormatBytes(bytes)));
     send_copy_->SetEnabled(true);
   } else {
+    service_->LogMetric(ChromeToMobileService::SNAPSHOT_ERROR);
     send_copy_->SetText(l10n_util::GetStringUTF16(
         IDS_CHROME_TO_MOBILE_BUBBLE_SEND_COPY_FAILED));
   }
@@ -232,6 +238,8 @@ void ChromeToMobileBubbleView::Init() {
 
   const size_t button_column_set_id = 1;
   cs = layout->AddColumnSet(button_column_set_id);
+  cs->AddColumn(GridLayout::LEADING, GridLayout::TRAILING, 0,
+                GridLayout::USE_PREF, 0, 0);
   cs->AddPaddingColumn(1, 0);
   cs->AddColumn(GridLayout::LEADING, GridLayout::TRAILING, 0,
                 GridLayout::USE_PREF, 0, 0);
@@ -241,13 +249,12 @@ void ChromeToMobileBubbleView::Init() {
   cs->AddColumn(GridLayout::LEADING, GridLayout::TRAILING, 0,
                 GridLayout::USE_PREF, 0, 0);
 
-  std::vector<DictionaryValue*> mobiles =
-      ChromeToMobileServiceFactory::GetForProfile(profile_)->mobiles();
+  std::vector<DictionaryValue*> mobiles = service_->mobiles();
   DCHECK_GT(mobiles.size(), 0U);
 
+  ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
   views::Label* title_label = new views::Label();
-  title_label->SetFont(
-      ResourceBundle::GetSharedInstance().GetFont(ResourceBundle::MediumFont));
+  title_label->SetFont(rb.GetFont(ui::ResourceBundle::MediumFont));
   title_label->SetEnabledColor(kTitleColor);
   layout->StartRow(0, single_column_set_id);
   layout->AddView(title_label);
@@ -264,15 +271,15 @@ void ChromeToMobileBubbleView::Init() {
 
     views::RadioButton* radio = NULL;
     layout->AddPaddingRow(0, views::kRelatedControlSmallVerticalSpacing);
-    for (std::vector<DictionaryValue*>::const_iterator it = mobiles.begin();
-         it != mobiles.end(); ++it) {
+    for (std::vector<DictionaryValue*>::const_iterator i(mobiles.begin());
+         i != mobiles.end(); ++i) {
       string16 name;
-      (*it)->GetString("name", &name);
+      (*i)->GetString("name", &name);
       radio = new views::RadioButton(name, 0);
       radio->set_listener(this);
       radio->SetEnabledColor(SK_ColorBLACK);
       radio->SetHoverColor(SK_ColorBLACK);
-      mobile_map_[radio] = *it;
+      mobile_map_[radio] = *i;
       layout->StartRow(0, single_column_set_id);
       layout->AddView(radio);
     }
@@ -292,6 +299,10 @@ void ChromeToMobileBubbleView::Init() {
   layout->StartRow(0, single_column_set_id);
   layout->AddView(send_copy_);
 
+  views::Link* learn_more =
+      new views::Link(l10n_util::GetStringUTF16(IDS_LEARN_MORE));
+  learn_more->set_listener(this);
+
   send_ = new views::NativeTextButton(
       this, l10n_util::GetStringUTF16(IDS_CHROME_TO_MOBILE_BUBBLE_SEND));
   send_->SetIsDefault(true);
@@ -299,24 +310,36 @@ void ChromeToMobileBubbleView::Init() {
       this, l10n_util::GetStringUTF16(IDS_CANCEL));
   layout->AddPaddingRow(0, views::kRelatedControlSmallVerticalSpacing);
   layout->StartRow(0, button_column_set_id);
+  layout->AddView(learn_more);
   layout->AddView(send_);
   layout->AddView(cancel_);
 
-  AddAccelerator(ui::Accelerator(ui::VKEY_RETURN, 0));
+  AddAccelerator(ui::Accelerator(ui::VKEY_RETURN, ui::EF_NONE));
 }
 
 ChromeToMobileBubbleView::ChromeToMobileBubbleView(views::View* anchor_view,
-                                                   Profile* profile)
+                                                   Browser* browser)
     : BubbleDelegateView(anchor_view, views::BubbleBorder::TOP_RIGHT),
       ALLOW_THIS_IN_INITIALIZER_LIST(weak_ptr_factory_(this)),
-      profile_(profile),
+      browser_(browser),
+      service_(ChromeToMobileServiceFactory::GetForProfile(browser->profile())),
       selected_mobile_(NULL),
       send_copy_(NULL),
       send_(NULL),
       cancel_(NULL) {
+  service_->LogMetric(ChromeToMobileService::BUBBLE_SHOWN);
+
   // Generate the MHTML snapshot now to report its size in the bubble.
-  ChromeToMobileServiceFactory::GetForProfile(profile)->
-      GenerateSnapshot(weak_ptr_factory_.GetWeakPtr());
+  service_->GenerateSnapshot(browser_, weak_ptr_factory_.GetWeakPtr());
+
+  // Request a mobile device list update.
+  service_->RequestMobileListUpdate();
+}
+
+void ChromeToMobileBubbleView::LinkClicked(views::Link* source,
+                                           int event_flags) {
+  service_->LearnMore(browser_);
+  GetWidget()->Close();
 }
 
 void ChromeToMobileBubbleView::HandleButtonPressed(views::Button* sender) {
@@ -333,11 +356,9 @@ void ChromeToMobileBubbleView::HandleButtonPressed(views::Button* sender) {
 }
 
 void ChromeToMobileBubbleView::Send() {
-  string16 mobile_id;
-  selected_mobile_->GetString("id", &mobile_id);
-  ChromeToMobileServiceFactory::GetForProfile(profile_)->SendToMobile(
-      mobile_id, send_copy_->checked() ? snapshot_path_ : FilePath(),
-      weak_ptr_factory_.GetWeakPtr());
+  FilePath snapshot = send_copy_->checked() ? snapshot_path_ : FilePath();
+  service_->SendToMobile(*selected_mobile_, snapshot, browser_,
+                         weak_ptr_factory_.GetWeakPtr());
 
   // Update the view's contents to show the "Sending..." progress animation.
   cancel_->SetEnabled(false);

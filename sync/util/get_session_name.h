@@ -4,7 +4,6 @@
 
 #ifndef SYNC_UTIL_GET_SESSION_NAME_H_
 #define SYNC_UTIL_GET_SESSION_NAME_H_
-#pragma once
 
 #include <string>
 
@@ -15,7 +14,7 @@ namespace base {
 class TaskRunner;
 }  // namespace base
 
-namespace browser_sync {
+namespace syncer {
 
 void GetSessionName(
     const scoped_refptr<base::TaskRunner>& task_runner,
@@ -23,6 +22,6 @@ void GetSessionName(
 
 std::string GetSessionNameSynchronouslyForTesting();
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_UTIL_GET_SESSION_NAME_H_

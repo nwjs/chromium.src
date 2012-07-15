@@ -17,7 +17,7 @@
 typedef struct HINSTANCE__* HINSTANCE;
 typedef struct HICON__* HICON;
 typedef HICON HCURSOR;
-#elif defined(TOOLKIT_USES_GTK)
+#elif defined(TOOLKIT_GTK)
 typedef struct _GdkCursor GdkCursor;
 #elif defined(OS_MACOSX)
 #ifdef __OBJC__
@@ -71,7 +71,11 @@ class WEBKIT_GLUE_EXPORT WebCursor {
   // Returns a native cursor representing the current WebCursor instance.
   gfx::NativeCursor GetNativeCursor();
 
-#if defined(OS_WIN) && !defined(USE_AURA)
+#if defined(USE_AURA)
+  const ui::PlatformCursor GetPlatformCursor();
+
+  void SetScaleFactor(float scale_factor);
+#elif defined(OS_WIN)
   // Returns a HCURSOR representing the current WebCursor instance.
   // The ownership of the HCURSOR (does not apply to external cursors) remains
   // with the WebCursor instance.
@@ -82,7 +86,7 @@ class WEBKIT_GLUE_EXPORT WebCursor {
   // APIs on it.
   void InitFromExternalCursor(HCURSOR handle);
 
-#elif defined(TOOLKIT_USES_GTK)
+#elif defined(TOOLKIT_GTK)
   // Return the stock GdkCursorType for this cursor, or GDK_CURSOR_IS_PIXMAP
   // if it's a custom cursor. Return GDK_LAST_CURSOR to indicate that the cursor
   // should be set to the system default.
@@ -143,13 +147,17 @@ class WEBKIT_GLUE_EXPORT WebCursor {
   gfx::Size custom_size_;
   std::vector<char> custom_data_;
 
-#if defined(OS_WIN)
+#if defined(USE_AURA) && defined(USE_X11)
+  // Only used for custom cursors.
+  ui::PlatformCursor platform_cursor_;
+  float scale_factor_;
+#elif defined(OS_WIN)
   // An externally generated HCURSOR. We assume that it remains valid, i.e we
   // don't attempt to copy the HCURSOR.
   HCURSOR external_cursor_;
   // A custom cursor created from custom bitmap data by Webkit.
   HCURSOR custom_cursor_;
-#elif defined(TOOLKIT_USES_GTK)
+#elif defined(TOOLKIT_GTK)
   // A custom cursor created that should be unref'ed from the destructor.
   GdkCursor* unref_;
 #endif

@@ -4,14 +4,15 @@
 
 #ifndef CHROME_BROWSER_SYNC_GLUE_NEW_NON_FRONTEND_DATA_TYPE_CONTROLLER_H_
 #define CHROME_BROWSER_SYNC_GLUE_NEW_NON_FRONTEND_DATA_TYPE_CONTROLLER_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/sync/glue/non_frontend_data_type_controller.h"
 #include "chrome/browser/sync/glue/shared_change_processor.h"
 
+namespace {
 class SyncableService;
+}
 
 namespace browser_sync {
 
@@ -21,24 +22,35 @@ class NewNonFrontendDataTypeController : public NonFrontendDataTypeController {
       ProfileSyncComponentsFactory* profile_sync_factory,
       Profile* profile,
       ProfileSyncService* sync_service);
-  virtual ~NewNonFrontendDataTypeController();
 
-  virtual void Start(const StartCallback& start_callback) OVERRIDE;
+  // DataTypeController interface.
+  virtual void LoadModels(
+      const ModelLoadCallback& model_load_callback) OVERRIDE;
+  virtual void StartAssociating(const StartCallback& start_callback) OVERRIDE;
+
   virtual void Stop() OVERRIDE;
 
  protected:
+  friend class NewNonFrontendDataTypeControllerMock;
+
   NewNonFrontendDataTypeController();
+  virtual ~NewNonFrontendDataTypeController();
+
+  // DataTypeController interface.
+  virtual void OnModelLoaded() OVERRIDE;
 
   // Overrides of NonFrontendDataTypeController methods.
   virtual void StartDone(DataTypeController::StartResult result,
                          DataTypeController::State new_state,
-                         const SyncError& error) OVERRIDE;
+                         const syncer::SyncError& error) OVERRIDE;
   virtual void StartDoneImpl(DataTypeController::StartResult result,
                              DataTypeController::State new_state,
-                             const SyncError& error) OVERRIDE;
-  virtual bool StartAssociationAsync() OVERRIDE;
+                             const syncer::SyncError& error) OVERRIDE;
 
  private:
+  // This overrides the same method in |NonFrontendDataTypeController|.
+  virtual bool StartAssociationAsync() OVERRIDE;
+
   // Posted on the backend thread by StartAssociationAsync().
   void StartAssociationWithSharedChangeProcessor(
       const scoped_refptr<SharedChangeProcessor>& shared_change_processor);
@@ -54,6 +66,8 @@ class NewNonFrontendDataTypeController : public NonFrontendDataTypeController {
 
   // Calls local_service_->StopSyncing() and releases our references to it.
   void StopLocalService();
+
+  void AbortModelStarting();
 
   // Deprecated.
   virtual void CreateSyncComponents() OVERRIDE;
@@ -78,7 +92,7 @@ class NewNonFrontendDataTypeController : public NonFrontendDataTypeController {
   // DataType's thread.
   // Lifetime: it gets set in StartAssociation() and released in
   // StopLocalService().
-  base::WeakPtr<SyncableService> local_service_;
+  base::WeakPtr<syncer::SyncableService> local_service_;
 };
 
 }  // namespace browser_sync

@@ -44,7 +44,7 @@ static Value* LoadJSONFile(const std::string& filename) {
 MockDocumentsService::MockDocumentsService() {
   ON_CALL(*this, Authenticate(_))
       .WillByDefault(Invoke(this, &MockDocumentsService::AuthenticateStub));
-  ON_CALL(*this, GetDocuments(_, _))
+  ON_CALL(*this, GetDocuments(_, _, _, _, _))
       .WillByDefault(Invoke(this, &MockDocumentsService::GetDocumentsStub));
   ON_CALL(*this, GetAccountMetadata(_))
       .WillByDefault(Invoke(this,
@@ -65,13 +65,14 @@ MockDocumentsService::MockDocumentsService() {
           Invoke(this, &MockDocumentsService::RemoveResourceFromDirectoryStub));
   ON_CALL(*this, CreateDirectory(_, _, _))
       .WillByDefault(Invoke(this, &MockDocumentsService::CreateDirectoryStub));
-  ON_CALL(*this, DownloadFile(_, _, _, _))
+  ON_CALL(*this, DownloadFile(_, _, _, _, _))
       .WillByDefault(Invoke(this, &MockDocumentsService::DownloadFileStub));
 
   // Fill in the default values for mock feeds.
   account_metadata_.reset(LoadJSONFile("account_metadata.json"));
   feed_data_.reset(LoadJSONFile("basic_feed.json"));
-  directory_data_.reset(LoadJSONFile("subdir_feed.json"));
+  directory_data_.reset(LoadJSONFile("new_folder_entry.json"));
+  search_result_.reset(LoadJSONFile("search_result_feed.json"));
 }
 
 MockDocumentsService::~MockDocumentsService() {}
@@ -85,10 +86,19 @@ void MockDocumentsService::AuthenticateStub(
 
 void MockDocumentsService::GetDocumentsStub(
     const GURL& feed_url,
+    int start_changestamp,
+    const std::string& search_string,
+    const std::string& directory_resource_id,
     const GetDataCallback& callback) {
-  base::MessageLoopProxy::current()->PostTask(
-      FROM_HERE,
-      base::Bind(callback, HTTP_SUCCESS, base::Passed(&feed_data_)));
+  if (search_string.empty()) {
+    base::MessageLoopProxy::current()->PostTask(
+        FROM_HERE,
+        base::Bind(callback, HTTP_SUCCESS, base::Passed(&feed_data_)));
+  } else {
+    base::MessageLoopProxy::current()->PostTask(
+        FROM_HERE,
+        base::Bind(callback, HTTP_SUCCESS, base::Passed(&search_result_)));
+  }
 }
 
 void MockDocumentsService::GetAccountMetadataStub(
@@ -167,10 +177,18 @@ void MockDocumentsService::DownloadFileStub(
     const FilePath& virtual_path,
     const FilePath& local_tmp_path,
     const GURL& content_url,
-    const DownloadActionCallback& callback) {
+    const DownloadActionCallback& download_action_callback,
+    const GetDownloadDataCallback& get_download_data_callback) {
+  GDataErrorCode error = HTTP_SUCCESS;
+  if (file_data_.get()) {
+    int file_data_size = static_cast<int>(file_data_->size());
+    ASSERT_EQ(file_data_size,
+              file_util::WriteFile(local_tmp_path, file_data_->data(),
+                                   file_data_size));
+  }
   base::MessageLoopProxy::current()->PostTask(
       FROM_HERE,
-      base::Bind(callback, HTTP_SUCCESS, content_url, local_tmp_path));
+      base::Bind(download_action_callback, error, content_url, local_tmp_path));
 }
 
 }  // namespace gdata

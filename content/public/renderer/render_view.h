@@ -6,13 +6,16 @@
 #define CONTENT_PUBLIC_RENDERER_RENDER_VIEW_H_
 
 #include "base/basictypes.h"
+#include "base/string16.h"
 #include "content/common/content_export.h"
-#include "ipc/ipc_message.h"
+#include "ipc/ipc_sender.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebNavigationPolicy.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebPageVisibilityState.h"
 #include "ui/gfx/native_widget_types.h"
 
+namespace webkit_glue {
 struct WebPreferences;
+}
 
 namespace WebKit {
 class WebFrame;
@@ -37,7 +40,7 @@ namespace content {
 
 class RenderViewVisitor;
 
-class CONTENT_EXPORT RenderView : public IPC::Message::Sender {
+class CONTENT_EXPORT RenderView : public IPC::Sender {
  public:
   // Returns the RenderView containing the given WebView.
   static RenderView* FromWebView(WebKit::WebView* webview);
@@ -45,8 +48,6 @@ class CONTENT_EXPORT RenderView : public IPC::Message::Sender {
   // Visit all RenderViews with a live WebView (i.e., RenderViews that have
   // been closed but not yet destroyed are excluded).
   static void ForEach(RenderViewVisitor* visitor);
-
-  virtual ~RenderView() {}
 
   // Get the routing ID of the view.
   virtual int GetRoutingID() const = 0;
@@ -62,11 +63,8 @@ class CONTENT_EXPORT RenderView : public IPC::Message::Sender {
   // Returns the size of the view.
   virtual gfx::Size GetSize() const = 0;
 
-  // Returns the window we are embedded within.
-  virtual gfx::NativeViewId GetHostWindow() const = 0;
-
   // Gets WebKit related preferences associated with this view.
-  virtual WebPreferences& GetWebkitPreferences() = 0;
+  virtual webkit_glue::WebPreferences& GetWebkitPreferences() = 0;
 
   // Returns the associated WebView. May return NULL when the view is closing.
   virtual WebKit::WebView* GetWebView() = 0;
@@ -77,8 +75,8 @@ class CONTENT_EXPORT RenderView : public IPC::Message::Sender {
   // Gets the node that the context menu was pressed over.
   virtual WebKit::WebNode GetContextMenuNode() const = 0;
 
-  // Returns true if the parameter node is a textfield, text area or a content
-  // editable div.
+  // Returns true if the parameter node is a textfield, text area, a content
+  // editable div, or has an ARIA role of textbox.
   virtual bool IsEditableNode(const WebKit::WebNode& node) const = 0;
 
   // Create a new NPAPI/Pepper plugin depending on |info|. Returns NULL if no
@@ -128,6 +126,9 @@ class CONTENT_EXPORT RenderView : public IPC::Message::Sender {
       WebKit::WebFrame* frame,
       const WebKit::WebURLRequest& request,
       WebKit::WebNavigationPolicy policy) = 0;
+
+ protected:
+  virtual ~RenderView() {}
 };
 
 }  // namespace content

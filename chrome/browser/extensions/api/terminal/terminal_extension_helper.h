@@ -4,13 +4,11 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_API_TERMINAL_TERMINAL_EXTENSION_HELPER_H_
 #define CHROME_BROWSER_EXTENSIONS_API_TERMINAL_TERMINAL_EXTENSION_HELPER_H_
-#pragma once
 
 #include <string>
 
 #include "googleurl/src/gurl.h"
 
-class Extension;
 class Profile;
 
 class TerminalExtensionHelper {

@@ -9,8 +9,8 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/profile_sync_service_harness.h"
 #include "chrome/browser/sync/test/integration/bookmarks_helper.h"
-#include "chrome/browser/sync/test/integration/sync_test.h"
 #include "chrome/browser/sync/test/integration/preferences_helper.h"
+#include "chrome/browser/sync/test/integration/sync_test.h"
 #include "chrome/browser/translate/translate_prefs.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -27,40 +27,40 @@ namespace {
 // Utility functions to make a model type set out of a small number of
 // model types.
 
-syncable::ModelTypeSet MakeSet(syncable::ModelType type) {
-  return syncable::ModelTypeSet(type);
+syncer::ModelTypeSet MakeSet(syncer::ModelType type) {
+  return syncer::ModelTypeSet(type);
 }
 
-syncable::ModelTypeSet MakeSet(syncable::ModelType type1,
-                               syncable::ModelType type2) {
-  return syncable::ModelTypeSet(type1, type2);
+syncer::ModelTypeSet MakeSet(syncer::ModelType type1,
+                             syncer::ModelType type2) {
+  return syncer::ModelTypeSet(type1, type2);
 }
 
 // An ordered list of model types sets to migrate.  Used by
 // RunMigrationTest().
-typedef std::deque<syncable::ModelTypeSet> MigrationList;
+typedef std::deque<syncer::ModelTypeSet> MigrationList;
 
 // Utility functions to make a MigrationList out of a small number of
 // model types / model type sets.
 
-MigrationList MakeList(syncable::ModelTypeSet model_types) {
+MigrationList MakeList(syncer::ModelTypeSet model_types) {
   return MigrationList(1, model_types);
 }
 
-MigrationList MakeList(syncable::ModelTypeSet model_types1,
-                       syncable::ModelTypeSet model_types2) {
+MigrationList MakeList(syncer::ModelTypeSet model_types1,
+                       syncer::ModelTypeSet model_types2) {
   MigrationList migration_list;
   migration_list.push_back(model_types1);
   migration_list.push_back(model_types2);
   return migration_list;
 }
 
-MigrationList MakeList(syncable::ModelType type) {
+MigrationList MakeList(syncer::ModelType type) {
   return MakeList(MakeSet(type));
 }
 
-MigrationList MakeList(syncable::ModelType type1,
-                       syncable::ModelType type2) {
+MigrationList MakeList(syncer::ModelType type1,
+                       syncer::ModelType type2) {
   return MakeList(MakeSet(type1), MakeSet(type2));
 }
 
@@ -73,12 +73,12 @@ class MigrationTest : public SyncTest {
   // well as a poll-based trigger method.
   enum TriggerMethod { MODIFY_PREF, MODIFY_BOOKMARK, TRIGGER_NOTIFICATION };
 
-  syncable::ModelTypeSet GetPreferredDataTypes() {
-    const syncable::ModelTypeSet preferred_data_types =
+  syncer::ModelTypeSet GetPreferredDataTypes() {
+    const syncer::ModelTypeSet preferred_data_types =
         GetClient(0)->service()->GetPreferredDataTypes();
     // Make sure all clients have the same preferred data types.
     for (int i = 1; i < num_clients(); ++i) {
-      const syncable::ModelTypeSet other_preferred_data_types =
+      const syncer::ModelTypeSet other_preferred_data_types =
           GetClient(i)->service()->GetPreferredDataTypes();
       EXPECT_TRUE(preferred_data_types.Equals(other_preferred_data_types));
     }
@@ -89,9 +89,9 @@ class MigrationTest : public SyncTest {
   // set.
   MigrationList GetPreferredDataTypesList() {
     MigrationList migration_list;
-    const syncable::ModelTypeSet preferred_data_types =
+    const syncer::ModelTypeSet preferred_data_types =
         GetPreferredDataTypes();
-    for (syncable::ModelTypeSet::Iterator it =
+    for (syncer::ModelTypeSet::Iterator it =
              preferred_data_types.First(); it.Good(); it.Inc()) {
       migration_list.push_back(MakeSet(it.Get()));
     }
@@ -99,7 +99,7 @@ class MigrationTest : public SyncTest {
   }
 
   // Trigger a migration for the given types with the given method.
-  void TriggerMigration(syncable::ModelTypeSet model_types,
+  void TriggerMigration(syncer::ModelTypeSet model_types,
                         TriggerMethod trigger_method) {
     switch (trigger_method) {
       case MODIFY_PREF:
@@ -124,7 +124,7 @@ class MigrationTest : public SyncTest {
 
   // Block until all clients have completed migration for the given
   // types.
-  void AwaitMigration(syncable::ModelTypeSet migrate_types) {
+  void AwaitMigration(syncer::ModelTypeSet migrate_types) {
     for (int i = 0; i < num_clients(); ++i) {
       ASSERT_TRUE(GetClient(i)->AwaitMigration(migrate_types));
     }
@@ -182,10 +182,8 @@ class MigrationTest : public SyncTest {
       AwaitQuiescence();
     }
 
-    // Re-enable notifications if we disabled it.
-    if (do_test_without_notifications) {
-      EnableNotifications();
-    }
+    // TODO(rlarocque): It should be possible to re-enable notifications
+    // here, but doing so makes some windows tests flaky.
   }
 
  private:
@@ -213,24 +211,24 @@ class MigrationSingleClientTest : public MigrationTest {
 // The simplest possible migration tests -- a single data type.
 
 IN_PROC_BROWSER_TEST_F(MigrationSingleClientTest, PrefsOnlyModifyPref) {
-  RunSingleClientMigrationTest(MakeList(syncable::PREFERENCES), MODIFY_PREF);
+  RunSingleClientMigrationTest(MakeList(syncer::PREFERENCES), MODIFY_PREF);
 }
 
 IN_PROC_BROWSER_TEST_F(MigrationSingleClientTest, PrefsOnlyModifyBookmark) {
-  RunSingleClientMigrationTest(MakeList(syncable::PREFERENCES),
+  RunSingleClientMigrationTest(MakeList(syncer::PREFERENCES),
                                MODIFY_BOOKMARK);
 }
 
 IN_PROC_BROWSER_TEST_F(MigrationSingleClientTest,
                        PrefsOnlyTriggerNotification) {
-  RunSingleClientMigrationTest(MakeList(syncable::PREFERENCES),
+  RunSingleClientMigrationTest(MakeList(syncer::PREFERENCES),
                                TRIGGER_NOTIFICATION);
 }
 
 // Nigori is handled specially, so we test that separately.
 
 IN_PROC_BROWSER_TEST_F(MigrationSingleClientTest, NigoriOnly) {
-  RunSingleClientMigrationTest(MakeList(syncable::PREFERENCES),
+  RunSingleClientMigrationTest(MakeList(syncer::PREFERENCES),
                                TRIGGER_NOTIFICATION);
 }
 
@@ -239,27 +237,29 @@ IN_PROC_BROWSER_TEST_F(MigrationSingleClientTest, NigoriOnly) {
 IN_PROC_BROWSER_TEST_F(MigrationSingleClientTest,
                        BookmarksPrefsIndividually) {
   RunSingleClientMigrationTest(
-      MakeList(syncable::BOOKMARKS, syncable::PREFERENCES),
+      MakeList(syncer::BOOKMARKS, syncer::PREFERENCES),
       MODIFY_PREF);
 }
 
 IN_PROC_BROWSER_TEST_F(MigrationSingleClientTest, BookmarksPrefsBoth) {
   RunSingleClientMigrationTest(
-      MakeList(MakeSet(syncable::BOOKMARKS, syncable::PREFERENCES)),
+      MakeList(MakeSet(syncer::BOOKMARKS, syncer::PREFERENCES)),
       MODIFY_BOOKMARK);
 }
 
 // Two data types with one being nigori.
 
-IN_PROC_BROWSER_TEST_F(MigrationSingleClientTest, PrefsNigoriIndividiaully) {
+// See crbug.com/124480.
+IN_PROC_BROWSER_TEST_F(MigrationSingleClientTest,
+                       DISABLED_PrefsNigoriIndividiaully) {
   RunSingleClientMigrationTest(
-      MakeList(syncable::PREFERENCES, syncable::NIGORI),
+      MakeList(syncer::PREFERENCES, syncer::NIGORI),
       TRIGGER_NOTIFICATION);
 }
 
 IN_PROC_BROWSER_TEST_F(MigrationSingleClientTest, PrefsNigoriBoth) {
   RunSingleClientMigrationTest(
-      MakeList(MakeSet(syncable::PREFERENCES, syncable::NIGORI)),
+      MakeList(MakeSet(syncer::PREFERENCES, syncer::NIGORI)),
       MODIFY_PREF);
 }
 
@@ -292,18 +292,20 @@ IN_PROC_BROWSER_TEST_F(MigrationSingleClientTest,
 
 // All data types plus nigori.
 
+// See crbug.com/124480.
 IN_PROC_BROWSER_TEST_F(MigrationSingleClientTest,
-                       AllTypesWithNigoriIndividually) {
+                       DISABLED_AllTypesWithNigoriIndividually) {
   ASSERT_TRUE(SetupClients());
   MigrationList migration_list = GetPreferredDataTypesList();
-  migration_list.push_front(MakeSet(syncable::NIGORI));
+  migration_list.push_front(MakeSet(syncer::NIGORI));
   RunSingleClientMigrationTest(migration_list, MODIFY_BOOKMARK);
 }
 
-IN_PROC_BROWSER_TEST_F(MigrationSingleClientTest, AllTypesWithNigoriAtOnce) {
+IN_PROC_BROWSER_TEST_F(MigrationSingleClientTest,
+                       AllTypesWithNigoriAtOnce) {
   ASSERT_TRUE(SetupClients());
-  syncable::ModelTypeSet all_types = GetPreferredDataTypes();
-  all_types.Put(syncable::NIGORI);
+  syncer::ModelTypeSet all_types = GetPreferredDataTypes();
+  all_types.Put(syncer::NIGORI);
   RunSingleClientMigrationTest(MakeList(all_types), MODIFY_PREF);
 }
 
@@ -341,16 +343,10 @@ class MigrationTwoClientTest : public MigrationTest {
   DISALLOW_COPY_AND_ASSIGN(MigrationTwoClientTest);
 };
 
-#if defined(OS_MACOSX)
-#define MAYBE_MigratePrefsThenModifyBookmark DISABLED_MigratePrefsThenModifyBookmark
-#else
-#define MAYBE_MigratePrefsThenModifyBookmark MigratePrefsThenModifyBookmark
-#endif
 // Easiest possible test of migration errors: triggers a server
 // migration on one datatype, then modifies some other datatype.
-IN_PROC_BROWSER_TEST_F(MigrationTwoClientTest,
-                       MAYBE_MigratePrefsThenModifyBookmark) {
-  RunTwoClientMigrationTest(MakeList(syncable::PREFERENCES),
+IN_PROC_BROWSER_TEST_F(MigrationTwoClientTest, MigratePrefsThenModifyBookmark) {
+  RunTwoClientMigrationTest(MakeList(syncer::PREFERENCES),
                             MODIFY_BOOKMARK);
 }
 
@@ -359,7 +355,7 @@ IN_PROC_BROWSER_TEST_F(MigrationTwoClientTest,
 IN_PROC_BROWSER_TEST_F(MigrationTwoClientTest,
                        MigratePrefsAndBookmarksThenModifyBookmark) {
   RunTwoClientMigrationTest(
-      MakeList(syncable::PREFERENCES, syncable::BOOKMARKS),
+      MakeList(syncer::PREFERENCES, syncer::BOOKMARKS),
       MODIFY_BOOKMARK);
 }
 
@@ -370,21 +366,23 @@ IN_PROC_BROWSER_TEST_F(MigrationTwoClientTest, MigrationHellWithoutNigori) {
   MigrationList migration_list = GetPreferredDataTypesList();
   // Let the first nudge be a datatype that's neither prefs nor
   // bookmarks.
-  migration_list.push_front(MakeSet(syncable::THEMES));
+  migration_list.push_front(MakeSet(syncer::THEMES));
   RunTwoClientMigrationTest(migration_list, MODIFY_BOOKMARK);
 }
 
-IN_PROC_BROWSER_TEST_F(MigrationTwoClientTest, MigrationHellWithNigori) {
+// See crbug.com/124480.
+IN_PROC_BROWSER_TEST_F(MigrationTwoClientTest,
+                       DISABLED_MigrationHellWithNigori) {
   ASSERT_TRUE(SetupClients());
   MigrationList migration_list = GetPreferredDataTypesList();
   // Let the first nudge be a datatype that's neither prefs nor
   // bookmarks.
-  migration_list.push_front(MakeSet(syncable::THEMES));
+  migration_list.push_front(MakeSet(syncer::THEMES));
   // Pop off one so that we don't migrate all data types; the syncer
   // freaks out if we do that (see http://crbug.com/94882).
   ASSERT_GE(migration_list.size(), 2u);
-  ASSERT_FALSE(migration_list.back().Equals(MakeSet(syncable::NIGORI)));
-  migration_list.back() = MakeSet(syncable::NIGORI);
+  ASSERT_FALSE(migration_list.back().Equals(MakeSet(syncer::NIGORI)));
+  migration_list.back() = MakeSet(syncer::NIGORI);
   RunTwoClientMigrationTest(migration_list, MODIFY_BOOKMARK);
 }
 
@@ -402,61 +400,5 @@ class MigrationReconfigureTest : public MigrationTwoClientTest {
  private:
   DISALLOW_COPY_AND_ASSIGN(MigrationReconfigureTest);
 };
-
-IN_PROC_BROWSER_TEST_F(MigrationReconfigureTest, DISABLED_SetSyncTabs) {
-  if (!ServerSupportsErrorTriggering()) {
-    LOG(WARNING) << "Test skipped in this server environment.";
-    return;
-  }
-
-  ASSERT_TRUE(SetupSync()) << "SetupSync() failed.";
-  ASSERT_FALSE(GetClient(0)->IsTypeRunning(syncable::SESSIONS));
-  ASSERT_FALSE(GetClient(0)->IsTypePreferred(syncable::SESSIONS));
-
-  // Phase 1: Before migrating anything, create & sync a preference.
-  VerifyPrefSync();
-
-  // Phase 2: Trigger setting the sync_tabs field.
-  TriggerSetSyncTabs();
-
-  // Phase 3: Modify a bookmark and wait for it to sync.
-  ASSERT_TRUE(AddURL(0, IndexedURLTitle(0), GURL(IndexedURL(0))) != NULL);
-  ASSERT_TRUE(GetClient(0)->AwaitMutualSyncCycleCompletion(GetClient(1)));
-
-  // Phase 4: Verify that preferences can still be synchronized.
-  VerifyPrefSync();
-
-  // Phase 5: Verify that sessions are registered and enabled.
-  ASSERT_TRUE(GetClient(0)->IsTypeRunning(syncable::SESSIONS));
-  ASSERT_TRUE(GetClient(0)->IsTypePreferred(syncable::SESSIONS));
-}
-
-IN_PROC_BROWSER_TEST_F(MigrationReconfigureTest,
-                       DISABLED_SetSyncTabsAndMigrate) {
-  if (!ServerSupportsErrorTriggering()) {
-    LOG(WARNING) << "Test skipped in this server environment.";
-    return;
-  }
-
-  ASSERT_TRUE(SetupSync()) << "SetupSync() failed.";
-  ASSERT_FALSE(GetClient(0)->IsTypeRunning(syncable::SESSIONS));
-  ASSERT_FALSE(GetClient(0)->IsTypePreferred(syncable::SESSIONS));
-
-  // Phase 1: Before migrating anything, create & sync a preference.
-  VerifyPrefSync();
-
-  // Phase 2: Trigger setting the sync_tabs field.
-  TriggerSetSyncTabs();
-
-  // Phase 3: Trigger a preference migration on the server.
-  RunMigrationTest(MakeList(syncable::PREFERENCES), MODIFY_BOOKMARK);
-
-  // Phase 5: Verify that preferences can still be synchronized.
-  VerifyPrefSync();
-
-  // Phase 6: Verify that sessions are registered and enabled.
-  ASSERT_TRUE(GetClient(0)->IsTypeRunning(syncable::SESSIONS));
-  ASSERT_TRUE(GetClient(0)->IsTypePreferred(syncable::SESSIONS));
-}
 
 }  // namespace

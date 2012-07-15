@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_POLICY_CLOUD_POLICY_SUBSYSTEM_H_
 #define CHROME_BROWSER_POLICY_CLOUD_POLICY_SUBSYSTEM_H_
-#pragma once
 
 #include "base/memory/scoped_ptr.h"
 #include "chrome/browser/prefs/pref_change_registrar.h"
@@ -49,6 +48,7 @@ class CloudPolicySubsystem
     BAD_SERIAL_NUMBER,     // The serial number of the device is not valid.
     AUTO_ENROLLMENT_ERROR, // Auto-enrollment is not supported.
     BAD_ENROLLMENT_MODE,   // The enrollment mode was not recognized.
+    MISSING_LICENSES,      // There are no valid licenses for this domain left.
   };
 
   class Observer {

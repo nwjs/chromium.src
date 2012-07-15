@@ -22,7 +22,6 @@
 #include "sql/statement.h"
 #include "sql/transaction.h"
 #include "sync/protocol/bookmark_specifics.pb.h"
-#include "sync/protocol/service_constants.h"
 #include "sync/protocol/sync.pb.h"
 #include "sync/syncable/syncable-inl.h"
 #include "sync/syncable/syncable_columns.h"
@@ -30,6 +29,7 @@
 
 using std::string;
 
+namespace syncer {
 namespace syncable {
 
 // This just has to be big enough to hold an UPDATE or INSERT statement that
@@ -51,7 +51,7 @@ void BindFields(const EntryKernel& entry,
   }
   for ( ; i < TIME_FIELDS_END; ++i) {
     statement->BindInt64(index++,
-                         browser_sync::TimeToProtoTime(
+                         syncer::TimeToProtoTime(
                              entry.ref(static_cast<TimeField>(i))));
   }
   for ( ; i < ID_FIELDS_END; ++i) {
@@ -81,7 +81,7 @@ EntryKernel* UnpackEntry(sql::Statement* statement) {
   }
   for ( ; i < TIME_FIELDS_END; ++i) {
     kernel->put(static_cast<TimeField>(i),
-                browser_sync::ProtoTimeToTime(statement->ColumnInt64(i)));
+                syncer::ProtoTimeToTime(statement->ColumnInt64(i)));
   }
   for ( ; i < ID_FIELDS_END; ++i) {
     kernel->mutable_ref(static_cast<IdField>(i)).s_ =
@@ -163,7 +163,7 @@ bool DirectoryBackingStore::DeleteEntries(const MetahandleSet& handles) {
     statement.BindInt64(0, *i);
     if (!statement.Run())
       return false;
-    statement.Reset();
+    statement.Reset(true);
   }
   return true;
 }
@@ -227,7 +227,7 @@ bool DirectoryBackingStore::SaveChanges(
       if (!s2.Run())
         return false;
       DCHECK_EQ(db_->GetLastChangeCount(), 1);
-      s2.Reset();
+      s2.Reset(true);
     }
   }
 
@@ -499,7 +499,7 @@ bool DirectoryBackingStore::SaveEntryToDB(const EntryKernel& entry) {
     save_entry_statement_.Assign(
         db_->GetUniqueStatement(query.c_str()));
   } else {
-    save_entry_statement_.Reset();
+    save_entry_statement_.Reset(true);
   }
 
   BindFields(entry, &save_entry_statement_);
@@ -507,10 +507,18 @@ bool DirectoryBackingStore::SaveEntryToDB(const EntryKernel& entry) {
 }
 
 bool DirectoryBackingStore::DropDeletedEntries() {
-  return db_->Execute("DELETE FROM metas "
-                      "WHERE is_del > 0 "
-                      "AND is_unsynced < 1 "
-                      "AND is_unapplied_update < 1");
+  if (!db_->Execute("DELETE FROM metas "
+                    "WHERE is_del > 0 "
+                    "AND is_unsynced < 1 "
+                    "AND is_unapplied_update < 1")) {
+    return false;
+  }
+  if (!db_->Execute("DELETE FROM metas "
+                    "WHERE is_del > 0 "
+                    "AND id LIKE 'c%'")) {
+    return false;
+  }
+  return true;
 }
 
 bool DirectoryBackingStore::SafeDropTable(const char* table_name) {
@@ -536,14 +544,14 @@ ModelType DirectoryBackingStore::ModelIdToModelTypeEnum(
     const void* data, int size) {
   sync_pb::EntitySpecifics specifics;
   if (!specifics.ParseFromArray(data, size))
-    return syncable::UNSPECIFIED;
-  return syncable::GetModelTypeFromSpecifics(specifics);
+    return syncer::UNSPECIFIED;
+  return syncer::GetModelTypeFromSpecifics(specifics);
 }
 
 // static
 string DirectoryBackingStore::ModelTypeEnumToModelId(ModelType model_type) {
   sync_pb::EntitySpecifics specifics;
-  syncable::AddDefaultFieldValue(model_type, &specifics);
+  syncer::AddDefaultFieldValue(model_type, &specifics);
   return specifics.SerializeAsString();
 }
 
@@ -583,7 +591,7 @@ bool DirectoryBackingStore::MigrateToSpecifics(
     update.BindInt64(1, metahandle);
     if (!update.Run())
       return false;
-    update.Reset();
+    update.Reset(true);
   }
   return query.Succeeded();
 }
@@ -868,7 +876,7 @@ bool DirectoryBackingStore::MigrateVersion74To75() {
       update.BindBool(2, query.ColumnBool(2));
       if (!update.Run())
         return false;
-      update.Reset();
+      update.Reset(true);
     }
   }
   if (!query.Succeeded())
@@ -989,7 +997,7 @@ bool DirectoryBackingStore::CreateTables() {
 
   {
     // Insert the entry for the root into the metas table.
-    const int64 now = browser_sync::TimeToProtoTime(base::Time::Now());
+    const int64 now = syncer::TimeToProtoTime(base::Time::Now());
     sql::Statement s(db_->GetUniqueStatement(
             "INSERT INTO metas "
             "( id, metahandle, is_dir, ctime, mtime) "
@@ -1076,3 +1084,4 @@ bool DirectoryBackingStore::CreateShareInfoTableVersion71(
 }
 
 }  // namespace syncable
+}  // namespace syncer

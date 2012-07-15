@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,7 +8,6 @@
 #include "base/message_loop.h"
 #include "base/time.h"
 #include "chrome/browser/chromeos/cros/mock_cryptohome_library.h"
-#include "chrome/browser/chromeos/cros/mock_library_loader.h"
 #include "chrome/browser/chromeos/cros/mock_network_library.h"
 #include "chrome/browser/chromeos/login/wizard_controller.h"
 #include "chrome/browser/chromeos/login/wizard_screen.h"
@@ -29,8 +28,7 @@ using ::testing::StrictMock;
 using ::testing::_;
 
 CrosMock::CrosMock()
-    : loader_(NULL),
-      mock_cryptohome_library_(NULL),
+    : mock_cryptohome_library_(NULL),
       mock_network_library_(NULL) {
 }
 
@@ -45,18 +43,7 @@ void CrosMock::InitStatusAreaMocks() {
   InitMockNetworkLibrary();
 }
 
-void CrosMock::InitMockLibraryLoader() {
-  if (loader_)
-    return;
-  loader_ = new StrictMock<MockLibraryLoader>();
-  EXPECT_CALL(*loader_, Load(_))
-      .Times(AnyNumber())
-      .WillRepeatedly(Return(true));
-  test_api()->SetLibraryLoader(loader_, true);
-}
-
 void CrosMock::InitMockCryptohomeLibrary() {
-  InitMockLibraryLoader();
   if (mock_cryptohome_library_)
     return;
   mock_cryptohome_library_ = new StrictMock<MockCryptohomeLibrary>();
@@ -64,7 +51,6 @@ void CrosMock::InitMockCryptohomeLibrary() {
 }
 
 void CrosMock::InitMockNetworkLibrary() {
-  InitMockLibraryLoader();
   if (mock_network_library_)
     return;
   mock_network_library_ = new StrictMock<MockNetworkLibrary>();
@@ -115,6 +101,9 @@ void CrosMock::SetNetworkLibraryStatusAreaExpectations() {
   EXPECT_CALL(*mock_network_library_, wifi_available())
       .Times(AnyNumber())
       .WillRepeatedly((Return(false)));
+  EXPECT_CALL(*mock_network_library_, wimax_available())
+      .Times(AnyNumber())
+      .WillRepeatedly((Return(false)));
   EXPECT_CALL(*mock_network_library_, cellular_available())
       .Times(AnyNumber())
       .WillRepeatedly((Return(false)));
@@ -122,6 +111,9 @@ void CrosMock::SetNetworkLibraryStatusAreaExpectations() {
       .Times(AnyNumber())
       .WillRepeatedly((Return(true)));
   EXPECT_CALL(*mock_network_library_, wifi_enabled())
+      .Times(AnyNumber())
+      .WillRepeatedly((Return(false)));
+  EXPECT_CALL(*mock_network_library_, wimax_enabled())
       .Times(AnyNumber())
       .WillRepeatedly((Return(false)));
   EXPECT_CALL(*mock_network_library_, cellular_enabled())
@@ -136,6 +128,12 @@ void CrosMock::SetNetworkLibraryStatusAreaExpectations() {
   EXPECT_CALL(*mock_network_library_, wifi_network())
       .Times(AnyNumber())
       .WillRepeatedly((Return((const WifiNetwork*)(NULL))));
+  EXPECT_CALL(*mock_network_library_, wimax_network())
+      .Times(AnyNumber())
+      .WillRepeatedly((Return((const WimaxNetwork*)(NULL))));
+  EXPECT_CALL(*mock_network_library_, mobile_network())
+      .Times(AnyNumber())
+      .WillRepeatedly((Return((const Network*)(NULL))));
   EXPECT_CALL(*mock_network_library_, cellular_network())
       .Times(AnyNumber())
       .WillRepeatedly((Return((const CellularNetwork*)(NULL))));
@@ -145,6 +143,9 @@ void CrosMock::SetNetworkLibraryStatusAreaExpectations() {
   EXPECT_CALL(*mock_network_library_, wifi_networks())
       .Times(AnyNumber())
       .WillRepeatedly((ReturnRef(wifi_networks_)));
+  EXPECT_CALL(*mock_network_library_, wimax_networks())
+      .Times(AnyNumber())
+      .WillRepeatedly((ReturnRef(wimax_networks_)));
   EXPECT_CALL(*mock_network_library_, cellular_networks())
       .Times(AnyNumber())
       .WillRepeatedly((ReturnRef(cellular_networks_)));
@@ -158,6 +159,9 @@ void CrosMock::SetNetworkLibraryStatusAreaExpectations() {
       .Times(AnyNumber())
       .WillRepeatedly((Return((const Network*)(NULL))));
   EXPECT_CALL(*mock_network_library_, virtual_network_connected())
+      .Times(AnyNumber())
+      .WillRepeatedly((Return(false)));
+  EXPECT_CALL(*mock_network_library_, wifi_scanning())
       .Times(AnyNumber())
       .WillRepeatedly((Return(false)));
 
@@ -194,8 +198,6 @@ void CrosMock::SetNetworkLibraryStatusAreaExpectations() {
 
 void CrosMock::TearDownMocks() {
   // Prevent bogus gMock leak check from firing.
-  if (loader_)
-    test_api()->SetLibraryLoader(NULL, false);
   if (mock_cryptohome_library_)
     test_api()->SetCryptohomeLibrary(NULL, false);
   if (mock_network_library_)

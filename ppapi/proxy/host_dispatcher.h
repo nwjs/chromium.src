@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,11 +9,12 @@
 #include <string>
 #include <vector>
 
-#include "base/memory/scoped_ptr.h"
+#include "base/compiler_specific.h"
+#include "base/memory/ref_counted.h"
 #include "base/process.h"
+#include "ipc/ipc_channel_proxy.h"
 #include "ppapi/c/pp_instance.h"
 #include "ppapi/proxy/dispatcher.h"
-#include "ppapi/shared_impl/function_group_base.h"
 
 struct PPB_Proxy_Private;
 
@@ -25,12 +26,31 @@ namespace proxy {
 
 class PPAPI_PROXY_EXPORT HostDispatcher : public Dispatcher {
  public:
-  // Constructor for the renderer side.
+  // This interface receives notifications about sync messages being sent by
+  // the dispatcher to the plugin process. It is used to detect a hung plugin.
+  //
+  // Note that there can be nested sync messages, so the begin/end status
+  // actually represents a stack of blocking messages.
+  class SyncMessageStatusReceiver : public IPC::ChannelProxy::MessageFilter {
+   public:
+    // Notification that a sync message is about to be sent out.
+    virtual void BeginBlockOnSyncMessage() = 0;
+
+    // Notification that a sync message reply was received and the dispatcher
+    // is no longer blocked on a sync message.
+    virtual void EndBlockOnSyncMessage() = 0;
+
+   protected:
+    virtual ~SyncMessageStatusReceiver() {}
+  };
+
+  // Constructor for the renderer side. This will take a reference to the
+  // SyncMessageStatusReceiver.
   //
   // You must call InitHostWithChannel after the constructor.
-  HostDispatcher(base::ProcessHandle host_process_handle,
-                 PP_Module module,
-                 GetInterfaceFunc local_get_interface);
+  HostDispatcher(PP_Module module,
+                 PP_GetInterface_Func local_get_interface,
+                 SyncMessageStatusReceiver* sync_status);
   ~HostDispatcher();
 
   // You must call this function before anything else. Returns true on success.
@@ -60,9 +80,9 @@ class PPAPI_PROXY_EXPORT HostDispatcher : public Dispatcher {
   virtual bool IsPlugin() const;
   virtual bool Send(IPC::Message* msg);
 
-  // IPC::Channel::Listener.
-  virtual bool OnMessageReceived(const IPC::Message& msg);
-  virtual void OnChannelError();
+  // IPC::Listener.
+  virtual bool OnMessageReceived(const IPC::Message& msg) OVERRIDE;
+  virtual void OnChannelError() OVERRIDE;
 
   // Proxied version of calling GetInterface on the plugin. This will check
   // if the plugin supports the given interface (with caching) and returns the
@@ -90,6 +110,8 @@ class PPAPI_PROXY_EXPORT HostDispatcher : public Dispatcher {
                               const std::string& source,
                               const std::string& value);
 
+  scoped_refptr<SyncMessageStatusReceiver> sync_status_;
+
   PP_Module pp_module_;
 
   // Maps interface name to whether that interface is supported. If an interface
@@ -114,8 +136,7 @@ class PPAPI_PROXY_EXPORT HostDispatcher : public Dispatcher {
 // dispatcher) from being deleted out from under you. This is necessary when
 // calling some scripting functions that may delete the plugin.
 //
-// This may only be called in the host. The parameter is a plain Dispatcher
-// since that's what most callers have.
+// This class does nothing if used on the plugin side.
 class ScopedModuleReference {
  public:
   explicit ScopedModuleReference(Dispatcher* dispatcher);

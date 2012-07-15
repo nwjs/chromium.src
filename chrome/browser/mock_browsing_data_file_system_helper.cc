@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,8 +7,7 @@
 #include "chrome/browser/mock_browsing_data_file_system_helper.h"
 
 MockBrowsingDataFileSystemHelper::MockBrowsingDataFileSystemHelper(
-    Profile* profile)
-    : profile_(profile) {
+    Profile* profile) {
 }
 
 MockBrowsingDataFileSystemHelper::~MockBrowsingDataFileSystemHelper() {
@@ -17,10 +16,6 @@ MockBrowsingDataFileSystemHelper::~MockBrowsingDataFileSystemHelper() {
 void MockBrowsingDataFileSystemHelper::StartFetching(
     const base::Callback<void(const std::list<FileSystemInfo>&)>& callback) {
   callback_ = callback;
-}
-
-void MockBrowsingDataFileSystemHelper::CancelNotification() {
-  callback_.Reset();
 }
 
 void MockBrowsingDataFileSystemHelper::DeleteFileSystemOrigin(

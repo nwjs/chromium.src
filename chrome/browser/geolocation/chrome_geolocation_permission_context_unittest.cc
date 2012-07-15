@@ -9,26 +9,31 @@
 #include "base/bind.h"
 #include "base/hash_tables.h"
 #include "base/memory/scoped_vector.h"
+#include "base/synchronization/waitable_event.h"
 #include "chrome/browser/content_settings/host_content_settings_map.h"
 #include "chrome/browser/content_settings/tab_specific_content_settings.h"
 #include "chrome/browser/geolocation/chrome_geolocation_permission_context.h"
 #include "chrome/browser/infobars/infobar.h"
 #include "chrome/browser/infobars/infobar_tab_helper.h"
 #include "chrome/browser/tab_contents/confirm_infobar_delegate.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
-#include "chrome/browser/ui/tab_contents/test_tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/tab_contents/test_tab_contents.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/navigation_details.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/web_contents.h"
-#include "content/test/mock_geolocation.h"
-#include "content/test/mock_render_process_host.h"
-#include "content/test/test_browser_thread.h"
-#include "content/test/test_renderer_host.h"
-#include "content/test/web_contents_tester.h"
+#include "content/public/test/mock_render_process_host.h"
+#include "content/public/test/test_browser_thread.h"
+#include "content/public/test/test_renderer_host.h"
+#include "content/public/test/web_contents_tester.h"
 #include "testing/gtest/include/gtest/gtest.h"
+
+#if defined(OS_ANDROID)
+#include "chrome/browser/prefs/pref_service.h"
+#include "chrome/common/pref_names.h"
+#endif
 
 using content::BrowserThread;
 using content::MockRenderProcessHost;
@@ -37,8 +42,6 @@ using content::WebContents;
 using content::WebContentsTester;
 
 // ClosedDelegateTracker ------------------------------------------------------
-
-namespace {
 
 // We need to track which infobars were closed.
 class ClosedDelegateTracker : public content::NotificationObserver {
@@ -59,6 +62,7 @@ class ClosedDelegateTracker : public content::NotificationObserver {
   void Clear();
 
  private:
+  FRIEND_TEST_ALL_PREFIXES(GeolocationPermissionContextTests, TabDestroyed);
   content::NotificationRegistrar registrar_;
   std::set<InfoBarDelegate*> removed_infobar_delegates_;
 };
@@ -88,13 +92,10 @@ void ClosedDelegateTracker::Clear() {
   removed_infobar_delegates_.clear();
 }
 
-}  // namespace
-
-
 // GeolocationPermissionContextTests ------------------------------------------
 
 // This class sets up GeolocationArbitrator.
-class GeolocationPermissionContextTests : public TabContentsWrapperTestHarness {
+class GeolocationPermissionContextTests : public TabContentsTestHarness {
  public:
   GeolocationPermissionContextTests();
 
@@ -114,7 +115,7 @@ class GeolocationPermissionContextTests : public TabContentsWrapperTestHarness {
   }
   int bridge_id() const { return 42; }  // Not relevant at this level.
   InfoBarTabHelper* infobar_tab_helper() {
-    return contents_wrapper()->infobar_tab_helper();
+    return tab_contents()->infobar_tab_helper();
   }
 
   void RequestGeolocationPermission(int render_process_id,
@@ -137,15 +138,15 @@ class GeolocationPermissionContextTests : public TabContentsWrapperTestHarness {
   scoped_refptr<ChromeGeolocationPermissionContext>
       geolocation_permission_context_;
   ClosedDelegateTracker closed_delegate_tracker_;
-  ScopedVector<TabContentsWrapper> extra_tabs_;
+  ScopedVector<TabContents> extra_tabs_;
 
  private:
-  // TabContentsWrapperTestHarness:
-  virtual void SetUp();
-  virtual void TearDown();
+  // TabContentsTestHarness:
+  virtual void SetUp() OVERRIDE;
+  virtual void TearDown() OVERRIDE;
 
   content::TestBrowserThread ui_thread_;
-  content::MockGeolocation mock_geolocation_;
+  content::TestBrowserThread db_thread_;
 
   // A map between renderer child id and a pair represending the bridge id and
   // whether the requested permission was allowed.
@@ -153,8 +154,9 @@ class GeolocationPermissionContextTests : public TabContentsWrapperTestHarness {
 };
 
 GeolocationPermissionContextTests::GeolocationPermissionContextTests()
-    : TabContentsWrapperTestHarness(),
-      ui_thread_(BrowserThread::UI, MessageLoop::current()) {
+    : TabContentsTestHarness(),
+      ui_thread_(BrowserThread::UI, MessageLoop::current()),
+      db_thread_(BrowserThread::DB) {
 }
 
 GeolocationPermissionContextTests::~GeolocationPermissionContextTests() {
@@ -214,14 +216,14 @@ void GeolocationPermissionContextTests::AddNewTab(const GURL& url) {
       url, content::Referrer(), content::PAGE_TRANSITION_TYPED, std::string());
   RenderViewHostTester::For(new_tab->GetRenderViewHost())->
       SendNavigate(extra_tabs_.size() + 1, url);
-  extra_tabs_.push_back(new TabContentsWrapper(new_tab));
+  extra_tabs_.push_back(new TabContents(new_tab));
 }
 
 void GeolocationPermissionContextTests::CheckTabContentsState(
     const GURL& requesting_frame,
     ContentSetting expected_content_setting) {
   TabSpecificContentSettings* content_settings =
-      contents_wrapper()->content_settings();
+      tab_contents()->content_settings();
   const GeolocationSettingsState::StateMap& state_map =
       content_settings->geolocation_settings_state().state_map();
   EXPECT_EQ(1U, state_map.count(requesting_frame.GetOrigin()));
@@ -234,15 +236,22 @@ void GeolocationPermissionContextTests::CheckTabContentsState(
 }
 
 void GeolocationPermissionContextTests::SetUp() {
-  TabContentsWrapperTestHarness::SetUp();
-  mock_geolocation_.Setup();
+  db_thread_.Start();
+  TabContentsTestHarness::SetUp();
   geolocation_permission_context_ =
       new ChromeGeolocationPermissionContext(profile());
 }
 
 void GeolocationPermissionContextTests::TearDown() {
-  mock_geolocation_.TearDown();
-  TabContentsWrapperTestHarness::TearDown();
+  extra_tabs_.clear();
+  TabContentsTestHarness::TearDown();
+  // Schedule another task on the DB thread to notify us that it's safe to
+  // carry on with the test.
+  base::WaitableEvent done(false, false);
+  BrowserThread::PostTask(BrowserThread::DB, FROM_HERE,
+      base::Bind(&base::WaitableEvent::Signal, base::Unretained(&done)));
+  done.Wait();
+  db_thread_.Stop();
 }
 
 
@@ -263,6 +272,32 @@ TEST_F(GeolocationPermissionContextTests, SinglePermission) {
   EXPECT_TRUE(closed_delegate_tracker_.Contains(infobar_0));
   infobar_0->InfoBarClosed();
 }
+
+#if defined(OS_ANDROID)
+TEST_F(GeolocationPermissionContextTests, GeolocationEnabledDisabled) {
+  profile()->GetHostContentSettingsMap()->SetDefaultContentSetting(
+      CONTENT_SETTINGS_TYPE_GEOLOCATION,
+      CONTENT_SETTING_ALLOW);
+
+  // Check that the request is denied with preference disabled,
+  // even though the default policy allows it.
+  GURL requesting_frame("http://www.example.com/geolocation");
+  NavigateAndCommit(requesting_frame);
+  EXPECT_EQ(0U, infobar_tab_helper()->infobar_count());
+  profile()->GetPrefs()->SetBoolean(prefs::kGeolocationEnabled, false);
+  RequestGeolocationPermission(
+      process_id(), render_id(), bridge_id(), requesting_frame);
+  ASSERT_EQ(0U, infobar_tab_helper()->infobar_count());
+  CheckPermissionMessageSent(bridge_id(), false);
+
+  // Reenable the preference and check that the request now goes though.
+  profile()->GetPrefs()->SetBoolean(prefs::kGeolocationEnabled, true);
+  RequestGeolocationPermission(
+      process_id(), render_id(), bridge_id() + 1, requesting_frame);
+  ASSERT_EQ(0U, infobar_tab_helper()->infobar_count());
+  CheckPermissionMessageSent(bridge_id() + 1, true);
+}
+#endif
 
 TEST_F(GeolocationPermissionContextTests, QueuedPermission) {
   GURL requesting_frame_0("http://www.example.com/geolocation");
@@ -473,8 +508,6 @@ TEST_F(GeolocationPermissionContextTests, SameOriginMultipleTabs) {
   EXPECT_EQ(1U, closed_delegate_tracker_.size());
   EXPECT_TRUE(closed_delegate_tracker_.Contains(infobar_1));
   infobar_1->InfoBarClosed();
-
-  extra_tabs_.reset();
 }
 
 TEST_F(GeolocationPermissionContextTests, QueuedOriginMultipleTabs) {
@@ -530,8 +563,6 @@ TEST_F(GeolocationPermissionContextTests, QueuedOriginMultipleTabs) {
   EXPECT_EQ(1U, closed_delegate_tracker_.size());
   EXPECT_TRUE(closed_delegate_tracker_.Contains(infobar_1));
   infobar_1->InfoBarClosed();
-
-  extra_tabs_.reset();
 }
 
 TEST_F(GeolocationPermissionContextTests, TabDestroyed) {
@@ -569,6 +600,16 @@ TEST_F(GeolocationPermissionContextTests, TabDestroyed) {
   // Delete the tab contents.
   DeleteContents();
   infobar_0->InfoBarClosed();
+
+  // During contents destruction, the infobar will have been closed, and a
+  // second (with it's own new delegate) will have been created. In Chromium,
+  // this would be properly deleted by the InfoBarContainer, but in this unit
+  // test, the closest thing we have to that is the ClosedDelegateTracker.
+  ASSERT_EQ(2U, closed_delegate_tracker_.size());
+  ASSERT_TRUE(closed_delegate_tracker_.Contains(infobar_0));
+  closed_delegate_tracker_.removed_infobar_delegates_.erase(infobar_0);
+  (*closed_delegate_tracker_.removed_infobar_delegates_.begin())->
+      InfoBarClosed();
 }
 
 TEST_F(GeolocationPermissionContextTests, InfoBarUsesCommittedEntry) {

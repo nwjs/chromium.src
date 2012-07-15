@@ -17,9 +17,21 @@ import types
 import pyauto_functional
 import pyauto
 import pyauto_utils
+import pyauto_errors
 
 
 """Commonly used functions for PyAuto tests."""
+
+def CrashBrowser(test):
+  """Crashes the browser by navigating to special URL."""
+  try:
+    test.NavigateToURL('chrome://inducebrowsercrashforrealz')
+  except pyauto_errors.JSONInterfaceError:
+    pass
+  else:
+    raise RuntimeError(
+        'Browser did not crash at chrome://inducebrowsercrashforrealz')
+
 
 def CopyFileFromDataDirToDownloadDir(test, file_path):
   """Copy a file from data directory to downloads directory.
@@ -76,7 +88,7 @@ def GoogleAccountsLogin(test, username, password, tab_index=0, windex=0):
     tab_index: The tab index, default is 0.
     windex: The window index, default is 0.
   """
-  test.NavigateToURL('https://www.google.com/accounts/', windex, tab_index)
+  test.NavigateToURL('https://accounts.google.com/', windex, tab_index)
   email_id = 'document.getElementById("Email").value = "%s"; ' \
              'window.domAutomationController.send("done")' % username
   password = 'document.getElementById("Passwd").value = "%s"; ' \
@@ -138,16 +150,20 @@ def SendMail(send_from, send_to, subject, text, smtp, file_to_send=None):
   """Send mail to all the group to notify about the crash and uploaded data.
 
   Args:
-    send_from: from mail id.
-    send_to: to mail id.
-    subject: mail subject.
-    text: mail body.
-    smtp: The smtp to use.
-    file_to_send: attachments for the mail.
+    send_from: From mail id as a string.
+    send_to: To mail id. Can be a string representing a single address, or a
+        list of strings representing multiple addresses.
+    subject: Mail subject as a string.
+    text: Mail body as a string.
+    smtp: The smtp to use, as a string.
+    file_to_send: Attachments for the mail.
   """
   msg = email.MIMEMultipart.MIMEMultipart()
   msg['From'] = send_from
-  msg['To'] = send_to
+  if isinstance(send_to, list):
+    msg['To'] = ','.join(send_to)
+  else:
+    msg['To'] = send_to
   msg['Date'] = email.Utils.formatdate(localtime=True)
   msg['Subject'] = subject
 
@@ -360,3 +376,61 @@ def LoginToDevice(test, test_account='test_google_account'):
     test.assertTrue(login_info['is_logged_in'], msg='Login failed.')
   else:
     test.fail(msg='Another user is already logged in. Please logout first.')
+
+def GetInfobarIndexByType(test, infobar_type, windex=0, tab_index=0):
+  """Returns the index of the infobar of the given type.
+
+  Args:
+    test: Derived from pyauto.PyUITest - base class for UI test cases.
+    infobar_type: The infobar type to look for.
+    windex: Window index.
+    tab_index: Tab index.
+
+  Returns:
+    Index of infobar for infobar type, or None if not found.
+  """
+  infobar_list = (
+      test.GetBrowserInfo()['windows'][windex]['tabs'][tab_index] \
+          ['infobars'])
+  for infobar in infobar_list:
+    if infobar_type == infobar['type']:
+      return infobar_list.index(infobar)
+  return None
+
+def WaitForInfobarTypeAndGetIndex(test, infobar_type, windex=0, tab_index=0):
+  """Wait for infobar type to appear and returns its index.
+
+  If the infobar never appears, an exception will be raised.
+
+  Args:
+    test: Derived from pyauto.PyUITest - base class for UI test cases.
+    infobar_type: The infobar type to look for.
+    windex: Window index. Defaults to 0 (first window).
+    tab_index: Tab index. Defaults to 0 (first tab).
+
+  Returns:
+    Index of infobar for infobar type.
+  """
+  test.assertTrue(
+      test.WaitUntil(lambda: GetInfobarIndexByType(
+          test, infobar_type, windex, tab_index) is not None),
+      msg='Infobar type for %s did not appear.' % infobar_type)
+  # Return the infobar index.
+  return GetInfobarIndexByType(test, infobar_type, windex, tab_index)
+
+def AssertInfobarTypeDoesNotAppear(test, infobar_type, windex=0, tab_index=0):
+  """Check that the infobar type does not appear.
+
+  This function waits 20s to assert that the infobar does not appear.
+
+  Args:
+    test: Derived from pyauto.PyUITest - base class for UI test cases.
+    infobar_type: The infobar type to look for.
+    windex: Window index. Defaults to 0 (first window).
+    tab_index: Tab index. Defaults to 0 (first tab).
+  """
+  test.assertFalse(
+      test.WaitUntil(lambda: GetInfobarIndexByType(
+          test, infobar_type, windex, tab_index) is not None, timeout=20),
+      msg=('Infobar type for %s appeared when it should be hidden.'
+           % infobar_type))

@@ -4,7 +4,6 @@
 
 #ifndef NET_HTTP_HTTP_PROXY_CLIENT_SOCKET_H_
 #define NET_HTTP_HTTP_PROXY_CLIENT_SOCKET_H_
-#pragma once
 
 #include <string>
 
@@ -46,7 +45,7 @@ class HttpProxyClientSocket : public ProxyClientSocket {
                         HttpAuthHandlerFactory* http_auth_handler_factory,
                         bool tunnel,
                         bool using_spdy,
-                        SSLClientSocket::NextProto protocol_negotiated,
+                        NextProto protocol_negotiated,
                         bool is_https_proxy);
 
   // On destruction Disconnect() is called.
@@ -59,7 +58,7 @@ class HttpProxyClientSocket : public ProxyClientSocket {
   virtual const scoped_refptr<HttpAuthController>& GetAuthController() const
       OVERRIDE;
   virtual bool IsUsingSpdy() const OVERRIDE;
-  virtual SSLClientSocket::NextProto GetProtocolNegotiated() const OVERRIDE;
+  virtual NextProto GetProtocolNegotiated() const OVERRIDE;
 
   // StreamSocket implementation.
   virtual int Connect(const CompletionCallback& callback) OVERRIDE;
@@ -73,6 +72,7 @@ class HttpProxyClientSocket : public ProxyClientSocket {
   virtual bool UsingTCPFastOpen() const OVERRIDE;
   virtual int64 NumBytesRead() const OVERRIDE;
   virtual base::TimeDelta GetConnectTimeMicros() const OVERRIDE;
+  virtual NextProto GetNegotiatedProtocol() const OVERRIDE;
 
   // Socket implementation.
   virtual int Read(IOBuffer* buf,
@@ -83,7 +83,7 @@ class HttpProxyClientSocket : public ProxyClientSocket {
                     const CompletionCallback& callback) OVERRIDE;
   virtual bool SetReceiveBufferSize(int32 size) OVERRIDE;
   virtual bool SetSendBufferSize(int32 size) OVERRIDE;
-  virtual int GetPeerAddress(AddressList* address) const OVERRIDE;
+  virtual int GetPeerAddress(IPEndPoint* address) const OVERRIDE;
   virtual int GetLocalAddress(IPEndPoint* address) const OVERRIDE;
 
  private:
@@ -151,7 +151,7 @@ class HttpProxyClientSocket : public ProxyClientSocket {
   // If true, then the connection to the proxy is a SPDY connection.
   const bool using_spdy_;
   // Protocol negotiated with the server.
-  SSLClientSocket::NextProto protocol_negotiated_;
+  NextProto protocol_negotiated_;
   // If true, then SSL is used to communicate with this proxy
   const bool is_https_proxy_;
 

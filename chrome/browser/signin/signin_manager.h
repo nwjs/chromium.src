@@ -16,7 +16,6 @@
 
 #ifndef CHROME_BROWSER_SIGNIN_SIGNIN_MANAGER_H_
 #define CHROME_BROWSER_SIGNIN_SIGNIN_MANAGER_H_
-#pragma once
 
 #include <string>
 
@@ -24,6 +23,7 @@
 #include "base/gtest_prod_util.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
+#include "chrome/browser/prefs/pref_change_registrar.h"
 #include "chrome/browser/profiles/profile_keyed_service.h"
 #include "chrome/common/net/gaia/gaia_auth_consumer.h"
 #include "chrome/common/net/gaia/google_service_auth_error.h"
@@ -61,6 +61,10 @@ class SigninManager : public GaiaAuthConsumer,
   void Initialize(Profile* profile);
   bool IsInitialized() const;
 
+  // Returns true if the passed username is allowed by policy. Virtual for
+  // mocking in tests.
+  virtual bool IsAllowedUsername(const std::string& username) const;
+
   // If a user has previously established a username and SignOut has not been
   // called, this will return the username.
   // Otherwise, it will return an empty string.
@@ -94,12 +98,27 @@ class SigninManager : public GaiaAuthConsumer,
                                           const std::string& username,
                                           const std::string& password);
 
+  // Attempt to sign in this user with ClientOAuth. If successful, set a
+  // preference indicating the signed in user and send out a notification,
+  // then start fetching tokens for the user.
+  virtual void StartSignInWithOAuth(const std::string& username,
+                                    const std::string& password);
+
+  // Provide a challenge solution to a failed signin attempt with
+  // StartSignInWithOAuth().  |type| and |token| come from the
+  // GoogleServiceAuthError of the failed attempt.
+  // |solution| is the answer typed by the user.
+  void ProvideOAuthChallengeResponse(GoogleServiceAuthError::State type,
+                                     const std::string& token,
+                                     const std::string& solution);
+
   // Sign a user out, removing the preference, erasing all keys
   // associated with the user, and canceling all auth in progress.
   virtual void SignOut();
 
-  // Returns true if there's a signin in progress.
-  bool AuthInProgress() const;
+  // Returns true if there's a signin in progress. Virtual so it can be
+  // overridden by mocks.
+  virtual bool AuthInProgress() const;
 
   // Handles errors if a required user info key is not returned from the
   // GetUserInfo call.
@@ -109,19 +128,11 @@ class SigninManager : public GaiaAuthConsumer,
   virtual void OnClientLoginSuccess(const ClientLoginResult& result) OVERRIDE;
   virtual void OnClientLoginFailure(
       const GoogleServiceAuthError& error) OVERRIDE;
-  virtual void OnOAuthLoginTokenSuccess(const std::string& refresh_token,
-                                        const std::string& access_token,
-                                        int expires_in_secs) OVERRIDE;
-  virtual void OnOAuthLoginTokenFailure(
+  virtual void OnClientOAuthSuccess(const ClientOAuthResult& result) OVERRIDE;
+  virtual void OnClientOAuthFailure(
       const GoogleServiceAuthError& error) OVERRIDE;
   virtual void OnGetUserInfoSuccess(const UserInfoMap& data) OVERRIDE;
   virtual void OnGetUserInfoFailure(
-      const GoogleServiceAuthError& error) OVERRIDE;
-  virtual void OnTokenAuthSuccess(const net::ResponseCookies& cookies,
-                                  const std::string& data) OVERRIDE;
-  virtual void OnTokenAuthFailure(const GoogleServiceAuthError& error) OVERRIDE;
-  virtual void OnUberAuthTokenSuccess(const std::string& token) OVERRIDE;
-  virtual void OnUberAuthTokenFailure(
       const GoogleServiceAuthError& error) OVERRIDE;
 
   // content::NotificationObserver
@@ -130,11 +141,26 @@ class SigninManager : public GaiaAuthConsumer,
                        const content::NotificationDetails& details) OVERRIDE;
 
  private:
+  enum SigninType {
+    SIGNIN_TYPE_NONE,
+    SIGNIN_TYPE_CLIENT_LOGIN,
+    SIGNIN_TYPE_WITH_CREDENTIALS,
+    SIGNIN_TYPE_CLIENT_OAUTH,
+  };
+
   friend class FakeSigninManager;
   FRIEND_TEST_ALL_PREFIXES(SigninManagerTest, ClearTransientSigninData);
   FRIEND_TEST_ALL_PREFIXES(SigninManagerTest, ProvideSecondFactorSuccess);
   FRIEND_TEST_ALL_PREFIXES(SigninManagerTest, ProvideSecondFactorFailure);
-  void PrepareForSignin();
+
+  // Called to setup the transient signin data during one of the
+  // StartSigninXXX methods.  |type| indicates which of the methods is being
+  // used to perform the signin while |username| and |password| identify the
+  // account to be signed in. Returns false and generates an auth error if the
+  // passed |username| is not allowed by policy.
+  bool PrepareForSignin(SigninType type,
+                        const std::string& username,
+                        const std::string& password);
 
   // Called when a new request to re-authenticate a user is in progress.
   // Will clear in memory data but leaves the db as such so when the browser
@@ -143,8 +169,9 @@ class SigninManager : public GaiaAuthConsumer,
 
   // Called to handle an error from a GAIA auth fetch.  Sets the last error
   // to |error|, sends out a notification of login failure, and clears the
-  // transient signin data.
-  void HandleAuthError(const GoogleServiceAuthError& error);
+  // transient signin data if |clear_transient_data| is true.
+  void HandleAuthError(const GoogleServiceAuthError& error,
+                       bool clear_transient_data);
 
   Profile* profile_;
 
@@ -162,10 +189,20 @@ class SigninManager : public GaiaAuthConsumer,
   // Actual client login handler.
   scoped_ptr<GaiaAuthFetcher> client_login_;
 
-  // Register for notifications from the TokenService.
+  // Registrar for notifications from the TokenService.
   content::NotificationRegistrar registrar_;
 
+  // Helper object to listen for changes to signin preferences stored in non-
+  // profile-specific local prefs (like kGoogleServicesUsernamePattern).
+  PrefChangeRegistrar local_state_pref_registrar_;
+
+  // Actual username after successful authentication.
   std::string authenticated_username_;
+
+  // The type of sign being performed.  This value is valid only between a call
+  // to one of the StartSigninXXX methods and when the sign in is either
+  // successful or not.
+  SigninType type_;
 
   DISALLOW_COPY_AND_ASSIGN(SigninManager);
 };

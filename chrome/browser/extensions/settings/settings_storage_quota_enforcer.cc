@@ -53,7 +53,7 @@ void Free(
 }
 
 // Returns an error result and logs the quota exceeded to UMA.
-SettingsStorage::WriteResult QuotaExceededFor(Resource resource) {
+ValueStore::WriteResult QuotaExceededFor(Resource resource) {
   switch (resource) {
     case QUOTA_BYTES:
       UMA_HISTOGRAM_COUNTS_100(
@@ -70,23 +70,23 @@ SettingsStorage::WriteResult QuotaExceededFor(Resource resource) {
     default:
       NOTREACHED();
   }
-  return SettingsStorage::WriteResult(kExceededQuotaErrorMessage);
+  return ValueStore::MakeWriteResult(kExceededQuotaErrorMessage);
 }
 
 }  // namespace
 
 SettingsStorageQuotaEnforcer::SettingsStorageQuotaEnforcer(
-    const Limits& limits, SettingsStorage* delegate)
+    const Limits& limits, ValueStore* delegate)
     : limits_(limits), delegate_(delegate), used_total_(0) {
   ReadResult maybe_settings = delegate_->Get();
-  if (maybe_settings.HasError()) {
+  if (maybe_settings->HasError()) {
     LOG(WARNING) << "Failed to get initial settings for quota: " <<
-        maybe_settings.error();
+        maybe_settings->error();
     return;
   }
 
-  for (DictionaryValue::Iterator it(maybe_settings.settings()); it.HasNext();
-      it.Advance()) {
+  for (DictionaryValue::Iterator it(*maybe_settings->settings().get());
+       it.HasNext(); it.Advance()) {
     Allocate(
         it.key(), it.value(), &used_total_, &used_per_setting_);
   }
@@ -111,32 +111,32 @@ size_t SettingsStorageQuotaEnforcer::GetBytesInUse(
 }
 
 size_t SettingsStorageQuotaEnforcer::GetBytesInUse() {
-  // All SettingsStorage implementations rely on GetBytesInUse being
+  // All ValueStore implementations rely on GetBytesInUse being
   // implemented here.
   return used_total_;
 }
 
-SettingsStorage::ReadResult SettingsStorageQuotaEnforcer::Get(
+ValueStore::ReadResult SettingsStorageQuotaEnforcer::Get(
     const std::string& key) {
   return delegate_->Get(key);
 }
 
-SettingsStorage::ReadResult SettingsStorageQuotaEnforcer::Get(
+ValueStore::ReadResult SettingsStorageQuotaEnforcer::Get(
     const std::vector<std::string>& keys) {
   return delegate_->Get(keys);
 }
 
-SettingsStorage::ReadResult SettingsStorageQuotaEnforcer::Get() {
+ValueStore::ReadResult SettingsStorageQuotaEnforcer::Get() {
   return delegate_->Get();
 }
 
-SettingsStorage::WriteResult SettingsStorageQuotaEnforcer::Set(
+ValueStore::WriteResult SettingsStorageQuotaEnforcer::Set(
     WriteOptions options, const std::string& key, const Value& value) {
   size_t new_used_total = used_total_;
   std::map<std::string, size_t> new_used_per_setting = used_per_setting_;
   Allocate(key, value, &new_used_total, &new_used_per_setting);
 
-  if (options != IGNORE_QUOTA) {
+  if (!(options & IGNORE_QUOTA)) {
     if (new_used_total > limits_.quota_bytes) {
       return QuotaExceededFor(QUOTA_BYTES);
     }
@@ -149,29 +149,29 @@ SettingsStorage::WriteResult SettingsStorageQuotaEnforcer::Set(
   }
 
   WriteResult result = delegate_->Set(options, key, value);
-  if (result.HasError()) {
-    return result;
+  if (result->HasError()) {
+    return result.Pass();
   }
 
   used_total_ = new_used_total;
   used_per_setting_.swap(new_used_per_setting);
-  return result;
+  return result.Pass();
 }
 
-SettingsStorage::WriteResult SettingsStorageQuotaEnforcer::Set(
+ValueStore::WriteResult SettingsStorageQuotaEnforcer::Set(
     WriteOptions options, const DictionaryValue& values) {
   size_t new_used_total = used_total_;
   std::map<std::string, size_t> new_used_per_setting = used_per_setting_;
   for (DictionaryValue::Iterator it(values); it.HasNext(); it.Advance()) {
     Allocate(it.key(), it.value(), &new_used_total, &new_used_per_setting);
 
-    if (options != IGNORE_QUOTA &&
+    if (!(options & IGNORE_QUOTA) &&
         new_used_per_setting[it.key()] > limits_.quota_bytes_per_item) {
       return QuotaExceededFor(QUOTA_BYTES_PER_ITEM);
     }
   }
 
-  if (options != IGNORE_QUOTA) {
+  if (!(options & IGNORE_QUOTA)) {
     if (new_used_total > limits_.quota_bytes) {
       return QuotaExceededFor(QUOTA_BYTES);
     }
@@ -181,49 +181,49 @@ SettingsStorage::WriteResult SettingsStorageQuotaEnforcer::Set(
   }
 
   WriteResult result = delegate_->Set(options, values);
-  if (result.HasError()) {
-    return result;
+  if (result->HasError()) {
+    return result.Pass();
   }
 
   used_total_ = new_used_total;
   used_per_setting_ = new_used_per_setting;
-  return result;
+  return result.Pass();
 }
 
-SettingsStorage::WriteResult SettingsStorageQuotaEnforcer::Remove(
+ValueStore::WriteResult SettingsStorageQuotaEnforcer::Remove(
     const std::string& key) {
   WriteResult result = delegate_->Remove(key);
-  if (result.HasError()) {
-    return result;
+  if (result->HasError()) {
+    return result.Pass();
   }
   Free(&used_total_, &used_per_setting_, key);
-  return result;
+  return result.Pass();
 }
 
-SettingsStorage::WriteResult SettingsStorageQuotaEnforcer::Remove(
+ValueStore::WriteResult SettingsStorageQuotaEnforcer::Remove(
     const std::vector<std::string>& keys) {
   WriteResult result = delegate_->Remove(keys);
-  if (result.HasError()) {
-    return result;
+  if (result->HasError()) {
+    return result.Pass();
   }
 
   for (std::vector<std::string>::const_iterator it = keys.begin();
       it != keys.end(); ++it) {
     Free(&used_total_, &used_per_setting_, *it);
   }
-  return result;
+  return result.Pass();
 }
 
-SettingsStorage::WriteResult SettingsStorageQuotaEnforcer::Clear() {
+ValueStore::WriteResult SettingsStorageQuotaEnforcer::Clear() {
   WriteResult result = delegate_->Clear();
-  if (result.HasError()) {
-    return result;
+  if (result->HasError()) {
+    return result.Pass();
   }
 
   while (!used_per_setting_.empty()) {
     Free(&used_total_, &used_per_setting_, used_per_setting_.begin()->first);
   }
-  return result;
+  return result.Pass();
 }
 
 }  // namespace extensions

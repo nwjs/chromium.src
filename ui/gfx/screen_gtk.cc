@@ -8,6 +8,7 @@
 #include <gtk/gtk.h>
 
 #include "base/logging.h"
+#include "ui/gfx/display.h"
 
 namespace {
 
@@ -46,36 +47,17 @@ bool GetScreenWorkArea(gfx::Rect* out_rect) {
   return true;
 }
 
-}  // namespace
-
-namespace gfx {
-
-// static
-gfx::Point Screen::GetCursorScreenPoint() {
-  gint x, y;
-  gdk_display_get_pointer(gdk_display_get_default(), NULL, &x, &y, NULL);
-  return gfx::Point(x, y);
+gfx::Rect NativePrimaryMonitorBounds() {
+  GdkScreen* screen = gdk_screen_get_default();
+  GdkRectangle rect;
+  gdk_screen_get_monitor_geometry(screen, 0, &rect);
+  return gfx::Rect(rect);
 }
 
-// static
-gfx::Rect Screen::GetMonitorWorkAreaNearestWindow(gfx::NativeView view) {
-  // Do not use the _NET_WORKAREA here, this is supposed to be an area on a
-  // specific monitor, and _NET_WORKAREA is a hint from the WM that generally
-  // spans across all monitors.  This would make the work area larger than the
-  // monitor.
-  // TODO(danakj) This is a work-around as there is no standard way to get this
-  // area, but it is a rect that we should be computing.  The standard means
-  // to compute this rect would be to watch all windows with
-  // _NET_WM_STRUT(_PARTIAL) hints, and subtract their space from the physical
-  // area of the monitor to construct a work area.
-  return GetMonitorAreaNearestWindow(view);
-}
-
-// static
-gfx::Rect Screen::GetMonitorAreaNearestWindow(gfx::NativeView view) {
+gfx::Rect GetMonitorAreaNearestWindow(gfx::NativeView view) {
   GdkScreen* screen = gdk_screen_get_default();
   gint monitor_num = 0;
-  if (view) {
+  if (view && GTK_IS_WINDOW(view)) {
     GtkWidget* top_level = gtk_widget_get_toplevel(view);
     DCHECK(GTK_IS_WINDOW(top_level));
     GtkWindow* window = GTK_WINDOW(top_level);
@@ -89,43 +71,20 @@ gfx::Rect Screen::GetMonitorAreaNearestWindow(gfx::NativeView view) {
   return gfx::Rect(bounds);
 }
 
+}  // namespace
+
+namespace gfx {
+
 // static
-gfx::Rect Screen::GetMonitorWorkAreaNearestPoint(const gfx::Point& point) {
-  // TODO(jamiewalch): Restrict this to the work area of the monitor.
-  return GetMonitorAreaNearestPoint(point);
+bool Screen::IsDIPEnabled() {
+  return false;
 }
 
 // static
-gfx::Rect Screen::GetMonitorAreaNearestPoint(const gfx::Point& point) {
-  GdkScreen* screen = gdk_screen_get_default();
-  gint monitor = gdk_screen_get_monitor_at_point(screen, point.x(), point.y());
-  GdkRectangle bounds;
-  gdk_screen_get_monitor_geometry(screen, monitor, &bounds);
-  return gfx::Rect(bounds);
-}
-
-// static
-gfx::Rect Screen::GetPrimaryMonitorWorkArea() {
-  gfx::Rect rect;
-  if (GetScreenWorkArea(&rect))
-    return rect.Intersect(GetPrimaryMonitorBounds());
-
-  // Return the best we've got.
-  return GetPrimaryMonitorBounds();
-}
-
-// static
-gfx::Rect Screen::GetPrimaryMonitorBounds() {
-  GdkScreen* screen = gdk_screen_get_default();
-  GdkRectangle rect;
-  gdk_screen_get_monitor_geometry(screen, 0, &rect);
-  return gfx::Rect(rect);
-}
-
-// static
-gfx::Rect Screen::GetMonitorWorkAreaMatching(const gfx::Rect& match_rect) {
-  // TODO(thestig) Implement multi-monitor support.
-  return GetPrimaryMonitorWorkArea();
+gfx::Point Screen::GetCursorScreenPoint() {
+  gint x, y;
+  gdk_display_get_pointer(gdk_display_get_default(), NULL, &x, &y, NULL);
+  return gfx::Point(x, y);
 }
 
 // static
@@ -144,13 +103,54 @@ gfx::NativeWindow Screen::GetWindowAtCursorScreenPoint() {
 }
 
 // static
-gfx::Size Screen::GetPrimaryMonitorSize() {
-  GdkScreen* screen = gdk_screen_get_default();
-  return gfx::Size(gdk_screen_get_width(screen), gdk_screen_get_height(screen));
+gfx::Display Screen::GetDisplayNearestWindow(gfx::NativeView view) {
+  gfx::Rect bounds = GetMonitorAreaNearestWindow(view);
+  // Do not use the _NET_WORKAREA here, this is supposed to be an area on a
+  // specific monitor, and _NET_WORKAREA is a hint from the WM that generally
+  // spans across all monitors.  This would make the work area larger than the
+  // monitor.
+  // TODO(danakj) This is a work-around as there is no standard way to get this
+  // area, but it is a rect that we should be computing.  The standard means
+  // to compute this rect would be to watch all windows with
+  // _NET_WM_STRUT(_PARTIAL) hints, and subtract their space from the physical
+  // area of the display to construct a work area.
+  // TODO(oshima): Implement ID and Observer.
+  return gfx::Display(0, bounds);
 }
 
 // static
-int Screen::GetNumMonitors() {
+gfx::Display Screen::GetDisplayNearestPoint(const gfx::Point& point) {
+  GdkScreen* screen = gdk_screen_get_default();
+  gint monitor = gdk_screen_get_monitor_at_point(screen, point.x(), point.y());
+  GdkRectangle bounds;
+  gdk_screen_get_monitor_geometry(screen, monitor, &bounds);
+  // TODO(oshima): Implement ID and Observer.
+  return gfx::Display(0, gfx::Rect(bounds));
+}
+
+// static
+gfx::Display Screen::GetDisplayMatching(const gfx::Rect& match_rect) {
+  // TODO(thestig) Implement multi-monitor support.
+  return GetPrimaryDisplay();
+}
+
+// static
+gfx::Display Screen::GetPrimaryDisplay() {
+  gfx::Rect bounds = NativePrimaryMonitorBounds();
+  // TODO(oshima): Implement ID and Observer.
+  gfx::Display display(0, bounds);
+  gfx::Rect rect;
+  if (GetScreenWorkArea(&rect)) {
+    display.set_work_area(rect.Intersect(bounds));
+  } else {
+    // Return the best we've got.
+    display.set_work_area(bounds);
+  }
+  return display;
+}
+
+// static
+int Screen::GetNumDisplays() {
   // This query is kinda bogus for Linux -- do we want number of X screens?
   // The number of monitors Xinerama has?  We'll just use whatever GDK uses.
   GdkScreen* screen = gdk_screen_get_default();

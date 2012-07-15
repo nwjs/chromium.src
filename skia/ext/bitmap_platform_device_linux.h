@@ -4,7 +4,6 @@
 
 #ifndef SKIA_EXT_BITMAP_PLATFORM_DEVICE_LINUX_H_
 #define SKIA_EXT_BITMAP_PLATFORM_DEVICE_LINUX_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
@@ -57,7 +56,7 @@ namespace skia {
 // shared memory between the renderer and the main process at least. In this
 // case we'll probably create the buffer from a precreated region of memory.
 // -----------------------------------------------------------------------------
-class BitmapPlatformDevice : public PlatformDevice, public SkDevice {
+class BitmapPlatformDevice : public SkDevice, public PlatformDevice {
   // A reference counted cairo surface
   class BitmapPlatformDeviceData;
 

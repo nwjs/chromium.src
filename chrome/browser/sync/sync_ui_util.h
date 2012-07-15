@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SYNC_SYNC_UI_UTIL_H_
 #define CHROME_BROWSER_SYNC_SYNC_UI_UTIL_H_
-#pragma once
 
 #include <string>
 
@@ -44,6 +43,7 @@ enum StatusLabelStyle {
 // by querying |service|.
 // |style| sets the link properties, see |StatusLabelStyle|.
 MessageType GetStatusLabels(ProfileSyncService* service,
+                            const SigninManager& signin,
                             StatusLabelStyle style,
                             string16* status_label,
                             string16* link_label);
@@ -51,6 +51,7 @@ MessageType GetStatusLabels(ProfileSyncService* service,
 // Same as above but for use specifically on the New Tab Page.
 // |status_label| may contain an HTML-formatted link.
 MessageType GetStatusLabelsForNewTabPage(ProfileSyncService* service,
+                                         const SigninManager& signin,
                                          string16* status_label,
                                          string16* link_label);
 
@@ -58,14 +59,16 @@ MessageType GetStatusLabelsForNewTabPage(ProfileSyncService* service,
 // |menu_item_label|, |bubble_message|, and |bubble_accept_label| must not be
 // NULL.
 void GetStatusLabelsForSyncGlobalError(ProfileSyncService* service,
+                                       const SigninManager& signin,
                                        string16* menu_item_label,
                                        string16* bubble_message,
                                        string16* bubble_accept_label);
 
-MessageType GetStatus(ProfileSyncService* service);
+MessageType GetStatus(ProfileSyncService* service, const SigninManager& signin);
 
 // Returns a string with the synchronization status.
-string16 GetSyncMenuLabel(ProfileSyncService* service);
+string16 GetSyncMenuLabel(ProfileSyncService* service,
+                          const SigninManager& signin);
 
 void AddBoolSyncDetail(base::ListValue* details,
                        const std::string& stat_name,

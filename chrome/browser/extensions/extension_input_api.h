@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_INPUT_API_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_INPUT_API_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "chrome/browser/extensions/extension_function.h"
@@ -16,47 +15,14 @@
 // synthetic event distribution code to this Function.
 class SendKeyboardEventInputFunction : public SyncExtensionFunction {
  public:
-  virtual bool RunImpl() OVERRIDE;
   DECLARE_EXTENSION_FUNCTION_NAME(
       "experimental.input.virtualKeyboard.sendKeyboardEvent");
-};
 
-#if defined(USE_VIRTUAL_KEYBOARD)
-class HideKeyboardFunction : public AsyncExtensionFunction {
- public:
-  virtual bool RunImpl() OVERRIDE;
-  DECLARE_EXTENSION_FUNCTION_NAME(
-      "experimental.input.virtualKeyboard.hideKeyboard");
-};
+ protected:
+  virtual ~SendKeyboardEventInputFunction() {}
 
-class SetKeyboardHeightFunction : public AsyncExtensionFunction {
- public:
+  // ExtensionFunction:
   virtual bool RunImpl() OVERRIDE;
-  DECLARE_EXTENSION_FUNCTION_NAME(
-      "experimental.input.virtualKeyboard.setKeyboardHeight");
 };
-#endif
-
-#if defined(OS_CHROMEOS) && defined(USE_VIRTUAL_KEYBOARD)
-// Note that these experimental APIs are currently only available for
-// versions of Chrome OS built with USE_VIRTUAL_KEYBOARD. Please also note that
-// the version of Chrome OS is always built with TOOLKIT_VIEWS.
-//
-// We may eventually support other platforms, especially versions of ChromeOS
-// without USE_VIRTUAL_KEYBOARD.
-class SendHandwritingStrokeFunction : public SyncExtensionFunction {
- public:
-  virtual bool RunImpl() OVERRIDE;
-  DECLARE_EXTENSION_FUNCTION_NAME(
-      "experimental.input.virtualKeyboard.sendHandwritingStroke");
-};
-
-class CancelHandwritingStrokesFunction : public SyncExtensionFunction {
- public:
-  virtual bool RunImpl() OVERRIDE;
-  DECLARE_EXTENSION_FUNCTION_NAME(
-      "experimental.input.virtualKeyboard.cancelHandwritingStrokes");
-};
-#endif
 
 #endif  // CHROME_BROWSER_EXTENSIONS_EXTENSION_INPUT_API_H_

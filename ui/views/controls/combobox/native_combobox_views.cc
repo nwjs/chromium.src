@@ -6,8 +6,6 @@
 
 #include <algorithm>
 
-#include "base/command_line.h"
-#include "base/utf_string_conversions.h"
 #include "grit/ui_resources.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/base/models/combobox_model.h"
@@ -55,13 +53,13 @@ namespace views {
 const char NativeComboboxViews::kViewClassName[] =
     "views/NativeComboboxViews";
 
-NativeComboboxViews::NativeComboboxViews(Combobox* parent)
-    : combobox_(parent),
+NativeComboboxViews::NativeComboboxViews(Combobox* combobox)
+    : combobox_(combobox),
       text_border_(new FocusableBorder()),
       disclosure_arrow_(ui::ResourceBundle::GetSharedInstance().GetImageNamed(
-          IDR_DISCLOSURE_ARROW).ToSkBitmap()),
+          IDR_DISCLOSURE_ARROW).ToImageSkia()),
       dropdown_open_(false),
-      selected_item_(-1),
+      selected_index_(-1),
       content_width_(0),
       content_height_(0) {
   set_border(text_border_);
@@ -87,48 +85,56 @@ bool NativeComboboxViews::OnMouseDragged(const views::MouseEvent& mouse_event) {
   return true;
 }
 
+ui::GestureStatus NativeComboboxViews::OnGestureEvent(
+    const views::GestureEvent& gesture_event) {
+  if (gesture_event.type() == ui::ET_GESTURE_TAP) {
+    UpdateFromModel();
+    ShowDropDownMenu();
+    return ui::GESTURE_STATUS_CONSUMED;
+  }
+  return View::OnGestureEvent(gesture_event);
+}
+
 bool NativeComboboxViews::OnKeyPressed(const views::KeyEvent& key_event) {
   // TODO(oshima): handle IME.
-  DCHECK(key_event.type() == ui::ET_KEY_PRESSED);
+  DCHECK_EQ(key_event.type(), ui::ET_KEY_PRESSED);
 
   // Check if we are in the default state (-1) and set to first item.
-  if(selected_item_ == -1)
-    selected_item_ = 0;
+  if (selected_index_ == -1)
+    selected_index_ = 0;
 
-  int new_item = selected_item_;
-  switch(key_event.key_code()){
-
-    // move to the next element if any
+  int new_index = selected_index_;
+  switch (key_event.key_code()) {
+    // Move to the next item if any.
     case ui::VKEY_DOWN:
-      if (new_item < (combobox_->model()->GetItemCount() - 1))
-        new_item++;
+      if (new_index < (combobox_->model()->GetItemCount() - 1))
+        new_index++;
       break;
 
-    // move to the end of the list
+    // Move to the end of the list.
     case ui::VKEY_END:
     case ui::VKEY_NEXT:
-      new_item = combobox_->model()->GetItemCount() - 1;
+      new_index = combobox_->model()->GetItemCount() - 1;
       break;
 
-    // move to the top of the list
+    // Move to the beginning of the list.
    case ui::VKEY_HOME:
    case ui::VKEY_PRIOR:
-      new_item = 0;
+      new_index = 0;
       break;
 
-    // move to the previous element if any
+    // Move to the previous item if any.
     case ui::VKEY_UP:
-      if (new_item > 0)
-        new_item--;
+      if (new_index > 0)
+        new_index--;
       break;
 
     default:
       return false;
-
   }
 
-  if(new_item != selected_item_) {
-    selected_item_ = new_item;
+  if (new_index != selected_index_) {
+    selected_index_ = new_index;
     combobox_->SelectionChanged();
     SchedulePaint();
   }
@@ -160,7 +166,7 @@ void NativeComboboxViews::OnBlur() {
 
 void NativeComboboxViews::UpdateFromModel() {
   int max_width = 0;
-  const gfx::Font &font = GetFont();
+  const gfx::Font& font = Combobox::GetFont();
 
   MenuItemView* menu = new MenuItemView(this);
   // MenuRunner owns |menu|.
@@ -182,16 +188,16 @@ void NativeComboboxViews::UpdateFromModel() {
   content_height_ = font.GetFontSize();
 }
 
-void NativeComboboxViews::UpdateSelectedItem() {
-  selected_item_ = combobox_->selected_item();
+void NativeComboboxViews::UpdateSelectedIndex() {
+  selected_index_ = combobox_->selected_index();
 }
 
 void NativeComboboxViews::UpdateEnabled() {
   SetEnabled(combobox_->enabled());
 }
 
-int NativeComboboxViews::GetSelectedItem() const {
-  return selected_item_;
+int NativeComboboxViews::GetSelectedIndex() const {
+  return selected_index_;
 }
 
 bool NativeComboboxViews::IsDropdownOpen() const {
@@ -225,7 +231,7 @@ bool NativeComboboxViews::HandleKeyPressed(const KeyEvent& e) {
 }
 
 bool NativeComboboxViews::HandleKeyReleased(const KeyEvent& e) {
-  return true;
+  return false;  // crbug.com/127520
 }
 
 void NativeComboboxViews::HandleFocus() {
@@ -253,10 +259,10 @@ bool NativeComboboxViews::IsCommandEnabled(int id) const {
 }
 
 void NativeComboboxViews::ExecuteCommand(int id) {
-  // revert menu offset to map back to combobox model
+  // Revert menu offset to map back to combobox model.
   id -= kFirstMenuItemId;
   DCHECK_LT(id, combobox_->model()->GetItemCount());
-  selected_item_ = id;
+  selected_index_ = id;
   combobox_->SelectionChanged();
   SchedulePaint();
 }
@@ -267,11 +273,6 @@ bool NativeComboboxViews::GetAccelerator(int id, ui::Accelerator* accel) {
 
 /////////////////////////////////////////////////////////////////
 // NativeComboboxViews private methods:
-
-const gfx::Font& NativeComboboxViews::GetFont() const {
-  ResourceBundle& rb = ResourceBundle::GetSharedInstance();
-  return rb.GetFont(ResourceBundle::BaseFont);
-}
 
 void NativeComboboxViews::AdjustBoundsForRTLUI(gfx::Rect* rect) const {
   rect->set_x(GetMirroredXForRect(*rect));
@@ -288,7 +289,7 @@ void NativeComboboxViews::PaintText(gfx::Canvas* canvas) {
   int text_height = height() - insets.height();
   SkColor text_color = kTextColor;
 
-  int index = GetSelectedItem();
+  int index = GetSelectedIndex();
   if (index < 0 || index > combobox_->model()->GetItemCount())
     index = 0;
   string16 text = combobox_->model()->GetItemAt(index);
@@ -296,7 +297,7 @@ void NativeComboboxViews::PaintText(gfx::Canvas* canvas) {
   int disclosure_arrow_offset = width() - disclosure_arrow_->width()
       - kDisclosureArrowLeftPadding - kDisclosureArrowRightPadding;
 
-  const gfx::Font& font = GetFont();
+  const gfx::Font& font = Combobox::GetFont();
   int text_width = font.GetStringWidth(text);
   if ((text_width + insets.width()) > disclosure_arrow_offset)
     text_width = disclosure_arrow_offset - insets.width();
@@ -310,7 +311,7 @@ void NativeComboboxViews::PaintText(gfx::Canvas* canvas) {
                          disclosure_arrow_->width(),
                          disclosure_arrow_->height());
   AdjustBoundsForRTLUI(&arrow_bounds);
-  canvas->DrawBitmapInt(*disclosure_arrow_, arrow_bounds.x(), arrow_bounds.y());
+  canvas->DrawImageInt(*disclosure_arrow_, arrow_bounds.x(), arrow_bounds.y());
 
   canvas->Restore();
 }

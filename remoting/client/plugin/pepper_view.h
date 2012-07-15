@@ -10,7 +10,6 @@
 
 #include <list>
 
-#include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "ppapi/cpp/graphics_2d.h"
 #include "ppapi/cpp/point.h"
@@ -25,8 +24,7 @@ class FrameProducer;
 
 class PepperView : public ChromotingView,
                    public FrameConsumer,
-                   public base::SupportsWeakPtr<PepperView>
-{
+                   public base::SupportsWeakPtr<PepperView> {
  public:
   // Constructs a PepperView for the |instance|. The |instance|, |context|
   // and |producer| must outlive this class.
@@ -41,6 +39,8 @@ class PepperView : public ChromotingView,
   virtual void SetConnectionState(
       protocol::ConnectionToHost::State state,
       protocol::ErrorCode error) OVERRIDE;
+  virtual protocol::ClipboardStub* GetClipboardStub() OVERRIDE;
+  virtual protocol::CursorShapeStub* GetCursorShapeStub() OVERRIDE;
 
   // FrameConsumer implementation.
   virtual void ApplyBuffer(const SkISize& view_size,
@@ -80,7 +80,7 @@ class PepperView : public ChromotingView,
                    const SkRegion& region);
 
   // This is a completion callback for FlushGraphics().
-  void OnFlushDone(base::Time paint_start, pp::ImageData* buffer);
+  void OnFlushDone(base::Time paint_start, pp::ImageData* buffer, int result);
 
   // Reference to the creating plugin instance. Needed for interacting with
   // pepper.  Marking explicitly as const since it must be initialized at
@@ -115,6 +115,9 @@ class PepperView : public ChromotingView,
 
   // True after Initialize() has been called, until TearDown().
   bool is_initialized_;
+
+  // True after the first call to ApplyBuffer().
+  bool frame_received_;
 
   DISALLOW_COPY_AND_ASSIGN(PepperView);
 };

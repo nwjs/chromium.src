@@ -7,9 +7,10 @@
 #include "sync/engine/conflict_resolver.h"
 #include "sync/sessions/session_state.h"
 #include "sync/sessions/sync_session.h"
-#include "sync/syncable/syncable.h"
+#include "sync/syncable/directory.h"
+#include "sync/syncable/write_transaction.h"
 
-namespace browser_sync {
+namespace syncer {
 
 ResolveConflictsCommand::ResolveConflictsCommand() {}
 ResolveConflictsCommand::~ResolveConflictsCommand() {}
@@ -37,4 +38,4 @@ SyncerError ResolveConflictsCommand::ModelChangingExecuteImpl(
   return SYNCER_OK;
 }
 
-}  // namespace browser_sync
+}  // namespace syncer

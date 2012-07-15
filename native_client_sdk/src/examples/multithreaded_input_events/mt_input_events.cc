@@ -21,7 +21,6 @@
 
 #include "custom_events.h"
 #include "shared_queue.h"
-#include "thread_safe_ref_count.h"
 
 namespace event_queue {
 const char* const kDidChangeView = "DidChangeView";
@@ -77,7 +76,8 @@ class EventInstance : public pp::Instance {
       : pp::Instance(instance),
         event_thread_(NULL),
         callback_factory_(this) {
-    RequestInputEvents(PP_INPUTEVENT_CLASS_MOUSE | PP_INPUTEVENT_CLASS_WHEEL);
+    RequestInputEvents(PP_INPUTEVENT_CLASS_MOUSE | PP_INPUTEVENT_CLASS_WHEEL
+        | PP_INPUTEVENT_CLASS_TOUCH);
     RequestFilteringInputEvents(PP_INPUTEVENT_CLASS_KEYBOARD);
   }
 
@@ -109,8 +109,7 @@ class EventInstance : public pp::Instance {
   }
 
   /// Scrolling the mouse wheel causes a DidChangeView event.
-  void DidChangeView(const pp::Rect& position,
-                     const pp::Rect& clip) {
+  void DidChangeView(const pp::View& view) {
     PostMessage(pp::Var(kDidChangeView));
   }
 
@@ -205,6 +204,39 @@ class EventInstance : public pp::Instance {
               key_event.GetCharacterText().DebugString());
         }
         break;
+      case PP_INPUTEVENT_TYPE_TOUCHSTART:
+      case PP_INPUTEVENT_TYPE_TOUCHMOVE:
+      case PP_INPUTEVENT_TYPE_TOUCHEND:
+      case PP_INPUTEVENT_TYPE_TOUCHCANCEL:
+        {
+          pp::TouchInputEvent touch_event(event);
+
+          TouchEvent::Kind touch_kind = TouchEvent::kNone;
+          if (event.GetType() == PP_INPUTEVENT_TYPE_TOUCHSTART)
+            touch_kind = TouchEvent::kStart;
+          else if (event.GetType() == PP_INPUTEVENT_TYPE_TOUCHMOVE)
+            touch_kind = TouchEvent::kMove;
+          else if (event.GetType() == PP_INPUTEVENT_TYPE_TOUCHEND)
+            touch_kind = TouchEvent::kEnd;
+          else if (event.GetType() == PP_INPUTEVENT_TYPE_TOUCHCANCEL)
+            touch_kind = TouchEvent::kCancel;
+
+          TouchEvent* touch_event_ptr = new TouchEvent(
+              ConvertEventModifier(touch_event.GetModifiers()),
+              touch_kind, touch_event.GetTimeStamp());
+          event_ptr = touch_event_ptr;
+
+          uint32_t touch_count =
+              touch_event.GetTouchCount(PP_TOUCHLIST_TYPE_CHANGEDTOUCHES);
+          for (uint32_t i = 0; i < touch_count; ++i) {
+            pp::TouchPoint point = touch_event.GetTouchByIndex(
+                PP_TOUCHLIST_TYPE_CHANGEDTOUCHES, i);
+            touch_event_ptr->AddTouch(point.id(), point.position().x(),
+                point.position().y(), point.radii().x(), point.radii().y(),
+                point.rotation_angle(), point.pressure());
+          }
+        }
+        break;
       default:
         {
           // For any unhandled events, send a message to the browser
@@ -267,8 +299,8 @@ class EventInstance : public pp::Instance {
       pp::Module::Get()->core()->CallOnMainThread(
           0,
           event_instance->callback_factory().NewCallback(
-            &EventInstance::PostStringToBrowser,
-            event_string));
+              &EventInstance::PostStringToBrowser,
+              event_string));
     }  // end of while loop.
     return 0;
   }
@@ -276,8 +308,7 @@ class EventInstance : public pp::Instance {
   // Return the callback factory.
   // Allows the static method (ProcessEventOnWorkerThread) to use
   // the |event_instance| pointer to get the factory.
-  pp::CompletionCallbackFactory<EventInstance, ThreadSafeRefCount>&
-      callback_factory() {
+  pp::CompletionCallbackFactory<EventInstance>& callback_factory() {
     return callback_factory_;
   }
 
@@ -294,8 +325,7 @@ class EventInstance : public pp::Instance {
     }
     pthread_t event_thread_;
     LockingQueue<Event*> event_queue_;
-    pp::CompletionCallbackFactory<EventInstance, ThreadSafeRefCount>
-        callback_factory_;
+    pp::CompletionCallbackFactory<EventInstance> callback_factory_;
 };
 
 // The EventModule provides an implementation of pp::Module that creates

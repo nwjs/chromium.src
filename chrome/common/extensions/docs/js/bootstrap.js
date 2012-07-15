@@ -17,12 +17,25 @@ var fileXHREnabled = function() {
   return true;
 }();
 
-var officialURL = 'http://code.google.com/chrome/extensions/';
+var officialURL = (function() {
+  var candidates = [
+    'http://code.google.com/chrome/extensions/',
+    'http://developer.chrome.com/',
+
+    // TODO(aa): Remove this one once developer.chrome.com is live.
+    'http://chrome-apps-doc.appspot.com/'
+  ];
+  for (var i = 0, url; url = candidates[i]; i++) {
+    if (location.href.indexOf(candidates[i]) == 0)
+      return candidates[i];
+  }
+  return '';
+})();
 
 function getCurrentBranch() {
   var branchNames = ['beta', 'dev', 'trunk'];
 
-  if (location.href.indexOf(officialURL) != 0)
+  if (!officialURL)
     return '';
 
   var branch = location.href.substring(
@@ -69,19 +82,26 @@ if (window.location.search == "?regenerate" ||
   }
 } else {
   window.onload = function() {
-    var currentBranch = getCurrentBranch();
-    if (currentBranch == '') {
-      document.getElementById('unofficialWarning').style.display = 'block';
-      document.getElementById('goToOfficialDocs').onclick = function() {
-        location.href = officialURL;
-      };
-    } else if (currentBranch != 'stable') {
-      document.getElementById("branchName").textContent =
-          currentBranch.toUpperCase();
-      document.getElementById('branchWarning').style.display = 'block';
-      document.getElementById('branchChooser').onchange = function() {
-        location.href = officialURL + this.value + "/";
-      };
+    if (location.pathname.split('/').reverse()[1] != 'apps') {
+      var currentBranch = getCurrentBranch();
+      if (currentBranch == '') {
+        document.getElementById('unofficialWarning').style.display = 'block';
+        document.getElementById('goToOfficialDocs').onclick = function() {
+          location.href = officialURL;
+        };
+      } else if (currentBranch != 'stable') {
+        document.getElementById("branchName").textContent =
+            currentBranch.toUpperCase();
+        document.getElementById('branchWarning').style.display = 'block';
+        document.getElementById('branchChooser').onchange = function() {
+          location.href = officialURL + this.value + "/";
+        };
+      }
+      if (currentBranch != 'stable' && currentBranch != 'beta') {
+        var warning = document.getElementById('eventPageWarning');
+        if (warning)
+          warning.style.display = 'block';
+      }
     }
   }
 }

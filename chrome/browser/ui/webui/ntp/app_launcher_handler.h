@@ -4,13 +4,12 @@
 
 #ifndef CHROME_BROWSER_UI_WEBUI_NTP_APP_LAUNCHER_HANDLER_H_
 #define CHROME_BROWSER_UI_WEBUI_NTP_APP_LAUNCHER_HANDLER_H_
-#pragma once
 
 #include <string>
 
 #include "base/memory/scoped_ptr.h"
 #include "chrome/browser/cancelable_request.h"
-#include "chrome/browser/extensions/extension_install_ui.h"
+#include "chrome/browser/extensions/extension_install_prompt.h"
 #include "chrome/browser/extensions/extension_uninstall_dialog.h"
 #include "chrome/browser/favicon/favicon_service.h"
 #include "chrome/browser/prefs/pref_change_registrar.h"
@@ -29,7 +28,7 @@ class Profile;
 // The handler for Javascript messages related to the "apps" view.
 class AppLauncherHandler : public content::WebUIMessageHandler,
                            public ExtensionUninstallDialog::Delegate,
-                           public ExtensionInstallUI::Delegate,
+                           public ExtensionInstallPrompt::Delegate,
                            public content::NotificationObserver {
  public:
   explicit AppLauncherHandler(ExtensionService* extension_service);
@@ -37,7 +36,7 @@ class AppLauncherHandler : public content::WebUIMessageHandler,
 
   // Populate a dictionary with the information from an extension.
   static void CreateAppInfo(
-      const Extension* extension,
+      const extensions::Extension* extension,
       const AppNotification* notification,
       ExtensionService* service,
       base::DictionaryValue* value);
@@ -56,7 +55,7 @@ class AppLauncherHandler : public content::WebUIMessageHandler,
   // Create a dictionary value for the given extension. May return NULL, e.g. if
   // the given extension is not an app. If non-NULL, the caller assumes
   // ownership of the pointer.
-  base::DictionaryValue* GetAppInfo(const Extension* extension);
+  base::DictionaryValue* GetAppInfo(const extensions::Extension* extension);
 
   // Populate the given dictionary with the web store promo content.
   void FillPromoDictionary(base::DictionaryValue* value);
@@ -143,7 +142,7 @@ class AppLauncherHandler : public content::WebUIMessageHandler,
   virtual void ExtensionUninstallAccepted() OVERRIDE;
   virtual void ExtensionUninstallCanceled() OVERRIDE;
 
-  // ExtensionInstallUI::Delegate:
+  // ExtensionInstallPrompt::Delegate:
   virtual void InstallUIProceed() OVERRIDE;
   virtual void InstallUIAbort(bool user_initiated) OVERRIDE;
 
@@ -151,9 +150,9 @@ class AppLauncherHandler : public content::WebUIMessageHandler,
   // needed.
   ExtensionUninstallDialog* GetExtensionUninstallDialog();
 
-  // Returns the ExtensionInstallUI object for this class, creating it if
+  // Returns the ExtensionInstallPrompt object for this class, creating it if
   // needed.
-  ExtensionInstallUI* GetExtensionInstallUI();
+  ExtensionInstallPrompt* GetExtensionInstallPrompt();
 
   // Helper that uninstalls all the default apps.
   void UninstallDefaultApps();
@@ -180,7 +179,10 @@ class AppLauncherHandler : public content::WebUIMessageHandler,
   scoped_ptr<ExtensionUninstallDialog> extension_uninstall_dialog_;
 
   // Used to show confirmation UI for enabling extensions in incognito mode.
-  scoped_ptr<ExtensionInstallUI> extension_install_ui_;
+  scoped_ptr<ExtensionInstallPrompt> extension_install_ui_;
+
+  // The set of apps to show on the NTP.
+  std::set<const extensions::Extension*> visible_apps_;
 
   // The id of the extension we are prompting the user about.
   std::string extension_id_prompting_;

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (c) 2011 The Chromium Authors. All rights reserved.
+# Copyright (c) 2012 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -23,6 +23,8 @@ import random
 import re
 import sys
 import threading
+
+from xml.dom import minidom
 
 # Add tools/ to path
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -52,6 +54,9 @@ def DetectNumCores():
     be found.
   """
   try:
+    # Override on some Chromium Valgrind bots.
+    if "CHROME_VALGRIND_NUMCPUS" in os.environ:
+      return int(os.environ["CHROME_VALGRIND_NUMCPUS"])
     # Linux, Unix, MacOS
     if hasattr(os, "sysconf"):
       if "SC_NPROCESSORS_ONLN" in os.sysconf_names:
@@ -66,16 +71,111 @@ def DetectNumCores():
     return SS_DEFAULT_NUM_CORES
 
 
-def RunShard(test, num_shards, index, gtest_args, stdout, stderr):
+def GetGTestOutput(args):
+  """Extracts gtest_output from the args. Returns none if not present."""
+
+  for arg in args:
+    if '--gtest_output=' in arg:
+      return arg.split('=')[1]
+  return None
+
+
+def AppendToGTestOutput(gtest_args, value):
+  args = gtest_args[:]
+  current_value = GetGTestOutput(args)
+  if not current_value:
+    return gtest_args
+
+  current_arg = '--gtest_output=' + current_value
+  args.remove(current_arg)
+  args.append('--gtest_output=' + current_value + value)
+  return args
+
+
+def RemoveGTestOutput(gtest_args):
+  args = gtest_args[:]
+  current_value = GetGTestOutput(args)
+  if not current_value:
+    return gtest_args
+
+  args.remove('--gtest_output=' + current_value)
+  return args
+
+
+def AppendToXML(final_xml, generic_path, shard):
+  """Combine the shard xml file with the final xml file."""
+
+  path = generic_path + str(shard)
+
+  try:
+    with open(path) as shard_xml_file:
+      shard_xml = minidom.parse(shard_xml_file)
+  except IOError:
+    # If the shard crashed, gtest will not have generated an xml file.
+    return final_xml
+
+  if not final_xml:
+    # Out final xml is empty, let's prepopulate it with the first one we see.
+    return shard_xml
+
+  shard_node = shard_xml.documentElement
+  final_node = final_xml.documentElement
+
+  testcases = shard_node.getElementsByTagName('testcase')
+  final_testcases = final_node.getElementsByTagName('testcase')
+
+  final_testsuites = final_node.getElementsByTagName('testsuite')
+  final_testsuites_by_name = dict(
+      (suite.getAttribute('name'), suite) for suite in final_testsuites)
+
+  for testcase in testcases:
+    name = testcase.getAttribute('name')
+    classname = testcase.getAttribute('classname')
+    failures = testcase.getElementsByTagName('failure')
+    status = testcase.getAttribute('status')
+    elapsed = testcase.getAttribute('time')
+
+    # don't bother updating the final xml if there is no data.
+    if status == 'notrun':
+      continue
+
+    # Look in our final xml to see if it's there.
+    # There has to be a better way...
+    merged_into_final_testcase = False
+    for final_testcase in final_testcases:
+      final_name = final_testcase.getAttribute('name')
+      final_classname = final_testcase.getAttribute('classname')
+      if final_name == name and final_classname == classname:
+        # We got the same entry.
+        final_testcase.setAttribute('status', status)
+        final_testcase.setAttribute('time', elapsed)
+        for failure in failures:
+          final_testcase.appendChild(failure)
+        merged_into_final_testcase = True
+
+    # We couldn't find an existing testcase to merge the results into, so we
+    # copy the node into the existing test suite.
+    if not merged_into_final_testcase:
+      testsuite = testcase.parentNode
+      final_testsuite = final_testsuites_by_name[testsuite.getAttribute('name')]
+      final_testsuite.appendChild(testcase)
+
+  return final_xml
+
+
+def RunShard(test, total_shards, index, gtest_args, stdout, stderr):
   """Runs a single test shard in a subprocess.
 
   Returns:
     The Popen object representing the subprocess handle.
   """
   args = [test]
-  args.extend(gtest_args)
+
+  # If there is a gtest_output
+  test_args = AppendToGTestOutput(gtest_args, str(index))
+  args.extend(test_args)
   env = os.environ.copy()
-  env["GTEST_TOTAL_SHARDS"] = str(num_shards)
+  env["GTEST_TOTAL_SHARDS"] = str(total_shards)
   env["GTEST_SHARD_INDEX"] = str(index)
 
   # Use a unique log file for each shard
@@ -155,7 +255,7 @@ class ShardRunner(threading.Thread):
       chars = cStringIO.StringIO()
       shard_running = True
       shard = RunShard(
-          self.supervisor.test, self.supervisor.num_shards, index,
+          self.supervisor.test, self.supervisor.total_shards, index,
           self.supervisor.gtest_args, subprocess.PIPE, subprocess.STDOUT)
       while shard_running:
         char = shard.stdout.read(1)
@@ -182,7 +282,7 @@ class ShardingSupervisor(object):
 
   Attributes:
     test: Name of the test to shard.
-    num_shards: Total number of shards to split the test into.
+    num_shards_to_run: Total number of shards to split the test into.
     num_runs: Total number of worker threads to create for running shards.
     color: Indicates which coloring mode to use in the output.
     original_order: True if shard output should be printed as it comes.
@@ -194,15 +294,33 @@ class ShardingSupervisor(object):
     shards_completed: List of flags indicating which shards have finished.
     shard_output: Buffer that stores the output from each shard.
     test_counter: Stores the total number of tests run.
+    total_slaves: Total number of slaves running this test.
+    slave_index: Current slave to run tests for.
+
+  If total_slaves is set, we run only a subset of the tests. This is meant to be
+  used when we want to shard across machines as well as across cpus. In that
+  case the number of shards to execute will be the same, but they will be
+  smaller, as the total number of shards in the test suite will be multiplied
+  by 'total_slaves'.
+
+  For example, if you are on a quad core machine, the sharding supervisor by
+  default will use 20 shards for the whole suite. However, if you set
+  total_slaves to 2, it will split the suite in 40 shards and will only run
+  shards [0-19] or shards [20-39] depending if you set slave_index to 0 or 1.
   """
 
   SHARD_COMPLETED = object()
 
-  def __init__(self, test, num_shards, num_runs, color, original_order,
-               prefix, retry_percent, timeout, gtest_args):
+  def __init__(self, test, num_shards_to_run, num_runs, color, original_order,
+               prefix, retry_percent, timeout, total_slaves, slave_index,
+               gtest_args):
     """Inits ShardingSupervisor with given options and gtest arguments."""
     self.test = test
-    self.num_shards = num_shards
+    # Number of shards to run locally.
+    self.num_shards_to_run = num_shards_to_run
+    # Total shards in the test suite running across all slaves.
+    self.total_shards = num_shards_to_run * total_slaves
+    self.slave_index = slave_index
     self.num_runs = num_runs
     self.color = color
     self.original_order = original_order
@@ -212,8 +330,8 @@ class ShardingSupervisor(object):
     self.gtest_args = gtest_args
     self.failed_tests = []
     self.failed_shards = []
-    self.shards_completed = [False] * num_shards
-    self.shard_output = [Queue.Queue() for _ in range(num_shards)]
+    self.shards_completed = [False] * self.num_shards_to_run
+    self.shard_output = [Queue.Queue() for _ in range(self.num_shards_to_run)]
     self.test_counter = itertools.count()
 
   def ShardTest(self):
@@ -249,7 +367,8 @@ class ShardingSupervisor(object):
 
     workers = []
     counter = Queue.Queue()
-    for i in range(self.num_shards):
+    start_point = self.num_shards_to_run * self.slave_index
+    for i in range(start_point, start_point + self.num_shards_to_run):
       counter.put(i)
 
     for i in range(self.num_runs):
@@ -263,14 +382,28 @@ class ShardingSupervisor(object):
     else:
       self.WaitForShards()
 
+    # All the shards are done.  Merge all the XML files and generate the
+    # main one.
+    output_arg = GetGTestOutput(self.gtest_args)
+    if output_arg:
+      xml, xml_path = output_arg.split(':', 1)
+      assert(xml == 'xml')
+      final_xml = None
+      for i in range(start_point, start_point + self.num_shards_to_run):
+        final_xml = AppendToXML(final_xml, xml_path, i)
+
+      if final_xml:
+        with open(xml_path, 'w') as final_file:
+          final_xml.writexml(final_file)
+
     num_failed = len(self.failed_shards)
     if num_failed > 0:
       self.failed_shards.sort()
-      self.WriteText(sys.stderr,
+      self.WriteText(sys.stdout,
                      "\nFAILED SHARDS: %s\n" % str(self.failed_shards),
                      "\x1b[1;5;31m")
     else:
-      self.WriteText(sys.stderr, "\nALL SHARDS PASSED!\n", "\x1b[1;5;32m")
+      self.WriteText(sys.stdout, "\nALL SHARDS PASSED!\n", "\x1b[1;5;32m")
     self.PrintSummary(self.failed_tests)
     if self.retry_percent < 0:
       return len(self.failed_shards) > 0
@@ -295,7 +428,7 @@ class ShardingSupervisor(object):
     the current shard to finish before starting on the next shard.
     """
     try:
-      for shard_index in range(self.num_shards):
+      for shard_index in range(self.num_shards_to_run):
         while True:
           try:
             line = self.shard_output[shard_index].get(True, self.timeout)
@@ -315,8 +448,8 @@ class ShardingSupervisor(object):
           sys.stdout.write(line)
     except:
       sys.stdout.flush()
-      print >> sys.stderr, 'CAUGHT EXCEPTION: dumping remaining data:'
-      for shard_index in range(self.num_shards):
+      print 'CAUGHT EXCEPTION: dumping remaining data:'
+      for shard_index in range(self.num_shards_to_run):
         while True:
           try:
             line = self.shard_output[shard_index].get(False)
@@ -326,19 +459,21 @@ class ShardingSupervisor(object):
             break
           if line is self.SHARD_COMPLETED:
             break
-          sys.stderr.write(line)
+          sys.stdout.write(line)
       raise
 
   def LogOutputLine(self, index, line):
     """Either prints the shard output line immediately or saves it in the
     output buffer, depending on the settings. Also optionally adds a  prefix.
     """
+    # Fix up the index.
+    array_index = index - (self.num_shards_to_run * self.slave_index)
     if self.prefix:
       line = "%i>%s" % (index, line)
     if self.original_order:
       sys.stdout.write(line)
     else:
-      self.shard_output[index].put(line)
+      self.shard_output[array_index].put(line)
 
   def IncrementTestCount(self):
     """Increments the number of tests run. This is relevant to the
@@ -350,7 +485,9 @@ class ShardingSupervisor(object):
     """Records that a shard has finished so the output from the next shard
     can now be printed.
     """
-    self.shard_output[index].put(self.SHARD_COMPLETED)
+    # Fix up the index.
+    array_index = index - (self.num_shards_to_run * self.slave_index)
+    self.shard_output[array_index].put(self.SHARD_COMPLETED)
 
   def RetryFailedTests(self):
     """Reruns any failed tests serially and prints another summary of the
@@ -358,9 +495,9 @@ class ShardingSupervisor(object):
     """
     num_tests_run = self.test_counter.next()
     if len(self.failed_tests) > self.retry_percent * num_tests_run:
-      sys.stderr.write("\nNOT RETRYING FAILED TESTS (too many failed)\n")
+      sys.stdout.write("\nNOT RETRYING FAILED TESTS (too many failed)\n")
       return 1
-    self.WriteText(sys.stderr, "\nRETRYING FAILED TESTS:\n", "\x1b[1;5;33m")
+    self.WriteText(sys.stdout, "\nRETRYING FAILED TESTS:\n", "\x1b[1;5;33m")
     sharded_description = re.compile(r": (?:\d+>)?(.*)")
     gtest_filters = [sharded_description.search(line).group(1)
                      for line in self.failed_tests]
@@ -368,13 +505,15 @@ class ShardingSupervisor(object):
 
     for test_filter in gtest_filters:
       args = [self.test, "--gtest_filter=" + test_filter]
-      args.extend(self.gtest_args)
+      # Don't update the xml output files during retry.
+      stripped_gtests_args = RemoveGTestOutput(self.gtest_args)
+      args.extend(stripped_gtests_args)
       rerun = subprocess.Popen(args)
       rerun.wait()
       if rerun.returncode != 0:
         failed_retries.append(test_filter)
 
-    self.WriteText(sys.stderr, "RETRY RESULTS:\n", "\x1b[1;5;33m")
+    self.WriteText(sys.stdout, "RETRY RESULTS:\n", "\x1b[1;5;33m")
     self.PrintSummary(failed_retries)
     return len(failed_retries) > 0
 
@@ -385,11 +524,11 @@ class ShardingSupervisor(object):
     the lines that indicate a test failure are reproduced.
     """
     if failed_tests:
-      self.WriteText(sys.stderr, "FAILED TESTS:\n", "\x1b[1;5;31m")
+      self.WriteText(sys.stdout, "FAILED TESTS:\n", "\x1b[1;5;31m")
       for line in failed_tests:
-        sys.stderr.write(line)
+        sys.stdout.write(line)
     else:
-      self.WriteText(sys.stderr, "ALL TESTS PASSED!\n", "\x1b[1;5;32m")
+      self.WriteText(sys.stdout, "ALL TESTS PASSED!\n", "\x1b[1;5;32m")
 
   def WriteText(self, pipe, text, ansi):
     """Writes the text to the pipe with the ansi escape code, if colored
@@ -447,6 +586,13 @@ def main():
   parser.add_option(
       "-t", "--timeout", type="int", default=SS_DEFAULT_TIMEOUT,
       help="timeout in seconds to wait for a shard (default=%default s)")
+  parser.add_option(
+      "--total-slaves", type="int", default=1,
+      help="if running a subset, number of slaves sharing the test")
+  parser.add_option(
+      "--slave-index", type="int", default=0,
+      help="if running a subset, index of the slave to run tests for")
+
   parser.disable_interspersed_args()
   (options, args) = parser.parse_args()
 
@@ -459,12 +605,13 @@ def main():
 
   if options.shards_per_core < 1:
     parser.error("You must have at least 1 shard per core!")
-  num_shards = num_cores * options.shards_per_core
+  num_shards_to_run = num_cores * options.shards_per_core
 
   if options.runs_per_core < 1:
     parser.error("You must have at least 1 run per core!")
   num_runs = num_cores * options.runs_per_core
 
+  test = args[0]
   gtest_args = ["--gtest_color=%s" % {
       True: "yes", False: "no"}[options.color]] + args[1:]
 
@@ -488,17 +635,32 @@ def main():
 
   if options.runshard != None:
     # run a single shard and exit
-    if (options.runshard < 0 or options.runshard >= num_shards):
+    if (options.runshard < 0 or options.runshard >= num_shards_to_run):
       parser.error("Invalid shard number given parameters!")
     shard = RunShard(
-        args[0], num_shards, options.runshard, gtest_args, None, None)
+        test, num_shards_to_run, options.runshard, gtest_args, None, None)
     shard.communicate()
     return shard.poll()
 
+  # When running browser_tests, load the test binary into memory before running
+  # any tests. This is needed to prevent loading it from disk causing the first
+  # run tests to timeout flakily. See: http://crbug.com/124260
+  if "browser_tests" in test:
+    args = [test]
+    args.extend(gtest_args)
+    args.append("--warmup")
+    result = subprocess.call(args,
+                             bufsize=0,
+                             universal_newlines=True)
+    # If the test fails, don't run anything else.
+    if result != 0:
+      return result
+
   # shard and run the whole test
   ss = ShardingSupervisor(
-      args[0], num_shards, num_runs, options.color, options.original_order,
-      options.prefix, options.retry_percent, options.timeout, gtest_args)
+      test, num_shards_to_run, num_runs, options.color,
+      options.original_order, options.prefix, options.retry_percent,
+      options.timeout, options.total_slaves, options.slave_index, gtest_args)
   return ss.ShardTest()
 
 

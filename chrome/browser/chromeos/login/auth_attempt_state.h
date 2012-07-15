@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_AUTH_ATTEMPT_STATE_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_AUTH_ATTEMPT_STATE_H_
-#pragma once
 
 #include <string>
 
@@ -86,8 +85,6 @@ class AuthAttemptState {
   const bool unlock;  // True if authenticating to unlock the computer.
 
  protected:
-  bool try_again_;  // True if we're willing to retry the login attempt.
-
   // Status of our online login attempt.
   bool online_complete_;
   LoginFailure online_outcome_;

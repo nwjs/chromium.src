@@ -13,13 +13,13 @@
 #include "base/values.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/common/chrome_paths.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "grit/theme_resources.h"
-#include "grit/theme_resources_standard.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/gfx/color_utils.h"
 
 using content::BrowserThread;
+using extensions::Extension;
 
 class BrowserThemePackTest : public ::testing::Test {
  public:
@@ -79,7 +79,7 @@ class BrowserThemePackTest : public ::testing::Test {
   }
 
   void LoadColorJSON(const std::string& json) {
-    scoped_ptr<Value> value(base::JSONReader::Read(json, false));
+    scoped_ptr<Value> value(base::JSONReader::Read(json));
     ASSERT_TRUE(value->IsType(Value::TYPE_DICTIONARY));
     LoadColorDictionary(static_cast<DictionaryValue*>(value.get()));
   }
@@ -89,7 +89,7 @@ class BrowserThemePackTest : public ::testing::Test {
   }
 
   void LoadTintJSON(const std::string& json) {
-    scoped_ptr<Value> value(base::JSONReader::Read(json, false));
+    scoped_ptr<Value> value(base::JSONReader::Read(json));
     ASSERT_TRUE(value->IsType(Value::TYPE_DICTIONARY));
     LoadTintDictionary(static_cast<DictionaryValue*>(value.get()));
   }
@@ -99,7 +99,7 @@ class BrowserThemePackTest : public ::testing::Test {
   }
 
   void LoadDisplayPropertiesJSON(const std::string& json) {
-    scoped_ptr<Value> value(base::JSONReader::Read(json, false));
+    scoped_ptr<Value> value(base::JSONReader::Read(json));
     ASSERT_TRUE(value->IsType(Value::TYPE_DICTIONARY));
     LoadDisplayPropertiesDictionary(static_cast<DictionaryValue*>(value.get()));
   }
@@ -110,7 +110,7 @@ class BrowserThemePackTest : public ::testing::Test {
 
   void ParseImageNamesJSON(const std::string& json,
                        std::map<int, FilePath>* out_file_paths) {
-    scoped_ptr<Value> value(base::JSONReader::Read(json, false));
+    scoped_ptr<Value> value(base::JSONReader::Read(json));
     ASSERT_TRUE(value->IsType(Value::TYPE_DICTIONARY));
     ParseImageNamesDictionary(static_cast<DictionaryValue*>(value.get()),
                               out_file_paths);
@@ -410,7 +410,7 @@ TEST_F(BrowserThemePackTest, CanBuildAndReadPack) {
     ASSERT_TRUE(valid_value.get());
     scoped_refptr<Extension> extension(Extension::Create(
         star_gazing_path, Extension::INVALID, *valid_value,
-        Extension::REQUIRE_KEY | Extension::STRICT_ERROR_CHECKS, &error));
+        Extension::REQUIRE_KEY, &error));
     ASSERT_TRUE(extension.get());
     ASSERT_EQ("", error);
 

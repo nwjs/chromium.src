@@ -7,16 +7,15 @@
 #include <vector>
 
 #include "base/json/json_reader.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
 #include "base/values.h"
 #include "content/browser/speech/audio_buffer.h"
-#include "content/common/net/url_fetcher_impl.h"
 #include "content/public/common/speech_recognition_error.h"
 #include "content/public/common/speech_recognition_result.h"
 #include "net/base/escape.h"
 #include "net/base/load_flags.h"
+#include "net/url_request/url_fetcher.h"
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_context_getter.h"
 #include "net/url_request/url_request_status.h"
@@ -36,13 +35,8 @@ const char* const kConfidenceString = "confidence";
 const int kWebServiceStatusNoError = 0;
 const int kWebServiceStatusNoSpeech = 4;
 const int kWebServiceStatusNoMatch = 5;
-const int kDefaultConfigSampleRate = 8000;
-const int kDefaultConfigBitsPerSample = 16;
 const speech::AudioEncoder::Codec kDefaultAudioCodec =
     speech::AudioEncoder::CODEC_FLAC;
-// TODO(satish): Remove this hardcoded value once the page is allowed to
-// set this via an attribute.
-const int kMaxResults = 6;
 
 bool ParseServerResponse(const std::string& response_body,
                          SpeechRecognitionResult* result,
@@ -56,7 +50,7 @@ bool ParseServerResponse(const std::string& response_body,
   // Parse the response, ignoring comments.
   std::string error_msg;
   scoped_ptr<Value> response_value(base::JSONReader::ReadAndReturnError(
-      response_body, false, NULL, &error_msg));
+      response_body, base::JSON_PARSE_RFC, NULL, &error_msg));
   if (response_value == NULL) {
     LOG(WARNING) << "ParseServerResponse: JSONReader failed : " << error_msg;
     return false;
@@ -157,14 +151,6 @@ namespace speech {
 const int GoogleOneShotRemoteEngine::kAudioPacketIntervalMs = 100;
 int GoogleOneShotRemoteEngine::url_fetcher_id_for_tests = 0;
 
-GoogleOneShotRemoteEngineConfig::GoogleOneShotRemoteEngineConfig()
-    : filter_profanities(false),
-      audio_sample_rate(kDefaultConfigSampleRate),
-      audio_num_bits_per_sample(kDefaultConfigBitsPerSample) {
-}
-
-GoogleOneShotRemoteEngineConfig::~GoogleOneShotRemoteEngineConfig() {}
-
 GoogleOneShotRemoteEngine::GoogleOneShotRemoteEngine(
     net::URLRequestContextGetter* context)
     : url_context_(context) {
@@ -173,7 +159,7 @@ GoogleOneShotRemoteEngine::GoogleOneShotRemoteEngine(
 GoogleOneShotRemoteEngine::~GoogleOneShotRemoteEngine() {}
 
 void GoogleOneShotRemoteEngine::SetConfig(
-    const GoogleOneShotRemoteEngineConfig& config) {
+    const SpeechRecognitionEngineConfig& config) {
   config_ = config;
 }
 
@@ -200,13 +186,16 @@ void GoogleOneShotRemoteEngine::StartRecognition() {
   std::vector<std::string> parts;
   parts.push_back("lang=" + net::EscapeQueryParamValue(lang_param, true));
 
-  if (!config_.grammar.empty())
-    parts.push_back("lm=" + net::EscapeQueryParamValue(config_.grammar, true));
+  if (!config_.grammars.empty()) {
+    DCHECK_EQ(config_.grammars.size(), 1U);
+    parts.push_back("lm=" + net::EscapeQueryParamValue(config_.grammars[0].url,
+                                                       true));
+  }
 
   if (!config_.hardware_info.empty())
     parts.push_back("xhw=" + net::EscapeQueryParamValue(config_.hardware_info,
                                                         true));
-  parts.push_back("maxresults=" + base::IntToString(kMaxResults));
+  parts.push_back("maxresults=" + base::UintToString(config_.max_hypotheses));
   parts.push_back(config_.filter_profanities ? "pfilter=2" : "pfilter=0");
 
   GURL url(std::string(kDefaultSpeechRecognitionUrl) + JoinString(parts, '&'));
@@ -215,10 +204,10 @@ void GoogleOneShotRemoteEngine::StartRecognition() {
                                       config_.audio_sample_rate,
                                       config_.audio_num_bits_per_sample));
   DCHECK(encoder_.get());
-  url_fetcher_.reset(URLFetcherImpl::Create(url_fetcher_id_for_tests,
-                                            url,
-                                            URLFetcherImpl::POST,
-                                            this));
+  url_fetcher_.reset(net::URLFetcher::Create(url_fetcher_id_for_tests,
+                                             url,
+                                             net::URLFetcher::POST,
+                                             this));
   url_fetcher_->SetChunkedUpload(encoder_->mime_type());
   url_fetcher_->SetRequestContext(url_context_);
   url_fetcher_->SetReferrer(config_.origin_url);
@@ -242,7 +231,7 @@ void GoogleOneShotRemoteEngine::TakeAudioChunk(const AudioChunk& data) {
   DCHECK(encoder_.get());
   DCHECK_EQ(data.bytes_per_sample(), config_.audio_num_bits_per_sample / 8);
   encoder_->Encode(data);
-  scoped_ptr<AudioChunk> encoded_data(encoder_->GetEncodedDataAndClear());
+  scoped_refptr<AudioChunk> encoded_data(encoder_->GetEncodedDataAndClear());
   url_fetcher_->AppendChunkToUpload(encoded_data->AsString(), false);
 }
 
@@ -254,12 +243,14 @@ void GoogleOneShotRemoteEngine::AudioChunksEnded() {
   // of silence in case encoder had no data already.
   std::vector<int16> samples(
       config_.audio_sample_rate * kAudioPacketIntervalMs / 1000);
-  AudioChunk dummy_chunk(reinterpret_cast<uint8*>(&samples[0]),
-                         samples.size() * sizeof(int16),
-                         encoder_->bits_per_sample() / 8);
-  encoder_->Encode(dummy_chunk);
+  scoped_refptr<AudioChunk> dummy_chunk(
+      new AudioChunk(reinterpret_cast<uint8*>(&samples[0]),
+                     samples.size() * sizeof(int16),
+                     encoder_->bits_per_sample() / 8));
+  encoder_->Encode(*dummy_chunk);
   encoder_->Flush();
-  scoped_ptr<AudioChunk> encoded_dummy_data(encoder_->GetEncodedDataAndClear());
+  scoped_refptr<AudioChunk> encoded_dummy_data(
+      encoder_->GetEncodedDataAndClear());
   DCHECK(!encoded_dummy_data->IsEmpty());
   encoder_.reset();
 
@@ -267,7 +258,7 @@ void GoogleOneShotRemoteEngine::AudioChunksEnded() {
 }
 
 void GoogleOneShotRemoteEngine::OnURLFetchComplete(
-    const content::URLFetcher* source) {
+    const net::URLFetcher* source) {
   DCHECK_EQ(url_fetcher_.get(), source);
   SpeechRecognitionResult result;
   SpeechRecognitionError error(content::SPEECH_RECOGNITION_ERROR_NETWORK);

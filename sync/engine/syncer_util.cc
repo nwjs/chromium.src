@@ -12,29 +12,33 @@
 #include "base/location.h"
 #include "base/metrics/histogram.h"
 #include "sync/engine/conflict_resolver.h"
-#include "sync/engine/nigori_util.h"
 #include "sync/engine/syncer_proto_util.h"
 #include "sync/engine/syncer_types.h"
-#include "sync/engine/syncproto.h"
+#include "sync/internal_api/public/base/model_type.h"
 #include "sync/protocol/bookmark_specifics.pb.h"
 #include "sync/protocol/nigori_specifics.pb.h"
 #include "sync/protocol/password_specifics.pb.h"
 #include "sync/protocol/sync.pb.h"
-#include "sync/syncable/model_type.h"
-#include "sync/syncable/syncable.h"
+#include "sync/syncable/directory.h"
+#include "sync/syncable/entry.h"
+#include "sync/syncable/mutable_entry.h"
+#include "sync/syncable/nigori_util.h"
+#include "sync/syncable/read_transaction.h"
 #include "sync/syncable/syncable_changes_version.h"
+#include "sync/syncable/syncable_proto_util.h"
+#include "sync/syncable/syncable_util.h"
+#include "sync/syncable/write_transaction.h"
 #include "sync/util/cryptographer.h"
 #include "sync/util/time.h"
 
+namespace syncer {
+
 using syncable::BASE_VERSION;
-using syncable::Blob;
 using syncable::CHANGES_VERSION;
-using syncable::CREATE;
 using syncable::CREATE_NEW_UPDATE_ITEM;
 using syncable::CTIME;
 using syncable::Directory;
 using syncable::Entry;
-using syncable::GetModelTypeFromSpecifics;
 using syncable::GET_BY_HANDLE;
 using syncable::GET_BY_ID;
 using syncable::ID;
@@ -43,16 +47,13 @@ using syncable::IS_DIR;
 using syncable::IS_UNAPPLIED_UPDATE;
 using syncable::IS_UNSYNCED;
 using syncable::Id;
-using syncable::IsRealDataType;
 using syncable::META_HANDLE;
 using syncable::MTIME;
 using syncable::MutableEntry;
-using syncable::NEXT_ID;
 using syncable::NON_UNIQUE_NAME;
 using syncable::BASE_SERVER_SPECIFICS;
 using syncable::PARENT_ID;
 using syncable::PREV_ID;
-using syncable::ReadTransaction;
 using syncable::SERVER_CTIME;
 using syncable::SERVER_IS_DEL;
 using syncable::SERVER_IS_DIR;
@@ -68,81 +69,16 @@ using syncable::SPECIFICS;
 using syncable::SYNCER;
 using syncable::WriteTransaction;
 
-namespace browser_sync {
-
-// Returns the number of unsynced entries.
-// static
-int SyncerUtil::GetUnsyncedEntries(syncable::BaseTransaction* trans,
-                                   std::vector<int64> *handles) {
-  trans->directory()->GetUnsyncedMetaHandles(trans, handles);
-  DVLOG_IF(1, !handles->empty()) << "Have " << handles->size()
-                                 << " unsynced items.";
-  return handles->size();
-}
-
-// static
-void SyncerUtil::ChangeEntryIDAndUpdateChildren(
-    syncable::WriteTransaction* trans,
-    syncable::MutableEntry* entry,
-    const syncable::Id& new_id,
-    syncable::Directory::ChildHandles* children) {
-  syncable::Id old_id = entry->Get(ID);
-  if (!entry->Put(ID, new_id)) {
-    Entry old_entry(trans, GET_BY_ID, new_id);
-    CHECK(old_entry.good());
-    LOG(FATAL) << "Attempt to change ID to " << new_id
-               << " conflicts with existing entry.\n\n"
-               << *entry << "\n\n" << old_entry;
-  }
-  if (entry->Get(IS_DIR)) {
-    // Get all child entries of the old id.
-    trans->directory()->GetChildHandlesById(trans, old_id, children);
-    Directory::ChildHandles::iterator i = children->begin();
-    while (i != children->end()) {
-      MutableEntry child_entry(trans, GET_BY_HANDLE, *i++);
-      CHECK(child_entry.good());
-      // Use the unchecked setter here to avoid touching the child's NEXT_ID
-      // and PREV_ID fields (which Put(PARENT_ID) would normally do to
-      // maintain linked-list invariants).  In this case, NEXT_ID and PREV_ID
-      // among the children will be valid after the loop, since we update all
-      // the children at once.
-      child_entry.PutParentIdPropertyOnly(new_id);
-    }
-  }
-  // Update Id references on the previous and next nodes in the sibling
-  // order.  Do this by reinserting into the linked list; the first
-  // step in PutPredecessor is to Unlink from the existing order, which
-  // will overwrite the stale Id value from the adjacent nodes.
-  if (entry->Get(PREV_ID) == entry->Get(NEXT_ID) &&
-      entry->Get(PREV_ID) == old_id) {
-    // We just need a shallow update to |entry|'s fields since it is already
-    // self looped.
-    entry->Put(NEXT_ID, new_id);
-    entry->Put(PREV_ID, new_id);
-  } else {
-    entry->PutPredecessor(entry->Get(PREV_ID));
-  }
-}
-
-// static
-void SyncerUtil::ChangeEntryIDAndUpdateChildren(
-    syncable::WriteTransaction* trans,
-    syncable::MutableEntry* entry,
-    const syncable::Id& new_id) {
-  syncable::Directory::ChildHandles children;
-  ChangeEntryIDAndUpdateChildren(trans, entry, new_id, &children);
-}
-
-// static
-syncable::Id SyncerUtil::FindLocalIdToUpdate(
+syncable::Id FindLocalIdToUpdate(
     syncable::BaseTransaction* trans,
-    const SyncEntity& update) {
+    const sync_pb::SyncEntity& update) {
   // Expected entry points of this function:
   // SyncEntity has NOT been applied to SERVER fields.
   // SyncEntity has NOT been applied to LOCAL fields.
   // DB has not yet been modified, no entries created for this update.
 
   const std::string& client_id = trans->directory()->cache_guid();
+  const syncable::Id& update_id = SyncableIdFromProto(update.id_string());
 
   if (update.has_client_defined_unique_tag() &&
       !update.client_defined_unique_tag().empty()) {
@@ -171,10 +107,10 @@ syncable::Id SyncerUtil::FindLocalIdToUpdate(
     // TODO(chron): Unit test the case with IS_DEL and make sure.
     if (local_entry.good()) {
       if (local_entry.Get(ID).ServerKnows()) {
-        if (local_entry.Get(ID) != update.id()) {
+        if (local_entry.Get(ID) != update_id) {
           // Case 2.
           LOG(WARNING) << "Duplicated client tag.";
-          if (local_entry.Get(ID) < update.id()) {
+          if (local_entry.Get(ID) < update_id) {
             // Signal an error; drop this update on the floor.  Note that
             // we don't server delete the item, because we don't allow it to
             // exist locally at all.  So the item will remain orphaned on
@@ -183,7 +119,7 @@ syncable::Id SyncerUtil::FindLocalIdToUpdate(
           }
         }
         // Target this change to the existing local entry; later,
-        // we'll change the ID of the local entry to update.id()
+        // we'll change the ID of the local entry to update_id
         // if needed.
         return local_entry.Get(ID);
       } else {
@@ -237,18 +173,17 @@ syncable::Id SyncerUtil::FindLocalIdToUpdate(
       DCHECK(!local_entry.Get(ID).ServerKnows());
 
       DVLOG(1) << "Reuniting lost commit response IDs. server id: "
-               << update.id() << " local id: " << local_entry.Get(ID)
+               << update_id << " local id: " << local_entry.Get(ID)
                << " new version: " << new_version;
 
       return local_entry.Get(ID);
     }
   }
   // Fallback: target an entry having the server ID, creating one if needed.
-  return update.id();
+  return update_id;
 }
 
-// static
-UpdateAttemptResponse SyncerUtil::AttemptToUpdateEntry(
+UpdateAttemptResponse AttemptToUpdateEntry(
     syncable::WriteTransaction* const trans,
     syncable::MutableEntry* const entry,
     ConflictResolver* resolver,
@@ -316,7 +251,7 @@ UpdateAttemptResponse SyncerUtil::AttemptToUpdateEntry(
       !cryptographer->CanDecrypt(specifics.encrypted())) {
     // We can't decrypt this node yet.
     DVLOG(1) << "Received an undecryptable "
-             << syncable::ModelTypeToString(entry->GetServerModelType())
+             << syncer::ModelTypeToString(entry->GetServerModelType())
              << " update, returning encryption_conflict.";
     return CONFLICT_ENCRYPTION;
   } else if (specifics.has_password() &&
@@ -368,15 +303,15 @@ UpdateAttemptResponse SyncerUtil::AttemptToUpdateEntry(
 
   if (specifics.has_encrypted()) {
     DVLOG(2) << "Received a decryptable "
-             << syncable::ModelTypeToString(entry->GetServerModelType())
+             << syncer::ModelTypeToString(entry->GetServerModelType())
              << " update, applying normally.";
   } else {
     DVLOG(2) << "Received an unencrypted "
-             << syncable::ModelTypeToString(entry->GetServerModelType())
+             << syncer::ModelTypeToString(entry->GetServerModelType())
              << " update, applying normally.";
   }
 
-  SyncerUtil::UpdateLocalDataFromServerData(trans, entry);
+  UpdateLocalDataFromServerData(trans, entry);
 
   return SUCCESS;
 }
@@ -405,10 +340,9 @@ void UpdateBookmarkSpecifics(const std::string& singleton_tag,
 }  // namespace
 
 // Pass in name and checksum because of UTF8 conversion.
-// static
-void SyncerUtil::UpdateServerFieldsFromUpdate(
+void UpdateServerFieldsFromUpdate(
     MutableEntry* target,
-    const SyncEntity& update,
+    const sync_pb::SyncEntity& update,
     const std::string& name) {
   if (update.deleted()) {
     if (target->Get(SERVER_IS_DEL)) {
@@ -435,14 +369,14 @@ void SyncerUtil::UpdateServerFieldsFromUpdate(
     return;
   }
 
-  DCHECK(target->Get(ID) == update.id())
+  DCHECK_EQ(target->Get(ID), SyncableIdFromProto(update.id_string()))
       << "ID Changing not supported here";
-  target->Put(SERVER_PARENT_ID, update.parent_id());
+  target->Put(SERVER_PARENT_ID, SyncableIdFromProto(update.parent_id_string()));
   target->Put(SERVER_NON_UNIQUE_NAME, name);
   target->Put(SERVER_VERSION, update.version());
   target->Put(SERVER_CTIME, ProtoTimeToTime(update.ctime()));
   target->Put(SERVER_MTIME, ProtoTimeToTime(update.mtime()));
-  target->Put(SERVER_IS_DIR, update.IsFolder());
+  target->Put(SERVER_IS_DIR, IsFolder(update));
   if (update.has_server_defined_unique_tag()) {
     const std::string& tag = update.server_defined_unique_tag();
     target->Put(UNIQUE_SERVER_TAG, tag);
@@ -453,12 +387,12 @@ void SyncerUtil::UpdateServerFieldsFromUpdate(
   }
   // Store the datatype-specific part as a protobuf.
   if (update.has_specifics()) {
-    DCHECK(update.GetModelType() != syncable::UNSPECIFIED)
+    DCHECK_NE(GetModelType(update), UNSPECIFIED)
         << "Storing unrecognized datatype in sync database.";
     target->Put(SERVER_SPECIFICS, update.specifics());
   } else if (update.has_bookmarkdata()) {
     // Legacy protocol response for bookmark data.
-    const SyncEntity::BookmarkData& bookmark = update.bookmarkdata();
+    const sync_pb::SyncEntity::BookmarkData& bookmark = update.bookmarkdata();
     UpdateBookmarkSpecifics(update.server_defined_unique_tag(),
                             bookmark.bookmark_url(),
                             bookmark.bookmark_favicon(),
@@ -477,9 +411,8 @@ void SyncerUtil::UpdateServerFieldsFromUpdate(
 }
 
 // Creates a new Entry iff no Entry exists with the given id.
-// static
-void SyncerUtil::CreateNewEntry(syncable::WriteTransaction *trans,
-                                const syncable::Id& id) {
+void CreateNewEntry(syncable::WriteTransaction *trans,
+                    const syncable::Id& id) {
   syncable::MutableEntry entry(trans, GET_BY_ID, id);
   if (!entry.good()) {
     syncable::MutableEntry new_entry(trans, syncable::CREATE_NEW_UPDATE_ITEM,
@@ -487,8 +420,7 @@ void SyncerUtil::CreateNewEntry(syncable::WriteTransaction *trans,
   }
 }
 
-// static
-void SyncerUtil::SplitServerInformationIntoNewEntry(
+void SplitServerInformationIntoNewEntry(
     syncable::WriteTransaction* trans,
     syncable::MutableEntry* entry) {
   syncable::Id id = entry->Get(ID);
@@ -505,8 +437,7 @@ void SyncerUtil::SplitServerInformationIntoNewEntry(
 
 // This function is called on an entry when we can update the user-facing data
 // from the server data.
-// static
-void SyncerUtil::UpdateLocalDataFromServerData(
+void UpdateLocalDataFromServerData(
     syncable::WriteTransaction* trans,
     syncable::MutableEntry* entry) {
   DCHECK(!entry->Get(IS_UNSYNCED));
@@ -540,9 +471,7 @@ void SyncerUtil::UpdateLocalDataFromServerData(
   entry->Put(IS_UNAPPLIED_UPDATE, false);
 }
 
-// static
-VerifyCommitResult SyncerUtil::ValidateCommitEntry(
-    syncable::Entry* entry) {
+VerifyCommitResult ValidateCommitEntry(syncable::Entry* entry) {
   syncable::Id id = entry->Get(ID);
   if (id == entry->Get(PARENT_ID)) {
     CHECK(id.IsRoot()) << "Non-root item is self parenting." << *entry;
@@ -561,8 +490,7 @@ VerifyCommitResult SyncerUtil::ValidateCommitEntry(
   return VERIFY_OK;
 }
 
-// static
-bool SyncerUtil::AddItemThenPredecessors(
+bool AddItemThenPredecessors(
     syncable::BaseTransaction* trans,
     syncable::Entry* item,
     syncable::IndexedBitField inclusion_filter,
@@ -589,8 +517,7 @@ bool SyncerUtil::AddItemThenPredecessors(
   return true;
 }
 
-// static
-void SyncerUtil::AddPredecessorsThenItem(
+void AddPredecessorsThenItem(
     syncable::BaseTransaction* trans,
     syncable::Entry* item,
     syncable::IndexedBitField inclusion_filter,
@@ -604,8 +531,7 @@ void SyncerUtil::AddPredecessorsThenItem(
   std::reverse(commit_ids->begin() + initial_size, commit_ids->end());
 }
 
-// static
-void SyncerUtil::MarkDeletedChildrenSynced(
+void MarkDeletedChildrenSynced(
     syncable::Directory* dir,
     std::set<syncable::Id>* deleted_folders) {
   // There's two options here.
@@ -619,7 +545,7 @@ void SyncerUtil::MarkDeletedChildrenSynced(
     return;
   Directory::UnsyncedMetaHandles handles;
   {
-    ReadTransaction trans(FROM_HERE, dir);
+    syncable::ReadTransaction trans(FROM_HERE, dir);
     dir->GetUnsyncedMetaHandles(&trans, &handles);
   }
   if (handles.empty())
@@ -646,9 +572,8 @@ void SyncerUtil::MarkDeletedChildrenSynced(
   }
 }
 
-// static
-VerifyResult SyncerUtil::VerifyNewEntry(
-    const SyncEntity& update,
+VerifyResult VerifyNewEntry(
+    const sync_pb::SyncEntity& update,
     syncable::Entry* target,
     const bool deleted) {
   if (target->good()) {
@@ -665,22 +590,22 @@ VerifyResult SyncerUtil::VerifyNewEntry(
 
 // Assumes we have an existing entry; check here for updates that break
 // consistency rules.
-// static
-VerifyResult SyncerUtil::VerifyUpdateConsistency(
+VerifyResult VerifyUpdateConsistency(
     syncable::WriteTransaction* trans,
-    const SyncEntity& update,
+    const sync_pb::SyncEntity& update,
     syncable::MutableEntry* target,
     const bool deleted,
     const bool is_directory,
-    syncable::ModelType model_type) {
+    syncer::ModelType model_type) {
 
   CHECK(target->good());
+  const syncable::Id& update_id = SyncableIdFromProto(update.id_string());
 
   // If the update is a delete, we don't really need to worry at this stage.
   if (deleted)
     return VERIFY_SUCCESS;
 
-  if (model_type == syncable::UNSPECIFIED) {
+  if (model_type == syncer::UNSPECIFIED) {
     // This update is to an item of a datatype we don't recognize. The server
     // shouldn't have sent it to us.  Throw it on the ground.
     return VERIFY_SKIP;
@@ -701,7 +626,7 @@ VerifyResult SyncerUtil::VerifyUpdateConsistency(
       }
     }
 
-    if (!deleted && (target->Get(ID) == update.id()) &&
+    if (!deleted && (target->Get(ID) == update_id) &&
         (target->Get(SERVER_IS_DEL) ||
          (!target->Get(IS_UNSYNCED) && target->Get(IS_DEL) &&
           target->Get(BASE_VERSION) > 0))) {
@@ -709,8 +634,7 @@ VerifyResult SyncerUtil::VerifyUpdateConsistency(
       // when the server does not give us an update following the
       // commit of a delete, before undeleting.
       // Undeletion is common for items that reuse the client-unique tag.
-      VerifyResult result =
-          SyncerUtil::VerifyUndelete(trans, update, target);
+      VerifyResult result = VerifyUndelete(trans, update, target);
       if (VERIFY_UNDECIDED != result)
         return result;
     }
@@ -725,7 +649,7 @@ VerifyResult SyncerUtil::VerifyUpdateConsistency(
                  << SyncerProtoUtil::SyncEntityDebugString(update);
       return VERIFY_FAIL;
     }
-    if (target->Get(ID) == update.id()) {
+    if (target->Get(ID) == update_id) {
       if (target->Get(SERVER_VERSION) > update.version()) {
         LOG(WARNING) << "We've already seen a more recent version.";
         LOG(WARNING) << " Entry: " << *target;
@@ -740,10 +664,9 @@ VerifyResult SyncerUtil::VerifyUpdateConsistency(
 
 // Assumes we have an existing entry; verify an update that seems to be
 // expressing an 'undelete'
-// static
-VerifyResult SyncerUtil::VerifyUndelete(syncable::WriteTransaction* trans,
-                                        const SyncEntity& update,
-                                        syncable::MutableEntry* target) {
+VerifyResult VerifyUndelete(syncable::WriteTransaction* trans,
+                            const sync_pb::SyncEntity& update,
+                            syncable::MutableEntry* target) {
   // TODO(nick): We hit this path for items deleted items that the server
   // tells us to re-create; only deleted items with positive base versions
   // will hit this path.  However, it's not clear how such an undeletion
@@ -775,4 +698,4 @@ VerifyResult SyncerUtil::VerifyUndelete(syncable::WriteTransaction* trans,
   return VERIFY_UNDECIDED;
 }
 
-}  // namespace browser_sync
+}  // namespace syncer

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_RENDERER_SPELLCHECKER_SPELLCHECK_PROVIDER_H_
 #define CHROME_RENDERER_SPELLCHECKER_SPELLCHECK_PROVIDER_H_
-#pragma once
 
 #include <vector>
 
@@ -77,27 +76,40 @@ class SpellCheckProvider : public content::RenderViewObserver,
   virtual void updateSpellingUIWithMisspelledWord(
       const WebKit::WebString& word) OVERRIDE;
 
-  void OnAdvanceToNextMisspelling();
 #if !defined(OS_MACOSX)
   void OnRespondSpellingService(
       int identifier,
-      int tag,
+      int offset,
+      bool succeeded,
+      const string16& text,
       const std::vector<SpellCheckResult>& results);
+
+  // Returns whether |text| has word characters, i.e. whether a spellchecker
+  // needs to check this text.
+  bool HasWordCharacters(const WebKit::WebString& text, int index) const;
 #endif
 #if defined(OS_MACOSX)
+  void OnAdvanceToNextMisspelling();
   void OnRespondTextCheck(
       int identifier,
       int tag,
       const std::vector<SpellCheckResult>& results);
+  void OnToggleSpellPanel(bool is_currently_visible);
 #endif
   void OnToggleSpellCheck();
-  void OnToggleSpellPanel(bool is_currently_visible);
 
   // Initializes the document_tag_ member if necessary.
   void EnsureDocumentTag();
 
   // Holds ongoing spellchecking operations, assigns IDs for the IPC routing.
   WebTextCheckCompletions text_check_completions_;
+
+#if !defined(OS_MACOSX)
+  // The last text sent to the browser process to spellcheck it and its
+  // spellchecking results.
+  string16 last_request_;
+  WebKit::WebVector<WebKit::WebTextCheckingResult> last_results_;
+#endif
 
 #if defined(OS_MACOSX)
   // True if the current RenderView has been assigned a document tag.

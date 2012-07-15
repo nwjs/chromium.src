@@ -10,6 +10,8 @@
 using base::Time;
 using base::TimeDelta;
 
+namespace media {
+
 AudioInputStream* FakeAudioInputStream::MakeFakeStream(
     AudioManagerBase* manager,
     const AudioParameters& params) {
@@ -48,7 +50,7 @@ void FakeAudioInputStream::Start(AudioInputCallback* callback)  {
 
 void FakeAudioInputStream::DoCallback() {
   DCHECK(callback_);
-  callback_->OnData(this, buffer_.get(), buffer_size_, buffer_size_);
+  callback_->OnData(this, buffer_.get(), buffer_size_, buffer_size_, 0.0);
 
   Time now = Time::Now();
   base::TimeDelta next_callback_time =
@@ -87,3 +89,11 @@ void FakeAudioInputStream::SetVolume(double volume) {}
 double FakeAudioInputStream::GetVolume() {
   return 0.0;
 }
+
+void FakeAudioInputStream::SetAutomaticGainControl(bool enabled) {}
+
+bool FakeAudioInputStream::GetAutomaticGainControl() {
+  return false;
+}
+
+}  // namespace media

@@ -47,7 +47,7 @@ void ExpectFrameColor(media::VideoFrame* yv12_frame, uint32 expect_rgb_color) {
             yv12_frame->stride(VideoFrame::kVPlane));
 
   scoped_refptr<media::VideoFrame> rgb_frame;
-  rgb_frame = media::VideoFrame::CreateFrame(VideoFrame::RGBA,
+  rgb_frame = media::VideoFrame::CreateFrame(VideoFrame::RGB32,
                                              yv12_frame->width(),
                                              yv12_frame->height(),
                                              yv12_frame->GetTimestamp(),
@@ -121,30 +121,14 @@ void ExpectFrameExtents(VideoFrame::Format format, int planes,
 TEST(VideoFrame, CreateFrame) {
   const size_t kWidth = 64;
   const size_t kHeight = 48;
-  const base::TimeDelta kTimestampA = base::TimeDelta::FromMicroseconds(1337);
-  const base::TimeDelta kDurationA = base::TimeDelta::FromMicroseconds(1667);
-  const base::TimeDelta kTimestampB = base::TimeDelta::FromMicroseconds(1234);
-  const base::TimeDelta kDurationB = base::TimeDelta::FromMicroseconds(5678);
+  const base::TimeDelta kTimestamp = base::TimeDelta::FromMicroseconds(1337);
+  const base::TimeDelta kDuration = base::TimeDelta::FromMicroseconds(1667);
 
   // Create a YV12 Video Frame.
   scoped_refptr<media::VideoFrame> frame =
       VideoFrame::CreateFrame(media::VideoFrame::YV12, kWidth, kHeight,
-                              kTimestampA, kDurationA);
+                              kTimestamp, kDuration);
   ASSERT_TRUE(frame);
-
-  // Test StreamSample implementation.
-  EXPECT_EQ(kTimestampA.InMicroseconds(),
-            frame->GetTimestamp().InMicroseconds());
-  EXPECT_EQ(kDurationA.InMicroseconds(),
-            frame->GetDuration().InMicroseconds());
-  EXPECT_FALSE(frame->IsEndOfStream());
-  frame->SetTimestamp(kTimestampB);
-  frame->SetDuration(kDurationB);
-  EXPECT_EQ(kTimestampB.InMicroseconds(),
-            frame->GetTimestamp().InMicroseconds());
-  EXPECT_EQ(kDurationB.InMicroseconds(),
-            frame->GetDuration().InMicroseconds());
-  EXPECT_FALSE(frame->IsEndOfStream());
 
   // Test VideoFrame implementation.
   EXPECT_EQ(media::VideoFrame::YV12, frame->format());
@@ -218,15 +202,7 @@ TEST(VideoFrame, CheckFrameExtents) {
   // and the expected hash of all planes if filled with kFillByte (defined in
   // ExpectFrameExtents).
   ExpectFrameExtents(
-      VideoFrame::RGB555, 1, 2, "31f7739efc76b5d9cb51361ba82533fa");
-  ExpectFrameExtents(
-      VideoFrame::RGB565, 1, 2, "31f7739efc76b5d9cb51361ba82533fa");
-  ExpectFrameExtents(
-      VideoFrame::RGB24,  1, 3, "84361ae9d4b6d4641a11474b3a7a2260");
-  ExpectFrameExtents(
       VideoFrame::RGB32,  1, 4, "de6d3d567e282f6a38d478f04fc81fb0");
-  ExpectFrameExtents(
-      VideoFrame::RGBA,   1, 4, "de6d3d567e282f6a38d478f04fc81fb0");
   ExpectFrameExtents(
       VideoFrame::YV12,   3, 1, "71113bdfd4c0de6cf62f48fb74f7a0b1");
   ExpectFrameExtents(

@@ -124,13 +124,18 @@ bool Tumbler::HandleInputEvent(const pp::InputEvent& event) {
     case PP_INPUTEVENT_TYPE_IME_COMPOSITION_UPDATE:
     case PP_INPUTEVENT_TYPE_IME_COMPOSITION_END:
     case PP_INPUTEVENT_TYPE_IME_TEXT:
+    case PP_INPUTEVENT_TYPE_TOUCHSTART:
+    case PP_INPUTEVENT_TYPE_TOUCHMOVE:
+    case PP_INPUTEVENT_TYPE_TOUCHEND:
+    case PP_INPUTEVENT_TYPE_TOUCHCANCEL:
     default:
       return false;
   }
   return false;
 }
 
-void Tumbler::DidChangeView(const pp::Rect& position, const pp::Rect& clip) {
+void Tumbler::DidChangeView(const pp::View& view) {
+  pp::Rect position = view.GetRect();
   // Note: When switching to fullscreen, the new View position will be a
   // rectangle that encompasses the entire screen - e.g. 1900x1200 - with its
   // top-left corner at (0, 0). When switching back to the windowed screen the

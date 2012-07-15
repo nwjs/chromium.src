@@ -15,26 +15,53 @@ namespace dom_storage {
 
 DomStorageSession::DomStorageSession(DomStorageContext* context)
     : context_(context),
-      namespace_id_(context->AllocateSessionId()) {
+      namespace_id_(context->AllocateSessionId()),
+      persistent_namespace_id_(context->AllocatePersistentSessionId()),
+      should_persist_(false) {
   context->task_runner()->PostTask(
       FROM_HERE,
       base::Bind(&DomStorageContext::CreateSessionNamespace,
-                 context_, namespace_id_));
-}
-
-DomStorageSession* DomStorageSession::Clone() {
-  int64 clone_id = context_->AllocateSessionId();
-  context_->task_runner()->PostTask(
-      FROM_HERE,
-      base::Bind(&DomStorageContext::CloneSessionNamespace,
-                 context_, namespace_id_, clone_id));
-  return new DomStorageSession(context_, clone_id);
+                 context_, namespace_id_, persistent_namespace_id_));
 }
 
 DomStorageSession::DomStorageSession(DomStorageContext* context,
-                                     int64 namespace_id)
+                                     const std::string& persistent_namespace_id)
     : context_(context),
-      namespace_id_(namespace_id) {
+      namespace_id_(context->AllocateSessionId()),
+      persistent_namespace_id_(persistent_namespace_id),
+      should_persist_(false) {
+  context->task_runner()->PostTask(
+      FROM_HERE,
+      base::Bind(&DomStorageContext::CreateSessionNamespace,
+                 context_, namespace_id_, persistent_namespace_id_));
+}
+
+void DomStorageSession::SetShouldPersist(bool should_persist) {
+  should_persist_ = should_persist;
+}
+
+DomStorageSession* DomStorageSession::Clone() {
+  return CloneFrom(context_, namespace_id_);
+}
+
+// static
+DomStorageSession* DomStorageSession::CloneFrom(DomStorageContext* context,
+                                                int64 namepace_id_to_clone) {
+  int64 clone_id = context->AllocateSessionId();
+  std::string persistent_clone_id = context->AllocatePersistentSessionId();
+  context->task_runner()->PostTask(
+      FROM_HERE,
+      base::Bind(&DomStorageContext::CloneSessionNamespace,
+                 context, namepace_id_to_clone, clone_id, persistent_clone_id));
+  return new DomStorageSession(context, clone_id, persistent_clone_id);
+}
+
+DomStorageSession::DomStorageSession(DomStorageContext* context,
+                                     int64 namespace_id,
+                                     const std::string& persistent_namespace_id)
+    : context_(context),
+      namespace_id_(namespace_id),
+      persistent_namespace_id_(persistent_namespace_id) {
   // This ctor is intended for use by the Clone() method.
 }
 
@@ -42,7 +69,7 @@ DomStorageSession::~DomStorageSession() {
   context_->task_runner()->PostTask(
       FROM_HERE,
       base::Bind(&DomStorageContext::DeleteSessionNamespace,
-                 context_, namespace_id_));
+                 context_, namespace_id_, should_persist_));
 }
 
 }  // namespace dom_storage

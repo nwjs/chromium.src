@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,6 +11,9 @@
 //     very early, to test for it reliably, the source of the media tag
 //     should be added after this script is included or add
 //     'onLoadStart=mediEventHandler' as an attribute to the media element.
+//     Also to reliably test the stalled event, the the test should wait for the
+//     prerendered page's title to change to "READY" before calling
+//     DidPrerenderPass.
 
 function assert(bool) {
   if (!bool)
@@ -20,8 +23,8 @@ function assert(bool) {
 var canPlaySeen = false;
 var playingSeen = false;
 var canPlayThroughSeen = false;
-var stalledSeen = false;
 var loadStartSeen = false;
+var stalledSeen = false;
 var hasError = false;
 
 assert(typeof(willPlay) != 'undefined');
@@ -51,14 +54,16 @@ function mediaEventHandler(e) {
     case 'stalled':
       assert(loadStartSeen);
       stalledSeen = true;
+      if (testNetworkEvents) {
+        document.title = 'READY';
+      }
       break;
   }
 
-  var stallDone = !testNetworkEvents || stalledSeen;
   var progressDone = (willPlay && canPlayThroughSeen && playingSeen) ||
       (!willPlay && canPlayThroughSeen && !playingSeen);
 
-  if (stallDone && progressDone)
+  if (progressDone)
     document.title = 'PASS';
 }
 
@@ -72,11 +77,23 @@ if (testNetworkEvents) {
   mediaEl.addEventListener('loadstart', mediaEventHandler, false);
 }
 
+// TODO(shishir): Remove this once http://crbug.com/130788 is fixed.
+function printDebugInfo() {
+  console.log("\ncanPlaySeen: " + canPlaySeen);
+  console.log("playingSeen: " + playingSeen);
+  console.log("canPlayThroughSeen: " + canPlayThroughSeen);
+  console.log("loadStartSeen: " + loadStartSeen);
+  console.log("stalledSeen: " + stalledSeen);
+  console.log("hasError: " + hasError + "\n");
+}
+setInterval(printDebugInfo, 5000);
+
 function DidPrerenderPass() {
   // The media should not have started at this point.
   return !canPlaySeen && !playingSeen && !hasError &&
       mediaEl.currentTime == 0 &&
-      mediaEl.readyState == mediaEl.HAVE_NOTHING;
+      mediaEl.readyState == mediaEl.HAVE_NOTHING &&
+      (!testNetworkEvents || stalledSeen);
 }
 
 function DidDisplayPass() {

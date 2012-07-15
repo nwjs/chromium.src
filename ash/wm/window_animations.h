@@ -4,13 +4,20 @@
 
 #ifndef ASH_WM_WINDOW_ANIMATIONS_H_
 #define ASH_WM_WINDOW_ANIMATIONS_H_
-#pragma once
 
 #include "ash/ash_export.h"
-#include "base/time.h"
 
 namespace aura {
 class Window;
+}
+namespace base {
+class TimeDelta;
+}
+namespace gfx {
+class Rect;
+}
+namespace ui {
+class ImplicitAnimationObserver;
 }
 
 namespace ash {
@@ -40,22 +47,50 @@ enum WindowVisibilityAnimationTransition {
   ANIMATE_NONE = 0x4,
 };
 
-void ASH_EXPORT SetWindowVisibilityAnimationType(
+ASH_EXPORT void SetWindowVisibilityAnimationType(
     aura::Window* window,
     WindowVisibilityAnimationType type);
 
-void ASH_EXPORT SetWindowVisibilityAnimationTransition(
+ASH_EXPORT WindowVisibilityAnimationType GetWindowVisibilityAnimationType(
+    aura::Window* window);
+
+ASH_EXPORT void SetWindowVisibilityAnimationTransition(
     aura::Window* window,
     WindowVisibilityAnimationTransition transition);
 
-void ASH_EXPORT SetWindowVisibilityAnimationDuration(
+ASH_EXPORT void SetWindowVisibilityAnimationDuration(
     aura::Window* window,
     const base::TimeDelta& duration);
 
+ASH_EXPORT void SetWindowVisibilityAnimationVerticalPosition(
+    aura::Window* window,
+    float position);
+
+// Creates an ImplicitAnimationObserver that takes ownership of the layers
+// associated with a Window so that the animation can continue after the Window
+// has been destroyed.
+// The returned object deletes itself when the animations are done.
+ASH_EXPORT ui::ImplicitAnimationObserver* CreateHidingWindowAnimationObserver(
+    aura::Window* window);
+
+// Animate a cross-fade of |window| from its current bounds to |new_bounds|.
+ASH_EXPORT void CrossFadeToBounds(aura::Window* window,
+                                  const gfx::Rect& new_bounds);
+
 namespace internal {
 
+// Returns the duration of the cross-fade animation based on the |old_bounds|
+// and |new_bounds| of the window.
+ASH_EXPORT base::TimeDelta GetCrossFadeDuration(const gfx::Rect& old_bounds,
+                                                const gfx::Rect& new_bounds);
+
 // Returns false if the |window| didn't animate.
-bool AnimateOnChildWindowVisibilityChanged(aura::Window* window, bool visible);
+ASH_EXPORT bool AnimateOnChildWindowVisibilityChanged(
+    aura::Window* window, bool visible);
+
+// Delay the old layer deletion so that test can verify the behavior of
+// old layer.
+ASH_EXPORT void SetDelayedOldLayerDeletionInCrossFadeForTest(bool value);
 
 }  // namespace internal
 }  // namespace ash

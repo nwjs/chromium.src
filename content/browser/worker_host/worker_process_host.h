@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_BROWSER_WORKER_HOST_WORKER_PROCESS_HOST_H_
 #define CONTENT_BROWSER_WORKER_HOST_WORKER_PROCESS_HOST_H_
-#pragma once
 
 #include <list>
 #include <utility>
@@ -17,7 +16,7 @@
 #include "content/public/browser/browser_child_process_host_delegate.h"
 #include "content/public/browser/browser_child_process_host_iterator.h"
 #include "googleurl/src/gurl.h"
-#include "ipc/ipc_message.h"
+#include "ipc/ipc_sender.h"
 
 class BrowserChildProcessHostImpl;
 
@@ -33,7 +32,7 @@ class WorkerServiceImpl;
 // net::URLRequestContext) that a WorkerProcessHost serves a single
 // BrowserContext.
 class WorkerProcessHost : public content::BrowserChildProcessHostDelegate,
-                          public IPC::Message::Sender {
+                          public IPC::Sender {
  public:
   // Contains information about each worker instance, needed to forward messages
   // between the renderer and worker processes.
@@ -116,7 +115,7 @@ class WorkerProcessHost : public content::BrowserChildProcessHostDelegate,
   explicit WorkerProcessHost(content::ResourceContext* resource_context);
   virtual ~WorkerProcessHost();
 
-  // IPC::Message::Sender implementation:
+  // IPC::Sender implementation:
   virtual bool Send(IPC::Message* message) OVERRIDE;
 
   // Starts the process.  Returns true iff it succeeded.

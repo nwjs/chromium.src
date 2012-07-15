@@ -4,11 +4,9 @@
 
 #ifndef CONTENT_COMMON_MAC_ATTRIBUTED_STRING_CODER_H_
 #define CONTENT_COMMON_MAC_ATTRIBUTED_STRING_CODER_H_
-#pragma once
 
 #include <set>
 
-#include "base/memory/scoped_ptr.h"
 #include "base/string16.h"
 #include "content/common/content_export.h"
 #include "content/common/mac/font_descriptor.h"

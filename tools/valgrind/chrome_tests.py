@@ -28,6 +28,7 @@ class BuildDirAmbiguous(Exception): pass
 
 class ChromeTests:
   SLOW_TOOLS = ["memcheck", "tsan", "tsan_rv", "drmemory"]
+  LAYOUT_TESTS_DEFAULT_CHUNK_SIZE = 1500
 
   def __init__(self, options, args, test):
     if ':' in test:
@@ -210,6 +211,7 @@ class ChromeTests:
     tool = valgrind_test.CreateTool(self._options.valgrind_tool)
     cmd = self._DefaultCommand(tool, name, valgrind_test_args)
     self._AppendGtestFilter(tool, name, cmd)
+    cmd.extend(['--test-tiny-timeout=1000'])
     if cmd_args:
       cmd.extend(cmd_args)
 
@@ -223,7 +225,7 @@ class ChromeTests:
     return tool.Run(cmd, None)
 
   def TestAsh(self):
-    return self.SimpleTest("ash", "aura_shell_unittests")
+    return self.SimpleTest("ash", "ash_unittests")
 
   def TestAura(self):
     return self.SimpleTest("aura", "aura_unittests")
@@ -247,7 +249,11 @@ class ChromeTests:
     return self.SimpleTest("chrome", "ffmpeg_regression_tests")
 
   def TestGfx(self):
-    return self.SimpleTest("chrome", "gfx_unittests")
+    # Run ui_unittests, a successor of gfx_unittests, since gfx_unittests is
+    # deprecated.
+    # TODO(hbono): This is a band-aid fix. We need to change the master script
+    # so our bots run ui_unittests.
+    return self.SimpleTest("chrome", "ui_unittests")
 
   def TestGPU(self):
     return self.SimpleTest("gpu", "gpu_unittests")
@@ -310,6 +316,13 @@ class ChromeTests:
   UI_TEST_ARGS = ["--ui-test-action-timeout=60000",
                   "--ui-test-action-max-timeout=150000"]
 
+  # TODO(thestig) fine-tune these values.
+  # Valgrind timeouts are in seconds.
+  BROWSER_VALGRIND_ARGS = ["--timeout=50000", "--trace_children", "--indirect"]
+  # Browser test timeouts are in milliseconds.
+  BROWSER_TEST_ARGS = ["--ui-test-action-timeout=200000",
+                       "--ui-test-action-max-timeout=400000"]
+
   def TestAutomatedUI(self):
     return self.SimpleTest("chrome", "automated_ui_tests",
                            valgrind_test_args=self.UI_VALGRIND_ARGS,
@@ -317,8 +330,8 @@ class ChromeTests:
 
   def TestBrowser(self):
     return self.SimpleTest("chrome", "browser_tests",
-                           valgrind_test_args=self.UI_VALGRIND_ARGS,
-                           cmd_args=self.UI_TEST_ARGS)
+                           valgrind_test_args=self.BROWSER_VALGRIND_ARGS,
+                           cmd_args=self.BROWSER_TEST_ARGS)
 
   def TestInteractiveUI(self):
     return self.SimpleTest("chrome", "interactive_ui_tests",
@@ -342,11 +355,6 @@ class ChromeTests:
     return self.SimpleTest("chrome", "sync_integration_tests",
                            valgrind_test_args=self.UI_VALGRIND_ARGS,
                            cmd_args=(["--ui-test-action-max-timeout=450000"]))
-
-  def TestUI(self):
-    return self.SimpleTest("chrome", "ui_tests",
-                           valgrind_test_args=self.UI_VALGRIND_ARGS,
-                           cmd_args=self.UI_TEST_ARGS)
 
   def TestLayoutChunk(self, chunk_num, chunk_size):
     # Run tests [chunk_num*chunk_size .. (chunk_num+1)*chunk_size) from the
@@ -381,9 +389,10 @@ class ChromeTests:
                           "run_webkit_tests.py")
     script_cmd = ["python", script, "-v",
                   "--run-singly",  # run a separate DumpRenderTree for each test
-                  "--experimental-fully-parallel",
+                  "--fully-parallel",
                   "--time-out-ms=200000",
                   "--noshow-results",
+                  "--no-retry-failures",  # retrying takes too much time
                   "--nocheck-sys-deps"]
     # Pass build mode to run_webkit_tests.py.  We aren't passed it directly,
     # so parse it out of build_dir.  run_webkit_tests.py can only handle
@@ -404,7 +413,16 @@ class ChromeTests:
     # Now run script_cmd with the wrapper in cmd
     cmd.extend(["--"])
     cmd.extend(script_cmd)
-    return tool.Run(cmd, "layout")
+
+    # Layout tests often times fail quickly, but the buildbot remains green.
+    # Detect this situation when running with the default chunk size.
+    if chunk_size == self.LAYOUT_TESTS_DEFAULT_CHUNK_SIZE:
+      min_runtime_in_seconds=120
+    else:
+      min_runtime_in_seconds=0
+    ret = tool.Run(cmd, "layout", min_runtime_in_seconds=min_runtime_in_seconds)
+    return ret
+
 
   def TestLayout(self):
     # A "chunk file" is maintained in the local directory so that each test
@@ -456,7 +474,7 @@ class ChromeTests:
   # Recognise the original abbreviations as well as full executable names.
   _test_list = {
     "cmdline" : RunCmdLine,
-    "ash": TestAsh,              "aura_shell_unittests": TestAsh,
+    "ash": TestAsh,              "ash_unittests": TestAsh,
     "aura": TestAura,            "aura_unittests": TestAura,
     "automated_ui" : TestAutomatedUI,
     "base": TestBase,            "base_unittests": TestBase,
@@ -483,7 +501,6 @@ class ChromeTests:
     "sync_integration_tests": TestSyncIntegration,
     "sync_integration": TestSyncIntegration,
     "test_shell": TestTestShell, "test_shell_tests": TestTestShell,
-    "ui": TestUI,                "ui_tests": TestUI,
     "unit": TestUnit,            "unit_tests": TestUnit,
     "sql": TestSql,              "sql_unittests": TestSql,
     "ui_unit": TestUIUnit,       "ui_unittests": TestUIUnit,
@@ -519,8 +536,12 @@ def _main():
                          "instead of /tmp.\nThis can be useful for tool "
                          "developers/maintainers.\nPlease note that the <tool>"
                          ".logs directory will be clobbered on tool startup.")
-  parser.add_option("-n", "--num_tests", default=1500, type="int",
+  parser.add_option("-n", "--num_tests", type="int",
+                    default=ChromeTests.LAYOUT_TESTS_DEFAULT_CHUNK_SIZE,
                     help="for layout tests: # of subtests per run.  0 for all.")
+  # TODO(thestig) Remove this if we can.
+  parser.add_option("", "--gtest_color", dest="gtest_color", default="no",
+                    help="dummy compatibility flag for sharding_supervisor.")
 
   options, args = parser.parse_args()
 

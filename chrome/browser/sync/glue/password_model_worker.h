@@ -4,9 +4,8 @@
 
 #ifndef CHROME_BROWSER_SYNC_GLUE_PASSWORD_MODEL_WORKER_H_
 #define CHROME_BROWSER_SYNC_GLUE_PASSWORD_MODEL_WORKER_H_
-#pragma once
 
-#include "sync/engine/model_safe_worker.h"
+#include "sync/internal_api/public/engine/model_safe_worker.h"
 
 #include "base/basictypes.h"
 #include "base/callback_forward.h"
@@ -21,25 +20,26 @@ class WaitableEvent;
 
 namespace browser_sync {
 
-// A ModelSafeWorker for password models that accepts requests
+// A syncer::ModelSafeWorker for password models that accepts requests
 // from the syncapi that need to be fulfilled on the password thread,
 // which is the DB thread on Linux and Windows.
-class PasswordModelWorker : public browser_sync::ModelSafeWorker {
+class PasswordModelWorker : public syncer::ModelSafeWorker {
  public:
   explicit PasswordModelWorker(
       const scoped_refptr<PasswordStore>& password_store);
-  virtual ~PasswordModelWorker();
 
-  // ModelSafeWorker implementation. Called on syncapi SyncerThread.
-  virtual SyncerError DoWorkAndWaitUntilDone(
-      const WorkCallback& work) OVERRIDE;
-  virtual ModelSafeGroup GetModelSafeGroup() OVERRIDE;
+  // syncer::ModelSafeWorker implementation. Called on syncapi SyncerThread.
+  virtual syncer::SyncerError DoWorkAndWaitUntilDone(
+      const syncer::WorkCallback& work) OVERRIDE;
+  virtual syncer::ModelSafeGroup GetModelSafeGroup() OVERRIDE;
 
  private:
+  virtual ~PasswordModelWorker();
+
   void CallDoWorkAndSignalTask(
-    const WorkCallback& work,
+    const syncer::WorkCallback& work,
     base::WaitableEvent* done,
-    SyncerError* error);
+    syncer::SyncerError* error);
 
   scoped_refptr<PasswordStore> password_store_;
   DISALLOW_COPY_AND_ASSIGN(PasswordModelWorker);

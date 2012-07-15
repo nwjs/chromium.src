@@ -26,9 +26,6 @@ PlatformFontMac::PlatformFontMac() {
   CalculateMetrics();
 }
 
-PlatformFontMac::PlatformFontMac(const Font& other) {
-}
-
 PlatformFontMac::PlatformFontMac(NativeFont native_font) {
 }
 
@@ -110,7 +107,7 @@ void PlatformFontMac::CalculateMetrics() {
   height_ = [layout_manager defaultLineHeightForFont:font];
   ascent_ = [font ascender];
   average_width_ =
-      [font boundingRectForGlyph:[font glyphWithName:@"x"]].size.width;
+      NSWidth([font boundingRectForGlyph:[font glyphWithName:@"x"]]);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -119,11 +116,6 @@ void PlatformFontMac::CalculateMetrics() {
 // static
 PlatformFont* PlatformFont::CreateDefault() {
   return new PlatformFontMac;
-}
-
-// static
-PlatformFont* PlatformFont::CreateFromFont(const Font& other) {
-  return new PlatformFontMac(other);
 }
 
 // static

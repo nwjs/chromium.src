@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_EXTENSIONS_TEST_EXTENSION_PREFS_H_
 #define CHROME_BROWSER_EXTENSIONS_TEST_EXTENSION_PREFS_H_
-#pragma once
 
 #include <string>
 
@@ -12,13 +11,15 @@
 #include "base/scoped_temp_dir.h"
 #include "chrome/common/extensions/extension.h"
 
-class ExtensionPrefs;
 class ExtensionPrefValueMap;
 class PrefService;
 
 namespace base {
 class DictionaryValue;
 }
+
+namespace extensions {
+class ExtensionPrefs;
 
 // This is a test class intended to make it easier to work with ExtensionPrefs
 // in tests.
@@ -28,7 +29,9 @@ class TestExtensionPrefs {
   virtual ~TestExtensionPrefs();
 
   ExtensionPrefs* prefs() { return prefs_.get(); }
-  const ExtensionPrefs& const_prefs() const { return *prefs_.get(); }
+  const ExtensionPrefs& const_prefs() const {
+      return *prefs_.get();
+  }
   PrefService* pref_service() { return pref_service_.get(); }
   const FilePath& temp_dir() const { return temp_dir_.path(); }
 
@@ -45,7 +48,8 @@ class TestExtensionPrefs {
 
   // Similar to AddExtension, but takes a dictionary with manifest values.
   scoped_refptr<Extension> AddExtensionWithManifest(
-      const base::DictionaryValue& manifest, Extension::Location location);
+      const base::DictionaryValue& manifest,
+      Extension::Location location);
 
   // Similar to AddExtension, but takes a dictionary with manifest values
   // and extension flags.
@@ -77,5 +81,7 @@ class TestExtensionPrefs {
   bool extensions_disabled_;
   DISALLOW_COPY_AND_ASSIGN(TestExtensionPrefs);
 };
+
+}  // namespace extensions
 
 #endif  // CHROME_BROWSER_EXTENSIONS_TEST_EXTENSION_PREFS_H_

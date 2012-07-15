@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_STUB_CROS_SETTINGS_PROVIDER_H_
 #define CHROME_BROWSER_CHROMEOS_STUB_CROS_SETTINGS_PROVIDER_H_
-#pragma once
 
 #include <string>
 
@@ -24,7 +23,8 @@ class StubCrosSettingsProvider : public CrosSettingsProvider {
 
   // CrosSettingsProvider implementation.
   virtual const base::Value* Get(const std::string& path) const OVERRIDE;
-  virtual bool PrepareTrustedValues(const base::Closure& callback) OVERRIDE;
+  virtual TrustedStatus PrepareTrustedValues(
+      const base::Closure& callback) OVERRIDE;
   virtual bool HandlesSetting(const std::string& path) const OVERRIDE;
   virtual void Reload() OVERRIDE;
 

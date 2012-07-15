@@ -61,6 +61,7 @@ void WebURLLoaderMockFactory::UnregisterAllURLs() {
 }
 
 void WebURLLoaderMockFactory::ServeAsynchronousRequests() {
+  last_handled_asynchronous_request_.reset();
   // Serving a request might trigger more requests, so we cannot iterate on
   // pending_loaders_ as it might get modified.
   while (!pending_loaders_.empty()) {
@@ -70,20 +71,28 @@ void WebURLLoaderMockFactory::ServeAsynchronousRequests() {
     WebURLResponse response;
     WebURLError error;
     WebData data;
+    last_handled_asynchronous_request_ = request;
     LoadRequest(request, &response, &error, &data);
-    // Follow any redirect chain.
+    // Follow any redirects while the loader is still active.
     while (response.httpStatusCode() >= 300 &&
            response.httpStatusCode() < 400) {
       WebURLRequest newRequest = loader->ServeRedirect(response);
-      if (loader->isDeferred())
+      if (!IsPending(loader) || loader->isDeferred())
         break;
+      last_handled_asynchronous_request_ = newRequest;
       LoadRequest(newRequest, &response, &error, &data);
     }
-    if (!loader->isDeferred())
+    // Serve the request if the loader is still active.
+    if (IsPending(loader) && !loader->isDeferred())
       loader->ServeAsynchronousRequest(response, data, error);
-    // If the load has been canceled, the loader may not be in the map.
+    // The loader might have already been removed.
     pending_loaders_.erase(loader);
   }
+}
+
+WebKit::WebURLRequest
+WebURLLoaderMockFactory::GetLastHandledAsynchronousRequest() {
+  return last_handled_asynchronous_request_;
 }
 
 bool WebURLLoaderMockFactory::IsMockedURL(const WebKit::WebURL& url) {
@@ -134,6 +143,11 @@ void WebURLLoaderMockFactory::LoadRequest(const WebURLRequest& request,
   }
 
   *response = iter->second.response;
+}
+
+bool WebURLLoaderMockFactory::IsPending(WebURLLoaderMock* loader) {
+  LoaderToRequestMap::iterator iter = pending_loaders_.find(loader);
+  return iter != pending_loaders_.end();
 }
 
 // static

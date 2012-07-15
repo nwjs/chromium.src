@@ -4,24 +4,21 @@
 
 #include "base/location.h"
 #include "sync/engine/verify_updates_command.h"
+#include "sync/protocol/bookmark_specifics.pb.h"
 #include "sync/sessions/session_state.h"
 #include "sync/sessions/sync_session.h"
-#include "sync/syncable/syncable.h"
+#include "sync/syncable/mutable_entry.h"
 #include "sync/syncable/syncable_id.h"
 #include "sync/test/engine/fake_model_worker.h"
 #include "sync/test/engine/syncer_command_test.h"
-#include "sync/protocol/bookmark_specifics.pb.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-namespace browser_sync {
+namespace syncer {
 
-using sessions::SyncSession;
 using sessions::StatusController;
 using std::string;
-using syncable::Entry;
 using syncable::Id;
 using syncable::MutableEntry;
-using syncable::ReadTransaction;
 using syncable::UNITTEST;
 using syncable::WriteTransaction;
 
@@ -32,15 +29,15 @@ class VerifyUpdatesCommandTest : public SyncerCommandTest {
     mutable_routing_info()->clear();
     workers()->push_back(make_scoped_refptr(new FakeModelWorker(GROUP_DB)));
     workers()->push_back(make_scoped_refptr(new FakeModelWorker(GROUP_UI)));
-    (*mutable_routing_info())[syncable::PREFERENCES] = GROUP_UI;
-    (*mutable_routing_info())[syncable::BOOKMARKS] = GROUP_UI;
-    (*mutable_routing_info())[syncable::AUTOFILL] = GROUP_DB;
+    (*mutable_routing_info())[syncer::PREFERENCES] = GROUP_UI;
+    (*mutable_routing_info())[syncer::BOOKMARKS] = GROUP_UI;
+    (*mutable_routing_info())[syncer::AUTOFILL] = GROUP_DB;
     SyncerCommandTest::SetUp();
   }
 
   void CreateLocalItem(const std::string& item_id,
                        const std::string& parent_id,
-                       const syncable::ModelType& type) {
+                       const syncer::ModelType& type) {
     WriteTransaction trans(FROM_HERE, UNITTEST, directory());
     MutableEntry entry(&trans, syncable::CREATE_NEW_UPDATE_ITEM,
         Id::CreateFromServerId(item_id));
@@ -55,9 +52,9 @@ class VerifyUpdatesCommandTest : public SyncerCommandTest {
     entry.Put(syncable::SERVER_SPECIFICS, default_specifics);
   }
 
-  void AddUpdate(GetUpdatesResponse* updates,
+  void AddUpdate(sync_pb::GetUpdatesResponse* updates,
       const std::string& id, const std::string& parent,
-      const syncable::ModelType& type) {
+      const syncer::ModelType& type) {
     sync_pb::SyncEntity* e = updates->add_entries();
     e->set_id_string("b1");
     e->set_parent_id_string(parent);
@@ -73,19 +70,20 @@ class VerifyUpdatesCommandTest : public SyncerCommandTest {
 TEST_F(VerifyUpdatesCommandTest, AllVerified) {
   string root = syncable::GetNullId().GetServerId();
 
-  CreateLocalItem("b1", root, syncable::BOOKMARKS);
-  CreateLocalItem("b2", root, syncable::BOOKMARKS);
-  CreateLocalItem("p1", root, syncable::PREFERENCES);
-  CreateLocalItem("a1", root, syncable::AUTOFILL);
+  CreateLocalItem("b1", root, syncer::BOOKMARKS);
+  CreateLocalItem("b2", root, syncer::BOOKMARKS);
+  CreateLocalItem("p1", root, syncer::PREFERENCES);
+  CreateLocalItem("a1", root, syncer::AUTOFILL);
 
   ExpectNoGroupsToChange(command_);
 
-  GetUpdatesResponse* updates = session()->mutable_status_controller()->
+  sync_pb::GetUpdatesResponse* updates =
+      session()->mutable_status_controller()->
       mutable_updates_response()->mutable_get_updates();
-  AddUpdate(updates, "b1", root, syncable::BOOKMARKS);
-  AddUpdate(updates, "b2", root, syncable::BOOKMARKS);
-  AddUpdate(updates, "p1", root, syncable::PREFERENCES);
-  AddUpdate(updates, "a1", root, syncable::AUTOFILL);
+  AddUpdate(updates, "b1", root, syncer::BOOKMARKS);
+  AddUpdate(updates, "b2", root, syncer::BOOKMARKS);
+  AddUpdate(updates, "p1", root, syncer::PREFERENCES);
+  AddUpdate(updates, "a1", root, syncer::AUTOFILL);
 
   ExpectGroupsToChange(command_, GROUP_UI, GROUP_DB);
 
@@ -108,4 +106,4 @@ TEST_F(VerifyUpdatesCommandTest, AllVerified) {
   }
 }
 
-}
+}  // namespace syncer

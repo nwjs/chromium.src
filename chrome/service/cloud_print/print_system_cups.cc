@@ -127,13 +127,17 @@ class PrintSystemCUPS : public PrintSystem {
   }
 
  private:
+  virtual ~PrintSystemCUPS() {}
+
   // Following functions are wrappers around corresponding CUPS functions.
   // <functions>2()  are called when print server is specified, and plain
   // version in another case. There is an issue specifing CUPS_HTTP_DEFAULT
   // in the <functions>2(), it does not work in CUPS prior to 1.4.
-  int GetJobs(cups_job_t** jobs, const GURL& url, const char* name,
+  int GetJobs(cups_job_t** jobs, const GURL& url,
+              http_encryption_t encryption, const char* name,
               int myjobs, int whichjobs);
-  int PrintFile(const GURL& url, const char* name, const char* filename,
+  int PrintFile(const GURL& url, http_encryption_t encryption,
+                const char* name, const char* filename,
                 const char* title, int num_options, cups_option_t* options);
 
   void InitPrintBackends(const DictionaryValue* print_system_settings);
@@ -164,6 +168,7 @@ class PrintSystemCUPS : public PrintSystem {
   bool initialized_;
   bool printer_enum_succeeded_;
   bool notify_delete_;
+  http_encryption_t cups_encryption_;
 };
 
 class PrintServerWatcherCUPS
@@ -172,9 +177,6 @@ class PrintServerWatcherCUPS
   explicit PrintServerWatcherCUPS(PrintSystemCUPS* print_system)
       : print_system_(print_system),
         delegate_(NULL) {
-  }
-  ~PrintServerWatcherCUPS() {
-    StopWatching();
   }
 
   // PrintSystem::PrintServerWatcher implementation.
@@ -207,6 +209,11 @@ class PrintServerWatcherCUPS
         FROM_HERE,
         base::Bind(&PrintServerWatcherCUPS::CheckForUpdates, this),
         print_system_->GetUpdateTimeout());
+  }
+
+ protected:
+  virtual ~PrintServerWatcherCUPS() {
+    StopWatching();
   }
 
  private:
@@ -243,10 +250,6 @@ class PrinterWatcherCUPS
       : printer_name_(printer_name),
         delegate_(NULL),
         print_system_(print_system) {
-  }
-
-  ~PrinterWatcherCUPS() {
-    StopWatching();
   }
 
   // PrintSystem::PrinterWatcher implementation.
@@ -320,6 +323,11 @@ class PrinterWatcherCUPS
         print_system_->GetUpdateTimeout());
   }
 
+ protected:
+  virtual ~PrinterWatcherCUPS() {
+    StopWatching();
+  }
+
  private:
   std::string GetSettingsHash() {
     printing::PrinterBasicInfo info;
@@ -387,6 +395,9 @@ class JobSpoolerCUPS : public PrintSystem::JobSpooler {
       delegate->OnJobSpoolFailed();
   }
 
+ protected:
+  virtual ~JobSpoolerCUPS() {}
+
  private:
   scoped_refptr<PrintSystemCUPS> print_system_;
 
@@ -398,11 +409,17 @@ PrintSystemCUPS::PrintSystemCUPS(const DictionaryValue* print_system_settings)
         kCheckForPrinterUpdatesMinutes)),
       initialized_(false),
       printer_enum_succeeded_(false),
-      notify_delete_(true) {
+      notify_delete_(true),
+      cups_encryption_(HTTP_ENCRYPT_NEVER) {
   if (print_system_settings) {
     int timeout;
     if (print_system_settings->GetInteger(kCUPSUpdateTimeoutMs, &timeout))
       update_timeout_ = base::TimeDelta::FromMilliseconds(timeout);
+
+    int encryption;
+    if (print_system_settings->GetInteger(kCUPSEncryption, &encryption))
+      cups_encryption_ =
+          static_cast<http_encryption_t>(encryption);
 
     bool notify_delete = true;
     if (print_system_settings->GetBoolean(kCUPSNotifyDelete, &notify_delete))
@@ -439,6 +456,9 @@ void PrintSystemCUPS::AddPrintServer(const std::string& url) {
 
   // Make CUPS requests non-blocking.
   backend_settings.SetString(kCUPSBlocking, kValueFalse);
+
+  // Set encryption for backend.
+  backend_settings.SetInteger(kCUPSEncryption, cups_encryption_);
 
   PrintServerInfoCUPS print_server;
   print_server.backend =
@@ -510,8 +530,7 @@ bool PrintSystemCUPS::IsValidPrinter(const std::string& printer_name) {
 bool PrintSystemCUPS::ValidatePrintTicket(const std::string& printer_name,
                                         const std::string& print_ticket_data) {
   DCHECK(initialized_);
-  scoped_ptr<Value> ticket_value(base::JSONReader::Read(print_ticket_data,
-      false));
+  scoped_ptr<Value> ticket_value(base::JSONReader::Read(print_ticket_data));
   return ticket_value != NULL && ticket_value->IsType(Value::TYPE_DICTIONARY);
 }
 
@@ -520,7 +539,7 @@ bool PrintSystemCUPS::ParsePrintTicket(
     const std::string& print_ticket,
     std::map<std::string, std::string>* options) {
   DCHECK(options);
-  scoped_ptr<Value> ticket_value(base::JSONReader::Read(print_ticket, false));
+  scoped_ptr<Value> ticket_value(base::JSONReader::Read(print_ticket));
   if (ticket_value == NULL || !ticket_value->IsType(Value::TYPE_DICTIONARY))
     return false;
 
@@ -583,7 +602,7 @@ bool PrintSystemCUPS::GetJobDetails(const std::string& printer_name,
   child_process_logging::ScopedPrinterInfoSetter prn_info(
       server_info->backend->GetPrinterDriverInfo(short_printer_name));
   cups_job_t* jobs = NULL;
-  int num_jobs = GetJobs(&jobs, server_info->url,
+  int num_jobs = GetJobs(&jobs, server_info->url, cups_encryption_,
                          short_printer_name.c_str(), 1, -1);
   bool error = (num_jobs == 0) && (cupsLastError() > IPP_OK_EVENTS_COMPLETE);
   if (error) {
@@ -706,13 +725,14 @@ scoped_refptr<PrintSystem> PrintSystem::CreateInstance(
   return new PrintSystemCUPS(print_system_settings);
 }
 
-int PrintSystemCUPS::PrintFile(const GURL& url, const char* name,
-                               const char* filename, const char* title,
-                               int num_options, cups_option_t* options) {
+int PrintSystemCUPS::PrintFile(const GURL& url, http_encryption_t encryption,
+                               const char* name, const char* filename,
+                               const char* title, int num_options,
+                               cups_option_t* options) {
   if (url.is_empty()) {  // Use default (local) print server.
     return cupsPrintFile(name, filename, title, num_options, options);
   } else {
-    printing::HttpConnectionCUPS http(url);
+    printing::HttpConnectionCUPS http(url, encryption);
     http.SetBlocking(false);
     return cupsPrintFile2(http.http(), name, filename,
                           title, num_options, options);
@@ -720,11 +740,12 @@ int PrintSystemCUPS::PrintFile(const GURL& url, const char* name,
 }
 
 int PrintSystemCUPS::GetJobs(cups_job_t** jobs, const GURL& url,
+                             http_encryption_t encryption,
                              const char* name, int myjobs, int whichjobs) {
   if (url.is_empty()) {  // Use default (local) print server.
     return cupsGetJobs(jobs, name, myjobs, whichjobs);
   } else {
-    printing::HttpConnectionCUPS http(url);
+    printing::HttpConnectionCUPS http(url, encryption);
     http.SetBlocking(false);
     return cupsGetJobs2(http.http(), jobs, name, myjobs, whichjobs);
   }
@@ -775,6 +796,7 @@ PlatformJobId PrintSystemCUPS::SpoolPrintJob(
   }
 
   int job_id = PrintFile(server_info->url,
+                         cups_encryption_,
                          short_printer_name.c_str(),
                          print_data_file_path.value().c_str(),
                          job_title.c_str(),

@@ -8,12 +8,12 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/ui/views/frame/browser_frame.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/tab_icon_view.h"
 #include "content/public/browser/web_contents.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
-#include "grit/theme_resources_standard.h"
+#include "grit/theme_resources.h"
 #include "grit/ui_resources.h"
-#include "grit/ui_resources_standard.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -71,13 +71,13 @@ AppPanelBrowserFrameView::AppPanelBrowserFrameView(BrowserFrame* frame,
 
   frame->set_frame_type(views::Widget::FRAME_TYPE_FORCE_CUSTOM);
 
-  ResourceBundle& rb = ResourceBundle::GetSharedInstance();
+  ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
   close_button_->SetImage(views::CustomButton::BS_NORMAL,
-                          rb.GetBitmapNamed(IDR_CLOSE_BAR));
+                          rb.GetImageSkiaNamed(IDR_CLOSE_BAR));
   close_button_->SetImage(views::CustomButton::BS_HOT,
-                          rb.GetBitmapNamed(IDR_CLOSE_BAR_H));
+                          rb.GetImageSkiaNamed(IDR_CLOSE_BAR_H));
   close_button_->SetImage(views::CustomButton::BS_PUSHED,
-                          rb.GetBitmapNamed(IDR_CLOSE_BAR_P));
+                          rb.GetImageSkiaNamed(IDR_CLOSE_BAR_P));
   close_button_->SetAccessibleName(
       l10n_util::GetStringUTF16(IDS_ACCNAME_CLOSE));
   AddChildView(close_button_);
@@ -243,11 +243,11 @@ bool AppPanelBrowserFrameView::ShouldTabIconViewAnimate() const {
   // This function is queried during the creation of the window as the
   // TabIconView we host is initialized, so we need to NULL check the selected
   // WebContents because in this condition there is not yet a selected tab.
-  WebContents* current_tab = browser_view()->GetSelectedWebContents();
+  WebContents* current_tab = browser_view()->GetActiveWebContents();
   return current_tab ? current_tab->IsLoading() : false;
 }
 
-SkBitmap AppPanelBrowserFrameView::GetFaviconForTabIconView() {
+gfx::ImageSkia AppPanelBrowserFrameView::GetFaviconForTabIconView() {
   return frame()->widget_delegate()->GetWindowIcon();
 }
 
@@ -309,28 +309,29 @@ gfx::Rect AppPanelBrowserFrameView::IconBounds() const {
 }
 
 void AppPanelBrowserFrameView::PaintRestoredFrameBorder(gfx::Canvas* canvas) {
-  ResourceBundle& rb = ResourceBundle::GetSharedInstance();
+  ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
 
-  SkBitmap* top_left_corner = rb.GetBitmapNamed(IDR_WINDOW_TOP_LEFT_CORNER);
-  SkBitmap* top_right_corner =
-      rb.GetBitmapNamed(IDR_WINDOW_TOP_RIGHT_CORNER);
-  SkBitmap* top_edge = rb.GetBitmapNamed(IDR_WINDOW_TOP_CENTER);
-  SkBitmap* right_edge = rb.GetBitmapNamed(IDR_WINDOW_RIGHT_SIDE);
-  SkBitmap* left_edge = rb.GetBitmapNamed(IDR_WINDOW_LEFT_SIDE);
-  SkBitmap* bottom_left_corner =
-      rb.GetBitmapNamed(IDR_WINDOW_BOTTOM_LEFT_CORNER);
-  SkBitmap* bottom_right_corner =
-      rb.GetBitmapNamed(IDR_WINDOW_BOTTOM_RIGHT_CORNER);
-  SkBitmap* bottom_edge = rb.GetBitmapNamed(IDR_WINDOW_BOTTOM_CENTER);
+  gfx::ImageSkia* top_left_corner =
+      rb.GetImageSkiaNamed(IDR_WINDOW_TOP_LEFT_CORNER);
+  gfx::ImageSkia* top_right_corner =
+      rb.GetImageSkiaNamed(IDR_WINDOW_TOP_RIGHT_CORNER);
+  gfx::ImageSkia* top_edge = rb.GetImageSkiaNamed(IDR_WINDOW_TOP_CENTER);
+  gfx::ImageSkia* right_edge = rb.GetImageSkiaNamed(IDR_WINDOW_RIGHT_SIDE);
+  gfx::ImageSkia* left_edge = rb.GetImageSkiaNamed(IDR_WINDOW_LEFT_SIDE);
+  gfx::ImageSkia* bottom_left_corner =
+      rb.GetImageSkiaNamed(IDR_WINDOW_BOTTOM_LEFT_CORNER);
+  gfx::ImageSkia* bottom_right_corner =
+      rb.GetImageSkiaNamed(IDR_WINDOW_BOTTOM_RIGHT_CORNER);
+  gfx::ImageSkia* bottom_edge = rb.GetImageSkiaNamed(IDR_WINDOW_BOTTOM_CENTER);
 
   // Window frame mode and color.
-  SkBitmap* theme_frame;
+  gfx::ImageSkia* theme_frame;
   SkColor frame_color;
   if (ShouldPaintAsActive()) {
-    theme_frame = rb.GetBitmapNamed(IDR_FRAME_APP_PANEL);
+    theme_frame = rb.GetImageSkiaNamed(IDR_FRAME_APP_PANEL);
     frame_color = kFrameColorAppPanel;
   } else {
-    theme_frame = rb.GetBitmapNamed(IDR_FRAME_APP_PANEL);
+    theme_frame = rb.GetImageSkiaNamed(IDR_FRAME_APP_PANEL);
     frame_color = kFrameColorAppPanelInactive;
   }
 
@@ -360,11 +361,11 @@ void AppPanelBrowserFrameView::PaintRestoredFrameBorder(gfx::Canvas* canvas) {
   canvas->TileImageInt(*theme_frame, 0, 0, width(), theme_frame->height());
 
   // Top.
-  canvas->DrawBitmapInt(*top_left_corner, 0, 0);
+  canvas->DrawImageInt(*top_left_corner, 0, 0);
   canvas->TileImageInt(*top_edge, top_left_corner->width(), 0,
                        width() - top_right_corner->width(), top_edge->height());
-  canvas->DrawBitmapInt(*top_right_corner,
-                        width() - top_right_corner->width(), 0);
+  canvas->DrawImageInt(*top_right_corner,
+                       width() - top_right_corner->width(), 0);
 
   // Right.
   canvas->TileImageInt(*right_edge, width() - right_edge->width(),
@@ -372,15 +373,15 @@ void AppPanelBrowserFrameView::PaintRestoredFrameBorder(gfx::Canvas* canvas) {
       height() - top_right_corner->height() - bottom_right_corner->height());
 
   // Bottom.
-  canvas->DrawBitmapInt(*bottom_right_corner,
-                        width() - bottom_right_corner->width(),
-                        height() - bottom_right_corner->height());
+  canvas->DrawImageInt(*bottom_right_corner,
+                       width() - bottom_right_corner->width(),
+                       height() - bottom_right_corner->height());
   canvas->TileImageInt(*bottom_edge, bottom_left_corner->width(),
       height() - bottom_edge->height(),
       width() - bottom_left_corner->width() - bottom_right_corner->width(),
       bottom_edge->height());
-  canvas->DrawBitmapInt(*bottom_left_corner, 0,
-                        height() - bottom_left_corner->height());
+  canvas->DrawImageInt(*bottom_left_corner, 0,
+                       height() - bottom_left_corner->height());
 
   // Left.
   canvas->TileImageInt(*left_edge, 0, top_left_corner->height(),
@@ -389,15 +390,15 @@ void AppPanelBrowserFrameView::PaintRestoredFrameBorder(gfx::Canvas* canvas) {
 }
 
 void AppPanelBrowserFrameView::PaintMaximizedFrameBorder(gfx::Canvas* canvas) {
-  ResourceBundle& rb = ResourceBundle::GetSharedInstance();
+  ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
 
-  SkBitmap* frame_image = rb.GetBitmapNamed(IDR_FRAME_APP_PANEL);
+  gfx::ImageSkia* frame_image = rb.GetImageSkiaNamed(IDR_FRAME_APP_PANEL);
   canvas->TileImageInt(*frame_image, 0, FrameBorderThickness(), width(),
                        frame_image->height());
 
   // The bottom of the titlebar actually comes from the top of the Client Edge
   // graphic, with the actual client edge clipped off the bottom.
-  SkBitmap* titlebar_bottom = rb.GetBitmapNamed(IDR_APP_TOP_CENTER);
+  gfx::ImageSkia* titlebar_bottom = rb.GetImageSkiaNamed(IDR_APP_TOP_CENTER);
   int edge_height = titlebar_bottom->height() - kClientEdgeThickness;
   canvas->TileImageInt(*titlebar_bottom, 0,
                        frame()->client_view()->y() - edge_height,
@@ -416,25 +417,25 @@ void AppPanelBrowserFrameView::PaintRestoredClientEdge(gfx::Canvas* canvas) {
   gfx::Rect client_area_bounds = CalculateClientAreaBounds(width(), height());
   int client_area_top = client_area_bounds.y();
 
-  ResourceBundle& rb = ResourceBundle::GetSharedInstance();
-  SkBitmap* top_left = rb.GetBitmapNamed(IDR_APP_TOP_LEFT);
-  SkBitmap* top = rb.GetBitmapNamed(IDR_APP_TOP_CENTER);
-  SkBitmap* top_right = rb.GetBitmapNamed(IDR_APP_TOP_RIGHT);
-  SkBitmap* right = rb.GetBitmapNamed(IDR_CONTENT_RIGHT_SIDE);
-  SkBitmap* bottom_right =
-      rb.GetBitmapNamed(IDR_CONTENT_BOTTOM_RIGHT_CORNER);
-  SkBitmap* bottom = rb.GetBitmapNamed(IDR_CONTENT_BOTTOM_CENTER);
-  SkBitmap* bottom_left =
-      rb.GetBitmapNamed(IDR_CONTENT_BOTTOM_LEFT_CORNER);
-  SkBitmap* left = rb.GetBitmapNamed(IDR_CONTENT_LEFT_SIDE);
+  ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
+  gfx::ImageSkia* top_left = rb.GetImageSkiaNamed(IDR_APP_TOP_LEFT);
+  gfx::ImageSkia* top = rb.GetImageSkiaNamed(IDR_APP_TOP_CENTER);
+  gfx::ImageSkia* top_right = rb.GetImageSkiaNamed(IDR_APP_TOP_RIGHT);
+  gfx::ImageSkia* right = rb.GetImageSkiaNamed(IDR_CONTENT_RIGHT_SIDE);
+  gfx::ImageSkia* bottom_right =
+      rb.GetImageSkiaNamed(IDR_CONTENT_BOTTOM_RIGHT_CORNER);
+  gfx::ImageSkia* bottom = rb.GetImageSkiaNamed(IDR_CONTENT_BOTTOM_CENTER);
+  gfx::ImageSkia* bottom_left =
+      rb.GetImageSkiaNamed(IDR_CONTENT_BOTTOM_LEFT_CORNER);
+  gfx::ImageSkia* left = rb.GetImageSkiaNamed(IDR_CONTENT_LEFT_SIDE);
 
   // Top.
   int top_edge_y = client_area_top - top->height();
-  canvas->DrawBitmapInt(*top_left, client_area_bounds.x() - top_left->width(),
-                        top_edge_y);
+  canvas->DrawImageInt(*top_left, client_area_bounds.x() - top_left->width(),
+                       top_edge_y);
   canvas->TileImageInt(*top, client_area_bounds.x(), top_edge_y,
                        client_area_bounds.width(), top->height());
-  canvas->DrawBitmapInt(*top_right, client_area_bounds.right(), top_edge_y);
+  canvas->DrawImageInt(*top_right, client_area_bounds.right(), top_edge_y);
 
   // Right.
   int client_area_bottom =
@@ -444,11 +445,11 @@ void AppPanelBrowserFrameView::PaintRestoredClientEdge(gfx::Canvas* canvas) {
                        right->width(), client_area_height);
 
   // Bottom.
-  canvas->DrawBitmapInt(*bottom_right, client_area_bounds.right(),
-                        client_area_bottom);
+  canvas->DrawImageInt(*bottom_right, client_area_bounds.right(),
+                       client_area_bottom);
   canvas->TileImageInt(*bottom, client_area_bounds.x(), client_area_bottom,
                        client_area_bounds.width(), bottom_right->height());
-  canvas->DrawBitmapInt(*bottom_left,
+  canvas->DrawImageInt(*bottom_left,
       client_area_bounds.x() - bottom_left->width(), client_area_bottom);
 
   // Left.

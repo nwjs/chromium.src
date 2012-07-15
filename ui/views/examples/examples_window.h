@@ -4,13 +4,22 @@
 
 #ifndef UI_VIEWS_EXAMPLES_EXAMPLES_WINDOW_H_
 #define UI_VIEWS_EXAMPLES_EXAMPLES_WINDOW_H_
-#pragma once
+
+namespace content {
+class BrowserContext;
+}
 
 namespace views {
 namespace examples {
 
+enum Operation {
+  DO_NOTHING_ON_CLOSE = 0,
+  QUIT_ON_CLOSE,
+};
+
 // Shows a window with the views examples in it.
-void ShowExamplesWindow(bool quit_on_close);
+void ShowExamplesWindow(Operation operation,
+                        content::BrowserContext* browser_context);
 
 }  // namespace examples
 }  // namespace views

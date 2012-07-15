@@ -92,21 +92,39 @@ NetworkDelegate::AuthRequiredResponse NetworkDelegate::NotifyAuthRequired(
   return OnAuthRequired(request, auth_info, callback, credentials);
 }
 
-bool NetworkDelegate::NotifyReadingCookies(
-    const URLRequest* request,
-    const CookieList& cookie_list) {
+bool NetworkDelegate::CanGetCookies(const URLRequest& request,
+                                    const CookieList& cookie_list) {
   DCHECK(CalledOnValidThread());
-  DCHECK(!(request->load_flags() & net::LOAD_DO_NOT_SEND_COOKIES));
-  return CanGetCookies(request, cookie_list);
+  DCHECK(!(request.load_flags() & net::LOAD_DO_NOT_SEND_COOKIES));
+  return OnCanGetCookies(request, cookie_list);
 }
 
-bool NetworkDelegate::NotifySettingCookie(
-    const URLRequest* request,
-    const std::string& cookie_line,
-    CookieOptions* options) {
+  bool NetworkDelegate::CanSetCookie(const URLRequest& request,
+                                     const std::string& cookie_line,
+                                     CookieOptions* options) {
   DCHECK(CalledOnValidThread());
-  DCHECK(!(request->load_flags() & net::LOAD_DO_NOT_SAVE_COOKIES));
-  return CanSetCookie(request, cookie_line, options);
+  DCHECK(!(request.load_flags() & net::LOAD_DO_NOT_SAVE_COOKIES));
+  return OnCanSetCookie(request, cookie_line, options);
+}
+
+bool NetworkDelegate::CanAccessFile(const URLRequest& request,
+                                    const FilePath& path) const {
+  DCHECK(CalledOnValidThread());
+  return OnCanAccessFile(request, path);
+}
+
+bool NetworkDelegate::CanThrottleRequest(const URLRequest& request) const {
+  DCHECK(CalledOnValidThread());
+  return OnCanThrottleRequest(request);
+}
+
+int NetworkDelegate::NotifyBeforeSocketStreamConnect(
+    SocketStream* socket,
+    const CompletionCallback& callback) {
+  DCHECK(CalledOnValidThread());
+  DCHECK(socket);
+  DCHECK(!callback.is_null());
+  return OnBeforeSocketStreamConnect(socket, callback);
 }
 
 }  // namespace net

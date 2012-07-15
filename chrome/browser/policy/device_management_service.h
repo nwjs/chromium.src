@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_POLICY_DEVICE_MANAGEMENT_SERVICE_H_
 #define CHROME_BROWSER_POLICY_DEVICE_MANAGEMENT_SERVICE_H_
-#pragma once
 
 #include <deque>
 #include <map>
@@ -18,7 +17,7 @@
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/policy/cloud_policy_constants.h"
 #include "chrome/browser/policy/proto/device_management_backend.pb.h"
-#include "content/public/common/url_fetcher_delegate.h"
+#include "net/url_request/url_fetcher_delegate.h"
 
 namespace net {
 class URLRequestContextGetter;
@@ -86,7 +85,7 @@ class DeviceManagementRequestJob {
 // communication with the device management server. It creates the backends
 // objects that the device management policy provider and friends use to issue
 // requests.
-class DeviceManagementService : public content::URLFetcherDelegate {
+class DeviceManagementService : public net::URLFetcherDelegate {
  public:
   explicit DeviceManagementService(const std::string& server_url);
   virtual ~DeviceManagementService();
@@ -104,14 +103,14 @@ class DeviceManagementService : public content::URLFetcherDelegate {
   void Shutdown();
 
  private:
-  typedef std::map<const content::URLFetcher*,
+  typedef std::map<const net::URLFetcher*,
                    DeviceManagementRequestJobImpl*> JobFetcherMap;
   typedef std::deque<DeviceManagementRequestJobImpl*> JobQueue;
 
   friend class DeviceManagementRequestJobImpl;
 
-  // content::URLFetcherDelegate override.
-  virtual void OnURLFetchComplete(const content::URLFetcher* source) OVERRIDE;
+  // net::URLFetcherDelegate override.
+  virtual void OnURLFetchComplete(const net::URLFetcher* source) OVERRIDE;
 
   // Does the actual initialization using the request context specified for
   // |PrepareInitialization|. This will also fire any pending network requests.

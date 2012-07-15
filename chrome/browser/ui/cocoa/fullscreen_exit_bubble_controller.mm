@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,15 +11,17 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_commands.h"
 #import "chrome/browser/ui/cocoa/browser_window_controller.h"
 #include "chrome/browser/ui/cocoa/event_utils.h"
 #import "chrome/browser/ui/cocoa/fullscreen_exit_bubble_controller.h"
 #import "chrome/browser/ui/cocoa/hyperlink_text_view.h"
 #import "chrome/browser/ui/cocoa/info_bubble_view.h"
 #import "chrome/browser/ui/cocoa/info_bubble_window.h"
-#include "chrome/browser/ui/fullscreen_exit_bubble_type.h"
+#include "chrome/browser/ui/fullscreen/fullscreen_controller.h"
+#include "chrome/browser/ui/fullscreen/fullscreen_exit_bubble_type.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "grit/generated_resources.h"
 #include "grit/ui_strings.h"
 #import "third_party/GTM/AppKit/GTMNSAnimation+Duration.h"
@@ -76,6 +78,11 @@ const float kHideDuration = 0.7;
     owner_ = owner;
     url_ = url;
     bubbleType_ = bubbleType;
+    // Mouse lock expects mouse events to reach the main window immediately.
+    // Make the bubble transparent for mouse events if mouse lock is enabled.
+    if (bubbleType_ == FEB_TYPE_FULLSCREEN_MOUSELOCK_EXIT_INSTRUCTION ||
+        bubbleType_ == FEB_TYPE_MOUSELOCK_EXIT_INSTRUCTION)
+      [[self window] setIgnoresMouseEvents:YES];
   }
   return self;
 }
@@ -89,15 +96,13 @@ const float kHideDuration = 0.7;
     [[self window] setIgnoresMouseEvents:YES];
 
   DCHECK(fullscreen_bubble::ShowButtonsForType(bubbleType_));
-  browser_->OnAcceptFullscreenPermission(
+  browser_->fullscreen_controller()->OnAcceptFullscreenPermission(
       url_, bubbleType_);
-  [self showButtons:NO];
-  [self hideSoon];
 }
 
 - (void)deny:(id)sender {
   DCHECK(fullscreen_bubble::ShowButtonsForType(bubbleType_));
-  browser_->OnDenyFullscreenPermission(bubbleType_);
+  browser_->fullscreen_controller()->OnDenyFullscreenPermission(bubbleType_);
 }
 
 - (void)showButtons:(BOOL)show {
@@ -120,10 +125,9 @@ const float kHideDuration = 0.7;
     [self showButtons:NO];
     [self hideSoon];
   }
-  NSRect windowFrame = [owner_ window].frame;
   [tweaker_ tweakUI:info_bubble];
-  [self positionInWindowAtTop:NSHeight(windowFrame) width:NSWidth(windowFrame)];
   [[owner_ window] addChildWindow:info_bubble ordered:NSWindowAbove];
+  [owner_ layoutSubviews];
 
   [info_bubble orderFront:self];
 }
@@ -136,48 +140,19 @@ const float kHideDuration = 0.7;
 
 - (void)positionInWindowAtTop:(CGFloat)maxY width:(CGFloat)maxWidth {
   NSRect windowFrame = [self window].frame;
+  NSRect ownerWindowFrame = [owner_ window].frame;
   NSPoint origin;
-  origin.x = (int)(maxWidth/2 - NSWidth(windowFrame)/2);
-  origin.y = maxY - NSHeight(windowFrame);
+  origin.x = ownerWindowFrame.origin.x +
+      (int)(NSWidth(ownerWindowFrame)/2 - NSWidth(windowFrame)/2);
+  origin.y = ownerWindowFrame.origin.y + maxY - NSHeight(windowFrame);
   [[self window] setFrameOrigin:origin];
-}
-
-- (void)updateURL:(const GURL&)url
-       bubbleType:(FullscreenExitBubbleType)bubbleType {
-  bubbleType_ = bubbleType;
-
-  [messageLabel_ setStringValue:[self getLabelText]];
-
-  // Make sure the bubble is visible.
-  [hideAnimation_.get() stopAnimation];
-  [hideTimer_ invalidate];
-  [[[self window] animator] setAlphaValue:1.0];
-
-  if (fullscreen_bubble::ShowButtonsForType(bubbleType)) {
-    [denyButton_ setTitle:SysUTF16ToNSString(
-        fullscreen_bubble::GetDenyButtonTextForType(bubbleType))];
-    [self showButtons:YES];
-
-    // Reenable mouse events if they were disabled previously.
-    [[self window] setIgnoresMouseEvents:NO];
-  } else {
-    [self showButtons:NO];
-    // Only button-less bubbles auto-hide.
-    [self hideSoon];
-  }
-  // TODO(jeremya): show "Press Esc to exit" instead of a link on mouselock.
-
-  // Relayout. A bit jumpy, but functional.
-  [tweaker_ tweakUI:[self window]];
-  NSRect windowFrame = [owner_ window].frame;
-  [self positionInWindowAtTop:NSHeight(windowFrame) width:NSWidth(windowFrame)];
 }
 
 // Called when someone clicks on the embedded link.
 - (BOOL) textView:(NSTextView*)textView
     clickedOnLink:(id)link
           atIndex:(NSUInteger)charIndex {
-  browser_->ExecuteCommand(IDC_FULLSCREEN);
+  chrome::ExecuteCommand(browser_, IDC_FULLSCREEN);
   return YES;
 }
 
@@ -271,6 +246,8 @@ const float kHideDuration = 0.7;
 }
 
 - (NSString*)getLabelText {
+  if (bubbleType_ == FEB_TYPE_NONE)
+    return @"";
   return SysUTF16ToNSString(fullscreen_bubble::GetLabelTextForType(
           bubbleType_, url_, browser_->profile()->GetExtensionService()));
 }

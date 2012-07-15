@@ -4,16 +4,33 @@
 
 #include "ui/aura/test/aura_test_helper.h"
 
+#include "base/message_loop.h"
+#include "base/run_loop.h"
+#include "ui/aura/client/aura_constants.h"
 #include "ui/aura/env.h"
+#include "ui/aura/focus_manager.h"
+#include "ui/aura/display_manager.h"
 #include "ui/aura/root_window.h"
-#include "ui/gfx/compositor/layer_animator.h"
+#include "ui/aura/shared/root_window_capture_client.h"
+#include "ui/aura/single_display_manager.h"
+#include "ui/aura/test/test_activation_client.h"
+#include "ui/aura/test/test_screen.h"
+#include "ui/aura/test/test_stacking_client.h"
+#include "ui/aura/ui_controls_aura.h"
+#include "ui/base/test/dummy_input_method.h"
+#include "ui/compositor/layer_animator.h"
+#include "ui/gfx/screen.h"
+#include "ui/ui_controls/ui_controls.h"
 
 namespace aura {
 namespace test {
 
-AuraTestHelper::AuraTestHelper()
+AuraTestHelper::AuraTestHelper(MessageLoopForUI* message_loop)
     : setup_called_(false),
-      teardown_called_(false) {
+      teardown_called_(false),
+      owns_root_window_(false) {
+  DCHECK(message_loop);
+  message_loop_ = message_loop;
   // Disable animations during tests.
   ui::LayerAnimator::set_disable_animations_for_test(true);
 }
@@ -23,27 +40,49 @@ AuraTestHelper::~AuraTestHelper() {
       << "You have overridden SetUp but never called super class's SetUp";
   CHECK(teardown_called_)
       << "You have overridden TearDown but never called super class's TearDown";
-  aura::Env::DeleteInstance();
-}
-
-void AuraTestHelper::InitRootWindow(RootWindow* root_window) {
-  root_window->Show();
-  // Ensure width != height so tests won't confuse them.
-  root_window->SetHostSize(gfx::Size(800, 600));
 }
 
 void AuraTestHelper::SetUp() {
   setup_called_ = true;
+  Env::GetInstance()->SetDisplayManager(new SingleDisplayManager);
+  root_window_.reset(aura::DisplayManager::CreateRootWindowForPrimaryDisplay());
+  gfx::Screen::SetInstance(new aura::TestScreen(root_window_.get()));
+  ui_controls::InstallUIControlsAura(CreateUIControlsAura(root_window_.get()));
+
+  focus_manager_.reset(new FocusManager);
+  root_window_->set_focus_manager(focus_manager_.get());
+  stacking_client_.reset(new TestStackingClient(root_window_.get()));
+  test_activation_client_.reset(
+      new test::TestActivationClient(root_window_.get()));
+  root_window_capture_client_.reset(
+      new shared::RootWindowCaptureClient(root_window_.get()));
+  test_input_method_.reset(new ui::test::DummyInputMethod);
+  root_window_->SetProperty(
+      aura::client::kRootWindowInputMethodKey,
+      test_input_method_.get());
+
+  root_window_->Show();
+  // Ensure width != height so tests won't confuse them.
+  root_window_->SetHostSize(gfx::Size(800, 600));
 }
 
 void AuraTestHelper::TearDown() {
   teardown_called_ = true;
+  test_input_method_.reset();
+  stacking_client_.reset();
+  test_activation_client_.reset();
+  root_window_capture_client_.reset();
+  focus_manager_.reset();
+  root_window_.reset();
+  aura::Env::DeleteInstance();
 }
 
-void AuraTestHelper::RunAllPendingInMessageLoop(RootWindow* root_window) {
+void AuraTestHelper::RunAllPendingInMessageLoop() {
 #if !defined(OS_MACOSX)
-  message_loop_.RunAllPendingWithDispatcher(
-      Env::GetInstance()->GetDispatcher());
+  // TODO(jbates) crbug.com/134753 Find quitters of this RunLoop and have them
+  //              use run_loop.QuitClosure().
+  base::RunLoop run_loop(Env::GetInstance()->GetDispatcher());
+  run_loop.RunUntilIdle();
 #endif
 }
 

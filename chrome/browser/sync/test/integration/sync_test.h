@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SYNC_TEST_INTEGRATION_SYNC_TEST_H_
 #define CHROME_BROWSER_SYNC_TEST_INTEGRATION_SYNC_TEST_H_
-#pragma once
 
 #include "chrome/test/base/in_process_browser_test.h"
 
@@ -18,19 +17,19 @@
 #include "base/memory/scoped_vector.h"
 #include "base/process_util.h"
 #include "net/base/mock_host_resolver.h"
-#include "net/test/test_server.h"
+#include "net/test/local_sync_test_server.h"
+#include "sync/internal_api/public/base/model_type.h"
 #include "sync/protocol/sync_protocol_error.h"
-#include "sync/syncable/model_type.h"
 
 class CommandLine;
 class Profile;
 class ProfileSyncServiceHarness;
-class FakeURLFetcherFactory;
-class URLFetcherImplFactory;
 
 namespace net {
+class FakeURLFetcherFactory;
 class ProxyConfig;
 class ScopedDefaultHostResolverProc;
+class URLFetcherImplFactory;
 class URLRequestContextGetter;
 }
 
@@ -148,10 +147,10 @@ class SyncTest : public InProcessBrowserTest {
   virtual void DisableNetwork(Profile* profile);
 
   // Encrypts the datatype |type| for profile |index|.
-  bool EnableEncryption(int index, syncable::ModelType type);
+  bool EnableEncryption(int index, syncer::ModelType type);
 
   // Checks if the datatype |type| is encrypted for profile |index|.
-  bool IsEncrypted(int index, syncable::ModelType type);
+  bool IsEncrypted(int index, syncer::ModelType type);
 
   // Blocks until all sync clients have completed their mutual sync cycles.
   // Returns true if a quiescent state was successfully reached.
@@ -172,7 +171,7 @@ class SyncTest : public InProcessBrowserTest {
   // Trigger a notification to be sent to all clients.  This operation
   // is available only if ServerSupportsNotificationControl() returned
   // true.
-  void TriggerNotification(syncable::ModelTypeSet changed_types);
+  void TriggerNotification(syncer::ModelTypeSet changed_types);
 
   // Returns true if the server being used supports injecting errors.
   bool ServerSupportsErrorTriggering() const;
@@ -180,7 +179,7 @@ class SyncTest : public InProcessBrowserTest {
   // Triggers a migration for one or more datatypes, and waits
   // for the server to complete it.  This operation is available
   // only if ServerSupportsErrorTriggering() returned true.
-  void TriggerMigrationDoneError(syncable::ModelTypeSet model_types);
+  void TriggerMigrationDoneError(syncer::ModelTypeSet model_types);
 
   // Triggers the server to set its birthday to a random value thereby
   // the server would return a birthday error on next sync.
@@ -198,11 +197,8 @@ class SyncTest : public InProcessBrowserTest {
   // Triggers a sync error on the server.
   //   error: The error the server is expected to return.
   //   frequency: Frequency with which the error is returned.
-  void TriggerSyncError(const browser_sync::SyncProtocolError& error,
+  void TriggerSyncError(const syncer::SyncProtocolError& error,
                         SyncErrorFrequency frequency);
-
-  // Triggers setting the sync_tabs field of the nigori node.
-  void TriggerSetSyncTabs();
 
   // Triggers the creation the Synced Bookmarks folder on the server.
   void TriggerCreateSyncedBookmarks();
@@ -278,11 +274,11 @@ class SyncTest : public InProcessBrowserTest {
   // created. Returns true if successful.
   bool TearDownLocalTestServer();
 
-  // Helper method that waits for up to |time_ms| milliseconds for the test
-  // server to start. Splits the time into |intervals| intervals, and polls the
+  // Helper method that waits for up to |wait| for the test server
+  // to start. Splits the time into |intervals| intervals, and polls the
   // server after each interval to see if it has started. Returns true if
   // successful.
-  bool WaitForTestServerToStart(int time_ms, int intervals);
+  bool WaitForTestServerToStart(base::TimeDelta wait, int intervals);
 
   // Helper method used to check if the test server is up and running.
   bool IsTestServerRunning();
@@ -298,7 +294,7 @@ class SyncTest : public InProcessBrowserTest {
   void SetupMockGaiaResponses();
 
   // Test server of type sync, started on demand.
-  net::TestServer sync_server_;
+  net::LocalSyncTestServer sync_server_;
 
   // Helper class to whitelist the notification port.
   scoped_ptr<net::ScopedPortException> xmpp_port_;
@@ -351,10 +347,10 @@ class SyncTest : public InProcessBrowserTest {
   base::ProcessHandle test_server_handle_;
 
   // Fake URLFetcher factory used to mock out GAIA signin.
-  scoped_ptr<FakeURLFetcherFactory> fake_factory_;
+  scoped_ptr<net::FakeURLFetcherFactory> fake_factory_;
 
   // The URLFetcherImplFactory instance used to instantiate |fake_factory_|.
-  scoped_ptr<URLFetcherImplFactory> factory_;
+  scoped_ptr<net::URLFetcherImplFactory> factory_;
 
   // Number of default entries (as determined by the existing entries at setup
   // time on client 0).

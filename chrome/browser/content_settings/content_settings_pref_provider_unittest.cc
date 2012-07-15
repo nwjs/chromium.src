@@ -27,7 +27,7 @@
 #include "chrome/test/base/testing_pref_service.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/notification_observer.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "googleurl/src/gurl.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -156,12 +156,12 @@ TEST_F(PrefProviderTest, Incognito) {
   PrefService* regular_prefs = builder.WithUserPrefs(user_prefs).Create();
 
   Profile::RegisterUserPrefs(regular_prefs);
-  browser::RegisterUserPrefs(regular_prefs);
+  chrome::RegisterUserPrefs(regular_prefs);
 
   PrefService* otr_prefs = builder.WithUserPrefs(otr_user_prefs).Create();
 
   Profile::RegisterUserPrefs(otr_prefs);
-  browser::RegisterUserPrefs(otr_prefs);
+  chrome::RegisterUserPrefs(otr_prefs);
 
   TestingProfile profile;
   TestingProfile* otr_profile = new TestingProfile;
@@ -398,139 +398,7 @@ TEST_F(PrefProviderTest, MigrateObsoleteContentSettingsPatternPref) {
       pattern.ToString() + "," +
       ContentSettingsPattern::Wildcard().ToString()));
 
-  provider.ShutdownOnUIThread();
-}
-
-TEST_F(PrefProviderTest, SyncObsoletePref) {
-  TestingProfile profile;
-  PrefService* prefs = profile.GetPrefs();
-  content_settings::PrefProvider provider(prefs, false);
-
-  // Assert pre-condition.
-  const DictionaryValue* patterns =
-      prefs->GetDictionary(prefs::kContentSettingsPatterns);
-  ASSERT_TRUE(patterns->empty());
-
-  // Simulate a user setting a content setting.
-  ContentSettingsPattern primary_pattern =
-      ContentSettingsPattern::FromString("[*.]example.com");
-  ContentSettingsPattern secondary_pattern =
-      ContentSettingsPattern::Wildcard();
-  provider.SetWebsiteSetting(primary_pattern,
-                             secondary_pattern,
-                             CONTENT_SETTINGS_TYPE_JAVASCRIPT,
-                             std::string(),
-                             Value::CreateIntegerValue(CONTENT_SETTING_BLOCK));
-
-  // Test whether the obsolete preference is synced correctly.
-  patterns = prefs->GetDictionary(prefs::kContentSettingsPatterns);
-  EXPECT_EQ(1U, patterns->size());
-  DictionaryValue* settings = NULL;
-  patterns->GetDictionaryWithoutPathExpansion(primary_pattern.ToString(),
-                                              &settings);
-  ASSERT_TRUE(NULL != settings);
-  ASSERT_EQ(1U, settings->size());
-  int setting_value;
-  settings->GetInteger("javascript", &setting_value);
-  EXPECT_EQ(setting_value, CONTENT_SETTING_BLOCK);
-
-  // Simulate a sync change of the preference
-  // prefs::kContentSettingsPatternPairs.
-  {
-    DictionaryPrefUpdate update(prefs, prefs::kContentSettingsPatternPairs);
-    DictionaryValue* mutable_pattern_pairs = update.Get();
-    DictionaryValue* mutable_settings = NULL;
-    std::string key(
-        primary_pattern.ToString() + "," + secondary_pattern.ToString());
-    mutable_pattern_pairs->GetDictionaryWithoutPathExpansion(
-        key, &mutable_settings);
-    ASSERT_TRUE(NULL != mutable_settings) << "Dictionary has no key: " << key;
-    mutable_settings->SetInteger("javascript", CONTENT_SETTING_ALLOW);
-  }
-
-  EXPECT_EQ(CONTENT_SETTING_ALLOW,
-            GetContentSetting(&provider,
-                              GURL("http://www.example.com"),
-                              GURL("http://www.example.com"),
-                              CONTENT_SETTINGS_TYPE_JAVASCRIPT,
-                              std::string(),
-                              false));
-  // Test whether the obsolete preference was synced correctly.
-  settings = NULL;
-  patterns->GetDictionaryWithoutPathExpansion(primary_pattern.ToString(),
-                                              &settings);
-  ASSERT_TRUE(NULL != settings) << "Dictionary has no key: "
-                                << primary_pattern.ToString();
-  ASSERT_EQ(1U, settings->size());
-  settings->GetInteger("javascript", &setting_value);
-  EXPECT_EQ(setting_value, CONTENT_SETTING_ALLOW);
-
-  provider.ShutdownOnUIThread();
-}
-
-
-TEST_F(PrefProviderTest, FixOrRemoveMalformedPatternKeysFromObsoletePref) {
-  TestingProfile profile;
-  PrefService* prefs = profile.GetPrefs();
-
-  // Set obsolete preference for content settings pattern.
-  scoped_ptr<DictionaryValue> settings_dictionary(new DictionaryValue());
-  settings_dictionary->SetInteger("cookies", 2);
-  settings_dictionary->SetInteger("images", 2);
-  settings_dictionary->SetInteger("popups", 2);
-  scoped_ptr<DictionaryValue> all_settings_dictionary(new DictionaryValue());
-  // Good pattern key.
-  all_settings_dictionary->SetWithoutPathExpansion(
-      "http://www.example.com", settings_dictionary->DeepCopy());
-  // Bad pattern key that will be ignored since there is already a good pattern
-  // key for the primary patter of the bad pattern key.
-  all_settings_dictionary->SetWithoutPathExpansion(
-      "http://www.example.com,", settings_dictionary->DeepCopy());
-
-  // Bad pattern key that should be removed.
-  all_settings_dictionary->SetWithoutPathExpansion(
-      "http://www.broken.com*", settings_dictionary->DeepCopy());
-
-  all_settings_dictionary->SetWithoutPathExpansion(
-      "http://www.bar.com,", settings_dictionary->DeepCopy());
-
-  // Bad pattern key with a trailing comma that is supposed to be fixed.
-  // A trailing comma means that the secondary pattern string is empty and hence
-  // invalid.
-  all_settings_dictionary->SetWithoutPathExpansion(
-      "http://www.foo.com,", settings_dictionary->DeepCopy());
-  // Bad pattern key with an invalid secondary pattern that should be removed.
-  all_settings_dictionary->SetWithoutPathExpansion(
-      "http://www.foo.com,error*", settings_dictionary->DeepCopy());
-  // Pattern keys with valid pattern pairs.
-  all_settings_dictionary->SetWithoutPathExpansion(
-      "http://www.foo.com,[*.]bar.com", settings_dictionary->DeepCopy());
-  prefs->Set(prefs::kContentSettingsPatterns, *all_settings_dictionary);
-  all_settings_dictionary->SetWithoutPathExpansion(
-      "http://www.example2.com,*", settings_dictionary->DeepCopy());
-  prefs->Set(prefs::kContentSettingsPatterns, *all_settings_dictionary);
-
-  content_settings::PrefProvider provider(prefs, false);
-
-  // Tests that the broken pattern keys got fixed or removed.
-  const DictionaryValue* patterns_dictionary =
-      prefs->GetDictionary(prefs::kContentSettingsPatterns);
-  EXPECT_EQ(4U, patterns_dictionary->size());
-  EXPECT_TRUE(patterns_dictionary->HasKey("http://www.example.com"));
-  EXPECT_TRUE(patterns_dictionary->HasKey("http://www.bar.com"));
-  EXPECT_TRUE(patterns_dictionary->HasKey("http://www.foo.com"));
-  EXPECT_TRUE(patterns_dictionary->HasKey("http://www.example2.com"));
-
-  // Broken pattern keys that should be removed
-  EXPECT_FALSE(patterns_dictionary->HasKey("http://www.bar.com,"));
-  EXPECT_FALSE(patterns_dictionary->HasKey("http://www.foo.com,"));
-  EXPECT_FALSE(patterns_dictionary->HasKey("http://www.foo.com,error*"));
-  EXPECT_FALSE(patterns_dictionary->HasKey(
-      "http://www.foo.com,[*.]bar.com"));
-  EXPECT_FALSE(patterns_dictionary->HasKey("http://www.example2.com,*"));
-
-  EXPECT_FALSE(patterns_dictionary->HasKey("http://www.broken.com*"));
-
+  EXPECT_TRUE(prefs->GetDictionary(prefs::kContentSettingsPatterns)->empty());
   provider.ShutdownOnUIThread();
 }
 
@@ -539,6 +407,7 @@ TEST_F(PrefProviderTest, MigrateObsoleteGeolocationPref) {
   PrefService* prefs = profile.GetPrefs();
   GURL secondary_url("http://www.foo.com");
   GURL primary_url("http://www.bar.com");
+  GURL corrupted_setting_url("http://www.corruptedsetting.com");
 
   // Set obsolete preference.
   DictionaryValue* secondary_patterns_dictionary = new DictionaryValue();
@@ -549,9 +418,12 @@ TEST_F(PrefProviderTest, MigrateObsoleteGeolocationPref) {
       new DictionaryValue());
   geolocation_settings_dictionary->SetWithoutPathExpansion(
       primary_url.spec(), secondary_patterns_dictionary);
+  // Add a non dictionary value to the geolocation settings dictionary to test
+  // that corrupted settings are ignored (See http://crbug.com/125009).
+  geolocation_settings_dictionary->SetWithoutPathExpansion(
+      corrupted_setting_url.spec(), Value::CreateIntegerValue(0));
   prefs->Set(prefs::kGeolocationContentSettings,
              *geolocation_settings_dictionary);
-
 
   content_settings::PrefProvider provider(prefs, false);
 
@@ -570,6 +442,13 @@ TEST_F(PrefProviderTest, MigrateObsoleteGeolocationPref) {
       CONTENT_SETTINGS_TYPE_GEOLOCATION,
       "",
       false));
+  EXPECT_EQ(CONTENT_SETTING_DEFAULT, GetContentSetting(
+      &provider,
+      corrupted_setting_url,
+      corrupted_setting_url,
+      CONTENT_SETTINGS_TYPE_GEOLOCATION,
+      "",
+      false));
   // Check if the settings where migrated correctly.
   const DictionaryValue* const_all_settings_dictionary =
       prefs->GetDictionary(prefs::kContentSettingsPatternPairs);
@@ -583,84 +462,8 @@ TEST_F(PrefProviderTest, MigrateObsoleteGeolocationPref) {
       prefs->GetDictionary(prefs::kContentSettingsPatterns);
   EXPECT_TRUE(const_obsolete_patterns_dictionary->empty());
 
-  // Change obsolete preference. This could be triggered by sync if sync is used
-  // with an old version of chrome.
-  secondary_patterns_dictionary = new DictionaryValue();
-  secondary_patterns_dictionary->SetWithoutPathExpansion(
-      secondary_url.spec(),
-      Value::CreateIntegerValue(CONTENT_SETTING_ALLOW));
-  geolocation_settings_dictionary.reset(new DictionaryValue());
-  geolocation_settings_dictionary->SetWithoutPathExpansion(
-      primary_url.spec(), secondary_patterns_dictionary);
-  prefs->Set(prefs::kGeolocationContentSettings,
-             *geolocation_settings_dictionary);
-
-  // Test if the changed obsolete preference was migrated correctly.
-  EXPECT_EQ(CONTENT_SETTING_ALLOW, GetContentSetting(
-      &provider,
-      primary_url,
-      secondary_url,
-      CONTENT_SETTINGS_TYPE_GEOLOCATION,
-      "",
-      false));
-  // Check that geolocation settings were not synced to the obsolete content
-  // settings pattern preference.
-  const_obsolete_patterns_dictionary =
-      prefs->GetDictionary(prefs::kContentSettingsPatterns);
-  EXPECT_TRUE(const_obsolete_patterns_dictionary->empty());
-
-  provider.ShutdownOnUIThread();
-}
-
-TEST_F(PrefProviderTest, SyncObsoleteGeolocationPref) {
-  TestingProfile profile;
-  PrefService* prefs = profile.GetPrefs();
-
-  content_settings::PrefProvider provider(prefs, false);
-
-  // Changing the preferences prefs::kContentSettingsPatternPairs.
-  ContentSettingsPattern primary_pattern=
-      ContentSettingsPattern::FromString("http://www.bar.com");
-  ContentSettingsPattern primary_pattern_2 =
-      ContentSettingsPattern::FromString("http://www.example.com");
-  ContentSettingsPattern secondary_pattern =
-      ContentSettingsPattern::FromString("http://www.foo.com");
-  scoped_ptr<DictionaryValue> settings_dictionary(new DictionaryValue());
-  settings_dictionary->SetInteger("geolocation", CONTENT_SETTING_BLOCK);
-  {
-    DictionaryPrefUpdate update(prefs,
-                                prefs::kContentSettingsPatternPairs);
-    DictionaryValue* all_settings_dictionary = update.Get();
-    std::string key(
-        primary_pattern.ToString()+ "," +
-        secondary_pattern.ToString());
-    all_settings_dictionary->SetWithoutPathExpansion(
-        key, settings_dictionary->DeepCopy());
-
-    key = std::string(
-        primary_pattern_2.ToString() + "," +
-        secondary_pattern.ToString());
-    all_settings_dictionary->SetWithoutPathExpansion(
-        key, settings_dictionary->DeepCopy());
-  }
-
-  // Test if the obsolete geolocation preference is kept in sync if the new
-  // preference is changed by a sync.
-  GURL primary_url("http://www.bar.com");
-  GURL primary_url_2("http://www.example.com");
-  GURL secondary_url("http://www.foo.com");
-
-  const DictionaryValue* geo_settings_dictionary =
-      prefs->GetDictionary(prefs::kGeolocationContentSettings);
-  EXPECT_EQ(2U, geo_settings_dictionary->size());
-  ExpectObsoleteGeolocationSetting(*geo_settings_dictionary,
-                                   primary_url,
-                                   secondary_url,
-                                   CONTENT_SETTING_BLOCK);
-  ExpectObsoleteGeolocationSetting(*geo_settings_dictionary,
-                                   primary_url_2,
-                                   secondary_url,
-                                   CONTENT_SETTING_BLOCK);
+  EXPECT_TRUE(
+      prefs->GetDictionary(prefs::kGeolocationContentSettings)->empty());
 
   provider.ShutdownOnUIThread();
 }
@@ -760,89 +563,11 @@ TEST_F(PrefProviderTest, MigrateObsoleteNotificationsPref) {
       prefs->GetDictionary(prefs::kContentSettingsPatterns);
   EXPECT_TRUE(const_obsolete_patterns_dictionary->empty());
 
-  // Change obsolete preference. This could be triggered by sync if sync is used
-  // with an old version of chrome.
-  allowed_origin_list.reset(new ListValue());
-  allowed_origin_list->AppendIfNotPresent(
-      Value::CreateStringValue(allowed_url2.spec()));
-  prefs->Set(prefs::kDesktopNotificationAllowedOrigins,
-             *allowed_origin_list);
-
-  // Test if the changed obsolete preference was migrated correctly.
-  EXPECT_EQ(CONTENT_SETTING_ALLOW, GetContentSetting(
-      &provider,
-      allowed_url2,
-      allowed_url2,
-      CONTENT_SETTINGS_TYPE_NOTIFICATIONS,
-      "",
-      false));
-  EXPECT_EQ(CONTENT_SETTING_DEFAULT, GetContentSetting(
-      &provider,
-      allowed_url,
-      allowed_url,
-      CONTENT_SETTINGS_TYPE_NOTIFICATIONS,
-      "",
-      false));
-  EXPECT_EQ(CONTENT_SETTING_BLOCK, GetContentSetting(
-      &provider,
-      denied_url,
-      denied_url,
-      CONTENT_SETTINGS_TYPE_NOTIFICATIONS,
-      "",
-      false));
-  // Check that geolocation settings were not synced to the obsolete content
-  // settings pattern preference.
-  const_obsolete_patterns_dictionary =
-      prefs->GetDictionary(prefs::kContentSettingsPatterns);
-  EXPECT_TRUE(const_obsolete_patterns_dictionary->empty());
-
-  provider.ShutdownOnUIThread();
-}
-
-TEST_F(PrefProviderTest, SyncObsoleteNotificationsPref) {
-  TestingProfile profile;
-  PrefService* prefs = profile.GetPrefs();
-
-  content_settings::PrefProvider provider(prefs, false);
-
-  // Changing the preferences prefs::kContentSettingsPatternPairs.
-  ContentSettingsPattern primary_pattern=
-      ContentSettingsPattern::FromString("http://www.bar.com");
-  ContentSettingsPattern primary_pattern_2 =
-      ContentSettingsPattern::FromString("http://www.example.com");
-  ContentSettingsPattern secondary_pattern =
-      ContentSettingsPattern::Wildcard();
-  GURL primary_url("http://www.bar.com");
-  GURL primary_url_2("http://www.example.com");
-
-  {
-    DictionaryPrefUpdate update(prefs,
-                                prefs::kContentSettingsPatternPairs);
-    DictionaryValue* all_settings_dictionary = update.Get();
-
-    scoped_ptr<DictionaryValue> settings_dictionary(new DictionaryValue());
-    settings_dictionary->SetInteger("notifications", CONTENT_SETTING_BLOCK);
-    std::string key(
-        primary_pattern.ToString() + "," +
-        secondary_pattern.ToString());
-    all_settings_dictionary->SetWithoutPathExpansion(
-        key, settings_dictionary->DeepCopy());
-
-    settings_dictionary.reset(new DictionaryValue());
-    settings_dictionary->SetInteger("notifications", CONTENT_SETTING_ALLOW);
-    key = primary_pattern_2.ToString() + "," + secondary_pattern.ToString();
-    all_settings_dictionary->SetWithoutPathExpansion(
-        key, settings_dictionary->DeepCopy());
-  }
-
-  // Test if the obsolete notifications preference is kept in sync if the new
-  // preference is changed by a sync.
-  const ListValue* denied_origin_list =
-      prefs->GetList(prefs::kDesktopNotificationAllowedOrigins);
-  EXPECT_EQ(1U, denied_origin_list->GetSize());
-  const ListValue* allowed_origin_list =
-      prefs->GetList(prefs::kDesktopNotificationDeniedOrigins);
-  EXPECT_EQ(1U, allowed_origin_list->GetSize());
+  // Test that the obsolete notifications settings were cleared.
+  EXPECT_TRUE(
+      prefs->GetList(prefs::kDesktopNotificationAllowedOrigins)->empty());
+  EXPECT_TRUE(
+      prefs->GetList(prefs::kDesktopNotificationDeniedOrigins)->empty());
 
   provider.ShutdownOnUIThread();
 }

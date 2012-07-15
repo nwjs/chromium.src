@@ -5,6 +5,7 @@
 #include "chrome/browser/sync/glue/theme_data_type_controller.h"
 
 #include "base/metrics/histogram.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/profile_sync_components_factory.h"
 
@@ -19,22 +20,21 @@ ThemeDataTypeController::ThemeDataTypeController(
                                  sync_service) {
 }
 
-ThemeDataTypeController::~ThemeDataTypeController() {
+syncer::ModelType ThemeDataTypeController::type() const {
+  return syncer::THEMES;
 }
 
-syncable::ModelType ThemeDataTypeController::type() const {
-  return syncable::THEMES;
-}
+ThemeDataTypeController::~ThemeDataTypeController() {}
 
 bool ThemeDataTypeController::StartModels() {
-  profile_->InitExtensions(true);
+  extensions::ExtensionSystem::Get(profile_)->Init(true);
   return true;
 }
 
 void ThemeDataTypeController::CreateSyncComponents() {
   ProfileSyncComponentsFactory::SyncComponents sync_components =
       profile_sync_factory_->CreateThemeSyncComponents(sync_service_,
-                                                     this);
+                                                       this);
   set_model_associator(sync_components.model_associator);
   set_change_processor(sync_components.change_processor);
 }

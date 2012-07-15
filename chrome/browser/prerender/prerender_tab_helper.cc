@@ -7,170 +7,132 @@
 #include "base/metrics/histogram.h"
 #include "base/string_number_conversions.h"
 #include "base/time.h"
+#include "chrome/browser/prerender/prerender_histograms.h"
 #include "chrome/browser/prerender/prerender_manager.h"
 #include "chrome/browser/prerender/prerender_manager_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/tab_contents/core_tab_helper.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/browser/web_contents_view.h"
+#include "skia/ext/platform_canvas.h"
+#include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/gfx/rect.h"
+
+using content::WebContents;
 
 namespace prerender {
 
-namespace {
-
-const int kMinHoverThresholdsMs[] = {
-  250
-};
-
-// Overview of hover-related histograms:
-// -- count of hover start
-// -- count of hover too short.
-// difference between these is pages prerendered
-// -- count of prerender used
-// -- time from hover commence until click (subtract hover threshold
-// from that value to figure out average savings).
-
-enum HoverEvents {
-  HOVER_EVENT_START = 0,
-  HOVER_EVENT_TOO_SHORT = 1,
-  HOVER_EVENT_REPLACED = 2,
-  HOVER_EVENT_CLICK = 3,
-  HOVER_EVENT_MAX
-};
-
-const int kNumHoverThresholds = arraysize(kMinHoverThresholdsMs);
-
-class PerHoverThresholdHistograms {
+// Helper class to compute pixel-based stats on the paint progress
+// between when a prerendered page is swapped in and when the onload event
+// fires.
+class PrerenderTabHelper::PixelStats {
  public:
-  explicit PerHoverThresholdHistograms(int hover_threshold_ms) {
-    std::string prefix = std::string("Prerender.HoverStats_") +
-        base::IntToString(hover_threshold_ms) + std::string("_");
-    count_hover_events_ = base::LinearHistogram::FactoryGet(
-        prefix + std::string("Events"),
-        1,
-        HOVER_EVENT_MAX,
-        HOVER_EVENT_MAX + 1,
-        base::Histogram::kUmaTargetedHistogramFlag);
-    time_hover_until_click_ = base::Histogram::FactoryTimeGet(
-        prefix + std::string("TimeToClick"),
-        base::TimeDelta::FromMilliseconds(1),
-        base::TimeDelta::FromSeconds(60),
-        100,
-        base::Histogram::kUmaTargetedHistogramFlag);
-  }
-  base::Histogram* count_hover_events() { return count_hover_events_; }
-  base::Histogram* time_hover_until_click() { return time_hover_until_click_; }
-
- private:
-  base::Histogram* count_hover_events_;
-  base::Histogram* time_hover_until_click_;
-};
-
-enum PAGEVIEW_EVENTS {
-  PAGEVIEW_EVENT_NEW_URL = 0,
-  PAGEVIEW_EVENT_TOP_SITE_NEW_URL = 1,
-  PAGEVIEW_EVENT_LOAD_START = 2,
-  PAGEVIEW_EVENT_TOP_SITE_LOAD_START = 3,
-  PAGEVIEW_EVENT_MAX = 4
-};
-
-void RecordPageviewEvent(PAGEVIEW_EVENTS event) {
-  UMA_HISTOGRAM_ENUMERATION("Prerender.PageviewEvents",
-                            event, PAGEVIEW_EVENT_MAX);
-}
-
-}  // namespace
-
-class PrerenderTabHelper::HoverData {
- public:
-  void SetHoverThreshold(int threshold_ms) {
-    hover_threshold_ = base::TimeDelta::FromMilliseconds(threshold_ms);
-    histograms_.reset(new PerHoverThresholdHistograms(threshold_ms));
+  explicit PixelStats(PrerenderTabHelper* tab_helper) :
+      weak_factory_(this),
+      tab_helper_(tab_helper) {
   }
 
-  void RecordHover(const GURL& url) {
-    VerifyInitialized();
+  // Reasons why we need to fetch bitmaps: either a prerender was swapped in,
+  // or a prerendered page has finished loading.
+  enum BitmapType {
+      BITMAP_SWAP_IN,
+      BITMAP_ON_LOAD
+  };
 
-    MaybeStartedPrerendering();
+  void GetBitmap(BitmapType bitmap_type, WebContents* web_contents) {
+    if (bitmap_type == BITMAP_SWAP_IN) {
+      bitmap_.reset();
+      bitmap_web_contents_ = web_contents;
+    }
 
-    // Ignore duplicate hover messages.
-    if (new_url_ == url)
+    if (bitmap_type == BITMAP_ON_LOAD && bitmap_web_contents_ != web_contents)
       return;
 
-    if (!new_url_.is_empty())
-      histograms_->count_hover_events()->Add(HOVER_EVENT_TOO_SHORT);
-
-    if (current_url_ == url) {
-      // If we came back to URL currently being prerendered, we don't need
-      // to "remember" to start prerendering, because we already have that
-      // URL prerendered.
-      new_url_ = GURL();
-    } else {
-      // Otherwise, we remember this new URL as something we might soon
-      // start prerendering.
-      new_url_ = url;
-      new_time_ = base::TimeTicks::Now();
+    if (!web_contents || !web_contents->GetView() ||
+        !web_contents->GetRenderViewHost()) {
+      return;
     }
 
-    if (!new_url_.is_empty())
-      histograms_->count_hover_events()->Add(HOVER_EVENT_START);
-  }
-
-  void RecordNavigation(const GURL& url) {
-    VerifyInitialized();
-
-    // Artifically call RecordHover with an empty URL to accomplish two things:
-    // -- ensure we update what we are currently prerendering
-    // -- record if there is a pending new hover, that we "exited" it,
-    //    thereby recording an EVENT_TOO_SHORT for it.
-    RecordHover(GURL());
-
-    if (current_url_ == url) {
-        // Match.  We would have started prerendering the new URL.
-        histograms_->count_hover_events()->Add(HOVER_EVENT_CLICK);
-        histograms_->time_hover_until_click()->AddTime(
-            base::TimeTicks::Now() - current_time_);
-        current_url_ = GURL();
-    }
+    skia::PlatformCanvas* temp_canvas = new skia::PlatformCanvas;
+    web_contents->GetRenderViewHost()->CopyFromBackingStore(
+        gfx::Rect(),
+        gfx::Size(),
+        base::Bind(&PrerenderTabHelper::PixelStats::HandleBitmapResult,
+                   weak_factory_.GetWeakPtr(),
+                   bitmap_type,
+                   web_contents,
+                   base::Owned(temp_canvas)),
+        temp_canvas);
   }
 
  private:
-  void VerifyInitialized() {
-    DCHECK(histograms_.get() != NULL);
-  }
+  void HandleBitmapResult(BitmapType bitmap_type,
+                          WebContents* web_contents,
+                          skia::PlatformCanvas* temp_canvas,
+                          bool succeeded) {
+    scoped_ptr<SkBitmap> bitmap;
+    if (succeeded) {
+      const SkBitmap& canvas_bitmap =
+          skia::GetTopDevice(*temp_canvas)->accessBitmap(false);
+      bitmap.reset(new SkBitmap());
+      canvas_bitmap.copyTo(bitmap.get(), SkBitmap::kARGB_8888_Config);
+    }
 
-  void MaybeStartedPrerendering() {
-    if (!new_url_.is_empty() &&
-        base::TimeTicks::Now() - new_time_ > hover_threshold_) {
-      if (!current_url_.is_empty())
-        histograms_->count_hover_events()->Add(HOVER_EVENT_REPLACED);
-      current_url_ = new_url_;
-      current_time_ = new_time_;
-      new_url_ = GURL();
+    if (bitmap_web_contents_ != web_contents)
+      return;
+
+    if (bitmap_type == BITMAP_SWAP_IN)
+      bitmap_.swap(bitmap);
+
+    if (bitmap_type == BITMAP_ON_LOAD) {
+      PrerenderManager* prerender_manager =
+          tab_helper_->MaybeGetPrerenderManager();
+      if (prerender_manager) {
+        prerender_manager->histograms()->RecordFractionPixelsFinalAtSwapin(
+            CompareBitmaps(bitmap_.get(), bitmap.get()));
+      }
+      bitmap_.reset();
+      bitmap_web_contents_ = NULL;
     }
   }
 
-  scoped_ptr<PerHoverThresholdHistograms> histograms_;
+  // Helper comparing two bitmaps of identical size.
+  // Returns a value < 0.0 if there is an error, and otherwise, a double in
+  // [0, 1] indicating the fraction of pixels that are the same.
+  double CompareBitmaps(SkBitmap* bitmap1, SkBitmap* bitmap2) {
+    if (!bitmap1 || !bitmap2) {
+      return -2.0;
+    }
+    if (bitmap1->width() != bitmap2->width() ||
+        bitmap1->height() != bitmap2->height()) {
+      return -1.0;
+    }
+    int pixels = bitmap1->width() * bitmap1->height();
+    int same_pixels = 0;
+    for (int y = 0; y < bitmap1->height(); ++y) {
+      for (int x = 0; x < bitmap1->width(); ++x) {
+        if (bitmap1->getColor(x, y) == bitmap2->getColor(x, y))
+          same_pixels++;
+      }
+    }
+    return static_cast<double>(same_pixels) / static_cast<double>(pixels);
+  }
 
-  // The time & url of the hover that is currently being prerendered.
-  base::TimeTicks current_time_;
-  GURL current_url_;
+  // Bitmap of what the last swapped in prerendered tab looked like at swapin,
+  // and the WebContents that it was swapped into.
+  scoped_ptr<SkBitmap> bitmap_;
+  WebContents* bitmap_web_contents_;
 
-  // The time & url of a new hover that does not meet the threshold for
-  // prerendering and may replace the prerender currently being prerendered.
-  base::TimeTicks new_time_;
-  GURL new_url_;
+  base::WeakPtrFactory<PixelStats> weak_factory_;
 
-  // The threshold for hovering.
-  base::TimeDelta hover_threshold_;
+  PrerenderTabHelper* tab_helper_;
 };
 
-PrerenderTabHelper::PrerenderTabHelper(TabContentsWrapper* tab)
+PrerenderTabHelper::PrerenderTabHelper(TabContents* tab)
     : content::WebContentsObserver(tab->web_contents()),
-      tab_(tab),
-      last_hovers_(new HoverData[kNumHoverThresholds]) {
-  for (int i = 0; i < kNumHoverThresholds; i++)
-    last_hovers_[i].SetHoverThreshold(kMinHoverThresholdsMs[i]);
+      tab_(tab) {
 }
 
 PrerenderTabHelper::~PrerenderTabHelper() {
@@ -178,29 +140,32 @@ PrerenderTabHelper::~PrerenderTabHelper() {
 
 void PrerenderTabHelper::ProvisionalChangeToMainFrameUrl(
     const GURL& url,
-    const GURL& opener_url) {
+    const GURL& opener_url,
+    content::RenderViewHost* render_view_host) {
   url_ = url;
-  RecordPageviewEvent(PAGEVIEW_EVENT_NEW_URL);
-  if (IsTopSite(url))
-    RecordPageviewEvent(PAGEVIEW_EVENT_TOP_SITE_NEW_URL);
   PrerenderManager* prerender_manager = MaybeGetPrerenderManager();
   if (!prerender_manager)
     return;
   if (prerender_manager->IsWebContentsPrerendering(web_contents()))
     return;
   prerender_manager->MarkWebContentsAsNotPrerendered(web_contents());
-  prerender_manager->RecordNavigation(url);
 }
 
-void PrerenderTabHelper::UpdateTargetURL(int32 page_id, const GURL& url) {
-  for (int i = 0; i < kNumHoverThresholds; i++)
-    last_hovers_[i].RecordHover(url);
-
-  if (url != current_hover_url_) {
-    MaybeLogCurrentHover(false);
-    current_hover_url_ = url;
-    current_hover_time_ = base::TimeTicks::Now();
-  }
+void PrerenderTabHelper::DidCommitProvisionalLoadForFrame(
+    int64 frame_id,
+    bool is_main_frame,
+    const GURL& validated_url,
+    content::PageTransition transition_type,
+    content::RenderViewHost* render_view_host) {
+  if (!is_main_frame)
+    return;
+  url_ = validated_url;
+  PrerenderManager* prerender_manager = MaybeGetPrerenderManager();
+  if (!prerender_manager)
+    return;
+  if (prerender_manager->IsWebContentsPrerendering(web_contents()))
+    return;
+  prerender_manager->RecordNavigation(validated_url);
 }
 
 void PrerenderTabHelper::DidStopLoading() {
@@ -225,6 +190,8 @@ void PrerenderTabHelper::DidStopLoading() {
     PrerenderManager::RecordPerceivedPageLoadTime(
         now - pplt_load_start_, fraction_elapsed_at_swapin, web_contents(),
         url_);
+    if (IsPrerendered() && pixel_stats_.get())
+      pixel_stats_->GetBitmap(PixelStats::BITMAP_ON_LOAD, web_contents());
   }
 
   // Reset the PPLT metric.
@@ -239,19 +206,9 @@ void PrerenderTabHelper::DidStartProvisionalLoadForFrame(
       bool is_error_page,
       content::RenderViewHost* render_view_host) {
   if (is_main_frame) {
-    RecordPageviewEvent(PAGEVIEW_EVENT_LOAD_START);
-    if (IsTopSite(validated_url))
-      RecordPageviewEvent(PAGEVIEW_EVENT_TOP_SITE_LOAD_START);
-
     // Record the beginning of a new PPLT navigation.
     pplt_load_start_ = base::TimeTicks::Now();
     actual_load_start_ = base::TimeTicks();
-
-    // Update hover stats.
-    for (int i = 0; i < kNumHoverThresholds; i++)
-      last_hovers_[i].RecordNavigation(validated_url);
-
-    MaybeLogCurrentHover(current_hover_url_ == validated_url);
   }
 }
 
@@ -267,6 +224,13 @@ bool PrerenderTabHelper::IsPrerendering() {
   return prerender_manager->IsWebContentsPrerendering(web_contents());
 }
 
+bool PrerenderTabHelper::IsPrerendered() {
+  PrerenderManager* prerender_manager = MaybeGetPrerenderManager();
+  if (!prerender_manager)
+    return false;
+  return prerender_manager->IsWebContentsPrerendered(web_contents());
+}
+
 void PrerenderTabHelper::PrerenderSwappedIn() {
   // Ensure we are not prerendering any more.
   DCHECK(!IsPrerendering());
@@ -274,42 +238,17 @@ void PrerenderTabHelper::PrerenderSwappedIn() {
     // If we have already finished loading, report a 0 PPLT.
     PrerenderManager::RecordPerceivedPageLoadTime(base::TimeDelta(), 1.0,
                                                   web_contents(), url_);
+    PrerenderManager* prerender_manager = MaybeGetPrerenderManager();
+    if (prerender_manager)
+      prerender_manager->histograms()->RecordFractionPixelsFinalAtSwapin(1.0);
   } else {
     // If we have not finished loading yet, record the actual load start, and
     // rebase the start time to now.
     actual_load_start_ = pplt_load_start_;
     pplt_load_start_ = base::TimeTicks::Now();
+    if (pixel_stats_.get())
+      pixel_stats_->GetBitmap(PixelStats::BITMAP_SWAP_IN, web_contents());
   }
-}
-
-void PrerenderTabHelper::MaybeLogCurrentHover(bool was_used) {
-  if (current_hover_url_.is_empty())
-    return;
-
-  static const int64 min_ms = 0;
-  static const int64 max_ms = 2000;
-  static const int num_buckets = 100;
-
-  int64 elapsed_ms =
-      (base::TimeTicks::Now() - current_hover_time_).InMilliseconds();
-
-  elapsed_ms = std::min(std::max(elapsed_ms, min_ms), max_ms);
-  elapsed_ms /= max_ms / num_buckets;
-
-  if (was_used) {
-    UMA_HISTOGRAM_ENUMERATION("Prerender.HoverStats_TimeUntilClicked",
-                              elapsed_ms, num_buckets);
-  } else {
-    UMA_HISTOGRAM_ENUMERATION("Prerender.HoverStats_TimeUntilDiscarded",
-                              elapsed_ms, num_buckets);
-  }
-
-  current_hover_url_ = GURL();
-}
-
-bool PrerenderTabHelper::IsTopSite(const GURL& url) {
-  PrerenderManager* pm = MaybeGetPrerenderManager();
-  return (pm && pm->IsTopSite(url));
 }
 
 }  // namespace prerender

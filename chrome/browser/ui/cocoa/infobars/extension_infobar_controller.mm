@@ -10,11 +10,12 @@
 #include "chrome/browser/extensions/extension_infobar_delegate.h"
 #include "chrome/browser/extensions/image_loading_tracker.h"
 #include "chrome/browser/infobars/infobar_tab_helper.h"
+#include "chrome/browser/ui/browser_finder.h"
 #import "chrome/browser/ui/cocoa/animatable_view.h"
 #import "chrome/browser/ui/cocoa/extensions/extension_action_context_menu.h"
 #include "chrome/browser/ui/cocoa/infobars/infobar.h"
 #import "chrome/browser/ui/cocoa/menu_button.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_icon_set.h"
 #include "chrome/common/extensions/extension_resource.h"
@@ -69,7 +70,8 @@ class InfobarBridge : public ExtensionInfoBarDelegate::DelegateObserver,
 
   // Load the Extension's icon image.
   void LoadIcon() {
-    const Extension* extension = delegate_->extension_host()->extension();
+    const extensions::Extension* extension = delegate_->extension_host()->
+        extension();
     ExtensionResource icon_resource =
         extension->GetIconResource(ExtensionIconSet::EXTENSION_ICON_BITTY,
                                    ExtensionIconSet::MATCH_EXACTLY);
@@ -104,13 +106,13 @@ class InfobarBridge : public ExtensionInfoBarDelegate::DelegateObserver,
         new gfx::Canvas(
             gfx::Size(image_size + kDropArrowLeftMarginPx + drop_image->width(),
                       image_size), false));
-    canvas->DrawBitmapInt(*icon,
-                          0, 0, icon->width(), icon->height(),
-                          0, 0, image_size, image_size,
-                          false);
-    canvas->DrawBitmapInt(*drop_image,
-                          image_size + kDropArrowLeftMarginPx,
-                          image_size / 2);
+    canvas->DrawImageInt(*icon,
+                         0, 0, icon->width(), icon->height(),
+                         0, 0, image_size, image_size,
+                         false);
+    canvas->DrawImageInt(*drop_image,
+                         image_size + kDropArrowLeftMarginPx,
+                         image_size / 2);
     [owner_ setButtonImage:gfx::SkBitmapToNSImage(canvas->ExtractBitmap())];
   }
 
@@ -145,9 +147,11 @@ class InfobarBridge : public ExtensionInfoBarDelegate::DelegateObserver,
 
     ExtensionHost* extensionHost = delegate_->AsExtensionInfoBarDelegate()->
         extension_host();
+    Browser* browser =
+        browser::FindBrowserWithWebContents(owner->web_contents());
     contextMenu_.reset([[ExtensionActionContextMenu alloc]
         initWithExtension:extensionHost->extension()
-                  profile:extensionHost->profile()
+                  browser:browser
           extensionAction:NULL]);
     // See menu_button.h for documentation on why this is needed.
     NSMenuItem* dummyItem =

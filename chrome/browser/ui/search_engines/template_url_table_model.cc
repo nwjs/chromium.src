@@ -20,6 +20,7 @@
 #include "ui/base/models/table_model_observer.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/codec/png_codec.h"
+#include "ui/gfx/image/image_skia.h"
 
 // Group IDs used by TemplateURLTableModel.
 static const int kMainGroupID = 0;
@@ -31,25 +32,25 @@ static const int kOtherGroupID = 1;
 // ModelEntry also tracks state information about the URL.
 
 // Icon used while loading, or if a specific favicon can't be found.
-static SkBitmap* default_icon = NULL;
+static gfx::ImageSkia* default_icon = NULL;
 
 class ModelEntry {
  public:
-  ModelEntry(TemplateURLTableModel* model, const TemplateURL* template_url)
+  ModelEntry(TemplateURLTableModel* model, TemplateURL* template_url)
       : template_url_(template_url),
         load_state_(NOT_LOADED),
         model_(model) {
     if (!default_icon) {
       default_icon = ResourceBundle::GetSharedInstance().
-          GetBitmapNamed(IDR_DEFAULT_FAVICON);
+          GetImageSkiaNamed(IDR_DEFAULT_FAVICON);
     }
   }
 
-  const TemplateURL* template_url() {
+  TemplateURL* template_url() {
     return template_url_;
   }
 
-  SkBitmap GetIcon() {
+  gfx::ImageSkia GetIcon() {
     if (load_state_ == NOT_LOADED)
       LoadFavicon();
     if (!favicon_.isNull())
@@ -79,11 +80,11 @@ class ModelEntry {
             Profile::EXPLICIT_ACCESS);
     if (!favicon_service)
       return;
-    GURL favicon_url = template_url()->GetFaviconURL();
+    GURL favicon_url = template_url()->favicon_url();
     if (!favicon_url.is_valid()) {
       // The favicon url isn't always set. Guess at one here.
-      if (template_url_->url() && template_url_->url()->IsValid()) {
-        GURL url(template_url_->url()->url());
+      if (template_url_->url_ref().IsValid()) {
+        GURL url(template_url_->url());
         if (url.is_valid())
           favicon_url = TemplateURL::GenerateFaviconURL(url);
       }
@@ -108,7 +109,7 @@ class ModelEntry {
     }
   }
 
-  const TemplateURL* template_url_;
+  TemplateURL* template_url_;
   SkBitmap favicon_;
   LoadState load_state_;
   TemplateURLTableModel* model_;
@@ -145,7 +146,7 @@ void TemplateURLTableModel::Reload() {
   // Keywords that can be made the default first.
   for (TemplateURLService::TemplateURLVector::iterator i = urls.begin();
        i != urls.end(); ++i) {
-    const TemplateURL* template_url = *i;
+    TemplateURL* template_url = *i;
     // NOTE: we don't use ShowInDefaultList here to avoid items bouncing around
     // the lists while editing.
     if (template_url->show_in_default_list())
@@ -157,7 +158,7 @@ void TemplateURLTableModel::Reload() {
   // Then the rest.
   for (TemplateURLService::TemplateURLVector::iterator i = urls.begin();
        i != urls.end(); ++i) {
-    const TemplateURL* template_url = *i;
+    TemplateURL* template_url = *i;
     // NOTE: we don't use ShowInDefaultList here to avoid things bouncing
     // the lists while editing.
     if (!template_url->show_in_default_list() &&
@@ -193,7 +194,7 @@ string16 TemplateURLTableModel::GetText(int row, int col_id) {
   return base::i18n::GetDisplayStringInLTRDirectionality(url->keyword());
 }
 
-SkBitmap TemplateURLTableModel::GetIcon(int row) {
+gfx::ImageSkia TemplateURLTableModel::GetIcon(int row) {
   DCHECK(row >= 0 && row < RowCount());
   return entries_[row]->GetIcon();
 }
@@ -233,7 +234,7 @@ void TemplateURLTableModel::Remove(int index) {
   // Remove the observer while we modify the model, that way we don't need to
   // worry about the model calling us back when we mutate it.
   template_url_service_->RemoveObserver(this);
-  const TemplateURL* template_url = GetTemplateURL(index);
+  TemplateURL* template_url = GetTemplateURL(index);
 
   scoped_ptr<ModelEntry> entry(entries_[index]);
   entries_.erase(entries_.begin() + index);
@@ -253,11 +254,13 @@ void TemplateURLTableModel::Add(int index,
                                 const string16& keyword,
                                 const std::string& url) {
   DCHECK(index >= 0 && index <= RowCount());
+  DCHECK(!url.empty());
   template_url_service_->RemoveObserver(this);
-  TemplateURL* turl = new TemplateURL();
-  turl->set_short_name(short_name);
-  turl->set_keyword(keyword);
-  turl->SetURL(url, 0, 0);
+  TemplateURLData data;
+  data.short_name = short_name;
+  data.SetKeyword(keyword);
+  data.SetURL(url);
+  TemplateURL* turl = new TemplateURL(template_url_service_->profile(), data);
   template_url_service_->Add(turl);
   ModelEntry* entry = new ModelEntry(this, turl);
   template_url_service_->AddObserver(this);
@@ -271,16 +274,13 @@ void TemplateURLTableModel::ModifyTemplateURL(int index,
                                               const string16& keyword,
                                               const std::string& url) {
   DCHECK(index >= 0 && index <= RowCount());
-  const TemplateURL* template_url = GetTemplateURL(index);
+  DCHECK(!url.empty());
+  TemplateURL* template_url = GetTemplateURL(index);
+  // The default search provider should support replacement.
+  DCHECK(template_url_service_->GetDefaultSearchProvider() != template_url ||
+         template_url->SupportsReplacement());
   template_url_service_->RemoveObserver(this);
   template_url_service_->ResetTemplateURL(template_url, title, keyword, url);
-  if (template_url_service_->GetDefaultSearchProvider() == template_url &&
-      !TemplateURL::SupportsReplacement(template_url)) {
-    // The entry was the default search provider, but the url has been modified
-    // so that it no longer supports replacement. Reset the default search
-    // provider so that it doesn't point to a bogus entry.
-    template_url_service_->SetDefaultSearchProvider(NULL);
-  }
   template_url_service_->AddObserver(this);
   ReloadIcon(index);  // Also calls NotifyChanged().
 }
@@ -293,7 +293,7 @@ void TemplateURLTableModel::ReloadIcon(int index) {
   NotifyChanged(index);
 }
 
-const TemplateURL* TemplateURLTableModel::GetTemplateURL(int index) {
+TemplateURL* TemplateURLTableModel::GetTemplateURL(int index) {
   return entries_[index]->template_url();
 }
 
@@ -330,7 +330,7 @@ int TemplateURLTableModel::MakeDefaultTemplateURL(int index) {
     return -1;
   }
 
-  const TemplateURL* keyword = GetTemplateURL(index);
+  TemplateURL* keyword = GetTemplateURL(index);
   const TemplateURL* current_default =
       template_url_service_->GetDefaultSearchProvider();
   if (current_default == keyword)

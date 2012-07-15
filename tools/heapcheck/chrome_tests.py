@@ -78,7 +78,7 @@ class ChromeTests(object):
     # The known list of tests.
     # Recognise the original abbreviations as well as full executable names.
     self._test_list = {
-      "ash": self.TestAsh,              "aura_shell_unittests": self.TestAsh,
+      "ash": self.TestAsh,              "ash_unittests": self.TestAsh,
       "aura": self.TestAura,            "aura_unittests": self.TestAura,
       "base": self.TestBase,            "base_unittests": self.TestBase,
       "browser": self.TestBrowser,      "browser_tests": self.TestBrowser,
@@ -96,7 +96,6 @@ class ChromeTests(object):
       "startup": self.TestStartup,      "startup_tests": self.TestStartup,
       "sync": self.TestSync,            "sync_unit_tests": self.TestSync,
       "test_shell": self.TestTestShell, "test_shell_tests": self.TestTestShell,
-      "ui": self.TestUI,                "ui_tests": self.TestUI,
       "unit": self.TestUnit,            "unit_tests": self.TestUnit,
       "views": self.TestViews,          "views_unittests": self.TestViews,
       "sql": self.TestSql,              "sql_unittests": self.TestSql,
@@ -245,7 +244,7 @@ class ChromeTests(object):
     return heapcheck_test.RunTool(cmd, supp, module)
 
   def TestAsh(self):
-    return self.SimpleTest("ash", "aura_shell_unittests")
+    return self.SimpleTest("ash", "ash_unittests")
 
   def TestAura(self):
     return self.SimpleTest("aura", "aura_unittests")
@@ -309,13 +308,11 @@ class ChromeTests(object):
     return self.SimpleTest("chrome", "ui_unittests")
 
   def TestGfx(self):
-    return self.SimpleTest("chrome", "gfx_unittests")
-
-  def TestUI(self):
-    return self.SimpleTest("chrome", "ui_tests",
-                           cmd_args=[
-                            "--ui-test-action-timeout=80000",
-                            "--ui-test-action-max-timeout=180000"])
+    # Run ui_unittests, a successor of gfx_unittests, since gfx_unittests is
+    # deprecated.
+    # TODO(hbono): This is a band-aid fix. We need to change the master script
+    # so our bots run ui_unittests.
+    return self.SimpleTest("chrome", "ui_unittests")
 
   def TestLayoutChunk(self, chunk_num, chunk_size):
     '''Runs tests [chunk_num*chunk_size .. (chunk_num+1)*chunk_size).

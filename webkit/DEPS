@@ -10,18 +10,28 @@ include_rules = [
   "+bridge",
   "+grit",  # For generated headers
   "+skia",
+  "+third_party/angle",
+  "+third_party/leveldatabase",
+  "+third_party/skia",
   "+third_party/sqlite",
   "+third_party/tcmalloc",
+  "+third_party/WebKit/Source/Platform/chromium",
+  "+third_party/WebKit/Source/WebKit/chromium",
+  "+v8",
 
   # For databases/
   "+sql",
 
   # For gpu/
   "+ui/gfx",
+  "+ui/gl",
   "+gpu/command_buffer/client",
   "+gpu/command_buffer/common",
   "+gpu/command_buffer/service",
   "+third_party/khronos/GLES2",
+
+  # For shared USB keycode conversion tables used by ppapi plugin code.
+  "+ui/base/keycodes",
 
   # TODO(brettw) - review these; move up if it's ok, or remove the dependency
   "+crypto",

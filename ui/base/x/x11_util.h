@@ -4,7 +4,6 @@
 
 #ifndef UI_BASE_X_X11_UTIL_H_
 #define UI_BASE_X_X11_UTIL_H_
-#pragma once
 
 // This file declares utility functions for X11 (Linux only).
 //
@@ -18,14 +17,16 @@
 #include "base/basictypes.h"
 #include "ui/base/events.h"
 #include "ui/base/ui_export.h"
+#include "ui/gfx/point.h"
 
 typedef unsigned long Atom;
 typedef unsigned long XID;
 typedef unsigned long XSharedMemoryId;  // ShmSeg in the X headers.
 typedef struct _XDisplay Display;
 typedef unsigned long Cursor;
+typedef struct _XcursorImage XcursorImage;
 
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
 typedef struct _GdkDrawable GdkWindow;
 typedef struct _GtkWidget GtkWidget;
 typedef struct _GtkWindow GtkWindow;
@@ -34,6 +35,7 @@ typedef struct _GtkWindow GtkWindow;
 namespace gfx {
 class Rect;
 }
+class SkBitmap;
 
 namespace ui {
 
@@ -75,7 +77,25 @@ const int kCursorClearXCursorCache = -1;
 
 // Returns an X11 Cursor, sharable across the process.
 // |cursor_shape| is an X font cursor shape, see XCreateFontCursor().
-UI_EXPORT Cursor GetXCursor(int cursor_shape);
+UI_EXPORT ::Cursor GetXCursor(int cursor_shape);
+
+#if defined(USE_AURA)
+// Creates a custom X cursor from the image. This takes ownership of image. The
+// caller must not free/modify the image. The refcount of the newly created
+// cursor is set to 1.
+UI_EXPORT ::Cursor CreateReffedCustomXCursor(XcursorImage* image);
+
+// Increases the refcount of the custom cursor.
+UI_EXPORT void RefCustomXCursor(::Cursor cursor);
+
+// Decreases the refcount of the custom cursor, and destroys it if it reaches 0.
+UI_EXPORT void UnrefCustomXCursor(::Cursor cursor);
+
+// Creates a XcursorImage and copies the SkBitmap |bitmap| on it. |bitmap|
+// should be non-null. Caller owns the returned object.
+UI_EXPORT XcursorImage* SkBitmapToXcursorImage(const SkBitmap* bitmap,
+                                               const gfx::Point& hotspot);
+#endif
 
 // These functions do not cache their results --------------------------
 
@@ -85,7 +105,7 @@ UI_EXPORT XID GetX11RootWindow();
 // Returns the user's current desktop.
 bool GetCurrentDesktop(int* desktop);
 
-#if defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
 // Get the X window id for the given GTK widget.
 UI_EXPORT XID GetX11WindowFromGtkWidget(GtkWidget* widget);
 XID GetX11WindowFromGdkWindow(GdkWindow* window);
@@ -98,7 +118,10 @@ UI_EXPORT GtkWindow* GetGtkWindowFromX11Window(XID xid);
 // Get a Visual from the given widget. Since we don't include the Xlib
 // headers, this is returned as a void*.
 UI_EXPORT void* GetVisualFromGtkWidget(GtkWidget* widget);
-#endif  // defined(TOOLKIT_USES_GTK)
+#endif  // defined(TOOLKIT_GTK)
+
+// Sets _GTK_HIDE_TITLEBAR_WHEN_MAXIMIZED on |window|.
+UI_EXPORT void SetHideTitlebarWhenMaximizedProperty(XID window);
 
 // Return the number of bits-per-pixel for a pixmap of the given depth
 UI_EXPORT int BitsPerPixelForPixmapDepth(Display* display, int depth);
@@ -163,6 +186,9 @@ class EnumerateWindowsDelegate {
 // windows up to a depth of |max_depth|.
 UI_EXPORT bool EnumerateAllWindows(EnumerateWindowsDelegate* delegate,
                                    int max_depth);
+
+// Enumerates the top-level windows of the current display.
+UI_EXPORT void EnumerateTopLevelWindows(ui::EnumerateWindowsDelegate* delegate);
 
 // Returns all children windows of a given window in top-to-bottom stacking
 // order.

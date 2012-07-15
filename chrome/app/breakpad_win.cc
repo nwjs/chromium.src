@@ -7,6 +7,7 @@
 #include <windows.h>
 #include <shellapi.h>
 #include <tchar.h>
+#include <userenv.h>
 
 #include <algorithm>
 #include <vector>
@@ -19,11 +20,13 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/string_split.h"
 #include "base/string_util.h"
+#include "base/string16.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "base/win/registry.h"
 #include "base/win/win_util.h"
 #include "breakpad/src/client/windows/handler/exception_handler.h"
+#include "chrome/app/breakpad_field_trial_win.h"
 #include "chrome/app/hard_error_handler_win.h"
 #include "chrome/common/child_process_logging.h"
 #include "chrome/common/chrome_result_codes.h"
@@ -33,6 +36,24 @@
 #include "chrome/installer/util/google_update_settings.h"
 #include "chrome/installer/util/install_util.h"
 #include "policy/policy_constants.h"
+
+// userenv.dll is required for GetProfileType().
+#pragma comment(lib, "userenv.lib")
+
+namespace breakpad_win {
+
+// TODO(raymes): Modify the way custom crash info is stored. g_custom_entries
+// is way too too fragile. See
+// https://code.google.com/p/chromium/issues/detail?id=137062.
+std::vector<google_breakpad::CustomInfoEntry>* g_custom_entries = NULL;
+size_t g_num_of_experiments_offset = 0;
+size_t g_experiment_chunks_offset = 0;
+
+}   // namespace breakpad_win
+
+using breakpad_win::g_custom_entries;
+using breakpad_win::g_experiment_chunks_offset;
+using breakpad_win::g_num_of_experiments_offset;
 
 namespace {
 
@@ -65,19 +86,15 @@ const wchar_t kSystemPrincipalSid[] =L"S-1-5-18";
 google_breakpad::ExceptionHandler* g_breakpad = NULL;
 google_breakpad::ExceptionHandler* g_dumphandler_no_crash = NULL;
 
-// A pointer to the custom entries that we send in the event of a crash. We need
-// this pointer, along with the offsets into it below, so that we can keep the
-// data updated as the state of the browser changes.
-static std::vector<google_breakpad::CustomInfoEntry>* g_custom_entries = NULL;
-static size_t g_url_chunks_offset;
-static size_t g_num_of_extensions_offset;
-static size_t g_extension_ids_offset;
-static size_t g_client_id_offset;
-static size_t g_gpu_info_offset;
-static size_t g_printer_info_offset;
-static size_t g_num_of_views_offset;
-static size_t g_num_switches_offset;
-static size_t g_switches_offset;
+static size_t g_url_chunks_offset = 0;
+static size_t g_num_of_extensions_offset = 0;
+static size_t g_extension_ids_offset = 0;
+static size_t g_client_id_offset = 0;
+static size_t g_gpu_info_offset = 0;
+static size_t g_printer_info_offset = 0;
+static size_t g_num_of_views_offset = 0;
+static size_t g_num_switches_offset = 0;
+static size_t g_switches_offset = 0;
 
 // Maximum length for plugin path to include in plugin crash reports.
 const size_t kMaxPluginPathLength = 256;
@@ -93,6 +110,18 @@ extern "C" void __declspec(dllexport) __cdecl DumpProcessWithoutCrash() {
   if (g_dumphandler_no_crash) {
     g_dumphandler_no_crash->WriteMinidump();
   }
+}
+
+DWORD WINAPI DumpProcessWithoutCrashThread(void*) {
+  DumpProcessWithoutCrash();
+  return 0;
+}
+
+// Injects a thread into a remote process to dump state when there is no crash.
+extern "C" HANDLE __declspec(dllexport) __cdecl
+InjectDumpProcessWithoutCrash(HANDLE process) {
+  return CreateRemoteThread(process, NULL, 0, DumpProcessWithoutCrashThread,
+                            0, 0, NULL);
 }
 
 // Reduces the size of the string |str| to a max of 64 chars. Required because
@@ -141,32 +170,33 @@ bool IsBoringCommandLineSwitch(const std::wstring& flag) {
          flag == L"--flag-switches-end";
 }
 
-extern "C" void __declspec(dllexport) __cdecl SetCommandLine(
-    const CommandLine* command_line) {
+// Note that this is suffixed with "2" due to a parameter change that was made
+// to the predecessor "SetCommandLine()". If the signature changes again, use
+// a new name.
+extern "C" void __declspec(dllexport) __cdecl SetCommandLine2(
+    const wchar_t** argv, size_t argc) {
   if (!g_custom_entries)
     return;
-
-  const CommandLine::StringVector& argv = command_line->argv();
 
   // Copy up to the kMaxSwitches arguments into the custom entries array. Skip
   // past the first argument, as it is just the executable path.
   size_t argv_i = 1;
   size_t num_added = 0;
 
-  for (; argv_i < argv.size() && num_added < kMaxSwitches; ++argv_i) {
+  for (; argv_i < argc && num_added < kMaxSwitches; ++argv_i) {
     // Don't bother including boring command line switches in crash reports.
     if (IsBoringCommandLineSwitch(argv[argv_i]))
       continue;
 
     base::wcslcpy((*g_custom_entries)[g_switches_offset + num_added].value,
-                  argv[argv_i].c_str(),
+                  argv[argv_i],
                   google_breakpad::CustomInfoEntry::kValueMaxLength);
     num_added++;
   }
 
   // Make note of the total number of switches. This is useful in case we have
   // truncated at kMaxSwitches, to see how many were unaccounted for.
-  SetIntegerValue(g_num_switches_offset, static_cast<int>(argv.size()) - 1);
+  SetIntegerValue(g_num_switches_offset, static_cast<int>(argc) - 1);
 }
 
 // Appends the plugin path to |g_custom_entries|.
@@ -196,6 +226,35 @@ void SetPluginPath(const std::wstring& path) {
 
     chunk_start += chunk_length;
   }
+}
+
+// Returns a string containing a list of all modifiers for the loaded profile.
+std::wstring GetProfileType() {
+  std::wstring profile_type;
+  DWORD profile_bits = 0;
+  if (::GetProfileType(&profile_bits)) {
+    static const struct {
+      DWORD bit;
+      const wchar_t* name;
+    } kBitNames[] = {
+      { PT_MANDATORY, L"mandatory" },
+      { PT_ROAMING, L"roaming" },
+      { PT_TEMPORARY, L"temporary" },
+    };
+    for (size_t i = 0; i < arraysize(kBitNames); ++i) {
+      const DWORD this_bit = kBitNames[i].bit;
+      if ((profile_bits & this_bit) != 0) {
+        profile_type.append(kBitNames[i].name);
+        profile_bits &= ~this_bit;
+        if (profile_bits != 0)
+          profile_type.append(L", ");
+      }
+    }
+  } else {
+    DWORD last_error = ::GetLastError();
+    base::SStringPrintf(&profile_type, L"error %u", last_error);
+  }
+  return profile_type;
 }
 
 // Returns the custom info structure based on the dll in parameter and the
@@ -243,6 +302,9 @@ google_breakpad::CustomClientInfo* GetCustomInfo(const std::wstring& exe_path,
       google_breakpad::CustomInfoEntry(L"ptype", type.c_str()));
   g_custom_entries->push_back(
       google_breakpad::CustomInfoEntry(L"channel", channel.c_str()));
+  g_custom_entries->push_back(
+      google_breakpad::CustomInfoEntry(L"profile-type",
+                                       GetProfileType().c_str()));
 
   if (!special_build.empty())
     g_custom_entries->push_back(
@@ -253,9 +315,10 @@ google_breakpad::CustomClientInfo* GetCustomInfo(const std::wstring& exe_path,
       google_breakpad::CustomInfoEntry(L"num-extensions", L"N/A"));
 
   g_extension_ids_offset = g_custom_entries->size();
-  for (int i = 0; i < kMaxReportedActiveExtensions; ++i) {
+  // one-based index for the name suffix.
+  for (int i = 1; i <= kMaxReportedActiveExtensions; ++i) {
     g_custom_entries->push_back(google_breakpad::CustomInfoEntry(
-        base::StringPrintf(L"extension-%i", i + 1).c_str(), L""));
+        base::StringPrintf(L"extension-%i", i).c_str(), L""));
   }
 
   // Add empty values for the gpu_info. We'll put the actual values when we
@@ -276,10 +339,11 @@ google_breakpad::CustomClientInfo* GetCustomInfo(const std::wstring& exe_path,
   // Add empty values for the prn_info-*. We'll put the actual values when we
   // collect them at this location.
   g_printer_info_offset = g_custom_entries->size();
-  for (size_t i = 0; i < kMaxReportedPrinterRecords; ++i) {
+  // one-based index for the name suffix.
+  for (size_t i = 1; i <= kMaxReportedPrinterRecords; ++i) {
     g_custom_entries->push_back(
         google_breakpad::CustomInfoEntry(
-            base::StringPrintf(L"prn-info-%d", i + 1).c_str(), L""));
+            base::StringPrintf(L"prn-info-%d", i).c_str(), L""));
   }
 
   // Read the id from registry. If reporting has never been enabled
@@ -292,23 +356,28 @@ google_breakpad::CustomClientInfo* GetCustomInfo(const std::wstring& exe_path,
       google_breakpad::CustomInfoEntry(L"guid", guid.c_str()));
 
   // Add empty values for the command line switches. We will fill them with
-  // actual values as part of SetCommandLine().
+  // actual values as part of SetCommandLine2().
   g_num_switches_offset = g_custom_entries->size();
   g_custom_entries->push_back(
       google_breakpad::CustomInfoEntry(L"num-switches", L""));
 
   g_switches_offset = g_custom_entries->size();
-  for (int i = 0; i < kMaxSwitches; ++i) {
+  // one-based index for the name suffix.
+  for (int i = 1; i <= kMaxSwitches; ++i) {
     g_custom_entries->push_back(google_breakpad::CustomInfoEntry(
-        base::StringPrintf(L"switch-%i", i + 1).c_str(), L""));
+        base::StringPrintf(L"switch-%i", i).c_str(), L""));
   }
 
   // Fill in the command line arguments using CommandLine::ForCurrentProcess().
-  // The browser process may call SetCommandLine() again later on with a command
-  // line that has been augmented with the about:flags experiments.
-  SetCommandLine(CommandLine::ForCurrentProcess());
+  // The browser process may call SetCommandLine2() again later on with a
+  // command line that has been augmented with the about:flags experiments.
+  std::vector<const wchar_t*> switches;
+  StringVectorToCStringVector(
+      CommandLine::ForCurrentProcess()->argv(), &switches);
+  SetCommandLine2(&switches[0], switches.size());
 
-  if (type == L"renderer" || type == L"plugin" || type == L"gpu-process") {
+  if (type == L"renderer" || type == L"plugin" || type == L"ppapi" ||
+      type == L"gpu-process") {
     g_num_of_views_offset = g_custom_entries->size();
     g_custom_entries->push_back(
         google_breakpad::CustomInfoEntry(L"num-views", L""));
@@ -316,12 +385,13 @@ google_breakpad::CustomClientInfo* GetCustomInfo(const std::wstring& exe_path,
     // characters, which isn't enough for a URL. As a hack we create 8 entries
     // and split the URL across the g_custom_entries.
     g_url_chunks_offset = g_custom_entries->size();
-    for (int i = 0; i < kMaxUrlChunks; ++i) {
+    // one-based index for the name suffix.
+    for (int i = 1; i <= kMaxUrlChunks; ++i) {
       g_custom_entries->push_back(google_breakpad::CustomInfoEntry(
-          base::StringPrintf(L"url-chunk-%i", i + 1).c_str(), L""));
+          base::StringPrintf(L"url-chunk-%i", i).c_str(), L""));
     }
 
-    if (type == L"plugin") {
+    if (type == L"plugin" || type == L"ppapi") {
       std::wstring plugin_path =
           CommandLine::ForCurrentProcess()->GetSwitchValueNative("plugin-path");
       if (!plugin_path.empty())
@@ -330,6 +400,21 @@ google_breakpad::CustomClientInfo* GetCustomInfo(const std::wstring& exe_path,
   } else {
     g_custom_entries->push_back(
         google_breakpad::CustomInfoEntry(L"num-views", L"N/A"));
+  }
+
+  g_num_of_experiments_offset = g_custom_entries->size();
+  g_custom_entries->push_back(
+      google_breakpad::CustomInfoEntry(L"num-experiments", L"N/A"));
+
+  g_experiment_chunks_offset = g_custom_entries->size();
+  // We depend on this in UpdateExperiments...
+  DCHECK_NE(0UL, g_experiment_chunks_offset);
+  // And the test code depends on this.
+  DCHECK_EQ(g_num_of_experiments_offset + 1, g_experiment_chunks_offset);
+  // one-based index for the name suffix.
+  for (int i = 1; i <= kMaxReportedExperimentChunks; ++i) {
+    g_custom_entries->push_back(google_breakpad::CustomInfoEntry(
+        base::StringPrintf(L"experiment-chunk-%i", i).c_str(), L""));
   }
 
   static google_breakpad::CustomClientInfo custom_client_info;
@@ -535,6 +620,15 @@ extern "C" void __declspec(dllexport) __cdecl SetNumberOfViews(
 
 }  // namespace
 
+namespace testing {
+
+// Access to namespace protected functions for testing purposes.
+void InitCustomInfoEntries() {
+  GetCustomInfo(L"", L"", L"");
+}
+
+}  // namespace testing
+
 bool WrapMessageBoxWithSEH(const wchar_t* text, const wchar_t* caption,
                            UINT flags, bool* exit_now) {
   // We wrap the call to MessageBoxW with a SEH handler because it some
@@ -557,6 +651,14 @@ bool WrapMessageBoxWithSEH(const wchar_t* text, const wchar_t* caption,
 bool ShowRestartDialogIfCrashed(bool* exit_now) {
   if (!::GetEnvironmentVariableW(ASCIIToWide(env_vars::kShowRestart).c_str(),
                                  NULL, 0)) {
+    return false;
+  }
+
+  // Only show this for the browser process. See crbug.com/132119.
+  const CommandLine& command_line = *CommandLine::ForCurrentProcess();
+  std::string process_type =
+      command_line.GetSwitchValueASCII(switches::kProcessType);
+  if (!process_type.empty()) {
     return false;
   }
 
@@ -784,4 +886,12 @@ void InitCrashReporter() {
 
 void InitDefaultCrashCallback(LPTOP_LEVEL_EXCEPTION_FILTER filter) {
   previous_filter = SetUnhandledExceptionFilter(filter);
+}
+
+void StringVectorToCStringVector(const std::vector<std::wstring>& wstrings,
+                                 std::vector<const wchar_t*>* cstrings) {
+  cstrings->clear();
+  cstrings->reserve(wstrings.size());
+  for (size_t i = 0; i < wstrings.size(); ++i)
+    cstrings->push_back(wstrings[i].c_str());
 }

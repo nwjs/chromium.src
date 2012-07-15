@@ -4,10 +4,9 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_API_API_RESOURCE_H_
 #define CHROME_BROWSER_EXTENSIONS_API_API_RESOURCE_H_
-#pragma once
 
 #include "base/basictypes.h"
-#include "base/memory/scoped_ptr.h"
+#include "base/memory/ref_counted.h"
 
 namespace extensions {
 
@@ -23,7 +22,8 @@ class APIResource {
  protected:
   enum APIResourceType {
     SocketResource,
-    SerialConnectionResource
+    SerialConnectionResource,
+    UsbDeviceResource,
   };
   APIResource(APIResourceType api_resource_type,
               APIResourceEventNotifier* event_notifier);
@@ -33,7 +33,7 @@ class APIResource {
 
  private:
   APIResourceType api_resource_type_;
-  scoped_ptr<APIResourceEventNotifier> event_notifier_;
+  scoped_refptr<APIResourceEventNotifier> event_notifier_;
 
   friend class APIResourceController;
   DISALLOW_COPY_AND_ASSIGN(APIResource);

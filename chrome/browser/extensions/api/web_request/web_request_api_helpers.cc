@@ -4,13 +4,54 @@
 
 #include "chrome/browser/extensions/api/web_request/web_request_api_helpers.h"
 
+#include "base/bind.h"
 #include "base/string_util.h"
+#include "base/stringprintf.h"
 #include "base/values.h"
 #include "chrome/browser/extensions/api/web_request/web_request_api.h"
 #include "chrome/common/url_constants.h"
+#include "net/base/net_log.h"
 #include "net/http/http_util.h"
+#include "net/url_request/url_request.h"
 
 namespace extension_web_request_api_helpers {
+
+namespace {
+
+static const char* kResourceTypeStrings[] = {
+  "main_frame",
+  "sub_frame",
+  "stylesheet",
+  "script",
+  "image",
+  "object",
+  "xmlhttprequest",
+  "other",
+  "other",
+};
+
+static ResourceType::Type kResourceTypeValues[] = {
+  ResourceType::MAIN_FRAME,
+  ResourceType::SUB_FRAME,
+  ResourceType::STYLESHEET,
+  ResourceType::SCRIPT,
+  ResourceType::IMAGE,
+  ResourceType::OBJECT,
+  ResourceType::XHR,
+  ResourceType::LAST_TYPE,  // represents "other"
+  // TODO(jochen): We duplicate the last entry, so the array's size is not a
+  // power of two. If it is, this triggers a bug in gcc 4.4 in Release builds
+  // (http://gcc.gnu.org/bugzilla/show_bug.cgi?id=43949). Once we use a version
+  // of gcc with this bug fixed, or the array is changed so this duplicate
+  // entry is no longer required, this should be removed.
+  ResourceType::LAST_TYPE,
+};
+
+COMPILE_ASSERT(
+    arraysize(kResourceTypeStrings) == arraysize(kResourceTypeValues),
+    keep_resource_types_in_sync);
+
+}  // namespace
 
 
 EventResponseDelta::EventResponseDelta(
@@ -24,68 +65,41 @@ EventResponseDelta::~EventResponseDelta() {
 }
 
 
-EventLogEntry::EventLogEntry(
-    net::NetLog::EventType event_type,
-    const scoped_refptr<net::NetLog::EventParameters>& params)
-    : event_type(event_type),
-      params(params) {
+// Creates a NetLog callback the returns a Value with the ID of the extension
+// that caused an event.  |delta| must remain valid for the lifetime of the
+// callback.
+net::NetLog::ParametersCallback CreateNetLogExtensionIdCallback(
+    const EventResponseDelta* delta) {
+  return net::NetLog::StringCallback("extension_id", &delta->extension_id);
 }
 
-EventLogEntry::~EventLogEntry() {
+// Creates NetLog parameters to indicate that an extension modified a request.
+// Caller takes ownership of returned value.
+Value* NetLogModificationCallback(
+    const EventResponseDelta* delta,
+    net::NetLog::LogLevel log_level) {
+  DictionaryValue* dict = new DictionaryValue();
+  dict->SetString("extension_id", delta->extension_id);
+
+  ListValue* modified_headers = new ListValue();
+  net::HttpRequestHeaders::Iterator modification(
+      delta->modified_request_headers);
+  while (modification.GetNext()) {
+    std::string line = modification.name() + ": " + modification.value();
+    modified_headers->Append(Value::CreateStringValue(line));
+  }
+  dict->Set("modified_headers", modified_headers);
+
+  ListValue* deleted_headers = new ListValue();
+  for (std::vector<std::string>::const_iterator key =
+           delta->deleted_request_headers.begin();
+       key != delta->deleted_request_headers.end();
+       ++key) {
+    deleted_headers->Append(Value::CreateStringValue(*key));
+  }
+  dict->Set("deleted_headers", deleted_headers);
+  return dict;
 }
-
-
-// NetLog parameter to indicate the ID of the extension that caused an event.
-class NetLogExtensionIdParameter : public net::NetLog::EventParameters {
- public:
-  explicit NetLogExtensionIdParameter(const std::string& extension_id)
-      : extension_id_(extension_id) {}
-  virtual ~NetLogExtensionIdParameter() {}
-
-  virtual base::Value* ToValue() const OVERRIDE {
-    DictionaryValue* dict = new DictionaryValue();
-    dict->SetString("extension_id", extension_id_);
-    return dict;
-  }
-
- private:
-  const std::string extension_id_;
-
-  DISALLOW_COPY_AND_ASSIGN(NetLogExtensionIdParameter);
-};
-
-
-// NetLog parameter to indicate that an extension modified a request.
-class NetLogModificationParameter : public NetLogExtensionIdParameter {
- public:
-  explicit NetLogModificationParameter(const std::string& extension_id)
-      : NetLogExtensionIdParameter(extension_id) {}
-  virtual ~NetLogModificationParameter() {}
-
-  virtual base::Value* ToValue() const OVERRIDE {
-    Value* parent = NetLogExtensionIdParameter::ToValue();
-    DCHECK(parent->IsType(Value::TYPE_DICTIONARY));
-    DictionaryValue* dict = static_cast<DictionaryValue*>(parent);
-    dict->Set("modified_headers", modified_headers_.DeepCopy());
-    dict->Set("deleted_headers", deleted_headers_.DeepCopy());
-    return dict;
-  }
-
-  void DeletedHeader(const std::string& key) {
-    deleted_headers_.Append(Value::CreateStringValue(key));
-  }
-
-  void ModifiedHeader(const std::string& key, const std::string& value) {
-    modified_headers_.Append(Value::CreateStringValue(key + ": " + value));
-  }
-
- private:
-  ListValue modified_headers_;
-  ListValue deleted_headers_;
-
-  DISALLOW_COPY_AND_ASSIGN(NetLogModificationParameter);
-};
-
 
 bool InDecreasingExtensionInstallationTimeOrder(
     const linked_ptr<EventResponseDelta>& a,
@@ -237,59 +251,55 @@ EventResponseDelta* CalculateOnAuthRequiredDelta(
 void MergeCancelOfResponses(
     const EventResponseDeltas& deltas,
     bool* canceled,
-    EventLogEntries* event_log_entries) {
+    const net::BoundNetLog* net_log) {
   for (EventResponseDeltas::const_iterator i = deltas.begin();
        i != deltas.end(); ++i) {
     if ((*i)->cancel) {
       *canceled = true;
-      EventLogEntry log_entry(
+      net_log->AddEvent(
           net::NetLog::TYPE_CHROME_EXTENSION_ABORTED_REQUEST,
-          make_scoped_refptr(
-              new NetLogExtensionIdParameter((*i)->extension_id)));
-      event_log_entries->push_back(log_entry);
+          CreateNetLogExtensionIdCallback(i->get()));
       break;
     }
   }
 }
 
-// Helper function for MergeOnBeforeRequestResponses() that allows considering
-// only data:// urls. These are considered a special case of cancelling a
-// request. This helper function allows us to ignore all other redirects
-// in case any extension wants to cancel the request by redirecting to a
-// data:// url.
+// Helper function for MergeOnBeforeRequestResponses() that allows ignoring
+// all redirects but those to data:// urls and about:blank. This is important
+// to treat these URLs as "cancel urls", i.e. URLs that extensions redirect
+// to if they want to express that they want to cancel a request. This reduces
+// the number of conflicts that we need to flag, as canceling is considered
+// a higher precedence operation that redirects.
 // Returns whether a redirect occurred.
 static bool MergeOnBeforeRequestResponsesHelper(
     const EventResponseDeltas& deltas,
     GURL* new_url,
     std::set<std::string>* conflicting_extensions,
-    EventLogEntries* event_log_entries,
-    bool consider_only_data_scheme_urls) {
+    const net::BoundNetLog* net_log,
+    bool consider_only_cancel_scheme_urls) {
   bool redirected = false;
 
   EventResponseDeltas::const_iterator delta;
   for (delta = deltas.begin(); delta != deltas.end(); ++delta) {
     if ((*delta)->new_url.is_empty())
       continue;
-    if (consider_only_data_scheme_urls &&
-        !(*delta)->new_url.SchemeIs(chrome::kDataScheme)) {
+    if (consider_only_cancel_scheme_urls &&
+        !(*delta)->new_url.SchemeIs(chrome::kDataScheme) &&
+        (*delta)->new_url.spec() != "about:blank") {
       continue;
     }
 
     if (!redirected || *new_url == (*delta)->new_url) {
       *new_url = (*delta)->new_url;
       redirected = true;
-      EventLogEntry log_entry(
+      net_log->AddEvent(
           net::NetLog::TYPE_CHROME_EXTENSION_REDIRECTED_REQUEST,
-          make_scoped_refptr(
-              new NetLogExtensionIdParameter((*delta)->extension_id)));
-      event_log_entries->push_back(log_entry);
+          CreateNetLogExtensionIdCallback(delta->get()));
     } else {
       conflicting_extensions->insert((*delta)->extension_id);
-      EventLogEntry log_entry(
+      net_log->AddEvent(
           net::NetLog::TYPE_CHROME_EXTENSION_IGNORED_DUE_TO_CONFLICT,
-          make_scoped_refptr(
-              new NetLogExtensionIdParameter((*delta)->extension_id)));
-      event_log_entries->push_back(log_entry);
+          CreateNetLogExtensionIdCallback(delta->get()));
     }
   }
   return redirected;
@@ -299,27 +309,27 @@ void MergeOnBeforeRequestResponses(
     const EventResponseDeltas& deltas,
     GURL* new_url,
     std::set<std::string>* conflicting_extensions,
-    EventLogEntries* event_log_entries) {
+    const net::BoundNetLog* net_log) {
 
-  // First handle only redirects to data:// URLs. These are a special case as
-  // they represent a way of cancelling a request.
+  // First handle only redirects to data:// URLs and about:blank. These are a
+  // special case as they represent a way of cancelling a request.
   if (MergeOnBeforeRequestResponsesHelper(
-          deltas, new_url, conflicting_extensions, event_log_entries, true)) {
-    // If any extension cancelled a request by redirecting to a data:// URL,
-    // we don't consider the other redirects.
+          deltas, new_url, conflicting_extensions, net_log, true)) {
+    // If any extension cancelled a request by redirecting to a data:// URL or
+    // about:blank, we don't consider the other redirects.
     return;
   }
 
   // Handle all other redirects.
   MergeOnBeforeRequestResponsesHelper(
-            deltas, new_url, conflicting_extensions, event_log_entries, false);
+            deltas, new_url, conflicting_extensions, net_log, false);
 }
 
 void MergeOnBeforeSendHeadersResponses(
     const EventResponseDeltas& deltas,
     net::HttpRequestHeaders* request_headers,
     std::set<std::string>* conflicting_extensions,
-    EventLogEntries* event_log_entries) {
+    const net::BoundNetLog* net_log) {
   EventResponseDeltas::const_iterator delta;
 
   // Here we collect which headers we have removed or set to new values
@@ -334,9 +344,6 @@ void MergeOnBeforeSendHeadersResponses(
         (*delta)->deleted_request_headers.empty()) {
       continue;
     }
-
-    scoped_refptr<NetLogModificationParameter> log(
-        new NetLogModificationParameter((*delta)->extension_id));
 
     // Check whether any modification affects a request header that
     // has been modified differently before. As deltas is sorted by decreasing
@@ -387,33 +394,28 @@ void MergeOnBeforeSendHeadersResponses(
         // Record which keys were changed.
         net::HttpRequestHeaders::Iterator modification(
             (*delta)->modified_request_headers);
-        while (modification.GetNext()) {
+        while (modification.GetNext())
           set_headers.insert(modification.name());
-          log->ModifiedHeader(modification.name(), modification.value());
-        }
       }
 
       // Perform all deletions and record which keys were deleted.
       {
         std::vector<std::string>::iterator key;
         for (key = (*delta)->deleted_request_headers.begin();
-            key != (*delta)->deleted_request_headers.end();
+             key != (*delta)->deleted_request_headers.end();
              ++key) {
           request_headers->RemoveHeader(*key);
           removed_headers.insert(*key);
-          log->DeletedHeader(*key);
         }
       }
-      EventLogEntry log_entry(
-          net::NetLog::TYPE_CHROME_EXTENSION_MODIFIED_HEADERS, log);
-      event_log_entries->push_back(log_entry);
+      net_log->AddEvent(
+          net::NetLog::TYPE_CHROME_EXTENSION_MODIFIED_HEADERS,
+          base::Bind(&NetLogModificationCallback, delta->get()));
     } else {
       conflicting_extensions->insert((*delta)->extension_id);
-      EventLogEntry log_entry(
+      net_log->AddEvent(
           net::NetLog::TYPE_CHROME_EXTENSION_IGNORED_DUE_TO_CONFLICT,
-          make_scoped_refptr(
-              new NetLogExtensionIdParameter((*delta)->extension_id)));
-      event_log_entries->push_back(log_entry);
+          CreateNetLogExtensionIdCallback(delta->get()));
     }
   }
 }
@@ -430,7 +432,7 @@ void MergeOnHeadersReceivedResponses(
     const net::HttpResponseHeaders* original_response_headers,
     scoped_refptr<net::HttpResponseHeaders>* override_response_headers,
     std::set<std::string>* conflicting_extensions,
-    EventLogEntries* event_log_entries) {
+    const net::BoundNetLog* net_log) {
   EventResponseDeltas::const_iterator delta;
 
   // Here we collect which headers we have removed or added so far due to
@@ -491,18 +493,14 @@ void MergeOnHeadersReceivedResponses(
           (*override_response_headers)->AddHeader(i->first + ": " + i->second);
         }
       }
-      EventLogEntry log_entry(
+      net_log->AddEvent(
           net::NetLog::TYPE_CHROME_EXTENSION_MODIFIED_HEADERS,
-          make_scoped_refptr(
-              new NetLogModificationParameter((*delta)->extension_id)));
-      event_log_entries->push_back(log_entry);
+          CreateNetLogExtensionIdCallback(delta->get()));
     } else {
       conflicting_extensions->insert((*delta)->extension_id);
-      EventLogEntry log_entry(
+      net_log->AddEvent(
           net::NetLog::TYPE_CHROME_EXTENSION_IGNORED_DUE_TO_CONFLICT,
-          make_scoped_refptr(
-              new NetLogExtensionIdParameter((*delta)->extension_id)));
-      event_log_entries->push_back(log_entry);
+          CreateNetLogExtensionIdCallback(delta->get()));
     }
   }
 }
@@ -511,7 +509,7 @@ bool MergeOnAuthRequiredResponses(
     const EventResponseDeltas& deltas,
     net::AuthCredentials* auth_credentials,
     std::set<std::string>* conflicting_extensions,
-    EventLogEntries* event_log_entries) {
+    const net::BoundNetLog* net_log) {
   CHECK(auth_credentials);
   bool credentials_set = false;
 
@@ -526,22 +524,112 @@ bool MergeOnAuthRequiredResponses(
         auth_credentials->password() != (*delta)->auth_credentials->password();
     if (credentials_set && different) {
       conflicting_extensions->insert((*delta)->extension_id);
-      EventLogEntry log_entry(
+      net_log->AddEvent(
           net::NetLog::TYPE_CHROME_EXTENSION_IGNORED_DUE_TO_CONFLICT,
-          make_scoped_refptr(
-              new NetLogExtensionIdParameter((*delta)->extension_id)));
-      event_log_entries->push_back(log_entry);
+          CreateNetLogExtensionIdCallback(delta->get()));
     } else {
-      EventLogEntry log_entry(
+      net_log->AddEvent(
           net::NetLog::TYPE_CHROME_EXTENSION_PROVIDE_AUTH_CREDENTIALS,
-          make_scoped_refptr(
-              new NetLogExtensionIdParameter((*delta)->extension_id)));
-      event_log_entries->push_back(log_entry);
+          CreateNetLogExtensionIdCallback(delta->get()));
       *auth_credentials = *(*delta)->auth_credentials;
       credentials_set = true;
     }
   }
   return credentials_set;
+}
+
+namespace {
+
+// Returns true if the URL is sensitive and requests to this URL must not be
+// modified/canceled by extensions, e.g. because it is targeted to the webstore
+// to check for updates, extension blacklisting, etc.
+bool IsSensitiveURL(const GURL& url) {
+  // TODO(battre) Merge this, CanExtensionAccessURL of web_request_api.cc and
+  // Extension::CanExecuteScriptOnPage into one function.
+  bool is_webstore_gallery_url =
+      StartsWithASCII(url.spec(), extension_urls::kGalleryBrowsePrefix, true);
+  bool sensitive_chrome_url = false;
+  if (EndsWith(url.host(), "google.com", true)) {
+    sensitive_chrome_url |= (url.host() == "www.google.com") &&
+                            StartsWithASCII(url.path(), "/chrome", true);
+    sensitive_chrome_url |= (url.host() == "chrome.google.com");
+    if (StartsWithASCII(url.host(), "client", true)) {
+      for (int i = 0; i < 10; ++i) {
+        sensitive_chrome_url |=
+            (StringPrintf("client%d.google.com", i) == url.host());
+      }
+    }
+  }
+  GURL::Replacements replacements;
+  replacements.ClearQuery();
+  replacements.ClearRef();
+  GURL url_without_query = url.ReplaceComponents(replacements);
+  return is_webstore_gallery_url || sensitive_chrome_url ||
+      extension_urls::IsWebstoreUpdateUrl(url_without_query) ||
+      extension_urls::IsBlacklistUpdateUrl(url);
+}
+
+// Returns true if the scheme is one we want to allow extensions to have access
+// to. Extensions still need specific permissions for a given URL, which is
+// covered by CanExtensionAccessURL.
+bool HasWebRequestScheme(const GURL& url) {
+  return (url.SchemeIs(chrome::kAboutScheme) ||
+          url.SchemeIs(chrome::kFileScheme) ||
+          url.SchemeIs(chrome::kFileSystemScheme) ||
+          url.SchemeIs(chrome::kFtpScheme) ||
+          url.SchemeIs(chrome::kHttpScheme) ||
+          url.SchemeIs(chrome::kHttpsScheme) ||
+          url.SchemeIs(chrome::kExtensionScheme));
+}
+
+}  // namespace
+
+bool HideRequest(const net::URLRequest* request) {
+  const GURL& url = request->url();
+  const GURL& first_party_url = request->first_party_for_cookies();
+  bool hide = false;
+  if (first_party_url.is_valid()) {
+    hide = IsSensitiveURL(first_party_url) ||
+           !HasWebRequestScheme(first_party_url);
+  }
+  if (!hide)
+    hide = IsSensitiveURL(url) || !HasWebRequestScheme(url);
+  return hide;
+}
+
+#define ARRAYEND(array) (array + arraysize(array))
+
+bool IsRelevantResourceType(ResourceType::Type type) {
+  ResourceType::Type* iter =
+      std::find(kResourceTypeValues, ARRAYEND(kResourceTypeValues), type);
+  return iter != ARRAYEND(kResourceTypeValues);
+}
+
+const char* ResourceTypeToString(ResourceType::Type type) {
+  ResourceType::Type* iter =
+      std::find(kResourceTypeValues, ARRAYEND(kResourceTypeValues), type);
+  if (iter == ARRAYEND(kResourceTypeValues))
+    return "other";
+
+  return kResourceTypeStrings[iter - kResourceTypeValues];
+}
+
+bool ParseResourceType(const std::string& type_str,
+                       ResourceType::Type* type) {
+  const char** iter =
+      std::find(kResourceTypeStrings, ARRAYEND(kResourceTypeStrings), type_str);
+  if (iter == ARRAYEND(kResourceTypeStrings))
+    return false;
+  *type = kResourceTypeValues[iter - kResourceTypeStrings];
+  return true;
+}
+
+bool CanExtensionAccessURL(const extensions::Extension* extension,
+                           const GURL& url) {
+  // about: URLs are not covered in host permissions, but are allowed anyway.
+  return (url.SchemeIs(chrome::kAboutScheme) ||
+          extension->HasHostPermission(url) ||
+          url.GetOrigin() == extension->url());
 }
 
 }  // namespace extension_web_request_api_helpers

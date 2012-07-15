@@ -1,36 +1,10 @@
-# Copyright 2010, Google Inc.
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are
-# met:
-#
-#    * Redistributions of source code must retain the above copyright
-# notice, this list of conditions and the following disclaimer.
-#    * Redistributions in binary form must reproduce the above
-# copyright notice, this list of conditions and the following disclaimer
-# in the documentation and/or other materials provided with the
-# distribution.
-#    * Neither the name of Google Inc. nor the names of its
-# contributors may be used to endorse or promote products derived from
-# this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-# OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+# Copyright (c) 2012 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
 
 [GENERAL]
 chrome.exe: %(ChromeDir)s\
 wow_helper.exe: %(ChromeDir)s\
-Dictionaries\en-US.bdic: %(ChromeDir)s\Dictionaries
 chrome.dll: %(VersionDir)s\
 nacl64.exe: %(VersionDir)s\
 ppGoogleNaClPluginChrome.dll: %(VersionDir)s\
@@ -38,6 +12,8 @@ nacl_irt_x86_32.nexe: %(VersionDir)s\
 nacl_irt_x86_64.nexe: %(VersionDir)s\
 icudt.dll: %(VersionDir)s\
 resources.pak: %(VersionDir)s\
+theme_resources_standard.pak: %(VersionDir)s\
+ui_resources_standard.pak: %(VersionDir)s\
 locales\*.pak: %(VersionDir)s\Locales
 locales\*.dll: %(VersionDir)s\Locales
 npchrome_frame.dll: %(VersionDir)s\
@@ -55,8 +31,27 @@ xinput1_3.dll: %(VersionDir)s\
 default_apps\*.crx: %(VersionDir)s\default_apps\
 default_apps\external_extensions.json: %(VersionDir)s\default_apps\
 
+[HIDPI]
+theme_resources_2x.pak: %(VersionDir)s\
+ui_resources_2x.pak: %(VersionDir)s\
+
+[TOUCH]
+theme_resources_touch_1x.pak: %(VersionDir)s\
+
 [GOOGLE_CHROME]
-gcswf32.dll: %(VersionDir)s\
-plugin.vch: %(VersionDir)s\
-FlashPlayerCPLApp.cpl: %(VersionDir)s\
 FlashPlayerApp.exe: %(VersionDir)s\
+FlashPlayerCPLApp.cpl: %(VersionDir)s\
+SecondaryTile.png: %(VersionDir)s\
+delegate_execute.exe: %(VersionDir)s\
+gcswf32.dll: %(VersionDir)s\
+metro_driver.dll: %(VersionDir)s\
+plugin.vch: %(VersionDir)s\
+PepperFlash\pepflashplayer.dll: %(VersionDir)s\PepperFlash\
+PepperFlash\manifest.json: %(VersionDir)s\PepperFlash\
+# All or none of the following 3 files need to be present as the creation of
+# VisualElementsManifest.xml is based on the existence of
+# %(VersionDir)\VisualElements. On a similar note, no other files should be
+# packaged in this directory.
+Logo.png: %(VersionDir)s\VisualElements\
+SmallLogo.png: %(VersionDir)s\VisualElements\
+splash-620x300.png: %(VersionDir)s\VisualElements\

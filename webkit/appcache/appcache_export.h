@@ -4,7 +4,6 @@
 
 #ifndef WEBKIT_APPCACHE_APPCACHE_EXPORT_H_
 #define WEBKIT_APPCACHE_APPCACHE_EXPORT_H_
-#pragma once
 
 #if defined(COMPONENT_BUILD)
 #if defined(WIN32)
@@ -16,7 +15,11 @@
 #endif  // defined(APPCACHE_IMPLEMENTATION)
 
 #else // defined(WIN32)
+#if defined(APPCACHE_IMPLEMENTATION)
 #define APPCACHE_EXPORT __attribute__((visibility("default")))
+#else
+#define APPCACHE_EXPORT
+#endif
 #endif
 
 #else // defined(COMPONENT_BUILD)

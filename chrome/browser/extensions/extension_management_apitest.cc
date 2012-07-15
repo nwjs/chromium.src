@@ -1,16 +1,24 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <map>
+
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/extensions/extension_test_message_listener.h"
+#include "chrome/browser/extensions/test_management_policy.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/ui_test_utils.h"
+
+using extensions::Extension;
 
 namespace {
 
@@ -40,17 +48,16 @@ class ExtensionManagementApiTest : public ExtensionApiTest {
     FilePath basedir = test_data_dir_.AppendASCII("management");
 
     // Load 4 enabled items.
-    ASSERT_TRUE(LoadExtension(basedir.AppendASCII("enabled_extension")));
-    ASSERT_TRUE(LoadExtension(basedir.AppendASCII("enabled_app")));
-    ASSERT_TRUE(LoadExtension(basedir.AppendASCII("description")));
-    ASSERT_TRUE(LoadExtension(basedir.AppendASCII("permissions")));
+    InstallNamedExtension(basedir, "enabled_extension");
+    InstallNamedExtension(basedir, "enabled_app");
+    InstallNamedExtension(basedir, "description");
+    InstallNamedExtension(basedir, "permissions");
 
     // Load 2 disabled items.
-    ExtensionService* service = browser()->profile()->GetExtensionService();
-    ASSERT_TRUE(LoadExtension(basedir.AppendASCII("disabled_extension")));
-    service->DisableExtension(last_loaded_extension_id_);
-    ASSERT_TRUE(LoadExtension(basedir.AppendASCII("disabled_app")));
-    service->DisableExtension(last_loaded_extension_id_);
+    InstallNamedExtension(basedir, "disabled_extension");
+    DisableExtension(extension_ids_["disabled_extension"]);
+    InstallNamedExtension(basedir, "disabled_app");
+    DisableExtension(extension_ids_["disabled_app"]);
   }
 
   // Load an app, and wait for a message from app "management/launch_on_install"
@@ -65,6 +72,16 @@ class ExtensionManagementApiTest : public ExtensionApiTest {
 
     ASSERT_TRUE(launched_app.WaitUntilSatisfied());
   }
+
+ protected:
+  void InstallNamedExtension(FilePath basedir, std::string name) {
+    const Extension* extension = LoadExtension(basedir.AppendASCII(name));
+    ASSERT_TRUE(extension);
+    extension_ids_[name] = extension->id();
+  }
+
+  // Maps installed extension names to their IDs..
+  std::map<std::string, std::string> extension_ids_;
 };
 
 IN_PROC_BROWSER_TEST_F(ExtensionManagementApiTest, Basics) {
@@ -75,6 +92,42 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementApiTest, Basics) {
 IN_PROC_BROWSER_TEST_F(ExtensionManagementApiTest, Uninstall) {
   InstallExtensions();
   ASSERT_TRUE(RunExtensionSubtest("management/test", "uninstall.html"));
+}
+
+// Tests actions on extensions when no management policy is in place.
+IN_PROC_BROWSER_TEST_F(ExtensionManagementApiTest, ManagementPolicyAllowed) {
+  InstallExtensions();
+  ExtensionService* service = browser()->profile()->GetExtensionService();
+  EXPECT_TRUE(service->GetExtensionById(extension_ids_["enabled_extension"],
+                                        false));
+
+  // Ensure that all actions are allowed.
+  extensions::ExtensionSystem::Get(
+      browser()->profile())->management_policy()->UnregisterAllProviders();
+
+  ASSERT_TRUE(RunExtensionSubtest("management/management_policy",
+                                  "allowed.html"));
+  // The last thing the test does is uninstall the "enabled_extension".
+  EXPECT_FALSE(service->GetExtensionById(extension_ids_["enabled_extension"],
+                                         true));
+}
+
+// Tests actions on extensions when management policy prohibits those actions.
+IN_PROC_BROWSER_TEST_F(ExtensionManagementApiTest, ManagementPolicyProhibited) {
+  InstallExtensions();
+  ExtensionService* service = browser()->profile()->GetExtensionService();
+  EXPECT_TRUE(service->GetExtensionById(extension_ids_["enabled_extension"],
+                                        false));
+
+  // Prohibit status changes.
+  extensions::ManagementPolicy* policy = extensions::ExtensionSystem::Get(
+      browser()->profile())->management_policy();
+  policy->UnregisterAllProviders();
+  extensions::TestManagementPolicyProvider provider(
+    extensions::TestManagementPolicyProvider::PROHIBIT_MODIFY_STATUS);
+  policy->RegisterProvider(&provider);
+  ASSERT_TRUE(RunExtensionSubtest("management/management_policy",
+                                  "prohibited.html"));
 }
 
 IN_PROC_BROWSER_TEST_F(ExtensionManagementApiTest, LaunchPanelApp) {
@@ -93,7 +146,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementApiTest, LaunchPanelApp) {
   ASSERT_FALSE(HasFatalFailure());  // Stop the test if any ASSERT failed.
 
   // Find the app's browser.  Check that it is a panel.
-  ASSERT_EQ(2u, BrowserList::GetBrowserCount(browser()->profile()));
+  ASSERT_EQ(2u, browser::GetBrowserCount(browser()->profile()));
   Browser* app_browser = FindOtherBrowser(browser());
   ASSERT_TRUE(app_browser->is_type_panel());
   ASSERT_TRUE(app_browser->is_app());
@@ -103,18 +156,18 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementApiTest, LaunchPanelApp) {
       chrome::NOTIFICATION_BROWSER_CLOSED,
       content::Source<Browser>(app_browser));
 
-  app_browser->CloseWindow();
+  chrome::CloseWindow(app_browser);
   signal.Wait();
 
   // Unload the extension.
   UninstallExtension(app_id);
-  ASSERT_EQ(1u, BrowserList::GetBrowserCount(browser()->profile()));
+  ASSERT_EQ(1u, browser::GetBrowserCount(browser()->profile()));
   ASSERT_FALSE(service->GetExtensionById(app_id, true));
 
   // Set a pref indicating that the user wants to launch in a regular tab.
   // This should be ignored, because panel apps always load in a panel.
   service->extension_prefs()->SetLaunchType(
-      app_id, ExtensionPrefs::LAUNCH_REGULAR);
+      app_id, extensions::ExtensionPrefs::LAUNCH_REGULAR);
 
   // Load the extension again.
   std::string app_id_new;
@@ -126,7 +179,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementApiTest, LaunchPanelApp) {
 
   // Find the app's browser.  Apps that should load in a panel ignore
   // prefs, so we should still see the launch in a panel.
-  ASSERT_EQ(2u, BrowserList::GetBrowserCount(browser()->profile()));
+  ASSERT_EQ(2u, browser::GetBrowserCount(browser()->profile()));
   app_browser = FindOtherBrowser(browser());
   ASSERT_TRUE(app_browser->is_type_panel());
   ASSERT_TRUE(app_browser->is_app());
@@ -144,7 +197,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementApiTest, LaunchTabApp) {
 
   // Code below assumes that the test starts with a single browser window
   // hosting one tab.
-  ASSERT_EQ(1u, BrowserList::GetBrowserCount(browser()->profile()));
+  ASSERT_EQ(1u, browser::GetBrowserCount(browser()->profile()));
   ASSERT_EQ(1, browser()->tab_count());
 
   // Load an app with app.launch.container = "tab".
@@ -153,17 +206,17 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementApiTest, LaunchTabApp) {
   ASSERT_FALSE(HasFatalFailure());
 
   // Check that the app opened in a new tab of the existing browser.
-  ASSERT_EQ(1u, BrowserList::GetBrowserCount(browser()->profile()));
+  ASSERT_EQ(1u, browser::GetBrowserCount(browser()->profile()));
   ASSERT_EQ(2, browser()->tab_count());
 
   // Unload the extension.
   UninstallExtension(app_id);
-  ASSERT_EQ(1u, BrowserList::GetBrowserCount(browser()->profile()));
+  ASSERT_EQ(1u, browser::GetBrowserCount(browser()->profile()));
   ASSERT_FALSE(service->GetExtensionById(app_id, true));
 
   // Set a pref indicating that the user wants to launch in a window.
   service->extension_prefs()->SetLaunchType(
-      app_id, ExtensionPrefs::LAUNCH_WINDOW);
+      app_id, extensions::ExtensionPrefs::LAUNCH_WINDOW);
 
   std::string app_id_new;
   LoadAndWaitForLaunch("management/launch_app_tab", &app_id_new);
@@ -175,12 +228,12 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementApiTest, LaunchTabApp) {
 #if defined(OS_MACOSX)
   // App windows are not yet implemented on mac os.  We should fall back
   // to a normal tab.
-  ASSERT_EQ(1u, BrowserList::GetBrowserCount(browser()->profile()));
+  ASSERT_EQ(1u, browser::GetBrowserCount(browser()->profile()));
   ASSERT_EQ(2, browser()->tab_count());
 #else
   // Find the app's browser.  Opening in a new window will create
   // a new browser.
-  ASSERT_EQ(2u, BrowserList::GetBrowserCount(browser()->profile()));
+  ASSERT_EQ(2u, browser::GetBrowserCount(browser()->profile()));
   Browser* app_browser = FindOtherBrowser(browser());
   ASSERT_TRUE(app_browser->is_app());
   ASSERT_FALSE(app_browser->is_type_panel());

@@ -4,21 +4,21 @@
 
 #ifndef CONTENT_BROWSER_ACCESSIBILITY_BROWSER_ACCESSIBILITY_WIN_H_
 #define CONTENT_BROWSER_ACCESSIBILITY_BROWSER_ACCESSIBILITY_WIN_H_
-#pragma once
 
 #include <atlbase.h>
 #include <atlcom.h>
 #include <oleacc.h>
+#include <UIAutomationCore.h>
 
 #include <vector>
 
+#include "base/compiler_specific.h"
 #include "content/browser/accessibility/browser_accessibility.h"
 #include "content/common/content_export.h"
 #include "third_party/iaccessible2/ia2_api_all.h"
 #include "third_party/isimpledom/ISimpleDOMDocument.h"
 #include "third_party/isimpledom/ISimpleDOMNode.h"
 #include "third_party/isimpledom/ISimpleDOMText.h"
-#include "webkit/glue/webaccessibility.h"
 
 class BrowserAccessibilityRelation;
 
@@ -26,8 +26,6 @@ namespace ui {
 enum TextBoundaryDirection;
 enum TextBoundaryType;
 }
-
-using webkit_glue::WebAccessibility;
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -54,7 +52,9 @@ BrowserAccessibilityWin
       public IServiceProvider,
       public ISimpleDOMDocument,
       public ISimpleDOMNode,
-      public ISimpleDOMText {
+      public ISimpleDOMText,
+      public IAccessibleEx,
+      public IRawElementProviderSimple {
  public:
   BEGIN_COM_MAP(BrowserAccessibilityWin)
     COM_INTERFACE_ENTRY2(IDispatch, IAccessible2)
@@ -72,6 +72,8 @@ BrowserAccessibilityWin
     COM_INTERFACE_ENTRY(ISimpleDOMDocument)
     COM_INTERFACE_ENTRY(ISimpleDOMNode)
     COM_INTERFACE_ENTRY(ISimpleDOMText)
+    COM_INTERFACE_ENTRY(IAccessibleEx)
+    COM_INTERFACE_ENTRY(IRawElementProviderSimple)
   END_COM_MAP()
 
   // Represents a non-static text node in IAccessibleHypertext. This character
@@ -91,10 +93,11 @@ BrowserAccessibilityWin
   //
   // BrowserAccessibility methods.
   //
-  CONTENT_EXPORT virtual void PreInitialize();
-CONTENT_EXPORT virtual void PostInitialize();
-  CONTENT_EXPORT virtual void NativeAddReference();
-  CONTENT_EXPORT virtual void NativeReleaseReference();
+  CONTENT_EXPORT virtual void PreInitialize() OVERRIDE;
+  CONTENT_EXPORT virtual void PostInitialize() OVERRIDE;
+  CONTENT_EXPORT virtual void NativeAddReference() OVERRIDE;
+  CONTENT_EXPORT virtual void NativeReleaseReference() OVERRIDE;
+  CONTENT_EXPORT virtual bool IsNative() const OVERRIDE;
 
   //
   // IAccessible methods.
@@ -218,7 +221,9 @@ CONTENT_EXPORT virtual void PostInitialize();
                                                 LONG* similar_items_in_group,
                                                 LONG* position_in_group);
 
-  // IAccessible2 methods not implemented.
+  //
+  // IAccessibleEx methods not implemented.
+  //
   CONTENT_EXPORT STDMETHODIMP get_extendedRole(BSTR* extended_role) {
     return E_NOTIMPL;
   }
@@ -247,7 +252,6 @@ CONTENT_EXPORT virtual void PostInitialize();
   //
   // IAccessibleImage methods.
   //
-
   CONTENT_EXPORT STDMETHODIMP get_description(BSTR* description);
 
   CONTENT_EXPORT STDMETHODIMP get_imagePosition(
@@ -692,6 +696,48 @@ CONTENT_EXPORT virtual void PostInitialize();
   CONTENT_EXPORT STDMETHODIMP QueryService(REFGUID guidService, REFIID riid,
       void** object);
 
+  // IAccessibleEx methods not implemented.
+  CONTENT_EXPORT STDMETHODIMP GetObjectForChild(long child_id,
+                                                IAccessibleEx** ret) {
+    return E_NOTIMPL;
+  }
+
+  CONTENT_EXPORT STDMETHODIMP GetIAccessiblePair(IAccessible** acc,
+                                                 long* child_id) {
+    return E_NOTIMPL;
+  }
+
+  CONTENT_EXPORT STDMETHODIMP GetRuntimeId(SAFEARRAY** runtime_id) {
+    return E_NOTIMPL;
+  }
+
+  CONTENT_EXPORT STDMETHODIMP ConvertReturnedElement(
+      IRawElementProviderSimple* element,
+      IAccessibleEx** acc) {
+    return E_NOTIMPL;
+  }
+
+  //
+  // IRawElementProviderSimple methods.
+  //
+  // The GetPatternProvider/GetPropertyValue methods need to be implemented for
+  // the on-screen keyboard to show up in Windows 8 metro.
+  CONTENT_EXPORT STDMETHODIMP GetPatternProvider(PATTERNID id,
+                                                 IUnknown** provider);
+  CONTENT_EXPORT STDMETHODIMP GetPropertyValue(PROPERTYID id, VARIANT* ret);
+
+  //
+  // IRawElementProviderSimple methods not implemented
+  //
+  CONTENT_EXPORT STDMETHODIMP get_ProviderOptions(enum ProviderOptions* ret) {
+    return E_NOTIMPL;
+  }
+
+  CONTENT_EXPORT STDMETHODIMP get_HostRawElementProvider(
+      IRawElementProviderSimple** provider) {
+    return E_NOTIMPL;
+  }
+
   //
   // CComObjectRootEx methods.
   //
@@ -719,32 +765,33 @@ CONTENT_EXPORT virtual void PostInitialize();
   BrowserAccessibilityWin* GetTargetFromChildID(const VARIANT& var_id);
 
   // Initialize the role and state metadata from the role enum and state
-  // bitmasks defined in webkit/glue/webaccessibility.h.
+  // bitmasks defined in AccessibilityNodeData.
   void InitRoleAndState();
 
   // Retrieve the value of an attribute from the string attribute map and
   // if found and nonempty, allocate a new BSTR (with SysAllocString)
   // and return S_OK. If not found or empty, return S_FALSE.
   HRESULT GetStringAttributeAsBstr(
-      WebAccessibility::StringAttribute attribute, BSTR* value_bstr);
+      content::AccessibilityNodeData::StringAttribute attribute,
+      BSTR* value_bstr);
 
   // If the string attribute |attribute| is present, add its value as an
   // IAccessible2 attribute with the name |ia2_attr|.
   void StringAttributeToIA2(
-      WebAccessibility::StringAttribute attribute, const char* ia2_attr);
+      content::AccessibilityNodeData::StringAttribute attribute,
+      const char* ia2_attr);
 
   // If the bool attribute |attribute| is present, add its value as an
   // IAccessible2 attribute with the name |ia2_attr|.
   void BoolAttributeToIA2(
-      WebAccessibility::BoolAttribute attribute, const char* ia2_attr);
+      content::AccessibilityNodeData::BoolAttribute attribute,
+      const char* ia2_attr);
 
   // If the int attribute |attribute| is present, add its value as an
   // IAccessible2 attribute with the name |ia2_attr|.
   void IntAttributeToIA2(
-      WebAccessibility::IntAttribute attribute, const char* ia2_attr);
-
-  // Escape a string like it would be escaped for a URL or HTML form.
-  string16 Escape(const string16& str);
+      content::AccessibilityNodeData::IntAttribute attribute,
+      const char* ia2_attr);
 
   // Get the text of this node for the purposes of IAccessibleText - it may
   // be the name, it may be the value, etc. depending on the role.

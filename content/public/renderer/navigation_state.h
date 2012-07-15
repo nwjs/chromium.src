@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CONTENT_PUBLIC_RENDERER_NAVIGATION_STATE_H_
 #define CONTENT_PUBLIC_RENDERER_NAVIGATION_STATE_H_
-#pragma once
 
 #include "content/public/common/page_transition_types.h"
 
@@ -73,6 +72,12 @@ class NavigationState {
   int transferred_request_request_id() const {
     return transferred_request_request_id_;
   }
+  void set_allow_download(bool value) {
+    allow_download_ = value;
+  }
+  bool allow_download() const {
+    return allow_download_;
+  }
 
  private:
   NavigationState(content::PageTransition transition_type,
@@ -89,10 +94,11 @@ class NavigationState {
   bool was_within_same_page_;
   int transferred_request_child_id_;
   int transferred_request_request_id_;
+  bool allow_download_;
 
   DISALLOW_COPY_AND_ASSIGN(NavigationState);
 };
 
-#endif  // CONTENT_PUBLIC_RENDERER_NAVIGATION_STATE_H_
-
 }  // namespace content
+
+#endif  // CONTENT_PUBLIC_RENDERER_NAVIGATION_STATE_H_

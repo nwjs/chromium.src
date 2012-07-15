@@ -55,6 +55,9 @@ class ASH_EXPORT WorkspaceManager {
   // Returns true if the |window| is managed by the WorkspaceManager.
   bool IsManagingWindow(aura::Window* window) const;
 
+  // Returns true if in maximized or fullscreen mode.
+  bool IsInMaximizedMode() const;
+
   // Adds/removes a window creating/destroying workspace as necessary.
   void AddWindow(aura::Window* window);
   void RemoveWindow(aura::Window* window);
@@ -73,21 +76,10 @@ class ASH_EXPORT WorkspaceManager {
   // Returns the bounds in which a window can be moved/resized.
   gfx::Rect GetDragAreaBounds();
 
-  // Turn on/off overview mode.
-  void SetOverview(bool overview);
-  bool is_overview() const { return is_overview_; }
-
-  // Returns the window the layout manager should allow the size to be set for.
-  // TODO: maybe this should be set on WorkspaceLayoutManager.
-  aura::Window* ignored_window() { return ignored_window_; }
-
   // Sets the size of the grid. Newly added windows are forced to align to the
   // size of the grid.
   void set_grid_size(int size) { grid_size_ = size; }
   int grid_size() const { return grid_size_; }
-
-  // Returns a bounds aligned to the grid. Returns |bounds| if grid_size is 0.
-  gfx::Rect AlignBoundsToGrid(const gfx::Rect& bounds);
 
   void set_shelf(ShelfLayoutManager* shelf) { shelf_ = shelf; }
 
@@ -109,11 +101,6 @@ class ASH_EXPORT WorkspaceManager {
 
   friend class Workspace;
   friend class WorkspaceManagerTest;
-
-  // See description above getter.
-  void set_ignored_window(aura::Window* ignored_window) {
-    ignored_window_ = ignored_window;
-  }
 
   void AddWorkspace(Workspace* workspace);
   void RemoveWorkspace(Workspace* workspace);
@@ -166,11 +153,9 @@ class ASH_EXPORT WorkspaceManager {
 
   std::vector<Workspace*> workspaces_;
 
-  // True if the workspace manager is in overview mode.
-  bool is_overview_;
-
-  // The window that WorkspaceManager does not set the bounds on.
-  aura::Window* ignored_window_;
+  // Window being maximized or restored during a workspace type change.
+  // It has its own animation and is ignored by workspace show/hide animations.
+  aura::Window* maximize_restore_window_;
 
   // See description above setter.
   int grid_size_;

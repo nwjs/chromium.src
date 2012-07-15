@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -28,16 +28,18 @@ void HostEventDispatcher::OnInitialized() {
 }
 
 void HostEventDispatcher::OnMessageReceived(
-    EventMessage* message, const base::Closure& done_task) {
+    scoped_ptr<EventMessage> message, const base::Closure& done_task) {
   DCHECK(input_stub_);
 
   base::ScopedClosureRunner done_runner(done_task);
 
-  sequence_number_callback_.Run(message->sequence_number());
+  if (message->has_sequence_number() && !sequence_number_callback_.is_null())
+    sequence_number_callback_.Run(message->sequence_number());
 
   if (message->has_key_event()) {
     const KeyEvent& event = message->key_event();
-    if (event.has_keycode() && event.has_pressed()) {
+    if ((event.has_keycode() || event.has_usb_keycode()) &&
+        event.has_pressed()) {
       input_stub_->InjectKeyEvent(event);
     } else {
       LOG(WARNING) << "Received invalid key event.";

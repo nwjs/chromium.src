@@ -80,8 +80,7 @@ void AppNotificationListToJSON(const AppNotificationList& list,
 bool JSONToAppNotificationList(const std::string& json,
                                AppNotificationList* list) {
   CHECK(list);
-  scoped_ptr<Value> value(JSONReader::Read(json,
-                                           false /* allow_trailing_comma */));
+  scoped_ptr<Value> value(JSONReader::Read(json));
   if (!value.get() || value->GetType() != Value::TYPE_LIST)
     return false;
 
@@ -132,7 +131,7 @@ bool LevelDbAppNotificationStorage::GetExtensionIds(
   scoped_ptr<leveldb::Iterator> iter(db_->NewIterator(read_options_));
   for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
     std::string key = iter->key().ToString();
-    if (Extension::IdIsValid(key))
+    if (extensions::Extension::IdIsValid(key))
       result->insert(key);
   }
 

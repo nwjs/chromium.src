@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_LOGIN_PERFORMER_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_LOGIN_PERFORMER_H_
-#pragma once
 
 #include <string>
 
@@ -60,6 +59,7 @@ class LoginPerformer : public LoginStatusConsumer,
    public:
     virtual ~Delegate() {}
     virtual void WhiteListCheckFailed(const std::string& email) = 0;
+    virtual void PolicyLoadFailed() = 0;
     virtual void OnOnlineChecked(const std::string& email, bool success) = 0;
   };
 
@@ -111,6 +111,18 @@ class LoginPerformer : public LoginStatusConsumer,
   // True if last login operation has timed out.
   bool login_timed_out() {
     return last_login_failure_.reason() == LoginFailure::LOGIN_TIMED_OUT;
+  }
+
+  // True if password change has been detected.
+  bool password_changed() { return password_changed_; }
+
+  // Number of times we've been called with OnPasswordChangeDetected().
+  // If user enters incorrect old password, same LoginPerformer instance will
+  // be called so callback count makes it possible to distinguish initial
+  // "password changed detected" event from further attempts to enter old
+  // password for cryptohome migration (when > 1).
+  int password_changed_callback_count() {
+    return password_changed_callback_count_;
   }
 
   void set_delegate(Delegate* delegate) { delegate_ = delegate; }
@@ -187,6 +199,7 @@ class LoginPerformer : public LoginStatusConsumer,
   // True if password change has been detected.
   // Once correct password is entered homedir migration is executed.
   bool password_changed_;
+  int password_changed_callback_count_;
 
   // Used for ScreenLock notifications.
   content::NotificationRegistrar registrar_;

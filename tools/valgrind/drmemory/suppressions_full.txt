@@ -38,6 +38,30 @@ name=intentional WTF ThreadData leak
 ...
 *!WTF::wtfThreadData
 
+# Happens when winhttp returns ERROR_WINHTTP_UNABLE_TO_DOWNLOAD_SCRIPT.
+LEAK
+name=http://crbug.com/125558 a
+KERNELBASE.dll!LocalAlloc
+SECHOST.dll!...
+SECHOST.dll!NotifyServiceStatusChange
+WINHTTP.dll!...
+WINHTTP.dll!WinHttpDetectAutoProxyConfigUrl
+*!net::ProxyResolverWinHttp::GetProxyForURL
+
+# Tiny locale-related leaks in ntdll.  Probably system bug.
+LEAK
+name=http://crbug.com/125558 b
+ntdll.dll!...
+ntdll.dll!*
+KERNELBASE.dll!...
+KERNELBASE.dll!GetCPInfoExW
+webio.dll!*
+webio.dll!*
+webio.dll!*
+WINHTTP.dll!...
+WINHTTP.dll!WinHttpGetIEProxyConfigForCurrentUser
+*!net::ProxyConfigServiceWin::GetCurrentProxyConfig
+
 ###############################################################
 # Suppress some false reports due to bugs in Dr.Memory like wrong analysis
 # assumptions or unhandled syscalls
@@ -528,6 +552,11 @@ name=http://code.google.com/p/drmemory/issues/detail?id=476 i
 ...
 CRYPT32.dll!CryptProtectData
 
+LEAK
+name=http://code.google.com/p/drmemory/issues/detail?id=476 j
+...
+CRYPT32.dll!CryptExportPublicKeyInfoEx
+
 UNINITIALIZED READ
 name=http://code.google.com/p/drmemory/issues/detail?id=502 a
 system call NtSecureConnectPort parameter #3
@@ -710,6 +739,18 @@ RPCRT4.dll!*
 RPCRT4.dll!*
 RPCRT4.dll!NDRCContextBinding
 
+# No idea, but all system code, not interesting.
+POSSIBLE LEAK
+name=http://crbug.com/TODO q
+RPCRT4.dll!...
+RPCRT4.dll!*
+RPCRT4.dll!*
+ole32.dll!...
+ole32.dll!*
+ole32.dll!*
+...
+SHELL32.dll!*
+
 LEAK
 name=http://crbug.com/109278 video device COM leaks
 ...
@@ -841,14 +882,14 @@ USP10.dll!ScriptPositionSingleGlyph
 LEAK
 name=http://code.google.com/p/drmemory/issues/detail?id=778 a
 KERNELBASE.dll!TlsSetValue
-RSAENH.dll!*
-RSAENH.dll!*
 
 # Originally filed as: http://crbug.com/109281
 LEAK
 name=http://code.google.com/p/drmemory/issues/detail?id=778 b
-...
-*!base::ThreadLocalStorage::Initialize
+*!operator new
+*!operator new[]
+*!*::ConstructTlsVector
+*!base::ThreadLocalStorage::StaticSlot::Get
 
 # This is an NSS PRThread object installed in TLS.  Why isn't this detected as a
 # root?  See also http://crbug.com/32624
@@ -858,16 +899,9 @@ name=http://code.google.com/p/drmemory/issues/detail?id=778 c
 *!_PR_AttachThread
 *!_PRI_AttachThread
 
-LEAK
-name=http://code.google.com/p/drmemory/issues/detail?id=778 d
-KERNELBASE.dll!TlsSetValue
-MSWSOCK.dll!*
-KERNEL32.dll!BaseThreadInitThunk
-
 # Bit-level fps in rich edit layer.
 UNINITIALIZED READ
 name=http://code.google.com/p/drmemory/issues/detail?id=791
-RICHED20.dll!*
 RICHED20.dll!*
 RICHED20.dll!*
 
@@ -920,11 +954,12 @@ name=http://code.google.com/p/drmemory/issues/detail?id=841 d
 ...
 CRYPTNET.dll!I_CryptNetGetConnectivity
 
+# Often missing a ntdll.dll!KiUserCallbackDispatcher frame.
 UNINITIALIZED READ
 name=http://code.google.com/p/drmemory/issues/detail?id=810
 instruction=test   %edx %edx
 USER32.dll!GetClassLongW
-ntdll.dll!KiUserCallbackDispatcher
+...
 *!ui::CenterAndSizeWindow
 
 UNINITIALIZED READ
@@ -942,6 +977,45 @@ LEAK
 name=cmd.exe
 ...
 cmd.exe!*
+
+# Possible true system use after free.
+UNADDRESSABLE ACCESS
+name=http://code.google.com/p/drmemory/issues/detail?id=623
+KERNELBASE.dll!TlsGetValue
+OLEAUT32.dll!SysFreeString
+OLEAUT32.dll!SysAllocStringByteLen
+OLEACC.dll!*
+OLEACC.dll!*
+OLEACC.dll!*
+OLEACC.dll!*
+
+# basic_streambuf seems to leak something in creating a std::_Mutex
+LEAK
+name=http://code.google.com/p/drmemory/issues/detail?id=857
+ntdll.dll!...
+ntdll.dll!RtlInitializeCriticalSection
+*!_Mtxinit
+*!std::_Mutex::_Mutex
+*!std::basic_streambuf<*>
+
+# stdext::hash_map<> seems to swap uninitialized floats.
+UNINITIALIZED READ
+name=http://code.google.com/p/drmemory/issues/detail?id=931
+*!std::swap<float>
+*!std::_Hash<*
+
+# syscall false positive on handling NtQuerySystemInformation, fix in soon.
+UNINITIALIZED READ
+name=http://code.google.com/p/drmemory/issues/detail?id=932
+KERNEL32.dll!K32GetPerformanceInfo
+
+# Seems to create a DC, sometimes.  GetTextMetrics returns no pointers, though.
+LEAK
+name=GDI SetBrushOrgEx leak
+GDI32.dll!...
+GDI32.dll!GetTextMetricsW
+*!gfx::PlatformFontWin::CreateHFontRef
+*!gfx::PlatformFontWin::GetBaseFontRef
 
 ###############################################################
 # Benign issues in Chromium
@@ -962,7 +1036,7 @@ name=deliberate histogram leak
 LEAK
 name=deliberate LazyInstance leak
 ...
-*!*base::internal::LeakyLazyInstanceTraits*::*
+*!*LeakyLazyInstance*
 ...
 *!base::LazyInstance*::Pointer
 
@@ -978,8 +1052,8 @@ name=http://crbug.com/79933 (2)
 *!TestURLRequestContextGetter::GetURLRequestContext
 *!notifier::SingleLoginAttempt::SingleLoginAttempt
 *!notifier::Login::StartConnection
-*!sync_notifier::InvalidationNotifier::UpdateCredentials
-*!sync_notifier::NonBlockingInvalidationNotifier::Core::UpdateCredentials
+*!syncer::InvalidationNotifier::UpdateCredentials
+*!syncer::NonBlockingInvalidationNotifier::Core::UpdateCredentials
 
 LEAK
 name=http://crbug.com/79933 (3)
@@ -987,6 +1061,29 @@ name=http://crbug.com/79933 (3)
 *!TestURLRequestContext::TestURLRequestContext
 *!TestURLRequestContextGetter::GetURLRequestContext
 *!URLFetcher::Core::StartURLRequest
+
+LEAK
+name=http://crbug.com/79933 (4)
+*!generic_cpp_alloc
+*!operator new
+*!std::_Allocate<net::SSLConfigService::Observer *>
+*!std::allocator<net::SSLConfigService::Observer *>::allocate
+*!std::vector<net::SSLConfigService::Observer *,std::allocator<net::SSLConfigService::Observer *> >::_Insert_n
+*!std::vector<net::SSLConfigService::Observer *,std::allocator<net::SSLConfigService::Observer *> >::insert
+*!std::vector<net::SSLConfigService::Observer *,std::allocator<net::SSLConfigService::Observer *> >::push_back
+*!ObserverListBase<net::SSLConfigService::Observer>::AddObserver
+...
+*!net::HttpNetworkSession::HttpNetworkSession
+*!notifier::ProxyResolvingClientSocket::ProxyResolvingClientSocket
+*!notifier::XmppClientSocketFactory::CreateTransportClientSocket
+*!notifier::ChromeAsyncSocket::Connect
+*!buzz::XmppClient::ProcessStartXmppLogin
+*!buzz::XmppClient::Process
+*!talk_base::Task::Step
+*!talk_base::TaskRunner::InternalRunTasks
+*!talk_base::TaskRunner::RunTasks
+*!notifier::TaskPump::CheckAndRunTasks
+*!base::internal::RunnableAdapter<void (__thiscall notifier::TaskPump::*)(void)>::Run
 
 # Test intentionally leaks an object.
 LEAK
@@ -998,8 +1095,9 @@ name=http://crbug.com/86301
 # Leak in a binary copy of Firefox 3's NSS dll.  Not much we can do about it.
 LEAK
 name=Firefox 3 NSS dll leak
-nspr4.dll!...
-*!NSSDecryptor::Free
+nspr4.dll!*
+...
+*!NSSDecryptor::~NSSDecryptor
 
 # We get uninit reports inside GMock when it prints the bytes of references to
 # partially initialized objects passed to unexpected method calls.
@@ -1116,7 +1214,7 @@ name=http://crbug.com/91465
 *!operator new
 *!browser_sync::internal::WeakHandleCore<browser_sync::JsBackend>::*
 *!browser_sync::WeakHandle<browser_sync::JsBackend>::*
-*!sync_api::SyncManager::SyncInternal::Init
+*!syncer::SyncManager::SyncInternal::Init
 
 LEAK
 name=http://crbug.com/91491
@@ -1163,10 +1261,6 @@ name=http://crbug.com/113847 (2)
 ...
 *!openDatabase
 *!sqlite3_open
-
-UNINITIALIZED READ
-name=http://crbug.com/115326
-*!ToteWithReliability::Sort
 
 # Some unit tests must not be waiting for the file thread after deleting the
 # AppNotificationManager.
@@ -1221,31 +1315,39 @@ name=http://crbug.com/117427 b
 *!notifier::ProxyResolvingClientSocket::ProcessProxyResolveDone
 *!base::internal::RunnableAdapter<void (__thiscall notifier::ProxyResolvingClientSocket::*)(int)>::Run
 
+# IE frame possible leak of COM object.
 LEAK
-name=http://crbug.com/100608
+name=http://crbug.com/122399
+ole32.dll!...
+ole32.dll!CoTaskMemAlloc
+urlmon.dll!...
+urlmon.dll!CreateUri
+IEFRAME.dll!*
+
+# RenderWidgetHelper leak in DelayProfileDestruction test.
+LEAK
+name=http://crbug.com/125565
 *!generic_cpp_alloc
 *!operator new
-*!SQLitePersistentCookieStore::Backend::LoadCookiesForDomains
+*!RenderProcessHostImpl::RenderProcessHostImpl
+*!SiteInstanceImpl::GetProcess
+*!BrowserTestOffTheRecord_DelayProfileDestruction_Test::TestBody
 
 LEAK
-name=http://crbug.com/117539
+name=http://crbug.com/125724
+*!operator new
+*!cricket::StunAttribute::CreateByteString
+*!cricket::AllocateRequest::Prepare
+*!cricket::StunRequest::Construct
+*!cricket::StunRequestManager::SendDelayed
+*!cricket::RelayConnection::SendAllocateRequest
+*!cricket::RelayEntry::Connect
+*!cricket::RelayPort::PrepareAddress
+*!cricket::AllocationSequence::CreateRelayPorts
+
+LEAK
+name=http://crbug.com/125807
 *!generic_cpp_alloc
 *!operator new
-*!std::_Allocate<net::SSLConfigService::Observer *>
-*!std::allocator<net::SSLConfigService::Observer *>::allocate
-*!std::vector<net::SSLConfigService::Observer *,std::allocator<net::SSLConfigService::Observer *> >::_Insert_n
-*!std::vector<net::SSLConfigService::Observer *,std::allocator<net::SSLConfigService::Observer *> >::insert
-*!std::vector<net::SSLConfigService::Observer *,std::allocator<net::SSLConfigService::Observer *> >::push_back
-*!ObserverListBase<net::SSLConfigService::Observer>::AddObserver
-...
-*!net::HttpNetworkSession::HttpNetworkSession
-*!notifier::ProxyResolvingClientSocket::ProxyResolvingClientSocket
-*!notifier::XmppClientSocketFactory::CreateTransportClientSocket
-*!notifier::ChromeAsyncSocket::Connect
-*!buzz::XmppClient::ProcessStartXmppLogin
-*!buzz::XmppClient::Process
-*!talk_base::Task::Step
-*!talk_base::TaskRunner::InternalRunTasks
-*!talk_base::TaskRunner::RunTasks
-*!notifier::TaskPump::CheckAndRunTasks
-*!base::internal::RunnableAdapter<void (__thiscall notifier::TaskPump::*)(void)>::Run
+*!TransportSecurityPersister::TransportSecurityPersister
+*!TransportSecurityPersisterTest::TransportSecurityPersisterTest

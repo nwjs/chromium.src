@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_OFFLINE_OFFLINE_LOAD_PAGE_H_
 #define CHROME_BROWSER_CHROMEOS_OFFLINE_OFFLINE_LOAD_PAGE_H_
-#pragma once
 
 #include <string>
 
@@ -13,8 +12,6 @@
 #include "content/public/browser/interstitial_page_delegate.h"
 #include "googleurl/src/gurl.h"
 #include "net/base/network_change_notifier.h"
-
-class Extension;
 
 namespace base {
 class DictionaryValue;
@@ -25,14 +22,19 @@ class InterstitialPage;
 class WebContents;
 }
 
+namespace extensions {
+class Extension;
+}
+
 namespace chromeos {
 
 // OfflineLoadPage class shows the interstitial page that is shown
 // when no network is available and hides when some network (either
 // one of wifi, 3g or ethernet) becomes available.
 // It deletes itself when the interstitial page is closed.
-class OfflineLoadPage : public content::InterstitialPageDelegate,
-                        public net::NetworkChangeNotifier::OnlineStateObserver {
+class OfflineLoadPage
+    : public content::InterstitialPageDelegate,
+      public net::NetworkChangeNotifier::ConnectionTypeObserver {
  public:
   // Passed a boolean indicating whether or not it is OK to proceed with the
   // page load.
@@ -62,12 +64,13 @@ class OfflineLoadPage : public content::InterstitialPageDelegate,
   virtual void OnProceed() OVERRIDE;
   virtual void OnDontProceed() OVERRIDE;
 
-  // net::NetworkChangeNotifier::OnlineStateObserver overrides.
-  virtual void OnOnlineStateChanged(bool online) OVERRIDE;
+  // net::NetworkChangeNotifier::ConnectionTypeObserver overrides.
+  virtual void OnConnectionTypeChanged(
+      net::NetworkChangeNotifier::ConnectionType type) OVERRIDE;
 
   // Retrieves template strings of the offline page for app and
   // normal site.
-  void GetAppOfflineStrings(const Extension* app,
+  void GetAppOfflineStrings(const extensions::Extension* app,
                             const string16& faield_url,
                             base::DictionaryValue* strings) const;
   void GetNormalOfflineStrings(const string16& faield_url,

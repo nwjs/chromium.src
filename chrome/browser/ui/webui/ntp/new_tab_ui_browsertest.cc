@@ -2,7 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/command_line.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -10,6 +14,7 @@
 #include "content/public/browser/notification_types.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/test/test_navigation_observer.h"
 #include "googleurl/src/gurl.h"
 
 using content::OpenURLParams;
@@ -17,9 +22,7 @@ using content::Referrer;
 
 class NewTabUIBrowserTest : public InProcessBrowserTest {
  public:
-  NewTabUIBrowserTest() {
-    EnableDOMAutomation();
-  }
+  NewTabUIBrowserTest() {}
 };
 
 // Ensure that chrome-internal: still loads the NTP.
@@ -30,7 +33,7 @@ IN_PROC_BROWSER_TEST_F(NewTabUIBrowserTest, ChromeInternalLoadsNTP) {
   ui_test_utils::NavigateToURL(browser(), GURL("chrome-internal:"));
   bool empty_inner_html = false;
   ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
-      browser()->GetWebContentsAt(0)->GetRenderViewHost(), L"",
+      chrome::GetWebContentsAt(browser(), 0)->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(document.body.innerHTML == '')",
       &empty_inner_html));
   ASSERT_FALSE(empty_inner_html);
@@ -49,7 +52,7 @@ IN_PROC_BROWSER_TEST_F(NewTabUIBrowserTest, LoadNTPInExistingProcess) {
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), GURL(chrome::kChromeUINewTabURL), NEW_FOREGROUND_TAB,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
-  EXPECT_EQ(1, browser()->GetWebContentsAt(1)->GetMaxPageID());
+  EXPECT_EQ(1, chrome::GetWebContentsAt(browser(), 1)->GetMaxPageID());
 
   // Navigate that tab to another site.  This allows the NTP process to exit,
   // but it keeps the NTP SiteInstance (and its max_page_id) alive in history.
@@ -70,25 +73,81 @@ IN_PROC_BROWSER_TEST_F(NewTabUIBrowserTest, LoadNTPInExistingProcess) {
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), GURL(chrome::kChromeUINewTabURL), NEW_FOREGROUND_TAB,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
-  EXPECT_EQ(1, browser()->GetWebContentsAt(2)->GetMaxPageID());
-  browser()->CloseTab();
+  EXPECT_EQ(1, chrome::GetWebContentsAt(browser(), 2)->GetMaxPageID());
+  chrome::CloseTab(browser());
 
   // Open another Web UI page in a new tab.
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), GURL(chrome::kChromeUISettingsURL), NEW_FOREGROUND_TAB,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
-  EXPECT_EQ(1, browser()->GetWebContentsAt(2)->GetMaxPageID());
+  EXPECT_EQ(1, chrome::GetWebContentsAt(browser(), 2)->GetMaxPageID());
 
-  // At this point, opening another NTP will use the old SiteInstance in the
-  // existing Web UI process, but the page IDs shouldn't affect each other.
+  // At this point, opening another NTP will use the existing WebUI process
+  // but its own SiteInstance, so the page IDs shouldn't affect each other.
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), GURL(chrome::kChromeUINewTabURL), NEW_FOREGROUND_TAB,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
-  EXPECT_EQ(1, browser()->GetWebContentsAt(3)->GetMaxPageID());
+  EXPECT_EQ(1, chrome::GetWebContentsAt(browser(), 3)->GetMaxPageID());
 
-  // Only navigating to the NTP in the original tab should have a higher
-  // page ID.
-  browser()->ActivateTabAt(1, true);
+  // Navigating to the NTP in the original tab causes a BrowsingInstance
+  // swap, so it gets a new SiteInstance starting with page ID 1 again.
+  chrome::ActivateTabAt(browser(), 1, true);
   ui_test_utils::NavigateToURL(browser(), GURL(chrome::kChromeUINewTabURL));
-  EXPECT_EQ(2, browser()->GetWebContentsAt(1)->GetMaxPageID());
+  EXPECT_EQ(1, chrome::GetWebContentsAt(browser(), 1)->GetMaxPageID());
+}
+
+// Loads chrome://hang/ into two NTP tabs, ensuring we don't crash.
+// See http://crbug.com/59859.
+// If this flakes, use http://crbug.com/87200.
+IN_PROC_BROWSER_TEST_F(NewTabUIBrowserTest, ChromeHangInNTP) {
+  // Bring up a new tab page.
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL(chrome::kChromeUINewTabURL), NEW_FOREGROUND_TAB,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+
+  // Navigate to chrome://hang/ to stall the process.
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL(chrome::kChromeUIHangURL), CURRENT_TAB, 0);
+
+  // Visit chrome://hang/ again in another NTP. Don't bother waiting for the
+  // NTP to load, because it's hung.
+  chrome::NewTab(browser());
+  browser()->OpenURL(OpenURLParams(
+      GURL(chrome::kChromeUIHangURL), Referrer(), CURRENT_TAB,
+      content::PAGE_TRANSITION_TYPED, false));
+}
+
+class NewTabUIProcessPerTabTest : public NewTabUIBrowserTest {
+ public:
+   NewTabUIProcessPerTabTest() {}
+
+   virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE {
+     command_line->AppendSwitch(switches::kProcessPerTab);
+   }
+};
+
+// Navigates away from NTP before it commits, in process-per-tab mode.
+// Ensures that we don't load the normal page in the NTP process (and thus
+// crash), as in http://crbug.com/69224.
+// If this flakes, use http://crbug.com/87200
+IN_PROC_BROWSER_TEST_F(NewTabUIProcessPerTabTest, NavBeforeNTPCommits) {
+  // Bring up a new tab page.
+  ui_test_utils::NavigateToURL(browser(), GURL(chrome::kChromeUINewTabURL));
+
+  // Navigate to chrome://hang/ to stall the process.
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL(chrome::kChromeUIHangURL), CURRENT_TAB, 0);
+
+  // Visit a normal URL in another NTP that hasn't committed.
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL(chrome::kChromeUINewTabURL), NEW_FOREGROUND_TAB, 0);
+
+  // We don't use ui_test_utils::NavigateToURLWithDisposition because that waits
+  // for current loading to stop.
+  content::TestNavigationObserver observer(
+      content::NotificationService::AllSources());
+  browser()->OpenURL(OpenURLParams(
+      GURL("data:text/html,hello world"), Referrer(), CURRENT_TAB,
+      content::PAGE_TRANSITION_TYPED, false));
+  observer.Wait();
 }

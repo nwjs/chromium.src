@@ -2,25 +2,33 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "sync/engine/process_commit_response_command.h"
+
 #include <vector>
 
 #include "base/location.h"
 #include "base/stringprintf.h"
-#include "sync/engine/process_commit_response_command.h"
+#include "sync/protocol/bookmark_specifics.pb.h"
+#include "sync/protocol/sync.pb.h"
 #include "sync/sessions/sync_session.h"
-#include "sync/syncable/syncable.h"
+#include "sync/syncable/entry.h"
+#include "sync/syncable/mutable_entry.h"
+#include "sync/syncable/read_transaction.h"
 #include "sync/syncable/syncable_id.h"
+#include "sync/syncable/syncable_proto_util.h"
+#include "sync/syncable/write_transaction.h"
 #include "sync/test/engine/fake_model_worker.h"
 #include "sync/test/engine/syncer_command_test.h"
 #include "sync/test/engine/test_id_factory.h"
-#include "sync/protocol/bookmark_specifics.pb.h"
-#include "sync/protocol/sync.pb.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-namespace browser_sync {
+using std::string;
+using sync_pb::ClientToServerMessage;
+using sync_pb::CommitResponse;
+
+namespace syncer {
 
 using sessions::SyncSession;
-using std::string;
 using syncable::BASE_VERSION;
 using syncable::Entry;
 using syncable::IS_DIR;
@@ -28,7 +36,6 @@ using syncable::IS_UNSYNCED;
 using syncable::Id;
 using syncable::MutableEntry;
 using syncable::NON_UNIQUE_NAME;
-using syncable::ReadTransaction;
 using syncable::UNITTEST;
 using syncable::WriteTransaction;
 
@@ -43,15 +50,11 @@ class ProcessCommitResponseCommandTest : public SyncerCommandTest {
         make_scoped_refptr(new FakeModelWorker(GROUP_DB)));
     workers()->push_back(
         make_scoped_refptr(new FakeModelWorker(GROUP_UI)));
-    (*mutable_routing_info())[syncable::BOOKMARKS] = GROUP_UI;
-    (*mutable_routing_info())[syncable::PREFERENCES] = GROUP_UI;
-    (*mutable_routing_info())[syncable::AUTOFILL] = GROUP_DB;
+    (*mutable_routing_info())[syncer::BOOKMARKS] = GROUP_UI;
+    (*mutable_routing_info())[syncer::PREFERENCES] = GROUP_UI;
+    (*mutable_routing_info())[syncer::AUTOFILL] = GROUP_DB;
 
-    commit_set_.reset(new sessions::OrderedCommitSet(routing_info()));
     SyncerCommandTest::SetUp();
-    // Need to explicitly use this-> to avoid obscure template
-    // warning.
-    this->ExpectNoGroupsToChange(command_);
   }
 
  protected:
@@ -63,7 +66,7 @@ class ProcessCommitResponseCommandTest : public SyncerCommandTest {
   }
 
   void CheckEntry(Entry* e, const std::string& name,
-                  syncable::ModelType model_type, const Id& parent_id) {
+                  syncer::ModelType model_type, const Id& parent_id) {
      EXPECT_TRUE(e->good());
      ASSERT_EQ(name, e->Get(NON_UNIQUE_NAME));
      ASSERT_EQ(model_type, e->GetModelType());
@@ -80,7 +83,7 @@ class ProcessCommitResponseCommandTest : public SyncerCommandTest {
                           const Id& parent_id,
                           const string& name,
                           bool is_folder,
-                          syncable::ModelType model_type,
+                          syncer::ModelType model_type,
                           int64* metahandle_out) {
     WriteTransaction trans(FROM_HERE, UNITTEST, directory());
     Id predecessor_id;
@@ -97,7 +100,7 @@ class ProcessCommitResponseCommandTest : public SyncerCommandTest {
     entry.Put(syncable::PARENT_ID, parent_id);
     entry.PutPredecessor(predecessor_id);
     sync_pb::EntitySpecifics default_specifics;
-    syncable::AddDefaultFieldValue(model_type, &default_specifics);
+    syncer::AddDefaultFieldValue(model_type, &default_specifics);
     entry.Put(syncable::SPECIFICS, default_specifics);
     if (item_id.ServerKnows()) {
       entry.Put(syncable::SERVER_SPECIFICS, default_specifics);
@@ -113,12 +116,14 @@ class ProcessCommitResponseCommandTest : public SyncerCommandTest {
   // record and a commit response for it in the syncer session.  If item_id
   // is a local ID, the item will be a create operation.  Otherwise, it
   // will be an edit.
-  void CreateUnprocessedCommitResult(const Id& item_id,
-                                     const Id& parent_id,
-                                     const string& name,
-                                     syncable::ModelType model_type) {
-    sessions::StatusController* sync_state =
-        session()->mutable_status_controller();
+  void CreateUnprocessedCommitResult(
+      const Id& item_id,
+      const Id& parent_id,
+      const string& name,
+      syncer::ModelType model_type,
+      sessions::OrderedCommitSet *commit_set,
+      sync_pb::ClientToServerMessage *commit,
+      sync_pb::ClientToServerResponse *response) {
     bool is_folder = true;
     int64 metahandle = 0;
     CreateUnsyncedItem(item_id, parent_id, name, is_folder, model_type,
@@ -126,30 +131,24 @@ class ProcessCommitResponseCommandTest : public SyncerCommandTest {
 
     // ProcessCommitResponseCommand consumes commit_ids from the session
     // state, so we need to update that.  O(n^2) because it's a test.
-    commit_set_->AddCommitItem(metahandle, item_id, model_type);
-    sync_state->set_commit_set(*commit_set_.get());
+    commit_set->AddCommitItem(metahandle, item_id, model_type);
 
     WriteTransaction trans(FROM_HERE, UNITTEST, directory());
     MutableEntry entry(&trans, syncable::GET_BY_ID, item_id);
     ASSERT_TRUE(entry.good());
     entry.Put(syncable::SYNCING, true);
 
-    // ProcessCommitResponseCommand looks at both the commit message as well
-    // as the commit response, so we need to synthesize both here.
-    sync_pb::ClientToServerMessage* commit =
-        sync_state->mutable_commit_message();
+    // Add to the commit message.
     commit->set_message_contents(ClientToServerMessage::COMMIT);
-    SyncEntity* entity = static_cast<SyncEntity*>(
-        commit->mutable_commit()->add_entries());
+    sync_pb::SyncEntity* entity = commit->mutable_commit()->add_entries();
     entity->set_non_unique_name(name);
     entity->set_folder(is_folder);
-    entity->set_parent_id(parent_id);
+    entity->set_parent_id_string(SyncableIdToProto(parent_id));
     entity->set_version(entry.Get(syncable::BASE_VERSION));
     entity->mutable_specifics()->CopyFrom(entry.Get(syncable::SPECIFICS));
-    entity->set_id(item_id);
+    entity->set_id_string(SyncableIdToProto(item_id));
 
-    sync_pb::ClientToServerResponse* response =
-        sync_state->mutable_commit_response();
+    // Add to the response message.
     response->set_error_code(sync_pb::SyncEnums::SUCCESS);
     sync_pb::CommitResponse_EntryResponse* entry_response =
         response->mutable_commit()->add_entryresponse();
@@ -176,20 +175,15 @@ class ProcessCommitResponseCommandTest : public SyncerCommandTest {
     }
   }
 
-  void SetLastErrorCode(CommitResponse::ResponseType error_code) {
-    sessions::StatusController* sync_state =
-        session()->mutable_status_controller();
-    sync_pb::ClientToServerResponse* response =
-        sync_state->mutable_commit_response();
+  void SetLastErrorCode(sync_pb::CommitResponse::ResponseType error_code,
+                        sync_pb::ClientToServerResponse* response) {
     sync_pb::CommitResponse_EntryResponse* entry_response =
         response->mutable_commit()->mutable_entryresponse(
             response->mutable_commit()->entryresponse_size() - 1);
     entry_response->set_response_type(error_code);
   }
 
-  ProcessCommitResponseCommand command_;
   TestIdFactory id_factory_;
-  scoped_ptr<sessions::OrderedCommitSet> commit_set_;
  private:
   int64 next_old_revision_;
   int64 next_new_revision_;
@@ -198,6 +192,10 @@ class ProcessCommitResponseCommandTest : public SyncerCommandTest {
 };
 
 TEST_F(ProcessCommitResponseCommandTest, MultipleCommitIdProjections) {
+  sessions::OrderedCommitSet commit_set(session()->routing_info());
+  sync_pb::ClientToServerMessage request;
+  sync_pb::ClientToServerResponse response;
+
   Id bookmark_folder_id = id_factory_.NewLocalId();
   Id bookmark_id1 = id_factory_.NewLocalId();
   Id bookmark_id2 = id_factory_.NewLocalId();
@@ -205,24 +203,32 @@ TEST_F(ProcessCommitResponseCommandTest, MultipleCommitIdProjections) {
   Id autofill_id1 = id_factory_.NewLocalId();
   Id autofill_id2 = id_factory_.NewLocalId();
   CreateUnprocessedCommitResult(bookmark_folder_id, id_factory_.root(),
-                                "A bookmark folder", syncable::BOOKMARKS);
+                                "A bookmark folder", syncer::BOOKMARKS,
+                                &commit_set, &request, &response);
   CreateUnprocessedCommitResult(bookmark_id1, bookmark_folder_id,
-                                "bookmark 1", syncable::BOOKMARKS);
+                                "bookmark 1", syncer::BOOKMARKS,
+                                &commit_set, &request, &response);
   CreateUnprocessedCommitResult(bookmark_id2, bookmark_folder_id,
-                                "bookmark 2", syncable::BOOKMARKS);
+                                "bookmark 2", syncer::BOOKMARKS,
+                                &commit_set, &request, &response);
   CreateUnprocessedCommitResult(pref_id1, id_factory_.root(),
-                                "Pref 1", syncable::PREFERENCES);
+                                "Pref 1", syncer::PREFERENCES,
+                                &commit_set, &request, &response);
   CreateUnprocessedCommitResult(pref_id2, id_factory_.root(),
-                                "Pref 2", syncable::PREFERENCES);
+                                "Pref 2", syncer::PREFERENCES,
+                                &commit_set, &request, &response);
   CreateUnprocessedCommitResult(autofill_id1, id_factory_.root(),
-                                "Autofill 1", syncable::AUTOFILL);
+                                "Autofill 1", syncer::AUTOFILL,
+                                &commit_set, &request, &response);
   CreateUnprocessedCommitResult(autofill_id2, id_factory_.root(),
-                                "Autofill 2", syncable::AUTOFILL);
+                                "Autofill 2", syncer::AUTOFILL,
+                                &commit_set, &request, &response);
 
-  ExpectGroupsToChange(command_, GROUP_UI, GROUP_DB);
-  command_.ExecuteImpl(session());
+  ProcessCommitResponseCommand command(commit_set, request, response);
+  ExpectGroupsToChange(command, GROUP_UI, GROUP_DB);
+  command.ExecuteImpl(session());
 
-  ReadTransaction trans(FROM_HERE, directory());
+  syncable::ReadTransaction trans(FROM_HERE, directory());
   Id new_fid;
   ASSERT_TRUE(directory()->GetFirstChildId(
           &trans, id_factory_.root(), &new_fid));
@@ -242,20 +248,20 @@ TEST_F(ProcessCommitResponseCommandTest, MultipleCommitIdProjections) {
   ASSERT_TRUE(directory()->GetFirstChildId(&trans, new_fid, &cid));
   Entry b1(&trans, syncable::GET_BY_ID, cid);
   Entry b2(&trans, syncable::GET_BY_ID, b1.Get(syncable::NEXT_ID));
-  CheckEntry(&b1, "bookmark 1", syncable::BOOKMARKS, new_fid);
-  CheckEntry(&b2, "bookmark 2", syncable::BOOKMARKS, new_fid);
+  CheckEntry(&b1, "bookmark 1", syncer::BOOKMARKS, new_fid);
+  CheckEntry(&b2, "bookmark 2", syncer::BOOKMARKS, new_fid);
   ASSERT_TRUE(b2.Get(syncable::NEXT_ID).IsRoot());
 
   // Look at the prefs and autofill items.
   Entry p1(&trans, syncable::GET_BY_ID, b_folder.Get(syncable::NEXT_ID));
   Entry p2(&trans, syncable::GET_BY_ID, p1.Get(syncable::NEXT_ID));
-  CheckEntry(&p1, "Pref 1", syncable::PREFERENCES, id_factory_.root());
-  CheckEntry(&p2, "Pref 2", syncable::PREFERENCES, id_factory_.root());
+  CheckEntry(&p1, "Pref 1", syncer::PREFERENCES, id_factory_.root());
+  CheckEntry(&p2, "Pref 2", syncer::PREFERENCES, id_factory_.root());
 
   Entry a1(&trans, syncable::GET_BY_ID, p2.Get(syncable::NEXT_ID));
   Entry a2(&trans, syncable::GET_BY_ID, a1.Get(syncable::NEXT_ID));
-  CheckEntry(&a1, "Autofill 1", syncable::AUTOFILL, id_factory_.root());
-  CheckEntry(&a2, "Autofill 2", syncable::AUTOFILL, id_factory_.root());
+  CheckEntry(&a1, "Autofill 1", syncer::AUTOFILL, id_factory_.root());
+  CheckEntry(&a2, "Autofill 2", syncer::AUTOFILL, id_factory_.root());
   ASSERT_TRUE(a2.Get(syncable::NEXT_ID).IsRoot());
 }
 
@@ -270,14 +276,19 @@ TEST_F(ProcessCommitResponseCommandTest, MultipleCommitIdProjections) {
 // how this scenario used to fail, reversing the order for the second half
 // of the children.
 TEST_F(ProcessCommitResponseCommandTest, NewFolderCommitKeepsChildOrder) {
+  sessions::OrderedCommitSet commit_set(session()->routing_info());
+  sync_pb::ClientToServerMessage request;
+  sync_pb::ClientToServerResponse response;
+
   // Create the parent folder, a new item whose ID will change on commit.
   Id folder_id = id_factory_.NewLocalId();
   CreateUnprocessedCommitResult(folder_id, id_factory_.root(), "A",
-                                syncable::BOOKMARKS);
+                                syncer::BOOKMARKS,
+                                &commit_set, &request, &response);
 
   // Verify that the item is reachable.
   {
-    ReadTransaction trans(FROM_HERE, directory());
+    syncable::ReadTransaction trans(FROM_HERE, directory());
     Id child_id;
     ASSERT_TRUE(directory()->GetFirstChildId(
             &trans, id_factory_.root(), &child_id));
@@ -292,7 +303,8 @@ TEST_F(ProcessCommitResponseCommandTest, NewFolderCommitKeepsChildOrder) {
     // Alternate between new and old child items, just for kicks.
     Id id = (i % 4 < 2) ? id_factory_.NewLocalId() : id_factory_.NewServerId();
     CreateUnprocessedCommitResult(
-        id, folder_id, base::StringPrintf("Item %d", i), syncable::BOOKMARKS);
+        id, folder_id, base::StringPrintf("Item %d", i), syncer::BOOKMARKS,
+        &commit_set, &request, &response);
   }
   // The second 25 children will be unsynced items but NOT part of the commit
   // batch.  When the ID of the parent folder changes during the commit,
@@ -302,17 +314,18 @@ TEST_F(ProcessCommitResponseCommandTest, NewFolderCommitKeepsChildOrder) {
     // Alternate between new and old child items, just for kicks.
     Id id = (i % 4 < 2) ? id_factory_.NewLocalId() : id_factory_.NewServerId();
     CreateUnsyncedItem(id, folder_id, base::StringPrintf("Item %d", i),
-                       false, syncable::BOOKMARKS, NULL);
+                       false, syncer::BOOKMARKS, NULL);
   }
 
   // Process the commit response for the parent folder and the first
   // 25 items.  This should apply the values indicated by
   // each CommitResponse_EntryResponse to the syncable Entries.  All new
   // items in the commit batch should have their IDs changed to server IDs.
-  ExpectGroupToChange(command_, GROUP_UI);
-  command_.ExecuteImpl(session());
+  ProcessCommitResponseCommand command(commit_set, request, response);
+  ExpectGroupToChange(command, GROUP_UI);
+  command.ExecuteImpl(session());
 
-  ReadTransaction trans(FROM_HERE, directory());
+  syncable::ReadTransaction trans(FROM_HERE, directory());
   // Lookup the parent folder by finding a child of the root.  We can't use
   // folder_id here, because it changed during the commit.
   Id new_fid;
@@ -391,20 +404,26 @@ INSTANTIATE_TEST_CASE_P(ProcessCommitResponse,
 // happens to the extensions activity records.  Commits could fail or succeed,
 // depending on the test parameter.
 TEST_P(MixedResult, ExtensionActivity) {
-  EXPECT_NE(routing_info().find(syncable::BOOKMARKS)->second,
-            routing_info().find(syncable::AUTOFILL)->second)
+  sessions::OrderedCommitSet commit_set(session()->routing_info());
+  sync_pb::ClientToServerMessage request;
+  sync_pb::ClientToServerResponse response;
+
+  EXPECT_NE(routing_info().find(syncer::BOOKMARKS)->second,
+            routing_info().find(syncer::AUTOFILL)->second)
       << "To not be lame, this test requires more than one active group.";
 
   // Bookmark item setup.
   CreateUnprocessedCommitResult(id_factory_.NewServerId(),
-      id_factory_.root(), "Some bookmark", syncable::BOOKMARKS);
+      id_factory_.root(), "Some bookmark", syncer::BOOKMARKS,
+      &commit_set, &request, &response);
   if (ShouldFailBookmarkCommit())
-    SetLastErrorCode(CommitResponse::TRANSIENT_ERROR);
+    SetLastErrorCode(CommitResponse::TRANSIENT_ERROR, &response);
   // Autofill item setup.
   CreateUnprocessedCommitResult(id_factory_.NewServerId(),
-      id_factory_.root(), "Some autofill", syncable::AUTOFILL);
+      id_factory_.root(), "Some autofill", syncer::AUTOFILL,
+      &commit_set, &request, &response);
   if (ShouldFailAutofillCommit())
-    SetLastErrorCode(CommitResponse::TRANSIENT_ERROR);
+    SetLastErrorCode(CommitResponse::TRANSIENT_ERROR, &response);
 
   // Put some extensions activity in the session.
   {
@@ -415,8 +434,9 @@ TEST_P(MixedResult, ExtensionActivity) {
     (*records)["xyz"].extension_id = "xyz";
     (*records)["xyz"].bookmark_write_count = 4U;
   }
-  ExpectGroupsToChange(command_, GROUP_UI, GROUP_DB);
-  command_.ExecuteImpl(session());
+  ProcessCommitResponseCommand command(commit_set, request, response);
+  command.ExecuteImpl(session());
+  ExpectGroupsToChange(command, GROUP_UI, GROUP_DB);
 
   ExtensionsActivityMonitor::Records final_monitor_records;
   context()->extensions_monitor()->GetAndClearRecords(&final_monitor_records);
@@ -434,4 +454,4 @@ TEST_P(MixedResult, ExtensionActivity) {
   }
 }
 
-}  // namespace browser_sync
+}  // namespace syncer

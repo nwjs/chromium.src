@@ -1,0 +1,2502 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "sync/internal_api/sync_manager_impl.h"
+
+#include <string>
+
+#include "base/base64.h"
+#include "base/bind.h"
+#include "base/callback.h"
+#include "base/command_line.h"
+#include "base/compiler_specific.h"
+#include "base/json/json_writer.h"
+#include "base/memory/ref_counted.h"
+#include "base/metrics/histogram.h"
+#include "base/observer_list.h"
+#include "base/string_number_conversions.h"
+#include "base/values.h"
+#include "net/base/network_change_notifier.h"
+#include "sync/engine/all_status.h"
+#include "sync/engine/net/server_connection_manager.h"
+#include "sync/engine/sync_scheduler.h"
+#include "sync/engine/syncer_types.h"
+#include "sync/engine/throttled_data_type_tracker.h"
+#include "sync/internal_api/change_reorder_buffer.h"
+#include "sync/internal_api/debug_info_event_listener.h"
+#include "sync/internal_api/js_mutation_event_observer.h"
+#include "sync/internal_api/js_sync_manager_observer.h"
+#include "sync/internal_api/public/base/model_type.h"
+#include "sync/internal_api/public/base/model_type_payload_map.h"
+#include "sync/internal_api/public/base_node.h"
+#include "sync/internal_api/public/configure_reason.h"
+#include "sync/internal_api/public/engine/polling_constants.h"
+#include "sync/internal_api/public/http_post_provider_factory.h"
+#include "sync/internal_api/public/read_node.h"
+#include "sync/internal_api/public/read_transaction.h"
+#include "sync/internal_api/public/user_share.h"
+#include "sync/internal_api/public/util/experiments.h"
+#include "sync/internal_api/public/write_node.h"
+#include "sync/internal_api/public/write_transaction.h"
+#include "sync/internal_api/syncapi_internal.h"
+#include "sync/internal_api/syncapi_server_connection_manager.h"
+#include "sync/js/js_arg_list.h"
+#include "sync/js/js_backend.h"
+#include "sync/js/js_event_details.h"
+#include "sync/js/js_event_handler.h"
+#include "sync/js/js_reply_handler.h"
+#include "sync/notifier/notifications_disabled_reason.h"
+#include "sync/notifier/sync_notifier.h"
+#include "sync/notifier/sync_notifier_observer.h"
+#include "sync/protocol/encryption.pb.h"
+#include "sync/protocol/proto_value_conversions.h"
+#include "sync/protocol/sync.pb.h"
+#include "sync/syncable/directory.h"
+#include "sync/syncable/directory_change_delegate.h"
+#include "sync/syncable/entry.h"
+#include "sync/syncable/in_memory_directory_backing_store.h"
+#include "sync/syncable/nigori_util.h"
+#include "sync/syncable/on_disk_directory_backing_store.h"
+#include "sync/util/cryptographer.h"
+#include "sync/util/get_session_name.h"
+#include "sync/util/time.h"
+
+using base::TimeDelta;
+using sync_pb::GetUpdatesCallerInfo;
+
+namespace {
+
+// Delays for syncer nudges.
+static const int kDefaultNudgeDelayMilliseconds = 200;
+static const int kPreferencesNudgeDelayMilliseconds = 2000;
+static const int kSyncRefreshDelayMsec = 500;
+static const int kSyncSchedulerDelayMsec = 250;
+
+GetUpdatesCallerInfo::GetUpdatesSource GetSourceFromReason(
+    syncer::ConfigureReason reason) {
+  switch (reason) {
+    case syncer::CONFIGURE_REASON_RECONFIGURATION:
+      return GetUpdatesCallerInfo::RECONFIGURATION;
+    case syncer::CONFIGURE_REASON_MIGRATION:
+      return GetUpdatesCallerInfo::MIGRATION;
+    case syncer::CONFIGURE_REASON_NEW_CLIENT:
+      return GetUpdatesCallerInfo::NEW_CLIENT;
+    case syncer::CONFIGURE_REASON_NEWLY_ENABLED_DATA_TYPE:
+      return GetUpdatesCallerInfo::NEWLY_SUPPORTED_DATATYPE;
+    default:
+      NOTREACHED();
+  }
+
+  return GetUpdatesCallerInfo::UNKNOWN;
+}
+
+// The maximum number of times we will automatically overwrite the nigori node
+// because the encryption keys don't match (per chrome instantiation).
+static const int kNigoriOverwriteLimit = 10;
+
+} // namespace
+
+namespace syncer {
+
+using sessions::SyncSessionContext;
+using syncable::ImmutableWriteTransactionInfo;
+using syncable::SPECIFICS;
+
+// Maximum count and size for traffic recorder.
+const unsigned int kMaxMessagesToRecord = 10;
+const unsigned int kMaxMessageSizeToRecord = 5 * 1024;
+
+//////////////////////////////////////////////////////////////////////////
+// SyncManagerImpl's implementation: SyncManagerImpl::SyncInternal
+class SyncManagerImpl::SyncInternal
+    : public net::NetworkChangeNotifier::IPAddressObserver,
+      public syncer::Cryptographer::Observer,
+      public syncer::SyncNotifierObserver,
+      public JsBackend,
+      public SyncEngineEventListener,
+      public ServerConnectionEventListener,
+      public syncable::DirectoryChangeDelegate {
+ public:
+  explicit SyncInternal(const std::string& name)
+      : name_(name),
+        weak_ptr_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)),
+        change_delegate_(NULL),
+        initialized_(false),
+        testing_mode_(NON_TEST),
+        observing_ip_address_changes_(false),
+        throttled_data_type_tracker_(&allstatus_),
+        traffic_recorder_(kMaxMessagesToRecord, kMaxMessageSizeToRecord),
+        encryptor_(NULL),
+        unrecoverable_error_handler_(NULL),
+        report_unrecoverable_error_function_(NULL),
+        created_on_loop_(MessageLoop::current()),
+        nigori_overwrite_count_(0) {
+    // Pre-fill |notification_info_map_|.
+    for (int i = syncer::FIRST_REAL_MODEL_TYPE;
+         i < syncer::MODEL_TYPE_COUNT; ++i) {
+      notification_info_map_.insert(
+          std::make_pair(syncer::ModelTypeFromInt(i), NotificationInfo()));
+    }
+
+    // Bind message handlers.
+    BindJsMessageHandler(
+        "getNotificationState",
+        &SyncManagerImpl::SyncInternal::GetNotificationState);
+    BindJsMessageHandler(
+        "getNotificationInfo",
+        &SyncManagerImpl::SyncInternal::GetNotificationInfo);
+    BindJsMessageHandler(
+        "getRootNodeDetails",
+        &SyncManagerImpl::SyncInternal::GetRootNodeDetails);
+    BindJsMessageHandler(
+        "getNodeSummariesById",
+        &SyncManagerImpl::SyncInternal::GetNodeSummariesById);
+    BindJsMessageHandler(
+        "getNodeDetailsById",
+        &SyncManagerImpl::SyncInternal::GetNodeDetailsById);
+    BindJsMessageHandler(
+        "getAllNodes",
+        &SyncManagerImpl::SyncInternal::GetAllNodes);
+    BindJsMessageHandler(
+        "getChildNodeIds",
+        &SyncManagerImpl::SyncInternal::GetChildNodeIds);
+    BindJsMessageHandler(
+        "getClientServerTraffic",
+        &SyncManagerImpl::SyncInternal::GetClientServerTraffic);
+  }
+
+  virtual ~SyncInternal() {
+    CHECK(!initialized_);
+  }
+
+  bool Init(const FilePath& database_location,
+            const WeakHandle<JsEventHandler>& event_handler,
+            const std::string& sync_server_and_path,
+            int port,
+            bool use_ssl,
+            const scoped_refptr<base::TaskRunner>& blocking_task_runner,
+            scoped_ptr<HttpPostProviderFactory> post_factory,
+            const syncer::ModelSafeRoutingInfo& model_safe_routing_info,
+            const std::vector<syncer::ModelSafeWorker*>& workers,
+            syncer::ExtensionsActivityMonitor*
+                extensions_activity_monitor,
+            SyncManager::ChangeDelegate* change_delegate,
+            const SyncCredentials& credentials,
+            scoped_ptr<syncer::SyncNotifier> sync_notifier,
+            const std::string& restored_key_for_bootstrapping,
+            SyncManager::TestingMode testing_mode,
+            Encryptor* encryptor,
+            UnrecoverableErrorHandler* unrecoverable_error_handler,
+            ReportUnrecoverableErrorFunction
+                report_unrecoverable_error_function);
+
+  // Sign into sync with given credentials.
+  // We do not verify the tokens given. After this call, the tokens are set
+  // and the sync DB is open. True if successful, false if something
+  // went wrong.
+  bool SignIn(const SyncCredentials& credentials);
+
+  // Purge from the directory those types with non-empty progress markers
+  // but without initial synced ended set.
+  // Returns false if an error occurred, true otherwise.
+  bool PurgePartiallySyncedTypes();
+
+  // Update tokens that we're using in Sync. Email must stay the same.
+  void UpdateCredentials(const SyncCredentials& credentials);
+
+  // Called when the user disables or enables a sync type.
+  void UpdateEnabledTypes(const ModelTypeSet& enabled_types);
+
+  // Tell the sync engine to start the syncing process.
+  void StartSyncingNormally(
+      const syncer::ModelSafeRoutingInfo& routing_info);
+
+  // Whether or not the Nigori node is encrypted using an explicit passphrase.
+  bool IsUsingExplicitPassphrase();
+
+  // Update the Cryptographer from the current nigori node and write back any
+  // necessary changes to the nigori node. We also detect missing encryption
+  // keys and write them into the nigori node.
+  // Also updates or adds the device information into the nigori node.
+  // Note: opens a transaction and can trigger an ON_PASSPHRASE_REQUIRED, so
+  // should only be called after syncapi is fully initialized.
+  // Calls the callback argument with true if cryptographer is ready, false
+  // otherwise.
+  void UpdateCryptographerAndNigori(
+      const std::string& chrome_version,
+      const base::Closure& done_callback);
+
+  // Stores the current set of encryption keys (if the cryptographer is ready)
+  // and encrypted types into the nigori node.
+  void UpdateNigoriEncryptionState(Cryptographer* cryptographer,
+                                   WriteNode* nigori_node);
+
+  // Updates the nigori node with any new encrypted types and then
+  // encrypts the nodes for those new data types as well as other
+  // nodes that should be encrypted but aren't.  Triggers
+  // OnPassphraseRequired if the cryptographer isn't ready.
+  void RefreshEncryption();
+
+  // Re-encrypts the encrypted data types using the passed passphrase, and sets
+  // a flag in the nigori node specifying whether the current passphrase is
+  // explicit (custom passphrase) or non-explicit (GAIA). If the existing
+  // encryption passphrase is "explicit", the data cannot be re-encrypted and
+  // SetEncryptionPassphrase will do nothing.
+  // If !is_explicit and there are pending keys, we will attempt to decrypt them
+  // using this passphrase. If this fails, we will save this encryption key to
+  // be applied later after the pending keys are resolved.
+  // Calls FinishSetPassphrase at the end, which notifies observers of the
+  // result of the set passphrase operation, updates the nigori node, and does
+  // re-encryption.
+  void SetEncryptionPassphrase(const std::string& passphrase, bool is_explicit);
+
+  // Provides a passphrase for decrypting the user's existing sync data. Calls
+  // FinishSetPassphrase at the end, which notifies observers of the result of
+  // the set passphrase operation, updates the nigori node, and does
+  // re-encryption.
+  void SetDecryptionPassphrase(const std::string& passphrase);
+
+  // The final step of SetEncryptionPassphrase and SetDecryptionPassphrase that
+  // notifies observers of the result of the set passphrase operation, updates
+  // the nigori node, and does re-encryption.
+  // |success|: true if the operation was successful and false otherwise. If
+  //            success == false, we send an OnPassphraseRequired notification.
+  // |bootstrap_token|: used to inform observers if the cryptographer's
+  //                    bootstrap token was updated.
+  // |is_explicit|: used to differentiate between a custom passphrase (true) and
+  //                a GAIA passphrase that is implicitly used for encryption
+  //                (false).
+  // |trans| and |nigori_node|: used to access data in the cryptographer.
+  void FinishSetPassphrase(
+      bool success,
+      const std::string& bootstrap_token,
+      bool is_explicit,
+      WriteTransaction* trans,
+      WriteNode* nigori_node);
+
+  // Call periodically from a database-safe thread to persist recent changes
+  // to the syncapi model.
+  void SaveChanges();
+
+  // DirectoryChangeDelegate implementation.
+  // This listener is called upon completion of a syncable transaction, and
+  // builds the list of sync-engine initiated changes that will be forwarded to
+  // the SyncManager's Observers.
+  virtual void HandleTransactionCompleteChangeEvent(
+      ModelTypeSet models_with_changes) OVERRIDE;
+  virtual ModelTypeSet HandleTransactionEndingChangeEvent(
+      const ImmutableWriteTransactionInfo& write_transaction_info,
+      syncable::BaseTransaction* trans) OVERRIDE;
+  virtual void HandleCalculateChangesChangeEventFromSyncApi(
+      const ImmutableWriteTransactionInfo& write_transaction_info,
+      syncable::BaseTransaction* trans) OVERRIDE;
+  virtual void HandleCalculateChangesChangeEventFromSyncer(
+      const ImmutableWriteTransactionInfo& write_transaction_info,
+      syncable::BaseTransaction* trans) OVERRIDE;
+
+  // Open the directory named with username_for_share
+  bool OpenDirectory();
+
+  // Cryptographer::Observer implementation.
+  virtual void OnEncryptedTypesChanged(
+      syncer::ModelTypeSet encrypted_types,
+      bool encrypt_everything) OVERRIDE;
+
+  // SyncNotifierObserver implementation.
+  virtual void OnNotificationsEnabled() OVERRIDE;
+  virtual void OnNotificationsDisabled(
+      syncer::NotificationsDisabledReason reason) OVERRIDE;
+  virtual void OnIncomingNotification(
+      const syncer::ModelTypePayloadMap& type_payloads,
+      syncer::IncomingNotificationSource source) OVERRIDE;
+
+  void AddObserver(SyncManager::Observer* observer);
+  void RemoveObserver(SyncManager::Observer* observer);
+
+  // Accessors for the private members.
+  syncable::Directory* directory() { return share_.directory.get(); }
+  SyncAPIServerConnectionManager* connection_manager() {
+    return connection_manager_.get();
+  }
+  SyncSessionContext* session_context() { return session_context_.get(); }
+  SyncScheduler* scheduler() const { return scheduler_.get(); }
+  UserShare* GetUserShare() {
+    DCHECK(initialized_);
+    return &share_;
+  }
+
+  // Return the currently active (validated) username for use with syncable
+  // types.
+  const std::string& username_for_share() const {
+    return share_.name;
+  }
+
+  SyncStatus GetStatus();
+
+  void RequestNudge(const tracked_objects::Location& nudge_location);
+
+  void RequestNudgeForDataTypes(
+      const tracked_objects::Location& nudge_location,
+      ModelTypeSet type);
+
+  TimeDelta GetNudgeDelayTimeDelta(const ModelType& model_type);
+
+  void NotifyCryptographerState(Cryptographer* cryptographer);
+
+  // See SyncManager::Shutdown* for information.
+  void StopSyncingForShutdown(const base::Closure& callback);
+  void ShutdownOnSyncThread();
+
+  // If this is a deletion for a password, sets the legacy
+  // ExtraPasswordChangeRecordData field of |buffer|. Otherwise sets
+  // |buffer|'s specifics field to contain the unencrypted data.
+  void SetExtraChangeRecordData(int64 id,
+                                syncer::ModelType type,
+                                ChangeReorderBuffer* buffer,
+                                Cryptographer* cryptographer,
+                                const syncable::EntryKernel& original,
+                                bool existed_before,
+                                bool exists_now);
+
+  // Called only by our NetworkChangeNotifier.
+  virtual void OnIPAddressChanged() OVERRIDE;
+
+  ModelTypeSet GetTypesWithEmptyProgressMarkerToken(ModelTypeSet types) {
+    DCHECK(initialized_);
+    syncer::ModelTypeSet result;
+    for (syncer::ModelTypeSet::Iterator i = types.First();
+         i.Good(); i.Inc()) {
+      sync_pb::DataTypeProgressMarker marker;
+      directory()->GetDownloadProgress(i.Get(), &marker);
+
+      if (marker.token().empty())
+        result.Put(i.Get());
+
+    }
+    return result;
+  }
+
+  syncer::ModelTypeSet InitialSyncEndedTypes() {
+    DCHECK(initialized_);
+    return directory()->initial_sync_ended_types();
+  }
+
+  // SyncEngineEventListener implementation.
+  virtual void OnSyncEngineEvent(const SyncEngineEvent& event) OVERRIDE;
+
+  // ServerConnectionEventListener implementation.
+  virtual void OnServerConnectionEvent(
+      const ServerConnectionEvent& event) OVERRIDE;
+
+  // JsBackend implementation.
+  virtual void SetJsEventHandler(
+      const WeakHandle<JsEventHandler>& event_handler) OVERRIDE;
+  virtual void ProcessJsMessage(
+      const std::string& name, const JsArgList& args,
+      const WeakHandle<JsReplyHandler>& reply_handler) OVERRIDE;
+
+  void SetSyncSchedulerForTest(scoped_ptr<SyncScheduler> scheduler);
+
+ private:
+  struct NotificationInfo {
+    int total_count;
+    std::string payload;
+
+    NotificationInfo() : total_count(0) {}
+
+    ~NotificationInfo() {}
+
+    // Returned pointer owned by the caller.
+    DictionaryValue* ToValue() const {
+      DictionaryValue* value = new DictionaryValue();
+      value->SetInteger("totalCount", total_count);
+      value->SetString("payload", payload);
+      return value;
+    }
+  };
+
+  typedef std::map<syncer::ModelType, NotificationInfo> NotificationInfoMap;
+  typedef JsArgList
+      (SyncManagerImpl::SyncInternal::*UnboundJsMessageHandler)(
+           const JsArgList&);
+  typedef base::Callback<JsArgList(const JsArgList&)> JsMessageHandler;
+  typedef std::map<std::string, JsMessageHandler> JsMessageHandlerMap;
+
+  // Internal callback of UpdateCryptographerAndNigoriCallback.
+  void UpdateCryptographerAndNigoriCallback(
+      const std::string& chrome_version,
+      const base::Closure& done_callback,
+      const std::string& session_name);
+
+  // Determine if the parents or predecessors differ between the old and new
+  // versions of an entry stored in |a| and |b|.  Note that a node's index may
+  // change without its NEXT_ID changing if the node at NEXT_ID also moved (but
+  // the relative order is unchanged).  To handle such cases, we rely on the
+  // caller to treat a position update on any sibling as updating the positions
+  // of all siblings.
+  static bool VisiblePositionsDiffer(
+      const syncable::EntryKernelMutation& mutation) {
+    const syncable::EntryKernel& a = mutation.original;
+    const syncable::EntryKernel& b = mutation.mutated;
+    // If the datatype isn't one where the browser model cares about position,
+    // don't bother notifying that data model of position-only changes.
+    if (!ShouldMaintainPosition(
+            syncer::GetModelTypeFromSpecifics(b.ref(SPECIFICS))))
+      return false;
+    if (a.ref(syncable::NEXT_ID) != b.ref(syncable::NEXT_ID))
+      return true;
+    if (a.ref(syncable::PARENT_ID) != b.ref(syncable::PARENT_ID))
+      return true;
+    return false;
+  }
+
+  // Determine if any of the fields made visible to clients of the Sync API
+  // differ between the versions of an entry stored in |a| and |b|. A return
+  // value of false means that it should be OK to ignore this change.
+  static bool VisiblePropertiesDiffer(
+      const syncable::EntryKernelMutation& mutation,
+      Cryptographer* cryptographer) {
+    const syncable::EntryKernel& a = mutation.original;
+    const syncable::EntryKernel& b = mutation.mutated;
+    const sync_pb::EntitySpecifics& a_specifics = a.ref(SPECIFICS);
+    const sync_pb::EntitySpecifics& b_specifics = b.ref(SPECIFICS);
+    DCHECK_EQ(syncer::GetModelTypeFromSpecifics(a_specifics),
+              syncer::GetModelTypeFromSpecifics(b_specifics));
+    syncer::ModelType model_type =
+        syncer::GetModelTypeFromSpecifics(b_specifics);
+    // Suppress updates to items that aren't tracked by any browser model.
+    if (model_type < syncer::FIRST_REAL_MODEL_TYPE ||
+        !a.ref(syncable::UNIQUE_SERVER_TAG).empty()) {
+      return false;
+    }
+    if (a.ref(syncable::IS_DIR) != b.ref(syncable::IS_DIR))
+      return true;
+    if (!AreSpecificsEqual(cryptographer,
+                           a.ref(syncable::SPECIFICS),
+                           b.ref(syncable::SPECIFICS))) {
+      return true;
+    }
+    // We only care if the name has changed if neither specifics is encrypted
+    // (encrypted nodes blow away the NON_UNIQUE_NAME).
+    if (!a_specifics.has_encrypted() && !b_specifics.has_encrypted() &&
+        a.ref(syncable::NON_UNIQUE_NAME) != b.ref(syncable::NON_UNIQUE_NAME))
+      return true;
+    if (VisiblePositionsDiffer(mutation))
+      return true;
+    return false;
+  }
+
+  bool ChangeBuffersAreEmpty() {
+    for (int i = 0; i < syncer::MODEL_TYPE_COUNT; ++i) {
+      if (!change_buffers_[i].IsEmpty())
+        return false;
+    }
+    return true;
+  }
+
+  void ReEncryptEverything(WriteTransaction* trans);
+
+  // Called for every notification. This updates the notification statistics
+  // to be displayed in about:sync.
+  void UpdateNotificationInfo(
+      const syncer::ModelTypePayloadMap& type_payloads);
+
+  // Checks for server reachabilty and requests a nudge.
+  void OnIPAddressChangedImpl();
+
+  // Helper function used only by the constructor.
+  void BindJsMessageHandler(
+    const std::string& name, UnboundJsMessageHandler unbound_message_handler);
+
+  // Returned pointer is owned by the caller.
+  static DictionaryValue* NotificationInfoToValue(
+      const NotificationInfoMap& notification_info);
+
+  // JS message handlers.
+  JsArgList GetNotificationState(const JsArgList& args);
+  JsArgList GetNotificationInfo(const JsArgList& args);
+  JsArgList GetRootNodeDetails(const JsArgList& args);
+  JsArgList GetAllNodes(const JsArgList& args);
+  JsArgList GetNodeSummariesById(const JsArgList& args);
+  JsArgList GetNodeDetailsById(const JsArgList& args);
+  JsArgList GetChildNodeIds(const JsArgList& args);
+  JsArgList GetClientServerTraffic(const JsArgList& args);
+
+  FilePath database_path_;
+
+  const std::string name_;
+
+  base::ThreadChecker thread_checker_;
+
+  base::WeakPtrFactory<SyncInternal> weak_ptr_factory_;
+
+  // Thread-safe handle used by
+  // HandleCalculateChangesChangeEventFromSyncApi(), which can be
+  // called from any thread.  Valid only between between calls to
+  // Init() and Shutdown().
+  //
+  // TODO(akalin): Ideally, we wouldn't need to store this; instead,
+  // we'd have another worker class which implements
+  // HandleCalculateChangesChangeEventFromSyncApi() and we'd pass it a
+  // WeakHandle when we construct it.
+  WeakHandle<SyncInternal> weak_handle_this_;
+
+  // |blocking_task_runner| is a TaskRunner to be used for tasks that
+  // may block on disk I/O.
+  scoped_refptr<base::TaskRunner> blocking_task_runner_;
+
+  // We give a handle to share_ to clients of the API for use when constructing
+  // any transaction type.
+  UserShare share_;
+
+  // This can be called from any thread, but only between calls to
+  // OpenDirectory() and ShutdownOnSyncThread().
+  syncer::WeakHandle<SyncManager::ChangeObserver> change_observer_;
+
+  ObserverList<SyncManager::Observer> observers_;
+
+  // The ServerConnectionManager used to abstract communication between the
+  // client (the Syncer) and the sync server.
+  scoped_ptr<SyncAPIServerConnectionManager> connection_manager_;
+
+  // A container of various bits of information used by the SyncScheduler to
+  // create SyncSessions.  Must outlive the SyncScheduler.
+  scoped_ptr<SyncSessionContext> session_context_;
+
+  // The scheduler that runs the Syncer. Needs to be explicitly
+  // Start()ed.
+  scoped_ptr<SyncScheduler> scheduler_;
+
+  // The SyncNotifier which notifies us when updates need to be downloaded.
+  scoped_ptr<syncer::SyncNotifier> sync_notifier_;
+
+  // A multi-purpose status watch object that aggregates stats from various
+  // sync components.
+  AllStatus allstatus_;
+
+  // Each element of this array is a store of change records produced by
+  // HandleChangeEvent during the CALCULATE_CHANGES step.  The changes are
+  // segregated by model type, and are stored here to be processed and
+  // forwarded to the observer slightly later, at the TRANSACTION_ENDING
+  // step by HandleTransactionEndingChangeEvent. The list is cleared in the
+  // TRANSACTION_COMPLETE step by HandleTransactionCompleteChangeEvent.
+  ChangeReorderBuffer change_buffers_[syncer::MODEL_TYPE_COUNT];
+
+  SyncManager::ChangeDelegate* change_delegate_;
+
+  // Set to true once Init has been called.
+  bool initialized_;
+
+  // Controls the disabling of certain SyncManager features.
+  // Can be used to disable communication with the server and the use of an
+  // on-disk file for maintaining syncer state.
+  // TODO(117836): Clean up implementation of SyncManager unit tests.
+  SyncManager::TestingMode testing_mode_;
+
+  bool observing_ip_address_changes_;
+
+  // Map used to store the notification info to be displayed in
+  // about:sync page.
+  NotificationInfoMap notification_info_map_;
+
+  // These are for interacting with chrome://sync-internals.
+  JsMessageHandlerMap js_message_handlers_;
+  WeakHandle<JsEventHandler> js_event_handler_;
+  JsSyncManagerObserver js_sync_manager_observer_;
+  JsMutationEventObserver js_mutation_event_observer_;
+
+  syncer::ThrottledDataTypeTracker throttled_data_type_tracker_;
+
+  // This is for keeping track of client events to send to the server.
+  DebugInfoEventListener debug_info_event_listener_;
+
+  syncer::TrafficRecorder traffic_recorder_;
+
+  Encryptor* encryptor_;
+  UnrecoverableErrorHandler* unrecoverable_error_handler_;
+  ReportUnrecoverableErrorFunction report_unrecoverable_error_function_;
+
+  MessageLoop* const created_on_loop_;
+
+  // The number of times we've automatically (i.e. not via SetPassphrase or
+  // conflict resolver) updated the nigori's encryption keys in this chrome
+  // instantiation.
+  int nigori_overwrite_count_;
+};
+
+// A class to calculate nudge delays for types.
+class NudgeStrategy {
+ public:
+  static TimeDelta GetNudgeDelayTimeDelta(const ModelType& model_type,
+                                          SyncManagerImpl::SyncInternal* core) {
+    NudgeDelayStrategy delay_type = GetNudgeDelayStrategy(model_type);
+    return GetNudgeDelayTimeDeltaFromType(delay_type,
+                                          model_type,
+                                          core);
+  }
+
+ private:
+  // Possible types of nudge delay for datatypes.
+  // Note: These are just hints. If a sync happens then all dirty entries
+  // would be committed as part of the sync.
+  enum NudgeDelayStrategy {
+    // Sync right away.
+    IMMEDIATE,
+
+    // Sync this change while syncing another change.
+    ACCOMPANY_ONLY,
+
+    // The datatype does not use one of the predefined wait times but defines
+    // its own wait time logic for nudge.
+    CUSTOM,
+  };
+
+  static NudgeDelayStrategy GetNudgeDelayStrategy(const ModelType& type) {
+    switch (type) {
+     case syncer::AUTOFILL:
+       return ACCOMPANY_ONLY;
+     case syncer::PREFERENCES:
+     case syncer::SESSIONS:
+       return CUSTOM;
+     default:
+       return IMMEDIATE;
+    }
+  }
+
+  static TimeDelta GetNudgeDelayTimeDeltaFromType(
+      const NudgeDelayStrategy& delay_type, const ModelType& model_type,
+      const SyncManagerImpl::SyncInternal* core) {
+    CHECK(core);
+    TimeDelta delay = TimeDelta::FromMilliseconds(
+       kDefaultNudgeDelayMilliseconds);
+    switch (delay_type) {
+     case IMMEDIATE:
+       delay = TimeDelta::FromMilliseconds(
+           kDefaultNudgeDelayMilliseconds);
+       break;
+     case ACCOMPANY_ONLY:
+       delay = TimeDelta::FromSeconds(
+           syncer::kDefaultShortPollIntervalSeconds);
+       break;
+     case CUSTOM:
+       switch (model_type) {
+         case syncer::PREFERENCES:
+           delay = TimeDelta::FromMilliseconds(
+               kPreferencesNudgeDelayMilliseconds);
+           break;
+         case syncer::SESSIONS:
+           delay = core->scheduler()->sessions_commit_delay();
+           break;
+         default:
+           NOTREACHED();
+       }
+       break;
+     default:
+       NOTREACHED();
+    }
+    return delay;
+  }
+};
+
+SyncManagerImpl::SyncManagerImpl(const std::string& name)
+    : data_(new SyncInternal(name)) {}
+
+bool SyncManagerImpl::Init(
+    const FilePath& database_location,
+    const WeakHandle<JsEventHandler>& event_handler,
+    const std::string& sync_server_and_path,
+    int sync_server_port,
+    bool use_ssl,
+    const scoped_refptr<base::TaskRunner>& blocking_task_runner,
+    scoped_ptr<HttpPostProviderFactory> post_factory,
+    const syncer::ModelSafeRoutingInfo& model_safe_routing_info,
+    const std::vector<syncer::ModelSafeWorker*>& workers,
+    syncer::ExtensionsActivityMonitor* extensions_activity_monitor,
+    SyncManager::ChangeDelegate* change_delegate,
+    const SyncCredentials& credentials,
+    scoped_ptr<syncer::SyncNotifier> sync_notifier,
+    const std::string& restored_key_for_bootstrapping,
+    SyncManager::TestingMode testing_mode,
+    Encryptor* encryptor,
+    UnrecoverableErrorHandler* unrecoverable_error_handler,
+    ReportUnrecoverableErrorFunction report_unrecoverable_error_function) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  DCHECK(post_factory.get());
+  DVLOG(1) << "SyncManager starting Init...";
+  std::string server_string(sync_server_and_path);
+  return data_->Init(database_location,
+                     event_handler,
+                     server_string,
+                     sync_server_port,
+                     use_ssl,
+                     blocking_task_runner,
+                     post_factory.Pass(),
+                     model_safe_routing_info,
+                     workers,
+                     extensions_activity_monitor,
+                     change_delegate,
+                     credentials,
+                     sync_notifier.Pass(),
+                     restored_key_for_bootstrapping,
+                     testing_mode,
+                     encryptor,
+                     unrecoverable_error_handler,
+                     report_unrecoverable_error_function);
+}
+
+void SyncManagerImpl::UpdateCredentials(const SyncCredentials& credentials) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  data_->UpdateCredentials(credentials);
+}
+
+void SyncManagerImpl::UpdateEnabledTypes(const ModelTypeSet& enabled_types) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  data_->UpdateEnabledTypes(enabled_types);
+}
+
+void SyncManagerImpl::ThrowUnrecoverableError() {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  ReadTransaction trans(FROM_HERE, GetUserShare());
+  trans.GetWrappedTrans()->OnUnrecoverableError(
+      FROM_HERE, "Simulating unrecoverable error for testing purposes.");
+}
+
+syncer::ModelTypeSet SyncManagerImpl::InitialSyncEndedTypes() {
+  return data_->InitialSyncEndedTypes();
+}
+
+syncer::ModelTypeSet SyncManagerImpl::GetTypesWithEmptyProgressMarkerToken(
+    syncer::ModelTypeSet types) {
+  return data_->GetTypesWithEmptyProgressMarkerToken(types);
+}
+
+bool SyncManagerImpl::PurgePartiallySyncedTypes() {
+  return data_->PurgePartiallySyncedTypes();
+}
+
+void SyncManagerImpl::StartSyncingNormally(
+    const syncer::ModelSafeRoutingInfo& routing_info) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  data_->StartSyncingNormally(routing_info);
+}
+
+void SyncManagerImpl::SetEncryptionPassphrase(const std::string& passphrase,
+                                          bool is_explicit) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  data_->SetEncryptionPassphrase(passphrase, is_explicit);
+}
+
+void SyncManagerImpl::SetDecryptionPassphrase(const std::string& passphrase) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  data_->SetDecryptionPassphrase(passphrase);
+}
+
+void SyncManagerImpl::EnableEncryptEverything() {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  {
+    // Update the cryptographer to know we're now encrypting everything.
+    WriteTransaction trans(FROM_HERE, GetUserShare());
+    Cryptographer* cryptographer = trans.GetCryptographer();
+    // Only set encrypt everything if we know we can encrypt. This allows the
+    // user to cancel encryption if they have forgotten their passphrase.
+    if (cryptographer->is_ready())
+      cryptographer->set_encrypt_everything();
+  }
+
+  // Reads from cryptographer so will automatically encrypt all
+  // datatypes and update the nigori node as necessary. Will trigger
+  // OnPassphraseRequired if necessary.
+  data_->RefreshEncryption();
+}
+
+bool SyncManagerImpl::EncryptEverythingEnabledForTest() const {
+  ReadTransaction trans(FROM_HERE, GetUserShare());
+  return trans.GetCryptographer()->encrypt_everything();
+}
+
+bool SyncManagerImpl::IsUsingExplicitPassphrase() {
+  return data_ && data_->IsUsingExplicitPassphrase();
+}
+
+void SyncManagerImpl::ConfigureSyncer(
+    ConfigureReason reason,
+    const syncer::ModelTypeSet& types_to_config,
+    const syncer::ModelSafeRoutingInfo& new_routing_info,
+    const base::Closure& ready_task,
+    const base::Closure& retry_task) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  DCHECK(!ready_task.is_null());
+  DCHECK(!retry_task.is_null());
+
+  // TODO(zea): set this based on whether cryptographer has keystore
+  // encryption key or not (requires opening a transaction). crbug.com/129665.
+  ConfigurationParams::KeystoreKeyStatus keystore_key_status =
+      ConfigurationParams::KEYSTORE_KEY_UNNECESSARY;
+
+  ConfigurationParams params(GetSourceFromReason(reason),
+                             types_to_config,
+                             new_routing_info,
+                             keystore_key_status,
+                             ready_task);
+
+  if (!data_->scheduler()) {
+    LOG(INFO)
+        << "SyncManagerImpl::ConfigureSyncer: could not configure because "
+        << "scheduler is null";
+    params.ready_task.Run();
+    return;
+  }
+
+  data_->scheduler()->Start(syncer::SyncScheduler::CONFIGURATION_MODE);
+  if (!data_->scheduler()->ScheduleConfiguration(params))
+    retry_task.Run();
+
+}
+
+bool SyncManagerImpl::SyncInternal::Init(
+    const FilePath& database_location,
+    const WeakHandle<JsEventHandler>& event_handler,
+    const std::string& sync_server_and_path,
+    int port,
+    bool use_ssl,
+    const scoped_refptr<base::TaskRunner>& blocking_task_runner,
+    scoped_ptr<HttpPostProviderFactory> post_factory,
+    const syncer::ModelSafeRoutingInfo& model_safe_routing_info,
+    const std::vector<syncer::ModelSafeWorker*>& workers,
+    syncer::ExtensionsActivityMonitor* extensions_activity_monitor,
+    SyncManager::ChangeDelegate* change_delegate,
+    const SyncCredentials& credentials,
+    scoped_ptr<syncer::SyncNotifier> sync_notifier,
+    const std::string& restored_key_for_bootstrapping,
+    SyncManager::TestingMode testing_mode,
+    Encryptor* encryptor,
+    UnrecoverableErrorHandler* unrecoverable_error_handler,
+    ReportUnrecoverableErrorFunction report_unrecoverable_error_function) {
+  CHECK(!initialized_);
+
+  DCHECK(thread_checker_.CalledOnValidThread());
+
+  DVLOG(1) << "Starting SyncInternal initialization.";
+
+  weak_handle_this_ = MakeWeakHandle(weak_ptr_factory_.GetWeakPtr());
+
+  blocking_task_runner_ = blocking_task_runner;
+
+  change_delegate_ = change_delegate;
+  testing_mode_ = testing_mode;
+
+  sync_notifier_ = sync_notifier.Pass();
+
+  AddObserver(&js_sync_manager_observer_);
+  SetJsEventHandler(event_handler);
+
+  AddObserver(&debug_info_event_listener_);
+
+  database_path_ = database_location.Append(
+      syncable::Directory::kSyncDatabaseFilename);
+  encryptor_ = encryptor;
+  unrecoverable_error_handler_ = unrecoverable_error_handler;
+  report_unrecoverable_error_function_ = report_unrecoverable_error_function;
+
+  syncable::DirectoryBackingStore* backing_store = NULL;
+  if (testing_mode_ == TEST_IN_MEMORY) {
+    // TODO(tim): 117836. Use a factory or delegate to create this and don't
+    // depend on TEST_IN_MEMORY here.
+    backing_store =
+        new syncable::InMemoryDirectoryBackingStore(credentials.email);
+  } else {
+    FilePath absolute_db_path(database_path_);
+    file_util::AbsolutePath(&absolute_db_path);
+    backing_store = new syncable::OnDiskDirectoryBackingStore(
+        credentials.email, absolute_db_path);
+  }
+
+  DCHECK(backing_store);
+  share_.directory.reset(
+      new syncable::Directory(encryptor_,
+                              unrecoverable_error_handler_,
+                              report_unrecoverable_error_function_,
+                              backing_store));
+
+  connection_manager_.reset(new SyncAPIServerConnectionManager(
+      sync_server_and_path, port, use_ssl, post_factory.release()));
+
+  net::NetworkChangeNotifier::AddIPAddressObserver(this);
+  observing_ip_address_changes_ = true;
+
+  connection_manager()->AddListener(this);
+
+  // Test mode does not use a syncer context or syncer thread.
+  if (testing_mode_ == NON_TEST) {
+    // Build a SyncSessionContext and store the worker in it.
+    DVLOG(1) << "Sync is bringing up SyncSessionContext.";
+    std::vector<SyncEngineEventListener*> listeners;
+    listeners.push_back(&allstatus_);
+    listeners.push_back(this);
+    session_context_.reset(new SyncSessionContext(
+        connection_manager_.get(),
+        directory(),
+        model_safe_routing_info,
+        workers,
+        extensions_activity_monitor,
+        &throttled_data_type_tracker_,
+        listeners,
+        &debug_info_event_listener_,
+        &traffic_recorder_));
+    session_context()->set_account_name(credentials.email);
+    scheduler_.reset(new SyncScheduler(name_, session_context(), new Syncer()));
+  }
+
+  bool success = SignIn(credentials);
+
+  if (success) {
+    if (scheduler()) {
+      scheduler()->Start(syncer::SyncScheduler::CONFIGURATION_MODE);
+    }
+
+    initialized_ = true;
+
+    // Unapplied datatypes (those that do not have initial sync ended set) get
+    // re-downloaded during any configuration. But, it's possible for a datatype
+    // to have a progress marker but not have initial sync ended yet, making
+    // it a candidate for migration. This is a problem, as the DataTypeManager
+    // does not support a migration while it's already in the middle of a
+    // configuration. As a result, any partially synced datatype can stall the
+    // DTM, waiting for the configuration to complete, which it never will due
+    // to the migration error. In addition, a partially synced nigori will
+    // trigger the migration logic before the backend is initialized, resulting
+    // in crashes. We therefore detect and purge any partially synced types as
+    // part of initialization.
+    if (!PurgePartiallySyncedTypes())
+      success = false;
+
+    // Cryptographer should only be accessed while holding a
+    // transaction.  Grabbing the user share for the transaction
+    // checks the initialization state, so this must come after
+    // |initialized_| is set to true.
+    ReadTransaction trans(FROM_HERE, GetUserShare());
+    trans.GetCryptographer()->Bootstrap(restored_key_for_bootstrapping);
+    trans.GetCryptographer()->AddObserver(this);
+  }
+
+  // Notify that initialization is complete. Note: This should be the last to
+  // execute if |signed_in| is false. Reason being in that case we would
+  // post a task to shutdown sync. But if this function posts any other tasks
+  // on the UI thread and if shutdown wins then that tasks would execute on
+  // a freed pointer. This is because UI thread is not shut down.
+  FOR_EACH_OBSERVER(SyncManager::Observer, observers_,
+                    OnInitializationComplete(
+                        MakeWeakHandle(weak_ptr_factory_.GetWeakPtr()),
+                        success));
+
+  if (!success && testing_mode_ == NON_TEST)
+    return false;
+
+  sync_notifier_->AddObserver(this);
+
+  return success;
+}
+
+void SyncManagerImpl::SyncInternal::UpdateCryptographerAndNigori(
+    const std::string& chrome_version,
+    const base::Closure& done_callback) {
+  DCHECK(initialized_);
+  syncer::GetSessionName(
+      blocking_task_runner_,
+      base::Bind(
+          &SyncManagerImpl::SyncInternal::UpdateCryptographerAndNigoriCallback,
+          weak_ptr_factory_.GetWeakPtr(),
+          chrome_version,
+          done_callback));
+}
+
+void SyncManagerImpl::SyncInternal::UpdateNigoriEncryptionState(
+    Cryptographer* cryptographer,
+    WriteNode* nigori_node) {
+  DCHECK(nigori_node);
+  sync_pb::NigoriSpecifics nigori = nigori_node->GetNigoriSpecifics();
+
+  if (cryptographer->is_ready() &&
+      nigori_overwrite_count_ < kNigoriOverwriteLimit) {
+    // Does not modify the encrypted blob if the unencrypted data already
+    // matches what is about to be written.
+    sync_pb::EncryptedData original_keys = nigori.encrypted();
+    if (!cryptographer->GetKeys(nigori.mutable_encrypted()))
+      NOTREACHED();
+
+    if (nigori.encrypted().SerializeAsString() !=
+        original_keys.SerializeAsString()) {
+      // We've updated the nigori node's encryption keys. In order to prevent
+      // a possible looping of two clients constantly overwriting each other,
+      // we limit the absolute number of overwrites per client instantiation.
+      nigori_overwrite_count_++;
+      UMA_HISTOGRAM_COUNTS("Sync.AutoNigoriOverwrites",
+                           nigori_overwrite_count_);
+    }
+
+    // Note: we don't try to set using_explicit_passphrase here since if that
+    // is lost the user can always set it again. The main point is to preserve
+    // the encryption keys so all data remains decryptable.
+  }
+  cryptographer->UpdateNigoriFromEncryptedTypes(&nigori);
+
+  // If nothing has changed, this is a no-op.
+  nigori_node->SetNigoriSpecifics(nigori);
+}
+
+void SyncManagerImpl::SyncInternal::UpdateCryptographerAndNigoriCallback(
+    const std::string& chrome_version,
+    const base::Closure& done_callback,
+    const std::string& session_name) {
+  if (!directory()->initial_sync_ended_for_type(syncer::NIGORI)) {
+    done_callback.Run();  // Should only happen during first time sync.
+    return;
+  }
+
+  bool success = false;
+  {
+    WriteTransaction trans(FROM_HERE, GetUserShare());
+    Cryptographer* cryptographer = trans.GetCryptographer();
+    WriteNode node(&trans);
+
+    if (node.InitByTagLookup(kNigoriTag) == syncer::BaseNode::INIT_OK) {
+      sync_pb::NigoriSpecifics nigori(node.GetNigoriSpecifics());
+      Cryptographer::UpdateResult result = cryptographer->Update(nigori);
+      if (result == Cryptographer::NEEDS_PASSPHRASE) {
+        sync_pb::EncryptedData pending_keys;
+        if (cryptographer->has_pending_keys())
+          pending_keys = cryptographer->GetPendingKeys();
+        FOR_EACH_OBSERVER(SyncManager::Observer, observers_,
+                          OnPassphraseRequired(syncer::REASON_DECRYPTION,
+                                               pending_keys));
+      }
+
+
+      // Add or update device information.
+      bool contains_this_device = false;
+      for (int i = 0; i < nigori.device_information_size(); ++i) {
+        const sync_pb::DeviceInformation& device_information =
+            nigori.device_information(i);
+        if (device_information.cache_guid() == directory()->cache_guid()) {
+          // Update the version number in case it changed due to an update.
+          if (device_information.chrome_version() != chrome_version) {
+            sync_pb::DeviceInformation* mutable_device_information =
+                nigori.mutable_device_information(i);
+            mutable_device_information->set_chrome_version(
+                chrome_version);
+          }
+          contains_this_device = true;
+        }
+      }
+
+      if (!contains_this_device) {
+        sync_pb::DeviceInformation* device_information =
+            nigori.add_device_information();
+        device_information->set_cache_guid(directory()->cache_guid());
+#if defined(OS_CHROMEOS)
+        device_information->set_platform("ChromeOS");
+#elif defined(OS_LINUX)
+        device_information->set_platform("Linux");
+#elif defined(OS_MACOSX)
+        device_information->set_platform("Mac");
+#elif defined(OS_WIN)
+        device_information->set_platform("Windows");
+#endif
+        device_information->set_name(session_name);
+        device_information->set_chrome_version(chrome_version);
+      }
+      // Disabled to avoid nigori races. TODO(zea): re-enable. crbug.com/122837
+      // node.SetNigoriSpecifics(nigori);
+
+      // Make sure the nigori node has the up to date encryption info.
+      UpdateNigoriEncryptionState(cryptographer, &node);
+
+      NotifyCryptographerState(cryptographer);
+      allstatus_.SetEncryptedTypes(cryptographer->GetEncryptedTypes());
+
+      success = cryptographer->is_ready();
+    } else {
+      NOTREACHED();
+    }
+  }
+
+  if (success)
+    RefreshEncryption();
+  done_callback.Run();
+}
+
+void SyncManagerImpl::SyncInternal::NotifyCryptographerState(
+    Cryptographer * cryptographer) {
+  // TODO(lipalani): Explore the possibility of hooking this up to
+  // SyncManager::Observer and making |AllStatus| a listener for that.
+  allstatus_.SetCryptographerReady(cryptographer->is_ready());
+  allstatus_.SetCryptoHasPendingKeys(cryptographer->has_pending_keys());
+  debug_info_event_listener_.SetCryptographerReady(cryptographer->is_ready());
+  debug_info_event_listener_.SetCrytographerHasPendingKeys(
+      cryptographer->has_pending_keys());
+}
+
+void SyncManagerImpl::SyncInternal::StartSyncingNormally(
+    const syncer::ModelSafeRoutingInfo& routing_info) {
+  // Start the sync scheduler.
+  if (scheduler()) {  // NULL during certain unittests.
+    // TODO(sync): We always want the newest set of routes when we switch back
+    // to normal mode. Figure out how to enforce set_routing_info is always
+    // appropriately set and that it's only modified when switching to normal
+    // mode.
+    session_context()->set_routing_info(routing_info);
+    scheduler()->Start(SyncScheduler::NORMAL_MODE);
+  }
+}
+
+bool SyncManagerImpl::SyncInternal::OpenDirectory() {
+  DCHECK(!initialized_) << "Should only happen once";
+
+  // Set before Open().
+  change_observer_ =
+      syncer::MakeWeakHandle(js_mutation_event_observer_.AsWeakPtr());
+  WeakHandle<syncable::TransactionObserver> transaction_observer(
+      syncer::MakeWeakHandle(js_mutation_event_observer_.AsWeakPtr()));
+
+  syncable::DirOpenResult open_result = syncable::NOT_INITIALIZED;
+  open_result = directory()->Open(username_for_share(), this,
+                                  transaction_observer);
+  if (open_result != syncable::OPENED) {
+    LOG(ERROR) << "Could not open share for:" << username_for_share();
+    return false;
+  }
+
+  connection_manager()->set_client_id(directory()->cache_guid());
+  return true;
+}
+
+bool SyncManagerImpl::SyncInternal::SignIn(const SyncCredentials& credentials) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  DCHECK(share_.name.empty());
+  share_.name = credentials.email;
+
+  DVLOG(1) << "Signing in user: " << username_for_share();
+  if (!OpenDirectory())
+    return false;
+
+  // Retrieve and set the sync notifier state. This should be done
+  // only after OpenDirectory is called.
+  std::string unique_id = directory()->cache_guid();
+  std::string state = directory()->GetNotificationState();
+  DVLOG(1) << "Read notification unique ID: " << unique_id;
+  if (VLOG_IS_ON(1)) {
+    std::string encoded_state;
+    base::Base64Encode(state, &encoded_state);
+    DVLOG(1) << "Read notification state: " << encoded_state;
+  }
+  allstatus_.SetUniqueId(unique_id);
+  sync_notifier_->SetUniqueId(unique_id);
+  // TODO(tim): Remove once invalidation state has been migrated to new
+  // InvalidationStateTracker store. Bug 124140.
+  sync_notifier_->SetStateDeprecated(state);
+
+  UpdateCredentials(credentials);
+  return true;
+}
+
+bool SyncManagerImpl::SyncInternal::PurgePartiallySyncedTypes() {
+  syncer::ModelTypeSet partially_synced_types =
+      syncer::ModelTypeSet::All();
+  partially_synced_types.RemoveAll(InitialSyncEndedTypes());
+  partially_synced_types.RemoveAll(GetTypesWithEmptyProgressMarkerToken(
+      syncer::ModelTypeSet::All()));
+
+  UMA_HISTOGRAM_COUNTS("Sync.PartiallySyncedTypes",
+                       partially_synced_types.Size());
+  if (partially_synced_types.Empty())
+    return true;
+  return directory()->PurgeEntriesWithTypeIn(partially_synced_types);
+}
+
+void SyncManagerImpl::SyncInternal::UpdateCredentials(
+    const SyncCredentials& credentials) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  DCHECK_EQ(credentials.email, share_.name);
+  DCHECK(!credentials.email.empty());
+  DCHECK(!credentials.sync_token.empty());
+
+  observing_ip_address_changes_ = true;
+  if (connection_manager()->set_auth_token(credentials.sync_token)) {
+    sync_notifier_->UpdateCredentials(
+        credentials.email, credentials.sync_token);
+    if (initialized_ && scheduler()) {
+      scheduler()->OnCredentialsUpdated();
+    }
+  }
+}
+
+void SyncManagerImpl::SyncInternal::UpdateEnabledTypes(
+    const ModelTypeSet& enabled_types) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  sync_notifier_->UpdateEnabledTypes(enabled_types);
+}
+
+void SyncManagerImpl::SyncInternal::SetEncryptionPassphrase(
+    const std::string& passphrase,
+    bool is_explicit) {
+  // We do not accept empty passphrases.
+  if (passphrase.empty()) {
+    NOTREACHED() << "Cannot encrypt with an empty passphrase.";
+    return;
+  }
+
+  // All accesses to the cryptographer are protected by a transaction.
+  WriteTransaction trans(FROM_HERE, GetUserShare());
+  Cryptographer* cryptographer = trans.GetCryptographer();
+  KeyParams key_params = {"localhost", "dummy", passphrase};
+  WriteNode node(&trans);
+  if (node.InitByTagLookup(kNigoriTag) != syncer::BaseNode::INIT_OK) {
+    // TODO(albertb): Plumb an UnrecoverableError all the way back to the PSS.
+    NOTREACHED();
+    return;
+  }
+
+  bool nigori_has_explicit_passphrase =
+      node.GetNigoriSpecifics().using_explicit_passphrase();
+  std::string bootstrap_token;
+  sync_pb::EncryptedData pending_keys;
+  if (cryptographer->has_pending_keys())
+    pending_keys = cryptographer->GetPendingKeys();
+  bool success = false;
+
+
+  // There are six cases to handle here:
+  // 1. The user has no pending keys and is setting their current GAIA password
+  //    as the encryption passphrase. This happens either during first time sync
+  //    with a clean profile, or after re-authenticating on a profile that was
+  //    already signed in with the cryptographer ready.
+  // 2. The user has no pending keys, and is overwriting an (already provided)
+  //    implicit passphrase with an explicit (custom) passphrase.
+  // 3. The user has pending keys for an explicit passphrase that is somehow set
+  //    to their current GAIA passphrase.
+  // 4. The user has pending keys encrypted with their current GAIA passphrase
+  //    and the caller passes in the current GAIA passphrase.
+  // 5. The user has pending keys encrypted with an older GAIA passphrase
+  //    and the caller passes in the current GAIA passphrase.
+  // 6. The user has previously done encryption with an explicit passphrase.
+  // Furthermore, we enforce the fact that the bootstrap encryption token will
+  // always be derived from the newest GAIA password if the account is using
+  // an implicit passphrase (even if the data is encrypted with an old GAIA
+  // password). If the account is using an explicit (custom) passphrase, the
+  // bootstrap token will be derived from the most recently provided explicit
+  // passphrase (that was able to decrypt the data).
+  if (!nigori_has_explicit_passphrase) {
+    if (!cryptographer->has_pending_keys()) {
+      if (cryptographer->AddKey(key_params)) {
+        // Case 1 and 2. We set a new GAIA passphrase when there are no pending
+        // keys (1), or overwriting an implicit passphrase with a new explicit
+        // one (2) when there are no pending keys.
+        DVLOG(1) << "Setting " << (is_explicit ? "explicit" : "implicit" )
+                 << " passphrase for encryption.";
+        cryptographer->GetBootstrapToken(&bootstrap_token);
+        success = true;
+      } else {
+        NOTREACHED() << "Failed to add key to cryptographer.";
+        success = false;
+      }
+    } else {  // cryptographer->has_pending_keys() == true
+      if (is_explicit) {
+        // This can only happen if the nigori node is updated with a new
+        // implicit passphrase while a client is attempting to set a new custom
+        // passphrase (race condition).
+        DVLOG(1) << "Failing because an implicit passphrase is already set.";
+        success = false;
+      } else {  // is_explicit == false
+        if (cryptographer->DecryptPendingKeys(key_params)) {
+          // Case 4. We successfully decrypted with the implicit GAIA passphrase
+          // passed in.
+          DVLOG(1) << "Implicit internal passphrase accepted for decryption.";
+          cryptographer->GetBootstrapToken(&bootstrap_token);
+          success = true;
+        } else {
+          // Case 5. Encryption was done with an old GAIA password, but we were
+          // provided with the current GAIA password. We need to generate a new
+          // bootstrap token to preserve it. We build a temporary cryptographer
+          // to allow us to extract these params without polluting our current
+          // cryptographer.
+          DVLOG(1) << "Implicit internal passphrase failed to decrypt, adding "
+                   << "anyways as default passphrase and persisting via "
+                   << "bootstrap token.";
+          Cryptographer temp_cryptographer(encryptor_);
+          temp_cryptographer.AddKey(key_params);
+          temp_cryptographer.GetBootstrapToken(&bootstrap_token);
+          // We then set the new passphrase as the default passphrase of the
+          // real cryptographer, even though we have pending keys. This is safe,
+          // as although Cryptographer::is_initialized() will now be true,
+          // is_ready() will remain false due to having pending keys.
+          cryptographer->AddKey(key_params);
+          success = false;
+        }
+      }  // is_explicit
+    }  // cryptographer->has_pending_keys()
+  } else {  // nigori_has_explicit_passphrase == true
+    // Case 6. We do not want to override a previously set explicit passphrase,
+    // so we return a failure.
+    DVLOG(1) << "Failing because an explicit passphrase is already set.";
+    success = false;
+  }
+
+  DVLOG_IF(1, !success)
+      << "Failure in SetEncryptionPassphrase; notifying and returning.";
+  DVLOG_IF(1, success)
+      << "Successfully set encryption passphrase; updating nigori and "
+         "reencrypting.";
+
+  FinishSetPassphrase(
+      success, bootstrap_token, is_explicit, &trans, &node);
+}
+
+void SyncManagerImpl::SyncInternal::SetDecryptionPassphrase(
+    const std::string& passphrase) {
+  // We do not accept empty passphrases.
+  if (passphrase.empty()) {
+    NOTREACHED() << "Cannot decrypt with an empty passphrase.";
+    return;
+  }
+
+  // All accesses to the cryptographer are protected by a transaction.
+  WriteTransaction trans(FROM_HERE, GetUserShare());
+  Cryptographer* cryptographer = trans.GetCryptographer();
+  KeyParams key_params = {"localhost", "dummy", passphrase};
+  WriteNode node(&trans);
+  if (node.InitByTagLookup(kNigoriTag) != syncer::BaseNode::INIT_OK) {
+    // TODO(albertb): Plumb an UnrecoverableError all the way back to the PSS.
+    NOTREACHED();
+    return;
+  }
+
+  if (!cryptographer->has_pending_keys()) {
+    // Note that this *can* happen in a rare situation where data is
+    // re-encrypted on another client while a SetDecryptionPassphrase() call is
+    // in-flight on this client. It is rare enough that we choose to do nothing.
+    NOTREACHED() << "Attempt to set decryption passphrase failed because there "
+                 << "were no pending keys.";
+    return;
+  }
+
+  bool nigori_has_explicit_passphrase =
+      node.GetNigoriSpecifics().using_explicit_passphrase();
+  std::string bootstrap_token;
+  sync_pb::EncryptedData pending_keys;
+  pending_keys = cryptographer->GetPendingKeys();
+  bool success = false;
+
+  // There are three cases to handle here:
+  // 7. We're using the current GAIA password to decrypt the pending keys. This
+  //    happens when signing in to an account with a previously set implicit
+  //    passphrase, where the data is already encrypted with the newest GAIA
+  //    password.
+  // 8. The user is providing an old GAIA password to decrypt the pending keys.
+  //    In this case, the user is using an implicit passphrase, but has changed
+  //    their password since they last encrypted their data, and therefore
+  //    their current GAIA password was unable to decrypt the data. This will
+  //    happen when the user is setting up a new profile with a previously
+  //    encrypted account (after changing passwords).
+  // 9. The user is providing a previously set explicit passphrase to decrypt
+  //    the pending keys.
+  if (!nigori_has_explicit_passphrase) {
+    if (cryptographer->is_initialized()) {
+      // We only want to change the default encryption key to the pending
+      // one if the pending keybag already contains the current default.
+      // This covers the case where a different client re-encrypted
+      // everything with a newer gaia passphrase (and hence the keybag
+      // contains keys from all previously used gaia passphrases).
+      // Otherwise, we're in a situation where the pending keys are
+      // encrypted with an old gaia passphrase, while the default is the
+      // current gaia passphrase. In that case, we preserve the default.
+      Cryptographer temp_cryptographer(encryptor_);
+      temp_cryptographer.SetPendingKeys(cryptographer->GetPendingKeys());
+      if (temp_cryptographer.DecryptPendingKeys(key_params)) {
+        // Check to see if the pending bag of keys contains the current
+        // default key.
+        sync_pb::EncryptedData encrypted;
+        cryptographer->GetKeys(&encrypted);
+        if (temp_cryptographer.CanDecrypt(encrypted)) {
+          DVLOG(1) << "Implicit user provided passphrase accepted for "
+                   << "decryption, overwriting default.";
+          // Case 7. The pending keybag contains the current default. Go ahead
+          // and update the cryptographer, letting the default change.
+          cryptographer->DecryptPendingKeys(key_params);
+          cryptographer->GetBootstrapToken(&bootstrap_token);
+          success = true;
+        } else {
+          // Case 8. The pending keybag does not contain the current default
+          // encryption key. We decrypt the pending keys here, and in
+          // FinishSetPassphrase, re-encrypt everything with the current GAIA
+          // passphrase instead of the passphrase just provided by the user.
+          DVLOG(1) << "Implicit user provided passphrase accepted for "
+                   << "decryption, restoring implicit internal passphrase "
+                   << "as default.";
+          std::string bootstrap_token_from_current_key;
+          cryptographer->GetBootstrapToken(
+              &bootstrap_token_from_current_key);
+          cryptographer->DecryptPendingKeys(key_params);
+          // Overwrite the default from the pending keys.
+          cryptographer->AddKeyFromBootstrapToken(
+              bootstrap_token_from_current_key);
+          success = true;
+        }
+      } else {  // !temp_cryptographer.DecryptPendingKeys(..)
+        DVLOG(1) << "Implicit user provided passphrase failed to decrypt.";
+        success = false;
+      }  // temp_cryptographer.DecryptPendingKeys(...)
+    } else {  // cryptographer->is_initialized() == false
+      if (cryptographer->DecryptPendingKeys(key_params)) {
+        // This can happpen in two cases:
+        // - First time sync on android, where we'll never have a
+        //   !user_provided passphrase.
+        // - This is a restart for a client that lost their bootstrap token.
+        // In both cases, we should go ahead and initialize the cryptographer
+        // and persist the new bootstrap token.
+        //
+        // Note: at this point, we cannot distinguish between cases 7 and 8
+        // above. This user provided passphrase could be the current or the
+        // old. But, as long as we persist the token, there's nothing more
+        // we can do.
+        cryptographer->GetBootstrapToken(&bootstrap_token);
+        DVLOG(1) << "Implicit user provided passphrase accepted, initializing"
+                 << " cryptographer.";
+        success = true;
+      } else {
+        DVLOG(1) << "Implicit user provided passphrase failed to decrypt.";
+        success = false;
+      }
+    }  // cryptographer->is_initialized()
+  } else {  // nigori_has_explicit_passphrase == true
+    // Case 9. Encryption was done with an explicit passphrase, and we decrypt
+    // with the passphrase provided by the user.
+    if (cryptographer->DecryptPendingKeys(key_params)) {
+      DVLOG(1) << "Explicit passphrase accepted for decryption.";
+      cryptographer->GetBootstrapToken(&bootstrap_token);
+      success = true;
+    } else {
+      DVLOG(1) << "Explicit passphrase failed to decrypt.";
+      success = false;
+    }
+  }  // nigori_has_explicit_passphrase
+
+  DVLOG_IF(1, !success)
+      << "Failure in SetDecryptionPassphrase; notifying and returning.";
+  DVLOG_IF(1, success)
+      << "Successfully set decryption passphrase; updating nigori and "
+         "reencrypting.";
+
+  FinishSetPassphrase(success,
+                      bootstrap_token,
+                      nigori_has_explicit_passphrase,
+                      &trans,
+                      &node);
+}
+
+void SyncManagerImpl::SyncInternal::FinishSetPassphrase(
+    bool success,
+    const std::string& bootstrap_token,
+    bool is_explicit,
+    WriteTransaction* trans,
+    WriteNode* nigori_node) {
+  Cryptographer* cryptographer = trans->GetCryptographer();
+  NotifyCryptographerState(cryptographer);
+
+  // It's possible we need to change the bootstrap token even if we failed to
+  // set the passphrase (for example if we need to preserve the new GAIA
+  // passphrase).
+  if (!bootstrap_token.empty()) {
+    DVLOG(1) << "Bootstrap token updated.";
+    FOR_EACH_OBSERVER(SyncManager::Observer, observers_,
+                      OnBootstrapTokenUpdated(bootstrap_token));
+  }
+
+  if (!success) {
+    if (cryptographer->is_ready()) {
+      LOG(ERROR) << "Attempt to change passphrase failed while cryptographer "
+                 << "was ready.";
+    } else if (cryptographer->has_pending_keys()) {
+      FOR_EACH_OBSERVER(SyncManager::Observer, observers_,
+                        OnPassphraseRequired(syncer::REASON_DECRYPTION,
+                                             cryptographer->GetPendingKeys()));
+    } else {
+      FOR_EACH_OBSERVER(SyncManager::Observer, observers_,
+                        OnPassphraseRequired(syncer::REASON_ENCRYPTION,
+                                             sync_pb::EncryptedData()));
+    }
+    return;
+  }
+
+  FOR_EACH_OBSERVER(SyncManager::Observer, observers_,
+                    OnPassphraseAccepted());
+  DCHECK(cryptographer->is_ready());
+
+  // TODO(tim): Bug 58231. It would be nice if setting a passphrase didn't
+  // require messing with the Nigori node, because we can't set a passphrase
+  // until download conditions are met vs Cryptographer init.  It seems like
+  // it's safe to defer this work.
+  sync_pb::NigoriSpecifics specifics(nigori_node->GetNigoriSpecifics());
+  // Does not modify specifics.encrypted() if the original decrypted data was
+  // the same.
+  if (!cryptographer->GetKeys(specifics.mutable_encrypted())) {
+    NOTREACHED();
+    return;
+  }
+  specifics.set_using_explicit_passphrase(is_explicit);
+  nigori_node->SetNigoriSpecifics(specifics);
+
+  // Does nothing if everything is already encrypted or the cryptographer has
+  // pending keys.
+  ReEncryptEverything(trans);
+}
+
+bool SyncManagerImpl::SyncInternal::IsUsingExplicitPassphrase() {
+  ReadTransaction trans(FROM_HERE, &share_);
+  ReadNode node(&trans);
+  if (node.InitByTagLookup(kNigoriTag) != syncer::BaseNode::INIT_OK) {
+    // TODO(albertb): Plumb an UnrecoverableError all the way back to the PSS.
+    NOTREACHED();
+    return false;
+  }
+
+  return node.GetNigoriSpecifics().using_explicit_passphrase();
+}
+
+void SyncManagerImpl::SyncInternal::RefreshEncryption() {
+  DCHECK(initialized_);
+
+  WriteTransaction trans(FROM_HERE, GetUserShare());
+  WriteNode node(&trans);
+  if (node.InitByTagLookup(kNigoriTag) != syncer::BaseNode::INIT_OK) {
+    NOTREACHED() << "Unable to set encrypted datatypes because Nigori node not "
+                 << "found.";
+    return;
+  }
+
+  Cryptographer* cryptographer = trans.GetCryptographer();
+
+  if (!cryptographer->is_ready()) {
+    DVLOG(1) << "Attempting to encrypt datatypes when cryptographer not "
+             << "initialized, prompting for passphrase.";
+    // TODO(zea): this isn't really decryption, but that's the only way we have
+    // to prompt the user for a passsphrase. See http://crbug.com/91379.
+    sync_pb::EncryptedData pending_keys;
+    if (cryptographer->has_pending_keys())
+      pending_keys = cryptographer->GetPendingKeys();
+    FOR_EACH_OBSERVER(SyncManager::Observer, observers_,
+                      OnPassphraseRequired(syncer::REASON_DECRYPTION,
+                                           pending_keys));
+    return;
+  }
+
+  UpdateNigoriEncryptionState(cryptographer, &node);
+
+  allstatus_.SetEncryptedTypes(cryptographer->GetEncryptedTypes());
+
+  // We reencrypt everything regardless of whether the set of encrypted
+  // types changed to ensure that any stray unencrypted entries are overwritten.
+  ReEncryptEverything(&trans);
+}
+
+// This function iterates over all encrypted types.  There are many scenarios in
+// which data for some or all types is not currently available.  In that case,
+// the lookup of the root node will fail and we will skip encryption for that
+// type.
+void SyncManagerImpl::SyncInternal::ReEncryptEverything(
+      WriteTransaction* trans) {
+  Cryptographer* cryptographer = trans->GetCryptographer();
+  if (!cryptographer || !cryptographer->is_ready())
+    return;
+  syncer::ModelTypeSet encrypted_types = GetEncryptedTypes(trans);
+  for (syncer::ModelTypeSet::Iterator iter = encrypted_types.First();
+       iter.Good(); iter.Inc()) {
+    if (iter.Get() == syncer::PASSWORDS || iter.Get() == syncer::NIGORI)
+      continue; // These types handle encryption differently.
+
+    ReadNode type_root(trans);
+    std::string tag = syncer::ModelTypeToRootTag(iter.Get());
+    if (type_root.InitByTagLookup(tag) != syncer::BaseNode::INIT_OK)
+      continue; // Don't try to reencrypt if the type's data is unavailable.
+
+    // Iterate through all children of this datatype.
+    std::queue<int64> to_visit;
+    int64 child_id = type_root.GetFirstChildId();
+    to_visit.push(child_id);
+    while (!to_visit.empty()) {
+      child_id = to_visit.front();
+      to_visit.pop();
+      if (child_id == kInvalidId)
+        continue;
+
+      WriteNode child(trans);
+      if (child.InitByIdLookup(child_id) != syncer::BaseNode::INIT_OK) {
+        NOTREACHED();
+        continue;
+      }
+      if (child.GetIsFolder()) {
+        to_visit.push(child.GetFirstChildId());
+      }
+      if (child.GetEntry()->Get(syncable::UNIQUE_SERVER_TAG).empty()) {
+      // Rewrite the specifics of the node with encrypted data if necessary
+      // (only rewrite the non-unique folders).
+        child.ResetFromSpecifics();
+      }
+      to_visit.push(child.GetSuccessorId());
+    }
+  }
+
+  // Passwords are encrypted with their own legacy scheme.  Passwords are always
+  // encrypted so we don't need to check GetEncryptedTypes() here.
+  ReadNode passwords_root(trans);
+  std::string passwords_tag = syncer::ModelTypeToRootTag(syncer::PASSWORDS);
+  if (passwords_root.InitByTagLookup(passwords_tag) ==
+          syncer::BaseNode::INIT_OK) {
+    int64 child_id = passwords_root.GetFirstChildId();
+    while (child_id != kInvalidId) {
+      WriteNode child(trans);
+      if (child.InitByIdLookup(child_id) != syncer::BaseNode::INIT_OK) {
+        NOTREACHED();
+        return;
+      }
+      child.SetPasswordSpecifics(child.GetPasswordSpecifics());
+      child_id = child.GetSuccessorId();
+    }
+  }
+
+  // NOTE: We notify from within a transaction.
+  FOR_EACH_OBSERVER(SyncManager::Observer, observers_,
+                    OnEncryptionComplete());
+}
+
+SyncManagerImpl::~SyncManagerImpl() {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  delete data_;
+}
+
+void SyncManagerImpl::AddObserver(SyncManager::Observer* observer) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  data_->AddObserver(observer);
+}
+
+void SyncManagerImpl::RemoveObserver(SyncManager::Observer* observer) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  data_->RemoveObserver(observer);
+}
+
+void SyncManagerImpl::StopSyncingForShutdown(const base::Closure& callback) {
+  data_->StopSyncingForShutdown(callback);
+}
+
+void SyncManagerImpl::SyncInternal::StopSyncingForShutdown(
+    const base::Closure& callback) {
+  DVLOG(2) << "StopSyncingForShutdown";
+  if (scheduler())  // May be null in tests.
+    scheduler()->RequestStop(callback);
+  else
+    created_on_loop_->PostTask(FROM_HERE, callback);
+
+  if (connection_manager_.get())
+    connection_manager_->TerminateAllIO();
+}
+
+void SyncManagerImpl::ShutdownOnSyncThread() {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  data_->ShutdownOnSyncThread();
+}
+
+void SyncManagerImpl::SyncInternal::ShutdownOnSyncThread() {
+  DCHECK(thread_checker_.CalledOnValidThread());
+
+  // Prevent any in-flight method calls from running.  Also
+  // invalidates |weak_handle_this_| and |change_observer_|.
+  weak_ptr_factory_.InvalidateWeakPtrs();
+  js_mutation_event_observer_.InvalidateWeakPtrs();
+
+  scheduler_.reset();
+  session_context_.reset();
+
+  SetJsEventHandler(WeakHandle<JsEventHandler>());
+  RemoveObserver(&js_sync_manager_observer_);
+
+  RemoveObserver(&debug_info_event_listener_);
+
+  if (sync_notifier_.get()) {
+    sync_notifier_->RemoveObserver(this);
+  }
+  sync_notifier_.reset();
+
+  if (connection_manager_.get()) {
+    connection_manager_->RemoveListener(this);
+  }
+  connection_manager_.reset();
+
+  net::NetworkChangeNotifier::RemoveIPAddressObserver(this);
+  observing_ip_address_changes_ = false;
+
+  if (initialized_ && directory()) {
+    {
+      // Cryptographer should only be accessed while holding a
+      // transaction.
+      ReadTransaction trans(FROM_HERE, GetUserShare());
+      trans.GetCryptographer()->RemoveObserver(this);
+    }
+    directory()->SaveChanges();
+  }
+
+  share_.directory.reset();
+
+  change_delegate_ = NULL;
+
+  initialized_ = false;
+
+  // We reset these here, since only now we know they will not be
+  // accessed from other threads (since we shut down everything).
+  change_observer_.Reset();
+  weak_handle_this_.Reset();
+}
+
+void SyncManagerImpl::SyncInternal::OnIPAddressChanged() {
+  DVLOG(1) << "IP address change detected";
+  if (!observing_ip_address_changes_) {
+    DVLOG(1) << "IP address change dropped.";
+    return;
+  }
+
+  OnIPAddressChangedImpl();
+}
+
+void SyncManagerImpl::SyncInternal::OnIPAddressChangedImpl() {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  if (scheduler())
+    scheduler()->OnConnectionStatusChange();
+}
+
+void SyncManagerImpl::SyncInternal::OnServerConnectionEvent(
+    const ServerConnectionEvent& event) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  if (event.connection_code ==
+      syncer::HttpResponse::SERVER_CONNECTION_OK) {
+    FOR_EACH_OBSERVER(SyncManager::Observer, observers_,
+                      OnConnectionStatusChange(CONNECTION_OK));
+  }
+
+  if (event.connection_code == syncer::HttpResponse::SYNC_AUTH_ERROR) {
+    observing_ip_address_changes_ = false;
+    FOR_EACH_OBSERVER(SyncManager::Observer, observers_,
+                      OnConnectionStatusChange(CONNECTION_AUTH_ERROR));
+  }
+
+  if (event.connection_code ==
+      syncer::HttpResponse::SYNC_SERVER_ERROR) {
+    FOR_EACH_OBSERVER(SyncManager::Observer, observers_,
+                      OnConnectionStatusChange(CONNECTION_SERVER_ERROR));
+  }
+}
+
+void SyncManagerImpl::SyncInternal::HandleTransactionCompleteChangeEvent(
+    ModelTypeSet models_with_changes) {
+  // This notification happens immediately after the transaction mutex is
+  // released. This allows work to be performed without blocking other threads
+  // from acquiring a transaction.
+  if (!change_delegate_)
+    return;
+
+  // Call commit.
+  for (ModelTypeSet::Iterator it = models_with_changes.First();
+       it.Good(); it.Inc()) {
+    change_delegate_->OnChangesComplete(it.Get());
+    change_observer_.Call(
+        FROM_HERE,
+        &SyncManager::ChangeObserver::OnChangesComplete,
+        it.Get());
+  }
+}
+
+ModelTypeSet
+    SyncManagerImpl::SyncInternal::HandleTransactionEndingChangeEvent(
+        const ImmutableWriteTransactionInfo& write_transaction_info,
+        syncable::BaseTransaction* trans) {
+  // This notification happens immediately before a syncable WriteTransaction
+  // falls out of scope. It happens while the channel mutex is still held,
+  // and while the transaction mutex is held, so it cannot be re-entrant.
+  if (!change_delegate_ || ChangeBuffersAreEmpty())
+    return ModelTypeSet();
+
+  // This will continue the WriteTransaction using a read only wrapper.
+  // This is the last chance for read to occur in the WriteTransaction
+  // that's closing. This special ReadTransaction will not close the
+  // underlying transaction.
+  ReadTransaction read_trans(GetUserShare(), trans);
+
+  ModelTypeSet models_with_changes;
+  for (int i = syncer::FIRST_REAL_MODEL_TYPE;
+       i < syncer::MODEL_TYPE_COUNT; ++i) {
+    const syncer::ModelType type = syncer::ModelTypeFromInt(i);
+    if (change_buffers_[type].IsEmpty())
+      continue;
+
+    ImmutableChangeRecordList ordered_changes;
+    // TODO(akalin): Propagate up the error further (see
+    // http://crbug.com/100907).
+    CHECK(change_buffers_[type].GetAllChangesInTreeOrder(&read_trans,
+                                                         &ordered_changes));
+    if (!ordered_changes.Get().empty()) {
+      change_delegate_->
+          OnChangesApplied(type, &read_trans, ordered_changes);
+      change_observer_.Call(FROM_HERE,
+          &SyncManager::ChangeObserver::OnChangesApplied,
+          type, write_transaction_info.Get().id, ordered_changes);
+      models_with_changes.Put(type);
+    }
+    change_buffers_[i].Clear();
+  }
+  return models_with_changes;
+}
+
+void SyncManagerImpl::SyncInternal::
+    HandleCalculateChangesChangeEventFromSyncApi(
+    const ImmutableWriteTransactionInfo& write_transaction_info,
+    syncable::BaseTransaction* trans) {
+  if (!scheduler()) {
+    return;
+  }
+
+  // We have been notified about a user action changing a sync model.
+  LOG_IF(WARNING, !ChangeBuffersAreEmpty()) <<
+      "CALCULATE_CHANGES called with unapplied old changes.";
+
+  // The mutated model type, or UNSPECIFIED if nothing was mutated.
+  syncer::ModelTypeSet mutated_model_types;
+
+  const syncable::ImmutableEntryKernelMutationMap& mutations =
+      write_transaction_info.Get().mutations;
+  for (syncable::EntryKernelMutationMap::const_iterator it =
+           mutations.Get().begin(); it != mutations.Get().end(); ++it) {
+    if (!it->second.mutated.ref(syncable::IS_UNSYNCED)) {
+      continue;
+    }
+
+    syncer::ModelType model_type =
+        syncer::GetModelTypeFromSpecifics(
+            it->second.mutated.ref(SPECIFICS));
+    if (model_type < syncer::FIRST_REAL_MODEL_TYPE) {
+      NOTREACHED() << "Permanent or underspecified item changed via syncapi.";
+      continue;
+    }
+
+    // Found real mutation.
+    if (model_type != syncer::UNSPECIFIED) {
+      mutated_model_types.Put(model_type);
+    }
+  }
+
+  // Nudge if necessary.
+  if (!mutated_model_types.Empty()) {
+    if (weak_handle_this_.IsInitialized()) {
+      weak_handle_this_.Call(FROM_HERE,
+                             &SyncInternal::RequestNudgeForDataTypes,
+                             FROM_HERE,
+                             mutated_model_types);
+    } else {
+      NOTREACHED();
+    }
+  }
+}
+
+void SyncManagerImpl::SyncInternal::SetExtraChangeRecordData(int64 id,
+    syncer::ModelType type, ChangeReorderBuffer* buffer,
+    Cryptographer* cryptographer, const syncable::EntryKernel& original,
+    bool existed_before, bool exists_now) {
+  // If this is a deletion and the datatype was encrypted, we need to decrypt it
+  // and attach it to the buffer.
+  if (!exists_now && existed_before) {
+    sync_pb::EntitySpecifics original_specifics(original.ref(SPECIFICS));
+    if (type == syncer::PASSWORDS) {
+      // Passwords must use their own legacy ExtraPasswordChangeRecordData.
+      scoped_ptr<sync_pb::PasswordSpecificsData> data(
+          DecryptPasswordSpecifics(original_specifics, cryptographer));
+      if (!data.get()) {
+        NOTREACHED();
+        return;
+      }
+      buffer->SetExtraDataForId(id, new ExtraPasswordChangeRecordData(*data));
+    } else if (original_specifics.has_encrypted()) {
+      // All other datatypes can just create a new unencrypted specifics and
+      // attach it.
+      const sync_pb::EncryptedData& encrypted = original_specifics.encrypted();
+      if (!cryptographer->Decrypt(encrypted, &original_specifics)) {
+        NOTREACHED();
+        return;
+      }
+    }
+    buffer->SetSpecificsForId(id, original_specifics);
+  }
+}
+
+void SyncManagerImpl::SyncInternal::HandleCalculateChangesChangeEventFromSyncer(
+    const ImmutableWriteTransactionInfo& write_transaction_info,
+    syncable::BaseTransaction* trans) {
+  // We only expect one notification per sync step, so change_buffers_ should
+  // contain no pending entries.
+  LOG_IF(WARNING, !ChangeBuffersAreEmpty()) <<
+      "CALCULATE_CHANGES called with unapplied old changes.";
+
+  Cryptographer* crypto = directory()->GetCryptographer(trans);
+  const syncable::ImmutableEntryKernelMutationMap& mutations =
+      write_transaction_info.Get().mutations;
+  for (syncable::EntryKernelMutationMap::const_iterator it =
+           mutations.Get().begin(); it != mutations.Get().end(); ++it) {
+    bool existed_before = !it->second.original.ref(syncable::IS_DEL);
+    bool exists_now = !it->second.mutated.ref(syncable::IS_DEL);
+
+    // Omit items that aren't associated with a model.
+    syncer::ModelType type =
+        syncer::GetModelTypeFromSpecifics(
+            it->second.mutated.ref(SPECIFICS));
+    if (type < syncer::FIRST_REAL_MODEL_TYPE)
+      continue;
+
+    int64 handle = it->first;
+    if (exists_now && !existed_before)
+      change_buffers_[type].PushAddedItem(handle);
+    else if (!exists_now && existed_before)
+      change_buffers_[type].PushDeletedItem(handle);
+    else if (exists_now && existed_before &&
+             VisiblePropertiesDiffer(it->second, crypto)) {
+      change_buffers_[type].PushUpdatedItem(
+          handle, VisiblePositionsDiffer(it->second));
+    }
+
+    SetExtraChangeRecordData(handle, type, &change_buffers_[type], crypto,
+                             it->second.original, existed_before, exists_now);
+  }
+}
+
+SyncStatus SyncManagerImpl::SyncInternal::GetStatus() {
+  return allstatus_.status();
+}
+
+void SyncManagerImpl::SyncInternal::RequestNudge(
+    const tracked_objects::Location& location) {
+  if (scheduler()) {
+     scheduler()->ScheduleNudgeAsync(
+        TimeDelta::FromMilliseconds(0), syncer::NUDGE_SOURCE_LOCAL,
+        ModelTypeSet(), location);
+  }
+}
+
+TimeDelta SyncManagerImpl::SyncInternal::GetNudgeDelayTimeDelta(
+    const ModelType& model_type) {
+  return NudgeStrategy::GetNudgeDelayTimeDelta(model_type, this);
+}
+
+void SyncManagerImpl::SyncInternal::RequestNudgeForDataTypes(
+    const tracked_objects::Location& nudge_location,
+    ModelTypeSet types) {
+  if (!scheduler()) {
+    NOTREACHED();
+    return;
+  }
+
+  debug_info_event_listener_.OnNudgeFromDatatype(types.First().Get());
+
+  // TODO(lipalani) : Calculate the nudge delay based on all types.
+  base::TimeDelta nudge_delay = NudgeStrategy::GetNudgeDelayTimeDelta(
+      types.First().Get(),
+      this);
+  scheduler()->ScheduleNudgeAsync(nudge_delay,
+                                  syncer::NUDGE_SOURCE_LOCAL,
+                                  types,
+                                  nudge_location);
+}
+
+void SyncManagerImpl::SyncInternal::OnSyncEngineEvent(
+    const SyncEngineEvent& event) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  // Only send an event if this is due to a cycle ending and this cycle
+  // concludes a canonical "sync" process; that is, based on what is known
+  // locally we are "all happy" and up-to-date.  There may be new changes on
+  // the server, but we'll get them on a subsequent sync.
+  //
+  // Notifications are sent at the end of every sync cycle, regardless of
+  // whether we should sync again.
+  if (event.what_happened == SyncEngineEvent::SYNC_CYCLE_ENDED) {
+    {
+      // Check to see if we need to notify the frontend that we have newly
+      // encrypted types or that we require a passphrase.
+      ReadTransaction trans(FROM_HERE, GetUserShare());
+      Cryptographer* cryptographer = trans.GetCryptographer();
+      // If we've completed a sync cycle and the cryptographer isn't ready
+      // yet, prompt the user for a passphrase.
+      if (cryptographer->has_pending_keys()) {
+        DVLOG(1) << "OnPassPhraseRequired Sent";
+        sync_pb::EncryptedData pending_keys = cryptographer->GetPendingKeys();
+        FOR_EACH_OBSERVER(SyncManager::Observer, observers_,
+                          OnPassphraseRequired(syncer::REASON_DECRYPTION,
+                                               pending_keys));
+      } else if (!cryptographer->is_ready() &&
+                 event.snapshot.initial_sync_ended().Has(syncer::NIGORI)) {
+        DVLOG(1) << "OnPassphraseRequired sent because cryptographer is not "
+                 << "ready";
+        FOR_EACH_OBSERVER(SyncManager::Observer, observers_,
+                          OnPassphraseRequired(syncer::REASON_ENCRYPTION,
+                                               sync_pb::EncryptedData()));
+      }
+
+      NotifyCryptographerState(cryptographer);
+      allstatus_.SetEncryptedTypes(cryptographer->GetEncryptedTypes());
+    }
+
+    if (!initialized_) {
+      LOG(INFO) << "OnSyncCycleCompleted not sent because sync api is not "
+                << "initialized";
+      return;
+    }
+
+    if (!event.snapshot.has_more_to_sync()) {
+      // To account for a nigori node arriving with stale/bad data, we ensure
+      // that the nigori node is up to date at the end of each cycle.
+      WriteTransaction trans(FROM_HERE, GetUserShare());
+      WriteNode nigori_node(&trans);
+      if (nigori_node.InitByTagLookup(kNigoriTag) ==
+              syncer::BaseNode::INIT_OK) {
+        Cryptographer* cryptographer = trans.GetCryptographer();
+        UpdateNigoriEncryptionState(cryptographer, &nigori_node);
+      }
+
+      DVLOG(1) << "Sending OnSyncCycleCompleted";
+      FOR_EACH_OBSERVER(SyncManager::Observer, observers_,
+                        OnSyncCycleCompleted(event.snapshot));
+    }
+
+    // This is here for tests, which are still using p2p notifications.
+    //
+    // TODO(chron): Consider changing this back to track has_more_to_sync
+    // only notify peers if a successful commit has occurred.
+    bool is_notifiable_commit =
+        (event.snapshot.model_neutral_state().num_successful_commits > 0);
+    if (is_notifiable_commit) {
+      if (sync_notifier_.get()) {
+        const ModelTypeSet changed_types =
+            syncer::ModelTypePayloadMapToEnumSet(
+                event.snapshot.source().types);
+        sync_notifier_->SendNotification(changed_types);
+      } else {
+        DVLOG(1) << "Not sending notification: sync_notifier_ is NULL";
+      }
+    }
+  }
+
+  if (event.what_happened == SyncEngineEvent::STOP_SYNCING_PERMANENTLY) {
+    FOR_EACH_OBSERVER(SyncManager::Observer, observers_,
+                      OnStopSyncingPermanently());
+    return;
+  }
+
+  if (event.what_happened == SyncEngineEvent::UPDATED_TOKEN) {
+    FOR_EACH_OBSERVER(SyncManager::Observer, observers_,
+                      OnUpdatedToken(event.updated_token));
+    return;
+  }
+
+  if (event.what_happened == SyncEngineEvent::ACTIONABLE_ERROR) {
+    FOR_EACH_OBSERVER(
+        SyncManager::Observer, observers_,
+        OnActionableError(
+            event.snapshot.model_neutral_state().sync_protocol_error));
+    return;
+  }
+
+}
+
+void SyncManagerImpl::SyncInternal::SetJsEventHandler(
+    const WeakHandle<JsEventHandler>& event_handler) {
+  js_event_handler_ = event_handler;
+  js_sync_manager_observer_.SetJsEventHandler(js_event_handler_);
+  js_mutation_event_observer_.SetJsEventHandler(js_event_handler_);
+}
+
+void SyncManagerImpl::SyncInternal::ProcessJsMessage(
+    const std::string& name, const JsArgList& args,
+    const WeakHandle<JsReplyHandler>& reply_handler) {
+  if (!initialized_) {
+    NOTREACHED();
+    return;
+  }
+
+  if (!reply_handler.IsInitialized()) {
+    DVLOG(1) << "Uninitialized reply handler; dropping unknown message "
+            << name << " with args " << args.ToString();
+    return;
+  }
+
+  JsMessageHandler js_message_handler = js_message_handlers_[name];
+  if (js_message_handler.is_null()) {
+    DVLOG(1) << "Dropping unknown message " << name
+             << " with args " << args.ToString();
+    return;
+  }
+
+  reply_handler.Call(FROM_HERE,
+                     &JsReplyHandler::HandleJsReply,
+                     name, js_message_handler.Run(args));
+}
+
+void SyncManagerImpl::SyncInternal::BindJsMessageHandler(
+    const std::string& name,
+    UnboundJsMessageHandler unbound_message_handler) {
+  js_message_handlers_[name] =
+      base::Bind(unbound_message_handler, base::Unretained(this));
+}
+
+DictionaryValue* SyncManagerImpl::SyncInternal::NotificationInfoToValue(
+    const NotificationInfoMap& notification_info) {
+  DictionaryValue* value = new DictionaryValue();
+
+  for (NotificationInfoMap::const_iterator it = notification_info.begin();
+      it != notification_info.end(); ++it) {
+    const std::string& model_type_str =
+        syncer::ModelTypeToString(it->first);
+    value->Set(model_type_str, it->second.ToValue());
+  }
+
+  return value;
+}
+
+JsArgList SyncManagerImpl::SyncInternal::GetNotificationState(
+    const JsArgList& args) {
+  bool notifications_enabled = allstatus_.status().notifications_enabled;
+  ListValue return_args;
+  return_args.Append(Value::CreateBooleanValue(notifications_enabled));
+  return JsArgList(&return_args);
+}
+
+JsArgList SyncManagerImpl::SyncInternal::GetNotificationInfo(
+    const JsArgList& args) {
+  ListValue return_args;
+  return_args.Append(NotificationInfoToValue(notification_info_map_));
+  return JsArgList(&return_args);
+}
+
+JsArgList SyncManagerImpl::SyncInternal::GetRootNodeDetails(
+    const JsArgList& args) {
+  ReadTransaction trans(FROM_HERE, GetUserShare());
+  ReadNode root(&trans);
+  root.InitByRootLookup();
+  ListValue return_args;
+  return_args.Append(root.GetDetailsAsValue());
+  return JsArgList(&return_args);
+}
+
+JsArgList SyncManagerImpl::SyncInternal::GetClientServerTraffic(
+    const JsArgList& args) {
+  ListValue return_args;
+  ListValue* value = traffic_recorder_.ToValue();
+  if (value != NULL)
+    return_args.Append(value);
+  return JsArgList(&return_args);
+}
+
+namespace {
+
+int64 GetId(const ListValue& ids, int i) {
+  std::string id_str;
+  if (!ids.GetString(i, &id_str)) {
+    return kInvalidId;
+  }
+  int64 id = kInvalidId;
+  if (!base::StringToInt64(id_str, &id)) {
+    return kInvalidId;
+  }
+  return id;
+}
+
+JsArgList GetNodeInfoById(const JsArgList& args,
+                          UserShare* user_share,
+                          DictionaryValue* (BaseNode::*info_getter)() const) {
+  CHECK(info_getter);
+  ListValue return_args;
+  ListValue* node_summaries = new ListValue();
+  return_args.Append(node_summaries);
+  ListValue* id_list = NULL;
+  ReadTransaction trans(FROM_HERE, user_share);
+  if (args.Get().GetList(0, &id_list)) {
+    CHECK(id_list);
+    for (size_t i = 0; i < id_list->GetSize(); ++i) {
+      int64 id = GetId(*id_list, i);
+      if (id == kInvalidId) {
+        continue;
+      }
+      ReadNode node(&trans);
+      if (node.InitByIdLookup(id) != syncer::BaseNode::INIT_OK) {
+        continue;
+      }
+      node_summaries->Append((node.*info_getter)());
+    }
+  }
+  return JsArgList(&return_args);
+}
+
+}  // namespace
+
+JsArgList SyncManagerImpl::SyncInternal::GetNodeSummariesById(
+    const JsArgList& args) {
+  return GetNodeInfoById(args, GetUserShare(), &BaseNode::GetSummaryAsValue);
+}
+
+JsArgList SyncManagerImpl::SyncInternal::GetNodeDetailsById(
+    const JsArgList& args) {
+  return GetNodeInfoById(args, GetUserShare(), &BaseNode::GetDetailsAsValue);
+}
+
+JsArgList SyncManagerImpl::SyncInternal::GetAllNodes(
+    const JsArgList& args) {
+  ListValue return_args;
+  ListValue* result = new ListValue();
+  return_args.Append(result);
+
+  ReadTransaction trans(FROM_HERE, GetUserShare());
+  std::vector<const syncable::EntryKernel*> entry_kernels;
+  trans.GetDirectory()->GetAllEntryKernels(trans.GetWrappedTrans(),
+                                           &entry_kernels);
+
+  for (std::vector<const syncable::EntryKernel*>::const_iterator it =
+           entry_kernels.begin(); it != entry_kernels.end(); ++it) {
+    result->Append((*it)->ToValue());
+  }
+
+  return JsArgList(&return_args);
+}
+
+JsArgList SyncManagerImpl::SyncInternal::GetChildNodeIds(
+    const JsArgList& args) {
+  ListValue return_args;
+  ListValue* child_ids = new ListValue();
+  return_args.Append(child_ids);
+  int64 id = GetId(args.Get(), 0);
+  if (id != kInvalidId) {
+    ReadTransaction trans(FROM_HERE, GetUserShare());
+    syncable::Directory::ChildHandles child_handles;
+    trans.GetDirectory()->GetChildHandlesByHandle(trans.GetWrappedTrans(),
+                                                  id, &child_handles);
+    for (syncable::Directory::ChildHandles::const_iterator it =
+             child_handles.begin(); it != child_handles.end(); ++it) {
+      child_ids->Append(Value::CreateStringValue(
+          base::Int64ToString(*it)));
+    }
+  }
+  return JsArgList(&return_args);
+}
+
+void SyncManagerImpl::SyncInternal::OnEncryptedTypesChanged(
+    syncer::ModelTypeSet encrypted_types,
+    bool encrypt_everything) {
+  // NOTE: We're in a transaction.
+  FOR_EACH_OBSERVER(
+      SyncManager::Observer, observers_,
+      OnEncryptedTypesChanged(encrypted_types, encrypt_everything));
+}
+
+void SyncManagerImpl::SyncInternal::UpdateNotificationInfo(
+    const syncer::ModelTypePayloadMap& type_payloads) {
+  for (syncer::ModelTypePayloadMap::const_iterator it = type_payloads.begin();
+       it != type_payloads.end(); ++it) {
+    NotificationInfo* info = &notification_info_map_[it->first];
+    info->total_count++;
+    info->payload = it->second;
+  }
+}
+
+void SyncManagerImpl::SyncInternal::OnNotificationsEnabled() {
+  DVLOG(1) << "Notifications enabled";
+  allstatus_.SetNotificationsEnabled(true);
+  if (scheduler()) {
+    scheduler()->set_notifications_enabled(true);
+  }
+  // TODO(akalin): Separate onNotificationStateChange into
+  // enabled/disabled events.
+  if (js_event_handler_.IsInitialized()) {
+    DictionaryValue details;
+    details.Set("enabled", Value::CreateBooleanValue(true));
+    js_event_handler_.Call(FROM_HERE,
+                           &JsEventHandler::HandleJsEvent,
+                           "onNotificationStateChange",
+                           JsEventDetails(&details));
+  }
+}
+
+void SyncManagerImpl::SyncInternal::OnNotificationsDisabled(
+    syncer::NotificationsDisabledReason reason) {
+  DVLOG(1) << "Notifications disabled with reason "
+           << syncer::NotificationsDisabledReasonToString(reason);
+  allstatus_.SetNotificationsEnabled(false);
+  if (scheduler()) {
+    scheduler()->set_notifications_enabled(false);
+  }
+  if (js_event_handler_.IsInitialized()) {
+    DictionaryValue details;
+    details.Set("enabled", Value::CreateBooleanValue(false));
+    js_event_handler_.Call(FROM_HERE,
+                           &JsEventHandler::HandleJsEvent,
+                           "onNotificationStateChange",
+                           JsEventDetails(&details));
+  }
+  // TODO(akalin): Treat a CREDENTIALS_REJECTED state as an auth
+  // error.
+}
+
+void SyncManagerImpl::SyncInternal::OnIncomingNotification(
+    const syncer::ModelTypePayloadMap& type_payloads,
+    syncer::IncomingNotificationSource source) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  if (source == syncer::LOCAL_NOTIFICATION) {
+    if (scheduler()) {
+      scheduler()->ScheduleNudgeWithPayloadsAsync(
+          TimeDelta::FromMilliseconds(kSyncRefreshDelayMsec),
+          syncer::NUDGE_SOURCE_LOCAL_REFRESH,
+          type_payloads, FROM_HERE);
+    }
+  } else if (!type_payloads.empty()) {
+    if (scheduler()) {
+      scheduler()->ScheduleNudgeWithPayloadsAsync(
+          TimeDelta::FromMilliseconds(kSyncSchedulerDelayMsec),
+          syncer::NUDGE_SOURCE_NOTIFICATION,
+          type_payloads, FROM_HERE);
+    }
+    allstatus_.IncrementNotificationsReceived();
+    UpdateNotificationInfo(type_payloads);
+    debug_info_event_listener_.OnIncomingNotification(type_payloads);
+  } else {
+    LOG(WARNING) << "Sync received notification without any type information.";
+  }
+
+  if (js_event_handler_.IsInitialized()) {
+    DictionaryValue details;
+    ListValue* changed_types = new ListValue();
+    details.Set("changedTypes", changed_types);
+    for (syncer::ModelTypePayloadMap::const_iterator
+             it = type_payloads.begin();
+         it != type_payloads.end(); ++it) {
+      const std::string& model_type_str =
+          syncer::ModelTypeToString(it->first);
+      changed_types->Append(Value::CreateStringValue(model_type_str));
+    }
+    details.SetString("source", (source == syncer::LOCAL_NOTIFICATION) ?
+        "LOCAL_NOTIFICATION" : "REMOTE_NOTIFICATION");
+    js_event_handler_.Call(FROM_HERE,
+                           &JsEventHandler::HandleJsEvent,
+                           "onIncomingNotification",
+                           JsEventDetails(&details));
+  }
+}
+
+void SyncManagerImpl::SyncInternal::AddObserver(
+    SyncManager::Observer* observer) {
+  observers_.AddObserver(observer);
+}
+
+void SyncManagerImpl::SyncInternal::RemoveObserver(
+    SyncManager::Observer* observer) {
+  observers_.RemoveObserver(observer);
+}
+
+void SyncManagerImpl::SyncInternal::SetSyncSchedulerForTest(
+    scoped_ptr<SyncScheduler> sync_scheduler) {
+  scheduler_ = sync_scheduler.Pass();
+}
+
+SyncStatus SyncManagerImpl::GetDetailedStatus() const {
+  return data_->GetStatus();
+}
+
+void SyncManagerImpl::SaveChanges() {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  data_->SaveChanges();
+}
+
+void SyncManagerImpl::SyncInternal::SaveChanges() {
+  directory()->SaveChanges();
+}
+
+UserShare* SyncManagerImpl::GetUserShare() const {
+  return data_->GetUserShare();
+}
+
+void SyncManagerImpl::RefreshNigori(const std::string& chrome_version,
+                                const base::Closure& done_callback) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  data_->UpdateCryptographerAndNigori(
+      chrome_version,
+      done_callback);
+}
+
+TimeDelta SyncManagerImpl::GetNudgeDelayTimeDelta(
+    const ModelType& model_type) {
+  return data_->GetNudgeDelayTimeDelta(model_type);
+}
+
+void SyncManagerImpl::SetSyncSchedulerForTest(
+    scoped_ptr<SyncScheduler> scheduler) {
+  data_->SetSyncSchedulerForTest(scheduler.Pass());
+}
+
+syncer::ModelTypeSet SyncManagerImpl::GetEncryptedDataTypesForTest() const {
+  ReadTransaction trans(FROM_HERE, GetUserShare());
+  return GetEncryptedTypes(&trans);
+}
+
+bool SyncManagerImpl::ReceivedExperiment(
+    syncer::Experiments* experiments) const {
+  ReadTransaction trans(FROM_HERE, GetUserShare());
+  ReadNode node(&trans);
+  if (node.InitByTagLookup(kNigoriTag) != syncer::BaseNode::INIT_OK) {
+    DVLOG(1) << "Couldn't find Nigori node.";
+    return false;
+  }
+  bool found_experiment = false;
+  if (node.GetNigoriSpecifics().sync_tab_favicons()) {
+    experiments->sync_tab_favicons = true;
+    found_experiment = true;
+  }
+  return found_experiment;
+}
+
+bool SyncManagerImpl::HasUnsyncedItems() const {
+  syncer::ReadTransaction trans(FROM_HERE, GetUserShare());
+  return (trans.GetWrappedTrans()->directory()->unsynced_entity_count() != 0);
+}
+
+void SyncManagerImpl::SimulateEnableNotificationsForTest() {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  data_->OnNotificationsEnabled();
+}
+
+void SyncManagerImpl::SimulateDisableNotificationsForTest(int reason) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  data_->OnNotificationsDisabled(
+      static_cast<syncer::NotificationsDisabledReason>(reason));
+}
+
+void SyncManagerImpl::TriggerOnIncomingNotificationForTest(
+    ModelTypeSet model_types) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  syncer::ModelTypePayloadMap model_types_with_payloads =
+      syncer::ModelTypePayloadMapFromEnumSet(model_types,
+          std::string());
+
+  data_->OnIncomingNotification(model_types_with_payloads,
+                                syncer::REMOTE_NOTIFICATION);
+}
+
+// static.
+int SyncManagerImpl::GetDefaultNudgeDelay() {
+  return kDefaultNudgeDelayMilliseconds;
+}
+
+// static.
+int SyncManagerImpl::GetPreferencesNudgeDelay() {
+  return kPreferencesNudgeDelayMilliseconds;
+}
+
+}  // namespace syncer

@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_BROWSER_DOWNLOAD_BASE_FILE_H_
 #define CONTENT_BROWSER_DOWNLOAD_BASE_FILE_H_
-#pragma once
 
 #include <string>
 
@@ -13,7 +12,6 @@
 #include "base/memory/linked_ptr.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/time.h"
-#include "content/browser/power_save_blocker.h"
 #include "content/common/content_export.h"
 #include "googleurl/src/gurl.h"
 #include "net/base/file_stream.h"
@@ -124,9 +122,6 @@ class CONTENT_EXPORT BaseFile {
 
   // Start time for calculating speed.
   base::TimeTicks start_tick_;
-
-  // RAII handle to keep the system from sleeping while we're downloading.
-  PowerSaveBlocker power_save_blocker_;
 
   // Indicates if hash should be calculated for the file.
   bool calculate_hash_;

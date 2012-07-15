@@ -4,6 +4,7 @@
 
 #include "chrome/browser/chromeos/login/helper.h"
 
+#include "base/command_line.h"
 #include "base/file_util.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/chromeos/cros/network_library.h"
@@ -13,6 +14,7 @@
 #include "grit/theme_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/base/ui_base_switches.h"
 #include "ui/gfx/screen.h"
 #include "ui/views/controls/button/menu_button.h"
 #include "ui/views/controls/label.h"
@@ -41,7 +43,7 @@ views::SmoothedThrobber* CreateDefaultSmoothedThrobber() {
   views::SmoothedThrobber* throbber =
       new views::SmoothedThrobber(kThrobberFrameMs);
   throbber->SetFrames(
-      ResourceBundle::GetSharedInstance().GetBitmapNamed(IDR_SPINNER));
+      ResourceBundle::GetSharedInstance().GetImageSkiaNamed(IDR_SPINNER));
   throbber->set_start_delay_ms(kThrobberStartDelayMs);
   return throbber;
 }
@@ -49,12 +51,12 @@ views::SmoothedThrobber* CreateDefaultSmoothedThrobber() {
 views::Throbber* CreateDefaultThrobber() {
   views::Throbber* throbber = new views::Throbber(kThrobberFrameMs, false);
   throbber->SetFrames(
-      ResourceBundle::GetSharedInstance().GetBitmapNamed(IDR_SPINNER));
+      ResourceBundle::GetSharedInstance().GetImageSkiaNamed(IDR_SPINNER));
   return throbber;
 }
 
 gfx::Rect CalculateScreenBounds(const gfx::Size& size) {
-  gfx::Rect bounds(gfx::Screen::GetMonitorAreaNearestWindow(NULL));
+  gfx::Rect bounds(gfx::Screen::GetPrimaryDisplay().bounds());
   if (!size.IsEmpty()) {
     int horizontal_diff = bounds.width() - size.width();
     int vertical_diff = bounds.height() - size.height();
@@ -87,15 +89,31 @@ string16 GetCurrentNetworkName(NetworkLibrary* network_library) {
     return UTF8ToUTF16(network_library->wifi_network()->name());
   } else if (network_library->cellular_connected()) {
     return UTF8ToUTF16(network_library->cellular_network()->name());
+  } else if (network_library->wimax_connected()) {
+    return UTF8ToUTF16(network_library->wimax_network()->name());
   } else if (network_library->ethernet_connecting()) {
     return l10n_util::GetStringUTF16(IDS_STATUSBAR_NETWORK_DEVICE_ETHERNET);
   } else if (network_library->wifi_connecting()) {
     return UTF8ToUTF16(network_library->wifi_network()->name());
   } else if (network_library->cellular_connecting()) {
     return UTF8ToUTF16(network_library->cellular_network()->name());
+  } else if (network_library->wimax_connecting()) {
+    return UTF8ToUTF16(network_library->wimax_network()->name());
   } else {
     return string16();
   }
+}
+
+int GetCurrentUserImageSize() {
+  // The biggest size that the profile picture is displayed at is currently
+  // 220px, used for the big preview on OOBE and Change Picture options page.
+  static const int kBaseUserImageSize = 220;
+  float scale_factor = gfx::Display::GetForcedDeviceScaleFactor();
+  if (scale_factor > 1.0f)
+    return static_cast<int>(scale_factor * kBaseUserImageSize);
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kLoad2xResources))
+    return 2 * kBaseUserImageSize;
+  return kBaseUserImageSize;
 }
 
 }  // namespace chromeos

@@ -25,6 +25,8 @@ const CommandLinePrefStore::StringSwitchToPreferenceMapEntry
           prefs::kAuthNegotiateDelegateWhitelist },
       { switches::kGSSAPILibraryName, prefs::kGSSAPILibraryName },
       { switches::kDiskCacheDir, prefs::kDiskCacheDir },
+      { switches::kSSLVersionMin, prefs::kSSLVersionMin },
+      { switches::kSSLVersionMax, prefs::kSSLVersionMax },
 };
 
 const CommandLinePrefStore::BooleanSwitchToPreferenceMapEntry
@@ -47,8 +49,6 @@ const CommandLinePrefStore::BooleanSwitchToPreferenceMapEntry
         prefs::kWebKitAllowDisplayingInsecureContent, false },
       { switches::kAllowCrossOriginAuthPrompt,
         prefs::kAllowCrossOriginAuthPrompt, true },
-      { switches::kDisableSSL3, prefs::kSSL3Enabled, false },
-      { switches::kDisableTLS1, prefs::kTLS1Enabled, false },
       { switches::kEnableOriginBoundCerts, prefs::kEnableOriginBoundCerts,
           true },
       { switches::kDisableSSLFalseStart, prefs::kDisableSSLRecordSplitting,
@@ -61,6 +61,8 @@ const CommandLinePrefStore::BooleanSwitchToPreferenceMapEntry
 #endif
 #if defined(OS_CHROMEOS)
       { switches::kDisableGData, prefs::kDisableGData, true },
+      { switches::kEnableTouchpadThreeFingerClick,
+          prefs::kEnableTouchpadThreeFingerClick, true },
 #endif
 };
 
@@ -80,6 +82,19 @@ CommandLinePrefStore::CommandLinePrefStore(const CommandLine* command_line)
 }
 
 CommandLinePrefStore::~CommandLinePrefStore() {}
+
+bool CommandLinePrefStore::ValidateProxySwitches() {
+  if (command_line_->HasSwitch(switches::kNoProxyServer) &&
+      (command_line_->HasSwitch(switches::kProxyAutoDetect) ||
+       command_line_->HasSwitch(switches::kProxyServer) ||
+       command_line_->HasSwitch(switches::kProxyPacUrl) ||
+       command_line_->HasSwitch(switches::kProxyBypassList))) {
+    LOG(WARNING) << "Additional command-line proxy switches specified when --"
+                 << switches::kNoProxyServer << " was also specified.";
+    return false;
+  }
+  return true;
+}
 
 void CommandLinePrefStore::ApplySimpleSwitches() {
   // Look for each switch we know about and set its preference accordingly.
@@ -114,19 +129,6 @@ void CommandLinePrefStore::ApplySimpleSwitches() {
       SetValue(boolean_switch_map_[i].preference_path, value);
     }
   }
-}
-
-bool CommandLinePrefStore::ValidateProxySwitches() {
-  if (command_line_->HasSwitch(switches::kNoProxyServer) &&
-      (command_line_->HasSwitch(switches::kProxyAutoDetect) ||
-       command_line_->HasSwitch(switches::kProxyServer) ||
-       command_line_->HasSwitch(switches::kProxyPacUrl) ||
-       command_line_->HasSwitch(switches::kProxyBypassList))) {
-    LOG(WARNING) << "Additional command-line proxy switches specified when --"
-                 << switches::kNoProxyServer << " was also specified.";
-    return false;
-  }
-  return true;
 }
 
 void CommandLinePrefStore::ApplyProxyMode() {

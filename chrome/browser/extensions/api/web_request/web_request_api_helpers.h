@@ -6,7 +6,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_API_WEB_REQUEST_WEB_REQUEST_API_HELPERS_H_
 #define CHROME_BROWSER_EXTENSIONS_API_WEB_REQUEST_WEB_REQUEST_API_HELPERS_H_
-#pragma once
 
 #include <list>
 #include <set>
@@ -18,13 +17,22 @@
 #include "base/time.h"
 #include "googleurl/src/gurl.h"
 #include "net/base/auth.h"
-#include "net/base/net_log.h"
 #include "net/http/http_request_headers.h"
 #include "net/http/http_response_headers.h"
+#include "webkit/glue/resource_type.h"
 
 namespace base {
 class ListValue;
 class Value;
+}
+
+namespace extensions {
+class Extension;
+}
+
+namespace net {
+class BoundNetLog;
+class URLRequest;
 }
 
 namespace extension_web_request_api_helpers {
@@ -70,20 +78,6 @@ struct EventResponseDelta {
 };
 
 typedef std::list<linked_ptr<EventResponseDelta> > EventResponseDeltas;
-
-// Container for NetLog events that shall be reported.
-struct EventLogEntry {
-  net::NetLog::EventType event_type;
-  scoped_refptr<net::NetLog::EventParameters> params;
-
-  EventLogEntry(net::NetLog::EventType event_type,
-                const scoped_refptr<net::NetLog::EventParameters>& params);
-  ~EventLogEntry();
-
-  // Allow implicit copy and assignment.
-};
-
-typedef std::list<EventLogEntry> EventLogEntries;
 
 // Comparison operator that returns true if the extension that caused
 // |a| was installed after the extension that caused |b|.
@@ -141,7 +135,7 @@ EventResponseDelta* CalculateOnAuthRequiredDelta(
 void MergeCancelOfResponses(
     const EventResponseDeltas& deltas,
     bool* canceled,
-    EventLogEntries* event_log_entries);
+    const net::BoundNetLog* net_log);
 // Stores in |*new_url| the redirect request of the extension with highest
 // precedence. Extensions that did not command to redirect the request are
 // ignored in this logic.
@@ -149,14 +143,14 @@ void MergeOnBeforeRequestResponses(
     const EventResponseDeltas& deltas,
     GURL* new_url,
     std::set<std::string>* conflicting_extensions,
-    EventLogEntries* event_log_entries);
+    const net::BoundNetLog* net_log);
 // Modifies the headers in |request_headers| according to |deltas|. Conflicts
 // are tried to be resolved.
 void MergeOnBeforeSendHeadersResponses(
     const EventResponseDeltas& deltas,
     net::HttpRequestHeaders* request_headers,
     std::set<std::string>* conflicting_extensions,
-    EventLogEntries* event_log_entries);
+    const net::BoundNetLog* net_log);
 // Stores a copy of |original_response_header| into |override_response_headers|
 // that is modified according to |deltas|. If |deltas| does not instruct to
 // modify the response headers, |override_response_headers| remains empty.
@@ -165,7 +159,7 @@ void MergeOnHeadersReceivedResponses(
     const net::HttpResponseHeaders* original_response_headers,
     scoped_refptr<net::HttpResponseHeaders>* override_response_headers,
     std::set<std::string>* conflicting_extensions,
-    EventLogEntries* event_log_entries);
+    const net::BoundNetLog* net_log);
 // Merge the responses of blocked onAuthRequired handlers. The first
 // registered listener that supplies authentication credentials in a response,
 // if any, will have its authentication credentials used. |request| must be
@@ -176,7 +170,30 @@ bool MergeOnAuthRequiredResponses(
     const EventResponseDeltas& deltas,
     net::AuthCredentials* auth_credentials,
     std::set<std::string>* conflicting_extensions,
-    EventLogEntries* event_log_entries);
+    const net::BoundNetLog* net_log);
+
+// Returns true if the request shall not be reported to extensions.
+bool HideRequest(const net::URLRequest* request);
+
+// Returns whether |type| is a ResourceType that is handled by the web request
+// API.
+bool IsRelevantResourceType(ResourceType::Type type);
+
+// Returns a string representation of |type| or |other| if |type| is not handled
+// by the web request API.
+const char* ResourceTypeToString(ResourceType::Type type);
+
+// Stores a |ResourceType::Type| representation in |type| if |type_str| is
+// a resource type handled by the web request API. Returns true in case of
+// success.
+bool ParseResourceType(const std::string& type_str,
+                       ResourceType::Type* type);
+
+// Returns whether |extension| may access |url| based on host permissions.
+// In addition to that access is granted to about: URLs and extension URLs
+// that are in the scope of |extension|.
+bool CanExtensionAccessURL(const extensions::Extension* extension,
+                           const GURL& url);
 
 }  // namespace extension_web_request_api_helpers
 

@@ -4,12 +4,11 @@
 
 #ifndef CONTENT_PUBLIC_BROWSER_UTILITY_PROCESS_HOST_H_
 #define CONTENT_PUBLIC_BROWSER_UTILITY_PROCESS_HOST_H_
-#pragma once
 
 #include "base/process_util.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/browser_thread.h"
-#include "ipc/ipc_message.h"
+#include "ipc/ipc_sender.h"
 
 class FilePath;
 
@@ -28,7 +27,7 @@ class UtilityProcessHostClient;
 // Note: If your class keeps a ptr to an object of this type, grab a weak ptr to
 // avoid a use after free since this object is deleted synchronously but the
 // client notification is asynchronous.  See http://crbug.com/108871.
-class UtilityProcessHost : public IPC::Message::Sender,
+class UtilityProcessHost : public IPC::Sender,
                            public base::SupportsWeakPtr<UtilityProcessHost> {
  public:
   // Used to create a utility process.

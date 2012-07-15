@@ -1,13 +1,26 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/ui/views/tabs/fake_base_tab_strip_controller.h"
 
-FakeBaseTabStripController::FakeBaseTabStripController() {
+#include "chrome/browser/ui/views/tabs/tab_renderer_data.h"
+#include "chrome/browser/ui/views/tabs/tab_strip.h"
+
+FakeBaseTabStripController::FakeBaseTabStripController() : num_tabs_(0) {
 }
 
 FakeBaseTabStripController::~FakeBaseTabStripController() {
+}
+
+void FakeBaseTabStripController::AddTab(int index) {
+  num_tabs_++;
+  tab_strip_->AddTabAt(index, TabRendererData(), false);
+}
+
+void FakeBaseTabStripController::RemoveTab(int index) {
+  num_tabs_--;
+  tab_strip_->RemoveTabAt(index);
 }
 
 const TabStripSelectionModel& FakeBaseTabStripController::GetSelectionModel() {
@@ -15,15 +28,19 @@ const TabStripSelectionModel& FakeBaseTabStripController::GetSelectionModel() {
 }
 
 int FakeBaseTabStripController::GetCount() const {
-  return 0;
+  return num_tabs_;
 }
 
 bool FakeBaseTabStripController::IsValidIndex(int index) const {
-  return false;
+  return index >= 0 && index < num_tabs_;
 }
 
 bool FakeBaseTabStripController::IsActiveTab(int index) const {
   return false;
+}
+
+int FakeBaseTabStripController::GetActiveIndex() const {
+  return -1;
 }
 
 bool FakeBaseTabStripController::IsTabSelected(int index) const {
@@ -31,10 +48,6 @@ bool FakeBaseTabStripController::IsTabSelected(int index) const {
 }
 
 bool FakeBaseTabStripController::IsTabPinned(int index) const {
-  return false;
-}
-
-bool FakeBaseTabStripController::IsTabCloseable(int index) const {
   return false;
 }
 
@@ -89,4 +102,7 @@ void FakeBaseTabStripController::ClickActiveTab(int index) {
 
 bool FakeBaseTabStripController::IsIncognito() {
   return false;
+}
+
+void FakeBaseTabStripController::LayoutTypeMaybeChanged() {
 }

@@ -4,10 +4,11 @@
 
 #ifndef UI_GFX_RENDER_TEXT_H_
 #define UI_GFX_RENDER_TEXT_H_
-#pragma once
 
 #include <algorithm>
+#include <cstring>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "base/gtest_prod_util.h"
@@ -20,13 +21,18 @@
 #include "ui/gfx/point.h"
 #include "ui/gfx/rect.h"
 #include "ui/gfx/selection_model.h"
+#include "ui/gfx/shadow_value.h"
 
 class SkCanvas;
+class SkDrawLooper;
 struct SkPoint;
+class SkShader;
+class SkTypeface;
 
 namespace gfx {
 
 class Canvas;
+class Font;
 class RenderTextTest;
 struct StyleRange;
 
@@ -38,14 +44,17 @@ class SkiaTextRenderer {
   explicit SkiaTextRenderer(Canvas* canvas);
   ~SkiaTextRenderer();
 
+  void SetDrawLooper(SkDrawLooper* draw_looper);
   void SetFontSmoothingSettings(bool enable_smoothing, bool enable_lcd_text);
   void SetTypeface(SkTypeface* typeface);
-  void SetTextSize(int size);
-  void SetFont(const gfx::Font& font);
+  void SetTextSize(SkScalar size);
   void SetFontFamilyWithStyle(const std::string& family, int font_style);
-  void SetFontStyle(int font_style);
   void SetForegroundColor(SkColor foreground);
-  void SetShader(SkShader* shader);
+  void SetShader(SkShader* shader, const Rect& bounds);
+  // Sets underline metrics to use if the text will be drawn with an underline.
+  // If not set, default values based on the size of the text will be used. The
+  // two metrics must be set together.
+  void SetUnderlineMetrics(SkScalar thickness, SkScalar position);
   void DrawSelection(const std::vector<Rect>& selection, SkColor color);
   void DrawPosText(const SkPoint* pos,
                    const uint16* glyphs,
@@ -54,7 +63,12 @@ class SkiaTextRenderer {
 
  private:
   SkCanvas* canvas_skia_;
+  bool started_drawing_;
   SkPaint paint_;
+  SkRect bounds_;
+  SkRefPtr<SkShader> deferred_fade_shader_;
+  SkScalar underline_thickness_;
+  SkScalar underline_position_;
 
   DISALLOW_COPY_AND_ASSIGN(SkiaTextRenderer);
 };
@@ -102,7 +116,7 @@ class UI_EXPORT RenderText {
   virtual ~RenderText();
 
   // Creates a platform-specific RenderText instance.
-  static RenderText* CreateRenderText();
+  static RenderText* CreateInstance();
 
   const string16& text() const { return text_; }
   void SetText(const string16& text);
@@ -133,8 +147,28 @@ class UI_EXPORT RenderText {
   SkColor cursor_color() const { return cursor_color_; }
   void set_cursor_color(SkColor color) { cursor_color_ = color; }
 
+  SkColor selection_color() const { return selection_color_; }
+  void set_selection_color(SkColor color) { selection_color_ = color; }
+
+  SkColor selection_background_focused_color() const {
+    return selection_background_focused_color_;
+  }
+  void set_selection_background_focused_color(SkColor color) {
+    selection_background_focused_color_ = color;
+  }
+
+  SkColor selection_background_unfocused_color() const {
+    return selection_background_unfocused_color_;
+  }
+  void set_selection_background_unfocused_color(SkColor color) {
+    selection_background_unfocused_color_ = color;
+  }
+
   bool focused() const { return focused_; }
   void set_focused(bool focused) { focused_ = focused; }
+
+  bool clip_to_display_rect() const { return clip_to_display_rect_; }
+  void set_clip_to_display_rect(bool clip) { clip_to_display_rect_ = clip; }
 
   const StyleRange& default_style() const { return default_style_; }
   void set_default_style(const StyleRange& style) { default_style_ = style; }
@@ -192,9 +226,15 @@ class UI_EXPORT RenderText {
   // Returns true if the local point is over selected text.
   bool IsPointInSelection(const Point& point);
 
-  // Selects no text, all text, or the word at the current cursor position.
+  // Selects no text, keeping the current cursor position and caret affinity.
   void ClearSelection();
-  void SelectAll();
+
+  // Select the entire text range. If |reversed| is true, the range will end at
+  // the logical beginning of the text; this generally shows the leading portion
+  // of text that overflows its display area.
+  void SelectAll(bool reversed);
+
+  // Selects the word at the current cursor position.
   void SelectWord();
 
   const ui::Range& GetCompositionRange() const;
@@ -214,8 +254,15 @@ class UI_EXPORT RenderText {
   // |GetTextDirection()|, not the direction of a particular run.
   VisualCursorDirection GetVisualDirectionOfLogicalEnd();
 
-  // Get the size in pixels of the entire string.
+  // Returns the size in pixels of the entire string. For the height, this will
+  // return the maximum height among the different fonts in the text runs.
+  // Note that this returns the raw size of the string, which does not include
+  // the margin area of text shadows.
   virtual Size GetStringSize() = 0;
+
+  // Returns the common baseline of the text. The returned value is the vertical
+  // offset from the top of |display_rect| to the text baseline, in pixels.
+  virtual int GetBaseline() = 0;
 
   void Draw(Canvas* canvas);
 
@@ -240,12 +287,22 @@ class UI_EXPORT RenderText {
   // range 0 to text().length() inclusive (the input is clamped if it is out of
   // that range). Always moves by at least one character index unless the
   // supplied index is already at the boundary of the string.
-  virtual size_t IndexOfAdjacentGrapheme(size_t index,
-                                         LogicalCursorDirection direction) = 0;
+  size_t IndexOfAdjacentGrapheme(size_t index,
+                                 LogicalCursorDirection direction);
 
   // Return a SelectionModel with the cursor at the current selection's start.
   // The returned value represents a cursor/caret position without a selection.
   SelectionModel GetSelectionModelForSelectionStart();
+
+  // Sets shadows to drawn with text.
+  void SetTextShadows(const ShadowValues& shadows);
+
+  typedef std::pair<Font, ui::Range> FontSpan;
+  // For testing purposes, returns which fonts were chosen for which parts of
+  // the text by returning a vector of Font and Range pairs, where each range
+  // specifies the character range for which the corresponding font has been
+  // chosen.
+  virtual std::vector<FontSpan> GetFontSpansForTesting() = 0;
 
  protected:
   RenderText();
@@ -333,11 +390,15 @@ class UI_EXPORT RenderText {
   // Returns display offset based on current text alignment.
   Point GetAlignmentOffset();
 
-  // Returns the origin point for drawing text via Skia.
-  Point GetOriginForSkiaDrawing();
+  // Returns the origin point for drawing text. Does not account for font
+  // baseline, as needed by Skia.
+  Point GetOriginForDrawing();
 
   // Applies fade effects to |renderer|.
   void ApplyFadeEffects(internal::SkiaTextRenderer* renderer);
+
+  // Applies text shadows to |renderer|.
+  void ApplyTextShadows(internal::SkiaTextRenderer* renderer);
 
   // A convenience function to check whether the glyph attached to the caret
   // is within the given range.
@@ -355,7 +416,7 @@ class UI_EXPORT RenderText {
   FRIEND_TEST_ALL_PREFIXES(RenderTextTest, PasswordCensorship);
   FRIEND_TEST_ALL_PREFIXES(RenderTextTest, GraphemePositions);
   FRIEND_TEST_ALL_PREFIXES(RenderTextTest, EdgeSelectionModels);
-  FRIEND_TEST_ALL_PREFIXES(RenderTextTest, OriginForSkiaDrawing);
+  FRIEND_TEST_ALL_PREFIXES(RenderTextTest, OriginForDrawing);
 
   // Set the cursor to |position|, with the caret trailing the previous
   // grapheme, or if there is no previous grapheme, leading the cursor position.
@@ -398,6 +459,15 @@ class UI_EXPORT RenderText {
   // The color used for the cursor.
   SkColor cursor_color_;
 
+  // The color used for drawing selected text.
+  SkColor selection_color_;
+
+  // The background color used for drawing the selection when focused.
+  SkColor selection_background_focused_color_;
+
+  // The background color used for drawing the selection when not focused.
+  SkColor selection_background_unfocused_color_;
+
   // The focus state of the text.
   bool focused_;
 
@@ -422,6 +492,12 @@ class UI_EXPORT RenderText {
   // The local display area for rendering the text.
   Rect display_rect_;
 
+  // Flag to work around a Skia bug with the PDF path (http://crbug.com/133548)
+  // that results in incorrect clipping when drawing to the document margins.
+  // This field allows disabling clipping to work around the issue.
+  // TODO(asvitkine): Remove this when the underlying Skia bug is fixed.
+  bool clip_to_display_rect_;
+
   // The offset for the text to be drawn, relative to the display area.
   // Get this point with GetUpdatedDisplayOffset (or risk using a stale value).
   Point display_offset_;
@@ -429,6 +505,9 @@ class UI_EXPORT RenderText {
   // The cached bounds and offset are invalidated by changes to the cursor,
   // selection, font, and other operations that adjust the visible text bounds.
   bool cached_bounds_and_offset_valid_;
+
+  // Text shadows to be drawn.
+  ShadowValues text_shadows_;
 
   DISALLOW_COPY_AND_ASSIGN(RenderText);
 };

@@ -4,7 +4,6 @@
 
 #ifndef ASH_WM_STACKING_CONTROLLER_H_
 #define ASH_WM_STACKING_CONTROLLER_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
@@ -22,7 +21,8 @@ class StackingController : public aura::client::StackingClient {
   virtual ~StackingController();
 
   // Overridden from aura::client::StackingClient:
-  virtual aura::Window* GetDefaultParent(aura::Window* window) OVERRIDE;
+  virtual aura::Window* GetDefaultParent(aura::Window* window,
+                                         const gfx::Rect& bounds) OVERRIDE;
 
  private:
   // Returns corresponding system modal container for a modal window.
@@ -30,9 +30,13 @@ class StackingController : public aura::client::StackingClient {
   // normal modal container.
   // Otherwise those that originate from LockScreen container and above are
   // placed in the screen lock modal container.
-  aura::Window* GetSystemModalContainer(aura::Window* window) const;
+  aura::Window* GetSystemModalContainer(aura::Window* window,
+                                        const gfx::Rect& bounds) const;
 
-  scoped_ptr<internal::AlwaysOnTopController> always_on_top_controller_;
+  // Returns the AlwaysOnTopController of the root window that matches
+  // |bounds|.
+  internal::AlwaysOnTopController* GetAlwaysOnTopController(
+      const gfx::Rect& bounds);
 
   DISALLOW_COPY_AND_ASSIGN(StackingController);
 };

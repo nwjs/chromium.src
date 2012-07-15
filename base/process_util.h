@@ -7,9 +7,9 @@
 
 #ifndef BASE_PROCESS_UTIL_H_
 #define BASE_PROCESS_UTIL_H_
-#pragma once
 
 #include "base/basictypes.h"
+#include "base/time.h"
 
 #if defined(OS_WIN)
 #include <windows.h>
@@ -145,7 +145,8 @@ BASE_EXPORT ProcessId GetCurrentProcId();
 BASE_EXPORT ProcessHandle GetCurrentProcessHandle();
 
 #if defined(OS_WIN)
-// Returns the module handle to which an address belongs.
+// Returns the module handle to which an address belongs. The reference count
+// of the module is not incremented.
 BASE_EXPORT HMODULE GetModuleFromAddress(void* address);
 #endif
 
@@ -420,6 +421,12 @@ BASE_EXPORT bool SetJobObjectAsKillOnJobClose(HANDLE job_object);
 BASE_EXPORT bool GetAppOutput(const CommandLine& cl, std::string* output);
 
 #if defined(OS_POSIX)
+// A POSIX-specific version of GetAppOutput that takes an argv array
+// instead of a CommandLine.  Useful for situations where you need to
+// control the command line arguments directly.
+BASE_EXPORT bool GetAppOutput(const std::vector<std::string>& argv,
+                              std::string* output);
+
 // A restricted version of |GetAppOutput()| which (a) clears the environment,
 // and (b) stores at most |max_output| bytes; also, it doesn't search the path
 // for the command.
@@ -502,6 +509,9 @@ BASE_EXPORT bool WaitForExitCode(ProcessHandle handle, int* exit_code);
 BASE_EXPORT bool WaitForExitCodeWithTimeout(ProcessHandle handle,
                                             int* exit_code,
                                             int64 timeout_milliseconds);
+BASE_EXPORT bool WaitForExitCodeWithTimeout(ProcessHandle handle,
+                                            int* exit_code,
+                                            base::TimeDelta timeout);
 
 // Wait for all the processes based on the named executable to exit.  If filter
 // is non-null, then only processes selected by the filter are waited on.
@@ -511,12 +521,18 @@ BASE_EXPORT bool WaitForProcessesToExit(
     const FilePath::StringType& executable_name,
     int64 wait_milliseconds,
     const ProcessFilter* filter);
+BASE_EXPORT bool WaitForProcessesToExit(
+    const FilePath::StringType& executable_name,
+    base::TimeDelta wait,
+    const ProcessFilter* filter);
 
 // Wait for a single process to exit. Return true if it exited cleanly within
 // the given time limit. On Linux |handle| must be a child process, however
 // on Mac and Windows it can be any process.
 BASE_EXPORT bool WaitForSingleProcess(ProcessHandle handle,
                                       int64 wait_milliseconds);
+BASE_EXPORT bool WaitForSingleProcess(ProcessHandle handle,
+                                      base::TimeDelta wait);
 
 // Waits a certain amount of time (can be 0) for all the processes with a given
 // executable name to exit, then kills off any of them that are still around.
@@ -682,7 +698,7 @@ class BASE_EXPORT ProcessMetrics {
 
   // Creates a ProcessMetrics for the specified process.
   // The caller owns the returned object.
-#if !defined(OS_MACOSX)
+#if !defined(OS_MACOSX) || defined(OS_IOS)
   static ProcessMetrics* CreateProcessMetrics(ProcessHandle process);
 #else
   class PortProvider {
@@ -699,7 +715,7 @@ class BASE_EXPORT ProcessMetrics {
   // only returns valid metrics if |process| is the current process.
   static ProcessMetrics* CreateProcessMetrics(ProcessHandle process,
                                               PortProvider* port_provider);
-#endif  // !defined(OS_MACOSX)
+#endif  // !defined(OS_MACOSX) || defined(OS_IOS)
 
   // Returns the current space allocated for the pagefile, in bytes (these pages
   // may or may not be in memory).  On Linux, this returns the total virtual
@@ -747,11 +763,11 @@ class BASE_EXPORT ProcessMetrics {
   bool GetIOCounters(IoCounters* io_counters) const;
 
  private:
-#if !defined(OS_MACOSX)
+#if !defined(OS_MACOSX) || defined(OS_IOS)
   explicit ProcessMetrics(ProcessHandle process);
 #else
   ProcessMetrics(ProcessHandle process, PortProvider* port_provider);
-#endif  // defined(OS_MACOSX)
+#endif  // !defined(OS_MACOSX) || defined(OS_IOS)
 
   ProcessHandle process_;
 
@@ -762,6 +778,7 @@ class BASE_EXPORT ProcessMetrics {
   int64 last_time_;
   int64 last_system_time_;
 
+#if !defined(OS_IOS)
 #if defined(OS_MACOSX)
   // Queries the port provider if it's set.
   mach_port_t TaskForPid(ProcessHandle process) const;
@@ -771,6 +788,7 @@ class BASE_EXPORT ProcessMetrics {
   // Jiffie count at the last_time_ we updated.
   int last_cpu_;
 #endif  // defined(OS_POSIX)
+#endif  // !defined(OS_IOS)
 
   DISALLOW_COPY_AND_ASSIGN(ProcessMetrics);
 };
@@ -778,15 +796,17 @@ class BASE_EXPORT ProcessMetrics {
 #if defined(OS_LINUX) || defined(OS_ANDROID)
 // Data from /proc/meminfo about system-wide memory consumption.
 // Values are in KB.
-struct SystemMemoryInfoKB {
-  SystemMemoryInfoKB() : total(0), free(0), buffers(0), cached(0),
-      active_anon(0), inactive_anon(0), shmem(0) {}
+struct BASE_EXPORT SystemMemoryInfoKB {
+  SystemMemoryInfoKB();
+
   int total;
   int free;
   int buffers;
   int cached;
   int active_anon;
   int inactive_anon;
+  int active_file;
+  int inactive_file;
   int shmem;
 };
 // Retrieves data from /proc/meminfo about system-wide memory consumption.

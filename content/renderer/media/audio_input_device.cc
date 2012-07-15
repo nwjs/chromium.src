@@ -21,7 +21,7 @@
 class AudioInputDevice::AudioThreadCallback
     : public AudioDeviceThread::Callback {
  public:
-  AudioThreadCallback(const AudioParameters& audio_parameters,
+  AudioThreadCallback(const media::AudioParameters& audio_parameters,
                       base::SharedMemoryHandle memory,
                       int memory_length,
                       CaptureCallback* capture_callback);
@@ -37,36 +37,32 @@ class AudioInputDevice::AudioThreadCallback
   DISALLOW_COPY_AND_ASSIGN(AudioThreadCallback);
 };
 
-AudioInputDevice::AudioInputDevice(const AudioParameters& params,
+AudioInputDevice::AudioInputDevice(const media::AudioParameters& params,
                                    CaptureCallback* callback,
                                    CaptureEventHandler* event_handler)
-    : ScopedLoopObserver(ChildProcess::current()->io_message_loop()),
+    : ScopedLoopObserver(
+          ChildProcess::current()->io_message_loop()->message_loop_proxy()),
       audio_parameters_(params),
       callback_(callback),
       event_handler_(event_handler),
       volume_(1.0),
       stream_id_(0),
       session_id_(0),
-      pending_device_ready_(false) {
+      pending_device_ready_(false),
+      agc_is_enabled_(false) {
   filter_ = RenderThreadImpl::current()->audio_input_message_filter();
-}
-
-AudioInputDevice::~AudioInputDevice() {
-  // TODO(henrika): The current design requires that the user calls
-  // Stop before deleting this class.
-  CHECK_EQ(0, stream_id_);
-}
-
-void AudioInputDevice::Start() {
-  DVLOG(1) << "Start()";
-  message_loop()->PostTask(FROM_HERE,
-      base::Bind(&AudioInputDevice::InitializeOnIOThread, this));
 }
 
 void AudioInputDevice::SetDevice(int session_id) {
   DVLOG(1) << "SetDevice (session_id=" << session_id << ")";
   message_loop()->PostTask(FROM_HERE,
       base::Bind(&AudioInputDevice::SetSessionIdOnIOThread, this, session_id));
+}
+
+void AudioInputDevice::Start() {
+  DVLOG(1) << "Start()";
+  message_loop()->PostTask(FROM_HERE,
+      base::Bind(&AudioInputDevice::InitializeOnIOThread, this));
 }
 
 void AudioInputDevice::Stop() {
@@ -82,75 +78,20 @@ void AudioInputDevice::Stop() {
 }
 
 bool AudioInputDevice::SetVolume(double volume) {
-  NOTIMPLEMENTED();
-  return false;
+  if (volume < 0 || volume > 1.0)
+    return false;
+
+  message_loop()->PostTask(FROM_HERE,
+      base::Bind(&AudioInputDevice::SetVolumeOnIOThread, this, volume));
+
+  return true;
 }
 
-bool AudioInputDevice::GetVolume(double* volume) {
-  NOTIMPLEMENTED();
-  return false;
-}
-
-void AudioInputDevice::InitializeOnIOThread() {
-  DCHECK(message_loop()->BelongsToCurrentThread());
-  // Make sure we don't call Start() more than once.
-  DCHECK_EQ(0, stream_id_);
-  if (stream_id_)
-    return;
-
-  stream_id_ = filter_->AddDelegate(this);
-  // If |session_id_| is not specified, it will directly create the stream;
-  // otherwise it will send a AudioInputHostMsg_StartDevice msg to the browser
-  // and create the stream when getting a OnDeviceReady() callback.
-  if (!session_id_) {
-    Send(new AudioInputHostMsg_CreateStream(
-        stream_id_, audio_parameters_, AudioManagerBase::kDefaultDeviceId));
-  } else {
-    Send(new AudioInputHostMsg_StartDevice(stream_id_, session_id_));
-    pending_device_ready_ = true;
-  }
-}
-
-void AudioInputDevice::SetSessionIdOnIOThread(int session_id) {
-  DCHECK(message_loop()->BelongsToCurrentThread());
-  session_id_ = session_id;
-}
-
-void AudioInputDevice::StartOnIOThread() {
-  DCHECK(message_loop()->BelongsToCurrentThread());
-  if (stream_id_)
-    Send(new AudioInputHostMsg_RecordStream(stream_id_));
-}
-
-void AudioInputDevice::ShutDownOnIOThread() {
-  DCHECK(message_loop()->BelongsToCurrentThread());
-  // NOTE: |completion| may be NULL.
-  // Make sure we don't call shutdown more than once.
-  if (stream_id_) {
-    filter_->RemoveDelegate(stream_id_);
-    Send(new AudioInputHostMsg_CloseStream(stream_id_));
-
-    stream_id_ = 0;
-    session_id_ = 0;
-    pending_device_ready_ = false;
-  }
-
-  // We can run into an issue where ShutDownOnIOThread is called right after
-  // OnStreamCreated is called in cases where Start/Stop are called before we
-  // get the OnStreamCreated callback.  To handle that corner case, we call
-  // Stop(). In most cases, the thread will already be stopped.
-  // Another situation is when the IO thread goes away before Stop() is called
-  // in which case, we cannot use the message loop to close the thread handle
-  // and can't not rely on the main thread existing either.
-  base::ThreadRestrictions::ScopedAllowIO allow_io;
-  audio_thread_.Stop(NULL);
-  audio_callback_.reset();
-}
-
-void AudioInputDevice::SetVolumeOnIOThread(double volume) {
-  DCHECK(message_loop()->BelongsToCurrentThread());
-  if (stream_id_)
-    Send(new AudioInputHostMsg_SetVolume(stream_id_, volume));
+void AudioInputDevice::SetAutomaticGainControl(bool enabled) {
+  DVLOG(1) << "SetAutomaticGainControl(enabled=" << enabled << ")";
+  message_loop()->PostTask(FROM_HERE,
+      base::Bind(&AudioInputDevice::SetAutomaticGainControlOnIOThread,
+          this, enabled));
 }
 
 void AudioInputDevice::OnStreamCreated(
@@ -250,13 +191,96 @@ void AudioInputDevice::OnDeviceReady(const std::string& device_id) {
     stream_id_ = 0;
   } else {
     Send(new AudioInputHostMsg_CreateStream(stream_id_, audio_parameters_,
-                                            device_id));
+                                            device_id, agc_is_enabled_));
   }
 
   pending_device_ready_ = false;
   // Notify the client that the device has been started.
   if (event_handler_)
     event_handler_->OnDeviceStarted(device_id);
+}
+
+AudioInputDevice::~AudioInputDevice() {
+  // TODO(henrika): The current design requires that the user calls
+  // Stop before deleting this class.
+  CHECK_EQ(0, stream_id_);
+}
+
+void AudioInputDevice::InitializeOnIOThread() {
+  DCHECK(message_loop()->BelongsToCurrentThread());
+  // Make sure we don't call Start() more than once.
+  DCHECK_EQ(0, stream_id_);
+  if (stream_id_)
+    return;
+
+  stream_id_ = filter_->AddDelegate(this);
+  // If |session_id_| is not specified, it will directly create the stream;
+  // otherwise it will send a AudioInputHostMsg_StartDevice msg to the browser
+  // and create the stream when getting a OnDeviceReady() callback.
+  if (!session_id_) {
+    Send(new AudioInputHostMsg_CreateStream(
+        stream_id_, audio_parameters_,
+        media::AudioManagerBase::kDefaultDeviceId,
+        agc_is_enabled_));
+  } else {
+    Send(new AudioInputHostMsg_StartDevice(stream_id_, session_id_));
+    pending_device_ready_ = true;
+  }
+}
+
+void AudioInputDevice::SetSessionIdOnIOThread(int session_id) {
+  DCHECK(message_loop()->BelongsToCurrentThread());
+  session_id_ = session_id;
+}
+
+void AudioInputDevice::StartOnIOThread() {
+  DCHECK(message_loop()->BelongsToCurrentThread());
+  if (stream_id_)
+    Send(new AudioInputHostMsg_RecordStream(stream_id_));
+}
+
+void AudioInputDevice::ShutDownOnIOThread() {
+  DCHECK(message_loop()->BelongsToCurrentThread());
+  // NOTE: |completion| may be NULL.
+  // Make sure we don't call shutdown more than once.
+  if (stream_id_) {
+    filter_->RemoveDelegate(stream_id_);
+    Send(new AudioInputHostMsg_CloseStream(stream_id_));
+
+    stream_id_ = 0;
+    session_id_ = 0;
+    pending_device_ready_ = false;
+    agc_is_enabled_ = false;
+  }
+
+  // We can run into an issue where ShutDownOnIOThread is called right after
+  // OnStreamCreated is called in cases where Start/Stop are called before we
+  // get the OnStreamCreated callback.  To handle that corner case, we call
+  // Stop(). In most cases, the thread will already be stopped.
+  // Another situation is when the IO thread goes away before Stop() is called
+  // in which case, we cannot use the message loop to close the thread handle
+  // and can't not rely on the main thread existing either.
+  base::ThreadRestrictions::ScopedAllowIO allow_io;
+  audio_thread_.Stop(NULL);
+  audio_callback_.reset();
+}
+
+void AudioInputDevice::SetVolumeOnIOThread(double volume) {
+  DCHECK(message_loop()->BelongsToCurrentThread());
+  if (stream_id_)
+    Send(new AudioInputHostMsg_SetVolume(stream_id_, volume));
+}
+
+void AudioInputDevice::SetAutomaticGainControlOnIOThread(bool enabled) {
+  DCHECK(message_loop()->BelongsToCurrentThread());
+  DCHECK_EQ(0, stream_id_) <<
+      "The AGC state can not be modified while capturing is active.";
+  if (stream_id_)
+    return;
+
+  // We simply store the new AGC setting here. This value will be used when
+  // a new stream is initialized and by GetAutomaticGainControl().
+  agc_is_enabled_ = enabled;
 }
 
 void AudioInputDevice::Send(IPC::Message* message) {
@@ -270,7 +294,7 @@ void AudioInputDevice::WillDestroyCurrentMessageLoop() {
 
 // AudioInputDevice::AudioThreadCallback
 AudioInputDevice::AudioThreadCallback::AudioThreadCallback(
-    const AudioParameters& audio_parameters,
+    const media::AudioParameters& audio_parameters,
     base::SharedMemoryHandle memory,
     int memory_length,
     CaptureCallback* capture_callback)
@@ -286,8 +310,17 @@ void AudioInputDevice::AudioThreadCallback::MapSharedMemory() {
 }
 
 void AudioInputDevice::AudioThreadCallback::Process(int pending_data) {
+  // The shared memory represents parameters, size of the data buffer and the
+  // actual data buffer containing audio data. Map the memory into this
+  // structure and parse out parameters and the data area.
+  media::AudioInputBuffer* buffer =
+      reinterpret_cast<media::AudioInputBuffer*>(shared_memory_.memory());
+  uint32 size = buffer->params.size;
+  DCHECK_EQ(size, memory_length_ - sizeof(media::AudioInputBufferParameters));
+  double volume = buffer->params.volume;
+
   int audio_delay_milliseconds = pending_data / bytes_per_ms_;
-  int16* memory = reinterpret_cast<int16*>(shared_memory_.memory());
+  int16* memory = reinterpret_cast<int16*>(&buffer->audio[0]);
   const size_t number_of_frames = audio_parameters_.frames_per_buffer();
   const int bytes_per_sample = sizeof(memory[0]);
 
@@ -306,5 +339,5 @@ void AudioInputDevice::AudioThreadCallback::Process(int pending_data) {
   // Deliver captured data to the client in floating point format
   // and update the audio-delay measurement.
   capture_callback_->Capture(audio_data_, number_of_frames,
-                             audio_delay_milliseconds);
+                             audio_delay_milliseconds, volume);
 }

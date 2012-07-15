@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_PANELS_DISPLAY_SETTINGS_PROVIDER_WIN_H_
 #define CHROME_BROWSER_UI_PANELS_DISPLAY_SETTINGS_PROVIDER_WIN_H_
-#pragma once
 
 #include "chrome/browser/ui/panels/display_settings_provider.h"
 
@@ -14,12 +13,12 @@
 
 class DisplaySettingsProviderWin : public DisplaySettingsProvider {
  public:
-  explicit DisplaySettingsProviderWin(Observer* observer);
+  DisplaySettingsProviderWin();
   virtual ~DisplaySettingsProviderWin();
 
  protected:
   // Overridden from DisplaySettingsProvider:
-  virtual void OnWorkAreaChanged() OVERRIDE;
+  virtual void OnDisplaySettingsChanged() OVERRIDE;
   virtual bool IsAutoHidingDesktopBarEnabled(
       DesktopBarAlignment alignment) OVERRIDE;
   virtual int GetDesktopBarThickness(
@@ -27,9 +26,12 @@ class DisplaySettingsProviderWin : public DisplaySettingsProvider {
   virtual DesktopBarVisibility GetDesktopBarVisibility(
       DesktopBarAlignment alignment) const OVERRIDE;
 
- private:
-  friend class DisplaySettingsProviderWinTest;
+  int GetDesktopBarThicknessFromBounds(
+      DesktopBarAlignment alignment, const gfx::Rect& taskbar_bounds) const;
+  DesktopBarVisibility GetDesktopBarVisibilityFromBounds(
+      DesktopBarAlignment alignment, const gfx::Rect& taskbar_bounds) const;
 
+ private:
   struct Taskbar {
     HWND window;
     DesktopBarVisibility visibility;
@@ -43,10 +45,6 @@ class DisplaySettingsProviderWin : public DisplaySettingsProvider {
   bool CheckTaskbars(bool notify_observer);
 
   gfx::Rect GetBounds(DesktopBarAlignment alignment) const;
-  int GetDesktopBarThicknessFromBounds(
-      DesktopBarAlignment alignment, const gfx::Rect& taskbar_bounds) const;
-  DesktopBarVisibility GetDesktopBarVisibilityFromBounds(
-      DesktopBarAlignment alignment, const gfx::Rect& taskbar_bounds) const;
 
   // Maximum number of taskbars we're interested in: bottom, left, and right.
   static const int kMaxTaskbars = 3;

@@ -1,17 +1,18 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_WEB_RESOURCE_WEB_RESOURCE_SERVICE_H_
 #define CHROME_BROWSER_WEB_RESOURCE_WEB_RESOURCE_SERVICE_H_
-#pragma once
 
 #include <string>
 
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "content/public/common/url_fetcher_delegate.h"
+#include "chrome/browser/web_resource/json_asynchronous_unpacker.h"
+#include "googleurl/src/gurl.h"
+#include "net/url_request/url_fetcher_delegate.h"
 
 class PrefService;
 class ResourceDispatcherHost;
@@ -20,14 +21,19 @@ namespace base {
 class DictionaryValue;
 }
 
+namespace net {
+class URLFetcher;
+}
+
 // A WebResourceService fetches JSON data from a web server and periodically
 // refreshes it.
 class WebResourceService
-    : public base::RefCountedThreadSafe<WebResourceService>,
-      public content::URLFetcherDelegate {
+    : public net::URLFetcherDelegate,
+      public JSONAsynchronousUnpackerDelegate,
+      public base::RefCountedThreadSafe<WebResourceService> {
  public:
   WebResourceService(PrefService* prefs,
-                     const char* web_resource_server,
+                     const GURL& web_resource_server,
                      bool apply_locale_to_url_,
                      const char* last_update_time_pref_name,
                      int start_fetch_delay_ms,
@@ -38,9 +44,14 @@ class WebResourceService
   // Then begin updating resources.
   void StartAfterDelay();
 
+  // JSONAsynchronousUnpackerDelegate methods.
+  virtual void OnUnpackFinished(const DictionaryValue& parsed_json) OVERRIDE;
+  virtual void OnUnpackError(const std::string& error_message) OVERRIDE;
+
  protected:
   virtual ~WebResourceService();
 
+  // For the subclasses to process the result of a fetch.
   virtual void Unpack(const base::DictionaryValue& parsed_json) = 0;
 
   PrefService* prefs_;
@@ -49,8 +60,8 @@ class WebResourceService
   class UnpackerClient;
   friend class base::RefCountedThreadSafe<WebResourceService>;
 
-  // content::URLFetcherDelegate implementation:
-  virtual void OnURLFetchComplete(const content::URLFetcher* source) OVERRIDE;
+  // net::URLFetcherDelegate implementation:
+  virtual void OnURLFetchComplete(const net::URLFetcher* source) OVERRIDE;
 
   // Schedules a fetch after |delay_ms| milliseconds.
   void ScheduleFetch(int64 delay_ms);
@@ -66,7 +77,11 @@ class WebResourceService
   base::WeakPtrFactory<WebResourceService> weak_ptr_factory_;
 
   // The tool that fetches the url data from the server.
-  scoped_ptr<content::URLFetcher> url_fetcher_;
+  scoped_ptr<net::URLFetcher> url_fetcher_;
+
+  // The tool that parses and transforms the json data. Weak reference as it
+  // deletes itself once the unpack is done.
+  JSONAsynchronousUnpacker* json_unpacker_;
 
   // True if we are currently fetching or unpacking data. If we are asked to
   // start a fetch when we are still fetching resource data, schedule another
@@ -74,7 +89,7 @@ class WebResourceService
   bool in_fetch_;
 
   // URL that hosts the web resource.
-  const char* web_resource_server_;
+  GURL web_resource_server_;
 
   // Indicates whether we should append locale to the web resource server URL.
   bool apply_locale_to_url_;

@@ -8,10 +8,8 @@
 #include "base/message_loop.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/time.h"
-#include "content/common/child_process.h"
 #include "content/common/media/audio_messages.h"
 #include "content/common/view_messages.h"
-#include "content/renderer/render_thread_impl.h"
 #include "media/audio/audio_output_controller.h"
 #include "media/audio/audio_util.h"
 
@@ -23,7 +21,7 @@ using media::AudioRendererSink;
 class AudioDevice::AudioThreadCallback
     : public AudioDeviceThread::Callback {
  public:
-  AudioThreadCallback(const AudioParameters& audio_parameters,
+  AudioThreadCallback(const media::AudioParameters& audio_parameters,
                       base::SharedMemoryHandle memory,
                       int memory_length,
                       AudioRendererSink::RenderCallback* render_callback);
@@ -39,29 +37,19 @@ class AudioDevice::AudioThreadCallback
   DISALLOW_COPY_AND_ASSIGN(AudioThreadCallback);
 };
 
-AudioDevice::AudioDevice()
-    : ScopedLoopObserver(ChildProcess::current()->io_message_loop()),
+AudioDevice::AudioDevice(
+    const scoped_refptr<base::MessageLoopProxy>& io_loop)
+    : ScopedLoopObserver(io_loop),
       callback_(NULL),
-      volume_(1.0),
       stream_id_(0),
       play_on_start_(true),
       is_started_(false) {
-  filter_ = RenderThreadImpl::current()->audio_message_filter();
+  // Use the filter instance already created on the main render thread.
+  CHECK(AudioMessageFilter::Get()) << "Invalid audio message filter.";
+  filter_ = AudioMessageFilter::Get();
 }
 
-AudioDevice::AudioDevice(const AudioParameters& params,
-                         RenderCallback* callback)
-    : ScopedLoopObserver(ChildProcess::current()->io_message_loop()),
-      audio_parameters_(params),
-      callback_(callback),
-      volume_(1.0),
-      stream_id_(0),
-      play_on_start_(true),
-      is_started_(false) {
-  filter_ = RenderThreadImpl::current()->audio_message_filter();
-}
-
-void AudioDevice::Initialize(const AudioParameters& params,
+void AudioDevice::Initialize(const media::AudioParameters& params,
                              RenderCallback* callback) {
   CHECK_EQ(0, stream_id_) <<
       "AudioDevice::Initialize() must be called before Start()";
@@ -81,7 +69,8 @@ AudioDevice::~AudioDevice() {
 void AudioDevice::Start() {
   DCHECK(callback_) << "Initialize hasn't been called";
   message_loop()->PostTask(FROM_HERE,
-      base::Bind(&AudioDevice::InitializeOnIOThread, this, audio_parameters_));
+      base::Bind(&AudioDevice::CreateStreamOnIOThread, this,
+                 audio_parameters_));
 }
 
 void AudioDevice::Stop() {
@@ -113,17 +102,10 @@ bool AudioDevice::SetVolume(double volume) {
     return false;
   }
 
-  volume_ = volume;
-
   return true;
 }
 
-void AudioDevice::GetVolume(double* volume) {
-  // Return a locally cached version of the current scaling factor.
-  *volume = volume_;
-}
-
-void AudioDevice::InitializeOnIOThread(const AudioParameters& params) {
+void AudioDevice::CreateStreamOnIOThread(const media::AudioParameters& params) {
   DCHECK(message_loop()->BelongsToCurrentThread());
   // Make sure we don't create the stream more than once.
   DCHECK_EQ(0, stream_id_);
@@ -210,9 +192,8 @@ void AudioDevice::OnStreamCreated(
     base::SyncSocket::Handle socket_handle,
     uint32 length) {
   DCHECK(message_loop()->BelongsToCurrentThread());
-  DCHECK_GE(length,
-      audio_parameters_.frames_per_buffer() * sizeof(int16) *
-      audio_parameters_.channels());
+  // TODO(vrk): Remove cast when |length| is int instead of uint32.
+  DCHECK_GE(length, static_cast<uint32>(audio_parameters_.GetBytesPerBuffer()));
 #if defined(OS_WIN)
   DCHECK(handle);
   DCHECK(socket_handle);
@@ -255,7 +236,7 @@ void AudioDevice::WillDestroyCurrentMessageLoop() {
 // AudioDevice::AudioThreadCallback
 
 AudioDevice::AudioThreadCallback::AudioThreadCallback(
-    const AudioParameters& audio_parameters,
+    const media::AudioParameters& audio_parameters,
     base::SharedMemoryHandle memory,
     int memory_length,
     media::AudioRendererSink::RenderCallback* render_callback)
@@ -288,15 +269,14 @@ void AudioDevice::AudioThreadCallback::Process(int pending_data) {
   size_t num_frames = render_callback_->Render(audio_data_,
       audio_parameters_.frames_per_buffer(), audio_delay_milliseconds);
 
-  // Interleave, scale, and clip to int16.
-  // TODO(crogers): avoid converting to integer here, and pass the data
-  // to the browser process as float, so we don't lose precision for
-  // audio hardware which has better than 16bit precision.
-  int16* data = reinterpret_cast<int16*>(shared_memory_.memory());
-  media::InterleaveFloatToInt16(audio_data_, data,
-      audio_parameters_.frames_per_buffer());
+  // Interleave, scale, and clip to int.
+  // TODO(crogers/vrk): Figure out a way to avoid the float -> int -> float
+  // conversions that happen in the <audio> and WebRTC scenarios.
+  media::InterleaveFloatToInt(audio_data_, shared_memory_.memory(),
+      audio_parameters_.frames_per_buffer(),
+      audio_parameters_.bits_per_sample() / 8);
 
   // Let the host know we are done.
   media::SetActualDataSizeInBytes(&shared_memory_, memory_length_,
-      num_frames * audio_parameters_.channels() * sizeof(data[0]));
+      num_frames * audio_parameters_.GetBytesPerFrame());
 }

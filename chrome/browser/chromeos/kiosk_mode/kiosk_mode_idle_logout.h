@@ -4,10 +4,9 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_KIOSK_MODE_KIOSK_MODE_IDLE_LOGOUT_H_
 #define CHROME_BROWSER_CHROMEOS_KIOSK_MODE_KIOSK_MODE_IDLE_LOGOUT_H_
-#pragma once
 
 #include "base/basictypes.h"
-#include "chrome/browser/chromeos/dbus/power_manager_client.h"
+#include "chromeos/dbus/power_manager_client.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 
@@ -33,12 +32,18 @@ class KioskModeIdleLogout : public PowerManagerClient::Observer,
   virtual void Observe(int type,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
+
+  // PowerManagerClient::Observer overrides:
   virtual void IdleNotify(int64 threshold) OVERRIDE;
   virtual void ActiveNotify() OVERRIDE;
 
  private:
   friend class KioskModeIdleLogoutTest;
   content::NotificationRegistrar registrar_;
+
+  void SetupIdleNotifications();
+  void RequestNextActiveNotification();
+  void RequestNextIdleNotification();
 
   DISALLOW_COPY_AND_ASSIGN(KioskModeIdleLogout);
 };

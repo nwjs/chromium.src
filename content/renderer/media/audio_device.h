@@ -23,7 +23,7 @@
 //
 //            Task [IO thread]                  IPC [IO thread]
 //
-// Start -> InitializeOnIOThread ------> AudioHostMsg_CreateStream -------->
+// Start -> CreateStreamOnIOThread -----> AudioHostMsg_CreateStream ------>
 //       <- OnStreamCreated <- AudioMsg_NotifyStreamCreated <-
 //       ---> PlayOnIOThread -----------> AudioHostMsg_PlayStream -------->
 //
@@ -62,7 +62,6 @@
 
 #ifndef CONTENT_RENDERER_MEDIA_AUDIO_DEVICE_H_
 #define CONTENT_RENDERER_MEDIA_AUDIO_DEVICE_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/bind.h"
@@ -76,6 +75,14 @@
 #include "media/audio/audio_parameters.h"
 #include "media/base/audio_renderer_sink.h"
 
+namespace media {
+class AudioParameters;
+}
+
+namespace content {
+class AudioDeviceFactory;
+}
+
 class CONTENT_EXPORT AudioDevice
     : NON_EXPORTED_BASE(public media::AudioRendererSink),
       public AudioMessageFilter::Delegate,
@@ -83,37 +90,14 @@ class CONTENT_EXPORT AudioDevice
  public:
   // Methods called on main render thread -------------------------------------
 
-  // Minimal constructor where Initialize() must be called later.
-  AudioDevice();
-
-  AudioDevice(const AudioParameters& params, RenderCallback* callback);
-
   // AudioRendererSink implementation.
-
-  virtual void Initialize(const AudioParameters& params,
+  virtual void Initialize(const media::AudioParameters& params,
                           RenderCallback* callback) OVERRIDE;
-  // Starts audio playback.
   virtual void Start() OVERRIDE;
-
-  // Stops audio playback.
   virtual void Stop() OVERRIDE;
-
-  // Resumes playback if currently paused.
   virtual void Play() OVERRIDE;
-
-  // Pauses playback.
-  // If |flush| is true then any pending audio that is in the pipeline
-  // (has not yet reached the hardware) will be discarded.  In this case,
-  // when Play() is later called, no previous pending audio will be
-  // rendered.
   virtual void Pause(bool flush) OVERRIDE;
-
-  // Sets the playback volume, with range [0.0, 1.0] inclusive.
-  // Returns |true| on success.
   virtual bool SetVolume(double volume) OVERRIDE;
-
-  // Gets the playback volume, with range [0.0, 1.0] inclusive.
-  virtual void GetVolume(double* volume) OVERRIDE;
 
   // Methods called on IO thread ----------------------------------------------
   // AudioMessageFilter::Delegate methods, called by AudioMessageFilter.
@@ -122,17 +106,29 @@ class CONTENT_EXPORT AudioDevice
                                base::SyncSocket::Handle socket_handle,
                                uint32 length) OVERRIDE;
 
- private:
+ protected:
+  friend class content::AudioDeviceFactory;
+
+  // Creates an uninitialized AudioDevice. Clients must call Initialize()
+  // before using.  The constructor is protected to ensure that the
+  // AudioDeviceFactory is always used for construction in Chrome.
+  // Tests should use a test class that inherits from AudioDevice to gain
+  // access to the constructor.
+  // TODO(tommi): When all dependencies on |content| have been removed
+  // from AudioDevice, move this class over to media/audio.
+  explicit AudioDevice(const scoped_refptr<base::MessageLoopProxy>& io_loop);
+
   // Magic required by ref_counted.h to avoid any code deleting the object
   // accidentally while there are references to it.
   friend class base::RefCountedThreadSafe<AudioDevice>;
   virtual ~AudioDevice();
 
+ private:
   // Methods called on IO thread ----------------------------------------------
   // The following methods are tasks posted on the IO thread that needs to
   // be executed on that thread. They interact with AudioMessageFilter and
   // sends IPC messages on that thread.
-  void InitializeOnIOThread(const AudioParameters& params);
+  void CreateStreamOnIOThread(const media::AudioParameters& params);
   void PlayOnIOThread();
   void PauseOnIOThread(bool flush);
   void ShutDownOnIOThread();
@@ -144,7 +140,7 @@ class CONTENT_EXPORT AudioDevice
   // If the IO loop dies before we do, we shut down the audio thread from here.
   virtual void WillDestroyCurrentMessageLoop() OVERRIDE;
 
-  AudioParameters audio_parameters_;
+  media::AudioParameters audio_parameters_;
 
   RenderCallback* callback_;
 

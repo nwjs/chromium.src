@@ -18,7 +18,7 @@ USE_PRIVATE_MEM = true;
  * @const
  */
 var DEFAULT_COLUMNS = [
-  ['title', 'pageColumn', 300, true],
+  ['title', 'taskColumn', 300, true],
   ['profileName', 'profileNameColumn', 120, false],
   ['physicalMemory', 'physicalMemColumn', 80, !USE_PRIVATE_MEM],
   ['sharedMemory', 'sharedMemColumn', 80, false],
@@ -45,3 +45,6 @@ var COMMAND_CONTEXTMENU_COLUMN_PREFIX = 'columnContextMenu';
 var COMMAND_CONTEXTMENU_TABLE_PREFIX = 'tableContextMenu';
 
 var ENABLED_COLUMNS_KEY = 'enabledColumns';
+
+var DEFAULT_SORT_COLUMN = 'cpuUsage';
+var DEFAULT_SORT_DIRECTION = 'desc';

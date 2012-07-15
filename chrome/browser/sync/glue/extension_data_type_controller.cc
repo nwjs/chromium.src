@@ -5,13 +5,14 @@
 #include "chrome/browser/sync/glue/extension_data_type_controller.h"
 
 #include "base/metrics/histogram.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/profile_sync_components_factory.h"
 
 namespace browser_sync {
 
 ExtensionDataTypeController::ExtensionDataTypeController(
-    syncable::ModelType type,
+    syncer::ModelType type,
     ProfileSyncComponentsFactory* profile_sync_factory,
     Profile* profile,
     ProfileSyncService* sync_service)
@@ -19,15 +20,13 @@ ExtensionDataTypeController::ExtensionDataTypeController(
                            profile_sync_factory,
                            profile,
                            sync_service) {
-  DCHECK(type == syncable::EXTENSIONS ||
-         type == syncable::APPS);
+  DCHECK(type == syncer::EXTENSIONS || type == syncer::APPS);
 }
 
-ExtensionDataTypeController::~ExtensionDataTypeController() {
-}
+ExtensionDataTypeController::~ExtensionDataTypeController() {}
 
 bool ExtensionDataTypeController::StartModels() {
-  profile_->InitExtensions(true);
+  extensions::ExtensionSystem::Get(profile_)->Init(true);
   return true;
 }
 

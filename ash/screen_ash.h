@@ -4,50 +4,60 @@
 
 #ifndef ASH_SCREEN_ASH_H_
 #define ASH_SCREEN_ASH_H_
-#pragma once
 
-#include "base/compiler_specific.h"
 #include "ash/ash_export.h"
+#include "base/compiler_specific.h"
 #include "ui/gfx/insets.h"
-#include "ui/gfx/screen.h"
-
-namespace aura {
-class RootWindow;
-}
+#include "ui/gfx/rect.h"
+#include "ui/gfx/screen_impl.h"
 
 namespace ash {
 
 // Aura implementation of gfx::Screen. Implemented here to avoid circular
 // dependencies.
-class ASH_EXPORT ScreenAsh : public gfx::Screen {
+class ASH_EXPORT ScreenAsh : public gfx::ScreenImpl {
  public:
-  explicit ScreenAsh(aura::RootWindow* root_window);
+  ScreenAsh();
   virtual ~ScreenAsh();
 
-  // Returns the bounds for maximized windows. Maximized windows trigger
-  // auto-hiding the shelf.
-  static gfx::Rect GetMaximizedWindowBounds(aura::Window* window);
+  // Returns the bounds for maximized windows in parent coordinates.
+  // Maximized windows trigger auto-hiding the shelf.
+  static gfx::Rect GetMaximizedWindowParentBounds(aura::Window* window);
 
-  // Returns work area when a maximized window is not present.
-  static gfx::Rect GetUnmaximizedWorkAreaBounds(aura::Window* window);
+  // Returns work area when a maximized window is not present in
+  // parent coordinates.
+  static gfx::Rect GetUnmaximizedWorkAreaParentBounds(aura::Window* window);
+
+  // Returns the display bounds in parent coordinates.
+  static gfx::Rect GetDisplayParentBounds(aura::Window* window);
+
+  // Returns the display's work area bounds in parent coordinates.
+  static gfx::Rect GetDisplayWorkAreaParentBounds(aura::Window* window);
+
+  // Converts |rect| from |window|'s coordinates to the virtual screen
+  // coordinates.
+  static gfx::Rect ConvertRectToScreen(aura::Window* window,
+                                       const gfx::Rect& rect);
+
+  // Converts |rect| from virtual screen coordinates to the |window|'s
+  // coordinates.
+  static gfx::Rect ConvertRectFromScreen(aura::Window* window,
+                                         const gfx::Rect& rect);
 
  protected:
-  virtual gfx::Point GetCursorScreenPointImpl() OVERRIDE;
-  virtual gfx::Rect GetMonitorWorkAreaNearestWindowImpl(
-      gfx::NativeView view) OVERRIDE;
-  virtual gfx::Rect GetMonitorAreaNearestWindowImpl(
-      gfx::NativeView view) OVERRIDE;
-  virtual gfx::Rect GetMonitorWorkAreaNearestPointImpl(
-      const gfx::Point& point) OVERRIDE;
-  virtual gfx::Rect GetMonitorAreaNearestPointImpl(
-      const gfx::Point& point) OVERRIDE;
-  virtual gfx::NativeWindow GetWindowAtCursorScreenPointImpl() OVERRIDE;
-  virtual gfx::Size GetPrimaryMonitorSizeImpl() OVERRIDE;
-  virtual int GetNumMonitorsImpl() OVERRIDE;
+  virtual gfx::Point GetCursorScreenPoint() OVERRIDE;
+  virtual gfx::NativeWindow GetWindowAtCursorScreenPoint() OVERRIDE;
+
+  virtual int GetNumDisplays() OVERRIDE;
+  virtual gfx::Display GetDisplayNearestWindow(
+      gfx::NativeView view) const OVERRIDE;
+  virtual gfx::Display GetDisplayNearestPoint(
+      const gfx::Point& point) const OVERRIDE;
+  virtual gfx::Display GetDisplayMatching(
+      const gfx::Rect& match_rect) const OVERRIDE;
+  virtual gfx::Display GetPrimaryDisplay() const OVERRIDE;
 
  private:
-  aura::RootWindow* root_window_;
-
   DISALLOW_COPY_AND_ASSIGN(ScreenAsh);
 };
 

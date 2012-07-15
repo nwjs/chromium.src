@@ -4,7 +4,6 @@
 
 #ifndef NET_SOCKET_CLIENT_SOCKET_POOL_MANAGER_IMPL_H_
 #define NET_SOCKET_CLIENT_SOCKET_POOL_MANAGER_IMPL_H_
-#pragma once
 
 #include <map>
 #include "base/basictypes.h"
@@ -32,7 +31,6 @@ class ProxyService;
 class SOCKSClientSocketPool;
 class SSLClientSocketPool;
 class SSLConfigService;
-class SSLHostInfoFactory;
 class TransportClientSocketPool;
 class TransportSecurityState;
 
@@ -64,7 +62,6 @@ class ClientSocketPoolManagerImpl : public base::NonThreadSafe,
                               CertVerifier* cert_verifier,
                               ServerBoundCertService* server_bound_cert_service,
                               TransportSecurityState* transport_security_state,
-                              SSLHostInfoFactory* ssl_host_info_factory,
                               const std::string& ssl_session_cache_shard,
                               ProxyService* proxy_service,
                               SSLConfigService* ssl_config_service,
@@ -111,7 +108,6 @@ class ClientSocketPoolManagerImpl : public base::NonThreadSafe,
   CertVerifier* const cert_verifier_;
   ServerBoundCertService* const server_bound_cert_service_;
   TransportSecurityState* const transport_security_state_;
-  SSLHostInfoFactory* const ssl_host_info_factory_;
   const std::string ssl_session_cache_shard_;
   ProxyService* const proxy_service_;
   const scoped_refptr<SSLConfigService> ssl_config_service_;

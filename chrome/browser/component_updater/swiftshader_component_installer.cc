@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,6 +7,7 @@
 #include "base/bind.h"
 #include "base/base_paths.h"
 #include "base/compiler_specific.h"
+#include "base/cpu.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/logging.h"
@@ -56,11 +57,13 @@ FilePath GetSwiftShaderBaseDirectory() {
 // so we need to enumerate the directories to find the full path.
 // On success it returns something like:
 // <profile>\AppData\Local\Google\Chrome\User Data\SwiftShader\10.3.44.555\.
-bool GetLatestSwiftShaderDirectory(FilePath* result, Version* latest) {
-  *result = GetSwiftShaderBaseDirectory();
+bool GetLatestSwiftShaderDirectory(FilePath* result,
+                                   Version* latest,
+                                   std::vector<FilePath>* older_dirs) {
+  FilePath base_dir = GetSwiftShaderBaseDirectory();
   bool found = false;
   file_util::FileEnumerator
-      file_enumerator(*result, false, file_util::FileEnumerator::DIRECTORIES);
+      file_enumerator(base_dir, false, file_util::FileEnumerator::DIRECTORIES);
   for (FilePath path = file_enumerator.Next(); !path.value().empty();
        path = file_enumerator.Next()) {
     Version version(path.BaseName().MaybeAsASCII());
@@ -69,9 +72,14 @@ bool GetLatestSwiftShaderDirectory(FilePath* result, Version* latest) {
     if (version.CompareTo(*latest) > 0 &&
         file_util::PathExists(path.Append(kSwiftShaderEglName)) &&
         file_util::PathExists(path.Append(kSwiftShaderGlesName))) {
+      if (found && older_dirs)
+          older_dirs->push_back(*result);
       *latest = version;
       *result = path;
       found = true;
+    } else {
+      if (older_dirs)
+        older_dirs->push_back(path);
     }
   }
   return found;
@@ -178,7 +186,7 @@ void UpdateChecker::OnGpuInfoUpdate() {
     FilePath path = GetSwiftShaderBaseDirectory();
 
     Version version(kNullVersion);
-    GetLatestSwiftShaderDirectory(&path, &version);
+    GetLatestSwiftShaderDirectory(&path, &version, NULL);
 
     BrowserThread::PostTask(BrowserThread::UI, FROM_HERE,
         base::Bind(&FinishSwiftShaderUpdateRegistration, cus_, version));
@@ -198,7 +206,8 @@ void RegisterSwiftShaderPath(ComponentUpdateService* cus) {
   }
 
   Version version(kNullVersion);
-  if (GetLatestSwiftShaderDirectory(&path, &version))
+  std::vector<FilePath> older_dirs;
+  if (GetLatestSwiftShaderDirectory(&path, &version, &older_dirs))
     BrowserThread::PostTask(BrowserThread::UI, FROM_HERE,
         base::Bind(&RegisterSwiftShaderWithChrome, path));
 
@@ -207,10 +216,20 @@ void RegisterSwiftShaderPath(ComponentUpdateService* cus) {
   update_checker->OnGpuInfoUpdate();
   // We leak update_checker here, because it has to stick around for the life
   // of the GpuDataManager.
+
+  // Remove older versions of SwiftShader.
+  for (std::vector<FilePath>::iterator iter = older_dirs.begin();
+       iter != older_dirs.end(); ++iter) {
+    file_util::Delete(*iter, true);
+  }
 }
 
 void RegisterSwiftShaderComponent(ComponentUpdateService* cus) {
 #if defined(ENABLE_SWIFTSHADER)
+  base::CPU cpu;
+
+  if (!cpu.has_sse2())
+    return;
   BrowserThread::PostTask(BrowserThread::FILE, FROM_HERE,
       base::Bind(&RegisterSwiftShaderPath, cus));
 #endif

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_IMPORTER_IMPORTER_HOST_H_
 #define CHROME_BROWSER_IMPORTER_IMPORTER_HOST_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/callback.h"
@@ -14,6 +13,7 @@
 #include "chrome/browser/bookmarks/base_bookmark_model_observer.h"
 #include "chrome/browser/importer/importer_data_types.h"
 #include "chrome/browser/importer/profile_writer.h"
+#include "chrome/browser/ui/browser_list_observer.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "ui/gfx/native_widget_types.h"
@@ -31,7 +31,8 @@ class ImporterProgressObserver;
 // the import process is done, ImporterHost deletes itself.
 class ImporterHost : public base::RefCountedThreadSafe<ImporterHost>,
                      public BaseBookmarkModelObserver,
-                     public content::NotificationObserver {
+                     public content::NotificationObserver,
+                     public chrome::BrowserListObserver {
  public:
   ImporterHost();
 
@@ -62,6 +63,8 @@ class ImporterHost : public base::RefCountedThreadSafe<ImporterHost>,
   void set_parent_window(gfx::NativeWindow parent_window) {
     parent_window_ = parent_window;
   }
+
+  void set_browser(Browser* browser) { browser_ = browser; }
 
   // Starts the process of importing the settings and data depending on what the
   // user selected.
@@ -139,6 +142,9 @@ class ImporterHost : public base::RefCountedThreadSafe<ImporterHost>,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
+  // chrome::BrowserListObserver
+  virtual void OnBrowserRemoved(Browser* browser) OVERRIDE;
+
   // The task is the process of importing settings from other browsers.
   base::Closure task_;
 
@@ -151,6 +157,9 @@ class ImporterHost : public base::RefCountedThreadSafe<ImporterHost>,
   // Parent window that we pass to the import lock dialog (i.e, the Firefox
   // warning dialog).
   gfx::NativeWindow parent_window_;
+
+  // Used to add a new tab if we need the user to sign in.
+  Browser* browser_;
 
   // The observer that we need to notify about changes in the import process.
   importer::ImporterProgressObserver* observer_;

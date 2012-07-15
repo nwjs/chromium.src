@@ -18,7 +18,8 @@ namespace protocol {
 const char kTestJid[] = "host1@gmail.com/chromoting123";
 
 FakeSocket::FakeSocket()
-    : read_pending_(false),
+    : next_read_error_(net::OK),
+      read_pending_(false),
       read_buffer_size_(0),
       input_pos_(0),
       message_loop_(MessageLoop::current()),
@@ -55,6 +56,13 @@ void FakeSocket::PairWith(FakeSocket* peer_socket) {
 int FakeSocket::Read(net::IOBuffer* buf, int buf_len,
                      const net::CompletionCallback& callback) {
   EXPECT_EQ(message_loop_, MessageLoop::current());
+
+  if (next_read_error_ != net::OK) {
+    int r = next_read_error_;
+    next_read_error_ = net::OK;
+    return r;
+  }
+
   if (input_pos_ < static_cast<int>(input_data_.size())) {
     int result = std::min(buf_len,
                           static_cast<int>(input_data_.size()) - input_pos_);
@@ -113,15 +121,13 @@ bool FakeSocket::IsConnectedAndIdle() const {
   return false;
 }
 
-int FakeSocket::GetPeerAddress(net::AddressList* address) const {
-  net::IPAddressNumber ip;
-  ip.resize(net::kIPv4AddressSize);
-  *address = net::AddressList::CreateFromIPAddress(ip, 0);
+int FakeSocket::GetPeerAddress(net::IPEndPoint* address) const {
+  net::IPAddressNumber ip(net::kIPv4AddressSize);
+  *address = net::IPEndPoint(ip, 0);
   return net::OK;
 }
 
-int FakeSocket::GetLocalAddress(
-    net::IPEndPoint* address) const {
+int FakeSocket::GetLocalAddress(net::IPEndPoint* address) const {
   NOTIMPLEMENTED();
   return net::ERR_FAILED;
 }
@@ -157,6 +163,11 @@ int64 FakeSocket::NumBytesRead() const {
 base::TimeDelta FakeSocket::GetConnectTimeMicros() const {
   NOTIMPLEMENTED();
   return base::TimeDelta();
+}
+
+net::NextProto FakeSocket::GetNegotiatedProtocol() const {
+  NOTIMPLEMENTED();
+  return net::kProtoUnknown;
 }
 
 FakeUdpSocket::FakeUdpSocket()
@@ -221,7 +232,8 @@ bool FakeUdpSocket::SetSendBufferSize(int32 size) {
 }
 
 FakeSession::FakeSession()
-    : candidate_config_(CandidateSessionConfig::CreateDefault()),
+    : event_handler_(NULL),
+      candidate_config_(CandidateSessionConfig::CreateDefault()),
       config_(SessionConfig::GetDefault()),
       message_loop_(NULL),
       jid_(kTestJid),
@@ -239,12 +251,8 @@ FakeUdpSocket* FakeSession::GetDatagramChannel(const std::string& name) {
   return datagram_channels_[name];
 }
 
-void FakeSession::SetStateChangeCallback(const StateChangeCallback& callback) {
-  callback_ = callback;
-}
-
-void FakeSession::SetRouteChangeCallback(const RouteChangeCallback& callback) {
-  NOTIMPLEMENTED();
+void FakeSession::SetEventHandler(EventHandler* event_handler) {
+  event_handler_ = event_handler;
 }
 
 ErrorCode FakeSession::error() {

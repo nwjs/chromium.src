@@ -12,27 +12,35 @@
 #include "base/lazy_instance.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/perftimer.h"
+#include "base/profiler/alternate_timer.h"
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
 #include "base/sys_info.h"
 #include "base/third_party/nspr/prtime.h"
 #include "base/time.h"
+#include "base/tracked_objects.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/autocomplete/autocomplete.h"
+#include "chrome/browser/autocomplete/autocomplete_input.h"
+#include "chrome/browser/autocomplete/autocomplete_log.h"
 #include "chrome/browser/autocomplete/autocomplete_match.h"
+#include "chrome/browser/autocomplete/autocomplete_provider.h"
+#include "chrome/browser/autocomplete/autocomplete_result.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/plugin_prefs.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/common/chrome_version_info.h"
 #include "chrome/common/logging_chrome.h"
+#include "chrome/common/metrics/experiments_helper.h"
 #include "chrome/common/metrics/proto/omnibox_event.pb.h"
+#include "chrome/common/metrics/proto/profiler_event.pb.h"
 #include "chrome/common/metrics/proto/system_profile.pb.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/installer/util/google_update_settings.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/gpu_data_manager.h"
-#include "content/public/common/gpu_info.h"
 #include "content/public/common/content_client.h"
+#include "content/public/common/gpu_info.h"
 #include "googleurl/src/gurl.h"
 #include "ui/gfx/screen.h"
 #include "webkit/plugins/webplugininfo.h"
@@ -46,8 +54,11 @@ extern "C" IMAGE_DOS_HEADER __ImageBase;
 
 using content::GpuDataManager;
 using metrics::OmniboxEventProto;
+using metrics::ProfilerEventProto;
 using metrics::SystemProfileProto;
-typedef base::FieldTrial::NameGroupId NameGroupId;
+using tracked_objects::ProcessDataSnapshot;
+typedef experiments_helper::SelectedGroupId SelectedGroupId;
+typedef SystemProfileProto::GoogleUpdate::ProductInfo ProductInfo;
 
 namespace {
 
@@ -83,33 +94,6 @@ OmniboxEventProto::InputType AsOmniboxEventInputType(
   }
 }
 
-OmniboxEventProto::Suggestion::ProviderType AsOmniboxEventProviderType(
-    const AutocompleteProvider* provider) {
-  if (!provider)
-    return OmniboxEventProto::Suggestion::UNKNOWN_PROVIDER;
-
-  const std::string& name = provider->name();
-  if (name == "HistoryURL")
-    return OmniboxEventProto::Suggestion::URL;
-  if (name == "HistoryContents")
-    return OmniboxEventProto::Suggestion::HISTORY_CONTENTS;
-  if (name == "HistoryQuickProvider")
-    return OmniboxEventProto::Suggestion::HISTORY_QUICK;
-  if (name == "Search")
-    return OmniboxEventProto::Suggestion::SEARCH;
-  if (name == "Keyword")
-    return OmniboxEventProto::Suggestion::KEYWORD;
-  if (name == "Builtin")
-    return OmniboxEventProto::Suggestion::BUILTIN;
-  if (name == "ShortcutsProvider")
-    return OmniboxEventProto::Suggestion::SHORTCUTS;
-  if (name == "ExtensionApps")
-    return OmniboxEventProto::Suggestion::EXTENSION_APPS;
-
-  NOTREACHED();
-  return OmniboxEventProto::Suggestion::UNKNOWN_PROVIDER;
-}
-
 OmniboxEventProto::Suggestion::ResultType AsOmniboxEventResultType(
     AutocompleteMatch::Type type) {
   switch (type) {
@@ -138,6 +122,41 @@ OmniboxEventProto::Suggestion::ResultType AsOmniboxEventResultType(
     default:
       NOTREACHED();
       return OmniboxEventProto::Suggestion::UNKNOWN_RESULT_TYPE;
+  }
+}
+
+ProfilerEventProto::TrackedObject::ProcessType AsProtobufProcessType(
+    content::ProcessType process_type) {
+  switch (process_type) {
+    case content::PROCESS_TYPE_BROWSER:
+      return ProfilerEventProto::TrackedObject::BROWSER;
+    case content::PROCESS_TYPE_RENDERER:
+      return ProfilerEventProto::TrackedObject::RENDERER;
+    case content::PROCESS_TYPE_PLUGIN:
+      return ProfilerEventProto::TrackedObject::PLUGIN;
+    case content::PROCESS_TYPE_WORKER:
+      return ProfilerEventProto::TrackedObject::WORKER;
+    case content::PROCESS_TYPE_NACL_LOADER:
+      return ProfilerEventProto::TrackedObject::NACL_LOADER;
+    case content::PROCESS_TYPE_UTILITY:
+      return ProfilerEventProto::TrackedObject::UTILITY;
+    case content::PROCESS_TYPE_PROFILE_IMPORT:
+      return ProfilerEventProto::TrackedObject::PROFILE_IMPORT;
+    case content::PROCESS_TYPE_ZYGOTE:
+      return ProfilerEventProto::TrackedObject::ZYGOTE;
+    case content::PROCESS_TYPE_SANDBOX_HELPER:
+      return ProfilerEventProto::TrackedObject::SANDBOX_HELPER;
+    case content::PROCESS_TYPE_NACL_BROKER:
+      return ProfilerEventProto::TrackedObject::NACL_BROKER;
+    case content::PROCESS_TYPE_GPU:
+      return ProfilerEventProto::TrackedObject::GPU;
+    case content::PROCESS_TYPE_PPAPI_PLUGIN:
+      return ProfilerEventProto::TrackedObject::PPAPI_PLUGIN;
+    case content::PROCESS_TYPE_PPAPI_BROKER:
+      return ProfilerEventProto::TrackedObject::PPAPI_BROKER;
+    default:
+      NOTREACHED();
+      return ProfilerEventProto::TrackedObject::UNKNOWN;
   }
 }
 
@@ -170,10 +189,10 @@ void SetPluginInfo(const webkit::WebPluginInfo& plugin_info,
     plugin->set_is_disabled(!plugin_prefs->IsPluginEnabled(plugin_info));
 }
 
-void WriteFieldTrials(const std::vector<NameGroupId>& field_trial_ids,
+void WriteFieldTrials(const std::vector<SelectedGroupId>& field_trial_ids,
                       SystemProfileProto* system_profile) {
-  for (std::vector<NameGroupId>::const_iterator it = field_trial_ids.begin();
-       it != field_trial_ids.end(); ++it) {
+  for (std::vector<SelectedGroupId>::const_iterator it =
+       field_trial_ids.begin(); it != field_trial_ids.end(); ++it) {
     SystemProfileProto::FieldTrial* field_trial =
         system_profile->add_field_trial();
     field_trial->set_name_id(it->name);
@@ -181,7 +200,62 @@ void WriteFieldTrials(const std::vector<NameGroupId>& field_trial_ids,
   }
 }
 
+void WriteProfilerData(const ProcessDataSnapshot& profiler_data,
+                       content::ProcessType process_type,
+                       ProfilerEventProto* performance_profile) {
+  for (std::vector<tracked_objects::TaskSnapshot>::const_iterator it =
+           profiler_data.tasks.begin();
+       it != profiler_data.tasks.end(); ++it) {
+    std::string ignored;
+    uint64 birth_thread_name_hash;
+    uint64 exec_thread_name_hash;
+    uint64 source_file_name_hash;
+    uint64 source_function_name_hash;
+    MetricsLogBase::CreateHashes(it->birth.thread_name,
+                                 &ignored, &birth_thread_name_hash);
+    MetricsLogBase::CreateHashes(it->death_thread_name,
+                                 &ignored, &exec_thread_name_hash);
+    MetricsLogBase::CreateHashes(it->birth.location.function_name,
+                                 &ignored, &source_file_name_hash);
+    MetricsLogBase::CreateHashes(it->birth.location.file_name,
+                                 &ignored, &source_function_name_hash);
+
+    const tracked_objects::DeathDataSnapshot& death_data = it->death_data;
+    ProfilerEventProto::TrackedObject* tracked_object =
+        performance_profile->add_tracked_object();
+    tracked_object->set_birth_thread_name_hash(birth_thread_name_hash);
+    tracked_object->set_exec_thread_name_hash(exec_thread_name_hash);
+    tracked_object->set_source_file_name_hash(source_file_name_hash);
+    tracked_object->set_source_function_name_hash(source_function_name_hash);
+    tracked_object->set_source_line_number(it->birth.location.line_number);
+    tracked_object->set_exec_count(death_data.count);
+    tracked_object->set_exec_time_total(death_data.run_duration_sum);
+    tracked_object->set_exec_time_sampled(death_data.run_duration_sample);
+    tracked_object->set_queue_time_total(death_data.queue_duration_sum);
+    tracked_object->set_queue_time_sampled(death_data.queue_duration_sample);
+    tracked_object->set_process_type(AsProtobufProcessType(process_type));
+    tracked_object->set_process_id(profiler_data.process_id);
+  }
+}
+
+void ProductDataToProto(const GoogleUpdateSettings::ProductData& product_data,
+                        ProductInfo* product_info) {
+  product_info->set_version(product_data.version);
+  product_info->set_last_update_success_timestamp(
+      product_data.last_success.ToTimeT());
+  product_info->set_last_error(product_data.last_error_code);
+  product_info->set_last_extra_error(product_data.last_extra_code);
+  if (ProductInfo::InstallResult_IsValid(product_data.last_result)) {
+    product_info->set_last_result(
+        static_cast<ProductInfo::InstallResult>(product_data.last_result));
+  }
+}
+
 }  // namespace
+
+GoogleUpdateMetrics::GoogleUpdateMetrics() : is_system_install(false) {}
+
+GoogleUpdateMetrics::~GoogleUpdateMetrics() {}
 
 static base::LazyInstance<std::string>::Leaky
   g_version_extension = LAZY_INSTANCE_INITIALIZER;
@@ -264,17 +338,16 @@ PrefService* MetricsLog::GetPrefService() {
 }
 
 gfx::Size MetricsLog::GetScreenSize() const {
-  return gfx::Screen::GetPrimaryMonitorSize();
+  return gfx::Screen::GetPrimaryDisplay().GetSizeInPixel();
 }
 
 int MetricsLog::GetScreenCount() const {
-  return gfx::Screen::GetNumMonitors();
+  return gfx::Screen::GetNumDisplays();
 }
 
-
 void MetricsLog::GetFieldTrialIds(
-    std::vector<NameGroupId>* field_trial_ids) const {
-  base::FieldTrialList::GetFieldTrialNameGroupIds(field_trial_ids);
+    std::vector<SelectedGroupId>* field_trial_ids) const {
+  experiments_helper::GetFieldTrialSelectedGroupIds(field_trial_ids);
 }
 
 void MetricsLog::WriteStabilityElement(
@@ -399,7 +472,12 @@ void MetricsLog::WritePluginStabilityElements(
       NOTREACHED();
       continue;
     }
+    int loading_errors = 0;
+    plugin_dict->GetInteger(prefs::kStabilityPluginLoadingErrors,
+                            &loading_errors);
+    WriteIntAttribute("loadingerrorcount", loading_errors);
 
+    // Write the protobuf version.
     SystemProfileProto::Stability::PluginStability* plugin_stability =
         stability->add_plugin_stability();
     SetPluginInfo(*plugin_info, plugin_prefs,
@@ -407,6 +485,7 @@ void MetricsLog::WritePluginStabilityElements(
     plugin_stability->set_launch_count(launches);
     plugin_stability->set_instance_count(instances);
     plugin_stability->set_crash_count(crashes);
+    plugin_stability->set_loading_error_count(loading_errors);
   }
 
   pref->ClearPref(prefs::kStabilityPluginStats);
@@ -553,6 +632,7 @@ void MetricsLog::WriteInstallElement() {
 
 void MetricsLog::RecordEnvironment(
          const std::vector<webkit::WebPluginInfo>& plugin_list,
+         const GoogleUpdateMetrics& google_update_metrics,
          const DictionaryValue* profile_metrics) {
   DCHECK(!locked());
 
@@ -602,8 +682,8 @@ void MetricsLog::RecordEnvironment(
 
     // Write the XML version.
     // We'll write the protobuf version in RecordEnvironmentProto().
-    WriteIntAttribute("vendorid", gpu_info.vendor_id);
-    WriteIntAttribute("deviceid", gpu_info.device_id);
+    WriteIntAttribute("vendorid", gpu_info.gpu.vendor_id);
+    WriteIntAttribute("deviceid", gpu_info.gpu.device_id);
   }
 
   {
@@ -652,11 +732,12 @@ void MetricsLog::RecordEnvironment(
   if (profile_metrics)
     WriteAllProfilesMetrics(*profile_metrics);
 
-  RecordEnvironmentProto(plugin_list);
+  RecordEnvironmentProto(plugin_list, google_update_metrics);
 }
 
 void MetricsLog::RecordEnvironmentProto(
-    const std::vector<webkit::WebPluginInfo>& plugin_list) {
+    const std::vector<webkit::WebPluginInfo>& plugin_list,
+    const GoogleUpdateMetrics& google_update_metrics) {
   SystemProfileProto* system_profile = uma_proto()->mutable_system_profile();
   int install_date;
   bool success = base::StringToInt(GetInstallDate(GetPrefService()),
@@ -681,8 +762,8 @@ void MetricsLog::RecordEnvironmentProto(
   const content::GPUInfo& gpu_info =
       GpuDataManager::GetInstance()->GetGPUInfo();
   SystemProfileProto::Hardware::Graphics* gpu = hardware->mutable_gpu();
-  gpu->set_vendor_id(gpu_info.vendor_id);
-  gpu->set_device_id(gpu_info.device_id);
+  gpu->set_vendor_id(gpu_info.gpu.vendor_id);
+  gpu->set_device_id(gpu_info.gpu.device_id);
   gpu->set_driver_version(gpu_info.driver_version);
   gpu->set_driver_date(gpu_info.driver_date);
   SystemProfileProto::Hardware::Graphics::PerformanceStatistics*
@@ -696,12 +777,39 @@ void MetricsLog::RecordEnvironmentProto(
   hardware->set_primary_screen_height(display_size.height());
   hardware->set_screen_count(GetScreenCount());
 
+  WriteGoogleUpdateProto(google_update_metrics);
+
   bool write_as_xml = false;
   WritePluginList(plugin_list, write_as_xml);
 
-  std::vector<NameGroupId> field_trial_ids;
+  std::vector<SelectedGroupId> field_trial_ids;
   GetFieldTrialIds(&field_trial_ids);
   WriteFieldTrials(field_trial_ids, system_profile);
+}
+
+void MetricsLog::RecordProfilerData(
+    const tracked_objects::ProcessDataSnapshot& process_data,
+    content::ProcessType process_type) {
+  DCHECK(!locked());
+
+  if (tracked_objects::GetTimeSourceType() !=
+          tracked_objects::TIME_SOURCE_TYPE_WALL_TIME) {
+    // We currently only support the default time source, wall clock time.
+    return;
+  }
+
+  ProfilerEventProto* profile;
+  if (!uma_proto()->profiler_event_size()) {
+    // For the first process's data, add a new field to the protocol buffer.
+    profile = uma_proto()->add_profiler_event();
+    profile->set_profile_type(ProfilerEventProto::STARTUP_PROFILE);
+    profile->set_time_source(ProfilerEventProto::WALL_CLOCK_TIME);
+  } else {
+    // For the remaining calls, re-use the existing field.
+    profile = uma_proto()->mutable_profiler_event(0);
+  }
+
+  WriteProfilerData(process_data, process_type, profile);
 }
 
 void MetricsLog::WriteAllProfilesMetrics(
@@ -782,13 +890,14 @@ void MetricsLog::RecordOmniboxOpenedURL(const AutocompleteLog& log) {
   }
   WriteCommonEventAttributes();
 
+  std::vector<string16> terms;
+  const int num_terms =
+      static_cast<int>(Tokenize(log.text, kWhitespaceUTF16, &terms));
   {
     OPEN_ELEMENT_FOR_SCOPE("autocomplete");
 
     WriteIntAttribute("typedlength", static_cast<int>(log.text.length()));
-    std::vector<string16> terms;
-    WriteIntAttribute("numterms",
-        static_cast<int>(Tokenize(log.text, kWhitespaceUTF16, &terms)));
+    WriteIntAttribute("numterms", num_terms);
     WriteIntAttribute("selectedindex", static_cast<int>(log.selected_index));
     WriteIntAttribute("completedlength",
                       static_cast<int>(log.inline_autocompleted_length));
@@ -824,17 +933,65 @@ void MetricsLog::RecordOmniboxOpenedURL(const AutocompleteLog& log) {
     omnibox_event->set_tab_id(log.tab_id);
   }
   omnibox_event->set_typed_length(log.text.length());
+  omnibox_event->set_just_deleted_text(log.just_deleted_text);
+  omnibox_event->set_num_typed_terms(num_terms);
   omnibox_event->set_selected_index(log.selected_index);
   omnibox_event->set_completed_length(log.inline_autocompleted_length);
+  if (log.elapsed_time_since_user_first_modified_omnibox !=
+      base::TimeDelta::FromMilliseconds(-1)) {
+    // Only upload the typing duration if it is set/valid.
+    omnibox_event->set_typing_duration_ms(
+        log.elapsed_time_since_user_first_modified_omnibox.InMilliseconds());
+  }
+  omnibox_event->set_current_page_classification(
+      log.current_page_classification);
   omnibox_event->set_input_type(AsOmniboxEventInputType(log.input_type));
   for (AutocompleteResult::const_iterator i(log.result.begin());
        i != log.result.end(); ++i) {
     OmniboxEventProto::Suggestion* suggestion = omnibox_event->add_suggestion();
-    suggestion->set_provider(AsOmniboxEventProviderType(i->provider));
+    suggestion->set_provider(i->provider->AsOmniboxEventProviderType());
     suggestion->set_result_type(AsOmniboxEventResultType(i->type));
     suggestion->set_relevance(i->relevance);
+    if (i->typed_count != -1)
+      suggestion->set_typed_count(i->typed_count);
     suggestion->set_is_starred(i->starred);
+  }
+  for (ProvidersInfo::const_iterator i(log.providers_info.begin());
+       i != log.providers_info.end(); ++i) {
+    OmniboxEventProto::ProviderInfo* provider_info =
+        omnibox_event->add_provider_info();
+    provider_info->CopyFrom(*i);
   }
 
   ++num_events_;
+}
+
+void MetricsLog::WriteGoogleUpdateProto(
+    const GoogleUpdateMetrics& google_update_metrics) {
+#if defined(GOOGLE_CHROME_BUILD) && defined(OS_WIN)
+  SystemProfileProto::GoogleUpdate* google_update =
+      uma_proto()->mutable_system_profile()->mutable_google_update();
+
+  google_update->set_is_system_install(google_update_metrics.is_system_install);
+
+  if (!google_update_metrics.last_started_au.is_null()) {
+    google_update->set_last_automatic_start_timestamp(
+        google_update_metrics.last_started_au.ToTimeT());
+  }
+
+  if (!google_update_metrics.last_checked.is_null()) {
+    google_update->set_last_update_check_timestamp(
+      google_update_metrics.last_checked.ToTimeT());
+  }
+
+  if (!google_update_metrics.google_update_data.version.empty()) {
+    ProductDataToProto(google_update_metrics.google_update_data,
+                       google_update->mutable_google_update_status());
+  }
+
+  if (!google_update_metrics.product_data.version.empty()) {
+    ProductDataToProto(google_update_metrics.product_data,
+                       google_update->mutable_client_status());
+  }
+#endif  // defined(GOOGLE_CHROME_BUILD) && defined(OS_WIN)
 }

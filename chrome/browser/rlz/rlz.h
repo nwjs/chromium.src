@@ -4,11 +4,10 @@
 
 #ifndef CHROME_BROWSER_RLZ_RLZ_H_
 #define CHROME_BROWSER_RLZ_RLZ_H_
-#pragma once
 
 #include "build/build_config.h"
 
-#if defined(OS_WIN)
+#if defined(OS_WIN) || defined(OS_MACOSX)
 
 #include <map>
 #include <string>
@@ -16,6 +15,7 @@
 #include "base/basictypes.h"
 #include "base/memory/singleton.h"
 #include "base/string16.h"
+#include "base/threading/sequenced_worker_pool.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "rlz/lib/rlz_lib.h"
@@ -47,6 +47,10 @@ class RLZTracker : public content::NotificationObserver {
   static bool RecordProductEvent(rlz_lib::Product product,
                                  rlz_lib::AccessPoint point,
                                  rlz_lib::Event event_id);
+
+  // For the point parameter of RecordProductEvent.
+  static const rlz_lib::AccessPoint CHROME_OMNIBOX;
+  static const rlz_lib::AccessPoint CHROME_HOME_PAGE;
 
   // Get the RLZ value of the access point.
   // Returns false if the rlz string could not be obtained. In some cases
@@ -126,6 +130,10 @@ class RLZTracker : public content::NotificationObserver {
   bool google_default_search_;
   bool google_default_homepage_;
 
+  // Unique sequence token so that tasks posted by RLZTracker are executed
+  // sequentially in the blocking pool.
+  base::SequencedWorkerPool::SequenceToken worker_pool_token_;
+
   // Keeps track if the RLZ tracker has already performed its delayed
   // initialization.
   bool already_ran_;
@@ -145,6 +153,6 @@ class RLZTracker : public content::NotificationObserver {
   DISALLOW_COPY_AND_ASSIGN(RLZTracker);
 };
 
-#endif  // defined(OS_WIN)
+#endif  // defined(OS_WIN) || defined(OS_MACOSX)
 
 #endif  // CHROME_BROWSER_RLZ_RLZ_H_

@@ -1,13 +1,13 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_UI_VIEWS_UNINSTALL_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_UNINSTALL_VIEW_H_
-#pragma once
 
 #include <map>
 
+#include "base/callback.h"
 #include "base/string16.h"
 #include "ui/base/models/combobox_model.h"
 #include "ui/views/window/dialog_delegate.h"
@@ -25,7 +25,8 @@ class UninstallView : public views::ButtonListener,
                       public views::DialogDelegateView,
                       public ui::ComboboxModel {
  public:
-  explicit UninstallView(int* user_selection);
+  explicit UninstallView(int* user_selection,
+                         const base::Closure& quit_closure);
   virtual ~UninstallView();
 
   // Overridden form views::ButtonListener.
@@ -42,7 +43,7 @@ class UninstallView : public views::ButtonListener,
   virtual views::View* GetContentsView() OVERRIDE;
 
   // Overridden from ui::ComboboxModel:
-  virtual int GetItemCount() OVERRIDE;
+  virtual int GetItemCount() const OVERRIDE;
   virtual string16 GetItemAt(int index) OVERRIDE;
 
  private:
@@ -56,6 +57,7 @@ class UninstallView : public views::ButtonListener,
   typedef std::map<std::wstring, std::wstring> BrowsersMap;
   scoped_ptr<BrowsersMap> browsers_;
   int& user_selection_;
+  base::Closure quit_closure_;
 
   DISALLOW_COPY_AND_ASSIGN(UninstallView);
 };

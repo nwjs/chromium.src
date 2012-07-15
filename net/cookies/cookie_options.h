@@ -6,7 +6,6 @@
 
 #ifndef NET_COOKIES_COOKIE_OPTIONS_H_
 #define NET_COOKIES_COOKIE_OPTIONS_H_
-#pragma once
 
 namespace net {
 
@@ -17,22 +16,25 @@ class CookieOptions {
   // - writing operations will not write httponly cookies.
   CookieOptions()
       : exclude_httponly_(true),
-        force_session_(false) {
+        server_time_() {
   }
 
   void set_exclude_httponly() { exclude_httponly_ = true; }
   void set_include_httponly() { exclude_httponly_ = false; }
   bool exclude_httponly() const { return exclude_httponly_; }
 
-  // Forces a cookie to be saved as a session cookie. If the expiration time of
-  // the cookie is in the past, i.e. the cookie would end up being deleted, this
-  // option is ignored. See CookieMonsterTest.ForceSessionOnly.
-  void set_force_session() { force_session_ = true; }
-  bool force_session() const { return force_session_; }
+  // |server_time| indicates what the server sending us the Cookie thought the
+  // current time was when the cookie was produced.  This is used to adjust for
+  // clock skew between server and host.
+  void set_server_time(const base::Time& server_time) {
+    server_time_ = server_time;
+  }
+  bool has_server_time() const { return !server_time_.is_null(); }
+  base::Time server_time() const { return server_time_; }
 
  private:
   bool exclude_httponly_;
-  bool force_session_;
+  base::Time server_time_;
 };
 }  // namespace net
 

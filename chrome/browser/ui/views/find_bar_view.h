@@ -4,18 +4,16 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_FIND_BAR_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_FIND_BAR_VIEW_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "base/string16.h"
-#include "chrome/browser/ui/find_bar/find_notification_details.h"
 #include "chrome/browser/ui/views/dropdown_bar_view.h"
-#include "ui/gfx/size.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/controls/textfield/textfield_controller.h"
 
 class FindBarHost;
+class FindNotificationDetails;
 
 namespace views {
 class ImageButton;
@@ -141,10 +139,10 @@ class FindBarView : public DropdownBarView,
 
   // The background image for the Find text box, which we draw behind the Find
   // box to provide the Chrome look to the edge of the text box.
-  const SkBitmap* text_box_background_;
+  const gfx::ImageSkia* text_box_background_;
 
   // The rounded edge on the left side of the Find text box.
-  const SkBitmap* text_box_background_left_;
+  const gfx::ImageSkia* text_box_background_left_;
 
   DISALLOW_COPY_AND_ASSIGN(FindBarView);
 };

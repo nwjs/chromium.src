@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -33,12 +33,14 @@ static base::Time CreateTime(int64 t) {
 template <typename BASECLASS>
 class ExtensionPrefValueMapTestBase : public BASECLASS {
  public:
-  const static ExtensionPrefsScope kRegular =
-      kExtensionPrefsScopeRegular;
-  const static ExtensionPrefsScope kIncognitoPersistent =
-      kExtensionPrefsScopeIncognitoPersistent;
-  const static ExtensionPrefsScope kIncognitoSessionOnly =
-      kExtensionPrefsScopeIncognitoSessionOnly;
+  static const extensions::ExtensionPrefsScope kRegular =
+      extensions::kExtensionPrefsScopeRegular;
+  static const extensions::ExtensionPrefsScope kRegularOnly =
+      extensions::kExtensionPrefsScopeRegularOnly;
+  static const extensions::ExtensionPrefsScope kIncognitoPersistent =
+      extensions::kExtensionPrefsScopeIncognitoPersistent;
+  static const extensions::ExtensionPrefsScope kIncognitoSessionOnly =
+      extensions::kExtensionPrefsScopeIncognitoSessionOnly;
 
   // Returns an empty string if the key is not set.
   std::string GetValue(const char * key, bool incognito) const {
@@ -110,18 +112,18 @@ TEST_F(ExtensionPrefValueMapTest, OverrideChecks) {
   epvm_.RegisterExtension(kExt2, CreateTime(20), true);
   epvm_.RegisterExtension(kExt3, CreateTime(30), true);
 
-  EXPECT_FALSE(epvm_.DoesExtensionControlPref(kExt1, kPref1, false));
-  EXPECT_FALSE(epvm_.DoesExtensionControlPref(kExt2, kPref1, false));
-  EXPECT_FALSE(epvm_.DoesExtensionControlPref(kExt3, kPref1, false));
+  EXPECT_FALSE(epvm_.DoesExtensionControlPref(kExt1, kPref1, NULL));
+  EXPECT_FALSE(epvm_.DoesExtensionControlPref(kExt2, kPref1, NULL));
+  EXPECT_FALSE(epvm_.DoesExtensionControlPref(kExt3, kPref1, NULL));
   EXPECT_TRUE(epvm_.CanExtensionControlPref(kExt1, kPref1, false));
   EXPECT_TRUE(epvm_.CanExtensionControlPref(kExt2, kPref1, false));
   EXPECT_TRUE(epvm_.CanExtensionControlPref(kExt3, kPref1, false));
 
   epvm_.SetExtensionPref(kExt2, kPref1, kRegular, CreateVal("val1"));
 
-  EXPECT_FALSE(epvm_.DoesExtensionControlPref(kExt1, kPref1, false));
-  EXPECT_TRUE(epvm_.DoesExtensionControlPref(kExt2, kPref1, false));
-  EXPECT_FALSE(epvm_.DoesExtensionControlPref(kExt3, kPref1, false));
+  EXPECT_FALSE(epvm_.DoesExtensionControlPref(kExt1, kPref1, NULL));
+  EXPECT_TRUE(epvm_.DoesExtensionControlPref(kExt2, kPref1, NULL));
+  EXPECT_FALSE(epvm_.DoesExtensionControlPref(kExt3, kPref1, NULL));
   EXPECT_FALSE(epvm_.CanExtensionControlPref(kExt1, kPref1, false));
   EXPECT_TRUE(epvm_.CanExtensionControlPref(kExt2, kPref1, false));
   EXPECT_TRUE(epvm_.CanExtensionControlPref(kExt3, kPref1, false));
@@ -277,17 +279,21 @@ TEST_F(ExtensionPrefValueMapTest, ReenableExt) {
 
 struct OverrideIncognitoTestCase {
   OverrideIncognitoTestCase(int val_ext1_regular,
+                            int val_ext1_regular_only,
                             int val_ext1_incognito_pers,
                             int val_ext1_incognito_sess,
                             int val_ext2_regular,
+                            int val_ext2_regular_only,
                             int val_ext2_incognito_pers,
                             int val_ext2_incognito_sess,
                             int effective_value_regular,
                             int effective_value_incognito)
       : val_ext1_regular_(val_ext1_regular),
+        val_ext1_regular_only_(val_ext1_regular_only),
         val_ext1_incognito_pers_(val_ext1_incognito_pers),
         val_ext1_incognito_sess_(val_ext1_incognito_sess),
         val_ext2_regular_(val_ext2_regular),
+        val_ext2_regular_only_(val_ext2_regular_only),
         val_ext2_incognito_pers_(val_ext2_incognito_pers),
         val_ext2_incognito_sess_(val_ext2_incognito_sess),
         effective_value_regular_(effective_value_regular),
@@ -296,9 +302,11 @@ struct OverrideIncognitoTestCase {
   // pers. = persistent
   // sess. = session only
   int val_ext1_regular_;           // pref value of extension 1
+  int val_ext1_regular_only_;      // pref value of extension 1 regular-only.
   int val_ext1_incognito_pers_;    // pref value of extension 1 incognito pers.
   int val_ext1_incognito_sess_;    // pref value of extension 1 incognito sess.
   int val_ext2_regular_;           // pref value of extension 2
+  int val_ext2_regular_only_;      // pref value of extension 2 regular-only.
   int val_ext2_incognito_pers_;    // pref value of extension 2 incognito pers.
   int val_ext2_incognito_sess_;    // pref value of extension 2 incognito sess.
   int effective_value_regular_;    // desired winner regular
@@ -319,7 +327,9 @@ TEST_P(ExtensionPrefValueMapTestIncognitoTests, OverrideIncognito) {
       "val3",
       "val4",
       "val5",
-      "val6"
+      "val6",
+      "val7",
+      "val8",
   };
 
   epvm_.RegisterExtension(kExt1, CreateTime(10), true);
@@ -327,6 +337,10 @@ TEST_P(ExtensionPrefValueMapTestIncognitoTests, OverrideIncognito) {
   if (test.val_ext1_regular_) {
     epvm_.SetExtensionPref(kExt1, kPref1, kRegular,
                            CreateVal(strings[test.val_ext1_regular_]));
+  }
+  if (test.val_ext1_regular_only_) {
+    epvm_.SetExtensionPref(kExt1, kPref1, kRegularOnly,
+                           CreateVal(strings[test.val_ext1_regular_only_]));
   }
   if (test.val_ext1_incognito_pers_) {
     epvm_.SetExtensionPref(kExt1, kPref1, kIncognitoPersistent,
@@ -339,6 +353,10 @@ TEST_P(ExtensionPrefValueMapTestIncognitoTests, OverrideIncognito) {
   if (test.val_ext2_regular_) {
     epvm_.SetExtensionPref(kExt2, kPref1, kRegular,
                            CreateVal(strings[test.val_ext2_regular_]));
+  }
+  if (test.val_ext2_regular_only_) {
+    epvm_.SetExtensionPref(kExt2, kPref1, kRegularOnly,
+                           CreateVal(strings[test.val_ext2_regular_only_]));
   }
   if (test.val_ext2_incognito_pers_) {
     epvm_.SetExtensionPref(kExt2, kPref1, kIncognitoPersistent,
@@ -359,20 +377,24 @@ INSTANTIATE_TEST_CASE_P(
     ExtensionPrefValueMapTestIncognitoTestsInstance,
     ExtensionPrefValueMapTestIncognitoTests,
     testing::Values(
-        // e.g. (1, 0, 0,  0, 4, 0,  1, 4), means:
+        // e.g. (1, 0, 0, 0,  0, 0, 7, 0,  1, 7), means:
         // ext1 regular is set to "val1", ext2 incognito persistent is set to
-        // "val4"
+        // "val7"
         // --> the winning regular value is "val1", the winning incognito
-        //     value is "val4".
-        OverrideIncognitoTestCase(1, 0, 0,  0, 0, 0,  1, 1),
-        OverrideIncognitoTestCase(1, 2, 0,  0, 0, 0,  1, 2),
-        OverrideIncognitoTestCase(1, 0, 3,  0, 0, 0,  1, 3),
-        OverrideIncognitoTestCase(1, 0, 0,  4, 0, 0,  4, 4),
-        OverrideIncognitoTestCase(1, 0, 0,  0, 5, 0,  1, 5),
-        OverrideIncognitoTestCase(1, 0, 0,  0, 0, 6,  1, 6),
-        // The last 4 in the following line is intentional!
-        OverrideIncognitoTestCase(1, 2, 0,  4, 0, 0,  4, 4),
-        OverrideIncognitoTestCase(1, 2, 0,  0, 5, 0,  1, 5),
-        OverrideIncognitoTestCase(1, 2, 3,  0, 5, 0,  1, 5),
-        OverrideIncognitoTestCase(1, 2, 0,  3, 5, 0,  3, 5),
-        OverrideIncognitoTestCase(1, 2, 0,  3, 5, 6,  3, 6)));
+        //     value is "val7".
+        OverrideIncognitoTestCase(1, 0, 0, 0,  0, 0, 0, 0,  1, 1),
+        OverrideIncognitoTestCase(1, 2, 0, 0,  0, 0, 0, 0,  2, 1),
+        OverrideIncognitoTestCase(1, 0, 3, 0,  0, 0, 0, 0,  1, 3),
+        OverrideIncognitoTestCase(1, 0, 0, 4,  0, 0, 0, 0,  1, 4),
+        OverrideIncognitoTestCase(1, 0, 3, 4,  0, 0, 0, 0,  1, 4),
+        OverrideIncognitoTestCase(1, 2, 3, 0,  0, 0, 0, 0,  2, 3),
+        OverrideIncognitoTestCase(1, 0, 0, 0,  5, 0, 0, 0,  5, 5),
+        OverrideIncognitoTestCase(1, 2, 3, 0,  5, 0, 0, 0,  5, 5),
+        OverrideIncognitoTestCase(1, 0, 0, 0,  0, 6, 0, 0,  6, 1),
+        OverrideIncognitoTestCase(1, 0, 3, 0,  5, 6, 0, 0,  6, 5),
+        OverrideIncognitoTestCase(1, 0, 0, 4,  5, 6, 0, 0,  6, 5),
+        OverrideIncognitoTestCase(1, 0, 0, 0,  0, 0, 7, 0,  1, 7),
+        OverrideIncognitoTestCase(1, 2, 0, 0,  5, 0, 7, 0,  5, 7),
+        OverrideIncognitoTestCase(1, 2, 0, 0,  5, 0, 0, 8,  5, 8),
+        OverrideIncognitoTestCase(1, 2, 0, 0,  5, 0, 7, 8,  5, 8),
+        OverrideIncognitoTestCase(1, 2, 3, 0,  0, 6, 7, 0,  6, 7)));

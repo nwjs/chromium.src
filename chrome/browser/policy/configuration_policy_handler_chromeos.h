@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_POLICY_CONFIGURATION_POLICY_HANDLER_CHROMEOS_H_
 #define CHROME_BROWSER_POLICY_CONFIGURATION_POLICY_HANDLER_CHROMEOS_H_
-#pragma once
 
 #include "chrome/browser/chromeos/cros/network_ui_data.h"
 #include "chrome/browser/policy/configuration_policy_handler.h"
@@ -42,6 +41,20 @@ class NetworkConfigurationPolicyHandler : public TypeCheckingPolicyHandler {
   chromeos::NetworkUIData::ONCSource onc_source_;
 
   DISALLOW_COPY_AND_ASSIGN(NetworkConfigurationPolicyHandler);
+};
+
+// Maps the PinnedLauncherApps policy to the corresponding pref.
+class PinnedLauncherAppsPolicyHandler : public ExtensionListPolicyHandler {
+ public:
+  PinnedLauncherAppsPolicyHandler();
+  virtual ~PinnedLauncherAppsPolicyHandler();
+
+  // ExtensionListPolicyHandler methods:
+  virtual void ApplyPolicySettings(const PolicyMap& policies,
+                                   PrefValueMap* prefs) OVERRIDE;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(PinnedLauncherAppsPolicyHandler);
 };
 
 }  // namespace policy

@@ -4,14 +4,13 @@
 
 #ifndef CHROME_TEST_BASE_BROWSER_WITH_TEST_WINDOW_TEST_H_
 #define CHROME_TEST_BASE_BROWSER_WITH_TEST_WINDOW_TEST_H_
-#pragma once
 
 #include "base/message_loop.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/test/base/test_browser_window.h"
 #include "chrome/test/base/testing_profile.h"
-#include "content/test/test_browser_thread.h"
-#include "content/test/test_renderer_host.h"
+#include "content/public/test/test_browser_thread.h"
+#include "content/public/test/test_renderer_host.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 #if defined(OS_WIN)
@@ -22,10 +21,8 @@ class GURL;
 
 #if defined(USE_AURA)
 namespace aura {
-class RootWindow;
 namespace test {
-class TestActivationClient;
-class TestStackingClient;
+class AuraTestHelper;
 }
 }
 #endif
@@ -43,7 +40,7 @@ class WebContents;
 //   // Add a new tab and navigate it. This will be at index 0.
 //   AddTab(browser(), GURL("http://foo/1"));
 //   NavigationController* controller =
-//       &browser()->GetTabContentsAt(0)->GetController();
+//       &chrome::GetTabContentsAt(browser(), 0)->GetController();
 //
 //   // Navigate somewhere else.
 //   GURL url2("http://foo/2");
@@ -77,9 +74,7 @@ class BrowserWithTestWindowTest : public testing::Test {
   }
 
   TestingProfile* profile() const { return profile_.get(); }
-  void set_profile(TestingProfile* profile) {
-    profile_.reset(profile);
-  }
+  void set_profile(TestingProfile* profile);
 
   MessageLoop* message_loop() { return &ui_loop_; }
 
@@ -102,17 +97,18 @@ class BrowserWithTestWindowTest : public testing::Test {
   void NavigateAndCommitActiveTab(const GURL& url);
 
  protected:
-  // Destroys the browser and window created by this class. This is invoked from
-  // the destructor.
-  void DestroyBrowser();
+  // Destroys the browser, window, and profile created by this class. This is
+  // invoked from the destructor.
+  void DestroyBrowserAndProfile();
 
-  // Creates the profile used by this test. The caller owners the return value.
+  // Creates the profile used by this test. The caller owns the return value.
   virtual TestingProfile* CreateProfile();
 
  private:
   // We need to create a MessageLoop, otherwise a bunch of things fails.
   MessageLoopForUI ui_loop_;
   content::TestBrowserThread ui_thread_;
+  content::TestBrowserThread db_thread_;
   content::TestBrowserThread file_thread_;
   content::TestBrowserThread file_user_blocking_thread_;
 
@@ -125,9 +121,7 @@ class BrowserWithTestWindowTest : public testing::Test {
   content::RenderViewHostTestEnabler rvh_test_enabler_;
 
 #if defined(USE_AURA)
-  scoped_ptr<aura::RootWindow> root_window_;
-  scoped_ptr<aura::test::TestActivationClient> test_activation_client_;
-  scoped_ptr<aura::test::TestStackingClient> test_stacking_client_;
+  scoped_ptr<aura::test::AuraTestHelper> aura_test_helper_;
 #endif
 
 #if defined(OS_WIN)

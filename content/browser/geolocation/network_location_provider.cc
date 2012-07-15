@@ -10,6 +10,7 @@
 #include "content/public/browser/access_token_store.h"
 
 using content::AccessTokenStore;
+using content::Geoposition;
 
 namespace {
 // The maximum period of time we'll wait for a complete set of device data
@@ -75,7 +76,6 @@ bool NetworkLocationProvider::PositionCache::MakeKey(
     string16* key) {
   // Currently we use only the WiFi data, and base the key only on
   // the MAC addresses.
-  // TODO(joth): Make use of radio_data.
   DCHECK(key);
   key->clear();
   const size_t kCharsPerMacAddress = 6 * 3 + 1;  // e.g. "11:22:33:44:55:66|"
@@ -111,11 +111,10 @@ NetworkLocationProvider::NetworkLocationProvider(
     const GURL& url,
     const string16& access_token)
     : access_token_store_(access_token_store),
-      radio_data_provider_(NULL),
       wifi_data_provider_(NULL),
-      is_radio_data_complete_(false),
       is_wifi_data_complete_(false),
       access_token_(access_token),
+      is_permission_granted_(false),
       is_new_data_available_(false),
       ALLOW_THIS_IN_INITIALIZER_LIST(weak_factory_(this)) {
   // Create the position cache.
@@ -138,30 +137,20 @@ void NetworkLocationProvider::UpdatePosition() {
   // TODO(joth): When called via the public (base class) interface, this should
   // poke each data provider to get them to expedite their next scan.
   // Whilst in the delayed start, only send request if all data is ready.
-  if (!weak_factory_.HasWeakPtrs() ||
-      (is_radio_data_complete_ && is_wifi_data_complete_)) {
+  if (!weak_factory_.HasWeakPtrs() || is_wifi_data_complete_) {
     RequestPosition();
   }
 }
 
-void NetworkLocationProvider::OnPermissionGranted(
-    const GURL& requesting_frame) {
-  const bool host_was_empty = most_recent_authorized_host_.empty();
-  most_recent_authorized_host_ = requesting_frame.host();
-  if (host_was_empty && !most_recent_authorized_host_.empty()
-      && IsStarted()) {
+void NetworkLocationProvider::OnPermissionGranted() {
+  const bool was_permission_granted = is_permission_granted_;
+  is_permission_granted_ = true;
+  if (!was_permission_granted && IsStarted()) {
     UpdatePosition();
   }
 }
 
 // DeviceDataProviderInterface::ListenerInterface implementation.
-void NetworkLocationProvider::DeviceDataUpdateAvailable(
-    RadioDataProvider* provider) {
-  DCHECK(provider == radio_data_provider_);
-  is_radio_data_complete_ = radio_data_provider_->GetData(&radio_data_);
-  OnDeviceDataUpdated();
-}
-
 void NetworkLocationProvider::DeviceDataUpdateAvailable(
     WifiDataProvider* provider) {
   DCHECK(provider == wifi_data_provider_);
@@ -174,12 +163,11 @@ void NetworkLocationProvider::LocationResponseAvailable(
     const Geoposition& position,
     bool server_error,
     const string16& access_token,
-    const RadioData& radio_data,
     const WifiData& wifi_data) {
   DCHECK(CalledOnValidThread());
   // Record the position and update our cache.
   position_ = position;
-  if (position.IsValidFix()) {
+  if (position.Validate()) {
     position_cache_->CachePosition(wifi_data, position);
   }
 
@@ -206,7 +194,6 @@ bool NetworkLocationProvider::StartProvider(bool high_accuracy) {
 
   // Get the device data providers. The first call to Register will create the
   // provider and it will be deleted by ref counting.
-  radio_data_provider_ = RadioDataProvider::Register(this);
   wifi_data_provider_ = WifiDataProvider::Register(this);
 
   MessageLoop::current()->PostDelayedTask(
@@ -215,9 +202,8 @@ bool NetworkLocationProvider::StartProvider(bool high_accuracy) {
                  weak_factory_.GetWeakPtr()),
       base::TimeDelta::FromSeconds(kDataCompleteWaitSeconds));
   // Get the device data.
-  is_radio_data_complete_ = radio_data_provider_->GetData(&radio_data_);
   is_wifi_data_complete_ = wifi_data_provider_->GetData(&wifi_data_);
-  if (is_radio_data_complete_ || is_wifi_data_complete_)
+  if (is_wifi_data_complete_)
     OnDeviceDataUpdated();
   return true;
 }
@@ -225,10 +211,8 @@ bool NetworkLocationProvider::StartProvider(bool high_accuracy) {
 void NetworkLocationProvider::StopProvider() {
   DCHECK(CalledOnValidThread());
   if (IsStarted()) {
-    radio_data_provider_->Unregister(this);
     wifi_data_provider_->Unregister(this);
   }
-  radio_data_provider_ = NULL;
   wifi_data_provider_ = NULL;
   weak_factory_.InvalidateWeakPtrs();
 }
@@ -244,7 +228,7 @@ void NetworkLocationProvider::RequestPosition() {
   DCHECK(!device_data_updated_timestamp_.is_null()) <<
       "Timestamp must be set before looking up position";
   if (cached_position) {
-    DCHECK(cached_position->IsValidFix());
+    DCHECK(cached_position->Validate());
     // Record the position and update its timestamp.
     position_ = *cached_position;
     // The timestamp of a position fix is determined by the timestamp
@@ -257,7 +241,7 @@ void NetworkLocationProvider::RequestPosition() {
     return;
   }
   // Don't send network requests until authorized. http://crbug.com/39171
-  if (most_recent_authorized_host_.empty())
+  if (!is_permission_granted_)
     return;
 
   weak_factory_.InvalidateWeakPtrs();
@@ -270,11 +254,7 @@ void NetworkLocationProvider::RequestPosition() {
                 "with new data. Wifi APs: "
              << wifi_data_.access_point_data.size();
   }
-  // The hostname sent in the request is just to give a first-order
-  // approximation of usage. We do not need to guarantee that this network
-  // request was triggered by an API call from this specific host.
-  request_->MakeRequest(most_recent_authorized_host_, access_token_,
-                        radio_data_, wifi_data_,
+  request_->MakeRequest(access_token_, wifi_data_,
                         device_data_updated_timestamp_);
 }
 
@@ -282,11 +262,10 @@ void NetworkLocationProvider::OnDeviceDataUpdated() {
   DCHECK(CalledOnValidThread());
   device_data_updated_timestamp_ = base::Time::Now();
 
-  is_new_data_available_ = is_radio_data_complete_ || is_wifi_data_complete_;
+  is_new_data_available_ = is_wifi_data_complete_;
   UpdatePosition();
 }
 
 bool NetworkLocationProvider::IsStarted() const {
-  DCHECK_EQ(!!radio_data_provider_, !!wifi_data_provider_);
   return wifi_data_provider_ != NULL;
 }

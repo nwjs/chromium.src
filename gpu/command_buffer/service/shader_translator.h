@@ -9,7 +9,9 @@
 
 #include "base/basictypes.h"
 #include "base/hash_tables.h"
+#include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/observer_list.h"
 #include "gpu/gpu_export.h"
 #include "third_party/angle/include/GLSLANG/ShaderLang.h"
 
@@ -30,7 +32,31 @@ class ShaderTranslatorInterface {
     kGlslBuiltInFunctionEmulated
   };
 
-  virtual ~ShaderTranslatorInterface() { }
+  struct VariableInfo {
+    VariableInfo()
+        : type(0),
+          size(0) {
+    }
+
+    VariableInfo(int _type, int _size, std::string _name)
+        : type(_type),
+          size(_size),
+          name(_name) {
+    }
+    bool operator==(
+        const ShaderTranslatorInterface::VariableInfo& other) const {
+      return type == other.type &&
+          size == other.size &&
+          strcmp(name.c_str(), other.name.c_str()) == 0;
+    }
+
+    int type;
+    int size;
+    std::string name;  // name in the original shader source.
+  };
+
+  // Mapping between variable name and info.
+  typedef base::hash_map<std::string, VariableInfo> VariableMap;
 
   // Initializes the translator.
   // Must be called once before using the translator object.
@@ -52,32 +78,30 @@ class ShaderTranslatorInterface {
   virtual const char* translated_shader() const = 0;
   virtual const char* info_log() const = 0;
 
-  struct VariableInfo {
-    VariableInfo()
-        : type(0),
-          size(0) {
-    }
-      VariableInfo(int _type, int _size, std::string _name)
-        : type(_type),
-          size(_size),
-          name(_name) {
-    }
-    int type;
-    int size;
-    std::string name;  // name in the original shader source.
-  };
-  // Mapping between variable name and info.
-  typedef base::hash_map<std::string, VariableInfo> VariableMap;
   virtual const VariableMap& attrib_map() const = 0;
   virtual const VariableMap& uniform_map() const = 0;
+
+ protected:
+  virtual ~ShaderTranslatorInterface() {}
 };
 
 // Implementation of ShaderTranslatorInterface
 class GPU_EXPORT ShaderTranslator
-    : NON_EXPORTED_BASE(public ShaderTranslatorInterface) {
+    : public base::RefCounted<ShaderTranslator>,
+      NON_EXPORTED_BASE(public ShaderTranslatorInterface) {
  public:
+  class DestructionObserver {
+   public:
+    DestructionObserver();
+    virtual ~DestructionObserver();
+
+    virtual void OnDestruct(ShaderTranslator* translator) = 0;
+
+   private:
+    DISALLOW_COPY_AND_ASSIGN(DestructionObserver);
+  };
+
   ShaderTranslator();
-  virtual ~ShaderTranslator();
 
   // Overridden from ShaderTranslatorInterface.
   virtual bool Init(
@@ -98,7 +122,13 @@ class GPU_EXPORT ShaderTranslator
   virtual const VariableMap& attrib_map() const OVERRIDE;
   virtual const VariableMap& uniform_map() const OVERRIDE;
 
+  void AddDestructionObserver(DestructionObserver* observer);
+  void RemoveDestructionObserver(DestructionObserver* observer);
+
  private:
+  friend class base::RefCounted<ShaderTranslator>;
+
+  virtual ~ShaderTranslator();
   void ClearResults();
 
   ShHandle compiler_;
@@ -108,6 +138,7 @@ class GPU_EXPORT ShaderTranslator
   VariableMap uniform_map_;
   bool implementation_is_glsl_es_;
   bool needs_built_in_function_emulation_;
+  ObserverList<DestructionObserver> destruction_observers_;
 
   DISALLOW_COPY_AND_ASSIGN(ShaderTranslator);
 };

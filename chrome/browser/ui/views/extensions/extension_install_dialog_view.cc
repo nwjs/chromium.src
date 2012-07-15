@@ -12,11 +12,8 @@
 #include "chrome/browser/extensions/bundle_installer.h"
 #include "chrome/browser/extensions/extension_install_dialog.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser_list.h"
-#include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/dialog_style.h"
-#include "chrome/browser/ui/views/window.h"
 #include "chrome/common/extensions/extension.h"
+#include "content/public/browser/page_navigator.h"
 #include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -63,7 +60,7 @@ const int kHeadingFontSizeDelta = 1;
 
 const int kRatingFontSizeDelta = -1;
 
-void AddResourceIcon(const SkBitmap* skia_image, void* data) {
+void AddResourceIcon(const gfx::ImageSkia* skia_image, void* data) {
   views::View* parent = static_cast<views::View*>(data);
   views::ImageView* image_view = new views::ImageView();
   image_view->SetImage(*skia_image);
@@ -76,8 +73,9 @@ void AddResourceIcon(const SkBitmap* skia_image, void* data) {
 class ExtensionInstallDialogView : public views::DialogDelegateView,
                                    public views::LinkListener {
  public:
-  ExtensionInstallDialogView(ExtensionInstallUI::Delegate* delegate,
-                             const ExtensionInstallUI::Prompt& prompt);
+  ExtensionInstallDialogView(content::PageNavigator* navigator,
+                             ExtensionInstallPrompt::Delegate* delegate,
+                             const ExtensionInstallPrompt::Prompt& prompt);
   virtual ~ExtensionInstallDialogView();
 
  private:
@@ -96,23 +94,26 @@ class ExtensionInstallDialogView : public views::DialogDelegateView,
   virtual void LinkClicked(views::Link* source, int event_flags) OVERRIDE;
 
   bool is_inline_install() {
-    return prompt_.type() == ExtensionInstallUI::INLINE_INSTALL_PROMPT;
+    return prompt_.type() == ExtensionInstallPrompt::INLINE_INSTALL_PROMPT;
   }
 
   bool is_bundle_install() {
-    return prompt_.type() == ExtensionInstallUI::BUNDLE_INSTALL_PROMPT;
+    return prompt_.type() == ExtensionInstallPrompt::BUNDLE_INSTALL_PROMPT;
   }
 
-  ExtensionInstallUI::Delegate* delegate_;
-  ExtensionInstallUI::Prompt prompt_;
+  content::PageNavigator* navigator_;
+  ExtensionInstallPrompt::Delegate* delegate_;
+  ExtensionInstallPrompt::Prompt prompt_;
 
   DISALLOW_COPY_AND_ASSIGN(ExtensionInstallDialogView);
 };
 
 ExtensionInstallDialogView::ExtensionInstallDialogView(
-    ExtensionInstallUI::Delegate* delegate,
-    const ExtensionInstallUI::Prompt& prompt)
-    : delegate_(delegate),
+    content::PageNavigator* navigator,
+    ExtensionInstallPrompt::Delegate* delegate,
+    const ExtensionInstallPrompt::Prompt& prompt)
+    : navigator_(navigator),
+      delegate_(delegate),
       prompt_(prompt) {
   // Possible grid layouts:
   // Inline install
@@ -185,13 +186,13 @@ ExtensionInstallDialogView::ExtensionInstallDialogView(
 
   if (!is_bundle_install()) {
     // Scale down to icon size, but allow smaller icons (don't scale up).
-    SkBitmap bitmap = prompt.icon();
-    gfx::Size size(bitmap.width(), bitmap.height());
+    const gfx::ImageSkia* image = prompt.icon().ToImageSkia();
+    gfx::Size size(image->width(), image->height());
     if (size.width() > kIconSize || size.height() > kIconSize)
       size = gfx::Size(kIconSize, kIconSize);
     views::ImageView* icon = new views::ImageView();
     icon->SetImageSize(size);
-    icon->SetImage(bitmap);
+    icon->SetImage(*image);
     icon->SetHorizontalAlignment(views::ImageView::CENTER);
     icon->SetVerticalAlignment(views::ImageView::CENTER);
     int icon_row_span = 1;
@@ -269,8 +270,8 @@ ExtensionInstallDialogView::ExtensionInstallDialogView(
     if (is_bundle_install()) {
       // We need to make the font bold like this, rather than using SetFont,
       // because otherwise SizeToFit mis-judges the width of the line.
-      gfx::Font bold_font = ResourceBundle::GetSharedInstance().GetFont(
-          ResourceBundle::BaseFont).DeriveFont(
+      gfx::Font bold_font = ui::ResourceBundle::GetSharedInstance().GetFont(
+          ui::ResourceBundle::BaseFont).DeriveFont(
               kHeadingFontSizeDelta, gfx::Font::BOLD);
       permissions_header = new views::Label(
           prompt.GetPermissionsHeading(), bold_font);
@@ -346,35 +347,16 @@ void ExtensionInstallDialogView::LinkClicked(views::Link* source,
   OpenURLParams params(
       store_url, Referrer(), NEW_FOREGROUND_TAB, content::PAGE_TRANSITION_LINK,
       false);
-  BrowserList::GetLastActive()->OpenURL(params);
+  navigator_->OpenURL(params);
   GetWidget()->Close();
 }
 
 void ShowExtensionInstallDialogImpl(
-    Profile* profile,
-    ExtensionInstallUI::Delegate* delegate,
-    const ExtensionInstallUI::Prompt& prompt) {
-#if defined(OS_CHROMEOS)
-  // Use a tabbed browser window as parent on ChromeOS.
-  Browser* browser = BrowserList::FindTabbedBrowser(profile, true);
-#else
-  Browser* browser = BrowserList::GetLastActiveWithProfile(profile);
-#endif
-  if (!browser) {
-    delegate->InstallUIAbort(false);
-    return;
-  }
-
-  BrowserWindow* browser_window = browser->window();
-  if (!browser_window) {
-    delegate->InstallUIAbort(false);
-    return;
-  }
-
-  ExtensionInstallDialogView* dialog = new ExtensionInstallDialogView(
-      delegate, prompt);
-
-  views::Widget* window =  views::Widget::CreateWindowWithParent(
-      dialog, browser_window->GetNativeHandle());
-  window->Show();
+    gfx::NativeWindow parent,
+    content::PageNavigator* navigator,
+    ExtensionInstallPrompt::Delegate* delegate,
+    const ExtensionInstallPrompt::Prompt& prompt) {
+  views::Widget::CreateWindowWithParent(
+      new ExtensionInstallDialogView(navigator, delegate, prompt),
+      parent)->Show();
 }

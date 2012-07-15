@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <X11/XKBlib.h>
-#include <X11/Xlib.h>
 #include <signal.h>
 
 #include <iostream>  // NOLINT
@@ -16,6 +14,7 @@
 #include "base/threading/platform_thread.h"
 #include "base/threading/thread.h"
 #include "media/audio/audio_manager.h"
+#include "media/audio/null_audio_sink.h"
 #include "media/base/filter_collection.h"
 #include "media/base/media.h"
 #include "media/base/media_log.h"
@@ -23,13 +22,19 @@
 #include "media/base/message_loop_factory.h"
 #include "media/base/pipeline.h"
 #include "media/base/video_frame.h"
+#include "media/filters/audio_renderer_impl.h"
 #include "media/filters/ffmpeg_audio_decoder.h"
-#include "media/filters/ffmpeg_demuxer_factory.h"
+#include "media/filters/ffmpeg_demuxer.h"
 #include "media/filters/ffmpeg_video_decoder.h"
 #include "media/filters/file_data_source.h"
-#include "media/filters/null_audio_renderer.h"
 #include "media/filters/video_renderer_base.h"
 #include "media/tools/player_x11/data_source_logger.h"
+
+// Include X11 headers here because X11/Xlib.h #define's Status
+// which causes compiler errors with Status enum declarations
+// in media::DemuxerStream & media::AudioDecoder.
+#include <X11/XKBlib.h>
+#include <X11/Xlib.h>
 #include "media/tools/player_x11/gl_video_renderer.h"
 #include "media/tools/player_x11/x11_video_renderer.h"
 
@@ -37,21 +42,9 @@ static Display* g_display = NULL;
 static Window g_window = 0;
 static bool g_running = false;
 
-AudioManager* g_audio_manager = NULL;
+media::AudioManager* g_audio_manager = NULL;
 
 media::VideoRendererBase* g_video_renderer = NULL;
-
-class MessageLoopQuitter {
- public:
-  explicit MessageLoopQuitter(MessageLoop* loop) : loop_(loop) {}
-  void Quit(media::PipelineStatus status) {
-    loop_->PostTask(FROM_HERE, MessageLoop::QuitClosure());
-    delete this;
-  }
- private:
-  MessageLoop* loop_;
-  DISALLOW_COPY_AND_ASSIGN(MessageLoopQuitter);
-};
 
 scoped_refptr<media::FileDataSource> CreateFileDataSource(
     const std::string& file) {
@@ -121,8 +114,7 @@ bool InitPipeline(MessageLoop* message_loop,
   // Create our filter factories.
   scoped_ptr<media::FilterCollection> collection(
       new media::FilterCollection());
-  collection->SetDemuxerFactory(scoped_ptr<media::DemuxerFactory>(
-      new media::FFmpegDemuxerFactory(data_source, message_loop)));
+  collection->SetDemuxer(new media::FFmpegDemuxer(message_loop, data_source));
   collection->AddAudioDecoder(new media::FFmpegAudioDecoder(
       base::Bind(&media::MessageLoopFactory::GetMessageLoop,
                  base::Unretained(message_loop_factory),
@@ -139,21 +131,21 @@ bool InitPipeline(MessageLoop* message_loop,
       true);
   collection->AddVideoRenderer(g_video_renderer);
 
-  collection->AddAudioRenderer(new media::NullAudioRenderer());
+  collection->AddAudioRenderer(
+      new media::AudioRendererImpl(new media::NullAudioSink()));
 
   // Create the pipeline and start it.
   *pipeline = new media::Pipeline(message_loop, new media::MediaLog());
   media::PipelineStatusNotification note;
   (*pipeline)->Start(
-      collection.Pass(), "", media::PipelineStatusCB(),
-      media::PipelineStatusCB(), media::NetworkEventCB(),
+      collection.Pass(), media::PipelineStatusCB(), media::PipelineStatusCB(),
       note.Callback());
 
   // Wait until the pipeline is fully initialized.
   note.Wait();
   if (note.status() != media::PIPELINE_OK) {
     std::cout << "InitPipeline: " << note.status() << std::endl;
-    (*pipeline)->Stop(media::PipelineStatusCB());
+    (*pipeline)->Stop(base::Closure());
     return false;
   }
 
@@ -173,9 +165,7 @@ void PeriodicalUpdate(
   if (!g_running) {
     // interrupt signal was received during last time period.
     // Quit message_loop only when pipeline is fully stopped.
-    MessageLoopQuitter* quitter = new MessageLoopQuitter(message_loop);
-    pipeline->Stop(base::Bind(&MessageLoopQuitter::Quit,
-                              base::Unretained(quitter)));
+    pipeline->Stop(MessageLoop::QuitClosure());
     return;
   }
 
@@ -208,9 +198,7 @@ void PeriodicalUpdate(
           if (key == XK_Escape) {
             g_running = false;
             // Quit message_loop only when pipeline is fully stopped.
-            MessageLoopQuitter* quitter = new MessageLoopQuitter(message_loop);
-            pipeline->Stop(base::Bind(&MessageLoopQuitter::Quit,
-                                      base::Unretained(quitter)));
+            pipeline->Stop(MessageLoop::QuitClosure());
             return;
           } else if (key == XK_space) {
             if (pipeline->GetPlaybackRate() < 0.01f)  // paused
@@ -254,7 +242,7 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  scoped_ptr<AudioManager> audio_manager(AudioManager::Create());
+  scoped_ptr<media::AudioManager> audio_manager(media::AudioManager::Create());
   g_audio_manager = audio_manager.get();
 
   logging::InitLogging(

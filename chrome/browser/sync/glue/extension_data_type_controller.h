@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SYNC_GLUE_EXTENSION_DATA_TYPE_CONTROLLER_H_
 #define CHROME_BROWSER_SYNC_GLUE_EXTENSION_DATA_TYPE_CONTROLLER_H_
-#pragma once
 
 #include <string>
 
@@ -19,13 +18,14 @@ namespace browser_sync {
 class ExtensionDataTypeController : public UIDataTypeController {
  public:
   ExtensionDataTypeController(
-      syncable::ModelType type,  // Either EXTENSIONS or APPS.
+      syncer::ModelType type,  // Either EXTENSIONS or APPS.
       ProfileSyncComponentsFactory* profile_sync_factory,
       Profile* profile,
       ProfileSyncService* sync_service);
-  virtual ~ExtensionDataTypeController();
 
  private:
+  virtual ~ExtensionDataTypeController();
+
   // DataTypeController implementations.
   virtual bool StartModels() OVERRIDE;
 

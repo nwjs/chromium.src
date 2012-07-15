@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,7 +6,7 @@
 #include "base/string16.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/autofill/phone_number_i18n.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using autofill_i18n::NormalizePhoneNumber;
@@ -287,7 +287,7 @@ TEST_F(PhoneNumberI18NTest, ConstructPhoneNumber) {
                                    "US",
                                    autofill_i18n::RFC3966,
                                    &number));
-  EXPECT_EQ(number, ASCIIToUTF16("+1-650-234-5678"));
+  EXPECT_EQ(number, ASCIIToUTF16("tel:+1-650-234-5678"));
   EXPECT_TRUE(ConstructPhoneNumber(string16(),
                                    ASCIIToUTF16("650"),
                                    ASCIIToUTF16("2345678"),

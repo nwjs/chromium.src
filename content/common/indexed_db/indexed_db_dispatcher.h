@@ -4,13 +4,13 @@
 
 #ifndef CONTENT_COMMON_INDEXED_DB_INDEXED_DB_DISPATCHER_H_
 #define CONTENT_COMMON_INDEXED_DB_INDEXED_DB_DISPATCHER_H_
-#pragma once
 
 #include <map>
 #include <vector>
 
 #include "base/id_map.h"
 #include "base/nullable_string16.h"
+#include "content/common/content_export.h"
 #include "ipc/ipc_sync_message_filter.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebExceptionCode.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebIDBCallbacks.h"
@@ -20,8 +20,6 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebIDBTransactionCallbacks.h"
 #include "webkit/glue/worker_task_runner.h"
 
-class IndexedDBKey;
-class IndexedDBKeyRange;
 struct IndexedDBMsg_CallbacksSuccessCursorContinue_Params;
 struct IndexedDBMsg_CallbacksSuccessCursorPrefetch_Params;
 struct IndexedDBMsg_CallbacksSuccessIDBCursor_Params;
@@ -38,13 +36,23 @@ class WebIDBTransaction;
 }
 
 namespace content {
+class IndexedDBKey;
+class IndexedDBKeyRange;
 class SerializedScriptValue;
 }
 
+CONTENT_EXPORT extern const size_t kMaxIDBValueSizeInBytes;
+
 // Handle the indexed db related communication for this context thread - the
 // main thread and each worker thread have their own copies.
-class IndexedDBDispatcher : public webkit_glue::WorkerTaskRunner::Observer {
+class CONTENT_EXPORT IndexedDBDispatcher
+    : public webkit_glue::WorkerTaskRunner::Observer {
  public:
+  // Constructor made public to allow RenderThreadImpl to own a copy without
+  // failing a NOTREACHED in ThreadSpecificInstance in tests that instantiate
+  // two copies of RenderThreadImpl on the same thread.  Everyone else probably
+  // wants to use ThreadSpecificInstance().
+  IndexedDBDispatcher();
   virtual ~IndexedDBDispatcher();
   static IndexedDBDispatcher* ThreadSpecificInstance();
 
@@ -77,8 +85,14 @@ class IndexedDBDispatcher : public webkit_glue::WorkerTaskRunner::Observer {
       int32 idb_cursor_id,
       WebKit::WebExceptionCode* ec);
 
+  void RequestIDBCursorAdvance(
+      unsigned long count,
+      WebKit::WebIDBCallbacks* callbacks_ptr,
+      int32 idb_cursor_id,
+      WebKit::WebExceptionCode* ec);
+
   void RequestIDBCursorContinue(
-      const IndexedDBKey& key,
+      const content::IndexedDBKey& key,
       WebKit::WebIDBCallbacks* callbacks_ptr,
       int32 idb_cursor_id,
       WebKit::WebExceptionCode* ec);
@@ -133,41 +147,40 @@ class IndexedDBDispatcher : public webkit_glue::WorkerTaskRunner::Observer {
       const WebKit::WebIDBTransaction& transaction,
       WebKit::WebExceptionCode* ec);
 
-  void RequestIDBIndexGetObject(const IndexedDBKey& key,
-                                WebKit::WebIDBCallbacks* callbacks,
-                                int32 idb_index_id,
-                                const WebKit::WebIDBTransaction& transaction,
-                                 WebKit::WebExceptionCode* ec);
+  void RequestIDBIndexGetObject(
+      const content::IndexedDBKeyRange& key_range,
+      WebKit::WebIDBCallbacks* callbacks,
+      int32 idb_index_id,
+      const WebKit::WebIDBTransaction& transaction,
+      WebKit::WebExceptionCode* ec);
 
-  void RequestIDBIndexGetKey(const IndexedDBKey& key,
-                             WebKit::WebIDBCallbacks* callbacks,
-                             int32 idb_index_id,
-                             const WebKit::WebIDBTransaction& transaction,
-                             WebKit::WebExceptionCode* ec);
+  void RequestIDBIndexGetKey(
+      const content::IndexedDBKeyRange& key_range,
+      WebKit::WebIDBCallbacks* callbacks,
+      int32 idb_index_id,
+      const WebKit::WebIDBTransaction& transaction,
+      WebKit::WebExceptionCode* ec);
 
-  void RequestIDBObjectStoreGet(const IndexedDBKey& key,
-                                WebKit::WebIDBCallbacks* callbacks,
-                                int32 idb_object_store_id,
-                                const WebKit::WebIDBTransaction& transaction,
-                                WebKit::WebExceptionCode* ec);
-
-  void RequestIDBObjectStorePut(const content::SerializedScriptValue& value,
-                                const IndexedDBKey& key,
-                                WebKit::WebIDBObjectStore::PutMode putMode,
-                                WebKit::WebIDBCallbacks* callbacks,
-                                int32 idb_object_store_id,
-                                const WebKit::WebIDBTransaction& transaction,
-                                WebKit::WebExceptionCode* ec);
-
-  void RequestIDBObjectStoreDelete(
-      const IndexedDBKey& key,
+  void RequestIDBObjectStoreGet(
+      const content::IndexedDBKeyRange& key_range,
       WebKit::WebIDBCallbacks* callbacks,
       int32 idb_object_store_id,
       const WebKit::WebIDBTransaction& transaction,
       WebKit::WebExceptionCode* ec);
 
-  void RequestIDBObjectStoreDeleteRange(
-      const IndexedDBKeyRange& key_range,
+  void RequestIDBObjectStorePut(
+      const content::SerializedScriptValue& value,
+      const content::IndexedDBKey& key,
+      WebKit::WebIDBObjectStore::PutMode putMode,
+      WebKit::WebIDBCallbacks* callbacks,
+      int32 idb_object_store_id,
+      const WebKit::WebIDBTransaction& transaction,
+      const WebKit::WebVector<WebKit::WebString>& indexNames,
+      const WebKit::WebVector<WebKit::WebVector<WebKit::WebIDBKey> >& indexKeys,
+      WebKit::WebExceptionCode* ec);
+
+  void RequestIDBObjectStoreDelete(
+      const content::IndexedDBKeyRange& key_range,
       WebKit::WebIDBCallbacks* callbacks,
       int32 idb_object_store_id,
       const WebKit::WebIDBTransaction& transaction,
@@ -203,7 +216,8 @@ class IndexedDBDispatcher : public webkit_glue::WorkerTaskRunner::Observer {
   static int32 TransactionId(const WebKit::WebIDBTransaction& transaction);
 
  private:
-  IndexedDBDispatcher();
+  FRIEND_TEST_ALL_PREFIXES(IndexedDBDispatcherTest, ValueSizeTest);
+
   // IDBCallback message handlers.
   void OnSuccessNull(int32 response_id);
   void OnSuccessIDBDatabase(int32 thread_id,
@@ -211,7 +225,7 @@ class IndexedDBDispatcher : public webkit_glue::WorkerTaskRunner::Observer {
                             int32 object_id);
   void OnSuccessIndexedDBKey(int32 thread_id,
                              int32 response_id,
-                             const IndexedDBKey& key);
+                             const content::IndexedDBKey& key);
   void OnSuccessIDBTransaction(int32 thread_id,
                                int32 response_id,
                                int32 object_id);

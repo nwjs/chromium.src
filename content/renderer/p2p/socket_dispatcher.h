@@ -15,6 +15,8 @@
 //            v                  IPC              v
 //  P2PSocketDispatcherHost  <--------->  P2PSocketDispatcher
 //
+// P2PSocketDispatcher receives and dispatches messages on the
+// renderer thread.
 
 #ifndef CONTENT_RENDERER_P2P_SOCKET_DISPATCHER_H_
 #define CONTENT_RENDERER_P2P_SOCKET_DISPATCHER_H_
@@ -50,9 +52,18 @@ namespace content {
 class P2PHostAddressRequest;
 class P2PSocketClient;
 
-// P2PSocketDispatcher works on the renderer thread. It dispatches all
-// messages on that thread, and all its methods must be called on the
-// same thread.
+// Callback interface that allows the implementor to be notified before a
+// P2PSocketDispatcher is destroyed.
+// P2PSocketDispatcher requires that all NetworkListObservers are
+// unregistered when SocketDispatcherGone is called.
+class P2PSocketDispatcherDestructionObserver {
+ public:
+  virtual void OnSocketDispatcherDestroyed() = 0;
+
+ protected:
+  virtual ~P2PSocketDispatcherDestructionObserver() {}
+};
+
 class CONTENT_EXPORT P2PSocketDispatcher : public content::RenderViewObserver {
  public:
   explicit P2PSocketDispatcher(RenderViewImpl* render_view);
@@ -60,13 +71,19 @@ class CONTENT_EXPORT P2PSocketDispatcher : public content::RenderViewObserver {
 
   // Add a new network list observer. Each observer is called
   // immidiately after it is registered and then later whenever
-  // network configuration changes.
+  // network configuration changes. Can be called on any thread. The
+  // observer is always called on the thread it was added.
   void AddNetworkListObserver(
       webkit_glue::NetworkListObserver* network_list_observer);
 
-  // Removes network list observer.
+  // Removes network list observer. Must be called on the thread on
+  // which the observer was added.
   void RemoveNetworkListObserver(
       webkit_glue::NetworkListObserver* network_list_observer);
+
+  void AddDestructionObserver(P2PSocketDispatcherDestructionObserver* observer);
+  void RemoveDestructionObserver(
+      P2PSocketDispatcherDestructionObserver* observer);
 
   // RenderViewObserver overrides.
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
@@ -109,6 +126,8 @@ class CONTENT_EXPORT P2PSocketDispatcher : public content::RenderViewObserver {
       network_list_observers_;
 
   scoped_refptr<AsyncMessageSender> async_message_sender_;
+
+  ObserverList<P2PSocketDispatcherDestructionObserver> destruction_observer_;
 
   DISALLOW_COPY_AND_ASSIGN(P2PSocketDispatcher);
 };

@@ -5,12 +5,11 @@
 #include "chrome/browser/ui/views/global_error_bubble_view.h"
 
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/ui/global_error.h"
-#include "chrome/browser/ui/global_error_service.h"
-#include "chrome/browser/ui/global_error_service_factory.h"
+#include "chrome/browser/ui/global_error/global_error.h"
+#include "chrome/browser/ui/global_error/global_error_service.h"
+#include "chrome/browser/ui/global_error/global_error_service_factory.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/toolbar_view.h"
-#include "chrome/browser/ui/views/window.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/image/image.h"
 #include "ui/views/controls/button/text_button.h"
@@ -51,7 +50,7 @@ GlobalErrorBubbleViewBase* GlobalErrorBubbleViewBase::ShowBubbleView(
                                 views::BubbleBorder::TOP_RIGHT,
                                 browser,
                                 error);
-  browser::CreateViewsBubble(bubble_view);
+  views::BubbleDelegateView::CreateBubble(bubble_view);
   bubble_view->StartFade(true);
   return bubble_view;
 }
@@ -67,10 +66,10 @@ GlobalErrorBubbleView::GlobalErrorBubbleView(
       browser_(browser),
       error_(error) {
   DCHECK(error_);
-  ResourceBundle& rb = ResourceBundle::GetSharedInstance();
+  ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
   int resource_id = error_->GetBubbleViewIconResourceID();
   scoped_ptr<views::ImageView> image_view(new views::ImageView());
-  image_view->SetImage(rb.GetImageNamed(resource_id).ToSkBitmap());
+  image_view->SetImage(rb.GetImageNamed(resource_id).ToImageSkia());
 
   string16 title_string(error_->GetBubbleViewTitle());
   scoped_ptr<views::Label> title_label(new views::Label(title_string));

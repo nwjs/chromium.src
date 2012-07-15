@@ -63,10 +63,14 @@ BookmarkEditor::EditDetails BookmarkEditor::EditDetails::EditNode(
 
 BookmarkEditor::EditDetails BookmarkEditor::EditDetails::AddNodeInFolder(
     const BookmarkNode* parent_node,
-    int index) {
+    int index,
+    const GURL& url,
+    const string16& title) {
   EditDetails details(NEW_URL);
   details.parent_node = parent_node;
   details.index = index;
+  details.url = url;
+  details.title = title;
   return details;
 }
 
@@ -92,7 +96,7 @@ void BookmarkEditor::ShowBookmarkAllTabsDialog(Browser* browser) {
   bookmark_utils::GetURLsForOpenTabs(browser, &(details.urls));
   DCHECK(!details.urls.empty());
 
-  BookmarkEditor::Show(browser->window()->GetNativeHandle(),
+  BookmarkEditor::Show(browser->window()->GetNativeWindow(),
                        profile, details, BookmarkEditor::SHOW_TREE);
 }
 

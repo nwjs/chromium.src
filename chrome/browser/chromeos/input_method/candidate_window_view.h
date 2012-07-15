@@ -6,13 +6,20 @@
 #define CHROME_BROWSER_CHROMEOS_INPUT_METHOD_CANDIDATE_WINDOW_VIEW_H_
 
 #include "base/gtest_prod_util.h"
+#include "base/memory/scoped_ptr.h"
+#include "base/timer.h"
 #include "chrome/browser/chromeos/input_method/ibus_ui_controller.h"
 #include "ui/views/view.h"
+
+namespace gfx {
+class Font;
+}
 
 namespace chromeos {
 namespace input_method {
 
 class CandidateView;
+class InfolistView;
 class InformationTextArea;
 class HidableArea;
 
@@ -124,7 +131,15 @@ class CandidateWindowView : public views::View {
     cursor_location_ = cursor_location;
   }
 
+  void set_composition_head_location(
+      const gfx::Rect& composition_head_location) {
+    composition_head_location_ = composition_head_location;
+  }
+
   const gfx::Rect& cursor_location() const { return cursor_location_; }
+  const gfx::Rect& composition_head_location() const {
+    return composition_head_location_;
+  }
 
  protected:
   // Override View::VisibilityChanged()
@@ -135,6 +150,9 @@ class CandidateWindowView : public views::View {
 
  private:
   FRIEND_TEST_ALL_PREFIXES(CandidateWindowViewTest, MozcUpdateCandidateTest);
+  FRIEND_TEST_ALL_PREFIXES(CandidateWindowViewTest, ShortcutSettingTest);
+  FRIEND_TEST_ALL_PREFIXES(CandidateWindowViewTest,
+                           DoNotChangeRowHeightWithLabelSwitchTest);
 
   // Initializes the candidate views if needed.
   void MaybeInitializeCandidateViews(
@@ -183,23 +201,24 @@ class CandidateWindowView : public views::View {
   // showing candidate number information like 2/19.
   InformationTextArea* footer_area_;
 
-  // Current columns width in |candidate_area_|.
-  int previous_shortcut_column_width_;
-  int previous_candidate_column_width_;
-  int previous_annotation_column_width_;
+  // Current columns size in |candidate_area_|.
+  gfx::Size previous_shortcut_column_size_;
+  gfx::Size previous_candidate_column_size_;
+  gfx::Size previous_annotation_column_size_;
 
   // The last cursor location.
   gfx::Rect cursor_location_;
 
-  // This location is used by suggestion window rendering which is mostly used
-  // by ibus-mozc. The suggestion window should be aligned with the composition
-  // text as opposed to the cursor. In case of ibus-mozc, suggestion window
-  // location is calculated by engine and it carried by update_lookup_table
-  // signal as additional information. This value is available when
-  // is_suggestion_window_available is true.
-  gfx::Rect suggestion_window_location_;
+  // The last compostion head location.
+  gfx::Rect composition_head_location_;
 
-  bool is_suggestion_window_location_available_;
+  // True if the candidate window should be shown with aligning with composition
+  // text as opposed to the cursor.
+  bool should_show_at_composition_head_;
+
+  // True if the candidate window should be shonw on the upper side of
+  // composition text.
+  bool should_show_upper_side_;
 
   // True if the candidate window was open.  This is used to determine when to
   // send OnCandidateWindowOpened and OnCandidateWindowClosed events.
@@ -210,6 +229,66 @@ class CandidateWindowView : public views::View {
   void UpdateParentArea();
 
   DISALLOW_COPY_AND_ASSIGN(CandidateWindowView);
+};
+
+// InfolistWindowView is the main container of the infolist window UI.
+class InfolistWindowView : public views::View {
+ public:
+  InfolistWindowView(views::Widget* parent_frame,
+                     views::Widget* candidate_window_frame);
+  virtual ~InfolistWindowView();
+  void Init();
+  void Show();
+  void DelayShow(unsigned int milliseconds);
+  void Hide();
+  void DelayHide(unsigned int milliseconds);
+  void UpdateCandidates(const InputMethodLookupTable& lookup_table);
+  void ResizeAndMoveParentFrame();
+  gfx::Font GetTitleFont() const;
+  gfx::Font GetDescriptionFont() const;
+
+ protected:
+  // Override View::VisibilityChanged()
+  virtual void VisibilityChanged(View* starting_from, bool is_visible) OVERRIDE;
+
+  // Override View::OnBoundsChanged()
+  virtual void OnBoundsChanged(const gfx::Rect& previous_bounds) OVERRIDE;
+
+ private:
+  FRIEND_TEST_ALL_PREFIXES(InfolistWindowViewTest, ShouldUpdateViewTest);
+  // Called by show_hide_timer_
+  void OnShowHideTimer();
+
+  // Information list
+  scoped_ptr<mozc::commands::InformationList> usages_;
+
+  // The parent frame.
+  views::Widget* parent_frame_;
+
+  // The candidate window frame.
+  views::Widget* candidate_window_frame_;
+
+  // The infolist area is where the meanings and the usages of the words are
+  // rendered.
+  views::View* infolist_area_;
+  // The infolist views are used for rendering the meanings and the usages of
+  // the words.
+  std::vector<InfolistView*> infolist_views_;
+
+  bool visible_;
+
+  base::OneShotTimer<InfolistWindowView> show_hide_timer_;
+
+  static bool ShouldUpdateView(
+    const mozc::commands::InformationList* old_usages,
+    const mozc::commands::InformationList* new_usages);
+
+  // Information title font
+  scoped_ptr<gfx::Font> title_font_;
+  // Information description font
+  scoped_ptr<gfx::Font> description_font_;
+
+  DISALLOW_COPY_AND_ASSIGN(InfolistWindowView);
 };
 
 }  // namespace input_method

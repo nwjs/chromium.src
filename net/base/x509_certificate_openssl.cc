@@ -20,6 +20,7 @@
 #include "base/string_util.h"
 #include "crypto/openssl_util.h"
 #include "net/base/net_errors.h"
+#include "net/base/net_util.h"
 #include "net/base/x509_util_openssl.h"
 
 #if defined(OS_ANDROID)
@@ -123,7 +124,8 @@ void ParseSubjectAltName(X509Certificate::OSCertHandle cert,
       if (!ip_addr)
         continue;
       int ip_addr_len = name->d.iPAddress->length;
-      if (ip_addr_len != 4 && ip_addr_len != 8) {
+      if (ip_addr_len != static_cast<int>(kIPv4AddressSize) &&
+          ip_addr_len != static_cast<int>(kIPv6AddressSize)) {
         // http://www.ietf.org/rfc/rfc3280.txt requires subjectAltName iPAddress
         // to have 4 or 16 bytes, whereas in a name constraint it includes a
         // net mask hence 8 or 32 bytes. Logging to help diagnose any mixup.
@@ -413,11 +415,10 @@ bool X509Certificate::IsSameOSCert(X509Certificate::OSCertHandle a,
 
 // static
 X509Certificate::OSCertHandle
-X509Certificate::ReadOSCertHandleFromPickle(const Pickle& pickle,
-                                            PickleIterator* pickle_iter) {
+X509Certificate::ReadOSCertHandleFromPickle(PickleIterator* pickle_iter) {
   const char* data;
   int length;
-  if (!pickle.ReadData(pickle_iter, &data, &length))
+  if (!pickle_iter->ReadData(&data, &length))
     return NULL;
 
   return CreateOSCertHandleFromBytes(data, length);

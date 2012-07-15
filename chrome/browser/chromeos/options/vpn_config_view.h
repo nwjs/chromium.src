@@ -4,10 +4,10 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_OPTIONS_VPN_CONFIG_VIEW_H_
 #define CHROME_BROWSER_CHROMEOS_OPTIONS_VPN_CONFIG_VIEW_H_
-#pragma once
 
 #include <string>
 
+#include "base/memory/scoped_ptr.h"
 #include "base/string16.h"
 #include "chrome/browser/chromeos/cros/cert_library.h"
 #include "chrome/browser/chromeos/options/network_config_view.h"
@@ -23,6 +23,12 @@ class Label;
 }
 
 namespace chromeos {
+
+namespace internal {
+class ProviderTypeComboboxModel;
+class VpnServerCACertComboboxModel;
+class VpnUserCertComboboxModel;
+}
 
 // A dialog box to allow configuration of VPN connection.
 class VPNConfigView : public ChildNetworkConfigView,
@@ -46,15 +52,12 @@ class VPNConfigView : public ChildNetworkConfigView,
                              const views::Event& event) OVERRIDE;
 
   // views::ComboboxListener:
-  virtual void ItemChanged(views::Combobox* combo_box,
-                           int prev_index,
-                           int new_index) OVERRIDE;
+  virtual void OnSelectedIndexChanged(views::Combobox* combobox) OVERRIDE;
 
   // CertLibrary::Observer:
   virtual void OnCertificatesLoaded(bool initial_load) OVERRIDE;
 
   // ChildNetworkConfigView:
-  virtual string16 GetTitle() OVERRIDE;
   virtual views::View* GetInitiallyFocusedView() OVERRIDE;
   virtual bool CanLogin() OVERRIDE;
   virtual bool Login() OVERRIDE;
@@ -105,9 +108,10 @@ class VPNConfigView : public ChildNetworkConfigView,
   const std::string GetUserCertID() const;
 
   // Parses a VPN UI |property| from the given |network|. |key| is the property
-  // name within the type-specific VPN subdictionary.
+  // name within the type-specific VPN subdictionary named |dict_key|.
   void ParseVPNUIProperty(NetworkPropertyUIData* property_ui_data,
                           Network* network,
+                          const std::string& dict_key,
                           const std::string& key);
 
   CertLibrary* cert_library_;
@@ -136,13 +140,17 @@ class VPNConfigView : public ChildNetworkConfigView,
   views::Textfield* server_textfield_;
   views::Label* service_text_;
   views::Textfield* service_textfield_;
+  scoped_ptr<internal::ProviderTypeComboboxModel> provider_type_combobox_model_;
   views::Combobox* provider_type_combobox_;
   views::Label* provider_type_text_label_;
   views::Label* psk_passphrase_label_;
   PassphraseTextfield* psk_passphrase_textfield_;
   views::Label* user_cert_label_;
+  scoped_ptr<internal::VpnUserCertComboboxModel> user_cert_combobox_model_;
   views::Combobox* user_cert_combobox_;
   views::Label* server_ca_cert_label_;
+  scoped_ptr<internal::VpnServerCACertComboboxModel>
+      server_ca_cert_combobox_model_;
   views::Combobox* server_ca_cert_combobox_;
   views::Textfield* username_textfield_;
   PassphraseTextfield* user_passphrase_textfield_;

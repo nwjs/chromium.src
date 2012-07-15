@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SYNC_GLUE_SEARCH_ENGINE_DATA_TYPE_CONTROLLER_H__
 #define CHROME_BROWSER_SYNC_GLUE_SEARCH_ENGINE_DATA_TYPE_CONTROLLER_H__
-#pragma once
 
 #include <string>
 
@@ -23,7 +22,6 @@ class SearchEngineDataTypeController : public UIDataTypeController,
       ProfileSyncComponentsFactory* profile_sync_factory,
       Profile* profile,
       ProfileSyncService* sync_service);
-  virtual ~SearchEngineDataTypeController();
 
   // content::NotificationObserver interface.
   virtual void Observe(int type,
@@ -31,6 +29,8 @@ class SearchEngineDataTypeController : public UIDataTypeController,
                        const content::NotificationDetails& details) OVERRIDE;
 
  private:
+  virtual ~SearchEngineDataTypeController();
+
   // FrontendDataTypeController implementations.
   virtual bool StartModels() OVERRIDE;
   virtual void StopModels() OVERRIDE;

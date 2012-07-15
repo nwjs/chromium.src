@@ -8,7 +8,12 @@
 // Implemented as templates to allow 8, 16 and 32 bit implementations.
 // 8 bit is unsigned and biased by 128.
 
+// TODO(vrk): This file has been running pretty wild and free, and it's likely
+// that a lot of the functions can be simplified and made more elegant. Revisit
+// after other audio cleanup is done. (crbug.com/120319)
+
 #include <algorithm>
+#include <limits>
 
 #include "base/atomicops.h"
 #include "base/basictypes.h"
@@ -16,6 +21,7 @@
 #include "base/shared_memory.h"
 #include "base/time.h"
 #if defined(OS_WIN)
+#include "base/sys_info.h"
 #include "base/win/windows_version.h"
 #include "media/audio/audio_manager_base.h"
 #endif
@@ -185,7 +191,7 @@ bool DeinterleaveAudioChannel(void* source,
   switch (bytes_per_sample) {
     case 1:
     {
-      uint8* source8 = static_cast<uint8*>(source) + channel_index;
+      uint8* source8 = reinterpret_cast<uint8*>(source) + channel_index;
       const float kScale = 1.0f / 128.0f;
       for (unsigned i = 0; i < number_of_frames; ++i) {
         destination[i] = kScale * (static_cast<int>(*source8) - 128);
@@ -196,7 +202,7 @@ bool DeinterleaveAudioChannel(void* source,
 
     case 2:
     {
-      int16* source16 = static_cast<int16*>(source) + channel_index;
+      int16* source16 = reinterpret_cast<int16*>(source) + channel_index;
       const float kScale = 1.0f / 32768.0f;
       for (unsigned i = 0; i < number_of_frames; ++i) {
         destination[i] = kScale * *source16;
@@ -207,8 +213,8 @@ bool DeinterleaveAudioChannel(void* source,
 
     case 4:
     {
-      int32* source32 = static_cast<int32*>(source) + channel_index;
-      const float kScale = 1.0f / (1L << 31);
+      int32* source32 = reinterpret_cast<int32*>(source) + channel_index;
+      const float kScale = 1.0f / 2147483648.0f;
       for (unsigned i = 0; i < number_of_frames; ++i) {
         destination[i] = kScale * *source32;
         source32 += channels;
@@ -222,22 +228,51 @@ bool DeinterleaveAudioChannel(void* source,
   return false;
 }
 
-void InterleaveFloatToInt16(const std::vector<float*>& source,
-                            int16* destination,
-                            size_t number_of_frames) {
-  const float kScale = 32768.0f;
+// |Format| is the destination type, |Fixed| is a type larger than |Format|
+// such that operations can be made without overflowing.
+template<class Format, class Fixed>
+static void InterleaveFloatToInt(const std::vector<float*>& source,
+                                 void* dst_bytes, size_t number_of_frames) {
+  Format* destination = reinterpret_cast<Format*>(dst_bytes);
+  Fixed max_value = std::numeric_limits<Format>::max();
+  Fixed min_value = std::numeric_limits<Format>::min();
+
+  Format bias = 0;
+  if (!std::numeric_limits<Format>::is_signed) {
+    bias = max_value / 2;
+    max_value = bias;
+    min_value = -(bias - 1);
+  }
+
   int channels = source.size();
   for (int i = 0; i < channels; ++i) {
     float* channel_data = source[i];
     for (size_t j = 0; j < number_of_frames; ++j) {
-      float sample = kScale * channel_data[j];
-      if (sample < -32768.0)
-        sample = -32768.0;
-      else if (sample > 32767.0)
-        sample = 32767.0;
+      Fixed sample = max_value * channel_data[j];
+      if (sample > max_value)
+        sample = max_value;
+      else if (sample < min_value)
+        sample = min_value;
 
-      destination[j * channels + i] = static_cast<int16>(sample);
+      destination[j * channels + i] = static_cast<Format>(sample) + bias;
     }
+  }
+}
+
+void InterleaveFloatToInt(const std::vector<float*>& source, void* dst,
+                          size_t number_of_frames, int bytes_per_sample) {
+  switch (bytes_per_sample) {
+    case 1:
+      InterleaveFloatToInt<uint8, int32>(source, dst, number_of_frames);
+      break;
+    case 2:
+      InterleaveFloatToInt<int16, int32>(source, dst, number_of_frames);
+      break;
+    case 4:
+      InterleaveFloatToInt<int32, int64>(source, dst, number_of_frames);
+      break;
+    default:
+      break;
   }
 }
 
@@ -247,6 +282,8 @@ void InterleaveFloatToInt16(const std::vector<float*>& source,
 //             when we have to adjust volume as well.
 template<class Format, class Fixed, int min_value, int max_value, int bias>
 static void MixStreams(Format* dst, Format* src, int count, float volume) {
+  if (volume == 0.0f)
+    return;
   if (volume == 1.0f) {
     // Most common case -- no need to adjust volume.
     for (int i = 0; i < count; ++i) {
@@ -305,8 +342,8 @@ void MixStreams(void* dst,
 
 int GetAudioHardwareSampleRate() {
 #if defined(OS_MACOSX)
-    // Hardware sample-rate on the Mac can be configured, so we must query.
-    return AUAudioOutputStream::HardwareSampleRate();
+  // Hardware sample-rate on the Mac can be configured, so we must query.
+  return AUAudioOutputStream::HardwareSampleRate();
 #elif defined(OS_WIN)
   if (!IsWASAPISupported()) {
     // Fall back to Windows Wave implementation on Windows XP or lower
@@ -318,6 +355,8 @@ int GetAudioHardwareSampleRate() {
   // TODO(henrika): improve possibility to specify audio endpoint.
   // Use the default device (same as for Wave) for now to be compatible.
   return WASAPIAudioOutputStream::HardwareSampleRate(eConsole);
+#elif defined(OS_ANDROID)
+  return 16000;
 #else
     // Hardware for Linux is nearly always 48KHz.
     // TODO(crogers) : return correct value in rare non-48KHz cases.
@@ -335,6 +374,8 @@ int GetAudioInputHardwareSampleRate(const std::string& device_id) {
     return 48000;
   }
   return WASAPIAudioInputStream::HardwareSampleRate(device_id);
+#elif defined(OS_ANDROID)
+  return 16000;
 #else
   return 48000;
 #endif
@@ -387,6 +428,38 @@ ChannelLayout GetAudioInputHardwareChannelLayout(const std::string& device_id) {
 #else
   return CHANNEL_LAYOUT_STEREO;
 #endif
+}
+
+// Computes a buffer size based on the given |sample_rate|. Must be used in
+// conjunction with AUDIO_PCM_LINEAR.
+size_t GetHighLatencyOutputBufferSize(int sample_rate) {
+  // TODO(vrk/crogers): The buffer sizes that this function computes is probably
+  // overly conservative. However, reducing the buffer size to 2048-8192 bytes
+  // caused crbug.com/108396. This computation should be revisited while making
+  // sure crbug.com/108396 doesn't happen again.
+
+  // The minimum number of samples in a hardware packet.
+  // This value is selected so that we can handle down to 5khz sample rate.
+  static const size_t kMinSamplesPerHardwarePacket = 1024;
+
+  // The maximum number of samples in a hardware packet.
+  // This value is selected so that we can handle up to 192khz sample rate.
+  static const size_t kMaxSamplesPerHardwarePacket = 64 * 1024;
+
+  // This constant governs the hardware audio buffer size, this value should be
+  // chosen carefully.
+  // This value is selected so that we have 8192 samples for 48khz streams.
+  static const size_t kMillisecondsPerHardwarePacket = 170;
+
+  // Select the number of samples that can provide at least
+  // |kMillisecondsPerHardwarePacket| worth of audio data.
+  size_t samples = kMinSamplesPerHardwarePacket;
+  while (samples <= kMaxSamplesPerHardwarePacket &&
+         samples * base::Time::kMillisecondsPerSecond <
+         sample_rate * kMillisecondsPerHardwarePacket) {
+    samples *= 2;
+  }
+  return samples;
 }
 
 // When transferring data in the shared memory, first word is size of data
@@ -445,6 +518,20 @@ bool IsWASAPISupported() {
   // Note: that function correctly returns that Windows Server 2003 does not
   // support WASAPI.
   return base::win::GetVersion() >= base::win::VERSION_VISTA;
+}
+
+int NumberOfWaveOutBuffers() {
+  // Simple heuristic: use 3 buffers on single-core system or on Vista,
+  // 2 otherwise.
+  // Entire Windows audio stack was rewritten for Windows Vista, and wave out
+  // API is simulated on top of new API, so there is noticeable performance
+  // degradation compared to Windows XP. Part of regression was fixed in
+  // Windows 7. Maybe it is fixed in Vista Serice Pack, but let's be cautious.
+  if ((base::SysInfo::NumberOfProcessors() < 2) ||
+      (base::win::GetVersion() == base::win::VERSION_VISTA)) {
+    return 3;
+  }
+  return 2;
 }
 
 #endif

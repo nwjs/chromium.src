@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_CREATOR_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_CREATOR_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -16,6 +15,8 @@ class RSAPrivateKey;
 }
 
 class FilePath;
+
+namespace extensions {
 
 // This class create an installable extension (.crx file) given an input
 // directory that contains a valid manifest.json and the extension's resources
@@ -94,5 +95,7 @@ class ExtensionCreator {
 
   DISALLOW_COPY_AND_ASSIGN(ExtensionCreator);
 };
+
+}  // namespace extensions
 
 #endif  // CHROME_BROWSER_EXTENSIONS_EXTENSION_CREATOR_H_

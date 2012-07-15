@@ -5,7 +5,7 @@
 #include "chrome/browser/chromeos/gdata/gdata_upload_file_info.h"
 
 #include "base/string_number_conversions.h"
-#include "chrome/browser/chromeos/gdata/gdata_parser.h"
+#include "chrome/browser/chromeos/gdata/gdata_wapi_parser.h"
 
 namespace gdata {
 
@@ -13,6 +13,7 @@ UploadFileInfo::UploadFileInfo()
     : upload_id(-1),
       file_size(0),
       content_length(0),
+      upload_mode(UPLOAD_INVALID),
       file_stream(NULL),
       buf_len(0),
       start_range(0),
@@ -24,6 +25,11 @@ UploadFileInfo::UploadFileInfo()
 }
 
 UploadFileInfo::~UploadFileInfo() {
+  // The file stream is closed by the destructor asynchronously.
+  if (file_stream) {
+    delete file_stream;
+    file_stream = NULL;
+  }
 }
 
 int64 UploadFileInfo::SizeRemaining() const {

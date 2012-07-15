@@ -4,11 +4,14 @@
 
 #ifndef UI_AURA_ROOT_WINDOW_HOST_WIN_H_
 #define UI_AURA_ROOT_WINDOW_HOST_WIN_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "ui/aura/root_window_host.h"
 #include "ui/base/win/window_impl.h"
+
+namespace ui {
+class ViewProp;
+}
 
 namespace aura {
 
@@ -19,6 +22,7 @@ class RootWindowHostWin : public RootWindowHost, public ui::WindowImpl {
 
   // RootWindowHost:
   virtual void SetRootWindow(RootWindow* root_window) OVERRIDE;
+  virtual RootWindow* GetRootWindow() OVERRIDE;
   virtual gfx::AcceleratedWidget GetAcceleratedWidget() OVERRIDE;
   virtual void Show() OVERRIDE;
   virtual void ToggleFullScreen() OVERRIDE;
@@ -34,7 +38,11 @@ class RootWindowHostWin : public RootWindowHost, public ui::WindowImpl {
   virtual void UnConfineCursor() OVERRIDE;
   virtual void MoveCursorTo(const gfx::Point& location) OVERRIDE;
   virtual void SetFocusWhenShown(bool focus_when_shown) OVERRIDE;
+  virtual bool GrabSnapshot(
+      const gfx::Rect& snapshot_bounds,
+      std::vector<unsigned char>* png_representation) OVERRIDE;
   virtual void PostNativeEvent(const base::NativeEvent& native_event) OVERRIDE;
+  virtual void OnDeviceScaleFactorChanged(float device_scale_factor) OVERRIDE;
 
  private:
   BEGIN_MSG_MAP_EX(RootWindowHostWin)
@@ -73,6 +81,8 @@ class RootWindowHostWin : public RootWindowHost, public ui::WindowImpl {
   RECT saved_window_rect_;
   DWORD saved_window_style_;
   DWORD saved_window_ex_style_;
+
+  scoped_ptr<ui::ViewProp> prop_;
 
   DISALLOW_COPY_AND_ASSIGN(RootWindowHostWin);
 };

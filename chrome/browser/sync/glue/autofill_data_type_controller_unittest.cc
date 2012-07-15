@@ -7,19 +7,20 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/message_loop.h"
-#include "chrome/browser/sync/api/sync_error.h"
 #include "chrome/browser/sync/glue/autofill_data_type_controller.h"
 #include "chrome/browser/sync/glue/data_type_controller_mock.h"
 #include "chrome/browser/sync/glue/shared_change_processor_mock.h"
 #include "chrome/browser/sync/profile_sync_components_factory_mock.h"
 #include "chrome/browser/sync/profile_sync_service_mock.h"
 #include "chrome/browser/webdata/web_data_service.h"
+#include "chrome/browser/webdata/web_data_service_factory.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/test/base/profile_mock.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_source.h"
 #include "content/public/browser/notification_types.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
+#include "sync/api/sync_error.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -37,7 +38,6 @@ using testing::Return;
 class FakeWebDataService : public WebDataService {
  public:
   FakeWebDataService() : is_database_loaded_(false) {}
-  virtual ~FakeWebDataService() {}
 
   // Mark the database as loaded and send out the appropriate
   // notification.
@@ -55,10 +55,14 @@ class FakeWebDataService : public WebDataService {
     return is_database_loaded_;
   }
 
+  virtual void ShutdownOnUIThread() OVERRIDE {}
+
  private:
-  DISALLOW_COPY_AND_ASSIGN(FakeWebDataService);
+  virtual ~FakeWebDataService() {}
 
   bool is_database_loaded_;
+
+  DISALLOW_COPY_AND_ASSIGN(FakeWebDataService);
 };
 
 class SyncAutofillDataTypeControllerTest : public testing::Test {
@@ -66,6 +70,7 @@ class SyncAutofillDataTypeControllerTest : public testing::Test {
   SyncAutofillDataTypeControllerTest()
       : weak_ptr_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)),
         ui_thread_(BrowserThread::UI, &message_loop_),
+        db_thread_(BrowserThread::DB),
         last_start_result_(DataTypeController::OK) {}
 
   virtual ~SyncAutofillDataTypeControllerTest() {}
@@ -80,10 +85,8 @@ class SyncAutofillDataTypeControllerTest : public testing::Test {
                 CreateSharedChangeProcessor()).
         WillRepeatedly(Return(change_processor_.get()));
 
-    web_data_service_ = new FakeWebDataService();
-
-    EXPECT_CALL(profile_, GetWebDataService(_)).
-        WillRepeatedly(Return(web_data_service_.get()));
+    WebDataServiceFactory::GetInstance()->SetTestingFactory(
+        &profile_, BuildWebDataService);
 
     autofill_dtc_ =
         new AutofillDataTypeController(&profile_sync_factory_,
@@ -93,40 +96,55 @@ class SyncAutofillDataTypeControllerTest : public testing::Test {
 
   // Passed to AutofillDTC::Start().
   void OnStartFinished(DataTypeController::StartResult result,
-                       const SyncError& error) {
+                       const syncer::SyncError& error) {
     last_start_result_ = result;
     last_start_error_ = error;
   }
 
+  void OnLoadFinished(syncer::ModelType type, syncer::SyncError error) {
+    EXPECT_FALSE(error.IsSet());
+    EXPECT_EQ(type, syncer::AUTOFILL);
+  }
+
   virtual void TearDown() {
     autofill_dtc_ = NULL;
-    web_data_service_ = NULL;
     change_processor_ = NULL;
+  }
+
+  static scoped_refptr<RefcountedProfileKeyedService>
+      BuildWebDataService(Profile* profile) {
+    return new FakeWebDataService();
   }
 
  protected:
   base::WeakPtrFactory<SyncAutofillDataTypeControllerTest> weak_ptr_factory_;
   MessageLoopForUI message_loop_;
   content::TestBrowserThread ui_thread_;
+  content::TestBrowserThread db_thread_;
 
   scoped_refptr<NiceMock<SharedChangeProcessorMock> > change_processor_;
   ProfileSyncComponentsFactoryMock profile_sync_factory_;
   ProfileSyncServiceMock service_;
   ProfileMock profile_;
-  scoped_refptr<FakeWebDataService> web_data_service_;
   scoped_refptr<AutofillDataTypeController> autofill_dtc_;
 
   // Stores arguments of most recent call of OnStartFinished().
   DataTypeController::StartResult last_start_result_;
-  SyncError last_start_error_;
+  syncer::SyncError last_start_error_;
 };
 
 // Load the WDS's database, then start the Autofill DTC.  It should
 // immediately try to start association and fail (due to missing DB
 // thread).
 TEST_F(SyncAutofillDataTypeControllerTest, StartWDSReady) {
-  web_data_service_->LoadDatabase();
-  autofill_dtc_->Start(
+  FakeWebDataService* web_db =
+      static_cast<FakeWebDataService*>(WebDataServiceFactory::GetForProfile(
+          &profile_, Profile::EXPLICIT_ACCESS).get());
+  web_db->LoadDatabase();
+  autofill_dtc_->LoadModels(
+    base::Bind(&SyncAutofillDataTypeControllerTest::OnLoadFinished,
+               weak_ptr_factory_.GetWeakPtr()));
+  autofill_dtc_->StartAssociating(
       base::Bind(&SyncAutofillDataTypeControllerTest::OnStartFinished,
                  weak_ptr_factory_.GetWeakPtr()));
 
@@ -140,22 +158,27 @@ TEST_F(SyncAutofillDataTypeControllerTest, StartWDSReady) {
 // state until the database in loaded, when it should try to start
 // association and fail (due to missing DB thread).
 TEST_F(SyncAutofillDataTypeControllerTest, StartWDSNotReady) {
-  autofill_dtc_->Start(
-      base::Bind(&SyncAutofillDataTypeControllerTest::OnStartFinished,
-                 weak_ptr_factory_.GetWeakPtr()));
+  autofill_dtc_->LoadModels(
+    base::Bind(&SyncAutofillDataTypeControllerTest::OnLoadFinished,
+               weak_ptr_factory_.GetWeakPtr()));
 
   EXPECT_EQ(DataTypeController::OK, last_start_result_);
   EXPECT_FALSE(last_start_error_.IsSet());
   EXPECT_EQ(DataTypeController::MODEL_STARTING, autofill_dtc_->state());
 
-  web_data_service_->LoadDatabase();
+  FakeWebDataService* web_db =
+      static_cast<FakeWebDataService*>(WebDataServiceFactory::GetForProfile(
+          &profile_, Profile::EXPLICIT_ACCESS).get());
+  web_db->LoadDatabase();
+
+  autofill_dtc_->StartAssociating(
+      base::Bind(&SyncAutofillDataTypeControllerTest::OnStartFinished,
+                 weak_ptr_factory_.GetWeakPtr()));
 
   EXPECT_EQ(DataTypeController::ASSOCIATION_FAILED, last_start_result_);
   EXPECT_TRUE(last_start_error_.IsSet());
-  // There's a TODO for
-  // NonFrontendDataTypeController::StartAssociationAsync() that, when
-  // done, will make this consistent with the previous test.
-  EXPECT_EQ(DataTypeController::DISABLED, autofill_dtc_->state());
+
+  EXPECT_EQ(DataTypeController::NOT_RUNNING, autofill_dtc_->state());
 }
 
 }  // namespace

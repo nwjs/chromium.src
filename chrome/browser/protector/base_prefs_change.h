@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_PROTECTOR_BASE_PREFS_CHANGE_H_
 #define CHROME_BROWSER_PROTECTOR_BASE_PREFS_CHANGE_H_
-#pragma once
 
 #include <string>
 
@@ -25,6 +24,7 @@ class BasePrefsChange : public BaseSettingChange,
 
   // BaseSettingChange overrides:
   virtual bool Init(Profile* profile) OVERRIDE;
+  virtual void InitWhenDisabled(Profile* profile) OVERRIDE;
 
  protected:
   // Marks |this| to be dismissed when |pref_name| is changed. Should only be

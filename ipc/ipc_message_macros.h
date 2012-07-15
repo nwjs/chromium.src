@@ -76,7 +76,7 @@
 // of inclusions of other headers (which are self-guarding) and IPC
 // macros (which are multiply evaluating).
 //
-// Note that there is no #pragma once either; doing so would mark the whole
+// Note that #pragma once cannot be used here; doing so would mark the whole
 // file as being singly-included.  Since your XXX_messages.h file is only
 // partially-guarded, care must be taken to ensure that it is only included
 // by other .cc files (and the YYY_message_generator.h file).  Including an
@@ -202,7 +202,9 @@
   struct IPC_MESSAGE_EXPORT struct_name : parent { \
     struct_name(); \
     ~struct_name();
-#define IPC_STRUCT_MEMBER(type, name) type name;
+// Optional variadic parameters specify the default value for this struct
+// member. They are passed through to the constructor for |type|.
+#define IPC_STRUCT_MEMBER(type, name, ...) type name;
 #define IPC_STRUCT_END() };
 
 // Message macros collect specific numbers of arguments and funnel them into
@@ -330,9 +332,6 @@
 #define IPC_SYNC_MESSAGE_CONTROL5_3(msg_class, type1_in, type2_in, type3_in, type4_in, type5_in, type1_out, type2_out, type3_out) \
   IPC_MESSAGE_DECL(SYNC, CONTROL, msg_class, 5, 3, (type1_in, type2_in, type3_in, type4_in, type5_in), (type1_out, type2_out, type3_out))
 
-#define IPC_SYNC_MESSAGE_CONTROL5_4(msg_class, type1_in, type2_in, type3_in, type4_in, type5_in, type1_out, type2_out, type3_out, type4_out) \
-  IPC_MESSAGE_DECL(SYNC, CONTROL, msg_class, 5, 4, (type1_in, type2_in, type3_in, type4_in, type5_in), (type1_out, type2_out, type3_out, type4_out))
-
 #define IPC_SYNC_MESSAGE_ROUTED0_0(msg_class) \
   IPC_MESSAGE_DECL(SYNC, ROUTED, msg_class, 0, 0, (), ())
 
@@ -419,9 +418,6 @@
 
 #define IPC_SYNC_MESSAGE_ROUTED5_3(msg_class, type1_in, type2_in, type3_in, type4_in, type5_in, type1_out, type2_out, type3_out) \
   IPC_MESSAGE_DECL(SYNC, ROUTED, msg_class, 5, 3, (type1_in, type2_in, type3_in, type4_in, type5_in), (type1_out, type2_out, type3_out))
-
-#define IPC_SYNC_MESSAGE_ROUTED5_4(msg_class, type1_in, type2_in, type3_in, type4_in, type5_in, type1_out, type2_out, type3_out, type4_out) \
-  IPC_MESSAGE_DECL(SYNC, ROUTED, msg_class, 5, 4, (type1_in, type2_in, type3_in, type4_in, type5_in), (type1_out, type2_out, type3_out, type4_out))
 
 // The following macros define the common set of methods provided by ASYNC
 // message classes.

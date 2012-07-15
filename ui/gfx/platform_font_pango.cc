@@ -8,7 +8,6 @@
 #include <pango/pango.h>
 
 #include <algorithm>
-#include <map>
 #include <string>
 
 #include "base/logging.h"
@@ -23,7 +22,7 @@
 #include "ui/gfx/font.h"
 #include "ui/gfx/pango_util.h"
 
-#if !defined(USE_WAYLAND) && defined(TOOLKIT_USES_GTK)
+#if defined(TOOLKIT_GTK)
 #include <gdk/gdk.h>
 #include <gtk/gtk.h>
 #endif
@@ -34,35 +33,6 @@ namespace {
 // GNOME/KDE is a non-scalable one. The name should be listed in the
 // IsFallbackFontAllowed function in skia/ext/SkFontHost_fontconfig_direct.cpp.
 const char* kFallbackFontFamilyName = "sans";
-
-// Retrieves the pango metrics for a pango font description. Caches the metrics
-// and never frees them. The metrics objects are relatively small and
-// very expensive to look up.
-PangoFontMetrics* GetPangoFontMetrics(PangoFontDescription* desc) {
-  static std::map<int, PangoFontMetrics*>* desc_to_metrics = NULL;
-  static PangoContext* context = NULL;
-
-  if (!context) {
-    context = gfx::GetPangoContext();
-    pango_context_set_language(context, pango_language_get_default());
-  }
-
-  if (!desc_to_metrics) {
-    desc_to_metrics = new std::map<int, PangoFontMetrics*>();
-  }
-
-  int desc_hash = pango_font_description_hash(desc);
-  std::map<int, PangoFontMetrics*>::iterator i =
-      desc_to_metrics->find(desc_hash);
-
-  if (i == desc_to_metrics->end()) {
-    PangoFontMetrics* metrics = pango_context_get_metrics(context, desc, NULL);
-    (*desc_to_metrics)[desc_hash] = metrics;
-    return metrics;
-  } else {
-    return i->second;
-  }
-}
 
 // Returns the available font family that best (in FontConfig's eyes) matches
 // the supplied list of family names.
@@ -93,7 +63,7 @@ std::string FindBestMatchFontFamilyName(
 // Returns a Pango font description (suitable for parsing by
 // pango_font_description_from_string()) for the default UI font.
 std::string GetDefaultFont() {
-#if defined(USE_WAYLAND) || !defined(TOOLKIT_USES_GTK)
+#if !defined(TOOLKIT_GTK)
 #if defined(OS_CHROMEOS)
   return l10n_util::GetStringUTF8(IDS_UI_FONT_FAMILY_CROS);
 #else
@@ -112,7 +82,7 @@ std::string GetDefaultFont() {
   std::string default_font = std::string(font_name);
   g_free(font_name);
   return default_font;
-#endif  // defined(USE_WAYLAND) || !defined(TOOLKIT_USES_GTK)
+#endif  // !defined(TOOLKIT_GTK)
 }
 
 }  // namespace
@@ -128,21 +98,15 @@ PlatformFontPango::PlatformFontPango() {
   if (default_font_ == NULL) {
     std::string font_name = GetDefaultFont();
 
-    PangoFontDescription* desc =
-        pango_font_description_from_string(font_name.c_str());
-    default_font_ = new Font(desc);
-    pango_font_description_free(desc);
+    ScopedPangoFontDescription desc(
+        pango_font_description_from_string(font_name.c_str()));
+    default_font_ = new Font(desc.get());
 
     DCHECK(default_font_);
   }
 
   InitFromPlatformFont(
       static_cast<PlatformFontPango*>(default_font_->platform_font()));
-}
-
-PlatformFontPango::PlatformFontPango(const Font& other) {
-  InitFromPlatformFont(
-      static_cast<PlatformFontPango*>(other.platform_font()));
 }
 
 PlatformFontPango::PlatformFontPango(NativeFont native_font) {
@@ -375,8 +339,8 @@ void PlatformFontPango::PaintSetup(SkPaint* paint) const {
 void PlatformFontPango::InitPangoMetrics() {
   if (!pango_metrics_inited_) {
     pango_metrics_inited_ = true;
-    PangoFontDescription* pango_desc = GetNativeFont();
-    PangoFontMetrics* pango_metrics = GetPangoFontMetrics(pango_desc);
+    ScopedPangoFontDescription pango_desc(GetNativeFont());
+    PangoFontMetrics* pango_metrics = GetPangoFontMetrics(pango_desc.get());
 
     underline_position_pixels_ =
         pango_font_metrics_get_underline_position(pango_metrics) /
@@ -402,7 +366,6 @@ void PlatformFontPango::InitPangoMetrics() {
         ASCIIToUTF16("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"));
     const double dialog_units_pixels = (text_width_pixels / 26 + 1) / 2;
     average_width_pixels_ = std::min(pango_width_pixels, dialog_units_pixels);
-    pango_font_description_free(pango_desc);
   }
 }
 
@@ -418,11 +381,6 @@ double PlatformFontPango::GetAverageWidth() const {
 // static
 PlatformFont* PlatformFont::CreateDefault() {
   return new PlatformFontPango;
-}
-
-// static
-PlatformFont* PlatformFont::CreateFromFont(const Font& other) {
-  return new PlatformFontPango(other);
 }
 
 // static

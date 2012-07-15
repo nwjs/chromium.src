@@ -6,14 +6,20 @@
 #define REMOTING_HOST_CLIENT_SESSION_H_
 
 #include <list>
-#include <set>
 
 #include "base/time.h"
+#include "base/timer.h"
 #include "base/threading/non_thread_safe.h"
+#include "remoting/host/remote_input_filter.h"
+#include "remoting/protocol/clipboard_echo_filter.h"
 #include "remoting/protocol/clipboard_stub.h"
 #include "remoting/protocol/connection_to_client.h"
 #include "remoting/protocol/host_event_stub.h"
 #include "remoting/protocol/host_stub.h"
+#include "remoting/protocol/input_event_tracker.h"
+#include "remoting/protocol/input_filter.h"
+#include "remoting/protocol/input_stub.h"
+#include "remoting/protocol/mouse_input_filter.h"
 #include "third_party/skia/include/core/SkPoint.h"
 
 namespace remoting {
@@ -30,10 +36,11 @@ class ClientSession : public protocol::HostEventStub,
   // Callback interface for passing events to the ChromotingHost.
   class EventHandler {
    public:
-    virtual ~EventHandler() {}
-
     // Called after authentication has finished successfully.
     virtual void OnSessionAuthenticated(ClientSession* client) = 0;
+
+    // Called after we've finished connecting all channels.
+    virtual void OnSessionChannelsConnected(ClientSession* client) = 0;
 
     // Called after authentication has failed. Must not tear down this
     // object. OnSessionClosed() is notified after this handler
@@ -54,12 +61,16 @@ class ClientSession : public protocol::HostEventStub,
         ClientSession* client,
         const std::string& channel_name,
         const protocol::TransportRoute& route) = 0;
+
+   protected:
+    virtual ~EventHandler() {}
   };
 
   ClientSession(EventHandler* event_handler,
                 scoped_ptr<protocol::ConnectionToClient> connection,
                 protocol::HostEventStub* host_event_stub,
-                Capturer* capturer);
+                Capturer* capturer,
+                const base::TimeDelta& max_duration);
   virtual ~ClientSession();
 
   // protocol::ClipboardStub interface.
@@ -70,12 +81,18 @@ class ClientSession : public protocol::HostEventStub,
   virtual void InjectKeyEvent(const protocol::KeyEvent& event) OVERRIDE;
   virtual void InjectMouseEvent(const protocol::MouseEvent& event) OVERRIDE;
 
+  // protocol::HostStub interface.
+  virtual void NotifyClientDimensions(
+      const protocol::ClientDimensions& dimensions) OVERRIDE;
+  virtual void ControlVideo(
+      const protocol::VideoControl& video_control) OVERRIDE;
+
   // protocol::ConnectionToClient::EventHandler interface.
-  virtual void OnConnectionOpened(
+  virtual void OnConnectionAuthenticated(
       protocol::ConnectionToClient* connection) OVERRIDE;
-  virtual void OnConnectionClosed(
+  virtual void OnConnectionChannelsConnected(
       protocol::ConnectionToClient* connection) OVERRIDE;
-  virtual void OnConnectionFailed(protocol::ConnectionToClient* connection,
+  virtual void OnConnectionClosed(protocol::ConnectionToClient* connection,
                                   protocol::ErrorCode error) OVERRIDE;
   virtual void OnSequenceNumberUpdated(
       protocol::ConnectionToClient* connection, int64 sequence_number) OVERRIDE;
@@ -94,45 +111,58 @@ class ClientSession : public protocol::HostEventStub,
     return connection_.get();
   }
 
-  bool authenticated() const {
-    return authenticated_;
-  }
-
-  void set_awaiting_continue_approval(bool awaiting) {
-    awaiting_continue_approval_ = awaiting;
-  }
-
   const std::string& client_jid() { return client_jid_; }
+
+  bool is_authenticated() { return is_authenticated_;  }
 
   // Indicate that local mouse activity has been detected. This causes remote
   // inputs to be ignored for a short time so that the local user will always
   // have the upper hand in 'pointer wars'.
   void LocalMouseMoved(const SkIPoint& new_pos);
 
-  bool ShouldIgnoreRemoteMouseInput(const protocol::MouseEvent& event) const;
-  bool ShouldIgnoreRemoteKeyboardInput(const protocol::KeyEvent& event) const;
+  // Disable handling of input events from this client. If the client has any
+  // keys or mouse buttons pressed then these will be released.
+  void SetDisableInputs(bool disable_inputs);
+
+  // Creates a proxy for sending clipboard events to the client.
+  scoped_ptr<protocol::ClipboardStub> CreateClipboardProxy();
 
  private:
-  friend class ClientSessionTest_RestoreEventState_Test;
-
-  // Keep track of input state so that we can clean up the event queue when
-  // the user disconnects.
-  void RecordKeyEvent(const protocol::KeyEvent& event);
-  void RecordMouseButtonState(const protocol::MouseEvent& event);
-
-  // Synthesize KeyUp and MouseUp events so that we can undo these events
-  // when the user disconnects.
-  void RestoreEventState();
-
   EventHandler* event_handler_;
 
   // The connection to the client.
   scoped_ptr<protocol::ConnectionToClient> connection_;
 
   std::string client_jid_;
+  bool is_authenticated_;
 
-  // The host event stub to which this object delegates.
+  // The host event stub to which this object delegates. This is the final
+  // element in the input pipeline, whose components appear in order below.
   protocol::HostEventStub* host_event_stub_;
+
+  // Tracker used to release pressed keys and buttons when disconnecting.
+  protocol::InputEventTracker input_tracker_;
+
+  // Filter used to disable remote inputs during local input activity.
+  RemoteInputFilter remote_input_filter_;
+
+  // Filter used to clamp mouse events to the current display dimensions.
+  protocol::MouseInputFilter mouse_input_filter_;
+
+  // Filter used to manage enabling & disabling of client input events.
+  protocol::InputFilter disable_input_filter_;
+
+  // Filter used to disable inputs when we're not authenticated.
+  protocol::InputFilter auth_input_filter_;
+
+  // Filter to used to stop clipboard items sent from the client being echoed
+  // back to it.
+  protocol::ClipboardEchoFilter clipboard_echo_filter_;
+
+  // Factory for weak pointers to the client clipboard stub.
+  // This must appear after |clipboard_echo_filter_|, so that it won't outlive
+  // it.
+  base::WeakPtrFactory<ClipboardStub> client_clipboard_factory_;
 
   // Capturer, used to determine current screen size for ensuring injected
   // mouse events fall within the screen area.
@@ -140,30 +170,13 @@ class ClientSession : public protocol::HostEventStub,
   // area, out of this class (crbug.com/96508).
   Capturer* capturer_;
 
-  // Whether this client is authenticated.
-  bool authenticated_;
+  // The maximum duration of this session.
+  // There is no maximum if this value is <= 0.
+  base::TimeDelta max_duration_;
 
-  // Whether or not inputs from this client are blocked pending approval from
-  // the host user to continue the connection.
-  bool awaiting_continue_approval_;
-
-  // State to control remote input blocking while the local pointer is in use.
-  uint32 remote_mouse_button_state_;
-
-  // Current location of the mouse pointer. This is used to provide appropriate
-  // coordinates when we release the mouse buttons after a user disconnects.
-  SkIPoint remote_mouse_pos_;
-
-  // Queue of recently-injected mouse positions.  This is used to detect whether
-  // mouse events from the local input monitor are echoes of injected positions,
-  // or genuine mouse movements of a local input device.
-  std::list<SkIPoint> injected_mouse_positions_;
-
-  base::Time latest_local_input_time_;
-
-  // Set of keys that are currently pressed down by the user. This is used so
-  // we can release them if the user disconnects.
-  std::set<int> pressed_keys_;
+  // A timer that triggers a disconnect when the maximum session duration
+  // is reached.
+  base::OneShotTimer<ClientSession> max_duration_timer_;
 
   DISALLOW_COPY_AND_ASSIGN(ClientSession);
 };

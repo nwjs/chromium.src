@@ -40,7 +40,11 @@ static AudioHandler* g_audio_handler = NULL;
 // static
 void AudioHandler::Initialize() {
   CHECK(!g_audio_handler);
-  g_audio_handler = new AudioHandler();
+#if defined(USE_CRAS)
+  g_audio_handler = new AudioHandler(new AudioMixerCras());
+#else
+  g_audio_handler = new AudioHandler(new AudioMixerAlsa());
+#endif
 }
 
 // static
@@ -50,6 +54,12 @@ void AudioHandler::Shutdown() {
     delete g_audio_handler;
     g_audio_handler = NULL;
   }
+}
+
+// static
+void AudioHandler::InitializeForTesting(AudioMixer* mixer) {
+  CHECK(!g_audio_handler);
+  g_audio_handler = new AudioHandler(mixer);
 }
 
 // static
@@ -86,6 +96,8 @@ double AudioHandler::GetVolumePercent() {
 
 void AudioHandler::SetVolumePercent(double volume_percent) {
   volume_percent = min(max(volume_percent, 0.0), 100.0);
+  if (IsMuted() && volume_percent > 0.0)
+    SetMuted(false);
   mixer_->SetVolumePercent(volume_percent);
   prefs_->SetDouble(prefs::kAudioVolumePercent, volume_percent);
   FOR_EACH_OBSERVER(VolumeObserver, volume_observers_, OnVolumeChanged());
@@ -113,12 +125,8 @@ void AudioHandler::RemoveVolumeObserver(VolumeObserver* observer) {
   volume_observers_.RemoveObserver(observer);
 }
 
-AudioHandler::AudioHandler()
-#if defined(USE_CRAS)
-    : mixer_(new AudioMixerCras()),
-#else
-    : mixer_(new AudioMixerAlsa()),
-#endif
+AudioHandler::AudioHandler(AudioMixer* mixer)
+    : mixer_(mixer),
       prefs_(g_browser_process->local_state()) {
   mixer_->SetVolumePercent(prefs_->GetDouble(prefs::kAudioVolumePercent));
   mixer_->SetMuted(prefs_->GetInteger(prefs::kAudioMute) == kPrefMuteOn);

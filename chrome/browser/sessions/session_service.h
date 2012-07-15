@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SESSIONS_SESSION_SERVICE_H_
 #define CHROME_BROWSER_SESSIONS_SESSION_SERVICE_H_
-#pragma once
 
 #include <map>
 #include <string>
@@ -23,7 +22,7 @@
 
 class Profile;
 class SessionCommand;
-class TabContentsWrapper;
+class TabContents;
 struct SessionTab;
 struct SessionWindow;
 
@@ -53,6 +52,7 @@ class NavigationEntry;
 // of the browser.
 class SessionService : public BaseSessionService,
                        public content::NotificationObserver {
+  friend class SessionRestoreTest;
   friend class SessionServiceTestHelper;
  public:
   // Used to distinguish an application window from a normal one.
@@ -110,7 +110,7 @@ class SessionService : public BaseSessionService,
                       bool is_pinned);
 
   // Notification that a tab has been closed. |closed_by_user_gesture| comes
-  // from |TabContents::closed_by_user_gesture|; see it for details.
+  // from |WebContents::closed_by_user_gesture|; see it for details.
   //
   // Note: this is invoked from the NavigationController's destructor, which is
   // after the actual tab has been removed.
@@ -155,7 +155,7 @@ class SessionService : public BaseSessionService,
 
   // Notification that a tab has restored its entries or a closed tab is being
   // reused.
-  void TabRestored(TabContentsWrapper* tab, bool pinned);
+  void TabRestored(TabContents* tab, bool pinned);
 
   // Sets the index of the selected entry in the navigation controller for the
   // specified tab.
@@ -220,6 +220,11 @@ class SessionService : public BaseSessionService,
                             const SessionID& tab_id,
                             const std::string& extension_app_id);
 
+  // Sets the user agent override of the specified tab.
+  void SetTabUserAgentOverride(const SessionID& window_id,
+                               const SessionID& tab_id,
+                               const std::string& user_agent_override);
+
   // Methods to create the various commands. It is up to the caller to delete
   // the returned the SessionCommand* object.
   SessionCommand* CreateSetSelectedTabInWindow(const SessionID& window_id,
@@ -248,6 +253,10 @@ class SessionService : public BaseSessionService,
 
   SessionCommand* CreatePinnedStateCommand(const SessionID& tab_id,
                                            bool is_pinned);
+
+  SessionCommand* CreateSessionStorageAssociatedCommand(
+      const SessionID& tab_id,
+      const std::string& session_storage_persistent_id);
 
   // Callback from the backend for getting the commands from the save file.
   // Converts the commands in SessionWindows and notifies the real callback.
@@ -320,7 +329,7 @@ class SessionService : public BaseSessionService,
   // indices that were written.
   void BuildCommandsForTab(
       const SessionID& window_id,
-      TabContentsWrapper* tab,
+      TabContents* tab,
       int index_in_window,
       bool is_pinned,
       std::vector<SessionCommand*>* commands,
@@ -387,6 +396,7 @@ class SessionService : public BaseSessionService,
     // windows or similar. In this case, we record the close as pending.
     return !has_open_trackable_browsers_ &&
         (!browser_defaults::kBrowserAliveWithNoWindows ||
+         force_browser_not_alive_with_no_windows_ ||
          BrowserList::size() > 1);
   }
 
@@ -461,6 +471,10 @@ class SessionService : public BaseSessionService,
   const base::TimeDelta save_delay_in_millis_;
   const base::TimeDelta save_delay_in_mins_;
   const base::TimeDelta save_delay_in_hrs_;
+
+  // For browser_tests, since we want to simulate the browser shutting down
+  // without quitting.
+  bool force_browser_not_alive_with_no_windows_;
 
   DISALLOW_COPY_AND_ASSIGN(SessionService);
 };

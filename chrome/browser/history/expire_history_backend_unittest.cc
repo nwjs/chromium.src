@@ -1,7 +1,8 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <algorithm>
 #include <string>
 #include <utility>
 
@@ -27,7 +28,7 @@
 #include "chrome/common/thumbnail_score.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/tools/profiles/thumbnail-inl.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/gfx/codec/jpeg_codec.h"
@@ -229,8 +230,9 @@ void ExpireHistoryTest::AddExampleData(URLID url_ids[3], Time visit_times[4]) {
   thumb_db_->AddIconMapping(url_row3.url(), favicon2);
 
   // Thumbnails for each URL. |thumbnail| takes ownership of decoded SkBitmap.
-  gfx::Image thumbnail(
+  scoped_ptr<SkBitmap> thumbnail_bitmap(
       gfx::JPEGCodec::Decode(kGoogleThumbnail, sizeof(kGoogleThumbnail)));
+  gfx::Image thumbnail(*thumbnail_bitmap);
   ThumbnailScore score(0.25, true, true, Time::Now());
 
   Time time;
@@ -321,7 +323,7 @@ bool ExpireHistoryTest::HasFavicon(FaviconID favicon_id) {
   std::vector<unsigned char> icon_data_unused;
   GURL icon_url;
   return thumb_db_->GetFavicon(favicon_id, &last_updated, &icon_data_unused,
-                               &icon_url);
+                               &icon_url, NULL);
 }
 
 FaviconID ExpireHistoryTest::GetFavicon(const GURL& page_url,
@@ -338,7 +340,7 @@ bool ExpireHistoryTest::HasThumbnail(URLID url_id) {
   if (!main_db_->GetURLRow(url_id, &info))
     return false;
   GURL url = info.url();
-  scoped_refptr<RefCountedMemory> data;
+  scoped_refptr<base::RefCountedMemory> data;
   return top_sites_->GetPageThumbnail(url, &data);
 }
 
@@ -381,17 +383,19 @@ void ExpireHistoryTest::EnsureURLInfoGone(const URLRow& row) {
   bool found_delete_notification = false;
   for (size_t i = 0; i < notifications_.size(); i++) {
     if (notifications_[i].first == chrome::NOTIFICATION_HISTORY_URLS_DELETED) {
-      const URLsDeletedDetails* deleted_details =
-          reinterpret_cast<URLsDeletedDetails*>(notifications_[i].second);
-      if (deleted_details->urls.find(row.url()) !=
-          deleted_details->urls.end()) {
+      URLsDeletedDetails* details = reinterpret_cast<URLsDeletedDetails*>(
+          notifications_[i].second);
+      EXPECT_FALSE(details->archived);
+      const history::URLRows& rows(details->rows);
+      if (std::find_if(rows.begin(), rows.end(),
+          history::URLRow::URLRowHasURL(row.url())) != rows.end()) {
         found_delete_notification = true;
       }
     } else {
       EXPECT_NE(notifications_[i].first,
                 chrome::NOTIFICATION_HISTORY_URL_VISITED);
       EXPECT_NE(notifications_[i].first,
-                chrome::NOTIFICATION_HISTORY_TYPED_URLS_MODIFIED);
+                chrome::NOTIFICATION_HISTORY_URLS_MODIFIED);
     }
   }
   EXPECT_TRUE(found_delete_notification);

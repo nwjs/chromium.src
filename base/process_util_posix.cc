@@ -13,6 +13,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <iterator>
 #include <limits>
 #include <set>
 
@@ -20,9 +21,9 @@
 #include "base/compiler_specific.h"
 #include "base/debug/debugger.h"
 #include "base/debug/stack_trace.h"
-#include "base/dir_reader_posix.h"
 #include "base/eintr_wrapper.h"
 #include "base/file_util.h"
+#include "base/files/dir_reader_posix.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/process_util.h"
@@ -802,8 +803,8 @@ bool EnableInProcessStackDumping() {
   // to be ignored.  Therefore, when testing that same code, it should run
   // with SIGPIPE ignored as well.
   struct sigaction action;
+  memset(&action, 0, sizeof(action));
   action.sa_handler = SIG_IGN;
-  action.sa_flags = 0;
   sigemptyset(&action.sa_mask);
   bool success = (sigaction(SIGPIPE, &action, NULL) == 0);
 
@@ -904,14 +905,20 @@ bool WaitForExitCodeWithTimeout(ProcessHandle handle, int* exit_code,
   return false;
 }
 
+bool WaitForExitCodeWithTimeout(ProcessHandle handle, int* exit_code,
+                                base::TimeDelta timeout) {
+  return WaitForExitCodeWithTimeout(
+      handle, exit_code, timeout.InMilliseconds());
+}
+
 #if defined(OS_MACOSX)
 // Using kqueue on Mac so that we can wait on non-child processes.
 // We can't use kqueues on child processes because we need to reap
 // our own children using wait.
 static bool WaitForSingleNonChildProcess(ProcessHandle handle,
-                                         int64 wait_milliseconds) {
+                                         base::TimeDelta wait) {
   DCHECK_GT(handle, 0);
-  DCHECK(wait_milliseconds == base::kNoTimeout || wait_milliseconds > 0);
+  DCHECK(wait.InMilliseconds() == base::kNoTimeout || wait > base::TimeDelta());
 
   int kq = kqueue();
   if (kq == -1) {
@@ -935,18 +942,18 @@ static bool WaitForSingleNonChildProcess(ProcessHandle handle,
 
   // Keep track of the elapsed time to be able to restart kevent if it's
   // interrupted.
-  bool wait_forever = wait_milliseconds == base::kNoTimeout;
+  bool wait_forever = wait.InMilliseconds() == base::kNoTimeout;
   base::TimeDelta remaining_delta;
   base::Time deadline;
   if (!wait_forever) {
-    remaining_delta = base::TimeDelta::FromMilliseconds(wait_milliseconds);
+    remaining_delta = wait;
     deadline = base::Time::Now() + remaining_delta;
   }
 
   result = -1;
   struct kevent event = {0};
 
-  while (wait_forever || remaining_delta.InMilliseconds() > 0) {
+  while (wait_forever || remaining_delta > base::TimeDelta()) {
     struct timespec remaining_timespec;
     struct timespec* remaining_timespec_ptr;
     if (wait_forever) {
@@ -997,12 +1004,17 @@ static bool WaitForSingleNonChildProcess(ProcessHandle handle,
 #endif  // OS_MACOSX
 
 bool WaitForSingleProcess(ProcessHandle handle, int64 wait_milliseconds) {
+  return WaitForSingleProcess(
+      handle, base::TimeDelta::FromMilliseconds(wait_milliseconds));
+}
+
+bool WaitForSingleProcess(ProcessHandle handle, base::TimeDelta wait) {
   ProcessHandle parent_pid = GetParentProcessId(handle);
   ProcessHandle our_pid = Process::Current().handle();
   if (parent_pid != our_pid) {
 #if defined(OS_MACOSX)
     // On Mac we can wait on non child processes.
-    return WaitForSingleNonChildProcess(handle, wait_milliseconds);
+    return WaitForSingleNonChildProcess(handle, wait);
 #else
     // Currently on Linux we can't handle non child processes.
     NOTIMPLEMENTED();
@@ -1011,10 +1023,12 @@ bool WaitForSingleProcess(ProcessHandle handle, int64 wait_milliseconds) {
 
   bool waitpid_success;
   int status = -1;
-  if (wait_milliseconds == base::kNoTimeout)
+  if (wait.InMilliseconds() == base::kNoTimeout) {
     waitpid_success = (HANDLE_EINTR(waitpid(handle, &status, 0)) != -1);
-  else
-    status = WaitpidWithTimeout(handle, wait_milliseconds, &waitpid_success);
+  } else {
+    status = WaitpidWithTimeout(
+        handle, wait.InMilliseconds(), &waitpid_success);
+  }
 
   if (status != -1) {
     DCHECK(waitpid_success);
@@ -1040,10 +1054,10 @@ enum GetAppOutputInternalResult {
   GOT_MAX_OUTPUT,
 };
 
-// Executes the application specified by |cl| and wait for it to exit. Stores
+// Executes the application specified by |argv| and wait for it to exit. Stores
 // the output (stdout) in |output|. If |do_search_path| is set, it searches the
 // path for the application; in that case, |envp| must be null, and it will use
-// the current environment. If |do_search_path| is false, |cl| should fully
+// the current environment. If |do_search_path| is false, |argv[0]| should fully
 // specify the path of the application, and |envp| will be used as the
 // environment. Redirects stderr to /dev/null.
 // If we successfully start the application and get all requested output, we
@@ -1055,12 +1069,13 @@ enum GetAppOutputInternalResult {
 // In the case of EXECUTE_SUCCESS, the application exit code will be returned
 // in |*exit_code|, which should be checked to determine if the application
 // ran successfully.
-static GetAppOutputInternalResult GetAppOutputInternal(const CommandLine& cl,
-                                                       char* const envp[],
-                                                       std::string* output,
-                                                       size_t max_output,
-                                                       bool do_search_path,
-                                                       int* exit_code) {
+static GetAppOutputInternalResult GetAppOutputInternal(
+    const std::vector<std::string>& argv,
+    char* const envp[],
+    std::string* output,
+    size_t max_output,
+    bool do_search_path,
+    int* exit_code) {
   // Doing a blocking wait for another command to finish counts as IO.
   base::ThreadRestrictions::AssertIOAllowed();
   // exit_code must be supplied so calling function can determine success.
@@ -1070,7 +1085,6 @@ static GetAppOutputInternalResult GetAppOutputInternal(const CommandLine& cl,
   int pipe_fd[2];
   pid_t pid;
   InjectiveMultimap fd_shuffle1, fd_shuffle2;
-  const std::vector<std::string>& argv = cl.argv();
   scoped_array<char*> argv_cstr(new char*[argv.size() + 1]);
 
   fd_shuffle1.reserve(3);
@@ -1167,10 +1181,14 @@ static GetAppOutputInternalResult GetAppOutputInternal(const CommandLine& cl,
 }
 
 bool GetAppOutput(const CommandLine& cl, std::string* output) {
+  return GetAppOutput(cl.argv(), output);
+}
+
+bool GetAppOutput(const std::vector<std::string>& argv, std::string* output) {
   // Run |execve()| with the current environment and store "unlimited" data.
   int exit_code;
   GetAppOutputInternalResult result = GetAppOutputInternal(
-      cl, NULL, output, std::numeric_limits<std::size_t>::max(), true,
+      argv, NULL, output, std::numeric_limits<std::size_t>::max(), true,
       &exit_code);
   return result == EXECUTE_SUCCESS && exit_code == EXIT_SUCCESS;
 }
@@ -1182,9 +1200,8 @@ bool GetAppOutputRestricted(const CommandLine& cl,
   // Run |execve()| with the empty environment.
   char* const empty_environ = NULL;
   int exit_code;
-  GetAppOutputInternalResult result = GetAppOutputInternal(cl, &empty_environ,
-                                                           output, max_output,
-                                                           false, &exit_code);
+  GetAppOutputInternalResult result = GetAppOutputInternal(
+      cl.argv(), &empty_environ, output, max_output, false, &exit_code);
   return result == GOT_MAX_OUTPUT || (result == EXECUTE_SUCCESS &&
                                       exit_code == EXIT_SUCCESS);
 }
@@ -1194,7 +1211,7 @@ bool GetAppOutputWithExitCode(const CommandLine& cl,
                               int* exit_code) {
   // Run |execve()| with the current environment and store "unlimited" data.
   GetAppOutputInternalResult result = GetAppOutputInternal(
-      cl, NULL, output, std::numeric_limits<std::size_t>::max(), true,
+      cl.argv(), NULL, output, std::numeric_limits<std::size_t>::max(), true,
       exit_code);
   return result == EXECUTE_SUCCESS;
 }
@@ -1221,13 +1238,21 @@ bool WaitForProcessesToExit(const FilePath::StringType& executable_name,
   return result;
 }
 
+bool WaitForProcessesToExit(const FilePath::StringType& executable_name,
+                            base::TimeDelta wait,
+                            const ProcessFilter* filter) {
+  return WaitForProcessesToExit(executable_name, wait.InMilliseconds(), filter);
+}
+
 bool CleanupProcesses(const FilePath::StringType& executable_name,
                       int64 wait_milliseconds,
                       int exit_code,
                       const ProcessFilter* filter) {
   bool exited_cleanly =
-      WaitForProcessesToExit(executable_name, wait_milliseconds,
-                             filter);
+      WaitForProcessesToExit(
+          executable_name,
+          base::TimeDelta::FromMilliseconds(wait_milliseconds),
+          filter);
   if (!exited_cleanly)
     KillProcesses(executable_name, exit_code, filter);
   return exited_cleanly;

@@ -7,9 +7,6 @@
 #include <shlobj.h>
 #include <windows.h>
 
-#include <set>
-#include <sstream>
-
 #include "base/environment.h"
 #include "base/file_util.h"
 #include "base/path_service.h"
@@ -28,8 +25,11 @@
 #include "chrome/browser/importer/importer_host.h"
 #include "chrome/browser/importer/importer_list.h"
 #include "chrome/browser/importer/importer_progress_dialog.h"
+#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/process_singleton.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/shell_integration.h"
+#include "chrome/browser/ui/startup/default_browser_prompt.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_result_codes.h"
@@ -50,10 +50,9 @@
 #include "grit/generated_resources.h"
 #include "grit/locale_settings.h"
 #include "grit/theme_resources.h"
-#include "ui/base/resource/resource_bundle.h"
+#include "ui/base/l10n/l10n_util.h"
+#include "ui/base/layout.h"
 #include "ui/base/ui_base_switches.h"
-
-using content::UserMetricsAction;
 
 namespace {
 
@@ -77,14 +76,13 @@ class FirstRunDelayedTasks : public content::NotificationObserver {
 
   virtual void Observe(int type,
                        const content::NotificationSource& source,
-                       const content::NotificationDetails& details) {
+                       const content::NotificationDetails& details) OVERRIDE {
     // After processing the notification we always delete ourselves.
     if (type == chrome::NOTIFICATION_EXTENSIONS_READY) {
       DoExtensionWork(
           content::Source<Profile>(source).ptr()->GetExtensionService());
     }
     delete this;
-    return;
   }
 
  private:
@@ -95,10 +93,8 @@ class FirstRunDelayedTasks : public content::NotificationObserver {
   // If the extension specified in the master pref is older than the live
   // extension it will get updated which is the same as get it installed.
   void DoExtensionWork(ExtensionService* service) {
-    if (!service)
-      return;
-    service->updater()->CheckNow();
-    return;
+    if (service)
+      service->updater()->CheckNow();
   }
 
   content::NotificationRegistrar registrar_;
@@ -122,8 +118,7 @@ bool CreateChromeDesktopShortcut() {
       chrome_exe.value(),
       dist->GetIconIndex(),
       ShellUtil::CURRENT_USER,
-      false,
-      true);  // create if doesn't exist.
+      ShellUtil::SHORTCUT_CREATE_ALWAYS);
 }
 
 // Creates the quick launch shortcut to chrome for the current user. Returns
@@ -137,7 +132,7 @@ bool CreateChromeQuickLaunchShortcut() {
       dist,
       chrome_exe.value(),
       ShellUtil::CURRENT_USER,  // create only for current user.
-      true);  // create if doesn't exist.
+      ShellUtil::SHORTCUT_CREATE_ALWAYS);
 }
 
 void PlatformSetup(Profile* profile) {
@@ -178,11 +173,29 @@ bool LaunchSetupWithParam(const std::string& param,
   return (TRUE == ::GetExitCodeProcess(ph, reinterpret_cast<DWORD*>(ret_code)));
 }
 
+// Returns true if the EULA is required but has not been accepted by this user.
+// The EULA is considered having been accepted if the user has gotten past
+// first run in the "other" environment (desktop or metro).
+bool IsEulaNotAccepted(installer::MasterPreferences* install_prefs) {
+  bool value = false;
+  if (install_prefs->GetBool(installer::master_preferences::kRequireEula,
+          &value) && value) {
+    // Check for a first run sentinel in the alternate user data dir.
+    FilePath alt_user_data_dir;
+    if (!PathService::Get(chrome::DIR_ALT_USER_DATA, &alt_user_data_dir) ||
+        !file_util::DirectoryExists(alt_user_data_dir) ||
+        !file_util::PathExists(alt_user_data_dir.AppendASCII(
+            first_run::internal::kSentinelFile))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // Writes the EULA to a temporary file, returned in |*eula_path|, and returns
 // true if successful.
 bool WriteEULAtoTempFile(FilePath* eula_path) {
-  base::StringPiece terms =
-      ResourceBundle::GetSharedInstance().GetRawDataResource(IDR_TERMS_HTML);
+  std::string terms = l10n_util::GetStringUTF8(IDS_TERMS_HTML);
   if (terms.empty())
     return false;
   FILE *file = file_util::CreateAndOpenTemporaryFile(eula_path);
@@ -194,9 +207,7 @@ bool WriteEULAtoTempFile(FilePath* eula_path) {
 }
 
 void ShowPostInstallEULAIfNeeded(installer::MasterPreferences* install_prefs) {
-  bool value = false;
-  if (install_prefs->GetBool(installer::master_preferences::kRequireEula,
-          &value) && value) {
+  if (IsEulaNotAccepted(install_prefs)) {
     // Show the post-installation EULA. This is done by setup.exe and the
     // result determines if we continue or not. We wait here until the user
     // dismisses the dialog.
@@ -239,22 +250,6 @@ void DoDelayedInstallExtensionsIfNeeded(
   }
 }
 
-void SetRLZPref(first_run::MasterPrefs* out_prefs,
-                installer::MasterPreferences* install_prefs) {
-  // RLZ is currently a Windows-only phenomenon.  When it comes to the Mac/
-  // Linux, enable it here.
-  if (!install_prefs->GetInt(installer::master_preferences::kDistroPingDelay,
-                    &out_prefs->ping_delay)) {
-    // 90 seconds is the default that we want to use in case master
-    // preferences is missing, corrupt or ping_delay is missing.
-    out_prefs->ping_delay = 90;
-  }
-}
-
-}  // namespace
-
-namespace {
-
 // This class is used by first_run::ImportSettings to determine when the import
 // process has ended and what was the result of the operation as reported by
 // the process exit code. This class executes in the context of the main chrome
@@ -278,7 +273,7 @@ class ImportProcessRunner : public base::win::ObjectWatcher::Delegate {
   int exit_code() const { return exit_code_; }
 
   // The child process has terminated. Find the exit code and quit the loop.
-  virtual void OnObjectSignaled(HANDLE object) {
+  virtual void OnObjectSignaled(HANDLE object) OVERRIDE {
     DCHECK(object == import_process_);
     if (!::GetExitCodeProcess(import_process_, &exit_code_)) {
       NOTREACHED();
@@ -318,7 +313,7 @@ class HungImporterMonitor : public WorkerThreadTicker::Callback {
   }
 
  private:
-  virtual void OnTick() {
+  virtual void OnTick() OVERRIDE {
     if (!import_process_)
       return;
     // We find the top active popup that we own, this will be either the
@@ -455,7 +450,7 @@ bool ImportSettingsWin(Profile* profile,
 }  // namespace
 
 namespace first_run {
-namespace internal{
+namespace internal {
 
 bool ImportSettings(Profile* profile,
                     scoped_refptr<ImporterHost> importer_host,
@@ -555,6 +550,7 @@ void AutoImport(
   process_singleton->Unlock();
   CreateSentinel();
 #endif  // !defined(USE_AURA)
+  chrome::ShowFirstRunDefaultBrowserPrompt(profile);
 }
 
 int ImportNow(Profile* profile, const CommandLine& cmdline) {
@@ -587,7 +583,7 @@ bool ProcessMasterPreferences(const FilePath& user_data_dir,
 
   out_prefs->new_tabs = install_prefs->GetFirstRunTabs();
 
-  SetRLZPref(out_prefs, install_prefs.get());
+  internal::SetRLZPref(out_prefs, install_prefs.get());
   ShowPostInstallEULAIfNeeded(install_prefs.get());
 
   if (!internal::CopyPrefFile(user_data_dir, master_prefs_path))
@@ -598,6 +594,10 @@ bool ProcessMasterPreferences(const FilePath& user_data_dir,
   internal::SetupMasterPrefsFromInstallPrefs(out_prefs,
       install_prefs.get());
 
+  // TODO(mirandac): Refactor skip-first-run-ui process into regular first run
+  // import process.  http://crbug.com/49647
+  // Note we are skipping all other master preferences if skip-first-run-ui
+  // is *not* specified. (That is, we continue only if skipping first run ui.)
   if (!internal::SkipFirstRunUI(install_prefs.get()))
     return true;
 

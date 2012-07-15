@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (c) 2011 The Chromium Authors. All rights reserved.
+# Copyright (c) 2012 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -76,9 +76,9 @@ def CompressUsingLZMA(build_dir, compressed_file, input_file):
           # Older 7zip versions can support these settings, as these changes
           # rely on existing functionality in the lzma format.
           '-m0=BCJ2',
-          '-m1=LZMA:d26:fb64',
-          '-m2=LZMA:d20:fb64:mf=bt2',
-          '-m3=LZMA:d20:fb64:mf=bt2',
+          '-m1=LZMA:d27:fb128',
+          '-m2=LZMA:d22:fb128:mf=bt2',
+          '-m3=LZMA:d22:fb128:mf=bt2',
           '-mb0:1',
           '-mb0s1:2',
           '-mb0s2:3',
@@ -89,7 +89,8 @@ def CompressUsingLZMA(build_dir, compressed_file, input_file):
   RunSystemCommand(cmd)
 
 
-def CopyAllFilesToStagingDir(config, distribution, staging_dir, build_dir):
+def CopyAllFilesToStagingDir(config, distribution, staging_dir, build_dir,
+                             enable_hidpi, enable_touch_ui):
   """Copies the files required for installer archive.
   Copies all common files required for various distributions of Chromium and
   also files for the specific Chromium build specified by distribution.
@@ -100,24 +101,29 @@ def CopyAllFilesToStagingDir(config, distribution, staging_dir, build_dir):
       distribution = distribution[1:]
     CopySectionFilesToStagingDir(config, distribution.upper(),
                                  staging_dir, build_dir)
+  if enable_hidpi == '1':
+    CopySectionFilesToStagingDir(config, 'HIDPI', staging_dir, build_dir)
+  if enable_touch_ui == '1':
+    CopySectionFilesToStagingDir(config, 'TOUCH', staging_dir, build_dir)
 
 
-def CopySectionFilesToStagingDir(config, section, staging_dir, build_dir):
-  """Copies installer archive files specified in section to staging dir.
-  This method copies reads section from config file and copies all the files
-  specified to staging dir.
+def CopySectionFilesToStagingDir(config, section, staging_dir, src_dir):
+  """Copies installer archive files specified in section from src_dir to
+  staging_dir. This method reads section from config and copies all the
+  files specified from src_dir to staging dir.
   """
   for option in config.options(section):
     if option.endswith('dir'):
       continue
 
-    dst = os.path.join(staging_dir, config.get(section, option))
-    if not os.path.exists(dst):
-      os.makedirs(dst)
-    for file in glob.glob(os.path.join(build_dir, option)):
-      dst_file = os.path.join(dst, os.path.basename(file))
-      if not os.path.exists(dst_file):
-        shutil.copy(file, dst)
+    dst_dir = os.path.join(staging_dir, config.get(section, option))
+    src_paths = glob.glob(os.path.join(src_dir, option))
+    if src_paths and not os.path.exists(dst_dir):
+      os.makedirs(dst_dir)
+    for src_path in src_paths:
+      dst_path = os.path.join(dst_dir, os.path.basename(src_path))
+      if not os.path.exists(dst_path):
+        shutil.copy(src_path, dst_dir)
 
 def GenerateDiffPatch(options, orig_file, new_file, patch_file):
   if (options.diff_algorithm == "COURGETTE"):
@@ -133,13 +139,13 @@ def GetLZMAExec(build_dir):
                            "lzma_sdk", "Executable", "7za.exe")
   return lzma_exec
 
-def GetPrevVersion(build_dir, temp_dir, last_chrome_installer):
+def GetPrevVersion(build_dir, temp_dir, last_chrome_installer, output_name):
   if not last_chrome_installer:
     return ''
 
-  lzma_exec = GetLZMAExec(options.build_dir)
-  prev_archive_file = os.path.join(options.last_chrome_installer,
-                                   options.output_name + ARCHIVE_SUFFIX)
+  lzma_exec = GetLZMAExec(build_dir)
+  prev_archive_file = os.path.join(last_chrome_installer,
+                                   output_name + ARCHIVE_SUFFIX)
   cmd = [lzma_exec,
          'x',
          '-o"%s"' % temp_dir,
@@ -164,7 +170,7 @@ def MakeStagingDirectories(staging_dir):
   os.makedirs(temp_file_path)
   return (file_path, temp_file_path)
 
-def Readconfig(build_dir, input_file, current_version):
+def Readconfig(input_file, current_version):
   """Reads config information from input file after setting default value of
   global variabes.
   """
@@ -229,7 +235,7 @@ def CreateArchiveFile(options, staging_dir, current_version, prev_version):
   return compressed_archive_file
 
 
-def PrepareSetupExec(options, staging_dir, current_version, prev_version):
+def PrepareSetupExec(options, current_version, prev_version):
   """Prepares setup.exe for bundling in mini_installer based on options."""
   if options.setup_exe_format == "FULL":
     setup_file = SETUP_EXEC
@@ -306,29 +312,201 @@ def CreateResourceInputFile(
     f.write(resource_file)
 
 
+# Reads |manifest_name| from |build_dir| and writes |manifest_name| to
+# |output_dir| with the same content plus |inserted_string| added just before
+# |insert_before|.
+def CopyAndAugmentManifest(build_dir, output_dir, manifest_name,
+                           inserted_string, insert_before):
+  manifest_file = open(os.path.join(build_dir, manifest_name), 'r')
+  manifest_lines = manifest_file.readlines()
+  manifest_file.close()
+
+  insert_line = -1
+  insert_pos = -1
+  for i in xrange(len(manifest_lines)):
+    insert_pos = manifest_lines[i].find(insert_before)
+    if insert_pos != -1:
+      insert_line = i
+      break
+  if insert_line == -1:
+    raise ValueError('Could not find {0} in the manifest:\n{1}'.format(
+        insert_before, ''.join(manifest_lines)))
+  old = manifest_lines[insert_line]
+  manifest_lines[insert_line] = (old[:insert_pos] + inserted_string +
+                                 old[insert_pos:])
+
+  modified_manifest_file = open(
+      os.path.join(output_dir, manifest_name), 'w')
+  modified_manifest_file.write(''.join(manifest_lines))
+  modified_manifest_file.close()
+
+
+# Copy the relevant CRT DLLs to |build_dir|. We copy DLLs from all versions
+# of VS installed to make sure we have the correct CRT version, unused DLLs
+# should not conflict with the others anyways.
+def CopyVisualStudioRuntimeDLLs(build_dir):
+  is_debug = os.path.basename(build_dir) == 'Debug'
+  if not is_debug and os.path.basename(build_dir) != 'Release':
+    print ("Warning: could not determine build configuration from "
+           "output directory, assuming Release build.")
+
+  crt_dlls = []
+  if is_debug:
+    crt_dlls = glob.glob(
+        "C:/Program Files (x86)/Microsoft Visual Studio */VC/redist/"
+        "Debug_NonRedist/x86/Microsoft.*.DebugCRT/*.dll")
+  else:
+    crt_dlls = glob.glob(
+        "C:/Program Files (x86)/Microsoft Visual Studio */VC/redist/x86/"
+        "Microsoft.*.CRT/*.dll")
+
+  # Also handle the case where someone is building using only winsdk and
+  # doesn't have Visual Studio installed.
+  if not crt_dlls:
+    # On a 64-bit system, 32-bit dlls are in SysWOW64 (don't ask).
+    if os.access("C:/Windows/SysWOW64", os.F_OK):
+      sys_dll_dir = "C:/Windows/SysWOW64"
+    else:
+      sys_dll_dir = "C:/Windows/System32"
+
+    if is_debug:
+      crt_dlls = glob.glob(os.path.join(sys_dll_dir, "msvc*0d.dll"))
+    else:
+      crt_dlls = glob.glob(os.path.join(sys_dll_dir, "msvc*0.dll"))
+
+  if not crt_dlls:
+    print ("Warning: could not find CRT DLLs to copy to build dir - target "
+           "may not run on a system that doesn't have those DLLs.")
+
+  for dll in crt_dlls:
+    shutil.copy(dll, build_dir)
+
+
+# Copies component build DLLs and generates required config files and manifests
+# in order for chrome.exe and setup.exe to be able to find those DLLs at
+# run-time.
+# This is meant for developer builds only and should never be used to package
+# an official build.
+def DoComponentBuildTasks(staging_dir, build_dir, current_version):
+  # Get the required directories for the upcoming operations.
+  chrome_dir = os.path.join(staging_dir, CHROME_DIR)
+  version_dir = os.path.join(chrome_dir, current_version)
+  installer_dir = os.path.join(version_dir, 'Installer')
+  # |installer_dir| is technically only created post-install, but we need it
+  # now to add setup.exe's config and manifest to the archive.
+  if not os.path.exists(installer_dir):
+    os.mkdir(installer_dir)
+
+  # Copy the VS CRT DLLs to |build_dir|. This must be done before the general
+  # copy step below to ensure the CRT DLLs are added to the archive and marked
+  # as a dependency in the exe manifests generated below.
+  CopyVisualStudioRuntimeDLLs(build_dir)
+
+  # Copy all the DLLs in |build_dir| to the version directory. Simultaneously
+  # build a list of their names to mark them as dependencies of chrome.exe and
+  # setup.exe later.
+  dlls = glob.glob(os.path.join(build_dir, '*.dll'))
+  dll_names = []
+  for dll in dlls:
+    shutil.copy(dll, version_dir)
+    dll_names.append(os.path.splitext(os.path.basename(dll))[0])
+
+  exe_config = (
+      "<configuration>\n"
+      "  <windows>\n"
+      "    <assemblyBinding xmlns='urn:schemas-microsoft-com:asm.v1'>\n"
+      "        <probing privatePath='{rel_path}'/>\n"
+      "    </assemblyBinding>\n"
+      "  </windows>\n"
+      "</configuration>")
+
+  # Write chrome.exe.config to point to the version directory.
+  chrome_exe_config_file = open(
+      os.path.join(chrome_dir, 'chrome.exe.config'), 'w')
+  chrome_exe_config_file.write(exe_config.format(rel_path=current_version))
+  chrome_exe_config_file.close()
+
+  # Write setup.exe.config to point to the version directory (which is one
+  # level up from setup.exe post-install).
+  setup_exe_config_file = open(
+      os.path.join(installer_dir, 'setup.exe.config'), 'w')
+  setup_exe_config_file.write(exe_config.format(rel_path='..'))
+  setup_exe_config_file.close()
+
+  # Add a dependency for each DLL in |dlls| to the existing manifests for
+  # chrome.exe and setup.exe. Some of these DLLs are not actually used by
+  # either process, but listing them all as dependencies doesn't hurt as it
+  # only makes them visible to the exes, just like they already are in the
+  # build output directory.
+  exe_manifest_dependencies_list = []
+  for name in dll_names:
+    exe_manifest_dependencies_list.append(
+        "<dependency>"
+        "<dependentAssembly>"
+        "<assemblyIdentity type='win32' name='chrome.{dll_name}' "
+        "version='0.0.0.0' processorArchitecture='x86' language='*'/>"
+        "</dependentAssembly>"
+        "</dependency>".format(dll_name=name))
+
+  exe_manifest_dependencies = ''.join(exe_manifest_dependencies_list)
+
+  # Write a modified chrome.exe.manifest beside chrome.exe.
+  CopyAndAugmentManifest(build_dir, chrome_dir, 'chrome.exe.manifest',
+                         exe_manifest_dependencies, '</assembly>')
+
+  # Write a modified setup.exe.manifest beside setup.exe in
+  # |version_dir|/Installer.
+  CopyAndAugmentManifest(build_dir, installer_dir, 'setup.exe.manifest',
+                         exe_manifest_dependencies, '</assembly>')
+
+  # Generate assembly manifests for each DLL in |dlls|. These do not interfere
+  # with the private manifests potentially embedded in each DLL. They simply
+  # allow chrome.exe and setup.exe to see those DLLs although they are in a
+  # separate directory post-install.
+  for name in dll_names:
+    dll_manifest = (
+        "<assembly\n"
+        "    xmlns='urn:schemas-microsoft-com:asm.v1' manifestVersion='1.0'>\n"
+        "  <assemblyIdentity name='chrome.{dll_name}' version='0.0.0.0'\n"
+        "      type='win32' processorArchitecture='x86'/>\n"
+        "  <file name='{dll_name}.dll'/>\n"
+        "</assembly>".format(dll_name=name))
+
+    dll_manifest_file = open(os.path.join(
+        version_dir, "chrome.{dll_name}.manifest".format(dll_name=name)), 'w')
+    dll_manifest_file.write(dll_manifest)
+    dll_manifest_file.close()
+
+
 def main(options):
   """Main method that reads input file, creates archive file and write
   resource input file.
   """
   current_version = BuildVersion(options.build_dir)
 
-  config = Readconfig(options.build_dir, options.input_file, current_version)
+  config = Readconfig(options.input_file, current_version)
 
   (staging_dir, temp_dir) = MakeStagingDirectories(options.staging_dir)
 
   prev_version = GetPrevVersion(options.build_dir, temp_dir,
-                                options.last_chrome_installer)
+                                options.last_chrome_installer,
+                                options.output_name)
 
   # Preferentially copy the files we can find from the output_dir, as
   # this is where we'll find the Syzygy-optimized executables when
   # building the optimized mini_installer.
   if options.build_dir != options.output_dir:
     CopyAllFilesToStagingDir(config, options.distribution,
-                             staging_dir, options.output_dir)
+                             staging_dir, options.output_dir,
+                             options.enable_hidpi, options.enable_touch_ui)
 
   # Now copy the remainder of the files from the build dir.
   CopyAllFilesToStagingDir(config, options.distribution,
-                           staging_dir, options.build_dir)
+                           staging_dir, options.build_dir,
+                           options.enable_hidpi, options.enable_touch_ui)
+
+  if options.component_build == '1':
+    DoComponentBuildTasks(staging_dir, options.build_dir, current_version)
 
   version_numbers = current_version.split('.')
   current_build_number = version_numbers[2] + '.' + version_numbers[3]
@@ -342,7 +520,7 @@ def main(options):
   archive_file = CreateArchiveFile(options, staging_dir,
                                    current_build_number, prev_build_number)
 
-  setup_file = PrepareSetupExec(options, staging_dir,
+  setup_file = PrepareSetupExec(options,
                                 current_build_number, prev_build_number)
 
   CreateResourceInputFile(options.output_dir, options.setup_exe_format,
@@ -356,14 +534,14 @@ def _ParseOptions():
       help='Build directory. The paths in input_file are relative to this.')
   parser.add_option('--staging_dir',
       help='Staging directory where intermediate files and directories '
-           'will be created'),
+           'will be created')
   parser.add_option('-o', '--output_dir',
       help='The output directory where the archives will be written. '
             'Defaults to the build_dir.')
   parser.add_option('--resource_file_path',
       help='The path where the resource file will be output. '
            'Defaults to %s in the build directory.' %
-               MINI_INSTALLER_INPUT_FILE),
+               MINI_INSTALLER_INPUT_FILE)
   parser.add_option('-d', '--distribution',
       help='Name of Chromium Distribution. Optional.')
   parser.add_option('-s', '--skip_rebuild_archive',
@@ -380,20 +558,32 @@ def _ParseOptions():
            '{BSDIFF|COURGETTE}.')
   parser.add_option('-n', '--output_name', default='chrome',
       help='Name used to prefix names of generated archives.')
+  parser.add_option('--enable_hidpi', default='0',
+      help='Whether to include HiDPI resource files.')
+  parser.add_option('--enable_touch_ui', default='0',
+      help='Whether to include resource files from the "TOUCH" section of the '
+           'input file.')
+  parser.add_option('--component_build', default='0',
+      help='Whether this archive is packaging a component build.')
 
-  options, args = parser.parse_args()
+  options, _ = parser.parse_args()
   if not options.build_dir:
     parser.error('You must provide a build dir.')
 
+  options.build_dir = os.path.normpath(options.build_dir)
+
   if not options.staging_dir:
     parser.error('You must provide a staging dir.')
+
+  if not options.input_file:
+    parser.error('You must provide an input file')
 
   if not options.output_dir:
     options.output_dir = options.build_dir
 
   if not options.resource_file_path:
-    options.options.resource_file_path = os.path.join(options.build_dir,
-                                                      MINI_INSTALLER_INPUT_FILE)
+    options.resource_file_path = os.path.join(options.build_dir,
+                                              MINI_INSTALLER_INPUT_FILE)
 
   return options
 

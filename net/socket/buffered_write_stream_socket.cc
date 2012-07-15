@@ -83,7 +83,7 @@ bool BufferedWriteStreamSocket::IsConnectedAndIdle() const {
   return wrapped_socket_->IsConnectedAndIdle();
 }
 
-int BufferedWriteStreamSocket::GetPeerAddress(AddressList* address) const {
+int BufferedWriteStreamSocket::GetPeerAddress(IPEndPoint* address) const {
   return wrapped_socket_->GetPeerAddress(address);
 }
 
@@ -117,6 +117,10 @@ int64 BufferedWriteStreamSocket::NumBytesRead() const {
 
 base::TimeDelta BufferedWriteStreamSocket::GetConnectTimeMicros() const {
   return wrapped_socket_->GetConnectTimeMicros();
+}
+
+NextProto BufferedWriteStreamSocket::GetNegotiatedProtocol() const {
+  return wrapped_socket_->GetNegotiatedProtocol();
 }
 
 void BufferedWriteStreamSocket::DoDelayedWrite() {

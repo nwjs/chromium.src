@@ -53,13 +53,43 @@ class JSChecker(object):
   def GetElementByIdCheck(self, i, line):
     """Checks for use of 'document.getElementById' instead of '$'."""
     return self.RegexCheck(i, line, r"(document\.getElementById)\('",
-        "Use $('id') instead of document.getElementById('id')")
+        "Use $('id'), from chrome://resources/js/util.js, instead of "
+        "document.getElementById('id'))")
 
   def error_highlight(self, start, length):
     """Takes a start position and a length, and produces a row of '^'s to
        highlight the corresponding part of a string.
     """
     return start * ' ' + length * '^'
+
+  def _makeErrorOrWarning(self, error_text, filename):
+    """Takes a few lines of text indicating a style violation and turns it into
+       a PresubmitError (if |filename| is in a directory where we've already
+       taken out all the style guide violations) or a PresubmitPromptWarning
+       (if it's in a directory where we haven't done that yet).
+    """
+    # TODO(tbreisacher): Once we've cleaned up the style nits in all of
+    # resources/ we can get rid of this function.
+    path = self.input_api.os_path
+    resources = self.input_api.PresubmitLocalPath()
+    dirs = (
+        path.join(resources, 'extensions'),
+        path.join(resources, 'help'),
+        path.join(resources, 'history'),
+        path.join(resources, 'net_internals'),
+        path.join(resources, 'network_action_predictor'),
+        path.join(resources, 'ntp4'),
+        path.join(resources, 'options2'),
+        path.join(resources, 'print_preview'),
+        path.join(resources, 'profiler'),
+        path.join(resources, 'sync_promo'),
+        path.join(resources, 'tracing'),
+        path.join(resources, 'uber'),
+    )
+    if filename.startswith(dirs):
+      return self.output_api.PresubmitError(error_text)
+    else:
+      return self.output_api.PresubmitPromptWarning(error_text)
 
   def RunChecks(self):
     """Check for violations of the Chromium JavaScript style guide. See
@@ -127,6 +157,7 @@ class JSChecker(object):
             errors.JSDOC_ILLEGAL_QUESTION_WITH_PIPE,
             errors.JSDOC_TAG_DESCRIPTION_ENDS_WITH_INVALID_CHARACTER,
             errors.LINE_TOO_LONG,
+            errors.MISSING_JSDOC_TAG_THIS,
         ]
 
     results = []
@@ -172,7 +203,8 @@ class JSChecker(object):
         error_lines = [
             'Found JavaScript style violations in %s:' %
             f.LocalPath()] + error_lines
-        results.append(self.output_api.PresubmitError('\n'.join(error_lines)))
+        results.append(self._makeErrorOrWarning(
+            '\n'.join(error_lines), f.AbsoluteLocalPath()))
 
     if results:
       results.append(self.output_api.PresubmitNotifyResult(

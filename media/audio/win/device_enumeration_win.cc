@@ -33,6 +33,7 @@ bool GetInputDeviceNamesWin(AudioDeviceNames* device_names) {
                                  CLSCTX_INPROC_SERVER,
                                  __uuidof(IMMDeviceEnumerator),
                                  enumerator.ReceiveVoid());
+  DCHECK_NE(hr, CO_E_NOTINITIALIZED);
   if (FAILED(hr)) {
     LOG(WARNING) << "Failed to create IMMDeviceEnumerator: " << std::hex << hr;
     return false;
@@ -114,18 +115,16 @@ bool GetInputDeviceNamesWinXP(AudioDeviceNames* device_names) {
     if (err != MMSYSERR_NOERROR)
       continue;
 
-    if (capabilities.szPname != NULL) {
-      // Store the user-friendly name. Max length is MAXPNAMELEN(=32)
-      // characters and the name cane be truncated on XP.
-      // Example: "Microphone (Realtek High Defini".
-      device.device_name = WideToUTF8(capabilities.szPname);
+    // Store the user-friendly name. Max length is MAXPNAMELEN(=32)
+    // characters and the name cane be truncated on XP.
+    // Example: "Microphone (Realtek High Defini".
+    device.device_name = WideToUTF8(capabilities.szPname);
 
-      // Store the "unique" name (we use same as friendly name on Windows XP).
-      device.unique_id = WideToUTF8(capabilities.szPname);
+    // Store the "unique" name (we use same as friendly name on Windows XP).
+    device.unique_id = WideToUTF8(capabilities.szPname);
 
-      // Add combination of user-friendly and unique name to the output list.
-      device_names->push_back(device);
-    }
+    // Add combination of user-friendly and unique name to the output list.
+    device_names->push_back(device);
   }
 
   return true;

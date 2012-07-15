@@ -13,7 +13,9 @@
 #include "chrome/service/net/service_url_request_context.h"
 #include "chrome/service/service_process.h"
 #include "googleurl/src/gurl.h"
+#include "net/base/load_flags.h"
 #include "net/http/http_status_code.h"
+#include "net/url_request/url_fetcher.h"
 #include "net/url_request/url_request_status.h"
 
 CloudPrintURLFetcher::CloudPrintURLFetcher()
@@ -21,7 +23,7 @@ CloudPrintURLFetcher::CloudPrintURLFetcher()
       num_retries_(0) {
 }
 
-bool CloudPrintURLFetcher::IsSameRequest(const content::URLFetcher* source) {
+bool CloudPrintURLFetcher::IsSameRequest(const net::URLFetcher* source) {
   return (request_.get() == source);
 }
 
@@ -31,7 +33,7 @@ void CloudPrintURLFetcher::StartGetRequest(
     int max_retries,
     const std::string& additional_headers) {
   StartRequestHelper(url,
-                     content::URLFetcher::GET,
+                     net::URLFetcher::GET,
                      delegate,
                      max_retries,
                      std::string(),
@@ -47,7 +49,7 @@ void CloudPrintURLFetcher::StartPostRequest(
     const std::string& post_data,
     const std::string& additional_headers) {
   StartRequestHelper(url,
-                     content::URLFetcher::POST,
+                     net::URLFetcher::POST,
                      delegate,
                      max_retries,
                      post_data_mime_type,
@@ -56,7 +58,7 @@ void CloudPrintURLFetcher::StartPostRequest(
 }
 
 void CloudPrintURLFetcher::OnURLFetchComplete(
-    const content::URLFetcher* source) {
+    const net::URLFetcher* source) {
   VLOG(1) << "CP_PROXY: OnURLFetchComplete, url: " << source->GetURL()
           << ", response code: " << source->GetResponseCode();
   // Make sure we stay alive through the body of this function.
@@ -133,7 +135,7 @@ void CloudPrintURLFetcher::OnURLFetchComplete(
 
 void CloudPrintURLFetcher::StartRequestHelper(
     const GURL& url,
-    content::URLFetcher::RequestType request_type,
+    net::URLFetcher::RequestType request_type,
     Delegate* delegate,
     int max_retries,
     const std::string& post_data_mime_type,
@@ -142,14 +144,16 @@ void CloudPrintURLFetcher::StartRequestHelper(
   DCHECK(delegate);
   // Persist the additional headers in case we need to retry the request.
   additional_headers_ = additional_headers;
-  request_.reset(content::URLFetcher::Create(url, request_type, this));
+  request_.reset(net::URLFetcher::Create(url, request_type, this));
   request_->SetRequestContext(GetRequestContextGetter());
   // Since we implement our own retry logic, disable the retry in URLFetcher.
   request_->SetAutomaticallyRetryOn5xx(false);
   request_->SetMaxRetries(max_retries);
   delegate_ = delegate;
   SetupRequestHeaders();
-  if (request_type == content::URLFetcher::POST) {
+  request_->SetLoadFlags(net::LOAD_DO_NOT_SEND_COOKIES |
+                         net::LOAD_DO_NOT_SAVE_COOKIES);
+  if (request_type == net::URLFetcher::POST) {
     request_->SetUploadData(post_data_mime_type, post_data);
   }
 

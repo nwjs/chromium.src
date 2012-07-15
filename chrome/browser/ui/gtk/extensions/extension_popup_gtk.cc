@@ -19,7 +19,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/gtk/theme_service_gtk.h"
+#include "chrome/browser/ui/gtk/gtk_theme_service.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
@@ -42,14 +42,14 @@ const int ExtensionPopupGtk::kMaxHeight = 600;
 ExtensionPopupGtk::ExtensionPopupGtk(Browser* browser,
                                      ExtensionHost* host,
                                      GtkWidget* anchor,
-                                     bool inspect)
+                                     ShowAction show_action)
     : browser_(browser),
       bubble_(NULL),
       host_(host),
       anchor_(anchor),
-      being_inspected_(inspect),
       weak_factory_(this) {
   host_->view()->SetContainer(this);
+  being_inspected_ = show_action == SHOW_AND_INSPECT;
 
   // If the host had somehow finished loading, then we'd miss the notification
   // and not show.  This seems to happen in single-process mode.
@@ -77,7 +77,7 @@ ExtensionPopupGtk::~ExtensionPopupGtk() {
 
 // static
 void ExtensionPopupGtk::Show(const GURL& url, Browser* browser,
-    GtkWidget* anchor, bool inspect) {
+    GtkWidget* anchor, ShowAction show_action) {
   ExtensionProcessManager* manager =
       browser->profile()->GetExtensionProcessManager();
   DCHECK(manager);
@@ -86,7 +86,7 @@ void ExtensionPopupGtk::Show(const GURL& url, Browser* browser,
 
   ExtensionHost* host = manager->CreatePopupHost(url, browser);
   // This object will delete itself when the bubble is closed.
-  new ExtensionPopupGtk(browser, host, anchor, inspect);
+  new ExtensionPopupGtk(browser, host, anchor, show_action);
 }
 
 void ExtensionPopupGtk::Observe(int type,
@@ -110,6 +110,8 @@ void ExtensionPopupGtk::Observe(int type,
       // Make sure that the popup won't go away when the inspector is activated.
       if (bubble_)
         bubble_->StopGrabbingInput();
+
+      being_inspected_ = true;
       break;
     case content::NOTIFICATION_DEVTOOLS_WINDOW_CLOSING:
       // Make sure it's the devtools window that is inspecting our popup.
@@ -184,9 +186,9 @@ void ExtensionPopupGtk::ShowPopup() {
                             NULL,
                             host_->view()->native_view(),
                             arrow_location,
-                            false,  // match_system_theme
-                            !being_inspected_,  // grab_input
-                            ThemeServiceGtk::GetFrom(browser_->profile()),
+                            being_inspected_ ? 0 :
+                                BubbleGtk::POPUP_WINDOW | BubbleGtk::GRAB_INPUT,
+                            GtkThemeService::GetFrom(browser_->profile()),
                             this);
 }
 

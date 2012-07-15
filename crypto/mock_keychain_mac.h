@@ -4,7 +4,6 @@
 
 #ifndef CRYPTO_MOCK_KEYCHAIN_MAC_H_
 #define CRYPTO_MOCK_KEYCHAIN_MAC_H_
-#pragma once
 
 #include <map>
 #include <set>
@@ -24,7 +23,7 @@ namespace crypto {
 // Note that "const" is pretty much meaningless for this class; the const-ness
 // of MacKeychain doesn't apply to the actual keychain data, so all of the Mock
 // data is mutable; don't assume that it won't change over the life of tests.
-class MockKeychain : public MacKeychain {
+class CRYPTO_EXPORT MockKeychain : public MacKeychain {
  public:
   MockKeychain();
   virtual ~MockKeychain();

@@ -13,7 +13,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_contents/confirm_infobar_delegate.h"
 #include "chrome/browser/tab_contents/tab_util.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_details.h"
@@ -67,7 +67,6 @@ class RequestQuotaInfoBarDelegate : public ConfirmInfoBarDelegate {
   }
 
   virtual string16 GetMessageText() const OVERRIDE;
-  virtual void InfoBarDismissed() OVERRIDE;
   virtual bool Accept() OVERRIDE;
   virtual bool Cancel() OVERRIDE;
 
@@ -78,12 +77,6 @@ class RequestQuotaInfoBarDelegate : public ConfirmInfoBarDelegate {
   PermissionCallback callback_;
   DISALLOW_COPY_AND_ASSIGN(RequestQuotaInfoBarDelegate);
 };
-
-void RequestQuotaInfoBarDelegate::InfoBarDismissed() {
-  context_->DispatchCallbackOnIOThread(
-      callback_,
-      QuotaPermissionContext::QUOTA_PERMISSION_RESPONSE_CANCELLED);
-}
 
 string16 RequestQuotaInfoBarDelegate::GetMessageText() const {
   return l10n_util::GetStringFUTF16(
@@ -109,11 +102,7 @@ bool RequestQuotaInfoBarDelegate::Cancel() {
 
 }  // anonymous namespace
 
-ChromeQuotaPermissionContext::ChromeQuotaPermissionContext() {
-}
-
-ChromeQuotaPermissionContext::~ChromeQuotaPermissionContext() {
-}
+ChromeQuotaPermissionContext::ChromeQuotaPermissionContext() {}
 
 void ChromeQuotaPermissionContext::RequestQuotaPermission(
     const GURL& origin_url,
@@ -148,12 +137,11 @@ void ChromeQuotaPermissionContext::RequestQuotaPermission(
     return;
   }
 
-  TabContentsWrapper* wrapper =
-      TabContentsWrapper::GetCurrentWrapperForContents(web_contents);
-  InfoBarTabHelper* infobar_helper = wrapper->infobar_tab_helper();
+  TabContents* tab_contents = TabContents::FromWebContents(web_contents);
+  InfoBarTabHelper* infobar_helper = tab_contents->infobar_tab_helper();
   infobar_helper->AddInfoBar(new RequestQuotaInfoBarDelegate(
       infobar_helper, this, origin_url, requested_quota,
-      wrapper->profile()->GetPrefs()->GetString(prefs::kAcceptLanguages),
+      tab_contents->profile()->GetPrefs()->GetString(prefs::kAcceptLanguages),
       callback));
 }
 
@@ -172,3 +160,5 @@ void ChromeQuotaPermissionContext::DispatchCallbackOnIOThread(
 
   callback.Run(response);
 }
+
+ChromeQuotaPermissionContext::~ChromeQuotaPermissionContext() {}

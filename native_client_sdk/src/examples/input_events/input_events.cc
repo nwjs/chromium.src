@@ -91,7 +91,8 @@ class EventInstance : public pp::Instance {
  public:
   explicit EventInstance(PP_Instance instance)
       : pp::Instance(instance) {
-    RequestInputEvents(PP_INPUTEVENT_CLASS_MOUSE | PP_INPUTEVENT_CLASS_WHEEL);
+    RequestInputEvents(PP_INPUTEVENT_CLASS_MOUSE | PP_INPUTEVENT_CLASS_WHEEL
+        | PP_INPUTEVENT_CLASS_TOUCH);
     RequestFilteringInputEvents(PP_INPUTEVENT_CLASS_KEYBOARD);
   }
   virtual ~EventInstance() {}
@@ -112,8 +113,7 @@ class EventInstance : public pp::Instance {
   }
 
   /// Scrolling the mouse wheel causes a DidChangeView event.
-  void DidChangeView(const pp::Rect& position,
-                     const pp::Rect& clip) {
+  void DidChangeView(const pp::View& view) {
     PostMessage(pp::Var(kDidChangeView));
   }
 
@@ -156,6 +156,27 @@ class EventInstance : public pp::Instance {
            << " scroll_by_page: "
            << (wheel_event.GetScrollByPage() ? "true" : "false")
            << "\n";
+    PostMessage(stream.str());
+  }
+
+  void GotTouchEvent(const pp::TouchInputEvent& touch_event,
+                     const std::string& kind) {
+    std::ostringstream stream;
+    stream << pp_instance() << ":"
+           << " Touch event:" << kind
+           << " modifier:" << ModifierToString(touch_event.GetModifiers());
+    uint32_t touch_count =
+        touch_event.GetTouchCount(PP_TOUCHLIST_TYPE_CHANGEDTOUCHES);
+    for (uint32_t i = 0; i < touch_count; ++i) {
+      pp::TouchPoint point =
+          touch_event.GetTouchByIndex(PP_TOUCHLIST_TYPE_CHANGEDTOUCHES, i);
+      stream << " x[" << point.id() << "]:" << point.position().x();
+      stream << " y[" << point.id() << "]:" << point.position().y();
+      stream << " radius_x[" << point.id() << "]:" << point.radii().x();
+      stream << " radius_y[" << point.id() << "]:" << point.radii().y();
+      stream << " angle[" << point.id() << "]:" << point.rotation_angle();
+      stream << " pressure[" << point.id() << "]:" << point.pressure();
+    }
     PostMessage(stream.str());
   }
 
@@ -219,6 +240,18 @@ class EventInstance : public pp::Instance {
         break;
       case PP_INPUTEVENT_TYPE_IME_TEXT:
         PostMessage(pp::Var("PP_INPUTEVENT_TYPE_IME_COMPOSITION_TEXT"));
+        break;
+      case PP_INPUTEVENT_TYPE_TOUCHSTART:
+        GotTouchEvent(pp::TouchInputEvent(event), "Start");
+        break;
+      case PP_INPUTEVENT_TYPE_TOUCHMOVE:
+        GotTouchEvent(pp::TouchInputEvent(event), "Move");
+        break;
+      case PP_INPUTEVENT_TYPE_TOUCHEND:
+        GotTouchEvent(pp::TouchInputEvent(event), "End");
+        break;
+      case PP_INPUTEVENT_TYPE_TOUCHCANCEL:
+        GotTouchEvent(pp::TouchInputEvent(event), "Cancel");
         break;
       default:
         assert(false);

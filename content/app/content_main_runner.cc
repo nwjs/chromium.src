@@ -4,12 +4,14 @@
 
 #include "content/public/app/content_main_runner.h"
 
+#include "base/allocator/allocator_extension.h"
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/debug/debugger.h"
 #include "base/debug/trace_event.h"
 #include "base/file_path.h"
 #include "base/i18n/icu_util.h"
+#include "base/lazy_instance.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/metrics/stats_table.h"
@@ -19,21 +21,31 @@
 #include "base/string_number_conversions.h"
 #include "content/browser/browser_main.h"
 #include "content/common/set_process_title.h"
+#include "content/common/url_schemes.h"
 #include "content/public/app/content_main_delegate.h"
 #include "content/public/app/startup_helper_win.h"
+#include "content/public/browser/content_browser_client.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_constants.h"
 #include "content/public/common/content_paths.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/main_function_params.h"
 #include "content/public/common/sandbox_init.h"
+#include "content/public/plugin/content_plugin_client.h"
+#include "content/public/renderer/content_renderer_client.h"
+#include "content/public/utility/content_utility_client.h"
 #include "crypto/nss_util.h"
 #include "ipc/ipc_switches.h"
 #include "media/base/media.h"
-#include "sandbox/src/sandbox_types.h"
+#include "sandbox/win/src/sandbox_types.h"
 #include "ui/base/ui_base_switches.h"
 #include "ui/base/ui_base_paths.h"
+#include "ui/base/win/dpi.h"
 #include "webkit/glue/webkit_glue.h"
+
+#if defined(USE_TCMALLOC)
+#include "third_party/tcmalloc/chromium/src/gperftools/malloc_extension.h"
+#endif
 
 #if defined(OS_WIN)
 #include <atlbase.h>
@@ -51,7 +63,7 @@
 #include <signal.h>
 
 #include "base/global_descriptors_posix.h"
-#include "content/common/chrome_descriptors.h"
+#include "content/public/common/content_descriptors.h"
 
 #if !defined(OS_MACOSX)
 #include "content/public/common/zygote_fork_delegate_linux.h"
@@ -72,12 +84,23 @@ extern int PpapiBrokerMain(const content::MainFunctionParams&);
 extern int RendererMain(const content::MainFunctionParams&);
 extern int WorkerMain(const content::MainFunctionParams&);
 extern int UtilityMain(const content::MainFunctionParams&);
-#if defined(OS_POSIX) && !defined(OS_MACOSX)
-extern int ZygoteMain(const content::MainFunctionParams&,
-                      content::ZygoteForkDelegate* forkdelegate);
+#if defined(OS_POSIX) && !defined(OS_MACOSX) && !defined(OS_ANDROID)
+namespace content {
+extern int ZygoteMain(const MainFunctionParams&,
+                      ZygoteForkDelegate* forkdelegate);
+}  // namespace content
 #endif
 
-namespace {
+namespace content {
+
+base::LazyInstance<ContentBrowserClient>
+    g_empty_content_browser_client = LAZY_INSTANCE_INITIALIZER;
+base::LazyInstance<ContentPluginClient>
+    g_empty_content_plugin_client = LAZY_INSTANCE_INITIALIZER;
+base::LazyInstance<ContentRendererClient>
+    g_empty_content_renderer_client = LAZY_INSTANCE_INITIALIZER;
+base::LazyInstance<ContentUtilityClient>
+    g_empty_content_utility_client = LAZY_INSTANCE_INITIALIZER;
 
 #if defined(OS_WIN)
 
@@ -158,8 +181,39 @@ void CommonSubprocessInit(const std::string& process_type) {
 #endif
 }
 
-void InitializeStatsTable(base::ProcessId browser_pid,
-                          const CommandLine& command_line) {
+static base::ProcessId GetBrowserPid(const CommandLine& command_line) {
+  base::ProcessId browser_pid = base::GetCurrentProcId();
+  if (command_line.HasSwitch(switches::kProcessChannelID)) {
+#if defined(OS_WIN) || defined(OS_MACOSX)
+    std::string channel_name =
+        command_line.GetSwitchValueASCII(switches::kProcessChannelID);
+
+    int browser_pid_int;
+    base::StringToInt(channel_name, &browser_pid_int);
+    browser_pid = static_cast<base::ProcessId>(browser_pid_int);
+    DCHECK_NE(browser_pid_int, 0);
+#elif defined(OS_ANDROID)
+    // On Android, the browser process isn't the parent. A bunch
+    // of work will be required before callers of this routine will
+    // get what they want.
+    //
+    // Note: On Linux, base::GetParentProcessId() is defined in
+    // process_util_linux.cc. Note that *_linux.cc is excluded from
+    // Android builds but a special exception is made in base.gypi
+    // for a few files including process_util_linux.cc.
+    LOG(ERROR) << "GetBrowserPid() not implemented for Android().";
+#elif defined(OS_POSIX)
+    // On linux, we're in a process forked from the zygote here; so we need the
+    // parent's parent process' id.
+    browser_pid =
+        base::GetParentProcessId(
+            base::GetParentProcessId(base::GetCurrentProcId()));
+#endif
+  }
+  return browser_pid;
+}
+
+static void InitializeStatsTable(const CommandLine& command_line) {
   // Initialize the Stats Counters table.  With this initialized,
   // the StatsViewer can be utilized to read counters outside of
   // Chrome.  These lines can be commented out to effectively turn
@@ -169,29 +223,62 @@ void InitializeStatsTable(base::ProcessId browser_pid,
     // NOTIMPLEMENTED: we probably need to shut this down correctly to avoid
     // leaking shared memory regions on posix platforms.
     std::string statsfile =
-        base::StringPrintf("%s-%u",
-                           content::kStatsFilename,
-                           static_cast<unsigned int>(browser_pid));
+      base::StringPrintf("%s-%u", kStatsFilename,
+          static_cast<unsigned int>(GetBrowserPid(command_line)));
     base::StatsTable* stats_table = new base::StatsTable(statsfile,
-        content::kStatsMaxThreads, content::kStatsMaxCounters);
+        kStatsMaxThreads, kStatsMaxCounters);
     base::StatsTable::set_current(stats_table);
   }
 }
+
+class ContentClientInitializer {
+ public:
+  static void Set(const std::string& process_type,
+                  ContentMainDelegate* delegate) {
+    ContentClient* content_client = GetContentClient();
+    if (process_type.empty()) {
+      if (delegate)
+        content_client->browser_ = delegate->CreateContentBrowserClient();
+      if (!content_client->browser_)
+        content_client->browser_ = &g_empty_content_browser_client.Get();
+    }
+
+    if (process_type == switches::kPluginProcess ||
+        process_type == switches::kPpapiPluginProcess) {
+      if (delegate)
+        content_client->plugin_ = delegate->CreateContentPluginClient();
+      if (!content_client->plugin_)
+        content_client->plugin_ = &g_empty_content_plugin_client.Get();
+    } else if (process_type == switches::kRendererProcess ||
+               CommandLine::ForCurrentProcess()->HasSwitch(
+                   switches::kSingleProcess)) {
+      if (delegate)
+        content_client->renderer_ = delegate->CreateContentRendererClient();
+      if (!content_client->renderer_)
+        content_client->renderer_ = &g_empty_content_renderer_client.Get();
+    } else if (process_type == switches::kUtilityProcess) {
+      if (delegate)
+        content_client->utility_ = delegate->CreateContentUtilityClient();
+      if (!content_client->utility_)
+        content_client->utility_ = &g_empty_content_utility_client.Get();
+    }
+  }
+};
 
 // We dispatch to a process-type-specific FooMain() based on a command-line
 // flag.  This struct is used to build a table of (flag, main function) pairs.
 struct MainFunction {
   const char* name;
-  int (*function)(const content::MainFunctionParams&);
+  int (*function)(const MainFunctionParams&);
 };
 
-#if defined(OS_POSIX) && !defined(OS_MACOSX)
+#if defined(OS_POSIX) && !defined(OS_MACOSX) && !defined(OS_ANDROID)
 // On platforms that use the zygote, we have a special subset of
 // subprocesses that are launched via the zygote.  This function
 // fills in some process-launching bits around ZygoteMain().
 // Returns the exit code of the subprocess.
-int RunZygote(const content::MainFunctionParams& main_function_params,
-              content::ContentMainDelegate* delegate) {
+int RunZygote(const MainFunctionParams& main_function_params,
+              ContentMainDelegate* delegate) {
   static const MainFunction kMainFunctions[] = {
     { switches::kRendererProcess,    RendererMain },
     { switches::kWorkerProcess,      WorkerMain },
@@ -199,14 +286,14 @@ int RunZygote(const content::MainFunctionParams& main_function_params,
     { switches::kUtilityProcess,     UtilityMain },
   };
 
-  scoped_ptr<content::ZygoteForkDelegate> zygote_fork_delegate;
+  scoped_ptr<ZygoteForkDelegate> zygote_fork_delegate;
   if (delegate) {
     zygote_fork_delegate.reset(delegate->ZygoteStarting());
     // Each Renderer we spawn will re-attempt initialization of the media
     // libraries, at which point failure will be detected and handled, so
     // we do not need to cope with initialization failures here.
     FilePath media_path;
-    if (PathService::Get(content::DIR_MEDIA_LIBS, &media_path))
+    if (PathService::Get(DIR_MEDIA_LIBS, &media_path))
       media::InitializeMediaLibrary(media_path);
   }
 
@@ -219,26 +306,24 @@ int RunZygote(const content::MainFunctionParams& main_function_params,
   // Zygote::HandleForkRequest may have reallocated the command
   // line so update it here with the new version.
   const CommandLine& command_line = *CommandLine::ForCurrentProcess();
+  std::string process_type =
+      command_line.GetSwitchValueASCII(switches::kProcessType);
+  ContentClientInitializer::Set(process_type, delegate);
 
   // If a custom user agent was passed on the command line, we need
   // to (re)set it now, rather than using the default one the zygote
   // initialized.
-  bool custom = false;
-  std::string ua = content::GetContentClient()->GetUserAgent(&custom);
-  if (custom) webkit_glue::SetUserAgent(ua, custom);
+  if (command_line.HasSwitch(switches::kUserAgent)) {
+    webkit_glue::SetUserAgent(
+        command_line.GetSwitchValueASCII(switches::kUserAgent), true);
+  }
 
   // The StatsTable must be initialized in each process; we already
   // initialized for the browser process, now we need to initialize
   // within the new processes as well.
-  pid_t browser_pid = base::GetParentProcessId(
-      base::GetParentProcessId(base::GetCurrentProcId()));
-  InitializeStatsTable(browser_pid, command_line);
+  InitializeStatsTable(command_line);
 
-  content::MainFunctionParams main_params(command_line);
-
-  // Get the new process type from the new command line.
-  std::string process_type =
-      command_line.GetSwitchValueASCII(switches::kProcessType);
+  MainFunctionParams main_params(command_line);
 
   for (size_t i = 0; i < arraysize(kMainFunctions); ++i) {
     if (process_type == kMainFunctions[i].name)
@@ -251,15 +336,15 @@ int RunZygote(const content::MainFunctionParams& main_function_params,
   NOTREACHED() << "Unknown zygote process type: " << process_type;
   return 1;
 }
-#endif  // defined(OS_POSIX) && !defined(OS_MACOSX)
+#endif  // defined(OS_POSIX) && !defined(OS_MACOSX) && !defined(OS_ANDROID)
 
 // Run the FooMain() for a given process type.
 // If |process_type| is empty, runs BrowserMain().
 // Returns the exit code for this process.
 int RunNamedProcessTypeMain(
     const std::string& process_type,
-    const content::MainFunctionParams& main_function_params,
-    content::ContentMainDelegate* delegate) {
+    const MainFunctionParams& main_function_params,
+    ContentMainDelegate* delegate) {
   static const MainFunction kMainFunctions[] = {
     { "",                            BrowserMain },
     { switches::kRendererProcess,    RendererMain },
@@ -276,6 +361,14 @@ int RunNamedProcessTypeMain(
       if (delegate) {
         int exit_code = delegate->RunProcess(process_type,
             main_function_params);
+#if defined(OS_ANDROID)
+        // In Android's browser process, the negative exit code doesn't mean the
+        // default behavior should be used as the UI message loop is managed by
+        // the Java and the browser process's default behavior is always
+        // overridden.
+        if (process_type.empty())
+          return exit_code;
+#endif
         if (exit_code >= 0)
           return exit_code;
       }
@@ -283,7 +376,7 @@ int RunNamedProcessTypeMain(
     }
   }
 
-#if defined(OS_POSIX) && !defined(OS_MACOSX)
+#if defined(OS_POSIX) && !defined(OS_MACOSX) && !defined(OS_ANDROID)
   // Zygote startup is special -- see RunZygote comments above
   // for why we don't use ZygoteMain directly.
   if (process_type == switches::kZygoteProcess)
@@ -298,12 +391,13 @@ int RunNamedProcessTypeMain(
   return 1;
 }
 
-class ContentMainRunnerImpl : public content::ContentMainRunner {
+class ContentMainRunnerImpl : public ContentMainRunner {
  public:
   ContentMainRunnerImpl()
       : is_initialized_(false),
         is_shutdown_(false),
-        completed_basic_startup_(false) {
+        completed_basic_startup_(false),
+        delegate_(NULL) {
   }
 
   ~ContentMainRunnerImpl() {
@@ -311,26 +405,34 @@ class ContentMainRunnerImpl : public content::ContentMainRunner {
       Shutdown();
   }
 
+#if defined(USE_TCMALLOC)
+static void GetStatsThunk(char* buffer, int buffer_length) {
+  MallocExtension::instance()->GetStats(buffer, buffer_length);
+}
+
+static void ReleaseFreeMemoryThunk() {
+  MallocExtension::instance()->ReleaseFreeMemory();
+}
+#endif
+
+
 #if defined(OS_WIN)
   virtual int Initialize(HINSTANCE instance,
                          sandbox::SandboxInterfaceInfo* sandbox_info,
-                         content::ContentMainDelegate* delegate) OVERRIDE {
+                         ContentMainDelegate* delegate) OVERRIDE {
     // argc/argv are ignored on Windows; see command_line.h for details.
     int argc = 0;
     char** argv = NULL;
 
-    content::RegisterInvalidParamHandler();
+    RegisterInvalidParamHandler();
     _Module.Init(NULL, static_cast<HINSTANCE>(instance));
 
-    if (sandbox_info)
-      sandbox_info_ = *sandbox_info;
-    else
-      memset(&sandbox_info_, 0, sizeof(sandbox_info_));
-
+    sandbox_info_ = *sandbox_info;
 #else  // !OS_WIN
   virtual int Initialize(int argc,
                          const char** argv,
-                         content::ContentMainDelegate* delegate) OVERRIDE {
+                         ContentMainDelegate* delegate) OVERRIDE {
+
     // NOTE(willchan): One might ask why this call is done here rather than in
     // process_util_linux.cc with the definition of
     // EnableTerminationOnOutOfMemory().  That's because base shouldn't have a
@@ -340,19 +442,30 @@ class ContentMainRunnerImpl : public content::ContentMainRunner {
 #if !defined(OS_MACOSX) && defined(USE_TCMALLOC)
     // For tcmalloc, we need to tell it to behave like new.
     tc_set_new_mode(1);
+
+    // On windows, we've already set these thunks up in _heap_init()
+    base::allocator::SetGetStatsFunction(GetStatsThunk);
+    base::allocator::SetReleaseFreeMemoryFunction(ReleaseFreeMemoryThunk);
 #endif
 
+    // On Android,
+    // - setlocale() is not supported.
+    // - We do not override the signal handlers so that we can get
+    //   stack trace when crashing.
+    // - The ipc_fd is passed through the Java service.
+    // Thus, these are all disabled.
 #if !defined(OS_ANDROID)
     // Set C library locale to make sure CommandLine can parse argument values
     // in correct encoding.
     setlocale(LC_ALL, "");
-#endif
 
     SetupSignalHandlers();
 
     base::GlobalDescriptors* g_fds = base::GlobalDescriptors::GetInstance();
     g_fds->Set(kPrimaryIPCChannel,
                kPrimaryIPCChannel + base::GlobalDescriptors::kBaseDescriptor);
+#endif
+
 #if defined(OS_LINUX) || defined(OS_OPENBSD)
     g_fds->Set(kCrashDumpSignal,
                kCrashDumpSignal + base::GlobalDescriptors::kBaseDescriptor);
@@ -366,8 +479,11 @@ class ContentMainRunnerImpl : public content::ContentMainRunner {
     base::EnableTerminationOnHeapCorruption();
     base::EnableTerminationOnOutOfMemory();
 
+    // On Android, AtExitManager is set up when library is loaded.
+#if !defined(OS_ANDROID)
     // The exit manager is in charge of calling the dtors of singleton objects.
     exit_manager_.reset(new base::AtExitManager);
+#endif
 
 #if defined(OS_MACOSX)
     // We need this pool for all the objects created before we get to the
@@ -377,7 +493,10 @@ class ContentMainRunnerImpl : public content::ContentMainRunner {
     autorelease_pool_.reset(new base::mac::ScopedNSAutoreleasePool());
 #endif
 
+    // On Android, the command line is initialized when library is loaded.
+#if !defined(OS_ANDROID)
     CommandLine::Init(argc, argv);
+#endif
 
     int exit_code;
     if (delegate && delegate->BasicStartupComplete(&exit_code))
@@ -387,7 +506,11 @@ class ContentMainRunnerImpl : public content::ContentMainRunner {
 
     const CommandLine& command_line = *CommandLine::ForCurrentProcess();
     std::string process_type =
-          command_line.GetSwitchValueASCII(switches::kProcessType);
+        command_line.GetSwitchValueASCII(switches::kProcessType);
+
+    if (!GetContentClient())
+      SetContentClient(&empty_content_client_);
+    ContentClientInitializer::Set(process_type, delegate_);
 
     // Enable startup tracing asap to avoid early TRACE_EVENT calls being
     // ignored.
@@ -416,7 +539,10 @@ class ContentMainRunnerImpl : public content::ContentMainRunner {
       SendTaskPortToParentProcess();
     }
 #elif defined(OS_WIN)
-    content::SetupCRT(command_line);
+#if defined(ENABLE_HIDPI)
+    ui::EnableHighDPISupport();
+#endif
+    SetupCRT(command_line);
 #endif
 
 #if defined(OS_POSIX)
@@ -442,36 +568,29 @@ class ContentMainRunnerImpl : public content::ContentMainRunner {
 #endif
 
     ui::RegisterPathProvider();
-    content::RegisterPathProvider();
+    RegisterPathProvider();
+    RegisterContentSchemes(true);
 
     CHECK(icu_util::Initialize());
 
-    base::ProcessId browser_pid = base::GetCurrentProcId();
-    if (command_line.HasSwitch(switches::kProcessChannelID)) {
-#if defined(OS_WIN) || defined(OS_MACOSX)
-      std::string channel_name =
-          command_line.GetSwitchValueASCII(switches::kProcessChannelID);
-
-      int browser_pid_int;
-      base::StringToInt(channel_name, &browser_pid_int);
-      browser_pid = static_cast<base::ProcessId>(browser_pid_int);
-      DCHECK_NE(browser_pid_int, 0);
-#elif defined(OS_POSIX)
-      // On linux, we're in the zygote here; so we need the parent process' id.
-      browser_pid = base::GetParentProcessId(base::GetCurrentProcId());
-#endif
-    }
-
-    InitializeStatsTable(browser_pid, command_line);
+    InitializeStatsTable(command_line);
 
     if (delegate)
       delegate->PreSandboxStartup();
+
+    // Set any custom user agent passed on the command line now so the string
+    // doesn't change between calls to webkit_glue::GetUserAgent(), otherwise it
+    // defaults to the user agent set during SetContentClient().
+    if (command_line.HasSwitch(switches::kUserAgent)) {
+      webkit_glue::SetUserAgent(
+          command_line.GetSwitchValueASCII(switches::kUserAgent), true);
+    }
 
     if (!process_type.empty())
       CommonSubprocessInit(process_type);
 
 #if defined(OS_WIN)
-    CHECK(content::InitializeSandbox(sandbox_info));
+    CHECK(InitializeSandbox(sandbox_info));
 #elif defined(OS_MACOSX)
     if (process_type == switches::kRendererProcess ||
         process_type == switches::kPpapiPluginProcess ||
@@ -479,7 +598,7 @@ class ContentMainRunnerImpl : public content::ContentMainRunner {
       // On OS X the renderer sandbox needs to be initialized later in the
       // startup sequence in RendererMainPlatformDelegate::EnableSandbox().
     } else {
-      CHECK(content::InitializeSandbox());
+      CHECK(InitializeSandbox());
     }
 #endif
 
@@ -501,7 +620,7 @@ class ContentMainRunnerImpl : public content::ContentMainRunner {
     std::string process_type =
           command_line.GetSwitchValueASCII(switches::kProcessType);
 
-    content::MainFunctionParams main_params(command_line);
+    MainFunctionParams main_params(command_line);
 #if defined(OS_WIN)
     main_params.sandbox_info = &sandbox_info_;
 #elif defined(OS_MACOSX)
@@ -541,7 +660,7 @@ class ContentMainRunnerImpl : public content::ContentMainRunner {
     is_shutdown_ = true;
   }
 
- protected:
+ private:
   // True if the runner has been initialized.
   bool is_initialized_;
 
@@ -551,8 +670,11 @@ class ContentMainRunnerImpl : public content::ContentMainRunner {
   // True if basic startup was completed.
   bool completed_basic_startup_;
 
+  // Used if the embedder doesn't set one.
+  ContentClient empty_content_client_;
+
   // The delegate will outlive this object.
-  content::ContentMainDelegate* delegate_;
+  ContentMainDelegate* delegate_;
 
   scoped_ptr<base::AtExitManager> exit_manager_;
 #if defined(OS_WIN)
@@ -563,10 +685,6 @@ class ContentMainRunnerImpl : public content::ContentMainRunner {
 
   DISALLOW_COPY_AND_ASSIGN(ContentMainRunnerImpl);
 };
-
-}  // namespace
-
-namespace content {
 
 // static
 ContentMainRunner* ContentMainRunner::Create() {

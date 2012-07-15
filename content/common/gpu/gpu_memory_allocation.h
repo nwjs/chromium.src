@@ -4,14 +4,12 @@
 
 #ifndef CONTENT_COMMON_GPU_GPU_MEMORY_ALLOCATION_H_
 #define CONTENT_COMMON_GPU_GPU_MEMORY_ALLOCATION_H_
-#pragma once
 
 #include "base/basictypes.h"
 
 // These are per context memory allocation limits set by the GpuMemoryManager
 // and assigned to the browser and renderer context.
 // They will change over time, given memory availability, and browser state.
-
 
 // Memory Allocation which will be assigned to the renderer context.
 struct GpuMemoryAllocationForRenderer {
@@ -68,17 +66,24 @@ struct GpuMemoryAllocationForBrowser {
 // GpuMemoryManager.
 struct GpuMemoryAllocation : public GpuMemoryAllocationForRenderer,
                              public GpuMemoryAllocationForBrowser {
+  // Bitmap
+  enum BufferAllocation {
+    kHasNoBuffers = 0,
+    kHasFrontbuffer = 1,
+    kHasBackbuffer = 2
+  };
+
   GpuMemoryAllocation()
       : GpuMemoryAllocationForRenderer(),
         GpuMemoryAllocationForBrowser() {
   }
 
   GpuMemoryAllocation(size_t gpu_resource_size_in_bytes,
-                      bool suggest_have_backbuffer,
-                      bool suggest_have_frontbuffer)
+                      int allocationBitmap)
       : GpuMemoryAllocationForRenderer(gpu_resource_size_in_bytes,
-                                       suggest_have_backbuffer),
-        GpuMemoryAllocationForBrowser(suggest_have_frontbuffer) {
+            (allocationBitmap & kHasBackbuffer) == kHasBackbuffer),
+        GpuMemoryAllocationForBrowser(
+            (allocationBitmap & kHasFrontbuffer) == kHasFrontbuffer) {
   }
 
   bool operator==(const GpuMemoryAllocation& other) const {

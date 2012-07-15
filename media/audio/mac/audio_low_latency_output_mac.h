@@ -19,9 +19,11 @@
 
 #include <AudioUnit/AudioUnit.h>
 
-#include "base/memory/scoped_ptr.h"
+#include "base/compiler_specific.h"
 #include "media/audio/audio_io.h"
 #include "media/audio/audio_parameters.h"
+
+namespace media {
 
 class AudioManagerMac;
 
@@ -93,7 +95,12 @@ class AUAudioOutputStream : public AudioOutputStream {
   // Fixed playout hardware latency in frames.
   double hardware_latency_frames_;
 
+  // The flag used to stop the streaming.
+  bool stopped_;
+
   DISALLOW_COPY_AND_ASSIGN(AUAudioOutputStream);
 };
+
+}  // namespace media
 
 #endif  // MEDIA_AUDIO_MAC_AUDIO_LOW_LATENCY_OUTPUT_MAC_H_

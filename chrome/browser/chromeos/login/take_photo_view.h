@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_TAKE_PHOTO_VIEW_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_TAKE_PHOTO_VIEW_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "ui/views/controls/button/button.h"
@@ -13,10 +12,14 @@
 class PhotoCaptureObserver;
 class SkBitmap;
 
+namespace gfx {
+class ImageSkia;
+}
+
 namespace views {
 class ImageButton;
 class Label;
-}  // namespace views
+}
 
 namespace chromeos {
 
@@ -41,7 +44,7 @@ class TakePhotoView : public views::View,
   virtual ~TakePhotoView();
 
   // Initializes this view, its children and layout.
-  void Init();
+  void Init(int image_width, int image_height);
 
   // Updates image from camera.
   void UpdateVideoFrame(const SkBitmap& frame);
@@ -56,10 +59,10 @@ class TakePhotoView : public views::View,
   void ShowCameraError();
 
   // Returns the currently selected image.
-  const SkBitmap& GetImage() const;
+  const gfx::ImageSkia& GetImage() const;
 
   // Sets the image indicating that the view is used only for image preview.
-  void SetImage(SkBitmap* image);
+  void SetImage(gfx::ImageSkia* image);
 
   // Captures the image, as if the button was pressed.
   void CaptureImage();

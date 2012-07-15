@@ -4,7 +4,6 @@
 
 #ifndef UI_VIEWS_CONTROLS_MENU_SUBMENU_VIEW_H_
 #define UI_VIEWS_CONTROLS_MENU_SUBMENU_VIEW_H_
-#pragma once
 
 #include <string>
 
@@ -147,9 +146,6 @@ class VIEWS_EXPORT SubmenuView : public View,
   void set_resize_open_menu(bool resize_open_menu) {
     resize_open_menu_ = resize_open_menu;
   }
-
-  // Padding around the edges of the submenu.
-  static const int kSubmenuBorderSize;
 
  protected:
   // View override.

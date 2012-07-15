@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -14,10 +14,16 @@ SharedChangeProcessorRef::SharedChangeProcessorRef(
 
 SharedChangeProcessorRef::~SharedChangeProcessorRef() {}
 
-SyncError SharedChangeProcessorRef::ProcessSyncChanges(
+syncer::SyncError SharedChangeProcessorRef::ProcessSyncChanges(
     const tracked_objects::Location& from_here,
-    const SyncChangeList& change_list) {
+    const syncer::SyncChangeList& change_list) {
   return change_processor_->ProcessSyncChanges(from_here, change_list);
+}
+
+syncer::SyncError SharedChangeProcessorRef::CreateAndUploadError(
+    const tracked_objects::Location& from_here,
+    const std::string& message) {
+  return change_processor_->CreateAndUploadError(from_here, message);
 }
 
 }  // namespace browser_sync

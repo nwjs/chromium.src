@@ -4,7 +4,6 @@
 
 #ifndef ASH_WM_RESIZE_SHADOW_CONTROLLER_H_
 #define ASH_WM_RESIZE_SHADOW_CONTROLLER_H_
-#pragma once
 
 #include <map>
 
@@ -37,7 +36,9 @@ class ResizeShadowController : public aura::WindowObserver {
 
   // aura::WindowObserver overrides:
   virtual void OnWindowBoundsChanged(
-      aura::Window* window, const gfx::Rect& bounds) OVERRIDE;
+      aura::Window* window,
+      const gfx::Rect& old_bounds,
+      const gfx::Rect& new_bounds) OVERRIDE;
   virtual void OnWindowDestroyed(aura::Window* window) OVERRIDE;
 
  private:

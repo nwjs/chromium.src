@@ -27,6 +27,7 @@ const char kDescriptionTag[] = "description";
 const char kControlTag[] = "control";
 const char kEventTag[] = "event";
 const char kVideoTag[] = "video";
+const char kAudioTag[] = "audio";
 const char kDeprecatedResolutionTag[] = "initial-resolution";
 
 const char kTransportAttr[] = "transport";
@@ -37,12 +38,12 @@ const char kDeprecatedHeightAttr[] = "height";
 
 const char kStreamTransport[] = "stream";
 const char kDatagramTransport[] = "datagram";
-const char kSrtpTransport[] = "srtp";
-const char kRtpDtlsTransport[] = "rtp-dtls";
+const char kNoneTransport[] = "none";
 
 const char kVerbatimCodec[] = "verbatim";
 const char kVp8Codec[] = "vp8";
 const char kZipCodec[] = "zip";
+const char kVorbisCodec[] = "vorbis";
 
 const char* GetTransportName(ChannelConfig::TransportType type) {
   switch (type) {
@@ -50,10 +51,8 @@ const char* GetTransportName(ChannelConfig::TransportType type) {
       return kStreamTransport;
     case ChannelConfig::TRANSPORT_DATAGRAM:
       return kDatagramTransport;
-    case ChannelConfig::TRANSPORT_SRTP:
-      return kSrtpTransport;
-    case ChannelConfig::TRANSPORT_RTP_DTLS:
-      return kRtpDtlsTransport;
+    case ChannelConfig::TRANSPORT_NONE:
+      return kNoneTransport;
   }
   NOTREACHED();
   return NULL;
@@ -67,6 +66,8 @@ const char* GetCodecName(ChannelConfig::Codec type) {
       return kVp8Codec;
     case ChannelConfig::CODEC_ZIP:
       return kZipCodec;
+    case ChannelConfig::CODEC_VORBIS:
+      return kVorbisCodec;
     default:
       break;
   }
@@ -77,7 +78,7 @@ const char* GetCodecName(ChannelConfig::Codec type) {
 
 // Format a channel configuration tag for chromotocol session description,
 // e.g. for video channel:
-//    <video transport="srtp" version="1" codec="vp8" />
+//    <video transport="stream" version="1" codec="vp8" />
 XmlElement* FormatChannelConfig(const ChannelConfig& config,
                                 const std::string& tag_name) {
   XmlElement* result = new XmlElement(
@@ -103,10 +104,8 @@ bool ParseTransportName(const std::string& value,
     *transport = ChannelConfig::TRANSPORT_STREAM;
   } else if (value == kDatagramTransport) {
     *transport = ChannelConfig::TRANSPORT_DATAGRAM;
-  } else if (value == kSrtpTransport) {
-    *transport = ChannelConfig::TRANSPORT_SRTP;
-  } else if (value == kRtpDtlsTransport) {
-    *transport = ChannelConfig::TRANSPORT_RTP_DTLS;
+  } else if (value == kNoneTransport) {
+    *transport = ChannelConfig::TRANSPORT_NONE;
   } else {
     return false;
   }
@@ -120,6 +119,8 @@ bool ParseCodecName(const std::string& value, ChannelConfig::Codec* codec) {
     *codec = ChannelConfig::CODEC_VP8;
   } else if (value == kZipCodec) {
     *codec = ChannelConfig::CODEC_ZIP;
+  } else if (value == kVorbisCodec) {
+    *codec = ChannelConfig::CODEC_VORBIS;
   } else {
     return false;
   }
@@ -172,7 +173,8 @@ ContentDescription* ContentDescription::Copy() const {
 //   <description xmlns="google:remoting">
 //     <control transport="stream" version="1" />
 //     <event transport="datagram" version="1" />
-//     <video transport="srtp" codec="vp8" version="1" />
+//     <video transport="stream" codec="vp8" version="1" />
+//     <audio transport="stream" codec="vorbis" version="1" />
 //     <authentication>
 //      Message created by Authenticator implementation.
 //     </authentication>
@@ -199,6 +201,11 @@ XmlElement* ContentDescription::ToXml() const {
     root->AddElement(FormatChannelConfig(*it, kVideoTag));
   }
 
+  for (it = config()->audio_configs().begin();
+       it != config()->audio_configs().end(); ++it) {
+    root->AddElement(FormatChannelConfig(*it, kAudioTag));
+  }
+
   // Older endpoints require an initial-resolution tag, but otherwise ignore it.
   XmlElement* resolution_tag = new XmlElement(
       QName(kChromotingXmlNamespace, kDeprecatedResolutionTag));
@@ -215,6 +222,35 @@ XmlElement* ContentDescription::ToXml() const {
 }
 
 // static
+// Adds the channel configs corresponding to |tag_name|,
+// found in |element|, to |configs|.
+bool ContentDescription::ParseChannelConfigs(
+    const XmlElement* const element,
+    const char tag_name[],
+    bool codec_required,
+    bool optional,
+    std::vector<ChannelConfig>* const configs) {
+
+  QName tag(kChromotingXmlNamespace, tag_name);
+  const XmlElement* child = element->FirstNamed(tag);
+  while (child) {
+    ChannelConfig channel_config;
+    if (!ParseChannelConfig(child, codec_required, &channel_config))
+      return false;
+    configs->push_back(channel_config);
+    child = child->NextNamed(tag);
+  }
+  if (optional && configs->empty()) {
+      // If there's no mention of the tag, implicitly assume
+      // TRANSPORT_NONE for the channel.
+      configs->push_back(ChannelConfig(ChannelConfig::TRANSPORT_NONE,
+                                       kDefaultStreamVersion,
+                                       ChannelConfig::CODEC_VERBATIM));
+  }
+  return true;
+}
+
+// static
 ContentDescription* ContentDescription::ParseXml(
     const XmlElement* element) {
   if (element->Name() == QName(kChromotingXmlNamespace, kDescriptionTag)) {
@@ -222,37 +258,21 @@ ContentDescription* ContentDescription::ParseXml(
         CandidateSessionConfig::CreateEmpty());
     const XmlElement* child = NULL;
 
-    // <control> tags.
-    QName control_tag(kChromotingXmlNamespace, kControlTag);
-    child = element->FirstNamed(control_tag);
-    while (child) {
-      ChannelConfig channel_config;
-      if (!ParseChannelConfig(child, false, &channel_config))
-        return NULL;
-      config->mutable_control_configs()->push_back(channel_config);
-      child = child->NextNamed(control_tag);
+    if (!ParseChannelConfigs(element, kControlTag, false, false,
+                             config->mutable_control_configs())) {
+      return NULL;
     }
-
-    // <event> tags.
-    QName event_tag(kChromotingXmlNamespace, kEventTag);
-    child = element->FirstNamed(event_tag);
-    while (child) {
-      ChannelConfig channel_config;
-      if (!ParseChannelConfig(child, false, &channel_config))
-        return NULL;
-      config->mutable_event_configs()->push_back(channel_config);
-      child = child->NextNamed(event_tag);
+    if (!ParseChannelConfigs(element, kEventTag, false, false,
+                             config->mutable_event_configs())) {
+      return NULL;
     }
-
-    // <video> tags.
-    QName video_tag(kChromotingXmlNamespace, kVideoTag);
-    child = element->FirstNamed(video_tag);
-    while (child) {
-      ChannelConfig channel_config;
-      if (!ParseChannelConfig(child, true, &channel_config))
-        return NULL;
-      config->mutable_video_configs()->push_back(channel_config);
-      child = child->NextNamed(video_tag);
+    if (!ParseChannelConfigs(element, kVideoTag, true, false,
+                             config->mutable_video_configs())) {
+      return NULL;
+    }
+    if (!ParseChannelConfigs(element, kAudioTag, true, true,
+                             config->mutable_audio_configs())) {
+      return NULL;
     }
 
     scoped_ptr<XmlElement> authenticator_message;

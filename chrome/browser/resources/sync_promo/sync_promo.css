@@ -1,18 +1,17 @@
 /* Copyright (c) 2012 The Chromium Authors. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be
- * found in the LICENSE file.
- */
+ * found in the LICENSE file. */
 
 html {
   font-family: segoe ui, arial, helvetica, sans-serif;
   font-size: 13px;
 }
 
-html, body {
+html,
+body {
   margin: 0;
   min-height: 100%;
   min-width: 100%;
-  padding 0;
   position: absolute;
 }
 
@@ -57,6 +56,10 @@ html, body {
 #promo-advanced:hover,
 #sync-setup-overlay * a:link {
   color: rgb(17, 85, 204);
+}
+
+html:not([isstartup]) #promo-skip-button {
+  display: none;
 }
 
 #sync-setup-overlay * a:visited {

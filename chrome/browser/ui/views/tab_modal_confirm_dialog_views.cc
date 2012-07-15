@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,35 +8,33 @@
 #include "chrome/browser/ui/browser_dialogs.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/tab_modal_confirm_dialog_delegate.h"
 #include "chrome/browser/ui/views/constrained_window_views.h"
 #include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/views/controls/message_box_view.h"
 
-namespace browser {
+namespace chrome {
 
 // Declared in browser_dialogs.h so others don't have to depend on our header.
 void ShowTabModalConfirmDialog(TabModalConfirmDialogDelegate* delegate,
-                               TabContentsWrapper* wrapper) {
-  new TabModalConfirmDialogViews(delegate, wrapper);
+                               TabContents* tab_contents) {
+  new TabModalConfirmDialogViews(delegate, tab_contents);
 }
 
-}  // namespace browser
+}  // namespace chrome
 
 //////////////////////////////////////////////////////////////////////////////
 // TabModalConfirmDialogViews, constructor & destructor:
 
 TabModalConfirmDialogViews::TabModalConfirmDialogViews(
     TabModalConfirmDialogDelegate* delegate,
-    TabContentsWrapper* wrapper)
+    TabContents* tab_contents)
     : delegate_(delegate),
       message_box_view_(new views::MessageBoxView(
-          views::MessageBoxView::NO_OPTIONS,
-          delegate->GetMessage(),
-          string16())) {
-  delegate_->set_window(new ConstrainedWindowViews(wrapper, this));
+          views::MessageBoxView::InitParams(delegate->GetMessage()))) {
+  delegate_->set_window(new ConstrainedWindowViews(tab_contents, this));
 }
 
 TabModalConfirmDialogViews::~TabModalConfirmDialogViews() {

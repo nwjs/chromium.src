@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -43,6 +43,64 @@ TEST(ExtensionResourceTest, CreateWithMissingResourceOnDisk) {
   EXPECT_TRUE(resource.GetFilePath().empty());
 }
 
+TEST(ExtensionResourceTest, ResourcesOutsideOfPath) {
+  ScopedTempDir temp;
+  ASSERT_TRUE(temp.CreateUniqueTempDir());
+
+  FilePath inner_dir = temp.path().AppendASCII("directory");
+  ASSERT_TRUE(file_util::CreateDirectory(inner_dir));
+  FilePath inner_file = inner_dir.AppendASCII("inner");
+  FilePath outer_file = temp.path().AppendASCII("outer");
+  ASSERT_TRUE(file_util::WriteFile(outer_file, "X", 1));
+  ASSERT_TRUE(file_util::WriteFile(inner_file, "X", 1));
+  std::string extension_id = extension_test_util::MakeId("test");
+
+#if defined(OS_POSIX)
+  FilePath symlink_file = inner_dir.AppendASCII("symlink");
+  file_util::CreateSymbolicLink(
+      FilePath().AppendASCII("..").AppendASCII("outer"),
+      symlink_file);
+#endif
+
+  // A non-packing extension should be able to access the file within the
+  // directory.
+  ExtensionResource r1(extension_id, inner_dir,
+                       FilePath().AppendASCII("inner"));
+  EXPECT_FALSE(r1.GetFilePath().empty());
+
+  // ... but not a relative path that walks out of |inner_dir|.
+  ExtensionResource r2(extension_id, inner_dir,
+                       FilePath().AppendASCII("..").AppendASCII("outer"));
+  EXPECT_TRUE(r2.GetFilePath().empty());
+
+  // A packing extension should also be able to access the file within the
+  // directory.
+  ExtensionResource r3(extension_id, inner_dir,
+                       FilePath().AppendASCII("inner"));
+  r3.set_follow_symlinks_anywhere();
+  EXPECT_FALSE(r3.GetFilePath().empty());
+
+  // ... but, again, not a relative path that walks out of |inner_dir|.
+  ExtensionResource r4(extension_id, inner_dir,
+                       FilePath().AppendASCII("..").AppendASCII("outer"));
+  r4.set_follow_symlinks_anywhere();
+  EXPECT_TRUE(r4.GetFilePath().empty());
+
+#if defined(OS_POSIX)
+  // The non-packing extension should also not be able to access a resource that
+  // symlinks out of the directory.
+  ExtensionResource r5(extension_id, inner_dir,
+                       FilePath().AppendASCII("symlink"));
+  EXPECT_TRUE(r5.GetFilePath().empty());
+
+  // ... but a packing extension can.
+  ExtensionResource r6(extension_id, inner_dir,
+                       FilePath().AppendASCII("symlink"));
+  r6.set_follow_symlinks_anywhere();
+  EXPECT_FALSE(r6.GetFilePath().empty());
+#endif
+}
+
 // crbug.com/108721. Disabled on Windows due to crashing on Vista.
 #if defined(OS_WIN)
 #define CreateWithAllResourcesOnDisk DISABLED_CreateWithAllResourcesOnDisk
@@ -58,7 +116,7 @@ TEST(ExtensionResourceTest, CreateWithAllResourcesOnDisk) {
   ASSERT_TRUE(file_util::WriteFile(root_resource, data.c_str(), data.length()));
 
   // Create l10n resources (for current locale and its parents).
-  FilePath l10n_path = temp.path().Append(Extension::kLocaleFolder);
+  FilePath l10n_path = temp.path().Append(extensions::Extension::kLocaleFolder);
   ASSERT_TRUE(file_util::CreateDirectory(l10n_path));
 
   std::vector<std::string> locales;

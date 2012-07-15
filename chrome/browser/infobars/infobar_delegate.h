@@ -4,12 +4,12 @@
 
 #ifndef CHROME_BROWSER_INFOBARS_INFOBAR_DELEGATE_H_
 #define CHROME_BROWSER_INFOBARS_INFOBAR_DELEGATE_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/string16.h"
 #include "webkit/glue/window_open_disposition.h"
 
+class AutoLoginInfoBarDelegate;
 class ConfirmInfoBarDelegate;
 class ExtensionInfoBarDelegate;
 class InfoBar;
@@ -44,7 +44,17 @@ class InfoBarDelegate {
     PAGE_ACTION_TYPE,
   };
 
+  enum InfoBarAutomationType {
+    CONFIRM_INFOBAR,
+    ONE_CLICK_LOGIN_INFOBAR,
+    PASSWORD_INFOBAR,
+    RPH_INFOBAR,
+    UNKNOWN_INFOBAR,
+  };
+
   virtual ~InfoBarDelegate();
+
+  virtual InfoBarAutomationType GetInfoBarAutomationType() const;
 
   // Called to create the InfoBar. Implementation of this method is
   // platform-specific.
@@ -65,10 +75,11 @@ class InfoBarDelegate {
   virtual bool EqualsDelegate(InfoBarDelegate* delegate) const;
 
   // Returns true if the InfoBar should be closed automatically after the page
-  // is navigated. The default behavior is to return true if the
-  // navigation is to a new page (not including reloads).
-  virtual bool ShouldExpire(
-      const content::LoadCommittedDetails& details) const;
+  // is navigated. By default this returns true if the navigation is to a new
+  // page (not including reloads).  Subclasses wishing to change this behavior
+  // can override either this function or ShouldExpireInternal(), depending on
+  // what level of control they need.
+  virtual bool ShouldExpire(const content::LoadCommittedDetails& details) const;
 
   // Called when the user clicks on the close button to dismiss the infobar.
   virtual void InfoBarDismissed();
@@ -86,14 +97,14 @@ class InfoBarDelegate {
   virtual Type GetInfoBarType() const;
 
   // Type-checking downcast routines:
+  virtual AutoLoginInfoBarDelegate* AsAutoLoginInfoBarDelegate();
   virtual ConfirmInfoBarDelegate* AsConfirmInfoBarDelegate();
   virtual ExtensionInfoBarDelegate* AsExtensionInfoBarDelegate();
   virtual InsecureContentInfoBarDelegate* AsInsecureContentInfoBarDelegate();
   virtual LinkInfoBarDelegate* AsLinkInfoBarDelegate();
-  virtual MediaStreamInfoBarDelegate* AsMediaStreamInfobarDelegate();
+  virtual MediaStreamInfoBarDelegate* AsMediaStreamInfoBarDelegate();
   virtual RegisterProtocolHandlerInfoBarDelegate*
       AsRegisterProtocolHandlerInfoBarDelegate();
-  virtual SavePasswordInfoBarDelegate* AsSavePasswordInfoBarDelegate();
   virtual ThemeInstalledInfoBarDelegate* AsThemePreviewInfobarDelegate();
   virtual TranslateInfoBarDelegate* AsTranslateInfoBarDelegate();
 
@@ -102,13 +113,19 @@ class InfoBarDelegate {
   // using StoreActiveEntryUniqueID automatically.
   explicit InfoBarDelegate(InfoBarTabHelper* infobar_helper);
 
-  // Store the unique id for the active entry in the specified TabContents, to
+  // Store the unique id for the active entry in the specified WebContents, to
   // be used later upon navigation to determine if this InfoBarDelegate should
   // be expired from |contents_|.
   void StoreActiveEntryUniqueID(InfoBarTabHelper* infobar_helper);
 
+  // Direct accessors for subclasses that need to do something special.
+  int contents_unique_id() const { return contents_unique_id_; }
+  void set_contents_unique_id(int contents_unique_id) {
+    contents_unique_id_ = contents_unique_id;
+  }
+
   // Returns true if the navigation is to a new URL or a reload occured.
-  bool ShouldExpireInternal(
+  virtual bool ShouldExpireInternal(
       const content::LoadCommittedDetails& details) const;
 
   // Removes ourself from |owner_| if we haven't already been removed.
@@ -116,7 +133,7 @@ class InfoBarDelegate {
   void RemoveSelf();
 
  private:
-  // The unique id of the active NavigationEntry of the TabContents that we were
+  // The unique id of the active NavigationEntry of the WebContents that we were
   // opened for. Used to help expire on navigations.
   int contents_unique_id_;
 

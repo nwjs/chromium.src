@@ -9,6 +9,7 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/search_engines/template_url.h"
 #include "chrome/browser/search_engines/template_url_fetcher.h"
+#include "chrome/browser/search_engines/template_url_fetcher_factory.h"
 #include "chrome/browser/search_engines/template_url_fetcher_callbacks.h"
 #include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_test_util.h"
@@ -46,12 +47,12 @@ class TemplateURLFetcherTest : public testing::Test {
   virtual void SetUp() OVERRIDE {
     test_util_.SetUp();
     test_util_.StartIOThread();
-    ASSERT_TRUE(test_util_.profile());
-    test_util_.profile()->CreateTemplateURLFetcher();
-    ASSERT_TRUE(test_util_.profile()->GetTemplateURLFetcher());
+    TestingProfile* profile = test_util_.profile();
+    ASSERT_TRUE(profile);
+    ASSERT_TRUE(TemplateURLFetcherFactory::GetForProfile(profile));
 
-    test_util_.profile()->CreateRequestContext();
-    ASSERT_TRUE(test_util_.profile()->GetRequestContext());
+    profile->CreateRequestContext();
+    ASSERT_TRUE(profile->GetRequestContext());
     ASSERT_TRUE(test_server_.Start());
   }
 
@@ -146,9 +147,10 @@ void TemplateURLFetcherTest::StartDownload(
   // Start the fetch.
   GURL osdd_url = test_server_.GetURL("files/" + osdd_file_name);
   GURL favicon_url;
-  test_util_.profile()->GetTemplateURLFetcher()->ScheduleDownload(
-      keyword, osdd_url, favicon_url, NULL,
-      new TemplateURLFetcherTestCallbacks(this), provider_type);
+  TemplateURLFetcherFactory::GetForProfile(
+      test_util_.profile())->ScheduleDownload(
+          keyword, osdd_url, favicon_url, NULL,
+          new TemplateURLFetcherTestCallbacks(this), provider_type);
 }
 
 void TemplateURLFetcherTest::WaitForDownloadToFinish() {
@@ -178,7 +180,7 @@ TEST_F(TemplateURLFetcherTest, BasicAutodetectedTest) {
       keyword);
   ASSERT_TRUE(t_url);
   EXPECT_EQ(ASCIIToUTF16("http://example.com/%s/other_stuff"),
-            t_url->url()->DisplayURL());
+            t_url->url_ref().DisplayURL());
   EXPECT_TRUE(t_url->safe_for_autoreplace());
 }
 
@@ -214,7 +216,8 @@ TEST_F(TemplateURLFetcherTest, DuplicatesThrownAway) {
                   test_cases[i].provider_type, false);
     ASSERT_EQ(
         1,
-        test_util_.profile()->GetTemplateURLFetcher()->requests_count()) <<
+        TemplateURLFetcherFactory::GetForProfile(
+            test_util_.profile())->requests_count()) <<
         test_cases[i].description;
     ASSERT_EQ(i + 1, static_cast<size_t>(callbacks_destroyed_));
   }
@@ -243,7 +246,7 @@ TEST_F(TemplateURLFetcherTest, BasicExplicitTest) {
 
   ASSERT_TRUE(last_callback_template_url_.get());
   EXPECT_EQ(ASCIIToUTF16("http://example.com/%s/other_stuff"),
-            last_callback_template_url_->url()->DisplayURL());
+            last_callback_template_url_->url_ref().DisplayURL());
   EXPECT_EQ(ASCIIToUTF16("example.com"),
             last_callback_template_url_->keyword());
   EXPECT_FALSE(last_callback_template_url_->safe_for_autoreplace());
@@ -276,7 +279,7 @@ TEST_F(TemplateURLFetcherTest, ExplicitBeforeLoadTest) {
 
   ASSERT_TRUE(last_callback_template_url_.get());
   EXPECT_EQ(ASCIIToUTF16("http://example.com/%s/other_stuff"),
-            last_callback_template_url_->url()->DisplayURL());
+            last_callback_template_url_->url_ref().DisplayURL());
   EXPECT_EQ(ASCIIToUTF16("example.com"),
             last_callback_template_url_->keyword());
   EXPECT_FALSE(last_callback_template_url_->safe_for_autoreplace());
@@ -284,12 +287,11 @@ TEST_F(TemplateURLFetcherTest, ExplicitBeforeLoadTest) {
 
 TEST_F(TemplateURLFetcherTest, DuplicateKeywordsTest) {
   string16 keyword(ASCIIToUTF16("test"));
-
-  TemplateURL* t_url = new TemplateURL();
-  t_url->SetURL("http://example.com/", 0, 0);
-  t_url->set_keyword(keyword);
-  t_url->set_short_name(keyword);
-  test_util_.model()->Add(t_url);
+  TemplateURLData data;
+  data.short_name = keyword;
+  data.SetKeyword(keyword);
+  data.SetURL("http://example.com/");
+  test_util_.model()->Add(new TemplateURL(test_util_.profile(), data));
   test_util_.ChangeModelToLoadState();
 
   ASSERT_TRUE(test_util_.model()->GetTemplateURLForKeyword(keyword));

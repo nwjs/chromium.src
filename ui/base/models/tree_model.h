@@ -1,17 +1,18 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef UI_BASE_MODELS_TREE_MODEL_H_
 #define UI_BASE_MODELS_TREE_MODEL_H_
-#pragma once
 
 #include <vector>
 
 #include "base/string16.h"
 #include "ui/base/ui_export.h"
 
-class SkBitmap;
+namespace gfx {
+class ImageSkia;
+}
 
 namespace ui {
 
@@ -84,7 +85,7 @@ class UI_EXPORT TreeModel {
 
   // Returns the set of icons for the nodes in the tree. You only need override
   // this if you don't want to use the default folder icons.
-  virtual void GetIcons(std::vector<SkBitmap>* icons) {}
+  virtual void GetIcons(std::vector<gfx::ImageSkia>* icons) {}
 
   // Returns the index of the icon to use for |node|. Return -1 to use the
   // default icon. The index is relative to the list of icons returned from

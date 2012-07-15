@@ -9,7 +9,6 @@
 #include "ppapi/c/private/ppb_flash_clipboard.h"
 #include "ppapi/c/private/ppb_flash_menu.h"
 #include "ppapi/c/private/ppb_flash_message_loop.h"
-#include "ppapi/c/private/ppb_flash_net_connector.h"
 #include "ppapi/c/private/ppb_flash_fullscreen.h"
 #include "ppapi/c/private/ppb_host_resolver_private.h"
 #include "ppapi/c/private/ppb_instance_private.h"
@@ -39,6 +38,7 @@
 #define UNPROXIED_IFACE IFACE
 
 #include "ppapi/thunk/interfaces_ppb_private.h"
+#include "ppapi/thunk/interfaces_ppb_private_flash.h"
 #include "ppapi/thunk/interfaces_ppb_public_stable.h"
 #include "ppapi/thunk/interfaces_ppb_public_dev.h"
 
@@ -60,15 +60,6 @@ PPAPI_THUNK_EXPORT const PPB_BufferTrusted_0_1*
     GetPPB_BufferTrusted_0_1_Thunk();
 PPAPI_THUNK_EXPORT const PPB_FileChooserTrusted_0_5*
     GetPPB_FileChooser_Trusted_0_5_Thunk();
-PPAPI_THUNK_EXPORT const PPB_Flash_Clipboard_4_0*
-    GetPPB_Flash_Clipboard_4_0_Thunk();
-PPAPI_THUNK_EXPORT const PPB_Flash_Clipboard_3_0*
-    GetPPB_Flash_Clipboard_3_0_Thunk();
-PPAPI_THUNK_EXPORT const PPB_Flash_Menu_0_2* GetPPB_Flash_Menu_0_2_Thunk();
-PPAPI_THUNK_EXPORT const PPB_Flash_MessageLoop_0_1*
-    GetPPB_Flash_MessageLoop_0_1_Thunk();
-PPAPI_THUNK_EXPORT const PPB_Flash_NetConnector_0_2*
-    GetPPB_Flash_NetConnector_0_2_Thunk();
 PPAPI_THUNK_EXPORT const PPB_Graphics3DTrusted_1_0*
     GetPPB_Graphics3DTrusted_1_0_Thunk();
 PPAPI_THUNK_EXPORT const PPB_HostResolver_Private_0_1*

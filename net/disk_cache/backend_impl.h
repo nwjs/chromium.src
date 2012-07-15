@@ -6,7 +6,6 @@
 
 #ifndef NET_DISK_CACHE_BACKEND_IMPL_H_
 #define NET_DISK_CACHE_BACKEND_IMPL_H_
-#pragma once
 
 #include "base/file_path.h"
 #include "base/hash_tables.h"
@@ -190,9 +189,6 @@ class NET_EXPORT_PRIVATE BackendImpl : public Backend {
   // Returns a weak pointer to this object.
   base::WeakPtr<BackendImpl> GetWeakPtr();
 
-  // Returns the group for this client, based on the current cache size.
-  int GetSizeGroup() const;
-
   // Returns true if we should send histograms for this user again. The caller
   // must call this function only once per run (because it returns always the
   // same thing on a given run).
@@ -255,6 +251,9 @@ class NET_EXPORT_PRIVATE BackendImpl : public Backend {
   // Performs a simple self-check, and returns the number of dirty items
   // or an error code (negative value).
   int SelfCheck();
+
+  // Ensures the index is flushed to disk (a no-op on platforms with mmap).
+  void FlushIndex();
 
   // Backend implementation.
   virtual int32 GetEntryCount() const OVERRIDE;
@@ -383,7 +382,7 @@ class NET_EXPORT_PRIVATE BackendImpl : public Backend {
   net::NetLog* net_log_;
 
   Stats stats_;  // Usage statistics.
-  base::RepeatingTimer<BackendImpl> timer_;  // Usage timer.
+  scoped_ptr<base::RepeatingTimer<BackendImpl> > timer_;  // Usage timer.
   base::WaitableEvent done_;  // Signals the end of background work.
   scoped_refptr<TraceObject> trace_object_;  // Initializes internal tracing.
   base::WeakPtrFactory<BackendImpl> ptr_factory_;

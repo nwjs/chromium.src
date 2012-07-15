@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -18,9 +18,6 @@ class MockChromeWebUIDataSource : public ChromeWebUIDataSource {
         result_data_(NULL) {
   }
 
-  virtual ~MockChromeWebUIDataSource() {
-  }
-
   // Subvert protected methods.
   virtual void StartDataRequest(
       const std::string& path, bool is_incognito, int request_id) OVERRIDE {
@@ -32,13 +29,16 @@ class MockChromeWebUIDataSource : public ChromeWebUIDataSource {
   }
 
   // Store response for later comparisons.
-  virtual void SendResponse(int request_id, RefCountedMemory* data) {
+  virtual void SendResponse(int request_id, base::RefCountedMemory* data) {
     result_request_id_ = request_id;
     result_data_ = data;
   }
 
   int result_request_id_;
-  scoped_refptr<RefCountedMemory> result_data_;
+  scoped_refptr<base::RefCountedMemory> result_data_;
+
+ private:
+  virtual ~MockChromeWebUIDataSource() {}
 };
 
 class ChromeWebUIDataSourceTest : public testing::Test {

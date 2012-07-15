@@ -207,6 +207,8 @@ int GLES2Util::GLGetNumValuesReturned(int id) const {
     //    GL_CHROMIUM_framebuffer_multisample
     case GL_MAX_SAMPLES_EXT:
       return 1;
+    case GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT:
+      return 1;
 
     // -- glGetBufferParameteriv
     case GL_BUFFER_SIZE:
@@ -290,6 +292,8 @@ int GLES2Util::GLGetNumValuesReturned(int id) const {
       return 1;
     case GL_TEXTURE_WRAP_T:
       return 1;
+    case GL_TEXTURE_MAX_ANISOTROPY_EXT:
+      return 1;
 
     // -- glGetVertexAttribfv, glGetVertexAttribiv
     case GL_VERTEX_ATTRIB_ARRAY_BUFFER_BINDING:
@@ -342,6 +346,10 @@ int ElementsPerGroup(int format, int type) {
     case GL_ALPHA:
     case GL_LUMINANCE:
     case GL_DEPTH_COMPONENT:
+    case GL_DEPTH_COMPONENT24_OES:
+    case GL_DEPTH_COMPONENT32_OES:
+    case GL_DEPTH_COMPONENT16:
+    case GL_DEPTH24_STENCIL8_OES:
     case GL_DEPTH_STENCIL_OES:
        return 1;
     default:
@@ -373,12 +381,31 @@ int BytesPerElement(int type) {
 
 }  // anonymous namespace
 
+uint32 GLES2Util::ComputeImageGroupSize(int format, int type) {
+  return BytesPerElement(type) * ElementsPerGroup(format, type);
+}
+
+bool GLES2Util::ComputeImagePaddedRowSize(
+        int width, int format, int type, int unpack_alignment,
+        uint32* padded_row_size) {
+  uint32 bytes_per_group = ComputeImageGroupSize(format, type);
+  uint32 unpadded_row_size;
+  if (!SafeMultiplyUint32(width, bytes_per_group, &unpadded_row_size)) {
+    return false;
+  }
+  uint32 temp;
+  if (!SafeAddUint32(unpadded_row_size, unpack_alignment - 1, &temp)) {
+      return false;
+  }
+  *padded_row_size = (temp / unpack_alignment) * unpack_alignment;
+  return true;
+}
+
 // Returns the amount of data glTexImage2D or glTexSubImage2D will access.
-bool GLES2Util::ComputeImageDataSize(
+bool GLES2Util::ComputeImageDataSizes(
     int width, int height, int format, int type, int unpack_alignment,
-    uint32* size) {
-  uint32 bytes_per_group =
-      BytesPerElement(type) * ElementsPerGroup(format, type);
+    uint32* size, uint32* ret_unpadded_row_size, uint32* ret_padded_row_size) {
+  uint32 bytes_per_group = ComputeImageGroupSize(format, type);
   uint32 row_size;
   if (!SafeMultiplyUint32(width, bytes_per_group, &row_size)) {
     return false;
@@ -397,11 +424,21 @@ bool GLES2Util::ComputeImageDataSize(
     if (!SafeAddUint32(size_of_all_but_last_row, row_size, size)) {
       return false;
     }
+    if (ret_padded_row_size) {
+      *ret_padded_row_size = padded_row_size;
+    }
   } else {
     if (!SafeMultiplyUint32(height, row_size, size)) {
       return false;
     }
+    if (ret_padded_row_size) {
+      *ret_padded_row_size = row_size;
+    }
   }
+  if (ret_unpadded_row_size) {
+    *ret_unpadded_row_size = row_size;
+  }
+
   return true;
 }
 
@@ -459,6 +496,8 @@ uint32 GLES2Util::GetGLDataTypeSizeForUniforms(int type) {
     case GL_FLOAT_MAT4:
       return sizeof(GLfloat) * 4 * 4;      // NOLINT
     case GL_SAMPLER_2D:
+      return sizeof(GLint);                // NOLINT
+    case GL_SAMPLER_2D_RECT_ARB:
       return sizeof(GLint);                // NOLINT
     case GL_SAMPLER_CUBE:
       return sizeof(GLint);                // NOLINT
@@ -565,6 +604,8 @@ uint32 GLES2Util::GetChannelsForFormat(int format) {
     case GL_RGBA4:
     case GL_RGB5_A1:
       return kRGBA;
+    case GL_DEPTH_COMPONENT32_OES:
+    case GL_DEPTH_COMPONENT24_OES:
     case GL_DEPTH_COMPONENT16:
     case GL_DEPTH_COMPONENT:
       return kDepth;
@@ -613,7 +654,7 @@ std::string GLES2Util::GetStringError(uint32 value) {
 }
 
 std::string GLES2Util::GetStringBool(uint32 value) {
-  return value ? "true" : "false";
+  return value ? "GL_TRUE" : "GL_FALSE";
 }
 
 std::string GLES2Util::GetQualifiedEnumString(
@@ -624,6 +665,97 @@ std::string GLES2Util::GetQualifiedEnumString(
     }
   }
   return GetStringEnum(value);
+}
+
+ContextCreationAttribParser::ContextCreationAttribParser()
+  : alpha_size_(-1),
+    blue_size_(-1),
+    green_size_(-1),
+    red_size_(-1),
+    depth_size_(-1),
+    stencil_size_(-1),
+    samples_(-1),
+    sample_buffers_(-1),
+    buffer_preserved_(true),
+    share_resources_(false),
+    bind_generates_resource_(true) {
+}
+
+bool ContextCreationAttribParser::Parse(const std::vector<int32>& attribs) {
+  // From <EGL/egl.h>.
+  const int32 EGL_ALPHA_SIZE = 0x3021;
+  const int32 EGL_BLUE_SIZE = 0x3022;
+  const int32 EGL_GREEN_SIZE = 0x3023;
+  const int32 EGL_RED_SIZE = 0x3024;
+  const int32 EGL_DEPTH_SIZE = 0x3025;
+  const int32 EGL_STENCIL_SIZE = 0x3026;
+  const int32 EGL_SAMPLES = 0x3031;
+  const int32 EGL_SAMPLE_BUFFERS = 0x3032;
+  const int32 EGL_NONE = 0x3038;
+  const int32 EGL_SWAP_BEHAVIOR = 0x3093;
+  const int32 EGL_BUFFER_PRESERVED = 0x3094;
+
+  // Chromium only.
+  const int32 SHARE_RESOURCES           = 0x10000;
+  const int32 BIND_GENERATES_RESOURCES  = 0x10001;
+
+  for (size_t i = 0; i < attribs.size(); i += 2) {
+    const int32 attrib = attribs[i];
+    if (i + 1 >= attribs.size()) {
+      if (attrib == EGL_NONE) {
+        return true;
+      }
+
+      GPU_DLOG(ERROR) << "Missing value after context creation attribute: "
+                      << attrib;
+      return false;
+    }
+
+    const int32 value = attribs[i+1];
+    switch (attrib) {
+      case EGL_ALPHA_SIZE:
+        alpha_size_ = value;
+        break;
+      case EGL_BLUE_SIZE:
+        blue_size_ = value;
+        break;
+      case EGL_GREEN_SIZE:
+        green_size_ = value;
+        break;
+      case EGL_RED_SIZE:
+        red_size_ = value;
+        break;
+      case EGL_DEPTH_SIZE:
+        depth_size_ = value;
+        break;
+      case EGL_STENCIL_SIZE:
+        stencil_size_ = value;
+        break;
+      case EGL_SAMPLES:
+        samples_ = value;
+        break;
+      case EGL_SAMPLE_BUFFERS:
+        sample_buffers_ = value;
+        break;
+      case EGL_SWAP_BEHAVIOR:
+        buffer_preserved_ = value == EGL_BUFFER_PRESERVED;
+        break;
+      case SHARE_RESOURCES:
+        share_resources_ = value != 0;
+        break;
+      case BIND_GENERATES_RESOURCES:
+        bind_generates_resource_ = value != 0;
+        break;
+      case EGL_NONE:
+        // Terminate list, even if more attributes.
+        return true;
+      default:
+        GPU_DLOG(ERROR) << "Invalid context creation attribute: " << attrib;
+        return false;
+    }
+  }
+
+  return true;
 }
 
 #include "../common/gles2_cmd_utils_implementation_autogen.h"

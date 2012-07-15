@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_UI_CONSTRAINED_WINDOW_TAB_HELPER_H_
 #define CHROME_BROWSER_UI_CONSTRAINED_WINDOW_TAB_HELPER_H_
-#pragma once
 
 #include <deque>
 
@@ -12,12 +11,12 @@
 
 class ConstrainedWindow;
 class ConstrainedWindowTabHelperDelegate;
-class TabContentsWrapper;
+class TabContents;
 
 // Per-tab class to manage constrained windows.
 class ConstrainedWindowTabHelper : public content::WebContentsObserver {
  public:
-  explicit ConstrainedWindowTabHelper(TabContentsWrapper* tab_contents);
+  explicit ConstrainedWindowTabHelper(TabContents* tab_contents);
   virtual ~ConstrainedWindowTabHelper();
 
   ConstrainedWindowTabHelperDelegate* delegate() const { return delegate_; }
@@ -59,8 +58,8 @@ class ConstrainedWindowTabHelper : public content::WebContentsObserver {
   virtual void DidGetIgnoredUIEvent() OVERRIDE;
   virtual void WebContentsDestroyed(content::WebContents* tab) OVERRIDE;
 
-  // Our owning TabContentsWrapper.
-  TabContentsWrapper* wrapper_;
+  // Our owning TabContents.
+  TabContents* tab_contents_;
 
   // Delegate for notifying our owner about stuff. Not owned by us.
   ConstrainedWindowTabHelperDelegate* delegate_;

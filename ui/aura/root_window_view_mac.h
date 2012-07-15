@@ -4,11 +4,10 @@
 
 #ifndef UI_AURA_ROOT_WINDOW_VIEW_MAC_H_
 #define UI_AURA_ROOT_WINDOW_VIEW_MAC_H_
-#pragma once
 
 #import <Cocoa/Cocoa.h>
 
-#include "ui/gfx/compositor/compositor.h"
+#include "ui/compositor/compositor.h"
 
 // RootWindowView provides an NSView class that delegates drawing to a
 // ui::Compositor delegate, setting up the NSOpenGLContext as required.

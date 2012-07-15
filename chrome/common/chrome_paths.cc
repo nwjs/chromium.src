@@ -4,7 +4,6 @@
 
 #include "chrome/common/chrome_paths.h"
 
-#include "base/command_line.h"
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/mac/bundle_locations.h"
@@ -14,7 +13,6 @@
 #include "base/version.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths_internal.h"
-#include "chrome/common/chrome_switches.h"
 
 #if defined(OS_MACOSX)
 #include "base/mac/mac_util.h"
@@ -71,6 +69,18 @@ const FilePath::CharType kGTalkPluginFileName[] =
     FILE_PATH_LITERAL("pepper/libppgoogletalk.so");
 
 #endif  // defined(OS_POSIX) && !defined(OS_MACOSX)
+
+#if defined(OS_LINUX) && !defined(OS_CHROMEOS)
+// The path to the external extension <id>.json files.
+// /usr/share seems like a good choice, see: http://www.pathname.com/fhs/
+const char kFilepathSinglePrefExtensions[] =
+#if defined(GOOGLE_CHROME_BUILD)
+    FILE_PATH_LITERAL("/usr/share/google-chrome/extensions");
+#else
+    FILE_PATH_LITERAL("/usr/share/chromium/extensions");
+#endif  // defined(GOOGLE_CHROME_BUILD)
+#endif  // defined(OS_LINUX) && !defined(OS_CHROMEOS)
+
 }  // namespace
 
 namespace chrome {
@@ -138,13 +148,26 @@ bool PathProvider(int key, FilePath* result) {
       }
       create_dir = true;
       break;
+#if defined(OS_WIN)
+    case chrome::DIR_ALT_USER_DATA:
+      if (!GetAlternateUserDataDirectory(&cur)) {
+        NOTREACHED();
+        return false;
+      }
+      create_dir = false;
+      break;
+#endif  // OS_WIN
     case chrome::DIR_USER_DOCUMENTS:
       if (!GetUserDocumentsDirectory(&cur))
         return false;
       create_dir = true;
       break;
+    case chrome::DIR_USER_PICTURES:
+      if (!GetUserPicturesDirectory(&cur))
+        return false;
+      break;
     case chrome::DIR_DEFAULT_DOWNLOADS_SAFE:
-#if defined(OS_WIN)
+#if defined(OS_WIN) || defined(OS_LINUX)
       if (!GetUserDownloadsDirectorySafe(&cur))
         return false;
       break;
@@ -185,11 +208,6 @@ bool PathProvider(int key, FilePath* result) {
         return false;
       cur = cur.Append(FILE_PATH_LITERAL("resources"));
 #endif
-      break;
-    case chrome::DIR_SHARED_RESOURCES:
-      if (!PathService::Get(chrome::DIR_RESOURCES, &cur))
-        return false;
-      cur = cur.Append(FILE_PATH_LITERAL("shared"));
       break;
     case chrome::DIR_INSPECTOR:
       if (!PathService::Get(chrome::DIR_RESOURCES, &cur))
@@ -257,9 +275,12 @@ bool PathProvider(int key, FilePath* result) {
         return false;
       cur = cur.Append(kInternalNaClPluginFileName);
       break;
-    case chrome::FILE_PNACL_COMPONENT:
-      // TODO(jvoung): Do we want a default value or just the ability to
-      // override immediately when testing on bots to avoid race conditions?
+    case chrome::DIR_PNACL_BASE:
+      if (!PathService::Get(chrome::DIR_USER_DATA, &cur))
+        return false;
+      cur = cur.Append(FILE_PATH_LITERAL("Pnacl"));
+      break;
+    case chrome::DIR_PNACL_COMPONENT:
       return false;
 #if defined(OS_POSIX) && !defined(OS_MACOSX)
     case chrome::FILE_NACL_HELPER:
@@ -298,14 +319,12 @@ bool PathProvider(int key, FilePath* result) {
         return false;
       cur = cur.Append(FILE_PATH_LITERAL("resources.pak"));
       break;
-#if defined(OS_CHROMEOS)
-    case chrome::FILE_CHROMEOS_API:
+    case chrome::DIR_RESOURCES_EXTENSION:
       if (!PathService::Get(base::DIR_MODULE, &cur))
         return false;
-      cur = cur.Append(FILE_PATH_LITERAL("chromeos"));
-      cur = cur.Append(FILE_PATH_LITERAL("libcros.so"));
+      cur = cur.Append(FILE_PATH_LITERAL("resources"))
+               .Append(FILE_PATH_LITERAL("extension"));
       break;
-#endif
     // The following are only valid in the development environment, and
     // will fail if executed from an installed executable (because the
     // generated path won't exist).
@@ -366,6 +385,12 @@ bool PathProvider(int key, FilePath* result) {
       break;
     }
 #endif
+#if defined(OS_LINUX) && !defined(OS_CHROMEOS)
+    case chrome::DIR_STANDALONE_EXTERNAL_EXTENSIONS: {
+      cur = FilePath(FILE_PATH_LITERAL(kFilepathSinglePrefExtensions));
+      break;
+    }
+#endif
     case chrome::DIR_EXTERNAL_EXTENSIONS:
 #if defined(OS_MACOSX)
       if (!chrome::GetGlobalApplicationSupportDirectory(&cur))
@@ -383,21 +408,6 @@ bool PathProvider(int key, FilePath* result) {
       create_dir = true;
 #endif
       break;
-
-#if defined(OS_MACOSX)
-    case DIR_DEPRECATED_EXTERNAL_EXTENSIONS:
-      // TODO(skerner): Reading external extensions from a file inside the
-      // app budle causes several problems.  Once users have a chance to
-      // migrate, remove this path.  crbug/67203
-      if (!PathService::Get(base::DIR_EXE, &cur))
-        return false;
-
-      cur = cur.DirName();
-      cur = cur.Append(FILE_PATH_LITERAL("Extensions"));
-      create_dir = false;
-
-      break;
-#endif
 
     case chrome::DIR_DEFAULT_APPS:
 #if defined(OS_MACOSX)

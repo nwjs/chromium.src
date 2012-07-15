@@ -4,7 +4,6 @@
 
 #ifndef CHROME_TEST_AUTOMATION_AUTOMATION_JSON_REQUESTS_H_
 #define CHROME_TEST_AUTOMATION_AUTOMATION_JSON_REQUESTS_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -248,6 +247,16 @@ bool SendCaptureEntirePageJSONRequest(
     const FilePath& path,
     automation::Error* error) WARN_UNUSED_RESULT;
 
+#if !defined(NO_TCMALLOC) && (defined(OS_LINUX) || defined(OS_CHROMEOS))
+// Requests a heap profile dump.
+// Returns true on success.
+bool SendHeapProfilerDumpJSONRequest(
+    AutomationMessageSender* sender,
+    const WebViewLocator& locator,
+    const std::string& reason,
+    automation::Error* error) WARN_UNUSED_RESULT;
+#endif  // !defined(NO_TCMALLOC) && (defined(OS_LINUX) || defined(OS_CHROMEOS))
+
 // Requests all the cookies for the given URL. On success returns true and
 // caller takes ownership of |cookies|, which is a list of all the cookies in
 // dictionary format.
@@ -414,6 +423,12 @@ bool SendSetViewBoundsJSONRequest(
     int height,
     automation::Error* error) WARN_UNUSED_RESULT;
 
+// Requests to maximize the given view. Returns true on success.
+bool SendMaximizeJSONRequest(
+    AutomationMessageSender* sender,
+    const WebViewId& id,
+    automation::Error* error) WARN_UNUSED_RESULT;
+
 // Requests to get the active JavaScript modal dialog's message. Returns true
 // on success.
 bool SendGetAppModalDialogMessageJSONRequest(
@@ -508,6 +523,12 @@ bool SendSetPreferenceJSONRequest(
     AutomationMessageSender* sender,
     const std::string& pref,
     base::Value* value,
+    automation::Error* error) WARN_UNUSED_RESULT;
+
+// Requests to override the user's geolocation. Returns true on success.
+bool SendOverrideGeolocationJSONRequest(
+    AutomationMessageSender* sender,
+    base::DictionaryValue* geolocation,
     automation::Error* error) WARN_UNUSED_RESULT;
 
 #endif  // CHROME_TEST_AUTOMATION_AUTOMATION_JSON_REQUESTS_H_

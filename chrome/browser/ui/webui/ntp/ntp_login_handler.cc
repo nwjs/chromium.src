@@ -11,7 +11,9 @@
 #include "base/metrics/histogram.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
+#include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/managed_mode.h"
 #include "chrome/browser/prefs/pref_notifier.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
@@ -21,9 +23,11 @@
 #include "chrome/browser/sync/profile_sync_service.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/chrome_pages.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/webui/ntp/new_tab_ui.h"
 #include "chrome/browser/ui/webui/sync_promo/sync_promo_ui.h"
 #include "chrome/browser/ui/webui/web_ui_util.h"
@@ -52,16 +56,16 @@ namespace {
 SkBitmap GetGAIAPictureForNTP(const gfx::Image& image) {
   // This value must match the width and height value of login-status-icon
   // in new_tab.css.
-  const int length = 27;
-  SkBitmap bmp = skia::ImageOperations::Resize(
-      image, skia::ImageOperations::RESIZE_BEST, length, length);
+  const int kLength = 27;
+  SkBitmap bmp = skia::ImageOperations::Resize(*image.ToSkBitmap(),
+      skia::ImageOperations::RESIZE_BEST, kLength, kLength);
 
-  gfx::Canvas canvas(gfx::Size(length, length), false);
-  canvas.DrawBitmapInt(bmp, 0, 0);
+  gfx::Canvas canvas(gfx::Size(kLength, kLength), false);
+  canvas.DrawImageInt(bmp, 0, 0);
 
   // Draw a gray border on the inside of the icon.
   SkColor color = SkColorSetARGB(83, 0, 0, 0);
-  canvas.DrawRect(gfx::Rect(0, 0, length - 1, length - 1), color);
+  canvas.DrawRect(gfx::Rect(0, 0, kLength - 1, kLength - 1), color);
 
   return canvas.ExtractBitmap();
 }
@@ -125,7 +129,7 @@ void NTPLoginHandler::HandleShowSyncLoginUI(const ListValue* args) {
   std::string username = profile->GetPrefs()->GetString(
       prefs::kGoogleServicesUsername);
   content::WebContents* web_contents = web_ui()->GetWebContents();
-  Browser* browser = BrowserList::FindBrowserWithWebContents(web_contents);
+  Browser* browser = browser::FindBrowserWithWebContents(web_contents);
   if (!browser)
     return;
 
@@ -133,11 +137,12 @@ void NTPLoginHandler::HandleShowSyncLoginUI(const ListValue* args) {
 #if !defined(OS_ANDROID)
     // The user isn't signed in, show the sync promo.
     if (SyncPromoUI::ShouldShowSyncPromo(profile)) {
-      browser->ShowSyncSetup(SyncPromoUI::SOURCE_NTP_LINK);
+      chrome::ShowSyncSetup(browser, SyncPromoUI::SOURCE_NTP_LINK);
       RecordInHistogram(NTP_SIGN_IN_PROMO_CLICKED);
     }
 #endif
-  } else if (args->GetSize() == 4) {
+  } else if (args->GetSize() == 4 &&
+             chrome::IsCommandEnabled(browser, IDC_SHOW_AVATAR_MENU)) {
     // The user is signed in, show the profiles menu.
     double x = 0;
     double y = 0;
@@ -181,9 +186,9 @@ void NTPLoginHandler::HandleLoginMessageSeen(const ListValue* args) {
 
 void NTPLoginHandler::HandleShowAdvancedLoginUI(const ListValue* args) {
   Browser* browser =
-      BrowserList::FindBrowserWithWebContents(web_ui()->GetWebContents());
+      browser::FindBrowserWithWebContents(web_ui()->GetWebContents());
   if (browser)
-    browser->ShowSyncSetup(SyncPromoUI::SOURCE_NTP_LINK);
+    chrome::ShowSyncSetup(browser, SyncPromoUI::SOURCE_NTP_LINK);
 }
 
 void NTPLoginHandler::UpdateLogin() {
@@ -208,7 +213,8 @@ void NTPLoginHandler::UpdateLogin() {
         const gfx::Image* image =
             cache.GetGAIAPictureOfProfileAtIndex(profile_index);
         if (image)
-          icon_url = web_ui_util::GetImageDataUrl(GetGAIAPictureForNTP(*image));
+          icon_url = web_ui_util::GetImageDataUrl(gfx::ImageSkia(
+              GetGAIAPictureForNTP(*image)));
       }
       if (header.empty())
         header = CreateSpanWithClass(UTF8ToUTF16(username), "profile-name");
@@ -234,8 +240,9 @@ void NTPLoginHandler::UpdateLogin() {
   StringValue header_value(header);
   StringValue sub_header_value(sub_header);
   StringValue icon_url_value(icon_url);
-  web_ui()->CallJavascriptFunction(
-      "ntp.updateLogin", header_value, sub_header_value, icon_url_value);
+  base::FundamentalValue is_user_signed_in(!username.empty());
+  web_ui()->CallJavascriptFunction("ntp.updateLogin",
+      header_value, sub_header_value, icon_url_value, is_user_signed_in);
 }
 
 // static
@@ -256,19 +263,19 @@ bool NTPLoginHandler::ShouldShow(Profile* profile) {
 void NTPLoginHandler::GetLocalizedValues(Profile* profile,
                                          DictionaryValue* values) {
   PrefService* prefs = profile->GetPrefs();
-  if (prefs->GetString(prefs::kGoogleServicesUsername).empty() ||
-      !prefs->GetBoolean(prefs::kSyncPromoShowNTPBubble)) {
-    return;
-  }
+  bool hide_sync = prefs->GetString(prefs::kGoogleServicesUsername).empty() ||
+      !prefs->GetBoolean(prefs::kSyncPromoShowNTPBubble);
 
   values->SetString("login_status_message",
+      hide_sync ? string16() :
       l10n_util::GetStringFUTF16(IDS_SYNC_PROMO_NTP_BUBBLE_MESSAGE,
           l10n_util::GetStringUTF16(IDS_SHORT_PRODUCT_NAME)));
-  values->SetString("login_status_url", chrome::kSyncLearnMoreURL);
-  values->SetString("login_status_learn_more",
-      l10n_util::GetStringUTF16(IDS_LEARN_MORE));
+  values->SetString("login_status_url",
+      hide_sync ? std::string() : chrome::kSyncLearnMoreURL);
   values->SetString("login_status_advanced",
+      hide_sync ? string16() :
       l10n_util::GetStringUTF16(IDS_SYNC_PROMO_NTP_BUBBLE_ADVANCED));
   values->SetString("login_status_dismiss",
+      hide_sync ? string16() :
       l10n_util::GetStringUTF16(IDS_SYNC_PROMO_NTP_BUBBLE_OK));
 }

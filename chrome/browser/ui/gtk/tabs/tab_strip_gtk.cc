@@ -7,43 +7,50 @@
 #include <gtk/gtk.h>
 
 #include <algorithm>
+#include <string>
 
 #include "base/bind.h"
 #include "base/debug/trace_event.h"
 #include "base/i18n/rtl.h"
+#include "base/metrics/histogram.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/autocomplete/autocomplete.h"
 #include "chrome/browser/autocomplete/autocomplete_classifier.h"
+#include "chrome/browser/autocomplete/autocomplete_classifier_factory.h"
 #include "chrome/browser/autocomplete/autocomplete_match.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/tabs/tab_strip_model_delegate.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_navigator.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/gtk/browser_window_gtk.h"
 #include "chrome/browser/ui/gtk/custom_button.h"
+#include "chrome/browser/ui/gtk/gtk_theme_service.h"
 #include "chrome/browser/ui/gtk/gtk_util.h"
 #include "chrome/browser/ui/gtk/tabs/dragged_tab_controller_gtk.h"
 #include "chrome/browser/ui/gtk/tabs/tab_strip_menu_controller.h"
-#include "chrome/browser/ui/gtk/theme_service_gtk.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "content/public/browser/notification_source.h"
+#include "content/public/browser/user_metrics.h"
 #include "content/public/browser/web_contents.h"
+#include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
-#include "grit/theme_resources_standard.h"
 #include "grit/ui_resources.h"
 #include "ui/base/animation/animation_delegate.h"
 #include "ui/base/animation/slide_animation.h"
 #include "ui/base/dragdrop/gtk_dnd_util.h"
 #include "ui/base/gtk/gtk_compat.h"
 #include "ui/base/gtk/gtk_screen_util.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/gtk_util.h"
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/point.h"
 
+using content::UserMetricsAction;
 using content::WebContents;
 
 namespace {
@@ -714,7 +721,7 @@ TabStripGtk::TabStripGtk(TabStripModel* model, BrowserWindowGtk* window)
       tab_vertical_offset_(0),
       model_(model),
       window_(window),
-      theme_service_(ThemeServiceGtk::GetFrom(model->profile())),
+      theme_service_(GtkThemeService::GetFrom(model->profile())),
       weak_factory_(this),
       layout_factory_(this),
       added_as_message_loop_observer_(false),
@@ -851,7 +858,7 @@ void TabStripGtk::UpdateLoadingAnimations() {
       --index;
     } else {
       TabRendererGtk::AnimationState state;
-      TabContentsWrapper* contents = model_->GetTabContentsAt(index);
+      TabContents* contents = model_->GetTabContentsAt(index);
       if (!contents || !contents->web_contents()->IsLoading()) {
         state = TabGtk::ANIMATION_NONE;
       } else if (contents->web_contents()->IsWaitingForResponse()) {
@@ -967,7 +974,7 @@ GtkWidget* TabStripGtk::GetWidgetForViewID(ViewID view_id) {
 ////////////////////////////////////////////////////////////////////////////////
 // TabStripGtk, TabStripModelObserver implementation:
 
-void TabStripGtk::TabInsertedAt(TabContentsWrapper* contents,
+void TabStripGtk::TabInsertedAt(TabContents* contents,
                                 int index,
                                 bool foreground) {
   TRACE_EVENT0("ui::gtk", "TabStripGtk::TabInsertedAt");
@@ -1032,7 +1039,7 @@ void TabStripGtk::TabInsertedAt(TabContentsWrapper* contents,
   ReStack();
 }
 
-void TabStripGtk::TabDetachedAt(TabContentsWrapper* contents, int index) {
+void TabStripGtk::TabDetachedAt(TabContents* contents, int index) {
   GenerateIdealBounds();
   StartRemoveTabAnimation(index, contents->web_contents());
   // Have to do this _after_ calling StartRemoveTabAnimation, so that any
@@ -1041,8 +1048,8 @@ void TabStripGtk::TabDetachedAt(TabContentsWrapper* contents, int index) {
   GetTabAt(index)->set_closing(true);
 }
 
-void TabStripGtk::ActiveTabChanged(TabContentsWrapper* old_contents,
-                                   TabContentsWrapper* new_contents,
+void TabStripGtk::ActiveTabChanged(TabContents* old_contents,
+                                   TabContents* new_contents,
                                    int index,
                                    bool user_gesture) {
   TRACE_EVENT0("ui::gtk", "TabStripGtk::ActiveTabChanged");
@@ -1096,7 +1103,7 @@ void TabStripGtk::TabSelectionChanged(TabStripModel* tab_strip_model,
   }
 }
 
-void TabStripGtk::TabMoved(TabContentsWrapper* contents,
+void TabStripGtk::TabMoved(TabContents* contents,
                            int from_index,
                            int to_index) {
   gfx::Rect start_bounds = GetIdealBounds(from_index);
@@ -1111,7 +1118,7 @@ void TabStripGtk::TabMoved(TabContentsWrapper* contents,
   ReStack();
 }
 
-void TabStripGtk::TabChangedAt(TabContentsWrapper* contents, int index,
+void TabStripGtk::TabChangedAt(TabContents* contents, int index,
                                TabChangeType change_type) {
   // Index is in terms of the model. Need to make sure we adjust that index in
   // case we have an animation going.
@@ -1129,13 +1136,13 @@ void TabStripGtk::TabChangedAt(TabContentsWrapper* contents, int index,
 }
 
 void TabStripGtk::TabReplacedAt(TabStripModel* tab_strip_model,
-                                TabContentsWrapper* old_contents,
-                                TabContentsWrapper* new_contents,
+                                TabContents* old_contents,
+                                TabContents* new_contents,
                                 int index) {
   TabChangedAt(new_contents, index, ALL);
 }
 
-void TabStripGtk::TabMiniStateChanged(TabContentsWrapper* contents, int index) {
+void TabStripGtk::TabMiniStateChanged(TabContents* contents, int index) {
   // Don't do anything if we've already picked up the change from TabMoved.
   if (GetTabAt(index)->mini() == model_->IsMiniTab(index))
     return;
@@ -1151,7 +1158,7 @@ void TabStripGtk::TabMiniStateChanged(TabContentsWrapper* contents, int index) {
   }
 }
 
-void TabStripGtk::TabBlockedStateChanged(TabContentsWrapper* contents,
+void TabStripGtk::TabBlockedStateChanged(TabContents* contents,
                                          int index) {
   GetTabAt(index)->SetBlocked(model_->IsTabBlocked(index));
 }
@@ -1298,7 +1305,7 @@ bool TabStripGtk::HasAvailableDragActions() const {
   return model_->delegate()->GetDragActions() != 0;
 }
 
-ThemeServiceGtk* TabStripGtk::GetThemeProvider() {
+GtkThemeService* TabStripGtk::GetThemeProvider() {
   return theme_service_;
 }
 
@@ -1769,7 +1776,7 @@ bool TabStripGtk::CompleteDrop(const guchar* data, bool is_plain_text) {
   GURL url;
   if (is_plain_text) {
     AutocompleteMatch match;
-    model_->profile()->GetAutocompleteClassifier()->Classify(
+    AutocompleteClassifierFactory::GetForProfile(model_->profile())->Classify(
         UTF8ToUTF16(reinterpret_cast<const char*>(data)), string16(),
         false, false, &match, NULL);
     url = match.destination_url;
@@ -1780,8 +1787,8 @@ bool TabStripGtk::CompleteDrop(const guchar* data, bool is_plain_text) {
   if (!url.is_valid())
     return false;
 
-  browser::NavigateParams params(window()->browser(), url,
-                                 content::PAGE_TRANSITION_LINK);
+  chrome::NavigateParams params(window()->browser(), url,
+                                content::PAGE_TRANSITION_LINK);
   params.tabstrip_index = drop_index;
 
   if (drop_before) {
@@ -1791,7 +1798,7 @@ bool TabStripGtk::CompleteDrop(const guchar* data, bool is_plain_text) {
     params.source_contents = model_->GetTabContentsAt(drop_index);
   }
 
-  browser::Navigate(&params);
+  chrome::Navigate(&params);
 
   return true;
 }
@@ -2177,6 +2184,9 @@ void TabStripGtk::OnNewTabClicked(GtkWidget* widget) {
 
   switch (mouse_button) {
     case 1:
+      content::RecordAction(UserMetricsAction("NewTab_Button"));
+      UMA_HISTOGRAM_ENUMERATION("Tab.NewTab", TabStripModel::NEW_TAB_BUTTON,
+                                TabStripModel::NEW_TAB_ENUM_COUNT);
       model_->delegate()->AddBlankTab(true);
       break;
     case 2: {
@@ -2188,7 +2198,7 @@ void TabStripGtk::OnNewTabClicked(GtkWidget* widget) {
 
       Browser* browser = window_->browser();
       DCHECK(browser);
-      browser->AddSelectedTabWithURL(url, content::PAGE_TRANSITION_TYPED);
+      chrome::AddSelectedTabWithURL(browser, url, content::PAGE_TRANSITION_TYPED);
       break;
     }
     default:
@@ -2240,6 +2250,9 @@ void TabStripGtk::PaintOnlyFavicons(GdkEventExpose* event,
 CustomDrawButton* TabStripGtk::MakeNewTabButton() {
   CustomDrawButton* button = new CustomDrawButton(IDR_NEWTAB_BUTTON,
       IDR_NEWTAB_BUTTON_P, IDR_NEWTAB_BUTTON_H, 0);
+
+  gtk_widget_set_tooltip_text(button->widget(),
+      l10n_util::GetStringUTF8(IDS_TOOLTIP_NEW_TAB).c_str());
 
   // Let the middle mouse button initiate clicks as well.
   gtk_util::SetButtonTriggersNavigation(button->widget());

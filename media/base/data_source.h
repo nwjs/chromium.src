@@ -7,31 +7,34 @@
 
 #include "base/callback.h"
 #include "base/memory/ref_counted.h"
+#include "base/time.h"
 #include "media/base/media_export.h"
-#include "media/base/preload.h"
 
 namespace media {
 
 class MEDIA_EXPORT DataSourceHost {
  public:
-  virtual ~DataSourceHost();
-
   // Set the total size of the media file.
   virtual void SetTotalBytes(int64 total_bytes) = 0;
 
-  // Sets the total number of bytes that are buffered on the client and ready to
-  // be played.
-  virtual void SetBufferedBytes(int64 buffered_bytes) = 0;
+  // Notify the host that byte range [start,end] has been buffered.
+  // TODO(fischman): remove this method when demuxing is push-based instead of
+  // pull-based.  http://crbug.com/131444
+  virtual void AddBufferedByteRange(int64 start, int64 end) = 0;
 
-  // Sets the flag to indicate current network activity.
-  virtual void SetNetworkActivity(bool is_downloading_data) = 0;
+  // Notify the host that time range [start,end] has been buffered.
+  virtual void AddBufferedTimeRange(base::TimeDelta start,
+                                    base::TimeDelta end) = 0;
+
+ protected:
+  virtual ~DataSourceHost();
 };
 
 class MEDIA_EXPORT DataSource : public base::RefCountedThreadSafe<DataSource> {
  public:
   typedef base::Callback<void(int64, int64)> StatusCallback;
-  typedef base::Callback<void(size_t)> ReadCB;
-  static const size_t kReadError;
+  typedef base::Callback<void(int)> ReadCB;
+  static const int kReadError;
 
   DataSource();
 
@@ -40,10 +43,7 @@ class MEDIA_EXPORT DataSource : public base::RefCountedThreadSafe<DataSource> {
   // Reads |size| bytes from |position| into |data|. And when the read is done
   // or failed, |read_cb| is called with the number of bytes read or
   // kReadError in case of error.
-  // TODO(hclam): should change |size| to int! It makes the code so messy
-  // with size_t and int all over the place..
-  virtual void Read(int64 position, size_t size,
-                    uint8* data,
+  virtual void Read(int64 position, int size, uint8* data,
                     const DataSource::ReadCB& read_cb) = 0;
 
   // Notifies the DataSource of a change in the current playback rate.
@@ -60,9 +60,6 @@ class MEDIA_EXPORT DataSource : public base::RefCountedThreadSafe<DataSource> {
   // Returns true if we are performing streaming. In this case seeking is
   // not possible.
   virtual bool IsStreaming() = 0;
-
-  // Alert the DataSource that the video preload value has been changed.
-  virtual void SetPreload(Preload preload) = 0;
 
   // Notify the DataSource of the bitrate of the media.
   // Values of |bitrate| <= 0 are invalid and should be ignored.

@@ -20,8 +20,8 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/gtk/gtk_theme_service.h"
 #include "chrome/browser/ui/gtk/gtk_util.h"
-#include "chrome/browser/ui/gtk/theme_service_gtk.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/user_metrics.h"
@@ -92,7 +92,7 @@ BookmarkBubbleGtk::BookmarkBubbleGtk(GtkWidget* anchor,
     : url_(url),
       profile_(profile),
       model_(profile->GetBookmarkModel()),
-      theme_service_(ThemeServiceGtk::GetFrom(profile_)),
+      theme_service_(GtkThemeService::GetFrom(profile_)),
       anchor_(anchor),
       content_(NULL),
       name_entry_(NULL),
@@ -168,8 +168,9 @@ BookmarkBubbleGtk::BookmarkBubbleGtk(GtkWidget* anchor,
                             NULL,
                             content,
                             arrow_location,
-                            true,  // match_system_theme
-                            true,  // grab_input
+                            BubbleGtk::MATCH_SYSTEM_THEME |
+                                BubbleGtk::POPUP_WINDOW |
+                                BubbleGtk::GRAB_INPUT,
                             theme_service_,
                             this);  // delegate
   if (!bubble_) {

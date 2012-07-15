@@ -4,12 +4,21 @@
 
 #ifndef ASH_SHELL_FACTORY_H_
 #define ASH_SHELL_FACTORY_H_
-#pragma once
 
 #include "ash/ash_export.h"
 #include "ash/desktop_background/desktop_background_resources.h"
 
-class SkBitmap;
+namespace aura {
+class RootWindow;
+}
+
+namespace gfx {
+class ImageSkia;
+}
+
+namespace ui_controls {
+class UIControlsAura;
+}
 
 namespace views {
 class View;
@@ -21,9 +30,11 @@ class Widget;
 namespace ash {
 
 namespace internal {
-views::Widget* CreateDesktopBackground(const SkBitmap& wallpaper,
-                                       ImageLayout layout);
+void CreateDesktopBackground(aura::RootWindow* root_window);
+
 ASH_EXPORT views::Widget* CreateStatusArea(views::View* contents);
+
+ui_controls::UIControlsAura* CreateUIControls();
 }  // namespace internal
 
 }  // namespace ash

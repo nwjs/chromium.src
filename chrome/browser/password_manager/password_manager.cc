@@ -13,6 +13,7 @@
 #include "chrome/common/autofill_messages.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/user_metrics.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/common/frame_navigate_params.h"
 #include "grit/generated_resources.h"
 
@@ -66,7 +67,7 @@ PasswordManager::PasswordManager(WebContents* web_contents,
       observer_(NULL) {
   DCHECK(delegate_);
   password_manager_enabled_.Init(prefs::kPasswordManagerEnabled,
-      delegate_->GetProfileForPasswordManager()->GetPrefs(), NULL);
+                                 delegate_->GetProfile()->GetPrefs(), NULL);
 
   ReportMetrics(*password_manager_enabled_);
 }
@@ -74,8 +75,37 @@ PasswordManager::PasswordManager(WebContents* web_contents,
 PasswordManager::~PasswordManager() {
 }
 
+void PasswordManager::SetFormHasGeneratedPassword(const PasswordForm& form) {
+  for (ScopedVector<PasswordFormManager>::iterator iter =
+           pending_login_managers_.begin();
+       iter != pending_login_managers_.end(); ++iter) {
+    if ((*iter)->DoesManage(form)) {
+      (*iter)->SetHasGeneratedPassword();
+      return;
+    }
+  }
+  // If there is no corresponding PasswordFormManager, we create one. This is
+  // not the common case, and should only happen when there is a bug in our
+  // ability to detect forms.
+  bool ssl_valid = (form.origin.SchemeIsSecure() &&
+                    !delegate_->DidLastPageLoadEncounterSSLErrors());
+  PasswordFormManager* manager =
+      new PasswordFormManager(delegate_->GetProfile(),
+                              this,
+                              web_contents(),
+                              form,
+                              ssl_valid);
+  pending_login_managers_.push_back(manager);
+  manager->SetHasGeneratedPassword();
+  // TODO(gcasto): Add UMA stats to track this.
+}
+
+bool PasswordManager::IsSavingEnabled() const {
+  return IsFillingEnabled() && !delegate_->GetProfile()->IsOffTheRecord();
+}
+
 void PasswordManager::ProvisionallySavePassword(const PasswordForm& form) {
-  if (!IsEnabled())
+  if (!IsSavingEnabled())
     return;
 
   // No password to save? Then don't.
@@ -87,6 +117,8 @@ void PasswordManager::ProvisionallySavePassword(const PasswordForm& form) {
            pending_login_managers_.begin();
        iter != pending_login_managers_.end(); ++iter) {
     if ((*iter)->DoesManage(form)) {
+      // Transfer ownership of the manager from |pending_login_managers_| to
+      // |manager|.
       manager.reset(*iter);
       pending_login_managers_.weak_erase(iter);
       break;
@@ -110,6 +142,10 @@ void PasswordManager::ProvisionallySavePassword(const PasswordForm& form) {
   if (manager->IsBlacklisted())
     return;
 
+  // Bail if we're missing any of the necessary form components.
+  if (!manager->HasValidPasswordForm())
+    return;
+
   PasswordForm provisionally_saved_form(form);
   provisionally_saved_form.ssl_valid = form.origin.SchemeIsSecure() &&
       !delegate_->DidLastPageLoadEncounterSSLErrors();
@@ -120,28 +156,6 @@ void PasswordManager::ProvisionallySavePassword(const PasswordForm& form) {
 
 void PasswordManager::SetObserver(LoginModelObserver* observer) {
   observer_ = observer;
-}
-
-void PasswordManager::DidStopLoading() {
-  if (!provisional_save_manager_.get())
-    return;
-
-  DCHECK(IsEnabled());
-
-  // Form is not completely valid - we do not support it.
-  if (!provisional_save_manager_->HasValidPasswordForm())
-    return;
-
-  provisional_save_manager_->SubmitPassed();
-  if (provisional_save_manager_->IsNewLogin()) {
-    delegate_->AddSavePasswordInfoBarIfPermitted(
-        provisional_save_manager_.release());
-  } else {
-    // If the save is not a new username entry, then we just want to save this
-    // data (since the user already has related data saved), so don't prompt.
-    provisional_save_manager_->Save();
-    provisional_save_manager_.reset();
-  }
 }
 
 void PasswordManager::DidNavigateAnyFrame(
@@ -157,7 +171,7 @@ void PasswordManager::DidNavigateAnyFrame(
   // There might be password data to provisionally save. Other than that, we're
   // ready to reset and move on.
   ProvisionallySavePassword(params.password_form);
-  pending_login_managers_.reset();
+  pending_login_managers_.clear();
 }
 
 bool PasswordManager::OnMessageReceived(const IPC::Message& message) {
@@ -174,7 +188,7 @@ bool PasswordManager::OnMessageReceived(const IPC::Message& message) {
 
 void PasswordManager::OnPasswordFormsParsed(
     const std::vector<PasswordForm>& forms) {
-  if (!IsEnabled())
+  if (!IsFillingEnabled())
     return;
 
   // Ask the SSLManager for current security.
@@ -184,8 +198,11 @@ void PasswordManager::OnPasswordFormsParsed(
        iter != forms.end(); ++iter) {
     bool ssl_valid = iter->origin.SchemeIsSecure() && !had_ssl_error;
     PasswordFormManager* manager =
-        new PasswordFormManager(delegate_->GetProfileForPasswordManager(),
-                                this, *iter, ssl_valid);
+        new PasswordFormManager(delegate_->GetProfile(),
+                                this,
+                                web_contents(),
+                                *iter,
+                                ssl_valid);
     pending_login_managers_.push_back(manager);
     manager->FetchMatchingLoginsFromPasswordStore();
   }
@@ -196,17 +213,39 @@ void PasswordManager::OnPasswordFormsRendered(
   if (!provisional_save_manager_.get())
     return;
 
+  DCHECK(IsSavingEnabled());
+
+  // First, check for a failed login attempt.
   for (std::vector<PasswordForm>::const_iterator iter = visible_forms.begin();
        iter != visible_forms.end(); ++iter) {
     if (provisional_save_manager_->DoesManage(*iter)) {
       // The form trying to be saved has immediately re-appeared. Assume login
       // failure and abort this save, by clearing provisional_save_manager_.
-      // Don't delete the login managers since the user may try again
-      // and we want to be able to save in that case.
       provisional_save_manager_->SubmitFailed();
       provisional_save_manager_.reset();
-      break;
+      return;
     }
+  }
+
+  if (!provisional_save_manager_->HasValidPasswordForm()) {
+    // Form is not completely valid - we do not support it.
+    NOTREACHED();
+    provisional_save_manager_.reset();
+    return;
+  }
+
+  // Looks like a successful login attempt. Either show an infobar or
+  // automatically save the login data. We prompt when the user hasn't already
+  // given consent, either through previously accepting the infobar or by having
+  // the browser generate the password.
+  provisional_save_manager_->SubmitPassed();
+  if (provisional_save_manager_->IsNewLogin() &&
+      !provisional_save_manager_->HasGeneratedPassword()) {
+    delegate_->AddSavePasswordInfoBarIfPermitted(
+        provisional_save_manager_.release());
+  } else {
+    provisional_save_manager_->Save();
+    provisional_save_manager_.reset();
   }
 }
 
@@ -236,7 +275,6 @@ void PasswordManager::Autofill(
   }
 }
 
-bool PasswordManager::IsEnabled() const {
-  const Profile* profile = delegate_->GetProfileForPasswordManager();
-  return profile && !profile->IsOffTheRecord() && *password_manager_enabled_;
+bool PasswordManager::IsFillingEnabled() const {
+  return delegate_->GetProfile() && *password_manager_enabled_;
 }

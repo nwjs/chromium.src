@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,7 +12,6 @@
 
 #ifndef CHROME_COMMON_JSTEMPLATE_BUILDER_H_
 #define CHROME_COMMON_JSTEMPLATE_BUILDER_H_
-#pragma once
 
 #include <string>
 
@@ -23,6 +22,18 @@ class DictionaryValue;
 }
 
 namespace jstemplate_builder {
+
+// While an object of this class is in scope, the template builder will output
+// version 2 html. Version 2 uses load_time_data.js and i18n_template2.js, and
+// should soon become the default.
+class UseVersion2 {
+ public:
+  UseVersion2();
+  ~UseVersion2();
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(UseVersion2);
+};
 
 // A helper function that generates a string of HTML to be loaded.  The
 // string includes the HTML and the javascript code necessary to generate the
@@ -51,7 +62,7 @@ std::string GetTemplatesHtml(const base::StringPiece& html_template,
 // assigned to it.
 void AppendJsonHtml(const base::DictionaryValue* json, std::string* output);
 
-// Same as AppendJsonHtml(), execpt does not include the <script></script>
+// Same as AppendJsonHtml(), except does not include the <script></script>
 // tag wrappers.
 void AppendJsonJS(const base::DictionaryValue* json, std::string* output);
 

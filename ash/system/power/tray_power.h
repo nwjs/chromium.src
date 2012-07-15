@@ -4,19 +4,28 @@
 
 #ifndef ASH_SYSTEM_POWER_TRAY_POWER_H_
 #define ASH_SYSTEM_POWER_TRAY_POWER_H_
-#pragma once
 
 #include "ash/system/power/power_status_observer.h"
 #include "ash/system/tray/system_tray_item.h"
+
+class SkBitmap;
+
+namespace gfx {
+class ImageSkia;
+}
 
 namespace ash {
 namespace internal {
 
 namespace tray {
-class DateView;
-class PowerPopupView;
+class PowerNotificationView;
 class PowerTrayView;
 }
+
+enum IconSet {
+  ICON_LIGHT,
+  ICON_DARK
+};
 
 class TrayPower : public SystemTrayItem,
                   public PowerStatusObserver {
@@ -24,21 +33,35 @@ class TrayPower : public SystemTrayItem,
   TrayPower();
   virtual ~TrayPower();
 
+  static gfx::ImageSkia GetBatteryImage(const PowerSupplyStatus& supply_status,
+                                        IconSet icon_set);
+
  private:
+  enum NotificationState {
+    NOTIFICATION_NONE,
+    NOTIFICATION_LOW_POWER,
+    NOTIFICATION_CRITICAL
+  };
+
   // Overridden from SystemTrayItem.
   virtual views::View* CreateTrayView(user::LoginStatus status) OVERRIDE;
   virtual views::View* CreateDefaultView(user::LoginStatus status) OVERRIDE;
-  virtual views::View* CreateDetailedView(user::LoginStatus status) OVERRIDE;
+  virtual views::View* CreateNotificationView(
+      user::LoginStatus status) OVERRIDE;
   virtual void DestroyTrayView() OVERRIDE;
   virtual void DestroyDefaultView() OVERRIDE;
-  virtual void DestroyDetailedView() OVERRIDE;
+  virtual void DestroyNotificationView() OVERRIDE;
+  virtual void UpdateAfterLoginStatusChange(user::LoginStatus status) OVERRIDE;
 
   // Overridden from PowerStatusObserver.
   virtual void OnPowerStatusChanged(const PowerSupplyStatus& status) OVERRIDE;
 
-  scoped_ptr<tray::DateView> date_;
-  scoped_ptr<tray::PowerPopupView> power_;
-  scoped_ptr<tray::PowerTrayView> power_tray_;
+  // Sets |notification_state_|. Returns true if a notification should be shown.
+  bool UpdateNotificationState(const PowerSupplyStatus& status);
+
+  tray::PowerTrayView* power_tray_;
+  tray::PowerNotificationView* notification_view_;
+  NotificationState notification_state_;
 
   DISALLOW_COPY_AND_ASSIGN(TrayPower);
 };

@@ -143,7 +143,7 @@ def GetCurrentAndPreviousResults(debug, test_group_file_location,
           test_group_file_location)
       parent_location_list = (
           layouttests.LayoutTests.GetParentDirectoryList(filter_names))
-      recursion = False
+      recursion = True
     else:
       # When test group CSV file is not specified, test group name
       # (e.g., 'media') is used for getting layout tests.
@@ -299,7 +299,8 @@ def SendEmail(prev_time, prev_analyzer_result_map, analyzer_result_map,
     diff_map = None
     simple_rev_str = 'undefined'
     email_content = analyzer_result_map.ConvertToString(None, diff_map,
-                                                        anno_map)
+                                                        anno_map,
+                                                        issue_detail_mode)
   return (result_change, diff_map, simple_rev_str, rev, rev_date,
           email_content)
 

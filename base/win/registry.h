@@ -4,7 +4,6 @@
 
 #ifndef BASE_WIN_REGISTRY_H_
 #define BASE_WIN_REGISTRY_H_
-#pragma once
 
 #include <windows.h>
 #include <string>
@@ -84,8 +83,7 @@ class BASE_EXPORT RegKey {
   // Reads a REG_MULTI_SZ registry field into a vector of strings. Clears
   // |values| initially and adds further strings to the list. Returns
   // ERROR_CANTREAD if type is not REG_MULTI_SZ.
-  LONG RegKey::ReadValues(const wchar_t* name,
-                          std::vector<std::wstring>* values);
+  LONG ReadValues(const wchar_t* name, std::vector<std::wstring>* values);
 
   // Returns raw data. If |name| is NULL or empty, returns the default
   // value, if any.

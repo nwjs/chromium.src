@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CONTENT_PUBLIC_COMMON_CONTEXT_MENU_PARAMS_H_
 #define CONTENT_PUBLIC_COMMON_CONTEXT_MENU_PARAMS_H_
-#pragma once
 
 #include <vector>
 
@@ -13,9 +12,9 @@
 #include "googleurl/src/gurl.h"
 #include "content/common/content_export.h"
 #include "content/public/common/ssl_status.h"
-#include "webkit/glue/webmenuitem.h"
+#include "third_party/WebKit/Source/Platform/chromium/public/WebReferrerPolicy.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebContextMenuData.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/WebReferrerPolicy.h"
+#include "webkit/glue/webmenuitem.h"
 
 namespace content {
 
@@ -39,7 +38,7 @@ struct CONTENT_EXPORT CustomContextMenuContext {
 //              could be used for more contextual actions.
 struct CONTENT_EXPORT ContextMenuParams {
   ContextMenuParams();
-  ContextMenuParams(const WebKit::WebContextMenuData& data);
+  explicit ContextMenuParams(const WebKit::WebContextMenuData& data);
   ~ContextMenuParams();
 
   // This is the type of Context Node that the context menu was invoked on.

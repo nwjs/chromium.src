@@ -14,14 +14,15 @@
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_shutdown.h"
+#include "chrome/browser/browsing_data_helper.h"
+#include "chrome/browser/browsing_data_remover.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chrome/browser/chromeos/cros/network_library.h"
 #include "chrome/browser/chromeos/cros_settings.h"
-#include "chrome/browser/chromeos/dbus/dbus_thread_manager.h"
-#include "chrome/browser/chromeos/dbus/power_manager_client.h"
 #include "chrome/browser/chromeos/input_method/input_method_manager.h"
 #include "chrome/browser/chromeos/input_method/xkeyboard.h"
 #include "chrome/browser/chromeos/kiosk_mode/kiosk_mode_settings.h"
+#include "chrome/browser/chromeos/login/base_login_display_host.h"
 #include "chrome/browser/chromeos/login/captive_portal_window_proxy.h"
 #include "chrome/browser/chromeos/login/screen_locker.h"
 #include "chrome/browser/chromeos/login/user.h"
@@ -30,8 +31,11 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
+#include "chrome/common/net/gaia/gaia_auth_util.h"
 #include "chrome/common/net/gaia/gaia_urls.h"
 #include "chrome/common/url_constants.h"
+#include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/dbus/power_manager_client.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_service.h"
@@ -78,17 +82,6 @@ const int kMaxUsers = 5;
 const char kReasonNetworkChanged[] = "network changed";
 const char kReasonProxyChanged[] = "proxy changed";
 const char kReasonPortalDetected[] = "portal detected";
-
-// Sanitize emails. Currently, it only ensures all emails have a domain.
-std::string SanitizeEmail(const std::string& email) {
-  std::string sanitized(email);
-
-  // Apply a default domain if necessary.
-  if (sanitized.find('@') == std::string::npos)
-    sanitized += kDefaultDomain;
-
-  return sanitized;
-}
 
 // The Task posted to PostTaskAndReply in StartClearingDnsCache on the IO
 // thread.
@@ -153,8 +146,11 @@ class NetworkStateInformer
   // CaptivePortalWindowProxyDelegate implementation:
   virtual void OnPortalDetected() OVERRIDE;
 
-  // Returns active network id.
-  std::string active_network_id() { return active_network_; }
+  // Returns active network's service path. It can be used to uniquely
+  // identify the network.
+  std::string active_network_service_path() {
+    return active_network_service_path_;
+  }
 
   bool is_online() { return state_ == ONLINE; }
 
@@ -167,7 +163,7 @@ class NetworkStateInformer
 
   content::NotificationRegistrar registrar_;
   base::hash_set<std::string> observers_;
-  std::string active_network_;
+  std::string active_network_service_path_;
   ConnectionType last_network_type_;
   std::string network_name_;
   State state_;
@@ -191,6 +187,9 @@ void NetworkStateInformer::Init() {
   cros->AddNetworkManagerObserver(this);
   registrar_.Add(this,
                  chrome::NOTIFICATION_LOGIN_PROXY_CHANGED,
+                 content::NotificationService::AllSources());
+  registrar_.Add(this,
+                 chrome::NOTIFICATION_SESSION_STARTED,
                  content::NotificationService::AllSources());
 }
 
@@ -227,8 +226,12 @@ void NetworkStateInformer::Observe(
     int type,
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
-  DCHECK_EQ(type, chrome::NOTIFICATION_LOGIN_PROXY_CHANGED);
-  SendStateToObservers(kReasonProxyChanged);
+  if (type == chrome::NOTIFICATION_SESSION_STARTED)
+    registrar_.RemoveAll();
+  else if (type == chrome::NOTIFICATION_LOGIN_PROXY_CHANGED)
+    SendStateToObservers(kReasonProxyChanged);
+  else
+    NOTREACHED() << "Unknown notification: " << type;
 }
 
 void NetworkStateInformer::OnPortalDetected() {
@@ -236,36 +239,26 @@ void NetworkStateInformer::OnPortalDetected() {
 }
 
 bool NetworkStateInformer::UpdateState(NetworkLibrary* cros) {
-  if (cros->active_network())
-    last_network_type_ = cros->active_network()->type();
+  State new_state = OFFLINE;
+  std::string new_active_network_service_path;
+  network_name_.clear();
 
-  State new_state;
-  std::string new_active_network;
-  if (!cros->Connected()) {
-    new_state = OFFLINE;
-    network_name_.clear();
-  } else {
-    const Network* active_network = cros->active_network();
-    if (active_network) {
-      new_active_network = active_network->unique_id();
-      network_name_ = active_network->name();
-      if (active_network->restricted_pool()) {
-        new_state = CAPTIVE_PORTAL;
-      } else {
-        new_state = ONLINE;
-      }
-    } else {
-      // Bogus network situation:
-      // Connected() returns true but no active network.
-      new_state = OFFLINE;
-      NOTREACHED();
-    }
+  const Network* active_network = cros->active_network();
+  if (active_network) {
+    if (active_network->online())
+      new_state = ONLINE;
+    else if (active_network->restricted_pool())
+      new_state = CAPTIVE_PORTAL;
+
+    new_active_network_service_path = active_network->service_path();
+    network_name_ = active_network->name();
+    last_network_type_ = active_network->type();
   }
 
   bool updated = (new_state != state_) ||
-      (active_network_ != new_active_network);
+      (active_network_service_path_ != new_active_network_service_path);
   state_ = new_state;
-  active_network_ = new_active_network;
+  active_network_service_path_ = new_active_network_service_path;
 
   if (updated && state_ == ONLINE)
     handler_->OnNetworkReady();
@@ -293,8 +286,7 @@ SigninScreenHandler::SigninScreenHandler()
       dns_clear_task_running_(false),
       cookies_cleared_(false),
       cookie_remover_(NULL),
-      ALLOW_THIS_IN_INITIALIZER_LIST(weak_factory_(this)),
-      key_event_listener_(NULL) {
+      ALLOW_THIS_IN_INITIALIZER_LIST(weak_factory_(this)) {
   CrosSettings::Get()->AddSettingsObserver(kAccountsPrefAllowNewUser, this);
   CrosSettings::Get()->AddSettingsObserver(kAccountsPrefAllowGuest, this);
 }
@@ -303,8 +295,12 @@ SigninScreenHandler::~SigninScreenHandler() {
   weak_factory_.InvalidateWeakPtrs();
   if (cookie_remover_)
     cookie_remover_->RemoveObserver(this);
-  if (key_event_listener_)
-    key_event_listener_->RemoveCapsLockObserver(this);
+  SystemKeyEventListener* key_event_listener =
+      SystemKeyEventListener::GetInstance();
+  if (key_event_listener)
+    key_event_listener->RemoveCapsLockObserver(this);
+  if (delegate_)
+    delegate_->SetWebUIHandler(NULL);
   CrosSettings::Get()->RemoveSettingsObserver(kAccountsPrefAllowNewUser, this);
   CrosSettings::Get()->RemoveSettingsObserver(kAccountsPrefAllowGuest, this);
 }
@@ -348,6 +344,8 @@ void SigninScreenHandler::GetLocalizedStrings(
       l10n_util::GetStringUTF16(IDS_LOGIN_MAYBE_CAPTIVE_PORTAL_TITLE));
   localized_strings->SetString("captivePortalMessage",
       l10n_util::GetStringUTF16(IDS_LOGIN_MAYBE_CAPTIVE_PORTAL));
+  localized_strings->SetString("captivePortalProxyMessage",
+      l10n_util::GetStringUTF16(IDS_LOGIN_MAYBE_CAPTIVE_PORTAL_PROXY));
   localized_strings->SetString("captivePortalNetworkSelect",
       l10n_util::GetStringUTF16(IDS_LOGIN_MAYBE_CAPTIVE_PORTAL_NETWORK_SELECT));
   localized_strings->SetString("proxyMessageText",
@@ -410,14 +408,19 @@ void SigninScreenHandler::Initialize() {
     return;
 
   // Register for Caps Lock state change notifications;
-  key_event_listener_ = SystemKeyEventListener::GetInstance();
-  if (key_event_listener_)
-    key_event_listener_->AddCapsLockObserver(this);
+  SystemKeyEventListener* key_event_listener =
+      SystemKeyEventListener::GetInstance();
+  if (key_event_listener)
+    key_event_listener->AddCapsLockObserver(this);
 
   if (show_on_init_) {
     show_on_init_ = false;
     Show(oobe_ui_);
   }
+}
+
+gfx::NativeWindow SigninScreenHandler::GetNativeWindow() {
+  return delegate_ ? delegate_->GetNativeWindow() : NULL;
 }
 
 void SigninScreenHandler::RegisterMessages() {
@@ -442,6 +445,9 @@ void SigninScreenHandler::RegisterMessages() {
   web_ui()->RegisterMessageCallback("fixCaptivePortal",
       base::Bind(&SigninScreenHandler::HandleFixCaptivePortal,
                  base::Unretained(this)));
+  web_ui()->RegisterMessageCallback("showCaptivePortal",
+        base::Bind(&SigninScreenHandler::HandleShowCaptivePortal,
+                 base::Unretained(this)));
   web_ui()->RegisterMessageCallback("hideCaptivePortal",
       base::Bind(&SigninScreenHandler::HandleHideCaptivePortal,
                  base::Unretained(this)));
@@ -453,6 +459,12 @@ void SigninScreenHandler::RegisterMessages() {
                  base::Unretained(this)));
   web_ui()->RegisterMessageCallback("shutdownSystem",
       base::Bind(&SigninScreenHandler::HandleShutdownSystem,
+                 base::Unretained(this)));
+  web_ui()->RegisterMessageCallback("userSelectedDelayed",
+      base::Bind(&SigninScreenHandler::HandleUserSelected,
+                 base::Unretained(this)));
+  web_ui()->RegisterMessageCallback("userDeselected",
+      base::Bind(&SigninScreenHandler::HandleUserDeselected,
                  base::Unretained(this)));
   web_ui()->RegisterMessageCallback("removeUser",
       base::Bind(&SigninScreenHandler::HandleRemoveUser,
@@ -469,6 +481,9 @@ void SigninScreenHandler::RegisterMessages() {
   web_ui()->RegisterMessageCallback("accountPickerReady",
       base::Bind(&SigninScreenHandler::HandleAccountPickerReady,
                  base::Unretained(this)));
+  web_ui()->RegisterMessageCallback("wallpaperReady",
+      base::Bind(&SigninScreenHandler::HandleWallpaperReady,
+                 base::Unretained(this)));
   web_ui()->RegisterMessageCallback("loginWebuiReady",
       base::Bind(&SigninScreenHandler::HandleLoginWebuiReady,
                  base::Unretained(this)));
@@ -481,6 +496,9 @@ void SigninScreenHandler::RegisterMessages() {
   web_ui()->RegisterMessageCallback("loginRemoveNetworkStateObserver",
       base::Bind(&SigninScreenHandler::HandleLoginRemoveNetworkStateObserver,
                  base::Unretained(this)));
+  web_ui()->RegisterMessageCallback("demoWebuiReady",
+      base::Bind(&SigninScreenHandler::HandleDemoWebuiReady,
+                 base::Unretained(this)));
   web_ui()->RegisterMessageCallback("signOutUser",
       base::Bind(&SigninScreenHandler::HandleSignOutUser,
                  base::Unretained(this)));
@@ -489,6 +507,12 @@ void SigninScreenHandler::RegisterMessages() {
                  base::Unretained(this)));
   web_ui()->RegisterMessageCallback("networkErrorShown",
       base::Bind(&SigninScreenHandler::HandleNetworkErrorShown,
+                 base::Unretained(this)));
+  web_ui()->RegisterMessageCallback("openProxySettings",
+      base::Bind(&SigninScreenHandler::HandleOpenProxySettings,
+                 base::Unretained(this)));
+  web_ui()->RegisterMessageCallback("loginVisible",
+      base::Bind(&SigninScreenHandler::HandleLoginVisible,
                  base::Unretained(this)));
 }
 
@@ -520,10 +544,12 @@ void SigninScreenHandler::OnUserImageChanged(const User& user) {
 }
 
 void SigninScreenHandler::OnPreferencesChanged() {
-  if (delegate_ && !delegate_->IsShowUsers())
+  if (delegate_ && !delegate_->IsShowUsers()) {
     HandleShowAddUser(NULL);
-  else
+  } else {
     SendUserList(false);
+    ShowScreen(kAccountPickerScreen, NULL);
+  }
 }
 
 void SigninScreenHandler::ShowError(int login_attempts,
@@ -548,6 +574,10 @@ void SigninScreenHandler::ShowGaiaPasswordChanged(const std::string& username) {
   web_ui()->CallJavascriptFunction("cr.ui.Oobe.showSigninUI", email_value);
   web_ui()->CallJavascriptFunction(
       "login.AccountPickerScreen.updateUserGaiaNeeded", email_value);
+}
+
+void SigninScreenHandler::ResetSigninScreenHandlerDelegate() {
+  SetDelegate(NULL);
 }
 
 void SigninScreenHandler::OnBrowsingDataRemoverDone() {
@@ -588,7 +618,7 @@ void SigninScreenHandler::ShowSigninScreenIfReady() {
   if (gaia_silent_load_ &&
       (!network_state_informer_->is_online() ||
        gaia_silent_load_network_ !=
-           network_state_informer_->active_network_id())) {
+           network_state_informer_->active_network_service_path())) {
     // Network has changed. Force Gaia reload.
     gaia_silent_load_ = false;
     // Gaia page will be realoded, so focus isn't stolen anymore.
@@ -643,9 +673,13 @@ void SigninScreenHandler::LoadAuthExtension(
   }
 
   params.SetString("gaiaOrigin", GaiaUrls::GetInstance()->gaia_origin_url());
+  const CommandLine* command_line = CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(switches::kGaiaUrlPath)) {
+    params.SetString("gaiaUrlPath",
+                     command_line->GetSwitchValueASCII(switches::kGaiaUrlPath));
+  }
 
   // Test automation data:
-  const CommandLine* command_line = CommandLine::ForCurrentProcess();
   if (command_line->HasSwitch(switches::kAuthExtensionPath)) {
     if (!test_user_.empty()) {
       params.SetString("test_email", test_user_);
@@ -689,7 +723,7 @@ void SigninScreenHandler::HandleCompleteLogin(const base::ListValue* args) {
     return;
   }
 
-  typed_email = SanitizeEmail(typed_email);
+  typed_email = gaia::SanitizeEmail(typed_email);
   delegate_->SetDisplayEmail(typed_email);
   delegate_->CompleteLogin(typed_email, password);
 }
@@ -706,23 +740,23 @@ void SigninScreenHandler::HandleAuthenticateUser(const base::ListValue* args) {
     return;
   }
 
-  username = SanitizeEmail(username);
+  username = gaia::SanitizeEmail(username);
   delegate_->Login(username, password);
 }
 
 void SigninScreenHandler::HandleLaunchDemoUser(const base::ListValue* args) {
-  if (!delegate_)
-    return;
-  delegate_->LoginAsDemoUser();
+  if (delegate_)
+    delegate_->LoginAsDemoUser();
 }
 
 void SigninScreenHandler::HandleLaunchIncognito(const base::ListValue* args) {
-  if (!delegate_)
-    return;
-  delegate_->LoginAsGuest();
+  if (delegate_)
+    delegate_->LoginAsGuest();
 }
 
 void SigninScreenHandler::HandleFixCaptivePortal(const base::ListValue* args) {
+  if (!delegate_)
+    return;
   // TODO(altimofeev): move error page and captive portal window showing logic
   // to C++ (currenly most of it is done on the JS side).
   if (!captive_portal_window_proxy_.get()) {
@@ -731,6 +765,13 @@ void SigninScreenHandler::HandleFixCaptivePortal(const base::ListValue* args) {
                                      GetNativeWindow()));
   }
   captive_portal_window_proxy_->ShowIfRedirected();
+}
+
+void SigninScreenHandler::HandleShowCaptivePortal(const base::ListValue* args) {
+  // This call is an explicit user action
+  // i.e. clicking on link so force dialog show.
+  HandleFixCaptivePortal(args);
+  captive_portal_window_proxy_->Show();
 }
 
 void SigninScreenHandler::HandleHideCaptivePortal(const base::ListValue* args) {
@@ -759,6 +800,24 @@ void SigninScreenHandler::HandleShutdownSystem(const base::ListValue* args) {
 #else
   DBusThreadManager::Get()->GetPowerManagerClient()->RequestShutdown();
 #endif
+}
+
+void SigninScreenHandler::HandleUserDeselected(const base::ListValue* args) {
+  if (delegate_)
+    delegate_->UserDeselected();
+}
+
+void SigninScreenHandler::HandleUserSelected(const base::ListValue* args) {
+  if (!delegate_)
+    return;
+
+  std::string email;
+  if (!args->GetString(0, &email)) {
+    NOTREACHED();
+    return;
+  }
+
+  delegate_->UserSelected(email);
 }
 
 void SigninScreenHandler::HandleRemoveUser(const base::ListValue* args) {
@@ -793,12 +852,13 @@ void SigninScreenHandler::HandleShowAddUser(const base::ListValue* args) {
 
 void SigninScreenHandler::HandleToggleEnrollmentScreen(
     const base::ListValue* args) {
-  if (!delegate_)
-    return;
-  delegate_->ShowEnterpriseEnrollmentScreen();
+  if (delegate_)
+    delegate_->ShowEnterpriseEnrollmentScreen();
 }
 
 void SigninScreenHandler::HandleLaunchHelpApp(const base::ListValue* args) {
+  if (!delegate_)
+    return;
   double help_topic_id;  // Javascript number is passed back as double.
   if (!args->GetDouble(0, &help_topic_id)) {
     NOTREACHED();
@@ -836,8 +896,7 @@ void SigninScreenHandler::SendUserList(bool animated) {
       user_dict->SetString(kKeyUsername, email);
       user_dict->SetString(kKeyEmailAddress, (*it)->display_email());
       user_dict->SetString(kKeyDisplayName, (*it)->GetDisplayName());
-      if ((*it)->NeedsNameTooltip())
-        user_dict->SetString(kKeyNameTooltip, (*it)->GetNameTooltip());
+      user_dict->SetString(kKeyNameTooltip, (*it)->display_email());
       user_dict->SetInteger(kKeyOauthTokenStatus, (*it)->oauth_token_status());
       user_dict->SetBoolean(kKeySignedIn, signed_in);
 
@@ -888,6 +947,16 @@ void SigninScreenHandler::HandleAccountPickerReady(
   }
 }
 
+void SigninScreenHandler::HandleWallpaperReady(
+    const base::ListValue* args) {
+  if (ScreenLocker::default_screen_locker()) {
+    content::NotificationService::current()->Notify(
+        chrome::NOTIFICATION_LOCK_BACKGROUND_DISPLAYED,
+        content::NotificationService::AllSources(),
+        content::NotificationService::NoDetails());
+  }
+}
+
 void SigninScreenHandler::HandleLoginWebuiReady(const base::ListValue* args) {
   if (focus_stolen_) {
     // Set focus to the Gaia page.
@@ -903,7 +972,7 @@ void SigninScreenHandler::HandleLoginWebuiReady(const base::ListValue* args) {
   }
   if (!gaia_silent_load_) {
     content::NotificationService::current()->Notify(
-        chrome::NOTIFICATION_LOGIN_WEBUI_READY,
+        chrome::NOTIFICATION_LOGIN_WEBUI_LOADED,
         content::NotificationService::AllSources(),
         content::NotificationService::NoDetails());
   } else {
@@ -951,10 +1020,16 @@ void SigninScreenHandler::HandleLoginRemoveNetworkStateObserver(
   network_state_informer_->RemoveObserver(callback);
 }
 
+void SigninScreenHandler::HandleDemoWebuiReady(const base::ListValue* args) {
+  content::NotificationService::current()->Notify(
+      chrome::NOTIFICATION_DEMO_WEBUI_LOADED,
+      content::NotificationService::AllSources(),
+      content::NotificationService::NoDetails());
+}
+
 void SigninScreenHandler::HandleSignOutUser(const base::ListValue* args) {
-  if (!delegate_)
-    return;
-  delegate_->Signout();
+  if (delegate_)
+    delegate_->Signout();
 }
 
 void SigninScreenHandler::HandleUserImagesLoaded(const base::ListValue* args) {
@@ -972,9 +1047,21 @@ void SigninScreenHandler::HandleNetworkErrorShown(const base::ListValue* args) {
 }
 
 void SigninScreenHandler::HandleCreateAccount(const base::ListValue* args) {
-  if (!delegate_)
-    return;
-  delegate_->CreateAccount();
+  if (delegate_)
+    delegate_->CreateAccount();
+}
+
+void SigninScreenHandler::HandleOpenProxySettings(const base::ListValue* args) {
+  BaseLoginDisplayHost::default_host()->OpenProxySettings();
+}
+
+void SigninScreenHandler::HandleLoginVisible(const base::ListValue* args) {
+  content::NotificationService::current()->Notify(
+      chrome::NOTIFICATION_LOGIN_WEBUI_VISIBLE,
+      content::NotificationService::AllSources(),
+      content::NotificationService::NoDetails());
+  if (ScreenLocker::default_screen_locker())
+    web_ui()->CallJavascriptFunction("login.AccountPickerScreen.setWallpaper");
 }
 
 void SigninScreenHandler::StartClearingDnsCache() {
@@ -1000,7 +1087,8 @@ void SigninScreenHandler::StartClearingCookies() {
       BrowsingDataRemover::EVERYTHING,
       base::Time());
   cookie_remover_->AddObserver(this);
-  cookie_remover_->Remove(BrowsingDataRemover::REMOVE_SITE_DATA);
+  cookie_remover_->Remove(BrowsingDataRemover::REMOVE_SITE_DATA,
+                          BrowsingDataHelper::UNPROTECTED_WEB);
 }
 
 void SigninScreenHandler::MaybePreloadAuthExtension() {
@@ -1016,7 +1104,8 @@ void SigninScreenHandler::MaybePreloadAuthExtension() {
       !dns_clear_task_running_ &&
       network_state_informer_->is_online()) {
     gaia_silent_load_ = true;
-    gaia_silent_load_network_ = network_state_informer_->active_network_id();
+    gaia_silent_load_network_ =
+        network_state_informer_->active_network_service_path();
     LoadAuthExtension(true, true, false);
   }
 }

@@ -11,27 +11,37 @@ document.write('<link id="incognitothemecss" rel="stylesheet" ' +
 </script>
 </head>
 <body>
-<div class="content" i18n-values=".style.fontFamily:fontfamily;.style.fontSize:fontsize">
+<div class="content"
+    i18n-values=".style.fontFamily:fontfamily;.style.fontSize:fontsize">
   <img src="shared/images/otr_icon_standalone.png" class="icon" />
   <span i18n-values=".innerHTML:content"></span>
-  <div style="margin-top:15px">
-    <img src="../../app/theme/extensions_section.png" class="extensionicon" />
+  <div class="extensions-message">
+    <img src="../../app/theme/default_100_percent/extensions_section.png" class="extension-icon" />
     <span i18n-values=".innerHTML:extensionsmessage"></span>
   </div>
 </div>
 </body>
+<script src="chrome://resources/js/cr.js"></script>
 <script>
-function themeChanged() {
-  document.getElementById('incognitothemecss').href =
-      'chrome://theme/css/incognito_new_tab_theme.css?' + Date.now();
-}
+cr.define('ntp', function() {
+  'use strict';
+  /**
+   * Set whether the bookmarks bar is attached or not.
+   * @param {boolean} attached Whether the bar is attached or not.
+   */
+  function setBookmarkBarAttached(attached) {
+    document.documentElement.setAttribute('bookmarkbarattached', !!attached);
+  }
 
-function bookmarkBarAttached() {
-  document.documentElement.setAttribute("bookmarkbarattached", "true");
-}
+  function themeChanged() {
+    document.getElementById('incognitothemecss').href =
+        'chrome://theme/css/incognito_new_tab_theme.css?' + Date.now();
+  }
 
-function bookmarkBarDetached() {
-  document.documentElement.setAttribute("bookmarkbarattached", "false");
-}
+  return {
+    setBookmarkBarAttached: setBookmarkBarAttached,
+    themeChanged: themeChanged,
+  };
+});
 </script>
 </html>

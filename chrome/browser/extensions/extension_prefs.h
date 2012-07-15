@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_PREFS_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_PREFS_H_
-#pragma once
 
 #include <set>
 #include <string>
@@ -12,17 +11,23 @@
 
 #include "base/memory/linked_ptr.h"
 #include "base/time.h"
-#include "chrome/browser/extensions/extension_content_settings_store.h"
+#include "base/values.h"
+#include "chrome/browser/extensions/api/content_settings/content_settings_store.h"
 #include "chrome/browser/extensions/extension_prefs_scope.h"
 #include "chrome/browser/extensions/extension_scoped_prefs.h"
-#include "chrome/browser/prefs/pref_service.h"
+#include "chrome/browser/extensions/management_policy.h"
 #include "chrome/common/extensions/extension.h"
+#include "chrome/common/extensions/url_pattern_set.h"
 #include "chrome/common/string_ordinal.h"
-#include "googleurl/src/gurl.h"
 
 class ExtensionPrefValueMap;
 class ExtensionSorting;
+class PrefService;
 class URLPatternSet;
+
+namespace extensions {
+class ExtensionPrefsUninstallExtension;
+struct ExtensionOmniboxSuggestion;
 
 // Class for managing global and per-extension preferences.
 //
@@ -39,7 +44,8 @@ class URLPatternSet;
 //       preference. Extension-controlled preferences are stored in
 //       PrefValueStore::extension_prefs(), which this class populates and
 //       maintains as the underlying extensions change.
-class ExtensionPrefs : public ExtensionContentSettingsStore::Observer,
+class ExtensionPrefs : public ContentSettingsStore::Observer,
+                       public ManagementPolicy::Provider,
                        public ExtensionScopedPrefs {
  public:
   // Key name for a preference that keeps track of per-extension settings. This
@@ -129,15 +135,24 @@ class ExtensionPrefs : public ExtensionContentSettingsStore::Observer,
 
   // Getter and setter for browser action visibility.
   bool GetBrowserActionVisibility(const Extension* extension);
-  void SetBrowserActionVisibility(const Extension* extension, bool visible);
+  void SetBrowserActionVisibility(const Extension* extension,
+     bool visible);
 
   // Did the extension ask to escalate its permission during an upgrade?
   bool DidExtensionEscalatePermissions(const std::string& id);
 
   // If |did_escalate| is true, the preferences for |extension| will be set to
   // require the install warning when the user tries to enable.
-  void SetDidExtensionEscalatePermissions(const Extension* extension,
-                                          bool did_escalate);
+  void SetDidExtensionEscalatePermissions(
+      const Extension* extension,
+      bool did_escalate);
+
+  // Getter and setters for disabled reason.
+  Extension::DisableReason GetDisableReason(
+      const std::string& extension_id);
+  void SetDisableReason(const std::string& extension_id,
+                        Extension::DisableReason disable_reason);
+  void RemoveDisableReason(const std::string& extension_id);
 
   // Returns the version string for the currently installed extension, or
   // the empty string if not found.
@@ -191,10 +206,20 @@ class ExtensionPrefs : public ExtensionContentSettingsStore::Observer,
   bool IsAppNotificationDisabled(const std::string& extension_id) const;
   void SetAppNotificationDisabled(const std::string& extension_id, bool value);
 
-  // Is the extension with |extension_id| allowed by policy (checking both
-  // whitelist and blacklist).
-  bool IsExtensionAllowedByPolicy(const std::string& extension_id,
-                                  Extension::Location location);
+  // ManagementPolicy::Provider
+  // These methods apply admin policy to extensions.
+  virtual std::string GetDebugPolicyProviderName() const OVERRIDE;
+  virtual bool UserMayLoad(const Extension* extension,
+                           string16* error) const OVERRIDE;
+  virtual bool UserMayModifySettings(const Extension* extension,
+                                     string16* error) const OVERRIDE;
+  virtual bool MustRemainEnabled(const Extension* extension,
+                                 string16* error) const OVERRIDE;
+
+  // Checks if extensions are blacklisted by default, by policy.
+  // The ManagementPolicy::Provider methods also take this into account, and
+  // should be used instead when the extension ID is known.
+  bool ExtensionsBlacklistedByDefault() const;
 
   // Returns the last value set via SetLastPingDay. If there isn't such a
   // pref, the returned Time will return true for is_null().
@@ -223,29 +248,53 @@ class ExtensionPrefs : public ExtensionContentSettingsStore::Observer,
   // Returns the granted permission set for the extension with |extension_id|,
   // and NULL if no preferences were found for |extension_id|.
   // This passes ownership of the returned set to the caller.
-  ExtensionPermissionSet* GetGrantedPermissions(
-      const std::string& extension_id);
+  PermissionSet* GetGrantedPermissions(const std::string& extension_id);
 
   // Adds |permissions| to the granted permissions set for the extension with
   // |extension_id|. The new granted permissions set will be the union of
   // |permissions| and the already granted permissions.
   void AddGrantedPermissions(const std::string& extension_id,
-                             const ExtensionPermissionSet* permissions);
+                             const PermissionSet* permissions);
+
+  // As above, but subtracts the given |permissions| from the granted set.
+  void RemoveGrantedPermissions(const std::string& extension_id,
+                                const PermissionSet* permissions);
 
   // Gets the active permission set for the specified extension. This may
   // differ from the permissions in the manifest due to the optional
   // permissions API. This passes ownership of the set to the caller.
-  ExtensionPermissionSet* GetActivePermissions(
-      const std::string& extension_id);
+  PermissionSet* GetActivePermissions(const std::string& extension_id);
 
   // Sets the active |permissions| for the extension with |extension_id|.
   void SetActivePermissions(const std::string& extension_id,
-                            const ExtensionPermissionSet* permissions);
+                            const PermissionSet* permissions);
 
   // Returns the list of events that the given extension has registered for.
   std::set<std::string> GetRegisteredEvents(const std::string& extension_id);
   void SetRegisteredEvents(const std::string& extension_id,
                            const std::set<std::string>& events);
+
+  // Adds a filter to an event.
+  void AddFilterToEvent(const std::string& event_name,
+                        const std::string& extension_id,
+                        const DictionaryValue* filter);
+
+  // Removes a filter from an event.
+  void RemoveFilterFromEvent(const std::string& event_name,
+                             const std::string& extension_id,
+                             const DictionaryValue* filter);
+
+  // Returns the dictionary of event filters that the given extension has
+  // registered.
+  const DictionaryValue* GetFilteredEvents(
+      const std::string& extension_id) const;
+
+  // Controls the omnibox default suggestion as set by the extension.
+  ExtensionOmniboxSuggestion GetOmniboxDefaultSuggestion(
+      const std::string& extension_id);
+  void SetOmniboxDefaultSuggestion(
+      const std::string& extension_id,
+      const ExtensionOmniboxSuggestion& suggestion);
 
   // Returns true if the user enabled this extension to be loaded in incognito
   // mode.
@@ -346,10 +395,13 @@ class ExtensionPrefs : public ExtensionContentSettingsStore::Observer,
                                bool incognito);
 
   // Returns true if extension |extension_id| currently controls the
-  // preference.
+  // preference. If |from_incognito| is not NULL, looks at incognito preferences
+  // first, and |from_incognito| is set to true if the effective pref value is
+  // coming from the incognito preferences, false if it is coming from the
+  // normal ones.
   bool DoesExtensionControlPref(const std::string& extension_id,
                                 const std::string& pref_key,
-                                bool incognito);
+                                bool* from_incognito);
 
   // Returns true if there is an extension which controls the preference value
   //  for |pref_key| *and* it is specific to incognito mode.
@@ -372,7 +424,7 @@ class ExtensionPrefs : public ExtensionContentSettingsStore::Observer,
 
   static void RegisterUserPrefs(PrefService* prefs);
 
-  ExtensionContentSettingsStore* content_settings_store() {
+  ContentSettingsStore* content_settings_store() {
     return content_settings_store_.get();
   }
 
@@ -384,6 +436,10 @@ class ExtensionPrefs : public ExtensionContentSettingsStore::Observer,
     return extension_sorting_.get();
   }
 
+  // Describes the URLs that are able to install extensions. See
+  // prefs::kExtensionAllowedInstallSites for more information.
+  URLPatternSet GetAllowedInstallSites();
+
  protected:
   // For unit testing. Enables injecting an artificial clock that is used
   // to query the current time, when an extension is installed.
@@ -392,10 +448,9 @@ class ExtensionPrefs : public ExtensionContentSettingsStore::Observer,
  private:
   friend class ExtensionPrefsUninstallExtension;  // Unit test.
 
-  // ExtensionContentSettingsStore::Observer methods:
-  virtual void OnContentSettingChanged(
-      const std::string& extension_id,
-      bool incognito) OVERRIDE;
+  // extensions::ContentSettingsStore::Observer methods:
+  virtual void OnContentSettingChanged(const std::string& extension_id,
+                                       bool incognito) OVERRIDE;
 
   // ExtensionScopedPrefs methods:
   virtual void UpdateExtensionPref(const std::string& id,
@@ -449,27 +504,24 @@ class ExtensionPrefs : public ExtensionContentSettingsStore::Observer,
                                      const URLPatternSet& new_value);
 
   // Interprets |pref_key| in |extension_id|'s preferences as an
-  // ExtensionPermissionSet, and passes ownership of the set to the caller.
-  ExtensionPermissionSet* ReadExtensionPrefPermissionSet(
-      const std::string& extension_id,
-      const std::string& pref_key);
+  // PermissionSet, and passes ownership of the set to the caller.
+  PermissionSet* ReadExtensionPrefPermissionSet(const std::string& extension_id,
+                                                const std::string& pref_key);
 
   // Converts the |new_value| to its value and sets the |pref_key| pref
   // belonging to |extension_id|.
   void SetExtensionPrefPermissionSet(const std::string& extension_id,
                                      const std::string& pref_key,
-                                     const ExtensionPermissionSet* new_value);
+                                     const PermissionSet* new_value);
 
   // Returns a dictionary for extension |id|'s prefs or NULL if it doesn't
   // exist.
   const base::DictionaryValue* GetExtensionPref(const std::string& id) const;
 
-  // Returns the dictionary of preferences controlled by the specified extension
-  // or creates a new one. All entries in the dictionary contain non-expanded
-  // paths.
-  const base::DictionaryValue* GetExtensionControlledPrefs(
-      const std::string& id,
-      bool incognito) const;
+  // Loads the preferences controlled by the specified extension from their
+  // dictionary and sets them in the |pref_value_map_|.
+  void LoadExtensionControlledPrefs(const std::string& id,
+                                    ExtensionPrefsScope scope);
 
   // Checks if kPrefBlacklist is set to true in the DictionaryValue.
   // Return false if the value is false or kPrefBlacklist does not exist.
@@ -505,9 +557,11 @@ class ExtensionPrefs : public ExtensionContentSettingsStore::Observer,
   // properties.
   scoped_ptr<ExtensionSorting> extension_sorting_;
 
-  scoped_refptr<ExtensionContentSettingsStore> content_settings_store_;
+  scoped_refptr<ContentSettingsStore> content_settings_store_;
 
   DISALLOW_COPY_AND_ASSIGN(ExtensionPrefs);
 };
+
+}  // namespace extensions
 
 #endif  // CHROME_BROWSER_EXTENSIONS_EXTENSION_PREFS_H_

@@ -2,9 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifndef UI_OAK_OAK_PRETTY_PRINT_H_
+#define UI_OAK_OAK_PRETTY_PRINT_H_
+
 #include "base/string16.h"
 
 namespace gfx {
+class Insets;
 class Rect;
 }
 
@@ -17,6 +21,10 @@ string16 PropertyWithInteger(const std::string& prefix, int value);
 string16 PropertyWithVoidStar(const std::string& prefix, void* ptr);
 string16 PropertyWithBool(const std::string& prefix, bool value);
 string16 PropertyWithBounds(const std::string& prefix, const gfx::Rect& bounds);
+string16 PropertyWithInsets(const std::string& prefix,
+                            const gfx::Insets& insets);
 
 }  // namespace internal
 }  // namespace oak
+
+#endif  // UI_OAK_OAK_PRETTY_PRINT_H_

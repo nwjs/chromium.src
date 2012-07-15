@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_PUBLIC_COMMON_CONTENT_CLIENT_H_
 #define CONTENT_PUBLIC_COMMON_CONTENT_CLIENT_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -14,12 +13,17 @@
 #include "base/string_piece.h"
 #include "build/build_config.h"
 #include "content/common/content_export.h"
+#include "ui/base/layout.h"
 
 class CommandLine;
 class GURL;
 
 namespace IPC {
 class Message;
+}
+
+namespace gfx {
+class Image;
 }
 
 namespace sandbox {
@@ -72,51 +76,56 @@ class CONTENT_EXPORT ContentClient {
   virtual ~ContentClient();
 
   ContentBrowserClient* browser() { return browser_; }
-  void set_browser(ContentBrowserClient* c) { browser_ = c; }
   ContentPluginClient* plugin() { return plugin_; }
-  void set_plugin(ContentPluginClient* p) { plugin_ = p; }
   ContentRendererClient* renderer() { return renderer_; }
-  void set_renderer(ContentRendererClient* r) { renderer_ = r; }
   ContentUtilityClient* utility() { return utility_; }
-  void set_utility(ContentUtilityClient* u) { utility_ = u; }
 
   // Sets the currently active URL.  Use GURL() to clear the URL.
-  virtual void SetActiveURL(const GURL& url) = 0;
+  virtual void SetActiveURL(const GURL& url) {}
 
   // Sets the data on the current gpu.
-  virtual void SetGpuInfo(const content::GPUInfo& gpu_info) = 0;
+  virtual void SetGpuInfo(const content::GPUInfo& gpu_info) {}
 
   // Gives the embedder a chance to register its own pepper plugins.
   virtual void AddPepperPlugins(
-      std::vector<content::PepperPluginInfo>* plugins) = 0;
+      std::vector<content::PepperPluginInfo>* plugins) {}
 
   // Gives the embedder a chance to register its own internal NPAPI plugins.
   virtual void AddNPAPIPlugins(
-      webkit::npapi::PluginList* plugin_list) = 0;
+      webkit::npapi::PluginList* plugin_list) {}
+
+  // Gives the embedder a chance to register its own standard and saveable
+  // url schemes early on in the startup sequence.
+  virtual void AddAdditionalSchemes(
+      std::vector<std::string>* standard_schemes,
+      std::vector<std::string>* savable_schemes) {}
 
   // Returns true if the url has a scheme for WebUI.  See also
   // WebUIControllerFactory::UseWebUIForURL in the browser process.
-  virtual bool HasWebUIScheme(const GURL& url) const = 0;
+  virtual bool HasWebUIScheme(const GURL& url) const;
 
   // Returns whether the given message should be processed in the browser on
   // behalf of a swapped out renderer.
-  virtual bool CanHandleWhileSwappedOut(const IPC::Message& msg) = 0;
+  virtual bool CanHandleWhileSwappedOut(const IPC::Message& message);
 
-  // Returns the user agent and a flag indicating whether the returned
-  // string should always be used (if false, callers may override the
-  // value as needed to work around various user agent sniffing bugs).
-  virtual std::string GetUserAgent(bool *overriding) const = 0;
+  // Returns the user agent.
+  virtual std::string GetUserAgent() const;
 
   // Returns a string resource given its id.
-  virtual string16 GetLocalizedString(int message_id) const = 0;
+  virtual string16 GetLocalizedString(int message_id) const;
 
   // Return the contents of a resource in a StringPiece given the resource id.
-  virtual base::StringPiece GetDataResource(int resource_id) const = 0;
+  virtual base::StringPiece GetDataResource(
+      int resource_id,
+      ui::ScaleFactor scale_factor) const;
+
+  // Returns a native image given its id.
+  virtual gfx::Image& GetNativeImageNamed(int resource_id) const;
 
 #if defined(OS_WIN)
   // Allows the embedder to sandbox a plugin, and apply a custom policy.
   virtual bool SandboxPlugin(CommandLine* command_line,
-                             sandbox::TargetPolicy* policy) = 0;
+                             sandbox::TargetPolicy* policy);
 #endif
 
 #if defined(OS_MACOSX)
@@ -129,10 +138,15 @@ class CONTENT_EXPORT ContentClient {
   // the sandbox profile to use and true is returned.
   virtual bool GetSandboxProfileForSandboxType(
       int sandbox_type,
-      int* sandbox_profile_resource_id) const = 0;
+      int* sandbox_profile_resource_id) const;
 #endif
 
+  void set_browser_for_testing(ContentBrowserClient* c) { browser_ = c; }
+  void set_renderer_for_testing(ContentRendererClient* r) { renderer_ = r; }
+
  private:
+  friend class ContentClientInitializer;  // To set these pointers.
+
   // The embedder API for participating in browser logic.
   ContentBrowserClient* browser_;
   // The embedder API for participating in plugin logic.

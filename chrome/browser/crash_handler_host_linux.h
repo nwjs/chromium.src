@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_CRASH_HANDLER_HOST_LINUX_H_
 #define CHROME_BROWSER_CRASH_HANDLER_HOST_LINUX_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "base/message_loop.h"
@@ -16,7 +15,7 @@
 
 #include "base/memory/scoped_ptr.h"
 
-class BreakpadInfo;
+struct BreakpadInfo;
 
 namespace base {
 class Thread;
@@ -26,11 +25,11 @@ class Thread;
 template <typename T> struct DefaultSingletonTraits;
 
 // This is the base class for singleton objects which crash dump renderers and
-// plugins on Linux. We perform the crash dump from the browser because it
-// allows us to be outside the sandbox.
+// plugins on Linux or Android. We perform the crash dump from the browser
+// because it allows us to be outside the sandbox.
 //
-// PluginCrashHandlerHostLinux and RendererCrashHandlerHostLinux are singletons
-// that handle plugin and renderer crashes, respectively.
+// PluginCrashHandlerHostLinux and RendererCrashHandlerHostLinux are
+// singletons that handle plugin and renderer crashes, respectively.
 //
 // Processes signal that they need to be dumped by sending a datagram over a
 // UNIX domain socket. All processes of the same type share the client end of

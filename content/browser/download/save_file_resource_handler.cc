@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -27,6 +27,9 @@ SaveFileResourceHandler::SaveFileResourceHandler(int render_process_host_id,
       save_manager_(manager) {
 }
 
+SaveFileResourceHandler::~SaveFileResourceHandler() {
+}
+
 bool SaveFileResourceHandler::OnUploadProgress(int request_id,
                                                uint64 position,
                                                uint64 size) {
@@ -44,7 +47,8 @@ bool SaveFileResourceHandler::OnRequestRedirected(
 
 bool SaveFileResourceHandler::OnResponseStarted(
     int request_id,
-    content::ResourceResponse* response) {
+    content::ResourceResponse* response,
+    bool* defer) {
   save_id_ = save_manager_->GetNextId();
   // |save_manager_| consumes (deletes):
   SaveFileCreateInfo* info = new SaveFileCreateInfo;
@@ -80,7 +84,8 @@ bool SaveFileResourceHandler::OnWillRead(int request_id, net::IOBuffer** buf,
   return true;
 }
 
-bool SaveFileResourceHandler::OnReadCompleted(int request_id, int* bytes_read) {
+bool SaveFileResourceHandler::OnReadCompleted(int request_id, int bytes_read,
+                                              bool* defer) {
   DCHECK(read_buffer_);
   // We are passing ownership of this buffer to the save file manager.
   scoped_refptr<net::IOBuffer> buffer;
@@ -88,7 +93,7 @@ bool SaveFileResourceHandler::OnReadCompleted(int request_id, int* bytes_read) {
   BrowserThread::PostTask(
       BrowserThread::FILE, FROM_HERE,
       base::Bind(&SaveFileManager::UpdateSaveProgress,
-          save_manager_, save_id_, buffer, *bytes_read));
+          save_manager_, save_id_, buffer, bytes_read));
   return true;
 }
 
@@ -104,12 +109,7 @@ bool SaveFileResourceHandler::OnResponseCompleted(
   return true;
 }
 
-void SaveFileResourceHandler::OnRequestClosed() {
-}
-
 void SaveFileResourceHandler::set_content_length(
     const std::string& content_length) {
   base::StringToInt64(content_length, &content_length_);
 }
-
-SaveFileResourceHandler::~SaveFileResourceHandler() {}

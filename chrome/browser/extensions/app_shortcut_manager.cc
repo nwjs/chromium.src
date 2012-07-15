@@ -17,6 +17,8 @@
 #include "skia/ext/image_operations.h"
 #include "ui/base/resource/resource_bundle.h"
 
+using extensions::Extension;
+
 namespace {
 // Allow tests to disable shortcut creation, to prevent developers' desktops
 // becoming overrun with shortcuts.
@@ -33,6 +35,8 @@ AppShortcutManager::AppShortcutManager(Profile* profile)
     : profile_(profile),
       tracker_(ALLOW_THIS_IN_INITIALIZER_LIST(this)) {
   registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_INSTALLED,
+                 content::Source<Profile>(profile_));
+  registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_UNINSTALLED,
                  content::Source<Profile>(profile_));
 }
 
@@ -59,11 +63,29 @@ void AppShortcutManager::OnImageLoaded(const gfx::Image& image,
 void AppShortcutManager::Observe(int type,
                                  const content::NotificationSource& source,
                                  const content::NotificationDetails& details) {
-  DCHECK(type == chrome::NOTIFICATION_EXTENSION_INSTALLED);
-  const Extension* extension = content::Details<const Extension>(details).ptr();
-  if (!disable_shortcut_creation_for_tests && extension->is_platform_app() &&
-      extension->location() != Extension::LOAD)
-    InstallApplicationShortcuts(extension);
+#if !defined(OS_MACOSX)
+  switch (type) {
+    case chrome::NOTIFICATION_EXTENSION_INSTALLED: {
+      const Extension* extension = content::Details<const Extension>(
+          details).ptr();
+      if (!disable_shortcut_creation_for_tests &&
+          extension->is_platform_app() &&
+          extension->location() != Extension::LOAD) {
+        InstallApplicationShortcuts(extension);
+      }
+      break;
+    }
+    case chrome::NOTIFICATION_EXTENSION_UNINSTALLED: {
+      std::string extension_id =
+          content::Details<const Extension>(details).ptr()->id();
+      if (!disable_shortcut_creation_for_tests)
+        web_app::DeleteAllShortcuts(profile_->GetPath(), extension_id);
+      break;
+    }
+    default:
+      NOTREACHED();
+  }
+#endif
 }
 
 // static
@@ -73,14 +95,6 @@ void AppShortcutManager::SetShortcutCreationDisabledForTesting(bool disabled) {
 
 void AppShortcutManager::InstallApplicationShortcuts(
     const Extension* extension) {
-#if defined(OS_MACOSX)
-  // TODO(sail): For now only install shortcuts if enable platform apps is true.
-  if (!CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kEnablePlatformApps)) {
-    return;
-  }
-#endif
-
   shortcut_info_.extension_id = extension->id();
   shortcut_info_.url = GURL(extension->launch_web_url());
   shortcut_info_.title = UTF8ToUTF16(extension->name());
@@ -90,6 +104,7 @@ void AppShortcutManager::InstallApplicationShortcuts(
   shortcut_info_.create_in_applications_menu = true;
   shortcut_info_.create_in_quick_launch_bar = true;
   shortcut_info_.create_on_desktop = true;
+  shortcut_info_.profile_path = profile_->GetPath();
 
   std::vector<ImageLoadingTracker::ImageInfo> info_list;
   for (size_t i = 0; i < arraysize(kDesiredSizes); ++i) {

@@ -28,7 +28,6 @@
 
 #ifndef SYNC_TEST_ENGINE_TEST_DIRECTORY_SETTER_UPPER_H_
 #define SYNC_TEST_ENGINE_TEST_DIRECTORY_SETTER_UPPER_H_
-#pragma once
 
 #include <string>
 
@@ -36,13 +35,16 @@
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/scoped_temp_dir.h"
-#include "sync/util/test_unrecoverable_error_handler.h"
-#include "sync/syncable/syncable.h"
 #include "sync/test/fake_encryptor.h"
 #include "sync/test/null_directory_change_delegate.h"
+#include "sync/util/test_unrecoverable_error_handler.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
-namespace browser_sync {
+namespace syncable {
+  class Directory;
+}
+
+namespace syncer {
 
 class TestDirectorySetterUpper {
  public:
@@ -59,11 +61,10 @@ class TestDirectorySetterUpper {
 
   syncable::Directory* directory() { return directory_.get(); }
 
- protected:
+ private:
   syncable::NullDirectoryChangeDelegate delegate_;
   TestUnrecoverableErrorHandler handler_;
 
- private:
   void RunInvariantCheck();
 
   ScopedTempDir temp_dir_;
@@ -74,6 +75,6 @@ class TestDirectorySetterUpper {
   DISALLOW_COPY_AND_ASSIGN(TestDirectorySetterUpper);
 };
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_TEST_ENGINE_TEST_DIRECTORY_SETTER_UPPER_H_

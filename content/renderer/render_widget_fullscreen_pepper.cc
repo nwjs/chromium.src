@@ -11,10 +11,11 @@
 #include "content/renderer/pepper/pepper_platform_context_3d_impl.h"
 #include "content/renderer/render_thread_impl.h"
 #include "gpu/command_buffer/client/gles2_implementation.h"
+#include "third_party/WebKit/Source/Platform/chromium/public/WebGraphicsContext3D.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebCursorInfo.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebSize.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebWidget.h"
-#include "ui/gfx/gl/gpu_preference.h"
+#include "ui/gl/gpu_preference.h"
 #include "webkit/plugins/ppapi/plugin_delegate.h"
 #include "webkit/plugins/ppapi/ppapi_plugin_instance.h"
 
@@ -31,8 +32,41 @@ using WebKit::WebTextDirection;
 using WebKit::WebTextInputType;
 using WebKit::WebVector;
 using WebKit::WebWidget;
+using WebKit::WGC3Dintptr;
 
 namespace {
+
+class FullscreenMouseLockDispatcher : public MouseLockDispatcher {
+ public:
+  explicit FullscreenMouseLockDispatcher(RenderWidgetFullscreenPepper* widget);
+  virtual ~FullscreenMouseLockDispatcher();
+
+ private:
+  // MouseLockDispatcher implementation.
+  virtual void SendLockMouseRequest(bool unlocked_by_target) OVERRIDE;
+  virtual void SendUnlockMouseRequest() OVERRIDE;
+
+  RenderWidgetFullscreenPepper* widget_;
+
+  DISALLOW_COPY_AND_ASSIGN(FullscreenMouseLockDispatcher);
+};
+
+FullscreenMouseLockDispatcher::FullscreenMouseLockDispatcher(
+    RenderWidgetFullscreenPepper* widget) : widget_(widget) {
+}
+
+FullscreenMouseLockDispatcher::~FullscreenMouseLockDispatcher() {
+}
+
+void FullscreenMouseLockDispatcher::SendLockMouseRequest(
+    bool unlocked_by_target) {
+  widget_->Send(new ViewHostMsg_LockMouse(widget_->routing_id(), false,
+                                          unlocked_by_target, true));
+}
+
+void FullscreenMouseLockDispatcher::SendUnlockMouseRequest() {
+  widget_->Send(new ViewHostMsg_UnlockMouse(widget_->routing_id()));
+}
 
 // WebWidget that simply wraps the pepper plugin.
 class PepperWidget : public WebWidget {
@@ -82,16 +116,20 @@ class PepperWidget : public WebWidget {
     widget_->plugin()->Paint(canvas, plugin_rect, rect);
   }
 
+#if WEBWIDGET_HAS_SETCOMPOSITORSURFACEREADY
+  virtual void setCompositorSurfaceReady() {
+  }
+#endif
+
   virtual void composite(bool finish) {
     if (!widget_->plugin())
       return;
 
-    ContentGLContext* context = widget_->context();
+    WebGraphicsContext3DCommandBufferImpl* context = widget_->context();
     DCHECK(context);
-    gpu::gles2::GLES2Implementation* gl = context->GetImplementation();
     unsigned int texture = widget_->plugin()->GetBackingTextureId();
-    gl->BindTexture(GL_TEXTURE_2D, texture);
-    gl->DrawArrays(GL_TRIANGLES, 0, 3);
+    context->bindTexture(GL_TEXTURE_2D, texture);
+    context->drawArrays(GL_TRIANGLES, 0, 3);
     widget_->SwapBuffers();
   }
 
@@ -201,13 +239,14 @@ class PepperWidget : public WebWidget {
   DISALLOW_COPY_AND_ASSIGN(PepperWidget);
 };
 
-void DestroyContext(ContentGLContext* context, GLuint program, GLuint buffer) {
+void DestroyContext(WebGraphicsContext3DCommandBufferImpl* context,
+                    GLuint program,
+                    GLuint buffer) {
   DCHECK(context);
-  gpu::gles2::GLES2Implementation* gl = context->GetImplementation();
   if (program)
-    gl->DeleteProgram(program);
+    context->deleteProgram(program);
   if (buffer)
-    gl->DeleteBuffers(1, &buffer);
+    context->deleteBuffer(buffer);
   delete context;
 }
 
@@ -233,13 +272,40 @@ RenderWidgetFullscreenPepper::RenderWidgetFullscreenPepper(
       context_(NULL),
       buffer_(0),
       program_(0),
-      weak_ptr_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)) {
+      weak_ptr_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)),
+      mouse_lock_dispatcher_(new FullscreenMouseLockDispatcher(
+          ALLOW_THIS_IN_INITIALIZER_LIST(this))) {
 }
 
 RenderWidgetFullscreenPepper::~RenderWidgetFullscreenPepper() {
   if (context_)
     DestroyContext(context_, program_, buffer_);
 }
+
+void RenderWidgetFullscreenPepper::OnViewContextSwapBuffersPosted() {
+  OnSwapBuffersPosted();
+}
+
+void RenderWidgetFullscreenPepper::OnViewContextSwapBuffersComplete() {
+  OnSwapBuffersComplete();
+}
+
+void RenderWidgetFullscreenPepper::OnViewContextSwapBuffersAborted() {
+  if (!context_)
+    return;
+  // Destroy the context later, in case we got called from InitContext for
+  // example. We still need to reset context_ now so that a new context gets
+  // created when the plugin recreates its own.
+  MessageLoop::current()->PostTask(
+      FROM_HERE,
+      base::Bind(&DestroyContext, context_, program_, buffer_));
+  context_ = NULL;
+  program_ = 0;
+  buffer_ = 0;
+  OnSwapBuffersAborted();
+  CheckCompositing();
+}
+
 
 void RenderWidgetFullscreenPepper::Invalidate() {
   InvalidateRect(gfx::Rect(size_.width(), size_.height()));
@@ -278,10 +344,31 @@ void RenderWidgetFullscreenPepper::DidChangeCursor(
 webkit::ppapi::PluginDelegate::PlatformContext3D*
 RenderWidgetFullscreenPepper::CreateContext3D() {
 #ifdef ENABLE_GPU
-  return new PlatformContext3DImpl(this);
+  return new content::PlatformContext3DImpl(this);
 #else
   return NULL;
 #endif
+}
+
+MouseLockDispatcher* RenderWidgetFullscreenPepper::GetMouseLockDispatcher() {
+  return mouse_lock_dispatcher_.get();
+}
+
+bool RenderWidgetFullscreenPepper::OnMessageReceived(const IPC::Message& msg) {
+  bool handled = true;
+  IPC_BEGIN_MESSAGE_MAP(RenderWidgetFullscreenPepper, msg)
+    IPC_MESSAGE_FORWARD(ViewMsg_LockMouse_ACK,
+                        mouse_lock_dispatcher_.get(),
+                        MouseLockDispatcher::OnLockMouseACK)
+    IPC_MESSAGE_FORWARD(ViewMsg_MouseLockLost,
+                        mouse_lock_dispatcher_.get(),
+                        MouseLockDispatcher::OnMouseLockLost)
+    IPC_MESSAGE_UNHANDLED(handled = false)
+  IPC_END_MESSAGE_MAP()
+  if (handled)
+    return true;
+
+  return RenderWidgetFullscreen::OnMessageReceived(msg);
 }
 
 void RenderWidgetFullscreenPepper::WillInitiatePaint() {
@@ -326,9 +413,8 @@ void RenderWidgetFullscreenPepper::OnResize(const gfx::Size& size,
                                             const gfx::Rect& resizer_rect,
                                             bool is_fullscreen) {
   if (context_) {
-    gpu::gles2::GLES2Implementation* gl = context_->GetImplementation();
-    gl->ResizeCHROMIUM(size.width(), size.height());
-    gl->Viewport(0, 0, size.width(), size.height());
+    context_->reshape(size.width(), size.height());
+    context_->viewport(0, 0, size.width(), size.height());
   }
   RenderWidget::OnResize(size, resizer_rect, is_fullscreen);
 }
@@ -343,29 +429,19 @@ bool RenderWidgetFullscreenPepper::SupportsAsynchronousSwapBuffers() {
 
 void RenderWidgetFullscreenPepper::CreateContext() {
   DCHECK(!context_);
-  RenderThreadImpl* render_thread = RenderThreadImpl::current();
-  GpuChannelHost* host = render_thread->EstablishGpuChannelSync(
-    content::CAUSE_FOR_GPU_LAUNCH_RENDERWIDGETFULLSCREENPEPPER_CREATECONTEXT);
-  if (!host)
-    return;
-  const int32 attribs[] = {
-    ContentGLContext::ALPHA_SIZE, 8,
-    ContentGLContext::DEPTH_SIZE, 0,
-    ContentGLContext::STENCIL_SIZE, 0,
-    ContentGLContext::SAMPLES, 0,
-    ContentGLContext::SAMPLE_BUFFERS, 0,
-    ContentGLContext::SHARE_RESOURCES, 0,
-    ContentGLContext::BIND_GENERATES_RESOURCES, 1,
-    ContentGLContext::NONE,
-  };
-  context_ = ContentGLContext::CreateViewContext(
-      host,
+  WebKit::WebGraphicsContext3D::Attributes attributes;
+  attributes.depth = false;
+  attributes.stencil = false;
+  attributes.antialias = false;
+  attributes.shareResources = false;
+  context_ = WebGraphicsContext3DCommandBufferImpl::CreateViewContext(
+      RenderThreadImpl::current(),
       surface_id(),
       NULL,
-      "GL_OES_packed_depth_stencil GL_OES_depth24",
-      attribs,
+      attributes,
+      true /* bind generates resources */,
       active_url_,
-      gfx::PreferIntegratedGpu);
+      content::CAUSE_FOR_GPU_LAUNCH_RENDERWIDGETFULLSCREENPEPPER_CREATECONTEXT);
   if (!context_)
     return;
 
@@ -374,8 +450,6 @@ void RenderWidgetFullscreenPepper::CreateContext() {
     context_ = NULL;
     return;
   }
-  context_->SetContextLostCallback(
-      base::Bind(&RenderWidgetFullscreenPepper::OnLostContext, this));
 }
 
 namespace {
@@ -399,21 +473,20 @@ const char kFragmentShader[] =
     "  gl_FragColor = texture2D(in_texture, tex_coord);\n"
     "}\n";
 
-GLuint CreateShaderFromSource(gpu::gles2::GLES2Implementation* gl,
+GLuint CreateShaderFromSource(WebGraphicsContext3DCommandBufferImpl* context,
                               GLenum type,
                               const char* source) {
-    GLuint shader = gl->CreateShader(type);
-    gl->ShaderSource(shader, 1, &source, NULL);
-    gl->CompileShader(shader);
+    GLuint shader = context->createShader(type);
+    context->shaderSource(shader, source);
+    context->compileShader(shader);
     int status = GL_FALSE;
-    gl->GetShaderiv(shader, GL_COMPILE_STATUS, &status);
+    context->getShaderiv(shader, GL_COMPILE_STATUS, &status);
     if (!status) {
         int size = 0;
-        gl->GetShaderiv(shader, GL_INFO_LOG_LENGTH, &size);
-        scoped_array<char> log(new char[size]);
-        gl->GetShaderInfoLog(shader, size, NULL, log.get());
-        DLOG(ERROR) << "Compilation failed: " << log.get();
-        gl->DeleteShader(shader);
+        context->getShaderiv(shader, GL_INFO_LOG_LENGTH, &size);
+        std::string log = context->getShaderInfoLog(shader).utf8();
+        DLOG(ERROR) << "Compilation failed: " << log;
+        context->deleteShader(shader);
         shader = 0;
     }
     return shader;
@@ -428,50 +501,50 @@ const float kTexCoords[] = {
 }  // anonymous namespace
 
 bool RenderWidgetFullscreenPepper::InitContext() {
-  gpu::gles2::GLES2Implementation* gl = context_->GetImplementation();
-  gl->ResizeCHROMIUM(size().width(), size().height());
-  gl->Viewport(0, 0, size().width(), size().height());
+  context_->reshape(size().width(), size().height());
+  context_->viewport(0, 0, size().width(), size().height());
 
-  program_ = gl->CreateProgram();
+  program_ = context_->createProgram();
 
   GLuint vertex_shader =
-      CreateShaderFromSource(gl, GL_VERTEX_SHADER, kVertexShader);
+      CreateShaderFromSource(context_, GL_VERTEX_SHADER, kVertexShader);
   if (!vertex_shader)
     return false;
-  gl->AttachShader(program_, vertex_shader);
-  gl->DeleteShader(vertex_shader);
+  context_->attachShader(program_, vertex_shader);
+  context_->deleteShader(vertex_shader);
 
   GLuint fragment_shader =
-      CreateShaderFromSource(gl, GL_FRAGMENT_SHADER, kFragmentShader);
+      CreateShaderFromSource(context_, GL_FRAGMENT_SHADER, kFragmentShader);
   if (!fragment_shader)
     return false;
-  gl->AttachShader(program_, fragment_shader);
-  gl->DeleteShader(fragment_shader);
+  context_->attachShader(program_, fragment_shader);
+  context_->deleteShader(fragment_shader);
 
-  gl->BindAttribLocation(program_, 0, "in_tex_coord");
-  gl->LinkProgram(program_);
+  context_->bindAttribLocation(program_, 0, "in_tex_coord");
+  context_->linkProgram(program_);
   int status = GL_FALSE;
-  gl->GetProgramiv(program_, GL_LINK_STATUS, &status);
+  context_->getProgramiv(program_, GL_LINK_STATUS, &status);
   if (!status) {
     int size = 0;
-    gl->GetProgramiv(program_, GL_INFO_LOG_LENGTH, &size);
-    scoped_array<char> log(new char[size]);
-    gl->GetProgramInfoLog(program_, size, NULL, log.get());
-    DLOG(ERROR) << "Link failed: " << log.get();
+    context_->getProgramiv(program_, GL_INFO_LOG_LENGTH, &size);
+    std::string log = context_->getProgramInfoLog(program_).utf8();
+    DLOG(ERROR) << "Link failed: " << log;
     return false;
   }
-  gl->UseProgram(program_);
-  int texture_location = gl->GetUniformLocation(program_, "in_texture");
-  gl->Uniform1i(texture_location, 0);
+  context_->useProgram(program_);
+  int texture_location = context_->getUniformLocation(program_, "in_texture");
+  context_->uniform1i(texture_location, 0);
 
-  gl->GenBuffers(1, &buffer_);
-  gl->BindBuffer(GL_ARRAY_BUFFER, buffer_);
-  gl->BufferData(GL_ARRAY_BUFFER,
+  buffer_ = context_->createBuffer();
+  context_->bindBuffer(GL_ARRAY_BUFFER, buffer_);
+  context_->bufferData(GL_ARRAY_BUFFER,
                  sizeof(kTexCoords),
                  kTexCoords,
                  GL_STATIC_DRAW);
-  gl->VertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, NULL);
-  gl->EnableVertexAttribArray(0);
+  context_->vertexAttribPointer(0, 2,
+                                GL_FLOAT, GL_FALSE,
+                                0, static_cast<WGC3Dintptr>(NULL));
+  context_->enableVertexAttribArray(0);
   return true;
 }
 
@@ -489,39 +562,14 @@ bool RenderWidgetFullscreenPepper::CheckCompositing() {
 
 void RenderWidgetFullscreenPepper::SwapBuffers() {
   DCHECK(context_);
-  OnSwapBuffersPosted();
-  context_->SwapBuffers();
-  context_->Echo(base::Bind(
-      &RenderWidgetFullscreenPepper::OnSwapBuffersCompleteByContentGLContext,
-      weak_ptr_factory_.GetWeakPtr()));
+  context_->prepareTexture();
 
   // The compositor isn't actually active in this path, but pretend it is for
   // scheduling purposes.
   didCommitAndDrawCompositorFrame();
 }
 
-void RenderWidgetFullscreenPepper::OnLostContext(
-    ContentGLContext::ContextLostReason) {
-  if (!context_)
-    return;
-  // Destroy the context later, in case we got called from InitContext for
-  // example. We still need to reset context_ now so that a new context gets
-  // created when the plugin recreates its own.
-  MessageLoop::current()->PostTask(
-      FROM_HERE,
-      base::Bind(&DestroyContext, context_, program_, buffer_));
-  context_ = NULL;
-  program_ = 0;
-  buffer_ = 0;
-  OnSwapBuffersAborted();
-  CheckCompositing();
-}
-
-void RenderWidgetFullscreenPepper::OnSwapBuffersCompleteByContentGLContext() {
-  OnSwapBuffersComplete();
-}
-
-ContentGLContext*
+WebGraphicsContext3DCommandBufferImpl*
 RenderWidgetFullscreenPepper::GetParentContextForPlatformContext3D() {
   if (!context_) {
     CreateContext();

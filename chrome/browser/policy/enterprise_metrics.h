@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_POLICY_ENTERPRISE_METRICS_H_
 #define CHROME_BROWSER_POLICY_ENTERPRISE_METRICS_H_
-#pragma once
 
 namespace policy {
 
@@ -45,6 +44,9 @@ enum MetricToken {
   kMetricTokenFetchDeviceIdConflict,
   // DM server reported that the serial number we try to register is invalid.
   kMetricTokenFetchInvalidSerialNumber,
+  // DM server reported that the licenses for the domain have expired or been
+  // exhausted.
+  kMetricMissingLicenses,
 
   kMetricTokenSize  // Must be the last.
 };
@@ -131,7 +133,7 @@ enum MetricEnrollment {
   kMetricEnrollmentAutoFailed,
   // Auto-enrollment was retried after having failed before.
   kMetricEnrollmentAutoRetried,
-  // Auto-enrollment was cancelled through the opt-out dialog.
+  // Auto-enrollment was canceled through the opt-out dialog.
   kMetricEnrollmentAutoCancelled,
   // Auto-enrollment succeeded.
   kMetricEnrollmentAutoOK,
@@ -141,6 +143,15 @@ enum MetricEnrollment {
   // Auto-enrollment is not supported for the mode supplied by the server.
   // This presently means trying to auto-enroll in kiosk mode.
   kMetricEnrollmentAutoEnrollmentNotSupported,
+  // The lockbox initialization has taken too long to complete and the
+  // enrollment has been canceled because of that.
+  kMetricLockboxTimeoutError,
+  // The username used to re-enroll the device does not belong to the domain
+  // that the device was initially enrolled to.
+  kMetricEnrollmentWrongUserError,
+  // DM server reported that the licenses for the domain has expired or been
+  // exhausted.
+  kMetricMissingLicensesError,
 
   kMetricEnrollmentSize  // Must be the last.
 };

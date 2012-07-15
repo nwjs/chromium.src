@@ -15,11 +15,11 @@
 #include "chrome/browser/importer/importer_bridge.h"
 #include "chrome/browser/importer/importer_data_types.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/common/libxml_utils.h"
 #include "content/public/browser/browser_thread.h"
-#include "content/public/common/url_fetcher.h"
 #include "grit/generated_resources.h"
 #include "net/base/load_flags.h"
+#include "net/url_request/url_fetcher.h"
+#include "third_party/libxml/chromium/libxml_utils.h"
 
 using content::BrowserThread;
 
@@ -102,7 +102,7 @@ void Toolbar5Importer::Cancel() {
   }
 }
 
-void Toolbar5Importer::OnURLFetchComplete(const content::URLFetcher* source) {
+void Toolbar5Importer::OnURLFetchComplete(const net::URLFetcher* source) {
   if (cancelled()) {
     EndImport();
     return;
@@ -213,8 +213,8 @@ void Toolbar5Importer::GetAuthenticationFromServer() {
 
   // Because the importer is started as the result of a user action which
   // explicitly requires authentication, sending cookies here is reasonable.
-  token_fetcher_ = content::URLFetcher::Create(
-      url, content::URLFetcher::GET, this);
+  token_fetcher_ = net::URLFetcher::Create(
+      url, net::URLFetcher::GET, this);
   token_fetcher_->SetRequestContext(request_context_getter_.get());
   token_fetcher_->SetLoadFlags(net::LOAD_DO_NOT_SAVE_COOKIES);
   token_fetcher_->Start();
@@ -250,8 +250,8 @@ void Toolbar5Importer::GetBookmarkDataFromServer(const std::string& response) {
 
   // Because the importer is started as the result of a user action which
   // explicitly requires authentication, sending cookies here is reasonable.
-  data_fetcher_ = content::URLFetcher::Create(
-      url, content::URLFetcher::GET, this);
+  data_fetcher_ = net::URLFetcher::Create(
+      url, net::URLFetcher::GET, this);
   data_fetcher_->SetRequestContext(request_context_getter_.get());
   data_fetcher_->SetLoadFlags(net::LOAD_DO_NOT_SAVE_COOKIES);
   data_fetcher_->Start();

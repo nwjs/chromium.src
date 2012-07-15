@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_UI_TAB_CONTENTS_CORE_TAB_HELPER_H_
 #define CHROME_BROWSER_UI_TAB_CONTENTS_CORE_TAB_HELPER_H_
-#pragma once
 
 #include "content/public/browser/web_contents_observer.h"
 
@@ -27,7 +26,7 @@ class CoreTabHelper : public content::WebContentsObserver {
 
  private:
   // content::WebContentsObserver overrides:
-  virtual void DidBecomeSelected() OVERRIDE;
+  virtual void WasRestored() OVERRIDE;
 
   // Delegate for notifying our owner about stuff. Not owned by us.
   CoreTabHelperDelegate* delegate_;

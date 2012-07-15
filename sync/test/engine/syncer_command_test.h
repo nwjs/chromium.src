@@ -4,7 +4,6 @@
 
 #ifndef SYNC_TEST_ENGINE_SYNCER_COMMAND_TEST_H_
 #define SYNC_TEST_ENGINE_SYNCER_COMMAND_TEST_H_
-#pragma once
 
 #include <algorithm>
 #include <string>
@@ -14,23 +13,25 @@
 #include "base/memory/ref_counted.h"
 #include "base/message_loop.h"
 #include "sync/engine/model_changing_syncer_command.h"
-#include "sync/engine/model_safe_worker.h"
+#include "sync/engine/throttled_data_type_tracker.h"
+#include "sync/engine/traffic_recorder.h"
+#include "sync/internal_api/public/engine/model_safe_worker.h"
 #include "sync/sessions/debug_info_getter.h"
 #include "sync/sessions/sync_session.h"
 #include "sync/sessions/sync_session_context.h"
 #include "sync/syncable/syncable_mock.h"
-#include "sync/test/engine/mock_connection_manager.h"
 #include "sync/test/engine/fake_model_worker.h"
+#include "sync/test/engine/mock_connection_manager.h"
 #include "sync/test/engine/test_directory_setter_upper.h"
 #include "sync/test/fake_extensions_activity_monitor.h"
-#include "testing/gtest/include/gtest/gtest.h"
 #include "testing/gmock/include/gmock/gmock.h"
+#include "testing/gtest/include/gtest/gtest.h"
 
 using ::testing::NiceMock;
 
-namespace browser_sync {
+namespace syncer {
 
-class MockDebugInfoGetter : public browser_sync::sessions::DebugInfoGetter {
+class MockDebugInfoGetter : public syncer::sessions::DebugInfoGetter {
  public:
   MockDebugInfoGetter();
   virtual ~MockDebugInfoGetter();
@@ -41,8 +42,7 @@ class MockDebugInfoGetter : public browser_sync::sessions::DebugInfoGetter {
 // SyncerCommands, providing convenient access to a test directory
 // and a syncer session.
 class SyncerCommandTestBase : public testing::Test,
-                              public sessions::SyncSession::Delegate,
-                              public ModelSafeWorkerRegistrar {
+                              public sessions::SyncSession::Delegate {
  public:
   enum UseMockDirectory {
     USE_MOCK_DIRECTORY
@@ -76,13 +76,14 @@ class SyncerCommandTestBase : public testing::Test,
     return;
   }
 
-  // ModelSafeWorkerRegistrar implementation.
-  virtual void GetWorkers(std::vector<ModelSafeWorker*>* out) OVERRIDE {
+  std::vector<ModelSafeWorker*> GetWorkers() {
+    std::vector<ModelSafeWorker*> workers;
     std::vector<scoped_refptr<ModelSafeWorker> >::iterator it;
     for (it = workers_.begin(); it != workers_.end(); ++it)
-      out->push_back(*it);
+      workers.push_back(*it);
+    return workers;
   }
-  virtual void GetModelSafeRoutingInfo(ModelSafeRoutingInfo* out) OVERRIDE {
+  void GetModelSafeRoutingInfo(ModelSafeRoutingInfo* out) {
     ModelSafeRoutingInfo copy(routing_info_);
     out->swap(copy);
   }
@@ -96,21 +97,18 @@ class SyncerCommandTestBase : public testing::Test,
 
   sessions::SyncSessionContext* context() const { return context_.get(); }
   sessions::SyncSession::Delegate* delegate() { return this; }
-  ModelSafeWorkerRegistrar* registrar() { return this; }
 
   // Lazily create a session requesting all datatypes with no payload.
   sessions::SyncSession* session() {
-    syncable::ModelTypePayloadMap types =
-        syncable::ModelTypePayloadMapFromRoutingInfo(routing_info_,
-                                                     std::string());
+    syncer::ModelTypePayloadMap types =
+        ModelSafeRoutingInfoToPayloadMap(routing_info_, std::string());
     return session(sessions::SyncSourceInfo(types));
   }
 
   // Create a session with the provided source.
   sessions::SyncSession* session(const sessions::SyncSourceInfo& source) {
     if (!session_.get()) {
-      std::vector<ModelSafeWorker*> workers;
-      GetWorkers(&workers);
+      std::vector<ModelSafeWorker*> workers = GetWorkers();
       session_.reset(new sessions::SyncSession(context(), delegate(), source,
                      routing_info_, workers));
     }
@@ -122,11 +120,14 @@ class SyncerCommandTestBase : public testing::Test,
   }
 
   void ResetContext() {
+    throttled_data_type_tracker_.reset(new ThrottledDataTypeTracker(NULL));
     context_.reset(new sessions::SyncSessionContext(
             mock_server_.get(), directory(),
-            registrar(), &extensions_activity_monitor_,
+            routing_info_, GetWorkers(), &extensions_activity_monitor_,
+            throttled_data_type_tracker_.get(),
             std::vector<SyncEngineEventListener*>(),
-            &mock_debug_info_getter_));
+            &mock_debug_info_getter_,
+            &traffic_recorder_));
     context_->set_account_name(directory()->name());
     ClearSession();
   }
@@ -199,6 +200,8 @@ class SyncerCommandTestBase : public testing::Test,
   ModelSafeRoutingInfo routing_info_;
   NiceMock<MockDebugInfoGetter> mock_debug_info_getter_;
   FakeExtensionsActivityMonitor extensions_activity_monitor_;
+  scoped_ptr<ThrottledDataTypeTracker> throttled_data_type_tracker_;
+  TrafficRecorder traffic_recorder_;
   DISALLOW_COPY_AND_ASSIGN(SyncerCommandTestBase);
 };
 
@@ -206,7 +209,7 @@ class SyncerCommandTest : public SyncerCommandTestBase {
  public:
   virtual void SetUp() OVERRIDE;
   virtual void TearDown() OVERRIDE;
-  virtual Directory* directory() OVERRIDE;
+  virtual syncable::Directory* directory() OVERRIDE;
 
  private:
   TestDirectorySetterUpper dir_maker_;
@@ -216,18 +219,18 @@ class MockDirectorySyncerCommandTest : public SyncerCommandTestBase {
  public:
   MockDirectorySyncerCommandTest();
   virtual ~MockDirectorySyncerCommandTest();
-  virtual Directory* directory() OVERRIDE;
+  virtual syncable::Directory* directory() OVERRIDE;
 
-  MockDirectory* mock_directory() {
-    return static_cast<MockDirectory*>(directory());
+  syncable::MockDirectory* mock_directory() {
+    return static_cast<syncable::MockDirectory*>(directory());
   }
 
   virtual void SetUp() OVERRIDE;
 
   TestUnrecoverableErrorHandler handler_;
-  MockDirectory mock_directory_;
+  syncable::MockDirectory mock_directory_;
 };
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_TEST_ENGINE_SYNCER_COMMAND_TEST_H_
