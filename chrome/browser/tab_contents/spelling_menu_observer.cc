@@ -59,9 +59,12 @@ void SpellingMenuObserver::InitMenu(const content::ContextMenuParams& params) {
   }
 
   // Append a placeholder item for the suggestion from the Spelling serivce and
-  // send a request to the service if we can retrieve suggestions from it.
-  if (SpellingServiceClient::IsAvailable(profile,
-                                         SpellingServiceClient::SUGGEST)) {
+  // send a request to the service if we have enabled the spellchecking and
+  // integrated the Spelling service.
+  PrefService* pref = profile->GetPrefs();
+  if (params.spellcheck_enabled &&
+      pref->GetBoolean(prefs::kEnableSpellCheck) &&
+      pref->GetBoolean(prefs::kSpellCheckUseSpellingService)) {
     // Retrieve the misspelled word to be sent to the Spelling service.
     string16 text = params.misspelled_word;
     if (!text.empty()) {
