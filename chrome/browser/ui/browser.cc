@@ -2319,6 +2319,30 @@ void Browser::FindReplyHelper(WebContents* web_contents,
                                                    final_update);
 }
 
+// static
+void Browser::RequestMediaAccessPermissionHelper(
+    content::WebContents* web_contents,
+    const content::MediaStreamRequest* request,
+    const content::MediaResponseCallback& callback) {
+  TabContents* tab = TabContents::FromWebContents(web_contents);
+  DCHECK(tab);
+
+  InfoBarTabHelper* infobar_helper = tab->infobar_tab_helper();
+  InfoBarDelegate* old_infobar = NULL;
+  for (size_t i = 0; i < infobar_helper->infobar_count() && !old_infobar; ++i) {
+    old_infobar =
+        infobar_helper->GetInfoBarDelegateAt(i)->AsMediaStreamInfoBarDelegate();
+  }
+
+  InfoBarDelegate* infobar = new MediaStreamInfoBarDelegate(infobar_helper,
+                                                            request,
+                                                            callback);
+  if (old_infobar)
+    infobar_helper->ReplaceInfoBar(old_infobar, infobar);
+  else
+    infobar_helper->AddInfoBar(infobar);
+}
+
 void Browser::ExecuteCommand(int id) {
   ExecuteCommandWithDisposition(id, CURRENT_TAB);
 }
@@ -3696,23 +3720,7 @@ void Browser::RequestMediaAccessPermission(
     content::WebContents* web_contents,
     const content::MediaStreamRequest* request,
     const content::MediaResponseCallback& callback) {
-  TabContents* tab = TabContents::FromWebContents(web_contents);
-  DCHECK(tab);
-
-  InfoBarTabHelper* infobar_helper = tab->infobar_tab_helper();
-  InfoBarDelegate* old_infobar = NULL;
-  for (size_t i = 0; i < infobar_helper->infobar_count() && !old_infobar; ++i) {
-    old_infobar =
-        infobar_helper->GetInfoBarDelegateAt(i)->AsMediaStreamInfoBarDelegate();
-  }
-
-  InfoBarDelegate* infobar = new MediaStreamInfoBarDelegate(infobar_helper,
-                                                            request,
-                                                            callback);
-  if (old_infobar)
-    infobar_helper->ReplaceInfoBar(old_infobar, infobar);
-  else
-    infobar_helper->AddInfoBar(infobar);
+  RequestMediaAccessPermissionHelper(web_contents, request, callback);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

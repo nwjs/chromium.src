@@ -768,6 +768,13 @@ void ExternalTabContainer::FindReply(WebContents* tab,
                            active_match_ordinal, final_update);
 }
 
+void ExternalTabContainer::RequestMediaAccessPermission(
+    content::WebContents* web_contents,
+    const content::MediaStreamRequest* request,
+    const content::MediaResponseCallback& callback) {
+  Browser::RequestMediaAccessPermissionHelper(web_contents, request, callback);
+}
+
 bool ExternalTabContainer::OnMessageReceived(const IPC::Message& message) {
   bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(ExternalTabContainer, message)
