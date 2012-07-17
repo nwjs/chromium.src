@@ -176,6 +176,8 @@ void AvatarMenuBubbleGtk::InitContents() {
 }
 
 void AvatarMenuBubbleGtk::CloseBubble() {
-  bubble_->Close();
-  bubble_ = NULL;
+  if (bubble_) {
+    bubble_->Close();
+    bubble_ = NULL;
+  }
 }
