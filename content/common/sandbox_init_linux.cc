@@ -229,6 +229,7 @@ static void EmitAllowSignalSelf(std::vector<struct sock_filter>* program) {
 static void EmitAllowGettime(std::vector<struct sock_filter>* program) {
   EmitAllowSyscall(__NR_clock_gettime, program);
   EmitAllowSyscall(__NR_gettimeofday, program);
+  EmitAllowSyscall(__NR_time, program);
 }
 
 static void EmitSetupEmptyFileSystem(std::vector<struct sock_filter>* program) {
@@ -243,6 +244,8 @@ static void EmitSetupEmptyFileSystem(std::vector<struct sock_filter>* program) {
   EmitFailSyscall(__NR_stat, ENOENT, program);
   EmitFailSyscall(__NR_lstat, ENOENT, program);
   EmitFailSyscall(__NR_chdir, ENOENT, program);
+  EmitFailSyscall(__NR_mknod, ENOENT, program);
+  EmitFailSyscall(__NR_mknodat, ENOENT, program);
 }
 
 static void ApplyGPUPolicy(std::vector<struct sock_filter>* program) {
@@ -350,7 +353,9 @@ static void ApplyFlashPolicy(std::vector<struct sock_filter>* program) {
   EmitAllowSyscall(__NR_shutdown, program);
   EmitAllowSyscall(__NR_sched_getaffinity, program);  // 3D
   EmitAllowSyscall(__NR_sched_setscheduler, program);
+  EmitAllowSyscall(__NR_dup, program);
   EmitFailSyscall(__NR_socket, EACCES, program);
+  EmitFailSyscall(__NR_ioctl, ENOTTY, program);
   EmitAllowSignalSelf(program);
 
   // These are under investigation, and hopefully not here for the long term.
