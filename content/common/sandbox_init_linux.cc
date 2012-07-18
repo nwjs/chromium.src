@@ -249,6 +249,8 @@ static void EmitSetupEmptyFileSystem(std::vector<struct sock_filter>* program) {
   EmitFailSyscall(__NR_stat, ENOENT, program);
   EmitFailSyscall(__NR_lstat, ENOENT, program);
   EmitFailSyscall(__NR_chdir, ENOENT, program);
+  EmitFailSyscall(__NR_mknod, ENOENT, program);
+  EmitFailSyscall(__NR_mknodat, ENOENT, program);
 }
 
 static void ApplyGPUPolicy(std::vector<struct sock_filter>* program) {
