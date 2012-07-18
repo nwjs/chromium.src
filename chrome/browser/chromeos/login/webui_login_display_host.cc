@@ -177,6 +177,8 @@ void WebUILoginDisplayHost::LoadURL(const GURL& url) {
 }
 
 OobeUI* WebUILoginDisplayHost::GetOobeUI() const {
+  if (!login_view_)
+    return NULL;
   return static_cast<OobeUI*>(login_view_->GetWebUI()->GetController());
 }
 
